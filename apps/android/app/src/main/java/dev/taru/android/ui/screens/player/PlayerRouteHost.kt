@@ -12,6 +12,7 @@ internal class PlayerRouteHost(
     private val launch: PlaybackLaunchRequest,
     private val engine: PlayerRouteEngine,
     private val exitEffectRunner: PlaybackExitEffectRunner,
+    private val platformSessionFactory: PlayerPlatformSessionFactory = NoOpPlayerPlatformSessionFactory,
     initialState: PlayerSessionState = PlayerSessionState(),
 ) : PlaybackSessionRuntime {
     private val session = PlayerSession(
@@ -23,8 +24,10 @@ internal class PlayerRouteHost(
 
     private var isAttached: Boolean = false
     private var isReleased: Boolean = false
+    private var platformSession: PlayerPlatformSession? = null
     private val listener = object : PlayerRouteEngineListener {
         override fun onPlaybackStateChanged(playbackState: Int) {
+            platformSession?.onPlaybackStateChanged(playbackState, engine.isPlaying)
             dispatch(
                 PlayerSessionEvent.PlaybackStateChanged(
                     state = playbackEngineState(playbackState),
@@ -34,6 +37,7 @@ internal class PlayerRouteHost(
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
+            platformSession?.onPlaybackStateChanged(engine.playbackState, isPlaying)
             dispatch(
                 PlayerSessionEvent.IsPlayingChanged(
                     isPlaying = isPlaying,
@@ -55,6 +59,11 @@ internal class PlayerRouteHost(
             return
         }
         engine.addListener(listener)
+        if (platformSession == null) {
+            platformSession = platformSessionFactory.create { engine.player }.also {
+                it.onPlaybackStateChanged(engine.playbackState, engine.isPlaying)
+            }
+        }
         isAttached = true
     }
 
@@ -84,6 +93,8 @@ internal class PlayerRouteHost(
         dispatch(PlayerSessionEvent.Dispose)
         detach()
         if (!isReleased) {
+            platformSession?.release()
+            platformSession = null
             engine.release()
             isReleased = true
         }

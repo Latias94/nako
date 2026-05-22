@@ -2,6 +2,7 @@
 param(
     [string[]]$States = @('empty-setup', 'profile-missing-token', 'profile-with-media'),
     [string]$Serial,
+    [int]$AdbServerPort,
     [string]$OutputRoot,
     [int]$FixtureServerPort = 3018,
     [string]$FixtureAccessToken = 'demo-fixture-token',
@@ -46,14 +47,20 @@ function Invoke-AndroidBuild {
 
 function Get-LatestEvidenceDirectory {
     param(
-        [string]$StateRoot
+        [string]$StateRoot,
+        [Nullable[datetime]]$NotBefore
     )
 
     if (-not (Test-Path -LiteralPath $StateRoot)) {
         return $null
     }
 
-    return Get-ChildItem -LiteralPath $StateRoot -Directory |
+    $directories = Get-ChildItem -LiteralPath $StateRoot -Directory
+    if ($null -ne $NotBefore) {
+        $directories = $directories | Where-Object { $_.LastWriteTimeUtc -ge $NotBefore.Value.ToUniversalTime().AddSeconds(-2) }
+    }
+
+    return $directories |
         Sort-Object LastWriteTimeUtc -Descending |
         Select-Object -First 1
 }
@@ -310,6 +317,7 @@ function Get-RerunCommand {
     param(
         [string]$State,
         [string]$Serial,
+        [int]$AdbServerPort,
         [int]$FixtureServerPort,
         [bool]$SkipFixtureServerBuild
     )
@@ -326,6 +334,11 @@ function Get-RerunCommand {
     if (-not [string]::IsNullOrWhiteSpace($Serial)) {
         $parts.Add('-Serial')
         $parts.Add((Convert-ToCommandValue -Value $Serial))
+    }
+
+    if ($AdbServerPort -gt 0) {
+        $parts.Add('-AdbServerPort')
+        $parts.Add($AdbServerPort.ToString())
     }
 
     if ($FixtureServerPort -ne 3018) {
@@ -427,6 +440,10 @@ try {
             $smokeArgs.Serial = $Serial
         }
 
+        if ($AdbServerPort -gt 0) {
+            $smokeArgs.AdbServerPort = $AdbServerPort
+        }
+
         if ($SkipFixtureServerBuild) {
             $smokeArgs.SkipFixtureServerBuild = $true
         }
@@ -434,6 +451,7 @@ try {
         $status = 'FAIL'
         $errorMessage = $null
         $attempts = [Math]::Max(1, $RetriesPerState + 1)
+        $attemptStartedAt = Get-Date
 
         for ($attempt = 1; $attempt -le $attempts; $attempt += 1) {
             if ($attempt -gt 1) {
@@ -442,6 +460,7 @@ try {
                 Start-Sleep -Seconds 3
             }
 
+            $attemptStartedAt = Get-Date
             try {
                 & $smokeScript @smokeArgs *>&1 | Tee-Object -FilePath $stateLog -Append
                 $status = 'PASS'
@@ -455,7 +474,7 @@ try {
             }
         }
 
-        $latestEvidence = Get-LatestEvidenceDirectory -StateRoot $stateRoot
+        $latestEvidence = Get-LatestEvidenceDirectory -StateRoot $stateRoot -NotBefore $attemptStartedAt
         $stateReportPath = Get-SmokeStateReportPath -EvidenceDirectory $latestEvidence -FileName 'report.md'
         $stateJsonReportPath = Get-SmokeStateReportPath -EvidenceDirectory $latestEvidence -FileName 'report.json'
         $results.Add([pscustomobject]@{
@@ -468,7 +487,7 @@ try {
             Log = $stateLog
             Error = $errorMessage
             Attempts = if ($status -eq 'PASS') { $attempt } else { $attempts }
-            RerunCommand = Get-RerunCommand -State $state -Serial $Serial -FixtureServerPort $FixtureServerPort -SkipFixtureServerBuild ([bool]$SkipFixtureServerBuild)
+            RerunCommand = Get-RerunCommand -State $state -Serial $Serial -AdbServerPort $AdbServerPort -FixtureServerPort $FixtureServerPort -SkipFixtureServerBuild ([bool]$SkipFixtureServerBuild)
         })
 
         if ($status -ne 'PASS' -and -not $ContinueOnFailure) {

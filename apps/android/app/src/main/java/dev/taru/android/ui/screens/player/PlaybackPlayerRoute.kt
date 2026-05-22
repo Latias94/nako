@@ -76,6 +76,7 @@ internal fun PlaybackPlayerRoute(
     val runtime = remember(launch, runtimeFactory) {
         runtimeFactory.create(launch)
     }
+    val pictureInPictureGateway = rememberPlaybackPictureInPictureGateway()
     val sessionState by runtime.state.collectAsStateWithLifecycle()
 
     val handleBack = {
@@ -125,6 +126,8 @@ internal fun PlaybackPlayerRoute(
         PlayerTopOverlay(
             chrome = chrome,
             playerState = sessionState.playerStateLabel,
+            canEnterPictureInPicture = pictureInPictureGateway.isAvailable,
+            onEnterPictureInPicture = { pictureInPictureGateway.enter(launch) },
             onBack = handleBack,
         )
 
@@ -171,6 +174,8 @@ internal fun PlaybackPlayerRoute(
 private fun PlayerTopOverlay(
     chrome: PlayerChromePresentation,
     playerState: String,
+    canEnterPictureInPicture: Boolean,
+    onEnterPictureInPicture: () -> Unit,
     onBack: () -> Unit,
 ) {
     Row(
@@ -210,6 +215,20 @@ private fun PlayerTopOverlay(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+        }
+        if (canEnterPictureInPicture) {
+            IconButton(
+                modifier = Modifier.semantics {
+                    contentDescription = "Enter picture-in-picture"
+                },
+                onClick = onEnterPictureInPicture,
+            ) {
+                Text(
+                    text = "PiP",
+                    color = Color.White,
+                    style = MaterialTheme.typography.labelMedium,
+                )
+            }
         }
         TaruStatusChip(text = chrome.modeLabel)
     }

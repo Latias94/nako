@@ -97,6 +97,28 @@ class PlayerRouteHostTest {
     }
 
     @Test
+    fun attachCreatesAndDisposeReleasesPlatformSessionOnce() {
+        val engine = RecordingRouteEngine()
+        val platformSessionFactory = RecordingPlatformSessionFactory()
+        val host = PlayerRouteHost(
+            launch = launch(),
+            engine = engine,
+            exitEffectRunner = RecordingExitEffectRunner(),
+            platformSessionFactory = platformSessionFactory,
+        )
+
+        host.attach()
+        engine.emitPlaybackStateChanged(Player.STATE_READY)
+        host.attach()
+        host.dispose()
+        host.dispose()
+
+        assertEquals(1, platformSessionFactory.createCount)
+        assertEquals(1, platformSessionFactory.releaseCount)
+        assertEquals(listOf(Player.STATE_IDLE to false, Player.STATE_READY to false), platformSessionFactory.stateUpdates)
+    }
+
+    @Test
     fun playerErrorStoresSanitizedDiagnostics() {
         val engine = RecordingRouteEngine()
         val host = PlayerRouteHost(
@@ -112,6 +134,27 @@ class PlayerRouteHostTest {
         assertEquals("Error", host.state.value.playerStateLabel)
         assertTrue(error.diagnostics.contains("Bearer <redacted>"))
         assertEquals(false, error.diagnostics.contains("secret-token"))
+    }
+}
+
+private class RecordingPlatformSessionFactory : PlayerPlatformSessionFactory {
+    var createCount: Int = 0
+        private set
+    var releaseCount: Int = 0
+        private set
+    val stateUpdates: MutableList<Pair<Int, Boolean>> = mutableListOf()
+
+    override fun create(playerProvider: () -> Player): PlayerPlatformSession {
+        createCount += 1
+        return object : PlayerPlatformSession {
+            override fun onPlaybackStateChanged(playbackState: Int, isPlaying: Boolean) {
+                stateUpdates += playbackState to isPlaying
+            }
+
+            override fun release() {
+                releaseCount += 1
+            }
+        }
     }
 }
 
