@@ -6,7 +6,7 @@ Proposed
 
 ## Context
 
-Taru needs media scanning, metadata resolution, NFO import/export, search,
+Nako needs media scanning, metadata resolution, NFO import/export, search,
 playback decisions, transcoding, webhooks, automation, and eventually remote
 storage and addons. These concerns should be isolated early, but operating them
 as separate services would add deployment complexity before the domain model is
@@ -18,7 +18,7 @@ Use a Rust workspace with multiple internal crates and a single server binary
 for the MVP. Keep crate dependency direction explicit:
 
 - API depends on application/domain services, not database internals.
-- Domain models and traits live in `taru-core`.
+- Domain models and traits live in `nako-core`.
 - Infrastructure crates implement traits from core or domain crates.
 - Cross-cutting work such as events, storage, search, and transcode gets its
   own crate boundary.

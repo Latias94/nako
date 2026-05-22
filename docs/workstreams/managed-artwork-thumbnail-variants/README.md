@@ -6,7 +6,7 @@ Last updated: 2026-05-19
 ## Purpose
 
 This lane follows Selected Artwork publication and artifact lifecycle work.
-Taru can now publish and serve original Selected Artwork bytes. The next product
+Nako can now publish and serve original Selected Artwork bytes. The next product
 boundary is safe image variants: clients need bounded thumbnails and resized
 images without learning internal artifact storage, raw source URLs, cache
 handles, filesystem paths, or content hashes.

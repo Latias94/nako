@@ -33,7 +33,7 @@ Exit criteria:
 
 Primary gates:
 
-- `rg -n "artwork|ImageAsset|ArtworkTask|Managed Artwork|Taru-Managed Artifact|artwork_write|thumbnail|cache_uri|source_uri" crates docs`
+- `rg -n "artwork|ImageAsset|ArtworkTask|Managed Artwork|Nako-Managed Artifact|artwork_write|thumbnail|cache_uri|source_uri" crates docs`
 - `git diff --check`
 
 Result: completed in AMAA-020. The first apply target is an Addon Artwork
@@ -43,11 +43,11 @@ artwork updates, or sidecar export.
 ## M2 - First Artwork Apply Slice
 
 Outcome: one accepted `artwork_write` side effect can safely create or update
-an artwork/artifact record through Taru-owned seams.
+an artwork/artifact record through Nako-owned seams.
 
 Exit criteria:
 
-- The payload is normalized into a bounded Taru artwork command.
+- The payload is normalized into a bounded Nako artwork command.
 - The command does not expose raw Source Locators, filesystem paths, or remote
   storage handles.
 - Apply outcome, idempotency, provenance, and redacted response behavior are
@@ -56,7 +56,7 @@ Exit criteria:
 Primary gates:
 
 - focused artwork/addon tests
-- `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests`
+- `cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-vfs --tests`
 - `cargo fmt --all -- --check`
 - `git diff --check`
 

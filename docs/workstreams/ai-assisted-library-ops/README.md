@@ -5,7 +5,7 @@ Last updated: 2026-05-22
 
 ## Purpose
 
-This workstream opens the post-network AI productization lane. Taru already has
+This workstream opens the post-network AI productization lane. Nako already has
 metadata authority, NFO/link/file-write apply boundaries, Managed Import and
 watch-folder intake, playback supportability, network access policy, and the M5
 external automation/provider foundation. The remaining product risk is letting
@@ -15,7 +15,7 @@ sidecars, library files, or Public Client API contracts.
 The first safe shape is **Generated Artifact** intake and acceptance, not a core
 model runtime. AI-like providers may propose title matches, metadata cleanup,
 summaries, and recommendations, but those proposals must remain bounded,
-redacted, explainable, and non-canonical until a Taru-owned acceptance workflow
+redacted, explainable, and non-canonical until a Nako-owned acceptance workflow
 applies them.
 
 ## Current Decision
@@ -24,7 +24,7 @@ This lane is complete. AILO-020 through AILO-040 shipped Generated Artifact
 proposal/readiness semantics, Admin-only redacted proposal diagnostics, typed
 Admin Web support, and explicit accept/reject planning for metadata-cleanup
 proposals without autonomous canonical metadata, sidecar, Managed Import, Media
-Source, library-file, Public Client API, or `taru-client-protocol` mutation.
+Source, library-file, Public Client API, or `nako-client-protocol` mutation.
 
 AILO-050 closed the lane and returned routing to
 `post-rpd-product-hardening`. Provider-specific AI adapters, local model

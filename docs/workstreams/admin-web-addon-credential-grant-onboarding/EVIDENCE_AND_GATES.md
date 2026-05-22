@@ -8,8 +8,8 @@ Last updated: 2026-05-22
 Rust/API gates:
 
 - `cargo fmt --all -- --check`
-- `cargo nextest run -p taru-api admin_contract --no-fail-fast`
-- `cargo check -p taru-api -p taru-server --tests`
+- `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+- `cargo check -p nako-api -p nako-server --tests`
 
 Admin Web gates from `apps/admin-web`:
 
@@ -25,7 +25,7 @@ Repository gate:
 
 - 2026-05-22: Workstream opened. Implementation evidence pending.
 - 2026-05-22: AWACG-020 contract/data-source slice implemented. Evidence:
-  - `cargo nextest run -p taru-api admin_contract --no-fail-fast`;
+  - `cargo nextest run -p nako-api admin_contract --no-fail-fast`;
   - `npm test -- --run src/adminApi/client.test.ts`;
   - `npm test -- --run src/adminApi/dataSource.test.ts`.
 - 2026-05-22: AWACG-030 UI slice implemented. Evidence:
@@ -33,8 +33,8 @@ Repository gate:
   - `npm run check`.
 - 2026-05-22: AWACG-040 closeout gates passed:
   - `cargo fmt --all -- --check`;
-  - `cargo nextest run -p taru-api admin_contract --no-fail-fast`;
-  - `cargo check -p taru-api -p taru-server --tests`;
+  - `cargo nextest run -p nako-api admin_contract --no-fail-fast`;
+  - `cargo check -p nako-api -p nako-server --tests`;
   - `npm run check`, `npm test`, and `npm run build` in `apps/admin-web`;
   - `git diff --check`.
 

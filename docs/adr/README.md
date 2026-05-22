@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-This directory tracks architecture decisions for Taru.
+This directory tracks architecture decisions for Nako.
 
 ## Format
 
@@ -38,7 +38,7 @@ evidence has been reviewed.
 - [0017: Define Playback Streaming and Remote Hardening Boundaries](0017-playback-streaming-and-remote-hardening-boundaries.md)
 - [0018: Use a Shared Metadata Provider Runtime and Diagnostics Boundary](0018-metadata-provider-runtime-and-diagnostics.md)
 - [0019: Use a Thin Server Composition Root and Explicit Runtime Supervisors](0019-server-architecture-hardening-boundaries.md)
-- [0020: Use Jellyfin-Like Sidecar Addons with Scoped Taru API Access](0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md)
+- [0020: Use Jellyfin-Like Sidecar Addons with Scoped Nako API Access](0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md)
 - [0021: Use a Video-First Media Server Domain Model](0021-video-first-media-server-domain-model.md)
 - [0022: Keep Public Protocol Crates Permissive While Server Crates Remain AGPL](0022-keep-public-protocol-crates-permissive-while-server-crates-remain-agpl.md)
 - [0023: Stabilize Public API Versions and Error Envelopes](0023-public-api-versioning-and-error-envelope-contract.md)

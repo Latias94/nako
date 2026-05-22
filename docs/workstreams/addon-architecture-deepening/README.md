@@ -19,8 +19,8 @@ Authoritative docs:
 
 ## Why This Lane Exists
 
-Taru's Addon direction is sound: Addons are HTTP Addon Sidecars, strong Addon
-Side Effects enter through Taru-owned APIs, and Addon Tokens are separate from
+Nako's Addon direction is sound: Addons are HTTP Addon Sidecars, strong Addon
+Side Effects enter through Nako-owned APIs, and Addon Tokens are separate from
 administrator bearer tokens. The remaining risk is Module depth. Several
 Interfaces still expose too much implementation knowledge to callers, tests, or
 Addon authors:
@@ -36,7 +36,7 @@ Addon authors:
 - Addon idempotency replay is key-only and should distinguish true replay from
   conflicting reuse.
 - Addon administration should live under `/admin/v1/addons`; the historical
-  root `/addons` management surface must be removed because Taru has no
+  root `/addons` management surface must be removed because Nako has no
   compatibility obligation yet.
 
 ## First Executable Task

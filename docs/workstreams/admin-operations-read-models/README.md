@@ -13,7 +13,7 @@ operational diagnostics needed by the admin web console.
 - M59: add sanitized server configuration diagnostics.
 - Keep these surfaces admin-owned and out of the Public Client API,
   public OpenAPI, generated TypeScript SDK, Rust client SDK, and
-  `taru-client-protocol`.
+  `nako-client-protocol`.
 
 ## Non-Goals
 
@@ -21,7 +21,7 @@ operational diagnostics needed by the admin web console.
 - No admin mutation routes for event retry, staging cleanup, or config edits.
 - No Admin OpenAPI generation.
 - No Public Client API route or DTO changes.
-- No `taru-client-protocol` changes.
+- No `nako-client-protocol` changes.
 
 ## Authoritative Files
 

@@ -14,7 +14,7 @@ AATC-020 is complete. `ADMIN_CONTRACT_INVENTORY.md` records the hand-written
 wire DTO audit, the route/query inventory, and the chosen first artifact
 shape.
 
-AATC-030 is complete. `taru-api` owns an Admin API TypeScript contract
+AATC-030 is complete. `nako-api` owns an Admin API TypeScript contract
 generator and emit example. The committed app-local artifact exports the
 AWC-070 route constants, query interfaces, and wire interfaces under
 `apps/admin-web/src/adminApi/generated/contract.ts`. `client.ts` now imports
@@ -29,7 +29,7 @@ contract types/routes directly.
 
 AATC-050 is complete. Public/Admin separation is documented and test-visible:
 the Admin Contract test set proves generated Admin route constants stay out of
-`taru-client-protocol` public route inventory, and the Public TypeScript SDK
+`nako-client-protocol` public route inventory, and the Public TypeScript SDK
 guard still rejects Admin routes.
 
 ## Active Task
@@ -39,7 +39,7 @@ guard still rejects Admin routes.
 ## Decisions Since Last Update
 
 - Keep Admin API TypeScript contract separate from the Public Client SDK.
-- Keep source ownership in `taru-api`.
+- Keep source ownership in `nako-api`.
 - Default artifact location is app-local under `apps/admin-web` until a real
   second admin client creates package pressure.
 - First route coverage should match AWC-070 read models.

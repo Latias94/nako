@@ -10,6 +10,6 @@
     "provider rematch mutations",
     "NFO import/export behavior changes",
     "Source Variant or Edition UI",
-    "taru-client-protocol changes"
+    "nako-client-protocol changes"
   ]
 }

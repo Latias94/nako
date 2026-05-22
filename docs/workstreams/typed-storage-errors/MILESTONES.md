@@ -17,7 +17,7 @@ Status: Completed.
 
 Exit criteria:
 
-- `TaruError::Storage` carries a typed storage error kind.
+- `NakoError::Storage` carries a typed storage error kind.
 - HTTP status/code/message mapping uses the typed kind.
 - Existing public storage error code behavior remains stable.
 

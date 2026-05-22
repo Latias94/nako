@@ -15,9 +15,9 @@ git diff --check
 Focused gates:
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.connection.* --tests dev.taru.android.connection.* --no-daemon --no-parallel
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.screens.settings.* --no-daemon --no-parallel
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.* --tests dev.taru.android.ui.connection.* --tests dev.taru.android.ui.screens.settings.* --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.connection.* --tests dev.nako.android.connection.* --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.screens.settings.* --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.* --tests dev.nako.android.ui.connection.* --tests dev.nako.android.ui.screens.settings.* --no-daemon --no-parallel
 ```
 
 ## Evidence Log
@@ -25,9 +25,9 @@ apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru
 | Task | Status | Evidence |
 | --- | --- | --- |
 | ASCSA-010 | Done | Lane opened and scope frozen. |
-| ASCSA-020 | Done | `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.connection.* --tests dev.taru.android.connection.* --no-daemon --no-parallel` passed on 2026-05-20. |
-| ASCSA-030 | Done | `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.screens.settings.* --no-daemon --no-parallel` passed on 2026-05-20. |
-| ASCSA-040 | Done | `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.* --tests dev.taru.android.ui.connection.* --tests dev.taru.android.ui.screens.settings.* --no-daemon --no-parallel` passed on 2026-05-20. |
+| ASCSA-020 | Done | `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.connection.* --tests dev.nako.android.connection.* --no-daemon --no-parallel` passed on 2026-05-20. |
+| ASCSA-030 | Done | `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.screens.settings.* --no-daemon --no-parallel` passed on 2026-05-20. |
+| ASCSA-040 | Done | `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.* --tests dev.nako.android.ui.connection.* --tests dev.nako.android.ui.screens.settings.* --no-daemon --no-parallel` passed on 2026-05-20. |
 | ASCSA-050 | Done | `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon --no-parallel` and `git diff --check` passed on 2026-05-20. |
 
 ## Notes

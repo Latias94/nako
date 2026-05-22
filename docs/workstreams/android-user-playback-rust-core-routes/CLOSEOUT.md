@@ -13,14 +13,14 @@ Media3.
 
 Completed slices:
 
-1. `taru-client-core` now exposes explicit User Playback State request builders
+1. `nako-client-core` now exposes explicit User Playback State request builders
    for get state, Continue Watching, update progress, and set watched state.
-2. `taru-client-uniffi` now exposes FFI-safe user-playback builder
-   records/functions as a thin adapter over `taru-client-core`.
+2. `nako-client-uniffi` now exposes FFI-safe user-playback builder
+   records/functions as a thin adapter over `nako-client-core`.
 3. Android now uses `UserPlaybackCore`/`RustUserPlaybackCore` to convert product
    user-playback inputs into Rust-built request descriptors before executing
    Android-owned transport.
-4. `TaruUserPlaybackClient` no longer calls generated Kotlin SDK route
+4. `NakoUserPlaybackClient` no longer calls generated Kotlin SDK route
    descriptors for migrated runtime user-playback routes. The generated SDK
    remains in use for DTO decode and request-body contract mapping.
 5. Android docs now state the route ownership split explicitly.
@@ -30,20 +30,20 @@ Completed slices:
 Fresh closeout gates run on 2026-05-21:
 
 ```powershell
-cargo fmt --package taru-client-core --check
-cargo nextest run -p taru-client-core --no-fail-fast
-cargo fmt --package taru-client-uniffi --check
-cargo nextest run -p taru-client-uniffi --no-fail-fast
+cargo fmt --package nako-client-core --check
+cargo nextest run -p nako-client-core --no-fail-fast
+cargo fmt --package nako-client-uniffi --check
+cargo nextest run -p nako-client-uniffi --no-fail-fast
 ./scripts/guard-uniffi-boundary.ps1
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.userplayback.TaruUserPlaybackClientTest --no-daemon --rerun-tasks
-if (rg -n "TaruPublicClientRequests|TaruRequestDescriptor|pathAndQuery|executeJson" apps/android/app/src/main/java/dev/taru/android/userplayback/TaruUserPlaybackClient.kt apps/android/app/src/main/java/dev/taru/android/userplayback/RustUserPlaybackCore.kt) { exit 1 } else { 'PASS: user-playback runtime has no generated SDK route descriptor calls.' }
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.userplayback.NakoUserPlaybackClientTest --no-daemon --rerun-tasks
+if (rg -n "NakoPublicClientRequests|NakoRequestDescriptor|pathAndQuery|executeJson" apps/android/app/src/main/java/dev/nako/android/userplayback/NakoUserPlaybackClient.kt apps/android/app/src/main/java/dev/nako/android/userplayback/RustUserPlaybackCore.kt) { exit 1 } else { 'PASS: user-playback runtime has no generated SDK route descriptor calls.' }
 python -m json.tool docs/workstreams/android-user-playback-rust-core-routes/WORKSTREAM.json > $null
 git diff --check
 ```
 
 All gates passed. Core ran 15 tests, UniFFI ran 4 tests, and Android
 user-playback ran 4 JVM tests with `--rerun-tasks`. The UniFFI boundary guard
-reported only `taru-client-core` and `uniffi` as direct dependencies and no
+reported only `nako-client-core` and `uniffi` as direct dependencies and no
 forbidden runtime/platform dependency.
 
 ## Residual Risks

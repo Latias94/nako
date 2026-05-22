@@ -12,7 +12,7 @@ commit failure before canonical mutation.
 ## Behavior Proven
 
 - Import apply can inject a metadata commit failure after accepted preview
-  revalidation and before `taru-nfo` commits canonical metadata.
+  revalidation and before `nako-nfo` commits canonical metadata.
 - The apply record becomes `FailedBeforeMutation`, not `Committed`.
 - Canonical metadata remains unchanged.
 - Field locks remain unchanged.
@@ -23,10 +23,10 @@ commit failure before canonical mutation.
 ## Validation
 
 ```powershell
-cargo nextest run -p taru-server nfo_sidecar_apply_import_metadata_commit_failure_records_failed_before_mutation --no-fail-fast
+cargo nextest run -p nako-server nfo_sidecar_apply_import_metadata_commit_failure_records_failed_before_mutation --no-fail-fast
 cargo fmt --all -- --check
-cargo nextest run -p taru-server nfo_sidecar_apply --no-fail-fast
-cargo nextest run -p taru-server nfo --no-fail-fast
+cargo nextest run -p nako-server nfo_sidecar_apply --no-fail-fast
+cargo nextest run -p nako-server nfo --no-fail-fast
 ```
 
 All commands passed.

@@ -66,14 +66,14 @@ Exit criteria:
 - [x] Admin-only diagnostics report network readiness and blockers.
 - [x] Admin TypeScript contract, typed Admin Web mapping, and mocks are
   synchronized.
-- [x] Public Client API and `taru-client-protocol` remain unchanged.
+- [x] Public Client API and `nako-client-protocol` remain unchanged.
 - [x] Redaction tests cover tokens, tunnel credentials, raw headers, local paths,
   and secret-bearing URLs.
 
 Primary evidence:
 
-- `crates/taru-api/src/admin.rs`
-- `crates/taru-server/src/http/admin.rs`
+- `crates/nako-api/src/admin.rs`
+- `crates/nako-server/src/http/admin.rs`
 - `apps/admin-web/src/adminApi`
 - HTTP/Admin tests
 

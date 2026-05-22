@@ -16,7 +16,7 @@ Exit criteria:
 
 Exit criteria:
 
-- `taru-client-core` has explicit builders for the four Android user-playback
+- `nako-client-core` has explicit builders for the four Android user-playback
   routes.
 - Builders produce `CoreHttpRequest` with method, auth, safe preview, item ID
   encoding, pagination, JSON content type on writes, and optional body passthrough.
@@ -26,7 +26,7 @@ Exit criteria:
 
 Exit criteria:
 
-- `taru-client-uniffi` exposes thin user-playback request builder bindings.
+- `nako-client-uniffi` exposes thin user-playback request builder bindings.
 - Boundary guard still passes.
 - UniFFI tests cover at least continue watching and a write route.
 
@@ -34,7 +34,7 @@ Exit criteria:
 
 Exit criteria:
 
-- `TaruUserPlaybackClient` runtime route construction uses
+- `NakoUserPlaybackClient` runtime route construction uses
   `UserPlaybackCore`/Rust core.
 - Generated SDK DTO/body mapping and Android diagnostics remain unchanged.
 - User-playback JVM tests pass.

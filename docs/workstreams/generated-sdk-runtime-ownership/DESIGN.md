@@ -23,23 +23,23 @@ portable SDK/runtime seam before more clients duplicate them.
   - `docs/workstreams/android-generated-public-client-sdk/CLOSEOUT.md`
   - `docs/workstreams/generated-sdk-forward-compat-tolerance/CLOSEOUT.md`
 - Current code evidence:
-  - `crates/taru-api/src/sdk.rs`
-  - `sdk/kotlin/src/main/kotlin/dev/taru/sdk/TaruClientSdk.kt`
-  - `apps/android/app/src/main/java/dev/taru/android/connection/PublicClientApiExecutor.kt`
-  - `apps/android/app/src/main/java/dev/taru/android/connection/TaruHttpTransport.kt`
-  - `apps/android/app/src/main/java/dev/taru/android/connection/SensitiveText.kt`
-  - `apps/android/app/src/main/java/dev/taru/android/connection/TaruConnectionClient.kt`
-  - `apps/android/app/src/main/java/dev/taru/android/playback/TaruPlaybackClient.kt`
+  - `crates/nako-api/src/sdk.rs`
+  - `sdk/kotlin/src/main/kotlin/dev/nako/sdk/NakoClientSdk.kt`
+  - `apps/android/app/src/main/java/dev/nako/android/connection/PublicClientApiExecutor.kt`
+  - `apps/android/app/src/main/java/dev/nako/android/connection/NakoHttpTransport.kt`
+  - `apps/android/app/src/main/java/dev/nako/android/connection/SensitiveText.kt`
+  - `apps/android/app/src/main/java/dev/nako/android/connection/NakoConnectionClient.kt`
+  - `apps/android/app/src/main/java/dev/nako/android/playback/NakoPlaybackClient.kt`
 
 ## Problem
 
 The current generated SDK boundary is clean for DTO and route drift, but the
 runtime boundary is ambiguous:
 
-- `sdk/kotlin` owns `TaruRequestDescriptor`, API constants, route constructors,
+- `sdk/kotlin` owns `NakoRequestDescriptor`, API constants, route constructors,
   generated DTOs, and tolerant public string wrappers.
 - Android owns `PublicClientApiExecutor`, `PublicApiAuth`,
-  `PublicApiResult`, `PublicApiFailure`, `TaruHttpTransport`,
+  `PublicApiResult`, `PublicApiFailure`, `NakoHttpTransport`,
   `SafeRequestPreview`, public error parsing, API-version header checking,
   JSON decode failure mapping, transport failure mapping, and redaction.
 - Android also owns product policy: cleartext restrictions, TLS copy, profile
@@ -75,7 +75,7 @@ hard blocker.
 | UI copy and accessibility semantics | Android app | Android app |
 | Media3 playback runtime | Android app | Android app |
 | FFI-safe request/response DTOs | Not present | Shared Rust client core / UniFFI if pulled forward |
-| Rust protocol enum tolerance | Partially strict in `taru-client-protocol` | Must be solved before Rust core owns mobile decode |
+| Rust protocol enum tolerance | Partially strict in `nako-client-protocol` | Must be solved before Rust core owns mobile decode |
 
 ## SDKRT-010 Frozen Decision
 
@@ -100,7 +100,7 @@ policy.
   auth, error envelopes, API-version handling, request construction, redaction,
   and playback-decision interpretation, even though the intended long-term owner
   is Rust.
-- Existing `taru-client` proves the Rust side already has route inventory,
+- Existing `nako-client` proves the Rust side already has route inventory,
   public DTOs, error-envelope handling, API-version checks, request builders,
   and streaming request construction. It is not mobile-FFI-ready, but that is
   exactly the complexity the owner wants exposed early.
@@ -138,10 +138,10 @@ plus **app-supplied Android transport**.
 
 | Crate/module | Role |
 | --- | --- |
-| `taru-client-protocol` | Public Client API wire DTOs, route inventory, public constants, public wire vocabularies. |
-| `taru-client-core` | New permissive, no-socket, FFI-safe core for request specs, response interpretation, API-version checks, public error parsing, redaction primitives, and later playback decision/request interpretation. |
-| `taru-client` | Existing Rust async/reqwest adapter; should reuse `taru-client-core` as the core grows. |
-| `taru-client-uniffi` | Thin UniFFI binding over `taru-client-core`; owns binding scaffolding, not runtime policy. |
+| `nako-client-protocol` | Public Client API wire DTOs, route inventory, public constants, public wire vocabularies. |
+| `nako-client-core` | New permissive, no-socket, FFI-safe core for request specs, response interpretation, API-version checks, public error parsing, redaction primitives, and later playback decision/request interpretation. |
+| `nako-client` | Existing Rust async/reqwest adapter; should reuse `nako-client-core` as the core grows. |
+| `nako-client-uniffi` | Thin UniFFI binding over `nako-client-core`; owns binding scaffolding, not runtime policy. |
 | `sdk/kotlin` | Generated JVM DTO/request artifact for contract parity and JVM consumers; not the durable runtime owner. |
 | `apps/android/app` | Platform shell, supplied transport, profile/token storage, cleartext/TLS policy, product diagnostics, Compose, Media3. |
 
@@ -197,11 +197,11 @@ The first tracer is the connection flow, not playback:
 
 | Responsibility | Frozen durable owner | Notes |
 | --- | --- | --- |
-| Public wire DTO authority | `taru-client-protocol` plus `taru-api` OpenAPI aggregation | Keep protocol-owned, permissive DTO authority. Generated SDKs remain artifacts, not policy owners. |
-| Kotlin DTO/request artifact | `sdk/kotlin` generated from `taru-api` | Keep for JVM consumers and Android transition, but do not add a new Kotlin runtime layer unless Rust core is rejected later. |
+| Public wire DTO authority | `nako-client-protocol` plus `nako-api` OpenAPI aggregation | Keep protocol-owned, permissive DTO authority. Generated SDKs remain artifacts, not policy owners. |
+| Kotlin DTO/request artifact | `sdk/kotlin` generated from `nako-api` | Keep for JVM consumers and Android transition, but do not add a new Kotlin runtime layer unless Rust core is rejected later. |
 | Route path/query construction for migrated Android runtime flows | Shared Rust client core | Rust should build request specs for routes it owns. Kotlin generated request descriptors remain contract parity/reference until migrated. |
 | HTTP socket execution on Android | Android app transport | Android keeps cleartext/TLS/platform policy. Rust core receives response specs from Android in the first tracer. |
-| HTTP socket execution for Rust CLI/server tooling | `taru-client` reqwest adapter | Existing `taru-client` can remain a reqwest adapter over the future core. |
+| HTTP socket execution for Rust CLI/server tooling | `nako-client` reqwest adapter | Existing `nako-client` can remain a reqwest adapter over the future core. |
 | Base URL input validation and cleartext rejection | Android app | Product/security policy stays platform-owned. |
 | Token storage and profile selection | Android app | Rust core receives an optional token or auth context, never owns vault storage. |
 | Bearer header injection for core-owned requests | Shared Rust client core | Android supplies the token; Rust emits the request header and redaction metadata. |
@@ -210,7 +210,7 @@ The first tracer is the connection flow, not playback:
 | `/health.version` compatibility check | Shared Rust client core | Preserve tolerant future-version diagnostics. |
 | Public error-envelope parsing | Shared Rust client core | Use `ErrorResponse` and preserve future additive fields/unknown codes as public strings. |
 | JSON decode and invalid response classification | Shared Rust client core for core-owned routes | Android maps core failure categories into product-specific categories. |
-| Public wire string tolerance | `taru-client-protocol` / Rust core | Must not regress from generated Kotlin tolerant `wireValue` behavior. Strict Rust enums are a blocker for mobile-owned decode. |
+| Public wire string tolerance | `nako-client-protocol` / Rust core | Must not regress from generated Kotlin tolerant `wireValue` behavior. Strict Rust enums are a blocker for mobile-owned decode. |
 | Redaction primitive | Shared Rust client core | Android owns diagnostic presentation models such as `SafeRequestPreview`. |
 | Connection, browse, playback, user-playback product categories | Android app | Product taxonomy and user messages stay app-owned. |
 | Playback decision interpretation and streaming request construction | Shared Rust client core, then Android presentation | Rust may decide safe request targets; Media3 and player/session presentation remain Android-owned. |
@@ -223,16 +223,16 @@ The first tracer is the connection flow, not playback:
 `SDKRT-020` should define a target-state ADR and API shape for this first
 tracer:
 
-1. Introduce or define `taru-client-core` as a permissive, FFI-safe, no-socket
+1. Introduce or define `nako-client-core` as a permissive, FFI-safe, no-socket
    core crate.
-2. Keep `taru-client` as a reqwest/async Rust adapter that can later reuse the
+2. Keep `nako-client` as a reqwest/async Rust adapter that can later reuse the
    core.
 3. Add a thin UniFFI/mobile binding only after the core request/response types
    are FFI-safe.
 4. Start Android consumption with the connection flow:
    - Rust core builds `GET /health`;
    - Android executes it with existing transport/security policy;
-   - Rust core interprets status, `x-taru-api-version`, public error envelope,
+   - Rust core interprets status, `x-nako-api-version`, public error envelope,
      and generated/protocol `HealthResponse`;
    - Rust core builds authenticated `GET /libraries?limit=1&offset=0`;
    - Android maps core failures to existing `ConnectionFailureCategory` and
@@ -245,9 +245,9 @@ TLS trust behavior, UI copy, Compose state, or Media3.
 
 `SDKRT-020` must account for these gaps before implementation:
 
-- `taru-client` currently uses `reqwest::Url`, `HeaderMap`, `StatusCode`,
+- `nako-client` currently uses `reqwest::Url`, `HeaderMap`, `StatusCode`,
   `async_trait`, and `reqwest::Error`, which should not cross UniFFI.
-- `taru-client-protocol` still has strict serde enums for several public string
+- `nako-client-protocol` still has strict serde enums for several public string
   values. Mobile Rust decode must preserve unknown additive public strings
   before Android delegates decode to Rust.
 - UniFFI has no generic result surface, so route-specific or explicit
@@ -298,7 +298,7 @@ new questions that deserve separate ownership and validation:
 
 - Rust public wire string tolerance before Android delegates browse/playback
   DTO decode to Rust.
-- Whether `taru-client` should reuse `taru-client-core` before more duplicated
+- Whether `nako-client` should reuse `nako-client-core` before more duplicated
   Rust request/error policy appears.
 - Android native build ergonomics for generated UniFFI bindings and Android ABI
   libraries.
@@ -348,9 +348,9 @@ workstream from becoming a catch-all migration lane.
 | Android is still the only production native shell in this repo. | Medium | ADR 0031 and Android workstream closeouts | Rust/UniFFI or KMP may need earlier design. |
 | Generated SDK DTO/request adoption is complete for migrated Public Client API route families. | High | `android-generated-public-client-sdk/CLOSEOUT.md` | Runtime ownership would be premature if route drift remains. |
 | Generated Kotlin public string values now tolerate unknown additive wire values. | High | `generated-sdk-forward-compat-tolerance/CLOSEOUT.md` | Runtime decode policy would need to solve enum tolerance first. |
-| `PublicClientApiExecutor` mixes protocol-level and app/product policy. | High | `PublicClientApiExecutor.kt`, `TaruConnectionClient.kt`, `TaruPlaybackClient.kt` | A blind move would either duplicate code or leak Android policy into SDK. |
+| `PublicClientApiExecutor` mixes protocol-level and app/product policy. | High | `PublicClientApiExecutor.kt`, `NakoConnectionClient.kt`, `NakoPlaybackClient.kt` | A blind move would either duplicate code or leak Android policy into SDK. |
 | ADR 0031's original sequencing may no longer match the owner's risk preference. | Medium | User direction on 2026-05-21 | This lane may need a new ADR before implementation. |
-| Existing `taru-client` is useful but not mobile-FFI-ready as-is. | High | `crates/taru-client/src/lib.rs` uses `reqwest`, `Url`, `HeaderMap`, async transport, and strict protocol DTO enums. | A clean Rust core likely needs a smaller FFI-safe boundary or crate split. |
+| Existing `nako-client` is useful but not mobile-FFI-ready as-is. | High | `crates/nako-client/src/lib.rs` uses `reqwest`, `Url`, `HeaderMap`, async transport, and strict protocol DTO enums. | A clean Rust core likely needs a smaller FFI-safe boundary or crate split. |
 
 ## Architecture Direction
 
@@ -364,8 +364,8 @@ client core that can own protocol-level request construction and response
 interpretation while Android still supplies platform transport and security
 policy. That flushes out the hard parts early:
 
-- crate split around `taru-client` versus a new `taru-client-core`/
-  `taru-mobile-core`;
+- crate split around `nako-client` versus a new `nako-client-core`/
+  `nako-mobile-core`;
 - FFI-safe request/response and error DTOs;
 - tolerant Rust-side public wire values;
 - API-version and public error-envelope behavior;
@@ -377,7 +377,7 @@ the current Android-only stage.
 
 A good runtime/core shape would:
 
-- accept generated `TaruRequestDescriptor` values;
+- accept generated `NakoRequestDescriptor` values;
 - expose a small transport abstraction or adapter contract;
 - use generated DTO serializers and generated `ErrorResponse`;
 - classify protocol-level runtime failures without product copy;
@@ -395,7 +395,7 @@ the first tracer would mostly be FFI packaging with little architecture value.
 
 ### Option A — Keep Android-Owned Executor
 
-Lowest implementation risk. Best if Taru remains Android-only for now and the
+Lowest implementation risk. Best if Nako remains Android-only for now and the
 runtime is mostly product policy. The cost is future duplication for other
 clients and continued Android-only ownership of protocol error/version rules.
 

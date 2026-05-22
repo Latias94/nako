@@ -41,7 +41,7 @@ Exit evidence:
 - Existing refresh behavior remains unchanged.
 - `CatalogHydrationPort` remains the catalog hydration boundary.
 
-Status: completed for `crates/taru-metadata/src/strategy.rs`.
+Status: completed for `crates/nako-metadata/src/strategy.rs`.
 
 ## M40.3 Fake-Port Behavior Test
 

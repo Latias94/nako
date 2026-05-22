@@ -5,28 +5,28 @@ Last updated: 2026-05-17
 
 ## Current State
 
-M32 is closed. Taru now has a first machine-readable Public Client API
+M32 is closed. Nako now has a first machine-readable Public Client API
 OpenAPI v1 generator and checker.
 
 ## Completed Scope
 
-- `taru-client-protocol` owns public playback session response DTOs.
+- `nako-client-protocol` owns public playback session response DTOs.
 - Public playback session responses no longer include server-local
   `output_path`.
-- `taru-api` generates OpenAPI v1 JSON and owns schema aggregation.
-- `taru-server` exposes `GET /libraries/{library_id}` so the public library
+- `nako-api` generates OpenAPI v1 JSON and owns schema aggregation.
+- `nako-server` exposes `GET /libraries/{library_id}` so the public library
   surface has list and detail routes.
 - OpenAPI checker covers public route inventory, bearer auth, API version
   header, error envelope, pagination parameters, and leakage rejection.
 
 ## Decisions Since Last Update
 
-- OpenAPI aggregation belongs in `taru-api`, not `taru-server`.
-- Public wire DTOs belong in `taru-client-protocol`.
+- OpenAPI aggregation belongs in `nako-api`, not `nako-server`.
+- Public wire DTOs belong in `nako-client-protocol`.
 - Server-admin/internal routes are excluded from the first public spec.
 - Playback session `output_path` must not be part of the public client schema.
 - The first OpenAPI artifact is emitted by
-  `cargo run -p taru-api --example emit-openapi`.
+  `cargo run -p nako-api --example emit-openapi`.
 
 ## Blockers
 

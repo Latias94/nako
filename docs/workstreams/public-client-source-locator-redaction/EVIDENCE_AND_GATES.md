@@ -6,21 +6,21 @@ Last updated: 2026-05-18
 ## Smallest Current Repro
 
 ```powershell
-rg "locator|input_locator" crates/taru-client-protocol crates/taru-api crates/taru-server/src/http
+rg "locator|input_locator" crates/nako-client-protocol crates/nako-api crates/nako-server/src/http
 ```
 
 Current known public exposure anchors include:
 
-- `crates/taru-client-protocol/src/catalog.rs`
-- `crates/taru-api/src/public_client.rs`
-- `crates/taru-api/src/openapi.rs`
+- `crates/nako-client-protocol/src/catalog.rs`
+- `crates/nako-api/src/public_client.rs`
+- `crates/nako-api/src/openapi.rs`
 
 ## Gate Set
 
 ### Audit Gate
 
 ```powershell
-rg "locator|input_locator" crates/taru-client-protocol crates/taru-api crates/taru-server/src/http
+rg "locator|input_locator" crates/nako-client-protocol crates/nako-api crates/nako-server/src/http
 git diff --check
 ```
 
@@ -29,9 +29,9 @@ Proves the exposure inventory is current before public DTO changes.
 ### Public DTO Gate
 
 ```powershell
-cargo check -p taru-client-protocol --tests
-cargo check -p taru-api --tests
-cargo nextest run -p taru-server <public-route-filter> --no-fail-fast
+cargo check -p nako-client-protocol --tests
+cargo check -p nako-api --tests
+cargo nextest run -p nako-server <public-route-filter> --no-fail-fast
 ```
 
 Proves protocol/server mapping changes compile and public route JSON tests
@@ -40,7 +40,7 @@ protect the redaction behavior.
 ### Contract Sync Gate
 
 ```powershell
-cargo nextest run -p taru-api --no-fail-fast
+cargo nextest run -p nako-api --no-fail-fast
 ```
 
 Add existing OpenAPI and SDK generation checks from the client contract lanes
@@ -66,10 +66,10 @@ Record blocking findings, missing gates, and residual risks here.
 - `docs/adr/0025-openapi-public-client-sdk-contract.md`
 - `docs/adr/0027-admin-api-boundary-for-web-console.md`
 - `docs/api/HTTP_API.md`
-- `crates/taru-client-protocol/src/catalog.rs`
-- `crates/taru-api/src/public_client.rs`
-- `crates/taru-api/src/openapi.rs`
-- `crates/taru-server/src/http/tests`
+- `crates/nako-client-protocol/src/catalog.rs`
+- `crates/nako-api/src/public_client.rs`
+- `crates/nako-api/src/openapi.rs`
+- `crates/nako-server/src/http/tests`
 
 ## Fresh Evidence
 
@@ -85,17 +85,17 @@ Fresh verification is recorded below for the closeout claim.
 2026-05-18, PCLR-020:
 
 - Audit command run:
-  `rg "locator|input_locator" crates/taru-client-protocol crates/taru-api crates/taru-server/src/http docs/api`.
+  `rg "locator|input_locator" crates/nako-client-protocol crates/nako-api crates/nako-server/src/http docs/api`.
 - Extended audit also checked generated TypeScript SDK output with:
-  `rg "locator|input_locator" sdk docs/api crates/taru-client-protocol crates/taru-api crates/taru-server/src/http`.
+  `rg "locator|input_locator" sdk docs/api crates/nako-client-protocol crates/nako-api crates/nako-server/src/http`.
 - Public Client contract exposures:
-  - `crates/taru-client-protocol/src/catalog.rs`: `MediaSourceDto.locator`.
-  - `crates/taru-client-protocol/src/catalog.rs`: `ClientTranscodePlan.input_locator`.
-  - `crates/taru-api/src/public_client.rs`: `media_source_to_dto` maps full
+  - `crates/nako-client-protocol/src/catalog.rs`: `MediaSourceDto.locator`.
+  - `crates/nako-client-protocol/src/catalog.rs`: `ClientTranscodePlan.input_locator`.
+  - `crates/nako-api/src/public_client.rs`: `media_source_to_dto` maps full
     internal `MediaSource.locator` into public DTOs.
-  - `crates/taru-api/src/public_client.rs`: `transcode_plan_to_dto` maps full
+  - `crates/nako-api/src/public_client.rs`: `transcode_plan_to_dto` maps full
     internal `TranscodePlan.input_locator` into public DTOs.
-  - `crates/taru-api/src/openapi.rs`: `MediaSourceDto.locator` and
+  - `crates/nako-api/src/openapi.rs`: `MediaSourceDto.locator` and
     `ClientTranscodePlan.input_locator` are public schema fields.
   - `sdk/typescript/src/index.ts`: generated `MediaSourceDto.locator` and
     `ClientTranscodePlan.input_locator` mirror the OpenAPI leakage.
@@ -105,9 +105,9 @@ Fresh verification is recorded below for the closeout claim.
   - `GET /sources/{source_id}/playback/decision` through
     `PlaybackDecisionResponse.source` and `ClientTranscodePlan`.
 - Internal/server-only locator use is legitimate and must remain:
-  - `crates/taru-server/src/http/playback.rs` uses `direct_play.source.locator`
+  - `crates/nako-server/src/http/playback.rs` uses `direct_play.source.locator`
     for response streaming.
-  - `taru-streaming`, `taru-transcode`, playback input, remux, HLS, probe, and
+  - `nako-streaming`, `nako-transcode`, playback input, remux, HLS, probe, and
     storage paths need full locators for execution.
 - HTTP route tests currently seed `MediaSource.locator` values as fixtures.
   These are not contract exposures unless assertions or serialized public JSON
@@ -124,37 +124,37 @@ Fresh verification is recorded below for the closeout claim.
     routes, and playback session IDs, not Source Locator values.
   - Update OpenAPI and generated SDK artifacts in PCLR-040 after DTO/mapping
     changes land.
-- Compatibility posture: Taru is still pre-stable for this public shape, so
+- Compatibility posture: Nako is still pre-stable for this public shape, so
   PCLR-030 may remove fields directly instead of adding a deprecation period.
 - `git diff --check` passed.
 
 2026-05-18, PCLR-030/PCLR-040:
 
 - Added RED route assertions in:
-  - `crates/taru-server/src/http/tests/catalog.rs`
-  - `crates/taru-server/src/http/tests/playback.rs`
+  - `crates/nako-server/src/http/tests/catalog.rs`
+  - `crates/nako-server/src/http/tests/playback.rs`
 - RED check failed before DTO removal with public `locator` still present:
-  `cargo nextest run -p taru-server browse_routes_return_catalog_graph playback_decision_and_direct_stream_routes_work --no-fail-fast`.
+  `cargo nextest run -p nako-server browse_routes_return_catalog_graph playback_decision_and_direct_stream_routes_work --no-fail-fast`.
 - Removed public fields:
   - `MediaSourceDto.locator`
   - `ClientTranscodePlan.input_locator`
-- Updated `taru-api` mapping so internal `MediaSource.locator` and
+- Updated `nako-api` mapping so internal `MediaSource.locator` and
   `TranscodePlan.input_locator` are not serialized into Public Client DTOs.
 - Kept internal locator execution paths unchanged, including direct stream in
-  `crates/taru-server/src/http/playback.rs`, streaming selection, remux, HLS,
+  `crates/nako-server/src/http/playback.rs`, streaming selection, remux, HLS,
   and storage workflows.
 - Synchronized OpenAPI schema and generated TypeScript SDK output because
-  `taru-api` has generator consistency tests for checked-in SDK artifacts.
+  `nako-api` has generator consistency tests for checked-in SDK artifacts.
 - Updated `docs/api/HTTP_API.md` to state that public source and playback
   responses do not expose raw source locators or transcode input locators.
 - Focused review result: no blocking public contract or leakage findings.
   Remaining `rg` hits are internal execution, test fixtures, documentation
   references, or negative assertions.
 - Validation passed:
-  - `cargo check -p taru-client-protocol --tests`
-  - `cargo check -p taru-api --tests`
-  - `cargo nextest run -p taru-api --no-fail-fast`
-  - `cargo nextest run -p taru-server browse_routes_return_catalog_graph playback_decision_and_direct_stream_routes_work --no-fail-fast`
+  - `cargo check -p nako-client-protocol --tests`
+  - `cargo check -p nako-api --tests`
+  - `cargo nextest run -p nako-api --no-fail-fast`
+  - `cargo nextest run -p nako-server browse_routes_return_catalog_graph playback_decision_and_direct_stream_routes_work --no-fail-fast`
   - `cargo fmt --all -- --check`
   - `git diff --check`
 
@@ -162,10 +162,10 @@ Fresh verification is recorded below for the closeout claim.
 
 - Closeout review found no blocking public contract or leakage findings.
 - Fresh final gates rerun after lane documentation was updated:
-  - `cargo check -p taru-client-protocol --tests`
-  - `cargo check -p taru-api --tests`
-  - `cargo nextest run -p taru-api --no-fail-fast`
-  - `cargo nextest run -p taru-server browse_routes_return_catalog_graph playback_decision_and_direct_stream_routes_work --no-fail-fast`
+  - `cargo check -p nako-client-protocol --tests`
+  - `cargo check -p nako-api --tests`
+  - `cargo nextest run -p nako-api --no-fail-fast`
+  - `cargo nextest run -p nako-server browse_routes_return_catalog_graph playback_decision_and_direct_stream_routes_work --no-fail-fast`
   - `cargo fmt --all -- --check`
   - `git diff --check`
 - Remaining `rg "locator|input_locator"` hits are internal execution paths,

@@ -21,11 +21,11 @@ plugins {
 }
 
 android {
-    namespace = "dev.taru.android"
+    namespace = "dev.nako.android"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "dev.taru.android"
+        applicationId = "dev.nako.android"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
@@ -44,10 +44,10 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("boolean", "TARU_ALLOW_CLEARTEXT_HTTP", "true")
+            buildConfigField("boolean", "NAKO_ALLOW_CLEARTEXT_HTTP", "true")
         }
         release {
-            buildConfigField("boolean", "TARU_ALLOW_CLEARTEXT_HTTP", "false")
+            buildConfigField("boolean", "NAKO_ALLOW_CLEARTEXT_HTTP", "false")
         }
     }
 
@@ -60,7 +60,7 @@ android {
 val repoRoot = layout.projectDirectory.dir("../../..")
 val generatedUniFfiDir = layout.buildDirectory.dir("generated/source/uniffi/main/java")
 val generatedUniFfiSource = generatedUniFfiDir.map {
-    it.file("uniffi/taru_client_uniffi/taru_client_uniffi.kt")
+    it.file("uniffi/nako_client_uniffi/nako_client_uniffi.kt")
 }
 val generatedUniFfiDebugJniLibsDir = layout.buildDirectory.dir("generated/jniLibs/debug")
 val generatedUniFfiReleaseJniLibsDir = layout.buildDirectory.dir("generated/jniLibs/release")
@@ -91,9 +91,9 @@ fun hostExecutableExtension(): String =
 fun hostUniFfiLibraryName(): String {
     val osName = System.getProperty("os.name").lowercase(Locale.ROOT)
     return when {
-        osName.contains("windows") -> "taru_client_uniffi.dll"
-        osName.contains("mac") || osName.contains("darwin") -> "libtaru_client_uniffi.dylib"
-        else -> "libtaru_client_uniffi.so"
+        osName.contains("windows") -> "nako_client_uniffi.dll"
+        osName.contains("mac") || osName.contains("darwin") -> "libnako_client_uniffi.dylib"
+        else -> "libnako_client_uniffi.so"
     }
 }
 
@@ -107,8 +107,8 @@ fun androidNdkPrebuiltName(): String {
 }
 
 fun selectedAndroidAbiTargets(): Map<String, String> {
-    val requestedAbis = providers.gradleProperty("taruRustAndroidAbis")
-        .orElse(providers.gradleProperty("taru.rust.android.abis"))
+    val requestedAbis = providers.gradleProperty("nakoRustAndroidAbis")
+        .orElse(providers.gradleProperty("nako.rust.android.abis"))
         .orNull
         ?.split(',', ';', ' ')
         ?.map { it.trim() }
@@ -117,39 +117,39 @@ fun selectedAndroidAbiTargets(): Map<String, String> {
         ?: androidAbiTargets.keys.toList()
     val unknownAbis = requestedAbis.filterNot(androidAbiTargets::containsKey)
     require(unknownAbis.isEmpty()) {
-        "Unknown taru.rust.android.abis value(s): ${unknownAbis.joinToString()}. " +
+        "Unknown nako.rust.android.abis value(s): ${unknownAbis.joinToString()}. " +
             "Supported values: ${androidAbiTargets.keys.joinToString()}."
     }
     return requestedAbis.associateWith { abi -> androidAbiTargets.getValue(abi) }
 }
 
-val buildTaruClientUniFfiHost by tasks.registering(Exec::class) {
-    group = "taru rust"
-    description = "Builds the host taru-client-uniffi shared library for JVM tests and binding generation."
+val buildNakoClientUniFfiHost by tasks.registering(Exec::class) {
+    group = "nako rust"
+    description = "Builds the host nako-client-uniffi shared library for JVM tests and binding generation."
     workingDir = repoRoot.asFile
     inputs.files(
-        repoRoot.file("crates/taru-client-uniffi/Cargo.toml"),
+        repoRoot.file("crates/nako-client-uniffi/Cargo.toml"),
         repoRoot.file("Cargo.toml"),
         repoRoot.file("Cargo.lock"),
     )
-    inputs.dir(repoRoot.dir("crates/taru-client-core/src"))
-    inputs.dir(repoRoot.dir("crates/taru-client-protocol/src"))
-    inputs.dir(repoRoot.dir("crates/taru-client-uniffi/src"))
+    inputs.dir(repoRoot.dir("crates/nako-client-core/src"))
+    inputs.dir(repoRoot.dir("crates/nako-client-protocol/src"))
+    inputs.dir(repoRoot.dir("crates/nako-client-uniffi/src"))
     outputs.file(hostUniFfiLibrary)
-    commandLine("cargo", "build", "-p", "taru-client-uniffi")
+    commandLine("cargo", "build", "-p", "nako-client-uniffi")
 }
 
-val generateTaruClientUniFfiKotlin by tasks.registering(Exec::class) {
-    group = "taru rust"
+val generateNakoClientUniFfiKotlin by tasks.registering(Exec::class) {
+    group = "nako rust"
     description = "Generates Kotlin bindings for the Android app from the host UniFFI library."
     workingDir = repoRoot.asFile
-    dependsOn(buildTaruClientUniFfiHost)
+    dependsOn(buildNakoClientUniFfiHost)
     inputs.files(
-        repoRoot.file("crates/taru-client-core/src/lib.rs"),
-        repoRoot.file("crates/taru-client-uniffi/src/lib.rs"),
-        repoRoot.file("crates/taru-client-uniffi/Cargo.toml"),
-        repoRoot.file("crates/taru-uniffi-bindgen/Cargo.toml"),
-        repoRoot.file("crates/taru-uniffi-bindgen/src/main.rs"),
+        repoRoot.file("crates/nako-client-core/src/lib.rs"),
+        repoRoot.file("crates/nako-client-uniffi/src/lib.rs"),
+        repoRoot.file("crates/nako-client-uniffi/Cargo.toml"),
+        repoRoot.file("crates/nako-uniffi-bindgen/Cargo.toml"),
+        repoRoot.file("crates/nako-uniffi-bindgen/src/main.rs"),
     )
     inputs.file(hostUniFfiLibrary)
     outputs.file(generatedUniFfiSource)
@@ -161,7 +161,7 @@ val generateTaruClientUniFfiKotlin by tasks.registering(Exec::class) {
         "cargo",
         "run",
         "-p",
-        "taru-uniffi-bindgen",
+        "nako-uniffi-bindgen",
         "--",
         "generate",
         "--library",
@@ -174,28 +174,28 @@ val generateTaruClientUniFfiKotlin by tasks.registering(Exec::class) {
     )
 }
 
-fun registerBuildTaruClientUniFfiAndroidTask(
+fun registerBuildNakoClientUniFfiAndroidTask(
     variantName: String,
     rustProfile: String,
     outputDir: Provider<Directory>,
-) = tasks.register("buildTaruClientUniFfi${variantName.replaceFirstChar { it.uppercase() }}Android") {
-    group = "taru rust"
-    description = "Builds $variantName Android ABI taru-client-uniffi shared libraries for APK packaging."
+) = tasks.register("buildNakoClientUniFfi${variantName.replaceFirstChar { it.uppercase() }}Android") {
+    group = "nako rust"
+    description = "Builds $variantName Android ABI nako-client-uniffi shared libraries for APK packaging."
     val ndkHome = providers.androidNdkHome()
     inputs.files(
-        repoRoot.file("crates/taru-client-uniffi/Cargo.toml"),
+        repoRoot.file("crates/nako-client-uniffi/Cargo.toml"),
         repoRoot.file("Cargo.toml"),
         repoRoot.file("Cargo.lock"),
     )
-    inputs.dir(repoRoot.dir("crates/taru-client-core/src"))
-    inputs.dir(repoRoot.dir("crates/taru-client-uniffi/src"))
-    inputs.dir(repoRoot.dir("crates/taru-client-protocol/src"))
-    inputs.property("taruRustAndroidAbis", selectedAndroidAbiTargets.keys.joinToString(","))
+    inputs.dir(repoRoot.dir("crates/nako-client-core/src"))
+    inputs.dir(repoRoot.dir("crates/nako-client-uniffi/src"))
+    inputs.dir(repoRoot.dir("crates/nako-client-protocol/src"))
+    inputs.property("nakoRustAndroidAbis", selectedAndroidAbiTargets.keys.joinToString(","))
     outputs.dir(outputDir)
 
     doLast {
         val resolvedNdkHome = ndkHome.orNull
-            ?: error("Set ANDROID_NDK_HOME, NDK_HOME, or Gradle property android.ndk.home to build Taru Rust UniFFI libraries.")
+            ?: error("Set ANDROID_NDK_HOME, NDK_HOME, or Gradle property android.ndk.home to build Nako Rust UniFFI libraries.")
         val prebuiltBin = file("$resolvedNdkHome/toolchains/llvm/prebuilt/${androidNdkPrebuiltName()}/bin")
         val ar = file("$prebuiltBin/llvm-ar${hostExecutableExtension()}")
         require(ar.isFile) { "Android NDK llvm-ar was not found at ${ar.absolutePath}" }
@@ -214,7 +214,7 @@ fun registerBuildTaruClientUniFfiAndroidTask(
                     "cargo",
                     "build",
                     "-p",
-                    "taru-client-uniffi",
+                    "nako-client-uniffi",
                     "--target",
                     target,
                 )
@@ -231,7 +231,7 @@ fun registerBuildTaruClientUniFfiAndroidTask(
             }.result.get().assertNormalExitValue()
 
             copy {
-                from(repoRoot.file("target/$target/$rustProfile/libtaru_client_uniffi.so"))
+                from(repoRoot.file("target/$target/$rustProfile/libnako_client_uniffi.so"))
                 into(outputDir.map { it.dir(abi) })
             }
         }
@@ -250,19 +250,19 @@ android.sourceSets.named("release") {
     jniLibs.srcDir(generatedUniFfiReleaseJniLibsDir)
 }
 
-val buildTaruClientUniFfiDebugAndroid = registerBuildTaruClientUniFfiAndroidTask(
+val buildNakoClientUniFfiDebugAndroid = registerBuildNakoClientUniFfiAndroidTask(
     variantName = "debug",
     rustProfile = "debug",
     outputDir = generatedUniFfiDebugJniLibsDir,
 )
-val buildTaruClientUniFfiReleaseAndroid = registerBuildTaruClientUniFfiAndroidTask(
+val buildNakoClientUniFfiReleaseAndroid = registerBuildNakoClientUniFfiAndroidTask(
     variantName = "release",
     rustProfile = "release",
     outputDir = generatedUniFfiReleaseJniLibsDir,
 )
 
 val extractHostJnaDispatch by tasks.registering {
-    group = "taru rust"
+    group = "nako rust"
     description = "Extracts host JNA native dispatch resources for JVM tests."
     val outputDir = generatedHostJnaResourcesDir
     inputs.files(jnaHostDispatch)
@@ -301,25 +301,25 @@ val extractHostJnaDispatch by tasks.registering {
 }
 
 tasks.matching { it.name.endsWith("Kotlin") && it.name.startsWith("compile") }.configureEach {
-    dependsOn(generateTaruClientUniFfiKotlin)
+    dependsOn(generateNakoClientUniFfiKotlin)
 }
 
 tasks.matching { it.name == "mergeDebugJniLibFolders" }.configureEach {
-    dependsOn(buildTaruClientUniFfiDebugAndroid)
+    dependsOn(buildNakoClientUniFfiDebugAndroid)
 }
 
 tasks.matching { it.name == "mergeReleaseJniLibFolders" }.configureEach {
-    dependsOn(buildTaruClientUniFfiReleaseAndroid)
+    dependsOn(buildNakoClientUniFfiReleaseAndroid)
 }
 
 tasks.withType<Test>().configureEach {
-    dependsOn(generateTaruClientUniFfiKotlin)
+    dependsOn(generateNakoClientUniFfiKotlin)
     dependsOn(extractHostJnaDispatch)
     doFirst {
         classpath += files(generatedHostJnaResourcesDir)
     }
     systemProperty(
-        "uniffi.component.taru_client_uniffi.libraryOverride",
+        "uniffi.component.nako_client_uniffi.libraryOverride",
         hostUniFfiLibrary.asFile.absolutePath,
     )
 }
@@ -331,7 +331,7 @@ kotlin {
 }
 
 dependencies {
-    implementation(project(":taru-public-client-sdk"))
+    implementation(project(":nako-public-client-sdk"))
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.foundation)

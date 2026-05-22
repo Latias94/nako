@@ -3,14 +3,14 @@
 Status: Completed
 Last updated: 2026-05-22
 
-This workstream productizes Taru's completed Admin Addon Operations MVP into
+This workstream productizes Nako's completed Admin Addon Operations MVP into
 the first Admin Web Console Addons surface.
 
 The backend already supports safe **Addon Sidecar** registration, lifecycle
 mutation, terminal unregister, token/grant management, **Addon Health Check**,
 manifest surface read models, and redaction-safe resource-call diagnostics.
 The current frontend still marks Addons as planned. This lane closes that gap
-without turning Taru into an **Addon Manager**.
+without turning Nako into an **Addon Manager**.
 
 Authoritative files:
 

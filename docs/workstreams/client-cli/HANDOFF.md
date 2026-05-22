@@ -5,8 +5,8 @@ Last updated: 2026-05-17
 
 ## Current State
 
-M37 is closed. `crates/taru-client-cli` is an Apache-2.0 public client CLI on
-top of `taru-client`, with focused tests and workspace validation complete.
+M37 is closed. `crates/nako-client-cli` is an Apache-2.0 public client CLI on
+top of `nako-client`, with focused tests and workspace validation complete.
 
 ## Active Task
 
@@ -16,8 +16,8 @@ top of `taru-client`, with focused tests and workspace validation complete.
 
 - The first concrete client should be a Rust CLI because it validates the
   public SDK/license boundary before Flutter, Web, or publishing work.
-- The CLI is separate from `taru-server`'s existing operator commands.
-- The CLI must not depend on AGPL server/internal Taru crates.
+- The CLI is separate from `nako-server`'s existing operator commands.
+- The CLI must not depend on AGPL server/internal Nako crates.
 - `GET /health` remains unauthenticated; authenticated command tests use
   `search`.
 - Streaming commands print request facts and redact bearer token values.

@@ -14,7 +14,7 @@ clarification without weakening the default-deny model.
 
 ## Context
 
-Taru needs extension points for metadata, recommendations, automation, webhook
+Nako needs extension points for metadata, recommendations, automation, webhook
 targets, and future stream or catalog integrations. These integrations can
 observe private library data, call external APIs, spend provider credits, and
 return content that may be wrong or untrusted.
@@ -30,7 +30,7 @@ state.
 Use capability-scoped HTTP addons and external automation providers.
 
 Addon manifests should be explicit JSON documents served by the addon and
-stored by Taru when an addon is enabled. The manifest should include:
+stored by Nako when an addon is enabled. The manifest should include:
 
 - addon ID, name, version, protocol version, and base URL;
 - resource declarations such as `metadata`, `image`, `subtitle`, `catalog`,
@@ -42,7 +42,7 @@ stored by Taru when an addon is enabled. The manifest should include:
 - timeout, retry, and rate-limit hints;
 - declared content safety and data-retention notes.
 
-Taru must deny all addon and automation access by default. Users or future admin
+Nako must deny all addon and automation access by default. Users or future admin
 policy must explicitly enable a provider/addon and grant scopes.
 
 Automation providers should use configuration records that reference secrets by
@@ -64,7 +64,7 @@ go through bounded workers with resource classes:
 Every call must have a timeout, retry policy, idempotency key when side effects
 are possible, safe error mapping, and structured logs that omit secrets.
 
-Addon and automation requests should use Taru IDs, public API URLs, and small
+Addon and automation requests should use Nako IDs, public API URLs, and small
 metadata snapshots. They must not expose raw local filesystem paths unless a
 future explicit local-trust mode is designed.
 
@@ -72,7 +72,7 @@ future explicit local-trust mode is designed.
 
 - Extension behavior is auditable and safer for self-hosted users.
 - JavaScript/TypeScript SDKs can be added later without embedding a JS runtime.
-- Addons can fail independently from the Taru server process.
+- Addons can fail independently from the Nako server process.
 - The manifest schema needs compatibility rules as resources evolve.
 - Users may need to run sidecar services for custom local addons.
 

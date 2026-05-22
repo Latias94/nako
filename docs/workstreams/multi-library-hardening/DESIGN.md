@@ -5,7 +5,7 @@ Last updated: 2026-05-18
 
 ## Why This Lane Exists
 
-Taru's M8 baseline fixed the first class of multi-library bugs: source locators
+Nako's M8 baseline fixed the first class of multi-library bugs: source locators
 are only unique inside a Media Library, and CLI operations must choose one
 library or explicitly scan all configured libraries. The next risk is authority:
 configured libraries and persisted Library rows can drift, and several server
@@ -81,7 +81,7 @@ its own version of Media Library authority.
 
 | Assumption | Confidence | Evidence | Consequence if wrong |
 | --- | --- | --- | --- |
-| Configuration should remain the desired-state input for libraries at startup. | High | `taru-server::config` owns configured libraries today. | Need an admin mutation API before the database can be the only authority. |
+| Configuration should remain the desired-state input for libraries at startup. | High | `nako-server::config` owns configured libraries today. | Need an admin mutation API before the database can be the only authority. |
 | Workflows should use reconciled database Library rows after startup. | High | Repository and job records already store `library_id`. | Workflows continue to duplicate config lookup and drift. |
 | Missing configured libraries should not silently delete persisted data. | High | Jobs, events, sources, and metadata reference Library IDs. | Need an explicit retirement model before deletion. |
 | Public locator redaction is related but separate. | High | Public DTOs expose `locator`, while M8 identity work is internal correctness. | Mixing both would combine contract and startup-reconciliation risk. |
@@ -89,8 +89,8 @@ its own version of Media Library authority.
 ## Architecture Direction
 
 Introduce a startup reconciliation boundary rather than spreading config checks
-through application services. `taru-server` should compose configuration and
-call a focused service; `taru-db` should persist the resulting Library rows; and
+through application services. `nako-server` should compose configuration and
+call a focused service; `nako-db` should persist the resulting Library rows; and
 workflow services should read Library state through existing or narrowed
 repositories.
 

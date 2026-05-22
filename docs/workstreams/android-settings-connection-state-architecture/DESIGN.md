@@ -9,8 +9,8 @@ Browse and Player now use testable session/adapters instead of keeping state
 and async orchestration directly inside Composables. Connection setup and
 settings are the remaining early-client surfaces with substantial local state:
 
-- `TaruAndroidAppContent` decides whether the connection flow is visible.
-- `TaruConnectionShellContent` owns form fields, async connection checks,
+- `NakoAndroidAppContent` decides whether the connection flow is visible.
+- `NakoConnectionShellContent` owns form fields, async connection checks,
   result state, profile persistence, token persistence, active profile
   switching, and failure recording.
 - `ServerProfileScreen` owns active profile switching and sign-out side effects.
@@ -61,9 +61,9 @@ evidence harder to extend safely.
 
 ## In Scope
 
-- `apps/android/app/src/main/java/dev/taru/android/ui/TaruAndroidApp.kt`
-- `apps/android/app/src/main/java/dev/taru/android/ui/connection/`
-- `apps/android/app/src/main/java/dev/taru/android/ui/screens/settings/`
+- `apps/android/app/src/main/java/dev/nako/android/ui/NakoAndroidApp.kt`
+- `apps/android/app/src/main/java/dev/nako/android/ui/connection/`
+- `apps/android/app/src/main/java/dev/nako/android/ui/screens/settings/`
 - focused JVM tests for state reducers/sessions
 - workstream docs and closeout evidence
 
@@ -79,7 +79,7 @@ evidence harder to extend safely.
 | Assumption | Confidence | Evidence | Consequence if wrong |
 | --- | --- | --- | --- |
 | Existing `ServerProfileRepository` is sufficient as the domain mutation helper. | High | Connection and settings already use it for upsert, switch, and failure recording. | If insufficient, add small repository methods rather than duplicating mutation logic. |
-| Connection testing can stay behind `TaruConnectionClient`. | High | It already returns safe success/failure results and has tests. | If future login/session auth appears, open a new auth/session workstream. |
+| Connection testing can stay behind `NakoConnectionClient`. | High | It already returns safe success/failure results and has tests. | If future login/session auth appears, open a new auth/session workstream. |
 | JVM tests can cover the architectural behavior without emulator smoke. | Medium | Browse and Player UDF lanes were covered by JVM gates for state architecture. | If visual behavior changes materially, run existing smoke harness separately. |
 
 ## Architecture Direction
@@ -88,7 +88,7 @@ Use the same pattern that worked for Browse and Player:
 
 - pure session/reducer modules own state transitions and async orchestration;
 - production adapters wrap `ServerProfileStore`, `TokenVault`, and
-  `TaruConnectionClient`;
+  `NakoConnectionClient`;
 - Compose only observes session state and dispatches actions;
 - root app state is explicit enough to test connection visibility after save,
   switch, sign-out, and reconnect actions.
@@ -116,7 +116,7 @@ This lane can close when:
 - `SettingsSession` now owns server profile switching and active-profile sign
   out. Settings visuals receive callbacks instead of mutating token vault or
   repository state directly.
-- `TaruAppSession` now owns root snapshot and connection visibility. Connection
+- `NakoAppSession` now owns root snapshot and connection visibility. Connection
   setup, save, switch, and sign-out transitions all pass through explicit app
   actions.
 - Browse and Player architecture were not changed by this lane.

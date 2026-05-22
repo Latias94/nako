@@ -1,13 +1,13 @@
 # AGENTS.md
 
-This file gives repository-local guidance for agents working on Taru.
+This file gives repository-local guidance for agents working on Nako.
 
 ## Project Language
 
 - Read `CONTEXT.md` before changing domain model, API, metadata, catalog,
   addon, playback, or storage behavior.
 - Use the terms from `CONTEXT.md` in docs and code discussions. Do not drift
-  back to provider-centric or file-centric names when a Taru term exists.
+  back to provider-centric or file-centric names when a Nako term exists.
 - Keep `CONTEXT.md` as a glossary only. Do not put implementation plans,
   schemas, workstream notes, or ADR content in it.
 
@@ -27,22 +27,22 @@ This file gives repository-local guidance for agents working on Taru.
 - Prefer `cargo nextest run` for tests. For narrow changes, run focused
   package tests first, then broaden only when risk requires it.
 - Keep crate boundaries aligned with the workstream docs:
-  - `taru-core`: domain records, IDs, repository traits.
-  - `taru-db`: schema, migrations, repository adapters.
-  - `taru-metadata`: provider adapters and provider payload mapping.
-  - `taru-nfo`: NFO parsing/export and round-trip behavior.
-  - `taru-catalog`: graph hydration and search projection.
-  - `taru-server`: composition, app orchestration, HTTP boundaries.
-  - `taru-api`: explicit DTOs and public API shapes.
+  - `nako-core`: domain records, IDs, repository traits.
+  - `nako-db`: schema, migrations, repository adapters.
+  - `nako-metadata`: provider adapters and provider payload mapping.
+  - `nako-nfo`: NFO parsing/export and round-trip behavior.
+  - `nako-catalog`: graph hydration and search projection.
+  - `nako-server`: composition, app orchestration, HTTP boundaries.
+  - `nako-api`: explicit DTOs and public API shapes.
 
 ## Reference Code and Licensing
 
-- Taru server-side code is AGPL-3.0-or-later unless a crate or file says
+- Nako server-side code is AGPL-3.0-or-later unless a crate or file says
   otherwise.
-- `taru-addon-protocol` is intended to remain permissive for addon authors.
+- `nako-addon-protocol` is intended to remain permissive for addon authors.
 - Repositories under `repo-ref/` are reference material only. Do not copy,
   translate line by line, or import source, comments, migrations, tests,
   schemas, assets, or generated code from Jellyfin or other reference projects.
 - Use reference projects to study behavior, architecture boundaries, and user
-  workflows, then write original Taru implementations against Taru's own
+  workflows, then write original Nako implementations against Nako's own
   domain model and tests.

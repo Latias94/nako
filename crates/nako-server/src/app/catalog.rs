@@ -1,0 +1,449 @@
+use nako_api::public_client::{
+    GenreItemsResponse, GenreListResponse, ImagesResponse, ItemCreditsResponse, ItemDetailResponse,
+    ItemsResponse, PeopleResponse, PersonItemsResponse, PersonResponse, SearchItemHit,
+    SearchResponse, TagItemsResponse, TagsResponse, collection_item_to_dto, genre_to_dto,
+    item_credit_to_dto, item_genre_to_dto, item_studio_to_dto, item_tag_to_dto, media_item_to_dto,
+    media_probe_to_dto, media_source_to_dto, page_info_from_request, person_to_dto,
+    selected_artwork_to_public_image_ref, tag_to_dto,
+};
+use nako_core::{
+    CatalogGovernanceItemListFilter, CatalogGovernanceItemRecord, CatalogGovernanceRepository,
+    CatalogRepository, GenreId, ManagedArtworkRepository, MediaItemId, MediaProbeRepository,
+    MediaRepository, MediaSource, MediaSourceId, NakoError, PageRequest, PersonId, Result,
+    SourceDuplicateEvidenceKind, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
+    SourceDuplicateRelationshipStatus, SourceDuplicateRepository, TagId,
+};
+use nako_db::NakoDatabase;
+use nako_search::{SearchIndex, SearchQuery};
+use nako_vfs::{StorageLinkKind, StorageLinkPlan, StorageLinkPlanStatus};
+
+#[derive(Clone, Debug)]
+pub(crate) struct CatalogAppService {
+    store: NakoDatabase,
+}
+
+impl CatalogAppService {
+    pub(crate) fn new(store: NakoDatabase) -> Self {
+        Self { store }
+    }
+
+    pub async fn list_items(&self, page: PageRequest) -> Result<ItemsResponse> {
+        let page = page.clamped();
+        let items = self.store.list_media_items(page).await?;
+
+        Ok(ItemsResponse {
+            page: page_info_from_request(page, items.len()),
+            items: items.into_iter().map(media_item_to_dto).collect(),
+        })
+    }
+
+    pub async fn list_catalog_governance_items(
+        &self,
+        filter: CatalogGovernanceItemListFilter,
+        page: PageRequest,
+    ) -> Result<Vec<CatalogGovernanceItemRecord>> {
+        self.store.list_catalog_governance_items(filter, page).await
+    }
+
+    pub async fn record_filesystem_link_duplicate_suggestion(
+        &self,
+        source_id: MediaSourceId,
+        duplicate_source_id: MediaSourceId,
+        link_plan: &StorageLinkPlan,
+    ) -> Result<SourceDuplicateRelationship> {
+        if source_id == duplicate_source_id {
+            return Err(NakoError::InvalidInput {
+                message: "source duplicate relationship requires two distinct media sources"
+                    .to_owned(),
+            });
+        }
+
+        if !is_filesystem_link_duplicate_evidence_status(link_plan.status) {
+            return Err(NakoError::InvalidInput {
+                message: format!(
+                    "link plan status {} cannot create source duplicate evidence",
+                    storage_link_plan_status_label(link_plan.status)
+                ),
+            });
+        }
+
+        let source = self.get_media_source_record(source_id).await?;
+        let duplicate_source = self.get_media_source_record(duplicate_source_id).await?;
+        validate_link_plan_matches_source_records(&source, &duplicate_source, link_plan)?;
+
+        let relationship = SourceDuplicateRelationship {
+            id: SourceDuplicateRelationshipId::new(),
+            source_id,
+            duplicate_source_id,
+            evidence_kind: SourceDuplicateEvidenceKind::FilesystemLink,
+            evidence_value: Some(filesystem_link_evidence_value(link_plan)),
+            status: SourceDuplicateRelationshipStatus::Suggested,
+            confidence_milli: Some(filesystem_link_duplicate_confidence_milli(link_plan.status)),
+        }
+        .canonicalized();
+
+        self.store
+            .upsert_source_duplicate_relationship(&relationship)
+            .await?;
+
+        Ok(relationship)
+    }
+
+    pub async fn get_item(&self, item_id: MediaItemId) -> Result<ItemDetailResponse> {
+        let item =
+            self.store
+                .get_media_item(item_id)
+                .await?
+                .ok_or_else(|| NakoError::NotFound {
+                    entity: "media_item",
+                    id: item_id.to_string(),
+                })?;
+        let sources = self
+            .store
+            .list_item_sources(item.id, PageRequest::first_page())
+            .await?;
+        let credits = self.store.list_item_credits(item.id).await?;
+        let genres = self.store.list_item_genres(item.id).await?;
+        let tags = self.store.list_item_tags(item.id).await?;
+        let collections = self.store.list_item_collections(item.id).await?;
+        let studios = self.store.list_item_studios(item.id).await?;
+        let images = self.list_selected_item_image_refs(item.id).await?;
+
+        Ok(ItemDetailResponse {
+            item: media_item_to_dto(item),
+            sources: sources.into_iter().map(media_source_to_dto).collect(),
+            credits: credits.into_iter().map(item_credit_to_dto).collect(),
+            genres: genres.into_iter().map(item_genre_to_dto).collect(),
+            tags: tags.into_iter().map(item_tag_to_dto).collect(),
+            collections: collections
+                .into_iter()
+                .map(collection_item_to_dto)
+                .collect(),
+            studios: studios.into_iter().map(item_studio_to_dto).collect(),
+            images,
+        })
+    }
+
+    pub async fn list_item_credits(&self, item_id: MediaItemId) -> Result<ItemCreditsResponse> {
+        let item =
+            self.store
+                .get_media_item(item_id)
+                .await?
+                .ok_or_else(|| NakoError::NotFound {
+                    entity: "media_item",
+                    id: item_id.to_string(),
+                })?;
+        let credits = self.store.list_item_credits(item.id).await?;
+        let mut people = Vec::with_capacity(credits.len());
+
+        for credit in &credits {
+            if let Some(person) = self.store.get_person(credit.person_id).await? {
+                people.push(person);
+            }
+        }
+
+        Ok(ItemCreditsResponse {
+            item_id: item.id.to_string(),
+            credits: credits.into_iter().map(item_credit_to_dto).collect(),
+            people: people.into_iter().map(person_to_dto).collect(),
+        })
+    }
+
+    pub async fn list_item_images(&self, item_id: MediaItemId) -> Result<ImagesResponse> {
+        self.store
+            .get_media_item(item_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "media_item",
+                id: item_id.to_string(),
+            })?;
+        let images = self.list_selected_item_image_refs(item_id).await?;
+
+        Ok(ImagesResponse {
+            item_id: item_id.to_string(),
+            images,
+        })
+    }
+
+    async fn list_selected_item_image_refs(
+        &self,
+        item_id: MediaItemId,
+    ) -> Result<Vec<nako_api::public_client::PublicImageRefDto>> {
+        let selected = self.store.list_selected_artwork_for_item(item_id).await?;
+        let mut images = Vec::with_capacity(selected.len());
+
+        for selected in selected {
+            let artifact = self
+                .store
+                .get_managed_artwork_artifact(selected.artifact_id)
+                .await?
+                .ok_or_else(|| NakoError::NotFound {
+                    entity: "managed_artwork_artifact",
+                    id: selected.artifact_id.to_string(),
+                })?;
+            images.push(selected_artwork_to_public_image_ref(selected, artifact));
+        }
+
+        Ok(images)
+    }
+
+    pub async fn list_people(&self, page: PageRequest) -> Result<PeopleResponse> {
+        let page = page.clamped();
+        let people = self.store.list_people(page).await?;
+
+        Ok(PeopleResponse {
+            page: page_info_from_request(page, people.len()),
+            people: people.into_iter().map(person_to_dto).collect(),
+        })
+    }
+
+    pub async fn get_person(&self, person_id: PersonId) -> Result<PersonResponse> {
+        Ok(PersonResponse {
+            person: person_to_dto(self.get_person_record(person_id).await?),
+        })
+    }
+
+    async fn get_person_record(&self, person_id: PersonId) -> Result<nako_core::Person> {
+        self.store
+            .get_person(person_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "person",
+                id: person_id.to_string(),
+            })
+    }
+
+    pub async fn list_person_items(
+        &self,
+        person_id: PersonId,
+        page: PageRequest,
+    ) -> Result<PersonItemsResponse> {
+        let page = page.clamped();
+        let person = self.get_person_record(person_id).await?;
+        let items = self.store.list_person_items(person.id, page).await?;
+
+        Ok(PersonItemsResponse {
+            person: person_to_dto(person),
+            page: page_info_from_request(page, items.len()),
+            items: items.into_iter().map(media_item_to_dto).collect(),
+        })
+    }
+
+    pub async fn list_tags(&self, page: PageRequest) -> Result<TagsResponse> {
+        let page = page.clamped();
+        let tags = self.store.list_tags(page).await?;
+
+        Ok(TagsResponse {
+            page: page_info_from_request(page, tags.len()),
+            tags: tags.into_iter().map(tag_to_dto).collect(),
+        })
+    }
+
+    pub async fn list_tag_items(
+        &self,
+        tag_id: TagId,
+        page: PageRequest,
+    ) -> Result<TagItemsResponse> {
+        let page = page.clamped();
+        let tag = self
+            .store
+            .get_tag(tag_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "tag",
+                id: tag_id.to_string(),
+            })?;
+        let items = self.store.list_tag_items(tag.id, page).await?;
+
+        Ok(TagItemsResponse {
+            tag: tag_to_dto(tag),
+            page: page_info_from_request(page, items.len()),
+            items: items.into_iter().map(media_item_to_dto).collect(),
+        })
+    }
+
+    pub async fn list_genres(&self, page: PageRequest) -> Result<GenreListResponse> {
+        let page = page.clamped();
+        let genres = self.store.list_genres(page).await?;
+
+        Ok(GenreListResponse {
+            page: page_info_from_request(page, genres.len()),
+            genres: genres.into_iter().map(genre_to_dto).collect(),
+        })
+    }
+
+    pub async fn list_genre_items(
+        &self,
+        genre_id: GenreId,
+        page: PageRequest,
+    ) -> Result<GenreItemsResponse> {
+        let page = page.clamped();
+        let genre = self
+            .store
+            .get_genre(genre_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "genre",
+                id: genre_id.to_string(),
+            })?;
+        let items = self.store.list_genre_items(genre.id, page).await?;
+
+        Ok(GenreItemsResponse {
+            genre: genre_to_dto(genre),
+            page: page_info_from_request(page, items.len()),
+            items: items.into_iter().map(media_item_to_dto).collect(),
+        })
+    }
+
+    pub async fn search_items(
+        &self,
+        query: String,
+        facets: Vec<String>,
+        page: PageRequest,
+    ) -> Result<SearchResponse> {
+        let page = page.clamped();
+        let hits = self
+            .store
+            .search(SearchQuery::from_facet_labels(
+                query,
+                facets,
+                page.limit,
+                u32::try_from(page.offset).map_err(|err| NakoError::InvalidInput {
+                    message: format!("search offset is too large: {err}"),
+                })?,
+            )?)
+            .await?;
+        let mut output_hits = Vec::with_capacity(hits.len());
+
+        for hit in hits {
+            let item = self
+                .store
+                .get_media_item(hit.item_id)
+                .await?
+                .ok_or_else(|| NakoError::NotFound {
+                    entity: "media_item",
+                    id: hit.item_id.to_string(),
+                })?;
+            output_hits.push(SearchItemHit {
+                item: media_item_to_dto(item),
+                score: hit.score,
+            });
+        }
+
+        Ok(SearchResponse {
+            page: page_info_from_request(page, output_hits.len()),
+            hits: output_hits,
+        })
+    }
+
+    pub async fn get_source_probe(
+        &self,
+        source_id: MediaSourceId,
+    ) -> Result<nako_api::public_client::SourceProbeResponse> {
+        let probe = self
+            .store
+            .get_media_probe(source_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "media_source_probe",
+                id: source_id.to_string(),
+            })?;
+
+        Ok(nako_api::public_client::SourceProbeResponse {
+            source_id: source_id.to_string(),
+            probe: media_probe_to_dto(probe),
+        })
+    }
+
+    async fn get_media_source_record(&self, source_id: MediaSourceId) -> Result<MediaSource> {
+        self.store
+            .get_media_source(source_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "media_source",
+                id: source_id.to_string(),
+            })
+    }
+}
+
+fn is_filesystem_link_duplicate_evidence_status(status: StorageLinkPlanStatus) -> bool {
+    matches!(
+        status,
+        StorageLinkPlanStatus::Ready | StorageLinkPlanStatus::TargetExists
+    )
+}
+
+fn validate_link_plan_matches_source_records(
+    source: &MediaSource,
+    duplicate_source: &MediaSource,
+    link_plan: &StorageLinkPlan,
+) -> Result<()> {
+    if link_plan.source_uri.scheme() != "local" || link_plan.target_uri.scheme() != "local" {
+        return Err(NakoError::InvalidInput {
+            message: "filesystem link duplicate evidence currently requires local storage URIs"
+                .to_owned(),
+        });
+    }
+
+    if source.locator != link_plan.source_uri.as_str() {
+        return Err(NakoError::InvalidInput {
+            message: format!(
+                "link plan source URI does not match media source locator: {}",
+                source.id
+            ),
+        });
+    }
+
+    if duplicate_source.locator != link_plan.target_uri.as_str() {
+        return Err(NakoError::InvalidInput {
+            message: format!(
+                "link plan target URI does not match duplicate media source locator: {}",
+                duplicate_source.id
+            ),
+        });
+    }
+
+    Ok(())
+}
+
+fn filesystem_link_evidence_value(link_plan: &StorageLinkPlan) -> String {
+    format!(
+        "link_plan:scheme={};kind={};status={}",
+        link_plan.source_uri.scheme(),
+        storage_link_kind_label(link_plan.kind),
+        storage_link_plan_status_label(link_plan.status)
+    )
+}
+
+fn filesystem_link_duplicate_confidence_milli(status: StorageLinkPlanStatus) -> u16 {
+    match status {
+        StorageLinkPlanStatus::TargetExists => 700,
+        StorageLinkPlanStatus::Ready => 600,
+        StorageLinkPlanStatus::Unsupported
+        | StorageLinkPlanStatus::SourceMissing
+        | StorageLinkPlanStatus::SourceNotFile
+        | StorageLinkPlanStatus::TargetParentMissing
+        | StorageLinkPlanStatus::TargetParentNotDirectory
+        | StorageLinkPlanStatus::SecurityViolation => 0,
+    }
+}
+
+fn storage_link_kind_label(kind: StorageLinkKind) -> &'static str {
+    match kind {
+        StorageLinkKind::Hard => "hard",
+        StorageLinkKind::Soft => "soft",
+    }
+}
+
+fn storage_link_plan_status_label(status: StorageLinkPlanStatus) -> &'static str {
+    match status {
+        StorageLinkPlanStatus::Ready => "ready",
+        StorageLinkPlanStatus::Unsupported => "unsupported",
+        StorageLinkPlanStatus::SourceMissing => "source_missing",
+        StorageLinkPlanStatus::SourceNotFile => "source_not_file",
+        StorageLinkPlanStatus::TargetParentMissing => "target_parent_missing",
+        StorageLinkPlanStatus::TargetParentNotDirectory => "target_parent_not_directory",
+        StorageLinkPlanStatus::TargetExists => "target_exists",
+        StorageLinkPlanStatus::SecurityViolation => "security_violation",
+    }
+}

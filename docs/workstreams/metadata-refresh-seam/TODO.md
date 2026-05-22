@@ -10,23 +10,23 @@ Last updated: 2026-05-17
   Validation: `git diff --check`.
   Handoff: Continue with refresh strategy/repository audit.
 
-- [x] MRS-020 [owner=codex] [deps=MRS-010] [scope=crates/taru-metadata, crates/taru-core]
+- [x] MRS-020 [owner=codex] [deps=MRS-010] [scope=crates/nako-metadata, crates/nako-core]
   Goal: Audit metadata refresh and hierarchy confirmation repository/provider
   dependencies, then choose the first workflow-port shape.
   Validation: documented `MetadataRefreshPort` and `MetadataAttemptPort` in
   `DESIGN.md`.
   Handoff: Do not implement provider breadth.
 
-- [x] MRS-030 [owner=codex] [deps=MRS-020] [scope=crates/taru-metadata]
+- [x] MRS-030 [owner=codex] [deps=MRS-020] [scope=crates/nako-metadata]
   Goal: Extract the first metadata refresh workflow port and make the refresh
   strategy depend on it where the interface hides real persistence detail.
-  Validation: `cargo check -p taru-metadata --tests`.
+  Validation: `cargo check -p nako-metadata --tests`.
   Handoff: Preserve `CatalogHydrationPort` usage.
 
-- [x] MRS-040 [owner=codex] [deps=MRS-030] [scope=crates/taru-metadata]
+- [x] MRS-040 [owner=codex] [deps=MRS-030] [scope=crates/nako-metadata]
   Goal: Add a focused fake-port test that exercises the refresh workflow
   without SQLite while keeping existing SQLite-backed tests intact.
-  Validation: `cargo nextest run -p taru-metadata --no-fail-fast` with 27
+  Validation: `cargo nextest run -p nako-metadata --no-fail-fast` with 27
   tests passed.
   Handoff: Record whether provider runtime should be a follow-on slice.
 

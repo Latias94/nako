@@ -16,16 +16,16 @@ Last updated: 2026-05-21
 
 ## M1 — Android Adapter Encapsulation
 
-- [x] UBF-020 [owner=codex] [deps=UBF-010] [scope=apps/android/app/src/main/java/dev/taru/android/connection,apps/android/app/src/test/java/dev/taru/android/connection]
+- [x] UBF-020 [owner=codex] [deps=UBF-010] [scope=apps/android/app/src/main/java/dev/nako/android/connection,apps/android/app/src/test/java/dev/nako/android/connection]
   Goal: Hide generated UniFFI connection request/outcome types behind
   Android-owned `ConnectionCore` result types so product connection logic no
-  longer switches over `uniffi.taru_client_uniffi.*` types directly.
-  Validation: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.TaruConnectionClientTest --no-daemon`
-  Review: `TaruConnectionClient` should know only Android-owned connection
+  longer switches over `uniffi.nako_client_uniffi.*` types directly.
+  Validation: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.connection.NakoConnectionClientTest --no-daemon`
+  Review: `NakoConnectionClient` should know only Android-owned connection
   models plus `ConnectionCore`; generated UniFFI imports should remain isolated
   to `RustConnectionCore.kt` and native smoke tests.
-  Evidence: `apps/android/app/src/main/java/dev/taru/android/connection/RustConnectionCore.kt`; connection unit tests.
-  Handoff: DONE. `TaruConnectionClient` now consumes Android-owned
+  Evidence: `apps/android/app/src/main/java/dev/nako/android/connection/RustConnectionCore.kt`; connection unit tests.
+  Handoff: DONE. `NakoConnectionClient` now consumes Android-owned
   `ConnectionCoreOutcome`, `ConnectionCoreRequest`, and `ConnectionCoreSuccess`
   instead of generated UniFFI request/outcome types. Generated UniFFI imports
   are isolated to `RustConnectionCore.kt` for the connection seam, while product
@@ -33,30 +33,30 @@ Last updated: 2026-05-21
 
 ## M2 — Core Module Split
 
-- [x] UBF-030 [owner=codex] [deps=UBF-020] [scope=crates/taru-client-core]
-  Goal: Split `taru-client-core/src/lib.rs` into request, response, redaction,
+- [x] UBF-030 [owner=codex] [deps=UBF-020] [scope=crates/nako-client-core]
+  Goal: Split `nako-client-core/src/lib.rs` into request, response, redaction,
   connection, playback, and encoding modules while preserving the current
   public Rust API and behavior.
-  Validation: `cargo fmt --package taru-client-core --check`; `cargo nextest run -p taru-client-core --no-fail-fast`; `cargo nextest run -p taru-client-uniffi --no-fail-fast`; `cargo nextest run -p taru-client --no-fail-fast`
+  Validation: `cargo fmt --package nako-client-core --check`; `cargo nextest run -p nako-client-core --no-fail-fast`; `cargo nextest run -p nako-client-uniffi --no-fail-fast`; `cargo nextest run -p nako-client --no-fail-fast`
   Review: Module split must improve locality without adding pass-through files
   that make the interface shallower.
-  Evidence: `crates/taru-client-core/src/*.rs`; Rust package tests.
-  Handoff: DONE. `taru-client-core` now exposes the same public API from
+  Evidence: `crates/nako-client-core/src/*.rs`; Rust package tests.
+  Handoff: DONE. `nako-client-core` now exposes the same public API from
   `lib.rs` while implementation locality lives in `ids`, `encoding`,
   `redaction`, `request`, `response`, `connection`, and `playback` modules.
   Rust core, UniFFI, and reqwest client package gates passed.
 
 ## M3 — Boundary Drift Guards
 
-- [x] UBF-040 [owner=codex] [deps=UBF-030] [scope=scripts,crates/taru-client-uniffi,apps/android]
+- [x] UBF-040 [owner=codex] [deps=UBF-030] [scope=scripts,crates/nako-client-uniffi,apps/android]
   Goal: Add local validation guard(s) that reject accidental UniFFI dependency
   creep and document the expected generated surface.
-  Validation: boundary guard command passes; `cargo nextest run -p taru-client-uniffi --no-fail-fast` passes.
-  Review: Guard should fail if `taru-client-uniffi` starts depending on
+  Validation: boundary guard command passes; `cargo nextest run -p nako-client-uniffi --no-fail-fast` passes.
+  Review: Guard should fail if `nako-client-uniffi` starts depending on
   `reqwest`, `tokio`, Android platform crates, or other runtime transports.
   Evidence: guard script/test path and command output in `EVIDENCE_AND_GATES.md`.
   Handoff: DONE. Added `scripts/guard-uniffi-boundary.ps1`, which checks
-  `taru-client-uniffi` direct dependencies against an allowlist and fails if
+  `nako-client-uniffi` direct dependencies against an allowlist and fails if
   forbidden runtime/platform dependencies such as reqwest, Tokio, hyper, tower,
   axum, SQL, JNI, or Android platform crates appear in the dependency tree.
   Guard and UniFFI package tests passed.
@@ -66,7 +66,7 @@ Last updated: 2026-05-21
 - [x] UBF-050 [owner=codex] [deps=UBF-040] [scope=apps/android/scripts,apps/android/README.md,docs/workstreams/android-uniffi-boundary-hardening]
   Goal: Add a reusable PowerShell script that builds selected ABI APKs,
   installs app/test APKs on a selected connected device, and runs
-  `TaruUniFfiNativeSmokeTest`.
+  `NakoUniFfiNativeSmokeTest`.
   Validation: run the script against the connected OPPO arm64 device when
   available, or record a device-unavailable reason plus a dry command check.
   Review: Script must be opt-in, serial-aware, ABI-aware, non-destructive, and
@@ -76,7 +76,7 @@ Last updated: 2026-05-21
   Handoff: DONE. Added `apps/android/scripts/Validate-UniFfiNativeSmoke.ps1`
   and README usage. The original OPPO serial was no longer connected during
   this task, so the script recorded that failure path, then successfully built,
-  installed, and ran `TaruUniFfiNativeSmokeTest` on connected `emulator-5554`
+  installed, and ran `NakoUniFfiNativeSmokeTest` on connected `emulator-5554`
   with `-Abi x86_64`.
 
 ## M5 — Closeout

@@ -9,15 +9,15 @@ Last updated: 2026-05-20
   - Owner: Codex
   - Dependencies: closed `docs/workstreams/android-relationship-indexes/`.
   - Scope:
-    - `apps/android/app/src/main/java/dev/taru/android/browse/`
+    - `apps/android/app/src/main/java/dev/nako/android/browse/`
     - focused browse client tests.
     - API coverage matrices.
   - Validation:
     - Unit tests cover `GET /tags?limit=&offset=` request building, decoding,
       auth, version checking, and safe diagnostics.
-  - Evidence: focused `TaruBrowseClientTest` coverage.
+  - Evidence: focused `NakoBrowseClientTest` coverage.
     Completed on 2026-05-20:
-    `TagListResponse` and `TaruBrowseClient.listTags` are covered by focused
+    `TagListResponse` and `NakoBrowseClient.listTags` are covered by focused
     tests for request construction, decoding, bearer auth redaction, safe
     diagnostics, and unsupported API version rejection.
 
@@ -25,7 +25,7 @@ Last updated: 2026-05-20
   - Owner: Codex
   - Dependencies: ATI-010.
   - Scope:
-    - `apps/android/app/src/main/java/dev/taru/android/ui/browse/`
+    - `apps/android/app/src/main/java/dev/nako/android/ui/browse/`
     - focused browse session/navigation/data-source tests.
   - Validation:
     - `BrowseSession` opens, saves, restores, loads, retries, and backs out of
@@ -44,7 +44,7 @@ Last updated: 2026-05-20
   - Dependencies: ATI-020.
   - Scope:
     - relationship index screen family.
-    - `HomeScreen` and `TaruBrowseShell`.
+    - `HomeScreen` and `NakoBrowseShell`.
     - focused presentation tests where practical.
   - Validation:
     - UI reuses the proven relationship index screen shape.
@@ -53,7 +53,7 @@ Last updated: 2026-05-20
   - Evidence: screen implementation and unit gate.
     Completed on 2026-05-20:
     Home now exposes Tags next to Genres as a nested relationship index route.
-    `TaruBrowseShell` dispatches the Tags anchor through
+    `NakoBrowseShell` dispatches the Tags anchor through
     `BrowseAction.OpenRelationshipIndex(RelationshipIndexFamily.Tags)`, and the
     shared `RelationshipIndexRoute` uses family-aware copy and icons for both
     Genres and Tags. Focused host and relationship route tests passed, followed

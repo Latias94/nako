@@ -9,7 +9,7 @@ scan/probe, and can be ignored when the operator decides a failure is expected.
 
 ## Failure Model
 
-`taru-core::ingestion` defines:
+`nako-core::ingestion` defines:
 
 - `IngestionFailurePhase`: `scan` or `probe`;
 - `IngestionFailureClass`: storage, probe, database, invalid input,
@@ -52,7 +52,7 @@ HTTP:
 
 CLI:
 
-- `taru-server ingestion-failures --library-id <id>` lists open failures.
+- `nako-server ingestion-failures --library-id <id>` lists open failures.
 - `--phase scan|probe`, `--status open|resolved|ignored`, and `--all` narrow or
   broaden the query.
 

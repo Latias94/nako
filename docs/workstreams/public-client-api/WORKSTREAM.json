@@ -5,7 +5,7 @@
   "status": "completed",
   "updated": "2026-05-17",
   "scope_kind": "execution",
-  "problem": "Taru's useful client-facing browse and playback DTOs still live in the AGPL server adapter crate and directly expose server/internal domain types.",
+  "problem": "Nako's useful client-facing browse and playback DTOs still live in the AGPL server adapter crate and directly expose server/internal domain types.",
   "authoritative_docs": [
     {
       "role": "design",
@@ -24,17 +24,17 @@
     "cargo fmt --all -- --check",
     "cargo check --workspace --tests",
     "cargo nextest run --workspace --no-fail-fast",
-    "cargo tree -p taru-client-protocol",
+    "cargo tree -p nako-client-protocol",
     "git diff --check"
   ],
   "evidence": [
     "docs/adr/0022-keep-public-protocol-crates-permissive-while-server-crates-remain-agpl.md",
     "docs/workstreams/crate-boundary-hardening",
-    "crates/taru-client-protocol",
-    "crates/taru-api",
-    "crates/taru-server/src/app/catalog.rs",
-    "crates/taru-server/src/app/library.rs",
-    "crates/taru-server/src/app/playback"
+    "crates/nako-client-protocol",
+    "crates/nako-api",
+    "crates/nako-server/src/app/catalog.rs",
+    "crates/nako-server/src/app/library.rs",
+    "crates/nako-server/src/app/playback"
   ],
   "adr_refs": [
     "docs/adr/0022-keep-public-protocol-crates-permissive-while-server-crates-remain-agpl.md"

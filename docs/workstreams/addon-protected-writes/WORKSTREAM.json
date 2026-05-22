@@ -5,7 +5,7 @@
   "status": "completed",
   "updated": "2026-05-18",
   "scope_kind": "execution",
-  "problem": "Accepted Addon Side Effect intake records need a Taru-owned apply boundary before addons can perform concrete metadata, artwork, subtitle, NFO, or Library File Write changes.",
+  "problem": "Accepted Addon Side Effect intake records need a Nako-owned apply boundary before addons can perform concrete metadata, artwork, subtitle, NFO, or Library File Write changes.",
   "authoritative_docs": [
     {
       "role": "overview",
@@ -30,8 +30,8 @@
   ],
   "gates": [
     "rg -n \"side_effect|Addon Side Effect|metadata_write|artwork_write|subtitle_write|Canonical Metadata|Managed Artwork|Library File Write|NFO|subtitle|Source Locator\" crates docs",
-    "cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests",
-    "cargo nextest run -p taru-server addon_side_effect --no-fail-fast",
+    "cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests",
+    "cargo nextest run -p nako-server addon_side_effect --no-fail-fast",
     "cargo fmt --all -- --check",
     "git diff --check"
   ],
@@ -39,12 +39,12 @@
     "docs/workstreams/addon-protected-writes/DESIGN.md",
     "docs/workstreams/addon-protected-writes/TODO.md",
     "docs/workstreams/addon-token-grants-side-effects/EVIDENCE_AND_GATES.md",
-    "crates/taru-core/src/addon.rs",
-    "crates/taru-core/src/repository/addon.rs",
-    "crates/taru-db/src/addons.rs",
-    "crates/taru-server/src/app/addons.rs",
-    "crates/taru-server/src/http/addons.rs",
-    "crates/taru-api/src/extension.rs"
+    "crates/nako-core/src/addon.rs",
+    "crates/nako-core/src/repository/addon.rs",
+    "crates/nako-db/src/addons.rs",
+    "crates/nako-server/src/app/addons.rs",
+    "crates/nako-server/src/http/addons.rs",
+    "crates/nako-api/src/extension.rs"
   ],
   "adr_refs": [
     "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",

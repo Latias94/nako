@@ -15,7 +15,7 @@ XML walking with a `roxmltree` parser boundary.
 
 ## Code Changes
 
-- Added `crates/taru-server/src/app/runtime.rs` with `RuntimeSupervisor`,
+- Added `crates/nako-server/src/app/runtime.rs` with `RuntimeSupervisor`,
   shutdown token ownership, task diagnostics, cancellation, and panic
   accounting.
 - Routed library scan jobs, metadata refresh and maintenance jobs, metadata
@@ -24,7 +24,7 @@ XML walking with a `roxmltree` parser boundary.
 - Added `AddonAppService`, `AutomationAppService`, `WebhookAppService`,
   `CatalogAppService`, `LibraryAppService`, `StorageDiagnosticsAppService`,
   `MetadataAppService`, `NfoAppService`, `LibraryScanAppService`, and
-  `PlaybackAppService` as explicit service handles composed by `TaruApp`.
+  `PlaybackAppService` as explicit service handles composed by `NakoApp`.
 - Updated addon, automation, webhook, catalog, library, storage diagnostics,
   metadata, playback, and NFO HTTP handlers to call service handles instead of
   root-app convenience methods.
@@ -39,12 +39,12 @@ XML walking with a `roxmltree` parser boundary.
 - Changed CLI and app tests to use service handles directly, then removed the
   root-app forwarding methods for jobs, library scan, library administration,
   metadata, NFO, and playback workflows.
-- Added `roxmltree` to `taru-nfo` and replaced tag-search XML parsing helpers
+- Added `roxmltree` to `nako-nfo` and replaced tag-search XML parsing helpers
   with structured node traversal in `MovieNfoCodec`.
 
 ## Current Public Surface Audit
 
-`TaruApp` should continue moving toward a composition root. After this slice,
+`NakoApp` should continue moving toward a composition root. After this slice,
 it intentionally still owns:
 
 - startup and configured library validation;
@@ -53,7 +53,7 @@ it intentionally still owns:
   storage diagnostics, jobs, library scan/probe, metadata, NFO, and playback
   workflows.
 
-`TaruApp` no longer exposes workflow forwarding methods for scan, list, NFO,
+`NakoApp` no longer exposes workflow forwarding methods for scan, list, NFO,
 metadata, playback, or job reads. CLI, HTTP handlers, and app tests call the
 focused service handles directly.
 
@@ -79,9 +79,9 @@ Completed in this slice:
 
 - Catalog graph hydration no longer clears and writes credits, genres, tags,
   collections, studios, and images through a long app-level sequence.
-- `taru-catalog` builds a graph replacement value and delegates atomic writes
+- `nako-catalog` builds a graph replacement value and delegates atomic writes
   to the repository.
-- `taru-db` owns the SQLite transaction and SQL helper functions for the
+- `nako-db` owns the SQLite transaction and SQL helper functions for the
   replacement.
 
 Still pending:
@@ -89,7 +89,7 @@ Still pending:
 - App services still depend directly on `SqliteStore` in several places.
   This is intentionally server-local where the service composes multiple
   repository traits on SQLite; future alternate stores should introduce narrow
-  ports at the service boundary instead of re-expanding `TaruApp`.
+  ports at the service boundary instead of re-expanding `NakoApp`.
 
 ## Obsolete Helper Cleanup
 
@@ -112,22 +112,22 @@ Validated on this slice:
 ```powershell
 cargo fmt --all -- --check
 cargo check --workspace --tests
-cargo nextest run -p taru-server --no-fail-fast
-cargo nextest run -p taru-nfo --no-fail-fast
-cargo nextest run -p taru-catalog --no-fail-fast
-cargo nextest run -p taru-db catalog metadata scan --no-fail-fast
+cargo nextest run -p nako-server --no-fail-fast
+cargo nextest run -p nako-nfo --no-fail-fast
+cargo nextest run -p nako-catalog --no-fail-fast
+cargo nextest run -p nako-db catalog metadata scan --no-fail-fast
 cargo nextest run --workspace --no-fail-fast
 git diff --check
 ```
 
 Results:
 
-- `taru-server`: 90 tests passed.
-- `taru-server` focused metadata/playback/staging/storage/startup/HTTP suites:
+- `nako-server`: 90 tests passed.
+- `nako-server` focused metadata/playback/staging/storage/startup/HTTP suites:
   60 tests passed after service-handle migration.
-- `taru-nfo`: 7 tests passed after the structured parser migration.
-- `taru-catalog`: 2 tests passed.
-- `taru-db` focused suites: 9 tests passed.
+- `nako-nfo`: 7 tests passed after the structured parser migration.
+- `nako-catalog`: 2 tests passed.
+- `nako-db` focused suites: 9 tests passed.
 - Workspace: 229 tests passed.
 - `git diff --check`: passed; Git reported CRLF normalization warnings only.
 

@@ -5,7 +5,7 @@ Last updated: 2026-05-17
 
 ## Current State
 
-M33 is closed. `taru-api` now emits a dependency-free TypeScript/Web/CLI SDK
+M33 is closed. `nako-api` now emits a dependency-free TypeScript/Web/CLI SDK
 scaffold from the OpenAPI v1 contract, and tests cover public route inventory,
 auth/version/error/pagination runtime behavior, and admin/internal leakage
 rejection.

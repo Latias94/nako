@@ -15,7 +15,7 @@ ABI-specific.
 - Prefer running the existing UniFFI instrumentation smoke on an attached
   `arm64-v8a` device.
 - If no arm64 device is attached, verify the `arm64-v8a` debug APK packaging
-  contains both Taru's UniFFI library and JNA's Android dispatch library.
+  contains both Nako's UniFFI library and JNA's Android dispatch library.
 - Keep the evidence boundary explicit: packaging verification is not runtime
   execution on arm64.
 
@@ -30,7 +30,7 @@ ABI-specific.
 ## Architecture Direction
 
 This lane should not add another test when the existing
-`TaruUniFfiNativeSmokeTest` already exercises the right runtime seam. The only
+`NakoUniFfiNativeSmokeTest` already exercises the right runtime seam. The only
 new code, if needed, should be validation documentation or a tiny reusable
 packaging inspection script/task. Prefer Gradle/APK evidence over manual claims.
 
@@ -40,4 +40,4 @@ packaging inspection script/task. Prefer Gradle/APK evidence over manual claims.
   instrumentation test successfully.
 - If only x86_64 emulator is present, run arm64 packaging verification and
   record the runtime gap.
-- Keep focused ABI selection with `-PtaruRustAndroidAbis=arm64-v8a`.
+- Keep focused ABI selection with `-PnakoRustAndroidAbis=arm64-v8a`.

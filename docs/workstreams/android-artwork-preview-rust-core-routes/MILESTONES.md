@@ -18,8 +18,8 @@ Status: Complete.
 
 Exit criteria:
 
-- `taru-client-core` exposes selected artwork image request construction.
-- `taru-client-uniffi` exposes a thin FFI-safe binding.
+- `nako-client-core` exposes selected artwork image request construction.
+- `nako-client-uniffi` exposes a thin FFI-safe binding.
 - Rust tests cover encoded image ids, auth, safe preview redaction, and optional
   width/height query parameters.
 
@@ -41,7 +41,7 @@ Status: Complete.
 
 Exit criteria:
 
-- `TaruBrowseShellPreview` uses local preview route helpers instead of generated
+- `NakoBrowseShellPreview` uses local preview route helpers instead of generated
   SDK descriptors.
 - Dead generated descriptor adapter code is removed if no callers remain.
 - App `src/main` contains no generated route descriptor imports.

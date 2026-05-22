@@ -5,10 +5,10 @@ Last updated: 2026-05-18
 
 ## Why This Lane Exists
 
-The M5 Addon Protocol workstream lets Taru register and call HTTP Addon
-Sidecars, but it intentionally stops before allowing addons to mutate Taru
+The M5 Addon Protocol workstream lets Nako register and call HTTP Addon
+Sidecars, but it intentionally stops before allowing addons to mutate Nako
 state. ADR 0020 says addons may eventually perform strong side effects, but
-only through Taru-owned APIs, Addon Tokens, accepted permissions, library
+only through Nako-owned APIs, Addon Tokens, accepted permissions, library
 grants, audit, and resource boundaries.
 
 This lane is the focused ARF-006 follow-up. It replaces the broad Post-M5 TODO
@@ -23,17 +23,17 @@ entry in `addons-automation` with a durable execution lane.
 - `docs/workstreams/access-boundary-auth/`
 - `docs/workstreams/public-api-contract/`
 - `docs/workstreams/public-client-source-locator-redaction/`
-- `crates/taru-addon-protocol/`
-- `crates/taru-core/src/addon.rs`
-- `crates/taru-db/src/addons.rs`
-- `crates/taru-server/src/app/addons.rs`
-- `crates/taru-server/src/http/addons.rs`
+- `crates/nako-addon-protocol/`
+- `crates/nako-core/src/addon.rs`
+- `crates/nako-db/src/addons.rs`
+- `crates/nako-server/src/app/addons.rs`
+- `crates/nako-server/src/http/addons.rs`
 
 ## Problem
 
 Current addon registration stores manifests, enablement, base URLs, auth mode,
-and granted scope strings. That is enough for Taru-to-addon calls, but not
-enough for addon-to-Taru calls or protected writes.
+and granted scope strings. That is enough for Nako-to-addon calls, but not
+enough for addon-to-Nako calls or protected writes.
 
 The missing boundary has several risks:
 
@@ -42,20 +42,20 @@ The missing boundary has several risks:
   separated from runtime credentials.
 - Addon grants are not narrowed by Media Library, so an addon could become
   accidentally global.
-- Protected writes have no Taru-owned Addon Side Effect envelope, idempotency
+- Protected writes have no Nako-owned Addon Side Effect envelope, idempotency
   model, review/acceptance policy, audit trail, or safe error surface.
 - Metadata, artwork, subtitle, and Library File Write behavior could grow
   inconsistent one API at a time.
 
 ## Target State
 
-- Addon Tokens are issued by Taru, stored safely, revocable, and rotatable
+- Addon Tokens are issued by Nako, stored safely, revocable, and rotatable
   without changing addon registration identity.
 - Runtime token checks bind the caller to one addon registration, accepted
   Addon Permissions, and optional Library-Scoped Addon Grants.
-- Addon manifests can request permissions, but Taru stores accepted grants as
+- Addon manifests can request permissions, but Nako stores accepted grants as
   the authority for execution.
-- Addon Side Effects enter through a Taru-owned intake model that records actor,
+- Addon Side Effects enter through a Nako-owned intake model that records actor,
   target, permission, library scope, idempotency key, provenance, validation
   result, and audit state.
 - The first implementation slice can prove one safe side-effect path without
@@ -100,12 +100,12 @@ The missing boundary has several risks:
 
 Keep the trust boundary asymmetric:
 
-- Taru can call an Addon Sidecar through the existing bounded addon HTTP caller.
-- An Addon Sidecar can call Taru only with an Addon Token issued for one
+- Nako can call an Addon Sidecar through the existing bounded addon HTTP caller.
+- An Addon Sidecar can call Nako only with an Addon Token issued for one
   registered addon.
 - The token grants no admin identity. It resolves to an addon principal with
   accepted Addon Permissions and optional Media Library constraints.
-- Protected writes become Addon Side Effects. Taru validates target identity,
+- Protected writes become Addon Side Effects. Nako validates target identity,
   library scope, permission, idempotency, and storage/resource policy before
   committing any canonical metadata, Managed Artwork, subtitle, or Library File
   Write.

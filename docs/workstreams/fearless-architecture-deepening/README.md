@@ -8,7 +8,7 @@ M62 PostgreSQL Production Readiness.
 
 ## Purpose
 
-Taru already has a strong modular monolith foundation, but several high-leverage
+Nako already has a strong modular monolith foundation, but several high-leverage
 Modules need deeper Interfaces before future feature breadth hardens caller-side
 ordering and cross-domain coupling.
 
@@ -29,7 +29,7 @@ identity, hardware diagnostics, search semantics, and test-locality cleanup.
 
 - FAD-090 completed the final verification and closeout for M63.
 - Full workspace validation passed with 498 tests run and 19 skipped.
-- PostgreSQL opt-in contracts were not run because `TARU_TEST_POSTGRES_URL` was
+- PostgreSQL opt-in contracts were not run because `NAKO_TEST_POSTGRES_URL` was
   not available in this environment.
 
 ## Recommended Next Steps

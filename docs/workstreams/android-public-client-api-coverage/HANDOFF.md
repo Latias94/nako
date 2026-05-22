@@ -16,12 +16,12 @@ source probe facts separately from playback decision.
 
 ## Key Findings
 
-- Android is already wired to real Taru server interfaces for setup, browse,
+- Android is already wired to real Nako server interfaces for setup, browse,
   detail, search, genre/tag/person facet items, playback decision, stream
   targets, and playback session inspection/cancellation.
 - Android is not just a static demo. Production app wiring uses
-  `JdkTaruHttpTransport`, `TaruConnectionClient`, `TaruBrowseClient`, and
-  `TaruPlaybackClient`.
+  `JdkNakoHttpTransport`, `NakoConnectionClient`, `NakoBrowseClient`, and
+  `NakoPlaybackClient`.
 - Android consumes public selected artwork image refs through `GET
   /items/{item_id}/images`, item detail image refs, and authenticated
   `/images/{image_id}` requests rendered by Coil.
@@ -30,11 +30,11 @@ source probe facts separately from playback decision.
   rather than carrying authenticated artwork requests into playback launch
   state.
 - Android now consumes `GET /libraries/{library_id}` and
-  `GET /libraries/{library_id}/sources` through `TaruBrowseClient` and a
+  `GET /libraries/{library_id}/sources` through `NakoBrowseClient` and a
   Library Detail screen. The screen shows safe source inventory, not raw roots,
   source locators, or a fake media poster grid.
 - Android now consumes `GET /sources/{source_id}/probe` through
-  `TaruPlaybackClient.getSourceProbe`. Source Picker uses it for compact source
+  `NakoPlaybackClient.getSourceProbe`. Source Picker uses it for compact source
   facts and keeps `GET /sources/{source_id}/playback/decision` dedicated to
   playback launch decisions.
 - `HEAD /images/{image_id}` is intentionally deferred until explicit preflight

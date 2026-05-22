@@ -32,13 +32,13 @@ Last updated: 2026-05-21
 - [x] A64-030 [owner=codex] [deps=A64-020] [scope=apps/android,docs/workstreams/android-arm64-uniffi-release-smoke]
   Goal: Run connected UniFFI smoke on arm64 if possible; otherwise assemble and
   inspect arm64-v8a APK JNI contents.
-  Validation: preferred `apps/android/gradlew.bat -p apps/android :app:connectedDebugAndroidTest -PtaruRustAndroidAbis=arm64-v8a --no-daemon`; fallback `apps/android/gradlew.bat -p apps/android :app:assembleDebug -PtaruRustAndroidAbis=arm64-v8a --no-daemon` plus APK JNI inspection.
+  Validation: preferred `apps/android/gradlew.bat -p apps/android :app:connectedDebugAndroidTest -PnakoRustAndroidAbis=arm64-v8a --no-daemon`; fallback `apps/android/gradlew.bat -p apps/android :app:assembleDebug -PnakoRustAndroidAbis=arm64-v8a --no-daemon` plus APK JNI inspection.
   Review: Runtime and packaging evidence must be labeled separately.
   Evidence: `EVIDENCE_AND_GATES.md`
   Handoff: DONE. `arm64-v8a` debug APK builds and contains only arm64 JNI
-  entries, including `libtaru_client_uniffi.so` and `libjnidispatch.so`.
+  entries, including `libnako_client_uniffi.so` and `libjnidispatch.so`.
   The same APK/test APK pair was then installed on OPPO `PLG110`, and
-  `TaruUniFfiNativeSmokeTest` passed through Android instrumentation.
+  `NakoUniFfiNativeSmokeTest` passed through Android instrumentation.
 
 ## M3 — Closeout
 

@@ -19,12 +19,12 @@ Primary evidence:
 
 Status: completed.
 
-Outcome: `taru-api` can emit a dependency-free TypeScript SDK scaffold.
+Outcome: `nako-api` can emit a dependency-free TypeScript SDK scaffold.
 
 Exit criteria:
 
-- `cargo check -p taru-api --examples`
-- `cargo nextest run -p taru-api --no-fail-fast`
+- `cargo check -p nako-api --examples`
+- `cargo nextest run -p nako-api --no-fail-fast`
 
 ## M33.2 SDK Contract Smoke Checks
 
@@ -35,7 +35,7 @@ pagination support, and admin/internal leakage rejection.
 
 Exit criteria:
 
-- `cargo nextest run -p taru-api --no-fail-fast`
+- `cargo nextest run -p nako-api --no-fail-fast`
 
 ## M33.3 Docs And Closeout
 
@@ -49,7 +49,7 @@ Exit criteria:
 - `cargo fmt --all -- --check`
 - `cargo check --workspace --tests`
 - `cargo nextest run --workspace --no-fail-fast`
-- `cargo tree -p taru-client-protocol`
+- `cargo tree -p nako-client-protocol`
 - `git diff --check`
 - Workstream status is updated to completed.
 
@@ -57,5 +57,5 @@ Primary evidence:
 
 - `docs/api/HTTP_API.md`
 - `docs/workstreams/sdk-client-scaffold/EVIDENCE_AND_GATES.md`
-- `crates/taru-api/src/sdk.rs`
-- `crates/taru-api/examples/emit-typescript-sdk.rs`
+- `crates/nako-api/src/sdk.rs`
+- `crates/nako-api/examples/emit-typescript-sdk.rs`

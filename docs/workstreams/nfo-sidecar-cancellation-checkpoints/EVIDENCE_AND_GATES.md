@@ -6,10 +6,10 @@ Last updated: 2026-05-19
 ## Smallest Current Repro
 
 ```powershell
-$env:CARGO_TARGET_DIR='G:\taru-cargo-target'
+$env:CARGO_TARGET_DIR='G:\nako-cargo-target'
 $env:CARGO_BUILD_JOBS='2'
 $env:NEXTEST_TEST_THREADS='1'
-cargo nextest run -j 2 -p taru-nfo import --no-fail-fast
+cargo nextest run -j 2 -p nako-nfo import --no-fail-fast
 ```
 
 This starts from the current library import loop where every source is processed
@@ -20,26 +20,26 @@ without a per-sidecar cancellation checkpoint.
 ### NFO Crate Contract Gate
 
 ```powershell
-$env:CARGO_TARGET_DIR='G:\taru-cargo-target'
+$env:CARGO_TARGET_DIR='G:\nako-cargo-target'
 $env:CARGO_BUILD_JOBS='2'
 $env:NEXTEST_TEST_THREADS='1'
-cargo check -j 2 -p taru-nfo --tests
-cargo nextest run -j 2 -p taru-nfo nfo_service --no-fail-fast
+cargo check -j 2 -p nako-nfo --tests
+cargo nextest run -j 2 -p nako-nfo nfo_service --no-fail-fast
 ```
 
 Expected coverage:
 
-- checkpoint API compiles without a `taru-server` dependency;
+- checkpoint API compiles without a `nako-server` dependency;
 - no-op import/export paths preserve existing behavior;
 - cancelled outcome is distinct from service failure.
 
 ### Import Gate
 
 ```powershell
-$env:CARGO_TARGET_DIR='G:\taru-cargo-target'
+$env:CARGO_TARGET_DIR='G:\nako-cargo-target'
 $env:CARGO_BUILD_JOBS='2'
 $env:NEXTEST_TEST_THREADS='1'
-cargo nextest run -j 2 -p taru-nfo import --no-fail-fast
+cargo nextest run -j 2 -p nako-nfo import --no-fail-fast
 ```
 
 Expected coverage:
@@ -51,10 +51,10 @@ Expected coverage:
 ### Export Gate
 
 ```powershell
-$env:CARGO_TARGET_DIR='G:\taru-cargo-target'
+$env:CARGO_TARGET_DIR='G:\nako-cargo-target'
 $env:CARGO_BUILD_JOBS='2'
 $env:NEXTEST_TEST_THREADS='1'
-cargo nextest run -j 2 -p taru-nfo export --no-fail-fast
+cargo nextest run -j 2 -p nako-nfo export --no-fail-fast
 ```
 
 Expected coverage:
@@ -66,11 +66,11 @@ Expected coverage:
 ### Server Integration Gate
 
 ```powershell
-$env:CARGO_TARGET_DIR='G:\taru-cargo-target'
+$env:CARGO_TARGET_DIR='G:\nako-cargo-target'
 $env:CARGO_BUILD_JOBS='2'
 $env:NEXTEST_TEST_THREADS='1'
-cargo nextest run -j 2 -p taru-server nfo --no-fail-fast
-cargo nextest run -j 2 -p taru-server job_cancel --no-fail-fast
+cargo nextest run -j 2 -p nako-server nfo --no-fail-fast
+cargo nextest run -j 2 -p nako-server job_cancel --no-fail-fast
 ```
 
 Expected coverage:
@@ -83,9 +83,9 @@ Expected coverage:
 ### Cross-Crate Gate
 
 ```powershell
-$env:CARGO_TARGET_DIR='G:\taru-cargo-target'
+$env:CARGO_TARGET_DIR='G:\nako-cargo-target'
 $env:CARGO_BUILD_JOBS='2'
-cargo check -j 2 -p taru-core -p taru-db -p taru-nfo -p taru-server --tests
+cargo check -j 2 -p nako-core -p nako-db -p nako-nfo -p nako-server --tests
 ```
 
 ### Formatting And Static Gate
@@ -100,10 +100,10 @@ Get-Content docs\workstreams\nfo-sidecar-cancellation-checkpoints\WORKSTREAM.jso
 
 - `docs/workstreams/nfo-sidecar-cancellation-checkpoints/DESIGN.md`
 - `docs/workstreams/nfo-sidecar-cancellation-checkpoints/TODO.md`
-- `crates/taru-nfo/src/import.rs`
-- `crates/taru-nfo/src/export.rs`
-- `crates/taru-nfo/src/summary.rs`
-- `crates/taru-server/src/app/nfo.rs`
+- `crates/nako-nfo/src/import.rs`
+- `crates/nako-nfo/src/export.rs`
+- `crates/nako-nfo/src/summary.rs`
+- `crates/nako-server/src/app/nfo.rs`
 - `docs/api/HTTP_API.md`
 
 ## Current Evidence
@@ -111,7 +111,7 @@ Get-Content docs\workstreams\nfo-sidecar-cancellation-checkpoints\WORKSTREAM.jso
 - `NSCC-010`: Lane opened after `worker-job-cancellation-checkpoints` closeout
   split NFO per-sidecar cancellation into this follow-on. Fresh gates before
   commit: WORKSTREAM JSON parse and `git diff --check`.
-- `NSCC-020`: `crates/taru-nfo/src/summary.rs` defines redacted sidecar
+- `NSCC-020`: `crates/nako-nfo/src/summary.rs` defines redacted sidecar
   checkpoint and cancellation outcome types; import/export no-op wrappers keep
   existing callers on the original summary-returning APIs.
 - `NSCC-030`: `nfo_service_import_can_cancel_before_next_sidecar_without_failure`
@@ -129,23 +129,23 @@ Get-Content docs\workstreams\nfo-sidecar-cancellation-checkpoints\WORKSTREAM.jso
 All commands used low-concurrency settings:
 
 ```powershell
-$env:CARGO_TARGET_DIR='G:\taru-cargo-target'
+$env:CARGO_TARGET_DIR='G:\nako-cargo-target'
 $env:CARGO_BUILD_JOBS='2'
 $env:NEXTEST_TEST_THREADS='1'
 ```
 
-- `cargo check -j 2 -p taru-nfo --tests`: passed.
-- `cargo nextest run -j 2 -p taru-nfo nfo_service --no-fail-fast`: passed,
+- `cargo check -j 2 -p nako-nfo --tests`: passed.
+- `cargo nextest run -j 2 -p nako-nfo nfo_service --no-fail-fast`: passed,
   18 passed, 4 skipped.
-- `cargo nextest run -j 2 -p taru-nfo import --no-fail-fast`: passed, 6
+- `cargo nextest run -j 2 -p nako-nfo import --no-fail-fast`: passed, 6
   passed, 16 skipped.
-- `cargo nextest run -j 2 -p taru-nfo export --no-fail-fast`: passed, 7
+- `cargo nextest run -j 2 -p nako-nfo export --no-fail-fast`: passed, 7
   passed, 15 skipped.
-- `cargo nextest run -j 2 -p taru-server nfo --no-fail-fast`: passed, 11
+- `cargo nextest run -j 2 -p nako-server nfo --no-fail-fast`: passed, 11
   passed, 149 skipped.
-- `cargo nextest run -j 2 -p taru-server job_cancel --no-fail-fast`: passed,
+- `cargo nextest run -j 2 -p nako-server job_cancel --no-fail-fast`: passed,
   1 passed, 159 skipped.
-- `cargo check -j 2 -p taru-core -p taru-db -p taru-nfo -p taru-server --tests`:
+- `cargo check -j 2 -p nako-core -p nako-db -p nako-nfo -p nako-server --tests`:
   passed.
 - `cargo fmt --all -- --check`: passed.
 - `git diff --check`: passed with CRLF working-copy warnings only.

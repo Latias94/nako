@@ -5,7 +5,7 @@ Last updated: 2026-05-19
 
 ## Problem
 
-`TaruBrowseShell` still owns too much state and orchestration. It stores route
+`NakoBrowseShell` still owns too much state and orchestration. It stores route
 state, page state, selection state, search state, retry keys, source probe
 state, playback decision state, and playback-start orchestration directly in a
 Composable. Multiple `LaunchedEffect` blocks coordinate asynchronous work by
@@ -23,7 +23,7 @@ Media Source selection, User Playback State, and Playback Source Selection.
   - optional one-shot `BrowseEffect`,
   - a testable `BrowseSession` that owns state transitions and asynchronous
     orchestration.
-- Compose screens render state and dispatch actions. They do not call Taru
+- Compose screens render state and dispatch actions. They do not call Nako
   clients, read tokens, manage refresh counters, or construct playback launch
   requests.
 - Existing deep modules stay in place:
@@ -60,7 +60,7 @@ Media Source selection, User Playback State, and Playback Source Selection.
 ## Assumptions
 
 - Current Public Client API coverage remains the runtime source of truth.
-- `TaruBrowseNavigationState` is already a useful pure Kotlin route model and
+- `NakoBrowseNavigationState` is already a useful pure Kotlin route model and
   should be reused rather than replaced in this lane.
 - `output/` and `tmp/` are generated or local work directories and must remain
   untouched.
@@ -71,7 +71,7 @@ Media Source selection, User Playback State, and Playback Source Selection.
   Browse navigation, home/search/library/facet loading, Media Item Detail,
   source selection, source probe, playback decision, playback start, and Player
   route opening.
-- `TaruBrowseShell` now acts as the Compose adapter: it creates production
+- `NakoBrowseShell` now acts as the Compose adapter: it creates production
   adapters, observes session state, renders routes, and dispatches actions.
 - UI surfaces still receive access tokens where rendering or player routes need
   them. That is retained as presentation/runtime input, not state orchestration.

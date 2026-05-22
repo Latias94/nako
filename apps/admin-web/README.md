@@ -1,6 +1,6 @@
-# Taru Admin Web
+# Nako Admin Web
 
-This is the first real web app scaffold for Taru's administration console.
+This is the first real web app scaffold for Nako's administration console.
 It is intentionally separate from Rust server crates and from the Public
 Client SDK.
 
@@ -10,7 +10,7 @@ Client SDK.
 - Mock and planned data live under `src/adminApi/mockData.ts`.
 - The first live slice is `GET /admin/v1/overview`.
 - Build-time environment variables must not contain admin tokens or secrets.
-- `VITE_TARU_ADMIN_API_BASE_URL` may point to a local Taru server during
+- `VITE_NAKO_ADMIN_API_BASE_URL` may point to a local Nako server during
   development.
 
 Authentication is a follow-on Admin API/UI concern. Do not bake bearer tokens
@@ -28,9 +28,9 @@ npm run dev -- --host 127.0.0.1 --port 5174
 ```
 
 `npm run generate:admin-api` refreshes
-`src/adminApi/generated/contract.ts` from `taru-api`. Do not edit generated
+`src/adminApi/generated/contract.ts` from `nako-api`. Do not edit generated
 contract output by hand.
 
 The generated Admin API contract is intentionally app-local. It is not the
 Public Client TypeScript SDK in `sdk/typescript`, and Admin `/admin/v1/*`
-routes must not be added to `taru-client-protocol` public route inventory.
+routes must not be added to `nako-client-protocol` public route inventory.

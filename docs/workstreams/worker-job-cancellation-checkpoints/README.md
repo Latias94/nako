@@ -12,7 +12,7 @@ execution-time contract that typed workers can observe and acknowledge.
 cancelled immediately, running jobs can receive a cancel request, and only the
 owning run token may acknowledge terminal `cancelled`. This lane owns the next
 step: passing that cancel intent through `DurableJobRuntime` into real worker
-checkpoints without claiming process-kill or rollback semantics Taru does not
+checkpoints without claiming process-kill or rollback semantics Nako does not
 have.
 
 ## Goals
@@ -31,7 +31,7 @@ have.
 This lane closed after adding context-aware durable cancellation checkpoints to
 `DurableJobRuntime`, metadata maintenance, library scan/probe, and NFO
 import/export app boundaries. Remaining work is split by boundary type:
-per-sidecar NFO checkpoints need a `taru-nfo` service API; webhook/addon
+per-sidecar NFO checkpoints need a `nako-nfo` service API; webhook/addon
 dispatch, retry/backoff, expired-lease requeue/stealing, and child-process
 cancellation remain follow-ons.
 

@@ -5,7 +5,7 @@ Last updated: 2026-05-17
 
 ## Why This Lane Exists
 
-M33 proved that `taru-api` can emit a dependency-free TypeScript SDK scaffold,
+M33 proved that `nako-api` can emit a dependency-free TypeScript SDK scaffold,
 but the generated TypeScript was only protected by Rust-side string checks.
 M34 adds a real package and `tsc` gate so future Web and CLI clients can depend
 on a compile-checked API surface.
@@ -19,8 +19,8 @@ on a compile-checked API surface.
   - `docs/workstreams/sdk-client-scaffold/`
   - `docs/workstreams/openapi-client-contract/`
 - Code boundaries:
-  - `crates/taru-api/src/sdk.rs`
-  - `crates/taru-api/examples/emit-typescript-sdk.rs`
+  - `crates/nako-api/src/sdk.rs`
+  - `crates/nako-api/examples/emit-typescript-sdk.rs`
   - `sdk/typescript/`
 
 ## Starting Audit
@@ -47,7 +47,7 @@ on a compile-checked API surface.
 - Add `sdk/typescript/package.json`, `tsconfig.json`, README, and generated
   `src/index.ts`.
 - Add a Rust example or command path that writes the generated SDK to a file.
-- Fix the TypeScript runtime emitted by `taru-api` so strict compile succeeds.
+- Fix the TypeScript runtime emitted by `nako-api` so strict compile succeeds.
 - Add a Rust-side generation sync test or equivalent static check.
 - Update API, roadmap, goal, and workstream docs.
 
@@ -65,7 +65,7 @@ on a compile-checked API surface.
 Use `sdk/typescript` instead of `clients/typescript` because this lane creates
 a reusable SDK package, not a concrete application. Keep the generated SDK in
 `sdk/typescript/src/index.ts` so editors and consumers see the real API surface,
-but make the file explicitly generated and refreshable from `taru-api`.
+but make the file explicitly generated and refreshable from `nako-api`.
 
 TypeScript is a package-local dev dependency. `node_modules` stays ignored and
 uncommitted; `package-lock.json` is committed to pin the compile toolchain.
@@ -74,7 +74,7 @@ uncommitted; `package-lock.json` is committed to pin the compile toolchain.
 
 This lane can close when:
 
-- the package can regenerate its source from `taru-api`;
+- the package can regenerate its source from `nako-api`;
 - `npm run check --prefix sdk/typescript` passes;
 - Rust SDK generator tests still pass;
 - docs record the generation and compile commands;

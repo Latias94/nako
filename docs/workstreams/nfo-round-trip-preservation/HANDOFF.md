@@ -5,7 +5,7 @@ Last updated: 2026-05-17
 
 ## Current State
 
-M47 is complete. `taru-nfo` now has preservation-aware movie NFO rendering and
+M47 is complete. `nako-nfo` now has preservation-aware movie NFO rendering and
 forced export uses it when updating an existing sidecar.
 
 ## Implemented
@@ -13,7 +13,7 @@ forced export uses it when updating an existing sidecar.
 - `NfoCodec::render_preserving` is the update path for existing XML.
 - `MovieNfoCodec` preserves unknown top-level movie XML elements, comments,
   and processing instructions using parser source ranges.
-- Taru-owned movie fields are rendered from `NfoDocument`.
+- Nako-owned movie fields are rendered from `NfoDocument`.
 - Duplicate owned fields and release-date aliases are reported through
   `NfoPreservationReport`.
 - Forced export reads existing sidecar XML and uses preservation-aware output.
@@ -25,8 +25,8 @@ Passed:
 
 ```powershell
 cargo fmt --all -- --check
-cargo check -p taru-nfo --tests
-cargo nextest run -p taru-nfo --no-fail-fast
+cargo check -p nako-nfo --tests
+cargo nextest run -p nako-nfo --no-fail-fast
 cargo check --workspace --tests
 cargo nextest run --workspace --no-fail-fast
 ```

@@ -7,7 +7,7 @@ Last updated: 2026-05-19
 
 This lane is closed. The first Library File Write runtime behavior is now
 implemented: accepted MediaSource-targeted `library_file_write` side effects
-can request Taru-owned NFO Export without addon-supplied paths, Source
+can request Nako-owned NFO Export without addon-supplied paths, Source
 Locators, remote handles, backup URIs, or raw NFO payloads.
 
 The implementation uses a typed payload with `file_role: "nfo"` and policy
@@ -36,7 +36,7 @@ idempotent replay behavior.
 
 ## Decisions Since Last Update
 
-- Close ALFW after proving one Taru-owned Library File Write path instead of
+- Close ALFW after proving one Nako-owned Library File Write path instead of
   keeping all subtitle, NFO, sidecar, and queued execution breadth in one lane.
 - Keep the shipped path synchronous. `apply_status = applied` means the
   first-party NFO/VFS write completed, not merely that a job was queued.

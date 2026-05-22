@@ -9,8 +9,8 @@ The workstream is open from ARF-002 / ARF-040. MMP-020, MMP-030, and MMP-040
 are complete. MMP-050 closes the lane.
 
 The concrete risk is duplicated Canonical Metadata merge authority between
-`taru-metadata` and `taru-nfo`. The shared merge boundary now lives in
-`taru-core`.
+`nako-metadata` and `nako-nfo`. The shared merge boundary now lives in
+`nako-core`.
 
 ## Active Task
 
@@ -33,7 +33,7 @@ The concrete risk is duplicated Canonical Metadata merge authority between
 - Source-aware field locks are part of the behavior contract: a source should
   be able to refresh its own locked fields while respecting locks written by
   other sources.
-- The shared policy belongs in `taru-core` because it is pure Canonical
+- The shared policy belongs in `nako-core` because it is pure Canonical
   Metadata authority logic and avoids making NFO depend on metadata workflow
   implementation details.
 - Provider refresh intentionally still respects all locked fields; hierarchy

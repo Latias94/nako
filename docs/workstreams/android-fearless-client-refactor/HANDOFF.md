@@ -39,9 +39,9 @@ The full issue register is in `REFACTOR_REGISTER.md`.
 
 ## Completed In This Session
 
-- Added `apps/android/app/src/main/java/dev/taru/android/connection/PublicClientApiExecutor.kt`.
-- Migrated `TaruConnectionClient`, `TaruBrowseClient`, `TaruPlaybackClient`,
-  and `TaruUserPlaybackClient` to the shared executor.
+- Added `apps/android/app/src/main/java/dev/nako/android/connection/PublicClientApiExecutor.kt`.
+- Migrated `NakoConnectionClient`, `NakoBrowseClient`, `NakoPlaybackClient`,
+  and `NakoUserPlaybackClient` to the shared executor.
 - Centralized API-version checks, HTTP error handling, public error-envelope
   parsing, JSON decode failure mapping, transport failure mapping, safe request
   previews, bearer redaction, and path/query helper policy.
@@ -51,7 +51,7 @@ The full issue register is in `REFACTOR_REGISTER.md`.
   unsupported API versions are handled through the shared executor and remain
   token-safe.
 - Added `PlaybackRequestDescriptor` and migrated `PlaybackRequestTarget` plus
-  `PlaybackLaunchRequest` away from storing route-level raw `TaruHttpRequest`
+  `PlaybackLaunchRequest` away from storing route-level raw `NakoHttpRequest`
   values with bearer headers.
 - Moved playback Authorization construction to explicit final-request builders
   and the non-saveable Media3 runtime boundary.
@@ -73,11 +73,11 @@ The full issue register is in `REFACTOR_REGISTER.md`.
 - Added `ConnectionSecurityPolicy` and `CleartextHttpNotPermittedException`.
 - Removed `android:usesCleartextTraffic="true"` from the main manifest and
   moved cleartext opt-in to the debug manifest for local development.
-- Wired production `AndroidTaruAppEnvironmentFactory` and
-  `JdkTaruHttpTransport` through explicit security policy.
+- Wired production `AndroidNakoAppEnvironmentFactory` and
+  `JdkNakoHttpTransport` through explicit security policy.
 - Added connection tests for production cleartext rejection, explicit local
   development allowance, and final transport guard behavior.
-- Added debug/release `BuildConfig.TARU_ALLOW_CLEARTEXT_HTTP` wiring so debug
+- Added debug/release `BuildConfig.NAKO_ALLOW_CLEARTEXT_HTTP` wiring so debug
   builds explicitly allow local HTTP while release builds retain production
   cleartext denial.
 - Added shared browse paging helpers for `PageInfo.nextPageRequestOrNull`,
@@ -89,7 +89,7 @@ The full issue register is in `REFACTOR_REGISTER.md`.
   `ClientBrowseDataSource` for Search, relationship index, and facet routes.
 - Added regressions for Search, relationship index, and facet page appending
   using only server `limit`, `offset`, and `returned` semantics.
-- Added Android string resources plus `TaruStrings` indirection for stable
+- Added Android string resources plus `NakoStrings` indirection for stable
   common actions and labels: Back, Retry, Change server, Search, Load more,
   Copy diagnostics, server access key, and player session accessibility.
 - Rewrote visible copy away from protocol/internal terms such as API gaps,

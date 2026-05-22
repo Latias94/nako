@@ -25,9 +25,9 @@
   ],
   "validation_gates": [
     "Get-Content docs\\workstreams\\managed-artwork-module-deepening\\WORKSTREAM.json | ConvertFrom-Json | Out-Null",
-    "cargo check -j 2 -p taru-server -p taru-api --tests",
-    "cargo nextest run -j 2 -p taru-server managed_artwork_variant --no-fail-fast",
-    "cargo nextest run -j 2 -p taru-api managed_artwork_variant --no-fail-fast",
+    "cargo check -j 2 -p nako-server -p nako-api --tests",
+    "cargo nextest run -j 2 -p nako-server managed_artwork_variant --no-fail-fast",
+    "cargo nextest run -j 2 -p nako-api managed_artwork_variant --no-fail-fast",
     "git diff --check"
   ]
 }

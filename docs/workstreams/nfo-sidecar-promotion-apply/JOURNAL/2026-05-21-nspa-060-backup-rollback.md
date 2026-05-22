@@ -6,12 +6,12 @@
 - Slice: backup-backed export rollback after sidecar mutation and final audit
   failure.
 - Files:
-  - `crates/taru-vfs/src/lib.rs`
-  - `crates/taru-vfs/src/local.rs`
-  - `crates/taru-server/src/app/nfo.rs`
-  - `crates/taru-server/src/app/storage.rs`
-  - `crates/taru-server/src/app/tests/mod.rs`
-  - `crates/taru-server/src/app/tests/nfo.rs`
+  - `crates/nako-vfs/src/lib.rs`
+  - `crates/nako-vfs/src/local.rs`
+  - `crates/nako-server/src/app/nfo.rs`
+  - `crates/nako-server/src/app/storage.rs`
+  - `crates/nako-server/src/app/tests/mod.rs`
+  - `crates/nako-server/src/app/tests/nfo.rs`
   - workstream TODO, evidence, handoff, and `WORKSTREAM.json`
 
 ## Behavior Proven
@@ -34,19 +34,19 @@
 ## Validation
 
 ```powershell
-cargo nextest run -p taru-vfs local_backend_restore --no-fail-fast
-cargo nextest run -p taru-server nfo_sidecar_apply_export_audit_failure_restores_backup_and_records_rollback_complete --no-fail-fast
-cargo nextest run -p taru-server nfo_sidecar_apply_export_audit_failure_records_repair_pending_when_backup_restore_fails --no-fail-fast
+cargo nextest run -p nako-vfs local_backend_restore --no-fail-fast
+cargo nextest run -p nako-server nfo_sidecar_apply_export_audit_failure_restores_backup_and_records_rollback_complete --no-fail-fast
+cargo nextest run -p nako-server nfo_sidecar_apply_export_audit_failure_records_repair_pending_when_backup_restore_fails --no-fail-fast
 cargo fmt --all -- --check
-cargo nextest run -p taru-server nfo_sidecar_apply --no-fail-fast
-cargo nextest run -p taru-server nfo --no-fail-fast
-cargo nextest run -p taru-vfs --no-fail-fast
-cargo nextest run -p taru-nfo --no-fail-fast
-cargo nextest run -p taru-db nfo_sidecar_apply --no-fail-fast
-cargo check -p taru-server
+cargo nextest run -p nako-server nfo_sidecar_apply --no-fail-fast
+cargo nextest run -p nako-server nfo --no-fail-fast
+cargo nextest run -p nako-vfs --no-fail-fast
+cargo nextest run -p nako-nfo --no-fail-fast
+cargo nextest run -p nako-db nfo_sidecar_apply --no-fail-fast
+cargo check -p nako-server
 ```
 
-All commands passed. `cargo check -p taru-server` still reports existing
+All commands passed. `cargo check -p nako-server` still reports existing
 unrelated unused/dead-code warnings.
 
 ## Result

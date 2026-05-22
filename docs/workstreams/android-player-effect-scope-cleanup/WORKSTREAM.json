@@ -13,8 +13,8 @@
   },
   "paths": [
     "docs/workstreams/android-player-effect-scope-cleanup",
-    "apps/android/app/src/main/java/dev/taru/android/ui",
-    "apps/android/app/src/main/java/dev/taru/android/ui/screens/player",
-    "apps/android/app/src/test/java/dev/taru/android/ui/screens/player"
+    "apps/android/app/src/main/java/dev/nako/android/ui",
+    "apps/android/app/src/main/java/dev/nako/android/ui/screens/player",
+    "apps/android/app/src/test/java/dev/nako/android/ui/screens/player"
   ]
 }

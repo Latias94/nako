@@ -1,0 +1,61 @@
+services:
+  nako:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    image: nako-server:local
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NAKO_ADMIN_TOKEN: ${NAKO_ADMIN_TOKEN:?set NAKO_ADMIN_TOKEN}
+      NAKO_DATABASE_URL: postgres://nako:${NAKO_POSTGRES_PASSWORD:?set NAKO_POSTGRES_PASSWORD}@postgres:5432/nako
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - type: bind
+        source: ../container/postgres.nako.toml
+        target: /config/nako.toml
+        read_only: true
+        bind:
+          create_host_path: false
+      - nako-data:/data
+      - nako-cache:/cache
+      - type: bind
+        source: ${NAKO_MEDIA_ROOT:?set NAKO_MEDIA_ROOT}
+        target: /media/movies
+        read_only: true
+        bind:
+          create_host_path: false
+    entrypoint: ["/usr/bin/tini", "--"]
+    command:
+      - sh
+      - -c
+      - nako-server --config /config/nako.toml config-check --create-dirs && exec nako-server --config /config/nako.toml serve
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3000/health >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nako
+      POSTGRES_PASSWORD: ${NAKO_POSTGRES_PASSWORD:?set NAKO_POSTGRES_PASSWORD}
+      POSTGRES_DB: nako
+    volumes:
+      - nako-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nako -d nako"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  nako-data:
+  nako-cache:
+  nako-postgres-data:

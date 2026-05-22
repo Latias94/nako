@@ -14,12 +14,12 @@ Last updated: 2026-05-18
 
 ## M1 - Exposure Audit And Contract Decision
 
-- [x] PCLR-020 [owner=codex] [deps=PCLR-010] [scope=crates/taru-client-protocol,crates/taru-api,crates/taru-server/src/http,docs/api]
+- [x] PCLR-020 [owner=codex] [deps=PCLR-010] [scope=crates/nako-client-protocol,crates/nako-api,crates/nako-server/src/http,docs/api]
   Goal: Classify each raw locator exposure as Public Client, Admin API,
   internal execution, or test fixture, then choose the public replacement or
   redaction policy.
-  Validation: `rg "locator|input_locator" crates/taru-client-protocol
-  crates/taru-api crates/taru-server/src/http`; `git diff --check`.
+  Validation: `rg "locator|input_locator" crates/nako-client-protocol
+  crates/nako-api crates/nako-server/src/http`; `git diff --check`.
   Review: contract decision recorded; remove fields in PCLR-030.
   Evidence: audit notes in `EVIDENCE_AND_GATES.md`.
   Handoff: Public Client DTOs must remove raw source locator fields. Internal
@@ -28,20 +28,20 @@ Last updated: 2026-05-18
 
 ## M2 - Public DTO And Server Mapping
 
-- [x] PCLR-030 [owner=codex] [deps=PCLR-020] [scope=crates/taru-client-protocol,crates/taru-api,crates/taru-server/src/http/tests]
+- [x] PCLR-030 [owner=codex] [deps=PCLR-020] [scope=crates/nako-client-protocol,crates/nako-api,crates/nako-server/src/http/tests]
   Goal: Remove, replace, or redact public locator fields in protocol DTOs and
   server mapping while preserving internal storage/playback locators.
-  Validation: `cargo check -p taru-client-protocol --tests`; `cargo check -p
-  taru-api --tests`; focused `cargo nextest run -p taru-server
+  Validation: `cargo check -p nako-client-protocol --tests`; `cargo check -p
+  nako-api --tests`; focused `cargo nextest run -p nako-server
   <public-route-filter> --no-fail-fast`.
   Review: no blocking public contract or leakage findings in self-review.
   Evidence: route tests prove public JSON omits raw locators.
   Handoff: OpenAPI/SDK sync was completed alongside DTO removal because
-  `taru-api` validates generated client consistency.
+  `nako-api` validates generated client consistency.
 
 ## M3 - OpenAPI, SDK, And Docs Sync
 
-- [x] PCLR-040 [owner=codex] [deps=PCLR-030] [scope=crates/taru-api,sdk,docs/api]
+- [x] PCLR-040 [owner=codex] [deps=PCLR-030] [scope=crates/nako-api,sdk,docs/api]
   Goal: Update OpenAPI, SDK inventory/generation checks, and HTTP API docs to
   match the redacted Public Client contract.
   Validation: existing OpenAPI/SDK checks from client contract lanes; `cargo

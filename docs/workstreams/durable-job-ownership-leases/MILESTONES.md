@@ -36,7 +36,7 @@ Exit criteria:
 
 Primary gates:
 
-- `cargo check -p taru-core --tests`
+- `cargo check -p nako-core --tests`
 - `cargo fmt --all -- --check`
 
 ## M2 - Durable Schema And Repository Proof
@@ -52,8 +52,8 @@ Exit criteria:
 
 Primary gates:
 
-- `cargo nextest run -p taru-db job_lease --no-fail-fast`
-- `cargo nextest run -p taru-db job_cancel --no-fail-fast`
+- `cargo nextest run -p nako-db job_lease --no-fail-fast`
+- `cargo nextest run -p nako-db job_cancel --no-fail-fast`
 
 ## M3 - First Runtime Integration
 
@@ -71,8 +71,8 @@ Exit criteria:
 
 Primary gates:
 
-- `cargo nextest run -p taru-server job_runtime --no-fail-fast`
-- `cargo nextest run -p taru-server startup --no-fail-fast`
+- `cargo nextest run -p nako-server job_runtime --no-fail-fast`
+- `cargo nextest run -p nako-server startup --no-fail-fast`
 
 ## M4 - Truthful Cancel Request Controls
 
@@ -92,8 +92,8 @@ Exit criteria:
 
 Primary gates:
 
-- `cargo nextest run -p taru-server job_cancel --no-fail-fast`
-- `cargo check -p taru-api -p taru-server --tests`
+- `cargo nextest run -p nako-server job_cancel --no-fail-fast`
+- `cargo check -p nako-api -p nako-server --tests`
 
 ## M5 - Closeout Or Split
 

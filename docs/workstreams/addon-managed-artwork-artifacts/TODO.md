@@ -13,12 +13,12 @@ Last updated: 2026-05-19
 
 ## M1 - Artwork Seam Audit
 
-- [x] AMAA-020 [owner=codex] [deps=AMAA-010] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-api,crates/taru-vfs,docs]
+- [x] AMAA-020 [owner=codex] [deps=AMAA-010] [scope=crates/nako-core,crates/nako-db,crates/nako-server,crates/nako-api,crates/nako-vfs,docs]
   Goal: Audit current artwork, artifact, storage/VFS, catalog image hydration,
   and Addon Side Effect seams; choose the first bounded `artwork_write` target.
-  Validation: `rg -n "artwork|ImageAsset|ArtworkTask|Managed Artwork|Taru-Managed Artifact|artwork_write|thumbnail|cache_uri|source_uri" crates docs`; `git diff --check`.
+  Validation: `rg -n "artwork|ImageAsset|ArtworkTask|Managed Artwork|Nako-Managed Artifact|artwork_write|thumbnail|cache_uri|source_uri" crates docs`; `git diff --check`.
   Review: decide whether first apply should create Artwork Candidates, import
-  Managed Artwork, or create Taru-Managed Artifacts. If catalog-visible artwork
+  Managed Artwork, or create Nako-Managed Artifacts. If catalog-visible artwork
   state needs multiple durable writes, introduce or reuse a first-party artwork
   commit boundary instead of placing write ordering in the Addon handler.
   Evidence: audit notes in `EVIDENCE_AND_GATES.md`; `DESIGN.md` selected
@@ -29,12 +29,12 @@ Last updated: 2026-05-19
 
 ## M2 - First Artwork Apply Slice
 
-- [x] AMAA-030 [owner=codex] [deps=AMAA-020] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-api,crates/taru-vfs,docs/api]
+- [x] AMAA-030 [owner=codex] [deps=AMAA-020] [scope=crates/nako-core,crates/nako-db,crates/nako-server,crates/nako-api,crates/nako-vfs,docs/api]
   Goal: Implement the smallest safe `artwork_write` apply path selected by
   AMAA-020: a MediaItem-targeted Addon Artwork Candidate proposal that records
   addon artwork intent without exposing raw source details as public client
   artwork.
-  Validation: focused artwork/addon tests; `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests`; `cargo fmt --all -- --check`; `git diff --check`.
+  Validation: focused artwork/addon tests; `cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-vfs --tests`; `cargo fmt --all -- --check`; `git diff --check`.
   Review: verify no response exposes raw payload, Source Locators, filesystem
   paths, remote storage handles, or unsafe provider hotlinks as client artwork.
   Route any sidecar-file export behavior to
@@ -58,4 +58,4 @@ Last updated: 2026-05-19
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`.
   Handoff: Lane is closed. Continue with
   `managed-artwork-ingest-selection` when the next product priority is
-  accepting candidates into Taru-managed cached/selected public artwork.
+  accepting candidates into Nako-managed cached/selected public artwork.

@@ -29,8 +29,8 @@ parse checks, focused connection UI unit tests, and `git diff --check` passed.
   in JUnit output.
 - CI upload/artifact retention and golden visual diffing stay out of scope.
 - `report.junit.xml` is the committed contract name for generated JUnit XML.
-- Smoke suite name is `taru.android.smoke-regression`.
-- Local validation suite name is `taru.android.local-validation`.
+- Smoke suite name is `nako.android.smoke-regression`.
+- Local validation suite name is `nako.android.local-validation`.
 - Smoke JUnit includes `step.android-build` and `state.<state-name>`
   testcases.
 - Local validation JUnit includes `step.android-unit-tests`,

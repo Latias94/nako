@@ -16,7 +16,7 @@ Closed.
 - `ArtworkRequestResolver` now hides token-backed artwork request creation from
   Home, Libraries, and Media Item Detail visual APIs.
 - `PlayerRouteRenderer` now hides concrete player route dependencies from
-  `TaruBrowseShell`.
+  `NakoBrowseShell`.
 - Player lifecycle ownership remains explicitly reserved for
   `android-player-session-architecture`.
 - Final gates passed on 2026-05-20:

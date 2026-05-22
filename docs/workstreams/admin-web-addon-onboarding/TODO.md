@@ -8,7 +8,7 @@ Last updated: 2026-05-22
 - [x] AWAON-010 [owner=codex] [deps=none] [scope=docs/workstreams/admin-web-addon-onboarding, docs/GOALS.md, docs/ROADMAP.md, docs/workstreams/README.md]
   Goal: Open the workstream, record the product boundary, and define the first
   executable onboarding slice.
-  Validation: workstream docs use Taru Addon terms from `CONTEXT.md`; no
+  Validation: workstream docs use Nako Addon terms from `CONTEXT.md`; no
   lifecycle automation or URL fetch is included in scope.
   Evidence: this workstream and top-level tracker updates.
   Handoff: Continue with AWAON-020.
@@ -52,8 +52,8 @@ Last updated: 2026-05-22
 - [x] AWAON-050 [owner=codex] [deps=AWAON-040] [scope=docs/workstreams/admin-web-addon-onboarding]
   Goal: Close the workstream with fresh evidence, update trackers, and record
   next recommended goal.
-  Validation: `cargo fmt --all -- --check`, `cargo nextest run -p taru-api
-  admin_contract --no-fail-fast`, `cargo check -p taru-api -p taru-server
+  Validation: `cargo fmt --all -- --check`, `cargo nextest run -p nako-api
+  admin_contract --no-fail-fast`, `cargo check -p nako-api -p nako-server
   --tests`, `npm run check`, `npm test`, `npm run build`, and
   `git diff --check`.
   Evidence: `EVIDENCE_AND_GATES.md`, `MILESTONES.md`, `HANDOFF.md`, close

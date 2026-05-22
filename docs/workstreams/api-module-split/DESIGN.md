@@ -1,11 +1,11 @@
-# taru-api Module Split Design
+# nako-api Module Split Design
 
 Status: Completed
 Last updated: 2026-05-17
 
 ## Problem
 
-`crates/taru-api/src/lib.rs` mixes several different surfaces:
+`crates/nako-api/src/lib.rs` mixes several different surfaces:
 
 - stable Public Client API protocol re-exports and server-to-client DTO
   adapters;
@@ -14,14 +14,14 @@ Last updated: 2026-05-17
 - metadata provider diagnostics and maintenance request/response DTOs;
 - extension surfaces for webhooks, automation providers, and addons.
 
-`taru-client-protocol` already owns the permissive Public Client API wire types.
-Keeping every adapter and internal DTO in the `taru-api` crate root makes it
+`nako-client-protocol` already owns the permissive Public Client API wire types.
+Keeping every adapter and internal DTO in the `nako-api` crate root makes it
 harder to see which symbols are stable public client contract and which symbols
 are server/admin integration details.
 
 ## Target State
 
-`taru-api` stays the AGPL server adapter/schema aggregation crate, but its crate
+`nako-api` stays the AGPL server adapter/schema aggregation crate, but its crate
 root becomes a compatibility facade:
 
 - `public_client`: Public Client protocol re-exports and server model mapping
@@ -37,16 +37,16 @@ server call-site churn at the same time as the module split.
 
 ## Scope
 
-- Split `crates/taru-api/src/lib.rs` into explicit modules.
+- Split `crates/nako-api/src/lib.rs` into explicit modules.
 - Preserve root-level re-exports for existing callers.
 - Preserve OpenAPI JSON and TypeScript SDK output.
 - Preserve Public Client API JSON shapes and existing HTTP behavior.
-- Move `taru-api` unit tests out of the crate root if useful.
+- Move `nako-api` unit tests out of the crate root if useful.
 - Update `docs/GOALS.md` and workstream evidence.
 
 ## Non-goals
 
-- No DTO ownership migration into `taru-client-protocol`.
+- No DTO ownership migration into `nako-client-protocol`.
 - No new HTTP routes, route renames, or JSON shape changes.
 - No OpenAPI contract expansion.
 - No SDK generation behavior change.
@@ -59,11 +59,11 @@ server call-site churn at the same time as the module split.
 The module split is a locality refactor, not a contract redesign. The deeper
 contract boundary remains:
 
-- permissive `taru-client-protocol`: stable Public Client wire types and route
+- permissive `nako-client-protocol`: stable Public Client wire types and route
   inventory;
-- AGPL `taru-api`: server model adapters, admin/internal DTOs, OpenAPI and SDK
+- AGPL `nako-api`: server model adapters, admin/internal DTOs, OpenAPI and SDK
   generation;
-- AGPL `taru-server`: route wiring, app orchestration, and behavior.
+- AGPL `nako-server`: route wiring, app orchestration, and behavior.
 
 Follow-on work may update server call sites to import from specific modules
 once the compatibility facade is proven.

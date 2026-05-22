@@ -2,7 +2,7 @@
 
 ## M5.0: Extension and Automation Design Baseline
 
-Outcome: Taru has a documented execution plan for events, webhooks,
+Outcome: Nako has a documented execution plan for events, webhooks,
 automation, addons, provider secrets, resource budgets, and trust boundaries.
 
 Status: completed.
@@ -23,15 +23,15 @@ Exit criteria:
 
 ## M5.1: Event Outbox Foundation
 
-Outcome: Taru can persist domain events and query outbox state, but does not
+Outcome: Nako can persist domain events and query outbox state, but does not
 deliver webhooks yet.
 
 Status: completed.
 
 Deliverables:
 
-- Event domain model and event type registry in `taru-core`.
-- SQLite event outbox migration in `taru-db`.
+- Event domain model and event type registry in `nako-core`.
+- SQLite event outbox migration in `nako-db`.
 - Repository trait and SQLite implementation.
 - Event write points for scan, metadata refresh, NFO import/export, and
   playback session completion.
@@ -47,7 +47,7 @@ Exit criteria:
 
 ## M5.2: Webhook Delivery Worker
 
-Outcome: Taru can deliver selected outbox events to configured webhook
+Outcome: Nako can deliver selected outbox events to configured webhook
 endpoints through bounded workers.
 
 Status: completed.
@@ -71,7 +71,7 @@ Exit criteria:
 
 ## M5.3: Automation Job Model
 
-Outcome: Taru can run explicit external automation jobs, such as
+Outcome: Nako can run explicit external automation jobs, such as
 recommendation, metadata cleanup, summary generation, or title matching.
 
 Status: completed.
@@ -94,7 +94,7 @@ Exit criteria:
 
 ## M5.4: Addon Manifest and Resource Contract
 
-Outcome: Taru can register and validate an HTTP addon manifest and define the
+Outcome: Nako can register and validate an HTTP addon manifest and define the
 first addon resource envelopes.
 
 Status: completed.
@@ -110,7 +110,7 @@ Deliverables:
 Exit criteria:
 
 - Addons are disabled by default and require explicit enablement.
-- Taru can validate manifest resources and scopes before making calls.
+- Nako can validate manifest resources and scopes before making calls.
 - Handler code remains thin and does not embed addon HTTP behavior directly.
 
 ## M5.5: Reference Addon and Stabilization

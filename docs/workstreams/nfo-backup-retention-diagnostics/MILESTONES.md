@@ -19,12 +19,12 @@ Exit criteria:
 Exit criteria:
 
 - Storage backup request/report types can express keep-latest retention.
-- `LocalFsBackend` prunes only Taru-created backups for the same sidecar.
+- `LocalFsBackend` prunes only Nako-created backups for the same sidecar.
 - Pruning keeps the newest configured backups and preserves unrelated files.
 - Pruning failures are explicit diagnostics.
 
 Status: completed. `StorageBackupPolicy` carries retention, local pruning is
-same-sidecar and Taru-prefix constrained, and tests cover success,
+same-sidecar and Nako-prefix constrained, and tests cover success,
 zero-retention, unrelated-file preservation, and prune failure reporting.
 
 ## M2 - NFO Diagnostics
@@ -45,18 +45,18 @@ Exit criteria:
 
 - Admin-facing diagnostics are inspectable through existing job summary or
   admin-only DTOs.
-- `taru-client-protocol` remains unchanged.
+- `nako-client-protocol` remains unchanged.
 - Public client route inventory remains clean if API modules are touched.
 
 Status: completed. Existing admin job summaries preserve NFO retention
-diagnostics, public OpenAPI inventory remains clean, and `taru-client-protocol`
+diagnostics, public OpenAPI inventory remains clean, and `nako-client-protocol`
 has no diff.
 
 ## M4 - Closeout
 
 Exit criteria:
 
-- Focused `taru-vfs` and `taru-nfo` checks and tests pass.
+- Focused `nako-vfs` and `nako-nfo` checks and tests pass.
 - Workspace checks and nextest pass.
 - `git diff --check` has no whitespace errors.
 - `docs/GOALS.md`, `EVIDENCE_AND_GATES.md`, and `HANDOFF.md` record M50

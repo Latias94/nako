@@ -11,7 +11,7 @@ workflow crates still depend on broad repository trait combinations. A caller
 that wants catalog hydration or metadata refresh often has to satisfy several
 low-level repository traits, even when it only wants one workflow.
 
-The problem is not that Taru has too many traits. The problem is that some
+The problem is not that Nako has too many traits. The problem is that some
 traits are shallow from a workflow caller's point of view: the interface exposes
 many persistence details instead of one use-case-shaped port.
 
@@ -20,10 +20,10 @@ many persistence details instead of one use-case-shaped port.
 - Workflow crates use narrow ports named after real workflows.
 - The first slice extracts `CatalogHydrationPort` for catalog hydration and
   search projection.
-- `taru-metadata` and `taru-nfo` call catalog hydration through the workflow
+- `nako-metadata` and `nako-nfo` call catalog hydration through the workflow
   port instead of requiring the full `CatalogRepository + MediaRepository +
   SearchIndex` combination at each caller.
-- SQLite integration remains in `taru-db`; schema stays unchanged.
+- SQLite integration remains in `nako-db`; schema stays unchanged.
 - Tests distinguish pure workflow behavior from SQLite adapter behavior.
 
 ## In Scope

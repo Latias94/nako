@@ -6,11 +6,11 @@ Last updated: 2026-05-19
 ## Evidence Anchors
 
 - Public route authority: `docs/api/HTTP_API.md`
-- Android connection client: `apps/android/app/src/main/java/dev/taru/android/connection/TaruConnectionClient.kt`
-- Android browse client: `apps/android/app/src/main/java/dev/taru/android/browse/TaruBrowseClient.kt`
-- Android playback client: `apps/android/app/src/main/java/dev/taru/android/playback/TaruPlaybackClient.kt`
-- Android DTO mirrors: `apps/android/app/src/main/java/dev/taru/android/browse/BrowseModels.kt`
-- Public SDK route evidence: `crates/taru-client/src/lib.rs`, `sdk/typescript/src/index.ts`
+- Android connection client: `apps/android/app/src/main/java/dev/nako/android/connection/NakoConnectionClient.kt`
+- Android browse client: `apps/android/app/src/main/java/dev/nako/android/browse/NakoBrowseClient.kt`
+- Android playback client: `apps/android/app/src/main/java/dev/nako/android/playback/NakoPlaybackClient.kt`
+- Android DTO mirrors: `apps/android/app/src/main/java/dev/nako/android/browse/BrowseModels.kt`
+- Public SDK route evidence: `crates/nako-client/src/lib.rs`, `sdk/typescript/src/index.ts`
 
 ## APIC-010 Evidence
 
@@ -21,8 +21,8 @@ Commands and reads:
 ```powershell
 git merge main
 git status --short --branch
-rg -n "^##|^###|GET /|POST /|PUT /|DELETE /|PATCH /|/health|/libraries|/items|/sources|/playback|/people|/tags|/genres|/admin|artwork|artifact" docs/api apps/android/app/src/main/java/dev/taru/android -g '*.md' -g '*.kt'
-rg -n "fun .*\\(|suspend fun|/images|playback|libraries|items|people|tags|genres|search|source probe|probe" crates/taru-client sdk/typescript/src/index.ts crates/taru-api -g '*.rs' -g '*.ts'
+rg -n "^##|^###|GET /|POST /|PUT /|DELETE /|PATCH /|/health|/libraries|/items|/sources|/playback|/people|/tags|/genres|/admin|artwork|artifact" docs/api apps/android/app/src/main/java/dev/nako/android -g '*.md' -g '*.kt'
+rg -n "fun .*\\(|suspend fun|/images|playback|libraries|items|people|tags|genres|search|source probe|probe" crates/nako-client sdk/typescript/src/index.ts crates/nako-api -g '*.rs' -g '*.ts'
 ```
 
 Findings:
@@ -47,10 +47,10 @@ Implementation:
 
 - Added Android `PublicImageRefDto` and `ImagesResponse` mirrors for the current
   Public Client API selected artwork contract.
-- Added `TaruBrowseClient.itemImages` for `GET /items/{item_id}/images`.
+- Added `NakoBrowseClient.itemImages` for `GET /items/{item_id}/images`.
 - Added `PublicArtworkSource` and `PublicArtworkRequest` to build authenticated
   `/images/{image_id}` requests scoped to the active server profile.
-- Added Coil 3.3.0 Compose/OkHttp dependencies and `TaruArtworkImage` for
+- Added Coil 3.3.0 Compose/OkHttp dependencies and `NakoArtworkImage` for
   authenticated Compose image loading with fallback.
 - Home and Libraries enrich the visible item page with best-effort public image
   refs. Detail renders selected backdrop/poster artwork from item detail image
@@ -135,12 +135,12 @@ Implementation:
 
 - Added Android DTOs for `LibraryResponse`, `LibrarySourcesResponse`, and
   `LibrarySourceResponse`.
-- Added `TaruBrowseClient.libraryDetail` and
-  `TaruBrowseClient.librarySources`.
+- Added `NakoBrowseClient.libraryDetail` and
+  `NakoBrowseClient.librarySources`.
 - Added `LibraryDetailRouteContent` with library summary and safe source
   inventory.
-- Added route-stack and save/restore support for `TaruRoute.LibraryDetail`.
-- Moved media probe DTOs into a shared `dev.taru.android.media` package so
+- Added route-stack and save/restore support for `NakoRoute.LibraryDetail`.
+- Moved media probe DTOs into a shared `dev.nako.android.media` package so
   browse and playback can both consume public probe facts without a package
   dependency in the wrong direction.
 - Redacted `LibraryDto.toString` roots and `MediaSourceDto.toString` locators
@@ -186,7 +186,7 @@ Decision:
 Implementation:
 
 - Added `SourceProbeResponse` to the shared Android media DTO package.
-- Added `TaruPlaybackClient.getSourceProbe` for
+- Added `NakoPlaybackClient.getSourceProbe` for
   `/sources/{source_id}/probe`, including blank-source local failure and safe
   request previews.
 - Split Source Picker state so selecting a Media Source loads source facts,

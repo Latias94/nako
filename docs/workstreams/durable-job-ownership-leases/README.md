@@ -5,7 +5,7 @@ Last updated: 2026-05-19
 
 ## Purpose
 
-Taru now has durable job rows, a runtime supervisor, Admin job read models, and
+Nako now has durable job rows, a runtime supervisor, Admin job read models, and
 an opt-in Managed Artwork ingest worker. The remaining correctness gap is
 durable ownership: a job can be marked `running`, but the database cannot say
 which worker owns it, whether the ownership lease is still valid, or whether an
@@ -21,7 +21,7 @@ truthful cancellation controls.
 - Add lease and heartbeat semantics that make stale running jobs recoverable
   without failing queued work.
 - Model cancellation as a durable request that a worker must observe at a
-  checkpoint before Taru reports the job as cancelled.
+  checkpoint before Nako reports the job as cancelled.
 - Keep per-job-kind execution typed; the shared layer owns lifecycle mechanics,
   not domain side effects.
 - Keep Admin responses redacted: no raw job inputs, summaries, errors, source
@@ -29,7 +29,7 @@ truthful cancellation controls.
 
 ## Non-Goals
 
-- Distributed scheduling across multiple Taru server processes in the first
+- Distributed scheduling across multiple Nako server processes in the first
   slice.
 - Automatic retry or backoff policy.
 - Migrating every job kind in one pass.
@@ -51,7 +51,7 @@ truthful cancellation controls.
 
 ## Current Slice
 
-This lane is closed. Taru now has durable job ownership leases, heartbeats,
+This lane is closed. Nako now has durable job ownership leases, heartbeats,
 run-token fenced completion/failure, lease-aware recovery, a shared leased
 `DurableJobRuntime` path, and a truthful redacted Admin cancel-request route.
 Worker-side cancellation checkpoints, broader worker migrations, retry/backoff,

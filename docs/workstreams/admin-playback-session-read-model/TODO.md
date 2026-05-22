@@ -13,19 +13,19 @@ Last updated: 2026-05-18
 
 ## APS.1 Session List Read Model
 
-- [x] APS-020 [owner=codex] [deps=APS-010] [scope=crates/taru-core/src/repository/transcode.rs,crates/taru-db/src/playback.rs,crates/taru-db/src/tests.rs]
+- [x] APS-020 [owner=codex] [deps=APS-010] [scope=crates/nako-core/src/repository/transcode.rs,crates/nako-db/src/playback.rs,crates/nako-db/src/tests.rs]
   Goal: Add transcode session list/filter repository support.
-  Validation: `cargo check -p taru-db --tests`, focused `taru-db` playback
+  Validation: `cargo check -p nako-db --tests`, focused `nako-db` playback
   tests.
   Evidence: `TranscodeSessionListFilter`, SQLite list/filter implementation,
   and `sqlite_store_lists_transcode_sessions_with_filters_and_pagination`.
   Handoff: No schema migration was needed.
 
-- [x] APS-030 [owner=codex] [deps=APS-020] [scope=crates/taru-api/src/admin.rs,crates/taru-server/src/app/playback/mod.rs,crates/taru-server/src/http/admin.rs,crates/taru-server/src/http/query.rs,crates/taru-server/src/http/tests]
+- [x] APS-030 [owner=codex] [deps=APS-020] [scope=crates/nako-api/src/admin.rs,crates/nako-server/src/app/playback/mod.rs,crates/nako-server/src/http/admin.rs,crates/nako-server/src/http/query.rs,crates/nako-server/src/http/tests]
   Goal: Add `GET /admin/v1/playback/sessions` with admin-owned redacted DTOs.
-  Validation: `cargo check -p taru-api --tests`, `cargo nextest run -p
-  taru-api --no-fail-fast`, `cargo check -p taru-server --tests`, focused
-  `taru-server` admin HTTP tests, public OpenAPI/SDK leakage checks.
+  Validation: `cargo check -p nako-api --tests`, `cargo nextest run -p
+  nako-api --no-fail-fast`, `cargo check -p nako-server --tests`, focused
+  `nako-server` admin HTTP tests, public OpenAPI/SDK leakage checks.
   Evidence: `AdminPlaybackSessionListItem`, `GET
   /admin/v1/playback/sessions`, route tests covering filtering, redaction, and
   auth protection.

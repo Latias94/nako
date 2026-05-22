@@ -32,11 +32,11 @@ backend-local file path.
 
 ## Validation
 
-- `cargo test -p taru-vfs webdav_backend_reads_byte_ranges_with_http_range_header`
-- `cargo test -p taru-vfs webdav_backend_stages_file_to_deterministic_local_path`
-- `cargo test -p taru-server direct_play_uses_vfs_bytes_when_backend_has_no_local_path`
-- `cargo test -p taru-server ffmpeg_source_path_stages_remote_backend_without_local_path_hint`
-- `cargo test -p taru-server ffmpeg_source_path_reuses_local_path_hint_without_staging`
+- `cargo test -p nako-vfs webdav_backend_reads_byte_ranges_with_http_range_header`
+- `cargo test -p nako-vfs webdav_backend_stages_file_to_deterministic_local_path`
+- `cargo test -p nako-server direct_play_uses_vfs_bytes_when_backend_has_no_local_path`
+- `cargo test -p nako-server ffmpeg_source_path_stages_remote_backend_without_local_path_hint`
+- `cargo test -p nako-server ffmpeg_source_path_reuses_local_path_hint_without_staging`
 
 ## Boundary Notes
 

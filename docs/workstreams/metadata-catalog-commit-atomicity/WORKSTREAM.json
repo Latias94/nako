@@ -29,20 +29,20 @@
     }
   ],
   "gates": [
-    "cargo check -p taru-catalog --tests",
-    "cargo nextest run -p taru-catalog --no-fail-fast",
-    "cargo check -p taru-db --tests",
-    "targeted cargo nextest run -p taru-db <filter>",
+    "cargo check -p nako-catalog --tests",
+    "cargo nextest run -p nako-catalog --no-fail-fast",
+    "cargo check -p nako-db --tests",
+    "targeted cargo nextest run -p nako-db <filter>",
     "cargo fmt --all -- --check",
     "git diff --check"
   ],
   "evidence": [
-    "crates/taru-core/src/repository/catalog.rs",
-    "crates/taru-core/src/repository/metadata.rs",
-    "crates/taru-catalog/src/lib.rs",
-    "crates/taru-db/src/catalog.rs",
-    "crates/taru-db/src/metadata.rs",
-    "crates/taru-db/src/search.rs"
+    "crates/nako-core/src/repository/catalog.rs",
+    "crates/nako-core/src/repository/metadata.rs",
+    "crates/nako-catalog/src/lib.rs",
+    "crates/nako-db/src/catalog.rs",
+    "crates/nako-db/src/metadata.rs",
+    "crates/nako-db/src/search.rs"
   ],
   "adr_refs": [
     "docs/adr/0007-metadata-merge-policy-and-local-authority.md",

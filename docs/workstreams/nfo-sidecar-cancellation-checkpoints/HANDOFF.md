@@ -12,7 +12,7 @@ runtime-level cancellation work.
 Completed tasks:
 
 - `NSCC-010`: lane opened and boundary frozen.
-- `NSCC-020`: redacted `taru-nfo` checkpoint contract and no-op wrappers.
+- `NSCC-020`: redacted `nako-nfo` checkpoint contract and no-op wrappers.
 - `NSCC-030`: import checks before each source sidecar unit.
 - `NSCC-040`: export checks before each source sidecar unit.
 - `NSCC-050`: server durable import/export cancellation mapping and tests.
@@ -20,9 +20,9 @@ Completed tasks:
 
 ## Decisions Since Last Update
 
-- Do not make `taru-nfo` depend on `taru-server`.
+- Do not make `nako-nfo` depend on `nako-server`.
 - Treat service cancellation as a distinct outcome, not as `NfoFailure` and not
-  as a generic `TaruError`.
+  as a generic `NakoError`.
 - Checkpoints stop before the next sidecar source unit; they do not interrupt
   an in-flight storage read/write.
 - Keep retry/backoff, lease stealing, and child-process cancellation out of
@@ -37,13 +37,13 @@ Completed tasks:
 
 ## Validation
 
-- `cargo check -j 2 -p taru-nfo --tests`: passed.
-- `cargo nextest run -j 2 -p taru-nfo nfo_service --no-fail-fast`: passed.
-- `cargo nextest run -j 2 -p taru-nfo import --no-fail-fast`: passed.
-- `cargo nextest run -j 2 -p taru-nfo export --no-fail-fast`: passed.
-- `cargo nextest run -j 2 -p taru-server nfo --no-fail-fast`: passed.
-- `cargo nextest run -j 2 -p taru-server job_cancel --no-fail-fast`: passed.
-- `cargo check -j 2 -p taru-core -p taru-db -p taru-nfo -p taru-server --tests`:
+- `cargo check -j 2 -p nako-nfo --tests`: passed.
+- `cargo nextest run -j 2 -p nako-nfo nfo_service --no-fail-fast`: passed.
+- `cargo nextest run -j 2 -p nako-nfo import --no-fail-fast`: passed.
+- `cargo nextest run -j 2 -p nako-nfo export --no-fail-fast`: passed.
+- `cargo nextest run -j 2 -p nako-server nfo --no-fail-fast`: passed.
+- `cargo nextest run -j 2 -p nako-server job_cancel --no-fail-fast`: passed.
+- `cargo check -j 2 -p nako-core -p nako-db -p nako-nfo -p nako-server --tests`:
   passed.
 - `cargo fmt --all -- --check`: passed.
 - `git diff --check`: passed with CRLF working-copy warnings only.

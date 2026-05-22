@@ -10,8 +10,8 @@ Deliverables:
 
 - Audit current playback, HLS, remux, staging, hardware selection, and
   transcode session surfaces.
-- Decide the module split between `taru-server::app`, `taru-transcode`, and
-  `taru-streaming`.
+- Decide the module split between `nako-server::app`, `nako-transcode`, and
+  `nako-streaming`.
 - Define the client-facing playback session lifecycle and stable error
   taxonomy.
 - Record non-goals for adaptive bitrate, clients, distributed queues, and
@@ -39,8 +39,8 @@ Deliverables:
 Exit criteria:
 
 - `cargo fmt --all -- --check`
-- `cargo check -p taru-server --tests`
-- `cargo nextest run -p taru-server`
+- `cargo check -p nako-server --tests`
+- `cargo nextest run -p nako-server`
 - `git diff --check`
 
 ## M25.2: FFmpeg Hardware Capability Probe
@@ -63,8 +63,8 @@ Exit criteria:
 
 - `cargo fmt --all -- --check`
 - `cargo check --workspace --tests`
-- focused `cargo nextest run -p taru-transcode`
-- focused `cargo nextest run -p taru-server`
+- focused `cargo nextest run -p nako-transcode`
+- focused `cargo nextest run -p nako-server`
 - `git diff --check`
 
 ## M25.3: Runtime Contracts and Stabilization
@@ -111,6 +111,6 @@ Deliverables:
 Exit criteria:
 
 - `cargo fmt --all -- --check`
-- `cargo check -p taru-server --tests`
-- focused `cargo nextest run -p taru-server` playback route tests
+- `cargo check -p nako-server --tests`
+- focused `cargo nextest run -p nako-server` playback route tests
 - `git diff --check`

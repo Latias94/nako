@@ -33,13 +33,13 @@
     }
   ],
   "gates": [
-    "cargo check -p taru-core --tests",
-    "cargo check -p taru-db --tests",
-    "cargo check -p taru-nfo --tests",
-    "cargo check -p taru-library --tests",
-    "cargo check -p taru-streaming --tests",
-    "cargo check -p taru-transcode --tests",
-    "cargo check -p taru-server --tests",
+    "cargo check -p nako-core --tests",
+    "cargo check -p nako-db --tests",
+    "cargo check -p nako-nfo --tests",
+    "cargo check -p nako-library --tests",
+    "cargo check -p nako-streaming --tests",
+    "cargo check -p nako-transcode --tests",
+    "cargo check -p nako-server --tests",
     "focused cargo nextest run for touched crates",
     "cargo fmt --all -- --check",
     "cargo check --workspace --tests",
@@ -47,16 +47,16 @@
     "git diff --check"
   ],
   "evidence": [
-    "crates/taru-nfo/src/import.rs",
-    "crates/taru-library/src/index.rs",
-    "crates/taru-db/src/metadata.rs",
-    "crates/taru-db/src/scan.rs",
-    "crates/taru-db/src/catalog.rs",
-    "crates/taru-server/src/app/nfo.rs",
-    "crates/taru-server/src/app/jobs.rs",
-    "crates/taru-server/src/app/playback",
-    "crates/taru-streaming",
-    "crates/taru-transcode"
+    "crates/nako-nfo/src/import.rs",
+    "crates/nako-library/src/index.rs",
+    "crates/nako-db/src/metadata.rs",
+    "crates/nako-db/src/scan.rs",
+    "crates/nako-db/src/catalog.rs",
+    "crates/nako-server/src/app/nfo.rs",
+    "crates/nako-server/src/app/jobs.rs",
+    "crates/nako-server/src/app/playback",
+    "crates/nako-streaming",
+    "crates/nako-transcode"
   ],
   "adr_refs": [
     "docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md",

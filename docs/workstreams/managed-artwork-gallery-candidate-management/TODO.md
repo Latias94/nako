@@ -14,7 +14,7 @@ Last updated: 2026-05-19
 
 ## M1 - Admin Gallery Read Model
 
-- [x] MAGC-020 [owner=codex] [deps=MAGC-010] [scope=crates/taru-core,crates/taru-db,crates/taru-api,crates/taru-server,docs/api]
+- [x] MAGC-020 [owner=codex] [deps=MAGC-010] [scope=crates/nako-core,crates/nako-db,crates/nako-api,crates/nako-server,docs/api]
   Goal: Implement the first item-scoped Admin artwork gallery read model that
   shows current Selected Artwork, eligible Managed Artwork Artifacts, and safe
   Artwork Candidate summaries without exposing locators or hashes.
@@ -31,7 +31,7 @@ Last updated: 2026-05-19
 
 ## M2 - Selection Management
 
-- [x] MAGC-030 [owner=codex] [deps=MAGC-020] [scope=crates/taru-core,crates/taru-db,crates/taru-api,crates/taru-server,docs/api]
+- [x] MAGC-030 [owner=codex] [deps=MAGC-020] [scope=crates/nako-core,crates/nako-db,crates/nako-api,crates/nako-server,docs/api]
   Goal: Add a safe management action for selecting/replacing an item's Selected
   Artwork from an eligible Managed Artwork Artifact while preserving existing
   public image references and redaction.

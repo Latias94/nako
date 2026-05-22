@@ -11,11 +11,11 @@ temporary paths, cancellation, timeout, or cleanup behavior.
 
 ### Application Service Boundary
 
-`taru-server::app` owns a remux-facing application service that composes:
+`nako-server::app` owns a remux-facing application service that composes:
 
 - source lookup;
 - playback/remux decision context;
-- `taru-transcode` command planning and runner execution;
+- `nako-transcode` command planning and runner execution;
 - staging path allocation;
 - duplicate request behavior;
 - application-safe error mapping.
@@ -30,7 +30,7 @@ The staging policy now defines:
 - configured staging root;
 - deterministic output directory keyed by source ID and remux container;
 - final output extension based on planned remux container;
-- temporary output naming remains owned by `taru-transcode`;
+- temporary output naming remains owned by `nako-transcode`;
 - output parent creation before FFmpeg starts;
 - path normalization that prevents escaping the staging root.
 
@@ -65,10 +65,10 @@ HTTP response shape.
 
 ## Config
 
-`taru-server` now accepts:
+`nako-server` now accepts:
 
 ```toml
-remux_staging_root = "taru-cache/remux"
+remux_staging_root = "nako-cache/remux"
 ```
 
 Relative paths are resolved by the server process. Production deployments

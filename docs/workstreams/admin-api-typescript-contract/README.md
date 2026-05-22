@@ -25,9 +25,9 @@ admin-web UI workstream.
   - `docs/workstreams/admin-web-console/V0_CONTEXT.md`
   - `docs/api/HTTP_API.md`
 - Existing code:
-  - `crates/taru-api/src/admin.rs`
-  - `crates/taru-api/src/openapi.rs`
-  - `crates/taru-api/src/sdk.rs`
+  - `crates/nako-api/src/admin.rs`
+  - `crates/nako-api/src/openapi.rs`
+  - `crates/nako-api/src/sdk.rs`
   - `apps/admin-web/src/adminApi`
   - `sdk/typescript`
 
@@ -46,11 +46,11 @@ require Public Client API and Admin API surfaces to stay separate.
 When this lane closes:
 
 - Admin API routes included in the first web console have a typed TypeScript
-  contract derived from, or mechanically synchronized with, `taru-api`.
+  contract derived from, or mechanically synchronized with, `nako-api`.
 - The contract includes only accepted `/admin/v1/*` routes and the small
   shared runtime needed by admin-web.
 - Public Client SDK generation continues to reject admin/internal surfaces.
-- `taru-client-protocol` remains free of admin DTOs.
+- `nako-client-protocol` remains free of admin DTOs.
 - `apps/admin-web` consumes the Admin API contract through a clear boundary,
   not through long-lived hand-written response interfaces.
 - Redaction-sensitive fields remain absent from generated types, fixtures, and
@@ -61,7 +61,7 @@ When this lane closes:
 - Inventory the current hand-written Admin API DTOs in `apps/admin-web`.
 - Decide the first contract artifact location and generation command.
 - Add an Admin API TypeScript contract generator or sync check in the
-  `taru-api` boundary.
+  `nako-api` boundary.
 - Wire admin-web to the generated or synchronized contract.
 - Add tests that prove Public Client SDK and Admin API contract surfaces remain
   separate.
@@ -70,7 +70,7 @@ When this lane closes:
 ## Out Of Scope
 
 - Publishing an Admin API npm package.
-- Moving admin DTOs into `taru-client-protocol`.
+- Moving admin DTOs into `nako-client-protocol`.
 - Combining Public Client and Admin API SDKs.
 - Adding new Admin API routes solely for contract generation.
 - Implementing admin-web filters, detail pages, mutations, or settings editing.
@@ -79,7 +79,7 @@ When this lane closes:
 
 ## Architecture Direction
 
-Keep ownership in `taru-api`, mirroring the public SDK generator location, but
+Keep ownership in `nako-api`, mirroring the public SDK generator location, but
 generate a separate Admin API contract artifact. The first artifact should be
 app-local unless a later packaging lane proves a reusable admin package is
 needed. That keeps the implementation close to `apps/admin-web` while
@@ -115,6 +115,6 @@ Closeout result:
   `apps/admin-web/src/adminApi/generated/contract.ts`.
 - Admin-web consumes generated wire/query/route types while keeping the
   hand-written fetch/runtime boundary.
-- Public Client SDK and `taru-client-protocol` remain free of Admin API routes.
+- Public Client SDK and `nako-client-protocol` remain free of Admin API routes.
 - Npm Admin SDK packaging and deeper Admin UI workflows are follow-ons, not
   active work inside this lane.

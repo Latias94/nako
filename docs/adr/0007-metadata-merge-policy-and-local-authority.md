@@ -6,7 +6,7 @@ Proposed
 
 ## Context
 
-Taru will ingest metadata from local file names, NFO files, TMDB, Douban,
+Nako will ingest metadata from local file names, NFO files, TMDB, Douban,
 Bangumi, IMDb, and future addons. These sources can disagree. Users also need
 to preserve local edits and local NFO files without provider refreshes silently
 overwriting them.

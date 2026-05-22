@@ -6,7 +6,7 @@
   "updated": "2026-05-20",
   "scope_kind": "architecture",
   "problem": "Connection UI still has an unused platform-building entrypoint and constructs ClientConnectionRuntime from store/vault/client inside the UI layer.",
-  "summary": "Closed lane moving connection runtime creation to TaruAppEnvironment and making connection UI render from a runtime.",
+  "summary": "Closed lane moving connection runtime creation to NakoAppEnvironment and making connection UI render from a runtime.",
   "current_milestone": null,
   "current_task": null,
   "task_prefix": "ACCC",
@@ -33,8 +33,8 @@
     }
   ],
   "gates": [
-    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.taru.android.ui.TaruAppCompositionTest --no-daemon --no-parallel",
-    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.taru.android.ui.connection.* --tests dev.taru.android.ui.* --no-daemon --no-parallel",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.nako.android.ui.NakoAppCompositionTest --no-daemon --no-parallel",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.nako.android.ui.connection.* --tests dev.nako.android.ui.* --no-daemon --no-parallel",
     "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --no-daemon --no-parallel",
     "git diff --check"
   ],
@@ -46,12 +46,12 @@
     },
     {
       "task": "ACCC-020",
-      "path": "apps/android/app/src/test/java/dev/taru/android/ui/TaruAppCompositionTest.kt",
+      "path": "apps/android/app/src/test/java/dev/nako/android/ui/NakoAppCompositionTest.kt",
       "notes": "Root composition test covers connection runtime snapshot persistence."
     },
     {
       "task": "ACCC-030",
-      "path": "apps/android/app/src/main/java/dev/taru/android/ui/connection/TaruConnectionShell.kt",
+      "path": "apps/android/app/src/main/java/dev/nako/android/ui/connection/NakoConnectionShell.kt",
       "notes": "Connection content accepts runtime directly and unused platform entrypoint was removed."
     },
     {

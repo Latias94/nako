@@ -33,7 +33,7 @@ Secret redaction is inconsistent:
 
 Hardware acceleration policy is not fully wired into the server runtime path:
 
-- `taru-transcode` has capability and selection models.
+- `nako-transcode` has capability and selection models.
 - HLS service construction still primarily uses the requested accelerator.
 - Resource budgets should follow the selected accelerator, not only the
   configured request.
@@ -43,7 +43,7 @@ Hardware acceleration policy is not fully wired into the server runtime path:
 - Do not preserve legacy config paths solely for compatibility.
 - Prefer replacing ad hoc helpers with focused shared types or modules.
 - Delete old code after the new path is fully covered by tests.
-- Keep `taru-server` as composition glue; move reusable runtime rules into
+- Keep `nako-server` as composition glue; move reusable runtime rules into
   narrower modules or crates.
 - Avoid expanding public API exposure to internal domain models for new routes.
 

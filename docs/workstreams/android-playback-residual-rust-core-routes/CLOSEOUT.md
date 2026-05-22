@@ -12,14 +12,14 @@ product mapping, Media3, player/session presentation, and profile/token state.
 
 Completed slices:
 
-1. `taru-client-core` now exposes explicit request builders for source probe,
+1. `nako-client-core` now exposes explicit request builders for source probe,
    playback session inspection, and playback session cancellation.
-2. `taru-client-uniffi` now exposes FFI-safe residual playback builder
-   records/functions as a thin adapter over `taru-client-core`.
+2. `nako-client-uniffi` now exposes FFI-safe residual playback builder
+   records/functions as a thin adapter over `nako-client-core`.
 3. Android `PlaybackCore`/`RustPlaybackCore` now covers playback decision,
    streaming targets, HLS segments, source probe, playback session inspection,
    and playback session cancellation.
-4. `TaruPlaybackClient` no longer calls generated Kotlin SDK route descriptors
+4. `NakoPlaybackClient` no longer calls generated Kotlin SDK route descriptors
    for runtime playback routes. The generated SDK remains in use for playback
    DTO decode and contract tests.
 5. The confirmed-dead `PageRequest.toSdkPageQuery()` compatibility helper was
@@ -31,13 +31,13 @@ Completed slices:
 Fresh closeout gates run on 2026-05-21:
 
 ```powershell
-cargo fmt --package taru-client-core --check
-cargo nextest run -p taru-client-core --no-fail-fast
-cargo fmt --package taru-client-uniffi --check
-cargo nextest run -p taru-client-uniffi --no-fail-fast
+cargo fmt --package nako-client-core --check
+cargo nextest run -p nako-client-core --no-fail-fast
+cargo fmt --package nako-client-uniffi --check
+cargo nextest run -p nako-client-uniffi --no-fail-fast
 ./scripts/guard-uniffi-boundary.ps1
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.playback.TaruPlaybackClientTest --no-daemon --rerun-tasks
-if (rg -n "TaruPublicClientRequests|TaruRequestDescriptor|pathAndQuery|executeJson|PublicApiAuth" apps/android/app/src/main/java/dev/taru/android/playback/TaruPlaybackClient.kt apps/android/app/src/main/java/dev/taru/android/playback/RustPlaybackCore.kt) { exit 1 } else { 'PASS: playback runtime has no generated SDK route descriptor calls.' }
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.playback.NakoPlaybackClientTest --no-daemon --rerun-tasks
+if (rg -n "NakoPublicClientRequests|NakoRequestDescriptor|pathAndQuery|executeJson|PublicApiAuth" apps/android/app/src/main/java/dev/nako/android/playback/NakoPlaybackClient.kt apps/android/app/src/main/java/dev/nako/android/playback/RustPlaybackCore.kt) { exit 1 } else { 'PASS: playback runtime has no generated SDK route descriptor calls.' }
 if (rg -n "toSdkPageQuery" apps/android/app/src/main/java apps/android/app/src/test/java) { exit 1 } else { 'PASS: removed dead toSdkPageQuery helper.' }
 python -m json.tool docs/workstreams/android-playback-residual-rust-core-routes/WORKSTREAM.json > $null
 git diff --check
@@ -45,7 +45,7 @@ git diff --check
 
 All gates passed. Core ran 17 tests, UniFFI ran 5 tests, and Android playback
 JVM tests passed with `--rerun-tasks`. The UniFFI boundary guard reported only
-`taru-client-core` and `uniffi` as direct dependencies and no forbidden
+`nako-client-core` and `uniffi` as direct dependencies and no forbidden
 runtime/platform dependency.
 
 ## Residual Risks

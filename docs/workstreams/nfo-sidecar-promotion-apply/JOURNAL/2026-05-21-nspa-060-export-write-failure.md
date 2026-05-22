@@ -22,10 +22,10 @@ failure before sidecar mutation.
 ## Validation
 
 ```powershell
-cargo nextest run -p taru-server nfo_sidecar_apply_export_write_failure_records_failed_before_mutation --no-fail-fast
+cargo nextest run -p nako-server nfo_sidecar_apply_export_write_failure_records_failed_before_mutation --no-fail-fast
 cargo fmt --all -- --check
-cargo nextest run -p taru-server nfo_sidecar_apply --no-fail-fast
-cargo nextest run -p taru-server nfo --no-fail-fast
+cargo nextest run -p nako-server nfo_sidecar_apply --no-fail-fast
+cargo nextest run -p nako-server nfo --no-fail-fast
 ```
 
 All commands passed.

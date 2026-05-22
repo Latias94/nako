@@ -50,8 +50,8 @@ Validated for `ACF-020` on 2026-05-17:
 Dependency boundary for `ACF-020`:
 
 - Android uses direct Kotlin HTTP for setup/auth.
-- Android does not depend on `taru-api`, `taru-server`, `taru-core`,
-  `taru-streaming`, or `taru-transcode`.
+- Android does not depend on `nako-api`, `nako-server`, `nako-core`,
+  `nako-streaming`, or `nako-transcode`.
 - No Media3, UniFFI, Downloads, or external-player code is introduced.
 
 ## Android Browse Tracer Gates
@@ -78,8 +78,8 @@ Dependency boundary for `ACF-030A`:
 - Android browse uses direct Kotlin HTTP against Public Client API routes.
 - Android DTOs mirror only the public protocol fields needed by the first
   browse shell.
-- Android still does not depend on `taru-api`, `taru-server`, `taru-core`,
-  `taru-streaming`, or `taru-transcode`.
+- Android still does not depend on `nako-api`, `nako-server`, `nako-core`,
+  `nako-streaming`, or `nako-transcode`.
 - No Media3, UniFFI, Downloads, external-player, playback decision, or
   playback request construction code is introduced.
 
@@ -112,8 +112,8 @@ Dependency boundary for `ACF-030B`:
 - Android detail uses direct Kotlin HTTP against Public Client API routes.
 - Android DTOs mirror only public protocol fields needed by the first read-only
   detail shell.
-- Android still does not depend on `taru-api`, `taru-server`, `taru-core`,
-  `taru-streaming`, or `taru-transcode`.
+- Android still does not depend on `nako-api`, `nako-server`, `nako-core`,
+  `nako-streaming`, or `nako-transcode`.
 - No Media3, Play/Resume activation, Source / Version Picker, UniFFI,
   Downloads, external-player, playback decision, or playback request
   construction code is introduced.
@@ -122,7 +122,7 @@ Remaining validation before full `ACF-030` can close:
 
 - mocked tests for search navigation;
 - manual debug app walkthrough from server connection to item detail against a
-  running Taru server fixture.
+  running Nako server fixture.
 
 ## Android Compose UI Baseline Rewrite Gates
 
@@ -145,23 +145,23 @@ What this proves:
 
 Changed Android UI/build scope:
 
-- `apps/android/app/src/main/java/dev/taru/android/ui/browse/TaruBrowseShell.kt`
-- `apps/android/app/src/main/java/dev/taru/android/ui/browse/BrowseComponents.kt`
-- `apps/android/app/src/main/java/dev/taru/android/ui/browse/BrowseFormatters.kt`
-- `apps/android/app/src/main/java/dev/taru/android/ui/browse/BrowseModels.kt`
-- `apps/android/app/src/main/java/dev/taru/android/ui/browse/HomeScreen.kt`
-- `apps/android/app/src/main/java/dev/taru/android/ui/browse/LibrariesScreen.kt`
-- `apps/android/app/src/main/java/dev/taru/android/ui/browse/MediaItemDetailScreen.kt`
-- `apps/android/app/src/main/java/dev/taru/android/ui/browse/PlaceholderScreens.kt`
-- `apps/android/app/src/main/java/dev/taru/android/ui/browse/SettingsScreens.kt`
-- `apps/android/app/src/main/java/dev/taru/android/ui/browse/TaruBrowseShellPreview.kt`
-- `apps/android/app/src/main/java/dev/taru/android/ui/TaruAndroidApp.kt`
+- `apps/android/app/src/main/java/dev/nako/android/ui/browse/NakoBrowseShell.kt`
+- `apps/android/app/src/main/java/dev/nako/android/ui/browse/BrowseComponents.kt`
+- `apps/android/app/src/main/java/dev/nako/android/ui/browse/BrowseFormatters.kt`
+- `apps/android/app/src/main/java/dev/nako/android/ui/browse/BrowseModels.kt`
+- `apps/android/app/src/main/java/dev/nako/android/ui/browse/HomeScreen.kt`
+- `apps/android/app/src/main/java/dev/nako/android/ui/browse/LibrariesScreen.kt`
+- `apps/android/app/src/main/java/dev/nako/android/ui/browse/MediaItemDetailScreen.kt`
+- `apps/android/app/src/main/java/dev/nako/android/ui/browse/PlaceholderScreens.kt`
+- `apps/android/app/src/main/java/dev/nako/android/ui/browse/SettingsScreens.kt`
+- `apps/android/app/src/main/java/dev/nako/android/ui/browse/NakoBrowseShellPreview.kt`
+- `apps/android/app/src/main/java/dev/nako/android/ui/NakoAndroidApp.kt`
 - `apps/android/app/build.gradle.kts`
 - `apps/android/gradle/libs.versions.toml`
 
 Gates not run:
 
-- Manual debug walkthrough against a running Taru server fixture was not run in
+- Manual debug walkthrough against a running Nako server fixture was not run in
   this session because no fixture/device walkthrough was started. Track this in
   `ACF-030D`.
 - Rust `cargo fmt`, `cargo check`, and `cargo nextest` were not rerun for
@@ -173,10 +173,10 @@ Gates not run:
 Validated for `ACF-030D` on 2026-05-18:
 
 - `cargo fmt --all -- --check` passed.
-- `cargo nextest run -p taru-server http::tests::catalog --no-fail-fast`
+- `cargo nextest run -p nako-server http::tests::catalog --no-fail-fast`
   passed: 3 catalog HTTP tests passed, including
   `search_route_returns_indexed_items` with `limit=12&offset=0`.
-- `cargo build -p taru-server` passed with pre-existing unused-code warnings
+- `cargo build -p nako-server` passed with pre-existing unused-code warnings
   in server runtime/config scaffolding.
 - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest` passed.
 - `apps/android/gradlew.bat -p apps/android :app:assembleDebug` passed.
@@ -214,8 +214,8 @@ Manual real-server walkthrough evidence on 2026-05-18:
 
 - Device/emulator: `Pixel_3a_API_34_extension_level_7_x86_64`
   (`emulator-5554`).
-- Server: local `target\debug\taru-server.exe --config
-  tmp/android_real_server_fixture\taru.toml serve` on `127.0.0.1:3018`, reached
+- Server: local `target\debug\nako-server.exe --config
+  tmp/android_real_server_fixture\nako.toml serve` on `127.0.0.1:3018`, reached
   by Android through `adb reverse tcp:3018 tcp:3018`.
 - Fixture: one Movies library item, `Night Harbor`, imported through scan and
   NFO import with Genre `Mystery`, Tag `Lighthouse`, one credit, and one media
@@ -244,15 +244,15 @@ API gaps intentionally not implemented in Android under `ACF-030D`:
 Gates not run:
 
 - Full `cargo nextest run --workspace --no-fail-fast` was not rerun because the
-  Rust change is scoped to the `taru-server` `/search` HTTP query parser and
-  catalog route test. The targeted `taru-server` catalog HTTP suite plus
-  `cargo build -p taru-server` cover the changed server behavior.
+  Rust change is scoped to the `nako-server` `/search` HTTP query parser and
+  catalog route test. The targeted `nako-server` catalog HTTP suite plus
+  `cargo build -p nako-server` cover the changed server behavior.
 
 ## Android Playback Decision And Request Construction Gates
 
 Validated for `ACF-040` on 2026-05-18:
 
-- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.playback.TaruPlaybackClientTest`
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.playback.NakoPlaybackClientTest`
   passed.
 - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest` passed.
 - `apps/android/gradlew.bat -p apps/android :app:assembleDebug` passed.
@@ -275,15 +275,15 @@ What this proves:
 - Media Item Detail now lets the user choose a Media Source, request a playback
   decision, and inspect a client-safe prepared route summary without starting
   Media3 playback.
-- The real app can request a playback decision from a real local Taru server
+- The real app can request a playback decision from a real local Nako server
   fixture and render the server-selected HLS route as a client-safe preview.
 
 Manual real-server walkthrough evidence on 2026-05-18:
 
 - Device/emulator: `Pixel_3a_API_34_extension_level_7_x86_64`
   (`emulator-5554`).
-- Server: local `target\debug\taru-server.exe --config
-  tmp/android_real_server_fixture\taru.toml serve` on `127.0.0.1:3018`, reached
+- Server: local `target\debug\nako-server.exe --config
+  tmp/android_real_server_fixture\nako.toml serve` on `127.0.0.1:3018`, reached
   by Android through `adb reverse tcp:3018 tcp:3018`.
 - Fixture: one Movies library item, `Night Harbor`, with one media source
   candidate `Night Harbor.mkv`.
@@ -310,11 +310,11 @@ If a mobile shared Rust crate is introduced:
 - `cargo check -p <mobile-client-core-crate> --tests`
 - `cargo nextest run -p <mobile-client-core-crate> --no-fail-fast`
 - dependency-tree or manifest checks proving no dependency on:
-  - `taru-api`
-  - `taru-server`
-  - `taru-core`
-  - `taru-streaming`
-  - `taru-transcode`
+  - `nako-api`
+  - `nako-server`
+  - `nako-core`
+  - `nako-streaming`
+  - `nako-transcode`
 
 If UniFFI is introduced:
 
@@ -341,9 +341,9 @@ If UniFFI is introduced:
 
 Validated for `ACF-060` on 2026-05-18:
 
-- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.player.PlaybackLaunchTest --no-daemon`
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.player.PlaybackLaunchTest --no-daemon`
   passed.
-- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.playback.TaruPlaybackClientTest --no-daemon`
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.playback.NakoPlaybackClientTest --no-daemon`
   passed.
 - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon`
   passed.
@@ -394,7 +394,7 @@ Validated for `ACF-050` on 2026-05-18:
 
 - `apps/android/gradlew.bat -p apps/android :app:compileDebugKotlin --no-daemon --rerun-tasks`
   passed.
-- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.player.PlaybackLaunchTest --no-daemon`
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.player.PlaybackLaunchTest --no-daemon`
   passed.
 - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon`
   passed.
@@ -414,12 +414,12 @@ Manual real-server playback smoke evidence on 2026-05-18:
 
 - Device/emulator: `Pixel_3a_API_34_extension_level_7_x86_64`
   (`emulator-5554`), Android API 34.
-- Server: local `target\debug\taru-server.exe --config
-  tmp/android_real_server_fixture\taru.toml serve` on `127.0.0.1:3018`, reached
+- Server: local `target\debug\nako-server.exe --config
+  tmp/android_real_server_fixture\nako.toml serve` on `127.0.0.1:3018`, reached
   by Android through `adb reverse tcp:3018 tcp:3018`.
 - Fixture media: local `Night Harbor.mkv`, regenerated as a 2 second H.264/AAC
-  Matroska file and re-probed with `target\debug\taru-server.exe --config
-  tmp/android_real_server_fixture\taru.toml scan-all`.
+  Matroska file and re-probed with `target\debug\nako-server.exe --config
+  tmp/android_real_server_fixture\nako.toml scan-all`.
 - Playback decision path: Media Item Detail -> `Request decision` ->
   `Remux route prepared` for
   `/sources/{source_id}/stream/remux?output_container=mp4` -> `Start playback`.
@@ -443,7 +443,7 @@ Gates not run:
 
 The first playback evidence should record:
 
-- Taru server command/config used for the smoke test;
+- Nako server command/config used for the smoke test;
 - media source type: local or remote;
 - playback route: direct, remux, or HLS;
 - Android device/emulator model and OS version;

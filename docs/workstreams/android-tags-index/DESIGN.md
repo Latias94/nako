@@ -48,7 +48,7 @@ architecture or locally filtering cached Media Items.
 
 ## Architecture Direction
 
-Reuse the Genres Index architecture. `TaruBrowseClient` owns the typed Public
+Reuse the Genres Index architecture. `NakoBrowseClient` owns the typed Public
 Client API call, `ClientBrowseDataSource` maps list rows to stable
 `BrowseFacetTarget` values, and `BrowseSession` remains the owner of route
 state. The UI should generalize existing relationship index copy/icons where

@@ -5,7 +5,7 @@ Last updated: 2026-05-19
 
 ## Why This Lane Exists
 
-Android now has honest device-local resume, but Taru still lacks a public
+Android now has honest device-local resume, but Nako still lacks a public
 server-authoritative **User Playback State** contract. Without that contract,
 the app cannot correctly claim cross-device Continue Watching, watched state,
 favorites, hidden state, user rating, or last-played ordering.
@@ -122,9 +122,9 @@ modeled as global Media Item metadata.
 ## Architecture Direction
 
 Model **User Playback State** as a server-owned user-scoped read/write contract.
-The domain record should belong in `taru-core`, storage in `taru-db`, mapping
-and DTOs in `taru-api`/`taru-client-protocol`, route orchestration in
-`taru-server`, and Android consumption under the existing public client layer.
+The domain record should belong in `nako-core`, storage in `nako-db`, mapping
+and DTOs in `nako-api`/`nako-client-protocol`, route orchestration in
+`nako-server`, and Android consumption under the existing public client layer.
 
 The first slice defines a stable principal even in **Single-Admin Mode**. The
 HTTP auth layer resolves every accepted admin bearer token to the internal

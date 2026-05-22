@@ -26,10 +26,10 @@ shared SDK work, and what should remain out of Android scope.
   - `docs/workstreams/android-client-foundation/HANDOFF.md`
   - `docs/workstreams/public-client-api/`
 - Local implementation:
-  - `apps/android/app/src/main/java/dev/taru/android/connection/`
-  - `apps/android/app/src/main/java/dev/taru/android/browse/`
-  - `apps/android/app/src/main/java/dev/taru/android/playback/`
-  - `apps/android/app/src/main/java/dev/taru/android/ui/`
+  - `apps/android/app/src/main/java/dev/nako/android/connection/`
+  - `apps/android/app/src/main/java/dev/nako/android/browse/`
+  - `apps/android/app/src/main/java/dev/nako/android/playback/`
+  - `apps/android/app/src/main/java/dev/nako/android/ui/`
 
 ## Problem
 
@@ -106,7 +106,7 @@ Keep Android route clients small and vertical:
 - UI code consumes presentation models instead of hard-coding route facts.
 
 Do not use server/internal Rust crates from Android. Public route facts should
-continue to come from `docs/api/HTTP_API.md`, `taru-client-protocol`, generated
+continue to come from `docs/api/HTTP_API.md`, `nako-client-protocol`, generated
 OpenAPI/SDK evidence, and Android's own thin clients.
 
 ## Closeout Condition

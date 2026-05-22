@@ -13,7 +13,7 @@ The objective is to make catalog data queryable and client-ready.
 
 ### Shared Catalog Hydration
 
-`taru-catalog` owns the reusable hydration path:
+`nako-catalog` owns the reusable hydration path:
 
 - load a `MediaItem`;
 - clear the item graph edges that are derived from canonical metadata;

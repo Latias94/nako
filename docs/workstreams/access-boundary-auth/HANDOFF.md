@@ -5,15 +5,15 @@ Last updated: 2026-05-17
 
 ## Current State
 
-M31 is closed. Taru now has a minimal inbound bearer-token authentication
+M31 is closed. Nako now has a minimal inbound bearer-token authentication
 boundary for server HTTP routes.
 
 ## Completed Scope
 
-- `taru-client-protocol` owns public `unauthorized` and `forbidden` error
+- `nako-client-protocol` owns public `unauthorized` and `forbidden` error
   codes.
-- `taru-server` owns `[auth]` config with auth enabled by default and
-  `TARU_ADMIN_TOKEN` as the default token environment reference.
+- `nako-server` owns `[auth]` config with auth enabled by default and
+  `NAKO_ADMIN_TOKEN` as the default token environment reference.
 - HTTP middleware protects every non-health route when auth is enabled.
 - `GET /health` remains unauthenticated.
 - Auth failures use the M30 error envelope, return `401`, include

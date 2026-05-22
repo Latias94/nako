@@ -15,10 +15,10 @@ Last updated: 2026-05-22
 
 ## AIG.1 Server-Owned Guide
 
-- [x] AIG-020 [owner=codex] [deps=AIG-010] [scope=crates/taru-api/src/extension.rs, crates/taru-api/src/admin_contract.rs, crates/taru-server/src/app/addons.rs, crates/taru-server/src/http/addons.rs, crates/taru-server/src/http/tests/addons.rs, apps/admin-web/src/adminApi/generated/contract.ts]
+- [x] AIG-020 [owner=codex] [deps=AIG-010] [scope=crates/nako-api/src/extension.rs, crates/nako-api/src/admin_contract.rs, crates/nako-server/src/app/addons.rs, crates/nako-server/src/http/addons.rs, crates/nako-server/src/http/tests/addons.rs, apps/admin-web/src/adminApi/generated/contract.ts]
   Goal: Add `GET /admin/v1/addons/{addon_id}/install-guide` as a redaction-safe
   server-owned Admin read model with generated Admin Web contract coverage.
-  Validation: `cargo run -q -p taru-api --example emit-admin-typescript-contract -- --output apps/admin-web/src/adminApi/generated/contract.ts`, `cargo nextest run -p taru-api admin_contract --no-fail-fast`, and `cargo nextest run -p taru-server install_guide --no-fail-fast`.
+  Validation: `cargo run -q -p nako-api --example emit-admin-typescript-contract -- --output apps/admin-web/src/adminApi/generated/contract.ts`, `cargo nextest run -p nako-api admin_contract --no-fail-fast`, and `cargo nextest run -p nako-server install_guide --no-fail-fast`.
   Review: Route must not leak resolved secrets, raw tokens, local paths, Source
   Locators, storage URIs, or process-control promises.
   Evidence: Rust tests and generated contract diff.
@@ -30,7 +30,7 @@ Last updated: 2026-05-22
   Goal: Render the Addon Install Guide in Admin Web through the existing
   data-source seam with safe mock fallback.
   Validation: `npm test` and `npm run build` from `apps/admin-web`.
-  Review: UI must present snippets as inert previews and must repeat that Taru
+  Review: UI must present snippets as inert previews and must repeat that Nako
   does not manage Addon Sidecar lifecycle.
   Evidence: Admin Web tests and build output.
   Handoff: Continue with AIG-040.

@@ -1,6 +1,6 @@
-# Taru Roadmap
+# Nako Roadmap
 
-Taru is currently a Rust modular monolith focused on the self-hosted media
+Nako is currently a Rust modular monolith focused on the self-hosted media
 server backend. The roadmap is intentionally staged so storage, metadata,
 playback, search, automation, and future clients can grow without collapsing
 into a single tightly coupled crate.
@@ -25,7 +25,7 @@ registered disabled **Addon Sidecar** to an enabled runtime Addon:
 - enable readiness checklist for health, token, grant, and lifecycle boundary
   facts.
 
-This focus is intentionally not Addon Manager work. Taru will not install,
+This focus is intentionally not Addon Manager work. Nako will not install,
 launch, stop, restart, update, remove, log, or supervise Addon Sidecar
 processes in this lane.
 
@@ -45,7 +45,7 @@ Install Guide surfaces into a first-run product flow for externally run
 - keep registration separate from install/start/stop/update/remove lifecycle
   control.
 
-This focus is intentionally not Addon Manager work. Taru will not fetch
+This focus is intentionally not Addon Manager work. Nako will not fetch
 arbitrary manifest URLs, install packages, launch, stop, restart, update,
 remove, log, or supervise Addon Sidecar processes in this lane.
 
@@ -65,7 +65,7 @@ Addon Sidecars:
 - Addon Health Check and registration verification steps;
 - Admin Web preview through the generated Admin API TypeScript contract.
 
-This focus is intentionally not Addon Manager work. Taru will not install,
+This focus is intentionally not Addon Manager work. Nako will not install,
 launch, stop, restart, update, remove, log, or supervise Addon Sidecar
 processes in this lane.
 
@@ -112,7 +112,7 @@ Authoritative lane:
 Previous architecture focus:
 
 Addon Architecture Deepening completed on 2026-05-21. It intentionally removed
-compatibility seams while Taru still has no deployed users and deepened Addon
+compatibility seams while Nako still has no deployed users and deepened Addon
 boundaries before broader Addon breadth:
 
 - Addon Side Effect runtime lifecycle;
@@ -121,7 +121,7 @@ boundaries before broader Addon breadth:
 - Addon Manifest declarations;
 - Library File Write runtime;
 - Admin Addon API DTO shielding under `/admin/v1/addons`;
-- `taru-addon-protocol` / `taru-addon-client` crate separation;
+- `nako-addon-protocol` / `nako-addon-client` crate separation;
 - SQLite/PostgreSQL Addon Side Effect fingerprint schema parity.
 
 Authoritative lane:
@@ -151,7 +151,7 @@ Closeout:
 - Completed on 2026-05-20.
 - Final workspace nextest passed with 498 tests run and 19 skipped.
 - PostgreSQL opt-in contracts were skipped because no
-  `TARU_TEST_POSTGRES_URL` was available.
+  `NAKO_TEST_POSTGRES_URL` was available.
 
 Latest completed follow-on:
 
@@ -171,7 +171,7 @@ testing strategy, and license notes.
 
 Status: completed for the first movie-focused slice.
 
-Taru can scan local sources, persist metadata, merge TMDB/NFO inputs through
+Nako can scan local sources, persist metadata, merge TMDB/NFO inputs through
 local-authority rules, hydrate a normalized catalog graph, rebuild search
 projection, and expose browse APIs for items, people, tags, genres, credits,
 and images.
@@ -227,7 +227,7 @@ surface:
 
 - webhook outbox and delivery policy;
 - automation job model for API-key backed providers;
-- Taru addon manifest schema;
+- Nako addon manifest schema;
 - addon resource routes and response envelopes;
 - timeout, retry, authentication, and trust model;
 - one reference addon.
@@ -356,7 +356,7 @@ Later follow-up:
 
 Status: completed.
 
-After the first remote playback and multi-library hardening waves, Taru added
+After the first remote playback and multi-library hardening waves, Nako added
 several focused operational cleanup phases before the final server composition
 pass:
 
@@ -382,7 +382,7 @@ Status: completed.
 This phase turns the server into a cleaner modular-monolith composition
 boundary:
 
-- `taru-server::app::TaruApp` becomes a thin composition root;
+- `nako-server::app::NakoApp` becomes a thin composition root;
 - workflow orchestration moves into focused application services;
 - background jobs and cleanup loops register through an explicit runtime
   supervisor or worker registry;
@@ -398,7 +398,7 @@ Completed:
   `server-architecture-hardening` workstream, M24 milestone split, and audit
   notes for server composition, runtime ownership, repository boundaries, NFO,
   catalog hydration, and obsolete helpers.
-- M24.1-M24.4 implementation has decomposed `TaruApp` into focused service
+- M24.1-M24.4 implementation has decomposed `NakoApp` into focused service
   handles, added runtime supervisor ownership for detached workers, moved
   catalog graph hydration behind an atomic repository operation, removed
   temporary root-app forwards, and replaced hand-written NFO XML parsing with a
@@ -484,7 +484,7 @@ Completed implementation slice:
 
 - M27.1 catalog schema and repository slice persisted **Provider Subject**,
   **Provider Mapping**, **Source Duplicate Relationship**, and **Local
-  Inference Evidence** records through `taru-core` records, `taru-db`
+  Inference Evidence** records through `nako-core` records, `nako-db`
   migration `0018_metadata_catalog_domain.sql`, repository traits, SQLite
   adapters, and focused repository tests.
 - M27.2 local inference and provisional hierarchy connected scan indexing to
@@ -506,7 +506,7 @@ Recommended next goal:
 
 Status: completed.
 
-This phase deepens Taru's crate and module seams so public client wire types
+This phase deepens Nako's crate and module seams so public client wire types
 can live in a permissive protocol crate while server internals remain AGPL and
 the large workflow crates become easier to navigate.
 
@@ -531,11 +531,11 @@ This phase grows the permissive client protocol boundary into a useful API
 contract for future Flutter, web, and CLI clients:
 
 - move the first stable library/catalog browse DTOs into
-  `taru-client-protocol`;
+  `nako-client-protocol`;
 - define browse/search/list/detail wire response envelopes;
 - move public playback decision response types without exposing
-  `taru_streaming` internals;
-- keep `taru-api` as the AGPL adapter layer that maps server/domain records
+  `nako_streaming` internals;
+- keep `nako-api` as the AGPL adapter layer that maps server/domain records
   into protocol DTOs;
 - keep server-admin diagnostics, job internals, provider runtime state,
   webhook, automation, and addon administration out of the first public
@@ -621,11 +621,11 @@ This phase turns the stabilized public protocol, version/error envelope, and
 bearer-auth boundary into a machine-readable Public Client API contract:
 
 - define OpenAPI/Public Client SDK contract ownership across
-  `taru-client-protocol`, `taru-api`, and `taru-server`;
+  `nako-client-protocol`, `nako-api`, and `nako-server`;
 - keep public wire DTOs protocol-owned and avoid server/internal record leakage;
 - add an OpenAPI v1 artifact/generator for core future Flutter, web, CLI, and
   SDK route surfaces;
-- express `x-taru-api-version`, bearer auth, `ErrorResponse`, pagination, and
+- express `x-nako-api-version`, bearer auth, `ErrorResponse`, pagination, and
   common public errors in the schema;
 - verify that the public spec excludes admin/internal routes, local path
   fields, secret references, raw provider cache, job internals, addon,
@@ -651,8 +651,8 @@ This phase turns the OpenAPI v1 contract into the first repeatable client
 integration scaffold:
 
 - generate a dependency-free TypeScript/Web/CLI client wrapper from
-  `taru-api`;
-- standardize bearer auth, `x-taru-api-version` inspection, error envelope
+  `nako-api`;
+- standardize bearer auth, `x-nako-api-version` inspection, error envelope
   parsing, pagination helpers, and core public route calls;
 - add static checks that the scaffold follows the public route inventory and
   excludes admin/internal routes;
@@ -681,7 +681,7 @@ package:
 - keep generated SDK source in `sdk/typescript/src/index.ts`;
 - add package-local TypeScript tooling and a committed lockfile;
 - add repeatable generation and strict compile scripts;
-- make `taru-api` test that the package entry matches the Rust generator;
+- make `nako-api` test that the package entry matches the Rust generator;
 - keep npm publishing, Flutter/Dart SDK, Rust SDK, and concrete clients as
   follow-ons.
 
@@ -704,11 +704,11 @@ Status: completed.
 This phase adds the first Rust SDK crate for public client consumers without
 making clients depend on server internals:
 
-- `crates/taru-client` is the Apache-2.0 Rust SDK runtime crate;
-- public DTOs come from `taru-client-protocol`, not OpenAPI-generated Rust
+- `crates/nako-client` is the Apache-2.0 Rust SDK runtime crate;
+- public DTOs come from `nako-client-protocol`, not OpenAPI-generated Rust
   duplicates;
 - the SDK owns HTTP mechanics such as base URL normalization, bearer auth,
-  `x-taru-api-version` checking, public error envelope parsing, pagination,
+  `x-nako-api-version` checking, public error envelope parsing, pagination,
   playback capability query serialization, and path encoding;
 - `ClientTransport` makes the SDK testable without a live server, while
   `ReqwestTransport` provides the default runtime HTTP backend;
@@ -735,10 +735,10 @@ This phase removes route inventory duplication and extends the Rust SDK to
 cover streaming route construction while preserving the license boundary:
 
 - public route inventory now lives in the Apache-2.0
-  `taru-client-protocol` crate;
-- `taru-api` still owns OpenAPI rendering and TypeScript SDK generation, but it
+  `nako-client-protocol` crate;
+- `nako-api` still owns OpenAPI rendering and TypeScript SDK generation, but it
   consumes the protocol-owned inventory;
-- `taru-client` consumes the same inventory and distinguishes JSON methods
+- `nako-client` consumes the same inventory and distinguishes JSON methods
   from streaming request builders;
 - Rust SDK builders cover direct stream GET, direct stream HEAD preflight,
   remux stream GET, HLS playlist GET, and HLS segment GET;
@@ -754,8 +754,8 @@ Status: completed.
 This phase adds the first concrete public client program on top of the Rust SDK
 instead of expanding directly into Flutter or full streaming body ownership:
 
-- `crates/taru-client-cli` is Apache-2.0;
-- the CLI uses `taru-client` as the only Taru client API entrypoint;
+- `crates/nako-client-cli` is Apache-2.0;
+- the CLI uses `nako-client` as the only Nako client API entrypoint;
 - commands cover health, library/item/search browse, source probe, playback
   decision, playback session get/cancel, and streaming request construction;
 - streaming commands print method, URL, and safe headers without executing
@@ -765,7 +765,7 @@ instead of expanding directly into Flutter or full streaming body ownership:
 Completed:
 
 - M37.0 opened the `client-cli` workstream and fixed the license boundary.
-- M37.1 added `crates/taru-client-cli` as an Apache-2.0 crate.
+- M37.1 added `crates/nako-client-cli` as an Apache-2.0 crate.
 - M37.2 added focused tests for mocked SDK transport behavior, streaming
   request output, bearer-token redaction, and dependency boundaries.
 - M37.3 documented usage and validated the workspace.
@@ -780,7 +780,7 @@ Status: completed.
 This phase deepens the server startup and runtime job seams before the next
 client or playback breadth:
 
-- startup side effects move from `TaruApp::new_with_store` into a
+- startup side effects move from `NakoApp::new_with_store` into a
   `ServerStartupWorkflow`;
 - startup reports become the test surface for migration, recovery, cleanup,
   configured library persistence, metadata raw-cache cleanup, and lifecycle
@@ -814,7 +814,7 @@ than mechanically splitting every broad repository trait:
 
 Completed:
 
-- M39.1 added `CatalogHydrationPort` in `taru-catalog` with snapshot, lookup,
+- M39.1 added `CatalogHydrationPort` in `nako-catalog` with snapshot, lookup,
   and commit operations.
 - M39.2 narrowed metadata refresh, hierarchy confirmation, and NFO import
   bounds to the workflow port.
@@ -842,7 +842,7 @@ This phase continues repository seam deepening after M39:
 Completed:
 
 - M40.1 added `MetadataRefreshPort` and `MetadataAttemptPort` in
-  `taru-metadata`.
+  `nako-metadata`.
 - M40.2 moved refresh persistence, provider mapping, raw response, and
   library-item confirmation behind `commit_refresh`.
 - M40.3 added a fake-port refresh test without SQLite while preserving
@@ -878,7 +878,7 @@ Status: completed.
 This phase deepens the M39 catalog hydration seam:
 
 - `CatalogHydrationPort` should express a workflow-level hydrate operation;
-- snapshot, lookup, and commit internals should stay inside `taru-catalog`;
+- snapshot, lookup, and commit internals should stay inside `nako-catalog`;
 - metadata and NFO workflow tests should not construct lookup match vectors;
 - existing catalog graph/search behavior remains unchanged;
 - database schema, public API, SDK, client, and provider breadth remain
@@ -904,12 +904,12 @@ Recommended next goal after M42:
 Status: completed.
 
 This phase reopens server-side architecture work with an explicit fearless
-refactor mandate before Taru has production compatibility burden:
+refactor mandate before Nako has production compatibility burden:
 
 - make persistence PostgreSQL-ready instead of SQLite-shaped;
 - replace the `SqliteStore` god-adapter shape with backend-neutral persistence
   contracts, contract tests, and explicit transaction/unit-of-work seams;
-- slim `TaruApp` through cohesive runtime modules where they hide real
+- slim `NakoApp` through cohesive runtime modules where they hide real
   construction or policy complexity;
 - separate Media Source discovery from Local Inference and provisional
   hierarchy planning;
@@ -929,7 +929,7 @@ Completed:
 
 - accepted ADR 0029 and ADR 0030 for the PostgreSQL-ready persistence boundary,
   SQL dialect, migration, row-codec, and fixture policy;
-- moved `taru-db` toward a facade plus SQLite-owned adapter modules, with
+- moved `nako-db` toward a facade plus SQLite-owned adapter modules, with
   backend-neutral job lease contract tests and an optional PostgreSQL proof
   harness;
 - extracted server runtime/service construction into `app::composition`;
@@ -940,7 +940,7 @@ Completed:
   provider identifiers, and projection versioning;
 - preserved redacted Admin/Public API boundaries and reproducible Admin/Public
   TypeScript generation;
-- deleted the `taru-api` root-level compatibility re-export shim and updated
+- deleted the `nako-api` root-level compatibility re-export shim and updated
   callers to explicit module boundaries;
 - closed with `cargo check --workspace --tests` and
   `cargo nextest run --workspace --no-fail-fast`.
@@ -955,7 +955,7 @@ backend:
 - expanded backend-neutral contract tests beyond jobs and leases;
 - added PostgreSQL migration/schema parity for supported repository and workflow
   families;
-- added explicit runtime backend selection through `TaruDatabase` and server
+- added explicit runtime backend selection through `NakoDatabase` and server
   configuration;
 - removed or isolated SQLite-only assumptions above the adapter seam;
 - documented repeatable SQLite always-on and PostgreSQL opt-in verification
@@ -968,7 +968,7 @@ Authoritative workstream:
 Completed:
 
 - `PostgresStore` is available in runtime code for the supported backend scope.
-- `TaruDatabase` dispatches through an internal backend adapter trait and can
+- `NakoDatabase` dispatches through an internal backend adapter trait and can
   select SQLite or PostgreSQL through explicit `DatabaseConnectOptions`.
 - Backend-neutral contract families now cover lifecycle, jobs/leases,
   library/media, scan commits, metadata/catalog, playback runtime,

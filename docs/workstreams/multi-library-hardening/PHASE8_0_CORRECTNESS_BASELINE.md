@@ -61,14 +61,14 @@ two concurrent tasks cannot both pass the same budget snapshot.
 
 ## Implemented Artifacts
 
-- `crates/taru-db/migrations/0001_initial.sql` creates
+- `crates/nako-db/migrations/0001_initial.sql` creates
   `media_sources_library_locator_idx` on `(library_id, locator)`.
-- `crates/taru-db/migrations/0015_media_source_library_locator.sql` updates
+- `crates/nako-db/migrations/0015_media_source_library_locator.sql` updates
   existing development databases from the old global locator index.
 - `MediaRepository::get_media_source_by_locator` requires `library_id`.
 - `LibraryIndexService` queries existing sources with
   `(request.library.id, locator)`.
-- `taru-server` CLI supports `scan --library-id`, `scan-all`, and
+- `nako-server` CLI supports `scan --library-id`, `scan-all`, and
   `list --library-id`.
 - `default_library_from_config` replaces the panic-style config helper.
 - `ManifestRecordingStorageBackend` serializes budget check, stage, and
@@ -89,5 +89,5 @@ Required tests should prove:
 - Provider runtime remains a separate metadata workstream: configured provider
   arrays, secret resolution, request timeout/retry/rate limiting, and persisted
   provider attempts for real Douban/Bangumi integrations.
-- `taru-db`, `taru-server::app`, and `taru-server::http` still need broader
+- `nako-db`, `nako-server::app`, and `nako-server::http` still need broader
   file decomposition by domain.

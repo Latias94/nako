@@ -23,4 +23,4 @@ Recommended follow-on:
 
 - Raw tokens are one-time action outputs only.
 - Grants are accepted authority, not manifest declarations.
-- Taru does not manage sidecar installation or process lifecycle.
+- Nako does not manage sidecar installation or process lifecycle.

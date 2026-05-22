@@ -45,7 +45,7 @@ Status: complete
 
 Exit criteria:
 
-- Android can configure a Taru base URL and bearer token.
+- Android can configure a Nako base URL and bearer token.
 - Android presents the credential as an access token and stores it securely.
 - Token values are redacted from logs, diagnostics, screenshots, and safe
   request previews.
@@ -132,11 +132,11 @@ Progress:
     Item Detail, Search, Genre Browse Facet Result, Settings, Server Profile,
     and return to Home;
   - server-side `/search` pagination query parsing was fixed and covered by
-    `taru-server` catalog HTTP tests;
+    `nako-server` catalog HTTP tests;
   - `cargo fmt --all -- --check` passed;
-  - `cargo nextest run -p taru-server http::tests::catalog --no-fail-fast`
+  - `cargo nextest run -p nako-server http::tests::catalog --no-fail-fast`
     passed;
-  - `cargo build -p taru-server` passed;
+  - `cargo build -p nako-server` passed;
   - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest` passed;
   - `apps/android/gradlew.bat -p apps/android :app:assembleDebug` passed.
 
@@ -152,7 +152,7 @@ Status: complete
 
 Exit criteria:
 
-- Android can ask Taru for playback decisions.
+- Android can ask Nako for playback decisions.
 - Direct, remux, and HLS request construction is represented.
 - Source / Version Picker appears when multiple playable sources or variants
   exist.
@@ -180,7 +180,7 @@ Evidence:
   - playback unit tests, Android full unit tests, debug build, `git diff
     --check`, and real-server/device walkthrough passed.
 - Walkthrough verified `Night Harbor.mkv` source decision against the local
-  `taru-server` fixture and rendered an HLS playlist route preview without
+  `nako-server` fixture and rendered an HLS playlist route preview without
   exposing token values, local paths, or FFmpeg command text.
 
 ## ACF-M5: Media3 Playback Smoke
@@ -189,7 +189,7 @@ Status: complete
 
 Exit criteria:
 
-- Android plays at least one Taru public playback route through Media3.
+- Android plays at least one Nako public playback route through Media3.
 - Player lifecycle is tied to Android lifecycle.
 - Basic playback controls, loading/buffering state, seek behavior,
   full-screen/orientation behavior, exit behavior, and error states exist.

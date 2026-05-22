@@ -8,11 +8,11 @@ Last updated: 2026-05-19
 NFO jobs are durable and now run through `DurableJobRuntime`, but the current
 NFO cancellation boundary is too coarse:
 
-- `crates/taru-server/src/app/nfo.rs` checks cancellation before and after the
+- `crates/nako-server/src/app/nfo.rs` checks cancellation before and after the
   whole `NfoService` call.
-- `crates/taru-nfo/src/import.rs::import_library` loops over all media sources
+- `crates/nako-nfo/src/import.rs::import_library` loops over all media sources
   and can read/parse/commit many sidecars after a cancel request.
-- `crates/taru-nfo/src/export.rs::export_library` loops over all media sources
+- `crates/nako-nfo/src/export.rs::export_library` loops over all media sources
   and can stat/read/render/write many sidecars after a cancel request.
 
 That means Admin can request cancellation and the app can eventually
@@ -23,14 +23,14 @@ whole library operation returns.
 
 When this lane closes:
 
-- `taru-nfo` exposes a sidecar checkpoint API that is independent of
-  `taru-server`.
+- `nako-nfo` exposes a sidecar checkpoint API that is independent of
+  `nako-server`.
 - Library import/export check before each source sidecar unit.
 - Cancellation is represented as a distinct service outcome, not as an NFO
-  failure and not as a generic `TaruError`.
+  failure and not as a generic `NakoError`.
 - Existing `import_library` and `export_library` remain no-op checkpoint
   wrappers for callers that do not need cancellation.
-- `taru-server` maps `DurableJobContext::check_cancelled()` into the NFO
+- `nako-server` maps `DurableJobContext::check_cancelled()` into the NFO
   checkpoint API and maps an NFO cancelled outcome back to
   `DurableJobOperationError::Cancelled`.
 - Cancelled NFO jobs do not write `NfoImported` or `NfoExported` outbox events.
@@ -39,7 +39,7 @@ When this lane closes:
 
 ## In Scope
 
-- `taru-nfo` checkpoint types and library-wide import/export variants.
+- `nako-nfo` checkpoint types and library-wide import/export variants.
 - Import loop checkpoint before each `import_source` sidecar read/commit unit.
 - Export loop checkpoint before each `export_source` sidecar stat/read/write
   unit.
@@ -59,7 +59,7 @@ When this lane closes:
 
 ## Architecture Direction
 
-Do not make `taru-nfo` depend on `taru-server`. The NFO crate should define a
+Do not make `nako-nfo` depend on `nako-server`. The NFO crate should define a
 small domain-level checkpoint contract:
 
 1. A checkpoint receives redacted sidecar identity such as operation kind,
@@ -116,7 +116,7 @@ Not allowed in Admin/Public DTOs or checkpoint payloads:
 
 This lane can close when:
 
-- `taru-nfo` import/export can stop before the next sidecar unit;
+- `nako-nfo` import/export can stop before the next sidecar unit;
 - server NFO jobs acknowledge that service-level cancellation as terminal
   `cancelled`;
 - success outbox events are skipped for cancelled NFO jobs;
@@ -125,9 +125,9 @@ This lane can close when:
 
 ## Closeout Result
 
-The lane is closed. `taru-nfo` owns the redacted checkpoint contract and
+The lane is closed. `nako-nfo` owns the redacted checkpoint contract and
 library import/export stop before the next source sidecar unit when the
-checkpoint returns cancel. `taru-server` maps durable job cancellation through
+checkpoint returns cancel. `nako-server` maps durable job cancellation through
 that contract for both import and export background jobs, persists terminal
 `cancelled`, and skips `NfoImported`/`NfoExported` outbox publication.
 

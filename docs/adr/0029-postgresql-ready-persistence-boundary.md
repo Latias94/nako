@@ -6,7 +6,7 @@ Accepted.
 
 ## Context
 
-Taru currently uses SQLite through `taru-db::SqliteStore`. That shape was
+Nako currently uses SQLite through `nako-db::SqliteStore`. That shape was
 appropriate for the MVP, but the project now needs a persistence architecture
 that can support PostgreSQL later without carrying SQLite assumptions through
 server, metadata, catalog, playback, Addon, and admin code.
@@ -22,26 +22,26 @@ Current friction:
 - Tests mostly prove SQLite behavior by constructing `SqliteStore` directly,
   rather than proving backend-neutral persistence contracts.
 
-Taru is not live and has no stable production compatibility burden, so the
+Nako is not live and has no stable production compatibility burden, so the
 correct move is to reshape the persistence seam now instead of preserving the
 MVP adapter shape.
 
 ## Decision
 
-Taru will move toward a PostgreSQL-ready persistence boundary:
+Nako will move toward a PostgreSQL-ready persistence boundary:
 
-- Domain records, IDs, and repository contracts remain in `taru-core` unless a
+- Domain records, IDs, and repository contracts remain in `nako-core` unless a
   later ADR splits a dedicated persistence-contract crate.
-- `taru-db` becomes the database facade used by `taru-server` and tests. The
+- `nako-db` becomes the database facade used by `nako-server` and tests. The
   facade owns backend selection, database lifecycle, migration entrypoints, and
   re-exported test helpers.
 - SQLite implementation details move behind a SQLite-owned adapter module or
   implementation crate. The clean long-term target is a small facade plus
   backend-specific adapters:
-  - `taru-db` as facade;
-  - `taru-sqlite` for SQLite SQLx implementation;
-  - future `taru-postgres` for PostgreSQL SQLx implementation.
-- During migration, an internal `taru-db::sqlite` module split may happen first
+  - `nako-db` as facade;
+  - `nako-sqlite` for SQLite SQLx implementation;
+  - future `nako-postgres` for PostgreSQL SQLx implementation.
+- During migration, an internal `nako-db::sqlite` module split may happen first
   to reduce risk, but production services should depend on the facade handle,
   not on `SqliteStore`.
 - Repository behavior must be covered by backend-neutral contract tests. SQLite
@@ -63,7 +63,7 @@ Taru will move toward a PostgreSQL-ready persistence boundary:
 - The first implementation work is mostly architectural: contract tests, facade
   handle, SQLite module split, and deletion of direct `SqliteStore`
   dependencies from server services.
-- Some crate/module churn is expected and accepted because Taru is
+- Some crate/module churn is expected and accepted because Nako is
   pre-compatibility.
 - Contract tests become the authority for persistence behavior, while
   backend-specific tests remain useful for migrations and dialect edge cases.
@@ -76,11 +76,11 @@ Taru will move toward a PostgreSQL-ready persistence boundary:
 - Keep `SqliteStore` as the permanent concrete store and add PostgreSQL later
   by copying it. Rejected because it preserves the god-adapter shape and would
   duplicate persistence logic without contract tests.
-- Move all repository traits from `taru-core` into a new crate immediately.
+- Move all repository traits from `nako-core` into a new crate immediately.
   Deferred because current repository contracts are already established in
-  `taru-core`, and a facade-plus-adapter split gives most of the PostgreSQL
+  `nako-core`, and a facade-plus-adapter split gives most of the PostgreSQL
   readiness benefit with less immediate churn.
-- Introduce an ORM. Rejected because Taru relies on explicit workflow commits,
+- Introduce an ORM. Rejected because Nako relies on explicit workflow commits,
   durable jobs, leases, redaction-sensitive read models, and SQL-specific
   behavior that should remain visible in adapter code.
 - Implement full PostgreSQL now. Deferred until the contract suite and facade

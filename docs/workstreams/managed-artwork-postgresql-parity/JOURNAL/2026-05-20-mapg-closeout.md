@@ -21,17 +21,17 @@ runtime capability reporting.
 
 ## Verification
 
-- `cargo nextest run -p taru-db sqlite_managed_artwork_contract --no-fail-fast`
-- `cargo nextest run -p taru-db postgres_managed_artwork_contract --run-ignored ignored-only --no-fail-fast`
-- `cargo check -p taru-db --tests`
-- `cargo check -p taru-api --tests`
-- `cargo check -p taru-server --tests`
-- `cargo nextest run -p taru-api managed_artwork --no-fail-fast`
-- `cargo nextest run -p taru-server managed_artwork --no-fail-fast`
-- `cargo nextest run -p taru-db managed_artwork --no-fail-fast`
+- `cargo nextest run -p nako-db sqlite_managed_artwork_contract --no-fail-fast`
+- `cargo nextest run -p nako-db postgres_managed_artwork_contract --run-ignored ignored-only --no-fail-fast`
+- `cargo check -p nako-db --tests`
+- `cargo check -p nako-api --tests`
+- `cargo check -p nako-server --tests`
+- `cargo nextest run -p nako-api managed_artwork --no-fail-fast`
+- `cargo nextest run -p nako-server managed_artwork --no-fail-fast`
+- `cargo nextest run -p nako-db managed_artwork --no-fail-fast`
 
 PostgreSQL verification used an ephemeral local PostgreSQL 17 cluster under
-`target/taru-pg-contract`; it was stopped and removed after the ignored
+`target/nako-pg-contract`; it was stopped and removed after the ignored
 contract run.
 
 ## Residual Follow-ons

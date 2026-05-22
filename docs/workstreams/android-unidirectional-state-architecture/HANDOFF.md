@@ -10,7 +10,7 @@ Closed.
 ## Notes
 
 - This is an intentional fearless refactor. Do not preserve shallow local state
-  patterns in `TaruBrowseShell` unless a slice has not migrated yet.
+  patterns in `NakoBrowseShell` unless a slice has not migrated yet.
 - Keep existing coordinator/use case modules and reuse them.
 - Keep commits precise by task slice.
 - Do not touch generated `output/` or `tmp/` directories.
@@ -24,11 +24,11 @@ Closed.
 - AUSA-040 is complete. Media Item Detail, selected Media Source, source probe,
   playback decision, and related retry state now live in `BrowseSession`.
 - AUSA-050 is complete. Playback start now runs through `BrowseSession` and
-  `BrowsePlaybackStarter`; `TaruBrowseShell` only dispatches `StartPlayback`.
+  `BrowsePlaybackStarter`; `NakoBrowseShell` only dispatches `StartPlayback`.
   Success opens the Player route, and failure leaves playback diagnostics in
   session state.
 - AUSA-060 is complete. Resume position calculation is behind
-  `BrowseResumeResolver`; `TaruBrowseShell` no longer owns refresh keys, async
+  `BrowseResumeResolver`; `NakoBrowseShell` no longer owns refresh keys, async
   loads, route-specific state, source selection, playback decision, or playback
   start orchestration.
 - AUSA-070 is complete. Focused session tests, full debug unit tests, and

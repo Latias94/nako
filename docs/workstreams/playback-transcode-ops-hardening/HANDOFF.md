@@ -11,16 +11,16 @@ playback/transcode baselines remain owned by `playback-streaming`,
 `transcode-runtime`, and `admin-playback-runtime-diagnostics`.
 
 PTOH-020 is complete. It adds a typed readiness contract across
-`taru-transcode`, Admin API DTOs, Admin HTTP runtime diagnostics, and the Admin
+`nako-transcode`, Admin API DTOs, Admin HTTP runtime diagnostics, and the Admin
 TypeScript contract. `GET /admin/v1/playback/runtime` now reports a top-level
 readiness state plus stable check entries for FFmpeg probe, hardware
 acceleration, selected fallback, transcode budget, remote playback budget, and
 staging.
 
 PTOH-030 is complete. Playback transcode profile/plan validation now uses
-typed reason categories in `taru-transcode`, Result-returning construction
-seams in `taru-streaming`, and pre-session propagation in
-`taru-server::app::playback`.
+typed reason categories in `nako-transcode`, Result-returning construction
+seams in `nako-streaming`, and pre-session propagation in
+`nako-server::app::playback`.
 
 PTOH-040 is complete. Playback transcode session failures now use a broader
 support taxonomy for probe, plan, staging, budget, hardware fallback, runner,
@@ -36,7 +36,7 @@ remote playback, and hardware facts while excluding raw local paths, Source
 Locators, FFmpeg paths, command argv, output paths, raw stderr, fingerprints,
 secrets, and credentials. The route rejects mismatched session/source query
 contexts. Admin TypeScript contract and Admin web typed client/mocks were
-updated; Public Client API and `taru-client-protocol` remain unchanged.
+updated; Public Client API and `nako-client-protocol` remain unchanged.
 
 PTOH-060 is complete. The lane status, task ledger, milestone evidence, final
 JSON/diff gates, parent umbrella re-score, and workstream index now agree.
@@ -67,14 +67,14 @@ JSON/diff gates, parent umbrella re-score, and workstream index now agree.
 - PTOH-020 keeps the route Admin-only and read-only. Admin web generated
   contract/mocks were updated only because the Admin contract generator
   requires app-local generated output to match; no UI behavior was added.
-- Public Client API and `taru-client-protocol` were not changed.
+- Public Client API and `nako-client-protocol` were not changed.
 - PTOH-030 keeps validation in the narrowest owning crate:
-  `taru-transcode` validates profile/plan facts, `taru-streaming` composes
-  playback profiles through Result-returning seams, and `taru-server` uses
+  `nako-transcode` validates profile/plan facts, `nako-streaming` composes
+  playback profiles through Result-returning seams, and `nako-server` uses
   those seams before request identity, staging, or session creation.
 - PTOH-040 expands internal persisted failure categories but maps those new
   internal categories back to existing Public Client coarse categories in
-  `taru-api::public_client`, so `taru-client-protocol` remains unchanged.
+  `nako-api::public_client`, so `nako-client-protocol` remains unchanged.
 - Public playback session `failure_message` is now derived from the category
   instead of returning raw persisted text. Admin session list still exposes
   only `has_failure_message`; richer evidence belongs to PTOH-050.
@@ -96,7 +96,7 @@ JSON/diff gates, parent umbrella re-score, and workstream index now agree.
 candidate domain/persistence. That lane should consume Managed Import Staging,
 Link Apply, NFO Sidecar Apply, and Playback support evidence instead of
 introducing direct library writes or protocol-specific downloader behavior in
-core Taru.
+core Nako.
 
 Split follow-ons if needed:
 

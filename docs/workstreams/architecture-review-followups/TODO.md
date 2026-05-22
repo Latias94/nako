@@ -39,7 +39,7 @@ Last updated: 2026-05-18
   breadth.
   Evidence: Target lane DESIGN and TODO.
   Handoff: `metadata-merge-policy-unification` was opened and later closed
-  after unifying the merge policy boundary in `taru-core`.
+  after unifying the merge policy boundary in `nako-core`.
 
 ## M3 - Remaining Routing
 

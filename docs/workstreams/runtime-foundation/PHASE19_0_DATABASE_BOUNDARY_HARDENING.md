@@ -2,8 +2,8 @@
 
 ## Summary
 
-M19 hardens `taru-db` as the SQLite implementation behind Taru's repository
-traits. The goal is not to introduce an ORM. Taru continues to use `sqlx` plus
+M19 hardens `nako-db` as the SQLite implementation behind Nako's repository
+traits. The goal is not to introduce an ORM. Nako continues to use `sqlx` plus
 domain repository traits because the current write paths need explicit
 transactions, stable domain mappers, and focused SQL modules more than
 ActiveRecord-style models.
@@ -12,18 +12,18 @@ ActiveRecord-style models.
 
 - Do not add SeaORM.
 - Keep `SqliteStore` as the concrete SQLite adapter.
-- Keep `taru-core` repository traits as the boundary visible to application
+- Keep `nako-core` repository traits as the boundary visible to application
   services.
-- Keep SQL and SQLite transaction details inside `taru-db`.
+- Keep SQL and SQLite transaction details inside `nako-db`.
 - Remove oversized root-module responsibilities instead of preserving MVP file
   layout for compatibility.
 
 ## Repository Module Boundary
 
-`crates/taru-db/src/lib.rs` now owns only the store type, module wiring, and a
+`crates/nako-db/src/lib.rs` now owns only the store type, module wiring, and a
 few shared internal lookup helpers. Shared row mapping and SQL value encoding
-live in `crates/taru-db/src/codec.rs`; root-level repository tests live in
-`crates/taru-db/src/tests.rs`.
+live in `crates/nako-db/src/codec.rs`; root-level repository tests live in
+`crates/nako-db/src/tests.rs`.
 
 The previous mixed `jobs.rs` repository file was split by bounded context:
 
@@ -70,12 +70,12 @@ part of the M19 database baseline:
 Focused validation during M19:
 
 ```powershell
-cargo test -p taru-db scan -- --nocapture
-cargo test -p taru-db metadata -- --nocapture
-cargo test -p taru-db -- --nocapture
-cargo test -p taru-metadata strategy_ -- --nocapture
-cargo check -p taru-library --tests
-cargo check -p taru-metadata --tests
+cargo test -p nako-db scan -- --nocapture
+cargo test -p nako-db metadata -- --nocapture
+cargo test -p nako-db -- --nocapture
+cargo test -p nako-metadata strategy_ -- --nocapture
+cargo check -p nako-library --tests
+cargo check -p nako-metadata --tests
 ```
 
 Full close-out validation:

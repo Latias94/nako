@@ -257,10 +257,10 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
       <aside className="sidebar" aria-label="Primary navigation">
         <div className="brandBlock">
           <div className="brandMark" aria-hidden="true">
-            T
+            <img src="/nako-app-icon-1024.png" alt="" />
           </div>
           <div>
-            <div className="brandName">Taru</div>
+            <div className="brandName">Nako</div>
             <div className="brandSubline">Admin Console</div>
           </div>
         </div>
@@ -606,7 +606,7 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
                     aria-label="Addon manifest JSON"
                     value={manifestJson}
                     onChange={(event) => updateManifestJson(event.target.value)}
-                    placeholder='{"id":"dev.taru.example","protocol_version":"2026-05-15","base_url":"http://example-addon:9100"}'
+                    placeholder='{"id":"dev.nako.example","protocol_version":"2026-05-15","base_url":"http://example-addon:9100"}'
                     rows={9}
                   />
                 </label>
@@ -896,7 +896,7 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
                       <td>{entryPoint.label}</td>
                       <td>{entryPoint.kind}</td>
                       <td>{entryPoint.path}</td>
-                      <td>{entryPoint.hostedPageId ? "external hosted page" : "Taru action"}</td>
+                      <td>{entryPoint.hostedPageId ? "external hosted page" : "Nako action"}</td>
                     </tr>
                   ))}
                   {loadState.data.addons.surfaces?.hostedPages.map((page) => (
@@ -957,16 +957,16 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
               <div className="capabilityLine">
                 <StatusPill
                   label={
-                    loadState.data.addons.installGuide?.lifecycleBoundary.taruManagesContainers
-                      ? "Taru controls containers"
+                    loadState.data.addons.installGuide?.lifecycleBoundary.nakoManagesContainers
+                      ? "Nako controls containers"
                       : "No container control"
                   }
                   tone="muted"
                 />
                 <StatusPill
                   label={
-                    loadState.data.addons.installGuide?.lifecycleBoundary.taruManagesProcesses
-                      ? "Taru controls processes"
+                    loadState.data.addons.installGuide?.lifecycleBoundary.nakoManagesProcesses
+                      ? "Nako controls processes"
                       : "No process control"
                   }
                   tone="muted"

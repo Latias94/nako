@@ -14,11 +14,11 @@ Completed slices:
 1. Android adapter encapsulation: connection product logic now consumes
    Android-owned `ConnectionCoreOutcome`, `ConnectionCoreRequest`, and
    `ConnectionCoreSuccess` values instead of generated UniFFI probe types.
-2. Core module locality: `taru-client-core` now has focused modules for ids,
+2. Core module locality: `nako-client-core` now has focused modules for ids,
    encoding, redaction, request, response, connection, and playback while
    keeping `lib.rs` as the stable public re-export surface.
 3. Boundary drift guard: `scripts/guard-uniffi-boundary.ps1` checks that
-   `taru-client-uniffi` direct dependencies remain allowlisted and that
+   `nako-client-uniffi` direct dependencies remain allowlisted and that
    forbidden runtime/platform dependencies do not appear in its dependency tree.
 4. Native smoke repeatability: `apps/android/scripts/Validate-UniFfiNativeSmoke.ps1`
    builds selected ABI APKs, installs them on a selected device, and runs the
@@ -29,12 +29,12 @@ Completed slices:
 Fresh closeout gates run on 2026-05-21:
 
 ```powershell
-cargo fmt --package taru-client-core --check
+cargo fmt --package nako-client-core --check
 ./scripts/guard-uniffi-boundary.ps1
-cargo nextest run -p taru-client-core --no-fail-fast
-cargo nextest run -p taru-client-uniffi --no-fail-fast
-cargo nextest run -p taru-client --no-fail-fast
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.TaruConnectionClientTest --no-daemon
+cargo nextest run -p nako-client-core --no-fail-fast
+cargo nextest run -p nako-client-uniffi --no-fail-fast
+cargo nextest run -p nako-client --no-fail-fast
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.connection.NakoConnectionClientTest --no-daemon
 ./apps/android/scripts/Validate-UniFfiNativeSmoke.ps1 -Serial emulator-5554 -Abi x86_64
 python -m json.tool docs/workstreams/android-uniffi-boundary-hardening/WORKSTREAM.json > $null
 git diff --check
@@ -59,7 +59,7 @@ The earlier OPPO arm64 evidence remains recorded in
 
 ## Recommended Follow-ons
 
-1. Move browse/catalog route construction through `taru-client-core` when the
+1. Move browse/catalog route construction through `nako-client-core` when the
    product needs to reduce remaining Kotlin runtime-policy ownership.
 2. Add the UniFFI boundary guard and native-smoke script to CI/release recipes
    once the desired device/ABI matrix is decided.

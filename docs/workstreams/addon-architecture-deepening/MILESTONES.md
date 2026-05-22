@@ -28,7 +28,7 @@ Exit criteria:
 ## M2 — Protected Write Payload Contracts
 
 Status: Complete. AAD-040 moved shipped Protected Write payload shapes to
-`taru-addon-protocol` Addon-facing DTOs and updated server/docs/reference Addon
+`nako-addon-protocol` Addon-facing DTOs and updated server/docs/reference Addon
 usage.
 
 Exit criteria:
@@ -86,14 +86,14 @@ Exit criteria:
 ## M6 — Protocol Boundary And Persistence Parity
 
 Status: Complete. AAD-080 split the HTTP caller helper into the permissive
-`taru-addon-client` crate, leaving `taru-addon-protocol` as a dependency-light
+`nako-addon-client` crate, leaving `nako-addon-protocol` as a dependency-light
 wire-contract and validation crate. AAD-090 verified the touched Addon
 persistence slice and made request fingerprints part of the clean SQLite and
 PostgreSQL base schemas instead of carrying a compatibility migration/fallback.
 
 Exit criteria:
 
-- `taru-addon-protocol` dependency and license boundary is re-audited after
+- `nako-addon-protocol` dependency and license boundary is re-audited after
   manifest/payload changes.
 - SQLite and PostgreSQL Addon state semantics are aligned for all touched
   behavior.
@@ -104,7 +104,7 @@ Exit criteria:
 Status: Complete. AAD-100 reviewed the lane, found no required split, and
 closed with fresh formatting, workspace check, focused Addon nextest, full
 workspace nextest, and diff evidence. PostgreSQL opt-in contracts were skipped
-because `TARU_TEST_POSTGRES_URL` was not set.
+because `NAKO_TEST_POSTGRES_URL` was not set.
 
 Exit criteria:
 

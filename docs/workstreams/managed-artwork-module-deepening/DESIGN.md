@@ -8,13 +8,13 @@ Last updated: 2026-05-19
 Managed Artwork behavior is correct but too much implementation is concentrated
 in broad files:
 
-- `crates/taru-server/src/app/artwork.rs` mixes candidate acceptance, ingest
+- `crates/nako-server/src/app/artwork.rs` mixes candidate acceptance, ingest
   claiming and processing, remote fetch, image validation, local artifact file
   storage, Selected Artwork publication, image variant serving, gallery
   assembly, lifecycle diagnostics, drift inventory, and remediation cleanup.
-- `crates/taru-db/src/artwork.rs` mixes task, candidate, ingest, artifact,
+- `crates/nako-db/src/artwork.rs` mixes task, candidate, ingest, artifact,
   selection, gallery, lifecycle, and remediation SQL adapters.
-- `crates/taru-api/src/admin.rs` carries many Admin DTOs and redaction tests for
+- `crates/nako-api/src/admin.rs` carries many Admin DTOs and redaction tests for
   Managed Artwork alongside unrelated Admin API surfaces.
 
 The concentration makes it harder to reason about the real seams. A maintainer
@@ -104,7 +104,7 @@ DTOs, OpenAPI examples, SDK-visible fields, HTTP headers, or error messages:
 - artifact content hashes;
 - raw provider/addon payloads.
 
-Internal domain records may carry these values when they are needed for Taru
+Internal domain records may carry these values when they are needed for Nako
 authority, storage, or validation. Redaction is enforced at API and log/error
 surfaces.
 
@@ -113,4 +113,4 @@ surfaces.
 - Existing behavior and tests are trusted as the compatibility baseline.
 - Work proceeds through small refactor slices with focused validation.
 - Reference projects under `repo-ref/` are for behavior and architecture study
-  only; implementation remains original Taru code.
+  only; implementation remains original Nako code.

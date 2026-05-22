@@ -5,7 +5,7 @@ Last updated: 2026-05-19
 
 ## Purpose
 
-Taru can now accept Artwork Candidates, ingest and store Managed Artwork
+Nako can now accept Artwork Candidates, ingest and store Managed Artwork
 Artifacts, publish Selected Artwork, serve original bytes, and derive bounded
 public image variants. The next product boundary is management: operators need a
 redacted way to inspect candidates, artifacts, and selected slots for one Media
@@ -60,7 +60,7 @@ and rejects artifacts that do not belong to the requested item/kind.
 
 ## Closeout
 
-This lane is complete. Taru now has a redacted Admin item artwork gallery and a
+This lane is complete. Nako now has a redacted Admin item artwork gallery and a
 guarded item/kind-scoped selection command. Public Client artwork remains
 Selected Artwork only. Unpublish/delete behavior, Public candidate/gallery
 browsing, persisted variant cache/eviction, durable retry/cancel, and

@@ -15,16 +15,16 @@ Last updated: 2026-05-21
 
 ## M1 — Rust Core Browse Request Builders
 
-- [x] BCR-020 [owner=codex] [deps=BCR-010] [scope=crates/taru-client-core]
+- [x] BCR-020 [owner=codex] [deps=BCR-010] [scope=crates/nako-client-core]
   Goal: Add explicit browse/catalog request-builder inputs and functions for
   libraries, library sources, items, item images, people, genre/tag facets, and
   search while preserving existing core public behavior.
-  Validation: `cargo fmt --package taru-client-core --check`; `cargo nextest run -p taru-client-core --no-fail-fast`
+  Validation: `cargo fmt --package nako-client-core --check`; `cargo nextest run -p nako-client-core --no-fail-fast`
   Review: Builders should return complete `CoreHttpRequest` values and reuse
   generic request/redaction/encoding policy; avoid generic string-helper APIs as
   the Android seam.
-  Evidence: `crates/taru-client-core/src/browse.rs`; tests.
-  Handoff: DONE. Added `crates/taru-client-core/src/browse.rs` with explicit
+  Evidence: `crates/nako-client-core/src/browse.rs`; tests.
+  Handoff: DONE. Added `crates/nako-client-core/src/browse.rs` with explicit
   request builders for libraries, library sources, items, item images, people,
   person items, genres/tags, facet items, and search. Core tests cover stable
   URLs, pagination, auth injection, safe previews, facet encoding, and search
@@ -32,33 +32,33 @@ Last updated: 2026-05-21
 
 ## M2 — UniFFI Browse Binding Surface
 
-- [x] BCR-030 [owner=codex] [deps=BCR-020] [scope=crates/taru-client-uniffi,scripts]
-  Goal: Expose FFI-safe browse request builders over `taru-client-core` and keep
-  `taru-client-uniffi` a thin binding adapter.
-  Validation: `cargo fmt --package taru-client-uniffi --check`; `cargo nextest run -p taru-client-uniffi --no-fail-fast`; `./scripts/guard-uniffi-boundary.ps1`
+- [x] BCR-030 [owner=codex] [deps=BCR-020] [scope=crates/nako-client-uniffi,scripts]
+  Goal: Expose FFI-safe browse request builders over `nako-client-core` and keep
+  `nako-client-uniffi` a thin binding adapter.
+  Validation: `cargo fmt --package nako-client-uniffi --check`; `cargo nextest run -p nako-client-uniffi --no-fail-fast`; `./scripts/guard-uniffi-boundary.ps1`
   Review: Binding records must not expose reqwest/Tokio/platform types or DTO
   decode policy.
-  Evidence: `crates/taru-client-uniffi/src/lib.rs`; boundary guard output.
+  Evidence: `crates/nako-client-uniffi/src/lib.rs`; boundary guard output.
   Handoff: DONE. Added FFI-safe page/entity/search browse request input
   records and explicit UniFFI browse request builder functions over
-  `taru-client-core`. UniFFI tests now cover libraries, search, and tag facet
+  `nako-client-core`. UniFFI tests now cover libraries, search, and tag facet
   routes, and the dependency boundary guard still passes.
 
 ## M3 — Android Browse Adapter Migration
 
-- [x] BCR-040 [owner=codex] [deps=BCR-030] [scope=apps/android/app/src/main/java/dev/taru/android/browse,apps/android/app/src/test/java/dev/taru/android/browse]
+- [x] BCR-040 [owner=codex] [deps=BCR-030] [scope=apps/android/app/src/main/java/dev/nako/android/browse,apps/android/app/src/test/java/dev/nako/android/browse]
   Goal: Add Android `BrowseCore` adapter over UniFFI and migrate
-  `TaruBrowseClient` route construction from `TaruPublicClientRequests` to Rust
+  `NakoBrowseClient` route construction from `NakoPublicClientRequests` to Rust
   core descriptors while keeping Kotlin SDK DTO decode and Android diagnostics.
-  Validation: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.browse.TaruBrowseClientTest --no-daemon`
+  Validation: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.browse.NakoBrowseClientTest --no-daemon`
   Review: Generated Kotlin SDK route descriptor calls should be absent from
   runtime browse request construction after migration; DTO aliases may remain.
-  Evidence: `TaruBrowseClient.kt`; `RustBrowseCore.kt`; browse tests.
+  Evidence: `NakoBrowseClient.kt`; `RustBrowseCore.kt`; browse tests.
   Handoff: DONE. Added Android `BrowseCore`/`RustBrowseCore`, migrated
-  `TaruBrowseClient` runtime route construction to Rust/UniFFI request
+  `NakoBrowseClient` runtime route construction to Rust/UniFFI request
   descriptors, and kept Kotlin SDK DTO decode plus Android diagnostics. Browse
-  JVM tests pass. `TaruPublicClientRequests` is no longer used by
-  `TaruBrowseClient`.
+  JVM tests pass. `NakoPublicClientRequests` is no longer used by
+  `NakoBrowseClient`.
 
 ## M4 — Integration Verification And Docs
 

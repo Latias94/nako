@@ -26,7 +26,7 @@ Exit criteria:
 
 Primary gates:
 
-- `rg "locator|input_locator" crates/taru-client-protocol crates/taru-api crates/taru-server/src/http`
+- `rg "locator|input_locator" crates/nako-client-protocol crates/nako-api crates/nako-server/src/http`
 - `git diff --check`
 
 ## M2 - Public DTO And Server Mapping
@@ -34,14 +34,14 @@ Primary gates:
 Exit criteria:
 
 - Public protocol DTOs no longer expose raw locators.
-- `taru-api` mapping redacts or replaces locator fields.
+- `nako-api` mapping redacts or replaces locator fields.
 - Server route tests prove public JSON shape.
 
 Primary gates:
 
-- `cargo check -p taru-client-protocol --tests`
-- `cargo check -p taru-api --tests`
-- focused `cargo nextest run -p taru-server <public-route-filter> --no-fail-fast`
+- `cargo check -p nako-client-protocol --tests`
+- `cargo check -p nako-api --tests`
+- focused `cargo nextest run -p nako-server <public-route-filter> --no-fail-fast`
 
 ## M3 - OpenAPI And SDK Sync
 
@@ -53,7 +53,7 @@ Exit criteria:
 
 Primary gates:
 
-- `cargo nextest run -p taru-api --no-fail-fast`
+- `cargo nextest run -p nako-api --no-fail-fast`
 - SDK/OpenAPI generation checks used by existing client contract lanes
 - `git diff --check`
 
@@ -66,10 +66,10 @@ client contract, generated artifacts, and HTTP docs all agree.
 
 Primary gates:
 
-- `cargo check -p taru-client-protocol --tests`
-- `cargo check -p taru-api --tests`
-- `cargo nextest run -p taru-api --no-fail-fast`
-- `cargo nextest run -p taru-server browse_routes_return_catalog_graph playback_decision_and_direct_stream_routes_work --no-fail-fast`
+- `cargo check -p nako-client-protocol --tests`
+- `cargo check -p nako-api --tests`
+- `cargo nextest run -p nako-api --no-fail-fast`
+- `cargo nextest run -p nako-server browse_routes_return_catalog_graph playback_decision_and_direct_stream_routes_work --no-fail-fast`
 - `cargo fmt --all -- --check`
 - `git diff --check`
 

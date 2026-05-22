@@ -21,7 +21,7 @@ Scope:
   in `UX_CONTEXT.md`, including initial color roles, spacing, type roles,
   poster aspect ratios, corner radius, touch targets, and component semantics.
 - README with local Android prerequisites and build command.
-- No Taru server calls yet.
+- No Nako server calls yet.
 
 Validation:
 
@@ -72,8 +72,8 @@ Validation:
 - ACF-020 records direct Kotlin HTTP as the first Android connection strategy;
   UniFFI remains deferred until browse/search/playback request duplication is
   large enough to justify FFI packaging.
-- No dependency on `taru-api`, `taru-server`, `taru-core`,
-  `taru-streaming`, or `taru-transcode`.
+- No dependency on `nako-api`, `nako-server`, `nako-core`,
+  `nako-streaming`, or `nako-transcode`.
 
 ### ACF-030: Minimal Media Library Browse Loop
 
@@ -162,7 +162,7 @@ Remaining ACF-030 work:
 - Browse Facet Result route for public API backed detail and library facets.
 - Settings shell beyond server switching through the setup surface.
 - Manual debug walkthrough from server connection to item detail against a
-  running Taru server fixture.
+  running Nako server fixture.
 
 #### ACF-030B: Minimal Media Item Detail Tracer
 
@@ -212,7 +212,7 @@ Remaining ACF-030 work:
   collection, year, and item-kind facets.
 - Settings shell beyond server switching through the setup surface.
 - Manual debug walkthrough from server connection to item detail against a
-  running Taru server fixture.
+  running Nako server fixture.
 
 #### ACF-030C: Compose UI Baseline Rewrite
 
@@ -231,7 +231,7 @@ Rationale:
   diagnostics behavior before the final UI direction existed.
 - The connection, profile, token, Public Client API client, DTO, diagnostics,
   and unit-test foundations are valuable and should be retained.
-- The current `TaruBrowseShell` and read-only detail surface are tracer UI.
+- The current `NakoBrowseShell` and read-only detail surface are tracer UI.
   Continuing to add Search, Facet, and Settings on top of that structure would
   create avoidable UI debt.
 - The implementation may replace tracer UI files outright. Compatibility with
@@ -320,7 +320,7 @@ Validation completed:
 
 Concern:
 
-- Manual debug walkthrough against a running Taru server fixture and Android
+- Manual debug walkthrough against a running Nako server fixture and Android
   device/emulator was not executed in this session. ACF-030 remains open until
   that walkthrough and the remaining search/facet route behavior are validated.
 
@@ -397,16 +397,16 @@ API gaps recorded:
 Validation completed on 2026-05-18:
 
 - `cargo fmt --all -- --check` passed.
-- `cargo nextest run -p taru-server http::tests::catalog --no-fail-fast`
+- `cargo nextest run -p nako-server http::tests::catalog --no-fail-fast`
   passed.
-- `cargo build -p taru-server` passed with pre-existing unused-code warnings.
+- `cargo build -p nako-server` passed with pre-existing unused-code warnings.
 - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest` passed.
 - `apps/android/gradlew.bat -p apps/android :app:assembleDebug` passed.
 - `git diff --check` passed with Windows line-ending normalization warnings
   only.
 - Manual debug walkthrough passed on
   `Pixel_3a_API_34_extension_level_7_x86_64` against a real local
-  `taru-server` fixture on `127.0.0.1:3018` with `adb reverse tcp:3018`.
+  `nako-server` fixture on `127.0.0.1:3018` with `adb reverse tcp:3018`.
   The flow covered connection/setup, Home, Libraries, Media Item Detail,
   Search, Genre Browse Facet Result, Settings, Server Profile, and return to
   Home.
@@ -421,7 +421,7 @@ Status: complete
 Owner: codex
 Depends on: ACF-030
 
-Connect item/source selection to Taru playback decision APIs and construct
+Connect item/source selection to Nako playback decision APIs and construct
 public playback requests.
 
 Scope:
@@ -466,7 +466,7 @@ Implementation completed on 2026-05-18:
 
 Validation completed on 2026-05-18:
 
-- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.playback.TaruPlaybackClientTest`
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.playback.NakoPlaybackClientTest`
   passed.
 - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest` passed.
 - `apps/android/gradlew.bat -p apps/android :app:assembleDebug` passed.
@@ -474,7 +474,7 @@ Validation completed on 2026-05-18:
   only.
 - Manual real-server/device walkthrough passed on
   `Pixel_3a_API_34_extension_level_7_x86_64` against a real local
-  `taru-server` fixture on `127.0.0.1:3018` with
+  `nako-server` fixture on `127.0.0.1:3018` with
   `adb reverse tcp:3018 tcp:3018`. The flow covered setup save, Home,
   `Night Harbor` Media Item Detail, `Playback Source Selection`, source
   candidate `Night Harbor.mkv`, `Request decision`, `HLS route prepared`, a
@@ -491,7 +491,7 @@ Status: complete
 Owner: codex
 Depends on: ACF-040
 
-Play one Taru public playback route through Media3 ExoPlayer.
+Play one Nako public playback route through Media3 ExoPlayer.
 
 Scope:
 
@@ -510,7 +510,7 @@ Scope:
 
 Validation:
 
-- Manual playback smoke test against a local Taru server fixture.
+- Manual playback smoke test against a local Nako server fixture.
 - Instrumented or integration test plan recorded if local CI cannot run
   emulator playback.
 
@@ -534,7 +534,7 @@ Validation completed on 2026-05-18:
 
 - `apps/android/gradlew.bat -p apps/android :app:compileDebugKotlin --no-daemon --rerun-tasks`
   passed.
-- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.player.PlaybackLaunchTest --no-daemon`
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.player.PlaybackLaunchTest --no-daemon`
   passed.
 - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon`
   passed.
@@ -542,7 +542,7 @@ Validation completed on 2026-05-18:
   passed.
 - Manual real-server/device playback smoke passed on
   `Pixel_3a_API_34_extension_level_7_x86_64` against a local
-  `taru-server` fixture on `127.0.0.1:3018` with
+  `nako-server` fixture on `127.0.0.1:3018` with
   `adb reverse tcp:3018 tcp:3018`.
 - Smoke media: local `Night Harbor.mkv`, regenerated as a 2 second H.264/AAC
   Matroska file and re-probed by `scan-all`.
@@ -621,9 +621,9 @@ API gaps recorded:
 
 Validation completed on 2026-05-18:
 
-- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.player.PlaybackLaunchTest --no-daemon`
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.player.PlaybackLaunchTest --no-daemon`
   passed.
-- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.playback.TaruPlaybackClientTest --no-daemon`
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.playback.NakoPlaybackClientTest --no-daemon`
   passed.
 - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon`
   passed.

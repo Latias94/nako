@@ -22,10 +22,10 @@ Last updated: 2026-05-19
   `resolvePlaybackResumePosition`; preserved existing server-over-local and
   local fallback behavior in `PlaybackResumeResolverTest`.
 - 2026-05-19: Ran
-  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.playback.PlaybackStartCoordinatorTest --tests dev.taru.android.player.PlaybackResumeResolverTest --no-daemon --no-parallel`.
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.playback.PlaybackStartCoordinatorTest --tests dev.nako.android.player.PlaybackResumeResolverTest --no-daemon --no-parallel`.
   Result: pass.
 - 2026-05-19: Ran
-  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.playback.PlaybackStartCoordinatorTest --tests dev.taru.android.playback.TaruPlaybackClientTest --tests dev.taru.android.player.PlaybackResumeResolverTest --tests dev.taru.android.player.PlaybackLaunchTest --tests dev.taru.android.player.PlaybackExitEffectsTest --no-daemon --no-parallel`.
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.playback.PlaybackStartCoordinatorTest --tests dev.nako.android.playback.NakoPlaybackClientTest --tests dev.nako.android.player.PlaybackResumeResolverTest --tests dev.nako.android.player.PlaybackLaunchTest --tests dev.nako.android.player.PlaybackExitEffectsTest --no-daemon --no-parallel`.
   Result: pass.
 - 2026-05-19: Ran
   `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon --no-parallel`.

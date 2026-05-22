@@ -2,7 +2,7 @@
 
 ## M7.0: Playback Streaming Design Baseline
 
-Outcome: Taru has a documented playback-streaming workstream, ADR, milestone
+Outcome: Nako has a documented playback-streaming workstream, ADR, milestone
 split, and remote playback hardening plan before runtime changes begin.
 
 Status: completed.
@@ -111,7 +111,7 @@ Exit criteria:
 
 ## M7.5: Multi-Library and Multi-Remote Backend Config
 
-Outcome: Taru can configure multiple named libraries and remote backend
+Outcome: Nako can configure multiple named libraries and remote backend
 instances without relying on a single `[library.webdav]` preview overlay.
 
 Status: completed.
@@ -134,7 +134,7 @@ Exit criteria:
 
 Foundation notes:
 
-- `TaruServerConfig` uses `[[libraries]]` as the only server library
+- `NakoServerConfig` uses `[[libraries]]` as the only server library
   configuration model.
 - Startup upserts every configured library instead of only the first one.
 - Playback, FFmpeg staging, scan/probe, and NFO paths resolve the storage

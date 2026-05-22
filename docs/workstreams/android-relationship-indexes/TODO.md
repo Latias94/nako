@@ -23,21 +23,21 @@ Last updated: 2026-05-20
   - Owner: Codex
   - Dependencies: ARI-010.
   - Scope:
-    - `apps/android/app/src/main/java/dev/taru/android/browse/`
+    - `apps/android/app/src/main/java/dev/nako/android/browse/`
     - focused browse client tests.
   - Validation:
     - Unit tests cover `GET /genres?limit=&offset=` request building,
       decoding, auth, version checking, and safe diagnostics.
   - Evidence: focused browse client tests.
     Completed on 2026-05-20:
-    `TaruBrowseClient.listGenres` and `GenreListResponse` are covered by
-    `dev.taru.android.browse.TaruBrowseClientTest`.
+    `NakoBrowseClient.listGenres` and `GenreListResponse` are covered by
+    `dev.nako.android.browse.NakoBrowseClientTest`.
 
 - [x] ARI-030 - Productize Genre index route state.
   - Owner: Codex
   - Dependencies: ARI-020.
   - Scope:
-    - `apps/android/app/src/main/java/dev/taru/android/ui/browse/`
+    - `apps/android/app/src/main/java/dev/nako/android/ui/browse/`
     - focused session/navigation tests.
   - Validation:
     - `BrowseSession` opens, saves, restores, loads, retries, and backs out of
@@ -45,15 +45,15 @@ Last updated: 2026-05-20
     - Genre rows open existing Genre related Media Items routes.
   - Evidence: focused UI browse tests.
     Completed on 2026-05-20:
-    `RelationshipIndexFamily.Genres`, `TaruRoute.RelationshipIndex`, and
+    `RelationshipIndexFamily.Genres`, `NakoRoute.RelationshipIndex`, and
     `RelationshipIndexUiState` are covered by focused UI browse tests.
 
 - [x] ARI-040 - Build Genre index screen.
   - Owner: Codex
   - Dependencies: ARI-030.
   - Scope:
-    - `apps/android/app/src/main/java/dev/taru/android/ui/screens/`
-    - `apps/android/app/src/main/java/dev/taru/android/ui/browse/TaruBrowseShell.kt`
+    - `apps/android/app/src/main/java/dev/nako/android/ui/screens/`
+    - `apps/android/app/src/main/java/dev/nako/android/ui/browse/NakoBrowseShell.kt`
   - Validation:
     - Material Expressive screen uses existing tokens/components.
     - row actions preserve stable server IDs.

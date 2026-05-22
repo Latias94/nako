@@ -4,7 +4,7 @@ Status: completed.
 
 ## Goal
 
-Define Taru's playback-streaming and remote hardening strategy before changing
+Define Nako's playback-streaming and remote hardening strategy before changing
 runtime code. This phase is intentionally docs-only: it records the
 architecture decision, splits M7 milestones, and moves the M6 deferred
 playback tasks into a dedicated workstream.
@@ -20,7 +20,7 @@ playback tasks into a dedicated workstream.
 
 ## M6 Starting Point
 
-M6 left Taru in a useful preview state:
+M6 left Nako in a useful preview state:
 
 - WebDAV can list, stat, scan, probe, direct-play, remux, and HLS through VFS
   boundaries.
@@ -51,7 +51,7 @@ The remaining gaps are now playback hardening concerns:
 
 ## Design Commitments
 
-- Keep backend-specific byte access behind `taru-vfs`.
+- Keep backend-specific byte access behind `nako-vfs`.
 - Keep HTTP handlers as translation layers from app plans to responses.
 - Stream remote direct-play bodies before broad remote playback testing.
 - Add staging budget and cleanup before expanding remote transcode usage.

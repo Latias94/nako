@@ -34,7 +34,7 @@ Last updated: 2026-05-22
 
 ### M2 — TokenVault Migration
 
-- [x] ACFH-030 [owner=codex] [deps=ACFH-020] [scope=apps/android/app/src/main/java/dev/taru/android/connection,apps/android/app/src/test/java/dev/taru/android/connection,docs/workstreams/android-client-follow-on-hardening]
+- [x] ACFH-030 [owner=codex] [deps=ACFH-020] [scope=apps/android/app/src/main/java/dev/nako/android/connection,apps/android/app/src/test/java/dev/nako/android/connection,docs/workstreams/android-client-follow-on-hardening]
   Goal: Replace or wrap deprecated `EncryptedSharedPreferences` token storage
   for new installs behind `TokenVault`, preserving token safety and migration
   behavior where possible.
@@ -51,7 +51,7 @@ Last updated: 2026-05-22
 
 ### M3 — PlayerRuntime Platform Capability Slice
 
-- [x] ACFH-040 [owner=codex] [deps=ACFH-020] [scope=apps/android/app/src/main/java/dev/taru/android/ui/screens/player,apps/android/app/src/main/java/dev/taru/android,apps/android/app/src/test/java/dev/taru/android/ui/screens/player,docs/workstreams/android-client-follow-on-hardening]
+- [x] ACFH-040 [owner=codex] [deps=ACFH-020] [scope=apps/android/app/src/main/java/dev/nako/android/ui/screens/player,apps/android/app/src/main/java/dev/nako/android,apps/android/app/src/test/java/dev/nako/android/ui/screens/player,docs/workstreams/android-client-follow-on-hardening]
   Goal: Add the first safe PlayerRuntime platform capability slice, prioritizing
   MediaSession and Picture-in-Picture if they can be modeled without broad route
   churn.

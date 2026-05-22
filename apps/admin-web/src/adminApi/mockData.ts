@@ -110,7 +110,7 @@ export const mockCatalogGovernance: AdminCatalogGovernanceItemListResponse = {
         confidence_milli: 420,
         evidence_source: "path",
         has_evidence: true,
-        inference_version: "taru-naming:1",
+        inference_version: "nako-naming:1",
       },
       provider_mapping_count: 0,
       accepted_provider_mapping_count: 0,
@@ -296,7 +296,7 @@ export const mockAddons: AdminAddonRegistrationsResponse = {
   addons: [
     {
       id: "addon-subtitle-lab",
-      manifest_id: "dev.taru.subtitle-lab",
+      manifest_id: "dev.nako.subtitle-lab",
       name: "Subtitle Lab",
       version: "0.3.0",
       protocol_version: "2026-05-15",
@@ -308,7 +308,7 @@ export const mockAddons: AdminAddonRegistrationsResponse = {
     },
     {
       id: "addon-artwork-curator",
-      manifest_id: "dev.taru.artwork-curator",
+      manifest_id: "dev.nako.artwork-curator",
       name: "Artwork Curator",
       version: "0.2.1",
       protocol_version: "2026-05-15",
@@ -325,7 +325,7 @@ export const mockAddonDetail: AdminAddonRegistrationResponse = {
   addon: {
     summary: mockAddons.addons[0],
     manifest: {
-      id: "dev.taru.subtitle-lab",
+      id: "dev.nako.subtitle-lab",
       name: "Subtitle Lab",
       version: "0.3.0",
       protocol_version: "2026-05-15",
@@ -361,7 +361,7 @@ export const mockAddonDetail: AdminAddonRegistrationResponse = {
 
 export const mockAddonHealth: AdminAddonHealthCheckResponse = {
   addon_id: "addon-subtitle-lab",
-  manifest_id: "dev.taru.subtitle-lab",
+  manifest_id: "dev.nako.subtitle-lab",
   status: "reachable",
   latency_ms: 42,
   protocol_version: "2026-05-15",
@@ -372,7 +372,7 @@ export const mockAddonHealth: AdminAddonHealthCheckResponse = {
 
 export const mockAddonSurfaces: AdminAddonSurfacesResponse = {
   addon_id: "addon-subtitle-lab",
-  manifest_id: "dev.taru.subtitle-lab",
+  manifest_id: "dev.nako.subtitle-lab",
   entry_points: [
     {
       id: "inspect-subtitles",
@@ -405,7 +405,7 @@ export const mockAddonSurfaces: AdminAddonSurfacesResponse = {
     {
       id: "subtitle-provider-key",
       label: "Provider API key",
-      description: "Secret Reference resolved by Taru at runtime.",
+      description: "Secret Reference resolved by Nako at runtime.",
       required: false,
     },
   ],
@@ -437,7 +437,7 @@ export const mockAddonTokens: AddonTokensResponse = {
       id: "addon-token-active",
       addon_id: "addon-subtitle-lab",
       label: "sidecar runtime",
-      token_prefix: "taru_at_subtitle",
+      token_prefix: "nako_at_subtitle",
       status: "active",
       created_at: "2026-05-22T02:10:00.000Z",
       rotated_at: null,
@@ -461,7 +461,7 @@ export const mockAddonGrants: AddonGrantsResponse = {
 
 export const mockAddonDiagnostic: AdminAddonResourceCallDiagnosticResponse = {
   addon_id: "addon-subtitle-lab",
-  manifest_id: "dev.taru.subtitle-lab",
+  manifest_id: "dev.nako.subtitle-lab",
   resource: "subtitle",
   status: "succeeded",
   latency_ms: 85,
@@ -471,7 +471,7 @@ export const mockAddonDiagnostic: AdminAddonResourceCallDiagnosticResponse = {
 
 export const mockAddonInstallGuide: AdminAddonInstallGuideResponse = {
   addon_id: "addon-subtitle-lab",
-  manifest_id: "dev.taru.subtitle-lab",
+  manifest_id: "dev.nako.subtitle-lab",
   addon_name: "Subtitle Lab",
   addon_version: "0.3.0",
   protocol_version: "2026-05-15",
@@ -479,28 +479,28 @@ export const mockAddonInstallGuide: AdminAddonInstallGuideResponse = {
   status: "enabled",
   docker_compose: {
     title: "Docker Compose sidecar snippet",
-    filename: "compose.dev-taru-subtitle-lab.yml",
+    filename: "compose.dev-nako-subtitle-lab.yml",
     content: [
       "services:",
-      "  dev-taru-subtitle-lab:",
-      "    image: \"<replace-with-dev-taru-subtitle-lab-image>:0.3.0\"",
+      "  dev-nako-subtitle-lab:",
+      "    image: \"<replace-with-dev-nako-subtitle-lab-image>:0.3.0\"",
       "    restart: unless-stopped",
       "    environment:",
-      "      TARU_ADDON_BASE_URL: \"http://subtitle-lab:9100\"",
-      "      TARU_ADDON_PROTOCOL_VERSION: \"2026-05-15\"",
-      "      TARU_ADDON_MANIFEST_ID: \"dev.taru.subtitle-lab\"",
+      "      NAKO_ADDON_BASE_URL: \"http://subtitle-lab:9100\"",
+      "      NAKO_ADDON_PROTOCOL_VERSION: \"2026-05-15\"",
+      "      NAKO_ADDON_MANIFEST_ID: \"dev.nako.subtitle-lab\"",
       "      ADDON_SECRET_SUBTITLE_PROVIDER_KEY: \"secret-reference:subtitle-provider-key\"",
       "    healthcheck:",
       "      test: [\"CMD-SHELL\", \"curl -fsS http://subtitle-lab:9100/health >/dev/null\"]",
     ].join("\n"),
     notes: [
-      "Run this Addon Sidecar as a separate service on a network Taru can reach.",
-      "Taru does not mount the Docker socket or manage this container lifecycle.",
+      "Run this Addon Sidecar as a separate service on a network Nako can reach.",
+      "Nako does not mount the Docker socket or manage this container lifecycle.",
     ],
   },
   systemd: {
     title: "systemd sidecar unit snippet",
-    filename: "dev-taru-subtitle-lab.service",
+    filename: "dev-nako-subtitle-lab.service",
     content: [
       "[Unit]",
       "Description=Subtitle Lab Addon Sidecar",
@@ -508,23 +508,23 @@ export const mockAddonInstallGuide: AdminAddonInstallGuideResponse = {
       "",
       "[Service]",
       "Type=simple",
-      "Environment=\"TARU_ADDON_BASE_URL=http://subtitle-lab:9100\"",
-      "Environment=\"TARU_ADDON_PROTOCOL_VERSION=2026-05-15\"",
-      "Environment=\"TARU_ADDON_MANIFEST_ID=dev.taru.subtitle-lab\"",
+      "Environment=\"NAKO_ADDON_BASE_URL=http://subtitle-lab:9100\"",
+      "Environment=\"NAKO_ADDON_PROTOCOL_VERSION=2026-05-15\"",
+      "Environment=\"NAKO_ADDON_MANIFEST_ID=dev.nako.subtitle-lab\"",
       "Environment=\"ADDON_SECRET_SUBTITLE_PROVIDER_KEY=secret-reference:subtitle-provider-key\"",
       "ExecStart=<addon-sidecar-command> --listen 0.0.0.0:9100",
       "Restart=on-failure",
     ].join("\n"),
     notes: [
       "Replace <addon-sidecar-command> with the Addon author's binary and arguments.",
-      "Taru does not call systemd or supervise this process.",
+      "Nako does not call systemd or supervise this process.",
     ],
   },
   secret_references: [
     {
       id: "subtitle-provider-key",
       label: "Provider API key",
-      description: "Secret Reference resolved by Taru at runtime.",
+      description: "Secret Reference resolved by Nako at runtime.",
       required: false,
       env_var: "ADDON_SECRET_SUBTITLE_PROVIDER_KEY",
       placeholder: "secret-reference:subtitle-provider-key",
@@ -537,28 +537,28 @@ export const mockAddonInstallGuide: AdminAddonInstallGuideResponse = {
       expected_result: "The sidecar returns matching protocol, manifest, addon version, and resource-count facts.",
     },
     {
-      title: "Check the Addon through Taru Admin API",
-      command: "curl -fsS -X POST \"$TARU_BASE_URL/admin/v1/addons/addon-subtitle-lab/health-check\" -H 'Authorization: <admin-auth-header>'",
-      expected_result: "Taru returns a redaction-safe Addon Health Check status.",
+      title: "Check the Addon through Nako Admin API",
+      command: "curl -fsS -X POST \"$NAKO_BASE_URL/admin/v1/addons/addon-subtitle-lab/health-check\" -H 'Authorization: <admin-auth-header>'",
+      expected_result: "Nako returns a redaction-safe Addon Health Check status.",
     },
   ],
   registration_verification_steps: [
     {
       title: "Verify the registered Addon manifest snapshot",
-      command: "curl -fsS \"$TARU_BASE_URL/admin/v1/addons/addon-subtitle-lab\" -H 'Authorization: <admin-auth-header>'",
-      expected_result: "The response summary contains manifest_id `dev.taru.subtitle-lab` and status `enabled`.",
+      command: "curl -fsS \"$NAKO_BASE_URL/admin/v1/addons/addon-subtitle-lab\" -H 'Authorization: <admin-auth-header>'",
+      expected_result: "The response summary contains manifest_id `dev.nako.subtitle-lab` and status `enabled`.",
     },
     {
       title: "Verify declared Addon surfaces",
-      command: "curl -fsS \"$TARU_BASE_URL/admin/v1/addons/addon-subtitle-lab/surfaces\" -H 'Authorization: <admin-auth-header>'",
+      command: "curl -fsS \"$NAKO_BASE_URL/admin/v1/addons/addon-subtitle-lab/surfaces\" -H 'Authorization: <admin-auth-header>'",
       expected_result: "The response lists Addon surface declarations only.",
     },
   ],
   lifecycle_boundary: {
-    taru_manages_containers: false,
-    taru_manages_processes: false,
-    taru_manages_packages: false,
-    message: "Taru generates this guide only. The operator owns Addon Sidecar installation, start/stop, upgrades, logs, and removal outside Taru.",
+    nako_manages_containers: false,
+    nako_manages_processes: false,
+    nako_manages_packages: false,
+    message: "Nako generates this guide only. The operator owns Addon Sidecar installation, start/stop, upgrades, logs, and removal outside Nako.",
   },
 };
 
@@ -736,7 +736,7 @@ export const mockPlaybackRuntime: AdminPlaybackRuntimeDiagnosticsResponse = {
         },
         device_initialization: {
           status: "not_run",
-          operator_check: "Verify the host exposes a VAAPI render device to Taru",
+          operator_check: "Verify the host exposes a VAAPI render device to Nako",
           has_detail: false,
         },
         smoke_probe: {
@@ -776,7 +776,7 @@ export const mockPlaybackRuntime: AdminPlaybackRuntimeDiagnosticsResponse = {
         },
         device_initialization: {
           status: "not_run",
-          operator_check: "Verify Intel Quick Sync devices are exposed to Taru",
+          operator_check: "Verify Intel Quick Sync devices are exposed to Nako",
           has_detail: false,
         },
         smoke_probe: {
@@ -939,7 +939,7 @@ export const mockSystemConfig: AdminServerConfigDiagnosticsResponse = {
   public_api_version: "v1",
   auth: {
     enabled: true,
-    token_env: "TARU_ADMIN_TOKEN",
+    token_env: "NAKO_ADMIN_TOKEN",
   },
   network: {
     exposure_mode: "reverse_proxy",
@@ -975,7 +975,7 @@ export const mockSystemConfig: AdminServerConfigDiagnosticsResponse = {
         endpoint_configured: true,
         endpoint_scheme: "https",
         endpoint_host_fingerprint: "sha256:22222222222222222222222222222222",
-        token_env: "TARU_TUNNEL_TOKEN",
+        token_env: "NAKO_TUNNEL_TOKEN",
         token_present: true,
       },
     ],
@@ -1062,7 +1062,7 @@ export const mockSystemConfig: AdminServerConfigDiagnosticsResponse = {
       max_attempts: 3,
       min_interval_ms: 250,
       concurrency: 2,
-      user_agent: "taru-admin-web-mock",
+      user_agent: "nako-admin-web-mock",
       has_proxy: false,
       circuit_breaker_failures: 5,
       circuit_breaker_backoff_ms: 30000,
@@ -1090,7 +1090,7 @@ export const mockSystemConfig: AdminServerConfigDiagnosticsResponse = {
     fetch_concurrency: 2,
     ingest_worker_enabled: true,
     ingest_worker_idle_ms: 1000,
-    fetch_user_agent: "taru-artwork-fetch",
+    fetch_user_agent: "nako-artwork-fetch",
     has_fetch_proxy: false,
     max_width: 4096,
     max_height: 4096,
@@ -1225,9 +1225,9 @@ export const mockAdminConsoleData: AdminConsoleData = {
         expectedResult: step.expected_result,
       })),
       lifecycleBoundary: {
-        taruManagesContainers: mockAddonInstallGuide.lifecycle_boundary.taru_manages_containers,
-        taruManagesProcesses: mockAddonInstallGuide.lifecycle_boundary.taru_manages_processes,
-        taruManagesPackages: mockAddonInstallGuide.lifecycle_boundary.taru_manages_packages,
+        nakoManagesContainers: mockAddonInstallGuide.lifecycle_boundary.nako_manages_containers,
+        nakoManagesProcesses: mockAddonInstallGuide.lifecycle_boundary.nako_manages_processes,
+        nakoManagesPackages: mockAddonInstallGuide.lifecycle_boundary.nako_manages_packages,
         message: mockAddonInstallGuide.lifecycle_boundary.message,
       },
     },

@@ -1263,6 +1263,340 @@ dependencies = [
 ]
 
 [[package]]
+name = "nako-addon-client"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "nako-addon-protocol",
+ "reqwest",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "nako-addon-protocol"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "nako-api"
+version = "0.1.0"
+dependencies = [
+ "nako-addon-protocol",
+ "nako-client-protocol",
+ "nako-core",
+ "nako-streaming",
+ "nako-transcode",
+ "serde",
+ "serde_json",
+ "sha2",
+ "time",
+]
+
+[[package]]
+name = "nako-automation"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "nako-core",
+ "nako-db",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "nako-catalog"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "nako-core",
+ "nako-db",
+ "nako-search",
+ "pollster",
+ "serde",
+ "tokio",
+]
+
+[[package]]
+name = "nako-client"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "nako-client-core",
+ "nako-client-protocol",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "nako-client-cli"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "clap",
+ "nako-client",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "nako-client-core"
+version = "0.1.0"
+dependencies = [
+ "nako-client-protocol",
+ "serde_json",
+]
+
+[[package]]
+name = "nako-client-protocol"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "nako-client-uniffi"
+version = "0.1.0"
+dependencies = [
+ "nako-client-core",
+ "uniffi",
+]
+
+[[package]]
+name = "nako-core"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "serde",
+ "sha2",
+ "thiserror",
+ "uuid",
+]
+
+[[package]]
+name = "nako-db"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "nako-core",
+ "nako-search",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sqlx",
+ "tempfile",
+ "tokio",
+]
+
+[[package]]
+name = "nako-events"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "hmac",
+ "nako-core",
+ "nako-db",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2",
+ "time",
+ "tokio",
+]
+
+[[package]]
+name = "nako-library"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "futures-util",
+ "nako-core",
+ "nako-db",
+ "nako-media-probe",
+ "nako-naming",
+ "nako-search",
+ "nako-vfs",
+ "pollster",
+ "serde",
+ "tempfile",
+ "tokio",
+]
+
+[[package]]
+name = "nako-media-probe"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "nako-core",
+ "nako-vfs",
+ "pollster",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "nako-metadata"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "nako-catalog",
+ "nako-core",
+ "nako-db",
+ "nako-search",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "time",
+ "tokio",
+]
+
+[[package]]
+name = "nako-naming"
+version = "0.1.0"
+dependencies = [
+ "nako-core",
+ "serde",
+]
+
+[[package]]
+name = "nako-nfo"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "nako-catalog",
+ "nako-core",
+ "nako-db",
+ "nako-search",
+ "nako-vfs",
+ "roxmltree",
+ "serde",
+ "sha2",
+ "tempfile",
+ "tokio",
+]
+
+[[package]]
+name = "nako-reference-addon"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "nako-addon-protocol",
+ "serde_json",
+]
+
+[[package]]
+name = "nako-search"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "nako-core",
+ "serde",
+]
+
+[[package]]
+name = "nako-server"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "clap",
+ "futures-util",
+ "image",
+ "nako-addon-client",
+ "nako-addon-protocol",
+ "nako-api",
+ "nako-automation",
+ "nako-catalog",
+ "nako-core",
+ "nako-db",
+ "nako-events",
+ "nako-library",
+ "nako-media-probe",
+ "nako-metadata",
+ "nako-nfo",
+ "nako-reference-addon",
+ "nako-search",
+ "nako-streaming",
+ "nako-transcode",
+ "nako-vfs",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "time",
+ "tokio",
+ "tokio-util",
+ "toml",
+ "tower",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
+name = "nako-streaming"
+version = "0.1.0"
+dependencies = [
+ "nako-core",
+ "nako-transcode",
+ "serde",
+]
+
+[[package]]
+name = "nako-transcode"
+version = "0.1.0"
+dependencies = [
+ "nako-core",
+ "serde",
+ "sha2",
+ "tempfile",
+ "tokio",
+]
+
+[[package]]
+name = "nako-uniffi-bindgen"
+version = "0.1.0"
+dependencies = [
+ "uniffi",
+]
+
+[[package]]
+name = "nako-vfs"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "bitflags",
+ "bytes",
+ "futures-util",
+ "nako-core",
+ "pollster",
+ "reqwest",
+ "roxmltree",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "tokio",
+]
+
+[[package]]
 name = "nom"
 version = "7.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2305,340 +2639,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "taru-addon-client"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "reqwest",
- "serde_json",
- "taru-addon-protocol",
- "tokio",
-]
-
-[[package]]
-name = "taru-addon-protocol"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "taru-api"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "sha2",
- "taru-addon-protocol",
- "taru-client-protocol",
- "taru-core",
- "taru-streaming",
- "taru-transcode",
- "time",
-]
-
-[[package]]
-name = "taru-automation"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "serde",
- "serde_json",
- "taru-core",
- "taru-db",
- "tokio",
-]
-
-[[package]]
-name = "taru-catalog"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "pollster",
- "serde",
- "taru-core",
- "taru-db",
- "taru-search",
- "tokio",
-]
-
-[[package]]
-name = "taru-client"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "reqwest",
- "serde",
- "serde_json",
- "taru-client-core",
- "taru-client-protocol",
- "thiserror",
- "tokio",
-]
-
-[[package]]
-name = "taru-client-cli"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "clap",
- "reqwest",
- "serde",
- "serde_json",
- "taru-client",
- "thiserror",
- "tokio",
-]
-
-[[package]]
-name = "taru-client-core"
-version = "0.1.0"
-dependencies = [
- "serde_json",
- "taru-client-protocol",
-]
-
-[[package]]
-name = "taru-client-protocol"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "taru-client-uniffi"
-version = "0.1.0"
-dependencies = [
- "taru-client-core",
- "uniffi",
-]
-
-[[package]]
-name = "taru-core"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "serde",
- "sha2",
- "thiserror",
- "uuid",
-]
-
-[[package]]
-name = "taru-db"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "serde",
- "serde_json",
- "sha2",
- "sqlx",
- "taru-core",
- "taru-search",
- "tempfile",
- "tokio",
-]
-
-[[package]]
-name = "taru-events"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "axum",
- "hmac",
- "reqwest",
- "serde",
- "serde_json",
- "sha2",
- "taru-core",
- "taru-db",
- "time",
- "tokio",
-]
-
-[[package]]
-name = "taru-library"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "axum",
- "futures-util",
- "pollster",
- "serde",
- "taru-core",
- "taru-db",
- "taru-media-probe",
- "taru-naming",
- "taru-search",
- "taru-vfs",
- "tempfile",
- "tokio",
-]
-
-[[package]]
-name = "taru-media-probe"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "pollster",
- "serde",
- "serde_json",
- "taru-core",
- "taru-vfs",
- "tokio",
-]
-
-[[package]]
-name = "taru-metadata"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "axum",
- "reqwest",
- "serde",
- "serde_json",
- "taru-catalog",
- "taru-core",
- "taru-db",
- "taru-search",
- "time",
- "tokio",
-]
-
-[[package]]
-name = "taru-naming"
-version = "0.1.0"
-dependencies = [
- "serde",
- "taru-core",
-]
-
-[[package]]
-name = "taru-nfo"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "roxmltree",
- "serde",
- "sha2",
- "taru-catalog",
- "taru-core",
- "taru-db",
- "taru-search",
- "taru-vfs",
- "tempfile",
- "tokio",
-]
-
-[[package]]
-name = "taru-reference-addon"
-version = "0.1.0"
-dependencies = [
- "axum",
- "serde_json",
- "taru-addon-protocol",
-]
-
-[[package]]
-name = "taru-search"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "serde",
- "taru-core",
-]
-
-[[package]]
-name = "taru-server"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "axum",
- "clap",
- "futures-util",
- "image",
- "reqwest",
- "serde",
- "serde_json",
- "sha2",
- "taru-addon-client",
- "taru-addon-protocol",
- "taru-api",
- "taru-automation",
- "taru-catalog",
- "taru-core",
- "taru-db",
- "taru-events",
- "taru-library",
- "taru-media-probe",
- "taru-metadata",
- "taru-nfo",
- "taru-reference-addon",
- "taru-search",
- "taru-streaming",
- "taru-transcode",
- "taru-vfs",
- "tempfile",
- "time",
- "tokio",
- "tokio-util",
- "toml",
- "tower",
- "tracing",
- "tracing-subscriber",
- "uuid",
-]
-
-[[package]]
-name = "taru-streaming"
-version = "0.1.0"
-dependencies = [
- "serde",
- "taru-core",
- "taru-transcode",
-]
-
-[[package]]
-name = "taru-transcode"
-version = "0.1.0"
-dependencies = [
- "serde",
- "sha2",
- "taru-core",
- "tempfile",
- "tokio",
-]
-
-[[package]]
-name = "taru-uniffi-bindgen"
-version = "0.1.0"
-dependencies = [
- "uniffi",
-]
-
-[[package]]
-name = "taru-vfs"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "axum",
- "bitflags",
- "bytes",
- "futures-util",
- "pollster",
- "reqwest",
- "roxmltree",
- "serde",
- "serde_json",
- "sha2",
- "taru-core",
- "tempfile",
- "tokio",
 ]
 
 [[package]]

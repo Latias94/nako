@@ -1,0 +1,88 @@
+# Nako container SQLite example.
+#
+# Mounted by deploy/compose/nako-sqlite.yml at /config/nako.toml.
+# Durable state lives under /data; rebuildable cache lives under /cache.
+
+listen_addr = "0.0.0.0:3000"
+database_backend = "sqlite"
+database_url = "sqlite:///data/nako.db"
+ffprobe_path = "ffprobe"
+ffmpeg_path = "ffmpeg"
+scan_concurrency = 1
+probe_concurrency = 2
+metadata_concurrency = 2
+remux_concurrency = 1
+webhook_concurrency = 2
+remux_timeout_ms = 1800000
+remux_staging_root = "/cache/remux"
+
+[auth]
+enabled = true
+token_env = "NAKO_ADMIN_TOKEN"
+
+[network]
+exposure_mode = "private_network"
+
+[transcode]
+hardware_acceleration = "none"
+hardware_fallback = "cpu"
+cpu_concurrency = 1
+gpu_concurrency = 1
+
+[staging]
+max_bytes = 107374182400
+retention_ms = 604800000
+cleanup_on_startup = true
+
+[playback]
+remote_stream_concurrency = 8
+remote_stage_concurrency = 2
+
+[artwork]
+artifact_root = "/data/artwork"
+fetch_timeout_ms = 10000
+fetch_max_attempts = 2
+fetch_max_bytes = 26214400
+fetch_concurrency = 2
+ingest_worker_enabled = true
+ingest_worker_idle_ms = 1000
+fetch_user_agent = "nako-container/0.1"
+max_width = 20000
+max_height = 20000
+
+[metadata.runtime]
+timeout_ms = 10000
+max_attempts = 2
+min_interval_ms = 250
+concurrency = 1
+user_agent = "nako-container/0.1"
+circuit_breaker_failures = 5
+circuit_breaker_backoff_ms = 60000
+
+[[metadata.providers]]
+provider = "tmdb"
+enabled = false
+token_env = "TMDB_READ_ACCESS_TOKEN"
+api_base_url = "https://api.themoviedb.org/3"
+image_base_url = "https://image.tmdb.org/t/p/original"
+language = "en-US"
+include_adult = false
+
+[[metadata.providers]]
+provider = "bangumi"
+enabled = false
+token_env = "BANGUMI_TOKEN"
+api_base_url = "https://api.bgm.tv"
+image_base_url = "https://lain.bgm.tv"
+include_adult = false
+
+[[metadata.providers]]
+provider = "douban"
+enabled = false
+api_key_env = "DOUBAN_API_KEY"
+
+[[libraries]]
+id = "018f0000-0000-7000-8000-000000000001"
+name = "Movies"
+root = "/media/movies"
+preset = "movies"

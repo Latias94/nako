@@ -19,26 +19,26 @@ an artifact after the source becomes valid.
 
 ## Files Changed
 
-- `crates/taru-core/src/media/artwork.rs`
-- `crates/taru-core/src/repository/metadata.rs`
-- `crates/taru-db/src/artwork.rs`
-- `crates/taru-db/src/lib.rs`
-- `crates/taru-db/src/tests.rs`
-- `crates/taru-api/src/admin.rs`
-- `crates/taru-server/src/app/artwork.rs`
-- `crates/taru-server/src/http/admin.rs`
-- `crates/taru-server/src/http/tests/addons.rs`
-- `crates/taru-server/src/http/tests/mod.rs`
+- `crates/nako-core/src/media/artwork.rs`
+- `crates/nako-core/src/repository/metadata.rs`
+- `crates/nako-db/src/artwork.rs`
+- `crates/nako-db/src/lib.rs`
+- `crates/nako-db/src/tests.rs`
+- `crates/nako-api/src/admin.rs`
+- `crates/nako-server/src/app/artwork.rs`
+- `crates/nako-server/src/http/admin.rs`
+- `crates/nako-server/src/http/tests/addons.rs`
+- `crates/nako-server/src/http/tests/mod.rs`
 - `docs/api/HTTP_API.md`
 
 ## Validation
 
 ```powershell
-$env:CARGO_TARGET_DIR='G:\taru-cargo-target'
-cargo nextest run -p taru-api managed_artwork_ingest_requeue --no-fail-fast
-cargo nextest run -p taru-db managed_artwork_ingest_requeue --no-fail-fast
-cargo nextest run -p taru-server managed_artwork_ingest_requeue --no-fail-fast
-cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests
+$env:CARGO_TARGET_DIR='G:\nako-cargo-target'
+cargo nextest run -p nako-api managed_artwork_ingest_requeue --no-fail-fast
+cargo nextest run -p nako-db managed_artwork_ingest_requeue --no-fail-fast
+cargo nextest run -p nako-server managed_artwork_ingest_requeue --no-fail-fast
+cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests
 cargo fmt --all -- --check
 git diff --check
 ```

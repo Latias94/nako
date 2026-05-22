@@ -21,6 +21,6 @@ Recommended follow-on:
 
 - Registration is not installation.
 - Health Check verifies sidecar reachability after registration.
-- Taru does not manage Docker, systemd, Kubernetes, SSH, host agents, package
+- Nako does not manage Docker, systemd, Kubernetes, SSH, host agents, package
   installation, process lifecycle, logs, upgrades, or removal.
 - URL-based manifest fetch is out of scope.

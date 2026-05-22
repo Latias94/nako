@@ -27,10 +27,10 @@ types to the runtime.
   - `docs/workstreams/repository-seam-deepening/`
   - `docs/workstreams/metadata-refresh-seam/`
 - Code:
-  - `crates/taru-server/src/app/runtime.rs`
-  - `crates/taru-server/src/app/startup.rs`
-  - `crates/taru-core/src/repository/jobs.rs`
-  - `crates/taru-db/src/jobs.rs`
+  - `crates/nako-server/src/app/runtime.rs`
+  - `crates/nako-server/src/app/startup.rs`
+  - `crates/nako-core/src/repository/jobs.rs`
+  - `crates/nako-db/src/jobs.rs`
 
 ## Scope
 

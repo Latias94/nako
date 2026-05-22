@@ -2,7 +2,7 @@
 
 Status: Draft release baseline
 
-This guide covers the current self-hosted Taru server shape for SQLite and
+This guide covers the current self-hosted Nako server shape for SQLite and
 PostgreSQL operators. It is deliberately conservative: bind locally by default,
 keep secrets in environment variables, and keep durable state separate from
 cache/rebuildable state.
@@ -11,46 +11,46 @@ cache/rebuildable state.
 
 1. Install a Rust toolchain, FFmpeg/FFprobe, and `cargo-nextest`.
 2. Choose a database backend:
-   - SQLite: copy `deploy/sqlite/taru.toml`.
-   - PostgreSQL: copy `deploy/postgres/taru.toml` and optionally start
+   - SQLite: copy `deploy/sqlite/nako.toml`.
+   - PostgreSQL: copy `deploy/postgres/nako.toml` and optionally start
      `deploy/compose/postgres.yml`.
 3. Replace example paths with host paths.
 4. Export secrets:
 
 ```bash
-export TARU_ADMIN_TOKEN='replace-with-a-long-random-token'
+export NAKO_ADMIN_TOKEN='replace-with-a-long-random-token'
 export TMDB_READ_ACCESS_TOKEN='optional-provider-token'
 export BANGUMI_TOKEN='optional-provider-token'
 export DOUBAN_API_KEY='optional-provider-key'
-export TARU_DATABASE_URL='postgres://taru:replace-with-a-long-random-password@127.0.0.1:5432/taru'
-export TARU_POSTGRES_PASSWORD='replace-with-a-long-random-password'
+export NAKO_DATABASE_URL='postgres://nako:replace-with-a-long-random-password@127.0.0.1:5432/nako'
+export NAKO_POSTGRES_PASSWORD='replace-with-a-long-random-password'
 ```
 
 5. Validate the config without connecting to production databases or external
    metadata providers:
 
 ```bash
-cargo run -p taru-server -- --config /etc/taru/taru.toml config-check --create-dirs
+cargo run -p nako-server -- --config /etc/nako/nako.toml config-check --create-dirs
 ```
 
 For JSON output suitable for CI/support bundles:
 
 ```bash
-cargo run -p taru-server -- --config /etc/taru/taru.toml config-check --json
+cargo run -p nako-server -- --config /etc/nako/nako.toml config-check --json
 ```
 
 6. Start the server:
 
 ```bash
-cargo run -p taru-server -- --config /etc/taru/taru.toml serve
+cargo run -p nako-server -- --config /etc/nako/nako.toml serve
 ```
 
 For PowerShell:
 
 ```powershell
-$env:TARU_ADMIN_TOKEN = 'replace-with-a-long-random-token'
-cargo run -p taru-server -- --config C:\Taru\taru.toml config-check --create-dirs
-cargo run -p taru-server -- --config C:\Taru\taru.toml serve
+$env:NAKO_ADMIN_TOKEN = 'replace-with-a-long-random-token'
+cargo run -p nako-server -- --config C:\Nako\nako.toml config-check --create-dirs
+cargo run -p nako-server -- --config C:\Nako\nako.toml serve
 ```
 
 `config-check` fails for hard safety problems such as unresolved database
@@ -63,15 +63,15 @@ probe was requested.
 
 ## Network Exposure
 
-The example configs bind to `127.0.0.1:3000`. Keep that default until Taru is
+The example configs bind to `127.0.0.1:3000`. Keep that default until Nako is
 behind a trusted reverse proxy, VPN, tunnel, or private network boundary.
 
-Do not expose Taru directly to the public internet with placeholder tokens,
+Do not expose Nako directly to the public internet with placeholder tokens,
 disabled auth, or an unaudited reverse proxy. `GET /health` is intentionally
 public for readiness checks; all other routes should require bearer auth when
 `[auth].enabled = true`.
 
-Taru now has an explicit `[network]` policy section for config-check and future
+Nako now has an explicit `[network]` policy section for config-check and future
 request-time enforcement. The conservative default is local-only:
 
 ```toml
@@ -87,10 +87,10 @@ listen_addr = "0.0.0.0:3000"
 
 [network]
 exposure_mode = "reverse_proxy"
-external_base_url = "https://taru.example.com"
+external_base_url = "https://nako.example.com"
 trusted_proxy_headers = true
 trusted_proxy_sources = ["127.0.0.1"]
-allowed_origins = ["https://taru.example.com"]
+allowed_origins = ["https://nako.example.com"]
 ```
 
 For a tunnel, declare the provider and keep the credential in an environment
@@ -100,14 +100,14 @@ traversal or relay runtime:
 ```toml
 [network]
 exposure_mode = "tunnel_provider"
-external_base_url = "https://taru.example.com"
-allowed_origins = ["https://taru.example.com"]
+external_base_url = "https://nako.example.com"
+allowed_origins = ["https://nako.example.com"]
 
 [[network.tunnel_providers]]
 id = "cloudflared"
 kind = "cloudflare_tunnel"
-public_url = "https://taru.example.com"
-token_env = "TARU_TUNNEL_TOKEN"
+public_url = "https://nako.example.com"
+token_env = "NAKO_TUNNEL_TOKEN"
 ```
 
 `config-check` redacts raw external URLs, forwarded headers, bearer tokens,
@@ -122,10 +122,10 @@ SQLite is the simplest self-hosted mode:
 
 ```toml
 database_backend = "sqlite"
-database_url = "sqlite:///var/lib/taru/taru.db"
+database_url = "sqlite:///var/lib/nako/nako.db"
 ```
 
-Use a local disk path, not a network filesystem, for the SQLite database. Taru
+Use a local disk path, not a network filesystem, for the SQLite database. Nako
 creates the database file if it is missing and uses the workspace SQLite runtime
 policy for on-disk operation.
 
@@ -135,10 +135,10 @@ PostgreSQL mode is explicit:
 
 ```toml
 database_backend = "postgres"
-database_url_env = "TARU_DATABASE_URL"
+database_url_env = "NAKO_DATABASE_URL"
 ```
 
-Set `TARU_DATABASE_URL` from your secret manager or service manager before
+Set `NAKO_DATABASE_URL` from your secret manager or service manager before
 launch. Do not commit a real database password. Inline `database_url` remains
 available for non-secret SQLite examples, but PostgreSQL examples should prefer
 `database_url_env` so committed config files never contain credentials.
@@ -148,7 +148,7 @@ server does not start with a placeholder credential.
 To start only PostgreSQL for local testing:
 
 ```bash
-TARU_POSTGRES_PASSWORD='replace-with-a-long-random-password' \
+NAKO_POSTGRES_PASSWORD='replace-with-a-long-random-password' \
   docker compose -f deploy/compose/postgres.yml up -d
 ```
 
@@ -178,32 +178,32 @@ library roots, otherwise scans may ingest generated files.
 
 The repository includes an initial local container build path:
 
-- `Dockerfile`: multi-stage `taru-server` build with FFmpeg/FFprobe in the
+- `Dockerfile`: multi-stage `nako-server` build with FFmpeg/FFprobe in the
   runtime image.
-- `deploy/container/sqlite.taru.toml`: container SQLite config mounted at
-  `/config/taru.toml`.
-- `deploy/container/postgres.taru.toml`: container PostgreSQL config using
-  `database_url_env = "TARU_DATABASE_URL"`.
-- `deploy/compose/taru-sqlite.yml`: Taru + durable SQLite/artwork/cache
+- `deploy/container/sqlite.nako.toml`: container SQLite config mounted at
+  `/config/nako.toml`.
+- `deploy/container/postgres.nako.toml`: container PostgreSQL config using
+  `database_url_env = "NAKO_DATABASE_URL"`.
+- `deploy/compose/nako-sqlite.yml`: Nako + durable SQLite/artwork/cache
   volumes.
-- `deploy/compose/taru-postgres.yml`: Taru + PostgreSQL 17 with durable DB,
+- `deploy/compose/nako-postgres.yml`: Nako + PostgreSQL 17 with durable DB,
   artifact, and cache volumes.
 
 Copy `deploy/compose/.env.example` to `deploy/compose/.env`, replace every
-value, and point `TARU_MEDIA_ROOT` at an existing host media directory. The
-compose files bind Taru to `127.0.0.1:3000` and run `config-check --create-dirs`
+value, and point `NAKO_MEDIA_ROOT` at an existing host media directory. The
+compose files bind Nako to `127.0.0.1:3000` and run `config-check --create-dirs`
 before `serve`.
 
 SQLite compose:
 
 ```bash
-docker compose --env-file deploy/compose/.env -f deploy/compose/taru-sqlite.yml up --build
+docker compose --env-file deploy/compose/.env -f deploy/compose/nako-sqlite.yml up --build
 ```
 
 PostgreSQL compose:
 
 ```bash
-docker compose --env-file deploy/compose/.env -f deploy/compose/taru-postgres.yml up --build
+docker compose --env-file deploy/compose/.env -f deploy/compose/nako-postgres.yml up --build
 ```
 
 Do not store media, SQLite databases, PostgreSQL data, Managed Artwork
@@ -217,10 +217,10 @@ Example:
 ```toml
 [auth]
 enabled = true
-token_env = "TARU_ADMIN_TOKEN"
+token_env = "NAKO_ADMIN_TOKEN"
 ```
 
-Set `TARU_ADMIN_TOKEN` to a long random value. Do not reuse it for Addons,
+Set `NAKO_ADMIN_TOKEN` to a long random value. Do not reuse it for Addons,
 Webhooks, metadata providers, WebDAV, PostgreSQL, or reverse proxies.
 
 ## Metadata Providers
@@ -245,7 +245,7 @@ public/admin response bodies.
 ## Addons And Webhooks
 
 Addon and Webhook routes are runtime-managed through the HTTP API, not by
-static registration in `taru.toml`.
+static registration in `nako.toml`.
 
 Operational guidance:
 
@@ -268,7 +268,7 @@ ffprobe_path = "ffprobe"
 ffmpeg_path = "ffmpeg"
 remux_concurrency = 1
 remux_timeout_ms = 1800000
-remux_staging_root = "/var/cache/taru/remux"
+remux_staging_root = "/var/cache/nako/remux"
 
 [transcode]
 hardware_acceleration = "none"
@@ -291,11 +291,11 @@ verify FFmpeg device availability before enabling GPU policies.
 Useful checks:
 
 ```bash
-cargo run -p taru-server -- --config /etc/taru/taru.toml config-check --json
+cargo run -p nako-server -- --config /etc/nako/nako.toml config-check --json
 curl http://127.0.0.1:3000/health
-curl -H "Authorization: Bearer $TARU_ADMIN_TOKEN" \
+curl -H "Authorization: Bearer $NAKO_ADMIN_TOKEN" \
   http://127.0.0.1:3000/admin/v1/overview
-curl -H "Authorization: Bearer $TARU_ADMIN_TOKEN" \
+curl -H "Authorization: Bearer $NAKO_ADMIN_TOKEN" \
   http://127.0.0.1:3000/admin/v1/system/config
 ```
 
@@ -319,13 +319,13 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode pos
 
 ## Example Inventory
 
-- SQLite config: `deploy/sqlite/taru.toml`
-- PostgreSQL config: `deploy/postgres/taru.toml`
+- SQLite config: `deploy/sqlite/nako.toml`
+- PostgreSQL config: `deploy/postgres/nako.toml`
 - PostgreSQL compose service: `deploy/compose/postgres.yml`
-- Taru container configs: `deploy/container/sqlite.taru.toml` and
-  `deploy/container/postgres.taru.toml`
-- Taru compose stacks: `deploy/compose/taru-sqlite.yml` and
-  `deploy/compose/taru-postgres.yml`
+- Nako container configs: `deploy/container/sqlite.nako.toml` and
+  `deploy/container/postgres.nako.toml`
+- Nako compose stacks: `deploy/compose/nako-sqlite.yml` and
+  `deploy/compose/nako-postgres.yml`
 - Backup/restore/upgrade runbook: `docs/deployment/BACKUP_RESTORE_UPGRADE.md`
 - Release artifact contract: `docs/deployment/RELEASE_ARTIFACTS.md`
 - Operator release checklist: `docs/deployment/RELEASE_CHECKLIST.md`

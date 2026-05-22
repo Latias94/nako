@@ -5,7 +5,7 @@ Last updated: 2026-05-20
 
 ## Why This Lane Exists
 
-Taru's current architecture is already directionally strong: Rust workspace,
+Nako's current architecture is already directionally strong: Rust workspace,
 modular monolith, VFS-first storage, Addon Sidecars, explicit Public Client API,
 separate Admin API, durable jobs, event outbox, NFO boundary, provider mapping,
 and playback runtime ownership.
@@ -13,19 +13,19 @@ and playback runtime ownership.
 The next risk is not feature absence. The next risk is letting early MVP shapes
 become permanent architecture:
 
-- `taru-db::SqliteStore` has become a broad concrete adapter that implements
+- `nako-db::SqliteStore` has become a broad concrete adapter that implements
   almost every repository interface.
 - Some transaction boundaries are workflow-specific methods rather than a
   consistent persistence model that can be implemented by SQLite and
   PostgreSQL.
-- `taru-server::TaruApp` still knows too much construction detail for storage,
+- `nako-server::NakoApp` still knows too much construction detail for storage,
   metadata, playback, automation, jobs, Addons, webhooks, and admin surfaces.
 - Local source discovery, Local Inference, provisional hierarchy creation,
   catalog/search projection, and scan failure resolution remain close enough
   that future anime/library breadth will be harder to reason about.
 - Metadata providers can grow into direct Canonical Metadata writers unless
   provider output is normalized through a candidate/acceptance seam.
-- `taru-search` is currently shallow; future multilingual, alias, provider-id,
+- `nako-search` is currently shallow; future multilingual, alias, provider-id,
   facet, and AI-assisted search needs a deeper module.
 - Admin API and frontend contract work can accidentally mirror internals unless
   read models remain explicit.
@@ -86,7 +86,7 @@ the MVP fast, but it weakens locality:
 
 ### P1 — Composition Root And App Services Still Carry Too Much Wiring
 
-`TaruApp` remains readable, but it constructs too many runtime concerns
+`NakoApp` remains readable, but it constructs too many runtime concerns
 directly. Adding network tunnel providers, AI automation, Addon Manager
 behavior, richer Admin API read models, or more playback workers would push
 more knowledge into the root unless runtimes are grouped behind deeper modules.
@@ -106,7 +106,7 @@ Metadata increases the risk of provider-centric core models.
 
 ### P4 — Search Is Too Shallow
 
-`taru-search` currently defines a small index trait and basic document/query
+`nako-search` currently defines a small index trait and basic document/query
 types. Future multilingual search, aliases, provider IDs, Browse Facets, Sort
 Keys, and AI-assisted search need explicit semantics before the database schema
 or UI expectations harden.
@@ -121,14 +121,14 @@ state, or accidental coupling to internal records.
 
 When this lane closes:
 
-- Taru has a persistence architecture that can support both SQLite and
+- Nako has a persistence architecture that can support both SQLite and
   PostgreSQL without duplicating a god adapter.
 - Backend-neutral persistence contracts, transaction/unit-of-work semantics,
   and contract tests are explicit.
 - SQLite implementation details live in SQLite-owned modules or crates; any
   future PostgreSQL adapter can implement the same contract without importing
   SQLite assumptions.
-- `TaruApp` delegates construction to cohesive runtime modules instead of
+- `NakoApp` delegates construction to cohesive runtime modules instead of
   directly wiring every feature.
 - Local Inference is a deep module that transforms discovered sources and
   evidence into provisional hierarchy plans.
@@ -145,7 +145,7 @@ When this lane closes:
 
 - Persistence and PostgreSQL-readiness design.
 - Repository/transaction/unit-of-work deepening.
-- Potential crate boundary changes such as splitting `taru-db` into a
+- Potential crate boundary changes such as splitting `nako-db` into a
   backend-neutral persistence contract and SQLite implementation.
 - Contract tests for persistence behavior.
 - Server runtime grouping and composition-root slimming.
@@ -174,9 +174,9 @@ When this lane closes:
 
 | Assumption | Confidence | Evidence | Consequence if wrong |
 | --- | --- | --- | --- |
-| Taru has no production compatibility burden yet. | High | User direction and current project state. | If external users already depend on current APIs, deletion must be staged behind explicit migration notes. |
+| Nako has no production compatibility burden yet. | High | User direction and current project state. | If external users already depend on current APIs, deletion must be staged behind explicit migration notes. |
 | PostgreSQL support is a future architecture requirement. | High | User explicitly requested PostgreSQL consideration. | If PostgreSQL is dropped, persistence still benefits from cleaner seams but some dialect work can defer. |
-| `SqliteStore` breadth is the highest-leverage refactor target. | High | Architecture review and crate scan show `taru-db` owns most repository implementations. | If another bottleneck appears during audit, FRA-020 must update priority before implementation starts. |
+| `SqliteStore` breadth is the highest-leverage refactor target. | High | Architecture review and crate scan show `nako-db` owns most repository implementations. | If another bottleneck appears during audit, FRA-020 must update priority before implementation starts. |
 | Crate renames/splits are acceptable. | Medium | User requested fearless refactor and no compatibility burden. | If package names must remain stable, use internal module splits first and defer crate renames. |
 | Existing tests are sufficient to protect most behavior during refactor. | Medium | Workspace has focused tests across db/server/library/metadata/NFO/playback. | If gaps appear, add characterization tests before deleting old paths. |
 
@@ -199,10 +199,10 @@ Preferred direction to validate:
 
 The deep dive should consider whether the clean final state is:
 
-- a slimmer `taru-db` facade over backend-specific implementation crates;
-- `taru-sqlite` for the SQLite SQLx implementation;
-- future `taru-postgres` for the PostgreSQL SQLx implementation;
-- a staged internal `taru-db::sqlite` split first, followed by crate extraction
+- a slimmer `nako-db` facade over backend-specific implementation crates;
+- `nako-sqlite` for the SQLite SQLx implementation;
+- future `nako-postgres` for the PostgreSQL SQLx implementation;
+- a staged internal `nako-db::sqlite` split first, followed by crate extraction
   when contract tests are in place.
 
 FRA-020 accepted ADR 0029 and chose this facade-plus-adapters target. Do not
@@ -219,7 +219,7 @@ Server construction should move toward cohesive runtime modules:
 - Admin Operations Runtime;
 - Job Runtime.
 
-`TaruApp` should remain a thin composition root that exposes application
+`NakoApp` should remain a thin composition root that exposes application
 capabilities, not the place where every concrete service is assembled.
 
 ### Local Inference Engine
@@ -235,11 +235,11 @@ relationships a deeper seam.
 Provider adapters should map native provider payloads to provider-neutral
 candidates. The Acceptance Workflow should decide what becomes Canonical
 Metadata, Provider Mapping, Artwork Candidates, or Generated Artifacts. This
-protects Taru's domain from TMDB/Douban/Bangumi-specific shapes.
+protects Nako's domain from TMDB/Douban/Bangumi-specific shapes.
 
 ### Search Semantics
 
-`taru-search` should own explicit search semantics: normalized text, aliases,
+`nako-search` should own explicit search semantics: normalized text, aliases,
 facets, sort keys, provider identifiers, index versioning, and projection
 contracts. Storage-specific implementation can remain replaceable.
 
@@ -257,7 +257,7 @@ contracts. Storage-specific implementation can remain replaceable.
 | Priority | Area | Why first/why later | First task |
 | --- | --- | --- | --- |
 | P0 | Persistence/PostgreSQL readiness | All future metadata, search, jobs, and admin read models depend on it. | FRA-020 |
-| P1 | Server runtime composition | Keeps later workers from expanding `TaruApp`. | FRA-070 |
+| P1 | Server runtime composition | Keeps later workers from expanding `NakoApp`. | FRA-070 |
 | P2 | Local Inference Engine | Needed before serious anime/series/provider breadth. | FRA-080 |
 | P3 | Metadata Candidate Graph | Needed before Douban/Bangumi/TMDB coexistence and AI artifacts deepen. | FRA-090 |
 | P4 | Search semantics | Important for product quality, but can follow persistence shape. | FRA-100 |
@@ -282,18 +282,18 @@ This lane can close when:
 
 M61 closed with the target state implemented rather than split:
 
-- `taru-db` now presents a `TaruDatabase` facade while SQLite implementation
+- `nako-db` now presents a `NakoDatabase` facade while SQLite implementation
   details live under SQLite-owned modules.
 - Backend-neutral job lease contract tests run against SQLite, with an ignored
-  PostgreSQL proof harness gated by `TARU_TEST_POSTGRES_URL`.
+  PostgreSQL proof harness gated by `NAKO_TEST_POSTGRES_URL`.
 - ADR 0029 and ADR 0030 record the PostgreSQL-ready persistence boundary,
   SQL dialect, migration, row-codec, and fixture policies.
-- `TaruApp` delegates construction to the `app::composition` module.
+- `NakoApp` delegates construction to the `app::composition` module.
 - Local Inference, Metadata Candidate Graph, and Search semantic projection
   have explicit domain seams instead of being provider-, scanner-, or
   database-shaped.
 - Admin/Public API boundaries remain explicit and redacted, generated frontend
-  and SDK artifacts are reproducible, and the `taru-api` root compatibility
+  and SDK artifacts are reproducible, and the `nako-api` root compatibility
   re-export shim was deleted.
 
 Residual broad work is intentionally future product scope, not closeout debt:

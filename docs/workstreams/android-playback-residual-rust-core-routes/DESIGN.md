@@ -7,7 +7,7 @@ Last updated: 2026-05-21
 
 Android connection, browse/catalog, user-playback, playback decision, streaming
 targets, remux/HLS targets, and HLS segments now flow through the shared Rust
-client core. `TaruPlaybackClient` still has a small but important runtime route
+client core. `NakoPlaybackClient` still has a small but important runtime route
 island that constructs routes through generated Kotlin SDK descriptors.
 
 This lane closes that island and removes confirmed redundant compatibility code.
@@ -25,7 +25,7 @@ This lane closes that island and removes confirmed redundant compatibility code.
 
 ## Problem
 
-Android `TaruPlaybackClient` still uses `TaruPublicClientRequests` for:
+Android `NakoPlaybackClient` still uses `NakoPublicClientRequests` for:
 
 - `GET /sources/{source_id}/probe`;
 - `GET /playback/sessions/{session_id}`;
@@ -38,11 +38,11 @@ confirmed dead compatibility helper.
 
 When this lane closes:
 
-- `taru-client-core` owns explicit request builders for source probe, playback
+- `nako-client-core` owns explicit request builders for source probe, playback
   session inspection, and playback session cancellation.
-- `taru-client-uniffi` exposes thin FFI-safe builder records/functions for those
+- `nako-client-uniffi` exposes thin FFI-safe builder records/functions for those
   routes.
-- Android `TaruPlaybackClient` uses `PlaybackCore`/`RustPlaybackCore` for all
+- Android `NakoPlaybackClient` uses `PlaybackCore`/`RustPlaybackCore` for all
   runtime playback route construction and no longer imports generated SDK route
   descriptors.
 - Generated Kotlin SDK remains available for playback DTO decode and contract
@@ -56,7 +56,7 @@ When this lane closes:
 - Core request builders for source probe, playback session inspect, and playback
   session cancel.
 - Thin UniFFI bindings for those builders.
-- Android `PlaybackCore`/`RustPlaybackCore` extension and `TaruPlaybackClient`
+- Android `PlaybackCore`/`RustPlaybackCore` extension and `NakoPlaybackClient`
   migration from generated SDK route descriptors to Rust-built request
   descriptors.
 - Deletion of `PageRequest.toSdkPageQuery()` if no callers remain.
@@ -76,16 +76,16 @@ When this lane closes:
 Preserve the hardened seam:
 
 ```text
-taru-client-core
+nako-client-core
   owns playback route path, method, bearer injection, and safe preview
 
-taru-client-uniffi
+nako-client-uniffi
   owns FFI-safe playback residual request builder records/functions
 
 RustPlaybackCore
   converts UniFFI CoreHttpRequest to Android PlaybackRequestDescriptor
 
-TaruPlaybackClient
+NakoPlaybackClient
   validates product inputs, authenticates descriptors through Android policy,
   executes Android transport, decodes generated SDK DTOs, maps diagnostics
 ```
@@ -97,7 +97,7 @@ The durable API is route-specific request descriptors, not generic URL helpers.
 This lane can close when:
 
 - tasks PRR-010 through PRR-090 are complete,
-- `TaruPlaybackClient` has no generated SDK route descriptor usage,
+- `NakoPlaybackClient` has no generated SDK route descriptor usage,
 - confirmed dead compatibility code is deleted,
 - targeted Rust, UniFFI, Android playback, boundary guard, route-owner scan, and
   docs gates pass,

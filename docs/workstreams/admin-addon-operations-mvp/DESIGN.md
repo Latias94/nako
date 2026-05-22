@@ -66,7 +66,7 @@ When this lane closes:
    token, registration, and Addon Artwork Candidate history is preserved for
    audit.
 2. **Health check contract.** Health checks should use a small Addon
-   Protocol-owned contract and bounded timeout. Taru must not pass admin
+   Protocol-owned contract and bounded timeout. Nako must not pass admin
    bearer tokens to an Addon Sidecar.
 3. **Diagnostics redaction.** Diagnostics may prove reachability, protocol
    version, declared resource availability, HTTP status class, latency, and
@@ -137,10 +137,10 @@ Sidecars.
 
 ## Architecture Direction
 
-- Keep `taru-addon-protocol` as the wire contract crate.
-- Keep outbound HTTP/probe behavior in `taru-addon-client`.
-- Keep Admin DTOs in `taru-api`, not in `taru-core` persistence records.
-- Keep orchestration in `taru-server` App Services and HTTP routes.
+- Keep `nako-addon-protocol` as the wire contract crate.
+- Keep outbound HTTP/probe behavior in `nako-addon-client`.
+- Keep Admin DTOs in `nako-api`, not in `nako-core` persistence records.
+- Keep orchestration in `nako-server` App Services and HTTP routes.
 - Keep SQLite/PostgreSQL behavior backend-neutral when lifecycle persistence
   changes.
 
@@ -154,7 +154,7 @@ This lane can close when:
 - Addon Token authority and admin bearer-token authority remain separated;
 - focused Addon API and DB gates pass;
 - workspace checks pass when practical;
-- PostgreSQL opt-in contracts are run when `TARU_TEST_POSTGRES_URL` is
+- PostgreSQL opt-in contracts are run when `NAKO_TEST_POSTGRES_URL` is
   available, or skipped with explicit evidence.
 
 Closed on 2026-05-21 after AAO-010 through AAO-070 completed. No follow-on

@@ -5,16 +5,16 @@ Last updated: 2026-05-22
 
 ## Why This Lane Exists
 
-Taru's server is now packageable, authenticated by default, diagnosable for
+Nako's server is now packageable, authenticated by default, diagnosable for
 playback, and able to intake acquisition candidates without direct library
 writes. A self-hosted media server still needs safe remote access: operators
-will place Taru behind reverse proxies, tunnels, VPNs, LAN DNS names, or future
-Taru-managed tunnel providers.
+will place Nako behind reverse proxies, tunnels, VPNs, LAN DNS names, or future
+Nako-managed tunnel providers.
 
 Without an explicit network access boundary, remote access work will likely
 sprawl across config, HTTP handlers, auth, CORS, docs, Admin diagnostics, and
 future tunnel runtimes. The first-principles risk is not how to punch through a
-NAT; it is whether Taru can tell which external endpoints are trusted, which
+NAT; it is whether Nako can tell which external endpoints are trusted, which
 headers are authoritative, which origins are allowed, and whether a deployment
 is safe enough for first-party clients.
 
@@ -30,15 +30,15 @@ is safe enough for first-party clients.
   - `docs/workstreams/release-packaging-and-distribution`
   - `docs/workstreams/post-rpd-product-hardening`
 - Related code:
-  - `crates/taru-server/src/config.rs`
-  - `crates/taru-server/src/http`
-  - `crates/taru-api/src/admin.rs`
-  - `crates/taru-api/src/admin_contract.rs`
+  - `crates/nako-server/src/config.rs`
+  - `crates/nako-server/src/http`
+  - `crates/nako-api/src/admin.rs`
+  - `crates/nako-api/src/admin_contract.rs`
   - `apps/admin-web/src/adminApi`
 
 ## Problem
 
-Operators need to know whether Taru is safe to expose beyond loopback:
+Operators need to know whether Nako is safe to expose beyond loopback:
 
 - which external base URL clients should use;
 - whether auth is enabled and health remains the only public route;
@@ -54,7 +54,7 @@ Operators need to know whether Taru is safe to expose beyond loopback:
 
 When this lane closes:
 
-- Taru has an explicit Network Access Policy vocabulary and config shape.
+- Nako has an explicit Network Access Policy vocabulary and config shape.
 - Config validation distinguishes local-only, reverse-proxy, private-network,
   and tunnel-provider exposure modes.
 - Trusted proxy/header handling is explicit and default-deny.
@@ -62,7 +62,7 @@ When this lane closes:
 - Admin-only diagnostics report network readiness and blockers without leaking
   bearer tokens, tunnel credentials, internal URLs with secrets, raw headers,
   or local filesystem paths.
-- Public Client API and `taru-client-protocol` remain unchanged unless a
+- Public Client API and `nako-client-protocol` remain unchanged unless a
   dedicated client-contract follow-on is opened.
 - Built-in NAT traversal runtime and concrete relay/tunnel implementations are
   split follow-ons.
@@ -107,17 +107,17 @@ Keep network access as a server/runtime boundary, not as a business-domain
 mutation path:
 
 ```text
-taru-server::config
+nako-server::config
   Owns operator-provided network exposure policy, external base URLs, trusted
   proxy CIDRs/sources, forwarded header mode, CORS/origin allow-list, and tunnel
   provider declarations.
 
-taru-server::http
+nako-server::http
   Owns request-time enforcement: auth remains before protected routes,
   forwarded headers are trusted only under policy, CORS/origin behavior follows
   config, and diagnostics never echo raw sensitive headers.
 
-taru-api::admin / taru-server::http::admin
+nako-api::admin / nako-server::http::admin
   Own Admin-only network readiness DTOs/routes. These surfaces expose safe
   status categories and redacted endpoint references, not tokens, tunnel
   credentials, full raw headers, or local network secrets.
@@ -137,7 +137,7 @@ This lane is closed. It met the closeout condition when:
 - Admin diagnostics report network readiness safely;
 - self-hosted docs explain reverse proxy/tunnel deployment boundaries;
 - tests prove no token/header/credential/path leakage;
-- Public Client API and `taru-client-protocol` remain unchanged or are covered
+- Public Client API and `nako-client-protocol` remain unchanged or are covered
   by a dedicated client-contract decision;
 - NAT traversal runtime, relay services, identity/RBAC, downloader protocols,
   AI, and Addon runtime are split or deferred.

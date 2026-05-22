@@ -15,7 +15,7 @@ Last updated: 2026-05-19
 
 ## M1 - Unpublish Command
 
-- [x] SAUD-020 [owner=codex] [deps=SAUD-010] [scope=crates/taru-core,crates/taru-db,crates/taru-api,crates/taru-server,docs/api]
+- [x] SAUD-020 [owner=codex] [deps=SAUD-010] [scope=crates/nako-core,crates/nako-db,crates/nako-api,crates/nako-server,docs/api]
   Goal: Implement `DELETE /admin/v1/items/{item_id}/artwork/{kind}/selection`
   so Admin users can remove a Selected Artwork publication slot without
   deleting the linked artifact or file.
@@ -31,7 +31,7 @@ Last updated: 2026-05-19
 
 ## M2 - Public And Lifecycle Regression
 
-- [x] SAUD-030 [owner=codex] [deps=SAUD-020] [scope=crates/taru-db,crates/taru-server,docs/api]
+- [x] SAUD-030 [owner=codex] [deps=SAUD-020] [scope=crates/nako-db,crates/nako-server,docs/api]
   Goal: Prove the public and lifecycle consequences of unpublish: item image
   lists no longer expose the slot, `/images/{old_selected_id}` returns `404`,
   and the artifact remains stored until explicit lifecycle cleanup.

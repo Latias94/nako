@@ -12,7 +12,7 @@
     "current_worker": "codex"
   },
   "scope": [
-    "apps/android/app/src/main/java/dev/taru/android/ui",
+    "apps/android/app/src/main/java/dev/nako/android/ui",
     "docs/workstreams/android-material-expressive-ui"
   ],
   "dependencies": [

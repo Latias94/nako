@@ -1,4 +1,4 @@
-# Taru Android Smoke Fixtures
+# Nako Android Smoke Fixtures
 
 This document defines repeatable local state for Android smoke checks.
 
@@ -27,8 +27,8 @@ Command:
 ```
 
 Use this when evidence must start from a deterministic setup state. The script
-installs the debug APK, clears `dev.taru.android` app data with `pm clear`, then
-launches `dev.taru.android/.MainActivity`.
+installs the debug APK, clears `dev.nako.android` app data with `pm clear`, then
+launches `dev.nako.android/.MainActivity`.
 
 Expected result:
 
@@ -53,7 +53,7 @@ Command:
 ```
 
 Use this when evidence needs repeatable Home, Settings, and Server Profile
-screens without depending on a live Taru server. The script installs the debug
+screens without depending on a live Nako server. The script installs the debug
 APK, clears app data, seeds a local Server Profile named `Smoke Server`, and
 does not seed an access token.
 
@@ -85,7 +85,7 @@ Command:
 Use this when evidence must prove the Android media path against real Public
 Client API responses. The script installs the debug APK, clears app data,
 prepares the `Night Harbor` demo fixture through
-`scripts/Start-DemoFixtureServer.ps1`, starts a local `taru-server`, applies
+`scripts/Start-DemoFixtureServer.ps1`, starts a local `nako-server`, applies
 `adb reverse`, writes one server-side **User Playback State** progress record
 through the Public Client API, then seeds one debug-only Server Profile plus an
 encrypted token value through the app's real profile store and token vault.
@@ -233,7 +233,7 @@ evidence. The wrapper retries each state once by default because ADB
 `uiautomator dump` can temporarily return no root node while Android is
 transitioning between launched activities. Failed reports include a category,
 evidence path, log path, and focused rerun command for the failed state.
-The JUnit report uses the `taru.android.smoke-regression` test suite with one
+The JUnit report uses the `nako.android.smoke-regression` test suite with one
 testcase per requested smoke state plus an `step.android-build` testcase for
 the wrapper build step.
 

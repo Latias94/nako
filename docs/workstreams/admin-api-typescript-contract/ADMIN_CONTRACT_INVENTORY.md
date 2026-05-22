@@ -4,7 +4,7 @@ Status: Accepted
 Last updated: 2026-05-19
 
 This document records AATC-020: the current hand-written Admin API wire surface
-in `apps/admin-web`, the corresponding `taru-api` DTO authority, and the first
+in `apps/admin-web`, the corresponding `nako-api` DTO authority, and the first
 generated artifact shape.
 
 ## Current Admin-Web Wire DTOs
@@ -18,15 +18,15 @@ Hand-written wire DTOs that should move to the generated contract:
 
 | Type | Authority | Notes |
 | --- | --- | --- |
-| `PageInfo` | `taru_client_protocol::PageInfo` | Shared pagination wire shape used by public and admin responses. |
-| `AdminOverviewResponse` | `taru-api::admin` | Includes `AdminOverviewStatus` as a string union. |
-| `AdminCatalogGovernanceItemListResponse` | `taru-api::admin` | Includes local inference summaries and issue strings. |
-| `AdminOutboxEventListResponse` | `taru-api::admin` | Uses a broad event subject shape in TS today. |
-| `AdminJobListResponse` | `taru-api::admin` | Redacted list shape only; job detail is not in the first contract slice. |
-| `AdminPlaybackSessionListResponse` | `taru-api::admin` | Redacted session list without output paths or failure messages. |
-| `AdminPlaybackRuntimeDiagnosticsResponse` | `taru-api::admin` | Hardware policy/selection currently use broad object/string fields in TS. |
-| `AdminStorageStagingDiagnosticsResponse` | `taru-api::admin` | Redacted staging/cache diagnostics without `source_uri` or `local_path`. |
-| `AdminServerConfigDiagnosticsResponse` | `taru-api::admin` | Sanitized config diagnostics with secret references, not secret values. |
+| `PageInfo` | `nako_client_protocol::PageInfo` | Shared pagination wire shape used by public and admin responses. |
+| `AdminOverviewResponse` | `nako-api::admin` | Includes `AdminOverviewStatus` as a string union. |
+| `AdminCatalogGovernanceItemListResponse` | `nako-api::admin` | Includes local inference summaries and issue strings. |
+| `AdminOutboxEventListResponse` | `nako-api::admin` | Uses a broad event subject shape in TS today. |
+| `AdminJobListResponse` | `nako-api::admin` | Redacted list shape only; job detail is not in the first contract slice. |
+| `AdminPlaybackSessionListResponse` | `nako-api::admin` | Redacted session list without output paths or failure messages. |
+| `AdminPlaybackRuntimeDiagnosticsResponse` | `nako-api::admin` | Hardware policy/selection currently use broad object/string fields in TS. |
+| `AdminStorageStagingDiagnosticsResponse` | `nako-api::admin` | Redacted staging/cache diagnostics without `source_uri` or `local_path`. |
+| `AdminServerConfigDiagnosticsResponse` | `nako-api::admin` | Sanitized config diagnostics with secret references, not secret values. |
 
 Local admin-web types that should remain outside generated contract:
 
@@ -69,17 +69,17 @@ HTTP query names, while parsing and validation remain server-owned.
 
 Response DTO authority:
 
-- `crates/taru-api/src/admin.rs`
-- `taru_client_protocol::PageInfo` for pagination wire shape
+- `crates/nako-api/src/admin.rs`
+- `nako_client_protocol::PageInfo` for pagination wire shape
 
 Route behavior and query parsing currently live in:
 
-- `crates/taru-server/src/http/admin.rs`
-- `crates/taru-server/src/http/query.rs`
+- `crates/nako-server/src/http/admin.rs`
+- `crates/nako-server/src/http/query.rs`
 
 The first generated contract should not move server query parser structs into
-`taru-client-protocol`. If query contracts need a Rust source later, add a
-small Admin API contract-owned inventory in `taru-api`, not in the permissive
+`nako-client-protocol`. If query contracts need a Rust source later, add a
+small Admin API contract-owned inventory in `nako-api`, not in the permissive
 public protocol crate.
 
 ## Artifact Shape Decision
@@ -94,8 +94,8 @@ apps/admin-web/src/adminApi/generated/contract.ts
 
 The generated file should export:
 
-- `TARU_ADMIN_API_VERSION`;
-- `TARU_ADMIN_ROUTES`, keyed by stable route names;
+- `NAKO_ADMIN_API_VERSION`;
+- `NAKO_ADMIN_ROUTES`, keyed by stable route names;
 - `AdminApiRouteKey`;
 - `AdminPageQuery`;
 - query interfaces for covered list routes;
@@ -129,9 +129,9 @@ to reject `/admin/v1/*` routes and admin DTOs.
 
 Recommended file scope:
 
-- Add `crates/taru-api/src/admin_contract.rs` with
+- Add `crates/nako-api/src/admin_contract.rs` with
   `admin_typescript_contract()`.
-- Add `crates/taru-api/examples/emit-admin-typescript-contract.rs`.
+- Add `crates/nako-api/examples/emit-admin-typescript-contract.rs`.
 - Generate `apps/admin-web/src/adminApi/generated/contract.ts`.
 - Update `apps/admin-web/src/adminApi/client.ts` to import route constants and
   generated response types.

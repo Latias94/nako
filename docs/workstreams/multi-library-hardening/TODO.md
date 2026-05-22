@@ -15,12 +15,12 @@ Last updated: 2026-05-18
 
 ## M1 - Current Behavior Characterization
 
-- [x] MLH-020 [owner=codex] [deps=MLH-010] [scope=crates/taru-server/src/config.rs,crates/taru-server/src/app/startup.rs,crates/taru-server/src/app/tests/startup.rs]
+- [x] MLH-020 [owner=codex] [deps=MLH-010] [scope=crates/nako-server/src/config.rs,crates/nako-server/src/app/startup.rs,crates/nako-server/src/app/tests/startup.rs]
   Goal: Characterize current configured-library startup behavior, duplicate ID
   rejection, root updates, missing persisted libraries, and one-library
   fallback helpers.
-  Validation: `cargo check -p taru-server --tests`; focused
-  `cargo nextest run -p taru-server startup --no-fail-fast`.
+  Validation: `cargo check -p nako-server --tests`; focused
+  `cargo nextest run -p nako-server startup --no-fail-fast`.
   Review: `review-workstream` before accepting completion.
   Evidence: startup/config tests and this workstream's evidence file.
   Handoff: Startup/config behavior is now test-visible. Continue with MLH-030
@@ -28,26 +28,26 @@ Last updated: 2026-05-18
 
 ## M2 - Reconciliation Boundary
 
-- [x] MLH-030 [owner=codex] [deps=MLH-020] [scope=crates/taru-server,crates/taru-db,crates/taru-core]
+- [x] MLH-030 [owner=codex] [deps=MLH-020] [scope=crates/nako-server,crates/nako-db,crates/nako-core]
   Goal: Implement one startup Library reconciliation boundary that persists
   configured desired state, reports reconciliation outcomes, and lets startup
   and downstream workflows rely on database Library authority after startup.
-  Validation: `cargo check -p taru-server --tests`; `cargo check -p taru-db
-  --tests`; `cargo nextest run -p taru-server startup --no-fail-fast`;
+  Validation: `cargo check -p nako-server --tests`; `cargo check -p nako-db
+  --tests`; `cargo nextest run -p nako-server startup --no-fail-fast`;
   `cargo fmt --all -- --check`; `git diff --check`.
   Review: boundary shape reviewed against ADR 0019; no blocking findings.
-  Evidence: `crates/taru-server/src/app/library_reconciliation.rs`,
-  `crates/taru-server/src/app/startup.rs`,
-  `crates/taru-server/src/app/tests/startup.rs`.
+  Evidence: `crates/nako-server/src/app/library_reconciliation.rs`,
+  `crates/nako-server/src/app/startup.rs`,
+  `crates/nako-server/src/app/tests/startup.rs`.
   Handoff: Continue with MLH-040 cleanup after callers narrow broad config
   lookups where database Library authority is now available.
 
 ## M3 - Workflow Cleanup And Docs
 
-- [x] MLH-040 [owner=codex] [deps=MLH-030] [scope=crates/taru-server,docs]
+- [x] MLH-040 [owner=codex] [deps=MLH-030] [scope=crates/nako-server,docs]
   Goal: Remove or narrow obsolete one-library config helpers and update docs so
   scan, NFO, metadata, jobs, and diagnostics share the same Library authority.
-  Validation: `cargo fmt --all -- --check`; `cargo nextest run -p taru-server
+  Validation: `cargo fmt --all -- --check`; `cargo nextest run -p nako-server
   --no-fail-fast`; `git diff --check`.
   Review: required before closeout.
   Evidence: scan, metadata, NFO, storage diagnostics, and startup root-policy

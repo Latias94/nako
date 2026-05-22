@@ -55,4 +55,4 @@ if [[ "$backend" == "postgres" || "$postgres_contracts_only" == "true" ]]; then
   exit 0
 fi
 
-step cargo nextest run -p taru-server self_host_smoke --no-fail-fast
+step cargo nextest run -p nako-server self_host_smoke --no-fail-fast

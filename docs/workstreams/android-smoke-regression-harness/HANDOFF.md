@@ -39,7 +39,7 @@ that builds once by default, runs selected stable fixture states through
   `-RetriesPerState 0` when a stricter no-retry signal is needed.
 - Regression reports now include failure category, state attempts, evidence
   path, log path, not-run reason, and a focused single-state rerun command.
-- `Smoke-Emulator.ps1` now waits for the Taru app window to be focused before
+- `Smoke-Emulator.ps1` now waits for the Nako app window to be focused before
   UI hierarchy capture, and recovers focus by waking the device and relaunching
   MainActivity before retrying.
 - `profile-with-media` debug profile seeding now uses a debug-only
@@ -48,7 +48,7 @@ that builds once by default, runs selected stable fixture states through
   the seed phase while keeping fixture setup inside debug APK code.
 - `Smoke-Emulator.ps1` detects Android's `Process system isn't responding`
   dialog, taps `Wait`, recovers app focus, and continues waiting for the target
-  UI text. Taru app ANR/crash failures are still treated as failures.
+  UI text. Nako app ANR/crash failures are still treated as failures.
 - Do not rewrite the harness in Python under the current local workflow. Python
   is only worth revisiting for CI/device-farm execution, cross-platform
   packaging, structured JSON/JUnit report export, or complex parallelism.

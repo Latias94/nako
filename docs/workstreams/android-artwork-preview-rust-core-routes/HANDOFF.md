@@ -27,12 +27,12 @@ None. The lane is closed.
 ## Validation To Keep Fresh
 
 ```powershell
-cargo fmt --package taru-client-core --check
-cargo nextest run -p taru-client-core --no-fail-fast
-cargo fmt --package taru-client-uniffi --check
-cargo nextest run -p taru-client-uniffi --no-fail-fast
+cargo fmt --package nako-client-core --check
+cargo nextest run -p nako-client-core --no-fail-fast
+cargo fmt --package nako-client-uniffi --check
+cargo nextest run -p nako-client-uniffi --no-fail-fast
 ./scripts/guard-uniffi-boundary.ps1
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.artwork.PublicArtworkTest --tests dev.taru.android.ui.artwork.ArtworkRequestResolverTest --no-daemon --rerun-tasks
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.artwork.PublicArtworkTest --tests dev.nako.android.ui.artwork.ArtworkRequestResolverTest --no-daemon --rerun-tasks
 apps/android/gradlew.bat -p apps/android :app:compileDebugKotlin --no-daemon
 git diff --check
 ```

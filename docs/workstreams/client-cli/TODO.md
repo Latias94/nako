@@ -11,22 +11,22 @@ Last updated: 2026-05-17
   Validation: `git diff --check`.
   Handoff: Continue with the Apache-2.0 CLI crate.
 
-- [x] CCLI-020 [owner=codex] [deps=CCLI-010] [scope=crates/taru-client-cli]
-  Goal: Add a new Apache-2.0 Rust client CLI crate that uses `taru-client` for
+- [x] CCLI-020 [owner=codex] [deps=CCLI-010] [scope=crates/nako-client-cli]
+  Goal: Add a new Apache-2.0 Rust client CLI crate that uses `nako-client` for
   health, library/item/search, source probe, playback decision, session, and
   streaming request-construction commands.
-  Validation: `cargo check -p taru-client-cli --tests` passed.
-  Handoff: Added `crates/taru-client-cli`; continue with docs and closeout
+  Validation: `cargo check -p nako-client-cli --tests` passed.
+  Handoff: Added `crates/nako-client-cli`; continue with docs and closeout
   evidence.
 
-- [x] CCLI-030 [owner=codex] [deps=CCLI-020] [scope=crates/taru-client-cli]
+- [x] CCLI-030 [owner=codex] [deps=CCLI-020] [scope=crates/nako-client-cli]
   Goal: Add focused tests for command parsing, mocked SDK transport requests,
   streaming request output, bearer-token redaction, and manifest dependency
   boundaries.
-  Validation: `cargo nextest run -p taru-client-cli --no-fail-fast` passed
+  Validation: `cargo nextest run -p nako-client-cli --no-fail-fast` passed
   with 5 tests.
   Handoff: `GET /health` remains an unauthenticated preflight; authenticated
-  route tests assert bearer injection through `taru-client`.
+  route tests assert bearer injection through `nako-client`.
 
 - [x] CCLI-040 [owner=codex] [deps=CCLI-030] [scope=docs]
   Goal: Update goal, roadmap, API, and local usage docs for the client CLI.
@@ -36,8 +36,8 @@ Last updated: 2026-05-17
 
 - [x] CCLI-050 [owner=codex] [deps=CCLI-040] [scope=workspace]
   Goal: Close M37 with focused and workspace validation evidence.
-  Validation: `cargo fmt --all -- --check`, `cargo check -p taru-client-cli
-  --tests`, `cargo nextest run -p taru-client-cli --no-fail-fast`, `cargo tree
-  -p taru-client-cli`, `cargo check --workspace --tests`, `cargo nextest run
+  Validation: `cargo fmt --all -- --check`, `cargo check -p nako-client-cli
+  --tests`, `cargo nextest run -p nako-client-cli --no-fail-fast`, `cargo tree
+  -p nako-client-cli`, `cargo check --workspace --tests`, `cargo nextest run
   --workspace --no-fail-fast`, `git diff --check` passed.
   Handoff: Recommend the next client slice after the CLI proves the boundary.

@@ -5,7 +5,7 @@ Last updated: 2026-05-21
 
 This workstream productizes the Addon administration surface after Addon
 Architecture Deepening. The goal is not a full Addon Manager; it is the minimum
-operator-facing Addon operations layer needed for a packaged Taru instance:
+operator-facing Addon operations layer needed for a packaged Nako instance:
 safe lifecycle controls, health checks, unregister behavior, hosted surface
 read models, and diagnostics.
 

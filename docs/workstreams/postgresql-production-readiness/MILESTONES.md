@@ -28,7 +28,7 @@ Exit criteria:
 
 - Production code can represent SQLite and PostgreSQL backend kind explicitly.
   Completed by PGR-020.
-- `TaruDatabase` can select the active backend without exposing concrete
+- `NakoDatabase` can select the active backend without exposing concrete
   adapters to server code.
   Completed by PGR-020 and promoted during PGR-120: PostgreSQL now enters a
   real runtime connection path and the facade dispatches through an internal
@@ -40,15 +40,15 @@ Exit criteria:
   have reused the harness for library/media and scan-commit families. PGR-060
   has reused the same harness for metadata/catalog commit contracts. PGR-120
   added runtime-promotion and VFS/Staging families, and the full PostgreSQL
-  ignored contract gate now fails fast without `TARU_TEST_POSTGRES_URL`.
+  ignored contract gate now fails fast without `NAKO_TEST_POSTGRES_URL`.
 - Local PostgreSQL test setup and opt-in commands are documented in
   `EVIDENCE_AND_GATES.md` and `WORKSTREAM.json`.
 
 Primary gates:
 
-- `cargo check -p taru-db --tests`
-- `cargo check -p taru-server --tests`
-- focused `cargo nextest run -p taru-db contract --no-fail-fast`
+- `cargo check -p nako-db --tests`
+- `cargo check -p nako-server --tests`
+- focused `cargo nextest run -p nako-db contract --no-fail-fast`
 - `git diff --check`
 
 ## M2 — Core Repository And Workflow Contracts
@@ -78,12 +78,12 @@ Exit criteria:
 
 Primary gates:
 
-- `cargo check -p taru-db --tests`
-- `cargo check -p taru-library --tests`
-- `cargo check -p taru-metadata --tests`
-- `cargo check -p taru-catalog --tests`
+- `cargo check -p nako-db --tests`
+- `cargo check -p nako-library --tests`
+- `cargo check -p nako-metadata --tests`
+- `cargo check -p nako-catalog --tests`
 - focused nextest for contract families
-- optional PostgreSQL contract run when `TARU_TEST_POSTGRES_URL` is available
+- optional PostgreSQL contract run when `NAKO_TEST_POSTGRES_URL` is available
 
 ## M3 — Runtime State And Operational Contracts
 
@@ -111,8 +111,8 @@ Exit criteria:
 
 Primary gates:
 
-- `cargo check -p taru-db --tests`
-- `cargo check -p taru-server --tests`
+- `cargo check -p nako-db --tests`
+- `cargo check -p nako-server --tests`
 - focused nextest for runtime state families
 - `git diff --check`
 
@@ -132,11 +132,11 @@ Exit criteria:
   PGR-110 removed facade-level implicit SQLite constructors and deleted the
   remaining facade-test imports of SQLite row codecs/direct pool inspection.
   Remaining SQLite SQL dialect, row codec, PRAGMA, and migration assumptions
-  are isolated under `taru-db::sqlite` or SQLite-owned tests. Remaining
+  are isolated under `nako-db::sqlite` or SQLite-owned tests. Remaining
   `sqlite::memory:` values above adapters are test fixture data, not production
   backend-selection logic.
 - Final SQLite workspace gates pass.
-- PostgreSQL opt-in gates pass with `TARU_TEST_POSTGRES_URL` set to a local
+- PostgreSQL opt-in gates pass with `NAKO_TEST_POSTGRES_URL` set to a local
   test PostgreSQL URL.
 - Goal/workstream/roadmap docs reflect the shipped PostgreSQL scope.
 
@@ -145,5 +145,5 @@ Primary gates:
 - `cargo fmt --all -- --check`
 - `cargo check --workspace --tests`
 - `cargo nextest run --workspace --no-fail-fast`
-- PostgreSQL contract nextest with `TARU_TEST_POSTGRES_URL`, when available
+- PostgreSQL contract nextest with `NAKO_TEST_POSTGRES_URL`, when available
 - `git diff --check`

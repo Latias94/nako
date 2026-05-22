@@ -1,4 +1,4 @@
-# taru-api Module Split Task Ledger
+# nako-api Module Split Task Ledger
 
 Status: Completed
 Last updated: 2026-05-17
@@ -13,22 +13,22 @@ Last updated: 2026-05-17
 
 ## M1 - Behavior-Preserving Module Split
 
-- [x] AMS-020 [owner=codex] [deps=AMS-010] [scope=crates/taru-api/src]
-  Goal: Split the `taru-api` crate root into `public_client`, `admin`,
+- [x] AMS-020 [owner=codex] [deps=AMS-010] [scope=crates/nako-api/src]
+  Goal: Split the `nako-api` crate root into `public_client`, `admin`,
   `metadata_diagnostics`, and `extension` modules while preserving root-level
   re-exports and current callers.
-  Validation: `cargo check -p taru-api --tests`; `cargo nextest run -p taru-api
+  Validation: `cargo check -p nako-api --tests`; `cargo nextest run -p nako-api
   --no-fail-fast`.
   passed.
-  Evidence: `crates/taru-api/src/lib.rs` is a thin facade over focused modules.
+  Evidence: `crates/nako-api/src/lib.rs` is a thin facade over focused modules.
   Handoff: Continue with OpenAPI/SDK contract checks.
 
 ## M2 - Contract And Workspace Validation
 
-- [x] AMS-030 [owner=codex] [deps=AMS-020] [scope=crates/taru-api,sdk/typescript,workspace,docs]
+- [x] AMS-030 [owner=codex] [deps=AMS-020] [scope=crates/nako-api,sdk/typescript,workspace,docs]
   Goal: Prove module movement did not change OpenAPI, SDK, public DTOs, or
   workspace behavior.
-  Validation: `cargo check -p taru-api --examples`; `npm run check --prefix
+  Validation: `cargo check -p nako-api --examples`; `npm run check --prefix
   sdk/typescript`; `cargo check --workspace --tests`; `cargo nextest run
   --workspace --no-fail-fast`; `git diff --check`.
   passed.

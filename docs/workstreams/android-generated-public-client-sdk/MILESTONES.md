@@ -24,7 +24,7 @@ Status: Complete as of 2026-05-21.
 
 Exit criteria:
 
-- `taru-api` can emit Kotlin SDK source from Public OpenAPI v1.
+- `nako-api` can emit Kotlin SDK source from Public OpenAPI v1.
 - `sdk/kotlin` contains checked-in generated source and local package metadata.
 - Rust tests prove generator/package synchronization.
 - Kotlin/Gradle tests compile and smoke-check serialization behavior.
@@ -32,8 +32,8 @@ Exit criteria:
 
 Primary gates:
 
-- `cargo nextest run -p taru-api kotlin_sdk --no-fail-fast`
-- `apps/android/gradlew.bat -p apps/android :taru-public-client-sdk:test --no-daemon`
+- `cargo nextest run -p nako-api kotlin_sdk --no-fail-fast`
+- `apps/android/gradlew.bat -p apps/android :nako-public-client-sdk:test --no-daemon`
 
 ## M2 — First Android Consumption Slice
 
@@ -50,9 +50,9 @@ Exit criteria:
 Progress:
 
 - AGKS-050 moved connection health/auth-probe paths to generated request
-  descriptors through `TaruPublicApiContract`.
+  descriptors through `NakoPublicApiContract`.
 - AGKS-060 moved browse route construction to generated
-  `TaruPublicClientRequests` descriptors and landed the first generated DTO
+  `NakoPublicClientRequests` descriptors and landed the first generated DTO
   adapter for `listLibraries`.
 - AGKS-065 moved remaining browse/library/item/search/person/genre/tag response
   decoding through generated SDK DTO adapters, kept Android presentation models
@@ -85,8 +85,8 @@ Exit criteria:
 
 Primary gates:
 
-- `cargo nextest run -p taru-api --no-fail-fast`
-- `apps/android/gradlew.bat -p apps/android :taru-public-client-sdk:test --no-daemon`
+- `cargo nextest run -p nako-api --no-fail-fast`
+- `apps/android/gradlew.bat -p apps/android :nako-public-client-sdk:test --no-daemon`
 - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon`
 - `apps/android/gradlew.bat -p apps/android :app:assembleDebug --no-daemon`
 - `git diff --check`

@@ -11,7 +11,7 @@ model to build on.
 
 ### FFmpeg Command Planning
 
-`taru-transcode` now owns FFmpeg command planning types:
+`nako-transcode` now owns FFmpeg command planning types:
 
 - `FfmpegCommandBuilder`
 - `FfmpegCommandPlan`
@@ -31,7 +31,7 @@ process.
 
 ### Remux Session Skeleton
 
-`taru-transcode` also defines the in-memory session skeleton:
+`nako-transcode` also defines the in-memory session skeleton:
 
 - `TranscodeSessionId`
 - `TranscodeSessionKind::{Remux, HlsTranscode}`
@@ -52,7 +52,7 @@ handles, cleanup hooks, and runner integration belong to the next phase.
 
 ### Server Configuration
 
-`taru-server` now accepts `ffmpeg_path` alongside `ffprobe_path`. The default
+`nako-server` now accepts `ffmpeg_path` alongside `ffprobe_path`. The default
 is `ffmpeg`, matching command-line installations on developer machines and
 containers.
 

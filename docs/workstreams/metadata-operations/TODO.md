@@ -25,6 +25,6 @@
 - [x] Move provider construction and secret resolution behind a focused
       metadata runtime module.
 - [x] Reject duplicate configured network providers at startup.
-- [ ] Add multi-process provider health and raw cleanup coordination if Taru
+- [ ] Add multi-process provider health and raw cleanup coordination if Nako
   supports shared-database multi-instance deployment.
 - [ ] Add total counts when diagnostics pagination needs them.

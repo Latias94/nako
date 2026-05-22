@@ -33,7 +33,7 @@
     }
   ],
   "gates": [
-    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.taru.android.ui.screens.settings.* --tests dev.taru.android.ui.screens.player.* --no-daemon --no-parallel",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.nako.android.ui.screens.settings.* --tests dev.nako.android.ui.screens.player.* --no-daemon --no-parallel",
     "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --no-daemon --no-parallel",
     "git diff --check"
   ],
@@ -45,12 +45,12 @@
     },
     {
       "task": "ACAC-020",
-      "path": "apps/android/app/src/main/java/dev/taru/android/ui/TaruClipboard.kt",
+      "path": "apps/android/app/src/main/java/dev/nako/android/ui/NakoClipboard.kt",
       "notes": "Plain-text clipboard adapter added."
     },
     {
       "task": "ACAC-030",
-      "path": "apps/android/app/src/main/java/dev/taru/android/ui/screens/settings/SettingsScreens.kt",
+      "path": "apps/android/app/src/main/java/dev/nako/android/ui/screens/settings/SettingsScreens.kt",
       "notes": "Settings/player copy call sites migrated away from LocalClipboardManager."
     },
     {

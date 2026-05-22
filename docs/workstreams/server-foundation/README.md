@@ -1,4 +1,4 @@
-# Taru Server Foundation Workstream
+# Nako Server Foundation Workstream
 
 ## Status
 
@@ -18,8 +18,8 @@ The local video-library playback MVP was stabilized in
 
 ## Goals
 
-- Build Taru as a Rust workspace with clear server-side module boundaries.
-- Keep `taru-server` focused on composition, application orchestration, and
+- Build Nako as a Rust workspace with clear server-side module boundaries.
+- Keep `nako-server` focused on composition, application orchestration, and
   HTTP routing instead of letting giant integration test or service files
   become hidden architecture boundaries.
 - Keep the first product shape as a modular monolith, not distributed services.
@@ -40,23 +40,23 @@ The local video-library playback MVP was stabilized in
 
 ```text
 crates/
-  taru-server          # binary bootstrap, configuration, shutdown, composition
-  taru-api             # HTTP API, OpenAPI, request/response DTOs
-  taru-core            # domain models, IDs, errors, service traits
-  taru-db              # migrations, repositories, transaction boundaries
-  taru-library         # library scan, item graph, media source lifecycle
-  taru-catalog         # catalog graph hydration and search projection updates
-  taru-naming          # path and filename parsing
-  taru-metadata        # TMDB/Douban/Bangumi providers and merge policy
-  taru-nfo             # NFO import/export and local metadata source behavior
-  taru-vfs             # internal virtual filesystem and storage backends
-  taru-media-probe     # ffprobe/mediainfo abstraction and stream inspection
-  taru-transcode       # FFmpeg plan builder and hardware acceleration policy
-  taru-streaming       # direct play, remux, transcode, HLS/session decisions
-  taru-search          # embedded and optional external search adapters
-  taru-events          # domain events, outbox, webhook delivery
-  taru-automation      # external AI/API provider automation workflows
-  taru-addon-protocol  # HTTP addon manifest and resource contract
+  nako-server          # binary bootstrap, configuration, shutdown, composition
+  nako-api             # HTTP API, OpenAPI, request/response DTOs
+  nako-core            # domain models, IDs, errors, service traits
+  nako-db              # migrations, repositories, transaction boundaries
+  nako-library         # library scan, item graph, media source lifecycle
+  nako-catalog         # catalog graph hydration and search projection updates
+  nako-naming          # path and filename parsing
+  nako-metadata        # TMDB/Douban/Bangumi providers and merge policy
+  nako-nfo             # NFO import/export and local metadata source behavior
+  nako-vfs             # internal virtual filesystem and storage backends
+  nako-media-probe     # ffprobe/mediainfo abstraction and stream inspection
+  nako-transcode       # FFmpeg plan builder and hardware acceleration policy
+  nako-streaming       # direct play, remux, transcode, HLS/session decisions
+  nako-search          # embedded and optional external search adapters
+  nako-events          # domain events, outbox, webhook delivery
+  nako-automation      # external AI/API provider automation workflows
+  nako-addon-protocol  # HTTP addon manifest and resource contract
 ```
 
 The initial binary can still be small. The important part is to keep domain
@@ -91,7 +91,7 @@ local model serving, vector search, GPU scheduling, or model lifecycle work.
 
 ### Async and Concurrency
 
-Taru should use async Rust for I/O-heavy orchestration, but async fan-out must
+Nako should use async Rust for I/O-heavy orchestration, but async fan-out must
 always be bounded. Pipelines such as media probing, metadata refresh, webhook
 delivery, automation calls, and future transcode queues should define their
 own concurrency limits and resource classes. This keeps large libraries,
@@ -99,9 +99,9 @@ remote drives, and weaker self-hosted machines stable under load.
 
 ### Internal Virtual Filesystem
 
-Taru should implement an internal VFS abstraction before considering OS-level
+Nako should implement an internal VFS abstraction before considering OS-level
 mounting. The scanner, metadata resolver, probe layer, and transcode layer
-should consume `taru-vfs` instead of `std::fs` directly.
+should consume `nako-vfs` instead of `std::fs` directly.
 
 Key capabilities:
 
@@ -113,22 +113,22 @@ Key capabilities:
 - provider-aware concurrency limits and retry policy
 
 OS-level FUSE, WebDAV export, or rclone mounts can be supported later as
-integration points. They should not define Taru's core storage model.
+integration points. They should not define Nako's core storage model.
 
 ### Stremio-Style Addons
 
 Stremio's addon model is useful because extensions are HTTP services described
-by a manifest and filtered by declared resource capabilities. Taru can adopt the
+by a manifest and filtered by declared resource capabilities. Nako can adopt the
 same principle without adopting the Stremio protocol wholesale.
 
 Recommended direction:
 
-- Define a Taru addon manifest with resources such as metadata, image, stream,
+- Define a Nako addon manifest with resources such as metadata, image, stream,
   subtitle, automation, webhook, and catalog.
 - Let addons run out-of-process over HTTP first.
 - Provide a JavaScript/TypeScript SDK later as developer ergonomics, not as the
   server's plugin runtime.
-- Consider a Stremio-compatible export addon so Taru libraries can be exposed
+- Consider a Stremio-compatible export addon so Nako libraries can be exposed
   to Stremio clients as a separate compatibility feature.
 
 ### Search
@@ -144,7 +144,7 @@ catalog events.
 
 ### Catalog Graph and Artwork
 
-Taru needs a normalized catalog graph before it grows more provider integrations:
+Nako needs a normalized catalog graph before it grows more provider integrations:
 
 - people and item credits for actor/director/writer pages;
 - user tags separate from provider genres;
@@ -163,7 +163,7 @@ Libraries should be management boundaries, not hard content-type boundaries.
 A library owns roots, scan rules, default naming strategy, metadata profile,
 refresh policy, local metadata policy, and later UI grouping or permissions.
 
-Taru should separate:
+Nako should separate:
 
 - `MediaDomain`: broad processing capability such as video, audio, image,
   document, mixed, or online
@@ -192,7 +192,7 @@ folders. For example:
 
 For object and WebDAV-like stores, Apache OpenDAL and Apache Arrow
 `object_store` are strong Rust candidates. They are better architectural fits
-than directly coupling Taru to a specific S3-compatible server.
+than directly coupling Nako to a specific S3-compatible server.
 
 ## Reference Links
 

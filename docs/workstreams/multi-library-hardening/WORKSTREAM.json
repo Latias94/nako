@@ -29,24 +29,24 @@
     }
   ],
   "gates": [
-    "cargo check -p taru-server --tests",
-    "cargo check -p taru-db --tests",
-    "cargo nextest run -p taru-server startup --no-fail-fast",
+    "cargo check -p nako-server --tests",
+    "cargo check -p nako-db --tests",
+    "cargo nextest run -p nako-server startup --no-fail-fast",
     "cargo fmt --all -- --check",
     "git diff --check"
   ],
   "evidence": [
     "docs/workstreams/multi-library-hardening/PHASE8_0_CORRECTNESS_BASELINE.md",
-    "crates/taru-server/src/config.rs",
-    "crates/taru-server/src/app/library_reconciliation.rs",
-    "crates/taru-server/src/app/startup.rs",
-    "crates/taru-server/src/app/tests/startup.rs",
-    "crates/taru-server/src/app/jobs.rs",
-    "crates/taru-server/src/app/library.rs",
-    "crates/taru-server/src/app/metadata.rs",
-    "crates/taru-server/src/app/nfo.rs",
-    "crates/taru-server/src/app/storage.rs",
-    "crates/taru-db/src/library.rs"
+    "crates/nako-server/src/config.rs",
+    "crates/nako-server/src/app/library_reconciliation.rs",
+    "crates/nako-server/src/app/startup.rs",
+    "crates/nako-server/src/app/tests/startup.rs",
+    "crates/nako-server/src/app/jobs.rs",
+    "crates/nako-server/src/app/library.rs",
+    "crates/nako-server/src/app/metadata.rs",
+    "crates/nako-server/src/app/nfo.rs",
+    "crates/nako-server/src/app/storage.rs",
+    "crates/nako-db/src/library.rs"
   ],
   "adr_refs": [
     "docs/adr/0019-server-architecture-hardening-boundaries.md"

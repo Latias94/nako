@@ -13,8 +13,8 @@ None.
 
 ## File Scope
 
-- `apps/android/app/src/main/java/dev/taru/android/ui/screens/player/`
-- `apps/android/app/src/test/java/dev/taru/android/ui/screens/player/`
+- `apps/android/app/src/main/java/dev/nako/android/ui/screens/player/`
+- `apps/android/app/src/test/java/dev/nako/android/ui/screens/player/`
 - Workstream docs under this directory.
 
 ## Validation
@@ -22,8 +22,8 @@ None.
 Run:
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.screens.player.PlayerRouteHostTest --no-daemon --no-parallel
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.screens.player.* --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.screens.player.PlayerRouteHostTest --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.screens.player.* --no-daemon --no-parallel
 apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon --no-parallel
 git diff --check
 ```

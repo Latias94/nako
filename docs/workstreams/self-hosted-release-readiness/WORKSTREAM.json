@@ -5,7 +5,7 @@
   "status": "completed",
   "updated": "2026-05-21",
   "scope_kind": "release_hardening",
-  "problem": "Taru has strong subsystem architecture but lacks one repeatable self-hosted release baseline for deployment, upgrade, diagnostics, SQLite/PostgreSQL verification, API/SDK/redaction gates, backup/restore, and end-to-end smoke.",
+  "problem": "Nako has strong subsystem architecture but lacks one repeatable self-hosted release baseline for deployment, upgrade, diagnostics, SQLite/PostgreSQL verification, API/SDK/redaction gates, backup/restore, and end-to-end smoke.",
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/self-hosted-release-readiness/README.md" },
     { "role": "design", "path": "docs/workstreams/self-hosted-release-readiness/DESIGN.md" },

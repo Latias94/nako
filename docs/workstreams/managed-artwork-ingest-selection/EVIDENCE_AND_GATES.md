@@ -25,9 +25,9 @@ git diff --check
 ### Managed Ingest Gate
 
 ```powershell
-cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests
-cargo nextest run -p taru-server artwork --no-fail-fast
-cargo nextest run -p taru-db artwork --no-fail-fast
+cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-vfs --tests
+cargo nextest run -p nako-server artwork --no-fail-fast
+cargo nextest run -p nako-db artwork --no-fail-fast
 cargo fmt --all -- --check
 git diff --check
 ```
@@ -50,19 +50,19 @@ search, public API contracts, or durable job behavior.
 - `docs/workstreams/managed-artwork-ingest-selection/DESIGN.md`
 - `docs/workstreams/managed-artwork-ingest-selection/TODO.md`
 - `docs/workstreams/addon-managed-artwork-artifacts/HANDOFF.md`
-- `crates/taru-core/src/media/artwork.rs`
-- `crates/taru-core/src/media/catalog.rs`
-- `crates/taru-db/src/artwork.rs`
-- `crates/taru-db/src/catalog.rs`
-- `crates/taru-api/src/public_client.rs`
-- `crates/taru-server/src/app/addons.rs`
+- `crates/nako-core/src/media/artwork.rs`
+- `crates/nako-core/src/media/catalog.rs`
+- `crates/nako-db/src/artwork.rs`
+- `crates/nako-db/src/catalog.rs`
+- `crates/nako-api/src/public_client.rs`
+- `crates/nako-server/src/app/addons.rs`
 
 ## Fresh Evidence
 
 2026-05-19, MAIS-010:
 
 - Workstream opened from AMAA-040 closeout as the follow-on for accepting
-  internal Addon Artwork Candidates into Taru-managed artwork.
+  internal Addon Artwork Candidates into Nako-managed artwork.
 - This is a planning split only; no managed artwork runtime behavior changed.
 - AMAA-030 remains the only shipped `artwork_write` behavior: candidate
   proposal. It does not fetch/cache/thumbnail/select/publish artwork.
@@ -73,30 +73,30 @@ search, public API contracts, or durable job behavior.
 
 - Audit inventory command:
   `rg -n "ArtworkCandidate|ImageAsset|ArtworkTask|cache_uri|source_uri|thumbnail|staging|managed artwork|selected" crates docs`.
-- `crates/taru-core/src/media/artwork.rs` shows Addon Artwork Candidates are
+- `crates/nako-core/src/media/artwork.rs` shows Addon Artwork Candidates are
   proposal records with internal `source_uri` and proposed/accepted/rejected
   status. There is no accept/update repository method yet.
 - `ArtworkTask` is keyed by `ImageAssetId`, so it cannot represent candidate
   fetch/validate/cache before a safe public asset exists.
-- `crates/taru-core/src/media/catalog.rs`,
-  `crates/taru-db/src/catalog.rs`, and
-  `crates/taru-api/src/public_client.rs` show `ImageAsset` currently stores
+- `crates/nako-core/src/media/catalog.rs`,
+  `crates/nako-db/src/catalog.rs`, and
+  `crates/nako-api/src/public_client.rs` show `ImageAsset` currently stores
   and exposes `source_uri`, `cache_uri`, `selected`, `content_hash`, and `etag`.
   Direct candidate publication would leak raw addon/provider details.
-- `crates/taru-catalog/src/lib.rs` hydrates metadata image refs into
+- `crates/nako-catalog/src/lib.rs` hydrates metadata image refs into
   `ImageAsset` rows and selects the first image kind when no existing selected
   row exists. This is not an acceptance workflow for untrusted addon
   candidates.
-- `crates/taru-core/src/staging.rs` and `crates/taru-db/src/staging.rs` define
+- `crates/nako-core/src/staging.rs` and `crates/nako-db/src/staging.rs` define
   probe/FFmpeg input staging with cleanup-oriented local paths, leases, and
   budget state. It is not durable Managed Artwork authority.
-- `crates/taru-server/src/app/addons.rs` correctly keeps `artwork_write` at
+- `crates/nako-server/src/app/addons.rs` correctly keeps `artwork_write` at
   candidate proposal and returns only candidate ID, image kind, status, and
   counters. Fetch/cache/thumbnail/selection remain outside the Addon Side
   Effect handler.
 - Generic jobs are suitable for lifecycle visibility, but `JobResponse` exposes
   parsed `input` and `summary`, so managed artwork jobs must persist redacted
-  Taru IDs and outcome counters only.
+  Nako IDs and outcome counters only.
 - Decision: MAIS-030 should implement a queued candidate-ingest boundary that
   creates internal Managed Artwork state. Do not create selected public
   `ImageAsset` rows as the first acceptance target.
@@ -127,15 +127,15 @@ search, public API contracts, or durable job behavior.
 - API docs now describe `managed_artwork_ingest` jobs, Admin candidate accept,
   idempotent accept replay, and redaction guarantees.
 - Fresh validation:
-  - `cargo nextest run -p taru-db accepts_artwork_candidate --no-fail-fast`
+  - `cargo nextest run -p nako-db accepts_artwork_candidate --no-fail-fast`
     passed.
-  - `cargo nextest run -p taru-server admin_accept_artwork_candidate --no-fail-fast`
+  - `cargo nextest run -p nako-server admin_accept_artwork_candidate --no-fail-fast`
     passed.
-  - `cargo nextest run -p taru-db artwork --no-fail-fast` passed.
-  - `cargo nextest run -p taru-server artwork --no-fail-fast` passed.
-  - `cargo nextest run -p taru-server addon_side_effect --no-fail-fast`
+  - `cargo nextest run -p nako-db artwork --no-fail-fast` passed.
+  - `cargo nextest run -p nako-server artwork --no-fail-fast` passed.
+  - `cargo nextest run -p nako-server addon_side_effect --no-fail-fast`
     passed.
-  - `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests`
+  - `cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-vfs --tests`
     passed.
   - `cargo fmt --all -- --check` passed.
   - `git diff --check` passed.
@@ -146,11 +146,11 @@ search, public API contracts, or durable job behavior.
   passed.
 - `cargo fmt --all -- --check` passed.
 - `git diff --check` passed with only LF/CRLF working-copy warnings.
-- `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests`
+- `cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-vfs --tests`
   passed.
-- `cargo nextest run -p taru-db artwork --no-fail-fast` passed: 3 tests.
-- `cargo nextest run -p taru-server artwork --no-fail-fast` passed: 3 tests.
-- `cargo nextest run -p taru-server addon_side_effect --no-fail-fast`
+- `cargo nextest run -p nako-db artwork --no-fail-fast` passed: 3 tests.
+- `cargo nextest run -p nako-server artwork --no-fail-fast` passed: 3 tests.
+- `cargo nextest run -p nako-server addon_side_effect --no-fail-fast`
   passed: 10 tests.
 
 2026-05-19, MAIS-040 closeout review and split:
@@ -165,7 +165,7 @@ search, public API contracts, or durable job behavior.
     candidate, target item, and library state before delegating the atomic
     candidate/ingest/job commit to the repository boundary.
   - Redaction review has no blocking findings. The Admin response and durable
-    job input expose Taru IDs, image kind, status, and job lifecycle only; they
+    job input expose Nako IDs, image kind, status, and job lifecycle only; they
     do not expose candidate `source_uri`, Source Locators, filesystem paths,
     remote storage handles, cache URIs, or unvalidated addon hotlinks.
 - Closeout decision:

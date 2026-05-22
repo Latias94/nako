@@ -5,8 +5,8 @@ Last updated: 2026-05-17
 
 ## Why This Lane Exists
 
-M24 made `TaruApp` much thinner, but startup side effects have continued to
-accumulate inside `TaruApp::new_with_store`: migration execution, stale
+M24 made `NakoApp` much thinner, but startup side effects have continued to
+accumulate inside `NakoApp::new_with_store`: migration execution, stale
 transcode session recovery, staging cleanup, configured library upsert,
 metadata raw-cache cleanup, and metadata lifecycle task registration.
 
@@ -17,7 +17,7 @@ own success/failure logging and runtime diagnostics shape.
 
 ## Target State
 
-- `TaruApp` remains the composition root for app service handles.
+- `NakoApp` remains the composition root for app service handles.
 - Startup side effects live behind a `ServerStartupWorkflow` module with a
   test-visible startup report.
 - Runtime supervision exposes a durable job execution helper that accepts job
@@ -29,8 +29,8 @@ own success/failure logging and runtime diagnostics shape.
 ## In Scope
 
 - Add a `server-runtime-deepening` workstream and M38 goal docs.
-- Add `taru-server::app::startup` or equivalent.
-- Move startup sequencing out of `TaruApp::new_with_store` without changing
+- Add `nako-server::app::startup` or equivalent.
+- Move startup sequencing out of `NakoApp::new_with_store` without changing
   behavior.
 - Add runtime diagnostics for supervised durable jobs.
 - Replace the first duplicated job `spawn` wrappers in library scan and
@@ -65,7 +65,7 @@ persisted job state for this slice.
 M38 can close when:
 
 - startup side effects are no longer implemented directly in
-  `TaruApp::new_with_store`;
+  `NakoApp::new_with_store`;
 - startup reports are tested;
 - at least library scan and metadata background jobs use the deeper runtime job
   helper;

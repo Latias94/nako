@@ -16,7 +16,7 @@ Task IDs use the `NSPA` prefix.
 
 ## M1 — Durable Sidecar Apply Acceptance And Audit
 
-- [x] NSPA-020 [owner=codex] [deps=NSPA-010,LAIP-070] [scope=crates/taru-core,crates/taru-db]
+- [x] NSPA-020 [owner=codex] [deps=NSPA-010,LAIP-070] [scope=crates/nako-core,crates/nako-db]
   Goal: Add sidecar apply IDs, operation/state enums, accepted preview snapshot,
   audit outcome records, repository traits, migrations, and backend-neutral
   contract tests.
@@ -28,7 +28,7 @@ Task IDs use the `NSPA` prefix.
 
 ## M2 — App Service Acceptance And Idempotent Replay
 
-- [x] NSPA-030 [owner=codex] [deps=NSPA-020] [scope=crates/taru-server]
+- [x] NSPA-030 [owner=codex] [deps=NSPA-020] [scope=crates/nako-server]
   Goal: Add an app-service command that explicitly accepts a current NFO
   authority preview, records a durable sidecar apply attempt, replays matching
   idempotency keys, rejects mismatched/stale requests, and performs no file or
@@ -43,7 +43,7 @@ Task IDs use the `NSPA` prefix.
 
 ## M3 — Export Sidecar Apply
 
-- [x] NSPA-040 [owner=codex] [deps=NSPA-030,nfo-round-trip-preservation,nfo-storage-write-policy,nfo-sidecar-backup-policy,nfo-backup-retention-diagnostics] [scope=crates/taru-nfo,crates/taru-vfs,crates/taru-server]
+- [x] NSPA-040 [owner=codex] [deps=NSPA-030,nfo-round-trip-preservation,nfo-storage-write-policy,nfo-sidecar-backup-policy,nfo-backup-retention-diagnostics] [scope=crates/nako-nfo,crates/nako-vfs,crates/nako-server]
   Goal: Apply accepted NFO export by using round-trip preservation and
   VFS-backed backup/atomic write/retention diagnostics. Server code must not
   write raw OS paths directly.
@@ -51,26 +51,26 @@ Task IDs use the `NSPA` prefix.
   backup-required forced update, retention diagnostics, stale sidecar rejection,
   and redacted reports.
   Evidence: `ApplyNfoSidecarApplyRequest`, `apply_sidecar_apply`, server export
-  apply tests, and existing `taru-nfo`/`taru-vfs` backup/atomic write tests.
+  apply tests, and existing `nako-nfo`/`nako-vfs` backup/atomic write tests.
   Handoff: Implement import authority apply in NSPA-050.
 
 ## M4 — Import Authority Apply
 
-- [x] NSPA-050 [owner=codex] [deps=NSPA-030,NSPA-040] [scope=crates/taru-core,crates/taru-db,crates/taru-nfo,crates/taru-server]
+- [x] NSPA-050 [owner=codex] [deps=NSPA-030,NSPA-040] [scope=crates/nako-core,crates/nako-db,crates/nako-nfo,crates/nako-server]
   Goal: Apply accepted NFO import into canonical metadata, field locks/local
   authority, and hierarchy confirmation while respecting user-locked fields.
   Validation: focused tests prove accepted fields, skipped locked fields,
   conflict reporting, hierarchy confirmation, stale target rejection, and no
   sidecar write during import-only apply.
-  Evidence: single-source NFO import apply in `taru-nfo`, accepted import apply
-  dispatch in `taru-server`, content-fingerprint preview revalidation, and
+  Evidence: single-source NFO import apply in `nako-nfo`, accepted import apply
+  dispatch in `nako-server`, content-fingerprint preview revalidation, and
   focused server tests for commit, stale content rejection, user locks, and
   hierarchy confirmation.
   Handoff: Add partial-failure rollback/repair gates in NSPA-060.
 
 ## M5 — Partial Failure Rollback And Repair
 
-- [x] NSPA-060 [owner=codex] [deps=NSPA-040,NSPA-050] [scope=crates/taru-server,crates/taru-vfs,crates/taru-db]
+- [x] NSPA-060 [owner=codex] [deps=NSPA-040,NSPA-050] [scope=crates/nako-server,crates/nako-vfs,crates/nako-db]
   Goal: Inject failures across export write, backup restore, metadata commit,
   audit commit, and retention diagnostics. Prove failed-before-mutation,
   rollback-complete, or repair-pending terminal outcomes.

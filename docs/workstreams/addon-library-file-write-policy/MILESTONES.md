@@ -38,17 +38,17 @@ Primary gates:
 - `rg -n "Library File Write|subtitle|NFO|nfo|StorageWriteRequest|StorageWriteReport|StorageBackupPolicy|atomic_replace|backup|sidecar" crates docs`
 - `git diff --check`
 
-Result: completed in ALFW-020. MediaSource-targeted Taru-owned NFO Export was
+Result: completed in ALFW-020. MediaSource-targeted Nako-owned NFO Export was
 selected as the first bounded apply target.
 
 ## M2 - First File Write Apply Slice
 
 Outcome: one accepted addon file-write side effect can safely write through
-Taru-owned NFO/storage/VFS seams.
+Nako-owned NFO/storage/VFS seams.
 
 Exit criteria:
 
-- The payload is normalized into a bounded Taru Library File Write command.
+- The payload is normalized into a bounded Nako Library File Write command.
 - Target derivation avoids raw paths and Source Locator leakage.
 - Backup/write report behavior is redacted and tested.
 - Idempotency replay after write outcome is safe.
@@ -56,7 +56,7 @@ Exit criteria:
 Primary gates:
 
 - focused NFO/storage/addon tests
-- `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-nfo -p taru-vfs --tests`
+- `cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-nfo -p nako-vfs --tests`
 - `cargo fmt --all -- --check`
 - `git diff --check`
 

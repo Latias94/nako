@@ -8,7 +8,7 @@
             android:noHistory="true" />
         <provider
             android:name=".smoke.DebugSmokeFixtureSeedProvider"
-            android:authorities="dev.taru.android.smoke.fixture"
+            android:authorities="dev.nako.android.smoke.fixture"
             android:exported="true" />
     </application>
 </manifest>

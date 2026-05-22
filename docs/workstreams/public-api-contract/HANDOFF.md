@@ -5,9 +5,9 @@ Last updated: 2026-05-17
 
 ## Current State
 
-M30 is closed. Taru now has a documented public API v1 contract with
+M30 is closed. Nako now has a documented public API v1 contract with
 protocol-owned error codes, a compatible `code/message` error envelope,
-`/health.version`, `x-taru-api-version`, public/internal route boundary docs,
+`/health.version`, `x-nako-api-version`, public/internal route boundary docs,
 and route-level evidence for the first public client surface.
 
 ## Active Task
@@ -30,5 +30,5 @@ and route-level evidence for the first public client surface.
 ## Next Recommended Action
 
 - Choose a new goal. Strong follow-ons are OpenAPI/SDK generation for
-  `taru-client-protocol`, auth/session boundary design, or route path/header
+  `nako-client-protocol`, auth/session boundary design, or route path/header
   negotiation when multiple API versions need concurrent support.

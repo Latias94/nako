@@ -2,7 +2,7 @@
 
 ## M6.0: Remote Storage and VFS Design Baseline
 
-Outcome: Taru has a documented remote-storage plan, local-path dependency
+Outcome: Nako has a documented remote-storage plan, local-path dependency
 audit, and milestone split before adding a remote backend.
 
 Status: completed.
@@ -24,7 +24,7 @@ Exit criteria:
 
 ## M6.1: WebDAV Read-Only VFS Backend
 
-Outcome: Taru can list, stat, and range-read media objects from one configured
+Outcome: Nako can list, stat, and range-read media objects from one configured
 WebDAV backend without storing plaintext credentials.
 
 Status: completed.
@@ -32,7 +32,7 @@ Status: completed.
 Deliverables:
 
 - WebDAV backend configuration with secret references.
-- `taru-vfs` WebDAV backend implementing `stat`, `list`, and `open_range`.
+- `nako-vfs` WebDAV backend implementing `stat`, `list`, and `open_range`.
 - Conservative timeout, retry, and rate-limit policy.
 - Tests with a mocked local WebDAV server.
 

@@ -8,7 +8,7 @@ existing bearer-auth boundary or opening a NAT traversal/runtime lane.
 
 ## Changes
 
-- Added `taru-server::http::network` as the HTTP network boundary module.
+- Added `nako-server::http::network` as the HTTP network boundary module.
 - Preserved auth order by applying origin rejection only inside protected routes
 after bearer auth remains authoritative for missing/invalid credentials.
 - Added global annotation/preflight middleware for configured origins and
@@ -23,11 +23,11 @@ values instead of reflecting them.
 
 ## Verification
 
-- `cargo nextest run -p taru-server network_boundary_ --no-fail-fast` — pass,
+- `cargo nextest run -p nako-server network_boundary_ --no-fail-fast` — pass,
 2 passed / 240 skipped.
-- `cargo nextest run -p taru-server http::tests::system --no-fail-fast` — pass,
+- `cargo nextest run -p nako-server http::tests::system --no-fail-fast` — pass,
 21 passed / 220 skipped.
-- `cargo nextest run -p taru-server config --no-fail-fast` — pass, 38 passed /
+- `cargo nextest run -p nako-server config --no-fail-fast` — pass, 38 passed /
 205 skipped.
 
 ## Next

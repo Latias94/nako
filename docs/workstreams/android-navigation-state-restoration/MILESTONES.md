@@ -21,7 +21,7 @@ Exit criteria:
 - Navigation state has an explicit save/restore adapter.
 - Safe routes restore across Activity recreation.
 - Player route restore drops to the previous safe route.
-- `TaruBrowseShell` uses the saver through `rememberSaveable`.
+- `NakoBrowseShell` uses the saver through `rememberSaveable`.
 - Focused JVM tests cover valid, transient, and invalid saved states.
 
 Status: Complete.

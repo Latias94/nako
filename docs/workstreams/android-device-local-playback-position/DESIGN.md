@@ -9,7 +9,7 @@ Android already records playback position through a route-scoped
 `DevicePlaybackPositionStore`, but the default app composition uses an in-memory
 store. That means the "Local resume" behavior works only inside the current app
 process. A phone user expects a device-local resume point to survive normal app
-restarts, while Taru must still avoid claiming server-authoritative or
+restarts, while Nako must still avoid claiming server-authoritative or
 cross-device **User Playback State**.
 
 ## Relevant Authority
@@ -54,7 +54,7 @@ When this lane closes:
 - Public Client API changes.
 - Server-side **User Playback State**.
 - Cross-device Continue Watching.
-- Playback progress reporting to Taru.
+- Playback progress reporting to Nako.
 - Session-id envelope changes for remux/HLS.
 - Downloads/offline playback.
 
@@ -78,7 +78,7 @@ store for tests and previews.
 Final evidence:
 
 - Focused unit gate:
-  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.player.PlaybackLaunchTest --no-daemon`
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.player.PlaybackLaunchTest --no-daemon`
 - Local validation report:
   `apps/android/build/validation/20260519-100247/report.md`
 - Diff hygiene:
@@ -88,7 +88,7 @@ Final evidence:
 
 This lane can close when:
 
-- the persistent store is implemented and wired into `TaruAndroidApp`;
+- the persistent store is implemented and wired into `NakoAndroidApp`;
 - Android unit tests cover persistence, scoping, clear behavior, and corrupt
   data fallback;
 - `Validate-AndroidLocal.ps1 -SkipSmoke` passes;

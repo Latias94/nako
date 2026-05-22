@@ -34,16 +34,16 @@
   ],
   "gates": [
     "cargo fmt --all -- --check",
-    "cargo check -p taru-api --tests",
-    "cargo check -p taru-server --tests",
+    "cargo check -p nako-api --tests",
+    "cargo check -p nako-server --tests",
     "git diff --check",
-    "git diff --name-only -- crates/taru-client-protocol"
+    "git diff --name-only -- crates/nako-client-protocol"
   ],
   "evidence": [
     "docs/workstreams/admin-playback-runtime-diagnostics",
-    "crates/taru-api/src/admin.rs",
-    "crates/taru-server/src/app/playback/mod.rs",
-    "crates/taru-server/src/http/admin.rs"
+    "crates/nako-api/src/admin.rs",
+    "crates/nako-server/src/app/playback/mod.rs",
+    "crates/nako-server/src/http/admin.rs"
   ],
   "adr_refs": [
     "docs/adr/0027-admin-api-boundary-for-web-console.md"

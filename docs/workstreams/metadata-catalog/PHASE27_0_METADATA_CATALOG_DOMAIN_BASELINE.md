@@ -7,7 +7,7 @@ Completed design baseline.
 ## Objective
 
 Create an implementation-ready video-first media-server domain baseline for
-Taru's metadata-catalog model before adding more provider breadth or
+Nako's metadata-catalog model before adding more provider breadth or
 client-facing catalog behavior.
 
 The current server can manage a movie-focused library, local metadata, TMDB
@@ -36,8 +36,8 @@ Use the terms defined in `CONTEXT.md`:
   provider-specific watch-order and franchise relationships out of hard item
   identity.
 - **Provider Subject** is provider-specific media evidence.
-- **Provider Mapping** links provider evidence to Taru items without replacing
-  Taru item identity.
+- **Provider Mapping** links provider evidence to Nako items without replacing
+  Nako item identity.
 - **Canonical Metadata** is the authoritative browsing/search/playback/export
   metadata.
 - **Media Technical Facts** are observed source or stream facts.
@@ -48,8 +48,8 @@ Use the terms defined in `CONTEXT.md`:
   rating concepts.
 - **Metadata Source Priority** decides how local, NFO, provider, and future
   addon data fill fields.
-- **NFO Round Trip** preserves content Taru does not own.
-- **Library File Write** is mediated through Taru and must use VFS write/link
+- **NFO Round Trip** preserves content Nako does not own.
+- **Library File Write** is mediated through Nako and must use VFS write/link
   capabilities instead of direct addon or provider path mutation.
 - **Managed Artwork**, **Artwork Candidate**, and **Selected Artwork** are
   distinct concepts.
@@ -70,7 +70,7 @@ M27.0 should answer these before implementation:
 - Which fields are canonical, which are provider-specific, and which are local
   locks?
 - How do TMDB, Douban, and Bangumi **Provider Subjects** map into ordinary
-  Taru item kinds without hard-coding anime as a separate media kind?
+  Nako item kinds without hard-coding anime as a separate media kind?
 - Which provider genres, tags, ratings, and content labels become canonical,
   and which remain provider evidence?
 - What must NFO export preserve to satisfy **NFO Round Trip**?
@@ -86,29 +86,29 @@ M27.0 should answer these before implementation:
 
 The current implementation already has useful video-first building blocks:
 
-- `crates/taru-core/src/media.rs` defines `MediaDomain`, `LibraryPreset`,
+- `crates/nako-core/src/media.rs` defines `MediaDomain`, `LibraryPreset`,
   `LibraryOptions`, `MetadataProfile`, `MediaKind`, `MediaItem`,
   `MediaSource`, `CanonicalMetadata`, `MediaProbeResult`, graph records,
   `ImageAsset`, and artwork task records.
-- `crates/taru-db/migrations/0001_initial.sql` and
+- `crates/nako-db/migrations/0001_initial.sql` and
   `0015_media_source_library_locator.sql` make source locator identity
   library-scoped.
-- `crates/taru-db/migrations/0002_media_probe.sql` keeps source technical
+- `crates/nako-db/migrations/0002_media_probe.sql` keeps source technical
   facts outside canonical item metadata.
-- `crates/taru-db/migrations/0005_metadata_policy.sql` and
+- `crates/nako-db/migrations/0005_metadata_policy.sql` and
   `0016_metadata_provider_attempts.sql` provide field locks, raw provider
   response cache, and provider attempt diagnostics.
-- `crates/taru-db/migrations/0006_library_profiles.sql` persists library
+- `crates/nako-db/migrations/0006_library_profiles.sql` persists library
   domain, preset, and serialized library options.
-- `crates/taru-db/migrations/0007_catalog_ingestion.sql` persists people,
+- `crates/nako-db/migrations/0007_catalog_ingestion.sql` persists people,
   credits, genres, tags, collections, studios, image assets, search documents,
   scan state, and source fingerprints.
-- `crates/taru-catalog/src/lib.rs` hydrates graph records and search
+- `crates/nako-catalog/src/lib.rs` hydrates graph records and search
   projection from canonical metadata.
-- `crates/taru-nfo/src/lib.rs` imports and exports a movie NFO subset through
-  `taru-vfs::StorageBackend`.
-- `crates/taru-search/src/lib.rs`, `crates/taru-db/src/search.rs`, and
-  `crates/taru-server/src/http/catalog.rs` expose basic search through free
+- `crates/nako-nfo/src/lib.rs` imports and exports a movie NFO subset through
+  `nako-vfs::StorageBackend`.
+- `crates/nako-search/src/lib.rs`, `crates/nako-db/src/search.rs`, and
+  `crates/nako-server/src/http/catalog.rs` expose basic search through free
   text plus raw `facet` strings.
 
 The important M27 gaps are:
@@ -194,7 +194,7 @@ or collapse library context.
 
 Provider-specific records are **Provider Subjects**. TMDB movie/series/season
 or episode IDs, Douban subjects, Bangumi subjects/episodes, IMDb IDs, and
-future addon/provider subjects must map into Taru through **Provider Mapping**.
+future addon/provider subjects must map into Nako through **Provider Mapping**.
 
 `ExternalId` may remain a compatibility field on canonical metadata, but it is
 not enough for provider hierarchy, match confidence, provider subject type,
@@ -210,7 +210,7 @@ Default metadata authority order is:
 
 1. user-locked local edits;
 2. NFO/local metadata when the library policy is local-first or read-only;
-3. accepted addon or automation writes that pass through Taru-owned APIs and
+3. accepted addon or automation writes that pass through Nako-owned APIs and
    permissions;
 4. built-in providers in the effective `MetadataProfile` order;
 5. fallback provider data for fields still missing after higher-priority
@@ -254,17 +254,17 @@ opt-in through library policy.
 
 M27.1/M27.2 must treat **NFO Round Trip** as stronger than the current movie
 subset renderer. Unknown XML and third-party fields should survive when safe.
-Taru-owned fields may be updated according to **Metadata Source Priority** and
+Nako-owned fields may be updated according to **Metadata Source Priority** and
 field locks.
 
 All NFO, artwork, subtitle, and sidecar writes are **Library File Writes**.
-They must pass through Taru-owned APIs and VFS capability checks. Addons and
+They must pass through Nako-owned APIs and VFS capability checks. Addons and
 providers must not write library paths directly.
 
 ### Artwork
 
 Provider URLs and local files are **Artwork Sources**. Client presentation
-should use **Managed Artwork** references served by Taru, not remote provider
+should use **Managed Artwork** references served by Nako, not remote provider
 hotlinks.
 
 M27.1/M27.2 should make these concepts explicit:
@@ -273,7 +273,7 @@ M27.1/M27.2 should make these concepts explicit:
   language, provider/local origin, and cache state.
 - **Selected Artwork**: the chosen candidate for a presentation slot such as
   poster, backdrop, logo, banner, thumbnail, or preview.
-- **Managed Artwork**: Taru-owned cached or stored artwork with stable IDs,
+- **Managed Artwork**: Nako-owned cached or stored artwork with stable IDs,
   variant URLs, ETags, and cleanup policy.
 
 The existing `ImageAsset` shape is a useful starting point, but its public API
@@ -317,8 +317,8 @@ not a generic sort key.
 
 M27.1 should be the schema and repository slice. It may touch:
 
-- `taru-core` domain records and repository traits;
-- `taru-db` migrations and adapters;
+- `nako-core` domain records and repository traits;
+- `nako-db` migrations and adapters;
 - compatibility reads for existing movie MVP data;
 - focused repository tests.
 
@@ -345,7 +345,7 @@ repository queries are explicit.
 
 Client-facing browse/sort work should be a later M27 slice after M27.1 schema
 decisions exist. It should introduce named **Browse Facets** and **Sort Keys**
-in `taru-api` before routes accept them.
+in `nako-api` before routes accept them.
 
 ## ADR Disposition
 

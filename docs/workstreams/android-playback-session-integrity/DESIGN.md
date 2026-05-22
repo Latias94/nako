@@ -13,7 +13,7 @@ owned playback sessions.
 The Public Client API already exposes playback-session inspection and
 cancellation routes, and Android already has client methods for them. However,
 the current Android launch path does not carry a stable playback session id
-into the player lifecycle. `TaruBrowseShell` opens the player with
+into the player lifecycle. `NakoBrowseShell` opens the player with
 `sessionId = null`, so remux/HLS playback cannot be inspected or cancelled by
 the native shell after playback starts.
 
@@ -29,7 +29,7 @@ of an incidental server implementation detail.
 - `docs/workstreams/android-playback-depth-validation/`
 - `docs/workstreams/playback-streaming/`
 - `apps/android/SMOKE_FIXTURES.md`
-- `crates/taru-api/src/openapi.rs`
+- `crates/nako-api/src/openapi.rs`
 
 ## Target State
 

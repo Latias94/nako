@@ -5,7 +5,7 @@ Last updated: 2026-05-22
 
 ## Why This Lane Exists
 
-Taru has already chosen the correct Addon architecture: Addons are HTTP
+Nako has already chosen the correct Addon architecture: Addons are HTTP
 **Addon Sidecars** speaking the **Addon Protocol**, not Native Plugins and not
 Jellyfin Plugin Compatibility. The implementation now has manually registered
 Addon Sidecars, Addon Tokens, Library-Scoped Addon Grants, Addon Side Effects,
@@ -16,13 +16,13 @@ semantics.
 
 The remaining product risk is distribution. Operators need a repeatable way to
 understand what an addon requires, how to run it, whether it is healthy, and
-which Taru-owned queues or side-effect APIs it may use. If Taru jumps straight
+which Nako-owned queues or side-effect APIs it may use. If Nako jumps straight
 to an Addon Manager, Native Plugin ABI, marketplace, or process supervisor, it
 will blur trust boundaries before the package/runtime contract is stable.
 
-The first-principles boundary is therefore: **Taru can describe, validate, and
+The first-principles boundary is therefore: **Nako can describe, validate, and
 diagnose sidecar addon packages and runtime declarations, but Addon code still
-runs outside Taru and all strong effects still pass through Taru-owned APIs.**
+runs outside Nako and all strong effects still pass through Nako-owned APIs.**
 
 ## Relevant Authority
 
@@ -45,28 +45,28 @@ runs outside Taru and all strong effects still pass through Taru-owned APIs.**
   - `docs/workstreams/network-access-boundary`
   - `docs/workstreams/ai-assisted-library-ops`
 - Related code:
-  - `crates/taru-addon-protocol/src/lib.rs`
-  - `crates/taru-addon-client`
-  - `crates/taru-core/src/addon.rs`
-  - `crates/taru-core/src/repository/addon.rs`
-  - `crates/taru-db`
-  - `crates/taru-server/src/app/addon*`
-  - `crates/taru-server/src/http/addons.rs`
-  - `crates/taru-api/src/admin.rs`
+  - `crates/nako-addon-protocol/src/lib.rs`
+  - `crates/nako-addon-client`
+  - `crates/nako-core/src/addon.rs`
+  - `crates/nako-core/src/repository/addon.rs`
+  - `crates/nako-db`
+  - `crates/nako-server/src/app/addon*`
+  - `crates/nako-server/src/http/addons.rs`
+  - `crates/nako-api/src/admin.rs`
 
 ## Problem
 
 Manual Addon registration proves the protocol and side-effect model, but it
 does not yet answer product-critical distribution/runtime questions:
 
-- how Taru validates an addon package or install descriptor before an operator
+- how Nako validates an addon package or install descriptor before an operator
   runs it;
 - how install guidance is generated without embedding credentials, admin
   tokens, local paths, or host-specific secrets;
 - how package manifests declare tasks, event subscriptions, hosted pages,
   configuration schema, Secret References, generated artifacts, and library
   side effects in a way that is safe to expose in Admin diagnostics;
-- how Taru distinguishes sidecar runtime health, protocol mismatch, grant
+- how Nako distinguishes sidecar runtime health, protocol mismatch, grant
   mismatch, network readiness, and missing Secret Reference configuration;
 - how Addon Tasks and Addon Event Subscriptions enter existing job/outbox
   boundaries instead of hidden schedulers;
@@ -79,7 +79,7 @@ does not yet answer product-critical distribution/runtime questions:
 
 When this lane closes:
 
-- Taru has a stable Addon Package / Install Guide boundary for sidecar addons.
+- Nako has a stable Addon Package / Install Guide boundary for sidecar addons.
 - Addon manifest/package validation reports install/runtime requirements,
   missing configuration, required grants, declared tasks/events/resources, and
   network readiness without exposing secrets or host paths.
@@ -87,16 +87,16 @@ When this lane closes:
   readiness and redacted failure categories.
 - Runtime checks can prove a sidecar is reachable, protocol-compatible, grant
   compatible, and safe to call before tasks/events/resources are enabled.
-- Declared Addon Tasks and Event Subscriptions are routed to Taru-owned job and
+- Declared Addon Tasks and Event Subscriptions are routed to Nako-owned job and
   outbox/side-effect boundaries or are explicitly blocked as deferred runtime
   behavior.
 - Addon-produced acquisition candidates and Generated Artifacts consume
   `downloads-watch-folder-intake` and `ai-assisted-library-ops` boundaries
   rather than writing Canonical Metadata, NFO sidecars, Media Sources, or
   library files directly.
-- `taru-addon-protocol` remains permissive and dependency-light; AGPL server
+- `nako-addon-protocol` remains permissive and dependency-light; AGPL server
   code does not leak into protocol crates.
-- Public Client API and `taru-client-protocol` remain unchanged unless a
+- Public Client API and `nako-client-protocol` remain unchanged unless a
   dedicated client-contract lane is opened.
 
 ## In Scope
@@ -109,7 +109,7 @@ When this lane closes:
   manifest compatibility, grants, Secret Reference presence, and network
   policy blockers.
 - Declaration routing for Addon Tasks and Addon Event Subscriptions into
-  existing Taru-owned job/outbox/side-effect boundaries, with explicit blockers
+  existing Nako-owned job/outbox/side-effect boundaries, with explicit blockers
   where runtime execution remains deferred.
 - Generated Artifact and Acquisition Intake handoff from Addons through
   existing proposal/intake/acceptance workflows.
@@ -127,7 +127,7 @@ When this lane closes:
 - Direct filesystem, Source Locator, database, or storage credentials for
   Addons.
 - Direct Canonical Metadata, NFO sidecar, Media Source, Managed Import, or
-  library-file writes outside Taru-owned APIs.
+  library-file writes outside Nako-owned APIs.
 - Public Client API/SDK changes.
 - Concrete protocol downloader adapters unless routed through a split
   downloader lane.
@@ -140,7 +140,7 @@ When this lane closes:
 | --- | --- | --- | --- |
 | HTTP Addon Sidecars remain the extension runtime. | High | ADR 0003, ADR 0020, Addon Architecture Deepening | Reopen extension-model ADRs before changing runtime. |
 | Distribution must start as validation/install guidance, not process supervision. | High | Admin Addon Operations MVP explicitly deferred Addon Manager automation | If operators need managed processes first, split an Addon Manager lane. |
-| Addon package/protocol crates should stay permissive and dependency-light. | High | ADR 0022 and current `taru-addon-protocol` crate boundary | If package helpers need transport/runtime dependencies, split helper crates. |
+| Addon package/protocol crates should stay permissive and dependency-light. | High | ADR 0022 and current `nako-addon-protocol` crate boundary | If package helpers need transport/runtime dependencies, split helper crates. |
 | Addon Tasks and Event Subscriptions should reuse job/outbox boundaries. | High | ADR 0014/0015 and durable job/outbox workstreams | If a new scheduler is needed, split task-runtime ownership separately. |
 | Addon outputs should use existing proposal/intake workflows. | High | DWI and AILO closeouts | If an Addon needs a new effect class, define a Protected Write or side-effect lane. |
 
@@ -149,23 +149,23 @@ When this lane closes:
 Keep the runtime layered:
 
 ```text
-taru-addon-protocol
+nako-addon-protocol
   Own permissive package/manifest/install descriptor wire types and validation
   primitives that Addon authors can reuse without server internals.
 
-taru-addon-client
+nako-addon-client
   Own optional sidecar HTTP checks and protocol helpers when transport
   behavior is useful outside server internals.
 
-taru-core / taru-db
+nako-core / nako-db
   Own durable package/install/runtime readiness records only when runtime state
   must be audited or retried.
 
-taru-server::app
+nako-server::app
   Own package validation, install-guide generation, runtime readiness,
   declaration routing, and side-effect/proposal/intake handoff.
 
-taru-api::admin / taru-server::http::admin
+nako-api::admin / nako-server::http::admin
   Own Admin-only diagnostics and controls. Public Client API stays untouched.
 ```
 
@@ -182,25 +182,25 @@ This lane can close when:
   sidecar payloads;
 - sidecar runtime checks distinguish reachability, protocol mismatch, manifest
   mismatch, grant/config gaps, and network policy blockers;
-- declared Addon Tasks/Event Subscriptions are either routed through Taru-owned
+- declared Addon Tasks/Event Subscriptions are either routed through Nako-owned
   boundaries or blocked with explicit deferred reasons;
 - Addon-produced Generated Artifacts and acquisition outputs are proven to use
   existing AILO/DWI workflows without autonomous writes;
-- Public Client API and `taru-client-protocol` remain unchanged;
+- Public Client API and `nako-client-protocol` remain unchanged;
 - Addon Manager, package signing, marketplace, process supervision, Native
   Plugin ABI, downloader protocols, and local AI runtime are split follow-ons.
 
 ## Closeout — 2026-05-22
 
-This lane is complete. Taru now has the sidecar Addon package/install
+This lane is complete. Nako now has the sidecar Addon package/install
 descriptor boundary, redacted install-guide preview, Admin-only runtime
 readiness diagnostics, declared task/event routing plans, and Addon Generated
-Artifact / acquisition-intake handoff into existing Taru-owned AILO and DWI
+Artifact / acquisition-intake handoff into existing Nako-owned AILO and DWI
 semantics.
 
 The lane intentionally did **not** ship Addon Manager discovery/install/update,
 marketplace hosting, package signing trust roots, process/container
 supervision, logs/rollback, Native Plugin ABI, Jellyfin Plugin Compatibility,
 downloader protocol adapters, local AI/model runtime, Public Client surfaces,
-direct library writes, hidden schedulers, or `taru-client-protocol` changes.
+direct library writes, hidden schedulers, or `nako-client-protocol` changes.
 Those remain explicit follow-ons that require dedicated workstreams.

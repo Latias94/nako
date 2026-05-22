@@ -7,8 +7,8 @@ Last updated: 2026-05-19
 
 `PlaybackPlayerRoute` still owns too much exit behavior. It snapshots Media3
 state, starts a detached coroutine, reads the server token, wires
-`TaruUserPlaybackClient` progress/watched calls, wires
-`TaruPlaybackClient.cancelPlaybackSession`, and persists device-local position.
+`NakoUserPlaybackClient` progress/watched calls, wires
+`NakoPlaybackClient.cancelPlaybackSession`, and persists device-local position.
 
 The underlying rules live in `applyPlaybackExitEffects`, but the UI route still
 assembles the side-effect graph. That keeps networking and playback lifecycle

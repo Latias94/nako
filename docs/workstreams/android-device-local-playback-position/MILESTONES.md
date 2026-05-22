@@ -24,13 +24,13 @@ Exit criteria:
 
 Primary gates:
 
-- `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.player.PlaybackLaunchTest --no-daemon`
+- `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.player.PlaybackLaunchTest --no-daemon`
 - `pwsh -NoProfile -File apps\android\scripts\Validate-AndroidLocal.ps1 -SkipSmoke`
 - `git diff --check`
 
 Primary evidence:
 
-- `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.player.PlaybackLaunchTest --no-daemon`
+- `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.player.PlaybackLaunchTest --no-daemon`
 - `apps/android/build/validation/20260519-100247/report.md`
 - `git diff --check`
 

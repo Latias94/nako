@@ -67,7 +67,7 @@ GET  /images/{old_selected_id}  -> 404
 HEAD /images/{old_selected_id}  -> 404
 ```
 
-This is intentional. Taru keeps stable image IDs while a slot remains selected
+This is intentional. Nako keeps stable image IDs while a slot remains selected
 and may preserve the ID across replacement, but unpublish removes the public
 publication. Artifact IDs are not public image IDs and must not be used as a
 fallback.
@@ -129,13 +129,13 @@ Do not include:
 
 ## Architecture Direction
 
-- `taru-core` owns the domain result type and repository method for unpublish.
-- `taru-db` implements an item/kind-scoped delete guarded by item existence and
+- `nako-core` owns the domain result type and repository method for unpublish.
+- `nako-db` implements an item/kind-scoped delete guarded by item existence and
   returning the previous Selected Artwork facts when a row existed.
-- `taru-api` owns explicit Admin DTOs for the command response.
-- `taru-server::app::artwork` orchestrates validation, repository calls, and
+- `nako-api` owns explicit Admin DTOs for the command response.
+- `nako-server::app::artwork` orchestrates validation, repository calls, and
   redacted DTO construction.
-- `taru-server::http::admin` owns route parsing and error mapping only.
+- `nako-server::http::admin` owns route parsing and error mapping only.
 - Public Client DTOs stay unchanged; they should naturally stop returning the
   selection because they read from `selected_artworks`.
 

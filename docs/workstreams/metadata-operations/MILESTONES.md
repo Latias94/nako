@@ -61,7 +61,7 @@ Implemented in M18:
 - Removed the legacy `metadata.tmdb` configuration path.
 - Made `[[metadata.providers]]` the only network provider configuration entry.
 - Split provider registry construction and secret resolution into
-  `taru-server::app::metadata_runtime`.
+  `nako-server::app::metadata_runtime`.
 - Kept TMDB, Bangumi, and Douban on the shared `MetadataHttpRuntime`.
 - Preserved strategy fallback through disabled, unavailable, not implemented,
   no-match, failed, and rate-limited attempts.

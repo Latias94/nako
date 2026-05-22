@@ -8,21 +8,21 @@ Last updated: 2026-05-17
 M28 is complete. The lane shipped the first public protocol extraction, core
 module deepening, workflow decomposition, and playback seam clarification:
 
-- `taru-client-protocol` is an Apache-2.0 crate with the first public system
+- `nako-client-protocol` is an Apache-2.0 crate with the first public system
   envelope types.
-- `taru-api` re-exports those protocol types and keeps server-only pagination
+- `nako-api` re-exports those protocol types and keeps server-only pagination
   mapping in `page_info_from_request`.
-- `taru-core/src/media.rs` is now a facade over concept modules under
-  `crates/taru-core/src/media/`.
-- `taru-core/src/repository.rs` is now a facade over repository trait groups
-  under `crates/taru-core/src/repository/`.
-- `taru-library/src/lib.rs` is now a facade over `summary`, `scan`, `index`,
+- `nako-core/src/media.rs` is now a facade over concept modules under
+  `crates/nako-core/src/media/`.
+- `nako-core/src/repository.rs` is now a facade over repository trait groups
+  under `crates/nako-core/src/repository/`.
+- `nako-library/src/lib.rs` is now a facade over `summary`, `scan`, `index`,
   `probe`, `local_inference`, and private `failure`.
-- `taru-nfo/src/lib.rs` is now a facade over `codec`, `summary`, `workflow`,
+- `nako-nfo/src/lib.rs` is now a facade over `codec`, `summary`, `workflow`,
   `import`, and `export`.
-- `taru-streaming/src/lib.rs` is now a facade over playback `selection` and
+- `nako-streaming/src/lib.rs` is now a facade over playback `selection` and
   direct-play response planning.
-- `taru-transcode/src/lib.rs` is now a facade over `plan`, `hardware`,
+- `nako-transcode/src/lib.rs` is now a facade over `plan`, `hardware`,
   `ffmpeg`, `session`, `runtime`, `remux`, `hls`, and private runner helpers.
 - Server playback remains the app composition layer.
 
@@ -37,28 +37,28 @@ module deepening, workflow decomposition, and playback seam clarification:
 ## Decisions Since Last Update
 
 - Public client wire types should move toward a permissive protocol crate.
-- `taru-api` should remain the AGPL server adapter layer.
-- `taru-core` should be deepened by module before any new crate split.
-- `taru-library` and `taru-nfo` should be decomposed before behavior changes
+- `nako-api` should remain the AGPL server adapter layer.
+- `nako-core` should be deepened by module before any new crate split.
+- `nako-library` and `nako-nfo` should be decomposed before behavior changes
   land in those workflows.
-- Playback ownership should stay explicit across `taru-streaming`,
-  `taru-transcode`, and `taru-server`.
+- Playback ownership should stay explicit across `nako-streaming`,
+  `nako-transcode`, and `nako-server`.
 - The first public protocol slice should stay intentionally small; move more
   DTOs only when the server adapter mapping remains clear.
-- `taru-core` media records should keep public re-exports stable while
+- `nako-core` media records should keep public re-exports stable while
   internals move by concept.
-- `taru-core` repository contracts should keep public re-exports stable while
+- `nako-core` repository contracts should keep public re-exports stable while
   internal trait groups move into concept modules.
 - Library scanning, indexing, probing, local inference, and summaries now have
-  separate modules inside `taru-library`.
+  separate modules inside `nako-library`.
 - NFO XML round-trip, service workflow, import, and export now have separate
-  modules inside `taru-nfo`.
+  modules inside `nako-nfo`.
 - Playback source selection/direct-play response planning is separate from
   FFmpeg runtime execution.
-- `taru-transcode` owns FFmpeg command plans, hardware acceleration selection,
+- `nako-transcode` owns FFmpeg command plans, hardware acceleration selection,
   process-local session transitions, runtime limits, cancellation, and remux
   or HLS runner execution.
-- `taru-server/src/app/playback/*` should stay focused on VFS input staging,
+- `nako-server/src/app/playback/*` should stay focused on VFS input staging,
   persistence, domain events, cancellation registry, and HTTP-facing outputs.
 
 ## Blockers
@@ -67,7 +67,7 @@ module deepening, workflow decomposition, and playback seam clarification:
 
 ## Follow-Ons
 
-- Broaden `taru-client-protocol` in small slices when client-facing DTOs can
+- Broaden `nako-client-protocol` in small slices when client-facing DTOs can
   move without pulling in server internals.
 - Narrow repository traits by use case when a concrete caller benefits from a
   smaller contract; keep the current public re-export facade until migration

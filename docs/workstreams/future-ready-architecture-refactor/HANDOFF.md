@@ -14,10 +14,10 @@ implementation now lives behind
 SQLite-owned
 store/runtime/migration/job/search/library/metadata/scan/media/catalog/
 ingestion/staging/playback/addon/automation/artwork/event/webhook modules plus
-the public `TaruDatabase` facade. The persistence target architecture is
+the public `NakoDatabase` facade. The persistence target architecture is
 recorded in ADR 0029 and ADR 0030:
 
-- `taru-db` should become a database facade;
+- `nako-db` should become a database facade;
 - SQLite details should move behind a SQLite-owned adapter module or crate;
 - future PostgreSQL should implement the same backend-neutral contracts;
 - contract tests should be added before large module movement;
@@ -30,51 +30,51 @@ FRA-030 implementation notes:
   behavior.
 - `JobLeaseRepository` now owns durable worker lease, heartbeat, run-token
   fencing, cancellation, and expired-lease recovery behavior.
-- `crates/taru-db/src/contract_tests.rs` contains the first contract harness
+- `crates/nako-db/src/contract_tests.rs` contains the first contract harness
   and runs the job lease lifecycle contract against SQLite.
 - Duplicate SQLite-only job lease lifecycle tests were removed from
-  `crates/taru-db/src/tests.rs`; SQLite-specific job listing and startup
+  `crates/nako-db/src/tests.rs`; SQLite-specific job listing and startup
   recovery coverage remains there.
 
 FRA-040 implementation notes:
 
-- `SqliteStore` identity now lives in `crates/taru-db/src/sqlite.rs`.
+- `SqliteStore` identity now lives in `crates/nako-db/src/sqlite.rs`.
 - `SqliteStore` is crate-private; downstream crates should no longer construct
   or store it directly.
-- The root `taru-db` module exposes only `TaruDatabase` as the public database
+- The root `nako-db` module exposes only `NakoDatabase` as the public database
   facade plus `SqliteRuntimeOptions` for SQLite runtime configuration.
-- Durable job repository SQL moved to `crates/taru-db/src/sqlite/jobs.rs`.
+- Durable job repository SQL moved to `crates/nako-db/src/sqlite/jobs.rs`.
 - SQLite-backed search index SQL moved to
-  `crates/taru-db/src/sqlite/search.rs`.
+  `crates/nako-db/src/sqlite/search.rs`.
 - SQLite library, library-item, metadata, and scan repository implementations
-  moved to `crates/taru-db/src/sqlite/{library,library_item,metadata,scan}.rs`.
+  moved to `crates/nako-db/src/sqlite/{library,library_item,metadata,scan}.rs`.
 - SQLite media, provider-mapping, and catalog repository implementations moved
-  to `crates/taru-db/src/sqlite/{media,provider_mapping,catalog}.rs`.
+  to `crates/nako-db/src/sqlite/{media,provider_mapping,catalog}.rs`.
 - SQLite ingestion, local-inference, staging, playback, and user-playback
   repository implementations moved to
-  `crates/taru-db/src/sqlite/{ingestion,local_inference,staging,playback,user_playback}.rs`.
+  `crates/nako-db/src/sqlite/{ingestion,local_inference,staging,playback,user_playback}.rs`.
 - SQLite Addon, automation, event outbox, webhook, catalog-governance, source
   duplicate, VFS cache, and artwork persistence implementations moved under
-  `crates/taru-db/src/sqlite/`.
+  `crates/nako-db/src/sqlite/`.
 - SQLite connection/runtime policy moved to
-  `crates/taru-db/src/sqlite/runtime.rs`.
+  `crates/nako-db/src/sqlite/runtime.rs`.
 - SQLite migrations and lifecycle implementation moved to
-  `crates/taru-db/src/sqlite/migrations.rs`.
-- `crates/taru-db/src/facade.rs` delegates repository/search/lifecycle traits
-  from `TaruDatabase` to the active SQLite adapter.
-- `taru-server` and the touched downstream crate tests now use `TaruDatabase`;
+  `crates/nako-db/src/sqlite/migrations.rs`.
+- `crates/nako-db/src/facade.rs` delegates repository/search/lifecycle traits
+  from `NakoDatabase` to the active SQLite adapter.
+- `nako-server` and the touched downstream crate tests now use `NakoDatabase`;
   a focused search found no remaining `SqliteStore` references outside
-  `taru-db` code or historical docs.
-- `crates/taru-db/src/contract_tests.rs` now constructs `TaruDatabase`, so the
+  `nako-db` code or historical docs.
+- `crates/nako-db/src/contract_tests.rs` now constructs `NakoDatabase`, so the
   job lease lifecycle contract runs against the facade boundary.
-- `crates/taru-db/src/tests.rs` now constructs `TaruDatabase` for main
+- `crates/nako-db/src/tests.rs` now constructs `NakoDatabase` for main
   persistence behavior tests. SQLite-only module tests remain inside
   `sqlite/*` modules where they intentionally inspect migration/runtime or
   rollback details.
 - The broad `sqlite::prelude` compatibility shim was deleted. SQLite modules
-  now import `SqliteStore`, SQLite codec helpers, `taru_core`, `taru_search`,
+  now import `SqliteStore`, SQLite codec helpers, `nako_core`, `nako_search`,
   and `sqlx` types explicitly.
-- Root `crates/taru-db/src` now contains only `contract_tests.rs`,
+- Root `crates/nako-db/src` now contains only `contract_tests.rs`,
   `facade.rs`, `lib.rs`, `sqlite.rs`, and `tests.rs`.
 
 FRA-050 implementation notes:
@@ -88,43 +88,43 @@ FRA-050 implementation notes:
   `SqliteRow`, SQLx SQLite transactions, runtime PRAGMAs, and millisecond
   timestamp columns.
 - Renamed the misleading `TransactionManager` trait to `DatabaseLifecycle`
-  and moved its file to `crates/taru-core/src/repository/lifecycle.rs`.
+  and moved its file to `crates/nako-core/src/repository/lifecycle.rs`.
   No compatibility alias was kept.
 
 FRA-060 implementation notes:
 
-- Reshaped `crates/taru-db/src/contract_tests.rs` into a reusable backend job
+- Reshaped `crates/nako-db/src/contract_tests.rs` into a reusable backend job
   lease contract harness.
 - Kept SQLite as the always-on backend.
 - Added ignored PostgreSQL job lease contract tests gated by
-  `TARU_TEST_POSTGRES_URL`.
+  `NAKO_TEST_POSTGRES_URL`.
 - Added a test-only `PostgresStore` with real lifecycle, migration, job, and
   job-lease behavior.
 - Added backend-owned PostgreSQL proof migration under
-  `crates/taru-db/migrations/postgres/`.
+  `crates/nako-db/migrations/postgres/`.
 - The PostgreSQL proof uses native UUID/jsonb/timestamptz storage and
   `FOR UPDATE SKIP LOCKED` lease claiming.
 
 FRA-070 implementation notes:
 
-- Added `crates/taru-server/src/app/composition.rs`.
-- Replaced the inline `TaruAppInner` construction path with
-  `TaruAppComposition`.
-- `TaruRuntimeResources` now owns construction of the process-local runtime
+- Added `crates/nako-server/src/app/composition.rs`.
+- Replaced the inline `NakoAppInner` construction path with
+  `NakoAppComposition`.
+- `NakoRuntimeResources` now owns construction of the process-local runtime
   supervisor, storage backend registry, scan/metadata/webhook concurrency
   permits, and metadata provider registry.
-- `TaruAppServices` now owns construction of the app service handles for jobs,
+- `NakoAppServices` now owns construction of the app service handles for jobs,
   library scan, artwork, addons, automation, webhooks, catalog, library,
   storage diagnostics, metadata, NFO, playback, and user playback.
 - Startup workflow execution and optional managed artwork ingest worker startup
   now live in the composition module after service construction.
-- `TaruApp` now keeps the app handle surface and delegates runtime/service
+- `NakoApp` now keeps the app handle surface and delegates runtime/service
   construction to the composition module.
 
 FRA-080 implementation notes:
 
 - `DiscoveredMediaSource` no longer contains `ParsedName`.
-- `VfsLibraryScanner` no longer depends on `taru-naming`; it discovers VFS
+- `VfsLibraryScanner` no longer depends on `nako-naming`; it discovers VFS
   media source facts only.
 - `LocalInferenceEngine` now owns path parsing, evidence generation,
   `SourceState`/`MediaSource` fact shaping, primary provisional item planning,
@@ -139,7 +139,7 @@ FRA-080 implementation notes:
 FRA-090 implementation notes:
 
 - Added provider-neutral Metadata Candidate Graph records in
-  `crates/taru-core/src/media/candidate.rs`:
+  `crates/nako-core/src/media/candidate.rs`:
   `MetadataCandidateGraph`, `MetadataCandidateNode`,
   `MetadataCandidateRecord`, `MetadataCandidateSubject`,
   `MetadataCandidateRelationship`, and `MetadataCandidateSource`.
@@ -147,7 +147,7 @@ FRA-090 implementation notes:
   candidates with optional scalar fields and list fields, then projects into
   `CanonicalMetadata` only when the merge/import/export boundary needs the
   authoritative item state.
-- `taru-metadata` now returns `MetadataCandidateGraph` from
+- `nako-metadata` now returns `MetadataCandidateGraph` from
   `MetadataCandidate` and `MetadataFetchResult`; provider callers use
   `metadata()` only as an explicit projection.
 - TMDB, Douban, and Bangumi mapping functions now produce
@@ -166,10 +166,10 @@ FRA-090 implementation notes:
 
 FRA-100 implementation notes:
 
-- `taru-core` now defines semantic search projection records: projection
+- `nako-core` now defines semantic search projection records: projection
   version, Browse Facets, keyed facet kinds, Sort Keys, aliases, provider
   identifiers, and `CatalogSearchProjection::searchable_text()`.
-- `taru-search` now exposes `SearchDocument` and `SearchQuery` in terms of
+- `nako-search` now exposes `SearchDocument` and `SearchQuery` in terms of
   semantic Browse Facets rather than raw string facet bags. Legacy facet-label
   conversion is explicit through fallible `from_facet_labels` helpers.
 - Catalog hydration and library indexing build semantic projections from item
@@ -184,10 +184,10 @@ FRA-100 implementation notes:
 FRA-110 implementation notes:
 
 - Audited the Admin API generated contract, Public Client OpenAPI, Public
-  Client TypeScript SDK, `taru-api` DTOs, and job-returning HTTP routes after
+  Client TypeScript SDK, `nako-api` DTOs, and job-returning HTTP routes after
   the persistence/runtime/search refactors.
 - Confirmed the existing generated Admin API contract remains scoped to the
-  eight admin-web read-model routes, and the full `taru-api` nextest suite
+  eight admin-web read-model routes, and the full `nako-api` nextest suite
   keeps Admin/Public/OpenAPI/SDK separation guarded.
 - Removed raw persisted job `input_json`, `summary_json`, and `error` echo
   from `JobResponse`.
@@ -217,19 +217,19 @@ FRA-120 implementation notes:
 
 FRA-130 implementation notes:
 
-- Deleted the `taru-api` root-level compatibility re-export shim
+- Deleted the `nako-api` root-level compatibility re-export shim
   (`admin::*`, `extension::*`, `metadata_diagnostics::*`, and
   `public_client::*`).
-- `taru-api` now exposes explicit boundary modules only:
+- `nako-api` now exposes explicit boundary modules only:
   `admin`, `admin_contract`, `extension`, `metadata_diagnostics`, `openapi`,
   `public_client`, and `sdk`.
-- Updated `taru-api` internal callers plus `taru-server` app services, HTTP
+- Updated `nako-api` internal callers plus `nako-server` app services, HTTP
   handlers, and tests to import DTOs/helpers through explicit modules.
 - Updated `docs/api/HTTP_API.md` so job envelopes document redacted
   `has_input`, `has_summary`, and `has_error` flags instead of raw
   `input`/`summary`/`error` payloads.
 - Audited but intentionally kept `admin::managed_artwork::*` as an Admin API
-  module aggregation point and the explicit `taru-search` facet-label adapter
+  module aggregation point and the explicit `nako-search` facet-label adapter
   helpers as current query/test adapters into semantic Browse Facets.
 
 FRA-140 closeout notes:
@@ -266,9 +266,9 @@ The priority order remains:
   `architecture-review-followups`, `core-architecture-deepening`, or
   `repository-seam-deepening`.
 - Treat PostgreSQL readiness as the highest-priority architecture risk.
-- Prefer deleting old paths over compatibility shims because Taru is not live
+- Prefer deleting old paths over compatibility shims because Nako is not live
   and has no production compatibility burden.
-- Accepted ADR 0029 and chose the `taru-db` facade plus backend-specific
+- Accepted ADR 0029 and chose the `nako-db` facade plus backend-specific
   adapters target.
 - Start contract testing with job lease lifecycle because PostgreSQL will need
   different SQL locking behavior while preserving the same observable contract.
@@ -276,7 +276,7 @@ The priority order remains:
   job lease contract suite.
 - Started FRA-040 with a SQLite-owned module split for store identity, jobs,
   runtime, and migrations.
-- Added the public `TaruDatabase` facade and updated production app services
+- Added the public `NakoDatabase` facade and updated production app services
   and downstream tests to depend on the facade rather than concrete
   `SqliteStore`.
 - Made `SqliteStore` crate-private so future PostgreSQL work can change the
@@ -293,13 +293,13 @@ The priority order remains:
   persistence under `sqlite/`; scan workflow commits now call the SQLite-owned
   ingestion/local-inference helpers.
 - Moved the remaining repository implementation modules under `sqlite/`; the
-  `taru-db` root now holds facade, contract tests, SQLite module declaration,
+  `nako-db` root now holds facade, contract tests, SQLite module declaration,
   crate root, and SQLite-specific tests.
 - Moved the SQLite row-codec/helper module under `sqlite/codec.rs`.
 - Deleted the broad `sqlite::prelude` shim and replaced it with explicit
   SQLite-module imports.
-- Moved main `taru-db` behavior tests onto the `TaruDatabase` facade.
-- Marked FRA-040 complete with fresh `taru-db` nextest, `taru-server` nextest,
+- Moved main `nako-db` behavior tests onto the `NakoDatabase` facade.
+- Marked FRA-040 complete with fresh `nako-db` nextest, `nako-server` nextest,
   workspace test compilation, formatting, and diff-whitespace evidence.
 - Accepted ADR 0030 for PostgreSQL-ready SQL dialect and migration policy.
 - Completed FRA-050 by making migration/schema/row-codec/dialect/test-fixture
@@ -309,9 +309,9 @@ The priority order remains:
   and optional PostgreSQL job lease proof with real PostgreSQL migration,
   lifecycle, row-codec, and locking behavior.
 - Completed FRA-070 by extracting server runtime/service construction into the
-  `app::composition` module, deleting the old inline `TaruAppInner`
+  `app::composition` module, deleting the old inline `NakoAppInner`
   construction path, and preserving startup/runtime behavior with full
-  `taru-server` nextest evidence.
+  `nako-server` nextest evidence.
 - Completed FRA-080 by moving naming interpretation out of scan discovery into
   `LocalInferenceEngine`, keeping scanning as source discovery, inference as
   explanation/planning, and persistence as the commit owner.
@@ -327,7 +327,7 @@ The priority order remains:
 - Completed FRA-120 by tightening frontend/SDK ignore hygiene and making the
   Admin API generated contract reproducible through `apps/admin-web`
   `generate:admin-api` and `verify`.
-- Completed FRA-130 by deleting the `taru-api` root-level compatibility
+- Completed FRA-130 by deleting the `nako-api` root-level compatibility
   re-export shim, converting server/app/http/tests to explicit API boundary
   imports, and updating stale HTTP job-envelope docs to the redacted
   `has_input`/`has_summary`/`has_error` shape.

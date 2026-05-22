@@ -2,7 +2,7 @@
 
 Status: Draft release baseline
 
-This runbook defines the current Taru self-hosted backup, restore, and upgrade
+This runbook defines the current Nako self-hosted backup, restore, and upgrade
 operator procedure for SQLite and PostgreSQL deployments.
 
 ## State Classification
@@ -11,18 +11,18 @@ Durable state you must protect:
 
 | State | Example | Why it matters |
 | --- | --- | --- |
-| Database | SQLite `taru.db` or PostgreSQL `taru` database | Holds libraries, catalog, metadata, jobs, Addons, Webhooks, playback sessions, Managed Artwork records, and staging manifests. |
-| Managed Artwork artifact root | `artwork.artifact_root` | Holds Taru-owned artwork bytes referenced by DB records. |
+| Database | SQLite `nako.db` or PostgreSQL `nako` database | Holds libraries, catalog, metadata, jobs, Addons, Webhooks, playback sessions, Managed Artwork records, and staging manifests. |
+| Managed Artwork artifact root | `artwork.artifact_root` | Holds Nako-owned artwork bytes referenced by DB records. |
 | Media libraries | `[[libraries]].root` | Source media files and user-owned sidecars. |
-| NFO sidecars and NFO backups | `.nfo` files beside media and backup files created by Taru write policy | User-visible metadata exchange and recovery state. |
-| Secrets | `TARU_ADMIN_TOKEN`, provider tokens, WebDAV password, PostgreSQL password, Webhook secrets, Addon Tokens | Required to authenticate clients and integrations. |
-| Config | `taru.toml`, service manager units, reverse-proxy config | Defines paths, DB backend, auth, providers, playback, and resource budgets. |
+| NFO sidecars and NFO backups | `.nfo` files beside media and backup files created by Nako write policy | User-visible metadata exchange and recovery state. |
+| Secrets | `NAKO_ADMIN_TOKEN`, provider tokens, WebDAV password, PostgreSQL password, Webhook secrets, Addon Tokens | Required to authenticate clients and integrations. |
+| Config | `nako.toml`, service manager units, reverse-proxy config | Defines paths, DB backend, auth, providers, playback, and resource budgets. |
 
 Cache or rebuildable state:
 
 | State | Example | Handling |
 | --- | --- | --- |
-| Remux/HLS outputs | `remux_staging_root` | Can be deleted while Taru is stopped; sessions may be recreated. |
+| Remux/HLS outputs | `remux_staging_root` | Can be deleted while Nako is stopped; sessions may be recreated. |
 | Remote probe/FFmpeg input staging | `[staging]` manifest-tracked files | Can be cleaned by startup cleanup or manually while stopped. |
 | Provider raw-cache rows | DB rows governed by metadata raw-cache retention | Useful for diagnostics but not the source of truth. |
 | `target/` release evidence | `target/release-gate`, `target/postgres-contract` | Developer-only; never part of production backup. |
@@ -33,7 +33,7 @@ forensics need.
 
 ## Pre-Backup Checklist
 
-1. Stop Taru or put it into a maintenance window.
+1. Stop Nako or put it into a maintenance window.
 2. Record the current git commit or release build identifier.
 3. Record the database backend and `database_url` host/path, but do not paste
    raw passwords into tickets or logs.
@@ -57,18 +57,18 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode fas
 
 ## SQLite Backup
 
-Stop Taru before copying the SQLite database and artifact root.
+Stop Nako before copying the SQLite database and artifact root.
 
 ```bash
-systemctl stop taru
-install -d -m 0700 /backup/taru/$(date +%F)
-sqlite3 /var/lib/taru/taru.db ".backup '/backup/taru/$(date +%F)/taru.db'"
-tar -C /var/lib/taru -czf /backup/taru/$(date +%F)/artwork.tar.gz artwork
-cp /etc/taru/taru.toml /backup/taru/$(date +%F)/taru.toml
-systemctl start taru
+systemctl stop nako
+install -d -m 0700 /backup/nako/$(date +%F)
+sqlite3 /var/lib/nako/nako.db ".backup '/backup/nako/$(date +%F)/nako.db'"
+tar -C /var/lib/nako -czf /backup/nako/$(date +%F)/artwork.tar.gz artwork
+cp /etc/nako/nako.toml /backup/nako/$(date +%F)/nako.toml
+systemctl start nako
 ```
 
-If `sqlite3` is unavailable, copying the DB file while Taru is stopped is
+If `sqlite3` is unavailable, copying the DB file while Nako is stopped is
 acceptable. Include any `-wal` and `-shm` files if you copy instead of using
 `.backup`.
 
@@ -76,28 +76,28 @@ PowerShell sketch:
 
 ```powershell
 $stamp = Get-Date -Format yyyy-MM-dd
-New-Item -ItemType Directory -Force "C:\Backups\Taru\$stamp" | Out-Null
-Copy-Item C:\Taru\data\taru.db "C:\Backups\Taru\$stamp\taru.db"
-Compress-Archive -Path C:\Taru\data\artwork -DestinationPath "C:\Backups\Taru\$stamp\artwork.zip"
-Copy-Item C:\Taru\taru.toml "C:\Backups\Taru\$stamp\taru.toml"
+New-Item -ItemType Directory -Force "C:\Backups\Nako\$stamp" | Out-Null
+Copy-Item C:\Nako\data\nako.db "C:\Backups\Nako\$stamp\nako.db"
+Compress-Archive -Path C:\Nako\data\artwork -DestinationPath "C:\Backups\Nako\$stamp\artwork.zip"
+Copy-Item C:\Nako\nako.toml "C:\Backups\Nako\$stamp\nako.toml"
 ```
 
 ## SQLite Restore
 
-1. Stop Taru.
+1. Stop Nako.
 2. Move the current DB and artifact root aside; do not overwrite them in place.
 3. Restore the DB file.
 4. Restore `artwork.artifact_root`.
-5. Restore `taru.toml` and secret environment variables.
-6. Start Taru and check health plus Admin diagnostics.
+5. Restore `nako.toml` and secret environment variables.
+6. Start Nako and check health plus Admin diagnostics.
 
 ```bash
-systemctl stop taru
-mv /var/lib/taru/taru.db /var/lib/taru/taru.db.before-restore
-mv /var/lib/taru/artwork /var/lib/taru/artwork.before-restore
-cp /backup/taru/2026-05-21/taru.db /var/lib/taru/taru.db
-tar -C /var/lib/taru -xzf /backup/taru/2026-05-21/artwork.tar.gz
-systemctl start taru
+systemctl stop nako
+mv /var/lib/nako/nako.db /var/lib/nako/nako.db.before-restore
+mv /var/lib/nako/artwork /var/lib/nako/artwork.before-restore
+cp /backup/nako/2026-05-21/nako.db /var/lib/nako/nako.db
+tar -C /var/lib/nako -xzf /backup/nako/2026-05-21/artwork.tar.gz
+systemctl start nako
 curl http://127.0.0.1:3000/health
 ```
 
@@ -106,15 +106,15 @@ mean DB records and artifact root are inconsistent.
 
 ## PostgreSQL Backup
 
-Stop Taru or ensure no schema migrations are running.
+Stop Nako or ensure no schema migrations are running.
 
 ```bash
-systemctl stop taru
-install -d -m 0700 /backup/taru/$(date +%F)
-pg_dump --format=custom --file=/backup/taru/$(date +%F)/taru.pgcustom "$TARU_DATABASE_URL"
-tar -C /var/lib/taru -czf /backup/taru/$(date +%F)/artwork.tar.gz artwork
-cp /etc/taru/taru.toml /backup/taru/$(date +%F)/taru.toml
-systemctl start taru
+systemctl stop nako
+install -d -m 0700 /backup/nako/$(date +%F)
+pg_dump --format=custom --file=/backup/nako/$(date +%F)/nako.pgcustom "$NAKO_DATABASE_URL"
+tar -C /var/lib/nako -czf /backup/nako/$(date +%F)/artwork.tar.gz artwork
+cp /etc/nako/nako.toml /backup/nako/$(date +%F)/nako.toml
+systemctl start nako
 ```
 
 If using the compose example, run `pg_dump` from a host with PostgreSQL client
@@ -122,19 +122,19 @@ tools or from a temporary client container attached to the same network.
 
 ## PostgreSQL Restore
 
-1. Stop Taru.
+1. Stop Nako.
 2. Create a new empty database or move the old one aside.
 3. Restore with `pg_restore`.
 4. Restore `artwork.artifact_root`.
 5. Restore config and secrets.
-6. Start Taru and run diagnostics.
+6. Start Nako and run diagnostics.
 
 ```bash
-systemctl stop taru
-createdb taru_restore
-pg_restore --dbname=taru_restore --clean --if-exists /backup/taru/2026-05-21/taru.pgcustom
-tar -C /var/lib/taru -xzf /backup/taru/2026-05-21/artwork.tar.gz
-systemctl start taru
+systemctl stop nako
+createdb nako_restore
+pg_restore --dbname=nako_restore --clean --if-exists /backup/nako/2026-05-21/nako.pgcustom
+tar -C /var/lib/nako -xzf /backup/nako/2026-05-21/artwork.tar.gz
+systemctl start nako
 curl http://127.0.0.1:3000/health
 ```
 
@@ -143,13 +143,13 @@ instead of destructive restore over the only production DB.
 
 ## NFO Sidecars
 
-NFO sidecars live with media library files. Taru treats them as user-visible
+NFO sidecars live with media library files. Nako treats them as user-visible
 library state, not cache. Include them in media library backups.
 
 When restoring:
 
 - Restore media files and NFO sidecars together.
-- Restore Taru DB and artifact root from the same backup window when possible.
+- Restore Nako DB and artifact root from the same backup window when possible.
 - If DB and NFO sidecars come from different points in time, run a deliberate
   NFO import/export reconciliation instead of assuming one silently wins.
 
@@ -158,12 +158,12 @@ When restoring:
 Secrets are not serialized into the redacted Admin config response. Back up the
 secret manager entries or service environment definitions separately:
 
-- `TARU_ADMIN_TOKEN`
-- `TARU_POSTGRES_PASSWORD`
+- `NAKO_ADMIN_TOKEN`
+- `NAKO_POSTGRES_PASSWORD`
 - `TMDB_READ_ACCESS_TOKEN`
 - `BANGUMI_TOKEN`
 - `DOUBAN_API_KEY`
-- `TARU_WEBDAV_PASSWORD`
+- `NAKO_WEBDAV_PASSWORD`
 - Webhook secret env values
 - Addon Token issuance records and any sidecar-side stored token values
 
@@ -173,12 +173,12 @@ comments.
 ## Upgrade Procedure
 
 1. Read release notes and migration notes for the target commit.
-2. Stop Taru.
+2. Stop Nako.
 3. Take a fresh backup using the backend-specific procedure above.
-4. Build or deploy the new Taru binary.
-5. Keep `taru.toml` under version control or a config-management system and
+4. Build or deploy the new Nako binary.
+5. Keep `nako.toml` under version control or a config-management system and
    review path/backend/resource changes.
-6. Start Taru. Startup runs migrations through the configured database backend.
+6. Start Nako. Startup runs migrations through the configured database backend.
 7. Check:
    - `GET /health`
    - `GET /admin/v1/overview`
@@ -188,15 +188,15 @@ comments.
 
 ## Migration Rollback And Forward Expectations
 
-Taru migrations are expected to move forward with the running binary. Treat DB
+Nako migrations are expected to move forward with the running binary. Treat DB
 migration rollback as restore-from-backup, not as an automatic down migration.
 
 Rollback procedure:
 
-1. Stop Taru.
+1. Stop Nako.
 2. Restore the pre-upgrade DB backup.
 3. Restore matching artifact root and config if they changed.
-4. Run the previous Taru binary.
+4. Run the previous Nako binary.
 5. Verify health and diagnostics.
 
 Forward recovery procedure:
@@ -236,13 +236,13 @@ bash scripts/release-gate.sh --mode fast
 For PostgreSQL deployments:
 
 ```bash
-bash scripts/postgres-contract-harness.sh --suite managed-artwork --database-url "$TARU_TEST_POSTGRES_URL"
+bash scripts/postgres-contract-harness.sh --suite managed-artwork --database-url "$NAKO_TEST_POSTGRES_URL"
 ```
 
 Operator smoke checks:
 
 ```bash
 curl http://127.0.0.1:3000/health
-curl -H "Authorization: Bearer $TARU_ADMIN_TOKEN" http://127.0.0.1:3000/admin/v1/overview
-curl -H "Authorization: Bearer $TARU_ADMIN_TOKEN" http://127.0.0.1:3000/admin/v1/system/config
+curl -H "Authorization: Bearer $NAKO_ADMIN_TOKEN" http://127.0.0.1:3000/admin/v1/overview
+curl -H "Authorization: Bearer $NAKO_ADMIN_TOKEN" http://127.0.0.1:3000/admin/v1/system/config
 ```

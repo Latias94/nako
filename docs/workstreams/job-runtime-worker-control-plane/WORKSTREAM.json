@@ -17,11 +17,11 @@
   "validation_gates": [
     "Get-Content docs\\workstreams\\job-runtime-worker-control-plane\\WORKSTREAM.json | ConvertFrom-Json",
     "git diff --check",
-    "cargo nextest run -p taru-server job_runtime_worker --no-fail-fast",
-    "cargo nextest run -p taru-db managed_artwork_ingest --no-fail-fast",
-    "cargo nextest run -p taru-server queued_artwork_ingests --no-fail-fast",
-    "cargo nextest run -p taru-db managed_artwork_startup_recovery --no-fail-fast",
-    "cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests",
+    "cargo nextest run -p nako-server job_runtime_worker --no-fail-fast",
+    "cargo nextest run -p nako-db managed_artwork_ingest --no-fail-fast",
+    "cargo nextest run -p nako-server queued_artwork_ingests --no-fail-fast",
+    "cargo nextest run -p nako-db managed_artwork_startup_recovery --no-fail-fast",
+    "cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests",
     "cargo fmt --all -- --check"
   ],
   "follow_ons": [

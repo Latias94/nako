@@ -4,7 +4,7 @@ Status: Completed
 Last updated: 2026-05-17
 
 This workstream tracks M37, the first concrete Rust client entrypoint on top
-of the Apache-2.0 `taru-client` SDK.
+of the Apache-2.0 `nako-client` SDK.
 
 Authoritative docs:
 

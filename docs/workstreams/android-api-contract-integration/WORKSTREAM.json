@@ -38,7 +38,7 @@
   ],
   "gates": [
     "Get-Content -LiteralPath 'docs/workstreams/android-api-contract-integration/WORKSTREAM.json' -Raw | ConvertFrom-Json | Out-Null",
-    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.taru.android.browse.TaruBrowseClientTest --no-daemon",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.nako.android.browse.NakoBrowseClientTest --no-daemon",
     "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --no-daemon",
     "pwsh -NoProfile -File apps\\android\\scripts\\Smoke-Regression.ps1 -States profile-with-media -RetriesPerState 0",
     "git diff --check"
@@ -51,17 +51,17 @@
     },
     {
       "task": "APICI-020",
-      "path": "apps/android/app/src/main/java/dev/taru/android/browse/TaruBrowseClient.kt",
-      "notes": "Typed GET /people/{person_id} client contract added; focused TaruBrowseClientTest and full debug unit gate passed."
+      "path": "apps/android/app/src/main/java/dev/nako/android/browse/NakoBrowseClient.kt",
+      "notes": "Typed GET /people/{person_id} client contract added; focused NakoBrowseClientTest and full debug unit gate passed."
     },
     {
       "task": "APICI-030",
-      "path": "apps/android/app/src/main/java/dev/taru/android/ui/browse/BrowseSession.kt",
+      "path": "apps/android/app/src/main/java/dev/nako/android/ui/browse/BrowseSession.kt",
       "notes": "Person Detail route/state/data-source loading added; focused UI browse tests and full debug unit gate passed."
     },
     {
       "task": "APICI-040",
-      "path": "apps/android/app/src/main/java/dev/taru/android/ui/screens/person/PersonDetailRoute.kt",
+      "path": "apps/android/app/src/main/java/dev/nako/android/ui/screens/person/PersonDetailRoute.kt",
       "notes": "Dedicated Person Detail screen added; Cast & Crew stable person_id rows open Person Detail; focused detail presentation test and full debug unit gate passed."
     },
     {

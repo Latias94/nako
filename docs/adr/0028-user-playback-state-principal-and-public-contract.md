@@ -6,7 +6,7 @@ Accepted.
 
 ## Context
 
-Taru needs server-authoritative **User Playback State** for resume, watched
+Nako needs server-authoritative **User Playback State** for resume, watched
 state, last played ordering, and Continue Watching. The current inbound access
 boundary is bearer-token based and deliberately does not implement full user
 accounts yet.
@@ -19,7 +19,7 @@ requires a broad data migration.
 
 ## Decision
 
-Taru will persist **User Playback State** by an explicit server-internal user
+Nako will persist **User Playback State** by an explicit server-internal user
 principal, a Media Item id, and an optional Media Source id when source-specific
 resume matters.
 

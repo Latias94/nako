@@ -11,7 +11,7 @@ construction time.
 
 ## Follow-Ons
 
-- Split `taru-api` by public client, admin, metadata diagnostics, extension,
+- Split `nako-api` by public client, admin, metadata diagnostics, extension,
   and automation DTO modules.
 - Design NFO Round Trip preservation before managed sidecar writes and link
   policy expand.

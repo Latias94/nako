@@ -5,12 +5,12 @@ Last updated: 2026-05-19
 
 ## Why This Lane Exists
 
-Taru now has durable job ownership leases and an Admin cancel-request route, but
+Nako now has durable job ownership leases and an Admin cancel-request route, but
 running job cancellation is still only intent. A running row can show
 `cancel_requested_at`, yet the typed executor has no runtime object to observe
 that request and no standard way to acknowledge terminal `cancelled`.
 
-That gap matters because Taru has long-running work with side effects:
+That gap matters because Nako has long-running work with side effects:
 
 - Library scan indexes sources, tombstones sources, and probes media.
 - Metadata refresh contacts providers and commits canonical metadata.
@@ -34,13 +34,13 @@ checkpoint".
   - `docs/workstreams/managed-artwork-ingest-runtime-controls/`
   - `docs/workstreams/transcode-runtime/`
 - Code:
-  - `crates/taru-core/src/job.rs`
-  - `crates/taru-core/src/repository/jobs.rs`
-  - `crates/taru-db/src/jobs.rs`
-  - `crates/taru-server/src/app/job_runtime.rs`
-  - `crates/taru-server/src/app/jobs.rs`
-  - `crates/taru-server/src/app/metadata.rs`
-  - `crates/taru-server/src/app/nfo.rs`
+  - `crates/nako-core/src/job.rs`
+  - `crates/nako-core/src/repository/jobs.rs`
+  - `crates/nako-db/src/jobs.rs`
+  - `crates/nako-server/src/app/job_runtime.rs`
+  - `crates/nako-server/src/app/jobs.rs`
+  - `crates/nako-server/src/app/metadata.rs`
+  - `crates/nako-server/src/app/nfo.rs`
 
 ## Problem
 
@@ -57,7 +57,7 @@ The current durable state machine is deliberately conservative:
 This creates a product and operations mismatch. Operators can request
 cancellation, but a long metadata maintenance job may continue processing every
 item because the worker never sees a checkpoint. Worse, if an implementation
-blindly converts any `TaruError` into `failed`, then a requested cancellation
+blindly converts any `NakoError` into `failed`, then a requested cancellation
 would be reported as failure rather than acknowledged operator intent.
 
 ## Target State
@@ -79,7 +79,7 @@ When this lane closes:
 
 ## In Scope
 
-- Runtime cancellation context and checkpoint API in `taru-server`.
+- Runtime cancellation context and checkpoint API in `nako-server`.
 - Fenced cancellation acknowledgement through existing `JobRepository`
   operations.
 - Runtime tests for success, failure, and cancellation paths.
@@ -150,7 +150,7 @@ request, VFS operation, or filesystem write is already in flight, the first
 slice may finish that operation and stop before the next one.
 
 For NFO library-wide jobs, the app layer can only check before and after the
-current `NfoService` call. Per-sidecar checkpoints require a `taru-nfo` service
+current `NfoService` call. Per-sidecar checkpoints require a `nako-nfo` service
 API that accepts a cancellation boundary before each source read/write; until
 that exists, Admin docs must describe NFO cancellation as app-level and
 boundary-based.

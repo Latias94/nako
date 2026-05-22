@@ -19,19 +19,19 @@ Date: 2026-05-22
 
 ## Validation
 
-- `cargo check -p taru-api -p taru-server --tests`
-- `cargo nextest run -p taru-server admin_addon_runtime_readiness --no-fail-fast`
-- `cargo nextest run -p taru-api admin_contract --no-fail-fast`
-- `cargo nextest run -p taru-server addons --no-fail-fast`
+- `cargo check -p nako-api -p nako-server --tests`
+- `cargo nextest run -p nako-server admin_addon_runtime_readiness --no-fail-fast`
+- `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+- `cargo nextest run -p nako-server addons --no-fail-fast`
 - `npm run check`
 - `npm test -- src/adminApi/client.test.ts`
 - `cargo fmt --all -- --check`
 - `python -m json.tool docs/workstreams/addon-runtime-and-distribution/WORKSTREAM.json`
 - `python -m json.tool docs/workstreams/post-rpd-product-hardening/WORKSTREAM.json`
 - `git diff --check`
-- `git diff --name-only -- crates/taru-client-protocol`
+- `git diff --name-only -- crates/nako-client-protocol`
 
 ## Next
 
 ARD-040: route declared Addon Tasks and Event Subscriptions into explicit
-Taru-owned plans without hidden schedulers.
+Nako-owned plans without hidden schedulers.

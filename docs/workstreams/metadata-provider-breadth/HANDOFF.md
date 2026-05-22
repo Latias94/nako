@@ -5,7 +5,7 @@ Last updated: 2026-05-21
 
 ## Current State
 
-The Wave 1 metadata provider breadth lane is implemented and verified. Taru now
+The Wave 1 metadata provider breadth lane is implemented and verified. Nako now
 has diagnostics-safe provider capabilities, deterministic candidate matching,
 non-destructive ambiguous search refresh, and a first cross-provider candidate
 review boundary.
@@ -13,7 +13,7 @@ review boundary.
 ## Completed Tasks
 
 - MPB-010: workstream opened and scope frozen.
-- MPB-020: provider capabilities exposed from `taru-metadata` through
+- MPB-020: provider capabilities exposed from `nako-metadata` through
   `/metadata/providers` without secrets.
 - MPB-030: explicit candidate match decisions and reasons added.
 - MPB-040: ambiguous search-based refresh now stops before fetch/cache/commit
@@ -27,9 +27,9 @@ review boundary.
 
 Fresh gates recorded in `EVIDENCE_AND_GATES.md`:
 
-- `cargo nextest run -p taru-api --no-fail-fast`
-- `cargo nextest run -p taru-metadata --no-fail-fast`
-- `cargo nextest run -p taru-server metadata --no-fail-fast`
+- `cargo nextest run -p nako-api --no-fail-fast`
+- `cargo nextest run -p nako-metadata --no-fail-fast`
+- `cargo nextest run -p nako-server metadata --no-fail-fast`
 - `cargo check --workspace --tests`
 - `cargo fmt --all -- --check`
 - `git diff --check`

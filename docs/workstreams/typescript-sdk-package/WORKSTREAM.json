@@ -5,7 +5,7 @@
   "status": "completed",
   "updated": "2026-05-17",
   "scope_kind": "execution",
-  "problem": "Taru can emit a TypeScript SDK scaffold but has no package skeleton or real TypeScript compile contract.",
+  "problem": "Nako can emit a TypeScript SDK scaffold but has no package skeleton or real TypeScript compile contract.",
   "authoritative_docs": [
     {
       "role": "design",
@@ -25,15 +25,15 @@
     "npm run check --prefix sdk/typescript",
     "cargo fmt --all -- --check",
     "cargo check --workspace --tests",
-    "cargo check -p taru-api --examples",
-    "cargo nextest run -p taru-api --no-fail-fast",
+    "cargo check -p nako-api --examples",
+    "cargo nextest run -p nako-api --no-fail-fast",
     "cargo nextest run --workspace --no-fail-fast",
-    "cargo tree -p taru-client-protocol",
+    "cargo tree -p nako-client-protocol",
     "git diff --check"
   ],
   "evidence": [
-    "crates/taru-api/src/sdk.rs",
-    "crates/taru-api/examples/emit-typescript-sdk.rs",
+    "crates/nako-api/src/sdk.rs",
+    "crates/nako-api/examples/emit-typescript-sdk.rs",
     "sdk/typescript/package.json",
     "sdk/typescript/tsconfig.json",
     "sdk/typescript/src/index.ts",

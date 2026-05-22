@@ -8,19 +8,19 @@ Last updated: 2026-05-18
 Before the first implementation slice, the known consistency gap is visible in
 the call ordering:
 
-- `crates/taru-catalog/src/lib.rs` calls
+- `crates/nako-catalog/src/lib.rs` calls
   `replace_item_catalog_graph` and then `SearchIndex::upsert`.
-- `crates/taru-db/src/catalog.rs` wraps only graph replacement in a SQLite
+- `crates/nako-db/src/catalog.rs` wraps only graph replacement in a SQLite
   transaction.
-- `crates/taru-db/src/search.rs` writes the Search Projection separately.
+- `crates/nako-db/src/search.rs` writes the Search Projection separately.
 
 ## Gate Set
 
 ### Catalog Package Gate
 
 ```bash
-cargo check -p taru-catalog --tests
-cargo nextest run -p taru-catalog --no-fail-fast
+cargo check -p nako-catalog --tests
+cargo nextest run -p nako-catalog --no-fail-fast
 ```
 
 These commands prove the catalog hydration workflow and fake-port tests still
@@ -29,8 +29,8 @@ compile and pass.
 ### SQLite Adapter Gate
 
 ```bash
-cargo check -p taru-db --tests
-cargo nextest run -p taru-db <filter>
+cargo check -p nako-db --tests
+cargo nextest run -p nako-db <filter>
 ```
 
 The targeted test filter should include the new graph/search commit behavior.
@@ -49,44 +49,44 @@ large metadata refresh commit slice.
 
 - `docs/workstreams/metadata-catalog-commit-atomicity/DESIGN.md`
 - `docs/workstreams/metadata-catalog-commit-atomicity/TODO.md`
-- `crates/taru-core/src/media/catalog.rs`
-- `crates/taru-core/src/repository/catalog.rs`
-- `crates/taru-core/src/repository/metadata.rs`
-- `crates/taru-catalog/src/lib.rs`
-- `crates/taru-db/src/catalog.rs`
-- `crates/taru-db/src/metadata.rs`
-- `crates/taru-db/src/search.rs`
-- `crates/taru-metadata/src/strategy.rs`
+- `crates/nako-core/src/media/catalog.rs`
+- `crates/nako-core/src/repository/catalog.rs`
+- `crates/nako-core/src/repository/metadata.rs`
+- `crates/nako-catalog/src/lib.rs`
+- `crates/nako-db/src/catalog.rs`
+- `crates/nako-db/src/metadata.rs`
+- `crates/nako-db/src/search.rs`
+- `crates/nako-metadata/src/strategy.rs`
 
 ## Fresh Evidence
 
 2026-05-18:
 
-- `cargo check -p taru-catalog --tests` passed.
-- `cargo check -p taru-db --tests` passed.
-- `cargo check -p taru-metadata --tests` passed.
-- `cargo check -p taru-nfo --tests` passed.
-- `cargo check -p taru-library --tests` passed.
-- `cargo check -p taru-server --tests` passed.
-- `cargo nextest run -p taru-catalog --no-fail-fast` passed: 3 tests.
-- `cargo nextest run -p taru-db sqlite_store_rolls_back_catalog_graph_when_search_projection_commit_fails` passed: 1 test.
-- `cargo nextest run -p taru-db sqlite_store_round_trips_scan_state_search_and_artwork_tasks` passed: 1 test.
+- `cargo check -p nako-catalog --tests` passed.
+- `cargo check -p nako-db --tests` passed.
+- `cargo check -p nako-metadata --tests` passed.
+- `cargo check -p nako-nfo --tests` passed.
+- `cargo check -p nako-library --tests` passed.
+- `cargo check -p nako-server --tests` passed.
+- `cargo nextest run -p nako-catalog --no-fail-fast` passed: 3 tests.
+- `cargo nextest run -p nako-db sqlite_store_rolls_back_catalog_graph_when_search_projection_commit_fails` passed: 1 test.
+- `cargo nextest run -p nako-db sqlite_store_round_trips_scan_state_search_and_artwork_tasks` passed: 1 test.
 - `cargo fmt --all -- --check` passed.
 - `git diff --check` passed with LF/CRLF warnings from existing working-copy files.
 
 One attempted command used the wrong test filter:
-`cargo nextest run -p taru-db sqlite_store_indexes_search_documents` ran zero
+`cargo nextest run -p nako-db sqlite_store_indexes_search_documents` ran zero
 tests because no such test name exists.
 
 2026-05-18, MCC-030:
 
-- `cargo check -p taru-catalog --tests` passed.
-- `cargo check -p taru-db --tests` passed.
-- `cargo check -p taru-metadata --tests` passed.
-- `cargo check -p taru-server --tests` passed.
-- `cargo nextest run -p taru-db commit_metadata_refresh --no-fail-fast`
+- `cargo check -p nako-catalog --tests` passed.
+- `cargo check -p nako-db --tests` passed.
+- `cargo check -p nako-metadata --tests` passed.
+- `cargo check -p nako-server --tests` passed.
+- `cargo nextest run -p nako-db commit_metadata_refresh --no-fail-fast`
   passed: 3 tests.
-- `cargo nextest run -p taru-metadata --no-fail-fast` passed: 27 tests.
+- `cargo nextest run -p nako-metadata --no-fail-fast` passed: 27 tests.
 - `cargo fmt --all -- --check` passed.
 - `git diff --check` passed with LF/CRLF warnings from existing working-copy
   files.
@@ -102,13 +102,13 @@ Behavior proven:
 
 2026-05-18, MCC-040 closeout:
 
-- `cargo check -p taru-catalog --tests` passed.
-- `cargo check -p taru-db --tests` passed.
-- `cargo check -p taru-metadata --tests` passed.
-- `cargo check -p taru-server --tests` passed.
-- `cargo nextest run -p taru-db commit_metadata_refresh --no-fail-fast`
+- `cargo check -p nako-catalog --tests` passed.
+- `cargo check -p nako-db --tests` passed.
+- `cargo check -p nako-metadata --tests` passed.
+- `cargo check -p nako-server --tests` passed.
+- `cargo nextest run -p nako-db commit_metadata_refresh --no-fail-fast`
   passed: 3 tests.
-- `cargo nextest run -p taru-db sqlite_store_rolls_back_catalog_graph_when_search_projection_commit_fails --no-fail-fast`
+- `cargo nextest run -p nako-db sqlite_store_rolls_back_catalog_graph_when_search_projection_commit_fails --no-fail-fast`
   passed: 1 test.
 - `cargo fmt --all -- --check` passed.
 - `git diff --check` passed.

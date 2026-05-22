@@ -4,12 +4,12 @@ Status: completed.
 
 ## Goal
 
-Define Taru's first HTTP addon manifest, resource envelope, registration, and
+Define Nako's first HTTP addon manifest, resource envelope, registration, and
 bounded caller contract before adding a reference addon.
 
 ## Completed Shape
 
-- Added `taru-addon-protocol` manifest validation for protocol version,
+- Added `nako-addon-protocol` manifest validation for protocol version,
   identity fields, HTTP base URL, resource declarations, scope declarations,
   timeout bounds, retry attempt bounds, and duplicate resources.
 - Added resource request and response envelopes with protocol version, addon ID,
@@ -25,7 +25,7 @@ bounded caller contract before adding a reference addon.
   validation.
 - Architecture deepening later moved `AddonTransport`,
   `ReqwestAddonTransport`, and `call_addon_resource` to the separate
-  permissive `taru-addon-client` crate so `taru-addon-protocol` could remain a
+  permissive `nako-addon-client` crate so `nako-addon-protocol` could remain a
   dependency-light wire-contract crate.
 - Added `AddonStatus`, addon registration records, `AddonRepository`, SQLite
   migration `0012_addons.sql`, and SQLite persistence.
@@ -42,14 +42,14 @@ An addon manifest declares:
 - authentication mode: `none`, `bearer`, or `shared_secret`;
 - the total scope set the addon may request.
 
-The current protocol version is `2026-05-15`. Taru rejects manifests with a
+The current protocol version is `2026-05-15`. Nako rejects manifests with a
 different protocol version.
 
 ## Resource Calls
 
 Resource calls use the `network.addon` budget class conceptually. The first
-caller shipped as library code in `taru-addon-protocol`; architecture
-deepening later moved that caller to `taru-addon-client`. HTTP handlers still
+caller shipped as library code in `nako-addon-protocol`; architecture
+deepening later moved that caller to `nako-addon-client`. HTTP handlers still
 only register and inspect addons. Handlers do not call addon HTTP endpoints
 inline.
 
@@ -78,7 +78,7 @@ Registrations are disabled by default unless the caller explicitly requests
 
 Later architecture deepening moved this management surface to
 `/admin/v1/addons` and removed the root `/addons` compatibility routes before
-Taru had external users. This file remains a historical M5 phase note.
+Nako had external users. This file remains a historical M5 phase note.
 
 ## Non-Goals
 
@@ -91,12 +91,12 @@ Taru had external users. This file remains a historical M5 phase note.
 
 Coverage:
 
-- `taru-addon-protocol` tests verify manifest validation, resource envelope
+- `nako-addon-protocol` tests verify manifest validation, resource envelope
   round-tripping, scope denial, auth token enforcement, bounded retry behavior,
   non-retryable status handling, HTTP request headers, and response envelope
   mapping.
-- `taru-db` tests verify addon registration persistence and status filtering.
-- `taru-server` HTTP tests verify registration defaults to disabled, status
+- `nako-db` tests verify addon registration persistence and status filtering.
+- `nako-server` HTTP tests verify registration defaults to disabled, status
   filtering, detail lookup, invalid manifest rejection, and scope denial.
 - Workspace gates pass when run after this phase: `cargo fmt --all -- --check`,
   `cargo check --workspace`, `cargo nextest run --workspace`, and

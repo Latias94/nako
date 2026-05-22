@@ -6,12 +6,12 @@ Accepted.
 
 ## Context
 
-Taru has grown from an MVP backend into a modular monolith with playback,
+Nako has grown from an MVP backend into a modular monolith with playback,
 metadata, NFO, VFS, webhook, automation, addon, staging, and transcode paths.
 That growth validated the product direction, but several early shortcuts are
 now working against long-term architecture quality:
 
-- `taru-server::app::TaruApp` is too wide and owns composition, feature
+- `nako-server::app::NakoApp` is too wide and owns composition, feature
   orchestration, repository access, storage resolution, runtime tasks, and
   compatibility helpers in one surface.
 - Feature modules have started to split out, but high-level services still
@@ -29,13 +29,13 @@ now working against long-term architecture quality:
 - NFO handling still contains hand-written XML walking that should be replaced
   by a structured parser before format breadth increases.
 
-Taru has not shipped a stable compatibility contract yet. This means the right
+Nako has not shipped a stable compatibility contract yet. This means the right
 move is fearless cleanup: remove obsolete helper code, collapse duplicate paths,
 and make the architecture correct instead of preserving MVP shapes.
 
 ## Decision
 
-`taru-server` remains the server composition crate, but its root application
+`nako-server` remains the server composition crate, but its root application
 type must become a thin composition root. It should assemble configuration,
 repositories, storage backends, runtime supervisors, and application services;
 it should not keep growing feature orchestration methods.
@@ -54,7 +54,7 @@ request work, but they should not directly detach long-running runtime tasks.
 High-level server code should depend on narrow ports or service handles rather
 than the full concrete `SqliteStore` whenever a workflow does not need
 SQLite-specific behavior. Concrete transaction and SQL details stay inside
-`taru-db`. When an operation must update several persistence records together,
+`nako-db`. When an operation must update several persistence records together,
 the transaction boundary belongs in the repository implementation or an
 explicit unit-of-work boundary, not in scattered app-level write calls.
 
@@ -66,7 +66,7 @@ old root app was too broad.
 
 ## Consequences
 
-- `TaruApp` becomes easier to review because it composes the server instead of
+- `NakoApp` becomes easier to review because it composes the server instead of
   acting as the server.
 - Feature workflows can evolve independently without forcing every change
   through one large application surface.
@@ -75,16 +75,16 @@ old root app was too broad.
   explicit enough for provider expansion, multi-library correctness, and
   future client contracts.
 - Some existing code will be deleted or moved aggressively. This is acceptable
-  while Taru is pre-compatibility, but every deletion needs focused validation
+  while Nako is pre-compatibility, but every deletion needs focused validation
   evidence.
 - The first M24 slice is allowed to be architecture-only. It should not add new
   product features while reshaping the server boundary.
 
 ## Alternatives Considered
 
-- Keep adding methods to `TaruApp`: rejected because it preserves the current
+- Keep adding methods to `NakoApp`: rejected because it preserves the current
   bottleneck and makes every future feature harder to reason about.
-- Split into multiple deployable services now: rejected because Taru still
+- Split into multiple deployable services now: rejected because Nako still
   benefits from a modular monolith. The problem is internal ownership, not
   process boundaries.
 - Introduce a generic dependency-injection framework: rejected because Rust

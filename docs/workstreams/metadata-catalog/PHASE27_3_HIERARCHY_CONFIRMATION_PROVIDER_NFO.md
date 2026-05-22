@@ -8,13 +8,13 @@ Completed.
 
 Build on M27.2's source-owned **Local Inference Evidence** and **Provisional
 Hierarchy** so NFO and built-in providers can confirm series, season, and
-episode items in place instead of replacing Taru item identity.
+episode items in place instead of replacing Nako item identity.
 
 ## Implemented Scope
 
 M27.3 adds these vertical slices:
 
-- `taru-metadata` owns a **Hierarchy Confirmation** service boundary for
+- `nako-metadata` owns a **Hierarchy Confirmation** service boundary for
   provider/NFO confirmation of provisional items.
 - Hierarchy confirmation updates existing `MediaItem` rows in place, marks
   `LibraryItemState.provisional = false`, hydrates catalog/search projections,
@@ -25,10 +25,10 @@ M27.3 adds these vertical slices:
 - Metadata refresh now records accepted provider mapping for successful TMDB,
   Douban, and Bangumi fetches instead of treating provider payloads as only
   raw response cache entries.
-- `taru-nfo` imports episode NFO hierarchy fields through the shared
+- `nako-nfo` imports episode NFO hierarchy fields through the shared
   confirmation service, preserving local/NFO authority and confirming
   provisional series/season/episode items in place.
-- `taru-metadata` TMDB provider supports series search and movie, series,
+- `nako-metadata` TMDB provider supports series search and movie, series,
   season, and episode fetches.
 
 ## Compatibility
@@ -36,7 +36,7 @@ M27.3 adds these vertical slices:
 - Existing movie metadata refresh remains compatible.
 - Existing movie NFO import/export behavior remains compatible.
 - NFO confirmation does not create replacement items.
-- Provider mappings remain provider-neutral links to Taru `MediaItem`
+- Provider mappings remain provider-neutral links to Nako `MediaItem`
   identity.
 
 ## Non-Goals
@@ -54,10 +54,10 @@ Close-out commands:
 
 - `cargo fmt --all -- --check`
 - `cargo check --workspace --tests`
-- `cargo nextest run -p taru-db --no-fail-fast`
-- `cargo nextest run -p taru-library --no-fail-fast`
-- `cargo nextest run -p taru-metadata --no-fail-fast`
-- `cargo nextest run -p taru-nfo --no-fail-fast`
+- `cargo nextest run -p nako-db --no-fail-fast`
+- `cargo nextest run -p nako-library --no-fail-fast`
+- `cargo nextest run -p nako-metadata --no-fail-fast`
+- `cargo nextest run -p nako-nfo --no-fail-fast`
 - `git diff --check`
 
 ## Remaining Boundaries

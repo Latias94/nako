@@ -64,5 +64,5 @@
 
 - [ ] Continue the focused `addon-token-grants-side-effects` workstream for
       Addon Token issuance, rotation, Library-Scoped Addon Grants, and
-      Taru-mediated Addon Side Effect intake before allowing addon metadata,
+      Nako-mediated Addon Side Effect intake before allowing addon metadata,
       artwork, subtitle, or Library File Write behavior.

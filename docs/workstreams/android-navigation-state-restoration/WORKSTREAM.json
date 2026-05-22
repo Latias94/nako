@@ -33,7 +33,7 @@
     }
   ],
   "gates": [
-    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.TaruBrowseNavigationStateSaverTest --no-daemon",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.NakoBrowseNavigationStateSaverTest --no-daemon",
     "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --no-daemon",
     "git diff --check"
   ],
@@ -45,7 +45,7 @@
     },
     {
       "task": "ANS-020",
-      "path": "apps/android/app/src/test/java/dev/taru/android/ui/browse/TaruBrowseNavigationStateSaverTest.kt",
+      "path": "apps/android/app/src/test/java/dev/nako/android/ui/browse/NakoBrowseNavigationStateSaverTest.kt",
       "notes": "Focused saver tests and full Android debug unit suite passed on 2026-05-19."
     },
     {

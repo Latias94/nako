@@ -24,12 +24,12 @@ Task IDs use the `FAD` prefix.
 
 ## M1 — Addon Side Effect Depth
 
-- [x] FAD-020 [owner=codex] [deps=FAD-010] [scope=crates/taru-server/src/app/addons.rs,crates/taru-server/src/app/addons/**,crates/taru-server/src/http/addons.rs,crates/taru-server/src/http/tests/addons.rs]
+- [x] FAD-020 [owner=codex] [deps=FAD-010] [scope=crates/nako-server/src/app/addons.rs,crates/nako-server/src/app/addons/**,crates/nako-server/src/http/addons.rs,crates/nako-server/src/http/tests/addons.rs]
   Goal: Split Addon Side Effect handling into deeper Modules for principal/grant
   resolution, side-effect intake, apply routing, and domain-specific apply
   Adapters without changing behavior.
-  Validation: `cargo check -p taru-server --tests`; focused `cargo nextest run
-  -p taru-server addon_side_effect --no-fail-fast`; `git diff --check`.
+  Validation: `cargo check -p nako-server --tests`; focused `cargo nextest run
+  -p nako-server addon_side_effect --no-fail-fast`; `git diff --check`.
   Review: The split must improve locality. Do not create pass-through Modules
   that merely rename current function calls.
   Evidence: new Module layout and focused Addon Side Effect tests.
@@ -42,13 +42,13 @@ Task IDs use the `FAD` prefix.
   focused Addon Side Effect and broader addon HTTP tests.
   Handoff: Continue with FAD-030 Addon metadata commit atomicity.
 
-- [x] FAD-030 [owner=codex] [deps=FAD-020] [scope=crates/taru-core/src/repository,crates/taru-db,crates/taru-server/src/app/addons/**,docs/workstreams/fearless-architecture-deepening]
+- [x] FAD-030 [owner=codex] [deps=FAD-020] [scope=crates/nako-core/src/repository,crates/nako-db,crates/nako-server/src/app/addons/**,docs/workstreams/fearless-architecture-deepening]
   Goal: Add a transactional commit seam for Addon Canonical Metadata writes so
   metadata mutation, Catalog Item Graph/Search Projection consistency, apply
   outcome recording, and rollback behavior are proven together.
-  Validation: `cargo check -p taru-core -p taru-db -p taru-server --tests`;
+  Validation: `cargo check -p nako-core -p nako-db -p nako-server --tests`;
   focused SQLite contract tests; PostgreSQL opt-in contract tests when
-  `TARU_TEST_POSTGRES_URL` is available; focused Addon Side Effect nextest;
+  `NAKO_TEST_POSTGRES_URL` is available; focused Addon Side Effect nextest;
   `git diff --check`.
   Review: The Interface should express the domain action, not expose a sequence
   of repository calls that callers must order correctly.
@@ -60,24 +60,24 @@ Task IDs use the `FAD` prefix.
   plans catalog/search projections and delegates the domain commit instead of
   ordering repository calls itself. Added a backend-neutral contract for
   search-only writes, graph writes, apply outcome recording, and rollback.
-  Validation: `cargo check -p taru-core -p taru-db -p taru-server --tests`;
-  `cargo nextest run -p taru-db addon_metadata_write --no-fail-fast`; `cargo
-  nextest run -p taru-server addon_side_effect --no-fail-fast`; `cargo fmt
+  Validation: `cargo check -p nako-core -p nako-db -p nako-server --tests`;
+  `cargo nextest run -p nako-db addon_metadata_write --no-fail-fast`; `cargo
+  nextest run -p nako-server addon_side_effect --no-fail-fast`; `cargo fmt
   --all -- --check`; `git diff --check`. PostgreSQL opt-in was not run because
-  `TARU_TEST_POSTGRES_URL` was unset.
+  `NAKO_TEST_POSTGRES_URL` was unset.
   Handoff: Continue with Library ingestion only after Addon write consistency is
   proven or split with a blocker.
 
 ## M2 — Library Ingestion Workflow Depth
 
-- [x] FAD-040 [owner=codex] [deps=FAD-030] [scope=crates/taru-library,crates/taru-core/src/repository,crates/taru-db,docs/workstreams/fearless-architecture-deepening]
+- [x] FAD-040 [owner=codex] [deps=FAD-030] [scope=crates/nako-library,crates/nako-core/src/repository,crates/nako-db,docs/workstreams/fearless-architecture-deepening]
   Goal: Deepen the Library ingestion commit Interface so scanning and Local
   Inference callers do not need a broad repository trait alias to coordinate
   Source State, Library Item State, Local Inference Evidence, ingestion
   failures, and Search Projection side effects.
-  Validation: `cargo check -p taru-library -p taru-db --tests`; focused
-  `cargo nextest run -p taru-db scan_commit --no-fail-fast`; focused
-  `cargo nextest run -p taru-library --no-fail-fast`; PostgreSQL opt-in scan
+  Validation: `cargo check -p nako-library -p nako-db --tests`; focused
+  `cargo nextest run -p nako-db scan_commit --no-fail-fast`; focused
+  `cargo nextest run -p nako-library --no-fail-fast`; PostgreSQL opt-in scan
   contract when available; `git diff --check`.
   Review: Preserve the M62 scan commit contract. Prefer a workflow-shaped seam
   over mechanical repository trait splitting.
@@ -92,20 +92,20 @@ Task IDs use the `FAD` prefix.
   planning, failure resolution, and the existing atomic scan-source persistence
   seam. Added a deletion-test style fake workflow test proving index callers do
   not require the broad repository trait set.
-  Validation: `cargo check -p taru-library -p taru-db --tests`; `cargo nextest
-  run -p taru-db scan_commit --no-fail-fast`; `cargo nextest run -p
-  taru-library --no-fail-fast`; `cargo fmt --all -- --check`; `git diff
-  --check`. PostgreSQL opt-in was not run because `TARU_TEST_POSTGRES_URL` was
+  Validation: `cargo check -p nako-library -p nako-db --tests`; `cargo nextest
+  run -p nako-db scan_commit --no-fail-fast`; `cargo nextest run -p
+  nako-library --no-fail-fast`; `cargo fmt --all -- --check`; `git diff
+  --check`. PostgreSQL opt-in was not run because `NAKO_TEST_POSTGRES_URL` was
   unset.
   Handoff: Continue with playback/transcode identity and diagnostics.
 
 ## M3 — Playback And Transcode Readiness
 
-- [x] FAD-050 [owner=codex] [deps=FAD-040] [scope=crates/taru-streaming,crates/taru-transcode,crates/taru-server/src/app/playback,docs/workstreams/fearless-architecture-deepening]
+- [x] FAD-050 [owner=codex] [deps=FAD-040] [scope=crates/nako-streaming,crates/nako-transcode,crates/nako-server/src/app/playback,docs/workstreams/fearless-architecture-deepening]
   Goal: Define and test the Playback Source Selection + Transcode Profile
   request/cache identity before multi-profile HLS reuse, subtitles, HDR/SDR
   variants, or adaptive ladders widen the reuse surface.
-  Validation: `cargo check -p taru-streaming -p taru-transcode -p taru-server
+  Validation: `cargo check -p nako-streaming -p nako-transcode -p nako-server
   --tests`; focused playback/profile identity nextest; `git diff --check`.
   Review: Do not add adaptive bitrate behavior in this task. The deliverable is
   a stable identity Interface and tests.
@@ -118,17 +118,17 @@ Task IDs use the `FAD` prefix.
   storage context, and transcode profile facts all participate in reuse/cache
   identity. Added tests for source-revision separation and hardware-profile
   separation without adding adaptive bitrate behavior.
-  Validation: `cargo check -p taru-streaming -p taru-transcode -p taru-server
-  --tests`; `cargo nextest run -p taru-streaming -p taru-transcode
-  --no-fail-fast`; `cargo nextest run -p taru-server playback --no-fail-fast`;
+  Validation: `cargo check -p nako-streaming -p nako-transcode -p nako-server
+  --tests`; `cargo nextest run -p nako-streaming -p nako-transcode
+  --no-fail-fast`; `cargo nextest run -p nako-server playback --no-fail-fast`;
   `cargo fmt --all -- --check`; `git diff --check`.
   Handoff: Continue with hardware diagnostics.
 
-- [x] FAD-060 [owner=codex] [deps=FAD-050] [scope=crates/taru-transcode,crates/taru-api,crates/taru-server/src/http/admin.rs,crates/taru-server/src/http/tests/system.rs,apps/admin-web/src/adminApi,docs/api,docs/workstreams/fearless-architecture-deepening]
+- [x] FAD-060 [owner=codex] [deps=FAD-050] [scope=crates/nako-transcode,crates/nako-api,crates/nako-server/src/http/admin.rs,crates/nako-server/src/http/tests/system.rs,apps/admin-web/src/adminApi,docs/api,docs/workstreams/fearless-architecture-deepening]
   Goal: Deepen hardware acceleration diagnostics so static FFmpeg encoder
   discovery, device initialization evidence, and optional smoke-probe results
   are represented separately and reported safely.
-  Validation: `cargo check -p taru-transcode -p taru-server --tests`; focused
+  Validation: `cargo check -p nako-transcode -p nako-server --tests`; focused
   hardware diagnostics nextest; `git diff --check`.
   Review: Diagnostics must not require privileged devices in normal tests and
   must not leak local paths beyond safe operator diagnostics.
@@ -141,12 +141,12 @@ Task IDs use the `FAD` prefix.
   normal startup tests remain unprivileged. Admin playback runtime diagnostics
   expose safe summaries for encoder discovery, device initialization, and smoke
   probes with detail booleans instead of raw probe text or device paths.
-  Validation: `cargo check -p taru-transcode -p taru-api -p taru-server
-  --tests`; `cargo nextest run -p taru-transcode --no-fail-fast`; `cargo
-  nextest run -p taru-transcode hardware --no-fail-fast`; `cargo nextest run -p
-  taru-api --lib admin_playback_runtime_diagnostics_serializes_safe_summary_fields
-  --no-fail-fast`; `cargo nextest run -p taru-api --lib admin_contract
-  --no-fail-fast`; `cargo nextest run -p taru-server
+  Validation: `cargo check -p nako-transcode -p nako-api -p nako-server
+  --tests`; `cargo nextest run -p nako-transcode --no-fail-fast`; `cargo
+  nextest run -p nako-transcode hardware --no-fail-fast`; `cargo nextest run -p
+  nako-api --lib admin_playback_runtime_diagnostics_serializes_safe_summary_fields
+  --no-fail-fast`; `cargo nextest run -p nako-api --lib admin_contract
+  --no-fail-fast`; `cargo nextest run -p nako-server
   admin_v1_playback_runtime_reports_safe_diagnostics --no-fail-fast`; `npm run
   check` in `apps/admin-web`; `cargo fmt --all -- --check`; `git diff
   --check`.
@@ -156,33 +156,33 @@ Task IDs use the `FAD` prefix.
 
 ## M4 — Search Semantics And Test Locality
 
-- [x] FAD-070 [owner=codex] [deps=FAD-060] [scope=crates/taru-search,crates/taru-catalog,crates/taru-db,docs/workstreams/fearless-architecture-deepening]
+- [x] FAD-070 [owner=codex] [deps=FAD-060] [scope=crates/nako-search,crates/nako-catalog,crates/nako-db,docs/workstreams/fearless-architecture-deepening]
   Goal: Add a small search semantics evaluation harness and projection-version
   discipline for title/alias/provider-title/CJK-friendly query behavior before
   AI or vector search is introduced.
-  Validation: `cargo check -p taru-search -p taru-catalog -p taru-db --tests`;
+  Validation: `cargo check -p nako-search -p nako-catalog -p nako-db --tests`;
   focused search nextest; `git diff --check`.
   Review: Do not add AI/vector search in this task. The deliverable is measured
   search semantics and future-safe projection discipline.
   Evidence: search evaluation fixtures/tests and documented semantics.
-  Progress: Added `taru-search` shared query evaluation for title/alias/body/facet
+  Progress: Added `nako-search` shared query evaluation for title/alias/body/facet
   scoring, exact Browse Facet filtering, projection-version freshness helpers,
   and CJK-friendly compact matching. SQLite and PostgreSQL SearchIndex adapters
   now load search rows and delegate scoring/filtering to the shared evaluator
   instead of duplicating query semantics. Catalog hydration now projects accepted
   Provider Subject titles into Search Projection aliases/body/facets, so
   provider-title lookup is measured without adding AI/vector search.
-  Validation: `cargo check -p taru-search -p taru-catalog -p taru-db --tests`;
-  `cargo check -p taru-nfo -p taru-metadata -p taru-server --tests`; `cargo
-  nextest run -p taru-search --no-fail-fast`; `cargo nextest run -p
-  taru-catalog semantic_search --no-fail-fast`; `cargo nextest run -p taru-db
-  search --no-fail-fast`; `cargo nextest run -p taru-db facet --no-fail-fast`;
+  Validation: `cargo check -p nako-search -p nako-catalog -p nako-db --tests`;
+  `cargo check -p nako-nfo -p nako-metadata -p nako-server --tests`; `cargo
+  nextest run -p nako-search --no-fail-fast`; `cargo nextest run -p
+  nako-catalog semantic_search --no-fail-fast`; `cargo nextest run -p nako-db
+  search --no-fail-fast`; `cargo nextest run -p nako-db facet --no-fail-fast`;
   `cargo fmt --all -- --check`; `git diff --check`. Some runs required
   setting `TMP`/`TEMP` to `F:\Temp` because `C:\Users\Frankorz\AppData\Local\Temp`
   had no free space.
   Handoff: Continue with FAD-080 test-locality cleanup for touched areas.
 
-- [x] FAD-080 [owner=codex] [deps=FAD-020,FAD-030,FAD-040,FAD-070] [scope=crates/taru-db/src/*tests*,crates/taru-server/src/http/tests,crates/taru-server/src/app/tests]
+- [x] FAD-080 [owner=codex] [deps=FAD-020,FAD-030,FAD-040,FAD-070] [scope=crates/nako-db/src/*tests*,crates/nako-server/src/http/tests,crates/nako-server/src/app/tests]
   Goal: Improve test locality around touched Interfaces by extracting
   domain-focused fixtures and splitting giant behavior families only where it
   improves reviewability.
@@ -192,13 +192,13 @@ Task IDs use the `FAD` prefix.
   meaning while reducing navigation cost.
   Evidence: smaller test Modules or shared fixtures around changed Interfaces.
   Progress: Extracted the focused SQLite SearchIndex semantics tests from the
-  giant `crates/taru-db/src/tests.rs` into
-  `crates/taru-db/src/search_tests.rs` with domain-focused helpers for migrated
+  giant `crates/nako-db/src/tests.rs` into
+  `crates/nako-db/src/search_tests.rs` with domain-focused helpers for migrated
   stores and indexed movie fixtures. Kept broad scan/artwork/search round-trip
   and HTTP addon test families in place because splitting them mechanically
   would reduce locality less than it would increase churn.
-  Validation: `cargo nextest run -p taru-db search --no-fail-fast`; `cargo
-  nextest run -p taru-db facet --no-fail-fast`; `cargo check --workspace
+  Validation: `cargo nextest run -p nako-db search --no-fail-fast`; `cargo
+  nextest run -p nako-db facet --no-fail-fast`; `cargo check --workspace
   --tests`; `cargo fmt --all -- --check`; `git diff --check`. Cargo commands
   that link test/check artifacts used `TMP`/`TEMP=F:\Temp` because the default
   user temp directory had no free space.
@@ -211,7 +211,7 @@ Task IDs use the `FAD` prefix.
   independent tails into named workstreams.
   Validation: `cargo fmt --all -- --check`; `cargo check --workspace --tests`;
   `cargo nextest run --workspace --no-fail-fast`; PostgreSQL opt-in contracts
-  for touched persistence seams when `TARU_TEST_POSTGRES_URL` is available;
+  for touched persistence seams when `NAKO_TEST_POSTGRES_URL` is available;
   `git diff --check`.
   Review: Use review/verify workstream discipline before marking the goal
   complete. Remaining work must not hide inside vague "follow up" text.
@@ -226,7 +226,7 @@ Task IDs use the `FAD` prefix.
   prioritized.
   Validation: `cargo fmt --all -- --check`; `cargo check --workspace --tests`;
   `cargo nextest run --workspace --no-fail-fast`; `git diff --check`.
-  PostgreSQL opt-in contracts were skipped because `TARU_TEST_POSTGRES_URL` was
+  PostgreSQL opt-in contracts were skipped because `NAKO_TEST_POSTGRES_URL` was
   unset in this environment.
   Handoff: Recommend the next product lane only after architecture debt is
   either closed or explicitly split.

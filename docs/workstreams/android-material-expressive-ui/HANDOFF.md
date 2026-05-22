@@ -44,7 +44,7 @@ Fresh closeout gates passed on 2026-05-18:
 - Shared `ui/components` hold the reusable surface, state, badge, and motion
   vocabulary.
 - `ui/shell` now provides the adaptive phone bottom navigation and tablet rail.
-- `ui/browse/TaruBrowseShell` now routes through the new shell.
+- `ui/browse/NakoBrowseShell` now routes through the new shell.
 - JVM tests cover artwork accent determinism.
 
 ## AME-030 Outcome
@@ -70,7 +70,7 @@ Fresh closeout gates passed on 2026-05-18:
   consequences for Direct, Remux, HLS, and Transcode.
 - Source picker tests prove visible source facts do not include server-local
   locators.
-- `TaruBrowseShell` still owns Public Client API playback decision requests and
+- `NakoBrowseShell` still owns Public Client API playback decision requests and
   Media3 playback launch construction.
 
 ## AME-050 Outcome
@@ -91,8 +91,8 @@ Fresh closeout gates passed on 2026-05-18:
 
 ## Open Risks
 
-- Dynamic color may reduce Taru brand recognizability if applied globally.
-  Mitigation: keep it optional and use static Taru dark roles as default.
+- Dynamic color may reduce Nako brand recognizability if applied globally.
+  Mitigation: keep it optional and use static Nako dark roles as default.
 - Artwork-derived accents can hurt contrast. Mitigation: provide contrast-safe
   fallbacks and keep accents local.
 

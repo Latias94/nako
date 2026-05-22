@@ -6,7 +6,7 @@ Last updated: 2026-05-22
 ## Smallest Current Repro
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.connection.TaruConnectionClientTest --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.connection.NakoConnectionClientTest --no-daemon --no-parallel
 ```
 
 This gate proves the Android test harness, generated SDK/UniFFI binding path,
@@ -20,12 +20,12 @@ seam change.
 Use the narrowest relevant gate while implementing each task:
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.connection.* --no-daemon --no-parallel
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.browse.* --no-daemon --no-parallel
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.playback.* --no-daemon --no-parallel
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.userplayback.* --no-daemon --no-parallel
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.* --no-daemon --no-parallel
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.screens.player.* --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.connection.* --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.browse.* --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.playback.* --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.userplayback.* --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.* --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.screens.player.* --no-daemon --no-parallel
 ```
 
 ### Android Package Gate
@@ -37,7 +37,7 @@ apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon --no
 ### Android Build Gate
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:assembleDebug -PtaruRustAndroidAbis=x86_64 --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:assembleDebug -PnakoRustAndroidAbis=x86_64 --no-daemon --no-parallel
 ```
 
 Use focused ABI selection for local iteration. Broaden ABI coverage only for
@@ -58,9 +58,9 @@ passed.
 Only required if a task changes Rust client-core or UniFFI crates:
 
 ```powershell
-cargo fmt --package taru-client-core --package taru-client-uniffi --check
-cargo nextest run -p taru-client-core --no-fail-fast
-cargo nextest run -p taru-client-uniffi --no-fail-fast
+cargo fmt --package nako-client-core --package nako-client-uniffi --check
+cargo nextest run -p nako-client-core --no-fail-fast
+cargo nextest run -p nako-client-uniffi --no-fail-fast
 ```
 
 ### Hygiene Gate
@@ -82,17 +82,17 @@ Record blocking findings, missing gates, and residual risks in this file or in
 - `docs/workstreams/android-client-architecture-deepening/TODO.md`
 - `docs/workstreams/android-client-architecture-deepening/MILESTONES.md`
 - `docs/workstreams/android-client-architecture-deepening/HANDOFF.md`
-- `apps/android/app/src/main/java/dev/taru/android/connection/PublicClientApiExecutor.kt`
-- `apps/android/app/src/main/java/dev/taru/android/browse/TaruBrowseClient.kt`
-- `apps/android/app/src/main/java/dev/taru/android/playback/TaruPlaybackClient.kt`
-- `apps/android/app/src/main/java/dev/taru/android/userplayback/TaruUserPlaybackClient.kt`
-- `apps/android/app/src/main/java/dev/taru/android/ui/browse/BrowseSession.kt`
-- `apps/android/app/src/main/java/dev/taru/android/ui/browse/BrowseShellHost.kt`
-- `apps/android/app/src/main/java/dev/taru/android/ui/screens/player/PlaybackPlayerRoute.kt`
-- `apps/android/app/src/main/java/dev/taru/android/ui/screens/player/PlayerRouteHost.kt`
-- `apps/android/app/src/main/java/dev/taru/android/ui/components/TaruSurfaces.kt`
-- `apps/android/app/src/main/java/dev/taru/android/ui/browse/BrowseComponents.kt`
-- `apps/android/app/src/main/java/dev/taru/android/ui/browse/ClientBrowseDataSource.kt`
+- `apps/android/app/src/main/java/dev/nako/android/connection/PublicClientApiExecutor.kt`
+- `apps/android/app/src/main/java/dev/nako/android/browse/NakoBrowseClient.kt`
+- `apps/android/app/src/main/java/dev/nako/android/playback/NakoPlaybackClient.kt`
+- `apps/android/app/src/main/java/dev/nako/android/userplayback/NakoUserPlaybackClient.kt`
+- `apps/android/app/src/main/java/dev/nako/android/ui/browse/BrowseSession.kt`
+- `apps/android/app/src/main/java/dev/nako/android/ui/browse/BrowseShellHost.kt`
+- `apps/android/app/src/main/java/dev/nako/android/ui/screens/player/PlaybackPlayerRoute.kt`
+- `apps/android/app/src/main/java/dev/nako/android/ui/screens/player/PlayerRouteHost.kt`
+- `apps/android/app/src/main/java/dev/nako/android/ui/components/NakoSurfaces.kt`
+- `apps/android/app/src/main/java/dev/nako/android/ui/browse/BrowseComponents.kt`
+- `apps/android/app/src/main/java/dev/nako/android/ui/browse/ClientBrowseDataSource.kt`
 
 ## Evidence Log
 
@@ -119,13 +119,13 @@ Status: DONE
 Date: 2026-05-22
 Evidence:
 
-- Added `apps/android/app/src/main/java/dev/taru/android/connection/PublicClientRuntime.kt`.
-- Added `apps/android/app/src/test/java/dev/taru/android/connection/PublicClientRuntimeTest.kt`.
+- Added `apps/android/app/src/main/java/dev/nako/android/connection/PublicClientRuntime.kt`.
+- Added `apps/android/app/src/test/java/dev/nako/android/connection/PublicClientRuntimeTest.kt`.
 - Migrated these route-family clients to `PublicClientRuntime`:
-  - `apps/android/app/src/main/java/dev/taru/android/connection/TaruConnectionClient.kt`
-  - `apps/android/app/src/main/java/dev/taru/android/browse/TaruBrowseClient.kt`
-  - `apps/android/app/src/main/java/dev/taru/android/playback/TaruPlaybackClient.kt`
-  - `apps/android/app/src/main/java/dev/taru/android/userplayback/TaruUserPlaybackClient.kt`
+  - `apps/android/app/src/main/java/dev/nako/android/connection/NakoConnectionClient.kt`
+  - `apps/android/app/src/main/java/dev/nako/android/browse/NakoBrowseClient.kt`
+  - `apps/android/app/src/main/java/dev/nako/android/playback/NakoPlaybackClient.kt`
+  - `apps/android/app/src/main/java/dev/nako/android/userplayback/NakoUserPlaybackClient.kt`
 - Deleted obsolete base URL/path/auth JSON helpers from
   `PublicClientApiExecutor`; it is now the lower-level transport/error/redaction
   executor behind the runtime seam.
@@ -146,13 +146,13 @@ Behavior proven:
 Validation:
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.connection.PublicClientRuntimeTest --tests dev.taru.android.connection.TaruConnectionClientTest --tests dev.taru.android.browse.TaruBrowseClientTest --tests dev.taru.android.playback.TaruPlaybackClientTest --tests dev.taru.android.userplayback.TaruUserPlaybackClientTest --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.connection.PublicClientRuntimeTest --tests dev.nako.android.connection.NakoConnectionClientTest --tests dev.nako.android.browse.NakoBrowseClientTest --tests dev.nako.android.playback.NakoPlaybackClientTest --tests dev.nako.android.userplayback.NakoUserPlaybackClientTest --no-daemon --no-parallel
 ```
 
 Result: PASS on 2026-05-22.
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.ClientBrowseDataSourceTest.search* --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.ClientBrowseDataSourceTest.search* --no-daemon --no-parallel
 ```
 
 Result: PASS on 2026-05-22 after updating the stale query-encoding
@@ -178,11 +178,11 @@ Status: DONE
 Date: 2026-05-22
 Evidence:
 
-- Added `apps/android/app/src/main/java/dev/taru/android/ui/browse/BrowseSessionEffects.kt`.
-- Added `apps/android/app/src/test/java/dev/taru/android/ui/browse/BrowseSessionEffectCoordinatorTest.kt`.
+- Added `apps/android/app/src/main/java/dev/nako/android/ui/browse/BrowseSessionEffects.kt`.
+- Added `apps/android/app/src/test/java/dev/nako/android/ui/browse/BrowseSessionEffectCoordinatorTest.kt`.
 - Updated `BrowseShellHost` to delegate saveable-state publication and
   route-displayed load-intent execution to `BrowseSessionEffectCoordinator`.
-- Updated `BrowseRouteLoadingSession` so `TaruRoute.Player` is a transient
+- Updated `BrowseRouteLoadingSession` so `NakoRoute.Player` is a transient
   non-load intent instead of being treated like a non-loadable route that clears
   previous detail/source/playback state.
 - Strengthened `BrowseShellHostTest` and `BrowseSessionLoadingTest` around
@@ -204,13 +204,13 @@ Behavior proven:
 Validation:
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.BrowseSessionEffectCoordinatorTest --tests dev.taru.android.ui.browse.BrowseShellHostTest --tests dev.taru.android.ui.browse.BrowseSessionLoadingTest --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.BrowseSessionEffectCoordinatorTest --tests dev.nako.android.ui.browse.BrowseShellHostTest --tests dev.nako.android.ui.browse.BrowseSessionLoadingTest --no-daemon --no-parallel
 ```
 
 Result: PASS on 2026-05-22.
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.* --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.* --no-daemon --no-parallel
 ```
 
 Result: PASS on 2026-05-22.
@@ -235,9 +235,9 @@ Status: DONE
 Date: 2026-05-22
 Evidence:
 
-- Added `apps/android/app/src/main/java/dev/taru/android/ui/screens/player/PlaybackSessionRuntime.kt`.
-- Added `apps/android/app/src/main/java/dev/taru/android/ui/screens/player/PlaybackSessionRuntimeFactory.kt`.
-- Added `apps/android/app/src/test/java/dev/taru/android/ui/screens/player/PlaybackSessionRuntimeTest.kt`.
+- Added `apps/android/app/src/main/java/dev/nako/android/ui/screens/player/PlaybackSessionRuntime.kt`.
+- Added `apps/android/app/src/main/java/dev/nako/android/ui/screens/player/PlaybackSessionRuntimeFactory.kt`.
+- Added `apps/android/app/src/test/java/dev/nako/android/ui/screens/player/PlaybackSessionRuntimeTest.kt`.
 - Updated `PlayerRouteHost` to implement `PlaybackSessionRuntime`.
 - Moved `PlayerRouteEngine` and listener contracts behind the runtime seam.
 - Updated `PlaybackPlayerRoute` to depend on `PlaybackSessionRuntimeFactory`
@@ -264,13 +264,13 @@ Behavior proven:
 Validation:
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.screens.player.PlaybackSessionRuntimeTest --tests dev.taru.android.ui.screens.player.PlayerRouteHostTest --tests dev.taru.android.ui.screens.player.PlayerSessionTest --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.screens.player.PlaybackSessionRuntimeTest --tests dev.nako.android.ui.screens.player.PlayerRouteHostTest --tests dev.nako.android.ui.screens.player.PlayerSessionTest --no-daemon --no-parallel
 ```
 
 Result: PASS on 2026-05-22.
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.screens.player.* --tests dev.taru.android.playback.* --tests dev.taru.android.player.* --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.screens.player.* --tests dev.nako.android.playback.* --tests dev.nako.android.player.* --no-daemon --no-parallel
 ```
 
 Result: PASS on 2026-05-22.
@@ -296,25 +296,25 @@ Date: 2026-05-22
 Evidence:
 
 - Updated cross-screen UI callers to import generic design-system primitives
-  directly from `dev.taru.android.ui.components`:
-  - `TaruScreenColumn`
-  - `TaruSectionHeader`
-  - `TaruSurfaceCard`
-  - `TaruStatusChip`
-  - `TaruStatusPill`
-  - `TaruIconBadge`
-  - `TaruArtworkBackdrop`
-  - `TaruPressableScale`
+  directly from `dev.nako.android.ui.components`:
+  - `NakoScreenColumn`
+  - `NakoSectionHeader`
+  - `NakoSurfaceCard`
+  - `NakoStatusChip`
+  - `NakoStatusPill`
+  - `NakoIconBadge`
+  - `NakoArtworkBackdrop`
+  - `NakoPressableScale`
 - Removed obsolete pass-through wrappers from
-  `apps/android/app/src/main/java/dev/taru/android/ui/browse/BrowseComponents.kt`
-  so `BrowseComponents` now focuses on Taru media/browse presentation such as
+  `apps/android/app/src/main/java/dev/nako/android/ui/browse/BrowseComponents.kt`
+  so `BrowseComponents` now focuses on Nako media/browse presentation such as
   library cards, media rows, relationship cards, state cards, and browse copy.
 - Added
-  `apps/android/app/src/main/java/dev/taru/android/ui/screens/sourcepicker/SourcePickerPresentation.kt`
+  `apps/android/app/src/main/java/dev/nako/android/ui/screens/sourcepicker/SourcePickerPresentation.kt`
   for Source Picker display models, playback-mode copy, resume copy, source
   selection, and probe fact labels.
 - Added
-  `apps/android/app/src/main/java/dev/taru/android/ui/screens/detail/DetailPresentation.kt`
+  `apps/android/app/src/main/java/dev/nako/android/ui/screens/detail/DetailPresentation.kt`
   for Detail metadata targets, credit relationship rows, hero facts, hierarchy
   copy, and collection copy.
 - Reduced route-composable files:
@@ -340,13 +340,13 @@ Behavior proven:
 Validation:
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.screens.sourcepicker.SourcePickerDisplayModelTest --tests dev.taru.android.ui.screens.detail.MediaItemDetailRouteTest --tests dev.taru.android.ui.screens.settings.SettingsPresentationTest --tests dev.taru.android.ui.screens.player.PlayerPresentationTest --tests dev.taru.android.ui.screens.relationship.RelationshipIndexRouteTest --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.screens.sourcepicker.SourcePickerDisplayModelTest --tests dev.nako.android.ui.screens.detail.MediaItemDetailRouteTest --tests dev.nako.android.ui.screens.settings.SettingsPresentationTest --tests dev.nako.android.ui.screens.player.PlayerPresentationTest --tests dev.nako.android.ui.screens.relationship.RelationshipIndexRouteTest --no-daemon --no-parallel
 ```
 
 Result: PASS on 2026-05-22.
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.* --tests dev.taru.android.ui.screens.detail.* --tests dev.taru.android.ui.screens.sourcepicker.* --tests dev.taru.android.ui.screens.person.* --tests dev.taru.android.ui.screens.relationship.* --tests dev.taru.android.ui.screens.settings.* --tests dev.taru.android.ui.screens.player.* --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.* --tests dev.nako.android.ui.screens.detail.* --tests dev.nako.android.ui.screens.sourcepicker.* --tests dev.nako.android.ui.screens.person.* --tests dev.nako.android.ui.screens.relationship.* --tests dev.nako.android.ui.screens.settings.* --tests dev.nako.android.ui.screens.player.* --no-daemon --no-parallel
 ```
 
 Result: PASS on 2026-05-22.
@@ -371,7 +371,7 @@ Status: DONE
 Date: 2026-05-22
 Evidence:
 
-- Updated `apps/android/app/src/main/java/dev/taru/android/ui/browse/BrowseModels.kt`
+- Updated `apps/android/app/src/main/java/dev/nako/android/ui/browse/BrowseModels.kt`
   so `BrowseUiState.Content` now carries a `HomeReadModel`.
 - Added section states for Media Libraries, Visible Titles, Continue Watching,
   and Managed Artwork:
@@ -380,7 +380,7 @@ Evidence:
   - `HomeSectionState.Unavailable`
   - `HomeArtworkState`
   - `HomeArtworkFailure`
-- Updated `apps/android/app/src/main/java/dev/taru/android/ui/browse/ClientBrowseDataSource.kt`
+- Updated `apps/android/app/src/main/java/dev/nako/android/ui/browse/ClientBrowseDataSource.kt`
   to keep independently loaded Home sections instead of flattening every failure
   into one all-or-nothing state.
 - Updated `HomeScreen.kt` and `LibrariesScreen.kt` to render section-level
@@ -405,13 +405,13 @@ Behavior proven:
 Validation:
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.ClientBrowseDataSourceTest --no-daemon --no-parallel --console=plain --rerun-tasks
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.ClientBrowseDataSourceTest --no-daemon --no-parallel --console=plain --rerun-tasks
 ```
 
 Result: PASS on 2026-05-22.
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.* --no-daemon --no-parallel --console=plain
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.* --no-daemon --no-parallel --console=plain
 ```
 
 Result: PASS on 2026-05-22.
@@ -440,10 +440,10 @@ Evidence:
   `apps/android/gradle/libs.versions.toml` and
   `apps/android/app/build.gradle.kts`.
 - Updated Compose `StateFlow` collection to use lifecycle-aware collection:
-  - `apps/android/app/src/main/java/dev/taru/android/ui/TaruAndroidApp.kt`
-  - `apps/android/app/src/main/java/dev/taru/android/ui/browse/TaruBrowseShell.kt`
-  - `apps/android/app/src/main/java/dev/taru/android/ui/connection/TaruConnectionShell.kt`
-  - `apps/android/app/src/main/java/dev/taru/android/ui/screens/player/PlaybackPlayerRoute.kt`
+  - `apps/android/app/src/main/java/dev/nako/android/ui/NakoAndroidApp.kt`
+  - `apps/android/app/src/main/java/dev/nako/android/ui/browse/NakoBrowseShell.kt`
+  - `apps/android/app/src/main/java/dev/nako/android/ui/connection/NakoConnectionShell.kt`
+  - `apps/android/app/src/main/java/dev/nako/android/ui/screens/player/PlaybackPlayerRoute.kt`
 - Ran local validation through `Validate-AndroidLocal.ps1 -SkipSmoke`; Android
   JVM tests and debug assemble passed, smoke regression was explicitly skipped.
 
@@ -479,7 +479,7 @@ Decision sweep:
 Validation:
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.BrowseShellHostTest --tests dev.taru.android.ui.connection.ConnectionSessionTest --tests dev.taru.android.ui.screens.player.PlaybackSessionRuntimeTest --no-daemon --no-parallel --console=plain --rerun-tasks
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.BrowseShellHostTest --tests dev.nako.android.ui.connection.ConnectionSessionTest --tests dev.nako.android.ui.screens.player.PlaybackSessionRuntimeTest --no-daemon --no-parallel --console=plain --rerun-tasks
 ```
 
 Result: PASS on 2026-05-22.
@@ -535,7 +535,7 @@ apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon --no
 Result: PASS on 2026-05-22.
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:assembleDebug -PtaruRustAndroidAbis=x86_64 --no-daemon --no-parallel --console=plain
+apps\android\gradlew.bat -p apps\android :app:assembleDebug -PnakoRustAndroidAbis=x86_64 --no-daemon --no-parallel --console=plain
 ```
 
 Result: PASS on 2026-05-22.

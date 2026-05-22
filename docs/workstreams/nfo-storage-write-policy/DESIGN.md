@@ -28,12 +28,12 @@ diagnostic clarity at the storage boundary.
 
 ## In Scope
 
-- `crates/taru-vfs/src/lib.rs`
-- `crates/taru-vfs/src/local.rs`
-- `crates/taru-vfs/src/cache.rs` only if pass-through is needed
-- `crates/taru-nfo/src/export.rs`
-- `crates/taru-nfo/src/summary.rs`
-- focused `taru-vfs` and `taru-nfo` tests
+- `crates/nako-vfs/src/lib.rs`
+- `crates/nako-vfs/src/local.rs`
+- `crates/nako-vfs/src/cache.rs` only if pass-through is needed
+- `crates/nako-nfo/src/export.rs`
+- `crates/nako-nfo/src/summary.rs`
+- focused `nako-vfs` and `nako-nfo` tests
 - goal/workstream documentation
 
 ## Out Of Scope
@@ -50,7 +50,7 @@ diagnostic clarity at the storage boundary.
 ## Architecture Direction
 
 Add a storage-owned write option rather than embedding file mechanics in
-`taru-nfo`:
+`nako-nfo`:
 
 ```text
 StorageWriteMode:
@@ -91,7 +91,7 @@ Keep diagnostics internal/test-visible in this slice. `NfoFailure` can gain a
 classification enum if it does not change public API contracts yet, because NFO
 job summary persistence is internal server data. If this turns out to leak into
 public DTOs, keep the wire shape stable and add classification only inside
-`taru-nfo` tests.
+`nako-nfo` tests.
 
 Candidate categories:
 

@@ -47,8 +47,8 @@ When this lane closes:
 
 ## In Scope
 
-- `apps/android/app/src/main/java/dev/taru/android/ui/screens/player/`
-- `apps/android/app/src/test/java/dev/taru/android/ui/screens/player/`
+- `apps/android/app/src/main/java/dev/nako/android/ui/screens/player/`
+- `apps/android/app/src/test/java/dev/nako/android/ui/screens/player/`
 - `apps/android/scripts/Smoke-Emulator.ps1` only if criteria need updating.
 - Workstream docs under this directory.
 
@@ -62,7 +62,7 @@ When this lane closes:
 
 ## Architecture Direction
 
-Treat the Media3 controller as the owner of playback controls. Taru custom
+Treat the Media3 controller as the owner of playback controls. Nako custom
 chrome should provide context and diagnostics around that controller, not cover
 or compete with it. Keep the layout policy explicit and testable so future
 player polish does not regress into overlapping controls.
@@ -81,7 +81,7 @@ This lane can close when:
 
 Closed on 2026-05-19. The Player custom context panel now reserves a fixed
 clearance above the Media3 controller area, preserving standard Media3 controls
-while keeping Taru playback context visible. Fresh smoke evidence at
+while keeping Nako playback context visible. Fresh smoke evidence at
 `apps/android/build/smoke/20260519-120345-profile-with-media-emulator-5554/player.png`
 shows the panel no longer intersects the progress bar, time labels, or settings
 control.

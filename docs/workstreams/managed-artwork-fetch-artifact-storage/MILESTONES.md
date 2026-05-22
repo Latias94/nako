@@ -36,7 +36,7 @@ Result:
 - Dedicated managed artwork claim/commit methods are required because generic
   job start does not provide a safe claim-next boundary for queued artwork
   ingests.
-- The first artifact byte store should be a Taru-owned local internal artifact
+- The first artifact byte store should be a Nako-owned local internal artifact
   root exposed to the database only as opaque `managed-artwork://...`
   references.
 - VFS cache, staging manifests, and public `ImageAsset` are rejected as first
@@ -63,7 +63,7 @@ Exit criteria:
 Primary gates:
 
 - focused managed artwork worker tests
-- `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests`
+- `cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-vfs --tests`
 - `cargo fmt --all -- --check`
 - `git diff --check`
 
@@ -96,8 +96,8 @@ Exit criteria:
 Primary gates:
 
 - focused failure/redaction tests
-- `cargo nextest run -p taru-server artwork --no-fail-fast`
-- `cargo nextest run -p taru-db artwork --no-fail-fast`
+- `cargo nextest run -p nako-server artwork --no-fail-fast`
+- `cargo nextest run -p nako-db artwork --no-fail-fast`
 
 Result:
 

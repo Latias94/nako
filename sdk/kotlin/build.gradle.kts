@@ -5,7 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-group = "dev.taru"
+group = "dev.nako"
 version = "0.1.0"
 
 kotlin {

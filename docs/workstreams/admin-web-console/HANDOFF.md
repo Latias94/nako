@@ -5,7 +5,7 @@ Last updated: 2026-05-19
 
 ## Current State
 
-The workstream has been opened as a planning lane. It defines Taru's first web
+The workstream has been opened as a planning lane. It defines Nako's first web
 surface as an admin console for media governance and operations, not the
 flagship playback client.
 
@@ -14,13 +14,13 @@ current DTO ownership, page coverage, safety behavior, and missing Admin API
 surfaces.
 
 AWC-030 is complete. ADR 0027 accepts `/admin/v1/*` as the Admin API boundary,
-keeps admin DTOs in `taru-api`, keeps `taru-client-protocol` public-client-only,
+keeps admin DTOs in `nako-api`, keeps `nako-client-protocol` public-client-only,
 and defines redaction/leakage rules for future Admin API slices.
 
 AWC-035 is complete for M52. `GET /admin/v1/overview` is the first code-backed
 Admin API v1 seam. The route is read-only and composes existing safe storage,
 metadata-provider, runtime, and startup diagnostics through admin-owned DTOs in
-`taru-api::admin`.
+`nako-api::admin`.
 
 The key context artifact for v0.dev is:
 
@@ -49,8 +49,8 @@ is split to `docs/workstreams/admin-api-typescript-contract/`.
 ## v0.dev Prompt
 
 ```text
-Create a polished first prototype for Taru, a self-hosted media server admin
-console. Taru should feel like a quiet private media cellar: refined,
+Create a polished first prototype for Nako, a self-hosted media server admin
+console. Nako should feel like a quiet private media cellar: refined,
 preservation-focused, privacy-first, and operationally clear, not like a
 streaming storefront or SaaS landing page.
 
@@ -67,7 +67,7 @@ job lists, session lists, event histories, hardware dashboards, settings,
 catalog repair, Addons, Automation, and Network until follow-up Admin API
 routes exist.
 
-Use Taru domain language: Media Library, Media Source, Media Item, Canonical
+Use Nako domain language: Media Library, Media Source, Media Item, Canonical
 Metadata, Provider Mapping, Local Inference, NFO, Playback Source Selection,
 Addon Sidecar, and Automation Provider. Do not show plaintext secrets, tokens,
 resolved provider keys, webhook secrets, addon tokens, unsafe local paths, or

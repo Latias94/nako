@@ -7,7 +7,7 @@ This workstream follows `managed-artwork-ingest-selection`. The previous lane
 proved that Admin candidate acceptance can create internal
 `managed_artwork_ingests` state and a durable `managed_artwork_ingest` job
 without publishing public artwork. This lane owns the next private boundary:
-fetch the accepted candidate source through Taru-controlled policy, validate
+fetch the accepted candidate source through Nako-controlled policy, validate
 the image, and store artifact bytes as internal managed artwork.
 
 Authoritative docs:
@@ -24,7 +24,7 @@ Authoritative docs:
 
 ## Goals
 
-- Consume queued `managed_artwork_ingest` jobs through a Taru-owned worker or
+- Consume queued `managed_artwork_ingest` jobs through a Nako-owned worker or
   equivalent first-party runtime boundary.
 - Fetch only internally accepted candidate sources with explicit resource
   budgets, timeout, retry, and cancellation semantics.
@@ -44,7 +44,7 @@ Authoritative docs:
 
 ## Closeout Outcome
 
-- Accepted managed artwork ingest jobs can be processed by a Taru-owned Admin
+- Accepted managed artwork ingest jobs can be processed by a Nako-owned Admin
   runtime seam into internal artifact bytes and `managed_artwork_artifacts`
   metadata.
 - Fetch, validation, local internal artifact storage, claim/commit/failure

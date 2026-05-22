@@ -32,7 +32,7 @@ Exit criteria:
 
 Evidence:
 
-- `cargo nextest run -p taru-db -p taru-server user_playback --no-fail-fast`
+- `cargo nextest run -p nako-db -p nako-server user_playback --no-fail-fast`
 
 ## M2 - Public Contract
 
@@ -45,7 +45,7 @@ Exit criteria:
 
 Evidence:
 
-- `cargo nextest run -p taru-api -p taru-client --no-fail-fast`
+- `cargo nextest run -p nako-api -p nako-client --no-fail-fast`
 - `npm run check --prefix sdk/typescript`
 
 ## M3 - Android Integration

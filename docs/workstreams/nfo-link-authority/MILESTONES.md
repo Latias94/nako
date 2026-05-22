@@ -20,15 +20,15 @@ Primary evidence:
 
 Exit criteria:
 
-- `taru-vfs` has typed link plan request/result vocabulary.
+- `nako-vfs` has typed link plan request/result vocabulary.
 - Local backend can dry-run hard/soft link eligibility.
 - Unsupported backends are explicit.
 - Tests prove target files are not created by planning.
 
 Primary evidence:
 
-- `crates/taru-vfs/src/lib.rs`
-- `crates/taru-vfs/src/local.rs`
+- `crates/nako-vfs/src/lib.rs`
+- `crates/nako-vfs/src/local.rs`
 
 ## M2 — Link Evidence Without Merge
 
@@ -41,8 +41,8 @@ Exit criteria:
 
 Primary evidence:
 
-- `crates/taru-server/src/app/catalog.rs`
-- `crates/taru-server/src/app/tests/catalog.rs`
+- `crates/nako-server/src/app/catalog.rs`
+- `crates/nako-server/src/app/tests/catalog.rs`
 
 ## M3 — NFO Authority Preview
 
@@ -55,10 +55,10 @@ Exit criteria:
 
 Primary evidence:
 
-- `crates/taru-nfo/src/preview.rs`
-- `crates/taru-nfo/src/lib.rs`
-- `crates/taru-server/src/app/nfo.rs`
-- `crates/taru-server/src/app/tests/nfo.rs`
+- `crates/nako-nfo/src/preview.rs`
+- `crates/nako-nfo/src/lib.rs`
+- `crates/nako-server/src/app/nfo.rs`
+- `crates/nako-server/src/app/tests/nfo.rs`
 
 ## M4 — Apply/Follow-On Decision
 

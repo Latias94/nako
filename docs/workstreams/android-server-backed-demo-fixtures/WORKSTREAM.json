@@ -52,7 +52,7 @@
     {
       "task": "ASD-030",
       "path": "apps/android/scripts/Start-DemoFixtureServer.ps1",
-      "notes": "Seeded local taru-server fixture provider for Night Harbor direct-play media smoke."
+      "notes": "Seeded local nako-server fixture provider for Night Harbor direct-play media smoke."
     },
     {
       "task": "ASD-040",

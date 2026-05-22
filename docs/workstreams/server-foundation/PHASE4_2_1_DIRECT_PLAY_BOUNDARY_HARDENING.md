@@ -11,7 +11,7 @@ the file according to an explicit plan.
 
 ### Streaming Response Plan
 
-`taru-streaming` owns the reusable direct play response model:
+`nako-streaming` owns the reusable direct play response model:
 
 - `DirectPlayRangeRequest`
 - `DirectPlayResponseStatus`
@@ -34,7 +34,7 @@ later remux/HLS work a clearer boundary to build on.
 
 ### Application Playback Plan
 
-`taru-server::app` exposes `plan_direct_play`. It resolves the media source,
+`nako-server::app` exposes `plan_direct_play`. It resolves the media source,
 checks the current local VFS path hint requirement, reads source length, infers
 content type, and attaches the streaming response plan.
 

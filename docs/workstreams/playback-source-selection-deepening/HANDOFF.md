@@ -12,8 +12,8 @@ implemented, focused gates pass, and workspace closeout gates pass.
 
 - Metadata Provider Attempt Runtime Extraction: split provider attempt,
   classification, raw response, and refresh commit orchestration inside
-  `taru-metadata`.
-- `taru-api` module split: separate **Public Client API**, **Admin API**,
+  `nako-metadata`.
+- `nako-api` module split: separate **Public Client API**, **Admin API**,
   metadata diagnostics, storage diagnostics, and extension DTO modules.
 - NFO Round Trip: define preservation, unknown XML retention, local-field
   conflict reporting, and partial update behavior before library file writes.

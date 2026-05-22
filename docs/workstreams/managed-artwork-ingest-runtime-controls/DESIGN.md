@@ -97,13 +97,13 @@ It must not include:
 
 ## Architecture Direction
 
-- `taru-core` owns a `ManagedArtworkIngestRequeueRecord` and repository method.
-- `taru-db` implements requeue in one transaction against
+- `nako-core` owns a `ManagedArtworkIngestRequeueRecord` and repository method.
+- `nako-db` implements requeue in one transaction against
   `managed_artwork_ingests` and `jobs`.
-- `taru-api` owns an explicit redacted Admin response DTO.
-- `taru-server::app::artwork` validates command intent and maps repository
+- `nako-api` owns an explicit redacted Admin response DTO.
+- `nako-server::app::artwork` validates command intent and maps repository
   output to Admin DTOs.
-- `taru-server::http::admin` only parses the ingest ID and maps errors.
+- `nako-server::http::admin` only parses the ingest ID and maps errors.
 
 ## Assumptions
 

@@ -5,7 +5,7 @@ Last updated: 2026-05-22
 
 ## Problem
 
-Taru's backend Addon work is now deeper than the Admin Web Console surface.
+Nako's backend Addon work is now deeper than the Admin Web Console surface.
 The Admin API can manage **Addon Sidecars**, but `apps/admin-web` still treats
 Addons as a planned area. This creates product friction:
 

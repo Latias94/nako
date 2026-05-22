@@ -17,9 +17,9 @@ Last updated: 2026-05-18
 
 ## M1 — Fixture Contract Discovery
 
-- [x] ASD-020 [owner=codex] [deps=ASD-010] [scope=crates/taru-api,crates/taru-client,apps/android,docs/workstreams/android-server-backed-demo-fixtures]
+- [x] ASD-020 [owner=codex] [deps=ASD-010] [scope=crates/nako-api,crates/nako-client,apps/android,docs/workstreams/android-server-backed-demo-fixtures]
   Goal: Inventory the minimal Public Client API responses needed for the first
-  Android media smoke state and identify whether a seeded Taru server or local
+  Android media smoke state and identify whether a seeded Nako server or local
   test-server harness is the cleanest first implementation.
   Validation: Focused API/Android client tests or a documented route matrix
   prove every required screen has a public route source.
@@ -27,7 +27,7 @@ Last updated: 2026-05-18
   Evidence: `EVIDENCE_AND_GATES.md`, route matrix in this workstream or linked
   docs.
   Handoff: DONE on 2026-05-18. `ROUTE_MATRIX.md` records that the first
-  implementation should use a real seeded local `taru-server` reached by
+  implementation should use a real seeded local `nako-server` reached by
   Android through `adb reverse`; a public-route-compatible test server remains
   only a fallback if seeded startup proves too brittle.
 

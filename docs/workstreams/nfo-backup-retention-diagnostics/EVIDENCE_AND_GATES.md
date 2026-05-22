@@ -7,7 +7,7 @@ Last updated: 2026-05-17
 
 - M49 creates same-directory local backups before overwriting existing NFO
   sidecars.
-- M49 backup files use the `*.taru-backup-*` naming convention.
+- M49 backup files use the `*.nako-backup-*` naming convention.
 - M49 does not prune backups or expose pruning diagnostics.
 - Public client protocol crates should remain unchanged in this slice.
 
@@ -15,10 +15,10 @@ Last updated: 2026-05-17
 
 ```powershell
 cargo fmt --all -- --check
-cargo check -p taru-vfs --tests
-cargo nextest run -p taru-vfs --no-fail-fast
-cargo check -p taru-nfo --tests
-cargo nextest run -p taru-nfo --no-fail-fast
+cargo check -p nako-vfs --tests
+cargo nextest run -p nako-vfs --no-fail-fast
+cargo check -p nako-nfo --tests
+cargo nextest run -p nako-nfo --no-fail-fast
 ```
 
 ## Closeout Gates
@@ -35,8 +35,8 @@ git diff --check
 - 2026-05-17: `StorageBackupPolicy` and `StorageBackupRetention` added to the
   VFS write boundary; `StorageBackupReport` now reports pruned backups and
   prune failures.
-- 2026-05-17: `LocalFsBackend` prunes only same-sidecar Taru backup files that
-  match the `*.taru-backup-*` prefix and leaves unrelated backups/manual files
+- 2026-05-17: `LocalFsBackend` prunes only same-sidecar Nako backup files that
+  match the `*.nako-backup-*` prefix and leaves unrelated backups/manual files
   untouched.
 - 2026-05-17: NFO forced export requests keep-latest backup retention and
   reports created backups, pruned backup counts, and prune failures in
@@ -48,23 +48,23 @@ git diff --check
 
 ```powershell
 cargo fmt --all -- --check
-cargo check -p taru-vfs --tests
-cargo nextest run -p taru-vfs --no-fail-fast
+cargo check -p nako-vfs --tests
+cargo nextest run -p nako-vfs --no-fail-fast
 # 28 tests passed
 
-cargo check -p taru-nfo --tests
-cargo nextest run -p taru-nfo --no-fail-fast
+cargo check -p nako-nfo --tests
+cargo nextest run -p nako-nfo --no-fail-fast
 # 19 tests passed
 
-cargo check -p taru-api --tests
-cargo nextest run -p taru-api --no-fail-fast
+cargo check -p nako-api --tests
+cargo nextest run -p nako-api --no-fail-fast
 # 13 tests passed
 
-cargo check -p taru-server --tests
-cargo nextest run -p taru-server nfo --no-fail-fast
+cargo check -p nako-server --tests
+cargo nextest run -p nako-server nfo --no-fail-fast
 # 5 selected tests passed
 
-git diff --name-only -- crates/taru-client-protocol
+git diff --name-only -- crates/nako-client-protocol
 # no output
 
 cargo check --workspace --tests
@@ -77,7 +77,7 @@ git diff --check
 
 ## Expected Closeout Evidence
 
-- VFS tests prove keep-latest pruning of Taru-created backups.
+- VFS tests prove keep-latest pruning of Nako-created backups.
 - VFS tests prove unrelated files and non-matching backups are preserved.
 - VFS tests prove prune failures are reported without aborting the completed
   sidecar write.

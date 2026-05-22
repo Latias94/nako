@@ -50,7 +50,7 @@ Admin diagnostics, cleanup/remediation policy, and thumbnail serving.
 
 ## Architecture Notes
 
-- Keep artifact bytes in the Taru-owned artifact store; PostgreSQL owns records
+- Keep artifact bytes in the Nako-owned artifact store; PostgreSQL owns records
   and coordination state, not binary storage.
 - Do not copy SQLite migration text into PostgreSQL. Use native `uuid`,
   `boolean`, `jsonb` where structured JSON is queried, and `timestamptz` for
@@ -86,7 +86,7 @@ runtime state:
 
 ## MAPG-010 Inventory Baseline
 
-The existing SQLite implementation is authoritative for Taru behavior but not
+The existing SQLite implementation is authoritative for Nako behavior but not
 for PostgreSQL SQL text. The inventory found these persistence surfaces:
 
 - `ArtworkTaskRepository` persists legacy image task rows in `artwork_tasks`.

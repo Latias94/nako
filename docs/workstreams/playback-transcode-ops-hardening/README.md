@@ -8,7 +8,7 @@ Last updated: 2026-05-22
 This workstream turns the existing **Playback Runtime**, transcode runtime, and
 Admin playback diagnostics into an operator-supportable product surface.
 
-The baseline is already stronger than an MVP: Taru has playback source
+The baseline is already stronger than an MVP: Nako has playback source
 selection, direct play/remux/HLS orchestration, FFmpeg hardware capability
 probing, resource budgets, persisted sessions, cancellation, staging, and a
 safe Admin runtime diagnostics route. The remaining product risk is that an

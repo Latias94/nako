@@ -262,9 +262,9 @@ export type AddonInstallGuideSummary = {
   healthCheckSteps: AddonInstallGuideStepSummary[];
   registrationVerificationSteps: AddonInstallGuideStepSummary[];
   lifecycleBoundary: {
-    taruManagesContainers: boolean;
-    taruManagesProcesses: boolean;
-    taruManagesPackages: boolean;
+    nakoManagesContainers: boolean;
+    nakoManagesProcesses: boolean;
+    nakoManagesPackages: boolean;
     message: string;
   };
 };

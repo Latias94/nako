@@ -5,7 +5,7 @@
   "status": "completed",
   "updated": "2026-05-19",
   "scope_kind": "execution",
-  "problem": "Internal Addon Artwork Candidates need a Taru-owned acceptance, fetch, validation, cache/artifact, selection, and public artwork boundary before candidate sources can become client-visible artwork.",
+  "problem": "Internal Addon Artwork Candidates need a Nako-owned acceptance, fetch, validation, cache/artifact, selection, and public artwork boundary before candidate sources can become client-visible artwork.",
   "authoritative_docs": [
     {
       "role": "overview",
@@ -30,7 +30,7 @@
   ],
   "gates": [
     "rg -n \"ArtworkCandidate|ImageAsset|ArtworkTask|cache_uri|source_uri|thumbnail|staging|managed artwork|selected\" crates docs",
-    "cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests",
+    "cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-vfs --tests",
     "cargo fmt --all -- --check",
     "git diff --check"
   ],
@@ -38,18 +38,18 @@
     "docs/workstreams/managed-artwork-ingest-selection/DESIGN.md",
     "docs/workstreams/managed-artwork-ingest-selection/TODO.md",
     "docs/workstreams/addon-managed-artwork-artifacts/HANDOFF.md",
-    "crates/taru-core/src/id.rs",
-    "crates/taru-core/src/job.rs",
-    "crates/taru-core/src/media/artwork.rs",
-    "crates/taru-core/src/media/catalog.rs",
-    "crates/taru-db/migrations/0026_managed_artwork_ingest.sql",
-    "crates/taru-db/src/artwork.rs",
-    "crates/taru-db/src/catalog.rs",
-    "crates/taru-db/src/staging.rs",
-    "crates/taru-api/src/admin.rs",
-    "crates/taru-api/src/public_client.rs",
-    "crates/taru-server/src/app/artwork.rs",
-    "crates/taru-server/src/app/addons.rs"
+    "crates/nako-core/src/id.rs",
+    "crates/nako-core/src/job.rs",
+    "crates/nako-core/src/media/artwork.rs",
+    "crates/nako-core/src/media/catalog.rs",
+    "crates/nako-db/migrations/0026_managed_artwork_ingest.sql",
+    "crates/nako-db/src/artwork.rs",
+    "crates/nako-db/src/catalog.rs",
+    "crates/nako-db/src/staging.rs",
+    "crates/nako-api/src/admin.rs",
+    "crates/nako-api/src/public_client.rs",
+    "crates/nako-server/src/app/artwork.rs",
+    "crates/nako-server/src/app/addons.rs"
   ],
   "adr_refs": [
     "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",

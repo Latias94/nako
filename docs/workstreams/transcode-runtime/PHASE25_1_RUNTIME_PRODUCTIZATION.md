@@ -7,13 +7,13 @@ orchestration is split into focused app modules, HLS hardware selection now uses
 FFmpeg encoder capability evidence, and selected acceleration determines the
 runtime budget used by HLS sessions.
 
-The implementation keeps Taru's current single-variant HLS behavior. It does
+The implementation keeps Nako's current single-variant HLS behavior. It does
 not add an adaptive bitrate ladder, client UI, or direct remote FFmpeg input.
 
 ## Code Changes
 
-- Replaced the monolithic `crates/taru-server/src/app/playback.rs` with the
-  `crates/taru-server/src/app/playback/` module tree.
+- Replaced the monolithic `crates/nako-server/src/app/playback.rs` with the
+  `crates/nako-server/src/app/playback/` module tree.
 - Moved direct-play planning and VFS streaming response bodies into
   `playback/direct.rs`.
 - Moved FFmpeg input resolution, remote staging, manifest recording, and staging
@@ -27,7 +27,7 @@ not add an adaptive bitrate ladder, client UI, or direct remote FFmpeg input.
 - Added `LibraryStorageBackend::clone_backend` so FFmpeg input staging can wrap
   the selected storage backend with manifest-recording behavior without
   re-resolving library identity.
-- Added `FfmpegHardwareAccelerationDetector` in `taru-transcode` to probe
+- Added `FfmpegHardwareAccelerationDetector` in `nako-transcode` to probe
   `ffmpeg -hide_banner -encoders` and build a hardware capability report.
 - Added FFmpeg encoder parsing for VAAPI (`h264_vaapi`), NVENC (`h264_nvenc`),
   and QuickSync/QSV (`h264_qsv`).
@@ -72,21 +72,21 @@ Hardware rules:
 Validation run for this slice:
 
 ```powershell
-cargo check -p taru-transcode --tests
-cargo check -p taru-server --tests
-cargo nextest run -p taru-transcode --no-fail-fast
-cargo nextest run -p taru-server app::tests::playback --no-fail-fast
+cargo check -p nako-transcode --tests
+cargo check -p nako-server --tests
+cargo nextest run -p nako-transcode --no-fail-fast
+cargo nextest run -p nako-server app::tests::playback --no-fail-fast
 cargo fmt --all -- --check
 cargo check --workspace --tests
-cargo nextest run -p taru-server --no-fail-fast
+cargo nextest run -p nako-server --no-fail-fast
 cargo nextest run --workspace --no-fail-fast
 git diff --check
 ```
 
 Results:
 
-- `cargo nextest run -p taru-transcode --no-fail-fast`: 21 tests passed.
-- `cargo nextest run -p taru-server --no-fail-fast`: 90 tests passed.
+- `cargo nextest run -p nako-transcode --no-fail-fast`: 21 tests passed.
+- `cargo nextest run -p nako-server --no-fail-fast`: 90 tests passed.
 - `cargo nextest run --workspace --no-fail-fast`: 231 tests passed.
 - `git diff --check`: passed with Git CRLF normalization warnings only.
 

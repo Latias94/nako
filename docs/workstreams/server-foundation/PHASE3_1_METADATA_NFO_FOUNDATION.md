@@ -46,12 +46,12 @@ Metadata refresh is governed by field locks:
 - raw provider responses are cached separately from canonical metadata
 - NFO can be treated as local authority when imported with lock policy
 
-The initial merge policy lives in `taru-metadata` and is tested without network
+The initial merge policy lives in `nako-metadata` and is tested without network
 providers.
 
 ## NFO Policy
 
-`taru-nfo` contains a minimal movie NFO codec. It supports core tags:
+`nako-nfo` contains a minimal movie NFO codec. It supports core tags:
 
 ```text
 title

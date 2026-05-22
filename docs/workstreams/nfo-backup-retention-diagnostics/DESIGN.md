@@ -26,13 +26,13 @@ need a way to inspect what happened during backup creation and pruning.
 
 ## In Scope
 
-- `crates/taru-vfs/src/lib.rs`
-- `crates/taru-vfs/src/local.rs`
-- `crates/taru-vfs/src/cache.rs` only if pass-through is needed
-- `crates/taru-nfo/src/export.rs`
-- `crates/taru-nfo/src/summary.rs`
-- `crates/taru-nfo/src/lib.rs` tests
-- `crates/taru-api` and `crates/taru-server` only if admin diagnostics need a
+- `crates/nako-vfs/src/lib.rs`
+- `crates/nako-vfs/src/local.rs`
+- `crates/nako-vfs/src/cache.rs` only if pass-through is needed
+- `crates/nako-nfo/src/export.rs`
+- `crates/nako-nfo/src/summary.rs`
+- `crates/nako-nfo/src/lib.rs` tests
+- `crates/nako-api` and `crates/nako-server` only if admin diagnostics need a
   route/DTO adapter update
 - focused and workspace validation
 - goal/workstream documentation
@@ -51,7 +51,7 @@ need a way to inspect what happened during backup creation and pruning.
 ## Architecture Direction
 
 Extend the storage-owned backup policy with retention rather than making
-`taru-nfo` enumerate and delete filesystem paths directly:
+`nako-nfo` enumerate and delete filesystem paths directly:
 
 ```text
 StorageBackupPolicy:
@@ -68,22 +68,22 @@ StorageBackupReport:
   prune_failures
 ```
 
-`LocalFsBackend` should identify Taru-created backups for a sidecar by the M49
+`LocalFsBackend` should identify Nako-created backups for a sidecar by the M49
 name prefix:
 
 ```text
-demo.nfo.taru-backup-*
+demo.nfo.nako-backup-*
 ```
 
 It should sort backup candidates deterministically by file name or modified
-time, keep the newest configured count, and remove older Taru backup files. The
+time, keep the newest configured count, and remove older Nako backup files. The
 first implementation should be conservative: it only prunes files matching the
-Taru backup naming pattern for the same sidecar.
+Nako backup naming pattern for the same sidecar.
 
 ## NFO Workflow Direction
 
 NFO export should request retention when it requests a backup. The first
-default can be small and explicit in `taru-nfo`, for example keep the latest 5
+default can be small and explicit in `nako-nfo`, for example keep the latest 5
 backups per sidecar. Future config can move this into library options, but M50
 should avoid schema/config churn unless needed.
 
@@ -99,7 +99,7 @@ Summary diagnostics should answer:
 
 Prefer reusing job summary/internal command output first. Only add admin API
 DTO/route changes if current admin surfaces cannot inspect NFO job summary
-details. Do not add fields to `taru-client-protocol` or public client route
+details. Do not add fields to `nako-client-protocol` or public client route
 inventory in this slice.
 
 ## Assumptions
@@ -114,7 +114,7 @@ inventory in this slice.
 
 This lane closed after:
 
-- local backup writes can prune older Taru backups with a bounded keep-latest
+- local backup writes can prune older Nako backups with a bounded keep-latest
   policy;
 - pruning never deletes non-matching files;
 - pruning failures are reported in backup diagnostics;
@@ -122,6 +122,6 @@ This lane closed after:
 - public client protocol inventory remains unchanged;
 - focused and workspace validation gates pass.
 
-The first retention default is intentionally hard-coded in `taru-nfo` as a
+The first retention default is intentionally hard-coded in `nako-nfo` as a
 small workflow policy. Configurable library/profile retention remains a
 follow-on, not part of this slice.

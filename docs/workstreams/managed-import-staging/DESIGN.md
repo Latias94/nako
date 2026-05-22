@@ -5,7 +5,7 @@ Last updated: 2026-05-21
 
 ## Why This Lane Exists
 
-Taru now has explainable metadata matching and explicit local file authority:
+Nako now has explainable metadata matching and explicit local file authority:
 
 - `metadata-provider-breadth` made provider capability, match ambiguity, and
   candidate review visible before canonical metadata writes.
@@ -14,7 +14,7 @@ Taru now has explainable metadata matching and explicit local file authority:
 
 That makes the next product risk clear: downloads, watch-folder imports, and
 Addon-proposed artifacts must not write directly into a media library. They
-need a Taru-owned staging and promotion boundary that can validate bytes,
+need a Nako-owned staging and promotion boundary that can validate bytes,
 explain metadata identity, detect duplicates, plan NFO/link/file operations,
 and produce an auditable promotion decision.
 
@@ -28,8 +28,8 @@ and produce an auditable promotion decision.
 - `docs/adr/0021-video-first-media-server-domain-model.md`
 - `docs/workstreams/metadata-provider-breadth`
 - `docs/workstreams/nfo-link-authority`
-- Existing VFS staging manifest implementation in `taru-core`, `taru-db`, and
-  `taru-server/src/app/staging.rs`
+- Existing VFS staging manifest implementation in `nako-core`, `nako-db`, and
+  `nako-server/src/app/staging.rs`
 
 ## Current Baseline
 
@@ -44,7 +44,7 @@ and produce an auditable promotion decision.
 ## Target State
 
 - Import staging has its own domain vocabulary and repository contract.
-- Import candidates are represented as Taru-owned staged artifacts, not direct
+- Import candidates are represented as Nako-owned staged artifacts, not direct
   library writes.
 - A staged artifact can be probed and matched without becoming a Media Source.
 - Promotion planning produces explicit decisions:
@@ -87,20 +87,20 @@ Media Library root.
 ### Boundary Split
 
 ```text
-taru-core
+nako-core
   Owns Managed Import staging domain records, IDs, states, and repository traits.
 
-taru-db
+nako-db
   Owns schema/migrations and repository adapters.
 
-taru-vfs
+nako-vfs
   Owns storage staging, path safety, write/link planning primitives.
 
-taru-metadata / taru-nfo / taru-catalog
+nako-metadata / nako-nfo / nako-catalog
   Provide diagnostics consumed by promotion planning; they do not own import
   lifecycle state.
 
-taru-server
+nako-server
   Owns operator-facing app services, job/runtime orchestration, and Admin HTTP
   boundary later.
 ```
@@ -113,7 +113,7 @@ Managed Import Source
   not a downloader implementation.
 
 Managed Import Artifact
-  Taru-owned staged file outside media library roots with lifecycle state,
+  Nako-owned staged file outside media library roots with lifecycle state,
   validation facts, and redacted diagnostics.
 
 Managed Import Plan
@@ -198,7 +198,7 @@ Minimum apply requirements before any media-library mutation:
    copy/move/link/delete/cleanup behavior must be mediated by storage
    backends.
 5. **Rollback/cleanup** — if storage succeeds and database/catalog commit
-   fails, Taru must either remove the target it created or record a durable
+   fails, Nako must either remove the target it created or record a durable
    cleanup-pending state with enough redacted evidence for an operator.
 6. **Catalog consistency** — a Media Source should not appear as promoted until
    the target locator is durable and the repository transaction commits.

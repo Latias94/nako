@@ -3,7 +3,7 @@ param(
     [string]$Serial,
     [ValidateSet('arm64-v8a', 'armeabi-v7a', 'x86', 'x86_64')]
     [string]$Abi = 'arm64-v8a',
-    [string]$TestClass = 'dev.taru.android.uniffi.TaruUniFfiNativeSmokeTest',
+    [string]$TestClass = 'dev.nako.android.uniffi.NakoUniFfiNativeSmokeTest',
     [switch]$SkipBuild,
     [switch]$SkipInstall
 )
@@ -96,7 +96,7 @@ if (-not $SkipBuild) {
     Push-Location $androidRoot
     try {
         Invoke-CheckedCommand "Gradle assemble debug and androidTest for $Abi" {
-            & $gradlew :app:assembleDebug :app:assembleDebugAndroidTest "-PtaruRustAndroidAbis=$Abi" --no-daemon
+            & $gradlew :app:assembleDebug :app:assembleDebugAndroidTest "-PnakoRustAndroidAbis=$Abi" --no-daemon
         }
     } finally {
         Pop-Location
@@ -120,7 +120,7 @@ if (-not $SkipInstall) {
 }
 
 Invoke-CheckedCommand "Run $TestClass" {
-    & $adb -s $deviceSerial shell am instrument -w -r -e class $TestClass dev.taru.android.test/androidx.test.runner.AndroidJUnitRunner
+    & $adb -s $deviceSerial shell am instrument -w -r -e class $TestClass dev.nako.android.test/androidx.test.runner.AndroidJUnitRunner
 }
 
 [pscustomobject]@{

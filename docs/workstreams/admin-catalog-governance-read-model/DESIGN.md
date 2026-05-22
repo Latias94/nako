@@ -33,15 +33,15 @@ threshold. The row includes:
 ## Architecture Direction
 
 The implementation adds a narrow `CatalogGovernanceRepository` port in
-`taru-core`. `taru-db` owns the SQL joins across Media Items, Media Sources,
+`nako-core`. `nako-db` owns the SQL joins across Media Items, Media Sources,
 Local Inference Evidence, Provider Mappings, and Source Duplicate
 Relationships.
 
-`taru-server` stays thin:
+`nako-server` stays thin:
 
 - query parsing and auth live in the HTTP adapter;
 - `CatalogAppService` calls the repository port;
-- `taru-api::admin` maps records to redacted DTOs.
+- `nako-api::admin` maps records to redacted DTOs.
 
 This keeps graph lookup internals out of handlers and preserves the Public
 Client API boundary.

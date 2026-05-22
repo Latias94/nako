@@ -14,13 +14,13 @@ Get-Content -LiteralPath 'docs/workstreams/android-relationship-indexes/WORKSTRE
 Focused client gate:
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.browse.TaruBrowseClientTest --no-daemon
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.browse.NakoBrowseClientTest --no-daemon
 ```
 
 Focused browse UI gate:
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests "dev.taru.android.ui.browse.*" --no-daemon
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests "dev.nako.android.ui.browse.*" --no-daemon
 ```
 
 Broader Android unit gate:
@@ -52,23 +52,23 @@ git diff --check
     browsing path.
   - Android API integration matrix updated with the accepted/deferred status.
 - ARI-020 completed on 2026-05-20:
-  - Added `GenreListResponse` and `TaruBrowseClient.listGenres`.
+  - Added `GenreListResponse` and `NakoBrowseClient.listGenres`.
   - Added focused client coverage for `GET /genres?limit=&offset=` request
     construction, bearer auth, response decoding, safe request redaction, and
     unsupported API version diagnostics.
   - Fresh validation:
-    `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.browse.TaruBrowseClientTest --no-daemon`
+    `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.browse.NakoBrowseClientTest --no-daemon`
     passed.
 - ARI-030 completed on 2026-05-20:
-  - Added `RelationshipIndexFamily.Genres`, `TaruRoute.RelationshipIndex`, and
+  - Added `RelationshipIndexFamily.Genres`, `NakoRoute.RelationshipIndex`, and
     `RelationshipIndexUiState`.
   - `BrowseSession` can open, save, restore, load, retry, and back out of the
     Genre Index route.
   - `ClientBrowseDataSource.loadRelationshipIndex` calls
-    `TaruBrowseClient.listGenres` and maps Genre rows to existing
+    `NakoBrowseClient.listGenres` and maps Genre rows to existing
     server-backed Genre related Media Items route targets.
   - Fresh validation:
-    `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests "dev.taru.android.ui.browse.*" --no-daemon`
+    `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests "dev.nako.android.ui.browse.*" --no-daemon`
     passed.
 - ARI-040 completed on 2026-05-20:
   - Added `RelationshipIndexRouteContent` with an artwork-led header, Genre

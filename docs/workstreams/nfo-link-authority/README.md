@@ -3,7 +3,7 @@
 Status: Complete
 
 This workstream was the next post-RPD mainline lane after
-`metadata-provider-breadth`. It turned Taru's local metadata and file-link
+`metadata-provider-breadth`. It turned Nako's local metadata and file-link
 behavior into explicit authority boundaries before managed import/download,
 AI suggestions, or addon distribution can depend on library-file mutation.
 
@@ -11,7 +11,7 @@ Existing NFO work already covers round-trip preservation, atomic local writes,
 same-directory backups, and backup retention. The remaining risk is broader
 local authority: NFO export/import decisions, source duplicate/link evidence,
 and future soft/hard link operations must be dry-run, diagnosable, and
-rollback-aware before Taru creates or rewrites library files.
+rollback-aware before Nako creates or rewrites library files.
 
 Closeout decision: actual hardlink/symlink creation is split to a follow-on
 after `managed-import-staging` defines promotion, rollback, cleanup, audit, and

@@ -9,11 +9,11 @@ This lane is the follow-on from the closed
 `docs/workstreams/android-relationship-indexes/` lane. Genres Index proved the
 relationship index shape end to end. Tags Index should reuse that shape as the
 second accepted relationship index family. ATI-010 is complete:
-`TagListResponse` and `TaruBrowseClient.listTags` cover
+`TagListResponse` and `NakoBrowseClient.listTags` cover
 `GET /tags?limit=&offset=`. ATI-020 is complete: Tags now reuse the
 relationship index route state, data-source mapping, and safe navigation
 restore path. ATI-030 is complete: Home exposes Tags as a nested relationship
-index route, `TaruBrowseShell` dispatches it through the shared Tags
+index route, `NakoBrowseShell` dispatches it through the shared Tags
 relationship index action, and `RelationshipIndexRoute` keeps one screen shape
 with family-aware copy and icons. ATI-040 is complete: `profile-with-media`
 smoke now proves Home -> Tags -> Lighthouse -> Related Media Items and captures
@@ -31,7 +31,7 @@ None. This workstream is closed.
 - Tag rows should open existing Tag related Media Items routes with stable
   server IDs.
 - Top-level People Index remains outside this lane.
-- `TaruBrowseClient.listTags` is the Android typed contract for
+- `NakoBrowseClient.listTags` is the Android typed contract for
   `GET /tags?limit=&offset=`.
 - `RelationshipIndexFamily.Tags` is in place and maps to existing Tag related
   Media Items targets.

@@ -5,7 +5,7 @@ Last updated: 2026-05-18
 
 ## Decision
 
-Use a real local `taru-server` seeded fixture as the first implementation
+Use a real local `nako-server` seeded fixture as the first implementation
 strategy for `profile-with-media`.
 
 Reasoning:
@@ -13,9 +13,9 @@ Reasoning:
 - It exercises the real Public Client API, route middleware, DTO mapping, and
   playback selection path.
 - The Android foundation walkthrough already proved that an emulator can reach
-  a local Taru server through `adb reverse`.
+  a local Nako server through `adb reverse`.
 - It avoids Android-only fake media data and avoids introducing a second mock
-  server contract that could drift from Taru.
+  server contract that could drift from Nako.
 - A public-route-compatible test-server harness remains a fallback only if
   seeded server startup proves too slow, flaky, or hard to run on contributor
   machines.
@@ -28,15 +28,15 @@ Items, stable Genre/Tag/Person links, and one player-safe Media Source.
 Preferred local shape for `ASD-030`:
 
 1. Create a temporary fixture directory under an ignored path.
-2. Write a Taru config with:
+2. Write a Nako config with:
    - a loopback listen address;
    - one local Movies Media Library;
    - auth disabled or a documented harmless smoke token;
    - staging/cache roots inside the fixture directory.
 3. Create a tiny valid video file and sidecar metadata for a deterministic
    Media Item.
-4. Run existing Taru commands to scan and import metadata.
-5. Start `taru-server serve`.
+4. Run existing Nako commands to scan and import metadata.
+5. Start `nako-server serve`.
 6. Run `adb reverse tcp:<port> tcp:<port>` so Android can use
    `http://127.0.0.1:<port>`.
 7. Seed Android with one Server Profile that has a non-empty smoke token value
@@ -49,16 +49,16 @@ provider payloads into committed fixture reports.
 
 | Surface | Android client call | Public Client API route | Required fixture data | Status |
 | --- | --- | --- | --- | --- |
-| Connection preflight | `TaruConnectionClient` | `GET /health` and `GET /libraries?limit=1&offset=0` | Healthy server, Public Client API version header, at least one visible Media Library for the auth probe | Existing Android support; fixture must provide server |
-| Home hero and library rows | `TaruBrowseClient.listLibraries`, `TaruBrowseClient.listItems` | `GET /libraries?limit=50&offset=0`, `GET /items?limit=24&offset=0` | One Movies Media Library, at least one Media Item with title, kind, overview/runtime/date if available | Existing Android support |
+| Connection preflight | `NakoConnectionClient` | `GET /health` and `GET /libraries?limit=1&offset=0` | Healthy server, Public Client API version header, at least one visible Media Library for the auth probe | Existing Android support; fixture must provide server |
+| Home hero and library rows | `NakoBrowseClient.listLibraries`, `NakoBrowseClient.listItems` | `GET /libraries?limit=50&offset=0`, `GET /items?limit=24&offset=0` | One Movies Media Library, at least one Media Item with title, kind, overview/runtime/date if available | Existing Android support |
 | Libraries tab | Same Home browse state | `GET /libraries`, `GET /items` | Same as Home; library options should include domain/preset where possible | Existing Android support |
-| Search tab | `TaruBrowseClient.searchItems` | `GET /search?q=...&facet=...&limit=...&offset=...` | Search index entry for the demo title and optional facet | Existing Android support; optional for first smoke |
-| Media Item detail | `TaruBrowseClient.itemDetail` | `GET /items/{item_id}` | Item detail with sources, genres, tags, credits, optional images, optional collections/studios | Existing Android support |
-| Genre facet | `TaruBrowseClient.listGenreItems` | `GET /genres/{genre_id}/items?limit=24&offset=0` | Detail response must include `genres[].genre_id`; related item route returns the demo item | Existing Android support |
-| Tag facet | `TaruBrowseClient.listTagItems` | `GET /tags/{tag_id}/items?limit=24&offset=0` | Detail response must include `tags[].tag_id`; related item route returns the demo item | Existing Android support |
-| Person facet | `TaruBrowseClient.listPersonItems` | `GET /people/{person_id}/items?limit=24&offset=0` | Detail response must include `credits[].person_id`; related item route returns the demo item | Existing Android support, but rich credit names are still an API/UI gap |
-| Source picker | Detail response plus `TaruPlaybackClient.getPlaybackDecision` | `GET /items/{item_id}`, `GET /sources/{source_id}/playback/decision?...` | At least one Media Source, optional probe, playback decision with `direct_play`, `remux`, or `transcode` plan | Existing Android support |
-| Player-safe launch | `TaruPlaybackClient.recommendedPlaybackTarget` and Media3 route | `GET /sources/{source_id}/stream`, `GET /sources/{source_id}/stream/remux`, or `GET /sources/{source_id}/stream/hls/playlist.m3u8` | A target route that can open player UI without leaking paths or tokens; full streaming quality is not required for the first smoke | Fixture provider exists; needs smoke navigation |
+| Search tab | `NakoBrowseClient.searchItems` | `GET /search?q=...&facet=...&limit=...&offset=...` | Search index entry for the demo title and optional facet | Existing Android support; optional for first smoke |
+| Media Item detail | `NakoBrowseClient.itemDetail` | `GET /items/{item_id}` | Item detail with sources, genres, tags, credits, optional images, optional collections/studios | Existing Android support |
+| Genre facet | `NakoBrowseClient.listGenreItems` | `GET /genres/{genre_id}/items?limit=24&offset=0` | Detail response must include `genres[].genre_id`; related item route returns the demo item | Existing Android support |
+| Tag facet | `NakoBrowseClient.listTagItems` | `GET /tags/{tag_id}/items?limit=24&offset=0` | Detail response must include `tags[].tag_id`; related item route returns the demo item | Existing Android support |
+| Person facet | `NakoBrowseClient.listPersonItems` | `GET /people/{person_id}/items?limit=24&offset=0` | Detail response must include `credits[].person_id`; related item route returns the demo item | Existing Android support, but rich credit names are still an API/UI gap |
+| Source picker | Detail response plus `NakoPlaybackClient.getPlaybackDecision` | `GET /items/{item_id}`, `GET /sources/{source_id}/playback/decision?...` | At least one Media Source, optional probe, playback decision with `direct_play`, `remux`, or `transcode` plan | Existing Android support |
+| Player-safe launch | `NakoPlaybackClient.recommendedPlaybackTarget` and Media3 route | `GET /sources/{source_id}/stream`, `GET /sources/{source_id}/stream/remux`, or `GET /sources/{source_id}/stream/hls/playlist.m3u8` | A target route that can open player UI without leaking paths or tokens; full streaming quality is not required for the first smoke | Fixture provider exists; needs smoke navigation |
 | Playback session cancellation | Player dispose path | `POST /playback/sessions/{session_id}/cancel` | Only needed if fixture returns an HLS/remux session id and Android starts playback long enough to own it | Out of first smoke unless full stream validation is accepted |
 
 ## API Gaps To Keep Explicit
@@ -98,13 +98,13 @@ fixture startup command and smoke navigation are stable.
 
 This route matrix was checked against:
 
-- Android client calls in `apps/android/app/src/main/java/dev/taru/android/browse/TaruBrowseClient.kt`;
-- Android playback calls in `apps/android/app/src/main/java/dev/taru/android/playback/TaruPlaybackClient.kt`;
-- Android route state in `apps/android/app/src/main/java/dev/taru/android/ui/browse/TaruBrowseShell.kt`;
-- Public OpenAPI route inventory in `crates/taru-api/src/openapi.rs`;
-- protocol DTO source in `crates/taru-client-protocol/src/catalog.rs`;
-- server HTTP routes in `crates/taru-server/src/http/catalog.rs`,
-  `crates/taru-server/src/http/library.rs`, and
-  `crates/taru-server/src/http/playback.rs`;
+- Android client calls in `apps/android/app/src/main/java/dev/nako/android/browse/NakoBrowseClient.kt`;
+- Android playback calls in `apps/android/app/src/main/java/dev/nako/android/playback/NakoPlaybackClient.kt`;
+- Android route state in `apps/android/app/src/main/java/dev/nako/android/ui/browse/NakoBrowseShell.kt`;
+- Public OpenAPI route inventory in `crates/nako-api/src/openapi.rs`;
+- protocol DTO source in `crates/nako-client-protocol/src/catalog.rs`;
+- server HTTP routes in `crates/nako-server/src/http/catalog.rs`,
+  `crates/nako-server/src/http/library.rs`, and
+  `crates/nako-server/src/http/playback.rs`;
 - previous real-server Android walkthrough evidence in
   `docs/workstreams/android-client-foundation/EVIDENCE_AND_GATES.md`.

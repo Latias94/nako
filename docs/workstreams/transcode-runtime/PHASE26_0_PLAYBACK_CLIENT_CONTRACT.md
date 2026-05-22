@@ -24,7 +24,7 @@ HLS transcode sessions.
 
 ## Implementation Notes
 
-`taru-server::app::playback` owns a process-local cancellation registry keyed
+`nako-server::app::playback` owns a process-local cancellation registry keyed
 by `TranscodeSessionId`. Remux and HLS orchestration register the runner
 `CancellationToken` before invoking FFmpeg and remove it when the run returns.
 The HTTP route calls the application service, which signals the live token and
@@ -51,9 +51,9 @@ poll `GET /playback/sessions/{session_id}` until the session becomes
 Close-out gates:
 
 - `cargo fmt --all -- --check`
-- `cargo check -p taru-server --tests`
+- `cargo check -p nako-server --tests`
 - `cargo check --workspace --tests`
-- `cargo nextest run -p taru-server http::tests::playback --no-fail-fast`: 16
+- `cargo nextest run -p nako-server http::tests::playback --no-fail-fast`: 16
   playback route tests passed.
 - `cargo nextest run --workspace --no-fail-fast`: 234 tests passed.
 - `git diff --check`: passed with Git CRLF normalization warnings only.

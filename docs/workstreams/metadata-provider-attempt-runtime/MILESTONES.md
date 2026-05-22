@@ -30,8 +30,8 @@ Status: Completed.
 Expected gates:
 
 - `cargo fmt --all -- --check`
-- `cargo check -p taru-metadata --tests`
-- `cargo nextest run -p taru-metadata --no-fail-fast`
+- `cargo check -p nako-metadata --tests`
+- `cargo nextest run -p nako-metadata --no-fail-fast`
 
 ## M44.2 - Strategy Compatibility
 
@@ -46,7 +46,7 @@ Status: Completed.
 
 Expected gates:
 
-- focused `cargo nextest run -p taru-metadata strategy::port_tests::refresh_service_uses_refresh_and_hydration_ports_without_sqlite --no-fail-fast`
+- focused `cargo nextest run -p nako-metadata strategy::port_tests::refresh_service_uses_refresh_and_hydration_ports_without_sqlite --no-fail-fast`
 
 ## M44.3 - Closeout
 

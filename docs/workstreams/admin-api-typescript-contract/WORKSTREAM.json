@@ -34,9 +34,9 @@
   ],
   "gates": [
     "git diff --check",
-    "cargo check -p taru-api --examples",
-    "cargo nextest run -p taru-api admin_contract --no-fail-fast -j 2",
-    "cargo nextest run -p taru-api typescript --no-fail-fast",
+    "cargo check -p nako-api --examples",
+    "cargo nextest run -p nako-api admin_contract --no-fail-fast -j 2",
+    "cargo nextest run -p nako-api typescript --no-fail-fast",
     "cd apps/admin-web && npm run check",
     "cd apps/admin-web && npm run test",
     "cd apps/admin-web && npm run build"
@@ -47,8 +47,8 @@
     "docs/workstreams/admin-web-console/ADMIN_API_MATRIX.md",
     "docs/adr/0025-openapi-public-client-sdk-contract.md",
     "docs/adr/0027-admin-api-boundary-for-web-console.md",
-    "crates/taru-api/src/sdk.rs",
-    "crates/taru-api/src/openapi.rs",
+    "crates/nako-api/src/sdk.rs",
+    "crates/nako-api/src/openapi.rs",
     "apps/admin-web/src/adminApi",
     "sdk/typescript"
   ],
@@ -58,6 +58,6 @@
   ],
   "continue_policy": {
     "default_action": "close",
-    "notes": "AATC-050 closeout is complete. Admin API TypeScript contract generation stays app-local under apps/admin-web, Public Client SDK and taru-client-protocol remain separate, and npm Admin SDK packaging or deeper admin UI workflows should be opened as new follow-ons when needed."
+    "notes": "AATC-050 closeout is complete. Admin API TypeScript contract generation stays app-local under apps/admin-web, Public Client SDK and nako-client-protocol remain separate, and npm Admin SDK packaging or deeper admin UI workflows should be opened as new follow-ons when needed."
   }
 }

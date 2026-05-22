@@ -19,7 +19,7 @@ Last updated: 2026-05-21
 
 ### M1 — P0/P1 Architecture Boundaries
 
-- [x] AFCR-010 [owner=codex] [deps=AFCR-000] [priority=P1] [scope=apps/android/app/src/main/java/dev/taru/android/connection,apps/android/app/src/main/java/dev/taru/android/browse,apps/android/app/src/main/java/dev/taru/android/playback,apps/android/app/src/main/java/dev/taru/android/userplayback,apps/android/app/src/test/java/dev/taru/android]
+- [x] AFCR-010 [owner=codex] [deps=AFCR-000] [priority=P1] [scope=apps/android/app/src/main/java/dev/nako/android/connection,apps/android/app/src/main/java/dev/nako/android/browse,apps/android/app/src/main/java/dev/nako/android/playback,apps/android/app/src/main/java/dev/nako/android/userplayback,apps/android/app/src/test/java/dev/nako/android]
   Goal: Introduce a deep Public Client API execution adapter and migrate
   connection, browse, playback, and User Playback State clients away from
   duplicated protocol policy.
@@ -33,18 +33,18 @@ Last updated: 2026-05-21
     mapping only.
   - Delete superseded duplicated helpers from route clients.
   Validation:
-  - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.* --no-daemon`
-  - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.browse.* --no-daemon`
-  - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.playback.* --no-daemon`
-  - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.userplayback.* --no-daemon`
+  - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.connection.* --no-daemon`
+  - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.browse.* --no-daemon`
+  - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.playback.* --no-daemon`
+  - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.userplayback.* --no-daemon`
   Review: verify no route client owns generic protocol policy after migration.
   Evidence: `EVIDENCE_AND_GATES.md` records focused and full Android JVM
   test output from 2026-05-20.
 
-- [x] AFCR-020 [owner=codex] [deps=AFCR-010] [priority=P0] [scope=apps/android/app/src/main/java/dev/taru/android/playback,apps/android/app/src/main/java/dev/taru/android/player,apps/android/app/src/main/java/dev/taru/android/ui/screens/player,apps/android/app/src/main/java/dev/taru/android/ui/browse,apps/android/app/src/test/java/dev/taru/android]
+- [x] AFCR-020 [owner=codex] [deps=AFCR-010] [priority=P0] [scope=apps/android/app/src/main/java/dev/nako/android/playback,apps/android/app/src/main/java/dev/nako/android/player,apps/android/app/src/main/java/dev/nako/android/ui/screens/player,apps/android/app/src/main/java/dev/nako/android/ui/browse,apps/android/app/src/test/java/dev/nako/android]
   Goal: Make playback launch route state token-safe by construction.
   Scope:
-  - Replace route-level raw `TaruHttpRequest` launch state with a token-safe
+  - Replace route-level raw `NakoHttpRequest` launch state with a token-safe
     playback launch descriptor.
   - Inject Authorization headers only inside the player runtime adapter or a
     non-saveable final request builder.
@@ -52,15 +52,15 @@ Last updated: 2026-05-21
     and route `toString` cannot expose bearer tokens.
   - Keep Media3 playback behavior and playback session cancellation semantics.
   Validation:
-  - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.player.* --no-daemon`
-  - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.ui.screens.player.* --no-daemon`
+  - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.player.* --no-daemon`
+  - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.ui.screens.player.* --no-daemon`
   - token-safety grep or focused tests proving no route/saveable state contains `Bearer secret-token`.
   Review: verify no raw bearer token can enter saveable route state or visible
   UI diagnostics.
   Evidence: `EVIDENCE_AND_GATES.md` records focused and full Android JVM
   test output from 2026-05-20.
 
-- [x] AFCR-030 [owner=codex] [deps=AFCR-010] [priority=P1] [scope=apps/android/app/src/main/java/dev/taru/android/ui/browse,apps/android/app/src/main/java/dev/taru/android/ui/screens,apps/android/app/src/test/java/dev/taru/android/ui/browse]
+- [x] AFCR-030 [owner=codex] [deps=AFCR-010] [priority=P1] [scope=apps/android/app/src/main/java/dev/nako/android/ui/browse,apps/android/app/src/main/java/dev/nako/android/ui/screens,apps/android/app/src/test/java/dev/nako/android/ui/browse]
   Goal: Split `BrowseSession` into deep state modules without changing product
   behavior.
   Scope:
@@ -70,7 +70,7 @@ Last updated: 2026-05-21
   - Preserve stale-response protection and route-aware loading semantics.
   - Delete obsolete broad-state helpers after the new modules own behavior.
   Validation:
-  - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.* --no-daemon`
+  - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.* --no-daemon`
   - focused tests for stale route responses, retry behavior, source selection,
     and playback route opening.
   Review: deletion test on each extracted module; reject pass-through modules.
@@ -79,25 +79,25 @@ Last updated: 2026-05-21
 
 ### M2 — P2 Production Hardening
 
-- [x] AFCR-040 [owner=codex] [deps=AFCR-010] [priority=P2] [scope=apps/android/app/src/main/AndroidManifest.xml,apps/android/app/src/main/java/dev/taru/android/connection,apps/android/app/src/test/java/dev/taru/android/connection]
+- [x] AFCR-040 [owner=codex] [deps=AFCR-010] [priority=P2] [scope=apps/android/app/src/main/AndroidManifest.xml,apps/android/app/src/main/java/dev/nako/android/connection,apps/android/app/src/test/java/dev/nako/android/connection]
   Goal: Harden Android transport and network security policy for production
   self-hosted use.
   Scope:
-  - Keep `TaruHttpTransport` as the seam.
+  - Keep `NakoHttpTransport` as the seam.
   - Either harden the existing transport with final cleanup/cancellation policy
     or replace production transport with a cleaner adapter such as OkHttp.
   - Split debug/local cleartext behavior from release policy.
   - Make insecure HTTP connection state user-visible and token-safe.
   Validation:
   - focused transport/client tests;
-  - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.* --no-daemon`;
+  - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.connection.* --no-daemon`;
   - manifest/network policy review.
   Review: confirm self-hosted local development still works while release
   policy is no longer globally permissive by accident.
   Evidence: `EVIDENCE_AND_GATES.md` records connection-focused and full
   Android JVM test output from 2026-05-21.
 
-- [x] AFCR-050 [owner=codex] [deps=AFCR-030] [priority=P2] [scope=apps/android/app/src/main/java/dev/taru/android/ui/browse,apps/android/app/src/main/java/dev/taru/android/browse,apps/android/app/src/test/java/dev/taru/android]
+- [x] AFCR-050 [owner=codex] [deps=AFCR-030] [priority=P2] [scope=apps/android/app/src/main/java/dev/nako/android/ui/browse,apps/android/app/src/main/java/dev/nako/android/browse,apps/android/app/src/test/java/dev/nako/android]
   Goal: Add reusable paging state for large Media Libraries.
   Scope:
   - Introduce page state and load-more actions for browse surfaces.
@@ -115,7 +115,7 @@ Last updated: 2026-05-21
 
 ### M3 — P3 Product UI Hardening
 
-- [x] AFCR-060 [owner=codex] [deps=AFCR-020,AFCR-030] [priority=P3] [scope=apps/android/app/src/main/java/dev/taru/android/ui,apps/android/app/src/main/res/values,apps/android/app/src/test/java/dev/taru/android/ui]
+- [x] AFCR-060 [owner=codex] [deps=AFCR-020,AFCR-030] [priority=P3] [scope=apps/android/app/src/main/java/dev/nako/android/ui,apps/android/app/src/main/res/values,apps/android/app/src/test/java/dev/nako/android/ui]
   Goal: Productize copy, accessibility semantics, and localization seams.
   Scope:
   - Move stable user-facing strings to Android resources where practical.

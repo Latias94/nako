@@ -14,8 +14,8 @@ position and made `profile-with-media` smoke prove the local resume UI path.
 
 ## File Scope
 
-- `apps/android/app/src/debug/java/dev/taru/android/smoke/`
-- `apps/android/app/src/testDebug/java/dev/taru/android/smoke/`
+- `apps/android/app/src/debug/java/dev/nako/android/smoke/`
+- `apps/android/app/src/testDebug/java/dev/nako/android/smoke/`
 - `apps/android/scripts/Smoke-Emulator.ps1`
 - Workstream docs under this directory.
 
@@ -24,7 +24,7 @@ position and made `profile-with-media` smoke prove the local resume UI path.
 Passed:
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.smoke.DebugSmokeFixtureSeedActivityTest --no-daemon
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.smoke.DebugSmokeFixtureSeedActivityTest --no-daemon
 pwsh -NoProfile -File apps\android\scripts\Smoke-Emulator.ps1 -FixtureState profile-with-media
 git diff --check
 ```

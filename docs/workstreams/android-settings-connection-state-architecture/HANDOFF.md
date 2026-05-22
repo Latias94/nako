@@ -18,7 +18,7 @@ Closed.
 - ASCSA-020 through ASCSA-040 are complete:
   - `ConnectionSession` owns connection form/test/save/switch/failure state;
   - `SettingsSession` owns server profile switch and sign-out actions;
-  - `TaruAppSession` owns root snapshot and connection visibility.
+  - `NakoAppSession` owns root snapshot and connection visibility.
 - Final gates passed on 2026-05-20:
   - `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon --no-parallel`
   - `git diff --check`

@@ -5,9 +5,9 @@ Last updated: 2026-05-18
 
 ## Problem
 
-Taru has moved in the right direction: the workspace is split by domain, the
+Nako has moved in the right direction: the workspace is split by domain, the
 server root is mostly a composition point, metadata merge authority is in
-`taru-core`, catalog graph/search projection commit is atomic, and the runtime
+`nako-core`, catalog graph/search projection commit is atomic, and the runtime
 supervisor owns background work.
 
 The remaining friction is concentrated in several shallow interfaces:
@@ -68,7 +68,7 @@ This lane covers the following vertical slices:
 - Full Source Variant schema, optimized versions, or adaptive bitrate playback.
 - Addon token/grant lifecycle, concrete artwork intake, or Library File Write
   implementation owned by existing addon lanes.
-- Splitting Taru into multiple deployable services.
+- Splitting Nako into multiple deployable services.
 - Copying Jellyfin or Plex source, schema, migrations, tests, or comments.
 
 ## Architecture Direction
@@ -93,7 +93,7 @@ Local Inference Evidence, Search Projection, and Scan failure resolution. The
 current `record_scanned_media_source` direction is good but not deep enough
 because important adjacent writes remain in the caller.
 
-The target interface should hide write ordering from `taru-library` and make
+The target interface should hide write ordering from `nako-library` and make
 failure tests prove that stale search or stale failure state cannot survive a
 failed source commit.
 

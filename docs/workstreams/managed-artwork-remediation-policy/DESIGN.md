@@ -6,12 +6,12 @@ Last updated: 2026-05-19
 ## Problem
 
 Storage drift diagnostics can now report missing DB-backed files and stray
-artifact-root files, but diagnostics do not define which states Taru may safely
+artifact-root files, but diagnostics do not define which states Nako may safely
 modify. Treating every drift finding as removable would be unsafe:
 
 - missing files for Selected Artwork can break public images and need repair,
   not deletion;
-- unrecognized files under the artifact root might not be Taru artifacts;
+- unrecognized files under the artifact root might not be Nako artifacts;
 - parseable files for active artifacts might be current data in an unexpected
   path and need manual inspection;
 - files for logically deleted or never-committed artifacts are safe cleanup
@@ -55,9 +55,9 @@ not use DB pagination because it acts only on bounded file inventory.
 | --- | --- | --- |
 | Missing selected DB-backed artifact file | Advisory: restore or republish Selected Artwork | Public image identity is protected by Selected Artwork. |
 | Missing unselected DB-backed artifact file | Advisory: run artifact cleanup or re-ingest | The DB row is active and must not be silently removed by file cleanup. |
-| Untracked parseable artifact file with supported extension and no active DB artifact | Eligible for explicit deletion | The file matches Taru artifact layout and active repository state has no owner. |
+| Untracked parseable artifact file with supported extension and no active DB artifact | Eligible for explicit deletion | The file matches Nako artifact layout and active repository state has no owner. |
 | Parseable artifact file for active artifact at unexpected path or extension | Blocked/manual inspect | There is an active DB owner; cleanup must not guess. |
-| Unsupported extension or unrecognized layout | Blocked/manual inspect | Not enough proof that Taru owns the file. |
+| Unsupported extension or unrecognized layout | Blocked/manual inspect | Not enough proof that Nako owns the file. |
 
 ## Redaction Boundary
 
@@ -95,7 +95,7 @@ Admin remediation responses never expose:
 
 ## Closeout Condition
 
-This lane can close when Taru provides a redacted remediation plan and a
+This lane can close when Nako provides a redacted remediation plan and a
 confirmed cleanup command that deletes only cleanable untracked artifact files,
 with tests proving active/Selected Artwork state is protected and no path or
 storage locator leaks.

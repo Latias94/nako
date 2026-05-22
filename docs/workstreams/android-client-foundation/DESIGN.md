@@ -5,9 +5,9 @@ Last updated: 2026-05-17
 
 ## Why This Lane Exists
 
-ADR 0026 establishes Taru's flagship playback-client direction: native
+ADR 0026 establishes Nako's flagship playback-client direction: native
 platform shells with a shared Rust client core. Android is the first
-implementation target so Taru can validate real playback behavior, server
+implementation target so Nako can validate real playback behavior, server
 connection flows, Public Client API ergonomics, and shared client-core
 boundaries before splitting attention across iOS, TV, desktop, or web clients.
 
@@ -35,13 +35,13 @@ implementation are deferred, though the architecture must remain compatible
 with them.
 
 The product slice is playback-first with a minimal media-library browsing loop.
-The first useful client should let a user connect to Taru, browse a library,
-open a media item, select a playable source through Taru's playback decision,
+The first useful client should let a user connect to Nako, browse a library,
+open a media item, select a playable source through Nako's playback decision,
 and play through Android's native media stack.
 
 The first user-facing page set is defined in `UX_CONTEXT.md`. It intentionally
 borrows Findroid's broad page families and playback checklist as reference
-material while preserving Taru's own domain model, design language, and public
+material while preserving Nako's own domain model, design language, and public
 API boundary.
 
 The Home screen is a playback launchpad. Libraries and Search are the stable
@@ -55,7 +55,7 @@ when server API support is incomplete.
 
 The Android client may store multiple server profiles, but one server is active
 at a time. Home, Search, cache, playback, and future Downloads are scoped to
-the active server. A server profile is client-side connection state, not a Taru
+the active server. A server profile is client-side connection state, not a Nako
 User.
 
 First-version auth is server URL plus access token, matching the current
@@ -90,7 +90,7 @@ diagnostics.
 
 The first Player is a reliability surface. It must make playback state,
 buffering, seeking, exit behavior, cancellation, and errors understandable
-before Taru adds advanced gestures, PiP, trickplay, skip controls, Cast, or
+before Nako adds advanced gestures, PiP, trickplay, skip controls, Cast, or
 alternate player backends.
 
 ACF-060 audits the current Public Client API boundary for playback state. The
@@ -123,7 +123,7 @@ portable enough for a later iOS shell.
 - Android app code lives under `apps/android/`.
 - The Android UI uses Kotlin and Compose.
 - Playback uses AndroidX Media3 ExoPlayer.
-- The app consumes Taru through the Public Client API and existing public SDK
+- The app consumes Nako through the Public Client API and existing public SDK
   boundaries.
 - Shared Rust client-core code, if introduced, lives in a permissive client
   crate and is exposed through a narrow FFI boundary such as UniFFI.
@@ -137,7 +137,7 @@ portable enough for a later iOS shell.
 ## In Scope
 
 - Android project scaffold under `apps/android`.
-- A minimal Android app shell for connecting to a Taru server.
+- A minimal Android app shell for connecting to a Nako server.
 - A basic dark-first Material 3 theme aligned with the visual baseline in
   `UX_CONTEXT.md`.
 - Public Client API connection and bearer-token handling.
@@ -215,13 +215,13 @@ portable enough for a later iOS shell.
 
 ## Architecture Direction
 
-Keep the Android client thin at the platform boundary and strict at the Taru
+Keep the Android client thin at the platform boundary and strict at the Nako
 boundary.
 
-Android should treat Taru as a server reached through Public Client API routes,
+Android should treat Nako as a server reached through Public Client API routes,
 not as a local Rust library. The app may reuse Rust client code through FFI
 once that reduces duplication, but the first scaffold should preserve the same
-contract discipline as `taru-client-cli`: clients consume public routes and
+contract discipline as `nako-client-cli`: clients consume public routes and
 public DTOs only.
 
 Do not expose server-local paths, raw provider state, storage internals, or
@@ -245,9 +245,9 @@ Rationale:
 - The slice only needs `GET /health` and a lightweight authenticated Public
   Client API probe. Duplicated protocol surface is intentionally tiny.
 - The implementation keeps protocol facts in a small Android connection layer:
-  expected API version `v1`, `x-taru-api-version`, `ErrorResponse`, and safe
-  diagnostics. It must not import `taru-api`, `taru-server`, `taru-core`,
-  `taru-streaming`, or `taru-transcode`.
+  expected API version `v1`, `x-nako-api-version`, `ErrorResponse`, and safe
+  diagnostics. It must not import `nako-api`, `nako-server`, `nako-core`,
+  `nako-streaming`, or `nako-transcode`.
 - UniFFI remains the likely path once browse/search/playback request
   construction grows enough that duplicating SDK logic becomes expensive.
 
@@ -277,6 +277,6 @@ ACF-020; it only verifies token acceptance and public error handling.
 ## Closeout Condition
 
 This lane can close when Android has a validated foundation for connecting to
-Taru, browsing a minimal library surface, requesting playback decisions, and
+Nako, browsing a minimal library surface, requesting playback decisions, and
 playing at least one public playback route through Media3 without depending on
 server/internal crates.

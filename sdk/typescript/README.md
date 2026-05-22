@@ -1,6 +1,6 @@
-# Taru TypeScript SDK
+# Nako TypeScript SDK
 
-This package contains the generated TypeScript SDK for the Taru public client
+This package contains the generated TypeScript SDK for the Nako public client
 API. It is private for now and exists to compile-check the generated client
 surface before npm publishing is designed.
 
@@ -10,7 +10,7 @@ surface before npm publishing is designed.
 npm run generate --prefix sdk/typescript
 ```
 
-The command refreshes `src/index.ts` from `taru-api`. Do not edit generated
+The command refreshes `src/index.ts` from `nako-api`. Do not edit generated
 source by hand.
 
 ## Check

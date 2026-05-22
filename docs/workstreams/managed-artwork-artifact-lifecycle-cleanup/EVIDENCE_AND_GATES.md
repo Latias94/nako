@@ -19,10 +19,10 @@ artwork routes.
 ### Dry-Run Diagnostics Gate
 
 ```powershell
-cargo nextest run -p taru-api managed_artwork_lifecycle --no-fail-fast
-cargo nextest run -p taru-db managed_artwork_lifecycle --no-fail-fast
-cargo nextest run -p taru-server managed_artwork_lifecycle --no-fail-fast
-cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests
+cargo nextest run -p nako-api managed_artwork_lifecycle --no-fail-fast
+cargo nextest run -p nako-db managed_artwork_lifecycle --no-fail-fast
+cargo nextest run -p nako-server managed_artwork_lifecycle --no-fail-fast
+cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests
 cargo fmt --all -- --check
 git diff --check
 ```
@@ -30,10 +30,10 @@ git diff --check
 ### Protected Cleanup Gate
 
 ```powershell
-cargo nextest run -p taru-api managed_artwork_cleanup --no-fail-fast
-cargo nextest run -p taru-db sqlite_store_cleanup_marks_only_unselected_managed_artwork_artifacts_deleted --no-fail-fast
-cargo nextest run -p taru-server managed_artwork_cleanup --no-fail-fast
-cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests
+cargo nextest run -p nako-api managed_artwork_cleanup --no-fail-fast
+cargo nextest run -p nako-db sqlite_store_cleanup_marks_only_unselected_managed_artwork_artifacts_deleted --no-fail-fast
+cargo nextest run -p nako-server managed_artwork_cleanup --no-fail-fast
+cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests
 cargo fmt --all -- --check
 git diff --check
 ```
@@ -41,10 +41,10 @@ git diff --check
 ### Closeout Gate
 
 ```powershell
-rg -n "storage_uri|managed-artwork://|source_uri|cache_uri|content_hash|local_path|artifact_root" crates/taru-api crates/taru-server/src/http docs/api
-cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests
-cargo nextest run -p taru-db artwork --no-fail-fast
-cargo nextest run -p taru-server artwork --no-fail-fast
+rg -n "storage_uri|managed-artwork://|source_uri|cache_uri|content_hash|local_path|artifact_root" crates/nako-api crates/nako-server/src/http docs/api
+cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests
+cargo nextest run -p nako-db artwork --no-fail-fast
+cargo nextest run -p nako-server artwork --no-fail-fast
 cargo fmt --all -- --check
 git diff --check
 ```
@@ -55,14 +55,14 @@ assertions, or documentation that states values are forbidden in responses.
 ## Evidence Anchors
 
 - `docs/workstreams/managed-artwork-public-serving-selection/HANDOFF.md`
-- `crates/taru-core/src/media/artwork.rs`
-- `crates/taru-core/src/repository/metadata.rs`
-- `crates/taru-db/migrations/0026_managed_artwork_ingest.sql`
-- `crates/taru-db/migrations/0027_selected_artwork_publication.sql`
-- `crates/taru-db/src/artwork.rs`
-- `crates/taru-api/src/admin.rs`
-- `crates/taru-server/src/app/artwork.rs`
-- `crates/taru-server/src/http/admin.rs`
+- `crates/nako-core/src/media/artwork.rs`
+- `crates/nako-core/src/repository/metadata.rs`
+- `crates/nako-db/migrations/0026_managed_artwork_ingest.sql`
+- `crates/nako-db/migrations/0027_selected_artwork_publication.sql`
+- `crates/nako-db/src/artwork.rs`
+- `crates/nako-api/src/admin.rs`
+- `crates/nako-server/src/app/artwork.rs`
+- `crates/nako-server/src/http/admin.rs`
 - `docs/api/HTTP_API.md`
 
 ## Fresh Evidence
@@ -103,13 +103,13 @@ assertions, or documentation that states values are forbidden in responses.
     raw source URLs, `source_uri`, `cache_uri`, addon tokens, provider query
     strings, and content hash values.
 - Validation:
-  - `cargo nextest run -p taru-api managed_artwork_lifecycle --no-fail-fast`
+  - `cargo nextest run -p nako-api managed_artwork_lifecycle --no-fail-fast`
     passed.
-  - `cargo nextest run -p taru-db managed_artwork_lifecycle --no-fail-fast`
+  - `cargo nextest run -p nako-db managed_artwork_lifecycle --no-fail-fast`
     passed.
-  - `cargo nextest run -p taru-server managed_artwork_lifecycle --no-fail-fast`
+  - `cargo nextest run -p nako-server managed_artwork_lifecycle --no-fail-fast`
     passed.
-  - `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests`
+  - `cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests`
     passed.
   - `cargo fmt --all -- --check` passed.
   - `git diff --check` passed with only Git CRLF normalization warnings for
@@ -145,23 +145,23 @@ assertions, or documentation that states values are forbidden in responses.
     `source_uri`, `cache_uri`, addon token material, query strings, or content
     hashes.
 - Added local file cleanup:
-  - only resolves Taru-owned `managed-artwork://artifact/{id}` handles;
+  - only resolves Nako-owned `managed-artwork://artifact/{id}` handles;
   - best-effort removes local files after repository cleanup;
   - reports deleted, missing, and failed counts without exposing paths.
 - Validation:
-  - `cargo nextest run -p taru-api managed_artwork_cleanup --no-fail-fast`
+  - `cargo nextest run -p nako-api managed_artwork_cleanup --no-fail-fast`
     passed.
-  - `cargo nextest run -p taru-db sqlite_store_cleanup_marks_only_unselected_managed_artwork_artifacts_deleted --no-fail-fast`
+  - `cargo nextest run -p nako-db sqlite_store_cleanup_marks_only_unselected_managed_artwork_artifacts_deleted --no-fail-fast`
     passed.
-  - `cargo nextest run -p taru-server managed_artwork_cleanup --no-fail-fast`
+  - `cargo nextest run -p nako-server managed_artwork_cleanup --no-fail-fast`
     passed.
-  - `cargo nextest run -p taru-api managed_artwork_lifecycle --no-fail-fast`
+  - `cargo nextest run -p nako-api managed_artwork_lifecycle --no-fail-fast`
     passed.
-  - `cargo nextest run -p taru-db managed_artwork_lifecycle --no-fail-fast`
+  - `cargo nextest run -p nako-db managed_artwork_lifecycle --no-fail-fast`
     passed.
-  - `cargo nextest run -p taru-server managed_artwork_lifecycle --no-fail-fast`
+  - `cargo nextest run -p nako-server managed_artwork_lifecycle --no-fail-fast`
     passed.
-  - `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests`
+  - `cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests`
     passed.
   - `cargo fmt --all -- --check` passed.
   - `git diff --check` passed with only Git CRLF normalization warnings for

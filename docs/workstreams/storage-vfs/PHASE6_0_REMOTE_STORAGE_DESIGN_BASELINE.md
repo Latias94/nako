@@ -4,7 +4,7 @@ Status: completed.
 
 ## Goal
 
-Define Taru's remote storage strategy before implementing a remote backend.
+Define Nako's remote storage strategy before implementing a remote backend.
 This phase is intentionally docs-only: it records the architecture decision,
 splits M6 milestones, and audits current local-path assumptions.
 
@@ -21,7 +21,7 @@ splits M6 milestones, and audits current local-path assumptions.
 
 ### VFS
 
-`taru-vfs` already has the right first abstraction:
+`nako-vfs` already has the right first abstraction:
 
 - `StorageUri` stores scheme-qualified source locators.
 - `ObjectMetadata` carries kind, length, modified time, etag, fingerprint, and
@@ -36,7 +36,7 @@ a reader/stream abstraction or go through staging.
 
 ### Scan
 
-`taru-library::VfsLibraryScanner` already scans through `StorageBackend::list`
+`nako-library::VfsLibraryScanner` already scans through `StorageBackend::list`
 and stores `StorageUri` locators. This is the least coupled path and should be
 kept.
 
@@ -46,18 +46,18 @@ disappearing.
 
 ### Probe
 
-`taru-library::LibraryProbeService` opens a source through VFS, then passes
-`VirtualFile.local_path_hint` to `taru-media-probe`.
+`nako-library::LibraryProbeService` opens a source through VFS, then passes
+`VirtualFile.local_path_hint` to `nako-media-probe`.
 
-`taru-media-probe::FfprobeMediaProbe` currently rejects inputs without a local
+`nako-media-probe::FfprobeMediaProbe` currently rejects inputs without a local
 path hint. Remote sources therefore need an explicit staging service before
 ffprobe runs.
 
 ### Direct Play
 
-`taru-server::app::plan_direct_play` calls `local_source_path_and_len`, which
+`nako-server::app::plan_direct_play` calls `local_source_path_and_len`, which
 constructs `LocalFsBackend` from the configured library root and requires a
-local path. `taru-server::http` then streams the path through
+local path. `nako-server::http` then streams the path through
 `stream_local_file_response`.
 
 Remote direct play should instead stream range-readable sources through VFS
@@ -65,9 +65,9 @@ where possible.
 
 ### Remux and HLS
 
-`taru-server::app::remux_source` and `hls_source` also call
-`local_source_path_and_len`, then pass a `PathBuf` input into `taru-transcode`.
-`taru-transcode` command planning and runners currently expect FFmpeg input
+`nako-server::app::remux_source` and `hls_source` also call
+`local_source_path_and_len`, then pass a `PathBuf` input into `nako-transcode`.
+`nako-transcode` command planning and runners currently expect FFmpeg input
 paths.
 
 Remote remux and HLS should use staging first. Passing remote URLs and secrets

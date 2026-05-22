@@ -27,17 +27,17 @@ not revert or accidentally include those changes when committing M49 slices.
 
 ```powershell
 cargo fmt --all -- --check
-cargo check -p taru-vfs --tests
-cargo nextest run -p taru-vfs --no-fail-fast
-cargo check -p taru-nfo --tests
-cargo nextest run -p taru-nfo --no-fail-fast
+cargo check -p nako-vfs --tests
+cargo nextest run -p nako-vfs --no-fail-fast
+cargo check -p nako-nfo --tests
+cargo nextest run -p nako-nfo --no-fail-fast
 cargo check --workspace --tests
 cargo nextest run --workspace --no-fail-fast
 git diff --check
 ```
 
 Closeout result: all gates passed on 2026-05-17. Focused test counts were 25
-for `taru-vfs` and 18 for `taru-nfo`; workspace nextest passed 310 tests.
+for `nako-vfs` and 18 for `nako-nfo`; workspace nextest passed 310 tests.
 
 ## Follow-ons Outside M49
 

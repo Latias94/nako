@@ -6,7 +6,7 @@ Last updated: 2026-05-19
 This workstream owned the follow-on after
 `addon-managed-artwork-artifacts`. AMAA shipped the safe Addon Artwork
 Candidate proposal boundary. This lane selected and shipped the first
-candidate acceptance boundary: an Admin API command queues Taru-owned managed
+candidate acceptance boundary: an Admin API command queues Nako-owned managed
 artwork ingest state without fetching remote bytes or publishing public
 artwork.
 
@@ -24,7 +24,7 @@ Authoritative docs:
 
 ## Goals
 
-- Define and ship the first Taru-owned candidate acceptance path.
+- Define and ship the first Nako-owned candidate acceptance path.
 - Keep remote artwork fetches out of Addon Side Effect handling.
 - Record a durable managed artwork ingest row and job with redacted input.
 - Prevent candidate source URLs, cache URIs, paths, and unvalidated hotlinks

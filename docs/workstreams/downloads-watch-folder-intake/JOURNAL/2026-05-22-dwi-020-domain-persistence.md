@@ -11,10 +11,10 @@ The slice adds:
 - `AcquisitionIntakeCandidateId`;
 - `AcquisitionIntakeSourceKind`;
 - `AcquisitionIntakeCandidateState`;
-- candidate list filters, new-record, and record DTOs in `taru-core`;
+- candidate list filters, new-record, and record DTOs in `nako-core`;
 - `AcquisitionIntakeRepository`;
 - SQLite and PostgreSQL schema/adapters;
-- `TaruDatabase` facade dispatch and backend capability flag;
+- `NakoDatabase` facade dispatch and backend capability flag;
 - backend-neutral contract coverage.
 
 ## Boundary Decisions
@@ -28,13 +28,13 @@ The slice adds:
 
 ## Verification
 
-- `cargo nextest run -p taru-db acquisition_intake --no-fail-fast` — pass, 1
+- `cargo nextest run -p nako-db acquisition_intake --no-fail-fast` — pass, 1
   SQLite contract test; PostgreSQL paired contract is ignored unless
-  `TARU_TEST_POSTGRES_URL` is provided.
-- `cargo check -p taru-db --tests` — pass.
+  `NAKO_TEST_POSTGRES_URL` is provided.
+- `cargo check -p nako-db --tests` — pass.
 - `cargo fmt --all -- --check` — pass.
 - `git diff --check` — pass with repository CRLF conversion warnings only.
-- `git diff --name-only -- crates/taru-client-protocol` — no output.
+- `git diff --name-only -- crates/nako-client-protocol` — no output.
 
 ## Next
 

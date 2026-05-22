@@ -8,10 +8,10 @@ migration execution, secret redaction, and HLS hardware acceleration selection.
 
 ## SQLite Runtime
 
-`taru-db` now has focused runtime and migration modules:
+`nako-db` now has focused runtime and migration modules:
 
-- `crates/taru-db/src/runtime.rs`
-- `crates/taru-db/src/migrations.rs`
+- `crates/nako-db/src/runtime.rs`
+- `crates/nako-db/src/migrations.rs`
 
 On-disk SQLite uses explicit runtime defaults:
 
@@ -30,9 +30,9 @@ part of M15.
 
 ## Migration Execution
 
-Migration execution now uses SQLx `Migrator` with embedded migration SQL. Taru
+Migration execution now uses SQLx `Migrator` with embedded migration SQL. Nako
 no longer splits migration files with `split(';')` and no longer maintains its
-own `taru_schema_migrations` table.
+own `nako_schema_migrations` table.
 
 SQLx owns:
 
@@ -46,7 +46,7 @@ failed migration.
 
 ## Secret Redaction
 
-`taru-core::SecretString` is the shared resolved-secret wrapper. It redacts
+`nako-core::SecretString` is the shared resolved-secret wrapper. It redacts
 `Debug`, `Display`, and serialization, and requires explicit
 `expose_secret()` calls at integration boundaries.
 
@@ -86,10 +86,10 @@ Tests cover:
 Focused validation used during implementation:
 
 ```powershell
-cargo test -p taru-db
-cargo test -p taru-core -p taru-metadata -p taru-server redact -- --nocapture
-cargo test -p taru-server hls_ -- --nocapture
-cargo check -p taru-server --tests
+cargo test -p nako-db
+cargo test -p nako-core -p nako-metadata -p nako-server redact -- --nocapture
+cargo test -p nako-server hls_ -- --nocapture
+cargo check -p nako-server --tests
 ```
 
 Full workspace validation remains the close-out gate for M15.

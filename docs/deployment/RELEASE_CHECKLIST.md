@@ -2,7 +2,7 @@
 
 Status: Draft packaging baseline
 
-Use this checklist for packaged Taru self-hosted releases. It assumes you are
+Use this checklist for packaged Nako self-hosted releases. It assumes you are
 installing from a release artifact or the provided compose files, not from an
 ad-hoc source checkout.
 
@@ -29,13 +29,13 @@ or private paths into support tickets when sharing the manifest.
 
 1. Choose SQLite or PostgreSQL.
 2. Copy a config example:
-   - Source/host install: `deploy/sqlite/taru.toml` or
-     `deploy/postgres/taru.toml`.
-   - Container install: `deploy/container/sqlite.taru.toml` or
-     `deploy/container/postgres.taru.toml`.
+   - Source/host install: `deploy/sqlite/nako.toml` or
+     `deploy/postgres/nako.toml`.
+   - Container install: `deploy/container/sqlite.nako.toml` or
+     `deploy/container/postgres.nako.toml`.
 3. Set secrets outside the config file:
-   - `TARU_ADMIN_TOKEN`
-   - `TARU_DATABASE_URL` for PostgreSQL
+   - `NAKO_ADMIN_TOKEN`
+   - `NAKO_DATABASE_URL` for PostgreSQL
    - Provider/WebDAV/Webhook secrets as needed
 4. Confirm durable paths:
    - database path or PostgreSQL volume
@@ -49,7 +49,7 @@ or private paths into support tickets when sharing the manifest.
 Run preflight before serving traffic:
 
 ```bash
-taru-server --config /config/taru.toml config-check --create-dirs
+nako-server --config /config/nako.toml config-check --create-dirs
 ```
 
 Expected hard failures:
@@ -59,22 +59,22 @@ Expected hard failures:
 - database backend/URL mismatch,
 - unresolved `${...}` placeholders,
 - missing local media library root,
-- Taru-owned artifact/staging path cannot be created or write-probed.
+- Nako-owned artifact/staging path cannot be created or write-probed.
 
-Start Taru only after hard failures are fixed.
+Start Nako only after hard failures are fixed.
 
 ## 4. Container Start
 
 Copy `.env.example`, replace all values, then run one stack:
 
 ```bash
-docker compose --env-file deploy/compose/.env -f deploy/compose/taru-sqlite.yml up --build
-docker compose --env-file deploy/compose/.env -f deploy/compose/taru-postgres.yml up --build
+docker compose --env-file deploy/compose/.env -f deploy/compose/nako-sqlite.yml up --build
+docker compose --env-file deploy/compose/.env -f deploy/compose/nako-postgres.yml up --build
 ```
 
 The compose stacks:
 
-- bind Taru to `127.0.0.1:3000`,
+- bind Nako to `127.0.0.1:3000`,
 - run `config-check --create-dirs` before `serve`,
 - mount media read-only,
 - keep DB/artifact/cache state outside the image layer.
@@ -83,9 +83,9 @@ The compose stacks:
 
 ```bash
 curl http://127.0.0.1:3000/health
-curl -H "Authorization: Bearer $TARU_ADMIN_TOKEN" \
+curl -H "Authorization: Bearer $NAKO_ADMIN_TOKEN" \
   http://127.0.0.1:3000/admin/v1/overview
-curl -H "Authorization: Bearer $TARU_ADMIN_TOKEN" \
+curl -H "Authorization: Bearer $NAKO_ADMIN_TOKEN" \
   http://127.0.0.1:3000/admin/v1/system/config
 ```
 
@@ -97,7 +97,7 @@ provider secrets, artifact paths, or source locators.
 
 Before upgrading:
 
-1. Stop Taru or enter a maintenance window.
+1. Stop Nako or enter a maintenance window.
 2. Back up the database.
 3. Back up Managed Artwork artifact root.
 4. Back up config and secret-manager entries.
@@ -113,20 +113,20 @@ See `docs/deployment/BACKUP_RESTORE_UPGRADE.md` for SQLite/PostgreSQL commands.
 3. Take a fresh backup.
 4. Replace the binary or pull/build the new image.
 5. Run `config-check --create-dirs`.
-6. Start Taru.
+6. Start Nako.
 7. Check health, overview, system config, and relevant Admin diagnostics.
 
 ## 8. Rollback
 
 Treat database migration rollback as restore-from-backup:
 
-1. Stop Taru.
+1. Stop Nako.
 2. Restore pre-upgrade DB backup.
 3. Restore matching artifact root and config if they changed.
 4. Run the previous binary/image.
 5. Verify health and diagnostics.
 
-Do not run an older Taru binary against a newer migrated DB unless an explicit
+Do not run an older Nako binary against a newer migrated DB unless an explicit
 release note says it is supported.
 
 ## 9. Support Bundle Expectations
@@ -143,8 +143,8 @@ A safe support bundle may include:
 
 Never include:
 
-- raw `TARU_ADMIN_TOKEN`,
-- raw `TARU_DATABASE_URL` with password,
+- raw `NAKO_ADMIN_TOKEN`,
+- raw `NAKO_DATABASE_URL` with password,
 - provider tokens/API keys,
 - Addon Tokens,
 - Webhook secrets,

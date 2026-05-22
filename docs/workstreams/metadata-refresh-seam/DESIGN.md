@@ -8,7 +8,7 @@ Last updated: 2026-05-17
 M39 proved that catalog hydration becomes easier to reason about when callers
 depend on a workflow-shaped port instead of a broad repository trait
 combination. The next high-friction boundary is metadata refresh:
-`taru-metadata` currently coordinates item loading, provider mapping, raw
+`nako-metadata` currently coordinates item loading, provider mapping, raw
 response cache, attempt records, field locks, refresh application, hierarchy
 confirmation, and catalog hydration from one strategy surface.
 
@@ -22,7 +22,7 @@ exercise one refresh workflow.
   details behind workflow operations.
 - The first slice keeps provider behavior unchanged and focuses on the refresh
   strategy seam.
-- `taru-metadata` can test core refresh behavior with a small fake adapter,
+- `nako-metadata` can test core refresh behavior with a small fake adapter,
   while SQLite behavior remains covered by existing integration tests.
 - Catalog hydration continues to flow through M39's `CatalogHydrationPort`.
 - Provider breadth, public APIs, SDKs, NFO Round Trip, and playback stay out of
@@ -68,7 +68,7 @@ needs a smaller `ProviderResolutionPort`.
 ## First Slice Decision
 
 M40.1 chooses `MetadataRefreshPort` plus `MetadataAttemptPort` inside
-`taru-metadata`.
+`nako-metadata`.
 
 `MetadataRefreshPort` owns the refresh persistence workflow:
 

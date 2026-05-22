@@ -23,7 +23,7 @@ Evidence:
 
 Exit criteria:
 
-- `taru-streaming` exposes a workflow-shaped **Playback Source Selection**
+- `nako-streaming` exposes a workflow-shaped **Playback Source Selection**
   Interface.
 - Existing container/codec/direct-play behavior is tested through the new
   Interface.
@@ -33,26 +33,26 @@ Exit criteria:
 Expected gates:
 
 - `cargo fmt --all -- --check`
-- `cargo check -p taru-streaming --tests`
-- `cargo nextest run -p taru-streaming --no-fail-fast`
+- `cargo check -p nako-streaming --tests`
+- `cargo nextest run -p nako-streaming --no-fail-fast`
 
 Evidence:
 
-- Completed with 8 `taru-streaming` tests passing.
+- Completed with 8 `nako-streaming` tests passing.
 
 ## M43.2 - Server Playback Migration
 
 Exit criteria:
 
-- `taru-server` playback app loads facts, calls `taru-streaming`, and executes
+- `nako-server` playback app loads facts, calls `nako-streaming`, and executes
   the returned direct/remux/transcode intent.
 - Mode-choice reasoning is not duplicated in HTTP or app orchestration.
 - Existing playback route behavior remains compatible.
 
 Expected gates:
 
-- `cargo check -p taru-server --tests`
-- focused `cargo nextest run -p taru-server http::tests::playback --no-fail-fast`
+- `cargo check -p nako-server --tests`
+- focused `cargo nextest run -p nako-server http::tests::playback --no-fail-fast`
 
 Evidence:
 
@@ -70,12 +70,12 @@ Exit criteria:
 
 Expected gates:
 
-- `cargo check -p taru-api --tests`
+- `cargo check -p nako-api --tests`
 - `npm run check --prefix sdk/typescript` if generated SDK output changes
 
 Evidence:
 
-- Completed with 12 `taru-api` tests passing.
+- Completed with 12 `nako-api` tests passing.
 - No public DTO shape changed, so TypeScript SDK regeneration was not required.
 
 ## M43.4 - Closeout

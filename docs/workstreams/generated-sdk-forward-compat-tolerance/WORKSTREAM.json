@@ -29,11 +29,11 @@
     }
   ],
   "gates": [
-    "cargo fmt --package taru-api --check",
-    "cargo nextest run -p taru-api kotlin_sdk --no-fail-fast",
-    "cargo nextest run -p taru-api --no-fail-fast",
+    "cargo fmt --package nako-api --check",
+    "cargo nextest run -p nako-api kotlin_sdk --no-fail-fast",
+    "cargo nextest run -p nako-api --no-fail-fast",
     "npm run check --prefix sdk/typescript",
-    "apps/android/gradlew.bat -p apps/android :taru-public-client-sdk:test --no-daemon",
+    "apps/android/gradlew.bat -p apps/android :nako-public-client-sdk:test --no-daemon",
     "apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon",
     "apps/android/gradlew.bat -p apps/android :app:assembleDebug --no-daemon",
     "python -m json.tool docs/workstreams/generated-sdk-forward-compat-tolerance/WORKSTREAM.json > $null",
@@ -43,10 +43,10 @@
     "docs/adr/0025-openapi-public-client-sdk-contract.md",
     "docs/adr/0031-android-client-sdk-before-mobile-rust-ffi.md",
     "docs/workstreams/android-generated-public-client-sdk/CLOSEOUT.md",
-    "crates/taru-api/src/sdk.rs",
-    "crates/taru-api/examples/emit-kotlin-sdk.rs",
+    "crates/nako-api/src/sdk.rs",
+    "crates/nako-api/examples/emit-kotlin-sdk.rs",
     "sdk/kotlin",
-    "apps/android/app/src/main/java/dev/taru/android"
+    "apps/android/app/src/main/java/dev/nako/android"
   ],
   "adr_refs": [
     "docs/adr/0025-openapi-public-client-sdk-contract.md",

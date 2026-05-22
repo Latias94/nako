@@ -15,7 +15,7 @@ Exit criteria:
 
 Exit criteria:
 
-- `taru-client-core` has explicit builders for `TaruBrowseClient` route family.
+- `nako-client-core` has explicit builders for `NakoBrowseClient` route family.
 - Builders produce `CoreHttpRequest` with auth, safe preview, path encoding, and
   query encoding.
 - Core tests cover stable URLs for representative routes.
@@ -24,7 +24,7 @@ Exit criteria:
 
 Exit criteria:
 
-- `taru-client-uniffi` exposes thin browse request builder bindings.
+- `nako-client-uniffi` exposes thin browse request builder bindings.
 - Boundary guard still passes.
 - UniFFI tests cover at least search and facet routes.
 
@@ -32,7 +32,7 @@ Exit criteria:
 
 Exit criteria:
 
-- `TaruBrowseClient` runtime route construction uses `BrowseCore`/Rust core.
+- `NakoBrowseClient` runtime route construction uses `BrowseCore`/Rust core.
 - Kotlin SDK DTO decode and Android diagnostics remain unchanged.
 - Browse JVM tests pass.
 

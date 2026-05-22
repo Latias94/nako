@@ -37,18 +37,18 @@ jobs:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_USER: taru
-          POSTGRES_PASSWORD: taru
-          POSTGRES_DB: taru_contract
+          POSTGRES_USER: nako
+          POSTGRES_PASSWORD: nako
+          POSTGRES_DB: nako_contract
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U taru -d taru_contract"
+          --health-cmd "pg_isready -U nako -d nako_contract"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
     env:
-      TARU_TEST_POSTGRES_URL: postgres://taru:taru@127.0.0.1:5432/taru_contract
+      NAKO_TEST_POSTGRES_URL: postgres://nako:nako@127.0.0.1:5432/nako_contract
     steps:
       - name: Checkout
         uses: actions/checkout@v4

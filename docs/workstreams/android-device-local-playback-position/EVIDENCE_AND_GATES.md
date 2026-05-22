@@ -8,7 +8,7 @@ Last updated: 2026-05-19
 ### Focused Android Unit Gate
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.player.PlaybackLaunchTest --no-daemon
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.player.PlaybackLaunchTest --no-daemon
 ```
 
 ### Local Android Validation
@@ -25,9 +25,9 @@ git diff --check
 
 ## Evidence Anchors
 
-- `apps/android/app/src/main/java/dev/taru/android/player/DevicePlaybackPosition.kt`
-- `apps/android/app/src/main/java/dev/taru/android/ui/TaruAndroidApp.kt`
-- `apps/android/app/src/test/java/dev/taru/android/player/PlaybackLaunchTest.kt`
+- `apps/android/app/src/main/java/dev/nako/android/player/DevicePlaybackPosition.kt`
+- `apps/android/app/src/main/java/dev/nako/android/ui/NakoAndroidApp.kt`
+- `apps/android/app/src/test/java/dev/nako/android/player/PlaybackLaunchTest.kt`
 - `apps/android/build/validation/<timestamp>/report.md`
 
 ## Notes
@@ -41,7 +41,7 @@ cross-device Continue Watching. Generated validation reports remain local under
 Validated on 2026-05-19:
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.player.PlaybackLaunchTest --no-daemon
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.player.PlaybackLaunchTest --no-daemon
 pwsh -NoProfile -File apps\android\scripts\Validate-AndroidLocal.ps1 -SkipSmoke
 git diff --check
 ```

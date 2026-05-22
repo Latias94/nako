@@ -63,7 +63,7 @@ goal; clean architecture and correct ownership are preferred.
 
 ## In Scope
 
-- Compose UI rewrite under `apps/android/app/src/main/java/dev/taru/android/ui`.
+- Compose UI rewrite under `apps/android/app/src/main/java/dev/nako/android/ui`.
 - Theme/token refactor for Material 3, dynamic color, dark-first roles, motion,
   and artwork accent hooks.
 - Reusable media-client components: app chrome, poster/backdrop surfaces,
@@ -97,7 +97,7 @@ goal; clean architecture and correct ownership are preferred.
 | V2 is the initial target, not V3. | High | User preference and ACF handoff. | Re-open design planning before implementation. |
 | Current UI may be rewritten without compatibility guarantees. | High | User explicitly prefers clean architecture over preserving old UI. | Keep old route behavior only where it protects API/playback boundaries. |
 | Material 3 stable components should be the default foundation. | High | Android foundation and interface design. | Alpha expressive APIs stay optional wrappers. |
-| Dynamic color and artwork accents are compatible when scoped separately. | Medium | Interface design says global replacement is deferred, local media accents are allowed. | Add a settings toggle or fallback to static Taru roles. |
+| Dynamic color and artwork accents are compatible when scoped separately. | Medium | Interface design says global replacement is deferred, local media accents are allowed. | Add a settings toggle or fallback to static Nako roles. |
 | Existing public API is enough for first UI rewrite. | Medium | ACF implemented browse/search/detail/playback decisions. | Split API gaps instead of inventing local pseudo features. |
 
 ## Architecture Direction
@@ -107,7 +107,7 @@ The UI rewrite should move toward these package boundaries:
 
 - `ui/theme`: Material theme, static roles, dynamic color opt-in, motion tokens,
   shape/spacing/type tokens.
-- `ui/components`: reusable Taru media-client components with no server client
+- `ui/components`: reusable Nako media-client components with no server client
   ownership.
 - `ui/shell`: adaptive app chrome, top-level navigation, route transitions.
 - `ui/screens`: Home, Libraries, Search, Detail, Facet, Source Picker, Player,

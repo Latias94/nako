@@ -1,6 +1,6 @@
 # Automation Provider Guide
 
-Taru automation providers are external HTTP services that produce proposed
+Nako automation providers are external HTTP services that produce proposed
 artifacts for recommendation, metadata cleanup, summary generation, or title
 matching.
 
@@ -13,7 +13,7 @@ Use `POST /automation/providers`:
   "id": null,
   "name": "gateway",
   "base_url": "https://example.test/automation",
-  "secret_env": "TARU_AUTOMATION_SECRET",
+  "secret_env": "NAKO_AUTOMATION_SECRET",
   "capabilities": ["summary", "recommendation"],
   "timeout_ms": 30000,
   "max_attempts": 2,

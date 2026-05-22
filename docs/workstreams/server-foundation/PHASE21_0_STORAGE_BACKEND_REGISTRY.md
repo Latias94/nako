@@ -4,13 +4,13 @@
 
 M21 makes storage backend ownership a library-scoped runtime boundary. The
 server no longer treats storage backends as short-lived helpers created at each
-call site. `TaruApp` owns a `StorageBackendRegistry`, and scan, probe,
+call site. `NakoApp` owns a `StorageBackendRegistry`, and scan, probe,
 playback, NFO import/export, and FFmpeg staging all resolve storage through
 that registry.
 
 ## Runtime Boundary
 
-`crates/taru-server/src/app/storage.rs` is the storage composition boundary for
+`crates/nako-server/src/app/storage.rs` is the storage composition boundary for
 the server:
 
 - `StorageBackendRegistry` caches one `LibraryStorageBackend` per
@@ -47,7 +47,7 @@ Per-library runtime state is process-local:
 - WebDAV cache state is shared through the registry-owned cached backend;
 - health counters track last success, last error, and consecutive failures.
 
-This is intentionally not a distributed lock or multi-process pool. If Taru
+This is intentionally not a distributed lock or multi-process pool. If Nako
 later supports multiple server processes sharing one media database, staging
 budget reservation and backend health should move to database-backed or
 external coordination.
@@ -58,7 +58,7 @@ Close-out validation:
 
 ```powershell
 cargo fmt --all -- --check
-cargo check -p taru-server --tests
-cargo nextest run -p taru-server
+cargo check -p nako-server --tests
+cargo nextest run -p nako-server
 git diff --check
 ```

@@ -29,11 +29,11 @@
     }
   ],
   "gates": [
-    "apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.TaruConnectionClientTest --no-daemon",
-    "cargo fmt --package taru-client-core --check",
-    "cargo nextest run -p taru-client-core --no-fail-fast",
-    "cargo nextest run -p taru-client-uniffi --no-fail-fast",
-    "cargo nextest run -p taru-client --no-fail-fast",
+    "apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.connection.NakoConnectionClientTest --no-daemon",
+    "cargo fmt --package nako-client-core --check",
+    "cargo nextest run -p nako-client-core --no-fail-fast",
+    "cargo nextest run -p nako-client-uniffi --no-fail-fast",
+    "cargo nextest run -p nako-client --no-fail-fast",
     "./scripts/guard-uniffi-boundary.ps1",
     "apps/android/scripts/Validate-UniFfiNativeSmoke.ps1 -Serial <device> -Abi arm64-v8a",
     "python -m json.tool docs/workstreams/android-uniffi-boundary-hardening/WORKSTREAM.json > $null",
@@ -53,12 +53,12 @@
     {
       "date": "2026-05-21",
       "task": "UBF-030",
-      "summary": "Split taru-client-core into focused modules while preserving lib.rs public API; core, UniFFI, and taru-client gates passed."
+      "summary": "Split nako-client-core into focused modules while preserving lib.rs public API; core, UniFFI, and nako-client gates passed."
     },
     {
       "date": "2026-05-21",
       "task": "UBF-040",
-      "summary": "Added scripts/guard-uniffi-boundary.ps1 and verified taru-client-uniffi dependency boundary plus package tests."
+      "summary": "Added scripts/guard-uniffi-boundary.ps1 and verified nako-client-uniffi dependency boundary plus package tests."
     },
     {
       "date": "2026-05-21",

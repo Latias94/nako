@@ -19,7 +19,7 @@ Last updated: 2026-05-22
 
 ### M1 — Client Runtime And Request Execution Seam
 
-- [x] ACAD-020 [owner=codex] [deps=ACAD-010] [scope=apps/android/app/src/main/java/dev/taru/android/connection,apps/android/app/src/main/java/dev/taru/android/browse,apps/android/app/src/main/java/dev/taru/android/playback,apps/android/app/src/main/java/dev/taru/android/userplayback,apps/android/app/src/test/java/dev/taru/android]
+- [x] ACAD-020 [owner=codex] [deps=ACAD-010] [scope=apps/android/app/src/main/java/dev/nako/android/connection,apps/android/app/src/main/java/dev/nako/android/browse,apps/android/app/src/main/java/dev/nako/android/playback,apps/android/app/src/main/java/dev/nako/android/userplayback,apps/android/app/src/test/java/dev/nako/android]
   Goal: Introduce a deeper Android Public Client runtime seam above
   `PublicClientApiExecutor` that removes duplicated token/core/executor/decode
   orchestration while preserving route-family product semantics.
@@ -39,7 +39,7 @@ Last updated: 2026-05-22
 
 ### M2 — Browse Effects And Route Loading Ownership
 
-- [x] ACAD-030 [owner=codex] [deps=ACAD-020] [scope=apps/android/app/src/main/java/dev/taru/android/ui/browse,apps/android/app/src/test/java/dev/taru/android/ui/browse]
+- [x] ACAD-030 [owner=codex] [deps=ACAD-020] [scope=apps/android/app/src/main/java/dev/nako/android/ui/browse,apps/android/app/src/test/java/dev/nako/android/ui/browse]
   Goal: Make browse route side effects explicit and testable. Replace implicit
   state-collection-driven route loading/save orchestration with a clear effect,
   load-intent, or coordinator interface while keeping `BrowseSession` as the
@@ -58,7 +58,7 @@ Last updated: 2026-05-22
 
 ### M3 — Android Player Runtime Seam
 
-- [x] ACAD-040 [owner=codex] [deps=ACAD-020] [scope=apps/android/app/src/main/java/dev/taru/android/ui/screens/player,apps/android/app/src/main/java/dev/taru/android/playback,apps/android/app/src/test/java/dev/taru/android/ui/screens/player,apps/android/app/src/test/java/dev/taru/android/playback]
+- [x] ACAD-040 [owner=codex] [deps=ACAD-020] [scope=apps/android/app/src/main/java/dev/nako/android/ui/screens/player,apps/android/app/src/main/java/dev/nako/android/playback,apps/android/app/src/test/java/dev/nako/android/ui/screens/player,apps/android/app/src/test/java/dev/nako/android/playback]
   Goal: Promote route-scoped player orchestration into an Android-owned
   PlayerRuntime/PlaybackSessionRuntime seam that owns Media3 lifecycle
   orchestration, player event mapping, exit-effect dispatch, resume seek policy,
@@ -79,8 +79,8 @@ Last updated: 2026-05-22
 
 ### M4 — UI Design-System And Screen Modularization
 
-- [x] ACAD-050 [owner=codex] [deps=ACAD-030] [scope=apps/android/app/src/main/java/dev/taru/android/ui/components,apps/android/app/src/main/java/dev/taru/android/ui/browse,apps/android/app/src/main/java/dev/taru/android/ui/screens,apps/android/app/src/test/java/dev/taru/android/ui]
-  Goal: Separate generic design-system components from Taru media-specific
+- [x] ACAD-050 [owner=codex] [deps=ACAD-030] [scope=apps/android/app/src/main/java/dev/nako/android/ui/components,apps/android/app/src/main/java/dev/nako/android/ui/browse,apps/android/app/src/main/java/dev/nako/android/ui/screens,apps/android/app/src/test/java/dev/nako/android/ui]
+  Goal: Separate generic design-system components from Nako media-specific
   presentation components and screen route composition. Delete redundant
   pass-through wrappers and move independently testable display-model/copy
   builders out of oversized composable files.
@@ -100,7 +100,7 @@ Last updated: 2026-05-22
 
 ### M5 — Home Section Read Model And Progressive Artwork
 
-- [x] ACAD-060 [owner=codex] [deps=ACAD-020,ACAD-050] [scope=apps/android/app/src/main/java/dev/taru/android/ui/browse,apps/android/app/src/test/java/dev/taru/android/ui/browse,apps/android/app/src/main/java/dev/taru/android/artwork]
+- [x] ACAD-060 [owner=codex] [deps=ACAD-020,ACAD-050] [scope=apps/android/app/src/main/java/dev/nako/android/ui/browse,apps/android/app/src/test/java/dev/nako/android/ui/browse,apps/android/app/src/main/java/dev/nako/android/artwork]
   Goal: Replace monolithic Home loading with a section-oriented read model that
   can render partial Media Library, Media Item, Continue Watching, and Managed
   Artwork states independently, including degraded section errors where useful.

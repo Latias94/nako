@@ -23,7 +23,7 @@ layer and passed down to the player route.
 
 ## Architecture Direction
 
-- Keep the scope anchored at `TaruAndroidAppContent` or an equivalent app
+- Keep the scope anchored at `NakoAndroidAppContent` or an equivalent app
   shell boundary.
 - Use the existing Compose lifecycle to own the scope, not a global singleton.
 - Keep the change mechanical and narrow: no new business logic.
@@ -42,6 +42,6 @@ layer and passed down to the player route.
 ## Outcome
 
 - Added a small player exit effect launcher that uses an injected scope.
-- `TaruAndroidApp` now owns the player exit effect scope and passes it through
-  `TaruBrowseShell`.
+- `NakoAndroidApp` now owns the player exit effect scope and passes it through
+  `NakoBrowseShell`.
 - `PlaybackPlayerRoute` no longer constructs a detached `SupervisorJob`.

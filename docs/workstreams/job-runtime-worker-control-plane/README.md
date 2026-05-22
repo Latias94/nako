@@ -5,7 +5,7 @@ Last updated: 2026-05-19
 
 ## Purpose
 
-Taru has durable `jobs` rows, explicit job inputs, Admin job diagnostics, and
+Nako has durable `jobs` rows, explicit job inputs, Admin job diagnostics, and
 feature-specific execution paths. Managed Artwork ingest now has manual
 `process-next` and requeue controls, but the runtime ownership remains too
 feature-local: claim, execute, retry, cancellation, and worker supervision are

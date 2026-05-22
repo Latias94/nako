@@ -16,7 +16,7 @@ Last updated: 2026-05-19
 
 ## M1 - Variant Presentation Module
 
-- [x] MAMD-020 [owner=codex] [deps=MAMD-010] [scope=crates/taru-server/src/app/artwork.rs,crates/taru-server/src/app/artwork/variant.rs]
+- [x] MAMD-020 [owner=codex] [deps=MAMD-010] [scope=crates/nako-server/src/app/artwork.rs,crates/nako-server/src/app/artwork/variant.rs]
   Goal: Extract Selected Artwork variant request policy, derivation, byte
   envelope, and presentation ETag behavior into a private app Module with no
   public behavior change.
@@ -31,7 +31,7 @@ Last updated: 2026-05-19
 
 ## M2 - Artifact Store Module
 
-- [x] MAMD-030 [owner=codex] [deps=MAMD-020] [scope=crates/taru-server/src/app/artwork.rs,crates/taru-server/src/app/artwork/artifact_store.rs]
+- [x] MAMD-030 [owner=codex] [deps=MAMD-020] [scope=crates/nako-server/src/app/artwork.rs,crates/nako-server/src/app/artwork/artifact_store.rs]
   Goal: Extract local Managed Artwork Artifact storage, inventory, file
   classification, and safe delete outcomes into a private artifact store
   Module.
@@ -43,11 +43,11 @@ Last updated: 2026-05-19
   storage URI validation, write/read/delete operations, store inventory,
   discovered file parsing, and classified file issues. The app service now
   projects internal artifact store issues into Admin DTO reasons instead of
-  coupling the store Module to `taru-api`.
+  coupling the store Module to `nako-api`.
 
 ## M3 - Ingest Pipeline Module
 
-- [x] MAMD-040 [owner=codex] [deps=MAMD-030] [scope=crates/taru-server/src/app/artwork.rs,crates/taru-server/src/app/artwork/ingest_pipeline.rs]
+- [x] MAMD-040 [owner=codex] [deps=MAMD-030] [scope=crates/nako-server/src/app/artwork.rs,crates/nako-server/src/app/artwork/ingest_pipeline.rs]
   Goal: Extract fetch, validation, artifact write, and safe failure summary
   creation into an ingest pipeline Module while keeping durable job claiming
   and commit ordering in the app service.
@@ -64,10 +64,10 @@ Last updated: 2026-05-19
 
 ## M4 - Repository Adapter Module Split
 
-- [x] MAMD-050 [owner=codex] [deps=MAMD-040] [scope=crates/taru-db/src/artwork.rs,crates/taru-db/src/artwork/**]
+- [x] MAMD-050 [owner=codex] [deps=MAMD-040] [scope=crates/nako-db/src/artwork.rs,crates/nako-db/src/artwork/**]
   Goal: Split SQLite Managed Artwork repository implementation by concern while
-  preserving existing `taru-core` repository traits and public crate exports.
-  Validation: focused `taru-db` artwork tests and repository compile checks.
+  preserving existing `nako-core` repository traits and public crate exports.
+  Validation: focused `nako-db` artwork tests and repository compile checks.
   Evidence: SQL constants and row mappers move beside the concern they support.
   Result: DONE. `gallery.rs`, `lifecycle.rs`, `selected.rs`,
   `candidate.rs`, `ingest.rs`, and `artifact.rs` now own the SQL constants,
@@ -78,14 +78,14 @@ Last updated: 2026-05-19
 
 ## M5 - API Surface Audit
 
-- [x] MAMD-060 [owner=codex] [deps=MAMD-050] [scope=crates/taru-api/src/admin.rs,crates/taru-api/src/admin/**,crates/taru-api/src/public_client.rs]
+- [x] MAMD-060 [owner=codex] [deps=MAMD-050] [scope=crates/nako-api/src/admin.rs,crates/nako-api/src/admin/**,crates/nako-api/src/public_client.rs]
   Goal: Audit Managed Artwork DTO locality and split only if doing so reduces
   caller knowledge without weakening explicit DTO/redaction tests.
   Validation: Admin/Public Client redaction tests and OpenAPI checks.
   Evidence: redaction tests remain close to DTO conversion code.
   Result: DONE. Managed Artwork Admin DTOs, conversions, and redaction tests
-  moved into `crates/taru-api/src/admin/managed_artwork.rs`; `admin.rs` keeps
-  a module re-export so `taru_api::*` and HTTP callers remain stable. Public
+  moved into `crates/nako-api/src/admin/managed_artwork.rs`; `admin.rs` keeps
+  a module re-export so `nako_api::*` and HTTP callers remain stable. Public
   Client image reference conversion stayed in `public_client.rs` because it is
   already the protocol DTO boundary and remains small.
   Handoff: Continue with MAMD-070 closeout.

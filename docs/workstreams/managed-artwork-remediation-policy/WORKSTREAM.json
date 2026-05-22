@@ -15,9 +15,9 @@
     "public gallery or candidate management"
   ],
   "validation_gates": [
-    "cargo nextest run -p taru-api managed_artwork_remediation --no-fail-fast",
-    "cargo nextest run -p taru-server managed_artwork_remediation --no-fail-fast",
-    "cargo check -p taru-core -p taru-api -p taru-server --tests",
+    "cargo nextest run -p nako-api managed_artwork_remediation --no-fail-fast",
+    "cargo nextest run -p nako-server managed_artwork_remediation --no-fail-fast",
+    "cargo check -p nako-core -p nako-api -p nako-server --tests",
     "cargo fmt --all -- --check",
     "git diff --check"
   ]

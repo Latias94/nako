@@ -16,7 +16,7 @@ parity was intentionally split to
 `docs/workstreams/managed-artwork-postgresql-parity/`, which later closed with
 runtime capability support.
 
-M61 made Taru PostgreSQL-ready by introducing the `TaruDatabase` facade,
+M61 made Nako PostgreSQL-ready by introducing the `NakoDatabase` facade,
 SQLite-owned adapter modules, backend-neutral job lease contract tests, and an
 optional PostgreSQL proof harness. M62 turns that architectural proof into a
 real backend plan and implementation lane.
@@ -32,12 +32,12 @@ Authoritative docs:
 
 ## Priority Order
 
-1. **Contract-test matrix first** — define the backend-neutral behavior Taru
+1. **Contract-test matrix first** — define the backend-neutral behavior Nako
    expects before copying SQL or expanding migrations.
 2. **Schema and migration parity** — make PostgreSQL schema ownership explicit
    and progressively align the tables needed by proven contracts.
 3. **Runtime backend selection** — let server configuration choose SQLite or
-   PostgreSQL through `TaruDatabase` without leaking adapter details.
+   PostgreSQL through `NakoDatabase` without leaking adapter details.
 4. **SQLite assumption cleanup** — remove facade/server assumptions that are
    only valid for SQLite URLs, row codecs, SQL clocks, JSON text, or test
    setup.

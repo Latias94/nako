@@ -15,11 +15,11 @@ Last updated: 2026-05-19
 
 ## M1 - Persistent Device-Local Store
 
-- [x] ADP-020 [owner=codex] [deps=ADP-010] [scope=apps/android/app/src/main/java/dev/taru/android/player,apps/android/app/src/main/java/dev/taru/android/ui,apps/android/app/src/test/java/dev/taru/android/player]
+- [x] ADP-020 [owner=codex] [deps=ADP-010] [scope=apps/android/app/src/main/java/dev/nako/android/player,apps/android/app/src/main/java/dev/nako/android/ui,apps/android/app/src/test/java/dev/nako/android/player]
   Goal: Implement a persistent Android `DevicePlaybackPositionStore`, wire it
   into app composition, and keep the in-memory store for previews/tests.
   Validation:
-  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.player.PlaybackLaunchTest --no-daemon`
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.player.PlaybackLaunchTest --no-daemon`
   plus `pwsh -NoProfile -File apps\android\scripts\Validate-AndroidLocal.ps1 -SkipSmoke`
   and `git diff --check`.
   Review: Check that stored data is local-only, scoped by profile/item/source,
@@ -27,7 +27,7 @@ Last updated: 2026-05-19
   Evidence: `EVIDENCE_AND_GATES.md`.
   Handoff: DONE on 2026-05-19. Added
   `SharedPreferencesDevicePlaybackPositionStore`, wired it into
-  `TaruAndroidApp`, and covered persistence across store instances, scoped
+  `NakoAndroidApp`, and covered persistence across store instances, scoped
   lookup, non-positive clearing, and corrupt local data fallback.
 
 ## M2 - Closeout

@@ -14,12 +14,12 @@ Last updated: 2026-05-17
 
 ## M1 - Selection Model
 
-- [x] PSSD-020 [owner=codex] [deps=PSSD-010] [scope=crates/taru-streaming/src]
+- [x] PSSD-020 [owner=codex] [deps=PSSD-010] [scope=crates/nako-streaming/src]
   Goal: Replace the narrow `decide_playback(source, probe, client)` Interface
   with a workflow-shaped playback selection request and decision model while
   preserving current direct-play/remux/transcode behavior.
-  Validation: `cargo check -p taru-streaming --tests`; focused
-  `cargo nextest run -p taru-streaming --no-fail-fast`.
+  Validation: `cargo check -p nako-streaming --tests`; focused
+  `cargo nextest run -p nako-streaming --no-fail-fast`.
   passed.
   Evidence: Streaming tests prove container, codec, direct-play-disabled, and
   transcode-output behavior through the new request model. `PlaybackDecision`
@@ -29,10 +29,10 @@ Last updated: 2026-05-17
 
 ## M2 - Server Playback Migration
 
-- [x] PSSD-030 [owner=codex] [deps=PSSD-020] [scope=crates/taru-server/src/app/playback]
+- [x] PSSD-030 [owner=codex] [deps=PSSD-020] [scope=crates/nako-server/src/app/playback]
   Goal: Make server playback services load facts and execute decisions while
-  moving mode-choice reasoning into `taru-streaming`.
-  Validation: `cargo check -p taru-server --tests`; focused playback nextest
+  moving mode-choice reasoning into `nako-streaming`.
+  Validation: `cargo check -p nako-server --tests`; focused playback nextest
   route/app tests.
   passed.
   Evidence: Playback route behavior remains compatible, and server-side logic
@@ -43,14 +43,14 @@ Last updated: 2026-05-17
 
 ## M3 - Public DTO Compatibility
 
-- [x] PSSD-040 [owner=codex] [deps=PSSD-030] [scope=crates/taru-api/src,crates/taru-client-protocol/src]
+- [x] PSSD-040 [owner=codex] [deps=PSSD-030] [scope=crates/nako-api/src,crates/nako-client-protocol/src]
   Goal: Keep existing Public Client API playback response shape compatible or
   document and test any deliberate additive field changes.
-  Validation: `cargo check -p taru-api --tests`; OpenAPI/SDK contract tests
+  Validation: `cargo check -p nako-api --tests`; OpenAPI/SDK contract tests
   if DTOs change.
   passed.
   Evidence: `PlaybackDecisionResponse` mapping is explicit and does not leak
-  server-only planning types into `taru-client-protocol`.
+  server-only planning types into `nako-client-protocol`.
   `playback_decision_dto_hides_internal_selection_plan` proves
   `selected_source` and `execution` are not serialized into the Public Client
   API DTO.
@@ -65,7 +65,7 @@ Last updated: 2026-05-17
   passed.
   Evidence: `EVIDENCE_AND_GATES.md` and `docs/GOALS.md`.
   Handoff: M43 is closed. Recommended next goal is Metadata Provider Attempt
-  Runtime Extraction if continuing server architecture cleanup, or `taru-api`
+  Runtime Extraction if continuing server architecture cleanup, or `nako-api`
   module split if client/API contract clarity is more urgent.
 
 ## Post-M43 Follow-Ups

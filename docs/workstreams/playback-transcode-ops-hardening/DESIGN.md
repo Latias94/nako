@@ -5,7 +5,7 @@ Last updated: 2026-05-22
 
 ## Why This Lane Exists
 
-Taru already has the core **Playback Runtime** building blocks:
+Nako already has the core **Playback Runtime** building blocks:
 
 - direct play, remux, and HLS orchestration;
 - FFmpeg-backed hardware capability probing for VAAPI, NVENC, and Quick Sync;
@@ -36,11 +36,11 @@ Library File Write boundaries are already proven.
   - `docs/workstreams/admin-playback-runtime-diagnostics/DESIGN.md`
   - `docs/workstreams/admin-playback-session-read-model/README.md`
 - Related code:
-  - `crates/taru-transcode`
-  - `crates/taru-streaming`
-  - `crates/taru-server/src/app/playback`
-  - `crates/taru-server/src/http/admin.rs`
-  - `crates/taru-api/src/admin.rs`
+  - `crates/nako-transcode`
+  - `crates/nako-streaming`
+  - `crates/nako-server/src/app/playback`
+  - `crates/nako-server/src/http/admin.rs`
+  - `crates/nako-api/src/admin.rs`
 
 ## Problem
 
@@ -69,7 +69,7 @@ When this lane closes:
 - Hardware fallback behavior is explainable through typed, redaction-safe
   reason codes while preserving operator-readable messages.
 - Playback transcode request/profile validation rejects impossible or unsafe
-  combinations before Taru creates or starts a session.
+  combinations before Nako creates or starts a session.
 - Session failures use a stable support taxonomy that separates probe,
   planning, staging, budget, runner, timeout, cancellation, and hardware
   fallback classes.
@@ -86,8 +86,8 @@ When this lane closes:
 - Hardware fallback reason codes and redacted diagnostics.
 - Transcode request/profile validation before session creation or execution.
 - Playback session failure taxonomy and redacted admin read models.
-- Focused tests in `taru-transcode`, `taru-streaming`, `taru-api`, and
-  `taru-server`.
+- Focused tests in `nako-transcode`, `nako-streaming`, `nako-api`, and
+  `nako-server`.
 - Workstream and umbrella roadmap closeout updates.
 
 ## Out Of Scope
@@ -107,7 +107,7 @@ When this lane closes:
 | Assumption | Confidence | Evidence | Consequence if wrong |
 | --- | --- | --- | --- |
 | The existing Admin playback runtime route is the right home for server-wide readiness. | High | `admin-playback-runtime-diagnostics` closeout and `GET /admin/v1/playback/runtime` tests | Split a narrower Admin diagnostics follow-on instead of expanding Public Client API. |
-| `taru-transcode` should own typed hardware/fallback and request validation concepts. | High | `transcode-runtime` boundary rules and existing `HardwareAccelerationReport` / `TranscodeProfile` code | If validation needs app context, keep pure validation in `taru-transcode` and compose context in `taru-server::app::playback`. |
+| `nako-transcode` should own typed hardware/fallback and request validation concepts. | High | `transcode-runtime` boundary rules and existing `HardwareAccelerationReport` / `TranscodeProfile` code | If validation needs app context, keep pure validation in `nako-transcode` and compose context in `nako-server::app::playback`. |
 | A first support evidence bundle can be a bounded read model, not a persisted artifact. | Medium | Existing session rows, admin session list, runtime diagnostics, and staging diagnostics | If operators need retention/export, split a persistence/export follow-on. |
 | Public Client API can remain unchanged for this lane. | Medium | This work is operational and Admin-only by default | If client-visible errors must change, split a Public Client API contract task before implementation. |
 
@@ -115,19 +115,19 @@ When this lane closes:
 
 Keep ownership narrow:
 
-- `taru-transcode` owns FFmpeg command plans, hardware capability reports,
+- `nako-transcode` owns FFmpeg command plans, hardware capability reports,
   selected acceleration, fallback reason codes, and transcode request/profile
   validation that does not require repository or storage context.
-- `taru-streaming` owns playback decisions and client capability matching. It
+- `nako-streaming` owns playback decisions and client capability matching. It
   may expose selection prerequisites, but it must not own FFmpeg execution or
   Admin support surfaces.
-- `taru-server::app::playback` owns source lookup, staging, session lifecycle,
+- `nako-server::app::playback` owns source lookup, staging, session lifecycle,
   runtime composition, cancellation, and translating runtime events into
   redacted support evidence.
-- `taru-api::admin` owns Admin DTO shapes. It must not leak into
-  `taru-client-protocol` or Public Client API unless a separate contract lane
+- `nako-api::admin` owns Admin DTO shapes. It must not leak into
+  `nako-client-protocol` or Public Client API unless a separate contract lane
   accepts that change.
-- `taru-server::http::admin` translates app snapshots into Admin responses and
+- `nako-server::http::admin` translates app snapshots into Admin responses and
   enforces route-level redaction/auth behavior.
 
 Redaction is not optional. The support surface may expose categories, counts,
@@ -165,7 +165,7 @@ The lane closed with the intended operator-supportability contract:
   secrets, or credentials.
 - Admin TypeScript contract, typed client, mock data, and tests were synced for
   the Admin API surface only.
-- Public Client API and `taru-client-protocol` remained unchanged.
+- Public Client API and `nako-client-protocol` remained unchanged.
 
 Residual work is intentionally split:
 

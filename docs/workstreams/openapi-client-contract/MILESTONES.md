@@ -27,20 +27,20 @@ Exit criteria:
 
 - `cargo fmt --all -- --check`
 - `cargo check --workspace --tests`
-- `cargo nextest run -p taru-client-protocol --no-fail-fast`
-- `cargo nextest run -p taru-api --no-fail-fast`
-- `cargo nextest run -p taru-server http::tests::playback --no-fail-fast`
+- `cargo nextest run -p nako-client-protocol --no-fail-fast`
+- `cargo nextest run -p nako-api --no-fail-fast`
+- `cargo nextest run -p nako-server http::tests::playback --no-fail-fast`
 
 ## M32.2 OpenAPI Artifact Slice
 
 Status: completed.
 
-Outcome: `taru-api` can produce/check the first Public Client API OpenAPI v1
+Outcome: `nako-api` can produce/check the first Public Client API OpenAPI v1
 contract.
 
 Exit criteria:
 
-- `cargo nextest run -p taru-api --no-fail-fast`
+- `cargo nextest run -p nako-api --no-fail-fast`
 - OpenAPI checker verifies public route inventory, bearer auth, API version
   headers, error envelopes, and internal/admin leakage rejection.
 
@@ -53,7 +53,7 @@ client surface.
 
 Exit criteria:
 
-- `cargo nextest run -p taru-server http::tests --no-fail-fast`
+- `cargo nextest run -p nako-server http::tests --no-fail-fast`
 
 ## M32.4 Closeout
 
@@ -68,7 +68,7 @@ Exit criteria:
 - `cargo fmt --all -- --check`
 - `cargo check --workspace --tests`
 - `cargo nextest run --workspace --no-fail-fast`
-- `cargo tree -p taru-client-protocol`
+- `cargo tree -p nako-client-protocol`
 - OpenAPI checker passes.
 - `git diff --check`
 - Workstream status is updated to completed.

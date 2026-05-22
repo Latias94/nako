@@ -5,9 +5,9 @@ Last updated: 2026-05-21
 
 ## Problem
 
-Taru now has a repeatable self-hosted release readiness baseline, but it still
+Nako now has a repeatable self-hosted release readiness baseline, but it still
 assumes a developer-style source checkout. Operators need a productized path for
-installing, configuring, running, upgrading, and diagnosing Taru without reading
+installing, configuring, running, upgrading, and diagnosing Nako without reading
 chat history or reverse-engineering build commands.
 
 The current gap is not another media feature. The gap is distribution trust:
@@ -16,7 +16,7 @@ container-friendly, and covered by smoke evidence.
 
 ## Target State
 
-- A release package contract defines what Taru ships for self-hosted operators.
+- A release package contract defines what Nako ships for self-hosted operators.
 - The server binary has operator-safe startup/config validation behavior.
 - Docker/compose examples are grounded in a real build path rather than only a
   PostgreSQL service example.
@@ -24,21 +24,21 @@ container-friendly, and covered by smoke evidence.
   checksum, and validation evidence.
 - Release notes/checklist docs explain install, upgrade, rollback, backup, and
   known caveats.
-- Downloads are evaluated as a first-class Taru-Managed Artifact candidate, but
+- Downloads are evaluated as a first-class Nako-Managed Artifact candidate, but
   not mixed into packaging implementation unless explicitly split.
 
 ## Artifact Contract V0
 
-The packaging lane treats the release artifact as an operator contract. A Taru
+The packaging lane treats the release artifact as an operator contract. A Nako
 self-hosted release may be produced from source, a container image, or a binary
 archive, but each distribution form must expose the same contract:
 
 ### Ships In The Release
 
-- `taru-server` executable for the selected target platform.
-- Example `taru.toml` files for SQLite and PostgreSQL deployments.
+- `nako-server` executable for the selected target platform.
+- Example `nako.toml` files for SQLite and PostgreSQL deployments.
 - Container/compose definitions once RPD-030 lands.
-- Release manifest with Taru version, git revision, target triple, build time,
+- Release manifest with Nako version, git revision, target triple, build time,
   and included file list once RPD-040 lands.
 - Checksums for generated release artifacts once RPD-040 lands.
 - Operator install, first-start, upgrade, rollback, backup, diagnostics, and
@@ -61,14 +61,14 @@ Packaged examples should converge on this durable layout:
 
 | Concern | Host path example | Container path target | Durability |
 | --- | --- | --- | --- |
-| Config | `/etc/taru/taru.toml` | `/config/taru.toml` | Operator-owned, backup recommended |
-| SQLite DB | `/var/lib/taru/taru.db` | `/data/taru.db` | Durable, backup required before upgrade |
-| Managed Artwork Artifacts | `/var/lib/taru/artwork` | `/data/artwork` | Durable Taru-managed artifacts |
-| Remux/transcode staging | `/var/cache/taru/remux` | `/cache/remux` | Rebuildable cache |
+| Config | `/etc/nako/nako.toml` | `/config/nako.toml` | Operator-owned, backup recommended |
+| SQLite DB | `/var/lib/nako/nako.db` | `/data/nako.db` | Durable, backup required before upgrade |
+| Managed Artwork Artifacts | `/var/lib/nako/artwork` | `/data/artwork` | Durable Nako-managed artifacts |
+| Remux/transcode staging | `/var/cache/nako/remux` | `/cache/remux` | Rebuildable cache |
 | Media Library | `/media/movies` | `/media/movies:ro` by default | Operator-owned source of truth |
 
 PostgreSQL deployments replace the SQLite DB file with a PostgreSQL service and
-volume. Compose examples must keep database volume state outside the Taru server
+volume. Compose examples must keep database volume state outside the Nako server
 container and must not place database credentials in committed config files.
 
 ### Operator Safety Contract
@@ -91,10 +91,10 @@ Current repository state at RPD-010:
 | Area | Current state | RPD implication |
 | --- | --- | --- |
 | Workspace version | `Cargo.toml` version `0.1.0`, Rust `1.85`, AGPL server license | Artifact manifest can reuse workspace package metadata. |
-| Server binary | `crates/taru-server` has a `taru-server` CLI with `config-example`, `serve`, scan, list, metadata, NFO commands | RPD-020 should add `config-check` rather than hiding preflight inside `serve`. |
-| Config examples | `deploy/sqlite/taru.toml` and `deploy/postgres/taru.toml` exist | Packaging should reuse these examples and make them preflight-friendly. |
-| Compose examples | `deploy/compose/postgres.yml` provides PostgreSQL-only; RPD-030 adds `deploy/compose/taru-sqlite.yml` and `deploy/compose/taru-postgres.yml` | Taru compose stacks now bind locally, run config preflight before serve, and keep durable state in volumes/host mounts. |
-| Dockerfile | RPD-030 adds a multi-stage Taru server `Dockerfile` and `.dockerignore` | Container image builds `taru-server` in Rust Bookworm and runs on Debian slim with FFmpeg, curl, sqlite runtime libs, and non-root user. |
+| Server binary | `crates/nako-server` has a `nako-server` CLI with `config-example`, `serve`, scan, list, metadata, NFO commands | RPD-020 should add `config-check` rather than hiding preflight inside `serve`. |
+| Config examples | `deploy/sqlite/nako.toml` and `deploy/postgres/nako.toml` exist | Packaging should reuse these examples and make them preflight-friendly. |
+| Compose examples | `deploy/compose/postgres.yml` provides PostgreSQL-only; RPD-030 adds `deploy/compose/nako-sqlite.yml` and `deploy/compose/nako-postgres.yml` | Nako compose stacks now bind locally, run config preflight before serve, and keep durable state in volumes/host mounts. |
+| Dockerfile | RPD-030 adds a multi-stage Nako server `Dockerfile` and `.dockerignore` | Container image builds `nako-server` in Rust Bookworm and runs on Debian slim with FFmpeg, curl, sqlite runtime libs, and non-root user. |
 | Release scripts | `scripts/release-gate.*`, `self-host-smoke.*`, and `postgres-contract-harness.*` exist | RPD-040 should add artifact scripts and call existing gates rather than duplicating them. |
 | CI | `.github/workflows/release-gate.yml` runs fast, PostgreSQL, self-host smoke, API/SDK redaction gates | RPD-040 should add artifact job shape that invokes repo scripts. |
 | Deployment docs | `docs/deployment/SELF_HOSTED.md` and `BACKUP_RESTORE_UPGRADE.md` exist | RPD-050 should distinguish source-built dev flows from packaged operation. |
@@ -104,7 +104,7 @@ Current repository state at RPD-010:
 - Packaging/distribution workstream planning and closeout gates.
 - Server binary release contract and version/diagnostic surface review.
 - Config validation / startup preflight behavior for operator mistakes.
-- Dockerfile and compose shape for Taru server plus PostgreSQL.
+- Dockerfile and compose shape for Nako server plus PostgreSQL.
 - Local packaging scripts and CI release artifact job shape.
 - Release checklist, checksums/SBOM placeholders, and operator docs.
 - Follow-on evaluation for Metadata, NFO/link management, Playback/transcode,
@@ -131,10 +131,10 @@ Current repository state at RPD-010:
   practical.
 - Keep durable state outside containers by default: database, artifact root,
   media libraries, NFO sidecars, config, and secrets must survive image changes.
-- Downloads, if accepted later, should use Taru-Managed Artifact language and
+- Downloads, if accepted later, should use Nako-Managed Artifact language and
   bounded safety policies: no raw path leaks, no direct Addon writes, explicit
   staging/quarantine, and a clear distinction between Addon External Fetch and
-  Taru-managed download state.
+  Nako-managed download state.
 
 ## Candidate Follow-On Product Lanes
 
@@ -152,7 +152,7 @@ Follow-on scoring uses:
 | Metadata Provider Breadth | High | High | Medium | Provider capability registry, matching policy, raw response retention, and manual confirmation for TMDB/Bangumi/Douban conflicts | Strong candidate after packaging. |
 | NFO And Link Management | High | High | Medium-High | Explicit local sidecar authority, import/export conflict policy, and link inventory diagnostics without writing new links first | Strong candidate, but split link mutation from NFO policy. |
 | Playback / Transcode Product Hardening | High | Medium | Medium | Operator-facing FFmpeg/hardware diagnostics plus preset validation before broader queue policy | Strong candidate if daily playback is the next product promise. |
-| Downloads / Managed Import Staging | Medium-High | Medium | High | Taru-managed import staging for operator-provided URLs or Addon-proposed artifacts; quarantine, validate, then promote manually | Worth doing, but only after precise PRD; do not start with torrent/Usenet. |
+| Downloads / Managed Import Staging | Medium-High | Medium | High | Nako-managed import staging for operator-provided URLs or Addon-proposed artifacts; quarantine, validate, then promote manually | Worth doing, but only after precise PRD; do not start with torrent/Usenet. |
 | Network Traversal | Medium-High | Medium | High | Deployment docs and reverse-proxy/tunnel contract before any built-in traversal runtime | Defer until local deployment trust is stable. |
 | AI | Medium | Low-Medium | Medium-High | Assisted matching/title cleanup with explainable confidence and no autonomous writes | Defer until metadata/import authority is stronger. |
 | Addon Distribution | Medium | Medium | Medium | Manifest/package validation and sidecar trust policy separate from server release artifact | Defer; current release artifact excludes addon sidecars. |
@@ -188,8 +188,8 @@ operator-facing FFmpeg checks.
 Potentially high value but high risk. Downloads can mean many different things:
 remote file import, offline transcode/download for clients, Addon-managed
 fetches, torrent/Usenet acquisition, or library ingestion from watch folders.
-The first Taru-safe slice should likely be **managed import/download staging**:
-Taru tracks a remote URL or Addon-proposed artifact, stores it under quarantine
+The first Nako-safe slice should likely be **managed import/download staging**:
+Nako tracks a remote URL or Addon-proposed artifact, stores it under quarantine
 or staging, validates it, then promotes it to a Media Library through explicit
 operator action. Acquisition protocols should be separate Addon Sidecars, not
 core server logic.

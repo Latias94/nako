@@ -5,7 +5,7 @@ Last updated: 2026-05-21
 
 ## Current State
 
-The lane is closed. `taru-api` now generates tolerant Kotlin Public Client API
+The lane is closed. `nako-api` now generates tolerant Kotlin Public Client API
 string enum wrappers instead of strict `enum class` definitions. Checked-in
 `sdk/kotlin` output was regenerated from the generator.
 
@@ -47,11 +47,11 @@ None.
 ## Verification
 
 ```powershell
-cargo fmt --package taru-api --check
-cargo nextest run -p taru-api kotlin_sdk --no-fail-fast
-cargo nextest run -p taru-api --no-fail-fast
+cargo fmt --package nako-api --check
+cargo nextest run -p nako-api kotlin_sdk --no-fail-fast
+cargo nextest run -p nako-api --no-fail-fast
 npm run check --prefix sdk/typescript
-apps/android/gradlew.bat -p apps/android :taru-public-client-sdk:test --no-daemon
+apps/android/gradlew.bat -p apps/android :nako-public-client-sdk:test --no-daemon
 apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon
 apps/android/gradlew.bat -p apps/android :app:assembleDebug --no-daemon
 python -m json.tool docs/workstreams/generated-sdk-forward-compat-tolerance/WORKSTREAM.json > $null

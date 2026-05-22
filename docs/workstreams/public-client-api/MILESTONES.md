@@ -27,7 +27,7 @@ Primary evidence:
 Status: completed.
 
 Outcome: first stable browse/list/detail/search DTOs live in
-`taru-client-protocol`, with `taru-api` mapping server records into protocol
+`nako-client-protocol`, with `nako-api` mapping server records into protocol
 wire types.
 
 Deliverables:
@@ -35,39 +35,39 @@ Deliverables:
 - Protocol DTOs for library list/source list, item list/detail, search, source
   probe, media item, metadata, source, and probe summaries.
 - Public wire ID fields represented as strings.
-- Adapter mapping functions in `taru-api`.
+- Adapter mapping functions in `nako-api`.
 - Server catalog/library route behavior preserved.
 
 Exit criteria:
 
 - `cargo fmt --all -- --check`
 - `cargo check --workspace --tests`
-- `cargo nextest run -p taru-client-protocol --no-fail-fast`
-- `cargo nextest run -p taru-api --no-fail-fast`
+- `cargo nextest run -p nako-client-protocol --no-fail-fast`
+- `cargo nextest run -p nako-api --no-fail-fast`
 - focused server route tests for catalog/library/system browse behavior
-- `cargo tree -p taru-client-protocol`
+- `cargo tree -p nako-client-protocol`
 
 ## M29.2 Public Playback Decision DTO Slice
 
 Status: completed.
 
 Outcome: playback decision response uses protocol-owned wire DTOs rather than
-`taru_streaming::PlaybackDecision`.
+`nako_streaming::PlaybackDecision`.
 
 Deliverables:
 
 - Protocol DTOs for playback decision, direct-play plan, transcode plan
   summary, playback mode, output container, and hardware acceleration.
-- Adapter mapping functions in `taru-api`.
+- Adapter mapping functions in `nako-api`.
 - Playback route behavior preserved.
 
 Exit criteria:
 
 - `cargo fmt --all -- --check`
 - `cargo check --workspace --tests`
-- `cargo nextest run -p taru-api --no-fail-fast`
-- `cargo nextest run -p taru-server http::tests::playback --no-fail-fast`
-- `cargo tree -p taru-client-protocol`
+- `cargo nextest run -p nako-api --no-fail-fast`
+- `cargo nextest run -p nako-server http::tests::playback --no-fail-fast`
+- `cargo tree -p nako-client-protocol`
 
 ## M29.3 Contract Docs And Route Evidence
 
@@ -80,7 +80,7 @@ Exit criteria:
 
 - Public route surfaces are mapped to protocol DTOs in
   `EVIDENCE_AND_GATES.md`.
-- Server-admin/internal DTOs intentionally left in `taru-api` are listed as
+- Server-admin/internal DTOs intentionally left in `nako-api` are listed as
   non-goals or follow-ons.
 - Route-level tests cover browse/search/list/detail/playback JSON.
 
@@ -96,6 +96,6 @@ Exit criteria:
 - `cargo fmt --all -- --check`
 - `cargo check --workspace --tests`
 - `cargo nextest run --workspace --no-fail-fast`
-- `cargo tree -p taru-client-protocol`
+- `cargo tree -p nako-client-protocol`
 - `git diff --check`
 - Workstream status is updated to completed.

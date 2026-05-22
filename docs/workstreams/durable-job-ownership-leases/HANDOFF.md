@@ -25,7 +25,7 @@ success/failure. `DJOL-050` added a truthful Admin cancel-request route.
   - closeout gate in `EVIDENCE_AND_GATES.md`
 - Status: DONE
 - Review: lane closed with follow-ons split
-- Evidence: `DJOL-020` core contract passed `cargo check -p taru-core --tests`,
+- Evidence: `DJOL-020` core contract passed `cargo check -p nako-core --tests`,
   `cargo fmt --all -- --check`, WORKSTREAM JSON parse, and `git diff --check`.
   `DJOL-030` passed DB lease/cancel/startup tests, server startup recovery
   regression, cross-crate check, fmt check, JSON parse, and diff check.

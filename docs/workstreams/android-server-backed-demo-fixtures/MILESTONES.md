@@ -23,19 +23,19 @@ Exit criteria:
 
 - Required Public Client API routes for Home, detail, source picker, and
   player-safe launch are listed.
-- The first implementation strategy is chosen: seeded Taru server or
+- The first implementation strategy is chosen: seeded Nako server or
   public-route-compatible local test-server harness.
 - Missing contract gaps are recorded before implementation broadens.
 
 Primary gates:
 
-- Focused route inventory review against `crates/taru-api/src/openapi.rs`.
+- Focused route inventory review against `crates/nako-api/src/openapi.rs`.
 - Focused Android client request construction tests when Android code changes.
 
 Outcome:
 
 - Completed on 2026-05-18 in `ROUTE_MATRIX.md`.
-- First strategy: real local `taru-server` seeded fixture, with Android access
+- First strategy: real local `nako-server` seeded fixture, with Android access
   through `adb reverse`.
 - Fallback: public-route-compatible test-server harness only if real seeded
   startup becomes too brittle.
@@ -60,7 +60,7 @@ Outcome:
 
 - Completed on 2026-05-18.
 - `apps/android/scripts/Start-DemoFixtureServer.ps1` prepares a generated
-  Movies library, seeds `Night Harbor` through real `taru-server scan` and
+  Movies library, seeds `Night Harbor` through real `nako-server scan` and
   `import-nfo`, and can start the fixture server on loopback.
 - Android `ClientTranscodePlan` no longer requires the internal
   `input_locator` field.
@@ -88,7 +88,7 @@ Outcome:
 
 - Completed on 2026-05-18.
 - `Smoke-Emulator.ps1` now accepts `profile-with-media`, prepares the
-  server-backed `Night Harbor` fixture, starts a local `taru-server`, applies
+  server-backed `Night Harbor` fixture, starts a local `nako-server`, applies
   `adb reverse`, and seeds the debug APK through real profile and token stores.
 - The smoke captures Home, detail, source picker, and player evidence under
   `apps/android/build/smoke/`.

@@ -24,7 +24,7 @@ Exit criteria:
 
 Exit criteria:
 
-- [x] Taru server has a container build path or explicitly documented blocker.
+- [x] Nako server has a container build path or explicitly documented blocker.
 - [x] Compose examples include durable volumes and safe local defaults.
 - [x] Docker/compose config checks are recorded.
 

@@ -19,12 +19,12 @@ Closeout gates:
 
 - `cargo nextest run --workspace --no-fail-fast`
 - PostgreSQL opt-in contract runs for any touched persistence seam when
-  `TARU_TEST_POSTGRES_URL` is available.
+  `NAKO_TEST_POSTGRES_URL` is available.
 
 PostgreSQL opt-in policy:
 
 - SQLite remains always-on.
-- PostgreSQL contracts must fail fast when `TARU_TEST_POSTGRES_URL` is absent
+- PostgreSQL contracts must fail fast when `NAKO_TEST_POSTGRES_URL` is absent
   rather than reporting false green evidence.
 - New persistence commit seams must have backend-neutral contracts unless the
   workstream explicitly splits a follow-on and gates runtime exposure.
@@ -34,7 +34,7 @@ Safety gates:
 - No Addon Side Effect refactor may expose raw Addon Tokens, Source Locators,
   storage URIs, local paths, cache URIs, raw source URLs, content hashes,
   database URLs, credentials, or raw database errors in public/admin/addon DTOs.
-- No NFO/Library File Write change may bypass Taru-owned VFS write policy,
+- No NFO/Library File Write change may bypass Nako-owned VFS write policy,
   backup policy, permission checks, or audit/apply outcome recording.
 - No AI/vector/search change may overwrite Canonical Metadata without the
   Generated Artifact and Acceptance Workflow authority described in
@@ -74,16 +74,16 @@ Status: complete.
 
 Implementation evidence:
 
-- Kept `crates/taru-server/src/app/addons.rs` as the root
+- Kept `crates/nako-server/src/app/addons.rs` as the root
   `AddonAppService` Module for addon registration, token lifecycle, and grant
   administration.
 - Split Addon Principal and grant normalization into
-  `crates/taru-server/src/app/addons/principal.rs`.
+  `crates/nako-server/src/app/addons/principal.rs`.
 - Split Addon Side Effect intake, idempotency, safe validation error mapping,
   and authority/target validation into
-  `crates/taru-server/src/app/addons/intake.rs`.
+  `crates/nako-server/src/app/addons/intake.rs`.
 - Added an Addon Side Effect apply router in
-  `crates/taru-server/src/app/addons/side_effect_apply.rs`.
+  `crates/nako-server/src/app/addons/side_effect_apply.rs`.
 - Split domain-specific apply Adapters:
   - `metadata_write.rs` for Canonical Metadata patch/merge plus existing
     catalog/search refresh behavior;
@@ -98,13 +98,13 @@ Implementation evidence:
 Validation:
 
 ```bash
-cargo nextest run -p taru-server addon_side_effect --no-fail-fast
+cargo nextest run -p nako-server addon_side_effect --no-fail-fast
 cargo fmt --all
-cargo check -p taru-server --tests
-cargo nextest run -p taru-server addon_side_effect --no-fail-fast
-cargo nextest run -p taru-server addon --no-fail-fast
+cargo check -p nako-server --tests
+cargo nextest run -p nako-server addon_side_effect --no-fail-fast
+cargo nextest run -p nako-server addon --no-fail-fast
 cargo fmt --all -- --check
-cargo check -p taru-server --tests
+cargo check -p nako-server --tests
 git diff --check
 ```
 
@@ -113,13 +113,13 @@ Result:
 - Baseline focused Addon Side Effect nextest passed before the refactor:
   10 passed, 165 skipped.
 - `cargo fmt --all` passed after the refactor.
-- `cargo check -p taru-server --tests` passed after the refactor.
+- `cargo check -p nako-server --tests` passed after the refactor.
 - Focused Addon Side Effect nextest passed after the refactor:
   10 passed, 165 skipped.
 - Broader addon HTTP nextest passed after the refactor:
   31 passed, 144 skipped.
 - `cargo fmt --all -- --check` passed.
-- Final `cargo check -p taru-server --tests` passed.
+- Final `cargo check -p nako-server --tests` passed.
 - `git diff --check` passed with Git CRLF normalization warnings only.
 
 Broader gates not run:
@@ -163,9 +163,9 @@ Validation:
 
 ```bash
 cargo fmt --all
-cargo check -p taru-core -p taru-db -p taru-server --tests
-cargo nextest run -p taru-db addon_metadata_write --no-fail-fast
-cargo nextest run -p taru-server addon_side_effect --no-fail-fast
+cargo check -p nako-core -p nako-db -p nako-server --tests
+cargo nextest run -p nako-db addon_metadata_write --no-fail-fast
+cargo nextest run -p nako-server addon_side_effect --no-fail-fast
 cargo fmt --all -- --check
 git diff --check
 ```
@@ -173,7 +173,7 @@ git diff --check
 Result:
 
 - `cargo fmt --all` passed.
-- `cargo check -p taru-core -p taru-db -p taru-server --tests` passed.
+- `cargo check -p nako-core -p nako-db -p nako-server --tests` passed.
 - Focused SQLite contract passed:
   1 passed, 102 skipped.
 - Focused Addon Side Effect nextest passed:
@@ -183,7 +183,7 @@ Result:
 
 PostgreSQL opt-in:
 
-- Not run in this environment because `TARU_TEST_POSTGRES_URL` was unset.
+- Not run in this environment because `NAKO_TEST_POSTGRES_URL` was unset.
 - The PostgreSQL pair was added:
   `postgres_metadata_catalog_contract_addon_metadata_write_updates_projection_apply_outcome_and_rolls_back`.
   Run it with ignored tests enabled once a test database URL is available.
@@ -201,9 +201,9 @@ Status: complete.
 Implementation evidence:
 
 - Deleted the broad caller-facing `LibraryIndexRepository` trait alias from
-  `crates/taru-library/src/index.rs`.
+  `crates/nako-library/src/index.rs`.
 - Added `LibraryIngestionWorkflow` in
-  `crates/taru-library/src/ingestion.rs` as the workflow-shaped seam for
+  `crates/nako-library/src/ingestion.rs` as the workflow-shaped seam for
   Library ingestion.
 - `LibraryIndexService` now depends on scanner output plus the workflow seam
   only. It no longer directly coordinates low-level repository calls for
@@ -229,10 +229,10 @@ Validation:
 
 ```bash
 cargo fmt --all
-cargo check -p taru-library -p taru-db --tests
-cargo nextest run -p taru-library index_service_uses_workflow_port_without_repository_traits --no-fail-fast
-cargo nextest run -p taru-db scan_commit --no-fail-fast
-cargo nextest run -p taru-library --no-fail-fast
+cargo check -p nako-library -p nako-db --tests
+cargo nextest run -p nako-library index_service_uses_workflow_port_without_repository_traits --no-fail-fast
+cargo nextest run -p nako-db scan_commit --no-fail-fast
+cargo nextest run -p nako-library --no-fail-fast
 cargo fmt --all -- --check
 git diff --check
 ```
@@ -240,26 +240,26 @@ git diff --check
 Result:
 
 - `cargo fmt --all` passed.
-- `cargo check -p taru-library -p taru-db --tests` passed.
+- `cargo check -p nako-library -p nako-db --tests` passed.
 - Focused workflow deletion test passed:
   1 passed, 17 skipped.
 - Focused SQLite scan commit contracts passed:
   2 passed, 101 skipped.
-- Focused `taru-library` nextest passed:
+- Focused `nako-library` nextest passed:
   18 passed, 0 skipped.
 - `cargo fmt --all -- --check` passed.
 - `git diff --check` passed with Git CRLF normalization warnings only.
 
 PostgreSQL opt-in:
 
-- Not run in this environment because `TARU_TEST_POSTGRES_URL` was unset.
+- Not run in this environment because `NAKO_TEST_POSTGRES_URL` was unset.
 - Existing ignored PostgreSQL scan commit contract pair remains the opt-in
   parity gate for this seam.
 
 Broader gates not run:
 
 - Full workspace nextest was not run for FAD-040 because the touched behavior is
-  covered by the `taru-library` focused run plus backend-neutral scan commit
+  covered by the `nako-library` focused run plus backend-neutral scan commit
   contracts. The full workspace nextest remains a M63 closeout gate.
 
 ### 2026-05-20 — FAD-050 Playback And Transcode Identity
@@ -268,9 +268,9 @@ Status: complete.
 
 Implementation evidence:
 
-- Added `PlaybackProfileIdentity` in `taru-streaming` while preserving
+- Added `PlaybackProfileIdentity` in `nako-streaming` while preserving
   `PlaybackProfile::identity_key()` as a compatibility helper.
-- Added source-bound transcode identity in `taru-transcode`:
+- Added source-bound transcode identity in `nako-transcode`:
   - `TranscodeSourceIdentity` hashes source revision inputs;
   - `TranscodeRequestIdentity` binds source revision to
     `TranscodeProfileIdentity`;
@@ -289,19 +289,19 @@ Validation:
 
 ```bash
 cargo fmt --all
-cargo check -p taru-streaming -p taru-transcode -p taru-server --tests
-cargo nextest run -p taru-transcode transcode_request_identity --no-fail-fast
-cargo nextest run -p taru-streaming playback_profile_identity --no-fail-fast
-cargo nextest run -p taru-server hls_source_request_identity --no-fail-fast
-cargo nextest run -p taru-streaming -p taru-transcode --no-fail-fast
-cargo nextest run -p taru-server playback --no-fail-fast
+cargo check -p nako-streaming -p nako-transcode -p nako-server --tests
+cargo nextest run -p nako-transcode transcode_request_identity --no-fail-fast
+cargo nextest run -p nako-streaming playback_profile_identity --no-fail-fast
+cargo nextest run -p nako-server hls_source_request_identity --no-fail-fast
+cargo nextest run -p nako-streaming -p nako-transcode --no-fail-fast
+cargo nextest run -p nako-server playback --no-fail-fast
 cargo fmt --all -- --check
 git diff --check
 ```
 
 Result:
 
-- `cargo check -p taru-streaming -p taru-transcode -p taru-server --tests`
+- `cargo check -p nako-streaming -p nako-transcode -p nako-server --tests`
   passed.
 - Focused transcode request identity test passed:
   1 passed, 24 skipped.
@@ -309,9 +309,9 @@ Result:
   1 passed, 8 skipped.
 - Focused server HLS request identity tests passed:
   2 passed, 174 skipped.
-- Focused `taru-streaming` + `taru-transcode` nextest passed:
+- Focused `nako-streaming` + `nako-transcode` nextest passed:
   34 passed, 0 skipped.
-- Focused `taru-server playback` nextest passed:
+- Focused `nako-server playback` nextest passed:
   48 passed, 128 skipped.
 - `cargo fmt --all -- --check` passed.
 - `git diff --check` passed with Git CRLF normalization warnings only.
@@ -329,7 +329,7 @@ Status: complete.
 Implementation evidence:
 
 - Replaced the single `HardwareCapabilityEvidence` field with separate
-  diagnostics records in `taru-transcode`:
+  diagnostics records in `nako-transcode`:
   - `HardwareEncoderDiscovery` for static FFmpeg encoder discovery;
   - `HardwareDeviceInitialization` for device initialization evidence;
   - `HardwareSmokeProbe` for optional encode smoke-probe results.
@@ -358,12 +358,12 @@ Validation:
 
 ```bash
 cargo fmt --all
-cargo check -p taru-transcode -p taru-api -p taru-server --tests
-cargo nextest run -p taru-transcode hardware --no-fail-fast
-cargo nextest run -p taru-transcode --no-fail-fast
-cargo nextest run -p taru-api --lib admin_playback_runtime_diagnostics_serializes_safe_summary_fields --no-fail-fast
-cargo nextest run -p taru-api --lib admin_contract --no-fail-fast
-cargo nextest run -p taru-server admin_v1_playback_runtime_reports_safe_diagnostics --no-fail-fast
+cargo check -p nako-transcode -p nako-api -p nako-server --tests
+cargo nextest run -p nako-transcode hardware --no-fail-fast
+cargo nextest run -p nako-transcode --no-fail-fast
+cargo nextest run -p nako-api --lib admin_playback_runtime_diagnostics_serializes_safe_summary_fields --no-fail-fast
+cargo nextest run -p nako-api --lib admin_contract --no-fail-fast
+cargo nextest run -p nako-server admin_v1_playback_runtime_reports_safe_diagnostics --no-fail-fast
 npm run check
 cargo fmt --all -- --check
 git diff --check
@@ -371,9 +371,9 @@ git diff --check
 
 Result:
 
-- `cargo check -p taru-transcode -p taru-api -p taru-server --tests` passed.
+- `cargo check -p nako-transcode -p nako-api -p nako-server --tests` passed.
 - Focused hardware nextest passed: 6 passed, 20 skipped.
-- Full `taru-transcode` nextest passed: 26 passed, 0 skipped.
+- Full `nako-transcode` nextest passed: 26 passed, 0 skipped.
 - Admin playback runtime DTO serialization test passed: 1 passed, 40 skipped.
 - Admin TypeScript contract tests passed: 4 passed, 37 skipped.
 - Admin playback runtime HTTP diagnostics test passed: 1 passed, 175 skipped.
@@ -384,7 +384,7 @@ Result:
 Broader gates not run:
 
 - Full workspace nextest was not run for FAD-060 because the touched behavior is
-  covered by full `taru-transcode`, focused Admin API DTO/contract tests, the
+  covered by full `nako-transcode`, focused Admin API DTO/contract tests, the
   focused server Admin playback runtime route test, and admin-web TypeScript
   checking. The full workspace nextest remains a M63 closeout gate.
 - PostgreSQL opt-in contracts were not applicable because FAD-060 changed no
@@ -397,7 +397,7 @@ Status: complete.
 
 Implementation evidence:
 
-- Added a shared search semantics evaluator in `taru-search`:
+- Added a shared search semantics evaluator in `nako-search`:
   - current Search Projection version helpers;
   - `SearchEvaluationDocument` fixtures;
   - exact Browse Facet filtering;
@@ -418,22 +418,22 @@ Validation:
 
 ```bash
 cargo fmt --all
-$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo check -p taru-search -p taru-catalog -p taru-db --tests
-$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo check -p taru-nfo -p taru-metadata -p taru-server --tests
-$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo nextest run -p taru-search --no-fail-fast
-$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo nextest run -p taru-catalog semantic_search --no-fail-fast
-$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo nextest run -p taru-db search --no-fail-fast
-$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo nextest run -p taru-db facet --no-fail-fast
+$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo check -p nako-search -p nako-catalog -p nako-db --tests
+$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo check -p nako-nfo -p nako-metadata -p nako-server --tests
+$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo nextest run -p nako-search --no-fail-fast
+$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo nextest run -p nako-catalog semantic_search --no-fail-fast
+$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo nextest run -p nako-db search --no-fail-fast
+$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo nextest run -p nako-db facet --no-fail-fast
 cargo fmt --all -- --check
 git diff --check
 ```
 
 Result:
 
-- `cargo check -p taru-search -p taru-catalog -p taru-db --tests` passed.
-- Downstream bound check passed for `taru-nfo`, `taru-metadata`, and
-  `taru-server`.
-- Full `taru-search` nextest passed: 6 passed, 0 skipped.
+- `cargo check -p nako-search -p nako-catalog -p nako-db --tests` passed.
+- Downstream bound check passed for `nako-nfo`, `nako-metadata`, and
+  `nako-server`.
+- Full `nako-search` nextest passed: 6 passed, 0 skipped.
 - Focused catalog semantic-search nextest passed: 1 passed, 3 skipped.
 - Focused DB search nextest passed: 7 passed, 97 skipped.
 - Focused DB facet nextest passed: 1 passed, 103 skipped.
@@ -451,11 +451,11 @@ Environment note:
 Broader gates not run:
 
 - Full workspace nextest was not run for FAD-070 because the touched behavior is
-  covered by `taru-search` evaluator tests, the catalog provider-title semantic
+  covered by `nako-search` evaluator tests, the catalog provider-title semantic
   search fixture, and focused SQLite DB search/facet tests. Full workspace
   nextest remains a M63 closeout gate.
 - PostgreSQL opt-in runtime contracts were not run because this task did not add
-  a new persistence commit seam and `TARU_TEST_POSTGRES_URL` was not available.
+  a new persistence commit seam and `NAKO_TEST_POSTGRES_URL` was not available.
 
 ### 2026-05-20 — FAD-080 Test Locality
 
@@ -464,8 +464,8 @@ Status: complete.
 Implementation evidence:
 
 - Extracted focused SQLite SearchIndex semantics coverage from the giant
-  `crates/taru-db/src/tests.rs` file into
-  `crates/taru-db/src/search_tests.rs`.
+  `crates/nako-db/src/tests.rs` file into
+  `crates/nako-db/src/search_tests.rs`.
 - Added domain-focused test helpers for:
   - migrated in-memory SQLite stores;
   - Movie Canonical Metadata fixtures;
@@ -475,7 +475,7 @@ Implementation evidence:
   - shared CJK-friendly alias semantics;
   - alias search without flattening structured alias fields.
 - Left the mixed scan/artwork/search round-trip test in
-  `crates/taru-db/src/tests.rs` because it verifies a broader persistence family
+  `crates/nako-db/src/tests.rs` because it verifies a broader persistence family
   and moving it would be mechanical churn rather than better locality.
 - Audited the touched server HTTP/app test families and did not split them in
   this slice because the Addon and workflow tests are coupled to large
@@ -486,8 +486,8 @@ Validation:
 
 ```bash
 cargo fmt --all
-$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo nextest run -p taru-db search --no-fail-fast
-$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo nextest run -p taru-db facet --no-fail-fast
+$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo nextest run -p nako-db search --no-fail-fast
+$env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo nextest run -p nako-db facet --no-fail-fast
 $env:TMP='F:\Temp'; $env:TEMP='F:\Temp'; cargo check --workspace --tests
 cargo fmt --all -- --check
 git diff --check
@@ -549,7 +549,7 @@ Result:
 
 PostgreSQL opt-in:
 
-- Skipped because `TARU_TEST_POSTGRES_URL` was unset in this environment.
+- Skipped because `NAKO_TEST_POSTGRES_URL` was unset in this environment.
 - SQLite always-on coverage and backend-neutral contract pairs remain present.
 - PostgreSQL opt-in contract pairs should be run in an environment that provides
   a disposable PostgreSQL test URL.

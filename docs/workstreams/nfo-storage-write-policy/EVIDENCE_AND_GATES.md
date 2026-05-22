@@ -16,10 +16,10 @@ Last updated: 2026-05-17
 
 ```powershell
 cargo fmt --all -- --check
-cargo check -p taru-vfs --tests
-cargo nextest run -p taru-vfs --no-fail-fast
-cargo check -p taru-nfo --tests
-cargo nextest run -p taru-nfo --no-fail-fast
+cargo check -p nako-vfs --tests
+cargo nextest run -p nako-vfs --no-fail-fast
+cargo check -p nako-nfo --tests
+cargo nextest run -p nako-nfo --no-fail-fast
 ```
 
 ## Closeout Gates
@@ -34,12 +34,12 @@ git diff --check
 
 - 2026-05-17: Workstream opened for M48.
 - 2026-05-17: `cargo fmt --all -- --check` passed after formatting the
-  touched `taru-vfs` and `taru-nfo` packages.
-- 2026-05-17: `cargo check -p taru-vfs --tests` passed.
-- 2026-05-17: `cargo nextest run -p taru-vfs --no-fail-fast` passed with 22
+  touched `nako-vfs` and `nako-nfo` packages.
+- 2026-05-17: `cargo check -p nako-vfs --tests` passed.
+- 2026-05-17: `cargo nextest run -p nako-vfs --no-fail-fast` passed with 22
   tests.
-- 2026-05-17: `cargo check -p taru-nfo --tests` passed.
-- 2026-05-17: `cargo nextest run -p taru-nfo --no-fail-fast` passed with 16
+- 2026-05-17: `cargo check -p nako-nfo --tests` passed.
+- 2026-05-17: `cargo nextest run -p nako-nfo --no-fail-fast` passed with 16
   tests.
 - 2026-05-17: NFO export now requests `StorageWriteMode::AtomicReplace`, local
   storage implements same-directory temp-file replace, and NFO failures carry

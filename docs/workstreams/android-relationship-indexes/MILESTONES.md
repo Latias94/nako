@@ -32,7 +32,7 @@ Exit criteria:
 
 Evidence:
 
-- `TaruBrowseClient.listGenres` builds the paginated `GET /genres` request
+- `NakoBrowseClient.listGenres` builds the paginated `GET /genres` request
   through the shared authenticated Public Client API pipeline.
 - Focused tests cover decoding, bearer token redaction, and API version
   rejection.

@@ -5,7 +5,7 @@
   "status": "closed",
   "updated": "2026-05-19",
   "scope_kind": "execution",
-  "problem": "Android consumes the core Taru Public Client API, but the server route surface has grown and selected artwork/image serving plus several browse-detail routes are not yet intentionally covered.",
+  "problem": "Android consumes the core Nako Public Client API, but the server route surface has grown and selected artwork/image serving plus several browse-detail routes are not yet intentionally covered.",
   "current_task": null,
   "authoritative_docs": [
     {
@@ -33,15 +33,15 @@
     "docs/api/HTTP_API.md",
     "docs/workstreams/android-public-client-api-coverage/API_COVERAGE_MATRIX.md",
     "docs/workstreams/user-playback-state-contract/",
-    "apps/android/app/src/main/java/dev/taru/android/connection/TaruConnectionClient.kt",
-    "apps/android/app/src/main/java/dev/taru/android/browse/TaruBrowseClient.kt",
-    "apps/android/app/src/main/java/dev/taru/android/artwork/PublicArtwork.kt",
-    "apps/android/app/src/main/java/dev/taru/android/ui/artwork/TaruArtworkImage.kt",
-    "apps/android/app/src/main/java/dev/taru/android/ui/artwork/TaruArtworkSlots.kt",
-    "apps/android/app/src/main/java/dev/taru/android/ui/browse/LibraryDetailScreen.kt",
-    "apps/android/app/src/main/java/dev/taru/android/ui/screens/sourcepicker/SourcePickerScreen.kt",
-    "apps/android/app/src/main/java/dev/taru/android/media/MediaProbeModels.kt",
-    "apps/android/app/src/main/java/dev/taru/android/playback/TaruPlaybackClient.kt"
+    "apps/android/app/src/main/java/dev/nako/android/connection/NakoConnectionClient.kt",
+    "apps/android/app/src/main/java/dev/nako/android/browse/NakoBrowseClient.kt",
+    "apps/android/app/src/main/java/dev/nako/android/artwork/PublicArtwork.kt",
+    "apps/android/app/src/main/java/dev/nako/android/ui/artwork/NakoArtworkImage.kt",
+    "apps/android/app/src/main/java/dev/nako/android/ui/artwork/NakoArtworkSlots.kt",
+    "apps/android/app/src/main/java/dev/nako/android/ui/browse/LibraryDetailScreen.kt",
+    "apps/android/app/src/main/java/dev/nako/android/ui/screens/sourcepicker/SourcePickerScreen.kt",
+    "apps/android/app/src/main/java/dev/nako/android/media/MediaProbeModels.kt",
+    "apps/android/app/src/main/java/dev/nako/android/playback/NakoPlaybackClient.kt"
   ],
   "adr_refs": [
     "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"

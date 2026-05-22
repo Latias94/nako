@@ -29,10 +29,10 @@ Task IDs use the `AAO` prefix.
 
 ## M1 — Lifecycle Mutation
 
-- [x] AAO-020 [owner=codex] [deps=AAO-010] [scope=crates/taru-core/src/repository/addon.rs,crates/taru-db,crates/taru-api/src/extension.rs,crates/taru-server/src/app/addons.rs,crates/taru-server/src/app/addons/principal.rs,crates/taru-server/src/http/addons.rs,crates/taru-server/src/http/tests/addons.rs,docs/api/HTTP_API.md]
+- [x] AAO-020 [owner=codex] [deps=AAO-010] [scope=crates/nako-core/src/repository/addon.rs,crates/nako-db,crates/nako-api/src/extension.rs,crates/nako-server/src/app/addons.rs,crates/nako-server/src/app/addons/principal.rs,crates/nako-server/src/http/addons.rs,crates/nako-server/src/http/tests/addons.rs,docs/api/HTTP_API.md]
   Goal: Add an Admin Addon lifecycle command for enable/disable without using
   full registration upsert as status mutation.
-  Validation: `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests`; `cargo nextest run -p taru-server addons --no-fail-fast`; `cargo nextest run -p taru-db addon --no-fail-fast`; `git diff --check`.
+  Validation: `cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests`; `cargo nextest run -p nako-server addons --no-fail-fast`; `cargo nextest run -p nako-db addon --no-fail-fast`; `git diff --check`.
   Review: Disabled Addons must not authenticate runtime Addon routes. Admin
   responses must not expose token hashes, raw tokens, or persistence-only
   fields.
@@ -44,15 +44,15 @@ Task IDs use the `AAO` prefix.
   disabled registrations before marking Addon Tokens used. Admin responses use
   the existing redaction-safe registration detail envelope. The route only
   accepts `enabled` / `disabled`; `unregistered` remains reserved for AAO-030.
-  Validation: `cargo check -p taru-core -p taru-db -p taru-api -p taru-server
-  --tests`; `cargo nextest run -p taru-server addons --no-fail-fast`; `cargo
-  nextest run -p taru-db addon --no-fail-fast`; `cargo fmt --all -- --check`;
+  Validation: `cargo check -p nako-core -p nako-db -p nako-api -p nako-server
+  --tests`; `cargo nextest run -p nako-server addons --no-fail-fast`; `cargo
+  nextest run -p nako-db addon --no-fail-fast`; `cargo fmt --all -- --check`;
   `git diff --check`.
 
-- [x] AAO-030 [owner=codex] [deps=AAO-020] [scope=crates/taru-core/src/addon.rs,crates/taru-core/src/repository/addon.rs,crates/taru-db/migrations,crates/taru-db/migrations/postgres,crates/taru-db/src/sqlite/addons.rs,crates/taru-db/src/postgres.rs,crates/taru-api/src/extension.rs,crates/taru-server/src/app/addons.rs,crates/taru-server/src/http/addons.rs,crates/taru-server/src/http/tests/addons.rs,docs/api/HTTP_API.md]
+- [x] AAO-030 [owner=codex] [deps=AAO-020] [scope=crates/nako-core/src/addon.rs,crates/nako-core/src/repository/addon.rs,crates/nako-db/migrations,crates/nako-db/migrations/postgres,crates/nako-db/src/sqlite/addons.rs,crates/nako-db/src/postgres.rs,crates/nako-api/src/extension.rs,crates/nako-server/src/app/addons.rs,crates/nako-server/src/http/addons.rs,crates/nako-server/src/http/tests/addons.rs,docs/api/HTTP_API.md]
   Goal: Implement unregister/delete semantics with token revocation and
   redaction-safe Admin response.
-  Validation: `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests`; focused DB Addon contract; focused Admin Addon nextest; PostgreSQL opt-in when `TARU_TEST_POSTGRES_URL` is available; `git diff --check`.
+  Validation: `cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests`; focused DB Addon contract; focused Admin Addon nextest; PostgreSQL opt-in when `NAKO_TEST_POSTGRES_URL` is available; `git diff --check`.
   Review: Prefer terminal lifecycle state preserving audit unless AAO-010
   documents physical deletion. Runtime Addon Token access must fail after
   unregister.
@@ -66,41 +66,41 @@ Task IDs use the `AAO` prefix.
   route; direct enable/token issue/token rotate/grant replace against the
   terminal registration is rejected. `DELETE /admin/v1/addons/{addon_id}` is
   not mounted.
-  Validation: `cargo check -p taru-core -p taru-db -p taru-api -p taru-server
-  --tests`; `cargo nextest run -p taru-server addons --no-fail-fast`; `cargo
-  nextest run -p taru-db addon --no-fail-fast`; `cargo fmt --all -- --check`;
+  Validation: `cargo check -p nako-core -p nako-db -p nako-api -p nako-server
+  --tests`; `cargo nextest run -p nako-server addons --no-fail-fast`; `cargo
+  nextest run -p nako-db addon --no-fail-fast`; `cargo fmt --all -- --check`;
   `git diff --check`. PostgreSQL opt-in contract was not run because
-  `TARU_TEST_POSTGRES_URL` was not available in this session.
+  `NAKO_TEST_POSTGRES_URL` was not available in this session.
 
 ## M2 — Health And Diagnostics
 
-- [x] AAO-040 [owner=codex] [deps=AAO-010] [scope=crates/taru-addon-protocol,crates/taru-addon-client,crates/taru-api/src/extension.rs,crates/taru-server/src/app/addons.rs,crates/taru-server/src/http/addons.rs,crates/taru-server/src/http/tests/addons.rs,docs/guides/ADDON_AUTHOR_GUIDE.md,docs/api/HTTP_API.md]
+- [x] AAO-040 [owner=codex] [deps=AAO-010] [scope=crates/nako-addon-protocol,crates/nako-addon-client,crates/nako-api/src/extension.rs,crates/nako-server/src/app/addons.rs,crates/nako-server/src/http/addons.rs,crates/nako-server/src/http/tests/addons.rs,docs/guides/ADDON_AUTHOR_GUIDE.md,docs/api/HTTP_API.md]
   Goal: Add an Admin Addon Health Check that proves reachability and manifest
   compatibility through a bounded, redaction-safe Addon Protocol contract.
-  Validation: `cargo check -p taru-addon-protocol -p taru-addon-client -p taru-api -p taru-server --tests`; `cargo nextest run -p taru-addon-protocol -p taru-addon-client --no-fail-fast`; focused Admin Addon nextest; `git diff --check`.
+  Validation: `cargo check -p nako-addon-protocol -p nako-addon-client -p nako-api -p nako-server --tests`; `cargo nextest run -p nako-addon-protocol -p nako-addon-client --no-fail-fast`; focused Admin Addon nextest; `git diff --check`.
   Review: Never pass administrator bearer tokens to an Addon Sidecar. Health
   reports must contain safe status, latency, protocol/manifest facts, and safe
   error codes only.
   Handoff: Continue with AAO-050 hosted surface read models.
   Progress: Added Addon Health Check request/response protocol envelopes,
-  mockable `taru-addon-client::check_addon_health`, reference-addon `/health`,
+  mockable `nako-addon-client::check_addon_health`, reference-addon `/health`,
   Admin DTOs, and `POST /admin/v1/addons/{addon_id}/health-check`.
   Health checks call `{base_url}/health` with protocol headers and a bounded
   timeout, never with admin bearer tokens, Addon Tokens, resolved Secret
   References, or resource payloads. Admin responses classify reachable,
   degraded/unhealthy, protocol mismatch, and unreachable cases with safe facts
   only.
-  Validation: `cargo check -p taru-addon-protocol -p taru-addon-client -p
-  taru-api -p taru-server --tests`; `cargo nextest run -p
-  taru-addon-protocol -p taru-addon-client --no-fail-fast`; `cargo nextest run
-  -p taru-server addons --no-fail-fast`; `cargo fmt --all -- --check`; `git
+  Validation: `cargo check -p nako-addon-protocol -p nako-addon-client -p
+  nako-api -p nako-server --tests`; `cargo nextest run -p
+  nako-addon-protocol -p nako-addon-client --no-fail-fast`; `cargo nextest run
+  -p nako-server addons --no-fail-fast`; `cargo fmt --all -- --check`; `git
   diff --check`.
 
-- [x] AAO-050 [owner=codex] [deps=AAO-040] [scope=crates/taru-api/src/extension.rs,crates/taru-server/src/app/addons.rs,crates/taru-server/src/http/addons.rs,crates/taru-server/src/http/tests/addons.rs,docs/workstreams/admin-web-console/ADMIN_API_MATRIX.md,docs/api/HTTP_API.md]
+- [x] AAO-050 [owner=codex] [deps=AAO-040] [scope=crates/nako-api/src/extension.rs,crates/nako-server/src/app/addons.rs,crates/nako-server/src/http/addons.rs,crates/nako-server/src/http/tests/addons.rs,docs/workstreams/admin-web-console/ADMIN_API_MATRIX.md,docs/api/HTTP_API.md]
   Goal: Add Admin read models for Addon Entry Points, Hosted Pages,
   Configuration Schema metadata, Addon Task declarations, and Event
   Subscription declarations.
-  Validation: `cargo check -p taru-api -p taru-server --tests`; focused Admin
+  Validation: `cargo check -p nako-api -p nako-server --tests`; focused Admin
   Addon nextest; `git diff --check`.
   Review: Hosted Pages are external Addon Sidecar pages, not trusted embedded
   Admin UI. Do not expose secrets or admin bearer-token launch URLs.
@@ -111,15 +111,15 @@ Task IDs use the `AAO` prefix.
   are derived from stored manifest `base_url` plus declared absolute path and
   never include administrator bearer tokens, Addon Tokens, launch secrets, or
   resolved Secret Reference values.
-  Validation: `cargo check -p taru-api -p taru-server --tests`; `cargo
-  nextest run -p taru-server addons --no-fail-fast`; `cargo fmt --all --
+  Validation: `cargo check -p nako-api -p nako-server --tests`; `cargo
+  nextest run -p nako-server addons --no-fail-fast`; `cargo fmt --all --
   --check`; `git diff --check`.
 
-- [x] AAO-060 [owner=codex] [deps=AAO-040] [scope=crates/taru-addon-client,crates/taru-api/src/extension.rs,crates/taru-server/src/app/addons.rs,crates/taru-server/src/http/addons.rs,crates/taru-server/src/http/tests/addons.rs,docs/api/HTTP_API.md]
+- [x] AAO-060 [owner=codex] [deps=AAO-040] [scope=crates/nako-addon-client,crates/nako-api/src/extension.rs,crates/nako-server/src/app/addons.rs,crates/nako-server/src/http/addons.rs,crates/nako-server/src/http/tests/addons.rs,docs/api/HTTP_API.md]
   Goal: Add bounded resource-call diagnostics for declared Addon Resources so
   admins can distinguish unreachable sidecars, protocol mismatch, missing
   resource declarations, authorization gaps, and unsafe responses.
-  Validation: `cargo check -p taru-addon-client -p taru-api -p taru-server --tests`; focused Admin Addon nextest; `git diff --check`.
+  Validation: `cargo check -p nako-addon-client -p nako-api -p nako-server --tests`; focused Admin Addon nextest; `git diff --check`.
   Review: Diagnostics must not echo raw payloads, Addon Tokens, admin tokens,
   Source Locators, storage paths, provider secrets, or raw response bodies.
   Handoff: Continue with AAO-070 closeout.
@@ -132,9 +132,9 @@ Task IDs use the `AAO` prefix.
   echoing diagnostic payloads, Addon response payloads, raw response bodies,
   token material, Source Locators, storage paths, provider secrets, or raw
   network errors.
-  Validation: `cargo check -p taru-addon-client -p taru-api -p taru-server
-  --tests`; `cargo nextest run -p taru-addon-client --no-fail-fast`; `cargo
-  nextest run -p taru-server addons --no-fail-fast`; `cargo fmt --all --
+  Validation: `cargo check -p nako-addon-client -p nako-api -p nako-server
+  --tests`; `cargo nextest run -p nako-addon-client --no-fail-fast`; `cargo
+  nextest run -p nako-server addons --no-fail-fast`; `cargo fmt --all --
   --check`; `git diff --check`.
 
 ## M3 — Closeout
@@ -155,10 +155,10 @@ Task IDs use the `AAO` prefix.
   Subscription delivery remain explicit future non-goals rather than vague
   buckets.
   Validation: `cargo fmt --all -- --check`; `cargo check -p
-  taru-addon-protocol -p taru-addon-client -p taru-api -p taru-core -p taru-db
-  -p taru-server --tests`; `cargo nextest run -p taru-addon-protocol -p
-  taru-addon-client --no-fail-fast`; `cargo nextest run -p taru-db addon
-  --no-fail-fast`; `cargo nextest run -p taru-server addons --no-fail-fast`;
+  nako-addon-protocol -p nako-addon-client -p nako-api -p nako-core -p nako-db
+  -p nako-server --tests`; `cargo nextest run -p nako-addon-protocol -p
+  nako-addon-client --no-fail-fast`; `cargo nextest run -p nako-db addon
+  --no-fail-fast`; `cargo nextest run -p nako-server addons --no-fail-fast`;
   `cargo check --workspace --tests`; `cargo nextest run --workspace
   --no-fail-fast`; `git diff --check`. PostgreSQL opt-in contracts were
-  skipped because `TARU_TEST_POSTGRES_URL` was not set.
+  skipped because `NAKO_TEST_POSTGRES_URL` was not set.

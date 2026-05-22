@@ -12,17 +12,17 @@ as `docs/workstreams/managed-artwork-postgresql-parity/`.
 M61 closed the broad architecture refactor and created a PostgreSQL-ready
 persistence seam:
 
-- `taru-db` exposes a `TaruDatabase` facade;
-- SQLite implementation details live under `taru-db::sqlite`;
+- `nako-db` exposes a `NakoDatabase` facade;
+- SQLite implementation details live under `nako-db::sqlite`;
 - backend-neutral job lease contract tests run against SQLite;
 - ignored PostgreSQL job lease contract tests can run when
-  `TARU_TEST_POSTGRES_URL` is set;
+  `NAKO_TEST_POSTGRES_URL` is set;
 - ADR 0029 and ADR 0030 define the persistence boundary, migration ownership,
   SQL dialect policy, row-codec policy, and test fixture policy.
 
 At the start of M62, that was not yet production PostgreSQL support. The
 PostgreSQL code was a proof harness for libraries, jobs, and job leases. The
-server still constructed SQLite through `TaruDatabase::connect*`, and most
+server still constructed SQLite through `NakoDatabase::connect*`, and most
 repository behavior was proven only by SQLite tests.
 
 Closeout note: this paragraph documents the M61 starting point. PGR-120
@@ -39,12 +39,12 @@ assumptions.
 - `docs/adr/0029-postgresql-ready-persistence-boundary.md`
 - `docs/adr/0030-postgresql-ready-sql-dialect-and-migration-policy.md`
 - `docs/workstreams/future-ready-architecture-refactor/`
-- `crates/taru-db/src/contract_tests.rs`
-- `crates/taru-db/src/facade.rs`
-- `crates/taru-db/src/postgres.rs`
-- `crates/taru-db/src/sqlite/`
-- `crates/taru-server/src/config.rs`
-- `crates/taru-server/src/app/composition.rs`
+- `crates/nako-db/src/contract_tests.rs`
+- `crates/nako-db/src/facade.rs`
+- `crates/nako-db/src/postgres.rs`
+- `crates/nako-db/src/sqlite/`
+- `crates/nako-server/src/config.rs`
+- `crates/nako-server/src/app/composition.rs`
 
 ## Problem
 
@@ -52,7 +52,7 @@ assumptions.
 
 The only backend-neutral PostgreSQL proof is the job lease lifecycle. It proves
 locking, fencing, cancellation, recovery, basic libraries, and jobs, but not
-the data paths that make Taru a media server:
+the data paths that make Nako a media server:
 
 - Media Library and Media Source identity;
 - Media Item hierarchy and Library Item State;
@@ -71,7 +71,7 @@ unreviewed translation of SQLite migrations.
 
 ### P2 — Runtime Backend Selection Does Not Exist
 
-`TaruDatabase` is still structurally SQLite-backed in production. Server config
+`NakoDatabase` is still structurally SQLite-backed in production. Server config
 accepts a database URL but does not model backend kind, PostgreSQL pool/runtime
 policy, connection validation, migration behavior, or safe diagnostics.
 
@@ -96,7 +96,7 @@ contract tests safely.
 
 When M62 closes:
 
-- `TaruDatabase` can select SQLite or PostgreSQL through an explicit
+- `NakoDatabase` can select SQLite or PostgreSQL through an explicit
   production configuration path.
 - SQLite remains the default and always-on test backend.
 - PostgreSQL has production-shaped lifecycle, migration, pool/runtime policy,
@@ -107,7 +107,7 @@ When M62 closes:
   backend scope, with intentional differences documented by ADR-backed policy.
 - Server startup can migrate and run against PostgreSQL for the supported
   scope without importing SQLite adapter details.
-- SQLite-specific assumptions either stay inside `taru-db::sqlite` or are
+- SQLite-specific assumptions either stay inside `nako-db::sqlite` or are
   named as temporary follow-ons with owners and expiry gates.
 - Local and CI verification commands are documented.
 
@@ -115,7 +115,7 @@ When M62 closes:
 
 - Backend-neutral contract-test harness expansion.
 - PostgreSQL migration/schema parity planning and implementation.
-- `TaruDatabase` backend selection and backend kind modeling.
+- `NakoDatabase` backend selection and backend kind modeling.
 - Server configuration for selecting SQLite or PostgreSQL.
 - PostgreSQL lifecycle/migration/pool/runtime diagnostics needed for production
   operation.
@@ -137,8 +137,8 @@ When M62 closes:
 
 | Area | Current state | M62 implication |
 | --- | --- | --- |
-| Facade | `TaruDatabase` owns only a SQLite field and delegates all repository traits to SQLite. | Introduce backend kind/enum or adapter dispatch without leaking concrete stores to callers. |
-| SQLite | Implementation lives under `crates/taru-db/src/sqlite/`. | Keep SQLite as the reference always-on backend. |
+| Facade | `NakoDatabase` owns only a SQLite field and delegates all repository traits to SQLite. | Introduce backend kind/enum or adapter dispatch without leaking concrete stores to callers. |
+| SQLite | Implementation lives under `crates/nako-db/src/sqlite/`. | Keep SQLite as the reference always-on backend. |
 | PostgreSQL | `PostgresStore` is `#[cfg(test)]`, supports lifecycle, libraries, jobs, and job leases. | Promote only when enough production contracts and migrations exist. |
 | Contracts | `contract_tests.rs` covers job leases, with SQLite active and PostgreSQL ignored/opt-in. | Generalize harness by contract family and add vertical workflow contracts. |
 | Server config | Uses `database_url` and many tests use `sqlite::memory:`. | Add explicit database backend selection and safe config diagnostics. |
@@ -146,7 +146,7 @@ When M62 closes:
 
 Current PGR-120 audit update: the table above records the M61 starting point.
 By PGR-120, `PostgresStore` has been promoted out of test-only compilation for
-the supported backend scope, `TaruDatabase` dispatches through an internal
+the supported backend scope, `NakoDatabase` dispatches through an internal
 backend adapter trait, and PostgreSQL runtime selection enters the real
 connection path. Managed Artwork remains the intentionally split runtime gap.
 
@@ -177,10 +177,10 @@ intentionally SQLite-only.
 
 Prefer an explicit backend selection interface over URL guessing:
 
-- `DatabaseBackendKind::{Sqlite, Postgres}` in `taru-db` or server config;
-- `TaruDatabase::connect(config)` or equivalent production constructor;
-- `TaruDatabase` dispatches to the active adapter internally;
-- server/app code continues to depend on repository traits and `TaruDatabase`,
+- `DatabaseBackendKind::{Sqlite, Postgres}` in `nako-db` or server config;
+- `NakoDatabase::connect(config)` or equivalent production constructor;
+- `NakoDatabase` dispatches to the active adapter internally;
+- server/app code continues to depend on repository traits and `NakoDatabase`,
   not `SqliteStore` or `PostgresStore`.
 
 URL scheme inference may remain a convenience, but it must not be the only
@@ -220,7 +220,7 @@ Production PostgreSQL support needs explicit:
 
 M62 can close only when:
 
-- `TaruDatabase` supports explicit SQLite/PostgreSQL backend selection in
+- `NakoDatabase` supports explicit SQLite/PostgreSQL backend selection in
   production code;
 - PostgreSQL is no longer only `#[cfg(test)]` proof code for the supported
   backend scope;

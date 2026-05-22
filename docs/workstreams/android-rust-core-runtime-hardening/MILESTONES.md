@@ -24,7 +24,7 @@ Exit when:
 Result: Host library, generated Kotlin bindings, debug/release Android ABI
 libraries, and variant JNI packaging are separate Gradle tasks. JVM unit tests
 build only the host library and generated bindings. Debug assembly can select
-an ABI set with `-PtaruRustAndroidAbis=...`.
+an ABI set with `-PnakoRustAndroidAbis=...`.
 
 ## M2 — Rust Client Adapter Reuse
 
@@ -32,13 +32,13 @@ Status: Complete on 2026-05-21.
 
 Exit when:
 
-- `taru-client-core` exposes reusable request/response policy;
-- `taru-client` consumes that policy for route request specs, bearer headers,
+- `nako-client-core` exposes reusable request/response policy;
+- `nako-client` consumes that policy for route request specs, bearer headers,
   status/API-version checks, and public error envelopes;
-- existing `taru-client` route tests pass.
+- existing `nako-client` route tests pass.
 
-Result: `taru-client-core` owns generic request spec building and response
-policy interpretation. `taru-client` consumes those core seams while retaining
+Result: `nako-client-core` owns generic request spec building and response
+policy interpretation. `nako-client` consumes those core seams while retaining
 reqwest transport ergonomics for Rust callers.
 
 ## M3 — Rust Public Wire Tolerance
@@ -68,9 +68,9 @@ Exit when:
   diagnostics, profile/token storage, and product copy;
 - focused playback tests and Android assemble pass.
 
-Result: `taru-client-core` exposes playback decision, direct stream, remux
+Result: `nako-client-core` exposes playback decision, direct stream, remux
 stream, HLS playlist, HLS segment, and recommended-target request builders.
-`taru-client-uniffi` exports those builders as binding-only functions.
+`nako-client-uniffi` exports those builders as binding-only functions.
 Android playback consumes the Rust core for portable URL/query/method/session
 preflight decisions while retaining app-owned transport, token/profile,
 diagnostic, DTO mapping, and Media3 responsibilities.

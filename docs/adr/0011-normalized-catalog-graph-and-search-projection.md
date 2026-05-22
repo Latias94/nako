@@ -11,11 +11,11 @@ queries slow and force each provider to duplicate relationship handling.
 
 ## Decision
 
-Taru stores normalized catalog graph records beside canonical item metadata.
+Nako stores normalized catalog graph records beside canonical item metadata.
 `CanonicalMetadata` remains the simple item-facing API shape, while SQLite graph
 tables power relationship queries and search projection.
 
-Search stays behind `taru-search::SearchIndex`. The first SQLite implementation
+Search stays behind `nako-search::SearchIndex`. The first SQLite implementation
 uses a persisted `search_documents` table as a fallback. FTS, Tantivy, or
 Meilisearch can replace the adapter later without changing catalog writes.
 

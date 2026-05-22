@@ -29,12 +29,12 @@
     }
   ],
   "gates": [
-    "cargo fmt --package taru-client-core --check",
-    "cargo nextest run -p taru-client-core --no-fail-fast",
-    "cargo fmt --package taru-client-uniffi --check",
-    "cargo nextest run -p taru-client-uniffi --no-fail-fast",
+    "cargo fmt --package nako-client-core --check",
+    "cargo nextest run -p nako-client-core --no-fail-fast",
+    "cargo fmt --package nako-client-uniffi --check",
+    "cargo nextest run -p nako-client-uniffi --no-fail-fast",
     "./scripts/guard-uniffi-boundary.ps1",
-    "apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.browse.TaruBrowseClientTest --no-daemon",
+    "apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.browse.NakoBrowseClientTest --no-daemon",
     "python -m json.tool docs/workstreams/android-browse-catalog-rust-core-routes/WORKSTREAM.json > $null",
     "git diff --check"
   ],
@@ -47,7 +47,7 @@
     {
       "date": "2026-05-21",
       "task": "BCR-020",
-      "summary": "Added taru-client-core browse/catalog request builders and core tests; taru-client-core gate passed."
+      "summary": "Added nako-client-core browse/catalog request builders and core tests; nako-client-core gate passed."
     },
     {
       "date": "2026-05-21",
@@ -57,7 +57,7 @@
     {
       "date": "2026-05-21",
       "task": "BCR-040",
-      "summary": "Migrated Android TaruBrowseClient runtime route construction to Rust BrowseCore descriptors; browse JVM tests passed."
+      "summary": "Migrated Android NakoBrowseClient runtime route construction to Rust BrowseCore descriptors; browse JVM tests passed."
     },
     {
       "date": "2026-05-21",

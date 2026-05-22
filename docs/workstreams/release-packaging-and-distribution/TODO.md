@@ -19,12 +19,12 @@ Task IDs use the `RPD` prefix.
 
 ## M1 — Server Startup And Config Preflight
 
-- [x] RPD-020 [owner=codex] [deps=RPD-010] [scope=crates/taru-server,docs/deployment,docs/workstreams/release-packaging-and-distribution]
+- [x] RPD-020 [owner=codex] [deps=RPD-010] [scope=crates/nako-server,docs/deployment,docs/workstreams/release-packaging-and-distribution]
   Goal: Provide an operator-safe config validation/preflight path for packaged
   runs, covering config file parsing, database backend selection, bind address,
   artifact/staging directories, auth, and redacted error output.
   Validation: focused server config/preflight tests; `cargo nextest run -p
-  taru-server config --no-fail-fast`; `git diff --check`.
+  nako-server config --no-fail-fast`; `git diff --check`.
   Review: Validation must not require connecting to production services unless
   explicitly requested, and must not print secrets.
   Evidence: `config-check` CLI, focused config/preflight tests, and
@@ -34,14 +34,14 @@ Task IDs use the `RPD` prefix.
 ## M2 — Container And Compose Packaging
 
 - [x] RPD-030 [owner=codex] [deps=RPD-020] [scope=Dockerfile,deploy,docs/deployment,scripts,docs/workstreams/release-packaging-and-distribution]
-  Goal: Add a Taru server container build path and compose examples that run
-  Taru with durable external volumes and PostgreSQL or SQLite configuration.
+  Goal: Add a Nako server container build path and compose examples that run
+  Nako with durable external volumes and PostgreSQL or SQLite configuration.
   Validation: Dockerfile/static build checks where Docker is available;
   `docker compose config`; docs grep for durable state, auth, DB, artifact root,
   and backup warnings; `git diff --check`.
   Review: Examples must not ship unsafe public binds or real secrets.
   Evidence: `Dockerfile`, `.dockerignore`, `deploy/container/*.toml`,
-  `deploy/compose/taru-*.yml`, `database_url_env`, `scripts/release-gate.*`
+  `deploy/compose/nako-*.yml`, `database_url_env`, `scripts/release-gate.*`
   container mode, compose config output, and docs.
   Handoff: Continue with release artifact scripts/CI.
 
@@ -63,7 +63,7 @@ Task IDs use the `RPD` prefix.
 
 - [x] RPD-050 [owner=codex] [deps=RPD-040] [scope=docs/deployment,docs/workstreams/release-packaging-and-distribution]
   Goal: Document install, first start, upgrade, rollback, backup, logs,
-  diagnostics, and support bundle expectations for packaged Taru.
+  diagnostics, and support bundle expectations for packaged Nako.
   Validation: docs inventory covers install, config, start, verify, backup,
   upgrade, rollback, logs, diagnostics, and artifact checksums; `git diff
   --check`.

@@ -33,7 +33,7 @@
     }
   ],
   "gates": [
-    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.taru.android.smoke.DebugSmokeFixtureSeedActivityTest --no-daemon",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.nako.android.smoke.DebugSmokeFixtureSeedActivityTest --no-daemon",
     "pwsh -NoProfile -File apps\\android\\scripts\\Smoke-Emulator.ps1 -FixtureState profile-with-media",
     "git diff --check"
   ],

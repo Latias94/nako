@@ -2,7 +2,7 @@
 set -euo pipefail
 
 mode="fast"
-postgres_url="${TARU_TEST_POSTGRES_URL:-}"
+postgres_url="${NAKO_TEST_POSTGRES_URL:-}"
 skip_redaction_inventory="false"
 redaction_inventory_pattern='storage_uri|managed-artwork://|source_uri|cache_uri|content_hash|artifact_root|local_path|database_url|token|secret'
 
@@ -10,7 +10,7 @@ usage() {
   cat <<'USAGE'
 Usage: scripts/release-gate.sh [--mode docs|fast|db|api|postgres|container|workspace|all] [--postgres-url URL] [--skip-redaction-inventory]
 
-Runs Taru's local release gate without deleting user data or assuming Docker.
+Runs Nako's local release gate without deleting user data or assuming Docker.
 USAGE
 }
 
@@ -90,16 +90,16 @@ inventory() {
 }
 
 api_sdk_gate() {
-  step cargo check -p taru-api --tests
-  step cargo check -p taru-client --tests
-  step cargo check -p taru-client-protocol --tests
-  step cargo nextest run -p taru-api openapi --no-fail-fast
-  step cargo nextest run -p taru-api sdk --no-fail-fast
-  step cargo nextest run -p taru-api admin_contract --no-fail-fast
-  step cargo nextest run -p taru-client --no-fail-fast
-  step cargo nextest run -p taru-client-protocol --no-fail-fast
-  step cargo tree -p taru-client
-  step cargo tree -p taru-client-protocol
+  step cargo check -p nako-api --tests
+  step cargo check -p nako-client --tests
+  step cargo check -p nako-client-protocol --tests
+  step cargo nextest run -p nako-api openapi --no-fail-fast
+  step cargo nextest run -p nako-api sdk --no-fail-fast
+  step cargo nextest run -p nako-api admin_contract --no-fail-fast
+  step cargo nextest run -p nako-client --no-fail-fast
+  step cargo nextest run -p nako-client-protocol --no-fail-fast
+  step cargo tree -p nako-client
+  step cargo tree -p nako-client-protocol
   step npm run generate --prefix sdk/typescript
   step npm run check --prefix sdk/typescript
   step npm run generate:admin-api --prefix apps/admin-web
@@ -111,23 +111,23 @@ container_gate() {
   local media_root="$repo_root/target/release-gate/media/movies"
   mkdir -p "$media_root"
 
-  step cargo nextest run -p taru-server config --no-fail-fast
+  step cargo nextest run -p nako-server config --no-fail-fast
 
   echo
-  echo "==> docker compose config for Taru SQLite stack"
-  TARU_ADMIN_TOKEN="release-gate-admin-token" \
-    TARU_MEDIA_ROOT="$media_root" \
-    docker compose -f deploy/compose/taru-sqlite.yml config >/dev/null
+  echo "==> docker compose config for Nako SQLite stack"
+  NAKO_ADMIN_TOKEN="release-gate-admin-token" \
+    NAKO_MEDIA_ROOT="$media_root" \
+    docker compose -f deploy/compose/nako-sqlite.yml config >/dev/null
 
   echo
-  echo "==> docker compose config for Taru PostgreSQL stack"
-  TARU_ADMIN_TOKEN="release-gate-admin-token" \
-    TARU_POSTGRES_PASSWORD="release-gate-postgres-password" \
-    TARU_MEDIA_ROOT="$media_root" \
-    docker compose -f deploy/compose/taru-postgres.yml config >/dev/null
+  echo "==> docker compose config for Nako PostgreSQL stack"
+  NAKO_ADMIN_TOKEN="release-gate-admin-token" \
+    NAKO_POSTGRES_PASSWORD="release-gate-postgres-password" \
+    NAKO_MEDIA_ROOT="$media_root" \
+    docker compose -f deploy/compose/nako-postgres.yml config >/dev/null
 }
 
-echo "Taru release gate"
+echo "Nako release gate"
 echo "Mode: $mode"
 echo "Repository: $repo_root"
 
@@ -145,16 +145,16 @@ if [[ "$mode" == "docs" ]]; then
 fi
 
 if contains_mode "fast" || contains_mode "db"; then
-  step cargo check -p taru-db --tests
-  step cargo nextest run -p taru-db sqlite_managed_artwork_contract --no-fail-fast
+  step cargo check -p nako-db --tests
+  step cargo nextest run -p nako-db sqlite_managed_artwork_contract --no-fail-fast
 fi
 
 if contains_mode "fast" || contains_mode "api"; then
-  step cargo check -p taru-server --tests
+  step cargo check -p nako-server --tests
   api_sdk_gate
-  step cargo nextest run -p taru-api managed_artwork --no-fail-fast
-  step cargo nextest run -p taru-server managed_artwork --no-fail-fast
-  step cargo nextest run -p taru-server self_host_smoke --no-fail-fast
+  step cargo nextest run -p nako-api managed_artwork --no-fail-fast
+  step cargo nextest run -p nako-server managed_artwork --no-fail-fast
+  step cargo nextest run -p nako-server self_host_smoke --no-fail-fast
 fi
 
 if contains_mode "container"; then
@@ -175,4 +175,4 @@ if contains_mode "postgres"; then
 fi
 
 echo
-echo "Taru release gate completed."
+echo "Nako release gate completed."

@@ -1,16 +1,16 @@
-# Taru Android Client Interface Direction
+# Nako Android Client Interface Direction
 
 Status: Proposed
 Last updated: 2026-05-18
 
-This document translates Taru's Android Client Foundation UX baseline into a
+This document translates Nako's Android Client Foundation UX baseline into a
 screen and component direction for a playback-first phone and tablet client.
 `CONTEXT.md` remains authoritative for domain language. `UX_CONTEXT.md`
 remains authoritative for first-version scope.
 
 ## Design Thesis
 
-Taru Android should feel like a personal screening room connected to a
+Nako Android should feel like a personal screening room connected to a
 self-hosted library: calm when configuring, cinematic when browsing, precise
 when choosing a source, and quiet once playback starts.
 
@@ -20,7 +20,7 @@ or **Source Variant**, and starting playback with confidence.
 
 ## Scene Sentence
 
-A user opens Taru at night on a phone or tablet, usually from a couch or bed,
+A user opens Nako at night on a phone or tablet, usually from a couch or bed,
 with the room dim and the goal already clear: browse a familiar self-hosted
 library, resume something, or play a known title without seeing server
 internals.
@@ -43,11 +43,11 @@ Current Android guidance to account for:
 - Several expressive APIs have moved between experimental, stable, and alpha
   tracks. Treat expressive APIs as optional enhancement points unless the
   project deliberately accepts alpha API churn.
-- Useful expressive concepts for Taru are responsive components, emphasized
+- Useful expressive concepts for Nako are responsive components, emphasized
   typography in high-emotion surfaces, short stateful transitions, local
   artwork-derived accents, and glanceable information.
 
-Taru-specific rules:
+Nako-specific rules:
 
 - Artwork provides the emotion. Chrome must not compete with posters,
   backdrops, or video.
@@ -57,7 +57,7 @@ Taru-specific rules:
   every content surface.
 - Local poster/backdrop-derived accents are allowed on detail, source
   selection, and player surfaces when reliable artwork exists and contrast can
-  be preserved. They must fall back to Taru's cyan-green accent.
+  be preserved. They must fall back to Nako's cyan-green accent.
 - Global dynamic theme replacement is deferred. Setup and Settings remain
   restrained and should not be recolored by media artwork.
 
@@ -103,7 +103,7 @@ player is always immersive and takes over the screen.
 
 Use a restrained dark base with one cyan-green brand accent. Browse and detail
 may temporarily adopt artwork-derived muted accents, but the global UI should
-still be recognizable as Taru.
+still be recognizable as Nako.
 
 Recommended base roles:
 
@@ -151,7 +151,7 @@ control tray.
 
 ### Imagery
 
-Taru's primary visual asset is media artwork.
+Nako's primary visual asset is media artwork.
 
 - Posters use 2:3.
 - Backdrops use 16:9.
@@ -169,7 +169,7 @@ Goal: make a technical access-token connection feel safe and finite.
 
 Layout:
 
-- Top: Taru wordmark or title, small server context copy.
+- Top: Nako wordmark or title, small server context copy.
 - Main: one form surface with Display name, Server URL, Access Token.
 - Actions: Test Connection as primary until successful, Save after success.
 - Saved profiles: compact list below the form with active profile marker.
@@ -341,7 +341,7 @@ Action:
 
 - Selecting a row previews selection.
 - Primary button confirms "Play this source" or "Use this version".
-- If Taru selected a source automatically, show "Selected because..." using
+- If Nako selected a source automatically, show "Selected because..." using
   client-safe explanation text when the API provides it.
 
 ### Player
@@ -571,13 +571,13 @@ Failure:
 ## Mockup Generation Prompts
 
 Use these with the image generation workflow for visual exploration. Generated
-mockups are references only; implementation should use Compose and Taru tokens.
+mockups are references only; implementation should use Compose and Nako tokens.
 
 ### Prompt 1: Home And Browse
 
 Use case: ui-mockup
 Asset type: Android phone app high-fidelity UI concept
-Primary request: Design the Taru Android media client Home screen for a
+Primary request: Design the Nako Android media client Home screen for a
 self-hosted media server, playback-first, immersive, dark-first, artwork-led,
 using Material 3 Expressive principles.
 Scene/backdrop: Phone screen in portrait orientation, no device frame.
@@ -591,7 +591,7 @@ clear hierarchy, comfortable touch targets.
 Lighting/mood: Dim room media browsing, calm, personal, confident.
 Color palette: Tinted near-black blue-green surfaces, cyan-green accent,
 artwork-derived muted accents, amber only for warnings.
-Text (verbatim): "Taru", "Home", "Libraries", "Search", "Settings",
+Text (verbatim): "Nako", "Home", "Libraries", "Search", "Settings",
 "Continue Watching", "Media Libraries".
 Constraints: Do not show admin dashboards, server jobs, provider diagnostics,
 filesystem paths, token values, or fake recommendation claims.
@@ -602,7 +602,7 @@ oversized empty cards, illegible poster text, watermark.
 
 Use case: ui-mockup
 Asset type: Android phone app high-fidelity UI concept
-Primary request: Design a Taru Media Item Detail screen as a playback decision
+Primary request: Design a Nako Media Item Detail screen as a playback decision
 surface, not a metadata admin page.
 Scene/backdrop: Phone screen in portrait orientation, no device frame.
 Subject: Backdrop-led detail page with poster anchor, title, year, runtime,
@@ -616,7 +616,7 @@ Lighting/mood: Immersive and emotionally engaging, playback-confident.
 Color palette: Dark blue-green shell, cyan-green primary action, muted
 artwork-derived accent, amber caution chip.
 Text (verbatim): "Resume", "Version", "1080p H.264 AAC", "Direct", "Sources".
-Constraints: Use Taru language: Media Item, Media Source, Source Variant,
+Constraints: Use Nako language: Media Item, Media Source, Source Variant,
 Playback Source Selection. Show client-safe facts only.
 Avoid: Full MediaInfo dump, server-local path, FFmpeg command, provider payload,
 admin actions, decorative gradient overlay unrelated to artwork, watermark.
@@ -625,7 +625,7 @@ admin actions, decorative gradient overlay unrelated to artwork, watermark.
 
 Use case: ui-mockup
 Asset type: Android phone app high-fidelity UI concept
-Primary request: Design a Taru Source / Version Picker bottom sheet for a Media
+Primary request: Design a Nako Source / Version Picker bottom sheet for a Media
 Item with multiple playable Media Sources or Source Variants.
 Scene/backdrop: Phone screen with detail page dimmed behind a modal bottom
 sheet.
@@ -639,7 +639,7 @@ clearly marked, primary action at bottom.
 Lighting/mood: Confident technical choice without exposing internals.
 Color palette: Dark raised surface, cyan selected state, amber warning, subtle
 surface dividers.
-Text (verbatim): "Choose version", "Selected by Taru", "Play this source",
+Text (verbatim): "Choose version", "Selected by Nako", "Play this source",
 "Direct", "HLS", "Transcode".
 Constraints: Never show filesystem paths, storage credentials, secret
 references, server-local transcode paths, raw diagnostics, or token values.
@@ -649,7 +649,7 @@ Avoid: Dense admin table, tiny unreadable chips, bright neon styling, watermark.
 
 Use case: ui-mockup
 Asset type: Android phone app high-fidelity UI concept
-Primary request: Design the Taru Android player screen for reliable first
+Primary request: Design the Nako Android player screen for reliable first
 version playback using Material 3 Expressive principles.
 Scene/backdrop: Full-screen video playback UI in landscape orientation, no
 device frame.
@@ -674,7 +674,7 @@ token values, watermark.
 
 Use case: ui-mockup
 Asset type: Android phone app high-fidelity UI concept
-Primary request: Design the Taru Android Media Item Detail lower section for
+Primary request: Design the Nako Android Media Item Detail lower section for
 the first implementation baseline.
 Scene/backdrop: Phone screen in portrait orientation, no device frame. The
 screen is scrolled below the Play and Source Summary area.
@@ -701,7 +701,7 @@ FFmpeg commands, token values, real actors, real film names, watermark.
 
 Use case: ui-mockup
 Asset type: Android phone app high-fidelity UI concept
-Primary request: Design the reusable Taru Android Browse Facet Result screen
+Primary request: Design the reusable Nako Android Browse Facet Result screen
 for a supported metadata relationship, such as Director Mara Vale or Genre
 Neo-noir.
 Scene/backdrop: Phone screen in portrait orientation, no device frame.
@@ -728,7 +728,7 @@ payloads, raw diagnostics, real media names, real actors, watermark.
 
 Use case: ui-mockup
 Asset type: Android phone app high-fidelity UI concept
-Primary request: Design Taru Android Library Detail with lightweight facets
+Primary request: Design Nako Android Library Detail with lightweight facets
 for the first implementation baseline.
 Scene/backdrop: Phone screen in portrait orientation, no device frame.
 Subject: Media Library header, in-library search field, lightweight facet chip
@@ -755,7 +755,7 @@ names, trademarks, watermark, irregular hero layout.
 
 Use case: ui-mockup
 Asset type: Android phone app high-fidelity UI concept
-Primary request: Design Taru Android Settings Home for the first
+Primary request: Design Nako Android Settings Home for the first
 implementation baseline.
 Scene/backdrop: Phone screen in portrait orientation, no device frame.
 Subject: Active server summary, account access, playback preferences, subtitle
@@ -783,7 +783,7 @@ filesystem paths, token values, secret references, raw diagnostics, watermark.
 
 Use case: ui-mockup
 Asset type: Android phone app high-fidelity UI concept
-Primary request: Design Taru Android Server Profile and Connection Settings
+Primary request: Design Nako Android Server Profile and Connection Settings
 for the first implementation baseline.
 Scene/backdrop: Phone screen in portrait orientation, no device frame.
 Subject: Server summary, base URL row, secure access-token card, connection
@@ -849,7 +849,7 @@ Carry forward:
 
 Refine during implementation:
 
-- make Home feel less like a generic streaming catalog through Taru-specific
+- make Home feel less like a generic streaming catalog through Nako-specific
   hierarchy, source confidence, and active-server context;
 - keep Detail as a playback decision surface, not a dense metadata page;
 - ensure the Source Picker remains a choice surface, not an admin table;

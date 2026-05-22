@@ -6,7 +6,7 @@ Last updated: 2026-05-19
 ## Required Gates
 
 - Focused route stack test:
-  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.TaruRouteStackTest --no-daemon`
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.NakoRouteStackTest --no-daemon`
 - Focused smoke:
   `pwsh -NoProfile -File apps\android\scripts\Smoke-Emulator.ps1 -FixtureState profile-with-media`
 - Regression smoke:
@@ -25,7 +25,7 @@ Last updated: 2026-05-19
 ### ARB-020 - Route Stack Model And Shell Wiring
 
 - Evidence:
-  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.TaruRouteStackTest --no-daemon`
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.NakoRouteStackTest --no-daemon`
 - Result: PASS on 2026-05-19.
 - Notes: Added focused JVM coverage for route stack root behavior,
   Detail -> Facet -> Back -> Detail, Detail -> Player -> Back -> Detail,

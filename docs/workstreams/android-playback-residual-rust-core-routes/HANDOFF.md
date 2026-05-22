@@ -10,11 +10,11 @@ are complete.
 
 ## Completed Outcome
 
-- `taru-client-core` owns explicit request builders for source probe, playback
+- `nako-client-core` owns explicit request builders for source probe, playback
   session inspection, and playback session cancellation.
-- `taru-client-uniffi` exposes thin FFI-safe residual playback builder
+- `nako-client-uniffi` exposes thin FFI-safe residual playback builder
   records/functions.
-- Android `TaruPlaybackClient` uses `PlaybackCore`/`RustPlaybackCore` for all
+- Android `NakoPlaybackClient` uses `PlaybackCore`/`RustPlaybackCore` for all
   runtime playback route construction.
 - Android still owns transport, generated SDK playback JSON decode,
   diagnostics, Media3, UI, and product mapping.
@@ -26,12 +26,12 @@ are complete.
 Fresh gates passed on 2026-05-21:
 
 ```powershell
-cargo fmt --package taru-client-core --check
-cargo nextest run -p taru-client-core --no-fail-fast
-cargo fmt --package taru-client-uniffi --check
-cargo nextest run -p taru-client-uniffi --no-fail-fast
+cargo fmt --package nako-client-core --check
+cargo nextest run -p nako-client-core --no-fail-fast
+cargo fmt --package nako-client-uniffi --check
+cargo nextest run -p nako-client-uniffi --no-fail-fast
 ./scripts/guard-uniffi-boundary.ps1
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.playback.TaruPlaybackClientTest --no-daemon --rerun-tasks
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.playback.NakoPlaybackClientTest --no-daemon --rerun-tasks
 python -m json.tool docs/workstreams/android-playback-residual-rust-core-routes/WORKSTREAM.json > $null
 git diff --check
 ```

@@ -27,7 +27,7 @@ Status: Complete
 
 Exit criteria:
 
-- `TaruBrowseShell` delegates session/runtime lifecycle to the host.
+- `NakoBrowseShell` delegates session/runtime lifecycle to the host.
 - Compose keeps rendering and event forwarding only.
 - Focused browse tests pass.
 

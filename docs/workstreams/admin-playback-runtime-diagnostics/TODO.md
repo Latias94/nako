@@ -14,19 +14,19 @@ Last updated: 2026-05-18
 
 ## APRD.1 Runtime Diagnostics Read Model
 
-- [x] APRD-020 [owner=codex] [deps=APRD-010] [scope=crates/taru-api/src/admin.rs,crates/taru-server/src/app/playback]
+- [x] APRD-020 [owner=codex] [deps=APRD-010] [scope=crates/nako-api/src/admin.rs,crates/nako-server/src/app/playback]
   Goal: Add safe playback runtime diagnostics DTOs and app snapshot support.
-  Validation: `cargo check -p taru-api --tests`, focused `taru-api` and
-  `taru-server` app tests.
+  Validation: `cargo check -p nako-api --tests`, focused `nako-api` and
+  `nako-server` app tests.
   Evidence: `AdminPlaybackRuntimeDiagnosticsResponse`,
   `PlaybackRuntimeDiagnostics`, and
   `admin_playback_runtime_diagnostics_serializes_safe_summary_fields`.
-  Handoff: Keep DTOs admin-owned; do not touch `taru-client-protocol`.
+  Handoff: Keep DTOs admin-owned; do not touch `nako-client-protocol`.
 
-- [x] APRD-030 [owner=codex] [deps=APRD-020] [scope=crates/taru-server/src/http/admin.rs,crates/taru-server/src/http/tests/system.rs,crates/taru-api/src/openapi.rs]
+- [x] APRD-030 [owner=codex] [deps=APRD-020] [scope=crates/nako-server/src/http/admin.rs,crates/nako-server/src/http/tests/system.rs,crates/nako-api/src/openapi.rs]
   Goal: Add `GET /admin/v1/playback/runtime` with route-level redaction, auth,
   and public OpenAPI/SDK leakage protection.
-  Validation: `cargo check -p taru-server --tests`, focused admin HTTP tests,
+  Validation: `cargo check -p nako-server --tests`, focused admin HTTP tests,
   public OpenAPI/SDK leakage checks.
   Evidence: `admin_v1_playback_runtime_reports_safe_diagnostics`, updated
   bearer-auth route protection, and public OpenAPI route exclusion.

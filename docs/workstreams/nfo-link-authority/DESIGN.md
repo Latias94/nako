@@ -5,14 +5,14 @@ Last updated: 2026-05-21
 
 ## Why This Lane Exists
 
-Taru now has explainable provider matching and strong NFO write primitives, but
+Nako now has explainable provider matching and strong NFO write primitives, but
 local library authority is still incomplete. A real self-hosted library needs
 safe answers for:
 
 - whether NFO import/export is local authority or merely a suggestion;
 - whether two **Media Sources** are duplicates because of local filesystem link
   evidence;
-- whether Taru may create soft links or hard links later;
+- whether Nako may create soft links or hard links later;
 - how to prove a future link/write operation before it mutates library files.
 
 The post-RPD umbrella deliberately ranked this lane before
@@ -33,12 +33,12 @@ library or create links until local authority and rollback semantics exist.
 
 ## Current Baseline
 
-- `taru-nfo` preserves unknown NFO XML fields during forced export.
-- `taru-vfs` supports local atomic replace, existing-file backup, and bounded
+- `nako-nfo` preserves unknown NFO XML fields during forced export.
+- `nako-vfs` supports local atomic replace, existing-file backup, and bounded
   backup retention.
 - `LocalFsBackend` already exposes `LINKABLE` capabilities and detects
   symlink objects, but it does not expose link planning or mutation APIs.
-- `SourceDuplicateRelationship` exists in `taru-core` and `taru-db`, with
+- `SourceDuplicateRelationship` exists in `nako-core` and `nako-db`, with
   `FilesystemLink` evidence, but no product workflow currently creates link
   evidence from VFS diagnostics.
 
@@ -59,7 +59,7 @@ library or create links until local authority and rollback semantics exist.
 
 ## Completed Scope
 
-- `taru-vfs` link planning types and local backend dry-run implementation.
+- `nako-vfs` link planning types and local backend dry-run implementation.
 - Non-mutating tests that prove dry-run does not create targets.
 - Workstream documentation and post-RPD umbrella routing.
 - Source Duplicate Relationship filesystem-link suggestions without automatic
@@ -80,22 +80,22 @@ library or create links until local authority and rollback semantics exist.
 ### Boundary Split
 
 ```text
-taru-nfo
+nako-nfo
   Owns XML parsing, NFO Round Trip, import/export summaries.
 
-taru-vfs
+nako-vfs
   Owns backend capability, write mechanics, backup policy, and link planning.
 
-taru-core / taru-db
+nako-core / nako-db
   Own Source Duplicate Relationship persistence.
 
-taru-server
+nako-server
   Later owns operator-facing diagnostics and acceptance workflows.
 ```
 
-The first implementation slice must not make `taru-nfo` manipulate filesystem
-paths or make `taru-server` infer local link behavior by inspecting OS paths.
-Storage link semantics belong in `taru-vfs`.
+The first implementation slice must not make `nako-nfo` manipulate filesystem
+paths or make `nako-server` infer local link behavior by inspecting OS paths.
+Storage link semantics belong in `nako-vfs`.
 
 ### Link Planning Contract
 
@@ -133,16 +133,16 @@ StorageLinkPlan:
 ```
 
 The important property is non-mutation. A ready plan means "the backend can
-prepare a future apply operation from this evidence", not "Taru has already
+prepare a future apply operation from this evidence", not "Nako has already
 created a link".
 
 ### Link Evidence Flow
 
 The implemented diagnostic workflow is:
 
-1. Operator or import plan asks Taru to inspect link/duplicate candidates.
+1. Operator or import plan asks Nako to inspect link/duplicate candidates.
 2. VFS returns link/inventory diagnostics.
-3. Taru records suggested `SourceDuplicateRelationship` rows with
+3. Nako records suggested `SourceDuplicateRelationship` rows with
    `FilesystemLink` evidence.
 4. Source and item identities remain unchanged.
 
@@ -161,7 +161,7 @@ because link application is not just a VFS operation:
 
 This lane therefore ships **planning and authority diagnostics only**. Future
 apply should be designed as `link-apply-and-import-promotion` or inside
-`managed-import-staging`, not added ad hoc to `taru-vfs`.
+`managed-import-staging`, not added ad hoc to `nako-vfs`.
 
 ## Closeout Condition
 

@@ -11,7 +11,7 @@ async queue would make poster-heavy pages and large scans unstable.
 
 ## Decision
 
-Taru persists artwork work in `artwork_tasks` with explicit kind, status,
+Nako persists artwork work in `artwork_tasks` with explicit kind, status,
 resource class, attempts, max attempts, and error state. Core defaults define
 separate concurrency limits for fetch, resize, preview, and cleanup work.
 

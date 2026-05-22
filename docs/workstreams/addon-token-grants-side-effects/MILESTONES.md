@@ -35,12 +35,12 @@ Exit criteria:
 
 Primary gates:
 
-- `rg "Addon|addon|scope|token|grant|manifest" crates/taru-addon-protocol crates/taru-core crates/taru-db crates/taru-server crates/taru-api docs`
+- `rg "Addon|addon|scope|token|grant|manifest" crates/nako-addon-protocol crates/nako-core crates/nako-db crates/nako-server crates/nako-api docs`
 - `git diff --check`
 
 ## M2 - Token And Grant Contract
 
-Outcome: Taru has a clear Addon Token and accepted-grant model.
+Outcome: Nako has a clear Addon Token and accepted-grant model.
 
 Exit criteria:
 
@@ -53,31 +53,31 @@ Exit criteria:
 
 Primary gates:
 
-- `cargo check -p taru-core --tests`
-- `cargo check -p taru-db --tests`
-- `cargo check -p taru-api --tests`
-- `cargo check -p taru-server --tests`
-- `cargo nextest run -p taru-db addon --no-fail-fast`
-- `cargo nextest run -p taru-server addon --no-fail-fast`
+- `cargo check -p nako-core --tests`
+- `cargo check -p nako-db --tests`
+- `cargo check -p nako-api --tests`
+- `cargo check -p nako-server --tests`
+- `cargo nextest run -p nako-db addon --no-fail-fast`
+- `cargo nextest run -p nako-server addon --no-fail-fast`
 - `cargo fmt --all -- --check`
 - `git diff --check`
 
 Evidence anchors:
 
-- `crates/taru-core/src/addon.rs`
-- `crates/taru-core/src/repository/addon.rs`
-- `crates/taru-db/migrations/0021_addon_tokens_and_grants.sql`
-- `crates/taru-db/src/addons.rs`
-- `crates/taru-db/src/tests.rs`
-- `crates/taru-server/src/app/addons.rs`
-- `crates/taru-server/src/http/addons.rs`
-- `crates/taru-server/src/http/tests/addons.rs`
-- `crates/taru-api/src/extension.rs`
+- `crates/nako-core/src/addon.rs`
+- `crates/nako-core/src/repository/addon.rs`
+- `crates/nako-db/migrations/0021_addon_tokens_and_grants.sql`
+- `crates/nako-db/src/addons.rs`
+- `crates/nako-db/src/tests.rs`
+- `crates/nako-server/src/app/addons.rs`
+- `crates/nako-server/src/http/addons.rs`
+- `crates/nako-server/src/http/tests/addons.rs`
+- `crates/nako-api/src/extension.rs`
 - `docs/api/HTTP_API.md`
 
 ## M3 - Runtime Addon Principal Enforcement
 
-Outcome: addon-to-Taru calls authenticate as an addon principal, not as an admin
+Outcome: addon-to-Nako calls authenticate as an addon principal, not as an admin
 or public client.
 
 Exit criteria:
@@ -89,21 +89,21 @@ Exit criteria:
 
 Primary gates:
 
-- focused `cargo nextest run -p taru-server addon --no-fail-fast`
-- `cargo check -p taru-api --tests`
+- focused `cargo nextest run -p nako-server addon --no-fail-fast`
+- `cargo check -p nako-api --tests`
 
 Evidence anchors:
 
-- `crates/taru-core/src/addon.rs`
-- `crates/taru-core/src/error.rs`
-- `crates/taru-core/src/repository/addon.rs`
-- `crates/taru-db/src/addons.rs`
-- `crates/taru-server/src/app/addons.rs`
-- `crates/taru-server/src/http.rs`
-- `crates/taru-server/src/http/addons.rs`
-- `crates/taru-server/src/http/auth.rs`
-- `crates/taru-server/src/http/tests/addons.rs`
-- `crates/taru-api/src/extension.rs`
+- `crates/nako-core/src/addon.rs`
+- `crates/nako-core/src/error.rs`
+- `crates/nako-core/src/repository/addon.rs`
+- `crates/nako-db/src/addons.rs`
+- `crates/nako-server/src/app/addons.rs`
+- `crates/nako-server/src/http.rs`
+- `crates/nako-server/src/http/addons.rs`
+- `crates/nako-server/src/http/auth.rs`
+- `crates/nako-server/src/http/tests/addons.rs`
+- `crates/nako-api/src/extension.rs`
 - `docs/api/HTTP_API.md`
 
 ## M4 - Addon Side Effect Intake Proof
@@ -122,8 +122,8 @@ Exit criteria:
 
 Primary gates:
 
-- focused `cargo nextest run -p taru-server addon_side_effect --no-fail-fast`
-- relevant `taru-db` tests
+- focused `cargo nextest run -p nako-server addon_side_effect --no-fail-fast`
+- relevant `nako-db` tests
 - `git diff --check`
 
 ## M5 - Docs, Gates, And Closeout

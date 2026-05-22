@@ -1,4 +1,4 @@
-# Taru Goal Map
+# Nako Goal Map
 
 This file is the top-level tracker for current and upcoming engineering goals.
 Workstream TODO files track tasks; this file tracks goal boundaries,
@@ -45,7 +45,7 @@ Objective:
   **Addon Sidecars**.
 - Let administrators issue and rotate one-time Addon Tokens, revoke Addon
   Tokens, replace accepted Addon Grants, and use an enable readiness checklist.
-- Preserve the boundary that Taru authorizes and calls sidecars but does not
+- Preserve the boundary that Nako authorizes and calls sidecars but does not
   install, start, stop, update, remove, log, or supervise sidecar processes.
 
 Deliverables:
@@ -76,8 +76,8 @@ Evidence:
   `docs/workstreams/admin-web-addon-credential-grant-onboarding/`.
 - Closeout proof:
   - `cargo fmt --all -- --check`;
-  - `cargo nextest run -p taru-api admin_contract --no-fail-fast`;
-  - `cargo check -p taru-api -p taru-server --tests`;
+  - `cargo nextest run -p nako-api admin_contract --no-fail-fast`;
+  - `cargo check -p nako-api -p nako-server --tests`;
   - `npm run check`, `npm test`, and `npm run build` in `apps/admin-web`;
   - `git diff --check`.
 
@@ -90,7 +90,7 @@ Objective:
 - Productize a safe Admin Web first-run onboarding path for **Addon Sidecars**.
 - Let administrators paste an Addon manifest JSON document, preview key facts,
   and register it through the Admin API with `status: "disabled"` by default.
-- Preserve the boundary that registration is not installation: Taru stores and
+- Preserve the boundary that registration is not installation: Nako stores and
   validates the manifest snapshot, generates guidance, and verifies health, but
   does not start, stop, install, update, remove, or supervise the sidecar.
 
@@ -124,9 +124,9 @@ Evidence:
   `docs/workstreams/admin-web-addon-onboarding/`.
 - Closeout proof:
   - `cargo fmt --all -- --check`;
-  - `cargo nextest run -p taru-api admin_contract --no-fail-fast`;
-  - `cargo nextest run -p taru-server register_addon_routes_disabled_by_default_and_validate_contract --no-fail-fast`;
-  - `cargo check -p taru-api -p taru-server --tests`;
+  - `cargo nextest run -p nako-api admin_contract --no-fail-fast`;
+  - `cargo nextest run -p nako-server register_addon_routes_disabled_by_default_and_validate_contract --no-fail-fast`;
+  - `cargo check -p nako-api -p nako-server --tests`;
   - `npm run check`, `npm test`, and `npm run build` in `apps/admin-web`;
   - `git diff --check`.
 
@@ -169,11 +169,11 @@ Evidence:
 - Workstream docs:
   `docs/workstreams/addon-install-guide-generation/`.
 - Closeout proof:
-  - `cargo run -q -p taru-api --example emit-admin-typescript-contract -- --output apps/admin-web/src/adminApi/generated/contract.ts`;
-  - `cargo nextest run -p taru-api admin_contract --no-fail-fast`;
-  - `cargo nextest run -p taru-server install_guide --no-fail-fast`;
+  - `cargo run -q -p nako-api --example emit-admin-typescript-contract -- --output apps/admin-web/src/adminApi/generated/contract.ts`;
+  - `cargo nextest run -p nako-api admin_contract --no-fail-fast`;
+  - `cargo nextest run -p nako-server install_guide --no-fail-fast`;
   - `cargo fmt --all -- --check`;
-  - `cargo check -p taru-api -p taru-server --tests`;
+  - `cargo check -p nako-api -p nako-server --tests`;
   - `npm run check`, `npm test`, and `npm run build` in `apps/admin-web`;
   - `git diff --check`.
 
@@ -220,10 +220,10 @@ Evidence:
   `docs/workstreams/admin-web-addon-operations/`.
 - Closeout proof:
   - `cargo fmt --all -- --check`;
-  - `cargo run -q -p taru-api --example emit-admin-typescript-contract -- --output apps/admin-web/src/adminApi/generated/contract.ts`;
-  - `cargo nextest run -p taru-api admin_contract --no-fail-fast`;
-  - `cargo check -p taru-api -p taru-server --tests`;
-  - `cargo nextest run -p taru-server addons --no-fail-fast`;
+  - `cargo run -q -p nako-api --example emit-admin-typescript-contract -- --output apps/admin-web/src/adminApi/generated/contract.ts`;
+  - `cargo nextest run -p nako-api admin_contract --no-fail-fast`;
+  - `cargo check -p nako-api -p nako-server --tests`;
+  - `cargo nextest run -p nako-server addons --no-fail-fast`;
   - `npm run check`, `npm test`, and `npm run build` in `apps/admin-web`;
   - `git diff --check`.
 
@@ -265,15 +265,15 @@ Evidence:
   `docs/workstreams/admin-addon-operations-mvp/`.
 - Closeout proof:
   - `cargo fmt --all -- --check`;
-  - `cargo check -p taru-addon-protocol -p taru-addon-client -p taru-api -p taru-core -p taru-db -p taru-server --tests`;
-  - `cargo nextest run -p taru-addon-protocol -p taru-addon-client --no-fail-fast`;
-  - `cargo nextest run -p taru-db addon --no-fail-fast`;
-  - `cargo nextest run -p taru-server addons --no-fail-fast`;
+  - `cargo check -p nako-addon-protocol -p nako-addon-client -p nako-api -p nako-core -p nako-db -p nako-server --tests`;
+  - `cargo nextest run -p nako-addon-protocol -p nako-addon-client --no-fail-fast`;
+  - `cargo nextest run -p nako-db addon --no-fail-fast`;
+  - `cargo nextest run -p nako-server addons --no-fail-fast`;
   - `cargo check --workspace --tests`;
   - `cargo nextest run --workspace --no-fail-fast` with 532 tests passed and
     25 skipped;
   - `git diff --check`.
-- PostgreSQL opt-in contracts were skipped because `TARU_TEST_POSTGRES_URL` was
+- PostgreSQL opt-in contracts were skipped because `NAKO_TEST_POSTGRES_URL` was
   unset in the closeout environment.
 
 ### Addon Architecture Deepening
@@ -282,7 +282,7 @@ Status: completed.
 
 Objective:
 
-- Fearlessly deepen Taru's Addon architecture before broader Addon breadth
+- Fearlessly deepen Nako's Addon architecture before broader Addon breadth
   hardens shallow Interfaces.
 - Consolidate Addon Side Effect runtime lifecycle behavior into a deep Module.
 - Add fingerprinted Addon Side Effect idempotency semantics.
@@ -290,7 +290,7 @@ Objective:
 - Deepen Addon Manifest declarations for the next Addon Protocol concepts.
 - Deepen Library File Write beyond the current NFO-only Adapter.
 - Finish Admin Addon API DTO shielding and route ownership.
-- Preserve `taru-addon-protocol` as a permissive public protocol seam and keep
+- Preserve `nako-addon-protocol` as a permissive public protocol seam and keep
   SQLite/PostgreSQL Addon state parity.
 
 Deliverables:
@@ -321,12 +321,12 @@ Evidence:
 - Closeout proof:
   - `cargo fmt --all -- --check`;
   - `cargo check --workspace --tests`;
-  - `cargo nextest run -p taru-addon-protocol -p taru-addon-client --no-fail-fast`;
-  - `cargo nextest run -p taru-db addon --no-fail-fast`;
-  - `cargo nextest run -p taru-server addons --no-fail-fast`;
-  - `cargo nextest run -p taru-server addon_side_effect --no-fail-fast`;
-  - `cargo nextest run -p taru-server library_file_write --no-fail-fast`;
-  - `cargo nextest run -p taru-api --no-fail-fast`;
+  - `cargo nextest run -p nako-addon-protocol -p nako-addon-client --no-fail-fast`;
+  - `cargo nextest run -p nako-db addon --no-fail-fast`;
+  - `cargo nextest run -p nako-server addons --no-fail-fast`;
+  - `cargo nextest run -p nako-server addon_side_effect --no-fail-fast`;
+  - `cargo nextest run -p nako-server library_file_write --no-fail-fast`;
+  - `cargo nextest run -p nako-api --no-fail-fast`;
   - `cargo nextest run --workspace --no-fail-fast`;
   - `git diff --check`.
 
@@ -338,20 +338,20 @@ Objective:
 
 - Finish synchronizing the Admin API TypeScript contract consumed by
   `apps/admin-web` while keeping it separate from the Public Client SDK and
-  `taru-client-protocol`.
+  `nako-client-protocol`.
 
 Evidence:
 
 - Workstream docs:
   `docs/workstreams/admin-api-typescript-contract/`.
 - Closeout proof:
-  - `cargo check -p taru-api --examples`;
-  - `cargo nextest run -p taru-api admin_contract --no-fail-fast -j 2`;
-  - `cargo nextest run -p taru-api typescript --no-fail-fast -j 2`;
+  - `cargo check -p nako-api --examples`;
+  - `cargo nextest run -p nako-api admin_contract --no-fail-fast -j 2`;
+  - `cargo nextest run -p nako-api typescript --no-fail-fast -j 2`;
   - `npm run check`, `npm run test`, and `npm run build` in `apps/admin-web`;
   - `npm run generate --prefix sdk/typescript`;
   - `npm run check --prefix sdk/typescript`;
-  - `git diff --name-only -- crates/taru-client-protocol sdk/typescript`;
+  - `git diff --name-only -- crates/nako-client-protocol sdk/typescript`;
   - `cargo fmt --all -- --check`;
   - `git diff --check`.
 
@@ -419,7 +419,7 @@ Evidence:
   - `cargo nextest run --workspace --no-fail-fast`: 498 tests passed and 19
     skipped;
   - `git diff --check`.
-- PostgreSQL opt-in contracts were skipped because `TARU_TEST_POSTGRES_URL` was
+- PostgreSQL opt-in contracts were skipped because `NAKO_TEST_POSTGRES_URL` was
   unset in the closeout environment.
 
 ### M62: PostgreSQL Production Readiness
@@ -432,7 +432,7 @@ Objective:
   backend shape.
 - Expand backend-neutral contract tests beyond jobs/leases.
 - Add PostgreSQL migration/schema parity for the supported backend scope.
-- Add explicit runtime backend selection through `TaruDatabase` and server
+- Add explicit runtime backend selection through `NakoDatabase` and server
   configuration.
 - Remove or isolate SQLite assumptions above the adapter seam.
 - Document repeatable local/CI verification for SQLite always-on and
@@ -460,7 +460,7 @@ Non-goals:
 
 Exit criteria:
 
-- `TaruDatabase` can select SQLite or PostgreSQL through explicit production
+- `NakoDatabase` can select SQLite or PostgreSQL through explicit production
   configuration without server code depending on concrete adapters.
 - Required backend-neutral contract families pass against SQLite and
   PostgreSQL, or remaining broad families are split into named follow-ons with
@@ -479,14 +479,14 @@ Evidence:
   `docs/adr/0029-postgresql-ready-persistence-boundary.md`;
   `docs/adr/0030-postgresql-ready-sql-dialect-and-migration-policy.md`.
 - Starting proof:
-  `crates/taru-db/src/contract_tests.rs`;
-  `crates/taru-db/src/postgres.rs`;
-  `crates/taru-db/migrations/postgres/0001_contract_jobs.sql`.
+  `crates/nako-db/src/contract_tests.rs`;
+  `crates/nako-db/src/postgres.rs`;
+  `crates/nako-db/migrations/postgres/0001_contract_jobs.sql`.
 - Closeout proof:
   - `cargo fmt --all -- --check`;
   - `cargo check --workspace --tests`;
   - `cargo nextest run --workspace --no-fail-fast`;
-  - `TARU_TEST_POSTGRES_URL=<local-test-url> cargo nextest run -p taru-db contract --run-ignored ignored-only --no-fail-fast`;
+  - `NAKO_TEST_POSTGRES_URL=<local-test-url> cargo nextest run -p nako-db contract --run-ignored ignored-only --no-fail-fast`;
   - `git diff --check`.
 
 ### M61: Future-Ready Architecture Refactor
@@ -495,7 +495,7 @@ Status: completed.
 
 Objective:
 
-- Refactor Taru toward a cleaner future-ready architecture while there is no
+- Refactor Nako toward a cleaner future-ready architecture while there is no
   production compatibility burden.
 - Make persistence PostgreSQL-ready instead of SQLite-shaped.
 - Deepen module seams for server runtime composition, Local Inference,
@@ -543,7 +543,7 @@ Evidence:
 - Active task ledger:
   `docs/workstreams/future-ready-architecture-refactor/TODO.md`.
 - First backend-neutral persistence contract suite:
-  `crates/taru-db/src/contract_tests.rs`.
+  `crates/nako-db/src/contract_tests.rs`.
 - Closeout verification: `cargo check --workspace --tests`;
   `cargo nextest run --workspace --no-fail-fast` with 466 tests passed and
   4 skipped; `cargo fmt --all -- --check`; `git diff --check`.
@@ -558,7 +558,7 @@ Objective:
   low-confidence Media Items.
 - Keep Local Inference, Provider Mapping, and duplicate Source relationship
   query shape behind a narrow repository port.
-- Preserve Public Client API, public OpenAPI/SDK, and `taru-client-protocol`
+- Preserve Public Client API, public OpenAPI/SDK, and `nako-client-protocol`
   boundaries.
 
 Deliverables:
@@ -578,7 +578,7 @@ Non-goals:
 - No NFO import/export behavior changes.
 - No Source Variant, Edition, or Duplicate UI workflow.
 - No Public Client API route or DTO changes.
-- No `taru-client-protocol` changes.
+- No `nako-client-protocol` changes.
 
 Exit criteria:
 
@@ -597,23 +597,23 @@ Exit criteria:
 Evidence:
 
 - `CatalogGovernanceRepository` keeps the governance SQL joins inside
-  `taru-db`.
+  `nako-db`.
 - `AdminCatalogGovernanceItemListResponse` and related DTOs expose only
   redacted admin fields.
 - `GET /admin/v1/catalog/governance/items` returns unknown and low-confidence
   queue rows through Admin API v1.
 - Tests cover SQLite filtering/exclusion, DTO redaction, route filtering,
   route redaction, auth protection, and public OpenAPI/SDK exclusion.
-- `crates/taru-client-protocol` has no diff.
+- `crates/nako-client-protocol` has no diff.
 - Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
-  taru-core --tests`, `cargo check -p taru-db --tests`, `cargo nextest run -p
-  taru-db catalog_governance --no-fail-fast` with 1 test passed, `cargo check
-  -p taru-api --tests`, `cargo nextest run -p taru-api
+  nako-core --tests`, `cargo check -p nako-db --tests`, `cargo nextest run -p
+  nako-db catalog_governance --no-fail-fast` with 1 test passed, `cargo check
+  -p nako-api --tests`, `cargo nextest run -p nako-api
   admin_catalog_governance --no-fail-fast` with 1 test passed, `cargo check -p
-  taru-server --tests`, `cargo nextest run -p taru-server http::tests::system
+  nako-server --tests`, `cargo nextest run -p nako-server http::tests::system
   --no-fail-fast` with 12 tests passed, public OpenAPI/SDK leakage checks,
   `git diff --check`, and `git diff --name-only --
-  crates/taru-client-protocol`.
+  crates/nako-client-protocol`.
 
 ### M57-M59: Admin Operations Read Models Batch
 
@@ -625,7 +625,7 @@ Objective:
   list/filter, storage staging/cache diagnostics, and sanitized server
   configuration diagnostics.
 - Use admin-owned redacted DTOs and route-level tests.
-- Preserve Public Client API, public OpenAPI/SDK, and `taru-client-protocol`
+- Preserve Public Client API, public OpenAPI/SDK, and `nako-client-protocol`
   boundaries.
 
 Deliverables:
@@ -636,14 +636,14 @@ Deliverables:
   staging budget/startup cleanup/VFS cache summary diagnostics.
 - `GET /admin/v1/system/config` for sanitized auth, library, runtime,
   metadata, transcode, staging, and playback configuration diagnostics.
-- Admin-owned DTOs in `taru-api::admin`.
+- Admin-owned DTOs in `nako-api::admin`.
 - Focused repository, DTO, route, redaction, auth, and boundary tests.
 - Updated HTTP API, admin-web-console, and workstream docs.
 
 Non-goals:
 
 - No Public Client API route or DTO changes.
-- No `taru-client-protocol` changes.
+- No `nako-client-protocol` changes.
 - No public OpenAPI or TypeScript SDK expansion.
 - No admin mutation routes for event retry, staging cleanup, or config edits.
 - No event detail route and no raw event payload exposure.
@@ -677,15 +677,15 @@ Evidence:
   path/source/cache redaction, sanitized config redaction, and auth protection.
 - Public OpenAPI and TypeScript SDK leakage checks still exclude admin/internal
   surfaces.
-- `crates/taru-client-protocol` has no diff.
+- `crates/nako-client-protocol` has no diff.
 - Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
-  taru-db --tests`, `cargo nextest run -p taru-db outbox --no-fail-fast` with
-  2 tests passed, `cargo check -p taru-api --tests`, `cargo nextest run -p
-  taru-api --no-fail-fast` with 19 tests passed, `cargo check -p taru-server
-  --tests`, `cargo nextest run -p taru-server http::tests::system
+  nako-db --tests`, `cargo nextest run -p nako-db outbox --no-fail-fast` with
+  2 tests passed, `cargo check -p nako-api --tests`, `cargo nextest run -p
+  nako-api --no-fail-fast` with 19 tests passed, `cargo check -p nako-server
+  --tests`, `cargo nextest run -p nako-server http::tests::system
   --no-fail-fast` with 11 tests passed, public OpenAPI/SDK leakage checks,
   `git diff --check`, and `git diff --name-only --
-  crates/taru-client-protocol`.
+  crates/nako-client-protocol`.
 
 ### M56: Admin Playback Runtime Diagnostics
 
@@ -698,13 +698,13 @@ Objective:
 - Explain hardware acceleration policy, selected acceleration, FFmpeg
   capability evidence, transcode budgets, remote playback budgets, and staging
   cleanup configuration.
-- Preserve Public Client API, public OpenAPI/SDK, and `taru-client-protocol`
+- Preserve Public Client API, public OpenAPI/SDK, and `nako-client-protocol`
   boundaries.
 
 Deliverables:
 
-- Admin-owned playback runtime diagnostics DTOs in `taru-api::admin`.
-- Playback app diagnostics snapshot support in `taru-server`.
+- Admin-owned playback runtime diagnostics DTOs in `nako-api::admin`.
+- Playback app diagnostics snapshot support in `nako-server`.
 - `GET /admin/v1/playback/runtime`.
 - Focused API/server tests for shape, redaction, auth, and public leakage.
 - Updated admin-web-console and HTTP API data-source notes.
@@ -713,7 +713,7 @@ Deliverables:
 Non-goals:
 
 - No Public Client API route or DTO changes.
-- No `taru-client-protocol` changes.
+- No `nako-client-protocol` changes.
 - No public OpenAPI or TypeScript SDK expansion.
 - No playback session mutations.
 - No playback source selection deepening.
@@ -744,13 +744,13 @@ Evidence:
   summaries, and staging cleanup summaries.
 - Tests cover DTO serialization, route behavior, local-path redaction, auth
   protection, public OpenAPI exclusion, and TypeScript SDK leakage.
-- `crates/taru-client-protocol` has no diff.
+- `crates/nako-client-protocol` has no diff.
 - Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
-  taru-api --tests`, `cargo nextest run -p taru-api --no-fail-fast` with 17
-  tests passed, `cargo check -p taru-server --tests`, `cargo nextest run -p
-  taru-server http::tests::system --no-fail-fast` with 8 tests passed, public
+  nako-api --tests`, `cargo nextest run -p nako-api --no-fail-fast` with 17
+  tests passed, `cargo check -p nako-server --tests`, `cargo nextest run -p
+  nako-server http::tests::system --no-fail-fast` with 8 tests passed, public
   OpenAPI/SDK leakage checks, `git diff --check`, and `git diff --name-only
-  -- crates/taru-client-protocol`.
+  -- crates/nako-client-protocol`.
 
 ### M55: Admin Playback Session List Read Model
 
@@ -762,13 +762,13 @@ Objective:
   console.
 - Back it with focused repository/app support, admin-owned redacted DTOs, and
   HTTP tests.
-- Preserve Public Client API, public OpenAPI/SDK, and `taru-client-protocol`
+- Preserve Public Client API, public OpenAPI/SDK, and `nako-client-protocol`
   boundaries.
 
 Deliverables:
 
-- Transcode session list/filter support in `taru-core`/`taru-db`.
-- Admin-owned playback session list DTOs in `taru-api::admin`.
+- Transcode session list/filter support in `nako-core`/`nako-db`.
+- Admin-owned playback session list DTOs in `nako-api::admin`.
 - `GET /admin/v1/playback/sessions` route and focused HTTP tests.
 - Updated admin-web-console data-source notes after route support lands.
 - Workstream evidence and closeout docs.
@@ -776,7 +776,7 @@ Deliverables:
 Non-goals:
 
 - No Public Client API route changes.
-- No `taru-client-protocol` changes.
+- No `nako-client-protocol` changes.
 - No public OpenAPI or TypeScript SDK expansion.
 - No playback session mutations beyond existing known-ID cancel route.
 - No transcode runner, hardware acceleration, FFmpeg, or resource-budget
@@ -804,14 +804,14 @@ Evidence:
 - Existing Public Client API session detail/cancel routes remain unchanged.
 - Public OpenAPI and TypeScript SDK tests still exclude admin/internal
   surfaces.
-- `crates/taru-client-protocol` has no diff.
+- `crates/nako-client-protocol` has no diff.
 - Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
-  taru-api --tests`, `cargo nextest run -p taru-api --no-fail-fast`, `cargo
-  check -p taru-db --tests`, `cargo nextest run -p taru-db transcode
-  --no-fail-fast`, `cargo check -p taru-server --tests`, `cargo nextest run -p
-  taru-server http::tests::system --no-fail-fast`, public OpenAPI/SDK leakage
+  nako-api --tests`, `cargo nextest run -p nako-api --no-fail-fast`, `cargo
+  check -p nako-db --tests`, `cargo nextest run -p nako-db transcode
+  --no-fail-fast`, `cargo check -p nako-server --tests`, `cargo nextest run -p
+  nako-server http::tests::system --no-fail-fast`, public OpenAPI/SDK leakage
   checks, `git diff --check`, and `git diff --name-only --
-  crates/taru-client-protocol`.
+  crates/nako-client-protocol`.
 
 ### M54: Durable Job Runtime And Admin Job List Read Model
 
@@ -819,21 +819,21 @@ Status: completed.
 
 Objective:
 
-- Deepen Taru's server-side durable job runtime so common job lifecycle
+- Deepen Nako's server-side durable job runtime so common job lifecycle
   behavior is owned by one Module instead of being duplicated in scan,
   metadata, and NFO workflows.
 - Add `GET /admin/v1/jobs` as the first Admin API v1 Jobs/Tasks read model for
   the web console.
-- Preserve Public Client API, public OpenAPI/SDK, and `taru-client-protocol`
+- Preserve Public Client API, public OpenAPI/SDK, and `nako-client-protocol`
   boundaries.
 
 Deliverables:
 
-- A durable job lifecycle Module in `taru-server`.
+- A durable job lifecycle Module in `nako-server`.
 - Migrated scan, metadata refresh/maintenance, and NFO import/export job
   execution paths.
-- Job list/filter repository support in `taru-core`/`taru-db`.
-- Admin-owned job list DTOs in `taru-api::admin`.
+- Job list/filter repository support in `nako-core`/`nako-db`.
+- Admin-owned job list DTOs in `nako-api::admin`.
 - `GET /admin/v1/jobs` route and focused HTTP tests.
 - Updated admin-web-console data-source notes after job list support lands.
 - Workstream evidence and closeout docs.
@@ -846,7 +846,7 @@ Non-goals:
 - No Addon Task execution semantics.
 - No broad job cancellation unless a narrow read-model need proves it.
 - No playback session list/filter in this slice.
-- No Public Client API, public SDK, or `taru-client-protocol` changes.
+- No Public Client API, public SDK, or `nako-client-protocol` changes.
 
 Exit criteria:
 
@@ -860,7 +860,7 @@ Exit criteria:
 
 Evidence:
 
-- `taru-server::app::job_runtime` centralizes durable job lifecycle handling
+- `nako-server::app::job_runtime` centralizes durable job lifecycle handling
   for scan, metadata, and NFO workflows.
 - `GET /admin/v1/jobs` is backed by `JobListFilter`, SQLite list/filter
   support, and redacted `AdminJobListItem` DTOs.
@@ -868,17 +868,17 @@ Evidence:
 - Existing root-level `GET /jobs/{job_id}` remains compatible.
 - Public OpenAPI and TypeScript SDK tests still exclude admin/internal
   surfaces.
-- `crates/taru-client-protocol` has no diff.
+- `crates/nako-client-protocol` has no diff.
 - Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
-  taru-api --tests`, `cargo nextest run -p taru-api --no-fail-fast` with 15
-  tests passed, `cargo check -p taru-db --tests`, `cargo nextest run -p
-  taru-db jobs --no-fail-fast` with 2 tests passed, `cargo check -p
-  taru-server --tests`, `cargo nextest run -p taru-server app::job_runtime
-  --no-fail-fast` with 3 tests passed, `cargo nextest run -p taru-server
+  nako-api --tests`, `cargo nextest run -p nako-api --no-fail-fast` with 15
+  tests passed, `cargo check -p nako-db --tests`, `cargo nextest run -p
+  nako-db jobs --no-fail-fast` with 2 tests passed, `cargo check -p
+  nako-server --tests`, `cargo nextest run -p nako-server app::job_runtime
+  --no-fail-fast` with 3 tests passed, `cargo nextest run -p nako-server
   app::tests::nfo --no-fail-fast` with 3 tests passed, `cargo nextest run -p
-  taru-server http::tests::system --no-fail-fast` with 6 tests passed, public
+  nako-server http::tests::system --no-fail-fast` with 6 tests passed, public
   OpenAPI/SDK leakage checks, `git diff --check`, and `git diff --name-only
-  -- crates/taru-client-protocol`.
+  -- crates/nako-client-protocol`.
 
 ### M53: Admin Web Console V0 Context and v0 Prompt Refresh
 
@@ -905,14 +905,14 @@ Non-goals:
 - No front-end framework selection.
 - No Admin API route, DTO, storage, metadata, playback, NFO, or provider
   behavior changes.
-- No Public Client API, OpenAPI, SDK, or `taru-client-protocol` changes.
+- No Public Client API, OpenAPI, SDK, or `nako-client-protocol` changes.
 
 Exit criteria:
 
 - `V0_CONTEXT.md` distinguishes the live overview route from mock or planned
   Admin API data.
 - The prompt covers brand, navigation, first prototype pages, data-source
-  boundaries, Taru domain language, and safety rules.
+  boundaries, Nako domain language, and safety rules.
 - The prompt avoids hard-coding a framework or component implementation.
 - AWC-040 and AWC-050 are marked complete.
 - Documentation gate passes.
@@ -935,12 +935,12 @@ Objective:
 - Build the first code-backed `/admin/v1/*` seam accepted by ADR 0027.
 - Add a small read-only admin overview route for the web console.
 - Keep the Public Client API, public OpenAPI, public SDK, and
-  `taru-client-protocol` unchanged.
+  `nako-client-protocol` unchanged.
 
 Deliverables:
 
-- Admin-owned overview DTOs in `taru-api::admin`.
-- `taru-server` route wiring for `GET /admin/v1/overview`.
+- Admin-owned overview DTOs in `nako-api::admin`.
+- `nako-server` route wiring for `GET /admin/v1/overview`.
 - Focused HTTP tests proving the route composes safe existing diagnostics and
   preserves existing root/public routes.
 - Public OpenAPI and TypeScript SDK leakage checks that keep admin routes out
@@ -951,7 +951,7 @@ Non-goals:
 
 - No frontend UI implementation.
 - No Admin API mutations.
-- No Public Client API or `taru-client-protocol` changes.
+- No Public Client API or `nako-client-protocol` changes.
 - No storage, NFO, metadata provider, playback, or transcode behavior
   expansion beyond read-only diagnostic summaries.
 - No Admin OpenAPI or generated admin SDK in this slice.
@@ -967,13 +967,13 @@ Exit criteria:
   preserved.
 - Public OpenAPI and TypeScript SDK artifacts still exclude `/admin/*` and
   other admin/internal route groups.
-- Focused `taru-api` and `taru-server` gates pass.
+- Focused `nako-api` and `nako-server` gates pass.
 
 Evidence:
 
-- `taru-api::admin` defines `ADMIN_API_VERSION`, `AdminOverviewResponse`, and
+- `nako-api::admin` defines `ADMIN_API_VERSION`, `AdminOverviewResponse`, and
   focused storage, metadata, runtime, and startup overview DTOs.
-- `taru-server` wires `GET /admin/v1/overview` through a dedicated admin HTTP
+- `nako-server` wires `GET /admin/v1/overview` through a dedicated admin HTTP
   module.
 - The overview route composes existing storage backend diagnostics, metadata
   provider diagnostics, runtime supervisor counters, and startup report
@@ -981,12 +981,12 @@ Evidence:
   local output paths.
 - Public OpenAPI and TypeScript SDK tests now explicitly reject `/admin` and
   `/admin/v1` terms.
-- `crates/taru-client-protocol` has no diff.
+- `crates/nako-client-protocol` has no diff.
 - Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
-  taru-api --tests`, `cargo nextest run -p taru-api --no-fail-fast` with 14
-  tests passed, `cargo check -p taru-server --tests`, `cargo nextest run -p
-  taru-server http::tests::system --no-fail-fast` with 5 tests passed, `git
-  diff --check`, and `git diff --name-only -- crates/taru-client-protocol`.
+  nako-api --tests`, `cargo nextest run -p nako-api --no-fail-fast` with 14
+  tests passed, `cargo check -p nako-server --tests`, `cargo nextest run -p
+  nako-server http::tests::system --no-fail-fast` with 5 tests passed, `git
+  diff --check`, and `git diff --name-only -- crates/nako-client-protocol`.
 
 ### M51: Admin API Boundary Decision for Web Console
 
@@ -996,7 +996,7 @@ Objective:
 
 - Complete AWC-030 by deciding the Admin API boundary needed before generating
   or implementing the web admin console.
-- Review ADR 0023, ADR 0025, ADR 0026, current `taru-api`/`taru-server` admin
+- Review ADR 0023, ADR 0025, ADR 0026, current `nako-api`/`nako-server` admin
   surfaces, and the admin web console API matrix.
 - Document route namespace, versioning, DTO ownership, leakage/redaction rules,
   and public-client separation.
@@ -1013,7 +1013,7 @@ Deliverables:
 Non-goals:
 
 - No frontend UI implementation.
-- No `taru-client-protocol` or Public Client OpenAPI/SDK changes.
+- No `nako-client-protocol` or Public Client OpenAPI/SDK changes.
 - No storage, NFO, provider, playback, or transcode behavior expansion.
 - No auth redesign.
 
@@ -1034,7 +1034,7 @@ Evidence:
   versioning undecided.
 - `V0_CONTEXT.md` marks admin-only areas as mock or planned `/admin/v1/*` data
   rather than Public Client API coverage.
-- `taru-client-protocol` has no diff.
+- `nako-client-protocol` has no diff.
 - Documentation gate: `git diff --check`.
 
 ### M50: NFO Backup Retention and Admin Diagnostics
@@ -1054,7 +1054,7 @@ Objective:
 Deliverables:
 
 - VFS backup retention request/report model.
-- `LocalFsBackend` keep-latest pruning for Taru-created backups of the same
+- `LocalFsBackend` keep-latest pruning for Nako-created backups of the same
   sidecar.
 - NFO export wiring that requests retention when it requests backup.
 - Internal/admin diagnostics for created, pruned, and failed backup operations.
@@ -1070,12 +1070,12 @@ Non-goals:
 
 Exit criteria:
 
-- Local backup writes prune older Taru backups with a bounded keep-latest
+- Local backup writes prune older Nako backups with a bounded keep-latest
   policy.
 - Retention pruning preserves unrelated files and non-matching backups.
 - NFO forced export records backup creation and pruning diagnostics.
 - Admin/public boundary audit proves public client protocols remain unchanged.
-- Focused `taru-vfs`/`taru-nfo` and workspace validation gates pass.
+- Focused `nako-vfs`/`nako-nfo` and workspace validation gates pass.
 
 Evidence:
 
@@ -1084,21 +1084,21 @@ Evidence:
   ledger, milestones, evidence, and handoff.
 - `StorageBackupPolicy` and `StorageBackupRetention` express keep-latest backup
   retention at the VFS write boundary.
-- `LocalFsBackend` prunes only same-sidecar Taru backup files matching the
-  `*.taru-backup-*` prefix and preserves unrelated backups/manual files.
+- `LocalFsBackend` prunes only same-sidecar Nako backup files matching the
+  `*.nako-backup-*` prefix and preserves unrelated backups/manual files.
 - `NfoExportSummary` reports backup creation, pruned backup counts, and prune
   failures for forced sidecar export.
 - NFO retention diagnostics remain persisted as internal job summary data.
   Generic HTTP `JobResponse` no longer exposes raw job summaries; any future
   admin inspection should use a dedicated safe diagnostic DTO.
-- `taru-client-protocol` has no diff.
+- `nako-client-protocol` has no diff.
 - Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
-  taru-vfs --tests`, `cargo nextest run -p taru-vfs --no-fail-fast` with 28
-  tests passed, `cargo check -p taru-nfo --tests`, `cargo nextest run -p
-  taru-nfo --no-fail-fast` with 19 tests passed, `cargo check -p taru-api
-  --tests`, `cargo nextest run -p taru-api --no-fail-fast` with 13 tests
-  passed, `cargo check -p taru-server --tests`, `cargo nextest run -p
-  taru-server nfo --no-fail-fast` with 5 selected tests passed, `cargo check
+  nako-vfs --tests`, `cargo nextest run -p nako-vfs --no-fail-fast` with 28
+  tests passed, `cargo check -p nako-nfo --tests`, `cargo nextest run -p
+  nako-nfo --no-fail-fast` with 19 tests passed, `cargo check -p nako-api
+  --tests`, `cargo nextest run -p nako-api --no-fail-fast` with 13 tests
+  passed, `cargo check -p nako-server --tests`, `cargo nextest run -p
+  nako-server nfo --no-fail-fast` with 5 selected tests passed, `cargo check
   --workspace --tests`, `cargo nextest run --workspace --no-fail-fast` with
   315 tests passed, and `git diff --check`.
 
@@ -1141,14 +1141,14 @@ Exit criteria:
 - Fresh sidecar export does not create a backup.
 - Unsupported backup requests fail explicitly.
 - Backup failure prevents final sidecar replacement.
-- Focused `taru-vfs`/`taru-nfo` and workspace validation gates pass.
+- Focused `nako-vfs`/`nako-nfo` and workspace validation gates pass.
 
 Evidence:
 
 - [nfo-sidecar-backup-policy workstream]
   (workstreams/nfo-sidecar-backup-policy/README.md) records design, task
   ledger, milestones, evidence, and handoff.
-- `taru-vfs` defines `StorageBackupMode` and `StorageBackupReport`, and storage
+- `nako-vfs` defines `StorageBackupMode` and `StorageBackupReport`, and storage
   write reports can include backup details.
 - `LocalFsBackend` creates same-directory backups before overwriting existing
   sidecars and skips backups for fresh sidecar creation.
@@ -1158,9 +1158,9 @@ Evidence:
 - Backup failures are classified as `NfoFailureKind::StorageBackup` and prevent
   final sidecar replacement.
 - Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
-  taru-vfs --tests`, `cargo nextest run -p taru-vfs --no-fail-fast` with 25
-  tests passed, `cargo check -p taru-nfo --tests`, `cargo nextest run -p
-  taru-nfo --no-fail-fast` with 18 tests passed, `cargo check --workspace
+  nako-vfs --tests`, `cargo nextest run -p nako-vfs --no-fail-fast` with 25
+  tests passed, `cargo check -p nako-nfo --tests`, `cargo nextest run -p
+  nako-nfo --no-fail-fast` with 18 tests passed, `cargo check --workspace
   --tests`, `cargo nextest run --workspace --no-fail-fast` with 310 tests
   passed, and `git diff --check`.
 
@@ -1200,14 +1200,14 @@ Exit criteria:
 - NFO export uses the explicit write policy path.
 - NFO export failures carry test-visible diagnostic categories.
 - M47 preservation behavior remains covered.
-- Focused `taru-vfs`/`taru-nfo` and workspace validation gates pass.
+- Focused `nako-vfs`/`nako-nfo` and workspace validation gates pass.
 
 Evidence:
 
 - [nfo-storage-write-policy workstream]
   (workstreams/nfo-storage-write-policy/README.md) records design, task
   ledger, milestones, evidence, and handoff.
-- `taru-vfs` defines `StorageWriteMode`, `StorageWriteRequest`, and
+- `nako-vfs` defines `StorageWriteMode`, `StorageWriteRequest`, and
   `StorageWriteReport`; unsupported atomic replace requests fail explicitly by
   default.
 - `LocalFsBackend` implements atomic replace with a same-directory temp file
@@ -1217,9 +1217,9 @@ Evidence:
   storage read/write, missing item, invalid sidecar path, and unknown failures
   in internal/test-visible summaries.
 - Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
-  taru-vfs --tests`, `cargo nextest run -p taru-vfs --no-fail-fast` with 22
-  tests passed, `cargo check -p taru-nfo --tests`, `cargo nextest run -p
-  taru-nfo --no-fail-fast` with 16 tests passed, `cargo check --workspace
+  nako-vfs --tests`, `cargo nextest run -p nako-vfs --no-fail-fast` with 22
+  tests passed, `cargo check -p nako-nfo --tests`, `cargo nextest run -p
+  nako-nfo --no-fail-fast` with 16 tests passed, `cargo check --workspace
   --tests`, `cargo nextest run --workspace --no-fail-fast` with 305 tests
   passed, and `git diff --check`.
 
@@ -1229,17 +1229,17 @@ Status: completed.
 
 Objective:
 
-- Deepen `taru-nfo` so export over an existing sidecar preserves unknown XML
-  fields instead of regenerating only Taru-known XML.
-- Update only Taru-owned NFO fields from canonical metadata.
-- Report duplicate or conflicting Taru-owned fields in a structured,
+- Deepen `nako-nfo` so export over an existing sidecar preserves unknown XML
+  fields instead of regenerating only Nako-known XML.
+- Update only Nako-owned NFO fields from canonical metadata.
+- Report duplicate or conflicting Nako-owned fields in a structured,
   test-visible model.
 - Protect hand-authored and other-media-server NFO content before VFS library
   file write, backup, soft-link, or hard-link policy work.
 
 Deliverables:
 
-- A preservation-aware movie NFO update path in `taru-nfo`.
+- A preservation-aware movie NFO update path in `nako-nfo`.
 - A small NFO preservation report/conflict model.
 - Forced export wiring that reads an existing sidecar and applies partial
   preservation-aware update.
@@ -1257,19 +1257,19 @@ Non-goals:
 Exit criteria:
 
 - Forced export over an existing movie NFO preserves unknown XML elements.
-- Taru-owned fields are updated deterministically from current metadata.
+- Nako-owned fields are updated deterministically from current metadata.
 - Duplicate/conflicting owned fields are reported in codec tests.
 - Current import and new-sidecar export behavior remains compatible.
-- Focused `taru-nfo` and workspace validation gates pass.
+- Focused `nako-nfo` and workspace validation gates pass.
 
 Evidence:
 
 - [nfo-round-trip-preservation workstream]
   (workstreams/nfo-round-trip-preservation/README.md) records design, task
   ledger, milestones, evidence, and handoff.
-- `taru-nfo` defines `NfoPreservedRender`, `NfoPreservationReport`,
+- `nako-nfo` defines `NfoPreservedRender`, `NfoPreservationReport`,
   `NfoFieldConflict`, and `NfoFieldConflictReason`.
-- `MovieNfoCodec::render_preserving` updates Taru-owned movie fields while
+- `MovieNfoCodec::render_preserving` updates Nako-owned movie fields while
   preserving unknown top-level XML elements, comments, and processing
   instructions from the existing sidecar.
 - Forced export over an existing sidecar reads old XML and writes
@@ -1280,44 +1280,44 @@ Evidence:
 - Service tests cover forced export preservation and import-then-forced-export
   round trip preservation.
 - Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
-  taru-nfo --tests`, `cargo nextest run -p taru-nfo --no-fail-fast` with 12
+  nako-nfo --tests`, `cargo nextest run -p nako-nfo --no-fail-fast` with 12
   tests passed, `cargo check --workspace --tests`, `cargo nextest run
   --workspace --no-fail-fast` with 298 tests passed, and `git diff --check`.
 
-### M46: taru-api Module Split
+### M46: nako-api Module Split
 
 Status: completed.
 
 Objective:
 
-- Make `taru-api` a thin API adapter crate with explicit module boundaries.
+- Make `nako-api` a thin API adapter crate with explicit module boundaries.
 - Separate stable Public Client API mapping from server admin/internal,
   metadata diagnostic, extension, webhook, automation, and addon DTOs.
 - Keep root-level module declarations while moving callers to explicit
-  `taru_api::{public_client,admin,metadata_diagnostics,extension}` module
+  `nako_api::{public_client,admin,metadata_diagnostics,extension}` module
   imports.
 
 Deliverables:
 
-- `crates/taru-api/src/public_client.rs` owns Public Client protocol
+- `crates/nako-api/src/public_client.rs` owns Public Client protocol
   re-exports and server model-to-DTO adapters.
-- `crates/taru-api/src/admin.rs` owns job, ingestion failure, and storage
+- `crates/nako-api/src/admin.rs` owns job, ingestion failure, and storage
   backend diagnostic DTOs.
-- `crates/taru-api/src/metadata_diagnostics.rs` owns metadata provider attempt,
+- `crates/nako-api/src/metadata_diagnostics.rs` owns metadata provider attempt,
   runtime diagnostic, raw response, cleanup, and maintenance DTOs.
-- `crates/taru-api/src/extension.rs` owns webhook, automation, and addon DTOs.
-- `crates/taru-api/src/lib.rs` declares focused modules only; root-level
+- `crates/nako-api/src/extension.rs` owns webhook, automation, and addon DTOs.
+- `crates/nako-api/src/lib.rs` declares focused modules only; root-level
   wildcard compatibility re-exports were removed by the future-ready
   architecture deletion sweep.
 
 Non-goals:
 
-- No DTO ownership migration into `taru-client-protocol`.
+- No DTO ownership migration into `nako-client-protocol`.
 - No public HTTP route, JSON shape, OpenAPI, SDK behavior, or protocol change.
 - No playback, storage, NFO, metadata provider breadth, database schema, or
   server runtime behavior change.
 - Server call sites use explicit module imports instead of root-level
-  `taru_api::*` compatibility imports.
+  `nako_api::*` compatibility imports.
 
 Evidence:
 
@@ -1325,12 +1325,12 @@ Evidence:
   records design, task ledger, milestones, evidence, and handoff.
 - `public_client.rs` does not contain admin, metadata diagnostics, storage
   diagnostics, webhook, automation, or addon DTO names.
-- Root-level `taru_api::*` compatibility re-exports were intentionally removed
+- Root-level `nako_api::*` compatibility re-exports were intentionally removed
   during the future-ready architecture deletion sweep after downstream call
   sites moved to explicit module imports.
-- Focused validation: `cargo fmt --all -- --check`, `cargo check -p taru-api
-  --tests`, `cargo check -p taru-api --examples`, `cargo nextest run -p
-  taru-api --no-fail-fast` with 12 tests passed, `npm run check --prefix
+- Focused validation: `cargo fmt --all -- --check`, `cargo check -p nako-api
+  --tests`, `cargo check -p nako-api --examples`, `cargo nextest run -p
+  nako-api --no-fail-fast` with 12 tests passed, `npm run check --prefix
   sdk/typescript`, `cargo check --workspace --tests`, `cargo nextest run
   --workspace --no-fail-fast` with 293 tests passed, and `git diff --check`.
 
@@ -1349,9 +1349,9 @@ Objective:
 
 Deliverables:
 
-- `taru-core` storage error classification type and constructors/helpers.
+- `nako-core` storage error classification type and constructors/helpers.
 - VFS/WebDAV/local/staging/playback storage errors classified at the source.
-- `taru-server` HTTP error mapping driven by typed classification rather than
+- `nako-server` HTTP error mapping driven by typed classification rather than
   string matching.
 - Focused tests proving public error code compatibility and backend-specific
   categories.
@@ -1369,9 +1369,9 @@ Evidence:
 
 - [typed-storage-errors workstream](workstreams/typed-storage-errors/README.md)
   records design, task ledger, milestones, evidence, and handoff.
-- `taru-core` defines `StorageErrorKind` and storage error constructors.
-- `TaruError::Storage` now carries a typed storage classification.
-- `taru-server` HTTP error mapping uses `StorageErrorKind` instead of parsing
+- `nako-core` defines `StorageErrorKind` and storage error constructors.
+- `NakoError::Storage` now carries a typed storage classification.
+- `nako-server` HTTP error mapping uses `StorageErrorKind` instead of parsing
   storage messages.
 - WebDAV/local VFS, staging, playback file IO, transcode output IO, and test
   storage fakes classify storage errors at construction sites.
@@ -1386,7 +1386,7 @@ Status: completed.
 
 Objective:
 
-- Deepen `taru-metadata` by extracting provider attempt execution and
+- Deepen `nako-metadata` by extracting provider attempt execution and
   classification into an internal provider-attempt runtime Module.
 - Keep `MetadataStrategyExecutor::refresh_item` externally compatible while
   making it read as high-level refresh orchestration.
@@ -1410,14 +1410,14 @@ Non-goals:
 - No database schema changes.
 - No NFO Round Trip work.
 - No playback/client-profile work.
-- No `taru-api` module split.
+- No `nako-api` module split.
 
 Evidence:
 
 - [metadata-provider-attempt-runtime workstream]
   (workstreams/metadata-provider-attempt-runtime/README.md) records design,
   task ledger, milestones, evidence, and handoff.
-- `taru-metadata` now has an internal `provider_attempt` Module for provider
+- `nako-metadata` now has an internal `provider_attempt` Module for provider
   lookup/fetch, skipped attempts, raw response construction, attempt recording,
   and provider error classification.
 - `MetadataStrategyExecutor::refresh_item` delegates provider-attempt details
@@ -1425,7 +1425,7 @@ Evidence:
 - Public HTTP API, OpenAPI, SDK/protocol crates, repository traits, database
   schema, NFO, and playback behavior did not change.
 - Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
-  taru-metadata --tests`, `cargo nextest run -p taru-metadata
+  nako-metadata --tests`, `cargo nextest run -p nako-metadata
   --no-fail-fast` with 27 tests passed, `cargo check --workspace --tests`,
   `cargo nextest run --workspace --no-fail-fast`, and `git diff --check`.
 
@@ -1437,9 +1437,9 @@ Objective:
 
 - Deepen **Playback Source Selection** before concrete native/mobile client
   work depends on the current MVP playback decision model.
-- Make `taru-streaming` own richer source-selection reasoning and playback
+- Make `nako-streaming` own richer source-selection reasoning and playback
   plan intent.
-- Keep `taru-server` responsible for loading facts, enforcing access, and
+- Keep `nako-server` responsible for loading facts, enforcing access, and
   executing returned direct-play/remux/transcode decisions.
 - Preserve existing Public Client API playback response compatibility where
   possible.
@@ -1447,7 +1447,7 @@ Objective:
 Deliverables:
 
 - A workflow-shaped playback selection request and decision model in
-  `taru-streaming`.
+  `nako-streaming`.
 - Server playback app migration so mode-choice reasoning lives in the
   streaming selection Module instead of around HTTP/runtime orchestration.
 - Explicit public DTO compatibility mapping for playback decisions.
@@ -1471,17 +1471,17 @@ Evidence:
 - [playback-source-selection-deepening workstream]
   (workstreams/playback-source-selection-deepening/README.md) records design,
   task ledger, milestones, evidence, and handoff.
-- `taru-streaming` exposes `select_playback_source` with
+- `nako-streaming` exposes `select_playback_source` with
   `PlaybackSelectionRequest`, `PlaybackSelectionContext`,
   `PlaybackSelectedSource`, and `PlaybackExecutionPlan`.
 - `PlaybackDecision` separates selected-source facts from direct-play, remux,
   and transcode execution intent while retaining compatibility fields for
   public DTO mapping.
-- `taru-server` playback app loads source, probe, client, storage, remux-output,
+- `nako-server` playback app loads source, probe, client, storage, remux-output,
   and HLS intent facts, then executes the returned decision execution plan.
 - Public playback DTO mapping remains wire-compatible; internal
   `selected_source` and `execution` fields do not enter
-  `taru-client-protocol`.
+  `nako-client-protocol`.
 - Close-out validation: `cargo fmt --all -- --check`,
   `cargo check --workspace --tests`, `cargo nextest run --workspace
   --no-fail-fast` with 292 tests passed, and `git diff --check`.
@@ -1521,7 +1521,7 @@ Evidence:
   task ledger, milestones, evidence, and closeout.
 - `CatalogHydrationPort` now exposes `hydrate_catalog`.
 - `CatalogHydrationSnapshot`, `CatalogHydrationLookup`, and
-  `CatalogHydrationCommit` remain internal to `taru-catalog`.
+  `CatalogHydrationCommit` remain internal to `nako-catalog`.
 - Metadata fake-port tests no longer construct lookup vectors.
 - Existing catalog graph/search behavior still passes.
 - Close-out validation: `cargo fmt --all -- --check`, focused
@@ -1571,7 +1571,7 @@ Evidence:
   `app_startup_marks_unfinished_jobs_failed` cover adapter and startup
   behavior.
 - Removed unused `rebuild_search_projection` and its dead snapshot projection
-  helper from `taru-catalog`.
+  helper from `nako-catalog`.
 - Close-out validation: `cargo fmt --all -- --check`, focused db/server/catalog
   gates, `cargo check --workspace --tests`, and `cargo nextest run --workspace
   --no-fail-fast` with 288 tests passed.
@@ -1584,7 +1584,7 @@ Objective:
 
 - Continue repository seam deepening after M39 by narrowing metadata refresh
   workflow boundaries.
-- Reduce `taru-metadata` exposure to broad repository trait combinations and
+- Reduce `nako-metadata` exposure to broad repository trait combinations and
   provider-runtime persistence details.
 - Start with a workflow-shaped metadata refresh port, then split provider
   runtime or maintenance seams only if the first slice exposes a separate
@@ -1594,7 +1594,7 @@ Evidence:
 
 - [metadata-refresh-seam workstream](workstreams/metadata-refresh-seam/README.md)
   records design, task ledger, milestones, evidence, and closeout.
-- `crates/taru-metadata/src/strategy.rs` defines `MetadataRefreshPort`,
+- `crates/nako-metadata/src/strategy.rs` defines `MetadataRefreshPort`,
   `MetadataAttemptPort`, `MetadataRefreshSnapshot`, and
   `MetadataRefreshCommit`.
 - `MetadataRefreshService` and `MetadataStrategyExecutor` depend on
@@ -1604,7 +1604,7 @@ Evidence:
 - A fake-port behavior test proves refresh and hydration port usage without
   SQLite.
 - Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
-  taru-metadata --tests`, `cargo nextest run -p taru-metadata
+  nako-metadata --tests`, `cargo nextest run -p nako-metadata
   --no-fail-fast` with 27 tests passed, `cargo check --workspace --tests`,
   `cargo nextest run --workspace --no-fail-fast`, and `git diff --check`.
 - Non-goals preserved: no provider breadth, no public API/SDK/CLI or license
@@ -1627,7 +1627,7 @@ Evidence:
 
 - [repository-seam-deepening workstream](workstreams/repository-seam-deepening/README.md)
   records design, task ledger, milestones, evidence, and closeout.
-- `taru-catalog` exposes `CatalogHydrationPort`,
+- `nako-catalog` exposes `CatalogHydrationPort`,
   `CatalogHydrationSnapshot`, `CatalogHydrationLookup`, and
   `CatalogHydrationCommit`.
 - `hydrate_item_catalog` uses the snapshot/lookup/commit workflow port and has
@@ -1651,9 +1651,9 @@ Status: completed.
 
 Objective:
 
-- Move startup side effects out of `TaruApp::new_with_store` and into a
+- Move startup side effects out of `NakoApp::new_with_store` and into a
   test-visible startup workflow.
-- Keep `TaruApp` as the server composition root while startup sequencing,
+- Keep `NakoApp` as the server composition root while startup sequencing,
   recovery, cleanup, configured-library persistence, and lifecycle task
   registration live behind a deeper interface.
 - Add the first durable job runtime helper to `RuntimeSupervisor` and migrate
@@ -1663,9 +1663,9 @@ Evidence:
 
 - [server-runtime-deepening workstream](workstreams/server-runtime-deepening/README.md)
   records design, tasks, evidence, gates, and closeout.
-- `crates/taru-server/src/app/startup.rs` owns `ServerStartupWorkflow` and
+- `crates/nako-server/src/app/startup.rs` owns `ServerStartupWorkflow` and
   `ServerStartupReport`.
-- `TaruApp::new_with_store` composes app services, then delegates startup side
+- `NakoApp::new_with_store` composes app services, then delegates startup side
   effects to the startup workflow.
 - Startup reports cover configured libraries, stale transcode recovery,
   staging cleanup, metadata raw-cache cleanup, and lifecycle task registration.
@@ -1673,7 +1673,7 @@ Evidence:
 - Library scan, metadata refresh, and metadata maintenance background jobs use
   the durable job runtime helper.
 - Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
-  taru-server --tests`, focused nextest gates for app runtime/startup/metadata,
+  nako-server --tests`, focused nextest gates for app runtime/startup/metadata,
   `cargo check --workspace --tests`, `cargo nextest run --workspace
   --no-fail-fast` with 284 tests passed, and `git diff --check`.
 - Non-goals preserved: no playback source selection or transcode plan redesign,
@@ -1688,17 +1688,17 @@ Objective:
 
 - Add the first concrete Rust client entrypoint after M35/M36 validated the
   SDK and shared public route inventory.
-- Prove an external program can consume `taru-client` without depending on
+- Prove an external program can consume `nako-client` without depending on
   AGPL server/internal crates or reimplementing HTTP DTOs.
 - Keep the new CLI Apache-2.0 and narrowly scoped to Public Client API usage.
 
 Evidence:
 
 - [client-cli workstream](workstreams/client-cli/README.md)
-- `crates/taru-client-cli` is an Apache-2.0 CLI crate.
-- The CLI uses `taru-client` as its Taru API entrypoint and does not depend on
-  `taru-api`, `taru-server`, `taru-core`, `taru-streaming`, or
-  `taru-transcode`.
+- `crates/nako-client-cli` is an Apache-2.0 CLI crate.
+- The CLI uses `nako-client` as its Nako API entrypoint and does not depend on
+  `nako-api`, `nako-server`, `nako-core`, `nako-streaming`, or
+  `nako-transcode`.
 - Commands cover health, libraries, items, search, source probe, playback
   decision, playback session get/cancel, and streaming request construction.
 - Streaming commands print method, URL, and safe headers with bearer token
@@ -1708,8 +1708,8 @@ Evidence:
   health preflight, authenticated public routes, token redaction, and manifest
   dependency boundaries.
 - Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
-  taru-client-cli --tests`, `cargo nextest run -p taru-client-cli
-  --no-fail-fast` with 5 tests passed, `cargo tree -p taru-client-cli`,
+  nako-client-cli --tests`, `cargo nextest run -p nako-client-cli
+  --no-fail-fast` with 5 tests passed, `cargo tree -p nako-client-cli`,
   `cargo check --workspace --tests`, `cargo nextest run --workspace
   --no-fail-fast` with 279 tests passed, and `git diff --check`.
 - Non-goals preserved: no crates.io publishing, installer, release automation,
@@ -1723,10 +1723,10 @@ Status: completed.
 
 Objective:
 
-- Remove public client route inventory duplication between `taru-api`,
-  TypeScript SDK generation, and `taru-client`.
-- Move neutral public route facts into permissive `taru-client-protocol`
-  without making clients depend on the AGPL `taru-api` crate.
+- Remove public client route inventory duplication between `nako-api`,
+  TypeScript SDK generation, and `nako-client`.
+- Move neutral public route facts into permissive `nako-client-protocol`
+  without making clients depend on the AGPL `nako-api` crate.
 - Add future-safe Rust SDK request builders for public streaming/raw byte
   routes without implementing body streaming, download management, or player
   behavior.
@@ -1734,24 +1734,24 @@ Objective:
 Evidence:
 
 - [client-sdk-contract workstream](workstreams/client-sdk-contract/README.md)
-- `taru-client-protocol` remains `Apache-2.0`, dependency-light, and owns
+- `nako-client-protocol` remains `Apache-2.0`, dependency-light, and owns
   `PUBLIC_CLIENT_ROUTES`, `PublicClientRoute`, `PublicClientHttpMethod`,
   `PublicClientRouteKind`, `PublicClientRustSdkExposure`,
   `public_client_paths`, `public_client_json_routes`, and
   `public_client_streaming_routes`.
-- `taru-api` OpenAPI tests and TypeScript SDK generation consume the shared
+- `nako-api` OpenAPI tests and TypeScript SDK generation consume the shared
   protocol inventory instead of a local path list.
-- `taru-client` consumes the shared inventory and exposes request builders for
+- `nako-client` consumes the shared inventory and exposes request builders for
   direct stream GET, direct stream HEAD preflight, remux stream GET, HLS
   playlist GET, and HLS segment GET.
 - Rust SDK builder tests cover method, path encoding, query serialization,
   bearer auth, and `Range` header behavior.
 - Close-out validation: `cargo fmt --all -- --check`, focused check/nextest
-  gates for `taru-client-protocol`, `taru-api`, and `taru-client`, `cargo
-  nextest run -p taru-server http::tests::playback --no-fail-fast` with 16
+  gates for `nako-client-protocol`, `nako-api`, and `nako-client`, `cargo
+  nextest run -p nako-server http::tests::playback --no-fail-fast` with 16
   tests passed, `cargo check --workspace --tests`, `cargo nextest run
   --workspace --no-fail-fast` with 274 tests passed, `cargo tree -p
-  taru-client-protocol`, `cargo tree -p taru-client`, `npm run check --prefix
+  nako-client-protocol`, `cargo tree -p nako-client`, `npm run check --prefix
   sdk/typescript`, and `git diff --check`.
 - Non-goals preserved: no crates.io/npm publishing, no streaming body
   abstraction, no download manager, no HLS player, no Flutter/Dart SDK, no Rust
@@ -1765,21 +1765,21 @@ Objective:
 
 - Add the first Rust client SDK foundation after M29-M34 stabilized the Public
   Client API, OpenAPI contract, and TypeScript SDK package.
-- Reuse permissive `taru-client-protocol` DTOs instead of duplicating Rust wire
+- Reuse permissive `nako-client-protocol` DTOs instead of duplicating Rust wire
   types from OpenAPI.
 - Give future Rust CLI, integration tests, third-party tools, and automation
-  clients a clean crate boundary for calling Taru public client APIs.
+  clients a clean crate boundary for calling Nako public client APIs.
 
 Evidence:
 
 - [rust-client-sdk workstream](workstreams/rust-client-sdk/README.md)
-- `crates/taru-client` is an Apache-2.0 SDK crate with explicit license
+- `crates/nako-client` is an Apache-2.0 SDK crate with explicit license
   metadata.
-- `taru-client` depends on `taru-client-protocol` for public DTOs and does not
-  depend on `taru-core`, `taru-api`, `taru-server`, `taru-streaming`, or
-  `taru-transcode`.
-- The SDK exposes `TaruClient`, `ReqwestTransport`, mockable
-  `ClientTransport`, `TaruClientError`, pagination helpers, search/playback
+- `nako-client` depends on `nako-client-protocol` for public DTOs and does not
+  depend on `nako-core`, `nako-api`, `nako-server`, `nako-streaming`, or
+  `nako-transcode`.
+- The SDK exposes `NakoClient`, `ReqwestTransport`, mockable
+  `ClientTransport`, `NakoClientError`, pagination helpers, search/playback
   query helpers, bearer-token injection, API-version checking, and
   `ErrorResponse` parsing.
 - JSON route methods cover health, libraries, catalog items/search, source
@@ -1790,9 +1790,9 @@ Evidence:
   route inventory, streaming-route deferral, and internal/admin leakage
   rejection.
 - Close-out validation: `cargo fmt --all -- --check`, `cargo check -p
-  taru-client --tests`, `cargo nextest run -p taru-client --no-fail-fast`
-  with 7 tests passed, `cargo tree -p taru-client`, `cargo tree -p
-  taru-client-protocol`, `npm run check --prefix sdk/typescript`, `cargo check
+  nako-client --tests`, `cargo nextest run -p nako-client --no-fail-fast`
+  with 7 tests passed, `cargo tree -p nako-client`, `cargo tree -p
+  nako-client-protocol`, `npm run check --prefix sdk/typescript`, `cargo check
   --workspace --tests`, `cargo nextest run --workspace --no-fail-fast` with
   271 tests passed, and `git diff --check`.
 - Streaming/raw byte methods, crates.io publishing, Rust CLI commands,
@@ -1818,18 +1818,18 @@ Evidence:
   tooling, strict `tsconfig.json`, committed generated `src/index.ts`, and
   package README.
 - `npm run generate --prefix sdk/typescript` refreshes `src/index.ts` through
-  `cargo run -q --manifest-path ../../Cargo.toml -p taru-api --example
+  `cargo run -q --manifest-path ../../Cargo.toml -p nako-api --example
   emit-typescript-sdk -- --output src/index.ts`.
 - `npm run check --prefix sdk/typescript` runs `tsc --noEmit` against the
   generated SDK with strict settings.
-- `taru-api` has a sync test that compares the committed package entry with
+- `nako-api` has a sync test that compares the committed package entry with
   `sdk::typescript_sdk()`.
 - Close-out validation: `npm run generate --prefix sdk/typescript`, `npm run
   check --prefix sdk/typescript`, `cargo fmt --all -- --check`, `cargo check
-  --workspace --tests`, `cargo check -p taru-api --examples`, `cargo nextest
-  run -p taru-api --no-fail-fast` with 11 tests passed, `cargo nextest run
+  --workspace --tests`, `cargo check -p nako-api --examples`, `cargo nextest
+  run -p nako-api --no-fail-fast` with 11 tests passed, `cargo nextest run
   --workspace --no-fail-fast` with 264 tests passed, `cargo tree -p
-  taru-client-protocol`, and `git diff --check`.
+  nako-client-protocol`, and `git diff --check`.
 
 ### M33: SDK Generation and Client Integration Scaffold
 
@@ -1847,20 +1847,20 @@ Objective:
 Evidence:
 
 - [sdk-client-scaffold workstream](workstreams/sdk-client-scaffold/README.md)
-- `taru-api` owns `sdk::typescript_sdk()` and the
+- `nako-api` owns `sdk::typescript_sdk()` and the
   `emit-typescript-sdk` example for generating a dependency-free
   TypeScript/Web/CLI client scaffold from the OpenAPI v1 contract.
 - Generated scaffold covers API version constants, public path inventory,
-  OpenAPI-derived wire interfaces, `TaruClient`, `TaruApiError`, bearer-token
-  injection, `x-taru-api-version` inspection, error envelope parsing,
+  OpenAPI-derived wire interfaces, `NakoClient`, `NakoApiError`, bearer-token
+  injection, `x-nako-api-version` inspection, error envelope parsing,
   pagination helpers, and core library/catalog/playback/session route calls.
 - SDK generator tests cover route inventory, auth/version/error/pagination
   runtime details, and rejection of admin/internal/secret/local-path terms.
 - Close-out validation: `cargo fmt --all -- --check`, `cargo check
-  --workspace --tests`, `cargo check -p taru-api --examples`, `cargo
-  nextest run -p taru-api --no-fail-fast` with 10 tests passed, `cargo
+  --workspace --tests`, `cargo check -p nako-api --examples`, `cargo
+  nextest run -p nako-api --no-fail-fast` with 10 tests passed, `cargo
   nextest run --workspace --no-fail-fast` with 263 tests passed, `cargo tree
-  -p taru-client-protocol`, and `git diff --check`.
+  -p nako-client-protocol`, and `git diff --check`.
 
 ### M32: OpenAPI and Public Client SDK Contract Foundation
 
@@ -1870,8 +1870,8 @@ Objective:
 
 - Establish a machine-readable Public Client API schema after the M29 public
   protocol, M30 version/error contract, and M31 bearer-auth boundary.
-- Keep `taru-client-protocol` as the permissive public wire-type owner,
-  `taru-api` as the AGPL adapter/schema aggregation layer, and `taru-server`
+- Keep `nako-client-protocol` as the permissive public wire-type owner,
+  `nako-api` as the AGPL adapter/schema aggregation layer, and `nako-server`
   as route wiring and behavior evidence.
 - Produce the first verifiable OpenAPI v1 artifact for core future
   Flutter/web/CLI/SDK surfaces: health, library, catalog browse/search, source
@@ -1882,20 +1882,20 @@ Evidence:
 
 - [openapi-client-contract workstream](workstreams/openapi-client-contract/README.md)
 - [ADR 0025](adr/0025-openapi-public-client-sdk-contract.md)
-- `taru-client-protocol` owns protocol DTOs for library detail and playback
+- `nako-client-protocol` owns protocol DTOs for library detail and playback
   session responses.
 - Public playback session responses no longer expose server-local output paths.
-- `taru-api` owns `openapi::public_openapi_v1_json()` and the
+- `nako-api` owns `openapi::public_openapi_v1_json()` and the
   `emit-openapi` example for generating the OpenAPI JSON artifact.
 - OpenAPI checker tests cover public route inventory, bearer auth,
-  `x-taru-api-version`, shared `ErrorResponse`, pagination, and internal/admin
+  `x-nako-api-version`, shared `ErrorResponse`, pagination, and internal/admin
   leakage rejection.
-- `taru-server` exposes and tests `GET /libraries/{library_id}` for the
+- `nako-server` exposes and tests `GET /libraries/{library_id}` for the
   public library detail surface.
 - Close-out validation: `cargo fmt --all -- --check`, `cargo check
   --workspace --tests`, `cargo nextest run --workspace --no-fail-fast` with
-  260 tests passed, `cargo check -p taru-api --examples`, `cargo tree -p
-  taru-client-protocol`, and `git diff --check`.
+  260 tests passed, `cargo check -p nako-api --examples`, `cargo tree -p
+  nako-client-protocol`, and `git diff --check`.
 
 ### M31: Access Boundary and Token Authentication Foundation
 
@@ -1916,17 +1916,17 @@ Evidence:
 
 - [access-boundary-auth workstream](workstreams/access-boundary-auth/README.md)
 - [ADR 0024](adr/0024-inbound-token-authentication-boundary.md)
-- `taru-client-protocol` owns public `unauthorized` and `forbidden` error
+- `nako-client-protocol` owns public `unauthorized` and `forbidden` error
   codes.
-- `taru-server` config exposes `[auth]` with auth enabled by default and
-  `TARU_ADMIN_TOKEN` as the default token environment reference.
-- `taru-server` HTTP middleware protects every non-health route when auth is
+- `nako-server` config exposes `[auth]` with auth enabled by default and
+  `NAKO_ADMIN_TOKEN` as the default token environment reference.
+- `nako-server` HTTP middleware protects every non-health route when auth is
   enabled, while `GET /health` remains public.
 - Auth failures return M30-compatible `401 unauthorized` error envelopes with
   `WWW-Authenticate: Bearer` and no token leakage.
 - Close-out validation: `cargo fmt --all -- --check`, `cargo check
   --workspace --tests`, `cargo nextest run --workspace --no-fail-fast` with
-  256 tests passed, `cargo tree -p taru-client-protocol`, and `git diff
+  256 tests passed, `cargo tree -p nako-client-protocol`, and `git diff
   --check`.
 
 ### M30: Public API Versioning and Error Envelope Hardening
@@ -1947,13 +1947,13 @@ Evidence:
 
 - [public-api-contract workstream](workstreams/public-api-contract/README.md)
 - [ADR 0023](adr/0023-public-api-versioning-and-error-envelope-contract.md)
-- `taru-client-protocol` owns `ClientErrorCode`, `API_VERSION_HEADER`, and
+- `nako-client-protocol` owns `ClientErrorCode`, `API_VERSION_HEADER`, and
   the compatible `ErrorResponse` envelope constructor.
-- `taru-server` emits `x-taru-api-version: v1` and maps `TaruError` through
+- `nako-server` emits `x-nako-api-version: v1` and maps `NakoError` through
   protocol-owned public error codes.
 - Close-out validation: `cargo fmt --all -- --check`, `cargo check
   --workspace --tests`, `cargo nextest run --workspace --no-fail-fast` with
-  254 tests passed, `cargo tree -p taru-client-protocol`, and
+  254 tests passed, `cargo tree -p nako-client-protocol`, and
   `git diff --check`.
 
 ### M29: Public Client API Contract and Catalog Browse Surface
@@ -1962,21 +1962,21 @@ Status: completed.
 
 Objective:
 
-- Expand `taru-client-protocol` into the first useful public client contract
+- Expand `nako-client-protocol` into the first useful public client contract
   for library/catalog browse, search, list/detail, probe, and playback
-  decision responses while keeping `taru-api` as the server adapter over
+  decision responses while keeping `nako-api` as the server adapter over
   internal models.
 
 Evidence:
 
 - [public-client-api workstream](workstreams/public-client-api/README.md)
-- `taru-client-protocol` owns protocol DTOs with string wire IDs and public
+- `nako-client-protocol` owns protocol DTOs with string wire IDs and public
   protocol enums.
-- `taru-api` owns explicit mapping functions from `taru-core`,
-  `taru-streaming`, and `taru-transcode`.
+- `nako-api` owns explicit mapping functions from `nako-core`,
+  `nako-streaming`, and `nako-transcode`.
 - Close-out validation: `cargo fmt --all -- --check`, `cargo check
   --workspace --tests`, `cargo nextest run --workspace --no-fail-fast` with
-  253 tests passed, `cargo tree -p taru-client-protocol`, and
+  253 tests passed, `cargo tree -p nako-client-protocol`, and
   `git diff --check`.
 
 ### M0-M2.1: Server Runtime Foundation
@@ -2065,7 +2065,7 @@ Status: completed.
 
 Evidence:
 
-- `taru-server::app` has a remux application service boundary.
+- `nako-server::app` has a remux application service boundary.
 - `remux_staging_root` config defines the local staging root.
 - Remux outputs are deterministic by source ID and container.
 - Completed staged outputs are reused.
@@ -2106,7 +2106,7 @@ Status: completed.
 
 Evidence:
 
-- `taru-transcode` plans and runs minimal single-variant HLS sessions through
+- `nako-transcode` plans and runs minimal single-variant HLS sessions through
   FFmpeg.
 - HLS output uses a staging layout with temporary directory promotion.
 - HLS app service uses persisted transcode sessions for planned, running,
@@ -2122,11 +2122,11 @@ Status: completed.
 
 Evidence:
 
-- `taru-transcode` has a hardware acceleration capability report, detector
+- `nako-transcode` has a hardware acceleration capability report, detector
   boundary, policy selection, fallback behavior, and resource-budget model.
 - HLS command planning can select CPU-only, VAAPI, NVENC, or QuickSync encoder
   arguments without requiring real hardware in tests.
-- `taru-server` config exposes hardware acceleration, fallback, CPU slots, and
+- `nako-server` config exposes hardware acceleration, fallback, CPU slots, and
   GPU slots with conservative defaults.
 - HLS app-service concurrency uses CPU/GPU resource budgets based on the
   selected acceleration class.
@@ -2185,25 +2185,25 @@ Evidence for M5.0:
 
 Evidence for M5.1:
 
-- `taru-core` defines domain event kinds, event subjects, outbox status, event
+- `nako-core` defines domain event kinds, event subjects, outbox status, event
   records, and `EventOutboxRepository`.
-- `taru-db` migration `0009_event_outbox.sql` persists durable outbox events
+- `nako-db` migration `0009_event_outbox.sql` persists durable outbox events
   with idempotency by event kind and key.
-- `taru-server` writes outbox events for successful library scan, metadata
+- `nako-server` writes outbox events for successful library scan, metadata
   refresh, NFO import/export, and playback session completion paths.
 - Tests cover outbox persistence, idempotency, and payload safety constraints
   against plaintext secrets and raw local paths.
 
 Evidence for M5.2:
 
-- `taru-core` defines webhook endpoint configuration, delivery attempt records,
+- `nako-core` defines webhook endpoint configuration, delivery attempt records,
   statuses, and `WebhookRepository`.
-- `taru-db` migration `0010_webhooks.sql` persists webhook endpoints and
+- `nako-db` migration `0010_webhooks.sql` persists webhook endpoints and
   delivery attempts with per-event inspection.
-- `taru-events` builds versioned webhook envelopes, signs payloads with
+- `nako-events` builds versioned webhook envelopes, signs payloads with
   HMAC-SHA256, enforces request timeouts, records failed attempts with retry
   timestamps, and provides a `reqwest` transport.
-- `taru-server` exposes webhook endpoint configuration/inspection, per-event
+- `nako-server` exposes webhook endpoint configuration/inspection, per-event
   delivery-attempt inspection, explicit outbox event dispatch, and
   `webhook_concurrency` resource budgeting.
 - Tests cover SQLite persistence, signed success delivery, failed retry state,
@@ -2212,15 +2212,15 @@ Evidence for M5.2:
 
 Evidence for M5.3:
 
-- `taru-core` defines automation provider configuration, automation
+- `nako-core` defines automation provider configuration, automation
   capabilities, job input/summary envelopes, artifact records, and
   `AutomationRepository`.
-- `taru-db` migration `0011_automation.sql` persists provider configuration and
+- `nako-db` migration `0011_automation.sql` persists provider configuration and
   generated artifacts.
-- `taru-automation` runs mockable external providers through a timeout and
+- `nako-automation` runs mockable external providers through a timeout and
   cancellation-aware runner, persists proposed artifacts, writes job summaries,
   and rejects implicit canonical metadata mutation.
-- `taru-server` exposes provider configuration, automation job enqueue, and
+- `nako-server` exposes provider configuration, automation job enqueue, and
   artifact inspection APIs without calling external providers inline.
 - Tests cover provider/artifact persistence, mocked provider execution, secret
   omission from job input, canonical-mutation rejection, and HTTP enqueue and
@@ -2228,15 +2228,15 @@ Evidence for M5.3:
 
 Evidence for M5.4:
 
-- `taru-addon-protocol` defines the manifest, protocol version, resource
+- `nako-addon-protocol` defines the manifest, protocol version, resource
   declarations, scopes, auth modes, request/response envelopes, and Addon
-  Protected Write payload contracts. `taru-addon-client` owns the mockable
+  Protected Write payload contracts. `nako-addon-client` owns the mockable
   transport, `ReqwestAddonTransport`, and bounded resource caller.
-- `taru-core` defines addon registration status and records plus
+- `nako-core` defines addon registration status and records plus
   `AddonRepository`.
-- `taru-db` migration `0012_addons.sql` persists addon registrations, manifest
+- `nako-db` migration `0012_addons.sql` persists addon registrations, manifest
   snapshots, granted scopes, and enabled/disabled status.
-- `taru-server` exposes addon registration, list, status-filtered list, and
+- `nako-server` exposes addon registration, list, status-filtered list, and
   detail APIs. Registrations are disabled by default and rejected when the
   manifest or granted scopes do not satisfy the resource contract.
 - Tests cover manifest validation, invalid manifest rejection, scope denial,
@@ -2245,9 +2245,9 @@ Evidence for M5.4:
 
 Evidence for M5.5:
 
-- `taru-reference-addon` provides a minimal local metadata addon fixture with
+- `nako-reference-addon` provides a minimal local metadata addon fixture with
   a valid manifest and HTTP resource route.
-- `taru-server` end-to-end tests register the reference addon through
+- `nako-server` end-to-end tests register the reference addon through
   `POST /admin/v1/addons`, query it through
   `GET /admin/v1/addons/{addon_id}`, and call the metadata resource through
   `ReqwestAddonTransport`.
@@ -2269,7 +2269,7 @@ Deliverables:
 
 - ADR 0016 for remote storage and VFS cache boundaries.
 - Dedicated `storage-vfs` workstream.
-- Local-path dependency audit for `taru-vfs`, scan/probe, direct play, remux,
+- Local-path dependency audit for `nako-vfs`, scan/probe, direct play, remux,
   and HLS.
 - M6 milestone split with WebDAV selected as the first backend preview.
 - Roadmap, goal map, ADR index, and workstream index updates.
@@ -2290,7 +2290,7 @@ Status: completed.
 
 Evidence:
 
-- `taru-vfs::WebDavBackend` implements read-only `stat`, `list`, and
+- `nako-vfs::WebDavBackend` implements read-only `stat`, `list`, and
   `open_range`.
 - `VfsLibraryScanner` can scan a mocked WebDAV library without plaintext
   credentials in source locators.
@@ -2303,11 +2303,11 @@ Status: completed.
 
 Evidence:
 
-- `taru-core` defines VFS cache object, listing, failure, and repository
+- `nako-core` defines VFS cache object, listing, failure, and repository
   contracts.
-- `taru-db` migration `0013_vfs_cache.sql` persists cached stat/list metadata
+- `nako-db` migration `0013_vfs_cache.sql` persists cached stat/list metadata
   and transient failure state.
-- `taru-vfs::CachedStorageBackend` reuses fresh cache and serves stale cache on
+- `nako-vfs::CachedStorageBackend` reuses fresh cache and serves stale cache on
   transient storage errors.
 - `LibraryIndexService` skips tombstoning when a scan used stale VFS cache.
 - [Phase 6.2](workstreams/storage-vfs/PHASE6_2_DIRECTORY_STAT_CACHE.md)
@@ -2319,9 +2319,9 @@ Status: completed.
 
 Evidence:
 
-- `taru-vfs` defines `StageRequest`, `StagedFile`, deterministic staging paths,
+- `nako-vfs` defines `StageRequest`, `StagedFile`, deterministic staging paths,
   and `StorageBackend::stage`.
-- `taru-vfs::WebDavBackend` can stage a remote media object to a deterministic
+- `nako-vfs::WebDavBackend` can stage a remote media object to a deterministic
   local path and reuse it when size still matches.
 - `LibraryProbeService` uses staging when a backend returns no local path hint.
 - [Phase 6.3](workstreams/storage-vfs/PHASE6_3_REMOTE_PROBE_STAGING.md)
@@ -2335,7 +2335,7 @@ Evidence:
 
 - `StorageBackend::read_range` gives direct play a VFS byte path when a source
   has no local path hint.
-- `taru-vfs::WebDavBackend` uses HTTP `Range` GET for byte windows.
+- `nako-vfs::WebDavBackend` uses HTTP `Range` GET for byte windows.
 - Remux and HLS input planning stages remote sources under
   `remux_staging_root/inputs` before invoking FFmpeg.
 - Tests cover remote direct-play bytes, remote FFmpeg staging, local path-hint
@@ -2349,10 +2349,10 @@ Status: completed.
 
 Evidence:
 
-- `TaruServerConfig` supports `[library.webdav]` preview configuration with
+- `NakoServerConfig` supports `[library.webdav]` preview configuration with
   WebDAV root, base URL, username, password environment reference, timeout,
   and retry attempt limits.
-- `taru-server::app` builds configured WebDAV storage through
+- `nako-server::app` builds configured WebDAV storage through
   `WebDavBackend` wrapped in `CachedStorageBackend`.
 - Configured WebDAV library scan/probe uses the configured library root;
   remote probe staging uses
@@ -2409,32 +2409,32 @@ Recommended next implementation goal:
 
 Evidence for M7.1 foundation:
 
-- `taru-vfs` defines `ReadStream` and `StorageBackend::stream_range`.
+- `nako-vfs` defines `ReadStream` and `StorageBackend::stream_range`.
 - `WebDavBackend::stream_range` proxies remote byte streams without
   accumulating chunks into an in-memory direct-play body.
-- `taru-server` direct play returns `DirectPlaySourceBody::Stream` for remote
+- `nako-server` direct play returns `DirectPlaySourceBody::Stream` for remote
   sources without local path hints, while local sources still use local file
   streaming.
 - `HEAD /sources/{source_id}/stream` uses a preflight plan without opening the
   direct-play body.
 - Playback app planning and HTTP response helpers are split into
-  `crates/taru-server/src/app/playback.rs` and
-  `crates/taru-server/src/http/playback.rs`.
+  `crates/nako-server/src/app/playback.rs` and
+  `crates/nako-server/src/http/playback.rs`.
 - [Phase 7.1](workstreams/playback-streaming/PHASE7_1_REMOTE_DIRECT_BODY_STREAMING.md)
   records validation and remaining gaps.
 
 Evidence for M7.2 foundation:
 
-- `taru-core` defines staging manifest purpose, state, record, and repository
+- `nako-core` defines staging manifest purpose, state, record, and repository
   contracts.
-- `taru-db` migration `0014_staging_manifest.sql` persists staging manifest
+- `nako-db` migration `0014_staging_manifest.sql` persists staging manifest
   records.
-- `taru-db/src/staging.rs` implements the staging repository in a dedicated DB
+- `nako-db/src/staging.rs` implements the staging repository in a dedicated DB
   module instead of growing the large `lib.rs`.
-- `taru-server` records `probe_input` manifest entries when remote probe inputs
+- `nako-server` records `probe_input` manifest entries when remote probe inputs
   are staged, using an app-side VFS wrapper rather than coupling
-  `taru-library` to the staging repository.
-- `taru-server` records `ffmpeg_input` manifest entries when remote WebDAV
+  `nako-library` to the staging repository.
+- `nako-server` records `ffmpeg_input` manifest entries when remote WebDAV
   sources are staged for remux or HLS.
 - `[staging].max_bytes` config and the app-side staging wrapper enforce a
   manifest-backed disk budget before remote probe or FFmpeg input staging.
@@ -2472,7 +2472,7 @@ Evidence for NFO/VFS storage boundary:
 
 Evidence for M7.5 multi-library backend foundation:
 
-- `TaruServerConfig` uses `[[libraries]]` as the only server library
+- `NakoServerConfig` uses `[[libraries]]` as the only server library
   configuration model.
 - Server startup upserts every configured library.
 - `MediaSource.library_id` gives scan/probe/NFO/playback/FFmpeg staging a
@@ -2584,7 +2584,7 @@ Status: completed.
 
 Objective:
 
-- Turn `taru-server` back into a thin composition root with focused
+- Turn `nako-server` back into a thin composition root with focused
   application services, explicit background-worker lifecycle ownership, clear
   repository and transaction boundaries, and no obsolete MVP helper paths.
 
@@ -2595,7 +2595,7 @@ Deliverables:
 - [server-architecture-hardening workstream](workstreams/server-architecture-hardening/README.md)
   with M24 milestones, TODOs, and a baseline phase note.
 - App-service decomposition that moves workflow orchestration out of
-  `TaruApp`.
+  `NakoApp`.
 - Runtime supervisor or worker registry for background jobs and cleanup loops.
 - Repository/transaction cleanup for multi-record writes and broad concrete
   store dependencies.
@@ -2613,7 +2613,7 @@ Non-goals:
 
 Exit criteria:
 
-- `TaruApp` is a composition root rather than the main feature orchestration
+- `NakoApp` is a composition root rather than the main feature orchestration
   object.
 - HTTP handlers call focused application services and keep response/error
   translation local to HTTP modules.
@@ -2642,7 +2642,7 @@ Evidence for M24.1-M24.4:
 - [Phase 24.1](workstreams/server-architecture-hardening/PHASE24_1_IMPLEMENTATION_SLICE.md)
   records the service decomposition, runtime supervisor, catalog transaction
   boundary, removed root-app forwards, and NFO structured parser migration.
-- `TaruApp` now composes focused service handles for jobs, library scan/probe,
+- `NakoApp` now composes focused service handles for jobs, library scan/probe,
   library administration, catalog, storage diagnostics, metadata, NFO,
   playback, addon, automation, and webhook workflows.
 - Metadata, library scan, NFO jobs, metadata lifecycle loops, and staging lease
@@ -2700,7 +2700,7 @@ Close-out validation:
 
 - `cargo fmt --all -- --check`
 - `cargo check --workspace --tests`
-- `cargo nextest run -p taru-server --no-fail-fast`: 90 tests passed.
+- `cargo nextest run -p nako-server --no-fail-fast`: 90 tests passed.
 - `cargo nextest run --workspace --no-fail-fast`: 231 tests passed.
 - `git diff --check`: passed with Git CRLF normalization warnings only.
 
@@ -2742,9 +2742,9 @@ Evidence:
 Close-out validation:
 
 - `cargo fmt --all -- --check`
-- `cargo check -p taru-server --tests`
+- `cargo check -p nako-server --tests`
 - `cargo check --workspace --tests`
-- `cargo nextest run -p taru-server http::tests::playback --no-fail-fast`: 16
+- `cargo nextest run -p nako-server http::tests::playback --no-fail-fast`: 16
   playback route tests passed.
 - `cargo nextest run --workspace --no-fail-fast`: 234 tests passed.
 - `git diff --check`: passed with Git CRLF normalization warnings only.
@@ -2759,14 +2759,14 @@ Objective:
 
 - Build on M27.2's **Local Inference Evidence** and **Provisional Hierarchy**
   so NFO and built-in providers can confirm series, season, and episode items
-  in place instead of replacing Taru item identity.
+  in place instead of replacing Nako item identity.
 
 Deliverables:
 
 - add a shared **Hierarchy Confirmation** service boundary for provider/NFO
   confirmation of provisional hierarchy;
 - confirm provisional series, season, and episode items in place without
-  replacing Taru `MediaItem` identity;
+  replacing Nako `MediaItem` identity;
 - write accepted **Provider Mapping** records when metadata provider refresh
   succeeds;
 - connect NFO episode import to the shared confirmation service while
@@ -2789,10 +2789,10 @@ Evidence:
 - [Phase 27.3](workstreams/metadata-catalog/PHASE27_3_HIERARCHY_CONFIRMATION_PROVIDER_NFO.md)
   records the hierarchy confirmation, provider mapping, TMDB series/season/
   episode, and NFO episode confirmation slice.
-- `taru-metadata` owns the shared **Hierarchy Confirmation** service boundary.
+- `nako-metadata` owns the shared **Hierarchy Confirmation** service boundary.
 - Metadata refresh writes accepted **Provider Subject** and **Provider
   Mapping** records for successful TMDB, Douban, and Bangumi fetches.
-- `taru-nfo` confirms provisional episode hierarchy in place through the
+- `nako-nfo` confirms provisional episode hierarchy in place through the
   shared service.
 - [metadata-catalog TODO](workstreams/metadata-catalog/TODO.md) marks the
   provider breadth checklist complete.
@@ -2801,10 +2801,10 @@ Close-out validation:
 
 - `cargo fmt --all -- --check`
 - `cargo check --workspace --tests`
-- `cargo nextest run -p taru-db --no-fail-fast`: 32 tests passed.
-- `cargo nextest run -p taru-library --no-fail-fast`: 15 tests passed.
-- `cargo nextest run -p taru-metadata --no-fail-fast`: 26 tests passed.
-- `cargo nextest run -p taru-nfo --no-fail-fast`: 8 tests passed.
+- `cargo nextest run -p nako-db --no-fail-fast`: 32 tests passed.
+- `cargo nextest run -p nako-library --no-fail-fast`: 15 tests passed.
+- `cargo nextest run -p nako-metadata --no-fail-fast`: 26 tests passed.
+- `cargo nextest run -p nako-nfo --no-fail-fast`: 8 tests passed.
 - `git diff --check`: passed with Git CRLF normalization warnings only.
 
 Next recommended implementation goal:
@@ -2819,13 +2819,13 @@ Status: completed.
 
 Objective:
 
-- Turn the M27.0 metadata-catalog domain baseline into durable `taru-core`
-  records, `taru-db` schema, repository traits, SQLite adapters, and focused
+- Turn the M27.0 metadata-catalog domain baseline into durable `nako-core`
+  records, `nako-db` schema, repository traits, SQLite adapters, and focused
   repository tests without adding provider breadth.
 
 Deliverables:
 
-- persist **Provider Subject** and **Provider Mapping** separately from Taru
+- persist **Provider Subject** and **Provider Mapping** separately from Nako
   **Media Item** identity;
 - persist **Source Duplicate Relationship** separately from source identity
   and item merging;
@@ -2839,15 +2839,15 @@ Evidence:
 
 - [Phase 27.1](workstreams/metadata-catalog/PHASE27_1_CATALOG_SCHEMA_REPOSITORY_SLICE.md)
   records the schema/repository implementation and M27.2 boundaries.
-- `crates/taru-db/migrations/0018_metadata_catalog_domain.sql` adds the
+- `crates/nako-db/migrations/0018_metadata_catalog_domain.sql` adds the
   durable catalog-domain tables.
 - [metadata-catalog TODO](workstreams/metadata-catalog/TODO.md) marks the
   M27.1 checklist complete.
 
 Close-out validation:
 
-- `cargo nextest run -p taru-db`: 31 tests passed.
-- `cargo nextest run -p taru-core`: 3 tests passed.
+- `cargo nextest run -p nako-db`: 31 tests passed.
+- `cargo nextest run -p nako-core`: 3 tests passed.
 - `cargo fmt --all -- --check`
 - `cargo check --workspace --tests`
 - `git diff --check`: passed with Git CRLF normalization warnings only.

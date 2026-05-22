@@ -13,17 +13,17 @@ Last updated: 2026-05-20
 - [x] ACAC-020 - Add internal clipboard adapter.
   - Owner: Codex
   - Scope:
-    - `apps/android/app/src/main/java/dev/taru/android/ui/TaruClipboard.kt`
+    - `apps/android/app/src/main/java/dev/nako/android/ui/NakoClipboard.kt`
   - Validation:
     - Compile focused UI tests.
 
 - [x] ACAC-030 - Replace settings/player deprecated clipboard usage.
   - Owner: Codex
   - Scope:
-    - `apps/android/app/src/main/java/dev/taru/android/ui/screens/settings/SettingsScreens.kt`
-    - `apps/android/app/src/main/java/dev/taru/android/ui/screens/player/PlaybackPlayerRoute.kt`
+    - `apps/android/app/src/main/java/dev/nako/android/ui/screens/settings/SettingsScreens.kt`
+    - `apps/android/app/src/main/java/dev/nako/android/ui/screens/player/PlaybackPlayerRoute.kt`
   - Validation:
-    - `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.screens.settings.* --tests dev.taru.android.ui.screens.player.* --no-daemon --no-parallel`
+    - `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.screens.settings.* --tests dev.nako.android.ui.screens.player.* --no-daemon --no-parallel`
 
 - [x] ACAC-040 - Verify and close lane.
   - Owner: Codex

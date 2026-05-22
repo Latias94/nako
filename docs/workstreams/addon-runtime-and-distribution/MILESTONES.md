@@ -35,11 +35,11 @@ Exit criteria:
 
 Primary evidence:
 
-- `crates/taru-addon-protocol`
-- `crates/taru-api/src/extension.rs`
-- `crates/taru-server/src/app`
-- `crates/taru-server/src/http/addons.rs`
-- `crates/taru-server/src/http/tests/addons.rs`
+- `crates/nako-addon-protocol`
+- `crates/nako-api/src/extension.rs`
+- `crates/nako-server/src/app`
+- `crates/nako-server/src/http/addons.rs`
+- `crates/nako-server/src/http/tests/addons.rs`
 
 ## M2 — Runtime Readiness And Sidecar Compatibility
 
@@ -54,10 +54,10 @@ Exit criteria:
 
 Primary evidence:
 
-- `crates/taru-api/src/extension.rs`
-- `crates/taru-server/src/app/addons.rs`
-- `crates/taru-server/src/http/addons.rs`
-- `crates/taru-server/src/http/tests/addons.rs`
+- `crates/nako-api/src/extension.rs`
+- `crates/nako-server/src/app/addons.rs`
+- `crates/nako-server/src/http/addons.rs`
+- `crates/nako-server/src/http/tests/addons.rs`
 - `apps/admin-web/src/adminApi`
 - `docs/workstreams/addon-runtime-and-distribution/EVIDENCE_AND_GATES.md`
 
@@ -75,12 +75,12 @@ Exit criteria:
 
 Primary evidence:
 
-- `crates/taru-core/src/addon.rs`
-- `crates/taru-server/src/app`
-- `crates/taru-db`
-- `crates/taru-server/src/http/addons.rs`
-- `crates/taru-server/src/http/tests/addons.rs`
-- `crates/taru-api/src/extension.rs`
+- `crates/nako-core/src/addon.rs`
+- `crates/nako-server/src/app`
+- `crates/nako-db`
+- `crates/nako-server/src/http/addons.rs`
+- `crates/nako-server/src/http/tests/addons.rs`
+- `crates/nako-api/src/extension.rs`
 - `apps/admin-web/src/adminApi`
 
 ## M4 — Addon Artifact And Intake Handoff
@@ -96,12 +96,12 @@ Exit criteria:
 
 Primary evidence:
 
-- `crates/taru-server/src/app`
-- `crates/taru-core/src/automation.rs`
-- `crates/taru-core/src/acquisition_intake.rs`
-- `crates/taru-api/src/extension.rs`
-- `crates/taru-server/src/http/addons.rs`
-- `crates/taru-server/src/http/tests/addons.rs`
+- `crates/nako-server/src/app`
+- `crates/nako-core/src/automation.rs`
+- `crates/nako-core/src/acquisition_intake.rs`
+- `crates/nako-api/src/extension.rs`
+- `crates/nako-server/src/http/addons.rs`
+- `crates/nako-server/src/http/tests/addons.rs`
 - `docs/workstreams/addon-runtime-and-distribution/EVIDENCE_AND_GATES.md`
 
 ## M5 — Closeout And Follow-On Split

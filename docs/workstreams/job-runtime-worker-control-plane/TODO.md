@@ -5,7 +5,7 @@ Last updated: 2026-05-19
 
 ## M0 - Runtime Inventory And Contract
 
-- [x] JRWCP-010 [owner=codex] [deps=none] [scope=docs/workstreams/job-runtime-worker-control-plane,docs/adr,crates/taru-core,crates/taru-db,crates/taru-server]
+- [x] JRWCP-010 [owner=codex] [deps=none] [scope=docs/workstreams/job-runtime-worker-control-plane,docs/adr,crates/nako-core,crates/nako-db,crates/nako-server]
   Goal: Inventory existing durable job execution paths, ADR constraints, and
   worker/runtime supervisor surfaces; choose the first shared contract shape.
   Validation: design notes identify each current execution mode and name the
@@ -23,7 +23,7 @@ Last updated: 2026-05-19
 
 ## M1 - Managed Artwork Worker Tracer Bullet
 
-- [x] JRWCP-020 [owner=codex] [deps=JRWCP-010] [scope=crates/taru-core,crates/taru-db,crates/taru-server]
+- [x] JRWCP-020 [owner=codex] [deps=JRWCP-010] [scope=crates/nako-core,crates/nako-db,crates/nako-server]
   Goal: Add a supervised Managed Artwork ingest worker loop that claims and
   processes queued jobs through the existing safe artifact pipeline.
   Validation: focused server/runtime test proves queued ingest is processed by
@@ -40,7 +40,7 @@ Last updated: 2026-05-19
   artwork publication or locator leaks.
   Handoff: Continue with `JRWCP-030` failure/recovery semantics.
 
-- [x] JRWCP-030 [owner=codex] [deps=JRWCP-020] [scope=crates/taru-db,crates/taru-server]
+- [x] JRWCP-030 [owner=codex] [deps=JRWCP-020] [scope=crates/nako-db,crates/nako-server]
   Goal: Prove worker failure handling and restart recovery for Managed Artwork
   ingest.
   Validation: focused tests for safe failed summary and stale running recovery

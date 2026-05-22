@@ -5,7 +5,7 @@ Last updated: 2026-05-22
 
 ## Problem
 
-Taru can inspect and operate registered **Addon Sidecars**, and it can generate
+Nako can inspect and operate registered **Addon Sidecars**, and it can generate
 an **Addon Install Guide** from a stored manifest snapshot. The missing product
 step is onboarding: an administrator still needs to hand-craft Admin API calls
 to register an Addon manifest before the rest of the Addon Operations Console
@@ -13,8 +13,8 @@ becomes useful.
 
 This creates a gap between the architecture boundary and the user journey:
 
-- the correct boundary says Taru does not install or start sidecars;
-- the product still needs a guided way to tell Taru about a sidecar;
+- the correct boundary says Nako does not install or start sidecars;
+- the product still needs a guided way to tell Nako about a sidecar;
 - registration must be safe even when the sidecar has not started yet;
 - later actions such as token issuance, grant replacement, health checks, and
   enablement need a clear continuation point.
@@ -28,7 +28,7 @@ Admin Web exposes a safe Addon onboarding flow:
    facts before submission.
 3. Admin Web submits the manifest to `POST /admin/v1/addons` with
    `status: "disabled"` by default.
-4. Taru server validates the manifest using the canonical addon protocol
+4. Nako server validates the manifest using the canonical addon protocol
    validator and stores a registration snapshot.
 5. Admin Web shows the registration result and links the administrator into the
    existing Addon Operations and **Addon Install Guide** path.

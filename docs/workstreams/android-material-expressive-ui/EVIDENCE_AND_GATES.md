@@ -59,10 +59,10 @@ Use `review-workstream` before accepting each AME task and
 - `docs/workstreams/android-material-expressive-ui/TODO.md`
 - `docs/workstreams/android-material-expressive-ui/MILESTONES.md`
 - `docs/workstreams/android-material-expressive-ui/HANDOFF.md`
-- `apps/android/app/src/main/java/dev/taru/android/ui/theme/`
-- `apps/android/app/src/main/java/dev/taru/android/ui/components/`
-- `apps/android/app/src/main/java/dev/taru/android/ui/shell/`
-- `apps/android/app/src/main/java/dev/taru/android/ui/screens/`
+- `apps/android/app/src/main/java/dev/nako/android/ui/theme/`
+- `apps/android/app/src/main/java/dev/nako/android/ui/components/`
+- `apps/android/app/src/main/java/dev/nako/android/ui/shell/`
+- `apps/android/app/src/main/java/dev/nako/android/ui/screens/`
 
 ## Evidence Log
 

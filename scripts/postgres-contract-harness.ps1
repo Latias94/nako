@@ -4,7 +4,7 @@ param(
     [ValidateSet('managed-artwork', 'all-contracts')]
     [string]$Suite = 'managed-artwork',
 
-    [string]$DatabaseUrl = $env:TARU_TEST_POSTGRES_URL,
+    [string]$DatabaseUrl = $env:NAKO_TEST_POSTGRES_URL,
 
     [int]$Port = 55432,
 
@@ -22,8 +22,8 @@ Set-Location $RepoRoot
 $HarnessRoot = Join-Path $RepoRoot 'target/postgres-contract'
 $DataDir = Join-Path $HarnessRoot 'data'
 $LogPath = Join-Path $HarnessRoot 'postgres.log'
-$DatabaseName = 'taru_contract'
-$UserName = 'taru'
+$DatabaseName = 'nako_contract'
+$UserName = 'nako'
 $StartedLocalServer = $false
 
 function Invoke-Native {
@@ -95,7 +95,7 @@ try {
         $requiredTools = @('initdb', 'pg_ctl', 'createdb')
         $missingTools = @($requiredTools | Where-Object { -not (Test-CommandAvailable $_) })
         if ($missingTools.Count -gt 0) {
-            $message = "Skipping PostgreSQL contract harness because TARU_TEST_POSTGRES_URL was not provided and local PostgreSQL tooling is missing: $($missingTools -join ', ')."
+            $message = "Skipping PostgreSQL contract harness because NAKO_TEST_POSTGRES_URL was not provided and local PostgreSQL tooling is missing: $($missingTools -join ', ')."
             if ($RequireTooling) {
                 throw $message
             }
@@ -123,12 +123,12 @@ try {
         Write-Host "Using caller-provided PostgreSQL database URL."
     }
 
-    $env:TARU_TEST_POSTGRES_URL = $DatabaseUrl
+    $env:NAKO_TEST_POSTGRES_URL = $DatabaseUrl
     $testFilter = Get-TestFilter
 
     Invoke-Native 'cargo' @(
         'nextest', 'run',
-        '-p', 'taru-db',
+        '-p', 'nako-db',
         $testFilter,
         '--run-ignored', 'ignored-only',
         '--no-fail-fast'

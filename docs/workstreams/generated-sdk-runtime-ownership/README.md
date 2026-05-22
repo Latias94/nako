@@ -72,7 +72,7 @@ target state with app-supplied Android transport as the durable direction.
 0031's post-generated-SDK mobile Rust/UniFFI sequencing.
 
 `SDKRT-030`, `SDKRT-035`, and `SDKRT-040` are complete. The repository now has
-a no-socket `taru-client-core` connection tracer, a thin `taru-client-uniffi`
+a no-socket `nako-client-core` connection tracer, a thin `nako-client-uniffi`
 binding crate, repository-pinned UniFFI binding generation, Android Gradle
 wiring for the generated Kotlin binding and native libraries, and Android
 connection checks consuming the Rust core through the UniFFI boundary.

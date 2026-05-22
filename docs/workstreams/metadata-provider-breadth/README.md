@@ -6,7 +6,7 @@ Completed execution lane.
 
 This workstream is the first post-RPD product-hardening lane. It makes built-in
 metadata matching across TMDB, Douban, and Bangumi capability-aware,
-explainable, and safe before Taru adds broader NFO/link mutation, managed
+explainable, and safe before Nako adds broader NFO/link mutation, managed
 import/download staging, AI suggestions, or addon metadata contributions.
 
 

@@ -47,8 +47,8 @@ catch-all refactor.
 
 - Android smoke scripts and smoke evidence under `apps/android/scripts` and
   generated validation output references.
-- Android token-vault code under `apps/android/app/src/main/java/dev/taru/android/connection`.
-- Android player runtime code under `apps/android/app/src/main/java/dev/taru/android/ui/screens/player` and `MainActivity`/manifest only when needed for platform integration.
+- Android token-vault code under `apps/android/app/src/main/java/dev/nako/android/connection`.
+- Android player runtime code under `apps/android/app/src/main/java/dev/nako/android/ui/screens/player` and `MainActivity`/manifest only when needed for platform integration.
 - Android JVM and instrumentation/smoke tests where practical.
 - Workstream docs under this directory.
 

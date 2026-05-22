@@ -13,7 +13,7 @@ metadata-authority workflow.
 
 Existing prerequisites are in place:
 
-- `taru-nfo` round-trip preservation exists.
+- `nako-nfo` round-trip preservation exists.
 - VFS-backed NFO storage write policy exists.
 - sidecar backup policy and backup retention diagnostics exist.
 - `nfo-link-authority` can produce non-mutating NFO authority previews.
@@ -24,7 +24,7 @@ Existing prerequisites are in place:
 
 - Task ID: NSPA-020
 - Owner: codex
-- Files: `crates/taru-core`, `crates/taru-db`
+- Files: `crates/nako-core`, `crates/nako-db`
 - Validation: focused DB contract tests for durable sidecar apply records,
   idempotency-key lookup, state transitions, and redacted audit snapshots.
 - Status: DONE
@@ -33,7 +33,7 @@ Existing prerequisites are in place:
 
 - Task ID: NSPA-030
 - Owner: codex
-- Files: `crates/taru-server`
+- Files: `crates/nako-server`
 - Validation: focused server tests prove accepted preview snapshot, stale
   preview rejection, idempotent replay, redacted diagnostics, and no VFS write
   or canonical metadata mutation.
@@ -44,19 +44,19 @@ Existing prerequisites are in place:
 
 - Task ID: NSPA-040
 - Owner: codex
-- Files: `crates/taru-server`; existing `taru-nfo` and `taru-vfs` export/write
+- Files: `crates/nako-server`; existing `nako-nfo` and `nako-vfs` export/write
   boundaries
 - Validation: focused tests prove create, preservation-aware update,
   backup-required forced update, retention diagnostics, stale sidecar
   rejection, and redacted reports.
 - Status: DONE
 - Evidence: `ApplyNfoSidecarApplyRequest`, `apply_sidecar_apply`, server
-  export apply tests, and existing `taru-nfo`/`taru-vfs` backup/atomic write
+  export apply tests, and existing `nako-nfo`/`nako-vfs` backup/atomic write
   tests.
 
 - Task ID: NSPA-050
 - Owner: codex
-- Files: `crates/taru-nfo`, `crates/taru-server`
+- Files: `crates/nako-nfo`, `crates/nako-server`
 - Validation: focused tests prove accepted import fields, stale import content
   rejection, user-locked field preservation, hierarchy confirmation, and no
   sidecar write during import-only apply.
@@ -69,7 +69,7 @@ Existing prerequisites are in place:
 
 - Task ID: NSPA-060
 - Owner: codex
-- Files: `crates/taru-server`, `crates/taru-vfs`, `crates/taru-db`
+- Files: `crates/nako-server`, `crates/nako-vfs`, `crates/nako-db`
 - Validation: tests with failing storage/repository doubles prove no false
   committed state and no unredacted diagnostics across export/import partial
   failures.
@@ -111,7 +111,7 @@ Existing prerequisites are in place:
 - NFO preview is explanatory only; it is not an authorization token.
 - Sidecar apply requires explicit operator or policy acceptance and an
   idempotency key.
-- Export sidecar apply must use `taru-nfo` round-trip preservation and VFS
+- Export sidecar apply must use `nako-nfo` round-trip preservation and VFS
   storage write APIs. Server code must not write raw OS paths directly.
 - Import sidecar apply must update canonical metadata, field locks/local
   authority, and hierarchy confirmation only through durable acceptance.

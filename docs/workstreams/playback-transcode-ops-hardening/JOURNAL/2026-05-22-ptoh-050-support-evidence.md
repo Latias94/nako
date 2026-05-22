@@ -25,7 +25,7 @@ silently returning evidence for a different source.
 
 - Kept the route Admin-only and read-only.
 - Did not persist or export support evidence bundles.
-- Did not change Public Client API or `taru-client-protocol`.
+- Did not change Public Client API or `nako-client-protocol`.
 - Updated Admin TypeScript contract and Admin web typed client/mocks because
   this is an Admin API surface.
 - Avoided raw Source Locator terminology in the external Admin contract. The
@@ -36,19 +36,19 @@ silently returning evidence for a different source.
 
 ## Verification
 
-- `cargo nextest run -p taru-api admin_playback --no-fail-fast` — pass, 4
+- `cargo nextest run -p nako-api admin_playback --no-fail-fast` — pass, 4
   tests.
-- `cargo nextest run -p taru-api admin_contract --no-fail-fast` — pass, 5
+- `cargo nextest run -p nako-api admin_contract --no-fail-fast` — pass, 5
   tests.
-- `cargo nextest run -p taru-server http::tests::system --no-fail-fast` —
+- `cargo nextest run -p nako-server http::tests::system --no-fail-fast` —
   pass, 17 tests.
-- `cargo check -p taru-api --tests` — pass.
-- `cargo check -p taru-server --tests` — pass.
+- `cargo check -p nako-api --tests` — pass.
+- `cargo check -p nako-server --tests` — pass.
 - `cargo fmt --all -- --check` — pass.
 - `npm run check` from `apps/admin-web` — pass.
 - `npm test` from `apps/admin-web` — pass, 9 tests.
 - `git diff --check` — pass with repository CRLF conversion warnings only.
-- `git diff --name-only -- crates/taru-client-protocol` — no output.
+- `git diff --name-only -- crates/nako-client-protocol` — no output.
 
 ## Review Notes
 
@@ -58,7 +58,7 @@ redaction checklist, and public client stability.
 Code quality: support evidence composition reuses the existing runtime
 diagnostics path, keeps source/session context lookup in the playback app
 boundary, keeps HTTP mapping in the Admin HTTP boundary, and keeps DTO redaction
-tests in `taru-api`.
+tests in `nako-api`.
 
 Residual risks are follow-ons, not blockers:
 

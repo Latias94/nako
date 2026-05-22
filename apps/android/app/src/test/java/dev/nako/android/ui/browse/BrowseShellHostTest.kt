@@ -1,0 +1,423 @@
+package dev.nako.android.ui.browse
+
+import dev.nako.android.browse.CanonicalMetadataDto
+import dev.nako.android.browse.ItemDetailResponse
+import dev.nako.android.browse.ItemsResponse
+import dev.nako.android.browse.LibraryDto
+import dev.nako.android.browse.LibraryListResponse
+import dev.nako.android.browse.LibrarySourcesResponse
+import dev.nako.android.browse.MediaItemDto
+import dev.nako.android.browse.MediaSourceDto
+import dev.nako.android.browse.PageInfo
+import dev.nako.android.browse.PageRequest
+import dev.nako.android.browse.PersonDto
+import dev.nako.android.browse.PersonResponse
+import dev.nako.android.browse.SearchResponse
+import dev.nako.android.browse.FacetItemsResponse
+import dev.nako.android.connection.ServerProfile
+import dev.nako.android.connection.ServerProfileSnapshot
+import dev.nako.android.media.MediaProbeDto
+import dev.nako.android.media.SourceProbeResponse
+import dev.nako.android.playback.ClientPlaybackDecision
+import dev.nako.android.playback.ClientPlaybackMode
+import dev.nako.android.playback.PlaybackCapabilities
+import dev.nako.android.playback.PlaybackDecisionResponse
+import dev.nako.android.playback.PlaybackMediaSourceDto
+import dev.nako.android.playback.PlaybackRequestDescriptor
+import dev.nako.android.playback.PlaybackRequestTarget
+import dev.nako.android.playback.PlaybackStartRequest
+import dev.nako.android.playback.PlaybackStartResult
+import dev.nako.android.player.PlaybackResumeSource
+import dev.nako.android.player.ResumePlaybackPosition
+import dev.nako.android.player.playbackLaunchRequest
+import dev.nako.android.ui.screens.settings.SettingsRuntime
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.yield
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class BrowseShellHostTest {
+    @Test
+    fun `host starts home load and publishes async state for saveable sync`() = runBlocking {
+        val dataSource = RecordingHostBrowseDataSource()
+        val savedStates = mutableListOf<BrowseShellState>()
+        val host = BrowseShellHost(
+            profile = testProfile(),
+            snapshot = testSnapshot(),
+            runtime = RecordingBrowseShellRuntime(dataSource = dataSource),
+            parentScope = CoroutineScope(coroutineContext + Job()),
+            saveState = { savedStates += it },
+        )
+
+        waitUntil { host.state.value.browseState is BrowseUiState.Content }
+        waitUntil { savedStates.any { it.browseState is BrowseUiState.Content } }
+
+        assertEquals(1, dataSource.homeLoads)
+        assertTrue(savedStates.any { it.browseState is BrowseUiState.Content })
+    }
+
+    @Test
+    fun `host turns route changes into displayed route loads without compose effects`() = runBlocking {
+        val dataSource = RecordingHostBrowseDataSource()
+        val host = BrowseShellHost(
+            profile = testProfile(),
+            snapshot = testSnapshot(),
+            runtime = RecordingBrowseShellRuntime(dataSource = dataSource),
+            parentScope = CoroutineScope(coroutineContext + Job()),
+        )
+
+        host.dispatch(BrowseAction.OpenItem("night-harbor"))
+        waitUntil { host.state.value.detailState is ItemDetailUiState.Content }
+        waitUntil { dataSource.sourceProbeRequests.isNotEmpty() }
+
+        assertEquals(NakoRoute.ItemDetail("night-harbor"), host.state.value.currentRoute)
+        assertEquals(listOf("night-harbor"), dataSource.detailRequests)
+        assertEquals("source-a", host.state.value.selectedSourceId)
+        assertEquals(listOf("source-a"), dataSource.sourceProbeRequests)
+    }
+
+    @Test
+    fun `host opens tags relationship index route through shared route loader`() = runBlocking {
+        val dataSource = RecordingHostBrowseDataSource()
+        val host = BrowseShellHost(
+            profile = testProfile(),
+            snapshot = testSnapshot(),
+            runtime = RecordingBrowseShellRuntime(dataSource = dataSource),
+            parentScope = CoroutineScope(coroutineContext + Job()),
+        )
+
+        host.dispatch(BrowseAction.OpenRelationshipIndex(RelationshipIndexFamily.Tags))
+        waitUntil { host.state.value.relationshipIndexState is RelationshipIndexUiState.Content }
+
+        assertEquals(NakoRoute.RelationshipIndex(RelationshipIndexFamily.Tags), host.state.value.currentRoute)
+        assertEquals(listOf(RelationshipIndexFamily.Tags), dataSource.relationshipIndexRequests)
+        assertEquals(
+            RelationshipIndexFamily.Tags,
+            (host.state.value.relationshipIndexState as RelationshipIndexUiState.Content).family,
+        )
+    }
+
+    @Test
+    fun `host saves async playback route changes`() = runBlocking {
+        val target = testPlaybackTarget("source-a")
+        val savedStates = mutableListOf<BrowseShellState>()
+        val host = BrowseShellHost(
+            profile = testProfile(),
+            snapshot = testSnapshot(),
+            runtime = RecordingBrowseShellRuntime(
+                dataSource = RecordingHostBrowseDataSource(
+                    playbackState = PlaybackSelectionUiState.Content(
+                        response = testPlaybackDecision("source-a"),
+                        target = target,
+                        capabilities = PlaybackCapabilities(),
+                    ),
+                ),
+                playbackStarter = RecordingHostPlaybackStarter(
+                    result = PlaybackStartResult.Success(
+                        launch = testPlaybackLaunch(target),
+                        preparedTarget = target,
+                    ),
+                ),
+            ),
+            parentScope = CoroutineScope(coroutineContext + Job()),
+            saveState = { savedStates += it },
+        )
+
+        host.dispatch(BrowseAction.OpenItem("night-harbor"))
+        waitUntil { host.state.value.detailState is ItemDetailUiState.Content }
+        host.dispatch(BrowseAction.RequestPlayback("source-a"))
+        waitUntil { host.state.value.playbackState is PlaybackSelectionUiState.Content }
+        host.dispatch(BrowseAction.StartPlayback(target))
+        waitUntil { host.state.value.currentRoute is NakoRoute.Player }
+        waitUntil { savedStates.any { it.currentRoute is NakoRoute.Player } }
+
+        assertTrue(savedStates.any { it.currentRoute is NakoRoute.Player })
+    }
+
+    @Test
+    fun `host player route keeps previous detail state instead of clearing through route load`() = runBlocking {
+        val target = testPlaybackTarget("source-a")
+        val host = BrowseShellHost(
+            profile = testProfile(),
+            snapshot = testSnapshot(),
+            runtime = RecordingBrowseShellRuntime(
+                dataSource = RecordingHostBrowseDataSource(
+                    playbackState = PlaybackSelectionUiState.Content(
+                        response = testPlaybackDecision("source-a"),
+                        target = target,
+                        capabilities = PlaybackCapabilities(),
+                    ),
+                ),
+                playbackStarter = RecordingHostPlaybackStarter(
+                    result = PlaybackStartResult.Success(
+                        launch = testPlaybackLaunch(target),
+                        preparedTarget = target,
+                    ),
+                ),
+            ),
+            parentScope = CoroutineScope(coroutineContext + Job()),
+        )
+
+        host.dispatch(BrowseAction.OpenItem("night-harbor"))
+        waitUntil { host.state.value.detailState is ItemDetailUiState.Content }
+        host.dispatch(BrowseAction.RequestPlayback("source-a"))
+        waitUntil { host.state.value.playbackState is PlaybackSelectionUiState.Content }
+        host.dispatch(BrowseAction.StartPlayback(target))
+        waitUntil { host.state.value.currentRoute is NakoRoute.Player }
+
+        assertTrue(host.state.value.detailState is ItemDetailUiState.Content)
+        assertEquals("source-a", host.state.value.selectedSourceId)
+        host.close()
+    }
+
+    @Test
+    fun `host forwards settings actions through runtime`() {
+        val runtime = RecordingBrowseShellRuntime()
+        val host = BrowseShellHost(
+            profile = testProfile(),
+            snapshot = testSnapshot(),
+            runtime = runtime,
+            parentScope = CoroutineScope(Job()),
+        )
+
+        host.dispatchSettings(dev.nako.android.ui.screens.settings.SettingsAction.SignOutActiveProfile)
+
+        assertEquals(listOf("server-token:server-1"), runtime.deletedTokenReferences)
+        assertEquals(1, runtime.connectionRequests)
+        host.close()
+    }
+}
+
+private class RecordingBrowseShellRuntime(
+    private val dataSource: RecordingHostBrowseDataSource = RecordingHostBrowseDataSource(),
+    private val playbackStarter: BrowsePlaybackStarter = RecordingHostPlaybackStarter(),
+    private val resumeResolver: BrowseResumeResolver = NoopHostResumeResolver,
+) : BrowseShellRuntime {
+    val deletedTokenReferences: MutableList<String> = mutableListOf()
+    var connectionRequests: Int = 0
+        private set
+
+    override fun dataSource(profile: ServerProfile): BrowseDataSource = dataSource
+
+    override fun playbackStarter(profile: ServerProfile): BrowsePlaybackStarter = playbackStarter
+
+    override fun resumeResolver(profile: ServerProfile): BrowseResumeResolver = resumeResolver
+
+    override fun settingsRuntime(): SettingsRuntime =
+        object : SettingsRuntime {
+            override fun saveSnapshot(snapshot: ServerProfileSnapshot) = Unit
+
+            override fun deleteToken(reference: String) {
+                deletedTokenReferences += reference
+            }
+
+            override fun requestConnection() {
+                connectionRequests += 1
+            }
+        }
+}
+
+private data object NoopHostResumeResolver : BrowseResumeResolver {
+    override fun resolve(
+        detailState: ItemDetailUiState,
+        selectedSourceId: String?,
+    ): ResumePlaybackPosition? = null
+}
+
+private class RecordingHostPlaybackStarter(
+    private val result: PlaybackStartResult = PlaybackStartResult.Success(
+        launch = testPlaybackLaunch(testPlaybackTarget("source-a")),
+        preparedTarget = testPlaybackTarget("source-a"),
+    ),
+) : BrowsePlaybackStarter {
+    override suspend fun start(request: PlaybackStartRequest): PlaybackStartResult = result
+}
+
+private class RecordingHostBrowseDataSource(
+    private val playbackState: PlaybackSelectionUiState = PlaybackSelectionUiState.Content(
+        response = testPlaybackDecision("source-a"),
+        target = testPlaybackTarget("source-a"),
+        capabilities = PlaybackCapabilities(),
+    ),
+) : BrowseDataSource {
+    var homeLoads: Int = 0
+        private set
+    val detailRequests: MutableList<String> = mutableListOf()
+    val sourceProbeRequests: MutableList<String> = mutableListOf()
+    val relationshipIndexRequests: MutableList<RelationshipIndexFamily> = mutableListOf()
+
+    override suspend fun loadHome(): BrowseUiState {
+        homeLoads += 1
+        return BrowseUiState.Content(
+            libraries = LibraryListResponse(
+                libraries = listOf(LibraryDto(id = "library-movies", name = "Movies")),
+                page = testPage(1),
+            ),
+            items = ItemsResponse(
+                items = listOf(testItem("night-harbor")),
+                page = testPage(1),
+            ),
+        )
+    }
+
+    override suspend fun loadLibraryDetail(libraryId: String): LibraryDetailUiState =
+        LibraryDetailUiState.Content(
+            LibrarySourcesResponse(
+                library = LibraryDto(id = libraryId, name = "Movies"),
+                page = testPage(0),
+            ),
+        )
+
+    override suspend fun search(
+        query: String,
+        page: PageRequest,
+    ): SearchUiState =
+        SearchUiState.Content(SearchResponse(hits = emptyList(), page = testPage(0)))
+
+    override suspend fun loadFacet(
+        target: BrowseFacetTarget,
+        page: PageRequest,
+    ): FacetUiState =
+        FacetUiState.Content(
+            FacetItemsResponse(
+                family = dev.nako.android.browse.BrowseFacetFamily.Genre,
+                facetId = target.id.orEmpty(),
+                facetLabel = target.label,
+                items = emptyList(),
+                page = testPage(0),
+            ),
+        )
+
+    override suspend fun loadRelationshipIndex(
+        family: RelationshipIndexFamily,
+        page: PageRequest,
+    ): RelationshipIndexUiState {
+        relationshipIndexRequests += family
+        return RelationshipIndexUiState.Content(
+            family = family,
+            rows = emptyList(),
+            page = testPage(0),
+        )
+    }
+
+    override suspend fun loadPersonDetail(personId: String): PersonDetailUiState =
+        PersonDetailUiState.Content(
+            response = PersonResponse(
+                person = PersonDto(
+                    id = personId,
+                    name = "Demo Actor",
+                ),
+            ),
+            relatedItems = FacetItemsResponse(
+                family = dev.nako.android.browse.BrowseFacetFamily.Person,
+                facetId = personId,
+                facetLabel = "Demo Actor",
+                items = emptyList(),
+                page = testPage(0),
+            ),
+        )
+
+    override suspend fun loadItemDetail(itemId: String): ItemDetailUiState {
+        detailRequests += itemId
+        return ItemDetailUiState.Content(
+            ItemDetailResponse(
+                item = testItem(itemId),
+                sources = listOf(
+                    MediaSourceDto(
+                        id = "source-a",
+                        libraryId = "library-movies",
+                        itemId = itemId,
+                    ),
+                ),
+            ),
+        )
+    }
+
+    override suspend fun loadSourceProbe(sourceId: String): SourceProbeUiState {
+        sourceProbeRequests += sourceId
+        return SourceProbeUiState.Content(
+            SourceProbeResponse(
+                sourceId = sourceId,
+                probe = MediaProbeDto(durationMs = 120_000),
+            ),
+        )
+    }
+
+    override suspend fun loadPlaybackSelection(sourceId: String): PlaybackSelectionUiState =
+        playbackState
+}
+
+private suspend fun waitUntil(predicate: () -> Boolean) {
+    withTimeout(5_000) {
+        while (!predicate()) {
+            yield()
+        }
+    }
+}
+
+private fun testProfile(): ServerProfile =
+    ServerProfile(
+        id = "server-1",
+        displayName = "Home",
+        baseUrl = "http://127.0.0.1:3018",
+        tokenReference = "server-token:server-1",
+        lastObservedApiVersion = "v1",
+    )
+
+private fun testSnapshot(): ServerProfileSnapshot =
+    ServerProfileSnapshot(
+        profiles = listOf(testProfile()),
+        activeProfileId = "server-1",
+    )
+
+private fun testItem(id: String): MediaItemDto =
+    MediaItemDto(
+        id = id,
+        kind = "movie",
+        metadata = CanonicalMetadataDto(title = "Night Harbor"),
+    )
+
+private fun testPlaybackDecision(sourceId: String): PlaybackDecisionResponse =
+    PlaybackDecisionResponse(
+        source = PlaybackMediaSourceDto(
+            id = sourceId,
+            libraryId = "library-movies",
+            itemId = "night-harbor",
+        ),
+        decision = ClientPlaybackDecision(
+            mode = ClientPlaybackMode.DirectPlay,
+            reason = "direct",
+        ),
+    )
+
+private fun testPlaybackTarget(sourceId: String): PlaybackRequestTarget =
+    PlaybackRequestTarget(
+        request = PlaybackRequestDescriptor(
+            method = "GET",
+            url = "http://127.0.0.1:3018/sources/$sourceId/stream",
+            headers = emptyMap(),
+        ),
+    )
+
+private fun testPlaybackLaunch(target: PlaybackRequestTarget) =
+    playbackLaunchRequest(
+        title = "Night Harbor",
+        target = target,
+        serverProfileId = "server-1",
+        mediaItemId = "night-harbor",
+        sourceId = "source-a",
+        playbackMode = ClientPlaybackMode.DirectPlay,
+        resumePositionMs = 42_000,
+        resumeSource = PlaybackResumeSource.DeviceLocal,
+    )
+
+private fun testPage(returned: Int): PageInfo =
+    PageInfo(
+        limit = 24,
+        offset = 0,
+        returned = returned,
+    )

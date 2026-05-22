@@ -7,7 +7,7 @@ with tests plus a local smoke run.
 
 ## Scope
 
-Phase 1 proves that Taru can:
+Phase 1 proves that Nako can:
 
 - read a local server configuration
 - connect to SQLite and run migrations
@@ -23,25 +23,25 @@ Phase 1 proves that Taru can:
 Print an example config:
 
 ```powershell
-cargo run -p taru-server -- config-example
+cargo run -p nako-server -- config-example
 ```
 
 Scan and probe the configured local library:
 
 ```powershell
-cargo run -p taru-server -- --config taru.toml scan
+cargo run -p nako-server -- --config nako.toml scan
 ```
 
 List indexed sources, items, and probe results:
 
 ```powershell
-cargo run -p taru-server -- --config taru.toml list
+cargo run -p nako-server -- --config nako.toml list
 ```
 
 ## Configuration
 
 ```toml
-database_url = "sqlite://taru.db"
+database_url = "sqlite://nako.db"
 ffprobe_path = "ffprobe"
 probe_concurrency = 2
 
@@ -67,8 +67,8 @@ cargo nextest run --workspace
 Manual smoke verification performed:
 
 - generated a 1-second sample video with ffmpeg
-- ran `taru-server --config <temp>/taru.toml scan`
-- ran `taru-server --config <temp>/taru.toml list`
+- ran `nako-server --config <temp>/nako.toml scan`
+- ran `nako-server --config <temp>/nako.toml list`
 - confirmed one media source, title `Sample Movie`, and two probe streams
 - ran scan twice and confirmed idempotency:
   - first scan inserted 1 source and probed 1 source

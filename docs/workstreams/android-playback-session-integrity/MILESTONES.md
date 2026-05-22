@@ -20,7 +20,7 @@ Exit criteria:
 - A public client-safe contract exposes session identity for remux/HLS when a
   session exists.
 - Android playback target/session models can carry that identity.
-- `TaruBrowseShell` no longer drops a non-Direct session id when launching the
+- `NakoBrowseShell` no longer drops a non-Direct session id when launching the
   player.
 - Focused Rust and Android unit tests prove the contract.
 

@@ -15,7 +15,7 @@ test-visible report.
 
 Exit evidence:
 
-- `TaruApp::new_with_store` composes app services and calls startup workflow.
+- `NakoApp::new_with_store` composes app services and calls startup workflow.
 - Startup report tests cover configured libraries, stale transcode recovery,
   staging cleanup, raw-cache cleanup, and lifecycle task registration where
   relevant.

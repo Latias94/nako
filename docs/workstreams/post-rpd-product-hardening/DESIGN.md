@@ -7,7 +7,7 @@ Last updated: 2026-05-22
 
 `release-packaging-and-distribution` closed the gap between source checkout and
 self-hosted operator artifact. Packaging is necessary but not sufficient: a
-packaged Taru must also be safe and useful for a real media library.
+packaged Nako must also be safe and useful for a real media library.
 
 The next danger is architectural sprawl. Metadata breadth, NFO/link management,
 playback diagnostics, downloads, network traversal, AI, and addon distribution
@@ -44,7 +44,7 @@ belong in dedicated execution workstreams.
 
 ## Problem
 
-After packaging, Taru has several attractive next directions:
+After packaging, Nako has several attractive next directions:
 
 - richer built-in metadata providers;
 - local interoperability through NFO and links;
@@ -54,7 +54,7 @@ After packaging, Taru has several attractive next directions:
 - AI;
 - addon runtime/distribution.
 
-Each direction depends on the same core product truth: Taru must know what a
+Each direction depends on the same core product truth: Nako must know what a
 **Media Item** is, where a **Media Source** lives, which **Provider Mapping** is
 trusted, what can write to the library, and which operations require an
 **Acceptance Workflow**. Without an explicit order, the project risks adding
@@ -69,8 +69,8 @@ schema/API churn.
 - Completed execution lanes record evidence and closeout before the next lane
   becomes current.
 - Downloads are split first as staged artifact intake, not implemented as
-  generic acquisition inside core Taru.
-- AI writes enter only as **Generated Artifacts** accepted through Taru-owned
+  generic acquisition inside core Nako.
+- AI writes enter only as **Generated Artifacts** accepted through Nako-owned
   workflows.
 - Addon distribution remains deferred until metadata/import/file-write
   side-effect boundaries are proven.
@@ -138,9 +138,9 @@ separate.
 
 ### Wave 3 — Managed Import Staging
 
-Implement Taru-owned quarantine/staging/import-plan behavior for operator URLs,
+Implement Nako-owned quarantine/staging/import-plan behavior for operator URLs,
 watch-folder candidates, or addon-proposed artifacts. Do not start with
-torrent, Usenet, or protocol-specific acquisition in core Taru.
+torrent, Usenet, or protocol-specific acquisition in core Nako.
 
 Status: staging and non-mutating promotion preview completed on 2026-05-21.
 Actual promotion apply is split to `link-apply-and-import-promotion`.
@@ -201,7 +201,7 @@ First safe slice:
 
 First safe slice:
 
-- Taru-managed staging/quarantine records;
+- Nako-managed staging/quarantine records;
 - content probe and duplicate hints;
 - metadata inference;
 - explicit promote plan;
@@ -250,13 +250,13 @@ own TODO ledger, validation commands, closeout evidence, and follow-on splits.
 ## Post-Metadata Re-Score — 2026-05-21
 
 `metadata-provider-breadth` removed the biggest provider-authority ambiguity:
-Taru can now explain provider capabilities, reject or pause unsafe matches, and
+Nako can now explain provider capabilities, reject or pause unsafe matches, and
 surface cross-provider candidate conflicts without mutating canonical metadata.
 That changes the next-lane ordering:
 
 | Lane | Current score | Why | Decision |
 | --- | --- | --- | --- |
-| NFO And Link Authority | Highest | Metadata identity is now reviewable, but local sidecar/link writes still carry the highest data-loss risk. Taru needs dry-run, conflict, backup, and rollback semantics before import or addon file writes deepen. | Open next as the mainline execution lane. |
+| NFO And Link Authority | Highest | Metadata identity is now reviewable, but local sidecar/link writes still carry the highest data-loss risk. Nako needs dry-run, conflict, backup, and rollback semantics before import or addon file writes deepen. | Open next as the mainline execution lane. |
 | Playback / Transcode Ops Hardening | High sidecar | It improves daily operator confidence and has little schema overlap with NFO/link if kept to diagnostics, preset validation, fallback reasons, and runtime evidence. | Safe parallel sidecar after the next mainline lane is opened. |
 | Managed Import Staging | Blocked by local authority | Downloads/import promotion need NFO/link write boundaries and duplicate/link inventory rules to avoid unsafe library mutation. | Defer until NFO/link authority lands. |
 | Network Access Boundary | Useful but not data-authority critical | Auth and packaging already exist; tunnel/proxy ergonomics matter, but they should not precede local library safety. | Defer after local authority or run as docs-only sidecar. |
@@ -264,9 +264,9 @@ That changes the next-lane ordering:
 | Addon Runtime / Distribution | Last consumer | Addons should consume proven metadata, file-write, import, and artifact boundaries rather than inventing their own mutation paths. | Defer. |
 
 The downloads idea remains valuable, but the correct shape is
-`managed-import-staging`: Taru-owned quarantine, probe, duplicate/link hints,
+`managed-import-staging`: Nako-owned quarantine, probe, duplicate/link hints,
 metadata inference, and explicit promote plans. It should not start as a
-generic downloader in core Taru.
+generic downloader in core Nako.
 
 ## Post-Managed-Import Re-Score — 2026-05-21
 
@@ -274,7 +274,7 @@ generic downloader in core Taru.
 durable artifact records, redacted diagnostics, promotion preview, VFS link
 dry-run summary, duplicate hints, NFO authority hints, provider identity review,
 and explicit blockers. That removes the need to keep staging open, but it also
-makes the next highest-risk boundary sharper: Taru still cannot safely mutate a
+makes the next highest-risk boundary sharper: Nako still cannot safely mutate a
 Media Library root from a staged artifact.
 
 | Lane | Current score | Why | Decision |
@@ -283,7 +283,7 @@ Media Library root from a staged artifact.
 | Playback / Transcode Ops Hardening | High sidecar | Still useful for daily operations and mostly disjoint from import apply if limited to diagnostics, preset validation, fallback reasons, and runtime evidence. | Safe parallel sidecar candidate after apply domain work starts. |
 | Network Access Boundary | Useful but not data-authority critical | Remote access matters, but it should not precede local library mutation safety now that import staging is ready. | Defer or run as docs/runtime sidecar. |
 | AI Assisted Library Ops | Blocked by acceptance durability | AI suggestions must reuse the same acceptance/audit model rather than invent autonomous writes. | Defer until promotion acceptance/apply is durable. |
-| Addon Runtime / Distribution | Downstream consumer | Addons should propose artifacts and side effects into proven Taru-owned apply paths. | Defer until apply boundaries are proven. |
+| Addon Runtime / Distribution | Downstream consumer | Addons should propose artifacts and side effects into proven Nako-owned apply paths. | Defer until apply boundaries are proven. |
 
 Downloads remain downstream of this decision. The next shape is not a generic
 downloader; it is first a safe promotion apply boundary for already-staged
@@ -300,12 +300,12 @@ The apply boundary is now split into two separate mutation classes:
 | Playback / Transcode Ops Hardening | High sidecar | Daily playback confidence still matters and can stay mostly disjoint if limited to diagnostics, preset validation, fallback reasons, and runtime evidence. | Re-score against NFO sidecar apply during PRPH-080. |
 | Network Access Boundary | Useful but not data-authority critical | Remote access should consume existing auth/deployment boundaries and avoid weakening library mutation policy. | Defer or run as docs/runtime sidecar. |
 | AI Assisted Library Ops | Blocked by acceptance durability | AI suggestions should enter as generated artifacts and reuse accepted metadata/import/sidecar apply boundaries. | Defer until accepted side-effect lanes are stable. |
-| Addon Runtime / Distribution | Downstream consumer | Addons should call Taru-owned apply/file-write APIs instead of inventing direct filesystem mutation. | Defer until core side-effect APIs are proven. |
+| Addon Runtime / Distribution | Downstream consumer | Addons should call Nako-owned apply/file-write APIs instead of inventing direct filesystem mutation. | Defer until core side-effect APIs are proven. |
 | Downloads / Watch Folder | Downstream of promotion apply | Acquisition should produce staged artifacts and use existing promotion apply; it should not bypass sidecar/file-write policy. | Re-score after LAIP closeout and NFO sidecar apply decision. |
 
 ## Post-LAIP Closeout Re-Score — 2026-05-21
 
-`link-apply-and-import-promotion` is now complete. Taru can accept a staged
+`link-apply-and-import-promotion` is now complete. Nako can accept a staged
 artifact promotion, revalidate plan facts, create the target through VFS,
 commit catalog/duplicate state after target durability, and record
 cleanup-complete or cleanup-pending outcomes after partial failure. That closes
@@ -322,7 +322,7 @@ today's safe promotion path and later download/watch-folder/addon breadth.
 | Downloads / Watch Folder | High but downstream | Promotion apply is now proven, but acquisition still must not bypass NFO sidecar policy, staged artifact intake, or accepted apply. Watch-folder imports often rely on sidecar metadata next to media files. | Defer until NFO sidecar apply acceptance/audit exists, then open a downloader/watch-folder acquisition lane. |
 | Network Access Boundary | Useful but not data-authority critical | Remote access should harden endpoint, trusted proxy, and tunnel-provider contracts without weakening auth or library writes. | Defer or run as docs/runtime sidecar after current local authority write is underway. |
 | AI Assisted Library Ops | Blocked by accepted side effects | AI should produce **Generated Artifacts** and consume acceptance workflows, not directly mutate canonical metadata or sidecars. | Defer until NFO sidecar apply and import acceptance surfaces are proven. |
-| Addon Runtime / Distribution | Downstream consumer | Addons should call Taru-owned metadata/import/file-write APIs and scoped tokens rather than inventing direct filesystem mutation. | Defer until core side-effect APIs, including NFO sidecar apply, are stable. |
+| Addon Runtime / Distribution | Downstream consumer | Addons should call Nako-owned metadata/import/file-write APIs and scoped tokens rather than inventing direct filesystem mutation. | Defer until core side-effect APIs, including NFO sidecar apply, are stable. |
 
 PRPH-080 therefore does not open a new lane. It selects the existing
 `nfo-sidecar-promotion-apply` workstream as the next execution lane and returns
@@ -330,7 +330,7 @@ implementation to NSPA-020.
 
 ## Post-NSPA Closeout Re-Score — 2026-05-21
 
-`nfo-sidecar-promotion-apply` is now complete. Taru can explicitly accept NFO
+`nfo-sidecar-promotion-apply` is now complete. Nako can explicitly accept NFO
 sidecar import/export, revalidate preview facts, export through NFO Round Trip
 and VFS write/backup/retention behavior, import local authority through
 canonical metadata and field locks, confirm hierarchy, restore from backups
@@ -348,7 +348,7 @@ operator playback confidence and transcode supportability.
 | Downloads / Watch Folder | High but still downstream | Promotion apply and NFO sidecar apply are now safe enough for acquisition to consume, but protocol/download breadth must still start as staged artifacts and explicit promote/apply operations. | Re-score after playback ops, or open only if scoped to Managed Import intake without bypassing apply boundaries. |
 | Network Access Boundary | Useful sidecar | Remote access can harden trusted proxy, tunnel documentation, and endpoint policy without touching library mutation. | Safe parallel docs/runtime sidecar after playback lane opens. |
 | AI Assisted Library Ops | Downstream consumer | AI can propose generated artifacts and metadata/sidecar changes, but must reuse accepted apply boundaries and never write autonomously. | Defer until generated artifact intake is explicitly designed. |
-| Addon Runtime / Distribution | Downstream consumer | Addons now have more Taru-owned side-effect APIs to consume, but distribution/runtime should not expand before scoped API exposure and side-effect permission UX are decided. | Defer until Admin/API exposure of sidecar apply is stable. |
+| Addon Runtime / Distribution | Downstream consumer | Addons now have more Nako-owned side-effect APIs to consume, but distribution/runtime should not expand before scoped API exposure and side-effect permission UX are decided. | Defer until Admin/API exposure of sidecar apply is stable. |
 
 PRPH-090 therefore selects Playback/Transcode Ops Hardening as the next
 mainline lane. PRPH-100 opens `playback-transcode-ops-hardening` with PTOH-020
@@ -369,11 +369,11 @@ prerequisites without exposing raw paths, Source Locators, FFmpeg command
 lines, output paths, stderr payloads, secrets, or credentials.
 
 Downloads/watch-folder, network, AI, and addon runtime remain downstream or
-parallel only when they consume existing accepted Taru-owned boundaries.
+parallel only when they consume existing accepted Nako-owned boundaries.
 
 ## Post-PTOH Closeout Re-Score — 2026-05-22
 
-`playback-transcode-ops-hardening` is now complete. Taru can report playback
+`playback-transcode-ops-hardening` is now complete. Nako can report playback
 runtime readiness, explain hardware fallback and validation failures, categorize
 transcode session failures, and provide bounded Admin-only support evidence
 without raw Source Locators, local paths, FFmpeg command lines, output paths,
@@ -387,10 +387,10 @@ artifacts and explicit apply plans rather than direct library mutations.
 
 | Lane | Current score | Why | Decision |
 | --- | --- | --- | --- |
-| Downloads / Watch Folder Intake | Highest | Operators need a way to bring files into Taru from watched folders or future download outputs. The safe shape is now clear: discover or accept candidates into Taru-owned staging, produce redacted diagnostics and promotion evidence, and hand off to existing Link Apply and NFO Sidecar Apply workflows. | Open next as the mainline execution lane. Start with intake/domain/watch-folder candidate records, not torrent/Usenet/protocol-specific downloader runtime. |
+| Downloads / Watch Folder Intake | Highest | Operators need a way to bring files into Nako from watched folders or future download outputs. The safe shape is now clear: discover or accept candidates into Nako-owned staging, produce redacted diagnostics and promotion evidence, and hand off to existing Link Apply and NFO Sidecar Apply workflows. | Open next as the mainline execution lane. Start with intake/domain/watch-folder candidate records, not torrent/Usenet/protocol-specific downloader runtime. |
 | Network Access Boundary | High sidecar | Remote clients matter, and playback supportability is now stronger. This lane can harden endpoint, reverse-proxy, trusted-header, and tunnel-provider policy without touching library mutation. | Safe parallel sidecar after downloads/watch-folder intake is opened, or next if acquisition needs to wait. |
 | AI Assisted Library Ops | Medium downstream | AI can propose match/title/sidecar cleanup as Generated Artifacts, but autonomous writes would bypass accepted metadata/import/sidecar boundaries. | Defer until generated artifact intake and acceptance queues are explicit. |
-| Addon Runtime / Distribution | Medium downstream | Addons have more Taru-owned side-effect APIs to consume, but runtime/distribution still needs scoped permission UX and side-effect routing into proven apply paths. | Defer until acquisition intake and generated artifact/side-effect queues are stable. |
+| Addon Runtime / Distribution | Medium downstream | Addons have more Nako-owned side-effect APIs to consume, but runtime/distribution still needs scoped permission UX and side-effect routing into proven apply paths. | Defer until acquisition intake and generated artifact/side-effect queues are stable. |
 | Support Bundles / Playback UI | Useful follow-on | PTOH-050 exposes a read model, but not downloadable bundles, retention, or Admin UI workflow. | Split as a playback support follow-on only if operator workflow becomes urgent; do not block acquisition intake. |
 
 PRPH-110 therefore selects downloads/watch-folder intake as the next mainline
@@ -401,15 +401,15 @@ NFO mutation shortcuts, network traversal, AI writes, or Addon runtime changes.
 
 ## Post-DWI Closeout Re-Score — 2026-05-22
 
-`downloads-watch-folder-intake` is now complete. Taru can durably represent
+`downloads-watch-folder-intake` is now complete. Nako can durably represent
 Acquisition Intake Candidates, discover watch-folder entries through
 storage/VFS list/stat, classify ready/incomplete/unsupported candidates, expose
 Admin-only redacted diagnostics, and explicitly hand accepted candidates into
 Managed Import artifacts without Media Source creation, promotion apply, NFO
-sidecar mutation, Public Client API changes, or `taru-client-protocol` churn.
+sidecar mutation, Public Client API changes, or `nako-client-protocol` churn.
 
 That closes the first safe acquisition boundary. The remaining product risk is
-no longer local library mutation; it is exposing Taru safely to real clients and
+no longer local library mutation; it is exposing Nako safely to real clients and
 deployment topologies without weakening auth, path redaction, proxy trust, or
 side-effect boundaries.
 
@@ -419,8 +419,8 @@ side-effect boundaries.
 | Protocol Downloader Integrations | High but downstream | Intake now exists, so torrent/Usenet/RSS/download-client adapters have a safe target. They still need separate credential, retry, sandbox, and adapter-failure policies. | Split after network policy or when a concrete adapter is selected; adapters must submit candidates/artifacts into Acquisition Intake. |
 | Background Watch Scheduling | Useful follow-on | DWI proved polling/discovery through storage/VFS but did not add scheduler or OS watcher runtime. Scheduling needs job/runtime ownership, debounce, leases, and backpressure decisions. | Split as an intake operations follow-on; do not reopen DWI. |
 | Admin Intake Workflow Polish | Useful follow-on | Typed diagnostics exist, but full operator workflow for accept/reject/bulk actions needs UX and command semantics. | Split only after acceptance commands and promotion preview UX are explicitly scoped. |
-| AI Assisted Library Ops | Medium downstream | AI can now propose Generated Artifacts or candidate evidence into Taru-owned queues, but autonomous metadata, sidecar, or file writes would still bypass acceptance. | Defer until generated artifact proposal/acceptance queues are opened. |
-| Addon Runtime / Distribution | Medium downstream | Addons can consume more stable Taru-owned side-effect APIs, but runtime/distribution still needs manifest validation, permission UX, and side-effect routing into proven apply/intake paths. | Defer until network policy and generated artifact/side-effect queue semantics are explicit. |
+| AI Assisted Library Ops | Medium downstream | AI can now propose Generated Artifacts or candidate evidence into Nako-owned queues, but autonomous metadata, sidecar, or file writes would still bypass acceptance. | Defer until generated artifact proposal/acceptance queues are opened. |
+| Addon Runtime / Distribution | Medium downstream | Addons can consume more stable Nako-owned side-effect APIs, but runtime/distribution still needs manifest validation, permission UX, and side-effect routing into proven apply/intake paths. | Defer until network policy and generated artifact/side-effect queue semantics are explicit. |
 
 PRPH-130 therefore selects Network Access Boundary as the next recommended
 mainline lane. PRPH-140 should open `network-access-boundary` with a narrow
@@ -441,7 +441,7 @@ tunnel-provider modes. This slice should produce safe defaults and redacted
 config-check diagnostics before any concrete tunnel runtime or Public Client
 endpoint-discovery behavior is added.
 
-NAB-020 and NAB-030 are now complete. Taru has a validated network access
+NAB-020 and NAB-030 are now complete. Nako has a validated network access
 policy and an HTTP boundary that preserves bearer-auth precedence, keeps health
 public, enforces configured browser origins and preflight behavior, and trusts
 forwarded scheme/host only when trusted proxy headers are enabled and the
@@ -451,17 +451,17 @@ The next executable slice is NAB-040: expose Admin-only network readiness
 diagnostics and typed Admin web support. This must summarize mode, endpoint,
 trusted proxy, origin, and tunnel-provider readiness without exposing bearer
 tokens, raw forwarded headers, credential-bearing URLs, local paths, tunnel
-secrets, Public Client API shape, or `taru-client-protocol` changes.
+secrets, Public Client API shape, or `nako-client-protocol` changes.
 
 ## Post-NAB Closeout Re-Score — 2026-05-22
 
-`network-access-boundary` is now complete. Taru has explicit network exposure
+`network-access-boundary` is now complete. Nako has explicit network exposure
 policy for local-only, reverse-proxy, private-network, and tunnel-provider
 modes; config-check readiness; request-time trusted forwarded header handling;
 origin/CORS behavior that preserves auth order; and Admin-only redacted network
 diagnostics. It did not ship built-in NAT traversal runtime, relay services,
 endpoint discovery, identity/RBAC, downloader protocols, Addon runtime, Public
-Client API changes, or `taru-client-protocol` churn.
+Client API changes, or `nako-client-protocol` churn.
 
 That closes the remote access boundary needed before AI and Addon surfaces
 become more useful to operators. The highest remaining product risk is now
@@ -470,7 +470,7 @@ and acceptance contract.
 
 | Lane | Current score | Why | Decision |
 | --- | --- | --- | --- |
-| AI Assisted Library Ops | Highest | Metadata, NFO/file-write, import/promotion, playback, acquisition intake, and network boundaries are now proven. AI suggestions can help matching/title cleanup, but only if they enter Taru as Generated Artifacts with redacted diagnostics and explicit acceptance rather than autonomous writes. | Open next as the mainline execution lane. First slice should be proposal/readiness and Admin diagnostics, not local model runtime. |
+| AI Assisted Library Ops | Highest | Metadata, NFO/file-write, import/promotion, playback, acquisition intake, and network boundaries are now proven. AI suggestions can help matching/title cleanup, but only if they enter Nako as Generated Artifacts with redacted diagnostics and explicit acceptance rather than autonomous writes. | Open next as the mainline execution lane. First slice should be proposal/readiness and Admin diagnostics, not local model runtime. |
 | Addon Runtime / Distribution | High downstream | Addons can now consume stable side-effect APIs and network policy, but distribution/runtime should not expand before generated artifact/side-effect queue semantics are explicit. | Defer until AI proposal/acceptance semantics are proven. |
 | Protocol Downloader Integrations | High but separate | Acquisition intake exists and network policy is stronger, but torrent/Usenet/download-client adapters still need credential, retry, sandbox, and adapter-failure policies. | Split as a downloader lane; do not mix with AI or Addon distribution. |
 | Concrete Tunnel Runtime / Endpoint Discovery | Useful follow-on | Network policy/readiness exists, but starting cloudflared/ngrok/Tailscale or exposing remote endpoint discovery to clients is a separate runtime/security problem. | Split after current policy lane; do not reopen NAB. |
@@ -481,7 +481,7 @@ Library Ops as the next mainline lane. PRPH-160 should open
 proposal/readiness, redacted Admin diagnostics, and explicit accept/reject
 planning. It must not add local model runtime, embeddings/vector DB,
 provider-specific AI adapters, autonomous writes, Addon distribution, Public
-Client API changes, or `taru-client-protocol` changes.
+Client API changes, or `nako-client-protocol` changes.
 
 ## AI Assisted Library Ops Lane Open — 2026-05-22
 
@@ -502,11 +502,11 @@ follow-ons.
 
 ## Post-AILO Closeout Re-Score — 2026-05-22
 
-`ai-assisted-library-ops` is now complete. Taru can represent AI-like outputs
+`ai-assisted-library-ops` is now complete. Nako can represent AI-like outputs
 as Generated Artifact proposals with stable target/provenance/payload/readiness
 summaries, expose them through Admin-only redacted diagnostics, and record
 explicit accept/reject planning for metadata-cleanup suggestions without
-autonomous writes. Public Client API and `taru-client-protocol` remain
+autonomous writes. Public Client API and `nako-client-protocol` remain
 unchanged.
 
 That removes the last major prerequisite before returning to the Addon roadmap:
@@ -525,17 +525,17 @@ PRPH-170 therefore opens `addon-runtime-and-distribution` as the next mainline
 lane. ARD-020 through ARD-060 are now complete. The Addon lane did not add
 Addon Manager discovery, automatic install/update, package signing trust root,
 process supervision, Native Plugin ABI, direct library writes, Public Client
-API changes, hidden schedulers, or `taru-client-protocol` changes.
+API changes, hidden schedulers, or `nako-client-protocol` changes.
 
 ## Post-ARD Closeout And Umbrella Completion — 2026-05-22
 
-`addon-runtime-and-distribution` is now complete. Taru can validate and preview
+`addon-runtime-and-distribution` is now complete. Nako can validate and preview
 sidecar package/install descriptors, generate redaction-safe install guidance,
 classify runtime readiness, record declared task/event routing plans, and route
 Addon-produced Generated Artifacts and acquisition candidates into the existing
 AILO/DWI proposal and intake boundaries without autonomous Canonical Metadata,
 NFO sidecar, Media Source, Managed Import, library-file writes, hidden
-schedulers, Public Client API changes, or `taru-client-protocol` churn.
+schedulers, Public Client API changes, or `nako-client-protocol` churn.
 
 That satisfies the post-RPD umbrella's main coordination purpose: the ordered
 productization roadmap has been translated into concrete workstreams, and each
@@ -546,7 +546,7 @@ explicit follow-ons.
 | --- | --- | --- |
 | Protocol downloader adapters | DWI created safe Acquisition Intake, but concrete torrent/Usenet/RSS/download-client adapters need credential, retry, sandbox, and adapter-failure policies. | Open a downloader-adapter lane when a concrete adapter is selected. |
 | Addon Manager / marketplace / package signing | ARD proved package/install/runtime readiness, not discovery, trust roots, automatic install/update, or package hosting. | Open an Addon Manager / distribution automation lane. |
-| Process/container supervision, logs, rollback | ARD explicitly keeps Addon Sidecars outside Taru lifecycle management. | Open a runtime supervision lane only with explicit operator lifecycle semantics. |
+| Process/container supervision, logs, rollback | ARD explicitly keeps Addon Sidecars outside Nako lifecycle management. | Open a runtime supervision lane only with explicit operator lifecycle semantics. |
 | Concrete tunnel runtime / endpoint discovery | NAB proved policy/readiness, not starting tunnel providers or exposing endpoint discovery to clients. | Open a network runtime/client-discovery lane. |
 | Local AI/model runtime and vector search | AILO proved Generated Artifact semantics, not model execution, embeddings, GPU scheduling, or provider adapters. | Open a local AI runtime lane when the runtime target is chosen. |
 | Public Client surfaces | Admin diagnostics exist; Public Client API shape remains intentionally unchanged. | Open a Public Client/API contract lane. |

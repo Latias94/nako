@@ -46,7 +46,7 @@ ownership:
 - Managed Artwork ingest has a typed claim/requeue/recovery path, but no
   durable cancellation request or reusable lease contract.
 
-The result is an operational API trap: Taru can show that work is running, but
+The result is an operational API trap: Nako can show that work is running, but
 cannot safely promise "who owns it", "when ownership expires", or "whether a
 cancel request was observed".
 
@@ -67,7 +67,7 @@ When this lane closes:
 
 ## In Scope
 
-- Durable job ownership and lease state in `taru-core` and `taru-db`.
+- Durable job ownership and lease state in `nako-core` and `nako-db`.
 - Repository contracts for claim, heartbeat, finish, fail, request cancel, and
   lease-aware recovery.
 - Runtime integration for one real job execution path before broader migration.
@@ -89,7 +89,7 @@ When this lane closes:
 
 | Assumption | Confidence | Evidence | Consequence if wrong |
 | --- | --- | --- | --- |
-| Cancellation request is not a terminal status by itself. | High | ADR 0006 says cancellation is requested and must be observed at a checkpoint. | If treated as terminal, Taru would claim side effects stopped before the worker proved it. |
+| Cancellation request is not a terminal status by itself. | High | ADR 0006 says cancellation is requested and must be observed at a checkpoint. | If treated as terminal, Nako would claim side effects stopped before the worker proved it. |
 | A terminal `cancelled` status is cleaner than encoding operator cancellation as `failed`. | Medium | Admin job lists need to distinguish failure from requested cancellation. | If compatibility cost is too high, cancellation can initially be a failed job with a typed safe reason, but that should be explicit. |
 | Ownership needs a fencing token, not only a worker ID. | High | A stale worker can outlive a stolen or renewed lease. | Without fencing, old work can complete a job it no longer owns. |
 | Lease-aware recovery should not fail queued jobs. | High | Managed Artwork worker recovery already preserves queued ingest work. | If future dispatchers do not resume queued work, recovery policy must remain job-kind-specific. |
@@ -99,7 +99,7 @@ When this lane closes:
 
 ### Durable Job Schema
 
-`crates/taru-db/migrations/0003_jobs.sql` creates:
+`crates/nako-db/migrations/0003_jobs.sql` creates:
 
 - `id`
 - `kind`
@@ -190,7 +190,7 @@ yet include cancellation.
 
 Use a fenced lease model:
 
-1. A Taru process creates a stable runtime worker identity at startup.
+1. A Nako process creates a stable runtime worker identity at startup.
 2. Claiming a job writes `status = running`, a unique run token, the worker
    identity, `started_at`, `heartbeat_at`, and `lease_expires_at`.
 3. Heartbeat extends the lease only when `job_id`, `status = running`, and the
@@ -228,7 +228,7 @@ current token must fail or return a stale-owner outcome.
 
 ## `DJOL-020` Contract Decision
 
-`taru-core` now owns the vocabulary before SQLite migration work starts:
+`nako-core` now owns the vocabulary before SQLite migration work starts:
 
 - `JobStatus::Cancelled` is a terminal status distinct from `failed`.
 - `JobWorkerId` identifies a process-local or future durable worker instance.

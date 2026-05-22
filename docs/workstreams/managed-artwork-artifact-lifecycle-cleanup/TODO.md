@@ -14,14 +14,14 @@ Last updated: 2026-05-19
 
 ## M1 - Redacted Admin Lifecycle Dry Run
 
-- [x] MAALC-020 [owner=codex] [deps=MAALC-010] [scope=crates/taru-core,crates/taru-db,crates/taru-api,crates/taru-server,docs/api]
+- [x] MAALC-020 [owner=codex] [deps=MAALC-010] [scope=crates/nako-core,crates/nako-db,crates/nako-api,crates/nako-server,docs/api]
   Goal: Add a redacted Admin read model and dry-run route for Managed Artwork
   Artifact lifecycle state. The response must mark cleanup candidates by
   Selected Artwork reference count and must not delete rows or files.
-  Validation: `cargo nextest run -p taru-api managed_artwork_lifecycle --no-fail-fast`;
-  `cargo nextest run -p taru-db managed_artwork_lifecycle --no-fail-fast`;
-  `cargo nextest run -p taru-server managed_artwork_lifecycle --no-fail-fast`;
-  `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests`.
+  Validation: `cargo nextest run -p nako-api managed_artwork_lifecycle --no-fail-fast`;
+  `cargo nextest run -p nako-db managed_artwork_lifecycle --no-fail-fast`;
+  `cargo nextest run -p nako-server managed_artwork_lifecycle --no-fail-fast`;
+  `cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests`.
   Evidence: tests prove protected artifacts and cleanup candidates are
   classified correctly and lifecycle responses redact storage handles, paths,
   source URLs, cache URIs, and content hashes.
@@ -32,7 +32,7 @@ Last updated: 2026-05-19
 
 ## M2 - Protected Cleanup Command
 
-- [x] MAALC-030 [owner=codex] [deps=MAALC-020] [scope=crates/taru-core,crates/taru-db,crates/taru-api,crates/taru-server]
+- [x] MAALC-030 [owner=codex] [deps=MAALC-020] [scope=crates/nako-core,crates/nako-db,crates/nako-api,crates/nako-server]
   Goal: Add an explicit Admin cleanup command that removes only eligible
   unselected artifacts and re-checks eligibility at deletion time.
   Validation: focused DB/server cleanup tests plus redaction tests.
@@ -46,7 +46,7 @@ Last updated: 2026-05-19
 
 ## M3 - File Store Drift And Orphan File Strategy
 
-- [x] MAALC-040 [owner=codex] [deps=MAALC-030] [scope=crates/taru-server/src/app/artwork.rs,docs]
+- [x] MAALC-040 [owner=codex] [deps=MAALC-030] [scope=crates/nako-server/src/app/artwork.rs,docs]
   Goal: Decide and, if still in scope, implement safe artifact-root inventory
   without exposing local paths in Admin responses.
   Validation: focused tests for missing DB-backed files and stray files, if

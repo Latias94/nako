@@ -14,7 +14,7 @@ It creates the database and service foundation those features need.
 
 ### Catalog Graph
 
-`taru-core` now models first-class catalog entities:
+`nako-core` now models first-class catalog entities:
 
 - `Person` and `ItemCredit`
 - `Genre` and `ItemGenre`
@@ -23,7 +23,7 @@ It creates the database and service foundation those features need.
 - `Studio` and `ItemStudio`
 - `ImageAsset`
 
-`taru-db` persists them through migration `0007_catalog_ingestion.sql` and
+`nako-db` persists them through migration `0007_catalog_ingestion.sql` and
 implements `CatalogRepository` for SQLite. Existing `CanonicalMetadata` remains
 the item-facing shape; the graph is stored alongside it rather than replacing
 the JSON metadata payload.
@@ -41,7 +41,7 @@ while still supporting basic incremental detection.
 
 ### Search Projection
 
-`taru-search` remains the adapter boundary. SQLite implements `SearchIndex`
+`nako-search` remains the adapter boundary. SQLite implements `SearchIndex`
 using a persisted `search_documents` projection table. The first implementation
 uses simple SQLite-backed text matching instead of requiring FTS5 or
 Meilisearch, because external or feature-gated search engines should remain

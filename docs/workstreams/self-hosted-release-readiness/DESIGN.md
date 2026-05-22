@@ -5,7 +5,7 @@ Last updated: 2026-05-21
 
 ## Problem
 
-Taru has strong subsystem architecture but does not yet have a single release
+Nako has strong subsystem architecture but does not yet have a single release
 readiness lane that proves the self-hosted operator story end to end.
 
 Today, several critical gates are implicit or manual:
@@ -22,7 +22,7 @@ Today, several critical gates are implicit or manual:
 
 ## Target State
 
-- A documented and scriptable local release gate exists for self-hosted Taru.
+- A documented and scriptable local release gate exists for self-hosted Nako.
 - SQLite and PostgreSQL backend gates are explicit and repeatable.
 - PostgreSQL contract execution has a repo-owned local harness and a CI-ready
   path.
@@ -80,13 +80,13 @@ Gate modes:
 
 - `docs`: formatting, `git diff --check`, and redaction inventory only.
 - `fast`: the default focused release confidence path. It includes formatting,
-  `git diff --check`, redaction inventory, focused `taru-db` checks, SQLite
-  Managed Artwork contracts, and focused `taru-api`/`taru-server` Managed
+  `git diff --check`, redaction inventory, focused `nako-db` checks, SQLite
+  Managed Artwork contracts, and focused `nako-api`/`nako-server` Managed
   Artwork redaction/API tests.
 - `db`: database-only focused checks plus SQLite Managed Artwork contracts.
 - `api`: API/server focused checks and Managed Artwork API/server tests.
 - `postgres`: optional PostgreSQL Managed Artwork contract execution when
-  `TARU_TEST_POSTGRES_URL` or an explicit URL is provided; otherwise it
+  `NAKO_TEST_POSTGRES_URL` or an explicit URL is provided; otherwise it
   reports a safe skip. SHR-030 owns the stronger local harness and CI shape.
 - `workspace`: full workspace check and full workspace nextest run.
 - `all`: combines all available modes and keeps PostgreSQL optional unless a
@@ -105,7 +105,7 @@ SHR-030 adds first-party PostgreSQL harness scripts:
 
 The harness supports two modes of operation:
 
-1. If `TARU_TEST_POSTGRES_URL` or an explicit database URL is provided, run the
+1. If `NAKO_TEST_POSTGRES_URL` or an explicit database URL is provided, run the
    ignored PostgreSQL contract tests against that database.
 2. If no URL is provided and `initdb`, `pg_ctl`, and `createdb` are available,
    start an isolated temporary cluster under `target/postgres-contract/`, run
@@ -121,7 +121,7 @@ Harness suites:
 
 - `managed-artwork`: the release-critical PostgreSQL Managed Artwork contract
   subset.
-- `all-contracts`: every ignored `postgres_` contract test in `taru-db`.
+- `all-contracts`: every ignored `postgres_` contract test in `nako-db`.
 
 The harness never removes paths outside `target/postgres-contract/`; the
 PowerShell implementation verifies the resolved cleanup target before recursive
@@ -133,13 +133,13 @@ delete, and the shell implementation verifies it is inside the resolved
 SHR-040 extends `scripts/release-gate.* --mode api` and the `fast` gate with
 API/SDK/redaction checks:
 
-- `taru-api`, `taru-client`, and `taru-client-protocol` compile checks.
+- `nako-api`, `nako-client`, and `nako-client-protocol` compile checks.
 - Public OpenAPI tests.
 - Public TypeScript SDK generator/package synchronization tests.
 - Admin Web TypeScript contract generator/package synchronization tests.
 - Public Rust client SDK tests.
 - Public protocol DTO/route inventory tests.
-- `cargo tree` inventory for `taru-client` and `taru-client-protocol` so the
+- `cargo tree` inventory for `nako-client` and `nako-client-protocol` so the
   permissive public boundary remains visible in release evidence.
 - `npm run generate --prefix sdk/typescript` plus strict TypeScript compile.
 - `npm run generate:admin-api --prefix apps/admin-web` plus Admin Web
@@ -160,14 +160,14 @@ Managed Artwork contract boundaries.
 
 SHR-050 adds operator-facing deployment examples:
 
-- `deploy/sqlite/taru.toml`
-- `deploy/postgres/taru.toml`
+- `deploy/sqlite/nako.toml`
+- `deploy/postgres/nako.toml`
 - `deploy/compose/postgres.yml`
 - `docs/deployment/SELF_HOSTED.md`
 
-The examples bind Taru to `127.0.0.1` by default, keep inbound auth enabled,
+The examples bind Nako to `127.0.0.1` by default, keep inbound auth enabled,
 use environment variable names for secrets, and separate durable state from
-cache/rebuildable state. They intentionally do not provide a public Taru
+cache/rebuildable state. They intentionally do not provide a public Nako
 container image yet; the current release baseline remains source-built with a
 PostgreSQL service example for operators who want that backend locally.
 
@@ -187,7 +187,7 @@ migrated schema.
 
 SHR-070 adds a composed smoke artifact:
 
-- `crates/taru-server/src/http/tests/self_host_smoke.rs`
+- `crates/nako-server/src/http/tests/self_host_smoke.rs`
 - `scripts/self-host-smoke.ps1`
 - `scripts/self-host-smoke.sh`
 

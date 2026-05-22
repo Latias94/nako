@@ -1,13 +1,13 @@
-# Taru Kotlin SDK
+# Nako Kotlin SDK
 
-This package contains the generated Kotlin/JVM SDK foundation for Taru's Public
+This package contains the generated Kotlin/JVM SDK foundation for Nako's Public
 Client API. It is consumed through the Android Gradle build as
-`:taru-public-client-sdk` and is private until publishing is designed.
+`:nako-public-client-sdk` and is private until publishing is designed.
 
 ## Generate
 
 ```powershell
-cargo run -q -p taru-api --example emit-kotlin-sdk -- --output sdk/kotlin/src/main/kotlin/dev/taru/sdk/TaruClientSdk.kt
+cargo run -q -p nako-api --example emit-kotlin-sdk -- --output sdk/kotlin/src/main/kotlin/dev/nako/sdk/NakoClientSdk.kt
 ```
 
 Do not edit generated source by hand.
@@ -15,5 +15,5 @@ Do not edit generated source by hand.
 ## Check
 
 ```powershell
-apps/android/gradlew.bat -p apps/android :taru-public-client-sdk:test --no-daemon
+apps/android/gradlew.bat -p apps/android :nako-public-client-sdk:test --no-daemon
 ```

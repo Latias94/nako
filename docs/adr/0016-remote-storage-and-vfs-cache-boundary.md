@@ -6,25 +6,25 @@ Proposed
 
 ## Context
 
-Taru's local playback MVP proves scan, probe, browse, direct play, remux, HLS,
+Nako's local playback MVP proves scan, probe, browse, direct play, remux, HLS,
 and extension surfaces for local filesystem media. The next product boundary is
 remote storage. Personal media libraries commonly live on NAS, WebDAV mounts,
-or S3-compatible object stores, and Taru should treat those sources as
+or S3-compatible object stores, and Nako should treat those sources as
 first-class storage backends instead of pretending every source has a stable
 local filesystem path.
 
-The current `taru-vfs` abstraction already has URI schemes, metadata,
+The current `nako-vfs` abstraction already has URI schemes, metadata,
 capabilities, byte ranges, and a local backend. However, several consumers still
 require local paths:
 
-- `taru-media-probe::FfprobeMediaProbe` requires `local_path_hint`.
-- `taru-library::LibraryProbeService` passes `VirtualFile.local_path_hint` to
+- `nako-media-probe::FfprobeMediaProbe` requires `local_path_hint`.
+- `nako-library::LibraryProbeService` passes `VirtualFile.local_path_hint` to
   ffprobe and cannot stage remote objects yet.
-- `taru-server::app::local_source_path_and_len` constructs `LocalFsBackend`
+- `nako-server::app::local_source_path_and_len` constructs `LocalFsBackend`
   from the configured library root and feeds local paths into direct play,
   remux, and HLS.
-- `taru-transcode` command plans accept `PathBuf` inputs for FFmpeg.
-- `taru-server::http` streams local files and staged transcode outputs from
+- `nako-transcode` command plans accept `PathBuf` inputs for FFmpeg.
+- `nako-server::http` streams local files and staged transcode outputs from
   `Path`.
 
 This is acceptable for M4 local playback but would make remote storage fragile
@@ -37,10 +37,10 @@ Remote storage work will be owned by a dedicated `storage-vfs` workstream.
 M6 starts with a WebDAV read-only preview before S3-compatible storage. WebDAV
 is the better first target because it is common for self-hosted NAS setups,
 maps naturally to hierarchical media libraries, and exercises the directory,
-stat, range-read, timeout, retry, and credential boundaries Taru needs before
+stat, range-read, timeout, retry, and credential boundaries Nako needs before
 object-store-specific behavior.
 
-`taru-vfs` remains the abstraction boundary for storage listing, metadata, and
+`nako-vfs` remains the abstraction boundary for storage listing, metadata, and
 range reads. Remote backends must return `StorageUri`, `ObjectMetadata`, and
 `VirtualFile` records without exposing raw local filesystem paths unless an
 explicit staging service has materialized a local copy.
@@ -85,7 +85,7 @@ plaintext credentials.
 
 - Mount remote storage with the operating system and keep using local paths:
   rejected because it hides remote latency, auth, retry, cache, and partial
-  failure behavior from Taru.
+  failure behavior from Nako.
 - Implement S3 first: deferred because object-store listing and hierarchy
   semantics are less representative of personal NAS libraries than WebDAV.
 - Let ffprobe/FFmpeg read remote URLs directly: deferred because credentials,

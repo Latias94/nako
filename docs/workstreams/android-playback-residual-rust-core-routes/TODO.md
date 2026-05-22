@@ -16,44 +16,44 @@ Last updated: 2026-05-21
 
 ## M1 — Rust Core Residual Playback Builders
 
-- [x] PRR-020 [owner=codex] [deps=PRR-010] [scope=crates/taru-client-core]
+- [x] PRR-020 [owner=codex] [deps=PRR-010] [scope=crates/nako-client-core]
   Goal: Add explicit request builders for source probe, playback session
   inspection, and playback session cancellation.
-  Validation: `cargo fmt --package taru-client-core --check`; `cargo nextest run -p taru-client-core --no-fail-fast`
+  Validation: `cargo fmt --package nako-client-core --check`; `cargo nextest run -p nako-client-core --no-fail-fast`
   Review: Builders should return complete `CoreHttpRequest` values, include
   auth, preserve safe previews, encode source/session IDs, and use stable
   methods (`GET`, `GET`, `POST`).
-  Evidence: `crates/taru-client-core/src/playback.rs`; tests.
+  Evidence: `crates/nako-client-core/src/playback.rs`; tests.
   Handoff: DONE. Added core builders for source probe, playback session
   inspection, and playback session cancellation. Core tests cover stable
   methods, encoded source/session IDs, auth injection, and safe previews.
 
 ## M2 — UniFFI Residual Playback Surface
 
-- [x] PRR-030 [owner=codex] [deps=PRR-020] [scope=crates/taru-client-uniffi,scripts]
+- [x] PRR-030 [owner=codex] [deps=PRR-020] [scope=crates/nako-client-uniffi,scripts]
   Goal: Expose FFI-safe residual playback request builders over
-  `taru-client-core` and keep `taru-client-uniffi` thin.
-  Validation: `cargo fmt --package taru-client-uniffi --check`; `cargo nextest run -p taru-client-uniffi --no-fail-fast`; `./scripts/guard-uniffi-boundary.ps1`
+  `nako-client-core` and keep `nako-client-uniffi` thin.
+  Validation: `cargo fmt --package nako-client-uniffi --check`; `cargo nextest run -p nako-client-uniffi --no-fail-fast`; `./scripts/guard-uniffi-boundary.ps1`
   Review: Binding records must not expose transport, reqwest/Tokio/platform
   types, DTO decode, or Android-specific diagnostics.
-  Evidence: `crates/taru-client-uniffi/src/lib.rs`; boundary guard output.
+  Evidence: `crates/nako-client-uniffi/src/lib.rs`; boundary guard output.
   Handoff: DONE. Added FFI-safe residual playback request input records and
-  explicit UniFFI builder functions over `taru-client-core`. UniFFI tests now
+  explicit UniFFI builder functions over `nako-client-core`. UniFFI tests now
   cover source probe, session inspect, and session cancel routes, and the
   boundary guard passes.
 
 ## M3 — Android Playback Migration And Cleanup
 
-- [x] PRR-040 [owner=codex] [deps=PRR-030] [scope=apps/android/app/src/main/java/dev/taru/android/playback,apps/android/app/src/main/java/dev/taru/android/browse,apps/android/app/src/test/java/dev/taru/android/playback]
+- [x] PRR-040 [owner=codex] [deps=PRR-030] [scope=apps/android/app/src/main/java/dev/nako/android/playback,apps/android/app/src/main/java/dev/nako/android/browse,apps/android/app/src/test/java/dev/nako/android/playback]
   Goal: Extend Android `PlaybackCore`/`RustPlaybackCore`, migrate
-  `TaruPlaybackClient` residual runtime route construction away from generated
+  `NakoPlaybackClient` residual runtime route construction away from generated
   SDK descriptors, and delete confirmed dead compatibility helpers.
-  Validation: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.playback.TaruPlaybackClientTest --no-daemon --rerun-tasks`
+  Validation: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.playback.NakoPlaybackClientTest --no-daemon --rerun-tasks`
   Review: Generated Kotlin SDK route descriptor calls should be absent from
   runtime playback request construction after migration; DTO aliases may remain.
-  Evidence: `TaruPlaybackClient.kt`; `RustPlaybackCore.kt`; cleanup diff; tests.
+  Evidence: `NakoPlaybackClient.kt`; `RustPlaybackCore.kt`; cleanup diff; tests.
   Handoff: DONE. Extended Android `PlaybackCore`/`RustPlaybackCore`, migrated
-  `TaruPlaybackClient` residual route construction to Rust/UniFFI request
+  `NakoPlaybackClient` residual route construction to Rust/UniFFI request
   descriptors, and deleted the confirmed-dead `toSdkPageQuery` helper.
   Playback JVM tests, playback route-owner scan, and dead-helper scan pass.
 

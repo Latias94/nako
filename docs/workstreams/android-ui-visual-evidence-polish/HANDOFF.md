@@ -13,8 +13,8 @@ No active task remains in this workstream.
 
 ## File Scope
 
-- `apps/android/app/src/main/java/dev/taru/android/ui/screens/player/`
-- `apps/android/app/src/test/java/dev/taru/android/ui/screens/player/`
+- `apps/android/app/src/main/java/dev/nako/android/ui/screens/player/`
+- `apps/android/app/src/test/java/dev/nako/android/ui/screens/player/`
 - Workstream docs under this directory.
 
 ## Validation
@@ -22,7 +22,7 @@ No active task remains in this workstream.
 Run:
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.screens.player.PlayerPresentationTest --no-daemon
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.screens.player.PlayerPresentationTest --no-daemon
 pwsh -NoProfile -File apps\android\scripts\Smoke-Emulator.ps1 -FixtureState profile-with-media -SkipBuild
 git diff --check
 ```

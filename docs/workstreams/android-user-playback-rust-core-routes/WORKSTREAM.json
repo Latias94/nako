@@ -29,13 +29,13 @@
     }
   ],
   "gates": [
-    "cargo fmt --package taru-client-core --check",
-    "cargo nextest run -p taru-client-core --no-fail-fast",
-    "cargo fmt --package taru-client-uniffi --check",
-    "cargo nextest run -p taru-client-uniffi --no-fail-fast",
+    "cargo fmt --package nako-client-core --check",
+    "cargo nextest run -p nako-client-core --no-fail-fast",
+    "cargo fmt --package nako-client-uniffi --check",
+    "cargo nextest run -p nako-client-uniffi --no-fail-fast",
     "./scripts/guard-uniffi-boundary.ps1",
-    "apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.userplayback.TaruUserPlaybackClientTest --no-daemon --rerun-tasks",
-    "if (rg -n \"TaruPublicClientRequests|TaruRequestDescriptor|pathAndQuery|executeJson\" apps/android/app/src/main/java/dev/taru/android/userplayback/TaruUserPlaybackClient.kt apps/android/app/src/main/java/dev/taru/android/userplayback/RustUserPlaybackCore.kt) { exit 1 } else { 'PASS: user-playback runtime has no generated SDK route descriptor calls.' }",
+    "apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.userplayback.NakoUserPlaybackClientTest --no-daemon --rerun-tasks",
+    "if (rg -n \"NakoPublicClientRequests|NakoRequestDescriptor|pathAndQuery|executeJson\" apps/android/app/src/main/java/dev/nako/android/userplayback/NakoUserPlaybackClient.kt apps/android/app/src/main/java/dev/nako/android/userplayback/RustUserPlaybackCore.kt) { exit 1 } else { 'PASS: user-playback runtime has no generated SDK route descriptor calls.' }",
     "python -m json.tool docs/workstreams/android-user-playback-rust-core-routes/WORKSTREAM.json > $null",
     "git diff --check"
   ],
@@ -48,7 +48,7 @@
     {
       "date": "2026-05-21",
       "task": "UPC-020",
-      "summary": "Added taru-client-core user-playback request builders and core tests; taru-client-core gate passed."
+      "summary": "Added nako-client-core user-playback request builders and core tests; nako-client-core gate passed."
     },
     {
       "date": "2026-05-21",
@@ -58,7 +58,7 @@
     {
       "date": "2026-05-21",
       "task": "UPC-040",
-      "summary": "Migrated Android TaruUserPlaybackClient runtime route construction to Rust UserPlaybackCore descriptors; user-playback JVM tests passed."
+      "summary": "Migrated Android NakoUserPlaybackClient runtime route construction to Rust UserPlaybackCore descriptors; user-playback JVM tests passed."
     },
     {
       "date": "2026-05-21",

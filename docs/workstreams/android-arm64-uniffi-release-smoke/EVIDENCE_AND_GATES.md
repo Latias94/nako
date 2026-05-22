@@ -6,7 +6,7 @@ Last updated: 2026-05-21
 ## Evidence Anchors
 
 - `docs/workstreams/android-uniffi-native-smoke/CLOSEOUT.md`
-- `apps/android/app/src/androidTest/java/dev/taru/android/uniffi/TaruUniFfiNativeSmokeTest.kt`
+- `apps/android/app/src/androidTest/java/dev/nako/android/uniffi/NakoUniFfiNativeSmokeTest.kt`
 - `apps/android/app/build.gradle.kts`
 - `apps/android/app/build/outputs/apk/debug/app-debug.apk`
 
@@ -30,14 +30,14 @@ adb shell getprop ro.product.cpu.abilist
 ### A64-030 Preferred Runtime Gate
 
 ```powershell
-apps/android/gradlew.bat -p apps/android :app:connectedDebugAndroidTest -PtaruRustAndroidAbis=arm64-v8a --no-daemon
+apps/android/gradlew.bat -p apps/android :app:connectedDebugAndroidTest -PnakoRustAndroidAbis=arm64-v8a --no-daemon
 ```
 
 ### A64-030 Fallback Packaging Gate
 
 ```powershell
-apps/android/gradlew.bat -p apps/android :app:assembleDebug -PtaruRustAndroidAbis=arm64-v8a --no-daemon
-# Inspect app-debug.apk for lib/arm64-v8a/libtaru_client_uniffi.so and lib/arm64-v8a/libjnidispatch.so.
+apps/android/gradlew.bat -p apps/android :app:assembleDebug -PnakoRustAndroidAbis=arm64-v8a --no-daemon
+# Inspect app-debug.apk for lib/arm64-v8a/libnako_client_uniffi.so and lib/arm64-v8a/libjnidispatch.so.
 ```
 
 ## Evidence Log
@@ -60,30 +60,30 @@ apps/android/gradlew.bat -p apps/android :app:assembleDebug -PtaruRustAndroidAbi
   - `adb -s 3B15BC01DH500000 shell getprop ro.build.version.release` returned
     `16`.
 - 2026-05-21: Completed `A64-030` arm64 packaging verification.
-  - First APK inspection showed Taru's `libtaru_client_uniffi.so` was focused
+  - First APK inspection showed Nako's `libnako_client_uniffi.so` was focused
     to arm64, but transitive JNI libraries from JNA/AndroidX were still present
     for non-arm64 ABIs.
-  - Added Android `ndk.abiFilters` from `taruRustAndroidAbis` so focused ABI
-    selection applies to all packaged native libraries, not only Taru's Rust
+  - Added Android `ndk.abiFilters` from `nakoRustAndroidAbis` so focused ABI
+    selection applies to all packaged native libraries, not only Nako's Rust
     output.
-  - `apps/android/gradlew.bat -p apps/android :app:assembleDebug -PtaruRustAndroidAbis=arm64-v8a --no-daemon`
+  - `apps/android/gradlew.bat -p apps/android :app:assembleDebug -PnakoRustAndroidAbis=arm64-v8a --no-daemon`
     passed.
   - APK inspection passed with:
     - `lib/arm64-v8a/libandroidx.graphics.path.so`
     - `lib/arm64-v8a/libjnidispatch.so`
-    - `lib/arm64-v8a/libtaru_client_uniffi.so`
+    - `lib/arm64-v8a/libnako_client_uniffi.so`
   - APK inspection found no non-arm64 JNI entries.
 - 2026-05-21: Completed `A64-030` arm64 runtime smoke on OPPO.
-  - `apps/android/gradlew.bat -p apps/android :app:assembleDebug :app:assembleDebugAndroidTest -PtaruRustAndroidAbis=arm64-v8a --no-daemon`
+  - `apps/android/gradlew.bat -p apps/android :app:assembleDebug :app:assembleDebugAndroidTest -PnakoRustAndroidAbis=arm64-v8a --no-daemon`
     passed.
   - `adb -s 3B15BC01DH500000 install -r apps/android/app/build/outputs/apk/debug/app-debug.apk`
     succeeded.
   - `adb -s 3B15BC01DH500000 install -r apps/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk`
     succeeded.
-  - `adb -s 3B15BC01DH500000 shell am instrument -w -r -e class dev.taru.android.uniffi.TaruUniFfiNativeSmokeTest dev.taru.android.test/androidx.test.runner.AndroidJUnitRunner`
+  - `adb -s 3B15BC01DH500000 shell am instrument -w -r -e class dev.nako.android.uniffi.NakoUniFfiNativeSmokeTest dev.nako.android.test/androidx.test.runner.AndroidJUnitRunner`
     passed with `OK (1 test)`.
 - 2026-05-21: Completed `A64-090` closeout.
-  - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.TaruConnectionClientTest --no-daemon`
+  - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.connection.NakoConnectionClientTest --no-daemon`
     passed.
   - `python -m json.tool docs/workstreams/android-arm64-uniffi-release-smoke/WORKSTREAM.json > $null`
     passed.

@@ -5,7 +5,7 @@
   "status": "closed",
   "updated": "2026-05-21",
   "scope_kind": "execution",
-  "problem": "JVM tests use the host UniFFI library and APK assembly only proves packaging, so the project still needs a focused Android runtime smoke that loads the packaged taru-client-uniffi native library on device/emulator.",
+  "problem": "JVM tests use the host UniFFI library and APK assembly only proves packaging, so the project still needs a focused Android runtime smoke that loads the packaged nako-client-uniffi native library on device/emulator.",
   "authoritative_docs": [
     {
       "role": "design",
@@ -33,8 +33,8 @@
     }
   ],
   "gates": [
-    "apps/android/gradlew.bat -p apps/android :app:assembleDebug :app:assembleDebugAndroidTest -PtaruRustAndroidAbis=x86_64 --no-daemon",
-    "apps/android/gradlew.bat -p apps/android :app:connectedDebugAndroidTest -PtaruRustAndroidAbis=x86_64 --no-daemon",
+    "apps/android/gradlew.bat -p apps/android :app:assembleDebug :app:assembleDebugAndroidTest -PnakoRustAndroidAbis=x86_64 --no-daemon",
+    "apps/android/gradlew.bat -p apps/android :app:connectedDebugAndroidTest -PnakoRustAndroidAbis=x86_64 --no-daemon",
     "python -m json.tool docs/workstreams/android-uniffi-native-smoke/WORKSTREAM.json > $null",
     "git diff --check"
   ],
@@ -42,10 +42,10 @@
     "docs/adr/0032-shared-rust-client-core-app-supplied-transport.md",
     "docs/workstreams/android-rust-core-runtime-hardening/CLOSEOUT.md",
     "apps/android/app/build.gradle.kts",
-    "apps/android/app/src/androidTest/java/dev/taru/android/uniffi",
-    "crates/taru-client-uniffi/src/lib.rs",
-    "crates/taru-client-core/src/lib.rs",
-    "apps/android/app/src/androidTest/java/dev/taru/android/uniffi/TaruUniFfiNativeSmokeTest.kt",
+    "apps/android/app/src/androidTest/java/dev/nako/android/uniffi",
+    "crates/nako-client-uniffi/src/lib.rs",
+    "crates/nako-client-core/src/lib.rs",
+    "apps/android/app/src/androidTest/java/dev/nako/android/uniffi/NakoUniFfiNativeSmokeTest.kt",
     "apps/android/gradle/libs.versions.toml",
     "docs/workstreams/android-uniffi-native-smoke/CLOSEOUT.md"
   ],

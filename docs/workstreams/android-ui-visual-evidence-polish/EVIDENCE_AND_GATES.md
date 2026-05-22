@@ -6,7 +6,7 @@ Last updated: 2026-05-19
 ## Required Gates
 
 - Focused player presentation test:
-  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.screens.player.PlayerPresentationTest --no-daemon`
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.screens.player.PlayerPresentationTest --no-daemon`
 - Focused smoke:
   `pwsh -NoProfile -File apps\android\scripts\Smoke-Emulator.ps1 -FixtureState profile-with-media -SkipBuild`
 - Diff hygiene:
@@ -24,12 +24,12 @@ Last updated: 2026-05-19
 ### AUP-020 - Player Chrome Overlap Polish
 
 - Evidence:
-  - `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.screens.player.PlayerPresentationTest --no-daemon`
+  - `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.screens.player.PlayerPresentationTest --no-daemon`
   - `pwsh -NoProfile -File apps\android\scripts\Smoke-Emulator.ps1 -FixtureState profile-with-media`
   - Screenshot:
     `apps/android/build/smoke/20260519-120345-profile-with-media-emulator-5554/player.png`
 - Result: PASS on 2026-05-19.
-- Notes: Fresh Player screenshot shows Taru context chrome above the Media3
+- Notes: Fresh Player screenshot shows Nako context chrome above the Media3
   progress bar, time labels, and settings control. The Media3 controller remains
   enabled.
 

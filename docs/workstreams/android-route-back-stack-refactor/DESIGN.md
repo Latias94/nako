@@ -5,7 +5,7 @@ Last updated: 2026-05-19
 
 ## Why This Lane Exists
 
-The Android browse shell currently stores one `TaruRoute`. Opening a detail
+The Android browse shell currently stores one `NakoRoute`. Opening a detail
 facet, player, or Server Profile replaces the previous route, so every Back
 callback returns to Top Level instead of the page the user came from.
 
@@ -24,7 +24,7 @@ because Back discarded the detail route.
 
 Single-route navigation is a shallow module: callers must know the return
 target and encode it at each screen boundary. That spreads workflow rules across
-`TaruBrowseShell` callbacks:
+`NakoBrowseShell` callbacks:
 
 - Detail Back returns Top Level.
 - Facet Back returns Top Level even when opened from Detail.
@@ -38,7 +38,7 @@ instead of testing the natural workflow.
 
 When this lane closes:
 
-- `TaruBrowseShell` owns a small navigation state module with top-level
+- `NakoBrowseShell` owns a small navigation state module with top-level
   destination selection, route push, route pop, and root clearing behavior.
 - Back behavior is context-preserving:
   - Home -> Detail -> Facet -> Back -> Detail
@@ -52,7 +52,7 @@ When this lane closes:
 ## In Scope
 
 - Android route model and browse shell navigation state under
-  `apps/android/app/src/main/java/dev/taru/android/ui/browse`.
+  `apps/android/app/src/main/java/dev/nako/android/ui/browse`.
 - Focused JVM tests for route stack behavior.
 - `Smoke-Emulator.ps1` navigation simplification and return-path assertion.
 - Android README / smoke fixture docs if behavior or evidence changes.
@@ -84,8 +84,8 @@ needs exist.
 
 ## Implemented Outcome
 
-Closed on 2026-05-19 with `TaruBrowseNavigationState` and `TaruRouteStack`.
-`TaruBrowseShell` now uses `open`, `navigateBack`, and `selectDestination`
+Closed on 2026-05-19 with `NakoBrowseNavigationState` and `NakoRouteStack`.
+`NakoBrowseShell` now uses `open`, `navigateBack`, and `selectDestination`
 instead of assigning route return targets inside each screen callback. Android
 system Back is handled through `BackHandler` whenever the route stack can pop.
 

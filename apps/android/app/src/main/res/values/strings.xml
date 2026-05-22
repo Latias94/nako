@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Taru</string>
+    <string name="app_name">Nako</string>
     <string name="action_back">Back</string>
     <string name="action_change_server">Change server</string>
     <string name="action_copy_diagnostics">Copy diagnostics</string>

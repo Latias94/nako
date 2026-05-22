@@ -7,7 +7,7 @@ Last updated: 2026-05-17
 
 M34 is closed. `sdk/typescript` is now a minimal private TypeScript SDK
 package with repeatable generation, local TypeScript tooling, strict
-`tsc --noEmit` validation, and a Rust sync test against the `taru-api`
+`tsc --noEmit` validation, and a Rust sync test against the `nako-api`
 generator.
 
 ## Decisions Since Last Update

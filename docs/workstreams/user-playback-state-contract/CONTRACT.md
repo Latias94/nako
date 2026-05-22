@@ -49,7 +49,7 @@ use the public v1 `ErrorResponse` envelope.
 
 ## DTO Inventory
 
-DTOs live in `taru-client-protocol` once implemented.
+DTOs live in `nako-client-protocol` once implemented.
 
 ```rust
 pub struct UserPlaybackStateResponse {

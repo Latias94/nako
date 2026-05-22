@@ -12,7 +12,7 @@ person, genre, tag, collection, studio, and image match vectors even when they
 only want to prove that a workflow requested catalog hydration.
 
 This workstream deepens the seam so callers ask for catalog hydration as one
-workflow operation. The lookup machinery stays inside `taru-catalog`, where the
+workflow operation. The lookup machinery stays inside `nako-catalog`, where the
 catalog graph and search projection logic live.
 
 ## Relevant Authority
@@ -22,10 +22,10 @@ catalog graph and search projection logic live.
   - `docs/workstreams/metadata-refresh-seam/`
   - `docs/workstreams/durable-job-recovery/`
 - Code:
-  - `crates/taru-catalog/src/lib.rs`
-  - `crates/taru-metadata/src/strategy.rs`
-  - `crates/taru-metadata/src/confirmation.rs`
-  - `crates/taru-nfo/src/import.rs`
+  - `crates/nako-catalog/src/lib.rs`
+  - `crates/nako-metadata/src/strategy.rs`
+  - `crates/nako-metadata/src/confirmation.rs`
+  - `crates/nako-nfo/src/import.rs`
 
 ## Scope
 
@@ -46,5 +46,5 @@ catalog graph and search projection logic live.
 
 M42 shipped a workflow-level `CatalogHydrationPort` and narrowed the fake test
 surface in metadata. Snapshot, lookup, and commit mechanics remain inside
-`taru-catalog`, while non-catalog callers request hydration as one workflow
+`nako-catalog`, while non-catalog callers request hydration as one workflow
 operation.

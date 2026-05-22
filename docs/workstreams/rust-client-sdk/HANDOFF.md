@@ -5,8 +5,8 @@ Last updated: 2026-05-17
 
 ## Current State
 
-M35 is closed. `crates/taru-client` is the first Rust SDK foundation crate for
-public Taru client consumers.
+M35 is closed. `crates/nako-client` is the first Rust SDK foundation crate for
+public Nako client consumers.
 
 ## Active Task
 
@@ -14,15 +14,15 @@ public Taru client consumers.
 
 ## Decisions Since Last Update
 
-- Rust SDK crate name is `taru-client`.
+- Rust SDK crate name is `nako-client`.
 - License is explicitly `Apache-2.0`, not inherited from the AGPL workspace
   package default.
-- DTOs come from `taru-client-protocol`.
-- `taru-client` must not depend on `taru-api`, because `taru-api` is an AGPL
+- DTOs come from `nako-client-protocol`.
+- `nako-client` must not depend on `nako-api`, because `nako-api` is an AGPL
   adapter crate that depends on server/domain internals.
 - Full streaming/raw body APIs are deferred from the first foundation slice.
 - OpenAPI/public route inventory duplication remains local to M35; a follow-on
-  can move the public inventory into `taru-client-protocol` if drift cost grows.
+  can move the public inventory into `nako-client-protocol` if drift cost grows.
 
 ## Blockers
 
@@ -31,11 +31,11 @@ public Taru client consumers.
 ## Closeout Validation
 
 - `cargo fmt --all -- --check`: passed.
-- `cargo check -p taru-client --tests`: passed.
-- `cargo nextest run -p taru-client --no-fail-fast`: 7 tests passed.
-- `cargo tree -p taru-client`: passed; no `taru-core`, `taru-api`,
-  `taru-server`, `taru-streaming`, or `taru-transcode` dependency.
-- `cargo tree -p taru-client-protocol`: passed; protocol dependency tree is
+- `cargo check -p nako-client --tests`: passed.
+- `cargo nextest run -p nako-client --no-fail-fast`: 7 tests passed.
+- `cargo tree -p nako-client`: passed; no `nako-core`, `nako-api`,
+  `nako-server`, `nako-streaming`, or `nako-transcode` dependency.
+- `cargo tree -p nako-client-protocol`: passed; protocol dependency tree is
   still light.
 - `npm run check --prefix sdk/typescript`: passed.
 - `cargo check --workspace --tests`: passed.

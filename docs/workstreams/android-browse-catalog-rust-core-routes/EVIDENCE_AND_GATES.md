@@ -8,8 +8,8 @@ Last updated: 2026-05-21
 ### Rust Core Gate
 
 ```powershell
-cargo fmt --package taru-client-core --check
-cargo nextest run -p taru-client-core --no-fail-fast
+cargo fmt --package nako-client-core --check
+cargo nextest run -p nako-client-core --no-fail-fast
 ```
 
 Proves browse/catalog route builders preserve core request construction,
@@ -18,8 +18,8 @@ encoding, auth header injection, and safe preview behavior.
 ### UniFFI Boundary Gate
 
 ```powershell
-cargo fmt --package taru-client-uniffi --check
-cargo nextest run -p taru-client-uniffi --no-fail-fast
+cargo fmt --package nako-client-uniffi --check
+cargo nextest run -p nako-client-uniffi --no-fail-fast
 ./scripts/guard-uniffi-boundary.ps1
 ```
 
@@ -28,7 +28,7 @@ Proves the binding surface remains thin and dependency-safe.
 ### Android Browse Gate
 
 ```powershell
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.browse.TaruBrowseClientTest --no-daemon
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.browse.NakoBrowseClientTest --no-daemon
 ```
 
 Proves migrated Android browse route construction, DTO decode, error mapping,
@@ -43,11 +43,11 @@ git diff --check
 
 ## Evidence Anchors
 
-- `crates/taru-client-core/src/browse.rs`
-- `crates/taru-client-uniffi/src/lib.rs`
-- `apps/android/app/src/main/java/dev/taru/android/browse/TaruBrowseClient.kt`
-- `apps/android/app/src/main/java/dev/taru/android/browse/RustBrowseCore.kt`
-- `apps/android/app/src/test/java/dev/taru/android/browse/TaruBrowseClientTest.kt`
+- `crates/nako-client-core/src/browse.rs`
+- `crates/nako-client-uniffi/src/lib.rs`
+- `apps/android/app/src/main/java/dev/nako/android/browse/NakoBrowseClient.kt`
+- `apps/android/app/src/main/java/dev/nako/android/browse/RustBrowseCore.kt`
+- `apps/android/app/src/test/java/dev/nako/android/browse/NakoBrowseClientTest.kt`
 
 ## Evidence Log
 
@@ -59,14 +59,14 @@ git diff --check
 
 ### 2026-05-21 — BCR-020 Rust core browse request builders
 
-- Added `crates/taru-client-core/src/browse.rs`.
+- Added `crates/nako-client-core/src/browse.rs`.
 - Builders cover libraries, library sources, items, item images, people, person
   item facets, genres, genre item facets, tags, tag item facets, and search.
 - Fresh gates:
 
 ```powershell
-cargo fmt --package taru-client-core
-cargo nextest run -p taru-client-core --no-fail-fast
+cargo fmt --package nako-client-core
+cargo nextest run -p nako-client-core --no-fail-fast
 ```
 
 Result: passed with 13 tests. The new tests prove stable path/query encoding,
@@ -76,32 +76,32 @@ query/facet pagination behavior.
 ### 2026-05-21 — BCR-030 UniFFI browse binding surface
 
 - Added FFI-safe browse request input records and explicit builder functions to
-  `crates/taru-client-uniffi/src/lib.rs`.
+  `crates/nako-client-uniffi/src/lib.rs`.
 - Fresh gates:
 
 ```powershell
-cargo fmt --package taru-client-uniffi
-cargo nextest run -p taru-client-uniffi --no-fail-fast
+cargo fmt --package nako-client-uniffi
+cargo nextest run -p nako-client-uniffi --no-fail-fast
 ./scripts/guard-uniffi-boundary.ps1
 ```
 
 Result: passed. UniFFI now has 3 tests, including browse builders for libraries,
 search, and tag facet routes. The boundary guard still reports direct
-dependencies `taru-client-core` and `uniffi` with no forbidden
+dependencies `nako-client-core` and `uniffi` with no forbidden
 runtime/platform dependency.
 
 ### 2026-05-21 — BCR-040 Android browse adapter migration
 
-- Added `apps/android/app/src/main/java/dev/taru/android/browse/RustBrowseCore.kt`.
-- Migrated `TaruBrowseClient` runtime request construction from
-  `TaruPublicClientRequests` to `BrowseCore`/Rust UniFFI request descriptors.
+- Added `apps/android/app/src/main/java/dev/nako/android/browse/RustBrowseCore.kt`.
+- Migrated `NakoBrowseClient` runtime request construction from
+  `NakoPublicClientRequests` to `BrowseCore`/Rust UniFFI request descriptors.
 - Kotlin SDK DTO aliases and `toAndroid` DTO mapping remain in place.
 - Rust core now uses `%20` for search query spaces instead of the previous
   Kotlin `+` form; tests were updated to the new route owner output.
 - Fresh gate:
 
 ```powershell
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.browse.TaruBrowseClientTest --no-daemon
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.browse.NakoBrowseClientTest --no-daemon
 ```
 
 Result: passed with 29 browse tests.
@@ -116,18 +116,18 @@ Result: passed with 29 browse tests.
 - Fresh gates:
 
 ```powershell
-cargo fmt --package taru-client-core --check
-cargo nextest run -p taru-client-core --no-fail-fast
-cargo fmt --package taru-client-uniffi --check
-cargo nextest run -p taru-client-uniffi --no-fail-fast
+cargo fmt --package nako-client-core --check
+cargo nextest run -p nako-client-core --no-fail-fast
+cargo fmt --package nako-client-uniffi --check
+cargo nextest run -p nako-client-uniffi --no-fail-fast
 ./scripts/guard-uniffi-boundary.ps1
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.browse.TaruBrowseClientTest --no-daemon --rerun-tasks
-if (rg -n "TaruPublicClientRequests|pathAndQuery" apps/android/app/src/main/java/dev/taru/android/browse/TaruBrowseClient.kt apps/android/app/src/main/java/dev/taru/android/browse/RustBrowseCore.kt) { exit 1 } else { 'PASS: TaruBrowseClient/RustBrowseCore have no generated SDK route descriptor calls.' }
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.browse.NakoBrowseClientTest --no-daemon --rerun-tasks
+if (rg -n "NakoPublicClientRequests|pathAndQuery" apps/android/app/src/main/java/dev/nako/android/browse/NakoBrowseClient.kt apps/android/app/src/main/java/dev/nako/android/browse/RustBrowseCore.kt) { exit 1 } else { 'PASS: NakoBrowseClient/RustBrowseCore have no generated SDK route descriptor calls.' }
 ```
 
 Result: passed. Core ran 13 tests; UniFFI ran 3 tests; Android browse ran
 29 JVM tests with `--rerun-tasks`; the boundary guard remained `PASS` with
-only `taru-client-core` and `uniffi` as direct dependencies; the route-owner
+only `nako-client-core` and `uniffi` as direct dependencies; the route-owner
 scan found no generated SDK descriptor calls in the migrated browse runtime
 files.
 

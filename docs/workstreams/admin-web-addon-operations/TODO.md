@@ -14,12 +14,12 @@ Last updated: 2026-05-22
   Handoff: Continue with AWAO-020 before UI wiring so the generated Admin API
   contract owns Addon wire DTOs.
 
-- [x] AWAO-020 [owner=codex] [deps=AWAO-010] [scope=crates/taru-api/src/admin_contract.rs, apps/admin-web/src/adminApi/generated/contract.ts]
+- [x] AWAO-020 [owner=codex] [deps=AWAO-010] [scope=crates/nako-api/src/admin_contract.rs, apps/admin-web/src/adminApi/generated/contract.ts]
   Goal: Add generated Admin API TypeScript contract coverage for Addon
   Operations route constants and DTOs.
-  Validation: `cargo run -p taru-api --example emit-admin-typescript-contract
+  Validation: `cargo run -p nako-api --example emit-admin-typescript-contract
   -- --output apps/admin-web/src/adminApi/generated/contract.ts`,
-  `cargo nextest run -p taru-api admin_contract --no-fail-fast`, and no
+  `cargo nextest run -p nako-api admin_contract --no-fail-fast`, and no
   forbidden sensitive terms in generated contract.
   Evidence: generated contract diff and passing admin contract tests.
   Handoff: Continue with AWAO-030.

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createAdminDataSource } from "./dataSource";
-import { TARU_ADMIN_ROUTES } from "./generated/contract";
+import { NAKO_ADMIN_ROUTES } from "./generated/contract";
 import {
   mockAcquisitionIntakeCandidates,
   mockAddonDetail,
@@ -27,24 +27,24 @@ describe("Admin data source", () => {
   it("composes live Admin API read models into console data", async () => {
     const dataSource = createAdminDataSource({
       fetcher: fetcherFor({
-        [TARU_ADMIN_ROUTES.overview]: mockOverview,
-        [TARU_ADMIN_ROUTES.addons]: mockAddons,
-        [TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDetail,
-        [TARU_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab")]: mockAddonHealth,
-        [TARU_ADMIN_ROUTES.addonSurfaces.replace(":addon_id", "addon-subtitle-lab")]: mockAddonSurfaces,
-        [TARU_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab")]: mockAddonInstallGuide,
-        [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`]: mockAddonTokens,
-        [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`]: mockAddonGrants,
-        [TARU_ADMIN_ROUTES.addonResourceCallDiagnostic.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDiagnostic,
-        [TARU_ADMIN_ROUTES.acquisitionIntakeCandidates]: mockAcquisitionIntakeCandidates,
-        [TARU_ADMIN_ROUTES.catalogGovernanceItems]: mockCatalogGovernance,
-        [TARU_ADMIN_ROUTES.generatedArtifactProposals]: mockGeneratedArtifactProposals,
-        [TARU_ADMIN_ROUTES.events]: mockEvents,
-        [TARU_ADMIN_ROUTES.jobs]: mockJobs,
-        [TARU_ADMIN_ROUTES.playbackSessions]: mockPlaybackSessions,
-        [TARU_ADMIN_ROUTES.playbackRuntime]: mockPlaybackRuntime,
-        [TARU_ADMIN_ROUTES.storageStaging]: mockStorageStaging,
-        [TARU_ADMIN_ROUTES.systemConfig]: mockSystemConfig,
+        [NAKO_ADMIN_ROUTES.overview]: mockOverview,
+        [NAKO_ADMIN_ROUTES.addons]: mockAddons,
+        [NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDetail,
+        [NAKO_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab")]: mockAddonHealth,
+        [NAKO_ADMIN_ROUTES.addonSurfaces.replace(":addon_id", "addon-subtitle-lab")]: mockAddonSurfaces,
+        [NAKO_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab")]: mockAddonInstallGuide,
+        [`${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`]: mockAddonTokens,
+        [`${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`]: mockAddonGrants,
+        [NAKO_ADMIN_ROUTES.addonResourceCallDiagnostic.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDiagnostic,
+        [NAKO_ADMIN_ROUTES.acquisitionIntakeCandidates]: mockAcquisitionIntakeCandidates,
+        [NAKO_ADMIN_ROUTES.catalogGovernanceItems]: mockCatalogGovernance,
+        [NAKO_ADMIN_ROUTES.generatedArtifactProposals]: mockGeneratedArtifactProposals,
+        [NAKO_ADMIN_ROUTES.events]: mockEvents,
+        [NAKO_ADMIN_ROUTES.jobs]: mockJobs,
+        [NAKO_ADMIN_ROUTES.playbackSessions]: mockPlaybackSessions,
+        [NAKO_ADMIN_ROUTES.playbackRuntime]: mockPlaybackRuntime,
+        [NAKO_ADMIN_ROUTES.storageStaging]: mockStorageStaging,
+        [NAKO_ADMIN_ROUTES.systemConfig]: mockSystemConfig,
       }),
     });
 
@@ -88,18 +88,18 @@ describe("Admin data source", () => {
     expect(data.addons.installGuide).toMatchObject({
       addonName: "Subtitle Lab",
       dockerCompose: {
-        filename: "compose.dev-taru-subtitle-lab.yml",
+        filename: "compose.dev-nako-subtitle-lab.yml",
       },
       lifecycleBoundary: {
-        taruManagesContainers: false,
-        taruManagesProcesses: false,
+        nakoManagesContainers: false,
+        nakoManagesProcesses: false,
       },
     });
     expect(data.addons.installGuide?.secretReferences[0]).toMatchObject({
       envVar: "ADDON_SECRET_SUBTITLE_PROVIDER_KEY",
       placeholder: "secret-reference:subtitle-provider-key",
     });
-    expect(data.addons.tokens[0].tokenPrefix).toBe("taru_at_subtitle");
+    expect(data.addons.tokens[0].tokenPrefix).toBe("nako_at_subtitle");
     expect(data.addons.grants[0]).toMatchObject({
       permission: "subtitle_write",
       libraryId: "library-anime",
@@ -141,24 +141,24 @@ describe("Admin data source", () => {
   it("falls back per section when one Admin API read model fails", async () => {
     const dataSource = createAdminDataSource({
       fetcher: fetcherFor({
-        [TARU_ADMIN_ROUTES.overview]: mockOverview,
-        [TARU_ADMIN_ROUTES.addons]: new Response("offline", { status: 503 }),
-        [TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDetail,
-        [TARU_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab")]: mockAddonHealth,
-        [TARU_ADMIN_ROUTES.addonSurfaces.replace(":addon_id", "addon-subtitle-lab")]: mockAddonSurfaces,
-        [TARU_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab")]: mockAddonInstallGuide,
-        [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`]: mockAddonTokens,
-        [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`]: mockAddonGrants,
-        [TARU_ADMIN_ROUTES.addonResourceCallDiagnostic.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDiagnostic,
-        [TARU_ADMIN_ROUTES.acquisitionIntakeCandidates]: mockAcquisitionIntakeCandidates,
-        [TARU_ADMIN_ROUTES.catalogGovernanceItems]: mockCatalogGovernance,
-        [TARU_ADMIN_ROUTES.generatedArtifactProposals]: mockGeneratedArtifactProposals,
-        [TARU_ADMIN_ROUTES.events]: mockEvents,
-        [TARU_ADMIN_ROUTES.jobs]: new Response("offline", { status: 503 }),
-        [TARU_ADMIN_ROUTES.playbackSessions]: mockPlaybackSessions,
-        [TARU_ADMIN_ROUTES.playbackRuntime]: mockPlaybackRuntime,
-        [TARU_ADMIN_ROUTES.storageStaging]: mockStorageStaging,
-        [TARU_ADMIN_ROUTES.systemConfig]: mockSystemConfig,
+        [NAKO_ADMIN_ROUTES.overview]: mockOverview,
+        [NAKO_ADMIN_ROUTES.addons]: new Response("offline", { status: 503 }),
+        [NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDetail,
+        [NAKO_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab")]: mockAddonHealth,
+        [NAKO_ADMIN_ROUTES.addonSurfaces.replace(":addon_id", "addon-subtitle-lab")]: mockAddonSurfaces,
+        [NAKO_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab")]: mockAddonInstallGuide,
+        [`${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`]: mockAddonTokens,
+        [`${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`]: mockAddonGrants,
+        [NAKO_ADMIN_ROUTES.addonResourceCallDiagnostic.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDiagnostic,
+        [NAKO_ADMIN_ROUTES.acquisitionIntakeCandidates]: mockAcquisitionIntakeCandidates,
+        [NAKO_ADMIN_ROUTES.catalogGovernanceItems]: mockCatalogGovernance,
+        [NAKO_ADMIN_ROUTES.generatedArtifactProposals]: mockGeneratedArtifactProposals,
+        [NAKO_ADMIN_ROUTES.events]: mockEvents,
+        [NAKO_ADMIN_ROUTES.jobs]: new Response("offline", { status: 503 }),
+        [NAKO_ADMIN_ROUTES.playbackSessions]: mockPlaybackSessions,
+        [NAKO_ADMIN_ROUTES.playbackRuntime]: mockPlaybackRuntime,
+        [NAKO_ADMIN_ROUTES.storageStaging]: mockStorageStaging,
+        [NAKO_ADMIN_ROUTES.systemConfig]: mockSystemConfig,
       }),
     });
 
@@ -177,7 +177,7 @@ describe("Admin data source", () => {
   it("exposes safe Addon action methods through the data-source seam", async () => {
     const dataSource = createAdminDataSource({
       fetcher: fetcherFor({
-        [TARU_ADMIN_ROUTES.addonStatus.replace(":addon_id", "addon-subtitle-lab")]: {
+        [NAKO_ADMIN_ROUTES.addonStatus.replace(":addon_id", "addon-subtitle-lab")]: {
           ...mockAddonDetail,
           addon: {
             ...mockAddonDetail.addon,
@@ -187,12 +187,12 @@ describe("Admin data source", () => {
             },
           },
         },
-        [TARU_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab")]: {
+        [NAKO_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab")]: {
           ...mockAddonHealth,
           status: "degraded",
           safe_error_code: "latency_budget_exceeded",
         },
-        [TARU_ADMIN_ROUTES.addonResourceCallDiagnostic.replace(":addon_id", "addon-subtitle-lab")]: {
+        [NAKO_ADMIN_ROUTES.addonResourceCallDiagnostic.replace(":addon_id", "addon-subtitle-lab")]: {
           ...mockAddonDiagnostic,
           status: "retryable_http_failure",
           http_status: 503,
@@ -222,7 +222,7 @@ describe("Admin data source", () => {
     const dataSource = createAdminDataSource({
       fetcher: async (input: string | URL | Request, init?: RequestInit) => {
         const url = new URL(input.toString(), "http://127.0.0.1");
-        if (url.pathname === TARU_ADMIN_ROUTES.addons && init?.method === "POST") {
+        if (url.pathname === NAKO_ADMIN_ROUTES.addons && init?.method === "POST") {
           postedBody = JSON.parse(String(init.body));
           return Response.json({
             ...mockAddonDetail,
@@ -259,7 +259,7 @@ describe("Admin data source", () => {
       },
       nextSteps: [
         "Open the generated Addon Install Guide",
-        "Start the Addon Sidecar outside Taru",
+        "Start the Addon Sidecar outside Nako",
         "Run Addon Health Check before enabling",
       ],
     });
@@ -285,27 +285,27 @@ describe("Admin data source", () => {
   it("exposes Addon credential and grant onboarding actions without putting raw tokens in load data", async () => {
     const dataSource = createAdminDataSource({
       fetcher: fetcherFor({
-        [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`]: {
+        [`${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`]: {
           token: mockAddonTokens.tokens[0],
-          raw_token: "taru_at_one_time_raw_token",
+          raw_token: "nako_at_one_time_raw_token",
         },
-        [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens/addon-token-active/rotate`]: {
+        [`${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens/addon-token-active/rotate`]: {
           rotated: mockAddonTokens.tokens[0],
           token: {
             ...mockAddonTokens.tokens[0],
             id: "addon-token-rotated",
-            token_prefix: "taru_at_rotated",
+            token_prefix: "nako_at_rotated",
           },
-          raw_token: "taru_at_rotated_one_time_raw_token",
+          raw_token: "nako_at_rotated_one_time_raw_token",
         },
-        [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens/addon-token-active/revoke`]: {
+        [`${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens/addon-token-active/revoke`]: {
           token: {
             ...mockAddonTokens.tokens[0],
             status: "revoked",
             revoked_at: "2026-05-22T03:00:00.000Z",
           },
         },
-        [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`]: {
+        [`${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`]: {
           grants: [
             {
               id: "addon-grant-metadata",
@@ -320,13 +320,13 @@ describe("Admin data source", () => {
     });
 
     await expect(dataSource.issueAddonToken?.("addon-subtitle-lab", "sidecar runtime")).resolves.toMatchObject({
-      rawToken: "taru_at_one_time_raw_token",
+      rawToken: "nako_at_one_time_raw_token",
       token: {
-        tokenPrefix: "taru_at_subtitle",
+        tokenPrefix: "nako_at_subtitle",
       },
     });
     await expect(dataSource.rotateAddonToken?.("addon-subtitle-lab", "addon-token-active", "replacement")).resolves.toMatchObject({
-      rawToken: "taru_at_rotated_one_time_raw_token",
+      rawToken: "nako_at_rotated_one_time_raw_token",
       token: {
         id: "addon-token-rotated",
       },
@@ -348,23 +348,23 @@ describe("Admin data source", () => {
 
     const loaded = await createAdminDataSource({
       fetcher: fetcherFor({
-        [TARU_ADMIN_ROUTES.overview]: mockOverview,
-        [TARU_ADMIN_ROUTES.addons]: mockAddons,
-        [TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDetail,
-        [TARU_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab")]: mockAddonHealth,
-        [TARU_ADMIN_ROUTES.addonSurfaces.replace(":addon_id", "addon-subtitle-lab")]: mockAddonSurfaces,
-        [TARU_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab")]: mockAddonInstallGuide,
-        [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`]: mockAddonTokens,
-        [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`]: mockAddonGrants,
-        [TARU_ADMIN_ROUTES.addonResourceCallDiagnostic.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDiagnostic,
-        [TARU_ADMIN_ROUTES.acquisitionIntakeCandidates]: mockAcquisitionIntakeCandidates,
-        [TARU_ADMIN_ROUTES.catalogGovernanceItems]: mockCatalogGovernance,
-        [TARU_ADMIN_ROUTES.events]: mockEvents,
-        [TARU_ADMIN_ROUTES.jobs]: mockJobs,
-        [TARU_ADMIN_ROUTES.playbackSessions]: mockPlaybackSessions,
-        [TARU_ADMIN_ROUTES.playbackRuntime]: mockPlaybackRuntime,
-        [TARU_ADMIN_ROUTES.storageStaging]: mockStorageStaging,
-        [TARU_ADMIN_ROUTES.systemConfig]: mockSystemConfig,
+        [NAKO_ADMIN_ROUTES.overview]: mockOverview,
+        [NAKO_ADMIN_ROUTES.addons]: mockAddons,
+        [NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDetail,
+        [NAKO_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab")]: mockAddonHealth,
+        [NAKO_ADMIN_ROUTES.addonSurfaces.replace(":addon_id", "addon-subtitle-lab")]: mockAddonSurfaces,
+        [NAKO_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab")]: mockAddonInstallGuide,
+        [`${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`]: mockAddonTokens,
+        [`${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`]: mockAddonGrants,
+        [NAKO_ADMIN_ROUTES.addonResourceCallDiagnostic.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDiagnostic,
+        [NAKO_ADMIN_ROUTES.acquisitionIntakeCandidates]: mockAcquisitionIntakeCandidates,
+        [NAKO_ADMIN_ROUTES.catalogGovernanceItems]: mockCatalogGovernance,
+        [NAKO_ADMIN_ROUTES.events]: mockEvents,
+        [NAKO_ADMIN_ROUTES.jobs]: mockJobs,
+        [NAKO_ADMIN_ROUTES.playbackSessions]: mockPlaybackSessions,
+        [NAKO_ADMIN_ROUTES.playbackRuntime]: mockPlaybackRuntime,
+        [NAKO_ADMIN_ROUTES.storageStaging]: mockStorageStaging,
+        [NAKO_ADMIN_ROUTES.systemConfig]: mockSystemConfig,
       }),
     }).load();
 

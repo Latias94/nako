@@ -5,9 +5,9 @@ Last updated: 2026-05-18
 
 ## Current State
 
-This lane is closed. Taru now has the first concrete Addon protected write:
+This lane is closed. Nako now has the first concrete Addon protected write:
 accepted `metadata_write` Addon Side Effects can apply a bounded Canonical
-Metadata patch through Taru-owned metadata and catalog/search seams.
+Metadata patch through Nako-owned metadata and catalog/search seams.
 
 The shipped model separates Addon Side Effect intake validation from domain
 apply outcome. `validation_status = accepted` means addon principal,
@@ -40,7 +40,7 @@ than mapping addon writes to fake provider provenance.
   Metadata instead of keeping artwork, subtitle, NFO, and sidecar-file breadth
   in one lane.
 - Split `artwork_write`, Artwork Candidate, Managed Artwork, and
-  Taru-Managed Artifact storage to
+  Nako-Managed Artifact storage to
   `docs/workstreams/addon-managed-artwork-artifacts/`.
 - Split subtitle, NFO, and sidecar-asset Library File Write policy to
   `docs/workstreams/addon-library-file-write-policy/`.
@@ -58,13 +58,13 @@ than mapping addon writes to fake provider provenance.
 
 ## APW-030 Outcome
 
-- `crates/taru-db/migrations/0023_addon_side_effect_apply_outcome.sql` adds
+- `crates/nako-db/migrations/0023_addon_side_effect_apply_outcome.sql` adds
   `apply_status`, `apply_error_code`, `applied_item_id`, `applied_source`, and
   `applied_at` to Addon Side Effect records.
-- `crates/taru-core/src/media/metadata.rs` defines
-  `MetadataSource::Addon(AddonId)`. `crates/taru-db/src/codec.rs` persists it
+- `crates/nako-core/src/media/metadata.rs` defines
+  `MetadataSource::Addon(AddonId)`. `crates/nako-db/src/codec.rs` persists it
   as `source = addon`, `source_key = <addon_id>`.
-- `crates/taru-server/src/app/addons.rs` keeps HTTP thin by authenticating,
+- `crates/nako-server/src/app/addons.rs` keeps HTTP thin by authenticating,
   validating, and recording intake before application-service helpers normalize
   and apply `metadata_write`.
 - `metadata_write` supports title-like fields, overview, release date, runtime,

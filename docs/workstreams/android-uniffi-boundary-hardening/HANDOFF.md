@@ -20,11 +20,11 @@ None.
   core.
 - Keep native smoke script opt-in; ordinary JVM validation must not require a
   connected device.
-- `TaruConnectionClient` should depend on Android-owned `ConnectionCoreOutcome`
+- `NakoConnectionClient` should depend on Android-owned `ConnectionCoreOutcome`
   values, not generated UniFFI outcome/request records.
-- `taru-client-core` keeps a stable public API through `lib.rs`; implementation
+- `nako-client-core` keeps a stable public API through `lib.rs`; implementation
   locality now lives in focused modules.
-- `scripts/guard-uniffi-boundary.ps1` protects `taru-client-uniffi` from direct
+- `scripts/guard-uniffi-boundary.ps1` protects `nako-client-uniffi` from direct
   dependency drift and forbidden runtime/platform transitive dependencies.
 - Native smoke is now scriptable with `apps/android/scripts/Validate-UniFfiNativeSmoke.ps1`.
   OPPO was disconnected during UBF-050, so the fresh runtime script proof used
@@ -38,5 +38,5 @@ None.
 ## Next Recommended Action
 
 Start a new workstream for browse/catalog route construction through
-`taru-client-core`, or wire the boundary guard/native smoke script into CI or a
+`nako-client-core`, or wire the boundary guard/native smoke script into CI or a
 release recipe if release automation is the priority.

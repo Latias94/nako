@@ -36,10 +36,10 @@ Exit criteria:
 
 Primary evidence:
 
-- `crates/taru-core/src/automation.rs`
-- `crates/taru-db`
-- `crates/taru-automation`
-- `crates/taru-server/src/app/automation.rs`
+- `crates/nako-core/src/automation.rs`
+- `crates/nako-db`
+- `crates/nako-automation`
+- `crates/nako-server/src/app/automation.rs`
 
 ## M2 — Admin Proposal Diagnostics
 
@@ -49,16 +49,16 @@ Exit criteria:
 
 - [x] Admin-only routes expose bounded Generated Artifact proposal diagnostics.
 - [x] Admin TypeScript contract and typed client/mocks are synchronized.
-- [x] Public Client API and `taru-client-protocol` remain unchanged.
+- [x] Public Client API and `nako-client-protocol` remain unchanged.
 - [x] Redaction tests cover prompts, raw generated payloads, provider secrets, raw
   Source Locators, local paths, and provider responses.
 
 Primary evidence:
 
-- `crates/taru-api/src/admin.rs`
-- `crates/taru-server/src/http/admin.rs`
+- `crates/nako-api/src/admin.rs`
+- `crates/nako-server/src/http/admin.rs`
 - `apps/admin-web/src/adminApi`
-- `crates/taru-server/src/http/tests/system.rs`
+- `crates/nako-server/src/http/tests/system.rs`
 
 ## M3 — Acceptance Planning Without Autonomous Writes
 
@@ -74,10 +74,10 @@ Exit criteria:
 
 Primary evidence:
 
-- `crates/taru-server/src/app/automation.rs`
-- `crates/taru-server/src/app/tests/automation.rs`
-- `crates/taru-api/src/admin.rs`
-- `crates/taru-server/src/http/tests/system.rs`
+- `crates/nako-server/src/app/automation.rs`
+- `crates/nako-server/src/app/tests/automation.rs`
+- `crates/nako-api/src/admin.rs`
+- `crates/nako-server/src/http/tests/system.rs`
 
 ## M4 — Closeout And Follow-On Split
 

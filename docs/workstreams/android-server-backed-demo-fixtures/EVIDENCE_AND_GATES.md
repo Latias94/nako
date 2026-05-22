@@ -12,7 +12,7 @@ pwsh -NoProfile -File apps\android\scripts\Smoke-Emulator.ps1 -FixtureState prof
 ```
 
 This prepares the generated `Night Harbor` server fixture through real
-`taru-server scan` and `import-nfo`, starts a short-lived local server, seeds a
+`nako-server scan` and `import-nfo`, starts a short-lived local server, seeds a
 debug-only Android Server Profile and encrypted token value, and captures Home,
 detail, source picker, and player-safe launch evidence.
 
@@ -61,7 +61,7 @@ pwsh -NoProfile -File apps\android\scripts\Start-DemoFixtureServer.ps1 -PrepareO
 ```
 
 For request-level validation, start the generated config with
-`taru-server --config apps/android/build/demo-fixtures/server-backed/taru.toml
+`nako-server --config apps/android/build/demo-fixtures/server-backed/nako.toml
 serve`, then check:
 
 - fixture responses use Public Client API route shapes;
@@ -89,9 +89,9 @@ to the shipped slice.
 - `apps/android/SMOKE_FIXTURES.md`
 - `apps/android/scripts/Start-DemoFixtureServer.ps1`
 - `apps/android/scripts/Smoke-Emulator.ps1`
-- `apps/android/app/src/debug/java/dev/taru/android/smoke/DebugSmokeFixtureSeedActivity.kt`
-- `apps/android/app/src/main/java/dev/taru/android/playback/PlaybackModels.kt`
-- `crates/taru-api/src/openapi.rs`
+- `apps/android/app/src/debug/java/dev/nako/android/smoke/DebugSmokeFixtureSeedActivity.kt`
+- `apps/android/app/src/main/java/dev/nako/android/playback/PlaybackModels.kt`
+- `crates/nako-api/src/openapi.rs`
 
 ## Current Evidence
 
@@ -107,7 +107,7 @@ to the shipped slice.
 - `ASD-020` completed as a route discovery and fixture strategy slice.
 - `ROUTE_MATRIX.md` maps Android Home, Libraries, Search, detail, facet, source
   picker, and player-safe launch surfaces to existing Public Client API routes.
-- The first provider strategy is a seeded local `taru-server` reached by
+- The first provider strategy is a seeded local `nako-server` reached by
   Android through `adb reverse`; a public-route-compatible local test-server
   harness remains a fallback.
 - Review note: first player smoke should prefer direct-play MP4. Android's
@@ -134,7 +134,7 @@ to the shipped slice.
   - combined public responses did not contain `input_locator`, `file:///`,
     `G:/`, `G:\`, `ffmpeg`, or `demo-fixture-token`.
 - Focused Android gate passed:
-  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.playback.TaruPlaybackClientTest --tests dev.taru.android.ui.screens.sourcepicker.SourcePickerDisplayModelTest --no-daemon`.
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.playback.NakoPlaybackClientTest --tests dev.nako.android.ui.screens.sourcepicker.SourcePickerDisplayModelTest --no-daemon`.
 - Full Android unit gate passed:
   `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`.
 - Android debug build gate passed:
@@ -150,11 +150,11 @@ to the shipped slice.
   and the token value through `AndroidSecureTokenVault`.
 - Added `profile-with-media` to `apps/android/scripts/Smoke-Emulator.ps1`.
   The script now prepares the server-backed fixture, starts a short-lived
-  `taru-server`, applies `adb reverse`, seeds the debug profile/token, navigates
+  `nako-server`, applies `adb reverse`, seeds the debug profile/token, navigates
   Home -> detail -> source picker -> player, and removes the reverse mapping
   when it exits.
 - Focused debug seed test passed:
-  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.smoke.DebugSmokeFixtureSeedActivityTest --no-daemon`.
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.smoke.DebugSmokeFixtureSeedActivityTest --no-daemon`.
 - Media smoke gate passed:
   `pwsh -NoProfile -File apps\android\scripts\Smoke-Emulator.ps1 -FixtureState profile-with-media`.
 - Smoke evidence was generated at
@@ -168,15 +168,15 @@ to the shipped slice.
   - `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`;
   - `apps\android\gradlew.bat -p apps\android :app:assembleDebug --no-daemon`;
   - `pwsh -NoProfile -File apps\android\scripts\Start-DemoFixtureServer.ps1 -PrepareOnly -SkipBuild`;
-  - `cargo check -p taru-server`;
-  - `cargo build -p taru-server -vv`;
+  - `cargo check -p nako-server`;
+  - `cargo build -p nako-server -vv`;
   - `pwsh -NoProfile -File apps\android\scripts\Smoke-Emulator.ps1 -FixtureState profile-with-media`;
   - `git diff --check`.
-- Cleanup checks passed: no `taru-server` process remained after smoke, and
+- Cleanup checks passed: no `nako-server` process remained after smoke, and
   `adb reverse --list` had no residual reverse mapping.
 - The first attempt at the full smoke gate hit a transient `cargo build
-  -p taru-server` failure after warnings only; immediate focused `cargo check`
-  and `cargo build -p taru-server -vv` passed, and the full smoke gate passed
+  -p nako-server` failure after warnings only; immediate focused `cargo check`
+  and `cargo build -p nako-server -vv` passed, and the full smoke gate passed
   on rerun.
 
 ## Notes

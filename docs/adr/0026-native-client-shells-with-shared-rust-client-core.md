@@ -4,7 +4,7 @@ Status: accepted
 
 ## Context
 
-Taru's server-side Public Client API, protocol DTOs, OpenAPI contract,
+Nako's server-side Public Client API, protocol DTOs, OpenAPI contract,
 TypeScript SDK, Rust SDK, and Rust client CLI already make client applications
 protocol-first rather than framework-first. `CONTEXT.md` also treats Flutter,
 web, native apps, and future clients as **Client Applications** that consume
@@ -19,24 +19,24 @@ media-server client must eventually own high-quality playback behavior:
 - subtitles, audio tracks, chapters, and playback session control;
 - picture-in-picture, media sessions, route selection, remote controls,
   background behavior, and TV-style focus/navigation;
-- direct, remux, and HLS playback surfaces exposed by Taru;
+- direct, remux, and HLS playback surfaces exposed by Nako;
 - offline/download behavior and local cache coordination;
 - platform-specific error recovery and diagnostics.
 
 Cross-platform UI frameworks can produce useful client applications, but the
 flagship playback experience depends on the platform media stack. iOS playback
 depth comes from AVFoundation/AVKit. Android playback depth comes from Media3
-ExoPlayer. Taru should avoid putting a Flutter, KMP, or web assumption into
+ExoPlayer. Nako should avoid putting a Flutter, KMP, or web assumption into
 the Public Client API or playback runtime contract.
 
 `repo-ref/litter` is useful reference architecture for this direction: it uses
 native iOS and Android shells with shared Rust logic through UniFFI, keeping
 platform code focused on UI and platform APIs while shared state and protocol
-logic live in Rust. Taru should copy the architectural lesson, not the source.
+logic live in Rust. Nako should copy the architectural lesson, not the source.
 
 ## Decision
 
-Taru's flagship media playback clients should use native platform shells with
+Nako's flagship media playback clients should use native platform shells with
 a shared Rust client core.
 
 - iOS clients should use Swift/SwiftUI with AVFoundation/AVKit for playback.
@@ -44,8 +44,8 @@ a shared Rust client core.
   playback.
 - Future tvOS, Android TV, desktop, or living-room clients should follow the
   same principle: use the platform-native media stack for primary playback.
-- The shared Rust client core should reuse `taru-client` and
-  `taru-client-protocol` where practical, exposed to mobile platforms through
+- The shared Rust client core should reuse `nako-client` and
+  `nako-client-protocol` where practical, exposed to mobile platforms through
   a narrow FFI boundary such as UniFFI.
 - Shared Rust code may own Public Client API calls, bearer-token handling,
   API-version checks, public error-envelope handling, DTO hydration, browse and
@@ -61,7 +61,7 @@ a shared Rust client core.
 - Web should be treated first as an admin, setup, remote-control, and light
   browsing surface unless a separate ADR accepts a web-first playback target.
 
-The server-side **Playback Runtime** remains Taru-owned. Native clients consume
+The server-side **Playback Runtime** remains Nako-owned. Native clients consume
 public playback decisions, direct/remux/HLS URLs, session inspection, and
 session cancellation through the Public Client API. Clients must not bypass
 **Playback Source Selection**, **Library Access**, or server-owned playback
@@ -69,7 +69,7 @@ resource policy by inferring local storage paths or internal server state.
 
 ## Consequences
 
-- Taru optimizes the long-term playback user experience over lowest common
+- Nako optimizes the long-term playback user experience over lowest common
   denominator cross-platform UI reuse.
 - Client implementation cost is higher because iOS and Android UI/player
   shells are separate applications.
@@ -98,13 +98,13 @@ resource policy by inferring local storage paths or internal server state.
   SDK/protocol boundary.
 - Web-first client. Rejected for flagship playback because browser playback,
   background behavior, route control, TV ergonomics, and platform integration
-  are not enough for Taru's intended deep media-client experience. Web remains
+  are not enough for Nako's intended deep media-client experience. Web remains
   useful for administration, setup, remote control, and lightweight access.
 - Fully native clients with no shared client core. Rejected because it would
   duplicate auth, API-version checks, error envelope parsing, playback request
   construction, and DTO hydration across platforms.
 - Shared Rust core owning the player abstraction. Rejected because playback
-  runtime should be platform-native on clients and Taru-owned on the server.
+  runtime should be platform-native on clients and Nako-owned on the server.
   Rust can construct requests and interpret decisions, but the native shell
   should own the actual playback engine.
 

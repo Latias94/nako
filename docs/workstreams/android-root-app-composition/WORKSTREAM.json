@@ -5,7 +5,7 @@
   "status": "closed",
   "updated": "2026-05-20",
   "scope_kind": "architecture",
-  "problem": "TaruAndroidApp still owns the root Android dependency graph and app session construction directly.",
+  "problem": "NakoAndroidApp still owns the root Android dependency graph and app session construction directly.",
   "summary": "Closed lane introducing a root composition module so the UI root renders an app environment instead of wiring every client and store directly.",
   "current_milestone": null,
   "current_task": null,
@@ -33,8 +33,8 @@
     }
   ],
   "gates": [
-    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.taru.android.ui.TaruAppCompositionTest --no-daemon --no-parallel",
-    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.taru.android.ui.* --no-daemon --no-parallel",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.nako.android.ui.NakoAppCompositionTest --no-daemon --no-parallel",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.nako.android.ui.* --no-daemon --no-parallel",
     "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --no-daemon --no-parallel",
     "git diff --check"
   ],
@@ -46,13 +46,13 @@
     },
     {
       "task": "ARAC-020",
-      "path": "apps/android/app/src/test/java/dev/taru/android/ui/TaruAppCompositionTest.kt",
+      "path": "apps/android/app/src/test/java/dev/nako/android/ui/NakoAppCompositionTest.kt",
       "notes": "Focused root composition tests passed on 2026-05-20."
     },
     {
       "task": "ARAC-030",
-      "path": "apps/android/app/src/main/java/dev/taru/android/ui/TaruAndroidApp.kt",
-      "notes": "Root content now renders from TaruAppEnvironment and TaruAppSession."
+      "path": "apps/android/app/src/main/java/dev/nako/android/ui/NakoAndroidApp.kt",
+      "notes": "Root content now renders from NakoAppEnvironment and NakoAppSession."
     },
     {
       "task": "ARAC-040",

@@ -5,7 +5,7 @@
   "status": "completed",
   "updated": "2026-05-19",
   "scope_kind": "execution",
-  "problem": "Queued managed artwork ingest jobs need a Taru-owned fetch, validation, and internal artifact byte storage boundary before candidate artwork can be served, thumbnailed, selected, or published.",
+  "problem": "Queued managed artwork ingest jobs need a Nako-owned fetch, validation, and internal artifact byte storage boundary before candidate artwork can be served, thumbnailed, selected, or published.",
   "authoritative_docs": [
     {
       "role": "overview",
@@ -30,7 +30,7 @@
   ],
   "gates": [
     "rg -n \"ManagedArtworkIngest|managed_artwork_ingest|managed_artwork_artifacts|JobKind::ManagedArtworkIngest|artwork.ingest|storage_uri|ImageAsset|cache_uri|source_uri|thumbnail\" crates docs",
-    "cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests",
+    "cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-vfs --tests",
     "cargo fmt --all -- --check",
     "git diff --check"
   ],
@@ -38,13 +38,13 @@
     "docs/workstreams/managed-artwork-fetch-artifact-storage/DESIGN.md",
     "docs/workstreams/managed-artwork-fetch-artifact-storage/TODO.md",
     "docs/workstreams/managed-artwork-ingest-selection/HANDOFF.md",
-    "crates/taru-core/src/media/artwork.rs",
-    "crates/taru-core/src/job.rs",
-    "crates/taru-db/migrations/0026_managed_artwork_ingest.sql",
-    "crates/taru-db/src/artwork.rs",
-    "crates/taru-server/src/app/artwork.rs",
-    "crates/taru-server/src/app/job_runtime.rs",
-    "crates/taru-vfs"
+    "crates/nako-core/src/media/artwork.rs",
+    "crates/nako-core/src/job.rs",
+    "crates/nako-db/migrations/0026_managed_artwork_ingest.sql",
+    "crates/nako-db/src/artwork.rs",
+    "crates/nako-server/src/app/artwork.rs",
+    "crates/nako-server/src/app/job_runtime.rs",
+    "crates/nako-vfs"
   ],
   "adr_refs": [
     "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",

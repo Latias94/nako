@@ -6,7 +6,7 @@ Last updated: 2026-05-19
 ## Problem
 
 `managed-artwork-fetch-artifact-storage` intentionally stopped at internal
-artifact storage. Taru can now store validated Managed Artwork bytes, but Public
+artifact storage. Nako can now store validated Managed Artwork bytes, but Public
 Client applications still have no safe image reference for those artifacts.
 The existing catalog image surface was designed earlier around `ImageAsset` and
 still exposes provider/cache-oriented fields:
@@ -18,7 +18,7 @@ still exposes provider/cache-oriented fields:
 - OpenAPI schemas and HTTP docs that still describe public `ImageAsset` rows
 
 That model is not acceptable for Managed Artwork. A Public Client image
-reference must be a Taru-owned route or opaque identifier, while the
+reference must be a Nako-owned route or opaque identifier, while the
 `managed-artwork://...` storage URI, local artifact path, source URL, cache URI,
 and Addon/provider provenance stay internal or Admin-redacted.
 
@@ -113,7 +113,7 @@ Use a new Selected Artwork table/read model instead of overloading
 Rationale:
 
 - `ImageAsset` currently mixes provenance, cache, selection, and public shape.
-- Public selection should point at Taru-owned Managed Artwork bytes, not at a
+- Public selection should point at Nako-owned Managed Artwork bytes, not at a
   provider URL or cache URI.
 - A stable public image ID can remain constant across reselection while the
   artifact pointer and ETag change.
@@ -157,7 +157,7 @@ publishable.
 
 ### Application Service
 
-Add a Taru-owned publication method, likely under the artwork app service:
+Add a Nako-owned publication method, likely under the artwork app service:
 
 1. Load the stored Managed Artwork Artifact.
 2. Verify it belongs to an existing item and library.
@@ -216,7 +216,7 @@ Public protocol changes:
   protocol DTOs. A future browse summary can add selected public artwork
   explicitly if list/search cards need images.
 - Delete or make non-public `ImageAssetDto` and `ImageRefDto` from
-  `taru-client-protocol`.
+  `nako-client-protocol`.
 - Update OpenAPI to define `PublicImageRefDto`, remove the old image URI/cache
   schemas, and add `/images/{image_id}` as a binary response route.
 
@@ -277,13 +277,13 @@ deferred unless required by a focused correctness test.
 ### Legacy ImageAsset Policy
 
 `ImageAsset` remains an internal catalog/provenance model during this lane. It
-is still used by `taru-catalog` and existing catalog repository tests for
+is still used by `nako-catalog` and existing catalog repository tests for
 provider/local image facts. It is not the public selected-artwork authority.
 
 MAPS-040 should remove these public adapter paths:
 
-- `taru_api::image_asset_to_dto`
-- `ImageAssetDto` from `taru-client-protocol`
+- `nako_api::image_asset_to_dto`
+- `ImageAssetDto` from `nako-client-protocol`
 - `ImageRefDto.uri` from `CanonicalMetadataDto`
 - OpenAPI `ImageAssetDto` and `ImageRefDto` schemas
 - Public catalog responses backed by `store.list_item_images`
@@ -298,7 +298,7 @@ metadata provenance, or migrated into Artwork Candidate/Managed Artwork flows.
 | --- | --- | --- | --- |
 | Public Client routes are already protected by the API auth boundary. | High | `access-boundary-auth` and current route structure | Add focused route tests if serving bytes introduces a new router branch. |
 | Stored artifacts have enough metadata for public references before thumbnails. | High | MAFA records width, height, media type, byte length, content hash | Keep thumbnails split; serve original validated bytes first. |
-| `ImageAssetDto` and `ImageRefDto.uri` are public leak risks. | High | `taru-client-protocol` and `taru-api::openapi` expose these fields | Replace the public DTO shape and add serialization tests that reject these fields. |
+| `ImageAssetDto` and `ImageRefDto.uri` are public leak risks. | High | `nako-client-protocol` and `nako-api::openapi` expose these fields | Replace the public DTO shape and add serialization tests that reject these fields. |
 | Selection should be explicit, not automatic after ingest. | Medium | Previous lanes intentionally avoided publication | Add an Admin publish command first; later lanes can add policy-driven auto-selection. |
 
 ## Non-Goals And Splits

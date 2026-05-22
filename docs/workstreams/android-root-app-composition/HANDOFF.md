@@ -13,8 +13,8 @@ No active task remains in this workstream.
 
 ## File Scope
 
-- `apps/android/app/src/main/java/dev/taru/android/ui/`
-- `apps/android/app/src/test/java/dev/taru/android/ui/`
+- `apps/android/app/src/main/java/dev/nako/android/ui/`
+- `apps/android/app/src/test/java/dev/nako/android/ui/`
 - Workstream docs under this directory.
 
 ## Validation
@@ -22,8 +22,8 @@ No active task remains in this workstream.
 Run:
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.TaruAppCompositionTest --no-daemon --no-parallel
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.* --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.NakoAppCompositionTest --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.* --no-daemon --no-parallel
 apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon --no-parallel
 git diff --check
 ```
@@ -35,4 +35,4 @@ git diff --check
 - Do not touch generated `output/` or `tmp/`.
 - Future root-wide concerns such as auth/session refresh, app-wide preference
   composition, dynamic color policy, or telemetry should enter through
-  `TaruAppEnvironment` or a successor root composition module.
+  `NakoAppEnvironment` or a successor root composition module.

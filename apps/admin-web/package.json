@@ -1,12 +1,12 @@
 {
-  "name": "@taru/admin-web",
+  "name": "@nako/admin-web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Taru admin web console scaffold.",
+  "description": "Nako admin web console scaffold.",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "generate:admin-api": "cargo run -q --manifest-path ../../Cargo.toml -p taru-api --example emit-admin-typescript-contract -- --output src/adminApi/generated/contract.ts",
+    "generate:admin-api": "cargo run -q --manifest-path ../../Cargo.toml -p nako-api --example emit-admin-typescript-contract -- --output src/adminApi/generated/contract.ts",
     "build": "tsc -b && vite build",
     "check": "tsc -b",
     "test": "vitest run",

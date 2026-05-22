@@ -11,7 +11,7 @@ Last updated: 2026-05-17
 - load a catalog hydration lookup containing match vectors;
 - commit a graph replacement and search document.
 
-This leaks too much `taru-catalog` implementation detail across the seam. A
+This leaks too much `nako-catalog` implementation detail across the seam. A
 metadata refresh fake port must know about `CatalogHydrationLookup` and build
 empty person/genre/tag/collection/studio/image vectors just to say "hydration
 was requested." The interface is therefore shallow: callers see nearly as much
@@ -19,7 +19,7 @@ process detail as the implementation.
 
 ## Target State
 
-- Callers outside `taru-catalog` depend on a single workflow operation:
+- Callers outside `nako-catalog` depend on a single workflow operation:
   hydrate this item from this metadata source.
 - Snapshot, lookup, and commit types are no longer part of the public adapter
   surface unless a real caller proves they are needed.

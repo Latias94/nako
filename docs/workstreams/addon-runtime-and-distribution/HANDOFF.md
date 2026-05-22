@@ -41,7 +41,7 @@ Addon Manager automation or Native Plugin runtime.
   - `verify-rust-workstream` final evidence for the lane
   - `python -m json.tool` for local and parent WORKSTREAM.json files
   - `git diff --check`
-  - `git diff --name-only -- crates/taru-client-protocol`
+  - `git diff --name-only -- crates/nako-client-protocol`
 - Status: DONE
 - Review: close the lane or split follow-ons for Addon Manager discovery/
   install/update, package signing, marketplace, process supervision, logs,
@@ -60,8 +60,8 @@ Progress so far:
   /admin/v1/addons/install-guide-preview`.
 - Added focused Admin route tests proving no admin token, Addon Token, raw
   secret value, local path, or raw package content is echoed.
-- Ran focused protocol/Admin tests plus `cargo nextest run -p taru-server addons
-  --no-fail-fast` and `cargo nextest run -p taru-api --no-fail-fast`.
+- Ran focused protocol/Admin tests plus `cargo nextest run -p nako-server addons
+  --no-fail-fast` and `cargo nextest run -p nako-api --no-fail-fast`.
 - Added Admin-only runtime readiness DTOs, app checks, and `POST
   /admin/v1/addons/{addon_id}/runtime-readiness`.
 - Added Admin Web generated contract/client support for runtime readiness.
@@ -91,16 +91,16 @@ Progress so far:
 
 Validation so far:
 
-- `cargo check -p taru-api -p taru-server --tests`
-- `cargo nextest run -p taru-server addon_generated_artifact_handoff --no-fail-fast`
-- `cargo nextest run -p taru-server addon_acquisition_candidate_handoff --no-fail-fast`
-- `cargo nextest run -p taru-server addon_handoff --no-fail-fast`
-- `cargo nextest run -p taru-api admin_contract --no-fail-fast`
+- `cargo check -p nako-api -p nako-server --tests`
+- `cargo nextest run -p nako-server addon_generated_artifact_handoff --no-fail-fast`
+- `cargo nextest run -p nako-server addon_acquisition_candidate_handoff --no-fail-fast`
+- `cargo nextest run -p nako-server addon_handoff --no-fail-fast`
+- `cargo nextest run -p nako-api admin_contract --no-fail-fast`
 - `cargo fmt --all -- --check`
 - `git diff --check`
-- `git diff --name-only -- crates/taru-client-protocol`
+- `git diff --name-only -- crates/nako-client-protocol`
 
-Broad-gate note: `cargo nextest run -p taru-server addons --no-fail-fast` and a
+Broad-gate note: `cargo nextest run -p nako-server addons --no-fail-fast` and a
 retry with `-j 1` were attempted, but the Windows host hit socket error 10055
 after the ARD-050 focused tests had passed. Treat that as an environment-limited
 attempt, not as passing closeout evidence.
@@ -109,15 +109,15 @@ attempt, not as passing closeout evidence.
 
 - Start with Addon Sidecar package/install/runtime readiness, not an Addon
   Manager.
-- Keep Addon code outside Taru. Taru validates package/manifest/install facts
+- Keep Addon code outside Nako. Nako validates package/manifest/install facts
   and calls sidecars through the Addon Protocol.
-- Install guidance may help operators run a sidecar, but Taru does not own
+- Install guidance may help operators run a sidecar, but Nako does not own
   process/container lifecycle in this lane.
 - Addon Tasks, Event Subscriptions, Generated Artifacts, acquisition candidates,
-  and Library File Writes must reuse existing Taru-owned job/outbox/proposal/
+  and Library File Writes must reuse existing Nako-owned job/outbox/proposal/
   intake/side-effect boundaries.
-- `taru-addon-protocol` remains permissive and dependency-light.
-- Admin diagnostics are allowed; Public Client API and `taru-client-protocol`
+- `nako-addon-protocol` remains permissive and dependency-light.
+- Admin diagnostics are allowed; Public Client API and `nako-client-protocol`
   changes are not part of the first slice.
 
 ## Blockers

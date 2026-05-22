@@ -7,24 +7,24 @@ Last updated: 2026-05-18
 
 ```bash
 cargo fmt --all -- --check
-cargo check -p taru-api --tests
-cargo nextest run -p taru-api --no-fail-fast
-cargo check -p taru-server --tests
-cargo nextest run -p taru-server http::tests::system --no-fail-fast
-cargo nextest run -p taru-api public_openapi --no-fail-fast
-cargo nextest run -p taru-api typescript_sdk_excludes_admin_internal_and_secret_surfaces --no-fail-fast
+cargo check -p nako-api --tests
+cargo nextest run -p nako-api --no-fail-fast
+cargo check -p nako-server --tests
+cargo nextest run -p nako-server http::tests::system --no-fail-fast
+cargo nextest run -p nako-api public_openapi --no-fail-fast
+cargo nextest run -p nako-api typescript_sdk_excludes_admin_internal_and_secret_surfaces --no-fail-fast
 git diff --check
-git diff --name-only -- crates/taru-client-protocol
+git diff --name-only -- crates/nako-client-protocol
 ```
 
 ## Evidence Anchors
 
-- `crates/taru-api/src/admin.rs`
-- `crates/taru-api/src/openapi.rs`
-- `crates/taru-server/src/app/playback/mod.rs`
-- `crates/taru-server/src/app/playback/hls.rs`
-- `crates/taru-server/src/http/admin.rs`
-- `crates/taru-server/src/http/tests/system.rs`
+- `crates/nako-api/src/admin.rs`
+- `crates/nako-api/src/openapi.rs`
+- `crates/nako-server/src/app/playback/mod.rs`
+- `crates/nako-server/src/app/playback/hls.rs`
+- `crates/nako-server/src/http/admin.rs`
+- `crates/nako-server/src/http/tests/system.rs`
 - `docs/workstreams/admin-web-console/V0_CONTEXT.md`
 - `docs/GOALS.md`
 
@@ -47,12 +47,12 @@ git diff --name-only -- crates/taru-client-protocol
 Results:
 
 - `cargo fmt --all -- --check`: passed.
-- `cargo check -p taru-api --tests`: passed.
-- `cargo nextest run -p taru-api --no-fail-fast`: 17 tests passed.
-- `cargo check -p taru-server --tests`: passed.
-- `cargo nextest run -p taru-server http::tests::system --no-fail-fast`: 8
+- `cargo check -p nako-api --tests`: passed.
+- `cargo nextest run -p nako-api --no-fail-fast`: 17 tests passed.
+- `cargo check -p nako-server --tests`: passed.
+- `cargo nextest run -p nako-server http::tests::system --no-fail-fast`: 8
   tests passed.
-- `cargo nextest run -p taru-api public_openapi --no-fail-fast`: 3 tests
+- `cargo nextest run -p nako-api public_openapi --no-fail-fast`: 3 tests
   passed.
-- `cargo nextest run -p taru-api typescript_sdk_excludes_admin_internal_and_secret_surfaces --no-fail-fast`:
+- `cargo nextest run -p nako-api typescript_sdk_excludes_admin_internal_and_secret_surfaces --no-fail-fast`:
   1 test passed.

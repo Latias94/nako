@@ -6,7 +6,7 @@ Proposed
 
 ## Context
 
-Taru will run work that has very different resource profiles:
+Nako will run work that has very different resource profiles:
 
 - directory scanning and remote listing
 - file probing through ffprobe
@@ -25,7 +25,7 @@ explicit backpressure and resource ownership from the first implementation.
 
 ## Decision
 
-Use bounded async pipelines throughout Taru. Async is the default execution
+Use bounded async pipelines throughout Nako. Async is the default execution
 model for I/O and external process orchestration, but every concurrent pipeline
 must have an explicit limit, a failure policy, and a persistence boundary.
 

@@ -1,0 +1,16 @@
+[package]
+name = "nako-client-uniffi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "Apache-2.0"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[lints]
+workspace = true
+
+[dependencies]
+nako-client-core = { path = "../nako-client-core" }
+uniffi.workspace = true

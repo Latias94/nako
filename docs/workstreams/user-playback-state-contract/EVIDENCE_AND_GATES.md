@@ -28,7 +28,7 @@ Proves workstream docs and API contract edits are clean before implementation.
 ### Server Gate
 
 ```powershell
-cargo nextest run -p taru-db -p taru-server user_playback --no-fail-fast
+cargo nextest run -p nako-db -p nako-server user_playback --no-fail-fast
 ```
 
 Proves storage, repository, principal scoping, and app-service behavior.
@@ -36,7 +36,7 @@ Proves storage, repository, principal scoping, and app-service behavior.
 ### API And SDK Gate
 
 ```powershell
-cargo nextest run -p taru-api -p taru-client --no-fail-fast
+cargo nextest run -p nako-api -p nako-client --no-fail-fast
 npm run check --prefix sdk/typescript
 ```
 
@@ -68,10 +68,10 @@ Proves the emulator/server-backed user-facing path.
 - `docs/workstreams/android-client-foundation/CLIENT_INTERFACE_DESIGN.md`
 - `docs/workstreams/android-device-local-playback-position/`
 - `docs/workstreams/android-public-client-api-coverage/`
-- `crates/taru-client-protocol/`
-- `crates/taru-api/`
-- `crates/taru-client/`
-- `crates/taru-server/`
+- `crates/nako-client-protocol/`
+- `crates/nako-api/`
+- `crates/nako-client/`
+- `crates/nako-server/`
 - `apps/android/`
 
 ## Notes
@@ -110,26 +110,26 @@ to UPS-030.
 
 Evidence:
 
-- `crates/taru-core/src/user_playback.rs` defines `UserPrincipalId`,
+- `crates/nako-core/src/user_playback.rs` defines `UserPrincipalId`,
   `UserPlaybackState`, and write records.
-- `crates/taru-core/src/repository/user_playback.rs` defines the repository
+- `crates/nako-core/src/repository/user_playback.rs` defines the repository
   contract for upsert, lookup, and Continue Watching state listing.
-- `crates/taru-db/migrations/0030_user_playback_states.sql` persists rows by
+- `crates/nako-db/migrations/0030_user_playback_states.sql` persists rows by
   principal, item, and optional source.
-- `crates/taru-db/src/user_playback.rs` implements SQLite persistence and
+- `crates/nako-db/src/user_playback.rs` implements SQLite persistence and
   Continue Watching filtering/sorting.
-- `crates/taru-server/src/app/user_playback.rs` implements default lookup,
+- `crates/nako-server/src/app/user_playback.rs` implements default lookup,
   progress reporting, watched/unwatched transitions, watched threshold policy,
   idempotent identical progress writes, stale progress rejection, and source
   ownership validation.
-- `crates/taru-server/src/http/auth.rs` resolves accepted or explicitly
+- `crates/nako-server/src/http/auth.rs` resolves accepted or explicitly
   disabled auth requests to the internal `local-admin` principal extension.
 
 Fresh gate evidence:
 
-- 2026-05-19: `cargo nextest run -p taru-db -p taru-server user_playback_state --no-fail-fast` - PASS, 2 tests passed. This original narrow UPS-020 gate proves repository and idempotent app-service behavior matching that filter.
-- 2026-05-19: `cargo nextest run -p taru-db -p taru-server user_playback --no-fail-fast` - PASS, 8 tests passed. This is the corrected UPS-020 gate and covers DB round-trip, Continue Watching filtering/sorting, default lookup, progress, watched/unwatched, stale events, and idempotency.
-- 2026-05-19: `cargo test -p taru-server require_auth_inserts_local_admin_principal --no-default-features` - PASS, 2 tests passed. This proves the inbound auth middleware resolves accepted or disabled local/test requests to the internal `local-admin` principal extension.
+- 2026-05-19: `cargo nextest run -p nako-db -p nako-server user_playback_state --no-fail-fast` - PASS, 2 tests passed. This original narrow UPS-020 gate proves repository and idempotent app-service behavior matching that filter.
+- 2026-05-19: `cargo nextest run -p nako-db -p nako-server user_playback --no-fail-fast` - PASS, 8 tests passed. This is the corrected UPS-020 gate and covers DB round-trip, Continue Watching filtering/sorting, default lookup, progress, watched/unwatched, stale events, and idempotency.
+- 2026-05-19: `cargo test -p nako-server require_auth_inserts_local_admin_principal --no-default-features` - PASS, 2 tests passed. This proves the inbound auth middleware resolves accepted or disabled local/test requests to the internal `local-admin` principal extension.
 - 2026-05-19: `cargo fmt --all --check` - PASS.
 - 2026-05-19: `git diff --check` - PASS.
 
@@ -143,33 +143,33 @@ playback session internals.
 
 Evidence:
 
-- `crates/taru-client-protocol/src/catalog.rs` defines
+- `crates/nako-client-protocol/src/catalog.rs` defines
   `UserPlaybackStateDto`, `UserPlaybackStateResponse`,
   `ContinueWatchingResponse`, `UpdatePlaybackProgressRequest`, and
   `SetWatchedStateRequest`.
-- `crates/taru-client-protocol/src/lib.rs` adds the four
+- `crates/nako-client-protocol/src/lib.rs` adds the four
   `/users/me/playback-state/...` public route inventory entries.
-- `crates/taru-api/src/public_client.rs` maps internal
+- `crates/nako-api/src/public_client.rs` maps internal
   `UserPlaybackState` records to public DTOs, formatting millisecond timestamps
   as RFC3339 UTC strings and omitting principal IDs.
-- `crates/taru-api/src/openapi.rs` exposes the same routes and schemas in the
+- `crates/nako-api/src/openapi.rs` exposes the same routes and schemas in the
   public OpenAPI v1 contract, with regression tests for `/users/me` semantics
   and principal redaction.
-- `crates/taru-server/src/http/user_playback.rs` wires the public routes to
+- `crates/nako-server/src/http/user_playback.rs` wires the public routes to
   `UserPlaybackAppService` using the authenticated `UserPrincipalId` request
   extension.
-- `crates/taru-client/src/lib.rs` adds Rust SDK methods for state lookup,
+- `crates/nako-client/src/lib.rs` adds Rust SDK methods for state lookup,
   Continue Watching, progress updates, watched-state updates, and JSON PUT
   request bodies.
-- `crates/taru-api/src/sdk.rs` and `sdk/typescript/src/index.ts` expose the
+- `crates/nako-api/src/sdk.rs` and `sdk/typescript/src/index.ts` expose the
   generated TypeScript SDK methods and JSON body runtime support.
 - `docs/api/HTTP_API.md` documents the route inventory, request/response
   shapes, `/users/me` scoping, and first-slice deferrals.
 
 Fresh gate evidence:
 
-- 2026-05-19: `cargo nextest run -p taru-client-protocol -p taru-api -p taru-client --no-fail-fast` - PASS, 47 tests passed. This proves protocol DTOs, OpenAPI contract, generated TypeScript SDK drift checks, and Rust SDK route/body behavior.
-- 2026-05-19: `cargo nextest run -p taru-server user_playback --no-fail-fast` - PASS, 9 tests passed. This proves server app-service behavior plus HTTP route integration for state update/read/list and source/item validation.
+- 2026-05-19: `cargo nextest run -p nako-client-protocol -p nako-api -p nako-client --no-fail-fast` - PASS, 47 tests passed. This proves protocol DTOs, OpenAPI contract, generated TypeScript SDK drift checks, and Rust SDK route/body behavior.
+- 2026-05-19: `cargo nextest run -p nako-server user_playback --no-fail-fast` - PASS, 9 tests passed. This proves server app-service behavior plus HTTP route integration for state update/read/list and source/item validation.
 - 2026-05-19: `npm run check --prefix sdk/typescript` - PASS after installing the locked TypeScript dev dependency with `npm ci --prefix sdk/typescript`. This proves the generated TypeScript SDK type-checks with `exactOptionalPropertyTypes`.
 
 ## UPS-040 Evidence
@@ -181,26 +181,26 @@ the Public Client API while preserving local resume as a cache/fallback.
 
 Evidence:
 
-- `apps/android/app/src/main/java/dev/taru/android/userplayback/` adds the
+- `apps/android/app/src/main/java/dev/nako/android/userplayback/` adds the
   Android Public Client API client and DTOs for
   `/users/me/playback-state/...`.
-- `apps/android/app/src/main/java/dev/taru/android/connection/` supports JSON
+- `apps/android/app/src/main/java/dev/nako/android/connection/` supports JSON
   request bodies for PUT progress/watched calls.
-- `apps/android/app/src/main/java/dev/taru/android/ui/browse/TaruBrowseShell.kt`
+- `apps/android/app/src/main/java/dev/nako/android/ui/browse/NakoBrowseShell.kt`
   loads Continue Watching and item-level User Playback State from the server.
-- `apps/android/app/src/main/java/dev/taru/android/ui/browse/HomeScreen.kt`
+- `apps/android/app/src/main/java/dev/nako/android/ui/browse/HomeScreen.kt`
   renders Continue Watching only when the server response contains resume
   candidates.
-- `apps/android/app/src/main/java/dev/taru/android/ui/browse/BrowseResumeState.kt`
+- `apps/android/app/src/main/java/dev/nako/android/ui/browse/BrowseResumeState.kt`
   encodes the priority rule: server state wins, device-local position remains
   fallback only.
-- `apps/android/app/src/main/java/dev/taru/android/player/UserPlaybackReporting.kt`
+- `apps/android/app/src/main/java/dev/nako/android/player/UserPlaybackReporting.kt`
   maps player exit state to progress or watched updates.
 
 Fresh gate evidence:
 
-- 2026-05-19: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.userplayback.TaruUserPlaybackClientTest --no-daemon` - PASS. This proves the new Android User Playback State client route, body, decoding, and diagnostics behavior.
-- 2026-05-19: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.userplayback.TaruUserPlaybackClientTest --tests dev.taru.android.ui.browse.BrowseResumeStateTest --tests dev.taru.android.player.UserPlaybackReportingTest --tests dev.taru.android.ui.screens.player.PlayerPresentationTest --no-daemon` - PASS. This proves the client, authoritative resume priority, playback report mapping, and server/local resume labels.
+- 2026-05-19: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.userplayback.NakoUserPlaybackClientTest --no-daemon` - PASS. This proves the new Android User Playback State client route, body, decoding, and diagnostics behavior.
+- 2026-05-19: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.userplayback.NakoUserPlaybackClientTest --tests dev.nako.android.ui.browse.BrowseResumeStateTest --tests dev.nako.android.player.UserPlaybackReportingTest --tests dev.nako.android.ui.screens.player.PlayerPresentationTest --no-daemon` - PASS. This proves the client, authoritative resume priority, playback report mapping, and server/local resume labels.
 - 2026-05-19: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon` - PASS. This is the UPS-040 Android gate and proves the complete Android unit suite after UI/client integration.
 
 ## UPS-050 Evidence

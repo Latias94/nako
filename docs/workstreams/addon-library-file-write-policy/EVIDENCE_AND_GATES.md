@@ -25,11 +25,11 @@ git diff --check
 ### File Write Apply Gate
 
 ```powershell
-cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-nfo -p taru-vfs --tests
-cargo nextest run -p taru-server addon_side_effect --no-fail-fast
-cargo nextest run -p taru-server nfo --no-fail-fast
-cargo nextest run -p taru-nfo --no-fail-fast
-cargo nextest run -p taru-vfs --no-fail-fast
+cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-nfo -p nako-vfs --tests
+cargo nextest run -p nako-server addon_side_effect --no-fail-fast
+cargo nextest run -p nako-server nfo --no-fail-fast
+cargo nextest run -p nako-nfo --no-fail-fast
+cargo nextest run -p nako-vfs --no-fail-fast
 cargo fmt --all -- --check
 git diff --check
 ```
@@ -56,11 +56,11 @@ NFO, API, or repository boundaries.
 - `docs/workstreams/nfo-storage-write-policy/`
 - `docs/workstreams/nfo-sidecar-backup-policy/`
 - `docs/workstreams/nfo-backup-retention-diagnostics/`
-- `crates/taru-nfo/src/export.rs`
-- `crates/taru-vfs/src/lib.rs`
-- `crates/taru-vfs/src/local.rs`
-- `crates/taru-server/src/app/nfo.rs`
-- `crates/taru-server/src/app/addons.rs`
+- `crates/nako-nfo/src/export.rs`
+- `crates/nako-vfs/src/lib.rs`
+- `crates/nako-vfs/src/local.rs`
+- `crates/nako-server/src/app/nfo.rs`
+- `crates/nako-server/src/app/addons.rs`
 
 ## Fresh Evidence
 
@@ -87,26 +87,26 @@ NFO, API, or repository boundaries.
 2026-05-18, ALFW-020 seam audit and first-target decision:
 
 - Audit inputs:
-  - `CONTEXT.md` confirms Library File Write is the Taru-owned boundary for
+  - `CONTEXT.md` confirms Library File Write is the Nako-owned boundary for
     subtitles, NFO files, artwork, and sidecar assets, and NFO Export is
     governed by local file-write policy.
-  - `crates/taru-core/src/addon.rs` already has `library_file_write` and
+  - `crates/nako-core/src/addon.rs` already has `library_file_write` and
     `subtitle_write` permissions, plus media item/source side-effect targets.
-  - `crates/taru-server/src/app/addons.rs` currently applies only
+  - `crates/nako-server/src/app/addons.rs` currently applies only
     `metadata_write`; unsupported permissions are skipped with safe error
     codes.
-  - `crates/taru-nfo/src/export.rs` derives NFO sidecar targets from
+  - `crates/nako-nfo/src/export.rs` derives NFO sidecar targets from
     `MediaSource`, preserves existing NFO XML on forced export, and writes via
     `StorageWriteRequest::atomic_replace`.
-  - `crates/taru-vfs/src/lib.rs` and `crates/taru-vfs/src/local.rs` expose
+  - `crates/nako-vfs/src/lib.rs` and `crates/nako-vfs/src/local.rs` expose
     write modes, backup policy, write reports, same-directory atomic replace,
     existing-file backup, and keep-latest pruning.
-  - `crates/taru-server/src/app/nfo.rs` already wraps NFO import/export in
+  - `crates/nako-server/src/app/nfo.rs` already wraps NFO import/export in
     durable jobs, concurrency limiting, writable-backend checks, and redacted
     outbox event payloads.
 - Decision: ALFW-030 should implement MediaSource-targeted addon-initiated
-  Taru-owned NFO Export as the first Library File Write apply path. The addon
-  may request an NFO export intent and write policy, but Taru derives the NFO
+  Nako-owned NFO Export as the first Library File Write apply path. The addon
+  may request an NFO export intent and write policy, but Nako derives the NFO
   sidecar URI and owns rendering, VFS write, backup, retention, and reporting.
 - Target semantics:
   - `MediaSource` is the first supported target because it gives an
@@ -153,7 +153,7 @@ NFO, API, or repository boundaries.
 2026-05-18, ALFW-030 implementation evidence:
 
 - Implemented synchronous MediaSource-targeted `library_file_write` apply for
-  Taru-owned NFO Export. The side effect is marked `applied` only after
+  Nako-owned NFO Export. The side effect is marked `applied` only after
   first-party NFO/VFS execution completes.
 - Added a typed NFO export payload with `file_role: "nfo"` and policy
   `create_missing` or `replace_existing_preserving`. Unknown fields, raw NFO
@@ -180,17 +180,17 @@ NFO, API, or repository boundaries.
   - raw NFO payload fields fail safely without writing a sidecar; MediaItem
     targets are rejected before NFO export apply.
 - Fresh validation:
-  - `CARGO_TARGET_DIR=G:\taru-cargo-target cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-nfo -p taru-vfs --tests`
+  - `CARGO_TARGET_DIR=G:\nako-cargo-target cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-nfo -p nako-vfs --tests`
     passed.
-  - `CARGO_TARGET_DIR=G:\taru-cargo-target cargo nextest run -p taru-db addon_side_effect --no-fail-fast`
+  - `CARGO_TARGET_DIR=G:\nako-cargo-target cargo nextest run -p nako-db addon_side_effect --no-fail-fast`
     passed with 2 tests.
-  - `CARGO_TARGET_DIR=G:\taru-cargo-target cargo nextest run -p taru-server addon_side_effect --no-fail-fast`
+  - `CARGO_TARGET_DIR=G:\nako-cargo-target cargo nextest run -p nako-server addon_side_effect --no-fail-fast`
     passed with 8 selected tests.
-  - `CARGO_TARGET_DIR=G:\taru-cargo-target cargo nextest run -p taru-server nfo --no-fail-fast`
+  - `CARGO_TARGET_DIR=G:\nako-cargo-target cargo nextest run -p nako-server nfo --no-fail-fast`
     passed with 9 selected tests.
-  - `CARGO_TARGET_DIR=G:\taru-cargo-target cargo nextest run -p taru-nfo --no-fail-fast`
+  - `CARGO_TARGET_DIR=G:\nako-cargo-target cargo nextest run -p nako-nfo --no-fail-fast`
     passed with 20 tests.
-  - `CARGO_TARGET_DIR=G:\taru-cargo-target cargo nextest run -p taru-vfs --no-fail-fast`
+  - `CARGO_TARGET_DIR=G:\nako-cargo-target cargo nextest run -p nako-vfs --no-fail-fast`
     passed with 28 tests.
   - `cargo fmt --all -- --check` passed.
   - `git diff --check` passed with only Git CRLF normalization warnings for
@@ -202,7 +202,7 @@ NFO, API, or repository boundaries.
   library file writes`.
 - Review result:
   - Workstream compliance has no blocking findings. The shipped behavior
-    matches the selected first target: MediaSource-targeted Taru-owned NFO
+    matches the selected first target: MediaSource-targeted Nako-owned NFO
     Export through `library_file_write`.
   - Code-quality review has no blocking findings. The Addon handler
     authenticates, validates, records, and delegates; it does not own NFO XML
@@ -228,9 +228,9 @@ NFO, API, or repository boundaries.
   - `cargo fmt --all -- --check` exited 0.
   - `git diff --check` exited 0. Git reported Windows LF-to-CRLF working-copy
     warnings only; no whitespace errors were reported.
-  - `CARGO_TARGET_DIR=G:\taru-cargo-target cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-nfo -p taru-vfs --tests`
+  - `CARGO_TARGET_DIR=G:\nako-cargo-target cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-nfo -p nako-vfs --tests`
     exited 0.
-  - `CARGO_TARGET_DIR=G:\taru-cargo-target cargo nextest run -p taru-server addon_side_effect --no-fail-fast`
+  - `CARGO_TARGET_DIR=G:\nako-cargo-target cargo nextest run -p nako-server addon_side_effect --no-fail-fast`
     exited 0 with 8 selected tests passed.
 - ALFW status is now completed. The recommended next addon lane is
   `addon-managed-artwork-artifacts` if poster/backdrop import is the next

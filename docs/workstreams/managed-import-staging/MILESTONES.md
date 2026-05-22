@@ -27,11 +27,11 @@ Exit criteria:
 
 Primary evidence:
 
-- `crates/taru-core/src/managed_import.rs`
-- `crates/taru-core/src/repository/managed_import.rs`
-- `crates/taru-db/migrations/0031_managed_import_artifacts.sql`
-- `crates/taru-db/migrations/postgres/0003_managed_import_artifacts.sql`
-- `crates/taru-db/src/contract_tests.rs`
+- `crates/nako-core/src/managed_import.rs`
+- `crates/nako-core/src/repository/managed_import.rs`
+- `crates/nako-db/migrations/0031_managed_import_artifacts.sql`
+- `crates/nako-db/migrations/postgres/0003_managed_import_artifacts.sql`
+- `crates/nako-db/src/contract_tests.rs`
 
 ## M2 — App Service Diagnostics
 
@@ -43,8 +43,8 @@ Exit criteria:
 
 Primary evidence:
 
-- `crates/taru-server/src/app/managed_import.rs`
-- `crates/taru-server/src/app/tests/managed_import.rs`
+- `crates/nako-server/src/app/managed_import.rs`
+- `crates/nako-server/src/app/tests/managed_import.rs`
 
 ## M3 — Promotion Plan Preview
 
@@ -57,9 +57,9 @@ Exit criteria:
 
 Primary evidence:
 
-- `crates/taru-core/src/managed_import.rs`
-- `crates/taru-server/src/app/managed_import.rs`
-- `crates/taru-server/src/app/tests/managed_import.rs`
+- `crates/nako-core/src/managed_import.rs`
+- `crates/nako-server/src/app/managed_import.rs`
+- `crates/nako-server/src/app/tests/managed_import.rs`
 
 ## M4 — Apply/Follow-On Decision
 

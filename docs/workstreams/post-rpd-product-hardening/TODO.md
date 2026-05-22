@@ -179,7 +179,7 @@ tasks belong in child workstreams.
   Handoff: DONE. Opened `addon-runtime-and-distribution`; ARD-020 through
   ARD-060 are now complete without adding Addon Manager automation, package
   signing, process supervision, Native Plugin ABI, direct library writes,
-  Public Client API churn, hidden schedulers, or `taru-client-protocol`
+  Public Client API churn, hidden schedulers, or `nako-client-protocol`
   changes.
 
 ## M14 — Post-Addon Runtime Closeout And Umbrella Completion
@@ -192,7 +192,7 @@ tasks belong in child workstreams.
   Validation: Parent and child WORKSTREAM.json files validate; DESIGN.md,
   TODO.md, MILESTONES.md, EVIDENCE_AND_GATES.md, HANDOFF.md, and workstream
   index agree; `git diff --check`; `git diff --name-only --
-  crates/taru-client-protocol`.
+  crates/nako-client-protocol`.
   Evidence: `DESIGN.md` Post-ARD Closeout And Umbrella Completion,
   `docs/workstreams/addon-runtime-and-distribution/EVIDENCE_AND_GATES.md`, and
   `docs/workstreams/addon-runtime-and-distribution/WORKSTREAM.json`.

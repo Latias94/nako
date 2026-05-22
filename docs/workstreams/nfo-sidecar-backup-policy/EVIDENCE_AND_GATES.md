@@ -14,10 +14,10 @@ Last updated: 2026-05-17
 
 ```powershell
 cargo fmt --all -- --check
-cargo check -p taru-vfs --tests
-cargo nextest run -p taru-vfs --no-fail-fast
-cargo check -p taru-nfo --tests
-cargo nextest run -p taru-nfo --no-fail-fast
+cargo check -p nako-vfs --tests
+cargo nextest run -p nako-vfs --no-fail-fast
+cargo check -p nako-nfo --tests
+cargo nextest run -p nako-nfo --no-fail-fast
 ```
 
 ## Closeout Gates
@@ -32,11 +32,11 @@ git diff --check
 
 - 2026-05-17: Workstream opened for M49.
 - 2026-05-17: `cargo fmt --all -- --check` passed.
-- 2026-05-17: `cargo check -p taru-vfs --tests` passed.
-- 2026-05-17: `cargo nextest run -p taru-vfs --no-fail-fast` passed with 25
+- 2026-05-17: `cargo check -p nako-vfs --tests` passed.
+- 2026-05-17: `cargo nextest run -p nako-vfs --no-fail-fast` passed with 25
   tests.
-- 2026-05-17: `cargo check -p taru-nfo --tests` passed.
-- 2026-05-17: `cargo nextest run -p taru-nfo --no-fail-fast` passed with 18
+- 2026-05-17: `cargo check -p nako-nfo --tests` passed.
+- 2026-05-17: `cargo nextest run -p nako-nfo --no-fail-fast` passed with 18
   tests.
 - 2026-05-17: `cargo check --workspace --tests` passed.
 - 2026-05-17: `cargo nextest run --workspace --no-fail-fast` passed with 310

@@ -5,7 +5,7 @@ Last updated: 2026-05-20
 
 ## Problem
 
-`TaruAndroidApp` still owns the Android client dependency graph directly:
+`NakoAndroidApp` still owns the Android client dependency graph directly:
 transport, profile store, token vault, connection client, browse client,
 playback client, playback preferences, user playback client, device playback
 position store, app runtime, and app session.
@@ -19,8 +19,8 @@ editing the root Composable instead of one composition seam.
 
 - Introduce a root app composition module that creates and names the Android
   runtime dependencies.
-- Keep `TaruAppSession` as the root app state machine.
-- Keep `TaruAndroidAppContent` as a rendering shell over root environment and
+- Keep `NakoAppSession` as the root app state machine.
+- Keep `NakoAndroidAppContent` as a rendering shell over root environment and
   app session state.
 - Preserve the current connection/browse/player behavior.
 - Add focused tests for root app runtime/session creation behavior that can be
@@ -28,9 +28,9 @@ editing the root Composable instead of one composition seam.
 
 ## Scope
 
-- `apps/android/app/src/main/java/dev/taru/android/ui/TaruAndroidApp.kt`
-- New root app composition module under `apps/android/app/src/main/java/dev/taru/android/ui/`
-- Focused root composition tests under `apps/android/app/src/test/java/dev/taru/android/ui/`
+- `apps/android/app/src/main/java/dev/nako/android/ui/NakoAndroidApp.kt`
+- New root app composition module under `apps/android/app/src/main/java/dev/nako/android/ui/`
+- Focused root composition tests under `apps/android/app/src/test/java/dev/nako/android/ui/`
 - Workstream docs under this directory.
 
 ## Non-Goals
@@ -48,18 +48,18 @@ deep enough to name and own root dependencies, but not abstract concrete
 classes merely for test doubles when existing interfaces already exist.
 
 The interface should be small: callers should know how to build a root
-environment and how to create a `TaruAppSession`, not how every client is wired.
+environment and how to create a `NakoAppSession`, not how every client is wired.
 
 ## Closeout Notes
 
-The lane closed with `TaruAppEnvironment` and
-`AndroidTaruAppEnvironmentFactory` owning the root dependency graph.
-`TaruAndroidApp` now builds one environment and one `TaruAppSession`, then
-passes them to `TaruAndroidAppContent`.
+The lane closed with `NakoAppEnvironment` and
+`AndroidNakoAppEnvironmentFactory` owning the root dependency graph.
+`NakoAndroidApp` now builds one environment and one `NakoAppSession`, then
+passes them to `NakoAndroidAppContent`.
 
-`TaruAndroidAppContent` is internal and no longer accepts every client/store as
+`NakoAndroidAppContent` is internal and no longer accepts every client/store as
 separate parameters. Root UI rendering still chooses between connection and
-browse modes from `TaruAppSession.state`.
+browse modes from `NakoAppSession.state`.
 
 The Android factory uses `applicationContext` for platform-backed stores and
 vaults.

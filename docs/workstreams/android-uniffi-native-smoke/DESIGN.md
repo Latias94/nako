@@ -7,7 +7,7 @@ Last updated: 2026-05-21
 
 `android-rust-core-runtime-hardening` proved the Rust client core boundary with
 JVM tests and APK assembly, but it did not prove that the packaged Android
-`libtaru_client_uniffi.so` loads inside a real Android runtime. That is the
+`libnako_client_uniffi.so` loads inside a real Android runtime. That is the
 highest remaining risk after moving connection and playback request builders
 behind UniFFI.
 
@@ -43,7 +43,7 @@ library override, while this lane must exercise the Android packaged `.so`.
 The test should use an ABI-focused Gradle path such as:
 
 ```powershell
-apps/android/gradlew.bat -p apps/android :app:connectedDebugAndroidTest -PtaruRustAndroidAbis=x86_64 --no-daemon
+apps/android/gradlew.bat -p apps/android :app:connectedDebugAndroidTest -PnakoRustAndroidAbis=x86_64 --no-daemon
 ```
 
 When no emulator/device is attached, build and unit-level gates can still pass,

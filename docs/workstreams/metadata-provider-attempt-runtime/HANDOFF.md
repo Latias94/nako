@@ -5,14 +5,14 @@ Last updated: 2026-05-17
 
 ## Current State
 
-M44 is complete. `taru-metadata` now has an internal provider attempt runtime
+M44 is complete. `nako-metadata` now has an internal provider attempt runtime
 Module, and `MetadataStrategyExecutor` delegates provider attempt execution and
 classification while preserving existing refresh behavior.
 
 ## Follow-Ons
 
-- Split `taru-api` by public client, admin, metadata diagnostics, and extension
-  DTO modules without changing `taru-client-protocol`.
+- Split `nako-api` by public client, admin, metadata diagnostics, and extension
+  DTO modules without changing `nako-client-protocol`.
 - Add typed VFS/storage error classification before S3/SMB/NAS adapters grow
   string-based HTTP mapping further.
 - Design NFO Round Trip preservation before managed file write/link behavior.

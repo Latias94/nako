@@ -8,13 +8,13 @@ leaking provider secrets.
 
 ## Architecture
 
-- `taru-server` owns job creation, library/item scope resolution, profile
+- `nako-server` owns job creation, library/item scope resolution, profile
   override application, and outbox events.
-- `taru-metadata` still owns provider runtime, provider registry, fallback
+- `nako-metadata` still owns provider runtime, provider registry, fallback
   strategy, merge policy, raw response caching, and attempt persistence.
-- `taru-db` exposes repository methods for library item listing, attempt
+- `nako-db` exposes repository methods for library item listing, attempt
   filtering, and raw cache cleanup.
-- `taru-api` exposes request and response envelopes; it does not carry resolved
+- `nako-api` exposes request and response envelopes; it does not carry resolved
   provider credentials.
 
 ## Job Semantics

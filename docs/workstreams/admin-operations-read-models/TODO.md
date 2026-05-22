@@ -14,18 +14,18 @@ Last updated: 2026-05-18
 
 ## AORM.1 Event Outbox Read Model
 
-- [x] AORM-020 [owner=codex] [deps=AORM-010] [scope=crates/taru-core/src/repository/jobs.rs,crates/taru-db/src/event_outbox.rs,crates/taru-db/src/tests.rs]
+- [x] AORM-020 [owner=codex] [deps=AORM-010] [scope=crates/nako-core/src/repository/jobs.rs,crates/nako-db/src/event_outbox.rs,crates/nako-db/src/tests.rs]
   Goal: Add event outbox list/filter repository support.
-  Validation: `cargo check -p taru-db --tests`, focused `taru-db` event
+  Validation: `cargo check -p nako-db --tests`, focused `nako-db` event
   outbox tests.
   Evidence: `OutboxEventListFilter` and
   `sqlite_store_lists_outbox_events_with_filters_and_pagination`.
   Handoff: No schema migration should be needed.
 
-- [x] AORM-030 [owner=codex] [deps=AORM-020] [scope=crates/taru-api/src/admin.rs,crates/taru-server/src/app/webhooks.rs,crates/taru-server/src/http/admin.rs,crates/taru-server/src/http/query.rs,crates/taru-server/src/http/tests]
+- [x] AORM-030 [owner=codex] [deps=AORM-020] [scope=crates/nako-api/src/admin.rs,crates/nako-server/src/app/webhooks.rs,crates/nako-server/src/http/admin.rs,crates/nako-server/src/http/query.rs,crates/nako-server/src/http/tests]
   Goal: Add `GET /admin/v1/events` with admin-owned redacted DTOs.
-  Validation: `cargo check -p taru-api --tests`, `cargo check -p
-  taru-server --tests`, focused `taru-server` admin HTTP tests, public
+  Validation: `cargo check -p nako-api --tests`, `cargo check -p
+  nako-server --tests`, focused `nako-server` admin HTTP tests, public
   OpenAPI/SDK leakage checks.
   Evidence: `AdminOutboxEventListResponse`,
   `admin_v1_events_lists_filters_and_redacts_payloads`, and admin auth tests.
@@ -34,7 +34,7 @@ Last updated: 2026-05-18
 
 ## AORM.2 Storage Staging Diagnostics
 
-- [x] AORM-040 [owner=codex] [deps=AORM-030] [scope=crates/taru-api/src/admin.rs,crates/taru-server/src/app/storage.rs,crates/taru-server/src/http/admin.rs,crates/taru-server/src/http/query.rs,crates/taru-server/src/http/tests]
+- [x] AORM-040 [owner=codex] [deps=AORM-030] [scope=crates/nako-api/src/admin.rs,crates/nako-server/src/app/storage.rs,crates/nako-server/src/http/admin.rs,crates/nako-server/src/http/query.rs,crates/nako-server/src/http/tests]
   Goal: Add `GET /admin/v1/storage/staging` with redacted staging manifest
   diagnostics and storage cache/budget summary.
   Validation: focused API/server tests.
@@ -46,7 +46,7 @@ Last updated: 2026-05-18
 
 ## AORM.3 Sanitized Server Config Diagnostics
 
-- [x] AORM-050 [owner=codex] [deps=AORM-040] [scope=crates/taru-api/src/admin.rs,crates/taru-server/src/http/admin.rs,crates/taru-server/src/http/tests]
+- [x] AORM-050 [owner=codex] [deps=AORM-040] [scope=crates/nako-api/src/admin.rs,crates/nako-server/src/http/admin.rs,crates/nako-server/src/http/tests]
   Goal: Add `GET /admin/v1/system/config` with sanitized server configuration
   diagnostics.
   Validation: focused API/server tests.

@@ -6,7 +6,7 @@ Last updated: 2026-05-19
 ## Smallest Current Repro
 
 ```powershell
-rg -n "artwork|ImageAsset|ArtworkTask|Managed Artwork|Taru-Managed Artifact|artwork_write|thumbnail|cache_uri|source_uri" crates docs
+rg -n "artwork|ImageAsset|ArtworkTask|Managed Artwork|Nako-Managed Artifact|artwork_write|thumbnail|cache_uri|source_uri" crates docs
 git diff --check
 ```
 
@@ -18,17 +18,17 @@ behavior is added.
 ### Audit Gate
 
 ```powershell
-rg -n "artwork|ImageAsset|ArtworkTask|Managed Artwork|Taru-Managed Artifact|artwork_write|thumbnail|cache_uri|source_uri" crates docs
+rg -n "artwork|ImageAsset|ArtworkTask|Managed Artwork|Nako-Managed Artifact|artwork_write|thumbnail|cache_uri|source_uri" crates docs
 git diff --check
 ```
 
 ### Artwork Apply Gate
 
 ```powershell
-cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests
-cargo nextest run -p taru-server addon_side_effect --no-fail-fast
-cargo nextest run -p taru-server artwork --no-fail-fast
-cargo nextest run -p taru-db artwork --no-fail-fast
+cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-vfs --tests
+cargo nextest run -p nako-server addon_side_effect --no-fail-fast
+cargo nextest run -p nako-server artwork --no-fail-fast
+cargo nextest run -p nako-db artwork --no-fail-fast
 cargo fmt --all -- --check
 git diff --check
 ```
@@ -50,10 +50,10 @@ or public API contracts.
 - `docs/workstreams/addon-managed-artwork-artifacts/DESIGN.md`
 - `docs/workstreams/addon-managed-artwork-artifacts/TODO.md`
 - `docs/workstreams/addon-protected-writes/HANDOFF.md`
-- `crates/taru-core/src/media/catalog.rs`
-- `crates/taru-core/src/media/artwork.rs`
-- `crates/taru-db/src/artwork.rs`
-- `crates/taru-server/src/app/addons.rs`
+- `crates/nako-core/src/media/catalog.rs`
+- `crates/nako-core/src/media/artwork.rs`
+- `crates/nako-db/src/artwork.rs`
+- `crates/nako-server/src/app/addons.rs`
 - `docs/api/HTTP_API.md`
 
 ## Fresh Evidence
@@ -61,7 +61,7 @@ or public API contracts.
 2026-05-18, AMAA-010:
 
 - Workstream opened from APW-060 closeout as the follow-on for
-  `artwork_write`, Artwork Candidate, Managed Artwork, and Taru-Managed
+  `artwork_write`, Artwork Candidate, Managed Artwork, and Nako-Managed
   Artifact behavior.
 - This is a planning split only; no artwork runtime behavior changed.
 - Fresh validation remains required before marking AMAA-020 or later tasks
@@ -71,7 +71,7 @@ or public API contracts.
 
 - AMAA remains proposed; no `artwork_write` runtime behavior exists yet.
 - Added explicit guidance that future artwork writes must use or introduce a
-  Taru-owned artwork/catalog commit boundary if they need multi-step durable
+  Nako-owned artwork/catalog commit boundary if they need multi-step durable
   state.
 - Artwork sidecar export is classified as Library File Write work owned by
   `addon-library-file-write-policy`, not AMAA.
@@ -79,26 +79,26 @@ or public API contracts.
 2026-05-19, AMAA-020 seam audit and first-target decision:
 
 - Audit inputs:
-  - `crates/taru-core/src/addon.rs` already defines the `artwork_write`
+  - `crates/nako-core/src/addon.rs` already defines the `artwork_write`
     permission and grant/access-check tests cover it, but runtime apply still
     skips unsupported protected-write permissions.
-  - `crates/taru-core/src/media/catalog.rs` defines `ImageAsset` with
+  - `crates/nako-core/src/media/catalog.rs` defines `ImageAsset` with
     `source_uri`, `provider`, optional `cache_uri`, dimensions, language,
     selected state, hash, and etag.
-  - `crates/taru-db/migrations/0007_catalog_ingestion.sql` and
-    `crates/taru-db/src/catalog.rs` persist `image_assets` and enforce
+  - `crates/nako-db/migrations/0007_catalog_ingestion.sql` and
+    `crates/nako-db/src/catalog.rs` persist `image_assets` and enforce
     uniqueness by owner, kind, and `source_uri`.
-  - `crates/taru-api/src/public_client.rs` maps `ImageAsset` to Public Client
+  - `crates/nako-api/src/public_client.rs` maps `ImageAsset` to Public Client
     DTOs that include `source_uri` and `cache_uri`.
-  - `crates/taru-core/src/media/artwork.rs` and
-    `crates/taru-db/src/artwork.rs` define and persist `ArtworkTask` with
+  - `crates/nako-core/src/media/artwork.rs` and
+    `crates/nako-db/src/artwork.rs` define and persist `ArtworkTask` with
     resource classes for fetch, resize, preview, and cleanup, but worker
     execution, thumbnail generation, and cache eviction are future work per ADR
     0013.
-  - `crates/taru-core/src/staging.rs` currently has staging purposes for probe
+  - `crates/nako-core/src/staging.rs` currently has staging purposes for probe
     and FFmpeg input only; no artwork artifact or image-fetch staging purpose
     exists.
-  - `crates/taru-core/src/automation.rs` has Automation Artifacts for
+  - `crates/nako-core/src/automation.rs` has Automation Artifacts for
     automation jobs, but that model is provider/job-shaped rather than Addon
     Side Effect-shaped.
 - Decision: AMAA-030 should implement MediaItem-targeted Addon Artwork
@@ -128,12 +128,12 @@ or public API contracts.
   - Managed Artwork import is deferred because artifact storage, content
     validation, cache URI assignment, and fetch/resize workers are not yet
     cohesive enough for a first slice.
-  - Taru-Managed Artifact intake is deferred because there is no dedicated
+  - Nako-Managed Artifact intake is deferred because there is no dedicated
     Addon artifact store, upload policy, or image content validation boundary.
   - Direct `ImageAsset` selection is deferred because it would be public catalog
     state and needs managed cache/redaction guarantees first.
 - Validation:
-  - `rg -n "artwork|ImageAsset|ArtworkTask|Managed Artwork|Taru-Managed Artifact|artwork_write|thumbnail|cache_uri|source_uri" crates docs`
+  - `rg -n "artwork|ImageAsset|ArtworkTask|Managed Artwork|Nako-Managed Artifact|artwork_write|thumbnail|cache_uri|source_uri" crates docs`
     completed successfully; output was redirected to a temp file for review and
     contained 561 inventory lines.
   - `Get-Content -Raw docs\workstreams\addon-managed-artwork-artifacts\WORKSTREAM.json | ConvertFrom-Json | Out-Null`
@@ -147,7 +147,7 @@ or public API contracts.
 - Implementation:
   - Added `ArtworkCandidateId`, `NewArtworkCandidate`,
     `ArtworkCandidateRecord`, `ArtworkCandidateSourceKind`, and
-    `ArtworkCandidateStatus` in `taru-core`.
+    `ArtworkCandidateStatus` in `nako-core`.
   - Added `ArtworkCandidateRepository` and a SQLite-backed
     `addon_artwork_candidates` table. The table stores internal source details
     with constraints for remote URL source kind, dimensions, language length,
@@ -176,22 +176,22 @@ or public API contracts.
     target kind, source restrictions, and redacted apply report.
   - Workstream docs advance AMAA to AMAA-040 for closeout or follow-on split.
 - Validation during implementation:
-  - `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests`
+  - `cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-vfs --tests`
     passed.
-  - `cargo nextest run -p taru-db artwork --no-fail-fast` passed: 2 tests run,
+  - `cargo nextest run -p nako-db artwork --no-fail-fast` passed: 2 tests run,
     2 passed.
-  - `cargo nextest run -p taru-server artwork --no-fail-fast` passed: 2 tests
+  - `cargo nextest run -p nako-server artwork --no-fail-fast` passed: 2 tests
     run, 2 passed.
-  - `cargo nextest run -p taru-server addon_side_effect --no-fail-fast` passed:
+  - `cargo nextest run -p nako-server addon_side_effect --no-fail-fast` passed:
     10 tests run, 10 passed.
 - Final validation before commit:
-  - `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests`
+  - `cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-vfs --tests`
     passed.
-  - `cargo nextest run -p taru-db artwork --no-fail-fast` passed: 2 tests run,
+  - `cargo nextest run -p nako-db artwork --no-fail-fast` passed: 2 tests run,
     2 passed.
-  - `cargo nextest run -p taru-server artwork --no-fail-fast` passed: 2 tests
+  - `cargo nextest run -p nako-server artwork --no-fail-fast` passed: 2 tests
     run, 2 passed.
-  - `cargo nextest run -p taru-server addon_side_effect --no-fail-fast` passed:
+  - `cargo nextest run -p nako-server addon_side_effect --no-fail-fast` passed:
     10 tests run, 10 passed.
   - `cargo fmt --all -- --check` passed.
   - `git diff --check` passed with only Git CRLF normalization warnings for

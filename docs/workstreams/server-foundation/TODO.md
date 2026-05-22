@@ -5,7 +5,7 @@
 - [x] Define workspace crate layout and dependency direction.
 - [x] Add top-level documentation index, roadmap, and goal map.
 - [x] Add refactoring policy for modular workspace evolution.
-- [x] Create initial `taru-core` domain model draft.
+- [x] Create initial `nako-core` domain model draft.
 - [x] Decide default database target for MVP.
 - [x] Define service trait boundaries for library, metadata, VFS, transcode,
       search, events, automation, and addons.
@@ -26,8 +26,8 @@
 - [x] Keep new ingestion failure diagnostics behind DTOs instead of exposing
       `IngestionFailureRecord` directly.
 - [x] Move HTTP route registration into bounded-context `routes()` functions.
-- [x] Keep `taru-server/src/http.rs` as router composition only.
-- [x] Move remaining `taru-db/src/lib.rs` lookup helpers into the repository
+- [x] Keep `nako-server/src/http.rs` as router composition only.
+- [x] Move remaining `nako-db/src/lib.rs` lookup helpers into the repository
       modules that own the behavior.
 - [x] Add DTO serialization coverage and stable API error body coverage.
 - [ ] Continue migrating lower-frequency addon, webhook, automation, and raw
@@ -151,7 +151,7 @@ lives in [metadata-catalog](../metadata-catalog/TODO.md).
 - [x] Add remux session manager skeleton.
 - [x] Implement FFmpeg process runner for remux sessions.
 - [x] Add remux process cancellation, timeout, concurrency guard, and temp cleanup.
-- [x] Add remux application service in `taru-server::app`.
+- [x] Add remux application service in `nako-server::app`.
 - [x] Define local remux staging directory policy.
 - [x] Define duplicate remux request reuse or idempotency behavior.
 - [x] Map remux runner errors into stable application/API errors.
@@ -164,7 +164,7 @@ lives in [metadata-catalog](../metadata-catalog/TODO.md).
 
 ## Addons and Automation
 
-- [x] Define design baseline for Taru addon manifest schema.
+- [x] Define design baseline for Nako addon manifest schema.
 - [x] Define design baseline for addon resource routes and response envelopes.
 - [x] Define design baseline for addon timeout, retry, authentication, and
       trust model.

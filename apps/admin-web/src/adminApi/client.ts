@@ -35,7 +35,7 @@ import type {
   ReplaceAddonGrantsRequest,
   UpdateAddonStatusRequest,
 } from "./generated/contract";
-import { TARU_ADMIN_ROUTES } from "./generated/contract";
+import { NAKO_ADMIN_ROUTES } from "./generated/contract";
 
 export type AdminApiClientOptions = {
   baseUrl?: string;
@@ -55,15 +55,15 @@ export class AdminApiClient {
   }
 
   async getOverview(): Promise<AdminOverviewResponse> {
-    return this.getJson<AdminOverviewResponse>(TARU_ADMIN_ROUTES.overview);
+    return this.getJson<AdminOverviewResponse>(NAKO_ADMIN_ROUTES.overview);
   }
 
   async getAddons(query: AdminAddonsQuery = {}): Promise<AdminAddonRegistrationsResponse> {
-    return this.getJson<AdminAddonRegistrationsResponse>(withQuery(TARU_ADMIN_ROUTES.addons, query));
+    return this.getJson<AdminAddonRegistrationsResponse>(withQuery(NAKO_ADMIN_ROUTES.addons, query));
   }
 
   async getAddonDetail(addonId: string): Promise<AdminAddonRegistrationResponse> {
-    return this.getJson<AdminAddonRegistrationResponse>(addonPath(TARU_ADMIN_ROUTES.addonDetail, addonId));
+    return this.getJson<AdminAddonRegistrationResponse>(addonPath(NAKO_ADMIN_ROUTES.addonDetail, addonId));
   }
 
   async registerAddon(
@@ -74,7 +74,7 @@ export class AdminApiClient {
       status?: RegisterAddonRequest["status"];
     } = {},
   ): Promise<AdminAddonRegistrationResponse> {
-    return this.postJson<AdminAddonRegistrationResponse>(TARU_ADMIN_ROUTES.addons, {
+    return this.postJson<AdminAddonRegistrationResponse>(NAKO_ADMIN_ROUTES.addons, {
       id: options.id,
       manifest,
       granted_scopes: options.grantedScopes ?? [],
@@ -87,31 +87,31 @@ export class AdminApiClient {
     request: UpdateAddonStatusRequest,
   ): Promise<AdminAddonRegistrationResponse> {
     return this.patchJson<AdminAddonRegistrationResponse>(
-      addonPath(TARU_ADMIN_ROUTES.addonStatus, addonId),
+      addonPath(NAKO_ADMIN_ROUTES.addonStatus, addonId),
       request,
     );
   }
 
   async unregisterAddon(addonId: string): Promise<AdminAddonRegistrationResponse> {
     return this.postJson<AdminAddonRegistrationResponse>(
-      addonPath(TARU_ADMIN_ROUTES.addonUnregister, addonId),
+      addonPath(NAKO_ADMIN_ROUTES.addonUnregister, addonId),
       {},
     );
   }
 
   async checkAddonHealth(addonId: string): Promise<AdminAddonHealthCheckResponse> {
     return this.postJson<AdminAddonHealthCheckResponse>(
-      addonPath(TARU_ADMIN_ROUTES.addonHealthCheck, addonId),
+      addonPath(NAKO_ADMIN_ROUTES.addonHealthCheck, addonId),
       {},
     );
   }
 
   async getAddonSurfaces(addonId: string): Promise<AdminAddonSurfacesResponse> {
-    return this.getJson<AdminAddonSurfacesResponse>(addonPath(TARU_ADMIN_ROUTES.addonSurfaces, addonId));
+    return this.getJson<AdminAddonSurfacesResponse>(addonPath(NAKO_ADMIN_ROUTES.addonSurfaces, addonId));
   }
 
   async getAddonInstallGuide(addonId: string): Promise<AdminAddonInstallGuideResponse> {
-    return this.getJson<AdminAddonInstallGuideResponse>(addonPath(TARU_ADMIN_ROUTES.addonInstallGuide, addonId));
+    return this.getJson<AdminAddonInstallGuideResponse>(addonPath(NAKO_ADMIN_ROUTES.addonInstallGuide, addonId));
   }
 
   async diagnoseAddonResourceCall(
@@ -119,13 +119,13 @@ export class AdminApiClient {
     request: AdminAddonResourceCallDiagnosticRequest,
   ): Promise<AdminAddonResourceCallDiagnosticResponse> {
     return this.postJson<AdminAddonResourceCallDiagnosticResponse>(
-      addonPath(TARU_ADMIN_ROUTES.addonResourceCallDiagnostic, addonId),
+      addonPath(NAKO_ADMIN_ROUTES.addonResourceCallDiagnostic, addonId),
       request,
     );
   }
 
   async getAddonTokens(addonId: string): Promise<AddonTokensResponse> {
-    return this.getJson<AddonTokensResponse>(`${addonPath(TARU_ADMIN_ROUTES.addonDetail, addonId)}/tokens`);
+    return this.getJson<AddonTokensResponse>(`${addonPath(NAKO_ADMIN_ROUTES.addonDetail, addonId)}/tokens`);
   }
 
   async issueAddonToken(
@@ -133,7 +133,7 @@ export class AdminApiClient {
     request: IssueAddonTokenRequest,
   ): Promise<AddonTokenIssuedResponse> {
     return this.postJson<AddonTokenIssuedResponse>(
-      `${addonPath(TARU_ADMIN_ROUTES.addonDetail, addonId)}/tokens`,
+      `${addonPath(NAKO_ADMIN_ROUTES.addonDetail, addonId)}/tokens`,
       request,
     );
   }
@@ -144,20 +144,20 @@ export class AdminApiClient {
     request: IssueAddonTokenRequest,
   ): Promise<AddonTokenRotationResponse> {
     return this.postJson<AddonTokenRotationResponse>(
-      `${addonPath(TARU_ADMIN_ROUTES.addonDetail, addonId)}/tokens/${encodeURIComponent(tokenId)}/rotate`,
+      `${addonPath(NAKO_ADMIN_ROUTES.addonDetail, addonId)}/tokens/${encodeURIComponent(tokenId)}/rotate`,
       request,
     );
   }
 
   async revokeAddonToken(addonId: string, tokenId: string): Promise<AddonTokenResponse> {
     return this.postJson<AddonTokenResponse>(
-      `${addonPath(TARU_ADMIN_ROUTES.addonDetail, addonId)}/tokens/${encodeURIComponent(tokenId)}/revoke`,
+      `${addonPath(NAKO_ADMIN_ROUTES.addonDetail, addonId)}/tokens/${encodeURIComponent(tokenId)}/revoke`,
       {},
     );
   }
 
   async getAddonGrants(addonId: string): Promise<AddonGrantsResponse> {
-    return this.getJson<AddonGrantsResponse>(`${addonPath(TARU_ADMIN_ROUTES.addonDetail, addonId)}/grants`);
+    return this.getJson<AddonGrantsResponse>(`${addonPath(NAKO_ADMIN_ROUTES.addonDetail, addonId)}/grants`);
   }
 
   async replaceAddonGrants(
@@ -165,14 +165,14 @@ export class AdminApiClient {
     request: ReplaceAddonGrantsRequest,
   ): Promise<AddonGrantsResponse> {
     return this.putJson<AddonGrantsResponse>(
-      `${addonPath(TARU_ADMIN_ROUTES.addonDetail, addonId)}/grants`,
+      `${addonPath(NAKO_ADMIN_ROUTES.addonDetail, addonId)}/grants`,
       request,
     );
   }
 
   async getCatalogGovernanceItems(): Promise<AdminCatalogGovernanceItemListResponse> {
     return this.getJson<AdminCatalogGovernanceItemListResponse>(
-      TARU_ADMIN_ROUTES.catalogGovernanceItems,
+      NAKO_ADMIN_ROUTES.catalogGovernanceItems,
     );
   }
 
@@ -180,7 +180,7 @@ export class AdminApiClient {
     query: AdminAcquisitionIntakeCandidatesQuery = {},
   ): Promise<AdminAcquisitionIntakeCandidateListResponse> {
     return this.getJson<AdminAcquisitionIntakeCandidateListResponse>(
-      withQuery(TARU_ADMIN_ROUTES.acquisitionIntakeCandidates, query),
+      withQuery(NAKO_ADMIN_ROUTES.acquisitionIntakeCandidates, query),
     );
   }
 
@@ -188,7 +188,7 @@ export class AdminApiClient {
     request: AdminWatchFolderDiscoveryRequest,
   ): Promise<AdminWatchFolderDiscoveryResponse> {
     return this.postJson<AdminWatchFolderDiscoveryResponse>(
-      TARU_ADMIN_ROUTES.acquisitionIntakeWatchFolderDiscovery,
+      NAKO_ADMIN_ROUTES.acquisitionIntakeWatchFolderDiscovery,
       request,
     );
   }
@@ -197,54 +197,54 @@ export class AdminApiClient {
     query: AdminGeneratedArtifactProposalsQuery = {},
   ): Promise<AdminGeneratedArtifactProposalListResponse> {
     return this.getJson<AdminGeneratedArtifactProposalListResponse>(
-      withQuery(TARU_ADMIN_ROUTES.generatedArtifactProposals, query),
+      withQuery(NAKO_ADMIN_ROUTES.generatedArtifactProposals, query),
     );
   }
 
   async getEvents(): Promise<AdminOutboxEventListResponse> {
-    return this.getJson<AdminOutboxEventListResponse>(TARU_ADMIN_ROUTES.events);
+    return this.getJson<AdminOutboxEventListResponse>(NAKO_ADMIN_ROUTES.events);
   }
 
   async getJobs(): Promise<AdminJobListResponse> {
-    return this.getJson<AdminJobListResponse>(TARU_ADMIN_ROUTES.jobs);
+    return this.getJson<AdminJobListResponse>(NAKO_ADMIN_ROUTES.jobs);
   }
 
   async getPlaybackSessions(): Promise<AdminPlaybackSessionListResponse> {
-    return this.getJson<AdminPlaybackSessionListResponse>(TARU_ADMIN_ROUTES.playbackSessions);
+    return this.getJson<AdminPlaybackSessionListResponse>(NAKO_ADMIN_ROUTES.playbackSessions);
   }
 
   async getPlaybackRuntime(): Promise<AdminPlaybackRuntimeDiagnosticsResponse> {
-    return this.getJson<AdminPlaybackRuntimeDiagnosticsResponse>(TARU_ADMIN_ROUTES.playbackRuntime);
+    return this.getJson<AdminPlaybackRuntimeDiagnosticsResponse>(NAKO_ADMIN_ROUTES.playbackRuntime);
   }
 
   async getPlaybackSupport(
     query: AdminPlaybackSupportQuery = {},
   ): Promise<AdminPlaybackSupportEvidenceResponse> {
     return this.getJson<AdminPlaybackSupportEvidenceResponse>(
-      withQuery(TARU_ADMIN_ROUTES.playbackSupport, query),
+      withQuery(NAKO_ADMIN_ROUTES.playbackSupport, query),
     );
   }
 
   async getAddonRuntimeReadiness(addonId: string): Promise<AdminAddonRuntimeReadinessResponse> {
     return this.postJson<AdminAddonRuntimeReadinessResponse>(
-      routeWithParam(TARU_ADMIN_ROUTES.addonRuntimeReadiness, "addon_id", addonId),
+      routeWithParam(NAKO_ADMIN_ROUTES.addonRuntimeReadiness, "addon_id", addonId),
       {},
     );
   }
 
   async getAddonRoutingPlans(addonId: string): Promise<AdminAddonRoutingPlansResponse> {
     return this.postJson<AdminAddonRoutingPlansResponse>(
-      routeWithParam(TARU_ADMIN_ROUTES.addonRoutingPlans, "addon_id", addonId),
+      routeWithParam(NAKO_ADMIN_ROUTES.addonRoutingPlans, "addon_id", addonId),
       {},
     );
   }
 
   async getStorageStaging(): Promise<AdminStorageStagingDiagnosticsResponse> {
-    return this.getJson<AdminStorageStagingDiagnosticsResponse>(TARU_ADMIN_ROUTES.storageStaging);
+    return this.getJson<AdminStorageStagingDiagnosticsResponse>(NAKO_ADMIN_ROUTES.storageStaging);
   }
 
   async getSystemConfig(): Promise<AdminServerConfigDiagnosticsResponse> {
-    return this.getJson<AdminServerConfigDiagnosticsResponse>(TARU_ADMIN_ROUTES.systemConfig);
+    return this.getJson<AdminServerConfigDiagnosticsResponse>(NAKO_ADMIN_ROUTES.systemConfig);
   }
 
   private async getJson<T>(path: string): Promise<T> {

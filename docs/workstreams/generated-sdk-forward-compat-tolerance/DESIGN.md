@@ -52,7 +52,7 @@ When this lane closes:
 - Known values remain ergonomic, generated, and strongly named.
 - Unknown values carry their raw `wireValue` and can be compared or redacted
   safely by app adapters.
-- `/health.version` and `x-taru-api-version` observation can produce explicit
+- `/health.version` and `x-nako-api-version` observation can produce explicit
   unsupported-version diagnostics instead of generic invalid-response failures.
 - Android adapters map unknown values at the app boundary, not in Compose UI or
   Media3 playback runtime.
@@ -63,7 +63,7 @@ Satisfied on 2026-05-21.
 
 ## In Scope
 
-- `crates/taru-api/src/sdk.rs` Kotlin generator changes for public string-enum
+- `crates/nako-api/src/sdk.rs` Kotlin generator changes for public string-enum
   representation and serialization.
 - Regenerated checked Kotlin output in `sdk/kotlin`.
 - Kotlin SDK tests for known and unknown enum/value decoding.
@@ -167,7 +167,7 @@ preserve additive public wire strings instead of throwing away raw values.
 
 Closed on 2026-05-21. The target state is satisfied for this lane:
 
-- `taru-api` emits tolerant Kotlin value classes for generated Public Client API
+- `nako-api` emits tolerant Kotlin value classes for generated Public Client API
   string enums.
 - `sdk/kotlin` decodes and encodes unknown public wire strings while preserving
   raw `wireValue`.

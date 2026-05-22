@@ -18,10 +18,10 @@ Last updated: 2026-05-21
 - [x] UNS-020 [owner=codex] [deps=UNS-010] [scope=apps/android/app/build.gradle.kts,apps/android/app/src/androidTest]
   Goal: Add a minimal Android instrumentation test that calls a deterministic
   UniFFI function backed by the packaged Android native library.
-  Validation: `apps/android/gradlew.bat -p apps/android :app:assembleDebug :app:assembleDebugAndroidTest -PtaruRustAndroidAbis=x86_64 --no-daemon`
+  Validation: `apps/android/gradlew.bat -p apps/android :app:assembleDebug :app:assembleDebugAndroidTest -PnakoRustAndroidAbis=x86_64 --no-daemon`
   Review: The test must not use host-library overrides, network, server state,
   Media3, or profile/token persistence.
-  Evidence: `apps/android/app/src/androidTest/java/dev/taru/android/uniffi/TaruUniFfiNativeSmokeTest.kt`
+  Evidence: `apps/android/app/src/androidTest/java/dev/nako/android/uniffi/NakoUniFfiNativeSmokeTest.kt`
   Handoff: DONE. Added AndroidX instrumentation dependencies, switched Android
   runtime JNA packaging to the AAR artifact, preserved JVM host JNA resources,
   and added a deterministic UniFFI request-builder smoke.
@@ -31,7 +31,7 @@ Last updated: 2026-05-21
 - [x] UNS-030 [owner=codex] [deps=UNS-020] [scope=apps/android,docs/workstreams/android-uniffi-native-smoke]
   Goal: Run the instrumentation smoke on an attached device/emulator when
   available; otherwise record the exact blocker and keep build evidence.
-  Validation: `apps/android/gradlew.bat -p apps/android :app:connectedDebugAndroidTest -PtaruRustAndroidAbis=x86_64 --no-daemon`
+  Validation: `apps/android/gradlew.bat -p apps/android :app:connectedDebugAndroidTest -PnakoRustAndroidAbis=x86_64 --no-daemon`
   Review: Do not claim real Android runtime verification unless the connected
   instrumentation command passes.
   Evidence: `EVIDENCE_AND_GATES.md`

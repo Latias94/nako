@@ -5,7 +5,7 @@ Last updated: 2026-05-22
 
 ## Purpose
 
-This workstream opens the post-AI Addon productization lane. Taru already has
+This workstream opens the post-AI Addon productization lane. Nako already has
 HTTP Addon Sidecars, Addon Protocol types, Addon Tokens and grants, Addon Side
 Effects, protected metadata/artwork/library-file write paths, Admin Addon
 operations, Network Access Boundary readiness, and Generated Artifact
@@ -15,7 +15,7 @@ The remaining product risk is turning manually registered sidecars into a safe
 operator distribution story without weakening the extension boundary. The first
 safe shape is **distribution and runtime readiness**, not a native plugin ABI:
 validate addon packages/manifests, generate install guidance, check sidecar
-runtime health, and route declared tasks/events/artifacts through Taru-owned
+runtime health, and route declared tasks/events/artifacts through Nako-owned
 queues and side-effect APIs.
 
 ## Current Decision
@@ -30,7 +30,7 @@ ARD-060 closes the lane and returns routing to
 marketplace hosting, package signing trust roots, process/container
 supervision, rollback/log streaming, Native Plugin ABI, downloader protocol
 adapters, local AI/model runtime, Public Client surfaces, and
-`taru-client-protocol` changes remain split follow-ons rather than hidden in
+`nako-client-protocol` changes remain split follow-ons rather than hidden in
 this lane.
 
 ## Authoritative Docs
@@ -58,4 +58,4 @@ guidance, runtime health/readiness, declared task/event/artifact routing, and
 Admin-only operator diagnostics. It does not own Native Plugin ABI, Jellyfin
 plugin compatibility, marketplace hosting, automatic container/process
 supervision, package signing trust root, direct filesystem writes, Public
-Client API churn, or `taru-client-protocol` changes.
+Client API churn, or `nako-client-protocol` changes.

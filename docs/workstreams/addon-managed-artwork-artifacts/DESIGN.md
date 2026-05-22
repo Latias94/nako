@@ -13,27 +13,27 @@ hidden inside the metadata lane.
 
 ## Problem
 
-Taru has `ImageAsset` and `ArtworkTask` primitives, but it does not yet have a
+Nako has `ImageAsset` and `ArtworkTask` primitives, but it does not yet have a
 cohesive Addon-owned artwork apply service. If `artwork_write` simply accepted
-provider URLs or addon file paths, Taru would risk:
+provider URLs or addon file paths, Nako would risk:
 
 - serving unstable hotlinks instead of Managed Artwork;
 - exposing Source Locators or filesystem paths to Addon Sidecars;
 - bypassing resource budgets for external fetches, thumbnailing, and cache
   storage;
 - losing provenance between Artwork Source, Artwork Candidate, Selected
-  Artwork, and Taru-Managed Artifact;
+  Artwork, and Nako-Managed Artifact;
 - returning unsafe diagnostics or unredacted payloads.
 
 ## Target State
 
 - `artwork_write` requests move through Addon Side Effect intake and explicit
   apply outcome state.
-- Addon artwork output is normalized into a Taru-owned artwork/artifact command.
-- Taru owns artifact storage, cache URI assignment, selected-artwork state, and
+- Addon artwork output is normalized into a Nako-owned artwork/artifact command.
+- Nako owns artifact storage, cache URI assignment, selected-artwork state, and
   redacted diagnostics.
-- Remote artwork is fetched by a bounded Taru worker or represented as a
-  candidate until fetched; Addon Sidecars do not give Taru raw library paths.
+- Remote artwork is fetched by a bounded Nako worker or represented as a
+  candidate until fetched; Addon Sidecars do not give Nako raw library paths.
 - Public Client surfaces only safe Managed Artwork references.
 
 ## In Scope
@@ -61,9 +61,9 @@ Reuse the APW three-stage model:
 
 1. Addon runtime route authenticates, validates permission/library/target,
    persists the side-effect record, and returns redacted summaries.
-2. Artwork-specific validation normalizes payload into a Taru artwork/artifact
+2. Artwork-specific validation normalizes payload into a Nako artwork/artifact
    command.
-3. Taru applies the command through Managed Artwork, artifact storage, catalog,
+3. Nako applies the command through Managed Artwork, artifact storage, catalog,
    and task seams, then records a safe apply outcome.
 
 If fetching, resizing, hashing, or exporting can exceed a short request budget,
@@ -73,7 +73,7 @@ request.
 ### Core Architecture Alignment
 
 `artwork_write` must not become a side channel that writes catalog-visible image
-state, cache state, or search projections independently from Taru-owned artwork
+state, cache state, or search projections independently from Nako-owned artwork
 and catalog services. If the first artwork slice needs a stronger durable write
 unit than the current artwork/catalog seams provide, AMAA should add that
 first-party commit boundary instead of embedding multi-step persistence inside
@@ -81,12 +81,12 @@ the Addon handler.
 
 Artwork export to media-library sidecar files is a **Library File Write** and
 belongs in `addon-library-file-write-policy`; AMAA may produce Managed Artwork
-or Taru-Managed Artifacts, but it should not invent a separate file-write path.
+or Nako-Managed Artifacts, but it should not invent a separate file-write path.
 
 ### AMAA-020 Selected First Target
 
 The first AMAA-030 apply target should be an addon-initiated Artwork Candidate
-proposal for an existing Media Item. The addon may request that Taru consider a
+proposal for an existing Media Item. The addon may request that Nako consider a
 poster, backdrop, logo, banner, or thumbnail candidate, but it must not
 directly create selected artwork, public client artwork references, or library
 sidecar files. Arbitrary `other` artwork kinds are deferred until key naming,
@@ -145,7 +145,7 @@ AMAA-040 closes this lane after AMAA-030 proved the first safe
 with redacted apply outcome and no public `ImageAsset` writes.
 
 Remaining managed artwork fetch/cache, image validation, thumbnailing,
-selected artwork, Taru-managed artifact intake, public `ImageAsset`
+selected artwork, Nako-managed artifact intake, public `ImageAsset`
 publication, resource budgets, and diagnostics are split to
 `docs/workstreams/managed-artwork-ingest-selection/`. Artwork sidecar export
 remains Library File Write scope.

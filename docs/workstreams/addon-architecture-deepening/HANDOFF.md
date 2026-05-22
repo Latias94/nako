@@ -26,18 +26,18 @@ replay only when the same Addon plus same idempotency key has the same
 fingerprint; different requests return `409 conflict` with redacted public
 errors. AAD-090 later folded the fingerprint into the clean SQLite/PostgreSQL
 base schemas and removed the temporary compatibility migration/fallback because
-Taru has no deployed users.
+Nako has no deployed users.
 
 AAD-040 is complete. Shipped Protected Write payload contracts now live in
-`taru-addon-protocol` as Addon-facing DTOs:
+`nako-addon-protocol` as Addon-facing DTOs:
 `AddonMetadataPatch`, `AddonArtworkWritePayload`, and
 `AddonLibraryFileWritePayload` with supporting enums. Server Adapters parse
-those DTOs but retain Taru-owned validation/application/storage/report logic.
-`taru-reference-addon` exposes small demo builders for the new payload
+those DTOs but retain Nako-owned validation/application/storage/report logic.
+`nako-reference-addon` exposes small demo builders for the new payload
 contracts, and the API/author docs now point Addon authors at these explicit
 Interfaces.
 
-AAD-050 is complete. `taru-addon-protocol` now has first-class Addon Manifest
+AAD-050 is complete. `nako-addon-protocol` now has first-class Addon Manifest
 declarations for Addon Entry Points, Addon Hosted Pages, Addon Configuration
 Schema, Secret Reference fields, Addon Event Subscriptions, and Addon Tasks.
 The additions are compatible and keep the current Addon Protocol Version.
@@ -51,7 +51,7 @@ the new manifest contract.
 AAD-060 is complete. `AddonLibraryFileWriteAdapter` now delegates to
 `AddonLibraryFileWriteRuntime`, which owns the file-write command, target, and
 outcome seams for the shipped MediaSource-targeted NFO Export path. The runtime
-normalizes the typed payload into a Taru command, dispatches by file role,
+normalizes the typed payload into a Nako command, dispatches by file role,
 resolves the MediaSource target, validates the library, acquires the file-write
 permit, checks writable storage, delegates to first-party NFO/VFS export, and
 returns a redacted apply report with safe IDs, write-mode, backup-policy, and
@@ -60,7 +60,7 @@ queued Library File Write execution remain deferred.
 
 AAD-070 is complete. Addon registration/list/detail management has been
 migrated to `/admin/v1/addons`. The old root `/addons` management routes are
-intentionally not mounted. `taru-api` now exposes Admin Addon summary/detail
+intentionally not mounted. `nako-api` now exposes Admin Addon summary/detail
 response DTOs instead of the legacy persistence-record responses;
 create/detail responses include a summary plus parsed manifest, while list
 responses include summaries only. Route tests cover admin
@@ -69,11 +69,11 @@ in Admin responses. HTTP API and Admin Web Console matrix docs have been
 updated.
 
 AAD-080 is complete. The deletion test found real Interface cost in keeping
-HTTP caller helpers inside `taru-addon-protocol`: Addon wire-contract
+HTTP caller helpers inside `nako-addon-protocol`: Addon wire-contract
 consumers inherited `reqwest` and `async-trait` even when they only needed DTOs
 and validation. The HTTP caller helper has been split into a new permissive
-`taru-addon-client` crate. `taru-addon-protocol` now owns manifests, envelopes,
-scopes, Protected Write payload DTOs, and validation only; `taru-addon-client`
+`nako-addon-client` crate. `nako-addon-protocol` now owns manifests, envelopes,
+scopes, Protected Write payload DTOs, and validation only; `nako-addon-client`
 owns `AddonTransport`, `ReqwestAddonTransport`, `AddonClientError`, and
 `call_addon_resource`.
 
@@ -85,7 +85,7 @@ side-effect slice now uses a clean schema boundary: SQLite migration
 fingerprint migration and nullable row-decoding fallback are gone. SQLite
 Addon tests assert the migrated column is non-null and that persisted side
 effects round-trip the deterministic request fingerprint. PostgreSQL opt-in
-contracts were skipped because `TARU_TEST_POSTGRES_URL` was not set.
+contracts were skipped because `NAKO_TEST_POSTGRES_URL` was not set.
 
 ## Closeout
 
@@ -108,7 +108,7 @@ than vague follow-up buckets.
 - Use Addon terminology from `CONTEXT.md`; do not drift back to plugin-centric
   language in docs or code discussions.
 - Do not introduce Native Plugin or Jellyfin Plugin Compatibility.
-- Keep `taru-addon-protocol` permissive and free of AGPL server internals.
+- Keep `nako-addon-protocol` permissive and free of AGPL server internals.
 - Addon runtime routes must use Addon Token authority, not administrator bearer
   token authority.
 - Addon Side Effect responses must stay redacted.
@@ -117,64 +117,64 @@ than vague follow-up buckets.
 
 - AAD-010 validation: `git diff --check` passed.
 - AAD-020 validation:
-  - `cargo check -p taru-core -p taru-server --tests`
-  - `cargo nextest run -p taru-server addon_side_effect --no-fail-fast`
+  - `cargo check -p nako-core -p nako-server --tests`
+  - `cargo nextest run -p nako-server addon_side_effect --no-fail-fast`
   - `cargo fmt --all -- --check`
   - `git diff --check`
 - AAD-030 validation:
-  - `cargo check -p taru-core -p taru-db -p taru-server --tests`
-  - `cargo nextest run -p taru-db addon --no-fail-fast`
-  - `cargo nextest run -p taru-server addon_side_effect --no-fail-fast`
+  - `cargo check -p nako-core -p nako-db -p nako-server --tests`
+  - `cargo nextest run -p nako-db addon --no-fail-fast`
+  - `cargo nextest run -p nako-server addon_side_effect --no-fail-fast`
   - `cargo fmt --all -- --check`
   - `git diff --check`
-  - PostgreSQL opt-in contracts skipped: `TARU_TEST_POSTGRES_URL` was not set.
+  - PostgreSQL opt-in contracts skipped: `NAKO_TEST_POSTGRES_URL` was not set.
 - AAD-040 validation:
-  - `cargo check -p taru-addon-protocol -p taru-api -p taru-reference-addon -p taru-server --tests`
-  - `cargo nextest run -p taru-addon-protocol --no-fail-fast`
-  - `cargo nextest run -p taru-server addon_side_effect --no-fail-fast`
+  - `cargo check -p nako-addon-protocol -p nako-api -p nako-reference-addon -p nako-server --tests`
+  - `cargo nextest run -p nako-addon-protocol --no-fail-fast`
+  - `cargo nextest run -p nako-server addon_side_effect --no-fail-fast`
   - `cargo fmt --all -- --check`
   - `git diff --check`
 - AAD-050 validation:
-  - `cargo check -p taru-addon-protocol -p taru-reference-addon -p taru-server --tests`
-  - `cargo nextest run -p taru-addon-protocol --no-fail-fast`
-  - `cargo nextest run -p taru-server register_addon --no-fail-fast`
+  - `cargo check -p nako-addon-protocol -p nako-reference-addon -p nako-server --tests`
+  - `cargo nextest run -p nako-addon-protocol --no-fail-fast`
+  - `cargo nextest run -p nako-server register_addon --no-fail-fast`
   - `cargo fmt --all -- --check`
   - `git diff --check`
 - AAD-060 validation:
-  - `cargo check -p taru-core -p taru-nfo -p taru-vfs -p taru-server --tests`
-  - `cargo nextest run -p taru-server library_file_write --no-fail-fast`
-  - `cargo nextest run -p taru-nfo nfo_service_export --no-fail-fast`
+  - `cargo check -p nako-core -p nako-nfo -p nako-vfs -p nako-server --tests`
+  - `cargo nextest run -p nako-server library_file_write --no-fail-fast`
+  - `cargo nextest run -p nako-nfo nfo_service_export --no-fail-fast`
   - `cargo fmt --all -- --check`
   - `git diff --check`
 - AAD-070 validation:
-  - `cargo check -p taru-api -p taru-server --tests`
-  - `cargo nextest run -p taru-server addons --no-fail-fast`
-  - `cargo nextest run -p taru-api --no-fail-fast`
+  - `cargo check -p nako-api -p nako-server --tests`
+  - `cargo nextest run -p nako-server addons --no-fail-fast`
+  - `cargo nextest run -p nako-api --no-fail-fast`
   - `cargo fmt --all -- --check`
   - `git diff --check`
 - AAD-080 validation:
-  - `cargo check -p taru-addon-protocol -p taru-addon-client -p taru-reference-addon -p taru-server --tests`
-  - `cargo nextest run -p taru-addon-protocol -p taru-addon-client --no-fail-fast`
-  - `cargo nextest run -p taru-server reference_addon_registers_queries_and_handles_resource_call --no-fail-fast`
+  - `cargo check -p nako-addon-protocol -p nako-addon-client -p nako-reference-addon -p nako-server --tests`
+  - `cargo nextest run -p nako-addon-protocol -p nako-addon-client --no-fail-fast`
+  - `cargo nextest run -p nako-server reference_addon_registers_queries_and_handles_resource_call --no-fail-fast`
   - `cargo fmt --all -- --check`
   - `git diff --check`
 - AAD-090 validation:
-  - `cargo check -p taru-db --tests`
-  - `cargo nextest run -p taru-db addon --no-fail-fast`
-  - searched `crates/taru-db` for obsolete `0031`, Addon fingerprint migration,
+  - `cargo check -p nako-db --tests`
+  - `cargo nextest run -p nako-db addon --no-fail-fast`
+  - searched `crates/nako-db` for obsolete `0031`, Addon fingerprint migration,
     fingerprint index, nullable fingerprint fallback, and add-column patterns
   - `cargo fmt --all -- --check`
   - `git diff --check`
-  - PostgreSQL opt-in contracts skipped: `TARU_TEST_POSTGRES_URL` was not set.
+  - PostgreSQL opt-in contracts skipped: `NAKO_TEST_POSTGRES_URL` was not set.
 - AAD-100 validation:
   - `cargo fmt --all -- --check`
   - `cargo check --workspace --tests`
-  - `cargo nextest run -p taru-addon-protocol -p taru-addon-client --no-fail-fast`
-  - `cargo nextest run -p taru-db addon --no-fail-fast`
-  - `cargo nextest run -p taru-server addons --no-fail-fast`
-  - `cargo nextest run -p taru-server addon_side_effect --no-fail-fast`
-  - `cargo nextest run -p taru-server library_file_write --no-fail-fast`
-  - `cargo nextest run -p taru-api --no-fail-fast`
+  - `cargo nextest run -p nako-addon-protocol -p nako-addon-client --no-fail-fast`
+  - `cargo nextest run -p nako-db addon --no-fail-fast`
+  - `cargo nextest run -p nako-server addons --no-fail-fast`
+  - `cargo nextest run -p nako-server addon_side_effect --no-fail-fast`
+  - `cargo nextest run -p nako-server library_file_write --no-fail-fast`
+  - `cargo nextest run -p nako-api --no-fail-fast`
   - `cargo nextest run --workspace --no-fail-fast`
   - `git diff --check`
-  - PostgreSQL opt-in contracts skipped: `TARU_TEST_POSTGRES_URL` was not set.
+  - PostgreSQL opt-in contracts skipped: `NAKO_TEST_POSTGRES_URL` was not set.

@@ -31,8 +31,8 @@ staging when a storage backend cannot provide a local path hint.
 
 ## Validation
 
-- `cargo test -p taru-vfs webdav_backend_stages_file_to_deterministic_local_path`
-- `cargo test -p taru-library probe_service_stages_webdav_source_before_probe`
+- `cargo test -p nako-vfs webdav_backend_stages_file_to_deterministic_local_path`
+- `cargo test -p nako-library probe_service_stages_webdav_source_before_probe`
 
 ## Boundary Notes
 

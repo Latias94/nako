@@ -5,14 +5,14 @@ Last updated: 2026-05-21
 
 ## Why This Lane Exists
 
-RPD recommends Metadata Provider Breadth as the next product lane. Taru already
+RPD recommends Metadata Provider Breadth as the next product lane. Nako already
 has a strong foundation: **Provider Subject**, **Provider Mapping**, raw
 provider response cache, provider attempts, shared HTTP runtime, field-lock
 merge policy, and hierarchy confirmation. However, the current provider
 workflow still behaves like "try providers in order until one succeeds".
 
 That is not enough for a self-hosted operator with mixed movie, TV, anime, NFO,
-and local inference data. Taru needs to explain what each provider can do,
+and local inference data. Nako needs to explain what each provider can do,
 which candidates it found, how safe each match is, and when conflicts should
 wait for manual confirmation instead of silently becoming **Canonical
 Metadata**.
@@ -48,7 +48,7 @@ The current provider surface lacks these product-grade boundaries:
 
 ## Target State
 
-- `taru-metadata` exposes a provider capability model for built-in providers.
+- `nako-metadata` exposes a provider capability model for built-in providers.
 - TMDB, Douban, and Bangumi report capabilities without leaking secrets.
 - Matching policy converts candidate scores and evidence into explicit
   decisions.
@@ -61,7 +61,7 @@ The current provider surface lacks these product-grade boundaries:
 
 ## In Scope
 
-- `taru-metadata` capability and matching policy types.
+- `nako-metadata` capability and matching policy types.
 - Built-in provider capability implementations for TMDB, Douban, and Bangumi.
 - Metadata provider diagnostics DTO/API additions for capability reporting.
 - Focused tests for capabilities, match decisions, and non-destructive
@@ -87,7 +87,7 @@ The current provider surface lacks these product-grade boundaries:
 | Capability reporting can be in-memory and diagnostics-only first. | High | Provider configs and registry already exist in server composition. | If clients need durable capabilities, split a schema/API follow-on. |
 | Search-based ambiguity can be represented before durable candidate queues. | Medium | Provider attempts already record skipped/failure outcomes, but not candidate sets. | If non-destructive review needs persistence, split a candidate-review persistence task before UI. |
 | External-ID matches should remain auto-acceptable. | High | Existing refresh behavior and tests rely on direct provider keys from external IDs. | If provider IDs conflict, matching policy must mark conflicts before commit. |
-| `taru-api` can carry admin diagnostics additions without touching public client protocol. | High | Metadata provider diagnostics already live in `taru-api::metadata_diagnostics`. | If API clients require versioning, update route docs and admin contract tests. |
+| `nako-api` can carry admin diagnostics additions without touching public client protocol. | High | Metadata provider diagnostics already live in `nako-api::metadata_diagnostics`. | If API clients require versioning, update route docs and admin contract tests. |
 
 ## Architecture Direction
 
@@ -140,11 +140,11 @@ leaving **Canonical Metadata** untouched.
 `MPB-020` should implement provider capabilities and expose them through
 diagnostics. It is small, safe, and immediately useful:
 
-- add capability types to `taru-metadata`;
+- add capability types to `nako-metadata`;
 - default `MetadataProvider::capabilities`;
 - implement capabilities for TMDB, Douban, Bangumi;
 - extend registry diagnostics;
-- extend `taru-api` metadata provider diagnostics;
+- extend `nako-api` metadata provider diagnostics;
 - test that `/metadata/providers` returns capabilities without secrets.
 
 

@@ -36,7 +36,7 @@ Exit criteria:
 
 Exit criteria:
 
-- Focused `taru-vfs` and `taru-nfo` checks and tests pass.
+- Focused `nako-vfs` and `nako-nfo` checks and tests pass.
 - Workspace checks and nextest pass.
 - `git diff --check` has no whitespace errors.
 - `docs/GOALS.md`, `EVIDENCE_AND_GATES.md`, and `HANDOFF.md` record M49

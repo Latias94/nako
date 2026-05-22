@@ -43,11 +43,11 @@ Run ACFH-090:
 
 ## Fresh Validation
 
-- `apps\android\gradlew.bat -p apps\android --offline --no-daemon --no-parallel --console=plain :app:testDebugUnitTest --tests "dev.taru.android.connection.*" --tests "dev.taru.android.ui.screens.player.*"`:
+- `apps\android\gradlew.bat -p apps\android --offline --no-daemon --no-parallel --console=plain :app:testDebugUnitTest --tests "dev.nako.android.connection.*" --tests "dev.nako.android.ui.screens.player.*"`:
   PASS.
 - `apps\android\gradlew.bat -p apps\android --offline --no-daemon --no-parallel --console=plain :app:testDebugUnitTest`:
   PASS.
-- `apps\android\gradlew.bat -p apps\android --offline --no-daemon --no-parallel --console=plain :app:assembleDebug -PtaruRustAndroidAbis=x86_64`:
+- `apps\android\gradlew.bat -p apps\android --offline --no-daemon --no-parallel --console=plain :app:assembleDebug -PnakoRustAndroidAbis=x86_64`:
   PASS.
 - PowerShell parser check for smoke scripts: PASS.
 - Deprecated token-vault crypto grep: PASS.

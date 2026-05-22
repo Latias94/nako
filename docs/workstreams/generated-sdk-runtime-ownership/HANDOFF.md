@@ -39,7 +39,7 @@ None. The workstream is closed.
   transport.
 - Android UI, navigation, Media3, media sessions, token storage, product copy,
   and platform security policy stay app-owned.
-- Generated DTO/request code must remain synchronized from `taru-api` if it is
+- Generated DTO/request code must remain synchronized from `nako-api` if it is
   generator-owned.
 
 ## Frozen Decisions From SDKRT-010
@@ -49,8 +49,8 @@ None. The workstream is closed.
 - Do not make the first tracer Rust-owned Android networking.
 - Start with an FFI-safe no-socket Rust client core and app-supplied Android
   transport.
-- Keep `taru-client` as the existing reqwest/async Rust adapter; define whether
-  a new `taru-client-core` and `taru-client-uniffi` split is needed in
+- Keep `nako-client` as the existing reqwest/async Rust adapter; define whether
+  a new `nako-client-core` and `nako-client-uniffi` split is needed in
   `SDKRT-020`.
 - Rust core should own protocol-level request construction, API-version
   observation, public error parsing, JSON decode classification, redaction
@@ -64,11 +64,11 @@ None. The workstream is closed.
   `docs/adr/0032-shared-rust-client-core-app-supplied-transport.md`.
 - Mark ADR 0031 as superseded for post-generated-SDK mobile Rust/UniFFI
   sequencing.
-- Introduce/define `taru-client-core` as the new permissive, no-socket,
+- Introduce/define `nako-client-core` as the new permissive, no-socket,
   FFI-safe core.
-- Keep `taru-client` as the reqwest/async adapter that should later reuse the
+- Keep `nako-client` as the reqwest/async adapter that should later reuse the
   core.
-- Put UniFFI scaffolding in a thin `taru-client-uniffi` binding crate later,
+- Put UniFFI scaffolding in a thin `nako-client-uniffi` binding crate later,
   not in the core.
 - First tracer: connection health plus authenticated library auth probe with
   Android-supplied transport.
@@ -94,8 +94,8 @@ Recommended order:
 1. `android-rust-uniffi-build-ergonomics`: make the Gradle/NDK/UniFFI pipeline
    incremental and package-aware; decide debug/release ABI strategy and symbol
    stripping.
-2. `rust-client-core-adapter-reuse`: make `taru-client` reuse
-   `taru-client-core` so Rust request/error/version/redaction policy does not
+2. `rust-client-core-adapter-reuse`: make `nako-client` reuse
+   `nako-client-core` so Rust request/error/version/redaction policy does not
    fork.
 3. `rust-public-wire-tolerance`: preserve unknown additive public string values
    in Rust before moving browse/playback DTO decode behind UniFFI.
@@ -116,7 +116,7 @@ Rust-owned networking in any of these follow-ons.
   intentional, but build ergonomics and release packaging need a dedicated lane.
 - The connection tracer avoids strict-enum browse/playback decode; Rust wire
   tolerance must be solved before broader Android decode moves to Rust.
-- `taru-client` and `taru-client-core` can drift until the adapter-reuse lane
+- `nako-client` and `nako-client-core` can drift until the adapter-reuse lane
   consolidates request/error/version/redaction policy.
 - Android still maps core runtime failures into product categories. That is the
   desired boundary, but each new route-family tracer needs focused tests.

@@ -31,7 +31,7 @@ Exit criteria:
   domain-specific apply behavior have clearer Modules with deeper Interfaces.
   Completed structurally by FAD-020.
 - Behavior-preserving refactor evidence exists before semantic changes.
-  Completed for FAD-020 with focused `taru-server` Addon Side Effect and addon
+  Completed for FAD-020 with focused `nako-server` Addon Side Effect and addon
   HTTP tests.
 - Addon Canonical Metadata writes are committed through a transactional seam
   that proves metadata/catalog/search/apply-outcome consistency.
@@ -39,12 +39,12 @@ Exit criteria:
 - SQLite always-on and PostgreSQL opt-in evidence covers any new persistence
   commit semantics.
   SQLite evidence completed by FAD-030. PostgreSQL opt-in contract pair exists
-  and was not run because `TARU_TEST_POSTGRES_URL` was unset.
+  and was not run because `NAKO_TEST_POSTGRES_URL` was unset.
 
 Primary gates:
 
-- `cargo check -p taru-core -p taru-db -p taru-server --tests`
-- focused `cargo nextest run -p taru-server addon_side_effect --no-fail-fast`
+- `cargo check -p nako-core -p nako-db -p nako-server --tests`
+- focused `cargo nextest run -p nako-server addon_side_effect --no-fail-fast`
 - focused DB contract nextest for the new commit seam
 - `git diff --check`
 
@@ -66,9 +66,9 @@ Exit criteria:
 
 Primary gates:
 
-- `cargo check -p taru-library -p taru-db --tests`
-- `cargo nextest run -p taru-db scan_commit --no-fail-fast`
-- focused `taru-library` nextest
+- `cargo check -p nako-library -p nako-db --tests`
+- `cargo nextest run -p nako-db scan_commit --no-fail-fast`
+- focused `nako-library` nextest
 - PostgreSQL opt-in scan contract when available
 - `git diff --check`
 
@@ -79,7 +79,7 @@ Evidence:
 - A fake workflow test proves index orchestration can be exercised without
   implementing low-level repository traits.
 - SQLite scan commit contracts passed. PostgreSQL opt-in scan contract was
-  skipped because `TARU_TEST_POSTGRES_URL` was unset.
+  skipped because `NAKO_TEST_POSTGRES_URL` was unset.
 
 ## M3 — Playback And Transcode Readiness
 
@@ -102,7 +102,7 @@ Exit criteria:
 
 Primary gates:
 
-- `cargo check -p taru-streaming -p taru-transcode -p taru-server --tests`
+- `cargo check -p nako-streaming -p nako-transcode -p nako-server --tests`
 - focused playback/profile identity nextest
 - focused hardware diagnostics nextest
 - `git diff --check`
@@ -111,7 +111,7 @@ Evidence:
 
 - FAD-050 request/cache identity tests passed for streaming/transcode/server
   playback.
-- FAD-060 hardware diagnostics tests passed for `taru-transcode`, Admin API
+- FAD-060 hardware diagnostics tests passed for `nako-transcode`, Admin API
   DTO/contract serialization, the Admin playback runtime HTTP route, and
   admin-web TypeScript checking.
 
@@ -122,7 +122,7 @@ Status: completed.
 Exit criteria:
 
 - Search semantics have a small evaluation harness before AI/vector search is
-  introduced. Completed by FAD-070 with the shared `taru-search` evaluator and
+  introduced. Completed by FAD-070 with the shared `nako-search` evaluator and
   focused title/alias/provider-title/CJK fixtures.
 - Search Projection versioning or equivalent discipline is documented and
   tested where needed. Completed for FAD-070 with current-version helpers on
@@ -134,7 +134,7 @@ Exit criteria:
 
 Primary gates:
 
-- `cargo check -p taru-search -p taru-catalog -p taru-db --tests`
+- `cargo check -p nako-search -p nako-catalog -p nako-db --tests`
 - focused search nextest
 - focused nextest for refactored test families
 - `cargo check --workspace --tests`
@@ -142,13 +142,13 @@ Primary gates:
 
 Evidence:
 
-- `crates/taru-db/src/search_tests.rs` now owns the focused SearchIndex
+- `crates/nako-db/src/search_tests.rs` now owns the focused SearchIndex
   semantics tests for exact Browse Facets, CJK alias matching, and structured
   alias search with shared domain fixtures.
-- `crates/taru-db/src/tests.rs` keeps mixed scan/artwork/search round-trip
+- `crates/nako-db/src/tests.rs` keeps mixed scan/artwork/search round-trip
   coverage where the test describes a broader persistence family rather than
   only SearchIndex semantics.
-- FAD-080 focused `taru-db` search/facet nextest and workspace test check
+- FAD-080 focused `nako-db` search/facet nextest and workspace test check
   passed.
 
 ## M5 — Closeout Or Split
@@ -189,5 +189,5 @@ Result:
 - `cargo nextest run --workspace --no-fail-fast` passed with 498 tests run and
   19 skipped.
 - `git diff --check` passed.
-- PostgreSQL opt-in contracts were skipped because `TARU_TEST_POSTGRES_URL` was
+- PostgreSQL opt-in contracts were skipped because `NAKO_TEST_POSTGRES_URL` was
   unset.

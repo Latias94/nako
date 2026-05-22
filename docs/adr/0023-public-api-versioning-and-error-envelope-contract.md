@@ -7,7 +7,7 @@ Accepted.
 ## Context
 
 M29 moved the first useful public client DTOs into
-`taru-client-protocol`. Future Flutter, web, CLI, and SDK consumers now have a
+`nako-client-protocol`. Future Flutter, web, CLI, and SDK consumers now have a
 permissive crate boundary for browse and playback response shapes, but the
 HTTP contract still needs a stable compatibility policy.
 
@@ -25,10 +25,10 @@ but under-specified:
 
 ## Decision
 
-Taru will treat the public client HTTP contract as a versioned `v1` surface
-backed by `taru-client-protocol`. The server advertises the active public
-contract version through `GET /health` and the `x-taru-api-version` response
-header. Route path versioning is deferred until Taru needs multiple
+Nako will treat the public client HTTP contract as a versioned `v1` surface
+backed by `nako-client-protocol`. The server advertises the active public
+contract version through `GET /health` and the `x-nako-api-version` response
+header. Route path versioning is deferred until Nako needs multiple
 concurrently supported API versions.
 
 Public client responses must use protocol-owned wire types where the response
@@ -64,25 +64,25 @@ them into a public protocol contract.
 ## Consequences
 
 - Client applications can handle errors by code instead of parsing messages.
-- Taru can evolve internal `TaruError`, storage providers, and playback
+- Nako can evolve internal `NakoError`, storage providers, and playback
   services without changing public client error codes.
 - Route tests must cover both HTTP status and stable error code for public
   routes.
-- `taru-client-protocol` must remain dependency-light and cannot import
-  `taru-core`, `taru-streaming`, `taru-transcode`, or `taru-server`.
+- `nako-client-protocol` must remain dependency-light and cannot import
+  `nako-core`, `nako-streaming`, `nako-transcode`, or `nako-server`.
 - Adding OpenAPI output or generated SDKs can happen as follow-ons without
   changing the baseline v1 rule.
 
 ## Alternatives Considered
 
-- Put the API contract in `taru-api`: rejected because that keeps clients tied
+- Put the API contract in `nako-api`: rejected because that keeps clients tied
   to the AGPL server adapter crate.
-- Use raw `TaruError` variants as public codes: rejected because internal
+- Use raw `NakoError` variants as public codes: rejected because internal
   domain/runtime changes would become client breaking changes.
 - Add a total count to all paginated responses now: rejected because it adds
   unnecessary database cost and does not solve the current compatibility
   problem.
-- Version every route path immediately, such as `/api/v1/...`: deferred. Taru
+- Version every route path immediately, such as `/api/v1/...`: deferred. Nako
   can advertise `v1` first and add path or header negotiation when multiple
   concurrently supported versions exist.
 

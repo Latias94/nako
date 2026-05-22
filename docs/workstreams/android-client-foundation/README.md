@@ -3,7 +3,7 @@
 Status: Completed
 Last updated: 2026-05-18
 
-This workstream tracks the Android-first implementation lane for Taru's native
+This workstream tracks the Android-first implementation lane for Nako's native
 client architecture. It turns ADR 0026 into a concrete Android foundation while
 preserving iOS as a peer future target.
 
@@ -19,14 +19,14 @@ Authoritative docs:
 
 ## Current Direction
 
-Android is the first implementation target, not the product strategy. Taru's
+Android is the first implementation target, not the product strategy. Nako's
 flagship client architecture remains native iOS and native Android shells with
 a shared Rust client core where practical.
 
 The first Android client should prioritize playback and the smallest useful
 media-library browsing loop:
 
-- connect to a Taru server;
+- connect to a Nako server;
 - authenticate with the Public Client API;
 - browse Media Libraries and Media Items;
 - show Managed Artwork when the public route exists;
@@ -43,7 +43,7 @@ out of the first Android client slice.
 
 ## Closeout
 
-The foundation lane is complete as of `ACF-060`. Android can connect to Taru,
+The foundation lane is complete as of `ACF-060`. Android can connect to Nako,
 authenticate through the Public Client API, browse the minimal library loop,
 request playback decisions, play a public playback route through Media3, and
 consume public playback session inspection/cancellation without depending on

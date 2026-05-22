@@ -20,13 +20,13 @@ remediation while preserving the existing redaction and authority rules.
 
 - Split concentrated app-layer implementation into deeper private modules with
   small caller interfaces.
-- Keep Managed Artwork storage authority internal to Taru.
+- Keep Managed Artwork storage authority internal to Nako.
 - Preserve public/Admin redaction for raw source URLs, storage URIs, local
   paths, cache URIs, and content hashes.
 - Make image variant serving, artifact store inventory, ingest processing, and
   lifecycle/remediation logic easier to test at their seams.
-- Keep repository and API module seams aligned with `taru-core`, `taru-db`,
-  `taru-api`, and `taru-server` ownership.
+- Keep repository and API module seams aligned with `nako-core`, `nako-db`,
+  `nako-api`, and `nako-server` ownership.
 - Remove obsolete pass-through helpers once deeper modules make them
   unnecessary.
 
@@ -67,7 +67,7 @@ the lane without splitting additional follow-ons.
 Use low-concurrency Rust validation for this lane:
 
 ```powershell
-$env:CARGO_TARGET_DIR='G:\taru-cargo-target'
+$env:CARGO_TARGET_DIR='G:\nako-cargo-target'
 $env:CARGO_BUILD_JOBS='2'
 $env:NEXTEST_TEST_THREADS='1'
 ```

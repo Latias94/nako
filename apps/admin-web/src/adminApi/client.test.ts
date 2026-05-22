@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { AdminApiClient } from "./client";
-import { TARU_ADMIN_ROUTES } from "./generated/contract";
+import { NAKO_ADMIN_ROUTES } from "./generated/contract";
 import {
   mockAcquisitionIntakeCandidates,
   mockAddonDetail,
@@ -42,7 +42,7 @@ describe("AdminApiClient", () => {
     const overview = await client.getOverview();
 
     expect(overview.status).toBe("degraded");
-    expect(fetcher).toHaveBeenCalledWith(`http://127.0.0.1:3000${TARU_ADMIN_ROUTES.overview}`, {
+    expect(fetcher).toHaveBeenCalledWith(`http://127.0.0.1:3000${NAKO_ADMIN_ROUTES.overview}`, {
       headers: {
         Authorization: "Bearer redacted-test-token",
       },
@@ -58,23 +58,23 @@ describe("AdminApiClient", () => {
 
   it("loads existing Admin API read models through typed route methods", async () => {
     const responses = new Map<string, unknown>([
-      [TARU_ADMIN_ROUTES.catalogGovernanceItems, mockCatalogGovernance],
-      [TARU_ADMIN_ROUTES.addons, mockAddons],
-      [TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab"), mockAddonDetail],
-      [TARU_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab"), mockAddonHealth],
-      [TARU_ADMIN_ROUTES.addonSurfaces.replace(":addon_id", "addon-subtitle-lab"), mockAddonSurfaces],
-      [TARU_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab"), mockAddonInstallGuide],
-      [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`, mockAddonTokens],
-      [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`, mockAddonGrants],
-      [TARU_ADMIN_ROUTES.acquisitionIntakeCandidates, mockAcquisitionIntakeCandidates],
-      [TARU_ADMIN_ROUTES.generatedArtifactProposals, mockGeneratedArtifactProposals],
-      [TARU_ADMIN_ROUTES.events, mockEvents],
-      [TARU_ADMIN_ROUTES.jobs, mockJobs],
-      [TARU_ADMIN_ROUTES.playbackSessions, mockPlaybackSessions],
-      [TARU_ADMIN_ROUTES.playbackRuntime, mockPlaybackRuntime],
-      [TARU_ADMIN_ROUTES.playbackSupport, mockPlaybackSupport],
-      [TARU_ADMIN_ROUTES.storageStaging, mockStorageStaging],
-      [TARU_ADMIN_ROUTES.systemConfig, mockSystemConfig],
+      [NAKO_ADMIN_ROUTES.catalogGovernanceItems, mockCatalogGovernance],
+      [NAKO_ADMIN_ROUTES.addons, mockAddons],
+      [NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab"), mockAddonDetail],
+      [NAKO_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab"), mockAddonHealth],
+      [NAKO_ADMIN_ROUTES.addonSurfaces.replace(":addon_id", "addon-subtitle-lab"), mockAddonSurfaces],
+      [NAKO_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab"), mockAddonInstallGuide],
+      [`${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`, mockAddonTokens],
+      [`${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`, mockAddonGrants],
+      [NAKO_ADMIN_ROUTES.acquisitionIntakeCandidates, mockAcquisitionIntakeCandidates],
+      [NAKO_ADMIN_ROUTES.generatedArtifactProposals, mockGeneratedArtifactProposals],
+      [NAKO_ADMIN_ROUTES.events, mockEvents],
+      [NAKO_ADMIN_ROUTES.jobs, mockJobs],
+      [NAKO_ADMIN_ROUTES.playbackSessions, mockPlaybackSessions],
+      [NAKO_ADMIN_ROUTES.playbackRuntime, mockPlaybackRuntime],
+      [NAKO_ADMIN_ROUTES.playbackSupport, mockPlaybackSupport],
+      [NAKO_ADMIN_ROUTES.storageStaging, mockStorageStaging],
+      [NAKO_ADMIN_ROUTES.systemConfig, mockSystemConfig],
     ]);
     const fetcher = vi.fn(async (input: string | URL | Request) => {
       const url = new URL(input.toString(), "http://127.0.0.1");
@@ -113,23 +113,23 @@ describe("AdminApiClient", () => {
     await expect(client.getSystemConfig()).resolves.toEqual(mockSystemConfig);
 
     expect(fetcher.mock.calls.map(([input]) => input.toString())).toEqual([
-      TARU_ADMIN_ROUTES.catalogGovernanceItems,
-      `${TARU_ADMIN_ROUTES.addons}?status=enabled`,
-      TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab"),
-      TARU_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab"),
-      TARU_ADMIN_ROUTES.addonSurfaces.replace(":addon_id", "addon-subtitle-lab"),
-      TARU_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab"),
-      `${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`,
-      `${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`,
-      `${TARU_ADMIN_ROUTES.acquisitionIntakeCandidates}?library_id=library-anime&state=ready`,
-      `${TARU_ADMIN_ROUTES.generatedArtifactProposals}?limit=5`,
-      TARU_ADMIN_ROUTES.events,
-      TARU_ADMIN_ROUTES.jobs,
-      TARU_ADMIN_ROUTES.playbackSessions,
-      TARU_ADMIN_ROUTES.playbackRuntime,
-      `${TARU_ADMIN_ROUTES.playbackSupport}?session_id=session-hls`,
-      TARU_ADMIN_ROUTES.storageStaging,
-      TARU_ADMIN_ROUTES.systemConfig,
+      NAKO_ADMIN_ROUTES.catalogGovernanceItems,
+      `${NAKO_ADMIN_ROUTES.addons}?status=enabled`,
+      NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab"),
+      NAKO_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab"),
+      NAKO_ADMIN_ROUTES.addonSurfaces.replace(":addon_id", "addon-subtitle-lab"),
+      NAKO_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab"),
+      `${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`,
+      `${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`,
+      `${NAKO_ADMIN_ROUTES.acquisitionIntakeCandidates}?library_id=library-anime&state=ready`,
+      `${NAKO_ADMIN_ROUTES.generatedArtifactProposals}?limit=5`,
+      NAKO_ADMIN_ROUTES.events,
+      NAKO_ADMIN_ROUTES.jobs,
+      NAKO_ADMIN_ROUTES.playbackSessions,
+      NAKO_ADMIN_ROUTES.playbackRuntime,
+      `${NAKO_ADMIN_ROUTES.playbackSupport}?session_id=session-hls`,
+      NAKO_ADMIN_ROUTES.storageStaging,
+      NAKO_ADMIN_ROUTES.systemConfig,
     ]);
   });
 
@@ -156,21 +156,21 @@ describe("AdminApiClient", () => {
 
     expect(fetcher.mock.calls).toMatchObject([
       [
-        TARU_ADMIN_ROUTES.addonStatus.replace(":addon_id", "addon-subtitle-lab"),
+        NAKO_ADMIN_ROUTES.addonStatus.replace(":addon_id", "addon-subtitle-lab"),
         {
           method: "PATCH",
           body: JSON.stringify({ status: "disabled" }),
         },
       ],
       [
-        TARU_ADMIN_ROUTES.addonUnregister.replace(":addon_id", "addon-subtitle-lab"),
+        NAKO_ADMIN_ROUTES.addonUnregister.replace(":addon_id", "addon-subtitle-lab"),
         {
           method: "POST",
           body: JSON.stringify({}),
         },
       ],
       [
-        TARU_ADMIN_ROUTES.addonResourceCallDiagnostic.replace(":addon_id", "addon-subtitle-lab"),
+        NAKO_ADMIN_ROUTES.addonResourceCallDiagnostic.replace(":addon_id", "addon-subtitle-lab"),
         {
           method: "POST",
           body: JSON.stringify({ resource: "subtitle", payload: { safe_probe: true } }),
@@ -182,16 +182,16 @@ describe("AdminApiClient", () => {
   it("sends Addon token and grant mutations through Admin-only routes", async () => {
     const issuedToken = {
       token: mockAddonTokens.tokens[0],
-      raw_token: "taru_at_one_time_raw_token",
+      raw_token: "nako_at_one_time_raw_token",
     };
     const rotatedToken = {
       rotated: mockAddonTokens.tokens[0],
       token: {
         ...mockAddonTokens.tokens[0],
         id: "addon-token-rotated",
-        token_prefix: "taru_at_rotated",
+        token_prefix: "nako_at_rotated",
       },
-      raw_token: "taru_at_rotated_one_time_raw_token",
+      raw_token: "nako_at_rotated_one_time_raw_token",
     };
     const fetcher = vi.fn(async (input: string | URL | Request) => {
       const url = new URL(input.toString(), "http://127.0.0.1");
@@ -230,28 +230,28 @@ describe("AdminApiClient", () => {
 
     expect(fetcher.mock.calls).toMatchObject([
       [
-        `${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`,
+        `${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`,
         {
           method: "POST",
           body: JSON.stringify({ label: "sidecar runtime" }),
         },
       ],
       [
-        `${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens/addon-token-active/rotate`,
+        `${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens/addon-token-active/rotate`,
         {
           method: "POST",
           body: JSON.stringify({ label: "replacement" }),
         },
       ],
       [
-        `${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens/addon-token-active/revoke`,
+        `${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens/addon-token-active/revoke`,
         {
           method: "POST",
           body: JSON.stringify({}),
         },
       ],
       [
-        `${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`,
+        `${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`,
         {
           method: "PUT",
           body: JSON.stringify({ grants: [{ permission: "metadata_write", library_id: null }] }),
@@ -266,7 +266,7 @@ describe("AdminApiClient", () => {
 
     await expect(client.registerAddon(mockAddonDetail.addon.manifest)).resolves.toEqual(mockAddonDetail);
 
-    expect(fetcher).toHaveBeenCalledWith(TARU_ADMIN_ROUTES.addons, {
+    expect(fetcher).toHaveBeenCalledWith(NAKO_ADMIN_ROUTES.addons, {
       method: "POST",
       headers: {
         Authorization: "Bearer redacted-test-token",
@@ -294,7 +294,7 @@ describe("AdminApiClient", () => {
     ).resolves.toEqual(mockWatchFolderDiscovery);
 
     expect(fetcher).toHaveBeenCalledWith(
-      TARU_ADMIN_ROUTES.acquisitionIntakeWatchFolderDiscovery,
+      NAKO_ADMIN_ROUTES.acquisitionIntakeWatchFolderDiscovery,
       {
         method: "POST",
         headers: {
@@ -313,7 +313,7 @@ describe("AdminApiClient", () => {
   it("posts addon runtime readiness diagnostics through the Admin-only route", async () => {
     const response = {
       addon_id: "addon/with space",
-      manifest_id: "taru.metadata",
+      manifest_id: "nako.metadata",
       readiness: {
         status: "degraded",
         reason: "missing_secret_reference",
@@ -348,7 +348,7 @@ describe("AdminApiClient", () => {
   it("posts addon routing-plan syncs through the Admin-only route", async () => {
     const response = {
       addon_id: "addon/with space",
-      manifest_id: "taru.metadata",
+      manifest_id: "nako.metadata",
       manifest_version: "0.1.0",
       manifest_fingerprint: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       executable: 1,

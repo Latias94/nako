@@ -28,7 +28,7 @@ Exit criteria:
   filesystem paths, or process-local runtime internals.
 - Existing Public Client API routes remain compatible.
 - Public OpenAPI and SDK leakage checks still reject admin/internal surfaces.
-- `crates/taru-client-protocol` remains unchanged.
+- `crates/nako-client-protocol` remains unchanged.
 - Validation gates passed on 2026-05-18.
 
 ## Follow-Ons

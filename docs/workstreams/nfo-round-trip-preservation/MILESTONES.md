@@ -16,9 +16,9 @@ Exit criteria:
 
 Exit criteria:
 
-- `taru-nfo` exposes a preservation-aware update path for existing movie NFO
+- `nako-nfo` exposes a preservation-aware update path for existing movie NFO
   XML.
-- Taru-owned fields are rendered from `NfoDocument`.
+- Nako-owned fields are rendered from `NfoDocument`.
 - Unknown top-level XML elements survive the update.
 - Duplicate or alias-owned fields are reported as conflicts in a structured
   report.
@@ -38,7 +38,7 @@ Exit criteria:
 
 Exit criteria:
 
-- Focused `taru-nfo` checks and tests pass.
+- Focused `nako-nfo` checks and tests pass.
 - Workspace checks and nextest pass.
 - `git diff --check` has no whitespace errors.
 - `docs/GOALS.md`, `EVIDENCE_AND_GATES.md`, and `HANDOFF.md` record M47
@@ -47,6 +47,6 @@ Exit criteria:
 Completion notes:
 
 - M0 through M3 are complete.
-- `taru-nfo` focused checks and workspace checks passed.
+- `nako-nfo` focused checks and workspace checks passed.
 - Remaining NFO compatibility and storage write-policy work is intentionally
   outside M47.

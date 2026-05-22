@@ -6,7 +6,7 @@ Accepted.
 
 ## Context
 
-Taru needs a user-friendly way to create libraries for common use cases such as
+Nako needs a user-friendly way to create libraries for common use cases such as
 movies, TV shows, anime, music, podcasts, photos, home videos, mixed video, and
 future online catalogs. A direct mapping from these choices to hard library
 types would be fragile:
@@ -20,12 +20,12 @@ types would be fragile:
 - mixed libraries should remain possible without losing provider control
 
 Jellyfin-style collection types, library options, metadata options, and provider
-orders are useful reference concepts. Taru should keep the same separation of
+orders are useful reference concepts. Nako should keep the same separation of
 concerns while avoiding a rigid content-type hierarchy too early.
 
 ## Decision
 
-Taru will separate library management, media domain, library preset, item kind,
+Nako will separate library management, media domain, library preset, item kind,
 and metadata profile.
 
 `Library` is a management boundary. It owns roots, scan behavior, default

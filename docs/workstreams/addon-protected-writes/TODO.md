@@ -16,14 +16,14 @@ Last updated: 2026-05-18
 
 ## M1 - Protected Write Seam Audit
 
-- [x] APW-020 [owner=codex] [deps=APW-010] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-api,crates/taru-metadata,crates/taru-catalog,crates/taru-nfo,crates/taru-vfs,docs]
+- [x] APW-020 [owner=codex] [deps=APW-010] [scope=crates/nako-core,crates/nako-db,crates/nako-server,crates/nako-api,crates/nako-metadata,crates/nako-catalog,crates/nako-nfo,crates/nako-vfs,docs]
   Goal: Audit current Addon Side Effect intake, Canonical Metadata merge,
   catalog commit, Managed Artwork, subtitle, NFO, and storage/VFS write seams;
   choose the first concrete protected-write apply target.
   Validation: `rg -n "side_effect|Addon Side Effect|metadata_write|artwork_write|subtitle_write|Canonical Metadata|Managed Artwork|Library File Write|NFO|subtitle|Source Locator" crates docs`; `git diff --check`.
   Review: no ADR amendment is required for APW-030 if it preserves ADR 0020,
   adds explicit apply outcome state, keeps Addon metadata attribution
-  first-class, and routes writes through Taru-owned metadata/catalog seams.
+  first-class, and routes writes through Nako-owned metadata/catalog seams.
   Split an ADR only for direct storage authority, Public Client write APIs,
   Admin API reuse, or OAuth-first authorization.
   Evidence: audit notes in `EVIDENCE_AND_GATES.md`.
@@ -34,21 +34,21 @@ Last updated: 2026-05-18
 
 ## M2 - Canonical Metadata Apply Slice
 
-- [x] APW-030 [owner=codex] [deps=APW-020] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-api,crates/taru-metadata,crates/taru-catalog,docs/api]
+- [x] APW-030 [owner=codex] [deps=APW-020] [scope=crates/nako-core,crates/nako-db,crates/nako-server,crates/nako-api,crates/nako-metadata,crates/nako-catalog,docs/api]
   Goal: Implement the smallest concrete `metadata_write` Addon Side Effect
-  apply path that turns an accepted intake record into a Taru-owned Canonical
+  apply path that turns an accepted intake record into a Nako-owned Canonical
   Metadata update while preserving merge policy, idempotency, audit, redaction,
   and catalog/search consistency.
-  Validation: `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-metadata -p taru-catalog --tests`; focused `cargo nextest run -p taru-server addon_side_effect --no-fail-fast`; `cargo nextest run -p taru-db addon --no-fail-fast`; relevant metadata/catalog tests; `cargo fmt --all -- --check`; `git diff --check`.
+  Validation: `cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-metadata -p nako-catalog --tests`; focused `cargo nextest run -p nako-server addon_side_effect --no-fail-fast`; `cargo nextest run -p nako-db addon --no-fail-fast`; relevant metadata/catalog tests; `cargo fmt --all -- --check`; `git diff --check`.
   Review: review-workstream must check that HTTP handlers do not own metadata
   merge logic and that responses do not leak raw payloads, provenance, Source
   Locators, filesystem paths, or provider bodies.
-  Evidence: `crates/taru-core/src/addon.rs`,
-  `crates/taru-core/src/media/metadata.rs`,
-  `crates/taru-db/migrations/0023_addon_side_effect_apply_outcome.sql`,
-  `crates/taru-db/src/addons.rs`, `crates/taru-db/src/codec.rs`,
-  `crates/taru-server/src/app/addons.rs`,
-  `crates/taru-server/src/http/tests/addons.rs`, `docs/api/HTTP_API.md`, and
+  Evidence: `crates/nako-core/src/addon.rs`,
+  `crates/nako-core/src/media/metadata.rs`,
+  `crates/nako-db/migrations/0023_addon_side_effect_apply_outcome.sql`,
+  `crates/nako-db/src/addons.rs`, `crates/nako-db/src/codec.rs`,
+  `crates/nako-server/src/app/addons.rs`,
+  `crates/nako-server/src/http/tests/addons.rs`, `docs/api/HTTP_API.md`, and
   APW-030 notes in `EVIDENCE_AND_GATES.md`.
   Handoff: Minimal field breadth stayed bounded to title-like, overview,
   runtime, genre, and tag fields. Wider Canonical Metadata fields, field-level
@@ -59,9 +59,9 @@ Last updated: 2026-05-18
 
 - [x] APW-040 [owner=planner] [deps=APW-030] [scope=docs/workstreams/addon-protected-writes,docs/workstreams/addon-managed-artwork-artifacts,docs/workstreams/README.md]
   Goal: Split `artwork_write`, Artwork Candidate, Managed Artwork, and
-  Taru-Managed Artifact storage into a dedicated follow-on lane without
+  Nako-Managed Artifact storage into a dedicated follow-on lane without
   implementing artwork runtime behavior in APW.
-  Validation: focused artwork/addon tests selected after APW-020; `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests`; `git diff --check`.
+  Validation: focused artwork/addon tests selected after APW-020; `cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-vfs --tests`; `git diff --check`.
   Review: verify resource budgets, external fetch ownership, artifact
   provenance, and redacted response shape.
   Evidence: `docs/workstreams/addon-managed-artwork-artifacts/`.
@@ -73,7 +73,7 @@ Last updated: 2026-05-18
 - [x] APW-050 [owner=planner] [deps=APW-020] [scope=docs/workstreams/addon-protected-writes,docs/workstreams/addon-library-file-write-policy,docs/workstreams/README.md]
   Goal: Split addon-initiated subtitle, NFO, and sidecar-asset Library File
   Write behavior into a dedicated follow-on lane instead of broadening APW.
-  Validation: focused NFO/storage/addon tests selected after APW-020; `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-nfo -p taru-vfs --tests`; `cargo fmt --all -- --check`; `git diff --check`.
+  Validation: focused NFO/storage/addon tests selected after APW-020; `cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-nfo -p nako-vfs --tests`; `cargo fmt --all -- --check`; `git diff --check`.
   Review: verify no Addon response or audit summary exposes raw Source
   Locators, filesystem paths, remote storage handles, or unredacted file-write
   payloads.

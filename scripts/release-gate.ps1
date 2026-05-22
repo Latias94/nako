@@ -4,7 +4,7 @@ param(
     [ValidateSet('docs', 'fast', 'db', 'api', 'postgres', 'container', 'workspace', 'all')]
     [string]$Mode = 'fast',
 
-    [string]$PostgresUrl = $env:TARU_TEST_POSTGRES_URL,
+    [string]$PostgresUrl = $env:NAKO_TEST_POSTGRES_URL,
 
     [switch]$SkipRedactionInventory
 )
@@ -97,74 +97,74 @@ function Invoke-PostgresContracts {
 
 function Invoke-ContainerGate {
     $composeEnv = @{
-        TARU_ADMIN_TOKEN = 'release-gate-admin-token'
-        TARU_POSTGRES_PASSWORD = 'release-gate-postgres-password'
-        TARU_MEDIA_ROOT = (Join-Path $RepoRoot 'target/release-gate/media/movies')
+        NAKO_ADMIN_TOKEN = 'release-gate-admin-token'
+        NAKO_POSTGRES_PASSWORD = 'release-gate-postgres-password'
+        NAKO_MEDIA_ROOT = (Join-Path $RepoRoot 'target/release-gate/media/movies')
     }
 
-    New-Item -ItemType Directory -Force -Path $composeEnv.TARU_MEDIA_ROOT | Out-Null
+    New-Item -ItemType Directory -Force -Path $composeEnv.NAKO_MEDIA_ROOT | Out-Null
 
-    Invoke-Step 'cargo nextest run -p taru-server config --no-fail-fast' {
-        cargo nextest run -p taru-server config --no-fail-fast
+    Invoke-Step 'cargo nextest run -p nako-server config --no-fail-fast' {
+        cargo nextest run -p nako-server config --no-fail-fast
     }
 
-    Invoke-Step 'docker compose config for Taru SQLite stack' {
+    Invoke-Step 'docker compose config for Nako SQLite stack' {
         & {
-            $env:TARU_ADMIN_TOKEN = $composeEnv.TARU_ADMIN_TOKEN
-            $env:TARU_MEDIA_ROOT = $composeEnv.TARU_MEDIA_ROOT
-            docker compose -f deploy/compose/taru-sqlite.yml config | Out-Null
+            $env:NAKO_ADMIN_TOKEN = $composeEnv.NAKO_ADMIN_TOKEN
+            $env:NAKO_MEDIA_ROOT = $composeEnv.NAKO_MEDIA_ROOT
+            docker compose -f deploy/compose/nako-sqlite.yml config | Out-Null
         }
     }
 
-    Invoke-Step 'docker compose config for Taru PostgreSQL stack' {
+    Invoke-Step 'docker compose config for Nako PostgreSQL stack' {
         & {
-            $env:TARU_ADMIN_TOKEN = $composeEnv.TARU_ADMIN_TOKEN
-            $env:TARU_POSTGRES_PASSWORD = $composeEnv.TARU_POSTGRES_PASSWORD
-            $env:TARU_MEDIA_ROOT = $composeEnv.TARU_MEDIA_ROOT
-            docker compose -f deploy/compose/taru-postgres.yml config | Out-Null
+            $env:NAKO_ADMIN_TOKEN = $composeEnv.NAKO_ADMIN_TOKEN
+            $env:NAKO_POSTGRES_PASSWORD = $composeEnv.NAKO_POSTGRES_PASSWORD
+            $env:NAKO_MEDIA_ROOT = $composeEnv.NAKO_MEDIA_ROOT
+            docker compose -f deploy/compose/nako-postgres.yml config | Out-Null
         }
     }
 }
 
 function Invoke-ApiSdkGate {
-    Invoke-Step 'cargo check -p taru-api --tests' {
-        cargo check -p taru-api --tests
+    Invoke-Step 'cargo check -p nako-api --tests' {
+        cargo check -p nako-api --tests
     }
 
-    Invoke-Step 'cargo check -p taru-client --tests' {
-        cargo check -p taru-client --tests
+    Invoke-Step 'cargo check -p nako-client --tests' {
+        cargo check -p nako-client --tests
     }
 
-    Invoke-Step 'cargo check -p taru-client-protocol --tests' {
-        cargo check -p taru-client-protocol --tests
+    Invoke-Step 'cargo check -p nako-client-protocol --tests' {
+        cargo check -p nako-client-protocol --tests
     }
 
-    Invoke-Step 'cargo nextest run -p taru-api openapi --no-fail-fast' {
-        cargo nextest run -p taru-api openapi --no-fail-fast
+    Invoke-Step 'cargo nextest run -p nako-api openapi --no-fail-fast' {
+        cargo nextest run -p nako-api openapi --no-fail-fast
     }
 
-    Invoke-Step 'cargo nextest run -p taru-api sdk --no-fail-fast' {
-        cargo nextest run -p taru-api sdk --no-fail-fast
+    Invoke-Step 'cargo nextest run -p nako-api sdk --no-fail-fast' {
+        cargo nextest run -p nako-api sdk --no-fail-fast
     }
 
-    Invoke-Step 'cargo nextest run -p taru-api admin_contract --no-fail-fast' {
-        cargo nextest run -p taru-api admin_contract --no-fail-fast
+    Invoke-Step 'cargo nextest run -p nako-api admin_contract --no-fail-fast' {
+        cargo nextest run -p nako-api admin_contract --no-fail-fast
     }
 
-    Invoke-Step 'cargo nextest run -p taru-client --no-fail-fast' {
-        cargo nextest run -p taru-client --no-fail-fast
+    Invoke-Step 'cargo nextest run -p nako-client --no-fail-fast' {
+        cargo nextest run -p nako-client --no-fail-fast
     }
 
-    Invoke-Step 'cargo nextest run -p taru-client-protocol --no-fail-fast' {
-        cargo nextest run -p taru-client-protocol --no-fail-fast
+    Invoke-Step 'cargo nextest run -p nako-client-protocol --no-fail-fast' {
+        cargo nextest run -p nako-client-protocol --no-fail-fast
     }
 
-    Invoke-Step 'cargo tree -p taru-client' {
-        cargo tree -p taru-client
+    Invoke-Step 'cargo tree -p nako-client' {
+        cargo tree -p nako-client
     }
 
-    Invoke-Step 'cargo tree -p taru-client-protocol' {
-        cargo tree -p taru-client-protocol
+    Invoke-Step 'cargo tree -p nako-client-protocol' {
+        cargo tree -p nako-client-protocol
     }
 
     Invoke-Step 'npm run generate --prefix sdk/typescript' {
@@ -188,7 +188,7 @@ function Invoke-ApiSdkGate {
     }
 }
 
-Write-Host "Taru release gate"
+Write-Host "Nako release gate"
 Write-Host "Mode: $Mode"
 Write-Host "Repository: $RepoRoot"
 
@@ -214,32 +214,32 @@ if ($Mode -eq 'docs') {
 }
 
 if (Test-Mode @('fast', 'db')) {
-    Invoke-Step 'cargo check -p taru-db --tests' {
-        cargo check -p taru-db --tests
+    Invoke-Step 'cargo check -p nako-db --tests' {
+        cargo check -p nako-db --tests
     }
 
-    Invoke-Step 'cargo nextest run -p taru-db sqlite_managed_artwork_contract --no-fail-fast' {
-        cargo nextest run -p taru-db sqlite_managed_artwork_contract --no-fail-fast
+    Invoke-Step 'cargo nextest run -p nako-db sqlite_managed_artwork_contract --no-fail-fast' {
+        cargo nextest run -p nako-db sqlite_managed_artwork_contract --no-fail-fast
     }
 }
 
 if (Test-Mode @('fast', 'api')) {
-    Invoke-Step 'cargo check -p taru-server --tests' {
-        cargo check -p taru-server --tests
+    Invoke-Step 'cargo check -p nako-server --tests' {
+        cargo check -p nako-server --tests
     }
 
     Invoke-ApiSdkGate
 
-    Invoke-Step 'cargo nextest run -p taru-api managed_artwork --no-fail-fast' {
-        cargo nextest run -p taru-api managed_artwork --no-fail-fast
+    Invoke-Step 'cargo nextest run -p nako-api managed_artwork --no-fail-fast' {
+        cargo nextest run -p nako-api managed_artwork --no-fail-fast
     }
 
-    Invoke-Step 'cargo nextest run -p taru-server managed_artwork --no-fail-fast' {
-        cargo nextest run -p taru-server managed_artwork --no-fail-fast
+    Invoke-Step 'cargo nextest run -p nako-server managed_artwork --no-fail-fast' {
+        cargo nextest run -p nako-server managed_artwork --no-fail-fast
     }
 
-    Invoke-Step 'cargo nextest run -p taru-server self_host_smoke --no-fail-fast' {
-        cargo nextest run -p taru-server self_host_smoke --no-fail-fast
+    Invoke-Step 'cargo nextest run -p nako-server self_host_smoke --no-fail-fast' {
+        cargo nextest run -p nako-server self_host_smoke --no-fail-fast
     }
 }
 
@@ -262,4 +262,4 @@ if (Test-Mode @('postgres')) {
 }
 
 Write-Host ""
-Write-Host 'Taru release gate completed.'
+Write-Host 'Nako release gate completed.'

@@ -16,11 +16,11 @@ Last updated: 2026-05-19
 
 ## M1 - Runtime Cancellation Context
 
-- [x] WJCC-020 [owner=codex] [deps=WJCC-010] [scope=crates/taru-server/src/app/job_runtime.rs]
+- [x] WJCC-020 [owner=codex] [deps=WJCC-010] [scope=crates/nako-server/src/app/job_runtime.rs]
   Goal: Add a per-run cancellation context/checkpoint API and make
   `DurableJobRuntime` acknowledge observed cancellation through
   `cancel_leased_job` instead of `fail_leased_job`.
-  Validation: `cargo nextest run -p taru-server job_runtime --no-fail-fast`.
+  Validation: `cargo nextest run -p nako-server job_runtime --no-fail-fast`.
   Review: Cancellation must be fenced by the current `JobLeaseGuard`; success
   and failure paths must keep existing behavior.
   Evidence: Runtime tests covering heartbeat-observed cancellation and terminal
@@ -34,11 +34,11 @@ Last updated: 2026-05-19
 
 ## M2 - First Real Worker Checkpoints
 
-- [x] WJCC-030 [owner=codex] [deps=WJCC-020] [scope=crates/taru-server/src/app/metadata.rs]
+- [x] WJCC-030 [owner=codex] [deps=WJCC-020] [scope=crates/nako-server/src/app/metadata.rs]
   Goal: Wire cancellation checkpoints into metadata maintenance before each
   new item refresh so a running Admin cancel request stops the next side-effect
   unit and persists terminal `cancelled`.
-  Validation: `cargo nextest run -p taru-server job_cancel --no-fail-fast`; `cargo nextest run -p taru-server metadata --no-fail-fast`.
+  Validation: `cargo nextest run -p nako-server job_cancel --no-fail-fast`; `cargo nextest run -p nako-server metadata --no-fail-fast`.
   Review: Do not emit metadata-maintenance-completed outbox events after a
   cancelled run; do not expose raw job payloads or provider responses.
   Evidence: Server app/HTTP tests showing requested cancellation becomes
@@ -53,10 +53,10 @@ Last updated: 2026-05-19
 
 ## M3 - Additional Worker Boundaries
 
-- [x] WJCC-040 [owner=codex] [deps=WJCC-030] [scope=crates/taru-server/src/app/jobs.rs,crates/taru-server/src/app/nfo.rs,docs/api]
+- [x] WJCC-040 [owner=codex] [deps=WJCC-030] [scope=crates/nako-server/src/app/jobs.rs,crates/nako-server/src/app/nfo.rs,docs/api]
   Goal: Add cancellation checkpoints or explicit follow-on notes for library
   scan/probe and NFO import/export without pretending mid-operation rollback.
-  Validation: `cargo nextest run -p taru-server job_runtime --no-fail-fast`; targeted package checks for touched modules.
+  Validation: `cargo nextest run -p nako-server job_runtime --no-fail-fast`; targeted package checks for touched modules.
   Review: Checkpoints must sit before new side-effect units, not after success
   events or after irreversible writes.
   Evidence: Tests or documented split decisions for each touched worker.
@@ -65,7 +65,7 @@ Last updated: 2026-05-19
   publication; cancelled scan runs skip the `LibraryScanned` outbox event. NFO
   import/export now use the context-aware runtime with app-level pre/post
   service checkpoints, while per-sidecar checkpoints are explicitly split to a
-  follow-on `taru-nfo` service API boundary.
+  follow-on `nako-nfo` service API boundary.
   Handoff: `WJCC-050` should close this lane and split remaining webhook,
   addon, retry/backoff, lease-stealing, child-process, and per-sidecar NFO
   work into separate lanes.

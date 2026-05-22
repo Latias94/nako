@@ -8,11 +8,11 @@ Last updated: 2026-05-19
 Run with a shared target dir when practical:
 
 ```powershell
-$env:CARGO_TARGET_DIR='G:\taru-cargo-target'
-cargo nextest run -p taru-api managed_artwork_ingest_requeue --no-fail-fast
-cargo nextest run -p taru-db managed_artwork_ingest_requeue --no-fail-fast
-cargo nextest run -p taru-server managed_artwork_ingest_requeue --no-fail-fast
-cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests
+$env:CARGO_TARGET_DIR='G:\nako-cargo-target'
+cargo nextest run -p nako-api managed_artwork_ingest_requeue --no-fail-fast
+cargo nextest run -p nako-db managed_artwork_ingest_requeue --no-fail-fast
+cargo nextest run -p nako-server managed_artwork_ingest_requeue --no-fail-fast
+cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests
 cargo fmt --all -- --check
 git diff --check
 ```
@@ -22,7 +22,7 @@ git diff --check
 Before closeout, run:
 
 ```powershell
-rg -n "requeue|retry|cancel|managed_artwork_ingest|source_uri|storage_uri|cache_uri|content_hash|managed-artwork://|payload_json|provenance_json|artifact_root|local_path" crates/taru-api crates/taru-server/src/http crates/taru-server/src/app/artwork.rs docs/api
+rg -n "requeue|retry|cancel|managed_artwork_ingest|source_uri|storage_uri|cache_uri|content_hash|managed-artwork://|payload_json|provenance_json|artifact_root|local_path" crates/nako-api crates/nako-server/src/http crates/nako-server/src/app/artwork.rs docs/api
 ```
 
 Expected result:
@@ -40,10 +40,10 @@ Expected result:
 | --- | --- | --- | --- |
 | 2026-05-19 | `WORKSTREAM.json` parse | Pass | `Get-Content ... WORKSTREAM.json \| ConvertFrom-Json` succeeded after opening docs. |
 | 2026-05-19 | `git diff --check` | Pass | Opening-doc diff was whitespace-clean. |
-| 2026-05-19 | `cargo nextest run -p taru-api managed_artwork_ingest_requeue --no-fail-fast` | Pass | Redacted requeue DTO does not serialize raw job input, summary, error, source URI, or token values. |
-| 2026-05-19 | `cargo nextest run -p taru-db managed_artwork_ingest_requeue --no-fail-fast` | Pass | Failed ingest/job requeue to queued, queued replay is idempotent, retry claim works, running/stored states conflict. |
-| 2026-05-19 | `cargo nextest run -p taru-server managed_artwork_ingest_requeue --no-fail-fast` | Pass | HTTP route requeues failed ingest, redacts response, supports queued replay, and `process-next` later stores artifact after source becomes valid. |
-| 2026-05-19 | `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests` | Pass | Cross-crate trait/API changes compile across core, db, api, and server tests. |
+| 2026-05-19 | `cargo nextest run -p nako-api managed_artwork_ingest_requeue --no-fail-fast` | Pass | Redacted requeue DTO does not serialize raw job input, summary, error, source URI, or token values. |
+| 2026-05-19 | `cargo nextest run -p nako-db managed_artwork_ingest_requeue --no-fail-fast` | Pass | Failed ingest/job requeue to queued, queued replay is idempotent, retry claim works, running/stored states conflict. |
+| 2026-05-19 | `cargo nextest run -p nako-server managed_artwork_ingest_requeue --no-fail-fast` | Pass | HTTP route requeues failed ingest, redacts response, supports queued replay, and `process-next` later stores artifact after source becomes valid. |
+| 2026-05-19 | `cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests` | Pass | Cross-crate trait/API changes compile across core, db, api, and server tests. |
 | 2026-05-19 | `cargo fmt --all -- --check` | Pass | Formatting clean after applying `cargo fmt --all` to this lane's Rust edits. |
 | 2026-05-19 | `git diff --check` | Pass | Diff has no whitespace errors; Git reports only line-ending normalization warnings. |
 | 2026-05-19 | Redaction inventory | Pass | Hits are expected implementation internals, docs policy text, and tests asserting forbidden values are absent from responses. |

@@ -37,6 +37,6 @@ if ($Backend -eq 'postgres' -or $PostgresContractsOnly) {
     exit 0
 }
 
-Invoke-Step 'cargo nextest run -p taru-server self_host_smoke --no-fail-fast' {
-    cargo nextest run -p taru-server self_host_smoke --no-fail-fast
+Invoke-Step 'cargo nextest run -p nako-server self_host_smoke --no-fail-fast' {
+    cargo nextest run -p nako-server self_host_smoke --no-fail-fast
 }

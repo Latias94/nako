@@ -16,7 +16,7 @@ Implemented:
 - VFS text read/write methods for sidecar files.
 - Local filesystem text read/write implementation with root-boundary checks.
 - Same-stem NFO sidecar locator, for example `movie.mkv` to `movie.nfo`.
-- `taru-nfo` service for discovery, import, and export.
+- `nako-nfo` service for discovery, import, and export.
 - NFO import summaries and export summaries.
 - NFO import and export job kinds.
 - HTTP routes and CLI commands for import/export jobs.
@@ -55,8 +55,8 @@ Both routes return a queued job. The synchronous CLI commands execute the job
 immediately and print the completed job output:
 
 ```text
-taru-server import-nfo [library_id]
-taru-server export-nfo [library_id]
+nako-server import-nfo [library_id]
+nako-server export-nfo [library_id]
 ```
 
 ## Validation

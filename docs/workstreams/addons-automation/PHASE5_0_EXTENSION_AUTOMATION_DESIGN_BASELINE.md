@@ -4,7 +4,7 @@ Status: completed.
 
 ## Goal
 
-Define Taru's M5 extension and automation surface before implementing outbox,
+Define Nako's M5 extension and automation surface before implementing outbox,
 webhook delivery, automation jobs, addon manifests, or reference addons.
 
 ## Completed Shape
@@ -30,7 +30,7 @@ webhook delivery, automation jobs, addon manifests, or reference addons.
 - Addons are HTTP sidecars described by manifests, disabled by default, and
   scoped explicitly before use.
 - Provider secrets use references and are resolved at runtime.
-- Addon/provider payloads should use Taru IDs, public API URLs, and small
+- Addon/provider payloads should use Nako IDs, public API URLs, and small
   snapshots rather than local filesystem paths.
 
 ## Non-Goals

@@ -64,8 +64,8 @@ The local artifact store performs bounded non-following directory inventory
 under the configured artifact root. It classifies each regular file or
 non-directory entry without returning its path:
 
-- parseable Taru artifact file with no active DB artifact;
-- parseable Taru artifact file in an unexpected location or extension for its
+- parseable Nako artifact file with no active DB artifact;
+- parseable Nako artifact file in an unexpected location or extension for its
   active DB artifact;
 - unsupported extension;
 - unrecognized layout.
@@ -92,7 +92,7 @@ Admin diagnostics never expose:
 
 | Assumption | Confidence | Evidence | Mitigation |
 | --- | --- | --- | --- |
-| Artifact root belongs to Taru and can be scanned with a bounded limit. | High | Fetch/storage lane writes managed bytes below a dedicated artwork artifact root. | Keep scan bounded and report truncation. |
+| Artifact root belongs to Nako and can be scanned with a bounded limit. | High | Fetch/storage lane writes managed bytes below a dedicated artwork artifact root. | Keep scan bounded and report truncation. |
 | Active DB artifact lookup is enough to decide whether a parseable file is stray. | High | Lifecycle cleanup hides `deleted_at` rows from active artifact lookup. | Treat files for logically deleted rows as untracked stray files. |
 | Parsed artifact IDs from file names are safe to expose to Admin diagnostics. | Medium | Admin APIs already expose artifact IDs. | Expose only parsed UUID IDs, not filenames, paths, or storage URIs. |
 

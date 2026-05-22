@@ -26,8 +26,8 @@ Add a safe Admin API v1 read model:
 
 - `GET /admin/v1/playback/sessions`;
 - filters for state, kind, Media Source, and pagination;
-- admin-owned DTOs in `taru-api::admin`;
-- repository list/filter support in `taru-core`/`taru-db`;
+- admin-owned DTOs in `nako-api::admin`;
+- repository list/filter support in `nako-core`/`nako-db`;
 - a thin server app method and HTTP handler;
 - tests proving route behavior, filtering, auth protection, and redaction.
 
@@ -35,19 +35,19 @@ Add a safe Admin API v1 read model:
 
 In scope:
 
-- `crates/taru-core/src/repository/transcode.rs`
-- `crates/taru-db/src/playback.rs`
-- `crates/taru-api/src/admin.rs`
-- `crates/taru-server/src/app/playback/mod.rs`
-- `crates/taru-server/src/http/admin.rs`
-- `crates/taru-server/src/http/query.rs`
+- `crates/nako-core/src/repository/transcode.rs`
+- `crates/nako-db/src/playback.rs`
+- `crates/nako-api/src/admin.rs`
+- `crates/nako-server/src/app/playback/mod.rs`
+- `crates/nako-server/src/http/admin.rs`
+- `crates/nako-server/src/http/query.rs`
 - focused DB/API/server tests
 - admin-web-console and goal evidence updates
 
 Out of scope:
 
 - no public client route changes;
-- no `taru-client-protocol` changes;
+- no `nako-client-protocol` changes;
 - no public OpenAPI/TypeScript SDK expansion;
 - no admin OpenAPI generation;
 - no playback session mutation beyond existing known-ID cancel route;

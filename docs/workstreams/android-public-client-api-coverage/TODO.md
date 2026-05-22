@@ -13,34 +13,34 @@ Last updated: 2026-05-19
 
 ## M1 - Selected Artwork Image Slice
 
-- [x] APIC-020 [owner=codex] [deps=APIC-010] [scope=apps/android/app/src/main/java/dev/taru/android/{artwork,browse,ui}]
+- [x] APIC-020 [owner=codex] [deps=APIC-010] [scope=apps/android/app/src/main/java/dev/nako/android/{artwork,browse,ui}]
   Goal: Consume public selected artwork image URLs from item/list/detail DTOs and render authenticated poster/backdrop artwork in Android without leaking bearer tokens.
   Validation: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon`
   Review: verify token redaction, active-server scoping, placeholder fallback, and image loading behavior before accepting.
-  Evidence: `apps/android/app/src/test/java/dev/taru/android/artwork/PublicArtworkTest.kt`, `apps/android/app/src/test/java/dev/taru/android/browse/TaruBrowseClientTest.kt`, `apps/android/app/src/main/java/dev/taru/android/ui/artwork/TaruArtworkImage.kt`
+  Evidence: `apps/android/app/src/test/java/dev/nako/android/artwork/PublicArtworkTest.kt`, `apps/android/app/src/test/java/dev/nako/android/browse/NakoBrowseClientTest.kt`, `apps/android/app/src/main/java/dev/nako/android/ui/artwork/NakoArtworkImage.kt`
   Handoff: Completed in this session. Coil handles authenticated image loading; Android consumes only Public Client API image refs and does not introduce admin artwork routes.
 
-- [x] APIC-030 [owner=codex] [deps=APIC-020] [scope=apps/android/app/src/main/java/dev/taru/android/{browse,ui}]
+- [x] APIC-030 [owner=codex] [deps=APIC-020] [scope=apps/android/app/src/main/java/dev/nako/android/{browse,ui}]
   Goal: Productize artwork fallback rules across Home, Libraries, Detail, and Player surfaces using the existing Material 3 Expressive direction.
   Validation: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon`
   Review: visual review against `CLIENT_INTERFACE_DESIGN.md`; no fake artwork or unbounded decorative gradients.
-  Evidence: `apps/android/app/src/main/java/dev/taru/android/ui/artwork/TaruArtworkSlots.kt`, `apps/android/build/smoke-regression/20260519-131218/report.md`
+  Evidence: `apps/android/app/src/main/java/dev/nako/android/ui/artwork/NakoArtworkSlots.kt`, `apps/android/build/smoke-regression/20260519-131218/report.md`
   Handoff: Completed in this session. Home, Libraries, Detail, and Player now share quiet deterministic artwork fallback behavior; Player remains video-first and disables Media3 embedded artwork.
 
 ## M2 - Route Gap Decisions
 
-- [x] APIC-040 [owner=codex] [deps=APIC-020] [scope=docs/workstreams/android-public-client-api-coverage, apps/android/app/src/main/java/dev/taru/android/browse]
+- [x] APIC-040 [owner=codex] [deps=APIC-020] [scope=docs/workstreams/android-public-client-api-coverage, apps/android/app/src/main/java/dev/nako/android/browse]
   Goal: Decide whether Library Detail and library source inventory should become first-class Android routes in the next product slice.
   Validation: route decision notes plus focused Android tests if client methods are added.
   Review: avoid adding routes that do not produce a user-visible screen.
-  Evidence: `API_COVERAGE_MATRIX.md`, `apps/android/app/src/test/java/dev/taru/android/browse/TaruBrowseClientTest.kt`, `apps/android/app/src/main/java/dev/taru/android/ui/browse/LibraryDetailScreen.kt`
+  Evidence: `API_COVERAGE_MATRIX.md`, `apps/android/app/src/test/java/dev/nako/android/browse/NakoBrowseClientTest.kt`, `apps/android/app/src/main/java/dev/nako/android/ui/browse/LibraryDetailScreen.kt`
   Handoff: Completed in this session. Library Detail is a first-class structural route with safe source inventory; it does not pretend to be a full media poster grid and does not display roots or source locators.
 
-- [x] APIC-050 [owner=codex] [deps=APIC-040] [scope=docs, apps/android/app/src/main/java/dev/taru/android/playback]
+- [x] APIC-050 [owner=codex] [deps=APIC-040] [scope=docs, apps/android/app/src/main/java/dev/nako/android/playback]
   Goal: Decide whether direct `GET /sources/{source_id}/probe` is needed for Source Picker, or whether playback decision probe data is enough.
   Validation: design note or focused Android tests if implemented.
   Review: do not duplicate playback decision semantics in a second source detail flow.
-  Evidence: `API_COVERAGE_MATRIX.md`, `apps/android/app/src/test/java/dev/taru/android/playback/TaruPlaybackClientTest.kt`, `apps/android/app/src/test/java/dev/taru/android/ui/screens/sourcepicker/SourcePickerDisplayModelTest.kt`
+  Evidence: `API_COVERAGE_MATRIX.md`, `apps/android/app/src/test/java/dev/nako/android/playback/NakoPlaybackClientTest.kt`, `apps/android/app/src/test/java/dev/nako/android/ui/screens/sourcepicker/SourcePickerDisplayModelTest.kt`
   Handoff: Completed in this session. Source Picker now loads direct source probe facts independently from playback decision; deeper track/subtitle/chapter selection remains out of scope.
 
 ## M3 - Playback State Contract Split

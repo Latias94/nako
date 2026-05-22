@@ -6,7 +6,7 @@ Last updated: 2026-05-18
 ## Why This Lane Exists
 
 The 2026-05-18 architecture review found several cross-cutting design risks in
-Taru's current implementation. Most of them touch more than one crate, ADR, or
+Nako's current implementation. Most of them touch more than one crate, ADR, or
 existing workstream. Leaving those findings only in the conversation would make
 them hard to prioritize, revisit, or assign to future implementation lanes.
 
@@ -40,7 +40,7 @@ right workstream shape before code changes begin.
 
 ## Problem
 
-Taru already has strong domain language and many completed architecture
+Nako already has strong domain language and many completed architecture
 workstreams, but several deeper consistency and contract questions remain:
 
 - some workflow modules still require callers to understand broad persistence
@@ -90,7 +90,7 @@ the dependency order and rediscovering the same findings repeatedly.
 
 | Assumption | Confidence | Evidence | Consequence if wrong |
 | --- | --- | --- | --- |
-| Metadata refresh atomicity is the highest-risk follow-up. | High | `crates/taru-metadata/src/strategy.rs`, `crates/taru-catalog/src/lib.rs`, `crates/taru-db/src/search.rs` | Reprioritize if another active feature will hit Public Client or Addon contracts first. |
+| Metadata refresh atomicity is the highest-risk follow-up. | High | `crates/nako-metadata/src/strategy.rs`, `crates/nako-catalog/src/lib.rs`, `crates/nako-db/src/search.rs` | Reprioritize if another active feature will hit Public Client or Addon contracts first. |
 | NFO/provider merge unification should be separate from NFO XML preservation. | High | `docs/workstreams/nfo-round-trip-preservation/WORKSTREAM.json` lists merge-policy redesign as a non-goal. | Reopen NFO lane only if the change is primarily XML preservation, not metadata authority. |
 | Public Client Source Locator redaction may require contract discussion before code. | Medium | ADR 0023 and ADR 0027 define leakage constraints, but current DTOs include `locator`. | Create an ADR or public API contract follow-up before changing wire shape. |
 | Addon side effects should reuse the existing addon/automation lane if possible. | Medium | ADR 0020 and `addons-automation` already own the Addon trust model. | Split a new lane only if token/grant/effect intake grows beyond the existing lane. |
@@ -118,11 +118,11 @@ behavior varies. Prefer workstream-specific seams with concrete tests.
 | ID | Finding | Recommended lane | Status | Notes |
 | --- | --- | --- | --- | --- |
 | ARF-001 | Metadata refresh, catalog graph, and search projection atomicity | `metadata-catalog-commit-atomicity` | Closed | First execution lane was opened and closed. Catalog graph/search commits and metadata refresh persistence commits now have SQLite transaction tests. |
-| ARF-002 | NFO and provider merge policy duplication | `metadata-merge-policy-unification` | Closed | Execution lane completed. Shared `MetadataMergePolicy` now lives in `taru-core`; provider refresh, hierarchy confirmation, and NFO import use the shared boundary. |
+| ARF-002 | NFO and provider merge policy duplication | `metadata-merge-policy-unification` | Closed | Execution lane completed. Shared `MetadataMergePolicy` now lives in `nako-core`; provider refresh, hierarchy confirmation, and NFO import use the shared boundary. |
 | ARF-003 | Broad server app persistence/config interfaces | `server-architecture-hardening` plus `repository-seam-deepening` | Assigned | Reuse existing lanes for concrete workflows only; do not open a generic app-service rewrite lane. |
 | ARF-004 | Media Library config/database source of truth | `multi-library-hardening` | Closed | Execution lane completed. Startup reconciliation now establishes persisted Library authority, workflows use reconciled libraries, and configured backend roots are validated at startup. |
 | ARF-005 | Public Client Source Locator leakage | `public-client-source-locator-redaction` | Closed | Execution lane completed. Public Client DTOs, OpenAPI schema, generated SDK output, route tests, and HTTP API docs now redact raw Source Locators. |
-| ARF-006 | Addon token/grant/side-effect seams | `addons-automation` | Assigned | Routed to Post-M5 follow-up for Addon Token issuance, rotation, library-scoped grants, and Taru-mediated Addon Side Effect intake. |
+| ARF-006 | Addon token/grant/side-effect seams | `addons-automation` | Assigned | Routed to Post-M5 follow-up for Addon Token issuance, rotation, library-scoped grants, and Nako-mediated Addon Side Effect intake. |
 | ARF-007 | HLS request identity and Transcode Profile | `transcode-runtime` plus `playback-source-selection-deepening` | Assigned | Routed to Post-M25/Post-M43 follow-ups. Avoid changing HLS reuse/cache semantics without request/profile key tests. |
 | ARF-008 | Hardware encode viability diagnostics | Reuse `transcode-runtime` follow-up | Deferred | Lower priority until users need operator diagnostics. |
 | ARF-009 | Search adapter depth and CJK/pinyin/romaji support | Future search adapter lane | Deferred | Existing ADR accepts basic SQLite fallback. |

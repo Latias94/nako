@@ -9,7 +9,7 @@ The admin web console now has overview, jobs, playback session, and playback
 runtime read models. The next operational gaps are event history, storage
 staging/cache state, and a safe view of the server's configured capabilities.
 
-These are read-only operator diagnostics. They should explain what Taru is
+These are read-only operator diagnostics. They should explain what Nako is
 doing without exposing local paths, event payloads, raw errors, resolved
 secrets, provider raw responses, or process internals.
 
@@ -52,8 +52,8 @@ GET /admin/v1/storage/staging
 GET /admin/v1/system/config
 ```
 
-The responses should use admin-owned DTOs in `taru-api::admin`, backed by app
-service methods in `taru-server`, and route-level tests that prove filtering,
+The responses should use admin-owned DTOs in `nako-api::admin`, backed by app
+service methods in `nako-server`, and route-level tests that prove filtering,
 pagination, auth protection, and redaction.
 
 ## In Scope
@@ -76,18 +76,18 @@ pagination, auth protection, and redaction.
 - No staging cleanup mutation.
 - No raw VFS cache listing/object/failure list route unless a narrow repository
   port is added in a later slice.
-- No raw `TaruServerConfig` serialization.
+- No raw `NakoServerConfig` serialization.
 - No local library root, database URL, FFmpeg path, staging root, WebDAV base
   URL, WebDAV username, metadata provider proxy, literal provider header
   value, resolved token, or resolved password exposure.
 - No Public Client API, public OpenAPI, generated SDK, Rust client SDK, or
-  `taru-client-protocol` change.
+  `nako-client-protocol` change.
 
 ## Starting Assumptions
 
 | Assumption | Confidence | Evidence | Consequence if wrong |
 | --- | --- | --- | --- |
-| Admin routes belong in `taru-api::admin` and `taru-server::http::admin`. | High | ADR 0027 and M52-M56. | Keep DTO ownership narrow; split modules later if file size becomes the blocker. |
+| Admin routes belong in `nako-api::admin` and `nako-server::http::admin`. | High | ADR 0027 and M52-M56. | Keep DTO ownership narrow; split modules later if file size becomes the blocker. |
 | Event outbox list/filter can extend the existing `EventOutboxRepository` without schema changes. | High | `event_outbox` already stores kind/status/library/source and has a paginated list. | Add a migration only if existing columns are insufficient. |
 | Staging diagnostics can use existing manifest list and byte-sum APIs. | High | `StagingManifestRepository` already exposes list and `sum_staging_manifest_bytes`. | Add a narrow app method if route composition becomes too broad. |
 | Sanitized config should summarize capability and secret-reference presence, not raw config. | High | Existing redaction rules in M52-M56 and `SecretString` behavior. | If operators need exact values, add separate explicit admin surfaces later. |
@@ -105,8 +105,8 @@ purpose-built DTO:
 - config diagnostics expose capabilities, counts, policies, secret-reference
   names, and enabled flags while withholding sensitive values and local paths.
 
-`taru-server` owns composition because it can combine config, startup report,
-storage diagnostics, and repository reads. `taru-api` owns DTO shape so the
+`nako-server` owns composition because it can combine config, startup report,
+storage diagnostics, and repository reads. `nako-api` owns DTO shape so the
 wire contract remains explicit and testable.
 
 ## Closeout Condition
@@ -116,5 +116,5 @@ This lane can close when:
 - all three routes exist and return redacted admin-owned DTOs;
 - focused API/server/DB tests cover the redaction and filtering semantics;
 - public OpenAPI and generated TypeScript SDK continue excluding admin paths;
-- `crates/taru-client-protocol` has no diff;
+- `crates/nako-client-protocol` has no diff;
 - docs reflect the shipped behavior and remaining follow-ons are explicit.

@@ -11,7 +11,7 @@ before exposing remux playback through HTTP.
 
 ### Remux Runtime Guard
 
-`taru-transcode` now owns remux runtime limits and guards:
+`nako-transcode` now owns remux runtime limits and guards:
 
 - `RemuxRuntimeLimits`
 - `RemuxRuntimeGuard`
@@ -46,7 +46,7 @@ own codec/container policy.
 
 ### Server Runtime Configuration
 
-`taru-server` now accepts:
+`nako-server` now accepts:
 
 ```toml
 remux_concurrency = 1

@@ -13,8 +13,8 @@ No active task remains in this workstream.
 
 ## File Scope
 
-- `apps/android/app/src/main/java/dev/taru/android/ui/browse/`
-- `apps/android/app/src/test/java/dev/taru/android/ui/browse/`
+- `apps/android/app/src/main/java/dev/nako/android/ui/browse/`
+- `apps/android/app/src/test/java/dev/nako/android/ui/browse/`
 - Workstream docs under this directory.
 
 ## Validation
@@ -22,8 +22,8 @@ No active task remains in this workstream.
 Run:
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.BrowseShellHostTest --no-daemon --no-parallel
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.* --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.BrowseShellHostTest --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.* --no-daemon --no-parallel
 apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon --no-parallel
 git diff --check
 ```
@@ -33,6 +33,6 @@ git diff --check
 - Keep `BrowseSession` as the state machine.
 - Keep `BrowseShellHost` as lifecycle and integration orchestration.
 - Do not touch generated `output/` or `tmp/`.
-- `TaruBrowseShell` should stay a rendering shell. Put future browse lifecycle,
+- `NakoBrowseShell` should stay a rendering shell. Put future browse lifecycle,
   route-displayed, and saveable-state orchestration behind `BrowseShellHost` or
   a successor host module.

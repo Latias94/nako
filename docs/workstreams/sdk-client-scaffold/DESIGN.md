@@ -24,14 +24,14 @@ published packages.
   - `docs/workstreams/public-api-contract/`
   - `docs/workstreams/access-boundary-auth/`
 - Code boundaries:
-  - `crates/taru-api/src/openapi.rs`
-  - `crates/taru-api/examples/emit-openapi.rs`
-  - `crates/taru-api/src/sdk.rs`
+  - `crates/nako-api/src/openapi.rs`
+  - `crates/nako-api/examples/emit-openapi.rs`
+  - `crates/nako-api/src/sdk.rs`
   - `docs/api/HTTP_API.md`
 
 ## Starting Audit
 
-- `taru-api` can emit OpenAPI v1 JSON.
+- `nako-api` can emit OpenAPI v1 JSON.
 - There is no SDK generation command yet.
 - There is no client wrapper that standardizes bearer auth, API version
   checks, error envelope parsing, or core route calls.
@@ -40,11 +40,11 @@ published packages.
 ## Target State
 
 - M33 has a durable workstream with explicit SDK boundaries.
-- `taru-api` can emit a TypeScript SDK scaffold from the M32 OpenAPI document.
+- `nako-api` can emit a TypeScript SDK scaffold from the M32 OpenAPI document.
 - The TypeScript scaffold has:
   - dependency-free `fetch` integration for web/CLI runtimes;
   - bearer token header injection;
-  - `x-taru-api-version` response inspection;
+  - `x-nako-api-version` response inspection;
   - `ErrorResponse` parsing into a typed API error;
   - page query helpers;
   - core library, catalog, playback, and playback-session calls.
@@ -54,7 +54,7 @@ published packages.
 
 ## In Scope
 
-- Generate a lightweight TypeScript/Web/CLI SDK scaffold from `taru-api`.
+- Generate a lightweight TypeScript/Web/CLI SDK scaffold from `nako-api`.
 - Add tests for SDK route coverage, auth/error/version behavior text, and
   admin/internal leakage rejection.
 - Keep generated output as a command result rather than a published package.
@@ -71,7 +71,7 @@ published packages.
 
 ## Architecture Direction
 
-Keep SDK generation in `taru-api` so it depends on the OpenAPI aggregation
+Keep SDK generation in `nako-api` so it depends on the OpenAPI aggregation
 boundary, not on server route handlers. Avoid Node/Java generator dependencies
 in the first slice. The TypeScript output is a scaffold for integration
 validation and future package extraction, not a committed external SDK release.
@@ -81,7 +81,7 @@ validation and future package extraction, not a committed external SDK release.
 This lane can close when:
 
 - SDK generation docs and task ledger are complete;
-- `cargo run -p taru-api --example emit-typescript-sdk` emits a usable
+- `cargo run -p nako-api --example emit-typescript-sdk` emits a usable
   TypeScript scaffold;
 - tests prove route inventory coverage, auth/error/version behavior, and no
   admin/internal leakage;

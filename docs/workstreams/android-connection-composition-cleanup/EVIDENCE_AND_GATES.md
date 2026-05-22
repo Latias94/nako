@@ -8,13 +8,13 @@ Last updated: 2026-05-20
 Focused root composition gate:
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.TaruAppCompositionTest --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.NakoAppCompositionTest --no-daemon --no-parallel
 ```
 
 Focused connection/root gate:
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.connection.* --tests dev.taru.android.ui.* --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.connection.* --tests dev.nako.android.ui.* --no-daemon --no-parallel
 ```
 
 Final gate:
@@ -27,14 +27,14 @@ git diff --check
 ## Evidence
 
 - ACCC-010: Workstream docs opened on 2026-05-20.
-- ACCC-020: `TaruAppEnvironment.createConnectionRuntime()` added and focused
+- ACCC-020: `NakoAppEnvironment.createConnectionRuntime()` added and focused
   root composition test passed.
   - PASS:
-    `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.TaruAppCompositionTest --no-daemon --no-parallel`
+    `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.NakoAppCompositionTest --no-daemon --no-parallel`
 - ACCC-030: Connection content now takes runtime directly; unused platform
   entrypoint removed.
   - PASS:
-    `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.connection.* --tests dev.taru.android.ui.* --no-daemon --no-parallel`
+    `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.connection.* --tests dev.nako.android.ui.* --no-daemon --no-parallel`
 - ACCC-040: Final closeout gates passed on 2026-05-20.
   - PASS:
     `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon --no-parallel`

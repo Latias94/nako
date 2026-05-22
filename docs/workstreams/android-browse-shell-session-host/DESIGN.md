@@ -5,7 +5,7 @@ Last updated: 2026-05-20
 
 ## Problem
 
-`TaruBrowseShell` has already moved browse navigation, loading, playback start,
+`NakoBrowseShell` has already moved browse navigation, loading, playback start,
 connection, and settings state into dedicated sessions. The remaining shell
 still owns session construction, saveable-state synchronization, startup load
 effects, route-displayed effects, and settings runtime wiring.
@@ -26,14 +26,14 @@ Introduce a small, testable browse shell host:
   and saveable-state publishing.
 - `BrowseShellRuntime` builds the concrete data source, playback starter,
   resume resolver, and settings runtime for the active profile.
-- `TaruBrowseShell` creates adapters with `remember`, collects host state, and
+- `NakoBrowseShell` creates adapters with `remember`, collects host state, and
   renders the existing screens.
 - Saveable state updates follow `BrowseSession.state`, not just immediate
   dispatch return values.
 
 ## Scope
 
-- Android browse shell and tests under `apps/android/app/src/main/java/dev/taru/android/ui/browse`.
+- Android browse shell and tests under `apps/android/app/src/main/java/dev/nako/android/ui/browse`.
 - Settings action wiring where it is currently assembled by browse shell.
 - Workstream docs under this directory.
 
@@ -60,7 +60,7 @@ loading, settings action forwarding, saveable-state publishing, and host-scope
 cancellation. `ClientBrowseShellRuntime` now centralizes client-backed data
 source, playback starter, resume resolver, and settings runtime assembly.
 
-`TaruBrowseShell` no longer constructs `BrowseSession` or `SettingsSession`
+`NakoBrowseShell` no longer constructs `BrowseSession` or `SettingsSession`
 directly and no longer uses Compose `LaunchedEffect` for browse route loading.
 Callback lambdas are read through `rememberUpdatedState` so parent recomposition
 does not rebuild the host just because callback instances change.

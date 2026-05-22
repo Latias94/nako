@@ -1,0 +1,26 @@
+[package]
+name = "nako-library"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+async-trait.workspace = true
+futures-util.workspace = true
+serde.workspace = true
+nako-core = { path = "../nako-core" }
+nako-media-probe = { path = "../nako-media-probe" }
+nako-naming = { path = "../nako-naming" }
+nako-vfs = { path = "../nako-vfs" }
+
+[dev-dependencies]
+axum.workspace = true
+pollster.workspace = true
+nako-db = { path = "../nako-db" }
+nako-search = { path = "../nako-search" }
+tempfile.workspace = true
+tokio.workspace = true

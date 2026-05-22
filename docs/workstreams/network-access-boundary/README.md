@@ -5,14 +5,14 @@ Last updated: 2026-05-22
 
 ## Purpose
 
-This workstream opens the post-DWI remote access lane. Taru already has inbound
+This workstream opens the post-DWI remote access lane. Nako already has inbound
 bearer authentication, packaged self-hosted deployment docs, playback
 supportability, and acquisition intake boundaries. The next product-hardening
-risk is letting real clients reach Taru through reverse proxies, tunnels, VPNs,
+risk is letting real clients reach Nako through reverse proxies, tunnels, VPNs,
 or private networks without weakening auth, origin policy, path redaction, or
 library mutation boundaries.
 
-The first safe shape is not built-in NAT traversal. Taru should first define a
+The first safe shape is not built-in NAT traversal. Nako should first define a
 server-owned network access policy and diagnostics model: configured external
 base URLs, trusted proxy/header handling, tunnel-provider registration and
 readiness, CORS/origin constraints, and Admin-only redacted diagnostics.
@@ -22,7 +22,7 @@ readiness, CORS/origin constraints, and Admin-only redacted diagnostics.
 This lane is complete. NAB-020 through NAB-040 shipped a network access
 policy/readiness domain, request-time HTTP boundary enforcement, and
 Admin-only redacted network diagnostics without starting a built-in NAT
-traversal runtime or changing Public Client API / `taru-client-protocol`.
+traversal runtime or changing Public Client API / `nako-client-protocol`.
 
 NAB-050 closed the lane and returned routing to
 `post-rpd-product-hardening`. Concrete tunnel runtimes, endpoint discovery,

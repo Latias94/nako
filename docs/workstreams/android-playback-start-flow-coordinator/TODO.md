@@ -13,7 +13,7 @@ Last updated: 2026-05-19
 
 ## M1 - Coordinator Extraction
 
-- [x] APSF-020 [owner=codex] [deps=APSF-010] [scope=apps/android/app/src/main/java/dev/taru/android/playback,apps/android/app/src/main/java/dev/taru/android/ui/browse,apps/android/app/src/test/java/dev/taru/android/playback]
+- [x] APSF-020 [owner=codex] [deps=APSF-010] [scope=apps/android/app/src/main/java/dev/nako/android/playback,apps/android/app/src/main/java/dev/nako/android/ui/browse,apps/android/app/src/test/java/dev/nako/android/playback]
   Goal: Extract playback start preflight, resume resolution, and launch request
   construction into a focused coordinator/use case.
   Validation: focused Android JVM tests prove Remux start preflight, missing

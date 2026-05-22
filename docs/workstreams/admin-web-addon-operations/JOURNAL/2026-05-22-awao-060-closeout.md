@@ -20,10 +20,10 @@ Evidence:
 
 - Rust/Admin API:
   - `cargo fmt --all -- --check`
-  - `cargo run -q -p taru-api --example emit-admin-typescript-contract -- --output apps/admin-web/src/adminApi/generated/contract.ts`
-  - `cargo nextest run -p taru-api admin_contract --no-fail-fast`
-  - `cargo check -p taru-api -p taru-server --tests`
-  - `cargo nextest run -p taru-server addons --no-fail-fast`
+  - `cargo run -q -p nako-api --example emit-admin-typescript-contract -- --output apps/admin-web/src/adminApi/generated/contract.ts`
+  - `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+  - `cargo check -p nako-api -p nako-server --tests`
+  - `cargo nextest run -p nako-server addons --no-fail-fast`
 - Admin Web:
   - `npm run check`
   - `npm test`
@@ -34,5 +34,5 @@ Evidence:
 Follow-ons:
 
 - Addon Install Guide generation for Docker Compose/systemd snippets.
-- Separate Addon Manager lane only if Taru will own discovery, install,
+- Separate Addon Manager lane only if Nako will own discovery, install,
   update, package signing, or sidecar process supervision.

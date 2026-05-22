@@ -15,7 +15,7 @@ RUN apt-get update \
 COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
 
-RUN cargo build --locked --release -p taru-server
+RUN cargo build --locked --release -p nako-server
 
 FROM debian:bookworm-slim AS runtime
 WORKDIR /app
@@ -28,16 +28,16 @@ RUN apt-get update \
         libsqlite3-0 \
         tini \
     && rm -rf /var/lib/apt/lists/* \
-    && groupadd --system --gid 10001 taru \
-    && useradd --system --uid 10001 --gid taru --home-dir /nonexistent --shell /usr/sbin/nologin taru \
+    && groupadd --system --gid 10001 nako \
+    && useradd --system --uid 10001 --gid nako --home-dir /nonexistent --shell /usr/sbin/nologin nako \
     && mkdir -p /config /data/artwork /cache/remux /media \
-    && chown -R taru:taru /config /data /cache
+    && chown -R nako:nako /config /data /cache
 
-COPY --from=builder /workspace/target/release/taru-server /usr/local/bin/taru-server
+COPY --from=builder /workspace/target/release/nako-server /usr/local/bin/nako-server
 
-USER taru:taru
+USER nako:nako
 EXPOSE 3000
 VOLUME ["/config", "/data", "/cache"]
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["taru-server", "--config", "/config/taru.toml", "serve"]
+CMD ["nako-server", "--config", "/config/nako.toml", "serve"]

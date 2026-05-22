@@ -23,11 +23,11 @@ safe public messages instead of exposing raw backend details.
 
 ## Validation
 
-- `cargo nextest run -p taru-server api_errors_map_playback_storage_categories direct_stream_rejects_unsatisfiable_and_multi_ranges remux_stream_route_maps_in_flight_duplicate_to_conflict hls_segment_route_rejects_unfinished_session`
+- `cargo nextest run -p nako-server api_errors_map_playback_storage_categories direct_stream_rejects_unsatisfiable_and_multi_ranges remux_stream_route_maps_in_flight_duplicate_to_conflict hls_segment_route_rejects_unfinished_session`
 
 ## Remaining Gaps
 
-- Core errors are still classified from current `TaruError` variants and
+- Core errors are still classified from current `NakoError` variants and
   message patterns. A typed playback/storage error enum remains follow-up
   architecture work, but M7 has stable public HTTP/API codes and tests for the
   representative mappings.

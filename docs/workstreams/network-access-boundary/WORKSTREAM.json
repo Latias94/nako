@@ -5,7 +5,7 @@
   "status": "complete",
   "updated": "2026-05-22",
   "scope_kind": "execution",
-  "problem": "Self-hosted Taru needs explicit remote access policy, trusted proxy/header behavior, tunnel-provider readiness, origin constraints, and redacted diagnostics before built-in NAT traversal or broader remote-client features are safe.",
+  "problem": "Self-hosted Nako needs explicit remote access policy, trusted proxy/header behavior, tunnel-provider readiness, origin constraints, and redacted diagnostics before built-in NAT traversal or broader remote-client features are safe.",
   "task_prefix": "NAB",
   "current_task": null,
   "completed_tasks": [
@@ -42,13 +42,13 @@
     }
   ],
   "gates": [
-    "cargo nextest run -p taru-server config --no-fail-fast",
-    "cargo nextest run -p taru-server http::tests::system --no-fail-fast",
-    "cargo nextest run -p taru-api admin_contract --no-fail-fast",
+    "cargo nextest run -p nako-server config --no-fail-fast",
+    "cargo nextest run -p nako-server http::tests::system --no-fail-fast",
+    "cargo nextest run -p nako-api admin_contract --no-fail-fast",
     "cargo fmt --all -- --check",
     "npm run check from apps/admin-web after Admin contract/client changes",
     "git diff --check",
-    "git diff --name-only -- crates/taru-client-protocol"
+    "git diff --name-only -- crates/nako-client-protocol"
   ],
   "evidence": [
     "docs/workstreams/network-access-boundary/DESIGN.md",
@@ -57,11 +57,11 @@
     "docs/adr/0024-inbound-token-authentication-boundary.md",
     "docs/deployment/SELF_HOSTED.md",
     "docs/workstreams/access-boundary-auth/DESIGN.md",
-    "crates/taru-server/src/config.rs",
-    "crates/taru-server/src/http",
-    "crates/taru-server/src/http/network.rs",
-    "crates/taru-api/src/admin.rs",
-    "crates/taru-api/src/admin_contract.rs",
+    "crates/nako-server/src/config.rs",
+    "crates/nako-server/src/http",
+    "crates/nako-server/src/http/network.rs",
+    "crates/nako-api/src/admin.rs",
+    "crates/nako-api/src/admin_contract.rs",
     "apps/admin-web/src/adminApi"
   ],
   "adr_refs": [
@@ -72,6 +72,6 @@
   "continue_policy": {
     "default_action": "return_to_parent",
     "next_task": "post-rpd-product-hardening PRPH-150",
-    "notes": "Network Access Boundary is complete. NAB-020 completed network access policy/config validation. NAB-030 completed request-time HTTP boundary enforcement. NAB-040 completed Admin-only network readiness diagnostics. NAB-050 closed the lane and split built-in NAT traversal runtime, relay services, client endpoint discovery, identity/RBAC, protocol downloaders, AI-assisted library ops, Addon runtime/distribution, direct library writes, Public Client API changes, and taru-client-protocol changes into dedicated follow-ons. Return to post-rpd-product-hardening; AI Assisted Library Ops is the next mainline lane."
+    "notes": "Network Access Boundary is complete. NAB-020 completed network access policy/config validation. NAB-030 completed request-time HTTP boundary enforcement. NAB-040 completed Admin-only network readiness diagnostics. NAB-050 closed the lane and split built-in NAT traversal runtime, relay services, client endpoint discovery, identity/RBAC, protocol downloaders, AI-assisted library ops, Addon runtime/distribution, direct library writes, Public Client API changes, and nako-client-protocol changes into dedicated follow-ons. Return to post-rpd-product-hardening; AI Assisted Library Ops is the next mainline lane."
   }
 }

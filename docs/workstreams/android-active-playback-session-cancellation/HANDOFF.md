@@ -22,8 +22,8 @@ session through Public Client API readback.
 
 - `apps/android/build/smoke/20260519-223623-profile-active-remux-emulator-5554/report.md`
 - `apps/android/build/smoke/20260519-223623-profile-active-remux-emulator-5554/profile-active-remux-session-cancelled.txt`
-- `cargo test -p taru-server remux_stream_route -- --nocapture`
-- `cargo test -p taru-transcode remux_runner_kills_and_cleans_temp_output_on_cancel -- --nocapture`
+- `cargo test -p nako-server remux_stream_route -- --nocapture`
+- `cargo test -p nako-transcode remux_runner_kills_and_cleans_temp_output_on_cancel -- --nocapture`
 
 ## Residual Follow-Ons
 

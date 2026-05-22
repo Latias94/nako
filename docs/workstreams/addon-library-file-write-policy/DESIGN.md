@@ -7,7 +7,7 @@ Last updated: 2026-05-19
 
 Subtitle, NFO, and sidecar-asset writes are more dangerous than Canonical
 Metadata writes because they cross from database state into Media Library
-storage. Taru already has NFO Round Trip, VFS write modes, atomic replace, and
+storage. Nako already has NFO Round Trip, VFS write modes, atomic replace, and
 backup policy workstreams. Addon-initiated file writes must reuse those seams
 instead of accepting raw addon-provided paths.
 
@@ -28,7 +28,7 @@ Library File Writes still need explicit rules for:
 
 - Addon file-write side effects move through intake and explicit apply outcome
   state.
-- Taru derives the target Library File Write from a media target, file role,
+- Nako derives the target Library File Write from a media target, file role,
   and policy, not from an addon-provided absolute path.
 - NFO writes preserve NFO Round Trip and backup policy.
 - Subtitle and sidecar writes use storage/VFS write modes with bounded
@@ -60,7 +60,7 @@ Reuse the APW three-stage model:
 
 1. Addon runtime route authenticates, validates permission/library/target,
    persists the side-effect record, and returns redacted summaries.
-2. File-write validation derives a Taru Library File Write command from a media
+2. File-write validation derives a Nako Library File Write command from a media
    target, sidecar role, content type, and policy.
 3. Domain apply calls NFO/storage/VFS services, records backup/report summary
    safely, and stores an apply outcome.
@@ -72,7 +72,7 @@ prefer a queued Addon Task or durable job over a synchronous runtime request.
 
 Addon-initiated NFO behavior must reuse the first-party NFO boundaries. If an
 accepted addon request imports or applies NFO-derived canonical metadata, it
-should route through `taru-nfo` planning and
+should route through `nako-nfo` planning and
 `MetadataRepository::commit_nfo_import` /
 `NfoImportPersistenceCommit`; it must not reintroduce ordered calls to media
 item upsert, field-lock upsert, hierarchy confirmation, catalog hydration, or
@@ -87,7 +87,7 @@ should route through `ScanRepository::commit_library_scan_source`,
 parallel Addon-specific sequence of source, state, evidence, and projection
 writes.
 
-NFO export remains an NFO/VFS concern: derive the sidecar target inside Taru,
+NFO export remains an NFO/VFS concern: derive the sidecar target inside Nako,
 write through `StorageWriteRequest`/backup policy, and trigger any follow-on
 NFO import or catalog update through the existing NFO service path rather than
 duplicating parser or persistence logic in the Addon handler.
@@ -95,10 +95,10 @@ duplicating parser or persistence logic in the Addon handler.
 ### ALFW-020 Selected First Target
 
 The first ALFW-030 apply target is an addon-initiated, MediaSource-targeted
-Taru-owned NFO Export. An accepted `library_file_write` side effect may request
+Nako-owned NFO Export. An accepted `library_file_write` side effect may request
 an NFO export for an existing Media Source, but the addon may not provide a
 filesystem path, Source Locator, remote storage handle, or raw NFO content.
-Taru derives the sidecar URI from the Media Source, library, file role, and
+Nako derives the sidecar URI from the Media Source, library, file role, and
 write policy, then delegates the write to first-party NFO/VFS code.
 
 The first payload shape should be typed around intent, for example NFO export
@@ -138,7 +138,7 @@ This lane can close when:
 ## Closeout Outcome
 
 This lane is closed after ALFW-040. ALFW-020 selected MediaSource-targeted
-Taru-owned NFO Export as the first bounded Library File Write target, and
+Nako-owned NFO Export as the first bounded Library File Write target, and
 ALFW-030 implemented it through the existing Addon Side Effect, NFO, VFS,
 backup, and redaction seams.
 

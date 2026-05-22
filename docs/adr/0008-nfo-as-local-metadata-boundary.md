@@ -8,13 +8,13 @@ Proposed
 
 NFO files are common in self-hosted media libraries. They are useful for local
 metadata control, migration from existing tools, and reproducible metadata next
-to media files. Taru also needs to support future provider refreshes without
+to media files. Nako also needs to support future provider refreshes without
 destroying local NFO decisions.
 
 ## Decision
 
 Treat NFO as a local metadata source. Import/export is implemented through
-`taru-nfo` behind a codec boundary. The first codec is a minimal movie NFO codec
+`nako-nfo` behind a codec boundary. The first codec is a minimal movie NFO codec
 covering core fields:
 
 - title

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This workstream turns Taru playback and transcode from the current remux/HLS
+This workstream turns Nako playback and transcode from the current remux/HLS
 MVP into a product-grade runtime boundary. It owns playback service
 decomposition, FFmpeg-backed hardware capability probing, selected
 acceleration policy, resource budgets, persisted session lifecycle, and stable
@@ -16,8 +16,8 @@ M25 built on the completed M24 server architecture cleanup. M26 then stabilized
 the playback/session HTTP contract for future clients. The goal is not to add a
 flashy streaming feature first; the goal is to make the runtime shape clean
 enough that adaptive HLS, future subtitles, client playback controls, and
-hardware-specific behavior do not re-entangle `taru-server`, `taru-transcode`,
-`taru-streaming`, and storage code.
+hardware-specific behavior do not re-entangle `nako-server`, `nako-transcode`,
+`nako-streaming`, and storage code.
 
 Top-level tracking:
 
@@ -36,9 +36,9 @@ Top-level tracking:
   FFmpeg-backed detector when hardware acceleration is configured.
 - Make VAAPI, NVENC, and QuickSync selection, fallback, and resource budget
   behavior explicit service contracts.
-- Keep `taru-transcode` responsible for FFmpeg command planning and process
+- Keep `nako-transcode` responsible for FFmpeg command planning and process
   execution primitives, not HTTP or storage concerns.
-- Keep `taru-server::app` responsible for application orchestration, persisted
+- Keep `nako-server::app` responsible for application orchestration, persisted
   sessions, storage staging, and API-safe errors.
 - Define the playback session lifecycle and error model that future Flutter or
   web clients can depend on.
@@ -50,18 +50,18 @@ Top-level tracking:
 - No direct FFmpeg remote credential input until a separate storage security
   design is accepted.
 - No in-process plugin ABI or external worker process model.
-- No distributed transcode queue; Taru remains a single-process modular
+- No distributed transcode queue; Nako remains a single-process modular
   monolith for this phase.
 
 ## Boundary Rules
 
-- `taru-transcode` owns FFmpeg plans, hardware capability reports, runtime
+- `nako-transcode` owns FFmpeg plans, hardware capability reports, runtime
   guards, process runners, temporary output promotion, and command-level
   errors.
-- `taru-streaming` owns playback decisions and client capability matching.
-- `taru-server::app` owns source lookup, storage staging, persisted session
+- `nako-streaming` owns playback decisions and client capability matching.
+- `nako-server::app` owns source lookup, storage staging, persisted session
   coordination, runtime service composition, and API-safe error categories.
-- `taru-server::http` owns request extraction, headers, body streaming, and
+- `nako-server::http` owns request extraction, headers, body streaming, and
   response translation only.
 - Storage credentials and source locators must not be embedded into FFmpeg
   command lines or logs unless a dedicated remote-input security design

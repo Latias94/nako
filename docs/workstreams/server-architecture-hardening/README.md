@@ -4,7 +4,7 @@
 
 This workstream turns the server from an MVP-shaped application surface into a
 clean modular-monolith composition boundary. It owns the refactor that makes
-`taru-server` thin, moves orchestration into focused services, gives background
+`nako-server` thin, moves orchestration into focused services, gives background
 work explicit lifecycle ownership, tightens repository and transaction
 boundaries, and removes obsolete helper paths.
 
@@ -29,7 +29,7 @@ Top-level tracking:
 
 ## Goals
 
-- Make `taru-server::app::TaruApp` a thin composition root instead of a
+- Make `nako-server::app::NakoApp` a thin composition root instead of a
   feature orchestration object.
 - Move workflow logic into focused application services with explicit
   constructors and narrow dependencies.
@@ -54,13 +54,13 @@ Top-level tracking:
 
 ## Boundary Rules
 
-- `taru-server` composes runtime pieces and owns HTTP integration.
+- `nako-server` composes runtime pieces and owns HTTP integration.
 - Application services own workflows and depend on narrow ports.
-- `taru-db` owns SQLite, SQL mapping, and transaction details.
-- `taru-core` owns stable domain types and repository contracts.
-- `taru-api` owns public request/response DTOs.
-- `taru-vfs`, `taru-metadata`, `taru-nfo`, `taru-catalog`, and
-  `taru-transcode` should expose domain-specific capabilities instead of
+- `nako-db` owns SQLite, SQL mapping, and transaction details.
+- `nako-core` owns stable domain types and repository contracts.
+- `nako-api` owns public request/response DTOs.
+- `nako-vfs`, `nako-metadata`, `nako-nfo`, `nako-catalog`, and
+  `nako-transcode` should expose domain-specific capabilities instead of
   relying on server internals.
 - Background workers must be registered and supervised; direct detached
   `tokio::spawn` calls are not allowed in feature code without an explicit

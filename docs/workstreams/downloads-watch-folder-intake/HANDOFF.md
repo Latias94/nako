@@ -34,7 +34,7 @@ round-trip, idempotent source-key lookup, state transitions, Managed Import
 artifact linking, and list filters. It does not create Media Sources, run
 promotion apply, or write library files.
 
-DWI-030 is complete. It added `AcquisitionIntakeAppService`, TaruApp service
+DWI-030 is complete. It added `AcquisitionIntakeAppService`, NakoApp service
 composition wiring, redacted candidate diagnostics, idempotent candidate
 record/list behavior, explicit existing Managed Import artifact linking,
 same-source artifact reuse, and new Managed Import artifact creation. Tests
@@ -51,7 +51,7 @@ candidate diagnostics and watch-folder discovery, safe root URI parsing errors,
 synchronized the generated Admin TypeScript contract, and updated the Admin web
 typed client, mocks, data source, and console surface. Tests prove the routes
 are Admin-only, redacted, and do not change Public Client API or
-`taru-client-protocol`.
+`nako-client-protocol`.
 
 DWI-060 is complete. Final closeout gates passed, this workstream is marked
 complete, protocol downloader/background scheduling/UI/network/AI/Addon
@@ -79,7 +79,7 @@ decision returned to `post-rpd-product-hardening`.
   and NFO sidecar apply remain separate accepted workflows.
 - VFS/storage list/stat primitives should own path safety for watch-folder
   discovery.
-- Admin diagnostics are allowed; Public Client API and `taru-client-protocol`
+- Admin diagnostics are allowed; Public Client API and `nako-client-protocol`
   changes are not.
 - Protocol-specific download clients, network traversal, AI, Addon runtime, UI
   polish, background scheduling, and automatic apply behavior are follow-ons
@@ -97,7 +97,7 @@ decision returned to `post-rpd-product-hardening`.
 - DWI-050 made intake diagnostics Admin-only and contract-owned. It exposes
   redacted references and fingerprints, not raw source URIs, source keys,
   display names, intended locators, diagnostics JSON, raw root URIs, or
-  downloader internals. Public Client API and `taru-client-protocol` remain
+  downloader internals. Public Client API and `nako-client-protocol` remain
   unchanged.
 - DWI-060 closed the lane. Torrent/Usenet/download-client adapters,
   background scan scheduling, Admin UI workflow polish, remote network access,

@@ -6,12 +6,12 @@ Last updated: 2026-05-19
 ## Why This Lane Exists
 
 `docs/workstreams/android-route-back-stack-refactor/` closed the single-route
-overwrite problem by introducing `TaruBrowseNavigationState` and
-`TaruRouteStack`. That state is still held with `remember`, so Activity
+overwrite problem by introducing `NakoBrowseNavigationState` and
+`NakoRouteStack`. That state is still held with `remember`, so Activity
 recreation drops the user's current browse context.
 
 This is now the next clean architecture step: make the navigation module
-responsible for its own restoration policy instead of letting `TaruBrowseShell`
+responsible for its own restoration policy instead of letting `NakoBrowseShell`
 silently reset to Home.
 
 ## Relevant Authority
@@ -40,7 +40,7 @@ runtime playback state and risk storing sensitive request material.
 
 When this lane closes:
 
-- `TaruBrowseShell` uses `rememberSaveable` for browse navigation state.
+- `NakoBrowseShell` uses `rememberSaveable` for browse navigation state.
 - The save/restore format is explicit, versionable, and covered by focused JVM
   tests.
 - Safe routes restore: Top Level, Item Detail, Browse Facet, and Server Profile.
@@ -52,9 +52,9 @@ When this lane closes:
 ## In Scope
 
 - Android browse navigation state and saver code under
-  `apps/android/app/src/main/java/dev/taru/android/ui/browse`.
+  `apps/android/app/src/main/java/dev/nako/android/ui/browse`.
 - Focused JVM tests under
-  `apps/android/app/src/test/java/dev/taru/android/ui/browse`.
+  `apps/android/app/src/test/java/dev/nako/android/ui/browse`.
 - Workstream evidence and closeout docs.
 
 ## Out Of Scope
@@ -67,7 +67,7 @@ When this lane closes:
 
 ## Architecture Direction
 
-Keep `TaruBrowseNavigationState` as the caller-facing module and add a dedicated
+Keep `NakoBrowseNavigationState` as the caller-facing module and add a dedicated
 saveable adapter at the Compose seam. The saved form should be a small structured
 snapshot with only safe route arguments. Player should never be serialized; the
 restore policy should drop it and keep the previous safe route when available.
@@ -81,18 +81,18 @@ contracts become large enough to justify it.
 This lane can close when:
 
 - save/restore code and tests are implemented;
-- `TaruBrowseShell` uses the saver;
+- `NakoBrowseShell` uses the saver;
 - focused route restoration tests pass;
 - Android compile or unit gate passes;
 - docs record the transient Player policy and remaining follow-ons.
 
 ## Implemented Outcome
 
-Closed on 2026-05-19 with `TaruBrowseNavigationStateSaver`. The saved payload
+Closed on 2026-05-19 with `NakoBrowseNavigationStateSaver`. The saved payload
 is a JSON snapshot containing only the selected top-level destination and safe
 route arguments. It restores Top Level, Item Detail, Browse Facet, and Server
 Profile routes. Player routes remain transient and restore to the previous safe
 route, which avoids persisting playback request URLs or authorization headers.
 
-`TaruBrowseShell` now uses `rememberSaveable` with this saver for browse
+`NakoBrowseShell` now uses `rememberSaveable` with this saver for browse
 navigation state.

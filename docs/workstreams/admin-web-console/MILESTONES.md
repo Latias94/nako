@@ -52,8 +52,8 @@ Exit criteria:
   explicit.
 
 Status: completed for AWC-030. ADR 0027 accepts `/admin/v1/*` as the
-admin-only route boundary, keeps admin DTOs in `taru-api`, keeps
-`taru-client-protocol` public-client-only, and defines leakage/redaction rules
+admin-only route boundary, keeps admin DTOs in `nako-api`, keeps
+`nako-client-protocol` public-client-only, and defines leakage/redaction rules
 for future Admin API slices.
 
 ## M-AWC.1.1 Admin API v1 Overview Seam
@@ -68,7 +68,7 @@ Objective:
 Deliverables:
 
 - `GET /admin/v1/overview`.
-- Admin-owned overview DTOs in `taru-api::admin`.
+- Admin-owned overview DTOs in `nako-api::admin`.
 - Server route tests that prove the overview is read-only and redacted.
 - Public OpenAPI and SDK leakage checks that reject admin route terms.
 
@@ -79,22 +79,22 @@ Exit criteria:
 - The response excludes secrets, tokens, unsafe local filesystem paths, raw
   provider bodies, and local transcode output paths.
 - Existing root/public route behavior remains compatible.
-- `taru-client-protocol` has no changes.
+- `nako-client-protocol` has no changes.
 
 Status: completed for AWC-035 / M52. `GET /admin/v1/overview` now reports
 safe storage, metadata-provider, runtime, and startup summaries through
-admin-owned DTOs in `taru-api::admin`.
+admin-owned DTOs in `nako-api::admin`.
 
 Close-out validation:
 
 - `cargo fmt --all -- --check`
-- `cargo check -p taru-api --tests`
-- `cargo nextest run -p taru-api --no-fail-fast`: 14 tests passed.
-- `cargo check -p taru-server --tests`
-- `cargo nextest run -p taru-server http::tests::system --no-fail-fast`: 5
+- `cargo check -p nako-api --tests`
+- `cargo nextest run -p nako-api --no-fail-fast`: 14 tests passed.
+- `cargo check -p nako-server --tests`
+- `cargo nextest run -p nako-server http::tests::system --no-fail-fast`: 5
   tests passed.
 - `git diff --check`
-- `git diff --name-only -- crates/taru-client-protocol`: no changed files.
+- `git diff --name-only -- crates/nako-client-protocol`: no changed files.
 
 ## M-AWC.2 v0 Prototype Prompt
 
@@ -113,7 +113,7 @@ Exit criteria:
 
 - The prompt covers brand, navigation, routes, page families, and safety rules.
 - The prompt avoids hard-coding a front-end framework unless separately chosen.
-- Generated UI can be evaluated against Taru's product language.
+- Generated UI can be evaluated against Nako's product language.
 
 Status: completed for AWC-040/AWC-050 / M53. `V0_CONTEXT.md` now records which
 first prototype pages can reference live API data and which remain mock or

@@ -7,7 +7,7 @@ Last updated: 2026-05-17
 
 M40 has been opened after M39 closed `CatalogHydrationPort`. The first
 candidate slice is a metadata refresh workflow port. The implementation is in
-place in `crates/taru-metadata/src/strategy.rs`.
+place in `crates/nako-metadata/src/strategy.rs`.
 
 ## Completed Task
 

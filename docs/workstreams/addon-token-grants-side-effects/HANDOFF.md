@@ -5,7 +5,7 @@ Last updated: 2026-05-18
 
 ## Current State
 
-This lane is closed. Taru now has first-class Addon Token issuance, rotation,
+This lane is closed. Nako now has first-class Addon Token issuance, rotation,
 revocation, redacted inspection, accepted Addon Permission /
 Library-Scoped Addon Grant storage, an addon-owned runtime principal
 authorization seam, and the first Addon Side Effect intake proof.
@@ -39,8 +39,8 @@ Write application behavior is split to
 - ADR 0020 already covers the strategic direction. No ADR amendment is required
   before ATGSE-030 unless the implementation chooses OAuth-first authorization,
   broad Admin API reuse, or direct storage/file authority.
-- Keep existing `AddonAuth` as outbound Taru-to-Addon authentication. Addon
-  Token is a separate inbound addon-to-Taru credential.
+- Keep existing `AddonAuth` as outbound Nako-to-Addon authentication. Addon
+  Token is a separate inbound addon-to-Nako credential.
 - Do not overload `AddonRegistrationRecord.granted_scopes` for token-bound
   accepted permissions. Add first-class token and accepted-grant records.
 

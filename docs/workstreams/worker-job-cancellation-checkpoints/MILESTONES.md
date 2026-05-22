@@ -30,9 +30,9 @@ Exit criteria:
 Primary gates:
 
 ```powershell
-$env:CARGO_TARGET_DIR='G:\taru-cargo-target'
-cargo nextest run -p taru-server job_runtime --no-fail-fast
-cargo check -p taru-server --tests
+$env:CARGO_TARGET_DIR='G:\nako-cargo-target'
+cargo nextest run -p nako-server job_runtime --no-fail-fast
+cargo check -p nako-server --tests
 ```
 
 ## M2 - First Real Worker Checkpoints
@@ -46,9 +46,9 @@ Exit criteria:
 Primary gates:
 
 ```powershell
-$env:CARGO_TARGET_DIR='G:\taru-cargo-target'
-cargo nextest run -p taru-server job_cancel --no-fail-fast
-cargo nextest run -p taru-server metadata --no-fail-fast
+$env:CARGO_TARGET_DIR='G:\nako-cargo-target'
+cargo nextest run -p nako-server job_cancel --no-fail-fast
+cargo nextest run -p nako-server metadata --no-fail-fast
 ```
 
 ## M3 - Additional Worker Boundaries
@@ -63,9 +63,9 @@ Exit criteria:
 Primary gates:
 
 ```powershell
-$env:CARGO_TARGET_DIR='G:\taru-cargo-target'
-cargo nextest run -p taru-server job_runtime --no-fail-fast
-cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests
+$env:CARGO_TARGET_DIR='G:\nako-cargo-target'
+cargo nextest run -p nako-server job_runtime --no-fail-fast
+cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests
 ```
 
 ## M4 - Closeout

@@ -38,8 +38,8 @@
 
 ## M27.1 Catalog Schema and Repository Slice
 
-- [x] Keep M27.1 focused on `taru-core` records, repository traits,
-      `taru-db` migrations/adapters, and repository tests.
+- [x] Keep M27.1 focused on `nako-core` records, repository traits,
+      `nako-db` migrations/adapters, and repository tests.
 - [x] Add durable **Provider Subject** records and **Provider Mapping**
       repository coverage without adding provider breadth.
 - [x] Add durable **Source Duplicate Relationship** records and repository
@@ -54,7 +54,7 @@
       commands and remaining M27.2 boundaries.
 - [x] Run M27.1 gates: `cargo fmt --all -- --check`,
       `cargo check --workspace --tests`, focused `cargo nextest run -p
-      taru-db`, focused `cargo nextest run -p taru-core`, and `git diff
+      nako-db`, focused `cargo nextest run -p nako-core`, and `git diff
       --check`.
 
 ## M27.2 Local Inference and Provisional Hierarchy
@@ -62,11 +62,11 @@
 - [x] Keep M27.2 focused on local inference and provisional hierarchy; do not
       add TMDB, Douban, Bangumi, NFO confirmation, Source Variant UI, or
       browse API behavior.
-- [x] Extend `taru-naming` parsed-name output with confidence, evidence source,
+- [x] Extend `nako-naming` parsed-name output with confidence, evidence source,
       parser version, and inferred kind/title/year/season/episode fields.
 - [x] Make weak local parsing create **Unknown Media Item** output instead of a
       confident movie guess.
-- [x] Persist **Local Inference Evidence** from `taru-library` scanning.
+- [x] Persist **Local Inference Evidence** from `nako-library` scanning.
 - [x] Keep **Local Inference Evidence** as a current snapshot per source,
       evidence source, and parser version rather than an append-only scan log.
 - [x] Prevent local inference rescan from overwriting canonical metadata after
@@ -80,15 +80,15 @@
       commands and remaining M27.3 boundaries.
 - [x] Run M27.2 gates: `cargo fmt --all -- --check`,
       `cargo check --workspace --tests`, focused `cargo nextest run -p
-      taru-naming`, focused `cargo nextest run -p taru-library`, focused
-      `cargo nextest run -p taru-db`, and `git diff --check`.
+      nako-naming`, focused `cargo nextest run -p nako-library`, focused
+      `cargo nextest run -p nako-db`, and `git diff --check`.
 
 ## Provider Breadth
 
 - [x] Add shared **Hierarchy Confirmation** service boundary for provider/NFO
       confirmation of provisional hierarchy.
 - [x] Confirm provisional series, season, and episode items in place without
-      replacing Taru `MediaItem` identity.
+      replacing Nako `MediaItem` identity.
 - [x] Write accepted **Provider Mapping** records when metadata provider
       refresh succeeds.
 - [x] Connect NFO episode import to the shared confirmation service while

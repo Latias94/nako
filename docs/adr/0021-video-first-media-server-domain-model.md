@@ -6,9 +6,9 @@ Accepted.
 
 ## Context
 
-Taru is currently focused on the self-hosted video server backend: movies,
+Nako is currently focused on the self-hosted video server backend: movies,
 series, anime, home videos, playback, metadata, NFO, remote storage, and
-transcoding. Long term, Taru should be able to grow toward a broader media
+transcoding. Long term, Nako should be able to grow toward a broader media
 server scope similar to mature self-hosted servers, including music, podcasts,
 photos, documents, mixed libraries, and online catalogs.
 
@@ -20,7 +20,7 @@ experience is coherent.
 
 ## Decision
 
-Taru will remain video-first in implementation scope while using a broader
+Nako will remain video-first in implementation scope while using a broader
 media-server domain model.
 
 `Media Library` is a management boundary with roots, scan policy, metadata
@@ -34,10 +34,10 @@ content type.
 seasons, episodes, collections, extras, and unknown items form the current
 video-first hierarchy. Provider-specific concepts such as TMDB movies,
 Bangumi subjects, Douban entries, anime specials, and future online catalog
-subjects are mapped through provider mappings rather than replacing Taru item
+subjects are mapped through provider mappings rather than replacing Nako item
 identity.
 
-Taru separates item information into three categories:
+Nako separates item information into three categories:
 
 - canonical metadata: title, overview, dates, people, studios, countries,
   languages, genres, tags, review ratings, content ratings, images,
@@ -62,7 +62,7 @@ assuming every database column is a stable public query contract.
 - Library presets can provide friendly setup defaults without becoming rigid
   item identity.
 - Provider-specific concepts can be retained as mapping evidence without
-  fragmenting Taru's catalog model.
+  fragmenting Nako's catalog model.
 - User playback state stays separate from canonical metadata, which avoids
   painful multi-user migrations later.
 - Future media-domain workstreams can add domain-specific metadata tables or

@@ -25,8 +25,8 @@ Status: Complete
 
 Exit criteria:
 
-- `TaruAndroidApp` creates an environment with one root composition call.
-- `TaruAndroidAppContent` receives environment/session and renders connection
+- `NakoAndroidApp` creates an environment with one root composition call.
+- `NakoAndroidAppContent` receives environment/session and renders connection
   or browse mode without owning the dependency graph.
 
 Status: Complete

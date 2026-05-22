@@ -79,14 +79,14 @@ policy.
 
 ## Architecture Direction
 
-- `taru-core` owns domain records and repository trait additions when needed.
-- `taru-db` should provide a query-oriented repository method for item-scoped
+- `nako-core` owns domain records and repository trait additions when needed.
+- `nako-db` should provide a query-oriented repository method for item-scoped
   artwork management state rather than forcing HTTP code to stitch unrelated
   rows.
-- `taru-api` owns explicit Admin DTOs; do not reuse persistence records.
-- `taru-server::app::artwork` owns management orchestration and redaction-safe
+- `nako-api` owns explicit Admin DTOs; do not reuse persistence records.
+- `nako-server::app::artwork` owns management orchestration and redaction-safe
   response construction.
-- `taru-server::http::admin` only parses IDs/query parameters and maps app
+- `nako-server::http::admin` only parses IDs/query parameters and maps app
   responses.
 - Public Client DTOs remain unchanged unless a later Public gallery lane is
   opened.

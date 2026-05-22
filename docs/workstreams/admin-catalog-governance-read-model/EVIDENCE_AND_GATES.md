@@ -3,17 +3,17 @@
 ## Required Gates
 
 - `cargo fmt --all -- --check`
-- `cargo check -p taru-core --tests`
-- `cargo check -p taru-db --tests`
-- `cargo nextest run -p taru-db catalog_governance --no-fail-fast`
-- `cargo check -p taru-api --tests`
-- `cargo nextest run -p taru-api admin_catalog_governance --no-fail-fast`
-- `cargo check -p taru-server --tests`
-- `cargo nextest run -p taru-server http::tests::system --no-fail-fast`
-- `cargo nextest run -p taru-api public_openapi --no-fail-fast`
-- `cargo nextest run -p taru-api typescript_sdk_excludes_admin_internal_and_secret_surfaces --no-fail-fast`
+- `cargo check -p nako-core --tests`
+- `cargo check -p nako-db --tests`
+- `cargo nextest run -p nako-db catalog_governance --no-fail-fast`
+- `cargo check -p nako-api --tests`
+- `cargo nextest run -p nako-api admin_catalog_governance --no-fail-fast`
+- `cargo check -p nako-server --tests`
+- `cargo nextest run -p nako-server http::tests::system --no-fail-fast`
+- `cargo nextest run -p nako-api public_openapi --no-fail-fast`
+- `cargo nextest run -p nako-api typescript_sdk_excludes_admin_internal_and_secret_surfaces --no-fail-fast`
 - `git diff --check`
-- `git diff --name-only -- crates/taru-client-protocol`
+- `git diff --name-only -- crates/nako-client-protocol`
 
 ## Evidence Log
 

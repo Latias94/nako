@@ -6,7 +6,7 @@ Accepted.
 
 ## Context
 
-Taru metadata refresh started with TMDB and later grew provider ordering,
+Nako metadata refresh started with TMDB and later grew provider ordering,
 field-lock-aware merge policy, raw response caching, and fallback attempts for
 Bangumi and Douban. That direction is useful, but provider code becomes fragile
 if each implementation owns its own HTTP client, timeout behavior, retry policy,
@@ -80,7 +80,7 @@ handling, raw-cache behavior, and attempt persistence.
 - Raw provider cache can support auditing and future refresh diff tools without
   becoming the canonical metadata source.
 - Provider construction remains server-owned, which keeps secret resolution out
-  of `taru-metadata` and avoids leaking deployment details into provider code.
+  of `nako-metadata` and avoids leaking deployment details into provider code.
 - Circuit breaker state is currently process-local; multi-process deployments
   would need a separate durable or distributed health boundary.
 
@@ -93,7 +93,7 @@ handling, raw-cache behavior, and attempt persistence.
 - Put diagnostics only in job summaries: rejected because summaries are scoped
   to one job and cannot list cached raw responses or provider build status.
 - Make raw cache canonical metadata: rejected because provider payloads are not
-  stable Taru domain state and should not bypass merge policy or field locks.
+  stable Nako domain state and should not bypass merge policy or field locks.
 
 ## Related Workstreams
 

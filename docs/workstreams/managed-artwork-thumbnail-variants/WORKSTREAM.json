@@ -14,11 +14,11 @@
     "missing artifact repair or re-ingest"
   ],
   "validation_gates": [
-    "cargo nextest run -p taru-api managed_artwork_variant --no-fail-fast",
-    "cargo nextest run -p taru-server managed_artwork_variant --no-fail-fast",
-    "cargo check -p taru-api -p taru-server -p taru-client --tests",
-    "cargo nextest run -p taru-client streaming_request_builders_use_stable_paths_methods_headers_and_queries --no-fail-fast",
-    "cargo nextest run -p taru-api sdk --no-fail-fast",
+    "cargo nextest run -p nako-api managed_artwork_variant --no-fail-fast",
+    "cargo nextest run -p nako-server managed_artwork_variant --no-fail-fast",
+    "cargo check -p nako-api -p nako-server -p nako-client --tests",
+    "cargo nextest run -p nako-client streaming_request_builders_use_stable_paths_methods_headers_and_queries --no-fail-fast",
+    "cargo nextest run -p nako-api sdk --no-fail-fast",
     "npm run check --prefix sdk/typescript",
     "cargo fmt --all -- --check",
     "git diff --check"

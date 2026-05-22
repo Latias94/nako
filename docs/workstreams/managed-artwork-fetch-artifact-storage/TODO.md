@@ -15,7 +15,7 @@ Last updated: 2026-05-19
 
 ## M1 - Fetch And Storage Seam Audit
 
-- [x] MAFA-020 [owner=codex] [deps=MAFA-010] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-vfs,docs]
+- [x] MAFA-020 [owner=codex] [deps=MAFA-010] [scope=crates/nako-core,crates/nako-db,crates/nako-server,crates/nako-vfs,docs]
   Goal: Audit job runtime claim/update seams, HTTP fetch policy, image
   validation options, storage/VFS/cache/staging boundaries, and artifact commit
   requirements; choose the first internal artifact byte storage policy.
@@ -37,10 +37,10 @@ Last updated: 2026-05-19
 
 ## M2 - First Fetch/Artifact Slice
 
-- [x] MAFA-030 [owner=codex] [deps=MAFA-020] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-vfs,docs/api]
+- [x] MAFA-030 [owner=codex] [deps=MAFA-020] [scope=crates/nako-core,crates/nako-db,crates/nako-server,crates/nako-vfs,docs/api]
   Goal: Process one queued managed artwork ingest into an internal artifact or
   safe failure state under bounded fetch and validation policy.
-  Validation: focused managed artwork worker tests; `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests`; `cargo fmt --all -- --check`; `git diff --check`.
+  Validation: focused managed artwork worker tests; `cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-vfs --tests`; `cargo fmt --all -- --check`; `git diff --check`.
   Review: verify worker input, job summary, admin responses, and public
   responses do not expose raw candidate source URLs, Source Locators,
   filesystem paths, storage handles, cache URIs, or raw validation details.
@@ -57,10 +57,10 @@ Last updated: 2026-05-19
 
 ## M3 - Failure, Retry, And Redaction Hardening
 
-- [x] MAFA-040 [owner=codex] [deps=MAFA-030] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-api,docs/api]
+- [x] MAFA-040 [owner=codex] [deps=MAFA-030] [scope=crates/nako-core,crates/nako-db,crates/nako-server,crates/nako-api,docs/api]
   Goal: Harden retry/cancellation, safe failure codes, job summaries, and admin
   diagnostics for managed artwork ingest failures.
-  Validation: focused failure/redaction tests; `cargo nextest run -p taru-server artwork --no-fail-fast`; `cargo nextest run -p taru-db artwork --no-fail-fast`; `git diff --check`.
+  Validation: focused failure/redaction tests; `cargo nextest run -p nako-server artwork --no-fail-fast`; `cargo nextest run -p nako-db artwork --no-fail-fast`; `git diff --check`.
   Review: failure reports must be actionable for admins without leaking raw
   URLs, local paths, storage URIs, provider tokens, or decoder internals.
   Evidence: tests and `EVIDENCE_AND_GATES.md`.

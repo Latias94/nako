@@ -15,7 +15,7 @@ Last updated: 2026-05-19
 
 ## M1 - Read-Only Drift Diagnostics
 
-- [x] MASDI-020 [owner=codex] [deps=MASDI-010] [scope=crates/taru-api,crates/taru-server,docs/api]
+- [x] MASDI-020 [owner=codex] [deps=MASDI-010] [scope=crates/nako-api,crates/nako-server,docs/api]
   Goal: Add a redacted Admin storage drift diagnostics route that checks
   DB-backed active artifact files and bounded artifact-root stray files without
   deleting or repairing anything.

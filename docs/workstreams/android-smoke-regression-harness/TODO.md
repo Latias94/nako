@@ -45,7 +45,7 @@ Last updated: 2026-05-19
   Evidence: `EVIDENCE_AND_GATES.md`, `HANDOFF.md`.
   Handoff: DONE on 2026-05-19. Regression reports now include failure category,
   state attempts, evidence path, log path, not-run reason, and focused rerun
-  command. `Smoke-Emulator.ps1` now waits for the Taru app window to regain
+  command. `Smoke-Emulator.ps1` now waits for the Nako app window to regain
   focus and recovers app focus before retrying UI hierarchy capture. Python
   rewrite is deferred; current scope remains a Windows-first PowerShell
   orchestration layer around ADB, Gradle, and existing smoke scripts.

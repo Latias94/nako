@@ -10,11 +10,11 @@ are complete.
 
 ## Completed Outcome
 
-- `taru-client-core` owns explicit User Playback State request builders for the
+- `nako-client-core` owns explicit User Playback State request builders for the
   Android user-playback route family.
-- `taru-client-uniffi` exposes thin FFI-safe user-playback builder
+- `nako-client-uniffi` exposes thin FFI-safe user-playback builder
   records/functions.
-- Android `TaruUserPlaybackClient` uses `UserPlaybackCore`/`RustUserPlaybackCore`
+- Android `NakoUserPlaybackClient` uses `UserPlaybackCore`/`RustUserPlaybackCore`
   for runtime route construction.
 - Android still owns transport, generated SDK body serialization, generated SDK
   JSON decode, diagnostics, UI, and product mapping.
@@ -26,12 +26,12 @@ are complete.
 Fresh gates passed on 2026-05-21:
 
 ```powershell
-cargo fmt --package taru-client-core --check
-cargo nextest run -p taru-client-core --no-fail-fast
-cargo fmt --package taru-client-uniffi --check
-cargo nextest run -p taru-client-uniffi --no-fail-fast
+cargo fmt --package nako-client-core --check
+cargo nextest run -p nako-client-core --no-fail-fast
+cargo fmt --package nako-client-uniffi --check
+cargo nextest run -p nako-client-uniffi --no-fail-fast
 ./scripts/guard-uniffi-boundary.ps1
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.userplayback.TaruUserPlaybackClientTest --no-daemon --rerun-tasks
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.userplayback.NakoUserPlaybackClientTest --no-daemon --rerun-tasks
 python -m json.tool docs/workstreams/android-user-playback-rust-core-routes/WORKSTREAM.json > $null
 git diff --check
 ```

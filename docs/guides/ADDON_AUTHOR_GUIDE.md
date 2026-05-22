@@ -1,18 +1,18 @@
 # Addon Author Guide
 
-This guide describes the first Taru HTTP addon contract.
+This guide describes the first Nako HTTP addon contract.
 
 ## Manifest
 
-An addon is an HTTP sidecar described by a JSON manifest. Taru stores a
+An addon is an HTTP sidecar described by a JSON manifest. Nako stores a
 validated manifest snapshot during registration.
 
 Required manifest fields:
 
-- `id`: stable addon ID, for example `taru.reference.metadata`.
+- `id`: stable addon ID, for example `nako.reference.metadata`.
 - `name`: display name.
 - `version`: addon implementation version.
-- `protocol_version`: must match Taru's current addon protocol version.
+- `protocol_version`: must match Nako's current addon protocol version.
 - `base_url`: HTTP or HTTPS base URL for resource calls.
 - `resources`: declared resource endpoints.
 - `auth`: `none`, `bearer`, or `shared_secret`.
@@ -28,10 +28,10 @@ without granting runtime authority by themselves:
   `kind`, `label`, absolute `path`, optional `hosted_page_id`, and
   `required_scopes`.
 - `hosted_pages`: Addon Hosted Pages served by the sidecar for advanced
-  settings or diagnostics. They are external pages; Taru does not treat them as
+  settings or diagnostics. They are external pages; Nako does not treat them as
   trusted admin UI and does not pass admin credentials to them.
 - `configuration_schema`: an Addon Configuration Schema object identified by
-  `schema_id`. Taru stores and presents configuration from this schema.
+  `schema_id`. Nako stores and presents configuration from this schema.
 - `secret_reference_fields`: Secret Reference fields for sensitive settings.
   These declare references only; plaintext secrets do not belong in the
   manifest.
@@ -41,7 +41,7 @@ without granting runtime authority by themselves:
   explicit.
 - `tasks`: Addon Task declarations with `id`, `name`, absolute execution
   `path`, optional `description`, `required_scopes`, `timeout_ms`, and
-  `max_attempts`. Taru owns task lifecycle when this runtime is implemented.
+  `max_attempts`. Nako owns task lifecycle when this runtime is implemented.
 
 ## Resources
 
@@ -50,11 +50,11 @@ Each resource declaration defines:
 - `kind`: resource kind such as `metadata`.
 - `path`: absolute path below `base_url`.
 - `input_schema` and `output_schema`: stable schema names.
-- `required_scopes`: scopes Taru must grant before calling the resource.
+- `required_scopes`: scopes Nako must grant before calling the resource.
 - `timeout_ms`: per-call timeout.
 - `max_attempts`: bounded retry budget.
 
-Taru rejects duplicate resources, relative paths, unsupported protocol
+Nako rejects duplicate resources, relative paths, unsupported protocol
 versions, invalid timeout/retry bounds, and undeclared required scopes.
 It also rejects duplicate declaration IDs within each declaration class,
 relative declaration paths, entry points that reference unknown hosted pages,
@@ -66,7 +66,7 @@ declaration scopes that are not listed in the manifest-level `scopes`.
 ### Health Check
 
 Addon Sidecars should expose `POST /health` below their manifest `base_url`.
-Taru uses this endpoint for Admin Addon Health Check operations. The request is
+Nako uses this endpoint for Admin Addon Health Check operations. The request is
 bounded and carries protocol headers only; it does not include administrator
 bearer tokens, Addon Tokens, resolved Secret Reference values, or resource
 payloads.
@@ -76,7 +76,7 @@ Request body:
 ```json
 {
   "protocol_version": "2026-05-15",
-  "manifest_id": "taru.reference.metadata",
+  "manifest_id": "nako.reference.metadata",
   "request_id": "health-1",
   "expected_addon_version": "0.1.0",
   "expected_resource_count": 1
@@ -88,7 +88,7 @@ Response body:
 ```json
 {
   "protocol_version": "2026-05-15",
-  "manifest_id": "taru.reference.metadata",
+  "manifest_id": "nako.reference.metadata",
   "status": "ok",
   "checked_at": "2026-05-21T12:00:00.000Z",
   "manifest": {
@@ -101,19 +101,19 @@ Response body:
 }
 ```
 
-Taru validates the protocol version, manifest ID, addon version, and resource
+Nako validates the protocol version, manifest ID, addon version, and resource
 count before reporting the sidecar as reachable. Addon diagnostics should be
 safe summary facts only; do not include credentials, raw request/response
 bodies, local paths, or raw network errors.
 
 ### Resource Calls
 
-Taru calls resources with:
+Nako calls resources with:
 
 ```json
 {
   "protocol_version": "2026-05-15",
-  "addon_id": "taru.reference.metadata",
+  "addon_id": "nako.reference.metadata",
   "resource": "metadata",
   "request_id": "request-1",
   "payload": {
@@ -128,7 +128,7 @@ The addon must respond with the same `protocol_version`, `addon_id`,
 ```json
 {
   "protocol_version": "2026-05-15",
-  "addon_id": "taru.reference.metadata",
+  "addon_id": "nako.reference.metadata",
   "resource": "metadata",
   "request_id": "request-1",
   "payload": {
@@ -146,17 +146,17 @@ The addon must respond with the same `protocol_version`, `addon_id`,
 }
 ```
 
-Taru validates response identity fields before trusting the response.
+Nako validates response identity fields before trusting the response.
 
 Admin resource-call diagnostics use this same resource envelope to exercise a
 declared resource with bounded retry/timeout behavior. Diagnostic Admin
-responses are intentionally classification-only: Taru reports safe facts such
+responses are intentionally classification-only: Nako reports safe facts such
 as success, missing resource, missing grant, authorization gap, unreachable
 transport, protocol mismatch, retryable or non-retryable HTTP failure, unsafe
 response, latency, attempts, and HTTP status. It does not echo the diagnostic
 payload, addon response payload, raw response body, admin bearer tokens, Addon
 Tokens, Source Locators, storage paths, provider secrets, or raw network
-errors. If a sidecar manifest requires bearer or shared-secret auth and Taru
+errors. If a sidecar manifest requires bearer or shared-secret auth and Nako
 does not have a safe resolved resource-call secret for the diagnostic, the
 operation is reported as an authorization gap rather than sending admin
 credentials to the sidecar.
@@ -166,7 +166,7 @@ credentials to the sidecar.
 `POST /admin/v1/addons` registers a manifest. Addons are disabled by default.
 To enable an addon, explicitly set `status` to `enabled` and grant every scope
 required by every declared resource. Registration, listing, and detail lookup
-are Admin API operations; Taru no longer mounts the old root `/addons`
+are Admin API operations; Nako no longer mounts the old root `/addons`
 management routes.
 
 Admin Web provides a manifest onboarding panel for this route. Operators can
@@ -182,7 +182,7 @@ control Docker, systemd, Kubernetes, SSH, host agents, package installation,
 process lifecycle, logs, upgrades, or removal.
 
 Runtime secrets are not stored in the manifest. If an addon uses bearer or
-shared-secret auth, Taru resolves the secret at call time and sends it as an
+shared-secret auth, Nako resolves the secret at call time and sends it as an
 HTTP header.
 
 ## Credentials and Grants
@@ -193,53 +193,53 @@ shown exactly once when it is issued or rotated; addon authors should document
 where operators place that value in the sidecar's own environment or secret
 store.
 
-Addon Tokens authenticate sidecar-to-Taru runtime requests. They are not admin
+Addon Tokens authenticate sidecar-to-Nako runtime requests. They are not admin
 bearer tokens, and they are rejected by Admin API and Public Client API routes.
 Accepted Addon Grants are separate from manifest scopes: scopes declare what an
-addon can ask for, while grants record what Taru will accept for protected side
+addon can ask for, while grants record what Nako will accept for protected side
 effects such as metadata, artwork, subtitle, or library-file writes.
 
 Addon authors should assume:
 
 - token rotation does not restart the sidecar automatically;
-- Taru will not push raw tokens into hosted pages or install guides;
+- Nako will not push raw tokens into hosted pages or install guides;
 - raw token values should never be logged by the sidecar;
 - sidecar startup, restart, and secret injection remain operator-owned unless a
   future Addon Manager explicitly changes that boundary.
 
 ## Install Guide
 
-Taru can generate an **Addon Install Guide** for a registered Addon Sidecar via
+Nako can generate an **Addon Install Guide** for a registered Addon Sidecar via
 `GET /admin/v1/addons/{addon_id}/install-guide`.
 
-The guide is for operators, not for Taru-managed lifecycle automation. It
+The guide is for operators, not for Nako-managed lifecycle automation. It
 contains Docker Compose and systemd snippets as inert text, Secret Reference
-placeholders, direct sidecar health-check commands, Taru Admin health-check
+placeholders, direct sidecar health-check commands, Nako Admin health-check
 commands, and registration/surface verification commands.
 
 Addon authors should treat the generated snippets as a compatibility aid:
 
 - publish a stable container image or binary command that can replace the
   guide placeholders;
-- keep `base_url` reachable from Taru but do not require Taru to mount Docker
+- keep `base_url` reachable from Nako but do not require Nako to mount Docker
   sockets, call systemd, or supervise the process;
 - declare Secret Reference fields in the manifest instead of documenting
   plaintext environment variables;
-- expose `POST /health` so the guide's direct and Taru-mediated health checks
+- expose `POST /health` so the guide's direct and Nako-mediated health checks
   can verify protocol, manifest ID, version, and resource count;
-- keep hosted pages external and untrusted; do not expect Taru to pass admin
+- keep hosted pages external and untrusted; do not expect Nako to pass admin
   bearer tokens or Addon Tokens into an install guide or hosted page.
 
 The install guide intentionally does not include resolved Secret Reference
 values, raw Addon Tokens, admin bearer tokens, Source Locators, storage paths,
-or process-control instructions such as start/stop/restart. If Taru later grows
+or process-control instructions such as start/stop/restart. If Nako later grows
 an Addon Manager, it should be a separate product surface and protocol
 boundary.
 
 ## Protected Write Payload Contracts
 
 Addon Side Effect Protected Writes use explicit payload structs from
-`taru-addon-protocol`:
+`nako-addon-protocol`:
 
 - `AddonMetadataPatch` for `metadata_write`.
 - `AddonArtworkWritePayload` for the first `artwork_write` Addon Artwork
@@ -247,18 +247,18 @@ Addon Side Effect Protected Writes use explicit payload structs from
 - `AddonLibraryFileWritePayload` for the first `library_file_write` NFO Export
   slice.
 
-These structs describe the wire payload only. They do not expose Taru
+These structs describe the wire payload only. They do not expose Nako
 persistence records, raw Source Locators, storage paths, cache URIs, token
 material, or selected-artwork state.
 
-`taru-addon-protocol` is intentionally a dependency-light wire-contract crate.
-Rust hosts that want Taru's bounded HTTP caller, mockable transport trait, and
+`nako-addon-protocol` is intentionally a dependency-light wire-contract crate.
+Rust hosts that want Nako's bounded HTTP caller, mockable transport trait, and
 `ReqwestAddonTransport` can depend on the separate permissive
-`taru-addon-client` crate.
+`nako-addon-client` crate.
 
 ## Reference Addon
 
-The workspace includes `taru-reference-addon`, a minimal metadata addon used by
+The workspace includes `nako-reference-addon`, a minimal metadata addon used by
 the M5.5 end-to-end test. It exposes:
 
 - `reference_manifest(base_url)`

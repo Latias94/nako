@@ -11,9 +11,9 @@ This lane is closed. `ADP-010`, `ADP-020`, and `ADP-030` are complete.
 
 - Task ID: ADP-030
 - Owner: codex
-- Files: `apps/android/app/src/main/java/dev/taru/android/player`,
-  `apps/android/app/src/main/java/dev/taru/android/ui`,
-  `apps/android/app/src/test/java/dev/taru/android/player`
+- Files: `apps/android/app/src/main/java/dev/nako/android/player`,
+  `apps/android/app/src/main/java/dev/nako/android/ui`,
+  `apps/android/app/src/test/java/dev/nako/android/player`
 - Validation: focused `PlaybackLaunchTest`, `Validate-AndroidLocal.ps1
   -SkipSmoke`, and `git diff --check`.
 - Status: DONE
@@ -40,7 +40,7 @@ This lane is closed. `ADP-010`, `ADP-020`, and `ADP-030` are complete.
 
 Validation passed on 2026-05-19:
 
-- `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.player.PlaybackLaunchTest --no-daemon`
+- `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.player.PlaybackLaunchTest --no-daemon`
 - `pwsh -NoProfile -File apps\android\scripts\Validate-AndroidLocal.ps1 -SkipSmoke`
 - `git diff --check`
 

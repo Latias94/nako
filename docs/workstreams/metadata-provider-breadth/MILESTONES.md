@@ -26,8 +26,8 @@ Exit criteria:
 
 Primary gates:
 
-- `cargo nextest run -p taru-metadata registry --no-fail-fast`
-- `cargo nextest run -p taru-server metadata_diagnostics --no-fail-fast`
+- `cargo nextest run -p nako-metadata registry --no-fail-fast`
+- `cargo nextest run -p nako-server metadata_diagnostics --no-fail-fast`
 
 ## M2 — Matching Policy
 
@@ -39,7 +39,7 @@ Exit criteria:
 
 Primary gate:
 
-- `cargo nextest run -p taru-metadata matching --no-fail-fast`
+- `cargo nextest run -p nako-metadata matching --no-fail-fast`
 
 ## M3 — Refresh Integration
 
@@ -51,7 +51,7 @@ Exit criteria:
 
 Primary gate:
 
-- `cargo nextest run -p taru-metadata refresh --no-fail-fast`
+- `cargo nextest run -p nako-metadata refresh --no-fail-fast`
 
 ## M4 — Conflict Review Boundary
 
@@ -64,8 +64,8 @@ Exit criteria:
 
 Primary gates:
 
-- `cargo nextest run -p taru-metadata conflict --no-fail-fast`
-- `cargo nextest run -p taru-server metadata_candidate_review --no-fail-fast`
+- `cargo nextest run -p nako-metadata conflict --no-fail-fast`
+- `cargo nextest run -p nako-server metadata_candidate_review --no-fail-fast`
 
 ## M5 — Closeout
 
@@ -78,8 +78,8 @@ Exit criteria:
 
 Primary gates:
 
-- `cargo nextest run -p taru-api --no-fail-fast`
-- `cargo nextest run -p taru-metadata --no-fail-fast`
-- `cargo nextest run -p taru-server metadata --no-fail-fast`
+- `cargo nextest run -p nako-api --no-fail-fast`
+- `cargo nextest run -p nako-metadata --no-fail-fast`
+- `cargo nextest run -p nako-server metadata --no-fail-fast`
 - `cargo fmt --all -- --check`
 - `git diff --check`

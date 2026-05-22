@@ -12,14 +12,14 @@ media server. Even with preservation-aware rendering, a bug, unsupported NFO
 shape, or user mistake should leave a clear recovery path.
 
 The next risk is not XML rendering or atomicity. It is overwrite policy: when
-Taru changes an existing local sidecar, users need a deterministic backup
+Nako changes an existing local sidecar, users need a deterministic backup
 artifact and item-level diagnostics.
 
 ## Target State
 
 - Forced export over an existing local NFO sidecar creates a same-directory
   backup before replacing the sidecar.
-- Backup mechanics live in VFS/local storage, not in `taru-nfo`'s XML codec.
+- Backup mechanics live in VFS/local storage, not in `nako-nfo`'s XML codec.
 - NFO export reports backup creation in internal/test-visible summaries.
 - Backup failures fail the item before final sidecar replacement.
 - Fresh sidecar creation does not create a backup.
@@ -27,12 +27,12 @@ artifact and item-level diagnostics.
 
 ## In Scope
 
-- `crates/taru-vfs/src/lib.rs`
-- `crates/taru-vfs/src/local.rs`
-- `crates/taru-vfs/src/cache.rs` only if pass-through is needed
-- `crates/taru-nfo/src/export.rs`
-- `crates/taru-nfo/src/summary.rs`
-- focused `taru-vfs` and `taru-nfo` tests
+- `crates/nako-vfs/src/lib.rs`
+- `crates/nako-vfs/src/local.rs`
+- `crates/nako-vfs/src/cache.rs` only if pass-through is needed
+- `crates/nako-nfo/src/export.rs`
+- `crates/nako-nfo/src/summary.rs`
+- focused `nako-vfs` and `nako-nfo` tests
 - goal/workstream documentation
 
 ## Out Of Scope
@@ -48,7 +48,7 @@ artifact and item-level diagnostics.
 ## Architecture Direction
 
 Extend the storage write boundary with an optional backup policy rather than
-making `taru-nfo` manipulate filesystem paths directly:
+making `nako-nfo` manipulate filesystem paths directly:
 
 ```text
 StorageBackupMode:
@@ -81,7 +81,7 @@ collision-resistant sidecar name before atomic replace.
 Candidate backup naming:
 
 ```text
-demo.nfo.taru-backup-20260517T120000Z
+demo.nfo.nako-backup-20260517T120000Z
 ```
 
 The first implementation can use millisecond or nanosecond timestamp precision

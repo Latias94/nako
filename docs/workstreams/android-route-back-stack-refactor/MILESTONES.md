@@ -17,7 +17,7 @@ Status: Complete.
 Exit criteria:
 
 - Route stack model has focused JVM tests.
-- `TaruBrowseShell` uses navigation state open/back/destination selection
+- `NakoBrowseShell` uses navigation state open/back/destination selection
   instead of assigning return targets in each screen callback.
 - Existing detail, facet, player, settings, and root flows compile and behave
   through the same model.

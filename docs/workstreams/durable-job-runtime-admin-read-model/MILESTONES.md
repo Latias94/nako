@@ -18,17 +18,17 @@ Deliverables:
 - Migrated scan, metadata, and NFO workflow job execution paths.
 - `JobListFilter` or equivalent repository read model.
 - `GET /admin/v1/jobs`.
-- Admin-owned job list DTOs in `taru-api::admin`.
+- Admin-owned job list DTOs in `nako-api::admin`.
 - Focused tests and closeout docs.
 
 Exit criteria:
 
 - Existing scan, metadata, and NFO job behavior is preserved.
 - Common job lifecycle behavior has one authoritative implementation in
-  `taru-server::app::job_runtime`.
+  `nako-server::app::job_runtime`.
 - Admin Console can list/filter jobs through `/admin/v1/jobs`.
 - Public Client API, public OpenAPI, public SDKs, and
-  `taru-client-protocol` remain unchanged.
+  `nako-client-protocol` remain unchanged.
 - Validation gates passed on 2026-05-17.
 
 ## Follow-Ons

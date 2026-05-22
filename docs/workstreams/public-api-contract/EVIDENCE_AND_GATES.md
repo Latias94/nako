@@ -7,9 +7,9 @@ Last updated: 2026-05-17
 
 The current architectural repro is:
 
-- `taru-client-protocol` owns `ErrorResponse`, but only as `code/message`
+- `nako-client-protocol` owns `ErrorResponse`, but only as `code/message`
   strings without a protocol-owned vocabulary.
-- `taru-server/src/http/error.rs` owns the effective error code and status
+- `nako-server/src/http/error.rs` owns the effective error code and status
   mapping.
 - `/health` reports `API_VERSION`, but version compatibility rules are not
   documented beyond the current response field.
@@ -28,26 +28,26 @@ cargo check --workspace --tests
 ### Protocol Direction Gate
 
 ```bash
-cargo tree -p taru-client-protocol
+cargo tree -p nako-client-protocol
 ```
 
-This must not show dependencies on `taru-core`, `taru-streaming`,
-`taru-transcode`, or `taru-server`.
+This must not show dependencies on `nako-core`, `nako-streaming`,
+`nako-transcode`, or `nako-server`.
 
 ### Public Contract Focus Gate
 
 ```bash
-cargo nextest run -p taru-client-protocol --no-fail-fast
-cargo nextest run -p taru-api --no-fail-fast
-cargo nextest run -p taru-server http::tests::system --no-fail-fast
-cargo nextest run -p taru-server http::tests::catalog --no-fail-fast
-cargo nextest run -p taru-server http::tests::playback --no-fail-fast
+cargo nextest run -p nako-client-protocol --no-fail-fast
+cargo nextest run -p nako-api --no-fail-fast
+cargo nextest run -p nako-server http::tests::system --no-fail-fast
+cargo nextest run -p nako-server http::tests::catalog --no-fail-fast
+cargo nextest run -p nako-server http::tests::playback --no-fail-fast
 ```
 
 ### Broader Closeout Gate
 
 ```bash
-cargo nextest run -p taru-server http::tests --no-fail-fast
+cargo nextest run -p nako-server http::tests --no-fail-fast
 cargo nextest run --workspace --no-fail-fast
 git diff --check
 ```
@@ -58,14 +58,14 @@ git diff --check
 - `docs/api/HTTP_API.md`
 - `docs/workstreams/public-api-contract/DESIGN.md`
 - `docs/workstreams/public-api-contract/TODO.md`
-- `crates/taru-client-protocol/src/lib.rs`
-- `crates/taru-api/src/lib.rs`
-- `crates/taru-server/src/http/error.rs`
-- `crates/taru-server/src/http/query.rs`
-- `crates/taru-server/src/http/system.rs`
-- `crates/taru-server/src/http/tests/catalog.rs`
-- `crates/taru-server/src/http/tests/playback.rs`
-- `crates/taru-server/src/http/tests/system.rs`
+- `crates/nako-client-protocol/src/lib.rs`
+- `crates/nako-api/src/lib.rs`
+- `crates/nako-server/src/http/error.rs`
+- `crates/nako-server/src/http/query.rs`
+- `crates/nako-server/src/http/system.rs`
+- `crates/nako-server/src/http/tests/catalog.rs`
+- `crates/nako-server/src/http/tests/playback.rs`
+- `crates/nako-server/src/http/tests/system.rs`
 
 ## Prompt-To-Artifact Checklist
 
@@ -75,8 +75,8 @@ git diff --check
 - Clarify Public Client API vs Server Admin/Internal API:
   DESIGN.md scope, HTTP_API.md route boundary, and TODO non-goals.
 - Make public catalog/library/playback/system route behavior testable:
-  focused route tests in `crates/taru-server/src/http/tests`.
-- Audit current `taru-api` / `taru-server` behavior:
+  focused route tests in `crates/nako-server/src/http/tests`.
+- Audit current `nako-api` / `nako-server` behavior:
   Starting Audit in DESIGN.md and Starting Repro in this file.
 - Preserve out-of-scope admin/internal migration:
   TODO and DESIGN non-goals.
@@ -94,46 +94,46 @@ git diff --check
 
 ### PAC-020 Protocol Error Vocabulary Slice
 
-- `crates/taru-client-protocol/src/lib.rs` owns `ClientErrorCode`, its stable
+- `crates/nako-client-protocol/src/lib.rs` owns `ClientErrorCode`, its stable
   v1 wire values, `ErrorResponse::new`, and `API_VERSION_HEADER`.
-- `crates/taru-api/src/lib.rs` re-exports the protocol error vocabulary and
+- `crates/nako-api/src/lib.rs` re-exports the protocol error vocabulary and
   API version header constant for server adapter use.
-- `taru-client-protocol` tests prove error code serialization and lookup while
+- `nako-client-protocol` tests prove error code serialization and lookup while
   keeping `ErrorResponse` JSON as `code/message`.
 
 ### PAC-030 Server Error Mapping And Version Identity Slice
 
-- `crates/taru-server/src/http/error.rs` maps `TaruError` to
+- `crates/nako-server/src/http/error.rs` maps `NakoError` to
   `ClientErrorCode` instead of free string literals.
-- `crates/taru-server/src/http.rs` adds `x-taru-api-version: v1` to HTTP
+- `crates/nako-server/src/http.rs` adds `x-nako-api-version: v1` to HTTP
   responses.
-- `crates/taru-server/src/http/tests/system.rs` verifies `/health.version`,
+- `crates/nako-server/src/http/tests/system.rs` verifies `/health.version`,
   the version response header, pagination metadata for `/libraries`, stable
   public error codes, safe database messages, and code lookup through
   `ClientErrorCode`.
 
 ### PAC-040 Public Route Contract Evidence Slice
 
-- `crates/taru-server/src/http/tests/catalog.rs` verifies public catalog/list
+- `crates/nako-server/src/http/tests/catalog.rs` verifies public catalog/list
   pagination metadata, including `limit`, `offset`, and `returned`.
-- `crates/taru-server/src/http/tests/playback.rs` verifies public playback
+- `crates/nako-server/src/http/tests/playback.rs` verifies public playback
   not-found and invalid-pagination error codes through protocol-owned
   `ClientErrorCode`.
 - `docs/api/HTTP_API.md` documents public API v1 version identity, the
-  `x-taru-api-version` response header, the public route subset,
+  `x-nako-api-version` response header, the public route subset,
   public/internal boundary, pagination rules, and protocol-owned error codes.
 
 ### PAC-050 Closeout Validation
 
 - `cargo fmt --all -- --check`: passed.
 - `cargo check --workspace --tests`: passed.
-- `cargo nextest run -p taru-client-protocol --no-fail-fast`: 4 tests passed.
-- `cargo nextest run -p taru-api --no-fail-fast`: 4 tests passed.
-- `cargo nextest run -p taru-server http::tests::system --no-fail-fast`: 3 tests passed.
-- `cargo nextest run -p taru-server http::tests::catalog --no-fail-fast`: 3 tests passed.
-- `cargo nextest run -p taru-server http::tests::playback --no-fail-fast`: 16 tests passed.
-- `cargo nextest run -p taru-server http::tests --no-fail-fast`: 34 tests passed.
+- `cargo nextest run -p nako-client-protocol --no-fail-fast`: 4 tests passed.
+- `cargo nextest run -p nako-api --no-fail-fast`: 4 tests passed.
+- `cargo nextest run -p nako-server http::tests::system --no-fail-fast`: 3 tests passed.
+- `cargo nextest run -p nako-server http::tests::catalog --no-fail-fast`: 3 tests passed.
+- `cargo nextest run -p nako-server http::tests::playback --no-fail-fast`: 16 tests passed.
+- `cargo nextest run -p nako-server http::tests --no-fail-fast`: 34 tests passed.
 - `cargo nextest run --workspace --no-fail-fast`: 254 tests passed.
-- `cargo tree -p taru-client-protocol`: only normal `serde` and dev
-  `serde_json` dependencies; no `taru-core`, `taru-streaming`,
-  `taru-transcode`, or `taru-server`.
+- `cargo tree -p nako-client-protocol`: only normal `serde` and dev
+  `serde_json` dependencies; no `nako-core`, `nako-streaming`,
+  `nako-transcode`, or `nako-server`.

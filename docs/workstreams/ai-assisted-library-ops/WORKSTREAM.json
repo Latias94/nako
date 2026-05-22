@@ -5,7 +5,7 @@
   "status": "complete",
   "updated": "2026-05-22",
   "scope_kind": "execution",
-  "problem": "AI-like outputs can help with title matching, metadata cleanup, summaries, recommendations, and intake triage, but they must enter Taru as Generated Artifacts with explicit acceptance rather than autonomous canonical metadata, sidecar, or library-file writes.",
+  "problem": "AI-like outputs can help with title matching, metadata cleanup, summaries, recommendations, and intake triage, but they must enter Nako as Generated Artifacts with explicit acceptance rather than autonomous canonical metadata, sidecar, or library-file writes.",
   "task_prefix": "AILO",
   "current_task": null,
   "completed_tasks": [
@@ -42,14 +42,14 @@
     }
   ],
   "gates": [
-    "cargo nextest run -p taru-db automation --no-fail-fast",
-    "cargo nextest run -p taru-automation --no-fail-fast",
-    "cargo nextest run -p taru-api admin_contract --no-fail-fast",
-    "cargo nextest run -p taru-server http::tests::system --no-fail-fast",
+    "cargo nextest run -p nako-db automation --no-fail-fast",
+    "cargo nextest run -p nako-automation --no-fail-fast",
+    "cargo nextest run -p nako-api admin_contract --no-fail-fast",
+    "cargo nextest run -p nako-server http::tests::system --no-fail-fast",
     "cargo fmt --all -- --check",
     "npm run check from apps/admin-web after Admin contract/client changes",
     "git diff --check",
-    "git diff --name-only -- crates/taru-client-protocol"
+    "git diff --name-only -- crates/nako-client-protocol"
   ],
   "evidence": [
     "docs/workstreams/ai-assisted-library-ops/DESIGN.md",
@@ -59,16 +59,16 @@
     "docs/adr/0004-ai-as-external-automation-first.md",
     "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
     "docs/workstreams/addons-automation",
-    "crates/taru-core/src/automation.rs",
-    "crates/taru-automation/src/lib.rs",
-    "crates/taru-db/src/automation_proposals.rs",
-    "crates/taru-server/src/app/automation.rs",
-    "crates/taru-server/src/app/tests/automation.rs",
-    "crates/taru-api/src/admin.rs",
-    "crates/taru-api/src/admin_contract.rs",
-    "crates/taru-server/src/http/admin.rs",
-    "crates/taru-server/src/http/tests/system.rs",
-    "crates/taru-server/src/app/tests/automation.rs",
+    "crates/nako-core/src/automation.rs",
+    "crates/nako-automation/src/lib.rs",
+    "crates/nako-db/src/automation_proposals.rs",
+    "crates/nako-server/src/app/automation.rs",
+    "crates/nako-server/src/app/tests/automation.rs",
+    "crates/nako-api/src/admin.rs",
+    "crates/nako-api/src/admin_contract.rs",
+    "crates/nako-server/src/http/admin.rs",
+    "crates/nako-server/src/http/tests/system.rs",
+    "crates/nako-server/src/app/tests/automation.rs",
     "apps/admin-web/src/adminApi"
   ],
   "adr_refs": [
@@ -81,6 +81,6 @@
   "continue_policy": {
     "default_action": "return_to_parent",
     "next_task": "post-rpd-product-hardening PRPH-170",
-    "notes": "AI Assisted Library Ops is complete. AILO-020 completed backend Generated Artifact proposal/readiness semantics. AILO-030 completed Admin-only proposal diagnostics and typed Admin Web support. AILO-040 completed explicit Generated Artifact review planning for metadata-cleanup proposals without autonomous writes. AILO-050 closed the lane and split provider-specific adapters, local model runtime, vector database, Addon distribution, downloader protocol, Public Client display, deeper metadata authority apply, direct sidecar/library-file mutation, Public Client API, and taru-client-protocol changes into dedicated follow-ons. Return to post-rpd-product-hardening; Addon Runtime / Distribution is the next mainline lane."
+    "notes": "AI Assisted Library Ops is complete. AILO-020 completed backend Generated Artifact proposal/readiness semantics. AILO-030 completed Admin-only proposal diagnostics and typed Admin Web support. AILO-040 completed explicit Generated Artifact review planning for metadata-cleanup proposals without autonomous writes. AILO-050 closed the lane and split provider-specific adapters, local model runtime, vector database, Addon distribution, downloader protocol, Public Client display, deeper metadata authority apply, direct sidecar/library-file mutation, Public Client API, and nako-client-protocol changes into dedicated follow-ons. Return to post-rpd-product-hardening; Addon Runtime / Distribution is the next mainline lane."
   }
 }

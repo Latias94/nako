@@ -35,7 +35,7 @@ Import promotion. They need an explicit accepted apply boundary.
 
 ## Current Baseline
 
-- `taru-nfo` owns NFO parsing/export and preservation-aware round-trip updates.
+- `nako-nfo` owns NFO parsing/export and preservation-aware round-trip updates.
 - VFS storage writes can perform local atomic replace and backup behavior.
 - Backup retention diagnostics exist for NFO sidecar backups.
 - NFO authority preview can explain create, skip, forced update,
@@ -51,7 +51,7 @@ wrong place:
 - a metadata refresh could export NFO as a hidden post-hook;
 - Managed Import promotion could write sidecars after catalog commit without a
   separate acceptance record;
-- an Addon or automation flow could bypass Taru-owned file-write policy;
+- an Addon or automation flow could bypass Nako-owned file-write policy;
 - NFO import could overwrite canonical metadata or field locks without a
   durable authority explanation.
 
@@ -101,28 +101,28 @@ both library files and canonical metadata authority.
 ### Boundary Split
 
 ```text
-taru-nfo
+nako-nfo
   Owns XML parsing, round-trip update planning, import/export summaries, and
   preservation/conflict reports.
 
-taru-vfs
+nako-vfs
   Owns storage write mechanics: atomic replace, backup, backup retention,
   capability checks, and redacted storage diagnostics.
 
-taru-core
+nako-core
   Owns sidecar apply command/state/audit records, local-authority effects, and
   repository traits.
 
-taru-db
+nako-db
   Owns durable sidecar apply persistence and backend-neutral tests.
 
-taru-server
+nako-server
   Owns acceptance orchestration: load current media item/source state,
   revalidate preview, apply NFO import/export through codec and VFS boundaries,
   commit metadata or audit state, and return redacted outcomes.
 ```
 
-`taru-server` must not write sidecar files through raw OS APIs. `taru-nfo` must
+`nako-server` must not write sidecar files through raw OS APIs. `nako-nfo` must
 not decide storage path permissions. VFS must not interpret canonical metadata
 authority. Each layer owns one part of the safety boundary.
 
@@ -132,7 +132,7 @@ First-class operation kinds:
 
 - `export_sidecar`: canonical metadata -> NFO sidecar file;
 - `import_sidecar`: NFO sidecar file -> canonical metadata/local authority;
-- `round_trip_update`: update Taru-owned fields while preserving unknown XML,
+- `round_trip_update`: update Nako-owned fields while preserving unknown XML,
   if this needs to be distinguished from a create-only export.
 
 The operation kind must be part of the idempotency key scope together with media
@@ -153,7 +153,7 @@ importing_metadata -> repair_pending
 ```
 
 A terminal `committed` state means the accepted sidecar operation and the
-corresponding audit/metadata state are consistent. If Taru cannot prove
+corresponding audit/metadata state are consistent. If Nako cannot prove
 consistency after a partial failure, it must record `repair_pending` instead of
 claiming success.
 
@@ -182,7 +182,7 @@ Export apply writes NFO sidecars only through VFS storage APIs. It must:
 
 ### Import Apply Semantics
 
-Import apply reads NFO through `taru-nfo` and commits local authority through
+Import apply reads NFO through `nako-nfo` and commits local authority through
 core/server repository boundaries. It must:
 
 - distinguish local authority from provider suggestions;
@@ -243,7 +243,7 @@ verified:
 
 - NFO sidecar apply is explicit, operator-accepted, idempotent, and preview
   revalidated.
-- Export writes go through `taru-nfo` round-trip preservation and VFS
+- Export writes go through `nako-nfo` round-trip preservation and VFS
   backup/atomic write/retention behavior.
 - Import applies local authority through canonical metadata, field-lock, and
   hierarchy-confirmation boundaries.
@@ -258,7 +258,7 @@ Follow-on exposure is intentionally split:
 
 - Admin API and UI can surface preview/accept/apply/replay diagnostics.
 - Public Client API should not expose raw sidecar paths or direct file writes.
-- Addons may request NFO side effects only through scoped Taru-owned apply
+- Addons may request NFO side effects only through scoped Nako-owned apply
   commands.
 - Downloads/watch-folder acquisition must produce staged artifacts and consume
   Managed Import promotion plus NFO sidecar apply; it must not bypass either

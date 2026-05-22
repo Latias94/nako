@@ -54,8 +54,8 @@ git diff --check
 - AJVR-020 completed on 2026-05-20:
   - `Smoke-Regression.ps1` writes `report.junit.xml`, prints `JUnit report:`,
     and includes `report_junit` in `report.json`.
-  - JUnit XML uses suite `taru.android.smoke-regression`, testcase classname
-    `taru.android.smoke`, `step.android-build`, and one `state.<name>` testcase
+  - JUnit XML uses suite `nako.android.smoke-regression`, testcase classname
+    `nako.android.smoke`, `step.android-build`, and one `state.<name>` testcase
     per requested smoke state.
   - Fresh validation:
     `pwsh -NoProfile -Command "[scriptblock]::Create((Get-Content -LiteralPath 'apps/android/scripts/Smoke-Regression.ps1' -Raw)) | Out-Null"`
@@ -76,8 +76,8 @@ git diff --check
   - `Validate-AndroidLocal.ps1` writes `report.junit.xml`, prints
     `JUnit report:`, includes `report_junit` in `report.json`, and links
     delegated `smoke_junit` when smoke runs.
-  - JUnit XML uses suite `taru.android.local-validation`, testcase classname
-    `taru.android.validation`, and step testcases `step.android-unit-tests`,
+  - JUnit XML uses suite `nako.android.local-validation`, testcase classname
+    `nako.android.validation`, and step testcases `step.android-unit-tests`,
     `step.android-build`, and `step.smoke-regression`.
   - Fresh validation:
     `pwsh -NoProfile -Command "[scriptblock]::Create((Get-Content -LiteralPath 'apps/android/scripts/Android-JUnitReport.ps1' -Raw)) | Out-Null; [scriptblock]::Create((Get-Content -LiteralPath 'apps/android/scripts/Smoke-Regression.ps1' -Raw)) | Out-Null; [scriptblock]::Create((Get-Content -LiteralPath 'apps/android/scripts/Validate-AndroidLocal.ps1' -Raw)) | Out-Null"`
@@ -117,7 +117,7 @@ git diff --check
     `[xml](Get-Content -LiteralPath 'apps/android/build/validation-ajvr-closeout/20260521-092418/report.junit.xml' -Raw) | Out-Null`
     passed.
   - Fresh validation:
-    `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests "dev.taru.android.ui.connection.*" --no-daemon`
+    `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests "dev.nako.android.ui.connection.*" --no-daemon`
     passed after preserving the access-key label in the password field
     hierarchy.
   - Fresh validation:

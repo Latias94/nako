@@ -24,7 +24,7 @@ contract.
   staging, must continue using full locators inside server/app/storage crates.
 - Admin-only diagnostics may introduce redacted locator summaries later, but
   that is not part of the Public Client DTO contract.
-- OpenAPI and TypeScript SDK sync landed with PCLR-030 because `taru-api`
+- OpenAPI and TypeScript SDK sync landed with PCLR-030 because `nako-api`
   enforces checked-in SDK consistency.
 - No follow-on was split for the public locator redaction lane.
 

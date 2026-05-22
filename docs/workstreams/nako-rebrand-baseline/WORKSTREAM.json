@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "slug": "nako-rebrand-baseline",
+  "title": "Nako Rebrand Baseline",
+  "status": "complete",
+  "updated": "2026-05-22",
+  "scope_kind": "execution",
+  "problem": "The repository still exposes the previous working name across product copy, crates, clients, deployment, SDKs, and addon protocol surfaces.",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/nako-rebrand-baseline/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/nako-rebrand-baseline/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/nako-rebrand-baseline/EVIDENCE_AND_GATES.md"
+    }
+  ],
+  "gates": [
+    "cargo fmt --all -- --check",
+    "cargo check --workspace --tests",
+    "cargo nextest run --workspace",
+    "npm run check",
+    "npm test",
+    "npm run build",
+    "git diff --check",
+    "old-name grep gate"
+  ],
+  "evidence": [
+    {
+      "time": "2026-05-22",
+      "kind": "scan",
+      "summary": "Initial scan found widespread old-name residue across docs, crates, Android, deploy, and SDK paths."
+    }
+  ],
+  "adr_refs": [],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Continue until active source, docs, packages, and deployment examples use Nako. Split only external operational work such as remote repository renames."
+  }
+}

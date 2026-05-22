@@ -1,6 +1,6 @@
 # Metadata Provider Attempt Runtime Workstream
 
-M44 deepens `taru-metadata` by extracting provider attempt execution and
+M44 deepens `nako-metadata` by extracting provider attempt execution and
 classification into an internal runtime Module.
 
 Authoritative docs:

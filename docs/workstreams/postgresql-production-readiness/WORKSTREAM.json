@@ -5,7 +5,7 @@
   "status": "completed",
   "updated": "2026-05-20",
   "scope_kind": "execution",
-  "problem": "M61 made Taru PostgreSQL-ready, but PostgreSQL is still a job-lease proof rather than a production-shaped backend selected by runtime configuration and proven by broad backend-neutral contracts.",
+  "problem": "M61 made Nako PostgreSQL-ready, but PostgreSQL is still a job-lease proof rather than a production-shaped backend selected by runtime configuration and proven by broad backend-neutral contracts.",
   "authoritative_docs": [
     {
       "role": "overview",
@@ -34,11 +34,11 @@
   ],
   "gates": [
     "cargo fmt --all -- --check",
-    "cargo check -p taru-db --tests",
-    "cargo check -p taru-server --tests",
+    "cargo check -p nako-db --tests",
+    "cargo check -p nako-server --tests",
     "cargo check --workspace --tests",
     "cargo nextest run --workspace --no-fail-fast",
-    "TARU_TEST_POSTGRES_URL=<url> cargo nextest run -p taru-db contract --run-ignored ignored-only --no-fail-fast",
+    "NAKO_TEST_POSTGRES_URL=<url> cargo nextest run -p nako-db contract --run-ignored ignored-only --no-fail-fast",
     "git diff --check"
   ],
   "evidence": [

@@ -13,7 +13,7 @@ Last updated: 2026-05-19
 
 ## M1 - Exit Coordinator Extraction
 
-- [x] APEC-020 [owner=codex] [deps=APEC-010] [scope=apps/android/app/src/main/java/dev/taru/android/player,apps/android/app/src/main/java/dev/taru/android/ui/screens/player,apps/android/app/src/test/java/dev/taru/android/player]
+- [x] APEC-020 [owner=codex] [deps=APEC-010] [scope=apps/android/app/src/main/java/dev/nako/android/player,apps/android/app/src/main/java/dev/nako/android/ui/screens/player,apps/android/app/src/test/java/dev/nako/android/player]
   Goal: Extract exit-effect client wiring from `PlaybackPlayerRoute` into a
   tested coordinator/use case.
   Validation: focused Android JVM tests prove unfinished session cancellation,

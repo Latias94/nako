@@ -25,7 +25,7 @@ Authoritative docs:
 
 ## Goals
 
-- Define a Public Client image reference shape backed by Taru-owned routes, not
+- Define a Public Client image reference shape backed by Nako-owned routes, not
   provider URLs, local paths, cache handles, or `managed-artwork://...` storage
   URIs.
 - Introduce Selected Artwork publication state that maps an item and image kind

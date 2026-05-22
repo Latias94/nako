@@ -13,19 +13,19 @@ Last updated: 2026-05-17
 
 ## M1 - Workflow-Level Port
 
-- [x] CHLD-020 [owner=codex] [deps=CHLD-010] [scope=crates/taru-catalog/src/lib.rs]
+- [x] CHLD-020 [owner=codex] [deps=CHLD-010] [scope=crates/nako-catalog/src/lib.rs]
   Goal: Change `CatalogHydrationPort` to expose workflow-level hydration while
-  keeping snapshot/lookup/commit machinery internal to `taru-catalog`.
-  Validation: `cargo check -p taru-catalog --tests`
+  keeping snapshot/lookup/commit machinery internal to `nako-catalog`.
+  Validation: `cargo check -p nako-catalog --tests`
   passed.
   Evidence: Non-catalog callers now call `hydrate_catalog`, and catalog tests
   still pass.
   Handoff: Completed; metadata fake tests were updated in CHLD-030.
 
-- [x] CHLD-030 [owner=codex] [deps=CHLD-020] [scope=crates/taru-metadata/src/strategy.rs,crates/taru-metadata/src/confirmation.rs,crates/taru-nfo/src/import.rs]
+- [x] CHLD-030 [owner=codex] [deps=CHLD-020] [scope=crates/nako-metadata/src/strategy.rs,crates/nako-metadata/src/confirmation.rs,crates/nako-nfo/src/import.rs]
   Goal: Update metadata and NFO callers/tests to use the deeper hydration
   port without constructing lookup internals.
-  Validation: `cargo nextest run -p taru-metadata strategy::port_tests::refresh_service_uses_refresh_and_hydration_ports_without_sqlite --no-fail-fast`
+  Validation: `cargo nextest run -p nako-metadata strategy::port_tests::refresh_service_uses_refresh_and_hydration_ports_without_sqlite --no-fail-fast`
   passed.
   Evidence: Metadata fake port returns a hydration summary instead of
   snapshot/lookup/commit records.

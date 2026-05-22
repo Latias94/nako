@@ -8,7 +8,7 @@ from the effective library profile instead of the HTTP endpoint.
 
 ## Problem
 
-Taru currently has a minimal `Library` model and a TMDB movie refresh path.
+Nako currently has a minimal `Library` model and a TMDB movie refresh path.
 That is enough for the first provider MVP, but it is not enough for a real
 self-hosted media server.
 

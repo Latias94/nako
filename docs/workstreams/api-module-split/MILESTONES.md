@@ -1,4 +1,4 @@
-# taru-api Module Split Milestones
+# nako-api Module Split Milestones
 
 Status: Completed
 Last updated: 2026-05-17
@@ -15,20 +15,20 @@ Exit criteria:
 
 Exit criteria:
 
-- `crates/taru-api/src/lib.rs` only declares modules and compatibility
+- `crates/nako-api/src/lib.rs` only declares modules and compatibility
   re-exports.
 - Public Client mapping functions live in `public_client`.
 - Admin/internal DTOs live outside `public_client`.
 - Metadata diagnostics and maintenance DTOs live outside `public_client`.
 - Extension/addon/webhook/automation DTOs live outside `public_client`.
-- Existing root-level imports in `taru-server` still compile.
+- Existing root-level imports in `nako-server` still compile.
 
 ## M2 - Contract And Workspace Validation
 
 Exit criteria:
 
-- `taru-api` unit tests pass.
-- `taru-api` examples compile.
+- `nako-api` unit tests pass.
+- `nako-api` examples compile.
 - TypeScript SDK package still type-checks.
 - Workspace check and nextest pass.
 - `git diff --check` has no whitespace errors.

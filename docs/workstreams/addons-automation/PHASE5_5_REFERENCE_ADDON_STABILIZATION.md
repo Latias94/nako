@@ -10,10 +10,10 @@ audit.
 
 ## Completed Shape
 
-- Added `taru-reference-addon`, a minimal HTTP addon fixture crate.
+- Added `nako-reference-addon`, a minimal HTTP addon fixture crate.
 - The reference addon exports `reference_manifest(base_url)` and
   `build_router()`.
-- The reference addon implements a `metadata` resource that accepts the Taru
+- The reference addon implements a `metadata` resource that accepts the Nako
   addon request envelope and returns a matching response envelope with a
   metadata suggestion artifact.
 - Added a server end-to-end test that starts the local reference addon,
@@ -43,8 +43,8 @@ audit.
 
 Coverage:
 
-- `taru-reference-addon` validates its reference manifest.
-- `taru-server` starts the reference addon in a local TCP listener and exercises
+- `nako-reference-addon` validates its reference manifest.
+- `nako-server` starts the reference addon in a local TCP listener and exercises
   registration, query, and real HTTP resource call behavior.
 - Existing webhook and automation tests continue to cover secret omission,
   persistence, delivery attempts, job enqueue, artifact persistence, and safe

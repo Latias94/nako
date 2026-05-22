@@ -18,7 +18,7 @@ This creates upgrade noise and spreads clipboard API details through UI routes.
 
 ## Scope
 
-- New UI clipboard adapter under `apps/android/app/src/main/java/dev/taru/android/ui/`.
+- New UI clipboard adapter under `apps/android/app/src/main/java/dev/nako/android/ui/`.
 - Settings/player diagnostics copy call sites.
 - Focused unit/build verification.
 - Workstream docs under this directory.
@@ -42,9 +42,9 @@ Plain text is represented with Android `ClipData.newPlainText`.
 
 ## Closeout Notes
 
-The lane closed with `rememberTaruClipboard()` as the only app-level clipboard
+The lane closed with `rememberNakoClipboard()` as the only app-level clipboard
 entrypoint. Settings and player diagnostics copy actions now call
-`TaruClipboard.copyPlainText`.
+`NakoClipboard.copyPlainText`.
 
 No call sites import `LocalClipboardManager` or construct `AnnotatedString` for
 clipboard copying.

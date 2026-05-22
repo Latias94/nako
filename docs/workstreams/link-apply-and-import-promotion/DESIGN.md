@@ -5,15 +5,15 @@ Last updated: 2026-05-21
 
 ## Why This Lane Exists
 
-`managed-import-staging` now gives Taru a safe staged artifact model and a
-non-mutating promotion preview. `nfo-link-authority` gives Taru VFS link
+`managed-import-staging` now gives Nako a safe staged artifact model and a
+non-mutating promotion preview. `nfo-link-authority` gives Nako VFS link
 dry-run diagnostics and non-mutating NFO authority preview. The next product
 risk is the first real apply: turning a staged artifact into a Media Source in a
 Media Library.
 
 This is a different risk class from preview. Preview explains intent; apply can
 create files, hardlinks, symlinks, catalog rows, duplicate relationships, audit
-records, and later sidecar writes. If any step fails halfway, Taru must not leave
+records, and later sidecar writes. If any step fails halfway, Nako must not leave
 an untracked file in a library root or a promoted Media Source that points to a
 missing or unauthorized target.
 
@@ -99,23 +99,23 @@ As of closeout, this lane shipped:
 ### Boundary Split
 
 ```text
-taru-core
+nako-core
   Owns promotion acceptance, apply request, operation kind, audit state, and
   repository traits.
 
-taru-db
+nako-db
   Owns durable apply/audit schema and backend-neutral contract tests.
 
-taru-vfs
+nako-vfs
   Owns storage mutation primitives for copy/link targets and any future cleanup
   primitive. It must preserve path-safety and backend capability checks.
 
-taru-server
+nako-server
   Owns operator-facing app service orchestration: load artifact, preview,
   revalidate, apply storage operation, commit catalog/source state, and record
   audit/cleanup outcome.
 
-taru-nfo
+nako-nfo
   Remains explicit authority for sidecar import/export. It is not called by the
   promotion apply path. Accepted NFO sidecar mutation is split to the dedicated
   `nfo-sidecar-promotion-apply` lane.
@@ -176,7 +176,7 @@ promotion targets.
 
 Audit records must avoid raw source URLs, raw local paths, fingerprints, or raw
 provider payloads in operator-facing reports. Internal records may keep stable
-IDs and source locator schemes needed for diagnosis, following existing Taru
+IDs and source locator schemes needed for diagnosis, following existing Nako
 redaction conventions.
 
 ## NFO Sidecar Mutation Split Decision
@@ -219,7 +219,7 @@ The follow-on NFO lane owns:
   hierarchy confirmation;
 - redacted audit evidence that never exposes raw library paths.
 
-LAIP must not call `taru-nfo` to mutate sidecars, and NFO sidecar apply must not
+LAIP must not call `nako-nfo` to mutate sidecars, and NFO sidecar apply must not
 be smuggled into Managed Import promotion as an implicit post-hook.
 
 ## First Slice Recommendation

@@ -5,7 +5,7 @@ Last updated: 2026-05-17
 
 ## Why This Lane Exists
 
-M29 gave Taru a useful `taru-client-protocol` crate for public browse and
+M29 gave Nako a useful `nako-client-protocol` crate for public browse and
 playback DTOs. The next client risk is not another DTO migration; it is
 compatibility. Flutter, web, CLI, and SDK consumers need stable API version
 identity, error codes, status mappings, and response envelope rules before
@@ -23,24 +23,24 @@ client code starts depending on ad hoc server behavior.
   - `docs/api/HTTP_API.md`
   - `docs/workstreams/public-client-api/`
 - Related crates and modules:
-  - `crates/taru-client-protocol`
-  - `crates/taru-api`
-  - `crates/taru-server/src/http.rs`
-  - `crates/taru-server/src/http/error.rs`
-  - `crates/taru-server/src/http/query.rs`
-  - `crates/taru-server/src/http/system.rs`
-  - `crates/taru-server/src/http/tests/*`
+  - `crates/nako-client-protocol`
+  - `crates/nako-api`
+  - `crates/nako-server/src/http.rs`
+  - `crates/nako-server/src/http/error.rs`
+  - `crates/nako-server/src/http/query.rs`
+  - `crates/nako-server/src/http/system.rs`
+  - `crates/nako-server/src/http/tests/*`
 
 ## Starting Audit
 
-- `taru-client-protocol` currently owns `HealthResponse`, `ErrorResponse`,
+- `nako-client-protocol` currently owns `HealthResponse`, `ErrorResponse`,
   `PageInfo`, and the M29 browse/playback DTOs.
 - `ErrorResponse` currently has `code` and `message` string fields but no
   protocol-owned error-code vocabulary.
-- `ApiError` maps `TaruError` into HTTP status, stable-looking code strings,
-  and public messages in `crates/taru-server/src/http/error.rs`.
-- Pagination rules live in `taru-core::PageRequest`, `taru-server` query
-  parsing, and `taru-client-protocol::PageInfo`.
+- `ApiError` maps `NakoError` into HTTP status, stable-looking code strings,
+  and public messages in `crates/nako-server/src/http/error.rs`.
+- Pagination rules live in `nako-core::PageRequest`, `nako-server` query
+  parsing, and `nako-client-protocol::PageInfo`.
 - `/health` returns `version: API_VERSION`, where `API_VERSION` re-exports
   `CLIENT_PROTOCOL_VERSION`.
 - Route tests cover several error codes and pagination cases, but the public
@@ -62,17 +62,17 @@ client code starts depending on ad hoc server behavior.
 
 ## Target State
 
-- `taru-client-protocol` owns a stable v1 error-code vocabulary and public
+- `nako-client-protocol` owns a stable v1 error-code vocabulary and public
   error envelope.
-- `taru-api` re-exports protocol error types and remains the server adapter.
-- `taru-server` maps `TaruError` into stable public error codes, safe messages,
+- `nako-api` re-exports protocol error types and remains the server adapter.
+- `nako-server` maps `NakoError` into stable public error codes, safe messages,
   and HTTP status codes through one auditable boundary.
 - Public client routes have focused tests for success envelope shape,
   pagination, API version identity, and error status/code behavior.
 - Server-admin/internal routes are explicitly documented as outside the first
   public compatibility promise, even if they use the same baseline error
   envelope.
-- `cargo tree -p taru-client-protocol` continues to prove the protocol crate
+- `cargo tree -p nako-client-protocol` continues to prove the protocol crate
   has no internal server dependencies.
 
 ## In Scope
@@ -92,7 +92,7 @@ client code starts depending on ad hoc server behavior.
 - OpenAPI or SDK generation.
 - Authentication or authorization redesign.
 - Route path rewrite or immediate `/api/v1` migration.
-- Moving all server-admin/internal DTOs into `taru-client-protocol`.
+- Moving all server-admin/internal DTOs into `nako-client-protocol`.
 - Full migration of diagnostics, jobs, provider debug, webhook, automation,
   addon administration, ingestion failures, or metadata maintenance DTOs.
 
@@ -101,7 +101,7 @@ client code starts depending on ad hoc server behavior.
 | Assumption | Confidence | Evidence | Consequence if wrong |
 | --- | --- | --- | --- |
 | Public clients should branch on error codes, not messages. | High | Current `ErrorResponse` already has `code`. | Client behavior would be brittle. |
-| v1 can start with `/health.version`, `x-taru-api-version`, and protocol constants before path versioning. | Medium | Only one API version exists today. | Need a follow-on ADR for multi-version route/header negotiation. |
+| v1 can start with `/health.version`, `x-nako-api-version`, and protocol constants before path versioning. | Medium | Only one API version exists today. | Need a follow-on ADR for multi-version route/header negotiation. |
 | Existing `code/message` JSON must remain compatible. | High | Current tests and docs already use it. | Breaking clients before they exist adds needless churn. |
 | Admin/internal surfaces should not block public route hardening. | High | M29 explicitly left admin DTOs out. | M30 would become too broad to close cleanly. |
 
@@ -110,7 +110,7 @@ client code starts depending on ad hoc server behavior.
 Keep the public contract narrow and explicit. The first M30 implementation
 should preserve the existing JSON shape while replacing untyped string
 knowledge with protocol-owned constants or enums. The server may still derive
-codes from `TaruError`, but external clients should see only the stable public
+codes from `NakoError`, but external clients should see only the stable public
 vocabulary.
 
 ## Closeout Condition
@@ -120,7 +120,7 @@ This lane can close when:
 - the public v1 version/error/pagination rules are documented;
 - the protocol crate owns the public error-code vocabulary without internal
   dependencies;
-- `taru-server` error mapping is covered by route or adapter tests for public
+- `nako-server` error mapping is covered by route or adapter tests for public
   codes;
 - public catalog/library/playback/system route tests protect envelope behavior;
 - `docs/api/HTTP_API.md`, `docs/GOALS.md`, `docs/ROADMAP.md`, and workstream
@@ -132,7 +132,7 @@ This lane can close when:
 
 M30 closed after adding protocol-owned public error codes, preserving the v1
 `code/message` error envelope, advertising `v1` through `/health.version` and
-the `x-taru-api-version` response header, and extending route tests for public
+the `x-nako-api-version` response header, and extending route tests for public
 pagination, version identity, and stable error-code behavior. Path versioning,
 OpenAPI, SDK generation, auth redesign, and broader admin/internal DTO
 migration remain follow-ons.

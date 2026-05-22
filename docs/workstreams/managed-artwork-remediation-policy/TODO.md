@@ -14,7 +14,7 @@ Last updated: 2026-05-19
 
 ## M1 - Remediation Plan And Confirmed Stray Cleanup
 
-- [x] MARP-020 [owner=codex] [deps=MARP-010] [scope=crates/taru-api,crates/taru-server,docs/api]
+- [x] MARP-020 [owner=codex] [deps=MARP-010] [scope=crates/nako-api,crates/nako-server,docs/api]
   Goal: Add a redacted Admin remediation plan and a confirmed command that
   deletes only cleanable untracked artifact files.
   Validation: focused API/server remediation tests plus relevant cargo check.

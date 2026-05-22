@@ -9,7 +9,7 @@ remote playback policy, and stabilization docs. Follow-up work should either
 continue remote-storage hardening or split into a dedicated
 `playback-streaming` workstream.
 
-This workstream owns Taru's storage abstraction beyond the local filesystem:
+This workstream owns Nako's storage abstraction beyond the local filesystem:
 remote VFS backends, directory/stat cache policy, remote byte-range reads,
 local staging for probe/transcode, and remote playback constraints.
 
@@ -30,7 +30,7 @@ Top-level tracking:
 ## Goals
 
 - Make remote storage first-class without relying on OS mounts.
-- Keep storage-specific code behind `taru-vfs` and staging services.
+- Keep storage-specific code behind `nako-vfs` and staging services.
 - Add a read-only WebDAV backend before S3-compatible storage.
 - Persist remote directory/stat cache facts without confusing cache state with
   catalog truth.

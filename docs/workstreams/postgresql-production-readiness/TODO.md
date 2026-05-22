@@ -23,27 +23,27 @@ Task IDs use the `PGR` prefix.
 
 ## M1 — Lifecycle, Backend Selection, And Verification Harness
 
-- [x] PGR-020 [owner=codex] [deps=PGR-010] [scope=crates/taru-db,crates/taru-server/src/config.rs,crates/taru-server/src/app,docs/adr,docs/workstreams/postgresql-production-readiness]
+- [x] PGR-020 [owner=codex] [deps=PGR-010] [scope=crates/nako-db,crates/nako-server/src/config.rs,crates/nako-server/src/app,docs/adr,docs/workstreams/postgresql-production-readiness]
   Goal: Design and implement the first production-shaped database backend
   selection seam for SQLite and PostgreSQL.
-  Validation: `cargo check -p taru-db --tests`; `cargo check -p taru-server
+  Validation: `cargo check -p nako-db --tests`; `cargo check -p nako-server
   --tests`; focused lifecycle/backend-selection tests; `git diff --check`.
   Review: Avoid URL-guessing-only backend selection. Server code must not
   depend on concrete SQLite/PostgreSQL adapters.
   Evidence: backend kind/config constructors, lifecycle tests, and updated
   evidence notes.
   Progress: Added explicit `DatabaseBackendKind` and `DatabaseConnectOptions`
-  in `taru-db`; `TaruDatabase` now reports backend kind/capabilities and uses
+  in `nako-db`; `NakoDatabase` now reports backend kind/capabilities and uses
   options-based construction. Server config now has an explicit
-  `database_backend` field and `TaruApp::new` routes through the facade rather
+  `database_backend` field and `NakoApp::new` routes through the facade rather
   than concrete adapters. PostgreSQL runtime selection is intentionally gated
   with a named unsupported error until contract parity and migrations catch up.
   Handoff: Continue with PGR-030 contract harness generalization.
 
-- [x] PGR-030 [owner=codex] [deps=PGR-020] [scope=crates/taru-db/src/contract_tests.rs,docs/workstreams/postgresql-production-readiness]
+- [x] PGR-030 [owner=codex] [deps=PGR-020] [scope=crates/nako-db/src/contract_tests.rs,docs/workstreams/postgresql-production-readiness]
   Goal: Generalize the backend contract-test harness beyond job leases so
   contract families can be added without copy-paste backend runners.
-  Validation: `cargo check -p taru-db --tests`; `cargo nextest run -p taru-db
+  Validation: `cargo check -p nako-db --tests`; `cargo nextest run -p nako-db
   contract --no-fail-fast`; optional PostgreSQL ignored tests documented;
   `git diff --check`.
   Review: SQLite must remain always-on. PostgreSQL tests must stay opt-in and
@@ -53,15 +53,15 @@ Task IDs use the `PGR` prefix.
   `ContractCase`/`ContractFamily` runner and `database_contract_pair!` macro.
   Added a lifecycle contract family with idempotent migrate coverage. SQLite
   remains always-on, and PostgreSQL remains ignored/opt-in with isolated schema
-  setup and the existing `TARU_TEST_POSTGRES_URL` gate.
+  setup and the existing `NAKO_TEST_POSTGRES_URL` gate.
   Handoff: Continue with PGR-040 Library/Media Source contract slice.
 
 ## M2 — Core Repository And Workflow Contracts
 
-- [x] PGR-040 [owner=codex] [deps=PGR-030] [scope=crates/taru-db,crates/taru-core,docs/workstreams/postgresql-production-readiness]
+- [x] PGR-040 [owner=codex] [deps=PGR-030] [scope=crates/nako-db,crates/nako-core,docs/workstreams/postgresql-production-readiness]
   Goal: Add PostgreSQL parity for Media Library, Media Item, and Media Source
   identity contracts through the backend contract harness.
-  Validation: `cargo check -p taru-db --tests`; focused SQLite/PostgreSQL
+  Validation: `cargo check -p nako-db --tests`; focused SQLite/PostgreSQL
   contract nextest; `git diff --check`.
   Review: Media Source identity must remain scoped by Media Library; do not
   flatten Source Locator semantics for PostgreSQL convenience.
@@ -75,11 +75,11 @@ Task IDs use the `PGR` prefix.
   PostgreSQL `MediaRepository` and `LibraryItemRepository` slice.
   Handoff: Continue with scan commit contracts.
 
-- [x] PGR-050 [owner=codex] [deps=PGR-040] [scope=crates/taru-db,crates/taru-library,docs/workstreams/postgresql-production-readiness]
+- [x] PGR-050 [owner=codex] [deps=PGR-040] [scope=crates/nako-db,crates/nako-library,docs/workstreams/postgresql-production-readiness]
   Goal: Add backend-neutral contracts and PostgreSQL parity for the Library
   scan commit unit: Source State, Local Inference Evidence, Media Technical
   Facts, ingestion failures, and Search Projection side effects.
-  Validation: `cargo check -p taru-db --tests`; `cargo check -p taru-library
+  Validation: `cargo check -p nako-db --tests`; `cargo check -p nako-library
   --tests`; focused scan/index nextest; optional PostgreSQL contract run;
   `git diff --check`.
   Review: Commit behavior must be atomic across graph/source/evidence/search
@@ -99,11 +99,11 @@ Task IDs use the `PGR` prefix.
   slices needed by the contracts.
   Handoff: Continue with Metadata/Catalog commit contracts.
 
-- [x] PGR-060 [owner=codex] [deps=PGR-050] [scope=crates/taru-db,crates/taru-metadata,crates/taru-catalog,docs/workstreams/postgresql-production-readiness]
+- [x] PGR-060 [owner=codex] [deps=PGR-050] [scope=crates/nako-db,crates/nako-metadata,crates/nako-catalog,docs/workstreams/postgresql-production-readiness]
   Goal: Add backend-neutral contracts and PostgreSQL parity for metadata
   refresh/NFO import Catalog Item Graph and Search Projection commits.
-  Validation: `cargo check -p taru-db --tests`; `cargo check -p
-  taru-metadata --tests`; `cargo check -p taru-catalog --tests`; focused
+  Validation: `cargo check -p nako-db --tests`; `cargo check -p
+  nako-metadata --tests`; `cargo check -p nako-catalog --tests`; focused
   metadata/catalog contract nextest; `git diff --check`.
   Review: Provider-native payloads and Candidate Graph records must not leak
   into PostgreSQL-specific schema choices.
@@ -124,10 +124,10 @@ Task IDs use the `PGR` prefix.
 
 ## M3 — Runtime State And Operational Contracts
 
-- [x] PGR-070 [owner=codex] [deps=PGR-040] [scope=crates/taru-db,crates/taru-server/src/app/playback,docs/workstreams/postgresql-production-readiness]
+- [x] PGR-070 [owner=codex] [deps=PGR-040] [scope=crates/nako-db,crates/nako-server/src/app/playback,docs/workstreams/postgresql-production-readiness]
   Goal: Add backend-neutral contracts and PostgreSQL parity for User Playback
   State and Transcode Session lifecycle.
-  Validation: `cargo check -p taru-db --tests`; `cargo check -p taru-server
+  Validation: `cargo check -p nako-db --tests`; `cargo check -p nako-server
   --tests`; focused playback/user-playback nextest; `git diff --check`.
   Review: User Playback State remains principal-scoped; transcode output paths
   remain redacted and server-owned.
@@ -142,12 +142,12 @@ Task IDs use the `PGR` prefix.
   `TranscodeSessionRepository` parity.
   Handoff: Continue with event/webhook/addon contracts.
 
-- [x] PGR-080 [owner=codex] [deps=PGR-040] [scope=crates/taru-db,crates/taru-events,crates/taru-automation,crates/taru-server/src/app/addons.rs,docs/workstreams/postgresql-production-readiness]
+- [x] PGR-080 [owner=codex] [deps=PGR-040] [scope=crates/nako-db,crates/nako-events,crates/nako-automation,crates/nako-server/src/app/addons.rs,docs/workstreams/postgresql-production-readiness]
   Goal: Add backend-neutral contracts and PostgreSQL parity for event outbox,
   webhooks, Addons, and Automation Providers where they are enabled under
   PostgreSQL.
-  Validation: `cargo check -p taru-db --tests`; `cargo check -p
-  taru-events --tests`; `cargo check -p taru-automation --tests`; focused
+  Validation: `cargo check -p nako-db --tests`; `cargo check -p
+  nako-events --tests`; `cargo check -p nako-automation --tests`; focused
   addon/event/automation nextest; `git diff --check`.
   Review: Addon Tokens, grants, side effects, and webhook payloads must stay
   redacted and idempotent.
@@ -162,7 +162,7 @@ Task IDs use the `PGR` prefix.
   `WebhookRepository`, `AddonRepository`, and `AutomationRepository`.
   Handoff: Continue with Managed Artwork or explicitly split it.
 
-- [x] PGR-090 [owner=codex] [deps=PGR-050] [scope=crates/taru-db,crates/taru-server/src/app/artwork.rs,docs/workstreams/postgresql-production-readiness]
+- [x] PGR-090 [owner=codex] [deps=PGR-050] [scope=crates/nako-db,crates/nako-server/src/app/artwork.rs,docs/workstreams/postgresql-production-readiness]
   Goal: Decide whether Managed Artwork parity belongs in M62 and either
   implement backend-neutral contracts plus PostgreSQL migrations or split a
   named follow-on with expiry gates.
@@ -181,10 +181,10 @@ Task IDs use the `PGR` prefix.
 
 ## M4 — Runtime Diagnostics, Assumption Cleanup, And Closeout
 
-- [x] PGR-100 [owner=codex] [deps=PGR-020,PGR-040] [scope=crates/taru-server/src/config.rs,crates/taru-server/src/http/admin.rs,docs/api,docs/workstreams/postgresql-production-readiness]
+- [x] PGR-100 [owner=codex] [deps=PGR-020,PGR-040] [scope=crates/nako-server/src/config.rs,crates/nako-server/src/http/admin.rs,docs/api,docs/workstreams/postgresql-production-readiness]
   Goal: Add safe database backend diagnostics and update HTTP/config docs for
   SQLite/PostgreSQL backend selection.
-  Validation: `cargo check -p taru-api --tests`; `cargo check -p taru-server
+  Validation: `cargo check -p nako-api --tests`; `cargo check -p nako-server
   --tests`; focused admin/system route tests; `git diff --check`.
   Review: Diagnostics must reveal backend kind and migration state without
   leaking database credentials, local paths, or raw database errors.
@@ -207,13 +207,13 @@ Task IDs use the `PGR` prefix.
   Review: No server/facade path should require SQLite-specific row codecs,
   URL forms, timestamps, or SQL behavior unless explicitly named as a follow-on.
   Evidence: deletion inventory in EVIDENCE_AND_GATES.md.
-  Progress: Removed the compatibility-style `TaruDatabase::connect(&str)` and
+  Progress: Removed the compatibility-style `NakoDatabase::connect(&str)` and
   `connect_with_sqlite_runtime(...)` helpers so production callers must use
   explicit `DatabaseConnectOptions`. Removed the remaining facade-level test
   dependency on `sqlite::codec` and direct `store.sqlite().pool()` inspection;
   the startup recovery test now verifies behavior through repository APIs
   instead of SQLite row access. Inventory confirms SQLite SQL dialect terms and
-  row codecs are isolated to `taru-db::sqlite` or SQLite-owned tests, while
+  row codecs are isolated to `nako-db::sqlite` or SQLite-owned tests, while
   `sqlite::memory:` remains only as test fixture/default SQLite config data.
   Handoff: Continue with closeout.
 
@@ -222,7 +222,7 @@ Task IDs use the `PGR` prefix.
   roadmap/goal/workstream status.
   Validation: `cargo fmt --all -- --check`; `cargo check --workspace --tests`;
   `cargo nextest run --workspace --no-fail-fast`; PostgreSQL opt-in contract
-  gate when `TARU_TEST_POSTGRES_URL` is available or documented skip evidence;
+  gate when `NAKO_TEST_POSTGRES_URL` is available or documented skip evidence;
   `git diff --check`.
   Review: Use verify/review workstream before marking the thread goal complete.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`.
@@ -231,7 +231,7 @@ Task IDs use the `PGR` prefix.
   PGR-120 rather than closing early: added a backend-neutral `VfsStaging`
   contract family, PostgreSQL VFS/staging schema parity, repository parity,
   and flipped PostgreSQL `vfs_cache` capability to supported while keeping
-  Managed Artwork split/gated. Final gates passed: formatting, taru-db/server
+  Managed Artwork split/gated. Final gates passed: formatting, nako-db/server
   checks, workspace check, SQLite/default contract run, PostgreSQL opt-in full
   contract run against local test PostgreSQL, workspace nextest, and
   `git diff --check` with CRLF normalization warnings only.

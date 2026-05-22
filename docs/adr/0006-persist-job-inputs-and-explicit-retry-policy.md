@@ -6,7 +6,7 @@ Proposed
 
 ## Context
 
-Taru background jobs will eventually cover library scans, metadata refresh,
+Nako background jobs will eventually cover library scans, metadata refresh,
 NFO import/export, webhook delivery, automation, remote-storage cache work, and
 transcode sessions. Those jobs need to be inspectable and recoverable after a
 server restart.
@@ -21,7 +21,7 @@ different safety profiles.
 
 Every persisted job stores an `input_json` payload. The payload is the durable
 request envelope for that job kind. It must contain stable IDs and explicit
-options, not process-local handles or paths that bypass Taru's VFS model.
+options, not process-local handles or paths that bypass Nako's VFS model.
 
 Job lifecycle states:
 

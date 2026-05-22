@@ -15,33 +15,33 @@ Legend:
 
 | Route | Android status | Current Android owner | Product decision |
 | --- | --- | --- | --- |
-| `GET /health` | covered | `TaruConnectionClient.testConnection` | Keep as setup preflight and version probe. |
-| `GET /libraries?limit=&offset=` | covered | `TaruConnectionClient` auth probe; `TaruBrowseClient.listLibraries` | Keep. |
-| `GET /libraries/{library_id}` | covered | `TaruBrowseClient.libraryDetail`; `LibraryDetailRouteContent` | Keep as the Library Detail summary route. |
-| `GET /libraries/{library_id}/sources?limit=&offset=` | covered | `TaruBrowseClient.librarySources`; `LibraryDetailRouteContent` | Keep as safe source inventory, not as a fake poster grid. |
-| `GET /items?limit=&offset=` | covered | `TaruBrowseClient.listItems` | Keep as Home/Libraries feed input. |
-| `GET /items/{item_id}` | covered | `TaruBrowseClient.itemDetail` | Keep as primary detail aggregate. |
+| `GET /health` | covered | `NakoConnectionClient.testConnection` | Keep as setup preflight and version probe. |
+| `GET /libraries?limit=&offset=` | covered | `NakoConnectionClient` auth probe; `NakoBrowseClient.listLibraries` | Keep. |
+| `GET /libraries/{library_id}` | covered | `NakoBrowseClient.libraryDetail`; `LibraryDetailRouteContent` | Keep as the Library Detail summary route. |
+| `GET /libraries/{library_id}/sources?limit=&offset=` | covered | `NakoBrowseClient.librarySources`; `LibraryDetailRouteContent` | Keep as safe source inventory, not as a fake poster grid. |
+| `GET /items?limit=&offset=` | covered | `NakoBrowseClient.listItems` | Keep as Home/Libraries feed input. |
+| `GET /items/{item_id}` | covered | `NakoBrowseClient.itemDetail` | Keep as primary detail aggregate. |
 | `GET /items/{item_id}/credits` | partial | `GET /items/{item_id}` aggregate detail | Defer until credits need pagination or richer people context. |
-| `GET /items/{item_id}/images` | covered | `TaruBrowseClient.itemImages`; Home/Libraries artwork enrichment | Keep as best-effort visible-page artwork enrichment. |
-| `GET /images/{image_id}` | covered | `PublicArtworkSource`; `TaruArtworkImage` with Coil | Keep as authenticated selected artwork byte route. |
+| `GET /items/{item_id}/images` | covered | `NakoBrowseClient.itemImages`; Home/Libraries artwork enrichment | Keep as best-effort visible-page artwork enrichment. |
+| `GET /images/{image_id}` | covered | `PublicArtworkSource`; `NakoArtworkImage` with Coil | Keep as authenticated selected artwork byte route. |
 | `HEAD /images/{image_id}` | defer | none | Coil/cache behavior is enough for APIC-020; add explicit preflight only if cache diagnostics or validation UX needs it. |
 | `GET /people?limit=&offset=` | defer | none | Defer until Browse People index exists. |
 | `GET /people/{person_id}` | defer | none | Add with Person Detail if productizes actor/director pages. |
-| `GET /people/{person_id}/items?limit=&offset=` | covered | `TaruBrowseClient.listPersonItems` | Keep as current cast/crew facet result path. |
-| `GET /tags?limit=&offset=` | covered | `TaruBrowseClient.listTags`; `docs/workstreams/android-tags-index/` | Typed client contract exists; Tags Index route state remains in the follow-on lane. |
-| `GET /tags/{tag_id}/items?limit=&offset=` | covered | `TaruBrowseClient.listTagItems` | Keep as current tag facet result path and future Tags Index destination. |
-| `GET /genres?limit=&offset=` | covered | `TaruBrowseClient.listGenres`; `TaruRoute.RelationshipIndex(Genres)` | Browse Genres index is implemented and smoke-proven. |
-| `GET /genres/{genre_id}/items?limit=&offset=` | covered | `TaruBrowseClient.listGenreItems` | Keep as current genre facet result path and Genres Index destination. |
-| `GET /search?q=&facet=&limit=&offset=` | covered | `TaruBrowseClient.searchItems` | Keep; broaden only when advanced filters become product scope. |
-| `GET /sources/{source_id}/probe` | covered | `TaruPlaybackClient.getSourceProbe`; `SourcePickerSurface` source facts | Keep as the Source Picker source-facts route, separate from playback decision. |
-| `GET /sources/{source_id}/playback/decision` | covered | `TaruPlaybackClient.getPlaybackDecision` | Keep as playback launch gate. |
-| `GET /sources/{source_id}/stream` | covered | `TaruPlaybackClient.directPlaybackTarget`; Media3 route | Keep as direct play target. |
-| `HEAD /sources/{source_id}/stream` | covered | `TaruPlaybackClient.headDirectPlaybackTarget` | Keep as request builder; productize preflight only if needed. |
-| `GET /sources/{source_id}/stream/remux` | covered | `TaruPlaybackClient.remuxPlaybackTarget`; Media3 route | Keep as remux target. |
-| `GET /sources/{source_id}/stream/hls/playlist.m3u8` | covered | `TaruPlaybackClient.hlsPlaylistTarget`; Media3 route | Keep as transcode/HLS target. |
-| `GET /playback/sessions/{session_id}` | covered | `TaruPlaybackClient.getPlaybackSession` | Keep for public transcode session inspection. |
-| `POST /playback/sessions/{session_id}/cancel` | covered | `TaruPlaybackClient.cancelPlaybackSession` | Keep for best-effort route-exit cancellation when session id is known. |
-| `GET /playback/sessions/{session_id}/hls/segments/{segment_name}` | covered | `TaruPlaybackClient.hlsSegmentTarget`; HLS playlist uses server URLs | Keep as request builder and server-provided playlist path. |
+| `GET /people/{person_id}/items?limit=&offset=` | covered | `NakoBrowseClient.listPersonItems` | Keep as current cast/crew facet result path. |
+| `GET /tags?limit=&offset=` | covered | `NakoBrowseClient.listTags`; `docs/workstreams/android-tags-index/` | Typed client contract exists; Tags Index route state remains in the follow-on lane. |
+| `GET /tags/{tag_id}/items?limit=&offset=` | covered | `NakoBrowseClient.listTagItems` | Keep as current tag facet result path and future Tags Index destination. |
+| `GET /genres?limit=&offset=` | covered | `NakoBrowseClient.listGenres`; `NakoRoute.RelationshipIndex(Genres)` | Browse Genres index is implemented and smoke-proven. |
+| `GET /genres/{genre_id}/items?limit=&offset=` | covered | `NakoBrowseClient.listGenreItems` | Keep as current genre facet result path and Genres Index destination. |
+| `GET /search?q=&facet=&limit=&offset=` | covered | `NakoBrowseClient.searchItems` | Keep; broaden only when advanced filters become product scope. |
+| `GET /sources/{source_id}/probe` | covered | `NakoPlaybackClient.getSourceProbe`; `SourcePickerSurface` source facts | Keep as the Source Picker source-facts route, separate from playback decision. |
+| `GET /sources/{source_id}/playback/decision` | covered | `NakoPlaybackClient.getPlaybackDecision` | Keep as playback launch gate. |
+| `GET /sources/{source_id}/stream` | covered | `NakoPlaybackClient.directPlaybackTarget`; Media3 route | Keep as direct play target. |
+| `HEAD /sources/{source_id}/stream` | covered | `NakoPlaybackClient.headDirectPlaybackTarget` | Keep as request builder; productize preflight only if needed. |
+| `GET /sources/{source_id}/stream/remux` | covered | `NakoPlaybackClient.remuxPlaybackTarget`; Media3 route | Keep as remux target. |
+| `GET /sources/{source_id}/stream/hls/playlist.m3u8` | covered | `NakoPlaybackClient.hlsPlaylistTarget`; Media3 route | Keep as transcode/HLS target. |
+| `GET /playback/sessions/{session_id}` | covered | `NakoPlaybackClient.getPlaybackSession` | Keep for public transcode session inspection. |
+| `POST /playback/sessions/{session_id}/cancel` | covered | `NakoPlaybackClient.cancelPlaybackSession` | Keep for best-effort route-exit cancellation when session id is known. |
+| `GET /playback/sessions/{session_id}/hls/segments/{segment_name}` | covered | `NakoPlaybackClient.hlsSegmentTarget`; HLS playlist uses server URLs | Keep as request builder and server-provided playlist path. |
 
 ## Current Server Routes Outside Android Scope
 

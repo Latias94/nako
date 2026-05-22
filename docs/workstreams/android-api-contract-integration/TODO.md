@@ -19,19 +19,19 @@ Last updated: 2026-05-20
   - Owner: Codex
   - Dependencies: APICI-010.
   - Scope:
-    - `apps/android/app/src/main/java/dev/taru/android/browse/BrowseModels.kt`
-    - `apps/android/app/src/main/java/dev/taru/android/browse/TaruBrowseClient.kt`
+    - `apps/android/app/src/main/java/dev/nako/android/browse/BrowseModels.kt`
+    - `apps/android/app/src/main/java/dev/nako/android/browse/NakoBrowseClient.kt`
     - focused browse client tests.
   - Validation:
     - Unit tests prove `GET /people/{person_id}` request building, decoding,
       version checking, auth, and safe error diagnostics.
-  - Evidence: Focused `TaruBrowseClientTest` passed on 2026-05-20.
+  - Evidence: Focused `NakoBrowseClientTest` passed on 2026-05-20.
 
 - [x] APICI-030 - Productize Person Detail route state.
   - Owner: Codex
   - Dependencies: APICI-020.
   - Scope:
-    - `apps/android/app/src/main/java/dev/taru/android/ui/browse/`
+    - `apps/android/app/src/main/java/dev/nako/android/ui/browse/`
     - focused session/navigation tests.
   - Validation:
     - `BrowseSession` opens Person Detail from a stable person ID.
@@ -44,9 +44,9 @@ Last updated: 2026-05-20
   - Owner: Codex
   - Dependencies: APICI-030.
   - Scope:
-    - `apps/android/app/src/main/java/dev/taru/android/ui/screens/`
-    - `apps/android/app/src/main/java/dev/taru/android/ui/browse/TaruBrowseShell.kt`
-    - `apps/android/app/src/main/java/dev/taru/android/ui/screens/detail/MediaItemDetailRoute.kt`
+    - `apps/android/app/src/main/java/dev/nako/android/ui/screens/`
+    - `apps/android/app/src/main/java/dev/nako/android/ui/browse/NakoBrowseShell.kt`
+    - `apps/android/app/src/main/java/dev/nako/android/ui/screens/detail/MediaItemDetailRoute.kt`
   - Validation:
     - Cast & Crew rows open Person Detail when a stable `person_id` exists.
     - Compose/unit coverage where practical.

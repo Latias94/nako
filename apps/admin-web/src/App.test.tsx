@@ -57,9 +57,9 @@ describe("Admin web console scaffold", () => {
     expect(screen.getByText("Health: reachable · 42 ms")).toBeInTheDocument();
     expect(screen.getByText("external and untrusted")).toBeInTheDocument();
     expect(screen.getByText("Addon Install Guide")).toBeInTheDocument();
-    expect(screen.getByText("compose.dev-taru-subtitle-lab.yml")).toBeInTheDocument();
-    expect(screen.getByText("dev-taru-subtitle-lab.service")).toBeInTheDocument();
-    expect(screen.getByText(/Taru generates this guide only/)).toBeInTheDocument();
+    expect(screen.getByText("compose.dev-nako-subtitle-lab.yml")).toBeInTheDocument();
+    expect(screen.getByText("dev-nako-subtitle-lab.service")).toBeInTheDocument();
+    expect(screen.getByText(/Nako generates this guide only/)).toBeInTheDocument();
     expect(screen.getByText("subtitle · succeeded")).toBeInTheDocument();
     expect(screen.getByText("Network Access")).toBeInTheDocument();
     expect(screen.getByText("Generated Artifacts")).toBeInTheDocument();
@@ -212,11 +212,11 @@ describe("Admin web console scaffold", () => {
       },
       async issueAddonToken() {
         return {
-          rawToken: "taru_at_one_time_raw_token",
+          rawToken: "nako_at_one_time_raw_token",
           token: {
             id: "addon-token-new",
             label: "sidecar runtime",
-            tokenPrefix: "taru_at_new",
+            tokenPrefix: "nako_at_new",
             status: "active",
             lastUsedAt: null,
           },
@@ -224,11 +224,11 @@ describe("Admin web console scaffold", () => {
       },
       async rotateAddonToken() {
         return {
-          rawToken: "taru_at_rotated_one_time_raw_token",
+          rawToken: "nako_at_rotated_one_time_raw_token",
           token: {
             id: "addon-token-rotated",
             label: "rotated runtime",
-            tokenPrefix: "taru_at_rotated",
+            tokenPrefix: "nako_at_rotated",
             status: "active",
             lastUsedAt: null,
           },
@@ -238,7 +238,7 @@ describe("Admin web console scaffold", () => {
         return {
           id: "addon-token-active",
           label: "sidecar runtime",
-          tokenPrefix: "taru_at_subtitle",
+          tokenPrefix: "nako_at_subtitle",
           status: "revoked",
           lastUsedAt: "2026-05-22T02:44:00.000Z",
         };
@@ -262,10 +262,10 @@ describe("Admin web console scaffold", () => {
     });
     fireEvent.click(screen.getByText("Issue token"));
     expect(await screen.findByText("Copy this Addon Token now. It will not be shown again.")).toBeInTheDocument();
-    expect(screen.getByText("taru_at_one_time_raw_token")).toBeInTheDocument();
+    expect(screen.getByText("nako_at_one_time_raw_token")).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Rotate first token"));
-    expect(await screen.findByText("taru_at_rotated_one_time_raw_token")).toBeInTheDocument();
+    expect(await screen.findByText("nako_at_rotated_one_time_raw_token")).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Revoke first token"));
     expect(await screen.findByText("Token addon-token-active revoked")).toBeInTheDocument();
@@ -306,7 +306,7 @@ describe("Admin web console scaffold", () => {
           status: "registered",
           addon: {
             id: "addon-subtitle-lab",
-            manifestId: "dev.taru.subtitle-lab",
+            manifestId: "dev.nako.subtitle-lab",
             name: "Subtitle Lab",
             version: "0.3.0",
             protocolVersion: "2026-05-15",
@@ -317,7 +317,7 @@ describe("Admin web console scaffold", () => {
           },
           nextSteps: [
             "Open the generated Addon Install Guide",
-            "Start the Addon Sidecar outside Taru",
+            "Start the Addon Sidecar outside Nako",
             "Run Addon Health Check before enabling",
           ],
         };
@@ -331,7 +331,7 @@ describe("Admin web console scaffold", () => {
       target: {
         value: JSON.stringify(
           {
-            id: "dev.taru.subtitle-lab",
+            id: "dev.nako.subtitle-lab",
             name: "Subtitle Lab",
             version: "0.3.0",
             protocol_version: "2026-05-15",
@@ -368,12 +368,12 @@ describe("Admin web console scaffold", () => {
       },
     });
 
-    expect(screen.getByText("dev.taru.subtitle-lab · 2 resources")).toBeInTheDocument();
+    expect(screen.getByText("dev.nako.subtitle-lab · 2 resources")).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Register disabled Addon"));
 
     expect((await screen.findAllByText("Subtitle Lab registered as disabled")).length).toBeGreaterThan(0);
-    expect(screen.getByText("Start the Addon Sidecar outside Taru")).toBeInTheDocument();
+    expect(screen.getByText("Start the Addon Sidecar outside Nako")).toBeInTheDocument();
     expect(screen.getByText(/Registration does not install or start the/)).toBeInTheDocument();
   });
 });

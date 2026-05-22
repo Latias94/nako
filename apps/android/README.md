@@ -1,6 +1,6 @@
-# Taru Android
+# Nako Android
 
-This is the Taru Android client app. It is intentionally kept outside the Rust
+This is the Nako Android client app. It is intentionally kept outside the Rust
 Cargo workspace.
 
 ## Scope
@@ -52,10 +52,10 @@ Cargo workspace.
 
 The app uses three separate Rust/UniFFI artifacts:
 
-1. host `taru-client-uniffi` shared library for JVM tests and binding
+1. host `nako-client-uniffi` shared library for JVM tests and binding
    generation;
 2. generated Kotlin bindings under `app/build/generated/source/uniffi/`;
-3. Android ABI `libtaru_client_uniffi.so` libraries under
+3. Android ABI `libnako_client_uniffi.so` libraries under
    `app/build/generated/jniLibs/<variant>/`.
 
 JVM unit tests depend only on the host library and generated Kotlin bindings.
@@ -66,8 +66,8 @@ By default Android packaging builds all supported ABIs. For focused local
 iteration, pass a comma-separated ABI set:
 
 ```powershell
-.\gradlew.bat :app:assembleDebug -PtaruRustAndroidAbis=x86_64
-.\gradlew.bat :app:assembleDebug -PtaruRustAndroidAbis=arm64-v8a,x86_64
+.\gradlew.bat :app:assembleDebug -PnakoRustAndroidAbis=x86_64
+.\gradlew.bat :app:assembleDebug -PnakoRustAndroidAbis=arm64-v8a,x86_64
 ```
 
 Supported ABI names are `arm64-v8a`, `armeabi-v7a`, `x86`, and `x86_64`.
@@ -117,7 +117,7 @@ load on a connected device or emulator:
 The script is opt-in. It builds `:app:assembleDebug` and
 `:app:assembleDebugAndroidTest` for the selected ABI, verifies the connected
 device reports that ABI, installs both APKs, and runs
-`dev.taru.android.uniffi.TaruUniFfiNativeSmokeTest`. Ordinary JVM validation and
+`dev.nako.android.uniffi.NakoUniFfiNativeSmokeTest`. Ordinary JVM validation and
 debug APK assembly do not require a connected device.
 
 ## Commands
@@ -145,7 +145,7 @@ The Android launcher icons are generated platform resources under
 `app/src/main/res/mipmap-*` and are referenced from `app/src/main/AndroidManifest.xml`.
 
 The canonical product icon source asset lives at
-[`../../assets/brand/taru-app-icon-1024.png`](../../assets/brand/taru-app-icon-1024.png).
+[`../../assets/brand/nako-app-icon-1024.png`](../../assets/brand/nako-app-icon-1024.png).
 Regenerate the Android launcher resources from that source asset when the product
 icon changes.
 
@@ -183,7 +183,7 @@ build:
 ```
 
 The script builds `:app:assembleDebug` by default, installs the debug APK to a
-connected emulator, launches `dev.taru.android/.MainActivity`, and writes
+connected emulator, launches `dev.nako.android/.MainActivity`, and writes
 evidence under `apps/android/build/smoke/<timestamp>-<state>-<serial>/`.
 Surface checks write named screenshots, UI hierarchy dumps, and criteria files
 such as `setup.png`, `home.png`, `settings.png`, and
@@ -194,7 +194,7 @@ If multiple devices are attached, pass `-Serial`. If no devices are attached,
 start an emulator first and re-run the command.
 
 Use `-ResetAppData` for a deterministic empty setup state. It clears
-`dev.taru.android` app data after installing the debug APK, which removes
+`dev.nako.android` app data after installing the debug APK, which removes
 stored server profiles and encrypted access tokens before launch.
 
 Use `-FixtureState profile-missing-token` when you need repeatable Home,
@@ -258,7 +258,7 @@ API media responses outside the full emulator smoke flow:
 ```
 
 The script prepares a generated local Movies library with `Night Harbor`, runs
-`taru-server scan` and `import-nfo`, and starts a loopback server at
+`nako-server scan` and `import-nfo`, and starts a loopback server at
 `http://127.0.0.1:3018` unless `-PrepareOnly` is passed. Generated fixture data
 is written under `apps/android/build/demo-fixtures/server-backed/` and should
 not be committed.

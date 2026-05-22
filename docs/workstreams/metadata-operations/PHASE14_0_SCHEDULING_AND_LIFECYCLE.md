@@ -46,7 +46,7 @@ configured backoff and current process-local open-until state.
 - Raw cleanup is single-process.
 - Provider backoff is in-memory.
 
-These limits are acceptable until Taru supports multi-instance server
+These limits are acceptable until Nako supports multi-instance server
 deployments.
 
 ## Validation

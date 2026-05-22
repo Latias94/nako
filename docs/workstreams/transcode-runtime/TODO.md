@@ -2,9 +2,9 @@
 
 ## M25.0 Design Baseline
 
-- [x] Audit `crates/taru-server/src/app/playback.rs` and list the target module
+- [x] Audit `crates/nako-server/src/app/playback.rs` and list the target module
       split.
-- [x] Audit `crates/taru-transcode/src/lib.rs` and identify command planning,
+- [x] Audit `crates/nako-transcode/src/lib.rs` and identify command planning,
       runner, hardware, and session-manager seams.
 - [x] Define stable playback session lifecycle states and client-visible error
       categories.

@@ -68,7 +68,7 @@ instead of hard-coding server implementation details. Assertions should prefer
 product copy that already describes local-only behavior:
 
 - `Resume on this device`
-- `A device-local position exists for the selected source. Taru still checks the source before playback.`
+- `A device-local position exists for the selected source. Nako still checks the source before playback.`
 - `Start resume`
 
 The same surface must not use **User Playback State** or Continue Watching
@@ -98,7 +98,7 @@ picker plus player evidence.
 Final evidence:
 
 - Focused debug fixture test:
-  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.smoke.DebugSmokeFixtureSeedActivityTest --no-daemon`
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.smoke.DebugSmokeFixtureSeedActivityTest --no-daemon`
 - Focused smoke report:
   `apps/android/build/smoke/20260519-102517-profile-with-media-emulator-5554/report.md`
 - Regression smoke report:

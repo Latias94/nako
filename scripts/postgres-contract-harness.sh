@@ -2,7 +2,7 @@
 set -euo pipefail
 
 suite="managed-artwork"
-database_url="${TARU_TEST_POSTGRES_URL:-}"
+database_url="${NAKO_TEST_POSTGRES_URL:-}"
 port="55432"
 keep_data="false"
 require_tooling="false"
@@ -11,7 +11,7 @@ usage() {
   cat <<'USAGE'
 Usage: scripts/postgres-contract-harness.sh [--suite managed-artwork|all-contracts] [--database-url URL] [--port PORT] [--keep-data] [--require-tooling]
 
-Runs Taru's ignored PostgreSQL contract tests. If a database URL is supplied,
+Runs Nako's ignored PostgreSQL contract tests. If a database URL is supplied,
 the harness uses it directly. Without a URL, it starts a temporary local
 PostgreSQL cluster under target/postgres-contract when initdb/pg_ctl/createdb
 are available; otherwise it prints a clear skip and exits successfully unless
@@ -69,8 +69,8 @@ cd "$repo_root"
 harness_root="target/postgres-contract"
 data_dir="$harness_root/data"
 log_path="$harness_root/postgres.log"
-database_name="taru_contract"
-user_name="taru"
+database_name="nako_contract"
+user_name="nako"
 started_local_server="false"
 
 step() {
@@ -116,7 +116,7 @@ if [[ -z "$database_url" ]]; then
   done
 
   if [[ "${#missing_tools[@]}" -gt 0 ]]; then
-    message="Skipping PostgreSQL contract harness because TARU_TEST_POSTGRES_URL was not provided and local PostgreSQL tooling is missing: ${missing_tools[*]}."
+    message="Skipping PostgreSQL contract harness because NAKO_TEST_POSTGRES_URL was not provided and local PostgreSQL tooling is missing: ${missing_tools[*]}."
     if [[ "$require_tooling" == "true" ]]; then
       echo "$message" >&2
       exit 1
@@ -138,5 +138,5 @@ else
   echo "Using caller-provided PostgreSQL database URL."
 fi
 
-export TARU_TEST_POSTGRES_URL="$database_url"
-step cargo nextest run -p taru-db "$test_filter" --run-ignored ignored-only --no-fail-fast
+export NAKO_TEST_POSTGRES_URL="$database_url"
+step cargo nextest run -p nako-db "$test_filter" --run-ignored ignored-only --no-fail-fast

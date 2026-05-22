@@ -26,9 +26,9 @@ git diff --check
 ### Publication Gate
 
 ```powershell
-cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests
-cargo nextest run -p taru-db artwork --no-fail-fast
-cargo nextest run -p taru-server artwork --no-fail-fast
+cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests
+cargo nextest run -p nako-db artwork --no-fail-fast
+cargo nextest run -p nako-server artwork --no-fail-fast
 cargo fmt --all -- --check
 git diff --check
 ```
@@ -36,9 +36,9 @@ git diff --check
 ### Public Serving Gate
 
 ```powershell
-cargo nextest run -p taru-server image --no-fail-fast
-cargo nextest run -p taru-api image --no-fail-fast
-cargo check -p taru-core -p taru-db -p taru-api -p taru-client-protocol -p taru-server --tests
+cargo nextest run -p nako-server image --no-fail-fast
+cargo nextest run -p nako-api image --no-fail-fast
+cargo check -p nako-core -p nako-db -p nako-api -p nako-client-protocol -p nako-server --tests
 cargo fmt --all -- --check
 git diff --check
 ```
@@ -48,10 +48,10 @@ Adjust focused filters after MAPS-020 freezes concrete type and route names.
 ### Closeout Gate
 
 ```powershell
-rg -n "source_uri|cache_uri|storage_uri|ImageAssetDto|ImageRefDto|selected" crates/taru-api crates/taru-client-protocol crates/taru-server/src/http docs/api
-cargo check -p taru-core -p taru-db -p taru-api -p taru-client-protocol -p taru-server --tests
-cargo nextest run -p taru-server image --no-fail-fast
-cargo nextest run -p taru-api image --no-fail-fast
+rg -n "source_uri|cache_uri|storage_uri|ImageAssetDto|ImageRefDto|selected" crates/nako-api crates/nako-client-protocol crates/nako-server/src/http docs/api
+cargo check -p nako-core -p nako-db -p nako-api -p nako-client-protocol -p nako-server --tests
+cargo nextest run -p nako-server image --no-fail-fast
+cargo nextest run -p nako-api image --no-fail-fast
 cargo fmt --all -- --check
 git diff --check
 ```
@@ -64,19 +64,19 @@ work; unresolved Public Client leaks block completion.
 - `docs/workstreams/managed-artwork-public-serving-selection/DESIGN.md`
 - `docs/workstreams/managed-artwork-public-serving-selection/TODO.md`
 - `docs/workstreams/managed-artwork-fetch-artifact-storage/HANDOFF.md`
-- `crates/taru-core/src/media/artwork.rs`
-- `crates/taru-core/src/media/catalog.rs`
-- `crates/taru-core/src/repository/catalog.rs`
-- `crates/taru-core/src/repository/metadata.rs`
-- `crates/taru-db/migrations/0026_managed_artwork_ingest.sql`
-- `crates/taru-db/src/artwork.rs`
-- `crates/taru-db/src/catalog.rs`
-- `crates/taru-api/src/public_client.rs`
-- `crates/taru-api/src/openapi.rs`
-- `crates/taru-client-protocol/src/catalog.rs`
-- `crates/taru-server/src/app/artwork.rs`
-- `crates/taru-server/src/app/catalog.rs`
-- `crates/taru-server/src/http/catalog.rs`
+- `crates/nako-core/src/media/artwork.rs`
+- `crates/nako-core/src/media/catalog.rs`
+- `crates/nako-core/src/repository/catalog.rs`
+- `crates/nako-core/src/repository/metadata.rs`
+- `crates/nako-db/migrations/0026_managed_artwork_ingest.sql`
+- `crates/nako-db/src/artwork.rs`
+- `crates/nako-db/src/catalog.rs`
+- `crates/nako-api/src/public_client.rs`
+- `crates/nako-api/src/openapi.rs`
+- `crates/nako-client-protocol/src/catalog.rs`
+- `crates/nako-server/src/app/artwork.rs`
+- `crates/nako-server/src/app/catalog.rs`
+- `crates/nako-server/src/http/catalog.rs`
 
 ## Fresh Evidence
 
@@ -85,17 +85,17 @@ work; unresolved Public Client leaks block completion.
 - Workstream opened from MAFA-050 closeout as the follow-on for public image
   references and Selected Artwork publication.
 - Current audit findings:
-  - `crates/taru-client-protocol/src/catalog.rs` exposes `ImageAssetDto` with
+  - `crates/nako-client-protocol/src/catalog.rs` exposes `ImageAssetDto` with
     `source_uri`, `cache_uri`, and `selected`.
-  - `crates/taru-client-protocol/src/catalog.rs` exposes `ImageRefDto.uri`
+  - `crates/nako-client-protocol/src/catalog.rs` exposes `ImageRefDto.uri`
     inside `CanonicalMetadataDto.images`.
-  - `crates/taru-api/src/public_client.rs::image_asset_to_dto` copies
+  - `crates/nako-api/src/public_client.rs::image_asset_to_dto` copies
     `source_uri` and `cache_uri` into the Public Client DTO.
-  - `crates/taru-api/src/openapi.rs` documents those fields in
+  - `crates/nako-api/src/openapi.rs` documents those fields in
     `ImageAssetDto`.
-  - `crates/taru-server/src/app/catalog.rs::list_item_images` still returns
+  - `crates/nako-server/src/app/catalog.rs::list_item_images` still returns
     public image responses from catalog `ImageAsset` rows.
-  - `crates/taru-db/migrations/0026_managed_artwork_ingest.sql` already stores
+  - `crates/nako-db/migrations/0026_managed_artwork_ingest.sql` already stores
     Managed Artwork Artifact metadata, but it has no Selected Artwork
     publication table.
 - Scope decision:
@@ -118,20 +118,20 @@ work; unresolved Public Client leaks block completion.
 2026-05-19, MAPS-020 public contract and selection model freeze:
 
 - Audited current code and docs before implementation:
-  - `crates/taru-core/src/id.rs` has `ManagedArtworkArtifactId` and
+  - `crates/nako-core/src/id.rs` has `ManagedArtworkArtifactId` and
     `ImageAssetId`, but no `SelectedArtworkId` yet.
-  - `crates/taru-db/src/migrations.rs` currently stops at migration 0026, so
+  - `crates/nako-db/src/migrations.rs` currently stops at migration 0026, so
     the first Selected Artwork migration will be
     `0027_selected_artwork_publication.sql`.
-  - `crates/taru-client-protocol/src/lib.rs` owns the Public Client route
+  - `crates/nako-client-protocol/src/lib.rs` owns the Public Client route
     inventory; `/items/{item_id}/images` is currently JSON and no
     `/images/{image_id}` binary route exists.
-  - `crates/taru-db/src/catalog.rs::list_item_images` still reads
+  - `crates/nako-db/src/catalog.rs::list_item_images` still reads
     `image_assets` rows ordered by `selected`, which is not the future public
     selection authority.
-  - `crates/taru-server/src/app/artwork.rs` has write/delete helpers for local
+  - `crates/nako-server/src/app/artwork.rs` has write/delete helpers for local
     Managed Artwork Artifact storage, but no read/stream helper yet.
-  - `crates/taru-server/src/http/admin.rs` currently exposes candidate accept
+  - `crates/nako-server/src/http/admin.rs` currently exposes candidate accept
     and ingest process-next routes, but no artifact publish route yet.
 - Frozen contract:
   - public image ID authority is `selected_artworks.id`, represented as
@@ -167,7 +167,7 @@ work; unresolved Public Client leaks block completion.
 
 2026-05-19, MAPS-030 Selected Artwork publication:
 
-- Added `SelectedArtworkId` to `taru-core`.
+- Added `SelectedArtworkId` to `nako-core`.
 - Added `SelectedArtworkRecord` and `SelectedArtworkPublicationRecord`.
 - Added `ManagedArtworkRepository` methods:
   `publish_selected_artwork`, `get_selected_artwork`, and
@@ -197,16 +197,16 @@ work; unresolved Public Client leaks block completion.
     source URL, `source_uri`, `cache_uri`, local artifact path, raw token, and
     provider query string material.
 - Validation:
-  - `cargo nextest run -p taru-api selected_artwork_publication_response_redacts_storage_uri --no-fail-fast`
+  - `cargo nextest run -p nako-api selected_artwork_publication_response_redacts_storage_uri --no-fail-fast`
     passed.
-  - `cargo nextest run -p taru-db sqlite_store_publishes_stored_managed_artifact_as_selected_artwork_idempotently --no-fail-fast`
+  - `cargo nextest run -p nako-db sqlite_store_publishes_stored_managed_artifact_as_selected_artwork_idempotently --no-fail-fast`
     passed.
-  - `cargo nextest run -p taru-server admin_publish_managed_artwork_artifact_creates_selected_artwork_without_locator_leaks --no-fail-fast`
+  - `cargo nextest run -p nako-server admin_publish_managed_artwork_artifact_creates_selected_artwork_without_locator_leaks --no-fail-fast`
     passed.
-  - `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests`
+  - `cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests`
     passed.
-  - `cargo nextest run -p taru-db artwork --no-fail-fast` passed: 4 tests.
-  - `cargo nextest run -p taru-server artwork --no-fail-fast` passed: 7 tests.
+  - `cargo nextest run -p nako-db artwork --no-fail-fast` passed: 4 tests.
+  - `cargo nextest run -p nako-server artwork --no-fail-fast` passed: 7 tests.
   - `cargo fmt --all -- --check` passed.
   - `git diff --check` passed with only Git CRLF normalization warnings for
     edited files.
@@ -218,7 +218,7 @@ work; unresolved Public Client leaks block completion.
   - `ImagesResponse.images` now serializes `Vec<PublicImageRefDto>`;
   - `CanonicalMetadataDto` no longer serializes provider image URI records.
 - Removed public `ImageAssetDto` and `ImageRefDto` from
-  `taru-client-protocol` and the Public OpenAPI schemas. Legacy `ImageAsset`
+  `nako-client-protocol` and the Public OpenAPI schemas. Legacy `ImageAsset`
   remains internal/provenance only.
 - Added Public Client route inventory and OpenAPI operations for:
   - `GET /images/{image_id}`;
@@ -241,17 +241,17 @@ work; unresolved Public Client leaks block completion.
   - OpenAPI image contract tests prove `ImageAssetDto`, `ImageRefDto`, and
     `CanonicalMetadataDto.images` are absent from the Public Client contract.
 - Validation:
-  - `cargo nextest run -p taru-api image --no-fail-fast` passed.
-  - `cargo nextest run -p taru-server image --no-fail-fast` passed.
-  - `cargo check -p taru-core -p taru-db -p taru-api -p taru-client-protocol -p taru-client -p taru-server --tests` passed.
-  - `cargo nextest run -p taru-client streaming_request_builders_use_stable_paths_methods_headers_and_queries sdk_inventory_uses_shared_protocol_routes_and_exposure --no-fail-fast` passed.
-  - `cargo nextest run -p taru-client-protocol public_route_inventory_is_protocol_owned_and_complete public_browse_dtos_use_wire_ids_and_client_enums --no-fail-fast` passed.
-  - `cargo nextest run -p taru-api sdk --no-fail-fast` passed.
+  - `cargo nextest run -p nako-api image --no-fail-fast` passed.
+  - `cargo nextest run -p nako-server image --no-fail-fast` passed.
+  - `cargo check -p nako-core -p nako-db -p nako-api -p nako-client-protocol -p nako-client -p nako-server --tests` passed.
+  - `cargo nextest run -p nako-client streaming_request_builders_use_stable_paths_methods_headers_and_queries sdk_inventory_uses_shared_protocol_routes_and_exposure --no-fail-fast` passed.
+  - `cargo nextest run -p nako-client-protocol public_route_inventory_is_protocol_owned_and_complete public_browse_dtos_use_wire_ids_and_client_enums --no-fail-fast` passed.
+  - `cargo nextest run -p nako-api sdk --no-fail-fast` passed.
   - `npm run check --prefix sdk/typescript` passed.
   - `cargo fmt --all -- --check` passed.
   - `git diff --check` passed with only Git CRLF normalization warnings for
     edited files.
-  - `rg -n "ImageAssetDto|ImageRefDto|source_uri|cache_uri|storage_uri|managed-artwork://|CanonicalMetadataDto.*images" crates/taru-client-protocol/src crates/taru-api/src/openapi.rs crates/taru-api/src/public_client.rs crates/taru-api/src/sdk.rs sdk/typescript/src/index.ts crates/taru-server/src/http/catalog.rs crates/taru-server/src/app/catalog.rs docs/api/HTTP_API.md`
+  - `rg -n "ImageAssetDto|ImageRefDto|source_uri|cache_uri|storage_uri|managed-artwork://|CanonicalMetadataDto.*images" crates/nako-client-protocol/src crates/nako-api/src/openapi.rs crates/nako-api/src/public_client.rs crates/nako-api/src/sdk.rs sdk/typescript/src/index.ts crates/nako-server/src/http/catalog.rs crates/nako-server/src/app/catalog.rs docs/api/HTTP_API.md`
     showed no old Public Client image DTOs in protocol/OpenAPI/SDK output.
     Remaining sensitive-term hits are redaction assertions, internal server
     storage resolution, or HTTP/API text that states the values are forbidden
@@ -262,20 +262,20 @@ work; unresolved Public Client leaks block completion.
 - Closeout audit:
   - target state is met: stored Managed Artwork Artifacts can be published as
     Selected Artwork, Public Client image references are first-party and
-    redacted, and selected image bytes are served through Taru-owned routes;
+    redacted, and selected image bytes are served through Nako-owned routes;
   - `ImageAsset` remains internal/provenance only;
   - thumbnails, durable retry/requeue, cancellation, orphan cleanup, and
     gallery/candidate management are split as follow-ons.
 - Fresh gate evidence:
-  - `rg -n "source_uri|cache_uri|storage_uri|ImageAssetDto|ImageRefDto|selected" crates/taru-api crates/taru-client-protocol crates/taru-server/src/http docs/api`
+  - `rg -n "source_uri|cache_uri|storage_uri|ImageAssetDto|ImageRefDto|selected" crates/nako-api crates/nako-client-protocol crates/nako-server/src/http docs/api`
     passed as an inventory. Remaining hits are Admin/internal tests, redaction
     assertions, HTTP/API prohibitions, non-artwork playback wording, or
     `PublicImageRefDto` selected-artwork references; no old Public Client raw
     image DTO remains in protocol/OpenAPI.
-  - `cargo check -p taru-core -p taru-db -p taru-api -p taru-client-protocol -p taru-client -p taru-server --tests`
+  - `cargo check -p nako-core -p nako-db -p nako-api -p nako-client-protocol -p nako-client -p nako-server --tests`
     passed.
-  - `cargo nextest run -p taru-server image --no-fail-fast` passed.
-  - `cargo nextest run -p taru-api image --no-fail-fast` passed.
+  - `cargo nextest run -p nako-server image --no-fail-fast` passed.
+  - `cargo nextest run -p nako-api image --no-fail-fast` passed.
   - `cargo fmt --all -- --check` passed.
   - `git diff --check` passed.
   - `npm run check --prefix sdk/typescript` passed.

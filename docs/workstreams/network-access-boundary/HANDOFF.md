@@ -25,7 +25,7 @@ tunnel-provider declarations, config-check validation for reverse-proxy,
 private-network, and tunnel-provider modes, trusted proxy source requirements,
 browser origin validation, tunnel token environment checks, deployment docs,
 and example config updates. It did not start a tunnel runtime or change Public
-Client API / `taru-client-protocol`.
+Client API / `nako-client-protocol`.
 
 NAB-030 is complete. It added a server HTTP network boundary that preserves
 bearer-auth precedence on protected routes, rejects authenticated disallowed
@@ -35,7 +35,7 @@ and trusts `X-Forwarded-Host` / `X-Forwarded-Proto` only when forwarded headers
 are enabled and the request remote address matches configured trusted proxy
 sources by exact IP or CIDR. It also wires real `ConnectInfo<SocketAddr>` into
 the served router. It did not add a built-in NAT traversal runtime or change
-Public Client API / `taru-client-protocol`.
+Public Client API / `nako-client-protocol`.
 
 NAB-040 is complete. It added Admin-only network readiness diagnostics to
 `/admin/v1/system/config`, including exposure mode, readiness checks, external
@@ -69,7 +69,7 @@ hidden in the network lane.
   modes with explicit safety checks.
 - Keep inbound Admin bearer auth separate from Addon/Webhook/provider/storage
   outbound secrets.
-- Admin diagnostics are allowed; Public Client API and `taru-client-protocol`
+- Admin diagnostics are allowed; Public Client API and `nako-client-protocol`
   changes are not part of the first slice.
 - Network exposure config stores policy and readiness declarations only. It
   does not start cloudflared/ngrok/Tailscale, open relay sockets, or own NAT
@@ -81,7 +81,7 @@ hidden in the network lane.
 - Origin enforcement must preserve auth order so missing/invalid bearer tokens
   remain `401` before origin rejection on protected routes.
 - Admin readiness diagnostics belong to the Admin boundary. Public Client API
-  and `taru-client-protocol` remain untouched until a dedicated remote-client
+  and `nako-client-protocol` remain untouched until a dedicated remote-client
   endpoint discovery lane exists.
 - Tunnel provider config/readiness is declarative only. Starting cloudflared,
   ngrok, Tailscale Funnel, relay services, or NAT traversal is a follow-on lane.

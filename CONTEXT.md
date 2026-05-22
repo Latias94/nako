@@ -1,29 +1,29 @@
-# Taru Context
+# Nako Context
 
-Taru is a self-hosted media server backend. This glossary defines the project
+Nako is a self-hosted media server backend. This glossary defines the project
 language used when discussing media libraries, extension surfaces, automation,
 and playback boundaries.
 
 ## Language
 
 **Addon**:
-A user-enabled extension that adds Taru capabilities outside the core server trust boundary while providing a Jellyfin-like extensibility experience.
+A user-enabled extension that adds Nako capabilities outside the core server trust boundary while providing a Jellyfin-like extensibility experience.
 _Avoid_: Plugin, Jellyfin plugin compatibility
 
 **Addon Protocol**:
-The compatibility contract an **Addon** follows so Taru can discover and call its capabilities.
+The compatibility contract an **Addon** follows so Nako can discover and call its capabilities.
 _Avoid_: Plugin ABI, native plugin contract
 
 **Addon Protocol Version**:
 A declared compatibility version of the **Addon Protocol**.
-_Avoid_: Taru server version
+_Avoid_: Nako server version
 
 **Addon Sidecar**:
 An independently running process or service that implements the **Addon Protocol**.
 _Avoid_: In-process plugin
 
 **Addon Token**:
-A scoped credential that lets an **Addon Sidecar** call Taru APIs for granted capabilities.
+A scoped credential that lets an **Addon Sidecar** call Nako APIs for granted capabilities.
 _Avoid_: Server admin token, database credential
 
 **Addon Token Rotation**:
@@ -31,19 +31,19 @@ The act of replacing an **Addon Token** without changing the addon registration 
 _Avoid_: OAuth flow
 
 **Addon Event Subscription**:
-A manifest-declared interest in Taru domain events that Taru delivers to an **Addon Sidecar**.
+A manifest-declared interest in Nako domain events that Nako delivers to an **Addon Sidecar**.
 _Avoid_: Database polling, hidden scheduler
 
 **Addon Task**:
-A Taru-tracked job whose execution logic is provided by an **Addon Sidecar**.
+A Nako-tracked job whose execution logic is provided by an **Addon Sidecar**.
 _Avoid_: Hidden addon background job
 
 **Addon External Fetch**:
 Network or storage access an **Addon Sidecar** performs for its own execution.
-_Avoid_: Taru-managed download
+_Avoid_: Nako-managed download
 
-**Taru-Managed Artifact**:
-Downloaded or generated content that Taru stores, indexes, serves, or treats as part of a library or playback experience.
+**Nako-Managed Artifact**:
+Downloaded or generated content that Nako stores, indexes, serves, or treats as part of a library or playback experience.
 _Avoid_: Addon private cache
 
 **Library File Write**:
@@ -51,23 +51,23 @@ A change to files stored in a media library, such as subtitles, NFO files, artwo
 _Avoid_: Direct addon path write
 
 **Addon Manager**:
-Future Taru functionality for discovering, installing, updating, starting, or removing addons.
+Future Nako functionality for discovering, installing, updating, starting, or removing addons.
 _Avoid_: Addon Protocol
 
 **Addon Install Guide**:
-Instructions or generated deployment snippets that help a user run an **Addon Sidecar** outside Taru.
-_Avoid_: Taru-managed container lifecycle
+Instructions or generated deployment snippets that help a user run an **Addon Sidecar** outside Nako.
+_Avoid_: Nako-managed container lifecycle
 
 **Addon Health Check**:
-Taru's check that an **Addon Sidecar** is reachable and still matches its registered manifest contract.
+Nako's check that an **Addon Sidecar** is reachable and still matches its registered manifest contract.
 _Avoid_: Process supervision
 
 **Addon Resource**:
-A declared capability of an **Addon** that Taru may call after the user grants the required access.
+A declared capability of an **Addon** that Nako may call after the user grants the required access.
 _Avoid_: Plugin hook, arbitrary callback
 
 **Addon Entry Point**:
-A manifest-declared place where Taru surfaces an **Addon** action or view to a user.
+A manifest-declared place where Nako surfaces an **Addon** action or view to a user.
 _Avoid_: Embedded frontend plugin
 
 **Addon Hosted Page**:
@@ -75,11 +75,11 @@ An external page served by an **Addon Sidecar** for advanced settings or diagnos
 _Avoid_: Embedded trusted admin UI
 
 **Addon Configuration Schema**:
-A manifest-declared shape for settings Taru stores and presents for an **Addon**.
+A manifest-declared shape for settings Nako stores and presents for an **Addon**.
 _Avoid_: Addon-owned settings UI state
 
 **Secret Reference**:
-A stored reference to a secret value resolved by Taru at runtime.
+A stored reference to a secret value resolved by Nako at runtime.
 _Avoid_: Plaintext secret
 
 **Media Library**:
@@ -91,7 +91,7 @@ A broad processing capability class for media, such as video, audio, image, docu
 _Avoid_: Library type
 
 **Media Server Scope**:
-Taru's long-term product scope as a self-hosted server for video, audio, image, document, mixed, and online media.
+Nako's long-term product scope as a self-hosted server for video, audio, image, document, mixed, and online media.
 _Avoid_: Video-only product
 
 **Video-First Phase**:
@@ -107,7 +107,7 @@ One discoverable playable file or remote object within a **Media Library**.
 _Avoid_: Movie, episode, item
 
 **Source Locator**:
-The library-scoped address Taru uses to find a **Media Source**.
+The library-scoped address Nako uses to find a **Media Source**.
 _Avoid_: Global path identity
 
 **Source Fingerprint**:
@@ -179,7 +179,7 @@ The exceptional process of splitting, merging, or reparenting items when local i
 _Avoid_: Normal provider refresh
 
 **Unknown Media Item**:
-A media item Taru discovered but cannot confidently classify yet.
+A media item Nako discovered but cannot confidently classify yet.
 _Avoid_: Guessed movie or episode
 
 **Genre**:
@@ -203,7 +203,7 @@ A collection that groups related movies, series, specials, or extras across one 
 _Avoid_: Forced season hierarchy
 
 **Canonical Metadata**:
-The authoritative metadata Taru uses for browsing, search, playback presentation, and exports.
+The authoritative metadata Nako uses for browsing, search, playback presentation, and exports.
 _Avoid_: Provider payload, suggestion
 
 **Media Technical Facts**:
@@ -251,19 +251,19 @@ A supported ordering option exposed to client applications.
 _Avoid_: Implementation detail
 
 **Metadata Source Priority**:
-The ordered preference Taru uses when multiple metadata sources can fill the same field.
+The ordered preference Nako uses when multiple metadata sources can fill the same field.
 _Avoid_: Field-level permission
 
 **NFO Import**:
-Reading local NFO metadata into Taru's metadata pipeline.
+Reading local NFO metadata into Nako's metadata pipeline.
 _Avoid_: NFO sync
 
 **NFO Export**:
-Writing Taru metadata back to NFO sidecar files for a media library.
+Writing Nako metadata back to NFO sidecar files for a media library.
 _Avoid_: Unconditional NFO overwrite
 
 **NFO Round Trip**:
-Preserving existing NFO content that Taru does not own while importing or exporting known metadata.
+Preserving existing NFO content that Nako does not own while importing or exporting known metadata.
 _Avoid_: Destructive NFO rewrite
 
 **Artwork Source**:
@@ -271,7 +271,7 @@ The original provider, file, or addon reference from which artwork was discovere
 _Avoid_: Canonical artwork file
 
 **Managed Artwork**:
-Artwork stored or cached by Taru for stable browsing and client presentation.
+Artwork stored or cached by Nako for stable browsing and client presentation.
 _Avoid_: Remote provider URL
 
 **Artwork Candidate**:
@@ -311,15 +311,15 @@ A future rule set for choosing transcode behavior by client, media, quality, or 
 _Avoid_: Hardware acceleration policy
 
 **Remote Access Endpoint**:
-A configured public or private URL through which clients or integrations reach Taru.
+A configured public or private URL through which clients or integrations reach Nako.
 _Avoid_: Built-in NAT traversal
 
 **Network Tunnel Provider**:
-An external system that exposes Taru across networks.
-_Avoid_: Taru relay
+An external system that exposes Nako across networks.
+_Avoid_: Nako relay
 
 **User**:
-A person or service identity that can access Taru.
+A person or service identity that can access Nako.
 _Avoid_: Global admin
 
 **Role**:
@@ -331,11 +331,11 @@ A user's allowed access to one or more **Media Libraries**.
 _Avoid_: Global library visibility
 
 **Single-Admin Mode**:
-The first implementation mode where one administrator identity controls Taru.
+The first implementation mode where one administrator identity controls Nako.
 _Avoid_: Permanent single-user model
 
 **Client Application**:
-Any user-facing application that consumes Taru APIs for browsing, playback, or library interaction.
+Any user-facing application that consumes Nako APIs for browsing, playback, or library interaction.
 _Avoid_: Flutter client
 
 **Public Client API**:
@@ -347,11 +347,11 @@ An API surface for server administration, diagnostics, configuration, and operat
 _Avoid_: Public client contract
 
 **Generated Artifact**:
-Output produced by an **Automation Provider** or **Addon** that Taru can inspect, store, accept, reject, or apply.
+Output produced by an **Automation Provider** or **Addon** that Nako can inspect, store, accept, reject, or apply.
 _Avoid_: Direct AI mutation
 
 **Acceptance Workflow**:
-The Taru-owned process that turns a **Generated Artifact** into canonical state.
+The Nako-owned process that turns a **Generated Artifact** into canonical state.
 _Avoid_: Implicit AI write
 
 **Addon Permission**:
@@ -363,7 +363,7 @@ An **Addon Permission** limited to one or more media libraries.
 _Avoid_: Global-only plugin permission
 
 **Addon Side Effect**:
-A protected change an **Addon** performs through Taru-owned APIs after receiving an **Addon Permission**.
+A protected change an **Addon** performs through Nako-owned APIs after receiving an **Addon Permission**.
 _Avoid_: Unmediated mutation, direct database write
 
 **Metadata Scrape**:
@@ -375,11 +375,11 @@ A user- or policy-initiated **Metadata Scrape** over a library, collection, or s
 _Avoid_: Unbounded background scrape
 
 **Playback Resource Suggestion**:
-A play-related URL, subtitle, image, or similar resource proposed by an **Addon** for Taru to evaluate.
+A play-related URL, subtitle, image, or similar resource proposed by an **Addon** for Nako to evaluate.
 _Avoid_: Custom playback runtime, FFmpeg override
 
 **Playback Runtime**:
-Taru's owned boundary for playback sessions, streaming decisions, remuxing, transcoding, budgets, and playback errors.
+Nako's owned boundary for playback sessions, streaming decisions, remuxing, transcoding, budgets, and playback errors.
 _Avoid_: Addon player, stream plugin
 
 **Jellyfin Plugin Compatibility**:
@@ -387,7 +387,7 @@ Compatibility with Jellyfin's plugin API or internal server object model.
 _Avoid_: Addon Protocol
 
 **Native Plugin**:
-Extension code loaded into the Taru server process.
+Extension code loaded into the Nako server process.
 _Avoid_: Addon
 
 **Automation Provider**:
@@ -395,7 +395,7 @@ An external provider that produces generated suggestions or artifacts for later 
 _Avoid_: AI plugin, direct metadata writer
 
 **Webhook Endpoint**:
-A user-configured receiver for Taru event notifications.
+A user-configured receiver for Nako event notifications.
 _Avoid_: Addon callback
 
 ## Relationships
@@ -403,7 +403,7 @@ _Avoid_: Addon callback
 - An **Addon** conforms to exactly one **Addon Protocol** version.
 - An **Addon Protocol Version** changes only when the compatibility contract changes.
 - An **Addon** runs as an **Addon Sidecar** in the first implementation phase.
-- An **Addon Sidecar** may call Taru APIs with an **Addon Token**.
+- An **Addon Sidecar** may call Nako APIs with an **Addon Token**.
 - An **Addon** declares one or more **Addon Resources**.
 - An **Addon** may declare **Addon Entry Points** for settings, tasks, item actions, admin actions, or diagnostics.
 - An **Addon Entry Point** may link to an **Addon Hosted Page** for advanced workflows.
@@ -412,28 +412,28 @@ _Avoid_: Addon callback
 - An **Addon** may provide the execution logic for an **Addon Task**.
 - An **Addon** declares coarse **Addon Permissions** before installation or enablement.
 - An **Addon Permission** may be granted globally or narrowed by a **Library-Scoped Addon Grant**.
-- An **Addon Side Effect** must pass through Taru-owned APIs, permissions, audit, and resource boundaries.
+- An **Addon Side Effect** must pass through Nako-owned APIs, permissions, audit, and resource boundaries.
 - An **Addon Token** carries only the **Addon Permissions** and library grants accepted for that addon.
 - An **Addon Token** is long-lived in the first phase, but must be revocable and replaceable through **Addon Token Rotation**.
-- An **Addon Event Subscription** uses Taru-owned event delivery; event-triggered writes still use an **Addon Token**.
-- An **Addon Task** has a Taru-owned lifecycle, progress model, cancellation model, audit trail, and result boundary.
-- An **Addon External Fetch** may be performed by an **Addon Sidecar**, but a **Taru-Managed Artifact** must enter Taru through Taru APIs.
-- A **Library File Write** initiated by an **Addon** must go through Taru storage, NFO, artwork, or subtitle APIs.
-- Taru stores and presents settings declared by an **Addon Configuration Schema**.
-- An **Addon Hosted Page** is not trusted with Taru admin credentials.
+- An **Addon Event Subscription** uses Nako-owned event delivery; event-triggered writes still use an **Addon Token**.
+- An **Addon Task** has a Nako-owned lifecycle, progress model, cancellation model, audit trail, and result boundary.
+- An **Addon External Fetch** may be performed by an **Addon Sidecar**, but a **Nako-Managed Artifact** must enter Nako through Nako APIs.
+- A **Library File Write** initiated by an **Addon** must go through Nako storage, NFO, artwork, or subtitle APIs.
+- Nako stores and presents settings declared by an **Addon Configuration Schema**.
+- An **Addon Hosted Page** is not trusted with Nako admin credentials.
 - Sensitive **Addon Configuration Schema** fields store **Secret References**, not plaintext secret values.
 - An **Addon** may participate in **Metadata Scrape** and **Bulk Metadata Scrape** workflows.
 - An **Addon** may offer a Jellyfin-like extensibility experience without providing **Jellyfin Plugin Compatibility**.
 - A **Bulk Metadata Scrape** may write canonical metadata when the **Addon** has the required **Addon Permission**.
-- A **Playback Resource Suggestion** may influence playback options, but the **Playback Runtime** remains owned by Taru.
+- A **Playback Resource Suggestion** may influence playback options, but the **Playback Runtime** remains owned by Nako.
 - An **Automation Provider** may produce suggestions, but it does not directly rewrite canonical metadata.
-- A **Webhook Endpoint** receives event notifications from Taru; it is not an **Addon**.
+- A **Webhook Endpoint** receives event notifications from Nako; it is not an **Addon**.
 - A **Native Plugin** is intentionally distinct from an **Addon** and is not the current extension model.
 - An **Addon Manager** may automate addon installation and lifecycle later, but it is not required for the **Addon Protocol**.
 - The first **Addon Manager** should focus on registry, permissions, token rotation, **Addon Health Check**, and **Addon Install Guide** behavior.
 - The first **Addon Manager** should not directly manage container or process lifecycle.
 - A **Media Library** contains many **Media Sources**.
-- Taru's **Media Server Scope** is broader than the **Video-First Phase**.
+- Nako's **Media Server Scope** is broader than the **Video-First Phase**.
 - A **Media Library** has a **Media Domain** and may start from a **Library Preset**.
 - A **Library Preset** sets defaults for naming, providers, local metadata policy, refresh behavior, and presentation.
 - A **Library Preset** does not replace per-item **Media Item** kind or provider mapping.
@@ -462,7 +462,7 @@ _Avoid_: Addon callback
 - **Hierarchy Confirmation** should update existing provisional items in place when possible.
 - **Hierarchy Repair** is reserved for cases where the inferred hierarchy is structurally wrong.
 - **Local Inference** should create an **Unknown Media Item** when classification evidence is weak.
-- A **Provider Subject** is mapped to Taru through **Provider Mapping** rather than replacing **Media Item** identity.
+- A **Provider Subject** is mapped to Nako through **Provider Mapping** rather than replacing **Media Item** identity.
 - A **Media Item** may have many **Genres** and **Tags**.
 - A **Tag** is not a **Genre** and does not change **Media Item** kind.
 - An **Episode-Like Item** maps to an episode in the **Media Item Hierarchy**.
@@ -489,7 +489,7 @@ _Avoid_: Addon callback
 - **Hardware Acceleration Policy** is global in the first implementation phase.
 - **Transcode Profile** is a later feature, not the first hardware selection model.
 - A **Remote Access Endpoint** may be backed by a **Network Tunnel Provider** or reverse proxy.
-- Taru does not own **Network Tunnel Provider** behavior in the first implementation phase.
+- Nako does not own **Network Tunnel Provider** behavior in the first implementation phase.
 - **Single-Admin Mode** may be the first implementation mode, but it should not erase **User**, **Role**, or **Library Access** concepts.
 - A **Client Application** may be implemented with any client technology.
 - **Public Client API** should be versioned and more stable than **Admin API**.
@@ -498,29 +498,29 @@ _Avoid_: Addon callback
 
 ## Example Dialogue
 
-> **Dev:** "Should this Jellyfin-like plugin run inside Taru?"
-> **Domain expert:** "No. In Taru language that is an **Addon** if it uses the **Addon Protocol**. It should feel extensible like Jellyfin, but **Jellyfin Plugin Compatibility** is not the goal."
+> **Dev:** "Should this Jellyfin-like plugin run inside Nako?"
+> **Domain expert:** "No. In Nako language that is an **Addon** if it uses the **Addon Protocol**. It should feel extensible like Jellyfin, but **Jellyfin Plugin Compatibility** is not the goal."
 >
 > **Dev:** "Can an **Addon** affect playback?"
 > **Domain expert:** "Yes, by returning a **Playback Resource Suggestion**. The **Playback Runtime** still owns the session, budget, and error behavior."
 >
 > **Dev:** "Can an **Addon** scrape metadata for a whole library?"
-> **Domain expert:** "Yes. With the right **Addon Permission**, it can perform a **Bulk Metadata Scrape** and write canonical metadata through Taru's APIs."
+> **Domain expert:** "Yes. With the right **Addon Permission**, it can perform a **Bulk Metadata Scrape** and write canonical metadata through Nako's APIs."
 >
 > **Dev:** "Should a metadata **Addon** be able to write every library?"
 > **Domain expert:** "Only if it has a global grant. Prefer a **Library-Scoped Addon Grant** when the addon is meant for a specific library."
 >
 > **Dev:** "Can an **Addon** add UI actions?"
-> **Domain expert:** "Yes, by declaring **Addon Entry Points**. Taru surfaces those entry points without executing arbitrary frontend plugin code."
+> **Domain expert:** "Yes, by declaring **Addon Entry Points**. Nako surfaces those entry points without executing arbitrary frontend plugin code."
 >
-> **Dev:** "Does Taru install and launch addons itself?"
+> **Dev:** "Does Nako install and launch addons itself?"
 > **Domain expert:** "Not in the first phase. An **Addon** is an **Addon Sidecar** registered through the **Addon Protocol**; an **Addon Manager** can come later."
 >
-> **Dev:** "Should Taru control Docker to install addons?"
-> **Domain expert:** "Not first. Prefer **Addon Install Guide** output and **Addon Health Check** over Taru-managed container lifecycle."
+> **Dev:** "Should Nako control Docker to install addons?"
+> **Domain expert:** "Not first. Prefer **Addon Install Guide** output and **Addon Health Check** over Nako-managed container lifecycle."
 >
-> **Dev:** "Can an **Addon Sidecar** actively change Taru state?"
-> **Domain expert:** "Yes, through Taru APIs using an **Addon Token** scoped to the accepted permissions and libraries."
+> **Dev:** "Can an **Addon Sidecar** actively change Nako state?"
+> **Domain expert:** "Yes, through Nako APIs using an **Addon Token** scoped to the accepted permissions and libraries."
 >
 > **Dev:** "Does the first Addon auth model require OAuth?"
 > **Domain expert:** "No. Use a revocable long-lived **Addon Token** with **Addon Token Rotation** first."
@@ -529,25 +529,25 @@ _Avoid_: Addon callback
 > **Domain expert:** "Only for compatible additions. Breaking contract changes require a new **Addon Protocol Version**."
 >
 > **Dev:** "Can an **Addon** react when a scan finishes?"
-> **Domain expert:** "Yes, by declaring an **Addon Event Subscription**. Taru delivers the event, and the addon uses an **Addon Token** for any follow-up writes."
+> **Domain expert:** "Yes, by declaring an **Addon Event Subscription**. Nako delivers the event, and the addon uses an **Addon Token** for any follow-up writes."
 >
 > **Dev:** "Who owns a full-library addon scrape task?"
-> **Domain expert:** "It is an **Addon Task**: Taru owns the job lifecycle and the **Addon Sidecar** owns the execution logic."
+> **Domain expert:** "It is an **Addon Task**: Nako owns the job lifecycle and the **Addon Sidecar** owns the execution logic."
 >
 > **Dev:** "Can an **Addon** download artwork itself?"
-> **Domain expert:** "It may perform an **Addon External Fetch**, but if the result becomes library artwork, it must be submitted as a **Taru-Managed Artifact** through Taru APIs."
+> **Domain expert:** "It may perform an **Addon External Fetch**, but if the result becomes library artwork, it must be submitted as a **Nako-Managed Artifact** through Nako APIs."
 >
 > **Dev:** "Can an **Addon** write poster.jpg next to a movie file?"
-> **Domain expert:** "Only through a **Library File Write** API owned by Taru, not by writing the path directly."
+> **Domain expert:** "Only through a **Library File Write** API owned by Nako, not by writing the path directly."
 >
 > **Dev:** "Can an **Addon** provide settings?"
-> **Domain expert:** "Yes, by declaring an **Addon Configuration Schema** that Taru stores and renders."
+> **Domain expert:** "Yes, by declaring an **Addon Configuration Schema** that Nako stores and renders."
 >
 > **Dev:** "Can an **Addon** expose its own diagnostics page?"
-> **Domain expert:** "Yes, as an **Addon Hosted Page**, but Taru does not treat that page as trusted admin UI."
+> **Domain expert:** "Yes, as an **Addon Hosted Page**, but Nako does not treat that page as trusted admin UI."
 >
 > **Dev:** "Can Addon settings store an API key?"
-> **Domain expert:** "Store a **Secret Reference** instead; Taru resolves the secret at runtime."
+> **Domain expert:** "Store a **Secret Reference** instead; Nako resolves the secret at runtime."
 >
 > **Dev:** "Are hard-linked files in two libraries the same **Media Source**?"
 > **Domain expert:** "No. They are separate **Media Sources** connected by a **Source Duplicate Relationship** when the evidence supports it."
@@ -567,19 +567,19 @@ _Avoid_: Addon callback
 > **Dev:** "Is a photo library a different database model from a movie library?"
 > **Domain expert:** "No. It is a **Media Library** with a different **Media Domain** and **Library Preset**."
 >
-> **Dev:** "Is Taru only a video server?"
-> **Domain expert:** "No. Taru is in a **Video-First Phase**, but its **Media Server Scope** should remain broader."
+> **Dev:** "Is Nako only a video server?"
+> **Domain expert:** "No. Nako is in a **Video-First Phase**, but its **Media Server Scope** should remain broader."
 >
 > **Dev:** "Do duplicate sources automatically become one item?"
 > **Domain expert:** "No. A **Media Item** may link to multiple sources, but automatic merging needs a separate high-confidence rule."
 >
 > **Dev:** "Should Bangumi subjects create a separate anime item model?"
-> **Domain expert:** "No. Map **Provider Subjects** into Taru's provider-neutral **Media Item Hierarchy** through **Provider Mapping**."
+> **Domain expert:** "No. Map **Provider Subjects** into Nako's provider-neutral **Media Item Hierarchy** through **Provider Mapping**."
 >
-> **Dev:** "Can Taru show a series before provider matching?"
+> **Dev:** "Can Nako show a series before provider matching?"
 > **Domain expert:** "Yes, through **Local Inference** creating a **Provisional Hierarchy** from path and file-name evidence."
 >
-> **Dev:** "Should Taru guess a movie when it is unsure?"
+> **Dev:** "Should Nako guess a movie when it is unsure?"
 > **Domain expert:** "No. Weak evidence should produce an **Unknown Media Item** instead of a confident but wrong classification."
 >
 > **Dev:** "If provider metadata renames a locally inferred series, do we lose the local name?"
@@ -604,7 +604,7 @@ _Avoid_: Addon callback
 > **Domain expert:** "Usually no. Keep it as a movie and relate it through a **Franchise Collection** unless provider evidence says it is an **Episode-Like Item**."
 >
 > **Dev:** "If TMDB and NFO disagree, which one wins?"
-> **Domain expert:** "Use **Metadata Source Priority**. Taru should default to local and NFO first, then provider fallback, with per-library overrides if needed."
+> **Domain expert:** "Use **Metadata Source Priority**. Nako should default to local and NFO first, then provider fallback, with per-library overrides if needed."
 >
 > **Dev:** "Is playback progress metadata?"
 > **Domain expert:** "No. It is **User Library State**. Codec and bitrate are **Media Technical Facts**. Title and overview are **Canonical Metadata**."
@@ -621,14 +621,14 @@ _Avoid_: Addon callback
 > **Dev:** "Should album track number be in the first video metadata model?"
 > **Domain expert:** "No. Treat it as **Domain-Specific Metadata** until the music domain owns it."
 >
-> **Dev:** "Does Taru always write NFO files?"
+> **Dev:** "Does Nako always write NFO files?"
 > **Domain expert:** "No. **NFO Import** is default, while **NFO Export** is enabled per library and must respect local file-write rules."
 >
-> **Dev:** "Can Taru replace the whole NFO with its own format?"
+> **Dev:** "Can Nako replace the whole NFO with its own format?"
 > **Domain expert:** "Avoid that. Use **NFO Round Trip** so unknown fields and third-party data survive when safe."
 >
 > **Dev:** "Should clients hotlink TMDB posters?"
-> **Domain expert:** "No. Treat TMDB as an **Artwork Source** and serve **Managed Artwork** from Taru."
+> **Domain expert:** "No. Treat TMDB as an **Artwork Source** and serve **Managed Artwork** from Nako."
 >
 > **Dev:** "Can a movie have several poster options?"
 > **Domain expert:** "Yes. Store them as **Artwork Candidates** and use **Selected Artwork** for the current presentation."
@@ -636,13 +636,13 @@ _Avoid_: Addon callback
 > **Dev:** "Is a pre-transcoded mobile copy just a finished playback transcode?"
 > **Domain expert:** "No. A **Playback Transcode** is session-oriented; an **Optimized Version** is a durable media asset."
 >
-> **Dev:** "Should Taru probe GPU support before every playback?"
+> **Dev:** "Should Nako probe GPU support before every playback?"
 > **Domain expert:** "No. Use a cached **Hardware Capability Report** and refresh it explicitly when needed."
 >
 > **Dev:** "Should hardware selection vary by client in the first slice?"
 > **Domain expert:** "No. Start with a global **Hardware Acceleration Policy** and add **Transcode Profiles** later."
 >
-> **Dev:** "Should Taru implement NAT traversal itself first?"
+> **Dev:** "Should Nako implement NAT traversal itself first?"
 > **Domain expert:** "No. Start with **Remote Access Endpoints** backed by external **Network Tunnel Providers** or reverse proxies."
 >
 > **Dev:** "Can the MVP be single-user?"
@@ -651,29 +651,29 @@ _Avoid_: Addon callback
 > **Dev:** "Should service APIs assume Flutter?"
 > **Domain expert:** "No. Treat Flutter, web, or native apps as **Client Applications** that consume **Public Client API** contracts."
 >
-> **Dev:** "Should Taru core own a local AI model runtime?"
+> **Dev:** "Should Nako core own a local AI model runtime?"
 > **Domain expert:** "No. AI-like features should enter as **Generated Artifacts** from **Automation Providers** or **Addons** first."
 
 ## Flagged Ambiguities
 
-- "plugin" was used to mean a Jellyfin-like extension experience. Resolved: use **Addon** for Taru's current extension model, and reserve **Native Plugin** for in-process extension code.
+- "plugin" was used to mean a Jellyfin-like extension experience. Resolved: use **Addon** for Nako's current extension model, and reserve **Native Plugin** for in-process extension code.
 - "similar to Jellyfin plugins" was used to mean user-facing extensibility rather than **Jellyfin Plugin Compatibility**.
 - "Addon affects playback" means **Playback Resource Suggestion**, not replacement of the **Playback Runtime**.
 - "batch scraping" was resolved as **Bulk Metadata Scrape** and may include writes when backed by explicit **Addon Permissions**.
 - Addon permissions are coarse-grained, but may be narrowed per library through **Library-Scoped Addon Grant**.
 - Addon UI integration means **Addon Entry Points**, not embedded client-side plugin execution.
-- Addon-hosted settings or diagnostics use **Addon Hosted Pages** and must not receive Taru admin credentials.
+- Addon-hosted settings or diagnostics use **Addon Hosted Pages** and must not receive Nako admin credentials.
 - Addon installation and automatic lifecycle management belong to a future **Addon Manager**, not the first **Addon Protocol** slice.
 - The first **Addon Manager** should not require Docker socket or process-supervision authority.
-- Addon-initiated writes use an **Addon Token** and Taru APIs, not direct database or filesystem mutation.
+- Addon-initiated writes use an **Addon Token** and Nako APIs, not direct database or filesystem mutation.
 - Addon authentication starts with revocable long-lived tokens and explicit rotation, not OAuth.
 - Addon event automation uses **Addon Event Subscriptions**, not database polling or hidden API polling loops.
-- Addon background work is an **Addon Task** when Taru users need lifecycle, progress, cancellation, or audit visibility.
-- Addon downloads are allowed as **Addon External Fetches**; Taru-related outputs become **Taru-Managed Artifacts** only through Taru APIs.
+- Addon background work is an **Addon Task** when Nako users need lifecycle, progress, cancellation, or audit visibility.
+- Addon downloads are allowed as **Addon External Fetches**; Nako-related outputs become **Nako-Managed Artifacts** only through Nako APIs.
 - Addon writes to media library files use **Library File Write** APIs, not raw filesystem or remote-storage paths.
-- Addon settings use an **Addon Configuration Schema** managed by Taru rather than opaque addon-owned UI state.
+- Addon settings use an **Addon Configuration Schema** managed by Nako rather than opaque addon-owned UI state.
 - Addon settings store **Secret References** for sensitive values, not plaintext secrets.
-- Addon compatibility is governed by **Addon Protocol Version**, not by assuming every Taru server version accepts every addon.
+- Addon compatibility is governed by **Addon Protocol Version**, not by assuming every Nako server version accepts every addon.
 - Duplicate content was resolved as **Source Duplicate Relationship**, not merged **Media Source** identity.
 - Technical alternatives are **Source Variants**; different cuts are **Editions**.
 - **Source Variant Labels** are display aids, not substitutes for technical facts.
@@ -681,8 +681,8 @@ _Avoid_: Addon callback
 - **Editions** are separate **Media Items** linked by **Edition Relationships**.
 - Playback should use **Playback Source Selection**, not a permanent default source.
 - Duplicate **Media Sources** do not automatically collapse into one **Media Item**.
-- Taru is **Video-First** now, but should not hard-code a video-only **Media Server Scope**.
-- Taru should grow toward multiple **Media Domains** through **Library Presets**, not through hard-coded library types.
+- Nako is **Video-First** now, but should not hard-code a video-only **Media Server Scope**.
+- Nako should grow toward multiple **Media Domains** through **Library Presets**, not through hard-coded library types.
 - Provider-specific concepts use **Provider Mapping** and do not split the core **Media Item Hierarchy**.
 - Local path and file-name parsing is **Local Inference**, not a metadata provider or scraper.
 - Local inferred titles and structure are **Local Inference Evidence** that may differ from canonical metadata.
@@ -693,7 +693,7 @@ _Avoid_: Addon callback
 - Confirming provider or NFO data should normally use **Hierarchy Confirmation**, not replacement item creation.
 - Structural mistakes from local inference use **Hierarchy Repair**.
 - **Local Inference** should prefer **Unknown Media Item** over overconfident classification.
-- Taru has **Tags** and **Genres**; tags are flexible labels, not item kinds or source identity.
+- Nako has **Tags** and **Genres**; tags are flexible labels, not item kinds or source identity.
 - Anime specials map as **Episode-Like Items** only when they belong in watch order; otherwise they are **Extra Items**.
 - Metadata resolution uses **Metadata Source Priority** with local and NFO data ahead of external providers by default.
 - Filtering and sorting fields must distinguish **Canonical Metadata**, **Media Technical Facts**, and **User Library State**.

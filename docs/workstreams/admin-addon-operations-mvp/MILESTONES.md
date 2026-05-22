@@ -53,7 +53,7 @@ Exit criteria:
 
 Status: Complete. AAO-070 closed the lane after fresh focused Addon gates,
 workspace check, workspace nextest, formatting, and diff evidence. PostgreSQL
-opt-in contracts were skipped because `TARU_TEST_POSTGRES_URL` was not set.
+opt-in contracts were skipped because `NAKO_TEST_POSTGRES_URL` was not set.
 
 Exit criteria:
 

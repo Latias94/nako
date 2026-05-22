@@ -5,7 +5,7 @@ Last updated: 2026-05-17
 
 ## Starting Repro
 
-- `taru-client-protocol` has public wire DTOs and is Apache-2.0.
+- `nako-client-protocol` has public wire DTOs and is Apache-2.0.
 - There is no Rust SDK crate for consumers.
 - Rust callers would need to hand-roll HTTP paths, bearer auth, error parsing,
   API version checks, and pagination.
@@ -15,15 +15,15 @@ Last updated: 2026-05-17
 ### Focused SDK Gate
 
 ```bash
-cargo check -p taru-client --tests
-cargo nextest run -p taru-client --no-fail-fast
-cargo tree -p taru-client
+cargo check -p nako-client --tests
+cargo nextest run -p nako-client --no-fail-fast
+cargo tree -p nako-client
 ```
 
 ### Public Protocol Direction Gate
 
 ```bash
-cargo tree -p taru-client-protocol
+cargo tree -p nako-client-protocol
 ```
 
 ### Cross-SDK Regression Gate
@@ -43,24 +43,24 @@ git diff --check
 
 ## Evidence Anchors
 
-- `crates/taru-client/Cargo.toml`
-- `crates/taru-client/src/lib.rs`
-- `crates/taru-client-protocol`
+- `crates/nako-client/Cargo.toml`
+- `crates/nako-client/src/lib.rs`
+- `crates/nako-client-protocol`
 - `docs/api/HTTP_API.md`
 - `docs/workstreams/rust-client-sdk/`
 
 ## Prompt-To-Artifact Checklist
 
 - Establish Rust SDK crate boundary:
-  `crates/taru-client` and workstream docs.
+  `crates/nako-client` and workstream docs.
 - Preserve permissive SDK license:
-  explicit `license = "Apache-2.0"` in `crates/taru-client/Cargo.toml`.
+  explicit `license = "Apache-2.0"` in `crates/nako-client/Cargo.toml`.
 - Reuse protocol DTOs:
-  `taru-client` depends on `taru-client-protocol`.
+  `nako-client` depends on `nako-client-protocol`.
 - Avoid server/internal dependencies:
-  `cargo tree -p taru-client` and forbidden term tests.
+  `cargo tree -p nako-client` and forbidden term tests.
 - Provide async JSON client:
-  `TaruClient`, helpers, transport, errors, and route methods.
+  `NakoClient`, helpers, transport, errors, and route methods.
 - Cover auth/version/error/pagination/paths:
   mock transport tests.
 - Cover route inventory and leakage rejection:
@@ -75,28 +75,28 @@ git diff --check
 ### Objective Requirements
 
 - Add a Rust client SDK foundation after M29-M34:
-  `crates/taru-client` exists and is included by the workspace `crates/*`
+  `crates/nako-client` exists and is included by the workspace `crates/*`
   membership.
 - Do not generate duplicate Rust wire types from OpenAPI:
-  `crates/taru-client/src/lib.rs` re-exports and consumes
-  `taru-client-protocol` DTOs.
+  `crates/nako-client/src/lib.rs` re-exports and consumes
+  `nako-client-protocol` DTOs.
 - Support future Rust consumers through a clean crate boundary:
-  `crates/taru-client/Cargo.toml` names the SDK crate and records
+  `crates/nako-client/Cargo.toml` names the SDK crate and records
   `license = "Apache-2.0"`.
 
 ### Scope Requirements
 
 - New SDK crate:
-  `crates/taru-client/Cargo.toml` and `crates/taru-client/src/lib.rs`.
+  `crates/nako-client/Cargo.toml` and `crates/nako-client/src/lib.rs`.
 - Permissive SDK boundary:
-  explicit Apache-2.0 license in `crates/taru-client/Cargo.toml`.
+  explicit Apache-2.0 license in `crates/nako-client/Cargo.toml`.
 - Protocol DTO source:
-  `taru-client` depends on `taru-client-protocol`.
+  `nako-client` depends on `nako-client-protocol`.
 - No server/internal dependency:
-  `cargo tree -p taru-client` contains no `taru-core`, `taru-api`,
-  `taru-server`, `taru-streaming`, or `taru-transcode`.
+  `cargo tree -p nako-client` contains no `nako-core`, `nako-api`,
+  `nako-server`, `nako-streaming`, or `nako-transcode`.
 - Minimal async client:
-  `TaruClient`, `ReqwestTransport`, `ClientTransport`, `TaruClientError`,
+  `NakoClient`, `ReqwestTransport`, `ClientTransport`, `NakoClientError`,
   `PageQuery`, `SearchQuery`, and `PlaybackCapabilitiesQuery`.
 - Bearer auth:
   mock transport test `client_adds_auth_and_pagination_query_to_protected_routes`.
@@ -136,25 +136,25 @@ git diff --check
 
 ### RCS-010 Scope And Boundary Baseline
 
-- Workstream docs define `crates/taru-client` as the SDK location, the
+- Workstream docs define `crates/nako-client` as the SDK location, the
   Apache-2.0 license policy, dependency direction, route coverage, non-goals,
   task ledger, evidence anchors, and gate set.
 
 ### RCS-020 Crate Skeleton And Boundary Guard
 
-- `crates/taru-client/Cargo.toml` defines the SDK crate with explicit
+- `crates/nako-client/Cargo.toml` defines the SDK crate with explicit
   `license = "Apache-2.0"`.
-- The crate depends on `taru-client-protocol`, `reqwest`, `async-trait`,
+- The crate depends on `nako-client-protocol`, `reqwest`, `async-trait`,
   `serde`, `serde_json`, and `thiserror`.
-- The crate does not depend on `taru-core`, `taru-api`, `taru-server`,
-  `taru-streaming`, or `taru-transcode`.
+- The crate does not depend on `nako-core`, `nako-api`, `nako-server`,
+  `nako-streaming`, or `nako-transcode`.
 
 ### RCS-030 Async JSON Client Surface
 
-- `crates/taru-client/src/lib.rs` exposes `TaruClient`, `ReqwestTransport`,
-  `ClientTransport`, request/response transport records, `TaruClientError`,
+- `crates/nako-client/src/lib.rs` exposes `NakoClient`, `ReqwestTransport`,
+  `ClientTransport`, request/response transport records, `NakoClientError`,
   `PageQuery`, and playback/search query helpers.
-- The SDK reuses `taru-client-protocol` DTOs for public JSON wire shapes.
+- The SDK reuses `nako-client-protocol` DTOs for public JSON wire shapes.
 - JSON methods cover health, libraries, catalog item browse/search, source
   probe, playback decision, playback session inspection, and playback session
   cancellation.
@@ -178,12 +178,12 @@ git diff --check
   M35 as completed and split streaming/publishing/client apps into follow-ons.
 - Close-out validation on 2026-05-17:
   - `cargo fmt --all -- --check`: passed.
-  - `cargo check -p taru-client --tests`: passed.
-  - `cargo nextest run -p taru-client --no-fail-fast`: 7 tests passed.
-  - `cargo tree -p taru-client`: passed; dependency tree includes
-    `taru-client-protocol`, `reqwest`, `async-trait`, `serde`, `serde_json`,
-    `thiserror`, and dev `tokio`, with no server/internal Taru crates.
-  - `cargo tree -p taru-client-protocol`: passed; protocol dependency tree
+  - `cargo check -p nako-client --tests`: passed.
+  - `cargo nextest run -p nako-client --no-fail-fast`: 7 tests passed.
+  - `cargo tree -p nako-client`: passed; dependency tree includes
+    `nako-client-protocol`, `reqwest`, `async-trait`, `serde`, `serde_json`,
+    `thiserror`, and dev `tokio`, with no server/internal Nako crates.
+  - `cargo tree -p nako-client-protocol`: passed; protocol dependency tree
     remains limited to `serde` and dev `serde_json`.
   - `npm run check --prefix sdk/typescript`: passed.
   - `cargo check --workspace --tests`: passed.

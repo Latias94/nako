@@ -29,8 +29,8 @@ developer testing.
 
 ## Validation
 
-- `cargo test -p taru-server config::tests::config_round_trips_from_toml`
-- `cargo test -p taru-server app::tests::webdav_preview_config_builds_scanner_backend`
+- `cargo test -p nako-server config::tests::config_round_trips_from_toml`
+- `cargo test -p nako-server app::tests::webdav_preview_config_builds_scanner_backend`
 - `cargo fmt --all -- --check`
 - `cargo check --workspace`
 - `cargo nextest run --workspace` (153 passed)
@@ -39,7 +39,7 @@ developer testing.
 ## Known Limitations
 
 - WebDAV is read-only in M6.
-- Only one configured library is supported by `TaruServerConfig`.
+- Only one configured library is supported by `NakoServerConfig`.
 - Remote direct play buffers selected range bytes in memory instead of
   streaming an upstream response body.
 - Remux and HLS stage full remote objects before FFmpeg.

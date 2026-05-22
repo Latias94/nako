@@ -6,7 +6,7 @@ Accepted.
 
 ## Context
 
-Taru needs external metadata and automation providers, starting with TMDB. These
+Nako needs external metadata and automation providers, starting with TMDB. These
 providers require user-managed credentials. Persisted jobs, logs, and raw
 provider cache records must remain auditable without storing plaintext API
 secrets.
@@ -20,7 +20,7 @@ credentials.
 Provider configuration stores references to environment variables, not the
 secret values themselves.
 
-For TMDB, `TaruServerConfig` stores:
+For TMDB, `NakoServerConfig` stores:
 
 - whether the provider is enabled
 - the environment variable name for the read access token
@@ -44,7 +44,7 @@ the resolved secret.
 
 ## Alternatives Considered
 
-- Store plaintext provider tokens in `taru.toml`: rejected because config files
+- Store plaintext provider tokens in `nako.toml`: rejected because config files
   are often copied into issue reports, examples, and backups.
 - Store plaintext provider tokens in SQLite: rejected because job and provider
   tables are designed for auditability and should not become secret stores.

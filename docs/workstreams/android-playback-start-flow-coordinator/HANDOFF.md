@@ -6,14 +6,14 @@ Last updated: 2026-05-19
 ## Completed
 
 - APSF-020: extracted playback start coordinator/use case and wired it into
-  `TaruBrowseShell`.
+  `NakoBrowseShell`.
 - APSF-030: verified targeted regressions and closed the lane.
 
 ## Notes
 
 - Preserve active-remux semantics from the previous lane: source checking must
   not start a session; start playback must perform preflight.
-- Keep UI state and navigation in `TaruBrowseShell`.
+- Keep UI state and navigation in `NakoBrowseShell`.
 - Do not touch generated `output/` or `tmp/` directories.
 
 ## Evidence
@@ -22,7 +22,7 @@ Last updated: 2026-05-19
   missing-token failure, direct playback without transport preflight, and
   resume propagation.
 - `PlaybackResumeResolverTest`: server resume precedence and local fallback.
-- Adjacent playback tests passed: `TaruPlaybackClientTest`,
+- Adjacent playback tests passed: `NakoPlaybackClientTest`,
   `PlaybackLaunchTest`, and `PlaybackExitEffectsTest`.
 - Full Android debug unit test suite passed with
   `:app:testDebugUnitTest --no-daemon --no-parallel`.

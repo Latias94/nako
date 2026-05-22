@@ -20,8 +20,8 @@ Last updated: 2026-05-19
 
 - `PlaybackExitCoordinatorTest`: unfinished session cancellation/progress,
   ended watched report, and missing-token local-only behavior.
-- Adjacent tests passed: `PlaybackExitEffectsTest`, `TaruPlaybackClientTest`,
-  and `TaruUserPlaybackClientTest`.
+- Adjacent tests passed: `PlaybackExitEffectsTest`, `NakoPlaybackClientTest`,
+  and `NakoUserPlaybackClientTest`.
 - Full Android debug unit test suite passed with
   `:app:testDebugUnitTest --no-daemon --no-parallel`.
 - `git diff --check` passed.

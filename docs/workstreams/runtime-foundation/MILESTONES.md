@@ -2,7 +2,7 @@
 
 ## M15: Runtime Foundation Hardening
 
-Outcome: Taru's shared runtime foundation is explicit, safe under expected
+Outcome: Nako's shared runtime foundation is explicit, safe under expected
 single-process concurrency, and no longer depends on MVP shortcuts that leak
 across feature boundaries.
 
@@ -86,7 +86,7 @@ the area, instead of growing monolithic app or library files.
 
 Candidate deliverables:
 
-- `taru-db` runtime and migration modules split from repository
+- `nako-db` runtime and migration modules split from repository
   implementations.
 - Metadata provider configuration/building split from maintenance planning.
 - Playback hardware/runtime policy split from HLS session orchestration.
@@ -101,7 +101,7 @@ per-request behavior.
 
 Deliverables:
 
-- `TaruApp` owns a `StorageBackendRegistry`.
+- `NakoApp` owns a `StorageBackendRegistry`.
 - The registry caches `LibraryStorageBackend` instances by `library_id`.
 - Scan, probe, playback, FFmpeg input staging, and NFO import/export resolve
   storage through the registry boundary.
@@ -121,9 +121,9 @@ Exit criteria:
 
 ## M19: Database Boundary Hardening
 
-Outcome: `taru-db` is a focused SQLite repository implementation with explicit
+Outcome: `nako-db` is a focused SQLite repository implementation with explicit
 domain module ownership, clear transaction entry points for critical write
-paths, and no ORM model leakage into `taru-core`, `taru-api`, or application
+paths, and no ORM model leakage into `nako-core`, `nako-api`, or application
 services.
 
 Deliverables:

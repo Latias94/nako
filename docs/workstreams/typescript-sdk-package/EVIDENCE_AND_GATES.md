@@ -5,7 +5,7 @@ Last updated: 2026-05-17
 
 ## Starting Repro
 
-- `taru-api` can emit TypeScript SDK code.
+- `nako-api` can emit TypeScript SDK code.
 - There is no TypeScript package directory.
 - There is no committed TypeScript compile gate.
 - Initial strict `tsc` probing found generated runtime type errors around
@@ -23,8 +23,8 @@ npm run check --prefix sdk/typescript
 ### Targeted Rust Gate
 
 ```bash
-cargo check -p taru-api --examples
-cargo nextest run -p taru-api --no-fail-fast
+cargo check -p nako-api --examples
+cargo nextest run -p nako-api --no-fail-fast
 ```
 
 ### Workspace Closeout Gate
@@ -33,14 +33,14 @@ cargo nextest run -p taru-api --no-fail-fast
 cargo fmt --all -- --check
 cargo check --workspace --tests
 cargo nextest run --workspace --no-fail-fast
-cargo tree -p taru-client-protocol
+cargo tree -p nako-client-protocol
 git diff --check
 ```
 
 ## Evidence Anchors
 
-- `crates/taru-api/src/sdk.rs`
-- `crates/taru-api/examples/emit-typescript-sdk.rs`
+- `crates/nako-api/src/sdk.rs`
+- `crates/nako-api/examples/emit-typescript-sdk.rs`
 - `sdk/typescript/package.json`
 - `sdk/typescript/tsconfig.json`
 - `sdk/typescript/src/index.ts`
@@ -56,11 +56,11 @@ git diff --check
 - Add local TypeScript toolchain:
   package dev dependency and lockfile.
 - Make generation repeatable:
-  package script invoking `taru-api`.
+  package script invoking `nako-api`.
 - Prove generated code compiles:
   `npm run check --prefix sdk/typescript`.
 - Preserve M33 public-surface checks:
-  `cargo nextest run -p taru-api --no-fail-fast`.
+  `cargo nextest run -p nako-api --no-fail-fast`.
 - Keep npm publishing, UI, Flutter/Dart, and Rust SDK out of scope:
   docs and handoff follow-ons.
 - Validate:
@@ -76,11 +76,11 @@ git diff --check
 
 ### TSP-020 Strict Compile Fix
 
-- `crates/taru-api/src/sdk.rs` now emits strict-TypeScript-compatible runtime
+- `crates/nako-api/src/sdk.rs` now emits strict-TypeScript-compatible runtime
   types for optional bearer token state, request options, and query input.
 - A temporary `npx -y -p typescript@5.9.3 tsc --noEmit ...` compile probe
   passed against emitted SDK output before package wiring.
-- `cargo nextest run -p taru-api --no-fail-fast`: passed, 10 tests before the
+- `cargo nextest run -p nako-api --no-fail-fast`: passed, 10 tests before the
   package sync test was added.
 
 ### TSP-030 Package Skeleton And Generation Command
@@ -96,12 +96,12 @@ git diff --check
 
 ### TSP-040 Contract Sync Checks
 
-- `crates/taru-api/examples/emit-typescript-sdk.rs` supports
+- `crates/nako-api/examples/emit-typescript-sdk.rs` supports
   `--output <path>` for repeatable package generation without shell
   redirection.
 - `typescript_package_entry_matches_generator_output` compares the committed
-  package entry against `taru_api::sdk::typescript_sdk()`.
-- `cargo nextest run -p taru-api --no-fail-fast`: passed, 11 tests.
+  package entry against `nako_api::sdk::typescript_sdk()`.
+- `cargo nextest run -p nako-api --no-fail-fast`: passed, 11 tests.
 - Existing SDK tests continue to verify public route method/path coverage,
   auth/version/error/pagination runtime details, and admin/internal leakage
   rejection.
@@ -117,9 +117,9 @@ git diff --check
   - `npm run check --prefix sdk/typescript`: passed.
   - `cargo fmt --all -- --check`: passed.
   - `cargo check --workspace --tests`: passed.
-  - `cargo check -p taru-api --examples`: passed.
-  - `cargo nextest run -p taru-api --no-fail-fast`: passed, 11 tests.
+  - `cargo check -p nako-api --examples`: passed.
+  - `cargo nextest run -p nako-api --no-fail-fast`: passed, 11 tests.
   - `cargo nextest run --workspace --no-fail-fast`: passed, 264 tests.
-  - `cargo tree -p taru-client-protocol`: normal dependency is `serde`; dev
+  - `cargo tree -p nako-client-protocol`: normal dependency is `serde`; dev
     dependency is `serde_json`; no server/internal crate dependencies.
   - `git diff --check`: passed with Git CRLF normalization warnings only.

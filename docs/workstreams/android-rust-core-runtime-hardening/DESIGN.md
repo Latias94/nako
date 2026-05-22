@@ -10,14 +10,14 @@ and UniFFI Android tracer for connection checks. Its closeout deliberately
 split the next four risks into follow-ons:
 
 1. Android Rust/UniFFI build ergonomics.
-2. `taru-client` reuse of `taru-client-core`.
+2. `nako-client` reuse of `nako-client-core`.
 3. Rust public wire tolerance.
 4. Android playback core tracer.
 
 These four belong in one serialized hardening lane because each depends on the
 previous boundary being clean. Playback must not move behind UniFFI until Rust
 wire values are tolerant, and broader Rust reuse should happen before Android
-and `taru-client` grow two versions of request/error/version/redaction policy.
+and `nako-client` grow two versions of request/error/version/redaction policy.
 
 ## Target State
 
@@ -25,10 +25,10 @@ and `taru-client` grow two versions of request/error/version/redaction policy.
   `preBuild` or JVM unit-test path. Binding generation, host test library, and
   packageable Android ABI libraries are separate, incremental, documented
   tasks.
-- `taru-client-core` owns portable request-spec construction, bearer injection,
+- `nako-client-core` owns portable request-spec construction, bearer injection,
   API-version observation, public error-envelope parsing, and safe request
   previews for core-owned routes.
-- `taru-client` becomes the reqwest/async adapter over that core-owned
+- `nako-client` becomes the reqwest/async adapter over that core-owned
   request/response policy instead of a second Rust implementation.
 - Rust Public Client API string-value DTOs preserve unknown additive wire
   values instead of failing deserialization.
@@ -69,7 +69,7 @@ local development can target an emulator ABI without paying all-target cost.
 The core should expose explicit FFI-safe request and response records. The
 reqwest client may still return `reqwest::Url`, `HeaderMap`, and async results
 to Rust callers, but it should obtain request specs and response policy from
-`taru-client-core`.
+`nako-client-core`.
 
 ### Public Wire Tolerance
 
@@ -95,8 +95,8 @@ The first playback tracer should be narrow:
 
 - Do not add Android profile persistence, token vault, cleartext/TLS,
   platform-networking, UI, or Media3 dependencies to Rust crates.
-- Do not put runtime policy in `taru-client-uniffi`; it remains a binding
-  adapter over `taru-client-core`.
+- Do not put runtime policy in `nako-client-uniffi`; it remains a binding
+  adapter over `nako-client-core`.
 - Do not hide unknown public wire strings as generic `Unknown` when the raw
   wire value can be preserved.
 - Do not make JVM unit tests build all Android Rust ABIs.

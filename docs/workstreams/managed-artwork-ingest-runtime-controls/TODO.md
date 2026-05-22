@@ -14,7 +14,7 @@ Last updated: 2026-05-19
 
 ## M1 - Failed Ingest Requeue
 
-- [x] MAIRC-020 [owner=codex] [deps=MAIRC-010] [scope=crates/taru-core,crates/taru-db,crates/taru-api,crates/taru-server,docs/api]
+- [x] MAIRC-020 [owner=codex] [deps=MAIRC-010] [scope=crates/nako-core,crates/nako-db,crates/nako-api,crates/nako-server,docs/api]
   Goal: Implement `POST /admin/v1/artwork/ingests/{ingest_id}/requeue` for
   failed Managed Artwork ingests and failed durable jobs.
   Validation: focused API/server/db tests plus relevant cargo check.
@@ -27,7 +27,7 @@ Last updated: 2026-05-19
 
 ## M2 - Retry Execution Regression
 
-- [x] MAIRC-030 [owner=codex] [deps=MAIRC-020] [scope=crates/taru-server,docs/api]
+- [x] MAIRC-030 [owner=codex] [deps=MAIRC-020] [scope=crates/nako-server,docs/api]
   Goal: Prove a failed ingest can be requeued and then processed by the existing
   `process-next` route into a stored artifact after the source becomes valid.
   Validation: focused server test and redaction inventory.

@@ -6,7 +6,7 @@ Completed implementation slice.
 
 ## Objective
 
-Connect M27.1's local inference persistence to the scan path so Taru can keep
+Connect M27.1's local inference persistence to the scan path so Nako can keep
 source-owned parsing evidence and create a provider-neutral provisional video
 hierarchy before TMDB, Douban, Bangumi, or NFO confirmation.
 
@@ -14,12 +14,12 @@ hierarchy before TMDB, Douban, Bangumi, or NFO confirmation.
 
 M27.2 added these vertical slices:
 
-- `taru-naming` parsed-name output now carries confidence, evidence source,
+- `nako-naming` parsed-name output now carries confidence, evidence source,
   evidence value, parser version, inferred kind, title, year, season, and
   episode fields.
 - Weak file-name evidence now produces an **Unknown Media Item** instead of a
   confident movie guess.
-- `taru-library` scan indexing writes **Local Inference Evidence** for scanned
+- `nako-library` scan indexing writes **Local Inference Evidence** for scanned
   sources.
 - **Local Inference Evidence** is updated as the current source-owned snapshot
   for each evidence source and parser version instead of appending scan history.
@@ -27,7 +27,7 @@ M27.2 added these vertical slices:
   source state and **Local Inference Evidence**.
 - Episode-like local inference creates provisional series, season, and episode
   items during scanning.
-- `taru-db` persists minimal **Library Item State** membership so source-less
+- `nako-db` persists minimal **Library Item State** membership so source-less
   provisional series and season items remain library-scoped.
 
 ## Compatibility
@@ -47,9 +47,9 @@ M27.2 added these vertical slices:
 
 Commands run:
 
-- `cargo nextest run -p taru-naming` - 6 passed
-- `cargo nextest run -p taru-library` - 15 passed
-- `cargo nextest run -p taru-db` - 32 passed
+- `cargo nextest run -p nako-naming` - 6 passed
+- `cargo nextest run -p nako-library` - 15 passed
+- `cargo nextest run -p nako-db` - 32 passed
 - `cargo fmt --all -- --check`
 - `cargo check --workspace --tests`
 - `git diff --check` - passed with Git CRLF normalization warnings only

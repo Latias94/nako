@@ -10,7 +10,7 @@ Run the narrowest relevant gates first, then broaden before closeout.
 Planned focused gates:
 
 ```powershell
-cargo nextest run -p taru-api -p taru-client -p taru-server playback
+cargo nextest run -p nako-api -p nako-client -p nako-server playback
 apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon
 pwsh -NoProfile -Command "[scriptblock]::Create((Get-Content -LiteralPath 'apps/android/scripts/Smoke-Emulator.ps1' -Raw)) | Out-Null"
 pwsh -NoProfile -File apps/android/scripts/Smoke-Emulator.ps1 -FixtureState profile-with-media -SkipAppBuild -SkipFixtureServerBuild
@@ -40,17 +40,17 @@ Notes:
 
 Evidence from 2026-05-19:
 
-- `cargo test -p taru-client-protocol -p taru-api -p taru-client --lib`
+- `cargo test -p nako-client-protocol -p nako-api -p nako-client --lib`
   passed. Proves the shared public route inventory, OpenAPI session header
   contract, Rust client remux `HEAD` builder, and generated TypeScript SDK
   output remain consistent.
-- `cargo test -p taru-server remux_stream_route -- --nocapture` passed.
+- `cargo test -p nako-server remux_stream_route -- --nocapture` passed.
   Proves remux `GET` keeps streaming behavior and remux `HEAD` exposes
-  `x-taru-playback-session-id` without a response body.
-- `cargo test -p taru-server hls_playlist_and_segment_routes_work -- --nocapture`
+  `x-nako-playback-session-id` without a response body.
+- `cargo test -p nako-server hls_playlist_and_segment_routes_work -- --nocapture`
   passed. Proves HLS playlist `GET` exposes the public playback session id
   header while segment routes still resolve through the session route.
-- `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.playback.TaruPlaybackClientTest --no-daemon`
+- `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.playback.NakoPlaybackClientTest --no-daemon`
   passed. Proves Android prepares remux/HLS playback targets by reading the
   public session header, keeps Direct Play sessionless, and does not leak
   bearer tokens through playback target diagnostics.
@@ -89,7 +89,7 @@ Observed artifact summary:
   `/sources/{source_id}/stream/remux?container=mkv&video_codec=h264&audio_codec=aac&output_container=mkv`
 - Preflight method: `HEAD`
 - Preflight status: `200`
-- Session header: `x-taru-playback-session-id`
+- Session header: `x-nako-playback-session-id`
 - Session readback route: `/playback/sessions/{session_id}`
 - Observed kind: `remux`
 - Observed state: `finished`
@@ -119,7 +119,7 @@ Notes:
 
 Evidence from 2026-05-19:
 
-- `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.player.PlaybackExitEffectsTest --tests dev.taru.android.player.UserPlaybackReportingTest --tests dev.taru.android.playback.TaruPlaybackClientTest --no-daemon`
+- `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.player.PlaybackExitEffectsTest --tests dev.nako.android.player.UserPlaybackReportingTest --tests dev.nako.android.playback.NakoPlaybackClientTest --no-daemon`
   passed. Proves player-exit side effects are testable outside Compose and
   that unfinished playback with a non-blank session id saves local position,
   reports progress, and requests Public Client API session cancellation.

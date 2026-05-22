@@ -5,34 +5,34 @@ Last updated: 2026-05-17
 
 ## Problem
 
-NFO is Taru's local metadata boundary. ADR 0008 intentionally started with a
+NFO is Nako's local metadata boundary. ADR 0008 intentionally started with a
 minimal movie codec, and ADR 0007 says local/user authority must not be silently
 overwritten by provider refresh. Export now violates the spirit of that boundary
 when `force` is used against an existing NFO: `MovieNfoCodec::render` generates
-a fresh `<movie>` document from only Taru-known fields.
+a fresh `<movie>` document from only Nako-known fields.
 
 That behavior is acceptable for creating a missing sidecar, but it is unsafe for
 updating an existing file. Existing NFO files often contain extra tags, comments,
 tool-specific fields, ratings, IDs, artwork variants, or hand-written notes.
-Before Taru adds stronger library file write policy and link management, it
+Before Nako adds stronger library file write policy and link management, it
 needs a preservation model that makes NFO updates explainable and bounded.
 
 ## Target State
 
 - The codec exposes a preservation-aware update path for existing NFO XML.
-- Taru-owned movie fields are rendered from `CanonicalMetadata`.
+- Nako-owned movie fields are rendered from `CanonicalMetadata`.
 - Unknown XML fields survive an update instead of being dropped.
-- Duplicate or conflicting Taru-owned fields are surfaced in a report.
+- Duplicate or conflicting Nako-owned fields are surfaced in a report.
 - Export workflow reads an existing sidecar during forced update and uses the
   preservation-aware path instead of whole-document rewrite.
-- Creating a new sidecar still uses deterministic Taru-owned rendering.
+- Creating a new sidecar still uses deterministic Nako-owned rendering.
 - Import behavior remains compatible with the current minimal movie codec.
 
 ## In Scope
 
-- `crates/taru-nfo/src/codec.rs`
-- `crates/taru-nfo/src/export.rs`
-- focused `taru-nfo` tests around preservation, conflict reporting, and export
+- `crates/nako-nfo/src/codec.rs`
+- `crates/nako-nfo/src/export.rs`
+- focused `nako-nfo` tests around preservation, conflict reporting, and export
   over an existing sidecar
 - workstream and goal documentation
 
@@ -48,7 +48,7 @@ needs a preservation model that makes NFO updates explainable and bounded.
 
 ## Architecture Direction
 
-Add a small preservation model inside `taru-nfo` rather than making XML a core
+Add a small preservation model inside `nako-nfo` rather than making XML a core
 domain type:
 
 ```text
@@ -66,20 +66,20 @@ NfoFieldConflict
 
 The first implementation should be pragmatic and intentionally limited:
 
-- Treat top-level movie child elements known to Taru as Taru-owned fields.
-- Update Taru-owned fields from `NfoDocument`.
+- Treat top-level movie child elements known to Nako as Nako-owned fields.
+- Update Nako-owned fields from `NfoDocument`.
 - Preserve unknown top-level child elements and comments where the XML parser
   makes that practical.
 - Normalize output formatting after update; byte-for-byte formatting
   preservation is not a goal for this slice.
-- Report duplicate Taru-owned top-level fields as conflicts before replacing
-  them with Taru's canonical value.
+- Report duplicate Nako-owned top-level fields as conflicts before replacing
+  them with Nako's canonical value.
 
 The important boundary is semantic preservation, not exact textual preservation.
 Future work can add richer XML span preservation or compatibility profiles if
 real library samples require it.
 
-## Taru-Owned Movie Fields
+## Nako-Owned Movie Fields
 
 The first preservation set follows the current minimal codec:
 
@@ -117,7 +117,7 @@ should be considered potential conflicts during update when they coexist with
 This lane can close when:
 
 - forced export over an existing movie NFO preserves unknown XML elements;
-- Taru-owned fields are updated deterministically from current metadata;
+- Nako-owned fields are updated deterministically from current metadata;
 - duplicate/conflicting owned fields are reported in codec tests;
 - export workflow uses preservation-aware update for existing sidecars;
 - current import and new-sidecar export tests still pass;
@@ -127,7 +127,7 @@ This lane can close when:
 
 M47 is complete. `MovieNfoCodec` now exposes a preservation-aware render path
 that keeps unknown top-level movie XML elements, comments, and processing
-instructions by using parser source ranges. Taru-owned movie fields are
+instructions by using parser source ranges. Nako-owned movie fields are
 re-rendered from `NfoDocument`; duplicate owned fields and release-date aliases
 are reported through `NfoPreservationReport`.
 

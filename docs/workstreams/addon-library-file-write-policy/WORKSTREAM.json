@@ -5,7 +5,7 @@
   "status": "completed",
   "updated": "2026-05-19",
   "scope_kind": "execution",
-  "problem": "Addon-initiated subtitle, NFO, and sidecar writes need a Taru-owned Library File Write boundary before addons can safely change media-library files.",
+  "problem": "Addon-initiated subtitle, NFO, and sidecar writes need a Nako-owned Library File Write boundary before addons can safely change media-library files.",
   "authoritative_docs": [
     {
       "role": "overview",
@@ -30,7 +30,7 @@
   ],
   "gates": [
     "rg -n \"Library File Write|subtitle|NFO|nfo|StorageWriteRequest|StorageWriteReport|StorageBackupPolicy|atomic_replace|backup|sidecar\" crates docs",
-    "cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-nfo -p taru-vfs --tests",
+    "cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-nfo -p nako-vfs --tests",
     "cargo fmt --all -- --check",
     "git diff --check"
   ],
@@ -42,18 +42,18 @@
     "docs/workstreams/nfo-storage-write-policy/",
     "docs/workstreams/nfo-sidecar-backup-policy/",
     "docs/workstreams/nfo-backup-retention-diagnostics/",
-    "crates/taru-nfo/src/export.rs",
-    "crates/taru-vfs/src/lib.rs",
-    "crates/taru-vfs/src/local.rs",
-    "crates/taru-server/src/app/nfo.rs",
-    "crates/taru-server/src/app/addons.rs"
+    "crates/nako-nfo/src/export.rs",
+    "crates/nako-vfs/src/lib.rs",
+    "crates/nako-vfs/src/local.rs",
+    "crates/nako-server/src/app/nfo.rs",
+    "crates/nako-server/src/app/addons.rs"
   ],
   "adr_refs": [
     "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
     "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
   ],
   "current_task": null,
-  "first_slice": "MediaSource-targeted addon-initiated Taru-owned NFO export apply path",
+  "first_slice": "MediaSource-targeted addon-initiated Nako-owned NFO export apply path",
   "non_goals": [
     "direct addon filesystem or remote storage access",
     "Addon Manager lifecycle automation",

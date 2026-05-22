@@ -18,7 +18,7 @@ The lane owns the lifecycle boundary between:
 
 Shipped:
 
-- `SelectedArtworkUnpublicationRecord` in `taru-core`;
+- `SelectedArtworkUnpublicationRecord` in `nako-core`;
 - `ManagedArtworkRepository::unpublish_selected_artwork_for_item_kind`;
 - SQLite item/kind-scoped Selected Artwork unpublish;
 - redacted `UnpublishSelectedArtworkResponse`;
@@ -54,11 +54,11 @@ None required for this lane.
 ## Suggested Validation
 
 ```powershell
-$env:CARGO_TARGET_DIR='G:\taru-cargo-target'
-cargo nextest run -p taru-api selected_artwork_unpublish --no-fail-fast
-cargo nextest run -p taru-db selected_artwork_unpublish --no-fail-fast
-cargo nextest run -p taru-server selected_artwork_unpublish --no-fail-fast
-cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests
+$env:CARGO_TARGET_DIR='G:\nako-cargo-target'
+cargo nextest run -p nako-api selected_artwork_unpublish --no-fail-fast
+cargo nextest run -p nako-db selected_artwork_unpublish --no-fail-fast
+cargo nextest run -p nako-server selected_artwork_unpublish --no-fail-fast
+cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests
 cargo fmt --all -- --check
 git diff --check
 ```

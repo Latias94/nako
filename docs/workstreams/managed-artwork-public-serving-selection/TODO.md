@@ -19,7 +19,7 @@ Last updated: 2026-05-19
 
 ## M1 - Public Contract And Selection Model Freeze
 
-- [x] MAPS-020 [owner=codex] [deps=MAPS-010] [scope=crates/taru-core,crates/taru-api,crates/taru-client-protocol,crates/taru-server,docs/api,docs/workstreams/managed-artwork-public-serving-selection]
+- [x] MAPS-020 [owner=codex] [deps=MAPS-010] [scope=crates/nako-core,crates/nako-api,crates/nako-client-protocol,crates/nako-server,docs/api,docs/workstreams/managed-artwork-public-serving-selection]
   Goal: Freeze the public image reference DTO and Selected Artwork persistence
   model, including how `ImageAssetDto`, `ImageRefDto.uri`, OpenAPI, and catalog
   responses stop exposing raw image locators.
@@ -39,10 +39,10 @@ Last updated: 2026-05-19
 
 ## M2 - Selected Artwork Publication
 
-- [x] MAPS-030 [owner=codex] [deps=MAPS-020] [scope=crates/taru-core,crates/taru-db,crates/taru-api,crates/taru-server,docs/api]
+- [x] MAPS-030 [owner=codex] [deps=MAPS-020] [scope=crates/nako-core,crates/nako-db,crates/nako-api,crates/nako-server,docs/api]
   Goal: Publish one stored Managed Artwork Artifact as the Selected Artwork for
   its item/kind through an explicit Admin API command.
-  Validation: focused db publication tests; focused admin HTTP tests; `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests`; `cargo fmt --all -- --check`; `git diff --check`.
+  Validation: focused db publication tests; focused admin HTTP tests; `cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests`; `cargo fmt --all -- --check`; `git diff --check`.
   Review: the publication command must be idempotent, constrained to stored
   artifacts, and redacted. It must not expose `storage_uri`, source URL,
   `cache_uri`, local path, or Addon/provider token material.
@@ -59,10 +59,10 @@ Last updated: 2026-05-19
 
 ## M3 - Public Image References And Byte Serving
 
-- [x] MAPS-040 [owner=codex] [deps=MAPS-030] [scope=crates/taru-core,crates/taru-db,crates/taru-api,crates/taru-client-protocol,crates/taru-server,docs/api]
+- [x] MAPS-040 [owner=codex] [deps=MAPS-030] [scope=crates/nako-core,crates/nako-db,crates/nako-api,crates/nako-client-protocol,crates/nako-server,docs/api]
   Goal: Return first-party Public Client image references for selected artwork
   and serve selected image bytes through a Public Client route.
-  Validation: focused catalog/image HTTP tests; OpenAPI route/schema tests; `cargo nextest run -p taru-server image --no-fail-fast`; `cargo nextest run -p taru-api image --no-fail-fast`; `git diff --check`.
+  Validation: focused catalog/image HTTP tests; OpenAPI route/schema tests; `cargo nextest run -p nako-server image --no-fail-fast`; `cargo nextest run -p nako-api image --no-fail-fast`; `git diff --check`.
   Review: item detail and item image responses must not include `source_uri`,
   `cache_uri`, `storage_uri`, raw `uri`, local paths, or stale `selected`
   booleans. The serving route must resolve storage only inside the server

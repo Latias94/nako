@@ -24,7 +24,7 @@ Outcome: the generated SDK runtime compiles under strict TypeScript settings.
 Exit criteria:
 
 - strict temporary TypeScript compile probe passes;
-- `cargo nextest run -p taru-api --no-fail-fast` passes.
+- `cargo nextest run -p nako-api --no-fail-fast` passes.
 
 ## M34.2 Package Skeleton And Generation Command
 
@@ -43,11 +43,11 @@ Exit criteria:
 Status: completed.
 
 Outcome: Rust tests prove the committed TypeScript package entry stays in sync
-with the `taru-api` generator and preserves the M33 public-surface checks.
+with the `nako-api` generator and preserves the M33 public-surface checks.
 
 Exit criteria:
 
-- `cargo nextest run -p taru-api --no-fail-fast`
+- `cargo nextest run -p nako-api --no-fail-fast`
 
 ## M34.4 Docs And Closeout
 
@@ -60,10 +60,10 @@ Exit criteria:
 
 - `cargo fmt --all -- --check`
 - `cargo check --workspace --tests`
-- `cargo check -p taru-api --examples`
-- `cargo nextest run -p taru-api --no-fail-fast`
+- `cargo check -p nako-api --examples`
+- `cargo nextest run -p nako-api --no-fail-fast`
 - `cargo nextest run --workspace --no-fail-fast`
-- `cargo tree -p taru-client-protocol`
+- `cargo tree -p nako-client-protocol`
 - `npm run generate --prefix sdk/typescript`
 - `npm run check --prefix sdk/typescript`
 - `git diff --check`
@@ -74,6 +74,6 @@ Primary evidence:
 - `sdk/typescript/package.json`
 - `sdk/typescript/tsconfig.json`
 - `sdk/typescript/src/index.ts`
-- `crates/taru-api/src/sdk.rs`
-- `crates/taru-api/examples/emit-typescript-sdk.rs`
+- `crates/nako-api/src/sdk.rs`
+- `crates/nako-api/examples/emit-typescript-sdk.rs`
 - `docs/workstreams/typescript-sdk-package/EVIDENCE_AND_GATES.md`

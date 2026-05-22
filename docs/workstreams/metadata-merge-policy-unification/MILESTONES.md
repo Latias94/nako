@@ -27,8 +27,8 @@ Exit criteria:
 
 Primary gates:
 
-- `cargo nextest run -p taru-metadata merge --no-fail-fast`
-- `cargo nextest run -p taru-nfo nfo_service --no-fail-fast`
+- `cargo nextest run -p nako-metadata merge --no-fail-fast`
+- `cargo nextest run -p nako-nfo nfo_service --no-fail-fast`
 
 ## M2 - Shared Policy Boundary
 
@@ -41,9 +41,9 @@ Exit criteria:
 
 Primary gates:
 
-- `cargo check -p taru-core --tests`
-- `cargo check -p taru-metadata --tests`
-- `cargo check -p taru-nfo --tests`
+- `cargo check -p nako-core --tests`
+- `cargo check -p nako-metadata --tests`
+- `cargo check -p nako-nfo --tests`
 - focused `cargo nextest` commands from M1
 
 ## M3 - Integration And Documentation

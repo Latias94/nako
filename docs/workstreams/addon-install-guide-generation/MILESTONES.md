@@ -28,8 +28,8 @@ Exit criteria:
 
 Primary gates:
 
-- `cargo nextest run -p taru-api admin_contract --no-fail-fast`
-- `cargo nextest run -p taru-server install_guide --no-fail-fast`
+- `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+- `cargo nextest run -p nako-server install_guide --no-fail-fast`
 
 Status: completed.
 

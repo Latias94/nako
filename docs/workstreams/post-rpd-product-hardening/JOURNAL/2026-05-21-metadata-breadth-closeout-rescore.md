@@ -14,6 +14,6 @@ Re-score outcome:
   ops, and addon runtime/distribution.
 
 The important architectural point is that downloads/import should not start as
-a generic downloader. The correct next shape is Taru-owned managed import
+a generic downloader. The correct next shape is Nako-owned managed import
 staging, after NFO/link authority defines dry-run, backup, rollback, and local
 file mutation rules.

@@ -9,21 +9,21 @@ M62 is closed. M61 left a clean PostgreSQL-ready baseline, and PGR-020 through
 PGR-120 have extended that baseline into the supported PostgreSQL runtime
 backend scope:
 
-- `TaruDatabase` is the public database facade.
-- SQLite implementation details live under `crates/taru-db/src/sqlite/`.
+- `NakoDatabase` is the public database facade.
+- SQLite implementation details live under `crates/nako-db/src/sqlite/`.
 - `PostgresStore` is compiled in runtime code for the supported PostgreSQL
   backend scope.
 - PostgreSQL migration coverage for this lane lives in
-  `crates/taru-db/migrations/postgres/0001_contract_jobs.sql`.
+  `crates/nako-db/migrations/postgres/0001_contract_jobs.sql`.
 - `contract_tests.rs` contains SQLite always-on backend-neutral contract
   families and PostgreSQL ignored opt-in variants gated by
-  `TARU_TEST_POSTGRES_URL`; ignored PostgreSQL gates now fail fast when the URL
+  `NAKO_TEST_POSTGRES_URL`; ignored PostgreSQL gates now fail fast when the URL
   is missing instead of reporting false green.
 - `DatabaseBackendKind` and `DatabaseConnectOptions` now define explicit
   runtime backend selection.
-- `TaruServerConfig.database_backend` defaults to SQLite, and `TaruApp::new`
-  constructs `TaruDatabase` through backend options.
-- `TaruDatabase` reports backend kind and capability metadata and internally
+- `NakoServerConfig.database_backend` defaults to SQLite, and `NakoApp::new`
+  constructs `NakoDatabase` through backend options.
+- `NakoDatabase` reports backend kind and capability metadata and internally
   dispatches through a backend adapter trait object instead of a SQLite-only
   field.
 - PostgreSQL runtime selection now enters a real PostgreSQL connection path.
@@ -90,7 +90,7 @@ registration/token/grant/side-effect state, and Automation provider/artifact
 state. A later Addon architecture pass (AAD-090, 2026-05-21) updated the clean
 Addon Side Effect schema to require `request_fingerprint` in both SQLite and
 the PostgreSQL proof schema; PostgreSQL opt-in contracts still require
-`TARU_TEST_POSTGRES_URL`. PGR-090 split Managed Artwork PostgreSQL parity out
+`NAKO_TEST_POSTGRES_URL`. PGR-090 split Managed Artwork PostgreSQL parity out
 of M62 into a named follow-on instead of enabling a large SQLite-only runtime
 surface partially.
 PGR-100 added safe database backend diagnostics and updated API/Admin contract
@@ -120,7 +120,7 @@ connection selection, and backend adapter dispatch in the facade.
 - SQLite remains the default backend and always-on test backend.
 - PostgreSQL contract tests remain opt-in because they require an external test
   database URL, but the opt-in gate now fails fast when
-  `TARU_TEST_POSTGRES_URL` is absent.
+  `NAKO_TEST_POSTGRES_URL` is absent.
 - Backend selection should be explicit; URL guessing may be a convenience but
   must not be the only behavior source.
 - PGR-020 deliberately does not fake production PostgreSQL runtime support.
@@ -152,12 +152,12 @@ connection selection, and backend adapter dispatch in the facade.
   scheme, migration status, support status, and coarse capability booleans. The
   raw database URL, credentials, host, path, query, and backend errors remain
   outside Admin DTOs.
-- PGR-110 kept `TaruDatabase::connect_in_memory()` because it is explicitly a
+- PGR-110 kept `NakoDatabase::connect_in_memory()` because it is explicitly a
   test fixture convenience, but deleted implicit SQLite production constructors
   from the facade. Remaining `sqlite::memory:` occurrences above adapters are
   test fixture data or default SQLite config examples, not production selection
   logic.
-- PGR-120 treats missing `TARU_TEST_POSTGRES_URL` as a failed PostgreSQL
+- PGR-120 treats missing `NAKO_TEST_POSTGRES_URL` as a failed PostgreSQL
   ignored contract gate, not a skipped success. This prevents false-positive
   opt-in gate evidence.
 - PGR-120 promotes VFS Cache/Staging Manifest under PostgreSQL because default

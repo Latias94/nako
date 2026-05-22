@@ -20,7 +20,7 @@ Exit criteria:
 
 ## M1: Local Library Index
 
-Outcome: Taru can index a local media directory into a persistent database.
+Outcome: Nako can index a local media directory into a persistent database.
 
 Deliverables:
 
@@ -28,7 +28,7 @@ Deliverables:
 - Library scan job.
 - Naming parser MVP for movies and series.
 - SQLite schema for libraries, items, media sources, streams, and external IDs.
-- ffprobe integration behind `taru-media-probe`.
+- ffprobe integration behind `nako-media-probe`.
 
 Exit criteria:
 
@@ -38,12 +38,12 @@ Exit criteria:
 
 ## M2: Server Runtime and API Foundation
 
-Outcome: Taru can run as a long-lived local server with a minimal HTTP API and
+Outcome: Nako can run as a long-lived local server with a minimal HTTP API and
 persisted background job state.
 
 Deliverables:
 
-- HTTP server bootstrap in `taru-server`.
+- HTTP server bootstrap in `nako-server`.
 - Startup configuration for listen address, SQLite, ffprobe, local library, and
   scan/probe concurrency.
 - Persisted job table and repository.
@@ -61,7 +61,7 @@ Exit criteria:
 
 ## M2.1: Runtime Hardening and API Discipline
 
-Outcome: Taru's server runtime has durable job inputs, documented job
+Outcome: Nako's server runtime has durable job inputs, documented job
 semantics, pagination basics, and developer workflow documentation.
 
 Deliverables:
@@ -85,7 +85,7 @@ Exit criteria:
 
 ## M3 Summary: Metadata and NFO
 
-Outcome: Taru can enrich indexed items and preserve local metadata control.
+Outcome: Nako can enrich indexed items and preserve local metadata control.
 
 Deliverables:
 
@@ -102,7 +102,7 @@ Exit criteria:
 
 ## M3.1: Metadata Model and NFO Policy Foundation
 
-Outcome: Taru has a provider-neutral metadata model, merge policy, raw provider
+Outcome: Nako has a provider-neutral metadata model, merge policy, raw provider
 cache, and minimal movie NFO codec.
 
 Deliverables:
@@ -119,12 +119,12 @@ Exit criteria:
 - Locked fields survive metadata merge.
 - Rich metadata round-trips through SQLite.
 - Provider raw cache round-trips through SQLite.
-- Movie NFO core fields round-trip through `taru-nfo`.
+- Movie NFO core fields round-trip through `nako-nfo`.
 - `cargo fmt`, `cargo check`, and `cargo nextest run` pass for the workspace.
 
 ## M3.2: TMDB Provider MVP and Metadata Refresh Job
 
-Outcome: Taru can enrich an indexed movie item through TMDB while preserving
+Outcome: Nako can enrich an indexed movie item through TMDB while preserving
 local metadata authority.
 
 Deliverables:
@@ -149,7 +149,7 @@ Exit criteria:
 
 ## M3.3: Library Profiles and Metadata Strategy
 
-Outcome: Taru can choose metadata resolution behavior from library-level
+Outcome: Nako can choose metadata resolution behavior from library-level
 profiles instead of hard-coding provider behavior into refresh endpoints.
 
 Deliverables:
@@ -178,7 +178,7 @@ Exit criteria:
 
 ## M3.4: Metadata Strategy Executor and Provider Fallback
 
-Outcome: Taru can execute metadata refresh through a provider registry and
+Outcome: Nako can execute metadata refresh through a provider registry and
 profile-ordered fallback strategy instead of server-side provider branching.
 
 Deliverables:
@@ -202,7 +202,7 @@ Exit criteria:
 
 ## M3.5: NFO Discovery, Import, and Export Jobs
 
-Outcome: Taru can discover same-stem NFO sidecars, import them as local
+Outcome: Nako can discover same-stem NFO sidecars, import them as local
 metadata, and export canonical metadata through persisted jobs.
 
 Deliverables:
@@ -226,7 +226,7 @@ Exit criteria:
 
 ## M3.6: Catalog Graph, Artwork Cache, Search, and Scan Strategy
 
-Outcome: Taru has an implementation plan for the catalog graph and performance
+Outcome: Nako has an implementation plan for the catalog graph and performance
 foundations needed by actor/director pages, tag filters, image-heavy UI,
 search, and incremental scanning.
 
@@ -253,7 +253,7 @@ Exit criteria:
 
 ## M4.0: Catalog Ingestion Foundation
 
-Outcome: Taru can run the first server-side library ingestion loop from local
+Outcome: Nako can run the first server-side library ingestion loop from local
 VFS scan to persisted media items, scan state, normalized catalog graph,
 search projection, and artwork task queue records.
 
@@ -263,7 +263,7 @@ Deliverables:
   tags, collections, studios, and image assets.
 - Durable scan snapshots, directory snapshots, source states, and tombstones.
 - Local VFS fingerprints based on lightweight file metadata.
-- SQLite search projection behind the `taru-search` adapter boundary.
+- SQLite search projection behind the `nako-search` adapter boundary.
 - HTTP search route for projected items.
 - Artwork task table with resource classes, retry state, and default concurrency
   policy.
@@ -283,13 +283,13 @@ Exit criteria:
 
 ## M4.1: Catalog Graph Hydration and Browse API
 
-Outcome: Taru hydrates the normalized catalog graph from metadata refresh and
+Outcome: Nako hydrates the normalized catalog graph from metadata refresh and
 NFO import, rebuilds search projection after metadata changes, and exposes the
 first browse API surface needed by future clients.
 
 Deliverables:
 
-- Shared `taru-catalog` hydration module from canonical metadata to graph
+- Shared `nako-catalog` hydration module from canonical metadata to graph
   records.
 - Metadata refresh graph hydration for people, credits, genres, tags,
   collections, studios, image assets, and search projection.
@@ -311,7 +311,7 @@ Exit criteria:
 
 ## M4.2: Playback Decision and Direct Play API
 
-Outcome: Taru can decide whether a source can direct play and serve local media
+Outcome: Nako can decide whether a source can direct play and serve local media
 through an HTTP byte-range direct play route.
 
 Deliverables:
@@ -334,13 +334,13 @@ Exit criteria:
 
 ## M4.2.1: Direct Play Boundary Hardening
 
-Outcome: Taru has a direct play boundary that is ready for remux, HLS, and
+Outcome: Nako has a direct play boundary that is ready for remux, HLS, and
 transcode work without keeping response policy in raw HTTP handlers.
 
 Deliverables:
 
-- Direct play response planning model in `taru-streaming`.
-- Application-level direct play planning in `taru-server::app`.
+- Direct play response planning model in `nako-streaming`.
+- Application-level direct play planning in `nako-server::app`.
 - HTTP handler reduced to header translation, file streaming, and response
   mapping.
 - `HEAD /sources/{source_id}/stream` support for playback preflight.
@@ -360,13 +360,13 @@ Exit criteria:
 
 ## M4.3: FFmpeg Command Builder and Remux Session Skeleton
 
-Outcome: Taru has an explicit FFmpeg planning boundary and a remux session
+Outcome: Nako has an explicit FFmpeg planning boundary and a remux session
 skeleton before any process runner, HLS serving, or hardware acceleration is
 implemented.
 
 Deliverables:
 
-- FFmpeg command builder interface in `taru-transcode`.
+- FFmpeg command builder interface in `nako-transcode`.
 - Copy-only remux command planning for MP4 and Matroska outputs.
 - Remux request validation for empty and in-place paths.
 - In-memory transcode session model and lifecycle transition checks.
@@ -383,13 +383,13 @@ Exit criteria:
 
 ## M4.4: Remux Process Runner and Runtime Resource Guard
 
-Outcome: Taru can run a planned remux session through a real FFmpeg process
+Outcome: Nako can run a planned remux session through a real FFmpeg process
 behind explicit lifecycle, cancellation, timeout, concurrency, and cleanup
 boundaries without exposing a playback HTTP route yet.
 
 Deliverables:
 
-- FFmpeg remux process runner in `taru-transcode`.
+- FFmpeg remux process runner in `nako-transcode`.
 - Cancellation token and timeout handling for remux sessions.
 - Semaphore-backed remux runtime guard.
 - Session-scoped temporary output path with promote-on-success behavior.
@@ -410,13 +410,13 @@ Exit criteria:
 
 ## M4.5: Remux App Service Integration and Local Staging Policy
 
-Outcome: Taru has an application-level remux orchestration boundary and a local
+Outcome: Nako has an application-level remux orchestration boundary and a local
 staging policy that can support a future HTTP remux playback route without
 letting HTTP handlers own FFmpeg process details.
 
 Deliverables:
 
-- Remux application service in `taru-server::app`.
+- Remux application service in `nako-server::app`.
 - Local remux staging directory policy.
 - Deterministic output naming and cleanup rules.
 - Duplicate remux request reuse or explicit idempotency behavior.
@@ -438,7 +438,7 @@ Exit criteria:
 
 ## M4.6: Remux Playback Route
 
-Outcome: Taru exposes remuxed playback through HTTP while keeping handlers as
+Outcome: Nako exposes remuxed playback through HTTP while keeping handlers as
 request/response translation around the remux application service.
 
 Deliverables:
@@ -489,7 +489,7 @@ Exit criteria:
 
 ## M4.8: HLS Transcode Foundation
 
-Outcome: Taru can model and serve the first HLS playlist/segment lifecycle on
+Outcome: Nako can model and serve the first HLS playlist/segment lifecycle on
 top of persisted playback sessions before hardware acceleration policy is
 introduced.
 
@@ -515,7 +515,7 @@ Exit criteria:
 
 ## M4.9: Hardware Acceleration Policy
 
-Outcome: Taru has a deterministic hardware acceleration capability and policy
+Outcome: Nako has a deterministic hardware acceleration capability and policy
 model before VAAPI, NVENC, or QuickSync are enabled in transcode command
 execution.
 
@@ -563,7 +563,7 @@ Exit criteria:
 
 ## M5: Extension Surface
 
-Outcome: Taru has stable external automation and addon surfaces.
+Outcome: Nako has stable external automation and addon surfaces.
 
 Detailed M5 milestones are tracked in
 `docs/workstreams/addons-automation/MILESTONES.md`.
@@ -573,7 +573,7 @@ Deliverables:
 - Webhook outbox.
 - Automation job runner.
 - External API provider configuration.
-- Taru addon manifest draft and one reference addon.
+- Nako addon manifest draft and one reference addon.
 
 Exit criteria:
 
@@ -583,7 +583,7 @@ Exit criteria:
 
 ## M6: Remote Storage Preview
 
-Outcome: Taru can index and play a limited remote source through the internal
+Outcome: Nako can index and play a limited remote source through the internal
 VFS contract.
 
 Deliverables:
@@ -601,15 +601,15 @@ Exit criteria:
 
 ## M20: Server Surface Decomposition
 
-Outcome: `taru-server` test and route surfaces are organized by bounded
+Outcome: `nako-server` test and route surfaces are organized by bounded
 context, so future playback, metadata, storage, addon, automation, and catalog
 changes can be reviewed without editing giant shared test files.
 
 Deliverables:
 
-- Split `crates/taru-server/src/app/tests.rs` into `app/tests/{startup,
+- Split `crates/nako-server/src/app/tests.rs` into `app/tests/{startup,
   storage,nfo,metadata,playback,staging}.rs`.
-- Split `crates/taru-server/src/http/tests.rs` into `http/tests/{system,
+- Split `crates/nako-server/src/http/tests.rs` into `http/tests/{system,
   webhooks,automation,addons,library,metadata,catalog,playback}.rs`.
 - Keep shared fixtures in each test directory's `mod.rs`.
 - Avoid route or application behavior changes.
@@ -629,7 +629,7 @@ of being constructed ad hoc by scan, playback, NFO, or staging call sites.
 
 Deliverables:
 
-- `TaruApp` owns a `StorageBackendRegistry` keyed by configured `library_id`.
+- `NakoApp` owns a `StorageBackendRegistry` keyed by configured `library_id`.
 - `LibraryStorageBackend` wraps concrete local/WebDAV VFS backends and owns
   per-library runtime state.
 - Direct-play stream permits, remote staging permits, WebDAV cache state, and
@@ -643,8 +643,8 @@ Deliverables:
 Exit criteria:
 
 - `cargo fmt --all -- --check`
-- `cargo check -p taru-server --tests`
-- `cargo nextest run -p taru-server`
+- `cargo check -p nako-server --tests`
+- `cargo nextest run -p nako-server`
 - `git diff --check`
 
 ## M22: Ingestion Failure Diagnostics
@@ -686,7 +686,7 @@ Deliverables:
 - Explicit DTOs for high-frequency library, catalog, playback, source probe,
   transcode session, and ingestion failure responses.
 - HTTP route registration moved into bounded-context router functions.
-- Remaining `taru-db/src/lib.rs` helper methods moved into their owning
+- Remaining `nako-db/src/lib.rs` helper methods moved into their owning
   repository modules.
 - DTO serialization coverage and API error-body coverage for the cleaned-up
   surfaces.

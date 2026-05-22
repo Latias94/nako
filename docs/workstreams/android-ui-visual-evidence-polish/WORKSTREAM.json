@@ -6,7 +6,7 @@
   "updated": "2026-05-19",
   "scope_kind": "ui",
   "problem": "Latest Android smoke screenshots show the custom Player bottom information panel overlapping the Media3 controller and progress controls.",
-  "summary": "Closed lane for a narrow screenshot-driven Player UI polish that keeps Media3 controls enabled while moving Taru context chrome out of the controller area.",
+  "summary": "Closed lane for a narrow screenshot-driven Player UI polish that keeps Media3 controls enabled while moving Nako context chrome out of the controller area.",
   "current_milestone": null,
   "current_task": null,
   "task_prefix": "AUP",
@@ -33,7 +33,7 @@
     }
   ],
   "gates": [
-    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.taru.android.ui.screens.player.PlayerPresentationTest --no-daemon",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.nako.android.ui.screens.player.PlayerPresentationTest --no-daemon",
     "pwsh -NoProfile -File apps\\android\\scripts\\Smoke-Emulator.ps1 -FixtureState profile-with-media -SkipBuild",
     "git diff --check"
   ],

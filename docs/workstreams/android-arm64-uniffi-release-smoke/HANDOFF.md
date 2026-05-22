@@ -16,8 +16,8 @@ None.
 
 - Do not claim arm64 runtime execution unless `ro.product.cpu.abi` is arm64 and
   connected instrumentation passes.
-- Packaging evidence should verify both Taru UniFFI and JNA dispatch libraries.
-- Keep `-PtaruRustAndroidAbis=arm64-v8a` focused.
+- Packaging evidence should verify both Nako UniFFI and JNA dispatch libraries.
+- Keep `-PnakoRustAndroidAbis=arm64-v8a` focused.
 
 ## Recommended Next Step
 

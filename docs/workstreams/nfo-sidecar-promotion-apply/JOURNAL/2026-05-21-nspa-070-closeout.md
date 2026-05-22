@@ -7,7 +7,7 @@ NFO Sidecar Promotion Apply is complete.
 The lane now has:
 
 - durable accepted sidecar apply records and idempotent replay;
-- export apply through `taru-nfo` round-trip preservation and VFS storage write
+- export apply through `nako-nfo` round-trip preservation and VFS storage write
   policy;
 - import apply through canonical metadata, local authority, field locks, and
   hierarchy confirmation;
@@ -21,7 +21,7 @@ The lane now has:
 - Admin API/UI exposure is a follow-on consumer of the app-service apply
   boundary.
 - Public Client API must not expose raw sidecar paths or direct sidecar writes.
-- Addons may request sidecar effects only through scoped Taru-owned apply
+- Addons may request sidecar effects only through scoped Nako-owned apply
   commands.
 - Downloads/watch-folder acquisition must produce staged artifacts and consume
   Managed Import promotion plus NFO sidecar apply; it must not write sidecars or

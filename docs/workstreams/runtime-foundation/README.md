@@ -8,7 +8,7 @@ runtime behavior, migrations, secret handling, resource limits, capability
 selection, lifecycle tasks, and diagnostics.
 
 Runtime foundation work should reduce long-term coupling across
-`taru-server`, `taru-db`, `taru-metadata`, `taru-transcode`, storage, and
+`nako-server`, `nako-db`, `nako-metadata`, `nako-transcode`, storage, and
 future clients. It is the place to make fearless refactors when an MVP shortcut
 has become a shared system risk.
 
@@ -30,10 +30,10 @@ domain-specific workstream that owns the active boundary, such as
   capability detection, policy, fallback, and resource budgets.
 - Keep app composition thin by moving reusable runtime policies into focused
   modules or crates.
-- Keep `taru-db` as a focused SQLite repository implementation with explicit
+- Keep `nako-db` as a focused SQLite repository implementation with explicit
   transaction boundaries.
 - Prefer explicit API DTOs for new public surfaces instead of expanding direct
-  `taru-core` exposure.
+  `nako-core` exposure.
 
 ## Non-Goals
 
@@ -46,7 +46,7 @@ domain-specific workstream that owns the active boundary, such as
 
 ## Refactor Policy
 
-Taru has not shipped a compatibility contract yet. Runtime foundation phases may
+Nako has not shipped a compatibility contract yet. Runtime foundation phases may
 remove old code paths, rename configuration fields, tighten public DTOs, and
 delete legacy helpers when doing so produces a cleaner boundary.
 

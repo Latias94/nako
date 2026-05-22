@@ -36,14 +36,14 @@
     "adb devices -l",
     "adb shell getprop ro.product.cpu.abi",
     "adb shell getprop ro.product.cpu.abilist",
-    "apps/android/gradlew.bat -p apps/android :app:connectedDebugAndroidTest -PtaruRustAndroidAbis=arm64-v8a --no-daemon",
-    "apps/android/gradlew.bat -p apps/android :app:assembleDebug -PtaruRustAndroidAbis=arm64-v8a --no-daemon",
+    "apps/android/gradlew.bat -p apps/android :app:connectedDebugAndroidTest -PnakoRustAndroidAbis=arm64-v8a --no-daemon",
+    "apps/android/gradlew.bat -p apps/android :app:assembleDebug -PnakoRustAndroidAbis=arm64-v8a --no-daemon",
     "python -m json.tool docs/workstreams/android-arm64-uniffi-release-smoke/WORKSTREAM.json > $null",
     "git diff --check"
   ],
   "evidence": [
     "docs/workstreams/android-uniffi-native-smoke/CLOSEOUT.md",
-    "apps/android/app/src/androidTest/java/dev/taru/android/uniffi/TaruUniFfiNativeSmokeTest.kt",
+    "apps/android/app/src/androidTest/java/dev/nako/android/uniffi/NakoUniFfiNativeSmokeTest.kt",
     "apps/android/app/build.gradle.kts",
     "apps/android/app/build/outputs/apk/debug/app-debug.apk",
     "docs/workstreams/android-arm64-uniffi-release-smoke/CLOSEOUT.md"

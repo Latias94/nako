@@ -33,21 +33,21 @@
     }
   ],
   "gates": [
-    "cargo check -j 2 -p taru-nfo --tests",
-    "cargo nextest run -j 2 -p taru-nfo import --no-fail-fast",
-    "cargo nextest run -j 2 -p taru-nfo export --no-fail-fast",
-    "cargo nextest run -j 2 -p taru-server nfo --no-fail-fast",
-    "cargo nextest run -j 2 -p taru-server job_cancel --no-fail-fast",
-    "cargo check -j 2 -p taru-core -p taru-db -p taru-nfo -p taru-server --tests",
+    "cargo check -j 2 -p nako-nfo --tests",
+    "cargo nextest run -j 2 -p nako-nfo import --no-fail-fast",
+    "cargo nextest run -j 2 -p nako-nfo export --no-fail-fast",
+    "cargo nextest run -j 2 -p nako-server nfo --no-fail-fast",
+    "cargo nextest run -j 2 -p nako-server job_cancel --no-fail-fast",
+    "cargo check -j 2 -p nako-core -p nako-db -p nako-nfo -p nako-server --tests",
     "cargo fmt --all -- --check",
     "git diff --check"
   ],
   "evidence": [
     "docs/workstreams/nfo-sidecar-cancellation-checkpoints/DESIGN.md",
     "docs/workstreams/nfo-sidecar-cancellation-checkpoints/TODO.md",
-    "crates/taru-nfo/src/import.rs",
-    "crates/taru-nfo/src/export.rs",
-    "crates/taru-server/src/app/nfo.rs",
+    "crates/nako-nfo/src/import.rs",
+    "crates/nako-nfo/src/export.rs",
+    "crates/nako-server/src/app/nfo.rs",
     "docs/api/HTTP_API.md"
   ],
   "adr_refs": [

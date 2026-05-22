@@ -17,13 +17,13 @@
   },
   "license_boundary": {
     "shared_client_crates": "Apache-2.0",
-    "allowed_taru_dependencies": ["taru-client", "taru-client-protocol"],
-    "forbidden_taru_dependencies": [
-      "taru-api",
-      "taru-server",
-      "taru-core",
-      "taru-streaming",
-      "taru-transcode"
+    "allowed_nako_dependencies": ["nako-client", "nako-client-protocol"],
+    "forbidden_nako_dependencies": [
+      "nako-api",
+      "nako-server",
+      "nako-core",
+      "nako-streaming",
+      "nako-transcode"
     ]
   }
 }

@@ -33,9 +33,9 @@ Exit criteria:
 
 Primary evidence:
 
-- `crates/taru-api/src/admin.rs`
-- `crates/taru-server/src/app/playback`
-- `crates/taru-server/src/http/tests/system.rs`
+- `crates/nako-api/src/admin.rs`
+- `crates/nako-server/src/app/playback`
+- `crates/nako-server/src/http/tests/system.rs`
 
 ## M2 — Validation And Fallback Reasons
 
@@ -47,13 +47,13 @@ Exit criteria:
   creation or FFmpeg launch.
 - Hardware fallback reasons have stable categories plus operator-readable
   messages.
-- Validation ownership remains in `taru-transcode` unless app/storage context
+- Validation ownership remains in `nako-transcode` unless app/storage context
   is explicitly required.
 
 Primary evidence:
 
-- `crates/taru-transcode`
-- `crates/taru-streaming`
+- `crates/nako-transcode`
+- `crates/nako-streaming`
 - focused playback app tests
 
 ## M3 — Session Failure Taxonomy
@@ -71,9 +71,9 @@ Exit criteria:
 
 Primary evidence:
 
-- `crates/taru-core`
-- `crates/taru-server/src/app/playback`
-- `crates/taru-server/src/http/tests`
+- `crates/nako-core`
+- `crates/nako-server/src/app/playback`
+- `crates/nako-server/src/http/tests`
 
 ## M4 — Support Evidence Read Model
 
@@ -91,8 +91,8 @@ Exit criteria:
 
 Primary evidence:
 
-- `crates/taru-api/src/admin.rs`
-- `crates/taru-server/src/http/admin.rs`
+- `crates/nako-api/src/admin.rs`
+- `crates/nako-server/src/http/admin.rs`
 - redaction tests
 
 ## M5 — Closeout And Parent Re-Score

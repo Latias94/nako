@@ -7,20 +7,20 @@ Last updated: 2026-05-19
 
 This lane closes the NFO gap left by
 `worker-job-cancellation-checkpoints`: NFO import/export jobs now use the
-context-aware durable runtime at the app boundary, but `taru-nfo` still loops
+context-aware durable runtime at the app boundary, but `nako-nfo` still loops
 over all media sources without a per-sidecar cancellation checkpoint.
 
 The goal is to let NFO library import/export stop before the next sidecar
 read/write when the owning durable worker observes an Admin cancel request,
-without making `taru-nfo` depend on `taru-server` runtime types.
+without making `nako-nfo` depend on `nako-server` runtime types.
 
 ## Goals
 
-- Add a crate-local cancellation/checkpoint contract in `taru-nfo`.
+- Add a crate-local cancellation/checkpoint contract in `nako-nfo`.
 - Check cancellation before each sidecar read/write unit in import and export.
 - Keep existing no-cancellation `import_library` and `export_library` APIs
   source-compatible through no-op defaults.
-- Map `taru-server` durable cancellation into the new NFO checkpoint API.
+- Map `nako-server` durable cancellation into the new NFO checkpoint API.
 - Prove cancelled NFO jobs persist terminal `cancelled` and skip success
   outbox publication.
 - Keep sidecar paths, XML payloads, storage URIs, and source locators out of
@@ -54,7 +54,7 @@ without making `taru-nfo` depend on `taru-server` runtime types.
 
 ## Outcome
 
-The lane shipped a server-independent `taru-nfo` sidecar checkpoint contract,
+The lane shipped a server-independent `nako-nfo` sidecar checkpoint contract,
 checkpoint-aware import/export library variants, no-op compatibility wrappers,
 and durable server import/export cancellation mapping. Cancelled NFO jobs now
 stop before the next sidecar unit, persist terminal `cancelled`, and skip

@@ -15,7 +15,7 @@ Last updated: 2026-05-19
 
 ## M1 - File Write Seam Audit
 
-- [x] ALFW-020 [owner=codex] [deps=ALFW-010] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-api,crates/taru-nfo,crates/taru-vfs,docs]
+- [x] ALFW-020 [owner=codex] [deps=ALFW-010] [scope=crates/nako-core,crates/nako-db,crates/nako-server,crates/nako-api,crates/nako-nfo,crates/nako-vfs,docs]
   Goal: Audit current subtitle, NFO, storage/VFS, backup, and Addon Side Effect
   seams; choose the first bounded Library File Write target.
   Validation: `rg -n "Library File Write|subtitle|NFO|nfo|StorageWriteRequest|StorageWriteReport|StorageBackupPolicy|atomic_replace|backup|sidecar" crates docs`; `git diff --check`.
@@ -25,7 +25,7 @@ Last updated: 2026-05-19
   discoverable source/state/search changes use `commit_library_scan_source` or
   a new first-party commit unit.
   Evidence: audit notes in `EVIDENCE_AND_GATES.md`; `DESIGN.md` selected
-  MediaSource-targeted Taru-owned NFO Export as the first apply target.
+  MediaSource-targeted Nako-owned NFO Export as the first apply target.
   Handoff: Continue with ALFW-030 by implementing a typed `library_file_write`
   side-effect payload for NFO export. Target derivation, atomic replace,
   backup/retention, truthful queued-or-applied semantics, and redacted report
@@ -33,14 +33,14 @@ Last updated: 2026-05-19
 
 ## M2 - First File Write Apply Slice
 
-- [x] ALFW-030 [owner=codex] [deps=ALFW-020] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-api,crates/taru-nfo,crates/taru-vfs,docs/api]
+- [x] ALFW-030 [owner=codex] [deps=ALFW-020] [scope=crates/nako-core,crates/nako-db,crates/nako-server,crates/nako-api,crates/nako-nfo,crates/nako-vfs,docs/api]
   Goal: Implement the selected addon Library File Write apply path: an accepted
   `library_file_write` side effect with a MediaSource target requests
-  Taru-owned NFO Export without addon-provided paths, Source Locators, remote
+  Nako-owned NFO Export without addon-provided paths, Source Locators, remote
   handles, or raw NFO payloads.
   Validation: focused NFO/storage/addon tests, including create-missing,
   replace-existing-preserving, idempotent replay, unsupported permission/target,
-  and redacted response/report cases; `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-nfo -p taru-vfs --tests`; `cargo fmt --all -- --check`; `git diff --check`.
+  and redacted response/report cases; `cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-nfo -p nako-vfs --tests`; `cargo fmt --all -- --check`; `git diff --check`.
   Review: verify no response exposes raw payload, Source Locators, filesystem
   paths, remote storage handles, or unredacted backup/write reports. Verify the
   implementation does not re-create Addon-specific NFO import, scan-source, or

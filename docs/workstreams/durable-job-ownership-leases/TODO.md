@@ -15,10 +15,10 @@ Last updated: 2026-05-19
 
 ## M1 - State Machine And Contract Freeze
 
-- [x] DJOL-020 [owner=codex] [deps=DJOL-010] [scope=docs/adr,crates/taru-core/src/job.rs,crates/taru-core/src/repository/jobs.rs]
+- [x] DJOL-020 [owner=codex] [deps=DJOL-010] [scope=docs/adr,crates/nako-core/src/job.rs,crates/nako-core/src/repository/jobs.rs]
   Goal: Freeze the job ownership state machine, cancellation semantics,
   terminal-status choice, repository contract names, and safe Admin fields.
-  Validation: `cargo check -p taru-core --tests`; `cargo fmt --all -- --check`.
+  Validation: `cargo check -p nako-core --tests`; `cargo fmt --all -- --check`.
   Review: Confirm no raw job input, summary, error, Source Locator, storage
   handle, path, token, or provider payload becomes part of DTO planning.
   Evidence: `DESIGN.md`, ADR delta if required, core type/repository diffs.
@@ -30,11 +30,11 @@ Last updated: 2026-05-19
 
 ## M2 - Durable Schema And Repository Proof
 
-- [x] DJOL-030 [owner=codex] [deps=DJOL-020] [scope=crates/taru-db,crates/taru-core]
+- [x] DJOL-030 [owner=codex] [deps=DJOL-020] [scope=crates/nako-db,crates/nako-core]
   Goal: Add the durable columns and SQLite repository operations for fenced
   claim, heartbeat, finish, fail, cancel request, cancellation acknowledgement,
   and lease-aware recovery.
-  Validation: `cargo nextest run -p taru-db job_lease --no-fail-fast`; `cargo nextest run -p taru-db job_cancel --no-fail-fast`.
+  Validation: `cargo nextest run -p nako-db job_lease --no-fail-fast`; `cargo nextest run -p nako-db job_cancel --no-fail-fast`.
   Review: Every mutating operation must fence on `job_id` plus run token where
   ownership is required.
   Evidence: SQLite migration, repository adapter tests.
@@ -46,10 +46,10 @@ Last updated: 2026-05-19
 
 ## M3 - First Runtime Integration
 
-- [x] DJOL-040 [owner=codex] [deps=DJOL-030] [scope=crates/taru-core,crates/taru-db,crates/taru-server/src/app/job_runtime.rs]
+- [x] DJOL-040 [owner=codex] [deps=DJOL-030] [scope=crates/nako-core,crates/nako-db,crates/nako-server/src/app/job_runtime.rs]
   Goal: Make one real durable job execution path use leased ownership from
   claim/start through heartbeat and completion.
-  Validation: `cargo nextest run -p taru-server job_runtime --no-fail-fast`.
+  Validation: `cargo nextest run -p nako-server job_runtime --no-fail-fast`.
   Review: The runtime supervisor remains process-local; durable truth stays in
   repository operations.
   Evidence: Server runtime tests and startup recovery tests.
@@ -62,10 +62,10 @@ Last updated: 2026-05-19
 
 ## M4 - Truthful Cancel Request Controls
 
-- [x] DJOL-050 [owner=codex] [deps=DJOL-040] [scope=crates/taru-api,crates/taru-server/src/http,docs/api]
+- [x] DJOL-050 [owner=codex] [deps=DJOL-040] [scope=crates/nako-api,crates/nako-server/src/http,docs/api]
   Goal: Add redacted Admin cancel-request behavior for leased jobs if the
   worker can observe and acknowledge cancellation.
-  Validation: `cargo nextest run -p taru-server job_cancel --no-fail-fast`; `cargo check -p taru-api -p taru-server --tests`.
+  Validation: `cargo nextest run -p nako-server job_cancel --no-fail-fast`; `cargo check -p nako-api -p nako-server --tests`.
   Review: Queued cancellation, running cancellation request, terminal-job
   rejection, and expired-lease behavior must be distinct.
   Evidence: HTTP/API tests and docs.

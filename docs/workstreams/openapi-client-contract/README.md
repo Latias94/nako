@@ -4,16 +4,16 @@ Status: Completed
 Last updated: 2026-05-17
 
 This workstream owns M32: the first machine-readable Public Client API
-contract for Taru. It turned the M29 public protocol DTOs, M30 version/error
+contract for Nako. It turned the M29 public protocol DTOs, M30 version/error
 contract, and M31 bearer-auth boundary into an OpenAPI v1 artifact that future
 Flutter, web, CLI, and SDK work can consume.
 
 Closeout:
 
-- `taru-client-protocol` owns playback session response wire DTOs;
+- `nako-client-protocol` owns playback session response wire DTOs;
 - playback session responses no longer expose server-local output paths;
-- `taru-api` generates OpenAPI v1 JSON through
-  `cargo run -p taru-api --example emit-openapi`;
+- `nako-api` generates OpenAPI v1 JSON through
+  `cargo run -p nako-api --example emit-openapi`;
 - checker tests verify public route coverage, auth/version/error/pagination
   semantics, and internal/admin leakage rejection.
 

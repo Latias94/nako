@@ -16,19 +16,19 @@ request previews, and local persistence outside the generated SDK.
 
 ## Delivered
 
-- `taru-api` emits checked Kotlin/JVM SDK source into `sdk/kotlin`.
-- Android Gradle includes the generated package as `:taru-public-client-sdk`.
+- `nako-api` emits checked Kotlin/JVM SDK source into `sdk/kotlin`.
+- Android Gradle includes the generated package as `:nako-public-client-sdk`.
 - Rust generator tests prove the checked Kotlin source matches the generator
   output and excludes admin/internal/secret/raw-locator surfaces.
 - Kotlin SDK tests prove request descriptors and generated DTO serialization.
-- Android clients build public route paths from `TaruPublicClientRequests`.
+- Android clients build public route paths from `NakoPublicClientRequests`.
 - Android response decoding enters through generated SDK DTOs and maps through
   explicit app adapters:
   - `BrowseSdkAdapters.kt`
   - `MediaProbeSdkAdapters.kt`
   - `PlaybackSdkAdapters.kt`
 - Replaced Android handwritten public API mirrors were deleted:
-  - `TaruPublicApiContract`
+  - `NakoPublicApiContract`
   - `HealthEnvelope`
   - `PublicApiUrl`
   - old route query/path helpers
@@ -53,7 +53,7 @@ request previews, and local persistence outside the generated SDK.
 - Android app models that remain serializable are local diagnostics, profile
   persistence, preferences, playback-position, or UI navigation state, not
   generated Public Client API wire DTO mirrors.
-- The retained `PublicClientApiExecutor` and `TaruRequestDescriptor.urlOn`
+- The retained `PublicClientApiExecutor` and `NakoRequestDescriptor.urlOn`
   helper are Android transport/redaction seams, not public route authorities.
 
 ### Missing Gates
@@ -97,7 +97,7 @@ request previews, and local persistence outside the generated SDK.
 ## Evidence Anchors
 
 - `docs/workstreams/android-generated-public-client-sdk/EVIDENCE_AND_GATES.md`
-- `sdk/kotlin/src/main/kotlin/dev/taru/sdk/TaruClientSdk.kt`
-- `sdk/kotlin/src/test/kotlin/dev/taru/sdk/TaruClientSdkTest.kt`
-- `crates/taru-api/src/sdk.rs`
-- `apps/android/app/src/main/java/dev/taru/android`
+- `sdk/kotlin/src/main/kotlin/dev/nako/sdk/NakoClientSdk.kt`
+- `sdk/kotlin/src/test/kotlin/dev/nako/sdk/NakoClientSdkTest.kt`
+- `crates/nako-api/src/sdk.rs`
+- `apps/android/app/src/main/java/dev/nako/android`

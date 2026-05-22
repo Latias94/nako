@@ -12,14 +12,14 @@ Complete roadmap umbrella. Wave 1 `metadata-provider-breadth` is complete;
 This lane coordinates the post-packaging productization wave after
 `release-packaging-and-distribution`. It is not an implementation lane by
 itself. It records ordering, dependencies, and split criteria for the next
-fearless refactor workstreams so Taru can grow toward a real self-hosted media
+fearless refactor workstreams so Nako can grow toward a real self-hosted media
 library product without collapsing metadata, NFO, playback, import, network,
 AI, and addon concerns into one oversized change.
 
 ## Purpose
 
-RPD made Taru packageable and diagnosable for self-hosted operators. The next
-product risk is whether Taru can safely manage a real library:
+RPD made Nako packageable and diagnosable for self-hosted operators. The next
+product risk is whether Nako can safely manage a real library:
 
 - explainable TMDB, Douban, and Bangumi metadata matching;
 - non-destructive NFO and link authority;

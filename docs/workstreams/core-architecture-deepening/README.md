@@ -4,7 +4,7 @@ Status: Completed
 Last updated: 2026-05-18
 
 This workstream owns the architecture-first refactor that follows the
-2026-05-18 Taru architecture review. The goal is not a minimal patch set. A
+2026-05-18 Nako architecture review. The goal is not a minimal patch set. A
 slice is complete only when the target seam is deep enough, the old shallow path
 is removed, and tests prove the new invariants.
 
@@ -25,7 +25,7 @@ Authoritative docs:
 - Move multi-record Media Item, NFO Sidecar, Catalog Item Graph, Search
   Projection, Source State, Local Inference Evidence, and failure-resolution
   writes behind explicit commit interfaces.
-- Make `taru-server` application services depend on focused workflow ports
+- Make `nako-server` application services depend on focused workflow ports
   where broad `SqliteStore` knowledge currently leaks across seams.
 - Replace weak playback and transcode request identity with stable profile
   identity before more Source Variant, audio, subtitle, hardware, or quality

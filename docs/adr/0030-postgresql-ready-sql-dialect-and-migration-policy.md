@@ -6,9 +6,9 @@ Accepted.
 
 ## Context
 
-ADR 0029 made `taru-db` a facade and moved SQLite implementation code behind a
+ADR 0029 made `nako-db` a facade and moved SQLite implementation code behind a
 SQLite-owned adapter module. FRA-040 also made `SqliteStore` crate-private, so
-server/runtime code now depends on `TaruDatabase` instead of the concrete
+server/runtime code now depends on `NakoDatabase` instead of the concrete
 SQLite store.
 
 The remaining risk is subtler: schema files, row codecs, SQL strings,
@@ -38,7 +38,7 @@ FRA-050 inventoried the current SQLite assumptions:
 - job leasing uses transaction-local claim/update behavior and run-token
   fences rather than PostgreSQL row locks.
 
-Taru is still pre-production, so the clean decision is to keep deleting
+Nako is still pre-production, so the clean decision is to keep deleting
 compatibility shims and make backend-specific behavior explicit instead of
 pretending one SQL dialect can serve all databases.
 
@@ -49,7 +49,7 @@ pretending one SQL dialect can serve all databases.
 Migration files are backend-owned. There will be no shared SQL migration file
 used by both SQLite and PostgreSQL.
 
-- The current `crates/taru-db/migrations/*.sql` tree is SQLite-owned even if it
+- The current `crates/nako-db/migrations/*.sql` tree is SQLite-owned even if it
   is not yet nested under a `sqlite/` directory.
 - PostgreSQL must get its own migration tree when added.
 - Migration version numbers are backend-local. Version `0030` in SQLite and
@@ -75,7 +75,7 @@ types are adapter details:
 
 | Concern | SQLite policy | PostgreSQL target | Contract rule |
 | --- | --- | --- | --- |
-| Domain IDs | Store canonical strings in `TEXT` columns. | Prefer native `uuid` columns for Taru UUID-backed IDs; keep external/principal identifiers as text. | Callers see domain ID newtypes only. |
+| Domain IDs | Store canonical strings in `TEXT` columns. | Prefer native `uuid` columns for Nako UUID-backed IDs; keep external/principal identifiers as text. | Callers see domain ID newtypes only. |
 | External provider keys | Store provider plus provider-key text parts. | Store the same logical parts, with adapter-owned constraints/indexes. | Provider-native identity never becomes a table identity leak. |
 | Enums/statuses | Store stable lowercase strings, optionally constrained. | Store stable lowercase strings with `CHECK` constraints first; avoid PostgreSQL enum types until schema churn settles. | Rust parse/format methods are authoritative. |
 | JSON payloads | Store serialized JSON in `TEXT` columns. | Use `jsonb` for logical JSON payload columns unless the value is explicitly opaque text. | Repository methods exchange domain structs or strings as defined today; storage type is hidden. |
@@ -119,7 +119,7 @@ The contract, not the SQL shape, defines correctness:
 
 ### Row Codec Policy
 
-SQLite row codecs stay in `taru-db::sqlite::codec` and are not shared with
+SQLite row codecs stay in `nako-db::sqlite::codec` and are not shared with
 PostgreSQL. PostgreSQL must have its own row-codec layer because native `uuid`,
 `jsonb`, `boolean`, and timestamp types should not be forced through SQLite's
 string/integer conventions.
@@ -131,7 +131,7 @@ database error mapping remain adapter-owned.
 
 ### Contract And Fixture Policy
 
-Backend-neutral tests construct `TaruDatabase` and assert repository behavior
+Backend-neutral tests construct `NakoDatabase` and assert repository behavior
 through public repository traits. Backend-specific tests may construct adapter
 types only when they intentionally verify migration, runtime, rollback,
 locking, or dialect details.
@@ -140,7 +140,7 @@ When PostgreSQL is added:
 
 - the existing contract suites must run against SQLite and PostgreSQL;
 - PostgreSQL tests may be gated by an environment variable such as
-  `TARU_TEST_POSTGRES_URL` or by a test-container feature;
+  `NAKO_TEST_POSTGRES_URL` or by a test-container feature;
 - skipped PostgreSQL integration tests must still compile;
 - test fixtures must seed data through repositories unless the test explicitly
   targets a backend migration or dialect edge case.
@@ -163,10 +163,10 @@ every repository method is not acceptable.
 
 ## Consequences
 
-- PostgreSQL can use native database features without changing Taru's domain
+- PostgreSQL can use native database features without changing Nako's domain
   vocabulary or application services.
 - The existing SQLite adapter remains honest: SQLite assumptions are allowed
-  inside `taru-db::sqlite`, not at the facade boundary.
+  inside `nako-db::sqlite`, not at the facade boundary.
 - Migration parity is behavioral instead of textual, which avoids fragile SQL
   translation work.
 - `DatabaseLifecycle` gives startup code a truthful dependency and leaves room
@@ -179,11 +179,11 @@ every repository method is not acceptable.
 - Share one SQL migration tree and translate dialect differences with string
   helpers. Rejected because it hides database semantics, weakens migrations,
   and would make PostgreSQL inherit SQLite storage compromises.
-- Force PostgreSQL to store every Taru ID, timestamp, boolean, and JSON value
+- Force PostgreSQL to store every Nako ID, timestamp, boolean, and JSON value
   exactly like SQLite. Rejected because it wastes PostgreSQL strengths and
   still does not remove dialect differences in locking and migrations.
 - Introduce an ORM as the portability layer. Rejected for the same reason as
-  ADR 0029: Taru needs explicit workflow commits, durable job ownership,
+  ADR 0029: Nako needs explicit workflow commits, durable job ownership,
   redaction-sensitive read models, and backend-specific locking.
 - Add a compile-only PostgreSQL adapter with no real behavior. Rejected as the
   primary proof because it would make the architecture look portable without

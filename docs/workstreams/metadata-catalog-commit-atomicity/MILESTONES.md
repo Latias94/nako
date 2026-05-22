@@ -27,10 +27,10 @@ Exit criteria:
 
 Primary gates:
 
-- `cargo check -p taru-catalog --tests`
-- `cargo nextest run -p taru-catalog --no-fail-fast`
-- `cargo check -p taru-db --tests`
-- targeted `cargo nextest run -p taru-db <filter>`
+- `cargo check -p nako-catalog --tests`
+- `cargo nextest run -p nako-catalog --no-fail-fast`
+- `cargo check -p nako-db --tests`
+- targeted `cargo nextest run -p nako-db <filter>`
 
 ## M2 - Metadata Refresh Commit Unit Follow-Up
 

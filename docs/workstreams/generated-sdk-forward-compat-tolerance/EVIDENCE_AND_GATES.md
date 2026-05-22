@@ -6,8 +6,8 @@ Last updated: 2026-05-21
 ## Smallest Current Repro
 
 ```powershell
-cargo nextest run -p taru-api kotlin_sdk --no-fail-fast
-apps/android/gradlew.bat -p apps/android :taru-public-client-sdk:test --no-daemon
+cargo nextest run -p nako-api kotlin_sdk --no-fail-fast
+apps/android/gradlew.bat -p apps/android :nako-public-client-sdk:test --no-daemon
 ```
 
 These commands prove the generator/package sync and standalone generated Kotlin
@@ -25,27 +25,27 @@ git diff --check
 ### Generator And SDK Gate
 
 ```powershell
-cargo fmt --package taru-api --check
-cargo nextest run -p taru-api kotlin_sdk --no-fail-fast
-apps/android/gradlew.bat -p apps/android :taru-public-client-sdk:test --no-daemon
+cargo fmt --package nako-api --check
+cargo nextest run -p nako-api kotlin_sdk --no-fail-fast
+apps/android/gradlew.bat -p apps/android :nako-public-client-sdk:test --no-daemon
 git diff --check
 ```
 
 ### Android Consumption Gate
 
 ```powershell
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.TaruConnectionClientTest --tests dev.taru.android.playback.* --tests dev.taru.android.browse.* --no-daemon
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.connection.NakoConnectionClientTest --tests dev.nako.android.playback.* --tests dev.nako.android.browse.* --no-daemon
 apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon
 ```
 
 ### Closeout Gate
 
 ```powershell
-cargo fmt --package taru-api --check
-cargo nextest run -p taru-api kotlin_sdk --no-fail-fast
-cargo nextest run -p taru-api --no-fail-fast
+cargo fmt --package nako-api --check
+cargo nextest run -p nako-api kotlin_sdk --no-fail-fast
+cargo nextest run -p nako-api --no-fail-fast
 npm run check --prefix sdk/typescript
-apps/android/gradlew.bat -p apps/android :taru-public-client-sdk:test --no-daemon
+apps/android/gradlew.bat -p apps/android :nako-public-client-sdk:test --no-daemon
 apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon
 apps/android/gradlew.bat -p apps/android :app:assembleDebug --no-daemon
 python -m json.tool docs/workstreams/generated-sdk-forward-compat-tolerance/WORKSTREAM.json > $null
@@ -67,18 +67,18 @@ missing gates.
 - `docs/workstreams/generated-sdk-forward-compat-tolerance/TODO.md`
 - `docs/adr/0025-openapi-public-client-sdk-contract.md`
 - `docs/adr/0031-android-client-sdk-before-mobile-rust-ffi.md`
-- `crates/taru-api/src/sdk.rs`
-- `crates/taru-api/examples/emit-kotlin-sdk.rs`
-- `sdk/kotlin/src/main/kotlin/dev/taru/sdk/TaruClientSdk.kt`
-- `sdk/kotlin/src/test/kotlin/dev/taru/sdk/TaruClientSdkTest.kt`
-- `apps/android/app/src/main/java/dev/taru/android`
+- `crates/nako-api/src/sdk.rs`
+- `crates/nako-api/examples/emit-kotlin-sdk.rs`
+- `sdk/kotlin/src/main/kotlin/dev/nako/sdk/NakoClientSdk.kt`
+- `sdk/kotlin/src/test/kotlin/dev/nako/sdk/NakoClientSdkTest.kt`
+- `apps/android/app/src/main/java/dev/nako/android`
 
 ## Evidence Log
 
 ### 2026-05-21 — Workstream opened
 
 - PASS: Current-state inspection of ADR 0025, ADR 0031, the Android Generated
-  Public Client SDK closeout, `crates/taru-api/src/sdk.rs`, generated
+  Public Client SDK closeout, `crates/nako-api/src/sdk.rs`, generated
   `sdk/kotlin`, and Android connection health handling.
   - Confirms the follow-on risk: strict generated Kotlin enums cannot preserve
     future unknown public string values.
@@ -89,7 +89,7 @@ missing gates.
 ### 2026-05-21 — SDKFC-010 compatibility contract freeze
 
 - PASS: Inventory of generated Kotlin enum surfaces in
-  `sdk/kotlin/src/main/kotlin/dev/taru/sdk/TaruClientSdk.kt`.
+  `sdk/kotlin/src/main/kotlin/dev/nako/sdk/NakoClientSdk.kt`.
   - Found 15 generated strict enum surfaces before implementation:
     `RemuxOutputContainer`, `ClientPlaybackDecisionMode`,
     `ClientTranscodePlanHardwareAcceleration`,
@@ -99,7 +99,7 @@ missing gates.
     `MetadataProfileDtoLocalMetadataPolicy`, `MetadataProfileDtoRefreshMode`,
     `TranscodeSessionDtoFailureCategory`, `TranscodeSessionDtoKind`,
     `TranscodeSessionDtoState`, and `ClientMediaKind`.
-- PASS: Android adapter usage review of `TaruConnectionClient.kt`,
+- PASS: Android adapter usage review of `NakoConnectionClient.kt`,
   `PlaybackSdkAdapters.kt`, `BrowseSdkAdapters.kt`, and UI playback formatters.
   - Frozen decision: generated Kotlin string enums become
     `@JvmInline @Serializable value class` wrappers with generated known
@@ -107,16 +107,16 @@ missing gates.
 
 ### 2026-05-21 — SDKFC-020 generated Kotlin tolerant wire values
 
-- RED then GREEN: `apps/android/gradlew.bat -p apps/android :taru-public-client-sdk:test --tests dev.taru.sdk.TaruClientSdkTest.decodesUnknownPublicWireValuesWithoutLosingRawValue --no-daemon`
+- RED then GREEN: `apps/android/gradlew.bat -p apps/android :nako-public-client-sdk:test --tests dev.nako.sdk.NakoClientSdkTest.decodesUnknownPublicWireValuesWithoutLosingRawValue --no-daemon`
   - Initial run failed because strict `enum class` types had no `isKnown` and
     could not be instantiated with unknown raw values.
   - After generator changes, the focused test passed.
-- PASS: `cargo run -q -p taru-api --example emit-kotlin-sdk -- --output sdk/kotlin/src/main/kotlin/dev/taru/sdk/TaruClientSdk.kt`
-  - Regenerated checked Kotlin SDK output from `taru-api`.
-- PASS: `cargo fmt --package taru-api --check`
-- PASS: `cargo nextest run -p taru-api kotlin_sdk --no-fail-fast`
+- PASS: `cargo run -q -p nako-api --example emit-kotlin-sdk -- --output sdk/kotlin/src/main/kotlin/dev/nako/sdk/NakoClientSdk.kt`
+  - Regenerated checked Kotlin SDK output from `nako-api`.
+- PASS: `cargo fmt --package nako-api --check`
+- PASS: `cargo nextest run -p nako-api kotlin_sdk --no-fail-fast`
   - 3 tests passed.
-- PASS: `apps/android/gradlew.bat -p apps/android :taru-public-client-sdk:test --no-daemon`
+- PASS: `apps/android/gradlew.bat -p apps/android :nako-public-client-sdk:test --no-daemon`
   - Proves generated Kotlin SDK compiles and tests known plus unknown public
     wire string decode/encode behavior.
 
@@ -125,7 +125,7 @@ missing gates.
 - PASS: `apps/android/gradlew.bat -p apps/android :app:compileDebugKotlin --no-daemon`
   - Proves Android source compiles after generated enum value classes replaced
     strict enums.
-- PASS: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.TaruConnectionClientTest --tests dev.taru.android.playback.* --tests dev.taru.android.browse.* --no-daemon`
+- PASS: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.connection.NakoConnectionClientTest --tests dev.nako.android.playback.* --tests dev.nako.android.browse.* --no-daemon`
   - Proves connection, playback, and browse focused tests remain green.
   - New coverage proves future `/health.version` body values become
     `UnsupportedApiVersion`, and future playback modes decode to an app-owned
@@ -136,15 +136,15 @@ missing gates.
 
 ### 2026-05-21 — SDKFC-040 closeout gate
 
-- PASS: `cargo fmt --package taru-api --check`
-- PASS: `cargo nextest run -p taru-api kotlin_sdk --no-fail-fast`
+- PASS: `cargo fmt --package nako-api --check`
+- PASS: `cargo nextest run -p nako-api kotlin_sdk --no-fail-fast`
   - 3 tests passed.
-- PASS: `cargo nextest run -p taru-api --no-fail-fast`
+- PASS: `cargo nextest run -p nako-api --no-fail-fast`
   - 45 tests passed.
 - PASS: `npm run check --prefix sdk/typescript`
   - Proves the existing TypeScript SDK compile contract remains green; this
     lane does not add TypeScript runtime JSON enum validation.
-- PASS: `apps/android/gradlew.bat -p apps/android :taru-public-client-sdk:test --no-daemon`
+- PASS: `apps/android/gradlew.bat -p apps/android :nako-public-client-sdk:test --no-daemon`
 - PASS: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon`
 - PASS: `apps/android/gradlew.bat -p apps/android :app:assembleDebug --no-daemon`
 - PASS: `python -m json.tool docs/workstreams/generated-sdk-forward-compat-tolerance/WORKSTREAM.json > $null`
@@ -156,7 +156,7 @@ missing gates.
 
 - PASS: Closeout review of `DESIGN.md`, `TODO.md`, `MILESTONES.md`,
   `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`, ADR 0025, ADR 0031,
-  `crates/taru-api/src/sdk.rs`, `sdk/kotlin`, and Android adapter changes.
+  `crates/nako-api/src/sdk.rs`, `sdk/kotlin`, and Android adapter changes.
   - Workstream Compliance: no blocking or important findings.
   - Code Quality: no blocking or important findings.
   - Missing Gates: none; fresh SDKFC-040 evidence is recorded above.

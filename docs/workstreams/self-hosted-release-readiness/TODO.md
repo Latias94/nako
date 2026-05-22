@@ -28,12 +28,12 @@ Task IDs use the `SHR` prefix.
   must not delete user data or assume Docker is available.
   Evidence: `scripts/release-gate.ps1`, `scripts/release-gate.sh`,
   `.config/nextest.toml`; `scripts/release-gate.ps1 -Mode fast` passed;
-  PostgreSQL mode gracefully skipped without `TARU_TEST_POSTGRES_URL`.
+  PostgreSQL mode gracefully skipped without `NAKO_TEST_POSTGRES_URL`.
   Handoff: Continue with PostgreSQL contract harness.
 
 ## M2 — PostgreSQL Contract Harness And CI Shape
 
-- [x] SHR-030 [owner=codex] [deps=SHR-020] [scope=scripts,.github,docs/workstreams/self-hosted-release-readiness,crates/taru-db]
+- [x] SHR-030 [owner=codex] [deps=SHR-020] [scope=scripts,.github,docs/workstreams/self-hosted-release-readiness,crates/nako-db]
   Goal: Provide a repeatable local PostgreSQL contract harness and CI-ready
   job shape for ignored PostgreSQL backend contracts.
   Validation: run `postgres_*_contract` nextest cases through the harness when
@@ -50,10 +50,10 @@ Task IDs use the `SHR` prefix.
 
 ## M3 — API, SDK, And Redaction Gates
 
-- [x] SHR-040 [owner=codex] [deps=SHR-020] [scope=crates/taru-api,crates/taru-client,taru-client-protocol,sdk,docs/api,docs/workstreams/self-hosted-release-readiness]
+- [x] SHR-040 [owner=codex] [deps=SHR-020] [scope=crates/nako-api,crates/nako-client,nako-client-protocol,sdk,docs/api,docs/workstreams/self-hosted-release-readiness]
   Goal: Compose Admin/Public API, generated SDK, OpenAPI, and redaction checks
   into a release gate.
-  Validation: focused `taru-api` tests, SDK/contract generation checks that
+  Validation: focused `nako-api` tests, SDK/contract generation checks that
   exist or are added, redaction inventory scan, and `git diff --check`.
   Review: Public Client, Admin API, and internal server DTO boundaries must
   remain separate.
@@ -73,7 +73,7 @@ Task IDs use the `SHR` prefix.
   required operator topics; `git diff --check`.
   Review: Examples must not contain real secrets or unsafe default public
   exposure.
-  Evidence: `deploy/sqlite/taru.toml`, `deploy/postgres/taru.toml`,
+  Evidence: `deploy/sqlite/nako.toml`, `deploy/postgres/nako.toml`,
   `deploy/compose/postgres.yml`, `docs/deployment/SELF_HOSTED.md`; TOML parse
   passed for both config examples; `docker compose config` passed with an
   example placeholder password; operator-topic grep passed.
@@ -104,7 +104,7 @@ Task IDs use the `SHR` prefix.
   documented PostgreSQL contract equivalent; `git diff --check`.
   Review: The smoke must exercise public/Admin boundaries, not private SQL
   inspection only.
-  Evidence: `crates/taru-server/src/http/tests/self_host_smoke.rs`,
+  Evidence: `crates/nako-server/src/http/tests/self_host_smoke.rs`,
   `scripts/self-host-smoke.ps1`, `scripts/self-host-smoke.sh`; SQLite smoke
   passed 1/1; PostgreSQL smoke path delegated to the Managed Artwork contract
   harness and passed 6/6; `cargo fmt --all -- --check` and `git diff --check`

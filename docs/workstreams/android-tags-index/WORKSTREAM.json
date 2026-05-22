@@ -34,8 +34,8 @@
   ],
   "gates": [
     "Get-Content -LiteralPath 'docs/workstreams/android-tags-index/WORKSTREAM.json' -Raw | ConvertFrom-Json | Out-Null",
-    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.taru.android.browse.TaruBrowseClientTest --no-daemon",
-    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests \"dev.taru.android.ui.browse.*\" --no-daemon",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.nako.android.browse.NakoBrowseClientTest --no-daemon",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests \"dev.nako.android.ui.browse.*\" --no-daemon",
     "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --no-daemon",
     "pwsh -NoProfile -File apps\\android\\scripts\\Smoke-Regression.ps1 -States profile-with-media -RetriesPerState 0",
     "git diff --check"
@@ -43,18 +43,18 @@
   "evidence": [
     {
       "task": "ATI-010",
-      "path": "apps/android/app/src/test/java/dev/taru/android/browse/TaruBrowseClientTest.kt",
-      "notes": "Focused tests cover TaruBrowseClient.listTags request construction, decoding, bearer auth redaction, and unsupported API version diagnostics."
+      "path": "apps/android/app/src/test/java/dev/nako/android/browse/NakoBrowseClientTest.kt",
+      "notes": "Focused tests cover NakoBrowseClient.listTags request construction, decoding, bearer auth redaction, and unsupported API version diagnostics."
     },
     {
       "task": "ATI-020",
-      "path": "apps/android/app/src/test/java/dev/taru/android/ui/browse/BrowseSessionLoadingTest.kt",
+      "path": "apps/android/app/src/test/java/dev/nako/android/ui/browse/BrowseSessionLoadingTest.kt",
       "notes": "Focused UI browse tests cover Tags relationship index route state, data-source mapping, save/restore, and row targets into existing Tag related Media Items routes."
     },
     {
       "task": "ATI-030",
-      "path": "apps/android/app/src/test/java/dev/taru/android/ui/browse/BrowseShellHostTest.kt",
-      "notes": "Home exposes Tags as a nested relationship index route; TaruBrowseShell dispatches Tags through the shared route loader; focused host and relationship route tests passed, followed by the full Android debug unit gate."
+      "path": "apps/android/app/src/test/java/dev/nako/android/ui/browse/BrowseShellHostTest.kt",
+      "notes": "Home exposes Tags as a nested relationship index route; NakoBrowseShell dispatches Tags through the shared route loader; focused host and relationship route tests passed, followed by the full Android debug unit gate."
     },
     {
       "task": "ATI-040",

@@ -5,7 +5,7 @@ Last updated: 2026-05-21
 
 ## Why This Lane Exists
 
-The 2026-05-21 Addon architecture review found that Taru has made the correct
+The 2026-05-21 Addon architecture review found that Nako has made the correct
 macro decision: an **Addon** is an HTTP **Addon Sidecar** that follows the
 **Addon Protocol**, not a **Native Plugin** and not **Jellyfin Plugin
 Compatibility**. The implementation already has Addon registration, Addon
@@ -100,7 +100,7 @@ When this lane closes:
 - Addon Manifest validation is deepened through a validated manifest Module
   and first-class declaration types for the next Addon Protocol concepts, even
   where runtime execution is deferred.
-- Library File Write behavior has a Taru-owned runtime seam. NFO Export is one
+- Library File Write behavior has a Nako-owned runtime seam. NFO Export is one
   Adapter behind that seam, not the seam itself.
 - Addon administration has a clear Admin API v1 Interface with DTO shielding.
   Root `/addons` management is removed instead of wrapped for compatibility.
@@ -111,14 +111,14 @@ When this lane closes:
 
 ## In Scope
 
-- Refactoring Addon Side Effect runtime Modules in `taru-server`.
+- Refactoring Addon Side Effect runtime Modules in `nako-server`.
 - Adding request fingerprinting to Addon Side Effect idempotency.
 - Adding or moving Addon-facing payload DTOs to the correct Interface seam.
-- Deepening `taru-addon-protocol` while preserving its permissive crate
+- Deepening `nako-addon-protocol` while preserving its permissive crate
   boundary and avoiding server-internal dependencies.
 - Adding Addon Manifest declaration types and validation for concepts already
   named in `CONTEXT.md` and ADR 0020.
-- Introducing a Library File Write runtime seam for Taru-owned file writes.
+- Introducing a Library File Write runtime seam for Nako-owned file writes.
 - Admin Addon API route and DTO shielding work.
 - SQLite/PostgreSQL migration and repository parity for touched Addon state.
 - Updating ADR/workstream/API docs when an Interface changes.
@@ -146,11 +146,11 @@ When this lane closes:
 
 | Assumption | Confidence | Evidence | Consequence if wrong |
 | --- | --- | --- | --- |
-| HTTP Addon Sidecars remain the correct extension model. | High | ADR 0003 and ADR 0020; existing `taru-addon-protocol`. | Reopen extension-model ADRs before code changes. |
+| HTTP Addon Sidecars remain the correct extension model. | High | ADR 0003 and ADR 0020; existing `nako-addon-protocol`. | Reopen extension-model ADRs before code changes. |
 | Addon Tokens must stay separate from administrator bearer tokens. | High | ADR 0020 and ADR 0024; runtime `/addon/v1/*` routes. | Redesign inbound identity before runtime refactors. |
 | Addon Side Effect is the right shared journal for strong Addon side effects. | High | ATGSE/APW/ALFW/AMAA lanes and current tests. | Split per-effect journals only with a stronger deletion-test argument. |
 | Request fingerprinting is required for safe idempotency. | High | Current replay uses key-only lookup. | If existing clients depend on key-only replay, add compatibility handling and document migration. |
-| Protected Write payload contracts belong at a reusable seam, not private server structs. | High | `taru-addon-protocol` is intended for Addon authors; current payloads are private. | If license/dependency constraints block this, create a smaller permissive protocol submodule. |
+| Protected Write payload contracts belong at a reusable seam, not private server structs. | High | `nako-addon-protocol` is intended for Addon authors; current payloads are private. | If license/dependency constraints block this, create a smaller permissive protocol submodule. |
 | Library File Write should become a runtime seam before subtitle/artwork sidecar breadth. | High | `CONTEXT.md` and ALFW both reject direct Addon path writes. | Keep future file roles blocked until the seam exists. |
 | Admin Addon registration is admin-only behavior. | Medium | ADR 0027 says new admin-only surfaces use `/admin/v1/*`; current `/addons` predates it. | Remove root `/addons` rather than documenting it as public. |
 
@@ -165,9 +165,9 @@ Use Module-depth rules:
 - Add a seam when behavior varies, when ordering is unsafe for callers to
   remember, or when tests need to hit the same Interface that production
   callers use.
-- Keep `taru-addon-protocol` dependency-light and free of server internals. If
+- Keep `nako-addon-protocol` dependency-light and free of server internals. If
   HTTP client helpers make the protocol crate too heavy, split a follow-on
-  `taru-addon-client` crate rather than weakening the protocol seam.
+  `nako-addon-client` crate rather than weakening the protocol seam.
 - Prefer vertical slices that keep behavior testable after each task.
 - Update ADRs before declaring an Interface complete when the refactor changes
   a public, admin, protocol, storage, or security contract.
@@ -189,4 +189,4 @@ This lane can close when:
 - SQLite and PostgreSQL Addon state remain aligned for touched behavior;
 - final evidence includes `cargo fmt --all -- --check`, workspace checks,
   focused nextest gates, `git diff --check`, and PostgreSQL opt-in evidence
-  when `TARU_TEST_POSTGRES_URL` is available.
+  when `NAKO_TEST_POSTGRES_URL` is available.

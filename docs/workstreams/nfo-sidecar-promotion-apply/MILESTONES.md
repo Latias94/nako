@@ -41,7 +41,7 @@ Exit criteria:
 
 Exit criteria:
 
-- [x] Export apply uses `taru-nfo` round-trip preservation.
+- [x] Export apply uses `nako-nfo` round-trip preservation.
 - [x] Sidecar writes are mediated by VFS storage APIs.
 - [x] Backup, atomic replace, and retention diagnostics are recorded.
 - [x] Operator-facing diagnostics redact raw paths and raw XML.

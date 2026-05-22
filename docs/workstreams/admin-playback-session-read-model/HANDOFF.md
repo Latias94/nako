@@ -29,7 +29,7 @@ Open a follow-on for playback runtime diagnostics:
 ## Constraints
 
 - Keep `TranscodeSessionResponse` and Public Client API unchanged.
-- Keep Admin API DTOs in `taru-api::admin`.
+- Keep Admin API DTOs in `nako-api::admin`.
 - Do not expose `output_path` or local staging roots in admin list responses.
 - Do not add playback mutations or runtime behavior in this slice.
-- Keep `taru-client-protocol` unchanged.
+- Keep `nako-client-protocol` unchanged.

@@ -8,8 +8,8 @@ Last updated: 2026-05-22
 Rust/API gates:
 
 - `cargo fmt --all -- --check`
-- `cargo nextest run -p taru-api admin_contract --no-fail-fast`
-- `cargo check -p taru-api -p taru-server --tests`
+- `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+- `cargo check -p nako-api -p nako-server --tests`
 
 Admin Web gates from `apps/admin-web`:
 
@@ -33,9 +33,9 @@ Repository gate:
   `docs/guides/ADDON_AUTHOR_GUIDE.md`.
 - 2026-05-22: Full closeout gates passed:
   - `cargo fmt --all -- --check`;
-  - `cargo nextest run -p taru-api admin_contract --no-fail-fast`;
-  - `cargo nextest run -p taru-server register_addon_routes_disabled_by_default_and_validate_contract --no-fail-fast`;
-  - `cargo check -p taru-api -p taru-server --tests`;
+  - `cargo nextest run -p nako-api admin_contract --no-fail-fast`;
+  - `cargo nextest run -p nako-server register_addon_routes_disabled_by_default_and_validate_contract --no-fail-fast`;
+  - `cargo check -p nako-api -p nako-server --tests`;
   - `npm run check`, `npm test`, and `npm run build` in `apps/admin-web`;
   - `git diff --check`.
 

@@ -18,7 +18,7 @@ traits, SQLite migration 0029, `UserPlaybackAppService`, and auth middleware
 principal resolution. Public HTTP/API/SDK routes now exist under
 `/users/me/playback-state/...` with protocol DTOs, OpenAPI, Rust SDK,
 TypeScript SDK, and HTTP API documentation. Android now has a dedicated
-`TaruUserPlaybackClient`, renders Continue Watching only from server-backed
+`NakoUserPlaybackClient`, renders Continue Watching only from server-backed
 state, prefers authoritative resume over device-local fallback, and reports
 progress/watched transitions from player exit state. `DevicePlaybackPositionStore`
 remains local cache/fallback only.

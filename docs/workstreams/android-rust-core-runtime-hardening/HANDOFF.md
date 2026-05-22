@@ -16,7 +16,7 @@ None.
 
 - Keep Rust-owned Android networking out of scope.
 - Keep Android profile/token/security/UI/Media3 ownership in Android.
-- Keep `taru-client-uniffi` as a binding layer, not a runtime policy crate.
+- Keep `nako-client-uniffi` as a binding layer, not a runtime policy crate.
 - Preserve raw unknown public wire strings in Rust before moving more Android
   decode behind UniFFI.
 

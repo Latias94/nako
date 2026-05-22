@@ -17,11 +17,11 @@ Task IDs use the `NAB` prefix.
 
 ## M1 — Network Policy Domain And Config Validation
 
-- [x] NAB-020 [owner=codex] [deps=NAB-010] [scope=crates/taru-server/src/config.rs,crates/taru-server/src/config_check.rs,docs/deployment]
+- [x] NAB-020 [owner=codex] [deps=NAB-010] [scope=crates/nako-server/src/config.rs,crates/nako-server/src/config_check.rs,docs/deployment]
   Goal: Add or refine a stable network access policy/config validation model
   for local-only, reverse-proxy, private-network, and tunnel-provider modes
   without starting a tunnel runtime.
-  Validation: focused config-check tests; `cargo nextest run -p taru-server config --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`.
+  Validation: focused config-check tests; `cargo nextest run -p nako-server config --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`.
   Review: `review-workstream` must check safe defaults, auth dependency,
   secret redaction, and no Public Client API churn.
   Evidence: config structs, validation tests, deployment doc updates, and
@@ -30,7 +30,7 @@ Task IDs use the `NAB` prefix.
 
 ## M2 — HTTP Boundary Enforcement
 
-- [x] NAB-030 [owner=codex] [deps=NAB-020] [scope=crates/taru-server/src/http,crates/taru-server/src/http/tests]
+- [x] NAB-030 [owner=codex] [deps=NAB-020] [scope=crates/nako-server/src/http,crates/nako-server/src/http/tests]
   Goal: Enforce trusted forwarded headers, external scheme/host handling, and
   CORS/origin policy through the HTTP boundary while keeping auth protection
   intact.
@@ -44,13 +44,13 @@ Task IDs use the `NAB` prefix.
 
 ## M3 — Admin Network Readiness Diagnostics
 
-- [x] NAB-040 [owner=codex] [deps=NAB-030] [scope=crates/taru-api/src/admin.rs,crates/taru-api/src/admin_contract.rs,crates/taru-server/src/http/admin.rs,apps/admin-web/src/adminApi]
+- [x] NAB-040 [owner=codex] [deps=NAB-030] [scope=crates/nako-api/src/admin.rs,crates/nako-api/src/admin_contract.rs,crates/nako-server/src/http/admin.rs,apps/admin-web/src/adminApi]
   Goal: Expose Admin-only network access readiness diagnostics and typed Admin
   web contract/client support without changing Public Client API or
-  `taru-client-protocol`.
-  Validation: `cargo nextest run -p taru-api admin_contract --no-fail-fast`;
-  `cargo nextest run -p taru-server http::tests::system --no-fail-fast`;
-  `npm run check` from `apps/admin-web`; `git diff --name-only -- crates/taru-client-protocol`.
+  `nako-client-protocol`.
+  Validation: `cargo nextest run -p nako-api admin_contract --no-fail-fast`;
+  `cargo nextest run -p nako-server http::tests::system --no-fail-fast`;
+  `npm run check` from `apps/admin-web`; `git diff --name-only -- crates/nako-client-protocol`.
   Review: `review-workstream` must check Admin API ownership and redaction of
   bearer tokens, tunnel credentials, raw headers, internal URLs with secrets,
   and local paths.
@@ -69,7 +69,7 @@ Task IDs use the `NAB` prefix.
   next lane decision to the post-RPD umbrella.
   Validation: `verify-rust-workstream` records fresh final evidence; workstream
   JSON and parent umbrella JSON validate with `python -m json.tool`; `git diff
-  --check`; `git diff --name-only -- crates/taru-client-protocol`.
+  --check`; `git diff --name-only -- crates/nako-client-protocol`.
   Review: `review-workstream` must have no blocking findings.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, and parent umbrella
   post-NAB re-score notes. Built-in NAT traversal runtime, client endpoint

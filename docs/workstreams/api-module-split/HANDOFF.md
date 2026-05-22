@@ -1,20 +1,20 @@
-# taru-api Module Split Handoff
+# nako-api Module Split Handoff
 
 Status: Completed
 Last updated: 2026-05-17
 
 ## Current State
 
-M46 is complete. `taru-api` has explicit module boundaries and a thin root
+M46 is complete. `nako-api` has explicit module boundaries and a thin root
 compatibility facade.
 
 ## Follow-ons
 
-- Server call sites may later import from `taru_api::public_client`,
-  `taru_api::admin`, `taru_api::metadata_diagnostics`, and
-  `taru_api::extension` directly, but root-level imports are intentionally kept
+- Server call sites may later import from `nako_api::public_client`,
+  `nako_api::admin`, `nako_api::metadata_diagnostics`, and
+  `nako_api::extension` directly, but root-level imports are intentionally kept
   for compatibility.
-- No DTO ownership was moved to `taru-client-protocol` in this slice.
+- No DTO ownership was moved to `nako-client-protocol` in this slice.
 - Recommended next goal: NFO Round Trip preservation model before library file
   write/link policy work.
 
@@ -23,6 +23,6 @@ compatibility facade.
 Start with:
 
 ```powershell
-cargo check -p taru-api --tests
-cargo nextest run -p taru-api --no-fail-fast
+cargo check -p nako-api --tests
+cargo nextest run -p nako-api --no-fail-fast
 ```

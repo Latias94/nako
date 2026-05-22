@@ -41,10 +41,10 @@ From `apps/android`:
 Focused gates:
 
 ```powershell
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.* --no-daemon
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.browse.* --no-daemon
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.playback.* --no-daemon
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.userplayback.* --no-daemon
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.connection.* --no-daemon
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.browse.* --no-daemon
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.playback.* --no-daemon
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.userplayback.* --no-daemon
 ```
 
 Evidence:
@@ -52,14 +52,14 @@ Evidence:
 - `apps/android/gradlew.bat -p apps/android :app:compileDebugUnitTestKotlin --no-daemon`
   — PASS on 2026-05-20 after introducing `PublicClientApiExecutor` and
   migrating route clients.
-- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.* --no-daemon`
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.connection.* --no-daemon`
   — PASS on 2026-05-20.
-- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.browse.* --no-daemon`
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.browse.* --no-daemon`
   — PASS on 2026-05-20.
-- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.playback.* --no-daemon`
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.playback.* --no-daemon`
   — PASS on 2026-05-20, including session-preflight HTTP error and API
   version regression coverage through the shared executor.
-- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.userplayback.* --no-daemon`
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.userplayback.* --no-daemon`
   — PASS on 2026-05-20.
 - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon`
   — PASS on 2026-05-20.
@@ -70,8 +70,8 @@ Evidence:
 Focused gates:
 
 ```powershell
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.player.* --no-daemon
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.ui.screens.player.* --no-daemon
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.player.* --no-daemon
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.ui.screens.player.* --no-daemon
 ```
 
 Evidence:
@@ -79,10 +79,10 @@ Evidence:
 - `apps/android/gradlew.bat -p apps/android :app:compileDebugUnitTestKotlin --no-daemon`
   — PASS on 2026-05-20 after replacing route-level raw playback requests with
   token-safe descriptors.
-- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.playback.* --tests dev.taru.android.player.* --tests dev.taru.android.ui.screens.player.* --no-daemon`
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.playback.* --tests dev.nako.android.player.* --tests dev.nako.android.ui.screens.player.* --no-daemon`
   — PASS on 2026-05-20. Covers token-safe playback descriptors, launch
   creation, player diagnostics, playback start, and exit effects.
-- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.* --no-daemon`
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.* --no-daemon`
   — PASS on 2026-05-20. Covers transient Player route save/restore behavior
   and browse start-playback integration.
 - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon`
@@ -95,14 +95,14 @@ Evidence:
 Focused gates:
 
 ```powershell
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.* --no-daemon
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.* --no-daemon
 ```
 
 Evidence:
 
 - `apps/android/gradlew.bat -p apps/android :app:compileDebugUnitTestKotlin --no-daemon`
   — PASS on 2026-05-21 after extracting browse state modules.
-- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.* --no-daemon`
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.* --no-daemon`
   — PASS on 2026-05-21. Covers existing browse session behavior plus
   module-level route state policy regressions.
 - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon`
@@ -115,14 +115,14 @@ Evidence:
 Focused gates:
 
 ```powershell
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.* --no-daemon
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.connection.* --no-daemon
 ```
 
 Evidence:
 
 - `apps/android/gradlew.bat -p apps/android :app:compileDebugUnitTestKotlin --no-daemon`
   — PASS on 2026-05-21 after transport and cleartext policy hardening.
-- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.* --no-daemon`
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.connection.* --no-daemon`
   — PASS on 2026-05-21. Covers production cleartext rejection, explicit local
   development cleartext allowance, final transport guard behavior, and existing
   connection diagnostics.
@@ -136,8 +136,8 @@ Evidence:
 Focused gates:
 
 ```powershell
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.* --no-daemon
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.browse.* --no-daemon
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.* --no-daemon
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.browse.* --no-daemon
 ```
 
 Evidence:
@@ -145,11 +145,11 @@ Evidence:
 - `apps/android/gradlew.bat -p apps/android :app:compileDebugUnitTestKotlin --no-daemon`
   — PASS on 2026-05-21 after adding shared paging state, load-more actions,
   and debug cleartext `BuildConfig` wiring.
-- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.* --no-daemon`
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.* --no-daemon`
   — PASS on 2026-05-21. Covers Search, relationship index, and facet load-more
   behavior; next pages are derived only from Public Client API `limit`,
   `offset`, and `returned`.
-- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.browse.* --tests dev.taru.android.connection.* --no-daemon`
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.browse.* --tests dev.nako.android.connection.* --no-daemon`
   — PASS on 2026-05-21. Covers browse query construction plus the AFCR-040
   debug/local-development cleartext policy guard.
 - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon`
@@ -163,8 +163,8 @@ Focused gates:
 
 ```powershell
 apps/android/gradlew.bat -p apps/android :app:compileDebugUnitTestKotlin --no-daemon
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.ui.screens.settings.* --tests dev.taru.android.ui.screens.sourcepicker.* --tests dev.taru.android.ui.screens.detail.* --tests dev.taru.android.ui.screens.player.* --tests dev.taru.android.ui.browse.BrowseSessionRouteStateTest --tests dev.taru.android.ui.artwork.TaruArtworkSlotsTest --no-daemon
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.* --tests dev.taru.android.browse.* --tests dev.taru.android.playback.* --tests dev.taru.android.userplayback.* --tests dev.taru.android.ui.browse.* --tests dev.taru.android.ui.connection.* --no-daemon
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.ui.screens.settings.* --tests dev.nako.android.ui.screens.sourcepicker.* --tests dev.nako.android.ui.screens.detail.* --tests dev.nako.android.ui.screens.player.* --tests dev.nako.android.ui.browse.BrowseSessionRouteStateTest --tests dev.nako.android.ui.artwork.NakoArtworkSlotsTest --no-daemon
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.connection.* --tests dev.nako.android.browse.* --tests dev.nako.android.playback.* --tests dev.nako.android.userplayback.* --tests dev.nako.android.ui.browse.* --tests dev.nako.android.ui.connection.* --no-daemon
 apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon
 ```
 
@@ -180,12 +180,12 @@ Evidence:
   — FAIL then PASS on 2026-05-21. Initial compile failed because the new
   detail copy regression missed an `assertFalse` import; imported it and reran
   successfully.
-- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.ui.screens.settings.* --tests dev.taru.android.ui.screens.sourcepicker.* --tests dev.taru.android.ui.screens.detail.* --tests dev.taru.android.ui.screens.player.* --tests dev.taru.android.ui.browse.BrowseSessionRouteStateTest --tests dev.taru.android.ui.artwork.TaruArtworkSlotsTest --no-daemon`
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.ui.screens.settings.* --tests dev.nako.android.ui.screens.sourcepicker.* --tests dev.nako.android.ui.screens.detail.* --tests dev.nako.android.ui.screens.player.* --tests dev.nako.android.ui.browse.BrowseSessionRouteStateTest --tests dev.nako.android.ui.artwork.NakoArtworkSlotsTest --no-daemon`
   — PASS on 2026-05-21. Covers product-facing diagnostics labels, source
   picker version copy and accessibility labels, detail relationship copy,
   token-safe player session accessibility, API-gap copy, and artwork fallback
   labels.
-- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.* --tests dev.taru.android.browse.* --tests dev.taru.android.playback.* --tests dev.taru.android.userplayback.* --tests dev.taru.android.ui.browse.* --tests dev.taru.android.ui.connection.* --no-daemon`
+- `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.connection.* --tests dev.nako.android.browse.* --tests dev.nako.android.playback.* --tests dev.nako.android.userplayback.* --tests dev.nako.android.ui.browse.* --tests dev.nako.android.ui.connection.* --no-daemon`
   — PASS on 2026-05-21. Covers shared client user-message rewrites across
   connection, browse, playback, User Playback State, browse UI, and connection
   session tests.
@@ -252,40 +252,40 @@ Evidence:
 | --- | --- | --- | --- | --- |
 | 2026-05-20 | AFCR-000 | Workstream docs created | Pending verification | Planning-only change. |
 | 2026-05-20 | AFCR-010 | Introduced `PublicClientApiExecutor`; migrated connection, browse, playback, and User Playback State clients; removed duplicated route-local protocol helpers | PASS | Route clients now own route construction and category mapping only; executor owns transport failures, version headers, HTTP errors, public error envelopes, JSON decode failure, safe request previews, bearer redaction, and URL helper policy. |
-| 2026-05-20 | AFCR-010 | `apps/android/gradlew.bat -p apps/android :app:compileDebugUnitTestKotlin --no-daemon` | PASS | Initial compile failed on missing `SafeRequestPreview` import in `TaruBrowseClient`; fixed and reran successfully. |
-| 2026-05-20 | AFCR-010 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.* --no-daemon` | PASS | Connection health/auth probe behavior preserved. |
-| 2026-05-20 | AFCR-010 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.browse.* --no-daemon` | PASS | Browse route behavior, error mapping, and redaction preserved. |
-| 2026-05-20 | AFCR-010 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.playback.* --no-daemon` | PASS | Added coverage for session-preflight HTTP errors and API-version rejection via the shared executor. |
-| 2026-05-20 | AFCR-010 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.userplayback.* --no-daemon` | PASS | User Playback State routes preserved. |
+| 2026-05-20 | AFCR-010 | `apps/android/gradlew.bat -p apps/android :app:compileDebugUnitTestKotlin --no-daemon` | PASS | Initial compile failed on missing `SafeRequestPreview` import in `NakoBrowseClient`; fixed and reran successfully. |
+| 2026-05-20 | AFCR-010 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.connection.* --no-daemon` | PASS | Connection health/auth probe behavior preserved. |
+| 2026-05-20 | AFCR-010 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.browse.* --no-daemon` | PASS | Browse route behavior, error mapping, and redaction preserved. |
+| 2026-05-20 | AFCR-010 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.playback.* --no-daemon` | PASS | Added coverage for session-preflight HTTP errors and API-version rejection via the shared executor. |
+| 2026-05-20 | AFCR-010 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.userplayback.* --no-daemon` | PASS | User Playback State routes preserved. |
 | 2026-05-20 | AFCR-010 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon` | PASS | Full Android JVM unit suite passed after adapter migration. |
 | 2026-05-20 | AFCR-010 | `git diff --check` | PASS | Only line-ending warnings from Git configuration were reported; no whitespace errors. |
-| 2026-05-20 | AFCR-020 | Introduced `PlaybackRequestDescriptor`; migrated playback target, launch, player route, and tests away from route-level raw `TaruHttpRequest` with bearer headers | PASS | Authorization is built only from `authenticatedRequest(accessToken)` or the Media3 runtime boundary; descriptors reject Authorization headers and bearer-like header values. |
+| 2026-05-20 | AFCR-020 | Introduced `PlaybackRequestDescriptor`; migrated playback target, launch, player route, and tests away from route-level raw `NakoHttpRequest` with bearer headers | PASS | Authorization is built only from `authenticatedRequest(accessToken)` or the Media3 runtime boundary; descriptors reject Authorization headers and bearer-like header values. |
 | 2026-05-20 | AFCR-020 | `apps/android/gradlew.bat -p apps/android :app:compileDebugUnitTestKotlin --no-daemon` | PASS | Production and unit-test Kotlin compile after token-safe playback launch migration. |
-| 2026-05-20 | AFCR-020 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.playback.* --tests dev.taru.android.player.* --tests dev.taru.android.ui.screens.player.* --no-daemon` | PASS | Playback/player focused suite validates descriptor construction, missing token behavior, safe diagnostics, runtime final-request auth, and exit effects. |
-| 2026-05-20 | AFCR-020 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.* --no-daemon` | PASS | Browse state tests validate Player routes remain transient in save payloads while start-playback behavior is preserved. |
+| 2026-05-20 | AFCR-020 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.playback.* --tests dev.nako.android.player.* --tests dev.nako.android.ui.screens.player.* --no-daemon` | PASS | Playback/player focused suite validates descriptor construction, missing token behavior, safe diagnostics, runtime final-request auth, and exit effects. |
+| 2026-05-20 | AFCR-020 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.* --no-daemon` | PASS | Browse state tests validate Player routes remain transient in save payloads while start-playback behavior is preserved. |
 | 2026-05-20 | AFCR-020 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon` | PASS | Full Android JVM unit suite passed after token-safe launch migration. |
 | 2026-05-20 | AFCR-020 | `git diff --check` | PASS | Only line-ending warnings from Git configuration were reported; no whitespace errors. |
 | 2026-05-21 | AFCR-030 | Extracted `BrowseSessionNavigation`, `BrowseRouteStatePolicy`, `BrowseRouteLoadingSession`, `BrowseItemDetailSession`, `BrowseSearchSession`, `BrowsePlaybackSession`, and `BrowseSessionStore` from broad `BrowseSession` orchestration | PASS | `BrowseSession` is now a composition shell; stale request IDs and route-family preparation live behind focused modules. |
 | 2026-05-21 | AFCR-030 | `apps/android/gradlew.bat -p apps/android :app:compileDebugUnitTestKotlin --no-daemon` | PASS | Kotlin compile after browse module extraction and route-state tests. |
-| 2026-05-21 | AFCR-030 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.* --no-daemon` | PASS | Existing browse behavior preserved; new `BrowseSessionRouteStateTest` covers route preparation, unsupported facet API gap, stale request invalidation, and transient Player routes. |
+| 2026-05-21 | AFCR-030 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.* --no-daemon` | PASS | Existing browse behavior preserved; new `BrowseSessionRouteStateTest` covers route preparation, unsupported facet API gap, stale request invalidation, and transient Player routes. |
 | 2026-05-21 | AFCR-030 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon` | PASS | Full Android JVM unit suite passed after browse state deepening. |
 | 2026-05-21 | AFCR-030 | `git diff --check` | PASS | Only line-ending warnings from Git configuration were reported; no whitespace errors. |
-| 2026-05-21 | AFCR-040 | Added `ConnectionSecurityPolicy`; removed main manifest global cleartext; moved cleartext allowance to debug manifest; added final `JdkTaruHttpTransport` cleartext guard | PASS | Production defaults reject HTTP before token/transport; local-development policy explicitly allows HTTP. |
+| 2026-05-21 | AFCR-040 | Added `ConnectionSecurityPolicy`; removed main manifest global cleartext; moved cleartext allowance to debug manifest; added final `JdkNakoHttpTransport` cleartext guard | PASS | Production defaults reject HTTP before token/transport; local-development policy explicitly allows HTTP. |
 | 2026-05-21 | AFCR-040 | `apps/android/gradlew.bat -p apps/android :app:compileDebugUnitTestKotlin --no-daemon` | PASS | Kotlin compile after connection security policy changes. |
-| 2026-05-21 | AFCR-040 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.* --no-daemon` | PASS | Connection tests cover cleartext rejection, local development opt-in, final transport guard, and safe diagnostics. |
+| 2026-05-21 | AFCR-040 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.connection.* --no-daemon` | PASS | Connection tests cover cleartext rejection, local development opt-in, final transport guard, and safe diagnostics. |
 | 2026-05-21 | AFCR-040 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon` | PASS | Full Android JVM unit suite passed after network security hardening. |
 | 2026-05-21 | AFCR-040 | `git diff --check` | PASS | Only line-ending warnings from Git configuration were reported; no whitespace errors. |
-| 2026-05-21 | AFCR-040 | Added debug/release `BuildConfig.TARU_ALLOW_CLEARTEXT_HTTP` wiring to `AndroidTaruAppEnvironmentFactory` | PASS | Debug/local builds explicitly use local-development cleartext policy; release defaults remain production-deny. |
+| 2026-05-21 | AFCR-040 | Added debug/release `BuildConfig.NAKO_ALLOW_CLEARTEXT_HTTP` wiring to `AndroidNakoAppEnvironmentFactory` | PASS | Debug/local builds explicitly use local-development cleartext policy; release defaults remain production-deny. |
 | 2026-05-21 | AFCR-050 | Added shared paging helpers and load-more actions for Search, relationship indexes, and public-backed facets | PASS | Paging derives next offset from server-returned `PageInfo`; load-more failures stay attached to existing content rather than deleting already loaded rows. |
 | 2026-05-21 | AFCR-050 | `apps/android/gradlew.bat -p apps/android :app:compileDebugUnitTestKotlin --no-daemon` | PASS | Kotlin compile after paging state, UI, data-source, and BuildConfig updates. |
-| 2026-05-21 | AFCR-050 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.* --no-daemon` | PASS | Browse UI/session tests cover Search append, relationship index append, facet append, no-more-page behavior, stale route protection, and existing route behavior. |
-| 2026-05-21 | AFCR-050 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.browse.* --tests dev.taru.android.connection.* --no-daemon` | PASS | Browse client paging query construction and connection security focused suites pass. |
+| 2026-05-21 | AFCR-050 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.* --no-daemon` | PASS | Browse UI/session tests cover Search append, relationship index append, facet append, no-more-page behavior, stale route protection, and existing route behavior. |
+| 2026-05-21 | AFCR-050 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.browse.* --tests dev.nako.android.connection.* --no-daemon` | PASS | Browse client paging query construction and connection security focused suites pass. |
 | 2026-05-21 | AFCR-050 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon` | PASS | Full Android JVM unit suite passed after paging slice. |
 | 2026-05-21 | AFCR-050 | `git diff --check` | PASS | Only line-ending warnings from Git configuration were reported; no whitespace errors. |
-| 2026-05-21 | AFCR-060 | Rewrote user-facing copy across connection, settings, browse, detail, source picker, player, and safe client diagnostics; added `TaruStrings` and Android resources for stable common actions; added roles/labels for key custom controls | PASS | User-visible language now uses server compatibility, sign-in keys, titles, versions, watch progress, and server-backed lists instead of API gaps, token, route, source facts, and User Playback State terms. |
+| 2026-05-21 | AFCR-060 | Rewrote user-facing copy across connection, settings, browse, detail, source picker, player, and safe client diagnostics; added `NakoStrings` and Android resources for stable common actions; added roles/labels for key custom controls | PASS | User-visible language now uses server compatibility, sign-in keys, titles, versions, watch progress, and server-backed lists instead of API gaps, token, route, source facts, and User Playback State terms. |
 | 2026-05-21 | AFCR-060 | `apps/android/gradlew.bat -p apps/android :app:compileDebugUnitTestKotlin --no-daemon` | FAIL then PASS | Initial failure was missing `assertFalse` import in `MediaItemDetailRouteTest`; fixed and reran successfully. |
-| 2026-05-21 | AFCR-060 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.ui.screens.settings.* --tests dev.taru.android.ui.screens.sourcepicker.* --tests dev.taru.android.ui.screens.detail.* --tests dev.taru.android.ui.screens.player.* --tests dev.taru.android.ui.browse.BrowseSessionRouteStateTest --tests dev.taru.android.ui.artwork.TaruArtworkSlotsTest --no-daemon` | PASS | Focused product UI tests cover copy, API-gap language, version fallback labels, player session a11y redaction, and artwork fallback labels. |
-| 2026-05-21 | AFCR-060 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.* --tests dev.taru.android.browse.* --tests dev.taru.android.playback.* --tests dev.taru.android.userplayback.* --tests dev.taru.android.ui.browse.* --tests dev.taru.android.ui.connection.* --no-daemon` | PASS | Focused client/message suites pass after shared diagnostics copy rewrites. |
+| 2026-05-21 | AFCR-060 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.ui.screens.settings.* --tests dev.nako.android.ui.screens.sourcepicker.* --tests dev.nako.android.ui.screens.detail.* --tests dev.nako.android.ui.screens.player.* --tests dev.nako.android.ui.browse.BrowseSessionRouteStateTest --tests dev.nako.android.ui.artwork.NakoArtworkSlotsTest --no-daemon` | PASS | Focused product UI tests cover copy, API-gap language, version fallback labels, player session a11y redaction, and artwork fallback labels. |
+| 2026-05-21 | AFCR-060 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.connection.* --tests dev.nako.android.browse.* --tests dev.nako.android.playback.* --tests dev.nako.android.userplayback.* --tests dev.nako.android.ui.browse.* --tests dev.nako.android.ui.connection.* --no-daemon` | PASS | Focused client/message suites pass after shared diagnostics copy rewrites. |
 | 2026-05-21 | AFCR-060 | `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon` | PASS | Full Android JVM unit suite passed after UI copy/a11y/localization seam work. |
 | 2026-05-21 | AFCR-060 | `git diff --check` | PASS | Only line-ending warnings from Git configuration were reported; no whitespace errors. |
 | 2026-05-21 | AFCR-070 | Architecture reassessment in `HANDOFF.md` and continue-policy update in `WORKSTREAM.json` | PASS | Kept package seams for closeout; split generated Kotlin SDK, shared Rust/UniFFI client core, Gradle module split, artwork descriptors, broader paging, downloads/offline, external player handoff, and Android TV into explicit follow-ons. |

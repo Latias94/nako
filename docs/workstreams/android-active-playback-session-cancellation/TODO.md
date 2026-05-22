@@ -14,17 +14,17 @@ Last updated: 2026-05-19
 
 ## M1 - Active Remux Session Contract
 
-- [x] APSC-020 [owner=codex] [deps=APSC-010] [scope=crates/taru-server/src/app/playback,crates/taru-server/src/http/playback.rs,crates/taru-server/src/http/tests/playback.rs]
+- [x] APSC-020 [owner=codex] [deps=APSC-010] [scope=crates/nako-server/src/app/playback,crates/nako-server/src/http/playback.rs,crates/nako-server/src/http/tests/playback.rs]
   Goal: Provide a Public Client remux preflight/start path that returns a
   non-terminal remux session id before ffmpeg finishes and can be cancelled.
-  Validation: focused taru-server HTTP test proves HEAD/start returns active
+  Validation: focused nako-server HTTP test proves HEAD/start returns active
   session id and cancel readback reaches cancelled.
-  Evidence: `cargo test -p taru-server remux_stream_route -- --nocapture`.
+  Evidence: `cargo test -p nako-server remux_stream_route -- --nocapture`.
   Handoff: APSC-030 wired Android smoke after APSC-020 passed.
 
 ## M2 - Android Smoke Fixture Path
 
-- [x] APSC-030 [owner=codex] [deps=APSC-020] [scope=apps/android/app/src/debug,apps/android/app/src/main/java/dev/taru/android/playback,apps/android/app/src/main/java/dev/taru/android/ui/browse,apps/android/scripts/Smoke-Emulator.ps1,apps/android/scripts/Start-DemoFixtureServer.ps1]
+- [x] APSC-030 [owner=codex] [deps=APSC-020] [scope=apps/android/app/src/debug,apps/android/app/src/main/java/dev/nako/android/playback,apps/android/app/src/main/java/dev/nako/android/ui/browse,apps/android/scripts/Smoke-Emulator.ps1,apps/android/scripts/Start-DemoFixtureServer.ps1]
   Goal: Add a dedicated active-remux smoke state that forces non-Direct
   playback, starts player playback with a real session id, exits before
   completion, and reads back cancelled state.

@@ -96,7 +96,7 @@ workstreams and no default mainline task remains in this umbrella.
   PTOH-020, which should harden runtime readiness diagnostics without changing
   Public Client API behavior.
 - `playback-transcode-ops-hardening` is complete. It stayed Admin-only and
-  runtime/diagnostic-focused, with Public Client API and `taru-client-protocol`
+  runtime/diagnostic-focused, with Public Client API and `nako-client-protocol`
   unchanged.
 - PRPH-110 selects downloads/watch-folder intake next. The correct shape is
   staged artifact acquisition and watch-folder candidate discovery; protocol
@@ -132,7 +132,7 @@ workstreams and no default mainline task remains in this umbrella.
 - ARD-020 package/install descriptor and redacted Admin install-guide preview
   are complete.
 - ARD-030 Admin-only runtime readiness diagnostics are complete. The next slice
-  is declared task/event routing into explicit Taru-owned plans.
+  is declared task/event routing into explicit Nako-owned plans.
 - ARD-040 declared task/event routing is complete with durable
   `addon_routing_plans`, idempotent manifest replacement, disabled/missing-grant
   / unsupported-event deferral, Admin Web contract/client support, and no hidden
@@ -147,7 +147,7 @@ workstreams and no default mainline task remains in this umbrella.
   discovery/install/update, marketplace hosting, package signing trust roots,
   process/container supervision, logs/rollback, Native Plugin ABI, downloader
   protocol adapters, local AI/model runtime, Public Client surfaces, direct
-  library writes, hidden schedulers, and `taru-client-protocol` changes into
+  library writes, hidden schedulers, and `nako-client-protocol` changes into
   explicit follow-ons.
 - PRPH-180 closes this umbrella. Future productization work should open a
   focused follow-on lane rather than reopening the post-RPD roadmap umbrella.

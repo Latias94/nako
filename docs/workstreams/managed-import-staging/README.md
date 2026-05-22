@@ -4,12 +4,12 @@ Status: Complete
 
 This workstream is the next post-RPD mainline after `nfo-link-authority`. It
 turns downloads, watch-folder candidates, and Addon-proposed artifacts into a
-Taru-owned quarantine, validation, and explicit promotion workflow before any
+Nako-owned quarantine, validation, and explicit promotion workflow before any
 library file mutation occurs.
 
 The lane is intentionally not a generic downloader. Acquisition protocols such
 as torrent, Usenet, browser scraping, or Addon external fetch remain outside the
-first slice. The first product boundary is **Managed Import Staging**: Taru can
+first slice. The first product boundary is **Managed Import Staging**: Nako can
 record a proposed artifact, stage it outside the media library, inspect it,
 compute duplicate/link/NFO/metadata diagnostics, and produce a promotion plan
 that an operator or later acceptance workflow can approve.

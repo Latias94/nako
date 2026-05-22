@@ -8,7 +8,7 @@ own WebDAV backend configuration.
 
 ## Implemented
 
-- `TaruServerConfig` now has `libraries: Vec<LocalLibraryConfig>` as the only
+- `NakoServerConfig` now has `libraries: Vec<LocalLibraryConfig>` as the only
   library configuration field.
 - Startup persists every configured library, so `GET /libraries` and app
   workflows see more than the first configured library.
@@ -44,7 +44,7 @@ preset = "anime"
 root = "webdav:///Anime"
 base_url = "https://nas.example.test/dav"
 username = "media"
-password_env = "TARU_WEBDAV_PASSWORD"
+password_env = "NAKO_WEBDAV_PASSWORD"
 timeout_ms = 30000
 max_attempts = 2
 ```
@@ -57,5 +57,5 @@ max_attempts = 2
 
 ## Validation
 
-- `cargo nextest run -p taru-server config_supports_multiple_libraries multi_library_config_registers_libraries_and_resolves_source_backend webdav_preview_config_builds_scanner_backend direct_play_holds_remote_stream_budget_until_body_is_dropped`
-- `cargo check -p taru-server --tests`
+- `cargo nextest run -p nako-server config_supports_multiple_libraries multi_library_config_registers_libraries_and_resolves_source_backend webdav_preview_config_builds_scanner_backend direct_play_holds_remote_stream_budget_until_body_is_dropped`
+- `cargo check -p nako-server --tests`

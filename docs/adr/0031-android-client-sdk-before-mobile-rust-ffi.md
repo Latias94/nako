@@ -11,11 +11,11 @@ was sequenced before mobile Rust/UniFFI.
 
 ## Context
 
-ADR 0026 accepts native client shells with a shared Rust client core as Taru's
+ADR 0026 accepts native client shells with a shared Rust client core as Nako's
 long-term flagship client direction. Android should use Kotlin, Compose, and
 Media3 ExoPlayer for the platform shell. iOS should use Swift, SwiftUI, and
-AVFoundation/AVKit. A shared Rust core may later reuse `taru-client` and
-`taru-client-protocol` through a narrow FFI boundary such as UniFFI.
+AVFoundation/AVKit. A shared Rust core may later reuse `nako-client` and
+`nako-client-protocol` through a narrow FFI boundary such as UniFFI.
 
 The Android foundation workstream closed with a different near-term shape:
 the app still uses direct Kotlin clients, but the generic Public Client API
@@ -44,7 +44,7 @@ logic that justifies the cost.
 
 ## Decision
 
-Taru will sequence generated client SDK work before introducing a mobile
+Nako will sequence generated client SDK work before introducing a mobile
 Rust/UniFFI client core into Android.
 
 For the current Android foundation:
@@ -96,7 +96,7 @@ Good triggers for starting that Rust/UniFFI workstream are:
 
 When introduced, the Rust client core may own:
 
-- Public Client API calls built on `taru-client` and `taru-client-protocol`;
+- Public Client API calls built on `nako-client` and `nako-client-protocol`;
 - bearer-token handling and token-safe request descriptors;
 - API-version checks;
 - public error-envelope handling;
@@ -154,7 +154,7 @@ The Rust client core must not own:
   clients should use platform-native media stacks, while Rust may interpret
   playback decisions and construct safe requests.
 - Use Kotlin Multiplatform as the shared core instead of Rust. Rejected as the
-  default sequencing because Taru already has Rust protocol/client crates and
+  default sequencing because Nako already has Rust protocol/client crates and
   iOS playback still needs Swift/AVFoundation ownership.
 
 ## Related Workstreams

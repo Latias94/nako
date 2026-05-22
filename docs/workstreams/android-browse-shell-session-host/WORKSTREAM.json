@@ -5,7 +5,7 @@
   "status": "closed",
   "updated": "2026-05-20",
   "scope_kind": "architecture",
-  "problem": "TaruBrowseShell still owns browse session construction, lifecycle effects, settings runtime wiring, and saveable-state synchronization after the broader unidirectional state refactor.",
+  "problem": "NakoBrowseShell still owns browse session construction, lifecycle effects, settings runtime wiring, and saveable-state synchronization after the broader unidirectional state refactor.",
   "summary": "Closed lane introducing a tested BrowseShellHost and client runtime adapter so Compose only renders state and forwards events.",
   "current_milestone": null,
   "current_task": null,
@@ -33,8 +33,8 @@
     }
   ],
   "gates": [
-    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.BrowseShellHostTest --no-daemon --no-parallel",
-    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.* --no-daemon --no-parallel",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.BrowseShellHostTest --no-daemon --no-parallel",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.* --no-daemon --no-parallel",
     "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --no-daemon --no-parallel",
     "git diff --check"
   ],
@@ -46,12 +46,12 @@
     },
     {
       "task": "ABSH-020",
-      "path": "apps/android/app/src/test/java/dev/taru/android/ui/browse/BrowseShellHostTest.kt",
+      "path": "apps/android/app/src/test/java/dev/nako/android/ui/browse/BrowseShellHostTest.kt",
       "notes": "Focused host tests passed on 2026-05-20."
     },
     {
       "task": "ABSH-030",
-      "path": "apps/android/app/src/main/java/dev/taru/android/ui/browse/TaruBrowseShell.kt",
+      "path": "apps/android/app/src/main/java/dev/nako/android/ui/browse/NakoBrowseShell.kt",
       "notes": "Compose shell now delegates host lifecycle and client runtime assembly."
     },
     {

@@ -5,7 +5,7 @@ Last updated: 2026-05-21
 
 ## M0 — Compatibility Contract Freeze
 
-- [x] SDKFC-010 [owner=planner] [deps=none] [scope=docs/workstreams/generated-sdk-forward-compat-tolerance,crates/taru-api/src/sdk.rs,sdk/kotlin,apps/android/app/src/main/java/dev/taru/android]
+- [x] SDKFC-010 [owner=planner] [deps=none] [scope=docs/workstreams/generated-sdk-forward-compat-tolerance,crates/nako-api/src/sdk.rs,sdk/kotlin,apps/android/app/src/main/java/dev/nako/android]
   Goal: Inventory generated Kotlin string-enum decode surfaces, Android adapter usage, and API-version/error-envelope tolerance needs, then freeze the tolerant representation decision.
   Validation: `DESIGN.md`, `TODO.md`, `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, and `HANDOFF.md` agree; inventory links concrete code surfaces.
   Review: Confirm the decision preserves raw `wireValue`, known-value ergonomics, and public-surface leak checks.
@@ -14,23 +14,23 @@ Last updated: 2026-05-21
 
 ## M1 — Generated Kotlin Tolerant Wire Values
 
-- [x] SDKFC-020 [owner=codex] [deps=SDKFC-010] [scope=crates/taru-api/src/sdk.rs,crates/taru-api/examples/emit-kotlin-sdk.rs,sdk/kotlin]
+- [x] SDKFC-020 [owner=codex] [deps=SDKFC-010] [scope=crates/nako-api/src/sdk.rs,crates/nako-api/examples/emit-kotlin-sdk.rs,sdk/kotlin]
   Goal: Replace strict generated Kotlin enum deserialization with the accepted tolerant wire-string representation for Public Client API string enums.
-  Validation: `cargo fmt --package taru-api --check`; `cargo nextest run -p taru-api kotlin_sdk --no-fail-fast`; `apps/android/gradlew.bat -p apps/android :taru-public-client-sdk:test --no-daemon`
-  Review: Generated output must be regenerated from `taru-api`, not edited by hand. Known constants must remain generated; unknown values must preserve raw `wireValue`.
-  Evidence: `crates/taru-api/src/sdk.rs`; `sdk/kotlin/src/main/kotlin/dev/taru/sdk/TaruClientSdk.kt`; `sdk/kotlin/src/test/kotlin/dev/taru/sdk/TaruClientSdkTest.kt`
-  Handoff: `taru-api` now generates tolerant Kotlin value classes; `sdk/kotlin` was regenerated from the generator and SDK tests cover unknown decode/encode behavior.
+  Validation: `cargo fmt --package nako-api --check`; `cargo nextest run -p nako-api kotlin_sdk --no-fail-fast`; `apps/android/gradlew.bat -p apps/android :nako-public-client-sdk:test --no-daemon`
+  Review: Generated output must be regenerated from `nako-api`, not edited by hand. Known constants must remain generated; unknown values must preserve raw `wireValue`.
+  Evidence: `crates/nako-api/src/sdk.rs`; `sdk/kotlin/src/main/kotlin/dev/nako/sdk/NakoClientSdk.kt`; `sdk/kotlin/src/test/kotlin/dev/nako/sdk/NakoClientSdkTest.kt`
+  Handoff: `nako-api` now generates tolerant Kotlin value classes; `sdk/kotlin` was regenerated from the generator and SDK tests cover unknown decode/encode behavior.
 
-- [x] SDKFC-030 [owner=codex] [deps=SDKFC-020] [scope=apps/android/app/src/main/java/dev/taru/android,apps/android/app/src/test/java/dev/taru/android]
+- [x] SDKFC-030 [owner=codex] [deps=SDKFC-020] [scope=apps/android/app/src/main/java/dev/nako/android,apps/android/app/src/test/java/dev/nako/android]
   Goal: Update Android generated-SDK adapters and diagnostics to consume tolerant wire values without leaking SDK policy into UI or Media3 runtime.
-  Validation: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.TaruConnectionClientTest --tests dev.taru.android.playback.* --tests dev.taru.android.browse.* --no-daemon`
+  Validation: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.connection.NakoConnectionClientTest --tests dev.nako.android.playback.* --tests dev.nako.android.browse.* --no-daemon`
   Review: Android product categories, copy, token redaction, safe request previews, and Media3 ownership remain app-owned.
-  Evidence: `apps/android/app/src/main/java/dev/taru/android/connection/TaruConnectionClient.kt`; `apps/android/app/src/main/java/dev/taru/android/playback/PlaybackSdkAdapters.kt`; `apps/android/app/src/main/java/dev/taru/android/browse/BrowseSdkAdapters.kt`
+  Evidence: `apps/android/app/src/main/java/dev/nako/android/connection/NakoConnectionClient.kt`; `apps/android/app/src/main/java/dev/nako/android/playback/PlaybackSdkAdapters.kt`; `apps/android/app/src/main/java/dev/nako/android/browse/BrowseSdkAdapters.kt`
   Handoff: Android connection health decodes generated tolerant `HealthResponse`; playback adapters map unknown generated values into app-owned `Unknown`/fallback states and focused tests cover unsupported body API version plus unknown playback mode.
 
 ## M2 — Cross-SDK Contract And Regression Gates
 
-- [x] SDKFC-040 [owner=codex] [deps=SDKFC-030] [scope=crates/taru-api,sdk/kotlin,sdk/typescript,apps/android]
+- [x] SDKFC-040 [owner=codex] [deps=SDKFC-030] [scope=crates/nako-api,sdk/kotlin,sdk/typescript,apps/android]
   Goal: Run and record the full compatibility gate set, including leakage checks and cross-SDK drift checks.
   Validation: Gate set in `EVIDENCE_AND_GATES.md` passes with fresh evidence.
   Review: Confirm TypeScript is either unaffected or has an explicit documented compatibility stance. Confirm no admin/internal/raw-locator/storage/local-path terms leak into generated Kotlin output.

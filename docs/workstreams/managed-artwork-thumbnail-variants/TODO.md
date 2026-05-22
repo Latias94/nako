@@ -14,7 +14,7 @@ Last updated: 2026-05-19
 
 ## M1 - Bounded On-Demand Variant Serving
 
-- [x] MATV-020 [owner=codex] [deps=MATV-010] [scope=crates/taru-api,crates/taru-server,crates/taru-client,sdk/typescript,docs/api]
+- [x] MATV-020 [owner=codex] [deps=MATV-010] [scope=crates/nako-api,crates/nako-server,crates/nako-client,sdk/typescript,docs/api]
   Goal: Add bounded `width`/`height` query parameters for `GET/HEAD
   /images/{image_id}`, derive variants on demand, keep original serving
   compatible, and switch public validators away from artifact content hashes.

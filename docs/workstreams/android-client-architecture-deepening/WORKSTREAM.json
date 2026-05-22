@@ -30,7 +30,7 @@
   ],
   "gates": [
     "apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon --no-parallel",
-    "apps/android/gradlew.bat -p apps/android :app:assembleDebug -PtaruRustAndroidAbis=x86_64 --no-daemon --no-parallel",
+    "apps/android/gradlew.bat -p apps/android :app:assembleDebug -PnakoRustAndroidAbis=x86_64 --no-daemon --no-parallel",
     "apps/android/scripts/Validate-AndroidLocal.ps1",
     "git diff --check",
     "python -m json.tool docs/workstreams/android-client-architecture-deepening/WORKSTREAM.json > $null"

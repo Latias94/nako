@@ -29,8 +29,8 @@ than exposing SQLite joins to HTTP handlers.
 
 Scope:
 
-- `crates/taru-core/src/repository/catalog_governance.rs`
-- `crates/taru-db/src/catalog_governance.rs`
+- `crates/nako-core/src/repository/catalog_governance.rs`
+- `crates/nako-db/src/catalog_governance.rs`
 - focused SQLite tests
 
 Validation:
@@ -49,10 +49,10 @@ source locators, local paths, secrets, or Public Client API artifacts.
 
 Scope:
 
-- `crates/taru-api/src/admin.rs`
-- `crates/taru-server/src/app/catalog.rs`
-- `crates/taru-server/src/http/admin.rs`
-- `crates/taru-server/src/http/query.rs`
+- `crates/nako-api/src/admin.rs`
+- `crates/nako-server/src/app/catalog.rs`
+- `crates/nako-server/src/http/admin.rs`
+- `crates/nako-server/src/http/query.rs`
 - route tests
 
 Validation:

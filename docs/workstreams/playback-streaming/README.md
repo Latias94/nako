@@ -36,7 +36,7 @@ Top-level tracking:
 - Add resource classes for remote playback stream and staging work.
 - Replace the single-library WebDAV preview shape with explicit multi-library
   and multi-remote backend configuration.
-- Keep playback handlers thin and keep backend-specific logic behind `taru-vfs`
+- Keep playback handlers thin and keep backend-specific logic behind `nako-vfs`
   and application services.
 
 ## Non-Goals
@@ -51,13 +51,13 @@ Top-level tracking:
 
 ## Boundary Rules
 
-- `taru-vfs` owns storage capability checks, remote byte access, backend
+- `nako-vfs` owns storage capability checks, remote byte access, backend
   retry/timeout behavior, and staging primitives.
-- `taru-server::app` owns playback decisions, resource-budget acquisition,
+- `nako-server::app` owns playback decisions, resource-budget acquisition,
   staging manifest coordination, and API-safe error categories.
-- `taru-server::http` should only translate an app plan into HTTP headers and
+- `nako-server::http` should only translate an app plan into HTTP headers and
   response bodies.
-- `taru-transcode` should keep FFmpeg command planning independent from remote
+- `nako-transcode` should keep FFmpeg command planning independent from remote
   backend credentials.
 - Staging paths and logs must never include plaintext credentials.
 

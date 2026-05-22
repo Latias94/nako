@@ -7,11 +7,11 @@ Last updated: 2026-05-17
 
 ```bash
 cargo fmt --all -- --check
-cargo check -p taru-catalog --tests
-cargo nextest run -p taru-catalog --no-fail-fast
-cargo check -p taru-metadata --tests
-cargo nextest run -p taru-metadata strategy::port_tests::refresh_service_uses_refresh_and_hydration_ports_without_sqlite --no-fail-fast
-cargo check -p taru-nfo --tests
+cargo check -p nako-catalog --tests
+cargo nextest run -p nako-catalog --no-fail-fast
+cargo check -p nako-metadata --tests
+cargo nextest run -p nako-metadata strategy::port_tests::refresh_service_uses_refresh_and_hydration_ports_without_sqlite --no-fail-fast
+cargo check -p nako-nfo --tests
 cargo check --workspace --tests
 cargo nextest run --workspace --no-fail-fast
 git diff --check
@@ -30,7 +30,7 @@ git diff --check
 
 - `CatalogHydrationPort` now exposes `hydrate_catalog`.
 - `CatalogHydrationSnapshot`, `CatalogHydrationLookup`, and
-  `CatalogHydrationCommit` are internal to `taru-catalog`.
+  `CatalogHydrationCommit` are internal to `nako-catalog`.
 - Metadata fake-port tests now assert workflow hydration without constructing
   lookup vectors.
 - Existing catalog graph/search behavior still passes through SQLite-backed
@@ -38,11 +38,11 @@ git diff --check
 - Public API, SDK, client, and DB schema did not change.
 - Validation:
   - `cargo fmt --all -- --check`: passed.
-  - `cargo check -p taru-catalog --tests`: passed.
-  - `cargo nextest run -p taru-catalog --no-fail-fast`: 3 tests passed.
-  - `cargo check -p taru-metadata --tests`: passed.
-  - `cargo nextest run -p taru-metadata strategy::port_tests::refresh_service_uses_refresh_and_hydration_ports_without_sqlite --no-fail-fast`: 1 test passed.
-  - `cargo check -p taru-nfo --tests`: passed.
+  - `cargo check -p nako-catalog --tests`: passed.
+  - `cargo nextest run -p nako-catalog --no-fail-fast`: 3 tests passed.
+  - `cargo check -p nako-metadata --tests`: passed.
+  - `cargo nextest run -p nako-metadata strategy::port_tests::refresh_service_uses_refresh_and_hydration_ports_without_sqlite --no-fail-fast`: 1 test passed.
+  - `cargo check -p nako-nfo --tests`: passed.
   - `cargo check --workspace --tests`: passed.
   - `cargo nextest run --workspace --no-fail-fast`: 288 tests passed.
   - `git diff --check`: passed.

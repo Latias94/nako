@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
-    [string]$Package = 'taru-client-uniffi',
-    [string[]]$AllowedDirectDependencies = @('taru-client-core', 'uniffi'),
+    [string]$Package = 'nako-client-uniffi',
+    [string[]]$AllowedDirectDependencies = @('nako-client-core', 'uniffi'),
     [string[]]$ForbiddenTransitiveDependencies = @(
         'reqwest',
         'tokio',

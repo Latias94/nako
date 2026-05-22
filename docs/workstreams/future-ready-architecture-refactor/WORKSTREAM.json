@@ -5,7 +5,7 @@
   "status": "completed",
   "updated": "2026-05-20",
   "scope_kind": "execution",
-  "problem": "Taru needs a fearless architecture refactor that removes SQLite-shaped persistence assumptions, shallow module seams, and redundant MVP paths before PostgreSQL, richer metadata, search, Addons, AI automation, and clients deepen.",
+  "problem": "Nako needs a fearless architecture refactor that removes SQLite-shaped persistence assumptions, shallow module seams, and redundant MVP paths before PostgreSQL, richer metadata, search, Addons, AI automation, and clients deepen.",
   "authoritative_docs": [
     {
       "role": "overview",
@@ -34,8 +34,8 @@
   ],
   "gates": [
     "git diff --check",
-    "cargo check -p taru-db --tests",
-    "cargo nextest run -p taru-db --no-fail-fast",
+    "cargo check -p nako-db --tests",
+    "cargo nextest run -p nako-db --no-fail-fast",
     "cargo check --workspace --tests",
     "cargo nextest run --workspace --no-fail-fast"
   ],

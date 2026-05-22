@@ -7,7 +7,7 @@ Last updated: 2026-05-19
 
 `managed-artwork-ingest-selection` created the internal acceptance boundary but
 intentionally stopped before remote fetch, content validation, byte storage, and
-public artwork publication. A queued ingest job is useful only when Taru can
+public artwork publication. A queued ingest job is useful only when Nako can
 later consume it under bounded first-party resource policy and produce an
 internal artifact that is safe to publish in later lanes.
 
@@ -21,11 +21,11 @@ internal artifact that is safe to publish in later lanes.
   - `docs/workstreams/addon-managed-artwork-artifacts/`
   - `docs/api/HTTP_API.md`
 - Existing code:
-  - `crates/taru-core/src/media/artwork.rs`
-  - `crates/taru-core/src/job.rs`
-  - `crates/taru-db/migrations/0026_managed_artwork_ingest.sql`
-  - `crates/taru-db/src/artwork.rs`
-  - `crates/taru-server/src/app/artwork.rs`
+  - `crates/nako-core/src/media/artwork.rs`
+  - `crates/nako-core/src/job.rs`
+  - `crates/nako-db/migrations/0026_managed_artwork_ingest.sql`
+  - `crates/nako-db/src/artwork.rs`
+  - `crates/nako-server/src/app/artwork.rs`
 
 ## Problem
 
@@ -39,7 +39,7 @@ inside HTTP handlers.
 ## Target State
 
 - A queued `managed_artwork_ingest` job can be claimed and processed by a
-  Taru-owned runtime boundary.
+  Nako-owned runtime boundary.
 - The worker loads the candidate source internally; raw source URLs remain out
   of public, addon, and ordinary job summaries.
 - Remote fetch uses explicit budgets: resource class, timeout, retry, maximum
@@ -120,8 +120,8 @@ Job runtime decision:
 Storage decision:
 
 - Introduce a first-party internal artifact storage port owned by
-  `taru-server` application code. The first backing store should be a local
-  Taru-managed artifact root, not a library root and not VFS cache/staging.
+  `nako-server` application code. The first backing store should be a local
+  Nako-managed artifact root, not a library root and not VFS cache/staging.
 - Add explicit config for artwork artifact storage and fetch policy rather
   than overloading `remux_staging_root`, `staging.max_bytes`, or playback remote
   stream/stage budgets.

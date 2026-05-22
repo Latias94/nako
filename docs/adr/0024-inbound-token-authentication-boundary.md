@@ -6,27 +6,27 @@ Accepted.
 
 ## Context
 
-M29 and M30 made Taru's public client API contract useful for future Flutter,
+M29 and M30 made Nako's public client API contract useful for future Flutter,
 web, CLI, and SDK consumers. That also makes the absence of inbound
 authentication more important: without a server-side access boundary, future
 clients, remote access, and tunnel/NAT traversal work would grow around an
 unsafe default.
 
-Taru already has several secret-bearing integration paths:
+Nako already has several secret-bearing integration paths:
 
-- addon resource auth, where Taru calls an addon with bearer or shared-secret
+- addon resource auth, where Nako calls an addon with bearer or shared-secret
   credentials;
-- webhook signing, where Taru signs outbound event deliveries;
-- metadata and automation provider secrets, where Taru resolves provider API
+- webhook signing, where Nako signs outbound event deliveries;
+- metadata and automation provider secrets, where Nako resolves provider API
   keys from environment references;
-- WebDAV credentials, where Taru authenticates to a remote storage backend.
+- WebDAV credentials, where Nako authenticates to a remote storage backend.
 
 Those are outbound integration secrets. They must not be treated as inbound
 client authentication.
 
 ## Decision
 
-Taru will add a separate inbound HTTP authentication boundary for client and
+Nako will add a separate inbound HTTP authentication boundary for client and
 admin access.
 
 The first implementation is bearer-token based:
@@ -34,7 +34,7 @@ The first implementation is bearer-token based:
 - server config owns an `[auth]` section;
 - auth is enabled by default;
 - the default token source is an environment variable reference,
-  `TARU_ADMIN_TOKEN`;
+  `NAKO_ADMIN_TOKEN`;
 - `GET /health` remains unauthenticated as a preflight/readiness endpoint;
 - all other HTTP routes require `Authorization: Bearer <token>` when auth is
   enabled;
@@ -62,7 +62,7 @@ environment reference.
 
 ## Alternatives Considered
 
-- Leave auth to reverse proxies: rejected as the default because Taru plans
+- Leave auth to reverse proxies: rejected as the default because Nako plans
   first-party clients and remote access.
 - Add user accounts immediately: rejected as too broad for the first access
   boundary.

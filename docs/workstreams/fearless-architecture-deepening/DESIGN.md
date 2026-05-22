@@ -5,13 +5,13 @@ Last updated: 2026-05-20
 
 ## Why This Lane Exists
 
-Taru is past the point where the main risk is missing CRUD or missing crates.
+Nako is past the point where the main risk is missing CRUD or missing crates.
 M61 and M62 left a strong modular monolith baseline, explicit PostgreSQL
 runtime selection, backend-neutral contract tests, a clearer public/admin/addon
 API split, and mature workstream practice.
 
 The next risk is different: a few high-leverage Modules are becoming shallow or
-too broad while Taru is still early enough to refactor fearlessly. If these
+too broad while Nako is still early enough to refactor fearlessly. If these
 Modules harden before deeper seams exist, future provider breadth, Addon
 Sidecars, NFO/library-file writes, playback profiles, AI automation, and remote
 access features will spread ordering, permissions, redaction, and persistence
@@ -54,7 +54,7 @@ into an execution plan for the next fearless refactor pass.
 The review found strong architecture direction, but also several Modules whose
 Interfaces are not deep enough for the behavior now living behind them:
 
-1. `crates/taru-server/src/app/addons.rs` now concentrates Addon registration,
+1. `crates/nako-server/src/app/addons.rs` now concentrates Addon registration,
    token/grant handling, Addon Principal resolution, Addon Side Effect intake,
    Canonical Metadata writes, Library File Write/NFO export, artwork candidate
    intake, storage access, catalog refresh, and search refresh. This is a
@@ -112,10 +112,10 @@ When this lane closes:
 
 ## In Scope
 
-- Refactoring `taru-server` Addon Side Effect application Modules without
+- Refactoring `nako-server` Addon Side Effect application Modules without
   changing the public Addon protocol shape unless a test proves the current
   shape is unsafe.
-- Adding or deepening `taru-core` repository/workflow traits when they create
+- Adding or deepening `nako-core` repository/workflow traits when they create
   real depth and are backed by at least two Adapters or a strong deletion-test
   argument.
 - SQLite and PostgreSQL parity for any new persistence commit seam.
@@ -145,10 +145,10 @@ When this lane closes:
 | Assumption | Confidence | Evidence | Consequence if wrong |
 | --- | --- | --- | --- |
 | PostgreSQL runtime support for the M62-supported scope is committed and should be preserved. | High | `docs/workstreams/postgresql-production-readiness/`; commit `e45fa1a`. | Re-open M62 before adding new DB-dependent seams. |
-| `AddonAppService` has real behavior, but its current Interface is too broad for future Addon Side Effect breadth. | High | `crates/taru-server/src/app/addons.rs`; Addon protected-write workstreams. | If the Module is already split locally in later changes, FAD-020 becomes an audit/cleanup task. |
+| `AddonAppService` has real behavior, but its current Interface is too broad for future Addon Side Effect breadth. | High | `crates/nako-server/src/app/addons.rs`; Addon protected-write workstreams. | If the Module is already split locally in later changes, FAD-020 becomes an audit/cleanup task. |
 | Addon metadata write projection consistency should be proven in one commit seam. | High | APW residual risk and review findings. | If existing metadata/catalog commit APIs can already cover it, prefer reuse over a new trait. |
-| Library ingestion still needs a caller-facing workflow seam even though DB contracts prove scan commits. | Medium | `crates/taru-library/src/index.rs`; M62 scan commit contracts. | If a narrow seam adds no leverage by deletion test, split the task to test-layout and docs only. |
-| Search should be measured before AI/vector integration. | High | `taru-search` is intentionally small; roadmap provider/search breadth remains future work. | If product priorities change, split search semantics into its own lane. |
+| Library ingestion still needs a caller-facing workflow seam even though DB contracts prove scan commits. | Medium | `crates/nako-library/src/index.rs`; M62 scan commit contracts. | If a narrow seam adds no leverage by deletion test, split the task to test-layout and docs only. |
+| Search should be measured before AI/vector integration. | High | `nako-search` is intentionally small; roadmap provider/search breadth remains future work. | If product priorities change, split search semantics into its own lane. |
 
 ## Architecture Direction
 
@@ -189,7 +189,7 @@ Closeout result:
 - FAD-020 through FAD-090 are complete.
 - The final workspace gates passed on 2026-05-20.
 - PostgreSQL opt-in contracts were skipped only because
-  `TARU_TEST_POSTGRES_URL` was unset; the relevant contract pairs remain
+  `NAKO_TEST_POSTGRES_URL` was unset; the relevant contract pairs remain
   present for environments with a PostgreSQL test URL.
 - No unowned architecture tail remains inside this lane. Existing independent
   tails stay in their named workstreams, especially

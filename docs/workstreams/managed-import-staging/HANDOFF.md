@@ -5,7 +5,7 @@ Last updated: 2026-05-21
 
 ## Current State
 
-MIS-020 through MIS-060 are complete. Taru now has a durable Managed Import
+MIS-020 through MIS-060 are complete. Nako now has a durable Managed Import
 Artifact domain and DB contract that is intentionally separate from low-level VFS
 staging manifests. Records can reference a staging manifest, but they own target
 library intent, source kind, import diagnostics, and acceptance/planning state.

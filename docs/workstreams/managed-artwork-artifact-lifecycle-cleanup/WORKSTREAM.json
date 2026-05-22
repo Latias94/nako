@@ -16,13 +16,13 @@
     "Artwork Export"
   ],
   "validation_gates": [
-    "cargo nextest run -p taru-api managed_artwork_lifecycle --no-fail-fast",
-    "cargo nextest run -p taru-db managed_artwork_lifecycle --no-fail-fast",
-    "cargo nextest run -p taru-server managed_artwork_lifecycle --no-fail-fast",
-    "cargo nextest run -p taru-api managed_artwork_cleanup --no-fail-fast",
-    "cargo nextest run -p taru-db sqlite_store_cleanup_marks_only_unselected_managed_artwork_artifacts_deleted --no-fail-fast",
-    "cargo nextest run -p taru-server managed_artwork_cleanup --no-fail-fast",
-    "cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests",
+    "cargo nextest run -p nako-api managed_artwork_lifecycle --no-fail-fast",
+    "cargo nextest run -p nako-db managed_artwork_lifecycle --no-fail-fast",
+    "cargo nextest run -p nako-server managed_artwork_lifecycle --no-fail-fast",
+    "cargo nextest run -p nako-api managed_artwork_cleanup --no-fail-fast",
+    "cargo nextest run -p nako-db sqlite_store_cleanup_marks_only_unselected_managed_artwork_artifacts_deleted --no-fail-fast",
+    "cargo nextest run -p nako-server managed_artwork_cleanup --no-fail-fast",
+    "cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests",
     "cargo fmt --all -- --check",
     "git diff --check"
   ]

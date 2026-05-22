@@ -12,7 +12,7 @@ Closeout:
 
 - inbound client/admin auth is separate from addon, webhook, provider,
   automation, storage, and WebDAV outbound integration secrets;
-- auth is enabled by default through `TARU_ADMIN_TOKEN`;
+- auth is enabled by default through `NAKO_ADMIN_TOKEN`;
 - `GET /health` remains public;
 - every other HTTP route requires `Authorization: Bearer <token>` when auth is
   enabled;

@@ -44,7 +44,7 @@ that transaction before confirming them. The old shallow
 
 ## Blockers
 
-- Existing unrelated worktree changes touch `taru-core`, `taru-db`, and server
+- Existing unrelated worktree changes touch `nako-core`, `nako-db`, and server
   files. Do not revert them. Read context before editing shared files.
 
 ## Next Recommended Action

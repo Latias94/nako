@@ -5,7 +5,7 @@ Last updated: 2026-05-17
 
 ## Why This Lane Exists
 
-Taru now has a public client API contract. Before web, Flutter, CLI, remote
+Nako now has a public client API contract. Before web, Flutter, CLI, remote
 access, or tunnel work builds on that contract, the server needs an explicit
 inbound authentication boundary. Otherwise client work would normalize a
 network-accessible unauthenticated API.
@@ -22,21 +22,21 @@ network-accessible unauthenticated API.
   - `docs/workstreams/public-client-api/`
   - `docs/workstreams/public-api-contract/`
 - Related crates and modules:
-  - `crates/taru-client-protocol`
-  - `crates/taru-api`
-  - `crates/taru-server/src/config.rs`
-  - `crates/taru-server/src/http.rs`
-  - `crates/taru-server/src/http/error.rs`
-  - `crates/taru-server/src/http/tests/*`
-  - `crates/taru-addon-protocol`
-  - `crates/taru-events`
+  - `crates/nako-client-protocol`
+  - `crates/nako-api`
+  - `crates/nako-server/src/config.rs`
+  - `crates/nako-server/src/http.rs`
+  - `crates/nako-server/src/http/error.rs`
+  - `crates/nako-server/src/http/tests/*`
+  - `crates/nako-addon-protocol`
+  - `crates/nako-events`
 
 ## Starting Audit
 
 - There is no inbound client authentication on server HTTP routes today.
-- Addon auth is outbound: Taru calls sidecar addons with bearer or
+- Addon auth is outbound: Nako calls sidecar addons with bearer or
   shared-secret credentials.
-- Webhook signing is outbound: Taru signs deliveries to webhook receivers.
+- Webhook signing is outbound: Nako signs deliveries to webhook receivers.
 - Metadata, automation, and WebDAV secrets are outbound provider/backend
   credentials resolved from environment references.
 - `SecretString` already redacts resolved secrets in debug/display/serialization
@@ -50,7 +50,7 @@ network-accessible unauthenticated API.
 - Existing outbound integration secrets cannot safely double as client auth.
 - Auth failures must use the same public v1 error envelope as the rest of the
   API.
-- The first implementation must be useful without committing Taru to a full
+- The first implementation must be useful without committing Nako to a full
   user account system or RBAC model.
 
 ## Target State

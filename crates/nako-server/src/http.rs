@@ -1,0 +1,65 @@
+use axum::http::{HeaderName, HeaderValue};
+use axum::{Extension, Router, middleware, response::Response};
+use nako_api::public_client::{API_VERSION, API_VERSION_HEADER};
+
+use crate::app::NakoApp;
+
+mod addons;
+mod admin;
+mod auth;
+mod automation;
+mod catalog;
+mod error;
+mod jobs;
+mod library;
+mod metadata;
+mod network;
+mod playback;
+mod query;
+mod system;
+mod user_playback;
+mod webhooks;
+
+pub fn build_router(app: NakoApp) -> Router {
+    let auth = auth::InboundAuthState::from_config(&app.config().auth);
+    build_router_with_auth(app, auth)
+}
+
+fn build_router_with_auth(app: NakoApp, auth: auth::InboundAuthState) -> Router {
+    let network = network::NetworkBoundaryState::from_config(&app.config().network);
+    let protected_routes = Router::new()
+        .merge(system::routes())
+        .merge(admin::routes())
+        .merge(library::routes())
+        .merge(catalog::routes())
+        .merge(metadata::routes())
+        .merge(playback::routes())
+        .merge(user_playback::routes())
+        .merge(webhooks::routes())
+        .merge(automation::routes())
+        .merge(addons::routes())
+        .merge(jobs::routes())
+        .layer(middleware::from_fn(network::enforce_network_boundary))
+        .layer(middleware::from_fn(auth::require_auth))
+        .layer(Extension(auth));
+
+    Router::new()
+        .merge(system::public_routes())
+        .merge(protected_routes)
+        .merge(addons::runtime_routes())
+        .layer(middleware::map_response(add_api_version_header))
+        .layer(middleware::from_fn(network::annotate_external_origin))
+        .layer(Extension(network))
+        .with_state(app)
+}
+
+async fn add_api_version_header(mut response: Response) -> Response {
+    response.headers_mut().insert(
+        HeaderName::from_static(API_VERSION_HEADER),
+        HeaderValue::from_static(API_VERSION),
+    );
+    response
+}
+
+#[cfg(test)]
+mod tests;

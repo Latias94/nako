@@ -6,7 +6,7 @@ import { createAdminDataSource } from "./adminApi/dataSource";
 import "./styles.css";
 
 const dataSource = createAdminDataSource({
-  baseUrl: import.meta.env.VITE_TARU_ADMIN_API_BASE_URL,
+  baseUrl: import.meta.env.VITE_NAKO_ADMIN_API_BASE_URL,
 });
 
 createRoot(document.getElementById("root")!).render(

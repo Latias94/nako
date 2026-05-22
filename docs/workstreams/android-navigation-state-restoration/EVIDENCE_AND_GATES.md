@@ -6,7 +6,7 @@ Last updated: 2026-05-19
 ## Required Gates
 
 - Focused route restoration test:
-  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.TaruBrowseNavigationStateSaverTest --no-daemon`
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.NakoBrowseNavigationStateSaverTest --no-daemon`
 - Compile/unit risk gate:
   `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`
 - Diff hygiene:
@@ -23,7 +23,7 @@ Last updated: 2026-05-19
 ### ANS-020 - Saveable Navigation State
 
 - Evidence:
-  - `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.TaruBrowseNavigationStateSaverTest --no-daemon`
+  - `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.NakoBrowseNavigationStateSaverTest --no-daemon`
   - `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon`
 - Result: PASS on 2026-05-19.
 - Notes: Focused tests prove safe nested route restoration, Settings-owned

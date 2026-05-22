@@ -26,12 +26,12 @@ final audit commit failure after a successful mutation.
 
 ```powershell
 cargo fmt --all -- --check
-cargo nextest run -p taru-server nfo_sidecar_apply --no-fail-fast
-cargo nextest run -p taru-server nfo --no-fail-fast
-cargo check -p taru-server
+cargo nextest run -p nako-server nfo_sidecar_apply --no-fail-fast
+cargo nextest run -p nako-server nfo --no-fail-fast
+cargo check -p nako-server
 ```
 
-All commands passed. `cargo check -p taru-server` still reports existing
+All commands passed. `cargo check -p nako-server` still reports existing
 dead-code/unused warnings outside this slice.
 
 ## Remaining NSPA-060 Work

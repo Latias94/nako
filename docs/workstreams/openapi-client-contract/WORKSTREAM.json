@@ -5,7 +5,7 @@
   "status": "completed",
   "updated": "2026-05-17",
   "scope_kind": "execution",
-  "problem": "Taru has public protocol DTOs, stable error/version semantics, and bearer auth, but no machine-readable public HTTP schema for future clients or SDKs.",
+  "problem": "Nako has public protocol DTOs, stable error/version semantics, and bearer auth, but no machine-readable public HTTP schema for future clients or SDKs.",
   "authoritative_docs": [
     {
       "role": "design",
@@ -23,23 +23,23 @@
   "gates": [
     "cargo fmt --all -- --check",
     "cargo check --workspace --tests",
-    "cargo nextest run -p taru-client-protocol --no-fail-fast",
-    "cargo nextest run -p taru-api --no-fail-fast",
-    "cargo nextest run -p taru-server http::tests --no-fail-fast",
+    "cargo nextest run -p nako-client-protocol --no-fail-fast",
+    "cargo nextest run -p nako-api --no-fail-fast",
+    "cargo nextest run -p nako-server http::tests --no-fail-fast",
     "cargo nextest run --workspace --no-fail-fast",
-    "cargo tree -p taru-client-protocol",
+    "cargo tree -p nako-client-protocol",
     "OpenAPI artifact/schema checker",
     "git diff --check"
   ],
   "evidence": [
     "docs/adr/0025-openapi-public-client-sdk-contract.md",
     "docs/api/HTTP_API.md",
-    "crates/taru-client-protocol/src/lib.rs",
-    "crates/taru-client-protocol/src/catalog.rs",
-    "crates/taru-api/src/lib.rs",
-    "crates/taru-api/src/openapi.rs",
-    "crates/taru-server/src/http/playback.rs",
-    "crates/taru-server/src/http/tests"
+    "crates/nako-client-protocol/src/lib.rs",
+    "crates/nako-client-protocol/src/catalog.rs",
+    "crates/nako-api/src/lib.rs",
+    "crates/nako-api/src/openapi.rs",
+    "crates/nako-server/src/http/playback.rs",
+    "crates/nako-server/src/http/tests"
   ],
   "adr_refs": [
     "docs/adr/0025-openapi-public-client-sdk-contract.md"

@@ -16,10 +16,10 @@ Last updated: 2026-05-22
 
 ## M1 — Rust Core Artwork Request Builder
 
-- [x] APR-020 [owner=codex] [deps=APR-010] [scope=crates/taru-client-core,crates/taru-client-uniffi]
-  Goal: Add selected artwork image request construction to `taru-client-core`
+- [x] APR-020 [owner=codex] [deps=APR-010] [scope=crates/nako-client-core,crates/nako-client-uniffi]
+  Goal: Add selected artwork image request construction to `nako-client-core`
   and expose it through thin UniFFI bindings.
-  Validation: `cargo fmt --package taru-client-core --check`; `cargo nextest run -p taru-client-core --no-fail-fast`; `cargo fmt --package taru-client-uniffi --check`; `cargo nextest run -p taru-client-uniffi --no-fail-fast`; `./scripts/guard-uniffi-boundary.ps1`.
+  Validation: `cargo fmt --package nako-client-core --check`; `cargo nextest run -p nako-client-core --no-fail-fast`; `cargo fmt --package nako-client-uniffi --check`; `cargo nextest run -p nako-client-uniffi --no-fail-fast`; `./scripts/guard-uniffi-boundary.ps1`.
   Review: Builder must encode image ids, preserve optional width/height query
   parity, inject bearer auth, and redact safe previews without exposing transport
   or platform types.
@@ -31,10 +31,10 @@ Last updated: 2026-05-22
 
 ## M2 — Android Runtime Artwork Migration
 
-- [x] APR-030 [owner=codex] [deps=APR-020] [scope=apps/android/app/src/main/java/dev/taru/android/artwork,apps/android/app/src/test/java/dev/taru/android/artwork,apps/android/app/src/test/java/dev/taru/android/ui/artwork]
+- [x] APR-030 [owner=codex] [deps=APR-020] [scope=apps/android/app/src/main/java/dev/nako/android/artwork,apps/android/app/src/test/java/dev/nako/android/artwork,apps/android/app/src/test/java/dev/nako/android/ui/artwork]
   Goal: Replace generated SDK descriptor use in `PublicArtworkSource` with an
   Android `ArtworkCore` seam backed by Rust/UniFFI request descriptors.
-  Validation: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.artwork.PublicArtworkTest --tests dev.taru.android.ui.artwork.ArtworkRequestResolverTest --no-daemon --rerun-tasks`.
+  Validation: `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.artwork.PublicArtworkTest --tests dev.nako.android.ui.artwork.ArtworkRequestResolverTest --no-daemon --rerun-tasks`.
   Review: Runtime artwork code must reject unsafe/stale DTO URLs and must not
   import generated route descriptor APIs.
   Evidence: Android artwork tests.
@@ -44,13 +44,13 @@ Last updated: 2026-05-22
 
 ## M3 — Preview/Test Fixture Route Cleanup
 
-- [x] APR-040 [owner=codex] [deps=APR-030] [scope=apps/android/app/src/main/java/dev/taru/android/ui/browse,apps/android/app/src/main/java/dev/taru/android/connection]
+- [x] APR-040 [owner=codex] [deps=APR-030] [scope=apps/android/app/src/main/java/dev/nako/android/ui/browse,apps/android/app/src/main/java/dev/nako/android/connection]
   Goal: Remove generated SDK route matching from Compose preview fake transport
   and delete dead generated descriptor adapter code if no callers remain.
   Validation: `apps/android/gradlew.bat -p apps/android :app:compileDebugKotlin --no-daemon`; route-owner scans.
   Review: Preview code should use fixture-owned route helpers; app runtime
-  `src/main` should no longer import `TaruPublicClientRequests` or
-  `TaruRequestDescriptor`.
+  `src/main` should no longer import `NakoPublicClientRequests` or
+  `NakoRequestDescriptor`.
   Evidence: route-owner scan and compile gate.
   Handoff: DONE. Replaced browse preview generated SDK route matching with
   preview-local fixture route helpers and deleted the dead generated descriptor

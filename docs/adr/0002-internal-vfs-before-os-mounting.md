@@ -6,14 +6,14 @@ Proposed
 
 ## Context
 
-Taru should eventually support local files, NAS paths, WebDAV, S3-compatible
+Nako should eventually support local files, NAS paths, WebDAV, S3-compatible
 stores, rclone-style remotes, and possibly other cloud-drive connectors. Treating
 all sources as local paths would leak backend-specific behavior into scanning,
 probing, metadata, and playback code.
 
 ## Decision
 
-Build an internal VFS abstraction in `taru-vfs` and make library scanning,
+Build an internal VFS abstraction in `nako-vfs` and make library scanning,
 media probing, and streaming consume that abstraction. OS-level mounting through
 FUSE/WebDAV export may be added later, but it is not required for the core
 server.
@@ -39,7 +39,7 @@ The VFS contract should expose:
 ## Alternatives Considered
 
 - Require users to mount remotes with rclone/FUSE first: fast to implement, but
-  hides backend cost and error semantics from Taru.
+  hides backend cost and error semantics from Nako.
 - Implement OS-level FUSE first: useful later, but increases platform-specific
   complexity before the internal model is stable.
 

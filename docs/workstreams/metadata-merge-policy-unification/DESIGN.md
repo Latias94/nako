@@ -9,9 +9,9 @@ ADR 0007 defines Metadata Source Priority and local authority, while ADR 0008
 treats NFO Import as a Local Metadata boundary. The current implementation has
 two separate merge implementations:
 
-- `crates/taru-metadata/src/merge.rs` handles provider and hierarchy
+- `crates/nako-metadata/src/merge.rs` handles provider and hierarchy
   confirmation merges through `MetadataMergePolicy`.
-- `crates/taru-nfo/src/import.rs` has a private NFO-specific field merge,
+- `crates/nako-nfo/src/import.rs` has a private NFO-specific field merge,
   populated-field detection, and lock filtering path.
 
 Both paths iterate over the same `CanonicalMetadata` fields. They differ in
@@ -20,7 +20,7 @@ new Canonical Metadata field currently risks being added to one path and missed
 by the other.
 
 MMP-030 moved that shared field replacement boundary to
-`crates/taru-core/src/media/merge.rs`. `taru-metadata` re-exports the policy for
+`crates/nako-core/src/media/merge.rs`. `nako-metadata` re-exports the policy for
 existing metadata workflow callers, and NFO import now uses the same policy
 through `MetadataMergePolicy::for_nfo_import`.
 
@@ -41,7 +41,7 @@ through `MetadataMergePolicy::for_nfo_import`.
 
 ## Problem
 
-Taru currently has duplicated metadata authority logic:
+Nako currently has duplicated metadata authority logic:
 
 - provider refresh applies `MetadataRefreshMode` and field locks through
   `MetadataMergePolicy`;
@@ -59,7 +59,7 @@ should be explainable from one policy boundary.
 ## Target State
 
 - There is one shared merge-policy boundary for Canonical Metadata field
-  replacement decisions. MMP-030 implements this in `taru-core`.
+  replacement decisions. MMP-030 implements this in `nako-core`.
 - Provider refresh, hierarchy confirmation, and NFO import all use that boundary
   instead of maintaining separate per-field replacement loops.
 - Source-aware lock handling is explicit: a source can protect fields written
@@ -99,14 +99,14 @@ should be explainable from one policy boundary.
 
 | Assumption | Confidence | Evidence | Consequence if wrong |
 | --- | --- | --- | --- |
-| The shared policy should live where both `taru-metadata` and `taru-nfo` can use it without creating a dependency cycle. | High | `taru-nfo` already depends on `taru-metadata` for hierarchy confirmation; `taru-core` owns `CanonicalMetadata`, locks, and profile enums. | Choose `taru-core` for pure policy data/functions if `taru-metadata` would create coupling. |
+| The shared policy should live where both `nako-metadata` and `nako-nfo` can use it without creating a dependency cycle. | High | `nako-nfo` already depends on `nako-metadata` for hierarchy confirmation; `nako-core` owns `CanonicalMetadata`, locks, and profile enums. | Choose `nako-core` for pure policy data/functions if `nako-metadata` would create coupling. |
 | NFO local authority and provider refresh share field replacement mechanics but not workflow side effects. | High | NFO import writes NFO locks and may confirm hierarchy; provider refresh writes raw response, provider subject, mapping, and library confirmation. | Keep workflow side effects in their current crates and share only merge decisions. |
 | No schema change is needed for the first slice. | Medium | Existing `MetadataFieldLock` stores field, source, locked flag, and item ID. | If source precedence cannot be expressed, split a schema-focused follow-up. |
 | `LocalMetadataPolicy::RemoteFirst` maps to missing-only NFO import behavior for now. | High | Current `merge_nfo_metadata` uses missing-only when policy is RemoteFirst. | If product semantics change, record the decision before code changes. |
 
 ## Architecture Direction
 
-Create a small policy boundary that speaks Taru's domain language:
+Create a small policy boundary that speaks Nako's domain language:
 
 - merge source: Local, NFO, Provider, or User;
 - replacement mode: full replacement or missing-only;
@@ -150,7 +150,7 @@ This lane can close when:
 - NFO import and provider refresh no longer duplicate Canonical Metadata
   per-field merge loops;
 - source-aware field lock behavior is tested for NFO and provider paths;
-- targeted `taru-metadata` and `taru-nfo` tests pass;
+- targeted `nako-metadata` and `nako-nfo` tests pass;
 - docs record any sharpened authority terminology;
 - follow-ons for provider priority, diagnostics, or schema changes are split or
   explicitly deferred.

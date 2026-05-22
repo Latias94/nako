@@ -18,15 +18,15 @@ Date: 2026-05-22
 
 ## Validation
 
-- `cargo nextest run -p taru-addon-protocol --no-fail-fast`
-- `cargo nextest run -p taru-server admin_addon_install_guide_preview --no-fail-fast`
-- `cargo nextest run -p taru-server register_addon --no-fail-fast`
-- `cargo nextest run -p taru-server addons --no-fail-fast`
-- `cargo nextest run -p taru-api --no-fail-fast`
+- `cargo nextest run -p nako-addon-protocol --no-fail-fast`
+- `cargo nextest run -p nako-server admin_addon_install_guide_preview --no-fail-fast`
+- `cargo nextest run -p nako-server register_addon --no-fail-fast`
+- `cargo nextest run -p nako-server addons --no-fail-fast`
+- `cargo nextest run -p nako-api --no-fail-fast`
 - `cargo fmt --all -- --check`
 - `python -m json.tool docs/workstreams/addon-runtime-and-distribution/WORKSTREAM.json`
 - `git diff --check`
-- `git diff --name-only -- crates/taru-client-protocol`
+- `git diff --name-only -- crates/nako-client-protocol`
 
 ## Next
 

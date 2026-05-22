@@ -15,7 +15,7 @@ Last updated: 2026-05-19
 
 ## AWC.1 Admin API Inventory
 
-- [x] AWC-020 [owner=codex] [deps=AWC-010] [scope=docs/api, crates/taru-api, crates/taru-server]
+- [x] AWC-020 [owner=codex] [deps=AWC-010] [scope=docs/api, crates/nako-api, crates/nako-server]
   Goal: Inventory which existing HTTP routes can support the admin console and
   which Admin API routes or DTOs are missing.
   Validation: documented route matrix with current, missing, read-only, and
@@ -31,20 +31,20 @@ Last updated: 2026-05-19
   sufficient.
   Evidence: ADR 0027 and `DESIGN.md`.
   Handoff: Admin-only routes should use `/admin/v1/*`; admin DTOs stay in
-  `taru-api`; preserve separation from `taru-client-protocol` public client
+  `nako-api`; preserve separation from `nako-client-protocol` public client
   contracts unless a route is genuinely client-facing.
 
 ## AWC.2 Generated Prototype Preparation
 
-- [x] AWC-035 [owner=codex] [deps=AWC-030] [scope=crates/taru-api, crates/taru-server, docs/workstreams/admin-web-console]
+- [x] AWC-035 [owner=codex] [deps=AWC-030] [scope=crates/nako-api, crates/nako-server, docs/workstreams/admin-web-console]
   Goal: Implement the first read-only Admin API v1 overview seam for the web
   console at `GET /admin/v1/overview`.
-  Validation: `cargo fmt --all -- --check`, `cargo check -p taru-api --tests`,
-  `cargo nextest run -p taru-api --no-fail-fast`, `cargo check -p taru-server
-  --tests`, focused `taru-server` HTTP admin/system tests, public OpenAPI and
+  Validation: `cargo fmt --all -- --check`, `cargo check -p nako-api --tests`,
+  `cargo nextest run -p nako-api --no-fail-fast`, `cargo check -p nako-server
+  --tests`, focused `nako-server` HTTP admin/system tests, public OpenAPI and
   TypeScript SDK leakage tests, `git diff --check`, and no
-  `crates/taru-client-protocol` diff.
-  Evidence: `taru_api::AdminOverviewResponse`, `crates/taru-server/src/http/admin.rs`,
+  `crates/nako-client-protocol` diff.
+  Evidence: `nako_api::AdminOverviewResponse`, `crates/nako-server/src/http/admin.rs`,
   `http::tests::system::admin_v1_overview_composes_safe_read_only_diagnostics`,
   public OpenAPI/SDK leakage checks, and this workstream's evidence log.
   Handoff: M52 is complete. AWC-040/AWC-050 now refine the prototype context

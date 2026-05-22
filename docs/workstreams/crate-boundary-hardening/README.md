@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This workstream deepens Taru's crate and module seams after the M27 media
+This workstream deepens Nako's crate and module seams after the M27 media
 catalog expansion. It introduces a permissive public client protocol boundary
 for future Flutter, web, and CLI consumers while keeping server internals
 AGPL, and it makes the large workflow crates easier to navigate without
@@ -26,14 +26,14 @@ Completed.
 ## Goals
 
 - Separate public client wire types from server adapter DTOs.
-- Keep `taru-api` as an AGPL server adapter layer, not the long-term public
+- Keep `nako-api` as an AGPL server adapter layer, not the long-term public
   protocol crate.
-- Introduce a permissive `taru-client-protocol` boundary when the public wire
+- Introduce a permissive `nako-client-protocol` boundary when the public wire
   surface is stable enough.
-- Deepen `taru-core` by module instead of immediately splitting it into more
+- Deepen `nako-core` by module instead of immediately splitting it into more
   crates.
-- Split `taru-library` and `taru-nfo` into focused internal modules.
-- Clarify `taru-streaming`, `taru-transcode`, and `taru-server` playback
+- Split `nako-library` and `nako-nfo` into focused internal modules.
+- Clarify `nako-streaming`, `nako-transcode`, and `nako-server` playback
   ownership.
 - Preserve behavior while tightening dependency direction and test locality.
 
@@ -48,18 +48,18 @@ Completed.
 
 ## Boundary Rules
 
-- `taru-client-protocol` (future crate) holds permissive, dependency-light
+- `nako-client-protocol` (future crate) holds permissive, dependency-light
   public client wire types.
-- `taru-api` stays the AGPL server adapter layer and may map to or re-export
+- `nako-api` stays the AGPL server adapter layer and may map to or re-export
   public protocol types, but it should not become the long-term public wire
   contract crate.
-- `taru-core` owns durable domain types and repository contracts; internal
+- `nako-core` owns durable domain types and repository contracts; internal
   module decomposition comes before any new crate split.
-- `taru-library` owns scan, index, probe, and local-inference orchestration.
-- `taru-nfo` owns NFO codec and workflow boundaries.
-- `taru-streaming` owns playback decision planning.
-- `taru-transcode` owns FFmpeg/runtime/session orchestration.
-- `taru-server::app` owns composition and HTTP translation.
+- `nako-library` owns scan, index, probe, and local-inference orchestration.
+- `nako-nfo` owns NFO codec and workflow boundaries.
+- `nako-streaming` owns playback decision planning.
+- `nako-transcode` owns FFmpeg/runtime/session orchestration.
+- `nako-server::app` owns composition and HTTP translation.
 - Public protocol crates must remain dependency-light and must not depend on
   AGPL server crates or internal server domain models.
 

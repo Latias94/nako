@@ -5,7 +5,7 @@
   "status": "completed",
   "updated": "2026-05-20",
   "scope_kind": "execution",
-  "problem": "Taru's core architecture is strong after M62, but Addon Side Effects, Addon metadata commits, Library ingestion, playback/transcode identity, hardware diagnostics, search semantics, and large test families need deeper Modules before feature breadth hardens shallow Interfaces.",
+  "problem": "Nako's core architecture is strong after M62, but Addon Side Effects, Addon metadata commits, Library ingestion, playback/transcode identity, hardware diagnostics, search semantics, and large test families need deeper Modules before feature breadth hardens shallow Interfaces.",
   "authoritative_docs": [
     {
       "role": "overview",
@@ -37,7 +37,7 @@
     "cargo check --workspace --tests",
     "focused cargo nextest run for touched crates",
     "cargo nextest run --workspace --no-fail-fast",
-    "PostgreSQL opt-in contract runs for touched persistence seams when TARU_TEST_POSTGRES_URL is available",
+    "PostgreSQL opt-in contract runs for touched persistence seams when NAKO_TEST_POSTGRES_URL is available",
     "git diff --check"
   ],
   "evidence": [

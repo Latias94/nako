@@ -18,7 +18,7 @@ whitespace errors.
 ### Inventory Gate
 
 ```powershell
-rg -n "JobStatus|JobRepository|start_job|succeed_job|fail_job|fail_unfinished_jobs|spawn_job|run_job|ManagedArtworkIngest|cancel|lease|heartbeat" crates/taru-core/src crates/taru-db/src crates/taru-server/src/app docs/adr docs/workstreams/durable-job-ownership-leases docs/workstreams/job-runtime-worker-control-plane
+rg -n "JobStatus|JobRepository|start_job|succeed_job|fail_job|fail_unfinished_jobs|spawn_job|run_job|ManagedArtworkIngest|cancel|lease|heartbeat" crates/nako-core/src crates/nako-db/src crates/nako-server/src/app docs/adr docs/workstreams/durable-job-ownership-leases docs/workstreams/job-runtime-worker-control-plane
 ```
 
 Use this to verify the design still matches the real code surfaces.
@@ -26,8 +26,8 @@ Use this to verify the design still matches the real code surfaces.
 ### Core Contract Gate
 
 ```powershell
-$env:CARGO_TARGET_DIR='G:\taru-cargo-target'
-cargo check -p taru-core --tests
+$env:CARGO_TARGET_DIR='G:\nako-cargo-target'
+cargo check -p nako-core --tests
 cargo fmt --all -- --check
 ```
 
@@ -36,10 +36,10 @@ Use after `DJOL-020` changes core job types or repository traits.
 ### SQLite Repository Gate
 
 ```powershell
-$env:CARGO_TARGET_DIR='G:\taru-cargo-target'
-cargo nextest run -p taru-db job_lease --no-fail-fast
-cargo nextest run -p taru-db job_cancel --no-fail-fast
-cargo nextest run -p taru-db running_jobs_failed_on_startup --no-fail-fast
+$env:CARGO_TARGET_DIR='G:\nako-cargo-target'
+cargo nextest run -p nako-db job_lease --no-fail-fast
+cargo nextest run -p nako-db job_cancel --no-fail-fast
+cargo nextest run -p nako-db running_jobs_failed_on_startup --no-fail-fast
 ```
 
 Use after `DJOL-030` adds schema and repository operations.
@@ -47,9 +47,9 @@ Use after `DJOL-030` adds schema and repository operations.
 ### Runtime Integration Gate
 
 ```powershell
-$env:CARGO_TARGET_DIR='G:\taru-cargo-target'
-cargo nextest run -p taru-server job_runtime --no-fail-fast
-cargo nextest run -p taru-server startup --no-fail-fast
+$env:CARGO_TARGET_DIR='G:\nako-cargo-target'
+cargo nextest run -p nako-server job_runtime --no-fail-fast
+cargo nextest run -p nako-server startup --no-fail-fast
 ```
 
 Use after `DJOL-040` wires a real runtime path to leases.
@@ -57,9 +57,9 @@ Use after `DJOL-040` wires a real runtime path to leases.
 ### API Gate
 
 ```powershell
-$env:CARGO_TARGET_DIR='G:\taru-cargo-target'
-cargo nextest run -p taru-server job_cancel --no-fail-fast
-cargo check -p taru-api -p taru-server --tests
+$env:CARGO_TARGET_DIR='G:\nako-cargo-target'
+cargo nextest run -p nako-server job_cancel --no-fail-fast
+cargo check -p nako-api -p nako-server --tests
 ```
 
 Use only if `DJOL-050` exposes Admin cancel-request controls.
@@ -67,8 +67,8 @@ Use only if `DJOL-050` exposes Admin cancel-request controls.
 ### Closeout Gate
 
 ```powershell
-$env:CARGO_TARGET_DIR='G:\taru-cargo-target'
-cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests
+$env:CARGO_TARGET_DIR='G:\nako-cargo-target'
+cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests
 cargo fmt --all -- --check
 git diff --check
 ```
@@ -81,11 +81,11 @@ requires it.
 | Date | Task | Gate | Result | Notes |
 | --- | --- | --- | --- | --- |
 | 2026-05-19 | DJOL-010 | WORKSTREAM JSON parse, `git diff --check` | Pass | Opening docs only; JSON parsed and diff check passed before commit. |
-| 2026-05-19 | DJOL-020 | `cargo check -p taru-core --tests`, `cargo check -p taru-db -p taru-api -p taru-server --tests`, `cargo fmt --all -- --check`, WORKSTREAM JSON parse, `git diff --check` | Pass | Core contract and ADR updated; no schema or API behavior change. |
-| 2026-05-19 | DJOL-030 | `cargo nextest run -p taru-db job_lease --no-fail-fast`, `cargo nextest run -p taru-db job_cancel --no-fail-fast`, `cargo nextest run -p taru-db running_jobs_failed_on_startup --no-fail-fast`, `cargo nextest run -p taru-server recovers_unfinished_jobs --no-fail-fast`, `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests`, `cargo fmt --all -- --check`, WORKSTREAM JSON parse, `git diff --check` | Pass | SQLite schema/repository proof complete; queued jobs are preserved by generic startup recovery, and recovered running jobs clear lease ownership fields. |
-| 2026-05-19 | DJOL-040 | `cargo nextest run -p taru-server job_runtime --no-fail-fast`, `cargo nextest run -p taru-server startup --no-fail-fast`, `cargo nextest run -p taru-db job_lease --no-fail-fast`, `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests`, `cargo fmt --all -- --check`, WORKSTREAM JSON parse, `git diff --check` | Pass | Runtime now exact-claims queued jobs, heartbeats leases, and persists success/failure through the run-token fence. |
-| 2026-05-19 | DJOL-050 | `cargo nextest run -p taru-api admin_job_cancel --no-fail-fast`, `cargo nextest run -p taru-server job_cancel --no-fail-fast`, `cargo check -p taru-api -p taru-server --tests` | Pass | Admin cancel-request route is truthful for queued/running/terminal jobs and returns redacted job summaries. |
-| 2026-05-19 | DJOL-060 | `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests`, `cargo nextest run -p taru-db job_lease --no-fail-fast`, `cargo nextest run -p taru-db job_cancel --no-fail-fast`, `cargo nextest run -p taru-server job_runtime --no-fail-fast`, `cargo nextest run -p taru-server startup --no-fail-fast`, `cargo nextest run -p taru-server job_cancel --no-fail-fast`, `cargo nextest run -p taru-api admin_job_cancel --no-fail-fast`, `cargo fmt --all -- --check`, WORKSTREAM JSON parse, `git diff --check` | Pass | Closeout gate passed; remaining worker checkpoints and broader migrations are split follow-ons. |
+| 2026-05-19 | DJOL-020 | `cargo check -p nako-core --tests`, `cargo check -p nako-db -p nako-api -p nako-server --tests`, `cargo fmt --all -- --check`, WORKSTREAM JSON parse, `git diff --check` | Pass | Core contract and ADR updated; no schema or API behavior change. |
+| 2026-05-19 | DJOL-030 | `cargo nextest run -p nako-db job_lease --no-fail-fast`, `cargo nextest run -p nako-db job_cancel --no-fail-fast`, `cargo nextest run -p nako-db running_jobs_failed_on_startup --no-fail-fast`, `cargo nextest run -p nako-server recovers_unfinished_jobs --no-fail-fast`, `cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests`, `cargo fmt --all -- --check`, WORKSTREAM JSON parse, `git diff --check` | Pass | SQLite schema/repository proof complete; queued jobs are preserved by generic startup recovery, and recovered running jobs clear lease ownership fields. |
+| 2026-05-19 | DJOL-040 | `cargo nextest run -p nako-server job_runtime --no-fail-fast`, `cargo nextest run -p nako-server startup --no-fail-fast`, `cargo nextest run -p nako-db job_lease --no-fail-fast`, `cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests`, `cargo fmt --all -- --check`, WORKSTREAM JSON parse, `git diff --check` | Pass | Runtime now exact-claims queued jobs, heartbeats leases, and persists success/failure through the run-token fence. |
+| 2026-05-19 | DJOL-050 | `cargo nextest run -p nako-api admin_job_cancel --no-fail-fast`, `cargo nextest run -p nako-server job_cancel --no-fail-fast`, `cargo check -p nako-api -p nako-server --tests` | Pass | Admin cancel-request route is truthful for queued/running/terminal jobs and returns redacted job summaries. |
+| 2026-05-19 | DJOL-060 | `cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests`, `cargo nextest run -p nako-db job_lease --no-fail-fast`, `cargo nextest run -p nako-db job_cancel --no-fail-fast`, `cargo nextest run -p nako-server job_runtime --no-fail-fast`, `cargo nextest run -p nako-server startup --no-fail-fast`, `cargo nextest run -p nako-server job_cancel --no-fail-fast`, `cargo nextest run -p nako-api admin_job_cancel --no-fail-fast`, `cargo fmt --all -- --check`, WORKSTREAM JSON parse, `git diff --check` | Pass | Closeout gate passed; remaining worker checkpoints and broader migrations are split follow-ons. |
 
 ## Review Expectations
 

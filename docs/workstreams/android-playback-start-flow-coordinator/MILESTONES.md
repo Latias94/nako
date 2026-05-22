@@ -15,7 +15,7 @@ Exit:
 - Coordinator handles session-backed start preflight only at start time.
 - Coordinator returns `PlaybackLaunchRequest` on success and
   `SafePlaybackDiagnostics` on failure.
-- `TaruBrowseShell` delegates to the coordinator.
+- `NakoBrowseShell` delegates to the coordinator.
 
 Status: Complete.
 

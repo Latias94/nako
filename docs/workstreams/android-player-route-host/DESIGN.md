@@ -28,7 +28,7 @@ changes hard to test without a UI route.
 
 ## Scope
 
-- `apps/android/app/src/main/java/dev/taru/android/ui/screens/player/`
+- `apps/android/app/src/main/java/dev/nako/android/ui/screens/player/`
 - Focused player route host tests.
 - Workstream docs under this directory.
 

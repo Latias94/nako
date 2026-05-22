@@ -28,21 +28,21 @@ Primary evidence:
 Status: completed.
 
 Outcome: the stable public error-code vocabulary lives in
-`taru-client-protocol`, while the JSON envelope remains compatible with the
+`nako-client-protocol`, while the JSON envelope remains compatible with the
 current `code/message` shape.
 
 Deliverables:
 
 - Protocol-owned public error-code constants or enum.
 - Serialization tests for the public error envelope.
-- `taru-api` re-export path for server adapter use.
+- `nako-api` re-export path for server adapter use.
 
 Exit criteria:
 
 - `cargo fmt --all -- --check`
-- `cargo check -p taru-client-protocol --tests`
-- `cargo nextest run -p taru-client-protocol --no-fail-fast`
-- `cargo tree -p taru-client-protocol`
+- `cargo check -p nako-client-protocol --tests`
+- `cargo nextest run -p nako-client-protocol --no-fail-fast`
+- `cargo tree -p nako-client-protocol`
 
 ## M30.2 Server Error Mapping And Version Identity Slice
 
@@ -59,9 +59,9 @@ Deliverables:
 
 Exit criteria:
 
-- `cargo check -p taru-server --tests`
-- `cargo nextest run -p taru-server http::tests::system --no-fail-fast`
-- `cargo nextest run -p taru-server http::tests::playback --no-fail-fast`
+- `cargo check -p nako-server --tests`
+- `cargo nextest run -p nako-server http::tests::system --no-fail-fast`
+- `cargo nextest run -p nako-server http::tests::playback --no-fail-fast`
 
 ## M30.3 Public Route Contract Evidence Slice
 
@@ -80,8 +80,8 @@ Deliverables:
 
 Exit criteria:
 
-- `cargo nextest run -p taru-server http::tests --no-fail-fast`
-- `cargo tree -p taru-client-protocol`
+- `cargo nextest run -p nako-server http::tests --no-fail-fast`
+- `cargo tree -p nako-client-protocol`
 
 ## M30.4 Closeout
 
@@ -95,6 +95,6 @@ Exit criteria:
 - `cargo fmt --all -- --check`
 - `cargo check --workspace --tests`
 - `cargo nextest run --workspace --no-fail-fast`
-- `cargo tree -p taru-client-protocol`
+- `cargo tree -p nako-client-protocol`
 - `git diff --check`
 - Workstream status is updated to completed.

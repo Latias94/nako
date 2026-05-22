@@ -1,5 +1,5 @@
-# Taru
+# Nako
 
-![Taru app icon](assets/brand/taru-app-icon-1024.png)
+![Nako app icon](assets/brand/nako-app-icon-1024.png)
 
-Taru is a personal anime and movie media library.
+Nako is a personal anime and movie media library.

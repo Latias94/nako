@@ -39,26 +39,26 @@
   ],
   "gates": [
     "cargo fmt --all -- --check",
-    "cargo check -p taru-api --tests",
-    "cargo nextest run -p taru-api --no-fail-fast",
-    "cargo check -p taru-db --tests",
-    "cargo nextest run -p taru-db outbox --no-fail-fast",
-    "cargo check -p taru-server --tests",
-    "cargo nextest run -p taru-server http::tests::system --no-fail-fast",
-    "cargo nextest run -p taru-api public_openapi --no-fail-fast",
-    "cargo nextest run -p taru-api typescript_sdk_excludes_admin_internal_and_secret_surfaces --no-fail-fast",
+    "cargo check -p nako-api --tests",
+    "cargo nextest run -p nako-api --no-fail-fast",
+    "cargo check -p nako-db --tests",
+    "cargo nextest run -p nako-db outbox --no-fail-fast",
+    "cargo check -p nako-server --tests",
+    "cargo nextest run -p nako-server http::tests::system --no-fail-fast",
+    "cargo nextest run -p nako-api public_openapi --no-fail-fast",
+    "cargo nextest run -p nako-api typescript_sdk_excludes_admin_internal_and_secret_surfaces --no-fail-fast",
     "git diff --check",
-    "git diff --name-only -- crates/taru-client-protocol"
+    "git diff --name-only -- crates/nako-client-protocol"
   ],
   "evidence": [
     "docs/workstreams/admin-operations-read-models",
-    "crates/taru-api/src/admin.rs",
-    "crates/taru-core/src/repository/jobs.rs",
-    "crates/taru-core/src/vfs_cache.rs",
-    "crates/taru-db/src/event_outbox.rs",
-    "crates/taru-db/src/vfs_cache.rs",
-    "crates/taru-server/src/http/admin.rs",
-    "crates/taru-server/src/http/tests/system.rs"
+    "crates/nako-api/src/admin.rs",
+    "crates/nako-core/src/repository/jobs.rs",
+    "crates/nako-core/src/vfs_cache.rs",
+    "crates/nako-db/src/event_outbox.rs",
+    "crates/nako-db/src/vfs_cache.rs",
+    "crates/nako-server/src/http/admin.rs",
+    "crates/nako-server/src/http/tests/system.rs"
   ],
   "adr_refs": [
     "docs/adr/0027-admin-api-boundary-for-web-console.md",

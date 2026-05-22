@@ -92,7 +92,7 @@ function Write-LocalValidationJUnitReport {
     [void]$document.AppendChild($root)
 
     $suite = $document.CreateElement('testsuite')
-    $suite.SetAttribute('name', 'taru.android.local-validation')
+    $suite.SetAttribute('name', 'nako.android.local-validation')
     $suite.SetAttribute('tests', $Results.Count.ToString())
     $suite.SetAttribute('failures', $failureCount.ToString())
     $suite.SetAttribute('errors', '0')
@@ -131,7 +131,7 @@ function Write-LocalValidationJUnitReport {
             Add-JUnitTestCase `
                 -Document $document `
                 -Suite $suite `
-                -ClassName 'taru.android.validation' `
+                -ClassName 'nako.android.validation' `
                 -Name $caseName `
                 -Outcome 'failure' `
                 -Type $result.Status `
@@ -148,7 +148,7 @@ function Write-LocalValidationJUnitReport {
             Add-JUnitTestCase `
                 -Document $document `
                 -Suite $suite `
-                -ClassName 'taru.android.validation' `
+                -ClassName 'nako.android.validation' `
                 -Name $caseName `
                 -Outcome 'skipped' `
                 -Type $result.Status `
@@ -158,7 +158,7 @@ function Write-LocalValidationJUnitReport {
             Add-JUnitTestCase `
                 -Document $document `
                 -Suite $suite `
-                -ClassName 'taru.android.validation' `
+                -ClassName 'nako.android.validation' `
                 -Name $caseName `
                 -Outcome 'pass' `
                 -Type $null `
@@ -412,7 +412,7 @@ $stepResults = @(
 )
 $jsonReport = [ordered]@{
     schema_version = 1
-    kind = 'taru_android_local_validation'
+    kind = 'nako_android_local_validation'
     started_at = $startedAt.ToString('o')
     finished_at = $finishedAt.ToString('o')
     result = if ($overallPass) { 'PASS' } else { 'FAIL' }
@@ -437,7 +437,7 @@ $jsonReport = [ordered]@{
 }
 $lines = New-Object System.Collections.Generic.List[string]
 
-$lines.Add('# Taru Android Local Validation')
+$lines.Add('# Nako Android Local Validation')
 $lines.Add('')
 $lines.Add("- Started: $($startedAt.ToString('o'))")
 $lines.Add("- Finished: $($finishedAt.ToString('o'))")

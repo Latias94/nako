@@ -7,7 +7,7 @@ Last updated: 2026-05-19
 
 The Android detail screen renders metadata chips and relationship rows, but the
 current smoke path stops before proving that these elements open server-backed
-facet result routes. Taru needs evidence that detail metadata is navigable
+facet result routes. Nako needs evidence that detail metadata is navigable
 media graph UI, not static decoration.
 
 ## Relevant Authority

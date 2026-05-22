@@ -6,7 +6,7 @@ Date: 2026-05-22
 
 - Added durable Addon routing-plan domain records and SQLite/PostgreSQL
   persistence for manifest-declared Addon Tasks and Event Subscriptions.
-- Added `JobKind::AddonTask` as the safe Taru-owned execution target label for
+- Added `JobKind::AddonTask` as the safe Nako-owned execution target label for
   future Addon Task jobs without introducing a scheduler.
 - Added `AddonAppService::sync_addon_routing_plans` and
   `POST /admin/v1/addons/{addon_id}/routing-plans`.
@@ -20,15 +20,15 @@ Date: 2026-05-22
 
 ## Validation
 
-- `cargo check -p taru-api -p taru-server --tests`
-- `cargo nextest run -p taru-db addon --no-fail-fast`
-- `cargo nextest run -p taru-server admin_addon_routing_plans --no-fail-fast`
-- `cargo nextest run -p taru-server addons --no-fail-fast`
-- `cargo nextest run -p taru-api admin_contract --no-fail-fast`
+- `cargo check -p nako-api -p nako-server --tests`
+- `cargo nextest run -p nako-db addon --no-fail-fast`
+- `cargo nextest run -p nako-server admin_addon_routing_plans --no-fail-fast`
+- `cargo nextest run -p nako-server addons --no-fail-fast`
+- `cargo nextest run -p nako-api admin_contract --no-fail-fast`
 - `npm run check`
 - `npm test -- src/adminApi/client.test.ts`
 - `cargo fmt --all -- --check`
-- `git diff --name-only -- crates/taru-client-protocol`
+- `git diff --name-only -- crates/nako-client-protocol`
 
 ## Next
 

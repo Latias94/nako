@@ -135,7 +135,7 @@ $packageVersion = Get-WorkspaceVersion
 $targetTriple = Get-HostTargetTriple
 $gitRevision = Get-GitRevision
 $shortRevision = if ($gitRevision.Length -ge 12) { $gitRevision.Substring(0, 12) } else { $gitRevision }
-$packageId = "taru-server-v$packageVersion-$targetTriple-$shortRevision"
+$packageId = "nako-server-v$packageVersion-$targetTriple-$shortRevision"
 
 $outputRoot = Join-Path $RepoRoot $OutputDir
 $stagingParent = Join-Path $outputRoot 'staging'
@@ -143,10 +143,10 @@ $stagingRoot = Join-Path $stagingParent $packageId
 $archivePath = Join-Path $outputRoot "$packageId.zip"
 $manifestOutputPath = Join-Path $outputRoot "$packageId.release-manifest.json"
 $checksumsPath = Join-Path $outputRoot 'SHA256SUMS'
-$binaryName = if ($IsWindows) { 'taru-server.exe' } else { 'taru-server' }
+$binaryName = if ($IsWindows) { 'nako-server.exe' } else { 'nako-server' }
 $binaryPath = Join-Path $RepoRoot "target/release/$binaryName"
 
-Write-Host "Taru release package"
+Write-Host "Nako release package"
 Write-Host "Package: $packageId"
 Write-Host "Output: $outputRoot"
 Write-Host "SkipBuild: $SkipBuild"
@@ -158,8 +158,8 @@ if ($WhatIfPreference) {
 }
 
 if (-not $SkipBuild) {
-    Invoke-Step 'cargo build --locked --release -p taru-server' {
-        cargo build --locked --release -p taru-server
+    Invoke-Step 'cargo build --locked --release -p nako-server' {
+        cargo build --locked --release -p nako-server
     }
 }
 
@@ -181,12 +181,12 @@ $releaseInputs = @(
     @{ Source = 'README.md'; Destination = 'README.md' },
     @{ Source = 'Dockerfile'; Destination = 'Dockerfile' },
     @{ Source = '.dockerignore'; Destination = '.dockerignore' },
-    @{ Source = 'deploy/sqlite/taru.toml'; Destination = 'deploy/sqlite/taru.toml' },
-    @{ Source = 'deploy/postgres/taru.toml'; Destination = 'deploy/postgres/taru.toml' },
+    @{ Source = 'deploy/sqlite/nako.toml'; Destination = 'deploy/sqlite/nako.toml' },
+    @{ Source = 'deploy/postgres/nako.toml'; Destination = 'deploy/postgres/nako.toml' },
     @{ Source = 'deploy/container'; Destination = 'deploy/container' },
     @{ Source = 'deploy/compose/.env.example'; Destination = 'deploy/compose/.env.example' },
-    @{ Source = 'deploy/compose/taru-sqlite.yml'; Destination = 'deploy/compose/taru-sqlite.yml' },
-    @{ Source = 'deploy/compose/taru-postgres.yml'; Destination = 'deploy/compose/taru-postgres.yml' },
+    @{ Source = 'deploy/compose/nako-sqlite.yml'; Destination = 'deploy/compose/nako-sqlite.yml' },
+    @{ Source = 'deploy/compose/nako-postgres.yml'; Destination = 'deploy/compose/nako-postgres.yml' },
     @{ Source = 'docs/deployment/SELF_HOSTED.md'; Destination = 'docs/deployment/SELF_HOSTED.md' },
     @{ Source = 'docs/deployment/RELEASE_ARTIFACTS.md'; Destination = 'docs/deployment/RELEASE_ARTIFACTS.md' },
     @{ Source = 'docs/deployment/BACKUP_RESTORE_UPGRADE.md'; Destination = 'docs/deployment/BACKUP_RESTORE_UPGRADE.md' }
@@ -201,7 +201,7 @@ foreach ($entry in $releaseInputs) {
 $manifestPath = Join-Path $stagingRoot 'release-manifest.json'
 $manifest = [ordered]@{
     schema_version = 1
-    package = 'taru-server'
+    package = 'nako-server'
     version = $packageVersion
     git_revision = $gitRevision
     git_dirty = Test-GitDirty
@@ -209,8 +209,8 @@ $manifest = [ordered]@{
     built_at_utc = (Get-Date).ToUniversalTime().ToString('o')
     archive_file = (Split-Path -Leaf $archivePath)
     binary = "bin/$binaryName"
-    build_command = if ($SkipBuild) { 'skipped; existing target/release binary was packaged' } else { 'cargo build --locked --release -p taru-server' }
-    preflight_command = 'taru-server --config /config/taru.toml config-check --create-dirs'
+    build_command = if ($SkipBuild) { 'skipped; existing target/release binary was packaged' } else { 'cargo build --locked --release -p nako-server' }
+    preflight_command = 'nako-server --config /config/nako.toml config-check --create-dirs'
     included_files = @()
 }
 $manifest | ConvertTo-Json -Depth 8 | Set-Content -Path $manifestPath -Encoding utf8

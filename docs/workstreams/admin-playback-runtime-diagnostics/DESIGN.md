@@ -9,7 +9,7 @@ The admin web console can now list playback sessions through M55, but it still
 cannot explain the runtime context behind those sessions:
 
 - which hardware acceleration policy was configured;
-- which acceleration mode Taru selected after FFmpeg capability probing;
+- which acceleration mode Nako selected after FFmpeg capability probing;
 - whether fallback to CPU was used;
 - which hardware capabilities FFmpeg reported;
 - what transcode and remote playback budgets are configured;
@@ -43,9 +43,9 @@ The response should include safe summaries for:
 
 In scope:
 
-- `taru-api::admin` DTOs for playback runtime diagnostics;
-- `taru-server::app::playback` snapshot support;
-- `taru-server::http::admin` route wiring;
+- `nako-api::admin` DTOs for playback runtime diagnostics;
+- `nako-server::app::playback` snapshot support;
+- `nako-server::http::admin` route wiring;
 - focused API/server tests;
 - public OpenAPI/SDK leakage checks;
 - admin-web-console and goal/workstream docs.
@@ -53,7 +53,7 @@ In scope:
 Out of scope:
 
 - no Public Client API route or DTO changes;
-- no `taru-client-protocol` changes;
+- no `nako-client-protocol` changes;
 - no admin OpenAPI generation;
 - no playback session mutation;
 - no playback source selection deepening;
@@ -66,10 +66,10 @@ Out of scope:
 
 The Admin API response is a safe operational view, not a raw dump.
 
-`taru-transcode` remains the owner of hardware report, selection, and resource
-budget concepts. `taru-server::app::playback` should expose a small immutable
+`nako-transcode` remains the owner of hardware report, selection, and resource
+budget concepts. `nako-server::app::playback` should expose a small immutable
 diagnostics snapshot derived from current configuration and the HLS runtime's
-selected acceleration. `taru-server::http::admin` translates that snapshot into
+selected acceleration. `nako-server::http::admin` translates that snapshot into
 admin-owned DTOs.
 
 The route must not expose:

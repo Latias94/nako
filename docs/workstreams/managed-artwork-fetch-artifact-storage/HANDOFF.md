@@ -8,7 +8,7 @@ Last updated: 2026-05-19
 MAFA is open. The previous MAIS lane shipped and closed the queued candidate
 acceptance boundary. Accepted candidates now create internal
 `managed_artwork_ingests` rows and durable `managed_artwork_ingest` jobs.
-MAFA-030 now adds the first Taru-owned process-next path: one queued ingest can
+MAFA-030 now adds the first Nako-owned process-next path: one queued ingest can
 be claimed, fetched from an accepted HTTP(S) Artwork Candidate source,
 validated as static image content, written to internal local artifact storage,
 and committed as `managed_artwork_artifacts` metadata without public artwork

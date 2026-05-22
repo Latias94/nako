@@ -14,10 +14,10 @@ and hardware acceleration add more state.
 - Added a `transcode_sessions` SQLite table.
 - Persisted request key, source ID, session kind, output path, state,
   timestamps, and safe failure category/message.
-- Added `TranscodeSessionRepository` in `taru-core` with `taru-db`
+- Added `TranscodeSessionRepository` in `nako-core` with `nako-db`
   implementation.
-- Moved shared transcode session ID/kind/state domain types into `taru-core`
-  while keeping FFmpeg execution details in `taru-transcode`.
+- Moved shared transcode session ID/kind/state domain types into `nako-core`
+  while keeping FFmpeg execution details in `nako-transcode`.
 - Let the remux app service create and update persisted session records.
 - Reuse completed sessions from persisted state when the staged output still
   exists.

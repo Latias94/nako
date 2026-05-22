@@ -8,7 +8,7 @@ list/filter read model for the web console.
 
 ## Why This Lane Exists
 
-Taru already exposes Public Client API session detail and cancellation routes
+Nako already exposes Public Client API session detail and cancellation routes
 for known playback session IDs. The admin web console needs a broader
 Playback & Transcode operational view: active and historical sessions, filtered
 by source, kind, state, and pagination.
@@ -24,7 +24,7 @@ leaking local paths or weakening the Public Client API boundary.
 - `AdminPlaybackSessionListItem` is a redacted admin list DTO. It excludes
   `output_path`, local staging roots, and raw failure messages.
 - Public Client API playback session detail/cancel routes remain unchanged.
-- Public OpenAPI, TypeScript SDK, and `taru-client-protocol` boundaries remain
+- Public OpenAPI, TypeScript SDK, and `nako-client-protocol` boundaries remain
   unchanged.
 
 ## Authoritative Docs

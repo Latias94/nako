@@ -2,7 +2,7 @@
 
 Status: Draft packaging baseline
 
-This document describes the local/CI artifact contract for a self-hosted Taru
+This document describes the local/CI artifact contract for a self-hosted Nako
 server release. It does not publish to a registry or app store.
 
 ## Build Locally
@@ -26,7 +26,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/package-release.ps1 -WhatI
 bash scripts/package-release.sh --dry-run
 ```
 
-If `target/release/taru-server` already exists and you only want to verify the
+If `target/release/nako-server` already exists and you only want to verify the
 packaging layout:
 
 ```powershell
@@ -38,14 +38,14 @@ bash scripts/package-release.sh --skip-build
 
 Artifacts are written to `target/package-release/`:
 
-- `taru-server-v<version>-<target>-<git>.zip` on PowerShell.
-- `taru-server-v<version>-<target>-<git>.tar.gz` on Bash.
+- `nako-server-v<version>-<target>-<git>.zip` on PowerShell.
+- `nako-server-v<version>-<target>-<git>.tar.gz` on Bash.
 - `<package>.release-manifest.json`.
 - `SHA256SUMS`.
 
 The archive contains:
 
-- `bin/taru-server` or `bin/taru-server.exe`.
+- `bin/nako-server` or `bin/nako-server.exe`.
 - `release-manifest.json`.
 - license/readme files.
 - Dockerfile and `.dockerignore`.
@@ -76,7 +76,7 @@ sha256sum -c SHA256SUMS
 Then extract the archive, copy a config, set secrets, and run:
 
 ```bash
-taru-server --config /config/taru.toml config-check --create-dirs
+nako-server --config /config/nako.toml config-check --create-dirs
 ```
 
 See `docs/deployment/SELF_HOSTED.md` and

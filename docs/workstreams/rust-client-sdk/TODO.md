@@ -16,33 +16,33 @@ Last updated: 2026-05-17
 
 ## M35.1 Crate Skeleton And Boundary Guard
 
-- [x] RCS-020 [owner=codex] [deps=RCS-010] [scope=crates/taru-client]
-  Goal: Add `crates/taru-client` as an Apache-2.0 SDK crate that depends on
-  `taru-client-protocol` and runtime HTTP crates, not server/internal crates.
-  Validation: `cargo check -p taru-client --tests`, `cargo tree -p taru-client`.
+- [x] RCS-020 [owner=codex] [deps=RCS-010] [scope=crates/nako-client]
+  Goal: Add `crates/nako-client` as an Apache-2.0 SDK crate that depends on
+  `nako-client-protocol` and runtime HTTP crates, not server/internal crates.
+  Validation: `cargo check -p nako-client --tests`, `cargo tree -p nako-client`.
   Evidence: Cargo.toml license/dependency graph and initial tests.
-  Handoff: Keep OpenAPI inventory validation out of `taru-client` dependencies
+  Handoff: Keep OpenAPI inventory validation out of `nako-client` dependencies
   unless the inventory is moved to a public crate.
 
 ## M35.2 Async JSON Client Surface
 
-- [x] RCS-030 [owner=codex] [deps=RCS-020] [scope=crates/taru-client/src/lib.rs]
-  Goal: Implement `TaruClient`, config, transport, errors, pagination helpers,
+- [x] RCS-030 [owner=codex] [deps=RCS-020] [scope=crates/nako-client/src/lib.rs]
+  Goal: Implement `NakoClient`, config, transport, errors, pagination helpers,
   playback capability helpers, and core JSON route methods.
-  Validation: `cargo nextest run -p taru-client --no-fail-fast`.
+  Validation: `cargo nextest run -p nako-client --no-fail-fast`.
   Evidence: mock transport tests for auth, version, errors, pagination, and
   route paths.
   Handoff: Streaming/raw body methods can remain deferred with explicit docs.
 
 ## M35.3 Public Inventory And Leakage Checks
 
-- [x] RCS-040 [owner=codex] [deps=RCS-030] [scope=crates/taru-client/src/lib.rs]
+- [x] RCS-040 [owner=codex] [deps=RCS-030] [scope=crates/nako-client/src/lib.rs]
   Goal: Verify SDK route coverage against the public route inventory and reject
   admin/internal/secret/local-path terms.
-  Validation: `cargo nextest run -p taru-client --no-fail-fast`.
+  Validation: `cargo nextest run -p nako-client --no-fail-fast`.
   Evidence: route inventory and leakage tests.
-  Handoff: If duplication with `taru-api` becomes a maintenance risk, split a
-  follow-on to move public route inventory into `taru-client-protocol`.
+  Handoff: If duplication with `nako-api` becomes a maintenance risk, split a
+  follow-on to move public route inventory into `nako-client-protocol`.
 
 ## M35.4 Docs And Closeout
 
@@ -50,9 +50,9 @@ Last updated: 2026-05-17
   Goal: Document Rust SDK usage, boundary, validation commands, and close M35
   with a prompt-to-artifact audit.
   Validation: `cargo fmt --all -- --check`, `cargo check --workspace --tests`,
-  `cargo nextest run -p taru-client --no-fail-fast`,
+  `cargo nextest run -p nako-client --no-fail-fast`,
   `cargo nextest run --workspace --no-fail-fast`,
-  `cargo tree -p taru-client`, `cargo tree -p taru-client-protocol`,
+  `cargo tree -p nako-client`, `cargo tree -p nako-client-protocol`,
   `npm run check --prefix sdk/typescript`, and `git diff --check`.
   Evidence: EVIDENCE_AND_GATES.md and WORKSTREAM.json.
   Handoff: Record follow-ons for crates.io publishing, full streaming, Rust

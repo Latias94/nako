@@ -30,8 +30,8 @@ no-code closeout decision.
 Acceptance criteria:
 
 - generated DTO/request surfaces remain OpenAPI-backed, or Rust core consumes
-  equivalent Public Client API contract authority through `taru-client` /
-  `taru-client-protocol`;
+  equivalent Public Client API contract authority through `nako-client` /
+  `nako-client-protocol`;
 - app/product policy remains outside SDK runtime;
 - if Rust core is selected, FFI-safe data shapes, transport ownership, and
   Android build topology are named before code;
@@ -60,7 +60,7 @@ Acceptance criteria:
 - SDK tests cover success, HTTP error, invalid JSON, unsupported API version,
   and redaction behavior.
 
-Result: `crates/taru-client-core` now owns the no-socket connection health plus
+Result: `crates/nako-client-core` now owns the no-socket connection health plus
 auth-probe tracer. Android still supplies transport and product diagnostics.
 
 ## M3 — UniFFI Compile-Only Scaffold
@@ -72,14 +72,14 @@ app behavior depending on it.
 
 Acceptance criteria:
 
-- `taru-client-uniffi` is a thin binding layer over `taru-client-core`;
+- `nako-client-uniffi` is a thin binding layer over `nako-client-core`;
 - no runtime policy lives in the binding crate;
 - binding compilation/generation commands are documented;
 - Android app code is not changed in this milestone.
 
-Result: `crates/taru-client-uniffi` now exposes a thin UniFFI surface over the
+Result: `crates/nako-client-uniffi` now exposes a thin UniFFI surface over the
 core tracer. It duplicates only FFI-safe records/enums and delegates behavior
-to `taru-client-core`.
+to `nako-client-core`.
 
 ## M4 — Android Consumption Tracer
 
@@ -115,7 +115,7 @@ Acceptance criteria:
 
 Result: The lane deliberately split instead of broadening. The connection
 tracer already proves the no-socket Rust core / UniFFI / Android-supplied
-transport boundary. Browse, playback, Rust protocol tolerance, `taru-client`
+transport boundary. Browse, playback, Rust protocol tolerance, `nako-client`
 adapter reuse, Gradle/native build ergonomics, SDK publishing, KMP, iOS, and
 Rust-owned networking are now separate follow-ons.
 

@@ -12,13 +12,13 @@ the goal criteria to concrete artifacts.
 
 Evidence:
 
-- `crates/taru-vfs/src/lib.rs` defines `ReadStream` and
+- `crates/nako-vfs/src/lib.rs` defines `ReadStream` and
   `StorageBackend::stream_range`.
-- `crates/taru-vfs/src/webdav.rs` implements WebDAV `stream_range` with the
+- `crates/nako-vfs/src/webdav.rs` implements WebDAV `stream_range` with the
   HTTP response byte stream.
-- `crates/taru-server/src/app/playback.rs` returns
+- `crates/nako-server/src/app/playback.rs` returns
   `DirectPlaySourceBody::Stream` for remote sources without local path hints.
-- `crates/taru-server/src/http/playback.rs` proxies streamed bodies into axum
+- `crates/nako-server/src/http/playback.rs` proxies streamed bodies into axum
   responses.
 - Tests cover WebDAV byte streaming, direct stream route proxying, and HEAD
   preflight behavior.
@@ -27,26 +27,26 @@ Evidence:
 
 Evidence:
 
-- Playback planning lives in `crates/taru-server/src/app/playback.rs`.
+- Playback planning lives in `crates/nako-server/src/app/playback.rs`.
 - Playback HTTP response construction lives in
-  `crates/taru-server/src/http/playback.rs`.
+  `crates/nako-server/src/http/playback.rs`.
 
 Known follow-up:
 
-- Broader `taru-server::app`, `taru-server::http`, and `taru-db` domain splits
+- Broader `nako-server::app`, `nako-server::http`, and `nako-db` domain splits
   remain M8 modularization work.
 
 ### Staged remote inputs have manifest, disk budget, and cleanup
 
 Evidence:
 
-- `crates/taru-core/src/staging.rs` defines staging purpose, state, and record
+- `crates/nako-core/src/staging.rs` defines staging purpose, state, and record
   models.
-- `crates/taru-core/src/repository.rs` defines `StagingManifestRepository`.
-- `crates/taru-db/migrations/0014_staging_manifest.sql` persists staging
+- `crates/nako-core/src/repository.rs` defines `StagingManifestRepository`.
+- `crates/nako-db/migrations/0014_staging_manifest.sql` persists staging
   manifests.
-- `crates/taru-db/src/staging.rs` implements the staging repository.
-- `crates/taru-server/src/app/staging.rs` records staged remote inputs,
+- `crates/nako-db/src/staging.rs` implements the staging repository.
+- `crates/nako-server/src/app/staging.rs` records staged remote inputs,
   enforces `[staging].max_bytes`, computes expiration, and cleans expired
   staged files while preserving active leases.
 - Probe and FFmpeg staging paths wrap VFS backends with
@@ -56,7 +56,7 @@ Evidence:
 
 Evidence:
 
-- `crates/taru-server/src/http.rs` maps staging budget, staging validation,
+- `crates/nako-server/src/http.rs` maps staging budget, staging validation,
   storage timeout, storage unauthorized, storage rate limit, and FFmpeg errors
   to stable public codes.
 - `docs/api/HTTP_API.md` documents the playback error summary.
@@ -72,10 +72,10 @@ Known follow-up:
 
 Evidence:
 
-- `crates/taru-server/src/config.rs` defines
+- `crates/nako-server/src/config.rs` defines
   `[playback].remote_stream_concurrency` and
   `[playback].remote_stage_concurrency`.
-- `TaruApp` owns separate remote stream and remote stage semaphores.
+- `NakoApp` owns separate remote stream and remote stage semaphores.
 - Remote direct-play holds a stream permit for the response body plan.
 - Remote probe and FFmpeg staging acquire stage permits through
   `ManifestRecordingStorageBackend`.
@@ -85,7 +85,7 @@ Evidence:
 
 Evidence:
 
-- `TaruServerConfig` uses `libraries: Vec<LocalLibraryConfig>` as the only
+- `NakoServerConfig` uses `libraries: Vec<LocalLibraryConfig>` as the only
   library configuration field.
 - `[[libraries]]` supports local libraries and per-library `[libraries.webdav]`
   remote backend configuration.

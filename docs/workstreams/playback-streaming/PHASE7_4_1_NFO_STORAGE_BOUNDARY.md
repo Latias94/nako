@@ -16,13 +16,13 @@ root.
   `storage_backend_for_library_root`.
 - NFO export checks the root backend metadata and requires
   `StorageCapabilities::WRITABLE` before calling `NfoService`.
-- WebDAV import can read remote `.nfo` sidecars through `taru-vfs`.
+- WebDAV import can read remote `.nfo` sidecars through `nako-vfs`.
 - WebDAV export fails before writing because the current WebDAV backend is
   intentionally read-only.
 
 ## Validation
 
-- `cargo nextest run -p taru-server nfo_import_uses_configured_webdav_backend nfo_export_rejects_read_only_webdav_backend nfo_import_job_imports_sidecar_and_persists_summary nfo_routes_queue_background_jobs`
+- `cargo nextest run -p nako-server nfo_import_uses_configured_webdav_backend nfo_export_rejects_read_only_webdav_backend nfo_import_job_imports_sidecar_and_persists_summary nfo_routes_queue_background_jobs`
 
 ## Remaining Gaps
 

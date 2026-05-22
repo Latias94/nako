@@ -35,7 +35,7 @@ Exposing a cancel route now would create a false operational promise.
 
 - Added `[artwork].ingest_worker_enabled`, defaulting to `false`.
 - Added `[artwork].ingest_worker_idle_ms`, defaulting to `1000`.
-- `TaruApp` starts one `managed_artwork_ingest_worker` through
+- `NakoApp` starts one `managed_artwork_ingest_worker` through
   `RuntimeSupervisor` after startup workflow completion when the worker is
   enabled.
 - `ManagedArtworkAppService::process_next` and the worker share
@@ -73,12 +73,12 @@ Exposing a cancel route now would create a false operational promise.
 
 - `docs/adr/0006-persist-job-inputs-and-explicit-retry-policy.md`
 - `docs/adr/0019-server-architecture-hardening-boundaries.md`
-- `crates/taru-core/src/job.rs`
-- `crates/taru-core/src/repository/jobs.rs`
-- `crates/taru-db/src/jobs.rs`
-- `crates/taru-server/src/app/runtime.rs`
-- `crates/taru-server/src/app/artwork.rs`
-- `crates/taru-db/src/artwork.rs`
+- `crates/nako-core/src/job.rs`
+- `crates/nako-core/src/repository/jobs.rs`
+- `crates/nako-db/src/jobs.rs`
+- `crates/nako-server/src/app/runtime.rs`
+- `crates/nako-server/src/app/artwork.rs`
+- `crates/nako-db/src/artwork.rs`
 - `docs/workstreams/managed-artwork-ingest-runtime-controls/HANDOFF.md`
 
 ## Suggested Validation
@@ -91,12 +91,12 @@ git diff --check
 Closeout validation:
 
 ```powershell
-$env:CARGO_TARGET_DIR='G:\taru-cargo-target'
-cargo nextest run -p taru-server job_runtime_worker --no-fail-fast
-cargo nextest run -p taru-db managed_artwork_ingest --no-fail-fast
-cargo nextest run -p taru-server queued_artwork_ingests --no-fail-fast
-cargo nextest run -p taru-db managed_artwork_startup_recovery --no-fail-fast
-cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests
+$env:CARGO_TARGET_DIR='G:\nako-cargo-target'
+cargo nextest run -p nako-server job_runtime_worker --no-fail-fast
+cargo nextest run -p nako-db managed_artwork_ingest --no-fail-fast
+cargo nextest run -p nako-server queued_artwork_ingests --no-fail-fast
+cargo nextest run -p nako-db managed_artwork_startup_recovery --no-fail-fast
+cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests
 cargo fmt --all -- --check
 git diff --check
 ```

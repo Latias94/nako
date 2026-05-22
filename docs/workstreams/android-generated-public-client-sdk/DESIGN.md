@@ -32,13 +32,13 @@ OpenAPI-backed Kotlin/JVM SDK that Android can consume through narrow adapters.
 Android still duplicates Public Client API knowledge in handwritten Kotlin
 files:
 
-- DTO mirrors live under `apps/android/app/src/main/java/dev/taru/android`
+- DTO mirrors live under `apps/android/app/src/main/java/dev/nako/android`
   packages such as `browse`, `media`, `playback`, `userplayback`, and
   `connection`.
-- Route path and query construction is repeated in `TaruBrowseClient`,
-  `TaruPlaybackClient`, `TaruUserPlaybackClient`, and
-  `TaruConnectionClient`.
-- Public constants such as `x-taru-api-version`, `x-taru-playback-session-id`,
+- Route path and query construction is repeated in `NakoBrowseClient`,
+  `NakoPlaybackClient`, `NakoUserPlaybackClient`, and
+  `NakoConnectionClient`.
+- Public constants such as `x-nako-api-version`, `x-nako-playback-session-id`,
   `/health`, and the auth probe path are repeated in Android code.
 - Android's `MediaSourceDto` and `PlaybackMediaSourceDto` still contain a
   defaulted `locator` field even though the current OpenAPI `MediaSourceDto`
@@ -58,7 +58,7 @@ work begins.
 
 When this lane closes:
 
-- `taru-api` generates a checked Kotlin/JVM SDK package from Public OpenAPI v1.
+- `nako-api` generates a checked Kotlin/JVM SDK package from Public OpenAPI v1.
 - The generated package owns public DTO mirrors, contract constants, and route
   construction helpers for Public Client API calls.
 - Android consumes the generated SDK through app-owned adapters while keeping
@@ -72,7 +72,7 @@ When this lane closes:
 
 Closed on 2026-05-21. The target state is satisfied for this lane's scope:
 
-- `taru-api` generates checked Kotlin/JVM SDK source in `sdk/kotlin`.
+- `nako-api` generates checked Kotlin/JVM SDK source in `sdk/kotlin`.
 - Android consumes generated constants, request descriptors, and generated DTOs
   through explicit app adapters.
 - Replaced route/path/DTO mirrors were deleted rather than kept in parallel.
@@ -84,7 +84,7 @@ Closed on 2026-05-21. The target state is satisfied for this lane's scope:
 ## In Scope
 
 - A `sdk/kotlin` generated package and Gradle compile/test gate.
-- Rust generator support in `taru-api` for Kotlin DTOs and SDK foundation code.
+- Rust generator support in `nako-api` for Kotlin DTOs and SDK foundation code.
 - Tests that prove generated Kotlin output is synchronized with the generator.
 - Public Client API leakage checks for the generated Kotlin output.
 - Android adapter migration from handwritten DTO/route clients to generated SDK
@@ -115,7 +115,7 @@ Closed on 2026-05-21. The target state is satisfied for this lane's scope:
 The generated Kotlin SDK is a protocol boundary, not an Android application
 framework.
 
-- `taru-api` owns generation from `public_openapi_v1()`.
+- `nako-api` owns generation from `public_openapi_v1()`.
 - `sdk/kotlin` owns generated public DTOs, constants, and eventually route
   builders/client request shapes.
 - Android app adapters own user-facing error categories, product copy,

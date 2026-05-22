@@ -13,8 +13,8 @@ No active task remains in this workstream.
 
 ## File Scope
 
-- `apps/android/app/src/main/java/dev/taru/android/ui/browse/`
-- `apps/android/app/src/test/java/dev/taru/android/ui/browse/`
+- `apps/android/app/src/main/java/dev/nako/android/ui/browse/`
+- `apps/android/app/src/test/java/dev/nako/android/ui/browse/`
 - `apps/android/scripts/Smoke-Emulator.ps1`
 - `apps/android/SMOKE_FIXTURES.md`
 - Workstream docs under this directory.
@@ -24,7 +24,7 @@ No active task remains in this workstream.
 Run:
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.TaruRouteStackTest --no-daemon
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.NakoRouteStackTest --no-daemon
 pwsh -NoProfile -File apps\android\scripts\Smoke-Emulator.ps1 -FixtureState profile-with-media
 pwsh -NoProfile -File apps\android\scripts\Smoke-Regression.ps1 -States empty-setup,profile-missing-token,profile-with-media -SkipBuild
 git diff --check
@@ -42,8 +42,8 @@ Last passing evidence:
 
 ## Notes
 
-- `TaruBrowseShell` now uses `TaruBrowseNavigationState` instead of a single
-  overwrite-only `TaruRoute`.
+- `NakoBrowseShell` now uses `NakoBrowseNavigationState` instead of a single
+  overwrite-only `NakoRoute`.
 - Smoke no longer compensates for facet Back by reopening detail from Home.
 - Do not adopt Jetpack Navigation in this lane.
 - Do not touch untracked `output/` or `tmp/`.

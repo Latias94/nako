@@ -11,7 +11,7 @@ setup, remote-control, and light browsing surface rather than the flagship
 playback client.
 
 The admin web console workstream needs a contract decision before UI generation
-or implementation. Current Taru routes already expose many admin-oriented
+or implementation. Current Nako routes already expose many admin-oriented
 operations, but they sit beside public client routes:
 
 - scan and NFO import/export jobs;
@@ -23,12 +23,12 @@ operations, but they sit beside public client routes:
 - playback session inspection and cancellation through the Public Client API.
 
 The risk is not that these routes exist. The risk is that future web console
-work expands the Public Client API or `taru-client-protocol` with admin-only
+work expands the Public Client API or `nako-client-protocol` with admin-only
 diagnostics because those DTOs are convenient for a browser UI.
 
 ## Decision
 
-Taru will define a separate **Admin API** boundary for the web console.
+Nako will define a separate **Admin API** boundary for the web console.
 
 Admin routes that are not part of the Public Client API should live under a
 versioned admin namespace:
@@ -53,15 +53,15 @@ admin-only diagnostics public merely because the web console needs them.
 
 Admin DTOs belong in the AGPL server adapter boundary:
 
-- `taru-api::admin` for jobs, storage diagnostics, ingestion failures, startup
+- `nako-api::admin` for jobs, storage diagnostics, ingestion failures, startup
   or server diagnostics, and future admin overview DTOs;
-- `taru-api::metadata_diagnostics` for provider attempts, raw cache, provider
+- `nako-api::metadata_diagnostics` for provider attempts, raw cache, provider
   runtime, maintenance plans, and cleanup DTOs;
-- `taru-api::extension` for webhook, automation, and addon administration;
-- future focused `taru-api` modules when a surface grows large enough, such as
+- `nako-api::extension` for webhook, automation, and addon administration;
+- future focused `nako-api` modules when a surface grows large enough, such as
   `admin_catalog`, `admin_playback`, or `admin_settings`.
 
-Admin DTOs must not move into `taru-client-protocol` unless they become
+Admin DTOs must not move into `nako-client-protocol` unless they become
 genuine Public Client API concepts. Public client protocol crates remain
 permissive, dependency-light, and free of server/admin internals.
 
@@ -72,7 +72,7 @@ permissive, dependency-light, and free of server/admin internals.
 - admin v1 may evolve faster than public client v1;
 - breaking admin changes require either a documented migration in the
   admin-web-console workstream or a future admin API ADR;
-- public `/health` and `x-taru-api-version` continue to describe the Public
+- public `/health` and `x-nako-api-version` continue to describe the Public
   Client API version, not the whole Admin API;
 - an admin overview or capability endpoint may later report admin API version
   and feature availability.
@@ -144,9 +144,9 @@ The recommended first admin slices are:
 
 - The web admin console can grow without weakening the Public Client API
   boundary.
-- `taru-client-protocol` stays suitable for permissive mobile, web, CLI, and
+- `nako-client-protocol` stays suitable for permissive mobile, web, CLI, and
   SDK consumers.
-- `taru-api` remains the right home for admin/server DTOs, but it may need
+- `nako-api` remains the right home for admin/server DTOs, but it may need
   more focused modules as Admin API breadth grows.
 - Future UI generation can mock admin data without pretending that every
   product page has an existing stable HTTP route.
@@ -158,7 +158,7 @@ The recommended first admin slices are:
 - Use existing root-level routes without a namespace. Rejected because the
   boundary between public and admin surfaces would stay ambiguous as the
   console grows.
-- Put admin DTOs into `taru-client-protocol`. Rejected because admin
+- Put admin DTOs into `nako-client-protocol`. Rejected because admin
   diagnostics are server-owned, AGPL-adjacent, and not stable client concepts.
 - Generate one combined OpenAPI contract for public and admin routes. Rejected
   for the first admin slice because public SDK generation must continue to

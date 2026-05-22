@@ -40,19 +40,19 @@ without a generated fetch client.
 
 Exit criteria:
 
-- A `taru-api` command or test path emits the Admin API TypeScript contract.
+- A `nako-api` command or test path emits the Admin API TypeScript contract.
 - Generated output is committed app-locally or otherwise sync-checked.
 - Tests reject leakage into Public Client SDK generation.
 
 Primary gates:
 
 ```bash
-cargo check -p taru-api --examples
-cargo nextest run -p taru-api admin --no-fail-fast
-cargo nextest run -p taru-api typescript --no-fail-fast
+cargo check -p nako-api --examples
+cargo nextest run -p nako-api admin --no-fail-fast
+cargo nextest run -p nako-api typescript --no-fail-fast
 ```
 
-Status: completed for AATC-030. `taru-api` now emits an app-local Admin API
+Status: completed for AATC-030. `nako-api` now emits an app-local Admin API
 TypeScript contract, sync-checks the generated artifact, and keeps the Public
 Client SDK admin-route leakage guard in the focused contract test set.
 

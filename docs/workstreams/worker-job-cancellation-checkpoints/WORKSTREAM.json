@@ -29,18 +29,18 @@
     }
   ],
   "gates": [
-    "cargo nextest run -p taru-server job_runtime --no-fail-fast",
-    "cargo nextest run -p taru-server job_cancel --no-fail-fast",
-    "cargo nextest run -p taru-server metadata --no-fail-fast",
-    "cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests",
+    "cargo nextest run -p nako-server job_runtime --no-fail-fast",
+    "cargo nextest run -p nako-server job_cancel --no-fail-fast",
+    "cargo nextest run -p nako-server metadata --no-fail-fast",
+    "cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests",
     "cargo fmt --all -- --check",
     "git diff --check"
   ],
   "evidence": [
     "docs/workstreams/worker-job-cancellation-checkpoints/DESIGN.md",
     "docs/workstreams/worker-job-cancellation-checkpoints/TODO.md",
-    "crates/taru-server/src/app/job_runtime.rs",
-    "crates/taru-server/src/app/metadata.rs",
+    "crates/nako-server/src/app/job_runtime.rs",
+    "crates/nako-server/src/app/metadata.rs",
     "docs/api/HTTP_API.md"
   ],
   "adr_refs": [

@@ -9,7 +9,7 @@ The current executable repro is the SQLite-backed job lease persistence
 contract:
 
 ```bash
-cargo nextest run -p taru-db sqlite_job_lease_contract --no-fail-fast
+cargo nextest run -p nako-db sqlite_job_lease_contract --no-fail-fast
 ```
 
 ## Gate Set
@@ -26,9 +26,9 @@ before code changes begin.
 ### Persistence Iteration Gate
 
 ```bash
-cargo check -p taru-core --tests
-cargo check -p taru-db --tests
-cargo nextest run -p taru-db --no-fail-fast
+cargo check -p nako-core --tests
+cargo check -p nako-db --tests
+cargo nextest run -p nako-db --no-fail-fast
 git diff --check
 ```
 
@@ -38,8 +38,8 @@ and pass focused database behavior tests.
 ### Server Runtime Gate
 
 ```bash
-cargo check -p taru-server --tests
-cargo nextest run -p taru-server --no-fail-fast
+cargo check -p nako-server --tests
+cargo nextest run -p nako-server --no-fail-fast
 git diff --check
 ```
 
@@ -49,12 +49,12 @@ specific. Record the filter and what it proves.
 ### Domain Seam Gates
 
 ```bash
-cargo check -p taru-library --tests
-cargo nextest run -p taru-library --no-fail-fast
-cargo check -p taru-metadata --tests
-cargo nextest run -p taru-metadata --no-fail-fast
-cargo check -p taru-search --tests
-cargo check -p taru-catalog --tests
+cargo check -p nako-library --tests
+cargo nextest run -p nako-library --no-fail-fast
+cargo check -p nako-metadata --tests
+cargo nextest run -p nako-metadata --no-fail-fast
+cargo check -p nako-search --tests
+cargo check -p nako-catalog --tests
 git diff --check
 ```
 
@@ -63,8 +63,8 @@ Use only the relevant subset for each task, then broaden before closeout.
 ### API And Generated Contract Gates
 
 ```bash
-cargo check -p taru-api --tests
-cargo check -p taru-server --tests
+cargo check -p nako-api --tests
+cargo check -p nako-server --tests
 ```
 
 When frontend or TypeScript SDK files are touched, also run the package-level
@@ -135,7 +135,7 @@ Evidence:
   PostgreSQL: SQLx concrete types, SQLite migrations, `strftime` timestamps,
   transaction-local lease claims, JSON storage, ID storage, and widespread
   `SqliteStore::connect_in_memory()` tests.
-- Accepted ADR 0029, choosing a `taru-db` facade plus backend-specific adapter
+- Accepted ADR 0029, choosing a `nako-db` facade plus backend-specific adapter
   target with SQLite first and future PostgreSQL.
 - Chose FRA-030's first proof target: backend-neutral job lease lifecycle
   contract tests.
@@ -158,7 +158,7 @@ Evidence:
 - Split durable job leasing out of the base `JobRepository` into
   `JobLeaseRepository`, so ordinary job CRUD/listing and leased worker
   ownership are separate persistence contracts.
-- Added `crates/taru-db/src/contract_tests.rs` as the first backend-neutral
+- Added `crates/nako-db/src/contract_tests.rs` as the first backend-neutral
   contract harness. It runs through repository traits rather than SQLite row
   internals.
 - The first contract suite proves:
@@ -169,38 +169,38 @@ Evidence:
     running-job cancellation;
   - lease recovery fails only expired running leases.
 - Moved duplicate SQLite-only job lease lifecycle tests out of
-  `crates/taru-db/src/tests.rs`; SQLite-specific listing/startup recovery tests
+  `crates/nako-db/src/tests.rs`; SQLite-specific listing/startup recovery tests
   remain there.
 
 Validation:
 
 ```bash
-cargo check -p taru-core --tests
-cargo check -p taru-db --tests
-cargo check -p taru-server --tests
-cargo nextest run -p taru-db sqlite_job_lease_contract --no-fail-fast
-cargo nextest run -p taru-db --no-fail-fast
+cargo check -p nako-core --tests
+cargo check -p nako-db --tests
+cargo check -p nako-server --tests
+cargo nextest run -p nako-db sqlite_job_lease_contract --no-fail-fast
+cargo nextest run -p nako-db --no-fail-fast
 cargo fmt --all -- --check
 git diff --check
 ```
 
 Results:
 
-- `taru-core` check passed.
-- `taru-db` check passed.
-- `taru-server` check passed after importing the new `JobLeaseRepository`
+- `nako-core` check passed.
+- `nako-db` check passed.
+- `nako-server` check passed after importing the new `JobLeaseRepository`
   trait where durable lease methods are used.
 - Focused contract nextest passed: 4 tests passed, 57 skipped.
-- Full `taru-db` nextest passed: 61 tests passed.
+- Full `nako-db` nextest passed: 61 tests passed.
 - Formatting check passed.
 - Diff whitespace check passed with Git CRLF normalization warnings only.
 
 Broader gates not run:
 
 - Workspace nextest was not run for FRA-030 because the code change is limited
-  to `taru-core` job repository traits, `taru-db` job lease implementation and
-  tests, and `taru-server` imports needed by the trait split. The full
-  `taru-db` package suite plus `taru-server` check covers the touched behavior.
+  to `nako-core` job repository traits, `nako-db` job lease implementation and
+  tests, and `nako-server` imports needed by the trait split. The full
+  `nako-db` package suite plus `nako-server` check covers the touched behavior.
 
 ### 2026-05-20 — FRA-040 SQLite-Owned Adapter Split
 
@@ -208,144 +208,144 @@ Status: complete.
 
 Evidence:
 
-- Moved SQLite store identity into `crates/taru-db/src/sqlite.rs` and kept
+- Moved SQLite store identity into `crates/nako-db/src/sqlite.rs` and kept
   `SqliteStore` crate-private so downstream crates cannot bind to the concrete
   SQLite adapter.
 - Moved durable job repository implementation from the root `jobs.rs` module
-  to `crates/taru-db/src/sqlite/jobs.rs`, keeping the FRA-030
+  to `crates/nako-db/src/sqlite/jobs.rs`, keeping the FRA-030
   backend-neutral job lease contract as the safety rail.
 - Moved the SQLite-backed `SearchIndex` implementation from root `search.rs`
-  to `crates/taru-db/src/sqlite/search.rs` because the current search
+  to `crates/nako-db/src/sqlite/search.rs` because the current search
   projection is table-backed SQLite behavior, not facade-owned API shape.
 - Moved `LibraryRepository`, `LibraryItemRepository`, `MetadataRepository`, and
   `ScanRepository` implementations from root modules to
-  `crates/taru-db/src/sqlite/{library,library_item,metadata,scan}.rs`.
+  `crates/nako-db/src/sqlite/{library,library_item,metadata,scan}.rs`.
   This keeps workflow commit transaction ordering, search projection writes,
   and library-scoped source state SQL in the SQLite-owned adapter layer.
 - Moved `MediaRepository`, `MediaProbeRepository`, `ProviderMappingRepository`,
   and `CatalogRepository` implementations from root modules to
-  `crates/taru-db/src/sqlite/{media,provider_mapping,catalog}.rs`.
+  `crates/nako-db/src/sqlite/{media,provider_mapping,catalog}.rs`.
 - Rewired `metadata`, `scan`, and `search` workflow helpers to call the
   SQLite-owned media, provider-mapping, and catalog transaction helpers through
   `crate::sqlite::*` paths instead of root facade paths.
 - Moved `IngestionFailureRepository`, `LocalInferenceRepository`,
   `StagingManifestRepository`, `TranscodeSessionRepository`, and
   `UserPlaybackStateRepository` implementations from root modules to
-  `crates/taru-db/src/sqlite/{ingestion,local_inference,staging,playback,user_playback}.rs`.
+  `crates/nako-db/src/sqlite/{ingestion,local_inference,staging,playback,user_playback}.rs`.
 - Rewired scan workflow commits to call SQLite-owned ingestion and local
   inference transaction helpers.
 - Moved Addon, automation, event outbox, webhook, catalog governance, source
   duplicate, VFS cache, and artwork persistence implementations from root
-  modules to `crates/taru-db/src/sqlite/`.
-- After the seventh slice, `crates/taru-db/src` contained only facade, codec,
+  modules to `crates/nako-db/src/sqlite/`.
+- After the seventh slice, `crates/nako-db/src` contained only facade, codec,
   contract tests, SQLite module declaration, crate root, and SQLite-specific
   tests as root Rust files. Repository implementations lived under `sqlite/`.
 - Moved the SQLite row-codec/helper module from root `codec.rs` to
-  `crates/taru-db/src/sqlite/codec.rs`; the root crate now contains only
+  `crates/nako-db/src/sqlite/codec.rs`; the root crate now contains only
   `facade.rs`, `sqlite.rs`, `contract_tests.rs`, `tests.rs`, and `lib.rs`.
 - Moved SQLite runtime options and connection construction from the root
-  `runtime.rs` module to `crates/taru-db/src/sqlite/runtime.rs`.
+  `runtime.rs` module to `crates/nako-db/src/sqlite/runtime.rs`.
 - Moved SQLite migrations and `TransactionManager` implementation from the
-  root `migrations.rs` module to `crates/taru-db/src/sqlite/migrations.rs`,
+  root `migrations.rs` module to `crates/nako-db/src/sqlite/migrations.rs`,
   making migration SQL clearly SQLite-owned.
-- Added the public `TaruDatabase` facade in `crates/taru-db/src/facade.rs` and
+- Added the public `NakoDatabase` facade in `crates/nako-db/src/facade.rs` and
   delegated repository/search/transaction traits to the active backend adapter.
-- Updated `taru-server`, `taru-library`, `taru-metadata`, `taru-nfo`,
-  `taru-automation`, `taru-catalog`, and `taru-events` touched test/service
-  surfaces to construct or receive `TaruDatabase` instead of `SqliteStore`.
+- Updated `nako-server`, `nako-library`, `nako-metadata`, `nako-nfo`,
+  `nako-automation`, `nako-catalog`, and `nako-events` touched test/service
+  surfaces to construct or receive `NakoDatabase` instead of `SqliteStore`.
 - Moved the backend-neutral job lease contract tests to construct
-  `TaruDatabase::connect_in_memory()`, proving the contract through the facade
+  `NakoDatabase::connect_in_memory()`, proving the contract through the facade
   that future PostgreSQL will also need to satisfy.
-- Removed root-level `taru-db` import concentration from `lib.rs`; the current
-  public root exposes only `TaruDatabase` and `SqliteRuntimeOptions`.
+- Removed root-level `nako-db` import concentration from `lib.rs`; the current
+  public root exposes only `NakoDatabase` and `SqliteRuntimeOptions`.
 - Deleted the broad internal `sqlite::prelude` shim. SQLite modules now import
-  `SqliteStore`, SQLite codec helpers, `taru_core`, `taru_search`, and `sqlx`
+  `SqliteStore`, SQLite codec helpers, `nako_core`, `nako_search`, and `sqlx`
   types explicitly from their owning modules.
-- Moved the main `taru-db` behavior tests to construct `TaruDatabase` instead
+- Moved the main `nako-db` behavior tests to construct `NakoDatabase` instead
   of `SqliteStore`, so ordinary persistence behavior is now exercised through
   the same facade boundary used by server and downstream crates. SQLite-only
   migration/runtime/workflow rollback tests remain inside SQLite-owned modules.
-- Confirmed the root `crates/taru-db/src` file set is now only:
+- Confirmed the root `crates/nako-db/src` file set is now only:
   `contract_tests.rs`, `facade.rs`, `lib.rs`, `sqlite.rs`, and `tests.rs`.
 
 Validation:
 
 ```bash
-cargo check -p taru-core --tests
-cargo check -p taru-db --tests
-cargo check -p taru-server --tests
-cargo check -p taru-automation --tests
-cargo check -p taru-catalog --tests
-cargo check -p taru-events --tests
-cargo check -p taru-library --tests
-cargo check -p taru-metadata --tests
-cargo check -p taru-nfo --tests
+cargo check -p nako-core --tests
+cargo check -p nako-db --tests
+cargo check -p nako-server --tests
+cargo check -p nako-automation --tests
+cargo check -p nako-catalog --tests
+cargo check -p nako-events --tests
+cargo check -p nako-library --tests
+cargo check -p nako-metadata --tests
+cargo check -p nako-nfo --tests
 cargo check --workspace --tests
-cargo nextest run -p taru-db sqlite_job_lease_contract --no-fail-fast
-cargo nextest run -p taru-db --no-fail-fast
-cargo nextest run -p taru-server --no-fail-fast
+cargo nextest run -p nako-db sqlite_job_lease_contract --no-fail-fast
+cargo nextest run -p nako-db --no-fail-fast
+cargo nextest run -p nako-server --no-fail-fast
 cargo fmt --all -- --check
 git diff --check
 ```
 
 Results:
 
-- `taru-core`, `taru-db`, `taru-server`, `taru-automation`, `taru-catalog`,
-  `taru-events`, `taru-library`, `taru-metadata`, and `taru-nfo` checks
+- `nako-core`, `nako-db`, `nako-server`, `nako-automation`, `nako-catalog`,
+  `nako-events`, `nako-library`, `nako-metadata`, and `nako-nfo` checks
   passed.
 - Workspace test compilation passed.
 - Focused job lease contract nextest passed: 4 tests passed, 57 skipped.
-- Full `taru-db` nextest passed: 61 tests passed.
-- Full `taru-server` nextest passed: 173 tests passed.
+- Full `nako-db` nextest passed: 61 tests passed.
+- Full `nako-server` nextest passed: 173 tests passed.
 - After moving search implementation under `sqlite/search.rs`, the refreshed
-  `taru-db` check passed, full `taru-db` nextest still passed with 61 tests,
-  and `taru-server` check passed.
+  `nako-db` check passed, full `nako-db` nextest still passed with 61 tests,
+  and `nako-server` check passed.
 - After moving library, library item, metadata, and scan implementations under
-  `sqlite/`, the refreshed full `taru-db` nextest still passed with 61 tests,
-  `taru-server` check passed, and workspace test compilation passed.
+  `sqlite/`, the refreshed full `nako-db` nextest still passed with 61 tests,
+  `nako-server` check passed, and workspace test compilation passed.
 - After moving media, provider mapping, and catalog implementations under
-  `sqlite/`, the refreshed full `taru-db` nextest still passed with 61 tests,
-  `taru-server` check passed, and workspace test compilation passed.
+  `sqlite/`, the refreshed full `nako-db` nextest still passed with 61 tests,
+  `nako-server` check passed, and workspace test compilation passed.
 - After moving ingestion, local inference, staging, playback, and user playback
-  implementations under `sqlite/`, the refreshed full `taru-db` nextest still
-  passed with 61 tests, `taru-server` check passed, and workspace test
+  implementations under `sqlite/`, the refreshed full `nako-db` nextest still
+  passed with 61 tests, `nako-server` check passed, and workspace test
   compilation passed.
 - After moving Addon, automation, event outbox, webhook, catalog governance,
   source duplicate, VFS cache, and artwork implementations under `sqlite/`,
-  the refreshed full `taru-db` nextest still passed with 61 tests,
-  `taru-server` check passed, and workspace test compilation passed.
+  the refreshed full `nako-db` nextest still passed with 61 tests,
+  `nako-server` check passed, and workspace test compilation passed.
 - After moving the SQLite row-codec/helper module under `sqlite/`, the
-  refreshed full `taru-db` nextest still passed with 61 tests, `taru-server`
+  refreshed full `nako-db` nextest still passed with 61 tests, `nako-server`
   check passed, and workspace test compilation passed.
-- After deleting `sqlite::prelude` and moving main `taru-db` behavior tests to
-  `TaruDatabase`, refreshed `cargo check -p taru-db --tests` passed.
+- After deleting `sqlite::prelude` and moving main `nako-db` behavior tests to
+  `NakoDatabase`, refreshed `cargo check -p nako-db --tests` passed.
 - Fresh verification before marking FRA-040 complete:
-  - `cargo nextest run -p taru-db --no-fail-fast` passed: 61 tests passed.
-  - `cargo check -p taru-server --tests` passed.
+  - `cargo nextest run -p nako-db --no-fail-fast` passed: 61 tests passed.
+  - `cargo check -p nako-server --tests` passed.
   - `cargo check --workspace --tests` passed.
-  - `cargo nextest run -p taru-server --no-fail-fast` passed: 173 tests
+  - `cargo nextest run -p nako-server --no-fail-fast` passed: 173 tests
     passed.
   - `cargo fmt --all -- --check` passed after applying `cargo fmt --all`.
   - `git diff --check` passed with Git CRLF normalization warnings only.
 - Formatting check passed after applying `cargo fmt --all`.
 - Diff whitespace check passed with Git CRLF normalization warnings only.
 - A focused ripgrep check across server and downstream crates found no
-  remaining production/test references to `SqliteStore` outside `taru-db`.
+  remaining production/test references to `SqliteStore` outside `nako-db`.
 
 FRA-040 closeout notes:
 
-- Repository implementations no longer live as root modules inside `taru-db`;
+- Repository implementations no longer live as root modules inside `nako-db`;
   the remaining root files are facade, contract tests, SQLite module
   declaration, crate root, and SQLite-specific tests.
 - The transitional internal `sqlite::prelude` has been deleted rather than
   carried forward as a compatibility shim.
-- `TaruDatabase` is currently a simple single-backend facade. FRA-050/FRA-060
+- `NakoDatabase` is currently a simple single-backend facade. FRA-050/FRA-060
   should decide whether the future PostgreSQL proof uses an enum backend,
   trait-object backend, feature-selected adapter crate, or compile-only
   skeleton.
 - Workspace nextest was not run for FRA-040 closeout. The changed behavior is
-  concentrated in `taru-db` persistence boundaries plus server construction and
-  HTTP/app usage. Full `taru-db` nextest, full `taru-server` nextest, and
+  concentrated in `nako-db` persistence boundaries plus server construction and
+  HTTP/app usage. Full `nako-db` nextest, full `nako-server` nextest, and
   workspace test compilation provide the required fresh coverage for this
   slice without spending a whole-workspace runtime gate before FRA-050.
 
@@ -355,7 +355,7 @@ Status: complete.
 
 Evidence:
 
-- Inventoried SQLite-specific assumptions now isolated under `taru-db::sqlite`
+- Inventoried SQLite-specific assumptions now isolated under `nako-db::sqlite`
   and the SQLite migration tree:
   - 30 embedded SQLite migration files;
   - SQLite timestamp expressions (`strftime(...)`);
@@ -379,12 +379,12 @@ Evidence:
   - backend-neutral contract fixture rules;
   - FRA-060's proof target.
 - Renamed the misleading `TransactionManager` trait to `DatabaseLifecycle` and
-  moved its file from `crates/taru-core/src/repository/transaction.rs` to
-  `crates/taru-core/src/repository/lifecycle.rs`.
-- Updated `taru-db`, `taru-server`, `taru-library`, `taru-metadata`,
-  `taru-nfo`, `taru-automation`, `taru-catalog`, and `taru-events` imports to
+  moved its file from `crates/nako-core/src/repository/transaction.rs` to
+  `crates/nako-core/src/repository/lifecycle.rs`.
+- Updated `nako-db`, `nako-server`, `nako-library`, `nako-metadata`,
+  `nako-nfo`, `nako-automation`, `nako-catalog`, and `nako-events` imports to
   use `DatabaseLifecycle`.
-- Did not keep a `TransactionManager` compatibility alias, because Taru is not
+- Did not keep a `TransactionManager` compatibility alias, because Nako is not
   live and this workstream explicitly prefers deletion over compatibility
   shims.
 - Chose FRA-060's next proof: a reusable backend contract-test harness with
@@ -395,12 +395,12 @@ Evidence:
 Validation:
 
 ```bash
-cargo check -p taru-core --tests
-cargo check -p taru-db --tests
-cargo nextest run -p taru-db migrations --no-fail-fast
-cargo nextest run -p taru-db sqlite_job_lease_contract --no-fail-fast
-cargo nextest run -p taru-db --no-fail-fast
-cargo check -p taru-server --tests
+cargo check -p nako-core --tests
+cargo check -p nako-db --tests
+cargo nextest run -p nako-db migrations --no-fail-fast
+cargo nextest run -p nako-db sqlite_job_lease_contract --no-fail-fast
+cargo nextest run -p nako-db --no-fail-fast
+cargo check -p nako-server --tests
 cargo check --workspace --tests
 cargo fmt --all -- --check
 git diff --check
@@ -408,18 +408,18 @@ git diff --check
 
 Results:
 
-- `cargo check -p taru-core --tests` passed after the lifecycle trait rename.
-- `cargo check -p taru-db --tests` passed after the lifecycle trait rename.
-- `cargo nextest run -p taru-db migrations --no-fail-fast` passed: 2 tests
+- `cargo check -p nako-core --tests` passed after the lifecycle trait rename.
+- `cargo check -p nako-db --tests` passed after the lifecycle trait rename.
+- `cargo nextest run -p nako-db migrations --no-fail-fast` passed: 2 tests
   passed, 59 skipped. This proves SQLite migration splitting and rollback
   behavior still work after the lifecycle rename.
-- `cargo nextest run -p taru-db sqlite_job_lease_contract --no-fail-fast`
+- `cargo nextest run -p nako-db sqlite_job_lease_contract --no-fail-fast`
   passed: 4 tests passed, 57 skipped. This proves the current backend-neutral
-  job lease contract still runs through the `TaruDatabase` facade.
-- `cargo nextest run -p taru-db --no-fail-fast` passed: 61 tests passed. This
-  proves the SQLite adapter and facade behavior still pass the full `taru-db`
+  job lease contract still runs through the `NakoDatabase` facade.
+- `cargo nextest run -p nako-db --no-fail-fast` passed: 61 tests passed. This
+  proves the SQLite adapter and facade behavior still pass the full `nako-db`
   package suite after the policy/code changes.
-- `cargo check -p taru-server --tests` passed, proving server startup and app
+- `cargo check -p nako-server --tests` passed, proving server startup and app
   code import/use `DatabaseLifecycle` correctly.
 - `cargo check --workspace --tests` passed after formatting, proving all
   workspace tests compile with the lifecycle trait rename and facade imports.
@@ -429,7 +429,7 @@ Results:
 Broader gates not run:
 
 - Workspace nextest was not run for FRA-050. The code change is a trait rename
-  plus docs/policy; full `taru-db` nextest, server check, and workspace test
+  plus docs/policy; full `nako-db` nextest, server check, and workspace test
   compilation cover the touched behavior before FRA-060 begins.
 
 ### 2026-05-20 — FRA-060 PostgreSQL Job Lease Readiness Proof
@@ -438,18 +438,18 @@ Status: complete.
 
 Evidence:
 
-- Reshaped `crates/taru-db/src/contract_tests.rs` into a reusable backend
+- Reshaped `crates/nako-db/src/contract_tests.rs` into a reusable backend
   contract harness for the job lease contract.
 - Kept SQLite as the always-on contract backend.
-- Added ignored PostgreSQL contract tests gated by `TARU_TEST_POSTGRES_URL`.
-- Added test-only `crates/taru-db/src/postgres.rs` with a real PostgreSQL
+- Added ignored PostgreSQL contract tests gated by `NAKO_TEST_POSTGRES_URL`.
+- Added test-only `crates/nako-db/src/postgres.rs` with a real PostgreSQL
   connection/lifecycle/job/job-lease proof implementation.
 - Added backend-owned PostgreSQL proof migration:
-  `crates/taru-db/migrations/postgres/0001_contract_jobs.sql`.
-- Scoped PostgreSQL SQLx features to `taru-db` dev-dependencies instead of
+  `crates/nako-db/migrations/postgres/0001_contract_jobs.sql`.
+- Scoped PostgreSQL SQLx features to `nako-db` dev-dependencies instead of
   enabling PostgreSQL in the production workspace dependency by default.
 - PostgreSQL proof uses native PostgreSQL behavior:
-  - UUID columns for Taru UUID-backed IDs;
+  - UUID columns for Nako UUID-backed IDs;
   - `jsonb` for library fixture JSON;
   - `timestamptz` timestamps;
   - PostgreSQL `$n` bind markers;
@@ -460,10 +460,10 @@ Evidence:
 Validation:
 
 ```bash
-cargo check -p taru-db --tests
-cargo nextest run -p taru-db sqlite_job_lease_contract --no-fail-fast
-cargo nextest run -p taru-db postgres_job_lease_contract --run-ignored only --no-fail-fast
-cargo nextest run -p taru-db --no-fail-fast
+cargo check -p nako-db --tests
+cargo nextest run -p nako-db sqlite_job_lease_contract --no-fail-fast
+cargo nextest run -p nako-db postgres_job_lease_contract --run-ignored only --no-fail-fast
+cargo nextest run -p nako-db --no-fail-fast
 cargo check --workspace --tests
 cargo fmt --all -- --check
 git diff --check
@@ -471,19 +471,19 @@ git diff --check
 
 Results:
 
-- `cargo check -p taru-db --tests` passed.
-- `cargo nextest run -p taru-db sqlite_job_lease_contract --no-fail-fast`
+- `cargo check -p nako-db --tests` passed.
+- `cargo nextest run -p nako-db sqlite_job_lease_contract --no-fail-fast`
   passed: 4 tests passed, 61 skipped. This proves SQLite still satisfies the
   backend-neutral job lease contract through the reshaped harness.
-- `cargo nextest run -p taru-db postgres_job_lease_contract --run-ignored only
-  --no-fail-fast` passed with `TARU_TEST_POSTGRES_URL` unset in this session:
+- `cargo nextest run -p nako-db postgres_job_lease_contract --run-ignored only
+  --no-fail-fast` passed with `NAKO_TEST_POSTGRES_URL` unset in this session:
   4 ignored PostgreSQL contract tests compiled and exercised the env-gated
   skip path, with 61 other tests skipped by the filter. This proves the
   PostgreSQL proof code is type-checked and opt-in by default. A real
-  PostgreSQL runtime pass still requires setting `TARU_TEST_POSTGRES_URL` and
+  PostgreSQL runtime pass still requires setting `NAKO_TEST_POSTGRES_URL` and
   recording the refreshed command output.
-- `cargo nextest run -p taru-db --no-fail-fast` passed: 61 tests passed, 4
-  skipped. This proves default `taru-db` behavior remains SQLite-only and the
+- `cargo nextest run -p nako-db --no-fail-fast` passed: 61 tests passed, 4
+  skipped. This proves default `nako-db` behavior remains SQLite-only and the
   PostgreSQL contract tests are opt-in.
 - `cargo check --workspace --tests` passed.
 - `cargo fmt --all -- --check` passed.
@@ -492,8 +492,8 @@ Results:
 Broader gates not run:
 
 - Workspace nextest was not run for FRA-060. The code change is concentrated in
-  `taru-db` test-only PostgreSQL readiness proof plus dependency metadata. Full
-  `taru-db` nextest, optional PostgreSQL contract nextest, and workspace test
+  `nako-db` test-only PostgreSQL readiness proof plus dependency metadata. Full
+  `nako-db` nextest, optional PostgreSQL contract nextest, and workspace test
   compilation cover the slice.
 
 ### 2026-05-20 — FRA-070 Server Runtime Composition
@@ -502,54 +502,54 @@ Status: complete.
 
 Evidence:
 
-- Added `crates/taru-server/src/app/composition.rs` as the server composition
+- Added `crates/nako-server/src/app/composition.rs` as the server composition
   runtime boundary.
-- Moved the `TaruApp::new_with_store` inline construction block into
-  `TaruAppComposition::build`.
-- Introduced `TaruRuntimeResources` to own construction of process-local
+- Moved the `NakoApp::new_with_store` inline construction block into
+  `NakoAppComposition::build`.
+- Introduced `NakoRuntimeResources` to own construction of process-local
   runtime resources:
   - `RuntimeSupervisor`;
   - `StorageBackendRegistry`;
   - scan, metadata/NFO/Addons, and webhook concurrency permits;
   - metadata provider registry.
-- Introduced `TaruAppServices` to own construction of cohesive app service
+- Introduced `NakoAppServices` to own construction of cohesive app service
   handles for jobs, library scan, artwork, addons, automation, webhooks,
   catalog, library, storage diagnostics, metadata, NFO, playback, and user
   playback.
 - Kept startup ordering in one place by running `ServerStartupWorkflow` from
   the composition module after service construction and before optional artwork
   ingest worker registration.
-- Deleted the old inline `TaruAppInner` construction path. `TaruApp` now keeps
+- Deleted the old inline `NakoAppInner` construction path. `NakoApp` now keeps
   the public app state/API surface and delegates runtime/service construction
   to the composition module.
-- Confirmed a focused search no longer finds `TaruAppInner`, `SqliteStore`,
+- Confirmed a focused search no longer finds `NakoAppInner`, `SqliteStore`,
   `TransactionManager`, or direct runtime construction calls inside
-  `crates/taru-server/src/app.rs`.
+  `crates/nako-server/src/app.rs`.
 
 Validation:
 
 ```bash
-cargo check -p taru-server --tests
-cargo nextest run -p taru-server startup --no-fail-fast
-cargo nextest run -p taru-server app::tests::metadata --no-fail-fast
-cargo nextest run -p taru-server --no-fail-fast
+cargo check -p nako-server --tests
+cargo nextest run -p nako-server startup --no-fail-fast
+cargo nextest run -p nako-server app::tests::metadata --no-fail-fast
+cargo nextest run -p nako-server --no-fail-fast
 cargo fmt --all -- --check
 git diff --check
 ```
 
 Results:
 
-- `cargo check -p taru-server --tests` passed after moving the shared test
+- `cargo check -p nako-server --tests` passed after moving the shared test
   imports for `DatabaseLifecycle` and `Semaphore` into `app/tests/mod.rs`.
-- `cargo nextest run -p taru-server startup --no-fail-fast` passed: 19 tests
+- `cargo nextest run -p nako-server startup --no-fail-fast` passed: 19 tests
   passed, 154 skipped. This proves startup migration/recovery/reconciliation,
   metadata lifecycle startup, and runtime-supervised scan job behavior still
   work through the new composition boundary.
-- `cargo nextest run -p taru-server app::tests::metadata --no-fail-fast`
+- `cargo nextest run -p nako-server app::tests::metadata --no-fail-fast`
   passed: 12 tests passed, 161 skipped. This proves metadata provider
   registry construction, metadata permits, raw-cache lifecycle workers, and
   supervised metadata jobs still work through the composition boundary.
-- `cargo nextest run -p taru-server --no-fail-fast` passed: 173 tests passed.
+- `cargo nextest run -p nako-server --no-fail-fast` passed: 173 tests passed.
   This proves server app and HTTP behavior still pass after the composition
   split.
 - `cargo fmt --all -- --check` passed after applying `cargo fmt --all`.
@@ -558,8 +558,8 @@ Results:
 Broader gates not run:
 
 - Workspace nextest was not run for FRA-070. The code change is concentrated in
-  `taru-server` app composition, with no domain/schema/API changes. Full
-  `taru-server` nextest plus formatting and diff checks cover this slice.
+  `nako-server` app composition, with no domain/schema/API changes. Full
+  `nako-server` nextest plus formatting and diff checks cover this slice.
 
 ### 2026-05-20 — FRA-080 Local Inference Engine
 
@@ -570,12 +570,12 @@ Evidence:
 - Removed `ParsedName` from `DiscoveredMediaSource`, so the VFS scanner no
   longer stores naming-parser output in scan discovery records.
 - Removed `DefaultNameParser` and `NameParser` use from
-  `crates/taru-library/src/scan.rs`. `VfsLibraryScanner` now discovers media
+  `crates/nako-library/src/scan.rs`. `VfsLibraryScanner` now discovers media
   source facts only.
 - Added `LocalInferenceEngine` in
-  `crates/taru-library/src/local_inference.rs`.
+  `crates/nako-library/src/local_inference.rs`.
 - `LocalInferenceEngine` now owns:
-  - parsing a discovered source path through `taru-naming`;
+  - parsing a discovered source path through `nako-naming`;
   - producing `LocalInferenceEvidence`;
   - building `SourceState` and `MediaSource` facts from the discovered source;
   - planning the primary provisional `MediaItem`;
@@ -591,10 +591,10 @@ Evidence:
 Validation:
 
 ```bash
-cargo check -p taru-library --tests
-cargo nextest run -p taru-library local_inference --no-fail-fast
-cargo nextest run -p taru-library --no-fail-fast
-cargo check -p taru-server --tests
+cargo check -p nako-library --tests
+cargo nextest run -p nako-library local_inference --no-fail-fast
+cargo nextest run -p nako-library --no-fail-fast
+cargo check -p nako-server --tests
 cargo check --workspace --tests
 cargo fmt --all -- --check
 git diff --check
@@ -602,17 +602,17 @@ git diff --check
 
 Results:
 
-- `cargo check -p taru-library --tests` passed.
-- `cargo nextest run -p taru-library local_inference --no-fail-fast` passed:
+- `cargo check -p nako-library --tests` passed.
+- `cargo nextest run -p nako-library local_inference --no-fail-fast` passed:
   4 tests passed, 13 skipped. This proves the new Local Inference Engine plans
   episode hierarchy and unknown flat items, and the indexing path still
   persists local inference evidence.
-- `cargo nextest run -p taru-library --no-fail-fast` passed: 17 tests passed.
+- `cargo nextest run -p nako-library --no-fail-fast` passed: 17 tests passed.
   This proves scanner discovery, indexing, inference, tombstoning, scan
   failures, probe behavior, and WebDAV staging behavior still pass after the
   seam split.
-- `cargo check -p taru-server --tests` passed, proving server app callers still
-  compile with the changed `taru-library` scan/inference boundary.
+- `cargo check -p nako-server --tests` passed, proving server app callers still
+  compile with the changed `nako-library` scan/inference boundary.
 - `cargo check --workspace --tests` passed, proving all workspace tests compile
   after removing parsed naming output from scanner discoveries.
 - `cargo fmt --all -- --check` passed after applying `cargo fmt --all`.
@@ -621,8 +621,8 @@ Results:
 Broader gates not run:
 
 - Workspace nextest was not run for FRA-080. The behavior change is
-  concentrated in `taru-library` scan/index/local-inference code. Full
-  `taru-library` nextest, server test compilation, and workspace test
+  concentrated in `nako-library` scan/index/local-inference code. Full
+  `nako-library` nextest, server test compilation, and workspace test
   compilation cover this slice.
 
 ### 2026-05-20 — FRA-090 Metadata Candidate Graph
@@ -632,16 +632,16 @@ Status: complete.
 Evidence:
 
 - Added provider-neutral Metadata Candidate Graph records in
-  `crates/taru-core/src/media/candidate.rs`:
+  `crates/nako-core/src/media/candidate.rs`:
   - `MetadataCandidateGraph`;
   - `MetadataCandidateNode`;
   - `MetadataCandidateRecord`;
   - `MetadataCandidateSubject`;
   - `MetadataCandidateRelationship`;
   - `MetadataCandidateSource`.
-- Re-exported the candidate graph domain records through `taru-core::media`
-  and `taru-metadata`.
-- Changed `taru-metadata` provider-facing search/fetch DTOs so
+- Re-exported the candidate graph domain records through `nako-core::media`
+  and `nako-metadata`.
+- Changed `nako-metadata` provider-facing search/fetch DTOs so
   `MetadataCandidate` and `MetadataFetchResult` carry a
   `MetadataCandidateGraph` rather than direct `CanonicalMetadata`.
 - Kept canonical projection explicit through `metadata()` and
@@ -670,13 +670,13 @@ Evidence:
 Validation:
 
 ```bash
-cargo check -p taru-metadata --tests
-cargo check -p taru-nfo --tests
-cargo nextest run -p taru-metadata metadata_candidate_graph --no-fail-fast
-cargo nextest run -p taru-nfo metadata_candidate_graph --no-fail-fast
-cargo nextest run -p taru-metadata metadata_refresh_accepts_douban_and_bangumi_provider_mappings --no-fail-fast
-cargo nextest run -p taru-metadata --no-fail-fast
-cargo nextest run -p taru-nfo --no-fail-fast
+cargo check -p nako-metadata --tests
+cargo check -p nako-nfo --tests
+cargo nextest run -p nako-metadata metadata_candidate_graph --no-fail-fast
+cargo nextest run -p nako-nfo metadata_candidate_graph --no-fail-fast
+cargo nextest run -p nako-metadata metadata_refresh_accepts_douban_and_bangumi_provider_mappings --no-fail-fast
+cargo nextest run -p nako-metadata --no-fail-fast
+cargo nextest run -p nako-nfo --no-fail-fast
 cargo check --workspace --tests
 cargo fmt --all -- --check
 git diff --check
@@ -684,8 +684,8 @@ git diff --check
 
 Results:
 
-- `cargo check -p taru-metadata --tests` passed.
-- `cargo check -p taru-nfo --tests` passed.
+- `cargo check -p nako-metadata --tests` passed.
+- `cargo check -p nako-nfo --tests` passed.
 - Focused metadata candidate graph nextest passed: 1 test passed, 28 skipped.
   This proves a TMDB provider payload can become a provider-neutral candidate
   graph before Canonical Metadata projection.
@@ -695,10 +695,10 @@ Results:
 - Focused Douban/Bangumi provider mapping nextest passed: 1 test passed, 28
   skipped. This proves accepted provider mappings now retain candidate subject
   title and release-year facts for non-TMDB providers.
-- Full `taru-metadata` nextest passed: 29 tests passed. This covers provider
+- Full `nako-metadata` nextest passed: 29 tests passed. This covers provider
   runtime, metadata refresh, strategy fallback, provider attempts, locks, raw
   response caching, provider mapping acceptance, and candidate graph behavior.
-- Full `taru-nfo` nextest passed: 23 tests passed. This covers NFO parse,
+- Full `nako-nfo` nextest passed: 23 tests passed. This covers NFO parse,
   import, export, preservation, backup, cancellation, field locks, and the new
   candidate graph proof.
 - `cargo check --workspace --tests` passed after the public DTO shape changed,
@@ -709,8 +709,8 @@ Results:
 Broader gates not run:
 
 - Workspace nextest was not run for FRA-090. The public change is concentrated
-  in `taru-core` candidate graph records, `taru-metadata` provider DTOs and
-  mappings, and `taru-nfo` import/export/codec behavior. Full metadata and NFO
+  in `nako-core` candidate graph records, `nako-metadata` provider DTOs and
+  mappings, and `nako-nfo` import/export/codec behavior. Full metadata and NFO
   package nextest plus workspace test compilation cover the touched runtime and
   API surface for this slice.
 
@@ -725,7 +725,7 @@ Status: complete.
 
 Evidence:
 
-- Added semantic search projection fields in `taru-core`:
+- Added semantic search projection fields in `nako-core`:
   - `CATALOG_SEARCH_PROJECTION_VERSION`;
   - `CatalogSearchProjection::projection_version`;
   - `aliases`;
@@ -739,7 +739,7 @@ Evidence:
   - `BrowseFacetKind` with keyed `ExternalId(provider)`, keyed `CreditRole(value)`, and generic `Other(key)` support;
   - `SortKey`;
   - `SortKeyKind`.
-- Changed `taru-search` public records from raw string facets to semantic Browse Facets:
+- Changed `nako-search` public records from raw string facets to semantic Browse Facets:
   - `SearchDocument` now carries projection version, aliases, and `browse_facets`;
   - `SearchQuery` now carries `browse_facets`;
   - legacy label conversion is explicit and fallible through `from_facet_labels`.
@@ -753,7 +753,7 @@ Evidence:
   - stop using substring containment over `facets_text` for facet filtering.
 - Updated server/catalog, NFO, metadata, addon, and library tests/callers to use explicit semantic query/document conversion.
 - Added behavior tests proving:
-  - `taru-search` emits keyed semantic facet labels such as `external_id:tmdb:603`;
+  - `nako-search` emits keyed semantic facet labels such as `external_id:tmdb:603`;
   - legacy facet labels are parsed into semantic facets;
   - SQLite facet filtering does not match partial substrings (`genre:Science` does not match `genre:Science Fiction`);
   - aliases remain structured but are searchable;
@@ -762,19 +762,19 @@ Evidence:
 Validation:
 
 ```bash
-cargo check -p taru-search --tests
-cargo check -p taru-catalog --tests
-cargo check -p taru-db --tests
-cargo check -p taru-library --tests
-cargo check -p taru-metadata --tests
-cargo check -p taru-nfo --tests
-cargo check -p taru-server --tests
-cargo nextest run -p taru-search --no-fail-fast
-cargo nextest run -p taru-db browse_facets_exactly --no-fail-fast
-cargo nextest run -p taru-db searches_aliases --no-fail-fast
-cargo nextest run -p taru-catalog semantic_search_projection --no-fail-fast
-cargo nextest run -p taru-catalog --no-fail-fast
-cargo nextest run -p taru-db taru_database_sqlite_round_trips_scan_state_search_and_artwork_tasks --no-fail-fast
+cargo check -p nako-search --tests
+cargo check -p nako-catalog --tests
+cargo check -p nako-db --tests
+cargo check -p nako-library --tests
+cargo check -p nako-metadata --tests
+cargo check -p nako-nfo --tests
+cargo check -p nako-server --tests
+cargo nextest run -p nako-search --no-fail-fast
+cargo nextest run -p nako-db browse_facets_exactly --no-fail-fast
+cargo nextest run -p nako-db searches_aliases --no-fail-fast
+cargo nextest run -p nako-catalog semantic_search_projection --no-fail-fast
+cargo nextest run -p nako-catalog --no-fail-fast
+cargo nextest run -p nako-db nako_database_sqlite_round_trips_scan_state_search_and_artwork_tasks --no-fail-fast
 cargo fmt --all --check
 git diff --check
 cargo check --workspace --tests
@@ -782,26 +782,26 @@ cargo check --workspace --tests
 
 Results:
 
-- `cargo check -p taru-search --tests` passed.
-- `cargo check -p taru-catalog --tests` passed.
-- `cargo check -p taru-db --tests` passed.
-- `cargo check -p taru-library --tests` passed.
-- `cargo check -p taru-metadata --tests` passed.
-- `cargo check -p taru-nfo --tests` passed.
-- `cargo check -p taru-server --tests` passed.
-- `cargo nextest run -p taru-search --no-fail-fast` passed: 2 tests passed.
-- `cargo nextest run -p taru-db browse_facets_exactly --no-fail-fast` passed: 1 test passed, 66 skipped. This proves exact Browse Facet matching replaces substring matching.
-- `cargo nextest run -p taru-db searches_aliases --no-fail-fast` passed: 1 test passed, 66 skipped. This proves aliases remain structured while participating in text search.
-- `cargo nextest run -p taru-catalog semantic_search_projection --no-fail-fast` passed: 1 test passed, 3 skipped. This proves catalog hydration emits semantic aliases, release-year facets, and keyed provider-id facets.
-- `cargo nextest run -p taru-catalog --no-fail-fast` passed: 4 tests passed. This covers the touched catalog hydration projection behavior.
-- `cargo nextest run -p taru-db taru_database_sqlite_round_trips_scan_state_search_and_artwork_tasks --no-fail-fast` passed: 1 test passed, 66 skipped. This proves the existing scan/search/artwork persistence path still works with the semantic search table projection.
+- `cargo check -p nako-search --tests` passed.
+- `cargo check -p nako-catalog --tests` passed.
+- `cargo check -p nako-db --tests` passed.
+- `cargo check -p nako-library --tests` passed.
+- `cargo check -p nako-metadata --tests` passed.
+- `cargo check -p nako-nfo --tests` passed.
+- `cargo check -p nako-server --tests` passed.
+- `cargo nextest run -p nako-search --no-fail-fast` passed: 2 tests passed.
+- `cargo nextest run -p nako-db browse_facets_exactly --no-fail-fast` passed: 1 test passed, 66 skipped. This proves exact Browse Facet matching replaces substring matching.
+- `cargo nextest run -p nako-db searches_aliases --no-fail-fast` passed: 1 test passed, 66 skipped. This proves aliases remain structured while participating in text search.
+- `cargo nextest run -p nako-catalog semantic_search_projection --no-fail-fast` passed: 1 test passed, 3 skipped. This proves catalog hydration emits semantic aliases, release-year facets, and keyed provider-id facets.
+- `cargo nextest run -p nako-catalog --no-fail-fast` passed: 4 tests passed. This covers the touched catalog hydration projection behavior.
+- `cargo nextest run -p nako-db nako_database_sqlite_round_trips_scan_state_search_and_artwork_tasks --no-fail-fast` passed: 1 test passed, 66 skipped. This proves the existing scan/search/artwork persistence path still works with the semantic search table projection.
 - `cargo fmt --all --check` passed after applying `cargo fmt --all`.
 - `git diff --check` passed with Git CRLF normalization warnings only.
 - `cargo check --workspace --tests` passed, proving all workspace test targets compile with the semantic search API shape.
 
 Broader gates not run:
 
-- Full workspace nextest was not run for FRA-100. The public API shape changed in the search/catalog seam, so workspace test compilation was run. Runtime behavior was verified with full `taru-search` and `taru-catalog` nextest plus focused SQLite DB search/indexing tests that cover exact facet matching, alias search, and the scan commit path.
+- Full workspace nextest was not run for FRA-100. The public API shape changed in the search/catalog seam, so workspace test compilation was run. Runtime behavior was verified with full `nako-search` and `nako-catalog` nextest plus focused SQLite DB search/indexing tests that cover exact facet matching, alias search, and the scan commit path.
 
 ### 2026-05-20 — FRA-110 Admin/API Contract Hygiene
 
@@ -809,9 +809,9 @@ Status: complete.
 
 Evidence:
 
-- Audited `crates/taru-api/src/admin.rs`, `admin_contract.rs`, `openapi.rs`,
+- Audited `crates/nako-api/src/admin.rs`, `admin_contract.rs`, `openapi.rs`,
   `sdk.rs`, `public_client.rs`, and the job-returning HTTP routes under
-  `crates/taru-server/src/http`.
+  `crates/nako-server/src/http`.
 - Existing Admin API generated contract guardrails remain in place: the
   generated app-local contract covers the eight read-model routes recorded by
   `docs/workstreams/admin-api-typescript-contract/ADMIN_CONTRACT_INVENTORY.md`,
@@ -834,23 +834,23 @@ Evidence:
 Validation:
 
 ```bash
-cargo check -p taru-api --tests
-cargo check -p taru-server --tests
-cargo nextest run -p taru-api --no-fail-fast
-cargo nextest run -p taru-server scan_route_queues_background_job nfo_routes_queue_background_jobs metadata_refresh_route_queues_background_job metadata_maintenance_route_enqueues_batch_job automation_routes_configure_provider_and_enqueue_jobs_without_secrets admin_accept_artwork_candidate_queues_managed_ingest_without_public_artwork_or_url_echo admin_process_next_managed_artwork_ingest_fails_with_redacted_safe_summary_for_unsupported_media_type admin_managed_artwork_ingest_requeue_retries_failed_ingest_without_leaks admin_process_next_managed_artwork_ingest_fails_with_redacted_safe_summary_for_invalid_image --no-fail-fast
+cargo check -p nako-api --tests
+cargo check -p nako-server --tests
+cargo nextest run -p nako-api --no-fail-fast
+cargo nextest run -p nako-server scan_route_queues_background_job nfo_routes_queue_background_jobs metadata_refresh_route_queues_background_job metadata_maintenance_route_enqueues_batch_job automation_routes_configure_provider_and_enqueue_jobs_without_secrets admin_accept_artwork_candidate_queues_managed_ingest_without_public_artwork_or_url_echo admin_process_next_managed_artwork_ingest_fails_with_redacted_safe_summary_for_unsupported_media_type admin_managed_artwork_ingest_requeue_retries_failed_ingest_without_leaks admin_process_next_managed_artwork_ingest_fails_with_redacted_safe_summary_for_invalid_image --no-fail-fast
 cargo fmt --all --check
 git diff --check
 ```
 
 Results:
 
-- `cargo check -p taru-api --tests` passed.
-- `cargo check -p taru-server --tests` passed.
-- `cargo nextest run -p taru-api --no-fail-fast` passed: 41 tests passed.
+- `cargo check -p nako-api --tests` passed.
+- `cargo check -p nako-server --tests` passed.
+- `cargo nextest run -p nako-api --no-fail-fast` passed: 41 tests passed.
   This covers Admin DTO redaction tests, generated Admin API contract tests,
   Public Client OpenAPI leakage tests, and Public Client TypeScript SDK
   leakage tests.
-- Focused `taru-server` nextest passed: 9 tests passed, 164 skipped. This
+- Focused `nako-server` nextest passed: 9 tests passed, 164 skipped. This
   proves job-returning HTTP routes now return redacted job DTOs across library,
   metadata, automation, and managed artwork paths.
 - `cargo fmt --all --check` passed.
@@ -858,10 +858,10 @@ Results:
 
 Broader gates not run:
 
-- Full `taru-server` nextest and workspace nextest were not run for FRA-110.
+- Full `nako-server` nextest and workspace nextest were not run for FRA-110.
   The implementation changed DTO projection and HTTP response assertions, not
-  persistence/runtime behavior. Full `taru-api` nextest covers OpenAPI, SDK,
-  admin contract, and DTO redaction guardrails; focused `taru-server` nextest
+  persistence/runtime behavior. Full `nako-api` nextest covers OpenAPI, SDK,
+  admin contract, and DTO redaction guardrails; focused `nako-server` nextest
   covers every touched job-returning HTTP route family.
 
 ### 2026-05-20 — FRA-120 Generated/Frontend Repository Hygiene
@@ -883,7 +883,7 @@ Evidence:
 - Added `sdk/typescript/.gitignore` for SDK package-local build, coverage,
   TypeScript build-info, and debug-log artifacts.
 - Added `apps/admin-web` script `generate:admin-api`, backed by
-  `taru-api --example emit-admin-typescript-contract`, and wired
+  `nako-api --example emit-admin-typescript-contract`, and wired
   `npm run verify --prefix apps/admin-web` to regenerate the Admin API
   contract before `check`, `test`, and `build`.
 - Updated `apps/admin-web/README.md` to document the generated Admin API
@@ -935,15 +935,15 @@ Status: complete.
 
 Deletion inventory:
 
-- Deleted the `taru-api` root-level compatibility facade:
+- Deleted the `nako-api` root-level compatibility facade:
   `pub use admin::*`, `pub use extension::*`,
   `pub use metadata_diagnostics::*`, and `pub use public_client::*`.
-  `taru-api` now exposes explicit boundary modules only.
-- Updated `taru-api` internal callers to import Public Client constants,
+  `nako-api` now exposes explicit boundary modules only.
+- Updated `nako-api` internal callers to import Public Client constants,
   OpenAPI helpers, and managed-artwork image-reference helpers through their
   owning modules instead of relying on root re-exports.
-- Updated `taru-server` app services, HTTP handlers, and tests to import DTOs
-  through explicit `taru_api::{admin, extension, metadata_diagnostics,
+- Updated `nako-server` app services, HTTP handlers, and tests to import DTOs
+  through explicit `nako_api::{admin, extension, metadata_diagnostics,
   public_client}` module paths.
 - Updated `docs/api/HTTP_API.md` to remove stale raw job `input`, `summary`,
   and `error` response examples and document the redacted
@@ -953,22 +953,22 @@ Deletion inventory:
 
 Candidates audited but intentionally kept:
 
-- `crates/taru-api/src/admin.rs` still re-exports
+- `crates/nako-api/src/admin.rs` still re-exports
   `admin::managed_artwork::*` inside the Admin API module. This is not the
   deleted root compatibility shim; it is the current Admin API aggregation
   surface and can be split later if the admin module itself becomes too broad.
-- `taru-search` still exposes fallible facet-label conversion helpers. They
+- `nako-search` still exposes fallible facet-label conversion helpers. They
   are explicit adapters from current HTTP/query/test string facets into
   semantic Browse Facets, not a hidden old/new production path.
 
 Validation:
 
 ```bash
-cargo check -p taru-api --tests
-cargo check -p taru-server --tests
+cargo check -p nako-api --tests
+cargo check -p nako-server --tests
 cargo check --workspace --tests
-cargo nextest run -p taru-api --no-fail-fast
-cargo nextest run -p taru-server --no-fail-fast
+cargo nextest run -p nako-api --no-fail-fast
+cargo nextest run -p nako-server --no-fail-fast
 cargo fmt --all
 cargo fmt --all -- --check
 git diff --check
@@ -976,14 +976,14 @@ git diff --check
 
 Results:
 
-- `cargo check -p taru-api --tests` passed.
-- `cargo check -p taru-server --tests` passed.
+- `cargo check -p nako-api --tests` passed.
+- `cargo check -p nako-server --tests` passed.
 - `cargo check --workspace --tests` passed, proving all workspace test targets
-  compile without the deleted `taru-api` root compatibility exports.
-- `cargo nextest run -p taru-api --no-fail-fast` passed: 41 tests passed.
+  compile without the deleted `nako-api` root compatibility exports.
+- `cargo nextest run -p nako-api --no-fail-fast` passed: 41 tests passed.
   This covers Admin DTO redaction, Admin generated contract, Public Client
   OpenAPI, and Public Client SDK guardrails after the API boundary deletion.
-- `cargo nextest run -p taru-server --no-fail-fast` passed: 173 tests passed.
+- `cargo nextest run -p nako-server --no-fail-fast` passed: 173 tests passed.
   This covers the explicit API module imports across app services, HTTP route
   handlers, and route tests.
 - `cargo fmt --all` was run to apply rustfmt formatting after import rewrites.
@@ -994,7 +994,7 @@ Broader gates not run:
 
 - Full workspace nextest was not run for FRA-130. The slice removed an API
   compatibility shim and updated imports/docs, so workspace test compilation
-  plus full `taru-api` and full `taru-server` nextest cover the touched
+  plus full `nako-api` and full `nako-server` nextest cover the touched
   public-boundary and route behavior. Frontend/SDK package verification was
   not rerun because generated TypeScript artifacts were not changed in this
   slice.
@@ -1008,10 +1008,10 @@ Closeout review:
 - M0 through M4 tasks are complete in `TODO.md`.
 - ADR 0029 and ADR 0030 record the persistence boundary and SQL
   dialect/migration policy.
-- The `taru-db` root public surface is a facade plus SQLite runtime options;
+- The `nako-db` root public surface is a facade plus SQLite runtime options;
   SQLite implementation details are under SQLite-owned modules.
 - Backend-neutral job lease contracts are present, with SQLite always-on and
-  PostgreSQL proof coverage ignored unless `TARU_TEST_POSTGRES_URL` is set.
+  PostgreSQL proof coverage ignored unless `NAKO_TEST_POSTGRES_URL` is set.
 - Runtime composition, Local Inference, Metadata Candidate Graph, semantic
   search, Admin/API redaction, frontend/SDK hygiene, and the final deletion
   sweep all have task-local evidence above.

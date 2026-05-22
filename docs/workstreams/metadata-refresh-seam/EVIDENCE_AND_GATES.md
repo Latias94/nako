@@ -7,8 +7,8 @@ Last updated: 2026-05-17
 
 ```bash
 cargo fmt --all -- --check
-cargo check -p taru-metadata --tests
-cargo nextest run -p taru-metadata --no-fail-fast
+cargo check -p nako-metadata --tests
+cargo nextest run -p nako-metadata --no-fail-fast
 cargo check --workspace --tests
 cargo nextest run --workspace --no-fail-fast
 git diff --check
@@ -26,7 +26,7 @@ git diff --check
 
 ## Closeout Evidence
 
-- `crates/taru-metadata/src/strategy.rs` defines `MetadataRefreshPort`,
+- `crates/nako-metadata/src/strategy.rs` defines `MetadataRefreshPort`,
   `MetadataAttemptPort`, `MetadataRefreshSnapshot`, and
   `MetadataRefreshCommit`.
 - `MetadataRefreshService` and `MetadataStrategyExecutor` now require
@@ -39,8 +39,8 @@ git diff --check
 - `strategy::port_tests::refresh_service_uses_refresh_and_hydration_ports_without_sqlite`
   proves refresh behavior through fake workflow ports.
 - Focused validation so far:
-  - `cargo check -p taru-metadata --tests`: passed.
-  - `cargo nextest run -p taru-metadata --no-fail-fast`: 27 tests passed.
+  - `cargo check -p nako-metadata --tests`: passed.
+  - `cargo nextest run -p nako-metadata --no-fail-fast`: 27 tests passed.
   - `cargo fmt --all -- --check`: passed.
   - `git diff --check`: passed.
   - `cargo check --workspace --tests`: passed.

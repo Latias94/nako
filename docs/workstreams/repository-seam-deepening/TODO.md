@@ -10,20 +10,20 @@ Last updated: 2026-05-17
   Validation: `git diff --check`.
   Handoff: Continue with `CatalogHydrationPort`.
 
-- [x] RSD-020 [owner=codex] [deps=RSD-010] [scope=crates/taru-catalog, crates/taru-core, crates/taru-db]
+- [x] RSD-020 [owner=codex] [deps=RSD-010] [scope=crates/nako-catalog, crates/nako-core, crates/nako-db]
   Goal: Extract `CatalogHydrationPort` and make catalog hydration depend on
   the workflow port rather than the wide `CatalogRepository + MediaRepository
   + SearchIndex` combination.
-  Validation: `cargo check -p taru-catalog --tests`, `cargo nextest run -p
-  taru-catalog --no-fail-fast` with 3 tests passed.
+  Validation: `cargo check -p nako-catalog --tests`, `cargo nextest run -p
+  nako-catalog --no-fail-fast` with 3 tests passed.
   Handoff: Preserve existing `SqliteStore` catalog behavior.
 
-- [x] RSD-030 [owner=codex] [deps=RSD-020] [scope=crates/taru-metadata, crates/taru-nfo]
+- [x] RSD-030 [owner=codex] [deps=RSD-020] [scope=crates/nako-metadata, crates/nako-nfo]
   Goal: Narrow metadata refresh, hierarchy confirmation, and NFO import bounds
   to use catalog hydration through the new port.
-  Validation: `cargo check -p taru-metadata --tests`, `cargo nextest run -p
-  taru-metadata --no-fail-fast`, `cargo check -p taru-nfo --tests`, `cargo
-  nextest run -p taru-nfo --no-fail-fast`; metadata passed 26 tests and NFO
+  Validation: `cargo check -p nako-metadata --tests`, `cargo nextest run -p
+  nako-metadata --no-fail-fast`, `cargo check -p nako-nfo --tests`, `cargo
+  nextest run -p nako-nfo --no-fail-fast`; metadata passed 26 tests and NFO
   passed 8 tests.
   Handoff: Do not change provider breadth or NFO codec behavior.
 

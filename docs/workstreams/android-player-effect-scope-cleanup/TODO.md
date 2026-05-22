@@ -13,7 +13,7 @@ Last updated: 2026-05-19
 
 ## M1 - Scope Injection
 
-- [x] APESC-020 [owner=codex] [deps=APESC-010] [scope=apps/android/app/src/main/java/dev/taru/android/ui,apps/android/app/src/main/java/dev/taru/android/ui/screens/player,apps/android/app/src/test/java/dev/taru/android/ui/screens/player]
+- [x] APESC-020 [owner=codex] [deps=APESC-010] [scope=apps/android/app/src/main/java/dev/nako/android/ui,apps/android/app/src/main/java/dev/nako/android/ui/screens/player,apps/android/app/src/test/java/dev/nako/android/ui/screens/player]
   Goal: Move player exit coroutine ownership to the app shell and inject it into
   `PlaybackPlayerRoute`.
   Validation: focused Android JVM tests cover the scope wiring, and the full

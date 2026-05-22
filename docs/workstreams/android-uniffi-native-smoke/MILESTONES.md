@@ -21,7 +21,7 @@ Exit when:
 - debug app and debug androidTest APKs build with focused ABI selection.
 
 Result: Added AndroidX instrumentation dependencies and
-`TaruUniFfiNativeSmokeTest`, which calls generated UniFFI bindings without
+`NakoUniFfiNativeSmokeTest`, which calls generated UniFFI bindings without
 network, server, UI, profile, token, or Media3 dependencies.
 
 ## M2 — Device/Emulator Execution

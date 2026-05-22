@@ -5,12 +5,12 @@ Last updated: 2026-05-19
 
 ## Problem
 
-Taru has a backend-oriented Rust workspace with many server capabilities
+Nako has a backend-oriented Rust workspace with many server capabilities
 already documented or implemented, but no coherent web administration product
 shape. A generated front-end prototype would drift quickly if it only sees a
 generic "media server dashboard" prompt.
 
-The console needs to express Taru's actual domain:
+The console needs to express Nako's actual domain:
 
 - **Media Library** configuration and scan operation;
 - **Media Source** and **Media Item** governance;
@@ -23,7 +23,7 @@ The console needs to express Taru's actual domain:
 
 ## Target State
 
-Create a durable planning lane that lets Taru hand a clear product brief to a
+Create a durable planning lane that lets Nako hand a clear product brief to a
 front-end generator such as v0.dev, then land the first real admin web
 scaffold and live/mock data boundary once the product direction is accepted.
 
@@ -34,13 +34,13 @@ The target output is:
 - a brand direction;
 - an Admin API gap list;
 - a v0.dev context document that can be copied into a design-generation flow;
-- a task ledger for turning the generated UI into a real Taru web surface;
+- a task ledger for turning the generated UI into a real Nako web surface;
 - the first `apps/admin-web` scaffold with safe Admin API reads.
 
 ## Product Positioning
 
-Taru is a private media cellar, not a huge warehouse. The Japanese meaning of
-"taru" as a wooden barrel or sake cask should guide the brand:
+Nako is a private media cellar, not a huge warehouse. The Japanese meaning of
+"nako" as a wooden barrel or sake cask should guide the brand:
 
 - personal rather than corporate;
 - refined rather than maximalist;
@@ -257,8 +257,8 @@ to a distinct Admin API design.
 AWC-030 is accepted through [ADR 0027](../../adr/0027-admin-api-boundary-for-web-console.md):
 
 - new admin-only routes should use `/admin/v1/*`;
-- admin DTOs stay in the AGPL `taru-api` adapter boundary, not
-  `taru-client-protocol`;
+- admin DTOs stay in the AGPL `nako-api` adapter boundary, not
+  `nako-client-protocol`;
 - Public Client API OpenAPI/SDK generation must continue to reject admin
   surfaces;
 - the admin console may reuse public routes only for genuinely client-facing
@@ -302,7 +302,7 @@ The recommended implementation sequence is:
 M52 / AWC-035 implemented the first slice in that sequence:
 `GET /admin/v1/overview`. It is a read-only summary route backed by existing
 safe diagnostics. It does not add frontend UI, write mutations, public client
-routes, or `taru-client-protocol` changes.
+routes, or `nako-client-protocol` changes.
 
 AWC-060 and AWC-070 implemented the first real web app follow-on in
 `apps/admin-web`. The app uses Vite, React, and TypeScript, keeps Admin API
@@ -329,7 +329,7 @@ are added.
   deterministic fixtures.
 - The generated Admin API TypeScript contract is split to
   `docs/workstreams/admin-api-typescript-contract/`.
-- Editable settings remain out of scope until Taru has accepted runtime
+- Editable settings remain out of scope until Nako has accepted runtime
   configuration mutation semantics.
 - Catalog repair remains out of scope; the current console reads governance
   queues and should add repair workflows only after Admin API mutations are

@@ -1,34 +1,34 @@
-# Taru Licensing Policy
+# Nako Licensing Policy
 
 ## Project License
 
-Taru server-side code is licensed under `AGPL-3.0-or-later` unless a crate or
+Nako server-side code is licensed under `AGPL-3.0-or-later` unless a crate or
 file explicitly says otherwise.
 
 This applies to the core server workspace, including:
 
-- `taru-core`
-- `taru-db`
-- `taru-server`
-- `taru-library`
-- `taru-vfs`
-- `taru-media-probe`
-- `taru-metadata`
-- `taru-nfo`
-- `taru-search`
-- `taru-streaming`
-- `taru-transcode`
-- `taru-events`
-- `taru-automation`
-- `taru-api`
+- `nako-core`
+- `nako-db`
+- `nako-server`
+- `nako-library`
+- `nako-vfs`
+- `nako-media-probe`
+- `nako-metadata`
+- `nako-nfo`
+- `nako-search`
+- `nako-streaming`
+- `nako-transcode`
+- `nako-events`
+- `nako-automation`
+- `nako-api`
 
-The AGPL is intentional for the server because Taru is network-accessible
+The AGPL is intentional for the server because Nako is network-accessible
 self-hosted infrastructure. Users should receive source access to modified
 server builds that are offered over a network.
 
 ## Permissive Extension Surface
 
-`taru-addon-protocol` is licensed under `Apache-2.0`.
+`nako-addon-protocol` is licensed under `Apache-2.0`.
 
 The addon protocol is kept permissive so addon authors, SDKs, client tools, and
 integration services can adopt the protocol without inheriting the server
@@ -41,8 +41,8 @@ depending on AGPL server internals.
 
 ## Reference Code Policy
 
-Reference repositories under `repo-ref/` are not part of Taru's source
-distribution and must not be copied into Taru.
+Reference repositories under `repo-ref/` are not part of Nako's source
+distribution and must not be copied into Nako.
 
 Allowed use:
 
@@ -58,11 +58,11 @@ Disallowed use:
 - translating GPL source line by line into Rust
 - importing assets, schemas, or generated code unless their license is
   separately compatible and explicitly documented
-- mixing reference repository files into Taru commits
+- mixing reference repository files into Nako commits
 
 When studying GPL projects such as Jellyfin, keep notes at the behavior and
-architecture level. Taru implementations must be original work written against
-Taru's own domain model and tests.
+architecture level. Nako implementations must be original work written against
+Nako's own domain model and tests.
 
 ## License Files
 

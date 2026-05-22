@@ -1,6 +1,6 @@
 # Admin Playback Runtime Diagnostics Workstream
 
-M56 adds a read-only Admin API v1 diagnostics surface for Taru's **Playback
+M56 adds a read-only Admin API v1 diagnostics surface for Nako's **Playback
 Runtime**.
 
 Authoritative docs:
@@ -23,7 +23,7 @@ hardware acceleration, FFmpeg capability evidence, transcode budgets, remote
 stream/stage budgets, and staging cleanup configuration.
 
 This workstream keeps diagnostics in the **Admin API** boundary and leaves the
-**Public Client API** and `taru-client-protocol` unchanged.
+**Public Client API** and `nako-client-protocol` unchanged.
 
 ## Related Workstreams
 

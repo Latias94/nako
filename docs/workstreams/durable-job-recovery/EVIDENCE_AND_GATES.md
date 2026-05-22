@@ -7,11 +7,11 @@ Last updated: 2026-05-17
 
 ```bash
 cargo fmt --all -- --check
-cargo check -p taru-db --tests
-cargo nextest run -p taru-db sqlite_store_marks_unfinished_jobs_failed_on_startup --no-fail-fast
-cargo check -p taru-server --tests
-cargo nextest run -p taru-server app::tests::startup --no-fail-fast
-cargo check -p taru-catalog --tests
+cargo check -p nako-db --tests
+cargo nextest run -p nako-db sqlite_store_marks_unfinished_jobs_failed_on_startup --no-fail-fast
+cargo check -p nako-server --tests
+cargo nextest run -p nako-server app::tests::startup --no-fail-fast
+cargo check -p nako-catalog --tests
 cargo check --workspace --tests
 cargo nextest run --workspace --no-fail-fast
 git diff --check
@@ -40,16 +40,16 @@ git diff --check
 - `app_startup_marks_unfinished_jobs_failed` proves restart recovery through
   the server startup workflow.
 - Removed the unused `rebuild_search_projection` helper and its now-dead
-  snapshot search projection helper from `taru-catalog`.
+  snapshot search projection helper from `nako-catalog`.
 - Public HTTP API, SDK, CLI, license boundaries, and job status wire shapes did
   not change.
 - Validation:
   - `cargo fmt --all -- --check`: passed.
-  - `cargo check -p taru-db --tests`: passed.
-  - `cargo nextest run -p taru-db sqlite_store_marks_unfinished_jobs_failed_on_startup --no-fail-fast`: 1 test passed.
-  - `cargo check -p taru-server --tests`: passed.
-  - `cargo nextest run -p taru-server app::tests::startup --no-fail-fast`: 7 tests passed.
-  - `cargo check -p taru-catalog --tests`: passed.
+  - `cargo check -p nako-db --tests`: passed.
+  - `cargo nextest run -p nako-db sqlite_store_marks_unfinished_jobs_failed_on_startup --no-fail-fast`: 1 test passed.
+  - `cargo check -p nako-server --tests`: passed.
+  - `cargo nextest run -p nako-server app::tests::startup --no-fail-fast`: 7 tests passed.
+  - `cargo check -p nako-catalog --tests`: passed.
   - `cargo check --workspace --tests`: passed.
   - `cargo nextest run --workspace --no-fail-fast`: 288 tests passed.
   - `git diff --check`: passed.

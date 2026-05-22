@@ -13,8 +13,8 @@ writing library files.
 
 ## Implementation
 
-- Added `AcquisitionIntakeAppService` under `crates/taru-server/src/app`.
-- Wired the service into `TaruApp` and `TaruAppServices` composition.
+- Added `AcquisitionIntakeAppService` under `crates/nako-server/src/app`.
+- Wired the service into `NakoApp` and `NakoAppServices` composition.
 - Added redacted `AcquisitionIntakeCandidateDiagnostic` and acceptance
   diagnostics.
 - `record_candidate` validates the target library, trims required fields,
@@ -30,7 +30,7 @@ writing library files.
 
 ## TDD Notes
 
-- Initial `cargo nextest run -p taru-server acquisition_intake --no-fail-fast`
+- Initial `cargo nextest run -p nako-server acquisition_intake --no-fail-fast`
   failed because there were no acquisition-intake app tests.
 - After adding tests, same-source candidate acceptance failed on the Managed
   Import artifact uniqueness constraint. This proved missing artifact reuse.
@@ -39,16 +39,16 @@ writing library files.
 
 ## Verification
 
-- `cargo nextest run -p taru-server acquisition_intake --no-fail-fast` — pass,
+- `cargo nextest run -p nako-server acquisition_intake --no-fail-fast` — pass,
   3 passed, 229 skipped.
-- `cargo nextest run -p taru-server managed_import --no-fail-fast` — pass, 18
+- `cargo nextest run -p nako-server managed_import --no-fail-fast` — pass, 18
   passed, 214 skipped.
-- `cargo nextest run -p taru-db acquisition_intake --no-fail-fast` — pass, 1
+- `cargo nextest run -p nako-db acquisition_intake --no-fail-fast` — pass, 1
   passed, 123 skipped.
-- `cargo check -p taru-server --tests` — pass.
+- `cargo check -p nako-server --tests` — pass.
 - `cargo fmt --all -- --check` — pass.
 - `git diff --check` — pass with repository CRLF conversion warnings only.
-- `git diff --name-only -- crates/taru-client-protocol` — no output.
+- `git diff --name-only -- crates/nako-client-protocol` — no output.
 
 ## Next
 

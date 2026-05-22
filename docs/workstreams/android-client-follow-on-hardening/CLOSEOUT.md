@@ -18,11 +18,11 @@ Date: 2026-05-22
 - PowerShell smoke scripts parse successfully.
 - Deprecated token-vault crypto grep passed.
 - Focused Android JVM tests passed:
-  `apps\android\gradlew.bat -p apps\android --offline --no-daemon --no-parallel --console=plain :app:testDebugUnitTest --tests "dev.taru.android.connection.*" --tests "dev.taru.android.ui.screens.player.*"`
+  `apps\android\gradlew.bat -p apps\android --offline --no-daemon --no-parallel --console=plain :app:testDebugUnitTest --tests "dev.nako.android.connection.*" --tests "dev.nako.android.ui.screens.player.*"`
 - Full Android JVM tests passed:
   `apps\android\gradlew.bat -p apps\android --offline --no-daemon --no-parallel --console=plain :app:testDebugUnitTest`
 - x86_64 debug assemble passed:
-  `apps\android\gradlew.bat -p apps\android --offline --no-daemon --no-parallel --console=plain :app:assembleDebug -PtaruRustAndroidAbis=x86_64`
+  `apps\android\gradlew.bat -p apps\android --offline --no-daemon --no-parallel --console=plain :app:assembleDebug -PnakoRustAndroidAbis=x86_64`
 - `git diff --check` passed with CRLF normalization warnings only.
 
 ## Residual Risks

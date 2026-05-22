@@ -7,7 +7,7 @@ Last updated: 2026-05-17
 
 ADR 0019 says background work should be registered through an explicit runtime
 supervisor and that feature services should not own detached task lifecycle
-details. M38 and M41 moved Taru in that direction: background tasks go through
+details. M38 and M41 moved Nako in that direction: background tasks go through
 `RuntimeSupervisor`, and startup now recovers unfinished queued/running durable
 jobs.
 
@@ -15,10 +15,10 @@ The remaining server-side friction is that durable job lifecycle persistence is
 still duplicated across workflow services:
 
 - library scan starts, succeeds, fails, and serializes job summaries in
-  `crates/taru-server/src/app/jobs.rs`;
+  `crates/nako-server/src/app/jobs.rs`;
 - metadata refresh and maintenance do the same in
-  `crates/taru-server/src/app/metadata.rs`;
-- NFO import/export do the same in `crates/taru-server/src/app/nfo.rs`;
+  `crates/nako-server/src/app/metadata.rs`;
+- NFO import/export do the same in `crates/nako-server/src/app/nfo.rs`;
 - runtime diagnostics know active task handles, but not durable job list/filter
   semantics;
 - Admin API v1 overview can show runtime counters, but the web console still
@@ -48,7 +48,7 @@ Add the first Admin API v1 job read model:
 - `GET /admin/v1/jobs`;
 - filter by status, kind, resource class, Media Library, Media Source, and
   pagination when supported by the repository;
-- return admin-owned redacted list DTOs from `taru-api::admin`;
+- return admin-owned redacted list DTOs from `nako-api::admin`;
 - keep existing root-level `GET /jobs/{job_id}` for compatibility while Admin
   API migration continues.
 
@@ -56,14 +56,14 @@ Add the first Admin API v1 job read model:
 
 In scope:
 
-- `crates/taru-server/src/app/runtime.rs`
-- `crates/taru-server/src/app/jobs.rs`
-- `crates/taru-server/src/app/metadata.rs`
-- `crates/taru-server/src/app/nfo.rs`
-- `crates/taru-server/src/http/admin.rs`
-- `crates/taru-api/src/admin.rs`
-- `crates/taru-core/src/repository/jobs.rs`
-- `crates/taru-db/src/jobs.rs`
+- `crates/nako-server/src/app/runtime.rs`
+- `crates/nako-server/src/app/jobs.rs`
+- `crates/nako-server/src/app/metadata.rs`
+- `crates/nako-server/src/app/nfo.rs`
+- `crates/nako-server/src/http/admin.rs`
+- `crates/nako-api/src/admin.rs`
+- `crates/nako-core/src/repository/jobs.rs`
+- `crates/nako-db/src/jobs.rs`
 - focused server/API/db tests
 - admin-web-console and goal evidence updates
 
@@ -71,7 +71,7 @@ Out of scope:
 
 - no frontend UI scaffold;
 - no Public Client API, public OpenAPI, TypeScript SDK, Rust SDK, or
-  `taru-client-protocol` changes;
+  `nako-client-protocol` changes;
 - no generic distributed queue, retry policy, resumable execution, or worker
   process model;
 - no new Addon Task execution semantics;
@@ -80,15 +80,15 @@ Out of scope:
 
 ## Architecture Direction
 
-Keep `TaruApp` as a composition root. Add depth behind server application
+Keep `NakoApp` as a composition root. Add depth behind server application
 services rather than widening HTTP handlers.
 
 The durable job runtime Module should be server-owned and AGPL. It should not
-move into `taru-core` unless multiple non-server adapters genuinely need the
-same behavior. `taru-core` should own durable records, IDs, filters, and
+move into `nako-core` unless multiple non-server adapters genuinely need the
+same behavior. `nako-core` should own durable records, IDs, filters, and
 repository traits only.
 
-Admin job DTOs belong in `taru-api::admin`, following ADR 0027. Public client
+Admin job DTOs belong in `nako-api::admin`, following ADR 0027. Public client
 protocol crates must remain untouched.
 
 The Admin API should expose safe operational state, not raw internal task
@@ -108,7 +108,7 @@ not expose raw `input_json`, `summary_json`, or `error`.
   marked failed instead of staying in a running state.
 - Admin list query parsing should not rely on extractor-level enum or flattened
   pagination rejection. M54 parses job list filters inside the handler path so
-  errors can use Taru's API error envelope.
+  errors can use Nako's API error envelope.
 
 ## Related Architecture Findings
 

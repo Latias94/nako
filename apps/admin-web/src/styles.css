@@ -65,9 +65,15 @@ button {
   height: 36px;
   place-items: center;
   border-radius: 7px;
-  background: oklch(69% 0.125 54);
-  color: oklch(20% 0.02 60);
-  font-weight: 800;
+  overflow: hidden;
+  background: oklch(30% 0.035 61);
+  box-shadow: 0 8px 20px oklch(14% 0.025 61 / 30%);
+}
+
+.brandMark img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .brandName {

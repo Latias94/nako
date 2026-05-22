@@ -45,7 +45,7 @@ Primary gates:
 ## M2 - Canonical Metadata Apply Slice
 
 Outcome: one accepted Addon Side Effect can apply a bounded Canonical Metadata
-write through Taru-owned domain seams.
+write through Nako-owned domain seams.
 
 Result: completed on 2026-05-18. `metadata_write` now records explicit apply
 outcome state, persists Addon metadata source attribution, applies a minimal
@@ -64,15 +64,15 @@ Exit criteria:
 
 Primary gates:
 
-- `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-metadata -p taru-catalog --tests`
-- focused `cargo nextest run -p taru-server addon_side_effect --no-fail-fast`
+- `cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-metadata -p nako-catalog --tests`
+- focused `cargo nextest run -p nako-server addon_side_effect --no-fail-fast`
 - relevant metadata/catalog tests selected by APW-020
 - `cargo fmt --all -- --check`
 - `git diff --check`
 
 ## M3 - Managed Artwork And Artifact Intake
 
-Outcome: addon-submitted artwork or artifact output has a Taru-owned intake and
+Outcome: addon-submitted artwork or artifact output has a Nako-owned intake and
 storage path.
 
 Result: split on 2026-05-18 to
@@ -84,7 +84,7 @@ their own validation matrix.
 Exit criteria:
 
 - Artwork output is represented as an Artwork Candidate, Managed Artwork, or
-  Taru-Managed Artifact rather than a raw provider URL.
+  Nako-Managed Artifact rather than a raw provider URL.
 - External fetch ownership, storage budget, provenance, and redacted response
   behavior are documented and tested.
 - Any image processing/cache policy breadth is completed or split.
@@ -92,12 +92,12 @@ Exit criteria:
 Primary gates:
 
 - focused artwork/addon tests selected by APW-020
-- `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests`
+- `cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-vfs --tests`
 - `git diff --check`
 
 ## M4 - Subtitle, NFO, And Library File Write Policy
 
-Outcome: addon-initiated sidecar file changes use Taru Library File Write
+Outcome: addon-initiated sidecar file changes use Nako Library File Write
 policy.
 
 Result: split on 2026-05-18 to
@@ -119,7 +119,7 @@ Exit criteria:
 Primary gates:
 
 - focused NFO/storage/addon tests selected by APW-020
-- `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-nfo -p taru-vfs --tests`
+- `cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-nfo -p nako-vfs --tests`
 - `cargo fmt --all -- --check`
 - `git diff --check`
 

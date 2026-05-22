@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This workstream owns Taru's video-first media-library domain model after the
+This workstream owns Nako's video-first media-library domain model after the
 first movie-focused MVP. It covers **Media Item** hierarchy, **Media Source**
 relationships, **Provider Mapping**, **Canonical Metadata**, **Media Technical
 Facts**, **Library Item State**, **User Playback State**, provider breadth,
@@ -32,7 +32,7 @@ confirmation and provider/NFO expansion completed.
 
 - Model **Media Library** as the configured collection boundary for storage,
   metadata policy, permission context, and presentation defaults.
-- Keep Taru video-first in implementation while preserving a broader
+- Keep Nako video-first in implementation while preserving a broader
   media-server model through **Media Domain** and **Library Preset**.
 - Keep **Media Source** identity separate from **Media Item** identity.
 - Support **Source Duplicate Relationship** without automatically merging
@@ -41,7 +41,7 @@ confirmation and provider/NFO expansion completed.
   **Episode-Like Item**, **Extra Item**, **Franchise Collection**, and unknown
   video items.
 - Map provider-specific concepts through **Provider Subject** and **Provider
-  Mapping** instead of replacing Taru item identity.
+  Mapping** instead of replacing Nako item identity.
 - Make **Canonical Metadata** resolution explicit through **Metadata Source
   Priority**, local edits, NFO, built-in providers, and future addons.
 - Keep **Canonical Metadata**, **Media Technical Facts**, **Library Item
@@ -64,21 +64,21 @@ confirmation and provider/NFO expansion completed.
 - No provider-specific implementation before the domain model is stable.
 - No destructive NFO rewrite.
 - No automatic duplicate-source merge without a separate high-confidence rule.
-- No addon write path that bypasses Taru-owned APIs and permission checks.
+- No addon write path that bypasses Nako-owned APIs and permission checks.
 - No raw database columns as client filtering or sorting contracts.
 
 ## Boundary Rules
 
-- `taru-core` owns durable domain vocabulary, IDs, records, and repository
+- `nako-core` owns durable domain vocabulary, IDs, records, and repository
   traits.
-- `taru-db` owns schema, migrations, and repository adapters.
-- `taru-metadata` owns built-in provider adapters and provider payload mapping.
-- `taru-nfo` owns local NFO parsing/export behavior and round-trip policy.
-- `taru-vfs` owns backend write/link capability reporting consumed by
+- `nako-db` owns schema, migrations, and repository adapters.
+- `nako-metadata` owns built-in provider adapters and provider payload mapping.
+- `nako-nfo` owns local NFO parsing/export behavior and round-trip policy.
+- `nako-vfs` owns backend write/link capability reporting consumed by
   **Library File Write** workflows.
-- `taru-catalog` owns graph hydration and search projection updates.
-- `taru-server::app` owns orchestration and policy composition.
-- `taru-api` owns explicit client-facing DTOs.
+- `nako-catalog` owns graph hydration and search projection updates.
+- `nako-server::app` owns orchestration and policy composition.
+- `nako-api` owns explicit client-facing DTOs.
 - Client browse routes expose named **Browse Facets** and **Sort Keys** only
   after they are intentionally supported.
 

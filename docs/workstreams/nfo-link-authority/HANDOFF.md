@@ -24,7 +24,7 @@ now explains import/export decisions without writing sidecars.
 
 ## Decisions
 
-- Link behavior belongs in VFS/storage, not in `taru-nfo`.
+- Link behavior belongs in VFS/storage, not in `nako-nfo`.
 - Link dry-run must not create targets or modify existing files.
 - Hard/soft link apply is deliberately deferred until apply/rollback/audit
   semantics are designed.

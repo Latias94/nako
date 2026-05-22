@@ -43,7 +43,7 @@ Ownership after ACAD-030:
 - `BrowseSession` remains the deterministic state machine and async action
   entry point.
 - `BrowseRouteLoadingSession` owns route-family loading and treats
-  `TaruRoute.Player` as a transient non-load intent.
+  `NakoRoute.Player` as a transient non-load intent.
 - `BrowseRouteStatePolicy` continues to own stale-response invalidation and
   route-family state clearing.
 
@@ -71,12 +71,12 @@ Ownership after ACAD-040:
 ### ACAD-050 — UI Design-System And Screen Modularization
 
 Removed the browse-package pass-through layer for generic design-system
-primitives. Cross-screen callers now import `TaruScreenColumn`,
-`TaruSectionHeader`, `TaruSurfaceCard`, `TaruStatusChip`, `TaruStatusPill`,
-`TaruIconBadge`, `TaruArtworkBackdrop`, and `TaruPressableScale` directly from
-`dev.taru.android.ui.components`.
+primitives. Cross-screen callers now import `NakoScreenColumn`,
+`NakoSectionHeader`, `NakoSurfaceCard`, `NakoStatusChip`, `NakoStatusPill`,
+`NakoIconBadge`, `NakoArtworkBackdrop`, and `NakoPressableScale` directly from
+`dev.nako.android.ui.components`.
 
-`BrowseComponents` now focuses on Taru media/browse presentation: page titles,
+`BrowseComponents` now focuses on Nako media/browse presentation: page titles,
 state cards, library cards, media rows, relationship cards, and browse copy.
 It no longer re-exports generic design-system components under browse-owned
 names.
@@ -147,9 +147,9 @@ Changes after ACAD-070:
 - Added `androidx.lifecycle:lifecycle-runtime-compose`.
 - Replaced Compose `collectAsState()` calls with
   `collectAsStateWithLifecycle()` in:
-  - `TaruAndroidApp.kt`
-  - `TaruBrowseShell.kt`
-  - `TaruConnectionShell.kt`
+  - `NakoAndroidApp.kt`
+  - `NakoBrowseShell.kt`
+  - `NakoConnectionShell.kt`
   - `PlaybackPlayerRoute.kt`
 - Verified Android JVM tests and debug assemble through
   `Validate-AndroidLocal.ps1 -SkipSmoke`.
@@ -229,7 +229,7 @@ apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon --no
 Passed on 2026-05-22:
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:assembleDebug -PtaruRustAndroidAbis=x86_64 --no-daemon --no-parallel --console=plain
+apps\android\gradlew.bat -p apps\android :app:assembleDebug -PnakoRustAndroidAbis=x86_64 --no-daemon --no-parallel --console=plain
 ```
 
 Passed on 2026-05-22:

@@ -16,7 +16,7 @@ Completed:
   `NfoImportPersistenceCommit` and `MetadataRepository::commit_nfo_import`.
   The SQLite adapter now commits Media Item, Metadata Field Lock, Library Item
   State, Catalog Item Graph, and Search Projection changes in one transaction.
-  `taru-nfo` now plans an import commit, including hierarchy confirmation
+  `nako-nfo` now plans an import commit, including hierarchy confirmation
   state, and removed the production calls to `upsert_media_item`,
   `upsert_field_lock`, `HierarchyConfirmationService::confirm_hierarchy`, and
   `hydrate_item_catalog`.
@@ -25,7 +25,7 @@ Completed:
   `ScanRepository::commit_library_scan_source`. The SQLite adapter now commits
   Media Item, Media Source, Source State, Library Item State, Local Inference
   Evidence, Search Projection, and scan failure resolution in one transaction.
-  `taru-library` now plans provisional series/season parents without early
+  `nako-library` now plans provisional series/season parents without early
   writes and no longer calls separate source/evidence/search/failure-resolution
   writes for discovered media sources.
 - CAD-040 narrowed the NFO import and Library indexing app-service seams with
@@ -40,7 +40,7 @@ Completed:
   include a profile storage slug so different profiles do not share one output
   directory. HLS identity includes the selected hardware acceleration, and tests
   prove a CPU fallback HLS output is not reused by a later NVENC profile.
-- CAD-060 deepened hardware acceleration diagnostics. `taru-transcode` now
+- CAD-060 deepened hardware acceleration diagnostics. `nako-transcode` now
   records safe `HardwareCapabilityEvidence` values for CPU, FFmpeg
   encoder-listed, encoder-missing, probe-error, and static-detector reports.
   Hardware capabilities also include `HardwareSmokeProbe` state with
@@ -56,12 +56,12 @@ Completed:
   workstreams now explicitly require NFO-derived metadata apply to reuse
   `commit_nfo_import`, discoverable source/state/search changes to reuse
   `commit_library_scan_source` or a new first-party commit unit, and artwork
-  multi-row persistence to use or introduce a Taru-owned artwork/catalog commit
+  multi-row persistence to use or introduce a Nako-owned artwork/catalog commit
   boundary.
 - CAD-080 removed stale test anchors and checked for old/new production path
   duplication. DB transcode-session tests and the client mock session no longer
   use obsolete `hls:single` or `remux:<container>` request-key examples. The
-  fakeable hardware smoke-probe hook is now covered by a `taru-transcode` test.
+  fakeable hardware smoke-probe hook is now covered by a `nako-transcode` test.
   Scans did not find remaining production use of the replaced NFO import or
   discovered-source caller-side write ordering.
 
@@ -79,62 +79,62 @@ Current task:
 
 CAD-020 evidence:
 
-- `cargo check -p taru-core --tests`: passed.
-- `cargo check -p taru-db --tests`: passed.
-- `cargo check -p taru-catalog --tests`: passed.
-- `cargo check -p taru-nfo --tests`: passed.
-- `cargo nextest run -p taru-nfo --no-fail-fast`: passed, 20 tests.
-- `cargo nextest run -p taru-db nfo --no-fail-fast`: passed, 2 tests.
+- `cargo check -p nako-core --tests`: passed.
+- `cargo check -p nako-db --tests`: passed.
+- `cargo check -p nako-catalog --tests`: passed.
+- `cargo check -p nako-nfo --tests`: passed.
+- `cargo nextest run -p nako-nfo --no-fail-fast`: passed, 20 tests.
+- `cargo nextest run -p nako-db nfo --no-fail-fast`: passed, 2 tests.
 - `cargo fmt --all -- --check`: passed.
 - `git diff --check`: passed with CRLF-normalization warnings only.
 
 CAD-030 evidence:
 
-- `cargo check -p taru-core --tests`: passed.
-- `cargo check -p taru-db --tests`: passed.
-- `cargo check -p taru-library --tests`: passed.
-- `cargo check -p taru-catalog --tests`: passed.
-- `cargo check -p taru-nfo --tests`: passed.
-- `cargo nextest run -p taru-library --no-fail-fast`: passed, 15 tests.
-- `cargo nextest run -p taru-db scan --no-fail-fast`: passed, 4 tests.
+- `cargo check -p nako-core --tests`: passed.
+- `cargo check -p nako-db --tests`: passed.
+- `cargo check -p nako-library --tests`: passed.
+- `cargo check -p nako-catalog --tests`: passed.
+- `cargo check -p nako-nfo --tests`: passed.
+- `cargo nextest run -p nako-library --no-fail-fast`: passed, 15 tests.
+- `cargo nextest run -p nako-db scan --no-fail-fast`: passed, 4 tests.
 - `cargo fmt --all -- --check`: passed.
 - `git diff --check`: passed with CRLF-normalization warnings only.
 
 CAD-040 evidence:
 
-- `cargo check -p taru-server --tests`: passed.
-- `cargo nextest run -p taru-server app --no-fail-fast`: passed, 76 tests.
-- `cargo nextest run -p taru-nfo --no-fail-fast`: passed, 20 tests.
-- `cargo nextest run -p taru-library --no-fail-fast`: passed, 15 tests.
-- `cargo nextest run -p taru-db nfo --no-fail-fast`: passed, 2 tests.
-- `cargo nextest run -p taru-db scan --no-fail-fast`: passed, 4 tests.
+- `cargo check -p nako-server --tests`: passed.
+- `cargo nextest run -p nako-server app --no-fail-fast`: passed, 76 tests.
+- `cargo nextest run -p nako-nfo --no-fail-fast`: passed, 20 tests.
+- `cargo nextest run -p nako-library --no-fail-fast`: passed, 15 tests.
+- `cargo nextest run -p nako-db nfo --no-fail-fast`: passed, 2 tests.
+- `cargo nextest run -p nako-db scan --no-fail-fast`: passed, 4 tests.
 - `cargo fmt --all -- --check`: passed.
 - `git diff --check`: passed with CRLF-normalization warnings only.
 
 CAD-050 evidence:
 
-- `cargo check -p taru-streaming --tests`: passed.
-- `cargo check -p taru-transcode --tests`: passed.
-- `cargo check -p taru-api --tests`: passed.
-- `cargo check -p taru-server --tests`: passed.
-- `cargo nextest run -p taru-streaming --no-fail-fast`: passed, 9 tests.
-- `cargo nextest run -p taru-transcode --no-fail-fast`: passed, 22 tests.
-- `cargo nextest run -p taru-api --no-fail-fast`: passed, 21 tests.
-- `cargo nextest run -p taru-server playback --no-fail-fast`: passed, 36
+- `cargo check -p nako-streaming --tests`: passed.
+- `cargo check -p nako-transcode --tests`: passed.
+- `cargo check -p nako-api --tests`: passed.
+- `cargo check -p nako-server --tests`: passed.
+- `cargo nextest run -p nako-streaming --no-fail-fast`: passed, 9 tests.
+- `cargo nextest run -p nako-transcode --no-fail-fast`: passed, 22 tests.
+- `cargo nextest run -p nako-api --no-fail-fast`: passed, 21 tests.
+- `cargo nextest run -p nako-server playback --no-fail-fast`: passed, 36
   tests.
 - `cargo fmt --all -- --check`: passed.
 - `git diff --check`: passed with CRLF-normalization warnings only.
 
 CAD-060 evidence:
 
-- `cargo check -p taru-transcode --tests`: passed.
-- `cargo check -p taru-api --tests`: passed.
-- `cargo check -p taru-server --tests`: passed.
-- `cargo nextest run -p taru-transcode --no-fail-fast`: passed, 23 tests.
-- `cargo nextest run -p taru-api admin_playback_runtime_diagnostics --no-fail-fast`:
+- `cargo check -p nako-transcode --tests`: passed.
+- `cargo check -p nako-api --tests`: passed.
+- `cargo check -p nako-server --tests`: passed.
+- `cargo nextest run -p nako-transcode --no-fail-fast`: passed, 23 tests.
+- `cargo nextest run -p nako-api admin_playback_runtime_diagnostics --no-fail-fast`:
   passed, 1 test.
-- `cargo nextest run -p taru-api --no-fail-fast`: passed, 21 tests.
-- `cargo nextest run -p taru-server admin_v1_playback_runtime_reports_safe_diagnostics --no-fail-fast`:
+- `cargo nextest run -p nako-api --no-fail-fast`: passed, 21 tests.
+- `cargo nextest run -p nako-server admin_v1_playback_runtime_reports_safe_diagnostics --no-fail-fast`:
   passed, 1 test.
 - `cargo fmt --all -- --check`: passed.
 - `git diff --check`: passed with CRLF-normalization warnings only.
@@ -149,12 +149,12 @@ CAD-070 evidence:
 
 CAD-080 evidence:
 
-- `cargo check -p taru-transcode --tests`: passed.
-- `cargo check -p taru-db --tests`: passed.
-- `cargo check -p taru-client --tests`: passed.
-- `cargo nextest run -p taru-transcode --no-fail-fast`: passed, 24 tests.
-- `cargo nextest run -p taru-db transcode --no-fail-fast`: passed, 3 tests.
-- `cargo nextest run -p taru-client playback_decision_query_and_session_cancel_paths_are_stable --no-fail-fast`:
+- `cargo check -p nako-transcode --tests`: passed.
+- `cargo check -p nako-db --tests`: passed.
+- `cargo check -p nako-client --tests`: passed.
+- `cargo nextest run -p nako-transcode --no-fail-fast`: passed, 24 tests.
+- `cargo nextest run -p nako-db transcode --no-fail-fast`: passed, 3 tests.
+- `cargo nextest run -p nako-client playback_decision_query_and_session_cancel_paths_are_stable --no-fail-fast`:
   passed, 1 test.
 - `cargo fmt --all -- --check`: passed.
 - `git diff --check`: passed with CRLF-normalization warnings only.

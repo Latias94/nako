@@ -14,12 +14,12 @@
     "addon-architecture-deepening"
   ],
   "primary_crates": [
-    "taru-addon-protocol",
-    "taru-addon-client",
-    "taru-api",
-    "taru-core",
-    "taru-db",
-    "taru-server"
+    "nako-addon-protocol",
+    "nako-addon-client",
+    "nako-api",
+    "nako-core",
+    "nako-db",
+    "nako-server"
   ],
-  "validation_summary": "Closed with focused Addon protocol/client/API/server/DB gates, cargo check --workspace --tests, cargo nextest run --workspace --no-fail-fast, formatting, and diff checks. PostgreSQL opt-in contracts were skipped because TARU_TEST_POSTGRES_URL was not set."
+  "validation_summary": "Closed with focused Addon protocol/client/API/server/DB gates, cargo check --workspace --tests, cargo nextest run --workspace --no-fail-fast, formatting, and diff checks. PostgreSQL opt-in contracts were skipped because NAKO_TEST_POSTGRES_URL was not set."
 }

@@ -36,12 +36,12 @@
   "gates": [
     "Get-Content docs\\workstreams\\durable-job-ownership-leases\\WORKSTREAM.json | ConvertFrom-Json",
     "git diff --check",
-    "cargo check -p taru-core --tests",
-    "cargo nextest run -p taru-db job_lease --no-fail-fast",
-    "cargo nextest run -p taru-db job_cancel --no-fail-fast",
-    "cargo nextest run -p taru-server job_runtime --no-fail-fast",
-    "cargo nextest run -p taru-server startup --no-fail-fast",
-    "cargo nextest run -p taru-server job_cancel --no-fail-fast",
+    "cargo check -p nako-core --tests",
+    "cargo nextest run -p nako-db job_lease --no-fail-fast",
+    "cargo nextest run -p nako-db job_cancel --no-fail-fast",
+    "cargo nextest run -p nako-server job_runtime --no-fail-fast",
+    "cargo nextest run -p nako-server startup --no-fail-fast",
+    "cargo nextest run -p nako-server job_cancel --no-fail-fast",
     "cargo fmt --all -- --check"
   ],
   "evidence": [

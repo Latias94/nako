@@ -25,7 +25,7 @@ failing and keeps known values ergonomic.
 
 Exit criteria:
 
-- `taru-api` generator emits the chosen tolerant representation.
+- `nako-api` generator emits the chosen tolerant representation.
 - Checked-in `sdk/kotlin` output is regenerated.
 - Kotlin SDK tests cover known and unknown values.
 - Generator sync and Kotlin package tests pass.

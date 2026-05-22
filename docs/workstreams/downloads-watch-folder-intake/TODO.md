@@ -17,11 +17,11 @@ Task IDs use the `DWI` prefix.
 
 ## M1 — Durable Intake Candidate Domain
 
-- [x] DWI-020 [owner=codex] [deps=DWI-010] [scope=crates/taru-core,crates/taru-db]
+- [x] DWI-020 [owner=codex] [deps=DWI-010] [scope=crates/nako-core,crates/nako-db]
   Goal: Add acquisition intake candidate IDs, source kinds, states, repository
   traits, SQLite/PostgreSQL migrations, and backend-neutral contract tests for
   idempotent watch-folder/operator candidates.
-  Validation: `cargo nextest run -p taru-db acquisition_intake --no-fail-fast`;
+  Validation: `cargo nextest run -p nako-db acquisition_intake --no-fail-fast`;
   `cargo fmt --all -- --check`; `git diff --check`.
   Review: `review-workstream` must check that this does not create Media
   Sources, mutate library files, or duplicate Managed Import artifact semantics.
@@ -31,11 +31,11 @@ Task IDs use the `DWI` prefix.
 
 ## M2 — App Service Intake And Managed Import Handoff
 
-- [x] DWI-030 [owner=codex] [deps=DWI-020] [scope=crates/taru-server/src/app,crates/taru-server/src/app/tests]
+- [x] DWI-030 [owner=codex] [deps=DWI-020] [scope=crates/nako-server/src/app,crates/nako-server/src/app/tests]
   Goal: Add app-service methods to record/list redacted intake candidates and
   accept a candidate into an existing or new Managed Import artifact without
   promotion apply or library file mutation.
-  Validation: `cargo nextest run -p taru-server acquisition_intake --no-fail-fast`;
+  Validation: `cargo nextest run -p nako-server acquisition_intake --no-fail-fast`;
   focused Managed Import regression tests if shared paths change.
   Review: `review-workstream` must check idempotency, redaction, Managed Import
   handoff semantics, and no direct Media Source creation.
@@ -45,12 +45,12 @@ Task IDs use the `DWI` prefix.
 
 ## M3 — Watch-Folder Discovery
 
-- [x] DWI-040 [owner=codex] [deps=DWI-030] [scope=crates/taru-server/src/app,crates/taru-vfs]
+- [x] DWI-040 [owner=codex] [deps=DWI-030] [scope=crates/nako-server/src/app,crates/nako-vfs]
   Goal: Discover watch-folder candidates through storage/VFS list/stat
   primitives, classify ready/incomplete/unsupported candidates, and write
   idempotent intake records without trusting raw host paths.
-  Validation: `cargo nextest run -p taru-server acquisition_intake --no-fail-fast`;
-  `cargo nextest run -p taru-vfs --no-fail-fast` only if VFS behavior changes.
+  Validation: `cargo nextest run -p nako-server acquisition_intake --no-fail-fast`;
+  `cargo nextest run -p nako-vfs --no-fail-fast` only if VFS behavior changes.
   Review: `review-workstream` must check storage boundary ownership, path
   normalization/redaction, scan idempotency, and bounded listing behavior.
   Evidence: watch-folder discovery tests with local storage fixtures, incomplete
@@ -59,13 +59,13 @@ Task IDs use the `DWI` prefix.
 
 ## M4 — Admin Intake Diagnostics
 
-- [x] DWI-050 [owner=codex] [deps=DWI-040] [scope=crates/taru-api/src/admin.rs,crates/taru-api/src/admin_contract.rs,crates/taru-server/src/http/admin.rs,crates/taru-server/src/http/tests,apps/admin-web/src/adminApi]
+- [x] DWI-050 [owner=codex] [deps=DWI-040] [scope=crates/nako-api/src/admin.rs,crates/nako-api/src/admin_contract.rs,crates/nako-server/src/http/admin.rs,crates/nako-server/src/http/tests,apps/admin-web/src/adminApi]
   Goal: Expose Admin-only intake candidate diagnostics and typed Admin web
   contract/client support without changing Public Client API or
-  `taru-client-protocol`.
-  Validation: `cargo nextest run -p taru-api admin_contract --no-fail-fast`;
-  `cargo nextest run -p taru-server http::tests::system --no-fail-fast`;
-  `npm run check` from `apps/admin-web`; `git diff --name-only -- crates/taru-client-protocol`.
+  `nako-client-protocol`.
+  Validation: `cargo nextest run -p nako-api admin_contract --no-fail-fast`;
+  `cargo nextest run -p nako-server http::tests::system --no-fail-fast`;
+  `npm run check` from `apps/admin-web`; `git diff --name-only -- crates/nako-client-protocol`.
   Review: `review-workstream` must check Admin API ownership and redaction of
   raw paths, credentials, secret query strings, and downloader internals.
   Evidence: Admin DTO/contract, route tests, admin-web contract sync, and public
@@ -81,7 +81,7 @@ Task IDs use the `DWI` prefix.
   downloader integrations in the post-RPD umbrella.
   Validation: `verify-rust-workstream` records fresh final evidence; workstream
   JSON and parent umbrella JSON validate with `python -m json.tool`; `git diff
-  --check`; `git diff --name-only -- crates/taru-client-protocol`.
+  --check`; `git diff --name-only -- crates/nako-client-protocol`.
   Review: `review-workstream` must have no blocking findings.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, and parent umbrella
   re-score notes.

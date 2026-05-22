@@ -1,6 +1,6 @@
 # Refactoring Policy
 
-Taru should be refactored early and deliberately while the server architecture
+Nako should be refactored early and deliberately while the server architecture
 is still cheap to reshape. The goal is not churn; the goal is to keep module
 boundaries honest before storage, metadata, playback, transcode, search, and
 addons become harder to separate.
@@ -17,7 +17,7 @@ addons become harder to separate.
 
 ## Crate Boundary Rules
 
-`taru-core`:
+`nako-core`:
 
 - owns shared domain IDs, common errors, and cross-crate domain primitives;
 - must not depend on infrastructure crates;
@@ -25,28 +25,28 @@ addons become harder to separate.
 
 Infrastructure and adapters:
 
-- `taru-db` owns SQLite schema, migrations, repositories, and transaction
+- `nako-db` owns SQLite schema, migrations, repositories, and transaction
   boundaries.
-- `taru-vfs` owns storage backend contracts and local/remote file access.
-- `taru-search` owns search adapter contracts and fallback implementations.
-- `taru-media-probe` owns probe execution and normalized probe output.
-- `taru-transcode` owns FFmpeg command planning, process running, session
+- `nako-vfs` owns storage backend contracts and local/remote file access.
+- `nako-search` owns search adapter contracts and fallback implementations.
+- `nako-media-probe` owns probe execution and normalized probe output.
+- `nako-transcode` owns FFmpeg command planning, process running, session
   lifecycle primitives, and hardware policy.
 
 Domain services:
 
-- `taru-library`, `taru-catalog`, `taru-metadata`, `taru-nfo`,
-  `taru-streaming`, `taru-events`, `taru-automation`, and
-  `taru-addon-protocol` own domain-specific orchestration and contracts.
+- `nako-library`, `nako-catalog`, `nako-metadata`, `nako-nfo`,
+  `nako-streaming`, `nako-events`, `nako-automation`, and
+  `nako-addon-protocol` own domain-specific orchestration and contracts.
 - Domain crates can depend on lower-level infrastructure only when the boundary
   is already explicit and tested.
 
 Composition:
 
-- `taru-server` owns binary bootstrap, runtime configuration, dependency
+- `nako-server` owns binary bootstrap, runtime configuration, dependency
   assembly, HTTP handler wiring, and application services that coordinate
   multiple domain crates.
-- `taru-api` owns HTTP DTOs and response envelopes. It should not contain
+- `nako-api` owns HTTP DTOs and response envelopes. It should not contain
   process orchestration or database transactions.
 
 ## Dependency Direction
@@ -54,21 +54,21 @@ Composition:
 Default direction:
 
 ```text
-taru-server
-  -> taru-api
+nako-server
+  -> nako-api
   -> domain service crates
   -> infrastructure adapter crates
-  -> taru-core
+  -> nako-core
 ```
 
 Allowed shortcuts must be intentional. For example, a domain crate may use a
-repository from `taru-db` while the project is still a modular monolith, but
+repository from `nako-db` while the project is still a modular monolith, but
 the repository trait or service boundary must remain visible enough that it can
 be inverted later.
 
 Avoid:
 
-- `taru-core` depending on feature crates;
+- `nako-core` depending on feature crates;
 - HTTP handlers calling FFmpeg or SQLite directly;
 - metadata providers mutating catalog/search state without a service boundary;
 - VFS users falling back to raw `std::fs` paths except inside local backend

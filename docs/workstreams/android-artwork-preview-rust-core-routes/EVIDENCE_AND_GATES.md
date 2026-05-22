@@ -8,8 +8,8 @@ Last updated: 2026-05-22
 ### Rust Core Gate
 
 ```powershell
-cargo fmt --package taru-client-core --check
-cargo nextest run -p taru-client-core --no-fail-fast
+cargo fmt --package nako-client-core --check
+cargo nextest run -p nako-client-core --no-fail-fast
 ```
 
 Proves selected artwork image route construction is encoded, authenticated, and
@@ -18,8 +18,8 @@ redaction-safe in Rust core.
 ### UniFFI Boundary Gate
 
 ```powershell
-cargo fmt --package taru-client-uniffi --check
-cargo nextest run -p taru-client-uniffi --no-fail-fast
+cargo fmt --package nako-client-uniffi --check
+cargo nextest run -p nako-client-uniffi --no-fail-fast
 ./scripts/guard-uniffi-boundary.ps1
 ```
 
@@ -28,7 +28,7 @@ Proves the binding surface remains thin and dependency-safe.
 ### Android Artwork Gate
 
 ```powershell
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.artwork.PublicArtworkTest --tests dev.taru.android.ui.artwork.ArtworkRequestResolverTest --no-daemon --rerun-tasks
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.artwork.PublicArtworkTest --tests dev.nako.android.ui.artwork.ArtworkRequestResolverTest --no-daemon --rerun-tasks
 ```
 
 Proves selected artwork request construction, active profile/token behavior,
@@ -46,7 +46,7 @@ integration compile.
 ### Android Runtime Route Owner Scan
 
 ```powershell
-if (rg -n "TaruPublicClientRequests|TaruRequestDescriptor|PublicApiRequestDescriptors|urlOn\(" apps/android/app/src/main/java) { exit 1 } else { 'PASS: Android main has no generated SDK route descriptor use.' }
+if (rg -n "NakoPublicClientRequests|NakoRequestDescriptor|PublicApiRequestDescriptors|urlOn\(" apps/android/app/src/main/java) { exit 1 } else { 'PASS: Android main has no generated SDK route descriptor use.' }
 ```
 
 Proves Android `src/main` no longer uses generated SDK route descriptors as
@@ -55,7 +55,7 @@ runtime or preview route policy.
 ### Preview Fixture Scan
 
 ```powershell
-if (rg -n "TaruPublicClientRequests|PageQuery|pathAndQuery" apps/android/app/src/main/java/dev/taru/android/ui/browse/TaruBrowseShellPreview.kt) { exit 1 } else { 'PASS: browse preview has no generated SDK route matching.' }
+if (rg -n "NakoPublicClientRequests|PageQuery|pathAndQuery" apps/android/app/src/main/java/dev/nako/android/ui/browse/NakoBrowseShellPreview.kt) { exit 1 } else { 'PASS: browse preview has no generated SDK route matching.' }
 ```
 
 Proves the Compose preview fake transport does not teach generated SDK route
@@ -70,12 +70,12 @@ git diff --check
 
 ## Evidence Anchors
 
-- `crates/taru-client-core/src/artwork.rs`
-- `crates/taru-client-uniffi/src/lib.rs`
-- `apps/android/app/src/main/java/dev/taru/android/artwork/PublicArtwork.kt`
-- `apps/android/app/src/main/java/dev/taru/android/ui/browse/TaruBrowseShellPreview.kt`
-- `apps/android/app/src/test/java/dev/taru/android/artwork/PublicArtworkTest.kt`
-- `apps/android/app/src/test/java/dev/taru/android/ui/artwork/ArtworkRequestResolverTest.kt`
+- `crates/nako-client-core/src/artwork.rs`
+- `crates/nako-client-uniffi/src/lib.rs`
+- `apps/android/app/src/main/java/dev/nako/android/artwork/PublicArtwork.kt`
+- `apps/android/app/src/main/java/dev/nako/android/ui/browse/NakoBrowseShellPreview.kt`
+- `apps/android/app/src/test/java/dev/nako/android/artwork/PublicArtworkTest.kt`
+- `apps/android/app/src/test/java/dev/nako/android/ui/artwork/ArtworkRequestResolverTest.kt`
 
 ## Evidence Log
 
@@ -88,21 +88,21 @@ git diff --check
 
 ### 2026-05-22 — APR-020 Rust core and UniFFI artwork request builder
 
-- Added `taru-client-core` selected artwork image request construction for
+- Added `nako-client-core` selected artwork image request construction for
   `GET /images/{image_id}` with optional `width` and `height` query parameters.
 - Added thin UniFFI binding over the core builder.
 - Fresh gates:
 
 ```powershell
-cargo fmt --package taru-client-core --check
-cargo nextest run -p taru-client-core --no-fail-fast
-cargo fmt --package taru-client-uniffi --check
-cargo nextest run -p taru-client-uniffi --no-fail-fast
+cargo fmt --package nako-client-core --check
+cargo nextest run -p nako-client-core --no-fail-fast
+cargo fmt --package nako-client-uniffi --check
+cargo nextest run -p nako-client-uniffi --no-fail-fast
 ./scripts/guard-uniffi-boundary.ps1
 ```
 
 Result: passed. Core ran 18 tests; UniFFI ran 6 tests. The boundary guard
-reported only `taru-client-core` and `uniffi` as direct dependencies and no
+reported only `nako-client-core` and `uniffi` as direct dependencies and no
 forbidden runtime/platform dependency.
 
 ### 2026-05-22 — APR-030 Android runtime artwork migration
@@ -117,7 +117,7 @@ forbidden runtime/platform dependency.
 - Fresh gate:
 
 ```powershell
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.artwork.PublicArtworkTest --tests dev.taru.android.ui.artwork.ArtworkRequestResolverTest --no-daemon --rerun-tasks
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.artwork.PublicArtworkTest --tests dev.nako.android.ui.artwork.ArtworkRequestResolverTest --no-daemon --rerun-tasks
 ```
 
 Result: passed. The gate also regenerated current UniFFI Kotlin bindings and
@@ -125,15 +125,15 @@ compiled the Android debug/test sources.
 
 ### 2026-05-22 — APR-040 preview fixture route cleanup
 
-- Replaced `TaruBrowseShellPreview` generated SDK route matching with local
+- Replaced `NakoBrowseShellPreview` generated SDK route matching with local
   preview fixture route helpers.
 - Deleted now-dead `PublicApiRequestDescriptors.kt`.
 - Fresh gates:
 
 ```powershell
 apps/android/gradlew.bat -p apps/android :app:compileDebugKotlin --no-daemon
-if (rg -n "TaruPublicClientRequests|TaruRequestDescriptor|PublicApiRequestDescriptors|urlOn\\(" apps/android/app/src/main/java) { exit 1 } else { 'PASS: Android main has no generated SDK route descriptor use.' }
-if (rg -n "TaruPublicClientRequests|PageQuery|pathAndQuery" apps/android/app/src/main/java/dev/taru/android/ui/browse/TaruBrowseShellPreview.kt) { exit 1 } else { 'PASS: browse preview has no generated SDK route matching.' }
+if (rg -n "NakoPublicClientRequests|NakoRequestDescriptor|PublicApiRequestDescriptors|urlOn\\(" apps/android/app/src/main/java) { exit 1 } else { 'PASS: Android main has no generated SDK route descriptor use.' }
+if (rg -n "NakoPublicClientRequests|PageQuery|pathAndQuery" apps/android/app/src/main/java/dev/nako/android/ui/browse/NakoBrowseShellPreview.kt) { exit 1 } else { 'PASS: browse preview has no generated SDK route matching.' }
 ```
 
 Result: passed after tightening the preview helper parameter name so the scan no
@@ -148,15 +148,15 @@ longer finds the old `pathAndQuery` concept in preview code.
 - Fresh gates:
 
 ```powershell
-cargo fmt --package taru-client-core --check
-cargo nextest run -p taru-client-core --no-fail-fast
-cargo fmt --package taru-client-uniffi --check
-cargo nextest run -p taru-client-uniffi --no-fail-fast
+cargo fmt --package nako-client-core --check
+cargo nextest run -p nako-client-core --no-fail-fast
+cargo fmt --package nako-client-uniffi --check
+cargo nextest run -p nako-client-uniffi --no-fail-fast
 ./scripts/guard-uniffi-boundary.ps1
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.artwork.PublicArtworkTest --tests dev.taru.android.ui.artwork.ArtworkRequestResolverTest --no-daemon --rerun-tasks
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.artwork.PublicArtworkTest --tests dev.nako.android.ui.artwork.ArtworkRequestResolverTest --no-daemon --rerun-tasks
 apps/android/gradlew.bat -p apps/android :app:compileDebugKotlin --no-daemon
-if (rg -n "TaruPublicClientRequests|TaruRequestDescriptor|PublicApiRequestDescriptors|urlOn\\(" apps/android/app/src/main/java) { exit 1 } else { 'PASS: Android main has no generated SDK route descriptor use.' }
-if (rg -n "TaruPublicClientRequests|PageQuery|pathAndQuery" apps/android/app/src/main/java/dev/taru/android/ui/browse/TaruBrowseShellPreview.kt) { exit 1 } else { 'PASS: browse preview has no generated SDK route matching.' }
+if (rg -n "NakoPublicClientRequests|NakoRequestDescriptor|PublicApiRequestDescriptors|urlOn\\(" apps/android/app/src/main/java) { exit 1 } else { 'PASS: Android main has no generated SDK route descriptor use.' }
+if (rg -n "NakoPublicClientRequests|PageQuery|pathAndQuery" apps/android/app/src/main/java/dev/nako/android/ui/browse/NakoBrowseShellPreview.kt) { exit 1 } else { 'PASS: browse preview has no generated SDK route matching.' }
 python -m json.tool docs/workstreams/android-artwork-preview-rust-core-routes/WORKSTREAM.json > $null
 git diff --check
 ```

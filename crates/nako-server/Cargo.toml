@@ -1,0 +1,48 @@
+[package]
+name = "nako-server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+async-trait.workspace = true
+axum.workspace = true
+clap.workspace = true
+futures-util.workspace = true
+image.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+nako-addon-client = { path = "../nako-addon-client" }
+nako-addon-protocol = { path = "../nako-addon-protocol" }
+nako-api = { path = "../nako-api" }
+nako-catalog = { path = "../nako-catalog" }
+nako-db = { path = "../nako-db" }
+nako-core = { path = "../nako-core" }
+nako-automation = { path = "../nako-automation" }
+nako-library = { path = "../nako-library" }
+nako-media-probe = { path = "../nako-media-probe" }
+nako-metadata = { path = "../nako-metadata" }
+nako-events = { path = "../nako-events" }
+nako-nfo = { path = "../nako-nfo" }
+nako-search = { path = "../nako-search" }
+nako-streaming = { path = "../nako-streaming" }
+nako-transcode = { path = "../nako-transcode" }
+nako-vfs = { path = "../nako-vfs" }
+time.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+toml.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+nako-reference-addon = { path = "../nako-reference-addon" }
+tempfile.workspace = true
+tower = { workspace = true, features = ["util"] }

@@ -51,8 +51,8 @@ playback lifecycle behavior without a UI or emulator.
 
 ## In Scope
 
-- `apps/android/app/src/main/java/dev/taru/android/ui/screens/player/`
-- `apps/android/app/src/main/java/dev/taru/android/player/`
+- `apps/android/app/src/main/java/dev/nako/android/ui/screens/player/`
+- `apps/android/app/src/main/java/dev/nako/android/player/`
 - focused player JVM tests
 - optional emulator smoke if runtime risk warrants it
 - workstream evidence and closeout docs

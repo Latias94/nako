@@ -7,8 +7,8 @@ Status: completed
 ## Summary
 
 Added typed playback transcode validation before session creation or FFmpeg
-execution. Validation ownership stays in `taru-transcode`; `taru-streaming`
-exposes Result-returning profile construction seams; `taru-server` now calls
+execution. Validation ownership stays in `nako-transcode`; `nako-streaming`
+exposes Result-returning profile construction seams; `nako-server` now calls
 those seams before deriving request identity, staging paths, or creating
 playback transcode sessions.
 
@@ -27,11 +27,11 @@ playback transcode sessions.
 
 ## Verification
 
-- `cargo nextest run -p taru-transcode --no-fail-fast`
-- `cargo nextest run -p taru-streaming --no-fail-fast`
-- `cargo nextest run -p taru-server playback --no-fail-fast`
-- `cargo nextest run -p taru-api admin_playback --no-fail-fast`
-- `cargo nextest run -p taru-api admin_contract --no-fail-fast`
+- `cargo nextest run -p nako-transcode --no-fail-fast`
+- `cargo nextest run -p nako-streaming --no-fail-fast`
+- `cargo nextest run -p nako-server playback --no-fail-fast`
+- `cargo nextest run -p nako-api admin_playback --no-fail-fast`
+- `cargo nextest run -p nako-api admin_contract --no-fail-fast`
 
 ## Follow-up
 

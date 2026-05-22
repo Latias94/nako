@@ -25,10 +25,10 @@ supervised worker boundary that owns repeated claim/execute/fail/succeed loops.
 
 Use a layered control-plane model:
 
-1. `taru-core` owns typed job runtime records and repository traits.
-2. `taru-db` owns atomic claim, lease heartbeat, completion, failure, cancel,
+1. `nako-core` owns typed job runtime records and repository traits.
+2. `nako-db` owns atomic claim, lease heartbeat, completion, failure, cancel,
    and recovery mutations.
-3. `taru-server::app::runtime` owns process-local worker registration,
+3. `nako-server::app::runtime` owns process-local worker registration,
    cancellation tokens, shutdown, task diagnostics, and resource permits.
 4. Feature executors stay typed. A Managed Artwork ingest executor still uses
    Managed Artwork domain records and artifact commit/failure methods.
@@ -85,7 +85,7 @@ Do not start by adding generic `jobs` table leases. The least risky vertical
 slice is:
 
 1. extract the duplicated "claim one unit, execute it, report whether work was
-   found" shape behind a small worker runner in `taru-server`;
+   found" shape behind a small worker runner in `nako-server`;
 2. keep claim/commit/fail in the Managed Artwork repository because it must
    update ingest and job state atomically;
 3. register the runner with `RuntimeSupervisor::spawn`, not bare
@@ -131,7 +131,7 @@ The first worker slice is intentionally concrete:
 - `[artwork].ingest_worker_enabled` defaults to `false`.
 - `[artwork].ingest_worker_idle_ms` controls the idle sleep when no queued
   Managed Artwork ingest is available.
-- `TaruApp` starts the worker only after startup recovery, cleanup, and
+- `NakoApp` starts the worker only after startup recovery, cleanup, and
   configured library reconciliation finish.
 - The worker is registered through `RuntimeSupervisor::spawn` as
   `managed_artwork_ingest_worker` with resource class `artwork.ingest`.

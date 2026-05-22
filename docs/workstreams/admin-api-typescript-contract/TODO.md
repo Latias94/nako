@@ -12,7 +12,7 @@ Last updated: 2026-05-20
   Evidence: this workstream and `docs/workstreams/admin-web-console`.
   Handoff: Continue with AATC-020 before editing Rust generator code.
 
-- [x] AATC-020 [owner=codex] [deps=AATC-010] [scope=crates/taru-api, apps/admin-web/src/adminApi, docs/workstreams/admin-api-typescript-contract]
+- [x] AATC-020 [owner=codex] [deps=AATC-010] [scope=crates/nako-api, apps/admin-web/src/adminApi, docs/workstreams/admin-api-typescript-contract]
   Goal: Audit current hand-written admin-web wire DTOs and choose the exact
   first artifact shape: generated interfaces only, generated route constants,
   or generated tiny client.
@@ -28,14 +28,14 @@ Last updated: 2026-05-20
 
 ## AATC.1 Generator Proof
 
-- [x] AATC-030 [owner=codex] [deps=AATC-020] [scope=crates/taru-api/src, crates/taru-api/examples, apps/admin-web/src/adminApi]
+- [x] AATC-030 [owner=codex] [deps=AATC-020] [scope=crates/nako-api/src, crates/nako-api/examples, apps/admin-web/src/adminApi]
   Goal: Implement the first generated or mechanically synchronized Admin API
   TypeScript contract for the AWC-070 read-model routes.
-  Validation: `cargo check -p taru-api --examples`, focused `taru-api`
+  Validation: `cargo check -p nako-api --examples`, focused `nako-api`
   generator tests, and generated artifact sync check.
   Review: review-workstream for public/admin boundary leakage.
-  Evidence: `crates/taru-api/src/admin_contract.rs`,
-  `crates/taru-api/examples/emit-admin-typescript-contract.rs`,
+  Evidence: `crates/nako-api/src/admin_contract.rs`,
+  `crates/nako-api/examples/emit-admin-typescript-contract.rs`,
   `apps/admin-web/src/adminApi/generated/contract.ts`, admin-web client route
   imports, and Rust sync/leakage tests.
   Handoff: AATC-040 should remove long-lived hand-written wire DTO ownership
@@ -57,25 +57,25 @@ Last updated: 2026-05-20
 
 ## AATC.2 Boundary And Closeout
 
-- [x] AATC-050 [owner=codex] [deps=AATC-040] [scope=crates/taru-api, sdk/typescript, docs/api, docs/workstreams/admin-api-typescript-contract]
+- [x] AATC-050 [owner=codex] [deps=AATC-040] [scope=crates/nako-api, sdk/typescript, docs/api, docs/workstreams/admin-api-typescript-contract]
   Goal: Add or update public/admin separation tests and docs so Public Client
   SDK generation continues to reject admin routes while admin contract covers
   only `/admin/v1/*`.
-  Validation: focused `taru-api` nextest tests, public TypeScript SDK sync
+  Validation: focused `nako-api` nextest tests, public TypeScript SDK sync
   test, admin-web gates, and `git diff --check`.
   Review: review-workstream and verify-rust-workstream before closeout.
   Evidence: EVIDENCE_AND_GATES.md.
-  Progress: Added a focused `taru-api` guard proving generated Admin API route
-  constants are absent from `taru-client-protocol` public route inventory.
+  Progress: Added a focused `nako-api` guard proving generated Admin API route
+  constants are absent from `nako-client-protocol` public route inventory.
   Documented `npm run generate:admin-api` for the app-local Admin contract and
   the Public Client SDK separation commands. Refreshed Admin API docs and
   admin-web README so `/admin/v1/*` contract generation remains distinct from
-  `sdk/typescript` and `taru-client-protocol`.
-  Validation: `cargo check -p taru-api --examples`; `cargo nextest run -p
-  taru-api admin_contract --no-fail-fast -j 2`; `cargo nextest run -p taru-api
+  `sdk/typescript` and `nako-client-protocol`.
+  Validation: `cargo check -p nako-api --examples`; `cargo nextest run -p
+  nako-api admin_contract --no-fail-fast -j 2`; `cargo nextest run -p nako-api
   typescript --no-fail-fast -j 2`; `npm run check`, `npm run test`, and `npm
   run build` in `apps/admin-web`; `npm run generate --prefix sdk/typescript`;
   `npm run check --prefix sdk/typescript`; `git diff --name-only --
-  crates/taru-client-protocol sdk/typescript`; `cargo fmt --all -- --check`;
+  crates/nako-client-protocol sdk/typescript`; `cargo fmt --all -- --check`;
   `git diff --check`.
   Handoff: Split npm packaging or deeper admin UI workflows as follow-ons.

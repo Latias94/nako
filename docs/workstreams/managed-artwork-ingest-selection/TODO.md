@@ -15,7 +15,7 @@ Last updated: 2026-05-19
 
 ## M1 - Managed Artwork Seam Audit
 
-- [x] MAIS-020 [owner=codex] [deps=MAIS-010] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-api,crates/taru-vfs,docs]
+- [x] MAIS-020 [owner=codex] [deps=MAIS-010] [scope=crates/nako-core,crates/nako-db,crates/nako-server,crates/nako-api,crates/nako-vfs,docs]
   Goal: Audit current candidate, managed artifact/cache, artwork task,
   staging, catalog image hydration, and API seams; choose the first candidate
   acceptance target.
@@ -34,11 +34,11 @@ Last updated: 2026-05-19
 
 ## M2 - First Managed Ingest Slice
 
-- [x] MAIS-030 [owner=codex] [deps=MAIS-020] [scope=crates/taru-core,crates/taru-db,crates/taru-server,crates/taru-api,crates/taru-vfs,docs/api]
-  Goal: Implement a Taru-owned queued candidate-ingest path that accepts an
+- [x] MAIS-030 [owner=codex] [deps=MAIS-020] [scope=crates/nako-core,crates/nako-db,crates/nako-server,crates/nako-api,crates/nako-vfs,docs/api]
+  Goal: Implement a Nako-owned queued candidate-ingest path that accepts an
   Addon Artwork Candidate into internal Managed Artwork state without
   publishing selected public artwork yet.
-  Validation: focused managed artwork tests; `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests`; `cargo fmt --all -- --check`; `git diff --check`.
+  Validation: focused managed artwork tests; `cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-vfs --tests`; `cargo fmt --all -- --check`; `git diff --check`.
   Review: verify durable job input/summary, admin response, addon response, and
   public responses do not expose raw candidate source URLs, Source Locators,
   filesystem paths, internal cache paths, remote storage handles, cache URIs,

@@ -1,0 +1,18 @@
+[package]
+name = "nako-addon-client"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "Apache-2.0"
+
+[lints]
+workspace = true
+
+[dependencies]
+async-trait.workspace = true
+reqwest.workspace = true
+serde_json.workspace = true
+nako-addon-protocol = { path = "../nako-addon-protocol" }
+
+[dev-dependencies]
+tokio.workspace = true

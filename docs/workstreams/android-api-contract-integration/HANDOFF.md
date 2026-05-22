@@ -40,11 +40,11 @@ For relationship index work, continue with
 ## Notes
 
 - Do not consume Admin/internal server routes from Android.
-- Keep the existing `TaruHttpTransport` seam.
-- Person Detail client support exists as `TaruBrowseClient.personDetail`.
+- Keep the existing `NakoHttpTransport` seam.
+- Person Detail client support exists as `NakoBrowseClient.personDetail`.
 - Person Detail route state reuses the existing person-items route for related
   Media Items instead of duplicating response parsing.
-- `TaruBrowseShell` no longer uses `PersonDetailUiState.toFacetState()`.
+- `NakoBrowseShell` no longer uses `PersonDetailUiState.toFacetState()`.
 - `Smoke-Emulator.ps1` now captures `person-detail` instead of `facet-person`
   for the Cast & Crew path.
 - APICI-060 split index pages instead of productizing them inside this lane.

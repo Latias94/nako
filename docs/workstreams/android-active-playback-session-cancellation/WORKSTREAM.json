@@ -13,8 +13,8 @@
   },
   "paths": [
     "docs/workstreams/android-active-playback-session-cancellation",
-    "crates/taru-server/src/app/playback",
-    "crates/taru-server/src/http/playback.rs",
+    "crates/nako-server/src/app/playback",
+    "crates/nako-server/src/http/playback.rs",
     "apps/android"
   ]
 }

@@ -2,7 +2,7 @@
 
 ## Goal
 
-Define the foundation that prevents Taru's catalog, UI, and scanner from being
+Define the foundation that prevents Nako's catalog, UI, and scanner from being
 limited by an item-only metadata model. This phase is design-only: it records
 the target model and implementation sequence for people, tags, artwork,
 search, and incremental scanning before adding more provider-specific metadata.
@@ -11,7 +11,7 @@ search, and incremental scanning before adding more provider-specific metadata.
 
 Movie-server features such as actor pages, director pages, tag filters,
 collection pages, search suggestions, poster grids, and incremental rescans all
-depend on shared catalog infrastructure. If Taru keeps these as ad hoc JSON
+depend on shared catalog infrastructure. If Nako keeps these as ad hoc JSON
 fields on `MediaItem`, future TMDB series support, Bangumi, Douban, NFO actors,
 and clients will need repeated migrations.
 
@@ -124,7 +124,7 @@ resources.
 
 ### Search Boundary
 
-Search should stay behind an internal `taru-search` trait:
+Search should stay behind an internal `nako-search` trait:
 
 - embedded implementation: SQLite FTS for the first production MVP;
 - richer embedded implementation: Tantivy when ranking/faceting needs grow;
@@ -268,13 +268,13 @@ explicit query parameters, for example `include=images,credits`.
 
 ## Implementation Sequence
 
-1. Add catalog graph domain models in `taru-core`.
+1. Add catalog graph domain models in `nako-core`.
 2. Add SQLite tables for people, credits, tags, genres, collections, studios,
    image assets, and search-index bookkeeping.
 3. Teach metadata refresh and NFO import to upsert graph records.
 4. Add image asset cache records and image proxy routes.
 5. Add thumbnail generation jobs with bounded resource classes.
-6. Add SQLite FTS search adapter behind `taru-search`.
+6. Add SQLite FTS search adapter behind `nako-search`.
 7. Add incremental scan snapshot tables and scanner summaries.
 8. Add directory metadata cache, byte-range media cache, and remote backend
    policies.

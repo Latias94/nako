@@ -12,14 +12,14 @@ values through app-owned adapters and diagnostics.
 
 ## Delivered
 
-- `taru-api` Kotlin generator now emits generated string-enum surfaces as
+- `nako-api` Kotlin generator now emits generated string-enum surfaces as
   `@JvmInline @Serializable value class` wrappers.
 - Generated wrappers expose:
   - raw `wireValue`;
   - generated known constants;
   - `KnownWireValues`;
   - `isKnown`.
-- Checked-in `sdk/kotlin` output was regenerated from `taru-api`.
+- Checked-in `sdk/kotlin` output was regenerated from `nako-api`.
 - Kotlin SDK tests prove known and unknown public wire string decode/encode
   behavior.
 - Android connection health now decodes generated `HealthResponse` and still
@@ -44,7 +44,7 @@ values through app-owned adapters and diagnostics.
 
 - Blocking: none.
 - Important: none.
-- Generated Kotlin source is synchronized from `taru-api` rather than edited by
+- Generated Kotlin source is synchronized from `nako-api` rather than edited by
   hand.
 - Unknown public wire values remain public strings only; no admin/internal, raw
   Source Locator, storage URI, local path, provider-secret, or server-domain
@@ -78,8 +78,8 @@ These remain intentionally out of scope and should stay separate:
 ## Evidence Anchors
 
 - `docs/workstreams/generated-sdk-forward-compat-tolerance/EVIDENCE_AND_GATES.md`
-- `crates/taru-api/src/sdk.rs`
-- `sdk/kotlin/src/main/kotlin/dev/taru/sdk/TaruClientSdk.kt`
-- `sdk/kotlin/src/test/kotlin/dev/taru/sdk/TaruClientSdkTest.kt`
-- `apps/android/app/src/main/java/dev/taru/android/connection/TaruConnectionClient.kt`
-- `apps/android/app/src/main/java/dev/taru/android/playback/PlaybackSdkAdapters.kt`
+- `crates/nako-api/src/sdk.rs`
+- `sdk/kotlin/src/main/kotlin/dev/nako/sdk/NakoClientSdk.kt`
+- `sdk/kotlin/src/test/kotlin/dev/nako/sdk/NakoClientSdkTest.kt`
+- `apps/android/app/src/main/java/dev/nako/android/connection/NakoConnectionClient.kt`
+- `apps/android/app/src/main/java/dev/nako/android/playback/PlaybackSdkAdapters.kt`

@@ -23,8 +23,8 @@ Workstream compliance:
 - Target state in `DESIGN.md` is satisfied by the shipped Admin runtime and
   support read models plus transcode validation/failure taxonomy.
 - PTOH-010 through PTOH-060 are marked complete with evidence.
-- Public Client API and `taru-client-protocol` stayed unchanged.
-- Admin API additions stayed in `taru-api::admin`, Admin HTTP routes, and the
+- Public Client API and `nako-client-protocol` stayed unchanged.
+- Admin API additions stayed in `nako-api::admin`, Admin HTTP routes, and the
   Admin TypeScript contract.
 
 Code quality:
@@ -41,7 +41,7 @@ After playback supportability closed, the next highest product risk is safe
 acquisition intake:
 
 - Downloads/watch-folder should open next as staged artifact intake, not as a
-  generic downloader inside core Taru.
+  generic downloader inside core Nako.
 - Network access remains a high-value sidecar because it can harden endpoint,
   reverse-proxy, and tunnel policy without touching library mutation.
 - AI and Addon runtime remain downstream consumers of generated artifacts,
@@ -55,4 +55,4 @@ acquisition intake:
   — pass.
 - `cargo fmt --all -- --check` — pass.
 - `git diff --check` — pass with repository CRLF conversion warnings only.
-- `git diff --name-only -- crates/taru-client-protocol` — no output.
+- `git diff --name-only -- crates/nako-client-protocol` — no output.

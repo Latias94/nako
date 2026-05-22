@@ -23,8 +23,8 @@ Outcome:
 Closeout evidence:
 
 - `cargo fmt --all -- --check`
-- `cargo nextest run -p taru-api admin_contract --no-fail-fast`
-- `cargo check -p taru-api -p taru-server --tests`
+- `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+- `cargo check -p nako-api -p nako-server --tests`
 - `npm run check`, `npm test`, and `npm run build` in `apps/admin-web`
 - `git diff --check`
 

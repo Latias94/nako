@@ -2,7 +2,7 @@
 
 ## Summary
 
-M20 reduces the `taru-server` test surface from two oversized integration test
+M20 reduces the `nako-server` test surface from two oversized integration test
 files into bounded-context modules. This phase intentionally avoids behavior
 changes. The goal is to make future playback, metadata, storage, addon, and
 automation work easier to review without forcing every change through one giant
@@ -10,7 +10,7 @@ test file.
 
 ## App Tests
 
-`crates/taru-server/src/app/tests.rs` was replaced by:
+`crates/nako-server/src/app/tests.rs` was replaced by:
 
 - `app/tests/mod.rs`
 - `app/tests/startup.rs`
@@ -24,7 +24,7 @@ Shared app test fixtures stay in `app/tests/mod.rs`.
 
 ## HTTP Tests
 
-`crates/taru-server/src/http/tests.rs` was replaced by:
+`crates/nako-server/src/http/tests.rs` was replaced by:
 
 - `http/tests/mod.rs`
 - `http/tests/system.rs`
@@ -42,7 +42,7 @@ Shared HTTP route fixtures stay in `http/tests/mod.rs`.
 
 - No route behavior changed.
 - No new user-facing API was added.
-- HTTP tests remain focused on explicit `taru-api` request and response DTOs.
+- HTTP tests remain focused on explicit `nako-api` request and response DTOs.
 - App tests remain focused on application service behavior and repository
   effects rather than SQLite internals.
 - The largest remaining server service files are now clearer follow-up targets:

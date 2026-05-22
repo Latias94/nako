@@ -40,7 +40,7 @@ term architecture, not the smallest patch.
 - `docs/workstreams/android-player-route-host/`
 - `docs/workstreams/android-material-expressive-ui/`
 - Local architecture review artifact generated during planning:
-  `C:\Users\Frankorz\AppData\Local\Temp\taru-android-architecture-review-20260522-091745.html`
+  `C:\Users\Frankorz\AppData\Local\Temp\nako-android-architecture-review-20260522-091745.html`
 
 ## Problem
 
@@ -93,8 +93,8 @@ When this workstream closes:
 
 ## In Scope
 
-- Android app code under `apps/android/app/src/main/java/dev/taru/android`.
-- Android unit tests under `apps/android/app/src/test/java/dev/taru/android`.
+- Android app code under `apps/android/app/src/main/java/dev/nako/android`.
+- Android unit tests under `apps/android/app/src/test/java/dev/nako/android`.
 - Focused Rust client-core / UniFFI changes only when required to support an
   Android runtime seam already endorsed by ADR 0032.
 - Workstream docs and validation evidence under this directory.
@@ -172,7 +172,7 @@ interpretation.
 Separate:
 
 - generic reusable design-system surfaces in `ui/components`;
-- Taru media-specific rows/cards/chips in a media/browse component module;
+- Nako media-specific rows/cards/chips in a media/browse component module;
 - screen-level route composition in `ui/screens` and `ui/browse`;
 - display-model builders and copy decisions outside large composable bodies when
   they are independently testable.

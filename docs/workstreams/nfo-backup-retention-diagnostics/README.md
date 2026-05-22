@@ -12,10 +12,10 @@ diagnostics without changing the public client protocol.
 The completed slice keeps responsibilities separated:
 
 - VFS/local storage owns backup naming, backup listing, and pruning mechanics.
-- `taru-nfo` owns export workflow decisions and per-item summary diagnostics.
-- `taru-api`/`taru-server` keep diagnostics admin-facing through existing job
+- `nako-nfo` owns export workflow decisions and per-item summary diagnostics.
+- `nako-api`/`nako-server` keep diagnostics admin-facing through existing job
   summary passthrough.
-- `taru-client-protocol` remains unchanged.
+- `nako-client-protocol` remains unchanged.
 
 Close-out evidence:
 

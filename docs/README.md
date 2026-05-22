@@ -1,7 +1,7 @@
-# Taru Documentation
+# Nako Documentation
 
 This directory tracks product architecture, implementation goals, engineering
-policy, and workstream-level design notes for Taru.
+policy, and workstream-level design notes for Nako.
 
 ## Current Focus
 
@@ -37,7 +37,7 @@ policy, and workstream-level design notes for Taru.
 
 - [ADR index](adr/README.md): durable architecture decisions and their status.
 - [HTTP API](api/HTTP_API.md): current server API contract.
-- [Addon author guide](guides/ADDON_AUTHOR_GUIDE.md): Taru HTTP addon manifest
+- [Addon author guide](guides/ADDON_AUTHOR_GUIDE.md): Nako HTTP addon manifest
   and resource contract.
 - [Webhook receiver guide](guides/WEBHOOK_RECEIVER_GUIDE.md): webhook
   endpoint setup, signatures, and retry inspection.

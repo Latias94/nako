@@ -62,7 +62,7 @@ attention.
   round-trip, rollback/repair, field-lock, hierarchy-confirmation, and audit
   boundaries.
 - [managed-import-staging](managed-import-staging/README.md):
-  completed post-RPD mainline lane for Taru-owned quarantine, diagnostics, and
+  completed post-RPD mainline lane for Nako-owned quarantine, diagnostics, and
   explicit non-mutating promotion planning before downloads, watch-folder
   candidates, or Addon-proposed artifacts can write into a Media Library.
 - [nfo-link-authority](nfo-link-authority/README.md):
@@ -107,7 +107,7 @@ attention.
   Addon persistence parity before broader Addon breadth hardens shallow
   Interfaces.
 - [self-hosted-release-readiness](self-hosted-release-readiness/README.md):
-  completed release hardening lane for turning Taru's completed server/runtime
+  completed release hardening lane for turning Nako's completed server/runtime
   capabilities into a repeatable self-hosted baseline with SQLite/PostgreSQL
   gates, API/SDK/redaction checks, deployment examples, backup/restore
   runbooks, and end-to-end smoke evidence.
@@ -133,7 +133,7 @@ attention.
 - [future-ready-architecture-refactor](future-ready-architecture-refactor/README.md):
   completed M61 fearless architecture refactor lane for PostgreSQL-ready
   persistence, deeper runtime/domain/search/API seams, and deletion of
-  redundant MVP paths before Taru's SQLite, metadata, Addon, AI automation,
+  redundant MVP paths before Nako's SQLite, metadata, Addon, AI automation,
   and client contracts harden.
 - [android-client-foundation](android-client-foundation/README.md): completed
   Android-first client foundation work, covering native Android implementation
@@ -192,11 +192,11 @@ attention.
   while preserving internal storage/playback locators.
 - [addon-token-grants-side-effects](addon-token-grants-side-effects/README.md):
   completed ARF-006 follow-up for Addon Token issuance, rotation,
-  Library-Scoped Addon Grants, and Taru-mediated Addon Side Effect intake before
+  Library-Scoped Addon Grants, and Nako-mediated Addon Side Effect intake before
   metadata, artwork, subtitle, or Library File Write behavior is enabled.
 - [addon-protected-writes](addon-protected-writes/README.md):
   completed follow-on split from the Addon Token Grants Side Effects closeout,
-  proving concrete Taru-owned Canonical Metadata `metadata_write` application
+  proving concrete Nako-owned Canonical Metadata `metadata_write` application
   with explicit apply outcome, Addon metadata source attribution, idempotency,
   redaction, and catalog/search refresh.
 - [addon-managed-artwork-artifacts](addon-managed-artwork-artifacts/README.md):
@@ -205,11 +205,11 @@ attention.
   source URLs as public client artwork.
 - [managed-artwork-ingest-selection](managed-artwork-ingest-selection/README.md):
   completed follow-on for accepting Artwork Candidates into internal
-  Taru-managed ingest state through a redacted Admin API command and durable
+  Nako-managed ingest state through a redacted Admin API command and durable
   `managed_artwork_ingest` job, without public artwork publication.
 - [managed-artwork-fetch-artifact-storage](managed-artwork-fetch-artifact-storage/README.md):
   completed follow-on for processing queued managed artwork ingest jobs through
-  Taru-owned fetch/content validation and internal artifact byte storage before
+  Nako-owned fetch/content validation and internal artifact byte storage before
   public image serving, thumbnails, or selected artwork publication.
 - [managed-artwork-public-serving-selection](managed-artwork-public-serving-selection/README.md):
   completed follow-on for publishing stored Managed Artwork Artifacts as Selected
@@ -268,12 +268,12 @@ attention.
   process cancellation, and per-sidecar NFO checkpoints.
 - [nfo-sidecar-cancellation-checkpoints](nfo-sidecar-cancellation-checkpoints/README.md):
   completed follow-on for adding per-sidecar cooperative cancellation to NFO
-  import/export service loops without making `taru-nfo` depend on server
+  import/export service loops without making `nako-nfo` depend on server
   runtime types or mixing retry/backoff, lease policy, or child-process
   cancellation into the NFO boundary.
 - [addon-library-file-write-policy](addon-library-file-write-policy/README.md):
   completed follow-on for the first addon-initiated Library File Write path,
-  proving MediaSource-targeted Taru-owned NFO Export through Taru target
+  proving MediaSource-targeted Nako-owned NFO Export through Nako target
   derivation, storage/VFS, backup policy, redacted write reports, and
   idempotent replay.
 - [admin-catalog-governance-read-model](admin-catalog-governance-read-model/README.md):
@@ -310,13 +310,13 @@ attention.
   VFS write modes, internal NFO export diagnostics, and separation between XML
   preservation and storage persistence mechanics.
 - [admin-web-console](admin-web-console/README.md): completed web admin console
-  baseline, covering Taru's administration-first web surface, media governance
+  baseline, covering Nako's administration-first web surface, media governance
   page families, Admin API implications, brand direction, the `apps/admin-web`
   scaffold, and the live/mock Admin API data-source boundary.
 - [admin-api-typescript-contract](admin-api-typescript-contract/README.md):
   completed follow-on for generating or mechanically synchronizing the
   `/admin/v1/*` TypeScript contract consumed by `apps/admin-web` while keeping
-  it separate from the Public Client SDK and `taru-client-protocol`.
+  it separate from the Public Client SDK and `nako-client-protocol`.
 - [nfo-round-trip-preservation](nfo-round-trip-preservation/README.md):
   completed M47 NFO Round Trip preservation work, covering preservation-aware
   movie NFO update, unknown XML field retention, conflict reporting, forced
@@ -342,7 +342,7 @@ attention.
   reports, durable job runtime supervision, and first migration of library scan
   and metadata background jobs.
 - [client-cli](client-cli/README.md): completed M37 client entrypoint work,
-  covering the Apache-2.0 Rust client CLI, `taru-client` consumption, public
+  covering the Apache-2.0 Rust client CLI, `nako-client` consumption, public
   API command scope, streaming request construction, token redaction, and
   dependency boundaries that keep AGPL server/internal crates out of clients.
 - [client-sdk-contract](client-sdk-contract/README.md): completed M36 client
@@ -350,7 +350,7 @@ attention.
   TypeScript/OpenAPI/Rust SDK inventory reuse, Apache-2.0 client boundary
   preservation, and Rust SDK streaming request builders.
 - [rust-client-sdk](rust-client-sdk/README.md): completed M35 Rust client SDK
-  foundation, covering the Apache-2.0 `taru-client` crate, protocol DTO reuse,
+  foundation, covering the Apache-2.0 `nako-client` crate, protocol DTO reuse,
   clean dependency boundary, async JSON client methods, mock transport tests,
   route inventory checks, and SDK docs.
 - [typescript-sdk-package](typescript-sdk-package/README.md): completed M34

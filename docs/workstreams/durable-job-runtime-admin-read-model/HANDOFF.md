@@ -10,13 +10,13 @@ an Admin API v1 Jobs/Tasks read model.
 
 Completed implementation:
 
-- `taru-server::app::job_runtime` owns common durable job lifecycle handling.
+- `nako-server::app::job_runtime` owns common durable job lifecycle handling.
 - Library scan, metadata refresh/maintenance, and NFO import/export now use
   that Module.
 - `JobListFilter` and SQLite list/filter support back `GET /admin/v1/jobs`.
 - `AdminJobListItem` is a redacted list DTO and does not expose raw job input,
   summary, or error payloads.
-- Public OpenAPI, TypeScript SDK, and `taru-client-protocol` stayed clean.
+- Public OpenAPI, TypeScript SDK, and `nako-client-protocol` stayed clean.
 
 ## Next Recommended Task
 
@@ -28,8 +28,8 @@ Pick one follow-on Admin API read model:
 
 ## Constraints
 
-- Keep Public Client API and `taru-client-protocol` unchanged.
-- Keep Admin API DTOs in `taru-api::admin`.
+- Keep Public Client API and `nako-client-protocol` unchanged.
+- Keep Admin API DTOs in `nako-api::admin`.
 - Keep HTTP handlers thin; app/read-model Modules should compose behavior.
 - Preserve startup recovery semantics from M41.
 - Do not scaffold frontend UI.

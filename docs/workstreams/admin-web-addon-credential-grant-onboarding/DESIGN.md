@@ -69,4 +69,4 @@ redaction safety, add them deliberately and update the contract test to allow
 
 - Secret Reference resolution/configuration UX.
 - URL-based manifest discovery after SSRF/trust policy.
-- Addon Manager planning only if Nako/Taru should own lifecycle automation.
+- Addon Manager planning only if Nako should own lifecycle automation.

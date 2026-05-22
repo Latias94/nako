@@ -5,8 +5,8 @@ Last updated: 2026-05-17
 
 ## Problem
 
-`taru-server` currently maps storage errors to public HTTP status codes and
-client error codes by parsing `TaruError::Storage.message`. That is fragile:
+`nako-server` currently maps storage errors to public HTTP status codes and
+client error codes by parsing `NakoError::Storage.message`. That is fragile:
 WebDAV, local filesystem, staging, future S3/SMB/NAS adapters, and playback
 staging can all phrase timeout, auth, rate limit, and validation failures
 differently.
@@ -16,9 +16,9 @@ at the error source, not in the HTTP adapter.
 
 ## Target State
 
-- `taru-core` owns a typed storage error classification.
+- `nako-core` owns a typed storage error classification.
 - VFS/storage-facing code classifies storage failures when constructing
-  `TaruError::Storage`.
+  `NakoError::Storage`.
 - HTTP maps `StorageErrorKind` directly to status, public code, and public
   message.
 - Existing public error codes and status codes remain stable.
@@ -26,10 +26,10 @@ at the error source, not in the HTTP adapter.
 
 ## In Scope
 
-- `crates/taru-core/src/error.rs`
-- `crates/taru-vfs/src`
-- storage/staging/playback file IO paths in `taru-server`
-- storage-related tests in `taru-server` and `taru-vfs`
+- `crates/nako-core/src/error.rs`
+- `crates/nako-vfs/src`
+- storage/staging/playback file IO paths in `nako-server`
+- storage-related tests in `nako-server` and `nako-vfs`
 - workstream and goal documentation
 
 ## Out Of Scope
@@ -43,7 +43,7 @@ at the error source, not in the HTTP adapter.
 
 ## Architecture Direction
 
-Use a small enum in `taru-core`:
+Use a small enum in `nako-core`:
 
 ```text
 StorageErrorKind:
@@ -60,7 +60,7 @@ StorageErrorKind:
   SecurityViolation
 ```
 
-The first slice should keep `TaruError::Storage` as the canonical storage
+The first slice should keep `NakoError::Storage` as the canonical storage
 error variant and attach a `kind`. Helper constructors can keep call sites
 readable. HTTP must stop parsing messages for storage classification.
 
@@ -68,7 +68,7 @@ readable. HTTP must stop parsing messages for storage classification.
 
 | Assumption | Confidence | Evidence | Consequence if wrong |
 | --- | --- | --- | --- |
-| `TaruError` can evolve because it is an internal server/workflow type, not a public wire DTO. | High | Public error DTOs live in `taru-api`/`taru-client-protocol`. | If external crates depend on the variant shape later, hide constructors behind helpers before publishing. |
+| `NakoError` can evolve because it is an internal server/workflow type, not a public wire DTO. | High | Public error DTOs live in `nako-api`/`nako-client-protocol`. | If external crates depend on the variant shape later, hide constructors behind helpers before publishing. |
 | Public HTTP error codes should not change in M45. | High | Client protocol already treats these as stable wire values. | If a code changes, update protocol tests and treat it as a separate API contract goal. |
 | WebDAV status and reqwest errors can be classified at construction sites. | High | Current code already centralizes retry and status handling in `webdav.rs`. | If a backend needs richer source errors, add backend-local mapping helpers. |
 

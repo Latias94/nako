@@ -48,7 +48,7 @@ through the normal registration route. `DELETE /admin/v1/addons/{addon_id}` is
 not mounted.
 
 AAO-040 is complete. `POST /admin/v1/addons/{addon_id}/health-check` calls the
-Addon Sidecar `{base_url}/health` endpoint through `taru-addon-client` using
+Addon Sidecar `{base_url}/health` endpoint through `nako-addon-client` using
 only protocol headers and a bounded timeout. It returns redaction-safe
 reachability, latency, protocol/manifest facts, and safe error codes. Health
 checks do not send administrator bearer tokens, Addon Tokens, resolved Secret
@@ -58,7 +58,7 @@ AAO-050 is complete. `GET /admin/v1/addons/{addon_id}/surfaces` returns Admin
 read models for manifest-declared Entry Points, Hosted Pages, Configuration
 Schema metadata, Secret Reference field declarations, Addon Tasks, and Addon
 Event Subscriptions. Hosted Page URLs are derived from manifest base URL and
-declared paths only; Taru does not append administrator bearer tokens, Addon
+declared paths only; Nako does not append administrator bearer tokens, Addon
 Tokens, launch secrets, or resolved Secret Reference values.
 
 AAO-060 is complete. `POST
@@ -91,17 +91,17 @@ future non-goals rather than vague buckets.
 Closeout validation passed:
 
 - `cargo fmt --all -- --check`;
-- `cargo check -p taru-addon-protocol -p taru-addon-client -p taru-api -p
-  taru-core -p taru-db -p taru-server --tests`;
-- `cargo nextest run -p taru-addon-protocol -p taru-addon-client
+- `cargo check -p nako-addon-protocol -p nako-addon-client -p nako-api -p
+  nako-core -p nako-db -p nako-server --tests`;
+- `cargo nextest run -p nako-addon-protocol -p nako-addon-client
   --no-fail-fast`;
-- `cargo nextest run -p taru-db addon --no-fail-fast`;
-- `cargo nextest run -p taru-server addons --no-fail-fast`;
+- `cargo nextest run -p nako-db addon --no-fail-fast`;
+- `cargo nextest run -p nako-server addons --no-fail-fast`;
 - `cargo check --workspace --tests`;
 - `cargo nextest run --workspace --no-fail-fast`;
 - `git diff --check`.
 
-PostgreSQL opt-in contracts were skipped because `TARU_TEST_POSTGRES_URL` was
+PostgreSQL opt-in contracts were skipped because `NAKO_TEST_POSTGRES_URL` was
 not set.
 
 ## Constraints

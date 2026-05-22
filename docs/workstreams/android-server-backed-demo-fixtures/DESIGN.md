@@ -14,7 +14,7 @@ server-backed fixture state exposed through the Public Client API.
 Android should not solve this by inventing fake Media Items or playback data in
 the app. The demo state has to come from the same public boundary that real
 Client Applications use, otherwise the smoke evidence will validate a different
-product than Taru ships.
+product than Nako ships.
 
 ## Relevant Authority
 
@@ -26,7 +26,7 @@ product than Taru ships.
 - `docs/workstreams/android-client-qa-harness/`
 - `apps/android/README.md`
 - `apps/android/SMOKE_FIXTURES.md`
-- `crates/taru-api/src/openapi.rs`
+- `crates/nako-api/src/openapi.rs`
 
 ## Problem
 
@@ -78,7 +78,7 @@ product than Taru ships.
 
 ## Out Of Scope
 
-- Android-only fake media data presented as if it came from Taru.
+- Android-only fake media data presented as if it came from Nako.
 - Full golden screenshot diff infrastructure.
 - CI device-farm integration.
 - Production catalog schema changes unless a later task proves they are needed
@@ -91,7 +91,7 @@ product than Taru ships.
 
 | Assumption | Confidence | Evidence | Consequence if wrong |
 | --- | --- | --- | --- |
-| The Public Client API already has enough route vocabulary for the first fixture: libraries, items, item detail, relations, source probe, and playback decision. | High | `crates/taru-api/src/openapi.rs` lists the current route set. | Narrow the first slice to route discovery and split API contract work before Android smoke implementation. |
+| The Public Client API already has enough route vocabulary for the first fixture: libraries, items, item detail, relations, source probe, and playback decision. | High | `crates/nako-api/src/openapi.rs` lists the current route set. | Narrow the first slice to route discovery and split API contract work before Android smoke implementation. |
 | The fixture must be server-backed or public-route-compatible, not Android-local media data. | High | ADR 0026 says native clients consume Public Client API and must not bypass playback selection or server policy. | Stop Android smoke broadening until a compliant fixture provider exists. |
 | A local harness fixture is enough before CI/golden infrastructure. | High | `android-client-qa-harness` closed with local emulator smoke evidence and deferred CI/golden work. | Split a CI/golden lane only after local fixture behavior is stable. |
 | Player smoke can initially prove player-safe launch and error handling without validating full streaming quality. | Medium | Current Android player route owns Media3 launch behavior, but fixture media availability may vary. | Keep full playback runtime validation out of this lane and record it as a later playback lane. |
@@ -99,7 +99,7 @@ product than Taru ships.
 ## Architecture Direction
 
 Keep Android honest by treating the Public Client API as the only media fixture
-boundary. The fixture provider may be a real seeded Taru server or a small local
+boundary. The fixture provider may be a real seeded Nako server or a small local
 test-server harness, but Android must see only public route shapes and safe
 public DTO fields.
 

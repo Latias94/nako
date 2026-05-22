@@ -25,9 +25,9 @@ git diff --check
 ### Fetch/Artifact Gate
 
 ```powershell
-cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests
-cargo nextest run -p taru-server artwork --no-fail-fast
-cargo nextest run -p taru-db artwork --no-fail-fast
+cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-vfs --tests
+cargo nextest run -p nako-server artwork --no-fail-fast
+cargo nextest run -p nako-db artwork --no-fail-fast
 cargo fmt --all -- --check
 git diff --check
 ```
@@ -50,13 +50,13 @@ ports, public API contracts, or durable job behavior.
 - `docs/workstreams/managed-artwork-fetch-artifact-storage/DESIGN.md`
 - `docs/workstreams/managed-artwork-fetch-artifact-storage/TODO.md`
 - `docs/workstreams/managed-artwork-ingest-selection/HANDOFF.md`
-- `crates/taru-core/src/media/artwork.rs`
-- `crates/taru-core/src/job.rs`
-- `crates/taru-db/migrations/0026_managed_artwork_ingest.sql`
-- `crates/taru-db/src/artwork.rs`
-- `crates/taru-server/src/app/artwork.rs`
-- `crates/taru-server/src/app/job_runtime.rs`
-- `crates/taru-vfs`
+- `crates/nako-core/src/media/artwork.rs`
+- `crates/nako-core/src/job.rs`
+- `crates/nako-db/migrations/0026_managed_artwork_ingest.sql`
+- `crates/nako-db/src/artwork.rs`
+- `crates/nako-server/src/app/artwork.rs`
+- `crates/nako-server/src/app/job_runtime.rs`
+- `crates/nako-vfs`
 
 ## Fresh Evidence
 
@@ -82,35 +82,35 @@ ports, public API contracts, or durable job behavior.
   `rg -n "ManagedArtworkIngest|managed_artwork_ingest|managed_artwork_artifacts|JobKind::ManagedArtworkIngest|artwork.ingest|storage_uri|ImageAsset|cache_uri|source_uri|thumbnail" crates docs`.
   Output was redirected to a temp file for review and contained 537 inventory
   lines.
-- `crates/taru-server/src/app/job_runtime.rs` can run a known job ID and
+- `crates/nako-server/src/app/job_runtime.rs` can run a known job ID and
   persist success/failure, but it does not claim the next queued job or couple
   job status with `managed_artwork_ingests.status`.
-- `crates/taru-db/src/jobs.rs` exposes generic `start_job`, `succeed_job`, and
+- `crates/nako-db/src/jobs.rs` exposes generic `start_job`, `succeed_job`, and
   `fail_job`, but `start_job` is not conditional on queued status. A
   managed-artwork-specific claim method is needed to avoid duplicate workers
   racing the same ingest.
-- `crates/taru-db/src/artwork.rs` can create and load managed ingests, but has
+- `crates/nako-db/src/artwork.rs` can create and load managed ingests, but has
   no artifact insert, ingest status transition, safe failure-code update, or
   artifact commit method yet.
-- `crates/taru-db/migrations/0026_managed_artwork_ingest.sql` already has
+- `crates/nako-db/migrations/0026_managed_artwork_ingest.sql` already has
   `managed_artwork_artifacts` and `managed_artwork_ingests.artifact_id`, but
   there is no worker or byte-storage implementation.
-- `crates/taru-server/src/app/staging.rs` and `crates/taru-core/src/staging.rs`
+- `crates/nako-server/src/app/staging.rs` and `crates/nako-core/src/staging.rs`
   are probe/FFmpeg input staging with budget, leases, cleanup, and local path
   diagnostics. They are not durable managed artwork authority.
-- `crates/taru-vfs/src/cache.rs` is a remote storage fact cache. It should not
+- `crates/nako-vfs/src/cache.rs` is a remote storage fact cache. It should not
   become managed artwork artifact authority.
-- `crates/taru-vfs/src/local.rs` is useful reference for path safety and
+- `crates/nako-vfs/src/local.rs` is useful reference for path safety and
   atomic local writes, but the backend is library-root oriented and currently
   text-write shaped. Managed artwork needs a purpose-built internal artifact
   storage port.
-- `crates/taru-metadata/src/runtime.rs` has a good HTTP runtime pattern for
+- `crates/nako-metadata/src/runtime.rs` has a good HTTP runtime pattern for
   timeout, attempts, concurrency, proxy, and user agent, but it is JSON/provider
   shaped. Artwork fetch should use a dedicated byte-stream fetcher port.
 - Decision:
   - MAFA-030 should implement a dedicated managed artwork worker/runtime
     boundary with managed-artwork-specific claim/commit repository methods.
-  - The first artifact byte store should be a Taru-owned local internal
+  - The first artifact byte store should be a Nako-owned local internal
     artifact root, not a library root, VFS cache, or staging manifest.
   - Persist opaque `managed-artwork://...` storage references and keep raw
     absolute paths out of database authority and DTOs.
@@ -152,16 +152,16 @@ ports, public API contracts, or durable job behavior.
   `ProcessManagedArtworkIngestResponse` that omits `storage_uri`, source URLs,
   paths, cache URIs, addon tokens, and validation internals.
 - Success path test evidence:
-  - `cargo nextest run -p taru-server admin_process_next_managed_artwork_ingest_stores_internal_artifact_without_public_artwork --no-fail-fast`
+  - `cargo nextest run -p nako-server admin_process_next_managed_artwork_ingest_stores_internal_artifact_without_public_artwork --no-fail-fast`
     passed.
-  - `cargo nextest run -p taru-server artwork --no-fail-fast` passed: 4 tests.
-  - `cargo nextest run -p taru-db artwork --no-fail-fast` passed: 3 tests.
-  - `cargo nextest run -p taru-api managed_artwork public_openapi_paths_match_public_client_scope --no-fail-fast`
+  - `cargo nextest run -p nako-server artwork --no-fail-fast` passed: 4 tests.
+  - `cargo nextest run -p nako-db artwork --no-fail-fast` passed: 3 tests.
+  - `cargo nextest run -p nako-api managed_artwork public_openapi_paths_match_public_client_scope --no-fail-fast`
     passed: 2 tests.
-  - `cargo nextest run -p taru-server admin_v1_system_config_reports_sanitized_configuration --no-fail-fast`
+  - `cargo nextest run -p nako-server admin_v1_system_config_reports_sanitized_configuration --no-fail-fast`
     passed.
 - Gate evidence:
-  - `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests`
+  - `cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-vfs --tests`
     passed.
   - `cargo fmt --all -- --check` passed.
   - `git diff --check` passed with only Git CRLF normalization warnings for
@@ -188,9 +188,9 @@ ports, public API contracts, or durable job behavior.
   - durable retry/requeue, cancellation, timeout-specific tests, and orphan
     artifact cleanup should be split from MAFA-050 if needed.
 - MAFA-040 validation:
-  - `cargo nextest run -p taru-server artwork --no-fail-fast` passed: 6 tests.
-  - `cargo nextest run -p taru-db artwork --no-fail-fast` passed: 3 tests.
-  - `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests`
+  - `cargo nextest run -p nako-server artwork --no-fail-fast` passed: 6 tests.
+  - `cargo nextest run -p nako-db artwork --no-fail-fast` passed: 3 tests.
+  - `cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-vfs --tests`
     passed.
   - `cargo fmt --all -- --check` passed.
   - `git diff --check` passed with only Git CRLF normalization warnings for
@@ -205,10 +205,10 @@ ports, public API contracts, or durable job behavior.
 - Fresh closeout verification:
   - `rg -n "ManagedArtworkIngest|managed_artwork_ingest|managed_artwork_artifacts|JobKind::ManagedArtworkIngest|artwork.ingest|storage_uri|ImageAsset|cache_uri|source_uri|thumbnail" crates docs`
     produced 718 current inventory lines.
-  - `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests`
+  - `cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-vfs --tests`
     passed.
-  - `cargo nextest run -p taru-server artwork --no-fail-fast` passed: 6 tests.
-  - `cargo nextest run -p taru-db artwork --no-fail-fast` passed: 3 tests.
+  - `cargo nextest run -p nako-server artwork --no-fail-fast` passed: 6 tests.
+  - `cargo nextest run -p nako-db artwork --no-fail-fast` passed: 3 tests.
   - `cargo fmt --all -- --check` passed.
   - `git diff --check` passed.
 - Split/defer decisions:

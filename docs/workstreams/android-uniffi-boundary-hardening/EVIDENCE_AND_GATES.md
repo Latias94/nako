@@ -8,7 +8,7 @@ Last updated: 2026-05-21
 ### Android Connection Encapsulation Gate
 
 ```powershell
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.TaruConnectionClientTest --no-daemon
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.connection.NakoConnectionClientTest --no-daemon
 ```
 
 Proves Android connection product logic still maps Rust-core probe outcomes,
@@ -18,23 +18,23 @@ hidden behind the adapter seam.
 ### Rust Core Module Gate
 
 ```powershell
-cargo fmt --package taru-client-core --check
-cargo nextest run -p taru-client-core --no-fail-fast
-cargo nextest run -p taru-client-uniffi --no-fail-fast
-cargo nextest run -p taru-client --no-fail-fast
+cargo fmt --package nako-client-core --check
+cargo nextest run -p nako-client-core --no-fail-fast
+cargo nextest run -p nako-client-uniffi --no-fail-fast
+cargo nextest run -p nako-client --no-fail-fast
 ```
 
-Proves the module split preserves `taru-client-core` behavior and current Rust
+Proves the module split preserves `nako-client-core` behavior and current Rust
 and UniFFI consumers.
 
 ### UniFFI Boundary Guard Gate
 
 ```powershell
 ./scripts/guard-uniffi-boundary.ps1
-cargo nextest run -p taru-client-uniffi --no-fail-fast
+cargo nextest run -p nako-client-uniffi --no-fail-fast
 ```
 
-Proves `taru-client-uniffi` remains a binding adapter and does not grow runtime
+Proves `nako-client-uniffi` remains a binding adapter and does not grow runtime
 transport/platform dependencies.
 
 ### Android Native Smoke Gate
@@ -61,9 +61,9 @@ remain in the final diff.
 - `docs/workstreams/android-uniffi-boundary-hardening/DESIGN.md`
 - `docs/workstreams/android-uniffi-boundary-hardening/TODO.md`
 - `docs/workstreams/android-uniffi-boundary-hardening/MILESTONES.md`
-- `crates/taru-client-core/src/*.rs`
-- `crates/taru-client-uniffi/src/lib.rs`
-- `apps/android/app/src/main/java/dev/taru/android/connection/RustConnectionCore.kt`
+- `crates/nako-client-core/src/*.rs`
+- `crates/nako-client-uniffi/src/lib.rs`
+- `apps/android/app/src/main/java/dev/nako/android/connection/RustConnectionCore.kt`
 - `apps/android/scripts/Validate-UniFfiNativeSmoke.ps1`
 
 ## Evidence Log
@@ -78,16 +78,16 @@ remain in the final diff.
 
 ### 2026-05-21 — UBF-020 Android adapter encapsulation
 
-- Changed `apps/android/app/src/main/java/dev/taru/android/connection/RustConnectionCore.kt`
+- Changed `apps/android/app/src/main/java/dev/nako/android/connection/RustConnectionCore.kt`
   so the connection adapter converts generated UniFFI probe outcomes and HTTP
   requests into Android-owned `ConnectionCoreOutcome`, `ConnectionCoreRequest`,
   and `ConnectionCoreSuccess` values.
-- Changed `TaruConnectionClient` so connection product logic no longer imports
+- Changed `NakoConnectionClient` so connection product logic no longer imports
   or switches over generated UniFFI connection request/outcome types.
 - Fresh gate:
 
 ```powershell
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.TaruConnectionClientTest --no-daemon
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.connection.NakoConnectionClientTest --no-daemon
 ```
 
 Result: passed. This proves the connection flow still checks health, runs the
@@ -97,7 +97,7 @@ hidden behind the adapter seam.
 
 ### 2026-05-21 — UBF-030 core module split
 
-- Split `crates/taru-client-core/src/lib.rs` into focused modules:
+- Split `crates/nako-client-core/src/lib.rs` into focused modules:
   `ids`, `encoding`, `redaction`, `request`, `response`, `connection`, and
   `playback`.
 - Kept `lib.rs` as the public re-export surface so existing Rust, UniFFI, and
@@ -105,10 +105,10 @@ hidden behind the adapter seam.
 - Fresh gates:
 
 ```powershell
-cargo fmt --package taru-client-core --check
-cargo nextest run -p taru-client-core --no-fail-fast
-cargo nextest run -p taru-client-uniffi --no-fail-fast
-cargo nextest run -p taru-client --no-fail-fast
+cargo fmt --package nako-client-core --check
+cargo nextest run -p nako-client-core --no-fail-fast
+cargo nextest run -p nako-client-uniffi --no-fail-fast
+cargo nextest run -p nako-client --no-fail-fast
 ```
 
 Results: all passed. This proves the refactor preserved core request/response,
@@ -118,8 +118,8 @@ behavior while improving module locality.
 ### 2026-05-21 — UBF-040 UniFFI boundary guard
 
 - Added `scripts/guard-uniffi-boundary.ps1`.
-- The guard validates that `taru-client-uniffi` direct dependencies stay within
-  `taru-client-core` and `uniffi`.
+- The guard validates that `nako-client-uniffi` direct dependencies stay within
+  `nako-client-core` and `uniffi`.
 - The guard also scans the dependency tree for forbidden runtime/platform
   dependencies: `reqwest`, `tokio`, `hyper`, `hyper-util`, `tower`, `axum`,
   `sqlx`, `rusqlite`, `jni`, `ndk`, and `android-activity`.
@@ -127,11 +127,11 @@ behavior while improving module locality.
 
 ```powershell
 ./scripts/guard-uniffi-boundary.ps1
-cargo nextest run -p taru-client-uniffi --no-fail-fast
+cargo nextest run -p nako-client-uniffi --no-fail-fast
 ```
 
 Results: both passed. The guard reported direct dependencies
-`taru-client-core` and `uniffi`, checked 49 dependency-tree packages, and found
+`nako-client-core` and `uniffi`, checked 49 dependency-tree packages, and found
 no forbidden runtime/platform dependencies.
 
 ### 2026-05-21 — UBF-050 native smoke script
@@ -156,8 +156,8 @@ script does not silently run against the wrong device.
 
 Result: passed. The script verified `emulator-5554` reports ABI list
 `x86_64,arm64-v8a`, built `:app:assembleDebug` and
-`:app:assembleDebugAndroidTest` with `-PtaruRustAndroidAbis=x86_64`, installed
-both APKs, and ran `dev.taru.android.uniffi.TaruUniFfiNativeSmokeTest` with
+`:app:assembleDebugAndroidTest` with `-PnakoRustAndroidAbis=x86_64`, installed
+both APKs, and ran `dev.nako.android.uniffi.NakoUniFfiNativeSmokeTest` with
 `OK (1 test)`.
 
 ### 2026-05-21 — UBF-090 closeout verification
@@ -165,12 +165,12 @@ both APKs, and ran `dev.taru.android.uniffi.TaruUniFfiNativeSmokeTest` with
 - Fresh gates:
 
 ```powershell
-cargo fmt --package taru-client-core --check
+cargo fmt --package nako-client-core --check
 ./scripts/guard-uniffi-boundary.ps1
-cargo nextest run -p taru-client-core --no-fail-fast
-cargo nextest run -p taru-client-uniffi --no-fail-fast
-cargo nextest run -p taru-client --no-fail-fast
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.TaruConnectionClientTest --no-daemon
+cargo nextest run -p nako-client-core --no-fail-fast
+cargo nextest run -p nako-client-uniffi --no-fail-fast
+cargo nextest run -p nako-client --no-fail-fast
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.connection.NakoConnectionClientTest --no-daemon
 python -m json.tool docs/workstreams/android-uniffi-boundary-hardening/WORKSTREAM.json > $null
 git diff --check
 ```

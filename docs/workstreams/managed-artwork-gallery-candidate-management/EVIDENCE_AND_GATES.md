@@ -19,10 +19,10 @@ read model.
 ### Gallery Read Model Gate
 
 ```powershell
-cargo nextest run -p taru-api managed_artwork_gallery --no-fail-fast
-cargo nextest run -p taru-db managed_artwork_gallery --no-fail-fast
-cargo nextest run -p taru-server managed_artwork_gallery --no-fail-fast
-cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests
+cargo nextest run -p nako-api managed_artwork_gallery --no-fail-fast
+cargo nextest run -p nako-db managed_artwork_gallery --no-fail-fast
+cargo nextest run -p nako-server managed_artwork_gallery --no-fail-fast
+cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests
 cargo fmt --all -- --check
 git diff --check
 ```
@@ -30,10 +30,10 @@ git diff --check
 ### Selection Management Gate
 
 ```powershell
-cargo nextest run -p taru-db managed_artwork_gallery --no-fail-fast
-cargo nextest run -p taru-server managed_artwork_gallery --no-fail-fast
-cargo nextest run -p taru-server public_catalog_and_image_routes_serve_selected_artwork_without_locator_leaks --no-fail-fast
-cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests
+cargo nextest run -p nako-db managed_artwork_gallery --no-fail-fast
+cargo nextest run -p nako-server managed_artwork_gallery --no-fail-fast
+cargo nextest run -p nako-server public_catalog_and_image_routes_serve_selected_artwork_without_locator_leaks --no-fail-fast
+cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests
 cargo fmt --all -- --check
 git diff --check
 ```
@@ -41,11 +41,11 @@ git diff --check
 ### Closeout Gate
 
 ```powershell
-rg -n "storage_uri|managed-artwork://|source_uri|cache_uri|content_hash|local_path|artifact_root|gallery|candidate|selected_artwork" crates/taru-api crates/taru-server/src/http docs/api
-cargo nextest run -p taru-api managed_artwork_gallery --no-fail-fast
-cargo nextest run -p taru-db managed_artwork_gallery --no-fail-fast
-cargo nextest run -p taru-server managed_artwork_gallery --no-fail-fast
-cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests
+rg -n "storage_uri|managed-artwork://|source_uri|cache_uri|content_hash|local_path|artifact_root|gallery|candidate|selected_artwork" crates/nako-api crates/nako-server/src/http docs/api
+cargo nextest run -p nako-api managed_artwork_gallery --no-fail-fast
+cargo nextest run -p nako-db managed_artwork_gallery --no-fail-fast
+cargo nextest run -p nako-server managed_artwork_gallery --no-fail-fast
+cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests
 cargo fmt --all -- --check
 git diff --check
 ```
@@ -59,15 +59,15 @@ absent.
 - `docs/workstreams/managed-artwork-public-serving-selection/HANDOFF.md`
 - `docs/workstreams/managed-artwork-thumbnail-variants/HANDOFF.md`
 - `docs/workstreams/managed-artwork-remediation-policy/HANDOFF.md`
-- `crates/taru-core/src/media/artwork.rs`
-- `crates/taru-core/src/repository/metadata.rs`
-- `crates/taru-db/src/artwork.rs`
-- `crates/taru-api/src/admin.rs`
-- `crates/taru-api/src/public_client.rs`
-- `crates/taru-server/src/app/artwork.rs`
-- `crates/taru-server/src/app/catalog.rs`
-- `crates/taru-server/src/http/admin.rs`
-- `crates/taru-server/src/http/catalog.rs`
+- `crates/nako-core/src/media/artwork.rs`
+- `crates/nako-core/src/repository/metadata.rs`
+- `crates/nako-db/src/artwork.rs`
+- `crates/nako-api/src/admin.rs`
+- `crates/nako-api/src/public_client.rs`
+- `crates/nako-server/src/app/artwork.rs`
+- `crates/nako-server/src/app/catalog.rs`
+- `crates/nako-server/src/http/admin.rs`
+- `crates/nako-server/src/http/catalog.rs`
 - `docs/api/HTTP_API.md`
 
 ## Fresh Evidence
@@ -95,13 +95,13 @@ absent.
 - Tightened managed ingest artifact summaries to expose `has_content_hash`
   instead of content hash values.
 - Fresh focused validation:
-  - `cargo nextest run -p taru-api managed_artwork_gallery --no-fail-fast`
+  - `cargo nextest run -p nako-api managed_artwork_gallery --no-fail-fast`
     passed.
-  - `cargo nextest run -p taru-db managed_artwork_gallery --no-fail-fast`
+  - `cargo nextest run -p nako-db managed_artwork_gallery --no-fail-fast`
     passed.
-  - `cargo nextest run -p taru-server managed_artwork_gallery --no-fail-fast`
+  - `cargo nextest run -p nako-server managed_artwork_gallery --no-fail-fast`
     passed.
-  - `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests`
+  - `cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests`
     passed.
   - `cargo fmt --all -- --check` passed.
   - `git diff --check` passed.
@@ -115,13 +115,13 @@ absent.
 - Preserved idempotent replacement semantics and Public Client image listing
   behavior.
 - Fresh focused validation so far:
-  - `cargo nextest run -p taru-db publishes_selected_artwork_with_item_kind_guard --no-fail-fast`
+  - `cargo nextest run -p nako-db publishes_selected_artwork_with_item_kind_guard --no-fail-fast`
     passed.
-  - `cargo nextest run -p taru-db managed_artwork_gallery --no-fail-fast`
+  - `cargo nextest run -p nako-db managed_artwork_gallery --no-fail-fast`
     passed.
-  - `cargo nextest run -p taru-server managed_artwork_gallery --no-fail-fast`
+  - `cargo nextest run -p nako-server managed_artwork_gallery --no-fail-fast`
     passed.
-  - `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests`
+  - `cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests`
     passed.
   - `cargo fmt --all -- --check` passed.
   - `git diff --check` passed.
@@ -135,17 +135,17 @@ absent.
   - unpublish/delete, Public gallery browsing, persisted variant cache,
     retry/cancel, and repair/re-ingest are split follow-ons.
 - Fresh closeout validation:
-  - `rg -n "storage_uri|managed-artwork://|source_uri|cache_uri|content_hash|local_path|artifact_root|gallery|candidate|selected_artwork" crates/taru-api crates/taru-server/src/http docs/api`
+  - `rg -n "storage_uri|managed-artwork://|source_uri|cache_uri|content_hash|local_path|artifact_root|gallery|candidate|selected_artwork" crates/nako-api crates/nako-server/src/http docs/api`
     completed. Remaining hits are route names, docs stating forbidden fields,
     safe boolean fields such as `has_content_hash`, internal/admin tests, and
     redaction assertions.
-  - `cargo nextest run -p taru-api managed_artwork_gallery --no-fail-fast`
+  - `cargo nextest run -p nako-api managed_artwork_gallery --no-fail-fast`
     passed.
-  - `cargo nextest run -p taru-db managed_artwork_gallery --no-fail-fast`
+  - `cargo nextest run -p nako-db managed_artwork_gallery --no-fail-fast`
     passed.
-  - `cargo nextest run -p taru-server managed_artwork_gallery --no-fail-fast`
+  - `cargo nextest run -p nako-server managed_artwork_gallery --no-fail-fast`
     passed.
-  - `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests`
+  - `cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests`
     passed.
   - `cargo fmt --all -- --check` passed.
   - `git diff --check` passed.

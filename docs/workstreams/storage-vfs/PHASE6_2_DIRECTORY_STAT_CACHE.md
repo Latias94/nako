@@ -11,14 +11,14 @@ remote transient listing failures non-destructive for catalog tombstones.
 
 ## Implemented
 
-- Added VFS cache domain records in `taru-core`:
+- Added VFS cache domain records in `nako-core`:
   - cached object metadata keyed by URI and scheme;
   - cached listing entries;
   - operation failure records for `stat` and `list`;
   - freshness timestamps in milliseconds.
 - Added SQLite migration `0013_vfs_cache.sql` and `VfsCacheRepository`
-  implementation in `taru-db`.
-- Added `CachedStorageBackend` in `taru-vfs`:
+  implementation in `nako-db`.
+- Added `CachedStorageBackend` in `nako-vfs`:
   - caches remote stat/list results through the repository boundary;
   - returns fresh cache hits without calling the inner backend;
   - records transient storage failures;
@@ -31,9 +31,9 @@ remote transient listing failures non-destructive for catalog tombstones.
 
 ## Validation
 
-- `cargo test -p taru-vfs`
-- `cargo test -p taru-db sqlite_store_round_trips_vfs_cache_records_and_failures`
-- `cargo test -p taru-library index_service_does_not_tombstone_when_scan_uses_stale_vfs_cache`
+- `cargo test -p nako-vfs`
+- `cargo test -p nako-db sqlite_store_round_trips_vfs_cache_records_and_failures`
+- `cargo test -p nako-library index_service_does_not_tombstone_when_scan_uses_stale_vfs_cache`
 
 ## Boundary Notes
 

@@ -19,7 +19,7 @@ serving.
 - `ImageAsset` remains internal/provenance only and is not the public selected
   artwork authority.
 - `GET /images/{image_id}` and `HEAD /images/{image_id}` serve selected
-  artwork bytes through Taru-owned routes.
+  artwork bytes through Nako-owned routes.
 - Public Client protocol/OpenAPI no longer define `ImageAssetDto`,
   `ImageRefDto`, or `CanonicalMetadataDto.images`.
 

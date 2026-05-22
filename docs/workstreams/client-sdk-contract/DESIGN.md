@@ -6,8 +6,8 @@ Last updated: 2026-05-17
 ## Why This Lane Exists
 
 M32-M35 established the public OpenAPI contract, TypeScript SDK package, and
-Rust SDK foundation. The remaining contract risk is duplication: `taru-api`
-owns one public route inventory while `taru-client` owns a second SDK inventory.
+Rust SDK foundation. The remaining contract risk is duplication: `nako-api`
+owns one public route inventory while `nako-client` owns a second SDK inventory.
 
 That duplication matters because the route inventory is part of the public
 client contract. It should be reusable by TypeScript generation, Rust SDK
@@ -18,22 +18,22 @@ AGPL server adapter crate.
 
 ADR 0022 is authoritative for this lane.
 
-- `taru-client-protocol` remains `Apache-2.0` and dependency-light.
-- `taru-client` remains `Apache-2.0` and may depend on
-  `taru-client-protocol`.
-- `taru-api` remains `AGPL-3.0-or-later` and may consume protocol types as a
+- `nako-client-protocol` remains `Apache-2.0` and dependency-light.
+- `nako-client` remains `Apache-2.0` and may depend on
+  `nako-client-protocol`.
+- `nako-api` remains `AGPL-3.0-or-later` and may consume protocol types as a
   server/API adapter.
-- Client-reusable inventory or helper types must not live only in `taru-api`,
+- Client-reusable inventory or helper types must not live only in `nako-api`,
   because that would make AGPL server code the reuse source for SDKs.
-- `taru-client-protocol` must not depend on `http`, `reqwest`, `taru-api`, or
+- `nako-client-protocol` must not depend on `http`, `reqwest`, `nako-api`, or
   server/internal crates.
 
 ## Target State
 
-- Public client route inventory lives in `taru-client-protocol`.
-- `taru-api` OpenAPI and TypeScript SDK generation consume that shared
+- Public client route inventory lives in `nako-client-protocol`.
+- `nako-api` OpenAPI and TypeScript SDK generation consume that shared
   inventory instead of a local path list.
-- `taru-client` consumes the same inventory and differentiates JSON methods
+- `nako-client` consumes the same inventory and differentiates JSON methods
   from streaming/raw byte request builders.
 - Rust SDK request builders can construct:
   - direct stream GET;
@@ -47,11 +47,11 @@ ADR 0022 is authoritative for this lane.
 
 ## In Scope
 
-- Add shared public route inventory types/constants to `taru-client-protocol`.
+- Add shared public route inventory types/constants to `nako-client-protocol`.
 - Keep the protocol crate dependency-light and Apache-2.0.
-- Refactor `taru-api` OpenAPI checks and TypeScript SDK generation to use the
+- Refactor `nako-api` OpenAPI checks and TypeScript SDK generation to use the
   shared inventory.
-- Refactor `taru-client` inventory tests to use the same source.
+- Refactor `nako-client` inventory tests to use the same source.
 - Add streaming request builders without performing HTTP body streaming.
 - Update API docs, goal map, roadmap, workstream index, and evidence.
 
@@ -67,14 +67,14 @@ ADR 0022 is authoritative for this lane.
 
 ## Architecture Direction
 
-Use `taru-client-protocol` for neutral contract facts only: route path,
+Use `nako-client-protocol` for neutral contract facts only: route path,
 supported method, route kind, and whether the Rust SDK should expose a JSON
 method or a request builder. Keep HTTP implementation details in SDK crates.
 
-`taru-api` should remain free to render OpenAPI operations and schema details,
+`nako-api` should remain free to render OpenAPI operations and schema details,
 but route membership must come from the shared protocol inventory.
 
-`taru-client` should expose concrete `ClientRequest` builders first. That gives
+`nako-client` should expose concrete `ClientRequest` builders first. That gives
 Rust callers stable URLs/headers/methods for streaming routes without deciding
 on byte-stream ownership, retries, range download policy, or HLS playback.
 
@@ -82,8 +82,8 @@ on byte-stream ownership, retries, range download policy, or HLS playback.
 
 M36 can close when:
 
-- `taru-client-protocol` owns the public inventory and stays dependency-light;
-- `taru-api`, TypeScript SDK generation, and `taru-client` consume the shared
+- `nako-client-protocol` owns the public inventory and stays dependency-light;
+- `nako-api`, TypeScript SDK generation, and `nako-client` consume the shared
   inventory;
 - Rust streaming builders are covered by mock/unit tests;
 - leakage tests still reject admin/internal/secret/local-path surfaces;

@@ -3,31 +3,31 @@
 Status: Draft
 Last updated: 2026-05-21
 
-This document records AWC-020: which current HTTP routes can support the Taru
+This document records AWC-020: which current HTTP routes can support the Nako
 admin web console, which routes are public-client surfaces that the console can
 reuse read-only, and which Admin API gaps remain.
 
 It is an inventory, not an API compatibility promise. AWC-030 is accepted in
 [ADR 0027](../../adr/0027-admin-api-boundary-for-web-console.md): new
-admin-only routes should use `/admin/v1/*`, admin DTOs stay in `taru-api`, and
+admin-only routes should use `/admin/v1/*`, admin DTOs stay in `nako-api`, and
 Public Client API contracts remain separate.
 
 ## Source Files Reviewed
 
-- `crates/taru-server/src/http.rs`
-- `crates/taru-server/src/http/system.rs`
-- `crates/taru-server/src/http/library.rs`
-- `crates/taru-server/src/http/catalog.rs`
-- `crates/taru-server/src/http/metadata.rs`
-- `crates/taru-server/src/http/playback.rs`
-- `crates/taru-server/src/http/jobs.rs`
-- `crates/taru-server/src/http/webhooks.rs`
-- `crates/taru-server/src/http/automation.rs`
-- `crates/taru-server/src/http/addons.rs`
-- `crates/taru-api/src/public_client.rs`
-- `crates/taru-api/src/admin.rs`
-- `crates/taru-api/src/metadata_diagnostics.rs`
-- `crates/taru-api/src/extension.rs`
+- `crates/nako-server/src/http.rs`
+- `crates/nako-server/src/http/system.rs`
+- `crates/nako-server/src/http/library.rs`
+- `crates/nako-server/src/http/catalog.rs`
+- `crates/nako-server/src/http/metadata.rs`
+- `crates/nako-server/src/http/playback.rs`
+- `crates/nako-server/src/http/jobs.rs`
+- `crates/nako-server/src/http/webhooks.rs`
+- `crates/nako-server/src/http/automation.rs`
+- `crates/nako-server/src/http/addons.rs`
+- `crates/nako-api/src/public_client.rs`
+- `crates/nako-api/src/admin.rs`
+- `crates/nako-api/src/metadata_diagnostics.rs`
+- `crates/nako-api/src/extension.rs`
 - `docs/api/HTTP_API.md`
 
 ## Current Route Groups
@@ -57,7 +57,7 @@ Public Client API contracts remain separate.
 | Console page | Current support | Missing or weak Admin API |
 | --- | --- | --- |
 | Overview | Good for first read-only summary: `GET /admin/v1/overview` composes health/version, storage backend status, metadata provider status, runtime counters, and startup recovery counters. Existing `GET /health`, `GET /metadata/providers`, and `GET /storage/backends` remain available. `GET /admin/v1/jobs`, `GET /admin/v1/playback/sessions`, and `GET /admin/v1/events` support drill-down tables. | Still needs recent failures and warning list/filter endpoints if the console needs more drill-down data. |
-| Media Libraries | Good for read and actions: library list/detail/sources, scan, NFO import/export, ingestion failure list/ignore. | Needs create/edit/delete library only if Taru supports runtime-configurable libraries. Needs failure retry/resolve semantics if desired. |
+| Media Libraries | Good for read and actions: library list/detail/sources, scan, NFO import/export, ingestion failure list/ignore. | Needs create/edit/delete library only if Nako supports runtime-configurable libraries. Needs failure retry/resolve semantics if desired. |
 | Library Detail | Good for core read-only detail and operations. | Needs latest scan summary, configured backend detail without unsafe local paths, and per-library job history. |
 | Catalog | Partial but improved: public browse/search/item/credits/images/source probe plus `GET /admin/v1/catalog/governance/items` for a redacted unknown/low-confidence queue with source counts, Local Inference summary, Provider Mapping counts, and duplicate relationship counts. | Needs duplicate-source list, provider mapping list/detail, local inference evidence detail route, NFO sidecar status, hierarchy repair routes, and source variant/edition governance. |
 | Item Detail | Partial: item, sources through library source list, credits, images, source probe, metadata attempts/raw, automation artifacts. | Needs direct item-to-sources route, provider mappings, local inference evidence, NFO sidecar status, field provenance/field locks, duplicate relationships, and admin-only source diagnostics. |
@@ -70,11 +70,11 @@ Public Client API contracts remain separate.
 | Webhooks | Good for first read-only event history: endpoint upsert/list/detail, redacted event outbox list/filter through `GET /admin/v1/events`, delivery attempts by event, and manual delivery by event. | Needs event detail only if list rows are insufficient. Endpoint list currently reads as enabled-only and may not support disabled endpoint administration. |
 | Addons | Improved: `/admin/v1/addons` owns register/list/detail/status-filtered list, explicit enable/disable mutation, terminal unregister, health checks, hosted surface read models, bounded resource-call diagnostics, token issue/list/rotate/revoke, and accepted permission grants without exposing raw persistence records. | Addon Manager process/package lifecycle remains out of scope. Future UI may need install guide and marketplace follow-ons. |
 | Network | Mostly missing. | Needs self-hosted access summary, external reachability probe, reverse proxy/TLS status hooks, tunnel/NAT traversal state, and remote playback bandwidth policy. |
-| Settings | Partial: `GET /admin/v1/system/config` supports sanitized auth, library, runtime, metadata, transcode, staging, and playback config diagnostics. | Needs editable settings only if Taru supports runtime config mutation. FFmpeg binary status is currently covered by playback runtime diagnostics rather than raw path exposure. |
+| Settings | Partial: `GET /admin/v1/system/config` supports sanitized auth, library, runtime, metadata, transcode, staging, and playback config diagnostics. | Needs editable settings only if Nako supports runtime config mutation. FFmpeg binary status is currently covered by playback runtime diagnostics rather than raw path exposure. |
 
 ## DTO Ownership Notes
 
-Current `taru-api` ownership already separates several useful groups:
+Current `nako-api` ownership already separates several useful groups:
 
 - `public_client.rs`: route/DTO contract for future clients and SDKs.
 - `admin.rs`: `JobResponse`, ingestion failures, and storage diagnostics.
@@ -83,7 +83,7 @@ Current `taru-api` ownership already separates several useful groups:
 - `extension.rs`: webhook, automation, and addon request/response DTOs.
 
 For the admin console, this split is useful but incomplete. The likely next
-Admin API DTO additions should stay out of `taru-client-protocol` unless they
+Admin API DTO additions should stay out of `nako-client-protocol` unless they
 become genuine public client features.
 
 Likely new Admin DTO groups:

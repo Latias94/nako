@@ -338,7 +338,7 @@ function mapAddonOnboardingResult(
     },
     nextSteps: [
       "Open the generated Addon Install Guide",
-      "Start the Addon Sidecar outside Taru",
+      "Start the Addon Sidecar outside Nako",
       "Run Addon Health Check before enabling",
     ],
   };
@@ -466,9 +466,9 @@ function mapAddonInstallGuide(response: AdminAddonInstallGuideResponse): AddonIn
     healthCheckSteps: response.health_check_steps.map(mapAddonInstallGuideStep),
     registrationVerificationSteps: response.registration_verification_steps.map(mapAddonInstallGuideStep),
     lifecycleBoundary: {
-      taruManagesContainers: response.lifecycle_boundary.taru_manages_containers,
-      taruManagesProcesses: response.lifecycle_boundary.taru_manages_processes,
-      taruManagesPackages: response.lifecycle_boundary.taru_manages_packages,
+      nakoManagesContainers: response.lifecycle_boundary.nako_manages_containers,
+      nakoManagesProcesses: response.lifecycle_boundary.nako_manages_processes,
+      nakoManagesPackages: response.lifecycle_boundary.nako_manages_packages,
       message: response.lifecycle_boundary.message,
     },
   };

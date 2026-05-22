@@ -16,16 +16,16 @@ Exit evidence:
 
 ## M37.1 CLI Crate Slice
 
-Outcome: `crates/taru-client-cli` provides the first public-client CLI.
+Outcome: `crates/nako-client-cli` provides the first public-client CLI.
 Status: completed.
 
 Exit evidence:
 
 - The crate manifest uses `license = "Apache-2.0"`.
-- Commands go through `taru-client`.
+- Commands go through `nako-client`.
 - JSON output is available for health, library/item/search, source probe,
   playback decision, playback session, and streaming request builders.
-- `cargo check -p taru-client-cli --tests` passes.
+- `cargo check -p nako-client-cli --tests` passes.
 
 ## M37.2 Test And Dependency Boundary Slice
 
@@ -37,8 +37,8 @@ Exit evidence:
 - Mocked transport tests prove JSON commands call the SDK with the expected
   method, path, query, and authorization behavior.
 - Streaming request output redacts bearer token values.
-- Manifest tests reject AGPL Taru server/internal dependencies.
-- `cargo nextest run -p taru-client-cli --no-fail-fast` passes.
+- Manifest tests reject AGPL Nako server/internal dependencies.
+- `cargo nextest run -p nako-client-cli --no-fail-fast` passes.
 
 ## M37.3 Docs And Closeout
 
@@ -48,5 +48,5 @@ Status: completed.
 Exit evidence:
 
 - Goal, roadmap, API, and workstream docs are updated.
-- `cargo tree -p taru-client-cli` confirms the dependency boundary.
+- `cargo tree -p nako-client-cli` confirms the dependency boundary.
 - Workspace check and nextest gates pass.

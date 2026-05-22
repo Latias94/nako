@@ -14,23 +14,23 @@ Last updated: 2026-05-17
 
 ## M1 - Core Classification And HTTP Mapping
 
-- [x] TSE-020 [owner=codex] [deps=TSE-010] [scope=crates/taru-core/src/error.rs,crates/taru-server/src/http/error.rs,crates/taru-server/src/http/tests/system.rs]
+- [x] TSE-020 [owner=codex] [deps=TSE-010] [scope=crates/nako-core/src/error.rs,crates/nako-server/src/http/error.rs,crates/nako-server/src/http/tests/system.rs]
   Goal: Add typed storage error classification and remove HTTP message parsing
   for storage errors while preserving public error codes.
-  Validation: `cargo check -p taru-server --tests`;
-  `cargo nextest run -p taru-server http::tests::system::api_errors_map_playback_storage_categories --no-fail-fast`.
+  Validation: `cargo check -p nako-server --tests`;
+  `cargo nextest run -p nako-server http::tests::system::api_errors_map_playback_storage_categories --no-fail-fast`.
   passed.
   Evidence: HTTP mapping matches `StorageErrorKind`.
   Handoff: Continue with VFS/WebDAV/staging source classification.
 
 ## M2 - VFS And Runtime Source Classification
 
-- [x] TSE-030 [owner=codex] [deps=TSE-020] [scope=crates/taru-vfs/src,crates/taru-server/src/app,crates/taru-db/src/staging.rs]
+- [x] TSE-030 [owner=codex] [deps=TSE-020] [scope=crates/nako-vfs/src,crates/nako-server/src/app,crates/nako-db/src/staging.rs]
   Goal: Classify local/WebDAV/cache/staging/playback storage errors at their
   source.
-  Validation: `cargo check -p taru-vfs --tests`;
-  `cargo nextest run -p taru-vfs --no-fail-fast`;
-  `cargo nextest run -p taru-server http::tests::system::api_errors_map_playback_storage_categories --no-fail-fast`.
+  Validation: `cargo check -p nako-vfs --tests`;
+  `cargo nextest run -p nako-vfs --no-fail-fast`;
+  `cargo nextest run -p nako-server http::tests::system::api_errors_map_playback_storage_categories --no-fail-fast`.
   passed.
   Evidence: WebDAV timeout/auth/rate-limit/status paths and staging budget/
   validation paths use typed categories.
@@ -44,5 +44,5 @@ Last updated: 2026-05-17
   `cargo nextest run --workspace --no-fail-fast`; `git diff --check`.
   passed.
   Evidence: `EVIDENCE_AND_GATES.md` and `docs/GOALS.md`.
-  Handoff: Recommend the next goal among `taru-api` module split and NFO Round
+  Handoff: Recommend the next goal among `nako-api` module split and NFO Round
   Trip preservation.

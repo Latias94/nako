@@ -14,7 +14,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "TaruAndroid"
+rootProject.name = "NakoAndroid"
 include(":app")
-include(":taru-public-client-sdk")
-project(":taru-public-client-sdk").projectDir = file("../../sdk/kotlin")
+include(":nako-public-client-sdk")
+project(":nako-public-client-sdk").projectDir = file("../../sdk/kotlin")

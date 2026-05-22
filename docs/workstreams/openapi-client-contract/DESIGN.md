@@ -5,7 +5,7 @@ Last updated: 2026-05-17
 
 ## Why This Lane Exists
 
-Taru has a public protocol crate, stable API version/error semantics, and
+Nako has a public protocol crate, stable API version/error semantics, and
 inbound bearer auth. The next client-readiness risk is that future Flutter,
 web, CLI, and SDK work would still need to infer HTTP shapes from prose docs,
 server tests, or internal DTOs.
@@ -22,16 +22,16 @@ server tests, or internal DTOs.
   - `docs/workstreams/public-api-contract/`
   - `docs/workstreams/access-boundary-auth/`
 - Code boundaries:
-  - `crates/taru-client-protocol`
-  - `crates/taru-api`
-  - `crates/taru-server/src/http`
+  - `crates/nako-client-protocol`
+  - `crates/nako-api`
+  - `crates/nako-server/src/http`
   - `docs/api/HTTP_API.md`
 
 ## Starting Audit
 
-- Public browse/playback DTOs mostly live in `taru-client-protocol`.
-- `taru-api` adapts server/domain records into public protocol DTOs.
-- Playback session HTTP routes still return a `taru-api` DTO that includes
+- Public browse/playback DTOs mostly live in `nako-client-protocol`.
+- `nako-api` adapts server/domain records into public protocol DTOs.
+- Playback session HTTP routes still return a `nako-api` DTO that includes
   `output_path`, which is a server-local staging path and should not be part of
   a generated public client schema.
 - There is no OpenAPI generator, artifact, or schema checker yet.
@@ -40,12 +40,12 @@ server tests, or internal DTOs.
 ## Target State
 
 - M32 has an accepted ADR and a durable workstream.
-- Public playback session DTOs are owned by `taru-client-protocol` and do not
+- Public playback session DTOs are owned by `nako-client-protocol` and do not
   expose local output paths.
-- `taru-api` owns a Public Client API OpenAPI v1 artifact/generator over
+- `nako-api` owns a Public Client API OpenAPI v1 artifact/generator over
   protocol-owned DTOs and server adapter knowledge.
 - The OpenAPI contract includes:
-  - `x-taru-api-version`;
+  - `x-nako-api-version`;
   - bearer auth with `GET /health` unauthenticated;
   - `ErrorResponse` and stable public error codes;
   - pagination parameters and `PageInfo`;
@@ -61,7 +61,7 @@ server tests, or internal DTOs.
 - Create ADR/workstream docs for the OpenAPI/client SDK contract.
 - Move any remaining public client response shape needed by OpenAPI out of
   server/internal record types.
-- Implement a first OpenAPI v1 artifact or generator in `taru-api`.
+- Implement a first OpenAPI v1 artifact or generator in `nako-api`.
 - Add tests/checkers for route coverage, auth/error/header semantics, and
   internal/admin leakage.
 - Update HTTP API docs, goal map, roadmap, and workstream index.
@@ -76,10 +76,10 @@ server tests, or internal DTOs.
 
 ## Architecture Direction
 
-Use `taru-api` as the schema aggregation boundary. Do not make Axum handlers or
-`taru-core` records the public schema source. Keep `taru-client-protocol`
+Use `nako-api` as the schema aggregation boundary. Do not make Axum handlers or
+`nako-core` records the public schema source. Keep `nako-client-protocol`
 dependency-light by default; if schema derive support becomes worthwhile, add
-it as an optional protocol feature or keep it entirely in `taru-api`.
+it as an optional protocol feature or keep it entirely in `nako-api`.
 
 ## Closeout Condition
 

@@ -5,16 +5,16 @@ Last updated: 2026-05-22
 
 ## Why This Lane Exists
 
-Taru now has a safe Admin Addon Operations surface: operators can register an
+Nako now has a safe Admin Addon Operations surface: operators can register an
 **Addon Sidecar**, enable or disable it, run an **Addon Health Check**, inspect
 manifest surfaces, and diagnose resource calls. The next product gap is not
 process automation; it is helping an operator correctly run the Addon Sidecar
-outside Taru.
+outside Nako.
 
 Without a first-class **Addon Install Guide**, operators must infer deployment
 shape from a manifest and docs. That encourages ad-hoc Docker Compose snippets,
 plaintext secrets, confusing health-check commands, and accidental expectation
-that Taru should manage containers.
+that Nako should manage containers.
 
 ## Relevant Authority
 
@@ -29,7 +29,7 @@ that Taru should manage containers.
 
 ## Problem
 
-Taru can operate registered **Addon Sidecars**, but it does not yet produce a
+Nako can operate registered **Addon Sidecars**, but it does not yet produce a
 canonical, redaction-safe deployment guide from the stored manifest snapshot.
 The missing boundary has three consequences:
 
@@ -43,9 +43,9 @@ The missing boundary has three consequences:
 
 When this lane closes:
 
-- `taru-api` exposes a generated Admin API TypeScript contract for
+- `nako-api` exposes a generated Admin API TypeScript contract for
   `GET /admin/v1/addons/{addon_id}/install-guide`;
-- `taru-server` generates an `AdminAddonInstallGuideResponse` from the stored
+- `nako-server` generates an `AdminAddonInstallGuideResponse` from the stored
   manifest without network calls, secret resolution, Docker socket access, or
   process lifecycle operations;
 - the guide includes Docker Compose, systemd, Secret Reference checklist,
@@ -60,7 +60,7 @@ When this lane closes:
 
 - Admin-only read route:
   `GET /admin/v1/addons/{addon_id}/install-guide`.
-- Redaction-safe DTOs in `taru-api::extension` and generated Admin Web
+- Redaction-safe DTOs in `nako-api::extension` and generated Admin Web
   TypeScript contract.
 - Pure server-side guide composition from registered Addon manifest facts.
 - Docker Compose snippet, systemd unit snippet, Secret Reference checklist,
@@ -82,7 +82,7 @@ When this lane closes:
 | Assumption | Confidence | Evidence | Consequence if wrong |
 | --- | --- | --- | --- |
 | The install guide can be derived from the stored manifest snapshot and Addon registration summary. | High | Addon Operations already renders manifest, surfaces, tokens, and grants from safe DTOs. | If more data is required, split follow-on rather than adding manager state in this lane. |
-| Docker Compose and systemd snippets are useful as text previews even if Taru does not execute them. | High | `CONTEXT.md` explicitly defines **Addon Install Guide** as generated deployment snippets. | If operators need real lifecycle automation, open a separate **Addon Manager** lane. |
+| Docker Compose and systemd snippets are useful as text previews even if Nako does not execute them. | High | `CONTEXT.md` explicitly defines **Addon Install Guide** as generated deployment snippets. | If operators need real lifecycle automation, open a separate **Addon Manager** lane. |
 | Secret Reference fields are declarations only and must remain unresolved in the guide. | High | Existing Admin surface exposes counts/labels only and rejects raw secrets. | If secrets must be resolved, create a separate secret-runtime design with stronger policy. |
 | Admin Web should consume a server-owned guide instead of re-deriving snippets in TypeScript. | High | Generated Admin API contract is already the anti-drift seam for Admin Web Addons. | Frontend-only generation would likely diverge from server-side route semantics. |
 
@@ -90,10 +90,10 @@ When this lane closes:
 
 The correct boundary is a server-owned Admin read model:
 
-- `taru-api` owns the response DTO shape and generated TypeScript contract.
-- `taru-server::app::addons` owns guide composition because it already owns
+- `nako-api` owns the response DTO shape and generated TypeScript contract.
+- `nako-server::app::addons` owns guide composition because it already owns
   stored manifest parsing and Addon status policy.
-- `crates/taru-server/src/http/addons.rs` stays thin and only exposes the
+- `crates/nako-server/src/http/addons.rs` stays thin and only exposes the
   route.
 - `apps/admin-web/src/adminApi` maps the wire response into a UI read model.
 - `App.tsx` renders snippets as inert text. It does not execute commands,

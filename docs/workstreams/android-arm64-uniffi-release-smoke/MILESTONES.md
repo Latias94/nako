@@ -32,7 +32,7 @@ Exit when either:
   explicitly documented.
 
 Result: `arm64-v8a` APK packaging was built and inspected. The APK contains
-`lib/arm64-v8a/libtaru_client_uniffi.so` and
+`lib/arm64-v8a/libnako_client_uniffi.so` and
 `lib/arm64-v8a/libjnidispatch.so`, with no non-arm64 JNI entries after
 threading focused ABI selection into Android's `ndk.abiFilters`. The same
 debug APK and test APK then passed the UniFFI native smoke on OPPO `PLG110`.

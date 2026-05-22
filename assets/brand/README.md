@@ -1,6 +1,6 @@
 # Brand Assets
 
-This directory contains source-level product branding assets shared across Taru/Nako
+This directory contains source-level product branding assets shared across Nako
 platforms.
 
 ## Nako
@@ -22,7 +22,6 @@ The Nako icon rationale and final generation prompt are recorded in
 ## Product Icon
 
 - `nako-app-icon-1024.png` is the selected Nako source product/app icon.
-- `taru-app-icon-1024.png` is the current source product/app icon.
 - Platform-specific launcher icons should be generated from this source asset
   and stored in each platform's native resource tree.
 - Android generated launcher resources currently live under

@@ -12,13 +12,13 @@ Objective:
 - Explain hardware acceleration policy, selected acceleration, FFmpeg
   capability evidence, transcode budgets, remote playback budgets, and staging
   cleanup configuration.
-- Preserve Public Client API, public OpenAPI/SDK, and `taru-client-protocol`
+- Preserve Public Client API, public OpenAPI/SDK, and `nako-client-protocol`
   boundaries.
 
 Deliverables:
 
-- Admin-owned playback runtime diagnostics DTOs in `taru-api::admin`.
-- Playback app diagnostics snapshot support in `taru-server`.
+- Admin-owned playback runtime diagnostics DTOs in `nako-api::admin`.
+- Playback app diagnostics snapshot support in `nako-server`.
 - `GET /admin/v1/playback/runtime`.
 - Focused API/server tests for shape, redaction, auth, and public leakage.
 - Updated admin-web-console data-source notes after route support lands.
@@ -26,7 +26,7 @@ Deliverables:
 Non-goals:
 
 - No Public Client API route or DTO changes.
-- No `taru-client-protocol` changes.
+- No `nako-client-protocol` changes.
 - No public OpenAPI or TypeScript SDK expansion.
 - No playback session mutations.
 - No playback source selection deepening.

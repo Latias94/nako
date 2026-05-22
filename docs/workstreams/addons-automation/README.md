@@ -4,7 +4,7 @@
 
 Completed for M5.
 
-This workstream owns Taru's external extension surface: domain events, webhook
+This workstream owns Nako's external extension surface: domain events, webhook
 delivery, external automation jobs, HTTP addon manifests, addon resource
 contracts, and reference addon behavior.
 
@@ -23,11 +23,11 @@ Top-level tracking:
 
 ## Goals
 
-- Let Taru emit durable domain events without coupling core workflows to
+- Let Nako emit durable domain events without coupling core workflows to
   external HTTP delivery.
 - Deliver webhooks through bounded, retryable, inspectable jobs.
 - Model automation as explicit jobs that call configured external providers.
-- Define a Taru HTTP addon manifest and resource contract before SDKs.
+- Define a Nako HTTP addon manifest and resource contract before SDKs.
 - Keep provider credentials as secret references, not persisted plaintext.
 - Store generated or external results as suggestions/artifacts unless accepted
   by explicit user or policy action.
@@ -46,7 +46,7 @@ Top-level tracking:
 - HTTP handlers enqueue or inspect jobs; they do not call addon/provider HTTP
   endpoints inline.
 - Addon and automation calls are bounded by resource class and timeout.
-- Payloads use Taru IDs and API URLs, not raw local filesystem paths.
+- Payloads use Nako IDs and API URLs, not raw local filesystem paths.
 - Secrets are resolved at runtime from references and must not appear in jobs,
   logs, event payloads, manifests, or summaries.
 

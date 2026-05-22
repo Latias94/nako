@@ -18,7 +18,7 @@ implementation locality is still weak.
 
 ## Target State
 
-- Provider attempt execution is an internal `taru-metadata` Module.
+- Provider attempt execution is an internal `nako-metadata` Module.
 - `MetadataStrategyExecutor::refresh_item` keeps the existing public workflow
   shape and delegates provider-attempt runtime details.
 - Attempt classification, skipped-provider attempts, provider search/fetch,
@@ -30,8 +30,8 @@ implementation locality is still weak.
 
 ## In Scope
 
-- `crates/taru-metadata/src/strategy.rs` provider attempt logic.
-- New internal `taru-metadata` Module files if they improve locality.
+- `crates/nako-metadata/src/strategy.rs` provider attempt logic.
+- New internal `nako-metadata` Module files if they improve locality.
 - Focused tests for provider attempt runtime behavior through existing public
   refresh Interfaces.
 - Workstream and goal documentation.
@@ -44,7 +44,7 @@ implementation locality is still weak.
 - No database schema changes.
 - No NFO Round Trip work.
 - No playback/client-profile work.
-- No `taru-api` module split.
+- No `nako-api` module split.
 
 ## Architecture Direction
 
@@ -77,7 +77,7 @@ The attempt runtime should own:
 | Assumption | Confidence | Evidence | Consequence if wrong |
 | --- | --- | --- | --- |
 | The first cut can keep `MetadataStrategyExecutor::refresh_item` externally compatible. | High | Current callers construct the executor and call `refresh_item`; tests focus on summaries and attempts. | If helper visibility changes leak out, restore the public shape and keep extraction internal. |
-| Provider attempt runtime should stay inside `taru-metadata`. | High | It depends on metadata provider traits, merge policy, and provider-specific classifications. | If another crate needs it later, split a permissive protocol only after a real second consumer exists. |
+| Provider attempt runtime should stay inside `nako-metadata`. | High | It depends on metadata provider traits, merge policy, and provider-specific classifications. | If another crate needs it later, split a permissive protocol only after a real second consumer exists. |
 | Repository port splits are not needed for this goal. | Medium | M40 already added `MetadataRefreshPort` and `MetadataAttemptPort`. | If commit logic still dominates, split a follow-on workflow port instead of broadening M44. |
 
 ## Closeout Condition

@@ -16,17 +16,17 @@ Task IDs use the `LNA` prefix.
 
 ## M1 — VFS Link Dry-Run Contract
 
-- [x] LNA-020 [owner=codex] [deps=LNA-010] [scope=crates/taru-vfs]
+- [x] LNA-020 [owner=codex] [deps=LNA-010] [scope=crates/nako-vfs]
   Goal: Add a non-destructive storage link planning contract and local backend
   diagnostics for hard/soft link eligibility.
-  Validation: `cargo nextest run -p taru-vfs link --no-fail-fast`;
+  Validation: `cargo nextest run -p nako-vfs link --no-fail-fast`;
   `cargo fmt --all -- --check`; `git diff --check`.
-  Evidence: `crates/taru-vfs/src/lib.rs`, `crates/taru-vfs/src/local.rs`.
+  Evidence: `crates/nako-vfs/src/lib.rs`, `crates/nako-vfs/src/local.rs`.
   Handoff: Use the dry-run model to design source duplicate link evidence in LNA-030.
 
 ## M2 — Source Duplicate Link Evidence
 
-- [x] LNA-030 [owner=codex] [deps=LNA-020] [scope=taru-core,taru-db,taru-server]
+- [x] LNA-030 [owner=codex] [deps=LNA-020] [scope=nako-core,nako-db,nako-server]
   Goal: Surface link/duplicate evidence through `SourceDuplicateRelationship`
   diagnostics without merging Media Sources or Media Items.
   Validation: source duplicate repository/app tests prove suggested
@@ -38,11 +38,11 @@ Task IDs use the `LNA` prefix.
 
 ## M3 — NFO Authority Preview
 
-- [x] LNA-040 [owner=codex] [deps=LNA-020] [scope=crates/taru-nfo]
+- [x] LNA-040 [owner=codex] [deps=LNA-020] [scope=crates/nako-nfo]
   Goal: Expose a non-mutating NFO export/import authority preview that explains
   create, skip, forced-preserving update, backup requirement, and policy
   rejection decisions before write execution.
-  Validation: focused `taru-nfo` tests prove preview does not write sidecars
+  Validation: focused `nako-nfo` tests prove preview does not write sidecars
   and matches export policy.
   Evidence: `NfoAuthorityPreview*` model, `NfoService::preview_authority`,
   `NfoAppService::preview_library_nfo_authority`, and focused NFO tests.

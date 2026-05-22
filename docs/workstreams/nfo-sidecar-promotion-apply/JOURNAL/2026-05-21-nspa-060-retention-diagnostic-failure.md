@@ -5,7 +5,7 @@
 - Task: NSPA-060 partial failure rollback and repair gates.
 - Slice: export-sidecar backup retention diagnostic failure.
 - Files:
-  - `crates/taru-server/src/app/tests/nfo.rs`
+  - `crates/nako-server/src/app/tests/nfo.rs`
   - `docs/workstreams/nfo-sidecar-promotion-apply/TODO.md`
   - `docs/workstreams/nfo-sidecar-promotion-apply/EVIDENCE_AND_GATES.md`
   - `docs/workstreams/nfo-sidecar-promotion-apply/HANDOFF.md`
@@ -24,10 +24,10 @@
 ## Validation
 
 ```powershell
-cargo nextest run -p taru-server nfo_sidecar_apply_export_retention_diagnostic_failure_commits_with_redacted_warning --no-fail-fast
+cargo nextest run -p nako-server nfo_sidecar_apply_export_retention_diagnostic_failure_commits_with_redacted_warning --no-fail-fast
 cargo fmt --all -- --check
-cargo nextest run -p taru-server nfo_sidecar_apply --no-fail-fast
-cargo nextest run -p taru-server nfo --no-fail-fast
+cargo nextest run -p nako-server nfo_sidecar_apply --no-fail-fast
+cargo nextest run -p nako-server nfo --no-fail-fast
 ```
 
 All commands passed.

@@ -208,7 +208,7 @@ function Write-SmokeRegressionJUnitReport {
     [void]$document.AppendChild($root)
 
     $suite = $document.CreateElement('testsuite')
-    $suite.SetAttribute('name', 'taru.android.smoke-regression')
+    $suite.SetAttribute('name', 'nako.android.smoke-regression')
     $suite.SetAttribute('tests', $outcomes.Count.ToString())
     $suite.SetAttribute('failures', $failureCount.ToString())
     $suite.SetAttribute('errors', '0')
@@ -230,7 +230,7 @@ function Write-SmokeRegressionJUnitReport {
         Add-JUnitTestCase `
             -Document $document `
             -Suite $suite `
-            -ClassName 'taru.android.smoke' `
+            -ClassName 'nako.android.smoke' `
             -Name $outcome.Name `
             -Outcome $outcome.Outcome `
             -Type $outcome.Type `
@@ -539,7 +539,7 @@ try {
     )
     $jsonReport = [ordered]@{
         schema_version = 1
-        kind = 'taru_android_smoke_regression'
+        kind = 'nako_android_smoke_regression'
         started_at = $startedAt.ToString('o')
         finished_at = $finishedAt.ToString('o')
         result = if ($overallPass) { 'PASS' } else { 'FAIL' }
@@ -563,7 +563,7 @@ try {
         states = $stateResults
     }
     $lines = New-Object System.Collections.Generic.List[string]
-    $lines.Add('# Taru Android Smoke Regression')
+    $lines.Add('# Nako Android Smoke Regression')
     $lines.Add('')
     $lines.Add("- Started: $($startedAt.ToString('o'))")
     $lines.Add("- Finished: $($finishedAt.ToString('o'))")

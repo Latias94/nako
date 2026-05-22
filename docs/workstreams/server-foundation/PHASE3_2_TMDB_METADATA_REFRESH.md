@@ -8,7 +8,7 @@ Implemented in the current workspace.
 
 Phase 3.2 adds the first real external metadata path:
 
-- TMDB movie search and movie-detail fetch behind `taru-metadata` traits
+- TMDB movie search and movie-detail fetch behind `nako-metadata` traits
 - metadata refresh service that reuses field locks and merge policy
 - raw TMDB detail response cache in `provider_raw_responses`
 - persisted `metadata_refresh` jobs with durable input and summary JSON
@@ -68,7 +68,7 @@ the job status and summary.
 CLI trigger:
 
 ```powershell
-cargo run -p taru-server -- --config taru.toml refresh-metadata <item_id>
+cargo run -p nako-server -- --config nako.toml refresh-metadata <item_id>
 ```
 
 The CLI command runs synchronously and prints the job plus refresh summary as

@@ -1,0 +1,24 @@
+[package]
+name = "nako-nfo"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+async-trait.workspace = true
+roxmltree.workspace = true
+serde.workspace = true
+sha2.workspace = true
+nako-catalog = { path = "../nako-catalog" }
+nako-core = { path = "../nako-core" }
+nako-search = { path = "../nako-search" }
+nako-vfs = { path = "../nako-vfs" }
+
+[dev-dependencies]
+nako-db = { path = "../nako-db" }
+tempfile.workspace = true
+tokio.workspace = true

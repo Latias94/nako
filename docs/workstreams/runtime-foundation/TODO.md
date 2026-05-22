@@ -48,15 +48,15 @@
 ## Module Boundaries
 
 - [x] Split touched runtime code into focused modules as part of each phase.
-- [ ] Avoid growing `taru-server::app`, `taru-server::app::metadata`,
-      `taru-server::app::playback`, and `taru-db::lib` when adding runtime
+- [ ] Avoid growing `nako-server::app`, `nako-server::app::metadata`,
+      `nako-server::app::playback`, and `nako-db::lib` when adding runtime
       policies.
 - [ ] Use explicit DTOs for new public API routes.
 - [x] Delete legacy helpers once their replacement is fully wired.
 
 ## M16 Storage Backend Registry And Lease Lifecycle
 
-- [x] Keep `StorageBackendRegistry` owned by `TaruApp`.
+- [x] Keep `StorageBackendRegistry` owned by `NakoApp`.
 - [x] Cache backend wrappers by `library_id`.
 - [x] Route scan, probe, playback, remux/HLS staging, and NFO through the
       registry boundary.
@@ -74,8 +74,8 @@
 
 - [x] Keep `sqlx` plus repository traits as the database boundary; do not add
       SeaORM.
-- [x] Move shared SQL encoding and row mapping out of `taru-db::lib`.
-- [x] Move root repository tests out of `taru-db::lib`.
+- [x] Move shared SQL encoding and row mapping out of `nako-db::lib`.
+- [x] Move root repository tests out of `nako-db::lib`.
 - [x] Split job, outbox, automation, webhook, and addon repositories into
       focused modules.
 - [x] Add a repository-level scan transaction for item, source, and source

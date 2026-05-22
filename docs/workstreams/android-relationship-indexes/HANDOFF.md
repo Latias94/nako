@@ -22,9 +22,9 @@ None. This workstream is closed.
 - Existing related-items routes should be reused; no local filtering.
 - Genres Index is the first slice and should open as a nested route from Home,
   not as a new bottom navigation destination.
-- `TaruBrowseClient.listGenres` is the Android typed contract for
+- `NakoBrowseClient.listGenres` is the Android typed contract for
   `GET /genres?limit=&offset=`.
-- `TaruRoute.RelationshipIndex(RelationshipIndexFamily.Genres)` and
+- `NakoRoute.RelationshipIndex(RelationshipIndexFamily.Genres)` and
   `RelationshipIndexUiState` are in place.
 - `RelationshipIndexRouteContent` replaced the temporary placeholder and Home
   now exposes a Genres anchor into the nested route.

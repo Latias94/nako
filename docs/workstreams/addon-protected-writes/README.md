@@ -6,7 +6,7 @@ Last updated: 2026-05-18
 This workstream owned the concrete write-application follow-on split from
 `addon-token-grants-side-effects`. The previous lane proved Addon Token,
 accepted grant, addon-principal, and Addon Side Effect intake boundaries. This
-lane proved how accepted side effects become Taru-owned Canonical Metadata
+lane proved how accepted side effects become Nako-owned Canonical Metadata
 changes, then split Managed Artwork, subtitle, NFO, and Library File Write
 breadth into narrower follow-ons.
 
@@ -24,11 +24,11 @@ Authoritative docs:
 
 ## Goals
 
-- Turn accepted Addon Side Effect intake records into concrete Taru-mediated
+- Turn accepted Addon Side Effect intake records into concrete Nako-mediated
   protected writes.
 - Keep Addon Sidecars behind Addon Tokens, accepted Addon Permissions, and
   Library-Scoped Addon Grants.
-- Route metadata writes through Taru's Canonical Metadata authority instead of
+- Route metadata writes through Nako's Canonical Metadata authority instead of
   direct provider or database mutation.
 - Route artwork, subtitle, NFO, and other library sidecar outputs through
   Managed Artwork, NFO Round Trip, storage/VFS, and Library File Write
@@ -48,7 +48,7 @@ raw Addon Tokens.
 Follow-ons:
 
 - `../addon-managed-artwork-artifacts/` for `artwork_write`, Artwork
-  Candidates, Managed Artwork, and Taru-Managed Artifact storage.
+  Candidates, Managed Artwork, and Nako-Managed Artifact storage.
 - `../addon-library-file-write-policy/` for subtitle, NFO, and Library File
   Write behavior.
 

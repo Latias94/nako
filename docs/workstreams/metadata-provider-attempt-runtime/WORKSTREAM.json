@@ -16,6 +16,6 @@
     "database schema changes",
     "NFO Round Trip work",
     "playback changes",
-    "taru-api module split"
+    "nako-api module split"
   ]
 }

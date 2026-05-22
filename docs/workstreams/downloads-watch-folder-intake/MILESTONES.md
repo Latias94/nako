@@ -33,8 +33,8 @@ Exit criteria:
 
 Primary evidence:
 
-- `crates/taru-core`
-- `crates/taru-db/src/contract_tests.rs`
+- `crates/nako-core`
+- `crates/nako-db/src/contract_tests.rs`
 - SQLite/PostgreSQL repository adapters
 
 ## M2 — App Service Intake And Managed Import Handoff
@@ -50,8 +50,8 @@ Exit criteria:
 
 Primary evidence:
 
-- `crates/taru-server/src/app`
-- `crates/taru-server/src/app/tests`
+- `crates/nako-server/src/app`
+- `crates/nako-server/src/app/tests`
 
 ## M3 — Watch-Folder Discovery
 
@@ -78,16 +78,16 @@ Exit criteria:
 
 - [x] Admin-only routes expose bounded intake diagnostics.
 - [x] Admin TypeScript contract and typed client/mocks are synchronized.
-- [x] Public Client API and `taru-client-protocol` remain unchanged.
+- [x] Public Client API and `nako-client-protocol` remain unchanged.
 - [x] Redaction tests cover raw paths, credentials, secret query strings, and
   downloader internals.
 
 Primary evidence:
 
-- `crates/taru-api/src/admin.rs`
-- `crates/taru-server/src/http/admin.rs`
+- `crates/nako-api/src/admin.rs`
+- `crates/nako-server/src/http/admin.rs`
 - `apps/admin-web/src/adminApi`
-- `crates/taru-server/src/http/tests`
+- `crates/nako-server/src/http/tests`
 
 ## M5 — Closeout And Follow-On Split
 

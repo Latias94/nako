@@ -48,7 +48,7 @@ adb -s 3B15BC01DH500000 shell getprop ro.build.version.release
 Fresh gates run on 2026-05-21:
 
 ```powershell
-apps/android/gradlew.bat -p apps/android :app:assembleDebug -PtaruRustAndroidAbis=arm64-v8a --no-daemon
+apps/android/gradlew.bat -p apps/android :app:assembleDebug -PnakoRustAndroidAbis=arm64-v8a --no-daemon
 ```
 
 APK JNI inspection found:
@@ -56,7 +56,7 @@ APK JNI inspection found:
 ```text
 lib/arm64-v8a/libandroidx.graphics.path.so
 lib/arm64-v8a/libjnidispatch.so
-lib/arm64-v8a/libtaru_client_uniffi.so
+lib/arm64-v8a/libnako_client_uniffi.so
 arm64 JNI packaging OK
 ```
 
@@ -68,16 +68,16 @@ Android's `ndk.abiFilters`.
 Fresh OPPO runtime smoke run on 2026-05-21:
 
 ```powershell
-apps/android/gradlew.bat -p apps/android :app:assembleDebug :app:assembleDebugAndroidTest -PtaruRustAndroidAbis=arm64-v8a --no-daemon
+apps/android/gradlew.bat -p apps/android :app:assembleDebug :app:assembleDebugAndroidTest -PnakoRustAndroidAbis=arm64-v8a --no-daemon
 adb -s 3B15BC01DH500000 install -r apps/android/app/build/outputs/apk/debug/app-debug.apk
 adb -s 3B15BC01DH500000 install -r apps/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-adb -s 3B15BC01DH500000 shell am instrument -w -r -e class dev.taru.android.uniffi.TaruUniFfiNativeSmokeTest dev.taru.android.test/androidx.test.runner.AndroidJUnitRunner
+adb -s 3B15BC01DH500000 shell am instrument -w -r -e class dev.nako.android.uniffi.NakoUniFfiNativeSmokeTest dev.nako.android.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
 Result:
 
 ```text
-dev.taru.android.uniffi.TaruUniFfiNativeSmokeTest:
+dev.nako.android.uniffi.NakoUniFfiNativeSmokeTest:
 .
 Time: 0.037
 OK (1 test)
@@ -85,18 +85,18 @@ OK (1 test)
 
 ## Finding Fixed In-Lane
 
-Initial arm64 APK inspection showed Taru's Rust library was focused to arm64,
+Initial arm64 APK inspection showed Nako's Rust library was focused to arm64,
 but transitive native libraries from JNA/AndroidX still packaged other ABIs.
-The fix was to apply `taruRustAndroidAbis` to Android `ndk.abiFilters`, so the
+The fix was to apply `nakoRustAndroidAbis` to Android `ndk.abiFilters`, so the
 focused ABI selector governs all native libraries in the APK.
 
 ## Final Verification
 
 ```powershell
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.TaruConnectionClientTest --no-daemon
-apps/android/gradlew.bat -p apps/android :app:assembleDebug -PtaruRustAndroidAbis=arm64-v8a --no-daemon
-apps/android/gradlew.bat -p apps/android :app:assembleDebug :app:assembleDebugAndroidTest -PtaruRustAndroidAbis=arm64-v8a --no-daemon
-adb -s 3B15BC01DH500000 shell am instrument -w -r -e class dev.taru.android.uniffi.TaruUniFfiNativeSmokeTest dev.taru.android.test/androidx.test.runner.AndroidJUnitRunner
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.connection.NakoConnectionClientTest --no-daemon
+apps/android/gradlew.bat -p apps/android :app:assembleDebug -PnakoRustAndroidAbis=arm64-v8a --no-daemon
+apps/android/gradlew.bat -p apps/android :app:assembleDebug :app:assembleDebugAndroidTest -PnakoRustAndroidAbis=arm64-v8a --no-daemon
+adb -s 3B15BC01DH500000 shell am instrument -w -r -e class dev.nako.android.uniffi.NakoUniFfiNativeSmokeTest dev.nako.android.test/androidx.test.runner.AndroidJUnitRunner
 python -m json.tool docs/workstreams/android-arm64-uniffi-release-smoke/WORKSTREAM.json > $null
 git diff --check
 ```
@@ -114,8 +114,8 @@ CI/device-farm target before public beta.
 Keep this command as the focused real-device regression:
 
 ```powershell
-apps/android/gradlew.bat -p apps/android :app:assembleDebug :app:assembleDebugAndroidTest -PtaruRustAndroidAbis=arm64-v8a --no-daemon
+apps/android/gradlew.bat -p apps/android :app:assembleDebug :app:assembleDebugAndroidTest -PnakoRustAndroidAbis=arm64-v8a --no-daemon
 adb -s <arm64-serial> install -r apps/android/app/build/outputs/apk/debug/app-debug.apk
 adb -s <arm64-serial> install -r apps/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-adb -s <arm64-serial> shell am instrument -w -r -e class dev.taru.android.uniffi.TaruUniFfiNativeSmokeTest dev.taru.android.test/androidx.test.runner.AndroidJUnitRunner
+adb -s <arm64-serial> shell am instrument -w -r -e class dev.nako.android.uniffi.NakoUniFfiNativeSmokeTest dev.nako.android.test/androidx.test.runner.AndroidJUnitRunner
 ```

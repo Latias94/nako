@@ -20,10 +20,10 @@ Last updated: 2026-05-19
   cancellation plus progress report, ended playback watched report without
   cancellation, and missing-token local-only behavior.
 - 2026-05-19: Ran
-  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.player.PlaybackExitCoordinatorTest --no-daemon --no-parallel`.
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.player.PlaybackExitCoordinatorTest --no-daemon --no-parallel`.
   Result: pass.
 - 2026-05-19: Ran
-  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.player.PlaybackExitCoordinatorTest --tests dev.taru.android.player.PlaybackExitEffectsTest --tests dev.taru.android.playback.TaruPlaybackClientTest --tests dev.taru.android.userplayback.TaruUserPlaybackClientTest --no-daemon --no-parallel`.
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.player.PlaybackExitCoordinatorTest --tests dev.nako.android.player.PlaybackExitEffectsTest --tests dev.nako.android.playback.NakoPlaybackClientTest --tests dev.nako.android.userplayback.NakoUserPlaybackClientTest --no-daemon --no-parallel`.
   Result: pass.
 - 2026-05-19: Ran
   `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon --no-parallel`.

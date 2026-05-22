@@ -39,15 +39,15 @@
   "gates": [
     "python -m json.tool docs/workstreams/generated-sdk-runtime-ownership/WORKSTREAM.json > $null",
     "git diff --check",
-    "cargo fmt --package taru-client-core --package taru-client-uniffi --package taru-client --package taru-client-protocol --check",
-    "cargo nextest run -p taru-client-core --no-fail-fast",
-    "cargo nextest run -p taru-client-uniffi --no-fail-fast",
-    "cargo nextest run -p taru-client --no-fail-fast",
-    "cargo nextest run -p taru-client-protocol --no-fail-fast",
-    "cargo fmt --package taru-api --check",
-    "cargo nextest run -p taru-api kotlin_sdk --no-fail-fast",
-    "apps/android/gradlew.bat -p apps/android :taru-public-client-sdk:test --no-daemon",
-    "apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.TaruConnectionClientTest --no-daemon"
+    "cargo fmt --package nako-client-core --package nako-client-uniffi --package nako-client --package nako-client-protocol --check",
+    "cargo nextest run -p nako-client-core --no-fail-fast",
+    "cargo nextest run -p nako-client-uniffi --no-fail-fast",
+    "cargo nextest run -p nako-client --no-fail-fast",
+    "cargo nextest run -p nako-client-protocol --no-fail-fast",
+    "cargo fmt --package nako-api --check",
+    "cargo nextest run -p nako-api kotlin_sdk --no-fail-fast",
+    "apps/android/gradlew.bat -p apps/android :nako-public-client-sdk:test --no-daemon",
+    "apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.connection.NakoConnectionClientTest --no-daemon"
   ],
   "evidence": [
     "docs/adr/0025-openapi-public-client-sdk-contract.md",
@@ -56,16 +56,16 @@
     "docs/adr/0031-android-client-sdk-before-mobile-rust-ffi.md",
     "docs/workstreams/android-generated-public-client-sdk/CLOSEOUT.md",
     "docs/workstreams/generated-sdk-forward-compat-tolerance/CLOSEOUT.md",
-    "crates/taru-api/src/sdk.rs",
-    "crates/taru-client/src/lib.rs",
-    "crates/taru-client-protocol/src/lib.rs",
-    "crates/taru-client-protocol/src/catalog.rs",
-    "sdk/kotlin/src/main/kotlin/dev/taru/sdk/TaruClientSdk.kt",
-    "apps/android/app/src/main/java/dev/taru/android/connection/PublicClientApiExecutor.kt",
-    "apps/android/app/src/main/java/dev/taru/android/connection/TaruHttpTransport.kt",
-    "apps/android/app/src/main/java/dev/taru/android/connection/SensitiveText.kt",
-    "apps/android/app/src/main/java/dev/taru/android/connection/TaruConnectionClient.kt",
-    "apps/android/app/src/main/java/dev/taru/android/playback/TaruPlaybackClient.kt"
+    "crates/nako-api/src/sdk.rs",
+    "crates/nako-client/src/lib.rs",
+    "crates/nako-client-protocol/src/lib.rs",
+    "crates/nako-client-protocol/src/catalog.rs",
+    "sdk/kotlin/src/main/kotlin/dev/nako/sdk/NakoClientSdk.kt",
+    "apps/android/app/src/main/java/dev/nako/android/connection/PublicClientApiExecutor.kt",
+    "apps/android/app/src/main/java/dev/nako/android/connection/NakoHttpTransport.kt",
+    "apps/android/app/src/main/java/dev/nako/android/connection/SensitiveText.kt",
+    "apps/android/app/src/main/java/dev/nako/android/connection/NakoConnectionClient.kt",
+    "apps/android/app/src/main/java/dev/nako/android/playback/NakoPlaybackClient.kt"
   ],
   "adr_refs": [
     "docs/adr/0025-openapi-public-client-sdk-contract.md",
@@ -76,6 +76,6 @@
   "current_task": null,
   "continue_policy": {
     "default_action": "closed",
-    "notes": "Lane closed on 2026-05-21. SDKRT-050 selected split-not-broaden after the connection tracer proved the no-socket Rust core / UniFFI / Android-supplied transport boundary. Start follow-on lanes for Android Rust/UniFFI build ergonomics, taru-client reuse of taru-client-core, Rust public wire tolerance, playback or browse core tracers, SDK publishing/KMP, iOS, or Rust-owned networking."
+    "notes": "Lane closed on 2026-05-21. SDKRT-050 selected split-not-broaden after the connection tracer proved the no-socket Rust core / UniFFI / Android-supplied transport boundary. Start follow-on lanes for Android Rust/UniFFI build ergonomics, nako-client reuse of nako-client-core, Rust public wire tolerance, playback or browse core tracers, SDK publishing/KMP, iOS, or Rust-owned networking."
   }
 }

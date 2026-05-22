@@ -55,7 +55,7 @@ browse information architecture lane.
 
 - Do not consume Admin, Addon, Automation, metadata maintenance, storage
   diagnostics, or job control routes from Android.
-- Do not rewrite the HTTP stack or replace the existing `TaruHttpTransport`
+- Do not rewrite the HTTP stack or replace the existing `NakoHttpTransport`
   seam.
 - Do not add a generated Kotlin SDK in this lane unless the matrix shows the
   manual client is the blocking source of drift.

@@ -7,13 +7,13 @@ Accepted
 ## Status Note
 
 Accepted by implementation evidence from the completed Addons and Automation
-workstream. Taru now persists event outbox records for external delivery and
+workstream. Nako now persists event outbox records for external delivery and
 automation paths. Future Addon Event Subscription delivery may build on this
 outbox, but should not bypass the durable event boundary.
 
 ## Context
 
-Taru now has a local media-library MVP with scans, metadata refreshes, NFO
+Nako now has a local media-library MVP with scans, metadata refreshes, NFO
 jobs, catalog graph updates, playback routes, and persisted playback sessions.
 The next extension surface needs to react to those changes without coupling
 domain mutations directly to webhook HTTP calls or automation provider calls.
@@ -45,7 +45,7 @@ the producing service must make event creation idempotent by event type,
 subject, and idempotency key.
 
 Outbox payloads must not contain plaintext secrets, local filesystem paths, or
-large binary data. They should prefer stable Taru IDs and small public snapshots
+large binary data. They should prefer stable Nako IDs and small public snapshots
 that downstream consumers can use to fetch current state.
 
 Consumers of the outbox are separate pipeline owners:
@@ -73,7 +73,7 @@ later phases may add delivery and automation consumers.
   and failures would leak into core workflows.
 - Use an in-memory queue first: rejected because webhook and automation work
   must survive restarts.
-- Adopt a message broker immediately: deferred because Taru is still a modular
+- Adopt a message broker immediately: deferred because Nako is still a modular
   monolith and SQLite-backed outbox is enough for the self-hosted MVP.
 
 ## Related Workstreams

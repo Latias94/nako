@@ -5,7 +5,7 @@ Last updated: 2026-05-19
 
 ## Purpose
 
-This lane follows `managed-artwork-artifact-store-drift-inventory`. Taru can now
+This lane follows `managed-artwork-artifact-store-drift-inventory`. Nako can now
 diagnose drift between active Managed Artwork Artifact records and local
 artifact-root files. The next boundary is remediation policy: which drift states
 can be acted on safely, which must remain operator-visible only, and which must

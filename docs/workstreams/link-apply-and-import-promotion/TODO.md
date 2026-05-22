@@ -16,11 +16,11 @@ Task IDs use the `LAIP` prefix.
 
 ## M1 — Durable Acceptance And Audit Domain
 
-- [x] LAIP-020 [owner=codex] [deps=LAIP-010,MIS-040] [scope=crates/taru-core,crates/taru-db]
+- [x] LAIP-020 [owner=codex] [deps=LAIP-010,MIS-040] [scope=crates/nako-core,crates/nako-db]
   Goal: Add promotion apply IDs, operation/state enums, accepted plan snapshot,
   audit outcome records, repository traits, migrations, and backend-neutral
   contract tests.
-  Validation: `cargo nextest run -p taru-db promotion_apply --no-fail-fast`;
+  Validation: `cargo nextest run -p nako-db promotion_apply --no-fail-fast`;
   `cargo fmt --all -- --check`; `git diff --check`.
   Evidence: core domain records, repository trait, SQLite/PostgreSQL migrations,
   facade forwarding, and DB contract tests. Completed with
@@ -32,7 +32,7 @@ Task IDs use the `LAIP` prefix.
 
 ## M2 — App Service Acceptance And Idempotent Replay
 
-- [x] LAIP-030 [owner=codex] [deps=LAIP-020] [scope=crates/taru-server]
+- [x] LAIP-030 [owner=codex] [deps=LAIP-020] [scope=crates/nako-server]
   Goal: Add app service command that explicitly accepts a promotion plan,
   records a durable apply attempt, replays matching idempotency keys, and rejects
   mismatched stale or blocked requests without storage mutation.
@@ -41,18 +41,18 @@ Task IDs use the `LAIP` prefix.
   file or Media Source write before mutation tasks.
   Evidence: `ManagedImportAppService::accept_promotion`,
   `AcceptManagedImportPromotionRequest`, redacted acceptance diagnostics, and
-  `taru-server` app tests. Completed with explicit operator/idempotency
+  `nako-server` app tests. Completed with explicit operator/idempotency
   acceptance, accepted plan/warning snapshots, idempotent replay conflict
   checks, blocked-plan rejection, and no storage or Media Source mutation.
   Handoff: Add VFS mutation primitives in LAIP-040.
 
 ## M3 — VFS Copy/Link Apply Primitive
 
-- [x] LAIP-040 [owner=codex] [deps=LAIP-020,LAIP-030,LNA-020] [scope=crates/taru-vfs]
+- [x] LAIP-040 [owner=codex] [deps=LAIP-020,LAIP-030,LNA-020] [scope=crates/nako-vfs]
   Goal: Add storage-mediated copy/hardlink/symlink apply primitives that reuse
   planning safety checks, never expose OS path mutation to server code, and
   return typed redacted outcomes.
-  Validation: `cargo nextest run -p taru-vfs link --no-fail-fast`; focused copy
+  Validation: `cargo nextest run -p nako-vfs link --no-fail-fast`; focused copy
   apply tests; `cargo fmt --all -- --check`; `git diff --check`.
   Evidence: VFS storage apply types, local backend tests, unsupported backend
   behavior. Completed with `StorageApplyKind`, `StorageApplyRequest`,
@@ -63,7 +63,7 @@ Task IDs use the `LAIP` prefix.
 
 ## M4 — Promotion Apply Orchestration
 
-- [x] LAIP-050 [owner=codex] [deps=LAIP-030,LAIP-040] [scope=crates/taru-server]
+- [x] LAIP-050 [owner=codex] [deps=LAIP-030,LAIP-040] [scope=crates/nako-server]
   Goal: Revalidate plan facts, execute selected storage operation, commit Media
   Source / duplicate relationship state only after target durability, and record
   terminal audit outcomes.
@@ -79,7 +79,7 @@ Task IDs use the `LAIP` prefix.
 
 ## M5 — Partial Failure Rollback And Cleanup
 
-- [x] LAIP-060 [owner=codex] [deps=LAIP-050] [scope=crates/taru-server,crates/taru-vfs]
+- [x] LAIP-060 [owner=codex] [deps=LAIP-050] [scope=crates/nako-server,crates/nako-vfs]
   Goal: Inject failures after storage creation and prove rollback or
   cleanup-pending audit behavior without marking artifacts promoted.
   Validation: focused tests with failing repository/storage doubles prove

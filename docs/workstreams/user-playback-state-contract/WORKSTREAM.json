@@ -5,7 +5,7 @@
   "status": "closed",
   "updated": "2026-05-19",
   "scope_kind": "execution",
-  "problem": "Taru lacks a public server-authoritative User Playback State contract, so Android can only offer device-local resume and cannot correctly claim cross-device Continue Watching, watched state, or progress reporting.",
+  "problem": "Nako lacks a public server-authoritative User Playback State contract, so Android can only offer device-local resume and cannot correctly claim cross-device Continue Watching, watched state, or progress reporting.",
   "current_task": null,
   "authoritative_docs": [
     {
@@ -27,8 +27,8 @@
   ],
   "gates": [
     "git diff --check",
-    "cargo nextest run -p taru-db -p taru-server user_playback --no-fail-fast",
-    "cargo nextest run -p taru-api -p taru-client --no-fail-fast",
+    "cargo nextest run -p nako-db -p nako-server user_playback --no-fail-fast",
+    "cargo nextest run -p nako-api -p nako-client --no-fail-fast",
     "npm run check --prefix sdk/typescript",
     "apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon"
   ],
@@ -36,16 +36,16 @@
     "CONTEXT.md",
     "docs/api/HTTP_API.md",
     "docs/adr/0028-user-playback-state-principal-and-public-contract.md",
-    "crates/taru-client-protocol/src/catalog.rs",
-    "crates/taru-api/src/openapi.rs",
-    "crates/taru-client/src/lib.rs",
-    "crates/taru-core/src/user_playback.rs",
-    "crates/taru-db/migrations/0030_user_playback_states.sql",
-    "crates/taru-server/src/app/user_playback.rs",
-    "crates/taru-server/src/http/user_playback.rs",
+    "crates/nako-client-protocol/src/catalog.rs",
+    "crates/nako-api/src/openapi.rs",
+    "crates/nako-client/src/lib.rs",
+    "crates/nako-core/src/user_playback.rs",
+    "crates/nako-db/migrations/0030_user_playback_states.sql",
+    "crates/nako-server/src/app/user_playback.rs",
+    "crates/nako-server/src/http/user_playback.rs",
     "docs/workstreams/android-device-local-playback-position/",
     "docs/workstreams/android-public-client-api-coverage/",
-    "apps/android/app/src/main/java/dev/taru/android/player/DevicePlaybackPosition.kt"
+    "apps/android/app/src/main/java/dev/nako/android/player/DevicePlaybackPosition.kt"
   ],
   "adr_refs": [
     "docs/adr/0023-public-api-versioning-and-error-envelope-contract.md",

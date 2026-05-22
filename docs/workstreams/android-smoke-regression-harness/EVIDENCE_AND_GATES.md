@@ -98,8 +98,8 @@ What this proves:
 Notes:
 
 - The full run built `:app:assembleDebug` successfully.
-- `profile-with-media` built/prepared `taru-server`; Rust emitted pre-existing
-  unused-code warnings in `taru-server`, but the fixture and smoke state passed.
+- `profile-with-media` built/prepared `nako-server`; Rust emitted pre-existing
+  unused-code warnings in `nako-server`, but the fixture and smoke state passed.
 - `git diff --check` passed with Git line-ending normalization warnings for
   edited Windows-tracked files only.
 
@@ -129,7 +129,7 @@ What this proves:
 - State rows now include a category column; not-run states receive a reason
   such as `blocked-by-earlier-state` or `android-build`.
 - The wrapper records Android build status separately from smoke state status.
-- `Smoke-Emulator.ps1` waits for the Taru app window to be focused before
+- `Smoke-Emulator.ps1` waits for the Nako app window to be focused before
   `uiautomator dump`, and it recovers focus by waking the device and relaunching
   MainActivity before retrying a UI hierarchy capture.
 - A two-state local regression passed after the focus recovery change:
@@ -177,7 +177,7 @@ What this proves:
   Activity. The smoke script calls a debug-only `ContentProvider` and records
   provider status in `profile-with-media-seed.txt`.
 - `Smoke-Emulator.ps1` tolerates Android system ANR wait dialogs by tapping
-  `Wait` and retrying UI text capture, without suppressing Taru app failures.
+  `Wait` and retrying UI text capture, without suppressing Nako app failures.
 - `git diff --check` passed with Git line-ending normalization warnings for
   edited Windows-tracked files only.
 

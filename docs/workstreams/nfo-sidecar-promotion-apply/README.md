@@ -16,7 +16,7 @@ instead of writing sidecars directly.
 
 ## Purpose
 
-Taru already has NFO parsing/export, round-trip preservation, safer storage
+Nako already has NFO parsing/export, round-trip preservation, safer storage
 writes, backup policy, backup retention diagnostics, non-mutating NFO authority
 preview, and promotion apply safety. The missing product boundary is the actual
 operator-confirmed apply step:

@@ -15,7 +15,7 @@ Exit:
 
 - `BrowseShellState`, `BrowseAction`, and `BrowseSession` exist.
 - Navigation actions are tested through `BrowseSession`.
-- `TaruBrowseNavigationState` remains the route model.
+- `NakoBrowseNavigationState` remains the route model.
 
 ## M2 - First Async Loading Slice
 
@@ -56,7 +56,7 @@ Status: Complete.
 
 Exit:
 
-- `TaruBrowseShell` renders state and dispatches actions.
+- `NakoBrowseShell` renders state and dispatches actions.
 - Client calls and playback start orchestration are removed from the shell.
 - Local `refreshKey` counters and route-driven `LaunchedEffect` loaders are
   removed from the shell.

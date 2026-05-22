@@ -10,7 +10,7 @@ usage() {
   cat <<'USAGE'
 Usage: scripts/package-release.sh [--output-dir DIR] [--version VERSION] [--skip-build] [--dry-run]
 
-Builds and packages the taru-server release artifact with a manifest and
+Builds and packages the nako-server release artifact with a manifest and
 SHA256SUMS. The script does not publish artifacts or push container images.
 USAGE
 }
@@ -97,21 +97,21 @@ package_version="$(workspace_version)"
 target_triple="$(host_target_triple)"
 revision="$(git_revision | tr -d '[:space:]')"
 short_revision="${revision:0:12}"
-package_id="taru-server-v${package_version}-${target_triple}-${short_revision}"
+package_id="nako-server-v${package_version}-${target_triple}-${short_revision}"
 output_root="$repo_root/$output_dir"
 staging_parent="$output_root/staging"
 staging_root="$staging_parent/$package_id"
 archive_path="$output_root/${package_id}.tar.gz"
 manifest_output_path="$output_root/${package_id}.release-manifest.json"
 checksums_path="$output_root/SHA256SUMS"
-binary_name="taru-server"
+binary_name="nako-server"
 binary_path="$repo_root/target/release/$binary_name"
 if [[ ! -f "$binary_path" && -f "$binary_path.exe" ]]; then
-  binary_name="taru-server.exe"
+  binary_name="nako-server.exe"
   binary_path="$repo_root/target/release/$binary_name"
 fi
 
-echo "Taru release package"
+echo "Nako release package"
 echo "Package: $package_id"
 echo "Output: $output_root"
 echo "SkipBuild: $skip_build"
@@ -131,7 +131,7 @@ if ! command -v rustc >/dev/null 2>&1; then
 fi
 
 if [[ "$skip_build" != "true" ]]; then
-  step cargo build --locked --release -p taru-server
+  step cargo build --locked --release -p nako-server
 fi
 
 if [[ ! -f "$binary_path" ]]; then
@@ -156,12 +156,12 @@ copy_release_path "$repo_root/LICENSE" "$staging_root/LICENSE"
 copy_release_path "$repo_root/README.md" "$staging_root/README.md"
 copy_release_path "$repo_root/Dockerfile" "$staging_root/Dockerfile"
 copy_release_path "$repo_root/.dockerignore" "$staging_root/.dockerignore"
-copy_release_path "$repo_root/deploy/sqlite/taru.toml" "$staging_root/deploy/sqlite/taru.toml"
-copy_release_path "$repo_root/deploy/postgres/taru.toml" "$staging_root/deploy/postgres/taru.toml"
+copy_release_path "$repo_root/deploy/sqlite/nako.toml" "$staging_root/deploy/sqlite/nako.toml"
+copy_release_path "$repo_root/deploy/postgres/nako.toml" "$staging_root/deploy/postgres/nako.toml"
 copy_release_path "$repo_root/deploy/container" "$staging_root/deploy/container"
 copy_release_path "$repo_root/deploy/compose/.env.example" "$staging_root/deploy/compose/.env.example"
-copy_release_path "$repo_root/deploy/compose/taru-sqlite.yml" "$staging_root/deploy/compose/taru-sqlite.yml"
-copy_release_path "$repo_root/deploy/compose/taru-postgres.yml" "$staging_root/deploy/compose/taru-postgres.yml"
+copy_release_path "$repo_root/deploy/compose/nako-sqlite.yml" "$staging_root/deploy/compose/nako-sqlite.yml"
+copy_release_path "$repo_root/deploy/compose/nako-postgres.yml" "$staging_root/deploy/compose/nako-postgres.yml"
 copy_release_path "$repo_root/docs/deployment/SELF_HOSTED.md" "$staging_root/docs/deployment/SELF_HOSTED.md"
 copy_release_path "$repo_root/docs/deployment/RELEASE_ARTIFACTS.md" "$staging_root/docs/deployment/RELEASE_ARTIFACTS.md"
 copy_release_path "$repo_root/docs/deployment/BACKUP_RESTORE_UPGRADE.md" "$staging_root/docs/deployment/BACKUP_RESTORE_UPGRADE.md"
@@ -175,7 +175,7 @@ GIT_DIRTY="$(git_dirty)" \
 TARGET_TRIPLE="$target_triple" \
 ARCHIVE_FILE="$(basename "$archive_path")" \
 BINARY_PATH="bin/$binary_name" \
-BUILD_COMMAND="$(if [[ "$skip_build" == "true" ]]; then printf 'skipped; existing target/release binary was packaged'; else printf 'cargo build --locked --release -p taru-server'; fi)" \
+BUILD_COMMAND="$(if [[ "$skip_build" == "true" ]]; then printf 'skipped; existing target/release binary was packaged'; else printf 'cargo build --locked --release -p nako-server'; fi)" \
 INCLUDED_FILES_PATH="$output_root/included-files.tmp" \
 python - "$manifest_path" <<'PY'
 import json
@@ -189,7 +189,7 @@ with open(os.environ["INCLUDED_FILES_PATH"], encoding="utf-8") as handle:
 
 manifest = {
     "schema_version": 1,
-    "package": "taru-server",
+    "package": "nako-server",
     "version": os.environ["PACKAGE_VERSION"],
     "git_revision": os.environ["GIT_REVISION"],
     "git_dirty": os.environ["GIT_DIRTY"] == "true",
@@ -198,7 +198,7 @@ manifest = {
     "archive_file": os.environ["ARCHIVE_FILE"],
     "binary": os.environ["BINARY_PATH"],
     "build_command": os.environ["BUILD_COMMAND"],
-    "preflight_command": "taru-server --config /config/taru.toml config-check --create-dirs",
+    "preflight_command": "nako-server --config /config/nako.toml config-check --create-dirs",
     "included_files": included_files,
 }
 

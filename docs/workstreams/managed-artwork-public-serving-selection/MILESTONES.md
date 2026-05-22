@@ -76,14 +76,14 @@ Primary gates:
 
 - focused db publication tests
 - focused admin publication HTTP tests
-- `cargo check -p taru-core -p taru-db -p taru-api -p taru-server --tests`
+- `cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests`
 - `cargo fmt --all -- --check`
 - `git diff --check`
 
 Result:
 
 - Added `SelectedArtworkId` and Selected Artwork publication records to
-  `taru-core`.
+  `nako-core`.
 - Added `0027_selected_artwork_publication.sql` with stable
   `selected_artworks.id`, unique `(item_id, kind, kind_key)` selection slots,
   and `ON DELETE RESTRICT` artifact references.
@@ -96,7 +96,7 @@ Result:
 
 ## M3 - Public Image References And Byte Serving
 
-Outcome: clients can discover and fetch the selected image through Taru-owned
+Outcome: clients can discover and fetch the selected image through Nako-owned
 public routes.
 
 Exit criteria:
@@ -111,8 +111,8 @@ Primary gates:
 
 - focused catalog/image HTTP tests
 - OpenAPI schema and route inventory tests
-- `cargo nextest run -p taru-server image --no-fail-fast`
-- `cargo nextest run -p taru-api image --no-fail-fast`
+- `cargo nextest run -p nako-server image --no-fail-fast`
+- `cargo nextest run -p nako-api image --no-fail-fast`
 - `git diff --check`
 
 Result:

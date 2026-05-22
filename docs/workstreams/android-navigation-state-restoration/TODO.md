@@ -11,21 +11,21 @@ Last updated: 2026-05-19
   Validation: Workstream docs exist and agree.
   Evidence: `docs/workstreams/android-navigation-state-restoration/DESIGN.md`.
   Handoff: Completed on 2026-05-19. First implementation slice should add a
-  tested saveable snapshot and wire `TaruBrowseShell` to it.
+  tested saveable snapshot and wire `NakoBrowseShell` to it.
 
 ## M1 - Saveable Navigation State
 
-- [x] ANS-020 [owner=codex] [deps=ANS-010] [scope=apps/android/app/src/main/java/dev/taru/android/ui/browse,apps/android/app/src/test/java/dev/taru/android/ui/browse]
-  Goal: Add safe save/restore support for `TaruBrowseNavigationState` and wire
-  `TaruBrowseShell` through `rememberSaveable`.
+- [x] ANS-020 [owner=codex] [deps=ANS-010] [scope=apps/android/app/src/main/java/dev/nako/android/ui/browse,apps/android/app/src/test/java/dev/nako/android/ui/browse]
+  Goal: Add safe save/restore support for `NakoBrowseNavigationState` and wire
+  `NakoBrowseShell` through `rememberSaveable`.
   Validation:
-  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.TaruBrowseNavigationStateSaverTest --no-daemon`
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.NakoBrowseNavigationStateSaverTest --no-daemon`
   plus Android compile or broader unit tests as risk requires.
   Review: Confirm Player routes are transient and no playback request material
   appears in saved navigation data.
   Evidence: `EVIDENCE_AND_GATES.md`.
   Handoff: Completed on 2026-05-19. Added JSON-backed save/restore payload,
-  `TaruBrowseNavigationStateSaver`, `rememberSaveable` Shell wiring, and focused
+  `NakoBrowseNavigationStateSaver`, `rememberSaveable` Shell wiring, and focused
   coverage for valid, invalid, unknown, and transient Player restoration.
 
 ## M2 - Closeout

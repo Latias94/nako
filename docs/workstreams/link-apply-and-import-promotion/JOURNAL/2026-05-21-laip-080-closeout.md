@@ -37,10 +37,10 @@ The lane now proves:
 Fresh closeout gates passed on 2026-05-21:
 
 - `cargo fmt --all -- --check`
-- `cargo nextest run -p taru-db promotion_apply --no-fail-fast`
-- `cargo nextest run -p taru-vfs cleanup --no-fail-fast`
-- `cargo nextest run -p taru-server managed_import --no-fail-fast`
-- `cargo nextest run -p taru-vfs link --no-fail-fast`
+- `cargo nextest run -p nako-db promotion_apply --no-fail-fast`
+- `cargo nextest run -p nako-vfs cleanup --no-fail-fast`
+- `cargo nextest run -p nako-server managed_import --no-fail-fast`
+- `cargo nextest run -p nako-vfs link --no-fail-fast`
 - `python -m json.tool docs/workstreams/link-apply-and-import-promotion/WORKSTREAM.json`
 - `python -m json.tool docs/workstreams/post-rpd-product-hardening/WORKSTREAM.json`
 - `python -m json.tool docs/workstreams/nfo-sidecar-promotion-apply/WORKSTREAM.json`

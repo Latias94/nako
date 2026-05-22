@@ -5,7 +5,7 @@ Last updated: 2026-05-21
 
 ## Why This Lane Exists
 
-The Android client has a strong foundation: it connects to Taru through the
+The Android client has a strong foundation: it connects to Nako through the
 Public Client API, keeps tokens out of visible diagnostics, uses Media3 for
 native playback, has unidirectional state modules, and ships with local smoke
 evidence. The next phase should not preserve early-client scaffolding merely
@@ -32,12 +32,12 @@ work make the current seams harder to change.
   - `docs/workstreams/android-player-session-architecture/`
   - `docs/workstreams/android-client-qa-harness/`
 - Local implementation:
-  - `apps/android/app/src/main/java/dev/taru/android/connection/`
-  - `apps/android/app/src/main/java/dev/taru/android/browse/`
-  - `apps/android/app/src/main/java/dev/taru/android/playback/`
-  - `apps/android/app/src/main/java/dev/taru/android/userplayback/`
-  - `apps/android/app/src/main/java/dev/taru/android/player/`
-  - `apps/android/app/src/main/java/dev/taru/android/ui/`
+  - `apps/android/app/src/main/java/dev/nako/android/connection/`
+  - `apps/android/app/src/main/java/dev/nako/android/browse/`
+  - `apps/android/app/src/main/java/dev/nako/android/playback/`
+  - `apps/android/app/src/main/java/dev/nako/android/userplayback/`
+  - `apps/android/app/src/main/java/dev/nako/android/player/`
+  - `apps/android/app/src/main/java/dev/nako/android/ui/`
 
 ## Problem
 
@@ -91,8 +91,8 @@ When this lane closes:
 
 ## In Scope
 
-- Android production code under `apps/android/app/src/main/java/dev/taru/android/`.
-- Android JVM tests under `apps/android/app/src/test/java/dev/taru/android/`.
+- Android production code under `apps/android/app/src/main/java/dev/nako/android/`.
+- Android JVM tests under `apps/android/app/src/test/java/dev/nako/android/`.
 - Android smoke scripts only when new gates or evidence are required.
 - Workstream docs under this directory.
 - Deleting or replacing obsolete Android code when the new seam supersedes it.

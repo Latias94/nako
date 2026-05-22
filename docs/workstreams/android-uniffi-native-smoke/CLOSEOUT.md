@@ -15,12 +15,12 @@ The smoke stays intentionally narrow:
 - no server fixture;
 - no profile/token persistence;
 - no UI or Media3;
-- one deterministic UniFFI call into `taru-client-core` via
-  `taru-client-uniffi`.
+- one deterministic UniFFI call into `nako-client-core` via
+  `nako-client-uniffi`.
 
 ## Implementation Notes
 
-- Added `TaruUniFfiNativeSmokeTest` under `androidTest`.
+- Added `NakoUniFfiNativeSmokeTest` under `androidTest`.
 - Added AndroidX instrumentation runner/dependencies.
 - Switched Android runtime JNA dependency resolution to the JNA AAR artifact so
   Android receives `libjnidispatch.so`.
@@ -32,9 +32,9 @@ The smoke stays intentionally narrow:
 Fresh gates run on 2026-05-21:
 
 ```powershell
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.TaruConnectionClientTest --no-daemon
-apps/android/gradlew.bat -p apps/android :app:assembleDebug :app:assembleDebugAndroidTest -PtaruRustAndroidAbis=x86_64 --no-daemon
-apps/android/gradlew.bat -p apps/android :app:connectedDebugAndroidTest -PtaruRustAndroidAbis=x86_64 --no-daemon
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.connection.NakoConnectionClientTest --no-daemon
+apps/android/gradlew.bat -p apps/android :app:assembleDebug :app:assembleDebugAndroidTest -PnakoRustAndroidAbis=x86_64 --no-daemon
+apps/android/gradlew.bat -p apps/android :app:connectedDebugAndroidTest -PnakoRustAndroidAbis=x86_64 --no-daemon
 python -m json.tool docs/workstreams/android-uniffi-native-smoke/WORKSTREAM.json > $null
 git diff --check
 ```
@@ -44,7 +44,7 @@ All gates passed. The connected instrumentation smoke passed on
 
 ## Finding Fixed In-Lane
 
-The first connected run failed before Taru's Rust library could be exercised:
+The first connected run failed before Nako's Rust library could be exercised:
 
 ```text
 UnsatisfiedLinkError: Native library (com/sun/jna/android-x86-64/libjnidispatch.so) not found

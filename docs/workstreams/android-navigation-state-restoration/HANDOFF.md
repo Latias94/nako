@@ -13,8 +13,8 @@ No active task remains in this workstream.
 
 ## File Scope
 
-- `apps/android/app/src/main/java/dev/taru/android/ui/browse/`
-- `apps/android/app/src/test/java/dev/taru/android/ui/browse/`
+- `apps/android/app/src/main/java/dev/nako/android/ui/browse/`
+- `apps/android/app/src/test/java/dev/nako/android/ui/browse/`
 - Workstream docs under this directory.
 
 ## Validation
@@ -22,7 +22,7 @@ No active task remains in this workstream.
 Run:
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.TaruBrowseNavigationStateSaverTest --no-daemon
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.NakoBrowseNavigationStateSaverTest --no-daemon
 apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon
 git diff --check
 ```

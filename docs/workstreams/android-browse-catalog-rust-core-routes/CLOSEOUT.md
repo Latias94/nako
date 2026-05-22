@@ -12,15 +12,15 @@ and Media3.
 
 Completed slices:
 
-1. `taru-client-core` now exposes explicit browse/catalog request builders for
+1. `nako-client-core` now exposes explicit browse/catalog request builders for
    libraries, library sources, items, item images, people, person items, genres,
    genre items, tags, tag items, and search.
-2. `taru-client-uniffi` now exposes FFI-safe browse builder records/functions
-   as a thin adapter over `taru-client-core`.
+2. `nako-client-uniffi` now exposes FFI-safe browse builder records/functions
+   as a thin adapter over `nako-client-core`.
 3. Android now uses `BrowseCore`/`RustBrowseCore` to convert product browse
    inputs into Rust-built request descriptors before executing Android-owned
    transport.
-4. `TaruBrowseClient` no longer calls generated Kotlin SDK route descriptors for
+4. `NakoBrowseClient` no longer calls generated Kotlin SDK route descriptors for
    migrated runtime browse routes. The generated SDK remains in use as the
    DTO/contract transition layer.
 5. Android docs now state the route ownership split explicitly.
@@ -30,20 +30,20 @@ Completed slices:
 Fresh closeout gates run on 2026-05-21:
 
 ```powershell
-cargo fmt --package taru-client-core --check
-cargo nextest run -p taru-client-core --no-fail-fast
-cargo fmt --package taru-client-uniffi --check
-cargo nextest run -p taru-client-uniffi --no-fail-fast
+cargo fmt --package nako-client-core --check
+cargo nextest run -p nako-client-core --no-fail-fast
+cargo fmt --package nako-client-uniffi --check
+cargo nextest run -p nako-client-uniffi --no-fail-fast
 ./scripts/guard-uniffi-boundary.ps1
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.browse.TaruBrowseClientTest --no-daemon --rerun-tasks
-if (rg -n "TaruPublicClientRequests|pathAndQuery" apps/android/app/src/main/java/dev/taru/android/browse/TaruBrowseClient.kt apps/android/app/src/main/java/dev/taru/android/browse/RustBrowseCore.kt) { exit 1 } else { 'PASS: TaruBrowseClient/RustBrowseCore have no generated SDK route descriptor calls.' }
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.browse.NakoBrowseClientTest --no-daemon --rerun-tasks
+if (rg -n "NakoPublicClientRequests|pathAndQuery" apps/android/app/src/main/java/dev/nako/android/browse/NakoBrowseClient.kt apps/android/app/src/main/java/dev/nako/android/browse/RustBrowseCore.kt) { exit 1 } else { 'PASS: NakoBrowseClient/RustBrowseCore have no generated SDK route descriptor calls.' }
 python -m json.tool docs/workstreams/android-browse-catalog-rust-core-routes/WORKSTREAM.json > $null
 git diff --check
 ```
 
 All gates passed. Core ran 13 tests, UniFFI ran 3 tests, and Android browse ran
 29 JVM tests with `--rerun-tasks`. The UniFFI boundary guard reported only
-`taru-client-core` and `uniffi` as direct dependencies and no forbidden
+`nako-client-core` and `uniffi` as direct dependencies and no forbidden
 runtime/platform dependency.
 
 ## Residual Risks

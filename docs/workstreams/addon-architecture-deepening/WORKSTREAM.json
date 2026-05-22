@@ -4,7 +4,7 @@
   "status": "completed",
   "created_at": "2026-05-21",
   "last_updated": "2026-05-21",
-  "objective": "Fearlessly deepen Taru's Addon architecture across Addon Side Effect runtime, idempotency, Protected Write payload contracts, Addon Manifest declarations, Library File Write runtime, Admin Addon API DTO shielding, and persistence parity.",
+  "objective": "Fearlessly deepen Nako's Addon architecture across Addon Side Effect runtime, idempotency, Protected Write payload contracts, Addon Manifest declarations, Library File Write runtime, Admin Addon API DTO shielding, and persistence parity.",
   "task_prefix": "AAD",
   "current_task": null,
   "completed_at": "2026-05-21",
@@ -20,13 +20,13 @@
     "0030-postgresql-ready-sql-dialect-and-migration-policy"
   ],
   "primary_crates": [
-    "taru-addon-protocol",
-    "taru-addon-client",
-    "taru-api",
-    "taru-core",
-    "taru-db",
-    "taru-reference-addon",
-    "taru-server"
+    "nako-addon-protocol",
+    "nako-addon-client",
+    "nako-api",
+    "nako-core",
+    "nako-db",
+    "nako-reference-addon",
+    "nako-server"
   ],
-  "validation_summary": "Focused Addon checks first; workspace check and nextest before closeout; PostgreSQL opt-in contracts when TARU_TEST_POSTGRES_URL is available."
+  "validation_summary": "Focused Addon checks first; workspace check and nextest before closeout; PostgreSQL opt-in contracts when NAKO_TEST_POSTGRES_URL is available."
 }

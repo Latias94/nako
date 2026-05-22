@@ -16,7 +16,7 @@ intent, cooperative checkpoint helpers, and fenced acknowledgement of terminal
 `cancelled`. Metadata maintenance is the first item-level worker integration.
 Library scan now checks before scan, before probe, and before success
 publication. NFO import/export use app-level pre/post service checkpoints, with
-per-sidecar cancellation split to a future `taru-nfo` API boundary.
+per-sidecar cancellation split to a future `nako-nfo` API boundary.
 
 ## Closed Task
 
@@ -57,7 +57,7 @@ per-sidecar cancellation split to a future `taru-nfo` API boundary.
 - Library scan/probe has a tested checkpoint before probe. It does not kill an
   in-flight VFS scan or ffprobe process.
 - NFO import/export now avoid success publication after app-level cancellation,
-  but per-sidecar stop-before-read/write needs a dedicated `taru-nfo` service
+  but per-sidecar stop-before-read/write needs a dedicated `nako-nfo` service
   API follow-on.
 
 ## Blockers
@@ -66,7 +66,7 @@ per-sidecar cancellation split to a future `taru-nfo` API boundary.
 
 ## Follow-Ons
 
-- Per-sidecar NFO cancellation: add a `taru-nfo` service API that checks before
+- Per-sidecar NFO cancellation: add a `nako-nfo` service API that checks before
   each source read/write and proves no success event is emitted after an
   acknowledged cancellation.
 - Webhook/addon/automation dispatch checkpoints: add cooperative checkpoints

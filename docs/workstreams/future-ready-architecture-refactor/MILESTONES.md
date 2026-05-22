@@ -36,9 +36,9 @@ Exit criteria:
 
 Primary gates:
 
-- `cargo check -p taru-core --tests`
-- `cargo check -p taru-db --tests`
-- `cargo nextest run -p taru-db --no-fail-fast`
+- `cargo check -p nako-core --tests`
+- `cargo check -p nako-db --tests`
+- `cargo nextest run -p nako-db --no-fail-fast`
 - `git diff --check`
 
 ## M2 — Runtime And Domain Seam Deepening
@@ -47,7 +47,7 @@ Status: completed.
 
 Exit criteria:
 
-- `TaruApp` delegates construction to cohesive runtime modules where the
+- `NakoApp` delegates construction to cohesive runtime modules where the
   modules hide real policy/construction complexity.
 - Local Inference is separated from Media Source discovery.
 - Metadata provider output has a provider-neutral candidate seam or a focused
@@ -57,10 +57,10 @@ Exit criteria:
 
 Primary gates:
 
-- `cargo check -p taru-server --tests`
-- `cargo check -p taru-library --tests`
-- `cargo check -p taru-metadata --tests`
-- `cargo check -p taru-search --tests`
+- `cargo check -p nako-server --tests`
+- `cargo check -p nako-library --tests`
+- `cargo check -p nako-metadata --tests`
+- `cargo check -p nako-search --tests`
 - focused `cargo nextest run` commands for touched crates.
 
 ## M3 — API, Generated Contract, And Repository Hygiene
@@ -71,15 +71,15 @@ Exit criteria:
 
 - Admin API read models remain explicit and redacted after persistence/runtime
   refactors.
-- Public Client API and `taru-client-protocol` remain free of admin/storage
+- Public Client API and `nako-client-protocol` remain free of admin/storage
   internals.
 - Generated frontend/SDK artifacts are reproducible and ignored where they
   should not be tracked.
 
 Primary gates:
 
-- `cargo check -p taru-api --tests`
-- `cargo check -p taru-server --tests`
+- `cargo check -p nako-api --tests`
+- `cargo check -p nako-server --tests`
 - OpenAPI/SDK leakage tests.
 - frontend or SDK `npm run verify` commands when touched.
 
@@ -104,7 +104,7 @@ Primary gates:
 
 Closeout evidence:
 
-- FRA-130 deleted the `taru-api` root compatibility re-export shim and updated
+- FRA-130 deleted the `nako-api` root compatibility re-export shim and updated
   callers to explicit API boundary modules.
 - FRA-140 verified the complete lane with `cargo check --workspace --tests`
   and `cargo nextest run --workspace --no-fail-fast`.

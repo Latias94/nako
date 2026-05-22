@@ -9,7 +9,7 @@ Deliverables:
 - ADR 0019 for server composition, service, supervisor, and repository
   boundaries.
 - This workstream with milestone, TODO, and phase baseline documents.
-- Audit notes for the current `TaruApp`, service modules, background tasks,
+- Audit notes for the current `NakoApp`, service modules, background tasks,
   repository usage, NFO parsing, catalog hydration, and obsolete helpers.
 
 Exit criteria:
@@ -18,7 +18,7 @@ Exit criteria:
 
 ## M24.1: App Service Decomposition
 
-Outcome: `TaruApp` becomes a composition root and workflow logic moves into
+Outcome: `NakoApp` becomes a composition root and workflow logic moves into
 focused application services.
 
 Deliverables:
@@ -33,7 +33,7 @@ Exit criteria:
 
 - `cargo fmt --all -- --check`
 - `cargo check --workspace --tests`
-- focused `cargo nextest run -p taru-server`
+- focused `cargo nextest run -p nako-server`
 - `git diff --check`
 
 ## M24.2: Repository and Transaction Boundary Cleanup
@@ -54,8 +54,8 @@ Exit criteria:
 
 - `cargo fmt --all -- --check`
 - `cargo check --workspace --tests`
-- focused `cargo nextest run -p taru-db`
-- focused `cargo nextest run -p taru-server`
+- focused `cargo nextest run -p nako-db`
+- focused `cargo nextest run -p nako-server`
 - `git diff --check`
 
 ## M24.3: Runtime Supervisor and Lifecycle Ownership
@@ -76,7 +76,7 @@ Exit criteria:
 
 - `cargo fmt --all -- --check`
 - `cargo check --workspace --tests`
-- focused `cargo nextest run -p taru-server`
+- focused `cargo nextest run -p nako-server`
 - `git diff --check`
 
 ## M24.4: Domain Cleanup and Obsolete Code Removal
@@ -97,8 +97,8 @@ Exit criteria:
 
 - `cargo fmt --all -- --check`
 - `cargo check --workspace --tests`
-- focused `cargo nextest run -p taru-nfo`
-- focused `cargo nextest run -p taru-server`
+- focused `cargo nextest run -p nako-nfo`
+- focused `cargo nextest run -p nako-server`
 - `git diff --check`
 
 ## M24.5: Stabilization and Validation

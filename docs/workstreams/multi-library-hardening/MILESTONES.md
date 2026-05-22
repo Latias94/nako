@@ -28,8 +28,8 @@ Exit criteria:
 
 Primary gates:
 
-- `cargo check -p taru-server --tests`
-- focused `cargo nextest run -p taru-server startup --no-fail-fast`
+- `cargo check -p nako-server --tests`
+- focused `cargo nextest run -p nako-server startup --no-fail-fast`
 
 ## M2 - Reconciliation Boundary
 
@@ -42,9 +42,9 @@ Exit criteria:
 
 Primary gates:
 
-- `cargo check -p taru-server --tests`
-- `cargo check -p taru-db --tests`
-- focused `cargo nextest run -p taru-server <filter> --no-fail-fast`
+- `cargo check -p nako-server --tests`
+- `cargo check -p nako-db --tests`
+- focused `cargo nextest run -p nako-server <filter> --no-fail-fast`
 
 ## M3 - Workflow Cleanup
 
@@ -57,8 +57,8 @@ Exit criteria:
 
 Primary gates:
 
-- `cargo nextest run -p taru-server --no-fail-fast`
-- targeted `cargo nextest run -p taru-db <filter> --no-fail-fast`
+- `cargo nextest run -p nako-server --no-fail-fast`
+- targeted `cargo nextest run -p nako-db <filter> --no-fail-fast`
 
 ## M4 - Closeout
 

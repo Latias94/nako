@@ -27,4 +27,4 @@ Exit criteria:
   duplicate relationship count.
 - Responses do not expose source locators, local paths, raw evidence values,
   raw provider responses, or secrets.
-- Public Client API, public OpenAPI/SDK, and `taru-client-protocol` stay clean.
+- Public Client API, public OpenAPI/SDK, and `nako-client-protocol` stay clean.

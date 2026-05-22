@@ -39,7 +39,7 @@ Primary gates:
 
 ## M2 - First Managed Ingest Slice
 
-Outcome: one candidate acceptance path creates Taru-managed artwork state
+Outcome: one candidate acceptance path creates Nako-managed artwork state
 without leaking raw candidate source details.
 
 Exit criteria:
@@ -51,7 +51,7 @@ Exit criteria:
 Primary gates:
 
 - focused managed artwork tests
-- `cargo check -p taru-core -p taru-db -p taru-api -p taru-server -p taru-vfs --tests`
+- `cargo check -p nako-core -p nako-db -p nako-api -p nako-server -p nako-vfs --tests`
 - `cargo fmt --all -- --check`
 - `git diff --check`
 

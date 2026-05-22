@@ -4,7 +4,7 @@ Status: completed.
 
 ## Goal
 
-Add a first read-only WebDAV storage backend behind `taru-vfs` so Taru can
+Add a first read-only WebDAV storage backend behind `nako-vfs` so Nako can
 stat, list, and validate range-readable remote objects without plaintext
 credentials in storage locators.
 
@@ -60,14 +60,14 @@ stored in `StorageUri`, source locators, jobs, scan state, or metadata.
 
 Coverage:
 
-- `taru-vfs` tests cover WebDAV stat, list, and range-open behavior with a
+- `nako-vfs` tests cover WebDAV stat, list, and range-open behavior with a
   mocked local WebDAV server.
 - Tests verify `open_range` does not produce a local path hint.
 - Tests verify secret references are resolved at runtime and do not appear in
   source locators.
 - Tests verify credentials embedded in base URLs or `webdav://` locators are
   rejected.
-- `taru-library` tests verify a WebDAV directory can be scanned through
+- `nako-library` tests verify a WebDAV directory can be scanned through
   `VfsLibraryScanner`.
 - Tests verify the WebDAV backend is read-only in M6.1.
 
@@ -75,7 +75,7 @@ Validation commands:
 
 ```text
 cargo fmt --all -- --check
-cargo test -p taru-vfs
-cargo test -p taru-library vfs_scanner_discovers_webdav_media_without_credentials_in_locator
+cargo test -p nako-vfs
+cargo test -p nako-library vfs_scanner_discovers_webdav_media_without_credentials_in_locator
 cargo check --workspace
 ```

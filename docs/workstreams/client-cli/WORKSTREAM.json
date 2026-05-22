@@ -7,15 +7,15 @@
   "updated_at": "2026-05-17",
   "current_task": null,
   "license_boundary": {
-    "crate": "taru-client-cli",
+    "crate": "nako-client-cli",
     "license": "Apache-2.0",
-    "allowed_taru_dependencies": ["taru-client"],
-    "forbidden_taru_dependencies": [
-      "taru-api",
-      "taru-server",
-      "taru-core",
-      "taru-streaming",
-      "taru-transcode"
+    "allowed_nako_dependencies": ["nako-client"],
+    "forbidden_nako_dependencies": [
+      "nako-api",
+      "nako-server",
+      "nako-core",
+      "nako-streaming",
+      "nako-transcode"
     ]
   }
 }

@@ -24,7 +24,7 @@ Completed slices:
    runtime instead of constructing Media3, token-backed exit effects, and route
    host internals inline.
 4. Generic design-system primitives are imported directly from
-   `dev.taru.android.ui.components`; obsolete browse-package pass-through
+   `dev.nako.android.ui.components`; obsolete browse-package pass-through
    wrappers were removed. Source Picker and Detail display/copy builders were
    extracted into test-covered presentation modules.
 5. Home now uses `HomeReadModel`, `HomeSectionState`, and `HomeArtworkState` to
@@ -43,7 +43,7 @@ Fresh closeout gates run on 2026-05-22:
 
 ```powershell
 apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon --no-parallel --console=plain
-apps\android\gradlew.bat -p apps\android :app:assembleDebug -PtaruRustAndroidAbis=x86_64 --no-daemon --no-parallel --console=plain
+apps\android\gradlew.bat -p apps\android :app:assembleDebug -PnakoRustAndroidAbis=x86_64 --no-daemon --no-parallel --console=plain
 git diff --check
 python -m json.tool docs/workstreams/android-client-architecture-deepening/WORKSTREAM.json > $null
 ```

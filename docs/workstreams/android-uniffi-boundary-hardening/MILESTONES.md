@@ -22,7 +22,7 @@ Primary evidence:
 
 Exit criteria:
 
-- `TaruConnectionClient` no longer imports or switches over generated UniFFI
+- `NakoConnectionClient` no longer imports or switches over generated UniFFI
   connection records/enums.
 - Generated connection types are isolated to `RustConnectionCore.kt` and smoke
   tests.
@@ -31,14 +31,14 @@ Exit criteria:
 Primary gate:
 
 ```powershell
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.connection.TaruConnectionClientTest --no-daemon
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.connection.NakoConnectionClientTest --no-daemon
 ```
 
 ## M2 — Core Module Split
 
 Exit criteria:
 
-- `taru-client-core` has focused modules for request, response, redaction,
+- `nako-client-core` has focused modules for request, response, redaction,
   connection, playback, and encoding.
 - `lib.rs` stays as the public export surface.
 - Current Rust callers and UniFFI tests pass unchanged.
@@ -46,10 +46,10 @@ Exit criteria:
 Primary gates:
 
 ```powershell
-cargo fmt --package taru-client-core --check
-cargo nextest run -p taru-client-core --no-fail-fast
-cargo nextest run -p taru-client-uniffi --no-fail-fast
-cargo nextest run -p taru-client --no-fail-fast
+cargo fmt --package nako-client-core --check
+cargo nextest run -p nako-client-core --no-fail-fast
+cargo nextest run -p nako-client-uniffi --no-fail-fast
+cargo nextest run -p nako-client --no-fail-fast
 ```
 
 ## M3 — Boundary Drift Guards
@@ -64,7 +64,7 @@ Primary gates:
 
 ```powershell
 # exact guard command recorded after implementation
-cargo nextest run -p taru-client-uniffi --no-fail-fast
+cargo nextest run -p nako-client-uniffi --no-fail-fast
 ```
 
 ## M4 — Native Smoke Script

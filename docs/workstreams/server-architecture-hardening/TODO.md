@@ -4,8 +4,8 @@
 
 - [x] Add ADR 0019 for server architecture hardening boundaries.
 - [x] Add M24 workstream documentation.
-- [x] Re-audit `crates/taru-server/src/app.rs` after the first code pass and
-  record the target `TaruApp` public surface.
+- [x] Re-audit `crates/nako-server/src/app.rs` after the first code pass and
+  record the target `NakoApp` public surface.
 - [x] Map existing background task launch sites and classify them by worker
   owner.
 - [x] Map concrete `SqliteStore` dependencies from app services and decide
@@ -15,7 +15,7 @@
 
 - [x] Define the service handle shape for playback, metadata, NFO, library
   scan/probe, storage, catalog, and extension workflows.
-- [x] Move orchestration methods out of `TaruApp` into service modules.
+- [x] Move orchestration methods out of `NakoApp` into service modules.
 - [x] Keep service constructors explicit and test-friendly.
 - [x] Update HTTP handlers to call focused services instead of root-app
   convenience methods.

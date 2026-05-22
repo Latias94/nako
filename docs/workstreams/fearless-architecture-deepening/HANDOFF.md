@@ -10,7 +10,7 @@ M62 PostgreSQL Production Readiness has been committed as
 
 This workstream is now the active architecture-deepening lane for the next
 fearless refactor pass. It records the 2026-05-20 architecture review findings
-and prioritizes the Modules most likely to hurt future Taru evolution if they
+and prioritizes the Modules most likely to hurt future Nako evolution if they
 harden as-is.
 
 Completed tasks:
@@ -34,7 +34,7 @@ Why FAD-020 comes first:
   Canonical Metadata authority, Catalog Item Graph/Search Projection refresh,
   NFO/Library File Write policy, artwork candidate intake, and future plugin
   safety.
-- `crates/taru-server/src/app/addons.rs` currently concentrates too many of
+- `crates/nako-server/src/app/addons.rs` currently concentrates too many of
   those concerns in one Module.
 - A behavior-preserving split can improve locality before semantic changes.
 
@@ -61,16 +61,16 @@ FAD-020 split the Addon Side Effect implementation into focused server Modules:
 - `side_effect_apply.rs` for apply routing and common apply-outcome recording.
 - `metadata_write.rs` for Canonical Metadata patch/merge plus the existing
   catalog/search refresh behavior.
-- `library_file_write.rs` for NFO Library File Write apply through Taru's NFO
+- `library_file_write.rs` for NFO Library File Write apply through Nako's NFO
   service, VFS backend, write policy, and backup policy.
 - `artwork_write.rs` for Addon Artwork Candidate proposal.
 - `target.rs` for shared Media Item resolution from side-effect targets.
 
 Validation passed:
 
-- `cargo check -p taru-server --tests`
-- `cargo nextest run -p taru-server addon_side_effect --no-fail-fast`
-- `cargo nextest run -p taru-server addon --no-fail-fast`
+- `cargo check -p nako-server --tests`
+- `cargo nextest run -p nako-server addon_side_effect --no-fail-fast`
+- `cargo nextest run -p nako-server addon --no-fail-fast`
 - `cargo fmt --all -- --check`
 - `git diff --check`
 
@@ -86,25 +86,25 @@ FAD-030 introduced a transactional Addon Canonical Metadata write seam:
   id, applied source, and optional apply report.
 - SQLite and PostgreSQL commit the item, graph/search projection, and Addon
   Side Effect `Applied` outcome inside one transaction.
-- `taru-catalog` now has planning helpers for search-only projection and
+- `nako-catalog` now has planning helpers for search-only projection and
   label-focused graph projection so server code can plan before persistence.
 - `metadata_write.rs` no longer sequences `commit_metadata_item` plus
   catalog/search mutation plus later apply-outcome recording. It builds the
-  domain commit and delegates atomicity to `taru-db`.
+  domain commit and delegates atomicity to `nako-db`.
 - The Addon Side Effect apply router now returns the side-effect outcome already
   recorded by the metadata commit seam for metadata writes.
 
 Validation passed:
 
-- `cargo check -p taru-core -p taru-db -p taru-server --tests`
-- `cargo nextest run -p taru-db addon_metadata_write --no-fail-fast`
-- `cargo nextest run -p taru-server addon_side_effect --no-fail-fast`
+- `cargo check -p nako-core -p nako-db -p nako-server --tests`
+- `cargo nextest run -p nako-db addon_metadata_write --no-fail-fast`
+- `cargo nextest run -p nako-server addon_side_effect --no-fail-fast`
 - `cargo fmt --all -- --check`
 - `git diff --check`
 
 PostgreSQL opt-in:
 
-- Not run because `TARU_TEST_POSTGRES_URL` was unset.
+- Not run because `NAKO_TEST_POSTGRES_URL` was unset.
 - Contract pair exists and should be run when a PostgreSQL test URL is
   available.
 
@@ -113,7 +113,7 @@ PostgreSQL opt-in:
 FAD-040 introduced a Library ingestion workflow seam:
 
 - Deleted the caller-facing `LibraryIndexRepository` broad trait alias.
-- Added `LibraryIngestionWorkflow` as the Taru Library ingestion port.
+- Added `LibraryIngestionWorkflow` as the Nako Library ingestion port.
 - `LibraryIndexService` now asks the workflow to:
   - ensure the Media Library exists;
   - begin and complete scan snapshots;
@@ -137,17 +137,17 @@ FAD-040 introduced a Library ingestion workflow seam:
 
 Validation passed:
 
-- `cargo check -p taru-library -p taru-db --tests`
-- `cargo nextest run -p taru-library
+- `cargo check -p nako-library -p nako-db --tests`
+- `cargo nextest run -p nako-library
   index_service_uses_workflow_port_without_repository_traits --no-fail-fast`
-- `cargo nextest run -p taru-db scan_commit --no-fail-fast`
-- `cargo nextest run -p taru-library --no-fail-fast`
+- `cargo nextest run -p nako-db scan_commit --no-fail-fast`
+- `cargo nextest run -p nako-library --no-fail-fast`
 - `cargo fmt --all -- --check`
 - `git diff --check`
 
 PostgreSQL opt-in:
 
-- Not run because `TARU_TEST_POSTGRES_URL` was unset.
+- Not run because `NAKO_TEST_POSTGRES_URL` was unset.
 - Existing PostgreSQL scan commit contract pair remains available as ignored
   opt-in parity coverage.
 
@@ -156,9 +156,9 @@ PostgreSQL opt-in:
 FAD-050 stabilized playback/transcode request identity before widening HLS or
 profile reuse:
 
-- `taru-streaming` now exposes `PlaybackProfileIdentity` while keeping
+- `nako-streaming` now exposes `PlaybackProfileIdentity` while keeping
   `PlaybackProfile::identity_key()` for compatibility.
-- `taru-transcode` now models:
+- `nako-transcode` now models:
   - `TranscodeProfileIdentity` for execution/profile facts;
   - `TranscodeSourceIdentity` for Media Source revision facts;
   - `TranscodeRequestIdentity` for the source-bound request/cache key.
@@ -174,15 +174,15 @@ profile reuse:
 
 Validation passed:
 
-- `cargo check -p taru-streaming -p taru-transcode -p taru-server --tests`
-- `cargo nextest run -p taru-transcode transcode_request_identity
+- `cargo check -p nako-streaming -p nako-transcode -p nako-server --tests`
+- `cargo nextest run -p nako-transcode transcode_request_identity
   --no-fail-fast`
-- `cargo nextest run -p taru-streaming playback_profile_identity
+- `cargo nextest run -p nako-streaming playback_profile_identity
   --no-fail-fast`
-- `cargo nextest run -p taru-server hls_source_request_identity
+- `cargo nextest run -p nako-server hls_source_request_identity
   --no-fail-fast`
-- `cargo nextest run -p taru-streaming -p taru-transcode --no-fail-fast`
-- `cargo nextest run -p taru-server playback --no-fail-fast`
+- `cargo nextest run -p nako-streaming -p nako-transcode --no-fail-fast`
+- `cargo nextest run -p nako-server playback --no-fail-fast`
 - `cargo fmt --all -- --check`
 - `git diff --check`
 
@@ -190,7 +190,7 @@ Validation passed:
 
 FAD-060 separated the **Hardware Capability Report** diagnostics layers:
 
-- `taru-transcode` now models:
+- `nako-transcode` now models:
   - `HardwareEncoderDiscovery` for static FFmpeg encoder discovery;
   - `HardwareDeviceInitialization` for device initialization evidence;
   - `HardwareSmokeProbe` for optional encode smoke-probe results.
@@ -212,14 +212,14 @@ FAD-060 separated the **Hardware Capability Report** diagnostics layers:
 
 Validation passed:
 
-- `cargo check -p taru-transcode -p taru-api -p taru-server --tests`
-- `cargo nextest run -p taru-transcode hardware --no-fail-fast`
-- `cargo nextest run -p taru-transcode --no-fail-fast`
-- `cargo nextest run -p taru-api --lib
+- `cargo check -p nako-transcode -p nako-api -p nako-server --tests`
+- `cargo nextest run -p nako-transcode hardware --no-fail-fast`
+- `cargo nextest run -p nako-transcode --no-fail-fast`
+- `cargo nextest run -p nako-api --lib
   admin_playback_runtime_diagnostics_serializes_safe_summary_fields
   --no-fail-fast`
-- `cargo nextest run -p taru-api --lib admin_contract --no-fail-fast`
-- `cargo nextest run -p taru-server
+- `cargo nextest run -p nako-api --lib admin_contract --no-fail-fast`
+- `cargo nextest run -p nako-server
   admin_v1_playback_runtime_reports_safe_diagnostics --no-fail-fast`
 - `npm run check` in `apps/admin-web`
 - `cargo fmt --all -- --check`
@@ -230,14 +230,14 @@ Validation passed:
 
 FAD-070 added measured search semantics without adding AI/vector search:
 
-- `taru-search` now owns shared search evaluation with:
+- `nako-search` now owns shared search evaluation with:
   - current Search Projection version helpers;
   - `SearchEvaluationDocument` fixtures;
   - exact Browse Facet filtering;
   - title, alias, body, and facet scoring;
   - compact normalized matching for whitespace-tolerant CJK queries.
 - SQLite and PostgreSQL `SearchIndex` adapters now delegate search semantics to
-  `taru-search` instead of duplicating filtering/scoring logic.
+  `nako-search` instead of duplicating filtering/scoring logic.
 - Catalog hydration now includes accepted Provider Subject title/key data in the
   Search Projection, so Provider Mapping titles are searchable as aliases while
   provider/external-id Browse Facets remain structured.
@@ -248,12 +248,12 @@ FAD-070 added measured search semantics without adding AI/vector search:
 
 Validation passed:
 
-- `cargo check -p taru-search -p taru-catalog -p taru-db --tests`
-- `cargo check -p taru-nfo -p taru-metadata -p taru-server --tests`
-- `cargo nextest run -p taru-search --no-fail-fast`
-- `cargo nextest run -p taru-catalog semantic_search --no-fail-fast`
-- `cargo nextest run -p taru-db search --no-fail-fast`
-- `cargo nextest run -p taru-db facet --no-fail-fast`
+- `cargo check -p nako-search -p nako-catalog -p nako-db --tests`
+- `cargo check -p nako-nfo -p nako-metadata -p nako-server --tests`
+- `cargo nextest run -p nako-search --no-fail-fast`
+- `cargo nextest run -p nako-catalog semantic_search --no-fail-fast`
+- `cargo nextest run -p nako-db search --no-fail-fast`
+- `cargo nextest run -p nako-db facet --no-fail-fast`
 - `cargo fmt --all -- --check`
 - `git diff --check`
 
@@ -268,8 +268,8 @@ Environment note:
 FAD-080 improved test locality only where it clearly reduced navigation cost:
 
 - Moved the focused SQLite SearchIndex semantics tests out of the giant
-  `crates/taru-db/src/tests.rs` file into
-  `crates/taru-db/src/search_tests.rs`.
+  `crates/nako-db/src/tests.rs` file into
+  `crates/nako-db/src/search_tests.rs`.
 - Added local domain fixtures for migrated stores, Movie Canonical Metadata, and
   indexed search documents with explicit aliases/facets.
 - Preserved coverage and failure meaning for:
@@ -281,8 +281,8 @@ FAD-080 improved test locality only where it clearly reduced navigation cost:
 
 Validation passed:
 
-- `cargo nextest run -p taru-db search --no-fail-fast`
-- `cargo nextest run -p taru-db facet --no-fail-fast`
+- `cargo nextest run -p nako-db search --no-fail-fast`
+- `cargo nextest run -p nako-db facet --no-fail-fast`
 - `cargo check --workspace --tests`
 - `cargo fmt --all -- --check`
 - `git diff --check`
@@ -319,7 +319,7 @@ Validation passed:
 
 PostgreSQL opt-in:
 
-- Skipped because `TARU_TEST_POSTGRES_URL` was unset in this environment.
+- Skipped because `NAKO_TEST_POSTGRES_URL` was unset in this environment.
 
 Closeout split decision:
 

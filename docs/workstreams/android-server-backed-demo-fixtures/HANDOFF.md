@@ -17,7 +17,7 @@ those public route shapes.
 
 The first implementation strategy is now implemented by
 `apps/android/scripts/Start-DemoFixtureServer.ps1`. It prepares a generated
-Movies library with `Night Harbor`, runs real `taru-server scan` and
+Movies library with `Night Harbor`, runs real `nako-server scan` and
 `import-nfo`, and can start a loopback server for Android access through
 `adb reverse`.
 
@@ -45,7 +45,7 @@ stores, then captures Home, detail, source picker, and player evidence.
   harness.
 - Treat the Public Client API as the only acceptable media fixture boundary for
   Android.
-- Use a real seeded local `taru-server` as the first fixture provider strategy.
+- Use a real seeded local `nako-server` as the first fixture provider strategy.
 - Align Android `ClientTranscodePlan` with the Public Client API by removing the
   required internal `input_locator` field.
 - Add a debug-only Android fixture writer instead of trying to hand-write

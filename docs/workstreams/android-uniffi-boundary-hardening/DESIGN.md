@@ -5,11 +5,11 @@ Last updated: 2026-05-21
 
 ## Why This Lane Exists
 
-The Android client now uses `taru-client-core` through UniFFI for connection
+The Android client now uses `nako-client-core` through UniFFI for connection
 probing and playback request/target construction. That is the correct long-term
 ownership direction from ADR 0032, but the seam is still young. Without a
 hardening lane, generated UniFFI types can leak upward into Android product
-modules, `taru-client-core` can grow into a single shallow file, and native
+modules, `nako-client-core` can grow into a single shallow file, and native
 smoke verification can remain a manual release-risk recipe.
 
 ## Relevant Authority
@@ -32,9 +32,9 @@ hardened enough to be safe growth points for browse/catalog/playback expansion:
 
 - Android connection flow directly handles generated UniFFI outcome/request
   types in a product module.
-- `taru-client-core/src/lib.rs` mixes request construction, response policy,
+- `nako-client-core/src/lib.rs` mixes request construction, response policy,
   redaction, connection probing, playback planning, encoding, and tests.
-- There is no automated guard that rejects accidental `taru-client-uniffi`
+- There is no automated guard that rejects accidental `nako-client-uniffi`
   dependency creep into reqwest/Tokio/platform runtime code.
 - The OPPO arm64 native smoke has evidence, but no reusable validation script.
 
@@ -44,7 +44,7 @@ When this lane closes:
 
 - Android product modules call Android-owned core interfaces and do not switch
   over generated UniFFI outcome/request types directly.
-- `taru-client-core` is split into deep modules with stable re-exports from
+- `nako-client-core` is split into deep modules with stable re-exports from
   `lib.rs`; public Rust callers and UniFFI continue to use the same core API.
 - UniFFI surface and dependency guard tests/scripts prevent boundary drift.
 - A reusable PowerShell validation script builds, installs, and runs the UniFFI
@@ -55,7 +55,7 @@ When this lane closes:
 ## In Scope
 
 - Android connection-core adapter cleanup.
-- `taru-client-core` module split with no behavior expansion.
+- `nako-client-core` module split with no behavior expansion.
 - UniFFI dependency/surface guard suitable for local validation and future CI.
 - Android UniFFI native smoke script for connected devices/emulators.
 - Docs, README references, and workstream evidence.
@@ -76,7 +76,7 @@ When this lane closes:
 | --- | --- | --- | --- |
 | ADR 0032 remains the owner decision: Rust core owns portable policy, Android owns platform runtime. | High | `docs/adr/0032-shared-rust-client-core-app-supplied-transport.md` | Reopen ADR before changing this lane. |
 | UniFFI has already passed x86_64 emulator and OPPO arm64 smoke. | High | `docs/workstreams/android-uniffi-native-smoke/`; `docs/workstreams/android-arm64-uniffi-release-smoke/` | Script work may need diagnosis before hardening can close. |
-| `taru-client-core` public API should remain source-compatible for current `taru-client` and `taru-client-uniffi` callers. | High | `android-rust-core-runtime-hardening` closeout | If a better public API is needed, split a follow-on ADR/workstream. |
+| `nako-client-core` public API should remain source-compatible for current `nako-client` and `nako-client-uniffi` callers. | High | `android-rust-core-runtime-hardening` closeout | If a better public API is needed, split a follow-on ADR/workstream. |
 | Generated UniFFI Kotlin bindings are still allowed inside adapter modules. | High | ADR 0032 | If zero generated-type imports are required in Android, this lane is too large and needs a different architecture. |
 
 ## Architecture Direction
@@ -84,10 +84,10 @@ When this lane closes:
 Keep the seam deep and directional:
 
 ```text
-taru-client-core
+nako-client-core
   portable request/response/redaction/connection/playback policy
 
-taru-client-uniffi
+nako-client-uniffi
   generated-binding adapter only
 
 Android adapter modules
@@ -100,7 +100,7 @@ Android product/runtime modules
 The hardening strategy is not to hide Rust. It is to make the seam explicit:
 Android should depend on Android-owned `ConnectionCore` / `PlaybackCore`
 interfaces, while only the adapter files import generated UniFFI packages.
-`taru-client-core` should become easier to expand by making request, response,
+`nako-client-core` should become easier to expand by making request, response,
 redaction, connection, playback, and encoding each locally understandable.
 
 ## Closeout Condition

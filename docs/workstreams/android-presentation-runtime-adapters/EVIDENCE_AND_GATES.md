@@ -15,9 +15,9 @@ git diff --check
 Focused gates by task:
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.artwork.* --tests dev.taru.android.ui.browse.* --no-daemon --no-parallel
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.BrowseSessionLoadingTest --tests dev.taru.android.ui.artwork.* --no-daemon --no-parallel
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.* --tests dev.taru.android.player.* --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.artwork.* --tests dev.nako.android.ui.browse.* --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.BrowseSessionLoadingTest --tests dev.nako.android.ui.artwork.* --no-daemon --no-parallel
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.* --tests dev.nako.android.player.* --no-daemon --no-parallel
 ```
 
 ## Evidence Log
@@ -25,9 +25,9 @@ apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru
 | Task | Status | Evidence |
 | --- | --- | --- |
 | APRA-010 | Done | Lane docs created and aligned with player-session follow-on. |
-| APRA-020 | Done | `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.artwork.* --tests dev.taru.android.ui.browse.* --no-daemon --no-parallel` passed on 2026-05-20. |
+| APRA-020 | Done | `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.artwork.* --tests dev.nako.android.ui.browse.* --no-daemon --no-parallel` passed on 2026-05-20. |
 | APRA-030 | Done | Detail visual APIs now receive `ArtworkRequestResolver`; focused JVM gate passed on 2026-05-20. |
-| APRA-040 | Done | `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.artwork.* --tests dev.taru.android.ui.browse.* --tests dev.taru.android.player.* --no-daemon --no-parallel` passed on 2026-05-20. |
+| APRA-040 | Done | `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.artwork.* --tests dev.nako.android.ui.browse.* --tests dev.nako.android.player.* --no-daemon --no-parallel` passed on 2026-05-20. |
 | APRA-050 | Done | `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon --no-parallel` and `git diff --check` passed on 2026-05-20. |
 
 ## Notes

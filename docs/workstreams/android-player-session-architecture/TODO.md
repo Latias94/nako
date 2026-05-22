@@ -13,25 +13,25 @@ Last updated: 2026-05-20
 
 ## M1 - Player State Reducer
 
-- [x] APSA-020 [owner=codex] [deps=APSA-010] [scope=apps/android/app/src/main/java/dev/taru/android/ui/screens/player,apps/android/app/src/test/java/dev/taru/android/ui/screens/player]
+- [x] APSA-020 [owner=codex] [deps=APSA-010] [scope=apps/android/app/src/main/java/dev/nako/android/ui/screens/player,apps/android/app/src/test/java/dev/nako/android/ui/screens/player]
   Goal: Extract player display state, error state, retry/back/dispose transitions, and labels into a JVM-testable session/reducer.
-  Validation: apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.screens.player.* --no-daemon --no-parallel
+  Validation: apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.screens.player.* --no-daemon --no-parallel
   Review: Keep Media3 engine calls outside the reducer.
   Evidence: focused player tests.
   Handoff: DONE. `PlayerSession` owns display labels, sanitized error state, retry, and idempotent back/dispose exit requests.
 
 ## M2 - Engine And Exit Adapters
 
-- [x] APSA-030 [owner=codex] [deps=APSA-020] [scope=apps/android/app/src/main/java/dev/taru/android/player,apps/android/app/src/main/java/dev/taru/android/ui/screens/player]
+- [x] APSA-030 [owner=codex] [deps=APSA-020] [scope=apps/android/app/src/main/java/dev/nako/android/player,apps/android/app/src/main/java/dev/nako/android/ui/screens/player]
   Goal: Put Media3 commands and exit effects behind narrow adapters while preserving current playback behavior.
-  Validation: apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.player.* --tests dev.taru.android.ui.screens.player.* --no-daemon --no-parallel
+  Validation: apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.player.* --tests dev.nako.android.ui.screens.player.* --no-daemon --no-parallel
   Review: Verify exit effects remain idempotent and release ordering is explicit.
   Evidence: focused player and exit tests.
   Handoff: DONE. `PlaybackEngineController` wraps Media3 prepare/snapshot/release; `PlaybackExitEffectRunner` wraps exit side effects.
 
 ## M3 - Route Cleanup And Runtime Gate
 
-- [x] APSA-040 [owner=codex] [deps=APSA-030] [scope=apps/android/app/src/main/java/dev/taru/android/ui/screens/player]
+- [x] APSA-040 [owner=codex] [deps=APSA-030] [scope=apps/android/app/src/main/java/dev/nako/android/ui/screens/player]
   Goal: Reduce `PlaybackPlayerRoute` to Compose rendering/platform glue and decide whether emulator smoke is required.
   Validation: apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon --no-parallel; git diff --check
   Review: If Media3 behavior changes materially, add emulator smoke evidence.

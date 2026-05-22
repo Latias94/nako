@@ -130,7 +130,7 @@ function Convert-ToPortablePath {
     return (Resolve-Path -LiteralPath $Path).Path.Replace('\', '/')
 }
 
-function Get-TaruServerBinary {
+function Get-NakoServerBinary {
     param(
         [string]$RepoRoot,
         [string]$ProvidedBinary,
@@ -139,7 +139,7 @@ function Get-TaruServerBinary {
 
     if (-not [string]::IsNullOrWhiteSpace($ProvidedBinary)) {
         if (-not (Test-Path -LiteralPath $ProvidedBinary)) {
-            throw "taru-server binary was not found at '$ProvidedBinary'."
+            throw "nako-server binary was not found at '$ProvidedBinary'."
         }
 
         return (Resolve-Path -LiteralPath $ProvidedBinary).Path
@@ -148,23 +148,23 @@ function Get-TaruServerBinary {
     if (-not $SkipBuild) {
         Push-Location $RepoRoot
         try {
-            Invoke-Native -Command 'cargo' -Arguments @('build', '-p', 'taru-server') -FailureMessage 'cargo build -p taru-server failed.'
+            Invoke-Native -Command 'cargo' -Arguments @('build', '-p', 'nako-server') -FailureMessage 'cargo build -p nako-server failed.'
         } finally {
             Pop-Location
         }
     }
 
-    $candidate = Join-Path $RepoRoot 'target\debug\taru-server.exe'
+    $candidate = Join-Path $RepoRoot 'target\debug\nako-server.exe'
     if (Test-Path -LiteralPath $candidate) {
         return (Resolve-Path -LiteralPath $candidate).Path
     }
 
-    $unixCandidate = Join-Path $RepoRoot 'target\debug\taru-server'
+    $unixCandidate = Join-Path $RepoRoot 'target\debug\nako-server'
     if (Test-Path -LiteralPath $unixCandidate) {
         return (Resolve-Path -LiteralPath $unixCandidate).Path
     }
 
-    throw 'taru-server binary was not found. Run cargo build -p taru-server or pass -ServerBinary.'
+    throw 'nako-server binary was not found. Run cargo build -p nako-server or pass -ServerBinary.'
 }
 
 function New-DemoVideo {
@@ -369,12 +369,12 @@ New-Item -ItemType Directory -Force -Path $mediaRoot, $cacheRoot, $databaseRoot 
 
 $ffmpeg = Resolve-CommandPath -Name 'ffmpeg' -ProvidedPath $FfmpegPath
 $ffprobe = Resolve-CommandPath -Name 'ffprobe' -ProvidedPath $FfprobePath
-$server = Get-TaruServerBinary -RepoRoot $repoRoot -ProvidedBinary $ServerBinary -SkipBuild ([bool]$SkipBuild)
+$server = Get-NakoServerBinary -RepoRoot $repoRoot -ProvidedBinary $ServerBinary -SkipBuild ([bool]$SkipBuild)
 
 $videoPath = Join-Path $mediaRoot "Night Harbor.$VideoContainer"
 $nfoPath = Join-Path $mediaRoot 'Night Harbor.nfo'
-$databasePath = Join-Path $databaseRoot 'taru-demo.db'
-$configPath = Join-Path $fixtureRootPath 'taru.toml'
+$databasePath = Join-Path $databaseRoot 'nako-demo.db'
+$configPath = Join-Path $fixtureRootPath 'nako.toml'
 $summaryPath = Join-Path $fixtureRootPath 'summary.json'
 
 New-DemoVideo -Ffmpeg $ffmpeg -OutputPath $videoPath -Container $VideoContainer
@@ -393,8 +393,8 @@ if ($SlowRemux) {
 Write-DemoConfig -Path $configPath -DatabasePath $databasePath -MediaRoot $mediaRoot -CacheRoot $cacheRoot -Ffmpeg $serverFfmpeg -Ffprobe $ffprobe -ListenPort $Port
 
 if (-not $SkipSeed) {
-    Invoke-Native -Command $server -Arguments @('--config', $configPath, 'scan') -FailureMessage 'taru-server scan failed for the demo fixture.'
-    Invoke-Native -Command $server -Arguments @('--config', $configPath, 'import-nfo') -FailureMessage 'taru-server import-nfo failed for the demo fixture.'
+    Invoke-Native -Command $server -Arguments @('--config', $configPath, 'scan') -FailureMessage 'nako-server scan failed for the demo fixture.'
+    Invoke-Native -Command $server -Arguments @('--config', $configPath, 'import-nfo') -FailureMessage 'nako-server import-nfo failed for the demo fixture.'
 }
 
 if ($AdbReverse) {
@@ -437,8 +437,8 @@ if ($PrepareOnly) {
     return
 }
 
-Write-Host "Starting taru-server. Stop this process with Ctrl+C when finished."
+Write-Host "Starting nako-server. Stop this process with Ctrl+C when finished."
 & $server --config $configPath serve
 if ($LASTEXITCODE -ne 0) {
-    throw 'taru-server serve failed.'
+    throw 'nako-server serve failed.'
 }

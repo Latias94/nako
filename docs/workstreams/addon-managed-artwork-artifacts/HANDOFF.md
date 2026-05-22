@@ -7,14 +7,14 @@ Last updated: 2026-05-19
 
 This lane is closed. `artwork_write` now has a first bounded runtime apply
 path: a MediaItem-targeted Addon Artwork Candidate proposal. The addon supplies
-candidate intent, image kind, and an HTTP(S) remote URL source. Taru records an
+candidate intent, image kind, and an HTTP(S) remote URL source. Nako records an
 internal candidate and returns only redacted apply outcome facts.
 
 The audit found that current public `ImageAsset` rows expose `source_uri` and
 `cache_uri` through catalog DTOs. AMAA-030 therefore deliberately does not
 write public selected artwork, public `ImageAsset` rows, managed cache
 artifacts, thumbnails, or sidecar files. Later slices must add explicit
-Taru-owned fetch/cache/artifact policy before candidates become public artwork.
+Nako-owned fetch/cache/artifact policy before candidates become public artwork.
 
 ## Closeout Task
 
@@ -25,7 +25,7 @@ Taru-owned fetch/cache/artifact policy before candidates become public artwork.
 - Validation: verify-rust-workstream records fresh final gate evidence
 - Status: DONE
 - Review: AMAA-030 has no blocking findings. Remaining managed artwork
-  fetch/cache, selected artwork, thumbnails, and Taru-managed artifact intake
+  fetch/cache, selected artwork, thumbnails, and Nako-managed artifact intake
   breadth is deferred to a focused follow-on instead of widening this completed
   first slice.
 - Evidence: `EVIDENCE_AND_GATES.md` contains implementation, validation, and
@@ -42,7 +42,7 @@ Taru-owned fetch/cache/artifact policy before candidates become public artwork.
   storage breadth in one lane.
 - Keep Addon Artwork Candidates internal. Public Client artwork remains backed
   by `ImageAsset` and must not be populated from unverified addon URLs until
-  Taru-owned fetch/cache/content validation exists.
+  Nako-owned fetch/cache/content validation exists.
 - Split Candidate acceptance, remote fetch, image validation, cache URI
   assignment, thumbnail generation, selected artwork, and public `ImageAsset`
   publication to `managed-artwork-ingest-selection`.
@@ -63,7 +63,7 @@ Taru-owned fetch/cache/artifact policy before candidates become public artwork.
 
 - Continue with `docs/workstreams/managed-artwork-ingest-selection/` if the
   next user-visible plugin value is accepting poster/backdrop/logo/banner/
-  thumbnail candidates into Taru-managed public artwork.
+  thumbnail candidates into Nako-managed public artwork.
 - Keep sidecar export in `addon-library-file-write-policy`. The new managed
   artwork lane owns fetch/cache/artifact policy and public artwork redaction.
 - CAD-070 alignment still applies: if a later artwork slice needs

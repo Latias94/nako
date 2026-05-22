@@ -7,7 +7,7 @@ Last updated: 2026-05-20
 
 The Browse unidirectional state workstream moved route state, asynchronous
 loading, source selection, playback decision, and playback start into
-`BrowseSession`. `TaruBrowseShell` is now mostly a Compose adapter, but it still
+`BrowseSession`. `NakoBrowseShell` is now mostly a Compose adapter, but it still
 passes runtime credentials and concrete runtime collaborators into visual
 surfaces:
 
@@ -38,7 +38,7 @@ profile switching.
 
 ## Problem
 
-`TaruBrowseShell` and detail rendering still expose shallow runtime seams:
+`NakoBrowseShell` and detail rendering still expose shallow runtime seams:
 
 - visual screens can see credential-shaped values even when they only need
   already-built artwork requests;
@@ -54,7 +54,7 @@ profile switching.
 - Browse presentation receives presentation-safe inputs:
   - artwork requests or an artwork resolver,
   - no raw access token on detail visual APIs,
-  - no direct `TokenVault` reads inside `TaruBrowseShell` for artwork.
+  - no direct `TokenVault` reads inside `NakoBrowseShell` for artwork.
 - Player route launch from Browse goes through a small runtime adapter interface
   so the shell no longer depends on the concrete player Composable signature.
 - Existing user-visible behavior stays unchanged.
@@ -63,10 +63,10 @@ profile switching.
 
 ## In Scope
 
-- `apps/android/app/src/main/java/dev/taru/android/ui/browse/`
-- `apps/android/app/src/main/java/dev/taru/android/ui/screens/detail/`
-- `apps/android/app/src/main/java/dev/taru/android/ui/artwork/`
-- a narrow adapter under `apps/android/app/src/main/java/dev/taru/android/ui/screens/player/`
+- `apps/android/app/src/main/java/dev/nako/android/ui/browse/`
+- `apps/android/app/src/main/java/dev/nako/android/ui/screens/detail/`
+- `apps/android/app/src/main/java/dev/nako/android/ui/artwork/`
+- a narrow adapter under `apps/android/app/src/main/java/dev/nako/android/ui/screens/player/`
 - focused JVM tests for adapter contracts and presentation APIs
 - workstream evidence and closeout docs
 
@@ -83,7 +83,7 @@ profile switching.
 
 | Assumption | Confidence | Evidence | Consequence if wrong |
 | --- | --- | --- | --- |
-| Artwork requests can be built once at the Browse runtime edge and passed to visual surfaces without losing dynamic fallback behavior. | High | `PublicArtworkSource.requestFor` already returns request objects consumed by `TaruArtworkImage`. | If false, keep a small `ArtworkRequestResolver` interface instead of concrete requests. |
+| Artwork requests can be built once at the Browse runtime edge and passed to visual surfaces without losing dynamic fallback behavior. | High | `PublicArtworkSource.requestFor` already returns request objects consumed by `NakoArtworkImage`. | If false, keep a small `ArtworkRequestResolver` interface instead of concrete requests. |
 | Player lifecycle deserves its own workstream. | High | `PlaybackPlayerRoute` owns ExoPlayer, listener state, errors, and exit effects. | If false, this lane would become too broad and block clean closeout. |
 | Existing JVM tests can cover the adapter contracts without emulator smoke. | Medium | Previous UDF lane covered runtime orchestration with JVM tests. | If behavior risk appears, run focused emulator smoke as an additional gate. |
 
@@ -96,7 +96,7 @@ runtime implementation details:
   metadata into presentation-safe `PublicArtworkRequest` inputs;
 - a detail route API that accepts those inputs or a resolver rather than
   `ServerProfile` and raw `accessToken`;
-- a Browse-owned player route renderer interface so `TaruBrowseShell` can render
+- a Browse-owned player route renderer interface so `NakoBrowseShell` can render
   a `PlaybackLaunchRequest` without knowing the concrete player dependency
   list.
 

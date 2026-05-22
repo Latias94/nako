@@ -7,7 +7,7 @@
   "updated_at": "2026-05-22",
   "owner": "codex",
   "scope": [
-    "crates/taru-api/src/admin_contract.rs",
+    "crates/nako-api/src/admin_contract.rs",
     "apps/admin-web/src/adminApi",
     "apps/admin-web/src/App.tsx",
     "apps/admin-web/src/App.test.tsx",

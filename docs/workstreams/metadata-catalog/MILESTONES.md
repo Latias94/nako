@@ -4,7 +4,7 @@
 
 Status: completed.
 
-Outcome: Taru has a documented, implementation-ready video-first media-server
+Outcome: Nako has a documented, implementation-ready video-first media-server
 domain model for growing from movie-first metadata into series, episode,
 anime, **Episode-Like Item**, **Extra Item**, **Franchise Collection**,
 artwork, duplicate-source, NFO-safe catalog behavior, and explicit client
@@ -16,8 +16,8 @@ implementation slices unambiguous.
 
 Deliverables:
 
-- Audit current `taru-core`, `taru-db`, `taru-catalog`, `taru-metadata`,
-  `taru-nfo`, `taru-vfs`, and HTTP DTO surfaces against `CONTEXT.md`.
+- Audit current `nako-core`, `nako-db`, `nako-catalog`, `nako-metadata`,
+  `nako-nfo`, `nako-vfs`, and HTTP DTO surfaces against `CONTEXT.md`.
 - Decide the first stable **Media Item** hierarchy for movie, series, season,
   episode, **Episode-Like Item**, **Extra Item**, **Franchise Collection**,
   and unknown video items.
@@ -83,20 +83,20 @@ Exit criteria:
 
 - `cargo fmt --all -- --check`
 - `cargo check --workspace --tests`
-- focused `cargo nextest run -p taru-db`
-- focused `cargo nextest run -p taru-core`
+- focused `cargo nextest run -p nako-db`
+- focused `cargo nextest run -p nako-core`
 - `git diff --check`
 
 Close-out evidence:
 
 - [Phase 27.1](PHASE27_1_CATALOG_SCHEMA_REPOSITORY_SLICE.md) records the
   implemented schema/repository slice and remaining M27.2 boundaries.
-- `crates/taru-core` owns provider mapping, duplicate-source, and local
+- `crates/nako-core` owns provider mapping, duplicate-source, and local
   inference evidence records and repository traits.
-- `crates/taru-db/migrations/0018_metadata_catalog_domain.sql` persists the
+- `crates/nako-db/migrations/0018_metadata_catalog_domain.sql` persists the
   selected M27.1 model.
-- `cargo nextest run -p taru-db` passed with 31 tests.
-- `cargo nextest run -p taru-core` passed with 3 tests.
+- `cargo nextest run -p nako-db` passed with 31 tests.
+- `cargo nextest run -p nako-core` passed with 3 tests.
 - `cargo fmt --all -- --check`, `cargo check --workspace --tests`, and
   `git diff --check` passed.
 
@@ -110,9 +110,9 @@ confirmation.
 
 Deliverables:
 
-- Extend `taru-naming` parsed-name output with confidence, evidence source,
+- Extend `nako-naming` parsed-name output with confidence, evidence source,
   parser version, and inferred kind/title/year/season/episode fields.
-- Persist **Local Inference Evidence** from `taru-library` scanning.
+- Persist **Local Inference Evidence** from `nako-library` scanning.
 - Create provisional series, season, episode, and unknown item hierarchy during
   scanning.
 - Keep provider/NFO confirmation as a later upgrade path.
@@ -129,29 +129,29 @@ Exit criteria:
 
 - `cargo fmt --all -- --check`
 - `cargo check --workspace --tests`
-- focused `cargo nextest run -p taru-naming`
-- focused `cargo nextest run -p taru-library`
-- focused `cargo nextest run -p taru-db`
+- focused `cargo nextest run -p nako-naming`
+- focused `cargo nextest run -p nako-library`
+- focused `cargo nextest run -p nako-db`
 - `git diff --check`
 
 Close-out evidence:
 
 - [Phase 27.2](PHASE27_2_LOCAL_INFERENCE_PROVISIONAL_HIERARCHY.md) records the
   scan-path local inference implementation and remaining M27.3 boundaries.
-- `taru-naming` emits confidence, evidence source, evidence value, parser
+- `nako-naming` emits confidence, evidence source, evidence value, parser
   version, and unknown fallback results.
-- `taru-library` writes source-owned **Local Inference Evidence** and creates
+- `nako-library` writes source-owned **Local Inference Evidence** and creates
   provisional series/season/episode items during indexing.
-- `taru-db/migrations/0019_library_item_states.sql` persists library-scoped
+- `nako-db/migrations/0019_library_item_states.sql` persists library-scoped
   source-less item membership.
-- `taru-db/migrations/0020_local_inference_evidence_snapshot_key.sql` keeps
+- `nako-db/migrations/0020_local_inference_evidence_snapshot_key.sql` keeps
   local inference evidence as a source-owned current snapshot rather than an
   append-only scan log.
 - Confirmed items are protected from local-inference canonical metadata
   overwrites during rescan.
-- `cargo nextest run -p taru-naming` passed with 6 tests.
-- `cargo nextest run -p taru-library` passed with 15 tests.
-- `cargo nextest run -p taru-db` passed with 32 tests.
+- `cargo nextest run -p nako-naming` passed with 6 tests.
+- `cargo nextest run -p nako-library` passed with 15 tests.
+- `cargo nextest run -p nako-db` passed with 32 tests.
 - `cargo fmt --all -- --check`, `cargo check --workspace --tests`, and
   `git diff --check` passed.
 
@@ -192,10 +192,10 @@ Exit criteria:
 
 - `cargo fmt --all -- --check`
 - `cargo check --workspace --tests`
-- focused `cargo nextest run -p taru-db`
-- focused `cargo nextest run -p taru-library`
-- focused `cargo nextest run -p taru-metadata`
-- focused `cargo nextest run -p taru-nfo`
+- focused `cargo nextest run -p nako-db`
+- focused `cargo nextest run -p nako-library`
+- focused `cargo nextest run -p nako-metadata`
+- focused `cargo nextest run -p nako-nfo`
 - focused provider and NFO nextest runs
 - `git diff --check`
 
@@ -204,14 +204,14 @@ Close-out evidence:
 - [Phase 27.3](PHASE27_3_HIERARCHY_CONFIRMATION_PROVIDER_NFO.md) records the
   hierarchy confirmation, provider mapping, TMDB series/season/episode, and
   NFO episode confirmation slice.
-- `taru-metadata` owns the shared **Hierarchy Confirmation** service boundary.
+- `nako-metadata` owns the shared **Hierarchy Confirmation** service boundary.
 - Metadata refresh writes accepted **Provider Subject** and **Provider
   Mapping** records for successful TMDB, Douban, and Bangumi fetches.
-- `taru-nfo` confirms provisional episode hierarchy in place through the
+- `nako-nfo` confirms provisional episode hierarchy in place through the
   shared service.
-- `cargo nextest run -p taru-db --no-fail-fast` passed with 32 tests.
-- `cargo nextest run -p taru-library --no-fail-fast` passed with 15 tests.
-- `cargo nextest run -p taru-metadata --no-fail-fast` passed with 26 tests.
-- `cargo nextest run -p taru-nfo --no-fail-fast` passed with 8 tests.
+- `cargo nextest run -p nako-db --no-fail-fast` passed with 32 tests.
+- `cargo nextest run -p nako-library --no-fail-fast` passed with 15 tests.
+- `cargo nextest run -p nako-metadata --no-fail-fast` passed with 26 tests.
+- `cargo nextest run -p nako-nfo --no-fail-fast` passed with 8 tests.
 - `cargo fmt --all -- --check`, `cargo check --workspace --tests`, and
   `git diff --check` passed.

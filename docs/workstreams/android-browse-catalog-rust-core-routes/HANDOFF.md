@@ -10,10 +10,10 @@ are complete.
 
 ## Completed Outcome
 
-- `taru-client-core` owns explicit browse/catalog request builders for the
+- `nako-client-core` owns explicit browse/catalog request builders for the
   Android browse route family.
-- `taru-client-uniffi` exposes thin FFI-safe browse builder records/functions.
-- Android `TaruBrowseClient` uses `BrowseCore`/`RustBrowseCore` for runtime
+- `nako-client-uniffi` exposes thin FFI-safe browse builder records/functions.
+- Android `NakoBrowseClient` uses `BrowseCore`/`RustBrowseCore` for runtime
   route construction.
 - Android still owns transport, JSON decode through generated SDK DTOs,
   diagnostics, UI, and product mapping.
@@ -25,12 +25,12 @@ are complete.
 Fresh gates passed on 2026-05-21:
 
 ```powershell
-cargo fmt --package taru-client-core --check
-cargo nextest run -p taru-client-core --no-fail-fast
-cargo fmt --package taru-client-uniffi --check
-cargo nextest run -p taru-client-uniffi --no-fail-fast
+cargo fmt --package nako-client-core --check
+cargo nextest run -p nako-client-core --no-fail-fast
+cargo fmt --package nako-client-uniffi --check
+cargo nextest run -p nako-client-uniffi --no-fail-fast
 ./scripts/guard-uniffi-boundary.ps1
-apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.browse.TaruBrowseClientTest --no-daemon --rerun-tasks
+apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.browse.NakoBrowseClientTest --no-daemon --rerun-tasks
 python -m json.tool docs/workstreams/android-browse-catalog-rust-core-routes/WORKSTREAM.json > $null
 git diff --check
 ```

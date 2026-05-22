@@ -1,11 +1,11 @@
 {
-  "name": "@taru/sdk",
+  "name": "@nako/sdk",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Generated TypeScript SDK for the Taru public client API.",
+  "description": "Generated TypeScript SDK for the Nako public client API.",
   "scripts": {
-    "generate": "cargo run -q --manifest-path ../../Cargo.toml -p taru-api --example emit-typescript-sdk -- --output src/index.ts",
+    "generate": "cargo run -q --manifest-path ../../Cargo.toml -p nako-api --example emit-typescript-sdk -- --output src/index.ts",
     "check": "tsc --noEmit",
     "verify": "npm run generate && npm run check"
   },

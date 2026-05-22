@@ -32,7 +32,7 @@ make that workstream too broad.
 Remote playback hardening will move into a dedicated
 `playback-streaming` workstream for M7.
 
-`taru-vfs` remains the storage boundary for object metadata, capability checks,
+`nako-vfs` remains the storage boundary for object metadata, capability checks,
 range reads, staging, and backend-specific retry/timeout behavior. Server
 handlers must not grow WebDAV-specific or future S3-specific branches.
 
@@ -44,7 +44,7 @@ remote byte range without buffering the whole selected range in memory.
 
 Remote remux and HLS will continue to use local staging before FFmpeg until a
 separate ADR validates direct remote FFmpeg inputs. Before expanding remote
-transcode use, Taru must add a staging manifest and cleanup boundary. The
+transcode use, Nako must add a staging manifest and cleanup boundary. The
 manifest should track at least source URI, staging purpose, local path, size,
 fingerprint or etag, state, last access time, expiration, and validation
 evidence. Cleanup must enforce a configured disk budget and run on startup and
@@ -94,9 +94,9 @@ stable source URI roots.
   storage ownership.
 - Pass remote URLs and credentials directly to FFmpeg now: deferred because it
   would delegate credential handling, retry, timeout, and error mapping to an
-  external process before Taru owns those boundaries.
+  external process before Nako owns those boundaries.
 - Rely on OS mounts for remote playback: rejected for the same reason as ADR
-  0016; mounts hide remote failure modes and resource costs from Taru.
+  0016; mounts hide remote failure modes and resource costs from Nako.
 - Build client UI first: deferred until server playback contracts and media
   URLs are stable enough for clients to consume.
 

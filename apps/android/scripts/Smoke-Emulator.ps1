@@ -379,7 +379,7 @@ function Start-SmokePlaybackSessionProbe {
         Authorization = "Bearer $AccessToken"
     }
     $encodedSourceId = [System.Uri]::EscapeDataString($SourceId)
-    $sessionHeaderName = 'x-taru-playback-session-id'
+    $sessionHeaderName = 'x-nako-playback-session-id'
     $preflightUrl = "$BaseUrl/sources/$encodedSourceId/stream/remux?$RemuxQuery"
     $startedAt = Get-Date
     $preflightResponse = Invoke-WebRequest -Uri $preflightUrl -Method Head -Headers $headers -UseBasicParsing -TimeoutSec 60
@@ -643,7 +643,7 @@ function Install-SmokeMediaProfileFixture {
         throw 'Fixture access token must be non-empty.'
     }
 
-    $providerUri = 'content://dev.taru.android.smoke.fixture'
+    $providerUri = 'content://dev.nako.android.smoke.fixture'
     $startedAt = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
     $seedOutput = $null
     $lastSeedError = $null
@@ -765,7 +765,7 @@ function Wait-ForFocusedAppWindow {
     param(
         [string]$AdbPath,
         [string]$DeviceSerial,
-        [string]$PackageName = 'dev.taru.android',
+        [string]$PackageName = 'dev.nako.android',
         [int]$TimeoutSeconds = 10
     )
 
@@ -793,7 +793,7 @@ function Recover-AppFocus {
     )
 
     Wake-Device -AdbPath $AdbPath -DeviceSerial $DeviceSerial
-    Invoke-AdbCommand -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'am', 'start', '-n', 'dev.taru.android/.MainActivity', '-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.LAUNCHER') *> $null
+    Invoke-AdbCommand -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'am', 'start', '-n', 'dev.nako.android/.MainActivity', '-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.LAUNCHER') *> $null
     Start-Sleep -Seconds 2
 }
 
@@ -813,16 +813,16 @@ function Install-SmokeProfileFixture {
 </map>
 "@
 
-    $localSeedPath = Join-Path ([System.IO.Path]::GetTempPath()) "taru-smoke-profile-$([System.Guid]::NewGuid()).xml"
-    $remoteSeedPath = '/data/local/tmp/taru-smoke-profile.xml'
+    $localSeedPath = Join-Path ([System.IO.Path]::GetTempPath()) "nako-smoke-profile-$([System.Guid]::NewGuid()).xml"
+    $remoteSeedPath = '/data/local/tmp/nako-smoke-profile.xml'
     try {
         Write-Utf8File -Path $localSeedPath -Content $xml
 
         Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'push', $localSeedPath, $remoteSeedPath) -FailureMessage 'adb push profile fixture failed.'
         Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'chmod', '644', $remoteSeedPath) -FailureMessage 'adb chmod profile fixture failed.'
-        Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'run-as', 'dev.taru.android', 'mkdir', '-p', 'shared_prefs') -FailureMessage 'adb create shared_prefs failed.'
-        Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'run-as', 'dev.taru.android', 'cp', $remoteSeedPath, 'shared_prefs/taru_server_profiles.xml') -FailureMessage 'adb seed server profile failed.'
-        Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'run-as', 'dev.taru.android', 'chmod', '660', 'shared_prefs/taru_server_profiles.xml') -FailureMessage 'adb chmod server profile preferences failed.'
+        Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'run-as', 'dev.nako.android', 'mkdir', '-p', 'shared_prefs') -FailureMessage 'adb create shared_prefs failed.'
+        Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'run-as', 'dev.nako.android', 'cp', $remoteSeedPath, 'shared_prefs/nako_server_profiles.xml') -FailureMessage 'adb seed server profile failed.'
+        Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'run-as', 'dev.nako.android', 'chmod', '660', 'shared_prefs/nako_server_profiles.xml') -FailureMessage 'adb chmod server profile preferences failed.'
         Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'rm', $remoteSeedPath) -FailureMessage 'adb cleanup profile fixture failed.'
     } finally {
         Invoke-AdbCommand -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'rm', $remoteSeedPath) *> $null
@@ -839,7 +839,7 @@ function Get-UiDump {
     )
 
     $safeName = $Name -replace '[^A-Za-z0-9_.-]', '-'
-    $remoteDump = "/data/local/tmp/taru-android-smoke-$safeName.xml"
+    $remoteDump = "/data/local/tmp/nako-android-smoke-$safeName.xml"
     $localDump = Join-Path $OutputDir "$safeName.uiautomator.xml"
     $lastError = $null
 
@@ -1326,7 +1326,7 @@ function Capture-SmokeSurface {
         [string[]]$ForbiddenText = @()
     )
 
-    $remoteShot = "/sdcard/taru-android-smoke-$Name.png"
+    $remoteShot = "/sdcard/nako-android-smoke-$Name.png"
     $localShot = Join-Path $OutputDir "$Name.png"
     Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'screencap', '-p', $remoteShot) -FailureMessage "adb screencap failed for '$Name'."
     Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'pull', $remoteShot, $localShot) -FailureMessage "adb pull screenshot failed for '$Name'."
@@ -1443,7 +1443,7 @@ Invoke-Adb -AdbPath $adb -Arguments @('-s', $deviceSerial, 'wait-for-device') -F
 Wait-ForBootComplete -AdbPath $adb -DeviceSerial $deviceSerial
 Invoke-Adb -AdbPath $adb -Arguments @('-s', $deviceSerial, 'install', '-r', '-d', $apkPath) -FailureMessage 'adb install failed.'
 if ($clearsAppData) {
-    Invoke-Adb -AdbPath $adb -Arguments @('-s', $deviceSerial, 'shell', 'pm', 'clear', 'dev.taru.android') -FailureMessage 'adb app data reset failed.'
+    Invoke-Adb -AdbPath $adb -Arguments @('-s', $deviceSerial, 'shell', 'pm', 'clear', 'dev.nako.android') -FailureMessage 'adb app data reset failed.'
 }
 if ($stateMode -in @('profile-with-media', 'profile-active-remux')) {
     $isActiveRemuxSmoke = $stateMode -eq 'profile-active-remux'
@@ -1479,18 +1479,18 @@ if ($stateMode -in @('profile-with-media', 'profile-active-remux')) {
         -BaseUrl $fixtureBaseUrl `
         -AccessToken $FixtureAccessToken `
         -ForceRemux $isActiveRemuxSmoke
-    Invoke-Adb -AdbPath $adb -Arguments @('-s', $deviceSerial, 'shell', 'am', 'force-stop', 'dev.taru.android') -FailureMessage 'adb force-stop after profile-with-media seed failed.'
+    Invoke-Adb -AdbPath $adb -Arguments @('-s', $deviceSerial, 'shell', 'am', 'force-stop', 'dev.nako.android') -FailureMessage 'adb force-stop after profile-with-media seed failed.'
 }
 if ($stateMode -eq 'profile-missing-token') {
     Install-SmokeProfileFixture -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir
 }
 if ($stateMode -notin @('profile-with-media', 'profile-active-remux')) {
-    Invoke-Adb -AdbPath $adb -Arguments @('-s', $deviceSerial, 'shell', 'am', 'force-stop', 'dev.taru.android') -FailureMessage 'adb force-stop failed.'
+    Invoke-Adb -AdbPath $adb -Arguments @('-s', $deviceSerial, 'shell', 'am', 'force-stop', 'dev.nako.android') -FailureMessage 'adb force-stop failed.'
 }
 Wake-Device -AdbPath $adb -DeviceSerial $deviceSerial
 
 $launchPath = Join-Path $outputDir 'launch.txt'
-$launchOutput = Invoke-AdbCommand -AdbPath $adb -Arguments @('-s', $deviceSerial, 'shell', 'am', 'start', '-n', 'dev.taru.android/.MainActivity', '-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.LAUNCHER') 2>&1
+$launchOutput = Invoke-AdbCommand -AdbPath $adb -Arguments @('-s', $deviceSerial, 'shell', 'am', 'start', '-n', 'dev.nako.android/.MainActivity', '-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.LAUNCHER') 2>&1
 $launchText = ($launchOutput | Out-String).TrimEnd()
 Write-Utf8File -Path $launchPath -Content $launchText
 if ($LASTEXITCODE -ne 0) {
@@ -1503,7 +1503,7 @@ $surfaceEvidence = @()
 if ($stateMode -eq 'empty-setup') {
     Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Connect to a server'
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'setup' -RequiredText @(
-        'Taru',
+        'Nako',
         'Connect to a server',
         'Display name',
         'Server URL',
@@ -1515,7 +1515,7 @@ if ($stateMode -eq 'empty-setup') {
     Wait-ForUiText -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Text 'Sign in required'
     $surfaceEvidence += Capture-SmokeSurface -AdbPath $adb -DeviceSerial $deviceSerial -OutputDir $outputDir -Name 'home' -RequiredText @(
         'Smoke Server',
-        'Your Taru library',
+        'Your Nako library',
         'Sign in required',
         'Sign in again before browsing.',
         'Settings'
@@ -1608,7 +1608,7 @@ if ($stateMode -eq 'empty-setup') {
         'Version',
         $(if ($stateMode -eq 'profile-active-remux') { 'Night Harbor.mkv' } else { 'Night Harbor.mp4' }),
         'Resume from your last server position',
-        'Taru will continue from the last position saved by your server after checking this version.',
+        'Nako will continue from the last position saved by your server after checking this version.',
         'Resume'
     ) -ForbiddenText @(
         'Resume on this device',
@@ -1740,7 +1740,7 @@ $surfaceReportItems = @(
 )
 $jsonReport = [ordered]@{
     schema_version = 1
-    kind = 'taru_android_smoke_state'
+    kind = 'nako_android_smoke_state'
     timestamp = (Get-Date).ToString('o')
     result = 'PASS'
     fixture_state = $FixtureState
@@ -1754,7 +1754,7 @@ $jsonReport = [ordered]@{
         reverse_port = if ($fixtureReversePort) { $fixtureReversePort } else { $null }
     }
     launch = [ordered]@{
-        activity = 'dev.taru.android/.MainActivity'
+        activity = 'dev.nako.android/.MainActivity'
         output = Convert-ToJsonPath -Path $launchPath
     }
     reports = [ordered]@{
@@ -1771,7 +1771,7 @@ $jsonReport = [ordered]@{
     repo_root = Convert-ToJsonPath -Path $repoRoot
 }
 $report = @"
-# Taru Android Smoke Evidence
+# Nako Android Smoke Evidence
 
 - Timestamp: $(Get-Date -Format o)
 - Device: $deviceSerial
@@ -1781,7 +1781,7 @@ $report = @"
 - Reset app data: $clearsAppData
 - Fixture server base URL: $(if ($fixtureBaseUrl) { $fixtureBaseUrl } else { 'n/a' })
 - Fixture reverse port: $(if ($fixtureReversePort) { "tcp:$fixtureReversePort" } else { 'n/a' })
-- Launch activity: dev.taru.android/.MainActivity
+- Launch activity: dev.nako.android/.MainActivity
 - Launch output: launch.txt
 - Surface evidence:
 $surfaceReport

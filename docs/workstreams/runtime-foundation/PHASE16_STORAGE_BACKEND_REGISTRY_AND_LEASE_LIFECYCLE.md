@@ -3,13 +3,13 @@
 ## Objective
 
 M16 turns storage backend construction, remote staging, and staged-input leases
-into explicit runtime boundaries. Taru is still pre-release, so the phase may
+into explicit runtime boundaries. Nako is still pre-release, so the phase may
 remove older ad hoc paths rather than preserve compatibility with incomplete
 MVP behavior.
 
 ## Deliverables
 
-- `TaruApp` owns a `StorageBackendRegistry`.
+- `NakoApp` owns a `StorageBackendRegistry`.
 - The registry caches one `LibraryStorageBackend` per configured `library_id`.
 - Scan, probe, direct play, remux/HLS input staging, and NFO import/export
   resolve storage through the same library-aware registry boundary.

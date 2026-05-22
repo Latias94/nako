@@ -9,8 +9,8 @@ After browse, user-playback, and playback route migrations, two Android-side
 uses still make the generated Kotlin SDK look like a runtime route owner:
 
 1. `PublicArtworkSource` validates and builds selected artwork image requests
-   through `TaruPublicClientRequests.image(...)` and `TaruRequestDescriptor`.
-2. `TaruBrowseShellPreview` matches fake transport requests through generated
+   through `NakoPublicClientRequests.image(...)` and `NakoRequestDescriptor`.
+2. `NakoBrowseShellPreview` matches fake transport requests through generated
    SDK request descriptors.
 
 ADR 0032 says the durable runtime owner is the shared Rust client core behind an
@@ -20,8 +20,8 @@ construction policy in runtime code or previews that mirror runtime ownership.
 
 ## Target State
 
-- `taru-client-core` owns selected artwork image request construction.
-- `taru-client-uniffi` exposes a thin FFI-safe artwork request builder over the
+- `nako-client-core` owns selected artwork image request construction.
+- `nako-client-uniffi` exposes a thin FFI-safe artwork request builder over the
   Rust core.
 - Android artwork code asks an `ArtworkCore` seam for image requests and keeps
   Android-owned responsibilities: active profile/token lookup, UI image loading,
@@ -31,8 +31,8 @@ construction policy in runtime code or previews that mirror runtime ownership.
   safety property without using generated SDK descriptors.
 - Compose preview fake transport uses fixture-owned URL matching helpers instead
   of generated SDK route descriptors.
-- No Android `src/main` runtime code imports `TaruPublicClientRequests` or
-  `TaruRequestDescriptor` after this lane.
+- No Android `src/main` runtime code imports `NakoPublicClientRequests` or
+  `NakoRequestDescriptor` after this lane.
 
 ## Scope
 
@@ -44,7 +44,7 @@ In scope:
 - Refactor `PublicArtworkSource` and `preferredPublicArtwork` validation to use
   the Android artwork core seam.
 - Remove now-dead `PublicApiRequestDescriptors.kt` if no callers remain.
-- Replace `TaruBrowseShellPreview` generated SDK path matching with stable
+- Replace `NakoBrowseShellPreview` generated SDK path matching with stable
   preview-local route helpers.
 - Update Android docs and workstream evidence.
 
@@ -87,7 +87,7 @@ should be:
 2. Ask `ArtworkCore` to build the canonical request for the image id.
 3. Compare the image DTO `url` against the canonical core-built route's path and
    query, after stripping the active profile base URL from the core URL.
-4. If the DTO URL matches, return the core-built `TaruHttpRequest` and
+4. If the DTO URL matches, return the core-built `NakoHttpRequest` and
    `SafeRequestPreview`; otherwise reject the image as unsafe/unusable.
 
 This keeps provider-controlled or stale URLs from causing cross-origin, admin,
@@ -112,7 +112,7 @@ These helpers must not import generated SDK request descriptors.
 - Android selected artwork loading currently uses no width/height variant; the
   Rust builder supports variants for parity, but the Android runtime may pass
   `null`.
-- `TaruConnectionClientTest` may continue using generated SDK constants and
+- `NakoConnectionClientTest` may continue using generated SDK constants and
   route descriptors as a contract/inventory assertion, because it is a test, not
   app runtime policy.
 

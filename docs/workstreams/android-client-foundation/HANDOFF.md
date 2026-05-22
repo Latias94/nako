@@ -15,7 +15,7 @@ Implemented scaffold:
 
 - Gradle Wrapper under `apps/android`.
 - Kotlin + Compose + Material 3 debug app shell.
-- Dark-first Taru theme tokens for color, spacing, type, radius, poster and
+- Dark-first Nako theme tokens for color, spacing, type, radius, poster and
   backdrop ratios, and touch target sizing.
 - One local debug shell screen only.
 - Local Android build README.
@@ -27,7 +27,7 @@ Implemented connection/auth slice:
 - Direct Kotlin HTTP connection client for `GET /health` and a lightweight
   authenticated `/libraries?limit=1&offset=0` probe.
 - Public Client API version inspection through `version` and
-  `x-taru-api-version`.
+  `x-nako-api-version`.
 - Public error-envelope parsing with sanitized diagnostics.
 - Server profile repository with one active server and profile-scoped state.
 - Android secure token vault; profiles store token references, not raw tokens.
@@ -74,7 +74,7 @@ Implemented Compose UI baseline rewrite:
   relationship rows.
 - Settings Home and Server Profile now use the existing server profile snapshot
   and token vault without displaying token values.
-- `TaruAndroidAppContent` now passes the real profile snapshot into the browse
+- `NakoAndroidAppContent` now passes the real profile snapshot into the browse
   shell and persists profile switches from Server Profile.
 - Added Compose Material Icons Extended for standard Material iconography.
 
@@ -221,15 +221,15 @@ validated `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest`,
 `apps/android/gradlew.bat -p apps/android :app:assembleDebug`, and
 `git diff --check` on 2026-05-18. `ACF-030D` validated
 `cargo fmt --all -- --check`,
-`cargo nextest run -p taru-server http::tests::catalog --no-fail-fast`,
-`cargo build -p taru-server`,
+`cargo nextest run -p nako-server http::tests::catalog --no-fail-fast`,
+`cargo build -p nako-server`,
 `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest`,
 `apps/android/gradlew.bat -p apps/android :app:assembleDebug`, and
 `git diff --check` on 2026-05-18. Manual server/device walkthrough passed on
-`Pixel_3a_API_34_extension_level_7_x86_64` against a real local `taru-server`
+`Pixel_3a_API_34_extension_level_7_x86_64` against a real local `nako-server`
 fixture.
 `ACF-040` validated
-`apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.playback.TaruPlaybackClientTest`,
+`apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.playback.NakoPlaybackClientTest`,
 `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest`, and
 `apps/android/gradlew.bat -p apps/android :app:assembleDebug`,
 `git diff --check`, and a real-server/device walkthrough on 2026-05-18. The
@@ -244,9 +244,9 @@ and a real emulator/server playback smoke on 2026-05-18. The smoke used a
 2 second local H.264/AAC `Night Harbor.mkv`, played through the server-selected
 remux route, reached `Media3: Ended`, and showed no raw token in the player UI.
 `ACF-060` validated
-`apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.player.PlaybackLaunchTest --no-daemon`
+`apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.player.PlaybackLaunchTest --no-daemon`
 and
-`apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.playback.TaruPlaybackClientTest --no-daemon`
+`apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.playback.NakoPlaybackClientTest --no-daemon`
 on 2026-05-18. Full
 `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon`,
 `apps/android/gradlew.bat -p apps/android :app:assembleDebug --no-daemon`,

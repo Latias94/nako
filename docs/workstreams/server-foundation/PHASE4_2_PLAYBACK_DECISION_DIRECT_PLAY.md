@@ -3,14 +3,14 @@
 ## Goal
 
 Add the first playback surface without committing to a full transcoding
-pipeline. Taru can now decide whether a source should direct play, remux, or
+pipeline. Nako can now decide whether a source should direct play, remux, or
 transcode, and it can serve local direct-play media with HTTP byte ranges.
 
 ## Implemented Shape
 
 ### Playback Decision
 
-`taru-streaming` now owns the first playback decision model:
+`nako-streaming` now owns the first playback decision model:
 
 - `ClientPlaybackCapabilities`
 - `PlaybackDecision`
@@ -42,13 +42,13 @@ The stream route serves local sources and supports:
 - `Content-Length`;
 - conservative MIME inference for common video containers.
 
-Phase 4.2.1 moves direct play response planning into `taru-streaming` and
-`taru-server::app`. The HTTP handler now maps headers into a range request,
+Phase 4.2.1 moves direct play response planning into `nako-streaming` and
+`nako-server::app`. The HTTP handler now maps headers into a range request,
 calls the service plan, and streams the requested body. Malformed,
 unsupported multi-range, and unsatisfiable ranges return
 `416 Range Not Satisfiable` with `Content-Range: bytes */{total_len}`.
 
-The implementation currently requires a local path hint from `taru-vfs`.
+The implementation currently requires a local path hint from `nako-vfs`.
 Remote source staging and byte-range cache remain future work.
 
 ## Non-Goals

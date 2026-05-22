@@ -20,7 +20,7 @@ Prerequisites are complete:
 - `network-access-boundary` proved remote access policy/readiness, trusted
   proxy/header behavior, origin enforcement, and Admin-only network diagnostics
   without built-in NAT traversal runtime.
-- `addons-automation` and `taru-automation` already provide an external
+- `addons-automation` and `nako-automation` already provide an external
   automation provider/job/artifact foundation, but not the product-specific
   Generated Artifact review/acceptance semantics this lane needs.
 
@@ -31,9 +31,9 @@ explicit acceptance planning, not a local model runtime or autonomous writes.
 AILO-020 added backend Generated Artifact proposal/readiness semantics over
 existing Automation Artifacts:
 
-- `taru-core` now has proposal target, provenance, payload summary, and
+- `nako-core` now has proposal target, provenance, payload summary, and
   readiness vocabulary.
-- `taru-db` can list Generated Artifact proposals from existing automation
+- `nako-db` can list Generated Artifact proposals from existing automation
   artifacts without adding a parallel AI artifact store.
 - Proposal readiness detects invalid payloads, missing/mismatched targets,
   missing provider/job records, accepted/rejected artifacts, and mismatched job
@@ -41,13 +41,13 @@ existing Automation Artifacts:
 - Proposal summaries expose fingerprints/counts/booleans/confidence, not raw
   prompt text, raw generated text, provider secrets, Source Locators, local
   paths, or source fingerprints.
-- `taru-automation` and `taru-server::app` tests prove proposal listing does not
+- `nako-automation` and `nako-server::app` tests prove proposal listing does not
   mutate canonical metadata.
 
 AILO-030 added Admin-only Generated Artifact proposal diagnostics:
 
-- `taru-api::admin` owns redacted Admin DTOs for proposal list responses.
-- `taru-server::http::admin` exposes
+- `nako-api::admin` owns redacted Admin DTOs for proposal list responses.
+- `nako-server::http::admin` exposes
   `/admin/v1/automation/generated-artifacts/proposals`.
 - Admin TypeScript contract generation includes `generatedArtifactProposals`
   and remains synchronized with `apps/admin-web/src/adminApi/generated`.

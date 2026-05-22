@@ -8,7 +8,7 @@ Last updated: 2026-05-19
 `addon-managed-artwork-artifacts` intentionally stopped at internal Addon
 Artwork Candidates. That boundary prevents addon-provided URLs from becoming
 public client artwork, but users still need a path to accept a candidate into
-Taru-managed artwork.
+Nako-managed artwork.
 
 The next boundary is more complex than the Addon handler: network fetch,
 content validation, cache/artifact storage, thumbnailing, selected artwork,
@@ -21,18 +21,18 @@ Current public `ImageAsset` records expose `source_uri` and `cache_uri` through
 Public Client DTOs. Directly copying a candidate's remote URL into
 `ImageAsset` would create public hotlinks and leak addon/provider details.
 
-Taru also does not yet have a cohesive managed artwork ingest service that can:
+Nako also does not yet have a cohesive managed artwork ingest service that can:
 
 - fetch remote images with resource budgets and retry policy;
 - validate content type, byte size, dimensions, and decodability;
-- assign stable Taru-owned cache/artifact URIs;
+- assign stable Nako-owned cache/artifact URIs;
 - create thumbnails without blocking runtime routes;
 - atomically update selected artwork and catalog projections;
 - report failures without exposing raw URLs, local paths, or cache internals.
 
 ## Target State
 
-- Candidate acceptance is a Taru-owned command, not direct Addon mutation.
+- Candidate acceptance is a Nako-owned command, not direct Addon mutation.
 - Remote fetch runs through a bounded worker or durable job with resource
   class, timeout, retry, and cancellation semantics.
 - Managed artwork storage owns cache URI assignment and internal source
@@ -83,7 +83,7 @@ The recommended first executable slice is an audit and design pass:
 
 - inventory whether `ArtworkTask` can represent candidate fetch/validate/cache
   or whether a new managed artwork job model is needed;
-- decide where Taru-owned cache/artifact bytes live and how cache URIs are
+- decide where Nako-owned cache/artifact bytes live and how cache URIs are
   hidden or exposed;
 - decide whether first acceptance creates an unselected managed artifact or a
   selected public `ImageAsset`;
@@ -104,12 +104,12 @@ The service shape should be:
    equivalent first-party command validates the candidate, target item,
    library scope, status, and acceptance policy.
 2. The command updates candidate acceptance state and creates a durable managed
-   ingest record plus a durable job. The job input may include safe Taru IDs
+   ingest record plus a durable job. The job input may include safe Nako IDs
    such as candidate, item, library, and image kind, but not the candidate's raw
    remote URL.
 3. A worker loads the candidate source internally, fetches with artwork fetch
    resource budgets, validates content type, byte size, dimensions, and
-   decodability, then writes a Taru-owned managed artifact record.
+   decodability, then writes a Nako-owned managed artifact record.
 4. Public artwork publication is a later commit boundary. It may create or
    update `ImageAsset` only after the managed artifact exists and the public DTO
    redaction strategy is explicit.

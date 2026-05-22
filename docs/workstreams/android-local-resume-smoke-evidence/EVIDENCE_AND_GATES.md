@@ -6,7 +6,7 @@ Last updated: 2026-05-19
 ## Required Gates
 
 - Focused debug fixture test:
-  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.smoke.DebugSmokeFixtureSeedActivityTest --no-daemon`
+  `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.smoke.DebugSmokeFixtureSeedActivityTest --no-daemon`
 - Focused smoke:
   `pwsh -NoProfile -File apps\android\scripts\Smoke-Emulator.ps1 -FixtureState profile-with-media`
 - Diff hygiene:
@@ -26,7 +26,7 @@ Last updated: 2026-05-19
 
 - Evidence:
   - Focused debug fixture test:
-    `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.smoke.DebugSmokeFixtureSeedActivityTest --no-daemon`
+    `apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.smoke.DebugSmokeFixtureSeedActivityTest --no-daemon`
   - Focused smoke report:
     `apps/android/build/smoke/20260519-102517-profile-with-media-emulator-5554/report.md`
   - Regression smoke report:

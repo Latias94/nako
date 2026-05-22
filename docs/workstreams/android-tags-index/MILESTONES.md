@@ -14,8 +14,8 @@ Exit criteria:
 
 Evidence:
 
-- `TagListResponse` and `TaruBrowseClient.listTags` are implemented.
-- Focused `TaruBrowseClientTest` coverage proves request construction,
+- `TagListResponse` and `NakoBrowseClient.listTags` are implemented.
+- Focused `NakoBrowseClientTest` coverage proves request construction,
   decoding, bearer auth redaction, safe diagnostics, and unsupported API
   version rejection.
 - API matrices now show `GET /tags?limit=&offset=` as connected through the
@@ -37,10 +37,10 @@ Evidence:
   `TagListResponse.toRelationshipIndexContent` map server-backed Tag rows to
   existing Tag related Media Items targets.
 - `BrowseSession` opens, loads, retries through the existing route state, and
-  opens Tag rows as `TaruRoute.BrowseFacet`.
-- `TaruBrowseNavigationStateSaver` restores Tags Index as a safe nested route.
+  opens Tag rows as `NakoRoute.BrowseFacet`.
+- `NakoBrowseNavigationStateSaver` restores Tags Index as a safe nested route.
 - `ClientBrowseDataSource.loadRelationshipIndex(Tags)` calls
-  `TaruBrowseClient.listTags(limit=50, offset=0)`.
+  `NakoBrowseClient.listTags(limit=50, offset=0)`.
 - Relationship index presentation copy is family-aware for Genres and Tags.
 
 ## M3 - Screen And Home Entry
@@ -58,7 +58,7 @@ Evidence:
 
 - Home exposes a Tags anchor next to Genres without adding a bottom navigation
   destination.
-- `TaruBrowseShell` dispatches the Tags anchor through the shared
+- `NakoBrowseShell` dispatches the Tags anchor through the shared
   `BrowseAction.OpenRelationshipIndex(RelationshipIndexFamily.Tags)` path.
 - `RelationshipIndexRoute` uses family-aware copy and icons while keeping the
   existing relationship index screen shape.

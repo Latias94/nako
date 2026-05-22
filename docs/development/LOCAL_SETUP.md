@@ -41,34 +41,34 @@ cargo nextest run --workspace
 Run the server:
 
 ```powershell
-$env:TARU_ADMIN_TOKEN = "<local admin token>"
-cargo run -p taru-server -- --config taru.toml serve
+$env:NAKO_ADMIN_TOKEN = "<local admin token>"
+cargo run -p nako-server -- --config nako.toml serve
 ```
 
 Print an example config:
 
 ```powershell
-cargo run -p taru-server -- config-example
+cargo run -p nako-server -- config-example
 ```
 
 Run a synchronous local-library scan:
 
 ```powershell
-cargo run -p taru-server -- --config taru.toml scan
+cargo run -p nako-server -- --config nako.toml scan
 ```
 
 Refresh TMDB metadata for one indexed item:
 
 ```powershell
 $env:TMDB_READ_ACCESS_TOKEN = "<tmdb read access token>"
-cargo run -p taru-server -- --config taru.toml refresh-metadata <item_id>
+cargo run -p nako-server -- --config nako.toml refresh-metadata <item_id>
 ```
 
 ## Minimal Config
 
 ```toml
 listen_addr = "127.0.0.1:3000"
-database_url = "sqlite://taru.db"
+database_url = "sqlite://nako.db"
 ffprobe_path = "ffprobe"
 ffmpeg_path = "ffmpeg"
 scan_concurrency = 1
@@ -77,11 +77,11 @@ metadata_concurrency = 2
 remux_concurrency = 1
 webhook_concurrency = 2
 remux_timeout_ms = 1800000
-remux_staging_root = "F:/Taru/cache/remux"
+remux_staging_root = "F:/Nako/cache/remux"
 
 [auth]
 enabled = true
-token_env = "TARU_ADMIN_TOKEN"
+token_env = "NAKO_ADMIN_TOKEN"
 
 [transcode]
 hardware_acceleration = "none"
@@ -123,7 +123,7 @@ For isolated local experiments only, auth can be disabled explicitly:
 enabled = false
 ```
 
-Do not reuse `TARU_ADMIN_TOKEN` for addon, webhook, metadata provider,
+Do not reuse `NAKO_ADMIN_TOKEN` for addon, webhook, metadata provider,
 automation provider, or storage backend credentials; those are separate
 outbound integration secrets.
 
@@ -151,19 +151,19 @@ preset = "movies"
 root = "webdav:///Movies"
 base_url = "https://nas.example.test/dav"
 username = "media"
-password_env = "TARU_WEBDAV_PASSWORD"
+password_env = "NAKO_WEBDAV_PASSWORD"
 timeout_ms = 30000
 max_attempts = 2
 ```
 
 ```powershell
-$env:TARU_WEBDAV_PASSWORD = "<webdav password>"
-cargo run -p taru-server -- --config taru.toml scan
+$env:NAKO_WEBDAV_PASSWORD = "<webdav password>"
+cargo run -p nako-server -- --config nako.toml scan
 ```
 
 Remote probe inputs are staged under `remux_staging_root/probe-inputs`. Remote
 remux and HLS inputs are staged under `remux_staging_root/inputs` before FFmpeg
-is invoked. Direct play streams WebDAV ranges through `taru-vfs` into the HTTP
+is invoked. Direct play streams WebDAV ranges through `nako-vfs` into the HTTP
 response body. `[staging].max_bytes` limits the total manifest-tracked remote
 input staging bytes before new probe or FFmpeg input staging starts.
 `[staging].retention_ms` controls when staged inputs become startup cleanup
@@ -212,12 +212,12 @@ capabilities and do not require a real GPU.
 The server uses `tracing_subscriber` and honors `RUST_LOG`.
 
 ```powershell
-$env:RUST_LOG = "taru_server=debug,taru_library=debug"
-cargo run -p taru-server -- --config taru.toml serve
+$env:RUST_LOG = "nako_server=debug,nako_library=debug"
+cargo run -p nako-server -- --config nako.toml serve
 ```
 
 ## Reference Repositories
 
 Repositories under `repo-ref/` are for architecture and behavior research only.
 Do not copy code, comments, SQL, tests, assets, or generated files from them
-into Taru.
+into Nako.

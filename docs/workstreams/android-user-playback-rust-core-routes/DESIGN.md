@@ -5,7 +5,7 @@ Last updated: 2026-05-21
 
 ## Why This Lane Exists
 
-Android browse/catalog route construction now flows through `taru-client-core`
+Android browse/catalog route construction now flows through `nako-client-core`
 and a thin UniFFI adapter. User Playback State is the next Android route family
 still constructing runtime Public Client API routes through generated Kotlin SDK
 request descriptors.
@@ -28,7 +28,7 @@ product behavior.
 
 ## Problem
 
-Android `TaruUserPlaybackClient` still uses `TaruPublicClientRequests` for:
+Android `NakoUserPlaybackClient` still uses `NakoPublicClientRequests` for:
 
 - `GET /users/me/playback-state/items/{item_id}`;
 - `GET /users/me/playback-state/continue-watching`;
@@ -42,11 +42,11 @@ the shared Rust request construction seam.
 
 When this lane closes:
 
-- `taru-client-core` owns explicit User Playback State request builders for the
-  Android route family in `TaruUserPlaybackClient`.
-- `taru-client-uniffi` exposes FFI-safe user-playback request builder records
+- `nako-client-core` owns explicit User Playback State request builders for the
+  Android route family in `NakoUserPlaybackClient`.
+- `nako-client-uniffi` exposes FFI-safe user-playback request builder records
   and functions only; it does not decode DTOs or execute transport.
-- Android `TaruUserPlaybackClient` asks a `UserPlaybackCore` adapter for request
+- Android `NakoUserPlaybackClient` asks a `UserPlaybackCore` adapter for request
   descriptors and still owns Android transport, generated SDK DTO decode,
   request body serialization, diagnostics, and product error categories.
 - Generated Kotlin SDK remains available for DTO/body contract transition, but
@@ -58,7 +58,7 @@ When this lane closes:
 
 - Core request builders for the four User Playback State routes used by Android.
 - Thin UniFFI bindings for those builders.
-- Android `UserPlaybackCore` adapter and `TaruUserPlaybackClient` route
+- Android `UserPlaybackCore` adapter and `NakoUserPlaybackClient` route
   migration from generated SDK route descriptors to Rust-built requests.
 - Targeted tests for stable path/query/auth/redaction/method behavior and
   current user-playback flows.
@@ -78,7 +78,7 @@ When this lane closes:
 | --- | --- | --- | --- |
 | ADR 0032 still says Rust owns portable request construction while Android owns transport and UI. | High | `docs/adr/0032-shared-rust-client-core-app-supplied-transport.md` | Reopen ADR before moving this lane. |
 | ADR 0028 route set remains the authoritative first User Playback State public contract. | High | `docs/adr/0028-user-playback-state-principal-and-public-contract.md` | Update route builders and tests to the accepted contract. |
-| Android can continue serializing request bodies through generated SDK DTOs. | High | Current `TaruUserPlaybackClient` body mapping is product-local and stable. | Split a body/DTO Rust migration lane instead of expanding this one. |
+| Android can continue serializing request bodies through generated SDK DTOs. | High | Current `NakoUserPlaybackClient` body mapping is product-local and stable. | Split a body/DTO Rust migration lane instead of expanding this one. |
 | The current UniFFI boundary guard should remain unchanged after adding request builders. | High | Browse route migration proved the pattern. | If it fails, document and justify any guard change. |
 
 ## Architecture Direction
@@ -86,18 +86,18 @@ When this lane closes:
 Preserve the hardened seam:
 
 ```text
-taru-client-core
+nako-client-core
   owns User Playback State request path, query, method, bearer injection,
   content-type header for JSON write requests, and safe preview
 
-taru-client-uniffi
+nako-client-uniffi
   owns FFI-safe user-playback request builder records/functions
 
 Android UserPlaybackCore adapter
   maps Android profile/page/item inputs and optional JSON body to UniFFI records
   and returns Android request descriptors
 
-TaruUserPlaybackClient
+NakoUserPlaybackClient
   validates product inputs, serializes generated SDK request bodies, executes
   Android transport, decodes generated Kotlin DTOs, maps product errors/diagnostics
 ```

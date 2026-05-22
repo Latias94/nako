@@ -13,11 +13,11 @@ accidentally include those changes when committing M50 slices.
 
 ## Completed Work
 
-- `taru-vfs` now exposes `StorageBackupPolicy` with keep-latest retention and
+- `nako-vfs` now exposes `StorageBackupPolicy` with keep-latest retention and
   reports created backups, pruned backups, and prune failures.
-- `LocalFsBackend` prunes only same-sidecar Taru backup files matching the
+- `LocalFsBackend` prunes only same-sidecar Nako backup files matching the
   backup prefix, preserving unrelated sidecar backups and manual files.
-- `taru-nfo` forced export requests keep-latest retention when it requests a
+- `nako-nfo` forced export requests keep-latest retention when it requests a
   backup and surfaces backup/pruning diagnostics in `NfoExportSummary`.
 - Admin diagnostics reuse existing job summary passthrough; no public client
   protocol crate changed.
@@ -27,14 +27,14 @@ accidentally include those changes when committing M50 slices.
 Completed gates:
 
 ```powershell
-cargo check -p taru-vfs --tests
-cargo nextest run -p taru-vfs --no-fail-fast
-cargo check -p taru-nfo --tests
-cargo nextest run -p taru-nfo --no-fail-fast
-cargo check -p taru-api --tests
-cargo nextest run -p taru-api --no-fail-fast
-cargo check -p taru-server --tests
-cargo nextest run -p taru-server nfo --no-fail-fast
+cargo check -p nako-vfs --tests
+cargo nextest run -p nako-vfs --no-fail-fast
+cargo check -p nako-nfo --tests
+cargo nextest run -p nako-nfo --no-fail-fast
+cargo check -p nako-api --tests
+cargo nextest run -p nako-api --no-fail-fast
+cargo check -p nako-server --tests
+cargo nextest run -p nako-server nfo --no-fail-fast
 cargo check --workspace --tests
 cargo nextest run --workspace --no-fail-fast
 git diff --check

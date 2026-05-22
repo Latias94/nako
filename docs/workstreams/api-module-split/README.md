@@ -1,10 +1,10 @@
-# taru-api Module Split
+# nako-api Module Split
 
 Status: Completed
 
-Goal: M46 `taru-api` module split.
+Goal: M46 `nako-api` module split.
 
-This workstream makes `taru-api` a thin API adapter crate with explicit module
+This workstream makes `nako-api` a thin API adapter crate with explicit module
 boundaries for:
 
 - Public Client API DTO mapping and protocol re-exports.

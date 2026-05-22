@@ -13,7 +13,7 @@ legacy path.
 
 ## Runtime Boundary
 
-`crates/taru-server/src/app/metadata_runtime.rs` owns:
+`crates/nako-server/src/app/metadata_runtime.rs` owns:
 
 - provider registry construction
 - provider-specific config mapping
@@ -22,7 +22,7 @@ legacy path.
 - runtime diagnostic DTO mapping
 - duplicate provider config validation
 
-`crates/taru-server/src/app/metadata.rs` remains responsible for metadata
+`crates/nako-server/src/app/metadata.rs` remains responsible for metadata
 refresh, maintenance jobs, raw cache cleanup, provider attempts, and event
 recording.
 

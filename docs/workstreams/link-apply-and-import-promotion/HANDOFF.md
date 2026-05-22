@@ -70,7 +70,7 @@ after storage target creation.
   NFO Round Trip preservation, backup, atomic replace, backup retention,
   field-lock/local-authority application, hierarchy confirmation, rollback or
   repair-pending semantics, idempotent replay, and redacted audit evidence.
-- LAIP must not call `taru-nfo` to mutate sidecars or run an implicit NFO
+- LAIP must not call `nako-nfo` to mutate sidecars or run an implicit NFO
   post-hook during Managed Import promotion.
 
 ## Blockers

@@ -1,19 +1,19 @@
-# v0 Context For Taru Admin Console
+# v0 Context For Nako Admin Console
 
 Status: Draft
 Last updated: 2026-05-18
 
-Use this document as product context for generating a first Taru web admin
+Use this document as product context for generating a first Nako web admin
 console prototype. It intentionally does not choose a front-end framework,
 component library, data-fetching library, or exact visual implementation.
 
 ## Project Summary
 
-Taru is a self-hosted media server backend written as a Rust workspace. It is
+Nako is a self-hosted media server backend written as a Rust workspace. It is
 inspired by the self-hosted media-library category of Jellyfin and Plex, but it
 is not trying to clone either product.
 
-Taru's first web surface should be an administration console for the server. It
+Nako's first web surface should be an administration console for the server. It
 should help an operator configure media libraries, inspect media catalog
 quality, diagnose metadata and playback behavior, manage automation, and
 understand the health of a private server.
@@ -25,7 +25,7 @@ and media governance.
 
 ## Brand Direction
 
-The name "Taru" comes from Japanese "樽", meaning wooden barrel or sake cask.
+The name "Nako" comes from Japanese "樽", meaning wooden barrel or sake cask.
 The brand metaphor is a private media cellar: classic anime, films, series,
 and personal media are preserved carefully like aged bottles in a small cask.
 
@@ -47,17 +47,17 @@ Visual direction:
 - avoid a poster-wall-only media app;
 - use a warm accent inspired by wood or aged copper, but do not make the whole
   UI brown, beige, or monochrome;
-- the product name Taru should be visible in the shell;
+- the product name Nako should be visible in the shell;
 - use concise labels and actionable empty/error states.
 
 ## Domain Language
 
-Use these Taru terms in UI labels and page text:
+Use these Nako terms in UI labels and page text:
 
 - Media Library: a configured collection boundary.
 - Media Source: one playable file or remote object inside a library.
 - Media Item: a user-facing entry such as movie, series, season, or episode.
-- Canonical Metadata: the metadata Taru uses for browsing and playback.
+- Canonical Metadata: the metadata Nako uses for browsing and playback.
 - Provider Mapping: relation between a Media Item and TMDB, Douban, Bangumi,
   or another provider subject.
 - Local Inference: low-confidence evidence inferred from paths, file names, and
@@ -65,15 +65,15 @@ Use these Taru terms in UI labels and page text:
 - NFO: sidecar metadata file imported from or exported to the library.
 - Playback Source Selection: server decision for direct play, remux, or HLS
   transcode.
-- Addon Sidecar: external service implementing Taru's addon protocol.
+- Addon Sidecar: external service implementing Nako's addon protocol.
 - Automation Provider: external provider used for automation or AI-like tasks.
 
-Avoid making the UI provider-centric or file-manager-centric when a Taru term
+Avoid making the UI provider-centric or file-manager-centric when a Nako term
 exists.
 
 ## Server Capabilities To Represent
 
-Taru backend capabilities include:
+Nako backend capabilities include:
 
 - media libraries backed by local storage and remote storage such as WebDAV;
 - library scan jobs;
@@ -96,7 +96,7 @@ Taru backend capabilities include:
 
 ## API Boundary
 
-Taru has two API surfaces:
+Nako has two API surfaces:
 
 - Public Client API: stable client-facing routes described by the public
   protocol, OpenAPI, and SDK workstreams.
@@ -127,7 +127,7 @@ settings editing, network checks, and extension lifecycle details remain mock
 or planned Admin API data.
 
 Do not put admin-only DTOs into Public Client API language. Do not describe
-`taru-client-protocol` as the source for admin console diagnostics.
+`nako-client-protocol` as the source for admin console diagnostics.
 
 ## Primary Navigation
 

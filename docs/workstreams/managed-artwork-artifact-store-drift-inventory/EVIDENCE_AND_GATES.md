@@ -18,9 +18,9 @@ internal storage authority, and redaction terms.
 ### Diagnostics Gate
 
 ```powershell
-cargo nextest run -p taru-api managed_artwork_storage_drift --no-fail-fast
-cargo nextest run -p taru-server managed_artwork_storage_drift --no-fail-fast
-cargo check -p taru-core -p taru-api -p taru-server --tests
+cargo nextest run -p nako-api managed_artwork_storage_drift --no-fail-fast
+cargo nextest run -p nako-server managed_artwork_storage_drift --no-fail-fast
+cargo check -p nako-core -p nako-api -p nako-server --tests
 cargo fmt --all -- --check
 git diff --check
 ```
@@ -28,10 +28,10 @@ git diff --check
 ### Closeout Gate
 
 ```powershell
-rg -n "storage_uri|managed-artwork://|source_uri|cache_uri|content_hash|local_path|artifact_root|storage-drift" crates/taru-api crates/taru-server/src/http docs/api
-cargo nextest run -p taru-api managed_artwork_storage_drift --no-fail-fast
-cargo nextest run -p taru-server managed_artwork_storage_drift --no-fail-fast
-cargo check -p taru-core -p taru-api -p taru-server --tests
+rg -n "storage_uri|managed-artwork://|source_uri|cache_uri|content_hash|local_path|artifact_root|storage-drift" crates/nako-api crates/nako-server/src/http docs/api
+cargo nextest run -p nako-api managed_artwork_storage_drift --no-fail-fast
+cargo nextest run -p nako-server managed_artwork_storage_drift --no-fail-fast
+cargo check -p nako-core -p nako-api -p nako-server --tests
 cargo fmt --all -- --check
 git diff --check
 ```
@@ -42,10 +42,10 @@ assertions, or documentation that states values are forbidden in responses.
 ## Evidence Anchors
 
 - `docs/workstreams/managed-artwork-artifact-lifecycle-cleanup/HANDOFF.md`
-- `crates/taru-api/src/admin.rs`
-- `crates/taru-server/src/app/artwork.rs`
-- `crates/taru-server/src/http/admin.rs`
-- `crates/taru-server/src/http/tests/addons.rs`
+- `crates/nako-api/src/admin.rs`
+- `crates/nako-server/src/app/artwork.rs`
+- `crates/nako-server/src/http/admin.rs`
+- `crates/nako-server/src/http/tests/addons.rs`
 - `docs/api/HTTP_API.md`
 
 ## Fresh Evidence
@@ -83,11 +83,11 @@ assertions, or documentation that states values are forbidden in responses.
     filenames, raw source URLs, `source_uri`, `cache_uri`, Source Locators,
     addon tokens, provider query strings, file contents, and content hashes.
 - Validation:
-  - `cargo nextest run -p taru-api managed_artwork_storage_drift --no-fail-fast`
+  - `cargo nextest run -p nako-api managed_artwork_storage_drift --no-fail-fast`
     passed.
-  - `cargo nextest run -p taru-server managed_artwork_storage_drift --no-fail-fast`
+  - `cargo nextest run -p nako-server managed_artwork_storage_drift --no-fail-fast`
     passed.
-  - `cargo check -p taru-core -p taru-api -p taru-server --tests` passed.
+  - `cargo check -p nako-core -p nako-api -p nako-server --tests` passed.
   - `cargo fmt --all -- --check` passed.
   - `git diff --check` passed with only Git CRLF normalization warnings for
     edited files.

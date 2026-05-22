@@ -15,7 +15,7 @@ Last updated: 2026-05-19
 
 ## M1 - Public Session Identity Bridge
 
-- [x] APSI-020 [owner=codex] [deps=APSI-010] [scope=crates/taru-api,crates/taru-client,crates/taru-server,apps/android/app/src/main/java/dev/taru/android/playback,apps/android/app/src/main/java/dev/taru/android/player,apps/android/app/src/main/java/dev/taru/android/ui/browse]
+- [x] APSI-020 [owner=codex] [deps=APSI-010] [scope=crates/nako-api,crates/nako-client,crates/nako-server,apps/android/app/src/main/java/dev/nako/android/playback,apps/android/app/src/main/java/dev/nako/android/player,apps/android/app/src/main/java/dev/nako/android/ui/browse]
   Goal: Carry remux/HLS playback session identity through a public client
   contract and into Android `PlaybackLaunchRequest`.
   Validation: focused Rust tests for public DTO/OpenAPI/client contract;
@@ -40,7 +40,7 @@ Last updated: 2026-05-19
 
 ## M3 - Exit/Cancel Semantics And Closeout
 
-- [x] APSI-040 [owner=codex] [deps=APSI-030] [scope=apps/android/app/src/main/java/dev/taru/android/ui/screens/player,apps/android/app/src/test,docs/workstreams/android-playback-session-integrity]
+- [x] APSI-040 [owner=codex] [deps=APSI-030] [scope=apps/android/app/src/main/java/dev/nako/android/ui/screens/player,apps/android/app/src/test,docs/workstreams/android-playback-session-integrity]
   Goal: Prove player exit cancels an active non-ended session or split the
   remaining active-session runtime blocker.
   Validation: focused Android tests, focused smoke evidence if available, and

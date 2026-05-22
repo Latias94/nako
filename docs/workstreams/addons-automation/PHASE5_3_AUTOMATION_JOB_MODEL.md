@@ -12,7 +12,7 @@ embedding, or vector infrastructure.
 
 - Added automation provider configuration records with secret references,
   declared capabilities, timeout, retry budget, and enabled/disabled status.
-- Added automation job input and summary envelopes that reuse Taru's persisted
+- Added automation job input and summary envelopes that reuse Nako's persisted
   `jobs` table with `JobKind::Automation` and resource class
   `automation.external_api`.
 - Added automation artifacts for generated outputs. Artifacts start as
@@ -20,7 +20,7 @@ embedding, or vector infrastructure.
 - Added SQLite migration `0011_automation.sql` for provider configuration and
   generated artifacts.
 - Added `AutomationRepository` and SQLite implementation.
-- Expanded `taru-automation` into a bounded provider runner with timeout,
+- Expanded `nako-automation` into a bounded provider runner with timeout,
   cancellation token, safe error mapping, mockable provider trait, job enqueue,
   and artifact persistence.
 - Added HTTP routes to configure providers, enqueue automation jobs, and inspect
@@ -77,11 +77,11 @@ providers inline.
 
 Coverage:
 
-- `taru-db` tests verify automation provider and artifact persistence.
-- `taru-automation` tests verify mocked provider execution, proposed artifact
+- `nako-db` tests verify automation provider and artifact persistence.
+- `nako-automation` tests verify mocked provider execution, proposed artifact
   persistence, job summary creation, secret omission from job input, and
   rejection of canonical metadata mutation.
-- `taru-server` HTTP tests verify provider configuration, job enqueue, secret
+- `nako-server` HTTP tests verify provider configuration, job enqueue, secret
   omission, and artifact inspection.
 - Workspace gates pass: `cargo fmt --all -- --check`, `cargo check
   --workspace`, `cargo nextest run --workspace`, and `git diff --check`.

@@ -18,15 +18,15 @@ adb devices
 
 ```powershell
 apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --no-daemon --no-parallel --console=plain
-apps\android\gradlew.bat -p apps\android :app:assembleDebug -PtaruRustAndroidAbis=x86_64 --no-daemon --no-parallel --console=plain
+apps\android\gradlew.bat -p apps\android :app:assembleDebug -PnakoRustAndroidAbis=x86_64 --no-daemon --no-parallel --console=plain
 ```
 
 ### Focused Gates
 
 ```powershell
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.connection.* --no-daemon --no-parallel --console=plain
-apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.taru.android.ui.screens.player.* --no-daemon --no-parallel --console=plain
-apps\android\gradlew.bat -p apps\android --offline --no-daemon --no-parallel --console=plain :app:testDebugUnitTest --tests "dev.taru.android.connection.*" --tests "dev.taru.android.ui.screens.player.*"
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.connection.* --no-daemon --no-parallel --console=plain
+apps\android\gradlew.bat -p apps\android :app:testDebugUnitTest --tests dev.nako.android.ui.screens.player.* --no-daemon --no-parallel --console=plain
+apps\android\gradlew.bat -p apps\android --offline --no-daemon --no-parallel --console=plain :app:testDebugUnitTest --tests "dev.nako.android.connection.*" --tests "dev.nako.android.ui.screens.player.*"
 ```
 
 ### Hygiene
@@ -127,7 +127,7 @@ Result: no deprecated token-vault crypto references in tracked Android source.
 - Fresh focused gate passed:
 
 ```powershell
-apps\android\gradlew.bat -p apps\android --offline --no-daemon --no-parallel --console=plain :app:testDebugUnitTest --tests "dev.taru.android.connection.*" --tests "dev.taru.android.ui.screens.player.*"
+apps\android\gradlew.bat -p apps\android --offline --no-daemon --no-parallel --console=plain :app:testDebugUnitTest --tests "dev.nako.android.connection.*" --tests "dev.nako.android.ui.screens.player.*"
 ```
 
 Result: BUILD SUCCESSFUL in 25s.
@@ -159,7 +159,7 @@ Evidence:
 - Fresh focused gate passed:
 
 ```powershell
-apps\android\gradlew.bat -p apps\android --offline --no-daemon --no-parallel --console=plain :app:testDebugUnitTest --tests "dev.taru.android.connection.*" --tests "dev.taru.android.ui.screens.player.*"
+apps\android\gradlew.bat -p apps\android --offline --no-daemon --no-parallel --console=plain :app:testDebugUnitTest --tests "dev.nako.android.connection.*" --tests "dev.nako.android.ui.screens.player.*"
 ```
 
 Result: BUILD SUCCESSFUL in 25s.
@@ -180,7 +180,7 @@ Result: BUILD SUCCESSFUL in 13s.
 - x86_64 debug assemble gate passed:
 
 ```powershell
-apps\android\gradlew.bat -p apps\android --offline --no-daemon --no-parallel --console=plain :app:assembleDebug -PtaruRustAndroidAbis=x86_64
+apps\android\gradlew.bat -p apps\android --offline --no-daemon --no-parallel --console=plain :app:assembleDebug -PnakoRustAndroidAbis=x86_64
 ```
 
 Result: BUILD SUCCESSFUL in 1m 38s.

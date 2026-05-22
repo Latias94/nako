@@ -17,7 +17,7 @@ Status: Complete
 
 Exit criteria:
 
-- `TaruAppEnvironment` creates `ConnectionRuntime`.
+- `NakoAppEnvironment` creates `ConnectionRuntime`.
 - Focused root composition tests pass.
 
 ## M3 - Duplicate Entry Removed
@@ -26,8 +26,8 @@ Status: Complete
 
 Exit criteria:
 
-- `TaruConnectionShellContent` accepts runtime directly.
-- Unused platform-building `TaruConnectionShell` is gone.
+- `NakoConnectionShellContent` accepts runtime directly.
+- Unused platform-building `NakoConnectionShell` is gone.
 - Focused connection/root tests pass.
 
 ## M4 - Closeout

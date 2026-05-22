@@ -27,15 +27,15 @@ request, and unknown boundaries.
 
 ## Verification
 
-- `cargo nextest run -p taru-server playback --no-fail-fast`
-- `cargo nextest run -p taru-server http::tests::system --no-fail-fast`
-- `cargo nextest run -p taru-core transcode_failure_category_maps_support_boundaries --no-fail-fast`
-- `cargo nextest run -p taru-api transcode_session_response_ --no-fail-fast`
-- `cargo nextest run -p taru-db taru_database_sqlite_lists_transcode_sessions_with_filters_and_pagination --no-fail-fast`
-- `cargo nextest run -p taru-db sqlite_playback_runtime_contract_transcode_session_lifecycle_filters_cancellation_and_stale --no-fail-fast`
+- `cargo nextest run -p nako-server playback --no-fail-fast`
+- `cargo nextest run -p nako-server http::tests::system --no-fail-fast`
+- `cargo nextest run -p nako-core transcode_failure_category_maps_support_boundaries --no-fail-fast`
+- `cargo nextest run -p nako-api transcode_session_response_ --no-fail-fast`
+- `cargo nextest run -p nako-db nako_database_sqlite_lists_transcode_sessions_with_filters_and_pagination --no-fail-fast`
+- `cargo nextest run -p nako-db sqlite_playback_runtime_contract_transcode_session_lifecycle_filters_cancellation_and_stale --no-fail-fast`
 - `cargo fmt --all -- --check`
 - `git diff --check`
-- `git diff --name-only -- crates/taru-client-protocol`
+- `git diff --name-only -- crates/nako-client-protocol`
 
 ## Follow-up
 

@@ -70,7 +70,7 @@ XML shape:
 
 Smoke regression suite:
 
-- Suite name: `taru.android.smoke-regression`.
+- Suite name: `nako.android.smoke-regression`.
 - Suite properties:
   - `report.markdown`
   - `report.json`
@@ -78,7 +78,7 @@ Smoke regression suite:
   - `requested_serial`
   - `started_at`
   - `finished_at`
-- Testcase classname: `taru.android.smoke`.
+- Testcase classname: `nako.android.smoke`.
 - Testcase name: `state.<state-name>`, for example
   `state.profile-with-media`.
 - The wrapper build step is represented as `step.android-build` in the same
@@ -90,7 +90,7 @@ Smoke regression suite:
 
 Local validation suite:
 
-- Suite name: `taru.android.local-validation`.
+- Suite name: `nako.android.local-validation`.
 - Suite properties:
   - `report.markdown`
   - `report.json`
@@ -99,7 +99,7 @@ Local validation suite:
   - `smoke.report.markdown` when present
   - `smoke.report.json` when present
   - `smoke.report.junit` when present
-- Testcase classname: `taru.android.validation`.
+- Testcase classname: `nako.android.validation`.
 - Testcase names:
   - `step.android-build`
   - `step.android-unit-tests`

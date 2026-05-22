@@ -33,7 +33,7 @@
     }
   ],
   "gates": [
-    "cargo nextest run -p taru-api -p taru-client -p taru-server playback",
+    "cargo nextest run -p nako-api -p nako-client -p nako-server playback",
     "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --no-daemon",
     "pwsh -NoProfile -Command \"[scriptblock]::Create((Get-Content -LiteralPath 'apps/android/scripts/Smoke-Emulator.ps1' -Raw)) | Out-Null\"",
     "pwsh -NoProfile -File apps/android/scripts/Smoke-Emulator.ps1 -FixtureState profile-with-media -SkipAppBuild -SkipFixtureServerBuild",
@@ -57,7 +57,7 @@
     },
     {
       "task": "APSI-040",
-      "path": "apps/android/app/src/test/java/dev/taru/android/player/PlaybackExitEffectsTest.kt",
+      "path": "apps/android/app/src/test/java/dev/nako/android/player/PlaybackExitEffectsTest.kt",
       "notes": "Player-exit side effects are test-covered: unfinished playback with a session id reports progress and requests session cancellation; active remux/HLS runtime cancellation smoke is split as a follow-on."
     }
   ],

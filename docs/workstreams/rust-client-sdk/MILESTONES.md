@@ -19,13 +19,13 @@ Primary evidence:
 
 Status: completed.
 
-Outcome: `crates/taru-client` exists as an Apache-2.0 SDK crate with clean
+Outcome: `crates/nako-client` exists as an Apache-2.0 SDK crate with clean
 dependencies.
 
 Exit criteria:
 
-- `cargo check -p taru-client --tests`
-- `cargo tree -p taru-client`
+- `cargo check -p nako-client --tests`
+- `cargo tree -p nako-client`
 
 ## M35.2 Async JSON Client Surface
 
@@ -36,7 +36,7 @@ async transport.
 
 Exit criteria:
 
-- `cargo nextest run -p taru-client --no-fail-fast`
+- `cargo nextest run -p nako-client --no-fail-fast`
 
 ## M35.3 Public Inventory And Leakage Checks
 
@@ -46,7 +46,7 @@ Outcome: route coverage and internal/admin leakage rejection are test-visible.
 
 Exit criteria:
 
-- `cargo nextest run -p taru-client --no-fail-fast`
+- `cargo nextest run -p nako-client --no-fail-fast`
 
 ## M35.4 Docs And Closeout
 
@@ -59,10 +59,10 @@ Exit criteria:
 
 - `cargo fmt --all -- --check`
 - `cargo check --workspace --tests`
-- `cargo nextest run -p taru-client --no-fail-fast`
+- `cargo nextest run -p nako-client --no-fail-fast`
 - `cargo nextest run --workspace --no-fail-fast`
-- `cargo tree -p taru-client`
-- `cargo tree -p taru-client-protocol`
+- `cargo tree -p nako-client`
+- `cargo tree -p nako-client-protocol`
 - `npm run check --prefix sdk/typescript`
 - `git diff --check`
 - Workstream status is updated to completed.

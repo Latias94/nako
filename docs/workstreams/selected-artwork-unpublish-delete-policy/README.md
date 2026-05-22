@@ -5,7 +5,7 @@ Last updated: 2026-05-19
 
 ## Purpose
 
-Taru can now ingest Managed Artwork Artifacts, publish them as Selected Artwork,
+Nako can now ingest Managed Artwork Artifacts, publish them as Selected Artwork,
 serve selected images through first-party image routes, generate bounded
 variants, clean up unselected artifacts, and let Admin users compare and replace
 item artwork choices. The missing lifecycle boundary is explicit unpublish:

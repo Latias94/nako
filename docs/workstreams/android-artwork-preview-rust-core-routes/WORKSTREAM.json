@@ -25,15 +25,15 @@
     }
   ],
   "gates": [
-    "cargo fmt --package taru-client-core --check",
-    "cargo nextest run -p taru-client-core --no-fail-fast",
-    "cargo fmt --package taru-client-uniffi --check",
-    "cargo nextest run -p taru-client-uniffi --no-fail-fast",
+    "cargo fmt --package nako-client-core --check",
+    "cargo nextest run -p nako-client-core --no-fail-fast",
+    "cargo fmt --package nako-client-uniffi --check",
+    "cargo nextest run -p nako-client-uniffi --no-fail-fast",
     "./scripts/guard-uniffi-boundary.ps1",
-    "apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.artwork.PublicArtworkTest --tests dev.taru.android.ui.artwork.ArtworkRequestResolverTest --no-daemon --rerun-tasks",
+    "apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.nako.android.artwork.PublicArtworkTest --tests dev.nako.android.ui.artwork.ArtworkRequestResolverTest --no-daemon --rerun-tasks",
     "apps/android/gradlew.bat -p apps/android :app:compileDebugKotlin --no-daemon",
-    "if (rg -n \"TaruPublicClientRequests|TaruRequestDescriptor|PublicApiRequestDescriptors|urlOn\\(\" apps/android/app/src/main/java) { exit 1 } else { 'PASS: Android main has no generated SDK route descriptor use.' }",
-    "if (rg -n \"TaruPublicClientRequests|PageQuery|pathAndQuery\" apps/android/app/src/main/java/dev/taru/android/ui/browse/TaruBrowseShellPreview.kt) { exit 1 } else { 'PASS: browse preview has no generated SDK route matching.' }",
+    "if (rg -n \"NakoPublicClientRequests|NakoRequestDescriptor|PublicApiRequestDescriptors|urlOn\\(\" apps/android/app/src/main/java) { exit 1 } else { 'PASS: Android main has no generated SDK route descriptor use.' }",
+    "if (rg -n \"NakoPublicClientRequests|PageQuery|pathAndQuery\" apps/android/app/src/main/java/dev/nako/android/ui/browse/NakoBrowseShellPreview.kt) { exit 1 } else { 'PASS: browse preview has no generated SDK route matching.' }",
     "python -m json.tool docs/workstreams/android-artwork-preview-rust-core-routes/WORKSTREAM.json > $null",
     "git diff --check"
   ],
@@ -46,7 +46,7 @@
     {
       "date": "2026-05-22",
       "task": "APR-020",
-      "summary": "Added taru-client-core and UniFFI selected artwork image request builders; Rust core, UniFFI, and boundary gates passed."
+      "summary": "Added nako-client-core and UniFFI selected artwork image request builders; Rust core, UniFFI, and boundary gates passed."
     },
     {
       "date": "2026-05-22",

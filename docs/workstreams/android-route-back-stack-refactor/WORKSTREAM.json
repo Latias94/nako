@@ -33,7 +33,7 @@
     }
   ],
   "gates": [
-    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.taru.android.ui.browse.TaruRouteStackTest --no-daemon",
+    "apps\\android\\gradlew.bat -p apps\\android :app:testDebugUnitTest --tests dev.nako.android.ui.browse.NakoRouteStackTest --no-daemon",
     "pwsh -NoProfile -File apps\\android\\scripts\\Smoke-Emulator.ps1 -FixtureState profile-with-media",
     "pwsh -NoProfile -File apps\\android\\scripts\\Smoke-Regression.ps1 -States empty-setup,profile-missing-token,profile-with-media -SkipBuild",
     "git diff --check"
@@ -46,7 +46,7 @@
     },
     {
       "task": "ARB-020",
-      "path": "apps/android/app/src/test/java/dev/taru/android/ui/browse/TaruRouteStackTest.kt",
+      "path": "apps/android/app/src/test/java/dev/nako/android/ui/browse/NakoRouteStackTest.kt",
       "notes": "Focused route stack and navigation state tests passed on 2026-05-19."
     },
     {

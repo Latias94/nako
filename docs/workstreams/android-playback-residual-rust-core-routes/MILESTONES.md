@@ -15,7 +15,7 @@ Exit criteria:
 
 Exit criteria:
 
-- `taru-client-core` has explicit builders for source probe, playback session
+- `nako-client-core` has explicit builders for source probe, playback session
   inspect, and playback session cancel.
 - Builders produce `CoreHttpRequest` with auth, safe preview, method, and path
   encoding.
@@ -25,7 +25,7 @@ Exit criteria:
 
 Exit criteria:
 
-- `taru-client-uniffi` exposes thin residual playback request builder bindings.
+- `nako-client-uniffi` exposes thin residual playback request builder bindings.
 - Boundary guard still passes.
 - UniFFI tests cover source probe and session cancel.
 
@@ -33,7 +33,7 @@ Exit criteria:
 
 Exit criteria:
 
-- `TaruPlaybackClient` residual runtime route construction uses
+- `NakoPlaybackClient` residual runtime route construction uses
   `PlaybackCore`/Rust core.
 - Generated SDK DTO decode and Android diagnostics remain unchanged.
 - Confirmed dead compatibility helpers are removed.

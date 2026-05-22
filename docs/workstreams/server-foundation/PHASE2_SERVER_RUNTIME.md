@@ -8,9 +8,9 @@ and a minimal HTTP API.
 
 ## Scope
 
-Phase 2 proves that Taru can:
+Phase 2 proves that Nako can:
 
-- start `taru-server` as a long-running HTTP service
+- start `nako-server` as a long-running HTTP service
 - read `listen_addr`, SQLite, ffprobe, scan, probe, and local library settings
 - connect to SQLite and run migrations during startup
 - persist background job lifecycle state
@@ -18,14 +18,14 @@ Phase 2 proves that Taru can:
 - keep scan and probe work behind explicit concurrency limits
 - expose indexed library, source, item, probe, and job state through HTTP
 - initialize structured logging through `tracing_subscriber`
-- map internal `TaruError` values to safe JSON HTTP error responses
+- map internal `NakoError` values to safe JSON HTTP error responses
 - keep CLI scan/list commands on the same application service used by HTTP
 
 ## Configuration
 
 ```toml
 listen_addr = "127.0.0.1:3000"
-database_url = "sqlite://taru.db"
+database_url = "sqlite://nako.db"
 ffprobe_path = "ffprobe"
 scan_concurrency = 1
 probe_concurrency = 2
@@ -45,31 +45,31 @@ management are intentionally left for later phases.
 Print an example config:
 
 ```powershell
-cargo run -p taru-server -- config-example
+cargo run -p nako-server -- config-example
 ```
 
 Start the HTTP server:
 
 ```powershell
-cargo run -p taru-server -- --config taru.toml serve
+cargo run -p nako-server -- --config nako.toml serve
 ```
 
 `serve` is the default command:
 
 ```powershell
-cargo run -p taru-server -- --config taru.toml
+cargo run -p nako-server -- --config nako.toml
 ```
 
 Run the configured scan synchronously from the CLI:
 
 ```powershell
-cargo run -p taru-server -- --config taru.toml scan
+cargo run -p nako-server -- --config nako.toml scan
 ```
 
 List indexed sources, items, and probe results:
 
 ```powershell
-cargo run -p taru-server -- --config taru.toml list
+cargo run -p nako-server -- --config nako.toml list
 ```
 
 ## HTTP API

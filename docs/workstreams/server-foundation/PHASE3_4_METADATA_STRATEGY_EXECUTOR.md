@@ -3,7 +3,7 @@
 ## Goal
 
 Move metadata refresh execution from server-side provider branching into a
-provider registry and strategy executor owned by `taru-metadata`.
+provider registry and strategy executor owned by `nako-metadata`.
 
 The executor receives an item, an effective `MetadataProfile`, and a provider
 registry. It tries providers in profile order and records each attempt so a
@@ -12,9 +12,9 @@ unavailable, was not implemented, returned no match, or failed.
 
 ## Architecture
 
-- `taru-server` resolves runtime configuration, credentials, library profile,
+- `nako-server` resolves runtime configuration, credentials, library profile,
   and job state.
-- `taru-metadata` owns provider execution policy, fallback, merge behavior, and
+- `nako-metadata` owns provider execution policy, fallback, merge behavior, and
   attempt summaries.
 - Provider credentials never enter job inputs or summaries.
 - Missing provider implementations are normal strategy outcomes, not hard

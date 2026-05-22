@@ -11,9 +11,9 @@ permissive client protocol surface.
 
 Boundary rules:
 
-- source DTO ownership stays in `taru-api`;
+- source DTO ownership stays in `nako-api`;
 - route inventory is limited to accepted `/admin/v1/*` routes;
-- `taru-client-protocol` remains public-client-only;
+- `nako-client-protocol` remains public-client-only;
 - `sdk/typescript` remains the Public Client SDK package;
 - admin-web can import app-local generated admin types or a future admin
   package, but not public SDK types for admin-only diagnostics.
@@ -44,20 +44,20 @@ Rationale:
 
 - `apps/admin-web` is currently the only consumer.
 - Publishing a reusable admin SDK would create packaging and compatibility
-  obligations before Taru has a stable Admin API.
+  obligations before Nako has a stable Admin API.
 - App-local generation still lets Rust tests compare generated output and
   prevents silent DTO drift.
 - A later package lane can move the artifact if multiple admin clients appear.
 
 ## Generator Direction
 
-The public TypeScript SDK uses `crates/taru-api/src/sdk.rs` and the public
+The public TypeScript SDK uses `crates/nako-api/src/sdk.rs` and the public
 OpenAPI document. Admin generation should reuse small schema-conversion helpers
 where practical, but keep its route inventory and leakage tests separate.
 
 Accepted first implementation:
 
-- a focused `taru-api` generator entry point, preferably in a new
+- a focused `nako-api` generator entry point, preferably in a new
   `admin_contract` module rather than in the public SDK generator;
 - a new example such as `emit-admin-typescript-contract`;
 - generated TypeScript interfaces, query interfaces, and route constants;
@@ -129,7 +129,7 @@ npm run generate:admin-api
 ```
 
 The script writes `apps/admin-web/src/adminApi/generated/contract.ts` from the
-`taru-api` Admin Contract generator. The generated file is intentionally
+`nako-api` Admin Contract generator. The generated file is intentionally
 app-local and must not be edited by hand.
 
 Verify the Public Client SDK remains separate with:
@@ -137,10 +137,10 @@ Verify the Public Client SDK remains separate with:
 ```bash
 npm run generate --prefix sdk/typescript
 npm run check --prefix sdk/typescript
-git diff --name-only -- crates/taru-client-protocol sdk/typescript
+git diff --name-only -- crates/nako-client-protocol sdk/typescript
 ```
 
-For this lane, `git diff --name-only -- crates/taru-client-protocol
+For this lane, `git diff --name-only -- crates/nako-client-protocol
 sdk/typescript` should stay empty after regeneration/checking. Admin API routes
-belong in `TARU_ADMIN_ROUTES`, not in Public Client route inventory or
-`@taru/sdk`.
+belong in `NAKO_ADMIN_ROUTES`, not in Public Client route inventory or
+`@nako/sdk`.

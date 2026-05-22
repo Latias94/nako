@@ -5,7 +5,7 @@
   "status": "complete",
   "updated": "2026-05-21",
   "scope_kind": "execution",
-  "problem": "Downloads, watch-folder candidates, and Addon-proposed artifacts need Taru-owned quarantine, diagnostics, and explicit promotion planning before any media library writes.",
+  "problem": "Downloads, watch-folder candidates, and Addon-proposed artifacts need Nako-owned quarantine, diagnostics, and explicit promotion planning before any media library writes.",
   "task_prefix": "MIS",
   "current_task": "MIS-060",
   "completed_tasks": [
@@ -39,7 +39,7 @@
     }
   ],
   "gates": [
-    "cargo nextest run -p taru-db managed_import --no-fail-fast",
+    "cargo nextest run -p nako-db managed_import --no-fail-fast",
     "cargo fmt --all -- --check",
     "git diff --check"
   ],
@@ -47,15 +47,15 @@
     "docs/workstreams/managed-import-staging/DESIGN.md",
     "docs/workstreams/managed-import-staging/TODO.md",
     "docs/workstreams/managed-import-staging/EVIDENCE_AND_GATES.md",
-    "crates/taru-core/src/staging.rs",
-    "crates/taru-core/src/repository/vfs.rs",
-    "crates/taru-core/src/managed_import.rs",
-    "crates/taru-core/src/repository/managed_import.rs",
-    "crates/taru-db/src/sqlite/managed_import.rs",
-    "crates/taru-db/src/postgres.rs",
-    "crates/taru-server/src/app/managed_import.rs",
-    "crates/taru-server/src/app/tests/managed_import.rs",
-    "crates/taru-server/src/app/storage.rs",
+    "crates/nako-core/src/staging.rs",
+    "crates/nako-core/src/repository/vfs.rs",
+    "crates/nako-core/src/managed_import.rs",
+    "crates/nako-core/src/repository/managed_import.rs",
+    "crates/nako-db/src/sqlite/managed_import.rs",
+    "crates/nako-db/src/postgres.rs",
+    "crates/nako-server/src/app/managed_import.rs",
+    "crates/nako-server/src/app/tests/managed_import.rs",
+    "crates/nako-server/src/app/storage.rs",
     "docs/workstreams/link-apply-and-import-promotion/DESIGN.md"
   ],
   "adr_refs": [

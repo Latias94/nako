@@ -45,9 +45,9 @@ Exit criteria:
 
 Evidence:
 
-- `TaruBrowseClient.libraryDetail` and `TaruBrowseClient.librarySources`
+- `NakoBrowseClient.libraryDetail` and `NakoBrowseClient.librarySources`
 - `LibraryDetailRouteContent`
-- `TaruPlaybackClient.getSourceProbe` and Source Picker source facts
+- `NakoPlaybackClient.getSourceProbe` and Source Picker source facts
 - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon`
 - `TODO.md` APIC-040 and APIC-050 complete
 

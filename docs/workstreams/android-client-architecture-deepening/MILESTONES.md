@@ -74,7 +74,7 @@ Status: DONE on 2026-05-22.
 
 Exit criteria:
 
-- Generic design-system components and Taru media-specific components have
+- Generic design-system components and Nako media-specific components have
   distinct ownership.
 - Redundant wrappers and obsolete transition code are deleted where safe.
 - Large screen files lose independently testable display-model/copy logic.
@@ -134,6 +134,6 @@ Exit criteria:
 Primary gates:
 
 - `apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon --no-parallel`
-- `apps/android/gradlew.bat -p apps/android :app:assembleDebug -PtaruRustAndroidAbis=x86_64 --no-daemon --no-parallel`
+- `apps/android/gradlew.bat -p apps/android :app:assembleDebug -PnakoRustAndroidAbis=x86_64 --no-daemon --no-parallel`
 - `apps/android/scripts/Validate-AndroidLocal.ps1` when local smoke environment is available
 - `git diff --check`

@@ -22,7 +22,7 @@ follow-up workstream, an explicit deferral, or a completed lane.
    post-startup source of truth.
 5. Public Client DTOs should be checked for Source Locator leakage before
    remote access, multi-user access, and network traversal mature.
-6. Addon side effects need token, grant, audit, and Taru-mediated effect
+6. Addon side effects need token, grant, audit, and Nako-mediated effect
    seams before powerful addons are enabled.
 7. HLS request identity and future Transcode Profile shape need to account for
    quality, client capability, subtitles, audio selection, and hardware policy.

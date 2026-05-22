@@ -5,14 +5,14 @@ Last updated: 2026-05-17
 
 This file records the Android client experience baseline for the first
 implementation lane. It is product and UX context for this workstream, not a
-domain glossary. `CONTEXT.md` remains authoritative for Taru terms.
+domain glossary. `CONTEXT.md` remains authoritative for Nako terms.
 
 ## Reference Scope
 
 `repo-ref/findroid` is a reference for feature coverage and information
 architecture only.
 
-Taru may study Findroid's:
+Nako may study Findroid's:
 
 - native Android media-client shape;
 - setup, home, media, detail, download, settings, and player page families;
@@ -20,9 +20,9 @@ Taru may study Findroid's:
   tracks, offline playback, gestures, and skip controls;
 - phone/tablet and later TV split.
 
-Taru must not copy Findroid source, resources, images, branding, layouts,
-generated code, or Jellyfin-specific object model. Taru UI and client state
-must use Taru language: **Media Library**, **Media Item**, **Media Source**,
+Nako must not copy Findroid source, resources, images, branding, layouts,
+generated code, or Jellyfin-specific object model. Nako UI and client state
+must use Nako language: **Media Library**, **Media Item**, **Media Source**,
 **Playback Source Selection**, **User Playback State**, and **Public Client
 API**.
 
@@ -32,7 +32,7 @@ The first Android client should be playback-first, not administration-first.
 
 A user should be able to:
 
-1. connect to a Taru server;
+1. connect to a Nako server;
 2. authenticate;
 3. find a playable Media Item;
 4. understand which source/version will play when there are multiple choices;
@@ -49,7 +49,7 @@ The Android client may store multiple server profiles, but one server is
 active at a time. Home, Search, cache, playback, and future Downloads are
 scoped to the active server.
 
-A server profile is client-side connection state, not a Taru **User**.
+A server profile is client-side connection state, not a Nako **User**.
 
 First-version server profile fields:
 
@@ -70,7 +70,7 @@ First-version behavior:
 
 ## Authentication Baseline
 
-First-version auth is server URL plus access token, matching Taru's current
+First-version auth is server URL plus access token, matching Nako's current
 inbound bearer-token boundary.
 
 The UI should call this credential an access token or server access token,
@@ -415,11 +415,11 @@ Deferred player enhancements:
 External player handoff is a deferred compatibility feature, not a
 first-version playback path.
 
-Taru should eventually support handoff to external Android players such as MX
+Nako should eventually support handoff to external Android players such as MX
 Player, VLC, mpv-android, or Kodi-style consumers because self-hosted media
 users may need codec, subtitle, device, or personal-player fallbacks.
 
-The feature must preserve Taru's access boundary:
+The feature must preserve Nako's access boundary:
 
 - it must be opt-in from Settings;
 - it must not expose long-lived bearer tokens to external apps;
@@ -445,7 +445,7 @@ Future design must answer:
 
 - whether downloaded media is the original direct source, a remux output, an
   HLS package, or an **Optimized Version**;
-- whether remote/WebDAV sources download through Taru as a proxy or from a
+- whether remote/WebDAV sources download through Nako as a proxy or from a
   storage backend directly;
 - how downloads bind to server identity, user identity, and Library Access;
 - how subtitles, audio tracks, artwork, and playback progress are stored;
@@ -543,7 +543,7 @@ remote-control focus navigation need a different interaction model.
 
 ## Playback Client Visual Baseline
 
-Taru Android does not have a finished in-house design language yet. In this
+Nako Android does not have a finished in-house design language yet. In this
 workstream, `v0` refers to the frontend prototyping tool, not to the product
 design system.
 
@@ -613,7 +613,7 @@ This baseline explicitly does not define:
 
 ## First-Version Non-Goals
 
-- No custom visual brand system beyond a basic Taru theme.
+- No custom visual brand system beyond a basic Nako theme.
 - No TV ten-foot UI.
 - No full offline/download manager.
 - No cast route UI.

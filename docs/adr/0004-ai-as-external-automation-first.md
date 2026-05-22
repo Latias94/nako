@@ -13,7 +13,7 @@ GPU scheduling would greatly increase the foundation scope.
 
 ## Decision
 
-Treat AI as external automation first. Taru should provide provider
+Treat AI as external automation first. Nako should provide provider
 configuration, secret handling, job execution, audit logs, and explicit user
 approval paths. Providers can be OpenAI-compatible gateways, custom HTTP
 services, or recommendation APIs.
@@ -25,7 +25,7 @@ unless a user or policy explicitly accepts them into canonical metadata.
 
 - Useful automation can ship earlier.
 - Users can bring their own API keys or gateway providers.
-- Taru avoids local model and vector-search complexity in the MVP.
+- Nako avoids local model and vector-search complexity in the MVP.
 - Provider cost, latency, and privacy must be visible in configuration and logs.
 - The automation layer should be designed for retries, rate limits, and
   cancellation from the start.

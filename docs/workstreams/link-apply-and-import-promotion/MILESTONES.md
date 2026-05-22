@@ -28,11 +28,11 @@ Exit criteria:
 
 Primary evidence:
 
-- `crates/taru-core/src/managed_import.rs`
-- `crates/taru-core/src/repository/managed_import.rs`
-- `crates/taru-db/migrations/0032_managed_import_promotion_applies.sql`
-- `crates/taru-db/migrations/postgres/0004_managed_import_promotion_applies.sql`
-- `crates/taru-db/src/contract_tests.rs`
+- `crates/nako-core/src/managed_import.rs`
+- `crates/nako-core/src/repository/managed_import.rs`
+- `crates/nako-db/migrations/0032_managed_import_promotion_applies.sql`
+- `crates/nako-db/migrations/postgres/0004_managed_import_promotion_applies.sql`
+- `crates/nako-db/src/contract_tests.rs`
 
 ## M2 — Acceptance And Replay Boundary
 
@@ -45,8 +45,8 @@ Exit criteria:
 
 Primary evidence:
 
-- `crates/taru-server/src/app/managed_import.rs`
-- `crates/taru-server/src/app/tests/managed_import.rs`
+- `crates/nako-server/src/app/managed_import.rs`
+- `crates/nako-server/src/app/tests/managed_import.rs`
 
 ## M3 — VFS Mutation Primitive
 
@@ -59,8 +59,8 @@ Exit criteria:
 
 Primary evidence:
 
-- `crates/taru-vfs/src/lib.rs`
-- `crates/taru-vfs/src/local.rs`
+- `crates/nako-vfs/src/lib.rs`
+- `crates/nako-vfs/src/local.rs`
 
 ## M4 — Promotion Apply Orchestration
 
@@ -73,8 +73,8 @@ Exit criteria:
 
 Primary evidence:
 
-- `crates/taru-server/src/app/managed_import.rs`
-- `crates/taru-server/src/app/tests/managed_import.rs`
+- `crates/nako-server/src/app/managed_import.rs`
+- `crates/nako-server/src/app/tests/managed_import.rs`
 
 ## M5 — Rollback And Cleanup
 
@@ -86,11 +86,11 @@ Exit criteria:
 
 Primary evidence:
 
-- VFS cleanup primitives and tests in `crates/taru-vfs/src/lib.rs`,
-  `crates/taru-vfs/src/local.rs`, and `crates/taru-vfs/src/cache.rs`.
+- VFS cleanup primitives and tests in `crates/nako-vfs/src/lib.rs`,
+  `crates/nako-vfs/src/local.rs`, and `crates/nako-vfs/src/cache.rs`.
 - Promotion apply cleanup-complete / cleanup-pending tests in
-  `crates/taru-server/src/app/tests/managed_import.rs`.
-- Cleanup audit orchestration in `crates/taru-server/src/app/managed_import.rs`.
+  `crates/nako-server/src/app/tests/managed_import.rs`.
+- Cleanup audit orchestration in `crates/nako-server/src/app/managed_import.rs`.
 
 ## M6 — NFO Sidecar Decision
 
