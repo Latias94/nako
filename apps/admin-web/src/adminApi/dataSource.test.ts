@@ -8,6 +8,7 @@ import {
   mockAddonDiagnostic,
   mockAddonGrants,
   mockAddonHealth,
+  mockAddonInstallGuide,
   mockAddons,
   mockAddonSurfaces,
   mockAddonTokens,
@@ -30,6 +31,7 @@ describe("Admin data source", () => {
         [TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDetail,
         [TARU_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab")]: mockAddonHealth,
         [TARU_ADMIN_ROUTES.addonSurfaces.replace(":addon_id", "addon-subtitle-lab")]: mockAddonSurfaces,
+        [TARU_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab")]: mockAddonInstallGuide,
         [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`]: mockAddonTokens,
         [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`]: mockAddonGrants,
         [TARU_ADMIN_ROUTES.addonResourceCallDiagnostic.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDiagnostic,
@@ -50,6 +52,7 @@ describe("Admin data source", () => {
     expect(data.sources.addons).toBe("live");
     expect(data.sources.addonHealth).toBe("live");
     expect(data.sources.addonSurfaces).toBe("live");
+    expect(data.sources.addonInstallGuide).toBe("live");
     expect(data.sources.addonTokens).toBe("live");
     expect(data.sources.addonGrants).toBe("live");
     expect(data.sources.acquisitionIntake).toBe("live");
@@ -78,6 +81,20 @@ describe("Admin data source", () => {
     });
     expect(data.addons.surfaces?.hostedPages[0]).toMatchObject({
       title: "Subtitle diagnostics",
+    });
+    expect(data.addons.installGuide).toMatchObject({
+      addonName: "Subtitle Lab",
+      dockerCompose: {
+        filename: "compose.dev-taru-subtitle-lab.yml",
+      },
+      lifecycleBoundary: {
+        taruManagesContainers: false,
+        taruManagesProcesses: false,
+      },
+    });
+    expect(data.addons.installGuide?.secretReferences[0]).toMatchObject({
+      envVar: "ADDON_SECRET_SUBTITLE_PROVIDER_KEY",
+      placeholder: "secret-reference:subtitle-provider-key",
     });
     expect(data.addons.tokens[0].tokenPrefix).toBe("taru_at_subtitle");
     expect(data.addons.grants[0]).toMatchObject({
@@ -120,6 +137,7 @@ describe("Admin data source", () => {
         [TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDetail,
         [TARU_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab")]: mockAddonHealth,
         [TARU_ADMIN_ROUTES.addonSurfaces.replace(":addon_id", "addon-subtitle-lab")]: mockAddonSurfaces,
+        [TARU_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab")]: mockAddonInstallGuide,
         [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`]: mockAddonTokens,
         [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`]: mockAddonGrants,
         [TARU_ADMIN_ROUTES.addonResourceCallDiagnostic.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDiagnostic,

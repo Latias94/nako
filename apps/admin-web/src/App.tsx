@@ -452,6 +452,7 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
                 loadState.data.sources.addons,
                 loadState.data.sources.addonHealth,
                 loadState.data.sources.addonSurfaces,
+                loadState.data.sources.addonInstallGuide,
                 loadState.data.sources.addonTokens,
                 loadState.data.sources.addonGrants,
               )}
@@ -609,6 +610,81 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
                 <strong>{loadState.data.addons.surfaces?.configurationSchemaId ?? "not declared"}</strong>
               </div>
             </div>
+
+            <section className="installGuidePanel" aria-label="Addon Install Guide">
+              <div>
+                <h3>Addon Install Guide</h3>
+                <p>
+                  {loadState.data.addons.installGuide?.lifecycleBoundary.message ??
+                    "Install guide is unavailable for this Addon."}
+                </p>
+              </div>
+              <div className="capabilityLine">
+                <StatusPill
+                  label={
+                    loadState.data.addons.installGuide?.lifecycleBoundary.taruManagesContainers
+                      ? "Taru controls containers"
+                      : "No container control"
+                  }
+                  tone="muted"
+                />
+                <StatusPill
+                  label={
+                    loadState.data.addons.installGuide?.lifecycleBoundary.taruManagesProcesses
+                      ? "Taru controls processes"
+                      : "No process control"
+                  }
+                  tone="muted"
+                />
+                <StatusPill
+                  label={`${loadState.data.addons.installGuide?.secretReferences.length ?? 0} Secret References`}
+                  tone="info"
+                />
+              </div>
+
+              {loadState.data.addons.installGuide ? (
+                <>
+                  <div className="snippetGrid">
+                    <SnippetPreview snippet={loadState.data.addons.installGuide.dockerCompose} />
+                    <SnippetPreview snippet={loadState.data.addons.installGuide.systemd} />
+                  </div>
+
+                  <div className="guideStepGrid">
+                    <GuideStepList
+                      title="Health-check verification"
+                      steps={loadState.data.addons.installGuide.healthCheckSteps}
+                    />
+                    <GuideStepList
+                      title="Registration verification"
+                      steps={loadState.data.addons.installGuide.registrationVerificationSteps}
+                    />
+                  </div>
+
+                  <div className="tableWrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Secret Reference</th>
+                          <th>Env var</th>
+                          <th>Placeholder</th>
+                          <th>Required</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {loadState.data.addons.installGuide.secretReferences.map((secret) => (
+                          <tr key={secret.id}>
+                            <td>{secret.label}</td>
+                            <td>{secret.envVar}</td>
+                            <td>{secret.placeholder}</td>
+                            <td>{secret.required ? "required" : "optional"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : null}
+            </section>
           </section>
 
           <section className="panel" id="network">
@@ -770,6 +846,59 @@ function StatusPill({
   return <span className={`statusPill ${tone}`}>{label}</span>;
 }
 
+function SnippetPreview({
+  snippet,
+}: {
+  snippet: {
+    title: string;
+    filename: string;
+    content: string;
+    notes: string[];
+  };
+}) {
+  return (
+    <article className="snippetPreview">
+      <div className="snippetHeader">
+        <strong>{snippet.title}</strong>
+        <span>{snippet.filename}</span>
+      </div>
+      <pre>{snippet.content}</pre>
+      <ul>
+        {snippet.notes.map((note) => (
+          <li key={note}>{note}</li>
+        ))}
+      </ul>
+    </article>
+  );
+}
+
+function GuideStepList({
+  title,
+  steps,
+}: {
+  title: string;
+  steps: Array<{
+    title: string;
+    command: string;
+    expectedResult: string;
+  }>;
+}) {
+  return (
+    <article className="guideSteps">
+      <h4>{title}</h4>
+      <ol>
+        {steps.map((step) => (
+          <li key={step.title}>
+            <strong>{step.title}</strong>
+            <code>{step.command}</code>
+            <span>{step.expectedResult}</span>
+          </li>
+        ))}
+      </ol>
+    </article>
+  );
+}
+
 function SourceLabel({ source }: { source: DataSourceMode }) {
   const label =
     source === "live"
@@ -801,6 +930,7 @@ function summarizeSources(data: AdminConsoleData) {
       data.sources.addons,
       data.sources.addonHealth,
       data.sources.addonSurfaces,
+      data.sources.addonInstallGuide,
       data.sources.addonTokens,
       data.sources.addonGrants,
     ),

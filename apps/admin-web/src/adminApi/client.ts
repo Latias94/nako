@@ -5,6 +5,7 @@ import type {
   AdminAcquisitionIntakeCandidateListResponse,
   AdminAcquisitionIntakeCandidatesQuery,
   AdminAddonHealthCheckResponse,
+  AdminAddonInstallGuideResponse,
   AdminAddonRegistrationResponse,
   AdminAddonRegistrationsResponse,
   AdminAddonResourceCallDiagnosticRequest,
@@ -81,6 +82,10 @@ export class AdminApiClient {
 
   async getAddonSurfaces(addonId: string): Promise<AdminAddonSurfacesResponse> {
     return this.getJson<AdminAddonSurfacesResponse>(addonPath(TARU_ADMIN_ROUTES.addonSurfaces, addonId));
+  }
+
+  async getAddonInstallGuide(addonId: string): Promise<AdminAddonInstallGuideResponse> {
+    return this.getJson<AdminAddonInstallGuideResponse>(addonPath(TARU_ADMIN_ROUTES.addonInstallGuide, addonId));
   }
 
   async diagnoseAddonResourceCall(

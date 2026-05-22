@@ -17,6 +17,7 @@ describe("Admin web console scaffold", () => {
             addons: "live",
             addonHealth: "live",
             addonSurfaces: "live",
+            addonInstallGuide: "live",
             addonTokens: "live",
             addonGrants: "live",
             acquisitionIntake: "live",
@@ -54,6 +55,10 @@ describe("Admin web console scaffold", () => {
     expect(screen.getAllByText("Subtitle Lab").length).toBeGreaterThan(0);
     expect(screen.getByText("Health: reachable · 42 ms")).toBeInTheDocument();
     expect(screen.getByText("external and untrusted")).toBeInTheDocument();
+    expect(screen.getByText("Addon Install Guide")).toBeInTheDocument();
+    expect(screen.getByText("compose.dev-taru-subtitle-lab.yml")).toBeInTheDocument();
+    expect(screen.getByText("dev-taru-subtitle-lab.service")).toBeInTheDocument();
+    expect(screen.getByText(/Taru generates this guide only/)).toBeInTheDocument();
     expect(screen.getByText("subtitle · succeeded")).toBeInTheDocument();
     expect(screen.getByText("Network Access")).toBeInTheDocument();
     expect(screen.getByText("reverse_proxy")).toBeInTheDocument();
@@ -107,6 +112,7 @@ describe("Admin web console scaffold", () => {
             addons: "live",
             addonHealth: "live",
             addonSurfaces: "live",
+            addonInstallGuide: "live",
             addonTokens: "live",
             addonGrants: "live",
             acquisitionIntake: "live",

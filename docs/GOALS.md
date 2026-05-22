@@ -30,11 +30,58 @@ No active implementation goal is currently set.
 
 Recommended next goal:
 
-- Addon Install Guide generation for Docker Compose/systemd snippets, or a
-  dedicated Addon Manager lane if process/package lifecycle automation becomes
-  the product priority.
+- Addon Manager planning only if Taru should own discovery/install/update or
+  sidecar lifecycle automation; otherwise continue product hardening around
+  Addon author packaging examples and operator docs.
 
 ## Completed Goals
+
+### Addon Install Guide Generation
+
+Status: completed.
+
+Objective:
+
+- Productize an Admin-only **Addon Install Guide** for registered **Addon
+  Sidecars**.
+- Generate Docker Compose and systemd snippets as inert operator guidance.
+- Surface Secret Reference checklist, Addon Health Check verification, and
+  registration verification steps without resolving secrets.
+- Expose the guide in Admin Web through the generated Admin API TypeScript
+  contract and existing data-source seam.
+
+Deliverables:
+
+- `docs/workstreams/addon-install-guide-generation/` as the authoritative
+  execution lane.
+- `GET /admin/v1/addons/{addon_id}/install-guide` Admin API route and DTO.
+- Generated Admin Web contract entries and Addon Operations guide preview.
+
+Non-goals:
+
+- No Addon Manager discovery, install, update, remove, marketplace, package
+  signing, Docker socket control, systemd control, Kubernetes adapter, SSH
+  host agent, log collection, or **Addon Sidecar** process supervision.
+- No resolved secret values or secret-manager integration.
+- No Public Client API exposure.
+
+First executable task:
+
+- AIG-020 server-owned install guide route, DTO, generated TypeScript contract,
+  and focused Rust tests.
+
+Evidence:
+
+- Workstream docs:
+  `docs/workstreams/addon-install-guide-generation/`.
+- Closeout proof:
+  - `cargo run -q -p taru-api --example emit-admin-typescript-contract -- --output apps/admin-web/src/adminApi/generated/contract.ts`;
+  - `cargo nextest run -p taru-api admin_contract --no-fail-fast`;
+  - `cargo nextest run -p taru-server install_guide --no-fail-fast`;
+  - `cargo fmt --all -- --check`;
+  - `cargo check -p taru-api -p taru-server --tests`;
+  - `npm run check`, `npm test`, and `npm run build` in `apps/admin-web`;
+  - `git diff --check`.
 
 ### Admin Web Addon Operations
 

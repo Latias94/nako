@@ -503,6 +503,81 @@ td {
   display: grid;
 }
 
+.installGuidePanel {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid oklch(86% 0.018 75);
+}
+
+.installGuidePanel p {
+  margin: 6px 0 0;
+  color: oklch(45% 0.024 68);
+  font-size: 0.9rem;
+}
+
+.snippetGrid,
+.guideStepGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.snippetPreview,
+.guideSteps {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid oklch(84% 0.022 75);
+  border-radius: 7px;
+  background: oklch(96% 0.013 76);
+}
+
+.snippetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.snippetHeader span {
+  color: oklch(47% 0.024 68);
+  font-size: 0.78rem;
+}
+
+.snippetPreview pre,
+.guideSteps code {
+  display: block;
+  overflow-x: auto;
+  padding: 10px;
+  border-radius: 6px;
+  background: oklch(25% 0.026 65);
+  color: oklch(96% 0.014 78);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.snippetPreview ul,
+.guideSteps ol {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: oklch(45% 0.024 68);
+  font-size: 0.84rem;
+}
+
+.guideSteps li {
+  display: grid;
+  gap: 6px;
+}
+
+.guideSteps span {
+  color: oklch(47% 0.024 68);
+}
+
 @media (max-width: 960px) {
   .appShell {
     grid-template-columns: 1fr;
@@ -529,7 +604,9 @@ td {
 
   .metricGrid,
   .contentGrid,
-  .splitPanel {
+  .splitPanel,
+  .snippetGrid,
+  .guideStepGrid {
     grid-template-columns: 1fr;
   }
 }

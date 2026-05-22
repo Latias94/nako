@@ -3,6 +3,7 @@ import type {
   AddonTokensResponse,
   AdminAcquisitionIntakeCandidateListResponse,
   AdminAddonHealthCheckResponse,
+  AdminAddonInstallGuideResponse,
   AdminAddonRegistrationResponse,
   AdminAddonRegistrationsResponse,
   AdminAddonResourceCallDiagnosticResponse,
@@ -375,6 +376,99 @@ export const mockAddonDiagnostic: AdminAddonResourceCallDiagnosticResponse = {
   latency_ms: 85,
   attempts: 1,
   http_status: 200,
+};
+
+export const mockAddonInstallGuide: AdminAddonInstallGuideResponse = {
+  addon_id: "addon-subtitle-lab",
+  manifest_id: "dev.taru.subtitle-lab",
+  addon_name: "Subtitle Lab",
+  addon_version: "0.3.0",
+  protocol_version: "2026-05-15",
+  base_url: "http://subtitle-lab:9100",
+  status: "enabled",
+  docker_compose: {
+    title: "Docker Compose sidecar snippet",
+    filename: "compose.dev-taru-subtitle-lab.yml",
+    content: [
+      "services:",
+      "  dev-taru-subtitle-lab:",
+      "    image: \"<replace-with-dev-taru-subtitle-lab-image>:0.3.0\"",
+      "    restart: unless-stopped",
+      "    environment:",
+      "      TARU_ADDON_BASE_URL: \"http://subtitle-lab:9100\"",
+      "      TARU_ADDON_PROTOCOL_VERSION: \"2026-05-15\"",
+      "      TARU_ADDON_MANIFEST_ID: \"dev.taru.subtitle-lab\"",
+      "      ADDON_SECRET_SUBTITLE_PROVIDER_KEY: \"secret-reference:subtitle-provider-key\"",
+      "    healthcheck:",
+      "      test: [\"CMD-SHELL\", \"curl -fsS http://subtitle-lab:9100/health >/dev/null\"]",
+    ].join("\n"),
+    notes: [
+      "Run this Addon Sidecar as a separate service on a network Taru can reach.",
+      "Taru does not mount the Docker socket or manage this container lifecycle.",
+    ],
+  },
+  systemd: {
+    title: "systemd sidecar unit snippet",
+    filename: "dev-taru-subtitle-lab.service",
+    content: [
+      "[Unit]",
+      "Description=Subtitle Lab Addon Sidecar",
+      "After=network-online.target",
+      "",
+      "[Service]",
+      "Type=simple",
+      "Environment=\"TARU_ADDON_BASE_URL=http://subtitle-lab:9100\"",
+      "Environment=\"TARU_ADDON_PROTOCOL_VERSION=2026-05-15\"",
+      "Environment=\"TARU_ADDON_MANIFEST_ID=dev.taru.subtitle-lab\"",
+      "Environment=\"ADDON_SECRET_SUBTITLE_PROVIDER_KEY=secret-reference:subtitle-provider-key\"",
+      "ExecStart=<addon-sidecar-command> --listen 0.0.0.0:9100",
+      "Restart=on-failure",
+    ].join("\n"),
+    notes: [
+      "Replace <addon-sidecar-command> with the Addon author's binary and arguments.",
+      "Taru does not call systemd or supervise this process.",
+    ],
+  },
+  secret_references: [
+    {
+      id: "subtitle-provider-key",
+      label: "Provider API key",
+      description: "Secret Reference resolved by Taru at runtime.",
+      required: false,
+      env_var: "ADDON_SECRET_SUBTITLE_PROVIDER_KEY",
+      placeholder: "secret-reference:subtitle-provider-key",
+    },
+  ],
+  health_check_steps: [
+    {
+      title: "Check the Addon Sidecar health contract directly",
+      command: "curl -fsS -X POST 'http://subtitle-lab:9100/health' -H 'Content-Type: application/json'",
+      expected_result: "The sidecar returns matching protocol, manifest, addon version, and resource-count facts.",
+    },
+    {
+      title: "Check the Addon through Taru Admin API",
+      command: "curl -fsS -X POST \"$TARU_BASE_URL/admin/v1/addons/addon-subtitle-lab/health-check\" -H 'Authorization: <admin-auth-header>'",
+      expected_result: "Taru returns a redaction-safe Addon Health Check status.",
+    },
+  ],
+  registration_verification_steps: [
+    {
+      title: "Verify the registered Addon manifest snapshot",
+      command: "curl -fsS \"$TARU_BASE_URL/admin/v1/addons/addon-subtitle-lab\" -H 'Authorization: <admin-auth-header>'",
+      expected_result: "The response summary contains manifest_id `dev.taru.subtitle-lab` and status `enabled`.",
+    },
+    {
+      title: "Verify declared Addon surfaces",
+      command: "curl -fsS \"$TARU_BASE_URL/admin/v1/addons/addon-subtitle-lab/surfaces\" -H 'Authorization: <admin-auth-header>'",
+      expected_result: "The response lists Addon surface declarations only.",
+    },
+  ],
+  lifecycle_boundary: {
+    taru_manages_containers: false,
+    taru_manages_processes: false,
+    taru_manages_packages: false,
+    message: "Taru generates this guide only. The operator owns Addon Sidecar installation, start/stop, upgrades, logs, and removal outside Taru.",
+  },
 };
 
 export const mockEvents: AdminOutboxEventListResponse = {
@@ -917,6 +1011,7 @@ export const mockSources: AdminSourceMap = {
   addons: "mock",
   addonHealth: "mock",
   addonSurfaces: "mock",
+  addonInstallGuide: "mock",
   addonTokens: "mock",
   addonGrants: "mock",
   acquisitionIntake: "mock",
@@ -998,6 +1093,51 @@ export const mockAdminConsoleData: AdminConsoleData = {
         eventKind: subscription.event_kind,
         path: subscription.path,
       })),
+    },
+    installGuide: {
+      addonId: mockAddonInstallGuide.addon_id,
+      manifestId: mockAddonInstallGuide.manifest_id,
+      addonName: mockAddonInstallGuide.addon_name,
+      addonVersion: mockAddonInstallGuide.addon_version,
+      protocolVersion: mockAddonInstallGuide.protocol_version,
+      baseUrl: mockAddonInstallGuide.base_url,
+      status: mockAddonInstallGuide.status,
+      dockerCompose: {
+        title: mockAddonInstallGuide.docker_compose.title,
+        filename: mockAddonInstallGuide.docker_compose.filename,
+        content: mockAddonInstallGuide.docker_compose.content,
+        notes: mockAddonInstallGuide.docker_compose.notes,
+      },
+      systemd: {
+        title: mockAddonInstallGuide.systemd.title,
+        filename: mockAddonInstallGuide.systemd.filename,
+        content: mockAddonInstallGuide.systemd.content,
+        notes: mockAddonInstallGuide.systemd.notes,
+      },
+      secretReferences: mockAddonInstallGuide.secret_references.map((secret) => ({
+        id: secret.id,
+        label: secret.label,
+        description: secret.description ?? null,
+        required: secret.required,
+        envVar: secret.env_var,
+        placeholder: secret.placeholder,
+      })),
+      healthCheckSteps: mockAddonInstallGuide.health_check_steps.map((step) => ({
+        title: step.title,
+        command: step.command,
+        expectedResult: step.expected_result,
+      })),
+      registrationVerificationSteps: mockAddonInstallGuide.registration_verification_steps.map((step) => ({
+        title: step.title,
+        command: step.command,
+        expectedResult: step.expected_result,
+      })),
+      lifecycleBoundary: {
+        taruManagesContainers: mockAddonInstallGuide.lifecycle_boundary.taru_manages_containers,
+        taruManagesProcesses: mockAddonInstallGuide.lifecycle_boundary.taru_manages_processes,
+        taruManagesPackages: mockAddonInstallGuide.lifecycle_boundary.taru_manages_packages,
+        message: mockAddonInstallGuide.lifecycle_boundary.message,
+      },
     },
     tokens: mockAddonTokens.tokens.map((token) => ({
       id: token.id,

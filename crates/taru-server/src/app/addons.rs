@@ -8,8 +8,11 @@ use taru_api::extension::{
     AddonGrantsResponse, AddonTokenIssuedResponse, AddonTokenResponse, AddonTokenRotationResponse,
     AddonTokenSummary, AddonTokensResponse, AdminAddonConfigurationSchemaSurface,
     AdminAddonEntryPointSurface, AdminAddonEventSubscriptionSurface, AdminAddonHealthCheckResponse,
-    AdminAddonHealthCheckStatus, AdminAddonHostedPageSurface, AdminAddonRegistrationDetail,
-    AdminAddonRegistrationResponse, AdminAddonRegistrationSummary, AdminAddonRegistrationsResponse,
+    AdminAddonHealthCheckStatus, AdminAddonHostedPageSurface,
+    AdminAddonInstallGuideLifecycleBoundary, AdminAddonInstallGuideResponse,
+    AdminAddonInstallGuideSecretReference, AdminAddonInstallGuideSnippet,
+    AdminAddonInstallGuideStep, AdminAddonRegistrationDetail, AdminAddonRegistrationResponse,
+    AdminAddonRegistrationSummary, AdminAddonRegistrationsResponse,
     AdminAddonResourceCallDiagnosticRequest, AdminAddonResourceCallDiagnosticResponse,
     AdminAddonResourceCallDiagnosticStatus, AdminAddonSecretReferenceFieldSurface,
     AdminAddonSurfacesResponse, AdminAddonTaskSurface, IssueAddonTokenRequest,
@@ -345,6 +348,19 @@ impl AddonAppService {
                 })
                 .collect(),
         })
+    }
+
+    pub async fn get_addon_install_guide(
+        &self,
+        addon_id: AddonId,
+    ) -> Result<AdminAddonInstallGuideResponse> {
+        let addon = self.get_addon_registration_or_not_found(addon_id).await?;
+        let manifest = self.stored_manifest(&addon)?;
+        validate_manifest(&manifest).map_err(|err| TaruError::InvalidInput {
+            message: err.to_string(),
+        })?;
+
+        Ok(addon_install_guide(&addon, &manifest))
     }
 
     pub async fn diagnose_addon_resource_call(
@@ -685,6 +701,280 @@ fn safe_resource_diagnostic_error_code(err: &AddonClientError) -> &'static str {
 
 fn addon_surface_url(base_url: &str, path: &str) -> String {
     format!("{}{}", base_url.trim_end_matches('/'), path)
+}
+
+fn addon_install_guide(
+    addon: &AddonRegistrationRecord,
+    manifest: &AddonManifest,
+) -> AdminAddonInstallGuideResponse {
+    let service_name = addon_service_name(&manifest.id);
+    let health_url = addon_surface_url(&manifest.base_url, "/health");
+    let secret_references = manifest
+        .secret_reference_fields
+        .iter()
+        .map(|field| AdminAddonInstallGuideSecretReference {
+            id: field.id.clone(),
+            label: field.label.clone(),
+            description: field.description.clone(),
+            required: field.required,
+            env_var: secret_reference_env_var(&field.id),
+            placeholder: format!("secret-reference:{}", field.id),
+        })
+        .collect::<Vec<_>>();
+
+    AdminAddonInstallGuideResponse {
+        addon_id: addon.id,
+        manifest_id: addon.manifest_id.clone(),
+        addon_name: addon.name.clone(),
+        addon_version: addon.version.clone(),
+        protocol_version: addon.protocol_version.clone(),
+        base_url: addon.base_url.clone(),
+        status: addon.status,
+        docker_compose: docker_compose_install_snippet(manifest, &service_name, &secret_references),
+        systemd: systemd_install_snippet(manifest, &service_name, &secret_references),
+        secret_references,
+        health_check_steps: vec![
+            AdminAddonInstallGuideStep {
+                title: "Check the Addon Sidecar health contract directly".to_owned(),
+                command: format!(
+                    "curl -fsS -X POST {} -H {} -d {}",
+                    shell_quote(&health_url),
+                    shell_quote("Content-Type: application/json"),
+                    shell_quote(&serde_json::json!({
+                        "protocol_version": manifest.protocol_version,
+                        "manifest_id": manifest.id,
+                        "request_id": "manual-health-check",
+                        "expected_addon_version": manifest.version,
+                        "expected_resource_count": manifest.resources.len()
+                    })
+                    .to_string())
+                ),
+                expected_result: "The sidecar returns matching protocol, manifest, addon version, and resource-count facts.".to_owned(),
+            },
+            AdminAddonInstallGuideStep {
+                title: "Check the Addon through Taru Admin API".to_owned(),
+                command: format!(
+                    "curl -fsS -X POST \"$TARU_BASE_URL/admin/v1/addons/{}/health-check\" -H {}",
+                    addon.id,
+                    shell_quote("Authorization: <admin-auth-header>")
+                ),
+                expected_result: "Taru returns a redaction-safe Addon Health Check status without sending Admin credentials or resolved secrets to the sidecar.".to_owned(),
+            },
+        ],
+        registration_verification_steps: vec![
+            AdminAddonInstallGuideStep {
+                title: "Verify the registered Addon manifest snapshot".to_owned(),
+                command: format!(
+                    "curl -fsS \"$TARU_BASE_URL/admin/v1/addons/{}\" -H {}",
+                    addon.id,
+                    shell_quote("Authorization: <admin-auth-header>")
+                ),
+                expected_result: format!(
+                    "The response summary contains manifest_id `{}` and status `{}`.",
+                    addon.manifest_id,
+                    addon.status.as_str()
+                ),
+            },
+            AdminAddonInstallGuideStep {
+                title: "Verify declared Addon surfaces".to_owned(),
+                command: format!(
+                    "curl -fsS \"$TARU_BASE_URL/admin/v1/addons/{}/surfaces\" -H {}",
+                    addon.id,
+                    shell_quote("Authorization: <admin-auth-header>")
+                ),
+                expected_result: "The response lists Entry Points, Hosted Pages, Secret Reference fields, Tasks, and Event Subscriptions as declarations only.".to_owned(),
+            },
+        ],
+        lifecycle_boundary: AdminAddonInstallGuideLifecycleBoundary {
+            taru_manages_containers: false,
+            taru_manages_processes: false,
+            taru_manages_packages: false,
+            message: "Taru generates this guide only. The operator owns Addon Sidecar installation, start/stop, upgrades, logs, and removal outside Taru.".to_owned(),
+        },
+    }
+}
+
+fn docker_compose_install_snippet(
+    manifest: &AddonManifest,
+    service_name: &str,
+    secret_references: &[AdminAddonInstallGuideSecretReference],
+) -> AdminAddonInstallGuideSnippet {
+    let mut environment = vec![
+        format!(
+            "      TARU_ADDON_BASE_URL: {}",
+            yaml_quote(&manifest.base_url)
+        ),
+        format!(
+            "      TARU_ADDON_PROTOCOL_VERSION: {}",
+            yaml_quote(&manifest.protocol_version)
+        ),
+        format!("      TARU_ADDON_MANIFEST_ID: {}", yaml_quote(&manifest.id)),
+    ];
+    if secret_references.is_empty() {
+        environment
+            .push("      # No Secret Reference fields are declared by this manifest.".to_owned());
+    } else {
+        environment.extend(secret_references.iter().map(|secret| {
+            format!(
+                "      {}: {}",
+                secret.env_var,
+                yaml_quote(&secret.placeholder)
+            )
+        }));
+    }
+
+    let content = format!(
+        r#"services:
+  {service_name}:
+    image: {image}
+    restart: unless-stopped
+    environment:
+{environment}
+    healthcheck:
+      test: ["CMD-SHELL", {healthcheck}]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+"#,
+        image = yaml_quote(&format!(
+            "<replace-with-{}-image>:{}",
+            service_name, manifest.version
+        )),
+        environment = environment.join("\n"),
+        healthcheck = yaml_quote(&format!(
+            "curl -fsS {} >/dev/null",
+            addon_surface_url(&manifest.base_url, "/health")
+        )),
+    );
+
+    AdminAddonInstallGuideSnippet {
+        title: "Docker Compose sidecar snippet".to_owned(),
+        filename: format!("compose.{service_name}.yml"),
+        content,
+        notes: vec![
+            "Run this Addon Sidecar as a separate service on a network Taru can reach.".to_owned(),
+            "Replace the image placeholder with the Addon author's published image.".to_owned(),
+            "Taru does not mount the Docker socket or manage this container lifecycle.".to_owned(),
+        ],
+    }
+}
+
+fn systemd_install_snippet(
+    manifest: &AddonManifest,
+    service_name: &str,
+    secret_references: &[AdminAddonInstallGuideSecretReference],
+) -> AdminAddonInstallGuideSnippet {
+    let mut environment = vec![
+        systemd_environment("TARU_ADDON_BASE_URL", &manifest.base_url),
+        systemd_environment("TARU_ADDON_PROTOCOL_VERSION", &manifest.protocol_version),
+        systemd_environment("TARU_ADDON_MANIFEST_ID", &manifest.id),
+    ];
+    if secret_references.is_empty() {
+        environment.push("# No Secret Reference fields are declared by this manifest.".to_owned());
+    } else {
+        environment.extend(
+            secret_references
+                .iter()
+                .map(|secret| systemd_environment(&secret.env_var, &secret.placeholder)),
+        );
+    }
+
+    let content = format!(
+        r#"[Unit]
+Description={name} Addon Sidecar
+After=network-online.target
+
+[Service]
+Type=simple
+{environment}
+ExecStart=<addon-sidecar-command> --listen 0.0.0.0:{port}
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
+"#,
+        name = manifest.name,
+        environment = environment.join("\n"),
+        port = addon_base_url_port(&manifest.base_url),
+    );
+
+    AdminAddonInstallGuideSnippet {
+        title: "systemd sidecar unit snippet".to_owned(),
+        filename: format!("{service_name}.service"),
+        content,
+        notes: vec![
+            "Replace <addon-sidecar-command> with the Addon author's binary and arguments.".to_owned(),
+            "Keep Secret Reference placeholders out of this unit until your host secret policy resolves them safely.".to_owned(),
+            "Taru does not call systemd or supervise this process.".to_owned(),
+        ],
+    }
+}
+
+fn addon_service_name(manifest_id: &str) -> String {
+    let mut output = String::new();
+    let mut last_was_dash = false;
+    for character in manifest_id.chars() {
+        if character.is_ascii_alphanumeric() {
+            output.push(character.to_ascii_lowercase());
+            last_was_dash = false;
+        } else if !last_was_dash {
+            output.push('-');
+            last_was_dash = true;
+        }
+    }
+    let output = output.trim_matches('-').to_owned();
+    if output.is_empty() {
+        "taru-addon-sidecar".to_owned()
+    } else {
+        output
+    }
+}
+
+fn secret_reference_env_var(id: &str) -> String {
+    let mut output = String::from("ADDON_SECRET_");
+    let mut last_was_underscore = false;
+    for character in id.chars() {
+        if character.is_ascii_alphanumeric() {
+            output.push(character.to_ascii_uppercase());
+            last_was_underscore = false;
+        } else if !last_was_underscore {
+            output.push('_');
+            last_was_underscore = true;
+        }
+    }
+
+    while output.ends_with('_') {
+        output.pop();
+    }
+    if output == "ADDON_SECRET" {
+        "ADDON_SECRET_VALUE".to_owned()
+    } else {
+        output
+    }
+}
+
+fn addon_base_url_port(base_url: &str) -> u16 {
+    reqwest::Url::parse(base_url)
+        .ok()
+        .and_then(|url| url.port_or_known_default())
+        .unwrap_or(8080)
+}
+
+fn yaml_quote(value: &str) -> String {
+    format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))
+}
+
+fn systemd_environment(key: &str, value: &str) -> String {
+    format!(
+        "Environment=\"{key}={}\"",
+        value.replace('\\', "\\\\").replace('"', "\\\"")
+    )
+}
+
+fn shell_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "'\"'\"'"))
 }
 
 fn stored_granted_scopes(addon: &AddonRegistrationRecord) -> Result<Vec<AddonScope>> {

@@ -1,6 +1,6 @@
 use crate::admin::ADMIN_API_VERSION;
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 18] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 19] = [
     ("overview", "overview"),
     ("addons", "addons"),
     ("addonDetail", "addons/:addon_id"),
@@ -8,6 +8,7 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 18] = [
     ("addonUnregister", "addons/:addon_id/unregister"),
     ("addonHealthCheck", "addons/:addon_id/health-check"),
     ("addonSurfaces", "addons/:addon_id/surfaces"),
+    ("addonInstallGuide", "addons/:addon_id/install-guide"),
     (
         "addonResourceCallDiagnostic",
         "addons/:addon_id/diagnostics/resource-call",
@@ -312,6 +313,51 @@ export interface AdminAddonResourceCallDiagnosticResponse {
   attempts: number;
   http_status?: number;
   safe_error_code?: string;
+}
+
+export interface AdminAddonInstallGuideResponse {
+  addon_id: string;
+  manifest_id: string;
+  addon_name: string;
+  addon_version: string;
+  protocol_version: string;
+  base_url: string;
+  status: AddonStatus;
+  docker_compose: AdminAddonInstallGuideSnippet;
+  systemd: AdminAddonInstallGuideSnippet;
+  secret_references: AdminAddonInstallGuideSecretReference[];
+  health_check_steps: AdminAddonInstallGuideStep[];
+  registration_verification_steps: AdminAddonInstallGuideStep[];
+  lifecycle_boundary: AdminAddonInstallGuideLifecycleBoundary;
+}
+
+export interface AdminAddonInstallGuideSnippet {
+  title: string;
+  filename: string;
+  content: string;
+  notes: string[];
+}
+
+export interface AdminAddonInstallGuideSecretReference {
+  id: string;
+  label: string;
+  description?: string;
+  required: boolean;
+  env_var: string;
+  placeholder: string;
+}
+
+export interface AdminAddonInstallGuideStep {
+  title: string;
+  command: string;
+  expected_result: string;
+}
+
+export interface AdminAddonInstallGuideLifecycleBoundary {
+  taru_manages_containers: boolean;
+  taru_manages_processes: boolean;
+  taru_manages_packages: boolean;
+  message: string;
 }
 
 export interface AddonTokenSummary {
@@ -925,6 +971,7 @@ mod tests {
             "UpdateAddonStatusRequest",
             "AdminAddonHealthCheckResponse",
             "AdminAddonSurfacesResponse",
+            "AdminAddonInstallGuideResponse",
             "AdminAddonResourceCallDiagnosticRequest",
             "AdminAddonResourceCallDiagnosticResponse",
             "AddonTokensResponse",

@@ -11,6 +11,7 @@ export const TARU_ADMIN_ROUTES = {
   addonUnregister: "/admin/v1/addons/:addon_id/unregister",
   addonHealthCheck: "/admin/v1/addons/:addon_id/health-check",
   addonSurfaces: "/admin/v1/addons/:addon_id/surfaces",
+  addonInstallGuide: "/admin/v1/addons/:addon_id/install-guide",
   addonResourceCallDiagnostic: "/admin/v1/addons/:addon_id/diagnostics/resource-call",
   acquisitionIntakeCandidates: "/admin/v1/acquisition/intake/candidates",
   acquisitionIntakeWatchFolderDiscovery: "/admin/v1/acquisition/intake/watch-folder-discovery",
@@ -282,6 +283,51 @@ export interface AdminAddonResourceCallDiagnosticResponse {
   attempts: number;
   http_status?: number;
   safe_error_code?: string;
+}
+
+export interface AdminAddonInstallGuideResponse {
+  addon_id: string;
+  manifest_id: string;
+  addon_name: string;
+  addon_version: string;
+  protocol_version: string;
+  base_url: string;
+  status: AddonStatus;
+  docker_compose: AdminAddonInstallGuideSnippet;
+  systemd: AdminAddonInstallGuideSnippet;
+  secret_references: AdminAddonInstallGuideSecretReference[];
+  health_check_steps: AdminAddonInstallGuideStep[];
+  registration_verification_steps: AdminAddonInstallGuideStep[];
+  lifecycle_boundary: AdminAddonInstallGuideLifecycleBoundary;
+}
+
+export interface AdminAddonInstallGuideSnippet {
+  title: string;
+  filename: string;
+  content: string;
+  notes: string[];
+}
+
+export interface AdminAddonInstallGuideSecretReference {
+  id: string;
+  label: string;
+  description?: string;
+  required: boolean;
+  env_var: string;
+  placeholder: string;
+}
+
+export interface AdminAddonInstallGuideStep {
+  title: string;
+  command: string;
+  expected_result: string;
+}
+
+export interface AdminAddonInstallGuideLifecycleBoundary {
+  taru_manages_containers: boolean;
+  taru_manages_processes: boolean;
+  taru_manages_packages: boolean;
+  message: string;
 }
 
 export interface AddonTokenSummary {

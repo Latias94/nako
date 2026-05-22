@@ -1171,6 +1171,83 @@ or resolved Secret Reference values.
 }
 ```
 
+`GET /admin/v1/addons/{addon_id}/install-guide` returns a redaction-safe
+**Addon Install Guide** for an already registered Addon Sidecar. The guide is
+generated from the stored manifest snapshot and registration summary. It is
+read-only: Taru does not call Docker, systemd, Kubernetes, SSH, a host agent,
+or any process supervisor, and it does not install, start, stop, restart,
+update, remove, or collect logs from the Addon Sidecar.
+
+The response includes Docker Compose and systemd snippets as inert text,
+Secret Reference placeholders, direct sidecar health-check steps, Taru Admin
+health-check steps, and registration/surface verification steps:
+
+```json
+{
+  "addon_id": "018f0000-0000-7000-8000-000000000001",
+  "manifest_id": "example.metadata",
+  "addon_name": "Example Metadata",
+  "addon_version": "0.1.0",
+  "protocol_version": "2026-05-15",
+  "base_url": "https://addon.example.test/base",
+  "status": "enabled",
+  "docker_compose": {
+    "title": "Docker Compose sidecar snippet",
+    "filename": "compose.example-metadata.yml",
+    "content": "services:\n  example-metadata:\n    image: \"<replace-with-example-metadata-image>:0.1.0\"\n    restart: unless-stopped\n    environment:\n      TARU_ADDON_BASE_URL: \"https://addon.example.test/base\"\n      TARU_ADDON_PROTOCOL_VERSION: \"2026-05-15\"\n      TARU_ADDON_MANIFEST_ID: \"example.metadata\"\n      ADDON_SECRET_API_KEY: \"secret-reference:api_key\"",
+    "notes": [
+      "Run this Addon Sidecar as a separate service on a network Taru can reach.",
+      "Taru does not mount the Docker socket or manage this container lifecycle."
+    ]
+  },
+  "systemd": {
+    "title": "systemd sidecar unit snippet",
+    "filename": "example-metadata.service",
+    "content": "[Unit]\nDescription=Example Metadata Addon Sidecar\nAfter=network-online.target\n\n[Service]\nType=simple\nEnvironment=\"TARU_ADDON_BASE_URL=https://addon.example.test/base\"\nExecStart=<addon-sidecar-command> --listen 0.0.0.0:443",
+    "notes": [
+      "Replace <addon-sidecar-command> with the Addon author's binary and arguments.",
+      "Taru does not call systemd or supervise this process."
+    ]
+  },
+  "secret_references": [
+    {
+      "id": "api_key",
+      "label": "API Key",
+      "description": "Resolved by Taru at runtime",
+      "required": true,
+      "env_var": "ADDON_SECRET_API_KEY",
+      "placeholder": "secret-reference:api_key"
+    }
+  ],
+  "health_check_steps": [
+    {
+      "title": "Check the Addon Sidecar health contract directly",
+      "command": "curl -fsS -X POST 'https://addon.example.test/base/health' -H 'Content-Type: application/json' -d '{...}'",
+      "expected_result": "The sidecar returns matching protocol, manifest, addon version, and resource-count facts."
+    }
+  ],
+  "registration_verification_steps": [
+    {
+      "title": "Verify the registered Addon manifest snapshot",
+      "command": "curl -fsS \"$TARU_BASE_URL/admin/v1/addons/018f0000-0000-7000-8000-000000000001\" -H 'Authorization: <admin-auth-header>'",
+      "expected_result": "The response summary contains manifest_id `example.metadata` and status `enabled`."
+    }
+  ],
+  "lifecycle_boundary": {
+    "taru_manages_containers": false,
+    "taru_manages_processes": false,
+    "taru_manages_packages": false,
+    "message": "Taru generates this guide only. The operator owns Addon Sidecar installation, start/stop, upgrades, logs, and removal outside Taru."
+  }
+}
+```
+
+The install guide never includes raw Addon Tokens, admin bearer tokens, resolved
+Secret Reference values, raw resource-call payloads, Source Locators, storage
+URIs, local filesystem paths, or raw network errors. Secret fields remain
+placeholders such as `secret-reference:<field-id>` until the operator resolves
+them through their own host secret policy.
+
 `POST /admin/v1/addons/{addon_id}/diagnostics/resource-call` runs a bounded
 diagnostic call against one declared Addon Resource. The request accepts a
 resource kind and a diagnostic payload:

@@ -173,6 +173,35 @@ Runtime secrets are not stored in the manifest. If an addon uses bearer or
 shared-secret auth, Taru resolves the secret at call time and sends it as an
 HTTP header.
 
+## Install Guide
+
+Taru can generate an **Addon Install Guide** for a registered Addon Sidecar via
+`GET /admin/v1/addons/{addon_id}/install-guide`.
+
+The guide is for operators, not for Taru-managed lifecycle automation. It
+contains Docker Compose and systemd snippets as inert text, Secret Reference
+placeholders, direct sidecar health-check commands, Taru Admin health-check
+commands, and registration/surface verification commands.
+
+Addon authors should treat the generated snippets as a compatibility aid:
+
+- publish a stable container image or binary command that can replace the
+  guide placeholders;
+- keep `base_url` reachable from Taru but do not require Taru to mount Docker
+  sockets, call systemd, or supervise the process;
+- declare Secret Reference fields in the manifest instead of documenting
+  plaintext environment variables;
+- expose `POST /health` so the guide's direct and Taru-mediated health checks
+  can verify protocol, manifest ID, version, and resource count;
+- keep hosted pages external and untrusted; do not expect Taru to pass admin
+  bearer tokens or Addon Tokens into an install guide or hosted page.
+
+The install guide intentionally does not include resolved Secret Reference
+values, raw Addon Tokens, admin bearer tokens, Source Locators, storage paths,
+or process-control instructions such as start/stop/restart. If Taru later grows
+an Addon Manager, it should be a separate product surface and protocol
+boundary.
+
 ## Protected Write Payload Contracts
 
 Addon Side Effect Protected Writes use explicit payload structs from

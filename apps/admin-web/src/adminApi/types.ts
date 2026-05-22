@@ -15,6 +15,7 @@ export type {
   AdminAcquisitionIntakeCandidateListResponse,
   AdminAcquisitionIntakeCandidatesQuery,
   AdminAddonHealthCheckResponse,
+  AdminAddonInstallGuideResponse,
   AdminAddonRegistrationResponse,
   AdminAddonRegistrationSummary,
   AdminAddonRegistrationsResponse,
@@ -52,6 +53,7 @@ export type AdminSectionKey =
   | "addons"
   | "addonHealth"
   | "addonSurfaces"
+  | "addonInstallGuide"
   | "addonTokens"
   | "addonGrants"
   | "acquisitionIntake"
@@ -98,6 +100,7 @@ export type AddonOperationsSummary = {
   selectedAddon: AddonDetail | null;
   health: AddonHealthSummary | null;
   surfaces: AddonSurfaceSummary | null;
+  installGuide: AddonInstallGuideSummary | null;
   tokens: AddonTokenSummaryRow[];
   grants: AddonGrantSummaryRow[];
   diagnostic: AddonDiagnosticSummary | null;
@@ -184,6 +187,49 @@ export type AddonDiagnosticSummary = {
   attempts: number;
   httpStatus: number | null;
   safeErrorCode: string | null;
+};
+
+export type AddonInstallGuideSummary = {
+  addonId: string;
+  manifestId: string;
+  addonName: string;
+  addonVersion: string;
+  protocolVersion: string;
+  baseUrl: string;
+  status: string;
+  dockerCompose: AddonInstallGuideSnippetSummary;
+  systemd: AddonInstallGuideSnippetSummary;
+  secretReferences: AddonInstallGuideSecretReferenceSummary[];
+  healthCheckSteps: AddonInstallGuideStepSummary[];
+  registrationVerificationSteps: AddonInstallGuideStepSummary[];
+  lifecycleBoundary: {
+    taruManagesContainers: boolean;
+    taruManagesProcesses: boolean;
+    taruManagesPackages: boolean;
+    message: string;
+  };
+};
+
+export type AddonInstallGuideSnippetSummary = {
+  title: string;
+  filename: string;
+  content: string;
+  notes: string[];
+};
+
+export type AddonInstallGuideSecretReferenceSummary = {
+  id: string;
+  label: string;
+  description: string | null;
+  required: boolean;
+  envVar: string;
+  placeholder: string;
+};
+
+export type AddonInstallGuideStepSummary = {
+  title: string;
+  command: string;
+  expectedResult: string;
 };
 
 export type CatalogGovernanceSummary = {

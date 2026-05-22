@@ -11,10 +11,30 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: no active architecture/productization focus is set after Admin Web
-Addon Operations closeout.
+Status: no active architecture/productization focus is set after Addon Install
+Guide Generation closeout.
 
 Latest completed architecture focus:
+
+Addon Install Guide Generation turns the completed Addon Operations backend and
+Admin Web surface into an operator-friendly deployment guide for externally run
+Addon Sidecars:
+
+- server-owned Admin API guide generation for registered Addons;
+- Docker Compose and systemd snippets as inert text guidance;
+- Secret Reference checklist without resolved secret values;
+- Addon Health Check and registration verification steps;
+- Admin Web preview through the generated Admin API TypeScript contract.
+
+This focus is intentionally not Addon Manager work. Taru will not install,
+launch, stop, restart, update, remove, log, or supervise Addon Sidecar
+processes in this lane.
+
+Authoritative lane:
+
+- `docs/workstreams/addon-install-guide-generation/`
+
+Previous architecture focus:
 
 Admin Web Addon Operations closed on 2026-05-22. Admin Addon Operations MVP had
 already closed the backend lifecycle, health, surfaces, and diagnostics

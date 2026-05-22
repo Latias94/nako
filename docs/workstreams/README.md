@@ -6,6 +6,11 @@ attention.
 
 ## Current Workstreams
 
+- [addon-install-guide-generation](addon-install-guide-generation/README.md):
+  completed Addon productization lane for generating redaction-safe Docker
+  Compose, systemd, Secret Reference, health-check, and registration
+  verification guidance for externally run Addon Sidecars without expanding
+  into Addon Manager install/update or process supervision.
 - [post-rpd-product-hardening](post-rpd-product-hardening/README.md):
   active roadmap umbrella for ordering post-packaging product lanes across
   metadata provider breadth, NFO/link authority, playback/transcode hardening,

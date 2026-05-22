@@ -6,6 +6,7 @@ import {
   mockAddonDiagnostic,
   mockAddonGrants,
   mockAddonHealth,
+  mockAddonInstallGuide,
   mockAddons,
   mockAddonSurfaces,
   mockAddonTokens,
@@ -23,6 +24,7 @@ import type {
   AddonTokensResponse,
   AdminAcquisitionIntakeCandidateListResponse,
   AdminAddonHealthCheckResponse,
+  AdminAddonInstallGuideResponse,
   AdminAddonRegistrationResponse,
   AdminAddonRegistrationsResponse,
   AdminAddonResourceCallDiagnosticResponse,
@@ -43,6 +45,7 @@ import type {
   AdminSourceMap,
   AddonDiagnosticSummary,
   AddonHealthSummary,
+  AddonInstallGuideSummary,
   AddonOperationsSummary,
   CatalogGovernanceSummary,
   DataSourceMode,
@@ -81,6 +84,7 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
         addonDetail,
         addonHealth,
         addonSurfaces,
+        addonInstallGuide,
         addonTokens,
         addonGrants,
         addonDiagnostic,
@@ -98,6 +102,10 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
         loadSection(() => client.getAddonDetail(mockAddons.addons[0]?.id ?? ""), mockAddonDetail),
         loadSection(() => client.checkAddonHealth(mockAddons.addons[0]?.id ?? ""), mockAddonHealth),
         loadSection(() => client.getAddonSurfaces(mockAddons.addons[0]?.id ?? ""), mockAddonSurfaces),
+        loadSection(
+          () => client.getAddonInstallGuide(mockAddons.addons[0]?.id ?? ""),
+          mockAddonInstallGuide,
+        ),
         loadSection(() => client.getAddonTokens(mockAddons.addons[0]?.id ?? ""), mockAddonTokens),
         loadSection(() => client.getAddonGrants(mockAddons.addons[0]?.id ?? ""), mockAddonGrants),
         loadSection(
@@ -123,6 +131,7 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
         addons: addons.source,
         addonHealth: addonHealth.source,
         addonSurfaces: addonSurfaces.source,
+        addonInstallGuide: addonInstallGuide.source,
         addonTokens: addonTokens.source,
         addonGrants: addonGrants.source,
         catalogGovernance: catalogGovernance.source,
@@ -140,6 +149,7 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
       recordError(errors, "addons", addons);
       recordError(errors, "addonHealth", addonHealth);
       recordError(errors, "addonSurfaces", addonSurfaces);
+      recordError(errors, "addonInstallGuide", addonInstallGuide);
       recordError(errors, "addonTokens", addonTokens);
       recordError(errors, "addonGrants", addonGrants);
       recordError(errors, "catalogGovernance", catalogGovernance);
@@ -161,6 +171,7 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
           addonDetail.value,
           addonHealth.value,
           addonSurfaces.value,
+          addonInstallGuide.value,
           addonTokens.value,
           addonGrants.value,
           addonDiagnostic.value,
@@ -182,6 +193,7 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
         updated,
         mockAddonHealth,
         mockAddonSurfaces,
+        mockAddonInstallGuide,
         mockAddonTokens,
         mockAddonGrants,
         mockAddonDiagnostic,
@@ -206,6 +218,7 @@ function mapAddons(
   detail: AdminAddonRegistrationResponse,
   health: AdminAddonHealthCheckResponse,
   surfaces: AdminAddonSurfacesResponse,
+  installGuide: AdminAddonInstallGuideResponse,
   tokens: AddonTokensResponse,
   grants: AddonGrantsResponse,
   diagnostic: AdminAddonResourceCallDiagnosticResponse,
@@ -271,6 +284,7 @@ function mapAddons(
         path: subscription.path,
       })),
     },
+    installGuide: mapAddonInstallGuide(installGuide),
     tokens: tokens.tokens.map((token) => ({
       id: token.id,
       label: token.label,
@@ -284,6 +298,55 @@ function mapAddons(
       libraryId: grant.library_id,
     })),
     diagnostic: mapAddonDiagnostic(diagnostic),
+  };
+}
+
+function mapAddonInstallGuide(response: AdminAddonInstallGuideResponse): AddonInstallGuideSummary {
+  return {
+    addonId: response.addon_id,
+    manifestId: response.manifest_id,
+    addonName: response.addon_name,
+    addonVersion: response.addon_version,
+    protocolVersion: response.protocol_version,
+    baseUrl: response.base_url,
+    status: response.status,
+    dockerCompose: mapAddonInstallGuideSnippet(response.docker_compose),
+    systemd: mapAddonInstallGuideSnippet(response.systemd),
+    secretReferences: response.secret_references.map((secret) => ({
+      id: secret.id,
+      label: secret.label,
+      description: secret.description ?? null,
+      required: secret.required,
+      envVar: secret.env_var,
+      placeholder: secret.placeholder,
+    })),
+    healthCheckSteps: response.health_check_steps.map(mapAddonInstallGuideStep),
+    registrationVerificationSteps: response.registration_verification_steps.map(mapAddonInstallGuideStep),
+    lifecycleBoundary: {
+      taruManagesContainers: response.lifecycle_boundary.taru_manages_containers,
+      taruManagesProcesses: response.lifecycle_boundary.taru_manages_processes,
+      taruManagesPackages: response.lifecycle_boundary.taru_manages_packages,
+      message: response.lifecycle_boundary.message,
+    },
+  };
+}
+
+function mapAddonInstallGuideSnippet(
+  snippet: AdminAddonInstallGuideResponse["docker_compose"],
+) {
+  return {
+    title: snippet.title,
+    filename: snippet.filename,
+    content: snippet.content,
+    notes: snippet.notes,
+  };
+}
+
+function mapAddonInstallGuideStep(step: AdminAddonInstallGuideResponse["health_check_steps"][number]) {
+  return {
+    title: step.title,
+    command: step.command,
+    expectedResult: step.expected_result,
   };
 }
 
