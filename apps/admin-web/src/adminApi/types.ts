@@ -17,6 +17,7 @@ export type {
   AdminAcquisitionIntakeCandidateDiagnostic,
   AdminAcquisitionIntakeCandidateListResponse,
   AdminAcquisitionIntakeCandidatesQuery,
+  AdminAddonRoutingPlansResponse,
   AdminAddonHealthCheckResponse,
   AdminAddonInstallGuideResponse,
   AdminAddonManifest,
@@ -30,6 +31,9 @@ export type {
   AdminAddonsQuery,
   AdminCatalogGovernanceItem,
   AdminCatalogGovernanceItemListResponse,
+  AdminGeneratedArtifactProposal,
+  AdminGeneratedArtifactProposalListResponse,
+  AdminGeneratedArtifactProposalsQuery,
   AdminJobListItem,
   AdminJobListResponse,
   AdminLocalInferenceSummary,
@@ -61,6 +65,7 @@ export type AdminSectionKey =
   | "addonTokens"
   | "addonGrants"
   | "acquisitionIntake"
+  | "generatedArtifactProposals"
   | "catalogGovernance"
   | "events"
   | "jobs"
@@ -81,6 +86,7 @@ export type AdminConsoleData = {
   libraries: LibraryRow[];
   catalog: CatalogGovernanceSummary;
   acquisitionIntake: IntakeSummary;
+  generatedArtifactProposals: GeneratedArtifactProposalSummary;
   events: EventSummary;
   jobs: JobRow[];
   playback: PlaybackSummary;
@@ -317,6 +323,24 @@ export type IntakeSummary = {
     sizeBytes: number | null;
     hasDiagnostics: boolean;
     linkedArtifactId: string | null;
+  }>;
+  page: PageInfo;
+};
+
+export type GeneratedArtifactProposalSummary = {
+  proposals: Array<{
+    id: string;
+    capability: string;
+    kind: string;
+    status: string;
+    targetKind: string;
+    readinessStatus: string;
+    actionable: boolean;
+    confidenceMilli: number | null;
+    payloadShape: string;
+    providerName: string | null;
+    promptFingerprint: string | null;
+    payloadFingerprint: string;
   }>;
   page: PageInfo;
 };

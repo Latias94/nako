@@ -34,19 +34,19 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.taru.android.ui.TaruStrings
-import dev.taru.android.ui.browse.ArtworkBackdrop
 import dev.taru.android.ui.browse.BrowseFacetTarget
 import dev.taru.android.ui.browse.EmptyCard
 import dev.taru.android.ui.browse.FailureCard
-import dev.taru.android.ui.browse.IconBadge
 import dev.taru.android.ui.browse.LoadMoreFooter
 import dev.taru.android.ui.browse.LoadingCard
 import dev.taru.android.ui.browse.RelationshipIndexFamily
 import dev.taru.android.ui.browse.RelationshipIndexRow
 import dev.taru.android.ui.browse.RelationshipIndexUiState
-import dev.taru.android.ui.browse.SectionHeader
-import dev.taru.android.ui.browse.StatusChip
-import dev.taru.android.ui.browse.TaruScrollColumn
+import dev.taru.android.ui.components.TaruArtworkBackdrop
+import dev.taru.android.ui.components.TaruIconBadge
+import dev.taru.android.ui.components.TaruScreenColumn
+import dev.taru.android.ui.components.TaruSectionHeader
+import dev.taru.android.ui.components.TaruStatusChip
 import dev.taru.android.ui.theme.TaruShape
 import dev.taru.android.ui.theme.TaruSpacing
 import dev.taru.android.ui.theme.TaruTextMuted
@@ -107,7 +107,7 @@ internal fun RelationshipIndexRouteContent(
     onChangeServer: () -> Unit,
     onOpenFacet: (BrowseFacetTarget) -> Unit,
 ) {
-    TaruScrollColumn {
+    TaruScreenColumn {
         IconButton(onClick = onBack) {
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
@@ -146,7 +146,7 @@ private fun RelationshipIndexScreen(
 ) {
     RelationshipIndexHeader(presentation = presentation)
 
-    SectionHeader(
+    TaruSectionHeader(
         title = presentation.sectionTitle,
         action = presentation.resultLabel,
     )
@@ -184,7 +184,7 @@ private fun RelationshipIndexHeader(
                 .fillMaxWidth()
                 .heightIn(min = 220.dp),
         ) {
-            ArtworkBackdrop(
+            TaruArtworkBackdrop(
                 title = presentation.title,
                 modifier = Modifier.matchParentSize(),
             )
@@ -199,7 +199,7 @@ private fun RelationshipIndexHeader(
                     horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconBadge(icon = presentation.icon)
+                    TaruIconBadge(icon = presentation.icon)
                     Column(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(TaruSpacing.xsmall),
@@ -223,9 +223,9 @@ private fun RelationshipIndexHeader(
                     horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small),
                     verticalArrangement = Arrangement.spacedBy(TaruSpacing.small),
                 ) {
-                    StatusChip(text = "From server")
-                    StatusChip(text = presentation.resultLabel)
-                    StatusChip(text = presentation.returnedLabel)
+                    TaruStatusChip(text = "From server")
+                    TaruStatusChip(text = presentation.resultLabel)
+                    TaruStatusChip(text = presentation.returnedLabel)
                 }
             }
         }
@@ -279,7 +279,7 @@ private fun GenreIndexRow(
             horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconBadge(icon = icon, compact = true)
+            TaruIconBadge(icon = icon, compact = true)
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(TaruSpacing.xsmall),

@@ -1,6 +1,6 @@
 # Network Access Boundary — Handoff
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 ## Current State
@@ -45,24 +45,22 @@ It refreshed the generated Admin Web contract and typed Admin Web data mapping
 so the console can render network readiness without raw URLs, hostnames,
 credential values, forwarded headers, local paths, or Public Client API churn.
 
-## Active Task
+NAB-050 is complete. Final closeout evidence is recorded, this workstream is
+marked complete, and the remaining work is split into follow-ons rather than
+hidden in the network lane.
+
+## Closeout State
 
 - Task ID: NAB-050
-- Owner: planner
-- Files:
+- Status: DONE
+- Final scope:
   - `docs/workstreams/network-access-boundary`
   - `docs/workstreams/post-rpd-product-hardening`
   - `docs/workstreams/README.md`
-- Validation:
-  - `verify-rust-workstream` records final evidence
-  - `python -m json.tool docs/workstreams/network-access-boundary/WORKSTREAM.json`
-  - `python -m json.tool docs/workstreams/post-rpd-product-hardening/WORKSTREAM.json`
-  - `git diff --check`
-  - `git diff --name-only -- crates/taru-client-protocol`
-- Status: READY
-- Review: close or split concrete follow-ons. Do not hide built-in NAT
-  traversal runtime, client endpoint discovery, identity/RBAC, downloader
-  protocols, AI writes, Addon runtime, or library mutation in this lane.
+- Review result: no blocking findings. The target state is met, and built-in
+  NAT traversal runtime, client endpoint discovery, identity/RBAC, downloader
+  protocols, AI-assisted library ops, Addon runtime/distribution, and library
+  mutation remain split follow-ons.
 
 ## Decisions Since Opening
 
@@ -90,10 +88,12 @@ credential values, forwarded headers, local paths, or Public Client API churn.
 
 ## Blockers
 
-- None for NAB-040.
+- None.
 
 ## Next Recommended Action
 
-Execute NAB-050: run final review/verification, close this lane or split
-follow-ons for concrete tunnel runtime, endpoint discovery, identity/RBAC,
-protocol downloaders, AI-assisted library ops, and Addon runtime/distribution.
+Return to `post-rpd-product-hardening`.
+
+Recommended next mainline lane: `ai-assisted-library-ops`, scoped to Generated
+Artifact proposal/readiness and explicit accept/reject planning before Addon
+runtime/distribution consumes AI or side-effect proposal queues.

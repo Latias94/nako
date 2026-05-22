@@ -12,8 +12,11 @@ use taru_api::{
         AdminAuthConfigDiagnostics, AdminCatalogGovernanceItem,
         AdminCatalogGovernanceItemListResponse, AdminConfigPlaybackDiagnostics,
         AdminConfigStagingDiagnostics, AdminDatabaseBackendCapabilitiesDiagnostics,
-        AdminDatabaseConfigDiagnostics, AdminJobCancelRequestResponse, AdminJobListItem,
-        AdminJobListResponse, AdminLibraryConfigDiagnostics, AdminMetadataConfigDiagnostics,
+        AdminDatabaseConfigDiagnostics, AdminGeneratedArtifactProposal,
+        AdminGeneratedArtifactProposalListResponse, AdminGeneratedArtifactReviewPlanResponse,
+        AdminGeneratedArtifactReviewRequest, AdminGeneratedArtifactReviewResponse,
+        AdminJobCancelRequestResponse, AdminJobListItem, AdminJobListResponse,
+        AdminLibraryConfigDiagnostics, AdminMetadataConfigDiagnostics,
         AdminMetadataProviderConfigDiagnostics, AdminMetadataRuntimeConfigDiagnostics,
         AdminNetworkAccessDiagnostics, AdminNetworkExposureMode,
         AdminNetworkExternalEndpointDiagnostics, AdminNetworkReadinessCheck,
@@ -49,8 +52,8 @@ use taru_api::{
     public_client::{API_VERSION, page_info_from_request},
 };
 use taru_core::{
-    ArtworkCandidateId, ImageKind, JobId, ManagedArtworkArtifactId, ManagedArtworkIngestId,
-    MediaItemId, PageRequest, TaruError,
+    ArtworkCandidateId, AutomationArtifactId, ImageKind, JobId, ManagedArtworkArtifactId,
+    ManagedArtworkIngestId, MediaItemId, PageRequest, TaruError,
 };
 use taru_db::{DatabaseBackendCapabilities, TaruDatabase};
 use taru_transcode::{
@@ -73,8 +76,8 @@ use super::{
     query::{
         AcquisitionIntakeCandidateListQuery, ArtworkArtifactLifecycleQuery,
         ArtworkArtifactRemediationQuery, ArtworkArtifactStorageDriftQuery, ArtworkGalleryQuery,
-        CatalogGovernanceItemsQuery, JobListQuery, OutboxEventListQuery, PlaybackSessionListQuery,
-        PlaybackSupportEvidenceQuery, StorageStagingQuery,
+        CatalogGovernanceItemsQuery, JobListQuery, OutboxEventListQuery, PageQuery,
+        PlaybackSessionListQuery, PlaybackSupportEvidenceQuery, StorageStagingQuery,
     },
 };
 
@@ -88,6 +91,18 @@ pub(super) fn routes() -> Router<TaruApp> {
         .route(
             "/admin/v1/acquisition/intake/watch-folder-discovery",
             post(discover_admin_watch_folder_candidates),
+        )
+        .route(
+            "/admin/v1/automation/generated-artifacts/proposals",
+            get(list_admin_generated_artifact_proposals),
+        )
+        .route(
+            "/admin/v1/automation/generated-artifacts/{artifact_id}/review-plan",
+            post(plan_admin_generated_artifact_review),
+        )
+        .route(
+            "/admin/v1/automation/generated-artifacts/{artifact_id}/review",
+            post(review_admin_generated_artifact),
         )
         .route(
             "/admin/v1/catalog/governance/items",
@@ -302,6 +317,61 @@ pub(super) async fn discover_admin_watch_folder_candidates(
         managed_import_artifacts_created: diagnostic.managed_import_artifacts_created,
         promotion_apply: diagnostic.promotion_apply,
     }))
+}
+
+pub(super) async fn list_admin_generated_artifact_proposals(
+    State(app): State<TaruApp>,
+    Query(query): Query<PageQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let page: PageRequest = query.try_into()?;
+    let proposals = app
+        .automation()
+        .list_generated_artifact_proposals(page)
+        .await?;
+    let returned = proposals.len();
+    let proposals = proposals
+        .into_iter()
+        .map(AdminGeneratedArtifactProposal::from_proposal)
+        .collect();
+
+    Ok(Json(AdminGeneratedArtifactProposalListResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        proposals,
+        page: page_info_from_request(page, returned),
+    }))
+}
+
+pub(super) async fn plan_admin_generated_artifact_review(
+    State(app): State<TaruApp>,
+    Path(artifact_id): Path<AutomationArtifactId>,
+    Json(request): Json<AdminGeneratedArtifactReviewRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let plan = app
+        .automation()
+        .plan_generated_artifact_review(artifact_id, request.decision)
+        .await?;
+
+    Ok(Json(AdminGeneratedArtifactReviewPlanResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        plan: taru_api::admin::AdminGeneratedArtifactAcceptancePlan::from_plan(plan),
+    }))
+}
+
+pub(super) async fn review_admin_generated_artifact(
+    State(app): State<TaruApp>,
+    Path(artifact_id): Path<AutomationArtifactId>,
+    Json(request): Json<AdminGeneratedArtifactReviewRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let result = app
+        .automation()
+        .review_generated_artifact(artifact_id, request.decision)
+        .await?;
+
+    Ok(Json(AdminGeneratedArtifactReviewResponse::from_result(
+        result,
+    )))
 }
 
 fn admin_acquisition_intake_candidate(

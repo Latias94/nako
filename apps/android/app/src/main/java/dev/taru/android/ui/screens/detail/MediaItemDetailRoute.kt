@@ -18,12 +18,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.LibraryBooks
-import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Movie
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Storage
-import androidx.compose.material.icons.rounded.TheaterComedy
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -35,7 +32,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -45,7 +41,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.taru.android.artwork.PublicArtworkSlot
 import dev.taru.android.artwork.preferredPublicArtwork
-import dev.taru.android.browse.ItemCreditDto
 import dev.taru.android.browse.ItemDetailResponse
 import dev.taru.android.browse.MediaItemDto
 import dev.taru.android.browse.MediaSourceDto
@@ -59,20 +54,19 @@ import dev.taru.android.ui.browse.BrowseFacetTarget
 import dev.taru.android.ui.browse.BrowseFacetUiFamily
 import dev.taru.android.ui.browse.FacetChipRow
 import dev.taru.android.ui.browse.FailureCard
-import dev.taru.android.ui.browse.IconBadge
 import dev.taru.android.ui.browse.InfoCard
 import dev.taru.android.ui.browse.ItemDetailUiState
 import dev.taru.android.ui.browse.LoadingCard
 import dev.taru.android.ui.browse.PlaybackSelectionUiState
 import dev.taru.android.ui.browse.RelationshipCard
 import dev.taru.android.ui.browse.RelationshipRow
-import dev.taru.android.ui.browse.SectionHeader
 import dev.taru.android.ui.browse.SourceProbeUiState
-import dev.taru.android.ui.browse.StatusChip
-import dev.taru.android.ui.browse.SurfaceCard
-import dev.taru.android.ui.browse.TaruScrollColumn
-import dev.taru.android.ui.browse.itemSecondaryText
 import dev.taru.android.ui.browse.playbackModeLabel
+import dev.taru.android.ui.components.TaruIconBadge
+import dev.taru.android.ui.components.TaruScreenColumn
+import dev.taru.android.ui.components.TaruSectionHeader
+import dev.taru.android.ui.components.TaruStatusChip
+import dev.taru.android.ui.components.TaruSurfaceCard
 import dev.taru.android.ui.screens.sourcepicker.SourcePickerSurface
 import dev.taru.android.ui.screens.sourcepicker.selectedSource
 import dev.taru.android.ui.theme.TaruAspectRatio
@@ -99,7 +93,7 @@ internal fun DetailRouteContent(
     onRequestPlayback: (String) -> Unit,
     onStartPlayback: (PlaybackRequestTarget) -> Unit,
 ) {
-    TaruScrollColumn {
+    TaruScreenColumn {
         DetailBackButton(onBack = onBack)
         when (state) {
             ItemDetailUiState.Idle,
@@ -281,7 +275,7 @@ private fun DetailHero(
                             horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small),
                             verticalArrangement = Arrangement.spacedBy(TaruSpacing.small),
                         ) {
-                            detailFactLabels(item).forEach { fact -> StatusChip(text = fact) }
+                            detailFactLabels(item).forEach { fact -> TaruStatusChip(text = fact) }
                         }
                     }
                 }
@@ -375,7 +369,7 @@ private fun PlaybackStatusChip(
         }
         is PlaybackSelectionUiState.Failure -> "Playback issue"
     }
-    StatusChip(text = label)
+    TaruStatusChip(text = label)
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -390,8 +384,8 @@ private fun DetailMetadataSection(
         .map { rating -> "${rating.source}: ${rating.value}" }
     if (metadataTargets.isEmpty() && ratingLabels.isEmpty()) return
 
-    SectionHeader(title = "Metadata")
-    SurfaceCard {
+    TaruSectionHeader(title = "Metadata")
+    TaruSurfaceCard {
         if (metadataTargets.isNotEmpty()) {
             FacetChipRow(
                 targets = metadataTargets,
@@ -404,7 +398,7 @@ private fun DetailMetadataSection(
                 horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small),
                 verticalArrangement = Arrangement.spacedBy(TaruSpacing.small),
             ) {
-                ratingLabels.forEach { label -> StatusChip(text = label) }
+                ratingLabels.forEach { label -> TaruStatusChip(text = label) }
             }
         }
     }
@@ -416,7 +410,7 @@ private fun PeopleSection(
     onOpenFacet: (BrowseFacetTarget) -> Unit,
     onOpenPersonDetail: (String) -> Unit,
 ) {
-    SectionHeader(
+    TaruSectionHeader(
         title = "Cast & Crew",
         action = response.credits.size.takeIf { it > 0 }?.toString(),
     )
@@ -433,7 +427,7 @@ private fun RelatedMediaSection(
     item: MediaItemDto,
     onOpenFacet: (BrowseFacetTarget) -> Unit,
 ) {
-    SectionHeader(title = "Related Media")
+    TaruSectionHeader(title = "Related Media")
     RelationshipCard(
         rows = listOf(
             RelationshipRow(
@@ -471,41 +465,13 @@ private fun RelatedMediaSection(
     )
 }
 
-private fun buildMetadataTargets(response: ItemDetailResponse): List<BrowseFacetTarget> {
-    val item = response.item
-    return buildList {
-        item.metadata.genres.take(4).forEachIndexed { index, label ->
-            add(
-                BrowseFacetTarget(
-                    family = BrowseFacetUiFamily.Genre,
-                    label = label,
-                    id = response.genres.getOrNull(index)?.genreId,
-                ),
-            )
-        }
-        item.metadata.tags.take(4).forEachIndexed { index, label ->
-            add(
-                BrowseFacetTarget(
-                    family = BrowseFacetUiFamily.Tag,
-                    label = label,
-                    id = response.tags.getOrNull(index)?.tagId,
-                ),
-            )
-        }
-        item.metadata.releaseDate?.take(4)?.let { year ->
-            add(BrowseFacetTarget(BrowseFacetUiFamily.Year, year))
-        }
-        add(BrowseFacetTarget(BrowseFacetUiFamily.ItemKind, item.kind))
-    }
-}
-
 @Composable
 private fun DetailRelationshipCard(
     rows: List<DetailRelationshipRow>,
     onOpenFacet: (BrowseFacetTarget) -> Unit,
     onOpenPersonDetail: (String) -> Unit,
 ) {
-    SurfaceCard {
+    TaruSurfaceCard {
         rows.forEach { row ->
             Row(
                 modifier = Modifier
@@ -524,7 +490,7 @@ private fun DetailRelationshipCard(
                 horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconBadge(icon = row.icon, compact = true)
+                TaruIconBadge(icon = row.icon, compact = true)
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = row.title,
@@ -539,103 +505,4 @@ private fun DetailRelationshipCard(
             }
         }
     }
-}
-
-internal data class DetailRelationshipRow(
-    val title: String,
-    val subtitle: String,
-    val icon: ImageVector,
-    val target: DetailRelationshipTarget,
-)
-
-internal sealed interface DetailRelationshipTarget {
-    data class Facet(val target: BrowseFacetTarget) : DetailRelationshipTarget
-    data class PersonDetail(val personId: String) : DetailRelationshipTarget
-}
-
-internal fun creditRelationshipRows(response: ItemDetailResponse): List<DetailRelationshipRow> {
-    val rows = response.credits.take(4).mapIndexed { index, credit ->
-        val title = creditTitle(index, credit)
-        val personId = credit.personId.takeIf { it.isNotBlank() }
-        DetailRelationshipRow(
-            title = title,
-            subtitle = if (personId == null) {
-                "Person link unavailable for this credit."
-            } else {
-                "Open this person and related titles."
-            },
-            icon = Icons.Rounded.Person,
-            target = personId
-                ?.let(DetailRelationshipTarget::PersonDetail)
-                ?: DetailRelationshipTarget.Facet(
-                    BrowseFacetTarget(
-                        family = BrowseFacetUiFamily.Person,
-                        label = title,
-                    ),
-                ),
-        )
-    }
-    return rows.ifEmpty {
-        listOf(
-            DetailRelationshipRow(
-                title = "Cast",
-                subtitle = "Credit names are not available for this item yet.",
-                icon = Icons.Rounded.Person,
-                target = DetailRelationshipTarget.Facet(
-                    BrowseFacetTarget(BrowseFacetUiFamily.Person, "Cast"),
-                ),
-            ),
-            DetailRelationshipRow(
-                title = "Director",
-                subtitle = "Role-specific browsing is not available yet.",
-                icon = Icons.Rounded.TheaterComedy,
-                target = DetailRelationshipTarget.Facet(
-                    BrowseFacetTarget(BrowseFacetUiFamily.Person, "Director"),
-                ),
-            ),
-            DetailRelationshipRow(
-                title = "Writer",
-                subtitle = "Role-specific browsing is not available yet.",
-                icon = Icons.Rounded.Info,
-                target = DetailRelationshipTarget.Facet(
-                    BrowseFacetTarget(BrowseFacetUiFamily.Person, "Writer"),
-                ),
-            ),
-        )
-    }
-}
-
-private fun detailFactLabels(item: MediaItemDto): List<String> =
-    buildList {
-        itemSecondaryText(item).takeIf { it.isNotBlank() }?.let { add(it) }
-        item.metadata.ratings.firstOrNull()?.let { add(it.value) }
-        item.metadata.originalTitle?.takeIf { it.isNotBlank() && it != item.metadata.title }?.let {
-            add("Original title available")
-        }
-        item.parentId?.takeIf { it.isNotBlank() }?.let { add("In hierarchy") }
-    }.ifEmpty { listOf(item.kind) }
-
-internal fun relatedCollectionsSubtitle(collectionCount: Int): String =
-    if (collectionCount <= 0) {
-        "More from this collection needs server support."
-    } else {
-        "$collectionCount collection link(s)"
-    }
-
-internal fun hierarchySubtitle(item: MediaItemDto): String =
-    if (item.parentId.isNullOrBlank()) {
-        "Series and extras browsing needs server support."
-    } else {
-        "This item belongs to a hierarchy, but browsing it needs server support."
-    }
-
-private fun creditTitle(index: Int, credit: ItemCreditDto): String {
-    val role = credit.role
-        ?.replace('_', ' ')
-        ?.takeIf { it.isNotBlank() }
-    val character = credit.character?.takeIf { it.isNotBlank() }
-    return listOfNotNull(
-        role?.replaceFirstChar { it.uppercase() },
-        character?.let { "as $it" },
-    ).joinToString(" / ").ifBlank { "Credit ${index + 1}" }
 }

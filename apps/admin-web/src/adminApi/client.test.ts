@@ -14,6 +14,7 @@ import {
   mockAddonTokens,
   mockCatalogGovernance,
   mockEvents,
+  mockGeneratedArtifactProposals,
   mockJobs,
   mockOverview,
   mockPlaybackRuntime,
@@ -66,6 +67,7 @@ describe("AdminApiClient", () => {
       [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`, mockAddonTokens],
       [`${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`, mockAddonGrants],
       [TARU_ADMIN_ROUTES.acquisitionIntakeCandidates, mockAcquisitionIntakeCandidates],
+      [TARU_ADMIN_ROUTES.generatedArtifactProposals, mockGeneratedArtifactProposals],
       [TARU_ADMIN_ROUTES.events, mockEvents],
       [TARU_ADMIN_ROUTES.jobs, mockJobs],
       [TARU_ADMIN_ROUTES.playbackSessions, mockPlaybackSessions],
@@ -97,6 +99,9 @@ describe("AdminApiClient", () => {
     await expect(
       client.getAcquisitionIntakeCandidates({ library_id: "library-anime", state: "ready" }),
     ).resolves.toEqual(mockAcquisitionIntakeCandidates);
+    await expect(client.getGeneratedArtifactProposals({ limit: 5 })).resolves.toEqual(
+      mockGeneratedArtifactProposals,
+    );
     await expect(client.getEvents()).resolves.toEqual(mockEvents);
     await expect(client.getJobs()).resolves.toEqual(mockJobs);
     await expect(client.getPlaybackSessions()).resolves.toEqual(mockPlaybackSessions);
@@ -117,6 +122,7 @@ describe("AdminApiClient", () => {
       `${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`,
       `${TARU_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`,
       `${TARU_ADMIN_ROUTES.acquisitionIntakeCandidates}?library_id=library-anime&state=ready`,
+      `${TARU_ADMIN_ROUTES.generatedArtifactProposals}?limit=5`,
       TARU_ADMIN_ROUTES.events,
       TARU_ADMIN_ROUTES.jobs,
       TARU_ADMIN_ROUTES.playbackSessions,
@@ -302,5 +308,77 @@ describe("AdminApiClient", () => {
         }),
       },
     );
+  });
+
+  it("posts addon runtime readiness diagnostics through the Admin-only route", async () => {
+    const response = {
+      addon_id: "addon/with space",
+      manifest_id: "taru.metadata",
+      readiness: {
+        status: "degraded",
+        reason: "missing_secret_reference",
+        checks: [
+          {
+            name: "secret_references",
+            status: "degraded",
+            reason: "missing_secret_reference",
+            safe_error_code: "missing_secret_reference",
+          },
+        ],
+      },
+    };
+    const fetcher = vi.fn(async () => Response.json(response));
+    const client = new AdminApiClient({ token: "redacted-test-token", fetcher });
+
+    await expect(client.getAddonRuntimeReadiness("addon/with space")).resolves.toEqual(response);
+
+    expect(fetcher).toHaveBeenCalledWith(
+      "/admin/v1/addons/addon%2Fwith%20space/runtime-readiness",
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer redacted-test-token",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      },
+    );
+  });
+
+  it("posts addon routing-plan syncs through the Admin-only route", async () => {
+    const response = {
+      addon_id: "addon/with space",
+      manifest_id: "taru.metadata",
+      manifest_version: "0.1.0",
+      manifest_fingerprint: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      executable: 1,
+      deferred: 1,
+      plans: [
+        {
+          declaration_kind: "task",
+          declaration_id: "bulk-task",
+          status: "executable",
+          target: "addon_task_job",
+          job_kind: "addon_task",
+          required_scope_count: 1,
+          filter_configured: false,
+          timeout_ms: 30000,
+          max_attempts: 2,
+        },
+      ],
+    };
+    const fetcher = vi.fn(async () => Response.json(response));
+    const client = new AdminApiClient({ token: "redacted-test-token", fetcher });
+
+    await expect(client.getAddonRoutingPlans("addon/with space")).resolves.toEqual(response);
+
+    expect(fetcher).toHaveBeenCalledWith("/admin/v1/addons/addon%2Fwith%20space/routing-plans", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer redacted-test-token",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({}),
+    });
   });
 });

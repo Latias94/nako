@@ -1,15 +1,15 @@
 package dev.taru.android.connection
 
-import java.io.IOException
 import java.net.URI
-import javax.net.ssl.SSLException
 
 class TaruConnectionClient private constructor(
-    private val transport: TaruHttpTransport,
+    transport: TaruHttpTransport,
     private val clockMillis: () -> Long = System::currentTimeMillis,
     private val securityPolicy: ConnectionSecurityPolicy = ConnectionSecurityPolicy.production(),
     private val connectionCore: ConnectionCore,
 ) {
+    private val runtime = PublicClientRuntime(transport)
+
     constructor(
         transport: TaruHttpTransport,
         clockMillis: () -> Long = System::currentTimeMillis,
@@ -199,54 +199,12 @@ class TaruConnectionClient private constructor(
     private suspend fun executeCoreRequest(
         request: ConnectionCoreRequest,
         accessToken: String,
-    ): PublicApiResult<TaruHttpResponse> {
-        val androidRequest = request.httpRequest
-        val safeRequest = request.safePreview
-        val response = try {
-            transport.execute(androidRequest)
-        } catch (error: CleartextHttpNotPermittedException) {
-            return PublicApiResult.Failure(
-                PublicApiFailure(
-                    kind = PublicApiFailureKind.UnreachableServer,
-                    publicError = PublicErrorEnvelope(
-                        code = "cleartext_http_not_allowed",
-                        message = SensitiveText.sanitize(
-                            error.message.orEmpty(),
-                            listOf(accessToken),
-                        ),
-                    ),
-                    request = safeRequest,
-                ),
-            )
-        } catch (_: SSLException) {
-            return PublicApiResult.Failure(
-                PublicApiFailure(
-                    kind = PublicApiFailureKind.TlsOrCertificate,
-                    request = safeRequest,
-                ),
-            )
-        } catch (error: IOException) {
-            return PublicApiResult.Failure(
-                PublicApiFailure(
-                    kind = PublicApiFailureKind.UnreachableServer,
-                    publicError = PublicErrorEnvelope(
-                        code = "transport_error",
-                        message = SensitiveText.sanitize(
-                            error.message.orEmpty(),
-                            listOf(accessToken),
-                        ),
-                    ),
-                    request = safeRequest,
-                ),
-            )
-        }
-
-        return PublicApiResult.Success(
-            value = response,
-            request = safeRequest,
-            response = response,
+    ): PublicApiResult<TaruHttpResponse> =
+        runtime.executeCoreResponse(
+            request = request.httpRequest,
+            safeRequest = request.safePreview,
+            secrets = listOf(accessToken),
         )
-    }
 
     private fun invalidCoreOutcomeFailure(normalizedBaseUrl: String): ConnectionCheckResult.Failure =
         failure(

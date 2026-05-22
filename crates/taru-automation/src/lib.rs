@@ -436,6 +436,33 @@ mod tests {
         assert_eq!(artifacts.len(), 1);
         assert_eq!(artifacts[0].status, AutomationArtifactStatus::Proposed);
         assert!(artifacts[0].accepted_at.is_none());
+        let proposals = store
+            .list_generated_artifact_proposals(taru_core::PageRequest::first_page())
+            .await
+            .unwrap();
+        assert_eq!(proposals.len(), 1);
+        assert_eq!(
+            proposals[0].readiness.status,
+            taru_core::GeneratedArtifactReadinessStatus::Ready
+        );
+        assert!(proposals[0].readiness.actionable);
+        assert_eq!(
+            proposals[0].target.kind,
+            taru_core::GeneratedArtifactTargetKind::Library
+        );
+        assert_eq!(proposals[0].target.library_id, Some(library.id));
+        assert_eq!(proposals[0].provenance.attempt_count, Some(1));
+        assert!(
+            proposals[0]
+                .provenance
+                .prompt_fingerprint
+                .as_deref()
+                .is_some_and(|fingerprint| fingerprint.starts_with("sha256:"))
+        );
+        let proposal_body = serde_json::to_string(&proposals[0]).unwrap();
+        assert!(!proposal_body.contains("The Matrix"));
+        assert!(!proposal_body.contains("Generated summary"));
+        assert!(!proposal_body.contains("secret"));
     }
 
     #[tokio::test]

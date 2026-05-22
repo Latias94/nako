@@ -36,6 +36,98 @@ pub struct AddonManifest {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonInstallDescriptor {
+    pub manifest: AddonManifest,
+    pub runtime: AddonRuntimeRequirement,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub secret_reference_bindings: Vec<AddonSecretReferenceBinding>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub install_notes: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonRuntimeRequirement {
+    pub kind: AddonRuntimeKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binary: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub command: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonRuntimeKind {
+    HttpSidecar,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonSecretReferenceBinding {
+    pub field_id: String,
+    pub secret_ref: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonInstallGuide {
+    pub manifest_id: String,
+    pub addon_name: String,
+    pub protocol_version: String,
+    pub runtime_kind: AddonRuntimeKind,
+    pub runtime_reference: AddonRuntimeReference,
+    pub base_url_scheme: String,
+    pub base_url_configured: bool,
+    pub declared_resources: Vec<AddonResource>,
+    pub declared_scopes: Vec<AddonScope>,
+    pub required_secret_fields: Vec<AddonInstallSecretField>,
+    pub provided_secret_refs: Vec<String>,
+    pub missing_required_secret_fields: Vec<String>,
+    pub has_configuration_schema: bool,
+    pub entry_point_count: u32,
+    pub hosted_page_count: u32,
+    pub task_count: u32,
+    pub event_subscription_count: u32,
+    pub install_steps: Vec<AddonInstallStep>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonRuntimeReference {
+    pub kind: AddonRuntimeReferenceKind,
+    pub value: String,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonRuntimeReferenceKind {
+    Image,
+    Binary,
+    Command,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonInstallSecretField {
+    pub id: String,
+    pub label: String,
+    pub required: bool,
+    pub provided: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonInstallStep {
+    pub kind: AddonInstallStepKind,
+    pub summary: String,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonInstallStepKind {
+    RunSidecar,
+    ConfigureSecretReference,
+    RegisterManifest,
+    GrantScopes,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AddonResourceDeclaration {
     pub kind: AddonResource,
     pub path: String,
@@ -573,6 +665,17 @@ pub enum AddonManifestError {
     MissingAuthToken {
         auth: AddonAuth,
     },
+    MissingRuntimeReference,
+    InvalidRuntimeReference,
+    UnknownSecretReferenceField {
+        field_id: String,
+    },
+    DuplicateSecretReferenceBinding {
+        field_id: String,
+    },
+    SecretReferenceContainsValue {
+        field_id: String,
+    },
     ResourceNotDeclared {
         resource: AddonResource,
     },
@@ -644,6 +747,36 @@ impl fmt::Display for AddonManifestError {
                 write!(
                     formatter,
                     "addon auth token is required for {auth:?} authentication"
+                )
+            }
+            Self::MissingRuntimeReference => {
+                write!(
+                    formatter,
+                    "addon install descriptor must declare an image, binary, or command"
+                )
+            }
+            Self::InvalidRuntimeReference => {
+                write!(
+                    formatter,
+                    "addon runtime reference must not contain credentials, URLs, or local paths"
+                )
+            }
+            Self::UnknownSecretReferenceField { field_id } => {
+                write!(
+                    formatter,
+                    "addon install descriptor references unknown secret field: {field_id}"
+                )
+            }
+            Self::DuplicateSecretReferenceBinding { field_id } => {
+                write!(
+                    formatter,
+                    "duplicate addon secret reference binding: {field_id}"
+                )
+            }
+            Self::SecretReferenceContainsValue { field_id } => {
+                write!(
+                    formatter,
+                    "addon secret reference binding {field_id} must contain a reference, not a secret value"
                 )
             }
             Self::ResourceNotDeclared { resource } => {
@@ -742,6 +875,96 @@ pub fn ensure_scope_grant(
     }
 
     Ok(())
+}
+
+pub fn validate_install_descriptor(descriptor: &AddonInstallDescriptor) -> AddonProtocolResult<()> {
+    validate_manifest(&descriptor.manifest)?;
+    validate_runtime_requirement(&descriptor.runtime)?;
+
+    let declared_secret_fields = descriptor
+        .manifest
+        .secret_reference_fields
+        .iter()
+        .map(|field| field.id.as_str())
+        .collect::<HashSet<_>>();
+    let mut bound_secret_fields = HashSet::new();
+    for binding in &descriptor.secret_reference_bindings {
+        validate_non_empty(&binding.field_id, "secret_reference_bindings.field_id")?;
+        validate_non_empty(&binding.secret_ref, "secret_reference_bindings.secret_ref")?;
+        if !declared_secret_fields.contains(binding.field_id.as_str()) {
+            return Err(AddonManifestError::UnknownSecretReferenceField {
+                field_id: binding.field_id.clone(),
+            });
+        }
+        if !bound_secret_fields.insert(binding.field_id.clone()) {
+            return Err(AddonManifestError::DuplicateSecretReferenceBinding {
+                field_id: binding.field_id.clone(),
+            });
+        }
+        if secret_reference_looks_like_value(&binding.secret_ref) {
+            return Err(AddonManifestError::SecretReferenceContainsValue {
+                field_id: binding.field_id.clone(),
+            });
+        }
+    }
+
+    Ok(())
+}
+
+#[must_use]
+pub fn addon_install_guide(descriptor: &AddonInstallDescriptor) -> AddonInstallGuide {
+    let provided_secret_refs = descriptor
+        .secret_reference_bindings
+        .iter()
+        .map(|binding| binding.secret_ref.clone())
+        .collect::<Vec<_>>();
+    let provided_secret_fields = descriptor
+        .secret_reference_bindings
+        .iter()
+        .map(|binding| binding.field_id.as_str())
+        .collect::<HashSet<_>>();
+    let required_secret_fields = descriptor
+        .manifest
+        .secret_reference_fields
+        .iter()
+        .map(|field| AddonInstallSecretField {
+            id: field.id.clone(),
+            label: field.label.clone(),
+            required: field.required,
+            provided: provided_secret_fields.contains(field.id.as_str()),
+        })
+        .collect::<Vec<_>>();
+    let missing_required_secret_fields = required_secret_fields
+        .iter()
+        .filter(|field| field.required && !field.provided)
+        .map(|field| field.id.clone())
+        .collect::<Vec<_>>();
+
+    AddonInstallGuide {
+        manifest_id: descriptor.manifest.id.clone(),
+        addon_name: descriptor.manifest.name.clone(),
+        protocol_version: descriptor.manifest.protocol_version.clone(),
+        runtime_kind: descriptor.runtime.kind,
+        runtime_reference: runtime_reference(&descriptor.runtime),
+        base_url_scheme: base_url_scheme(&descriptor.manifest.base_url).unwrap_or_default(),
+        base_url_configured: has_http_base_url(&descriptor.manifest.base_url),
+        declared_resources: descriptor
+            .manifest
+            .resources
+            .iter()
+            .map(|resource| resource.kind)
+            .collect(),
+        declared_scopes: descriptor.manifest.scopes.clone(),
+        required_secret_fields,
+        provided_secret_refs,
+        missing_required_secret_fields,
+        has_configuration_schema: descriptor.manifest.configuration_schema.is_some(),
+        entry_point_count: usize_to_u32(descriptor.manifest.entry_points.len()),
+        hosted_page_count: usize_to_u32(descriptor.manifest.hosted_pages.len()),
+        task_count: usize_to_u32(descriptor.manifest.tasks.len()),
+        event_subscription_count: usize_to_u32(descriptor.manifest.event_subscriptions.len()),
+        install_steps: install_steps(descriptor),
+    }
 }
 
 pub fn validate_resource_response(
@@ -989,6 +1212,160 @@ fn validate_max_attempts(value: u32) -> AddonProtocolResult<()> {
     } else {
         Err(AddonManifestError::InvalidMaxAttempts { value })
     }
+}
+
+fn validate_runtime_requirement(runtime: &AddonRuntimeRequirement) -> AddonProtocolResult<()> {
+    let runtime_reference_count = [&runtime.image, &runtime.binary, &runtime.command]
+        .into_iter()
+        .flatten()
+        .count();
+    if runtime_reference_count == 0 {
+        return Err(AddonManifestError::MissingRuntimeReference);
+    }
+    if runtime_reference_count > 1 {
+        return Err(AddonManifestError::InvalidRuntimeReference);
+    }
+
+    for value in [&runtime.image, &runtime.binary, &runtime.command]
+        .into_iter()
+        .flatten()
+    {
+        validate_non_empty(value, "runtime")?;
+        if runtime_reference_is_sensitive(value) {
+            return Err(AddonManifestError::InvalidRuntimeReference);
+        }
+    }
+
+    Ok(())
+}
+
+fn runtime_reference_is_sensitive(value: &str) -> bool {
+    let lower = value.to_ascii_lowercase();
+    value.contains('\\')
+        || looks_like_local_path(value)
+        || lower.starts_with("file:")
+        || lower.contains("://")
+        || lower.contains("token=")
+        || lower.contains("secret=")
+        || lower.contains("password=")
+        || lower.contains("authorization:")
+        || lower.contains("bearer ")
+        || lower.contains("--env ")
+        || lower.contains("-e ")
+}
+
+fn looks_like_local_path(value: &str) -> bool {
+    let value = value.trim();
+    value.starts_with('/')
+        || value.starts_with("./")
+        || value.starts_with("../")
+        || value.starts_with("~/")
+        || value.as_bytes().get(1).is_some_and(|byte| *byte == b':')
+}
+
+fn secret_reference_looks_like_value(value: &str) -> bool {
+    let value = value.trim();
+    if let Some(name) = value.strip_prefix("env:") {
+        return !valid_environment_reference_name(name);
+    }
+    if let Some(name) = value.strip_prefix("secret:") {
+        return !valid_named_secret_reference(name);
+    }
+    if let Some(name) = value.strip_prefix("taru:") {
+        return !valid_named_secret_reference(name);
+    }
+
+    let lower = value.to_ascii_lowercase();
+    lower.contains("://")
+        || lower.contains('=')
+        || lower.starts_with("bearer ")
+        || lower.contains("secret")
+        || lower.contains("token")
+        || lower.contains("password")
+}
+
+fn valid_environment_reference_name(value: &str) -> bool {
+    let mut chars = value.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    (first == '_' || first.is_ascii_alphabetic())
+        && chars.all(|character| character == '_' || character.is_ascii_alphanumeric())
+}
+
+fn valid_named_secret_reference(value: &str) -> bool {
+    !value.is_empty()
+        && value.chars().all(|character| {
+            character == '_'
+                || character == '-'
+                || character == '.'
+                || character == '/'
+                || character.is_ascii_alphanumeric()
+        })
+}
+
+fn base_url_scheme(value: &str) -> Option<String> {
+    value.split_once("://").map(|(scheme, _)| scheme.to_owned())
+}
+
+fn runtime_reference(runtime: &AddonRuntimeRequirement) -> AddonRuntimeReference {
+    if let Some(value) = runtime.image.as_ref() {
+        return AddonRuntimeReference {
+            kind: AddonRuntimeReferenceKind::Image,
+            value: value.clone(),
+        };
+    }
+    if let Some(value) = runtime.binary.as_ref() {
+        return AddonRuntimeReference {
+            kind: AddonRuntimeReferenceKind::Binary,
+            value: value.clone(),
+        };
+    }
+    let value = runtime.command.clone().unwrap_or_default();
+    AddonRuntimeReference {
+        kind: AddonRuntimeReferenceKind::Command,
+        value,
+    }
+}
+
+fn usize_to_u32(value: usize) -> u32 {
+    u32::try_from(value).unwrap_or(u32::MAX)
+}
+
+fn install_steps(descriptor: &AddonInstallDescriptor) -> Vec<AddonInstallStep> {
+    let mut steps = vec![AddonInstallStep {
+        kind: AddonInstallStepKind::RunSidecar,
+        summary: "Run the Addon Sidecar outside Taru using the declared runtime reference."
+            .to_owned(),
+    }];
+    if descriptor
+        .manifest
+        .secret_reference_fields
+        .iter()
+        .any(|field| field.required)
+    {
+        steps.push(AddonInstallStep {
+            kind: AddonInstallStepKind::ConfigureSecretReference,
+            summary: "Configure required Secret References in Taru; do not paste secret values into the install guide."
+                .to_owned(),
+        });
+    }
+    steps.push(AddonInstallStep {
+        kind: AddonInstallStepKind::RegisterManifest,
+        summary:
+            "Register the manifest through the Admin Addon API after the sidecar is reachable."
+                .to_owned(),
+    });
+    if !descriptor.manifest.scopes.is_empty() {
+        steps.push(AddonInstallStep {
+            kind: AddonInstallStepKind::GrantScopes,
+            summary:
+                "Grant only the requested Addon Scopes and library access needed by this sidecar."
+                    .to_owned(),
+        });
+    }
+
+    steps
 }
 
 fn has_http_base_url(value: &str) -> bool {
@@ -1333,6 +1710,139 @@ mod tests {
                 "policy": "replace_existing_preserving"
             })
         );
+    }
+
+    #[test]
+    fn addon_install_descriptor_generates_redacted_install_guide() {
+        let mut manifest = valid_manifest();
+        manifest.secret_reference_fields = vec![AddonSecretReferenceFieldDeclaration {
+            id: "metadata_api_key".to_owned(),
+            label: "Metadata API key".to_owned(),
+            description: Some("Resolved by Taru at runtime".to_owned()),
+            required: true,
+        }];
+        manifest.tasks = vec![AddonTaskDeclaration {
+            id: "bulk-metadata-scrape".to_owned(),
+            name: "Bulk metadata scrape".to_owned(),
+            path: "/tasks/bulk-metadata-scrape".to_owned(),
+            description: None,
+            required_scopes: vec![AddonScope::AutomationRun],
+            timeout_ms: Some(30_000),
+            max_attempts: Some(2),
+        }];
+        manifest.event_subscriptions = vec![AddonEventSubscriptionDeclaration {
+            id: "library-scan-finished".to_owned(),
+            event_kind: "library_scan.succeeded".to_owned(),
+            path: "/events/library-scan-finished".to_owned(),
+            required_scopes: vec![AddonScope::WebhookEventRead],
+            filters: serde_json::json!({ "library_preset": "movies" }),
+        }];
+        manifest
+            .scopes
+            .extend([AddonScope::AutomationRun, AddonScope::WebhookEventRead]);
+        let descriptor = AddonInstallDescriptor {
+            manifest,
+            runtime: AddonRuntimeRequirement {
+                kind: AddonRuntimeKind::HttpSidecar,
+                image: Some("ghcr.io/taru/example-metadata-addon:0.1.0".to_owned()),
+                binary: None,
+                command: None,
+            },
+            secret_reference_bindings: vec![AddonSecretReferenceBinding {
+                field_id: "metadata_api_key".to_owned(),
+                secret_ref: "env:TARU_METADATA_ADDON_API_KEY".to_owned(),
+            }],
+            install_notes: vec!["Use a reverse proxy if exposing the sidecar remotely.".to_owned()],
+        };
+
+        validate_install_descriptor(&descriptor).unwrap();
+        let guide = addon_install_guide(&descriptor);
+        let body = serde_json::to_string(&guide).unwrap();
+
+        assert_eq!(guide.manifest_id, "example");
+        assert_eq!(guide.runtime_kind, AddonRuntimeKind::HttpSidecar);
+        assert_eq!(
+            guide.runtime_reference,
+            AddonRuntimeReference {
+                kind: AddonRuntimeReferenceKind::Image,
+                value: "ghcr.io/taru/example-metadata-addon:0.1.0".to_owned(),
+            }
+        );
+        assert_eq!(guide.base_url_scheme, "https");
+        assert_eq!(guide.task_count, 1);
+        assert_eq!(guide.event_subscription_count, 1);
+        assert_eq!(guide.required_secret_fields[0].id, "metadata_api_key");
+        assert!(guide.required_secret_fields[0].provided);
+        assert!(guide.missing_required_secret_fields.is_empty());
+        assert!(
+            guide
+                .install_steps
+                .iter()
+                .any(|step| step.kind == AddonInstallStepKind::ConfigureSecretReference)
+        );
+        assert!(!body.contains("TARU_METADATA_ADDON_API_KEY="));
+        assert!(!body.contains("secret-value"));
+        assert!(!body.contains("Bearer "));
+        assert!(!body.contains("C:\\"));
+        assert!(!body.contains("file:///"));
+    }
+
+    #[test]
+    fn addon_install_descriptor_rejects_secret_values_and_local_runtime_paths() {
+        let mut descriptor = AddonInstallDescriptor {
+            manifest: valid_manifest(),
+            runtime: AddonRuntimeRequirement {
+                kind: AddonRuntimeKind::HttpSidecar,
+                image: None,
+                binary: Some("C:\\addons\\metadata.exe".to_owned()),
+                command: None,
+            },
+            secret_reference_bindings: Vec::new(),
+            install_notes: Vec::new(),
+        };
+        assert!(matches!(
+            validate_install_descriptor(&descriptor),
+            Err(AddonManifestError::InvalidRuntimeReference)
+        ));
+
+        descriptor.runtime.binary = Some("C:/addons/metadata.exe".to_owned());
+        assert!(matches!(
+            validate_install_descriptor(&descriptor),
+            Err(AddonManifestError::InvalidRuntimeReference)
+        ));
+
+        descriptor.runtime.binary = Some("taru-metadata-addon".to_owned());
+        descriptor.runtime.command = Some("taru-metadata-addon --port 8080".to_owned());
+        assert!(matches!(
+            validate_install_descriptor(&descriptor),
+            Err(AddonManifestError::InvalidRuntimeReference)
+        ));
+
+        descriptor.runtime.binary = Some("taru-metadata-addon".to_owned());
+        descriptor.runtime.command = None;
+        descriptor
+            .manifest
+            .secret_reference_fields
+            .push(AddonSecretReferenceFieldDeclaration {
+                id: "metadata_api_key".to_owned(),
+                label: "Metadata API key".to_owned(),
+                description: None,
+                required: true,
+            });
+        descriptor.secret_reference_bindings = vec![AddonSecretReferenceBinding {
+            field_id: "metadata_api_key".to_owned(),
+            secret_ref: "secret-value-token".to_owned(),
+        }];
+        assert!(matches!(
+            validate_install_descriptor(&descriptor),
+            Err(AddonManifestError::SecretReferenceContainsValue { .. })
+        ));
+
+        descriptor.secret_reference_bindings = vec![AddonSecretReferenceBinding {
+            field_id: "metadata_api_key".to_owned(),
+            secret_ref: "env:TARU_METADATA_ADDON_TOKEN".to_owned(),
+        }];
+        validate_install_descriptor(&descriptor).unwrap();
     }
 
     fn valid_manifest() -> AddonManifest {

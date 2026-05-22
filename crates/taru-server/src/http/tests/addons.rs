@@ -114,6 +114,53 @@ async fn failing_resource_addon_server(status: StatusCode, body: &'static str) -
     format!("http://{addr}")
 }
 
+async fn raw_health_addon_server(status: StatusCode, body: &'static str) -> String {
+    let router = Router::new().route(
+        "/health",
+        axum::routing::post(move || async move { (status, body) }),
+    );
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, router).await.unwrap();
+    });
+    yield_now().await;
+
+    format!("http://{addr}")
+}
+
+async fn mismatched_health_addon_server(
+    manifest_id: &'static str,
+    version: &'static str,
+) -> String {
+    let router = Router::new().route(
+        "/health",
+        axum::routing::post(move || async move {
+            Json(ProtocolAddonHealthCheckResponse {
+                protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+                manifest_id: manifest_id.to_owned(),
+                status: AddonHealthStatus::Ok,
+                checked_at: "2026-05-21T12:00:00.000Z".to_owned(),
+                manifest: AddonHealthManifestFacts {
+                    addon_version: version.to_owned(),
+                    resource_count: 1,
+                },
+                diagnostics: serde_json::json!({
+                    "raw_network_error": "Bearer taru_at_should_not_echo"
+                }),
+            })
+        }),
+    );
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, router).await.unwrap();
+    });
+    yield_now().await;
+
+    format!("http://{addr}")
+}
+
 async fn artwork_server(
     status: StatusCode,
     content_type: &'static str,
@@ -505,6 +552,154 @@ async fn register_addon_routes_disabled_by_default_and_validate_contract() {
     assert_eq!(missing_scope.status(), StatusCode::BAD_REQUEST);
     let missing_scope_error = body_json::<ErrorResponse>(missing_scope).await;
     assert_eq!(missing_scope_error.code, "invalid_input");
+}
+
+#[tokio::test]
+async fn admin_addon_install_guide_preview_redacts_package_and_secret_material() {
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+    let mut manifest = addon_manifest();
+    manifest.secret_reference_fields = vec![AddonSecretReferenceFieldDeclaration::new(
+        "metadata_api_key",
+        "Metadata API key",
+        Some("Resolved by Taru at runtime".to_owned()),
+        true,
+    )];
+    manifest.tasks = vec![AddonTaskDeclaration::new(
+        "bulk-metadata-scrape",
+        "Bulk Metadata Scrape",
+        "/tasks/bulk-metadata-scrape",
+        vec![AddonScope::ItemMetadataSuggest],
+    )];
+    manifest.event_subscriptions = vec![AddonEventSubscriptionDeclaration::new(
+        "library-scan-finished",
+        "library_scan.succeeded",
+        "/events/library-scan-finished",
+        vec![AddonScope::ItemMetadataRead],
+        serde_json::json!({"library_preset":"movies"}),
+    )];
+    let descriptor = AddonInstallDescriptor {
+        manifest,
+        runtime: AddonRuntimeRequirement {
+            kind: AddonRuntimeKind::HttpSidecar,
+            image: Some("ghcr.io/taru/example-metadata-addon:0.1.0".to_owned()),
+            binary: None,
+            command: None,
+        },
+        secret_reference_bindings: vec![AddonSecretReferenceBinding {
+            field_id: "metadata_api_key".to_owned(),
+            secret_ref: "env:TARU_METADATA_ADDON_TOKEN".to_owned(),
+        }],
+        install_notes: vec![
+            "Do not include TARU_METADATA_ADDON_TOKEN=secret-value in the guide".to_owned(),
+        ],
+    };
+
+    let response = request_body_json::<AdminAddonInstallGuidePreviewResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons/install-guide-preview",
+        &AdminAddonInstallGuidePreviewRequest { descriptor },
+    )
+    .await;
+    let text = serde_json::to_string(&response).unwrap();
+
+    assert_eq!(response.guide.manifest_id, "example.metadata");
+    assert_eq!(response.guide.runtime_kind, AddonRuntimeKind::HttpSidecar);
+    assert_eq!(
+        response.guide.runtime_reference.value,
+        "ghcr.io/taru/example-metadata-addon:0.1.0"
+    );
+    assert_eq!(response.guide.required_secret_fields.len(), 1);
+    assert!(response.guide.required_secret_fields[0].provided);
+    assert!(response.guide.missing_required_secret_fields.is_empty());
+    assert_eq!(response.guide.task_count, 1);
+    assert_eq!(response.guide.event_subscription_count, 1);
+    assert!(!text.contains("secret-value"));
+    assert!(!text.contains("TARU_METADATA_ADDON_TOKEN="));
+    assert!(!text.contains("Bearer "));
+    assert!(!text.contains("taru_at_"));
+    assert!(!text.contains("C:\\"));
+    assert!(!text.contains("file:///"));
+}
+
+#[tokio::test]
+async fn admin_addon_install_guide_preview_rejects_raw_secret_and_local_runtime_paths() {
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+    let mut manifest = addon_manifest();
+    manifest.secret_reference_fields = vec![AddonSecretReferenceFieldDeclaration::new(
+        "metadata_api_key",
+        "Metadata API key",
+        Some("Resolved by Taru at runtime".to_owned()),
+        true,
+    )];
+    let mut descriptor = AddonInstallDescriptor {
+        manifest,
+        runtime: AddonRuntimeRequirement {
+            kind: AddonRuntimeKind::HttpSidecar,
+            image: None,
+            binary: Some("C:\\addons\\metadata.exe".to_owned()),
+            command: None,
+        },
+        secret_reference_bindings: Vec::new(),
+        install_notes: Vec::new(),
+    };
+
+    let local_runtime = response_body_json(
+        &router,
+        Method::POST,
+        "/admin/v1/addons/install-guide-preview",
+        &AdminAddonInstallGuidePreviewRequest {
+            descriptor: descriptor.clone(),
+        },
+    )
+    .await;
+    assert_eq!(local_runtime.status(), StatusCode::BAD_REQUEST);
+    let local_runtime_text =
+        serde_json::to_string(&body_json::<ErrorResponse>(local_runtime).await).unwrap();
+    assert!(!local_runtime_text.contains("C:\\addons\\metadata.exe"));
+
+    descriptor.runtime.binary = Some("taru-metadata-addon".to_owned());
+    descriptor.secret_reference_bindings = vec![AddonSecretReferenceBinding {
+        field_id: "metadata_api_key".to_owned(),
+        secret_ref: "metadata-secret-token-value".to_owned(),
+    }];
+    let raw_secret = response_body_json(
+        &router,
+        Method::POST,
+        "/admin/v1/addons/install-guide-preview",
+        &AdminAddonInstallGuidePreviewRequest { descriptor },
+    )
+    .await;
+    assert_eq!(raw_secret.status(), StatusCode::BAD_REQUEST);
+    let raw_secret_text =
+        serde_json::to_string(&body_json::<ErrorResponse>(raw_secret).await).unwrap();
+    assert!(!raw_secret_text.contains("metadata-secret-token-value"));
+
+    let mut descriptor = AddonInstallDescriptor {
+        manifest: addon_manifest(),
+        runtime: AddonRuntimeRequirement {
+            kind: AddonRuntimeKind::HttpSidecar,
+            image: Some("ghcr.io/taru/example-metadata-addon:0.1.0".to_owned()),
+            binary: None,
+            command: None,
+        },
+        secret_reference_bindings: Vec::new(),
+        install_notes: Vec::new(),
+    };
+    descriptor.manifest.resources[0].path = "C:\\secret\\metadata".to_owned();
+    let invalid_manifest = response_body_json(
+        &router,
+        Method::POST,
+        "/admin/v1/addons/install-guide-preview",
+        &AdminAddonInstallGuidePreviewRequest { descriptor },
+    )
+    .await;
+    assert_eq!(invalid_manifest.status(), StatusCode::BAD_REQUEST);
+    let invalid_manifest_text =
+        serde_json::to_string(&body_json::<ErrorResponse>(invalid_manifest).await).unwrap();
+    assert!(!invalid_manifest_text.contains("C:\\secret\\metadata"));
 }
 
 #[tokio::test]
@@ -1049,6 +1244,428 @@ async fn admin_addon_health_check_classifies_unreachable_without_raw_error_leak(
 }
 
 #[tokio::test]
+async fn admin_addon_runtime_readiness_reports_ready_sidecar_without_token_or_payload_echo() {
+    let (addon_base_url, requests) = health_check_addon_server(
+        StatusCode::OK,
+        AddonHealthStatus::Ok,
+        "taru.ready.metadata",
+        true,
+    )
+    .await;
+    let mut manifest = taru_reference_addon::reference_manifest(addon_base_url);
+    manifest.id = "taru.ready.metadata".to_owned();
+
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let path = format!("/admin/v1/addons/{addon_id}/runtime-readiness");
+
+    let raw = response_for(&router, Method::POST, &path).await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let bytes = to_bytes(raw.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let response = serde_json::from_str::<AdminAddonRuntimeReadinessResponse>(&text).unwrap();
+
+    assert_eq!(response.addon_id, addon_id);
+    assert_eq!(response.manifest_id, "taru.ready.metadata");
+    assert_eq!(
+        response.readiness.status,
+        AdminAddonRuntimeReadinessStatus::Ready
+    );
+    assert_eq!(
+        response.readiness.reason,
+        AdminAddonRuntimeReadinessReason::Ready
+    );
+    assert!(response.readiness.checks.iter().any(|check| {
+        check.name == taru_api::extension::AdminAddonRuntimeReadinessCheckName::Reachability
+            && check.status == AdminAddonRuntimeReadinessStatus::Ready
+    }));
+    assert!(response.readiness.checks.iter().any(|check| {
+        check.name == taru_api::extension::AdminAddonRuntimeReadinessCheckName::Network
+            && check.status == AdminAddonRuntimeReadinessStatus::Ready
+    }));
+    assert_eq!(requests.load(Ordering::SeqCst), 1);
+    assert!(!text.contains("taru_at_should_not_echo"));
+    assert!(!text.contains("raw_network_error"));
+    assert!(!text.contains("authorization"));
+    assert!(!text.contains("127.0.0.1"));
+}
+
+#[tokio::test]
+async fn admin_addon_runtime_readiness_preserves_sidecar_degraded_status() {
+    let (addon_base_url, _) = health_check_addon_server(
+        StatusCode::OK,
+        AddonHealthStatus::Degraded,
+        "taru.degraded.metadata",
+        true,
+    )
+    .await;
+    let mut manifest = taru_reference_addon::reference_manifest(addon_base_url);
+    manifest.id = "taru.degraded.metadata".to_owned();
+
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let path = format!("/admin/v1/addons/{addon_id}/runtime-readiness");
+
+    let response =
+        request_json::<AdminAddonRuntimeReadinessResponse>(&router, Method::POST, &path).await;
+
+    assert_eq!(
+        response.readiness.status,
+        AdminAddonRuntimeReadinessStatus::Degraded
+    );
+    assert_eq!(
+        response.readiness.reason,
+        AdminAddonRuntimeReadinessReason::SidecarDegraded
+    );
+    assert!(
+        response
+            .readiness
+            .checks
+            .iter()
+            .any(|check| { check.safe_error_code.as_deref() == Some("sidecar_degraded") })
+    );
+}
+
+#[tokio::test]
+async fn admin_addon_runtime_readiness_classifies_local_gaps_without_sidecar_call() {
+    let (addon_base_url, requests) = health_check_addon_server(
+        StatusCode::OK,
+        AddonHealthStatus::Ok,
+        "taru.gapped.metadata",
+        true,
+    )
+    .await;
+    let mut manifest = taru_reference_addon::reference_manifest(addon_base_url);
+    manifest.id = "taru.gapped.metadata".to_owned();
+    manifest.secret_reference_fields = vec![AddonSecretReferenceFieldDeclaration::new(
+        "provider_token",
+        "Provider token",
+        Some("Resolved by Taru".to_owned()),
+        true,
+    )];
+
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = TaruServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let manifest_json = serde_json::to_string(&manifest).unwrap();
+    let addon_id = taru_core::AddonId::new();
+    store
+        .upsert_addon_registration(NewAddonRegistration {
+            id: addon_id,
+            manifest_id: manifest.id.clone(),
+            name: manifest.name.clone(),
+            version: manifest.version.clone(),
+            protocol_version: manifest.protocol_version.clone(),
+            base_url: manifest.base_url.clone(),
+            manifest_json,
+            granted_scopes: vec![AddonScope::ItemMetadataRead.as_str().to_owned()],
+            status: AddonStatus::Enabled,
+        })
+        .await
+        .unwrap();
+    let router = build_router(app);
+    let path = format!("/admin/v1/addons/{addon_id}/runtime-readiness");
+
+    let raw = response_for(&router, Method::POST, &path).await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let bytes = to_bytes(raw.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let response = serde_json::from_str::<AdminAddonRuntimeReadinessResponse>(&text).unwrap();
+
+    assert_eq!(
+        response.readiness.status,
+        AdminAddonRuntimeReadinessStatus::Degraded
+    );
+    assert!(response.readiness.checks.iter().any(|check| {
+        check.reason == AdminAddonRuntimeReadinessReason::MissingGrant
+            && check.safe_error_code.as_deref() == Some("missing_grant")
+    }));
+    assert!(response.readiness.checks.iter().any(|check| {
+        check.reason == AdminAddonRuntimeReadinessReason::MissingSecretReference
+            && check.safe_error_code.as_deref() == Some("missing_secret_reference")
+    }));
+    assert_eq!(requests.load(Ordering::SeqCst), 0);
+    assert!(!text.contains("provider_token"));
+    assert!(!text.contains("Provider token"));
+    assert!(!text.contains("taru_at_should_not_echo"));
+    assert!(!text.contains("raw_network_error"));
+}
+
+#[tokio::test]
+async fn admin_addon_runtime_readiness_classifies_network_policy_blockers_without_echoing_url() {
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+    let mut manifest =
+        taru_reference_addon::reference_manifest("http://user:secret@addon.example.test/base");
+    manifest.id = "taru.blocked-network.metadata".to_owned();
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let path = format!("/admin/v1/addons/{addon_id}/runtime-readiness");
+
+    let raw = response_for(&router, Method::POST, &path).await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let bytes = to_bytes(raw.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let response = serde_json::from_str::<AdminAddonRuntimeReadinessResponse>(&text).unwrap();
+
+    assert_eq!(
+        response.readiness.status,
+        AdminAddonRuntimeReadinessStatus::Unavailable
+    );
+    assert_eq!(
+        response.readiness.reason,
+        AdminAddonRuntimeReadinessReason::NetworkPolicyBlocked
+    );
+    assert!(
+        response
+            .readiness
+            .checks
+            .iter()
+            .any(|check| { check.safe_error_code.as_deref() == Some("network_policy_blocked") })
+    );
+    assert!(!text.contains("addon.example.test"));
+    assert!(!text.contains("user:secret"));
+    assert!(!text.contains("http://"));
+}
+
+#[tokio::test]
+async fn admin_addon_runtime_readiness_classifies_protocol_manifest_and_unsafe_responses_safely() {
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+
+    let protocol_base_url = raw_health_addon_server(
+        StatusCode::OK,
+        r#"{"protocol_version":"2020-01-01","manifest_id":"taru.protocol.metadata","status":"ok","checked_at":"2026-05-21T12:00:00.000Z","manifest":{"addon_version":"0.1.0","resource_count":1},"diagnostics":{"secret":"taru_at_should_not_echo"}}"#,
+    )
+    .await;
+    let mut protocol_manifest = taru_reference_addon::reference_manifest(protocol_base_url);
+    protocol_manifest.id = "taru.protocol.metadata".to_owned();
+    let protocol_addon = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: protocol_manifest,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let protocol_raw = response_for(
+        &router,
+        Method::POST,
+        &format!(
+            "/admin/v1/addons/{}/runtime-readiness",
+            protocol_addon.addon.summary.id
+        ),
+    )
+    .await;
+    let protocol_text = String::from_utf8(
+        to_bytes(protocol_raw.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    let protocol_response =
+        serde_json::from_str::<AdminAddonRuntimeReadinessResponse>(&protocol_text).unwrap();
+    assert_eq!(
+        protocol_response.readiness.reason,
+        AdminAddonRuntimeReadinessReason::ProtocolMismatch
+    );
+    assert!(
+        protocol_response
+            .readiness
+            .checks
+            .iter()
+            .any(|check| { check.safe_error_code.as_deref() == Some("protocol_mismatch") })
+    );
+    assert!(!protocol_text.contains("2020-01-01"));
+    assert!(!protocol_text.contains("taru_at_should_not_echo"));
+
+    let manifest_base_url = mismatched_health_addon_server("wrong-manifest", "0.1.0").await;
+    let mut manifest = taru_reference_addon::reference_manifest(manifest_base_url);
+    manifest.id = "taru.manifest.metadata".to_owned();
+    let manifest_addon = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let manifest_raw = response_for(
+        &router,
+        Method::POST,
+        &format!(
+            "/admin/v1/addons/{}/runtime-readiness",
+            manifest_addon.addon.summary.id
+        ),
+    )
+    .await;
+    let manifest_text = String::from_utf8(
+        to_bytes(manifest_raw.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    let manifest_response =
+        serde_json::from_str::<AdminAddonRuntimeReadinessResponse>(&manifest_text).unwrap();
+    assert_eq!(
+        manifest_response.readiness.reason,
+        AdminAddonRuntimeReadinessReason::ManifestMismatch
+    );
+    assert!(
+        manifest_response
+            .readiness
+            .checks
+            .iter()
+            .any(|check| { check.safe_error_code.as_deref() == Some("manifest_mismatch") })
+    );
+    assert!(!manifest_text.contains("wrong-manifest"));
+    assert!(!manifest_text.contains("raw_network_error"));
+
+    let unsafe_base_url = raw_health_addon_server(StatusCode::OK, "not-json-secret").await;
+    let mut unsafe_manifest = taru_reference_addon::reference_manifest(unsafe_base_url);
+    unsafe_manifest.id = "taru.unsafe-health.metadata".to_owned();
+    let unsafe_addon = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: unsafe_manifest,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let unsafe_raw = response_for(
+        &router,
+        Method::POST,
+        &format!(
+            "/admin/v1/addons/{}/runtime-readiness",
+            unsafe_addon.addon.summary.id
+        ),
+    )
+    .await;
+    let unsafe_text = String::from_utf8(
+        to_bytes(unsafe_raw.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    let unsafe_response =
+        serde_json::from_str::<AdminAddonRuntimeReadinessResponse>(&unsafe_text).unwrap();
+    assert_eq!(
+        unsafe_response.readiness.reason,
+        AdminAddonRuntimeReadinessReason::UnsafeResponse
+    );
+    assert!(
+        unsafe_response
+            .readiness
+            .checks
+            .iter()
+            .any(|check| { check.safe_error_code.as_deref() == Some("unsafe_response") })
+    );
+    assert!(!unsafe_text.contains("not-json-secret"));
+}
+
+#[tokio::test]
 async fn admin_addon_surfaces_returns_manifest_declarations_without_launch_secrets() {
     let temp = tempfile::tempdir().unwrap();
     let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
@@ -1279,6 +1896,746 @@ async fn admin_addon_install_guide_generates_sidecar_snippets_without_lifecycle_
             "install guide leaked forbidden term: {forbidden}"
         );
     }
+}
+
+#[tokio::test]
+async fn admin_addon_routing_plans_syncs_manifest_declarations_without_hidden_work() {
+    let (_temp, router, _source, store) =
+        router_with_media_source_config("routing-plan.mkv", b"media", |_| {}).await;
+
+    let mut manifest = taru_reference_addon::reference_manifest("https://addon.example.test/base");
+    manifest.event_subscriptions = vec![AddonEventSubscriptionDeclaration::new(
+        "library-scanned",
+        DomainEventKind::LibraryScanned.as_str(),
+        "/events/library-scanned",
+        vec![AddonScope::WebhookEventRead],
+        serde_json::json!({"library_preset":"movies","token":"taru_at_should_not_echo"}),
+    )];
+    manifest.tasks = vec![
+        AddonTaskDeclaration::new(
+            "bulk-metadata-scrape",
+            "Bulk Metadata Scrape",
+            "/tasks/bulk-metadata-scrape",
+            vec![AddonScope::AutomationRun],
+        )
+        .with_execution_bounds(Some(30_000), Some(2)),
+    ];
+    manifest
+        .scopes
+        .extend([AddonScope::WebhookEventRead, AddonScope::AutomationRun]);
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+                AddonScope::WebhookEventRead,
+                AddonScope::AutomationRun,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let path = format!("/admin/v1/addons/{addon_id}/routing-plans");
+
+    let raw = response_for(&router, Method::POST, &path).await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let bytes = to_bytes(raw.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let response = serde_json::from_str::<AdminAddonRoutingPlansResponse>(&text).unwrap();
+
+    assert_eq!(response.addon_id, addon_id);
+    assert_eq!(response.executable, 2);
+    assert_eq!(response.deferred, 0);
+    assert!(response.manifest_fingerprint.starts_with("sha256:"));
+    let task = response
+        .plans
+        .iter()
+        .find(|plan| plan.declaration_id == "bulk-metadata-scrape")
+        .unwrap();
+    assert_eq!(task.status, AddonRoutingPlanStatus::Executable);
+    assert_eq!(task.target, AddonRoutingPlanTarget::AddonTaskJob);
+    assert_eq!(task.job_kind, Some(JobKind::AddonTask));
+    assert_eq!(task.required_scope_count, 1);
+    assert_eq!(task.timeout_ms, Some(30_000));
+    assert_eq!(task.max_attempts, Some(2));
+    let event = response
+        .plans
+        .iter()
+        .find(|plan| plan.declaration_id == "library-scanned")
+        .unwrap();
+    assert_eq!(event.status, AddonRoutingPlanStatus::Executable);
+    assert_eq!(event.target, AddonRoutingPlanTarget::EventOutbox);
+    assert_eq!(
+        event.event_kind.as_deref(),
+        Some(DomainEventKind::LibraryScanned.as_str())
+    );
+    assert!(event.filter_configured);
+    assert!(!text.contains("taru_at_should_not_echo"));
+    assert!(!text.contains("library_preset"));
+
+    assert!(
+        store
+            .list_jobs(
+                taru_core::JobListFilter::default(),
+                PageRequest::first_page()
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        store
+            .list_outbox_events(
+                taru_core::OutboxEventListFilter::default(),
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+
+    let repeated =
+        request_json::<AdminAddonRoutingPlansResponse>(&router, Method::POST, &path).await;
+    assert_eq!(repeated.plans.len(), 2);
+    assert_eq!(
+        store
+            .list_addon_routing_plans(addon_id)
+            .await
+            .unwrap()
+            .len(),
+        2
+    );
+}
+
+#[tokio::test]
+async fn admin_addon_routing_plans_defers_missing_grants_and_unsupported_events_safely() {
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+    let mut manifest = addon_manifest();
+    manifest.event_subscriptions = vec![AddonEventSubscriptionDeclaration::new(
+        "unknown-event",
+        "library_scan.succeeded",
+        "/events/unknown",
+        vec![AddonScope::WebhookEventRead],
+        serde_json::json!({"token":"taru_at_should_not_echo"}),
+    )];
+    manifest.tasks = vec![AddonTaskDeclaration::new(
+        "bulk-task",
+        "Bulk Task",
+        "/tasks/bulk",
+        vec![AddonScope::AutomationRun],
+    )];
+    manifest
+        .scopes
+        .extend([AddonScope::WebhookEventRead, AddonScope::AutomationRun]);
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+                AddonScope::WebhookEventRead,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let path = format!("/admin/v1/addons/{addon_id}/routing-plans");
+
+    let raw = response_for(&router, Method::POST, &path).await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let bytes = to_bytes(raw.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let response = serde_json::from_str::<AdminAddonRoutingPlansResponse>(&text).unwrap();
+
+    assert_eq!(response.executable, 0);
+    assert_eq!(response.deferred, 2);
+    let task = response
+        .plans
+        .iter()
+        .find(|plan| plan.declaration_id == "bulk-task")
+        .unwrap();
+    assert_eq!(task.status, AddonRoutingPlanStatus::Deferred);
+    assert_eq!(task.target, AddonRoutingPlanTarget::None);
+    assert_eq!(task.safe_reason_code.as_deref(), Some("missing_grant"));
+    assert_eq!(task.job_kind, None);
+    let event = response
+        .plans
+        .iter()
+        .find(|plan| plan.declaration_id == "unknown-event")
+        .unwrap();
+    assert_eq!(event.status, AddonRoutingPlanStatus::Deferred);
+    assert_eq!(event.target, AddonRoutingPlanTarget::None);
+    assert_eq!(
+        event.safe_reason_code.as_deref(),
+        Some("unsupported_event_kind")
+    );
+    assert_eq!(event.event_kind, None);
+    assert!(!text.contains("library_scan.succeeded"));
+    assert!(!text.contains("taru_at_should_not_echo"));
+}
+
+#[tokio::test]
+async fn admin_addon_routing_plans_defers_disabled_addons_without_runtime_targets() {
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+    let mut manifest = addon_manifest();
+    manifest.event_subscriptions = vec![AddonEventSubscriptionDeclaration::new(
+        "library-scanned",
+        DomainEventKind::LibraryScanned.as_str(),
+        "/events/library-scanned",
+        vec![AddonScope::WebhookEventRead],
+        serde_json::json!({"token":"taru_at_should_not_echo"}),
+    )];
+    manifest.tasks = vec![AddonTaskDeclaration::new(
+        "bulk-task",
+        "Bulk Task",
+        "/tasks/bulk",
+        vec![AddonScope::AutomationRun],
+    )];
+    manifest
+        .scopes
+        .extend([AddonScope::WebhookEventRead, AddonScope::AutomationRun]);
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+                AddonScope::WebhookEventRead,
+                AddonScope::AutomationRun,
+            ],
+            status: Some(AddonStatus::Disabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let path = format!("/admin/v1/addons/{addon_id}/routing-plans");
+
+    let raw = response_for(&router, Method::POST, &path).await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let bytes = to_bytes(raw.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let response = serde_json::from_str::<AdminAddonRoutingPlansResponse>(&text).unwrap();
+
+    assert_eq!(response.executable, 0);
+    assert_eq!(response.deferred, 2);
+    for plan in &response.plans {
+        assert_eq!(plan.status, AddonRoutingPlanStatus::Deferred);
+        assert_eq!(plan.target, AddonRoutingPlanTarget::None);
+        assert_eq!(plan.safe_reason_code.as_deref(), Some("addon_disabled"));
+        assert_eq!(plan.job_kind, None);
+    }
+    let event = response
+        .plans
+        .iter()
+        .find(|plan| plan.declaration_id == "library-scanned")
+        .unwrap();
+    assert_eq!(
+        event.event_kind.as_deref(),
+        Some(DomainEventKind::LibraryScanned.as_str())
+    );
+    assert!(!text.contains("taru_at_should_not_echo"));
+}
+
+#[tokio::test]
+async fn addon_generated_artifact_handoff_enters_ailo_without_canonical_or_file_writes() {
+    let (_temp, router, source, store) =
+        router_with_media_source("artifact-handoff.mkv", b"media").await;
+    let library_id = source.library_id;
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: addon_manifest(),
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::PATCH,
+        &format!("/admin/v1/addons/{addon_id}/status"),
+        &UpdateAddonStatusRequest {
+            status: AddonStatus::Enabled,
+        },
+    )
+    .await;
+    let issued = request_body_json::<AddonTokenIssuedResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/tokens"),
+        &IssueAddonTokenRequest {
+            label: Some("generated artifact runtime".to_owned()),
+        },
+    )
+    .await;
+    let request = SubmitAddonGeneratedArtifactRequest {
+        capability: AutomationCapability::MetadataCleanup,
+        kind: AutomationArtifactKind::MetadataSuggestion,
+        library_id: Some(library_id),
+        item_id: Some(source.item_id),
+        source_id: Some(source.id),
+        idempotency_key: format!("addon-generated:{}", source.item_id),
+        prompt: serde_json::json!({
+            "source_locator": "local:///Movies/private/artifact-handoff.mkv",
+            "token": "taru_at_should_not_echo"
+        }),
+        payload: serde_json::json!({
+            "overview": "private generated overview",
+            "confidence_milli": 810,
+            "explanation": "private chain of thought"
+        }),
+    };
+
+    let response = addon_generated_artifact(&router, Some(&issued.raw_token), &request).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let body = serde_json::from_str::<AddonGeneratedArtifactResponse>(&text).unwrap();
+
+    assert!(!body.idempotent_replay);
+    assert_eq!(
+        body.artifact.capability,
+        AutomationCapability::MetadataCleanup
+    );
+    assert_eq!(
+        body.artifact.kind,
+        AutomationArtifactKind::MetadataSuggestion
+    );
+    assert_eq!(body.artifact.library_id, Some(library_id));
+    assert_eq!(body.artifact.item_id, Some(source.item_id));
+    assert_eq!(body.artifact.source_id, Some(source.id));
+    assert_eq!(body.artifact.status, AutomationArtifactStatus::Proposed);
+    assert!(!body.artifact.writes_canonical_metadata);
+    assert!(!body.artifact.writes_sidecar);
+    assert!(!body.artifact.writes_library_files);
+    assert!(!body.artifact.creates_media_source);
+    assert!(!body.artifact.creates_managed_import);
+    assert!(!text.contains("private generated overview"));
+    assert!(!text.contains("private chain of thought"));
+    assert!(!text.contains("local:///Movies/private"));
+    assert!(!text.contains("taru_at_should_not_echo"));
+
+    let proposals = request_json::<AdminGeneratedArtifactProposalListResponse>(
+        &router,
+        Method::GET,
+        "/admin/v1/automation/generated-artifacts/proposals?limit=5",
+    )
+    .await;
+    assert_eq!(proposals.proposals.len(), 1);
+    assert_eq!(proposals.proposals[0].id, body.artifact.artifact_id);
+    assert_eq!(proposals.proposals[0].payload.confidence_milli, Some(810));
+    assert_eq!(
+        proposals.proposals[0].readiness.status,
+        taru_core::GeneratedArtifactReadinessStatus::Ready
+    );
+    let proposal_text = serde_json::to_string(&proposals).unwrap();
+    assert!(!proposal_text.contains("private generated overview"));
+    assert!(!proposal_text.contains("private chain of thought"));
+    assert!(!proposal_text.contains("local:///Movies/private"));
+    assert!(!proposal_text.contains("taru_at_should_not_echo"));
+
+    let replay = addon_generated_artifact(&router, Some(&issued.raw_token), &request).await;
+    assert_eq!(replay.status(), StatusCode::OK);
+    let replay = body_json::<AddonGeneratedArtifactResponse>(replay).await;
+    assert!(replay.idempotent_replay);
+    assert_eq!(replay.artifact.artifact_id, body.artifact.artifact_id);
+
+    let mut conflicting_request = request.clone();
+    conflicting_request.payload = serde_json::json!({
+        "overview": "conflicting private generated overview",
+        "confidence_milli": 811
+    });
+    let conflict =
+        addon_generated_artifact(&router, Some(&issued.raw_token), &conflicting_request).await;
+    assert_eq!(conflict.status(), StatusCode::CONFLICT);
+    let conflict_body = to_bytes(conflict.into_body(), usize::MAX).await.unwrap();
+    let conflict_text = String::from_utf8_lossy(&conflict_body);
+    let conflict_error: ErrorResponse = serde_json::from_slice(&conflict_body).unwrap();
+    assert_eq!(conflict_error.code, "conflict");
+    assert!(!conflict_text.contains("conflicting private generated overview"));
+    assert!(!conflict_text.contains("local:///Movies/private"));
+    assert!(!conflict_text.contains("taru_at_should_not_echo"));
+
+    let mut second_request = request.clone();
+    second_request.idempotency_key = format!("addon-generated-second:{}", source.item_id);
+    second_request.payload = serde_json::json!({
+        "overview": "second private generated overview",
+        "confidence_milli": 812
+    });
+    let second = addon_generated_artifact(&router, Some(&issued.raw_token), &second_request).await;
+    assert_eq!(second.status(), StatusCode::OK);
+    let second = body_json::<AddonGeneratedArtifactResponse>(second).await;
+    assert!(!second.idempotent_replay);
+    assert_ne!(second.artifact.artifact_id, body.artifact.artifact_id);
+
+    let summary_request = SubmitAddonGeneratedArtifactRequest {
+        capability: AutomationCapability::Summary,
+        kind: AutomationArtifactKind::Summary,
+        library_id: Some(library_id),
+        item_id: Some(source.item_id),
+        source_id: Some(source.id),
+        idempotency_key: format!("addon-generated-summary:{}", source.item_id),
+        prompt: serde_json::json!({"source_locator":"local:///Movies/private/artifact-handoff.mkv"}),
+        payload: serde_json::json!({
+            "summary": "private generated short summary",
+            "confidence_milli": 700
+        }),
+    };
+    let summary =
+        addon_generated_artifact(&router, Some(&issued.raw_token), &summary_request).await;
+    assert_eq!(summary.status(), StatusCode::OK);
+    let summary = body_json::<AddonGeneratedArtifactResponse>(summary).await;
+    assert_eq!(summary.artifact.capability, AutomationCapability::Summary);
+    let provider = store
+        .get_automation_provider(body.artifact.provider_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(
+        provider
+            .capabilities
+            .contains(&AutomationCapability::MetadataCleanup)
+    );
+    assert!(
+        provider
+            .capabilities
+            .contains(&AutomationCapability::Summary)
+    );
+
+    let item = store.get_media_item(source.item_id).await.unwrap().unwrap();
+    assert_eq!(item.metadata.title, "artifact-handoff.mkv");
+    assert!(item.metadata.overview.is_none());
+    assert_eq!(
+        store
+            .list_media_sources(library_id, PageRequest::first_page())
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+    assert!(
+        store
+            .list_managed_import_artifacts(
+                taru_core::ManagedImportArtifactListFilter::all(),
+                PageRequest::first_page()
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn addon_acquisition_candidate_handoff_enters_dwi_without_managed_import_or_media_source() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let router = test_router(temp.path().to_path_buf(), library_id).await;
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: addon_manifest(),
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+                AddonScope::AutomationRun,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let issued = request_body_json::<AddonTokenIssuedResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/tokens"),
+        &IssueAddonTokenRequest {
+            label: Some("acquisition runtime".to_owned()),
+        },
+    )
+    .await;
+    let request = SubmitAddonAcquisitionCandidateRequest {
+        target_library_id: library_id,
+        source_key: "reference-downloader://movie-1?token=secret".to_owned(),
+        source_uri: "https://download.example/private/movie-1.mkv?token=secret".to_owned(),
+        display_name: Some("movie-1.mkv".to_owned()),
+        intended_locator: Some("Movies/Movie 1/movie-1.mkv".to_owned()),
+        size_bytes: Some(42),
+        fingerprint: Some("sha256-private-fingerprint".to_owned()),
+        state: Some(AcquisitionIntakeCandidateState::Ready),
+        diagnostics: serde_json::json!({
+            "downloader": "reference",
+            "token": "taru_at_should_not_echo"
+        }),
+    };
+
+    let response = addon_acquisition_candidate(&router, Some(&issued.raw_token), &request).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let body = serde_json::from_str::<AddonAcquisitionCandidateResponse>(&text).unwrap();
+
+    assert!(!body.idempotent_replay);
+    assert_eq!(body.candidate.target_library_id, library_id);
+    assert_eq!(body.candidate.state, AcquisitionIntakeCandidateState::Ready);
+    assert_eq!(body.candidate.source_kind, "addon_proposed");
+    assert_eq!(body.candidate.source_scheme.as_deref(), Some("https"));
+    assert_eq!(body.candidate.source_ref_redacted, "https://<redacted>");
+    assert!(body.candidate.source_key_fingerprint.starts_with("sha256:"));
+    assert!(body.candidate.has_display_name);
+    assert!(body.candidate.has_intended_locator);
+    assert!(body.candidate.has_fingerprint);
+    assert!(body.candidate.has_diagnostics);
+    assert_eq!(body.candidate.managed_import_artifact_id, None);
+    assert!(!body.candidate.writes_library);
+    assert!(!body.candidate.creates_media_source);
+    assert!(!body.candidate.creates_managed_import);
+    assert!(!body.candidate.promotion_apply);
+    assert!(!text.contains("token=secret"));
+    assert!(!text.contains("private/movie-1"));
+    assert!(!text.contains("movie-1.mkv"));
+    assert!(!text.contains("Movies/Movie 1"));
+    assert!(!text.contains("sha256-private-fingerprint"));
+    assert!(!text.contains("taru_at_should_not_echo"));
+
+    let candidates = request_json::<AdminAcquisitionIntakeCandidateListResponse>(
+        &router,
+        Method::GET,
+        "/admin/v1/acquisition/intake/candidates?source_kind=addon_proposed",
+    )
+    .await;
+    assert_eq!(candidates.candidates.len(), 1);
+    assert_eq!(candidates.candidates[0].id, body.candidate.id);
+    assert_eq!(candidates.candidates[0].managed_import_artifact_id, None);
+    let candidates_text = serde_json::to_string(&candidates).unwrap();
+    assert!(!candidates_text.contains("token=secret"));
+    assert!(!candidates_text.contains("private/movie-1"));
+    assert!(!candidates_text.contains("movie-1.mkv"));
+    assert!(!candidates_text.contains("Movies/Movie 1"));
+    assert!(!candidates_text.contains("sha256-private-fingerprint"));
+    assert!(!candidates_text.contains("taru_at_should_not_echo"));
+
+    let replay = addon_acquisition_candidate(&router, Some(&issued.raw_token), &request).await;
+    assert_eq!(replay.status(), StatusCode::OK);
+    let replay = body_json::<AddonAcquisitionCandidateResponse>(replay).await;
+    assert!(replay.idempotent_replay);
+    assert_eq!(replay.candidate.id, body.candidate.id);
+}
+
+#[tokio::test]
+async fn addon_handoff_rejects_missing_scopes_and_stale_targets_without_records() {
+    let (_temp, router, source, store) =
+        router_with_media_source("stale-handoff.mkv", b"media").await;
+    let library_id = source.library_id;
+    let mut narrow_manifest = addon_manifest();
+    narrow_manifest.resources[0].required_scopes = vec![AddonScope::ItemMetadataRead];
+    narrow_manifest.scopes = vec![AddonScope::ItemMetadataRead];
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: narrow_manifest.clone(),
+            granted_scopes: vec![AddonScope::ItemMetadataRead],
+            status: Some(AddonStatus::Disabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let issued = request_body_json::<AddonTokenIssuedResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/tokens"),
+        &IssueAddonTokenRequest {
+            label: Some("handoff runtime".to_owned()),
+        },
+    )
+    .await;
+    let artifact_request = SubmitAddonGeneratedArtifactRequest {
+        capability: AutomationCapability::MetadataCleanup,
+        kind: AutomationArtifactKind::MetadataSuggestion,
+        library_id: Some(library_id),
+        item_id: Some(source.item_id),
+        source_id: Some(source.id),
+        idempotency_key: "missing-scope".to_owned(),
+        prompt: serde_json::json!({"token":"taru_at_should_not_echo"}),
+        payload: serde_json::json!({"overview":"should not record"}),
+    };
+    let disabled =
+        addon_generated_artifact(&router, Some(&issued.raw_token), &artifact_request).await;
+    assert_eq!(disabled.status(), StatusCode::FORBIDDEN);
+    assert_eq!(body_json::<ErrorResponse>(disabled).await.code, "forbidden");
+
+    request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::PATCH,
+        &format!("/admin/v1/addons/{addon_id}/status"),
+        &UpdateAddonStatusRequest {
+            status: AddonStatus::Enabled,
+        },
+    )
+    .await;
+    let missing_suggest =
+        addon_generated_artifact(&router, Some(&issued.raw_token), &artifact_request).await;
+    assert_eq!(missing_suggest.status(), StatusCode::FORBIDDEN);
+
+    let registration_response = response_body_json(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: Some(addon_id),
+            manifest: addon_manifest(),
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+                AddonScope::AutomationRun,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    assert_eq!(registration_response.status(), StatusCode::OK);
+    let registered = body_json::<AdminAddonRegistrationResponse>(registration_response).await;
+    assert_eq!(registered.addon.summary.id, addon_id);
+    let issued = request_body_json::<AddonTokenIssuedResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/tokens"),
+        &IssueAddonTokenRequest {
+            label: Some("handoff runtime enabled".to_owned()),
+        },
+    )
+    .await;
+
+    let stale_source = SubmitAddonGeneratedArtifactRequest {
+        source_id: Some(MediaSourceId::new()),
+        idempotency_key: "stale-source".to_owned(),
+        ..artifact_request.clone()
+    };
+    let stale = addon_generated_artifact(&router, Some(&issued.raw_token), &stale_source).await;
+    assert_eq!(stale.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        body_json::<ErrorResponse>(stale).await.code,
+        "invalid_input"
+    );
+
+    let other_item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "other-stale-handoff.mkv".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let other_source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: other_item.id,
+        locator: "local:///other-stale-handoff.mkv".to_owned(),
+        file_name: "other-stale-handoff.mkv".to_owned(),
+        size_bytes: Some(7),
+        fingerprint: None,
+    };
+    store.upsert_media_item(&other_item).await.unwrap();
+    store.upsert_media_source(&other_source).await.unwrap();
+    let mismatched_source = SubmitAddonGeneratedArtifactRequest {
+        source_id: Some(other_source.id),
+        idempotency_key: "mismatched-source".to_owned(),
+        ..artifact_request.clone()
+    };
+    let stale =
+        addon_generated_artifact(&router, Some(&issued.raw_token), &mismatched_source).await;
+    assert_eq!(stale.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        body_json::<ErrorResponse>(stale).await.code,
+        "invalid_input"
+    );
+
+    let outside_library_item = SubmitAddonGeneratedArtifactRequest {
+        source_id: None,
+        item_id: Some(other_item.id),
+        idempotency_key: "outside-library-item".to_owned(),
+        ..artifact_request.clone()
+    };
+    let outside =
+        addon_generated_artifact(&router, Some(&issued.raw_token), &outside_library_item).await;
+    assert_eq!(outside.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        body_json::<ErrorResponse>(outside).await.code,
+        "invalid_input"
+    );
+
+    let acquisition_request = SubmitAddonAcquisitionCandidateRequest {
+        target_library_id: library_id,
+        source_key: "missing-library".to_owned(),
+        source_uri: "https://download.example/private/stale.mkv?token=secret".to_owned(),
+        display_name: Some("stale.mkv".to_owned()),
+        intended_locator: None,
+        size_bytes: Some(1),
+        fingerprint: Some("private-fingerprint".to_owned()),
+        state: None,
+        diagnostics: serde_json::json!({"token":"taru_at_should_not_echo"}),
+    };
+    let missing_library_candidate = SubmitAddonAcquisitionCandidateRequest {
+        target_library_id: LibraryId::new(),
+        ..acquisition_request
+    };
+    let missing_library =
+        addon_acquisition_candidate(&router, Some(&issued.raw_token), &missing_library_candidate)
+            .await;
+    assert_eq!(missing_library.status(), StatusCode::BAD_REQUEST);
+
+    assert!(
+        store
+            .list_automation_artifacts_for_item(source.item_id, PageRequest::first_page())
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        store
+            .list_acquisition_intake_candidates(
+                taru_core::AcquisitionIntakeCandidateListFilter {
+                    target_library_id: Some(library_id),
+                    state: None,
+                    source_kind: Some(taru_core::AcquisitionIntakeSourceKind::AddonProposed),
+                    managed_import_artifact_id: None,
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[tokio::test]
@@ -5488,6 +6845,54 @@ async fn addon_side_effect(
     let mut builder = Request::builder()
         .method(Method::POST)
         .uri("/addon/v1/side-effects")
+        .header(header::CONTENT_TYPE, "application/json");
+    if let Some(raw_token) = raw_token {
+        builder = builder.header(header::AUTHORIZATION, format!("Bearer {raw_token}"));
+    }
+
+    router
+        .clone()
+        .oneshot(
+            builder
+                .body(Body::from(serde_json::to_vec(request).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+}
+
+async fn addon_generated_artifact(
+    router: &Router,
+    raw_token: Option<&str>,
+    request: &SubmitAddonGeneratedArtifactRequest,
+) -> Response {
+    let mut builder = Request::builder()
+        .method(Method::POST)
+        .uri("/addon/v1/generated-artifacts")
+        .header(header::CONTENT_TYPE, "application/json");
+    if let Some(raw_token) = raw_token {
+        builder = builder.header(header::AUTHORIZATION, format!("Bearer {raw_token}"));
+    }
+
+    router
+        .clone()
+        .oneshot(
+            builder
+                .body(Body::from(serde_json::to_vec(request).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+}
+
+async fn addon_acquisition_candidate(
+    router: &Router,
+    raw_token: Option<&str>,
+    request: &SubmitAddonAcquisitionCandidateRequest,
+) -> Response {
+    let mut builder = Request::builder()
+        .method(Method::POST)
+        .uri("/addon/v1/acquisition/intake/candidates")
         .header(header::CONTENT_TYPE, "application/json");
     if let Some(raw_token) = raw_token {
         builder = builder.header(header::AUTHORIZATION, format!("Bearer {raw_token}"));

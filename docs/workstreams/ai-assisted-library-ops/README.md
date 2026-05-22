@@ -1,6 +1,6 @@
 # AI Assisted Library Ops
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 ## Purpose
@@ -20,11 +20,16 @@ applies them.
 
 ## Current Decision
 
-AILO-010 opened the lane after Network Access Boundary closeout. The first
-executable slice is AILO-020: define the generated artifact proposal queue and
-acceptance-readiness contract around existing automation artifacts without
-adding a local model runtime, autonomous writes, vector database, Addon
-distribution, downloader protocols, or Public Client API churn.
+This lane is complete. AILO-020 through AILO-040 shipped Generated Artifact
+proposal/readiness semantics, Admin-only redacted proposal diagnostics, typed
+Admin Web support, and explicit accept/reject planning for metadata-cleanup
+proposals without autonomous canonical metadata, sidecar, Managed Import, Media
+Source, library-file, Public Client API, or `taru-client-protocol` mutation.
+
+AILO-050 closed the lane and returned routing to
+`post-rpd-product-hardening`. Provider-specific AI adapters, local model
+runtime, embeddings/vector search, Public Client display, protocol downloaders,
+Addon distribution, and deeper metadata-authority apply remain split follow-ons.
 
 ## Authoritative Docs
 

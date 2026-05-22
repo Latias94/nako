@@ -33,6 +33,12 @@ import dev.taru.android.browse.LibrarySourceResponse
 import dev.taru.android.media.ClientMediaStreamKind
 import dev.taru.android.media.MediaProbeDto
 import dev.taru.android.ui.TaruStrings
+import dev.taru.android.ui.components.TaruIconBadge
+import dev.taru.android.ui.components.TaruPressableScale
+import dev.taru.android.ui.components.TaruScreenColumn
+import dev.taru.android.ui.components.TaruSectionHeader
+import dev.taru.android.ui.components.TaruStatusChip
+import dev.taru.android.ui.components.TaruSurfaceCard
 import dev.taru.android.ui.theme.TaruShape
 import dev.taru.android.ui.theme.TaruSpacing
 import dev.taru.android.ui.theme.TaruTextMuted
@@ -46,7 +52,7 @@ internal fun LibraryDetailRouteContent(
     onChangeServer: () -> Unit,
     onOpenItem: (String) -> Unit,
 ) {
-    TaruScrollColumn {
+    TaruScreenColumn {
         IconButton(onClick = onBack) {
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
@@ -84,7 +90,7 @@ private fun LibraryDetailScreen(
 ) {
     LibraryDetailHeader(library = library)
 
-    SectionHeader(
+    TaruSectionHeader(
         title = "Playable versions",
         action = returned.toString(),
     )
@@ -108,13 +114,13 @@ private fun LibraryDetailScreen(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun LibraryDetailHeader(library: LibraryDto) {
-    SurfaceCard {
+    TaruSurfaceCard {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconBadge(icon = Icons.AutoMirrored.Rounded.LibraryBooks)
+            TaruIconBadge(icon = Icons.AutoMirrored.Rounded.LibraryBooks)
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(TaruSpacing.xsmall),
@@ -134,8 +140,8 @@ private fun LibraryDetailHeader(library: LibraryDto) {
                     horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small),
                     verticalArrangement = Arrangement.spacedBy(TaruSpacing.small),
                 ) {
-                    StatusChip(text = librarySubtitle(library))
-                    StatusChip(text = "${library.roots.size} root(s)")
+                    TaruStatusChip(text = librarySubtitle(library))
+                    TaruStatusChip(text = "${library.roots.size} root(s)")
                 }
             }
         }
@@ -149,7 +155,7 @@ private fun LibrarySourceRow(
     onOpenItem: (String) -> Unit,
 ) {
     val item = row.item
-    PressableScale(
+    TaruPressableScale(
         modifier = Modifier.semantics {
             contentDescription = listOfNotNull(
                 item?.metadata?.title?.takeIf { it.isNotBlank() }
@@ -177,7 +183,7 @@ private fun LibrarySourceRow(
                 horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconBadge(
+                TaruIconBadge(
                     icon = if (item == null) Icons.Rounded.Storage else Icons.Rounded.Info,
                     compact = true,
                 )
@@ -203,7 +209,7 @@ private fun LibrarySourceRow(
                         horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small),
                         verticalArrangement = Arrangement.spacedBy(TaruSpacing.small),
                     ) {
-                        sourceFactLabels(row).forEach { fact -> StatusChip(text = fact) }
+                        sourceFactLabels(row).forEach { fact -> TaruStatusChip(text = fact) }
                     }
                     if (item == null) {
                         Text(

@@ -369,6 +369,8 @@ class BrowseSessionLoadingTest {
         assertEquals(playbackDecision, starter.requests.single().decision)
         assertEquals(preparedTarget, playbackState.target)
         assertEquals("session-1", playerRoute.launch.sessionId)
+        assertTrue(session.state.value.detailState is ItemDetailUiState.Content)
+        assertEquals("source-a", session.state.value.selectedSourceId)
     }
 
     @Test

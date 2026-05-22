@@ -8,11 +8,6 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 
-internal sealed interface PublicApiAuth {
-    data object None : PublicApiAuth
-    data class Bearer(val accessToken: String) : PublicApiAuth
-}
-
 internal enum class PublicApiFailureKind {
     MissingAccessToken,
     UnreachableServer,
@@ -46,85 +41,6 @@ internal class PublicClientApiExecutor(
     private val transport: TaruHttpTransport,
     @PublishedApi internal val json: Json = Json { ignoreUnknownKeys = true },
 ) {
-    suspend inline fun <reified T> executeJson(
-        baseUrl: String,
-        pathAndQuery: String,
-        auth: PublicApiAuth,
-        method: String = "GET",
-        body: String? = null,
-        checkApiVersionHeader: Boolean = true,
-        extraSecrets: Iterable<String> = emptyList(),
-    ): PublicApiResult<T> {
-        val response = when (
-            val result = executeResponse(
-                baseUrl = baseUrl,
-                pathAndQuery = pathAndQuery,
-                auth = auth,
-                method = method,
-                body = body,
-                checkApiVersionHeader = checkApiVersionHeader,
-                extraSecrets = extraSecrets,
-            )
-        ) {
-            is PublicApiResult.Failure -> return result
-            is PublicApiResult.Success -> result
-        }
-
-        val decoded = try {
-            json.decodeFromString<T>(response.response.body)
-        } catch (_: SerializationException) {
-            return invalidResponseFailure(response.request)
-        } catch (_: IllegalArgumentException) {
-            return invalidResponseFailure(response.request)
-        }
-
-        return PublicApiResult.Success(
-            value = decoded,
-            request = response.request,
-            response = response.response,
-        )
-    }
-
-    suspend fun executeResponse(
-        baseUrl: String,
-        pathAndQuery: String,
-        auth: PublicApiAuth,
-        method: String = "GET",
-        body: String? = null,
-        checkApiVersionHeader: Boolean = true,
-        extraSecrets: Iterable<String> = emptyList(),
-    ): PublicApiResult<TaruHttpResponse> {
-        val accessToken = (auth as? PublicApiAuth.Bearer)?.accessToken.orEmpty()
-        if (auth is PublicApiAuth.Bearer && accessToken.isBlank()) {
-            return missingAccessTokenFailure()
-        }
-        val secrets = buildList {
-            addAll(extraSecrets)
-            if (auth is PublicApiAuth.Bearer) {
-                add(accessToken)
-            }
-        }
-
-        val request = TaruHttpRequest(
-            method = method,
-            url = "$baseUrl".trimEnd('/') + pathAndQuery,
-            headers = buildMap {
-                if (auth is PublicApiAuth.Bearer) {
-                    put("Authorization", "Bearer $accessToken")
-                }
-                if (body != null) {
-                    put("Content-Type", "application/json")
-                }
-            },
-            body = body,
-        )
-        return executeRequest(
-            request = request,
-            secrets = secrets,
-            checkApiVersionHeader = checkApiVersionHeader,
-        )
-    }
-
     suspend fun executeRequest(
         request: TaruHttpRequest,
         secrets: Iterable<String> = emptyList(),
@@ -243,20 +159,6 @@ internal class PublicClientApiExecutor(
         } catch (_: IllegalArgumentException) {
             null
         }
-
-    private fun missingAccessTokenFailure(): PublicApiResult.Failure =
-        PublicApiResult.Failure(
-            PublicApiFailure(kind = PublicApiFailureKind.MissingAccessToken),
-        )
-
-    @PublishedApi
-    internal fun invalidResponseFailure(request: SafeRequestPreview): PublicApiResult.Failure =
-        PublicApiResult.Failure(
-            PublicApiFailure(
-                kind = PublicApiFailureKind.InvalidResponse,
-                request = request,
-            ),
-        )
 
     private sealed interface TransportResult {
         data class Response(val response: TaruHttpResponse) : TransportResult

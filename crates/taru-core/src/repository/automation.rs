@@ -3,8 +3,8 @@ use async_trait::async_trait;
 use super::PageRequest;
 use crate::{
     AutomationArtifactId, AutomationArtifactRecord, AutomationArtifactStatus,
-    AutomationProviderConfigRecord, AutomationProviderId, JobId, MediaItemId,
-    NewAutomationArtifact, NewAutomationProviderConfig, Result,
+    AutomationProviderConfigRecord, AutomationProviderId, GeneratedArtifactProposal, JobId,
+    MediaItemId, NewAutomationArtifact, NewAutomationProviderConfig, Result,
 };
 
 #[async_trait]
@@ -28,6 +28,11 @@ pub trait AutomationRepository: Send + Sync {
         artifact: NewAutomationArtifact,
     ) -> Result<AutomationArtifactRecord>;
 
+    async fn get_automation_artifact(
+        &self,
+        id: AutomationArtifactId,
+    ) -> Result<Option<AutomationArtifactRecord>>;
+
     async fn set_automation_artifact_status(
         &self,
         id: AutomationArtifactId,
@@ -44,4 +49,9 @@ pub trait AutomationRepository: Send + Sync {
         item_id: MediaItemId,
         page: PageRequest,
     ) -> Result<Vec<AutomationArtifactRecord>>;
+
+    async fn list_generated_artifact_proposals(
+        &self,
+        page: PageRequest,
+    ) -> Result<Vec<GeneratedArtifactProposal>>;
 }

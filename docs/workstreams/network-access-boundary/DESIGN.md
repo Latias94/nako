@@ -1,6 +1,6 @@
 # Network Access Boundary Design
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 ## Why This Lane Exists
@@ -129,7 +129,7 @@ docs/deployment
 
 ## Closeout Condition
 
-This lane can close when:
+This lane is closed. It met the closeout condition when:
 
 - network access policy/config has a stable vocabulary and validation tests;
 - HTTP trusted-proxy/header and origin behavior is explicit or explicitly

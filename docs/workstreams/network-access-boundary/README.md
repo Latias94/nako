@@ -1,6 +1,6 @@
 # Network Access Boundary
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 ## Purpose
@@ -19,15 +19,15 @@ readiness, CORS/origin constraints, and Admin-only redacted diagnostics.
 
 ## Current Decision
 
-NAB-010 opened the lane. NAB-020 is complete: Taru now has a network access
-policy/readiness domain and config validation surface without runtime tunnel
-dialing or Public Client API churn.
+This lane is complete. NAB-020 through NAB-040 shipped a network access
+policy/readiness domain, request-time HTTP boundary enforcement, and
+Admin-only redacted network diagnostics without starting a built-in NAT
+traversal runtime or changing Public Client API / `taru-client-protocol`.
 
-NAB-030 is complete: the HTTP boundary now enforces configured browser origins
-on protected routes, preserves bearer-auth precedence, keeps `/health` public,
-handles allowed CORS preflight requests, and trusts forwarded scheme/host only
-when proxy headers and trusted proxy source policy match. The next executable
-task is NAB-040 Admin-only network readiness diagnostics.
+NAB-050 closed the lane and returned routing to
+`post-rpd-product-hardening`. Concrete tunnel runtimes, endpoint discovery,
+identity/RBAC, protocol downloader integrations, and Addon runtime/distribution
+remain split follow-ons.
 
 ## Authoritative Docs
 

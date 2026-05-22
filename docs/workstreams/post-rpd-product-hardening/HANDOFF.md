@@ -1,11 +1,11 @@
 # Post-RPD Product Hardening — Handoff
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 ## Current State
 
-The post-RPD product roadmap is open as an umbrella. It chooses
+The post-RPD product roadmap is complete as an umbrella. It chose
 `metadata-provider-breadth` as the first execution lane and records NFO/link,
 playback/transcode, managed import, network, AI, and addon distribution as
 ordered follow-ons. `metadata-provider-breadth` is complete. `nfo-link-authority`
@@ -30,30 +30,25 @@ downloads/watch-folder intake as the next mainline lane. PRPH-120 opens
 domain/persistence and DWI-030 app-service intake / Managed Import handoff are
 complete. DWI-040 watch-folder discovery, DWI-050 Admin-only intake
 diagnostics/read model, and DWI-060 closeout are complete.
-`network-access-boundary` is active. NAB-020 network policy/config validation
-and NAB-030 HTTP boundary enforcement are complete.
+`network-access-boundary` is complete with policy/config validation, HTTP
+boundary enforcement, Admin readiness diagnostics, and closeout. PRPH-150
+selected `ai-assisted-library-ops` next. AI Assisted Library Ops is complete
+with Generated Artifact proposal/readiness, Admin diagnostics, explicit
+accept/reject planning, and closeout. PRPH-170 opened
+`addon-runtime-and-distribution` as the final mainline lane. ARD-040 declared
+task/event routing is complete with durable routing plans and no hidden
+schedulers. ARD-050 Addon Artifact And Intake Handoff and ARD-060 closeout are
+now complete. All planned post-RPD mainline lanes are represented by dedicated
+workstreams and no default mainline task remains in this umbrella.
 
 ## Active Task
 
-- Task ID: `network-access-boundary` NAB-040
-- Owner: unassigned
-- Files: `crates/taru-api/src/admin.rs`,
-  `crates/taru-api/src/admin_contract.rs`, `crates/taru-server/src/http/admin.rs`,
-  `apps/admin-web/src/adminApi`, `docs/workstreams/network-access-boundary`
-- Validation: `cargo nextest run -p taru-api admin_contract --no-fail-fast`;
-  `cargo nextest run -p taru-server http::tests::system --no-fail-fast`;
-  `npm run check` from `apps/admin-web`; `cargo fmt --all -- --check`;
-  `git diff --check`; `git diff --name-only -- crates/taru-client-protocol`.
-- Status: READY
-- Review: keep Admin-only readiness diagnostics separate from built-in NAT
-  traversal runtime, Public Client API, downloader protocols, AI writes, Addon
-  runtime, NFO mutation shortcuts, and library writes.
-- Evidence: PRPH-110 lane scoring in `DESIGN.md`,
-  `playback-transcode-ops-hardening` closeout evidence,
-  `downloads-watch-folder-intake` open docs, DWI-020 persistence evidence,
-  DWI-030 app-service handoff evidence, DWI-040 watch-folder discovery evidence,
-  DWI-050 Admin-only diagnostics evidence, DWI-060 closeout evidence, and
-  completed staging / promotion / sidecar apply workstreams.
+- Task ID: PRPH-180 / umbrella closeout
+- Owner: planner
+- Status: DONE
+- Evidence: `docs/workstreams/post-rpd-product-hardening/DESIGN.md`,
+  `docs/workstreams/post-rpd-product-hardening/EVIDENCE_AND_GATES.md`, and
+  `docs/workstreams/addon-runtime-and-distribution/EVIDENCE_AND_GATES.md`.
 
 ## Decisions Since Last Update
 
@@ -122,18 +117,49 @@ and NAB-030 HTTP boundary enforcement are complete.
 - NAB-020 network policy domain/config validation is complete.
 - NAB-030 HTTP boundary enforcement is complete with trusted proxy/source
   checks, origin enforcement, CORS preflight handling, health compatibility, and
-  auth-order preservation. NAB-040 is the next executable task.
+  auth-order preservation.
+- NAB-040 Admin-only network readiness diagnostics and NAB-050 closeout are
+  complete.
+- PRPH-150 selected AI Assisted Library Ops after Network Access Boundary
+  closeout.
+- PRPH-160 opened `ai-assisted-library-ops`.
+- AILO-020 Generated Artifact proposal/readiness, AILO-030 Admin proposal
+  diagnostics, AILO-040 explicit accept/reject planning, and AILO-050 closeout
+  are complete.
+- PRPH-170 selected and opened `addon-runtime-and-distribution` as the next
+  mainline lane. The first slice is package/install descriptor and redacted
+  install-guide readiness, not Addon Manager automation.
+- ARD-020 package/install descriptor and redacted Admin install-guide preview
+  are complete.
+- ARD-030 Admin-only runtime readiness diagnostics are complete. The next slice
+  is declared task/event routing into explicit Taru-owned plans.
+- ARD-040 declared task/event routing is complete with durable
+  `addon_routing_plans`, idempotent manifest replacement, disabled/missing-grant
+  / unsupported-event deferral, Admin Web contract/client support, and no hidden
+  scheduler/outbox side effects. The next slice is Addon Artifact And Intake
+  Handoff.
+- ARD-050 Addon Artifact And Intake Handoff is complete. Addon Token runtime
+  routes now submit Generated Artifacts into AILO proposal semantics and
+  acquisition candidates into DWI intake semantics without direct Canonical
+  Metadata, NFO sidecar, Media Source, Managed Import, promotion, or library
+  file-write authority.
+- ARD-060 closed Addon Runtime And Distribution and split Addon Manager
+  discovery/install/update, marketplace hosting, package signing trust roots,
+  process/container supervision, logs/rollback, Native Plugin ABI, downloader
+  protocol adapters, local AI/model runtime, Public Client surfaces, direct
+  library writes, hidden schedulers, and `taru-client-protocol` changes into
+  explicit follow-ons.
+- PRPH-180 closes this umbrella. Future productization work should open a
+  focused follow-on lane rather than reopening the post-RPD roadmap umbrella.
 
 ## Blockers
 
-- None for opening the network access boundary lane.
+- None.
 
 ## Next Recommended Action
 
-- Execute `network-access-boundary` NAB-040.
-- Expose Admin-only network readiness diagnostics and typed Admin web
-  contract/client support using the policy and HTTP enforcement introduced in
-  NAB-020/NAB-030.
-- Keep protocol downloaders, background watch scheduling, AI generated
-  artifacts, and Addon runtime/distribution as separate consumers of proven
-  Taru-owned boundaries.
+- No default mainline action remains in this umbrella.
+- Open a new dedicated workstream when a concrete follow-on is selected, such
+  as protocol downloader adapters, Addon Manager/distribution automation,
+  package signing, process supervision/logs/rollback, concrete tunnel runtime,
+  local AI/model runtime, or Public Client surfaces.

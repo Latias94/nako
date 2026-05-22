@@ -1,15 +1,17 @@
 use serde::{Deserialize, Serialize};
 use taru_addon_protocol::{
-    AddonConfigurationSchema, AddonEntryPointKind, AddonHealthStatus, AddonManifest, AddonResource,
-    AddonScope, AddonTaskDeclaration,
+    AddonConfigurationSchema, AddonEntryPointKind, AddonHealthStatus, AddonInstallDescriptor,
+    AddonInstallGuide, AddonManifest, AddonResource, AddonScope, AddonTaskDeclaration,
 };
 use taru_core::{
     AddonGrantRecord, AddonId, AddonPermission, AddonRegistrationRecord,
-    AddonSideEffectApplyStatus, AddonSideEffectId, AddonSideEffectRecord, AddonSideEffectTarget,
-    AddonSideEffectTargetKind, AddonSideEffectValidationStatus, AddonStatus, AddonTokenId,
-    AddonTokenRecord, AddonTokenStatus, AutomationArtifactRecord, AutomationCapability,
-    AutomationJobInput, AutomationProviderConfigRecord, AutomationProviderId,
-    AutomationProviderStatus, EventId, LibraryId, MediaItemId, MediaSourceId, OutboxEventRecord,
+    AddonRoutingDeclarationKind, AddonRoutingPlanRecord, AddonRoutingPlanStatus,
+    AddonRoutingPlanTarget, AddonSideEffectApplyStatus, AddonSideEffectId, AddonSideEffectRecord,
+    AddonSideEffectTarget, AddonSideEffectTargetKind, AddonSideEffectValidationStatus, AddonStatus,
+    AddonTokenId, AddonTokenRecord, AddonTokenStatus, AutomationArtifactId, AutomationArtifactKind,
+    AutomationArtifactRecord, AutomationArtifactStatus, AutomationCapability, AutomationJobInput,
+    AutomationProviderConfigRecord, AutomationProviderId, AutomationProviderStatus, EventId, JobId,
+    JobKind, LibraryId, MediaItemId, MediaSourceId, OutboxEventRecord,
     WebhookDeliveryAttemptRecord, WebhookEndpointId, WebhookEndpointRecord, WebhookEndpointStatus,
 };
 
@@ -176,6 +178,16 @@ pub struct UpdateAddonStatusRequest {
     pub status: AddonStatus,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonInstallGuidePreviewRequest {
+    pub descriptor: AddonInstallDescriptor,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonInstallGuidePreviewResponse {
+    pub guide: AddonInstallGuide,
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AdminAddonHealthCheckStatus {
@@ -216,6 +228,138 @@ pub struct AdminAddonHealthCheckResponse {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonRuntimeReadinessResponse {
+    pub addon_id: AddonId,
+    pub manifest_id: String,
+    pub readiness: AdminAddonRuntimeReadinessDiagnostics,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonRuntimeReadinessDiagnostics {
+    pub status: AdminAddonRuntimeReadinessStatus,
+    pub reason: AdminAddonRuntimeReadinessReason,
+    pub checks: Vec<AdminAddonRuntimeReadinessCheck>,
+}
+
+impl AdminAddonRuntimeReadinessDiagnostics {
+    #[must_use]
+    pub fn from_checks(checks: Vec<AdminAddonRuntimeReadinessCheck>) -> Self {
+        let status = if checks
+            .iter()
+            .any(|check| check.status == AdminAddonRuntimeReadinessStatus::Unavailable)
+        {
+            AdminAddonRuntimeReadinessStatus::Unavailable
+        } else if checks
+            .iter()
+            .any(|check| check.status == AdminAddonRuntimeReadinessStatus::Degraded)
+        {
+            AdminAddonRuntimeReadinessStatus::Degraded
+        } else {
+            AdminAddonRuntimeReadinessStatus::Ready
+        };
+        let reason = checks
+            .iter()
+            .find(|check| check.status == status)
+            .map_or(AdminAddonRuntimeReadinessReason::Ready, |check| {
+                check.reason
+            });
+
+        Self {
+            status,
+            reason,
+            checks,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminAddonRuntimeReadinessStatus {
+    Ready,
+    Degraded,
+    Unavailable,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminAddonRuntimeReadinessReason {
+    Ready,
+    Unavailable,
+    ManifestMismatch,
+    ProtocolMismatch,
+    MissingGrant,
+    MissingSecretReference,
+    NetworkPolicyBlocked,
+    SidecarDegraded,
+    SidecarUnhealthy,
+    UnsafeResponse,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonRuntimeReadinessCheck {
+    pub name: AdminAddonRuntimeReadinessCheckName,
+    pub status: AdminAddonRuntimeReadinessStatus,
+    pub reason: AdminAddonRuntimeReadinessReason,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub safe_error_code: Option<String>,
+}
+
+impl AdminAddonRuntimeReadinessCheck {
+    #[must_use]
+    pub fn ready(
+        name: AdminAddonRuntimeReadinessCheckName,
+        reason: AdminAddonRuntimeReadinessReason,
+    ) -> Self {
+        Self {
+            name,
+            status: AdminAddonRuntimeReadinessStatus::Ready,
+            reason,
+            safe_error_code: None,
+        }
+    }
+
+    #[must_use]
+    pub fn degraded(
+        name: AdminAddonRuntimeReadinessCheckName,
+        reason: AdminAddonRuntimeReadinessReason,
+        safe_error_code: &'static str,
+    ) -> Self {
+        Self {
+            name,
+            status: AdminAddonRuntimeReadinessStatus::Degraded,
+            reason,
+            safe_error_code: Some(safe_error_code.to_owned()),
+        }
+    }
+
+    #[must_use]
+    pub fn unavailable(
+        name: AdminAddonRuntimeReadinessCheckName,
+        reason: AdminAddonRuntimeReadinessReason,
+        safe_error_code: &'static str,
+    ) -> Self {
+        Self {
+            name,
+            status: AdminAddonRuntimeReadinessStatus::Unavailable,
+            reason,
+            safe_error_code: Some(safe_error_code.to_owned()),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminAddonRuntimeReadinessCheckName {
+    Reachability,
+    Protocol,
+    Manifest,
+    Grants,
+    SecretReferences,
+    Network,
+    Safety,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminAddonSurfacesResponse {
     pub addon_id: AddonId,
     pub manifest_id: String,
@@ -226,6 +370,107 @@ pub struct AdminAddonSurfacesResponse {
     pub secret_reference_fields: Vec<AdminAddonSecretReferenceFieldSurface>,
     pub tasks: Vec<AdminAddonTaskSurface>,
     pub event_subscriptions: Vec<AdminAddonEventSubscriptionSurface>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonRoutingPlansResponse {
+    pub addon_id: AddonId,
+    pub manifest_id: String,
+    pub manifest_version: String,
+    pub manifest_fingerprint: String,
+    pub executable: usize,
+    pub deferred: usize,
+    pub plans: Vec<AdminAddonRoutingPlan>,
+}
+
+impl AdminAddonRoutingPlansResponse {
+    #[must_use]
+    pub fn from_records(
+        addon_id: AddonId,
+        manifest_id: String,
+        manifest_version: String,
+        manifest_fingerprint: String,
+        records: Vec<AddonRoutingPlanRecord>,
+    ) -> Self {
+        let executable = records
+            .iter()
+            .filter(|plan| plan.status == AddonRoutingPlanStatus::Executable)
+            .count();
+        let deferred = records
+            .iter()
+            .filter(|plan| plan.status == AddonRoutingPlanStatus::Deferred)
+            .count();
+
+        Self {
+            addon_id,
+            manifest_id,
+            manifest_version,
+            manifest_fingerprint,
+            executable,
+            deferred,
+            plans: records
+                .into_iter()
+                .map(AdminAddonRoutingPlan::from_record)
+                .collect(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonRoutingPlan {
+    pub declaration_kind: AddonRoutingDeclarationKind,
+    pub declaration_id: String,
+    pub status: AddonRoutingPlanStatus,
+    pub target: AddonRoutingPlanTarget,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub safe_reason_code: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job_kind: Option<JobKind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event_kind: Option<String>,
+    pub required_scope_count: usize,
+    pub filter_configured: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeout_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_attempts: Option<u32>,
+}
+
+impl AdminAddonRoutingPlan {
+    #[must_use]
+    pub fn from_record(record: AddonRoutingPlanRecord) -> Self {
+        #[derive(Deserialize)]
+        struct RoutingPlanSummary {
+            #[serde(default)]
+            required_scope_count: usize,
+            #[serde(default)]
+            filter_configured: bool,
+            #[serde(default)]
+            timeout_ms: Option<u64>,
+            #[serde(default)]
+            max_attempts: Option<u32>,
+        }
+
+        let summary = serde_json::from_str::<RoutingPlanSummary>(&record.plan_json).ok();
+
+        Self {
+            declaration_kind: record.declaration_kind,
+            declaration_id: record.declaration_id,
+            status: record.status,
+            target: record.target,
+            safe_reason_code: record.safe_reason_code,
+            job_kind: record.job_kind,
+            event_kind: record.event_kind,
+            required_scope_count: summary
+                .as_ref()
+                .map_or(0, |summary| summary.required_scope_count),
+            filter_configured: summary
+                .as_ref()
+                .is_some_and(|summary| summary.filter_configured),
+            timeout_ms: summary.as_ref().and_then(|summary| summary.timeout_ms),
+            max_attempts: summary.as_ref().and_then(|summary| summary.max_attempts),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -570,5 +815,103 @@ impl AddonSideEffectSummary {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AddonSideEffectResponse {
     pub side_effect: AddonSideEffectSummary,
+    pub idempotent_replay: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SubmitAddonGeneratedArtifactRequest {
+    pub capability: AutomationCapability,
+    pub kind: AutomationArtifactKind,
+    pub library_id: Option<LibraryId>,
+    pub item_id: Option<MediaItemId>,
+    pub source_id: Option<MediaSourceId>,
+    pub idempotency_key: String,
+    pub prompt: serde_json::Value,
+    pub payload: serde_json::Value,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonGeneratedArtifactSummary {
+    pub artifact_id: AutomationArtifactId,
+    pub provider_id: AutomationProviderId,
+    pub job_id: JobId,
+    pub capability: AutomationCapability,
+    pub kind: AutomationArtifactKind,
+    pub library_id: Option<LibraryId>,
+    pub item_id: Option<MediaItemId>,
+    pub source_id: Option<MediaSourceId>,
+    pub status: AutomationArtifactStatus,
+    pub writes_canonical_metadata: bool,
+    pub writes_sidecar: bool,
+    pub writes_library_files: bool,
+    pub creates_media_source: bool,
+    pub creates_managed_import: bool,
+}
+
+impl AddonGeneratedArtifactSummary {
+    #[must_use]
+    pub fn from_record(record: AutomationArtifactRecord) -> Self {
+        Self {
+            artifact_id: record.id,
+            provider_id: record.provider_id,
+            job_id: record.job_id,
+            capability: record.capability,
+            kind: record.kind,
+            library_id: record.library_id,
+            item_id: record.item_id,
+            source_id: record.source_id,
+            status: record.status,
+            writes_canonical_metadata: false,
+            writes_sidecar: false,
+            writes_library_files: false,
+            creates_media_source: false,
+            creates_managed_import: false,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonGeneratedArtifactResponse {
+    pub artifact: AddonGeneratedArtifactSummary,
+    pub idempotent_replay: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SubmitAddonAcquisitionCandidateRequest {
+    pub target_library_id: LibraryId,
+    pub source_key: String,
+    pub source_uri: String,
+    pub display_name: Option<String>,
+    pub intended_locator: Option<String>,
+    pub size_bytes: Option<u64>,
+    pub fingerprint: Option<String>,
+    pub state: Option<taru_core::AcquisitionIntakeCandidateState>,
+    pub diagnostics: serde_json::Value,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonAcquisitionCandidateSummary {
+    pub id: taru_core::AcquisitionIntakeCandidateId,
+    pub target_library_id: LibraryId,
+    pub state: taru_core::AcquisitionIntakeCandidateState,
+    pub source_kind: String,
+    pub source_scheme: Option<String>,
+    pub source_ref_redacted: String,
+    pub source_key_fingerprint: String,
+    pub has_display_name: bool,
+    pub has_intended_locator: bool,
+    pub size_bytes: Option<u64>,
+    pub has_fingerprint: bool,
+    pub has_diagnostics: bool,
+    pub managed_import_artifact_id: Option<taru_core::ManagedImportArtifactId>,
+    pub writes_library: bool,
+    pub creates_media_source: bool,
+    pub creates_managed_import: bool,
+    pub promotion_apply: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonAcquisitionCandidateResponse {
+    pub candidate: AddonAcquisitionCandidateSummary,
     pub idempotent_replay: bool,
 }

@@ -1,6 +1,6 @@
 # Network Access Boundary — Milestones
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 ## M0 — Scope And Evidence Freeze
@@ -79,13 +79,15 @@ Primary evidence:
 
 ## M4 — Closeout And Follow-On Split
 
+Status: completed on 2026-05-22.
+
 Exit criteria:
 
-- Final gates pass with fresh evidence.
-- Workstream status and completed tasks are updated.
-- Parent post-RPD umbrella re-scores AI, Addon runtime, protocol downloaders,
+- [x] Final gates pass with fresh evidence.
+- [x] Workstream status and completed tasks are updated.
+- [x] Parent post-RPD umbrella re-scores AI, Addon runtime, protocol downloaders,
   endpoint discovery, identity/RBAC, and concrete tunnel runtime follow-ons.
-- Follow-ons are split rather than hidden in this lane.
+- [x] Follow-ons are split rather than hidden in this lane.
 
 Primary evidence:
 

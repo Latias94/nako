@@ -6,9 +6,10 @@ use axum::{
     routing::{get, patch, post},
 };
 use taru_api::extension::{
-    AddonAccessCheckRequest, AdminAddonResourceCallDiagnosticRequest, IssueAddonTokenRequest,
-    RegisterAddonRequest, ReplaceAddonGrantsRequest, SubmitAddonSideEffectRequest,
-    UpdateAddonStatusRequest,
+    AddonAccessCheckRequest, AdminAddonInstallGuidePreviewRequest,
+    AdminAddonResourceCallDiagnosticRequest, IssueAddonTokenRequest, RegisterAddonRequest,
+    ReplaceAddonGrantsRequest, SubmitAddonAcquisitionCandidateRequest,
+    SubmitAddonGeneratedArtifactRequest, SubmitAddonSideEffectRequest, UpdateAddonStatusRequest,
 };
 use taru_core::{AddonId, AddonTokenId};
 use tracing::instrument;
@@ -20,6 +21,10 @@ use super::{auth, error::ApiResult, query::AddonListQuery};
 pub(super) fn routes() -> Router<TaruApp> {
     Router::new()
         .route("/admin/v1/addons", get(list_addons).post(register_addon))
+        .route(
+            "/admin/v1/addons/install-guide-preview",
+            post(preview_addon_install_guide),
+        )
         .route("/admin/v1/addons/{addon_id}", get(get_addon))
         .route(
             "/admin/v1/addons/{addon_id}/status",
@@ -34,8 +39,16 @@ pub(super) fn routes() -> Router<TaruApp> {
             post(check_addon_health),
         )
         .route(
+            "/admin/v1/addons/{addon_id}/runtime-readiness",
+            post(check_addon_runtime_readiness),
+        )
+        .route(
             "/admin/v1/addons/{addon_id}/surfaces",
             get(get_addon_surfaces),
+        )
+        .route(
+            "/admin/v1/addons/{addon_id}/routing-plans",
+            post(sync_addon_routing_plans),
         )
         .route(
             "/admin/v1/addons/{addon_id}/install-guide",
@@ -66,7 +79,23 @@ pub(super) fn routes() -> Router<TaruApp> {
 pub(super) fn runtime_routes() -> Router<TaruApp> {
     Router::new()
         .route("/addon/v1/access-check", post(check_addon_access))
+        .route(
+            "/addon/v1/generated-artifacts",
+            post(submit_addon_generated_artifact),
+        )
+        .route(
+            "/addon/v1/acquisition/intake/candidates",
+            post(submit_addon_acquisition_candidate),
+        )
         .route("/addon/v1/side-effects", post(submit_addon_side_effect))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn preview_addon_install_guide(
+    State(app): State<TaruApp>,
+    Json(request): Json<AdminAddonInstallGuidePreviewRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.addons().preview_addon_install_guide(request)?))
 }
 
 #[instrument(skip(app))]
@@ -123,11 +152,29 @@ pub(super) async fn check_addon_health(
 }
 
 #[instrument(skip(app))]
+pub(super) async fn check_addon_runtime_readiness(
+    State(app): State<TaruApp>,
+    Path(addon_id): Path<AddonId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.addons().check_addon_runtime_readiness(addon_id).await?,
+    ))
+}
+
+#[instrument(skip(app))]
 pub(super) async fn get_addon_surfaces(
     State(app): State<TaruApp>,
     Path(addon_id): Path<AddonId>,
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(app.addons().get_addon_surfaces(addon_id).await?))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn sync_addon_routing_plans(
+    State(app): State<TaruApp>,
+    Path(addon_id): Path<AddonId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.addons().sync_addon_routing_plans(addon_id).await?))
 }
 
 #[instrument(skip(app))]
@@ -242,6 +289,42 @@ pub(super) async fn submit_addon_side_effect(
     Ok(Json(
         app.addons()
             .submit_addon_side_effect(raw_token, request)
+            .await?,
+    ))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn submit_addon_generated_artifact(
+    State(app): State<TaruApp>,
+    headers: HeaderMap,
+    Json(request): Json<SubmitAddonGeneratedArtifactRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let raw_token =
+        auth::request_bearer_token(&headers).ok_or_else(|| taru_core::TaruError::Unauthorized {
+            message: "addon token is required".to_owned(),
+        })?;
+
+    Ok(Json(
+        app.addons()
+            .submit_addon_generated_artifact(raw_token, request)
+            .await?,
+    ))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn submit_addon_acquisition_candidate(
+    State(app): State<TaruApp>,
+    headers: HeaderMap,
+    Json(request): Json<SubmitAddonAcquisitionCandidateRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let raw_token =
+        auth::request_bearer_token(&headers).ok_or_else(|| taru_core::TaruError::Unauthorized {
+            message: "addon token is required".to_owned(),
+        })?;
+
+    Ok(Json(
+        app.addons()
+            .submit_addon_acquisition_candidate(raw_token, request)
             .await?,
     ))
 }

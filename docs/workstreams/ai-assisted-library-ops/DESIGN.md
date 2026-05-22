@@ -1,6 +1,6 @@
 # AI Assisted Library Ops Design
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 ## Why This Lane Exists
@@ -138,9 +138,77 @@ taru-api::admin / taru-server::http::admin
   stays untouched.
 ```
 
+## AILO-020 Backend Proposal Queue Baseline
+
+AILO-020 established the backend read model for Generated Artifact proposals
+without introducing a parallel AI artifact store. Existing Automation Artifacts
+remain the durable source of truth. The new proposal projection adds:
+
+- target identity: Library, Media Item, Media Source, or blocked untargeted
+  artifact;
+- provenance: provider id/name, job id, capability, redacted prompt and
+  idempotency fingerprints, attempt count, artifact creation time;
+- payload summary: JSON validity, shape, byte count, payload fingerprint,
+  object/array counts, textual/explanation booleans, confidence in milli units;
+- readiness: ready, blocked, or stale with explicit reasons for invalid JSON,
+  already accepted/rejected artifacts, missing provider/job/target records,
+  target mismatch, or job-input mismatch.
+
+The projection intentionally omits raw prompt JSON, raw generated payload text,
+provider secrets, Source Locators, local paths, source fingerprints, and
+canonical metadata write operations. Acceptance is still a later workflow;
+AILO-020 only makes proposals reviewable and stale-checkable.
+
+## AILO-030 Admin Diagnostics Baseline
+
+AILO-030 exposed the AILO-020 proposal queue through Admin-only diagnostics and
+typed Admin Web support. The route
+`/admin/v1/automation/generated-artifacts/proposals` returns DTOs owned by
+`taru-api::admin`, not by the Public Client protocol. The DTO mirrors only the
+safe proposal summary:
+
+- proposal id, kind, capability, artifact status, and target ids;
+- provider/job provenance with idempotency and prompt fingerprints;
+- payload validity, shape, byte count, fingerprint, counts, explanation/text
+  booleans, and confidence;
+- readiness status/actionability/reasons and timestamps.
+
+The Admin surface intentionally does not expose raw prompt JSON, raw generated
+artifact JSON, provider secrets, Source Locators, local paths, source
+fingerprints, provider raw responses, or any acceptance/apply mutation. The
+generated Admin TypeScript contract and Admin Web client/data-source/mocks are
+kept in sync with the Rust generator, while `taru-client-protocol` remains
+unchanged. Acceptance remains AILO-040.
+
+## AILO-040 Acceptance Planning Baseline
+
+AILO-040 added an explicit review boundary for Generated Artifacts without
+granting generated output autonomous write authority. The first accepted
+operation is `metadata_cleanup` / `metadata_suggestion`:
+
+- `review-plan` computes whether a proposal can be accepted or rejected using
+  the AILO-020 readiness model.
+- `accept` for metadata-cleanup proposals records the Automation Artifact as
+  accepted, but the returned boundary states that canonical metadata, sidecars,
+  and library files are not written and that a later metadata authority/apply
+  workflow is required.
+- `reject` records a rejected proposal as a no-mutation action, even when a
+  proposal is stale.
+- stale, missing-target, unsupported-kind, or otherwise non-ready proposals
+  cannot be accepted.
+- Admin review responses expose action/reason/boundary summaries and omit raw
+  prompts, raw generated payloads, provider secrets, Source Locators, local
+  paths, and source fingerprints.
+
+This is deliberately a planning/review milestone, not an apply milestone. It
+prevents "AI accepted" from meaning "AI wrote Canonical Metadata." A future lane
+may deepen accepted metadata-cleanup artifacts into metadata authority changes
+or NFO sidecar apply requests, but that must reuse the existing authority/apply
+contracts and add its own evidence.
+
 ## Closeout Condition
 
-This lane can close when:
+This lane is closed. It met the closeout condition when:
 
 - generated artifact proposal/readiness semantics are explicit and tested;
 - Admin diagnostics expose safe proposal summaries and review state;

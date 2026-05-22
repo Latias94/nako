@@ -33,6 +33,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.taru.android.browse.MediaItemDto
 import dev.taru.android.ui.TaruStrings
+import dev.taru.android.ui.components.TaruArtworkBackdrop
+import dev.taru.android.ui.components.TaruIconBadge
+import dev.taru.android.ui.components.TaruScreenColumn
+import dev.taru.android.ui.components.TaruSectionHeader
+import dev.taru.android.ui.components.TaruStatusChip
+import dev.taru.android.ui.components.TaruSurfaceCard
 import dev.taru.android.ui.theme.TaruShape
 import dev.taru.android.ui.theme.TaruSpacing
 import dev.taru.android.ui.theme.TaruTextSecondary
@@ -47,7 +53,7 @@ internal fun BrowseFacetRouteContent(
     onChangeServer: () -> Unit,
     onOpenItem: (MediaItemDto) -> Unit,
 ) {
-    TaruScrollColumn {
+    TaruScreenColumn {
         IconButton(onClick = onBack) {
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
@@ -92,7 +98,7 @@ private fun FacetResults(
     onLoadMore: () -> Unit,
     onOpenItem: (MediaItemDto) -> Unit,
 ) {
-    SectionHeader(
+    TaruSectionHeader(
         title = "Related Titles",
         action = "${state.response.page.returned}",
     )
@@ -133,7 +139,7 @@ private fun FacetHeader(
                 .fillMaxWidth()
                 .heightIn(min = 190.dp),
         ) {
-            ArtworkBackdrop(
+            TaruArtworkBackdrop(
                 title = "${target.family.label}:${target.label}",
                 modifier = Modifier.matchParentSize(),
             )
@@ -147,7 +153,7 @@ private fun FacetHeader(
                     horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconBadge(icon = target.family.icon())
+                    TaruIconBadge(icon = target.family.icon())
                     Column {
                         Text(
                             text = target.label,
@@ -163,8 +169,8 @@ private fun FacetHeader(
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small)) {
-                    StatusChip(text = target.id?.let { "From server" } ?: "Not available")
-                    StatusChip(text = returned?.let { "$it results" } ?: "Results")
+                    TaruStatusChip(text = target.id?.let { "From server" } ?: "Not available")
+                    TaruStatusChip(text = returned?.let { "$it results" } ?: "Results")
                 }
             }
         }
@@ -176,7 +182,7 @@ private fun FacetResultSummary(
     target: BrowseFacetTarget,
     state: FacetUiState.Content,
 ) {
-    SurfaceCard {
+    TaruSurfaceCard {
         Text(
             text = "Browsing ${target.family.label.lowercase()} relationship",
             style = MaterialTheme.typography.titleMedium,
@@ -187,8 +193,8 @@ private fun FacetResultSummary(
             style = MaterialTheme.typography.bodyMedium,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small)) {
-            StatusChip(text = state.response.family.name)
-            StatusChip(text = state.response.facetLabel)
+            TaruStatusChip(text = state.response.family.name)
+            TaruStatusChip(text = state.response.facetLabel)
         }
     }
 }

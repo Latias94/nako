@@ -139,6 +139,42 @@ class BrowseShellHostTest {
     }
 
     @Test
+    fun `host player route keeps previous detail state instead of clearing through route load`() = runBlocking {
+        val target = testPlaybackTarget("source-a")
+        val host = BrowseShellHost(
+            profile = testProfile(),
+            snapshot = testSnapshot(),
+            runtime = RecordingBrowseShellRuntime(
+                dataSource = RecordingHostBrowseDataSource(
+                    playbackState = PlaybackSelectionUiState.Content(
+                        response = testPlaybackDecision("source-a"),
+                        target = target,
+                        capabilities = PlaybackCapabilities(),
+                    ),
+                ),
+                playbackStarter = RecordingHostPlaybackStarter(
+                    result = PlaybackStartResult.Success(
+                        launch = testPlaybackLaunch(target),
+                        preparedTarget = target,
+                    ),
+                ),
+            ),
+            parentScope = CoroutineScope(coroutineContext + Job()),
+        )
+
+        host.dispatch(BrowseAction.OpenItem("night-harbor"))
+        waitUntil { host.state.value.detailState is ItemDetailUiState.Content }
+        host.dispatch(BrowseAction.RequestPlayback("source-a"))
+        waitUntil { host.state.value.playbackState is PlaybackSelectionUiState.Content }
+        host.dispatch(BrowseAction.StartPlayback(target))
+        waitUntil { host.state.value.currentRoute is TaruRoute.Player }
+
+        assertTrue(host.state.value.detailState is ItemDetailUiState.Content)
+        assertEquals("source-a", host.state.value.selectedSourceId)
+        host.close()
+    }
+
+    @Test
     fun `host forwards settings actions through runtime`() {
         val runtime = RecordingBrowseShellRuntime()
         val host = BrowseShellHost(

@@ -20,7 +20,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -29,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.taru.android.connection.ConnectionCheckResult
 import dev.taru.android.connection.ConnectionFailureCategory
 import dev.taru.android.connection.InMemoryServerProfileStore
@@ -61,7 +61,7 @@ internal fun TaruConnectionShellContent(
             scope = scope,
         )
     }
-    val state by session.state.collectAsState()
+    val state by session.state.collectAsStateWithLifecycle()
 
     Surface(
         modifier = modifier.fillMaxSize(),

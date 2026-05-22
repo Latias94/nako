@@ -51,14 +51,14 @@ import androidx.compose.ui.unit.dp
 import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.ServerProfileSnapshot
 import dev.taru.android.ui.TaruStrings
-import dev.taru.android.ui.rememberTaruClipboard
-import dev.taru.android.ui.browse.IconBadge
 import dev.taru.android.ui.browse.PageTitle
 import dev.taru.android.ui.browse.SectionLabel
-import dev.taru.android.ui.browse.StatusChip
-import dev.taru.android.ui.browse.StatusPill
-import dev.taru.android.ui.browse.SurfaceCard
-import dev.taru.android.ui.browse.TaruScrollColumn
+import dev.taru.android.ui.components.TaruIconBadge
+import dev.taru.android.ui.components.TaruScreenColumn
+import dev.taru.android.ui.components.TaruStatusChip
+import dev.taru.android.ui.components.TaruStatusPill
+import dev.taru.android.ui.components.TaruSurfaceCard
+import dev.taru.android.ui.rememberTaruClipboard
 import dev.taru.android.ui.theme.TaruShape
 import dev.taru.android.ui.theme.TaruSpacing
 import dev.taru.android.ui.theme.TaruTextMuted
@@ -77,13 +77,13 @@ internal fun SettingsHomeScreen(
         settingsDiagnosticsPresentation(profile, snapshot)
     }
 
-    TaruScrollColumn {
+    TaruScreenColumn {
         PageTitle(
             title = "Settings",
             subtitle = "Client identity, playback defaults, and safe diagnostics.",
             icon = Icons.Rounded.Settings,
             trailing = {
-                StatusPill(
+                TaruStatusPill(
                     text = profile.displayName,
                     icon = Icons.Rounded.Storage,
                     onClick = onOpenServerProfile,
@@ -163,7 +163,7 @@ internal fun ServerProfileScreen(
         settingsDiagnosticsPresentation(activeProfile, snapshot)
     }
 
-    TaruScrollColumn {
+    TaruScreenColumn {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
@@ -271,7 +271,7 @@ private fun ActiveServerPanel(
                 horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconBadge(icon = Icons.Rounded.Storage)
+                TaruIconBadge(icon = Icons.Rounded.Storage)
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = profile.displayName,
@@ -292,7 +292,7 @@ private fun ActiveServerPanel(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                StatusChip(text = "Compatibility ${diagnostics.apiLabel}")
+                TaruStatusChip(text = "Compatibility ${diagnostics.apiLabel}")
             }
             Row(horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small)) {
                 Button(onClick = onOpenServerProfile) {
@@ -311,12 +311,12 @@ private fun ServerIdentityPanel(
     profile: ServerProfile,
     diagnostics: SettingsDiagnosticsPresentation,
 ) {
-    SurfaceCard {
+    TaruSurfaceCard {
         Row(
             horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconBadge(icon = Icons.Rounded.Storage)
+            TaruIconBadge(icon = Icons.Rounded.Storage)
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(TaruSpacing.xsmall),
@@ -342,12 +342,12 @@ private fun ServerIdentityPanel(
 
 @Composable
 private fun AccessTokenPanel(onChangeServer: () -> Unit) {
-    SurfaceCard {
+    TaruSurfaceCard {
         Row(
             horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconBadge(icon = Icons.Rounded.Lock)
+            TaruIconBadge(icon = Icons.Rounded.Lock)
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "Server sign-in",

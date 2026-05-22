@@ -1,5 +1,6 @@
 use super::{SqliteStore, codec::*};
 use sqlx::Sqlite;
+use std::collections::HashSet;
 use taru_core::*;
 
 #[async_trait::async_trait]
@@ -485,6 +486,132 @@ impl AddonRepository for SqliteStore {
         rows.into_iter().map(row_to_addon_grant).collect()
     }
 
+    async fn replace_addon_routing_plans(
+        &self,
+        addon_id: AddonId,
+        plans: Vec<NewAddonRoutingPlan>,
+    ) -> Result<Vec<AddonRoutingPlanRecord>> {
+        for plan in &plans {
+            if plan.addon_id != addon_id {
+                return Err(TaruError::InvalidInput {
+                    message: "addon routing plan addon_id does not match replacement target"
+                        .to_owned(),
+                });
+            }
+        }
+
+        let desired_keys = plans
+            .iter()
+            .map(|plan| {
+                (
+                    plan.declaration_kind.as_str().to_owned(),
+                    plan.declaration_id.clone(),
+                )
+            })
+            .collect::<HashSet<_>>();
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+
+        for plan in plans {
+            sqlx::query(
+                r#"
+                INSERT INTO addon_routing_plans (
+                    id,
+                    addon_id,
+                    manifest_id,
+                    manifest_version,
+                    manifest_fingerprint,
+                    declaration_kind,
+                    declaration_id,
+                    status,
+                    target,
+                    safe_reason_code,
+                    job_kind,
+                    event_kind,
+                    plan_json
+                )
+                VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+                ON CONFLICT(addon_id, declaration_kind, declaration_id) DO UPDATE SET
+                    manifest_id = excluded.manifest_id,
+                    manifest_version = excluded.manifest_version,
+                    manifest_fingerprint = excluded.manifest_fingerprint,
+                    status = excluded.status,
+                    target = excluded.target,
+                    safe_reason_code = excluded.safe_reason_code,
+                    job_kind = excluded.job_kind,
+                    event_kind = excluded.event_kind,
+                    plan_json = excluded.plan_json,
+                    updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                "#,
+            )
+            .bind(plan.id.to_string())
+            .bind(plan.addon_id.to_string())
+            .bind(&plan.manifest_id)
+            .bind(&plan.manifest_version)
+            .bind(plan.manifest_fingerprint.as_str())
+            .bind(plan.declaration_kind.as_str())
+            .bind(&plan.declaration_id)
+            .bind(plan.status.as_str())
+            .bind(plan.target.as_str())
+            .bind(&plan.safe_reason_code)
+            .bind(plan.job_kind.map(|kind| kind.as_str().to_owned()))
+            .bind(&plan.event_kind)
+            .bind(&plan.plan_json)
+            .execute(&mut *transaction)
+            .await
+            .map_err(database_error)?;
+        }
+
+        let existing_rows = sqlx::query(
+            r#"
+            SELECT declaration_kind, declaration_id
+            FROM addon_routing_plans
+            WHERE addon_id = ?1
+            "#,
+        )
+        .bind(addon_id.to_string())
+        .fetch_all(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+        for row in existing_rows {
+            let declaration_kind = row_get::<String>(&row, "declaration_kind")?;
+            let declaration_id = row_get::<String>(&row, "declaration_id")?;
+            if desired_keys.contains(&(declaration_kind.clone(), declaration_id.clone())) {
+                continue;
+            }
+            sqlx::query(
+                r#"
+                DELETE FROM addon_routing_plans
+                WHERE addon_id = ?1 AND declaration_kind = ?2 AND declaration_id = ?3
+                "#,
+            )
+            .bind(addon_id.to_string())
+            .bind(declaration_kind)
+            .bind(declaration_id)
+            .execute(&mut *transaction)
+            .await
+            .map_err(database_error)?;
+        }
+
+        transaction.commit().await.map_err(database_error)?;
+        self.list_addon_routing_plans(addon_id).await
+    }
+
+    async fn list_addon_routing_plans(
+        &self,
+        addon_id: AddonId,
+    ) -> Result<Vec<AddonRoutingPlanRecord>> {
+        let sql = addon_routing_plan_select_sql(
+            "WHERE addon_id = ?1 ORDER BY declaration_kind ASC, declaration_id ASC, created_at ASC, id ASC",
+        );
+        let rows = sqlx::query(&sql)
+            .bind(addon_id.to_string())
+            .fetch_all(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_addon_routing_plan).collect()
+    }
+
     async fn create_addon_side_effect(
         &self,
         side_effect: NewAddonSideEffect,
@@ -669,6 +796,31 @@ fn addon_side_effect_select_sql(where_clause: &str) -> String {
             applied_at,
             created_at
         FROM addon_side_effects
+        {where_clause}
+        "#
+    )
+}
+
+fn addon_routing_plan_select_sql(where_clause: &str) -> String {
+    format!(
+        r#"
+        SELECT
+            id,
+            addon_id,
+            manifest_id,
+            manifest_version,
+            manifest_fingerprint,
+            declaration_kind,
+            declaration_id,
+            status,
+            target,
+            safe_reason_code,
+            job_kind,
+            event_kind,
+            plan_json,
+            created_at,
+            updated_at
+        FROM addon_routing_plans
         {where_clause}
         "#
     )

@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -15,6 +14,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.taru.android.browse.MediaItemDto
 import dev.taru.android.browse.TaruBrowseClient
 import dev.taru.android.connection.ServerProfile
@@ -98,7 +98,7 @@ internal fun TaruBrowseShell(
             browseHost.close()
         }
     }
-    val shellState by browseHost.state.collectAsState()
+    val shellState by browseHost.state.collectAsStateWithLifecycle()
     val selectedDestination = shellState.selectedDestination
     val route = shellState.currentRoute
     fun dispatchBrowseAction(action: BrowseAction) {

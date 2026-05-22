@@ -21,6 +21,7 @@ describe("Admin web console scaffold", () => {
             addonTokens: "live",
             addonGrants: "live",
             acquisitionIntake: "live",
+            generatedArtifactProposals: "live",
             jobs: "live",
             playbackRuntime: "live",
             storageStaging: "live",
@@ -61,8 +62,10 @@ describe("Admin web console scaffold", () => {
     expect(screen.getByText(/Taru generates this guide only/)).toBeInTheDocument();
     expect(screen.getByText("subtitle · succeeded")).toBeInTheDocument();
     expect(screen.getByText("Network Access")).toBeInTheDocument();
+    expect(screen.getByText("Generated Artifacts")).toBeInTheDocument();
     expect(screen.getByText("reverse_proxy")).toBeInTheDocument();
     expect(screen.getByText("candidate-ready")).toBeInTheDocument();
+    expect(screen.getByText("metadata_cleanup")).toBeInTheDocument();
     expect(screen.getAllByText("Live Admin API").length).toBeGreaterThan(0);
     expect(screen.getByText("1/1")).toBeInTheDocument();
   });
@@ -116,6 +119,7 @@ describe("Admin web console scaffold", () => {
             addonTokens: "live",
             addonGrants: "live",
             acquisitionIntake: "live",
+            generatedArtifactProposals: "live",
             jobs: "live",
             playbackRuntime: "live",
             storageStaging: "live",
@@ -134,6 +138,9 @@ describe("Admin web console scaffold", () => {
     expect(renderedText).not.toContain("cache_uri");
     expect(renderedText).not.toContain("local_path");
     expect(renderedText).not.toContain("output_path");
+    expect(renderedText).not.toContain("prompt_json");
+    expect(renderedText).not.toContain("artifact_json");
+    expect(renderedText).not.toContain("local:///");
     expect(renderedText).not.toContain("raw_token");
     expect(renderedText).not.toContain("bearer");
     expect(renderedText).not.toContain("C:\\");

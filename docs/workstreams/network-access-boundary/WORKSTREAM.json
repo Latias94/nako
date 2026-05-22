@@ -2,17 +2,18 @@
   "schema_version": 1,
   "slug": "network-access-boundary",
   "title": "Network Access Boundary",
-  "status": "active",
+  "status": "complete",
   "updated": "2026-05-22",
   "scope_kind": "execution",
   "problem": "Self-hosted Taru needs explicit remote access policy, trusted proxy/header behavior, tunnel-provider readiness, origin constraints, and redacted diagnostics before built-in NAT traversal or broader remote-client features are safe.",
   "task_prefix": "NAB",
-  "current_task": "NAB-050",
+  "current_task": null,
   "completed_tasks": [
     "NAB-010",
     "NAB-020",
     "NAB-030",
-    "NAB-040"
+    "NAB-040",
+    "NAB-050"
   ],
   "authoritative_docs": [
     {
@@ -69,8 +70,8 @@
     "docs/adr/0027-admin-api-boundary-for-web-console.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "next_task": "NAB-050",
-    "notes": "NAB-010 opened Network Access Boundary as the next post-DWI mainline lane. NAB-020 completed network access policy/config validation for local-only, reverse-proxy, private-network, and tunnel-provider modes with trusted proxy source requirements, origin validation, tunnel token-env checks, deployment docs, and no tunnel runtime. NAB-030 completed request-time HTTP boundary enforcement for configured browser origins, CORS preflight, auth-order preservation, public health compatibility, and trusted forwarded host/proto handling gated by exact-IP/CIDR trusted proxy sources. NAB-040 completed Admin-only network readiness diagnostics in system config plus generated Admin Web contract/data mapping with strict redaction and no Public Client protocol churn. Continue with NAB-050 closeout/follow-on split. Do not add built-in NAT traversal runtime, relay services, identity/RBAC, protocol downloaders, AI writes, Addon runtime/distribution, direct library writes, Public Client API changes, or taru-client-protocol changes unless split into a dedicated lane."
+    "default_action": "return_to_parent",
+    "next_task": "post-rpd-product-hardening PRPH-150",
+    "notes": "Network Access Boundary is complete. NAB-020 completed network access policy/config validation. NAB-030 completed request-time HTTP boundary enforcement. NAB-040 completed Admin-only network readiness diagnostics. NAB-050 closed the lane and split built-in NAT traversal runtime, relay services, client endpoint discovery, identity/RBAC, protocol downloaders, AI-assisted library ops, Addon runtime/distribution, direct library writes, Public Client API changes, and taru-client-protocol changes into dedicated follow-ons. Return to post-rpd-product-hardening; AI Assisted Library Ops is the next mainline lane."
   }
 }

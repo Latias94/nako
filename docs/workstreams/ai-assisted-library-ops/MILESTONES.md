@@ -1,6 +1,6 @@
 # AI Assisted Library Ops — Milestones
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 ## M0 — Scope And Evidence Freeze
@@ -23,13 +23,15 @@ Primary evidence:
 
 ## M1 — Generated Artifact Proposal Queue
 
+Status: completed on 2026-05-22.
+
 Exit criteria:
 
-- Existing Automation Artifacts have stable proposal/readiness semantics for
+- [x] Existing Automation Artifacts have stable proposal/readiness semantics for
   AI-assisted library operations.
-- Targets, provenance, confidence/explanation, stale-target checks, and status
+- [x] Targets, provenance, confidence/explanation, stale-target checks, and status
   transitions are explicit.
-- Repository/app tests prove proposals do not mutate canonical metadata,
+- [x] Repository/app tests prove proposals do not mutate canonical metadata,
   sidecars, Media Sources, Managed Import artifacts, or library files.
 
 Primary evidence:
@@ -41,12 +43,14 @@ Primary evidence:
 
 ## M2 — Admin Proposal Diagnostics
 
+Status: completed on 2026-05-22.
+
 Exit criteria:
 
-- Admin-only routes expose bounded Generated Artifact proposal diagnostics.
-- Admin TypeScript contract and typed client/mocks are synchronized.
-- Public Client API and `taru-client-protocol` remain unchanged.
-- Redaction tests cover prompts, raw generated payloads, provider secrets, raw
+- [x] Admin-only routes expose bounded Generated Artifact proposal diagnostics.
+- [x] Admin TypeScript contract and typed client/mocks are synchronized.
+- [x] Public Client API and `taru-client-protocol` remain unchanged.
+- [x] Redaction tests cover prompts, raw generated payloads, provider secrets, raw
   Source Locators, local paths, and provider responses.
 
 Primary evidence:
@@ -54,33 +58,39 @@ Primary evidence:
 - `crates/taru-api/src/admin.rs`
 - `crates/taru-server/src/http/admin.rs`
 - `apps/admin-web/src/adminApi`
-- HTTP/Admin tests
+- `crates/taru-server/src/http/tests/system.rs`
 
 ## M3 — Acceptance Planning Without Autonomous Writes
 
+Status: completed on 2026-05-22.
+
 Exit criteria:
 
-- Accept/reject planning is explicit, idempotent, and auditable.
-- Accepted proposals route through existing metadata/NFO/apply authority
+- [x] Accept/reject planning is explicit, idempotent, and auditable.
+- [x] Accepted proposals route through existing metadata/NFO/apply authority
   boundaries rather than direct AI writes.
-- Stale target and authority conflict checks block unsafe acceptance.
-- Tests prove no autonomous write occurs before explicit acceptance.
+- [x] Stale target and authority conflict checks block unsafe acceptance.
+- [x] Tests prove no autonomous write occurs before explicit acceptance.
 
 Primary evidence:
 
-- app/db acceptance tests
-- redacted Admin audit diagnostics
+- `crates/taru-server/src/app/automation.rs`
+- `crates/taru-server/src/app/tests/automation.rs`
+- `crates/taru-api/src/admin.rs`
+- `crates/taru-server/src/http/tests/system.rs`
 
 ## M4 — Closeout And Follow-On Split
 
+Status: completed on 2026-05-22.
+
 Exit criteria:
 
-- Final gates pass with fresh evidence.
-- Workstream status and completed tasks are updated.
-- Parent post-RPD umbrella re-scores Addon runtime/distribution, provider
+- [x] Final gates pass with fresh evidence.
+- [x] Workstream status and completed tasks are updated.
+- [x] Parent post-RPD umbrella re-scores Addon runtime/distribution, provider
   adapters, local model runtime, embeddings/vector search, protocol downloaders,
   and Public Client display.
-- Follow-ons are split rather than hidden in this lane.
+- [x] Follow-ons are split rather than hidden in this lane.
 
 Primary evidence:
 

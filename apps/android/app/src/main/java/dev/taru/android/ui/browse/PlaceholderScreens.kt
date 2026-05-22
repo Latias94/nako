@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import dev.taru.android.ui.TaruStrings
+import dev.taru.android.ui.components.TaruScreenColumn
 
 @Composable
 internal fun PlaceholderTopLevel(
@@ -18,7 +19,7 @@ internal fun PlaceholderTopLevel(
     icon: ImageVector,
 ) {
     BrowseScaffoldContent {
-        TaruScrollColumn {
+        TaruScreenColumn {
             PageTitle(
                 title = title,
                 subtitle = subtitle,
@@ -39,7 +40,7 @@ internal fun PlaceholderRoute(
     body: String,
     onBack: () -> Unit,
 ) {
-    TaruScrollColumn {
+    TaruScreenColumn {
         IconButton(onClick = onBack) {
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.ArrowBack,

@@ -36,7 +36,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -49,18 +48,14 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.PlayerView
-import dev.taru.android.connection.ServerProfile
-import dev.taru.android.connection.TokenVault
-import dev.taru.android.playback.TaruPlaybackClient
-import dev.taru.android.player.DevicePlaybackPositionStore
-import dev.taru.android.player.PlaybackExitCoordinator
 import dev.taru.android.player.PlaybackLaunchRequest
 import dev.taru.android.ui.TaruStrings
 import dev.taru.android.ui.artwork.TaruPlayerBackdrop
-import dev.taru.android.ui.browse.IconBadge
-import dev.taru.android.ui.browse.StatusChip
+import dev.taru.android.ui.components.TaruIconBadge
+import dev.taru.android.ui.components.TaruStatusChip
 import dev.taru.android.ui.rememberTaruClipboard
 import dev.taru.android.ui.theme.TaruAccent
 import dev.taru.android.ui.theme.TaruScrim
@@ -68,67 +63,36 @@ import dev.taru.android.ui.theme.TaruShape
 import dev.taru.android.ui.theme.TaruSpacing
 import dev.taru.android.ui.theme.TaruTextMuted
 import dev.taru.android.ui.theme.TaruTextSecondary
-import dev.taru.android.userplayback.TaruUserPlaybackClient
-import kotlinx.coroutines.CoroutineScope
 
 @Composable
 @OptIn(UnstableApi::class)
 internal fun PlaybackPlayerRoute(
     launch: PlaybackLaunchRequest,
-    profile: ServerProfile,
-    tokenVault: TokenVault,
-    playbackClient: TaruPlaybackClient,
-    userPlaybackClient: TaruUserPlaybackClient,
-    positionStore: DevicePlaybackPositionStore,
-    exitEffectScope: CoroutineScope,
+    runtimeFactory: PlaybackSessionRuntimeFactory,
     onBack: () -> Unit,
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
     val clipboard = rememberTaruClipboard()
     val chrome = remember(launch) { playerChromePresentation(launch) }
-    val exitCoordinator = remember(playbackClient, userPlaybackClient, positionStore) {
-        PlaybackExitCoordinator(
-            playbackClient = playbackClient,
-            userPlaybackClient = userPlaybackClient,
-            positionStore = positionStore,
-        )
+    val runtime = remember(launch, runtimeFactory) {
+        runtimeFactory.create(launch)
     }
-    val exitEffectRunner = remember(profile, tokenVault, exitCoordinator, exitEffectScope) {
-        CoroutinePlaybackExitEffectRunner(
-            profile = profile,
-            tokenVault = tokenVault,
-            exitCoordinator = exitCoordinator,
-            exitEffectScope = exitEffectScope,
-        )
-    }
-    val playbackAccessToken = tokenVault.readToken(profile.tokenReference).orEmpty()
-    val routeHost = remember(context, launch, exitEffectRunner, playbackAccessToken) {
-        val engine = media3PlaybackEngineController(
-            context = context,
-            accessToken = playbackAccessToken,
-        )
-        PlayerRouteHost(
-            launch = launch,
-            engine = PlaybackControllerRouteEngine(engine),
-            exitEffectRunner = exitEffectRunner,
-        )
-    }
-    val sessionState by routeHost.state.collectAsState()
+    val pictureInPictureGateway = rememberPlaybackPictureInPictureGateway()
+    val sessionState by runtime.state.collectAsStateWithLifecycle()
 
     val handleBack = {
-        routeHost.back()
+        runtime.back()
         onBack()
     }
     BackHandler(onBack = handleBack)
 
-    DisposableEffect(routeHost) {
-        routeHost.attach()
+    DisposableEffect(runtime) {
+        runtime.attach()
         onDispose {
-            routeHost.dispose()
+            runtime.dispose()
         }
     }
-    LaunchedEffect(routeHost) {
-        routeHost.prepare()
+    LaunchedEffect(runtime) {
+        runtime.prepare()
     }
 
     Box(
@@ -145,7 +109,7 @@ internal fun PlaybackPlayerRoute(
             modifier = Modifier.fillMaxSize(),
             factory = { viewContext ->
                 PlayerView(viewContext).apply {
-                    this.player = routeHost.player
+                    this.player = runtime.player
                     useController = true
                     setArtworkDisplayMode(PlayerView.ARTWORK_DISPLAY_MODE_OFF)
                     layoutParams = ViewGroup.LayoutParams(
@@ -156,12 +120,14 @@ internal fun PlaybackPlayerRoute(
                     setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
                 }
             },
-            update = { it.player = routeHost.player },
+            update = { it.player = runtime.player },
         )
 
         PlayerTopOverlay(
             chrome = chrome,
             playerState = sessionState.playerStateLabel,
+            canEnterPictureInPicture = pictureInPictureGateway.isAvailable,
+            onEnterPictureInPicture = { pictureInPictureGateway.enter(launch) },
             onBack = handleBack,
         )
 
@@ -192,7 +158,7 @@ internal fun PlaybackPlayerRoute(
             PlaybackErrorSheet(
                 presentation = presentation,
                 onRetry = {
-                    routeHost.retry()
+                    runtime.retry()
                 },
                 onBack = handleBack,
                 onCopyDiagnostics = {
@@ -208,6 +174,8 @@ internal fun PlaybackPlayerRoute(
 private fun PlayerTopOverlay(
     chrome: PlayerChromePresentation,
     playerState: String,
+    canEnterPictureInPicture: Boolean,
+    onEnterPictureInPicture: () -> Unit,
     onBack: () -> Unit,
 ) {
     Row(
@@ -248,7 +216,21 @@ private fun PlayerTopOverlay(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        StatusChip(text = chrome.modeLabel)
+        if (canEnterPictureInPicture) {
+            IconButton(
+                modifier = Modifier.semantics {
+                    contentDescription = "Enter picture-in-picture"
+                },
+                onClick = onEnterPictureInPicture,
+            ) {
+                Text(
+                    text = "PiP",
+                    color = Color.White,
+                    style = MaterialTheme.typography.labelMedium,
+                )
+            }
+        }
+        TaruStatusChip(text = chrome.modeLabel)
     }
 }
 
@@ -267,7 +249,7 @@ private fun PlayerCenterStatus(playerState: String) {
             horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconBadge(icon = Icons.Rounded.PlayArrow, compact = true)
+            TaruIconBadge(icon = Icons.Rounded.PlayArrow, compact = true)
             Text(
                 text = playerState,
                 color = Color.White,
@@ -316,21 +298,21 @@ private fun PlayerBottomOverlay(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                StatusChip(text = playerState)
+                TaruStatusChip(text = playerState)
             }
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small),
                 verticalArrangement = Arrangement.spacedBy(TaruSpacing.small),
             ) {
-                StatusChip(text = chrome.sourceLabel)
-                chrome.resumeLabel?.let { StatusChip(text = it) }
+                TaruStatusChip(text = chrome.sourceLabel)
+                chrome.resumeLabel?.let { TaruStatusChip(text = it) }
                 chrome.sessionLabel?.let { label ->
                     Box(
                         modifier = Modifier.semantics {
                             contentDescription = sessionAccessibilityLabel
                         },
                     ) {
-                        StatusChip(text = label)
+                        TaruStatusChip(text = label)
                     }
                 }
             }
@@ -362,7 +344,7 @@ private fun PlaybackErrorSheet(
                 horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconBadge(icon = Icons.Rounded.ErrorOutline)
+                TaruIconBadge(icon = Icons.Rounded.ErrorOutline)
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = presentation.title,

@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "slug": "android-client-follow-on-hardening",
+  "title": "Android Client Follow-On Hardening",
+  "status": "active",
+  "updated": "2026-05-22",
+  "scope_kind": "execution",
+  "problem": "The Android architecture-deepening lane closed with follow-ons for smoke evidence, token-vault modernization, and PlayerRuntime platform capability growth.",
+  "authoritative_docs": [
+    { "role": "design", "path": "docs/workstreams/android-client-follow-on-hardening/DESIGN.md" },
+    { "role": "execution", "path": "docs/workstreams/android-client-follow-on-hardening/TODO.md" },
+    { "role": "milestones", "path": "docs/workstreams/android-client-follow-on-hardening/MILESTONES.md" },
+    { "role": "gates", "path": "docs/workstreams/android-client-follow-on-hardening/EVIDENCE_AND_GATES.md" },
+    { "role": "handoff", "path": "docs/workstreams/android-client-follow-on-hardening/HANDOFF.md" }
+  ],
+  "gates": [
+    "apps/android/scripts/Validate-AndroidLocal.ps1",
+    "apps/android/scripts/Validate-AndroidLocal.ps1 -SkipSmoke",
+    "apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --no-daemon --no-parallel --console=plain",
+    "apps/android/gradlew.bat -p apps/android :app:assembleDebug -PtaruRustAndroidAbis=x86_64 --no-daemon --no-parallel --console=plain",
+    "git diff --check",
+    "python -m json.tool docs/workstreams/android-client-follow-on-hardening/WORKSTREAM.json > $null"
+  ],
+  "evidence": [
+    {
+      "task": "ACFH-010",
+      "path": "docs/workstreams/android-client-follow-on-hardening/DESIGN.md",
+      "status": "passed",
+      "summary": "Opened the Android follow-on hardening lane for smoke evidence, token-vault migration, and PlayerRuntime capability growth."
+    },
+    {
+      "task": "ACFH-020",
+      "path": "docs/workstreams/android-client-follow-on-hardening/EVIDENCE_AND_GATES.md",
+      "status": "done_with_concerns",
+      "summary": "Recorded Android smoke as environment-blocked with partial PASS evidence, report paths, and ADB/ANR script hardening."
+    },
+    {
+      "task": "ACFH-030",
+      "path": "apps/android/app/src/main/java/dev/taru/android/connection/AndroidSecureTokenVault.kt",
+      "status": "passed",
+      "summary": "Replaced deprecated AndroidX Security token vault with Android Keystore AES-GCM storage and a no-deprecated migration-source seam."
+    },
+    {
+      "task": "ACFH-040",
+      "path": "apps/android/app/src/main/java/dev/taru/android/ui/screens/player",
+      "status": "passed",
+      "summary": "Added PlayerRuntime-owned Android MediaSession lifecycle and guarded Picture-in-Picture entrypoint."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
+    "docs/adr/0032-shared-rust-client-core-app-supplied-transport.md"
+  ],
+  "task_prefix": "ACFH",
+  "current_task": "ACFH-090",
+  "task_order": ["ACFH-010", "ACFH-020", "ACFH-030", "ACFH-040", "ACFH-090"],
+  "continue_policy": {
+    "default_action": "continue",
+    "next_task": "ACFH-090",
+    "notes": "Close out the lane after final JSON, diff, focused JVM, full JVM, and x86_64 assemble gates. Do not claim end-to-end smoke PASS; it is recorded as environment-blocked."
+  }
+}

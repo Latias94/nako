@@ -15,12 +15,17 @@ export const TARU_ADMIN_ROUTES = {
   addonResourceCallDiagnostic: "/admin/v1/addons/:addon_id/diagnostics/resource-call",
   acquisitionIntakeCandidates: "/admin/v1/acquisition/intake/candidates",
   acquisitionIntakeWatchFolderDiscovery: "/admin/v1/acquisition/intake/watch-folder-discovery",
+  generatedArtifactProposals: "/admin/v1/automation/generated-artifacts/proposals",
+  generatedArtifactReviewPlan: "/admin/v1/automation/generated-artifacts/{artifact_id}/review-plan",
+  generatedArtifactReview: "/admin/v1/automation/generated-artifacts/{artifact_id}/review",
   catalogGovernanceItems: "/admin/v1/catalog/governance/items",
   events: "/admin/v1/events",
   jobs: "/admin/v1/jobs",
   playbackSessions: "/admin/v1/playback/sessions",
   playbackRuntime: "/admin/v1/playback/runtime",
   playbackSupport: "/admin/v1/playback/support",
+  addonRuntimeReadiness: "/admin/v1/addons/{addon_id}/runtime-readiness",
+  addonRoutingPlans: "/admin/v1/addons/{addon_id}/routing-plans",
   storageStaging: "/admin/v1/storage/staging",
   systemConfig: "/admin/v1/system/config",
 } as const;
@@ -81,6 +86,11 @@ export interface AdminStorageStagingQuery extends AdminPageQuery {
   state?: string;
 }
 
+export interface AdminGeneratedArtifactProposalsQuery extends AdminPageQuery {}
+
+export interface AdminGeneratedArtifactReviewRequest {
+  decision: "accept" | "reject";
+}
 export type AddonStatus = "enabled" | "disabled" | "unregistered";
 
 export type AddonScope =
@@ -644,6 +654,100 @@ export interface AdminWatchFolderDiscoveryResponse {
   promotion_apply: boolean;
 }
 
+export interface AdminGeneratedArtifactProposalListResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  proposals: AdminGeneratedArtifactProposal[];
+  page: PageInfo;
+}
+
+export interface AdminGeneratedArtifactProposal {
+  id: string;
+  kind: string;
+  capability: string;
+  status: string;
+  target: AdminGeneratedArtifactTarget;
+  provenance: AdminGeneratedArtifactProvenance;
+  payload: AdminGeneratedArtifactPayloadSummary;
+  readiness: AdminGeneratedArtifactReadiness;
+  created_at: string;
+  updated_at: string;
+  accepted_at: string | null;
+}
+
+export interface AdminGeneratedArtifactTarget {
+  kind: string;
+  library_id: string | null;
+  item_id: string | null;
+  source_id: string | null;
+}
+
+export interface AdminGeneratedArtifactProvenance {
+  provider_id: string;
+  provider_name: string | null;
+  job_id: string;
+  capability: string;
+  idempotency_key_fingerprint: string | null;
+  prompt_fingerprint: string | null;
+  attempt_count: number | null;
+  artifact_created_at: string;
+}
+
+export interface AdminGeneratedArtifactPayloadSummary {
+  valid_json: boolean;
+  shape: string;
+  payload_fingerprint: string;
+  payload_bytes: number;
+  object_field_count: number | null;
+  array_item_count: number | null;
+  has_textual_values: boolean;
+  has_explanation: boolean;
+  confidence_milli: number | null;
+}
+
+export interface AdminGeneratedArtifactReadiness {
+  status: string;
+  actionable: boolean;
+  reasons: string[];
+}
+
+export interface AdminGeneratedArtifactReviewPlanResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  plan: AdminGeneratedArtifactAcceptancePlan;
+}
+
+export interface AdminGeneratedArtifactReviewResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  artifact_id: string;
+  decision: "accept" | "reject";
+  artifact_status: string;
+  accepted_at: string | null;
+  idempotent_replay: boolean;
+  plan: AdminGeneratedArtifactAcceptancePlan;
+}
+
+export interface AdminGeneratedArtifactAcceptancePlan {
+  artifact_id: string;
+  decision: "accept" | "reject";
+  status: string;
+  action: string;
+  reasons: string[];
+  capability: string;
+  kind: string;
+  target: AdminGeneratedArtifactTarget;
+  payload: AdminGeneratedArtifactPayloadSummary;
+  readiness: AdminGeneratedArtifactReadiness;
+  boundary: {
+    accepted_into_canonical_metadata: boolean;
+    writes_sidecar: boolean;
+    writes_library_files: boolean;
+    applies_immediately: boolean;
+    requires_metadata_authority_apply: boolean;
+  };
+}
+
 export interface AdminPlaybackRuntimeDiagnosticsResponse {
   admin_api_version: string;
   public_api_version: string;
@@ -778,6 +882,72 @@ export interface AdminPlaybackSupportEvidenceResponse {
     stderr_redacted: boolean;
     credentials_redacted: boolean;
   };
+}
+
+export type AdminAddonRuntimeReadinessStatus = "ready" | "degraded" | "unavailable";
+
+export type AdminAddonRuntimeReadinessReason =
+  | "ready"
+  | "unavailable"
+  | "manifest_mismatch"
+  | "protocol_mismatch"
+  | "missing_grant"
+  | "missing_secret_reference"
+  | "network_policy_blocked"
+  | "sidecar_degraded"
+  | "sidecar_unhealthy"
+  | "unsafe_response";
+
+export type AdminAddonRuntimeReadinessCheckName =
+  | "reachability"
+  | "protocol"
+  | "manifest"
+  | "grants"
+  | "secret_references"
+  | "network"
+  | "safety";
+
+export interface AdminAddonRuntimeReadinessResponse {
+  addon_id: string;
+  manifest_id: string;
+  readiness: {
+    status: AdminAddonRuntimeReadinessStatus;
+    reason: AdminAddonRuntimeReadinessReason;
+    checks: Array<{
+      name: AdminAddonRuntimeReadinessCheckName;
+      status: AdminAddonRuntimeReadinessStatus;
+      reason: AdminAddonRuntimeReadinessReason;
+      safe_error_code?: string;
+    }>;
+  };
+}
+
+export type AdminAddonRoutingDeclarationKind = "task" | "event_subscription";
+
+export type AdminAddonRoutingPlanStatus = "executable" | "deferred";
+
+export type AdminAddonRoutingPlanTarget = "addon_task_job" | "event_outbox" | "none";
+
+export interface AdminAddonRoutingPlansResponse {
+  addon_id: string;
+  manifest_id: string;
+  manifest_version: string;
+  manifest_fingerprint: string;
+  executable: number;
+  deferred: number;
+  plans: Array<{
+    declaration_kind: AdminAddonRoutingDeclarationKind;
+    declaration_id: string;
+    status: AdminAddonRoutingPlanStatus;
+    target: AdminAddonRoutingPlanTarget;
+    safe_reason_code?: string;
+    job_kind?: string;
+    event_kind?: string;
+    required_scope_count: number;
+    filter_configured: boolean;
+    timeout_ms?: number;
+    max_attempts?: number;
+  }>;
 }
 
 export interface AdminStorageStagingDiagnosticsResponse {

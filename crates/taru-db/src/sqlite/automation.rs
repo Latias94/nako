@@ -1,4 +1,7 @@
+use sqlx::sqlite::SqliteRow;
+
 use super::{SqliteStore, codec::*};
+use crate::automation_proposals::{GeneratedArtifactProposalFacts, generated_artifact_proposal};
 use taru_core::*;
 
 #[async_trait::async_trait]
@@ -152,6 +155,13 @@ impl AutomationRepository for SqliteStore {
         self.get_automation_artifact_or_not_found(artifact.id).await
     }
 
+    async fn get_automation_artifact(
+        &self,
+        id: AutomationArtifactId,
+    ) -> Result<Option<AutomationArtifactRecord>> {
+        self.get_automation_artifact(id).await
+    }
+
     async fn set_automation_artifact_status(
         &self,
         id: AutomationArtifactId,
@@ -257,13 +267,70 @@ impl AutomationRepository for SqliteStore {
 
         rows.into_iter().map(row_to_automation_artifact).collect()
     }
+
+    async fn list_generated_artifact_proposals(
+        &self,
+        page: PageRequest,
+    ) -> Result<Vec<GeneratedArtifactProposal>> {
+        let page = page.clamped();
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                automation_artifacts.id,
+                automation_artifacts.job_id,
+                automation_artifacts.provider_id,
+                automation_artifacts.capability,
+                automation_artifacts.kind,
+                automation_artifacts.library_id,
+                automation_artifacts.item_id,
+                automation_artifacts.source_id,
+                automation_artifacts.artifact_json,
+                automation_artifacts.status,
+                automation_artifacts.created_at,
+                automation_artifacts.updated_at,
+                automation_artifacts.accepted_at,
+                automation_providers.id AS provider_exists_id,
+                automation_providers.name AS provider_name,
+                jobs.id AS job_exists_id,
+                jobs.input_json AS job_input_json,
+                jobs.summary_json AS job_summary_json,
+                libraries.id AS library_exists_id,
+                media_items.id AS item_exists_id,
+                media_sources.id AS source_exists_id,
+                media_sources.library_id AS source_library_id,
+                media_sources.item_id AS source_item_id
+            FROM automation_artifacts
+            LEFT JOIN automation_providers
+                ON automation_providers.id = automation_artifacts.provider_id
+            LEFT JOIN jobs
+                ON jobs.id = automation_artifacts.job_id
+            LEFT JOIN libraries
+                ON libraries.id = automation_artifacts.library_id
+            LEFT JOIN media_items
+                ON media_items.id = automation_artifacts.item_id
+            LEFT JOIN media_sources
+                ON media_sources.id = automation_artifacts.source_id
+            ORDER BY automation_artifacts.created_at DESC, automation_artifacts.id DESC
+            LIMIT ?1 OFFSET ?2
+            "#,
+        )
+        .bind(u32_to_i64(page.limit))
+        .bind(u64_to_i64(page.offset)?)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter()
+            .map(row_to_generated_artifact_proposal)
+            .collect()
+    }
 }
 
 impl SqliteStore {
-    pub(crate) async fn get_automation_artifact_or_not_found(
+    pub(crate) async fn get_automation_artifact(
         &self,
         id: AutomationArtifactId,
-    ) -> Result<AutomationArtifactRecord> {
+    ) -> Result<Option<AutomationArtifactRecord>> {
         let row = sqlx::query(
             r#"
             SELECT
@@ -289,11 +356,54 @@ impl SqliteStore {
         .await
         .map_err(database_error)?;
 
-        row.map(row_to_automation_artifact)
-            .transpose()?
+        row.map(row_to_automation_artifact).transpose()
+    }
+
+    pub(crate) async fn get_automation_artifact_or_not_found(
+        &self,
+        id: AutomationArtifactId,
+    ) -> Result<AutomationArtifactRecord> {
+        self.get_automation_artifact(id)
+            .await?
             .ok_or_else(|| TaruError::NotFound {
                 entity: "automation_artifact",
                 id: id.to_string(),
             })
     }
+}
+
+fn row_to_generated_artifact_proposal(row: SqliteRow) -> Result<GeneratedArtifactProposal> {
+    let artifact = AutomationArtifactRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        job_id: parse_id(row_get::<String>(&row, "job_id")?)?,
+        provider_id: parse_id(row_get::<String>(&row, "provider_id")?)?,
+        capability: AutomationCapability::parse(&row_get::<String>(&row, "capability")?)?,
+        kind: AutomationArtifactKind::parse(&row_get::<String>(&row, "kind")?)?,
+        library_id: parse_optional_id(row_get::<Option<String>>(&row, "library_id")?)?,
+        item_id: parse_optional_id(row_get::<Option<String>>(&row, "item_id")?)?,
+        source_id: parse_optional_id(row_get::<Option<String>>(&row, "source_id")?)?,
+        artifact_json: row_get(&row, "artifact_json")?,
+        status: AutomationArtifactStatus::parse(&row_get::<String>(&row, "status")?)?,
+        created_at: row_get(&row, "created_at")?,
+        updated_at: row_get(&row, "updated_at")?,
+        accepted_at: row_get(&row, "accepted_at")?,
+    };
+    Ok(generated_artifact_proposal(
+        GeneratedArtifactProposalFacts {
+            artifact,
+            provider_exists: row_get::<Option<String>>(&row, "provider_exists_id")?.is_some(),
+            provider_name: row_get::<Option<String>>(&row, "provider_name")?,
+            job_exists: row_get::<Option<String>>(&row, "job_exists_id")?.is_some(),
+            job_input_json: row_get::<Option<String>>(&row, "job_input_json")?,
+            job_summary_json: row_get::<Option<String>>(&row, "job_summary_json")?,
+            library_exists: row_get::<Option<String>>(&row, "library_exists_id")?.is_some(),
+            item_exists: row_get::<Option<String>>(&row, "item_exists_id")?.is_some(),
+            source_exists: row_get::<Option<String>>(&row, "source_exists_id")?.is_some(),
+            source_library_id: parse_optional_id(row_get::<Option<String>>(
+                &row,
+                "source_library_id",
+            )?)?,
+            source_item_id: parse_optional_id(row_get::<Option<String>>(&row, "source_item_id")?)?,
+        },
+    ))
 }

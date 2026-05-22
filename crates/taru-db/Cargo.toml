@@ -12,6 +12,7 @@ workspace = true
 async-trait.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 sqlx = { workspace = true, features = ["postgres", "uuid"] }
 taru-core = { path = "../taru-core" }
 taru-search = { path = "../taru-search" }

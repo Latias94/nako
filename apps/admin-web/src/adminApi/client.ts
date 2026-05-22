@@ -4,7 +4,6 @@ import type {
   AddonTokenResponse,
   AddonTokenRotationResponse,
   AddonTokensResponse,
-  AdminCatalogGovernanceItemListResponse,
   AdminAcquisitionIntakeCandidateListResponse,
   AdminAcquisitionIntakeCandidatesQuery,
   AdminAddonHealthCheckResponse,
@@ -13,8 +12,13 @@ import type {
   AdminAddonRegistrationsResponse,
   AdminAddonResourceCallDiagnosticRequest,
   AdminAddonResourceCallDiagnosticResponse,
+  AdminAddonRoutingPlansResponse,
+  AdminAddonRuntimeReadinessResponse,
   AdminAddonSurfacesResponse,
   AdminAddonsQuery,
+  AdminCatalogGovernanceItemListResponse,
+  AdminGeneratedArtifactProposalListResponse,
+  AdminGeneratedArtifactProposalsQuery,
   AdminWatchFolderDiscoveryRequest,
   AdminWatchFolderDiscoveryResponse,
   AdminJobListResponse,
@@ -189,6 +193,14 @@ export class AdminApiClient {
     );
   }
 
+  async getGeneratedArtifactProposals(
+    query: AdminGeneratedArtifactProposalsQuery = {},
+  ): Promise<AdminGeneratedArtifactProposalListResponse> {
+    return this.getJson<AdminGeneratedArtifactProposalListResponse>(
+      withQuery(TARU_ADMIN_ROUTES.generatedArtifactProposals, query),
+    );
+  }
+
   async getEvents(): Promise<AdminOutboxEventListResponse> {
     return this.getJson<AdminOutboxEventListResponse>(TARU_ADMIN_ROUTES.events);
   }
@@ -210,6 +222,20 @@ export class AdminApiClient {
   ): Promise<AdminPlaybackSupportEvidenceResponse> {
     return this.getJson<AdminPlaybackSupportEvidenceResponse>(
       withQuery(TARU_ADMIN_ROUTES.playbackSupport, query),
+    );
+  }
+
+  async getAddonRuntimeReadiness(addonId: string): Promise<AdminAddonRuntimeReadinessResponse> {
+    return this.postJson<AdminAddonRuntimeReadinessResponse>(
+      routeWithParam(TARU_ADMIN_ROUTES.addonRuntimeReadiness, "addon_id", addonId),
+      {},
+    );
+  }
+
+  async getAddonRoutingPlans(addonId: string): Promise<AdminAddonRoutingPlansResponse> {
+    return this.postJson<AdminAddonRoutingPlansResponse>(
+      routeWithParam(TARU_ADMIN_ROUTES.addonRoutingPlans, "addon_id", addonId),
+      {},
     );
   }
 
@@ -305,9 +331,17 @@ function normalizeBaseUrl(baseUrl: string | undefined) {
   return value;
 }
 
+function routeWithParam(path: string, name: string, value: string) {
+  return path.replace(`{${name}}`, encodeURIComponent(value));
+}
+
 function withQuery(
   path: string,
-  query: AdminPlaybackSupportQuery | AdminAcquisitionIntakeCandidatesQuery | AdminAddonsQuery,
+  query:
+    | AdminPlaybackSupportQuery
+    | AdminAcquisitionIntakeCandidatesQuery
+    | AdminGeneratedArtifactProposalsQuery
+    | AdminAddonsQuery,
 ) {
   const params = new URLSearchParams();
 

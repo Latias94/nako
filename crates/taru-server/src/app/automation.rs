@@ -5,8 +5,13 @@ use taru_api::extension::{
 };
 use taru_automation::AutomationJobService;
 use taru_core::{
-    AutomationCapability, AutomationProviderId, AutomationRepository, Job, JobId, JobRepository,
-    MediaItemId, MediaRepository, NewAutomationProviderConfig, PageRequest, Result, TaruError,
+    AutomationArtifactId, AutomationArtifactKind, AutomationArtifactStatus, AutomationCapability,
+    AutomationProviderId, AutomationRepository, GeneratedArtifactAcceptanceActionKind,
+    GeneratedArtifactAcceptanceBoundary, GeneratedArtifactAcceptancePlan,
+    GeneratedArtifactAcceptancePlanReason, GeneratedArtifactAcceptancePlanStatus,
+    GeneratedArtifactProposal, GeneratedArtifactReviewDecision, GeneratedArtifactReviewResult, Job,
+    JobId, JobRepository, MediaItemId, MediaRepository, NewAutomationProviderConfig, PageRequest,
+    Result, TaruError,
 };
 use taru_db::TaruDatabase;
 
@@ -190,5 +195,200 @@ impl AutomationAppService {
             .await?;
 
         Ok(AutomationArtifactsResponse { artifacts })
+    }
+
+    pub async fn list_generated_artifact_proposals(
+        &self,
+        page: PageRequest,
+    ) -> Result<Vec<GeneratedArtifactProposal>> {
+        self.store.list_generated_artifact_proposals(page).await
+    }
+
+    pub async fn plan_generated_artifact_review(
+        &self,
+        artifact_id: AutomationArtifactId,
+        decision: GeneratedArtifactReviewDecision,
+    ) -> Result<GeneratedArtifactAcceptancePlan> {
+        let proposal = self.generated_artifact_proposal(artifact_id).await?;
+
+        Ok(generated_artifact_acceptance_plan(proposal, decision))
+    }
+
+    pub async fn review_generated_artifact(
+        &self,
+        artifact_id: AutomationArtifactId,
+        decision: GeneratedArtifactReviewDecision,
+    ) -> Result<GeneratedArtifactReviewResult> {
+        let plan = self
+            .plan_generated_artifact_review(artifact_id, decision)
+            .await?;
+        let existing = self
+            .store
+            .get_automation_artifact(artifact_id)
+            .await?
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "automation_artifact",
+                id: artifact_id.to_string(),
+            })?;
+        let target_status = match decision {
+            GeneratedArtifactReviewDecision::Accept => AutomationArtifactStatus::Accepted,
+            GeneratedArtifactReviewDecision::Reject => AutomationArtifactStatus::Rejected,
+        };
+        if existing.status == target_status {
+            return Ok(GeneratedArtifactReviewResult {
+                artifact_id,
+                decision,
+                artifact_status: existing.status,
+                accepted_at: existing.accepted_at,
+                idempotent_replay: true,
+                plan,
+            });
+        }
+        if existing.status != AutomationArtifactStatus::Proposed {
+            return Err(TaruError::InvalidInput {
+                message: format!(
+                    "cannot change reviewed generated artifact {} from {:?} to {:?}",
+                    artifact_id, existing.status, target_status
+                ),
+            });
+        }
+        if !plan.status.executable() {
+            return Err(TaruError::InvalidInput {
+                message: format!(
+                    "generated artifact review plan is not executable: {:?}",
+                    plan.status
+                ),
+            });
+        }
+
+        let artifact = self
+            .store
+            .set_automation_artifact_status(artifact_id, target_status)
+            .await?;
+
+        Ok(GeneratedArtifactReviewResult {
+            artifact_id,
+            decision,
+            artifact_status: artifact.status,
+            accepted_at: artifact.accepted_at,
+            idempotent_replay: false,
+            plan,
+        })
+    }
+
+    async fn generated_artifact_proposal(
+        &self,
+        artifact_id: AutomationArtifactId,
+    ) -> Result<GeneratedArtifactProposal> {
+        self.store
+            .list_generated_artifact_proposals(PageRequest::new(PageRequest::MAX_LIMIT, 0))
+            .await?
+            .into_iter()
+            .find(|proposal| proposal.id == artifact_id)
+            .ok_or_else(|| TaruError::NotFound {
+                entity: "generated_artifact_proposal",
+                id: artifact_id.to_string(),
+            })
+    }
+}
+
+fn generated_artifact_acceptance_plan(
+    proposal: GeneratedArtifactProposal,
+    decision: GeneratedArtifactReviewDecision,
+) -> GeneratedArtifactAcceptancePlan {
+    let mut reasons = Vec::new();
+    let proposal_status = proposal.status;
+    let proposal_kind = proposal.kind;
+    let proposal_target = proposal.target.clone();
+    let proposal_payload = proposal.payload.clone();
+    let proposal_readiness = proposal.readiness.clone();
+    let mut status = if proposal.readiness.actionable {
+        GeneratedArtifactAcceptancePlanStatus::Ready
+    } else if proposal.readiness.status == taru_core::GeneratedArtifactReadinessStatus::Stale {
+        GeneratedArtifactAcceptancePlanStatus::Stale
+    } else {
+        GeneratedArtifactAcceptancePlanStatus::Blocked
+    };
+
+    if proposal.status == AutomationArtifactStatus::Accepted {
+        status = GeneratedArtifactAcceptancePlanStatus::AlreadyAccepted;
+        reasons.push(GeneratedArtifactAcceptancePlanReason::ArtifactAlreadyAccepted);
+    } else if proposal.status == AutomationArtifactStatus::Rejected {
+        status = GeneratedArtifactAcceptancePlanStatus::AlreadyRejected;
+        reasons.push(GeneratedArtifactAcceptancePlanReason::ArtifactAlreadyRejected);
+    } else if !proposal.readiness.actionable
+        && !(decision == GeneratedArtifactReviewDecision::Reject
+            && proposal.status == AutomationArtifactStatus::Proposed)
+    {
+        reasons.push(GeneratedArtifactAcceptancePlanReason::ProposalNotReady);
+    }
+
+    let (action, boundary) = if decision == GeneratedArtifactReviewDecision::Reject
+        && proposal_status == AutomationArtifactStatus::Proposed
+    {
+        status = GeneratedArtifactAcceptancePlanStatus::Ready;
+        reasons.push(GeneratedArtifactAcceptancePlanReason::OperatorRejected);
+        (
+            GeneratedArtifactAcceptanceActionKind::RejectProposal,
+            GeneratedArtifactAcceptanceBoundary::no_mutation(),
+        )
+    } else if status == GeneratedArtifactAcceptancePlanStatus::Ready {
+        match decision {
+            GeneratedArtifactReviewDecision::Accept
+                if proposal.kind == AutomationArtifactKind::MetadataSuggestion =>
+            {
+                if proposal.target.item_id.is_some() {
+                    reasons.push(GeneratedArtifactAcceptancePlanReason::Ready);
+                    reasons.push(
+                        GeneratedArtifactAcceptancePlanReason::MetadataAuthorityApplyRequired,
+                    );
+                    (
+                        GeneratedArtifactAcceptanceActionKind::StageMetadataAuthorityReview,
+                        GeneratedArtifactAcceptanceBoundary::deferred_metadata_authority(),
+                    )
+                } else {
+                    status = GeneratedArtifactAcceptancePlanStatus::Blocked;
+                    reasons.push(GeneratedArtifactAcceptancePlanReason::MissingMediaItemTarget);
+                    (
+                        GeneratedArtifactAcceptanceActionKind::Noop,
+                        GeneratedArtifactAcceptanceBoundary::no_mutation(),
+                    )
+                }
+            }
+            GeneratedArtifactReviewDecision::Accept => {
+                status = GeneratedArtifactAcceptancePlanStatus::Blocked;
+                reasons.push(GeneratedArtifactAcceptancePlanReason::UnsupportedArtifactKind);
+                (
+                    GeneratedArtifactAcceptanceActionKind::Noop,
+                    GeneratedArtifactAcceptanceBoundary::no_mutation(),
+                )
+            }
+            GeneratedArtifactReviewDecision::Reject => {
+                unreachable!("reject handled before ready plan")
+            }
+        }
+    } else {
+        (
+            GeneratedArtifactAcceptanceActionKind::Noop,
+            GeneratedArtifactAcceptanceBoundary::no_mutation(),
+        )
+    };
+
+    if reasons.is_empty() {
+        reasons.push(GeneratedArtifactAcceptancePlanReason::Ready);
+    }
+
+    GeneratedArtifactAcceptancePlan {
+        artifact_id: proposal.id,
+        decision,
+        status,
+        action,
+        reasons,
+        capability: proposal.capability,
+        kind: proposal_kind,
+        target: proposal_target,
+        payload: proposal_payload,
+        readiness: proposal_readiness,
+        boundary,
     }
 }

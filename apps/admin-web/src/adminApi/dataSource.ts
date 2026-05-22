@@ -12,6 +12,7 @@ import {
   mockAddonTokens,
   mockCatalogGovernance,
   mockEvents,
+  mockGeneratedArtifactProposals,
   mockJobs,
   mockOverview,
   mockPlaybackRuntime,
@@ -30,6 +31,7 @@ import type {
   AdminAddonResourceCallDiagnosticResponse,
   AdminAddonSurfacesResponse,
   AdminCatalogGovernanceItemListResponse,
+  AdminGeneratedArtifactProposalListResponse,
   AdminJobListResponse,
   AdminOutboxEventListResponse,
   AdminPlaybackRuntimeDiagnosticsResponse,
@@ -56,6 +58,7 @@ import type {
   CatalogGovernanceSummary,
   DataSourceMode,
   EventSummary,
+  GeneratedArtifactProposalSummary,
   IntakeSummary,
   JobRow,
   NetworkSummary,
@@ -105,6 +108,7 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
         addonDiagnostic,
         catalogGovernance,
         acquisitionIntakeCandidates,
+        generatedArtifactProposals,
         events,
         jobs,
         playbackSessions,
@@ -133,6 +137,7 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
         ),
         loadSection(() => client.getCatalogGovernanceItems(), mockCatalogGovernance),
         loadSection(() => client.getAcquisitionIntakeCandidates(), mockAcquisitionIntakeCandidates),
+        loadSection(() => client.getGeneratedArtifactProposals(), mockGeneratedArtifactProposals),
         loadSection(() => client.getEvents(), mockEvents),
         loadSection(() => client.getJobs(), mockJobs),
         loadSection(() => client.getPlaybackSessions(), mockPlaybackSessions),
@@ -151,6 +156,7 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
         addonGrants: addonGrants.source,
         catalogGovernance: catalogGovernance.source,
         acquisitionIntake: acquisitionIntakeCandidates.source,
+        generatedArtifactProposals: generatedArtifactProposals.source,
         events: events.source,
         jobs: jobs.source,
         playbackSessions: playbackSessions.source,
@@ -169,6 +175,7 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
       recordError(errors, "addonGrants", addonGrants);
       recordError(errors, "catalogGovernance", catalogGovernance);
       recordError(errors, "acquisitionIntake", acquisitionIntakeCandidates);
+      recordError(errors, "generatedArtifactProposals", generatedArtifactProposals);
       recordError(errors, "events", events);
       recordError(errors, "jobs", jobs);
       recordError(errors, "playbackSessions", playbackSessions);
@@ -193,6 +200,9 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
         ),
         catalog: mapCatalogGovernance(catalogGovernance.value),
         acquisitionIntake: mapAcquisitionIntake(acquisitionIntakeCandidates.value),
+        generatedArtifactProposals: mapGeneratedArtifactProposals(
+          generatedArtifactProposals.value,
+        ),
         events: mapEvents(events.value),
         jobs: mapJobs(jobs.value),
         playback: mapPlayback(playbackSessions.value, playbackRuntime.value),
@@ -558,6 +568,28 @@ function mapAcquisitionIntake(
       sizeBytes: candidate.size_bytes,
       hasDiagnostics: candidate.has_diagnostics,
       linkedArtifactId: candidate.managed_import_artifact_id,
+    })),
+    page: response.page,
+  };
+}
+
+function mapGeneratedArtifactProposals(
+  response: AdminGeneratedArtifactProposalListResponse,
+): GeneratedArtifactProposalSummary {
+  return {
+    proposals: response.proposals.map((proposal) => ({
+      id: proposal.id,
+      capability: proposal.capability,
+      kind: proposal.kind,
+      status: proposal.status,
+      targetKind: proposal.target.kind,
+      readinessStatus: proposal.readiness.status,
+      actionable: proposal.readiness.actionable,
+      confidenceMilli: proposal.payload.confidence_milli,
+      payloadShape: proposal.payload.shape,
+      providerName: proposal.provenance.provider_name,
+      promptFingerprint: proposal.provenance.prompt_fingerprint,
+      payloadFingerprint: proposal.payload.payload_fingerprint,
     })),
     page: response.page,
   };

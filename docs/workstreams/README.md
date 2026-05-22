@@ -24,13 +24,23 @@ attention.
   verification guidance for externally run Addon Sidecars without expanding
   into Addon Manager install/update or process supervision.
 - [post-rpd-product-hardening](post-rpd-product-hardening/README.md):
-  active roadmap umbrella for ordering post-packaging product lanes across
+  completed roadmap umbrella for ordering post-packaging product lanes across
   metadata provider breadth, NFO/link authority, playback/transcode hardening,
   managed import staging, network access, AI assistance, and addon distribution.
+- [addon-runtime-and-distribution](addon-runtime-and-distribution/README.md):
+  completed post-RPD mainline lane for Addon Sidecar package/install descriptor,
+  redacted install-guide, runtime readiness, task/event/artifact routing, and
+  Admin-only diagnostics before any Addon Manager automation, marketplace,
+  package signing, process supervision, or Native Plugin ABI.
+- [ai-assisted-library-ops](ai-assisted-library-ops/README.md):
+  completed post-RPD mainline lane for Generated Artifact proposal/readiness,
+  Admin-only redacted diagnostics, and explicit accept/reject planning for
+  AI-like outputs without autonomous canonical metadata, sidecar, library-file,
+  Public Client API, or protocol churn.
 - [network-access-boundary](network-access-boundary/README.md):
-  active post-RPD mainline lane for self-hosted remote access policy,
+  completed post-RPD mainline lane for self-hosted remote access policy,
   trusted proxy/header handling, tunnel-provider readiness, origin constraints,
-  and redacted Admin diagnostics before any built-in NAT traversal runtime.
+  and redacted Admin diagnostics without built-in NAT traversal runtime.
 - [downloads-watch-folder-intake](downloads-watch-folder-intake/README.md):
   completed post-RPD mainline lane for acquisition intake and watch-folder
   candidate discovery that feeds Managed Import artifacts and accepted

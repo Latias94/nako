@@ -1,6 +1,6 @@
 # Post-RPD Product Hardening — TODO
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 Task IDs use the `PRPH` prefix. This is an umbrella roadmap, so implementation
@@ -32,11 +32,13 @@ tasks belong in child workstreams.
 
 ## M3 — Umbrella Closeout
 
-- [ ] PRPH-040 [owner=planner] [deps=PRPH-030] [scope=docs/workstreams/post-rpd-product-hardening]
+- [x] PRPH-040 [owner=planner] [deps=PRPH-030] [scope=docs/workstreams/post-rpd-product-hardening]
   Goal: Close or refresh the umbrella once the active product lanes are represented by dedicated workstreams.
   Validation: Fresh review of active/deferred lanes and workstream index.
   Evidence: EVIDENCE_AND_GATES.md and HANDOFF.md.
-  Handoff: Keep this umbrella active only while it reduces coordination cost.
+  Handoff: DONE. The umbrella is closed after all planned post-RPD mainline
+  lanes were represented by dedicated workstreams and remaining work was split
+  into explicit follow-ons.
 
 ## M4 — Post-LAIP Lane Scoring
 
@@ -136,3 +138,63 @@ tasks belong in child workstreams.
   Handoff: DONE. Execute NAB-020 network policy domain/config validation
   without adding built-in NAT traversal runtime, identity/RBAC, downloader
   protocols, AI writes, Addon runtime, or Public Client API churn.
+
+## M11 — Post-Network Lane Scoring
+
+- [x] PRPH-150 [owner=planner] [deps=NAB-050] [scope=docs/workstreams/post-rpd-product-hardening,docs/workstreams/network-access-boundary,docs/workstreams/README.md]
+  Goal: Re-score AI-assisted library ops, Addon runtime/distribution,
+  protocol downloader integrations, concrete tunnel runtime, endpoint
+  discovery, and identity/RBAC after Network Access Boundary closeout.
+  Validation: DESIGN.md lane table, WORKSTREAM.json continue policy, HANDOFF.md,
+  and workstream index agree on the next executable lane.
+  Evidence: `DESIGN.md` Post-NAB Closeout Re-Score and
+  `docs/workstreams/network-access-boundary/EVIDENCE_AND_GATES.md`.
+  Handoff: DONE. Open `ai-assisted-library-ops` as the next mainline lane,
+  scoped first to Generated Artifact proposal/readiness and acceptance planning
+  without local model runtime or autonomous writes.
+
+## M12 — AI Assisted Library Ops Lane Open
+
+- [x] PRPH-160 [owner=planner] [deps=PRPH-150] [scope=docs/workstreams/ai-assisted-library-ops,docs/workstreams/post-rpd-product-hardening,docs/workstreams/README.md]
+  Goal: Open `ai-assisted-library-ops` as a dedicated workstream for Generated
+  Artifact proposals, redacted diagnostics, and explicit acceptance planning.
+  Validation: Child workstream has design, TODO, milestones, gates, workstream
+  metadata, and handoff docs; parent umbrella and index point to the first
+  executable AI task.
+  Evidence: `docs/workstreams/ai-assisted-library-ops/DESIGN.md`.
+  Handoff: DONE. AI lane completed through AILO-050 and returned to parent
+  re-score.
+
+## M13 — Post-AI Lane Scoring And Addon Runtime Open
+
+- [x] PRPH-170 [owner=planner] [deps=AILO-050] [scope=docs/workstreams/post-rpd-product-hardening,docs/workstreams/ai-assisted-library-ops,docs/workstreams/addon-runtime-and-distribution,docs/workstreams/README.md]
+  Goal: Re-score Addon runtime/distribution, protocol downloader integrations,
+  concrete tunnel runtime, endpoint discovery, local AI runtime/vector search,
+  and Public Client display after AI Assisted Library Ops closeout, then open
+  the selected Addon lane.
+  Validation: DESIGN.md lane table, WORKSTREAM.json continue policy, HANDOFF.md,
+  child workstream docs, and workstream index agree on the next executable lane.
+  Evidence: `DESIGN.md` Post-AILO Closeout Re-Score and
+  `docs/workstreams/addon-runtime-and-distribution/DESIGN.md`.
+  Handoff: DONE. Opened `addon-runtime-and-distribution`; ARD-020 through
+  ARD-060 are now complete without adding Addon Manager automation, package
+  signing, process supervision, Native Plugin ABI, direct library writes,
+  Public Client API churn, hidden schedulers, or `taru-client-protocol`
+  changes.
+
+## M14 — Post-Addon Runtime Closeout And Umbrella Completion
+
+- [x] PRPH-180 [owner=planner] [deps=ARD-060] [scope=docs/workstreams/post-rpd-product-hardening,docs/workstreams/addon-runtime-and-distribution,docs/workstreams/README.md]
+  Goal: Review Addon Runtime And Distribution closeout evidence, mark the
+  Addon lane complete, split remaining downloader, Addon Manager, package
+  signing, process supervision, tunnel runtime, local AI runtime, and Public
+  Client surface follow-ons, and close the post-RPD umbrella.
+  Validation: Parent and child WORKSTREAM.json files validate; DESIGN.md,
+  TODO.md, MILESTONES.md, EVIDENCE_AND_GATES.md, HANDOFF.md, and workstream
+  index agree; `git diff --check`; `git diff --name-only --
+  crates/taru-client-protocol`.
+  Evidence: `DESIGN.md` Post-ARD Closeout And Umbrella Completion,
+  `docs/workstreams/addon-runtime-and-distribution/EVIDENCE_AND_GATES.md`, and
+  `docs/workstreams/addon-runtime-and-distribution/WORKSTREAM.json`.
+  Handoff: DONE. Future work should open focused follow-on lanes rather than
+  reopening this roadmap umbrella.
