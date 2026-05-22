@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$Serial,
+    [int]$AdbServerPort,
     [string]$OutputRoot,
     [string[]]$SmokeStates = @('empty-setup', 'profile-missing-token', 'profile-with-media'),
     [switch]$SkipUnitTests,
@@ -369,6 +370,10 @@ if ($SkipSmoke -or $failedBeforeSmoke) {
 
             if (-not [string]::IsNullOrWhiteSpace($Serial)) {
                 $smokeArgs.Serial = $Serial
+            }
+
+            if ($AdbServerPort -gt 0) {
+                $smokeArgs.AdbServerPort = $AdbServerPort
             }
 
             if ($SkipFixtureServerBuild) {

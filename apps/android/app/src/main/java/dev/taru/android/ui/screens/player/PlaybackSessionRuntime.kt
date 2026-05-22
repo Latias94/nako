@@ -32,6 +32,7 @@ internal class AndroidPlaybackSessionRuntimeFactory private constructor(
     private val tokenVault: TokenVault,
     private val engineFactory: PlayerRouteEngineFactory,
     private val exitEffectRunner: PlaybackExitEffectRunner,
+    private val platformSessionFactory: PlayerPlatformSessionFactory,
 ) : PlaybackSessionRuntimeFactory {
     constructor(
         context: Context,
@@ -55,6 +56,7 @@ internal class AndroidPlaybackSessionRuntimeFactory private constructor(
             ),
             exitEffectScope = exitEffectScope,
         ),
+        platformSessionFactory = AndroidMediaSessionPlayerPlatformSessionFactory(context.applicationContext),
     )
 
     override fun create(launch: PlaybackLaunchRequest): PlaybackSessionRuntime {
@@ -63,6 +65,7 @@ internal class AndroidPlaybackSessionRuntimeFactory private constructor(
             launch = launch,
             engine = engineFactory.create(accessToken),
             exitEffectRunner = exitEffectRunner,
+            platformSessionFactory = platformSessionFactory,
         )
     }
 
@@ -72,12 +75,14 @@ internal class AndroidPlaybackSessionRuntimeFactory private constructor(
             tokenVault: TokenVault,
             engineFactory: PlayerRouteEngineFactory,
             exitEffectRunner: PlaybackExitEffectRunner,
+            platformSessionFactory: PlayerPlatformSessionFactory = NoOpPlayerPlatformSessionFactory,
         ): AndroidPlaybackSessionRuntimeFactory =
             AndroidPlaybackSessionRuntimeFactory(
                 profile = profile,
                 tokenVault = tokenVault,
                 engineFactory = engineFactory,
                 exitEffectRunner = exitEffectRunner,
+                platformSessionFactory = platformSessionFactory,
             )
     }
 }
@@ -113,4 +118,23 @@ internal interface PlayerRouteEngineListener {
     fun onPlaybackStateChanged(playbackState: Int)
     fun onIsPlayingChanged(isPlaying: Boolean)
     fun onPlayerError(errorCodeName: String?)
+}
+
+internal interface PlayerPlatformSessionFactory {
+    fun create(playerProvider: () -> Player): PlayerPlatformSession
+}
+
+internal interface PlayerPlatformSession {
+    fun onPlaybackStateChanged(playbackState: Int, isPlaying: Boolean)
+    fun release()
+}
+
+internal object NoOpPlayerPlatformSessionFactory : PlayerPlatformSessionFactory {
+    override fun create(playerProvider: () -> Player): PlayerPlatformSession =
+        NoOpPlayerPlatformSession
+}
+
+private object NoOpPlayerPlatformSession : PlayerPlatformSession {
+    override fun onPlaybackStateChanged(playbackState: Int, isPlaying: Boolean) = Unit
+    override fun release() = Unit
 }

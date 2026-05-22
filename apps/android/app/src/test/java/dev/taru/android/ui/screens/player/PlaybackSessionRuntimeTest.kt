@@ -68,19 +68,43 @@ class PlaybackSessionRuntimeTest {
             saveToken(profile.tokenReference, "secret-token")
         }
         val engineFactory = RecordingRuntimeEngineFactory()
+        val platformSessionFactory = RecordingRuntimePlatformSessionFactory()
         val runtimeFactory = AndroidPlaybackSessionRuntimeFactory.fromDependencies(
             profile = profile,
             tokenVault = tokenVault,
             engineFactory = engineFactory,
             exitEffectRunner = RecordingRuntimeExitEffectRunner(),
+            platformSessionFactory = platformSessionFactory,
         )
 
         val runtime = runtimeFactory.create(launch())
+        runtime.attach()
+        runtime.dispose()
 
         assertEquals(listOf(profile.tokenReference), tokenVault.readReferences)
         assertEquals(listOf("secret-token"), engineFactory.accessTokens)
+        assertEquals(1, platformSessionFactory.createCount)
+        assertEquals(1, platformSessionFactory.releaseCount)
         assertTrue(runtime.state.value.playerStateLabel.isNotBlank())
         assertFalse(runtimeFactory.toString().contains("secret-token"))
+    }
+}
+
+private class RecordingRuntimePlatformSessionFactory : PlayerPlatformSessionFactory {
+    var createCount: Int = 0
+        private set
+    var releaseCount: Int = 0
+        private set
+
+    override fun create(playerProvider: () -> Player): PlayerPlatformSession {
+        createCount += 1
+        return object : PlayerPlatformSession {
+            override fun onPlaybackStateChanged(playbackState: Int, isPlaying: Boolean) = Unit
+
+            override fun release() {
+                releaseCount += 1
+            }
+        }
     }
 }
 

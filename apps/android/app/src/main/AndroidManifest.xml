@@ -10,7 +10,9 @@
         android:theme="@style/Theme.Taru">
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:resizeableActivity="true"
+            android:supportsPictureInPicture="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

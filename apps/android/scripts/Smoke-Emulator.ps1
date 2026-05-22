@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$Serial,
+    [int]$AdbServerPort,
     [string]$OutputRoot,
     [ValidateSet('current-state', 'empty-setup', 'profile-missing-token', 'profile-with-media', 'profile-active-remux')]
     [string]$FixtureState = 'current-state',
@@ -34,18 +35,33 @@ function Resolve-AdbPath {
     throw 'adb was not found. Set ANDROID_SDK_ROOT or ANDROID_HOME, or add platform-tools to PATH.'
 }
 
+function Invoke-AdbCommand {
+    param(
+        [string]$AdbPath,
+        [string[]]$Arguments
+    )
+
+    $effectiveArguments = @()
+    if ($script:AdbServerPort -gt 0) {
+        $effectiveArguments += @('-P', [string]$script:AdbServerPort)
+    }
+    $effectiveArguments += $Arguments
+
+    & $AdbPath @effectiveArguments
+}
+
 function Get-ConnectedDeviceSerial {
     param(
         [string]$AdbPath,
         [string]$RequestedSerial
     )
 
-    & $AdbPath start-server | Out-Null
+    Invoke-AdbCommand -AdbPath $AdbPath -Arguments @('start-server') | Out-Null
     if ($LASTEXITCODE -ne 0) {
         throw 'Failed to start adb server.'
     }
 
-    $devices = & $AdbPath devices 2>$null
+    $devices = Invoke-AdbCommand -AdbPath $AdbPath -Arguments @('devices') 2>$null
     if ($LASTEXITCODE -ne 0) {
         throw 'Failed to query connected Android devices.'
     }
@@ -83,7 +99,7 @@ function Invoke-Adb {
         [string]$FailureMessage
     )
 
-    $output = & $AdbPath @Arguments 2>&1
+    $output = Invoke-AdbCommand -AdbPath $AdbPath -Arguments $Arguments 2>&1
     if ($LASTEXITCODE -ne 0) {
         if ($output) {
             throw "$FailureMessage`n$output"
@@ -645,7 +661,7 @@ function Install-SmokeMediaProfileFixture {
             $seedArguments += @('--extra', 'force_remux:b:true')
         }
 
-        $output = & $AdbPath @seedArguments 2>&1
+        $output = Invoke-AdbCommand -AdbPath $AdbPath -Arguments $seedArguments 2>&1
         $seedOutput = ($output | Out-String).TrimEnd()
         if ($LASTEXITCODE -eq 0 -and $seedOutput -match 'status=ok') {
             break
@@ -683,7 +699,7 @@ function Wait-ForBootComplete {
 
     $deadline = (Get-Date).AddMinutes(2)
     while ((Get-Date) -lt $deadline) {
-        $bootCompleted = (& $AdbPath -s $DeviceSerial shell getprop sys.boot_completed 2>$null).Trim()
+        $bootCompleted = (Invoke-AdbCommand -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'getprop', 'sys.boot_completed') 2>$null).Trim()
         if ($LASTEXITCODE -eq 0 -and $bootCompleted -eq '1') {
             return
         }
@@ -755,7 +771,7 @@ function Wait-ForFocusedAppWindow {
 
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     while ((Get-Date) -lt $deadline) {
-        $windowDump = & $AdbPath -s $DeviceSerial shell dumpsys window 2>$null
+        $windowDump = Invoke-AdbCommand -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'dumpsys', 'window') 2>$null
         if ($LASTEXITCODE -eq 0) {
             $text = $windowDump | Out-String
             if ($text -match "mCurrentFocus=Window\{[^}]*$([regex]::Escape($PackageName))/" -or
@@ -777,7 +793,7 @@ function Recover-AppFocus {
     )
 
     Wake-Device -AdbPath $AdbPath -DeviceSerial $DeviceSerial
-    & $AdbPath -s $DeviceSerial shell am start -n 'dev.taru.android/.MainActivity' -a android.intent.action.MAIN -c android.intent.category.LAUNCHER *> $null
+    Invoke-AdbCommand -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'am', 'start', '-n', 'dev.taru.android/.MainActivity', '-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.LAUNCHER') *> $null
     Start-Sleep -Seconds 2
 }
 
@@ -809,7 +825,7 @@ function Install-SmokeProfileFixture {
         Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'run-as', 'dev.taru.android', 'chmod', '660', 'shared_prefs/taru_server_profiles.xml') -FailureMessage 'adb chmod server profile preferences failed.'
         Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'rm', $remoteSeedPath) -FailureMessage 'adb cleanup profile fixture failed.'
     } finally {
-        & $AdbPath -s $DeviceSerial shell rm $remoteSeedPath *> $null
+        Invoke-AdbCommand -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'rm', $remoteSeedPath) *> $null
         Remove-Item -LiteralPath $localSeedPath -Force -ErrorAction SilentlyContinue
     }
 }
@@ -833,17 +849,17 @@ function Get-UiDump {
                 Recover-AppFocus -AdbPath $AdbPath -DeviceSerial $DeviceSerial
             }
 
-            & $AdbPath -s $DeviceSerial shell rm $remoteDump *> $null
-            & $AdbPath -s $DeviceSerial shell pkill -f uiautomator *> $null
+            Invoke-AdbCommand -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'rm', $remoteDump) *> $null
+            Invoke-AdbCommand -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'pkill', '-f', 'uiautomator') *> $null
             Start-Sleep -Milliseconds 500
-            $dumpOutput = & $AdbPath -s $DeviceSerial shell uiautomator dump $remoteDump 2>&1
+            $dumpOutput = Invoke-AdbCommand -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'uiautomator', 'dump', $remoteDump) 2>&1
             if ($LASTEXITCODE -ne 0) {
                 throw "adb UI dump failed for '$Name'.`n$($dumpOutput | Out-String)"
             }
 
             $remoteReady = $false
             for ($fileAttempt = 1; $fileAttempt -le 10; $fileAttempt += 1) {
-                & $AdbPath -s $DeviceSerial shell ls $remoteDump *> $null
+                Invoke-AdbCommand -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'ls', $remoteDump) *> $null
                 if ($LASTEXITCODE -eq 0) {
                     $remoteReady = $true
                     break
@@ -858,10 +874,19 @@ function Get-UiDump {
 
             Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'pull', $remoteDump, $localDump) -FailureMessage "adb pull UI dump failed for '$Name'."
             Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'rm', $remoteDump) -FailureMessage "adb cleanup UI dump failed for '$Name'."
+
+            [xml]$hierarchy = Get-Content -LiteralPath $localDump -Raw
+            if (Dismiss-AnrDialog -AdbPath $AdbPath -DeviceSerial $DeviceSerial -Hierarchy $hierarchy) {
+                $lastError = "Dismissed an ANR dialog while capturing UI hierarchy '$Name'."
+                Recover-AppFocus -AdbPath $AdbPath -DeviceSerial $DeviceSerial
+                Start-Sleep -Milliseconds 1500
+                continue
+            }
+
             return $localDump
         } catch {
             $lastError = $_.Exception.Message
-            & $AdbPath -s $DeviceSerial shell pkill -f uiautomator *> $null
+            Invoke-AdbCommand -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'pkill', '-f', 'uiautomator') *> $null
             Recover-AppFocus -AdbPath $AdbPath -DeviceSerial $DeviceSerial
             Start-Sleep -Milliseconds 1500
         }
@@ -930,7 +955,7 @@ function Find-UiNode {
     return $null
 }
 
-function Dismiss-SystemAnrDialog {
+function Dismiss-AnrDialog {
     param(
         [string]$AdbPath,
         [string]$DeviceSerial,
@@ -938,7 +963,15 @@ function Dismiss-SystemAnrDialog {
     )
 
     $values = Get-UiTextValues -Hierarchy $Hierarchy
-    if ($values -notcontains "Process system isn't responding") {
+    $isAnrDialog = $false
+    foreach ($value in $values) {
+        if ($value -like "*isn't responding" -or $value -like 'Application Not Responding*') {
+            $isAnrDialog = $true
+            break
+        }
+    }
+
+    if (-not $isAnrDialog) {
         return $false
     }
 
@@ -949,7 +982,7 @@ function Dismiss-SystemAnrDialog {
 
     $bounds = $waitNode.Attributes['bounds'].Value
     $center = Get-BoundsCenter -Bounds $bounds
-    Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'input', 'tap', $center.X, $center.Y) -FailureMessage 'adb tap failed for system ANR wait button.'
+    Invoke-Adb -AdbPath $AdbPath -Arguments @('-s', $DeviceSerial, 'shell', 'input', 'tap', $center.X, $center.Y) -FailureMessage 'adb tap failed for ANR wait button.'
     Start-Sleep -Seconds 2
     return $true
 }
@@ -991,7 +1024,7 @@ function Wait-ForUiText {
                 return
             }
 
-            if (Dismiss-SystemAnrDialog -AdbPath $AdbPath -DeviceSerial $DeviceSerial -Hierarchy $hierarchy) {
+            if (Dismiss-AnrDialog -AdbPath $AdbPath -DeviceSerial $DeviceSerial -Hierarchy $hierarchy) {
                 Recover-AppFocus -AdbPath $AdbPath -DeviceSerial $DeviceSerial
             }
         } catch {
@@ -1034,7 +1067,7 @@ function Wait-ForAnyUiText {
                 }
             }
 
-            if (Dismiss-SystemAnrDialog -AdbPath $AdbPath -DeviceSerial $DeviceSerial -Hierarchy $hierarchy) {
+            if (Dismiss-AnrDialog -AdbPath $AdbPath -DeviceSerial $DeviceSerial -Hierarchy $hierarchy) {
                 Recover-AppFocus -AdbPath $AdbPath -DeviceSerial $DeviceSerial
             }
         } catch {
@@ -1361,6 +1394,7 @@ function Capture-SmokeSurface {
 }
 
 $scriptDir = $PSScriptRoot
+$script:AdbServerPort = $AdbServerPort
 $androidRoot = (Resolve-Path -LiteralPath (Join-Path $scriptDir '..')).Path
 $repoRoot = Split-Path -Parent (Split-Path -Parent $androidRoot)
 $gradlew = Join-Path $androidRoot 'gradlew.bat'
@@ -1376,7 +1410,8 @@ if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
 }
 
 $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-$outputDir = Join-Path $OutputRoot "$timestamp-$stateMode-$deviceSerial"
+$safeDeviceSerial = $deviceSerial -replace '[^A-Za-z0-9_.-]', '-'
+$outputDir = Join-Path $OutputRoot "$timestamp-$stateMode-$safeDeviceSerial"
 New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
 $fixtureServerProcess = $null
 $fixtureReversePort = $null
@@ -1455,7 +1490,7 @@ if ($stateMode -notin @('profile-with-media', 'profile-active-remux')) {
 Wake-Device -AdbPath $adb -DeviceSerial $deviceSerial
 
 $launchPath = Join-Path $outputDir 'launch.txt'
-$launchOutput = & $adb -s $deviceSerial shell am start -n 'dev.taru.android/.MainActivity' -a android.intent.action.MAIN -c android.intent.category.LAUNCHER 2>&1
+$launchOutput = Invoke-AdbCommand -AdbPath $adb -Arguments @('-s', $deviceSerial, 'shell', 'am', 'start', '-n', 'dev.taru.android/.MainActivity', '-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.LAUNCHER') 2>&1
 $launchText = ($launchOutput | Out-String).TrimEnd()
 Write-Utf8File -Path $launchPath -Content $launchText
 if ($LASTEXITCODE -ne 0) {
@@ -1769,7 +1804,7 @@ $surfaceEvidence | ForEach-Object {
 }
 } finally {
     if ($fixtureReversePort -ne $null) {
-        & $adb -s $deviceSerial reverse --remove "tcp:$fixtureReversePort" *> $null
+        Invoke-AdbCommand -AdbPath $adb -Arguments @('-s', $deviceSerial, 'reverse', '--remove', "tcp:$fixtureReversePort") *> $null
     }
     Stop-SmokeFixtureServer -Process $fixtureServerProcess
 }
