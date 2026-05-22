@@ -1152,6 +1152,23 @@ async fn admin_v1_system_config_reports_sanitized_configuration() {
         }],
         runtime: Some(MetadataProviderRuntimeConfig::default()),
     }];
+    let network = crate::config::NetworkAccessConfig {
+        exposure_mode: crate::config::NetworkExposureMode::TunnelProvider,
+        external_base_url: Some(
+            "https://user:network-secret@taru.example.test/path?token=url-secret".to_owned(),
+        ),
+        trusted_proxy_headers: true,
+        trusted_proxy_sources: vec!["127.0.0.1".to_owned(), "10.0.0.0/8".to_owned()],
+        allowed_origins: vec!["https://operator-secret.example.test".to_owned()],
+        tunnel_providers: vec![crate::config::TunnelProviderConfig {
+            id: "cloudflared".to_owned(),
+            kind: crate::config::TunnelProviderKind::CloudflareTunnel,
+            public_url: Some(
+                "https://user:tunnel-url-secret@tunnel.example.test/path?token=secret".to_owned(),
+            ),
+            token_env: None,
+        }],
+    };
     let config = TaruServerConfig {
         database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
@@ -1161,7 +1178,7 @@ async fn admin_v1_system_config_reports_sanitized_configuration() {
             enabled: false,
             token_env: Some("TARU_ADMIN_TOKEN".to_owned()),
         },
-        network: crate::config::NetworkAccessConfig::default(),
+        network,
         ffprobe_path: temp.path().join("private").join("ffprobe"),
         ffmpeg_path: temp.path().join("private").join("ffmpeg"),
         scan_concurrency: 2,
@@ -1251,6 +1268,46 @@ async fn admin_v1_system_config_reports_sanitized_configuration() {
         diagnostics.auth.token_env.as_deref(),
         Some("TARU_ADMIN_TOKEN")
     );
+    assert_eq!(
+        diagnostics.network.exposure_mode,
+        taru_api::admin::AdminNetworkExposureMode::TunnelProvider
+    );
+    assert_eq!(
+        diagnostics.network.readiness.status,
+        taru_api::admin::AdminNetworkReadinessStatus::Unavailable
+    );
+    assert!(diagnostics.network.external_endpoint.configured);
+    assert_eq!(
+        diagnostics.network.external_endpoint.scheme.as_deref(),
+        Some("https")
+    );
+    assert!(
+        diagnostics
+            .network
+            .external_endpoint
+            .host_fingerprint
+            .as_deref()
+            .is_some_and(|fingerprint| fingerprint.starts_with("sha256:"))
+    );
+    assert!(diagnostics.network.trusted_proxy.headers_enabled);
+    assert_eq!(diagnostics.network.trusted_proxy.source_count, 2);
+    assert_eq!(diagnostics.network.origins.allowed_origin_count, 1);
+    assert!(diagnostics.network.origins.configured);
+    assert_eq!(diagnostics.network.tunnel_providers.len(), 1);
+    assert_eq!(diagnostics.network.tunnel_providers[0].id, "cloudflared");
+    assert_eq!(
+        diagnostics.network.tunnel_providers[0].kind,
+        taru_api::admin::AdminTunnelProviderKind::CloudflareTunnel
+    );
+    assert!(diagnostics.network.tunnel_providers[0].endpoint_configured);
+    assert_eq!(
+        diagnostics.network.tunnel_providers[0]
+            .endpoint_scheme
+            .as_deref(),
+        Some("https")
+    );
+    assert_eq!(diagnostics.network.tunnel_providers[0].token_env, None);
+    assert!(!diagnostics.network.tunnel_providers[0].token_present);
     assert_eq!(
         diagnostics.database.configured_backend_kind.as_str(),
         "sqlite"
@@ -1344,6 +1401,16 @@ async fn admin_v1_system_config_reports_sanitized_configuration() {
     assert!(!body.contains("lain.bgm.tv"));
     assert!(!body.contains("literal-header-secret"));
     assert!(!body.contains("BANGUMI_HEADER"));
+    assert!(!body.contains("external_base_url"));
+    assert!(!body.contains("trusted_proxy_sources"));
+    assert!(!body.contains("allowed_origins"));
+    assert!(!body.contains("network-secret"));
+    assert!(!body.contains("url-secret"));
+    assert!(!body.contains("operator-secret"));
+    assert!(!body.contains("tunnel-url-secret"));
+    assert!(!body.contains("taru.example.test"));
+    assert!(!body.contains("tunnel.example.test"));
+    assert!(!body.contains("x-forwarded"));
 }
 
 #[tokio::test]

@@ -572,6 +572,45 @@ export const mockSystemConfig: AdminServerConfigDiagnosticsResponse = {
     enabled: true,
     token_env: "TARU_ADMIN_TOKEN",
   },
+  network: {
+    exposure_mode: "reverse_proxy",
+    readiness: {
+      status: "ready",
+      reason: "ready",
+      checks: [
+        { name: "exposure_mode", status: "ready", reason: "ready" },
+        { name: "auth", status: "ready", reason: "ready" },
+        { name: "external_endpoint", status: "ready", reason: "ready" },
+        { name: "trusted_proxy", status: "ready", reason: "ready" },
+        { name: "origin_policy", status: "ready", reason: "ready" },
+        { name: "tunnel_provider", status: "ready", reason: "ready" },
+      ],
+    },
+    external_endpoint: {
+      configured: true,
+      scheme: "https",
+      host_fingerprint: "sha256:11111111111111111111111111111111",
+    },
+    trusted_proxy: {
+      headers_enabled: true,
+      source_count: 2,
+    },
+    origins: {
+      allowed_origin_count: 1,
+      configured: true,
+    },
+    tunnel_providers: [
+      {
+        id: "cloudflared",
+        kind: "cloudflare_tunnel",
+        endpoint_configured: true,
+        endpoint_scheme: "https",
+        endpoint_host_fingerprint: "sha256:22222222222222222222222222222222",
+        token_env: "TARU_TUNNEL_TOKEN",
+        token_present: true,
+      },
+    ],
+  },
   database: {
     configured_backend_kind: "sqlite",
     active_backend_kind: "sqlite",
@@ -798,10 +837,25 @@ export const mockAdminConsoleData: AdminConsoleData = {
       hasValidationError: record.has_validation_error,
     })),
   },
+  network: {
+    exposureMode: mockSystemConfig.network.exposure_mode,
+    readinessStatus: mockSystemConfig.network.readiness.status,
+    readinessReason: mockSystemConfig.network.readiness.reason,
+    endpointConfigured: mockSystemConfig.network.external_endpoint.configured,
+    endpointScheme: mockSystemConfig.network.external_endpoint.scheme,
+    trustedProxyHeaders: mockSystemConfig.network.trusted_proxy.headers_enabled,
+    trustedProxySourceCount: mockSystemConfig.network.trusted_proxy.source_count,
+    allowedOriginCount: mockSystemConfig.network.origins.allowed_origin_count,
+    tunnelProviderCount: mockSystemConfig.network.tunnel_providers.length,
+  },
   settings: [
     {
       label: "Admin auth",
       value: mockSystemConfig.auth.enabled ? "Auth configured" : "Auth disabled",
+    },
+    {
+      label: "Network readiness",
+      value: `${mockSystemConfig.network.exposure_mode} · ${mockSystemConfig.network.readiness.status}`,
     },
     { label: "FFmpeg", value: "Configured, diagnostics only" },
     {

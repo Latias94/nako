@@ -45,6 +45,8 @@ describe("Admin web console scaffold", () => {
 
     expect(await screen.findByText("Live Library")).toBeInTheDocument();
     expect(screen.getByText("Acquisition Intake")).toBeInTheDocument();
+    expect(screen.getByText("Network Access")).toBeInTheDocument();
+    expect(screen.getByText("reverse_proxy")).toBeInTheDocument();
     expect(screen.getByText("candidate-ready")).toBeInTheDocument();
     expect(screen.getAllByText("Live Admin API").length).toBeGreaterThan(0);
     expect(screen.getByText("1/1")).toBeInTheDocument();

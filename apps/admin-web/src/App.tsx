@@ -50,7 +50,7 @@ const navItems: NavItem[] = [
   { label: "Storage", id: "storage", icon: HardDrive, sourceKey: "storageStaging", source: "mock" },
   { label: "Automation", id: "automation", icon: Cable, sourceKey: "events", source: "planned" },
   { label: "Addons", id: "addons", icon: Puzzle, source: "planned" },
-  { label: "Network", id: "network", icon: Boxes, source: "planned" },
+  { label: "Network", id: "network", icon: Boxes, sourceKey: "systemConfig", source: "mock" },
   { label: "Settings", id: "settings", icon: Settings, sourceKey: "systemConfig", source: "mock" },
 ];
 
@@ -406,6 +406,59 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
             </div>
           </section>
 
+          <section className="panel" id="network">
+            <PanelHeader
+              title="Network Access"
+              source={loadState.data.sources.systemConfig}
+              description="Remote exposure readiness without URLs, headers, credentials, or local paths."
+            />
+            <div className="stackList">
+              <div className="listRow">
+                <div>
+                  <strong>{loadState.data.network.exposureMode}</strong>
+                  <span>{loadState.data.network.readinessReason}</span>
+                </div>
+                <StatusPill
+                  label={loadState.data.network.readinessStatus}
+                  tone={
+                    loadState.data.network.readinessStatus === "ready"
+                      ? "good"
+                      : loadState.data.network.readinessStatus === "degraded"
+                        ? "warn"
+                        : "bad"
+                  }
+                />
+              </div>
+              <div className="listRow">
+                <div>
+                  <strong>
+                    {loadState.data.network.endpointConfigured ? "External endpoint set" : "No external endpoint"}
+                  </strong>
+                  <span>{loadState.data.network.endpointScheme ?? "no scheme"}</span>
+                </div>
+                <StatusPill
+                  label={loadState.data.network.endpointConfigured ? "configured" : "not configured"}
+                  tone={loadState.data.network.endpointConfigured ? "good" : "muted"}
+                />
+              </div>
+              <div className="listRow">
+                <div>
+                  <strong>
+                    {loadState.data.network.trustedProxySourceCount} trusted proxy sources
+                  </strong>
+                  <span>
+                    {loadState.data.network.allowedOriginCount} browser origins ·{" "}
+                    {loadState.data.network.tunnelProviderCount} tunnel providers
+                  </span>
+                </div>
+                <StatusPill
+                  label={loadState.data.network.trustedProxyHeaders ? "forwarded headers trusted" : "default deny"}
+                  tone={loadState.data.network.trustedProxyHeaders ? "info" : "muted"}
+                />
+              </div>
+            </div>
+          </section>
+
           <section className="panel" id="settings">
             <PanelHeader
               title="Settings"
@@ -540,7 +593,7 @@ function summarizeSources(data: AdminConsoleData) {
     combinedSource(data.sources.overview, data.sources.storageStaging),
     data.sources.events,
     "planned",
-    "planned",
+    data.sources.systemConfig,
     data.sources.systemConfig,
   ];
 

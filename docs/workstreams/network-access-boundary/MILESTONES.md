@@ -59,12 +59,15 @@ Primary evidence:
 
 ## M3 — Admin Network Readiness Diagnostics
 
+Status: completed on 2026-05-22.
+
 Exit criteria:
 
-- Admin-only route reports network readiness and blockers.
-- Admin TypeScript contract and typed client/mocks are synchronized.
-- Public Client API and `taru-client-protocol` remain unchanged.
-- Redaction tests cover tokens, tunnel credentials, raw headers, local paths,
+- [x] Admin-only diagnostics report network readiness and blockers.
+- [x] Admin TypeScript contract, typed Admin Web mapping, and mocks are
+  synchronized.
+- [x] Public Client API and `taru-client-protocol` remain unchanged.
+- [x] Redaction tests cover tokens, tunnel credentials, raw headers, local paths,
   and secret-bearing URLs.
 
 Primary evidence:

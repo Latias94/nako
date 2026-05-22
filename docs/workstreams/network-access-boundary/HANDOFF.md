@@ -37,26 +37,32 @@ sources by exact IP or CIDR. It also wires real `ConnectInfo<SocketAddr>` into
 the served router. It did not add a built-in NAT traversal runtime or change
 Public Client API / `taru-client-protocol`.
 
+NAB-040 is complete. It added Admin-only network readiness diagnostics to
+`/admin/v1/system/config`, including exposure mode, readiness checks, external
+endpoint scheme plus host fingerprint, trusted proxy source counts, browser
+origin counts, tunnel-provider declaration state, and token presence booleans.
+It refreshed the generated Admin Web contract and typed Admin Web data mapping
+so the console can render network readiness without raw URLs, hostnames,
+credential values, forwarded headers, local paths, or Public Client API churn.
+
 ## Active Task
 
-- Task ID: NAB-040
-- Owner: unassigned
+- Task ID: NAB-050
+- Owner: planner
 - Files:
-  - `crates/taru-api/src/admin.rs`
-  - `crates/taru-api/src/admin_contract.rs`
-  - `crates/taru-server/src/http/admin.rs`
-  - `apps/admin-web/src/adminApi`
+  - `docs/workstreams/network-access-boundary`
+  - `docs/workstreams/post-rpd-product-hardening`
+  - `docs/workstreams/README.md`
 - Validation:
-  - `cargo nextest run -p taru-api admin_contract --no-fail-fast`
-  - `cargo nextest run -p taru-server http::tests::system --no-fail-fast`
-  - `npm run check` from `apps/admin-web`
-  - `cargo fmt --all -- --check`
+  - `verify-rust-workstream` records final evidence
+  - `python -m json.tool docs/workstreams/network-access-boundary/WORKSTREAM.json`
+  - `python -m json.tool docs/workstreams/post-rpd-product-hardening/WORKSTREAM.json`
   - `git diff --check`
+  - `git diff --name-only -- crates/taru-client-protocol`
 - Status: READY
-- Review: expose Admin-only network readiness diagnostics and typed Admin web
-  contract/client support without adding Public Client API, tunnel runtime,
-  identity/RBAC, downloader protocols, AI writes, Addon runtime, or library
-  mutation.
+- Review: close or split concrete follow-ons. Do not hide built-in NAT
+  traversal runtime, client endpoint discovery, identity/RBAC, downloader
+  protocols, AI writes, Addon runtime, or library mutation in this lane.
 
 ## Decisions Since Opening
 
@@ -76,6 +82,11 @@ Public Client API / `taru-client-protocol`.
   trusted remote source, and must not echo untrusted raw host/proto values.
 - Origin enforcement must preserve auth order so missing/invalid bearer tokens
   remain `401` before origin rejection on protected routes.
+- Admin readiness diagnostics belong to the Admin boundary. Public Client API
+  and `taru-client-protocol` remain untouched until a dedicated remote-client
+  endpoint discovery lane exists.
+- Tunnel provider config/readiness is declarative only. Starting cloudflared,
+  ngrok, Tailscale Funnel, relay services, or NAT traversal is a follow-on lane.
 
 ## Blockers
 
@@ -83,7 +94,6 @@ Public Client API / `taru-client-protocol`.
 
 ## Next Recommended Action
 
-Execute NAB-040: expose Admin-only network readiness diagnostics that summarize
-network access mode, external endpoint readiness, trusted proxy policy, origin
-policy, and tunnel-provider declarations with strict redaction and no Public
-Client protocol changes.
+Execute NAB-050: run final review/verification, close this lane or split
+follow-ons for concrete tunnel runtime, endpoint discovery, identity/RBAC,
+protocol downloaders, AI-assisted library ops, and Addon runtime/distribution.

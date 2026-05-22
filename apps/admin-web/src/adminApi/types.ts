@@ -1,4 +1,8 @@
-import type { AdminOverviewResponse, PageInfo } from "./generated/contract";
+import type {
+  AdminNetworkAccessDiagnostics,
+  AdminOverviewResponse,
+  PageInfo,
+} from "./generated/contract";
 
 export type {
   AdminAcquisitionIntakeCandidateDiagnostic,
@@ -9,6 +13,7 @@ export type {
   AdminJobListItem,
   AdminJobListResponse,
   AdminLocalInferenceSummary,
+  AdminNetworkAccessDiagnostics,
   AdminOutboxEventListItem,
   AdminOutboxEventListResponse,
   AdminOverviewResponse,
@@ -53,6 +58,7 @@ export type AdminConsoleData = {
   jobs: JobRow[];
   playback: PlaybackSummary;
   storage: StorageSummary;
+  network: NetworkSummary;
   settings: SettingRow[];
 };
 
@@ -136,6 +142,18 @@ export type StorageSummary = {
     sizeBytes: number | null;
     hasValidationError: boolean;
   }>;
+};
+
+export type NetworkSummary = {
+  exposureMode: AdminNetworkAccessDiagnostics["exposure_mode"];
+  readinessStatus: AdminNetworkAccessDiagnostics["readiness"]["status"];
+  readinessReason: AdminNetworkAccessDiagnostics["readiness"]["reason"];
+  endpointConfigured: boolean;
+  endpointScheme: string | null;
+  trustedProxyHeaders: boolean;
+  trustedProxySourceCount: number;
+  allowedOriginCount: number;
+  tunnelProviderCount: number;
 };
 
 export type SettingRow = {

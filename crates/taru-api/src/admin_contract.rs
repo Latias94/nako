@@ -473,6 +473,73 @@ export interface AdminStorageStagingDiagnosticsResponse {
   page: PageInfo;
 }
 
+export type AdminNetworkExposureMode =
+  | "local_only"
+  | "private_network"
+  | "reverse_proxy"
+  | "tunnel_provider";
+
+export type AdminNetworkReadinessStatus = "ready" | "degraded" | "unavailable";
+
+export type AdminNetworkReadinessReason =
+  | "ready"
+  | "local_only"
+  | "auth_disabled"
+  | "missing_external_base_url"
+  | "missing_trusted_proxy_sources"
+  | "missing_tunnel_provider"
+  | "missing_tunnel_token"
+  | "browser_origins_not_configured";
+
+export type AdminNetworkReadinessCheckName =
+  | "exposure_mode"
+  | "auth"
+  | "external_endpoint"
+  | "trusted_proxy"
+  | "origin_policy"
+  | "tunnel_provider";
+
+export type AdminTunnelProviderKind =
+  | "external"
+  | "cloudflare_tunnel"
+  | "tailscale_funnel"
+  | "ngrok";
+
+export interface AdminNetworkAccessDiagnostics {
+  exposure_mode: AdminNetworkExposureMode;
+  readiness: {
+    status: AdminNetworkReadinessStatus;
+    reason: AdminNetworkReadinessReason;
+    checks: Array<{
+      name: AdminNetworkReadinessCheckName;
+      status: AdminNetworkReadinessStatus;
+      reason: AdminNetworkReadinessReason;
+    }>;
+  };
+  external_endpoint: {
+    configured: boolean;
+    scheme: string | null;
+    host_fingerprint: string | null;
+  };
+  trusted_proxy: {
+    headers_enabled: boolean;
+    source_count: number;
+  };
+  origins: {
+    allowed_origin_count: number;
+    configured: boolean;
+  };
+  tunnel_providers: Array<{
+    id: string;
+    kind: AdminTunnelProviderKind;
+    endpoint_configured: boolean;
+    endpoint_scheme: string | null;
+    endpoint_host_fingerprint: string | null;
+    token_env: string | null;
+    token_present: boolean;
+  }>;
+}
+
 export interface AdminServerConfigDiagnosticsResponse {
   admin_api_version: string;
   public_api_version: string;
@@ -480,6 +547,7 @@ export interface AdminServerConfigDiagnosticsResponse {
     enabled: boolean;
     token_env: string | null;
   };
+  network: AdminNetworkAccessDiagnostics;
   database: {
     configured_backend_kind: string;
     active_backend_kind: string;
@@ -615,6 +683,7 @@ mod tests {
             "AdminStorageStagingQuery",
             "AdminOverviewResponse",
             "AdminPlaybackSupportEvidenceResponse",
+            "AdminNetworkAccessDiagnostics",
             "AdminServerConfigDiagnosticsResponse",
         ] {
             assert!(

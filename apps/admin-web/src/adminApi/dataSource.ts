@@ -31,6 +31,7 @@ import type {
   EventSummary,
   IntakeSummary,
   JobRow,
+  NetworkSummary,
   PlaybackSummary,
   SettingRow,
   StorageSummary,
@@ -109,6 +110,7 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
         jobs: mapJobs(jobs.value),
         playback: mapPlayback(playbackSessions.value, playbackRuntime.value),
         storage: mapStorage(storageStaging.value),
+        network: mapNetwork(systemConfig.value.network),
         settings: mapSettings(systemConfig.value),
       };
     },
@@ -228,11 +230,29 @@ function mapStorage(response: AdminStorageStagingDiagnosticsResponse): StorageSu
   };
 }
 
+function mapNetwork(response: AdminServerConfigDiagnosticsResponse["network"]): NetworkSummary {
+  return {
+    exposureMode: response.exposure_mode,
+    readinessStatus: response.readiness.status,
+    readinessReason: response.readiness.reason,
+    endpointConfigured: response.external_endpoint.configured,
+    endpointScheme: response.external_endpoint.scheme,
+    trustedProxyHeaders: response.trusted_proxy.headers_enabled,
+    trustedProxySourceCount: response.trusted_proxy.source_count,
+    allowedOriginCount: response.origins.allowed_origin_count,
+    tunnelProviderCount: response.tunnel_providers.length,
+  };
+}
+
 function mapSettings(response: AdminServerConfigDiagnosticsResponse): SettingRow[] {
   return [
     {
       label: "Admin auth",
       value: response.auth.enabled ? "Auth configured" : "Auth disabled",
+    },
+    {
+      label: "Network readiness",
+      value: `${response.network.exposure_mode} · ${response.network.readiness.status}`,
     },
     {
       label: "FFmpeg",

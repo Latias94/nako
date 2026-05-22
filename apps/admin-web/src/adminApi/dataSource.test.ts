@@ -39,6 +39,11 @@ describe("Admin data source", () => {
     expect(data.sources.playbackRuntime).toBe("live");
     expect(data.sources.storageStaging).toBe("live");
     expect(data.sources.systemConfig).toBe("live");
+    expect(data.network).toMatchObject({
+      exposureMode: "reverse_proxy",
+      readinessStatus: "ready",
+      tunnelProviderCount: 1,
+    });
     expect(data.jobs[0]).toMatchObject({
       kind: "library_scan",
       resourceClass: "library",
@@ -56,6 +61,10 @@ describe("Admin data source", () => {
     expect(data.settings).toContainEqual({
       label: "Admin auth",
       value: "Auth configured",
+    });
+    expect(data.settings).toContainEqual({
+      label: "Network readiness",
+      value: "reverse_proxy · ready",
     });
   });
 

@@ -770,6 +770,7 @@ pub struct AdminServerConfigDiagnosticsResponse {
     pub admin_api_version: String,
     pub public_api_version: String,
     pub auth: AdminAuthConfigDiagnostics,
+    pub network: AdminNetworkAccessDiagnostics,
     pub database: AdminDatabaseConfigDiagnostics,
     pub runtime: AdminRuntimeConfigDiagnostics,
     pub libraries: Vec<AdminLibraryConfigDiagnostics>,
@@ -784,6 +785,177 @@ pub struct AdminServerConfigDiagnosticsResponse {
 pub struct AdminAuthConfigDiagnostics {
     pub enabled: bool,
     pub token_env: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminNetworkAccessDiagnostics {
+    pub exposure_mode: AdminNetworkExposureMode,
+    pub readiness: AdminNetworkReadinessDiagnostics,
+    pub external_endpoint: AdminNetworkExternalEndpointDiagnostics,
+    pub trusted_proxy: AdminTrustedProxyDiagnostics,
+    pub origins: AdminOriginPolicyDiagnostics,
+    pub tunnel_providers: Vec<AdminTunnelProviderDiagnostics>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminNetworkExposureMode {
+    LocalOnly,
+    PrivateNetwork,
+    ReverseProxy,
+    TunnelProvider,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminNetworkReadinessDiagnostics {
+    pub status: AdminNetworkReadinessStatus,
+    pub reason: AdminNetworkReadinessReason,
+    pub checks: Vec<AdminNetworkReadinessCheck>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminNetworkReadinessStatus {
+    Ready,
+    Degraded,
+    Unavailable,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminNetworkReadinessReason {
+    Ready,
+    LocalOnly,
+    AuthDisabled,
+    MissingExternalBaseUrl,
+    MissingTrustedProxySources,
+    MissingTunnelProvider,
+    MissingTunnelToken,
+    BrowserOriginsNotConfigured,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminNetworkReadinessCheck {
+    pub name: AdminNetworkReadinessCheckName,
+    pub status: AdminNetworkReadinessStatus,
+    pub reason: AdminNetworkReadinessReason,
+}
+
+impl AdminNetworkReadinessCheck {
+    #[must_use]
+    pub const fn ready(
+        name: AdminNetworkReadinessCheckName,
+        reason: AdminNetworkReadinessReason,
+    ) -> Self {
+        Self {
+            name,
+            status: AdminNetworkReadinessStatus::Ready,
+            reason,
+        }
+    }
+
+    #[must_use]
+    pub const fn degraded(
+        name: AdminNetworkReadinessCheckName,
+        reason: AdminNetworkReadinessReason,
+    ) -> Self {
+        Self {
+            name,
+            status: AdminNetworkReadinessStatus::Degraded,
+            reason,
+        }
+    }
+
+    #[must_use]
+    pub const fn unavailable(
+        name: AdminNetworkReadinessCheckName,
+        reason: AdminNetworkReadinessReason,
+    ) -> Self {
+        Self {
+            name,
+            status: AdminNetworkReadinessStatus::Unavailable,
+            reason,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminNetworkReadinessCheckName {
+    ExposureMode,
+    Auth,
+    ExternalEndpoint,
+    TrustedProxy,
+    OriginPolicy,
+    TunnelProvider,
+}
+
+impl AdminNetworkReadinessDiagnostics {
+    #[must_use]
+    pub fn from_checks(checks: Vec<AdminNetworkReadinessCheck>) -> Self {
+        let status = if checks
+            .iter()
+            .any(|check| check.status == AdminNetworkReadinessStatus::Unavailable)
+        {
+            AdminNetworkReadinessStatus::Unavailable
+        } else if checks
+            .iter()
+            .any(|check| check.status == AdminNetworkReadinessStatus::Degraded)
+        {
+            AdminNetworkReadinessStatus::Degraded
+        } else {
+            AdminNetworkReadinessStatus::Ready
+        };
+        let reason = checks
+            .iter()
+            .find(|check| check.status == status)
+            .map_or(AdminNetworkReadinessReason::Ready, |check| check.reason);
+
+        Self {
+            status,
+            reason,
+            checks,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminNetworkExternalEndpointDiagnostics {
+    pub configured: bool,
+    pub scheme: Option<String>,
+    pub host_fingerprint: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminTrustedProxyDiagnostics {
+    pub headers_enabled: bool,
+    pub source_count: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOriginPolicyDiagnostics {
+    pub allowed_origin_count: u32,
+    pub configured: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminTunnelProviderDiagnostics {
+    pub id: String,
+    pub kind: AdminTunnelProviderKind,
+    pub endpoint_configured: bool,
+    pub endpoint_scheme: Option<String>,
+    pub endpoint_host_fingerprint: Option<String>,
+    pub token_env: Option<String>,
+    pub token_present: bool,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminTunnelProviderKind {
+    External,
+    CloudflareTunnel,
+    TailscaleFunnel,
+    Ngrok,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -1706,6 +1878,169 @@ mod tests {
         assert!(!body.contains("Private"));
         assert!(!body.contains("token"));
         assert!(!body.contains("C:\\"));
+    }
+
+    #[test]
+    fn admin_network_access_diagnostics_serializes_readiness_without_secret_urls() {
+        let response = AdminServerConfigDiagnosticsResponse {
+            admin_api_version: ADMIN_API_VERSION.to_owned(),
+            public_api_version: API_VERSION.to_owned(),
+            auth: AdminAuthConfigDiagnostics {
+                enabled: true,
+                token_env: Some("TARU_ADMIN_TOKEN".to_owned()),
+            },
+            network: AdminNetworkAccessDiagnostics {
+                exposure_mode: AdminNetworkExposureMode::ReverseProxy,
+                readiness: AdminNetworkReadinessDiagnostics::from_checks(vec![
+                    AdminNetworkReadinessCheck::ready(
+                        AdminNetworkReadinessCheckName::Auth,
+                        AdminNetworkReadinessReason::Ready,
+                    ),
+                    AdminNetworkReadinessCheck::degraded(
+                        AdminNetworkReadinessCheckName::OriginPolicy,
+                        AdminNetworkReadinessReason::BrowserOriginsNotConfigured,
+                    ),
+                ]),
+                external_endpoint: AdminNetworkExternalEndpointDiagnostics {
+                    configured: true,
+                    scheme: Some("https".to_owned()),
+                    host_fingerprint: Some("sha256:0123456789abcdef".to_owned()),
+                },
+                trusted_proxy: AdminTrustedProxyDiagnostics {
+                    headers_enabled: true,
+                    source_count: 2,
+                },
+                origins: AdminOriginPolicyDiagnostics {
+                    allowed_origin_count: 0,
+                    configured: false,
+                },
+                tunnel_providers: vec![AdminTunnelProviderDiagnostics {
+                    id: "cloudflared".to_owned(),
+                    kind: AdminTunnelProviderKind::CloudflareTunnel,
+                    endpoint_configured: true,
+                    endpoint_scheme: Some("https".to_owned()),
+                    endpoint_host_fingerprint: Some("sha256:fedcba9876543210".to_owned()),
+                    token_env: Some("TARU_TUNNEL_TOKEN".to_owned()),
+                    token_present: true,
+                }],
+            },
+            database: AdminDatabaseConfigDiagnostics {
+                configured_backend_kind: "sqlite".to_owned(),
+                active_backend_kind: "sqlite".to_owned(),
+                url_scheme: "sqlite".to_owned(),
+                runtime_supported: true,
+                migrated_on_startup: true,
+                capabilities: AdminDatabaseBackendCapabilitiesDiagnostics {
+                    lifecycle: true,
+                    libraries: true,
+                    jobs: true,
+                    job_leases: true,
+                    media: true,
+                    scan_commits: true,
+                    metadata: true,
+                    catalog: true,
+                    playback_state: true,
+                    transcode_sessions: true,
+                    event_outbox: true,
+                    addons: true,
+                    automation: true,
+                    managed_artwork: true,
+                    vfs_cache: true,
+                    webhooks: true,
+                    search_index: true,
+                },
+            },
+            runtime: AdminRuntimeConfigDiagnostics {
+                listen_addr: "127.0.0.1:3000".to_owned(),
+                scan_concurrency: 1,
+                probe_concurrency: 1,
+                metadata_concurrency: 1,
+                remux_concurrency: 1,
+                webhook_concurrency: 1,
+                remux_timeout_ms: 30_000,
+            },
+            libraries: Vec::new(),
+            metadata: AdminMetadataConfigDiagnostics {
+                raw_cache_retention_ms: 0,
+                raw_cache_cleanup_on_startup: false,
+                raw_cache_cleanup_interval_ms: 0,
+                runtime: AdminMetadataRuntimeConfigDiagnostics {
+                    timeout_ms: 1_000,
+                    max_attempts: 1,
+                    min_interval_ms: 0,
+                    concurrency: 1,
+                    user_agent: "taru-test".to_owned(),
+                    has_proxy: false,
+                    circuit_breaker_failures: 1,
+                    circuit_breaker_backoff_ms: 1,
+                },
+                maintenance_policies: 0,
+                providers: Vec::new(),
+            },
+            transcode: AdminTranscodeConfigDiagnostics {
+                hardware_policy: HardwareAccelerationPolicy {
+                    requested: HardwareAcceleration::None,
+                    fallback: taru_transcode::HardwareAccelerationFallback::Cpu,
+                },
+                cpu_concurrency: 1,
+                gpu_concurrency: 1,
+            },
+            staging: AdminConfigStagingDiagnostics {
+                max_bytes: 1,
+                retention_ms: 1,
+                cleanup_on_startup: false,
+            },
+            playback: AdminConfigPlaybackDiagnostics {
+                remote_stream_concurrency: 1,
+                remote_stage_concurrency: 1,
+            },
+            artwork: AdminArtworkConfigDiagnostics {
+                artifact_root_configured: false,
+                fetch_timeout_ms: 1,
+                fetch_max_attempts: 1,
+                fetch_max_bytes: 1,
+                fetch_concurrency: 1,
+                ingest_worker_enabled: false,
+                ingest_worker_idle_ms: 1,
+                fetch_user_agent: "taru-test".to_owned(),
+                has_fetch_proxy: false,
+                max_width: 1,
+                max_height: 1,
+            },
+        };
+
+        let value = serde_json::to_value(&response).unwrap();
+        let body = value.to_string();
+
+        assert_eq!(value["network"]["exposure_mode"], "reverse_proxy");
+        assert_eq!(value["network"]["readiness"]["status"], "degraded");
+        assert_eq!(
+            value["network"]["readiness"]["reason"],
+            "browser_origins_not_configured"
+        );
+        assert_eq!(value["network"]["external_endpoint"]["scheme"], "https");
+        assert_eq!(value["network"]["trusted_proxy"]["source_count"], 2);
+        assert_eq!(value["network"]["origins"]["allowed_origin_count"], 0);
+        assert_eq!(
+            value["network"]["tunnel_providers"][0]["kind"],
+            "cloudflare_tunnel"
+        );
+        assert_eq!(
+            value["network"]["tunnel_providers"][0]["token_env"],
+            "TARU_TUNNEL_TOKEN"
+        );
+        assert_eq!(
+            value["network"]["tunnel_providers"][0]["token_present"],
+            true
+        );
+        assert!(!body.contains("external_base_url"));
+        assert!(!body.contains("trusted_proxy_sources"));
+        assert!(!body.contains("allowed_origins"));
+        assert!(!body.contains("public_url"));
+        assert!(!body.contains("taru.example"));
+        assert!(!body.contains("cloudflare-token-secret"));
+        assert!(!body.contains("Authorization"));
+        assert!(!body.contains("x-forwarded"));
     }
 
     #[test]

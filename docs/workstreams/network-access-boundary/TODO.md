@@ -44,7 +44,7 @@ Task IDs use the `NAB` prefix.
 
 ## M3 — Admin Network Readiness Diagnostics
 
-- [ ] NAB-040 [owner=codex] [deps=NAB-030] [scope=crates/taru-api/src/admin.rs,crates/taru-api/src/admin_contract.rs,crates/taru-server/src/http/admin.rs,apps/admin-web/src/adminApi]
+- [x] NAB-040 [owner=codex] [deps=NAB-030] [scope=crates/taru-api/src/admin.rs,crates/taru-api/src/admin_contract.rs,crates/taru-server/src/http/admin.rs,apps/admin-web/src/adminApi]
   Goal: Expose Admin-only network access readiness diagnostics and typed Admin
   web contract/client support without changing Public Client API or
   `taru-client-protocol`.
@@ -54,10 +54,12 @@ Task IDs use the `NAB` prefix.
   Review: `review-workstream` must check Admin API ownership and redaction of
   bearer tokens, tunnel credentials, raw headers, internal URLs with secrets,
   and local paths.
-  Evidence: Admin DTO/contract, route tests, Admin web contract sync, and Public
-  Client protocol boundary check.
-  Handoff: Close or split concrete tunnel providers/client endpoint discovery
-  in NAB-050.
+  Evidence: DONE. Admin DTO/contract, `/admin/v1/system/config` Admin-only
+  diagnostics, Admin web generated contract/data mapping, system route redaction
+  tests, and Public Client protocol boundary check.
+  Handoff: Continue with NAB-050 closeout/follow-on split for concrete tunnel
+  providers, client endpoint discovery, identity/RBAC, protocol downloader
+  integrations, AI, and Addon runtime.
 
 ## M4 — Closeout And Follow-On Split
 

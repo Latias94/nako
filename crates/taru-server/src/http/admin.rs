@@ -15,20 +15,23 @@ use taru_api::{
         AdminDatabaseConfigDiagnostics, AdminJobCancelRequestResponse, AdminJobListItem,
         AdminJobListResponse, AdminLibraryConfigDiagnostics, AdminMetadataConfigDiagnostics,
         AdminMetadataProviderConfigDiagnostics, AdminMetadataRuntimeConfigDiagnostics,
-        AdminOutboxEventListItem, AdminOutboxEventListResponse,
-        AdminOverviewMetadataProviderSummary, AdminOverviewMetadataSummary, AdminOverviewResponse,
-        AdminOverviewRuntimeSummary, AdminOverviewStartupSummary, AdminOverviewStatus,
-        AdminOverviewStorageBackendSummary, AdminOverviewStorageSummary,
-        AdminPlaybackFfmpegDiagnostics, AdminPlaybackHardwareCapability,
-        AdminPlaybackHardwareCapabilityReason, AdminPlaybackHardwareDeviceInitialization,
-        AdminPlaybackHardwareDeviceInitializationStatus, AdminPlaybackHardwareDiagnostics,
-        AdminPlaybackHardwareEncoderDiscovery, AdminPlaybackHardwareEncoderDiscoveryStatus,
-        AdminPlaybackHardwareSmokeProbe, AdminPlaybackHardwareSmokeProbeStatus,
-        AdminPlaybackReadinessCheck, AdminPlaybackReadinessCheckName,
-        AdminPlaybackReadinessDiagnostics, AdminPlaybackReadinessReason,
-        AdminPlaybackRemoteBudgetDiagnostics, AdminPlaybackRemuxRuntimeDiagnostics,
-        AdminPlaybackRuntimeDiagnosticsResponse, AdminPlaybackRuntimeStatus,
-        AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
+        AdminNetworkAccessDiagnostics, AdminNetworkExposureMode,
+        AdminNetworkExternalEndpointDiagnostics, AdminNetworkReadinessCheck,
+        AdminNetworkReadinessCheckName, AdminNetworkReadinessDiagnostics,
+        AdminNetworkReadinessReason, AdminOriginPolicyDiagnostics, AdminOutboxEventListItem,
+        AdminOutboxEventListResponse, AdminOverviewMetadataProviderSummary,
+        AdminOverviewMetadataSummary, AdminOverviewResponse, AdminOverviewRuntimeSummary,
+        AdminOverviewStartupSummary, AdminOverviewStatus, AdminOverviewStorageBackendSummary,
+        AdminOverviewStorageSummary, AdminPlaybackFfmpegDiagnostics,
+        AdminPlaybackHardwareCapability, AdminPlaybackHardwareCapabilityReason,
+        AdminPlaybackHardwareDeviceInitialization, AdminPlaybackHardwareDeviceInitializationStatus,
+        AdminPlaybackHardwareDiagnostics, AdminPlaybackHardwareEncoderDiscovery,
+        AdminPlaybackHardwareEncoderDiscoveryStatus, AdminPlaybackHardwareSmokeProbe,
+        AdminPlaybackHardwareSmokeProbeStatus, AdminPlaybackReadinessCheck,
+        AdminPlaybackReadinessCheckName, AdminPlaybackReadinessDiagnostics,
+        AdminPlaybackReadinessReason, AdminPlaybackRemoteBudgetDiagnostics,
+        AdminPlaybackRemuxRuntimeDiagnostics, AdminPlaybackRuntimeDiagnosticsResponse,
+        AdminPlaybackRuntimeStatus, AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
         AdminPlaybackStagingDiagnostics, AdminPlaybackSupportEvidenceResponse,
         AdminPlaybackSupportHardwareCapabilityEvidence, AdminPlaybackSupportHardwareEvidence,
         AdminPlaybackSupportRedactionEvidence, AdminPlaybackSupportRuntimeEvidence,
@@ -36,7 +39,8 @@ use taru_api::{
         AdminPlaybackSupportSubject, AdminPlaybackTranscodeBudgetDiagnostics,
         AdminRuntimeConfigDiagnostics, AdminServerConfigDiagnosticsResponse,
         AdminStorageStagingDiagnosticsResponse, AdminStorageStagingRecord,
-        AdminStorageStagingSummary, AdminTranscodeConfigDiagnostics, AdminVfsCacheSummary,
+        AdminStorageStagingSummary, AdminTranscodeConfigDiagnostics, AdminTrustedProxyDiagnostics,
+        AdminTunnelProviderDiagnostics, AdminTunnelProviderKind, AdminVfsCacheSummary,
         AdminWatchFolderDiscoveryFailure, AdminWatchFolderDiscoveryRequest,
         AdminWatchFolderDiscoveryResponse, StorageBackendDiagnosticsResponse, StorageBackendKind,
         StorageBackendRuntimeStateScope, StorageBackendStatus,
@@ -57,7 +61,11 @@ use taru_vfs::StorageUri;
 
 use crate::{
     app::{RuntimeSupervisorDiagnostics, TaruApp},
-    config::{LocalLibraryConfig, MetadataProviderConfig, MetadataProviderRuntimeConfig},
+    config::{
+        LocalLibraryConfig, MetadataProviderConfig, MetadataProviderRuntimeConfig,
+        NetworkAccessConfig, NetworkExposureMode as ConfigNetworkExposureMode,
+        TunnelProviderConfig, TunnelProviderKind as ConfigTunnelProviderKind,
+    },
 };
 
 use super::{
@@ -463,6 +471,7 @@ pub(super) async fn get_admin_system_config(
             enabled: config.auth.enabled,
             token_env: config.auth.token_env.clone(),
         },
+        network: network_access_diagnostics(config),
         database: database_config_diagnostics(
             config,
             app.store(),
@@ -583,6 +592,271 @@ pub(super) async fn list_admin_storage_staging(
         records,
         page: page_info_from_request(page, returned),
     }))
+}
+
+fn network_access_diagnostics(
+    config: &crate::config::TaruServerConfig,
+) -> AdminNetworkAccessDiagnostics {
+    let network = &config.network;
+
+    AdminNetworkAccessDiagnostics {
+        exposure_mode: admin_network_exposure_mode(network.exposure_mode),
+        readiness: network_readiness_diagnostics(config),
+        external_endpoint: endpoint_diagnostics(network.external_base_url.as_deref()),
+        trusted_proxy: AdminTrustedProxyDiagnostics {
+            headers_enabled: network.trusted_proxy_headers,
+            source_count: usize_to_u32(network.trusted_proxy_sources.len()),
+        },
+        origins: AdminOriginPolicyDiagnostics {
+            allowed_origin_count: usize_to_u32(network.allowed_origins.len()),
+            configured: !network.allowed_origins.is_empty(),
+        },
+        tunnel_providers: network
+            .tunnel_providers
+            .iter()
+            .map(tunnel_provider_diagnostics)
+            .collect(),
+    }
+}
+
+fn network_readiness_diagnostics(
+    config: &crate::config::TaruServerConfig,
+) -> AdminNetworkReadinessDiagnostics {
+    let network = &config.network;
+    AdminNetworkReadinessDiagnostics::from_checks(vec![
+        exposure_mode_readiness_check(network),
+        auth_readiness_check(config),
+        external_endpoint_readiness_check(network),
+        trusted_proxy_readiness_check(network),
+        origin_policy_readiness_check(network),
+        tunnel_provider_readiness_check(network),
+    ])
+}
+
+fn exposure_mode_readiness_check(network: &NetworkAccessConfig) -> AdminNetworkReadinessCheck {
+    match network.exposure_mode {
+        ConfigNetworkExposureMode::LocalOnly => AdminNetworkReadinessCheck::ready(
+            AdminNetworkReadinessCheckName::ExposureMode,
+            AdminNetworkReadinessReason::LocalOnly,
+        ),
+        ConfigNetworkExposureMode::PrivateNetwork
+        | ConfigNetworkExposureMode::ReverseProxy
+        | ConfigNetworkExposureMode::TunnelProvider => AdminNetworkReadinessCheck::ready(
+            AdminNetworkReadinessCheckName::ExposureMode,
+            AdminNetworkReadinessReason::Ready,
+        ),
+    }
+}
+
+fn auth_readiness_check(config: &crate::config::TaruServerConfig) -> AdminNetworkReadinessCheck {
+    if matches!(
+        config.network.exposure_mode,
+        ConfigNetworkExposureMode::LocalOnly
+    ) {
+        return AdminNetworkReadinessCheck::ready(
+            AdminNetworkReadinessCheckName::Auth,
+            AdminNetworkReadinessReason::LocalOnly,
+        );
+    }
+
+    if config.auth.enabled {
+        AdminNetworkReadinessCheck::ready(
+            AdminNetworkReadinessCheckName::Auth,
+            AdminNetworkReadinessReason::Ready,
+        )
+    } else {
+        AdminNetworkReadinessCheck::unavailable(
+            AdminNetworkReadinessCheckName::Auth,
+            AdminNetworkReadinessReason::AuthDisabled,
+        )
+    }
+}
+
+fn external_endpoint_readiness_check(network: &NetworkAccessConfig) -> AdminNetworkReadinessCheck {
+    match network.exposure_mode {
+        ConfigNetworkExposureMode::ReverseProxy | ConfigNetworkExposureMode::TunnelProvider => {
+            if is_https_endpoint(network.external_base_url.as_deref()) {
+                AdminNetworkReadinessCheck::ready(
+                    AdminNetworkReadinessCheckName::ExternalEndpoint,
+                    AdminNetworkReadinessReason::Ready,
+                )
+            } else {
+                AdminNetworkReadinessCheck::unavailable(
+                    AdminNetworkReadinessCheckName::ExternalEndpoint,
+                    AdminNetworkReadinessReason::MissingExternalBaseUrl,
+                )
+            }
+        }
+        ConfigNetworkExposureMode::LocalOnly | ConfigNetworkExposureMode::PrivateNetwork => {
+            AdminNetworkReadinessCheck::ready(
+                AdminNetworkReadinessCheckName::ExternalEndpoint,
+                AdminNetworkReadinessReason::Ready,
+            )
+        }
+    }
+}
+
+fn trusted_proxy_readiness_check(network: &NetworkAccessConfig) -> AdminNetworkReadinessCheck {
+    if network.trusted_proxy_headers && network.trusted_proxy_sources.is_empty() {
+        AdminNetworkReadinessCheck::unavailable(
+            AdminNetworkReadinessCheckName::TrustedProxy,
+            AdminNetworkReadinessReason::MissingTrustedProxySources,
+        )
+    } else {
+        AdminNetworkReadinessCheck::ready(
+            AdminNetworkReadinessCheckName::TrustedProxy,
+            AdminNetworkReadinessReason::Ready,
+        )
+    }
+}
+
+fn origin_policy_readiness_check(network: &NetworkAccessConfig) -> AdminNetworkReadinessCheck {
+    if matches!(network.exposure_mode, ConfigNetworkExposureMode::LocalOnly)
+        || !network.allowed_origins.is_empty()
+    {
+        AdminNetworkReadinessCheck::ready(
+            AdminNetworkReadinessCheckName::OriginPolicy,
+            AdminNetworkReadinessReason::Ready,
+        )
+    } else {
+        AdminNetworkReadinessCheck::degraded(
+            AdminNetworkReadinessCheckName::OriginPolicy,
+            AdminNetworkReadinessReason::BrowserOriginsNotConfigured,
+        )
+    }
+}
+
+fn tunnel_provider_readiness_check(network: &NetworkAccessConfig) -> AdminNetworkReadinessCheck {
+    if !matches!(
+        network.exposure_mode,
+        ConfigNetworkExposureMode::TunnelProvider
+    ) {
+        return AdminNetworkReadinessCheck::ready(
+            AdminNetworkReadinessCheckName::TunnelProvider,
+            AdminNetworkReadinessReason::Ready,
+        );
+    }
+
+    if network.tunnel_providers.is_empty() {
+        return AdminNetworkReadinessCheck::unavailable(
+            AdminNetworkReadinessCheckName::TunnelProvider,
+            AdminNetworkReadinessReason::MissingTunnelProvider,
+        );
+    }
+
+    if network
+        .tunnel_providers
+        .iter()
+        .any(|provider| !tunnel_provider_token_present(provider))
+    {
+        return AdminNetworkReadinessCheck::unavailable(
+            AdminNetworkReadinessCheckName::TunnelProvider,
+            AdminNetworkReadinessReason::MissingTunnelToken,
+        );
+    }
+
+    AdminNetworkReadinessCheck::ready(
+        AdminNetworkReadinessCheckName::TunnelProvider,
+        AdminNetworkReadinessReason::Ready,
+    )
+}
+
+fn endpoint_diagnostics(value: Option<&str>) -> AdminNetworkExternalEndpointDiagnostics {
+    AdminNetworkExternalEndpointDiagnostics {
+        configured: value.is_some_and(|value| !value.trim().is_empty()),
+        scheme: endpoint_scheme(value),
+        host_fingerprint: endpoint_host(value).map(|host| fingerprint_key(&host)),
+    }
+}
+
+fn tunnel_provider_diagnostics(provider: &TunnelProviderConfig) -> AdminTunnelProviderDiagnostics {
+    let endpoint = endpoint_diagnostics(provider.public_url.as_deref());
+
+    AdminTunnelProviderDiagnostics {
+        id: provider.id.clone(),
+        kind: admin_tunnel_provider_kind(provider.kind),
+        endpoint_configured: endpoint.configured,
+        endpoint_scheme: endpoint.scheme,
+        endpoint_host_fingerprint: endpoint.host_fingerprint,
+        token_env: provider.token_env.clone(),
+        token_present: tunnel_provider_token_present(provider),
+    }
+}
+
+fn tunnel_provider_token_present(provider: &TunnelProviderConfig) -> bool {
+    provider
+        .token_env
+        .as_deref()
+        .and_then(|env_name| std::env::var(env_name).ok())
+        .is_some_and(|value| !value.trim().is_empty())
+}
+
+fn admin_network_exposure_mode(mode: ConfigNetworkExposureMode) -> AdminNetworkExposureMode {
+    match mode {
+        ConfigNetworkExposureMode::LocalOnly => AdminNetworkExposureMode::LocalOnly,
+        ConfigNetworkExposureMode::PrivateNetwork => AdminNetworkExposureMode::PrivateNetwork,
+        ConfigNetworkExposureMode::ReverseProxy => AdminNetworkExposureMode::ReverseProxy,
+        ConfigNetworkExposureMode::TunnelProvider => AdminNetworkExposureMode::TunnelProvider,
+    }
+}
+
+fn admin_tunnel_provider_kind(kind: ConfigTunnelProviderKind) -> AdminTunnelProviderKind {
+    match kind {
+        ConfigTunnelProviderKind::External => AdminTunnelProviderKind::External,
+        ConfigTunnelProviderKind::CloudflareTunnel => AdminTunnelProviderKind::CloudflareTunnel,
+        ConfigTunnelProviderKind::TailscaleFunnel => AdminTunnelProviderKind::TailscaleFunnel,
+        ConfigTunnelProviderKind::Ngrok => AdminTunnelProviderKind::Ngrok,
+    }
+}
+
+fn is_https_endpoint(value: Option<&str>) -> bool {
+    endpoint_scheme(value).as_deref() == Some("https")
+}
+
+fn endpoint_scheme(value: Option<&str>) -> Option<String> {
+    let value = value?.trim();
+    let (scheme, rest) = value.split_once("://")?;
+    if rest.trim().is_empty() {
+        return None;
+    }
+    let scheme = scheme.to_ascii_lowercase();
+    if scheme == "http" || scheme == "https" {
+        Some(scheme)
+    } else {
+        None
+    }
+}
+
+fn endpoint_host(value: Option<&str>) -> Option<String> {
+    let value = value?.trim();
+    let (_, rest) = value.split_once("://")?;
+    let authority = rest
+        .split(['/', '?', '#'])
+        .next()
+        .map(str::trim)
+        .filter(|authority| !authority.is_empty())?;
+    let host_port = authority
+        .rsplit_once('@')
+        .map_or(authority, |(_, host)| host);
+    let host = host_port
+        .strip_prefix('[')
+        .and_then(|rest| rest.split_once(']').map(|(host, _)| host))
+        .or_else(|| host_port.split(':').next())
+        .map(str::trim)
+        .filter(|host| !host.is_empty())?;
+
+    Some(host.to_ascii_lowercase())
+}
+
+fn fingerprint_key(value: &str) -> String {
+    use sha2::{Digest, Sha256};
+
+    let digest = Sha256::digest(value.as_bytes());
+    let prefix = digest[..16]
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    format!("sha256:{prefix}")
 }
 
 fn database_config_diagnostics(
