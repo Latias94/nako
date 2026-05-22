@@ -226,6 +226,138 @@ pub struct AdminAddonHealthCheckResponse {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonRuntimeReadinessResponse {
+    pub addon_id: AddonId,
+    pub manifest_id: String,
+    pub readiness: AdminAddonRuntimeReadinessDiagnostics,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonRuntimeReadinessDiagnostics {
+    pub status: AdminAddonRuntimeReadinessStatus,
+    pub reason: AdminAddonRuntimeReadinessReason,
+    pub checks: Vec<AdminAddonRuntimeReadinessCheck>,
+}
+
+impl AdminAddonRuntimeReadinessDiagnostics {
+    #[must_use]
+    pub fn from_checks(checks: Vec<AdminAddonRuntimeReadinessCheck>) -> Self {
+        let status = if checks
+            .iter()
+            .any(|check| check.status == AdminAddonRuntimeReadinessStatus::Unavailable)
+        {
+            AdminAddonRuntimeReadinessStatus::Unavailable
+        } else if checks
+            .iter()
+            .any(|check| check.status == AdminAddonRuntimeReadinessStatus::Degraded)
+        {
+            AdminAddonRuntimeReadinessStatus::Degraded
+        } else {
+            AdminAddonRuntimeReadinessStatus::Ready
+        };
+        let reason = checks
+            .iter()
+            .find(|check| check.status == status)
+            .map_or(AdminAddonRuntimeReadinessReason::Ready, |check| {
+                check.reason
+            });
+
+        Self {
+            status,
+            reason,
+            checks,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminAddonRuntimeReadinessStatus {
+    Ready,
+    Degraded,
+    Unavailable,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminAddonRuntimeReadinessReason {
+    Ready,
+    Unavailable,
+    ManifestMismatch,
+    ProtocolMismatch,
+    MissingGrant,
+    MissingSecretReference,
+    NetworkPolicyBlocked,
+    SidecarDegraded,
+    SidecarUnhealthy,
+    UnsafeResponse,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonRuntimeReadinessCheck {
+    pub name: AdminAddonRuntimeReadinessCheckName,
+    pub status: AdminAddonRuntimeReadinessStatus,
+    pub reason: AdminAddonRuntimeReadinessReason,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub safe_error_code: Option<String>,
+}
+
+impl AdminAddonRuntimeReadinessCheck {
+    #[must_use]
+    pub fn ready(
+        name: AdminAddonRuntimeReadinessCheckName,
+        reason: AdminAddonRuntimeReadinessReason,
+    ) -> Self {
+        Self {
+            name,
+            status: AdminAddonRuntimeReadinessStatus::Ready,
+            reason,
+            safe_error_code: None,
+        }
+    }
+
+    #[must_use]
+    pub fn degraded(
+        name: AdminAddonRuntimeReadinessCheckName,
+        reason: AdminAddonRuntimeReadinessReason,
+        safe_error_code: &'static str,
+    ) -> Self {
+        Self {
+            name,
+            status: AdminAddonRuntimeReadinessStatus::Degraded,
+            reason,
+            safe_error_code: Some(safe_error_code.to_owned()),
+        }
+    }
+
+    #[must_use]
+    pub fn unavailable(
+        name: AdminAddonRuntimeReadinessCheckName,
+        reason: AdminAddonRuntimeReadinessReason,
+        safe_error_code: &'static str,
+    ) -> Self {
+        Self {
+            name,
+            status: AdminAddonRuntimeReadinessStatus::Unavailable,
+            reason,
+            safe_error_code: Some(safe_error_code.to_owned()),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminAddonRuntimeReadinessCheckName {
+    Reachability,
+    Protocol,
+    Manifest,
+    Grants,
+    SecretReferences,
+    Network,
+    Safety,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminAddonSurfacesResponse {
     pub addon_id: AddonId,
     pub manifest_id: String,

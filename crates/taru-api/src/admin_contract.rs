@@ -1,6 +1,6 @@
 use crate::admin::ADMIN_API_VERSION;
 
-const ADMIN_READ_MODEL_ROUTE_SUFFIXES: [(&str, &str); 14] = [
+const ADMIN_READ_MODEL_ROUTE_SUFFIXES: [(&str, &str); 15] = [
     ("overview", "overview"),
     (
         "acquisitionIntakeCandidates",
@@ -28,6 +28,10 @@ const ADMIN_READ_MODEL_ROUTE_SUFFIXES: [(&str, &str); 14] = [
     ("playbackSessions", "playback/sessions"),
     ("playbackRuntime", "playback/runtime"),
     ("playbackSupport", "playback/support"),
+    (
+        "addonRuntimeReadiness",
+        "addons/{addon_id}/runtime-readiness",
+    ),
     ("storageStaging", "storage/staging"),
     ("systemConfig", "system/config"),
 ];
@@ -547,6 +551,44 @@ export interface AdminPlaybackSupportEvidenceResponse {
   };
 }
 
+export type AdminAddonRuntimeReadinessStatus = "ready" | "degraded" | "unavailable";
+
+export type AdminAddonRuntimeReadinessReason =
+  | "ready"
+  | "unavailable"
+  | "manifest_mismatch"
+  | "protocol_mismatch"
+  | "missing_grant"
+  | "missing_secret_reference"
+  | "network_policy_blocked"
+  | "sidecar_degraded"
+  | "sidecar_unhealthy"
+  | "unsafe_response";
+
+export type AdminAddonRuntimeReadinessCheckName =
+  | "reachability"
+  | "protocol"
+  | "manifest"
+  | "grants"
+  | "secret_references"
+  | "network"
+  | "safety";
+
+export interface AdminAddonRuntimeReadinessResponse {
+  addon_id: string;
+  manifest_id: string;
+  readiness: {
+    status: AdminAddonRuntimeReadinessStatus;
+    reason: AdminAddonRuntimeReadinessReason;
+    checks: Array<{
+      name: AdminAddonRuntimeReadinessCheckName;
+      status: AdminAddonRuntimeReadinessStatus;
+      reason: AdminAddonRuntimeReadinessReason;
+      safe_error_code?: string;
+    }>;
+  };
+}
+
 export interface AdminStorageStagingDiagnosticsResponse {
   admin_api_version: string;
   public_api_version: string;
@@ -800,6 +842,7 @@ mod tests {
             "AdminStorageStagingQuery",
             "AdminOverviewResponse",
             "AdminPlaybackSupportEvidenceResponse",
+            "AdminAddonRuntimeReadinessResponse",
             "AdminNetworkAccessDiagnostics",
             "AdminServerConfigDiagnosticsResponse",
         ] {

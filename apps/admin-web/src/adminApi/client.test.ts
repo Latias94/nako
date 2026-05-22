@@ -132,4 +132,39 @@ describe("AdminApiClient", () => {
       },
     );
   });
+
+  it("posts addon runtime readiness diagnostics through the Admin-only route", async () => {
+    const response = {
+      addon_id: "addon/with space",
+      manifest_id: "taru.metadata",
+      readiness: {
+        status: "degraded",
+        reason: "missing_secret_reference",
+        checks: [
+          {
+            name: "secret_references",
+            status: "degraded",
+            reason: "missing_secret_reference",
+            safe_error_code: "missing_secret_reference",
+          },
+        ],
+      },
+    };
+    const fetcher = vi.fn(async () => Response.json(response));
+    const client = new AdminApiClient({ token: "redacted-test-token", fetcher });
+
+    await expect(client.getAddonRuntimeReadiness("addon/with space")).resolves.toEqual(response);
+
+    expect(fetcher).toHaveBeenCalledWith(
+      "/admin/v1/addons/addon%2Fwith%20space/runtime-readiness",
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer redacted-test-token",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      },
+    );
+  });
 });

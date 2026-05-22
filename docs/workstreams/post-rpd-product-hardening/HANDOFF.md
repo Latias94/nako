@@ -39,24 +39,30 @@ accept/reject planning, and closeout. PRPH-170 opened
 
 ## Active Task
 
-- Task ID: `addon-runtime-and-distribution` ARD-030
+- Task ID: `addon-runtime-and-distribution` ARD-040
 - Owner: codex
-- Files: `crates/taru-addon-client`, `crates/taru-api/src/extension.rs`,
-  `crates/taru-server/src/app`, `crates/taru-server/src/http/addons.rs`,
+- Files: `crates/taru-core`, `crates/taru-db`, `crates/taru-server/src/app`,
+  `crates/taru-server/src/http/admin.rs`,
   `docs/workstreams/addon-runtime-and-distribution`
-- Validation: focused addon-client/app/Admin runtime readiness tests; `cargo
-  nextest run -p taru-server addons --no-fail-fast`; `cargo fmt --all -- --check`;
-  `git diff --check`; `git diff --name-only -- crates/taru-client-protocol`.
+- Validation: focused app/db tests for Addon task/event routing plans,
+  idempotency, stale manifest checks, and no hidden scheduler/event delivery
+  side effects; relevant Admin/system tests; `cargo fmt --all -- --check`; `git
+  diff --check`; `git diff --name-only -- crates/taru-client-protocol`.
 - Status: READY
-- Review: keep runtime readiness diagnostics separate from Addon Manager
+- Review: keep task/event routing explicit and Taru-owned; avoid hidden
+  schedulers, direct Addon filesystem/library authority, Addon Manager
   discovery/install/update, marketplace, package signing, process supervision,
-  Native Plugin ABI, direct library writes, Public Client API churn, and
+  Native Plugin ABI, Public Client API churn, and
   `taru-client-protocol` changes.
 - Evidence: PRPH-170 lane scoring in `DESIGN.md`, AI Assisted Library Ops
   closeout evidence, Addon Architecture Deepening, Admin Addon Operations MVP,
   Downloads / Watch-Folder Intake, Network Access Boundary, and completed
   side-effect / proposal / intake boundaries. ARD-020 completed package/install
-  descriptor validation and redacted Admin install-guide preview.
+  descriptor validation and redacted Admin install-guide preview. ARD-030
+  completed Admin-only runtime readiness diagnostics for sidecar reachability,
+  protocol/manifest compatibility, grant gaps, Secret Reference gaps, network
+  policy blockers, degraded/unhealthy sidecars, and unsafe responses without
+  raw payload, URL, token, or secret echo.
 
 ## Decisions Since Last Update
 
@@ -137,20 +143,22 @@ accept/reject planning, and closeout. PRPH-170 opened
 - PRPH-170 selected and opened `addon-runtime-and-distribution` as the next
   mainline lane. The first slice is package/install descriptor and redacted
   install-guide readiness, not Addon Manager automation.
+- ARD-020 package/install descriptor and redacted Admin install-guide preview
+  are complete.
+- ARD-030 Admin-only runtime readiness diagnostics are complete. The next slice
+  is declared task/event routing into explicit Taru-owned plans.
 
 ## Blockers
 
-- None for ARD-030.
+- None for ARD-040.
 
 ## Next Recommended Action
 
-- Execute `addon-runtime-and-distribution` ARD-030.
-- Add Admin-only runtime readiness diagnostics that classify sidecar
-  reachability, protocol mismatch, manifest mismatch, grant gaps, missing
-  Secret References, network policy blockers, and unsafe responses without
-  echoing raw network errors or sidecar payloads.
+- Execute `addon-runtime-and-distribution` ARD-040.
+- Turn manifest-declared Addon Tasks and Event Subscriptions into Taru-owned
+  routing plans with explicit executable/deferred reasons.
 - Keep Addon Manager discovery/install/update, marketplace hosting, package
   signing trust root, process/container supervision, Native Plugin ABI,
   downloader protocol adapters, local AI runtime, Public Client API changes,
-  direct library writes, and `taru-client-protocol` changes as separate
-  follow-ons.
+  direct library writes, hidden schedulers, and `taru-client-protocol` changes
+  as separate follow-ons.

@@ -175,7 +175,9 @@ tasks belong in child workstreams.
   Evidence: `DESIGN.md` Post-AILO Closeout Re-Score and
   `docs/workstreams/addon-runtime-and-distribution/DESIGN.md`.
   Handoff: DONE. ARD-020 completed package / install descriptor and redacted
-  install-guide boundary. Execute `addon-runtime-and-distribution` ARD-030
-  runtime readiness diagnostics without adding Addon Manager automation,
-  package signing, process supervision, Native Plugin ABI, direct library
-  writes, Public Client API churn, or `taru-client-protocol` changes.
+  install-guide boundary, and ARD-030 completed Admin-only runtime readiness
+  diagnostics. Execute `addon-runtime-and-distribution` ARD-040 declared
+  task/event routing plans without adding Addon Manager automation, package
+  signing, process supervision, Native Plugin ABI, direct library writes,
+  Public Client API churn, hidden schedulers, or `taru-client-protocol`
+  changes.

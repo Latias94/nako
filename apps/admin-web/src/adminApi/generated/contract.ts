@@ -16,6 +16,7 @@ export const TARU_ADMIN_ROUTES = {
   playbackSessions: "/admin/v1/playback/sessions",
   playbackRuntime: "/admin/v1/playback/runtime",
   playbackSupport: "/admin/v1/playback/support",
+  addonRuntimeReadiness: "/admin/v1/addons/{addon_id}/runtime-readiness",
   storageStaging: "/admin/v1/storage/staging",
   systemConfig: "/admin/v1/system/config",
 } as const;
@@ -508,6 +509,44 @@ export interface AdminPlaybackSupportEvidenceResponse {
     ffmpeg_commands_redacted: boolean;
     stderr_redacted: boolean;
     credentials_redacted: boolean;
+  };
+}
+
+export type AdminAddonRuntimeReadinessStatus = "ready" | "degraded" | "unavailable";
+
+export type AdminAddonRuntimeReadinessReason =
+  | "ready"
+  | "unavailable"
+  | "manifest_mismatch"
+  | "protocol_mismatch"
+  | "missing_grant"
+  | "missing_secret_reference"
+  | "network_policy_blocked"
+  | "sidecar_degraded"
+  | "sidecar_unhealthy"
+  | "unsafe_response";
+
+export type AdminAddonRuntimeReadinessCheckName =
+  | "reachability"
+  | "protocol"
+  | "manifest"
+  | "grants"
+  | "secret_references"
+  | "network"
+  | "safety";
+
+export interface AdminAddonRuntimeReadinessResponse {
+  addon_id: string;
+  manifest_id: string;
+  readiness: {
+    status: AdminAddonRuntimeReadinessStatus;
+    reason: AdminAddonRuntimeReadinessReason;
+    checks: Array<{
+      name: AdminAddonRuntimeReadinessCheckName;
+      status: AdminAddonRuntimeReadinessStatus;
+      reason: AdminAddonRuntimeReadinessReason;
+      safe_error_code?: string;
+    }>;
   };
 }
 

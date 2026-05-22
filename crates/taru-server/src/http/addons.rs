@@ -38,6 +38,10 @@ pub(super) fn routes() -> Router<TaruApp> {
             post(check_addon_health),
         )
         .route(
+            "/admin/v1/addons/{addon_id}/runtime-readiness",
+            post(check_addon_runtime_readiness),
+        )
+        .route(
             "/admin/v1/addons/{addon_id}/surfaces",
             get(get_addon_surfaces),
         )
@@ -128,6 +132,16 @@ pub(super) async fn check_addon_health(
     Path(addon_id): Path<AddonId>,
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(app.addons().check_addon_health(addon_id).await?))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn check_addon_runtime_readiness(
+    State(app): State<TaruApp>,
+    Path(addon_id): Path<AddonId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.addons().check_addon_runtime_readiness(addon_id).await?,
+    ))
 }
 
 #[instrument(skip(app))]

@@ -522,11 +522,12 @@ AI-specific paths.
 | Local AI Runtime / Vector Search | Useful follow-on | Generated Artifact semantics exist, but model execution, embeddings, storage, GPU scheduling, and provider adapters are separate operational concerns. | Split after Addon runtime/distribution or when a concrete provider/runtime is selected. |
 
 PRPH-170 therefore opens `addon-runtime-and-distribution` as the next mainline
-lane. The first executable task is ARD-020 package/install descriptor and
-redacted install-guide boundary. It must not add Addon Manager discovery,
-automatic install/update, package signing trust root, process supervision,
-Native Plugin ABI, direct library writes, Public Client API changes, or
-`taru-client-protocol` changes.
+lane. ARD-020 package/install descriptor and redacted install-guide boundary
+are complete, ARD-030 runtime readiness diagnostics are complete, and the next
+executable task is ARD-040 declared task/event routing plans. It must not add
+Addon Manager discovery, automatic install/update, package signing trust root,
+process supervision, Native Plugin ABI, direct library writes, Public Client
+API changes, hidden schedulers, or `taru-client-protocol` changes.
 
 ## Closeout Condition
 

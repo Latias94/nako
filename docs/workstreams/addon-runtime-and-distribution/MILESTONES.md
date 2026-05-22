@@ -43,20 +43,27 @@ Primary evidence:
 
 ## M2 — Runtime Readiness And Sidecar Compatibility
 
+Status: completed on 2026-05-22.
+
 Exit criteria:
 
-- Admin diagnostics classify sidecar reachability, protocol mismatch, manifest
+- [x] Admin diagnostics classify sidecar reachability, protocol mismatch, manifest
   mismatch, grants/config gaps, network blockers, and unsafe responses.
-- Diagnostics are bounded and redacted.
-- No automatic process/container supervision is introduced.
+- [x] Diagnostics are bounded and redacted.
+- [x] No automatic process/container supervision is introduced.
 
 Primary evidence:
 
-- `crates/taru-addon-client`
-- `crates/taru-server/src/http/admin.rs`
+- `crates/taru-api/src/extension.rs`
+- `crates/taru-server/src/app/addons.rs`
+- `crates/taru-server/src/http/addons.rs`
+- `crates/taru-server/src/http/tests/addons.rs`
 - `apps/admin-web/src/adminApi`
+- `docs/workstreams/addon-runtime-and-distribution/EVIDENCE_AND_GATES.md`
 
 ## M3 — Declared Task/Event Routing Without Hidden Schedulers
+
+Status: next.
 
 Exit criteria:
 

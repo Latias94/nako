@@ -1,4 +1,5 @@
 import type {
+  AdminAddonRuntimeReadinessResponse,
   AdminCatalogGovernanceItemListResponse,
   AdminAcquisitionIntakeCandidateListResponse,
   AdminAcquisitionIntakeCandidatesQuery,
@@ -94,6 +95,13 @@ export class AdminApiClient {
     );
   }
 
+  async getAddonRuntimeReadiness(addonId: string): Promise<AdminAddonRuntimeReadinessResponse> {
+    return this.postJson<AdminAddonRuntimeReadinessResponse>(
+      routeWithParam(TARU_ADMIN_ROUTES.addonRuntimeReadiness, "addon_id", addonId),
+      {},
+    );
+  }
+
   async getStorageStaging(): Promise<AdminStorageStagingDiagnosticsResponse> {
     return this.getJson<AdminStorageStagingDiagnosticsResponse>(TARU_ADMIN_ROUTES.storageStaging);
   }
@@ -150,6 +158,10 @@ function normalizeBaseUrl(baseUrl: string | undefined) {
   }
 
   return value;
+}
+
+function routeWithParam(path: string, name: string, value: string) {
+  return path.replace(`{${name}}`, encodeURIComponent(value));
 }
 
 function withQuery(

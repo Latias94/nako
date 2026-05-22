@@ -50,8 +50,9 @@ opened the AI lane, and AILO-050 returned to this umbrella after Generated
 Artifact proposal/readiness, Admin diagnostics, and explicit accept/reject
 planning were proven without autonomous writes. PRPH-170 now selects Addon
 Runtime / Distribution as the current mainline lane. ARD-020 completed the
-package/install descriptor and redacted install-guide boundary. The next
-executable task is ARD-030 runtime readiness diagnostics.
+package/install descriptor and redacted install-guide boundary, and ARD-030
+completed Admin-only runtime readiness diagnostics. The next executable task is
+ARD-040 declared task/event routing plans.
 
 ## Authoritative Docs
 

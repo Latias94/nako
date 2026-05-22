@@ -20,10 +20,12 @@ queues and side-effect APIs.
 
 ## Current Decision
 
-ARD-020 completed the package/manifest/install-guide boundary for Addon
-Sidecars. The next executable task is ARD-030: add Admin-only runtime readiness
-diagnostics while keeping Addon Manager automation, package signing, process
-supervision, marketplace discovery, and Native Plugin ABI out of scope.
+ARD-030 completed the Admin-only runtime readiness boundary for Addon Sidecars:
+operators can classify reachability, protocol/manifest compatibility, local
+grant and Secret Reference gaps, network policy blockers, sidecar degraded /
+unhealthy states, and unsafe responses through redacted diagnostics. The next
+executable task is ARD-040: route manifest-declared tasks and event
+subscriptions into Taru-owned plans without hidden schedulers.
 
 ## Authoritative Docs
 

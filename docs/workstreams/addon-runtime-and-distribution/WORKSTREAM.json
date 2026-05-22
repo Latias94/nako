@@ -7,10 +7,11 @@
   "scope_kind": "execution",
   "problem": "Addon sidecars and Admin operations exist, but Taru needs a safe package/install/runtime readiness and routing boundary before broader Addon distribution or manager behavior can ship without weakening extension trust boundaries.",
   "task_prefix": "ARD",
-  "current_task": "ARD-030",
+  "current_task": "ARD-040",
   "completed_tasks": [
     "ARD-010",
-    "ARD-020"
+    "ARD-020",
+    "ARD-030"
   ],
   "authoritative_docs": [
     {
@@ -80,7 +81,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "ARD-030",
-    "notes": "ARD-020 completed the package/install descriptor and redacted Admin install-guide preview boundary. Continue with ARD-030 runtime readiness diagnostics. Keep Addon Manager discovery/install/update, marketplace hosting, package signing trust root, process/container supervision, Native Plugin ABI, Jellyfin Plugin Compatibility, direct library writes, downloader protocol adapters, local AI runtime, Public Client API changes, and taru-client-protocol changes out of scope unless split into a dedicated lane."
+    "next_task": "ARD-040",
+    "notes": "ARD-030 completed Admin-only runtime readiness diagnostics for Addon Sidecars with typed, redacted classification of sidecar reachability, protocol/manifest compatibility, grant gaps, Secret Reference gaps, network policy blockers, degraded/unhealthy sidecars, and unsafe responses. Continue with ARD-040 declared task/event routing plans. Keep Addon Manager discovery/install/update, marketplace hosting, package signing trust root, process/container supervision, Native Plugin ABI, Jellyfin Plugin Compatibility, direct library writes, downloader protocol adapters, local AI runtime, Public Client API changes, and taru-client-protocol changes out of scope unless split into a dedicated lane."
   }
 }

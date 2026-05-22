@@ -15,9 +15,12 @@ use taru_api::extension::{
     AdminAddonInstallGuidePreviewResponse, AdminAddonRegistrationDetail,
     AdminAddonRegistrationResponse, AdminAddonRegistrationSummary, AdminAddonRegistrationsResponse,
     AdminAddonResourceCallDiagnosticRequest, AdminAddonResourceCallDiagnosticResponse,
-    AdminAddonResourceCallDiagnosticStatus, AdminAddonSecretReferenceFieldSurface,
-    AdminAddonSurfacesResponse, AdminAddonTaskSurface, IssueAddonTokenRequest,
-    RegisterAddonRequest, ReplaceAddonGrantsRequest, UpdateAddonStatusRequest,
+    AdminAddonResourceCallDiagnosticStatus, AdminAddonRuntimeReadinessCheck,
+    AdminAddonRuntimeReadinessCheckName, AdminAddonRuntimeReadinessDiagnostics,
+    AdminAddonRuntimeReadinessReason, AdminAddonRuntimeReadinessResponse,
+    AdminAddonSecretReferenceFieldSurface, AdminAddonSurfacesResponse, AdminAddonTaskSurface,
+    IssueAddonTokenRequest, RegisterAddonRequest, ReplaceAddonGrantsRequest,
+    UpdateAddonStatusRequest,
 };
 use taru_core::{
     AddonId, AddonIssuedToken, AddonRegistrationRecord, AddonRepository, AddonStatus, AddonTokenId,
@@ -293,6 +296,122 @@ impl AddonAppService {
                 safe_error_code: Some(safe_health_error_code(&err).to_owned()),
             }),
         }
+    }
+
+    pub async fn check_addon_runtime_readiness(
+        &self,
+        addon_id: AddonId,
+    ) -> Result<AdminAddonRuntimeReadinessResponse> {
+        let addon = self.get_addon_registration_or_not_found(addon_id).await?;
+        if addon.status == AddonStatus::Unregistered {
+            return Err(TaruError::Conflict {
+                message: format!("addon registration {addon_id} is unregistered"),
+            });
+        }
+
+        let manifest = self.stored_manifest(&addon)?;
+        let mut checks = Vec::new();
+        let mut should_call_sidecar = true;
+
+        if let Err(err) = validate_manifest(&manifest) {
+            return Ok(AdminAddonRuntimeReadinessResponse {
+                addon_id,
+                manifest_id: addon.manifest_id,
+                readiness: AdminAddonRuntimeReadinessDiagnostics::from_checks(vec![
+                    AdminAddonRuntimeReadinessCheck::unavailable(
+                        AdminAddonRuntimeReadinessCheckName::Manifest,
+                        manifest_runtime_readiness_reason(&err),
+                        "invalid_manifest",
+                    ),
+                ]),
+            });
+        }
+
+        let granted_scopes = stored_granted_scopes(&addon)?;
+        let missing_grant = manifest
+            .resources
+            .iter()
+            .any(|resource| ensure_scope_grant(&manifest, resource.kind, &granted_scopes).is_err());
+        if missing_grant {
+            should_call_sidecar = false;
+            checks.push(AdminAddonRuntimeReadinessCheck::degraded(
+                AdminAddonRuntimeReadinessCheckName::Grants,
+                AdminAddonRuntimeReadinessReason::MissingGrant,
+                "missing_grant",
+            ));
+        } else {
+            checks.push(AdminAddonRuntimeReadinessCheck::ready(
+                AdminAddonRuntimeReadinessCheckName::Grants,
+                AdminAddonRuntimeReadinessReason::Ready,
+            ));
+        }
+
+        if manifest
+            .secret_reference_fields
+            .iter()
+            .any(|field| field.required)
+        {
+            should_call_sidecar = false;
+            checks.push(AdminAddonRuntimeReadinessCheck::degraded(
+                AdminAddonRuntimeReadinessCheckName::SecretReferences,
+                AdminAddonRuntimeReadinessReason::MissingSecretReference,
+                "missing_secret_reference",
+            ));
+        } else {
+            checks.push(AdminAddonRuntimeReadinessCheck::ready(
+                AdminAddonRuntimeReadinessCheckName::SecretReferences,
+                AdminAddonRuntimeReadinessReason::Ready,
+            ));
+        }
+
+        if addon_runtime_network_policy_blocked(&manifest.base_url) {
+            should_call_sidecar = false;
+            checks.push(AdminAddonRuntimeReadinessCheck::unavailable(
+                AdminAddonRuntimeReadinessCheckName::Network,
+                AdminAddonRuntimeReadinessReason::NetworkPolicyBlocked,
+                "network_policy_blocked",
+            ));
+        } else {
+            checks.push(AdminAddonRuntimeReadinessCheck::ready(
+                AdminAddonRuntimeReadinessCheckName::Network,
+                AdminAddonRuntimeReadinessReason::Ready,
+            ));
+        }
+
+        if should_call_sidecar {
+            let health = check_addon_health(
+                &ReqwestAddonTransport::default(),
+                &manifest,
+                format!("addon-readiness-{addon_id}"),
+            )
+            .await;
+            match health {
+                Ok(response) => {
+                    checks.push(runtime_readiness_check_for_health_status(response.status));
+                    checks.extend([
+                        AdminAddonRuntimeReadinessCheck::ready(
+                            AdminAddonRuntimeReadinessCheckName::Protocol,
+                            AdminAddonRuntimeReadinessReason::Ready,
+                        ),
+                        AdminAddonRuntimeReadinessCheck::ready(
+                            AdminAddonRuntimeReadinessCheckName::Manifest,
+                            AdminAddonRuntimeReadinessReason::Ready,
+                        ),
+                        AdminAddonRuntimeReadinessCheck::ready(
+                            AdminAddonRuntimeReadinessCheckName::Safety,
+                            AdminAddonRuntimeReadinessReason::Ready,
+                        ),
+                    ]);
+                }
+                Err(err) => checks.push(runtime_readiness_check_for_client_error(&err)),
+            }
+        }
+
+        Ok(AdminAddonRuntimeReadinessResponse {
+            addon_id,
+            manifest_id: addon.manifest_id,
+            readiness: AdminAddonRuntimeReadinessDiagnostics::from_checks(checks),
+        })
     }
 
     pub async fn get_addon_surfaces(
@@ -631,6 +750,135 @@ fn health_status_for_client_error(err: &AddonClientError) -> AdminAddonHealthChe
             AdminAddonHealthCheckStatus::Unreachable
         }
     }
+}
+
+fn runtime_readiness_check_for_client_error(
+    err: &AddonClientError,
+) -> AdminAddonRuntimeReadinessCheck {
+    let name = runtime_readiness_check_name_for_client_error(err);
+    let (reason, code) = runtime_readiness_reason_and_code(err);
+    AdminAddonRuntimeReadinessCheck::unavailable(name, reason, code)
+}
+
+fn runtime_readiness_check_for_health_status(
+    status: taru_addon_protocol::AddonHealthStatus,
+) -> AdminAddonRuntimeReadinessCheck {
+    match status {
+        taru_addon_protocol::AddonHealthStatus::Ok => AdminAddonRuntimeReadinessCheck::ready(
+            AdminAddonRuntimeReadinessCheckName::Reachability,
+            AdminAddonRuntimeReadinessReason::Ready,
+        ),
+        taru_addon_protocol::AddonHealthStatus::Degraded => {
+            AdminAddonRuntimeReadinessCheck::degraded(
+                AdminAddonRuntimeReadinessCheckName::Reachability,
+                AdminAddonRuntimeReadinessReason::SidecarDegraded,
+                "sidecar_degraded",
+            )
+        }
+        taru_addon_protocol::AddonHealthStatus::Unhealthy => {
+            AdminAddonRuntimeReadinessCheck::unavailable(
+                AdminAddonRuntimeReadinessCheckName::Reachability,
+                AdminAddonRuntimeReadinessReason::SidecarUnhealthy,
+                "sidecar_unhealthy",
+            )
+        }
+    }
+}
+
+fn runtime_readiness_check_name_for_client_error(
+    err: &AddonClientError,
+) -> AdminAddonRuntimeReadinessCheckName {
+    match err {
+        AddonClientError::Protocol(
+            taru_addon_protocol::AddonManifestError::UnsupportedProtocolVersion { .. },
+        ) => AdminAddonRuntimeReadinessCheckName::Protocol,
+        AddonClientError::Protocol(taru_addon_protocol::AddonManifestError::InvalidEnvelope {
+            message,
+        }) if health_envelope_manifest_mismatch(message) => {
+            AdminAddonRuntimeReadinessCheckName::Manifest
+        }
+        AddonClientError::Protocol(taru_addon_protocol::AddonManifestError::InvalidEnvelope {
+            ..
+        }) => AdminAddonRuntimeReadinessCheckName::Safety,
+        AddonClientError::Protocol(_) => AdminAddonRuntimeReadinessCheckName::Safety,
+        AddonClientError::HttpStatus { .. } | AddonClientError::Http { .. } => {
+            AdminAddonRuntimeReadinessCheckName::Reachability
+        }
+    }
+}
+
+fn runtime_readiness_reason_and_code(
+    err: &AddonClientError,
+) -> (AdminAddonRuntimeReadinessReason, &'static str) {
+    match err {
+        AddonClientError::Protocol(
+            taru_addon_protocol::AddonManifestError::UnsupportedProtocolVersion { .. },
+        ) => (
+            AdminAddonRuntimeReadinessReason::ProtocolMismatch,
+            "protocol_mismatch",
+        ),
+        AddonClientError::Protocol(taru_addon_protocol::AddonManifestError::InvalidEnvelope {
+            message,
+        }) if health_envelope_manifest_mismatch(message) => (
+            AdminAddonRuntimeReadinessReason::ManifestMismatch,
+            "manifest_mismatch",
+        ),
+        AddonClientError::Protocol(taru_addon_protocol::AddonManifestError::InvalidEnvelope {
+            ..
+        }) => (
+            AdminAddonRuntimeReadinessReason::UnsafeResponse,
+            "unsafe_response",
+        ),
+        AddonClientError::Protocol(_) => (
+            AdminAddonRuntimeReadinessReason::UnsafeResponse,
+            "unsafe_response",
+        ),
+        AddonClientError::HttpStatus { .. } => (
+            AdminAddonRuntimeReadinessReason::Unavailable,
+            safe_health_error_code(err),
+        ),
+        AddonClientError::Http { .. } => (
+            AdminAddonRuntimeReadinessReason::Unavailable,
+            "transport_failure",
+        ),
+    }
+}
+
+fn manifest_runtime_readiness_reason(
+    err: &taru_addon_protocol::AddonManifestError,
+) -> AdminAddonRuntimeReadinessReason {
+    match err {
+        taru_addon_protocol::AddonManifestError::UnsupportedProtocolVersion { .. } => {
+            AdminAddonRuntimeReadinessReason::ProtocolMismatch
+        }
+        _ => AdminAddonRuntimeReadinessReason::UnsafeResponse,
+    }
+}
+
+fn health_envelope_manifest_mismatch(message: &str) -> bool {
+    message.contains("manifest_id")
+        || message.contains("addon_version")
+        || message.contains("resource_count")
+}
+
+fn addon_runtime_network_policy_blocked(base_url: &str) -> bool {
+    let Ok(url) = reqwest::Url::parse(base_url) else {
+        return true;
+    };
+    if url.username() != "" || url.password().is_some() {
+        return true;
+    }
+    if url.scheme() == "https" {
+        return false;
+    }
+    if url.scheme() != "http" {
+        return true;
+    }
+
+    let Some(host) = url.host_str() else {
+        return true;
+    };
+    !matches!(host, "127.0.0.1" | "::1" | "localhost")
 }
 
 fn safe_health_error_code(err: &AddonClientError) -> &'static str {

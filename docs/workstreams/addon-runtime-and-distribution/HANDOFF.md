@@ -25,31 +25,29 @@ Prerequisites are complete:
   Admin-only diagnostics, and explicit accept/reject planning without
   autonomous writes.
 
-ARD-010 is complete. The lane is scoped to Addon Sidecar package/install/runtime
+ARD-030 is complete. The lane is scoped to Addon Sidecar package/install/runtime
 readiness and routing, not Addon Manager automation or Native Plugin runtime.
 
 ## Current Task
 
-- Task ID: ARD-030
+- Task ID: ARD-040
 - Owner: codex
 - Files:
-  - `crates/taru-addon-client`
-  - `crates/taru-api/src/extension.rs`
+  - `crates/taru-core`
+  - `crates/taru-db`
   - `crates/taru-server/src/app`
-  - `crates/taru-server/src/http/addons.rs`
-  - `apps/admin-web/src/adminApi`
+  - `crates/taru-server/src/http/admin.rs`
   - `docs/workstreams/addon-runtime-and-distribution`
 - Validation:
-  - focused addon-client/app/Admin tests
-  - `cargo nextest run -p taru-server addons --no-fail-fast`
-  - `cargo nextest run -p taru-api --no-fail-fast`
-  - `npm run check` from `apps/admin-web`
-  - `git diff --name-only -- crates/taru-client-protocol`
+  - focused app/db tests for routing plans, idempotency, stale manifest checks,
+    and no hidden scheduler/event delivery side effects
+  - relevant Admin/system tests
   - `cargo fmt --all -- --check`
   - `git diff --check`
 - Status: READY
-- Review: add runtime readiness diagnostics without automatic Addon process or
-  container supervision.
+- Review: route declared tasks/events into Taru-owned plans without automatic
+  sidecar schedulers, direct filesystem/library authority, or hidden runtime
+  side effects.
 
 Progress so far:
 
@@ -65,6 +63,14 @@ Progress so far:
   secret value, local path, or raw package content is echoed.
 - Ran focused protocol/Admin tests plus `cargo nextest run -p taru-server addons
   --no-fail-fast` and `cargo nextest run -p taru-api --no-fail-fast`.
+- Added Admin-only runtime readiness DTOs, app checks, and `POST
+  /admin/v1/addons/{addon_id}/runtime-readiness`.
+- Added Admin Web generated contract/client support for runtime readiness.
+- Added route tests proving typed classification of ready/degraded/unavailable
+  sidecars, protocol mismatch, manifest mismatch, missing grants, missing
+  Secret Reference configuration, network policy blockers, and unsafe responses
+  without echoing tokens, raw network errors, sidecar payloads, URLs, or secret
+  fields.
 
 ## Decisions Since Opening
 
@@ -83,14 +89,12 @@ Progress so far:
 
 ## Blockers
 
-- None for ARD-030.
+- None for ARD-040.
 
 ## Next Recommended Action
 
-Start ARD-030 by adding Admin-only runtime readiness diagnostics that classify
-sidecar reachability, protocol version mismatch, manifest mismatch, grant gaps,
-missing Secret References, network policy blockers, and unsafe responses
-without echoing raw network errors or sidecar payloads. Keep Addon Manager
+Start ARD-040 by turning manifest-declared Addon Tasks and Event Subscriptions
+into explicit Taru-owned routing plans. Keep automatic Addon Manager
 discovery/install/update, package signing, process supervision, logs, rollback,
 Native Plugin ABI, downloader protocols, local AI runtime, Public Client API
-changes, and direct library writes out of scope.
+changes, direct library writes, and hidden schedulers out of scope.

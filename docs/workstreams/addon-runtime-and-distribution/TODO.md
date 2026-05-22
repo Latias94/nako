@@ -42,18 +42,27 @@ Task IDs use the `ARD` prefix.
 
 ## M2 — Runtime Readiness And Sidecar Compatibility
 
-- [ ] ARD-030 [owner=codex] [deps=ARD-020] [scope=crates/taru-addon-client,crates/taru-server/src/app,crates/taru-api/src/extension.rs,crates/taru-server/src/http/addons.rs,apps/admin-web/src/adminApi]
+- [x] ARD-030 [owner=codex] [deps=ARD-020] [scope=crates/taru-addon-client,crates/taru-server/src/app,crates/taru-api/src/extension.rs,crates/taru-server/src/http/addons.rs,apps/admin-web/src/adminApi]
   Goal: Add Admin-only runtime readiness diagnostics that classify sidecar
   reachability, protocol version mismatch, manifest mismatch, grant gaps,
   missing Secret References, network policy blockers, and unsafe response
   conditions without echoing raw network errors or sidecar payloads.
+  Progress: Added `AdminAddonRuntimeReadinessResponse`, Admin contract/client
+  support, and `POST /admin/v1/addons/{addon_id}/runtime-readiness`.
+  Readiness checks now classify grants, Secret Reference configuration gaps,
+  network policy blockers, sidecar OK/degraded/unhealthy status, protocol
+  mismatch, manifest mismatch, transport/HTTP failures, and unsafe sidecar
+  payloads with safe error codes only.
   Validation: focused addon-client/app/Admin tests; `cargo nextest run -p
   taru-server addons --no-fail-fast`; `cargo nextest run -p taru-api
   admin_contract --no-fail-fast`; `npm run check` from `apps/admin-web`;
   `git diff --name-only -- crates/taru-client-protocol`.
   Review: check Admin boundary ownership, redaction, timeout/resource policy,
   and separation from automatic process/container supervision.
-  Evidence: Admin runtime readiness route tests and generated Admin Web
+  Evidence: `cargo nextest run -p taru-server admin_addon_runtime_readiness
+  --no-fail-fast`; `cargo nextest run -p taru-server addons --no-fail-fast`;
+  `cargo nextest run -p taru-api admin_contract --no-fail-fast`; `npm run
+  check`; `npm test -- src/adminApi/client.test.ts`; generated Admin Web
   contract sync.
   Handoff: Route task/event declarations in ARD-040.
 
