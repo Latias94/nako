@@ -62,6 +62,7 @@ use crate::config::{
 };
 
 mod acquisition_intake;
+mod automation;
 mod catalog;
 mod managed_import;
 mod metadata;

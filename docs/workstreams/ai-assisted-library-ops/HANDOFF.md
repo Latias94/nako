@@ -24,29 +24,46 @@ Prerequisites are complete:
   automation provider/job/artifact foundation, but not the product-specific
   Generated Artifact review/acceptance semantics this lane needs.
 
-AILO-010 is complete. The lane is scoped to Generated Artifact proposal queues,
-redacted Admin diagnostics, and explicit acceptance planning, not a local model
-runtime or autonomous writes.
+AILO-010 and AILO-020 are complete. The lane is scoped to Generated Artifact
+proposal queues, redacted Admin diagnostics, and explicit acceptance planning,
+not a local model runtime or autonomous writes.
+
+AILO-020 added backend Generated Artifact proposal/readiness semantics over
+existing Automation Artifacts:
+
+- `taru-core` now has proposal target, provenance, payload summary, and
+  readiness vocabulary.
+- `taru-db` can list Generated Artifact proposals from existing automation
+  artifacts without adding a parallel AI artifact store.
+- Proposal readiness detects invalid payloads, missing/mismatched targets,
+  missing provider/job records, accepted/rejected artifacts, and mismatched job
+  input.
+- Proposal summaries expose fingerprints/counts/booleans/confidence, not raw
+  prompt text, raw generated text, provider secrets, Source Locators, local
+  paths, or source fingerprints.
+- `taru-automation` and `taru-server::app` tests prove proposal listing does not
+  mutate canonical metadata.
 
 ## Active Task
 
-- Task ID: AILO-020
+- Task ID: AILO-030
 - Owner: codex
 - Files:
-  - `crates/taru-core/src/automation.rs`
-  - `crates/taru-db`
-  - `crates/taru-automation`
-  - `crates/taru-server/src/app/automation.rs`
+  - `crates/taru-api/src/admin.rs`
+  - `crates/taru-api/src/admin_contract.rs`
+  - `crates/taru-server/src/http/admin.rs`
+  - `apps/admin-web/src/adminApi`
 - Validation:
-  - `cargo nextest run -p taru-db automation --no-fail-fast`
-  - `cargo nextest run -p taru-automation --no-fail-fast`
-  - focused server automation tests
+  - `cargo nextest run -p taru-api admin_contract --no-fail-fast`
+  - `cargo nextest run -p taru-server http::tests::system --no-fail-fast`
+  - `npm run check` from `apps/admin-web`
   - `cargo fmt --all -- --check`
   - `git diff --check`
+  - `git diff --name-only -- crates/taru-client-protocol`
 - Status: READY
-- Review: deepen Generated Artifact proposal/readiness semantics without
-  canonical metadata, sidecar, Media Source, Managed Import, library file,
-  Public Client API, or `taru-client-protocol` mutation.
+- Review: expose Admin-only proposal diagnostics from the AILO-020 read model
+  without raw prompt/output/path/source/provider-secret leakage and without
+  Public Client API or `taru-client-protocol` mutation.
 
 ## Decisions Since Opening
 
@@ -64,10 +81,10 @@ runtime or autonomous writes.
 
 ## Blockers
 
-- None for AILO-020.
+- None for AILO-030.
 
 ## Next Recommended Action
 
-Execute AILO-020: define and test stable Generated Artifact proposal/readiness
-semantics around existing Automation Artifacts, preserving the non-autonomous
-write boundary.
+Execute AILO-030: add Admin-only Generated Artifact proposal diagnostics and
+typed Admin Web support over the AILO-020 proposal read model. Keep acceptance
+apply out of scope until AILO-040.

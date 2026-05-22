@@ -17,7 +17,7 @@ Task IDs use the `AILO` prefix.
 
 ## M1 — Generated Artifact Proposal Queue
 
-- [ ] AILO-020 [owner=codex] [deps=AILO-010] [scope=crates/taru-core/src/automation.rs,crates/taru-db,crates/taru-automation,crates/taru-server/src/app/automation.rs]
+- [x] AILO-020 [owner=codex] [deps=AILO-010] [scope=crates/taru-core/src/automation.rs,crates/taru-db,crates/taru-automation,crates/taru-server/src/app/automation.rs]
   Goal: Deepen or wrap existing Automation Artifacts into a Generated Artifact
   proposal queue with stable target/provenance/confidence/readiness semantics
   for title-match, metadata-cleanup, summary, and recommendation artifacts.
@@ -26,8 +26,13 @@ Task IDs use the `AILO` prefix.
   automation tests; `cargo fmt --all -- --check`; `git diff --check`.
   Review: `review-workstream` must check no canonical metadata, sidecar,
   Managed Import, Media Source, or library file mutation occurs.
-  Evidence: backend-neutral repository tests, automation service tests, and
-  redaction fixtures.
+  Evidence: `crates/taru-db/src/tests.rs`
+  `taru_database_sqlite_lists_generated_artifact_proposals_with_readiness` and
+  `taru_database_sqlite_marks_generated_artifact_proposal_stale_after_target_changes`;
+  `crates/taru-automation/src/lib.rs`
+  `automation_job_runner_persists_proposed_artifact_and_summary`;
+  `crates/taru-server/src/app/tests/automation.rs`
+  `automation_app_lists_generated_artifact_proposals_without_raw_payloads_or_mutation`.
   Handoff: Add Admin-only proposal diagnostics in AILO-030.
 
 ## M2 — Admin Proposal Diagnostics

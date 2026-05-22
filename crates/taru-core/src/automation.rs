@@ -138,6 +138,185 @@ impl AutomationArtifactStatus {
     }
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GeneratedArtifactTargetKind {
+    Library,
+    MediaItem,
+    MediaSource,
+    Untargeted,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactTarget {
+    pub kind: GeneratedArtifactTargetKind,
+    pub library_id: Option<LibraryId>,
+    pub item_id: Option<MediaItemId>,
+    pub source_id: Option<MediaSourceId>,
+}
+
+impl GeneratedArtifactTarget {
+    #[must_use]
+    pub fn from_scope(
+        library_id: Option<LibraryId>,
+        item_id: Option<MediaItemId>,
+        source_id: Option<MediaSourceId>,
+    ) -> Self {
+        let kind = if source_id.is_some() {
+            GeneratedArtifactTargetKind::MediaSource
+        } else if item_id.is_some() {
+            GeneratedArtifactTargetKind::MediaItem
+        } else if library_id.is_some() {
+            GeneratedArtifactTargetKind::Library
+        } else {
+            GeneratedArtifactTargetKind::Untargeted
+        };
+
+        Self {
+            kind,
+            library_id,
+            item_id,
+            source_id,
+        }
+    }
+
+    #[must_use]
+    pub fn from_artifact(artifact: &AutomationArtifactRecord) -> Self {
+        Self::from_scope(artifact.library_id, artifact.item_id, artifact.source_id)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GeneratedArtifactReadinessStatus {
+    Ready,
+    Blocked,
+    Stale,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GeneratedArtifactReadinessReason {
+    Ready,
+    ArtifactAlreadyAccepted,
+    ArtifactAlreadyRejected,
+    InvalidPayloadJson,
+    TargetRequired,
+    UnsupportedTarget,
+    MissingJob,
+    MissingProvider,
+    MissingLibrary,
+    MissingMediaItem,
+    MissingMediaSource,
+    TargetMismatch,
+    JobInputMismatch,
+}
+
+impl GeneratedArtifactReadinessReason {
+    #[must_use]
+    pub const fn is_stale(self) -> bool {
+        matches!(
+            self,
+            Self::MissingJob
+                | Self::MissingProvider
+                | Self::MissingLibrary
+                | Self::MissingMediaItem
+                | Self::MissingMediaSource
+                | Self::TargetMismatch
+                | Self::JobInputMismatch
+        )
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactReadiness {
+    pub status: GeneratedArtifactReadinessStatus,
+    pub actionable: bool,
+    pub reasons: Vec<GeneratedArtifactReadinessReason>,
+}
+
+impl GeneratedArtifactReadiness {
+    #[must_use]
+    pub fn ready() -> Self {
+        Self {
+            status: GeneratedArtifactReadinessStatus::Ready,
+            actionable: true,
+            reasons: vec![GeneratedArtifactReadinessReason::Ready],
+        }
+    }
+
+    #[must_use]
+    pub fn from_reasons(reasons: Vec<GeneratedArtifactReadinessReason>) -> Self {
+        if reasons.is_empty() {
+            return Self::ready();
+        }
+
+        let status = if reasons.iter().any(|reason| reason.is_stale()) {
+            GeneratedArtifactReadinessStatus::Stale
+        } else {
+            GeneratedArtifactReadinessStatus::Blocked
+        };
+
+        Self {
+            status,
+            actionable: false,
+            reasons,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GeneratedArtifactPayloadShape {
+    Object,
+    Array,
+    String,
+    Number,
+    Boolean,
+    Null,
+    InvalidJson,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactPayloadSummary {
+    pub valid_json: bool,
+    pub shape: GeneratedArtifactPayloadShape,
+    pub payload_fingerprint: String,
+    pub payload_bytes: u64,
+    pub object_field_count: Option<u32>,
+    pub array_item_count: Option<u32>,
+    pub has_textual_values: bool,
+    pub has_explanation: bool,
+    pub confidence_milli: Option<u16>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactProvenance {
+    pub provider_id: AutomationProviderId,
+    pub provider_name: Option<String>,
+    pub job_id: JobId,
+    pub capability: AutomationCapability,
+    pub idempotency_key_fingerprint: Option<String>,
+    pub prompt_fingerprint: Option<String>,
+    pub attempt_count: Option<u32>,
+    pub artifact_created_at: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactProposal {
+    pub id: AutomationArtifactId,
+    pub kind: AutomationArtifactKind,
+    pub capability: AutomationCapability,
+    pub status: AutomationArtifactStatus,
+    pub target: GeneratedArtifactTarget,
+    pub provenance: GeneratedArtifactProvenance,
+    pub payload: GeneratedArtifactPayloadSummary,
+    pub readiness: GeneratedArtifactReadiness,
+    pub created_at: String,
+    pub updated_at: String,
+    pub accepted_at: Option<String>,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct NewAutomationProviderConfig {
     pub id: AutomationProviderId,

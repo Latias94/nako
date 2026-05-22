@@ -2807,6 +2807,266 @@ async fn taru_database_sqlite_round_trips_automation_provider_and_artifacts() {
 }
 
 #[tokio::test]
+async fn taru_database_sqlite_lists_generated_artifact_proposals_with_readiness() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let library = Library {
+        id: LibraryId::new(),
+        name: "Movies".to_owned(),
+        roots: vec!["local:///Movies".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Movies),
+    };
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "The Matrix".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: library.id,
+        item_id: item.id,
+        locator: "local:///Movies/The Matrix.mkv".to_owned(),
+        file_name: "The Matrix.mkv".to_owned(),
+        size_bytes: Some(1024),
+        fingerprint: Some("sha256-private-fingerprint".to_owned()),
+    };
+    store.upsert_library(&library).await.unwrap();
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+
+    let provider_id = AutomationProviderId::new();
+    store
+        .upsert_automation_provider(NewAutomationProviderConfig {
+            id: provider_id,
+            name: "Gateway".to_owned(),
+            base_url: "https://example.test/automation".to_owned(),
+            secret_env: Some("TARU_AUTOMATION_SECRET".to_owned()),
+            capabilities: vec![AutomationCapability::TitleMatch],
+            timeout_ms: 10_000,
+            max_attempts: 2,
+            status: AutomationProviderStatus::Enabled,
+        })
+        .await
+        .unwrap();
+    let input = AutomationJobInput {
+        provider_id,
+        capability: AutomationCapability::TitleMatch,
+        library_id: Some(library.id),
+        item_id: Some(item.id),
+        source_id: Some(source.id),
+        prompt_json: r#"{"source_locator":"local:///private/The Matrix.mkv","secret":"token"}"#
+            .to_owned(),
+        idempotency_key: format!("title-match:{}", source.id),
+    };
+    let job = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::Automation,
+            resource_class: "automation.external_api".to_owned(),
+            library_id: Some(library.id),
+            source_id: Some(source.id),
+            input_json: Some(serde_json::to_string(&input).unwrap()),
+        })
+        .await
+        .unwrap();
+    let artifact = store
+        .create_automation_artifact(NewAutomationArtifact {
+            id: AutomationArtifactId::new(),
+            job_id: job.id,
+            provider_id,
+            capability: AutomationCapability::TitleMatch,
+            kind: AutomationArtifactKind::TitleMatch,
+            library_id: Some(library.id),
+            item_id: Some(item.id),
+            source_id: Some(source.id),
+            artifact_json:
+                r#"{"title":"The Matrix","confidence_milli":930,"explanation":"strong local evidence"}"#
+                    .to_owned(),
+        })
+        .await
+        .unwrap();
+
+    let proposals = store
+        .list_generated_artifact_proposals(PageRequest::first_page())
+        .await
+        .unwrap();
+
+    assert_eq!(proposals.len(), 1);
+    let proposal = &proposals[0];
+    assert_eq!(proposal.id, artifact.id);
+    assert_eq!(proposal.kind, AutomationArtifactKind::TitleMatch);
+    assert_eq!(
+        proposal.target.kind,
+        GeneratedArtifactTargetKind::MediaSource
+    );
+    assert_eq!(proposal.target.library_id, Some(library.id));
+    assert_eq!(proposal.target.item_id, Some(item.id));
+    assert_eq!(proposal.target.source_id, Some(source.id));
+    assert_eq!(
+        proposal.provenance.provider_name.as_deref(),
+        Some("Gateway")
+    );
+    assert!(
+        proposal
+            .provenance
+            .idempotency_key_fingerprint
+            .as_deref()
+            .is_some_and(|fingerprint| fingerprint.starts_with("sha256:"))
+    );
+    assert!(
+        proposal
+            .provenance
+            .prompt_fingerprint
+            .as_deref()
+            .is_some_and(|fingerprint| fingerprint.starts_with("sha256:"))
+    );
+    assert_eq!(
+        proposal.payload.shape,
+        GeneratedArtifactPayloadShape::Object
+    );
+    assert_eq!(proposal.payload.confidence_milli, Some(930));
+    assert!(proposal.payload.has_textual_values);
+    assert!(proposal.payload.has_explanation);
+    assert_eq!(
+        proposal.readiness.status,
+        GeneratedArtifactReadinessStatus::Ready
+    );
+    assert!(proposal.readiness.actionable);
+
+    let body = serde_json::to_string(proposal).unwrap();
+    assert!(!body.contains("source_locator"));
+    assert!(!body.contains("local:///private"));
+    assert!(!body.contains("token"));
+    assert!(!body.contains("sha256-private-fingerprint"));
+    assert!(!body.contains("strong local evidence"));
+}
+
+#[tokio::test]
+async fn taru_database_sqlite_marks_generated_artifact_proposal_stale_after_target_changes() {
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let library = Library {
+        id: LibraryId::new(),
+        name: "Movies".to_owned(),
+        roots: vec!["local:///Movies".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Movies),
+    };
+    let original_item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "The Matrix".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let moved_item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Moved Matrix".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: library.id,
+        item_id: original_item.id,
+        locator: "local:///Movies/The Matrix.mkv".to_owned(),
+        file_name: "The Matrix.mkv".to_owned(),
+        size_bytes: Some(1024),
+        fingerprint: None,
+    };
+    store.upsert_library(&library).await.unwrap();
+    store.upsert_media_item(&original_item).await.unwrap();
+    store.upsert_media_item(&moved_item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+
+    let provider_id = AutomationProviderId::new();
+    store
+        .upsert_automation_provider(NewAutomationProviderConfig {
+            id: provider_id,
+            name: "Gateway".to_owned(),
+            base_url: "https://example.test/automation".to_owned(),
+            secret_env: None,
+            capabilities: vec![AutomationCapability::TitleMatch],
+            timeout_ms: 10_000,
+            max_attempts: 2,
+            status: AutomationProviderStatus::Enabled,
+        })
+        .await
+        .unwrap();
+    let job = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::Automation,
+            resource_class: "automation.external_api".to_owned(),
+            library_id: Some(library.id),
+            source_id: Some(source.id),
+            input_json: Some(
+                serde_json::to_string(&AutomationJobInput {
+                    provider_id,
+                    capability: AutomationCapability::TitleMatch,
+                    library_id: Some(library.id),
+                    item_id: Some(original_item.id),
+                    source_id: Some(source.id),
+                    prompt_json: "{}".to_owned(),
+                    idempotency_key: format!("title-match:{}", source.id),
+                })
+                .unwrap(),
+            ),
+        })
+        .await
+        .unwrap();
+    store
+        .create_automation_artifact(NewAutomationArtifact {
+            id: AutomationArtifactId::new(),
+            job_id: job.id,
+            provider_id,
+            capability: AutomationCapability::TitleMatch,
+            kind: AutomationArtifactKind::TitleMatch,
+            library_id: Some(library.id),
+            item_id: Some(moved_item.id),
+            source_id: Some(source.id),
+            artifact_json: r#"{"title":"The Matrix"}"#.to_owned(),
+        })
+        .await
+        .unwrap();
+
+    let proposal = store
+        .list_generated_artifact_proposals(PageRequest::first_page())
+        .await
+        .unwrap()
+        .pop()
+        .unwrap();
+
+    assert_eq!(
+        proposal.readiness.status,
+        GeneratedArtifactReadinessStatus::Stale
+    );
+    assert!(!proposal.readiness.actionable);
+    assert!(
+        proposal
+            .readiness
+            .reasons
+            .contains(&GeneratedArtifactReadinessReason::TargetMismatch)
+    );
+    assert!(
+        proposal
+            .readiness
+            .reasons
+            .contains(&GeneratedArtifactReadinessReason::JobInputMismatch)
+    );
+}
+
+#[tokio::test]
 async fn taru_database_sqlite_round_trips_addon_registration() {
     let store = TaruDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();

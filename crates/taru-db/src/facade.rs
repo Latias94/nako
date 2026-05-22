@@ -477,6 +477,13 @@ impl AutomationRepository for TaruDatabase {
             .list_automation_artifacts_for_item(item_id, page)
             .await
     }
+
+    async fn list_generated_artifact_proposals(
+        &self,
+        page: PageRequest,
+    ) -> Result<Vec<GeneratedArtifactProposal>> {
+        self.backend().list_generated_artifact_proposals(page).await
+    }
 }
 
 #[async_trait::async_trait]

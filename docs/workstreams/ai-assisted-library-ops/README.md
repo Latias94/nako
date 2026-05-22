@@ -20,11 +20,13 @@ applies them.
 
 ## Current Decision
 
-AILO-010 opened the lane after Network Access Boundary closeout. The first
-executable slice is AILO-020: define the generated artifact proposal queue and
-acceptance-readiness contract around existing automation artifacts without
-adding a local model runtime, autonomous writes, vector database, Addon
-distribution, downloader protocols, or Public Client API churn.
+AILO-010 opened the lane after Network Access Boundary closeout. AILO-020 then
+deepened existing Automation Artifacts into a backend Generated Artifact
+proposal queue with stable target, provenance, payload summary, confidence, and
+readiness semantics. The next executable slice is AILO-030: expose Admin-only
+proposal diagnostics and typed Admin Web support without adding a local model
+runtime, autonomous writes, vector database, Addon distribution, downloader
+protocols, or Public Client API churn.
 
 ## Authoritative Docs
 

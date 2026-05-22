@@ -7,9 +7,10 @@
   "scope_kind": "execution",
   "problem": "AI-like outputs can help with title matching, metadata cleanup, summaries, recommendations, and intake triage, but they must enter Taru as Generated Artifacts with explicit acceptance rather than autonomous canonical metadata, sidecar, or library-file writes.",
   "task_prefix": "AILO",
-  "current_task": "AILO-020",
+  "current_task": "AILO-030",
   "completed_tasks": [
-    "AILO-010"
+    "AILO-010",
+    "AILO-020"
   ],
   "authoritative_docs": [
     {
@@ -57,7 +58,9 @@
     "docs/workstreams/addons-automation",
     "crates/taru-core/src/automation.rs",
     "crates/taru-automation/src/lib.rs",
+    "crates/taru-db/src/automation_proposals.rs",
     "crates/taru-server/src/app/automation.rs",
+    "crates/taru-server/src/app/tests/automation.rs",
     "crates/taru-api/src/admin.rs",
     "apps/admin-web/src/adminApi"
   ],
@@ -70,7 +73,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "AILO-020",
-    "notes": "AILO-010 opened AI Assisted Library Ops after Network Access Boundary closeout. Use existing automation/provider/artifact foundations, but productize Generated Artifact proposal/readiness and acceptance semantics before any provider-specific adapter, local model runtime, vector database, Addon distribution, downloader protocol, autonomous write, Public Client API, or taru-client-protocol change. Continue with AILO-020 Generated Artifact proposal queue."
+    "next_task": "AILO-030",
+    "notes": "AILO-020 completed backend Generated Artifact proposal/readiness semantics over existing automation artifacts. Continue with AILO-030 Admin-only proposal diagnostics and typed Admin Web support. Keep provider-specific adapters, local model runtime, vector database, Addon distribution, downloader protocol, autonomous writes, Public Client API, and taru-client-protocol changes out of scope."
   }
 }

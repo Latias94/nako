@@ -5,8 +5,9 @@ use taru_api::extension::{
 };
 use taru_automation::AutomationJobService;
 use taru_core::{
-    AutomationCapability, AutomationProviderId, AutomationRepository, Job, JobId, JobRepository,
-    MediaItemId, MediaRepository, NewAutomationProviderConfig, PageRequest, Result, TaruError,
+    AutomationCapability, AutomationProviderId, AutomationRepository, GeneratedArtifactProposal,
+    Job, JobId, JobRepository, MediaItemId, MediaRepository, NewAutomationProviderConfig,
+    PageRequest, Result, TaruError,
 };
 use taru_db::TaruDatabase;
 
@@ -190,5 +191,12 @@ impl AutomationAppService {
             .await?;
 
         Ok(AutomationArtifactsResponse { artifacts })
+    }
+
+    pub async fn list_generated_artifact_proposals(
+        &self,
+        page: PageRequest,
+    ) -> Result<Vec<GeneratedArtifactProposal>> {
+        self.store.list_generated_artifact_proposals(page).await
     }
 }

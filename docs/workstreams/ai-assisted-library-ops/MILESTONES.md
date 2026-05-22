@@ -23,13 +23,15 @@ Primary evidence:
 
 ## M1 — Generated Artifact Proposal Queue
 
+Status: completed on 2026-05-22.
+
 Exit criteria:
 
-- Existing Automation Artifacts have stable proposal/readiness semantics for
+- [x] Existing Automation Artifacts have stable proposal/readiness semantics for
   AI-assisted library operations.
-- Targets, provenance, confidence/explanation, stale-target checks, and status
+- [x] Targets, provenance, confidence/explanation, stale-target checks, and status
   transitions are explicit.
-- Repository/app tests prove proposals do not mutate canonical metadata,
+- [x] Repository/app tests prove proposals do not mutate canonical metadata,
   sidecars, Media Sources, Managed Import artifacts, or library files.
 
 Primary evidence:

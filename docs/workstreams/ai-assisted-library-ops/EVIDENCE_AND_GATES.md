@@ -45,6 +45,11 @@ git diff --check
 | Date | Task | Command / Evidence | Result |
 | --- | --- | --- | --- |
 | 2026-05-22 | AILO-010 | `docs/workstreams/ai-assisted-library-ops/DESIGN.md`; `python -m json.tool docs/workstreams/ai-assisted-library-ops/WORKSTREAM.json`; `python -m json.tool docs/workstreams/post-rpd-product-hardening/WORKSTREAM.json`; `git diff --check`; `git diff --name-only -- crates/taru-client-protocol` | Pass. Scope is Generated Artifact proposal/acceptance first. Local model runtime, embeddings/vector DB, provider-specific adapters, Addon distribution, protocol downloaders, autonomous writes, and Public Client API changes are out of scope. `git diff --check` emitted only repository CRLF conversion warnings for the unrelated `sdk/kotlin` working-tree change. |
+| 2026-05-22 | AILO-020 | `cargo nextest run -p taru-db generated_artifact --no-fail-fast` | Pass: 2 tests. Proves Generated Artifact proposal queue returns stable target/provenance/payload/readiness summaries, redacts raw prompts/raw output/source fingerprints from proposal JSON, and marks mismatched source/item evidence stale. |
+| 2026-05-22 | AILO-020 | `cargo nextest run -p taru-db automation --no-fail-fast` | Pass: 4 tests. Existing automation provider/artifact contract remains green after proposal repository extension. |
+| 2026-05-22 | AILO-020 | `cargo nextest run -p taru-automation --no-fail-fast` | Pass: 3 tests. Automation runner still persists proposed artifacts, rejects canonical mutation, retries provider failures, and now exposes ready generated artifact proposal summaries without raw prompt/output/secret leakage. |
+| 2026-05-22 | AILO-020 | `cargo nextest run -p taru-server automation --no-fail-fast` | Pass: 2 tests. App service lists generated artifact proposals without canonical metadata mutation or raw payload/source/secret leakage; existing automation HTTP job/provider test remains green. |
+| 2026-05-22 | AILO-020 | `cargo fmt --all -- --check`; `git diff --check`; `git diff --name-only -- crates/taru-client-protocol` | Pass. `git diff --check` emitted only CRLF conversion warnings, including the unrelated existing `sdk/kotlin` working-tree change. Public Client protocol untouched. |
 
 ## Redaction Checklist
 

@@ -138,6 +138,27 @@ taru-api::admin / taru-server::http::admin
   stays untouched.
 ```
 
+## AILO-020 Backend Proposal Queue Baseline
+
+AILO-020 established the backend read model for Generated Artifact proposals
+without introducing a parallel AI artifact store. Existing Automation Artifacts
+remain the durable source of truth. The new proposal projection adds:
+
+- target identity: Library, Media Item, Media Source, or blocked untargeted
+  artifact;
+- provenance: provider id/name, job id, capability, redacted prompt and
+  idempotency fingerprints, attempt count, artifact creation time;
+- payload summary: JSON validity, shape, byte count, payload fingerprint,
+  object/array counts, textual/explanation booleans, confidence in milli units;
+- readiness: ready, blocked, or stale with explicit reasons for invalid JSON,
+  already accepted/rejected artifacts, missing provider/job/target records,
+  target mismatch, or job-input mismatch.
+
+The projection intentionally omits raw prompt JSON, raw generated payload text,
+provider secrets, Source Locators, local paths, source fingerprints, and
+canonical metadata write operations. Acceptance is still a later workflow;
+AILO-020 only makes proposals reviewable and stale-checkable.
+
 ## Closeout Condition
 
 This lane can close when:
