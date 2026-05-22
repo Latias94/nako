@@ -1,6 +1,6 @@
 # Network Access Boundary — TODO
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 Task IDs use the `NAB` prefix.
@@ -63,7 +63,7 @@ Task IDs use the `NAB` prefix.
 
 ## M4 — Closeout And Follow-On Split
 
-- [ ] NAB-050 [owner=planner] [deps=NAB-040] [scope=docs/workstreams/network-access-boundary,docs/workstreams/post-rpd-product-hardening,docs/workstreams/README.md]
+- [x] NAB-050 [owner=planner] [deps=NAB-040] [scope=docs/workstreams/network-access-boundary,docs/workstreams/post-rpd-product-hardening,docs/workstreams/README.md]
   Goal: Verify final gates, close or split tunnel runtime, endpoint discovery,
   identity/RBAC, protocol downloader, AI, and Addon follow-ons, then return the
   next lane decision to the post-RPD umbrella.
@@ -72,5 +72,9 @@ Task IDs use the `NAB` prefix.
   --check`; `git diff --name-only -- crates/taru-client-protocol`.
   Review: `review-workstream` must have no blocking findings.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, and parent umbrella
-  re-score notes.
-  Handoff: Return to `post-rpd-product-hardening` with the next lane decision.
+  post-NAB re-score notes. Built-in NAT traversal runtime, client endpoint
+  discovery, identity/RBAC, protocol downloader integrations, AI-assisted
+  apply depth, and Addon runtime/distribution were split rather than hidden in
+  this lane.
+  Handoff: DONE. Return to `post-rpd-product-hardening`; AI Assisted Library
+  Ops is the next mainline lane before Addon runtime/distribution.

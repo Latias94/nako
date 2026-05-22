@@ -1,6 +1,6 @@
 # Network Access Boundary — Evidence And Gates
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 ## Expected Gates
@@ -52,6 +52,7 @@ git diff --check
 | 2026-05-22 | NAB-040 focused gates | `cargo nextest run -p taru-api admin_network_access_diagnostics_serializes_readiness_without_secret_urls --no-fail-fast`; `cargo nextest run -p taru-server admin_v1_system_config_reports_sanitized_configuration --no-fail-fast` | Pass. API DTO serialization and server Admin system-config diagnostics expose typed network readiness, external endpoint scheme/fingerprint only, trusted proxy/source counts, origin counts, tunnel provider declaration state, and token presence without exposing raw URLs, hostnames, query secrets, forwarded headers, local paths, or credential values. |
 | 2026-05-22 | NAB-040 contract/admin-web gate | `cargo nextest run -p taru-api admin_contract --no-fail-fast`; `npm run check` from `apps/admin-web`; `npm run test` from `apps/admin-web` | Pass. Admin TypeScript contract includes `AdminNetworkAccessDiagnostics` inside the Admin-only system-config response, generated Admin Web contract is synchronized, typed Admin Web data mapping renders network readiness, Admin Web tests passed 10/10, and the generated Admin contract still excludes generated fetch runtime and Public Client route inventory. |
 | 2026-05-22 | NAB-040 implementation gate | `cargo nextest run -p taru-server http::tests::system --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`; `git diff --name-only -- crates/taru-client-protocol`; `python -m json.tool docs/workstreams/network-access-boundary/WORKSTREAM.json`; `python -m json.tool docs/workstreams/post-rpd-product-hardening/WORKSTREAM.json` | Pass. HTTP/Admin system regressions passed: 21 passed, 222 skipped. Formatting passed. Public Client protocol boundary check returned no changed files. Workstream and parent umbrella JSON validated. `git diff --check` emitted only repository CRLF conversion warnings, including the unrelated Kotlin SDK working-tree file. |
+| 2026-05-22 | NAB-050 closeout | `python -m json.tool docs/workstreams/network-access-boundary/WORKSTREAM.json`; `python -m json.tool docs/workstreams/post-rpd-product-hardening/WORKSTREAM.json`; `git diff --check`; `git diff --name-only -- crates/taru-client-protocol` | Pass. Network Access Boundary is closed with policy/config, HTTP enforcement, and Admin readiness diagnostics complete. Built-in NAT traversal runtime, endpoint discovery, identity/RBAC, protocol downloaders, AI-assisted library ops, and Addon runtime/distribution are split follow-ons. `git diff --check` emitted only repository CRLF conversion warnings, including the unrelated Kotlin SDK working-tree file. |
 
 ## Redaction Checklist
 

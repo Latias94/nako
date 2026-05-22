@@ -2,17 +2,18 @@
   "schema_version": 1,
   "slug": "ai-assisted-library-ops",
   "title": "AI Assisted Library Ops",
-  "status": "active",
+  "status": "complete",
   "updated": "2026-05-22",
   "scope_kind": "execution",
   "problem": "AI-like outputs can help with title matching, metadata cleanup, summaries, recommendations, and intake triage, but they must enter Taru as Generated Artifacts with explicit acceptance rather than autonomous canonical metadata, sidecar, or library-file writes.",
   "task_prefix": "AILO",
-  "current_task": "AILO-050",
+  "current_task": null,
   "completed_tasks": [
     "AILO-010",
     "AILO-020",
     "AILO-030",
-    "AILO-040"
+    "AILO-040",
+    "AILO-050"
   ],
   "authoritative_docs": [
     {
@@ -78,8 +79,8 @@
     "docs/adr/0027-admin-api-boundary-for-web-console.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "next_task": "AILO-050",
-    "notes": "AILO-040 completed explicit Generated Artifact review planning for metadata-cleanup proposals without autonomous writes. Continue with AILO-050 closeout/follow-on split. Keep provider-specific adapters, local model runtime, vector database, Addon distribution, downloader protocol, direct sidecar/library-file mutation, Public Client API, and taru-client-protocol changes out of scope unless split into follow-on lanes."
+    "default_action": "return_to_parent",
+    "next_task": "post-rpd-product-hardening PRPH-170",
+    "notes": "AI Assisted Library Ops is complete. AILO-020 completed backend Generated Artifact proposal/readiness semantics. AILO-030 completed Admin-only proposal diagnostics and typed Admin Web support. AILO-040 completed explicit Generated Artifact review planning for metadata-cleanup proposals without autonomous writes. AILO-050 closed the lane and split provider-specific adapters, local model runtime, vector database, Addon distribution, downloader protocol, Public Client display, deeper metadata authority apply, direct sidecar/library-file mutation, Public Client API, and taru-client-protocol changes into dedicated follow-ons. Return to post-rpd-product-hardening; Addon Runtime / Distribution is the next mainline lane."
   }
 }

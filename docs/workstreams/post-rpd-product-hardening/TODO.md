@@ -136,3 +136,46 @@ tasks belong in child workstreams.
   Handoff: DONE. Execute NAB-020 network policy domain/config validation
   without adding built-in NAT traversal runtime, identity/RBAC, downloader
   protocols, AI writes, Addon runtime, or Public Client API churn.
+
+## M11 — Post-Network Lane Scoring
+
+- [x] PRPH-150 [owner=planner] [deps=NAB-050] [scope=docs/workstreams/post-rpd-product-hardening,docs/workstreams/network-access-boundary,docs/workstreams/README.md]
+  Goal: Re-score AI-assisted library ops, Addon runtime/distribution,
+  protocol downloader integrations, concrete tunnel runtime, endpoint
+  discovery, and identity/RBAC after Network Access Boundary closeout.
+  Validation: DESIGN.md lane table, WORKSTREAM.json continue policy, HANDOFF.md,
+  and workstream index agree on the next executable lane.
+  Evidence: `DESIGN.md` Post-NAB Closeout Re-Score and
+  `docs/workstreams/network-access-boundary/EVIDENCE_AND_GATES.md`.
+  Handoff: DONE. Open `ai-assisted-library-ops` as the next mainline lane,
+  scoped first to Generated Artifact proposal/readiness and acceptance planning
+  without local model runtime or autonomous writes.
+
+## M12 — AI Assisted Library Ops Lane Open
+
+- [x] PRPH-160 [owner=planner] [deps=PRPH-150] [scope=docs/workstreams/ai-assisted-library-ops,docs/workstreams/post-rpd-product-hardening,docs/workstreams/README.md]
+  Goal: Open `ai-assisted-library-ops` as a dedicated workstream for Generated
+  Artifact proposals, redacted diagnostics, and explicit acceptance planning.
+  Validation: Child workstream has design, TODO, milestones, gates, workstream
+  metadata, and handoff docs; parent umbrella and index point to the first
+  executable AI task.
+  Evidence: `docs/workstreams/ai-assisted-library-ops/DESIGN.md`.
+  Handoff: DONE. AI lane completed through AILO-050 and returned to parent
+  re-score.
+
+## M13 — Post-AI Lane Scoring And Addon Runtime Open
+
+- [x] PRPH-170 [owner=planner] [deps=AILO-050] [scope=docs/workstreams/post-rpd-product-hardening,docs/workstreams/ai-assisted-library-ops,docs/workstreams/addon-runtime-and-distribution,docs/workstreams/README.md]
+  Goal: Re-score Addon runtime/distribution, protocol downloader integrations,
+  concrete tunnel runtime, endpoint discovery, local AI runtime/vector search,
+  and Public Client display after AI Assisted Library Ops closeout, then open
+  the selected Addon lane.
+  Validation: DESIGN.md lane table, WORKSTREAM.json continue policy, HANDOFF.md,
+  child workstream docs, and workstream index agree on the next executable lane.
+  Evidence: `DESIGN.md` Post-AILO Closeout Re-Score and
+  `docs/workstreams/addon-runtime-and-distribution/DESIGN.md`.
+  Handoff: DONE. Execute `addon-runtime-and-distribution` ARD-020 package /
+  install descriptor and redacted install-guide boundary without adding Addon
+  Manager automation, package signing, process supervision, Native Plugin ABI,
+  direct library writes, Public Client API churn, or `taru-client-protocol`
+  changes.

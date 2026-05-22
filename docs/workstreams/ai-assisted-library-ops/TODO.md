@@ -1,6 +1,6 @@
 # AI Assisted Library Ops — TODO
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 Task IDs use the `AILO` prefix.
@@ -84,7 +84,7 @@ Task IDs use the `AILO` prefix.
 
 ## M4 — Closeout And Follow-On Split
 
-- [ ] AILO-050 [owner=planner] [deps=AILO-040] [scope=docs/workstreams/ai-assisted-library-ops,docs/workstreams/post-rpd-product-hardening,docs/workstreams/README.md]
+- [x] AILO-050 [owner=planner] [deps=AILO-040] [scope=docs/workstreams/ai-assisted-library-ops,docs/workstreams/post-rpd-product-hardening,docs/workstreams/README.md]
   Goal: Verify final gates, close or split provider adapters, local model
   runtime, embeddings/vector search, Addon distribution, Public Client display,
   and protocol downloader follow-ons, then return the next lane decision to the
@@ -94,5 +94,9 @@ Task IDs use the `AILO` prefix.
   --check`; `git diff --name-only -- crates/taru-client-protocol`.
   Review: `review-workstream` must have no blocking findings.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, and parent umbrella
-  re-score notes.
-  Handoff: Return to `post-rpd-product-hardening` with the next lane decision.
+  post-AILO re-score notes. Provider-specific adapters, local model runtime,
+  embeddings/vector search, Addon distribution, downloader protocol, Public
+  Client display, and deeper metadata-authority apply work were split rather
+  than hidden in this lane.
+  Handoff: DONE. Return to `post-rpd-product-hardening`; Addon Runtime /
+  Distribution is the next mainline lane.

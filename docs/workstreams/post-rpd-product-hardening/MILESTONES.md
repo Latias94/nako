@@ -161,3 +161,58 @@ Primary evidence:
 
 - `docs/workstreams/network-access-boundary/DESIGN.md`
 - `docs/workstreams/network-access-boundary/TODO.md`
+
+## M11 — Post-Network Lane Scoring
+
+Status: completed on 2026-05-22.
+
+Exit criteria:
+
+- [x] Network Access Boundary closeout evidence is reviewed.
+- [x] AI-assisted library ops, Addon runtime/distribution, protocol downloader
+  integrations, concrete tunnel runtime, endpoint discovery, and identity/RBAC
+  are re-scored.
+- [x] The next mainline lane is selected without mixing local model runtime,
+  autonomous writes, Addon runtime, or downloader protocols into the completed
+  network boundary.
+
+Primary evidence:
+
+- `docs/workstreams/network-access-boundary/EVIDENCE_AND_GATES.md`
+- `docs/workstreams/post-rpd-product-hardening/DESIGN.md`
+
+## M12 — AI Assisted Library Ops Lane Open
+
+Status: completed on 2026-05-22.
+
+Exit criteria:
+
+- [x] `ai-assisted-library-ops` exists as a child workstream.
+- [x] Child docs define Generated Artifact, redaction, acceptance, non-goal,
+  task, gate, and handoff boundaries.
+- [x] Parent umbrella and workstream index point to the first executable AI
+  task.
+
+Primary evidence:
+
+- `docs/workstreams/ai-assisted-library-ops/DESIGN.md`
+- `docs/workstreams/ai-assisted-library-ops/TODO.md`
+
+## M13 — Post-AI Lane Scoring And Addon Runtime Open
+
+Status: completed on 2026-05-22.
+
+Exit criteria:
+
+- [x] AI Assisted Library Ops closeout evidence is reviewed.
+- [x] Addon runtime/distribution, protocol downloader integrations, concrete
+  tunnel runtime, endpoint discovery, local AI runtime/vector search, and Public
+  Client display are re-scored.
+- [x] `addon-runtime-and-distribution` exists as a child workstream and is
+  selected without mixing Addon Manager automation or Native Plugin ABI into the
+  first slice.
+
+Primary evidence:
+
+- `docs/workstreams/ai-assisted-library-ops/EVIDENCE_AND_GATES.md`
+- `docs/workstreams/addon-runtime-and-distribution/DESIGN.md`

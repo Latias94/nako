@@ -1,6 +1,6 @@
 # AI Assisted Library Ops Design
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 ## Why This Lane Exists
@@ -208,7 +208,7 @@ contracts and add its own evidence.
 
 ## Closeout Condition
 
-This lane can close when:
+This lane is closed. It met the closeout condition when:
 
 - generated artifact proposal/readiness semantics are explicit and tested;
 - Admin diagnostics expose safe proposal summaries and review state;

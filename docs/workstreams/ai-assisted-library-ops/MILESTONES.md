@@ -1,6 +1,6 @@
 # AI Assisted Library Ops — Milestones
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 ## M0 — Scope And Evidence Freeze
@@ -81,14 +81,16 @@ Primary evidence:
 
 ## M4 — Closeout And Follow-On Split
 
+Status: completed on 2026-05-22.
+
 Exit criteria:
 
-- Final gates pass with fresh evidence.
-- Workstream status and completed tasks are updated.
-- Parent post-RPD umbrella re-scores Addon runtime/distribution, provider
+- [x] Final gates pass with fresh evidence.
+- [x] Workstream status and completed tasks are updated.
+- [x] Parent post-RPD umbrella re-scores Addon runtime/distribution, provider
   adapters, local model runtime, embeddings/vector search, protocol downloaders,
   and Public Client display.
-- Follow-ons are split rather than hidden in this lane.
+- [x] Follow-ons are split rather than hidden in this lane.
 
 Primary evidence:
 

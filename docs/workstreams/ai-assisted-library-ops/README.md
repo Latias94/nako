@@ -1,6 +1,6 @@
 # AI Assisted Library Ops
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 ## Purpose
@@ -20,17 +20,16 @@ applies them.
 
 ## Current Decision
 
-AILO-010 opened the lane after Network Access Boundary closeout. AILO-020 then
-deepened existing Automation Artifacts into a backend Generated Artifact
-proposal queue with stable target, provenance, payload summary, confidence, and
-readiness semantics. AILO-030 exposed that queue through Admin-only proposal
-diagnostics and typed Admin Web support while keeping prompts, raw generated
-payloads, provider secrets, Source Locators, local paths, Public Client API, and
-`taru-client-protocol` out of the surface. AILO-040 then added explicit
-accept/reject planning for metadata-cleanup proposals: accept marks the
-proposal as accepted for a later metadata authority workflow, reject records a
-no-mutation rejection, and stale proposals cannot be accepted. The next slice is
-AILO-050 closeout and follow-on splitting.
+This lane is complete. AILO-020 through AILO-040 shipped Generated Artifact
+proposal/readiness semantics, Admin-only redacted proposal diagnostics, typed
+Admin Web support, and explicit accept/reject planning for metadata-cleanup
+proposals without autonomous canonical metadata, sidecar, Managed Import, Media
+Source, library-file, Public Client API, or `taru-client-protocol` mutation.
+
+AILO-050 closed the lane and returned routing to
+`post-rpd-product-hardening`. Provider-specific AI adapters, local model
+runtime, embeddings/vector search, Public Client display, protocol downloaders,
+Addon distribution, and deeper metadata-authority apply remain split follow-ons.
 
 ## Authoritative Docs
 

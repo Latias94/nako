@@ -5,8 +5,9 @@
 Active roadmap umbrella. Wave 1 `metadata-provider-breadth` is complete;
 `nfo-link-authority`, `managed-import-staging`,
 `link-apply-and-import-promotion`, `nfo-sidecar-promotion-apply`,
-`playback-transcode-ops-hardening`, and `downloads-watch-folder-intake` are
-complete. `network-access-boundary` is open as the current mainline lane.
+`playback-transcode-ops-hardening`, `downloads-watch-folder-intake`,
+`network-access-boundary`, and `ai-assisted-library-ops` are complete.
+`addon-runtime-and-distribution` is open as the current mainline lane.
 
 This lane coordinates the post-packaging productization wave after
 `release-packaging-and-distribution`. It is not an implementation lane by
@@ -43,11 +44,13 @@ product risk is whether Taru can safely manage a real library:
 
 ## Current Decision
 
-After Downloads / Watch-Folder Intake closed, PRPH-130 re-scored the remaining
-roadmap. PRPH-140 opened `network-access-boundary` because remote clients are
-the highest product-readiness gap that can progress without weakening metadata,
-import, NFO, acquisition, playback, AI, or Addon side-effect boundaries. The
-next executable task is NAB-040 Admin network readiness diagnostics.
+Network Access Boundary and AI Assisted Library Ops are complete. PRPH-150
+closed Network Access Boundary and opened AI Assisted Library Ops. PRPH-160
+opened the AI lane, and AILO-050 returned to this umbrella after Generated
+Artifact proposal/readiness, Admin diagnostics, and explicit accept/reject
+planning were proven without autonomous writes. PRPH-170 now selects Addon
+Runtime / Distribution as the current mainline lane. The next executable task
+is ARD-020 package/install descriptor and redacted install-guide boundary.
 
 ## Authoritative Docs
 
@@ -68,6 +71,8 @@ next executable task is NAB-040 Admin network readiness diagnostics.
 - [playback-transcode-ops-hardening](../playback-transcode-ops-hardening/README.md)
 - [downloads-watch-folder-intake](../downloads-watch-folder-intake/README.md)
 - [network-access-boundary](../network-access-boundary/README.md)
+- [ai-assisted-library-ops](../ai-assisted-library-ops/README.md)
+- [addon-runtime-and-distribution](../addon-runtime-and-distribution/README.md)
 - [metadata-catalog](../metadata-catalog/README.md)
 - [transcode-runtime](../transcode-runtime/README.md)
 - [nfo-round-trip-preservation](../nfo-round-trip-preservation/README.md)

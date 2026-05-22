@@ -1,6 +1,6 @@
 # AI Assisted Library Ops — Handoff
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 ## Current State
@@ -24,9 +24,9 @@ Prerequisites are complete:
   automation provider/job/artifact foundation, but not the product-specific
   Generated Artifact review/acceptance semantics this lane needs.
 
-AILO-010, AILO-020, AILO-030, and AILO-040 are complete. The lane is scoped to Generated Artifact
-proposal queues, redacted Admin diagnostics, and explicit acceptance planning,
-not a local model runtime or autonomous writes.
+AILO-010, AILO-020, AILO-030, AILO-040, and AILO-050 are complete. The lane is
+scoped to Generated Artifact proposal queues, redacted Admin diagnostics, and
+explicit acceptance planning, not a local model runtime or autonomous writes.
 
 AILO-020 added backend Generated Artifact proposal/readiness semantics over
 existing Automation Artifacts:
@@ -70,24 +70,22 @@ AILO-040 added explicit Generated Artifact review planning:
   raw prompt, raw generated payload, provider secret, Source Locator, local
   path, source fingerprint, or Public Client protocol exposure.
 
-## Active Task
+AILO-050 is complete. Final closeout evidence is recorded, this workstream is
+marked complete, and the remaining work is split into follow-ons rather than
+hidden in the AI lane.
+
+## Closeout State
 
 - Task ID: AILO-050
-- Owner: codex
-- Files:
+- Status: DONE
+- Final scope:
   - `docs/workstreams/ai-assisted-library-ops`
   - `docs/workstreams/post-rpd-product-hardening`
   - `docs/workstreams/README.md`
-- Validation:
-  - `verify-rust-workstream` records fresh final evidence
-  - `python -m json.tool docs/workstreams/ai-assisted-library-ops/WORKSTREAM.json`
-  - `python -m json.tool docs/workstreams/post-rpd-product-hardening/WORKSTREAM.json`
-  - `git diff --check`
-  - `git diff --name-only -- crates/taru-client-protocol`
-- Status: READY
-- Review: close the lane or split concrete provider adapters/local runtime,
-  embeddings/vector search, Addon distribution, downloader protocol, Public
-  Client display, and deeper metadata authority apply follow-ons.
+- Review result: no blocking findings. The target state is met, and concrete
+  provider adapters, local model runtime, embeddings/vector search, Addon
+  distribution, downloader protocol, Public Client display, and deeper metadata
+  authority apply work remain split follow-ons.
 
 ## Decisions Since Opening
 
@@ -105,11 +103,13 @@ AILO-040 added explicit Generated Artifact review planning:
 
 ## Blockers
 
-- None for AILO-050.
+- None.
 
 ## Next Recommended Action
 
-Execute AILO-050: verify closeout gates, mark the AI Assisted Library Ops lane
-complete if evidence holds, and split follow-ons instead of hiding provider
-adapters/local runtime/vector search/Addons/Public Client/deeper apply work in
-this lane.
+Return to `post-rpd-product-hardening`.
+
+Recommended next mainline lane: open `addon-runtime-and-distribution`. The core
+side-effect boundaries are now stable enough for Addon packaging/distribution
+planning, but first slice should stay outside Native Plugin ABI and avoid
+direct filesystem/library writes.

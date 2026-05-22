@@ -453,6 +453,81 @@ trusted proxy, origin, and tunnel-provider readiness without exposing bearer
 tokens, raw forwarded headers, credential-bearing URLs, local paths, tunnel
 secrets, Public Client API shape, or `taru-client-protocol` changes.
 
+## Post-NAB Closeout Re-Score — 2026-05-22
+
+`network-access-boundary` is now complete. Taru has explicit network exposure
+policy for local-only, reverse-proxy, private-network, and tunnel-provider
+modes; config-check readiness; request-time trusted forwarded header handling;
+origin/CORS behavior that preserves auth order; and Admin-only redacted network
+diagnostics. It did not ship built-in NAT traversal runtime, relay services,
+endpoint discovery, identity/RBAC, downloader protocols, Addon runtime, Public
+Client API changes, or `taru-client-protocol` churn.
+
+That closes the remote access boundary needed before AI and Addon surfaces
+become more useful to operators. The highest remaining product risk is now
+AI-like output entering library operations without a Generated Artifact review
+and acceptance contract.
+
+| Lane | Current score | Why | Decision |
+| --- | --- | --- | --- |
+| AI Assisted Library Ops | Highest | Metadata, NFO/file-write, import/promotion, playback, acquisition intake, and network boundaries are now proven. AI suggestions can help matching/title cleanup, but only if they enter Taru as Generated Artifacts with redacted diagnostics and explicit acceptance rather than autonomous writes. | Open next as the mainline execution lane. First slice should be proposal/readiness and Admin diagnostics, not local model runtime. |
+| Addon Runtime / Distribution | High downstream | Addons can now consume stable side-effect APIs and network policy, but distribution/runtime should not expand before generated artifact/side-effect queue semantics are explicit. | Defer until AI proposal/acceptance semantics are proven. |
+| Protocol Downloader Integrations | High but separate | Acquisition intake exists and network policy is stronger, but torrent/Usenet/download-client adapters still need credential, retry, sandbox, and adapter-failure policies. | Split as a downloader lane; do not mix with AI or Addon distribution. |
+| Concrete Tunnel Runtime / Endpoint Discovery | Useful follow-on | Network policy/readiness exists, but starting cloudflared/ngrok/Tailscale or exposing remote endpoint discovery to clients is a separate runtime/security problem. | Split after current policy lane; do not reopen NAB. |
+
+PRPH-150 therefore closes Network Access Boundary and selects AI Assisted
+Library Ops as the next mainline lane. PRPH-160 should open
+`ai-assisted-library-ops` with a narrow first slice: Generated Artifact
+proposal/readiness, redacted Admin diagnostics, and explicit accept/reject
+planning. It must not add local model runtime, embeddings/vector DB,
+provider-specific AI adapters, autonomous writes, Addon distribution, Public
+Client API changes, or `taru-client-protocol` changes.
+
+## AI Assisted Library Ops Lane Open — 2026-05-22
+
+`ai-assisted-library-ops` opened as the active mainline execution lane after
+Network Access Boundary closeout. It builds on completed metadata provider,
+NFO/link, Managed Import, promotion apply, NFO sidecar apply, playback,
+acquisition intake, network, and external automation foundations.
+
+The first executable slice was AILO-020: deepen existing Automation Artifacts
+into a Generated Artifact proposal/readiness queue. AILO-030 then exposed
+Admin-only proposal diagnostics and typed Admin Web support. AILO-040 added
+explicit accept/reject planning for metadata-cleanup proposals without
+autonomous canonical metadata, sidecar, Media Source, Managed Import, or
+library-file writes. AILO-050 closed the lane and split provider-specific
+adapters, local model runtime, embeddings/vector search, Public Client display,
+protocol downloaders, Addon distribution, and deeper metadata-authority apply
+follow-ons.
+
+## Post-AILO Closeout Re-Score — 2026-05-22
+
+`ai-assisted-library-ops` is now complete. Taru can represent AI-like outputs
+as Generated Artifact proposals with stable target/provenance/payload/readiness
+summaries, expose them through Admin-only redacted diagnostics, and record
+explicit accept/reject planning for metadata-cleanup suggestions without
+autonomous writes. Public Client API and `taru-client-protocol` remain
+unchanged.
+
+That removes the last major prerequisite before returning to the Addon roadmap:
+Addons can now consume side-effect APIs, acquisition intake, network readiness,
+and Generated Artifact proposal queues instead of inventing direct mutation or
+AI-specific paths.
+
+| Lane | Current score | Why | Decision |
+| --- | --- | --- | --- |
+| Addon Runtime / Distribution | Highest | Addon protocol, side-effect APIs, Admin Addon operations, network policy, acquisition intake, and Generated Artifact acceptance semantics are now explicit. The next risk is making sidecar package/install/runtime readiness safe before broader distribution. | Open next as the mainline execution lane. First slice should be package/install descriptor and redacted install-guide readiness, not Addon Manager automation. |
+| Protocol Downloader Integrations | High but separate | Downloader adapters have safe intake and network policy targets, but they need credential, retry, sandbox, and adapter-specific failure policies. | Split as a downloader lane after Addon runtime/distribution starts or when a concrete adapter is selected. |
+| Concrete Tunnel Runtime / Endpoint Discovery | Useful follow-on | Network policy/readiness exists, but launching tunnel providers or exposing endpoint discovery to clients has separate runtime/security implications. | Split as a network runtime/client-discovery lane. |
+| Local AI Runtime / Vector Search | Useful follow-on | Generated Artifact semantics exist, but model execution, embeddings, storage, GPU scheduling, and provider adapters are separate operational concerns. | Split after Addon runtime/distribution or when a concrete provider/runtime is selected. |
+
+PRPH-170 therefore opens `addon-runtime-and-distribution` as the next mainline
+lane. The first executable task is ARD-020 package/install descriptor and
+redacted install-guide boundary. It must not add Addon Manager discovery,
+automatic install/update, package signing trust root, process supervision,
+Native Plugin ABI, direct library writes, Public Client API changes, or
+`taru-client-protocol` changes.
+
 ## Closeout Condition
 
 This umbrella can close when:

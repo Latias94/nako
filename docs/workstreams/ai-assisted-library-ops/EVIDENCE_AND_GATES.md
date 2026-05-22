@@ -1,6 +1,6 @@
 # AI Assisted Library Ops — Evidence And Gates
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-22
 
 ## Expected Gates
@@ -60,6 +60,7 @@ git diff --check
 | 2026-05-22 | AILO-040 | `cargo nextest run -p taru-server admin_v1_generated_artifact_review --no-fail-fast`; `cargo nextest run -p taru-server http::tests::system --no-fail-fast` | Pass: focused route test and 23 system tests. Proves Admin review-plan/review routes return redacted boundaries and accepted metadata-cleanup proposals still do not mutate canonical metadata. |
 | 2026-05-22 | AILO-040 | `cargo nextest run -p taru-db automation --no-fail-fast`; `cargo nextest run -p taru-api admin_contract --no-fail-fast`; `npm run check` from `apps/admin-web` | Pass. Automation repository contract remains green after adding artifact lookup; Admin contract includes review-plan/review routes and generated Admin Web contract is synchronized; Admin Web TypeScript compiles. |
 | 2026-05-22 | AILO-040 | `cargo fmt --all -- --check`; `git diff --check`; `git diff --name-only -- crates/taru-client-protocol` | Pass. `git diff --check` emitted only CRLF conversion warnings, including the unrelated existing `sdk/kotlin` working-tree change. Public Client protocol untouched. |
+| 2026-05-22 | AILO-050 closeout | `python -m json.tool docs/workstreams/ai-assisted-library-ops/WORKSTREAM.json`; `python -m json.tool docs/workstreams/post-rpd-product-hardening/WORKSTREAM.json`; `git diff --check`; `git diff --name-only -- crates/taru-client-protocol` | Pass. AI Assisted Library Ops is closed with Generated Artifact proposal/readiness, Admin diagnostics, and explicit review planning complete. Provider-specific adapters, local model runtime, embeddings/vector search, Public Client display, protocol downloaders, Addon distribution, and deeper metadata-authority apply are split follow-ons. `git diff --check` emitted only repository CRLF conversion warnings, including the unrelated Kotlin SDK working-tree file. |
 
 ## Redaction Checklist
 

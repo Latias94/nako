@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "slug": "addon-runtime-and-distribution",
+  "title": "Addon Runtime And Distribution",
+  "status": "active",
+  "updated": "2026-05-22",
+  "scope_kind": "execution",
+  "problem": "Addon sidecars and Admin operations exist, but Taru needs a safe package/install/runtime readiness and routing boundary before broader Addon distribution or manager behavior can ship without weakening extension trust boundaries.",
+  "task_prefix": "ARD",
+  "current_task": "ARD-020",
+  "completed_tasks": [
+    "ARD-010"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/addon-runtime-and-distribution/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/addon-runtime-and-distribution/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/addon-runtime-and-distribution/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/addon-runtime-and-distribution/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/addon-runtime-and-distribution/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/addon-runtime-and-distribution/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "cargo nextest run -p taru-addon-protocol --no-fail-fast",
+    "cargo nextest run -p taru-addon-client --no-fail-fast",
+    "cargo nextest run -p taru-db addon --no-fail-fast",
+    "cargo nextest run -p taru-server addons --no-fail-fast",
+    "cargo nextest run -p taru-api admin_contract --no-fail-fast",
+    "cargo nextest run -p taru-server http::tests::system --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "npm run check from apps/admin-web after Admin contract/client changes",
+    "git diff --check",
+    "git diff --name-only -- crates/taru-client-protocol"
+  ],
+  "evidence": [
+    "docs/workstreams/addon-runtime-and-distribution/DESIGN.md",
+    "docs/workstreams/addon-runtime-and-distribution/TODO.md",
+    "docs/workstreams/addon-runtime-and-distribution/EVIDENCE_AND_GATES.md",
+    "CONTEXT.md",
+    "docs/adr/0003-http-addons-before-in-process-plugins.md",
+    "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md",
+    "docs/adr/0022-keep-public-protocol-crates-permissive-while-server-crates-remain-agpl.md",
+    "docs/workstreams/addon-architecture-deepening",
+    "docs/workstreams/admin-addon-operations-mvp",
+    "docs/workstreams/ai-assisted-library-ops",
+    "docs/workstreams/downloads-watch-folder-intake",
+    "crates/taru-addon-protocol/src/lib.rs",
+    "crates/taru-addon-client",
+    "crates/taru-core/src/addon.rs",
+    "crates/taru-server/src/http/addons.rs",
+    "crates/taru-api/src/admin.rs"
+  ],
+  "adr_refs": [
+    "docs/adr/0003-http-addons-before-in-process-plugins.md",
+    "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md",
+    "docs/adr/0022-keep-public-protocol-crates-permissive-while-server-crates-remain-agpl.md",
+    "docs/adr/0024-inbound-token-authentication-boundary.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "next_task": "ARD-020",
+    "notes": "ARD-010 opened Addon Runtime And Distribution as the next post-AILO mainline lane. Continue with ARD-020 package/install descriptor and redacted install-guide boundary. Keep Addon Manager discovery/install/update, marketplace hosting, package signing trust root, process/container supervision, Native Plugin ABI, Jellyfin Plugin Compatibility, direct library writes, downloader protocol adapters, local AI runtime, Public Client API changes, and taru-client-protocol changes out of scope unless split into a dedicated lane."
+  }
+}
