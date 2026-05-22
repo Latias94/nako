@@ -1,0 +1,155 @@
+# AI Assisted Library Ops Design
+
+Status: Active
+Last updated: 2026-05-22
+
+## Why This Lane Exists
+
+Taru already has an external automation foundation and durable Automation
+Artifacts, but the product boundary is still too generic for AI-assisted media
+library operations. Generated outputs can be helpful for title matching,
+metadata cleanup, summaries, recommendations, and intake triage, yet the risk
+is high: a plausible AI answer can overwrite trusted metadata, leak paths or
+provider secrets, bypass NFO sidecar policy, or create an unreviewable catalog
+mutation.
+
+The first-principles boundary is therefore not "run a model"; it is "turn an
+untrusted generated proposal into a reviewable Taru artifact that can only
+become canonical through an explicit acceptance workflow."
+
+## Relevant Authority
+
+- Glossary and policy:
+  - `CONTEXT.md` — **Generated Artifact** and **Acceptance Workflow**
+- ADRs:
+  - `docs/adr/0004-ai-as-external-automation-first.md`
+  - `docs/adr/0007-metadata-merge-policy-and-local-authority.md`
+  - `docs/adr/0008-nfo-as-local-metadata-boundary.md`
+  - `docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md`
+  - `docs/adr/0027-admin-api-boundary-for-web-console.md`
+- Completed boundaries:
+  - `docs/workstreams/addons-automation`
+  - `docs/workstreams/metadata-provider-breadth`
+  - `docs/workstreams/link-apply-and-import-promotion`
+  - `docs/workstreams/nfo-sidecar-promotion-apply`
+  - `docs/workstreams/downloads-watch-folder-intake`
+  - `docs/workstreams/network-access-boundary`
+- Related code:
+  - `crates/taru-core/src/automation.rs`
+  - `crates/taru-automation/src/lib.rs`
+  - `crates/taru-server/src/app/automation.rs`
+  - `crates/taru-server/src/http/automation.rs`
+  - `crates/taru-api/src/extension.rs`
+  - `crates/taru-api/src/admin.rs`
+
+## Problem
+
+The existing automation layer can enqueue external automation jobs and persist
+proposed artifacts. It does not yet answer product-critical questions:
+
+- which generated artifacts are safe to show to operators;
+- which artifact kinds can target a Media Item, Media Source, Library, or intake
+  candidate;
+- how confidence, explanation, provenance, and stale target checks are modeled;
+- how an accepted title-match or metadata-cleanup proposal maps into existing
+  metadata authority / NFO / promotion apply workflows;
+- how Admin diagnostics expose proposal queues without prompt payloads, provider
+  secrets, raw source locators, local paths, or generated raw text that might
+  contain sensitive data;
+- how to prove AI can help without creating autonomous writes.
+
+## Target State
+
+When this lane closes:
+
+- Taru has a stable Generated Artifact proposal/readiness vocabulary for
+  AI-assisted title matching, metadata cleanup, summaries, and recommendations.
+- Existing Automation Artifacts are wrapped or deepened into an operator-facing
+  proposal queue with redacted Admin diagnostics.
+- Generated Artifact acceptance is explicit, idempotent, auditable, and never
+  implies autonomous canonical metadata, sidecar, or library-file mutation.
+- Accepted metadata/title proposals route through existing Taru authority
+  boundaries rather than introducing direct AI writes.
+- Provider prompts, secrets, raw local paths, source locators, raw generated
+  payloads, and internal credentials remain out of Public Client API and Admin
+  diagnostics unless deliberately summarized/redacted.
+- Public Client API and `taru-client-protocol` remain unchanged unless a
+  dedicated client-contract lane is opened.
+- Local model runtime, embeddings/vector DB, and Addon distribution remain
+  split follow-ons.
+
+## In Scope
+
+- AI-assisted library ops workstream docs and task ledger.
+- Generated Artifact proposal categories, status/readiness, provenance,
+  confidence, target, and stale-target checks.
+- Admin-only generated artifact proposal diagnostics and review/readiness
+  surfaces.
+- Acceptance planning for title-match and metadata-cleanup proposals through
+  existing metadata authority and NFO/apply boundaries.
+- Tests proving generated artifacts do not mutate canonical metadata or library
+  files without explicit acceptance.
+- Redaction tests for prompts, provider secrets, raw generated payloads, local
+  paths, source locators, and private provider responses.
+
+## Out Of Scope
+
+- Local LLM/model runtime, embedding pipeline, vector DB, GPU scheduling, or
+  model download/cache management.
+- Direct autonomous writes to Canonical Metadata, NFO sidecars, Managed Import
+  artifacts, Media Sources, or library files.
+- Addon runtime/distribution or manifest marketplace UX.
+- Protocol downloader adapters, background watch scheduling, or remote network
+  exposure.
+- Public Client API/SDK changes.
+- Provider-specific OpenAI/Anthropic/local sidecar implementation unless split
+  as a provider adapter lane after the proposal/acceptance boundary is stable.
+
+## Starting Assumptions
+
+| Assumption | Confidence | Evidence | Consequence if wrong |
+| --- | --- | --- | --- |
+| AI should enter through external automation first, not a local runtime. | High | ADR 0004 and `taru-automation` foundation | If local model execution becomes urgent, split a runtime lane after generated artifact semantics are stable. |
+| Generated Artifact acceptance must reuse existing metadata/import/NFO authority. | High | `CONTEXT.md`, metadata/NFO/apply workstream closeouts | If an artifact needs a new apply target, define it as a separate accepted side-effect lane. |
+| Admin-only diagnostics are the first operator surface. | High | ADR 0027 and prior Admin read models | If Public Client display is needed, open a client-contract lane with protocol gates. |
+| Raw prompts and raw model outputs can contain sensitive data. | High | Providers may receive paths, titles, external IDs, or user-provided text | Store bounded/redacted summaries for Admin review; keep raw payloads internal or absent unless policy says otherwise. |
+
+## Architecture Direction
+
+Keep AI as an external proposal source and Taru as the authority boundary:
+
+```text
+taru-core / taru-db
+  Own stable Generated Artifact proposal records, target identity,
+  provenance, confidence, status, stale-target evidence, and repository
+  contracts.
+
+taru-automation
+  Own provider job execution and conversion from external outcome into
+  proposed artifacts. It must not apply canonical mutations.
+
+taru-server::app
+  Own proposal queue/readiness, acceptance planning, idempotent accept/reject,
+  and routing accepted changes into existing metadata/import/NFO apply
+  workflows.
+
+taru-api::admin / taru-server::http::admin
+  Own Admin-only proposal diagnostics and review contracts. Public Client API
+  stays untouched.
+```
+
+## Closeout Condition
+
+This lane can close when:
+
+- generated artifact proposal/readiness semantics are explicit and tested;
+- Admin diagnostics expose safe proposal summaries and review state;
+- acceptance planning proves no autonomous canonical metadata, sidecar, or file
+  writes;
+- at least one concrete AI-assisted operation, likely title-match or
+  metadata-cleanup proposal review, is routed through existing authority
+  boundaries;
+- redaction gates cover prompts, provider secrets, raw generated output, local
+  paths, source locators, and provider payloads;
+- provider-specific adapters, local model runtime, vector search, Addon
+  distribution, and Public Client API changes are split or deferred.

@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "slug": "ai-assisted-library-ops",
+  "title": "AI Assisted Library Ops",
+  "status": "active",
+  "updated": "2026-05-22",
+  "scope_kind": "execution",
+  "problem": "AI-like outputs can help with title matching, metadata cleanup, summaries, recommendations, and intake triage, but they must enter Taru as Generated Artifacts with explicit acceptance rather than autonomous canonical metadata, sidecar, or library-file writes.",
+  "task_prefix": "AILO",
+  "current_task": "AILO-020",
+  "completed_tasks": [
+    "AILO-010"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/ai-assisted-library-ops/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/ai-assisted-library-ops/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/ai-assisted-library-ops/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/ai-assisted-library-ops/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/ai-assisted-library-ops/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/ai-assisted-library-ops/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "cargo nextest run -p taru-db automation --no-fail-fast",
+    "cargo nextest run -p taru-automation --no-fail-fast",
+    "cargo nextest run -p taru-api admin_contract --no-fail-fast",
+    "cargo nextest run -p taru-server http::tests::system --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "npm run check from apps/admin-web after Admin contract/client changes",
+    "git diff --check",
+    "git diff --name-only -- crates/taru-client-protocol"
+  ],
+  "evidence": [
+    "docs/workstreams/ai-assisted-library-ops/DESIGN.md",
+    "docs/workstreams/ai-assisted-library-ops/TODO.md",
+    "docs/workstreams/ai-assisted-library-ops/EVIDENCE_AND_GATES.md",
+    "CONTEXT.md",
+    "docs/adr/0004-ai-as-external-automation-first.md",
+    "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
+    "docs/workstreams/addons-automation",
+    "crates/taru-core/src/automation.rs",
+    "crates/taru-automation/src/lib.rs",
+    "crates/taru-server/src/app/automation.rs",
+    "crates/taru-api/src/admin.rs",
+    "apps/admin-web/src/adminApi"
+  ],
+  "adr_refs": [
+    "docs/adr/0004-ai-as-external-automation-first.md",
+    "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
+    "docs/adr/0008-nfo-as-local-metadata-boundary.md",
+    "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "next_task": "AILO-020",
+    "notes": "AILO-010 opened AI Assisted Library Ops after Network Access Boundary closeout. Use existing automation/provider/artifact foundations, but productize Generated Artifact proposal/readiness and acceptance semantics before any provider-specific adapter, local model runtime, vector database, Addon distribution, downloader protocol, autonomous write, Public Client API, or taru-client-protocol change. Continue with AILO-020 Generated Artifact proposal queue."
+  }
+}
