@@ -1,5 +1,5 @@
 use std::{
-    fs,
+    fmt, fs,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     path::{Path, PathBuf},
 };
@@ -27,6 +27,8 @@ pub struct TaruServerConfig {
     pub database_url_env: Option<String>,
     #[serde(default)]
     pub auth: AuthConfig,
+    #[serde(default)]
+    pub network: NetworkAccessConfig,
     #[serde(default = "default_ffprobe_path")]
     pub ffprobe_path: PathBuf,
     #[serde(default = "default_ffmpeg_path")]
@@ -87,6 +89,86 @@ impl Default for AuthConfig {
             token_env: default_auth_token_env(),
         }
     }
+}
+
+#[derive(Clone, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct NetworkAccessConfig {
+    #[serde(default)]
+    pub exposure_mode: NetworkExposureMode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub external_base_url: Option<String>,
+    #[serde(default)]
+    pub trusted_proxy_headers: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub trusted_proxy_sources: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub allowed_origins: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tunnel_providers: Vec<TunnelProviderConfig>,
+}
+
+impl fmt::Debug for NetworkAccessConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("NetworkAccessConfig")
+            .field("exposure_mode", &self.exposure_mode)
+            .field(
+                "external_base_url",
+                &self.external_base_url.as_ref().map(|_| "<redacted-url>"),
+            )
+            .field("trusted_proxy_headers", &self.trusted_proxy_headers)
+            .field(
+                "trusted_proxy_source_count",
+                &self.trusted_proxy_sources.len(),
+            )
+            .field("allowed_origin_count", &self.allowed_origins.len())
+            .field("tunnel_provider_count", &self.tunnel_providers.len())
+            .finish()
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NetworkExposureMode {
+    #[default]
+    LocalOnly,
+    PrivateNetwork,
+    ReverseProxy,
+    TunnelProvider,
+}
+
+#[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
+pub struct TunnelProviderConfig {
+    pub id: String,
+    #[serde(default)]
+    pub kind: TunnelProviderKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub public_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token_env: Option<String>,
+}
+
+impl fmt::Debug for TunnelProviderConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TunnelProviderConfig")
+            .field("id", &self.id)
+            .field("kind", &self.kind)
+            .field(
+                "public_url",
+                &self.public_url.as_ref().map(|_| "<redacted-url>"),
+            )
+            .field("token_env", &self.token_env)
+            .finish()
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TunnelProviderKind {
+    #[default]
+    External,
+    CloudflareTunnel,
+    TailscaleFunnel,
+    Ngrok,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -419,6 +501,7 @@ pub fn example_config() -> Result<String> {
         database_url: "sqlite://taru.db".to_owned(),
         database_url_env: None,
         auth: AuthConfig::default(),
+        network: NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: default_ffmpeg_path(),
         scan_concurrency: default_scan_concurrency(),
@@ -1011,6 +1094,69 @@ mod tests {
     }
 
     #[test]
+    fn config_accepts_network_access_policy() {
+        let config = toml::from_str::<TaruServerConfig>(
+            r#"
+            database_url = "sqlite://taru.db"
+            [network]
+            exposure_mode = "reverse_proxy"
+            external_base_url = "https://taru.example.test"
+            trusted_proxy_headers = true
+            trusted_proxy_sources = ["127.0.0.1", "10.0.0.0/8"]
+            allowed_origins = ["https://app.example.test"]
+
+            [[network.tunnel_providers]]
+            id = "cloudflared"
+            kind = "cloudflare_tunnel"
+            public_url = "https://taru.example.test"
+            token_env = "TARU_TUNNEL_TOKEN"
+
+            [[libraries]]
+            id = "018f0000-0000-7000-8000-000000000001"
+            name = "Movies"
+            root = "F:/Media/Movies"
+            "#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            config.network.exposure_mode,
+            NetworkExposureMode::ReverseProxy
+        );
+        assert_eq!(
+            config.network.external_base_url.as_deref(),
+            Some("https://taru.example.test")
+        );
+        assert!(config.network.trusted_proxy_headers);
+        assert_eq!(
+            config.network.trusted_proxy_sources,
+            vec!["127.0.0.1".to_owned(), "10.0.0.0/8".to_owned()]
+        );
+        assert_eq!(
+            config.network.allowed_origins,
+            vec!["https://app.example.test".to_owned()]
+        );
+        assert!(matches!(
+            config.network.trusted_proxy_sources[1].parse::<std::net::IpAddr>(),
+            Err(_)
+        ));
+        assert_eq!(config.network.tunnel_providers.len(), 1);
+        assert_eq!(config.network.tunnel_providers[0].id, "cloudflared");
+        assert_eq!(
+            config.network.tunnel_providers[0].kind,
+            TunnelProviderKind::CloudflareTunnel
+        );
+        assert_eq!(
+            config.network.tunnel_providers[0].public_url.as_deref(),
+            Some("https://taru.example.test")
+        );
+        assert_eq!(
+            config.network.tunnel_providers[0].token_env.as_deref(),
+            Some("TARU_TUNNEL_TOKEN")
+        );
+    }
+
+    #[test]
     fn config_accepts_explicit_postgres_backend_without_inferring_from_url() {
         let config = toml::from_str::<TaruServerConfig>(
             r#"
@@ -1069,6 +1215,17 @@ mod tests {
         )
         .unwrap();
         config.metadata.runtime.proxy = Some("http://user:proxy-secret@127.0.0.1:10809".into());
+        config.network.external_base_url =
+            Some("https://user:network-secret@taru.example.test/path?token=url-secret".to_owned());
+        config.network.allowed_origins = vec!["https://operator-secret.example.test".to_owned()];
+        config.network.tunnel_providers = vec![TunnelProviderConfig {
+            id: "cloudflared".to_owned(),
+            kind: TunnelProviderKind::CloudflareTunnel,
+            public_url: Some(
+                "https://user:tunnel-url-secret@tunnel.example.test/path?token=secret".to_owned(),
+            ),
+            token_env: Some("TARU_TUNNEL_TOKEN".to_owned()),
+        }];
         config.metadata.providers = vec![MetadataProviderConfig {
             provider: ExternalProvider::Douban,
             enabled: true,
@@ -1090,6 +1247,10 @@ mod tests {
 
         assert!(!debug.contains("proxy-secret"));
         assert!(!debug.contains("literal-header-secret"));
+        assert!(!debug.contains("network-secret"));
+        assert!(!debug.contains("url-secret"));
+        assert!(!debug.contains("operator-secret"));
+        assert!(!debug.contains("tunnel-url-secret"));
         assert!(debug.contains("<redacted>"));
     }
 
@@ -1284,6 +1445,145 @@ mod tests {
     }
 
     #[test]
+    fn config_preflight_rejects_reverse_proxy_policy_without_external_base_url() {
+        let temp = tempfile::tempdir().unwrap();
+        let media_root = temp.path().join("media");
+        fs::create_dir_all(&media_root).unwrap();
+        let mut config = minimal_config(temp.path().join("taru.db"), media_root);
+        config.listen_addr = "0.0.0.0:3000".parse().unwrap();
+        config.network.exposure_mode = NetworkExposureMode::ReverseProxy;
+        config.network.trusted_proxy_headers = true;
+        config.network.trusted_proxy_sources = vec!["127.0.0.1".to_owned()];
+
+        let report = preflight_config_with_env(
+            &config,
+            ConfigPreflightOptions::default(),
+            fake_env([("TARU_ADMIN_TOKEN", "secret")]),
+        );
+
+        assert_eq!(report.status, ConfigPreflightStatus::Fail);
+        assert!(report.checks.iter().any(|check| {
+            check.id == "network.access"
+                && check.status == ConfigPreflightStatus::Fail
+                && check.summary.contains("external_base_url")
+        }));
+    }
+
+    #[test]
+    fn config_preflight_rejects_non_tls_reverse_proxy_external_base_url() {
+        let temp = tempfile::tempdir().unwrap();
+        let media_root = temp.path().join("media");
+        fs::create_dir_all(&media_root).unwrap();
+        let mut config = minimal_config(temp.path().join("taru.db"), media_root);
+        config.network.exposure_mode = NetworkExposureMode::ReverseProxy;
+        config.network.external_base_url = Some("http://taru.example.test".to_owned());
+
+        let report = preflight_config_with_env(
+            &config,
+            ConfigPreflightOptions::default(),
+            fake_env([("TARU_ADMIN_TOKEN", "secret")]),
+        );
+
+        assert_eq!(report.status, ConfigPreflightStatus::Fail);
+        assert!(report.checks.iter().any(|check| {
+            check.id == "network.access"
+                && check.status == ConfigPreflightStatus::Fail
+                && check.detail.contains("https://")
+        }));
+    }
+
+    #[test]
+    fn config_preflight_rejects_trusted_proxy_headers_without_trusted_sources() {
+        let temp = tempfile::tempdir().unwrap();
+        let media_root = temp.path().join("media");
+        fs::create_dir_all(&media_root).unwrap();
+        let mut config = minimal_config(temp.path().join("taru.db"), media_root);
+        config.network.exposure_mode = NetworkExposureMode::ReverseProxy;
+        config.network.external_base_url = Some("https://taru.example.test".to_owned());
+        config.network.trusted_proxy_headers = true;
+
+        let report = preflight_config_with_env(
+            &config,
+            ConfigPreflightOptions::default(),
+            fake_env([("TARU_ADMIN_TOKEN", "secret")]),
+        );
+
+        assert_eq!(report.status, ConfigPreflightStatus::Fail);
+        assert!(report.checks.iter().any(|check| {
+            check.id == "network.proxy"
+                && check.status == ConfigPreflightStatus::Fail
+                && check.summary.contains("trusted proxy")
+        }));
+    }
+
+    #[test]
+    fn config_preflight_rejects_path_bearing_browser_origins_without_echoing_them() {
+        let temp = tempfile::tempdir().unwrap();
+        let media_root = temp.path().join("media");
+        fs::create_dir_all(&media_root).unwrap();
+        let mut config = minimal_config(temp.path().join("taru.db"), media_root);
+        config.network.allowed_origins =
+            vec!["https://user:secret@app.example.test/path?token=origin-secret".to_owned()];
+
+        let report = preflight_config_with_env(
+            &config,
+            ConfigPreflightOptions::default(),
+            fake_env([("TARU_ADMIN_TOKEN", "secret")]),
+        );
+        let json = serde_json::to_string(&report).unwrap();
+
+        assert_eq!(report.status, ConfigPreflightStatus::Fail);
+        assert!(report.checks.iter().any(|check| {
+            check.id == "network.origins" && check.status == ConfigPreflightStatus::Fail
+        }));
+        assert!(!json.contains("origin-secret"));
+        assert!(!json.contains("user:secret"));
+    }
+
+    #[test]
+    fn config_preflight_accepts_reverse_proxy_policy_without_leaking_tunnel_secret() {
+        let temp = tempfile::tempdir().unwrap();
+        let media_root = temp.path().join("media");
+        fs::create_dir_all(&media_root).unwrap();
+        let mut config = minimal_config(temp.path().join("taru.db"), media_root);
+        config.listen_addr = "0.0.0.0:3000".parse().unwrap();
+        config.network.exposure_mode = NetworkExposureMode::ReverseProxy;
+        config.network.external_base_url = Some("https://taru.example.test".to_owned());
+        config.network.trusted_proxy_headers = true;
+        config.network.trusted_proxy_sources = vec!["127.0.0.1".to_owned()];
+        config.network.allowed_origins = vec!["https://app.example.test".to_owned()];
+        config.network.tunnel_providers = vec![TunnelProviderConfig {
+            id: "cloudflared".to_owned(),
+            kind: TunnelProviderKind::CloudflareTunnel,
+            public_url: Some("https://taru.example.test".to_owned()),
+            token_env: Some("TARU_TUNNEL_TOKEN".to_owned()),
+        }];
+
+        let report = preflight_config_with_env(
+            &config,
+            ConfigPreflightOptions::default(),
+            fake_env([
+                ("TARU_ADMIN_TOKEN", "admin-secret"),
+                ("TARU_TUNNEL_TOKEN", "tunnel-secret"),
+            ]),
+        );
+        let json = serde_json::to_string(&report).unwrap();
+
+        assert_eq!(report.status, ConfigPreflightStatus::Warn);
+        assert!(report.checks.iter().any(|check| {
+            check.id == "network.access" && check.status == ConfigPreflightStatus::Pass
+        }));
+        assert!(report.checks.iter().any(|check| {
+            check.id == "network.proxy" && check.status == ConfigPreflightStatus::Pass
+        }));
+        assert!(report.checks.iter().any(|check| {
+            check.id == "network.tunnel_providers" && check.status == ConfigPreflightStatus::Pass
+        }));
+        assert!(!json.contains("admin-secret"));
+        assert!(!json.contains("tunnel-secret"));
+    }
+
+    #[test]
     fn resolve_database_url_prefers_secret_environment_variable() {
         let temp = tempfile::tempdir().unwrap();
         let media_root = temp.path().join("media");
@@ -1308,6 +1608,7 @@ mod tests {
             database_url: format!("sqlite://{}", database_path.display()),
             database_url_env: None,
             auth: AuthConfig::default(),
+            network: NetworkAccessConfig::default(),
             ffprobe_path: PathBuf::from("ffprobe"),
             ffmpeg_path: PathBuf::from("ffmpeg"),
             scan_concurrency: default_scan_concurrency(),

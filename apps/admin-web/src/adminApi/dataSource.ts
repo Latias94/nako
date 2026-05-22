@@ -1,6 +1,7 @@
 import { AdminApiClient, type AdminApiClientOptions } from "./client";
 import {
   mockAdminConsoleData,
+  mockAcquisitionIntakeCandidates,
   mockCatalogGovernance,
   mockEvents,
   mockJobs,
@@ -11,6 +12,7 @@ import {
   mockSystemConfig,
 } from "./mockData";
 import type {
+  AdminAcquisitionIntakeCandidateListResponse,
   AdminCatalogGovernanceItemListResponse,
   AdminJobListResponse,
   AdminOutboxEventListResponse,
@@ -27,7 +29,9 @@ import type {
   CatalogGovernanceSummary,
   DataSourceMode,
   EventSummary,
+  IntakeSummary,
   JobRow,
+  NetworkSummary,
   PlaybackSummary,
   SettingRow,
   StorageSummary,
@@ -53,6 +57,7 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
       const [
         overview,
         catalogGovernance,
+        acquisitionIntakeCandidates,
         events,
         jobs,
         playbackSessions,
@@ -62,6 +67,7 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
       ] = await Promise.all([
         loadSection(() => client.getOverview(), mockOverview),
         loadSection(() => client.getCatalogGovernanceItems(), mockCatalogGovernance),
+        loadSection(() => client.getAcquisitionIntakeCandidates(), mockAcquisitionIntakeCandidates),
         loadSection(() => client.getEvents(), mockEvents),
         loadSection(() => client.getJobs(), mockJobs),
         loadSection(() => client.getPlaybackSessions(), mockPlaybackSessions),
@@ -73,6 +79,7 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
       const sources: AdminSourceMap = {
         overview: overview.source,
         catalogGovernance: catalogGovernance.source,
+        acquisitionIntake: acquisitionIntakeCandidates.source,
         events: events.source,
         jobs: jobs.source,
         playbackSessions: playbackSessions.source,
@@ -84,6 +91,7 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
 
       recordError(errors, "overview", overview);
       recordError(errors, "catalogGovernance", catalogGovernance);
+      recordError(errors, "acquisitionIntake", acquisitionIntakeCandidates);
       recordError(errors, "events", events);
       recordError(errors, "jobs", jobs);
       recordError(errors, "playbackSessions", playbackSessions);
@@ -97,10 +105,12 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
         errors,
         overview: overview.value,
         catalog: mapCatalogGovernance(catalogGovernance.value),
+        acquisitionIntake: mapAcquisitionIntake(acquisitionIntakeCandidates.value),
         events: mapEvents(events.value),
         jobs: mapJobs(jobs.value),
         playback: mapPlayback(playbackSessions.value, playbackRuntime.value),
         storage: mapStorage(storageStaging.value),
+        network: mapNetwork(systemConfig.value.network),
         settings: mapSettings(systemConfig.value),
       };
     },
@@ -139,6 +149,23 @@ function mapCatalogGovernance(
       issues: item.issues,
       sourceCount: item.source_count,
       providerMappingCount: item.provider_mapping_count,
+    })),
+    page: response.page,
+  };
+}
+
+function mapAcquisitionIntake(
+  response: AdminAcquisitionIntakeCandidateListResponse,
+): IntakeSummary {
+  return {
+    candidates: response.candidates.map((candidate) => ({
+      id: candidate.id,
+      sourceKind: candidate.source_kind,
+      sourceScheme: candidate.source_scheme ?? "unknown",
+      state: candidate.state,
+      sizeBytes: candidate.size_bytes,
+      hasDiagnostics: candidate.has_diagnostics,
+      linkedArtifactId: candidate.managed_import_artifact_id,
     })),
     page: response.page,
   };
@@ -203,11 +230,29 @@ function mapStorage(response: AdminStorageStagingDiagnosticsResponse): StorageSu
   };
 }
 
+function mapNetwork(response: AdminServerConfigDiagnosticsResponse["network"]): NetworkSummary {
+  return {
+    exposureMode: response.exposure_mode,
+    readinessStatus: response.readiness.status,
+    readinessReason: response.readiness.reason,
+    endpointConfigured: response.external_endpoint.configured,
+    endpointScheme: response.external_endpoint.scheme,
+    trustedProxyHeaders: response.trusted_proxy.headers_enabled,
+    trustedProxySourceCount: response.trusted_proxy.source_count,
+    allowedOriginCount: response.origins.allowed_origin_count,
+    tunnelProviderCount: response.tunnel_providers.length,
+  };
+}
+
 function mapSettings(response: AdminServerConfigDiagnosticsResponse): SettingRow[] {
   return [
     {
       label: "Admin auth",
       value: response.auth.enabled ? "Auth configured" : "Auth disabled",
+    },
+    {
+      label: "Network readiness",
+      value: `${response.network.exposure_mode} · ${response.network.readiness.status}`,
     },
     {
       label: "FFmpeg",

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use taru_core::MediaSource;
+use taru_core::{MediaSource, Result, TaruError};
 
 use super::{HardwareAcceleration, OutputContainer, RemuxContainer};
 
@@ -79,6 +79,36 @@ pub struct TranscodeProfile {
     pub playback_profile_key: String,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TranscodeProfileValidationReason {
+    RemuxMustNotTranscodeVideo,
+    RemuxMustNotTranscodeAudio,
+    RemuxMustUseCpuPath,
+    RemuxMustNotSetVideoBitrate,
+    RemuxMustNotSetHdrPreference,
+    HlsMustUseHlsContainer,
+    HlsVideoCodecUnsupported,
+    HlsAudioCodecUnsupported,
+    HlsVideoBitrateMustBePositive,
+    PlaybackProfileKeyRequired,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct TranscodeProfileValidationError {
+    pub reason: TranscodeProfileValidationReason,
+    pub operator_message: String,
+}
+
+impl TranscodeProfileValidationError {
+    fn new(reason: TranscodeProfileValidationReason, operator_message: &'static str) -> Self {
+        Self {
+            reason,
+            operator_message: operator_message.to_owned(),
+        }
+    }
+}
+
 impl TranscodeProfile {
     #[must_use]
     pub fn remux(profile: RemuxTranscodeProfile) -> Self {
@@ -116,6 +146,7 @@ impl TranscodeProfile {
 
     #[must_use]
     pub fn identity(&self) -> TranscodeProfileIdentity {
+        validate_transcode_profile(self).expect("transcode profile must be valid before identity");
         let request_key = self.persisted_request_key();
         let digest = Sha256::digest(request_key.as_bytes());
         let digest = lowercase_hex(&digest);
@@ -123,6 +154,20 @@ impl TranscodeProfile {
         TranscodeProfileIdentity {
             request_key,
             storage_slug: format!("{}-v1-{}", self.kind.as_str(), &digest[..16]),
+        }
+    }
+
+    pub fn validate(&self) -> std::result::Result<(), TranscodeProfileValidationError> {
+        if self.playback_profile_key.trim().is_empty() {
+            return Err(TranscodeProfileValidationError::new(
+                TranscodeProfileValidationReason::PlaybackProfileKeyRequired,
+                "transcode profile requires a playback profile key",
+            ));
+        }
+
+        match self.kind {
+            TranscodeProfileKind::Remux => self.validate_remux(),
+            TranscodeProfileKind::HlsSingleVariant => self.validate_hls_single_variant(),
         }
     }
 
@@ -142,6 +187,74 @@ impl TranscodeProfile {
             self.reuse_policy.as_str(),
             escaped_component(&self.playback_profile_key),
         )
+    }
+
+    fn validate_remux(&self) -> std::result::Result<(), TranscodeProfileValidationError> {
+        if self.video_codec.is_some() {
+            return Err(TranscodeProfileValidationError::new(
+                TranscodeProfileValidationReason::RemuxMustNotTranscodeVideo,
+                "remux profile must not request video transcoding",
+            ));
+        }
+        if self.audio_codec.is_some() {
+            return Err(TranscodeProfileValidationError::new(
+                TranscodeProfileValidationReason::RemuxMustNotTranscodeAudio,
+                "remux profile must not request audio transcoding",
+            ));
+        }
+        if self.hardware_acceleration != HardwareAcceleration::None {
+            return Err(TranscodeProfileValidationError::new(
+                TranscodeProfileValidationReason::RemuxMustUseCpuPath,
+                "remux profile must not request hardware acceleration",
+            ));
+        }
+        if self.max_video_bitrate.is_some() {
+            return Err(TranscodeProfileValidationError::new(
+                TranscodeProfileValidationReason::RemuxMustNotSetVideoBitrate,
+                "remux profile must not set a video bitrate limit",
+            ));
+        }
+        if self.prefer_hdr.is_some() {
+            return Err(TranscodeProfileValidationError::new(
+                TranscodeProfileValidationReason::RemuxMustNotSetHdrPreference,
+                "remux profile must not set an HDR preference",
+            ));
+        }
+        Ok(())
+    }
+
+    fn validate_hls_single_variant(
+        &self,
+    ) -> std::result::Result<(), TranscodeProfileValidationError> {
+        if canonical_value(&self.output_container) != OutputContainer::Hls.as_str() {
+            return Err(TranscodeProfileValidationError::new(
+                TranscodeProfileValidationReason::HlsMustUseHlsContainer,
+                "hls transcode profile must use the hls output container",
+            ));
+        }
+        if let Some(codec) = self.video_codec.as_deref() {
+            if !matches!(codec, "h264") {
+                return Err(TranscodeProfileValidationError::new(
+                    TranscodeProfileValidationReason::HlsVideoCodecUnsupported,
+                    "hls transcode profile currently supports h264 video output",
+                ));
+            }
+        }
+        if let Some(codec) = self.audio_codec.as_deref() {
+            if !matches!(codec, "aac") {
+                return Err(TranscodeProfileValidationError::new(
+                    TranscodeProfileValidationReason::HlsAudioCodecUnsupported,
+                    "hls transcode profile currently supports aac audio output",
+                ));
+            }
+        }
+        if self.max_video_bitrate.is_some_and(|value| value == 0) {
+            return Err(TranscodeProfileValidationError::new(
+                TranscodeProfileValidationReason::HlsVideoBitrateMustBePositive,
+                "hls transcode profile video bitrate limit must be positive",
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -259,6 +372,12 @@ impl TranscodeRequestIdentity {
     pub fn profile_identity(&self) -> &TranscodeProfileIdentity {
         &self.profile_identity
     }
+}
+
+pub fn validate_transcode_profile(profile: &TranscodeProfile) -> Result<()> {
+    profile.validate().map_err(|error| TaruError::InvalidInput {
+        message: error.operator_message,
+    })
 }
 
 fn optional_str(value: Option<&str>) -> String {

@@ -1,10 +1,16 @@
 import type {
   AdminCatalogGovernanceItemListResponse,
+  AdminAcquisitionIntakeCandidateListResponse,
+  AdminAcquisitionIntakeCandidatesQuery,
+  AdminWatchFolderDiscoveryRequest,
+  AdminWatchFolderDiscoveryResponse,
   AdminJobListResponse,
   AdminOutboxEventListResponse,
   AdminOverviewResponse,
   AdminPlaybackRuntimeDiagnosticsResponse,
   AdminPlaybackSessionListResponse,
+  AdminPlaybackSupportEvidenceResponse,
+  AdminPlaybackSupportQuery,
   AdminServerConfigDiagnosticsResponse,
   AdminStorageStagingDiagnosticsResponse,
 } from "./generated/contract";
@@ -37,6 +43,23 @@ export class AdminApiClient {
     );
   }
 
+  async getAcquisitionIntakeCandidates(
+    query: AdminAcquisitionIntakeCandidatesQuery = {},
+  ): Promise<AdminAcquisitionIntakeCandidateListResponse> {
+    return this.getJson<AdminAcquisitionIntakeCandidateListResponse>(
+      withQuery(TARU_ADMIN_ROUTES.acquisitionIntakeCandidates, query),
+    );
+  }
+
+  async discoverWatchFolderCandidates(
+    request: AdminWatchFolderDiscoveryRequest,
+  ): Promise<AdminWatchFolderDiscoveryResponse> {
+    return this.postJson<AdminWatchFolderDiscoveryResponse>(
+      TARU_ADMIN_ROUTES.acquisitionIntakeWatchFolderDiscovery,
+      request,
+    );
+  }
+
   async getEvents(): Promise<AdminOutboxEventListResponse> {
     return this.getJson<AdminOutboxEventListResponse>(TARU_ADMIN_ROUTES.events);
   }
@@ -53,6 +76,14 @@ export class AdminApiClient {
     return this.getJson<AdminPlaybackRuntimeDiagnosticsResponse>(TARU_ADMIN_ROUTES.playbackRuntime);
   }
 
+  async getPlaybackSupport(
+    query: AdminPlaybackSupportQuery = {},
+  ): Promise<AdminPlaybackSupportEvidenceResponse> {
+    return this.getJson<AdminPlaybackSupportEvidenceResponse>(
+      withQuery(TARU_ADMIN_ROUTES.playbackSupport, query),
+    );
+  }
+
   async getStorageStaging(): Promise<AdminStorageStagingDiagnosticsResponse> {
     return this.getJson<AdminStorageStagingDiagnosticsResponse>(TARU_ADMIN_ROUTES.storageStaging);
   }
@@ -64,6 +95,23 @@ export class AdminApiClient {
   private async getJson<T>(path: string): Promise<T> {
     const response = await this.fetcher(`${this.baseUrl}${path}`, {
       headers: this.headers(),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Admin API request failed with HTTP ${response.status}`);
+    }
+
+    return (await response.json()) as T;
+  }
+
+  private async postJson<T>(path: string, body: unknown): Promise<T> {
+    const response = await this.fetcher(`${this.baseUrl}${path}`, {
+      method: "POST",
+      headers: {
+        ...this.headers(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
@@ -92,4 +140,20 @@ function normalizeBaseUrl(baseUrl: string | undefined) {
   }
 
   return value;
+}
+
+function withQuery(
+  path: string,
+  query: AdminPlaybackSupportQuery | AdminAcquisitionIntakeCandidatesQuery,
+) {
+  const params = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(query)) {
+    if (value) {
+      params.set(key, value);
+    }
+  }
+
+  const suffix = params.toString();
+  return suffix ? `${path}?${suffix}` : path;
 }

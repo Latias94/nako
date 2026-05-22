@@ -167,6 +167,7 @@ async fn admin_v1_catalog_governance_lists_unknown_low_confidence_and_redacts_ev
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: PathBuf::from("ffmpeg"),
         scan_concurrency: 1,
@@ -388,6 +389,7 @@ async fn admin_v1_jobs_lists_filters_and_redacts_raw_payloads() {
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: PathBuf::from("ffmpeg"),
         scan_concurrency: 1,
@@ -501,6 +503,7 @@ async fn admin_v1_job_cancel_requests_are_truthful_and_redacted() {
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: PathBuf::from("ffmpeg"),
         scan_concurrency: 1,
@@ -654,6 +657,7 @@ async fn admin_v1_events_lists_filters_and_redacts_payloads() {
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: PathBuf::from("ffmpeg"),
         scan_concurrency: 1,
@@ -788,6 +792,7 @@ async fn admin_v1_storage_staging_lists_filters_and_redacts_paths() {
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: PathBuf::from("ffmpeg"),
         scan_concurrency: 1,
@@ -961,6 +966,162 @@ async fn admin_v1_storage_staging_lists_filters_and_redacts_paths() {
 }
 
 #[tokio::test]
+async fn admin_v1_acquisition_intake_exposes_redacted_diagnostics_and_watch_folder_discovery() {
+    let temp = tempfile::tempdir().unwrap();
+    let watch = temp.path().join("watch");
+    fs::create_dir_all(watch.join("Season 01")).unwrap();
+    fs::write(watch.join("Ready Movie.mkv"), b"ready").unwrap();
+    fs::write(watch.join("Season 01").join("Episode 01.mp4"), b"episode").unwrap();
+    fs::write(watch.join("Downloading.part"), b"partial").unwrap();
+    fs::write(watch.join("Notes.txt"), b"notes").unwrap();
+    let library_id = LibraryId::new();
+    let router = test_router(temp.path().to_path_buf(), library_id).await;
+
+    let discovery_request = AdminWatchFolderDiscoveryRequest {
+        target_library_id: library_id,
+        root_uri: Some("local:///watch".to_owned()),
+        max_depth: Some(4),
+    };
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/admin/v1/acquisition/intake/watch-folder-discovery")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(serde_json::to_vec(&discovery_request).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let discovery: AdminWatchFolderDiscoveryResponse = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(discovery.target_library_id, library_id);
+    assert_eq!(discovery.root_scheme.as_deref(), Some("local"));
+    assert_eq!(discovery.root_ref_redacted, "local://<redacted>");
+    assert_eq!(discovery.ready_candidates, 2);
+    assert_eq!(discovery.blocked_candidates, 2);
+    assert_eq!(discovery.incomplete_candidates, 1);
+    assert_eq!(discovery.unsupported_candidates, 1);
+    assert_eq!(discovery.recorded_candidates, 4);
+    assert!(discovery.failures.is_empty());
+    assert!(!discovery.writes_library);
+    assert!(!discovery.managed_import_artifacts_created);
+    assert!(!discovery.promotion_apply);
+
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains("Ready Movie"));
+    assert!(!body.contains("Episode 01"));
+    assert!(!body.contains("Downloading"));
+    assert!(!body.contains("Notes.txt"));
+    assert!(!body.contains("admin-token"));
+    assert!(!body.contains("local:///"));
+    assert!(!body.contains("root_uri"));
+
+    let list_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/admin/v1/acquisition/intake/candidates?library_id={library_id}&source_kind=watch_folder&state=ready&limit=10"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = list_response.status();
+    let body = String::from_utf8(
+        to_bytes(list_response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let diagnostics: AdminAcquisitionIntakeCandidateListResponse =
+        serde_json::from_str(&body).unwrap();
+
+    assert_eq!(
+        diagnostics.admin_api_version,
+        taru_api::admin::ADMIN_API_VERSION
+    );
+    assert_eq!(diagnostics.candidates.len(), 2);
+    assert_eq!(diagnostics.page.limit, 10);
+    assert_eq!(diagnostics.page.returned, 2);
+    for candidate in &diagnostics.candidates {
+        assert_eq!(candidate.target_library_id, library_id);
+        assert_eq!(candidate.source_kind, "watch_folder");
+        assert_eq!(candidate.source_scheme.as_deref(), Some("local"));
+        assert_eq!(candidate.source_ref_redacted, "local://<redacted>");
+        assert!(candidate.source_key_fingerprint.starts_with("sha256:"));
+        assert_eq!(candidate.state, AcquisitionIntakeCandidateState::Ready);
+        assert!(candidate.has_display_name);
+        assert!(candidate.has_diagnostics);
+    }
+
+    assert!(!body.contains("source_uri"));
+    assert!(!body.contains("\"display_name\""));
+    assert!(!body.contains("\"intended_locator\""));
+    assert!(!body.contains("diagnostics_json"));
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains("Ready Movie"));
+    assert!(!body.contains("Episode 01"));
+    assert!(!body.contains("admin-token"));
+    assert!(!body.contains("local:///"));
+}
+
+#[tokio::test]
+async fn admin_v1_acquisition_intake_rejects_raw_root_uri_without_echoing_it() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let router = test_router(temp.path().to_path_buf(), library_id).await;
+    let discovery_request = AdminWatchFolderDiscoveryRequest {
+        target_library_id: library_id,
+        root_uri: Some("C:\\private\\watch?token=admin-token".to_owned()),
+        max_depth: Some(1),
+    };
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/admin/v1/acquisition/intake/watch-folder-discovery")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(serde_json::to_vec(&discovery_request).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(body.contains("invalid root_uri"));
+    assert!(!body.contains("C:\\"));
+    assert!(!body.contains("private"));
+    assert!(!body.contains("admin-token"));
+}
+
+#[tokio::test]
 async fn admin_v1_system_config_reports_sanitized_configuration() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
@@ -991,6 +1152,23 @@ async fn admin_v1_system_config_reports_sanitized_configuration() {
         }],
         runtime: Some(MetadataProviderRuntimeConfig::default()),
     }];
+    let network = crate::config::NetworkAccessConfig {
+        exposure_mode: crate::config::NetworkExposureMode::TunnelProvider,
+        external_base_url: Some(
+            "https://user:network-secret@taru.example.test/path?token=url-secret".to_owned(),
+        ),
+        trusted_proxy_headers: true,
+        trusted_proxy_sources: vec!["127.0.0.1".to_owned(), "10.0.0.0/8".to_owned()],
+        allowed_origins: vec!["https://operator-secret.example.test".to_owned()],
+        tunnel_providers: vec![crate::config::TunnelProviderConfig {
+            id: "cloudflared".to_owned(),
+            kind: crate::config::TunnelProviderKind::CloudflareTunnel,
+            public_url: Some(
+                "https://user:tunnel-url-secret@tunnel.example.test/path?token=secret".to_owned(),
+            ),
+            token_env: None,
+        }],
+    };
     let config = TaruServerConfig {
         database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
@@ -1000,6 +1178,7 @@ async fn admin_v1_system_config_reports_sanitized_configuration() {
             enabled: false,
             token_env: Some("TARU_ADMIN_TOKEN".to_owned()),
         },
+        network,
         ffprobe_path: temp.path().join("private").join("ffprobe"),
         ffmpeg_path: temp.path().join("private").join("ffmpeg"),
         scan_concurrency: 2,
@@ -1089,6 +1268,46 @@ async fn admin_v1_system_config_reports_sanitized_configuration() {
         diagnostics.auth.token_env.as_deref(),
         Some("TARU_ADMIN_TOKEN")
     );
+    assert_eq!(
+        diagnostics.network.exposure_mode,
+        taru_api::admin::AdminNetworkExposureMode::TunnelProvider
+    );
+    assert_eq!(
+        diagnostics.network.readiness.status,
+        taru_api::admin::AdminNetworkReadinessStatus::Unavailable
+    );
+    assert!(diagnostics.network.external_endpoint.configured);
+    assert_eq!(
+        diagnostics.network.external_endpoint.scheme.as_deref(),
+        Some("https")
+    );
+    assert!(
+        diagnostics
+            .network
+            .external_endpoint
+            .host_fingerprint
+            .as_deref()
+            .is_some_and(|fingerprint| fingerprint.starts_with("sha256:"))
+    );
+    assert!(diagnostics.network.trusted_proxy.headers_enabled);
+    assert_eq!(diagnostics.network.trusted_proxy.source_count, 2);
+    assert_eq!(diagnostics.network.origins.allowed_origin_count, 1);
+    assert!(diagnostics.network.origins.configured);
+    assert_eq!(diagnostics.network.tunnel_providers.len(), 1);
+    assert_eq!(diagnostics.network.tunnel_providers[0].id, "cloudflared");
+    assert_eq!(
+        diagnostics.network.tunnel_providers[0].kind,
+        taru_api::admin::AdminTunnelProviderKind::CloudflareTunnel
+    );
+    assert!(diagnostics.network.tunnel_providers[0].endpoint_configured);
+    assert_eq!(
+        diagnostics.network.tunnel_providers[0]
+            .endpoint_scheme
+            .as_deref(),
+        Some("https")
+    );
+    assert_eq!(diagnostics.network.tunnel_providers[0].token_env, None);
+    assert!(!diagnostics.network.tunnel_providers[0].token_present);
     assert_eq!(
         diagnostics.database.configured_backend_kind.as_str(),
         "sqlite"
@@ -1182,6 +1401,16 @@ async fn admin_v1_system_config_reports_sanitized_configuration() {
     assert!(!body.contains("lain.bgm.tv"));
     assert!(!body.contains("literal-header-secret"));
     assert!(!body.contains("BANGUMI_HEADER"));
+    assert!(!body.contains("external_base_url"));
+    assert!(!body.contains("trusted_proxy_sources"));
+    assert!(!body.contains("allowed_origins"));
+    assert!(!body.contains("network-secret"));
+    assert!(!body.contains("url-secret"));
+    assert!(!body.contains("operator-secret"));
+    assert!(!body.contains("tunnel-url-secret"));
+    assert!(!body.contains("taru.example.test"));
+    assert!(!body.contains("tunnel.example.test"));
+    assert!(!body.contains("x-forwarded"));
 }
 
 #[tokio::test]
@@ -1194,6 +1423,7 @@ async fn admin_v1_system_config_reports_postgres_capability_gaps_for_injected_st
         database_url: "postgres://user:secret@db.example.test/taru?sslmode=require".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: PathBuf::from("ffmpeg"),
         scan_concurrency: 1,
@@ -1267,6 +1497,7 @@ async fn admin_v1_playback_sessions_lists_filters_and_redacts_output_paths() {
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: PathBuf::from("ffmpeg"),
         scan_concurrency: 1,
@@ -1394,6 +1625,10 @@ async fn admin_v1_playback_sessions_lists_filters_and_redacts_output_paths() {
         TranscodeSessionKind::HlsTranscode
     );
     assert_eq!(sessions.sessions[0].state, TranscodeSessionState::Failed);
+    assert_eq!(
+        sessions.sessions[0].failure_category,
+        Some(taru_core::TranscodeFailureCategory::Runner)
+    );
     assert!(sessions.sessions[0].has_failure_message);
     assert!(!sessions.sessions[0].active);
     assert!(sessions.sessions[0].terminal);
@@ -1403,6 +1638,304 @@ async fn admin_v1_playback_sessions_lists_filters_and_redacts_output_paths() {
     assert!(!body.contains("output_path"));
     assert!(!body.contains("playlist.m3u8"));
     assert!(!body.contains("ffmpeg failed while writing"));
+}
+
+#[tokio::test]
+async fn admin_v1_playback_support_evidence_is_bounded_and_redacted() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let ffmpeg_path =
+        fake_ffmpeg_encoder_script(temp.path(), "support-evidence", &[" V..... libx264"]);
+    let config = TaruServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: ffmpeg_path.clone(),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 2,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 90_000,
+        remux_staging_root: temp.path().join("secret-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig {
+            hardware_acceleration: taru_transcode::HardwareAcceleration::Nvenc,
+            hardware_fallback: taru_transcode::HardwareAccelerationFallback::Cpu,
+            cpu_concurrency: 0,
+            gpu_concurrency: 0,
+        },
+        staging: StagingConfig {
+            max_bytes: 123_456,
+            retention_ms: 654_321,
+            cleanup_on_startup: true,
+        },
+        playback: PlaybackConfig {
+            remote_stream_concurrency: 0,
+            remote_stage_concurrency: 0,
+        },
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Support Evidence Demo".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: "local:///Movies/Private/Support Evidence Demo.mkv?token=admin-token".to_owned(),
+        file_name: "Support Evidence Demo.mkv".to_owned(),
+        size_bytes: Some(42),
+        fingerprint: Some("sha256:private-fingerprint".to_owned()),
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+
+    let session = store
+        .create_transcode_session(NewTranscodeSession {
+            id: TranscodeSessionId::new(),
+            source_id: source.id,
+            kind: TranscodeSessionKind::HlsTranscode,
+            request_key: local_hls_request_key(&source, taru_transcode::HardwareAcceleration::None),
+            output_path: temp
+                .path()
+                .join("secret-cache")
+                .join("hls")
+                .join("private")
+                .join("playlist.m3u8"),
+            state: TranscodeSessionState::Running,
+        })
+        .await
+        .unwrap();
+    store
+        .set_transcode_session_state(
+            session.id,
+            TranscodeSessionState::Failed,
+            Some(taru_core::TranscodeFailureCategory::Runner),
+            Some(format!(
+                "ffmpeg failed while writing {} with argv -i local:///Movies/Private/Support Evidence Demo.mkv token=admin-token",
+                temp.path()
+                    .join("secret-cache")
+                    .join("hls")
+                    .join("private")
+                    .join("playlist.m3u8")
+                    .display()
+            )),
+        )
+        .await
+        .unwrap();
+
+    let router = build_router(app);
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/admin/v1/playback/support?session_id={}",
+                    session.id
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let evidence: AdminPlaybackSupportEvidenceResponse = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(
+        evidence.admin_api_version,
+        taru_api::admin::ADMIN_API_VERSION
+    );
+    assert_eq!(
+        evidence.public_api_version,
+        taru_api::public_client::API_VERSION
+    );
+    assert_eq!(evidence.subject.session_id, Some(session.id));
+    assert_eq!(evidence.subject.source_id, Some(source.id));
+    assert_eq!(evidence.session.as_ref().unwrap().id, session.id);
+    assert_eq!(
+        evidence.session.as_ref().unwrap().failure_category,
+        Some(taru_core::TranscodeFailureCategory::Runner)
+    );
+    assert!(evidence.session.as_ref().unwrap().has_failure_message);
+    assert_eq!(evidence.source.as_ref().unwrap().source_id, source.id);
+    assert_eq!(evidence.source.as_ref().unwrap().source_scheme, "local");
+    assert_eq!(
+        evidence.runtime.readiness.status,
+        AdminPlaybackReadinessStatus::Degraded
+    );
+    assert_eq!(
+        evidence.runtime.hardware.selected_acceleration,
+        taru_transcode::HardwareAcceleration::None
+    );
+    assert!(evidence.runtime.hardware.fallback_used);
+    assert_eq!(evidence.runtime.staging.max_bytes, 123_456);
+    assert_eq!(evidence.runtime.remote_playback.stream_permits_max, 1);
+    assert!(evidence.redaction.paths_redacted);
+    assert!(evidence.redaction.source_references_redacted);
+    assert!(evidence.redaction.ffmpeg_commands_redacted);
+    assert!(evidence.redaction.stderr_redacted);
+    assert!(evidence.redaction.credentials_redacted);
+
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains(&ffmpeg_path.display().to_string()));
+    assert!(!body.contains("local:///"));
+    assert!(!body.contains("Private"));
+    assert!(!body.contains("secret-cache"));
+    assert!(!body.contains("playlist.m3u8"));
+    assert!(!body.contains("output_path"));
+    assert!(!body.contains("ffmpeg failed while writing"));
+    assert!(!body.contains("argv"));
+    assert!(!body.contains("admin-token"));
+    assert!(!body.contains("private-fingerprint"));
+    assert!(!body.contains("ffmpeg_path"));
+    assert!(!body.contains("remux_staging_root"));
+}
+
+#[tokio::test]
+async fn admin_v1_playback_support_evidence_rejects_mismatched_source_context() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = TaruServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("taru-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Support Evidence Mismatch".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: "local:///Movies/Support Evidence Mismatch.mkv".to_owned(),
+        file_name: "Support Evidence Mismatch.mkv".to_owned(),
+        size_bytes: Some(42),
+        fingerprint: None,
+    };
+    let other_source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: "local:///Movies/Other Source.mkv".to_owned(),
+        file_name: "Other Source.mkv".to_owned(),
+        size_bytes: Some(84),
+        fingerprint: None,
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+    store.upsert_media_source(&other_source).await.unwrap();
+    let session = store
+        .create_transcode_session(NewTranscodeSession {
+            id: TranscodeSessionId::new(),
+            source_id: source.id,
+            kind: TranscodeSessionKind::Remux,
+            request_key: local_remux_request_key(&source, taru_transcode::RemuxContainer::Mp4),
+            output_path: temp
+                .path()
+                .join("taru-cache")
+                .join("remux")
+                .join("stream.mp4"),
+            state: TranscodeSessionState::Running,
+        })
+        .await
+        .unwrap();
+
+    let router = build_router(app);
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/admin/v1/playback/support?session_id={}&source_id={}",
+                    session.id, other_source.id
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(!body.contains("local:///"));
+    assert!(!body.contains(&temp.path().display().to_string()));
 }
 
 #[tokio::test]
@@ -1417,6 +1950,7 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: ffmpeg_path.clone(),
         scan_concurrency: 1,
@@ -1490,6 +2024,27 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
         diagnostics.ffmpeg.probe_status,
         AdminPlaybackRuntimeStatus::Ready
     );
+    assert_eq!(
+        diagnostics.readiness.status,
+        AdminPlaybackReadinessStatus::Ready
+    );
+    assert_eq!(
+        diagnostics.readiness.reason,
+        AdminPlaybackReadinessReason::FfmpegProbeReady
+    );
+    assert_eq!(diagnostics.readiness.checks.len(), 6);
+    assert!(diagnostics.readiness.checks.iter().any(|check| check.name
+        == AdminPlaybackReadinessCheckName::HardwareAcceleration
+        && check.reason == AdminPlaybackReadinessReason::RequestedAcceleratorReady));
+    assert!(diagnostics.readiness.checks.iter().any(|check| check.name
+        == AdminPlaybackReadinessCheckName::TranscodeBudget
+        && check.reason == AdminPlaybackReadinessReason::TranscodeBudgetReady));
+    assert!(diagnostics.readiness.checks.iter().any(|check| check.name
+        == AdminPlaybackReadinessCheckName::RemotePlaybackBudget
+        && check.reason == AdminPlaybackReadinessReason::RemotePlaybackBudgetReady));
+    assert!(diagnostics.readiness.checks.iter().any(|check| check.name
+        == AdminPlaybackReadinessCheckName::Staging
+        && check.reason == AdminPlaybackReadinessReason::StagingReady));
     assert!(!diagnostics.ffmpeg.has_probe_error);
     assert_eq!(diagnostics.ffmpeg.hardware_capability_count, 4);
     assert_eq!(diagnostics.ffmpeg.available_gpu_capabilities, 3);
@@ -1549,6 +2104,117 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
     assert_eq!(diagnostics.staging.max_bytes, 123_456);
     assert_eq!(diagnostics.staging.retention_ms, 654_321);
     assert!(diagnostics.staging.cleanup_on_startup);
+
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains(&ffmpeg_path.display().to_string()));
+    assert!(!body.contains("secret-cache"));
+    assert!(!body.contains("ffmpeg_path"));
+    assert!(!body.contains("remux_staging_root"));
+    assert!(!body.contains("output_path"));
+    assert!(!body.contains("token"));
+}
+
+#[tokio::test]
+async fn admin_v1_playback_runtime_reports_typed_readiness_for_cpu_fallback() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let ffmpeg_path =
+        fake_ffmpeg_encoder_script(temp.path(), "runtime-cpu-fallback", &[" V..... libx264"]);
+    let config = TaruServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: ffmpeg_path.clone(),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 3,
+        webhook_concurrency: 2,
+        remux_timeout_ms: 90_000,
+        remux_staging_root: temp.path().join("secret-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig {
+            hardware_acceleration: taru_transcode::HardwareAcceleration::Nvenc,
+            hardware_fallback: taru_transcode::HardwareAccelerationFallback::Cpu,
+            cpu_concurrency: 0,
+            gpu_concurrency: 0,
+        },
+        staging: StagingConfig {
+            max_bytes: 123_456,
+            retention_ms: 654_321,
+            cleanup_on_startup: true,
+        },
+        playback: PlaybackConfig {
+            remote_stream_concurrency: 0,
+            remote_stage_concurrency: 0,
+        },
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: taru_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = TaruDatabase::connect_in_memory().await.unwrap();
+    let app = TaruApp::new_with_store(config, store).await.unwrap();
+    let router = build_router(app);
+
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/playback/runtime")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let diagnostics: AdminPlaybackRuntimeDiagnosticsResponse = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(
+        diagnostics.readiness.status,
+        AdminPlaybackReadinessStatus::Degraded
+    );
+    assert_eq!(
+        diagnostics.readiness.reason,
+        AdminPlaybackReadinessReason::RequestedAcceleratorUnavailableFallbackToCpu
+    );
+    assert_eq!(diagnostics.readiness.checks.len(), 6);
+    assert!(diagnostics.readiness.checks.iter().any(|check| check.name
+        == AdminPlaybackReadinessCheckName::HardwareAcceleration
+        && check.reason
+            == AdminPlaybackReadinessReason::RequestedAcceleratorUnavailableFallbackToCpu));
+    assert!(diagnostics.readiness.checks.iter().any(|check| check.name
+        == AdminPlaybackReadinessCheckName::SelectedFallback
+        && check.reason == AdminPlaybackReadinessReason::CpuFallbackActive));
+    assert!(diagnostics.readiness.checks.iter().any(|check| check.name
+        == AdminPlaybackReadinessCheckName::TranscodeBudget
+        && check.reason == AdminPlaybackReadinessReason::TranscodeBudgetClamped));
+    assert_eq!(
+        diagnostics.hardware.selection.acceleration,
+        taru_transcode::HardwareAcceleration::None
+    );
+    assert!(diagnostics.hardware.selection.fallback_used);
+    assert_eq!(diagnostics.transcode.effective_cpu_slots, 1);
+    assert_eq!(diagnostics.transcode.effective_gpu_slots, 1);
+    assert_eq!(diagnostics.remote_playback.stream_permits_max, 1);
+    assert_eq!(diagnostics.remote_playback.stage_permits_max, 1);
 
     assert!(!body.contains(&temp.path().display().to_string()));
     assert!(!body.contains(&ffmpeg_path.display().to_string()));
@@ -1667,6 +2333,39 @@ async fn bearer_auth_protects_non_health_routes_and_keeps_health_public() {
         .unwrap();
     assert_eq!(admin_jobs_missing.status(), StatusCode::UNAUTHORIZED);
 
+    let admin_acquisition_intake_missing = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/acquisition/intake/candidates")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        admin_acquisition_intake_missing.status(),
+        StatusCode::UNAUTHORIZED
+    );
+
+    let admin_acquisition_discovery_missing = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/admin/v1/acquisition/intake/watch-folder-discovery")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from("{}"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        admin_acquisition_discovery_missing.status(),
+        StatusCode::UNAUTHORIZED
+    );
+
     let admin_catalog_governance_missing = router
         .clone()
         .oneshot(
@@ -1751,6 +2450,22 @@ async fn bearer_auth_protects_non_health_routes_and_keeps_health_public() {
         StatusCode::UNAUTHORIZED
     );
 
+    let admin_playback_support_missing = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/playback/support")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        admin_playback_support_missing.status(),
+        StatusCode::UNAUTHORIZED
+    );
+
     let admin_ok = router
         .clone()
         .oneshot(
@@ -1769,6 +2484,264 @@ async fn bearer_auth_protects_non_health_routes_and_keeps_health_public() {
         overview.admin_api_version,
         taru_api::admin::ADMIN_API_VERSION
     );
+}
+
+#[tokio::test]
+async fn network_boundary_enforces_origin_policy_and_preserves_auth_order() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let token = "test-admin-token";
+    let mut network = NetworkAccessConfig::default();
+    network.exposure_mode = NetworkExposureMode::ReverseProxy;
+    network.external_base_url = Some("https://taru.example.test".to_owned());
+    network.allowed_origins = vec!["https://app.example.test".to_owned()];
+    let router = test_router_with_bearer_auth_and_network(
+        temp.path().to_path_buf(),
+        library_id,
+        token,
+        network,
+    )
+    .await;
+
+    let rejected = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/libraries")
+                .header(header::ORIGIN, "https://evil.example.test")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(rejected.status(), StatusCode::UNAUTHORIZED);
+    let rejected_body = serde_json::to_string(&body_json::<ErrorResponse>(rejected).await).unwrap();
+    assert!(!rejected_body.contains("evil.example.test"));
+    assert!(!rejected_body.contains(token));
+
+    let forbidden = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/libraries")
+                .header(header::ORIGIN, "https://evil.example.test")
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(forbidden.status(), StatusCode::FORBIDDEN);
+    let forbidden_body =
+        serde_json::to_string(&body_json::<ErrorResponse>(forbidden).await).unwrap();
+    assert!(!forbidden_body.contains("evil.example.test"));
+    assert!(!forbidden_body.contains(token));
+
+    let allowed = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/libraries")
+                .header(header::ORIGIN, "https://app.example.test")
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(allowed.status(), StatusCode::OK);
+    assert_eq!(
+        allowed.headers()[header::ACCESS_CONTROL_ALLOW_ORIGIN],
+        "https://app.example.test"
+    );
+
+    let health = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/health")
+                .header(header::ORIGIN, "https://evil.example.test")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(health.status(), StatusCode::OK);
+
+    let preflight = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::OPTIONS)
+                .uri("/libraries")
+                .header(header::ORIGIN, "https://app.example.test")
+                .header(header::ACCESS_CONTROL_REQUEST_METHOD, "GET")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(preflight.status(), StatusCode::NO_CONTENT);
+    assert_eq!(
+        preflight.headers()[header::ACCESS_CONTROL_ALLOW_ORIGIN],
+        "https://app.example.test"
+    );
+    assert_eq!(
+        preflight.headers()[header::ACCESS_CONTROL_ALLOW_HEADERS],
+        "authorization,content-type,range"
+    );
+
+    let rejected_preflight = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::OPTIONS)
+                .uri("/libraries")
+                .header(header::ORIGIN, "https://evil.example.test")
+                .header(header::ACCESS_CONTROL_REQUEST_METHOD, "GET")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(rejected_preflight.status(), StatusCode::FORBIDDEN);
+    let rejected_preflight_body =
+        serde_json::to_string(&body_json::<ErrorResponse>(rejected_preflight).await).unwrap();
+    assert!(!rejected_preflight_body.contains("evil.example.test"));
+}
+
+#[tokio::test]
+async fn network_boundary_trusts_forwarded_host_only_when_proxy_policy_allows_it() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let token = "test-admin-token";
+    let mut untrusted_network = NetworkAccessConfig::default();
+    untrusted_network.exposure_mode = NetworkExposureMode::ReverseProxy;
+    untrusted_network.external_base_url = Some("https://taru.example.test".to_owned());
+    let untrusted_router = test_router_with_bearer_auth_and_network(
+        temp.path().to_path_buf(),
+        library_id,
+        token,
+        untrusted_network,
+    )
+    .await;
+
+    let untrusted = untrusted_router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/health")
+                .header("x-forwarded-host", "evil.example.test")
+                .header("x-forwarded-proto", "http")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(untrusted.status(), StatusCode::OK);
+    assert!(!untrusted.headers().contains_key("x-taru-external-origin"));
+
+    let mut trusted_network = NetworkAccessConfig::default();
+    trusted_network.exposure_mode = NetworkExposureMode::ReverseProxy;
+    trusted_network.external_base_url = Some("https://taru.example.test".to_owned());
+    trusted_network.trusted_proxy_headers = true;
+    trusted_network.trusted_proxy_sources = vec!["127.0.0.1".to_owned(), "10.10.0.0/16".to_owned()];
+    let trusted_router = test_router_with_bearer_auth_and_network(
+        temp.path().to_path_buf(),
+        library_id,
+        token,
+        trusted_network,
+    )
+    .await;
+
+    let trusted = trusted_router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/health")
+                .header("x-forwarded-host", "taru.example.test")
+                .header("x-forwarded-proto", "https")
+                .extension(axum::extract::connect_info::ConnectInfo(
+                    "127.0.0.1:4000".parse::<std::net::SocketAddr>().unwrap(),
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(trusted.status(), StatusCode::OK);
+    assert_eq!(
+        trusted.headers()["x-taru-external-origin"],
+        "https://taru.example.test"
+    );
+
+    let cidr_trusted = trusted_router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/health")
+                .header("x-forwarded-host", "taru-lan.example.test")
+                .header("x-forwarded-proto", "https")
+                .extension(axum::extract::connect_info::ConnectInfo(
+                    "10.10.4.20:4000".parse::<std::net::SocketAddr>().unwrap(),
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(cidr_trusted.status(), StatusCode::OK);
+    assert_eq!(
+        cidr_trusted.headers()["x-taru-external-origin"],
+        "https://taru-lan.example.test"
+    );
+
+    let malformed = trusted_router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/health")
+                .header("x-forwarded-host", "taru.example.test, evil.example.test")
+                .header("x-forwarded-proto", "https")
+                .extension(axum::extract::connect_info::ConnectInfo(
+                    "127.0.0.1:4000".parse::<std::net::SocketAddr>().unwrap(),
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(malformed.status(), StatusCode::OK);
+    assert!(!malformed.headers().contains_key("x-taru-external-origin"));
+
+    let spoofed = trusted_router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/health")
+                .header("x-forwarded-host", "evil.example.test")
+                .header("x-forwarded-proto", "https")
+                .extension(axum::extract::connect_info::ConnectInfo(
+                    "198.51.100.10:4000"
+                        .parse::<std::net::SocketAddr>()
+                        .unwrap(),
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(spoofed.status(), StatusCode::OK);
+    assert!(!spoofed.headers().contains_key("x-taru-external-origin"));
 }
 
 #[tokio::test]

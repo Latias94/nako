@@ -3,8 +3,10 @@
 ## Status
 
 Active roadmap umbrella. Wave 1 `metadata-provider-breadth` is complete;
-`link-apply-and-import-promotion` is complete; `nfo-sidecar-promotion-apply`
-is selected as the next mainline execution lane.
+`nfo-link-authority`, `managed-import-staging`,
+`link-apply-and-import-promotion`, `nfo-sidecar-promotion-apply`,
+`playback-transcode-ops-hardening`, and `downloads-watch-folder-intake` are
+complete. `network-access-boundary` is open as the current mainline lane.
 
 This lane coordinates the post-packaging productization wave after
 `release-packaging-and-distribution`. It is not an implementation lane by
@@ -34,17 +36,18 @@ product risk is whether Taru can safely manage a real library:
 4. `link-apply-and-import-promotion`
 5. `nfo-sidecar-promotion-apply`
 6. `playback-transcode-ops-hardening`
-7. `network-access-boundary`
-8. `ai-assisted-library-ops`
-9. `addon-runtime-and-distribution`
+7. `downloads-watch-folder-intake`
+8. `network-access-boundary`
+9. `ai-assisted-library-ops`
+10. `addon-runtime-and-distribution`
 
 ## Current Decision
 
-After Managed Import promotion apply proved VFS-mediated target creation,
-catalog commit ordering, duplicate evidence, and cleanup audit, LAIP-070 split
-NFO sidecar mutation to `nfo-sidecar-promotion-apply`, and LAIP-080 closed the
-promotion apply lane. PRPH-080 selects NFO sidecar apply next because it is the
-remaining high-risk local Library File Write and metadata-authority boundary.
+After Downloads / Watch-Folder Intake closed, PRPH-130 re-scored the remaining
+roadmap. PRPH-140 opened `network-access-boundary` because remote clients are
+the highest product-readiness gap that can progress without weakening metadata,
+import, NFO, acquisition, playback, AI, or Addon side-effect boundaries. The
+next executable task is NAB-040 Admin network readiness diagnostics.
 
 ## Authoritative Docs
 
@@ -62,6 +65,9 @@ remaining high-risk local Library File Write and metadata-authority boundary.
 - [managed-import-staging](../managed-import-staging/README.md)
 - [link-apply-and-import-promotion](../link-apply-and-import-promotion/README.md)
 - [nfo-sidecar-promotion-apply](../nfo-sidecar-promotion-apply/README.md)
+- [playback-transcode-ops-hardening](../playback-transcode-ops-hardening/README.md)
+- [downloads-watch-folder-intake](../downloads-watch-folder-intake/README.md)
+- [network-access-boundary](../network-access-boundary/README.md)
 - [metadata-catalog](../metadata-catalog/README.md)
 - [transcode-runtime](../transcode-runtime/README.md)
 - [nfo-round-trip-preservation](../nfo-round-trip-preservation/README.md)

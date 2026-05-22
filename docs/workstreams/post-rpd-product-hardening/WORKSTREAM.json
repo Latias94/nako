@@ -3,7 +3,7 @@
   "slug": "post-rpd-product-hardening",
   "title": "Post-RPD Product Hardening",
   "status": "active",
-  "updated": "2026-05-21",
+  "updated": "2026-05-22",
   "scope_kind": "roadmap_umbrella",
   "problem": "After packaging, Taru needs an ordered product-hardening roadmap so metadata, NFO/link, playback, managed import, network, AI, and addon work do not blur authority boundaries.",
   "authoritative_docs": [
@@ -33,13 +33,19 @@
     "docs/workstreams/nfo-link-authority",
     "docs/workstreams/managed-import-staging",
     "docs/workstreams/link-apply-and-import-promotion",
-    "docs/workstreams/nfo-sidecar-promotion-apply"
+    "docs/workstreams/nfo-sidecar-promotion-apply",
+    "docs/workstreams/playback-transcode-ops-hardening",
+    "docs/workstreams/downloads-watch-folder-intake",
+    "docs/workstreams/network-access-boundary"
   ],
   "completed_child_workstreams": [
     "docs/workstreams/metadata-provider-breadth",
     "docs/workstreams/nfo-link-authority",
     "docs/workstreams/managed-import-staging",
-    "docs/workstreams/link-apply-and-import-promotion"
+    "docs/workstreams/link-apply-and-import-promotion",
+    "docs/workstreams/nfo-sidecar-promotion-apply",
+    "docs/workstreams/playback-transcode-ops-hardening",
+    "docs/workstreams/downloads-watch-folder-intake"
   ],
   "gates": [
     "git diff --check"
@@ -53,17 +59,24 @@
     "docs/workstreams/nfo-link-authority/EVIDENCE_AND_GATES.md",
     "docs/workstreams/managed-import-staging/DESIGN.md",
     "docs/workstreams/link-apply-and-import-promotion/DESIGN.md",
-    "docs/workstreams/nfo-sidecar-promotion-apply/DESIGN.md"
+    "docs/workstreams/nfo-sidecar-promotion-apply/DESIGN.md",
+    "docs/workstreams/nfo-sidecar-promotion-apply/EVIDENCE_AND_GATES.md",
+    "docs/workstreams/playback-transcode-ops-hardening/DESIGN.md",
+    "docs/workstreams/playback-transcode-ops-hardening/EVIDENCE_AND_GATES.md",
+    "docs/workstreams/downloads-watch-folder-intake/DESIGN.md",
+    "docs/workstreams/downloads-watch-folder-intake/EVIDENCE_AND_GATES.md"
   ],
   "adr_refs": [
     "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
     "docs/adr/0008-nfo-as-local-metadata-boundary.md",
+    "docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md",
     "docs/adr/0018-metadata-provider-runtime-and-diagnostics.md",
-    "docs/adr/0021-video-first-media-server-domain-model.md"
+    "docs/adr/0021-video-first-media-server-domain-model.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "nfo-sidecar-promotion-apply NSPA-020",
-    "notes": "Metadata provider breadth, NFO/link authority, Managed Import Staging, and Link Apply And Import Promotion are completed. PRPH-080 selects NFO Sidecar Promotion Apply as the next mainline lane because it is the remaining high-risk local Library File Write and metadata-authority mutation boundary. Execute NSPA-020 durable sidecar apply acceptance/audit next. Playback/transcode ops remains the safest parallel sidecar; downloads/watch-folder, network, AI, and addon runtime remain downstream. Do not implement downloader/watch-folder/addon autonomous apply until accepted apply, rollback/repair, VFS-only mutation, and catalog/sidecar consistency are proven."
+    "next_task": "network-access-boundary NAB-050",
+    "notes": "Metadata provider breadth, NFO/link authority, Managed Import Staging, Link Apply And Import Promotion, NFO Sidecar Promotion Apply, Playback/Transcode Ops Hardening, and Downloads / Watch-Folder Intake are completed. DWI-060 closed acquisition intake with durable candidates, VFS-backed watch-folder discovery, Managed Import handoff, Admin-only diagnostics, and no Public Client protocol changes. PRPH-130 re-scored remaining lanes and selected Network Access Boundary as the next recommended mainline lane. PRPH-140 opened network-access-boundary. NAB-020 completed endpoint/proxy/tunnel policy, external URL handling, origin constraints, tunnel-provider declarations, and config-check readiness diagnostics without tunnel runtime or Public Client protocol changes. NAB-030 completed HTTP boundary enforcement for trusted forwarded headers, trusted proxy sources, CORS/origin behavior, health compatibility, and auth-order preservation. NAB-040 completed Admin-only network readiness diagnostics and typed Admin Web support without Public Client protocol churn. Continue with NAB-050 closeout/follow-on split. Do not add built-in NAT traversal runtime, protocol downloader adapters, background watch scheduling, AI writes, Addon runtime/distribution, automatic promotion apply, NFO sidecar mutation shortcuts, direct library writes, Public Client API churn, or taru-client-protocol changes unless split into a dedicated lane."
   }
 }

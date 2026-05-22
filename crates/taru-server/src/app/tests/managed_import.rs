@@ -1631,6 +1631,7 @@ fn managed_import_test_config(root: &std::path::Path, library_id: LibraryId) -> 
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: PathBuf::from("ffmpeg"),
         scan_concurrency: 1,

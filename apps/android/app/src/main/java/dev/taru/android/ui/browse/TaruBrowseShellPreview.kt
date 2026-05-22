@@ -16,8 +16,6 @@ import dev.taru.android.player.InMemoryDevicePlaybackPositionStore
 import dev.taru.android.ui.screens.player.rememberPlaybackPlayerRouteRenderer
 import dev.taru.android.ui.theme.TaruAndroidTheme
 import dev.taru.android.userplayback.TaruUserPlaybackClient
-import dev.taru.sdk.PageQuery
-import dev.taru.sdk.TaruPublicClientRequests
 
 @Preview
 @Composable
@@ -65,8 +63,8 @@ private fun TaruBrowseShellPreview() {
     )
     val userPlaybackClient = TaruUserPlaybackClient(
         transport = object : TaruHttpTransport {
-                    override suspend fun execute(request: TaruHttpRequest): TaruHttpResponse =
-                if (request.url.matches(TaruPublicClientRequests.listContinueWatching(PageQuery(limit = 12)).pathAndQuery)) {
+            override suspend fun execute(request: TaruHttpRequest): TaruHttpResponse =
+                if (request.url.matchesPreviewRoute(previewRouteContinueWatching(limit = 12))) {
                     TaruHttpResponse(
                         statusCode = 200,
                         body = """
@@ -145,12 +143,12 @@ private fun TaruBrowseShellPreview() {
             browseClient = TaruBrowseClient(
                 transport = object : TaruHttpTransport {
                     override suspend fun execute(request: TaruHttpRequest): TaruHttpResponse =
-                        if (request.url.matches(TaruPublicClientRequests.listLibraries(PageQuery()).pathAndQuery)) {
+                        if (request.url.matchesPreviewRoute(previewRouteListLibraries())) {
                             TaruHttpResponse(
                                 statusCode = 200,
                                 body = """{"libraries":[{"id":"library-1","name":"Movies","roots":[],"options":${previewLibraryOptionsJson()}}],"page":{"limit":50,"offset":0,"returned":1}}""",
                             )
-                        } else if (request.url.matches(TaruPublicClientRequests.getItem("item-1").pathAndQuery)) {
+                        } else if (request.url.matchesPreviewRoute(previewRouteItem("item-1"))) {
                             TaruHttpResponse(
                                 statusCode = 200,
                                 body = """{"item":${previewMediaItemJson(id = "item-1", title = "Night Harbor", overview = "A remote harbor town begins to glow after midnight.", releaseDate = "2024-01-01", runtimeMinutes = 106, genresJson = "[\"Mystery\"]", tagsJson = "[\"Lighthouse\"]")},"sources":[{"id":"source-1","library_id":"library-1","item_id":"item-1","file_name":"night-harbor.mkv","size_bytes":42,"fingerprint":null}],"credits":[],"genres":[],"tags":[],"collections":[],"studios":[],"images":[]}""",
@@ -190,5 +188,17 @@ private fun previewMediaItemJson(
 private fun previewJsonStringOrNull(value: String?): String =
     value?.let { "\"${it.replace("\\", "\\\\").replace("\"", "\\\"")}\"" } ?: "null"
 
-private fun String.matches(pathAndQuery: String): Boolean =
-    trimEnd('/').endsWith(pathAndQuery)
+private fun previewRouteListLibraries(): String =
+    "/libraries?limit=50&offset=0"
+
+private fun previewRouteContinueWatching(limit: Int): String =
+    "/users/me/playback-state/continue-watching?limit=$limit&offset=0"
+
+private fun previewRouteItem(itemId: String): String =
+    "/items/${itemId.previewPathSegment()}"
+
+private fun String.matchesPreviewRoute(routeSuffix: String): Boolean =
+    trimEnd('/').endsWith(routeSuffix)
+
+private fun String.previewPathSegment(): String =
+    replace(" ", "%20")

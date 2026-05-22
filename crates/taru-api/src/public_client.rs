@@ -236,6 +236,11 @@ pub fn transcode_session_response_from_record(
 
 #[must_use]
 pub fn transcode_session_to_dto(session: TranscodeSessionRecord) -> TranscodeSessionDto {
+    let failure_message = session
+        .failure_message
+        .as_ref()
+        .map(|_| public_transcode_failure_message(session.failure_category));
+
     TranscodeSessionDto {
         id: session.id.to_string(),
         source_id: session.source_id.to_string(),
@@ -245,7 +250,7 @@ pub fn transcode_session_to_dto(session: TranscodeSessionRecord) -> TranscodeSes
         failure_category: session
             .failure_category
             .map(transcode_failure_category_to_dto),
-        failure_message: session.failure_message,
+        failure_message,
         created_at: session.created_at,
         updated_at: session.updated_at,
         started_at: session.started_at,
@@ -606,13 +611,40 @@ fn transcode_failure_category_to_dto(
 ) -> ClientTranscodeFailureCategory {
     match category {
         TranscodeFailureCategory::InvalidRequest => ClientTranscodeFailureCategory::InvalidRequest,
+        TranscodeFailureCategory::Plan => ClientTranscodeFailureCategory::InvalidRequest,
         TranscodeFailureCategory::Runner => ClientTranscodeFailureCategory::Runner,
+        TranscodeFailureCategory::Probe | TranscodeFailureCategory::HardwareFallback => {
+            ClientTranscodeFailureCategory::Runner
+        }
         TranscodeFailureCategory::Timeout => ClientTranscodeFailureCategory::Timeout,
         TranscodeFailureCategory::Storage => ClientTranscodeFailureCategory::Storage,
+        TranscodeFailureCategory::Staging | TranscodeFailureCategory::Budget => {
+            ClientTranscodeFailureCategory::Storage
+        }
         TranscodeFailureCategory::Stale => ClientTranscodeFailureCategory::Stale,
         TranscodeFailureCategory::Cancelled => ClientTranscodeFailureCategory::Cancelled,
         TranscodeFailureCategory::Unknown => ClientTranscodeFailureCategory::Unknown,
     }
+}
+
+fn public_transcode_failure_message(category: Option<TranscodeFailureCategory>) -> String {
+    match category {
+        Some(TranscodeFailureCategory::InvalidRequest) => "playback request was invalid",
+        Some(TranscodeFailureCategory::Probe) => "playback media probing failed",
+        Some(TranscodeFailureCategory::Plan) => "playback transcode planning failed",
+        Some(TranscodeFailureCategory::Staging) => "playback staging operation failed",
+        Some(TranscodeFailureCategory::Budget) => "playback resource budget was exhausted",
+        Some(TranscodeFailureCategory::HardwareFallback) => {
+            "playback hardware acceleration was unavailable"
+        }
+        Some(TranscodeFailureCategory::Runner) => "playback transcode runner failed",
+        Some(TranscodeFailureCategory::Timeout) => "playback transcode operation timed out",
+        Some(TranscodeFailureCategory::Storage) => "playback storage operation failed",
+        Some(TranscodeFailureCategory::Stale) => "playback session was stale at startup",
+        Some(TranscodeFailureCategory::Cancelled) => "playback session was cancelled",
+        Some(TranscodeFailureCategory::Unknown) | None => "playback transcode operation failed",
+    }
+    .to_owned()
 }
 
 #[cfg(test)]
@@ -701,6 +733,42 @@ mod tests {
         assert_eq!(value["session"]["kind"], "remux");
         assert_eq!(value["session"]["state"], "finished");
         assert!(value["session"].get("output_path").is_none());
+    }
+
+    #[test]
+    fn transcode_session_response_redacts_raw_failure_message() {
+        let session = TranscodeSessionRecord {
+            id: TranscodeSessionId::new(),
+            source_id: MediaSourceId::new(),
+            kind: TranscodeSessionKind::Remux,
+            request_key: "transcode-profile:v1;kind=remux;container=mp4".to_owned(),
+            output_path: PathBuf::from("cache/remux/private/output.mp4"),
+            state: TranscodeSessionState::Failed,
+            failure_category: Some(TranscodeFailureCategory::Runner),
+            failure_message: Some(
+                "ffmpeg failed at C:\\secret\\movie.mkv with webdav:///Movies/secret.mkv"
+                    .to_owned(),
+            ),
+            created_at: "2026-05-16T00:00:00Z".to_owned(),
+            updated_at: "2026-05-16T00:01:00Z".to_owned(),
+            started_at: Some("2026-05-16T00:00:01Z".to_owned()),
+            completed_at: Some("2026-05-16T00:01:00Z".to_owned()),
+        };
+
+        let response = transcode_session_response_from_record(session);
+        let serialized = serde_json::to_string(&response).unwrap();
+
+        assert_eq!(
+            response.session.failure_category,
+            Some(ClientTranscodeFailureCategory::Runner)
+        );
+        assert_eq!(
+            response.session.failure_message.as_deref(),
+            Some("playback transcode runner failed")
+        );
+        assert!(!serialized.contains("C:\\secret"));
+        assert!(!serialized.contains("webdav:///"));
+        assert!(!serialized.contains("cache/remux/private"));
     }
 
     #[test]

@@ -7,62 +7,88 @@ use axum::{
 use serde::Deserialize;
 use taru_api::{
     admin::{
-        ADMIN_API_VERSION, AdminArtworkConfigDiagnostics, AdminAuthConfigDiagnostics,
-        AdminCatalogGovernanceItem, AdminCatalogGovernanceItemListResponse,
-        AdminConfigPlaybackDiagnostics, AdminConfigStagingDiagnostics,
-        AdminDatabaseBackendCapabilitiesDiagnostics, AdminDatabaseConfigDiagnostics,
-        AdminJobCancelRequestResponse, AdminJobListItem, AdminJobListResponse,
-        AdminLibraryConfigDiagnostics, AdminMetadataConfigDiagnostics,
+        ADMIN_API_VERSION, AdminAcquisitionIntakeCandidateDiagnostic,
+        AdminAcquisitionIntakeCandidateListResponse, AdminArtworkConfigDiagnostics,
+        AdminAuthConfigDiagnostics, AdminCatalogGovernanceItem,
+        AdminCatalogGovernanceItemListResponse, AdminConfigPlaybackDiagnostics,
+        AdminConfigStagingDiagnostics, AdminDatabaseBackendCapabilitiesDiagnostics,
+        AdminDatabaseConfigDiagnostics, AdminJobCancelRequestResponse, AdminJobListItem,
+        AdminJobListResponse, AdminLibraryConfigDiagnostics, AdminMetadataConfigDiagnostics,
         AdminMetadataProviderConfigDiagnostics, AdminMetadataRuntimeConfigDiagnostics,
-        AdminOutboxEventListItem, AdminOutboxEventListResponse,
-        AdminOverviewMetadataProviderSummary, AdminOverviewMetadataSummary, AdminOverviewResponse,
-        AdminOverviewRuntimeSummary, AdminOverviewStartupSummary, AdminOverviewStatus,
-        AdminOverviewStorageBackendSummary, AdminOverviewStorageSummary,
-        AdminPlaybackFfmpegDiagnostics, AdminPlaybackHardwareCapability,
-        AdminPlaybackHardwareCapabilityReason, AdminPlaybackHardwareDeviceInitialization,
-        AdminPlaybackHardwareDeviceInitializationStatus, AdminPlaybackHardwareDiagnostics,
-        AdminPlaybackHardwareEncoderDiscovery, AdminPlaybackHardwareEncoderDiscoveryStatus,
-        AdminPlaybackHardwareSmokeProbe, AdminPlaybackHardwareSmokeProbeStatus,
-        AdminPlaybackRemoteBudgetDiagnostics, AdminPlaybackRemuxRuntimeDiagnostics,
-        AdminPlaybackRuntimeDiagnosticsResponse, AdminPlaybackRuntimeStatus,
-        AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
-        AdminPlaybackStagingDiagnostics, AdminPlaybackTranscodeBudgetDiagnostics,
+        AdminNetworkAccessDiagnostics, AdminNetworkExposureMode,
+        AdminNetworkExternalEndpointDiagnostics, AdminNetworkReadinessCheck,
+        AdminNetworkReadinessCheckName, AdminNetworkReadinessDiagnostics,
+        AdminNetworkReadinessReason, AdminOriginPolicyDiagnostics, AdminOutboxEventListItem,
+        AdminOutboxEventListResponse, AdminOverviewMetadataProviderSummary,
+        AdminOverviewMetadataSummary, AdminOverviewResponse, AdminOverviewRuntimeSummary,
+        AdminOverviewStartupSummary, AdminOverviewStatus, AdminOverviewStorageBackendSummary,
+        AdminOverviewStorageSummary, AdminPlaybackFfmpegDiagnostics,
+        AdminPlaybackHardwareCapability, AdminPlaybackHardwareCapabilityReason,
+        AdminPlaybackHardwareDeviceInitialization, AdminPlaybackHardwareDeviceInitializationStatus,
+        AdminPlaybackHardwareDiagnostics, AdminPlaybackHardwareEncoderDiscovery,
+        AdminPlaybackHardwareEncoderDiscoveryStatus, AdminPlaybackHardwareSmokeProbe,
+        AdminPlaybackHardwareSmokeProbeStatus, AdminPlaybackReadinessCheck,
+        AdminPlaybackReadinessCheckName, AdminPlaybackReadinessDiagnostics,
+        AdminPlaybackReadinessReason, AdminPlaybackRemoteBudgetDiagnostics,
+        AdminPlaybackRemuxRuntimeDiagnostics, AdminPlaybackRuntimeDiagnosticsResponse,
+        AdminPlaybackRuntimeStatus, AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
+        AdminPlaybackStagingDiagnostics, AdminPlaybackSupportEvidenceResponse,
+        AdminPlaybackSupportHardwareCapabilityEvidence, AdminPlaybackSupportHardwareEvidence,
+        AdminPlaybackSupportRedactionEvidence, AdminPlaybackSupportRuntimeEvidence,
+        AdminPlaybackSupportSessionEvidence, AdminPlaybackSupportSourceEvidence,
+        AdminPlaybackSupportSubject, AdminPlaybackTranscodeBudgetDiagnostics,
         AdminRuntimeConfigDiagnostics, AdminServerConfigDiagnosticsResponse,
         AdminStorageStagingDiagnosticsResponse, AdminStorageStagingRecord,
-        AdminStorageStagingSummary, AdminTranscodeConfigDiagnostics, AdminVfsCacheSummary,
-        StorageBackendDiagnosticsResponse, StorageBackendKind, StorageBackendRuntimeStateScope,
-        StorageBackendStatus,
+        AdminStorageStagingSummary, AdminTranscodeConfigDiagnostics, AdminTrustedProxyDiagnostics,
+        AdminTunnelProviderDiagnostics, AdminTunnelProviderKind, AdminVfsCacheSummary,
+        AdminWatchFolderDiscoveryFailure, AdminWatchFolderDiscoveryRequest,
+        AdminWatchFolderDiscoveryResponse, StorageBackendDiagnosticsResponse, StorageBackendKind,
+        StorageBackendRuntimeStateScope, StorageBackendStatus,
     },
     metadata_diagnostics::{MetadataProviderDiagnosticStatus, MetadataProviderDiagnosticsResponse},
     public_client::{API_VERSION, page_info_from_request},
 };
 use taru_core::{
     ArtworkCandidateId, ImageKind, JobId, ManagedArtworkArtifactId, ManagedArtworkIngestId,
-    MediaItemId, TaruError,
+    MediaItemId, PageRequest, TaruError,
 };
 use taru_db::{DatabaseBackendCapabilities, TaruDatabase};
 use taru_transcode::{
     HardwareAccelerationCapability, HardwareDeviceInitializationStatus,
-    HardwareEncoderDiscoveryStatus, HardwareSmokeProbeStatus,
+    HardwareEncoderDiscoveryStatus, HardwareSmokeProbeStatus, hardware_acceleration_readiness,
 };
+use taru_vfs::StorageUri;
 
 use crate::{
     app::{RuntimeSupervisorDiagnostics, TaruApp},
-    config::{LocalLibraryConfig, MetadataProviderConfig, MetadataProviderRuntimeConfig},
+    config::{
+        LocalLibraryConfig, MetadataProviderConfig, MetadataProviderRuntimeConfig,
+        NetworkAccessConfig, NetworkExposureMode as ConfigNetworkExposureMode,
+        TunnelProviderConfig, TunnelProviderKind as ConfigTunnelProviderKind,
+    },
 };
 
 use super::{
     error::ApiResult,
     query::{
-        ArtworkArtifactLifecycleQuery, ArtworkArtifactRemediationQuery,
-        ArtworkArtifactStorageDriftQuery, ArtworkGalleryQuery, CatalogGovernanceItemsQuery,
-        JobListQuery, OutboxEventListQuery, PlaybackSessionListQuery, StorageStagingQuery,
+        AcquisitionIntakeCandidateListQuery, ArtworkArtifactLifecycleQuery,
+        ArtworkArtifactRemediationQuery, ArtworkArtifactStorageDriftQuery, ArtworkGalleryQuery,
+        CatalogGovernanceItemsQuery, JobListQuery, OutboxEventListQuery, PlaybackSessionListQuery,
+        PlaybackSupportEvidenceQuery, StorageStagingQuery,
     },
 };
 
 pub(super) fn routes() -> Router<TaruApp> {
     Router::new()
         .route("/admin/v1/overview", get(get_admin_overview))
+        .route(
+            "/admin/v1/acquisition/intake/candidates",
+            get(list_admin_acquisition_intake_candidates),
+        )
+        .route(
+            "/admin/v1/acquisition/intake/watch-folder-discovery",
+            post(discover_admin_watch_folder_candidates),
+        )
         .route(
             "/admin/v1/catalog/governance/items",
             get(list_admin_catalog_governance_items),
@@ -123,6 +149,10 @@ pub(super) fn routes() -> Router<TaruApp> {
         .route(
             "/admin/v1/playback/runtime",
             get(get_admin_playback_runtime),
+        )
+        .route(
+            "/admin/v1/playback/support",
+            get(get_admin_playback_support_evidence),
         )
         .route(
             "/admin/v1/playback/sessions",
@@ -206,6 +236,103 @@ pub(super) async fn get_admin_artwork_artifact_lifecycle(
             .artifact_lifecycle_diagnostics(filter, page)
             .await?,
     ))
+}
+
+pub(super) async fn list_admin_acquisition_intake_candidates(
+    State(app): State<TaruApp>,
+    Query(query): Query<AcquisitionIntakeCandidateListQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let (filter, page) = query.into_filter_and_page()?;
+    let diagnostics = app
+        .acquisition_intake()
+        .list_candidates(filter, page)
+        .await?;
+    let candidates = diagnostics
+        .candidates
+        .into_iter()
+        .map(admin_acquisition_intake_candidate)
+        .collect();
+
+    Ok(Json(AdminAcquisitionIntakeCandidateListResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        candidates,
+        page: page_info_from_request(
+            PageRequest::new(diagnostics.limit, diagnostics.offset),
+            diagnostics.returned,
+        ),
+    }))
+}
+
+pub(super) async fn discover_admin_watch_folder_candidates(
+    State(app): State<TaruApp>,
+    Json(request): Json<AdminWatchFolderDiscoveryRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let diagnostic = app
+        .acquisition_intake()
+        .discover_watch_folder_candidates(
+            crate::app::acquisition_intake::DiscoverWatchFolderCandidatesRequest {
+                target_library_id: request.target_library_id,
+                root_uri: request.root_uri.map(parse_admin_storage_uri).transpose()?,
+                max_depth: request.max_depth,
+            },
+        )
+        .await?;
+
+    Ok(Json(AdminWatchFolderDiscoveryResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        target_library_id: diagnostic.target_library_id,
+        root_scheme: diagnostic.root_scheme,
+        root_ref_redacted: diagnostic.root_uri_redacted,
+        ready_candidates: diagnostic.ready_candidates,
+        blocked_candidates: diagnostic.blocked_candidates,
+        incomplete_candidates: diagnostic.incomplete_candidates,
+        unsupported_candidates: diagnostic.unsupported_candidates,
+        recorded_candidates: diagnostic.recorded_candidates,
+        failures: diagnostic
+            .failures
+            .into_iter()
+            .map(|failure| AdminWatchFolderDiscoveryFailure {
+                ref_redacted: failure.uri_redacted,
+                safe_message: failure.safe_message,
+            })
+            .collect(),
+        writes_library: diagnostic.writes_library,
+        managed_import_artifacts_created: diagnostic.managed_import_artifacts_created,
+        promotion_apply: diagnostic.promotion_apply,
+    }))
+}
+
+fn admin_acquisition_intake_candidate(
+    diagnostic: crate::app::acquisition_intake::AcquisitionIntakeCandidateDiagnostic,
+) -> AdminAcquisitionIntakeCandidateDiagnostic {
+    AdminAcquisitionIntakeCandidateDiagnostic {
+        id: diagnostic.id,
+        target_library_id: diagnostic.target_library_id,
+        source_kind: diagnostic.source_kind,
+        custom_source_kind: diagnostic.custom_source_kind,
+        source_scheme: diagnostic.source_scheme,
+        source_ref_redacted: diagnostic.source_uri_redacted,
+        source_key_fingerprint: diagnostic.source_key_fingerprint,
+        has_display_name: diagnostic.has_display_name,
+        has_intended_locator: diagnostic.has_intended_locator,
+        size_bytes: diagnostic.size_bytes,
+        has_fingerprint: diagnostic.has_fingerprint,
+        managed_import_artifact_id: diagnostic.managed_import_artifact_id,
+        state: diagnostic.state,
+        has_diagnostics: diagnostic.has_diagnostics,
+        first_seen_at_ms: diagnostic.first_seen_at_ms,
+        last_seen_at_ms: diagnostic.last_seen_at_ms,
+        created_at_ms: diagnostic.created_at_ms,
+        updated_at_ms: diagnostic.updated_at_ms,
+    }
+}
+
+fn parse_admin_storage_uri(value: String) -> Result<StorageUri, TaruError> {
+    StorageUri::parse(value).map_err(|_err| TaruError::InvalidInput {
+        message: "invalid root_uri; expected a storage URI with a scheme".to_owned(),
+    })
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -344,6 +471,7 @@ pub(super) async fn get_admin_system_config(
             enabled: config.auth.enabled,
             token_env: config.auth.token_env.clone(),
         },
+        network: network_access_diagnostics(config),
         database: database_config_diagnostics(
             config,
             app.store(),
@@ -464,6 +592,271 @@ pub(super) async fn list_admin_storage_staging(
         records,
         page: page_info_from_request(page, returned),
     }))
+}
+
+fn network_access_diagnostics(
+    config: &crate::config::TaruServerConfig,
+) -> AdminNetworkAccessDiagnostics {
+    let network = &config.network;
+
+    AdminNetworkAccessDiagnostics {
+        exposure_mode: admin_network_exposure_mode(network.exposure_mode),
+        readiness: network_readiness_diagnostics(config),
+        external_endpoint: endpoint_diagnostics(network.external_base_url.as_deref()),
+        trusted_proxy: AdminTrustedProxyDiagnostics {
+            headers_enabled: network.trusted_proxy_headers,
+            source_count: usize_to_u32(network.trusted_proxy_sources.len()),
+        },
+        origins: AdminOriginPolicyDiagnostics {
+            allowed_origin_count: usize_to_u32(network.allowed_origins.len()),
+            configured: !network.allowed_origins.is_empty(),
+        },
+        tunnel_providers: network
+            .tunnel_providers
+            .iter()
+            .map(tunnel_provider_diagnostics)
+            .collect(),
+    }
+}
+
+fn network_readiness_diagnostics(
+    config: &crate::config::TaruServerConfig,
+) -> AdminNetworkReadinessDiagnostics {
+    let network = &config.network;
+    AdminNetworkReadinessDiagnostics::from_checks(vec![
+        exposure_mode_readiness_check(network),
+        auth_readiness_check(config),
+        external_endpoint_readiness_check(network),
+        trusted_proxy_readiness_check(network),
+        origin_policy_readiness_check(network),
+        tunnel_provider_readiness_check(network),
+    ])
+}
+
+fn exposure_mode_readiness_check(network: &NetworkAccessConfig) -> AdminNetworkReadinessCheck {
+    match network.exposure_mode {
+        ConfigNetworkExposureMode::LocalOnly => AdminNetworkReadinessCheck::ready(
+            AdminNetworkReadinessCheckName::ExposureMode,
+            AdminNetworkReadinessReason::LocalOnly,
+        ),
+        ConfigNetworkExposureMode::PrivateNetwork
+        | ConfigNetworkExposureMode::ReverseProxy
+        | ConfigNetworkExposureMode::TunnelProvider => AdminNetworkReadinessCheck::ready(
+            AdminNetworkReadinessCheckName::ExposureMode,
+            AdminNetworkReadinessReason::Ready,
+        ),
+    }
+}
+
+fn auth_readiness_check(config: &crate::config::TaruServerConfig) -> AdminNetworkReadinessCheck {
+    if matches!(
+        config.network.exposure_mode,
+        ConfigNetworkExposureMode::LocalOnly
+    ) {
+        return AdminNetworkReadinessCheck::ready(
+            AdminNetworkReadinessCheckName::Auth,
+            AdminNetworkReadinessReason::LocalOnly,
+        );
+    }
+
+    if config.auth.enabled {
+        AdminNetworkReadinessCheck::ready(
+            AdminNetworkReadinessCheckName::Auth,
+            AdminNetworkReadinessReason::Ready,
+        )
+    } else {
+        AdminNetworkReadinessCheck::unavailable(
+            AdminNetworkReadinessCheckName::Auth,
+            AdminNetworkReadinessReason::AuthDisabled,
+        )
+    }
+}
+
+fn external_endpoint_readiness_check(network: &NetworkAccessConfig) -> AdminNetworkReadinessCheck {
+    match network.exposure_mode {
+        ConfigNetworkExposureMode::ReverseProxy | ConfigNetworkExposureMode::TunnelProvider => {
+            if is_https_endpoint(network.external_base_url.as_deref()) {
+                AdminNetworkReadinessCheck::ready(
+                    AdminNetworkReadinessCheckName::ExternalEndpoint,
+                    AdminNetworkReadinessReason::Ready,
+                )
+            } else {
+                AdminNetworkReadinessCheck::unavailable(
+                    AdminNetworkReadinessCheckName::ExternalEndpoint,
+                    AdminNetworkReadinessReason::MissingExternalBaseUrl,
+                )
+            }
+        }
+        ConfigNetworkExposureMode::LocalOnly | ConfigNetworkExposureMode::PrivateNetwork => {
+            AdminNetworkReadinessCheck::ready(
+                AdminNetworkReadinessCheckName::ExternalEndpoint,
+                AdminNetworkReadinessReason::Ready,
+            )
+        }
+    }
+}
+
+fn trusted_proxy_readiness_check(network: &NetworkAccessConfig) -> AdminNetworkReadinessCheck {
+    if network.trusted_proxy_headers && network.trusted_proxy_sources.is_empty() {
+        AdminNetworkReadinessCheck::unavailable(
+            AdminNetworkReadinessCheckName::TrustedProxy,
+            AdminNetworkReadinessReason::MissingTrustedProxySources,
+        )
+    } else {
+        AdminNetworkReadinessCheck::ready(
+            AdminNetworkReadinessCheckName::TrustedProxy,
+            AdminNetworkReadinessReason::Ready,
+        )
+    }
+}
+
+fn origin_policy_readiness_check(network: &NetworkAccessConfig) -> AdminNetworkReadinessCheck {
+    if matches!(network.exposure_mode, ConfigNetworkExposureMode::LocalOnly)
+        || !network.allowed_origins.is_empty()
+    {
+        AdminNetworkReadinessCheck::ready(
+            AdminNetworkReadinessCheckName::OriginPolicy,
+            AdminNetworkReadinessReason::Ready,
+        )
+    } else {
+        AdminNetworkReadinessCheck::degraded(
+            AdminNetworkReadinessCheckName::OriginPolicy,
+            AdminNetworkReadinessReason::BrowserOriginsNotConfigured,
+        )
+    }
+}
+
+fn tunnel_provider_readiness_check(network: &NetworkAccessConfig) -> AdminNetworkReadinessCheck {
+    if !matches!(
+        network.exposure_mode,
+        ConfigNetworkExposureMode::TunnelProvider
+    ) {
+        return AdminNetworkReadinessCheck::ready(
+            AdminNetworkReadinessCheckName::TunnelProvider,
+            AdminNetworkReadinessReason::Ready,
+        );
+    }
+
+    if network.tunnel_providers.is_empty() {
+        return AdminNetworkReadinessCheck::unavailable(
+            AdminNetworkReadinessCheckName::TunnelProvider,
+            AdminNetworkReadinessReason::MissingTunnelProvider,
+        );
+    }
+
+    if network
+        .tunnel_providers
+        .iter()
+        .any(|provider| !tunnel_provider_token_present(provider))
+    {
+        return AdminNetworkReadinessCheck::unavailable(
+            AdminNetworkReadinessCheckName::TunnelProvider,
+            AdminNetworkReadinessReason::MissingTunnelToken,
+        );
+    }
+
+    AdminNetworkReadinessCheck::ready(
+        AdminNetworkReadinessCheckName::TunnelProvider,
+        AdminNetworkReadinessReason::Ready,
+    )
+}
+
+fn endpoint_diagnostics(value: Option<&str>) -> AdminNetworkExternalEndpointDiagnostics {
+    AdminNetworkExternalEndpointDiagnostics {
+        configured: value.is_some_and(|value| !value.trim().is_empty()),
+        scheme: endpoint_scheme(value),
+        host_fingerprint: endpoint_host(value).map(|host| fingerprint_key(&host)),
+    }
+}
+
+fn tunnel_provider_diagnostics(provider: &TunnelProviderConfig) -> AdminTunnelProviderDiagnostics {
+    let endpoint = endpoint_diagnostics(provider.public_url.as_deref());
+
+    AdminTunnelProviderDiagnostics {
+        id: provider.id.clone(),
+        kind: admin_tunnel_provider_kind(provider.kind),
+        endpoint_configured: endpoint.configured,
+        endpoint_scheme: endpoint.scheme,
+        endpoint_host_fingerprint: endpoint.host_fingerprint,
+        token_env: provider.token_env.clone(),
+        token_present: tunnel_provider_token_present(provider),
+    }
+}
+
+fn tunnel_provider_token_present(provider: &TunnelProviderConfig) -> bool {
+    provider
+        .token_env
+        .as_deref()
+        .and_then(|env_name| std::env::var(env_name).ok())
+        .is_some_and(|value| !value.trim().is_empty())
+}
+
+fn admin_network_exposure_mode(mode: ConfigNetworkExposureMode) -> AdminNetworkExposureMode {
+    match mode {
+        ConfigNetworkExposureMode::LocalOnly => AdminNetworkExposureMode::LocalOnly,
+        ConfigNetworkExposureMode::PrivateNetwork => AdminNetworkExposureMode::PrivateNetwork,
+        ConfigNetworkExposureMode::ReverseProxy => AdminNetworkExposureMode::ReverseProxy,
+        ConfigNetworkExposureMode::TunnelProvider => AdminNetworkExposureMode::TunnelProvider,
+    }
+}
+
+fn admin_tunnel_provider_kind(kind: ConfigTunnelProviderKind) -> AdminTunnelProviderKind {
+    match kind {
+        ConfigTunnelProviderKind::External => AdminTunnelProviderKind::External,
+        ConfigTunnelProviderKind::CloudflareTunnel => AdminTunnelProviderKind::CloudflareTunnel,
+        ConfigTunnelProviderKind::TailscaleFunnel => AdminTunnelProviderKind::TailscaleFunnel,
+        ConfigTunnelProviderKind::Ngrok => AdminTunnelProviderKind::Ngrok,
+    }
+}
+
+fn is_https_endpoint(value: Option<&str>) -> bool {
+    endpoint_scheme(value).as_deref() == Some("https")
+}
+
+fn endpoint_scheme(value: Option<&str>) -> Option<String> {
+    let value = value?.trim();
+    let (scheme, rest) = value.split_once("://")?;
+    if rest.trim().is_empty() {
+        return None;
+    }
+    let scheme = scheme.to_ascii_lowercase();
+    if scheme == "http" || scheme == "https" {
+        Some(scheme)
+    } else {
+        None
+    }
+}
+
+fn endpoint_host(value: Option<&str>) -> Option<String> {
+    let value = value?.trim();
+    let (_, rest) = value.split_once("://")?;
+    let authority = rest
+        .split(['/', '?', '#'])
+        .next()
+        .map(str::trim)
+        .filter(|authority| !authority.is_empty())?;
+    let host_port = authority
+        .rsplit_once('@')
+        .map_or(authority, |(_, host)| host);
+    let host = host_port
+        .strip_prefix('[')
+        .and_then(|rest| rest.split_once(']').map(|(host, _)| host))
+        .or_else(|| host_port.split(':').next())
+        .map(str::trim)
+        .filter(|host| !host.is_empty())?;
+
+    Some(host.to_ascii_lowercase())
+}
+
+fn fingerprint_key(value: &str) -> String {
+    use sha2::{Digest, Sha256};
+
+    let digest = Sha256::digest(value.as_bytes());
+    let prefix = digest[..16]
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    format!("sha256:{prefix}")
 }
 
 fn database_config_diagnostics(
@@ -671,78 +1064,51 @@ pub(super) async fn list_admin_playback_sessions(
 pub(super) async fn get_admin_playback_runtime(
     State(app): State<TaruApp>,
 ) -> Json<AdminPlaybackRuntimeDiagnosticsResponse> {
-    let playback = app.playback().runtime_diagnostics();
-    let storage = app.storage().list_storage_backend_diagnostics().await;
-    let startup = app.startup_report().clone();
+    Json(admin_playback_runtime_diagnostics(&app).await)
+}
 
-    let capabilities = playback
-        .hardware_report
-        .capabilities
-        .iter()
-        .map(hardware_capability_diagnostic)
-        .collect::<Vec<_>>();
-    let has_probe_error = capabilities.iter().any(|capability| {
-        matches!(
-            capability.reason_code,
-            AdminPlaybackHardwareCapabilityReason::ProbeError
-                | AdminPlaybackHardwareCapabilityReason::DeviceInitializationFailed
-                | AdminPlaybackHardwareCapabilityReason::SmokeProbeFailed
-        )
-    });
-    let available_gpu_capabilities = capabilities
-        .iter()
-        .filter(|capability| capability.accelerator.is_gpu() && capability.available)
-        .count();
-    let transcode_budget = playback.transcode_budget.bounded();
+pub(super) async fn get_admin_playback_support_evidence(
+    State(app): State<TaruApp>,
+    Query(query): Query<PlaybackSupportEvidenceQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let (session_id, source_id) = query.into_context()?;
+    let context = app
+        .playback()
+        .support_evidence_context(crate::app::playback::PlaybackSupportEvidenceRequest {
+            session_id,
+            source_id,
+        })
+        .await?;
+    let runtime = admin_playback_runtime_diagnostics(&app).await;
+    let subject_source_id = context
+        .session
+        .as_ref()
+        .map(|session| session.source_id)
+        .or_else(|| context.source.as_ref().map(|source| source.id))
+        .or(source_id);
 
-    Json(AdminPlaybackRuntimeDiagnosticsResponse {
+    Ok(Json(AdminPlaybackSupportEvidenceResponse {
         admin_api_version: ADMIN_API_VERSION.to_owned(),
         public_api_version: API_VERSION.to_owned(),
-        ffmpeg: AdminPlaybackFfmpegDiagnostics {
-            probe_status: if has_probe_error {
-                AdminPlaybackRuntimeStatus::Degraded
-            } else {
-                AdminPlaybackRuntimeStatus::Ready
-            },
-            has_probe_error,
-            hardware_capability_count: usize_to_u32(capabilities.len()),
-            available_gpu_capabilities: usize_to_u32(available_gpu_capabilities),
+        subject: AdminPlaybackSupportSubject {
+            session_id,
+            source_id: subject_source_id,
         },
-        hardware: AdminPlaybackHardwareDiagnostics {
-            policy: playback.hardware_policy,
-            selection: playback.hardware_selection,
-            capabilities,
+        session: context
+            .session
+            .map(AdminPlaybackSupportSessionEvidence::from_record),
+        source: context
+            .source
+            .map(AdminPlaybackSupportSourceEvidence::from_record),
+        runtime: playback_support_runtime_evidence(runtime),
+        redaction: AdminPlaybackSupportRedactionEvidence {
+            paths_redacted: true,
+            source_references_redacted: true,
+            ffmpeg_commands_redacted: true,
+            stderr_redacted: true,
+            credentials_redacted: true,
         },
-        transcode: AdminPlaybackTranscodeBudgetDiagnostics {
-            configured_cpu_slots: playback.transcode_budget.cpu_slots,
-            configured_gpu_slots: playback.transcode_budget.gpu_slots,
-            effective_cpu_slots: transcode_budget.cpu_slots,
-            effective_gpu_slots: transcode_budget.gpu_slots,
-            selected_hls_slots: playback.selected_hls_slots,
-        },
-        remux: AdminPlaybackRemuxRuntimeDiagnostics {
-            max_concurrent_sessions: playback.remux_concurrency,
-            timeout_ms: playback.remux_timeout_ms,
-        },
-        remote_playback: remote_budget_summary(
-            storage,
-            playback.remote_stream_concurrency,
-            playback.remote_stage_concurrency,
-        ),
-        staging: AdminPlaybackStagingDiagnostics {
-            max_bytes: playback.staging_max_bytes,
-            retention_ms: playback.staging_retention_ms,
-            cleanup_on_startup: playback.staging_cleanup_on_startup,
-            startup_deleted_records: startup
-                .staging_cleanup
-                .as_ref()
-                .map_or(0, |cleanup| usize_to_u32(cleanup.deleted_records)),
-            startup_deleted_files: startup
-                .staging_cleanup
-                .as_ref()
-                .map_or(0, |cleanup| usize_to_u32(cleanup.deleted_files)),
-        },
-    })
+    }))
 }
 
 fn storage_summary(diagnostics: StorageBackendDiagnosticsResponse) -> AdminOverviewStorageSummary {
@@ -818,6 +1184,134 @@ fn runtime_summary(diagnostics: RuntimeSupervisorDiagnostics) -> AdminOverviewRu
         cancelled_jobs: diagnostics.cancelled_jobs,
         failed_jobs: diagnostics.failed_jobs,
         shutdown_requested: diagnostics.shutdown_requested,
+    }
+}
+
+async fn admin_playback_runtime_diagnostics(
+    app: &TaruApp,
+) -> AdminPlaybackRuntimeDiagnosticsResponse {
+    let playback = app.playback().runtime_diagnostics();
+    let storage = app.storage().list_storage_backend_diagnostics().await;
+    let startup = app.startup_report().clone();
+
+    let capabilities = playback
+        .hardware_report
+        .capabilities
+        .iter()
+        .map(hardware_capability_diagnostic)
+        .collect::<Vec<_>>();
+    let has_ffmpeg_probe_error = capabilities.iter().any(|capability| {
+        matches!(
+            capability.reason_code,
+            AdminPlaybackHardwareCapabilityReason::ProbeError
+        )
+    });
+    let available_gpu_capabilities = capabilities
+        .iter()
+        .filter(|capability| capability.accelerator.is_gpu() && capability.available)
+        .count();
+    let transcode_budget = playback.transcode_budget.bounded();
+
+    let remote_playback = remote_budget_summary(
+        storage,
+        playback.remote_stream_concurrency,
+        playback.remote_stage_concurrency,
+    );
+    let staging = AdminPlaybackStagingDiagnostics {
+        max_bytes: playback.staging_max_bytes,
+        retention_ms: playback.staging_retention_ms,
+        cleanup_on_startup: playback.staging_cleanup_on_startup,
+        startup_deleted_records: startup
+            .staging_cleanup
+            .as_ref()
+            .map_or(0, |cleanup| usize_to_u32(cleanup.deleted_records)),
+        startup_deleted_files: startup
+            .staging_cleanup
+            .as_ref()
+            .map_or(0, |cleanup| usize_to_u32(cleanup.deleted_files)),
+    };
+    let readiness = playback_readiness_diagnostics(
+        has_ffmpeg_probe_error,
+        hardware_acceleration_readiness(
+            playback.hardware_policy,
+            &playback.hardware_selection,
+            &playback.hardware_report,
+        ),
+        playback.hardware_selection.fallback_used,
+        playback.transcode_budget,
+        transcode_budget,
+        &remote_playback,
+        &staging,
+    );
+
+    AdminPlaybackRuntimeDiagnosticsResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        readiness,
+        ffmpeg: AdminPlaybackFfmpegDiagnostics {
+            probe_status: if has_ffmpeg_probe_error {
+                AdminPlaybackRuntimeStatus::Degraded
+            } else {
+                AdminPlaybackRuntimeStatus::Ready
+            },
+            has_probe_error: has_ffmpeg_probe_error,
+            hardware_capability_count: usize_to_u32(capabilities.len()),
+            available_gpu_capabilities: usize_to_u32(available_gpu_capabilities),
+        },
+        hardware: AdminPlaybackHardwareDiagnostics {
+            policy: playback.hardware_policy,
+            selection: playback.hardware_selection,
+            capabilities,
+        },
+        transcode: AdminPlaybackTranscodeBudgetDiagnostics {
+            configured_cpu_slots: playback.transcode_budget.cpu_slots,
+            configured_gpu_slots: playback.transcode_budget.gpu_slots,
+            effective_cpu_slots: transcode_budget.cpu_slots,
+            effective_gpu_slots: transcode_budget.gpu_slots,
+            selected_hls_slots: playback.selected_hls_slots,
+        },
+        remux: AdminPlaybackRemuxRuntimeDiagnostics {
+            max_concurrent_sessions: playback.remux_concurrency,
+            timeout_ms: playback.remux_timeout_ms,
+        },
+        remote_playback,
+        staging,
+    }
+}
+
+fn playback_support_runtime_evidence(
+    runtime: AdminPlaybackRuntimeDiagnosticsResponse,
+) -> AdminPlaybackSupportRuntimeEvidence {
+    let unavailable_capabilities = runtime
+        .hardware
+        .capabilities
+        .iter()
+        .filter(|capability| !capability.available)
+        .map(
+            |capability| AdminPlaybackSupportHardwareCapabilityEvidence {
+                accelerator: capability.accelerator,
+                reason_code: capability.reason_code,
+                encoder_discovery_status: capability.encoder_discovery.status,
+                device_initialization_status: capability.device_initialization.status,
+                smoke_probe_status: capability.smoke_probe.status,
+            },
+        )
+        .collect();
+
+    AdminPlaybackSupportRuntimeEvidence {
+        readiness: runtime.readiness,
+        ffmpeg: runtime.ffmpeg,
+        hardware: AdminPlaybackSupportHardwareEvidence {
+            policy: runtime.hardware.policy,
+            selected_acceleration: runtime.hardware.selection.acceleration,
+            fallback_used: runtime.hardware.selection.fallback_used,
+            capability_count: usize_to_u32(runtime.hardware.capabilities.len()),
+            unavailable_capabilities,
+        },
+        transcode: runtime.transcode,
+        remux: runtime.remux,
+        remote_playback: runtime.remote_playback,
+        staging: runtime.staging,
     }
 }
 
@@ -972,6 +1466,77 @@ fn remote_budget_summary(
         stage_permits_max: stage_permits_max.max(configured_stage_permits),
         state_scope: StorageBackendRuntimeStateScope::ProcessLocal,
     }
+}
+
+fn playback_readiness_diagnostics(
+    has_probe_error: bool,
+    hardware_readiness: taru_transcode::HardwareAccelerationReadiness,
+    fallback_used: bool,
+    configured_budget: taru_transcode::TranscodeResourceBudget,
+    effective_budget: taru_transcode::TranscodeResourceBudget,
+    remote_playback: &AdminPlaybackRemoteBudgetDiagnostics,
+    staging: &AdminPlaybackStagingDiagnostics,
+) -> AdminPlaybackReadinessDiagnostics {
+    AdminPlaybackReadinessDiagnostics::from_checks(vec![
+        if has_probe_error {
+            AdminPlaybackReadinessCheck::degraded(
+                AdminPlaybackReadinessCheckName::FfmpegProbe,
+                AdminPlaybackReadinessReason::ProbeError,
+            )
+        } else {
+            AdminPlaybackReadinessCheck::ready(
+                AdminPlaybackReadinessCheckName::FfmpegProbe,
+                AdminPlaybackReadinessReason::FfmpegProbeReady,
+            )
+        },
+        AdminPlaybackReadinessCheck::from_hardware(hardware_readiness),
+        if fallback_used {
+            AdminPlaybackReadinessCheck::degraded(
+                AdminPlaybackReadinessCheckName::SelectedFallback,
+                AdminPlaybackReadinessReason::CpuFallbackActive,
+            )
+        } else {
+            AdminPlaybackReadinessCheck::ready(
+                AdminPlaybackReadinessCheckName::SelectedFallback,
+                AdminPlaybackReadinessReason::SelectedAccelerationReady,
+            )
+        },
+        if configured_budget.cpu_slots == effective_budget.cpu_slots
+            && configured_budget.gpu_slots == effective_budget.gpu_slots
+        {
+            AdminPlaybackReadinessCheck::ready(
+                AdminPlaybackReadinessCheckName::TranscodeBudget,
+                AdminPlaybackReadinessReason::TranscodeBudgetReady,
+            )
+        } else {
+            AdminPlaybackReadinessCheck::degraded(
+                AdminPlaybackReadinessCheckName::TranscodeBudget,
+                AdminPlaybackReadinessReason::TranscodeBudgetClamped,
+            )
+        },
+        if remote_playback.stream_permits_max > 0 && remote_playback.stage_permits_max > 0 {
+            AdminPlaybackReadinessCheck::ready(
+                AdminPlaybackReadinessCheckName::RemotePlaybackBudget,
+                AdminPlaybackReadinessReason::RemotePlaybackBudgetReady,
+            )
+        } else {
+            AdminPlaybackReadinessCheck::degraded(
+                AdminPlaybackReadinessCheckName::RemotePlaybackBudget,
+                AdminPlaybackReadinessReason::RemotePlaybackBudgetClamped,
+            )
+        },
+        if staging.max_bytes > 0 {
+            AdminPlaybackReadinessCheck::ready(
+                AdminPlaybackReadinessCheckName::Staging,
+                AdminPlaybackReadinessReason::StagingReady,
+            )
+        } else {
+            AdminPlaybackReadinessCheck::unavailable(
+                AdminPlaybackReadinessCheckName::Staging,
+                AdminPlaybackReadinessReason::StagingBudgetDisabled,
+            )
+        },
+    ])
 }
 
 fn usize_to_u32(value: usize) -> u32 {

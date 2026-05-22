@@ -1,16 +1,21 @@
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use taru_client_protocol::PageInfo;
 use taru_core::{
-    CatalogGovernanceItemRecord, DomainEventKind, DomainEventSubject, EventId, ExternalProvider,
-    IngestionFailureClass, IngestionFailurePhase, IngestionFailureRecord, IngestionFailureStatus,
-    Job, JobCancellationRequestRecord, JobId, JobKind, JobStatus, LibraryId, LibraryPreset,
-    LocalInferenceEvidence, LocalInferenceEvidenceSource, MediaItemId, MediaKind, MediaSourceId,
-    OutboxEventRecord, OutboxEventStatus, ScanSnapshotId, StagingManifestId, StagingManifestRecord,
-    StagingPurpose, StagingState, TranscodeFailureCategory, TranscodeSessionId,
-    TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
+    AcquisitionIntakeCandidateId, AcquisitionIntakeCandidateState, CatalogGovernanceItemRecord,
+    DomainEventKind, DomainEventSubject, EventId, ExternalProvider, IngestionFailureClass,
+    IngestionFailurePhase, IngestionFailureRecord, IngestionFailureStatus, Job,
+    JobCancellationRequestRecord, JobId, JobKind, JobStatus, LibraryId, LibraryPreset,
+    LocalInferenceEvidence, LocalInferenceEvidenceSource, ManagedImportArtifactId, MediaItemId,
+    MediaKind, MediaSourceId, OutboxEventRecord, OutboxEventStatus, ScanSnapshotId,
+    StagingManifestId, StagingManifestRecord, StagingPurpose, StagingState,
+    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
+    TranscodeSessionState,
 };
 use taru_transcode::{
-    HardwareAcceleration, HardwareAccelerationPolicy, HardwareAccelerationSelection,
+    HardwareAcceleration, HardwareAccelerationPolicy, HardwareAccelerationReadiness,
+    HardwareAccelerationReadinessReason, HardwareAccelerationReadinessStatus,
+    HardwareAccelerationSelection,
 };
 
 use crate::metadata_diagnostics::MetadataProviderDiagnosticStatus;
@@ -275,6 +280,67 @@ pub struct AdminPlaybackSessionListResponse {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAcquisitionIntakeCandidateListResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub candidates: Vec<AdminAcquisitionIntakeCandidateDiagnostic>,
+    pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAcquisitionIntakeCandidateDiagnostic {
+    pub id: AcquisitionIntakeCandidateId,
+    pub target_library_id: LibraryId,
+    pub source_kind: String,
+    pub custom_source_kind: bool,
+    pub source_scheme: Option<String>,
+    pub source_ref_redacted: String,
+    pub source_key_fingerprint: String,
+    pub has_display_name: bool,
+    pub has_intended_locator: bool,
+    pub size_bytes: Option<u64>,
+    pub has_fingerprint: bool,
+    pub managed_import_artifact_id: Option<ManagedImportArtifactId>,
+    pub state: AcquisitionIntakeCandidateState,
+    pub has_diagnostics: bool,
+    pub first_seen_at_ms: i64,
+    pub last_seen_at_ms: i64,
+    pub created_at_ms: i64,
+    pub updated_at_ms: i64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminWatchFolderDiscoveryRequest {
+    pub target_library_id: LibraryId,
+    pub root_uri: Option<String>,
+    pub max_depth: Option<usize>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminWatchFolderDiscoveryResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub target_library_id: LibraryId,
+    pub root_scheme: Option<String>,
+    pub root_ref_redacted: String,
+    pub ready_candidates: u64,
+    pub blocked_candidates: u64,
+    pub incomplete_candidates: u64,
+    pub unsupported_candidates: u64,
+    pub recorded_candidates: u64,
+    pub failures: Vec<AdminWatchFolderDiscoveryFailure>,
+    pub writes_library: bool,
+    pub managed_import_artifacts_created: bool,
+    pub promotion_apply: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminWatchFolderDiscoveryFailure {
+    pub ref_redacted: String,
+    pub safe_message: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminPlaybackSessionListItem {
     pub id: TranscodeSessionId,
     pub source_id: MediaSourceId,
@@ -316,12 +382,318 @@ impl AdminPlaybackSessionListItem {
 pub struct AdminPlaybackRuntimeDiagnosticsResponse {
     pub admin_api_version: String,
     pub public_api_version: String,
+    pub readiness: AdminPlaybackReadinessDiagnostics,
     pub ffmpeg: AdminPlaybackFfmpegDiagnostics,
     pub hardware: AdminPlaybackHardwareDiagnostics,
     pub transcode: AdminPlaybackTranscodeBudgetDiagnostics,
     pub remux: AdminPlaybackRemuxRuntimeDiagnostics,
     pub remote_playback: AdminPlaybackRemoteBudgetDiagnostics,
     pub staging: AdminPlaybackStagingDiagnostics,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackSupportEvidenceResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub subject: AdminPlaybackSupportSubject,
+    pub session: Option<AdminPlaybackSupportSessionEvidence>,
+    pub source: Option<AdminPlaybackSupportSourceEvidence>,
+    pub runtime: AdminPlaybackSupportRuntimeEvidence,
+    pub redaction: AdminPlaybackSupportRedactionEvidence,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackSupportSubject {
+    pub session_id: Option<TranscodeSessionId>,
+    pub source_id: Option<MediaSourceId>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackSupportSessionEvidence {
+    pub id: TranscodeSessionId,
+    pub source_id: MediaSourceId,
+    pub kind: TranscodeSessionKind,
+    pub state: TranscodeSessionState,
+    pub failure_category: Option<TranscodeFailureCategory>,
+    pub has_failure_message: bool,
+    pub active: bool,
+    pub terminal: bool,
+    pub request_key_fingerprint: String,
+    pub output_artifact_kind: AdminPlaybackOutputArtifactKind,
+    pub created_at: String,
+    pub updated_at: String,
+    pub started_at: Option<String>,
+    pub completed_at: Option<String>,
+}
+
+impl AdminPlaybackSupportSessionEvidence {
+    #[must_use]
+    pub fn from_record(session: TranscodeSessionRecord) -> Self {
+        Self {
+            id: session.id,
+            source_id: session.source_id,
+            kind: session.kind,
+            state: session.state,
+            failure_category: session.failure_category,
+            has_failure_message: session.failure_message.is_some(),
+            active: session.state.is_active(),
+            terminal: session.state.is_terminal(),
+            request_key_fingerprint: stable_fingerprint(&session.request_key),
+            output_artifact_kind: AdminPlaybackOutputArtifactKind::from_session_kind(session.kind),
+            created_at: session.created_at,
+            updated_at: session.updated_at,
+            started_at: session.started_at,
+            completed_at: session.completed_at,
+        }
+    }
+}
+
+impl AdminPlaybackSupportSourceEvidence {
+    #[must_use]
+    pub fn from_record(source: taru_core::MediaSource) -> Self {
+        Self {
+            source_id: source.id,
+            library_id: source.library_id,
+            item_id: source.item_id,
+            source_scheme: storage_scheme(&source.locator),
+            file_name: source.file_name,
+            size_bytes: source.size_bytes,
+            has_fingerprint: source.fingerprint.is_some(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminPlaybackOutputArtifactKind {
+    RemuxFile,
+    HlsPlaylist,
+}
+
+impl AdminPlaybackOutputArtifactKind {
+    const fn from_session_kind(kind: TranscodeSessionKind) -> Self {
+        match kind {
+            TranscodeSessionKind::Remux => Self::RemuxFile,
+            TranscodeSessionKind::HlsTranscode => Self::HlsPlaylist,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackSupportSourceEvidence {
+    pub source_id: MediaSourceId,
+    pub library_id: LibraryId,
+    pub item_id: MediaItemId,
+    pub source_scheme: String,
+    pub file_name: String,
+    pub size_bytes: Option<u64>,
+    pub has_fingerprint: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackSupportRuntimeEvidence {
+    pub readiness: AdminPlaybackReadinessDiagnostics,
+    pub ffmpeg: AdminPlaybackFfmpegDiagnostics,
+    pub hardware: AdminPlaybackSupportHardwareEvidence,
+    pub transcode: AdminPlaybackTranscodeBudgetDiagnostics,
+    pub remux: AdminPlaybackRemuxRuntimeDiagnostics,
+    pub remote_playback: AdminPlaybackRemoteBudgetDiagnostics,
+    pub staging: AdminPlaybackStagingDiagnostics,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackSupportHardwareEvidence {
+    pub policy: HardwareAccelerationPolicy,
+    pub selected_acceleration: HardwareAcceleration,
+    pub fallback_used: bool,
+    pub capability_count: u32,
+    pub unavailable_capabilities: Vec<AdminPlaybackSupportHardwareCapabilityEvidence>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackSupportHardwareCapabilityEvidence {
+    pub accelerator: HardwareAcceleration,
+    pub reason_code: AdminPlaybackHardwareCapabilityReason,
+    pub encoder_discovery_status: AdminPlaybackHardwareEncoderDiscoveryStatus,
+    pub device_initialization_status: AdminPlaybackHardwareDeviceInitializationStatus,
+    pub smoke_probe_status: AdminPlaybackHardwareSmokeProbeStatus,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackSupportRedactionEvidence {
+    pub paths_redacted: bool,
+    pub source_references_redacted: bool,
+    pub ffmpeg_commands_redacted: bool,
+    pub stderr_redacted: bool,
+    pub credentials_redacted: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackReadinessDiagnostics {
+    pub status: AdminPlaybackReadinessStatus,
+    pub reason: AdminPlaybackReadinessReason,
+    pub checks: Vec<AdminPlaybackReadinessCheck>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminPlaybackReadinessStatus {
+    Ready,
+    Degraded,
+    Unavailable,
+}
+
+impl From<HardwareAccelerationReadinessStatus> for AdminPlaybackReadinessStatus {
+    fn from(status: HardwareAccelerationReadinessStatus) -> Self {
+        match status {
+            HardwareAccelerationReadinessStatus::Ready => Self::Ready,
+            HardwareAccelerationReadinessStatus::Degraded => Self::Degraded,
+            HardwareAccelerationReadinessStatus::Unavailable => Self::Unavailable,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminPlaybackReadinessReason {
+    Ready,
+    FfmpegProbeReady,
+    CpuRequested,
+    RequestedAcceleratorReady,
+    RequestedAcceleratorUnavailableFallbackToCpu,
+    RequestedAcceleratorUnavailableFailPolicy,
+    ProbeError,
+    DeviceInitializationFailed,
+    SmokeProbeFailed,
+    SelectedAccelerationReady,
+    CpuFallbackActive,
+    TranscodeBudgetReady,
+    TranscodeBudgetClamped,
+    RemotePlaybackBudgetReady,
+    RemotePlaybackBudgetClamped,
+    StagingReady,
+    StagingBudgetDisabled,
+}
+
+impl From<HardwareAccelerationReadinessReason> for AdminPlaybackReadinessReason {
+    fn from(reason: HardwareAccelerationReadinessReason) -> Self {
+        match reason {
+            HardwareAccelerationReadinessReason::CpuRequested => Self::CpuRequested,
+            HardwareAccelerationReadinessReason::RequestedAcceleratorReady => {
+                Self::RequestedAcceleratorReady
+            }
+            HardwareAccelerationReadinessReason::RequestedAcceleratorUnavailableFallbackToCpu => {
+                Self::RequestedAcceleratorUnavailableFallbackToCpu
+            }
+            HardwareAccelerationReadinessReason::RequestedAcceleratorUnavailableFailPolicy => {
+                Self::RequestedAcceleratorUnavailableFailPolicy
+            }
+            HardwareAccelerationReadinessReason::ProbeError => Self::ProbeError,
+            HardwareAccelerationReadinessReason::DeviceInitializationFailed => {
+                Self::DeviceInitializationFailed
+            }
+            HardwareAccelerationReadinessReason::SmokeProbeFailed => Self::SmokeProbeFailed,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackReadinessCheck {
+    pub name: AdminPlaybackReadinessCheckName,
+    pub status: AdminPlaybackReadinessStatus,
+    pub reason: AdminPlaybackReadinessReason,
+}
+
+impl AdminPlaybackReadinessCheck {
+    #[must_use]
+    pub const fn ready(
+        name: AdminPlaybackReadinessCheckName,
+        reason: AdminPlaybackReadinessReason,
+    ) -> Self {
+        Self {
+            name,
+            status: AdminPlaybackReadinessStatus::Ready,
+            reason,
+        }
+    }
+
+    #[must_use]
+    pub const fn degraded(
+        name: AdminPlaybackReadinessCheckName,
+        reason: AdminPlaybackReadinessReason,
+    ) -> Self {
+        Self {
+            name,
+            status: AdminPlaybackReadinessStatus::Degraded,
+            reason,
+        }
+    }
+
+    #[must_use]
+    pub const fn unavailable(
+        name: AdminPlaybackReadinessCheckName,
+        reason: AdminPlaybackReadinessReason,
+    ) -> Self {
+        Self {
+            name,
+            status: AdminPlaybackReadinessStatus::Unavailable,
+            reason,
+        }
+    }
+
+    #[must_use]
+    pub fn from_hardware(readiness: HardwareAccelerationReadiness) -> Self {
+        Self {
+            name: AdminPlaybackReadinessCheckName::HardwareAcceleration,
+            status: readiness.status.into(),
+            reason: readiness.reason.into(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminPlaybackReadinessCheckName {
+    FfmpegProbe,
+    HardwareAcceleration,
+    SelectedFallback,
+    TranscodeBudget,
+    RemotePlaybackBudget,
+    Staging,
+}
+
+impl AdminPlaybackReadinessDiagnostics {
+    #[must_use]
+    pub fn from_checks(checks: Vec<AdminPlaybackReadinessCheck>) -> Self {
+        let status = if checks
+            .iter()
+            .any(|check| check.status == AdminPlaybackReadinessStatus::Unavailable)
+        {
+            AdminPlaybackReadinessStatus::Unavailable
+        } else if checks
+            .iter()
+            .any(|check| check.status == AdminPlaybackReadinessStatus::Degraded)
+        {
+            AdminPlaybackReadinessStatus::Degraded
+        } else {
+            AdminPlaybackReadinessStatus::Ready
+        };
+        let reason = checks
+            .iter()
+            .find(|check| check.status == status)
+            .map_or(AdminPlaybackReadinessReason::Ready, |check| check.reason);
+
+        Self {
+            status,
+            reason,
+            checks,
+        }
+    }
+
+    #[must_use]
+    pub fn from_hardware(readiness: HardwareAccelerationReadiness) -> Self {
+        Self::from_checks(vec![AdminPlaybackReadinessCheck::from_hardware(readiness)])
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -398,6 +770,7 @@ pub struct AdminServerConfigDiagnosticsResponse {
     pub admin_api_version: String,
     pub public_api_version: String,
     pub auth: AdminAuthConfigDiagnostics,
+    pub network: AdminNetworkAccessDiagnostics,
     pub database: AdminDatabaseConfigDiagnostics,
     pub runtime: AdminRuntimeConfigDiagnostics,
     pub libraries: Vec<AdminLibraryConfigDiagnostics>,
@@ -412,6 +785,177 @@ pub struct AdminServerConfigDiagnosticsResponse {
 pub struct AdminAuthConfigDiagnostics {
     pub enabled: bool,
     pub token_env: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminNetworkAccessDiagnostics {
+    pub exposure_mode: AdminNetworkExposureMode,
+    pub readiness: AdminNetworkReadinessDiagnostics,
+    pub external_endpoint: AdminNetworkExternalEndpointDiagnostics,
+    pub trusted_proxy: AdminTrustedProxyDiagnostics,
+    pub origins: AdminOriginPolicyDiagnostics,
+    pub tunnel_providers: Vec<AdminTunnelProviderDiagnostics>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminNetworkExposureMode {
+    LocalOnly,
+    PrivateNetwork,
+    ReverseProxy,
+    TunnelProvider,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminNetworkReadinessDiagnostics {
+    pub status: AdminNetworkReadinessStatus,
+    pub reason: AdminNetworkReadinessReason,
+    pub checks: Vec<AdminNetworkReadinessCheck>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminNetworkReadinessStatus {
+    Ready,
+    Degraded,
+    Unavailable,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminNetworkReadinessReason {
+    Ready,
+    LocalOnly,
+    AuthDisabled,
+    MissingExternalBaseUrl,
+    MissingTrustedProxySources,
+    MissingTunnelProvider,
+    MissingTunnelToken,
+    BrowserOriginsNotConfigured,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminNetworkReadinessCheck {
+    pub name: AdminNetworkReadinessCheckName,
+    pub status: AdminNetworkReadinessStatus,
+    pub reason: AdminNetworkReadinessReason,
+}
+
+impl AdminNetworkReadinessCheck {
+    #[must_use]
+    pub const fn ready(
+        name: AdminNetworkReadinessCheckName,
+        reason: AdminNetworkReadinessReason,
+    ) -> Self {
+        Self {
+            name,
+            status: AdminNetworkReadinessStatus::Ready,
+            reason,
+        }
+    }
+
+    #[must_use]
+    pub const fn degraded(
+        name: AdminNetworkReadinessCheckName,
+        reason: AdminNetworkReadinessReason,
+    ) -> Self {
+        Self {
+            name,
+            status: AdminNetworkReadinessStatus::Degraded,
+            reason,
+        }
+    }
+
+    #[must_use]
+    pub const fn unavailable(
+        name: AdminNetworkReadinessCheckName,
+        reason: AdminNetworkReadinessReason,
+    ) -> Self {
+        Self {
+            name,
+            status: AdminNetworkReadinessStatus::Unavailable,
+            reason,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminNetworkReadinessCheckName {
+    ExposureMode,
+    Auth,
+    ExternalEndpoint,
+    TrustedProxy,
+    OriginPolicy,
+    TunnelProvider,
+}
+
+impl AdminNetworkReadinessDiagnostics {
+    #[must_use]
+    pub fn from_checks(checks: Vec<AdminNetworkReadinessCheck>) -> Self {
+        let status = if checks
+            .iter()
+            .any(|check| check.status == AdminNetworkReadinessStatus::Unavailable)
+        {
+            AdminNetworkReadinessStatus::Unavailable
+        } else if checks
+            .iter()
+            .any(|check| check.status == AdminNetworkReadinessStatus::Degraded)
+        {
+            AdminNetworkReadinessStatus::Degraded
+        } else {
+            AdminNetworkReadinessStatus::Ready
+        };
+        let reason = checks
+            .iter()
+            .find(|check| check.status == status)
+            .map_or(AdminNetworkReadinessReason::Ready, |check| check.reason);
+
+        Self {
+            status,
+            reason,
+            checks,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminNetworkExternalEndpointDiagnostics {
+    pub configured: bool,
+    pub scheme: Option<String>,
+    pub host_fingerprint: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminTrustedProxyDiagnostics {
+    pub headers_enabled: bool,
+    pub source_count: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOriginPolicyDiagnostics {
+    pub allowed_origin_count: u32,
+    pub configured: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminTunnelProviderDiagnostics {
+    pub id: String,
+    pub kind: AdminTunnelProviderKind,
+    pub endpoint_configured: bool,
+    pub endpoint_scheme: Option<String>,
+    pub endpoint_host_fingerprint: Option<String>,
+    pub token_env: Option<String>,
+    pub token_present: bool,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminTunnelProviderKind {
+    External,
+    CloudflareTunnel,
+    TailscaleFunnel,
+    Ngrok,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -868,6 +1412,37 @@ pub enum StorageBackendRuntimeStateScope {
     ProcessLocal,
 }
 
+fn stable_fingerprint(value: &str) -> String {
+    let digest = Sha256::digest(value.as_bytes());
+
+    format!("sha256:{}", lowercase_hex(&digest[..16]))
+}
+
+fn lowercase_hex(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut output = String::with_capacity(bytes.len() * 2);
+
+    for byte in bytes {
+        output.push(HEX[(byte >> 4) as usize] as char);
+        output.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+
+    output
+}
+
+fn storage_scheme(reference: &str) -> String {
+    reference
+        .split_once("://")
+        .map_or("unknown", |(scheme, _path)| {
+            if scheme.trim().is_empty() {
+                "unknown"
+            } else {
+                scheme
+            }
+        })
+        .to_ascii_lowercase()
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
@@ -1140,10 +1715,349 @@ mod tests {
     }
 
     #[test]
+    fn admin_playback_support_evidence_redacts_session_secrets_but_keeps_support_facts() {
+        let source_id = MediaSourceId::new();
+        let request_key =
+            "transcode-request:v1;source=source-revision:v1;digest=demo;profile=secret-profile"
+                .to_owned();
+        let session = TranscodeSessionRecord {
+            id: TranscodeSessionId::new(),
+            source_id,
+            kind: TranscodeSessionKind::HlsTranscode,
+            request_key: request_key.clone(),
+            output_path: "C:\\taru-cache\\hls\\secret\\playlist.m3u8".into(),
+            state: TranscodeSessionState::Failed,
+            failure_category: Some(TranscodeFailureCategory::Runner),
+            failure_message: Some(
+                "ffmpeg failed while writing C:\\taru-cache\\hls\\secret\\playlist.m3u8".to_owned(),
+            ),
+            created_at: "2026-05-18T00:00:00Z".to_owned(),
+            updated_at: "2026-05-18T00:00:01Z".to_owned(),
+            started_at: Some("2026-05-18T00:00:00Z".to_owned()),
+            completed_at: Some("2026-05-18T00:00:01Z".to_owned()),
+        };
+
+        let evidence = AdminPlaybackSupportSessionEvidence::from_record(session);
+        let body = serde_json::to_string(&evidence).unwrap();
+
+        assert_eq!(evidence.source_id, source_id);
+        assert_eq!(evidence.kind, TranscodeSessionKind::HlsTranscode);
+        assert_eq!(
+            evidence.failure_category,
+            Some(TranscodeFailureCategory::Runner)
+        );
+        assert!(evidence.has_failure_message);
+        assert_eq!(
+            evidence.output_artifact_kind,
+            AdminPlaybackOutputArtifactKind::HlsPlaylist
+        );
+        assert!(evidence.request_key_fingerprint.starts_with("sha256:"));
+        assert_ne!(evidence.request_key_fingerprint, request_key);
+        assert!(!body.contains("secret-profile"));
+        assert!(!body.contains("transcode-request"));
+        assert!(!body.contains("taru-cache"));
+        assert!(!body.contains("playlist.m3u8"));
+        assert!(!body.contains("output_path"));
+        assert!(!body.contains("ffmpeg failed while writing"));
+    }
+
+    #[test]
+    fn admin_playback_support_source_evidence_keeps_scheme_not_locator() {
+        let source = taru_core::MediaSource {
+            id: MediaSourceId::new(),
+            library_id: LibraryId::new(),
+            item_id: MediaItemId::new(),
+            locator: "webdav:///Movies/Private/Secret Demo.mkv?token=admin-token".to_owned(),
+            file_name: "Secret Demo.mkv".to_owned(),
+            size_bytes: Some(42),
+            fingerprint: Some("sha256:private-fingerprint".to_owned()),
+        };
+
+        let evidence = AdminPlaybackSupportSourceEvidence::from_record(source);
+        let body = serde_json::to_string(&evidence).unwrap();
+
+        assert_eq!(evidence.source_scheme, "webdav");
+        assert_eq!(evidence.file_name, "Secret Demo.mkv");
+        assert_eq!(evidence.size_bytes, Some(42));
+        assert!(evidence.has_fingerprint);
+        assert!(!body.contains("locator"));
+        assert!(!body.contains("webdav:///"));
+        assert!(!body.contains("Private"));
+        assert!(!body.contains("admin-token"));
+        assert!(!body.contains("private-fingerprint"));
+    }
+
+    #[test]
+    fn admin_acquisition_intake_diagnostics_use_redacted_refs_not_raw_sources() {
+        let diagnostic = AdminAcquisitionIntakeCandidateDiagnostic {
+            id: AcquisitionIntakeCandidateId::new(),
+            target_library_id: LibraryId::new(),
+            source_kind: "watch_folder".to_owned(),
+            custom_source_kind: false,
+            source_scheme: Some("local".to_owned()),
+            source_ref_redacted: "local://<redacted>".to_owned(),
+            source_key_fingerprint: "sha256:0123456789abcdef0123456789abcdef".to_owned(),
+            has_display_name: true,
+            has_intended_locator: true,
+            size_bytes: Some(42),
+            has_fingerprint: true,
+            managed_import_artifact_id: Some(ManagedImportArtifactId::new()),
+            state: AcquisitionIntakeCandidateState::Ready,
+            has_diagnostics: true,
+            first_seen_at_ms: 1_000,
+            last_seen_at_ms: 1_100,
+            created_at_ms: 1_000,
+            updated_at_ms: 1_100,
+        };
+        let response = AdminAcquisitionIntakeCandidateListResponse {
+            admin_api_version: ADMIN_API_VERSION.to_owned(),
+            public_api_version: API_VERSION.to_owned(),
+            candidates: vec![diagnostic],
+            page: PageInfo {
+                limit: 10,
+                offset: 0,
+                returned: 1,
+            },
+        };
+
+        let value = serde_json::to_value(&response).unwrap();
+        let body = value.to_string();
+
+        assert_eq!(value["admin_api_version"], "v1");
+        assert_eq!(value["candidates"][0]["source_kind"], "watch_folder");
+        assert_eq!(value["candidates"][0]["source_scheme"], "local");
+        assert_eq!(
+            value["candidates"][0]["source_ref_redacted"],
+            "local://<redacted>"
+        );
+        assert_eq!(value["candidates"][0]["state"], "ready");
+        assert_eq!(value["page"]["returned"], 1);
+        assert!(!body.contains("source_uri"));
+        assert!(!body.contains("\"intended_locator\""));
+        assert!(!body.contains("\"display_name\""));
+        assert!(!body.contains("diagnostics_json"));
+        assert!(!body.contains("local:///"));
+        assert!(!body.contains("token"));
+        assert!(!body.contains("private"));
+    }
+
+    #[test]
+    fn admin_watch_folder_discovery_response_redacts_root_and_failures() {
+        let response = AdminWatchFolderDiscoveryResponse {
+            admin_api_version: ADMIN_API_VERSION.to_owned(),
+            public_api_version: API_VERSION.to_owned(),
+            target_library_id: LibraryId::new(),
+            root_scheme: Some("local".to_owned()),
+            root_ref_redacted: "local://<redacted>".to_owned(),
+            ready_candidates: 2,
+            blocked_candidates: 1,
+            incomplete_candidates: 1,
+            unsupported_candidates: 0,
+            recorded_candidates: 3,
+            failures: vec![AdminWatchFolderDiscoveryFailure {
+                ref_redacted: "local://<redacted>".to_owned(),
+                safe_message: "storage error: NotFound".to_owned(),
+            }],
+            writes_library: false,
+            managed_import_artifacts_created: false,
+            promotion_apply: false,
+        };
+
+        let value = serde_json::to_value(&response).unwrap();
+        let body = value.to_string();
+
+        assert_eq!(value["root_ref_redacted"], "local://<redacted>");
+        assert_eq!(value["ready_candidates"], 2);
+        assert_eq!(value["failures"][0]["ref_redacted"], "local://<redacted>");
+        assert_eq!(value["writes_library"], false);
+        assert_eq!(value["managed_import_artifacts_created"], false);
+        assert_eq!(value["promotion_apply"], false);
+        assert!(!body.contains("root_uri"));
+        assert!(!body.contains("uri_redacted"));
+        assert!(!body.contains("local:///"));
+        assert!(!body.contains("Private"));
+        assert!(!body.contains("token"));
+        assert!(!body.contains("C:\\"));
+    }
+
+    #[test]
+    fn admin_network_access_diagnostics_serializes_readiness_without_secret_urls() {
+        let response = AdminServerConfigDiagnosticsResponse {
+            admin_api_version: ADMIN_API_VERSION.to_owned(),
+            public_api_version: API_VERSION.to_owned(),
+            auth: AdminAuthConfigDiagnostics {
+                enabled: true,
+                token_env: Some("TARU_ADMIN_TOKEN".to_owned()),
+            },
+            network: AdminNetworkAccessDiagnostics {
+                exposure_mode: AdminNetworkExposureMode::ReverseProxy,
+                readiness: AdminNetworkReadinessDiagnostics::from_checks(vec![
+                    AdminNetworkReadinessCheck::ready(
+                        AdminNetworkReadinessCheckName::Auth,
+                        AdminNetworkReadinessReason::Ready,
+                    ),
+                    AdminNetworkReadinessCheck::degraded(
+                        AdminNetworkReadinessCheckName::OriginPolicy,
+                        AdminNetworkReadinessReason::BrowserOriginsNotConfigured,
+                    ),
+                ]),
+                external_endpoint: AdminNetworkExternalEndpointDiagnostics {
+                    configured: true,
+                    scheme: Some("https".to_owned()),
+                    host_fingerprint: Some("sha256:0123456789abcdef".to_owned()),
+                },
+                trusted_proxy: AdminTrustedProxyDiagnostics {
+                    headers_enabled: true,
+                    source_count: 2,
+                },
+                origins: AdminOriginPolicyDiagnostics {
+                    allowed_origin_count: 0,
+                    configured: false,
+                },
+                tunnel_providers: vec![AdminTunnelProviderDiagnostics {
+                    id: "cloudflared".to_owned(),
+                    kind: AdminTunnelProviderKind::CloudflareTunnel,
+                    endpoint_configured: true,
+                    endpoint_scheme: Some("https".to_owned()),
+                    endpoint_host_fingerprint: Some("sha256:fedcba9876543210".to_owned()),
+                    token_env: Some("TARU_TUNNEL_TOKEN".to_owned()),
+                    token_present: true,
+                }],
+            },
+            database: AdminDatabaseConfigDiagnostics {
+                configured_backend_kind: "sqlite".to_owned(),
+                active_backend_kind: "sqlite".to_owned(),
+                url_scheme: "sqlite".to_owned(),
+                runtime_supported: true,
+                migrated_on_startup: true,
+                capabilities: AdminDatabaseBackendCapabilitiesDiagnostics {
+                    lifecycle: true,
+                    libraries: true,
+                    jobs: true,
+                    job_leases: true,
+                    media: true,
+                    scan_commits: true,
+                    metadata: true,
+                    catalog: true,
+                    playback_state: true,
+                    transcode_sessions: true,
+                    event_outbox: true,
+                    addons: true,
+                    automation: true,
+                    managed_artwork: true,
+                    vfs_cache: true,
+                    webhooks: true,
+                    search_index: true,
+                },
+            },
+            runtime: AdminRuntimeConfigDiagnostics {
+                listen_addr: "127.0.0.1:3000".to_owned(),
+                scan_concurrency: 1,
+                probe_concurrency: 1,
+                metadata_concurrency: 1,
+                remux_concurrency: 1,
+                webhook_concurrency: 1,
+                remux_timeout_ms: 30_000,
+            },
+            libraries: Vec::new(),
+            metadata: AdminMetadataConfigDiagnostics {
+                raw_cache_retention_ms: 0,
+                raw_cache_cleanup_on_startup: false,
+                raw_cache_cleanup_interval_ms: 0,
+                runtime: AdminMetadataRuntimeConfigDiagnostics {
+                    timeout_ms: 1_000,
+                    max_attempts: 1,
+                    min_interval_ms: 0,
+                    concurrency: 1,
+                    user_agent: "taru-test".to_owned(),
+                    has_proxy: false,
+                    circuit_breaker_failures: 1,
+                    circuit_breaker_backoff_ms: 1,
+                },
+                maintenance_policies: 0,
+                providers: Vec::new(),
+            },
+            transcode: AdminTranscodeConfigDiagnostics {
+                hardware_policy: HardwareAccelerationPolicy {
+                    requested: HardwareAcceleration::None,
+                    fallback: taru_transcode::HardwareAccelerationFallback::Cpu,
+                },
+                cpu_concurrency: 1,
+                gpu_concurrency: 1,
+            },
+            staging: AdminConfigStagingDiagnostics {
+                max_bytes: 1,
+                retention_ms: 1,
+                cleanup_on_startup: false,
+            },
+            playback: AdminConfigPlaybackDiagnostics {
+                remote_stream_concurrency: 1,
+                remote_stage_concurrency: 1,
+            },
+            artwork: AdminArtworkConfigDiagnostics {
+                artifact_root_configured: false,
+                fetch_timeout_ms: 1,
+                fetch_max_attempts: 1,
+                fetch_max_bytes: 1,
+                fetch_concurrency: 1,
+                ingest_worker_enabled: false,
+                ingest_worker_idle_ms: 1,
+                fetch_user_agent: "taru-test".to_owned(),
+                has_fetch_proxy: false,
+                max_width: 1,
+                max_height: 1,
+            },
+        };
+
+        let value = serde_json::to_value(&response).unwrap();
+        let body = value.to_string();
+
+        assert_eq!(value["network"]["exposure_mode"], "reverse_proxy");
+        assert_eq!(value["network"]["readiness"]["status"], "degraded");
+        assert_eq!(
+            value["network"]["readiness"]["reason"],
+            "browser_origins_not_configured"
+        );
+        assert_eq!(value["network"]["external_endpoint"]["scheme"], "https");
+        assert_eq!(value["network"]["trusted_proxy"]["source_count"], 2);
+        assert_eq!(value["network"]["origins"]["allowed_origin_count"], 0);
+        assert_eq!(
+            value["network"]["tunnel_providers"][0]["kind"],
+            "cloudflare_tunnel"
+        );
+        assert_eq!(
+            value["network"]["tunnel_providers"][0]["token_env"],
+            "TARU_TUNNEL_TOKEN"
+        );
+        assert_eq!(
+            value["network"]["tunnel_providers"][0]["token_present"],
+            true
+        );
+        assert!(!body.contains("external_base_url"));
+        assert!(!body.contains("trusted_proxy_sources"));
+        assert!(!body.contains("allowed_origins"));
+        assert!(!body.contains("public_url"));
+        assert!(!body.contains("taru.example"));
+        assert!(!body.contains("cloudflare-token-secret"));
+        assert!(!body.contains("Authorization"));
+        assert!(!body.contains("x-forwarded"));
+    }
+
+    #[test]
     fn admin_playback_runtime_diagnostics_serializes_safe_summary_fields() {
         let response = AdminPlaybackRuntimeDiagnosticsResponse {
             admin_api_version: ADMIN_API_VERSION.to_owned(),
             public_api_version: API_VERSION.to_owned(),
+            readiness: AdminPlaybackReadinessDiagnostics::from_checks(vec![
+                AdminPlaybackReadinessCheck::degraded(
+                    AdminPlaybackReadinessCheckName::FfmpegProbe,
+                    AdminPlaybackReadinessReason::ProbeError,
+                ),
+                AdminPlaybackReadinessCheck::ready(
+                    AdminPlaybackReadinessCheckName::TranscodeBudget,
+                    AdminPlaybackReadinessReason::TranscodeBudgetReady,
+                ),
+            ]),
             ffmpeg: AdminPlaybackFfmpegDiagnostics {
                 probe_status: AdminPlaybackRuntimeStatus::Degraded,
                 has_probe_error: true,
@@ -1215,6 +2129,11 @@ mod tests {
         let body = value.to_string();
 
         assert_eq!(value["admin_api_version"], "v1");
+        assert_eq!(value["readiness"]["status"], "degraded");
+        assert_eq!(value["readiness"]["reason"], "probe_error");
+        assert_eq!(value["readiness"]["checks"][0]["name"], "ffmpeg_probe");
+        assert_eq!(value["readiness"]["checks"][0]["status"], "degraded");
+        assert_eq!(value["readiness"]["checks"][1]["name"], "transcode_budget");
         assert_eq!(value["ffmpeg"]["probe_status"], "degraded");
         assert_eq!(value["hardware"]["policy"]["requested"], "nvenc");
         assert_eq!(value["hardware"]["selection"]["acceleration"], "none");

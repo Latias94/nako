@@ -1,3 +1,4 @@
+pub mod acquisition_intake;
 pub mod addon;
 pub mod automation;
 pub mod error;
@@ -16,6 +17,7 @@ pub mod user_playback;
 pub mod vfs_cache;
 pub mod webhook;
 
+pub use acquisition_intake::*;
 pub use addon::*;
 pub use automation::*;
 pub use error::{Result, StorageErrorKind, TaruError};

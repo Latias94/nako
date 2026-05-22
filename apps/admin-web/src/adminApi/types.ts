@@ -1,11 +1,19 @@
-import type { AdminOverviewResponse, PageInfo } from "./generated/contract";
+import type {
+  AdminNetworkAccessDiagnostics,
+  AdminOverviewResponse,
+  PageInfo,
+} from "./generated/contract";
 
 export type {
+  AdminAcquisitionIntakeCandidateDiagnostic,
+  AdminAcquisitionIntakeCandidateListResponse,
+  AdminAcquisitionIntakeCandidatesQuery,
   AdminCatalogGovernanceItem,
   AdminCatalogGovernanceItemListResponse,
   AdminJobListItem,
   AdminJobListResponse,
   AdminLocalInferenceSummary,
+  AdminNetworkAccessDiagnostics,
   AdminOutboxEventListItem,
   AdminOutboxEventListResponse,
   AdminOverviewResponse,
@@ -13,8 +21,12 @@ export type {
   AdminPlaybackRuntimeDiagnosticsResponse,
   AdminPlaybackSessionListItem,
   AdminPlaybackSessionListResponse,
+  AdminPlaybackSupportEvidenceResponse,
+  AdminPlaybackSupportQuery,
   AdminServerConfigDiagnosticsResponse,
   AdminStorageStagingDiagnosticsResponse,
+  AdminWatchFolderDiscoveryRequest,
+  AdminWatchFolderDiscoveryResponse,
   PageInfo,
 } from "./generated/contract";
 
@@ -22,6 +34,7 @@ export type DataSourceMode = "live" | "hybrid" | "mock" | "planned";
 
 export type AdminSectionKey =
   | "overview"
+  | "acquisitionIntake"
   | "catalogGovernance"
   | "events"
   | "jobs"
@@ -40,10 +53,12 @@ export type AdminConsoleData = {
   overview: AdminOverviewResponse;
   libraries: LibraryRow[];
   catalog: CatalogGovernanceSummary;
+  acquisitionIntake: IntakeSummary;
   events: EventSummary;
   jobs: JobRow[];
   playback: PlaybackSummary;
   storage: StorageSummary;
+  network: NetworkSummary;
   settings: SettingRow[];
 };
 
@@ -75,6 +90,19 @@ export type EventSummary = {
     status: string;
     attempts: number;
     hasError: boolean;
+  }>;
+  page: PageInfo;
+};
+
+export type IntakeSummary = {
+  candidates: Array<{
+    id: string;
+    sourceKind: string;
+    sourceScheme: string;
+    state: string;
+    sizeBytes: number | null;
+    hasDiagnostics: boolean;
+    linkedArtifactId: string | null;
   }>;
   page: PageInfo;
 };
@@ -114,6 +142,18 @@ export type StorageSummary = {
     sizeBytes: number | null;
     hasValidationError: boolean;
   }>;
+};
+
+export type NetworkSummary = {
+  exposureMode: AdminNetworkAccessDiagnostics["exposure_mode"];
+  readinessStatus: AdminNetworkAccessDiagnostics["readiness"]["status"];
+  readinessReason: AdminNetworkAccessDiagnostics["readiness"]["reason"];
+  endpointConfigured: boolean;
+  endpointScheme: string | null;
+  trustedProxyHeaders: boolean;
+  trustedProxySourceCount: number;
+  allowedOriginCount: number;
+  tunnelProviderCount: number;
 };
 
 export type SettingRow = {

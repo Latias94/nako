@@ -1,12 +1,15 @@
 import type {
+  AdminAcquisitionIntakeCandidateListResponse,
   AdminCatalogGovernanceItemListResponse,
   AdminJobListResponse,
   AdminOutboxEventListResponse,
   AdminOverviewResponse,
   AdminPlaybackRuntimeDiagnosticsResponse,
   AdminPlaybackSessionListResponse,
+  AdminPlaybackSupportEvidenceResponse,
   AdminServerConfigDiagnosticsResponse,
   AdminStorageStagingDiagnosticsResponse,
+  AdminWatchFolderDiscoveryResponse,
 } from "./generated/contract";
 import type {
   AdminConsoleData,
@@ -123,6 +126,71 @@ export const mockCatalogGovernance: AdminCatalogGovernanceItemListResponse = {
     },
   ],
   page: { limit: 20, offset: 0, returned: 2 },
+};
+
+export const mockAcquisitionIntakeCandidates: AdminAcquisitionIntakeCandidateListResponse = {
+  admin_api_version: "v1",
+  public_api_version: "v1",
+  candidates: [
+    {
+      id: "candidate-ready",
+      target_library_id: "library-anime",
+      source_kind: "watch_folder",
+      custom_source_kind: false,
+      source_scheme: "local",
+      source_ref_redacted: "local://<redacted>",
+      source_key_fingerprint: "sha256:11111111111111111111111111111111",
+      has_display_name: true,
+      has_intended_locator: false,
+      size_bytes: 1468006400,
+      has_fingerprint: true,
+      managed_import_artifact_id: null,
+      state: "ready",
+      has_diagnostics: true,
+      first_seen_at_ms: 1779180000000,
+      last_seen_at_ms: 1779180200000,
+      created_at_ms: 1779180000000,
+      updated_at_ms: 1779180200000,
+    },
+    {
+      id: "candidate-blocked",
+      target_library_id: "library-films",
+      source_kind: "watch_folder",
+      custom_source_kind: false,
+      source_scheme: "local",
+      source_ref_redacted: "local://<redacted>",
+      source_key_fingerprint: "sha256:22222222222222222222222222222222",
+      has_display_name: true,
+      has_intended_locator: false,
+      size_bytes: 1024,
+      has_fingerprint: true,
+      managed_import_artifact_id: null,
+      state: "blocked",
+      has_diagnostics: true,
+      first_seen_at_ms: 1779180100000,
+      last_seen_at_ms: 1779180300000,
+      created_at_ms: 1779180100000,
+      updated_at_ms: 1779180300000,
+    },
+  ],
+  page: { limit: 20, offset: 0, returned: 2 },
+};
+
+export const mockWatchFolderDiscovery: AdminWatchFolderDiscoveryResponse = {
+  admin_api_version: "v1",
+  public_api_version: "v1",
+  target_library_id: "library-anime",
+  root_scheme: "local",
+  root_ref_redacted: "local://<redacted>",
+  ready_candidates: 1,
+  blocked_candidates: 1,
+  incomplete_candidates: 1,
+  unsupported_candidates: 0,
+  recorded_candidates: 2,
+  failures: [],
+  writes_library: false,
+  managed_import_artifacts_created: false,
+  promotion_apply: false,
 };
 
 export const mockEvents: AdminOutboxEventListResponse = {
@@ -246,6 +314,34 @@ export const mockPlaybackSessions: AdminPlaybackSessionListResponse = {
 export const mockPlaybackRuntime: AdminPlaybackRuntimeDiagnosticsResponse = {
   admin_api_version: "v1",
   public_api_version: "v1",
+  readiness: {
+    status: "ready",
+    reason: "ffmpeg_probe_ready",
+    checks: [
+      { name: "ffmpeg_probe", status: "ready", reason: "ffmpeg_probe_ready" },
+      {
+        name: "hardware_acceleration",
+        status: "ready",
+        reason: "requested_accelerator_ready",
+      },
+      {
+        name: "selected_fallback",
+        status: "ready",
+        reason: "selected_acceleration_ready",
+      },
+      {
+        name: "transcode_budget",
+        status: "ready",
+        reason: "transcode_budget_ready",
+      },
+      {
+        name: "remote_playback_budget",
+        status: "ready",
+        reason: "remote_playback_budget_ready",
+      },
+      { name: "staging", status: "ready", reason: "staging_ready" },
+    ],
+  },
   ffmpeg: {
     probe_status: "ready",
     has_probe_error: false,
@@ -350,6 +446,70 @@ export const mockPlaybackRuntime: AdminPlaybackRuntimeDiagnosticsResponse = {
   },
 };
 
+export const mockPlaybackSupport: AdminPlaybackSupportEvidenceResponse = {
+  admin_api_version: "v1",
+  public_api_version: "v1",
+  subject: {
+    session_id: "session-hls",
+    source_id: "source-hls",
+  },
+  session: {
+    id: "session-hls",
+    source_id: "source-hls",
+    kind: "hls_transcode",
+    state: "failed",
+    failure_category: "runner",
+    has_failure_message: true,
+    active: false,
+    terminal: true,
+    request_key_fingerprint: "sha256:00000000000000000000000000000000",
+    output_artifact_kind: "hls_playlist",
+    created_at: "2026-05-19T10:00:00Z",
+    updated_at: "2026-05-19T10:03:00Z",
+    started_at: "2026-05-19T10:00:01Z",
+    completed_at: "2026-05-19T10:03:00Z",
+  },
+  source: {
+    source_id: "source-hls",
+    library_id: "library-anime",
+    item_id: "item-hls",
+    source_scheme: "webdav",
+    file_name: "Episode 01.mkv",
+    size_bytes: 1468006400,
+    has_fingerprint: true,
+  },
+  runtime: {
+    readiness: mockPlaybackRuntime.readiness,
+    ffmpeg: mockPlaybackRuntime.ffmpeg,
+    hardware: {
+      policy: mockPlaybackRuntime.hardware.policy,
+      selected_acceleration: mockPlaybackRuntime.hardware.selection.acceleration,
+      fallback_used: mockPlaybackRuntime.hardware.selection.fallback_used,
+      capability_count: mockPlaybackRuntime.hardware.capabilities.length,
+      unavailable_capabilities: mockPlaybackRuntime.hardware.capabilities
+        .filter((capability) => !capability.available)
+        .map((capability) => ({
+          accelerator: capability.accelerator,
+          reason_code: capability.reason_code,
+          encoder_discovery_status: capability.encoder_discovery.status,
+          device_initialization_status: capability.device_initialization.status,
+          smoke_probe_status: capability.smoke_probe.status,
+        })),
+    },
+    transcode: mockPlaybackRuntime.transcode,
+    remux: mockPlaybackRuntime.remux,
+    remote_playback: mockPlaybackRuntime.remote_playback,
+    staging: mockPlaybackRuntime.staging,
+  },
+  redaction: {
+    paths_redacted: true,
+    source_references_redacted: true,
+    ffmpeg_commands_redacted: true,
+    stderr_redacted: true,
+    credentials_redacted: true,
+  },
+};
+
 export const mockStorageStaging: AdminStorageStagingDiagnosticsResponse = {
   admin_api_version: "v1",
   public_api_version: "v1",
@@ -411,6 +571,45 @@ export const mockSystemConfig: AdminServerConfigDiagnosticsResponse = {
   auth: {
     enabled: true,
     token_env: "TARU_ADMIN_TOKEN",
+  },
+  network: {
+    exposure_mode: "reverse_proxy",
+    readiness: {
+      status: "ready",
+      reason: "ready",
+      checks: [
+        { name: "exposure_mode", status: "ready", reason: "ready" },
+        { name: "auth", status: "ready", reason: "ready" },
+        { name: "external_endpoint", status: "ready", reason: "ready" },
+        { name: "trusted_proxy", status: "ready", reason: "ready" },
+        { name: "origin_policy", status: "ready", reason: "ready" },
+        { name: "tunnel_provider", status: "ready", reason: "ready" },
+      ],
+    },
+    external_endpoint: {
+      configured: true,
+      scheme: "https",
+      host_fingerprint: "sha256:11111111111111111111111111111111",
+    },
+    trusted_proxy: {
+      headers_enabled: true,
+      source_count: 2,
+    },
+    origins: {
+      allowed_origin_count: 1,
+      configured: true,
+    },
+    tunnel_providers: [
+      {
+        id: "cloudflared",
+        kind: "cloudflare_tunnel",
+        endpoint_configured: true,
+        endpoint_scheme: "https",
+        endpoint_host_fingerprint: "sha256:22222222222222222222222222222222",
+        token_env: "TARU_TUNNEL_TOKEN",
+        token_present: true,
+      },
+    ],
   },
   database: {
     configured_backend_kind: "sqlite",
@@ -531,6 +730,7 @@ export const mockSystemConfig: AdminServerConfigDiagnosticsResponse = {
 
 export const mockSources: AdminSourceMap = {
   overview: "mock",
+  acquisitionIntake: "mock",
   catalogGovernance: "mock",
   events: "mock",
   jobs: "mock",
@@ -581,6 +781,18 @@ export const mockAdminConsoleData: AdminConsoleData = {
     })),
     page: mockCatalogGovernance.page,
   },
+  acquisitionIntake: {
+    candidates: mockAcquisitionIntakeCandidates.candidates.map((candidate) => ({
+      id: candidate.id,
+      sourceKind: candidate.source_kind,
+      sourceScheme: candidate.source_scheme ?? "unknown",
+      state: candidate.state,
+      sizeBytes: candidate.size_bytes,
+      hasDiagnostics: candidate.has_diagnostics,
+      linkedArtifactId: candidate.managed_import_artifact_id,
+    })),
+    page: mockAcquisitionIntakeCandidates.page,
+  },
   events: {
     events: mockEvents.events.map((event) => ({
       id: event.id,
@@ -625,10 +837,25 @@ export const mockAdminConsoleData: AdminConsoleData = {
       hasValidationError: record.has_validation_error,
     })),
   },
+  network: {
+    exposureMode: mockSystemConfig.network.exposure_mode,
+    readinessStatus: mockSystemConfig.network.readiness.status,
+    readinessReason: mockSystemConfig.network.readiness.reason,
+    endpointConfigured: mockSystemConfig.network.external_endpoint.configured,
+    endpointScheme: mockSystemConfig.network.external_endpoint.scheme,
+    trustedProxyHeaders: mockSystemConfig.network.trusted_proxy.headers_enabled,
+    trustedProxySourceCount: mockSystemConfig.network.trusted_proxy.source_count,
+    allowedOriginCount: mockSystemConfig.network.origins.allowed_origin_count,
+    tunnelProviderCount: mockSystemConfig.network.tunnel_providers.length,
+  },
   settings: [
     {
       label: "Admin auth",
       value: mockSystemConfig.auth.enabled ? "Auth configured" : "Auth disabled",
+    },
+    {
+      label: "Network readiness",
+      value: `${mockSystemConfig.network.exposure_mode} · ${mockSystemConfig.network.readiness.status}`,
     },
     { label: "FFmpeg", value: "Configured, diagnostics only" },
     {

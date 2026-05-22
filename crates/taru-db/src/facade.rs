@@ -10,7 +10,8 @@ use crate::{
 };
 
 trait DatabaseBackendAdapter:
-    AddonRepository
+    AcquisitionIntakeRepository
+    + AddonRepository
     + AutomationRepository
     + CatalogRepository
     + CatalogGovernanceRepository
@@ -46,7 +47,8 @@ trait DatabaseBackendAdapter:
 }
 
 impl<T> DatabaseBackendAdapter for T where
-    T: AddonRepository
+    T: AcquisitionIntakeRepository
+        + AddonRepository
         + AutomationRepository
         + CatalogRepository
         + CatalogGovernanceRepository
@@ -83,6 +85,7 @@ impl<T> DatabaseBackendAdapter for T where
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DatabaseBackendCapabilities {
+    pub acquisition_intake: bool,
     pub lifecycle: bool,
     pub libraries: bool,
     pub jobs: bool,
@@ -109,6 +112,7 @@ impl DatabaseBackendCapabilities {
     pub const fn production_ready() -> Self {
         Self {
             lifecycle: true,
+            acquisition_intake: true,
             libraries: true,
             jobs: true,
             job_leases: true,
@@ -134,6 +138,7 @@ impl DatabaseBackendCapabilities {
     pub const fn postgres_supported_scope() -> Self {
         Self {
             lifecycle: true,
+            acquisition_intake: true,
             libraries: true,
             jobs: true,
             job_leases: true,
@@ -219,6 +224,79 @@ impl TaruDatabase {
     #[must_use]
     fn backend(&self) -> &dyn DatabaseBackendAdapter {
         self.backend.as_ref()
+    }
+}
+
+#[async_trait::async_trait]
+impl AcquisitionIntakeRepository for TaruDatabase {
+    async fn upsert_acquisition_intake_candidate(
+        &self,
+        candidate: NewAcquisitionIntakeCandidate,
+    ) -> Result<AcquisitionIntakeCandidateRecord> {
+        self.backend()
+            .upsert_acquisition_intake_candidate(candidate)
+            .await
+    }
+
+    async fn get_acquisition_intake_candidate(
+        &self,
+        id: AcquisitionIntakeCandidateId,
+    ) -> Result<Option<AcquisitionIntakeCandidateRecord>> {
+        self.backend().get_acquisition_intake_candidate(id).await
+    }
+
+    async fn find_acquisition_intake_candidate_by_source_key(
+        &self,
+        target_library_id: LibraryId,
+        source_kind: &AcquisitionIntakeSourceKind,
+        source_key: &str,
+    ) -> Result<Option<AcquisitionIntakeCandidateRecord>> {
+        self.backend()
+            .find_acquisition_intake_candidate_by_source_key(
+                target_library_id,
+                source_kind,
+                source_key,
+            )
+            .await
+    }
+
+    async fn list_acquisition_intake_candidates(
+        &self,
+        filter: AcquisitionIntakeCandidateListFilter,
+        page: PageRequest,
+    ) -> Result<Vec<AcquisitionIntakeCandidateRecord>> {
+        self.backend()
+            .list_acquisition_intake_candidates(filter, page)
+            .await
+    }
+
+    async fn set_acquisition_intake_candidate_state(
+        &self,
+        id: AcquisitionIntakeCandidateId,
+        state: AcquisitionIntakeCandidateState,
+        updated_at_ms: i64,
+        diagnostics_json: Option<String>,
+    ) -> Result<Option<AcquisitionIntakeCandidateRecord>> {
+        self.backend()
+            .set_acquisition_intake_candidate_state(id, state, updated_at_ms, diagnostics_json)
+            .await
+    }
+
+    async fn link_acquisition_intake_candidate_managed_import_artifact(
+        &self,
+        id: AcquisitionIntakeCandidateId,
+        managed_import_artifact_id: ManagedImportArtifactId,
+        updated_at_ms: i64,
+        diagnostics_json: Option<String>,
+    ) -> Result<Option<AcquisitionIntakeCandidateRecord>> {
+        self.backend()
+            .link_acquisition_intake_candidate_managed_import_artifact(
+                id,
+                managed_import_artifact_id,
+                updated_at_ms,
+                diagnostics_json,
+            )
+            .await
     }
 }
 

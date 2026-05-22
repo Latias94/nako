@@ -21,6 +21,9 @@ remux_staging_root = "/cache/remux"
 enabled = true
 token_env = "TARU_ADMIN_TOKEN"
 
+[network]
+exposure_mode = "private_network"
+
 [transcode]
 hardware_acceleration = "none"
 hardware_fallback = "cpu"

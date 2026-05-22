@@ -1,6 +1,6 @@
 # NFO Sidecar Promotion Apply — Milestones
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-21
 
 ## M0 — Lane Open
@@ -68,6 +68,6 @@ Exit criteria:
 
 Exit criteria:
 
-- [ ] Fresh validation is recorded.
-- [ ] Parent umbrella and follow-on split decisions agree.
-- [ ] API/UI/addon exposure work is either opened or explicitly deferred.
+- [x] Fresh validation is recorded.
+- [x] Parent umbrella and follow-on split decisions agree.
+- [x] API/UI/addon exposure work is either opened or explicitly deferred.

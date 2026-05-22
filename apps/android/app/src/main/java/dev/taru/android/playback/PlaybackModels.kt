@@ -173,6 +173,24 @@ interface PlaybackCore {
         sessionId: String,
         segmentName: String,
     ): PlaybackRequestTarget
+
+    fun sourceProbeRequest(
+        profile: ServerProfile,
+        accessToken: String,
+        sourceId: String,
+    ): PlaybackRequestDescriptor
+
+    fun playbackSessionRequest(
+        profile: ServerProfile,
+        accessToken: String,
+        sessionId: String,
+    ): PlaybackRequestDescriptor
+
+    fun cancelPlaybackSessionRequest(
+        profile: ServerProfile,
+        accessToken: String,
+        sessionId: String,
+    ): PlaybackRequestDescriptor
 }
 
 data class TranscodeSessionResponse(

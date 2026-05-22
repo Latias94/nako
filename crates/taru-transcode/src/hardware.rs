@@ -277,6 +277,35 @@ pub struct HardwareAccelerationSelection {
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HardwareAccelerationReadinessStatus {
+    Ready,
+    Degraded,
+    Unavailable,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HardwareAccelerationReadinessReason {
+    CpuRequested,
+    RequestedAcceleratorReady,
+    RequestedAcceleratorUnavailableFallbackToCpu,
+    RequestedAcceleratorUnavailableFailPolicy,
+    ProbeError,
+    DeviceInitializationFailed,
+    SmokeProbeFailed,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct HardwareAccelerationReadiness {
+    pub status: HardwareAccelerationReadinessStatus,
+    pub reason: HardwareAccelerationReadinessReason,
+    pub requested: HardwareAcceleration,
+    pub selected: HardwareAcceleration,
+    pub fallback_used: bool,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct TranscodeResourceBudget {
     pub cpu_slots: usize,
     pub gpu_slots: usize,
@@ -712,4 +741,119 @@ pub fn select_hardware_acceleration(
             "requested hardware accelerator is unavailable",
         )),
     }
+}
+
+#[must_use]
+pub fn hardware_acceleration_readiness(
+    policy: HardwareAccelerationPolicy,
+    selection: &HardwareAccelerationSelection,
+    report: &HardwareAccelerationReport,
+) -> HardwareAccelerationReadiness {
+    let reason = if policy.requested == HardwareAcceleration::None {
+        HardwareAccelerationReadinessReason::CpuRequested
+    } else if !selection.fallback_used && selection.acceleration == policy.requested {
+        HardwareAccelerationReadinessReason::RequestedAcceleratorReady
+    } else {
+        requested_accelerator_unavailable_reason(policy, report)
+    };
+    let status = match reason {
+        HardwareAccelerationReadinessReason::CpuRequested
+        | HardwareAccelerationReadinessReason::RequestedAcceleratorReady => {
+            HardwareAccelerationReadinessStatus::Ready
+        }
+        HardwareAccelerationReadinessReason::RequestedAcceleratorUnavailableFallbackToCpu
+        | HardwareAccelerationReadinessReason::ProbeError
+        | HardwareAccelerationReadinessReason::DeviceInitializationFailed
+        | HardwareAccelerationReadinessReason::SmokeProbeFailed => {
+            HardwareAccelerationReadinessStatus::Degraded
+        }
+        HardwareAccelerationReadinessReason::RequestedAcceleratorUnavailableFailPolicy => {
+            HardwareAccelerationReadinessStatus::Unavailable
+        }
+    };
+
+    HardwareAccelerationReadiness {
+        status,
+        reason,
+        requested: policy.requested,
+        selected: selection.acceleration,
+        fallback_used: selection.fallback_used,
+    }
+}
+
+#[must_use]
+pub fn hardware_acceleration_readiness_without_selection(
+    policy: HardwareAccelerationPolicy,
+    report: &HardwareAccelerationReport,
+) -> HardwareAccelerationReadiness {
+    if policy.requested == HardwareAcceleration::None {
+        return HardwareAccelerationReadiness {
+            status: HardwareAccelerationReadinessStatus::Ready,
+            reason: HardwareAccelerationReadinessReason::CpuRequested,
+            requested: policy.requested,
+            selected: HardwareAcceleration::None,
+            fallback_used: false,
+        };
+    }
+
+    if report.is_available(policy.requested) {
+        return HardwareAccelerationReadiness {
+            status: HardwareAccelerationReadinessStatus::Ready,
+            reason: HardwareAccelerationReadinessReason::RequestedAcceleratorReady,
+            requested: policy.requested,
+            selected: policy.requested,
+            fallback_used: false,
+        };
+    }
+
+    let reason = requested_accelerator_unavailable_reason(policy, report);
+    HardwareAccelerationReadiness {
+        status: match reason {
+            HardwareAccelerationReadinessReason::RequestedAcceleratorUnavailableFailPolicy => {
+                HardwareAccelerationReadinessStatus::Unavailable
+            }
+            _ => HardwareAccelerationReadinessStatus::Degraded,
+        },
+        reason,
+        requested: policy.requested,
+        selected: if policy.fallback == HardwareAccelerationFallback::Cpu {
+            HardwareAcceleration::None
+        } else {
+            policy.requested
+        },
+        fallback_used: policy.fallback == HardwareAccelerationFallback::Cpu,
+    }
+}
+
+fn requested_accelerator_unavailable_reason(
+    policy: HardwareAccelerationPolicy,
+    report: &HardwareAccelerationReport,
+) -> HardwareAccelerationReadinessReason {
+    if policy.fallback == HardwareAccelerationFallback::Fail {
+        return HardwareAccelerationReadinessReason::RequestedAcceleratorUnavailableFailPolicy;
+    }
+
+    let Some(capability) = report.capability_for(policy.requested) else {
+        return HardwareAccelerationReadinessReason::RequestedAcceleratorUnavailableFallbackToCpu;
+    };
+
+    match capability.encoder_discovery.status {
+        HardwareEncoderDiscoveryStatus::ProbeError => {
+            return HardwareAccelerationReadinessReason::ProbeError;
+        }
+        HardwareEncoderDiscoveryStatus::Missing
+        | HardwareEncoderDiscoveryStatus::NotRequired
+        | HardwareEncoderDiscoveryStatus::Listed
+        | HardwareEncoderDiscoveryStatus::Static => {}
+    }
+
+    if capability.device_initialization.status == HardwareDeviceInitializationStatus::Failed {
+        return HardwareAccelerationReadinessReason::DeviceInitializationFailed;
+    }
+
+    if capability.smoke_probe.status == HardwareSmokeProbeStatus::Failed {
+        return HardwareAccelerationReadinessReason::SmokeProbeFailed;
+    }
+
+    HardwareAccelerationReadinessReason::RequestedAcceleratorUnavailableFallbackToCpu
 }

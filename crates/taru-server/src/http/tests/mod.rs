@@ -22,9 +22,10 @@ use taru_addon_protocol::{
 };
 use taru_api::{
     admin::{
-        AcceptManagedArtworkCandidateResponse, AdminCatalogGovernanceItemListResponse,
-        AdminJobCancelRequestResponse, AdminJobListResponse,
-        AdminManagedArtworkArtifactCleanupResponse, AdminManagedArtworkArtifactLifecycleResponse,
+        AcceptManagedArtworkCandidateResponse, AdminAcquisitionIntakeCandidateListResponse,
+        AdminCatalogGovernanceItemListResponse, AdminJobCancelRequestResponse,
+        AdminJobListResponse, AdminManagedArtworkArtifactCleanupResponse,
+        AdminManagedArtworkArtifactLifecycleResponse,
         AdminManagedArtworkArtifactRemediationPlanResponse,
         AdminManagedArtworkArtifactStorageDriftArtifactIssue,
         AdminManagedArtworkArtifactStorageDriftFileReason,
@@ -33,9 +34,12 @@ use taru_api::{
         AdminManagedArtworkArtifactStrayFileCleanupStatus,
         AdminManagedArtworkArtifactStrayFileRemediationAction, AdminManagedArtworkGalleryResponse,
         AdminOutboxEventListResponse, AdminOverviewResponse, AdminOverviewStatus,
-        AdminPlaybackRuntimeDiagnosticsResponse, AdminPlaybackRuntimeStatus,
-        AdminPlaybackSessionListResponse, AdminServerConfigDiagnosticsResponse,
-        AdminStorageStagingDiagnosticsResponse, IgnoreIngestionFailureRequest,
+        AdminPlaybackReadinessCheckName, AdminPlaybackReadinessReason,
+        AdminPlaybackReadinessStatus, AdminPlaybackRuntimeDiagnosticsResponse,
+        AdminPlaybackRuntimeStatus, AdminPlaybackSessionListResponse,
+        AdminPlaybackSupportEvidenceResponse, AdminServerConfigDiagnosticsResponse,
+        AdminStorageStagingDiagnosticsResponse, AdminWatchFolderDiscoveryRequest,
+        AdminWatchFolderDiscoveryResponse, IgnoreIngestionFailureRequest,
         IngestionFailuresResponse, JobResponse, ProcessManagedArtworkIngestResponse,
         PublishSelectedArtworkResponse, RequeueManagedArtworkIngestResponse,
         StorageBackendDiagnosticsResponse, StorageBackendKind, StorageBackendRuntimeStateScope,
@@ -68,28 +72,30 @@ use taru_api::{
     },
 };
 use taru_core::{
-    AddonPermission, AddonSideEffectApplyStatus, AddonSideEffectTargetKind,
-    AddonSideEffectValidationStatus, AddonStatus, AddonTokenStatus, ArtworkCandidateRepository,
-    ArtworkCandidateSourceKind, ArtworkCandidateStatus, AutomationCapability,
-    AutomationProviderStatus, CanonicalMetadata, CatalogRepository, CreditRole, DomainEventKind,
-    DomainEventSubject, EventId, EventOutboxRepository, ExternalProvider, Genre, GenreId,
-    ImageAsset, ImageAssetId, ImageKind, ImageOwner, IngestionFailureClass, IngestionFailurePhase,
-    IngestionFailureRepository, IngestionFailureStatus, ItemCredit, ItemGenre, ItemTag, JobId,
-    JobKind, JobRepository, JobStatus, LibraryId, LibraryItemRepository, LibraryItemState,
-    LibraryRepository, LocalInferenceEvidence, LocalInferenceEvidenceId,
-    LocalInferenceEvidenceSource, LocalInferenceRepository, LocalMetadataPolicy,
-    ManagedArtworkArtifactId, ManagedArtworkIngestStatus, ManagedArtworkRepository, MediaItem,
-    MediaItemId, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource,
-    MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataMatchKind, MetadataProviderAttemptId,
+    AcquisitionIntakeCandidateState, AddonPermission, AddonSideEffectApplyStatus,
+    AddonSideEffectTargetKind, AddonSideEffectValidationStatus, AddonStatus, AddonTokenStatus,
+    ArtworkCandidateRepository, ArtworkCandidateSourceKind, ArtworkCandidateStatus,
+    AutomationCapability, AutomationProviderStatus, CanonicalMetadata, CatalogRepository,
+    CreditRole, DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository,
+    ExternalProvider, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind, ImageOwner,
+    IngestionFailureClass, IngestionFailurePhase, IngestionFailureRepository,
+    IngestionFailureStatus, ItemCredit, ItemGenre, ItemTag, JobId, JobKind, JobRepository,
+    JobStatus, LibraryId, LibraryItemRepository, LibraryItemState, LibraryRepository,
+    LocalInferenceEvidence, LocalInferenceEvidenceId, LocalInferenceEvidenceSource,
+    LocalInferenceRepository, LocalMetadataPolicy, ManagedArtworkArtifactId,
+    ManagedArtworkIngestStatus, ManagedArtworkRepository, MediaItem, MediaItemId, MediaKind,
+    MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource, MediaSourceId,
+    MediaStreamInfo, MediaStreamKind, MetadataMatchKind, MetadataProviderAttemptId,
     MetadataProviderAttemptStatus, MetadataProviderErrorClass, MetadataRepository, MetadataSource,
     NewIngestionFailure, NewJob, NewMetadataProviderAttempt, NewOutboxEvent,
     NewStagingManifestRecord, NewTranscodeSession, NewVfsCacheFailure, OutboxEventStatus,
     PageRequest, Person, PersonId, ProviderMapping, ProviderMappingId, ProviderMappingRepository,
     ProviderMappingStatus, ProviderRawResponse, ProviderRawResponseFilter, ProviderSubject,
     ProviderSubjectId, ProviderSubjectKind, StagingManifestId, StagingManifestRepository,
-    StagingPurpose, StagingState, StorageErrorKind, Tag, TagId, TaruError, TranscodeSessionId,
-    TranscodeSessionKind, TranscodeSessionRepository, TranscodeSessionState, VfsCacheOperation,
-    VfsCacheRepository, VfsCachedObject, VfsCachedObjectKind, WebhookEndpointStatus,
+    StagingPurpose, StagingState, StorageErrorKind, Tag, TagId, TaruError,
+    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRepository,
+    TranscodeSessionState, VfsCacheOperation, VfsCacheRepository, VfsCachedObject,
+    VfsCachedObjectKind, WebhookEndpointStatus,
 };
 use taru_db::TaruDatabase;
 use taru_search::{SearchDocument, SearchIndex, SearchQuery};
@@ -107,8 +113,8 @@ use super::error::ApiError;
 use super::*;
 use crate::config::{
     LocalLibraryConfig, MetadataConfig, MetadataProviderConfig, MetadataProviderHeaderConfig,
-    MetadataProviderRuntimeConfig, PlaybackConfig, StagingConfig, TaruServerConfig,
-    TranscodeConfig,
+    MetadataProviderRuntimeConfig, NetworkAccessConfig, NetworkExposureMode, PlaybackConfig,
+    StagingConfig, TaruServerConfig, TranscodeConfig,
 };
 use crate::http::playback::stream_direct_play_response;
 
@@ -144,6 +150,7 @@ async fn router_with_media_source_config(
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: PathBuf::from("ffmpeg"),
         scan_concurrency: 1,
@@ -232,6 +239,7 @@ async fn router_with_remux_source(
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: ffmpeg_path.clone(),
         scan_concurrency: 1,
@@ -309,6 +317,7 @@ async fn router_with_hls_source() -> (tempfile::TempDir, Router, MediaSource, Ta
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path,
         scan_concurrency: 1,
@@ -513,6 +522,53 @@ fn fake_ffmpeg_script(root: &FsPath, name: &str, slow: bool, marker: &FsPath) ->
     }
 }
 
+fn fake_ffmpeg_encoder_script(root: &FsPath, name: &str, encoder_lines: &[&str]) -> PathBuf {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let path = root.join(name);
+        let mut content = String::from("#!/bin/sh\n");
+        content.push_str("if [ \"$1\" = \"-hide_banner\" ] && [ \"$2\" = \"-encoders\" ]; then\n");
+        for line in encoder_lines {
+            content.push_str(&format!("  printf '{}\\n'\n", line));
+        }
+        content.push_str("  exit 0\nfi\n");
+        content.push_str("for arg do out=\"$arg\"; done\n");
+        content.push_str("printf remuxed > \"$out\"\n");
+        content.push_str("exit 0\n");
+        fs::write(&path, content).unwrap();
+        let mut permissions = fs::metadata(&path).unwrap().permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&path, permissions).unwrap();
+        path
+    }
+
+    #[cfg(windows)]
+    {
+        let path = root.join(format!("{name}.cmd"));
+        let mut content = String::from("@echo off\r\n");
+        content
+            .push_str("if \"%~1\"==\"-hide_banner\" if \"%~2\"==\"-encoders\" goto encoders\r\n");
+        content.push_str("setlocal enabledelayedexpansion\r\n");
+        content.push_str(":args\r\n");
+        content.push_str("if \"%~1\"==\"\" goto run\r\n");
+        content.push_str("set out=%~1\r\n");
+        content.push_str("shift\r\n");
+        content.push_str("goto args\r\n");
+        content.push_str(":run\r\n");
+        content.push_str("<nul set /p dummy=remuxed>\"%out%\"\r\n");
+        content.push_str("exit /b 0\r\n");
+        content.push_str(":encoders\r\n");
+        for line in encoder_lines {
+            content.push_str(&format!("echo {line}\r\n"));
+        }
+        content.push_str("exit /b 0\r\n");
+        fs::write(&path, content).unwrap();
+        path
+    }
+}
+
 fn fake_hls_ffmpeg_script(root: &FsPath, name: &str) -> PathBuf {
     #[cfg(unix)]
     {
@@ -574,6 +630,7 @@ async fn test_router(root: PathBuf, library_id: LibraryId) -> Router {
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: PathBuf::from("ffmpeg"),
         scan_concurrency: 1,
@@ -602,12 +659,28 @@ async fn test_router(root: PathBuf, library_id: LibraryId) -> Router {
 }
 
 async fn test_router_with_bearer_auth(root: PathBuf, library_id: LibraryId, token: &str) -> Router {
+    test_router_with_bearer_auth_and_network(
+        root,
+        library_id,
+        token,
+        NetworkAccessConfig::default(),
+    )
+    .await
+}
+
+async fn test_router_with_bearer_auth_and_network(
+    root: PathBuf,
+    library_id: LibraryId,
+    token: &str,
+    network: NetworkAccessConfig,
+) -> Router {
     let config = TaruServerConfig {
         database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
         auth: crate::config::AuthConfig::disabled(),
+        network,
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: PathBuf::from("ffmpeg"),
         scan_concurrency: 1,

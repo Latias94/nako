@@ -1,11 +1,12 @@
 use serde::Deserialize;
 use taru_core::{
-    AddonStatus, CatalogGovernanceItemListFilter,
+    AcquisitionIntakeCandidateListFilter, AcquisitionIntakeCandidateState,
+    AcquisitionIntakeSourceKind, AddonStatus, CatalogGovernanceItemListFilter,
     DEFAULT_CATALOG_GOVERNANCE_CONFIDENCE_THRESHOLD_MILLI, DomainEventKind, IngestionFailurePhase,
     IngestionFailureStatus, JobKind, JobListFilter, JobStatus, LibraryId,
-    ManagedArtworkArtifactLifecycleFilter, MediaSourceId, OutboxEventListFilter, OutboxEventStatus,
-    PageRequest, StagingPurpose, StagingState, TaruError, TranscodeSessionKind,
-    TranscodeSessionListFilter, TranscodeSessionState,
+    ManagedArtworkArtifactLifecycleFilter, ManagedImportArtifactId, MediaSourceId,
+    OutboxEventListFilter, OutboxEventStatus, PageRequest, StagingPurpose, StagingState, TaruError,
+    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter, TranscodeSessionState,
 };
 
 use crate::app::ImageVariantRequest;
@@ -190,6 +191,101 @@ pub(super) struct PlaybackSessionListQuery {
     pub(super) state: Option<String>,
     pub(super) limit: Option<String>,
     pub(super) offset: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub(super) struct PlaybackSupportEvidenceQuery {
+    pub(super) session_id: Option<String>,
+    pub(super) source_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub(super) struct AcquisitionIntakeCandidateListQuery {
+    pub(super) library_id: Option<String>,
+    pub(super) state: Option<String>,
+    pub(super) source_kind: Option<String>,
+    pub(super) managed_import_artifact_id: Option<String>,
+    pub(super) limit: Option<String>,
+    pub(super) offset: Option<String>,
+}
+
+impl AcquisitionIntakeCandidateListQuery {
+    pub(super) fn into_filter_and_page(
+        self,
+    ) -> Result<(AcquisitionIntakeCandidateListFilter, PageRequest), TaruError> {
+        let page = PageQuery {
+            limit: self
+                .limit
+                .map(|value| parse_u32_filter("limit", value))
+                .transpose()?,
+            offset: self
+                .offset
+                .map(|value| parse_u64_filter("offset", value))
+                .transpose()?,
+        };
+
+        Ok((
+            AcquisitionIntakeCandidateListFilter {
+                target_library_id: self
+                    .library_id
+                    .map(|value| {
+                        value
+                            .parse::<LibraryId>()
+                            .map_err(|err| TaruError::InvalidInput {
+                                message: format!("invalid library_id filter: {err}"),
+                            })
+                    })
+                    .transpose()?,
+                state: self
+                    .state
+                    .map(parse_acquisition_intake_candidate_state_filter)
+                    .transpose()?,
+                source_kind: self
+                    .source_kind
+                    .map(parse_acquisition_intake_source_kind_filter),
+                managed_import_artifact_id: self
+                    .managed_import_artifact_id
+                    .map(|value| {
+                        value.parse::<ManagedImportArtifactId>().map_err(|err| {
+                            TaruError::InvalidInput {
+                                message: format!(
+                                    "invalid managed_import_artifact_id filter: {err}"
+                                ),
+                            }
+                        })
+                    })
+                    .transpose()?,
+            },
+            page.try_into()?,
+        ))
+    }
+}
+
+impl PlaybackSupportEvidenceQuery {
+    pub(super) fn into_context(
+        self,
+    ) -> Result<(Option<TranscodeSessionId>, Option<MediaSourceId>), TaruError> {
+        Ok((
+            self.session_id
+                .map(|value| {
+                    value
+                        .parse::<TranscodeSessionId>()
+                        .map_err(|err| TaruError::InvalidInput {
+                            message: format!("invalid session_id filter: {err}"),
+                        })
+                })
+                .transpose()?,
+            self.source_id
+                .map(|value| {
+                    value
+                        .parse::<MediaSourceId>()
+                        .map_err(|err| TaruError::InvalidInput {
+                            message: format!("invalid source_id filter: {err}"),
+                        })
+                })
+                .transpose()?,
+        ))
+    }
 }
 
 impl PlaybackSessionListQuery {
@@ -486,6 +582,24 @@ fn parse_staging_state_filter(value: String) -> Result<StagingState, TaruError> 
     StagingState::parse(&value).map_err(|_err| TaruError::InvalidInput {
         message: format!("invalid state filter: {value}"),
     })
+}
+
+fn parse_acquisition_intake_candidate_state_filter(
+    value: String,
+) -> Result<AcquisitionIntakeCandidateState, TaruError> {
+    AcquisitionIntakeCandidateState::parse(&value).map_err(|_err| TaruError::InvalidInput {
+        message: format!("invalid state filter: {value}"),
+    })
+}
+
+fn parse_acquisition_intake_source_kind_filter(value: String) -> AcquisitionIntakeSourceKind {
+    match value.as_str() {
+        "watch_folder" => AcquisitionIntakeSourceKind::WatchFolder,
+        "operator_submitted" => AcquisitionIntakeSourceKind::OperatorSubmitted,
+        "external_download_output" => AcquisitionIntakeSourceKind::ExternalDownloadOutput,
+        "addon_proposed" => AcquisitionIntakeSourceKind::AddonProposed,
+        _ => AcquisitionIntakeSourceKind::Other(value),
+    }
 }
 
 fn parse_u32_filter(name: &str, value: String) -> Result<u32, TaruError> {

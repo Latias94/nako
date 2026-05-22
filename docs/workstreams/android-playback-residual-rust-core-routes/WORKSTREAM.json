@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "slug": "android-playback-residual-rust-core-routes",
+  "title": "Android Playback Residual Rust Core Routes",
+  "status": "closed",
+  "updated": "2026-05-21",
+  "scope_kind": "execution",
+  "problem": "Android playback runtime route construction still uses generated Kotlin SDK descriptors for source probe and playback session inspect/cancel.",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/android-playback-residual-rust-core-routes/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/android-playback-residual-rust-core-routes/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/android-playback-residual-rust-core-routes/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/android-playback-residual-rust-core-routes/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/android-playback-residual-rust-core-routes/CLOSEOUT.md"
+    }
+  ],
+  "gates": [
+    "cargo fmt --package taru-client-core --check",
+    "cargo nextest run -p taru-client-core --no-fail-fast",
+    "cargo fmt --package taru-client-uniffi --check",
+    "cargo nextest run -p taru-client-uniffi --no-fail-fast",
+    "./scripts/guard-uniffi-boundary.ps1",
+    "apps/android/gradlew.bat -p apps/android :app:testDebugUnitTest --tests dev.taru.android.playback.TaruPlaybackClientTest --no-daemon --rerun-tasks",
+    "if (rg -n \"TaruPublicClientRequests|TaruRequestDescriptor|pathAndQuery|executeJson|PublicApiAuth\" apps/android/app/src/main/java/dev/taru/android/playback/TaruPlaybackClient.kt apps/android/app/src/main/java/dev/taru/android/playback/RustPlaybackCore.kt) { exit 1 } else { 'PASS: playback runtime has no generated SDK route descriptor calls.' }",
+    "if (rg -n \"toSdkPageQuery\" apps/android/app/src/main/java apps/android/app/src/test/java) { exit 1 } else { 'PASS: removed dead toSdkPageQuery helper.' }",
+    "python -m json.tool docs/workstreams/android-playback-residual-rust-core-routes/WORKSTREAM.json > $null",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "date": "2026-05-21",
+      "task": "PRR-010",
+      "summary": "Opened the residual playback route migration lane and froze request-construction-only scope."
+    },
+    {
+      "date": "2026-05-21",
+      "task": "PRR-020",
+      "summary": "Added taru-client-core residual playback request builders and core tests; taru-client-core gate passed."
+    },
+    {
+      "date": "2026-05-21",
+      "task": "PRR-030",
+      "summary": "Added UniFFI residual playback request builder records/functions; UniFFI tests and boundary guard passed."
+    },
+    {
+      "date": "2026-05-21",
+      "task": "PRR-040",
+      "summary": "Migrated Android TaruPlaybackClient residual runtime route construction to Rust descriptors and deleted the dead toSdkPageQuery helper."
+    },
+    {
+      "date": "2026-05-21",
+      "task": "PRR-050",
+      "summary": "Updated Android docs and passed combined Rust core, UniFFI, boundary, route-owner, dead-helper, and Android playback gates."
+    },
+    {
+      "date": "2026-05-21",
+      "task": "PRR-090",
+      "summary": "Closed the lane with final evidence, residual risks, and follow-ons."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0025-openapi-public-client-sdk-contract.md",
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
+    "docs/adr/0032-shared-rust-client-core-app-supplied-transport.md"
+  ],
+  "related_workstreams": [
+    "docs/workstreams/android-browse-catalog-rust-core-routes/",
+    "docs/workstreams/android-user-playback-rust-core-routes/",
+    "docs/workstreams/android-uniffi-boundary-hardening/"
+  ],
+  "next_task": null,
+  "continue_policy": {
+    "default_action": "closed",
+    "notes": "Lane complete. Open a follow-on for public artwork route ownership or preview route fixtures if desired."
+  }
+}

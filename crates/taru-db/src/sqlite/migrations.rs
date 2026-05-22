@@ -169,8 +169,13 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
     ),
     (
         34,
+        "acquisition intake candidates",
+        include_str!("../../migrations/0034_acquisition_intake_candidates.sql"),
+    ),
+    (
+        35,
         "addon unregistration",
-        include_str!("../../migrations/0034_addon_unregistration.sql"),
+        include_str!("../../migrations/0035_addon_unregistration.sql"),
     ),
 ];
 

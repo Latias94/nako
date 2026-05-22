@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createAdminDataSource } from "./dataSource";
 import { TARU_ADMIN_ROUTES } from "./generated/contract";
 import {
+  mockAcquisitionIntakeCandidates,
   mockCatalogGovernance,
   mockEvents,
   mockJobs,
@@ -18,6 +19,7 @@ describe("Admin data source", () => {
     const dataSource = createAdminDataSource({
       fetcher: fetcherFor({
         [TARU_ADMIN_ROUTES.overview]: mockOverview,
+        [TARU_ADMIN_ROUTES.acquisitionIntakeCandidates]: mockAcquisitionIntakeCandidates,
         [TARU_ADMIN_ROUTES.catalogGovernanceItems]: mockCatalogGovernance,
         [TARU_ADMIN_ROUTES.events]: mockEvents,
         [TARU_ADMIN_ROUTES.jobs]: mockJobs,
@@ -31,14 +33,26 @@ describe("Admin data source", () => {
     const data = await dataSource.load();
 
     expect(data.sources.overview).toBe("live");
+    expect(data.sources.acquisitionIntake).toBe("live");
     expect(data.sources.jobs).toBe("live");
     expect(data.sources.playbackSessions).toBe("live");
     expect(data.sources.playbackRuntime).toBe("live");
     expect(data.sources.storageStaging).toBe("live");
     expect(data.sources.systemConfig).toBe("live");
+    expect(data.network).toMatchObject({
+      exposureMode: "reverse_proxy",
+      readinessStatus: "ready",
+      tunnelProviderCount: 1,
+    });
     expect(data.jobs[0]).toMatchObject({
       kind: "library_scan",
       resourceClass: "library",
+    });
+    expect(data.acquisitionIntake.candidates[0]).toMatchObject({
+      sourceKind: "watch_folder",
+      sourceScheme: "local",
+      state: "ready",
+      hasDiagnostics: true,
     });
     expect(data.playback.accelerators).toContainEqual({
       name: "nvenc",
@@ -48,12 +62,17 @@ describe("Admin data source", () => {
       label: "Admin auth",
       value: "Auth configured",
     });
+    expect(data.settings).toContainEqual({
+      label: "Network readiness",
+      value: "reverse_proxy · ready",
+    });
   });
 
   it("falls back per section when one Admin API read model fails", async () => {
     const dataSource = createAdminDataSource({
       fetcher: fetcherFor({
         [TARU_ADMIN_ROUTES.overview]: mockOverview,
+        [TARU_ADMIN_ROUTES.acquisitionIntakeCandidates]: mockAcquisitionIntakeCandidates,
         [TARU_ADMIN_ROUTES.catalogGovernanceItems]: mockCatalogGovernance,
         [TARU_ADMIN_ROUTES.events]: mockEvents,
         [TARU_ADMIN_ROUTES.jobs]: new Response("offline", { status: 503 }),

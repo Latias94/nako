@@ -5,11 +5,14 @@ export const TARU_ADMIN_API_VERSION = "v1" as const;
 
 export const TARU_ADMIN_ROUTES = {
   overview: "/admin/v1/overview",
+  acquisitionIntakeCandidates: "/admin/v1/acquisition/intake/candidates",
+  acquisitionIntakeWatchFolderDiscovery: "/admin/v1/acquisition/intake/watch-folder-discovery",
   catalogGovernanceItems: "/admin/v1/catalog/governance/items",
   events: "/admin/v1/events",
   jobs: "/admin/v1/jobs",
   playbackSessions: "/admin/v1/playback/sessions",
   playbackRuntime: "/admin/v1/playback/runtime",
+  playbackSupport: "/admin/v1/playback/support",
   storageStaging: "/admin/v1/storage/staging",
   systemConfig: "/admin/v1/system/config",
 } as const;
@@ -45,6 +48,24 @@ export interface AdminPlaybackSessionsQuery extends AdminPageQuery {
   source_id?: string;
   kind?: string;
   state?: string;
+}
+
+export interface AdminPlaybackSupportQuery {
+  session_id?: string;
+  source_id?: string;
+}
+
+export interface AdminAcquisitionIntakeCandidatesQuery extends AdminPageQuery {
+  library_id?: string;
+  state?: string;
+  source_kind?: string;
+  managed_import_artifact_id?: string;
+}
+
+export interface AdminWatchFolderDiscoveryRequest {
+  target_library_id: string;
+  root_uri?: string;
+  max_depth?: number;
 }
 
 export interface AdminStorageStagingQuery extends AdminPageQuery {
@@ -203,9 +224,66 @@ export interface AdminPlaybackSessionListResponse {
   page: PageInfo;
 }
 
+export interface AdminAcquisitionIntakeCandidateListResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  candidates: AdminAcquisitionIntakeCandidateDiagnostic[];
+  page: PageInfo;
+}
+
+export interface AdminAcquisitionIntakeCandidateDiagnostic {
+  id: string;
+  target_library_id: string;
+  source_kind: string;
+  custom_source_kind: boolean;
+  source_scheme: string | null;
+  source_ref_redacted: string;
+  source_key_fingerprint: string;
+  has_display_name: boolean;
+  has_intended_locator: boolean;
+  size_bytes: number | null;
+  has_fingerprint: boolean;
+  managed_import_artifact_id: string | null;
+  state: string;
+  has_diagnostics: boolean;
+  first_seen_at_ms: number;
+  last_seen_at_ms: number;
+  created_at_ms: number;
+  updated_at_ms: number;
+}
+
+export interface AdminWatchFolderDiscoveryResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  target_library_id: string;
+  root_scheme: string | null;
+  root_ref_redacted: string;
+  ready_candidates: number;
+  blocked_candidates: number;
+  incomplete_candidates: number;
+  unsupported_candidates: number;
+  recorded_candidates: number;
+  failures: Array<{
+    ref_redacted: string;
+    safe_message: string;
+  }>;
+  writes_library: boolean;
+  managed_import_artifacts_created: boolean;
+  promotion_apply: boolean;
+}
+
 export interface AdminPlaybackRuntimeDiagnosticsResponse {
   admin_api_version: string;
   public_api_version: string;
+  readiness: {
+    status: string;
+    reason: string;
+    checks: Array<{
+      name: string;
+      status: string;
+      reason: string;
+    }>;
+  };
   ffmpeg: {
     probe_status: string;
     has_probe_error: boolean;
@@ -268,6 +346,68 @@ export interface AdminPlaybackRuntimeDiagnosticsResponse {
   };
 }
 
+export interface AdminPlaybackSupportEvidenceResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  subject: {
+    session_id: string | null;
+    source_id: string | null;
+  };
+  session: {
+    id: string;
+    source_id: string;
+    kind: string;
+    state: string;
+    failure_category: string | null;
+    has_failure_message: boolean;
+    active: boolean;
+    terminal: boolean;
+    request_key_fingerprint: string;
+    output_artifact_kind: string;
+    created_at: string;
+    updated_at: string;
+    started_at: string | null;
+    completed_at: string | null;
+  } | null;
+  source: {
+    source_id: string;
+    library_id: string;
+    item_id: string;
+    source_scheme: string;
+    file_name: string;
+    size_bytes: number | null;
+    has_fingerprint: boolean;
+  } | null;
+  runtime: {
+    readiness: AdminPlaybackRuntimeDiagnosticsResponse["readiness"];
+    ffmpeg: AdminPlaybackRuntimeDiagnosticsResponse["ffmpeg"];
+    hardware: {
+      policy: Record<string, unknown>;
+      selected_acceleration: string;
+      fallback_used: boolean;
+      capability_count: number;
+      unavailable_capabilities: Array<{
+        accelerator: string;
+        reason_code: string;
+        encoder_discovery_status: string;
+        device_initialization_status: string;
+        smoke_probe_status: string;
+      }>;
+    };
+    transcode: AdminPlaybackRuntimeDiagnosticsResponse["transcode"];
+    remux: AdminPlaybackRuntimeDiagnosticsResponse["remux"];
+    remote_playback: AdminPlaybackRuntimeDiagnosticsResponse["remote_playback"];
+    staging: AdminPlaybackRuntimeDiagnosticsResponse["staging"];
+  };
+  redaction: {
+    paths_redacted: boolean;
+    source_references_redacted: boolean;
+    ffmpeg_commands_redacted: boolean;
+    stderr_redacted: boolean;
+    credentials_redacted: boolean;
+  };
+}
+
 export interface AdminStorageStagingDiagnosticsResponse {
   admin_api_version: string;
   public_api_version: string;
@@ -306,6 +446,73 @@ export interface AdminStorageStagingDiagnosticsResponse {
   page: PageInfo;
 }
 
+export type AdminNetworkExposureMode =
+  | "local_only"
+  | "private_network"
+  | "reverse_proxy"
+  | "tunnel_provider";
+
+export type AdminNetworkReadinessStatus = "ready" | "degraded" | "unavailable";
+
+export type AdminNetworkReadinessReason =
+  | "ready"
+  | "local_only"
+  | "auth_disabled"
+  | "missing_external_base_url"
+  | "missing_trusted_proxy_sources"
+  | "missing_tunnel_provider"
+  | "missing_tunnel_token"
+  | "browser_origins_not_configured";
+
+export type AdminNetworkReadinessCheckName =
+  | "exposure_mode"
+  | "auth"
+  | "external_endpoint"
+  | "trusted_proxy"
+  | "origin_policy"
+  | "tunnel_provider";
+
+export type AdminTunnelProviderKind =
+  | "external"
+  | "cloudflare_tunnel"
+  | "tailscale_funnel"
+  | "ngrok";
+
+export interface AdminNetworkAccessDiagnostics {
+  exposure_mode: AdminNetworkExposureMode;
+  readiness: {
+    status: AdminNetworkReadinessStatus;
+    reason: AdminNetworkReadinessReason;
+    checks: Array<{
+      name: AdminNetworkReadinessCheckName;
+      status: AdminNetworkReadinessStatus;
+      reason: AdminNetworkReadinessReason;
+    }>;
+  };
+  external_endpoint: {
+    configured: boolean;
+    scheme: string | null;
+    host_fingerprint: string | null;
+  };
+  trusted_proxy: {
+    headers_enabled: boolean;
+    source_count: number;
+  };
+  origins: {
+    allowed_origin_count: number;
+    configured: boolean;
+  };
+  tunnel_providers: Array<{
+    id: string;
+    kind: AdminTunnelProviderKind;
+    endpoint_configured: boolean;
+    endpoint_scheme: string | null;
+    endpoint_host_fingerprint: string | null;
+    token_env: string | null;
+    token_present: boolean;
+  }>;
+}
+
 export interface AdminServerConfigDiagnosticsResponse {
   admin_api_version: string;
   public_api_version: string;
@@ -313,6 +520,7 @@ export interface AdminServerConfigDiagnosticsResponse {
     enabled: boolean;
     token_env: string | null;
   };
+  network: AdminNetworkAccessDiagnostics;
   database: {
     configured_backend_kind: string;
     active_backend_kind: string;

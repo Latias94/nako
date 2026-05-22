@@ -2,12 +2,12 @@ package dev.taru.android.artwork
 
 import dev.taru.android.browse.PublicImageRefDto
 import dev.taru.android.connection.SafeRequestPreview
-import dev.taru.android.connection.SensitiveText
 import dev.taru.android.connection.ServerProfile
 import dev.taru.android.connection.TaruHttpRequest
-import dev.taru.android.connection.urlOn
-import dev.taru.sdk.TaruPublicClientRequests
-import dev.taru.sdk.TaruRequestDescriptor
+import dev.taru.android.connection.toAndroidPreview
+import dev.taru.android.connection.toAndroidRequest
+import uniffi.taru_client_uniffi.CoreArtworkImageRequestInput
+import uniffi.taru_client_uniffi.CoreHttpRequest
 
 enum class PublicArtworkSlot {
     Poster,
@@ -27,41 +27,74 @@ data class PublicArtworkRequest(
 class PublicArtworkSource(
     private val profile: ServerProfile,
     private val accessToken: String,
+    private val artworkCore: ArtworkCore = RustArtworkCore,
 ) {
     fun requestFor(image: PublicImageRefDto?): PublicArtworkRequest? {
         image ?: return null
-        val descriptor = image.publicImageRequestDescriptorOrNull()
-        if (accessToken.isBlank() || descriptor == null) {
-            return null
-        }
+        val descriptor = image.publicImageRequestDescriptorOrNull(
+            profile = profile,
+            accessToken = accessToken,
+            artworkCore = artworkCore,
+        ) ?: return null
 
-        val request = TaruHttpRequest(
-            method = "GET",
-            url = descriptor.urlOn(profile),
-            headers = mapOf("Authorization" to "Bearer $accessToken"),
-        )
         return PublicArtworkRequest(
-            request = request,
-            safeRequest = SafeRequestPreview(
-                method = request.method,
-                url = SensitiveText.sanitize(request.url, listOf(accessToken)),
-                headers = request.headers.mapValues { (name, value) ->
-                    if (name.equals("Authorization", ignoreCase = true)) {
-                        "Bearer ${SensitiveText.redacted}"
-                    } else {
-                        SensitiveText.sanitize(value, listOf(accessToken))
-                    }
-                },
-            ),
+            request = descriptor.request,
+            safeRequest = descriptor.safePreview,
             image = image,
         )
     }
 }
 
-private fun PublicImageRefDto.publicImageRequestDescriptorOrNull(): TaruRequestDescriptor? {
+interface ArtworkCore {
+    fun image(
+        profile: ServerProfile,
+        accessToken: String,
+        imageId: String,
+        width: UInt? = null,
+        height: UInt? = null,
+    ): ArtworkRequestDescriptor
+}
+
+object RustArtworkCore : ArtworkCore {
+    override fun image(
+        profile: ServerProfile,
+        accessToken: String,
+        imageId: String,
+        width: UInt?,
+        height: UInt?,
+    ): ArtworkRequestDescriptor =
+        uniffi.taru_client_uniffi.buildArtworkImageRequest(
+            CoreArtworkImageRequestInput(
+                baseUrl = profile.baseUrl,
+                accessToken = accessToken,
+                imageId = imageId,
+                width = width,
+                height = height,
+            ),
+        ).toArtworkDescriptor()
+}
+
+data class ArtworkRequestDescriptor(
+    val request: TaruHttpRequest,
+    val safePreview: SafeRequestPreview,
+)
+
+private fun PublicImageRefDto.publicImageRequestDescriptorOrNull(
+    profile: ServerProfile,
+    accessToken: String,
+    artworkCore: ArtworkCore,
+): ArtworkRequestDescriptor? {
+    if (id.isBlank() || accessToken.isBlank()) {
+        return null
+    }
+    val expected = artworkCore.image(
+        profile = profile,
+        accessToken = accessToken,
+        imageId = id,
+    )
     val path = url.trim()
     if (
-        id.isBlank() ||
+        path.isBlank() ||
         path.contains("..") ||
         path.contains("//") ||
         path.contains("?") ||
@@ -69,9 +102,9 @@ private fun PublicImageRefDto.publicImageRequestDescriptorOrNull(): TaruRequestD
     ) {
         return null
     }
-    return TaruPublicClientRequests
-        .image(id)
-        .takeIf { descriptor -> descriptor.pathAndQuery == path }
+    return expected.takeIf { descriptor ->
+        descriptor.request.url.pathAndQueryOn(profile) == path
+    }
 }
 
 fun preferredPublicArtwork(
@@ -86,11 +119,34 @@ fun preferredPublicArtwork(
     return preferredKinds
         .firstNotNullOfOrNull { kind ->
             images.firstOrNull { image ->
-                image.kindWireValue() == kind && image.publicImageRequestDescriptorOrNull() != null
+                image.kindWireValue() == kind && image.hasPublicImageRouteShape()
             }
         }
-        ?: images.firstOrNull { image -> image.publicImageRequestDescriptorOrNull() != null }
+        ?: images.firstOrNull { image -> image.hasPublicImageRouteShape() }
 }
 
 fun PublicImageRefDto.kindWireValue(): String =
     kind.lowercase()
+
+private fun PublicImageRefDto.hasPublicImageRouteShape(): Boolean {
+    val path = url.trim()
+    return id.isNotBlank() &&
+        path.startsWith("/images/") &&
+        !path.contains("..") &&
+        !path.contains("//") &&
+        !path.contains("?") &&
+        !path.contains("#")
+}
+
+private fun String.pathAndQueryOn(profile: ServerProfile): String? {
+    val baseUrl = profile.baseUrl.trimEnd('/')
+    return takeIf { fullUrl -> fullUrl.startsWith(baseUrl) }
+        ?.removePrefix(baseUrl)
+        ?.takeIf { pathAndQuery -> pathAndQuery.startsWith("/") }
+}
+
+private fun CoreHttpRequest.toArtworkDescriptor(): ArtworkRequestDescriptor =
+    ArtworkRequestDescriptor(
+        request = toAndroidRequest(),
+        safePreview = safePreview.toAndroidPreview(),
+    )

@@ -1,6 +1,6 @@
 # NFO Sidecar Promotion Apply — Handoff
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-21
 
 ## Current State
@@ -92,7 +92,7 @@ Existing prerequisites are in place:
   restore failure records `RepairPending`; both paths replay idempotently and
   avoid raw path/XML diagnostics.
 
-## Active Task
+## Closeout
 
 - Task ID: NSPA-070
 - Owner: planner
@@ -100,10 +100,11 @@ Existing prerequisites are in place:
   `docs/workstreams/post-rpd-product-hardening`
 - Validation: fresh closeout evidence is recorded; parent umbrella points to
   the next lane.
-- Status: READY
+- Status: COMPLETE
 - Evidence: NSPA-060 is complete with rollback/repair gates and fresh focused
-  verification. NSPA-070 should decide whether Admin API, Public Client API,
-  Addon side-effect, or UI exposure belongs in follow-on workstreams.
+  verification. NSPA-070 closes the core sidecar apply lane and splits Admin
+  API, Public Client API, UI, Addon side-effect, and download/watch-folder
+  automation as follow-on consumers of this boundary.
 
 ## Decisions
 
@@ -129,7 +130,8 @@ Existing prerequisites are in place:
 
 ## Next Recommended Action
 
-- Execute NSPA-070: close or split this lane, update parent
-  `post-rpd-product-hardening` scoring, and decide whether sidecar apply should
-  surface first through Admin API, Addon side effects, UI, or a narrow internal
-  service contract.
+- Return to `post-rpd-product-hardening` PRPH-090. The next recommended
+  mainline lane is Playback/Transcode Ops Hardening because local metadata,
+  file-write, and import mutation boundaries are now proven; downloads/watch
+  folder, network, AI, and addon runtime remain downstream or parallel only if
+  they consume existing accepted boundaries.

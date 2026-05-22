@@ -2,12 +2,17 @@
 
 ## Status
 
-Active follow-on lane split from
+Complete follow-on lane split from
 `link-apply-and-import-promotion` LAIP-070.
 
 This lane designs and implements accepted NFO sidecar import/export mutation as
 an explicit **Library File Write** and metadata-authority workflow. It must not
 be hidden inside Managed Import promotion.
+
+Closeout decision: the core sidecar apply boundary is complete. Admin API,
+Public Client API, UI, Addon side-effect exposure, and download/watch-folder
+automation are follow-on lanes that must consume this accepted apply boundary
+instead of writing sidecars directly.
 
 ## Purpose
 

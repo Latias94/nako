@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "slug": "network-access-boundary",
+  "title": "Network Access Boundary",
+  "status": "active",
+  "updated": "2026-05-22",
+  "scope_kind": "execution",
+  "problem": "Self-hosted Taru needs explicit remote access policy, trusted proxy/header behavior, tunnel-provider readiness, origin constraints, and redacted diagnostics before built-in NAT traversal or broader remote-client features are safe.",
+  "task_prefix": "NAB",
+  "current_task": "NAB-050",
+  "completed_tasks": [
+    "NAB-010",
+    "NAB-020",
+    "NAB-030",
+    "NAB-040"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/network-access-boundary/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/network-access-boundary/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/network-access-boundary/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/network-access-boundary/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/network-access-boundary/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/network-access-boundary/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "cargo nextest run -p taru-server config --no-fail-fast",
+    "cargo nextest run -p taru-server http::tests::system --no-fail-fast",
+    "cargo nextest run -p taru-api admin_contract --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "npm run check from apps/admin-web after Admin contract/client changes",
+    "git diff --check",
+    "git diff --name-only -- crates/taru-client-protocol"
+  ],
+  "evidence": [
+    "docs/workstreams/network-access-boundary/DESIGN.md",
+    "docs/workstreams/network-access-boundary/TODO.md",
+    "docs/workstreams/network-access-boundary/EVIDENCE_AND_GATES.md",
+    "docs/adr/0024-inbound-token-authentication-boundary.md",
+    "docs/deployment/SELF_HOSTED.md",
+    "docs/workstreams/access-boundary-auth/DESIGN.md",
+    "crates/taru-server/src/config.rs",
+    "crates/taru-server/src/http",
+    "crates/taru-server/src/http/network.rs",
+    "crates/taru-api/src/admin.rs",
+    "crates/taru-api/src/admin_contract.rs",
+    "apps/admin-web/src/adminApi"
+  ],
+  "adr_refs": [
+    "docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md",
+    "docs/adr/0024-inbound-token-authentication-boundary.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "next_task": "NAB-050",
+    "notes": "NAB-010 opened Network Access Boundary as the next post-DWI mainline lane. NAB-020 completed network access policy/config validation for local-only, reverse-proxy, private-network, and tunnel-provider modes with trusted proxy source requirements, origin validation, tunnel token-env checks, deployment docs, and no tunnel runtime. NAB-030 completed request-time HTTP boundary enforcement for configured browser origins, CORS preflight, auth-order preservation, public health compatibility, and trusted forwarded host/proto handling gated by exact-IP/CIDR trusted proxy sources. NAB-040 completed Admin-only network readiness diagnostics in system config plus generated Admin Web contract/data mapping with strict redaction and no Public Client protocol churn. Continue with NAB-050 closeout/follow-on split. Do not add built-in NAT traversal runtime, relay services, identity/RBAC, protocol downloaders, AI writes, Addon runtime/distribution, direct library writes, Public Client API changes, or taru-client-protocol changes unless split into a dedicated lane."
+  }
+}

@@ -10,15 +10,30 @@ attention.
   active roadmap umbrella for ordering post-packaging product lanes across
   metadata provider breadth, NFO/link authority, playback/transcode hardening,
   managed import staging, network access, AI assistance, and addon distribution.
+- [network-access-boundary](network-access-boundary/README.md):
+  active post-RPD mainline lane for self-hosted remote access policy,
+  trusted proxy/header handling, tunnel-provider readiness, origin constraints,
+  and redacted Admin diagnostics before any built-in NAT traversal runtime.
+- [downloads-watch-folder-intake](downloads-watch-folder-intake/README.md):
+  completed post-RPD mainline lane for acquisition intake and watch-folder
+  candidate discovery that feeds Managed Import artifacts and accepted
+  promotion/apply workflows without protocol-specific downloader runtime,
+  direct library writes, network traversal, AI writes, or Addon runtime scope.
+- [playback-transcode-ops-hardening](playback-transcode-ops-hardening/README.md):
+  completed post-RPD mainline lane for hardening Playback Runtime readiness,
+  typed hardware/fallback diagnostics, transcode validation, session failure
+  taxonomy, and bounded Admin support evidence without changing metadata,
+  NFO, import, downloader, network, AI, or addon mutation boundaries.
 - [link-apply-and-import-promotion](link-apply-and-import-promotion/README.md):
   completed post-RPD mainline follow-on for turning Managed Import promotion
   previews into operator-confirmed, idempotent, rollback-aware Media Library
   mutations through VFS/storage and durable audit records. NFO sidecar mutation
   is split out.
 - [nfo-sidecar-promotion-apply](nfo-sidecar-promotion-apply/README.md):
-  active follow-on split for accepted NFO import/export sidecar mutation as a
-  Library File Write and metadata-authority workflow, with backup, round-trip,
-  rollback/repair, field-lock, hierarchy-confirmation, and audit boundaries.
+  completed follow-on split for accepted NFO import/export sidecar mutation as
+  a Library File Write and metadata-authority workflow, with backup,
+  round-trip, rollback/repair, field-lock, hierarchy-confirmation, and audit
+  boundaries.
 - [managed-import-staging](managed-import-staging/README.md):
   completed post-RPD mainline lane for Taru-owned quarantine, diagnostics, and
   explicit non-mutating promotion planning before downloads, watch-folder

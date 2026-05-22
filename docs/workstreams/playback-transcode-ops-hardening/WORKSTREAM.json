@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "slug": "playback-transcode-ops-hardening",
+  "title": "Playback Transcode Ops Hardening",
+  "status": "complete",
+  "updated": "2026-05-22",
+  "scope_kind": "execution",
+  "problem": "Playback and transcode runtime foundations exist, but operators still need stable readiness, validation, fallback, failure-taxonomy, and redacted support evidence to diagnose playback issues safely.",
+  "task_prefix": "PTOH",
+  "current_task": null,
+  "completed_tasks": [
+    "PTOH-010",
+    "PTOH-020",
+    "PTOH-030",
+    "PTOH-040",
+    "PTOH-050",
+    "PTOH-060"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/playback-transcode-ops-hardening/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/playback-transcode-ops-hardening/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/playback-transcode-ops-hardening/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/playback-transcode-ops-hardening/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/playback-transcode-ops-hardening/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/playback-transcode-ops-hardening/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "cargo fmt --all -- --check",
+    "cargo check -p taru-transcode --tests",
+    "cargo nextest run -p taru-transcode --no-fail-fast",
+    "cargo nextest run -p taru-streaming --no-fail-fast",
+    "cargo check -p taru-api --tests",
+    "cargo nextest run -p taru-api admin_playback --no-fail-fast",
+    "cargo nextest run -p taru-api admin_contract --no-fail-fast",
+    "cargo check -p taru-server --tests",
+    "cargo nextest run -p taru-server http::tests::system --no-fail-fast",
+    "git diff --check",
+    "git diff --name-only -- crates/taru-client-protocol"
+  ],
+  "evidence": [
+    "docs/workstreams/playback-transcode-ops-hardening/DESIGN.md",
+    "docs/workstreams/playback-transcode-ops-hardening/TODO.md",
+    "docs/workstreams/playback-transcode-ops-hardening/EVIDENCE_AND_GATES.md",
+    "docs/workstreams/transcode-runtime/README.md",
+    "docs/workstreams/playback-streaming/README.md",
+    "docs/workstreams/admin-playback-runtime-diagnostics/DESIGN.md",
+    "crates/taru-core/src/session.rs",
+    "crates/taru-api/src/public_client.rs",
+    "crates/taru-db/src/tests.rs",
+    "crates/taru-db/src/contract_tests.rs",
+    "crates/taru-transcode/src/hardware.rs",
+    "crates/taru-transcode/src/lib.rs",
+    "crates/taru-transcode/src/plan.rs",
+    "crates/taru-transcode/src/profile.rs",
+    "crates/taru-transcode/src/ffmpeg.rs",
+    "crates/taru-streaming/src",
+    "crates/taru-server/src/app/playback",
+    "crates/taru-server/src/http/admin.rs",
+    "crates/taru-server/src/http/tests",
+    "crates/taru-api/src/admin.rs",
+    "crates/taru-api/src/admin_contract.rs",
+    "apps/admin-web/src/adminApi/generated/contract.ts",
+    "apps/admin-web/src/adminApi/client.ts",
+    "apps/admin-web/src/adminApi/mockData.ts"
+  ],
+  "adr_refs": [
+    "docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md",
+    "docs/adr/0021-video-first-media-server-domain-model.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "continue_policy": {
+    "default_action": "return_to_parent",
+    "next_task": "downloads-watch-folder-intake DWI-020",
+    "notes": "Playback/Transcode Ops Hardening is complete. PTOH-020 shipped Admin-only playback runtime readiness. PTOH-030 shipped pre-session transcode profile/plan validation and typed fallback reasons. PTOH-040 shipped session failure taxonomy with redacted persisted/operator messages and public client coarse-category compatibility. PTOH-050 shipped Admin-only support evidence for runtime/session/source context with redaction, mismatched context rejection, Admin contract sync, and no public client protocol changes. PTOH-060 closed the lane and re-scored the parent umbrella. PRPH-120 opened downloads-watch-folder-intake as staged artifact acquisition; continue with DWI-020. Keep support bundles/UI, adaptive HLS ladders, optimized versions, direct remote FFmpeg credentials, distributed transcode, network access, AI, and Addon runtime as split follow-ons."
+  }
+}

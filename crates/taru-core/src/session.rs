@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{MediaSourceId, TaruError, TranscodeSessionId};
+use crate::{MediaSourceId, StorageErrorKind, TaruError, TranscodeSessionId};
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -88,6 +88,11 @@ impl TranscodeSessionState {
 #[serde(rename_all = "snake_case")]
 pub enum TranscodeFailureCategory {
     InvalidRequest,
+    Probe,
+    Plan,
+    Staging,
+    Budget,
+    HardwareFallback,
     Runner,
     Timeout,
     Storage,
@@ -101,6 +106,11 @@ impl TranscodeFailureCategory {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::InvalidRequest => "invalid_request",
+            Self::Probe => "probe",
+            Self::Plan => "plan",
+            Self::Staging => "staging",
+            Self::Budget => "budget",
+            Self::HardwareFallback => "hardware_fallback",
             Self::Runner => "runner",
             Self::Timeout => "timeout",
             Self::Storage => "storage",
@@ -114,6 +124,11 @@ impl TranscodeFailureCategory {
     pub fn parse(value: &str) -> Option<Self> {
         match value {
             "invalid_request" => Some(Self::InvalidRequest),
+            "probe" => Some(Self::Probe),
+            "plan" => Some(Self::Plan),
+            "staging" => Some(Self::Staging),
+            "budget" => Some(Self::Budget),
+            "hardware_fallback" => Some(Self::HardwareFallback),
             "runner" => Some(Self::Runner),
             "timeout" => Some(Self::Timeout),
             "storage" => Some(Self::Storage),
@@ -127,18 +142,121 @@ impl TranscodeFailureCategory {
     #[must_use]
     pub fn from_error(error: &TaruError) -> Self {
         match error {
-            TaruError::InvalidInput { .. } | TaruError::Unsupported(_) => Self::InvalidRequest,
-            TaruError::Unauthorized { .. } | TaruError::Forbidden { .. } => Self::InvalidRequest,
-            TaruError::Provider { message, .. }
-                if message.to_ascii_lowercase().contains("timed out") =>
-            {
-                Self::Timeout
+            TaruError::InvalidInput { message } if is_plan_failure_message(message) => Self::Plan,
+            TaruError::InvalidInput { .. } => Self::InvalidRequest,
+            TaruError::Unsupported(message) if is_hardware_fallback_message(message) => {
+                Self::HardwareFallback
             }
+            TaruError::Unsupported(_) => Self::InvalidRequest,
+            TaruError::Unauthorized { .. } | TaruError::Forbidden { .. } => Self::InvalidRequest,
+            TaruError::Provider { provider, .. } if provider == "ffprobe" => Self::Probe,
+            TaruError::Provider { message, .. } if is_timeout_message(message) => Self::Timeout,
+            TaruError::Provider { message, .. } if is_hardware_fallback_message(message) => {
+                Self::HardwareFallback
+            }
+            TaruError::Provider { message, .. } if is_plan_failure_message(message) => Self::Plan,
             TaruError::Provider { .. } => Self::Runner,
+            TaruError::Storage {
+                kind:
+                    StorageErrorKind::StagingBudgetExhausted | StorageErrorKind::ResourceBudgetClosed,
+                ..
+            } => Self::Budget,
+            TaruError::Storage {
+                kind:
+                    StorageErrorKind::Io
+                    | StorageErrorKind::StagingValidationMismatch
+                    | StorageErrorKind::SecurityViolation
+                    | StorageErrorKind::Backup,
+                message,
+                ..
+            } if is_staging_message(message) => Self::Staging,
             TaruError::Storage { .. } => Self::Storage,
             TaruError::NotFound { .. }
             | TaruError::Conflict { .. }
             | TaruError::Database { .. } => Self::Unknown,
+        }
+    }
+}
+
+fn is_timeout_message(message: &str) -> bool {
+    message.to_ascii_lowercase().contains("timed out")
+}
+
+fn is_plan_failure_message(message: &str) -> bool {
+    let message = message.to_ascii_lowercase();
+    message.contains("command plan")
+        || message.contains("invalid remux request")
+        || message.contains("invalid hls request")
+        || message.contains("playback transcode plan")
+        || message.contains("transcode profile")
+}
+
+fn is_staging_message(message: &str) -> bool {
+    let message = message.to_ascii_lowercase();
+    message.contains("staging")
+        || message.contains("staged")
+        || message.contains("temporary")
+        || message.contains("promote hls")
+        || message.contains("promote remux")
+        || message.contains("output directory")
+        || message.contains("output path")
+}
+
+fn is_hardware_fallback_message(message: &str) -> bool {
+    let message = message.to_ascii_lowercase();
+    message.contains("hardware accelerator") || message.contains("hardware acceleration")
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{StorageErrorKind, TaruError, TranscodeFailureCategory};
+
+    #[test]
+    fn transcode_failure_category_maps_support_boundaries() {
+        let cases = [
+            (
+                TaruError::Provider {
+                    provider: "ffprobe".to_owned(),
+                    message: "failed to probe C:\\secret\\movie.mkv".to_owned(),
+                },
+                TranscodeFailureCategory::Probe,
+            ),
+            (
+                TaruError::InvalidInput {
+                    message: "invalid hls request: hls command plan does not contain expected playlist path: C:\\secret\\playlist.m3u8".to_owned(),
+                },
+                TranscodeFailureCategory::Plan,
+            ),
+            (
+                TaruError::storage_io(
+                    "C:\\secret\\taru-cache\\hls\\playlist.m3u8",
+                    "failed to promote hls output directory",
+                ),
+                TranscodeFailureCategory::Staging,
+            ),
+            (
+                TaruError::storage(
+                    "webdav:///Movies/secret.mkv",
+                    StorageErrorKind::StagingBudgetExhausted,
+                    "used=10, additional=4, max=12",
+                ),
+                TranscodeFailureCategory::Budget,
+            ),
+            (
+                TaruError::Unsupported("requested hardware accelerator is unavailable"),
+                TranscodeFailureCategory::HardwareFallback,
+            ),
+            (
+                TaruError::Provider {
+                    provider: "ffmpeg_hls".to_owned(),
+                    message: "hls runner timed out after 100 ms".to_owned(),
+                },
+                TranscodeFailureCategory::Timeout,
+            ),
+        ];
+
+        for (error, expected) in cases {
+            assert_eq!(TranscodeFailureCategory::from_error(&error), expected);
         }
     }
 }

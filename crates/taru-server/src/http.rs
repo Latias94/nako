@@ -13,6 +13,7 @@ mod error;
 mod jobs;
 mod library;
 mod metadata;
+mod network;
 mod playback;
 mod query;
 mod system;
@@ -25,6 +26,7 @@ pub fn build_router(app: TaruApp) -> Router {
 }
 
 fn build_router_with_auth(app: TaruApp, auth: auth::InboundAuthState) -> Router {
+    let network = network::NetworkBoundaryState::from_config(&app.config().network);
     let protected_routes = Router::new()
         .merge(system::routes())
         .merge(admin::routes())
@@ -37,6 +39,7 @@ fn build_router_with_auth(app: TaruApp, auth: auth::InboundAuthState) -> Router 
         .merge(automation::routes())
         .merge(addons::routes())
         .merge(jobs::routes())
+        .layer(middleware::from_fn(network::enforce_network_boundary))
         .layer(middleware::from_fn(auth::require_auth))
         .layer(Extension(auth));
 
@@ -45,6 +48,8 @@ fn build_router_with_auth(app: TaruApp, auth: auth::InboundAuthState) -> Router 
         .merge(protected_routes)
         .merge(addons::runtime_routes())
         .layer(middleware::map_response(add_api_version_header))
+        .layer(middleware::from_fn(network::annotate_external_origin))
+        .layer(Extension(network))
         .with_state(app)
 }
 

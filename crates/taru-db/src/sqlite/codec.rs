@@ -165,6 +165,20 @@ pub(crate) fn managed_import_source_kind_from_parts(
     ManagedImportSourceKind::from_parts(&kind, kind_key)
 }
 
+pub(crate) fn acquisition_intake_source_kind_to_parts(
+    kind: &AcquisitionIntakeSourceKind,
+) -> (String, String) {
+    let (kind, kind_key) = kind.as_parts();
+    (kind.to_owned(), kind_key.to_owned())
+}
+
+pub(crate) fn acquisition_intake_source_kind_from_parts(
+    kind: String,
+    kind_key: String,
+) -> AcquisitionIntakeSourceKind {
+    AcquisitionIntakeSourceKind::from_parts(&kind, kind_key)
+}
+
 pub(crate) fn local_inference_evidence_source_to_parts(
     source: &LocalInferenceEvidenceSource,
 ) -> (String, String) {
