@@ -23,7 +23,6 @@ import dev.taru.sdk.LibrarySourceResponse as SdkLibrarySourceResponse
 import dev.taru.sdk.LibrarySourcesResponse as SdkLibrarySourcesResponse
 import dev.taru.sdk.MediaItemDto as SdkMediaItemDto
 import dev.taru.sdk.MediaSourceDto as SdkMediaSourceDto
-import dev.taru.sdk.PageQuery
 import dev.taru.sdk.PageInfo as SdkPageInfo
 import dev.taru.sdk.PersonDto as SdkPersonDto
 import dev.taru.sdk.PersonItemsResponse as SdkPersonItemsResponse
@@ -268,6 +267,3 @@ internal fun SdkPageInfo.toAndroid(): PageInfo =
         offset = offset,
         returned = returned,
     )
-
-internal fun PageRequest.toSdkPageQuery(): PageQuery =
-    PageQuery(limit = limit, offset = offset)

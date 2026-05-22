@@ -101,6 +101,46 @@ class PublicArtworkTest {
         )
     }
 
+    @Test
+    fun `selected artwork request rejects stale route for mismatched image id`() {
+        val source = PublicArtworkSource(
+            profile = profile("server-1", "http://home.example.test"),
+            accessToken = "secret-token",
+        )
+
+        assertNull(
+            source.requestFor(
+                imageRef(
+                    id = "poster 1",
+                    kind = "poster",
+                    url = "/images/poster-1",
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun `selected artwork route construction is delegated to artwork core`() {
+        val source = PublicArtworkSource(
+            profile = profile("server-1", "http://home.example.test/base"),
+            accessToken = "secret-token",
+            artworkCore = RecordingArtworkCore(),
+        )
+
+        val request = source.requestFor(
+            imageRef(
+                id = "poster 1",
+                kind = "poster",
+                url = "/images/poster%201",
+            ),
+        )
+
+        requireNotNull(request)
+        assertEquals("http://home.example.test/base/images/poster%201", request.request.url)
+        assertEquals("Bearer secret-token", request.request.headers["Authorization"])
+        assertEquals("Bearer <redacted>", request.safeRequest.headers["Authorization"])
+    }
+
     private fun profile(
         id: String,
         baseUrl: String,
@@ -157,5 +197,27 @@ class PublicArtworkTest {
             language = null,
             mediaType = mediaType,
             etag = etag,
+        )
+}
+
+private class RecordingArtworkCore : ArtworkCore {
+    override fun image(
+        profile: ServerProfile,
+        accessToken: String,
+        imageId: String,
+        width: UInt?,
+        height: UInt?,
+    ): ArtworkRequestDescriptor =
+        ArtworkRequestDescriptor(
+            request = dev.taru.android.connection.TaruHttpRequest(
+                method = "GET",
+                url = "${profile.baseUrl.trimEnd('/')}/images/${imageId.replace(" ", "%20")}",
+                headers = mapOf("Authorization" to "Bearer $accessToken"),
+            ),
+            safePreview = dev.taru.android.connection.SafeRequestPreview(
+                method = "GET",
+                url = "${profile.baseUrl.trimEnd('/')}/images/${imageId.replace(" ", "%20")}",
+                headers = mapOf("Authorization" to "Bearer <redacted>"),
+            ),
         )
 }

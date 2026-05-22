@@ -94,6 +94,18 @@ maps product diagnostics. Treat the generated SDK as the DTO/body contract
 transition layer for user-playback data, not as the runtime route-construction
 owner.
 
+Playback runtime route construction follows the same rule for playback decision,
+source probe, direct/remux/HLS streaming targets, HLS segments, and playback
+session inspection/cancellation. Android still owns generated SDK playback DTO
+decode, Media3, player/session presentation, and platform transport.
+
+Selected artwork image route construction is also Rust-core owned through the
+UniFFI boundary. Android uses the Rust-built canonical image route to validate
+public image DTO URLs before handing the request to Coil/Compose, while keeping
+active profile/token lookup, image loading, and UI presentation platform-owned.
+Compose previews use local fixture route helpers instead of generated SDK route
+descriptors so previews mirror the production ownership boundary.
+
 Use the native UniFFI smoke script when you need to prove packaged JNI libraries
 load on a connected device or emulator:
 

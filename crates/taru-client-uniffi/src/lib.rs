@@ -50,6 +50,15 @@ pub struct CoreSearchItemsRequestInput {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
+pub struct CoreArtworkImageRequestInput {
+    pub base_url: String,
+    pub access_token: String,
+    pub image_id: String,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
 pub struct CoreUserPlaybackPagedRequestInput {
     pub base_url: String,
     pub access_token: String,
@@ -92,6 +101,20 @@ pub struct CorePlaybackDecisionSummary {
     pub source_id: String,
     pub mode: CorePlaybackMode,
     pub transcode_output_container: Option<CoreOutputContainer>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
+pub struct CorePlaybackSourceRequestInput {
+    pub base_url: String,
+    pub access_token: String,
+    pub source_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
+pub struct CorePlaybackSessionRequestInput {
+    pub base_url: String,
+    pub access_token: String,
+    pub session_id: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
@@ -208,6 +231,11 @@ pub fn build_playback_decision_request(
 }
 
 #[uniffi::export]
+pub fn build_source_probe_request(input: CorePlaybackSourceRequestInput) -> CoreHttpRequest {
+    taru_client_core::build_source_probe_request(&input.into()).into()
+}
+
+#[uniffi::export]
 pub fn build_recommended_playback_target(
     base_url: String,
     decision: CorePlaybackDecisionSummary,
@@ -293,6 +321,20 @@ pub fn build_hls_segment_request(
 }
 
 #[uniffi::export]
+pub fn build_get_playback_session_request(
+    input: CorePlaybackSessionRequestInput,
+) -> CoreHttpRequest {
+    taru_client_core::build_get_playback_session_request(&input.into()).into()
+}
+
+#[uniffi::export]
+pub fn build_cancel_playback_session_request(
+    input: CorePlaybackSessionRequestInput,
+) -> CoreHttpRequest {
+    taru_client_core::build_cancel_playback_session_request(&input.into()).into()
+}
+
+#[uniffi::export]
 pub fn build_list_libraries_request(input: CoreBrowsePagedRequestInput) -> CoreHttpRequest {
     taru_client_core::build_list_libraries_request(&input.into()).into()
 }
@@ -359,6 +401,11 @@ pub fn build_list_tag_items_request(input: CoreBrowseEntityPagedRequestInput) ->
 #[uniffi::export]
 pub fn build_search_items_request(input: CoreSearchItemsRequestInput) -> CoreHttpRequest {
     taru_client_core::build_search_items_request(&input.into()).into()
+}
+
+#[uniffi::export]
+pub fn build_artwork_image_request(input: CoreArtworkImageRequestInput) -> CoreHttpRequest {
+    taru_client_core::build_artwork_image_request(&input.into()).into()
 }
 
 #[uniffi::export]
@@ -461,6 +508,18 @@ impl From<CoreSearchItemsRequestInput> for taru_client_core::CoreSearchItemsRequ
     }
 }
 
+impl From<CoreArtworkImageRequestInput> for taru_client_core::CoreArtworkImageRequestInput {
+    fn from(value: CoreArtworkImageRequestInput) -> Self {
+        Self {
+            base_url: value.base_url,
+            access_token: value.access_token,
+            image_id: value.image_id,
+            width: value.width,
+            height: value.height,
+        }
+    }
+}
+
 impl From<CoreUserPlaybackPagedRequestInput>
     for taru_client_core::CoreUserPlaybackPagedRequestInput
 {
@@ -557,6 +616,26 @@ impl From<CorePlaybackDecisionSummary> for taru_client_core::CorePlaybackDecisio
             source_id: value.source_id,
             mode: value.mode.into(),
             transcode_output_container: value.transcode_output_container.map(Into::into),
+        }
+    }
+}
+
+impl From<CorePlaybackSourceRequestInput> for taru_client_core::CorePlaybackSourceRequestInput {
+    fn from(value: CorePlaybackSourceRequestInput) -> Self {
+        Self {
+            base_url: value.base_url,
+            access_token: value.access_token,
+            source_id: value.source_id,
+        }
+    }
+}
+
+impl From<CorePlaybackSessionRequestInput> for taru_client_core::CorePlaybackSessionRequestInput {
+    fn from(value: CorePlaybackSessionRequestInput) -> Self {
+        Self {
+            base_url: value.base_url,
+            access_token: value.access_token,
+            session_id: value.session_id,
         }
     }
 }
@@ -749,6 +828,52 @@ mod tests {
     }
 
     #[test]
+    fn uniffi_surface_exposes_residual_playback_request_builders() {
+        let source_probe = build_source_probe_request(CorePlaybackSourceRequestInput {
+            base_url: "https://taru.example/api".to_owned(),
+            access_token: "secret-token".to_owned(),
+            source_id: "source 1".to_owned(),
+        });
+        assert_eq!(
+            source_probe.request_id,
+            taru_client_core::PLAYBACK_SOURCE_PROBE_REQUEST_ID
+        );
+        assert_eq!(
+            source_probe.url,
+            "https://taru.example/api/sources/source%201/probe"
+        );
+        assert_eq!(
+            source_probe.safe_preview.headers,
+            vec![CoreHttpHeader {
+                name: "Authorization".to_owned(),
+                value: "Bearer <redacted>".to_owned(),
+            }]
+        );
+
+        let session = build_get_playback_session_request(CorePlaybackSessionRequestInput {
+            base_url: "https://taru.example/api".to_owned(),
+            access_token: "secret-token".to_owned(),
+            session_id: "session 1".to_owned(),
+        });
+        assert_eq!(
+            session.url,
+            "https://taru.example/api/playback/sessions/session%201"
+        );
+        assert_eq!(session.method, "GET");
+
+        let cancel = build_cancel_playback_session_request(CorePlaybackSessionRequestInput {
+            base_url: "https://taru.example/api".to_owned(),
+            access_token: "secret-token".to_owned(),
+            session_id: "session/1".to_owned(),
+        });
+        assert_eq!(cancel.method, "POST");
+        assert_eq!(
+            cancel.url,
+            "https://taru.example/api/playback/sessions/session%2F1/cancel"
+        );
+    }
+
+    #[test]
     fn uniffi_surface_exposes_browse_request_builders() {
         let libraries = build_list_libraries_request(CoreBrowsePagedRequestInput {
             base_url: "https://taru.example/api".to_owned(),
@@ -794,6 +919,33 @@ mod tests {
         assert_eq!(
             tag_items.url,
             "https://taru.example/api/tags/tag%3Afavorite/items"
+        );
+    }
+
+    #[test]
+    fn uniffi_surface_exposes_artwork_image_request_builder() {
+        let request = build_artwork_image_request(CoreArtworkImageRequestInput {
+            base_url: "https://taru.example/api".to_owned(),
+            access_token: "secret-token".to_owned(),
+            image_id: "poster 1".to_owned(),
+            width: Some(320),
+            height: Some(180),
+        });
+
+        assert_eq!(
+            request.request_id,
+            taru_client_core::ARTWORK_IMAGE_REQUEST_ID
+        );
+        assert_eq!(
+            request.url,
+            "https://taru.example/api/images/poster%201?width=320&height=180"
+        );
+        assert_eq!(
+            request.safe_preview.headers,
+            vec![CoreHttpHeader {
+                name: "Authorization".to_owned(),
+                value: "Bearer <redacted>".to_owned(),
+            }]
         );
     }
 

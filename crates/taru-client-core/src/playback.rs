@@ -26,6 +26,20 @@ pub struct CorePlaybackDecisionRequestInput {
     pub capabilities: CorePlaybackCapabilities,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CorePlaybackSourceRequestInput {
+    pub base_url: String,
+    pub access_token: String,
+    pub source_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CorePlaybackSessionRequestInput {
+    pub base_url: String,
+    pub access_token: String,
+    pub session_id: String,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CorePlaybackMode {
     DirectPlay,
@@ -88,6 +102,24 @@ pub struct CorePlaybackSegmentInput {
     pub base_url: String,
     pub session_id: String,
     pub segment_name: String,
+}
+
+#[must_use]
+pub fn build_source_probe_request(
+    input: &CorePlaybackSourceRequestInput,
+) -> crate::CoreHttpRequest {
+    crate::build_core_request(
+        &crate::CoreHttpRequestSpec::new(
+            crate::PLAYBACK_SOURCE_PROBE_REQUEST_ID,
+            &input.base_url,
+            "GET",
+            &format!(
+                "/sources/{}/probe",
+                crate::encode_path_segment(&input.source_id)
+            ),
+        )
+        .access_token(Some(input.access_token.clone())),
+    )
 }
 
 #[must_use]
@@ -231,6 +263,34 @@ pub fn build_hls_segment_request(input: &CorePlaybackSegmentInput) -> crate::Cor
     ))
 }
 
+#[must_use]
+pub fn build_get_playback_session_request(
+    input: &CorePlaybackSessionRequestInput,
+) -> crate::CoreHttpRequest {
+    build_playback_session_request(
+        crate::PLAYBACK_SESSION_REQUEST_ID,
+        &input.base_url,
+        &input.access_token,
+        &input.session_id,
+        "GET",
+        "",
+    )
+}
+
+#[must_use]
+pub fn build_cancel_playback_session_request(
+    input: &CorePlaybackSessionRequestInput,
+) -> crate::CoreHttpRequest {
+    build_playback_session_request(
+        crate::PLAYBACK_CANCEL_SESSION_REQUEST_ID,
+        &input.base_url,
+        &input.access_token,
+        &input.session_id,
+        "POST",
+        "/cancel",
+    )
+}
+
 fn streaming_request(
     request_id: &str,
     base_url: &str,
@@ -251,6 +311,29 @@ fn streaming_request(
             ),
         )
         .query(query),
+    )
+}
+
+fn build_playback_session_request(
+    request_id: &str,
+    base_url: &str,
+    access_token: &str,
+    session_id: &str,
+    method: &str,
+    suffix: &str,
+) -> crate::CoreHttpRequest {
+    crate::build_core_request(
+        &crate::CoreHttpRequestSpec::new(
+            request_id,
+            base_url,
+            method,
+            &format!(
+                "/playback/sessions/{}{}",
+                crate::encode_path_segment(session_id),
+                suffix
+            ),
+        )
+        .access_token(Some(access_token.to_owned())),
     )
 }
 
