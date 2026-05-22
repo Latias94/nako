@@ -16,6 +16,7 @@ import dev.taru.android.playback.PlaybackPreferencesStore
 import dev.taru.android.playback.PlaybackResult
 import dev.taru.android.playback.SafePlaybackDiagnostics
 import dev.taru.android.playback.TaruPlaybackClient
+import dev.taru.android.userplayback.SafeUserPlaybackDiagnostics
 import dev.taru.android.userplayback.TaruUserPlaybackClient
 import dev.taru.android.userplayback.UserPlaybackResult
 import kotlinx.coroutines.async
@@ -48,35 +49,32 @@ internal class ClientBrowseDataSource(
             accessToken = accessToken,
             page = PageRequest(limit = 50, offset = 0),
         )
-        if (libraries is BrowseResult.Failure) {
-            return BrowseUiState.Failure(libraries.diagnostics)
-        }
-
         val items = browseClient.listItems(
             profile = profile,
             accessToken = accessToken,
             page = PageRequest(limit = 24, offset = 0),
         )
-        if (items is BrowseResult.Failure) {
+
+        if (libraries is BrowseResult.Failure && items is BrowseResult.Failure) {
             return BrowseUiState.Failure(items.diagnostics)
         }
 
-        val itemPage = (items as BrowseResult.Success).value
-        val continueWatching = when (
-            val result = userPlaybackClient.continueWatching(
-                profile = profile,
-                accessToken = accessToken,
-                page = PageRequest(limit = 12, offset = 0),
-            )
-        ) {
-            is UserPlaybackResult.Success -> result.value
-            is UserPlaybackResult.Failure -> null
-        }
-        val visibleArtwork = loadVisibleArtworkRefs(
+        val continueWatching = userPlaybackClient.continueWatching(
+            profile = profile,
             accessToken = accessToken,
-            items = itemPage.items,
+            page = PageRequest(limit = 12, offset = 0),
         )
-        val continueArtwork = continueWatching
+        val itemPage = (items as? BrowseResult.Success)?.value
+        val visibleArtwork = itemPage
+            ?.let { page ->
+                loadVisibleArtworkRefs(
+                    accessToken = accessToken,
+                    items = page.items,
+                )
+            }
+            ?: HomeArtworkState()
+        val continueArtwork = (continueWatching as? UserPlaybackResult.Success)
+            ?.value
             ?.items
             ?.mapNotNull { row ->
                 row.images
@@ -85,12 +83,17 @@ internal class ClientBrowseDataSource(
             }
             ?.toMap()
             .orEmpty()
+        val artwork = visibleArtwork.copy(
+            artworkByItemId = visibleArtwork.artworkByItemId + continueArtwork,
+        )
 
         return BrowseUiState.Content(
-            libraries = (libraries as BrowseResult.Success).value,
-            items = itemPage,
-            artworkByItemId = visibleArtwork + continueArtwork,
-            continueWatching = continueWatching,
+            home = HomeReadModel(
+                libraries = libraries.toHomeSectionState(),
+                items = items.toHomeSectionState(),
+                continueWatching = continueWatching.toBrowseHomeSectionState(),
+                artwork = artwork,
+            ),
         )
     }
 
@@ -370,9 +373,9 @@ internal class ClientBrowseDataSource(
     private suspend fun loadVisibleArtworkRefs(
         accessToken: String,
         items: List<MediaItemDto>,
-    ): Map<String, List<PublicImageRefDto>> = coroutineScope {
+    ): HomeArtworkState = coroutineScope {
         val semaphore = Semaphore(permits = 4)
-        items
+        val rows = items
             .map { item ->
                 async {
                     semaphore.withPermit {
@@ -381,16 +384,62 @@ internal class ClientBrowseDataSource(
                             accessToken = accessToken,
                             itemId = item.id,
                         )
-                        if (result is BrowseResult.Success && result.value.images.isNotEmpty()) {
-                            item.id to result.value.images
-                        } else {
-                            null
+                        when (result) {
+                            is BrowseResult.Success -> HomeArtworkLoadResult(
+                                itemId = item.id,
+                                images = result.value.images,
+                            )
+                            is BrowseResult.Failure -> HomeArtworkLoadResult(
+                                itemId = item.id,
+                                failure = HomeArtworkFailure(
+                                    itemId = item.id,
+                                    diagnostics = result.diagnostics,
+                                ),
+                            )
                         }
                     }
                 }
             }
             .awaitAll()
-            .filterNotNull()
-            .toMap()
+        HomeArtworkState(
+            artworkByItemId = rows
+                .mapNotNull { result ->
+                    result.images
+                        ?.takeIf { it.isNotEmpty() }
+                        ?.let { result.itemId to it }
+                }
+                .toMap(),
+            failures = rows.mapNotNull { it.failure },
+        )
     }
 }
+
+private data class HomeArtworkLoadResult(
+    val itemId: String,
+    val images: List<PublicImageRefDto>? = null,
+    val failure: HomeArtworkFailure? = null,
+)
+
+private fun <T> BrowseResult<T>.toHomeSectionState(): HomeSectionState<T> =
+    when (this) {
+        is BrowseResult.Success -> HomeSectionState.Available(value)
+        is BrowseResult.Failure -> HomeSectionState.Unavailable(diagnostics)
+    }
+
+private fun SafeUserPlaybackDiagnostics.toBrowseDiagnostics(): SafeBrowseDiagnostics =
+    SafeBrowseDiagnostics(
+        category = runCatching { BrowseFailureCategory.valueOf(category.name) }
+            .getOrDefault(BrowseFailureCategory.PublicApiError),
+        userMessage = userMessage,
+        statusCode = statusCode,
+        expectedApiVersion = expectedApiVersion,
+        observedApiVersion = observedApiVersion,
+        publicError = publicError,
+        request = request,
+    )
+
+private fun <T> UserPlaybackResult<T>.toBrowseHomeSectionState(): HomeSectionState<T> =
+    when (this) {
+        is UserPlaybackResult.Success -> HomeSectionState.Available(value)
+        is UserPlaybackResult.Failure -> HomeSectionState.Unavailable(diagnostics.toBrowseDiagnostics())
+    }

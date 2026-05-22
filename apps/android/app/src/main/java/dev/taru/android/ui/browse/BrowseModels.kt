@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import dev.taru.android.browse.FacetItemsResponse
 import dev.taru.android.browse.GenreListResponse
 import dev.taru.android.browse.ItemDetailResponse
+import dev.taru.android.browse.MediaItemDto
 import dev.taru.android.browse.ItemsResponse
 import dev.taru.android.browse.LibrarySourcesResponse
 import dev.taru.android.browse.LibraryListResponse
@@ -18,11 +19,11 @@ import dev.taru.android.browse.PublicImageRefDto
 import dev.taru.android.browse.SafeBrowseDiagnostics
 import dev.taru.android.browse.SearchResponse
 import dev.taru.android.browse.TagListResponse
-import dev.taru.android.playback.PlaybackDecisionResponse
+import dev.taru.android.media.SourceProbeResponse
 import dev.taru.android.playback.PlaybackCapabilities
+import dev.taru.android.playback.PlaybackDecisionResponse
 import dev.taru.android.playback.PlaybackRequestTarget
 import dev.taru.android.playback.SafePlaybackDiagnostics
-import dev.taru.android.media.SourceProbeResponse
 import dev.taru.android.player.PlaybackLaunchRequest
 import dev.taru.android.userplayback.ContinueWatchingResponse
 import dev.taru.android.userplayback.UserPlaybackStateDto
@@ -123,16 +124,97 @@ internal sealed interface BrowseUiState {
     data object Loading : BrowseUiState
 
     data class Content(
-        val libraries: LibraryListResponse,
-        val items: ItemsResponse,
-        val artworkByItemId: Map<String, List<PublicImageRefDto>> = emptyMap(),
-        val continueWatching: ContinueWatchingResponse? = null,
-    ) : BrowseUiState
+        val home: HomeReadModel,
+    ) : BrowseUiState {
+        constructor(
+            libraries: LibraryListResponse,
+            items: ItemsResponse,
+            artworkByItemId: Map<String, List<PublicImageRefDto>> = emptyMap(),
+            continueWatching: ContinueWatchingResponse? = null,
+        ) : this(
+            HomeReadModel(
+                libraries = HomeSectionState.Available(libraries),
+                items = HomeSectionState.Available(items),
+                continueWatching = continueWatching
+                    ?.let { HomeSectionState.Available(it) }
+                    ?: HomeSectionState.NotRequested,
+                artwork = HomeArtworkState(artworkByItemId = artworkByItemId),
+            ),
+        )
+
+        val libraries: LibraryListResponse
+            get() = home.libraries.valueOrNull() ?: emptyHomeLibraries
+        val items: ItemsResponse
+            get() = home.items.valueOrNull() ?: emptyHomeItems
+        val artworkByItemId: Map<String, List<PublicImageRefDto>>
+            get() = home.artwork.artworkByItemId
+        val continueWatching: ContinueWatchingResponse?
+            get() = home.continueWatching.valueOrNull()
+    }
 
     data class Failure(
         val diagnostics: SafeBrowseDiagnostics,
     ) : BrowseUiState
 }
+
+internal data class HomeReadModel(
+    val libraries: HomeSectionState<LibraryListResponse>,
+    val items: HomeSectionState<ItemsResponse>,
+    val continueWatching: HomeSectionState<ContinueWatchingResponse> = HomeSectionState.NotRequested,
+    val artwork: HomeArtworkState = HomeArtworkState(),
+) {
+    val featuredItem: MediaItemDto? =
+        continueWatching.valueOrNull()?.items?.firstOrNull()?.item
+            ?: items.valueOrNull()?.items?.firstOrNull()
+}
+
+internal sealed interface HomeSectionState<out T> {
+    data object NotRequested : HomeSectionState<Nothing>
+
+    data class Available<T>(
+        val value: T,
+    ) : HomeSectionState<T>
+
+    data class Unavailable(
+        val diagnostics: SafeBrowseDiagnostics,
+    ) : HomeSectionState<Nothing>
+}
+
+internal fun <T> HomeSectionState<T>.valueOrNull(): T? =
+    when (this) {
+        is HomeSectionState.Available -> value
+        HomeSectionState.NotRequested,
+        is HomeSectionState.Unavailable,
+        -> null
+    }
+
+internal data class HomeArtworkState(
+    val artworkByItemId: Map<String, List<PublicImageRefDto>> = emptyMap(),
+    val failures: List<HomeArtworkFailure> = emptyList(),
+) {
+    val hasFailures: Boolean = failures.isNotEmpty()
+}
+
+internal data class HomeArtworkFailure(
+    val itemId: String,
+    val diagnostics: SafeBrowseDiagnostics,
+)
+
+private val emptyHomePage = PageInfo(
+    limit = 0,
+    offset = 0,
+    returned = 0,
+)
+
+private val emptyHomeLibraries = LibraryListResponse(
+    libraries = emptyList(),
+    page = emptyHomePage,
+)
+
+private val emptyHomeItems = ItemsResponse(
+    items = emptyList(),
+    page = emptyHomePage,
+)
 
 internal sealed interface ItemDetailUiState {
     data object Idle : ItemDetailUiState

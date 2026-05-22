@@ -31,16 +31,16 @@ import dev.taru.android.browse.PersonDto
 import dev.taru.android.ui.TaruStrings
 import dev.taru.android.ui.browse.EmptyCard
 import dev.taru.android.ui.browse.FailureCard
-import dev.taru.android.ui.browse.IconBadge
 import dev.taru.android.ui.browse.InfoCard
 import dev.taru.android.ui.browse.LoadingCard
 import dev.taru.android.ui.browse.MediaPosterRow
 import dev.taru.android.ui.browse.PersonDetailUiState
-import dev.taru.android.ui.browse.SectionHeader
-import dev.taru.android.ui.browse.StatusChip
-import dev.taru.android.ui.browse.SurfaceCard
-import dev.taru.android.ui.browse.TaruScrollColumn
-import dev.taru.android.ui.browse.ArtworkBackdrop
+import dev.taru.android.ui.components.TaruArtworkBackdrop
+import dev.taru.android.ui.components.TaruIconBadge
+import dev.taru.android.ui.components.TaruScreenColumn
+import dev.taru.android.ui.components.TaruSectionHeader
+import dev.taru.android.ui.components.TaruStatusChip
+import dev.taru.android.ui.components.TaruSurfaceCard
 import dev.taru.android.ui.theme.TaruShape
 import dev.taru.android.ui.theme.TaruSpacing
 import dev.taru.android.ui.theme.TaruTextMuted
@@ -54,7 +54,7 @@ internal fun PersonDetailRouteContent(
     onChangeServer: () -> Unit,
     onOpenItem: (MediaItemDto) -> Unit,
 ) {
-    TaruScrollColumn {
+    TaruScreenColumn {
         IconButton(onClick = onBack) {
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
@@ -106,7 +106,7 @@ private fun PersonDetailScreen(
 
     PersonFacts(person = person)
 
-    SectionHeader(
+    TaruSectionHeader(
         title = "Related Titles",
         action = returned.toString(),
     )
@@ -138,7 +138,7 @@ private fun PersonHeader(
                 .fillMaxWidth()
                 .heightIn(min = 210.dp),
         ) {
-            ArtworkBackdrop(
+            TaruArtworkBackdrop(
                 title = person.name,
                 modifier = Modifier.matchParentSize(),
             )
@@ -153,7 +153,7 @@ private fun PersonHeader(
                     horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconBadge(icon = Icons.Rounded.Person)
+                    TaruIconBadge(icon = Icons.Rounded.Person)
                     Column(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(TaruSpacing.xsmall),
@@ -177,11 +177,11 @@ private fun PersonHeader(
                     horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small),
                     verticalArrangement = Arrangement.spacedBy(TaruSpacing.small),
                 ) {
-                    StatusChip(text = "Person")
-                    StatusChip(text = "$relatedCount related")
+                    TaruStatusChip(text = "Person")
+                    TaruStatusChip(text = "$relatedCount related")
                     person.externalIds
                         .takeIf { it.isNotEmpty() }
-                        ?.let { StatusChip(text = "${it.size} external") }
+                        ?.let { TaruStatusChip(text = "${it.size} external") }
                 }
             }
         }
@@ -193,8 +193,8 @@ private fun PersonFacts(person: PersonDto) {
     val sortName = person.sortName?.takeIf { it.isNotBlank() }
     if (sortName == null && person.externalIds.isEmpty()) return
 
-    SectionHeader(title = "Identity")
-    SurfaceCard {
+    TaruSectionHeader(title = "Identity")
+    TaruSurfaceCard {
         sortName?.let {
             PersonFactRow(
                 title = "Sort Name",
@@ -223,7 +223,7 @@ private fun PersonFactRow(
         horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconBadge(icon = icon, compact = true)
+        TaruIconBadge(icon = icon, compact = true)
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(TaruSpacing.xsmall),

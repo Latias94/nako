@@ -13,6 +13,7 @@ import dev.taru.android.connection.TaruHttpTransport
 import dev.taru.android.playback.InMemoryPlaybackPreferencesStore
 import dev.taru.android.playback.TaruPlaybackClient
 import dev.taru.android.player.InMemoryDevicePlaybackPositionStore
+import dev.taru.android.ui.screens.player.rememberAndroidPlaybackSessionRuntimeFactory
 import dev.taru.android.ui.screens.player.rememberPlaybackPlayerRouteRenderer
 import dev.taru.android.ui.theme.TaruAndroidTheme
 import dev.taru.android.userplayback.TaruUserPlaybackClient
@@ -124,7 +125,7 @@ private fun TaruBrowseShellPreview() {
     )
     val positionStore = InMemoryDevicePlaybackPositionStore()
     val playerExitEffectScope = rememberCoroutineScope()
-    val playerRouteRenderer = rememberPlaybackPlayerRouteRenderer(
+    val playbackSessionRuntimeFactory = rememberAndroidPlaybackSessionRuntimeFactory(
         profile = profile,
         tokenVault = tokenVault,
         playbackClient = playbackClient,
@@ -132,6 +133,7 @@ private fun TaruBrowseShellPreview() {
         positionStore = positionStore,
         exitEffectScope = playerExitEffectScope,
     )
+    val playerRouteRenderer = rememberPlaybackPlayerRouteRenderer(playbackSessionRuntimeFactory)
     TaruAndroidTheme(darkTheme = true) {
         TaruBrowseShell(
             profile = profile,

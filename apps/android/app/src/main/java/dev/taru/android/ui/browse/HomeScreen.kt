@@ -3,8 +3,8 @@ package dev.taru.android.ui.browse
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,8 +12,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.automirrored.rounded.LibraryBooks
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.LibraryBooks
 import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
@@ -22,10 +22,10 @@ import androidx.compose.material.icons.rounded.TheaterComedy
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,14 +36,25 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.taru.android.artwork.PublicArtworkSlot
 import dev.taru.android.artwork.preferredPublicArtwork
+import dev.taru.android.browse.ItemsResponse
+import dev.taru.android.browse.LibraryListResponse
 import dev.taru.android.browse.MediaItemDto
+import dev.taru.android.browse.PublicImageRefDto
+import dev.taru.android.browse.SafeBrowseDiagnostics
 import dev.taru.android.connection.ServerProfile
-import dev.taru.android.userplayback.ContinueWatchingItemDto
 import dev.taru.android.ui.artwork.ArtworkRequestResolver
 import dev.taru.android.ui.artwork.TaruBackdropArtwork
+import dev.taru.android.ui.components.TaruIconBadge
+import dev.taru.android.ui.components.TaruPressableScale
+import dev.taru.android.ui.components.TaruScreenColumn
+import dev.taru.android.ui.components.TaruSectionHeader
+import dev.taru.android.ui.components.TaruStatusChip
+import dev.taru.android.ui.components.TaruStatusPill
 import dev.taru.android.ui.theme.TaruShape
 import dev.taru.android.ui.theme.TaruSpacing
 import dev.taru.android.ui.theme.TaruTextSecondary
+import dev.taru.android.userplayback.ContinueWatchingItemDto
+import dev.taru.android.userplayback.ContinueWatchingResponse
 
 @Composable
 internal fun HomeScreen(
@@ -60,16 +71,16 @@ internal fun HomeScreen(
     onOpenTags: () -> Unit,
     onOpenFacet: (BrowseFacetTarget) -> Unit,
 ) {
-    TaruScrollColumn {
+    TaruScreenColumn {
         val content = state as? BrowseUiState.Content
+        val home = content?.home
         HomeHeader(
             profile = profile,
-            featuredItem = content?.continueWatching?.items?.firstOrNull()?.item
-                ?: content?.items?.items?.firstOrNull(),
-            libraryCount = content?.libraries?.libraries?.size,
-            itemCount = content?.items?.page?.returned,
+            featuredItem = home?.featuredItem,
+            libraryCount = home?.libraries?.valueOrNull()?.libraries?.size,
+            itemCount = home?.items?.valueOrNull()?.page?.returned,
             artworkResolver = artworkResolver,
-            artworkByItemId = content?.artworkByItemId.orEmpty(),
+            artworkByItemId = home?.artwork?.artworkByItemId.orEmpty(),
             onOpenItem = onOpenItem,
             onChangeServer = onChangeServer,
             onOpenLibrary = onOpenLibrary,
@@ -87,6 +98,7 @@ internal fun HomeScreen(
                 onChangeServer = onChangeServer,
             )
             is BrowseUiState.Content -> {
+                val homeContent = state.home
                 HomeAnchorRow(
                     onOpenLibrary = onOpenLibrary,
                     onOpenSearch = onOpenSearch,
@@ -94,55 +106,33 @@ internal fun HomeScreen(
                     onOpenTags = onOpenTags,
                 )
 
-                val continueWatchingRows = state.continueWatching
-                    ?.items
-                    .orEmpty()
-                    .filter { !it.state.watched && it.state.resumePositionMs != null }
-                if (continueWatchingRows.isNotEmpty()) {
-                    SectionHeader(
-                        title = "Continue Watching",
-                        action = "${continueWatchingRows.size}",
-                    )
-                    ContinueWatchingPosterRow(
-                        rows = continueWatchingRows.take(8),
-                        artworkResolver = artworkResolver,
-                        artworkByItemId = state.artworkByItemId,
-                        onOpenItem = onOpenItem,
-                    )
-                }
-
-                SectionHeader(
-                    title = "Media Libraries",
-                    action = "View all",
-                    onAction = onOpenLibrary,
+                HomeContinueWatchingSection(
+                    state = homeContent.continueWatching,
+                    artworkResolver = artworkResolver,
+                    artworkByItemId = homeContent.artwork.artworkByItemId,
+                    onRetry = onRetry,
+                    onOpenItem = onOpenItem,
                 )
-                if (state.libraries.libraries.isEmpty()) {
-                    EmptyCard(
-                        title = "No Media Libraries",
-                        body = "This profile does not have any visible libraries yet.",
-                    )
-                } else {
-                    LibraryCardRow(
-                        libraries = state.libraries.libraries.take(4),
-                        onOpenLibrary = { library -> onOpenLibraryDetail(library.id) },
-                    )
-                }
 
-                SectionHeader(
-                    title = "Visible Titles",
-                    action = "${state.items.page.returned}",
+                HomeLibrariesSection(
+                    state = homeContent.libraries,
+                    onRetry = onRetry,
+                    onOpenLibrary = onOpenLibrary,
+                    onOpenLibraryDetail = onOpenLibraryDetail,
                 )
-                if (state.items.items.isEmpty()) {
-                    EmptyCard(
-                        title = "No visible items",
-                        body = "This profile can see libraries, but there are no visible titles yet.",
-                    )
-                } else {
-                    MediaPosterRow(
-                        items = state.items.items.take(8),
-                        artworkResolver = artworkResolver,
-                        artworkByItemId = state.artworkByItemId,
-                        onOpenItem = onOpenItem,
+
+                HomeVisibleTitlesSection(
+                    state = homeContent.items,
+                    artworkResolver = artworkResolver,
+                    artworkByItemId = homeContent.artwork.artworkByItemId,
+                    onRetry = onRetry,
+                    onOpenItem = onOpenItem,
+                )
+
+                if (homeContent.artwork.hasFailures) {
+                    InfoCard(
+                        title = "Some artwork did not load",
+                        body = "Taru kept the visible titles available. Artwork will be requested again on the next refresh.",
                     )
                 }
             }
@@ -151,10 +141,146 @@ internal fun HomeScreen(
 }
 
 @Composable
+private fun HomeContinueWatchingSection(
+    state: HomeSectionState<ContinueWatchingResponse>,
+    artworkResolver: ArtworkRequestResolver,
+    artworkByItemId: Map<String, List<PublicImageRefDto>>,
+    onRetry: () -> Unit,
+    onOpenItem: (MediaItemDto) -> Unit,
+) {
+    when (state) {
+        is HomeSectionState.Available -> {
+            val rows = state.value.items
+                .filter { !it.state.watched && it.state.resumePositionMs != null }
+                .take(8)
+            if (rows.isNotEmpty()) {
+                TaruSectionHeader(
+                    title = "Continue Watching",
+                    action = "${rows.size}",
+                )
+                ContinueWatchingPosterRow(
+                    rows = rows,
+                    artworkResolver = artworkResolver,
+                    artworkByItemId = artworkByItemId,
+                    onOpenItem = onOpenItem,
+                )
+            }
+        }
+        is HomeSectionState.Unavailable -> {
+            TaruSectionHeader(
+                title = "Continue Watching",
+                action = "Retry",
+                onAction = onRetry,
+            )
+            HomeSectionUnavailableCard(
+                title = "Continue Watching unavailable",
+                diagnostics = state.diagnostics,
+            )
+        }
+        HomeSectionState.NotRequested -> Unit
+    }
+}
+
+@Composable
+private fun HomeLibrariesSection(
+    state: HomeSectionState<LibraryListResponse>,
+    onRetry: () -> Unit,
+    onOpenLibrary: () -> Unit,
+    onOpenLibraryDetail: (String) -> Unit,
+) {
+    when (state) {
+        is HomeSectionState.Available -> {
+            TaruSectionHeader(
+                title = "Media Libraries",
+                action = "View all",
+                onAction = onOpenLibrary,
+            )
+            if (state.value.libraries.isEmpty()) {
+                EmptyCard(
+                    title = "No Media Libraries",
+                    body = "This profile does not have any visible libraries yet.",
+                )
+            } else {
+                LibraryCardRow(
+                    libraries = state.value.libraries.take(4),
+                    onOpenLibrary = { library -> onOpenLibraryDetail(library.id) },
+                )
+            }
+        }
+        is HomeSectionState.Unavailable -> {
+            TaruSectionHeader(
+                title = "Media Libraries",
+                action = "Retry",
+                onAction = onRetry,
+            )
+            HomeSectionUnavailableCard(
+                title = "Media Libraries unavailable",
+                diagnostics = state.diagnostics,
+            )
+        }
+        HomeSectionState.NotRequested -> Unit
+    }
+}
+
+@Composable
+private fun HomeVisibleTitlesSection(
+    state: HomeSectionState<ItemsResponse>,
+    artworkResolver: ArtworkRequestResolver,
+    artworkByItemId: Map<String, List<PublicImageRefDto>>,
+    onRetry: () -> Unit,
+    onOpenItem: (MediaItemDto) -> Unit,
+) {
+    when (state) {
+        is HomeSectionState.Available -> {
+            TaruSectionHeader(
+                title = "Visible Titles",
+                action = "${state.value.page.returned}",
+            )
+            if (state.value.items.isEmpty()) {
+                EmptyCard(
+                    title = "No visible items",
+                    body = "This profile can see libraries, but there are no visible titles yet.",
+                )
+            } else {
+                MediaPosterRow(
+                    items = state.value.items.take(8),
+                    artworkResolver = artworkResolver,
+                    artworkByItemId = artworkByItemId,
+                    onOpenItem = onOpenItem,
+                )
+            }
+        }
+        is HomeSectionState.Unavailable -> {
+            TaruSectionHeader(
+                title = "Visible Titles",
+                action = "Retry",
+                onAction = onRetry,
+            )
+            HomeSectionUnavailableCard(
+                title = "Visible Titles unavailable",
+                diagnostics = state.diagnostics,
+            )
+        }
+        HomeSectionState.NotRequested -> Unit
+    }
+}
+
+@Composable
+private fun HomeSectionUnavailableCard(
+    title: String,
+    diagnostics: SafeBrowseDiagnostics,
+) {
+    InfoCard(
+        title = title,
+        body = diagnostics.userMessage,
+    )
+}
+
+@Composable
 private fun ContinueWatchingPosterRow(
     rows: List<ContinueWatchingItemDto>,
     artworkResolver: ArtworkRequestResolver,
-    artworkByItemId: Map<String, List<dev.taru.android.browse.PublicImageRefDto>>,
+    artworkByItemId: Map<String, List<PublicImageRefDto>>,
     onOpenItem: (MediaItemDto) -> Unit,
 ) {
     FlowRow(
@@ -181,7 +307,7 @@ private fun ContinueWatchingPosterRow(
                         artworkRefs = artworkByItemId[row.item.id].orEmpty(),
                         onOpenItem = onOpenItem,
                     )
-                    StatusChip(text = continueWatchingProgressLabel(row))
+                    TaruStatusChip(text = continueWatchingProgressLabel(row))
                 }
             }
         }
@@ -195,7 +321,7 @@ private fun HomeHeader(
     libraryCount: Int?,
     itemCount: Int?,
     artworkResolver: ArtworkRequestResolver,
-    artworkByItemId: Map<String, List<dev.taru.android.browse.PublicImageRefDto>>,
+    artworkByItemId: Map<String, List<PublicImageRefDto>>,
     onOpenItem: (MediaItemDto) -> Unit,
     onChangeServer: () -> Unit,
     onOpenLibrary: () -> Unit,
@@ -234,7 +360,7 @@ private fun HomeHeader(
                     horizontalArrangement = Arrangement.spacedBy(TaruSpacing.medium),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    StatusPill(
+                    TaruStatusPill(
                         text = profile.displayName,
                         icon = Icons.Rounded.Storage,
                         onClick = onChangeServer,
@@ -319,8 +445,8 @@ private fun HomeHeroFacts(
     itemCount: Int?,
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(TaruSpacing.small)) {
-        StatusChip(text = libraryCount?.let { "$it libraries" } ?: "Libraries")
-        StatusChip(text = itemCount?.let { "$it visible" } ?: "Visible items")
+        TaruStatusChip(text = libraryCount?.let { "$it libraries" } ?: "Libraries")
+        TaruStatusChip(text = itemCount?.let { "$it visible" } ?: "Visible items")
     }
 }
 
@@ -375,7 +501,7 @@ private fun HomeAnchorCard(
     action: String,
     onClick: () -> Unit,
 ) {
-    PressableScale(
+    TaruPressableScale(
         modifier = Modifier.width(172.dp),
         onClick = onClick,
     ) {
@@ -388,7 +514,7 @@ private fun HomeAnchorCard(
                 modifier = Modifier.padding(TaruSpacing.medium),
                 verticalArrangement = Arrangement.spacedBy(TaruSpacing.small),
             ) {
-                IconBadge(icon = icon, compact = true)
+                TaruIconBadge(icon = icon, compact = true)
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,

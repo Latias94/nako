@@ -1,14 +1,15 @@
 package dev.taru.android.ui
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.taru.android.ui.browse.TaruBrowseShell
 import dev.taru.android.ui.connection.TaruConnectionShellContent
+import dev.taru.android.ui.screens.player.rememberAndroidPlaybackSessionRuntimeFactory
 import dev.taru.android.ui.screens.player.rememberPlaybackPlayerRouteRenderer
 import kotlinx.coroutines.CoroutineScope
 
@@ -41,7 +42,7 @@ internal fun TaruAndroidAppContent(
     playerExitEffectScope: CoroutineScope,
     modifier: Modifier = Modifier,
 ) {
-    val appState by appSession.state.collectAsState()
+    val appState by appSession.state.collectAsStateWithLifecycle()
     val activeProfile = appState.activeProfile
 
     if (appState.shouldShowConnection) {
@@ -55,7 +56,7 @@ internal fun TaruAndroidAppContent(
         )
     } else {
         requireNotNull(activeProfile)
-        val playerRouteRenderer = rememberPlaybackPlayerRouteRenderer(
+        val playbackSessionRuntimeFactory = rememberAndroidPlaybackSessionRuntimeFactory(
             profile = activeProfile,
             tokenVault = environment.tokenVault,
             playbackClient = environment.playbackClient,
@@ -63,6 +64,7 @@ internal fun TaruAndroidAppContent(
             positionStore = environment.positionStore,
             exitEffectScope = playerExitEffectScope,
         )
+        val playerRouteRenderer = rememberPlaybackPlayerRouteRenderer(playbackSessionRuntimeFactory)
         TaruBrowseShell(
             modifier = modifier,
             profile = activeProfile,

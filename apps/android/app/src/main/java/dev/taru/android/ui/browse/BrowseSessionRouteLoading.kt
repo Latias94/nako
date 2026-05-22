@@ -21,6 +21,7 @@ internal class BrowseRouteLoadingSession(
             is TaruRoute.PersonDetail -> loadPersonDetail(route.personId)
             is TaruRoute.RelationshipIndex -> loadRelationshipIndex(route.family)
             is TaruRoute.BrowseFacet -> loadFacet(route.target)
+            is TaruRoute.Player -> null
             else -> {
                 store.update(routeStatePolicy::clearForNonLoadableRoute)
                 null
