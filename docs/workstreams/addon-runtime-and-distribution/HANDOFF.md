@@ -44,10 +44,28 @@ readiness and routing, not Addon Manager automation or Native Plugin runtime.
   - `cargo fmt --all -- --check`
   - `git diff --check`
   - `git diff --name-only -- crates/taru-client-protocol`
-- Status: READY
+- Status: IN_PROGRESS
 - Review: define package/install descriptor semantics without adding process
   supervision, marketplace behavior, package signing, Native Plugin ABI, admin
   token leakage, Public Client API churn, or direct library writes.
+
+Progress so far:
+
+- Added protocol-level Addon install descriptor, runtime requirement,
+  runtime-reference summary, Secret Reference binding, and install-guide DTOs.
+- Added validation that rejects missing/multiple runtime references, local
+  paths, credential-bearing runtime references, unknown/duplicate Secret
+  Reference bindings, and likely raw secret values without echoing rejected
+  values.
+- Added focused protocol tests and ran the full `taru-addon-protocol` nextest
+  gate.
+
+Remaining ARD-020 work:
+
+- Add Admin DTO and server/app preview boundary for redacted install-guide
+  previews.
+- Add focused Admin route tests proving no admin token, Addon Token, raw secret
+  value, local path, or raw package content is echoed.
 
 ## Decisions Since Opening
 
@@ -70,8 +88,7 @@ readiness and routing, not Addon Manager automation or Native Plugin runtime.
 
 ## Next Recommended Action
 
-Execute ARD-020: add or refine the package/install descriptor and redacted
-install-guide preview boundary. Keep Addon Manager discovery/install/update,
-package signing, process supervision, logs, rollback, Native Plugin ABI,
-downloader protocols, local AI runtime, Public Client API changes, and direct
-library writes out of scope.
+Continue ARD-020 by adding the Admin install-guide preview boundary and tests.
+Keep Addon Manager discovery/install/update, package signing, process
+supervision, logs, rollback, Native Plugin ABI, downloader protocols, local AI
+runtime, Public Client API changes, and direct library writes out of scope.

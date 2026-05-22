@@ -23,6 +23,10 @@ Task IDs use the `ARD` prefix.
   that can summarize sidecar image/binary/runtime requirements, manifest facts,
   Secret Reference needs, grants, network exposure prerequisites, and generated
   install-guide snippets without storing or exposing secrets.
+  Progress: Protocol crate now has `AddonInstallDescriptor`, runtime reference
+  validation, Secret Reference binding validation, redacted `AddonInstallGuide`
+  generation, and focused tests. ARD-020 remains open until Admin DTO/server
+  install-guide preview tests are added.
   Validation: focused `taru-addon-protocol` tests; focused Admin DTO/server
   tests for redacted install-guide previews; `cargo fmt --all -- --check`;
   `git diff --check`; `git diff --name-only -- crates/taru-client-protocol`.
