@@ -51,6 +51,11 @@ attention.
   intent without collapsing marketplace, package signing, provider breadth,
   rollback/update execution, or direct process/container supervision into the
   first slice.
+- [addon-source-catalog-marketplace](addon-source-catalog-marketplace/README.md):
+  active planning lane for the addon source catalog and marketplace discovery
+  boundary, covering source listing, browse metadata, and resolution of
+  installable addon descriptors without collapsing package signing, provider
+  breadth, or process supervision into the first slice.
 - [ai-assisted-library-ops](ai-assisted-library-ops/README.md):
   completed post-RPD mainline lane for Generated Artifact proposal/readiness,
   Admin-only redacted diagnostics, and explicit accept/reject planning for

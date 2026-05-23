@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "slug": "addon-source-catalog-marketplace",
+  "title": "Addon Source Catalog And Marketplace",
+  "status": "active",
+  "updated": "2026-05-23",
+  "scope_kind": "planning",
+  "problem": "Nako now has a manager-owned lifecycle plan slot, but it still lacks a discoverable addon source catalog and marketplace boundary for listing, resolving, and browsing installable addon sources.",
+  "authoritative_docs": [
+    {
+      "role": "readme",
+      "path": "docs/workstreams/addon-source-catalog-marketplace/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/addon-source-catalog-marketplace/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/addon-source-catalog-marketplace/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/addon-source-catalog-marketplace/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/addon-source-catalog-marketplace/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/addon-source-catalog-marketplace/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "git diff --check",
+    "cargo fmt --all -- --check",
+    "cargo nextest run -p nako-server addon --no-fail-fast",
+    "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/official-addon-e2e-smoke.ps1"
+  ],
+  "evidence": [
+    {
+      "date": "2026-05-23",
+      "task": "ASCM-010",
+      "summary": "Lane opened after the Addon Manager lifecycle lane closed with a proven manager-owned registry/plan slot."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md",
+    "docs/adr/0033-version-addon-protocol-independently-from-addon-and-crate-releases.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Continue while the current target remains the addon source catalog / marketplace discovery boundary. Split package signing, provider breadth, and direct process/container supervision into follow-ons."
+  }
+}
