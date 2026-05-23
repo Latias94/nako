@@ -877,6 +877,119 @@ async fn admin_addon_install_guide_preview_rejects_raw_secret_and_local_runtime_
 }
 
 #[tokio::test]
+async fn admin_addon_source_catalog_browses_and_resolves_without_hidden_lifecycle_work() {
+    let (_temp, router, _source, store) =
+        router_with_media_source_config("addon-catalog.mkv", b"media", |_| {}).await;
+
+    let sources = request_json::<AdminAddonSourceCatalogSourcesResponse>(
+        &router,
+        Method::GET,
+        "/admin/v1/addons/catalog/sources",
+    )
+    .await;
+    assert_eq!(sources.sources.len(), 1);
+    let source = &sources.sources[0];
+    assert_eq!(source.id, "nako-official");
+    assert_eq!(
+        source.kind,
+        AdminAddonSourceCatalogSourceKind::BuiltinOfficial
+    );
+    assert_eq!(source.entry_count, 1);
+    assert!(!source.provides_package_signing);
+    assert!(!source.provides_process_supervision);
+    assert!(!source.provides_provider_breadth);
+
+    let entries = request_json::<AdminAddonSourceCatalogEntriesResponse>(
+        &router,
+        Method::GET,
+        "/admin/v1/addons/catalog/entries",
+    )
+    .await;
+    assert_eq!(entries.source_id, "nako-official");
+    assert_eq!(entries.entries.len(), 1);
+    let entry = &entries.entries[0];
+    assert_eq!(entry.entry_id, "nako.official.metadata-scraper");
+    assert_eq!(entry.manifest_id, "nako.official.metadata-scraper");
+    assert_eq!(entry.addon_name, "Nako Metadata Scraper");
+    assert_eq!(entry.addon_version, "0.1.0-alpha.1");
+    assert_eq!(entry.protocol_version, ADDON_PROTOCOL_VERSION);
+    assert_eq!(entry.runtime_kind, AddonRuntimeKind::HttpSidecar);
+    assert_eq!(entry.resources, vec![AddonResource::Metadata]);
+    assert_eq!(entry.tasks, Vec::<String>::new());
+    assert!(!entry.package_signing_verified);
+    assert_eq!(entry.lifecycle_boundary.nako_manages_packages, false);
+    assert_eq!(entry.lifecycle_boundary.nako_manages_processes, false);
+    assert_eq!(entry.lifecycle_boundary.nako_manages_containers, false);
+
+    let raw = response_for(
+        &router,
+        Method::GET,
+        "/admin/v1/addons/catalog/entries/nako.official.metadata-scraper/resolve",
+    )
+    .await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let bytes = to_bytes(raw.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let resolved = serde_json::from_str::<AdminAddonSourceCatalogResolveResponse>(&text).unwrap();
+
+    assert_eq!(resolved.source_id, "nako-official");
+    assert_eq!(resolved.entry.entry_id, "nako.official.metadata-scraper");
+    assert_eq!(
+        resolved.descriptor.manifest.id,
+        "nako.official.metadata-scraper"
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.protocol_version,
+        ADDON_PROTOCOL_VERSION
+    );
+    assert_eq!(resolved.descriptor.manifest.resources.len(), 1);
+    assert_eq!(resolved.descriptor.secret_reference_bindings.len(), 1);
+    assert_eq!(
+        resolved.descriptor.secret_reference_bindings[0].secret_ref,
+        "env:NAKO_METADATA_SCRAPER_API_KEY"
+    );
+    assert_eq!(
+        resolved.install_guide.runtime_reference.value,
+        "nako-metadata-scraper"
+    );
+
+    for forbidden in [
+        "secret-value",
+        "Bearer ",
+        "nako_at_",
+        "docker.sock",
+        "docker start",
+        "docker stop",
+        "systemctl start",
+        "systemctl stop",
+        "operator_confirmed\":true",
+    ] {
+        assert!(
+            !text.contains(forbidden),
+            "catalog resolve leaked forbidden term: {forbidden}"
+        );
+    }
+
+    assert!(
+        store
+            .list_addon_registrations(None)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        store
+            .list_jobs(
+                nako_core::JobListFilter::default(),
+                PageRequest::first_page()
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
 async fn admin_addon_status_patch_enables_and_disables_runtime_access() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();

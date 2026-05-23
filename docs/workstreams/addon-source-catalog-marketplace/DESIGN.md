@@ -1,7 +1,7 @@
 # Addon Source Catalog And Marketplace
 
-Status: Active
-Last updated: 2026-05-23
+Status: Completed
+Last updated: 2026-05-24
 
 ## Why This Lane Exists
 
@@ -13,23 +13,26 @@ operator chooses a plan.
 
 ## Problem
 
-Operators still need a discoverable place to find addon sources and resolve
+Operators needed a discoverable place to find addon sources and resolve
 installable addon descriptors. The manager plan slot can confirm intent, but it
-does not yet define how addon sources become catalog entries or marketplace
+did not define how addon sources become catalog entries or marketplace
 metadata.
 
 ## Target State
 
-When this lane closes, Nako should be able to:
+This lane closed after Nako became able to:
 
-- list one or more configured addon sources through a redaction-safe catalog
+- list the built-in official addon source through a redaction-safe catalog
   surface;
-- resolve installable addon descriptors or package metadata from those sources;
-- expose browseable marketplace metadata without taking over package signing or
-  process supervision;
+- browse the official metadata scraper as an installable catalog entry;
+- resolve an `AddonInstallDescriptor` and protocol install guide from that
+  entry;
+- expose marketplace-style discovery metadata without taking over package
+  signing, update execution, provider breadth, or process supervision;
 - keep provider breadth, trust roots, and execution ownership as separate
   follow-ons;
-- preserve the Addon Protocol and manager-plan contract while discovery grows.
+- preserve the Addon Protocol, Addon Task runtime, and manager-plan contracts
+  while discovery grows.
 
 ## Scope
 
@@ -44,6 +47,9 @@ When this lane closes, Nako should be able to:
 - Package signing trust roots.
 - Direct container or process supervision.
 - Broad provider breadth beyond the first source set.
+- Downloading packages, executing update/rollback policy, or starting sidecars.
+- Authenticated outbound task dispatch credential storage.
+- Official-addon task-path smoke coverage.
 - Native Plugin ABI or in-process addon execution.
 - Changes to the operator-confirmed manager-plan intent contract.
 
@@ -60,6 +66,33 @@ distribution authority. The catalog should own:
 The catalog should not smuggle in signing policy, sidecar lifecycle ownership,
 or hidden provider execution. Marketplace behavior is the discovery surface,
 not a new runtime authority.
+
+## Implemented First Slice
+
+The first catalog slice is intentionally read-only and built in:
+
+- `GET /admin/v1/addons/catalog/sources` lists `nako-official` as the built-in
+  official source.
+- `GET /admin/v1/addons/catalog/entries` lists the official metadata scraper
+  catalog entry.
+- `GET /admin/v1/addons/catalog/entries/{entry_id}/resolve` resolves an
+  `AddonInstallDescriptor` plus protocol install guide for the selected entry.
+
+The resolved entry is an install candidate, not an Addon registration. It does
+not create `AddonRegistrationRecord`, Addon Routing Plans, Addon Task jobs,
+manager lifecycle intent, package downloads, signing decisions, or sidecar
+processes. Operators still register, enable, grant, and manage the sidecar
+through the existing Admin Addon and manager-plan surfaces.
+
+The built-in source deliberately reports:
+
+- `provides_package_signing = false`;
+- `provides_process_supervision = false`;
+- `provides_provider_breadth = false`;
+- `package_signing_verified = false`.
+
+That makes the boundary explicit in the public Admin shape instead of relying
+on prose alone.
 
 ## Reference Patterns
 
@@ -84,13 +117,20 @@ Nako's implication: source catalog entries should carry repo-level metadata,
 per-addon descriptor metadata, and explicit compatibility/channel policy while
 remaining separate from package signing or process ownership.
 
-## Adjacent Follow-On
+## Closeout
 
-If Nako later needs a real `Addon Task` runtime contract, that should be a
-separate lane from the source catalog. The catalog may surface which addons
-declare tasks, but it should not turn task declaration names like
-`bulk-metadata-scrape` into a runtime promise until a host-owned task execution
-model exists with progress, results, cancellation, and retry semantics.
+This lane completes the Addon core runtime and architecture mainline. The
+remaining addon work is product and ecosystem breadth:
+
+- package signing and trust-root policy;
+- provider breadth beyond the first official companion addon;
+- rollback/update execution beyond the current manager-plan intent surface;
+- authenticated outbound task dispatch credential storage for `Bearer` and
+  `SharedSecret` sidecars;
+- official-addon task-path smoke coverage once an official addon declares a
+  task;
+- direct process/container supervision, if Nako decides to own sidecar
+  execution.
 
 ## Related Docs
 

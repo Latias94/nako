@@ -1,6 +1,7 @@
 use nako_addon_protocol::{
     AddonConfigurationSchema, AddonEntryPointKind, AddonHealthStatus, AddonInstallDescriptor,
-    AddonInstallGuide, AddonManifest, AddonResource, AddonScope, AddonTaskDeclaration,
+    AddonInstallGuide, AddonManifest, AddonResource, AddonRuntimeKind, AddonScope,
+    AddonTaskDeclaration,
 };
 use nako_core::{
     ADDON_TASK_RUN_PROGRESS_SCHEMA, ADDON_TASK_RUN_RESULT_SCHEMA, AddonGrantRecord, AddonId,
@@ -214,6 +215,62 @@ pub struct AdminAddonInstallGuidePreviewRequest {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminAddonInstallGuidePreviewResponse {
     pub guide: AddonInstallGuide,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminAddonSourceCatalogSourceKind {
+    BuiltinOfficial,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonSourceCatalogSourcesResponse {
+    pub sources: Vec<AdminAddonSourceCatalogSource>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonSourceCatalogSource {
+    pub id: String,
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub kind: AdminAddonSourceCatalogSourceKind,
+    pub entry_count: usize,
+    pub provides_package_signing: bool,
+    pub provides_process_supervision: bool,
+    pub provides_provider_breadth: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonSourceCatalogEntriesResponse {
+    pub source_id: String,
+    pub entries: Vec<AdminAddonSourceCatalogEntry>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonSourceCatalogEntry {
+    pub source_id: String,
+    pub entry_id: String,
+    pub manifest_id: String,
+    pub addon_name: String,
+    pub addon_version: String,
+    pub protocol_version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub runtime_kind: AddonRuntimeKind,
+    pub resources: Vec<AddonResource>,
+    pub scopes: Vec<AddonScope>,
+    pub tasks: Vec<String>,
+    pub package_signing_verified: bool,
+    pub lifecycle_boundary: AdminAddonInstallGuideLifecycleBoundary,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonSourceCatalogResolveResponse {
+    pub source_id: String,
+    pub entry: AdminAddonSourceCatalogEntry,
+    pub descriptor: AddonInstallDescriptor,
+    pub install_guide: AddonInstallGuide,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]

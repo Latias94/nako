@@ -32,6 +32,18 @@ pub(super) fn routes() -> Router<NakoApp> {
             "/admin/v1/addons/install-guide-preview",
             post(preview_addon_install_guide),
         )
+        .route(
+            "/admin/v1/addons/catalog/sources",
+            get(list_addon_source_catalog_sources),
+        )
+        .route(
+            "/admin/v1/addons/catalog/entries",
+            get(list_addon_source_catalog_entries),
+        )
+        .route(
+            "/admin/v1/addons/catalog/entries/{entry_id}/resolve",
+            get(resolve_addon_source_catalog_entry),
+        )
         .route("/admin/v1/addons/{addon_id}", get(get_addon))
         .route(
             "/admin/v1/addons/{addon_id}/status",
@@ -130,6 +142,30 @@ pub(super) async fn preview_addon_install_guide(
     Json(request): Json<AdminAddonInstallGuidePreviewRequest>,
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(app.addons().preview_addon_install_guide(request)?))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn list_addon_source_catalog_sources(
+    State(app): State<NakoApp>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.addons().list_addon_source_catalog_sources()?))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn list_addon_source_catalog_entries(
+    State(app): State<NakoApp>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.addons().list_addon_source_catalog_entries()?))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn resolve_addon_source_catalog_entry(
+    State(app): State<NakoApp>,
+    Path(entry_id): Path<String>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.addons().resolve_addon_source_catalog_entry(&entry_id)?,
+    ))
 }
 
 #[instrument(skip(app))]

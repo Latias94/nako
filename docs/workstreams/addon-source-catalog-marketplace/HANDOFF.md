@@ -1,57 +1,49 @@
 # Addon Source Catalog And Marketplace - Handoff
 
-Status: Active
-Last updated: 2026-05-23
+Status: Completed
+Last updated: 2026-05-24
 
 ## Current State
 
-The Addon Manager lifecycle lane is complete. Nako now exposes the first
-manager-owned registry/plan slot and the official addon alpha smoke remains
-repeatable.
+The Addon core runtime and architecture mainline is complete. Nako now exposes
+the first read-only source catalog / marketplace discovery surface for the
+built-in official addon source.
 
-This lane exists to decide how addon sources become discoverable catalog or
-marketplace entries before an operator confirms a lifecycle plan. It should not
-collapse into package signing, provider breadth, or direct process/container
-supervision.
+Implemented pieces:
 
-Reference products to keep in mind:
-
-- Jellyfin shows a catalog/repository split with multiple official and
-  third-party plugin repositories.
-- Home Assistant treats repository URLs and per-repository add-on manifests as
-  the source boundary.
-- Visual Studio Code splits extension version from host compatibility through
-  `engines.vscode` and supports pre-release channels.
-- Obsidian splits plugin version from host compatibility through
-  `minAppVersion` and `versions.json`.
-
-Addon Task runtime is a separate follow-on from this lane. The catalog may
-list declared task capabilities, but it should not turn a sample declaration
-such as `bulk-metadata-scrape` into a contract for host execution, progress, or
-results until that runtime lane exists.
+- Admin DTOs for source catalog sources, entries, and resolved install
+  candidates.
+- `GET /admin/v1/addons/catalog/sources`.
+- `GET /admin/v1/addons/catalog/entries`.
+- `GET /admin/v1/addons/catalog/entries/{entry_id}/resolve`.
+- Built-in `nako-official` source with the official metadata scraper entry.
+- Resolution to `AddonInstallDescriptor` plus protocol install guide.
+- Explicit lifecycle flags proving Nako does not manage packages, processes, or
+  containers in this slice.
+- Focused Admin route test proving catalog browse/resolve does not create Addon
+  registrations, routing plans, jobs, manager intent, package-signing facts, or
+  process-control output.
 
 ## Next Task
 
-Continue with ASCM-010.
+Open a product/ecosystem follow-on only when that scope is ready.
 
-Goal: freeze the addon source catalog / marketplace boundary, non-goals, and
-first discovery slice.
+Recommended follow-ons:
 
-Suggested first steps:
-
-1. Re-read ADR 0020 and the completed Addon Manager closeout for the existing
-   manager boundary.
-2. Decide whether source listing, browse metadata, and resolution belong in one
-   lane or should split.
-3. Keep package signing, provider breadth, and process supervision out of the
-   first slice.
-4. Record the split/follow-on boundaries before implementation.
+- package signing and trust-root policy;
+- provider breadth beyond the first official companion addon;
+- rollback/update execution beyond the current manager-plan intent surface;
+- authenticated outbound task dispatch credential storage for `Bearer` and
+  `SharedSecret` sidecars;
+- official-addon task-path smoke coverage once an official addon exposes a task
+  declaration;
+- process/container supervision, if Nako decides to own sidecar execution.
 
 ## Known Risks
 
-- A catalog lane can accidentally absorb package signing or process
-  supervision if the first slice is not narrow.
-- The existing manager-plan and official addon smoke must stay valid while the
-  discovery lane evolves.
-- Resolution and browse metadata may need their own test fixtures if the lane
-  grows beyond the first catalog slice.
+- Additional remote or third-party sources need a separate persistence and trust
+  model; do not widen the built-in source slice implicitly.
+- Package signing and trust roots should not be inferred from `nako-official`
+  until that lane defines verification evidence.
+- Process/container supervision remains an operator-risk decision and should
+  not be added through catalog browse or resolve routes.

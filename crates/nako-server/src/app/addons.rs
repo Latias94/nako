@@ -4,8 +4,11 @@ use nako_addon_client::{
     AddonClientError, ReqwestAddonTransport, call_addon_resource_with_outcome, check_addon_health,
 };
 use nako_addon_protocol::{
-    AddonManifest, AddonScope, addon_install_guide as protocol_addon_install_guide,
-    ensure_scope_grant, validate_install_descriptor, validate_manifest,
+    ADDON_PROTOCOL_VERSION, AddonAuth, AddonInstallDescriptor, AddonManifest, AddonResource,
+    AddonResourceDeclaration, AddonRuntimeKind, AddonRuntimeRequirement, AddonScope,
+    AddonSecretReferenceBinding, AddonSecretReferenceFieldDeclaration,
+    addon_install_guide as protocol_addon_install_guide, ensure_scope_grant,
+    validate_install_descriptor, validate_manifest,
 };
 use nako_api::extension::{
     AddonGrantsResponse, AddonTokenIssuedResponse, AddonTokenResponse, AddonTokenRotationResponse,
@@ -22,7 +25,10 @@ use nako_api::extension::{
     AdminAddonRoutingPlansResponse, AdminAddonRuntimeReadinessCheck,
     AdminAddonRuntimeReadinessCheckName, AdminAddonRuntimeReadinessDiagnostics,
     AdminAddonRuntimeReadinessReason, AdminAddonRuntimeReadinessResponse,
-    AdminAddonSecretReferenceFieldSurface, AdminAddonSurfacesResponse, AdminAddonTaskSurface,
+    AdminAddonSecretReferenceFieldSurface, AdminAddonSourceCatalogEntriesResponse,
+    AdminAddonSourceCatalogEntry, AdminAddonSourceCatalogResolveResponse,
+    AdminAddonSourceCatalogSource, AdminAddonSourceCatalogSourceKind,
+    AdminAddonSourceCatalogSourcesResponse, AdminAddonSurfacesResponse, AdminAddonTaskSurface,
     IssueAddonTokenRequest, RegisterAddonRequest, ReplaceAddonGrantsRequest,
     UpdateAddonStatusRequest,
 };
@@ -260,6 +266,56 @@ impl AddonAppService {
 
         Ok(AdminAddonInstallGuidePreviewResponse {
             guide: protocol_addon_install_guide(&request.descriptor),
+        })
+    }
+
+    pub fn list_addon_source_catalog_sources(
+        &self,
+    ) -> Result<AdminAddonSourceCatalogSourcesResponse> {
+        let entries = builtin_addon_catalog_entries()?;
+        Ok(AdminAddonSourceCatalogSourcesResponse {
+            sources: vec![AdminAddonSourceCatalogSource {
+                id: "nako-official".to_owned(),
+                name: "Nako Official Addons".to_owned(),
+                description: Some(
+                    "Built-in source for official Addon Sidecars published for the current alpha"
+                        .to_owned(),
+                ),
+                kind: AdminAddonSourceCatalogSourceKind::BuiltinOfficial,
+                entry_count: entries.len(),
+                provides_package_signing: false,
+                provides_process_supervision: false,
+                provides_provider_breadth: false,
+            }],
+        })
+    }
+
+    pub fn list_addon_source_catalog_entries(
+        &self,
+    ) -> Result<AdminAddonSourceCatalogEntriesResponse> {
+        let entries = builtin_addon_catalog_entries()?;
+        Ok(AdminAddonSourceCatalogEntriesResponse {
+            source_id: "nako-official".to_owned(),
+            entries,
+        })
+    }
+
+    pub fn resolve_addon_source_catalog_entry(
+        &self,
+        entry_id: &str,
+    ) -> Result<AdminAddonSourceCatalogResolveResponse> {
+        let descriptor = builtin_addon_catalog_descriptor(entry_id)?;
+        let entry = addon_catalog_entry_from_descriptor("nako-official", entry_id, &descriptor);
+        validate_install_descriptor(&descriptor).map_err(|_err| NakoError::InvalidInput {
+            message: "invalid addon catalog install descriptor".to_owned(),
+        })?;
+        let install_guide = protocol_addon_install_guide(&descriptor);
+
+        Ok(AdminAddonSourceCatalogResolveResponse {
+            source_id: "nako-official".to_owned(),
+            entry,
+            descriptor,
+            install_guide,
         })
     }
 
@@ -1310,6 +1366,126 @@ fn addon_install_guide(
             nako_manages_packages: false,
             message: "Nako generates this guide only. The operator owns Addon Sidecar installation, start/stop, upgrades, logs, and removal outside Nako.".to_owned(),
         },
+    }
+}
+
+fn builtin_addon_catalog_entries() -> Result<Vec<AdminAddonSourceCatalogEntry>> {
+    let descriptor = official_metadata_scraper_descriptor();
+    validate_install_descriptor(&descriptor).map_err(|_err| NakoError::InvalidInput {
+        message: "invalid built-in addon catalog descriptor".to_owned(),
+    })?;
+
+    Ok(vec![addon_catalog_entry_from_descriptor(
+        "nako-official",
+        "nako.official.metadata-scraper",
+        &descriptor,
+    )])
+}
+
+fn builtin_addon_catalog_descriptor(entry_id: &str) -> Result<AddonInstallDescriptor> {
+    match entry_id {
+        "nako.official.metadata-scraper" => Ok(official_metadata_scraper_descriptor()),
+        _ => Err(NakoError::NotFound {
+            entity: "addon_catalog_entry",
+            id: entry_id.to_owned(),
+        }),
+    }
+}
+
+fn addon_catalog_entry_from_descriptor(
+    source_id: &str,
+    entry_id: &str,
+    descriptor: &AddonInstallDescriptor,
+) -> AdminAddonSourceCatalogEntry {
+    AdminAddonSourceCatalogEntry {
+        source_id: source_id.to_owned(),
+        entry_id: entry_id.to_owned(),
+        manifest_id: descriptor.manifest.id.clone(),
+        addon_name: descriptor.manifest.name.clone(),
+        addon_version: descriptor.manifest.version.clone(),
+        protocol_version: descriptor.manifest.protocol_version.clone(),
+        description: descriptor.manifest.description.clone(),
+        runtime_kind: descriptor.runtime.kind,
+        resources: descriptor
+            .manifest
+            .resources
+            .iter()
+            .map(|resource| resource.kind)
+            .collect(),
+        scopes: descriptor.manifest.scopes.clone(),
+        tasks: descriptor
+            .manifest
+            .tasks
+            .iter()
+            .map(|task| task.id.clone())
+            .collect(),
+        package_signing_verified: false,
+        lifecycle_boundary: AdminAddonInstallGuideLifecycleBoundary {
+            nako_manages_containers: false,
+            nako_manages_processes: false,
+            nako_manages_packages: false,
+            message: "The catalog resolves install metadata only. Operators still own package installation, sidecar process lifecycle, update execution, logs, and rollback outside Nako.".to_owned(),
+        },
+    }
+}
+
+fn official_metadata_scraper_descriptor() -> AddonInstallDescriptor {
+    AddonInstallDescriptor {
+        manifest: AddonManifest {
+            id: "nako.official.metadata-scraper".to_owned(),
+            name: "Nako Metadata Scraper".to_owned(),
+            version: "0.1.0-alpha.1".to_owned(),
+            protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+            base_url: "http://127.0.0.1:19100".to_owned(),
+            description: Some(
+                "Official metadata scraper sidecar for alpha metadata resource diagnostics"
+                    .to_owned(),
+            ),
+            resources: vec![AddonResourceDeclaration {
+                kind: AddonResource::Metadata,
+                path: "/metadata".to_owned(),
+                input_schema: Some("nako.metadata.request.v1".to_owned()),
+                output_schema: Some("nako.metadata.response.v1".to_owned()),
+                required_scopes: vec![
+                    AddonScope::ItemMetadataRead,
+                    AddonScope::ItemMetadataSuggest,
+                ],
+                timeout_ms: Some(10_000),
+                max_attempts: Some(2),
+            }],
+            entry_points: Vec::new(),
+            hosted_pages: Vec::new(),
+            configuration_schema: None,
+            secret_reference_fields: vec![AddonSecretReferenceFieldDeclaration::new(
+                "metadata_api_key",
+                "Metadata provider API key",
+                Some("Optional provider credential resolved by the operator environment".to_owned()),
+                false,
+            )],
+            event_subscriptions: Vec::new(),
+            tasks: Vec::new(),
+            auth: AddonAuth::None,
+            default_timeout_ms: Some(10_000),
+            default_max_attempts: Some(2),
+            scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+        },
+        runtime: AddonRuntimeRequirement {
+            kind: AddonRuntimeKind::HttpSidecar,
+            image: None,
+            binary: Some("nako-metadata-scraper".to_owned()),
+            command: None,
+        },
+        secret_reference_bindings: vec![AddonSecretReferenceBinding {
+            field_id: "metadata_api_key".to_owned(),
+            secret_ref: "env:NAKO_METADATA_SCRAPER_API_KEY".to_owned(),
+        }],
+        install_notes: vec![
+            "Install from crates.io with `cargo install nako-metadata-scraper --version 0.1.0-alpha.1 --locked`.".to_owned(),
+            "Run the sidecar outside Nako and register the resolved manifest through the existing Admin Addon APIs.".to_owned(),
+        ],
     }
 }
 

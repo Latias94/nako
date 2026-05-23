@@ -1,9 +1,11 @@
 # Addon Source Catalog And Marketplace - Milestones
 
-Status: Active
-Last updated: 2026-05-23
+Status: Completed
+Last updated: 2026-05-24
 
 ## M0 - Boundary Frozen
+
+Status: Done 2026-05-24.
 
 Exit criteria:
 
@@ -15,6 +17,8 @@ Exit criteria:
 
 ## M1 - Catalog Model Frozen
 
+Status: Done 2026-05-24.
+
 Exit criteria:
 
 - the first source catalog shape is documented;
@@ -22,6 +26,8 @@ Exit criteria:
 - operator-facing resolution can be described without leaking secrets.
 
 ## M2 - Discovery Surface
+
+Status: Done 2026-05-24.
 
 Exit criteria:
 
@@ -31,8 +37,12 @@ Exit criteria:
 
 ## M3 - Closeout
 
+Status: Done 2026-05-24.
+
 Exit criteria:
 
 - fresh gates prove the catalog slice;
 - docs describe the shipped discovery boundary;
 - signing, provider breadth, and process supervision are split or deferred.
+- rollback/update execution, authenticated outbound task-dispatch credentials,
+  and official-addon task-path smoke coverage are split follow-ons.

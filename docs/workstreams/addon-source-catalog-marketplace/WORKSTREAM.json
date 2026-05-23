@@ -2,10 +2,10 @@
   "schema_version": 1,
   "slug": "addon-source-catalog-marketplace",
   "title": "Addon Source Catalog And Marketplace",
-  "status": "active",
-  "updated": "2026-05-23",
-  "scope_kind": "planning",
-  "problem": "Nako now has a manager-owned lifecycle plan slot, but it still lacks a discoverable addon source catalog and marketplace boundary for listing, resolving, and browsing installable addon sources.",
+  "status": "completed",
+  "updated": "2026-05-24",
+  "scope_kind": "implementation",
+  "problem": "Nako now has a completed read-only addon source catalog / marketplace discovery boundary for listing the built-in official source, browsing installable metadata, and resolving an AddonInstallDescriptor without hidden registration, package signing, provider breadth, rollback/update execution, task dispatch credentials, or process/container supervision.",
   "authoritative_docs": [
     {
       "role": "readme",
@@ -35,8 +35,9 @@
   "gates": [
     "git diff --check",
     "cargo fmt --all -- --check",
-    "cargo nextest run -p nako-server addon --no-fail-fast",
-    "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/official-addon-e2e-smoke.ps1"
+    "cargo test -p nako-api admin_contract_includes_route_constants --no-default-features",
+    "cargo nextest run -p nako-server admin_addon_source_catalog_browses_and_resolves_without_hidden_lifecycle_work --no-fail-fast",
+    "cargo nextest run -p nako-server addon --no-fail-fast"
   ],
   "evidence": [
     {
@@ -48,6 +49,21 @@
       "date": "2026-05-23",
       "task": "ASCM-010",
       "summary": "Reference study completed against Jellyfin plugin repositories, Home Assistant app repositories, Visual Studio Code extension manifests, and Obsidian plugin manifests/version gating."
+    },
+    {
+      "date": "2026-05-24",
+      "task": "ASCM-010",
+      "summary": "Froze the lane around read-only source listing, browse metadata, and descriptor resolution while splitting package signing, provider breadth, rollback/update execution, authenticated outbound task credentials, official-addon task-path smoke, and process supervision."
+    },
+    {
+      "date": "2026-05-24",
+      "task": "ASCM-020/030",
+      "summary": "Implemented Admin source catalog DTOs and routes for built-in official source listing, entry browsing, and install descriptor resolution with focused no-hidden-lifecycle-work tests."
+    },
+    {
+      "date": "2026-05-24",
+      "task": "ASCM-060",
+      "summary": "Closed the lane as the final Addon core runtime and architecture mainline slice; final rerun passed fmt check, diff check, JSON parse, API contract route test, focused catalog discovery nextest, and the 62-test addon nextest gate. Remaining addon work is explicit product/ecosystem breadth."
     }
   ],
   "adr_refs": [
@@ -55,7 +71,7 @@
     "docs/adr/0033-version-addon-protocol-independently-from-addon-and-crate-releases.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "Continue while the current target remains the addon source catalog / marketplace discovery boundary. Split package signing, provider breadth, and direct process/container supervision into follow-ons."
+    "default_action": "close",
+    "notes": "The Addon core runtime and architecture mainline is complete. Open separate follow-ons for package signing/trust roots, provider breadth, rollback/update execution, authenticated outbound task-dispatch credentials, official-addon task-path smoke, or direct process/container supervision."
   }
 }
