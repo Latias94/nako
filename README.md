@@ -3,6 +3,7 @@
 [![release-gate](https://github.com/Latias94/nako/actions/workflows/release-gate.yml/badge.svg)](https://github.com/Latias94/nako/actions/workflows/release-gate.yml)
 [![release-package](https://github.com/Latias94/nako/actions/workflows/release-package.yml/badge.svg)](https://github.com/Latias94/nako/actions/workflows/release-package.yml)
 [![crates-publish](https://github.com/Latias94/nako/actions/workflows/crates-publish.yml/badge.svg)](https://github.com/Latias94/nako/actions/workflows/crates-publish.yml)
+[![docker-publish](https://github.com/Latias94/nako/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/Latias94/nako/actions/workflows/docker-publish.yml)
 ![status: alpha.1](https://img.shields.io/badge/status-alpha.1-orange)
 ![rust: 1.95+](https://img.shields.io/badge/rust-1.95%2B-orange)
 ![server license: AGPL-3.0-or-later](https://img.shields.io/badge/server%20license-AGPL--3.0--or--later-blue)
@@ -89,6 +90,13 @@ Container examples:
 Copy-Item deploy/compose/.env.example deploy/compose/.env
 # Edit deploy/compose/.env before running.
 docker compose --env-file deploy/compose/.env -f deploy/compose/nako-sqlite.yml up --build
+```
+
+Published alpha image:
+
+```powershell
+docker pull ghcr.io/latias94/nako-server:0.1.0-alpha.1
+docker pull ghcr.io/latias94/nako-server:alpha
 ```
 
 Direct image build:

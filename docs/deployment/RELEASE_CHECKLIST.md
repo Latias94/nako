@@ -45,6 +45,25 @@ Actual crates.io publishing is manual-approval only through the
 `CARGO_REGISTRY_TOKEN` secret. Publish order is dependency order:
 `nako-addon-protocol`, `nako-addon-client`, then `nako`.
 
+## 1b. Docker Image Publishing
+
+Nako publishes release images to GitHub Container Registry from immutable
+release tags:
+
+- `ghcr.io/latias94/nako-server:<version>`
+- `ghcr.io/latias94/nako-server:alpha` for alpha releases
+
+The `docker-publish` workflow builds the image, runs container smoke checks,
+then pushes only after the smoke checks pass. For an existing tag, run it
+manually with:
+
+```text
+release_ref = v0.1.0-alpha.1
+publish = true
+```
+
+Do not push `latest` during alpha.
+
 ## 2. Prepare Config And Secrets
 
 1. Choose SQLite or PostgreSQL.

@@ -1,0 +1,142 @@
+name: docker-publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_ref:
+        description: "Git ref or tag to build, for example v0.1.0-alpha.1"
+        required: true
+        type: string
+      publish:
+        description: "Push the image to GHCR after smoke checks pass"
+        required: true
+        type: boolean
+        default: false
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    name: build and publish docker image
+    runs-on: ubuntu-latest
+    env:
+      DOCKER_PUBLISH: ${{ github.event_name == 'push' || inputs.publish == true }}
+    steps:
+      - name: Resolve release ref
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ref="${{ inputs.release_ref }}"
+          if [[ -z "$ref" ]]; then
+            ref="$GITHUB_REF_NAME"
+          fi
+
+          tag="${ref#refs/tags/}"
+          if [[ "$tag" != v* ]]; then
+            echo "Docker releases must be built from a v* tag, got: $ref" >&2
+            exit 64
+          fi
+
+          version="${tag#v}"
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          image="ghcr.io/${owner}/nako-server"
+
+          {
+            echo "ref=$tag"
+            echo "tag=$tag"
+            echo "version=$version"
+            echo "image=$image"
+          } >>"$GITHUB_OUTPUT"
+
+      - name: Checkout release ref
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ steps.release.outputs.ref }}
+
+      - name: Build image
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          image="${{ steps.release.outputs.image }}"
+          version="${{ steps.release.outputs.version }}"
+          revision="$(git rev-parse HEAD)"
+          created="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          docker build \
+            --label "org.opencontainers.image.title=Nako Server" \
+            --label "org.opencontainers.image.description=Self-hosted media server backend technical preview" \
+            --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.revision=${revision}" \
+            --label "org.opencontainers.image.version=${version}" \
+            --label "org.opencontainers.image.created=${created}" \
+            -t "${image}:${version}" \
+            .
+
+      - name: Smoke test image
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          image="${{ steps.release.outputs.image }}"
+          version="${{ steps.release.outputs.version }}"
+
+          docker run --rm --entrypoint nako-server "${image}:${version}" --help
+          docker run --rm --entrypoint ffmpeg "${image}:${version}" -version
+
+      - name: Tag release channel
+        if: env.DOCKER_PUBLISH == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          image="${{ steps.release.outputs.image }}"
+          version="${{ steps.release.outputs.version }}"
+
+          if [[ "$version" == *"-alpha."* ]]; then
+            docker tag "${image}:${version}" "${image}:alpha"
+          fi
+
+      - name: Login to GHCR
+        if: env.DOCKER_PUBLISH == 'true'
+        shell: bash
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
+
+      - name: Push image
+        if: env.DOCKER_PUBLISH == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          image="${{ steps.release.outputs.image }}"
+          version="${{ steps.release.outputs.version }}"
+
+          docker push "${image}:${version}"
+          if [[ "$version" == *"-alpha."* ]]; then
+            docker push "${image}:alpha"
+          fi
+
+      - name: Write summary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          image="${{ steps.release.outputs.image }}"
+          version="${{ steps.release.outputs.version }}"
+
+          {
+            echo "## Docker image"
+            echo
+            echo "- Image: \`${image}:${version}\`"
+            if [[ "$version" == *"-alpha."* ]]; then
+              echo "- Channel: \`${image}:alpha\`"
+            fi
+            echo "- Published: \`${DOCKER_PUBLISH}\`"
+          } >>"$GITHUB_STEP_SUMMARY"

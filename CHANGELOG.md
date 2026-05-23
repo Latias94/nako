@@ -48,6 +48,8 @@ All notable changes to Nako are recorded here.
 - Release CI now includes crates.io dry-run/publish workflow support for the
   public permissive crates and creates GitHub Release drafts for tagged server
   packages.
+- Docker publish CI can build, smoke-test, and push tagged alpha images to
+  GitHub Container Registry without adding extra JavaScript actions.
 
 ### Known Limitations
 
