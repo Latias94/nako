@@ -1,6 +1,6 @@
 # Official Addon E2E Alpha2
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-23
 
 ## Why This Lane Exists
@@ -97,4 +97,3 @@ This lane can close when:
 - protocol compatibility behavior is proven or the missing seam is split;
 - docs reflect the shipped behavior;
 - and Addon Manager/provider breadth follow-ons are explicitly deferred.
-

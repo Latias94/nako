@@ -1,6 +1,6 @@
 # Official Addon E2E Alpha2 - Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-23
 
 ## M0 - Scope Frozen
@@ -44,4 +44,3 @@ Exit criteria:
 - final gates are recorded;
 - docs match the proven behavior;
 - provider breadth and Addon Manager automation are split or deferred.
-

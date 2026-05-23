@@ -132,6 +132,18 @@ Diagnostics should be redacted. They may show schemes, counts, booleans, env var
 names, and capability summaries; they must not expose raw tokens, DB passwords,
 provider secrets, artifact paths, or source locators.
 
+## 5a. Official Addon Alpha Smoke
+
+Run the official alpha host/addon loop after the release artifacts are ready:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/official-addon-e2e-smoke.ps1
+```
+
+The script defaults to the published `nako-metadata-scraper@0.1.0-alpha.1`
+binary from crates.io. Use `-AddonBinarySource workspace` only when validating
+a clean candidate worktree in `nako-official-addons`.
+
 ## 6. Backup Before Upgrade
 
 Before upgrading:

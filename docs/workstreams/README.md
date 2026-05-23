@@ -7,7 +7,7 @@ attention.
 ## Current Workstreams
 
 - [official-addon-e2e-alpha2](official-addon-e2e-alpha2/README.md):
-  active alpha2 lane for proving Nako `v0.1.0-alpha.1`, the public Addon
+  completed alpha2 lane for proving Nako `v0.1.0-alpha.1`, the public Addon
   Protocol crates, the GHCR server image, and
   `nako-metadata-scraper@0.1.0-alpha.1` as one repeatable host/addon smoke
   loop without expanding into Addon Manager, marketplace, package signing, or

@@ -57,6 +57,13 @@ compatibility, and Rust crate package versions are separate contracts.
   Sidecar experiments. The first alpha companion addon is
   `nako-metadata-scraper@0.1.0-alpha.1`:
   <https://github.com/Latias94/nako-official-addons>
+- The repeatable alpha host/addon smoke is
+  [`scripts/official-addon-e2e-smoke.ps1`](https://github.com/Latias94/nako/blob/main/scripts/official-addon-e2e-smoke.ps1).
+  It starts the published Nako GHCR image, uses the published
+  `nako-metadata-scraper@0.1.0-alpha.1` binary from crates.io by default, and
+  proves registration, hosted health, enablement, and one hosted resource call.
+  Use `-AddonBinarySource workspace` only when validating a clean candidate
+  worktree in `nako-official-addons`.
 - Network tunnel support is policy/readiness oriented. Nako does not currently
   run a built-in NAT traversal or relay service.
 - AI-assisted workflows are intentionally not part of the `alpha.1` release

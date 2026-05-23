@@ -1,6 +1,6 @@
 # Official Addon E2E Alpha2 - TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-23
 
 ## M0 - Scope And Evidence Freeze
@@ -27,33 +27,44 @@ Last updated: 2026-05-23
 
 ## M2 - Hosted Addon Loop
 
-- [ ] OAE2E-030 [owner=codex] [deps=OAE2E-020] [scope=crates/nako-server,crates/nako-addon-client,scripts]
+- [x] OAE2E-030 [owner=codex] [deps=OAE2E-020] [scope=crates/nako-server,crates/nako-addon-client,scripts]
   Goal: Prove Nako can register `nako-metadata-scraper`, check hosted health,
   and make one hosted resource call through Nako's Addon runtime.
   Validation: focused server/addon tests or smoke script against local services.
   Review: review-workstream for host/runtime boundary compliance.
   Evidence: EVIDENCE_AND_GATES.md with request/response redaction notes.
-  Handoff: Do not add Addon process supervision.
+  Handoff: DONE. `scripts/official-addon-e2e-smoke.ps1` now starts the
+  published Nako GHCR image, installs/uses the published
+  `nako-metadata-scraper@0.1.0-alpha.1` binary, registers the Addon, runs
+  hosted health, enables it, and completes one hosted metadata resource
+  diagnostic. Continue with OAE2E-040. Do not add Addon process supervision.
 
 ## M3 - Compatibility And Diagnostics
 
-- [ ] OAE2E-040 [owner=codex] [deps=OAE2E-030] [scope=crates/nako-addon-protocol,crates/nako-server,docs/guides]
+- [x] OAE2E-040 [owner=codex] [deps=OAE2E-030] [scope=crates/nako-addon-protocol,crates/nako-server,docs/guides]
   Goal: Prove unsupported Addon Protocol versions fail with clear, operator-safe
   diagnostics.
   Validation: cargo nextest run -p nako-addon-protocol protocol_version --no-fail-fast; focused server/addon diagnostic test.
   Review: review-workstream for contract and error-shape quality.
   Evidence: EVIDENCE_AND_GATES.md.
-  Handoff: Split multi-version adapter support if this grows beyond diagnostics.
+  Handoff: DONE. Registration now has explicit coverage for unsupported
+  `manifest.protocol_version`; hosted resource diagnostics now have explicit
+  coverage for unsupported response protocol versions returning
+  `protocol_mismatch` without echoing payloads or sidecar secrets. Continue with
+  OAE2E-050. Split multi-version adapter support if this grows beyond
+  diagnostics.
 
 ## M4 - Operator Docs And Closeout
 
-- [ ] OAE2E-050 [owner=codex] [deps=OAE2E-030] [scope=README.md,docs/deployment,docs/guides]
+- [x] OAE2E-050 [owner=codex] [deps=OAE2E-030] [scope=README.md,docs/deployment,docs/guides]
   Goal: Teach the official Addon alpha loop in user-facing docs, including the
   responsibility split between Nako and the sidecar.
   Validation: docs are link-complete and commands match the smoke evidence.
   Review: review-workstream for docs/workstream compliance.
   Evidence: README.md and deployment/addon guide links.
-  Handoff: Split Addon Manager/marketplace/provider breadth.
+  Handoff: DONE. README, release checklist, and Addon Author Guide now point to
+  the repeatable hosted alpha smoke script. Continue with OAE2E-060. Split Addon
+  Manager/marketplace/provider breadth.
 
 - [ ] OAE2E-060 [owner=planner] [deps=OAE2E-040,OAE2E-050] [scope=docs/workstreams/official-addon-e2e-alpha2]
   Goal: Close the lane or split remaining alpha2 follow-ons.

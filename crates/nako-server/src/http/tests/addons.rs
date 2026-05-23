@@ -511,6 +511,31 @@ async fn register_addon_routes_disabled_by_default_and_validate_contract() {
     let invalid_error = body_json::<ErrorResponse>(invalid).await;
     assert_eq!(invalid_error.code, "invalid_input");
 
+    let mut unsupported_protocol = addon_manifest();
+    unsupported_protocol.id = "example.metadata.unsupported-protocol".to_owned();
+    unsupported_protocol.protocol_version = "0.1.0-alpha.0".to_owned();
+    let unsupported = post_addon_registration(
+        &router,
+        RegisterAddonRequest {
+            id: None,
+            manifest: unsupported_protocol,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    assert_eq!(unsupported.status(), StatusCode::BAD_REQUEST);
+    let unsupported_error = body_json::<ErrorResponse>(unsupported).await;
+    assert_eq!(unsupported_error.code, "invalid_input");
+    assert!(
+        unsupported_error
+            .message
+            .contains("unsupported addon protocol version")
+    );
+
     let disabled_without_grants = request_body_json::<AdminAddonRegistrationResponse, _>(
         &router,
         Method::POST,
@@ -2875,6 +2900,62 @@ async fn admin_addon_resource_call_diagnostic_classifies_safe_failures() {
     assert_eq!(unsafe_response.attempts, 1);
     assert!(!unsafe_text.contains("not-json-secret"));
     assert!(!unsafe_text.contains("Hidden"));
+
+    let protocol_base_url = failing_resource_addon_server(
+        StatusCode::OK,
+        r#"{"protocol_version":"0.1.0-alpha.0","addon_id":"nako.protocol-resource.metadata","resource":"metadata","request_id":"wrong-request","payload":{"secret":"nako_at_should_not_echo"},"artifacts":[]}"#,
+    )
+    .await;
+    let mut protocol_manifest = nako_reference_addon::reference_manifest(protocol_base_url);
+    protocol_manifest.id = "nako.protocol-resource.metadata".to_owned();
+    let protocol_addon = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: protocol_manifest,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let protocol_path = format!(
+        "/admin/v1/addons/{}/diagnostics/resource-call",
+        protocol_addon.addon.summary.id
+    );
+    let protocol_raw = response_body_json(
+        &router,
+        Method::POST,
+        &protocol_path,
+        &AdminAddonResourceCallDiagnosticRequest {
+            resource: AddonResource::Metadata,
+            payload: serde_json::json!({"title":"Hidden"}),
+        },
+    )
+    .await;
+    assert_eq!(protocol_raw.status(), StatusCode::OK);
+    let protocol_bytes = to_bytes(protocol_raw.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let protocol_text = String::from_utf8(protocol_bytes.to_vec()).unwrap();
+    let protocol_response =
+        serde_json::from_str::<AdminAddonResourceCallDiagnosticResponse>(&protocol_text).unwrap();
+    assert_eq!(
+        protocol_response.status,
+        AdminAddonResourceCallDiagnosticStatus::ProtocolMismatch
+    );
+    assert_eq!(
+        protocol_response.safe_error_code.as_deref(),
+        Some("protocol_mismatch")
+    );
+    assert_eq!(protocol_response.attempts, 1);
+    assert!(!protocol_text.contains("0.1.0-alpha.0"));
+    assert!(!protocol_text.contains("nako_at_should_not_echo"));
+    assert!(!protocol_text.contains("Hidden"));
 }
 
 #[tokio::test]
