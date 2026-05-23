@@ -1,15 +1,18 @@
 # Addon Task Runtime Contract
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-23
 
-This workstream defines the host-owned runtime contract for Addon Tasks after
+This workstream defined the host-owned runtime contract for Addon Tasks after
 the completed Addon Runtime / Distribution lane proved declaration routing.
-Nako already supports manifest-declared task routing plans; this lane makes the
-execution, progress, result, cancellation, retry, and audit boundary explicit.
+Nako already supported manifest-declared task routing plans; this lane made the
+execution, progress, result, cancellation, retry, direct task-path dispatch, and
+audit boundary explicit.
 
 Source catalog / marketplace discovery, package signing, provider breadth, and
-direct process/container supervision are split follow-ons.
+direct process/container supervision are split follow-ons. Authenticated
+outbound task dispatch credential management and an official-addon task-path
+smoke are also split follow-ons.
 
 Authoritative docs:
 

@@ -57,10 +57,11 @@ attention.
   installable addon descriptors without collapsing package signing, provider
   breadth, or process supervision into the first slice.
 - [addon-task-runtime-contract](addon-task-runtime-contract/README.md):
-  active planning lane for the host-owned Addon Task runtime boundary,
-  covering execution, progress, results, cancellation, and retry without
-  collapsing source catalog, package signing, provider breadth, or process
-  supervision into the first slice.
+  completed implementation lane for the host-owned Addon Task runtime
+  boundary, covering sidecar-claimed execution, direct task-path dispatch,
+  progress, results, cancellation, and retry without collapsing source catalog,
+  package signing, provider breadth, or process supervision into the first
+  slice.
 - [ai-assisted-library-ops](ai-assisted-library-ops/README.md):
   completed post-RPD mainline lane for Generated Artifact proposal/readiness,
   Admin-only redacted diagnostics, and explicit accept/reject planning for

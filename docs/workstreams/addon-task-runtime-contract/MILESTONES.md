@@ -1,6 +1,6 @@
 # Addon Task Runtime Contract - Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-23
 
 ## M0 - Boundary Frozen
@@ -49,7 +49,7 @@ Exit criteria:
 
 ## M3 - Closeout
 
-Status: Pending.
+Status: Done 2026-05-23.
 
 Exit criteria:
 
@@ -57,3 +57,5 @@ Exit criteria:
 - docs describe the shipped execution boundary;
 - signing, source catalog, provider breadth, and process supervision are split
   or deferred.
+- authenticated outbound task dispatch credential management and official
+  addon task-path smoke coverage are split follow-ons.

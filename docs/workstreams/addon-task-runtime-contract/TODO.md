@@ -1,6 +1,6 @@
 # Addon Task Runtime Contract - TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-23
 
 ## M0 - Boundary Freeze
@@ -69,10 +69,15 @@ Last updated: 2026-05-23
   dispatch mode, target-job claim filtering, direct success/failure/retry/cancel
   handling, and focused HTTP tests.
 
-- [ ] ATRC-060 [owner=planner] [deps=ATRC-040] [scope=docs/workstreams/addon-task-runtime-contract]
+- [x] ATRC-060 [owner=planner] [deps=ATRC-040] [scope=docs/workstreams/addon-task-runtime-contract]
   Goal: Close the lane or split marketplace/package-signing/provider-breadth
   and process-supervision follow-ons.
   Validation: verify-rust-workstream records fresh final gate evidence.
   Review: review-workstream has no blocking findings.
   Evidence: EVIDENCE_AND_GATES.md, WORKSTREAM.json
-  Handoff: Summarize remaining risks in HANDOFF.md.
+  Handoff: DONE. The host-owned Addon Task runtime contract is complete.
+  Authenticated outbound task dispatch credential management, official-addon
+  task-path smoke coverage, source catalog / marketplace discovery, package
+  signing, provider breadth, and process/container supervision are follow-ons.
+  Progress: Done 2026-05-23. Closed the lane after final docs, format, diff,
+  compile, and addon runtime gates.

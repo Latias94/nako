@@ -1,11 +1,11 @@
 # Addon Task Runtime Contract - Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-23
 
 ## Current State
 
-Nako now has a first host-owned Addon Task runtime surface. Manifest task
+Nako now has a host-owned Addon Task runtime surface. Manifest task
 declarations still only describe what an Addon Sidecar can do; Nako creates a
 separate `AddonTaskRun` backed by `JobKind::AddonTask` when work should be
 scheduled. The runtime now supports both sidecar-claimed runs and direct
@@ -31,19 +31,18 @@ Implemented pieces:
 
 ## Next Task
 
-Continue with ATRC-060 closeout or split follow-ons.
+Open a follow-on lane when one of the remaining product areas is ready.
 
-Suggested next steps:
+Recommended follow-ons:
 
-1. Run the broader addon gate:
-   `cargo nextest run -p nako-server addon --no-fail-fast`.
-2. Run `cargo fmt --all -- --check` and `git diff --check`.
-3. Decide whether authenticated outbound task dispatch credential storage
-   belongs in this lane or a follow-on. The current direct-dispatch tests cover
-   `AddonAuth::None`; `Bearer`/`SharedSecret` outbound task dispatch needs a
-   real secret source rather than reusing Addon Tokens.
-4. Keep source catalog, package signing, provider breadth, and process
-   supervision out of this runtime contract.
+- authenticated outbound task dispatch credential storage and resolution for
+  `AddonAuth::Bearer` and `AddonAuth::SharedSecret`;
+- official-addon task-path smoke coverage once an official addon exposes a task
+  declaration;
+- Addon Source Catalog / marketplace discovery;
+- package signing and trust-root policy;
+- provider breadth beyond the first companion addon;
+- process/container supervision, if Nako decides to own sidecar execution.
 
 ## Known Risks
 
@@ -55,3 +54,5 @@ Suggested next steps:
   grows beyond the first execution slice.
 - Authenticated outbound sidecar task dispatch still needs credential
   management; this runtime lane should not invent secret storage implicitly.
+- The current official addon smoke covers health and resource diagnostics, not
+  task-path dispatch.

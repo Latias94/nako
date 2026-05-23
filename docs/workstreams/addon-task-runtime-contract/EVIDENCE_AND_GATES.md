@@ -1,9 +1,9 @@
 # Addon Task Runtime Contract - Evidence And Gates
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-23
 
-## Required Gates
+## Closeout Gates
 
 Baseline docs gate:
 
@@ -11,18 +11,25 @@ Baseline docs gate:
 git diff --check
 ```
 
-Future Rust gate, once task runtime code exists:
+Closeout Rust gates:
 
 ```bash
 cargo fmt --all -- --check
+cargo check -p nako-api -p nako-server
+cargo nextest run -p nako-addon-client calls_declared_task_path_with_host_owned_run_envelope --no-fail-fast
 cargo nextest run -p nako-server addon --no-fail-fast
 ```
 
-Future runtime smoke, once a task surface exists:
+## Follow-on Official-Addon Task Smoke
 
 ```bash
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/official-addon-e2e-smoke.ps1
 ```
+
+The current official smoke proves hosted health and resource diagnostics. It
+does not yet prove task-path dispatch because the published official metadata
+scraper does not expose an Addon Task declaration; that task smoke is a
+follow-on.
 
 ## Evidence Log
 
@@ -45,13 +52,25 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/official-addon-e2e-smoke.p
 | 2026-05-23 | ATRC-040 | `cargo fmt --all -- --check` | Pass |
 | 2026-05-23 | ATRC-040 | `git diff --check` | Pass |
 | 2026-05-23 | ATRC-040 | `cargo nextest run -p nako-server addon --no-fail-fast` | Pass, 61 tests passed |
+| 2026-05-23 | ATRC-060 | Closed the lane and split authenticated outbound task dispatch credential management plus official-addon task-path smoke coverage into follow-ons. | Pass |
+| 2026-05-23 | ATRC-060 | `cargo fmt --all -- --check`; `cargo check -p nako-api -p nako-server`; `cargo nextest run -p nako-addon-client calls_declared_task_path_with_host_owned_run_envelope --no-fail-fast`; `cargo nextest run -p nako-server addon --no-fail-fast`; `git diff --check`. | Pass |
 
 ## Closeout Evidence
 
-Closeout requires:
+Closeout completed with:
 
 - a clear host-owned task runtime boundary;
 - fresh docs and runtime gates;
 - explicit split/defer notes for source catalog, package signing, provider
   breadth, process supervision, and authenticated outbound sidecar dispatch
   credential management.
+
+Follow-ons:
+
+- authenticated outbound task dispatch credential storage and resolution for
+  `AddonAuth::Bearer` and `AddonAuth::SharedSecret`;
+- official-addon task-path smoke coverage;
+- Addon Source Catalog / marketplace discovery;
+- package signing and trust roots;
+- provider breadth beyond the first companion addon;
+- direct process/container supervision.

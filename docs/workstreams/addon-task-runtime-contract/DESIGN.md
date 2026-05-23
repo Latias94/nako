@@ -1,15 +1,14 @@
 # Addon Task Runtime Contract
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-23
 
 ## Why This Lane Exists
 
-Nako already knows how to validate Addon manifests, record Addon Task
-declarations, and turn them into explicit routing plans. That is useful, but it
-is not yet a full runtime contract for Addon Task execution. The missing piece
-is the host-owned lifecycle around task execution, progress, results,
-cancellation, retry, and audit.
+Nako already knew how to validate Addon manifests, record Addon Task
+declarations, and turn them into explicit routing plans. This lane added the
+host-owned lifecycle around task execution, progress, results, cancellation,
+retry, direct sidecar task-path dispatch, and audit.
 
 ## Problem
 
@@ -147,3 +146,21 @@ credential-management follow-on.
 - `docs/workstreams/addon-source-catalog-marketplace/`
 - `docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md`
 - `docs/adr/0033-version-addon-protocol-independently-from-addon-and-crate-releases.md`
+
+## Closeout
+
+This lane closed in ATRC-060 after ATRC-040 shipped direct dispatch. The
+runtime contract covers host-owned Addon Task runs, sidecar-claimed execution,
+direct task-path dispatch, progress/result persistence, retry, cancellation,
+and safe failure classification.
+
+Follow-ons:
+
+- authenticated outbound sidecar task dispatch credential management for
+  `AddonAuth::Bearer` and `AddonAuth::SharedSecret`;
+- official-addon task-path smoke coverage once an official addon exposes a task
+  declaration;
+- Addon Source Catalog / marketplace discovery;
+- package signing and trust-root policy;
+- provider breadth beyond the first companion addon;
+- process/container supervision.
