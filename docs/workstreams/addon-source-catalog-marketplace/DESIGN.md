@@ -61,6 +61,29 @@ The catalog should not smuggle in signing policy, sidecar lifecycle ownership,
 or hidden provider execution. Marketplace behavior is the discovery surface,
 not a new runtime authority.
 
+## Reference Patterns
+
+- Jellyfin uses multiple official and third-party plugin repositories, with a
+  catalog that can browse installed repositories and install from repository
+  manifests. That suggests Nako should support more than one source and keep
+  repository metadata separate from per-addon entries.
+- Home Assistant lets users add a repository URL to the store, and each
+  repository contains one or more add-ons with a root repository manifest. That
+  suggests Nako should treat source identity as first-class and keep source-level
+  metadata distinct from addon manifests.
+- Visual Studio Code extensions use a manifest with `publisher`, `name`,
+  `version`, and `engines.vscode`, plus a pre-release channel. That suggests
+  Nako should keep addon version separate from host compatibility and channel
+  policy.
+- Obsidian plugins use `version` and `minAppVersion`, with `versions.json`
+  handling host-version-specific selection. That suggests Nako should model
+  host compatibility explicitly rather than inferring it from addon version
+  alone.
+
+Nako's implication: source catalog entries should carry repo-level metadata,
+per-addon descriptor metadata, and explicit compatibility/channel policy while
+remaining separate from package signing or process ownership.
+
 ## Related Docs
 
 - `docs/workstreams/addon-manager-lifecycle-automation/`

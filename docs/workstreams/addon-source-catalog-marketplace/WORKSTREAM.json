@@ -43,6 +43,11 @@
       "date": "2026-05-23",
       "task": "ASCM-010",
       "summary": "Lane opened after the Addon Manager lifecycle lane closed with a proven manager-owned registry/plan slot."
+    },
+    {
+      "date": "2026-05-23",
+      "task": "ASCM-010",
+      "summary": "Reference study completed against Jellyfin plugin repositories, Home Assistant app repositories, Visual Studio Code extension manifests, and Obsidian plugin manifests/version gating."
     }
   ],
   "adr_refs": [

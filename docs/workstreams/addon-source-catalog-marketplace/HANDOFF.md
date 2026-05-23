@@ -14,6 +14,17 @@ marketplace entries before an operator confirms a lifecycle plan. It should not
 collapse into package signing, provider breadth, or direct process/container
 supervision.
 
+Reference products to keep in mind:
+
+- Jellyfin shows a catalog/repository split with multiple official and
+  third-party plugin repositories.
+- Home Assistant treats repository URLs and per-repository add-on manifests as
+  the source boundary.
+- Visual Studio Code splits extension version from host compatibility through
+  `engines.vscode` and supports pre-release channels.
+- Obsidian splits plugin version from host compatibility through
+  `minAppVersion` and `versions.json`.
+
 ## Next Task
 
 Continue with ASCM-010.

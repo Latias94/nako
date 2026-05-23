@@ -29,6 +29,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/official-addon-e2e-smoke.p
 | Date | Task | Evidence | Result |
 | --- | --- | --- | --- |
 | 2026-05-23 | ASCM-010 | Lane opened after the Addon Manager lifecycle lane closed with a proven manager-owned registry/plan slot. | Pass |
+| 2026-05-23 | ASCM-010 | Reference study completed against Jellyfin plugin repositories, Home Assistant app repositories, Visual Studio Code extension manifests, and Obsidian plugin manifests/version gating. | Pass |
 
 ## Closeout Evidence
 
