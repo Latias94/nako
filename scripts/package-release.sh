@@ -64,7 +64,7 @@ workspace_version() {
 
 host_target_triple() {
   if command -v rustc >/dev/null 2>&1; then
-    rustc -vV | awk '/^host:/ { print $2; exit }'
+    rustc -vV | awk '/^host:/ { print $2 }'
   else
     printf 'unknown-target\n'
   fi
