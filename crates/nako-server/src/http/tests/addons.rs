@@ -1,10 +1,12 @@
 use super::*;
 use axum::Json;
 use axum::http::HeaderValue;
+use std::collections::VecDeque;
 use std::sync::{
     Arc as StdArc,
     atomic::{AtomicUsize, Ordering},
 };
+use tokio::sync::{Mutex as TokioMutex, Notify};
 
 fn tiny_png() -> Vec<u8> {
     png_with_size(1, 1)
@@ -159,6 +161,153 @@ async fn mismatched_health_addon_server(
     yield_now().await;
 
     format!("http://{addr}")
+}
+
+#[derive(Clone, Debug)]
+struct CapturedAddonTaskRequest {
+    headers: Vec<(String, String)>,
+    request: AddonTaskRequest,
+}
+
+async fn task_path_addon_server(
+    statuses: Vec<StatusCode>,
+) -> (String, StdArc<TokioMutex<Vec<CapturedAddonTaskRequest>>>) {
+    task_path_addon_server_with_gate(statuses, None).await
+}
+
+async fn task_path_addon_server_with_gate(
+    statuses: Vec<StatusCode>,
+    gate: Option<StdArc<Notify>>,
+) -> (String, StdArc<TokioMutex<Vec<CapturedAddonTaskRequest>>>) {
+    let requests = StdArc::new(TokioMutex::new(Vec::new()));
+    let statuses = StdArc::new(TokioMutex::new(VecDeque::from(statuses)));
+    let router = Router::new().route(
+        "/tasks/bulk",
+        axum::routing::post({
+            let requests = StdArc::clone(&requests);
+            let statuses = StdArc::clone(&statuses);
+            let gate = gate.clone();
+            move |headers: axum::http::HeaderMap, Json(request): Json<AddonTaskRequest>| {
+                let requests = StdArc::clone(&requests);
+                let statuses = StdArc::clone(&statuses);
+                let gate = gate.clone();
+                async move {
+                    requests.lock().await.push(CapturedAddonTaskRequest {
+                        headers: headers
+                            .iter()
+                            .filter_map(|(name, value)| {
+                                value
+                                    .to_str()
+                                    .ok()
+                                    .map(|value| (name.as_str().to_owned(), value.to_owned()))
+                            })
+                            .collect(),
+                        request: request.clone(),
+                    });
+                    if let Some(gate) = gate {
+                        gate.notified().await;
+                    }
+                    let status = statuses.lock().await.pop_front().unwrap_or(StatusCode::OK);
+                    if !status.is_success() {
+                        return (status, "sidecar failed").into_response();
+                    }
+
+                    (
+                        status,
+                        Json(AddonTaskResponse {
+                            protocol_version: request.protocol_version,
+                            addon_id: request.addon_id,
+                            task_id: request.task_id,
+                            job_id: request.job_id,
+                            request_id: request.request_id,
+                            output: serde_json::json!({
+                                "accepted": true,
+                                "attempt": request.attempt,
+                                "mode": request.payload["mode"].clone(),
+                            }),
+                        }),
+                    )
+                        .into_response()
+                }
+            }
+        }),
+    );
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, router).await.unwrap();
+    });
+    yield_now().await;
+
+    (format!("http://{addr}"), requests)
+}
+
+fn task_path_manifest(base_url: String) -> AddonManifest {
+    let mut manifest = addon_manifest();
+    manifest.id = "example.task-dispatch".to_owned();
+    manifest.base_url = base_url;
+    manifest.auth = AddonAuth::None;
+    manifest.tasks = vec![
+        AddonTaskDeclaration::new(
+            "bulk-task",
+            "Bulk Task",
+            "/tasks/bulk",
+            vec![AddonScope::AutomationRun],
+        )
+        .with_execution_bounds(Some(30_000), Some(2)),
+    ];
+    manifest.scopes.push(AddonScope::AutomationRun);
+    manifest
+}
+
+async fn register_task_path_addon(router: &Router, base_url: String) -> AddonId {
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: task_path_manifest(base_url),
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+                AddonScope::AutomationRun,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    request_json::<AdminAddonRoutingPlansResponse>(
+        router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/routing-plans"),
+    )
+    .await;
+
+    addon_id
+}
+
+async fn wait_for_addon_task_status(
+    router: &Router,
+    addon_id: AddonId,
+    job_id: JobId,
+    expected: JobStatus,
+) -> AddonTaskRunResponse {
+    for _ in 0..100 {
+        let response = request_json::<AddonTaskRunResponse>(
+            router,
+            Method::GET,
+            &format!("/admin/v1/addons/{addon_id}/task-runs/{job_id}"),
+        )
+        .await;
+        if response.run.status == expected {
+            return response;
+        }
+        sleep(Duration::from_millis(20)).await;
+    }
+
+    panic!("addon task run {job_id} did not reach {expected:?}");
 }
 
 async fn artwork_server(
@@ -2411,6 +2560,607 @@ async fn admin_addon_routing_plans_defers_disabled_addons_without_runtime_target
         Some(DomainEventKind::LibraryScanned.as_str())
     );
     assert!(!text.contains("nako_at_should_not_echo"));
+}
+
+#[tokio::test]
+async fn addon_task_run_runtime_is_host_owned_and_reports_progress_result() {
+    let (_temp, router, source, store) =
+        router_with_media_source_config("addon-task.mkv", b"media", |_| {}).await;
+
+    let mut manifest = addon_manifest();
+    manifest.tasks = vec![
+        AddonTaskDeclaration::new(
+            "bulk-metadata-scrape",
+            "Bulk Metadata Scrape",
+            "/tasks/bulk-metadata-scrape",
+            vec![AddonScope::AutomationRun],
+        )
+        .with_execution_bounds(Some(30_000), Some(2)),
+    ];
+    manifest.scopes.push(AddonScope::AutomationRun);
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+                AddonScope::AutomationRun,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let issued = request_body_json::<AddonTokenIssuedResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/tokens"),
+        &IssueAddonTokenRequest {
+            label: Some("worker".to_owned()),
+        },
+    )
+    .await;
+    let routing_path = format!("/admin/v1/addons/{addon_id}/routing-plans");
+    request_json::<AdminAddonRoutingPlansResponse>(&router, Method::POST, &routing_path).await;
+    assert!(
+        store
+            .list_jobs(
+                nako_core::JobListFilter {
+                    kind: Some(JobKind::AddonTask),
+                    ..nako_core::JobListFilter::default()
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+
+    let create_path = format!("/admin/v1/addons/{addon_id}/task-runs");
+    let created = request_body_json::<AddonTaskRunResponse, _>(
+        &router,
+        Method::POST,
+        &create_path,
+        &CreateAddonTaskRunRequest {
+            declaration_id: "bulk-metadata-scrape".to_owned(),
+            idempotency_key: "scrape:library:1".to_owned(),
+            dispatch: AddonTaskRunDispatchMode::SidecarClaim,
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            payload: serde_json::json!({
+                "secret": "nako_at_should_not_echo",
+                "mode": "missing-only"
+            }),
+        },
+    )
+    .await;
+
+    assert!(!created.idempotent_replay);
+    assert_eq!(created.run.addon_id, addon_id);
+    assert_eq!(created.run.declaration_id, "bulk-metadata-scrape");
+    assert_eq!(created.run.status, JobStatus::Queued);
+    assert_eq!(created.run.attempt, 1);
+    assert_eq!(created.run.max_attempts, Some(2));
+    assert!(created.run.has_input);
+    assert!(created.run.progress.is_none());
+    assert!(created.run.result.is_none());
+    assert_eq!(created.run.library_id, Some(source.library_id));
+    assert_eq!(created.run.source_id, Some(source.id));
+
+    let replay = request_body_json::<AddonTaskRunResponse, _>(
+        &router,
+        Method::POST,
+        &create_path,
+        &CreateAddonTaskRunRequest {
+            declaration_id: "bulk-metadata-scrape".to_owned(),
+            idempotency_key: "scrape:library:1".to_owned(),
+            dispatch: AddonTaskRunDispatchMode::SidecarClaim,
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            payload: serde_json::json!({"different": true}),
+        },
+    )
+    .await;
+    assert!(replay.idempotent_replay);
+    assert_eq!(replay.run.job_id, created.run.job_id);
+
+    let claim = request_body_json_with_bearer::<ClaimAddonTaskRunResponse, _>(
+        &router,
+        Method::POST,
+        "/addon/v1/task-runs/claim",
+        &issued.raw_token,
+        &ClaimAddonTaskRunRequest {
+            worker_id: None,
+            declaration_id: Some("bulk-metadata-scrape".to_owned()),
+            lease_duration_ms: 30_000,
+        },
+    )
+    .await;
+    let claimed = claim.run.expect("addon task run should be claimable");
+    assert_eq!(claimed.run.job_id, created.run.job_id);
+    assert_eq!(claimed.run.status, JobStatus::Running);
+    assert!(claimed.cancel_requested_at.is_none());
+    assert_eq!(claimed.input["schema"], "nako.addon.task_run.input.v1");
+    assert_eq!(
+        claimed.input["payload"]["secret"],
+        "nako_at_should_not_echo"
+    );
+
+    let progress = request_body_json_with_bearer::<nako_api::extension::AddonTaskRunLease, _>(
+        &router,
+        Method::POST,
+        "/addon/v1/task-runs/progress",
+        &issued.raw_token,
+        &ReportAddonTaskRunProgressRequest {
+            guard: claimed.guard,
+            lease_duration_ms: 30_000,
+            stage: "scraping".to_owned(),
+            percent: Some(40),
+            message: Some("Fetched provider candidates".to_owned()),
+            metrics: serde_json::json!({"items": 3}),
+        },
+    )
+    .await;
+    assert_eq!(progress.run.status, JobStatus::Running);
+    assert_eq!(progress.input["schema"], "nako.addon.task_run.input.v1");
+    assert_eq!(
+        progress.run.progress.as_ref().unwrap()["schema"],
+        "nako.addon.task_run.progress.v1"
+    );
+    assert_eq!(progress.run.progress.as_ref().unwrap()["percent"], 40);
+
+    let completed = request_body_json_with_bearer::<AddonTaskRunResponse, _>(
+        &router,
+        Method::POST,
+        "/addon/v1/task-runs/complete",
+        &issued.raw_token,
+        &CompleteAddonTaskRunRequest {
+            guard: progress.guard,
+            output: serde_json::json!({"accepted": 2}),
+        },
+    )
+    .await;
+
+    assert_eq!(completed.run.status, JobStatus::Succeeded);
+    assert_eq!(
+        completed.run.result.as_ref().unwrap()["schema"],
+        "nako.addon.task_run.result.v1"
+    );
+    assert_eq!(
+        completed.run.result.as_ref().unwrap()["status"],
+        "succeeded"
+    );
+    let body = serde_json::to_string(&completed).unwrap();
+    assert!(!body.contains("nako_at_should_not_echo"));
+    assert!(!body.contains("input_json"));
+    assert!(!body.contains("summary_json"));
+    assert!(!body.contains("error\":\""));
+}
+
+#[tokio::test]
+async fn addon_task_run_failure_can_be_retried_until_max_attempts() {
+    let (_temp, router, source, _store) =
+        router_with_media_source_config("addon-task-retry.mkv", b"media", |_| {}).await;
+
+    let mut manifest = addon_manifest();
+    manifest.tasks = vec![
+        AddonTaskDeclaration::new(
+            "bulk-task",
+            "Bulk Task",
+            "/tasks/bulk",
+            vec![AddonScope::AutomationRun],
+        )
+        .with_execution_bounds(Some(30_000), Some(2)),
+    ];
+    manifest.scopes.push(AddonScope::AutomationRun);
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+                AddonScope::AutomationRun,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let issued = request_body_json::<AddonTokenIssuedResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/tokens"),
+        &IssueAddonTokenRequest {
+            label: Some("worker".to_owned()),
+        },
+    )
+    .await;
+    request_json::<AdminAddonRoutingPlansResponse>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/routing-plans"),
+    )
+    .await;
+
+    let created = request_body_json::<AddonTaskRunResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/task-runs"),
+        &CreateAddonTaskRunRequest {
+            declaration_id: "bulk-task".to_owned(),
+            idempotency_key: "retry:first".to_owned(),
+            dispatch: AddonTaskRunDispatchMode::SidecarClaim,
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            payload: serde_json::json!({"mode": "full"}),
+        },
+    )
+    .await;
+    let claim = request_body_json_with_bearer::<ClaimAddonTaskRunResponse, _>(
+        &router,
+        Method::POST,
+        "/addon/v1/task-runs/claim",
+        &issued.raw_token,
+        &ClaimAddonTaskRunRequest {
+            worker_id: None,
+            declaration_id: Some("bulk-task".to_owned()),
+            lease_duration_ms: 30_000,
+        },
+    )
+    .await
+    .run
+    .unwrap();
+    let failed = request_body_json_with_bearer::<AddonTaskRunResponse, _>(
+        &router,
+        Method::POST,
+        "/addon/v1/task-runs/fail",
+        &issued.raw_token,
+        &FailAddonTaskRunRequest {
+            guard: claim.guard,
+            safe_error_code: "rate_limited".to_owned(),
+            retry_after_ms: Some(1_000),
+            output: serde_json::json!({"provider": "tmdb"}),
+        },
+    )
+    .await;
+    assert_eq!(failed.run.status, JobStatus::Failed);
+    assert!(failed.run.retryable);
+    assert_eq!(failed.run.safe_error_code.as_deref(), Some("rate_limited"));
+
+    let retry = request_body_json::<AddonTaskRunResponse, _>(
+        &router,
+        Method::POST,
+        &format!(
+            "/admin/v1/addons/{addon_id}/task-runs/{}/retry",
+            created.run.job_id
+        ),
+        &RetryAddonTaskRunRequest {
+            idempotency_key: "retry:second".to_owned(),
+        },
+    )
+    .await;
+
+    assert_eq!(retry.run.status, JobStatus::Queued);
+    assert_eq!(retry.run.attempt, 2);
+    assert_eq!(retry.run.retry_of_job_id, Some(created.run.job_id));
+    assert!(!retry.run.retryable);
+}
+
+#[tokio::test]
+async fn addon_task_run_cancellation_is_requested_by_host_and_acknowledged_by_sidecar() {
+    let (_temp, router, source, _store) =
+        router_with_media_source_config("addon-task-cancel.mkv", b"media", |_| {}).await;
+
+    let mut manifest = addon_manifest();
+    manifest.tasks = vec![AddonTaskDeclaration::new(
+        "bulk-task",
+        "Bulk Task",
+        "/tasks/bulk",
+        vec![AddonScope::AutomationRun],
+    )];
+    manifest.scopes.push(AddonScope::AutomationRun);
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+                AddonScope::AutomationRun,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let issued = request_body_json::<AddonTokenIssuedResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/tokens"),
+        &IssueAddonTokenRequest {
+            label: Some("worker".to_owned()),
+        },
+    )
+    .await;
+    request_json::<AdminAddonRoutingPlansResponse>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/routing-plans"),
+    )
+    .await;
+
+    let created = request_body_json::<AddonTaskRunResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/task-runs"),
+        &CreateAddonTaskRunRequest {
+            declaration_id: "bulk-task".to_owned(),
+            idempotency_key: "cancel:first".to_owned(),
+            dispatch: AddonTaskRunDispatchMode::SidecarClaim,
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            payload: serde_json::json!({"mode": "cancel"}),
+        },
+    )
+    .await;
+    let claim = request_body_json_with_bearer::<ClaimAddonTaskRunResponse, _>(
+        &router,
+        Method::POST,
+        "/addon/v1/task-runs/claim",
+        &issued.raw_token,
+        &ClaimAddonTaskRunRequest {
+            worker_id: None,
+            declaration_id: Some("bulk-task".to_owned()),
+            lease_duration_ms: 30_000,
+        },
+    )
+    .await
+    .run
+    .unwrap();
+
+    let cancel_response = response_for(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/jobs/{}/cancel", created.run.job_id),
+    )
+    .await;
+    assert_eq!(cancel_response.status(), StatusCode::OK);
+    let cancel_body = body_json::<AdminJobCancelRequestResponse>(cancel_response).await;
+    assert!(cancel_body.requested);
+    assert!(!cancel_body.terminal);
+    assert_eq!(cancel_body.job.status, JobStatus::Running);
+
+    let progress = request_body_json_with_bearer::<nako_api::extension::AddonTaskRunLease, _>(
+        &router,
+        Method::POST,
+        "/addon/v1/task-runs/progress",
+        &issued.raw_token,
+        &ReportAddonTaskRunProgressRequest {
+            guard: claim.guard,
+            lease_duration_ms: 30_000,
+            stage: "stopping".to_owned(),
+            percent: None,
+            message: Some("Cancellation observed".to_owned()),
+            metrics: serde_json::json!({}),
+        },
+    )
+    .await;
+    assert!(progress.cancel_requested_at.is_some());
+
+    let cancelled = request_body_json_with_bearer::<AddonTaskRunResponse, _>(
+        &router,
+        Method::POST,
+        "/addon/v1/task-runs/cancel",
+        &issued.raw_token,
+        &CancelAddonTaskRunRequest {
+            guard: progress.guard,
+            output: serde_json::json!({"stopped": true}),
+        },
+    )
+    .await;
+
+    assert_eq!(cancelled.run.status, JobStatus::Cancelled);
+    assert_eq!(
+        cancelled.run.result.as_ref().unwrap()["status"],
+        "cancelled"
+    );
+}
+
+#[tokio::test]
+async fn addon_task_run_direct_dispatch_calls_declared_sidecar_path_and_completes() {
+    let (_temp, router, source, _store) =
+        router_with_media_source_config("addon-task-direct.mkv", b"media", |_| {}).await;
+    let (base_url, requests) = task_path_addon_server(vec![StatusCode::OK]).await;
+    let addon_id = register_task_path_addon(&router, base_url).await;
+
+    let created = request_body_json::<AddonTaskRunResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/task-runs"),
+        &CreateAddonTaskRunRequest {
+            declaration_id: "bulk-task".to_owned(),
+            idempotency_key: "direct:first".to_owned(),
+            dispatch: AddonTaskRunDispatchMode::Direct,
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            payload: serde_json::json!({
+                "mode": "direct",
+                "secret": "nako_at_should_not_echo"
+            }),
+        },
+    )
+    .await;
+    assert_eq!(created.run.status, JobStatus::Queued);
+
+    let completed =
+        wait_for_addon_task_status(&router, addon_id, created.run.job_id, JobStatus::Succeeded)
+            .await;
+    assert_eq!(
+        completed.run.result.as_ref().unwrap()["status"],
+        "succeeded"
+    );
+    assert_eq!(
+        completed.run.result.as_ref().unwrap()["output"]["mode"],
+        "direct"
+    );
+    assert_eq!(
+        completed.run.progress.as_ref().unwrap()["stage"],
+        "dispatched"
+    );
+    assert_eq!(
+        completed.run.progress.as_ref().unwrap()["metrics"]["http_status"],
+        200
+    );
+
+    let captured = requests.lock().await;
+    assert_eq!(captured.len(), 1);
+    let request = &captured[0].request;
+    assert_eq!(request.task_id, "bulk-task");
+    assert_eq!(request.job_id, created.run.job_id.to_string());
+    assert_eq!(request.attempt, 1);
+    assert_eq!(request.library_id, Some(source.library_id.to_string()));
+    assert_eq!(request.source_id, Some(source.id.to_string()));
+    assert_eq!(request.payload["mode"], "direct");
+    assert!(
+        captured[0]
+            .headers
+            .iter()
+            .any(|(name, value)| name == "x-nako-addon-operation" && value == "task-dispatch")
+    );
+    let body = serde_json::to_string(&completed).unwrap();
+    assert!(!body.contains("nako_at_should_not_echo"));
+}
+
+#[tokio::test]
+async fn addon_task_run_direct_dispatch_failure_can_be_retried_as_direct_dispatch() {
+    let (_temp, router, source, _store) =
+        router_with_media_source_config("addon-task-direct-retry.mkv", b"media", |_| {}).await;
+    let (base_url, requests) =
+        task_path_addon_server(vec![StatusCode::SERVICE_UNAVAILABLE, StatusCode::OK]).await;
+    let addon_id = register_task_path_addon(&router, base_url).await;
+
+    let created = request_body_json::<AddonTaskRunResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/task-runs"),
+        &CreateAddonTaskRunRequest {
+            declaration_id: "bulk-task".to_owned(),
+            idempotency_key: "direct-retry:first".to_owned(),
+            dispatch: AddonTaskRunDispatchMode::Direct,
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            payload: serde_json::json!({"mode": "retry"}),
+        },
+    )
+    .await;
+    let failed =
+        wait_for_addon_task_status(&router, addon_id, created.run.job_id, JobStatus::Failed).await;
+    assert!(failed.run.retryable);
+    assert_eq!(
+        failed.run.safe_error_code.as_deref(),
+        Some("retryable_http_failure")
+    );
+
+    let retry = request_body_json::<AddonTaskRunResponse, _>(
+        &router,
+        Method::POST,
+        &format!(
+            "/admin/v1/addons/{addon_id}/task-runs/{}/retry",
+            created.run.job_id
+        ),
+        &RetryAddonTaskRunRequest {
+            idempotency_key: "direct-retry:second".to_owned(),
+        },
+    )
+    .await;
+    assert_eq!(retry.run.status, JobStatus::Queued);
+    assert_eq!(retry.run.attempt, 2);
+    assert_eq!(retry.run.retry_of_job_id, Some(created.run.job_id));
+
+    let completed =
+        wait_for_addon_task_status(&router, addon_id, retry.run.job_id, JobStatus::Succeeded).await;
+    assert_eq!(
+        completed.run.result.as_ref().unwrap()["output"]["mode"],
+        "retry"
+    );
+
+    let captured = requests.lock().await;
+    assert_eq!(captured.len(), 2);
+    assert_eq!(captured[0].request.job_id, created.run.job_id.to_string());
+    assert_eq!(captured[1].request.job_id, retry.run.job_id.to_string());
+    assert_eq!(
+        captured[1].request.retry_of_job_id.as_deref(),
+        Some(created.run.job_id.to_string().as_str())
+    );
+}
+
+#[tokio::test]
+async fn addon_task_run_direct_dispatch_records_cancelled_when_host_cancel_requested_in_flight() {
+    let (_temp, router, source, _store) =
+        router_with_media_source_config("addon-task-direct-cancel.mkv", b"media", |_| {}).await;
+    let gate = StdArc::new(Notify::new());
+    let (base_url, requests) =
+        task_path_addon_server_with_gate(vec![StatusCode::OK], Some(StdArc::clone(&gate))).await;
+    let addon_id = register_task_path_addon(&router, base_url).await;
+
+    let created = request_body_json::<AddonTaskRunResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/task-runs"),
+        &CreateAddonTaskRunRequest {
+            declaration_id: "bulk-task".to_owned(),
+            idempotency_key: "direct-cancel:first".to_owned(),
+            dispatch: AddonTaskRunDispatchMode::Direct,
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            payload: serde_json::json!({"mode": "cancel"}),
+        },
+    )
+    .await;
+
+    for _ in 0..100 {
+        if !requests.lock().await.is_empty() {
+            break;
+        }
+        sleep(Duration::from_millis(20)).await;
+    }
+    assert_eq!(requests.lock().await.len(), 1);
+
+    let cancel_response = response_for(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/jobs/{}/cancel", created.run.job_id),
+    )
+    .await;
+    assert_eq!(cancel_response.status(), StatusCode::OK);
+    let cancel_body = body_json::<AdminJobCancelRequestResponse>(cancel_response).await;
+    assert!(cancel_body.requested);
+    assert!(!cancel_body.terminal);
+    assert_eq!(cancel_body.job.status, JobStatus::Running);
+
+    gate.notify_one();
+    let cancelled =
+        wait_for_addon_task_status(&router, addon_id, created.run.job_id, JobStatus::Cancelled)
+            .await;
+    assert_eq!(
+        cancelled.run.result.as_ref().unwrap()["status"],
+        "cancelled"
+    );
+    assert_eq!(
+        cancelled.run.result.as_ref().unwrap()["output"]["completed_output"]["mode"],
+        "cancel"
+    );
 }
 
 #[tokio::test]

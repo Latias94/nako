@@ -10,6 +10,7 @@ use nako_core::*;
 #[cfg(test)]
 use sqlx::{Executor, postgres::PgConnectOptions};
 
+mod addon_tasks;
 mod addons_automation;
 mod core_catalog;
 mod events;
@@ -62,6 +63,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         8,
         "addon routing plans",
         include_str!("../migrations/postgres/0008_addon_routing_plans.sql"),
+    ),
+    (
+        9,
+        "addon task runs",
+        include_str!("../migrations/postgres/0009_addon_task_runs.sql"),
     ),
 ];
 

@@ -7,16 +7,23 @@ use axum::{
 };
 use nako_api::extension::{
     AddonAccessCheckRequest, AdminAddonInstallGuidePreviewRequest, AdminAddonManagerPlanRequest,
-    AdminAddonResourceCallDiagnosticRequest, IssueAddonTokenRequest, RegisterAddonRequest,
-    ReplaceAddonGrantsRequest, SubmitAddonAcquisitionCandidateRequest,
-    SubmitAddonGeneratedArtifactRequest, SubmitAddonSideEffectRequest, UpdateAddonStatusRequest,
+    AdminAddonResourceCallDiagnosticRequest, CancelAddonTaskRunRequest, ClaimAddonTaskRunRequest,
+    CompleteAddonTaskRunRequest, CreateAddonTaskRunRequest, FailAddonTaskRunRequest,
+    IssueAddonTokenRequest, RegisterAddonRequest, ReplaceAddonGrantsRequest,
+    ReportAddonTaskRunProgressRequest, RetryAddonTaskRunRequest,
+    SubmitAddonAcquisitionCandidateRequest, SubmitAddonGeneratedArtifactRequest,
+    SubmitAddonSideEffectRequest, UpdateAddonStatusRequest,
 };
-use nako_core::{AddonId, AddonTokenId};
+use nako_core::{AddonId, AddonTokenId, JobId};
 use tracing::instrument;
 
 use crate::app::NakoApp;
 
-use super::{auth, error::ApiResult, query::AddonListQuery};
+use super::{
+    auth,
+    error::ApiResult,
+    query::{AddonListQuery, PageQuery},
+};
 
 pub(super) fn routes() -> Router<NakoApp> {
     Router::new()
@@ -49,6 +56,18 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/admin/v1/addons/{addon_id}/routing-plans",
             post(sync_addon_routing_plans),
+        )
+        .route(
+            "/admin/v1/addons/{addon_id}/task-runs",
+            get(list_addon_task_runs).post(create_addon_task_run),
+        )
+        .route(
+            "/admin/v1/addons/{addon_id}/task-runs/{job_id}",
+            get(get_addon_task_run),
+        )
+        .route(
+            "/admin/v1/addons/{addon_id}/task-runs/{job_id}/retry",
+            post(retry_addon_task_run),
         )
         .route(
             "/admin/v1/addons/{addon_id}/install-guide",
@@ -92,6 +111,17 @@ pub(super) fn runtime_routes() -> Router<NakoApp> {
             post(submit_addon_acquisition_candidate),
         )
         .route("/addon/v1/side-effects", post(submit_addon_side_effect))
+        .route("/addon/v1/task-runs/claim", post(claim_addon_task_run))
+        .route(
+            "/addon/v1/task-runs/progress",
+            post(report_addon_task_run_progress),
+        )
+        .route(
+            "/addon/v1/task-runs/complete",
+            post(complete_addon_task_run),
+        )
+        .route("/addon/v1/task-runs/fail", post(fail_addon_task_run))
+        .route("/addon/v1/task-runs/cancel", post(cancel_addon_task_run))
 }
 
 #[instrument(skip(app))]
@@ -179,6 +209,55 @@ pub(super) async fn sync_addon_routing_plans(
     Path(addon_id): Path<AddonId>,
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(app.addons().sync_addon_routing_plans(addon_id).await?))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn create_addon_task_run(
+    State(app): State<NakoApp>,
+    Path(addon_id): Path<AddonId>,
+    Json(request): Json<CreateAddonTaskRunRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.addons()
+            .create_addon_task_run(addon_id, request)
+            .await?,
+    ))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn list_addon_task_runs(
+    State(app): State<NakoApp>,
+    Path(addon_id): Path<AddonId>,
+    Query(page): Query<PageQuery>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.addons()
+            .list_addon_task_runs(addon_id, None, page.try_into()?)
+            .await?,
+    ))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn get_addon_task_run(
+    State(app): State<NakoApp>,
+    Path((addon_id, job_id)): Path<(AddonId, JobId)>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.addons().get_addon_task_run(addon_id, job_id).await?,
+    ))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn retry_addon_task_run(
+    State(app): State<NakoApp>,
+    Path((addon_id, job_id)): Path<(AddonId, JobId)>,
+    Json(request): Json<RetryAddonTaskRunRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.addons()
+            .retry_addon_task_run(addon_id, job_id, request)
+            .await?,
+    ))
 }
 
 #[instrument(skip(app))]
@@ -297,6 +376,94 @@ pub(super) async fn check_addon_access(
 
     Ok(Json(
         app.addons().check_addon_access(raw_token, request).await?,
+    ))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn claim_addon_task_run(
+    State(app): State<NakoApp>,
+    headers: HeaderMap,
+    Json(request): Json<ClaimAddonTaskRunRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let raw_token =
+        auth::request_bearer_token(&headers).ok_or_else(|| nako_core::NakoError::Unauthorized {
+            message: "addon token is required".to_owned(),
+        })?;
+
+    Ok(Json(
+        app.addons()
+            .claim_addon_task_run(raw_token, request)
+            .await?,
+    ))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn report_addon_task_run_progress(
+    State(app): State<NakoApp>,
+    headers: HeaderMap,
+    Json(request): Json<ReportAddonTaskRunProgressRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let raw_token =
+        auth::request_bearer_token(&headers).ok_or_else(|| nako_core::NakoError::Unauthorized {
+            message: "addon token is required".to_owned(),
+        })?;
+
+    Ok(Json(
+        app.addons()
+            .report_addon_task_run_progress(raw_token, request)
+            .await?,
+    ))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn complete_addon_task_run(
+    State(app): State<NakoApp>,
+    headers: HeaderMap,
+    Json(request): Json<CompleteAddonTaskRunRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let raw_token =
+        auth::request_bearer_token(&headers).ok_or_else(|| nako_core::NakoError::Unauthorized {
+            message: "addon token is required".to_owned(),
+        })?;
+
+    Ok(Json(
+        app.addons()
+            .complete_addon_task_run(raw_token, request)
+            .await?,
+    ))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn fail_addon_task_run(
+    State(app): State<NakoApp>,
+    headers: HeaderMap,
+    Json(request): Json<FailAddonTaskRunRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let raw_token =
+        auth::request_bearer_token(&headers).ok_or_else(|| nako_core::NakoError::Unauthorized {
+            message: "addon token is required".to_owned(),
+        })?;
+
+    Ok(Json(
+        app.addons().fail_addon_task_run(raw_token, request).await?,
+    ))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn cancel_addon_task_run(
+    State(app): State<NakoApp>,
+    headers: HeaderMap,
+    Json(request): Json<CancelAddonTaskRunRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let raw_token =
+        auth::request_bearer_token(&headers).ok_or_else(|| nako_core::NakoError::Unauthorized {
+            message: "addon token is required".to_owned(),
+        })?;
+
+    Ok(Json(
+        app.addons()
+            .cancel_addon_task_run(raw_token, request)
+            .await?,
     ))
 }
 

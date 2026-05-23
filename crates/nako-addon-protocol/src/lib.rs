@@ -461,6 +461,34 @@ pub struct AddonResourceResponse {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonTaskRequest {
+    pub protocol_version: String,
+    pub addon_id: String,
+    pub task_id: String,
+    pub job_id: String,
+    pub request_id: String,
+    pub attempt: u32,
+    #[serde(default)]
+    pub retry_of_job_id: Option<String>,
+    #[serde(default)]
+    pub library_id: Option<String>,
+    #[serde(default)]
+    pub source_id: Option<String>,
+    pub payload: serde_json::Value,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonTaskResponse {
+    pub protocol_version: String,
+    pub addon_id: String,
+    pub task_id: String,
+    pub job_id: String,
+    pub request_id: String,
+    #[serde(default)]
+    pub output: serde_json::Value,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AddonHealthCheckRequest {
     pub protocol_version: String,
     pub manifest_id: String,
@@ -680,6 +708,9 @@ pub enum AddonManifestError {
     ResourceNotDeclared {
         resource: AddonResource,
     },
+    TaskNotDeclared {
+        task_id: String,
+    },
     InvalidEnvelope {
         message: String,
     },
@@ -787,6 +818,9 @@ impl fmt::Display for AddonManifestError {
                     resource.as_str()
                 )
             }
+            Self::TaskNotDeclared { task_id } => {
+                write!(formatter, "addon task is not declared: {task_id}")
+            }
             Self::InvalidEnvelope { message } => {
                 write!(formatter, "invalid addon envelope: {message}")
             }
@@ -875,6 +909,33 @@ pub fn ensure_scope_grant(
         if !granted.contains(scope) {
             return Err(AddonManifestError::MissingDeclaredScope {
                 resource,
+                scope: *scope,
+            });
+        }
+    }
+
+    Ok(())
+}
+
+pub fn ensure_task_scope_grant(
+    manifest: &AddonManifest,
+    task_id: &str,
+    granted_scopes: &[AddonScope],
+) -> AddonProtocolResult<()> {
+    validate_manifest(manifest)?;
+    let granted = granted_scopes.iter().copied().collect::<HashSet<_>>();
+    let declaration = manifest
+        .tasks
+        .iter()
+        .find(|candidate| candidate.id == task_id)
+        .ok_or_else(|| AddonManifestError::TaskNotDeclared {
+            task_id: task_id.to_owned(),
+        })?;
+
+    for scope in &declaration.required_scopes {
+        if !granted.contains(scope) {
+            return Err(AddonManifestError::MissingDeclaredScopeForDeclaration {
+                declaration: "task",
                 scope: *scope,
             });
         }
@@ -1013,6 +1074,62 @@ pub fn validate_resource_response(
         return Err(AddonManifestError::InvalidEnvelope {
             message: format!(
                 "response request_id {} did not match {request_id}",
+                response.request_id
+            ),
+        });
+    }
+
+    Ok(())
+}
+
+pub fn validate_task_response(
+    response: &AddonTaskResponse,
+    manifest: &AddonManifest,
+    task_id: &str,
+    job_id: &str,
+    request_id: &str,
+) -> AddonProtocolResult<()> {
+    if !is_supported_addon_protocol_version(&response.protocol_version) {
+        return Err(AddonManifestError::UnsupportedProtocolVersion {
+            actual: response.protocol_version.clone(),
+        });
+    }
+    if response.protocol_version != manifest.protocol_version {
+        return Err(AddonManifestError::InvalidEnvelope {
+            message: format!(
+                "task response protocol_version {} did not match manifest protocol_version {}",
+                response.protocol_version, manifest.protocol_version
+            ),
+        });
+    }
+    if response.addon_id != manifest.id {
+        return Err(AddonManifestError::InvalidEnvelope {
+            message: format!(
+                "task response addon_id {} did not match {}",
+                response.addon_id, manifest.id
+            ),
+        });
+    }
+    if response.task_id != task_id {
+        return Err(AddonManifestError::InvalidEnvelope {
+            message: format!(
+                "task response task_id {} did not match {task_id}",
+                response.task_id
+            ),
+        });
+    }
+    if response.job_id != job_id {
+        return Err(AddonManifestError::InvalidEnvelope {
+            message: format!(
+                "task response job_id {} did not match {job_id}",
+                response.job_id
+            ),
+        });
+    }
+    if response.request_id != request_id {
+        return Err(AddonManifestError::InvalidEnvelope {
+            message: format!(
+                "task response request_id {} did not match {request_id}",
                 response.request_id
             ),
         });

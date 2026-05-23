@@ -3,14 +3,15 @@ use nako_addon_protocol::{
     AddonInstallGuide, AddonManifest, AddonResource, AddonScope, AddonTaskDeclaration,
 };
 use nako_core::{
-    AddonGrantRecord, AddonId, AddonPermission, AddonRegistrationRecord,
-    AddonRoutingDeclarationKind, AddonRoutingPlanRecord, AddonRoutingPlanStatus,
-    AddonRoutingPlanTarget, AddonSideEffectApplyStatus, AddonSideEffectId, AddonSideEffectRecord,
-    AddonSideEffectTarget, AddonSideEffectTargetKind, AddonSideEffectValidationStatus, AddonStatus,
+    ADDON_TASK_RUN_PROGRESS_SCHEMA, ADDON_TASK_RUN_RESULT_SCHEMA, AddonGrantRecord, AddonId,
+    AddonPermission, AddonRegistrationRecord, AddonRoutingDeclarationKind, AddonRoutingPlanRecord,
+    AddonRoutingPlanStatus, AddonRoutingPlanTarget, AddonSideEffectApplyStatus, AddonSideEffectId,
+    AddonSideEffectRecord, AddonSideEffectTarget, AddonSideEffectTargetKind,
+    AddonSideEffectValidationStatus, AddonStatus, AddonTaskRunLeaseGuard, AddonTaskRunRecord,
     AddonTokenId, AddonTokenRecord, AddonTokenStatus, AutomationArtifactId, AutomationArtifactKind,
     AutomationArtifactRecord, AutomationArtifactStatus, AutomationCapability, AutomationJobInput,
     AutomationProviderConfigRecord, AutomationProviderId, AutomationProviderStatus, EventId, JobId,
-    JobKind, LibraryId, MediaItemId, MediaSourceId, OutboxEventRecord,
+    JobKind, JobStatus, JobWorkerId, LibraryId, MediaItemId, MediaSourceId, OutboxEventRecord,
     WebhookDeliveryAttemptRecord, WebhookEndpointId, WebhookEndpointRecord, WebhookEndpointStatus,
 };
 use serde::{Deserialize, Serialize};
@@ -759,6 +760,210 @@ pub struct AddonAccessCheckResponse {
     pub permission: AddonPermission,
     pub library_id: Option<LibraryId>,
     pub allowed: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CreateAddonTaskRunRequest {
+    pub declaration_id: String,
+    pub idempotency_key: String,
+    #[serde(default)]
+    pub dispatch: AddonTaskRunDispatchMode,
+    #[serde(default)]
+    pub library_id: Option<LibraryId>,
+    #[serde(default)]
+    pub source_id: Option<MediaSourceId>,
+    #[serde(default)]
+    pub payload: serde_json::Value,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonTaskRunDispatchMode {
+    #[default]
+    SidecarClaim,
+    Direct,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct RetryAddonTaskRunRequest {
+    pub idempotency_key: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonTaskRunResponse {
+    pub run: AddonTaskRunSummary,
+    pub idempotent_replay: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonTaskRunsResponse {
+    pub runs: Vec<AddonTaskRunSummary>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ClaimAddonTaskRunRequest {
+    pub worker_id: Option<JobWorkerId>,
+    #[serde(default)]
+    pub declaration_id: Option<String>,
+    #[serde(default = "default_addon_task_run_lease_duration_ms")]
+    pub lease_duration_ms: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ClaimAddonTaskRunResponse {
+    pub run: Option<AddonTaskRunLease>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonTaskRunLease {
+    pub run: AddonTaskRunSummary,
+    pub guard: AddonTaskRunLeaseGuard,
+    pub lease_expires_at: String,
+    pub cancel_requested_at: Option<String>,
+    pub input: serde_json::Value,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ReportAddonTaskRunProgressRequest {
+    pub guard: AddonTaskRunLeaseGuard,
+    #[serde(default = "default_addon_task_run_lease_duration_ms")]
+    pub lease_duration_ms: u64,
+    pub stage: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub percent: Option<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+    #[serde(default)]
+    pub metrics: serde_json::Value,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CompleteAddonTaskRunRequest {
+    pub guard: AddonTaskRunLeaseGuard,
+    #[serde(default)]
+    pub output: serde_json::Value,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct FailAddonTaskRunRequest {
+    pub guard: AddonTaskRunLeaseGuard,
+    pub safe_error_code: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retry_after_ms: Option<u64>,
+    #[serde(default)]
+    pub output: serde_json::Value,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CancelAddonTaskRunRequest {
+    pub guard: AddonTaskRunLeaseGuard,
+    #[serde(default)]
+    pub output: serde_json::Value,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonTaskRunSummary {
+    pub job_id: JobId,
+    pub addon_id: AddonId,
+    pub manifest_id: String,
+    pub manifest_version: String,
+    pub manifest_fingerprint: String,
+    pub declaration_id: String,
+    pub declaration_name: String,
+    pub declaration_path: String,
+    pub status: JobStatus,
+    pub resource_class: String,
+    pub library_id: Option<LibraryId>,
+    pub source_id: Option<MediaSourceId>,
+    pub attempt: u32,
+    pub max_attempts: Option<u32>,
+    pub retry_of_job_id: Option<JobId>,
+    pub retryable: bool,
+    pub has_input: bool,
+    pub progress: Option<serde_json::Value>,
+    pub result: Option<serde_json::Value>,
+    pub safe_error_code: Option<String>,
+    pub cancel_requested_at: Option<String>,
+    pub queued_at: String,
+    pub started_at: Option<String>,
+    pub completed_at: Option<String>,
+    pub updated_at: String,
+}
+
+impl AddonTaskRunSummary {
+    #[must_use]
+    pub fn from_record(record: AddonTaskRunRecord) -> Self {
+        let retryable = record.job.status == JobStatus::Failed
+            && record
+                .max_attempts
+                .is_none_or(|max_attempts| record.attempt < max_attempts);
+
+        Self {
+            job_id: record.job.id,
+            addon_id: record.addon_id,
+            manifest_id: record.manifest_id,
+            manifest_version: record.manifest_version,
+            manifest_fingerprint: record.manifest_fingerprint.to_string(),
+            declaration_id: record.declaration_id,
+            declaration_name: record.declaration_name,
+            declaration_path: record.declaration_path,
+            status: record.job.status,
+            resource_class: record.job.resource_class,
+            library_id: record.job.library_id,
+            source_id: record.job.source_id,
+            attempt: record.attempt,
+            max_attempts: record.max_attempts,
+            retry_of_job_id: record.retry_of_job_id,
+            retryable,
+            has_input: !record.input_json.trim().is_empty(),
+            progress: record
+                .progress_json
+                .and_then(|value| serde_json::from_str(&value).ok()),
+            result: record
+                .result_json
+                .and_then(|value| serde_json::from_str(&value).ok()),
+            safe_error_code: record.safe_error_code,
+            cancel_requested_at: record.cancel_requested_at,
+            queued_at: record.job.queued_at,
+            started_at: record.job.started_at,
+            completed_at: record.job.completed_at,
+            updated_at: record.updated_at,
+        }
+    }
+}
+
+pub fn addon_task_run_progress_json(
+    stage: String,
+    percent: Option<u8>,
+    message: Option<String>,
+    metrics: serde_json::Value,
+) -> serde_json::Value {
+    serde_json::json!({
+        "schema": ADDON_TASK_RUN_PROGRESS_SCHEMA,
+        "stage": stage,
+        "percent": percent,
+        "message": message,
+        "metrics": metrics,
+    })
+}
+
+pub fn addon_task_run_result_json(
+    status: &'static str,
+    output: serde_json::Value,
+    safe_error_code: Option<&str>,
+    retry_after_ms: Option<u64>,
+) -> serde_json::Value {
+    serde_json::json!({
+        "schema": ADDON_TASK_RUN_RESULT_SCHEMA,
+        "status": status,
+        "output": output,
+        "safe_error_code": safe_error_code,
+        "retry_after_ms": retry_after_ms,
+    })
+}
+
+const fn default_addon_task_run_lease_duration_ms() -> u64 {
+    30_000
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

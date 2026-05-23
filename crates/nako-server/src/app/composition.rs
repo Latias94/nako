@@ -131,6 +131,7 @@ impl NakoAppServices {
             store.clone(),
             runtime.metadata_permits.clone(),
             runtime.storage_backends.clone(),
+            runtime.supervisor.clone(),
         );
         let automation = AutomationAppService::new(store.clone());
         let webhooks = WebhookAppService::new(store.clone(), runtime.webhook_permits);

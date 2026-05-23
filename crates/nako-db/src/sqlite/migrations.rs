@@ -182,6 +182,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "addon routing plans",
         include_str!("../../migrations/0036_addon_routing_plans.sql"),
     ),
+    (
+        37,
+        "addon task runs",
+        include_str!("../../migrations/0037_addon_task_runs.sql"),
+    ),
 ];
 
 #[async_trait::async_trait]

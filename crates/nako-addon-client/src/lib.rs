@@ -4,8 +4,9 @@ use async_trait::async_trait;
 use nako_addon_protocol::{
     AddonAuth, AddonHealthCheckRequest, AddonHealthCheckResponse, AddonManifest,
     AddonManifestError, AddonResource, AddonResourceRequest, AddonResourceResponse, AddonScope,
-    ensure_scope_grant, validate_health_check_response, validate_manifest,
-    validate_resource_response,
+    AddonTaskRequest, AddonTaskResponse, ensure_scope_grant, ensure_task_scope_grant,
+    validate_health_check_response, validate_manifest, validate_resource_response,
+    validate_task_response,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -58,6 +59,31 @@ pub struct AddonResourceCallOutcome {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AddonResourceCallFailure {
+    pub error: AddonClientError,
+    pub attempts: u32,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AddonTaskCallRequest {
+    pub task_id: String,
+    pub job_id: String,
+    pub request_id: String,
+    pub attempt: u32,
+    pub retry_of_job_id: Option<String>,
+    pub library_id: Option<String>,
+    pub source_id: Option<String>,
+    pub payload: serde_json::Value,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AddonTaskCallOutcome {
+    pub response: AddonTaskResponse,
+    pub http_status: u16,
+    pub attempts: u32,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AddonTaskCallFailure {
     pub error: AddonClientError,
     pub attempts: u32,
 }
@@ -289,6 +315,142 @@ where
     }))
 }
 
+pub async fn call_addon_task_with_outcome<T>(
+    transport: &T,
+    manifest: &AddonManifest,
+    granted_scopes: &[AddonScope],
+    request: AddonTaskCallRequest,
+    bearer_token: Option<&str>,
+) -> Result<AddonTaskCallOutcome, AddonTaskCallFailure>
+where
+    T: AddonTransport,
+{
+    validate_manifest(manifest).map_err(task_call_setup_failure)?;
+    ensure_task_scope_grant(manifest, &request.task_id, granted_scopes)
+        .map_err(task_call_setup_failure)?;
+    let declaration = manifest
+        .tasks
+        .iter()
+        .find(|candidate| candidate.id == request.task_id)
+        .ok_or_else(|| AddonManifestError::TaskNotDeclared {
+            task_id: request.task_id.clone(),
+        })
+        .map_err(task_call_setup_failure)?;
+    let timeout_ms = declaration
+        .timeout_ms
+        .or(manifest.default_timeout_ms)
+        .unwrap_or(10_000);
+    let protocol_version = manifest.protocol_version.clone();
+    let envelope = AddonTaskRequest {
+        protocol_version: protocol_version.clone(),
+        addon_id: manifest.id.clone(),
+        task_id: request.task_id.clone(),
+        job_id: request.job_id.clone(),
+        request_id: request.request_id.clone(),
+        attempt: request.attempt,
+        retry_of_job_id: request.retry_of_job_id.clone(),
+        library_id: request.library_id.clone(),
+        source_id: request.source_id.clone(),
+        payload: request.payload,
+    };
+    let body = serde_json::to_string(&envelope)
+        .map_err(|err| AddonManifestError::InvalidEnvelope {
+            message: format!("failed to serialize addon task request: {err}"),
+        })
+        .map_err(task_call_setup_failure)?;
+    let mut headers = vec![
+        ("content-type".to_owned(), "application/json".to_owned()),
+        ("x-nako-addon-protocol-version".to_owned(), protocol_version),
+        ("x-nako-addon-id".to_owned(), manifest.id.clone()),
+        (
+            "x-nako-addon-operation".to_owned(),
+            "task-dispatch".to_owned(),
+        ),
+        ("x-nako-addon-task".to_owned(), request.task_id.clone()),
+        ("x-nako-job-id".to_owned(), request.job_id.clone()),
+        ("x-nako-request-id".to_owned(), request.request_id.clone()),
+    ];
+    match manifest.auth {
+        AddonAuth::None => {}
+        AddonAuth::Bearer => {
+            let token = bearer_token
+                .ok_or(AddonManifestError::MissingAuthToken {
+                    auth: AddonAuth::Bearer,
+                })
+                .map_err(task_call_setup_failure)?;
+            headers.push(("authorization".to_owned(), format!("Bearer {token}")));
+        }
+        AddonAuth::SharedSecret => {
+            let token = bearer_token
+                .ok_or(AddonManifestError::MissingAuthToken {
+                    auth: AddonAuth::SharedSecret,
+                })
+                .map_err(task_call_setup_failure)?;
+            headers.push(("x-nako-addon-secret".to_owned(), token.to_owned()));
+        }
+    }
+
+    let dispatch_attempt = 1;
+    {
+        let mut attempt_headers = headers.clone();
+        attempt_headers.push(("x-nako-attempt".to_owned(), dispatch_attempt.to_string()));
+        let response = transport
+            .post(AddonHttpRequest {
+                url: resource_url(&manifest.base_url, &declaration.path),
+                headers: attempt_headers,
+                body: body.clone(),
+                timeout_ms,
+            })
+            .await;
+
+        let response = match response {
+            Ok(response) => response,
+            Err(err) => {
+                return Err(AddonTaskCallFailure {
+                    error: err,
+                    attempts: dispatch_attempt,
+                });
+            }
+        };
+
+        if !(200..300).contains(&response.status) {
+            return Err(AddonTaskCallFailure {
+                error: AddonClientError::HttpStatus {
+                    status: response.status,
+                    retryable: is_retryable_http_status(response.status),
+                },
+                attempts: dispatch_attempt,
+            });
+        }
+
+        let envelope = serde_json::from_str::<AddonTaskResponse>(&response.body)
+            .map_err(|err| AddonManifestError::InvalidEnvelope {
+                message: format!("failed to parse addon task response: {err}"),
+            })
+            .map_err(|error| AddonTaskCallFailure {
+                error: error.into(),
+                attempts: dispatch_attempt,
+            })?;
+        validate_task_response(
+            &envelope,
+            manifest,
+            &request.task_id,
+            &request.job_id,
+            &request.request_id,
+        )
+        .map_err(|error| AddonTaskCallFailure {
+            error: error.into(),
+            attempts: dispatch_attempt,
+        })?;
+
+        return Ok(AddonTaskCallOutcome {
+            response: envelope,
+            http_status: response.status,
+            attempts: dispatch_attempt,
+        });
+    }
+}
+
 pub async fn check_addon_health<T>(
     transport: &T,
     manifest: &AddonManifest,
@@ -374,6 +536,13 @@ fn resource_call_setup_failure(error: impl Into<AddonClientError>) -> AddonResou
     }
 }
 
+fn task_call_setup_failure(error: impl Into<AddonClientError>) -> AddonTaskCallFailure {
+    AddonTaskCallFailure {
+        error: error.into(),
+        attempts: 0,
+    }
+}
+
 impl AddonClientError {
     #[must_use]
     pub const fn http_status(&self) -> Option<u16> {
@@ -437,7 +606,9 @@ mod tests {
         sync::{Arc, Mutex},
     };
 
-    use nako_addon_protocol::{ADDON_PROTOCOL_VERSION, AddonArtifact, AddonResourceDeclaration};
+    use nako_addon_protocol::{
+        ADDON_PROTOCOL_VERSION, AddonArtifact, AddonResourceDeclaration, AddonTaskDeclaration,
+    };
 
     use super::*;
 
@@ -651,6 +822,67 @@ mod tests {
         assert!(!requests[0].body.contains("\"payload\""));
     }
 
+    #[tokio::test]
+    async fn calls_declared_task_path_with_host_owned_run_envelope() {
+        let manifest = valid_manifest_with_task();
+        let transport = MockTransport::with_response(Ok(AddonHttpResponse {
+            status: 200,
+            body: serde_json::to_string(&AddonTaskResponse {
+                protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+                addon_id: manifest.id.clone(),
+                task_id: "bulk-task".to_owned(),
+                job_id: "job-1".to_owned(),
+                request_id: "task-request-1".to_owned(),
+                output: serde_json::json!({"accepted": 2}),
+            })
+            .unwrap(),
+        }));
+
+        let outcome = call_addon_task_with_outcome(
+            &transport,
+            &manifest,
+            &[AddonScope::AutomationRun],
+            AddonTaskCallRequest {
+                task_id: "bulk-task".to_owned(),
+                job_id: "job-1".to_owned(),
+                request_id: "task-request-1".to_owned(),
+                attempt: 2,
+                retry_of_job_id: Some("job-0".to_owned()),
+                library_id: Some("library-1".to_owned()),
+                source_id: Some("source-1".to_owned()),
+                payload: serde_json::json!({"mode": "missing-only"}),
+            },
+            Some("token-1"),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(outcome.response.output["accepted"], 2);
+        let requests = transport.requests();
+        assert_eq!(requests.len(), 1);
+        assert_eq!(
+            requests[0].url,
+            "https://example.test/addon/tasks/bulk".to_owned()
+        );
+        assert_eq!(
+            header_value(&requests[0], "x-nako-addon-task"),
+            Some("bulk-task")
+        );
+        assert_eq!(header_value(&requests[0], "x-nako-job-id"), Some("job-1"));
+        assert_eq!(
+            header_value(&requests[0], "x-nako-addon-operation"),
+            Some("task-dispatch")
+        );
+        assert_eq!(
+            header_value(&requests[0], "authorization"),
+            Some("Bearer token-1")
+        );
+        assert_eq!(requests[0].timeout_ms, 7_000);
+        assert!(requests[0].body.contains("\"task_id\":\"bulk-task\""));
+        assert!(requests[0].body.contains("\"retry_of_job_id\":\"job-0\""));
+        assert!(requests[0].body.contains("\"mode\":\"missing-only\""));
+    }
+
     fn valid_manifest() -> AddonManifest {
         AddonManifest {
             id: "example".to_owned(),
@@ -685,6 +917,21 @@ mod tests {
                 AddonScope::ItemMetadataSuggest,
             ],
         }
+    }
+
+    fn valid_manifest_with_task() -> AddonManifest {
+        let mut manifest = valid_manifest();
+        manifest.tasks = vec![
+            AddonTaskDeclaration::new(
+                "bulk-task",
+                "Bulk Task",
+                "/tasks/bulk",
+                vec![AddonScope::AutomationRun],
+            )
+            .with_execution_bounds(Some(7_000), Some(3)),
+        ];
+        manifest.scopes.push(AddonScope::AutomationRun);
+        manifest
     }
 
     fn response_json(manifest: &AddonManifest, request_id: &str) -> String {

@@ -25,6 +25,11 @@ Reference products to keep in mind:
 - Obsidian splits plugin version from host compatibility through
   `minAppVersion` and `versions.json`.
 
+Addon Task runtime is a separate follow-on from this lane. The catalog may
+list declared task capabilities, but it should not turn a sample declaration
+such as `bulk-metadata-scrape` into a contract for host execution, progress, or
+results until that runtime lane exists.
+
 ## Next Task
 
 Continue with ASCM-010.

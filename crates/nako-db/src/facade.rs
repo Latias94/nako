@@ -12,6 +12,7 @@ use crate::{
 trait DatabaseBackendAdapter:
     AcquisitionIntakeRepository
     + AddonRepository
+    + AddonTaskRunRepository
     + AutomationRepository
     + CatalogRepository
     + CatalogGovernanceRepository
@@ -49,6 +50,7 @@ trait DatabaseBackendAdapter:
 impl<T> DatabaseBackendAdapter for T where
     T: AcquisitionIntakeRepository
         + AddonRepository
+        + AddonTaskRunRepository
         + AutomationRepository
         + CatalogRepository
         + CatalogGovernanceRepository
@@ -433,6 +435,73 @@ impl AddonRepository for NakoDatabase {
     ) -> Result<AddonSideEffectRecord> {
         self.backend()
             .set_addon_side_effect_apply_outcome(id, outcome)
+            .await
+    }
+}
+
+#[async_trait::async_trait]
+impl AddonTaskRunRepository for NakoDatabase {
+    async fn create_addon_task_run(
+        &self,
+        job: NewJob,
+        run: NewAddonTaskRun,
+    ) -> Result<CreatedAddonTaskRun> {
+        self.backend().create_addon_task_run(job, run).await
+    }
+
+    async fn get_addon_task_run(&self, job_id: JobId) -> Result<Option<AddonTaskRunRecord>> {
+        self.backend().get_addon_task_run(job_id).await
+    }
+
+    async fn list_addon_task_runs(
+        &self,
+        filter: AddonTaskRunListFilter,
+        page: PageRequest,
+    ) -> Result<Vec<AddonTaskRunRecord>> {
+        self.backend().list_addon_task_runs(filter, page).await
+    }
+
+    async fn claim_next_addon_task_run(
+        &self,
+        request: AddonTaskRunClaimRequest,
+    ) -> Result<Option<LeasedAddonTaskRun>> {
+        self.backend().claim_next_addon_task_run(request).await
+    }
+
+    async fn report_addon_task_run_progress(
+        &self,
+        progress: ReportAddonTaskRunProgress,
+    ) -> Result<LeasedAddonTaskRun> {
+        self.backend()
+            .report_addon_task_run_progress(progress)
+            .await
+    }
+
+    async fn complete_addon_task_run(
+        &self,
+        completion: CompleteAddonTaskRun,
+    ) -> Result<AddonTaskRunRecord> {
+        self.backend().complete_addon_task_run(completion).await
+    }
+
+    async fn fail_addon_task_run(&self, failure: FailAddonTaskRun) -> Result<AddonTaskRunRecord> {
+        self.backend().fail_addon_task_run(failure).await
+    }
+
+    async fn cancel_addon_task_run(
+        &self,
+        cancellation: CancelAddonTaskRun,
+    ) -> Result<AddonTaskRunRecord> {
+        self.backend().cancel_addon_task_run(cancellation).await
+    }
+
+    async fn find_addon_task_run_by_idempotency_key(
+        &self,
+        addon_id: AddonId,
+        idempotency_key: &str,
+    ) -> Result<Option<AddonTaskRunRecord>> {
+        self.backend()
+            .find_addon_task_run_by_idempotency_key(addon_id, idempotency_key)
             .await
     }
 }

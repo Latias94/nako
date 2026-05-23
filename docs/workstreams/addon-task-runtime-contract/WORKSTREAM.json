@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "slug": "addon-task-runtime-contract",
+  "title": "Addon Task Runtime Contract",
+  "status": "active",
+  "updated": "2026-05-23",
+  "scope_kind": "implementation",
+  "problem": "Nako has manifest-declared Addon Task routing plans and now has a host-owned runtime surface for execution, direct task-path dispatch, progress, results, cancellation, retry, and sidecar execution input.",
+  "authoritative_docs": [
+    {
+      "role": "readme",
+      "path": "docs/workstreams/addon-task-runtime-contract/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/addon-task-runtime-contract/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/addon-task-runtime-contract/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/addon-task-runtime-contract/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/addon-task-runtime-contract/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/addon-task-runtime-contract/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "git diff --check",
+    "cargo fmt --all -- --check",
+    "cargo nextest run -p nako-server addon --no-fail-fast",
+    "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/official-addon-e2e-smoke.ps1"
+  ],
+  "evidence": [
+    {
+      "date": "2026-05-23",
+      "task": "ATRC-010",
+      "summary": "Lane opened after the source catalog and manager lifecycle lanes clarified their own boundaries."
+    },
+    {
+      "date": "2026-05-23",
+      "task": "ATRC-010",
+      "summary": "Reference study completed against the existing Addon Task declaration and routing-plan model; bulk-metadata-scrape remains a declaration example, not a runtime contract."
+    },
+    {
+      "date": "2026-05-23",
+      "task": "ATRC-020/030",
+      "summary": "Implemented AddonTaskRun host-owned run model, SQLite/PostgreSQL storage, Admin create/list/get/retry routes, Addon runtime claim/progress/complete/fail/cancel routes, sidecar execution input on lease, and focused HTTP tests."
+    },
+    {
+      "date": "2026-05-23",
+      "task": "ATRC-040",
+      "summary": "Implemented direct Addon Sidecar task-path dispatch on the host-owned run model with target-job claiming, task envelopes, direct retry inheritance, and cancellation-aware completion."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md",
+    "docs/adr/0033-version-addon-protocol-independently-from-addon-and-crate-releases.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Continue while the current target remains the host-owned Addon Task runtime boundary. Split source catalog, package signing, provider breadth, direct process/container supervision, and authenticated outbound task-dispatch credential management into follow-ons."
+  }
+}

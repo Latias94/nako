@@ -84,6 +84,14 @@ Nako's implication: source catalog entries should carry repo-level metadata,
 per-addon descriptor metadata, and explicit compatibility/channel policy while
 remaining separate from package signing or process ownership.
 
+## Adjacent Follow-On
+
+If Nako later needs a real `Addon Task` runtime contract, that should be a
+separate lane from the source catalog. The catalog may surface which addons
+declare tasks, but it should not turn task declaration names like
+`bulk-metadata-scrape` into a runtime promise until a host-owned task execution
+model exists with progress, results, cancellation, and retry semantics.
+
 ## Related Docs
 
 - `docs/workstreams/addon-manager-lifecycle-automation/`

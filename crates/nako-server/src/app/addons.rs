@@ -35,7 +35,7 @@ use nako_core::{
 use nako_db::NakoDatabase;
 use tokio::sync::Semaphore;
 
-use super::storage::StorageBackendRegistry;
+use super::{runtime::RuntimeSupervisor, storage::StorageBackendRegistry};
 
 mod artwork_write;
 mod intake;
@@ -45,6 +45,7 @@ mod principal;
 mod runtime;
 mod side_effect_apply;
 mod target;
+mod task_runtime;
 
 use principal::{normalize_grants, normalize_token_label};
 
@@ -53,6 +54,7 @@ pub(crate) struct AddonAppService {
     store: NakoDatabase,
     permits: Arc<Semaphore>,
     storage_backends: StorageBackendRegistry,
+    runtime: RuntimeSupervisor,
 }
 
 impl AddonAppService {
@@ -60,11 +62,13 @@ impl AddonAppService {
         store: NakoDatabase,
         permits: Arc<Semaphore>,
         storage_backends: StorageBackendRegistry,
+        runtime: RuntimeSupervisor,
     ) -> Self {
         Self {
             store,
             permits,
             storage_backends,
+            runtime,
         }
     }
 
@@ -785,7 +789,7 @@ impl AddonAppService {
         Ok(AddonGrantsResponse { grants })
     }
 
-    async fn get_addon_registration_or_not_found(
+    pub(super) async fn get_addon_registration_or_not_found(
         &self,
         addon_id: AddonId,
     ) -> Result<AddonRegistrationRecord> {
@@ -829,14 +833,14 @@ impl AddonAppService {
         Ok(())
     }
 
-    fn stored_manifest(&self, addon: &AddonRegistrationRecord) -> Result<AddonManifest> {
+    pub(super) fn stored_manifest(&self, addon: &AddonRegistrationRecord) -> Result<AddonManifest> {
         serde_json::from_str(&addon.manifest_json).map_err(|err| NakoError::InvalidInput {
             message: format!("failed to parse stored addon manifest: {err}"),
         })
     }
 }
 
-fn ensure_addon_accepts_runtime_authority(
+pub(super) fn ensure_addon_accepts_runtime_authority(
     addon: &AddonRegistrationRecord,
     operation: &'static str,
 ) -> Result<()> {
@@ -1180,7 +1184,7 @@ fn build_addon_routing_plans(
     Ok(plans)
 }
 
-fn declaration_scopes_granted(required: &[AddonScope], granted: &[AddonScope]) -> bool {
+pub(super) fn declaration_scopes_granted(required: &[AddonScope], granted: &[AddonScope]) -> bool {
     required.iter().all(|scope| granted.contains(scope))
 }
 

@@ -1,5 +1,6 @@
 pub mod acquisition_intake;
 pub mod addon;
+pub mod addon_task;
 pub mod automation;
 pub mod error;
 pub mod event;
@@ -19,6 +20,7 @@ pub mod webhook;
 
 pub use acquisition_intake::*;
 pub use addon::*;
+pub use addon_task::*;
 pub use automation::*;
 pub use error::{NakoError, Result, StorageErrorKind};
 pub use event::*;
