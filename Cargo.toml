@@ -3,10 +3,14 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.95"
+authors = ["Mingzhen Zhuang <superfrankie621@gmail.com>"]
+description = "An open-source, self-hosted media home for films, shows, anime, and personal collections."
 license = "AGPL-3.0-or-later"
+repository = "https://github.com/Latias94/nako"
+homepage = "https://github.com/Latias94/nako"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

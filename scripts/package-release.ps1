@@ -178,7 +178,10 @@ Copy-ReleasePath -Source $binaryPath -Destination (Join-Path $stagingRoot "bin/$
 
 $releaseInputs = @(
     @{ Source = 'LICENSE'; Destination = 'LICENSE' },
+    @{ Source = 'LICENSE-APACHE-2.0'; Destination = 'LICENSE-APACHE-2.0' },
+    @{ Source = 'LICENSE-MIT'; Destination = 'LICENSE-MIT' },
     @{ Source = 'README.md'; Destination = 'README.md' },
+    @{ Source = 'CHANGELOG.md'; Destination = 'CHANGELOG.md' },
     @{ Source = 'Dockerfile'; Destination = 'Dockerfile' },
     @{ Source = '.dockerignore'; Destination = '.dockerignore' },
     @{ Source = 'deploy/sqlite/nako.toml'; Destination = 'deploy/sqlite/nako.toml' },
@@ -188,6 +191,7 @@ $releaseInputs = @(
     @{ Source = 'deploy/compose/nako-sqlite.yml'; Destination = 'deploy/compose/nako-sqlite.yml' },
     @{ Source = 'deploy/compose/nako-postgres.yml'; Destination = 'deploy/compose/nako-postgres.yml' },
     @{ Source = 'docs/deployment/SELF_HOSTED.md'; Destination = 'docs/deployment/SELF_HOSTED.md' },
+    @{ Source = 'docs/LICENSING.md'; Destination = 'docs/LICENSING.md' },
     @{ Source = 'docs/deployment/RELEASE_ARTIFACTS.md'; Destination = 'docs/deployment/RELEASE_ARTIFACTS.md' },
     @{ Source = 'docs/deployment/BACKUP_RESTORE_UPGRADE.md'; Destination = 'docs/deployment/BACKUP_RESTORE_UPGRADE.md' }
 )

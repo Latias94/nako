@@ -3,7 +3,10 @@ name = "nako-uniffi-bindgen"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license.workspace = true
+license = "Apache-2.0 OR MIT"
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
 publish = false
 
 [dependencies]
