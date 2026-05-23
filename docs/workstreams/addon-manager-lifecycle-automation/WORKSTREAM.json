@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "slug": "addon-manager-lifecycle-automation",
+  "title": "Addon Manager Lifecycle Automation",
+  "status": "active",
+  "updated": "2026-05-23",
+  "scope_kind": "planning",
+  "problem": "Nako proves the manual addon loop, but it still lacks a built-in Addon Manager lifecycle plane for discovery, operator-confirmed install/update/remove, process supervision, logs, and rollback boundaries.",
+  "authoritative_docs": [
+    {
+      "role": "readme",
+      "path": "docs/workstreams/addon-manager-lifecycle-automation/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/addon-manager-lifecycle-automation/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/addon-manager-lifecycle-automation/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/addon-manager-lifecycle-automation/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/addon-manager-lifecycle-automation/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/addon-manager-lifecycle-automation/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "git diff --check",
+    "cargo fmt --all -- --check",
+    "cargo nextest run -p nako-server addon --no-fail-fast",
+    "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/official-addon-e2e-smoke.ps1"
+  ],
+  "evidence": [
+    {
+      "date": "2026-05-23",
+      "task": "AMG-010",
+      "summary": "Lane opened after the official addon alpha loop was proven with published Nako surfaces, public Addon Protocol crates, and the crates.io-distributed metadata scraper smoke path."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md",
+    "docs/adr/0033-version-addon-protocol-independently-from-addon-and-crate-releases.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Continue while the target remains the first manager-owned lifecycle plane. Split marketplace, package signing, and provider breadth into follow-ons."
+  }
+}

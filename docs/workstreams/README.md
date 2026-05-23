@@ -44,6 +44,11 @@ attention.
   redacted install-guide, runtime readiness, task/event/artifact routing, and
   Admin-only diagnostics before any Addon Manager automation, marketplace,
   package signing, process supervision, or Native Plugin ABI.
+- [addon-manager-lifecycle-automation](addon-manager-lifecycle-automation/README.md):
+  active planning lane for the next Addon Manager control plane, covering
+  lifecycle discovery, operator-confirmed install/update/remove, supervision,
+  logs, and update rollback boundaries without collapsing marketplace,
+  package-signing, or provider breadth into the first slice.
 - [ai-assisted-library-ops](ai-assisted-library-ops/README.md):
   completed post-RPD mainline lane for Generated Artifact proposal/readiness,
   Admin-only redacted diagnostics, and explicit accept/reject planning for
