@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "slug": "official-addon-e2e-alpha2",
+  "title": "Official Addon E2E Alpha2",
+  "status": "active",
+  "updated": "2026-05-23",
+  "scope_kind": "execution",
+  "problem": "Nako's released server, public Addon Protocol crates, GHCR image, and first official companion Addon are published separately but not yet proven as one end-to-end alpha user path.",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/official-addon-e2e-alpha2/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/official-addon-e2e-alpha2/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/official-addon-e2e-alpha2/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/official-addon-e2e-alpha2/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "git diff --check",
+    "cargo nextest run -p nako-addon-protocol protocol_version --no-fail-fast",
+    "cargo nextest run -p nako-addon-client --no-fail-fast",
+    "cargo check -p nako-server --tests",
+    "cargo nextest run -p nako-server addon --no-fail-fast",
+    "cargo nextest run -p nako-metadata-scraper --no-fail-fast in F:/SourceCodes/Rust/nako-official-addons"
+  ],
+  "evidence": [
+    {
+      "date": "2026-05-23",
+      "task": "OAE2E-010",
+      "summary": "Workstream opened after Nako alpha.1 and official metadata scraper alpha.1 publication."
+    },
+    {
+      "date": "2026-05-23",
+      "task": "OAE2E-020",
+      "summary": "Published Nako GHCR image ran nako-server --help and ffmpeg -version; official metadata scraper built locally and passed direct fixture sidecar smoke."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0033-version-addon-protocol-independently-from-addon-and-crate-releases.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Continue while the target remains a fixture-safe host/addon E2E proof. Split Addon Manager, marketplace, provider breadth, and package signing into follow-ons."
+  }
+}
