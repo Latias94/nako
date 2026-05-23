@@ -42,6 +42,7 @@ implementations.
 
 Current permissive crates:
 
+- `nako`
 - `nako-addon-client`
 - `nako-addon-protocol`
 - `nako-client`

@@ -6,6 +6,9 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: write
+
 jobs:
   package-linux:
     name: package linux nako-server
@@ -15,7 +18,13 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.95
+          components: rustfmt
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
 
       - name: Package release artifact
         run: bash scripts/package-release.sh
@@ -25,6 +34,17 @@ jobs:
         with:
           name: nako-server-release
           path: |
+            target/package-release/nako-server-v*.tar.gz
+            target/package-release/*.release-manifest.json
+            target/package-release/SHA256SUMS
+
+      - name: Create GitHub Release draft
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
             target/package-release/nako-server-v*.tar.gz
             target/package-release/*.release-manifest.json
             target/package-release/SHA256SUMS

@@ -2,7 +2,8 @@ use std::{collections::HashSet, fmt};
 
 use serde::{Deserialize, Serialize};
 
-pub const ADDON_PROTOCOL_VERSION: &str = "2026-05-15";
+pub const ADDON_PROTOCOL_VERSION: &str = "0.1.0-alpha.1";
+pub const SUPPORTED_ADDON_PROTOCOL_VERSIONS: &[&str] = &[ADDON_PROTOCOL_VERSION];
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AddonManifest {
@@ -797,11 +798,16 @@ impl std::error::Error for AddonManifestError {}
 
 pub type AddonProtocolResult<T> = std::result::Result<T, AddonManifestError>;
 
+#[must_use]
+pub fn is_supported_addon_protocol_version(protocol_version: &str) -> bool {
+    SUPPORTED_ADDON_PROTOCOL_VERSIONS.contains(&protocol_version)
+}
+
 pub fn validate_manifest(manifest: &AddonManifest) -> AddonProtocolResult<()> {
     validate_non_empty(&manifest.id, "id")?;
     validate_non_empty(&manifest.name, "name")?;
     validate_non_empty(&manifest.version, "version")?;
-    if manifest.protocol_version != ADDON_PROTOCOL_VERSION {
+    if !is_supported_addon_protocol_version(&manifest.protocol_version) {
         return Err(AddonManifestError::UnsupportedProtocolVersion {
             actual: manifest.protocol_version.clone(),
         });
@@ -973,9 +979,17 @@ pub fn validate_resource_response(
     resource: AddonResource,
     request_id: &str,
 ) -> AddonProtocolResult<()> {
-    if response.protocol_version != ADDON_PROTOCOL_VERSION {
+    if !is_supported_addon_protocol_version(&response.protocol_version) {
         return Err(AddonManifestError::UnsupportedProtocolVersion {
             actual: response.protocol_version.clone(),
+        });
+    }
+    if response.protocol_version != manifest.protocol_version {
+        return Err(AddonManifestError::InvalidEnvelope {
+            message: format!(
+                "response protocol_version {} did not match manifest protocol_version {}",
+                response.protocol_version, manifest.protocol_version
+            ),
         });
     }
     if response.addon_id != manifest.id {
@@ -1011,9 +1025,17 @@ pub fn validate_health_check_response(
     response: &AddonHealthCheckResponse,
     manifest: &AddonManifest,
 ) -> AddonProtocolResult<()> {
-    if response.protocol_version != ADDON_PROTOCOL_VERSION {
+    if !is_supported_addon_protocol_version(&response.protocol_version) {
         return Err(AddonManifestError::UnsupportedProtocolVersion {
             actual: response.protocol_version.clone(),
+        });
+    }
+    if response.protocol_version != manifest.protocol_version {
+        return Err(AddonManifestError::InvalidEnvelope {
+            message: format!(
+                "health protocol_version {} did not match manifest protocol_version {}",
+                response.protocol_version, manifest.protocol_version
+            ),
         });
     }
     if response.manifest_id != manifest.id {
@@ -1399,6 +1421,13 @@ mod tests {
             ],
         )
         .unwrap();
+    }
+
+    #[test]
+    fn exposes_explicit_supported_protocol_versions() {
+        assert_eq!(SUPPORTED_ADDON_PROTOCOL_VERSIONS, &[ADDON_PROTOCOL_VERSION]);
+        assert!(is_supported_addon_protocol_version(ADDON_PROTOCOL_VERSION));
+        assert!(!is_supported_addon_protocol_version("0.1.0-alpha.0"));
     }
 
     #[test]

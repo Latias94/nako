@@ -42,8 +42,8 @@ An addon manifest declares:
 - authentication mode: `none`, `bearer`, or `shared_secret`;
 - the total scope set the addon may request.
 
-The current protocol version is `2026-05-15`. Nako rejects manifests with a
-different protocol version.
+The current Addon Protocol Version is `0.1.0-alpha.1`. Nako rejects manifests
+whose `protocol_version` is not in the supported Addon Protocol Version set.
 
 ## Resource Calls
 

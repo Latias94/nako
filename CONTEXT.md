@@ -18,6 +18,10 @@ _Avoid_: Plugin ABI, native plugin contract
 A declared compatibility version of the **Addon Protocol**.
 _Avoid_: Nako server version
 
+**Addon Version**:
+The implementation or package version of an **Addon Sidecar**.
+_Avoid_: Addon Protocol Version, Nako release version
+
 **Addon Sidecar**:
 An independently running process or service that implements the **Addon Protocol**.
 _Avoid_: In-process plugin
@@ -400,7 +404,7 @@ _Avoid_: Addon callback
 
 ## Relationships
 
-- An **Addon** conforms to exactly one **Addon Protocol** version.
+- An **Addon** declares an **Addon Version** for the sidecar implementation and an **Addon Protocol Version** for runtime compatibility.
 - An **Addon Protocol Version** changes only when the compatibility contract changes.
 - An **Addon** runs as an **Addon Sidecar** in the first implementation phase.
 - An **Addon Sidecar** may call Nako APIs with an **Addon Token**.

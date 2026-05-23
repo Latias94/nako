@@ -24,6 +24,8 @@ All notable changes to Nako are recorded here.
 - Addon Sidecar protocol, scoped Addon Tokens and Grants, Addon Health Check,
   Addon Install Guide generation, Admin Addon operations, and experimental
   reference addon support.
+- Public `nako` Rust SDK facade crate for Addon Protocol and Addon Client
+  integrations.
 - Admin API and Admin Web Console surfaces for operations, diagnostics, addon
   onboarding, credential/grant management, and runtime status.
 - Deployment examples for SQLite and PostgreSQL, Docker Compose examples,
@@ -40,6 +42,12 @@ All notable changes to Nako are recorded here.
   homepage, and project description.
 - Addon/client protocol and SDK-facing crates now use Apache-2.0 OR MIT, while
   server-side crates remain AGPL-3.0-or-later.
+- The Addon Protocol Version is now the SemVer-shaped runtime compatibility
+  contract `0.1.0-alpha.1`, separate from Addon Version and Rust crate package
+  versions.
+- Release CI now includes crates.io dry-run/publish workflow support for the
+  public permissive crates and creates GitHub Release drafts for tagged server
+  packages.
 
 ### Known Limitations
 

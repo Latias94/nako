@@ -1,25 +1,24 @@
 [package]
-name = "nako-addon-client"
+name = "nako"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license = "Apache-2.0 OR MIT"
 authors.workspace = true
 repository.workspace = true
 homepage.workspace = true
-description = "Rust HTTP caller helper for Nako Addon Sidecar integrations."
+description = "Public Rust SDK entry point for Nako protocols and addon integration."
+license = "Apache-2.0 OR MIT"
 readme = "README.md"
-keywords = ["nako", "addons", "client", "media-server"]
+keywords = ["nako", "media-server", "addons", "sdk"]
 categories = ["api-bindings", "web-programming"]
 
 [lints]
 workspace = true
 
-[dependencies]
-async-trait.workspace = true
-reqwest.workspace = true
-serde_json.workspace = true
-nako-addon-protocol = { path = "../nako-addon-protocol", version = "0.1.0-alpha.1" }
+[features]
+default = []
+addon-client = ["dep:nako-addon-client"]
 
-[dev-dependencies]
-tokio.workspace = true
+[dependencies]
+nako-addon-protocol = { path = "../nako-addon-protocol", version = "0.1.0-alpha.1" }
+nako-addon-client = { path = "../nako-addon-client", version = "0.1.0-alpha.1", optional = true }

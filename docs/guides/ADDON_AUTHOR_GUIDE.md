@@ -11,14 +11,21 @@ Required manifest fields:
 
 - `id`: stable addon ID, for example `nako.reference.metadata`.
 - `name`: display name.
-- `version`: addon implementation version.
-- `protocol_version`: must match Nako's current addon protocol version.
+- `version`: Addon Version, controlled by the addon author.
+- `protocol_version`: Addon Protocol Version implemented by the sidecar.
 - `base_url`: HTTP or HTTPS base URL for resource calls.
 - `resources`: declared resource endpoints.
 - `auth`: `none`, `bearer`, or `shared_secret`.
 - `scopes`: all scopes the addon may request.
 
-The current protocol version is `2026-05-15`.
+The current Addon Protocol Version is `0.1.0-alpha.1`. Nako accepts only
+explicitly supported Addon Protocol Versions; during `alpha.1`, the supported
+set contains `0.1.0-alpha.1`.
+
+Addon Version, Addon Protocol Version, and Rust crate package versions are
+different contracts. `nako-addon-protocol` may share the repository release
+version for packaging convenience, but runtime compatibility is decided by the
+manifest `protocol_version` and Nako's supported protocol list.
 
 Optional manifest declarations describe future-facing Addon Protocol concepts
 without granting runtime authority by themselves:
@@ -75,7 +82,7 @@ Request body:
 
 ```json
 {
-  "protocol_version": "2026-05-15",
+  "protocol_version": "0.1.0-alpha.1",
   "manifest_id": "nako.reference.metadata",
   "request_id": "health-1",
   "expected_addon_version": "0.1.0",
@@ -87,7 +94,7 @@ Response body:
 
 ```json
 {
-  "protocol_version": "2026-05-15",
+  "protocol_version": "0.1.0-alpha.1",
   "manifest_id": "nako.reference.metadata",
   "status": "ok",
   "checked_at": "2026-05-21T12:00:00.000Z",
@@ -112,7 +119,7 @@ Nako calls resources with:
 
 ```json
 {
-  "protocol_version": "2026-05-15",
+  "protocol_version": "0.1.0-alpha.1",
   "addon_id": "nako.reference.metadata",
   "resource": "metadata",
   "request_id": "request-1",
@@ -127,7 +134,7 @@ The addon must respond with the same `protocol_version`, `addon_id`,
 
 ```json
 {
-  "protocol_version": "2026-05-15",
+  "protocol_version": "0.1.0-alpha.1",
   "addon_id": "nako.reference.metadata",
   "resource": "metadata",
   "request_id": "request-1",

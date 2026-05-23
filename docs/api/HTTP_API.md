@@ -946,7 +946,7 @@ remove, or supervise the sidecar.
     "id": "example.metadata",
     "name": "Example Metadata",
     "version": "0.1.0",
-    "protocol_version": "2026-05-15",
+    "protocol_version": "0.1.0-alpha.1",
     "base_url": "https://example.test/addon",
     "description": "Metadata suggestion addon",
     "resources": [
@@ -1001,10 +1001,12 @@ remove, or supervise the sidecar.
 }
 ```
 
-The current addon protocol version is `2026-05-15`. Nako rejects manifests
-with unsupported protocol versions, non-HTTP base URLs, relative resource
-paths, duplicate resource declarations, invalid timeout/retry bounds, or
-resource scopes that are not declared by the manifest.
+The current Addon Protocol Version is `0.1.0-alpha.1`. Nako accepts only
+explicitly supported Addon Protocol Versions; during `alpha.1`, the supported
+set contains `0.1.0-alpha.1`. Nako rejects manifests with unsupported protocol
+versions, non-HTTP base URLs, relative resource paths, duplicate resource
+declarations, invalid timeout/retry bounds, or resource scopes that are not
+declared by the manifest.
 The manifest may also declare Addon Entry Points, Addon Hosted Pages, an Addon
 Configuration Schema, Secret Reference fields, Addon Event Subscriptions, and
 Addon Tasks. These declarations are validated during registration but do not
@@ -1029,7 +1031,7 @@ provenance, Source Locators, storage URIs, or local filesystem paths.
       "manifest_id": "example.metadata",
       "name": "Example Metadata",
       "version": "0.1.0",
-      "protocol_version": "2026-05-15",
+      "protocol_version": "0.1.0-alpha.1",
       "base_url": "https://example.test/addon",
       "granted_scopes": ["item_metadata_read", "item_metadata_suggest"],
       "status": "disabled",
@@ -1040,7 +1042,7 @@ provenance, Source Locators, storage URIs, or local filesystem paths.
       "id": "example.metadata",
       "name": "Example Metadata",
       "version": "0.1.0",
-      "protocol_version": "2026-05-15",
+      "protocol_version": "0.1.0-alpha.1",
       "base_url": "https://example.test/addon",
       "auth": "bearer",
       "resources": [],
@@ -1110,7 +1112,7 @@ version, and manifest compatibility facts:
   "manifest_id": "example.metadata",
   "status": "reachable",
   "latency_ms": 12,
-  "protocol_version": "2026-05-15",
+  "protocol_version": "0.1.0-alpha.1",
   "addon_version": "0.1.0",
   "resource_count": 1,
   "protocol_checked_at": "2026-05-21T12:00:00.000Z"
@@ -1197,13 +1199,13 @@ health-check steps, and registration/surface verification steps:
   "manifest_id": "example.metadata",
   "addon_name": "Example Metadata",
   "addon_version": "0.1.0",
-  "protocol_version": "2026-05-15",
+  "protocol_version": "0.1.0-alpha.1",
   "base_url": "https://addon.example.test/base",
   "status": "enabled",
   "docker_compose": {
     "title": "Docker Compose sidecar snippet",
     "filename": "compose.example-metadata.yml",
-    "content": "services:\n  example-metadata:\n    image: \"<replace-with-example-metadata-image>:0.1.0\"\n    restart: unless-stopped\n    environment:\n      NAKO_ADDON_BASE_URL: \"https://addon.example.test/base\"\n      NAKO_ADDON_PROTOCOL_VERSION: \"2026-05-15\"\n      NAKO_ADDON_MANIFEST_ID: \"example.metadata\"\n      ADDON_SECRET_API_KEY: \"secret-reference:api_key\"",
+    "content": "services:\n  example-metadata:\n    image: \"<replace-with-example-metadata-image>:0.1.0\"\n    restart: unless-stopped\n    environment:\n      NAKO_ADDON_BASE_URL: \"https://addon.example.test/base\"\n      NAKO_ADDON_PROTOCOL_VERSION: \"0.1.0-alpha.1\"\n      NAKO_ADDON_MANIFEST_ID: \"example.metadata\"\n      ADDON_SECRET_API_KEY: \"secret-reference:api_key\"",
     "notes": [
       "Run this Addon Sidecar as a separate service on a network Nako can reach.",
       "Nako does not mount the Docker socket or manage this container lifecycle."

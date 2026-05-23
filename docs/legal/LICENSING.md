@@ -28,11 +28,13 @@ server builds that are offered over a network.
 
 ## Permissive Extension Surface
 
-`nako-addon-protocol` is licensed under `Apache-2.0`.
+`nako`, `nako-addon-protocol`, and `nako-addon-client` are licensed under
+`Apache-2.0 OR MIT`.
 
-The addon protocol is kept permissive so addon authors, SDKs, client tools, and
-integration services can adopt the protocol without inheriting the server
-license for independent addon implementations.
+The addon protocol and public Rust SDK entry crates are kept permissive so
+addon authors, SDKs, client tools, and integration services can adopt the
+protocol without inheriting the server license for independent addon
+implementations.
 
 Protocol crates must stay independent from AGPL-only server crates. If a future
 protocol or SDK crate needs shared IDs or DTOs, prefer duplicating protocol-level
@@ -68,3 +70,4 @@ Nako's own domain model and tests.
 
 - `LICENSE`: AGPL-3.0 license text
 - `LICENSE-APACHE-2.0`: Apache-2.0 license text
+- `LICENSE-MIT`: MIT license text

@@ -1,0 +1,60 @@
+name: crates-publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish public crates to crates.io after dry-run succeeds"
+        required: true
+        type: boolean
+        default: false
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run:
+    name: crates.io dry-run
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.95
+          components: rustfmt
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check public crate publish readiness
+        run: python scripts/publish_crates.py --mode dry-run
+
+  publish:
+    name: crates.io publish
+    runs-on: ubuntu-latest
+    needs: dry-run
+    if: github.event_name == 'workflow_dispatch' && inputs.publish == true
+    environment: crates-io
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.95
+          components: rustfmt
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+
+      - name: Publish public crates
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: python scripts/publish_crates.py --mode publish

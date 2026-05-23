@@ -51,3 +51,4 @@ evidence has been reviewed.
 - [0030: Define PostgreSQL-Ready SQL Dialect And Migration Policy](0030-postgresql-ready-sql-dialect-and-migration-policy.md)
 - [0031: Sequence Generated Client SDK Before Mobile Rust FFI](0031-android-client-sdk-before-mobile-rust-ffi.md)
 - [0032: Pull Shared Rust Client Core Forward Behind App-Supplied Transport](0032-shared-rust-client-core-app-supplied-transport.md)
+- [0033: Version Addon Protocol Compatibility Separately From Addon and Crate Releases](0033-version-addon-protocol-independently-from-addon-and-crate-releases.md)

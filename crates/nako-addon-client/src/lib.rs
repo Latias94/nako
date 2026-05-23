@@ -2,9 +2,9 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use nako_addon_protocol::{
-    ADDON_PROTOCOL_VERSION, AddonAuth, AddonHealthCheckRequest, AddonHealthCheckResponse,
-    AddonManifest, AddonManifestError, AddonResource, AddonResourceRequest, AddonResourceResponse,
-    AddonScope, ensure_scope_grant, validate_health_check_response, validate_manifest,
+    AddonAuth, AddonHealthCheckRequest, AddonHealthCheckResponse, AddonManifest,
+    AddonManifestError, AddonResource, AddonResourceRequest, AddonResourceResponse, AddonScope,
+    ensure_scope_grant, validate_health_check_response, validate_manifest,
     validate_resource_response,
 };
 
@@ -170,8 +170,9 @@ where
         .max_attempts
         .or(manifest.default_max_attempts)
         .unwrap_or(1);
+    let protocol_version = manifest.protocol_version.clone();
     let envelope = AddonResourceRequest {
-        protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+        protocol_version: protocol_version.clone(),
         addon_id: manifest.id.clone(),
         resource,
         request_id: request_id.clone(),
@@ -184,10 +185,7 @@ where
         .map_err(resource_call_setup_failure)?;
     let mut headers = vec![
         ("content-type".to_owned(), "application/json".to_owned()),
-        (
-            "x-nako-addon-protocol-version".to_owned(),
-            ADDON_PROTOCOL_VERSION.to_owned(),
-        ),
+        ("x-nako-addon-protocol-version".to_owned(), protocol_version),
         ("x-nako-addon-id".to_owned(), manifest.id.clone()),
         (
             "x-nako-addon-resource".to_owned(),
@@ -302,8 +300,9 @@ where
     validate_manifest(manifest)?;
     let request_id = request_id.into();
     let timeout_ms = manifest.default_timeout_ms.unwrap_or(10_000);
+    let protocol_version = manifest.protocol_version.clone();
     let envelope = AddonHealthCheckRequest {
-        protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+        protocol_version: protocol_version.clone(),
         manifest_id: manifest.id.clone(),
         request_id: request_id.clone(),
         expected_addon_version: manifest.version.clone(),
@@ -318,10 +317,7 @@ where
             url: resource_url(&manifest.base_url, "/health"),
             headers: vec![
                 ("content-type".to_owned(), "application/json".to_owned()),
-                (
-                    "x-nako-addon-protocol-version".to_owned(),
-                    ADDON_PROTOCOL_VERSION.to_owned(),
-                ),
+                ("x-nako-addon-protocol-version".to_owned(), protocol_version),
                 ("x-nako-addon-id".to_owned(), manifest.id.clone()),
                 (
                     "x-nako-addon-operation".to_owned(),

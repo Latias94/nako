@@ -70,7 +70,7 @@ async fn create_startup_managed_artwork_ingest(
             manifest_id: format!("example.artwork.{idempotency_key}"),
             name: "Startup Artwork".to_owned(),
             version: "0.1.0".to_owned(),
-            protocol_version: "2026-05-15".to_owned(),
+            protocol_version: "0.1.0-alpha.1".to_owned(),
             base_url: "https://example.test/addon".to_owned(),
             manifest_json: "{}".to_owned(),
             granted_scopes: vec!["artwork_write".to_owned()],

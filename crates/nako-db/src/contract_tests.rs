@@ -3403,7 +3403,7 @@ where
             manifest_id: format!("dev.nako.contract.{idempotency_key}"),
             name: "Managed Artwork Contract Addon".to_owned(),
             version: "0.1.0".to_owned(),
-            protocol_version: "2026-05-15".to_owned(),
+            protocol_version: "0.1.0-alpha.1".to_owned(),
             base_url: "https://example.test/addon".to_owned(),
             manifest_json: r#"{"id":"dev.nako.contract.managed-artwork"}"#.to_owned(),
             granted_scopes: vec!["artwork_write".to_owned()],

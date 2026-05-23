@@ -1263,6 +1263,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "nako"
+version = "0.1.0-alpha.1"
+dependencies = [
+ "nako-addon-client",
+ "nako-addon-protocol",
+]
+
+[[package]]
 name = "nako-addon-client"
 version = "0.1.0-alpha.1"
 dependencies = [

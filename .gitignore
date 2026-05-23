@@ -4,6 +4,7 @@
 # Local generated evidence and scratch files
 /output/
 /tmp/
+__pycache__/
 
 # Reference checkouts
 /repo-ref/

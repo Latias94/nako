@@ -1,40 +1,54 @@
 # Nako
 
-![Nako app icon](assets/brand/nako-app-icon-1024.png)
+[![release-gate](https://github.com/Latias94/nako/actions/workflows/release-gate.yml/badge.svg)](https://github.com/Latias94/nako/actions/workflows/release-gate.yml)
+[![release-package](https://github.com/Latias94/nako/actions/workflows/release-package.yml/badge.svg)](https://github.com/Latias94/nako/actions/workflows/release-package.yml)
+[![crates-publish](https://github.com/Latias94/nako/actions/workflows/crates-publish.yml/badge.svg)](https://github.com/Latias94/nako/actions/workflows/crates-publish.yml)
+![status: alpha.1](https://img.shields.io/badge/status-alpha.1-orange)
+![rust: 1.95+](https://img.shields.io/badge/rust-1.95%2B-orange)
+![server license: AGPL-3.0-or-later](https://img.shields.io/badge/server%20license-AGPL--3.0--or--later-blue)
+![addon/client SDK: Apache-2.0 OR MIT](https://img.shields.io/badge/addon%2Fclient%20SDK-Apache--2.0%20OR%20MIT-blue)
+
+<p>
+  <img src="assets/brand/nako-app-icon-1024.png" alt="Nako app icon" width="128">
+</p>
 
 **Your media home, gently kept.**
 
-Nako is an open-source, self-hosted media home for gently organizing, keeping,
-and playing your films, shows, anime, and personal collection.
+Nako is an open-source media server backend for people who want to keep their
+own films, shows, anime, and personal collection on hardware they control.
 
 ## Status
 
 Nako is currently `0.1.0-alpha.1`.
 
-This is a technical preview for self-hosted operators and contributors. It is
-not yet a stable Jellyfin/Plex replacement, and public API, Admin API, Addon
-Protocol, database schema, and generated SDK shapes may change before beta.
+This is a technical preview. It is useful for development, self-hosted testing,
+and early addon work, but it is not a stable Jellyfin or Plex replacement yet.
+The public API, Admin API, Addon Protocol, database schema, and generated SDKs
+may still change before beta.
 
-## What Works Today
+Current Addon Protocol Version: `0.1.0-alpha.1`. Addon Version, protocol
+compatibility, and Rust crate package versions are separate contracts.
+
+## What works today
 
 - Media Library scanning with Local Inference, Source State tracking, Media
-  Source records, and Provisional Hierarchy creation.
+  Source records, and Provisional Hierarchy.
 - SQLite and PostgreSQL persistence paths with contract tests.
-- Local filesystem and WebDAV-oriented VFS foundations.
-- Metadata provider runtime surfaces for TMDB, Bangumi, and Douban.
-- NFO import/export and local metadata authority groundwork.
+- Local filesystem VFS, with WebDAV-oriented pieces already in place.
+- Metadata provider runtime for TMDB, Bangumi, and Douban.
+- NFO import/export and local metadata authority.
 - Managed Import, Nako-managed artwork, Library File Write, and promotion/apply
-  workflows for operator-confirmed library mutation.
+  flows for operator-confirmed file changes.
 - Playback source selection, remux/transcode planning, hardware acceleration
   policy, runtime diagnostics, and bounded staging.
-- Admin API and Admin Web Console surfaces for diagnostics, operations, Addon
-  onboarding, Addon credentials/grants, and runtime status.
+- Admin API and Admin Web Console pages for diagnostics, operations, Addon
+  onboarding, credentials, grants, and runtime status.
 - Addon Sidecar protocol support with scoped tokens, grants, health checks,
-  install guide generation, and resource-call diagnostics.
-- Docker/Compose examples, config preflight, release packaging, and
-  backup/restore documentation for self-hosted operation.
+  install guides, and resource-call diagnostics.
+- Docker/Compose examples, config preflight, release packaging, and operator
+  docs.
 
-## Current Boundaries
+## Current boundaries
 
 - Addons are externally run Addon Sidecars. Nako does not yet install, update,
   start, stop, remove, log, or supervise addon processes.
@@ -47,7 +61,17 @@ Protocol, database schema, and generated SDK shapes may change before beta.
 - Keep Nako local-only, private-network, VPN, reverse-proxy, or tunnel-bounded
   with auth enabled. Do not expose placeholder configs to the public internet.
 
-## Quick Start
+## Rust SDK crates
+
+The first crates.io publishing lane is small on purpose:
+
+- `nako`: facade crate for public Nako protocol and SDK surfaces.
+- `nako-addon-protocol`: Addon Protocol wire types and validation helpers.
+- `nako-addon-client`: optional Rust HTTP caller helper for Addon Sidecars.
+
+Server implementation crates are not published as library APIs during alpha.
+
+## Quick start
 
 From source:
 
@@ -84,11 +108,17 @@ docker build `
 
 For full operator notes, see:
 
-- `docs/deployment/SELF_HOSTED.md`
-- `docs/deployment/RELEASE_CHECKLIST.md`
-- `docs/deployment/BACKUP_RESTORE_UPGRADE.md`
+- [Self-hosted setup](https://github.com/Latias94/nako/blob/main/docs/deployment/SELF_HOSTED.md)
+- [Release checklist](https://github.com/Latias94/nako/blob/main/docs/deployment/RELEASE_CHECKLIST.md)
+- [Backup, restore, and upgrade](https://github.com/Latias94/nako/blob/main/docs/deployment/BACKUP_RESTORE_UPGRADE.md)
 
-## Development Gates
+More docs:
+
+- [HTTP API](https://github.com/Latias94/nako/blob/main/docs/api/HTTP_API.md)
+- [Addon author guide](https://github.com/Latias94/nako/blob/main/docs/guides/ADDON_AUTHOR_GUIDE.md)
+- [Licensing policy](https://github.com/Latias94/nako/blob/main/docs/LICENSING.md)
+
+## Development gates
 
 Common local checks:
 
@@ -106,4 +136,5 @@ Nako server-side code is licensed under AGPL-3.0-or-later unless a crate or file
 states otherwise. Addon protocol, addon client, client SDK, and reference addon
 crates are licensed as Apache-2.0 OR MIT for Addon and client authors.
 
-See `docs/LICENSING.md` for the crate-level policy.
+See the [licensing policy](https://github.com/Latias94/nako/blob/main/docs/LICENSING.md)
+for the crate-level split.

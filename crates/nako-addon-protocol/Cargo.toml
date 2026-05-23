@@ -7,6 +7,10 @@ license = "Apache-2.0 OR MIT"
 authors.workspace = true
 repository.workspace = true
 homepage.workspace = true
+description = "Wire types and validation helpers for the Nako Addon Protocol."
+readme = "README.md"
+keywords = ["nako", "addons", "protocol", "media-server"]
+categories = ["api-bindings", "web-programming"]
 
 [lints]
 workspace = true

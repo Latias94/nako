@@ -25,6 +25,26 @@ sha256sum -c SHA256SUMS
 Do not run an artifact whose checksum does not match. Do not paste raw secrets
 or private paths into support tickets when sharing the manifest.
 
+## 1a. Public Crate Publishing
+
+Nako publishes only public permissive crates to crates.io during alpha:
+
+- `nako-addon-protocol`
+- `nako-addon-client`
+- `nako`
+
+Server implementation crates are marked `publish = false` and are not release
+library APIs. Before publishing, run the crates publish readiness check:
+
+```bash
+python scripts/publish_crates.py --mode dry-run
+```
+
+Actual crates.io publishing is manual-approval only through the
+`crates-publish` workflow, using the `crates-io` GitHub environment and
+`CARGO_REGISTRY_TOKEN` secret. Publish order is dependency order:
+`nako-addon-protocol`, `nako-addon-client`, then `nako`.
+
 ## 2. Prepare Config And Secrets
 
 1. Choose SQLite or PostgreSQL.
