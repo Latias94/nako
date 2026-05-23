@@ -1,6 +1,6 @@
 # Addon Manager Lifecycle Automation
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-23
 
 ## Why This Lane Exists
@@ -13,66 +13,70 @@ Nako's released alpha now proves the manual addon path:
 - the first official companion addon can register, health-check, and serve one
   hosted metadata resource call through Nako.
 
-That proves the manual operator path, not the manager path. The next product gap
-is a built-in Addon Manager control plane that can own lifecycle orchestration
-for manually or later-package-sourced sidecars without collapsing marketplace,
-package signing, provider breadth, or Native Plugin ABI into the first slice.
+That proves the manual operator path, not the manager path. This lane delivered
+the first manager-owned registry/plan slot without collapsing marketplace,
+package signing, process/container supervision, or Native Plugin ABI into the
+first slice.
 
 ## Problem
 
-Operators still have to start and manage addon sidecars manually. Nako can
-describe, register, validate, and diagnose addons, but it does not yet own the
-discover/install/update/remove/supervise/log loop for addon sidecars as a first
-class runtime surface.
+Operators still have to start and manage addon sidecars manually. Before this
+lane, Nako could describe, register, validate, and diagnose addons, but it did
+not own a registry/plan loop for addon lifecycle intent. This lane added that
+first plan surface while leaving sidecar process ownership external.
 
 ## Target State
 
-When this lane closes, Nako should be able to:
+This lane closed after Nako became able to:
 
-- identify a managed addon source and resolve an installable addon package or
-  descriptor;
-- install an addon into a Nako-owned managed lifecycle slot;
-- update or remove that addon with explicit operator confirmation;
-- supervise addon process state, readiness, and logs through a Nako-owned
-  control plane;
-- keep marketplace hosting, package signing, and provider breadth as separate
-  follow-ons;
+- represent a managed addon source through a redaction-safe registry/plan
+  surface;
+- represent operator-confirmed install/update/remove intent as a Nako-owned
+  plan;
+- surface addon permissions, token summaries, grants, and Addon Health Check
+  visibility through Nako-owned surfaces;
+- keep Addon Install Guide behavior first-class for the operator;
+- keep marketplace hosting, package signing, process/container supervision,
+  and provider breadth as separate follow-ons;
 - keep the Addon Protocol contract and the official addon smoke stable while
   manager features evolve.
 
 ## Scope
 
 - Addon Manager discovery and lifecycle plan modeling.
-- Operator-confirmed install/update/remove flows.
-- Addon process supervision, restart/stop semantics, and log exposure through
-  redacted diagnostics.
-- Minimal UI/API contract changes needed to surface managed addon lifecycle
-  state.
+- Operator-confirmed install/update/remove intent capture.
+- Addon permissions, token rotation, and health-check visibility surfaces.
+- Minimal UI/API contract changes needed to surface managed addon state and
+  install-guide behavior.
 - Validation and documentation for the first manager-owned addon slice.
 
 ## Non-Goals
 
 - Marketplace hosting or distribution policy.
 - Package signing trust roots.
+- Direct container or process supervision.
 - Native Plugin ABI or in-process addon execution.
 - Broad provider breadth beyond the official companion addon path.
 - OAuth-first addon auth redesign.
 - Public client API changes unrelated to addon management.
 
-## Architecture Direction
+## Shipped Direction
 
-Treat the manager as a Nako-owned lifecycle controller, not as a source of
-hidden process magic. The manager should own:
+Treat the manager as a Nako-owned control plane, not as a source of hidden
+process magic. The manager should own:
 
-- install/update/remove intent capture;
-- source resolution and version selection policy;
-- supervised process lifecycle;
-- operator-visible health/log/readiness state;
-- safe rollback boundaries.
+- addon source registry and source resolution;
+- install/update/remove intent capture and version selection policy;
+- addon permissions and token rotation;
+- operator-visible health and install-guide state;
+- safe rollback boundaries for the manager-owned plan surface.
 
 The sidecar should still own its provider logic and protocol envelope. The
-manager should not smuggle admin credentials into addons or convert the sidecar
-boundary into an in-process plugin ABI.
+manager should not smuggle admin credentials into addons, require Docker socket
+authority, or convert the sidecar boundary into an in-process plugin ABI.
+
+Process/container supervision may become a later follow-on lane if Nako ever
+decides to own it, but it is not part of this completed slice.
 
 ## Related Docs
 

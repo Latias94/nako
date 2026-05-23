@@ -6,7 +6,7 @@ use axum::{
     routing::{get, patch, post},
 };
 use nako_api::extension::{
-    AddonAccessCheckRequest, AdminAddonInstallGuidePreviewRequest,
+    AddonAccessCheckRequest, AdminAddonInstallGuidePreviewRequest, AdminAddonManagerPlanRequest,
     AdminAddonResourceCallDiagnosticRequest, IssueAddonTokenRequest, RegisterAddonRequest,
     ReplaceAddonGrantsRequest, SubmitAddonAcquisitionCandidateRequest,
     SubmitAddonGeneratedArtifactRequest, SubmitAddonSideEffectRequest, UpdateAddonStatusRequest,
@@ -53,6 +53,10 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/admin/v1/addons/{addon_id}/install-guide",
             get(get_addon_install_guide),
+        )
+        .route(
+            "/admin/v1/addons/{addon_id}/manager-plan",
+            get(get_addon_manager_plan).post(plan_addon_manager_lifecycle),
         )
         .route(
             "/admin/v1/addons/{addon_id}/diagnostics/resource-call",
@@ -183,6 +187,27 @@ pub(super) async fn get_addon_install_guide(
     Path(addon_id): Path<AddonId>,
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(app.addons().get_addon_install_guide(addon_id).await?))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn get_addon_manager_plan(
+    State(app): State<NakoApp>,
+    Path(addon_id): Path<AddonId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.addons().get_addon_manager_plan(addon_id).await?))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn plan_addon_manager_lifecycle(
+    State(app): State<NakoApp>,
+    Path(addon_id): Path<AddonId>,
+    Json(request): Json<AdminAddonManagerPlanRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.addons()
+            .plan_addon_manager_lifecycle(addon_id, request)
+            .await?,
+    ))
 }
 
 #[instrument(skip(app))]

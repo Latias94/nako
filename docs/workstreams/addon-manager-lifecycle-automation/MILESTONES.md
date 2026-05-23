@@ -1,6 +1,6 @@
 # Addon Manager Lifecycle Automation - Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-23
 
 ## M0 - Boundary Frozen
@@ -8,7 +8,10 @@ Last updated: 2026-05-23
 Exit criteria:
 
 - the manager problem is distinct from Addon runtime/distribution;
-- marketplace, package signing, and provider breadth are explicit non-goals;
+- registry, permissions, token rotation, Addon Health Check, and Addon Install
+  Guide behavior are the first slice;
+- process/container supervision, marketplace, and package signing are explicit
+  non-goals or follow-ons;
 - the first executable task is identified.
 
 ## M1 - Source Shape Frozen
@@ -23,9 +26,12 @@ Exit criteria:
 
 Exit criteria:
 
-- one addon can be managed through a Nako-owned lifecycle slot;
-- process state and logs are supervised through Nako;
-- update/remove behavior is explicit and testable.
+- one addon can be represented through a Nako-owned lifecycle slot;
+- health and install-guide behavior are surfaced through Nako;
+- operator-confirmed plan transitions are explicit and testable.
+
+Status note: AMG-030 satisfied this milestone's exit criteria; continue with
+AMG-060 for closeout or split follow-ons.
 
 ## M3 - Closeout
 
@@ -33,4 +39,9 @@ Exit criteria:
 
 - fresh gates prove the manager slice;
 - docs describe the shipped lifecycle boundary;
-- marketplace, package signing, and broader distribution are split or deferred.
+- marketplace, package signing, provider breadth, and process supervision are
+  split or deferred.
+
+Status note: AMG-060 closed the lane after fresh format, server addon, API
+compile, and official addon smoke gates passed. Remaining breadth is deferred
+to follow-on lanes.

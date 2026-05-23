@@ -87,6 +87,26 @@ function Wait-HttpJson {
     } while ($true)
 }
 
+function Invoke-NakoAdminJson {
+    param(
+        [Parameter(Mandatory = $true)][string]$Method,
+        [Parameter(Mandatory = $true)][string]$Path,
+        [object]$Body = $null
+    )
+
+    $headers = @{
+        Authorization = "Bearer $AdminToken"
+    }
+    $uri = "http://127.0.0.1:${NakoPort}$Path"
+    if ($null -eq $Body) {
+        return Invoke-RestMethod -Uri $uri -Method $Method -Headers $headers -TimeoutSec 10
+    }
+
+    $headers['Content-Type'] = 'application/json'
+    $json = $Body | ConvertTo-Json -Depth 20
+    return Invoke-RestMethod -Uri $uri -Method $Method -Headers $headers -Body $json -TimeoutSec 10
+}
+
 function Save-DockerLogs {
     param(
         [Parameter(Mandatory = $true)][string]$Container,
@@ -240,6 +260,34 @@ try {
             -Enable `
             -RunResourceCall `
             -RequireNako
+    }
+
+    Invoke-NativeStep 'Nako manager plan confirmation smoke' {
+        $addons = Invoke-NakoAdminJson -Method GET -Path '/admin/v1/addons'
+        $addon = $addons.addons |
+            Where-Object {
+                $_.manifest_id -eq $manifest.id -and
+                $_.base_url -eq "http://host.docker.internal:${SidecarPort}"
+            } |
+            Select-Object -First 1
+        if ($null -eq $addon) {
+            throw "Registered addon not found for manifest $($manifest.id)."
+        }
+
+        $plan = Invoke-NakoAdminJson -Method POST -Path "/admin/v1/addons/$($addon.id)/manager-plan" -Body @{
+            intent = 'update'
+            operator_confirmed = $true
+        }
+
+        if ($plan.intent -ne 'update') {
+            throw "Manager plan intent mismatch: expected update, got $($plan.intent)."
+        }
+        if (-not $plan.operator_confirmed) {
+            throw "Manager plan should be operator-confirmed."
+        }
+        if ($plan.addon_id -ne $addon.id) {
+            throw "Manager plan addon_id mismatch: expected $($addon.id), got $($plan.addon_id)."
+        }
     }
 
     Save-DockerLogs -Container $Container -Path (Join-Path $LogDir 'nako-container.log')

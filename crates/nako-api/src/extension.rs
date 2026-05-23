@@ -168,6 +168,33 @@ pub struct AdminAddonRegistrationResponse {
     pub addon: AdminAddonRegistrationDetail,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminAddonLifecycleIntent {
+    Install,
+    Update,
+    Remove,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonManagerPlanRequest {
+    pub intent: AdminAddonLifecycleIntent,
+    pub operator_confirmed: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonManagerPlanResponse {
+    pub addon_id: AddonId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub intent: Option<AdminAddonLifecycleIntent>,
+    pub operator_confirmed: bool,
+    pub source: AdminAddonRegistrationDetail,
+    pub health_check: AdminAddonHealthCheckResponse,
+    pub tokens: AddonTokensResponse,
+    pub grants: AddonGrantsResponse,
+    pub install_guide: AdminAddonInstallGuideResponse,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminAddonRegistrationsResponse {
     pub addons: Vec<AdminAddonRegistrationSummary>,

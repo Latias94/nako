@@ -1253,6 +1253,26 @@ health-check steps, and registration/surface verification steps:
 }
 ```
 
+`GET /admin/v1/addons/{addon_id}/manager-plan` returns the first
+manager-owned registry/plan snapshot. It combines the redaction-safe
+registration detail, current Addon Health Check, Addon Token summaries,
+accepted grants, and the install guide into one operator-facing read model.
+This surface is read-only and does not supervise container or process
+lifecycle.
+
+`POST /admin/v1/addons/{addon_id}/manager-plan` captures the first
+operator-confirmed lifecycle intent for `install`, `update`, or `remove`.
+The request must set `operator_confirmed: true`; Nako rejects unconfirmed
+requests as invalid input. The response returns the same redaction-safe plan
+surface plus the confirmed intent:
+
+```json
+{
+  "intent": "update",
+  "operator_confirmed": true
+}
+```
+
 The install guide never includes raw Addon Tokens, admin bearer tokens, resolved
 Secret Reference values, raw resource-call payloads, Source Locators, storage
 URIs, local filesystem paths, or raw network errors. Secret fields remain

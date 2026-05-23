@@ -1,6 +1,6 @@
 use crate::admin::ADMIN_API_VERSION;
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 24] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 25] = [
     ("overview", "overview"),
     ("addons", "addons"),
     ("addonDetail", "addons/:addon_id"),
@@ -9,6 +9,7 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 24] = [
     ("addonHealthCheck", "addons/:addon_id/health-check"),
     ("addonSurfaces", "addons/:addon_id/surfaces"),
     ("addonInstallGuide", "addons/:addon_id/install-guide"),
+    ("addonManagerPlan", "addons/:addon_id/manager-plan"),
     (
         "addonResourceCallDiagnostic",
         "addons/:addon_id/diagnostics/resource-call",
@@ -302,6 +303,13 @@ export interface AdminAddonRegistrationResponse {
   addon: AdminAddonRegistrationDetail;
 }
 
+export type AdminAddonLifecycleIntent = "install" | "update" | "remove";
+
+export interface AdminAddonManagerPlanRequest {
+  intent: AdminAddonLifecycleIntent;
+  operator_confirmed: boolean;
+}
+
 export interface AdminAddonRegistrationsResponse {
   addons: AdminAddonRegistrationSummary[];
 }
@@ -410,6 +418,17 @@ export interface AdminAddonInstallGuideResponse {
   health_check_steps: AdminAddonInstallGuideStep[];
   registration_verification_steps: AdminAddonInstallGuideStep[];
   lifecycle_boundary: AdminAddonInstallGuideLifecycleBoundary;
+}
+
+export interface AdminAddonManagerPlanResponse {
+  addon_id: string;
+  intent?: AdminAddonLifecycleIntent;
+  operator_confirmed: boolean;
+  source: AdminAddonRegistrationDetail;
+  health_check: AdminAddonHealthCheckResponse;
+  tokens: AddonTokensResponse;
+  grants: AddonGrantsResponse;
+  install_guide: AdminAddonInstallGuideResponse;
 }
 
 export interface AdminAddonInstallGuideSnippet {
@@ -1240,6 +1259,9 @@ mod tests {
             "AdminAddonRegistrationSummary",
             "AdminAddonRegistrationsResponse",
             "AdminAddonRegistrationResponse",
+            "AdminAddonLifecycleIntent",
+            "AdminAddonManagerPlanRequest",
+            "AdminAddonManagerPlanResponse",
             "UpdateAddonStatusRequest",
             "AdminAddonHealthCheckResponse",
             "AdminAddonSurfacesResponse",

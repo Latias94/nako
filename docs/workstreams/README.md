@@ -45,10 +45,12 @@ attention.
   Admin-only diagnostics before any Addon Manager automation, marketplace,
   package signing, process supervision, or Native Plugin ABI.
 - [addon-manager-lifecycle-automation](addon-manager-lifecycle-automation/README.md):
-  active planning lane for the next Addon Manager control plane, covering
-  lifecycle discovery, operator-confirmed install/update/remove, supervision,
-  logs, and update rollback boundaries without collapsing marketplace,
-  package-signing, or provider breadth into the first slice.
+  completed Addon Manager control-plane lane for the first manager-owned
+  registry/plan slot, covering Addon Health Check, token/grant summaries,
+  Addon Install Guide output, and operator-confirmed install/update/remove
+  intent without collapsing marketplace, package signing, provider breadth,
+  rollback/update execution, or direct process/container supervision into the
+  first slice.
 - [ai-assisted-library-ops](ai-assisted-library-ops/README.md):
   completed post-RPD mainline lane for Generated Artifact proposal/readiness,
   Admin-only redacted diagnostics, and explicit accept/reject planning for

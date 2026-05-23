@@ -15,15 +15,16 @@ use nako_api::extension::{
     AdminAddonInstallGuideLifecycleBoundary, AdminAddonInstallGuidePreviewRequest,
     AdminAddonInstallGuidePreviewResponse, AdminAddonInstallGuideResponse,
     AdminAddonInstallGuideSecretReference, AdminAddonInstallGuideSnippet,
-    AdminAddonInstallGuideStep, AdminAddonRegistrationDetail, AdminAddonRegistrationResponse,
-    AdminAddonRegistrationSummary, AdminAddonRegistrationsResponse,
-    AdminAddonResourceCallDiagnosticRequest, AdminAddonResourceCallDiagnosticResponse,
-    AdminAddonResourceCallDiagnosticStatus, AdminAddonRoutingPlansResponse,
-    AdminAddonRuntimeReadinessCheck, AdminAddonRuntimeReadinessCheckName,
-    AdminAddonRuntimeReadinessDiagnostics, AdminAddonRuntimeReadinessReason,
-    AdminAddonRuntimeReadinessResponse, AdminAddonSecretReferenceFieldSurface,
-    AdminAddonSurfacesResponse, AdminAddonTaskSurface, IssueAddonTokenRequest,
-    RegisterAddonRequest, ReplaceAddonGrantsRequest, UpdateAddonStatusRequest,
+    AdminAddonInstallGuideStep, AdminAddonManagerPlanRequest, AdminAddonManagerPlanResponse,
+    AdminAddonRegistrationDetail, AdminAddonRegistrationResponse, AdminAddonRegistrationSummary,
+    AdminAddonRegistrationsResponse, AdminAddonResourceCallDiagnosticRequest,
+    AdminAddonResourceCallDiagnosticResponse, AdminAddonResourceCallDiagnosticStatus,
+    AdminAddonRoutingPlansResponse, AdminAddonRuntimeReadinessCheck,
+    AdminAddonRuntimeReadinessCheckName, AdminAddonRuntimeReadinessDiagnostics,
+    AdminAddonRuntimeReadinessReason, AdminAddonRuntimeReadinessResponse,
+    AdminAddonSecretReferenceFieldSurface, AdminAddonSurfacesResponse, AdminAddonTaskSurface,
+    IssueAddonTokenRequest, RegisterAddonRequest, ReplaceAddonGrantsRequest,
+    UpdateAddonStatusRequest,
 };
 use nako_core::{
     AddonId, AddonIssuedToken, AddonManifestFingerprint, AddonRegistrationRecord, AddonRepository,
@@ -190,6 +191,57 @@ impl AddonAppService {
             .collect();
 
         Ok(AdminAddonRegistrationsResponse { addons })
+    }
+
+    pub async fn get_addon_manager_plan(
+        &self,
+        addon_id: AddonId,
+    ) -> Result<AdminAddonManagerPlanResponse> {
+        self.addon_manager_plan_snapshot(addon_id).await
+    }
+
+    pub async fn plan_addon_manager_lifecycle(
+        &self,
+        addon_id: AddonId,
+        request: AdminAddonManagerPlanRequest,
+    ) -> Result<AdminAddonManagerPlanResponse> {
+        if !request.operator_confirmed {
+            return Err(NakoError::InvalidInput {
+                message: "operator confirmation is required for addon manager lifecycle plans"
+                    .to_owned(),
+            });
+        }
+
+        let snapshot = self.addon_manager_plan_snapshot(addon_id).await?;
+
+        Ok(AdminAddonManagerPlanResponse {
+            intent: Some(request.intent),
+            operator_confirmed: true,
+            ..snapshot
+        })
+    }
+
+    async fn addon_manager_plan_snapshot(
+        &self,
+        addon_id: AddonId,
+    ) -> Result<AdminAddonManagerPlanResponse> {
+        let addon = self.get_addon_registration_or_not_found(addon_id).await?;
+        let source = self.admin_addon_detail(&addon)?;
+        let health_check = self.check_addon_health(addon_id).await?;
+        let tokens = self.list_addon_tokens(addon_id).await?;
+        let grants = self.list_addon_grants(addon_id).await?;
+        let install_guide = self.get_addon_install_guide(addon_id).await?;
+
+        Ok(AdminAddonManagerPlanResponse {
+            addon_id,
+            intent: None,
+            operator_confirmed: false,
+            source,
+            health_check,
+            tokens,
+            grants,
+            install_guide,
+        })
     }
 
     pub fn preview_addon_install_guide(

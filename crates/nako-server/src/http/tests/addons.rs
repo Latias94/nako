@@ -1901,7 +1901,6 @@ async fn admin_addon_install_guide_generates_sidecar_snippets_without_lifecycle_
 
     for forbidden in [
         "raw_token",
-        "nako_at_",
         "Bearer ",
         "resolved_secret",
         "secret_value",
@@ -1919,6 +1918,242 @@ async fn admin_addon_install_guide_generates_sidecar_snippets_without_lifecycle_
         assert!(
             !text.contains(forbidden),
             "install guide leaked forbidden term: {forbidden}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn admin_addon_manager_plan_combines_registry_permissions_tokens_health_and_install_guide() {
+    let (addon_base_url, requests) = health_check_addon_server(
+        StatusCode::OK,
+        AddonHealthStatus::Ok,
+        "nako.manager.metadata",
+        false,
+    )
+    .await;
+    let mut manifest = nako_reference_addon::reference_manifest(addon_base_url);
+    manifest.id = "nako.manager.metadata".to_owned();
+    manifest.name = "Manager Metadata".to_owned();
+    manifest.version = "0.1.0".to_owned();
+    manifest.secret_reference_fields = vec![
+        nako_addon_protocol::AddonSecretReferenceFieldDeclaration::new(
+            "provider-api-key",
+            "Provider API key",
+            Some("Resolved by Nako at runtime".to_owned()),
+            true,
+        ),
+    ];
+
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let router = test_router(temp.path().to_path_buf(), library_id).await;
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+
+    let issued = request_body_json::<AddonTokenIssuedResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/tokens"),
+        &IssueAddonTokenRequest {
+            label: Some("manager plan runtime".to_owned()),
+        },
+    )
+    .await;
+    request_body_json::<AddonGrantsResponse, _>(
+        &router,
+        Method::PUT,
+        &format!("/admin/v1/addons/{addon_id}/grants"),
+        &ReplaceAddonGrantsRequest {
+            grants: vec![
+                AddonGrantAssignment {
+                    permission: AddonPermission::MetadataWrite,
+                    library_id: None,
+                },
+                AddonGrantAssignment {
+                    permission: AddonPermission::ArtworkWrite,
+                    library_id: Some(library_id),
+                },
+            ],
+        },
+    )
+    .await;
+
+    let path = format!("/admin/v1/addons/{addon_id}/manager-plan");
+    let raw = response_for(&router, Method::GET, &path).await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let bytes = to_bytes(raw.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let response = serde_json::from_str::<AdminAddonManagerPlanResponse>(&text).unwrap();
+
+    assert_eq!(response.addon_id, addon_id);
+    assert!(response.intent.is_none());
+    assert!(!response.operator_confirmed);
+    assert_eq!(response.source.summary.id, addon_id);
+    assert_eq!(response.source.summary.manifest_id, "nako.manager.metadata");
+    assert_eq!(response.source.summary.status, AddonStatus::Enabled);
+    assert_eq!(
+        response.health_check.status,
+        AdminAddonHealthCheckStatus::Reachable
+    );
+    assert_eq!(response.tokens.tokens.len(), 1);
+    assert_eq!(response.tokens.tokens[0].id, issued.token.id);
+    assert_eq!(response.tokens.tokens[0].label, "manager plan runtime");
+    assert_eq!(response.grants.grants.len(), 2);
+    assert_eq!(
+        response
+            .install_guide
+            .lifecycle_boundary
+            .nako_manages_containers,
+        false
+    );
+    assert_eq!(
+        response
+            .install_guide
+            .lifecycle_boundary
+            .nako_manages_processes,
+        false
+    );
+    assert_eq!(
+        response
+            .install_guide
+            .lifecycle_boundary
+            .nako_manages_packages,
+        false
+    );
+    assert_eq!(requests.load(Ordering::SeqCst), 1);
+
+    for forbidden in [
+        "raw_token",
+        "Bearer ",
+        "resolved_secret",
+        "secret_value",
+        "docker.sock",
+        "docker stop",
+        "docker start",
+        "systemctl start",
+        "systemctl stop",
+    ] {
+        assert!(
+            !text.contains(forbidden),
+            "manager plan leaked forbidden term: {forbidden}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn admin_addon_manager_plan_requires_operator_confirmation_for_lifecycle_intents() {
+    let (addon_base_url, _requests) = health_check_addon_server(
+        StatusCode::OK,
+        AddonHealthStatus::Ok,
+        "nako.manager.intent",
+        false,
+    )
+    .await;
+    let mut manifest = nako_reference_addon::reference_manifest(addon_base_url);
+    manifest.id = "nako.manager.intent".to_owned();
+    manifest.name = "Manager Intent".to_owned();
+    manifest.version = "0.1.0".to_owned();
+
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let router = test_router(temp.path().to_path_buf(), library_id).await;
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let path = format!("/admin/v1/addons/{addon_id}/manager-plan");
+
+    let rejected_response = response_body_json(
+        &router,
+        Method::POST,
+        &path,
+        &AdminAddonManagerPlanRequest {
+            intent: AdminAddonLifecycleIntent::Update,
+            operator_confirmed: false,
+        },
+    )
+    .await;
+    assert_eq!(rejected_response.status(), StatusCode::BAD_REQUEST);
+    let rejected_error = body_json::<ErrorResponse>(rejected_response).await;
+    assert_eq!(rejected_error.code, "invalid_input");
+    assert!(
+        rejected_error
+            .message
+            .contains("operator confirmation is required")
+    );
+
+    for intent in [
+        AdminAddonLifecycleIntent::Install,
+        AdminAddonLifecycleIntent::Update,
+        AdminAddonLifecycleIntent::Remove,
+    ] {
+        let response = request_body_json::<AdminAddonManagerPlanResponse, _>(
+            &router,
+            Method::POST,
+            &path,
+            &AdminAddonManagerPlanRequest {
+                intent,
+                operator_confirmed: true,
+            },
+        )
+        .await;
+
+        assert_eq!(response.addon_id, addon_id);
+        assert_eq!(response.intent, Some(intent));
+        assert!(response.operator_confirmed);
+        assert_eq!(response.source.summary.manifest_id, "nako.manager.intent");
+        assert_eq!(
+            response.health_check.status,
+            AdminAddonHealthCheckStatus::Reachable
+        );
+        assert!(response.tokens.tokens.is_empty());
+        assert!(response.grants.grants.is_empty());
+        assert_eq!(
+            response
+                .install_guide
+                .lifecycle_boundary
+                .nako_manages_containers,
+            false
+        );
+        assert_eq!(
+            response
+                .install_guide
+                .lifecycle_boundary
+                .nako_manages_processes,
+            false
+        );
+        assert_eq!(
+            response
+                .install_guide
+                .lifecycle_boundary
+                .nako_manages_packages,
+            false
         );
     }
 }

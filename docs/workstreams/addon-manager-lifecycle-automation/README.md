@@ -1,14 +1,16 @@
 # Addon Manager Lifecycle Automation
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-23
 
-This workstream plans the next Addon Manager control plane after the completed
-manual-sidecar alpha loop. Nako already supports published Addon Protocol
-crates, hosted health, resource-call diagnostics, and a repeatable smoke path
-for the first official companion addon. What is still missing is a built-in
-lifecycle manager that can discover, install, update, remove, supervise, and
-log addon sidecars as a Nako-owned operator surface.
+This workstream delivered the first Addon Manager control-plane slice after the
+completed manual-sidecar alpha loop. Nako now has a manager-owned registry/plan
+slot that combines addon registration detail, Addon Health Check, Addon Token
+summaries, accepted grants, Addon Install Guide output, and explicit
+operator-confirmed install/update/remove lifecycle intent.
+
+Marketplace hosting, package signing, provider breadth, rollback policy, and
+direct container or process supervision are split follow-ons.
 
 Authoritative docs:
 

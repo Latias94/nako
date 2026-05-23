@@ -245,6 +245,18 @@ Addon authors should treat the generated snippets as a compatibility aid:
 - keep hosted pages external and untrusted; do not expect Nako to pass admin
   bearer tokens or Addon Tokens into an install guide or hosted page.
 
+The first manager-owned snapshot surface is
+`GET /admin/v1/addons/{addon_id}/manager-plan`. It combines the redaction-safe
+registration detail, current Addon Health Check, Addon Token summaries,
+accepted grants, and the install guide into one operator-facing read model.
+It still does not supervise the container or process lifecycle.
+
+`POST /admin/v1/addons/{addon_id}/manager-plan` accepts an explicit lifecycle
+intent of `install`, `update`, or `remove`. The request must include
+`operator_confirmed: true`; otherwise Nako rejects it as invalid input. This
+keeps the first manager-owned plan slot explicit without turning the guide or
+the protocol into a hidden process supervisor.
+
 The install guide intentionally does not include resolved Secret Reference
 values, raw Addon Tokens, admin bearer tokens, Source Locators, storage paths,
 or process-control instructions such as start/stop/restart. If Nako later grows

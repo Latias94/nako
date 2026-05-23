@@ -2,10 +2,10 @@
   "schema_version": 1,
   "slug": "addon-manager-lifecycle-automation",
   "title": "Addon Manager Lifecycle Automation",
-  "status": "active",
+  "status": "completed",
   "updated": "2026-05-23",
-  "scope_kind": "planning",
-  "problem": "Nako proves the manual addon loop, but it still lacks a built-in Addon Manager lifecycle plane for discovery, operator-confirmed install/update/remove, process supervision, logs, and rollback boundaries.",
+  "scope_kind": "execution",
+  "problem": "Nako proved the manual addon loop but lacked a built-in Addon Manager registry/plan slot. This lane delivered the first redaction-safe manager plan surface for addon registration detail, health, tokens, grants, install guide output, and operator-confirmed install/update/remove intent while splitting marketplace hosting, package signing, provider breadth, rollback execution, and direct process/container supervision to follow-ons.",
   "authoritative_docs": [
     {
       "role": "readme",
@@ -43,6 +43,26 @@
       "date": "2026-05-23",
       "task": "AMG-010",
       "summary": "Lane opened after the official addon alpha loop was proven with published Nako surfaces, public Addon Protocol crates, and the crates.io-distributed metadata scraper smoke path."
+    },
+    {
+      "date": "2026-05-23",
+      "task": "AMG-010",
+      "summary": "First manager slice narrowed to addon source discovery, permissions, token rotation, Addon Health Check visibility, and Addon Install Guide behavior; direct process/container supervision split to follow-on."
+    },
+    {
+      "date": "2026-05-23",
+      "task": "AMG-020",
+      "summary": "Added the first manager-owned registry/plan snapshot surface as GET /admin/v1/addons/{addon_id}/manager-plan, combining registration, health, tokens, grants, and install guide without process/container supervision."
+    },
+    {
+      "date": "2026-05-23",
+      "task": "AMG-030",
+      "summary": "Added operator-confirmed POST /admin/v1/addons/{addon_id}/manager-plan lifecycle intents for install, update, and remove; validated with focused addon tests and the repeatable official-addon-e2e smoke against a current-source image."
+    },
+    {
+      "date": "2026-05-23",
+      "task": "AMG-060",
+      "summary": "Closed the lane after fresh cargo fmt, server addon nextest, nako-api test compile, and official addon e2e smoke gates passed; split marketplace, package signing, provider breadth, rollback/update execution, and process/container supervision into follow-ons."
     }
   ],
   "adr_refs": [
@@ -50,7 +70,7 @@
     "docs/adr/0033-version-addon-protocol-independently-from-addon-and-crate-releases.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "Continue while the target remains the first manager-owned lifecycle plane. Split marketplace, package signing, and provider breadth into follow-ons."
+    "default_action": "close",
+    "notes": "The first manager-owned registry/plan slot is complete. Open separate follow-on lanes for marketplace/source catalogs, package signing, provider breadth, rollback/update execution, or direct process/container supervision."
   }
 }
