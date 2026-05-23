@@ -53,8 +53,10 @@ compatibility, and Rust crate package versions are separate contracts.
 
 - Addons are externally run Addon Sidecars. Nako does not yet install, update,
   start, stop, remove, log, or supervise addon processes.
-- `nako-official-addons` is an experimental companion repository for official
-  Addon Sidecar experiments: <https://github.com/Latias94/nako-official-addons>
+- `nako-official-addons` is the companion repository for official Addon
+  Sidecar experiments. The first alpha companion addon is
+  `nako-metadata-scraper@0.1.0-alpha.1`:
+  <https://github.com/Latias94/nako-official-addons>
 - Network tunnel support is policy/readiness oriented. Nako does not currently
   run a built-in NAT traversal or relay service.
 - AI-assisted workflows are intentionally not part of the `alpha.1` release
@@ -71,6 +73,8 @@ The first crates.io publishing lane is small on purpose:
 - `nako-addon-client`: optional Rust HTTP caller helper for Addon Sidecars.
 
 Server implementation crates are not published as library APIs during alpha.
+The first official companion addon, `nako-metadata-scraper`, uses
+`nako-addon-protocol = 0.1.0-alpha.1` from crates.io.
 
 ## Quick start
 

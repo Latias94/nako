@@ -26,6 +26,8 @@ All notable changes to Nako are recorded here.
   reference addon support.
 - Public `nako` Rust SDK facade crate for Addon Protocol and Addon Client
   integrations.
+- Official companion addon alignment with
+  `nako-metadata-scraper@0.1.0-alpha.1` in `nako-official-addons`.
 - Admin API and Admin Web Console surfaces for operations, diagnostics, addon
   onboarding, credential/grant management, and runtime status.
 - Deployment examples for SQLite and PostgreSQL, Docker Compose examples,
