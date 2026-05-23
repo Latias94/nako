@@ -1,9 +1,9 @@
 use nako_core::{
     CanonicalMetadata, LibraryId, LibraryItemState, LocalInferenceEvidence,
-    LocalInferenceEvidenceId, MediaItem, MediaItemId, MediaKind, MediaSource, MediaSourceId,
-    ScanSnapshotId, SourceState,
+    LocalInferenceEvidenceId, LocalInferenceEvidenceSource, MediaItem, MediaItemId, MediaKind,
+    MediaSource, MediaSourceId, ScanSnapshotId, SourceState,
 };
-use nako_naming::{DefaultNameParser, NameParser, ParsedName};
+use nako_naming::{DefaultNameParser, NameEvidenceSource, NameParser, ParsedMediaKind, ParsedName};
 
 use super::scan::DiscoveredMediaSource;
 
@@ -120,25 +120,26 @@ where
         primary_item_id: MediaItemId,
         parsed_name: &ParsedName,
     ) -> ProvisionalHierarchyPlan {
-        let required_ancestors =
-            if parsed_name.kind_hint == MediaKind::Episode && parsed_name.season_number.is_some() {
-                vec![
-                    ProvisionalAncestorPlan {
-                        role: ProvisionalAncestorRole::Series,
-                        kind: MediaKind::Series,
-                        title: parsed_name.title.clone(),
-                        release_year: None,
-                    },
-                    ProvisionalAncestorPlan {
-                        role: ProvisionalAncestorRole::Season,
-                        kind: MediaKind::Season,
-                        title: format!("Season {}", parsed_name.season_number.unwrap()),
-                        release_year: None,
-                    },
-                ]
-            } else {
-                Vec::new()
-            };
+        let required_ancestors = if parsed_name.kind_hint == ParsedMediaKind::Episode
+            && parsed_name.season_number.is_some()
+        {
+            vec![
+                ProvisionalAncestorPlan {
+                    role: ProvisionalAncestorRole::Series,
+                    kind: MediaKind::Series,
+                    title: parsed_name.title.clone(),
+                    release_year: None,
+                },
+                ProvisionalAncestorPlan {
+                    role: ProvisionalAncestorRole::Season,
+                    kind: MediaKind::Season,
+                    title: format!("Season {}", parsed_name.season_number.unwrap()),
+                    release_year: None,
+                },
+            ]
+        } else {
+            Vec::new()
+        };
 
         ProvisionalHierarchyPlan {
             primary_item_id,
@@ -153,18 +154,22 @@ where
         parsed_name: &ParsedName,
         _hierarchy: &ProvisionalHierarchyPlan,
     ) -> MediaItem {
-        let (kind, title) =
-            if parsed_name.kind_hint == MediaKind::Episode && parsed_name.season_number.is_some() {
-                (
-                    MediaKind::Episode,
-                    parsed_name
-                        .episode_number
-                        .map(|episode| format!("Episode {episode}"))
-                        .unwrap_or_else(|| parsed_name.title.clone()),
-                )
-            } else {
-                (parsed_name.kind_hint, parsed_name.title.clone())
-            };
+        let (kind, title) = if parsed_name.kind_hint == ParsedMediaKind::Episode
+            && parsed_name.season_number.is_some()
+        {
+            (
+                MediaKind::Episode,
+                parsed_name
+                    .episode_number
+                    .map(|episode| format!("Episode {episode}"))
+                    .unwrap_or_else(|| parsed_name.title.clone()),
+            )
+        } else {
+            (
+                media_kind_from_parsed(parsed_name.kind_hint),
+                parsed_name.title.clone(),
+            )
+        };
 
         MediaItem {
             id,
@@ -261,15 +266,38 @@ fn local_inference_evidence_from_parsed(
     LocalInferenceEvidence {
         id: LocalInferenceEvidenceId::new(),
         source_id,
-        inferred_kind: parsed_name.kind_hint,
+        inferred_kind: media_kind_from_parsed(parsed_name.kind_hint),
         inferred_title: Some(parsed_name.title.clone()),
         inferred_year: parsed_name.year.map(i32::from),
         inferred_season: parsed_name.season_number.map(u32::from),
         inferred_episode: parsed_name.episode_number.map(u32::from),
         confidence_milli: Some(parsed_name.confidence_milli),
-        evidence_source: parsed_name.evidence_source.clone(),
+        evidence_source: evidence_source_from_name(parsed_name.evidence_source.clone()),
         evidence_value: parsed_name.evidence_value.clone(),
         inference_version: parsed_name.parser_version.clone(),
+    }
+}
+
+fn media_kind_from_parsed(kind: ParsedMediaKind) -> MediaKind {
+    match kind {
+        ParsedMediaKind::Movie => MediaKind::Movie,
+        ParsedMediaKind::Series => MediaKind::Series,
+        ParsedMediaKind::Season => MediaKind::Season,
+        ParsedMediaKind::Episode => MediaKind::Episode,
+        ParsedMediaKind::Extra => MediaKind::Extra,
+        ParsedMediaKind::Collection => MediaKind::Collection,
+        ParsedMediaKind::Unknown => MediaKind::Unknown,
+    }
+}
+
+fn evidence_source_from_name(source: NameEvidenceSource) -> LocalInferenceEvidenceSource {
+    match source {
+        NameEvidenceSource::Path => LocalInferenceEvidenceSource::Path,
+        NameEvidenceSource::FileName => LocalInferenceEvidenceSource::FileName,
+        NameEvidenceSource::Directory => LocalInferenceEvidenceSource::Directory,
+        NameEvidenceSource::NearbyFile => LocalInferenceEvidenceSource::NearbyFile,
+        NameEvidenceSource::MediaProbe => LocalInferenceEvidenceSource::MediaProbe,
+        NameEvidenceSource::Other(value) => LocalInferenceEvidenceSource::Other(value),
     }
 }
 
@@ -342,6 +370,34 @@ mod tests {
         assert_eq!(plan.evidence.confidence_milli, Some(350));
     }
 
+    #[test]
+    fn local_inference_engine_maps_name_parser_output_at_library_boundary() {
+        let library_id = LibraryId::new();
+        let source_id = MediaSourceId::new();
+        let item_id = MediaItemId::new();
+        let scan_id = ScanSnapshotId::new();
+        let discovered = discovered_media_source("local:///Hints/custom.sidecar");
+        let engine = LocalInferenceEngine::new(FixtureNameParser);
+
+        let plan = engine.plan_source(LocalInferenceRequest {
+            library_id,
+            source_id,
+            item_id,
+            scan_id,
+            discovered: &discovered,
+        });
+
+        assert_eq!(plan.media_item.kind, MediaKind::Movie);
+        assert_eq!(plan.media_item.metadata.title, "Mapped Movie");
+        assert_eq!(plan.evidence.inferred_kind, MediaKind::Movie);
+        assert_eq!(
+            plan.evidence.evidence_source,
+            LocalInferenceEvidenceSource::Other("fixture-parser".to_owned())
+        );
+        assert_eq!(plan.evidence.evidence_value, "fixture-value");
+        assert_eq!(plan.evidence.inference_version, "fixture:v1");
+    }
+
     fn discovered_media_source(locator: &str) -> DiscoveredMediaSource {
         let uri = StorageUri::parse(locator).unwrap();
         let file_name = uri
@@ -359,6 +415,24 @@ mod tests {
             etag: None,
             fingerprint: None,
             stale: false,
+        }
+    }
+
+    struct FixtureNameParser;
+
+    impl NameParser for FixtureNameParser {
+        fn parse_path(&self, _path: &str) -> ParsedName {
+            ParsedName {
+                kind_hint: ParsedMediaKind::Movie,
+                title: "Mapped Movie".to_owned(),
+                year: Some(2026),
+                season_number: None,
+                episode_number: None,
+                confidence_milli: 640,
+                evidence_source: NameEvidenceSource::Other("fixture-parser".to_owned()),
+                evidence_value: "fixture-value".to_owned(),
+                parser_version: "fixture:v1".to_owned(),
+            }
         }
     }
 }

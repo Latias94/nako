@@ -1,17 +1,37 @@
-use nako_core::{LocalInferenceEvidenceSource, MediaKind};
 use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_PARSER_VERSION: &str = "nako-naming:default:v1";
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum ParsedMediaKind {
+    Movie,
+    Series,
+    Season,
+    Episode,
+    Extra,
+    Collection,
+    Unknown,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum NameEvidenceSource {
+    Path,
+    FileName,
+    Directory,
+    NearbyFile,
+    MediaProbe,
+    Other(String),
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ParsedName {
-    pub kind_hint: MediaKind,
+    pub kind_hint: ParsedMediaKind,
     pub title: String,
     pub year: Option<u16>,
     pub season_number: Option<u16>,
     pub episode_number: Option<u16>,
     pub confidence_milli: u16,
-    pub evidence_source: LocalInferenceEvidenceSource,
+    pub evidence_source: NameEvidenceSource,
     pub evidence_value: String,
     pub parser_version: String,
 }
@@ -47,13 +67,13 @@ fn parse_episode_name(cleaned: &str, evidence_value: &str) -> Option<ParsedName>
     for (index, token) in tokens.iter().enumerate() {
         if let Some((season_number, episode_number)) = parse_sxe_token(token) {
             return Some(ParsedName {
-                kind_hint: MediaKind::Episode,
+                kind_hint: ParsedMediaKind::Episode,
                 title: title_before_token(cleaned, token, index),
                 year: year_from_tokens(&tokens[..index]),
                 season_number: Some(season_number),
                 episode_number: Some(episode_number),
                 confidence_milli: 900,
-                evidence_source: LocalInferenceEvidenceSource::FileName,
+                evidence_source: NameEvidenceSource::FileName,
                 evidence_value: evidence_value.to_owned(),
                 parser_version: DEFAULT_PARSER_VERSION.to_owned(),
             });
@@ -61,13 +81,13 @@ fn parse_episode_name(cleaned: &str, evidence_value: &str) -> Option<ParsedName>
 
         if let Some((season_number, episode_number)) = parse_1x02_token(token) {
             return Some(ParsedName {
-                kind_hint: MediaKind::Episode,
+                kind_hint: ParsedMediaKind::Episode,
                 title: title_before_token(cleaned, token, index),
                 year: year_from_tokens(&tokens[..index]),
                 season_number: Some(season_number),
                 episode_number: Some(episode_number),
                 confidence_milli: 880,
-                evidence_source: LocalInferenceEvidenceSource::FileName,
+                evidence_source: NameEvidenceSource::FileName,
                 evidence_value: evidence_value.to_owned(),
                 parser_version: DEFAULT_PARSER_VERSION.to_owned(),
             });
@@ -86,9 +106,9 @@ fn parse_movie_or_unknown_name(cleaned: &str, evidence_value: &str) -> ParsedNam
         cleaned.trim().to_owned()
     };
     let kind_hint = if year.is_some() {
-        MediaKind::Movie
+        ParsedMediaKind::Movie
     } else {
-        MediaKind::Unknown
+        ParsedMediaKind::Unknown
     };
     let confidence_milli = if year.is_some() { 760 } else { 350 };
 
@@ -99,7 +119,7 @@ fn parse_movie_or_unknown_name(cleaned: &str, evidence_value: &str) -> ParsedNam
         season_number: None,
         episode_number: None,
         confidence_milli,
-        evidence_source: LocalInferenceEvidenceSource::FileName,
+        evidence_source: NameEvidenceSource::FileName,
         evidence_value: evidence_value.to_owned(),
         parser_version: DEFAULT_PARSER_VERSION.to_owned(),
     }
@@ -210,7 +230,7 @@ mod tests {
     fn parses_movie_title_and_year() {
         let parsed = parse_path("Movies/The Matrix (1999).mkv");
 
-        assert_eq!(parsed.kind_hint, MediaKind::Movie);
+        assert_eq!(parsed.kind_hint, ParsedMediaKind::Movie);
         assert_eq!(parsed.title, "The Matrix");
         assert_eq!(parsed.year, Some(1999));
     }
@@ -219,15 +239,12 @@ mod tests {
     fn parses_episode_sxe_pattern() {
         let parsed = parse_path("Shows/Firefly/Season 01/Firefly.S01E02.The Train Job.mkv");
 
-        assert_eq!(parsed.kind_hint, MediaKind::Episode);
+        assert_eq!(parsed.kind_hint, ParsedMediaKind::Episode);
         assert_eq!(parsed.title, "Firefly");
         assert_eq!(parsed.season_number, Some(1));
         assert_eq!(parsed.episode_number, Some(2));
         assert_eq!(parsed.confidence_milli, 900);
-        assert_eq!(
-            parsed.evidence_source,
-            LocalInferenceEvidenceSource::FileName
-        );
+        assert_eq!(parsed.evidence_source, NameEvidenceSource::FileName);
         assert_eq!(parsed.evidence_value, "Firefly.S01E02.The Train Job.mkv");
         assert_eq!(parsed.parser_version, DEFAULT_PARSER_VERSION);
     }
@@ -236,7 +253,7 @@ mod tests {
     fn parses_episode_x_pattern() {
         let parsed = parse_path("Shows/Example/Example - 2x03 - Name.mp4");
 
-        assert_eq!(parsed.kind_hint, MediaKind::Episode);
+        assert_eq!(parsed.kind_hint, ParsedMediaKind::Episode);
         assert_eq!(parsed.title, "Example");
         assert_eq!(parsed.season_number, Some(2));
         assert_eq!(parsed.episode_number, Some(3));
@@ -254,7 +271,7 @@ mod tests {
     fn handles_local_uri_path_parts_with_leading_slash() {
         let parsed = parse_path("/Sample Movie (2024).mp4");
 
-        assert_eq!(parsed.kind_hint, MediaKind::Movie);
+        assert_eq!(parsed.kind_hint, ParsedMediaKind::Movie);
         assert_eq!(parsed.title, "Sample Movie");
         assert_eq!(parsed.year, Some(2024));
         assert_eq!(parsed.confidence_milli, 760);
@@ -264,14 +281,11 @@ mod tests {
     fn weak_file_name_evidence_returns_unknown_item() {
         let parsed = parse_path("Uploads/random.clip.mkv");
 
-        assert_eq!(parsed.kind_hint, MediaKind::Unknown);
+        assert_eq!(parsed.kind_hint, ParsedMediaKind::Unknown);
         assert_eq!(parsed.title, "random clip");
         assert_eq!(parsed.year, None);
         assert_eq!(parsed.confidence_milli, 350);
-        assert_eq!(
-            parsed.evidence_source,
-            LocalInferenceEvidenceSource::FileName
-        );
+        assert_eq!(parsed.evidence_source, NameEvidenceSource::FileName);
         assert_eq!(parsed.evidence_value, "random.clip.mkv");
         assert_eq!(parsed.parser_version, DEFAULT_PARSER_VERSION);
     }

@@ -10,4 +10,3 @@ workspace = true
 
 [dependencies]
 serde.workspace = true
-nako-core = { path = "../nako-core" }
