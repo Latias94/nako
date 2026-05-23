@@ -1,29 +1,23 @@
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{path::PathBuf, sync::Arc};
 
 use nako_api::public_client::{PlaybackDecisionResponse, playback_decision_response_to_dto};
 use nako_core::{
-    DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, MediaProbeRepository,
-    MediaRepository, MediaSource, MediaSourceId, NakoError, NewOutboxEvent, Result,
-    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter,
-    TranscodeSessionRecord, TranscodeSessionRepository, TranscodeSessionState,
+    MediaProbeRepository, MediaRepository, MediaSource, MediaSourceId, NakoError, Result,
+    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter, TranscodeSessionRecord,
+    TranscodeSessionRepository, TranscodeSessionState,
 };
 use nako_db::NakoDatabase;
 use nako_streaming::{
     ClientPlaybackCapabilities, DirectPlayRangeRequest, DirectPlayResponsePlan, PlaybackDecision,
-    PlaybackExecutionPlan, PlaybackProfile, PlaybackSelectionContext, PlaybackSelectionRequest,
-    PlaybackStorageContext, select_playback_source,
+    PlaybackProfile, PlaybackSelectionContext, PlaybackSelectionRequest, select_playback_source,
 };
 use nako_transcode::{
     HardwareAccelerationPolicy, HardwareAccelerationReport, HardwareAccelerationSelection,
-    OutputContainer, RemuxContainer, TranscodePlan, TranscodeRequestIdentity,
-    TranscodeResourceBudget, TranscodeSourceIdentity,
+    RemuxContainer, TranscodeRequestIdentity, TranscodeResourceBudget, TranscodeSourceIdentity,
 };
-use nako_vfs::{StorageBackend, StorageCapabilities, StorageUri};
+use nako_vfs::StorageUri;
 use serde::Serialize;
-use tracing::{error, warn};
+use tracing::warn;
 
 use crate::config::NakoServerConfig;
 
@@ -31,21 +25,33 @@ use super::{runtime::RuntimeSupervisor, storage::StorageBackendRegistry};
 
 mod control;
 mod direct;
+mod events;
+mod failure;
 mod hls;
 mod input;
+mod paths;
+mod playlist;
 mod remux;
+mod selection;
+mod staging_policy;
 
 use control::PlaybackSessionCancellationRegistry;
 pub(crate) use direct::{
     DirectPlaySourceBody, DirectPlaySourcePlan, DirectPlayStreamBody, plan_direct_play_with_backend,
 };
 use direct::{plan_direct_play_response_with_backend, should_budget_remote_stream};
+use events::record_playback_session_finished_event;
+use failure::{map_hls_runner_error, map_remux_runner_error, persist_session_failure};
 use hls::HlsAppService;
 use input::FfmpegInputService;
 #[cfg(test)]
 pub(crate) use input::source_path_for_ffmpeg_with_backend;
+use paths::{ensure_remux_output_parent, path_exists};
+use playlist::{rewrite_hls_playlist, validate_hls_segment_name};
 use remux::RemuxAppService;
 pub(crate) use remux::RemuxRequestKey;
+use selection::{hls_transcode_plan, playback_selection_context, remux_output_container};
+pub(crate) use staging_policy::{HlsOutputLayout, HlsStagingPolicy, RemuxStagingPolicy};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RemuxSourceRequest {
@@ -145,119 +151,6 @@ pub(crate) struct PlaybackSupportEvidenceContext {
 pub(crate) struct PlaybackSupportEvidenceRequest {
     pub session_id: Option<TranscodeSessionId>,
     pub source_id: Option<MediaSourceId>,
-}
-
-#[derive(Clone, Debug)]
-pub struct RemuxStagingPolicy {
-    root: PathBuf,
-}
-
-impl RemuxStagingPolicy {
-    pub fn new(root: impl Into<PathBuf>) -> Result<Self> {
-        let root = root.into();
-
-        if root.as_os_str().is_empty() {
-            return Err(NakoError::InvalidInput {
-                message: "remux staging root cannot be empty".to_owned(),
-            });
-        }
-
-        if root
-            .components()
-            .any(|component| matches!(component, std::path::Component::ParentDir))
-        {
-            return Err(NakoError::InvalidInput {
-                message: "remux staging root must not contain relative path components".to_owned(),
-            });
-        }
-
-        Ok(Self { root })
-    }
-
-    pub fn output_path(
-        &self,
-        source_id: MediaSourceId,
-        request_identity: &TranscodeRequestIdentity,
-        container: RemuxContainer,
-    ) -> Result<PathBuf> {
-        let output = self
-            .root
-            .join(source_id.to_string())
-            .join(request_identity.storage_slug())
-            .join(format!("stream.{}", container.file_extension()));
-
-        if !output.starts_with(&self.root) {
-            return Err(NakoError::storage_security_violation(
-                self.root.display().to_string(),
-                "remux staging output escaped the staging root",
-            ));
-        }
-
-        Ok(output)
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct HlsStagingPolicy {
-    root: PathBuf,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct HlsOutputLayout {
-    pub output_dir: PathBuf,
-    pub playlist_path: PathBuf,
-    pub segment_pattern: PathBuf,
-}
-
-impl HlsStagingPolicy {
-    pub fn new(root: impl Into<PathBuf>) -> Result<Self> {
-        let root = root.into();
-
-        if root.as_os_str().is_empty() {
-            return Err(NakoError::InvalidInput {
-                message: "hls staging root cannot be empty".to_owned(),
-            });
-        }
-
-        if root
-            .components()
-            .any(|component| matches!(component, std::path::Component::ParentDir))
-        {
-            return Err(NakoError::InvalidInput {
-                message: "hls staging root must not contain relative path components".to_owned(),
-            });
-        }
-
-        Ok(Self { root })
-    }
-
-    pub fn single_variant_layout(
-        &self,
-        source_id: MediaSourceId,
-        request_identity: &TranscodeRequestIdentity,
-    ) -> Result<HlsOutputLayout> {
-        let output_dir = self
-            .root
-            .join(source_id.to_string())
-            .join(request_identity.storage_slug());
-        let playlist_path = output_dir.join("playlist.m3u8");
-        let segment_pattern = output_dir.join("segment_%05d.ts");
-
-        for path in [&output_dir, &playlist_path, &segment_pattern] {
-            if !path.starts_with(&self.root) {
-                return Err(NakoError::storage_security_violation(
-                    self.root.display().to_string(),
-                    "hls staging output escaped the staging root",
-                ));
-            }
-        }
-
-        Ok(HlsOutputLayout {
-            output_dir,
-            playlist_path,
-            segment_pattern,
-        })
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -615,7 +508,7 @@ impl PlaybackAppService {
         let probe = self.store.get_media_probe(source.id).await?;
         let (uri, backend) = self.storage_backend_for_media_source(&source).await?;
         let mut context = playback_selection_context(&uri, backend.as_ref()).await;
-        context.preferences.transcode_output_container = Some(OutputContainer::Hls);
+        context.preferences.transcode_output_container = Some(nako_transcode::OutputContainer::Hls);
         let playback_profile = PlaybackProfile::from_context(&request.client, context.clone());
         let decision = select_playback_source(PlaybackSelectionRequest {
             source: &source,
@@ -909,274 +802,6 @@ impl RemuxSourceContext {
             session,
         }
     }
-}
-
-async fn playback_selection_context(
-    uri: &StorageUri,
-    backend: &super::storage::LibraryStorageBackend,
-) -> PlaybackSelectionContext {
-    let capabilities = backend
-        .stat(uri)
-        .await
-        .ok()
-        .map(|metadata| metadata.capabilities);
-
-    PlaybackSelectionContext {
-        storage: PlaybackStorageContext {
-            remote: should_budget_remote_stream(uri),
-            range_readable: capabilities
-                .map(|capabilities| capabilities.contains(StorageCapabilities::RANGE_READABLE)),
-        },
-        preferences: Default::default(),
-    }
-}
-
-fn remux_output_container(decision: &PlaybackDecision) -> Result<RemuxContainer> {
-    match &decision.execution {
-        PlaybackExecutionPlan::Remux(plan) => Ok(plan.output_container),
-        _ => Err(NakoError::Unsupported(
-            "remux app service requires a remux playback decision",
-        )),
-    }
-}
-
-fn hls_transcode_plan(decision: &PlaybackDecision) -> Result<&TranscodePlan> {
-    match &decision.execution {
-        PlaybackExecutionPlan::Transcode(plan) if plan.output_container == OutputContainer::Hls => {
-            Ok(plan)
-        }
-        _ => Err(NakoError::Unsupported(
-            "hls app service requires an hls transcode playback decision",
-        )),
-    }
-}
-
-fn map_remux_runner_error(error: NakoError) -> NakoError {
-    match error {
-        NakoError::Provider { provider, message } if provider == "ffmpeg" => {
-            let message = if message.to_ascii_lowercase().contains("timed out") {
-                "remux runner timed out".to_owned()
-            } else {
-                "remux runner failed".to_owned()
-            };
-
-            NakoError::Provider {
-                provider: "ffmpeg_remux".to_owned(),
-                message,
-            }
-        }
-        NakoError::Storage { uri, kind, .. } => {
-            NakoError::storage(uri, kind, "remux staging operation failed")
-        }
-        NakoError::InvalidInput { message } => NakoError::InvalidInput {
-            message: format!("invalid remux request: {message}"),
-        },
-        other => other,
-    }
-}
-
-fn map_hls_runner_error(error: NakoError) -> NakoError {
-    match error {
-        NakoError::Provider { provider, message } if provider == "ffmpeg" => {
-            let message = if message.to_ascii_lowercase().contains("timed out") {
-                "hls runner timed out".to_owned()
-            } else {
-                "hls runner failed".to_owned()
-            };
-
-            NakoError::Provider {
-                provider: "ffmpeg_hls".to_owned(),
-                message,
-            }
-        }
-        NakoError::Storage { uri, kind, .. } => {
-            NakoError::storage(uri, kind, "hls staging operation failed")
-        }
-        NakoError::InvalidInput { message } => NakoError::InvalidInput {
-            message: format!("invalid hls request: {message}"),
-        },
-        other => other,
-    }
-}
-
-fn path_exists(path: &Path) -> Result<bool> {
-    path.try_exists().map_err(|err| {
-        NakoError::storage_io(
-            path.display().to_string(),
-            format!("failed to check path: {err}"),
-        )
-    })
-}
-
-fn rewrite_hls_playlist(body: &str, session_id: TranscodeSessionId) -> String {
-    let mut rewritten = body
-        .lines()
-        .map(|line| {
-            let trimmed = line.trim();
-            if trimmed.is_empty() || trimmed.starts_with('#') {
-                line.to_owned()
-            } else {
-                format!("/playback/sessions/{session_id}/hls/segments/{trimmed}")
-            }
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-
-    if body.ends_with('\n') {
-        rewritten.push('\n');
-    }
-
-    rewritten
-}
-
-fn validate_hls_segment_name(segment_name: &str) -> Result<()> {
-    if segment_name.is_empty()
-        || segment_name.contains('/')
-        || segment_name.contains('\\')
-        || segment_name.contains("..")
-    {
-        return Err(NakoError::InvalidInput {
-            message: "invalid hls segment name".to_owned(),
-        });
-    }
-
-    let path = Path::new(segment_name);
-    if !path
-        .components()
-        .all(|component| matches!(component, std::path::Component::Normal(_)))
-    {
-        return Err(NakoError::InvalidInput {
-            message: "invalid hls segment name".to_owned(),
-        });
-    }
-
-    Ok(())
-}
-
-async fn persist_session_failure(
-    sessions: &NakoDatabase,
-    session_id: TranscodeSessionId,
-    error: &NakoError,
-) {
-    let failure = PlaybackTranscodeFailure::from_error(error);
-    if let Err(update_error) = sessions
-        .set_transcode_session_state(
-            session_id,
-            TranscodeSessionState::Failed,
-            Some(failure.category),
-            Some(failure.operator_message),
-        )
-        .await
-    {
-        error!(
-            session_id = %session_id,
-            error = %update_error,
-            "failed to persist transcode session failure"
-        );
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-struct PlaybackTranscodeFailure {
-    category: TranscodeFailureCategory,
-    operator_message: String,
-}
-
-impl PlaybackTranscodeFailure {
-    fn from_error(error: &NakoError) -> Self {
-        let category = TranscodeFailureCategory::from_error(error);
-        Self {
-            category,
-            operator_message: playback_failure_operator_message(category, error),
-        }
-    }
-}
-
-fn playback_failure_operator_message(
-    category: TranscodeFailureCategory,
-    error: &NakoError,
-) -> String {
-    match category {
-        TranscodeFailureCategory::Probe => "ffmpeg probe failed".to_owned(),
-        TranscodeFailureCategory::Plan => "playback transcode planning failed".to_owned(),
-        TranscodeFailureCategory::Staging => "playback staging operation failed".to_owned(),
-        TranscodeFailureCategory::Budget => "playback resource budget was exhausted".to_owned(),
-        TranscodeFailureCategory::HardwareFallback => {
-            "playback hardware acceleration was unavailable".to_owned()
-        }
-        TranscodeFailureCategory::Runner => match error {
-            NakoError::Provider { provider, .. } if provider == "ffmpeg_remux" => {
-                "remux runner failed".to_owned()
-            }
-            NakoError::Provider { provider, .. } if provider == "ffmpeg_hls" => {
-                "hls runner failed".to_owned()
-            }
-            _ => "playback transcode runner failed".to_owned(),
-        },
-        TranscodeFailureCategory::Timeout => match error {
-            NakoError::Provider { provider, .. } if provider == "ffmpeg_remux" => {
-                "remux runner timed out".to_owned()
-            }
-            NakoError::Provider { provider, .. } if provider == "ffmpeg_hls" => {
-                "hls runner timed out".to_owned()
-            }
-            _ => "playback transcode operation timed out".to_owned(),
-        },
-        TranscodeFailureCategory::Storage => "playback storage operation failed".to_owned(),
-        TranscodeFailureCategory::Stale => "playback session was stale at startup".to_owned(),
-        TranscodeFailureCategory::Cancelled => "playback session was cancelled".to_owned(),
-        TranscodeFailureCategory::InvalidRequest => "playback request was invalid".to_owned(),
-        TranscodeFailureCategory::Unknown => "playback transcode operation failed".to_owned(),
-    }
-}
-
-async fn record_playback_session_finished_event(
-    store: &NakoDatabase,
-    session: &TranscodeSessionRecord,
-) {
-    let payload = serde_json::json!({
-        "session_id": session.id,
-        "source_id": session.source_id,
-        "kind": session.kind,
-        "request_key": &session.request_key,
-        "state": session.state,
-    });
-    let idempotency_key = format!("playback.session_finished:{}", session.id);
-    if let Err(err) = store
-        .enqueue_outbox_event(NewOutboxEvent {
-            id: EventId::new(),
-            kind: DomainEventKind::PlaybackSessionFinished,
-            subject: DomainEventSubject::PlaybackSession(session.id),
-            library_id: None,
-            source_id: Some(session.source_id),
-            idempotency_key: idempotency_key.clone(),
-            payload_json: payload.to_string(),
-        })
-        .await
-    {
-        warn!(
-            session_id = %session.id,
-            idempotency_key,
-            error = %err,
-            "failed to persist playback session outbox event"
-        );
-    }
-}
-
-async fn ensure_remux_output_parent(output_path: &Path) -> Result<()> {
-    let Some(parent) = output_path.parent() else {
-        return Err(NakoError::storage_security_violation(
-            output_path.display().to_string(),
-            "remux output path does not have a parent directory",
-        ));
-    };
-
-    tokio::fs::create_dir_all(parent).await.map_err(|err| {
-        NakoError::storage_io(
-            parent.display().to_string(),
-            format!("failed to create remux output directory: {err}"),
-        )
-    })
 }
 
 #[cfg(test)]

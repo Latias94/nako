@@ -22,9 +22,23 @@ use nako_vfs::{
     StorageCleanupReport, StorageCleanupRequest, StorageCleanupStatus, StorageLinkKind,
     StorageLinkPlanRequest, StorageUri,
 };
-use serde::Serialize;
 
 use super::storage::StorageBackendRegistry;
+
+mod diagnostics;
+mod outcomes;
+
+pub(crate) use diagnostics::{
+    ManagedImportArtifactDiagnostic, ManagedImportArtifactDiagnostics,
+    ManagedImportPromotionAcceptanceDiagnostic,
+};
+use outcomes::{
+    accepted_blocked_reasons_json, accepted_promotion_plan_json,
+    post_storage_catalog_failure_outcome_json, pre_mutation_failure_outcome_json,
+    promoted_outcome_json, storage_applied_outcome_json, storage_apply_error_code,
+    storage_apply_failure_outcome_json, storage_apply_safe_message, storage_applying_outcome_json,
+    storage_cleanup_complete,
+};
 
 #[derive(Clone, Debug)]
 pub(crate) struct ManagedImportAppService {
@@ -1087,111 +1101,6 @@ pub(crate) enum ManagedImportCatalogFailurePoint {
     BeforeMediaItem,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-pub(crate) struct ManagedImportArtifactDiagnostics {
-    pub(crate) limit: u32,
-    pub(crate) offset: u64,
-    pub(crate) returned: usize,
-    pub(crate) artifacts: Vec<ManagedImportArtifactDiagnostic>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-pub(crate) struct ManagedImportArtifactDiagnostic {
-    pub(crate) id: ManagedImportArtifactId,
-    pub(crate) target_library_id: LibraryId,
-    pub(crate) source_kind: String,
-    pub(crate) custom_source_kind: bool,
-    pub(crate) source_scheme: Option<String>,
-    pub(crate) source_uri_redacted: String,
-    pub(crate) staging_manifest_id: Option<StagingManifestId>,
-    pub(crate) has_artifact_uri: bool,
-    pub(crate) has_original_file_name: bool,
-    pub(crate) has_intended_locator: bool,
-    pub(crate) size_bytes: Option<u64>,
-    pub(crate) has_fingerprint: bool,
-    pub(crate) state: ManagedImportArtifactState,
-    pub(crate) has_diagnostics: bool,
-    pub(crate) created_at_ms: i64,
-    pub(crate) updated_at_ms: i64,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-pub(crate) struct ManagedImportPromotionAcceptanceDiagnostic {
-    pub(crate) id: ManagedImportPromotionApplyId,
-    pub(crate) artifact_id: ManagedImportArtifactId,
-    pub(crate) target_library_id: LibraryId,
-    pub(crate) requested_by: UserPrincipalId,
-    pub(crate) operation_kind: ManagedImportPromotionOperationKind,
-    pub(crate) source_scheme: Option<String>,
-    pub(crate) destination_locator: Option<String>,
-    pub(crate) state: ManagedImportPromotionApplyState,
-    pub(crate) replayed: bool,
-    pub(crate) accepted_plan_snapshot: bool,
-    pub(crate) accepted_warnings_snapshot: bool,
-    pub(crate) has_outcome: bool,
-    pub(crate) safe_error_code: Option<String>,
-    pub(crate) safe_message: Option<String>,
-    pub(crate) has_raw_source_uri: bool,
-    pub(crate) has_raw_fingerprint: bool,
-    pub(crate) created_at_ms: i64,
-    pub(crate) updated_at_ms: i64,
-}
-
-impl ManagedImportPromotionAcceptanceDiagnostic {
-    #[must_use]
-    pub(crate) fn from_record(record: ManagedImportPromotionApplyRecord, replayed: bool) -> Self {
-        Self {
-            id: record.id,
-            artifact_id: record.artifact_id,
-            target_library_id: record.target_library_id,
-            requested_by: record.requested_by,
-            operation_kind: record.operation_kind,
-            source_scheme: record
-                .source_artifact_uri
-                .as_deref()
-                .and_then(uri_scheme)
-                .map(str::to_owned),
-            destination_locator: Some(record.destination_locator),
-            state: record.state,
-            replayed,
-            accepted_plan_snapshot: !record.accepted_plan_json.trim().is_empty(),
-            accepted_warnings_snapshot: record.accepted_warnings_json.is_some(),
-            has_outcome: record.outcome_json.is_some(),
-            safe_error_code: record.safe_error_code,
-            safe_message: record.safe_message,
-            has_raw_source_uri: false,
-            has_raw_fingerprint: false,
-            created_at_ms: record.created_at_ms,
-            updated_at_ms: record.updated_at_ms,
-        }
-    }
-}
-
-impl ManagedImportArtifactDiagnostic {
-    #[must_use]
-    pub(crate) fn from_record(record: ManagedImportArtifactRecord) -> Self {
-        let (source_kind, source_kind_key) = record.source_kind.as_parts();
-        Self {
-            id: record.id,
-            target_library_id: record.target_library_id,
-            source_kind: source_kind.to_owned(),
-            custom_source_kind: !source_kind_key.is_empty(),
-            source_scheme: uri_scheme(&record.source_uri).map(str::to_owned),
-            source_uri_redacted: redact_uri(&record.source_uri),
-            staging_manifest_id: record.staging_manifest_id,
-            has_artifact_uri: record.artifact_uri.is_some(),
-            has_original_file_name: record.original_file_name.is_some(),
-            has_intended_locator: record.intended_locator.is_some(),
-            size_bytes: record.size_bytes,
-            has_fingerprint: record.fingerprint.is_some(),
-            state: record.state,
-            has_diagnostics: record.diagnostics_json.is_some(),
-            created_at_ms: record.created_at_ms,
-            updated_at_ms: record.updated_at_ms,
-        }
-    }
-}
-
 fn validate_create_state(state: ManagedImportArtifactState) -> Result<()> {
     if matches!(
         state,
@@ -1319,49 +1228,6 @@ fn revalidate_promotion_apply_facts(
     Ok(())
 }
 
-fn accepted_promotion_plan_json(
-    plan: &ManagedImportPromotionPlan,
-    operation_kind: ManagedImportPromotionOperationKind,
-) -> Result<String> {
-    serde_json::to_string(&serde_json::json!({
-        "artifact_id": plan.artifact_id,
-        "artifact_state": plan.artifact_state,
-        "target_library_id": plan.target_library_id,
-        "destination_locator": plan.destination_locator,
-        "operation_kind": operation_kind,
-        "duplicate_hint_count": plan.duplicate_hints.len(),
-        "nfo_policy": plan.nfo_authority.policy,
-        "provider_identity_review": plan.provider_identity.needs_identity_review,
-        "blocked_reasons": plan.blocked_reasons,
-        "writes_library": false
-    }))
-    .map_err(database_error)
-}
-
-fn accepted_blocked_reasons_json(
-    accepted_blocked_reasons: &[ManagedImportPromotionBlockedReason],
-    has_duplicate_hints: bool,
-    nfo_backup_required: bool,
-    provider_identity_review: bool,
-) -> Result<Option<String>> {
-    if accepted_blocked_reasons.is_empty()
-        && !has_duplicate_hints
-        && !nfo_backup_required
-        && !provider_identity_review
-    {
-        return Ok(None);
-    }
-
-    serde_json::to_string(&serde_json::json!({
-        "accepted_blocked_reasons": accepted_blocked_reasons,
-        "has_duplicate_hints": has_duplicate_hints,
-        "nfo_backup_required": nfo_backup_required,
-        "provider_identity_review": provider_identity_review
-    }))
-    .map(Some)
-    .map_err(database_error)
-}
-
 fn promotion_blocked_reason_summary(reasons: &[ManagedImportPromotionBlockedReason]) -> String {
     reasons
         .iter()
@@ -1453,170 +1319,6 @@ fn promotion_file_name(
         .unwrap_or_else(|| "media-source".to_owned())
 }
 
-fn storage_applying_outcome_json(record: &ManagedImportPromotionApplyRecord) -> Result<String> {
-    serde_json::to_string(&serde_json::json!({
-        "accepted": true,
-        "writes_library": false,
-        "storage_mutation": false,
-        "media_source_mutation": false,
-        "operation_kind": record.operation_kind,
-        "state": ManagedImportPromotionApplyState::ApplyingStorage
-    }))
-    .map_err(database_error)
-}
-
-fn storage_applied_outcome_json(
-    record: &ManagedImportPromotionApplyRecord,
-    plan: &ManagedImportPromotionPlan,
-    apply_report: &StorageApplyReport,
-) -> Result<String> {
-    serde_json::to_string(&serde_json::json!({
-        "accepted": true,
-        "writes_library": false,
-        "storage_mutation": apply_report.applied,
-        "media_source_mutation": false,
-        "target_created": apply_report.target_created,
-        "operation_kind": record.operation_kind,
-        "operation_status": apply_report.status,
-        "duplicate_hint_count": plan.duplicate_hints.len(),
-        "source_scheme": apply_report.source_uri.scheme(),
-        "target_scheme": apply_report.target_uri.scheme()
-    }))
-    .map_err(database_error)
-}
-
-fn promoted_outcome_json(
-    record: &ManagedImportPromotionApplyRecord,
-    plan: &ManagedImportPromotionPlan,
-    apply_report: &StorageApplyReport,
-    catalog_commit: &PromotionCatalogCommit,
-) -> Result<String> {
-    serde_json::to_string(&serde_json::json!({
-        "accepted": true,
-        "writes_library": true,
-        "storage_mutation": apply_report.applied,
-        "media_source_mutation": true,
-        "target_created": apply_report.target_created,
-        "operation_kind": record.operation_kind,
-        "operation_status": apply_report.status,
-        "source_scheme": apply_report.source_uri.scheme(),
-        "target_scheme": apply_report.target_uri.scheme(),
-        "destination_locator": record.destination_locator,
-        "media_item_id": catalog_commit.item_id,
-        "media_source_id": catalog_commit.source_id,
-        "duplicate_hint_count": plan.duplicate_hints.len(),
-        "duplicate_relationship_count": catalog_commit.duplicate_relationship_count
-    }))
-    .map_err(database_error)
-}
-
-fn post_storage_catalog_failure_outcome_json(
-    record: &ManagedImportPromotionApplyRecord,
-    plan: &ManagedImportPromotionPlan,
-    apply_report: &StorageApplyReport,
-    cleanup_report: &StorageCleanupReport,
-    failure: &PromotionCatalogCommitFailure,
-    cleanup_complete: bool,
-) -> Result<String> {
-    serde_json::to_string(&serde_json::json!({
-        "accepted": true,
-        "writes_library": failure.catalog_may_have_partial_writes,
-        "storage_mutation": apply_report.applied,
-        "media_source_mutation": failure.media_source_may_have_been_written,
-        "target_created": apply_report.target_created,
-        "operation_kind": record.operation_kind,
-        "operation_status": apply_report.status,
-        "source_scheme": apply_report.source_uri.scheme(),
-        "target_scheme": apply_report.target_uri.scheme(),
-        "destination_locator": record.destination_locator,
-        "duplicate_hint_count": plan.duplicate_hints.len(),
-        "catalog_commit_started": true,
-        "catalog_commit_completed": false,
-        "catalog_may_have_partial_writes": failure.catalog_may_have_partial_writes,
-        "storage_cleanup_attempted": true,
-        "storage_cleanup_complete": cleanup_complete,
-        "cleanup_status": cleanup_report.status
-    }))
-    .map_err(database_error)
-}
-
-fn storage_apply_failure_outcome_json(
-    record: &ManagedImportPromotionApplyRecord,
-    apply_report: &StorageApplyReport,
-) -> Result<String> {
-    serde_json::to_string(&serde_json::json!({
-        "accepted": true,
-        "writes_library": false,
-        "storage_mutation": false,
-        "media_source_mutation": false,
-        "target_created": apply_report.target_created,
-        "operation_kind": record.operation_kind,
-        "operation_status": apply_report.status,
-        "source_scheme": apply_report.source_uri.scheme(),
-        "target_scheme": apply_report.target_uri.scheme()
-    }))
-    .map_err(database_error)
-}
-
-fn pre_mutation_failure_outcome_json(
-    record: &ManagedImportPromotionApplyRecord,
-    safe_error_code: &str,
-) -> Result<String> {
-    serde_json::to_string(&serde_json::json!({
-        "accepted": true,
-        "writes_library": false,
-        "storage_mutation": false,
-        "media_source_mutation": false,
-        "target_created": false,
-        "operation_kind": record.operation_kind,
-        "safe_error_code": safe_error_code
-    }))
-    .map_err(database_error)
-}
-
-fn storage_cleanup_complete(report: &StorageCleanupReport) -> bool {
-    report.cleaned
-        || matches!(
-            report.status,
-            StorageCleanupStatus::Cleaned | StorageCleanupStatus::TargetMissing
-        )
-}
-
-fn storage_apply_error_code(status: StorageApplyStatus) -> &'static str {
-    match status {
-        StorageApplyStatus::Applied => "storage_apply_applied",
-        StorageApplyStatus::Unsupported => "storage_apply_unsupported",
-        StorageApplyStatus::SourceMissing => "storage_apply_source_missing",
-        StorageApplyStatus::SourceNotFile => "storage_apply_source_not_file",
-        StorageApplyStatus::TargetParentMissing => "storage_apply_target_parent_missing",
-        StorageApplyStatus::TargetParentNotDirectory => "storage_apply_target_parent_not_directory",
-        StorageApplyStatus::TargetExists => "storage_apply_target_exists",
-        StorageApplyStatus::SecurityViolation => "storage_apply_security_violation",
-        StorageApplyStatus::ApplyFailed => "storage_apply_failed",
-    }
-}
-
-fn storage_apply_safe_message(status: StorageApplyStatus) -> String {
-    match status {
-        StorageApplyStatus::Unsupported => {
-            "storage backend does not support the accepted apply kind"
-        }
-        StorageApplyStatus::SourceMissing => "promotion source artifact is missing",
-        StorageApplyStatus::SourceNotFile => "promotion source artifact is not a file",
-        StorageApplyStatus::TargetParentMissing => "promotion target parent is missing",
-        StorageApplyStatus::TargetParentNotDirectory => {
-            "promotion target parent is not a directory"
-        }
-        StorageApplyStatus::TargetExists => "promotion target already exists",
-        StorageApplyStatus::SecurityViolation => {
-            "promotion storage apply violated storage safety rules"
-        }
-        StorageApplyStatus::ApplyFailed => "promotion storage apply failed before catalog mutation",
-        StorageApplyStatus::Applied => "promotion storage apply succeeded",
-    }
-    .to_owned()
-}
-
 fn require_non_empty(label: &str, value: String) -> Result<String> {
     optional_non_empty(Some(value)).ok_or_else(|| NakoError::InvalidInput {
         message: format!("{label} cannot be empty"),
@@ -1628,25 +1330,6 @@ fn optional_non_empty(value: Option<String>) -> Option<String> {
         let trimmed = value.trim().to_owned();
         (!trimmed.is_empty()).then_some(trimmed)
     })
-}
-
-fn database_error<E: std::fmt::Display>(err: E) -> NakoError {
-    NakoError::Database {
-        message: err.to_string(),
-    }
-}
-
-fn uri_scheme(value: &str) -> Option<&str> {
-    value
-        .split_once(':')
-        .map(|(scheme, _)| scheme)
-        .filter(|scheme| !scheme.is_empty())
-}
-
-fn redact_uri(value: &str) -> String {
-    uri_scheme(value)
-        .map(|scheme| format!("{scheme}://<redacted>"))
-        .unwrap_or_else(|| "<redacted>".to_owned())
 }
 
 fn destination_locator(library: &Library, intended_locator: Option<&str>) -> Option<String> {
