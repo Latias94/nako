@@ -11,10 +11,37 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: no active architecture/productization focus is set after Admin Web
-Addon Credential and Grant Onboarding closeout.
+Status: no active architecture focus is currently set.
 
 Latest completed architecture focus:
+
+Fearless Future Architecture Refactor closed on 2026-05-23. It was the
+server-side architecture focus after M61-M63 and the Addon productization lanes,
+keeping Nako in a no-compatibility-burden refactor posture before more provider,
+addon, AI, playback, remote-access, and client breadth lands:
+
+- split remaining broad `nako-server` runtime control-plane modules;
+- split oversized `nako-db` backend modules and keep SQLite/PostgreSQL
+  contracts explicit;
+- split `nako-api` DTO surfaces while keeping redaction local to the boundary;
+- deepen VFS, Library File Write, naming, and local inference ownership;
+- use Docker-backed local validation for runtime, deployment, and backend
+  contract changes;
+- delete replaced helpers and compatibility paths instead of carrying parallel
+  designs.
+
+Authoritative lane:
+
+- `docs/workstreams/fearless-future-architecture-refactor/`
+
+Closeout:
+
+- Completed on 2026-05-23.
+- Final workspace nextest passed with 696 tests run and 30 skipped.
+- Container release gate passed.
+- PostgreSQL all-contract harness passed against local PostgreSQL 17.
+
+Previous architecture focus:
 
 Admin Web Addon Credential and Grant Onboarding completes the bridge from a
 registered disabled **Addon Sidecar** to an enabled runtime Addon:

@@ -28,12 +28,57 @@ proposed milestone.
 
 No active implementation goal is currently set.
 
-Recommended next goal:
-
-- Secret Reference configuration UX, or real Addon end-to-end smoke with
-  `nako-official-addons`.
-
 ## Completed Goals
+
+### Fearless Future Architecture Refactor
+
+Status: completed.
+
+Objective:
+
+- Complete the next fearless server-side architecture refactor after M61-M63.
+- Split the remaining broad runtime, persistence, API, VFS, and inference
+  modules before new feature breadth hardens their current shape.
+- Make Docker-backed local validation part of the normal refactor closeout.
+
+Deliverables:
+
+- `docs/workstreams/fearless-future-architecture-refactor/` as the
+  authoritative execution lane.
+- Narrower `nako-server` runtime control-plane modules.
+- Clearer `nako-db` backend and domain module ownership.
+- Split `nako-api` Admin/Public DTO surfaces with local redaction ownership.
+- Deeper VFS, Library File Write, naming, and local inference boundaries.
+- Deletion of replaced forwards, stale helpers, and compatibility paths.
+
+Non-goals:
+
+- No new provider breadth, client UI, plugin ABI, network tunnel
+  implementation, adaptive bitrate ladder, or AI model runtime.
+- No historical compatibility burden.
+- No copied source, comments, tests, migrations, or generated code from
+  `repo-ref/`.
+
+Exit criteria:
+
+- FFR-020 through FFR-060 are completed or split into named follow-on lanes.
+- Any changed cross-crate contract, public API shape, storage policy, or
+  runtime resource policy has ADR or workstream evidence.
+- Docker/container and PostgreSQL gates are run when applicable.
+- Final workspace gates pass.
+
+Evidence:
+
+- Workstream docs:
+  `docs/workstreams/fearless-future-architecture-refactor/`.
+- Closeout proof:
+  - `cargo fmt --all -- --check`;
+  - `cargo check --workspace --tests`;
+  - `cargo nextest run --workspace --no-fail-fast`;
+  - `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode container`;
+  - `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/postgres-contract-harness.ps1 -Suite all-contracts`;
+  - `python -m json.tool docs/workstreams/fearless-future-architecture-refactor/WORKSTREAM.json > $null`;
+  - `git diff --check`.
 
 ### Admin Web Addon Credential and Grant Onboarding
 

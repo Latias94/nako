@@ -6,6 +6,12 @@ attention.
 
 ## Current Workstreams
 
+- [fearless-future-architecture-refactor](fearless-future-architecture-refactor/README.md):
+  completed execution lane for the next fearless refactor wave after M61-M63,
+  covering server runtime control planes, PostgreSQL/backend module shape,
+  API DTO boundaries, VFS/library-file-write authority, local inference
+  boundaries, Docker-backed validation, and deletion of replaced paths without
+  adding new product breadth.
 - [nako-brand-identity](nako-brand-identity/README.md):
   design record for Nako's selected source icon, public tagline, one-line
   introduction, icon meaning, and final image-generation prompt.
