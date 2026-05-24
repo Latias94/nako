@@ -15,9 +15,10 @@ use nako_api::{
 use nako_core::{
     DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, ExternalProvider, Job,
     JobId, JobKind, JobRepository, Library, LibraryId, LibraryRepository, MediaItem, MediaItemId,
-    MediaRepository, MetadataAttemptFilter, MetadataProfile, MetadataProviderAttemptRecord,
-    MetadataProviderAttemptStatus, MetadataRefreshMode, MetadataRepository, NakoError, NewJob,
-    NewOutboxEvent, PageRequest, ProviderRawResponseFilter, Result,
+    MediaRepository, MediaSource, MetadataAttemptFilter, MetadataProfile,
+    MetadataProviderAttemptRecord, MetadataProviderAttemptStatus, MetadataRefreshMode,
+    MetadataRepository, NakoError, NewJob, NewOutboxEvent, OutboxEventRecord, PageRequest,
+    ProviderRawResponse, ProviderRawResponseCleanup, ProviderRawResponseFilter, Result,
 };
 use nako_db::NakoDatabase;
 use nako_metadata::{
@@ -88,9 +89,137 @@ pub struct MetadataMaintenanceItemError {
 pub(crate) struct MetadataAppService {
     config: NakoServerConfig,
     store: NakoDatabase,
+    workflow_store: Arc<dyn MetadataWorkflowStore>,
     permits: Arc<Semaphore>,
     providers: MetadataProviderRegistry,
     runtime: RuntimeSupervisor,
+}
+
+#[async_trait::async_trait]
+pub(super) trait MetadataWorkflowStore: std::fmt::Debug + Send + Sync {
+    async fn enqueue_job(&self, job: NewJob) -> Result<Job>;
+
+    async fn get_media_item(&self, id: MediaItemId) -> Result<Option<MediaItem>>;
+
+    async fn get_library(&self, id: LibraryId) -> Result<Option<Library>>;
+
+    async fn list_item_sources(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaSource>>;
+
+    async fn list_media_items_for_library(
+        &self,
+        library_id: LibraryId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaItem>>;
+
+    async fn list_metadata_provider_attempts(
+        &self,
+        job_id: JobId,
+    ) -> Result<Vec<MetadataProviderAttemptRecord>>;
+
+    async fn list_metadata_provider_attempts_for_item(
+        &self,
+        item_id: MediaItemId,
+        filter: MetadataAttemptFilter,
+        page: PageRequest,
+    ) -> Result<Vec<MetadataProviderAttemptRecord>>;
+
+    async fn list_provider_raw_responses(
+        &self,
+        item_id: MediaItemId,
+        filter: ProviderRawResponseFilter,
+        page: PageRequest,
+    ) -> Result<Vec<ProviderRawResponse>>;
+
+    async fn cleanup_provider_raw_responses(
+        &self,
+        filter: ProviderRawResponseFilter,
+        fetched_before: &str,
+    ) -> Result<ProviderRawResponseCleanup>;
+
+    async fn enqueue_outbox_event(&self, event: NewOutboxEvent) -> Result<OutboxEventRecord>;
+}
+
+#[async_trait::async_trait]
+impl<T> MetadataWorkflowStore for T
+where
+    T: EventOutboxRepository
+        + JobRepository
+        + LibraryRepository
+        + MediaRepository
+        + MetadataRepository
+        + std::fmt::Debug
+        + Send
+        + Sync,
+{
+    async fn enqueue_job(&self, job: NewJob) -> Result<Job> {
+        JobRepository::enqueue_job(self, job).await
+    }
+
+    async fn get_media_item(&self, id: MediaItemId) -> Result<Option<MediaItem>> {
+        MediaRepository::get_media_item(self, id).await
+    }
+
+    async fn get_library(&self, id: LibraryId) -> Result<Option<Library>> {
+        LibraryRepository::get_library(self, id).await
+    }
+
+    async fn list_item_sources(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaSource>> {
+        MediaRepository::list_item_sources(self, item_id, page).await
+    }
+
+    async fn list_media_items_for_library(
+        &self,
+        library_id: LibraryId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaItem>> {
+        MediaRepository::list_media_items_for_library(self, library_id, page).await
+    }
+
+    async fn list_metadata_provider_attempts(
+        &self,
+        job_id: JobId,
+    ) -> Result<Vec<MetadataProviderAttemptRecord>> {
+        MetadataRepository::list_metadata_provider_attempts(self, job_id).await
+    }
+
+    async fn list_metadata_provider_attempts_for_item(
+        &self,
+        item_id: MediaItemId,
+        filter: MetadataAttemptFilter,
+        page: PageRequest,
+    ) -> Result<Vec<MetadataProviderAttemptRecord>> {
+        MetadataRepository::list_metadata_provider_attempts_for_item(self, item_id, filter, page)
+            .await
+    }
+
+    async fn list_provider_raw_responses(
+        &self,
+        item_id: MediaItemId,
+        filter: ProviderRawResponseFilter,
+        page: PageRequest,
+    ) -> Result<Vec<ProviderRawResponse>> {
+        MetadataRepository::list_provider_raw_responses(self, item_id, filter, page).await
+    }
+
+    async fn cleanup_provider_raw_responses(
+        &self,
+        filter: ProviderRawResponseFilter,
+        fetched_before: &str,
+    ) -> Result<ProviderRawResponseCleanup> {
+        MetadataRepository::cleanup_provider_raw_responses(self, filter, fetched_before).await
+    }
+
+    async fn enqueue_outbox_event(&self, event: NewOutboxEvent) -> Result<OutboxEventRecord> {
+        EventOutboxRepository::enqueue_outbox_event(self, event).await
+    }
 }
 
 impl MetadataAppService {
@@ -103,7 +232,8 @@ impl MetadataAppService {
     ) -> Self {
         Self {
             config,
-            store,
+            store: store.clone(),
+            workflow_store: Arc::new(store),
             permits,
             providers,
             runtime,
@@ -237,14 +367,14 @@ impl MetadataAppService {
         providers: Option<Vec<ExternalProvider>>,
         language: Option<String>,
     ) -> Result<MetadataCandidateReviewResponse> {
-        let item =
-            self.store
-                .get_media_item(item_id)
-                .await?
-                .ok_or_else(|| NakoError::NotFound {
-                    entity: "media_item",
-                    id: item_id.to_string(),
-                })?;
+        let item = self
+            .workflow_store
+            .get_media_item(item_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "media_item",
+                id: item_id.to_string(),
+            })?;
         let library = self.library_for_item(item_id).await?;
         let mut profile = self.effective_metadata_profile(&library, item.kind)?;
         apply_metadata_provider_override(&mut profile, providers)?;
@@ -281,14 +411,14 @@ impl MetadataAppService {
     }
 
     pub(super) async fn create_metadata_refresh_job(&self, item_id: MediaItemId) -> Result<Job> {
-        let item =
-            self.store
-                .get_media_item(item_id)
-                .await?
-                .ok_or_else(|| NakoError::NotFound {
-                    entity: "media_item",
-                    id: item_id.to_string(),
-                })?;
+        let item = self
+            .workflow_store
+            .get_media_item(item_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "media_item",
+                id: item_id.to_string(),
+            })?;
         let library = self.library_for_item(item_id).await?;
         let profile = self.effective_metadata_profile(&library, item.kind)?;
         let provider = self.first_metadata_provider(&profile)?;
@@ -303,7 +433,7 @@ impl MetadataAppService {
             message: format!("failed to serialize metadata refresh job input: {err}"),
         })?;
 
-        self.store
+        self.workflow_store
             .enqueue_job(NewJob {
                 id: JobId::new(),
                 kind: JobKind::MetadataRefresh,
@@ -324,7 +454,7 @@ impl MetadataAppService {
             message: format!("failed to serialize metadata maintenance job input: {err}"),
         })?;
 
-        self.store
+        self.workflow_store
             .enqueue_job(NewJob {
                 id: JobId::new(),
                 kind: JobKind::MetadataMaintenance,
@@ -560,14 +690,14 @@ impl MetadataAppService {
         job_id: JobId,
         item_id: MediaItemId,
     ) -> Result<MetadataRefreshSummary> {
-        let item =
-            self.store
-                .get_media_item(item_id)
-                .await?
-                .ok_or_else(|| NakoError::NotFound {
-                    entity: "media_item",
-                    id: item_id.to_string(),
-                })?;
+        let item = self
+            .workflow_store
+            .get_media_item(item_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "media_item",
+                id: item_id.to_string(),
+            })?;
         let library = self.library_for_item(item_id).await?;
         let profile = self.effective_metadata_profile(&library, item.kind)?;
         self.run_metadata_refresh_with_profile(job_id, item_id, profile, false)
@@ -650,7 +780,10 @@ impl MetadataAppService {
             }
         }
 
-        let attempts = self.store.list_metadata_provider_attempts(job_id).await?;
+        let attempts = self
+            .workflow_store
+            .list_metadata_provider_attempts(job_id)
+            .await?;
         summary.provider_attempts = summarize_metadata_attempt_counts(&attempts);
 
         Ok(summary)
@@ -664,7 +797,7 @@ impl MetadataAppService {
     ) -> Result<MetadataProviderAttemptsResponse> {
         self.ensure_metadata_item_exists(item_id).await?;
         let attempts = self
-            .store
+            .workflow_store
             .list_metadata_provider_attempts_for_item(item_id, filter, page)
             .await?;
         let returned = attempts.len();
@@ -687,7 +820,7 @@ impl MetadataAppService {
     ) -> Result<MetadataRawResponsesResponse> {
         self.ensure_metadata_item_exists(item_id).await?;
         let responses = self
-            .store
+            .workflow_store
             .list_provider_raw_responses(item_id, filter, page)
             .await?;
 
@@ -716,7 +849,7 @@ impl MetadataAppService {
             )?,
         };
         let cleanup = self
-            .store
+            .workflow_store
             .cleanup_provider_raw_responses(filter, &fetched_before)
             .await?;
 
@@ -936,7 +1069,7 @@ impl MetadataAppService {
                 offset,
             };
             let mut page_items = self
-                .store
+                .workflow_store
                 .list_media_items_for_library(library_id, page)
                 .await?;
             let returned = page_items.len();
@@ -964,14 +1097,14 @@ impl MetadataAppService {
                 continue;
             }
 
-            let item =
-                self.store
-                    .get_media_item(*item_id)
-                    .await?
-                    .ok_or_else(|| NakoError::NotFound {
-                        entity: "media_item",
-                        id: item_id.to_string(),
-                    })?;
+            let item = self
+                .workflow_store
+                .get_media_item(*item_id)
+                .await?
+                .ok_or_else(|| NakoError::NotFound {
+                    entity: "media_item",
+                    id: item_id.to_string(),
+                })?;
             items.push(item);
         }
 
@@ -1021,7 +1154,7 @@ impl MetadataAppService {
         item_id: MediaItemId,
     ) -> Result<Vec<MetadataProviderAttemptRecord>> {
         Ok(self
-            .store
+            .workflow_store
             .list_metadata_provider_attempts(job_id)
             .await?
             .into_iter()
@@ -1030,7 +1163,7 @@ impl MetadataAppService {
     }
 
     async fn ensure_metadata_item_exists(&self, item_id: MediaItemId) -> Result<()> {
-        self.store
+        self.workflow_store
             .get_media_item(item_id)
             .await?
             .ok_or_else(|| NakoError::NotFound {
@@ -1071,7 +1204,7 @@ impl MetadataAppService {
     async fn record_outbox_event(&self, event: NewOutboxEvent) {
         let kind = event.kind.as_str();
         let idempotency_key = event.idempotency_key.clone();
-        if let Err(err) = self.store.enqueue_outbox_event(event).await {
+        if let Err(err) = self.workflow_store.enqueue_outbox_event(event).await {
             warn!(
                 kind,
                 idempotency_key,
@@ -1083,7 +1216,7 @@ impl MetadataAppService {
 
     async fn library_for_item(&self, item_id: MediaItemId) -> Result<Library> {
         let source = self
-            .store
+            .workflow_store
             .list_item_sources(item_id, PageRequest::new(1, 0))
             .await?
             .into_iter()
@@ -1096,7 +1229,7 @@ impl MetadataAppService {
     }
 
     async fn library_for_metadata(&self, library_id: LibraryId) -> Result<Library> {
-        self.store
+        self.workflow_store
             .get_library(library_id)
             .await?
             .ok_or_else(|| NakoError::NotFound {

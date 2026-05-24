@@ -11,9 +11,11 @@ CRFBA-020 now owns the active addon registration workflow-port slice in
 `crates/nako-server/src/app/acquisition_intake.rs` behind a workflow store for
 candidate record/list/discovery/acceptance and
 `crates/nako-server/src/app/job_runtime.rs` behind a durable job lease store
-for claim/heartbeat/succeed/fail/cancel. CRFBA-050 and CRFBA-060 have now
-landed in `../nako-official-addons` with focused module splits and passing
-package tests.
+for claim/heartbeat/succeed/fail/cancel. `crates/nako-server/src/app/metadata.rs`
+has now also narrowed direct metadata refresh, maintenance, raw-response, and
+attempt queries behind a dedicated metadata workflow store. CRFBA-050 and
+CRFBA-060 have now landed in `../nako-official-addons` with focused module
+splits and passing package tests.
 
 Initial review found:
 
@@ -82,6 +84,10 @@ format, stage, or commit them unless the user explicitly asks.
   behind a dedicated durable job lease store; the focused runtime nextest gate
   passed with four job-runtime tests and `cargo fmt --all -- --check` stayed
   green.
+- `CRFBA-020` now also narrows `crates/nako-server/src/app/metadata.rs`
+  behind a dedicated metadata workflow store for direct metadata reads/writes;
+  the focused metadata nextest gate passed with 27 metadata-related tests and
+  `cargo fmt --all -- --check` stayed green.
 - `CRFBA-050` split `MetadataScrapeRuntime` into `query`, `orchestration`,
   `response`, `runtime`, `writeback`, and `bulk` modules with unchanged public
   payloads.
@@ -102,9 +108,13 @@ format, stage, or commit them unless the user explicitly asks.
 - `DurableJobRuntime` is now behind a smaller job lease store and can be used
   as the next server-side seam for metadata maintenance or other job-based
   workflows.
+- `MetadataAppService` now uses a dedicated workflow store for direct metadata
+  queries and writes, which makes the next seam candidate easier to isolate
+  without changing executor behavior.
 
 ## Next Recommended Action
 
 Continue CRFBA-020 with the next narrow server workflow-port slice, likely
-metadata maintenance or another job-based workflow; keep CRFBA-030 only as a
-follow-up review note unless the migration blocker is independently resolved.
+another job-based workflow or the remaining metadata-authority seam; keep
+CRFBA-030 only as a follow-up review note unless the migration blocker is
+independently resolved.

@@ -27,6 +27,7 @@ Observed risk anchors:
 - `crates/nako-server/src/app/addons.rs`
 - `crates/nako-server/src/app/acquisition_intake.rs`
 - `crates/nako-server/src/app/job_runtime.rs`
+- `crates/nako-server/src/app/metadata.rs`
 - `crates/nako-metadata/src/strategy.rs`
 - `crates/nako-transcode/src/hls.rs`
 - `crates/nako-server/src/app/composition.rs`
@@ -160,6 +161,10 @@ Use `verify-rust-workstream` before marking this lane complete.
   durable_job_runtime --no-fail-fast` passed 4 durable-job-runtime tests after
   narrowing `crates/nako-server/src/app/job_runtime.rs` behind
   `DurableJobLeaseStore`. `cargo fmt --all -- --check` also passed.
+- 2026-05-24 CRFBA-020 follow-up: `cargo nextest run -p nako-server metadata
+  --no-fail-fast` passed 27 metadata-related tests after narrowing
+  `crates/nako-server/src/app/metadata.rs` behind `MetadataWorkflowStore`.
+  `cargo fmt --all -- --check` also passed.
 
 ## Recent Addon Evidence
 

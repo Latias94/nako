@@ -45,6 +45,10 @@ Task IDs use the `CRFBA` prefix.
   `crates/nako-server/src/app/job_runtime.rs` now routes durable job lease
   claim/heartbeat/succeed/fail/cancel through a dedicated
   `DurableJobLeaseStore` instead of a universal database handle.
+  `crates/nako-server/src/app/metadata.rs` now routes direct metadata refresh,
+  maintenance, raw-response, and attempt queries through a dedicated
+  `MetadataWorkflowStore` instead of reaching straight into `NakoDatabase` for
+  those read/write calls.
   Validation: focused nextest for the touched workflow and backend contract
   tests; `cargo fmt --all -- --check` when practical.
   Review: The slice must reduce caller authority, not just rename repository
