@@ -1,11 +1,13 @@
 use std::sync::Arc;
 
 use nako_core::{
-    DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, Job, JobId, JobKind,
-    JobRepository, Library, LibraryId, LibraryRepository, MediaItemId, MediaRepository,
-    MediaSourceId, NakoError, NewJob, NewNfoSidecarApply, NewOutboxEvent, NfoSidecarApplyId,
-    NfoSidecarApplyOperationKind, NfoSidecarApplyRecord, NfoSidecarApplyRepository,
-    NfoSidecarApplyState, Result, UserPrincipalId,
+    CancelLeasedJob, CompleteLeasedJob, DomainEventKind, DomainEventSubject, EventId,
+    EventOutboxRepository, FailLeasedJob, Job, JobId, JobKind, JobLeaseClaimRequest,
+    JobLeaseHeartbeat, JobRepository, LeasedJob, Library, LibraryId, LibraryRepository, MediaItem,
+    MediaItemId, MediaRepository, MediaSource, MediaSourceId, NakoError, NewJob,
+    NewNfoSidecarApply, NewOutboxEvent, NfoSidecarApplyId, NfoSidecarApplyOperationKind,
+    NfoSidecarApplyRecord, NfoSidecarApplyRepository, NfoSidecarApplyState, OutboxEventRecord,
+    Result, UserPrincipalId,
 };
 use nako_db::NakoDatabase;
 use nako_nfo::{
@@ -23,8 +25,8 @@ use tracing::{Instrument, info, info_span, warn};
 
 use super::{
     job_runtime::{
-        DurableJobContext, DurableJobOperationError, DurableJobOperationResult,
-        DurableJobRunOutcome, DurableJobRuntime,
+        DurableJobContext, DurableJobLeaseStore, DurableJobOperationError,
+        DurableJobOperationResult, DurableJobRunOutcome, DurableJobRuntime,
     },
     runtime::RuntimeSupervisor,
     storage::StorageBackendRegistry,
@@ -123,9 +125,170 @@ enum NfoExportExecution {
     Cancelled(Job),
 }
 
+#[async_trait::async_trait]
+pub(super) trait NfoWorkflowStore:
+    DurableJobLeaseStore + std::fmt::Debug + Send + Sync
+{
+    async fn enqueue_job(&self, job: NewJob) -> Result<Job>;
+
+    async fn get_library(&self, id: LibraryId) -> Result<Option<Library>>;
+
+    async fn get_media_item(&self, id: MediaItemId) -> Result<Option<MediaItem>>;
+
+    async fn get_media_source(&self, id: MediaSourceId) -> Result<Option<MediaSource>>;
+
+    async fn find_nfo_sidecar_apply_by_idempotency_key(
+        &self,
+        target_library_id: LibraryId,
+        idempotency_key: &str,
+    ) -> Result<Option<NfoSidecarApplyRecord>>;
+
+    async fn upsert_nfo_sidecar_apply(
+        &self,
+        apply: NewNfoSidecarApply,
+    ) -> Result<NfoSidecarApplyRecord>;
+
+    async fn get_nfo_sidecar_apply(
+        &self,
+        id: NfoSidecarApplyId,
+    ) -> Result<Option<NfoSidecarApplyRecord>>;
+
+    async fn set_nfo_sidecar_apply_state(
+        &self,
+        id: NfoSidecarApplyId,
+        state: NfoSidecarApplyState,
+        updated_at_ms: i64,
+        outcome_json: Option<String>,
+        safe_error_code: Option<String>,
+        safe_message: Option<String>,
+    ) -> Result<Option<NfoSidecarApplyRecord>>;
+
+    async fn enqueue_outbox_event(&self, event: NewOutboxEvent) -> Result<OutboxEventRecord>;
+}
+
+#[async_trait::async_trait]
+impl<T> NfoWorkflowStore for T
+where
+    T: DurableJobLeaseStore
+        + EventOutboxRepository
+        + JobRepository
+        + LibraryRepository
+        + MediaRepository
+        + NfoSidecarApplyRepository
+        + std::fmt::Debug
+        + Send
+        + Sync,
+{
+    async fn enqueue_job(&self, job: NewJob) -> Result<Job> {
+        JobRepository::enqueue_job(self, job).await
+    }
+
+    async fn get_library(&self, id: LibraryId) -> Result<Option<Library>> {
+        LibraryRepository::get_library(self, id).await
+    }
+
+    async fn get_media_item(&self, id: MediaItemId) -> Result<Option<MediaItem>> {
+        MediaRepository::get_media_item(self, id).await
+    }
+
+    async fn get_media_source(&self, id: MediaSourceId) -> Result<Option<MediaSource>> {
+        MediaRepository::get_media_source(self, id).await
+    }
+
+    async fn find_nfo_sidecar_apply_by_idempotency_key(
+        &self,
+        target_library_id: LibraryId,
+        idempotency_key: &str,
+    ) -> Result<Option<NfoSidecarApplyRecord>> {
+        NfoSidecarApplyRepository::find_nfo_sidecar_apply_by_idempotency_key(
+            self,
+            target_library_id,
+            idempotency_key,
+        )
+        .await
+    }
+
+    async fn upsert_nfo_sidecar_apply(
+        &self,
+        apply: NewNfoSidecarApply,
+    ) -> Result<NfoSidecarApplyRecord> {
+        NfoSidecarApplyRepository::upsert_nfo_sidecar_apply(self, apply).await
+    }
+
+    async fn get_nfo_sidecar_apply(
+        &self,
+        id: NfoSidecarApplyId,
+    ) -> Result<Option<NfoSidecarApplyRecord>> {
+        NfoSidecarApplyRepository::get_nfo_sidecar_apply(self, id).await
+    }
+
+    async fn set_nfo_sidecar_apply_state(
+        &self,
+        id: NfoSidecarApplyId,
+        state: NfoSidecarApplyState,
+        updated_at_ms: i64,
+        outcome_json: Option<String>,
+        safe_error_code: Option<String>,
+        safe_message: Option<String>,
+    ) -> Result<Option<NfoSidecarApplyRecord>> {
+        NfoSidecarApplyRepository::set_nfo_sidecar_apply_state(
+            self,
+            id,
+            state,
+            updated_at_ms,
+            outcome_json,
+            safe_error_code,
+            safe_message,
+        )
+        .await
+    }
+
+    async fn enqueue_outbox_event(&self, event: NewOutboxEvent) -> Result<OutboxEventRecord> {
+        EventOutboxRepository::enqueue_outbox_event(self, event).await
+    }
+}
+
+#[derive(Clone, Debug)]
+struct NfoWorkflowLeaseStore {
+    store: Arc<dyn NfoWorkflowStore>,
+}
+
+impl NfoWorkflowLeaseStore {
+    fn new(store: Arc<dyn NfoWorkflowStore>) -> Self {
+        Self { store }
+    }
+}
+
+#[async_trait::async_trait]
+impl DurableJobLeaseStore for NfoWorkflowLeaseStore {
+    async fn claim_next_job_lease(
+        &self,
+        request: JobLeaseClaimRequest,
+    ) -> Result<Option<LeasedJob>> {
+        DurableJobLeaseStore::claim_next_job_lease(self.store.as_ref(), request).await
+    }
+
+    async fn heartbeat_job_lease(&self, heartbeat: JobLeaseHeartbeat) -> Result<LeasedJob> {
+        DurableJobLeaseStore::heartbeat_job_lease(self.store.as_ref(), heartbeat).await
+    }
+
+    async fn succeed_leased_job(&self, completion: CompleteLeasedJob) -> Result<Job> {
+        DurableJobLeaseStore::succeed_leased_job(self.store.as_ref(), completion).await
+    }
+
+    async fn fail_leased_job(&self, failure: FailLeasedJob) -> Result<Job> {
+        DurableJobLeaseStore::fail_leased_job(self.store.as_ref(), failure).await
+    }
+
+    async fn cancel_leased_job(&self, cancellation: CancelLeasedJob) -> Result<Job> {
+        DurableJobLeaseStore::cancel_leased_job(self.store.as_ref(), cancellation).await
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct NfoAppService {
-    store: NakoDatabase,
+    nfo_repository: NakoDatabase,
+    workflow_store: Arc<dyn NfoWorkflowStore>,
     permits: Arc<Semaphore>,
     storage_backends: StorageBackendRegistry,
     runtime: RuntimeSupervisor,
@@ -148,7 +311,8 @@ impl NfoAppService {
         runtime: RuntimeSupervisor,
     ) -> Self {
         Self {
-            store,
+            nfo_repository: store.clone(),
+            workflow_store: Arc::new(store),
             permits,
             storage_backends,
             runtime,
@@ -241,7 +405,7 @@ impl NfoAppService {
             .storage_backends
             .backend_for_library_root(&library)
             .await?;
-        let service = NfoService::new(backend, self.store.clone(), MovieNfoCodec);
+        let service = NfoService::new(backend, self.nfo_repository.clone(), MovieNfoCodec);
 
         service
             .preview_authority(NfoAuthorityPreviewRequest {
@@ -271,7 +435,7 @@ impl NfoAppService {
             validate_nfo_accepted_warning_codes(request.accepted_warning_codes.clone())?;
 
         if let Some(existing) = self
-            .store
+            .workflow_store
             .find_nfo_sidecar_apply_by_idempotency_key(request.target_library_id, &idempotency_key)
             .await?
         {
@@ -305,7 +469,7 @@ impl NfoAppService {
         )?;
 
         let source = self
-            .store
+            .workflow_store
             .get_media_source(accepted_source_id)
             .await?
             .ok_or_else(|| NakoError::NotFound {
@@ -323,7 +487,7 @@ impl NfoAppService {
                     .to_owned(),
             });
         }
-        self.store
+        self.workflow_store
             .get_media_item(request.media_item_id)
             .await?
             .ok_or_else(|| NakoError::NotFound {
@@ -355,7 +519,7 @@ impl NfoAppService {
         })
         .to_string();
         let record = self
-            .store
+            .workflow_store
             .upsert_nfo_sidecar_apply(NewNfoSidecarApply {
                 id: NfoSidecarApplyId::new(),
                 target_library_id: request.target_library_id,
@@ -387,7 +551,7 @@ impl NfoAppService {
         request: ApplyNfoSidecarApplyRequest,
     ) -> Result<NfoSidecarApplyAcceptanceDiagnostic> {
         let accepted = self
-            .store
+            .workflow_store
             .get_nfo_sidecar_apply(request.apply_id)
             .await?
             .ok_or_else(|| NakoError::NotFound {
@@ -465,7 +629,7 @@ impl NfoAppService {
         )?;
 
         let writing = self
-            .store
+            .workflow_store
             .set_nfo_sidecar_apply_state(
                 accepted.id,
                 NfoSidecarApplyState::WritingSidecar,
@@ -496,7 +660,7 @@ impl NfoAppService {
                 return Err(err);
             }
         };
-        let service = NfoService::new(backend.clone(), self.store.clone(), MovieNfoCodec);
+        let service = NfoService::new(backend.clone(), self.nfo_repository.clone(), MovieNfoCodec);
         let summary = service
             .export_media_source(NfoExportSourceRequest {
                 library_id: accepted.target_library_id,
@@ -513,7 +677,7 @@ impl NfoAppService {
         }
 
         let failed = self
-            .store
+            .workflow_store
             .set_nfo_sidecar_apply_state(
                 accepted.id,
                 NfoSidecarApplyState::FailedBeforeMutation,
@@ -583,7 +747,7 @@ impl NfoAppService {
         )?;
 
         let importing = self
-            .store
+            .workflow_store
             .set_nfo_sidecar_apply_state(
                 accepted.id,
                 NfoSidecarApplyState::ImportingMetadata,
@@ -614,7 +778,7 @@ impl NfoAppService {
                 return Err(err);
             }
         };
-        let service = NfoService::new(backend, self.store.clone(), MovieNfoCodec);
+        let service = NfoService::new(backend, self.nfo_repository.clone(), MovieNfoCodec);
         if let Err(err) = self.fail_nfo_sidecar_metadata_commit_for_test() {
             self.record_nfo_sidecar_pre_mutation_failure(
                 &importing,
@@ -638,7 +802,7 @@ impl NfoAppService {
         }
 
         let failed = self
-            .store
+            .workflow_store
             .set_nfo_sidecar_apply_state(
                 accepted.id,
                 NfoSidecarApplyState::FailedBeforeMutation,
@@ -671,7 +835,7 @@ impl NfoAppService {
         safe_error_code: &'static str,
         safe_message: &'static str,
     ) -> Result<NfoSidecarApplyRecord> {
-        self.store
+        self.workflow_store
             .set_nfo_sidecar_apply_state(
                 accepted.id,
                 NfoSidecarApplyState::FailedBeforeMutation,
@@ -715,7 +879,7 @@ impl NfoAppService {
         summary: &NfoExportSourceSummary,
     ) -> Result<NfoSidecarApplyRecord> {
         self.fail_nfo_sidecar_audit_commit_for_test()?;
-        self.store
+        self.workflow_store
             .set_nfo_sidecar_apply_state(
                 accepted.id,
                 NfoSidecarApplyState::Committed,
@@ -758,7 +922,7 @@ impl NfoAppService {
         summary: &NfoExportSourceSummary,
         rollback: &NfoSidecarRollbackReport,
     ) -> Result<NfoSidecarApplyRecord> {
-        self.store
+        self.workflow_store
             .set_nfo_sidecar_apply_state(
                 accepted.id,
                 NfoSidecarApplyState::RepairPending,
@@ -785,7 +949,7 @@ impl NfoAppService {
         summary: &NfoExportSourceSummary,
         rollback: &NfoSidecarRollbackReport,
     ) -> Result<NfoSidecarApplyRecord> {
-        self.store
+        self.workflow_store
             .set_nfo_sidecar_apply_state(
                 accepted.id,
                 NfoSidecarApplyState::RollbackComplete,
@@ -830,7 +994,7 @@ impl NfoAppService {
         summary: &NfoImportSourceSummary,
     ) -> Result<NfoSidecarApplyRecord> {
         self.fail_nfo_sidecar_audit_commit_for_test()?;
-        self.store
+        self.workflow_store
             .set_nfo_sidecar_apply_state(
                 accepted.id,
                 NfoSidecarApplyState::Committed,
@@ -853,7 +1017,7 @@ impl NfoAppService {
         accepted: &NfoSidecarApplyRecord,
         summary: &NfoImportSourceSummary,
     ) -> Result<NfoSidecarApplyRecord> {
-        self.store
+        self.workflow_store
             .set_nfo_sidecar_apply_state(
                 accepted.id,
                 NfoSidecarApplyState::RepairPending,
@@ -909,7 +1073,7 @@ impl NfoAppService {
             message: format!("failed to serialize NFO import job input: {err}"),
         })?;
 
-        self.store
+        self.workflow_store
             .enqueue_job(NewJob {
                 id: JobId::new(),
                 kind: JobKind::NfoImport,
@@ -932,7 +1096,7 @@ impl NfoAppService {
             message: format!("failed to serialize NFO export job input: {err}"),
         })?;
 
-        self.store
+        self.workflow_store
             .enqueue_job(NewJob {
                 id: JobId::new(),
                 kind: JobKind::NfoExport,
@@ -1007,7 +1171,8 @@ impl NfoAppService {
                 })?;
         let _permit = permit;
 
-        let runtime = DurableJobRuntime::new(self.store.clone());
+        let runtime =
+            DurableJobRuntime::new(NfoWorkflowLeaseStore::new(self.workflow_store.clone()));
         let run = runtime
             .run_job_with_context(
                 job_id,
@@ -1047,7 +1212,8 @@ impl NfoAppService {
                 })?;
         let _permit = permit;
 
-        let runtime = DurableJobRuntime::new(self.store.clone());
+        let runtime =
+            DurableJobRuntime::new(NfoWorkflowLeaseStore::new(self.workflow_store.clone()));
         let run = runtime
             .run_job_with_context(
                 job_id,
@@ -1173,7 +1339,7 @@ impl NfoAppService {
             .storage_backends
             .backend_for_library_root(&library)
             .await?;
-        let service = NfoService::new(backend, self.store.clone(), MovieNfoCodec);
+        let service = NfoService::new(backend, self.nfo_repository.clone(), MovieNfoCodec);
         let cancellation = DurableNfoCancellationCheck {
             context: context.clone(),
         };
@@ -1220,7 +1386,7 @@ impl NfoAppService {
             .backend_for_library_root(&library)
             .await?;
         ensure_nfo_export_writable(backend.as_ref(), &library).await?;
-        let service = NfoService::new(backend, self.store.clone(), MovieNfoCodec);
+        let service = NfoService::new(backend, self.nfo_repository.clone(), MovieNfoCodec);
         let cancellation = DurableNfoCancellationCheck {
             context: context.clone(),
         };
@@ -1251,7 +1417,7 @@ impl NfoAppService {
     async fn record_outbox_event(&self, event: NewOutboxEvent) {
         let kind = event.kind.as_str();
         let idempotency_key = event.idempotency_key.clone();
-        if let Err(err) = self.store.enqueue_outbox_event(event).await {
+        if let Err(err) = self.workflow_store.enqueue_outbox_event(event).await {
             warn!(
                 kind,
                 idempotency_key,
@@ -1262,7 +1428,7 @@ impl NfoAppService {
     }
 
     async fn library_for_nfo(&self, library_id: LibraryId) -> Result<Library> {
-        self.store
+        self.workflow_store
             .get_library(library_id)
             .await?
             .ok_or_else(|| NakoError::NotFound {

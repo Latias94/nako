@@ -1,7 +1,8 @@
+use async_trait::async_trait;
 use nako_core::{
     AcquisitionIntakeCandidateId, AcquisitionIntakeCandidateListFilter,
     AcquisitionIntakeCandidateRecord, AcquisitionIntakeCandidateState, AcquisitionIntakeRepository,
-    AcquisitionIntakeSourceKind, LibraryId, LibraryRepository, ManagedImportArtifactId,
+    AcquisitionIntakeSourceKind, Library, LibraryId, LibraryRepository, ManagedImportArtifactId,
     ManagedImportArtifactRecord, ManagedImportArtifactState, ManagedImportRepository,
     ManagedImportSourceKind, NakoError, NewAcquisitionIntakeCandidate, PageRequest, Result,
 };
@@ -9,15 +10,133 @@ use nako_db::NakoDatabase;
 use nako_library::LibraryScannerOptions;
 use nako_vfs::{ObjectKind, ObjectMetadata, StorageBackend, StorageUri};
 use serde::Serialize;
+use std::sync::Arc;
 
 use super::{
     managed_import::{CreateManagedImportArtifactRequest, ManagedImportAppService},
     storage::StorageBackendRegistry,
 };
 
+#[async_trait]
+trait AcquisitionIntakeWorkflowStore: std::fmt::Debug + Send + Sync {
+    async fn get_library(&self, id: LibraryId) -> Result<Option<Library>>;
+
+    async fn upsert_acquisition_intake_candidate(
+        &self,
+        candidate: NewAcquisitionIntakeCandidate,
+    ) -> Result<AcquisitionIntakeCandidateRecord>;
+
+    async fn get_acquisition_intake_candidate(
+        &self,
+        id: AcquisitionIntakeCandidateId,
+    ) -> Result<Option<AcquisitionIntakeCandidateRecord>>;
+
+    async fn list_acquisition_intake_candidates(
+        &self,
+        filter: AcquisitionIntakeCandidateListFilter,
+        page: PageRequest,
+    ) -> Result<Vec<AcquisitionIntakeCandidateRecord>>;
+
+    async fn get_managed_import_artifact(
+        &self,
+        id: ManagedImportArtifactId,
+    ) -> Result<Option<ManagedImportArtifactRecord>>;
+
+    async fn find_managed_import_artifact_by_source(
+        &self,
+        target_library_id: LibraryId,
+        source_kind: &ManagedImportSourceKind,
+        source_uri: &str,
+    ) -> Result<Option<ManagedImportArtifactRecord>>;
+
+    async fn link_acquisition_intake_candidate_managed_import_artifact(
+        &self,
+        id: AcquisitionIntakeCandidateId,
+        managed_import_artifact_id: ManagedImportArtifactId,
+        updated_at_ms: i64,
+        diagnostics_json: Option<String>,
+    ) -> Result<Option<AcquisitionIntakeCandidateRecord>>;
+}
+
+#[async_trait]
+impl<T> AcquisitionIntakeWorkflowStore for T
+where
+    T: AcquisitionIntakeRepository
+        + LibraryRepository
+        + ManagedImportRepository
+        + std::fmt::Debug
+        + Send
+        + Sync,
+{
+    async fn get_library(&self, id: LibraryId) -> Result<Option<Library>> {
+        LibraryRepository::get_library(self, id).await
+    }
+
+    async fn upsert_acquisition_intake_candidate(
+        &self,
+        candidate: NewAcquisitionIntakeCandidate,
+    ) -> Result<AcquisitionIntakeCandidateRecord> {
+        AcquisitionIntakeRepository::upsert_acquisition_intake_candidate(self, candidate).await
+    }
+
+    async fn get_acquisition_intake_candidate(
+        &self,
+        id: AcquisitionIntakeCandidateId,
+    ) -> Result<Option<AcquisitionIntakeCandidateRecord>> {
+        AcquisitionIntakeRepository::get_acquisition_intake_candidate(self, id).await
+    }
+
+    async fn list_acquisition_intake_candidates(
+        &self,
+        filter: AcquisitionIntakeCandidateListFilter,
+        page: PageRequest,
+    ) -> Result<Vec<AcquisitionIntakeCandidateRecord>> {
+        AcquisitionIntakeRepository::list_acquisition_intake_candidates(self, filter, page).await
+    }
+
+    async fn get_managed_import_artifact(
+        &self,
+        id: ManagedImportArtifactId,
+    ) -> Result<Option<ManagedImportArtifactRecord>> {
+        ManagedImportRepository::get_managed_import_artifact(self, id).await
+    }
+
+    async fn find_managed_import_artifact_by_source(
+        &self,
+        target_library_id: LibraryId,
+        source_kind: &ManagedImportSourceKind,
+        source_uri: &str,
+    ) -> Result<Option<ManagedImportArtifactRecord>> {
+        ManagedImportRepository::find_managed_import_artifact_by_source(
+            self,
+            target_library_id,
+            source_kind,
+            source_uri,
+        )
+        .await
+    }
+
+    async fn link_acquisition_intake_candidate_managed_import_artifact(
+        &self,
+        id: AcquisitionIntakeCandidateId,
+        managed_import_artifact_id: ManagedImportArtifactId,
+        updated_at_ms: i64,
+        diagnostics_json: Option<String>,
+    ) -> Result<Option<AcquisitionIntakeCandidateRecord>> {
+        AcquisitionIntakeRepository::link_acquisition_intake_candidate_managed_import_artifact(
+            self,
+            id,
+            managed_import_artifact_id,
+            updated_at_ms,
+            diagnostics_json,
+        )
+        .await
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct AcquisitionIntakeAppService {
-    store: NakoDatabase,
+    store: Arc<dyn AcquisitionIntakeWorkflowStore>,
     managed_import: ManagedImportAppService,
     storage_backends: Option<StorageBackendRegistry>,
 }
@@ -27,10 +146,11 @@ impl AcquisitionIntakeAppService {
         store: NakoDatabase,
         storage_backends: StorageBackendRegistry,
     ) -> Self {
+        let managed_import = ManagedImportAppService::new(store.clone());
         Self {
-            managed_import: ManagedImportAppService::new(store.clone()),
+            managed_import,
             storage_backends: Some(storage_backends),
-            store,
+            store: Arc::new(store),
         }
     }
 

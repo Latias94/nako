@@ -1,7 +1,7 @@
 # Official Addon E2E Alpha2 - Handoff
 
 Status: Completed
-Last updated: 2026-05-23
+Last updated: 2026-05-24
 
 ## Current State
 
@@ -30,19 +30,12 @@ official alpha host/addon smoke entrypoint. That script defaults to the
 published crates.io binary and only uses a sibling workspace build when a clean
 candidate addon worktree is being validated.
 
-## Next Task
+## Closeout
 
-Start OAE2E-060.
-
-Goal: close the lane or split remaining alpha2 follow-ons.
-
-Suggested first steps:
-
-1. Capture final evidence and any remaining risks in `EVIDENCE_AND_GATES.md`.
-2. Run `verify-rust-workstream` against the current lane state.
-3. Split Addon Manager, marketplace, package signing, or provider breadth
-   follow-ons if they became the next real work.
-4. Summarize the completed alpha loop in the closeout note.
+OAE2E-060 is complete. The lane is closed with final gate evidence in
+`EVIDENCE_AND_GATES.md`, and the remaining work is split into separate
+follow-ons for Addon Manager, marketplace, package signing, provider breadth,
+or new protocol compatibility work.
 
 ## Known Risks
 

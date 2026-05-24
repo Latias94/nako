@@ -49,6 +49,11 @@ Task IDs use the `CRFBA` prefix.
   maintenance, raw-response, and attempt queries through a dedicated
   `MetadataWorkflowStore` instead of reaching straight into `NakoDatabase` for
   those read/write calls.
+  `crates/nako-server/src/app/nfo.rs` now routes NFO job creation,
+  library/item/source lookups, sidecar-apply audit state transitions, outbox
+  writes, and durable job runtime lease handoff through a dedicated
+  `NfoWorkflowStore`; `NfoService` keeps its own repository dependency for
+  import/export domain work.
   Validation: focused nextest for the touched workflow and backend contract
   tests; `cargo fmt --all -- --check` when practical.
   Review: The slice must reduce caller authority, not just rename repository

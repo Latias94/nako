@@ -13,9 +13,13 @@ candidate record/list/discovery/acceptance and
 `crates/nako-server/src/app/job_runtime.rs` behind a durable job lease store
 for claim/heartbeat/succeed/fail/cancel. `crates/nako-server/src/app/metadata.rs`
 has now also narrowed direct metadata refresh, maintenance, raw-response, and
-attempt queries behind a dedicated metadata workflow store. CRFBA-050 and
-CRFBA-060 have now landed in `../nako-official-addons` with focused module
-splits and passing package tests.
+attempt queries behind a dedicated metadata workflow store.
+`crates/nako-server/src/app/nfo.rs` now routes NFO job creation,
+library/item/source lookups, sidecar-apply audit state transitions, outbox
+writes, and durable job runtime lease handoff behind a dedicated NFO workflow
+store while keeping `NfoService` as the import/export domain repository
+boundary. CRFBA-050 and CRFBA-060 have now landed in
+`../nako-official-addons` with focused module splits and passing package tests.
 
 Initial review found:
 
@@ -36,8 +40,10 @@ Initial review found:
 - Task ID: CRFBA-020
 - Owner: codex
 - Files: `crates/nako-db`, `crates/nako-core`, `crates/nako-server`
-- Validation: `cargo check -p nako-server --bin nako-server` and
-  `cargo nextest run -p nako-server durable_job_runtime --no-fail-fast` pass.
+- Validation: `cargo nextest run -p nako-server nfo --no-fail-fast`, `cargo
+  nextest run -p nako-server durable_job_runtime --no-fail-fast`, `cargo fmt
+  --all -- --check`, `cargo check -p nako-server --bin nako-server`, and
+  path-scoped `git diff --check` pass.
 - Status: IN_PROGRESS
 - Review: pending after the next workflow-port slice.
 - Evidence: `DESIGN.md`, `TODO.md`, `MILESTONES.md`, `EVIDENCE_AND_GATES.md`.
@@ -88,6 +94,11 @@ format, stage, or commit them unless the user explicitly asks.
   behind a dedicated metadata workflow store for direct metadata reads/writes;
   the focused metadata nextest gate passed with 27 metadata-related tests and
   `cargo fmt --all -- --check` stayed green.
+- `CRFBA-020` now also narrows `crates/nako-server/src/app/nfo.rs` behind a
+  dedicated NFO workflow store for app-level job, library/source/item,
+  sidecar-apply audit, outbox, and durable job lease handoff operations. The
+  actual `NfoService` repository dependency stays intact for import/export
+  domain behavior.
 - `CRFBA-050` split `MetadataScrapeRuntime` into `query`, `orchestration`,
   `response`, `runtime`, `writeback`, and `bulk` modules with unchanged public
   payloads.
@@ -111,10 +122,13 @@ format, stage, or commit them unless the user explicitly asks.
 - `MetadataAppService` now uses a dedicated workflow store for direct metadata
   queries and writes, which makes the next seam candidate easier to isolate
   without changing executor behavior.
+- `NfoAppService` now uses a dedicated workflow store for direct app-level
+  persistence and only keeps a concrete repository handle for `NfoService`
+  domain execution.
 
 ## Next Recommended Action
 
-Continue CRFBA-020 with the next narrow server workflow-port slice, likely
-another job-based workflow or the remaining metadata-authority seam; keep
+Review CRFBA-020 as a server workflow-port slice and decide whether it is
+complete enough to unlock CRFBA-040 Candidate/Acceptance authority work. Keep
 CRFBA-030 only as a follow-up review note unless the migration blocker is
 independently resolved.

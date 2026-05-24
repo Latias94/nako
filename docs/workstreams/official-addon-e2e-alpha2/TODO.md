@@ -1,7 +1,7 @@
 # Official Addon E2E Alpha2 - TODO
 
 Status: Completed
-Last updated: 2026-05-23
+Last updated: 2026-05-24
 
 ## M0 - Scope And Evidence Freeze
 
@@ -66,9 +66,9 @@ Last updated: 2026-05-23
   the repeatable hosted alpha smoke script. Continue with OAE2E-060. Split Addon
   Manager/marketplace/provider breadth.
 
-- [ ] OAE2E-060 [owner=planner] [deps=OAE2E-040,OAE2E-050] [scope=docs/workstreams/official-addon-e2e-alpha2]
+- [x] OAE2E-060 [owner=planner] [deps=OAE2E-040,OAE2E-050] [scope=docs/workstreams/official-addon-e2e-alpha2]
   Goal: Close the lane or split remaining alpha2 follow-ons.
   Validation: verify-rust-workstream records fresh final gate evidence.
   Review: review-workstream has no blocking findings.
   Evidence: EVIDENCE_AND_GATES.md, WORKSTREAM.json
-  Handoff: Summarize remaining risks in HANDOFF.md.
+  Handoff: DONE. Lane closed with fresh final gate evidence and split/defer notes captured in HANDOFF.md.

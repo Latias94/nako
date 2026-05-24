@@ -165,6 +165,15 @@ Use `verify-rust-workstream` before marking this lane complete.
   --no-fail-fast` passed 27 metadata-related tests after narrowing
   `crates/nako-server/src/app/metadata.rs` behind `MetadataWorkflowStore`.
   `cargo fmt --all -- --check` also passed.
+- 2026-05-24 CRFBA-020 follow-up: `cargo nextest run -p nako-server nfo
+  --no-fail-fast` passed 29 NFO-focused tests after narrowing
+  `crates/nako-server/src/app/nfo.rs` behind `NfoWorkflowStore` for app-level
+  job, library/source/item, sidecar-apply audit, outbox, and durable job lease
+  handoff operations. `cargo nextest run -p nako-server durable_job_runtime
+  --no-fail-fast` passed 4 durable-job-runtime tests, `cargo fmt --all --
+  --check` passed, `cargo check -p nako-server --bin nako-server` passed with
+  existing dead-code warnings, and path-scoped `git diff --check` passed with
+  line-ending warnings only.
 
 ## Recent Addon Evidence
 
