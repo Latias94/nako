@@ -1,7 +1,7 @@
 # Cross-Repo Fearless Boundary Alignment - Milestones
 
 Status: Active
-Last updated: 2026-05-24
+Last updated: 2026-05-25
 
 ## M0 - Scope And Evidence Freeze
 
@@ -81,3 +81,9 @@ Primary gates:
 - Relevant focused nextest gates from M1-M3.
 - Broader workspace gates where practical and proportional.
 - `git diff --check` for touched paths only when unrelated dirty files exist.
+
+Status: CRFBA-090 achieved the contract-drift hardening slice on 2026-05-25
+with Addon Runtime route inventory constants, Public Client OpenAPI exclusion
+coverage over that inventory, and wire-shape parity tests between
+`nako-api` runtime DTOs and `nako-addon-protocol`. Full lane closeout remains
+pending CRFBA-080 or an explicit follow-on split.

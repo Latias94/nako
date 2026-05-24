@@ -4,6 +4,103 @@ use serde::{Deserialize, Serialize};
 
 pub const ADDON_PROTOCOL_VERSION: &str = "0.1.0-alpha.1";
 pub const SUPPORTED_ADDON_PROTOCOL_VERSIONS: &[&str] = &[ADDON_PROTOCOL_VERSION];
+pub const ADDON_RUNTIME_ACCESS_CHECK_PATH: &str = "/addon/v1/access-check";
+pub const ADDON_RUNTIME_SIDE_EFFECTS_PATH: &str = "/addon/v1/side-effects";
+pub const ADDON_RUNTIME_GENERATED_ARTIFACTS_PATH: &str = "/addon/v1/generated-artifacts";
+pub const ADDON_RUNTIME_ACQUISITION_INTAKE_CANDIDATES_PATH: &str =
+    "/addon/v1/acquisition/intake/candidates";
+pub const ADDON_RUNTIME_TASK_RUN_CLAIM_PATH: &str = "/addon/v1/task-runs/claim";
+pub const ADDON_RUNTIME_TASK_RUN_PROGRESS_PATH: &str = "/addon/v1/task-runs/progress";
+pub const ADDON_RUNTIME_TASK_RUN_COMPLETE_PATH: &str = "/addon/v1/task-runs/complete";
+pub const ADDON_RUNTIME_TASK_RUN_FAIL_PATH: &str = "/addon/v1/task-runs/fail";
+pub const ADDON_RUNTIME_TASK_RUN_CANCEL_PATH: &str = "/addon/v1/task-runs/cancel";
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct AddonRuntimeRoute {
+    pub path: &'static str,
+    pub method: AddonRuntimeHttpMethod,
+    pub kind: AddonRuntimeRouteKind,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AddonRuntimeHttpMethod {
+    Post,
+}
+
+impl AddonRuntimeHttpMethod {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Post => "POST",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AddonRuntimeRouteKind {
+    AccessCheck,
+    SideEffect,
+    GeneratedArtifact,
+    AcquisitionIntakeCandidate,
+    TaskRunClaim,
+    TaskRunProgress,
+    TaskRunComplete,
+    TaskRunFail,
+    TaskRunCancel,
+}
+
+pub const ADDON_RUNTIME_ROUTES: &[AddonRuntimeRoute] = &[
+    AddonRuntimeRoute {
+        path: ADDON_RUNTIME_ACCESS_CHECK_PATH,
+        method: AddonRuntimeHttpMethod::Post,
+        kind: AddonRuntimeRouteKind::AccessCheck,
+    },
+    AddonRuntimeRoute {
+        path: ADDON_RUNTIME_SIDE_EFFECTS_PATH,
+        method: AddonRuntimeHttpMethod::Post,
+        kind: AddonRuntimeRouteKind::SideEffect,
+    },
+    AddonRuntimeRoute {
+        path: ADDON_RUNTIME_GENERATED_ARTIFACTS_PATH,
+        method: AddonRuntimeHttpMethod::Post,
+        kind: AddonRuntimeRouteKind::GeneratedArtifact,
+    },
+    AddonRuntimeRoute {
+        path: ADDON_RUNTIME_ACQUISITION_INTAKE_CANDIDATES_PATH,
+        method: AddonRuntimeHttpMethod::Post,
+        kind: AddonRuntimeRouteKind::AcquisitionIntakeCandidate,
+    },
+    AddonRuntimeRoute {
+        path: ADDON_RUNTIME_TASK_RUN_CLAIM_PATH,
+        method: AddonRuntimeHttpMethod::Post,
+        kind: AddonRuntimeRouteKind::TaskRunClaim,
+    },
+    AddonRuntimeRoute {
+        path: ADDON_RUNTIME_TASK_RUN_PROGRESS_PATH,
+        method: AddonRuntimeHttpMethod::Post,
+        kind: AddonRuntimeRouteKind::TaskRunProgress,
+    },
+    AddonRuntimeRoute {
+        path: ADDON_RUNTIME_TASK_RUN_COMPLETE_PATH,
+        method: AddonRuntimeHttpMethod::Post,
+        kind: AddonRuntimeRouteKind::TaskRunComplete,
+    },
+    AddonRuntimeRoute {
+        path: ADDON_RUNTIME_TASK_RUN_FAIL_PATH,
+        method: AddonRuntimeHttpMethod::Post,
+        kind: AddonRuntimeRouteKind::TaskRunFail,
+    },
+    AddonRuntimeRoute {
+        path: ADDON_RUNTIME_TASK_RUN_CANCEL_PATH,
+        method: AddonRuntimeHttpMethod::Post,
+        kind: AddonRuntimeRouteKind::TaskRunCancel,
+    },
+];
+
+#[must_use]
+pub fn addon_runtime_paths() -> impl ExactSizeIterator<Item = &'static str> {
+    ADDON_RUNTIME_ROUTES.iter().map(|route| route.path)
+}
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AddonManifest {
@@ -1669,6 +1766,37 @@ mod tests {
         assert_eq!(SUPPORTED_ADDON_PROTOCOL_VERSIONS, &[ADDON_PROTOCOL_VERSION]);
         assert!(is_supported_addon_protocol_version(ADDON_PROTOCOL_VERSION));
         assert!(!is_supported_addon_protocol_version("0.1.0-alpha.0"));
+    }
+
+    #[test]
+    fn exposes_explicit_addon_runtime_route_inventory() {
+        let paths = addon_runtime_paths().collect::<Vec<_>>();
+
+        assert_eq!(
+            paths,
+            vec![
+                ADDON_RUNTIME_ACCESS_CHECK_PATH,
+                ADDON_RUNTIME_SIDE_EFFECTS_PATH,
+                ADDON_RUNTIME_GENERATED_ARTIFACTS_PATH,
+                ADDON_RUNTIME_ACQUISITION_INTAKE_CANDIDATES_PATH,
+                ADDON_RUNTIME_TASK_RUN_CLAIM_PATH,
+                ADDON_RUNTIME_TASK_RUN_PROGRESS_PATH,
+                ADDON_RUNTIME_TASK_RUN_COMPLETE_PATH,
+                ADDON_RUNTIME_TASK_RUN_FAIL_PATH,
+                ADDON_RUNTIME_TASK_RUN_CANCEL_PATH,
+            ]
+        );
+        assert!(paths.iter().all(|path| path.starts_with("/addon/v1/")));
+        assert_eq!(
+            ADDON_RUNTIME_ROUTES.len(),
+            paths.iter().collect::<HashSet<_>>().len(),
+            "Addon runtime route paths must stay unique"
+        );
+        assert!(
+            ADDON_RUNTIME_ROUTES
+                .iter()
+                .all(|route| route.method == AddonRuntimeHttpMethod::Post)
+        );
     }
 
     #[test]

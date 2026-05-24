@@ -2,10 +2,11 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use nako_addon_protocol::{
-    AddonAccessCheckRequest, AddonAccessCheckResponse, AddonAuth, AddonHealthCheckRequest,
-    AddonHealthCheckResponse, AddonManifest, AddonManifestError, AddonPermission, AddonResource,
-    AddonResourceRequest, AddonResourceResponse, AddonScope, AddonSideEffectResponse,
-    AddonSideEffectTargetKind, AddonTaskRequest, AddonTaskResponse, SubmitAddonArtworkWriteRequest,
+    ADDON_RUNTIME_ACCESS_CHECK_PATH, ADDON_RUNTIME_SIDE_EFFECTS_PATH, AddonAccessCheckRequest,
+    AddonAccessCheckResponse, AddonAuth, AddonHealthCheckRequest, AddonHealthCheckResponse,
+    AddonManifest, AddonManifestError, AddonPermission, AddonResource, AddonResourceRequest,
+    AddonResourceResponse, AddonScope, AddonSideEffectResponse, AddonSideEffectTargetKind,
+    AddonTaskRequest, AddonTaskResponse, SubmitAddonArtworkWriteRequest,
     SubmitAddonMetadataWriteRequest, SubmitAddonSideEffectRequest, ensure_scope_grant,
     ensure_task_scope_grant, validate_health_check_response, validate_manifest,
     validate_resource_response, validate_task_response,
@@ -553,7 +554,7 @@ where
         &self,
         request: AddonAccessCheckRequest,
     ) -> AddonClientResult<AddonAccessCheckResponse> {
-        self.post_runtime_json("/addon/v1/access-check", &request)
+        self.post_runtime_json(ADDON_RUNTIME_ACCESS_CHECK_PATH, &request)
             .await
     }
 
@@ -561,7 +562,7 @@ where
         &self,
         request: SubmitAddonSideEffectRequest,
     ) -> AddonClientResult<AddonSideEffectResponse> {
-        self.post_runtime_json("/addon/v1/side-effects", &request)
+        self.post_runtime_json(ADDON_RUNTIME_SIDE_EFFECTS_PATH, &request)
             .await
     }
 

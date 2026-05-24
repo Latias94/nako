@@ -1,7 +1,7 @@
 # Cross-Repo Fearless Boundary Alignment - Handoff
 
 Status: Active
-Last updated: 2026-05-24
+Last updated: 2026-05-25
 
 ## Current State
 
@@ -35,6 +35,11 @@ CRFBA-070 now aligns protected-write host-client responsibilities across
 metadata scraper `nako_runtime` facade: protocol owns wire payload shapes,
 client owns runtime HTTP behavior, and the official addon delegates to the
 public crates instead of keeping a private duplicate implementation.
+CRFBA-090 now hardens the touched contract surface: Addon Runtime route paths
+have a public protocol inventory, the Nako Runtime client and server route
+registration use those constants, Public Client OpenAPI tests exclude the
+runtime inventory, and `nako-api` tests prove access-check and side-effect
+wire-shape parity against `nako-addon-protocol`.
 
 Initial review found:
 
@@ -52,24 +57,23 @@ Initial review found:
 
 ## Active Task
 
-- Task ID: CRFBA-070
+- Task ID: CRFBA-090
 - Owner: codex
 - Files: `crates/nako-addon-protocol/src/lib.rs`,
   `crates/nako-addon-client/src/lib.rs`,
-  `../nako-official-addons/Cargo.toml`,
-  `../nako-official-addons/crates/nako-metadata-scraper/Cargo.toml`,
-  `../nako-official-addons/crates/nako-metadata-scraper/src/nako_runtime.rs`,
+  `crates/nako-api/src/extension.rs`, `crates/nako-api/src/openapi.rs`,
+  `crates/nako-server/src/http/addons.rs`,
   `docs/workstreams/cross-repo-fearless-boundary-alignment`
-- Validation: focused `cargo nextest run -p nako-addon-client -p
-  nako-addon-protocol --no-fail-fast` in Nako and focused `cargo nextest run -p
-  nako-metadata-scraper nako_runtime --no-fail-fast` in
-  `../nako-official-addons` pass. Focused clippy gates for the public client/
-  protocol crates and the official metadata scraper pass. Fresh formatting and
-  path-scoped diff checks pass with LF-to-CRLF warnings only.
-- Status: DONE_WITH_CONCERNS
-- Review: pending before accepting CRFBA-070.
+- Validation: `cargo fmt --all -- --check`, `cargo nextest run -p
+  nako-addon-protocol -p nako-addon-client -p nako-api --no-fail-fast`,
+  `cargo check -p nako-server`, and path-scoped `git diff --check` over the
+  touched Rust and workstream docs pass. `cargo check -p nako-server` still
+  reports existing dead-code warnings.
+- Status: DONE
+- Review: no blocking design finding so far; generated Addon Runtime SDK/schema
+  output is intentionally deferred until external distribution requires it.
 - Evidence: `TODO.md`, `EVIDENCE_AND_GATES.md`,
-  `JOURNAL/2026-05-24-CRFBA-070.md`.
+  `JOURNAL/2026-05-25-CRFBA-090.md`.
 
 ## Dirty Worktree Notes
 
@@ -171,6 +175,9 @@ format, stage, or commit them unless the user explicitly asks.
 - `CRFBA-070` review found and fixed a safe-error-mapping gap in the reusable
   reqwest transport: public client transport errors now strip request URLs and
   cap error text before surfacing `AddonClientError::Http`.
+- `CRFBA-090` chose route-inventory plus wire-shape parity tests instead of a
+  generated Addon Runtime SDK for this slice. This matches the current public
+  crate distribution model and avoids widening the task into release tooling.
 
 ## Blockers
 
@@ -194,7 +201,6 @@ format, stage, or commit them unless the user explicitly asks.
 
 ## Next Recommended Action
 
-CRFBA-070 has no known blocking review findings after the safe-error-mapping
-fix. Next choose either CRFBA-080 playback runtime/transcode ownership or
-CRFBA-090 contract drift hardening. Do not mix public crate release/versioning
-into CRFBA-070; split it as a follow-on if needed.
+Move to the user's requested real media-directory scan and playback smoke.
+CRFBA-080 playback runtime/transcode ownership remains open as architecture
+work, but should not block the immediate real-directory validation.

@@ -1209,3 +1209,161 @@ pub struct AddonAcquisitionCandidateResponse {
     pub candidate: AddonAcquisitionCandidateSummary,
     pub idempotent_replay: bool,
 }
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use super::*;
+
+    #[test]
+    fn addon_runtime_access_check_wire_shape_matches_public_protocol() {
+        let library_id = LibraryId::from_str("018f0000-0000-7000-8000-000000000003").unwrap();
+
+        let api_request = serde_json::to_value(AddonAccessCheckRequest {
+            permission: AddonPermission::MetadataWrite,
+            library_id: Some(library_id),
+        })
+        .unwrap();
+        let protocol_request = serde_json::to_value(nako_addon_protocol::AddonAccessCheckRequest {
+            permission: nako_addon_protocol::AddonPermission::MetadataWrite,
+            library_id: Some(library_id.to_string()),
+        })
+        .unwrap();
+
+        assert_eq!(api_request, protocol_request);
+
+        let addon_id = AddonId::from_str("018f0000-0000-7000-8000-000000000002").unwrap();
+        let token_id = AddonTokenId::from_str("018f0000-0000-7000-8000-000000000004").unwrap();
+
+        let api_response = serde_json::to_value(AddonAccessCheckResponse {
+            addon_id,
+            token_id,
+            permission: AddonPermission::MetadataWrite,
+            library_id: Some(library_id),
+            allowed: true,
+        })
+        .unwrap();
+        let protocol_response =
+            serde_json::to_value(nako_addon_protocol::AddonAccessCheckResponse {
+                addon_id: addon_id.to_string(),
+                token_id: token_id.to_string(),
+                permission: nako_addon_protocol::AddonPermission::MetadataWrite,
+                library_id: Some(library_id.to_string()),
+                allowed: true,
+            })
+            .unwrap();
+
+        assert_eq!(api_response, protocol_response);
+    }
+
+    #[test]
+    fn addon_runtime_side_effect_wire_shape_matches_public_protocol() {
+        let library_id = LibraryId::from_str("018f0000-0000-7000-8000-000000000003").unwrap();
+        let source_id = MediaSourceId::from_str("018f0000-0000-7000-8000-000000000005").unwrap();
+
+        let api_request = serde_json::to_value(SubmitAddonSideEffectRequest {
+            permission: AddonPermission::MetadataWrite,
+            library_id,
+            target: AddonSideEffectTargetRequest {
+                kind: AddonSideEffectTargetKind::MediaSource,
+                id: source_id.to_string(),
+            },
+            idempotency_key: "metadata-demo-1".to_owned(),
+            provenance: serde_json::json!({
+                "origin": "reference-addon",
+                "request_id": "request-1"
+            }),
+            payload: serde_json::json!({
+                "title": "Demo From Addon",
+                "genres": ["Addon Genre"]
+            }),
+        })
+        .unwrap();
+        let protocol_request =
+            serde_json::to_value(nako_addon_protocol::SubmitAddonSideEffectRequest {
+                permission: nako_addon_protocol::AddonPermission::MetadataWrite,
+                library_id: library_id.to_string(),
+                target: nako_addon_protocol::AddonSideEffectTarget {
+                    kind: nako_addon_protocol::AddonSideEffectTargetKind::MediaSource,
+                    id: source_id.to_string(),
+                },
+                idempotency_key: "metadata-demo-1".to_owned(),
+                provenance: serde_json::json!({
+                    "origin": "reference-addon",
+                    "request_id": "request-1"
+                }),
+                payload: serde_json::json!({
+                    "title": "Demo From Addon",
+                    "genres": ["Addon Genre"]
+                }),
+            })
+            .unwrap();
+
+        assert_eq!(api_request, protocol_request);
+
+        let side_effect_id =
+            AddonSideEffectId::from_str("018f0000-0000-7000-8000-000000000006").unwrap();
+        let addon_id = AddonId::from_str("018f0000-0000-7000-8000-000000000002").unwrap();
+        let token_id = AddonTokenId::from_str("018f0000-0000-7000-8000-000000000004").unwrap();
+        let item_id = MediaItemId::from_str("018f0000-0000-7000-8000-000000000007").unwrap();
+
+        let api_response = serde_json::to_value(AddonSideEffectResponse {
+            side_effect: AddonSideEffectSummary {
+                id: side_effect_id,
+                addon_id,
+                token_id,
+                permission: AddonPermission::MetadataWrite,
+                library_id,
+                target: AddonSideEffectTargetSummary {
+                    kind: AddonSideEffectTargetKind::MediaSource,
+                    id: source_id.to_string(),
+                },
+                idempotency_key: "metadata-demo-1".to_owned(),
+                validation_status: AddonSideEffectValidationStatus::Accepted,
+                safe_error_code: None,
+                apply_status: AddonSideEffectApplyStatus::Applied,
+                apply_error_code: None,
+                applied_item_id: Some(item_id),
+                applied_source: Some(format!("addon:{addon_id}")),
+                apply_report: Some(serde_json::json!({
+                    "projected_items": 1
+                })),
+                applied_at: Some("2026-05-18T12:00:00.000Z".to_owned()),
+                created_at: "2026-05-18T12:00:00.000Z".to_owned(),
+            },
+            idempotent_replay: false,
+        })
+        .unwrap();
+        let protocol_response =
+            serde_json::to_value(nako_addon_protocol::AddonSideEffectResponse {
+                side_effect: nako_addon_protocol::AddonSideEffectSummary {
+                    id: side_effect_id.to_string(),
+                    addon_id: Some(addon_id.to_string()),
+                    token_id: Some(token_id.to_string()),
+                    permission: nako_addon_protocol::AddonPermission::MetadataWrite,
+                    library_id: library_id.to_string(),
+                    target: nako_addon_protocol::AddonSideEffectTarget {
+                        kind: nako_addon_protocol::AddonSideEffectTargetKind::MediaSource,
+                        id: source_id.to_string(),
+                    },
+                    idempotency_key: "metadata-demo-1".to_owned(),
+                    validation_status: "accepted".to_owned(),
+                    safe_error_code: None,
+                    apply_status: "applied".to_owned(),
+                    apply_error_code: None,
+                    applied_item_id: Some(item_id.to_string()),
+                    applied_source: Some(format!("addon:{addon_id}")),
+                    apply_report: Some(serde_json::json!({
+                        "projected_items": 1
+                    })),
+                    applied_at: Some("2026-05-18T12:00:00.000Z".to_owned()),
+                    created_at: Some("2026-05-18T12:00:00.000Z".to_owned()),
+                },
+                idempotent_replay: false,
+            })
+            .unwrap();
+
+        assert_eq!(api_response, protocol_response);
+    }
+}

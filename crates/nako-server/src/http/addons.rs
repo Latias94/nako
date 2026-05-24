@@ -5,6 +5,13 @@ use axum::{
     response::IntoResponse,
     routing::{get, patch, post},
 };
+use nako_addon_protocol::{
+    ADDON_RUNTIME_ACCESS_CHECK_PATH, ADDON_RUNTIME_ACQUISITION_INTAKE_CANDIDATES_PATH,
+    ADDON_RUNTIME_GENERATED_ARTIFACTS_PATH, ADDON_RUNTIME_SIDE_EFFECTS_PATH,
+    ADDON_RUNTIME_TASK_RUN_CANCEL_PATH, ADDON_RUNTIME_TASK_RUN_CLAIM_PATH,
+    ADDON_RUNTIME_TASK_RUN_COMPLETE_PATH, ADDON_RUNTIME_TASK_RUN_FAIL_PATH,
+    ADDON_RUNTIME_TASK_RUN_PROGRESS_PATH,
+};
 use nako_api::extension::{
     AddonAccessCheckRequest, AdminAddonInstallGuidePreviewRequest, AdminAddonManagerPlanRequest,
     AdminAddonResourceCallDiagnosticRequest, CancelAddonTaskRunRequest, ClaimAddonTaskRunRequest,
@@ -113,27 +120,36 @@ pub(super) fn routes() -> Router<NakoApp> {
 
 pub(super) fn runtime_routes() -> Router<NakoApp> {
     Router::new()
-        .route("/addon/v1/access-check", post(check_addon_access))
+        .route(ADDON_RUNTIME_ACCESS_CHECK_PATH, post(check_addon_access))
         .route(
-            "/addon/v1/generated-artifacts",
+            ADDON_RUNTIME_GENERATED_ARTIFACTS_PATH,
             post(submit_addon_generated_artifact),
         )
         .route(
-            "/addon/v1/acquisition/intake/candidates",
+            ADDON_RUNTIME_ACQUISITION_INTAKE_CANDIDATES_PATH,
             post(submit_addon_acquisition_candidate),
         )
-        .route("/addon/v1/side-effects", post(submit_addon_side_effect))
-        .route("/addon/v1/task-runs/claim", post(claim_addon_task_run))
         .route(
-            "/addon/v1/task-runs/progress",
+            ADDON_RUNTIME_SIDE_EFFECTS_PATH,
+            post(submit_addon_side_effect),
+        )
+        .route(
+            ADDON_RUNTIME_TASK_RUN_CLAIM_PATH,
+            post(claim_addon_task_run),
+        )
+        .route(
+            ADDON_RUNTIME_TASK_RUN_PROGRESS_PATH,
             post(report_addon_task_run_progress),
         )
         .route(
-            "/addon/v1/task-runs/complete",
+            ADDON_RUNTIME_TASK_RUN_COMPLETE_PATH,
             post(complete_addon_task_run),
         )
-        .route("/addon/v1/task-runs/fail", post(fail_addon_task_run))
-        .route("/addon/v1/task-runs/cancel", post(cancel_addon_task_run))
+        .route(ADDON_RUNTIME_TASK_RUN_FAIL_PATH, post(fail_addon_task_run))
+        .route(
+            ADDON_RUNTIME_TASK_RUN_CANCEL_PATH,
+            post(cancel_addon_task_run),
+        )
 }
 
 #[instrument(skip(app))]

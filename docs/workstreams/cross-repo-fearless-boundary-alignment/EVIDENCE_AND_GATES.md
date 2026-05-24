@@ -1,7 +1,7 @@
 # Cross-Repo Fearless Boundary Alignment - Evidence And Gates
 
 Status: Active
-Last updated: 2026-05-24
+Last updated: 2026-05-25
 
 ## Current Evidence
 
@@ -261,3 +261,22 @@ Use `verify-rust-workstream` before marking this lane complete.
 - 2026-05-24 CRFBA-070 review verification: in `../nako-official-addons`,
   `cargo clippy -p nako-metadata-scraper --all-targets -- -D warnings`
   passed against the public-client-backed `nako_runtime` facade.
+- 2026-05-25 CRFBA-090 initial verification: `cargo nextest run -p nako-api
+  addon_runtime public_openapi_paths_match_public_client_scope --no-fail-fast`
+  passed 3 tests after adding Addon Runtime route inventory exclusion and
+  access-check/side-effect wire-shape parity tests against
+  `nako-addon-protocol`.
+- 2026-05-25 CRFBA-090 initial verification: `cargo nextest run -p
+  nako-addon-protocol addon_runtime_route_inventory --no-fail-fast` passed 1
+  test proving the public Addon Runtime route inventory is explicit, unique,
+  POST-only, and rooted under `/addon/v1/`.
+- 2026-05-25 CRFBA-090 initial verification: `cargo nextest run -p
+  nako-addon-client runtime_side_effect_submission_parses_version_tolerant_summary
+  --no-fail-fast` passed 1 test after switching the Nako Runtime client to the
+  public protocol route constants.
+- 2026-05-25 CRFBA-090 final verification: `cargo fmt --all -- --check`
+  passed; `cargo nextest run -p nako-addon-protocol -p nako-addon-client -p
+  nako-api --no-fail-fast` passed 84 tests; `cargo check -p nako-server`
+  passed with existing dead-code warnings only; path-scoped `git diff
+  --check` over the touched Rust and workstream docs passed with LF-to-CRLF
+  warnings only.

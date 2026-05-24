@@ -1044,6 +1044,7 @@ fn uuid_schema() -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nako_addon_protocol::addon_runtime_paths;
     use nako_client_protocol::public_client_paths;
 
     #[test]
@@ -1070,8 +1071,6 @@ mod tests {
             "/storage/backends",
             "/jobs/{job_id}",
             "/addons",
-            "/addon/v1/access-check",
-            "/addon/v1/side-effects",
             "/webhooks/endpoints",
             "/automation/providers",
             "/metadata/providers",
@@ -1079,6 +1078,13 @@ mod tests {
             assert!(
                 !paths.contains_key(excluded),
                 "excluded path leaked: {excluded}"
+            );
+        }
+
+        for path in addon_runtime_paths() {
+            assert!(
+                !paths.contains_key(path),
+                "Addon runtime path leaked into Public Client OpenAPI: {path}"
             );
         }
     }

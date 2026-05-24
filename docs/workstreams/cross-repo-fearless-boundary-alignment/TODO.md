@@ -1,7 +1,7 @@
 # Cross-Repo Fearless Boundary Alignment - TODO
 
 Status: Active
-Last updated: 2026-05-24
+Last updated: 2026-05-25
 
 Task IDs use the `CRFBA` prefix.
 
@@ -196,14 +196,23 @@ Task IDs use the `CRFBA` prefix.
 
 ## M4 - Contract And Closeout
 
-- [ ] CRFBA-090 [owner=unassigned] [deps=CRFBA-040,CRFBA-070] [scope=crates/nako-api,crates/nako-server,crates/nako-addon-protocol]
+- [x] CRFBA-090 [owner=codex] [deps=CRFBA-040,CRFBA-070] [scope=crates/nako-api,crates/nako-server,crates/nako-addon-protocol]
   Goal: Decide whether touched API/protocol surfaces need generated contract
   support or stronger route/schema registries to prevent drift.
   Validation: existing OpenAPI/admin contract tests plus focused tests for any
   touched surface.
   Review: This is a hardening slice, not permission to redesign every route.
   Evidence: contract tests and updated docs.
-  Handoff: Defer if no public/API contract changed in earlier tasks.
+  Result: DONE 2026-05-25. The addon runtime routes now have a public protocol
+  route inventory, the Nako Runtime client and server route registration use
+  the same path constants, Public Client OpenAPI exclusion checks iterate the
+  addon runtime inventory, and `nako-api` has parity tests proving
+  access-check and side-effect DTOs serialize to the public protocol wire
+  shape.
+  Handoff: No generated Addon Runtime SDK was added. The current hardening
+  need is covered by route inventory plus wire-shape parity tests; generated
+  client/schema output remains a separate follow-on if external Addon authors
+  need published artifacts beyond the Rust protocol/client crates.
 
 - [ ] CRFBA-100 [owner=planner] [deps=CRFBA-020,CRFBA-030,CRFBA-040,CRFBA-050,CRFBA-060,CRFBA-070,CRFBA-080] [scope=docs/workstreams/cross-repo-fearless-boundary-alignment]
   Goal: Review the lane, record final gates, update status, and split remaining
