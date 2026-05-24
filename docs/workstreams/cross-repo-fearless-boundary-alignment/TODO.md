@@ -87,7 +87,9 @@ Task IDs use the `CRFBA` prefix.
   Progress: `crates/nako-server/src/app/artwork.rs` now routes candidate
   lookup, media/item-state validation, and acceptance commit through a
   dedicated `ArtworkAcceptanceWorkflowStore` instead of calling the broad
-  `NakoDatabase` facade directly.
+  `NakoDatabase` facade directly. It also now routes publish/select/unpublish
+  through a dedicated `ArtworkSelectionWorkflowStore` instead of calling the
+  broad store directly for selection writes.
   Validation: focused tests for one accepted metadata or artwork path; docs
   updated if public semantics change.
   Review: Providers and Addons must produce evidence-backed candidates, not

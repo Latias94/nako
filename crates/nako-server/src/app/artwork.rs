@@ -28,6 +28,7 @@ use nako_core::{
     ManagedArtworkIngestClaimRecord, ManagedArtworkIngestId, ManagedArtworkIngestStatus,
     ManagedArtworkRepository, MediaItem, MediaItemId, MediaRepository, NakoError, NewJob,
     NewManagedArtworkIngest, PageRequest, Result, SelectedArtworkId,
+    SelectedArtworkPublicationRecord, SelectedArtworkUnpublicationRecord,
 };
 use nako_db::NakoDatabase;
 use serde::Serialize;
@@ -71,6 +72,29 @@ trait ArtworkAcceptanceWorkflowStore: std::fmt::Debug + Send + Sync {
         ingest: NewManagedArtworkIngest,
         job: NewJob,
     ) -> Result<ManagedArtworkAcceptanceRecord>;
+}
+
+#[async_trait]
+trait ArtworkSelectionWorkflowStore: std::fmt::Debug + Send + Sync {
+    async fn get_media_item(&self, id: MediaItemId) -> Result<Option<MediaItem>>;
+
+    async fn publish_selected_artwork(
+        &self,
+        artifact_id: ManagedArtworkArtifactId,
+    ) -> Result<SelectedArtworkPublicationRecord>;
+
+    async fn publish_selected_artwork_for_item_kind(
+        &self,
+        item_id: MediaItemId,
+        kind: nako_core::ImageKind,
+        artifact_id: ManagedArtworkArtifactId,
+    ) -> Result<SelectedArtworkPublicationRecord>;
+
+    async fn unpublish_selected_artwork_for_item_kind(
+        &self,
+        item_id: MediaItemId,
+        kind: nako_core::ImageKind,
+    ) -> Result<SelectedArtworkUnpublicationRecord>;
 }
 
 #[async_trait]
@@ -119,10 +143,52 @@ where
     }
 }
 
+#[async_trait]
+impl<T> ArtworkSelectionWorkflowStore for T
+where
+    T: ManagedArtworkRepository + MediaRepository + std::fmt::Debug + Send + Sync,
+{
+    async fn get_media_item(&self, id: MediaItemId) -> Result<Option<MediaItem>> {
+        MediaRepository::get_media_item(self, id).await
+    }
+
+    async fn publish_selected_artwork(
+        &self,
+        artifact_id: ManagedArtworkArtifactId,
+    ) -> Result<SelectedArtworkPublicationRecord> {
+        ManagedArtworkRepository::publish_selected_artwork(self, artifact_id).await
+    }
+
+    async fn publish_selected_artwork_for_item_kind(
+        &self,
+        item_id: MediaItemId,
+        kind: nako_core::ImageKind,
+        artifact_id: ManagedArtworkArtifactId,
+    ) -> Result<SelectedArtworkPublicationRecord> {
+        ManagedArtworkRepository::publish_selected_artwork_for_item_kind(
+            self,
+            item_id,
+            kind,
+            artifact_id,
+        )
+        .await
+    }
+
+    async fn unpublish_selected_artwork_for_item_kind(
+        &self,
+        item_id: MediaItemId,
+        kind: nako_core::ImageKind,
+    ) -> Result<SelectedArtworkUnpublicationRecord> {
+        ManagedArtworkRepository::unpublish_selected_artwork_for_item_kind(self, item_id, kind)
+            .await
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct ManagedArtworkAppService {
     store: NakoDatabase,
     acceptance_store: Arc<dyn ArtworkAcceptanceWorkflowStore>,
+    selection_store: Arc<dyn ArtworkSelectionWorkflowStore>,
     ingest_pipeline: ManagedArtworkIngestPipeline,
     artifact_store: LocalManagedArtworkArtifactStore,
     variant_policy: ImageVariantPolicy,
@@ -132,9 +198,11 @@ pub(crate) struct ManagedArtworkAppService {
 impl ManagedArtworkAppService {
     pub(crate) fn new(config: ArtworkConfig, store: NakoDatabase) -> Result<Self> {
         let acceptance_store = Arc::new(store.clone());
+        let selection_store = Arc::new(store.clone());
         Ok(Self {
             store,
             acceptance_store,
+            selection_store,
             ingest_pipeline: ManagedArtworkIngestPipeline::new(config.clone())?,
             variant_policy: ImageVariantPolicy::new(config.max_width, config.max_height),
             artifact_store: LocalManagedArtworkArtifactStore::new(config.artifact_root),
@@ -282,7 +350,10 @@ impl ManagedArtworkAppService {
         &self,
         artifact_id: ManagedArtworkArtifactId,
     ) -> Result<PublishSelectedArtworkResponse> {
-        let publication = self.store.publish_selected_artwork(artifact_id).await?;
+        let publication = self
+            .selection_store
+            .publish_selected_artwork(artifact_id)
+            .await?;
         Ok(PublishSelectedArtworkResponse::from_publication(
             publication,
         ))
@@ -294,14 +365,15 @@ impl ManagedArtworkAppService {
         kind: nako_core::ImageKind,
         artifact_id: ManagedArtworkArtifactId,
     ) -> Result<PublishSelectedArtworkResponse> {
-        nako_core::MediaRepository::get_media_item(&self.store, item_id)
+        self.selection_store
+            .get_media_item(item_id)
             .await?
             .ok_or_else(|| NakoError::NotFound {
                 entity: "media_item",
                 id: item_id.to_string(),
             })?;
         let publication = self
-            .store
+            .selection_store
             .publish_selected_artwork_for_item_kind(item_id, kind, artifact_id)
             .await?;
         Ok(PublishSelectedArtworkResponse::from_publication(
@@ -314,14 +386,15 @@ impl ManagedArtworkAppService {
         item_id: MediaItemId,
         kind: nako_core::ImageKind,
     ) -> Result<UnpublishSelectedArtworkResponse> {
-        nako_core::MediaRepository::get_media_item(&self.store, item_id)
+        self.selection_store
+            .get_media_item(item_id)
             .await?
             .ok_or_else(|| NakoError::NotFound {
                 entity: "media_item",
                 id: item_id.to_string(),
             })?;
         let unpublication = self
-            .store
+            .selection_store
             .unpublish_selected_artwork_for_item_kind(item_id, kind)
             .await?;
         Ok(UnpublishSelectedArtworkResponse::from_unpublication(

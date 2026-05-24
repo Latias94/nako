@@ -180,6 +180,13 @@ Use `verify-rust-workstream` before marking this lane complete.
   candidate lookup, media lookup, library-item-state validation, and acceptance
   commit behind `ArtworkAcceptanceWorkflowStore`. `cargo fmt --all -- --check`
   also passed.
+- 2026-05-24 CRFBA-040 follow-up: `cargo nextest run -p nako-server
+  admin_managed_artwork_gallery_lists_candidates_artifacts_and_selection_without_locator_leaks
+  --no-fail-fast` and `cargo nextest run -p nako-server
+  admin_selected_artwork_unpublish_hides_public_image_without_deleting_artifact
+  --no-fail-fast` both passed after narrowing `crates/nako-server/src/app/artwork.rs`
+  publish/select/unpublish operations behind `ArtworkSelectionWorkflowStore`.
+  `cargo fmt --all -- --check` also passed.
 
 ## Recent Addon Evidence
 
