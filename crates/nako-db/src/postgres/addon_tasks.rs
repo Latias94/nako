@@ -29,6 +29,7 @@ const ADDON_TASK_RUN_SELECT: &str = r#"
                 addon_task_runs.declaration_name,
                 addon_task_runs.declaration_path,
                 addon_task_runs.idempotency_key,
+                addon_task_runs.request_fingerprint,
                 addon_task_runs.attempt,
                 addon_task_runs.max_attempts,
                 addon_task_runs.retry_of_job_id::text AS retry_of_job_id,
@@ -70,6 +71,7 @@ const LEASED_ADDON_TASK_RUN_SELECT: &str = r#"
                 addon_task_runs.declaration_name,
                 addon_task_runs.declaration_path,
                 addon_task_runs.idempotency_key,
+                addon_task_runs.request_fingerprint,
                 addon_task_runs.attempt,
                 addon_task_runs.max_attempts,
                 addon_task_runs.retry_of_job_id::text AS retry_of_job_id,
@@ -94,6 +96,7 @@ impl AddonTaskRunRepository for PostgresStore {
         let job_id = job.id;
         let addon_id = run.addon_id;
         let idempotency_key = run.idempotency_key.clone();
+        let request_fingerprint = run.request_fingerprint.clone();
         let mut transaction = self.pool.begin().await.map_err(database_error)?;
 
         if let Some(existing) =
@@ -101,6 +104,13 @@ impl AddonTaskRunRepository for PostgresStore {
                 .await?
         {
             transaction.commit().await.map_err(database_error)?;
+            if existing.request_fingerprint != request_fingerprint {
+                return Err(NakoError::Conflict {
+                    message: format!(
+                        "addon task run idempotency key {idempotency_key} was already used for a different request"
+                    ),
+                });
+            }
             return Ok(CreatedAddonTaskRun {
                 run: existing,
                 idempotent_replay: true,
@@ -615,12 +625,13 @@ async fn insert_addon_task_run_tx(
             declaration_name,
             declaration_path,
             idempotency_key,
+            request_fingerprint,
             attempt,
             max_attempts,
             retry_of_job_id,
             input_json
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         "#,
     )
     .bind(run.job_id.as_uuid())
@@ -632,6 +643,7 @@ async fn insert_addon_task_run_tx(
     .bind(run.declaration_name)
     .bind(run.declaration_path)
     .bind(run.idempotency_key)
+    .bind(run.request_fingerprint.as_str())
     .bind(u32_to_i64(run.attempt))
     .bind(run.max_attempts.map(u32_to_i64))
     .bind(run.retry_of_job_id.map(|id| id.as_uuid()))
@@ -742,6 +754,10 @@ fn row_to_addon_task_run(row: PgRow) -> Result<AddonTaskRunRecord> {
         declaration_name: row_get(&row, "declaration_name")?,
         declaration_path: row_get(&row, "declaration_path")?,
         idempotency_key: row_get(&row, "idempotency_key")?,
+        request_fingerprint: AddonTaskRunRequestFingerprint::parse(row_get::<String>(
+            &row,
+            "request_fingerprint",
+        )?)?,
         attempt: i64_to_u32(row_get(&row, "attempt")?)?,
         max_attempts: optional_i64_to_u32(row_get(&row, "max_attempts")?)?,
         retry_of_job_id: parse_optional_id(row_get::<Option<String>>(&row, "retry_of_job_id")?)?,

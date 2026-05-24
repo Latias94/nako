@@ -15,14 +15,18 @@ Last updated: 2026-05-25
 
 ## M1 — Addon Task Correctness
 
-- [ ] AEF-020 [owner=codex] [deps=AEF-010] [scope=crates/nako-core,crates/nako-db,crates/nako-server]
+- [x] AEF-020 [owner=codex] [deps=AEF-010] [scope=crates/nako-core,crates/nako-db,crates/nako-server]
   Goal: Add deterministic Addon Task request fingerprints and reject
   mismatched idempotency-key reuse.
-  Validation: `cargo nextest run -p nako-db addon_task --no-fail-fast` and
-  `cargo nextest run -p nako-server addon_task --no-fail-fast`.
+  Validation:
+  `cargo nextest run -p nako-db sqlite_event_addon_automation_contract_addon_task_run_idempotency_fingerprint --no-fail-fast`
+  and
+  `cargo nextest run -p nako-server addon_task_run_runtime_is_host_owned_and_reports_progress_result --no-fail-fast`.
   Review: Review idempotency behavior, SQLite/PostgreSQL parity, and safe
   public error mapping before accepting completion.
   Evidence: `crates/nako-db/src/sqlite/addon_tasks.rs`,
+  `crates/nako-db/src/postgres/addon_tasks.rs`,
+  `crates/nako-db/src/contract_tests.rs`,
   `crates/nako-core/src/addon_task.rs`.
   Handoff: Preserve compatibility only where a live migration requires it; Nako
   has no deployed users, so prefer clean schemas.

@@ -11,23 +11,24 @@ permissions, tasks, events, and audit while allowing coarse-grained Addon
 Package and Addon Suite deployment. Official addons should not force operators
 to write one Docker Compose service per small capability.
 
-AEF-010 is complete as the authority freeze.
+AEF-010 is complete as the authority freeze. AEF-020 is complete: Addon Task
+runs now persist deterministic request fingerprints and reject mismatched
+idempotency-key reuse.
 
 ## Active Task
 
-- Task ID: AEF-020
+- Task ID: AEF-030
 - Owner: codex
 - Files:
-  - `crates/nako-core/src/addon_task.rs`
-  - `crates/nako-db/src/sqlite/addon_tasks.rs`
-  - PostgreSQL schema/contracts if touched
-  - `crates/nako-server/src/app/addons/task_runtime.rs`
+  - `crates/nako-server/src/app/addons.rs`
+  - `F:\SourceCodes\Rust\nako-official-addons\crates\nako-metadata-scraper\src\manifest.rs`
+  - official addon focused manifest/catalog tests
 - Validation:
-  - `cargo nextest run -p nako-db addon_task --no-fail-fast`
-  - `cargo nextest run -p nako-server addon_task --no-fail-fast`
-- Status: NEEDS_CONTEXT
+  - `cargo nextest run -p nako-server addon_source_catalog --no-fail-fast`
+  - official addon focused manifest tests
+- Status: READY
 - Review: pending
-- Evidence: pending
+- Evidence: AEF-020 evidence is recorded in `EVIDENCE_AND_GATES.md`.
 
 ## Decisions Since Last Update
 
@@ -46,5 +47,5 @@ AEF-010 is complete as the authority freeze.
 
 ## Next Recommended Action
 
-Implement AEF-020 Addon Task request fingerprinting before event delivery or
-new official addon breadth.
+Implement AEF-030 catalog drift prevention before event delivery or new
+official addon breadth.

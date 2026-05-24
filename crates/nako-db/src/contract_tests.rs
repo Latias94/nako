@@ -8,35 +8,36 @@ use nako_core::{
     AddonRoutingDeclarationKind, AddonRoutingPlanId, AddonRoutingPlanStatus,
     AddonRoutingPlanTarget, AddonSideEffectApplyOutcome, AddonSideEffectApplyStatus,
     AddonSideEffectId, AddonSideEffectRequestFingerprint, AddonSideEffectTarget,
-    AddonSideEffectValidationStatus, AddonStatus, AddonTokenId, ArtworkCandidateId,
-    ArtworkCandidateRecord, ArtworkCandidateRepository, ArtworkCandidateSourceKind,
-    ArtworkCandidateStatus, ArtworkTask, ArtworkTaskId, ArtworkTaskKind, ArtworkTaskRepository,
-    AutomationArtifactKind, AutomationArtifactStatus, AutomationCapability,
-    AutomationProviderStatus, AutomationRepository, CancelLeasedJob, CanonicalMetadata,
-    CatalogGovernanceItemListFilter, CatalogGovernanceRepository, CatalogItemGraphReplacement,
-    CatalogItemProjectionCommit, CatalogRepository, CatalogSearchProjection, Collection,
-    CollectionId, CollectionItem, CompleteLeasedJob, CreditRole, DatabaseLifecycle,
-    DirectorySnapshot, DomainEventKind, DomainEventSubject, EventOutboxRepository, ExternalId,
-    ExternalProvider, FailLeasedJob, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind,
-    ImageOwner, IngestionFailureClass, IngestionFailureFilter, IngestionFailurePhase,
-    IngestionFailureRepository, IngestionFailureResolution, IngestionFailureStatus, ItemCredit,
-    ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind, JobLeaseClaimFilter, JobLeaseClaimRequest,
-    JobLeaseGuard, JobLeaseHeartbeat, JobLeaseRepository, JobListFilter, JobRepository,
-    JobRunToken, JobStatus, JobWorkerId, Library, LibraryId, LibraryItemRepository,
-    LibraryItemState, LibraryOptions, LibraryPreset, LibraryRepository,
-    LibraryScanSourcePersistenceCommit, LocalInferenceEvidence, LocalInferenceEvidenceId,
-    LocalInferenceEvidenceSource, LocalInferenceRepository, ManagedArtworkAcceptanceRecord,
-    ManagedArtworkArtifactId, ManagedArtworkArtifactLifecycleFilter, ManagedArtworkIngestId,
-    ManagedArtworkIngestStatus, ManagedArtworkRepository, ManagedImportArtifactId,
-    ManagedImportArtifactListFilter, ManagedImportArtifactState, ManagedImportPromotionApplyId,
-    ManagedImportPromotionApplyState, ManagedImportPromotionOperationKind, ManagedImportRepository,
-    ManagedImportSourceKind, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
-    MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
-    MediaStreamKind, MetadataAttemptFilter, MetadataField, MetadataFieldLock, MetadataMatchKind,
-    MetadataProviderAttemptId, MetadataProviderAttemptStatus, MetadataRefreshPersistenceCommit,
+    AddonSideEffectValidationStatus, AddonStatus, AddonTaskRunListFilter, AddonTaskRunRepository,
+    AddonTaskRunRequestFingerprint, AddonTokenId, ArtworkCandidateId, ArtworkCandidateRecord,
+    ArtworkCandidateRepository, ArtworkCandidateSourceKind, ArtworkCandidateStatus, ArtworkTask,
+    ArtworkTaskId, ArtworkTaskKind, ArtworkTaskRepository, AutomationArtifactKind,
+    AutomationArtifactStatus, AutomationCapability, AutomationProviderStatus, AutomationRepository,
+    CancelLeasedJob, CanonicalMetadata, CatalogGovernanceItemListFilter,
+    CatalogGovernanceRepository, CatalogItemGraphReplacement, CatalogItemProjectionCommit,
+    CatalogRepository, CatalogSearchProjection, Collection, CollectionId, CollectionItem,
+    CompleteLeasedJob, CreditRole, DatabaseLifecycle, DirectorySnapshot, DomainEventKind,
+    DomainEventSubject, EventOutboxRepository, ExternalId, ExternalProvider, FailLeasedJob, Genre,
+    GenreId, ImageAsset, ImageAssetId, ImageKind, ImageOwner, IngestionFailureClass,
+    IngestionFailureFilter, IngestionFailurePhase, IngestionFailureRepository,
+    IngestionFailureResolution, IngestionFailureStatus, ItemCredit, ItemGenre, ItemStudio, ItemTag,
+    Job, JobId, JobKind, JobLeaseClaimFilter, JobLeaseClaimRequest, JobLeaseGuard,
+    JobLeaseHeartbeat, JobLeaseRepository, JobListFilter, JobRepository, JobRunToken, JobStatus,
+    JobWorkerId, Library, LibraryId, LibraryItemRepository, LibraryItemState, LibraryOptions,
+    LibraryPreset, LibraryRepository, LibraryScanSourcePersistenceCommit, LocalInferenceEvidence,
+    LocalInferenceEvidenceId, LocalInferenceEvidenceSource, LocalInferenceRepository,
+    ManagedArtworkAcceptanceRecord, ManagedArtworkArtifactId,
+    ManagedArtworkArtifactLifecycleFilter, ManagedArtworkIngestId, ManagedArtworkIngestStatus,
+    ManagedArtworkRepository, ManagedImportArtifactId, ManagedImportArtifactListFilter,
+    ManagedImportArtifactState, ManagedImportPromotionApplyId, ManagedImportPromotionApplyState,
+    ManagedImportPromotionOperationKind, ManagedImportRepository, ManagedImportSourceKind,
+    MediaItem, MediaItemId, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository,
+    MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataAttemptFilter,
+    MetadataField, MetadataFieldLock, MetadataMatchKind, MetadataProviderAttemptId,
+    MetadataProviderAttemptStatus, MetadataRefreshPersistenceCommit,
     MetadataRefreshProviderMappingCommit, MetadataRepository, MetadataSource, NakoError,
     NewAcquisitionIntakeCandidate, NewAddonGrant, NewAddonRegistration, NewAddonRoutingPlan,
-    NewAddonSideEffect, NewAddonToken, NewArtworkCandidate, NewAutomationArtifact,
+    NewAddonSideEffect, NewAddonTaskRun, NewAddonToken, NewArtworkCandidate, NewAutomationArtifact,
     NewAutomationProviderConfig, NewIngestionFailure, NewJob, NewManagedArtworkArtifact,
     NewManagedArtworkIngest, NewManagedImportArtifact, NewManagedImportPromotionApply,
     NewMetadataProviderAttempt, NewNfoSidecarApply, NewOutboxEvent, NewStagingManifestRecord,
@@ -262,6 +263,7 @@ impl<T> PlaybackRuntimeContractBackend for T where
 trait EventAddonAutomationContractBackend:
     LifecycleContractBackend
     + AddonRepository
+    + AddonTaskRunRepository
     + AutomationRepository
     + EventOutboxRepository
     + JobRepository
@@ -274,6 +276,7 @@ trait EventAddonAutomationContractBackend:
 impl<T> EventAddonAutomationContractBackend for T where
     T: LifecycleContractBackend
         + AddonRepository
+        + AddonTaskRunRepository
         + AutomationRepository
         + EventOutboxRepository
         + JobRepository
@@ -3248,6 +3251,191 @@ where
     let _ = library;
 }
 
+async fn addon_task_run_idempotency_fingerprint_contract<S>(store: S)
+where
+    S: EventAddonAutomationContractBackend,
+{
+    let library = seed_contract_library(&store).await;
+    let source = seed_contract_media_item_with_source(
+        &store,
+        library.id,
+        "Addon Task Contract Movie",
+        "local:///Contract Movies/addon-task-contract.mkv",
+    )
+    .await;
+    let addon_id = AddonId::new();
+    let manifest_id = "dev.nako.contract.addon-task";
+    let manifest_version = "0.1.0";
+    let manifest_json = r#"{"id":"dev.nako.contract.addon-task","version":"0.1.0"}"#;
+    let manifest_fingerprint = AddonManifestFingerprint::new(manifest_json);
+    let declaration_id = "bulk-refresh";
+    let declaration_path = "/tasks/bulk-refresh";
+    let idempotency_key = "addon-task-contract-key";
+    store
+        .upsert_addon_registration(NewAddonRegistration {
+            id: addon_id,
+            manifest_id: manifest_id.to_owned(),
+            name: "Contract Addon Task".to_owned(),
+            version: manifest_version.to_owned(),
+            protocol_version: "2026-05".to_owned(),
+            base_url: "https://example.test/addon-task".to_owned(),
+            manifest_json: manifest_json.to_owned(),
+            outbound_task_dispatch_secret_env: None,
+            granted_scopes: vec!["automation_run".to_owned()],
+            status: AddonStatus::Enabled,
+        })
+        .await
+        .unwrap();
+
+    let input_json = serde_json::json!({
+        "schema": "nako.addon.task_run.input.v1",
+        "library_id": library.id,
+        "source_id": source.id,
+        "payload": {
+            "mode": "missing_only"
+        },
+        "idempotency_key": idempotency_key
+    })
+    .to_string();
+    let first = contract_addon_task_run(
+        addon_id,
+        manifest_id,
+        manifest_version,
+        &manifest_fingerprint,
+        declaration_id,
+        declaration_path,
+        idempotency_key,
+        library.id,
+        source.id,
+        &input_json,
+    );
+    let created = store
+        .create_addon_task_run(first.0, first.1.clone())
+        .await
+        .unwrap();
+    assert!(!created.idempotent_replay);
+    assert_eq!(created.run.addon_id, addon_id);
+    assert_eq!(created.run.idempotency_key, idempotency_key);
+    assert_eq!(created.run.request_fingerprint, first.1.request_fingerprint);
+    assert_eq!(created.run.input_json, input_json);
+
+    let replay = contract_addon_task_run(
+        addon_id,
+        manifest_id,
+        manifest_version,
+        &manifest_fingerprint,
+        declaration_id,
+        declaration_path,
+        idempotency_key,
+        library.id,
+        source.id,
+        &input_json,
+    );
+    let replayed = store
+        .create_addon_task_run(replay.0, replay.1)
+        .await
+        .unwrap();
+    assert!(replayed.idempotent_replay);
+    assert_eq!(replayed.run.job.id, created.run.job.id);
+    assert_eq!(
+        replayed.run.request_fingerprint,
+        created.run.request_fingerprint
+    );
+
+    let conflicting_input_json = serde_json::json!({
+        "schema": "nako.addon.task_run.input.v1",
+        "library_id": library.id,
+        "source_id": source.id,
+        "payload": {
+            "mode": "force"
+        },
+        "idempotency_key": idempotency_key
+    })
+    .to_string();
+    let conflict = contract_addon_task_run(
+        addon_id,
+        manifest_id,
+        manifest_version,
+        &manifest_fingerprint,
+        declaration_id,
+        declaration_path,
+        idempotency_key,
+        library.id,
+        source.id,
+        &conflicting_input_json,
+    );
+    let err = store
+        .create_addon_task_run(conflict.0, conflict.1)
+        .await
+        .unwrap_err();
+    assert!(matches!(err, NakoError::Conflict { .. }));
+    assert!(err.to_string().contains("different request"));
+    assert_eq!(
+        store
+            .list_addon_task_runs(
+                AddonTaskRunListFilter {
+                    addon_id: Some(addon_id),
+                    ..AddonTaskRunListFilter::default()
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+}
+
+fn contract_addon_task_run(
+    addon_id: AddonId,
+    manifest_id: &str,
+    manifest_version: &str,
+    manifest_fingerprint: &AddonManifestFingerprint,
+    declaration_id: &str,
+    declaration_path: &str,
+    idempotency_key: &str,
+    library_id: LibraryId,
+    source_id: MediaSourceId,
+    input_json: &str,
+) -> (NewJob, NewAddonTaskRun) {
+    let job_id = JobId::new();
+    let request_fingerprint = AddonTaskRunRequestFingerprint::new(
+        manifest_id,
+        manifest_version,
+        manifest_fingerprint,
+        declaration_id,
+        declaration_path,
+        input_json,
+    );
+
+    (
+        NewJob {
+            id: job_id,
+            kind: JobKind::AddonTask,
+            resource_class: "addon.task.bulk-refresh".to_owned(),
+            library_id: Some(library_id),
+            source_id: Some(source_id),
+            input_json: Some(input_json.to_owned()),
+        },
+        NewAddonTaskRun {
+            job_id,
+            addon_id,
+            manifest_id: manifest_id.to_owned(),
+            manifest_version: manifest_version.to_owned(),
+            manifest_fingerprint: manifest_fingerprint.clone(),
+            declaration_id: declaration_id.to_owned(),
+            declaration_name: "Bulk refresh".to_owned(),
+            declaration_path: declaration_path.to_owned(),
+            idempotency_key: idempotency_key.to_owned(),
+            request_fingerprint,
+            attempt: 1,
+            max_attempts: Some(3),
+            retry_of_job_id: None,
+            input_json: input_json.to_owned(),
+        },
+    )
+}
+
 async fn automation_provider_and_artifact_contract<S>(store: S)
 where
     S: EventAddonAutomationContractBackend,
@@ -5342,6 +5530,16 @@ database_contract_pair!(
         "addon_routing_plan_replaces_manifest_declarations"
     ),
     contract = addon_routing_plan_replaces_manifest_declarations_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_event_addon_automation_contract_addon_task_run_idempotency_fingerprint,
+    postgres = postgres_event_addon_automation_contract_addon_task_run_idempotency_fingerprint,
+    case = ContractCase::migrated(
+        ContractFamily::EventAddonAutomation,
+        "addon_task_run_idempotency_fingerprint"
+    ),
+    contract = addon_task_run_idempotency_fingerprint_contract,
 );
 
 database_contract_pair!(

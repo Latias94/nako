@@ -2824,12 +2824,39 @@ async fn addon_task_run_runtime_is_host_owned_and_reports_progress_result() {
             dispatch: AddonTaskRunDispatchMode::SidecarClaim,
             library_id: Some(source.library_id),
             source_id: Some(source.id),
-            payload: serde_json::json!({"different": true}),
+            payload: serde_json::json!({
+                "secret": "nako_at_should_not_echo",
+                "mode": "missing-only"
+            }),
         },
     )
     .await;
     assert!(replay.idempotent_replay);
     assert_eq!(replay.run.job_id, created.run.job_id);
+
+    let conflict = response_body_json(
+        &router,
+        Method::POST,
+        &create_path,
+        &CreateAddonTaskRunRequest {
+            declaration_id: "bulk-metadata-scrape".to_owned(),
+            idempotency_key: "scrape:library:1".to_owned(),
+            dispatch: AddonTaskRunDispatchMode::SidecarClaim,
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            payload: serde_json::json!({"different": true}),
+        },
+    )
+    .await;
+    assert_eq!(conflict.status(), StatusCode::CONFLICT);
+    let conflict_text = String::from_utf8(
+        to_bytes(conflict.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert!(conflict_text.contains("already used for a different request"));
 
     let claim = request_body_json_with_bearer::<ClaimAddonTaskRunResponse, _>(
         &router,

@@ -74,6 +74,38 @@ blocking findings, missing gates, and residual risks in this file or in
 - `crates/nako-addon-client`
 - `F:\SourceCodes\Rust\nako-official-addons\crates\nako-metadata-scraper`
 
+## Recorded Evidence
+
+### 2026-05-25 — AEF-020 Addon Task Request Fingerprints
+
+Claim: Addon Task run creation now stores a deterministic request fingerprint;
+same addon id plus idempotency key plus matching fingerprint replays the
+existing run, while the same key with different request facts returns a safe
+conflict.
+
+Commands:
+
+```powershell
+cargo nextest run -p nako-db sqlite_event_addon_automation_contract_addon_task_run_idempotency_fingerprint --no-fail-fast
+cargo nextest run -p nako-server addon_task_run_runtime_is_host_owned_and_reports_progress_result --no-fail-fast
+rustfmt --edition 2024 --check crates\nako-core\src\addon_task.rs crates\nako-db\src\contract_tests.rs crates\nako-db\src\sqlite\addon_tasks.rs crates\nako-db\src\postgres\addon_tasks.rs crates\nako-server\src\app\addons\task_runtime.rs crates\nako-server\src\http\tests\addons.rs
+cargo check -p nako-core -p nako-db -p nako-server --tests
+python -m json.tool docs\workstreams\addon-ecosystem-foundation\WORKSTREAM.json > $null
+git diff --check
+```
+
+Result: passed. `git diff --check` emitted CRLF conversion warnings only.
+
+Notes:
+
+- PostgreSQL behavior is covered by the same contract function behind the
+  ignored `postgres_event_addon_automation_contract_addon_task_run_idempotency_fingerprint`
+  gate; it was not run because `NAKO_TEST_POSTGRES_URL` is not configured for
+  this local pass.
+- The broad worktree has unrelated concurrent changes outside this task, so
+  formatting was checked on the touched Rust files rather than with
+  `cargo fmt --all -- --check`.
+
 ## Notes
 
 - Addon Event Delivery must remain distinct from webhook delivery even if both

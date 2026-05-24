@@ -14,9 +14,10 @@ use nako_core::{
     ADDON_TASK_RUN_INPUT_SCHEMA, AddonId, AddonManifestFingerprint, AddonRegistrationRecord,
     AddonRepository, AddonRoutingDeclarationKind, AddonRoutingPlanStatus, AddonRoutingPlanTarget,
     AddonStatus, AddonTaskRunClaimRequest, AddonTaskRunLeaseGuard, AddonTaskRunListFilter,
-    AddonTaskRunRepository, CancelAddonTaskRun, CompleteAddonTaskRun, FailAddonTaskRun, JobId,
-    JobKind, JobStatus, JobWorkerId, LeasedAddonTaskRun, NakoError, NewAddonTaskRun, NewJob,
-    PageRequest, ReportAddonTaskRunProgress, Result,
+    AddonTaskRunRepository, AddonTaskRunRequestFingerprint, CancelAddonTaskRun,
+    CompleteAddonTaskRun, FailAddonTaskRun, JobId, JobKind, JobStatus, JobWorkerId,
+    LeasedAddonTaskRun, NakoError, NewAddonTaskRun, NewJob, PageRequest,
+    ReportAddonTaskRunProgress, Result,
 };
 
 use super::{
@@ -48,6 +49,11 @@ impl AddonAppService {
         self.ensure_executable_task_routing_plan(addon_id, &request.declaration_id)
             .await?;
 
+        let idempotency_key = normalized_idempotency_key(&request.idempotency_key)?;
+        let request = CreateAddonTaskRunRequest {
+            idempotency_key: idempotency_key.clone(),
+            ..request
+        };
         let job_id = JobId::new();
         let manifest_fingerprint = AddonManifestFingerprint::new(&addon.manifest_json);
         let addon_for_dispatch = addon.clone();
@@ -61,6 +67,14 @@ impl AddonAppService {
             1,
             None,
         )?;
+        let request_fingerprint = AddonTaskRunRequestFingerprint::new(
+            &addon.manifest_id,
+            &addon.version,
+            &manifest_fingerprint,
+            &task.id,
+            &task.path,
+            &input_json,
+        );
         let created = self
             .store
             .create_addon_task_run(
@@ -81,7 +95,8 @@ impl AddonAppService {
                     declaration_id: task.id.clone(),
                     declaration_name: task.name.clone(),
                     declaration_path: task.path.clone(),
-                    idempotency_key: normalized_idempotency_key(&request.idempotency_key)?,
+                    idempotency_key,
+                    request_fingerprint,
                     attempt: 1,
                     max_attempts: task.max_attempts,
                     retry_of_job_id: None,
@@ -187,9 +202,10 @@ impl AddonAppService {
         let new_job_id = JobId::new();
         let manifest_fingerprint = AddonManifestFingerprint::new(&addon.manifest_json);
         let addon_for_dispatch = addon.clone();
+        let idempotency_key = normalized_idempotency_key(&request.idempotency_key)?;
         let retry_request = CreateAddonTaskRunRequest {
             declaration_id: previous.declaration_id.clone(),
-            idempotency_key: request.idempotency_key,
+            idempotency_key: idempotency_key.clone(),
             dispatch: retry_dispatch_from_previous_input(&previous.input_json)?,
             library_id: previous.job.library_id,
             source_id: previous.job.source_id,
@@ -206,6 +222,14 @@ impl AddonAppService {
             attempt,
             Some(job_id),
         )?;
+        let request_fingerprint = AddonTaskRunRequestFingerprint::new(
+            &addon.manifest_id,
+            &addon.version,
+            &manifest_fingerprint,
+            &task.id,
+            &task.path,
+            &input_json,
+        );
         let created = self
             .store
             .create_addon_task_run(
@@ -226,7 +250,8 @@ impl AddonAppService {
                     declaration_id: task.id.clone(),
                     declaration_name: task.name.clone(),
                     declaration_path: task.path.clone(),
-                    idempotency_key: normalized_idempotency_key(&retry_request.idempotency_key)?,
+                    idempotency_key,
+                    request_fingerprint,
                     attempt,
                     max_attempts: task.max_attempts,
                     retry_of_job_id: Some(job_id),

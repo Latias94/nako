@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS addon_task_runs (
     declaration_name text NOT NULL,
     declaration_path text NOT NULL,
     idempotency_key text NOT NULL,
+    request_fingerprint text NOT NULL,
     attempt bigint NOT NULL,
     max_attempts bigint,
     retry_of_job_id uuid REFERENCES jobs(id) ON DELETE SET NULL,

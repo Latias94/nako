@@ -8,6 +8,7 @@ CREATE TABLE addon_task_runs (
     declaration_name TEXT NOT NULL,
     declaration_path TEXT NOT NULL,
     idempotency_key TEXT NOT NULL,
+    request_fingerprint TEXT NOT NULL,
     attempt INTEGER NOT NULL,
     max_attempts INTEGER,
     retry_of_job_id TEXT REFERENCES jobs(id) ON DELETE SET NULL,

@@ -7,9 +7,10 @@
   "scope_kind": "architecture",
   "problem": "Nako's Addon sidecar direction is correct, but event delivery, task idempotency, official catalog drift prevention, and suite-shaped deployment need to be deepened before broad official addon features land.",
   "task_prefix": "AEF",
-  "current_task": "AEF-020",
+  "current_task": "AEF-030",
   "completed_tasks": [
-    "AEF-010"
+    "AEF-010",
+    "AEF-020"
   ],
   "authoritative_docs": [
     {
@@ -68,7 +69,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "AEF-020",
-    "notes": "Continue with Addon Task request fingerprinting, then official catalog drift prevention, Addon Event Delivery, and the official event addon proof. Split full notification, watch-state sync, MCP, Arr-stack, DLNA/UPnP/WebDAV, Network Tunnel Provider, package signing, and process supervision into follow-ons unless explicitly pulled into this lane."
+    "next_task": "AEF-030",
+    "notes": "Continue with official catalog drift prevention, then Addon Event Delivery and the official event addon proof. Split full notification, watch-state sync, MCP, Arr-stack, DLNA/UPnP/WebDAV, Network Tunnel Provider, package signing, and process supervision into follow-ons unless explicitly pulled into this lane."
   }
 }

@@ -1,13 +1,72 @@
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 use crate::{
     AddonId, AddonManifestFingerprint, Job, JobId, JobLeaseRecord, JobRunToken, JobWorkerId,
-    LibraryId, MediaSourceId,
+    LibraryId, MediaSourceId, NakoError, Result,
 };
 
 pub const ADDON_TASK_RUN_INPUT_SCHEMA: &str = "nako.addon.task_run.input.v1";
 pub const ADDON_TASK_RUN_PROGRESS_SCHEMA: &str = "nako.addon.task_run.progress.v1";
 pub const ADDON_TASK_RUN_RESULT_SCHEMA: &str = "nako.addon.task_run.result.v1";
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonTaskRunRequestFingerprint {
+    value: String,
+}
+
+impl AddonTaskRunRequestFingerprint {
+    #[must_use]
+    pub fn new(
+        manifest_id: &str,
+        manifest_version: &str,
+        manifest_fingerprint: &AddonManifestFingerprint,
+        declaration_id: &str,
+        declaration_path: &str,
+        input_json: &str,
+    ) -> Self {
+        let mut hasher = Sha256::new();
+        update_fingerprint_part(&mut hasher, "addon-task-run-v1");
+        update_fingerprint_part(&mut hasher, manifest_id);
+        update_fingerprint_part(&mut hasher, manifest_version);
+        update_fingerprint_part(&mut hasher, manifest_fingerprint.as_str());
+        update_fingerprint_part(&mut hasher, declaration_id);
+        update_fingerprint_part(&mut hasher, declaration_path);
+        update_fingerprint_part(&mut hasher, input_json);
+        let digest = hasher.finalize();
+
+        Self {
+            value: format!("sha256:{}", lowercase_hex(&digest)),
+        }
+    }
+
+    pub fn parse(value: impl Into<String>) -> Result<Self> {
+        let value = value.into();
+        let valid = value.strip_prefix("sha256:").is_some_and(|digest| {
+            digest.len() == 64 && digest.chars().all(|c| c.is_ascii_hexdigit())
+        });
+        if !valid {
+            return Err(NakoError::Database {
+                message: format!("invalid addon task run request fingerprint: {value}"),
+            });
+        }
+
+        Ok(Self {
+            value: value.to_ascii_lowercase(),
+        })
+    }
+
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.value
+    }
+}
+
+impl std::fmt::Display for AddonTaskRunRequestFingerprint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.value)
+    }
+}
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct NewAddonTaskRun {
@@ -20,6 +79,7 @@ pub struct NewAddonTaskRun {
     pub declaration_name: String,
     pub declaration_path: String,
     pub idempotency_key: String,
+    pub request_fingerprint: AddonTaskRunRequestFingerprint,
     pub attempt: u32,
     pub max_attempts: Option<u32>,
     pub retry_of_job_id: Option<JobId>,
@@ -37,6 +97,7 @@ pub struct AddonTaskRunRecord {
     pub declaration_name: String,
     pub declaration_path: String,
     pub idempotency_key: String,
+    pub request_fingerprint: AddonTaskRunRequestFingerprint,
     pub attempt: u32,
     pub max_attempts: Option<u32>,
     pub retry_of_job_id: Option<JobId>,
@@ -129,4 +190,21 @@ pub struct AddonTaskRunListFilter {
     pub declaration_id: Option<String>,
     pub library_id: Option<LibraryId>,
     pub source_id: Option<MediaSourceId>,
+}
+
+fn update_fingerprint_part(hasher: &mut Sha256, value: &str) {
+    hasher.update(value.len().to_string().as_bytes());
+    hasher.update(b":");
+    hasher.update(value.as_bytes());
+    hasher.update(b";");
+}
+
+fn lowercase_hex(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut output = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        output.push(HEX[(byte >> 4) as usize] as char);
+        output.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    output
 }
