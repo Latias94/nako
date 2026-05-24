@@ -18,8 +18,12 @@ attempt queries behind a dedicated metadata workflow store.
 library/item/source lookups, sidecar-apply audit state transitions, outbox
 writes, and durable job runtime lease handoff behind a dedicated NFO workflow
 store while keeping `NfoService` as the import/export domain repository
-boundary. CRFBA-050 and CRFBA-060 have now landed in
-`../nako-official-addons` with focused module splits and passing package tests.
+boundary. `crates/nako-server/src/app/artwork.rs` now routes artwork candidate
+lookup, media lookup, library-item-state validation, and acceptance commit
+through a dedicated `ArtworkAcceptanceWorkflowStore` while leaving the rest of
+the managed-artwork operations on the existing store. CRFBA-050 and CRFBA-060
+have now landed in `../nako-official-addons` with focused module splits and
+passing package tests.
 
 Initial review found:
 
@@ -37,13 +41,11 @@ Initial review found:
 
 ## Active Task
 
-- Task ID: CRFBA-020
+- Task ID: CRFBA-040
 - Owner: codex
-- Files: `crates/nako-db`, `crates/nako-core`, `crates/nako-server`
-- Validation: `cargo nextest run -p nako-server nfo --no-fail-fast`, `cargo
-  nextest run -p nako-server durable_job_runtime --no-fail-fast`, `cargo fmt
-  --all -- --check`, `cargo check -p nako-server --bin nako-server`, and
-  path-scoped `git diff --check` pass.
+- Files: `crates/nako-server/src/app/artwork.rs`, `docs/workstreams/cross-repo-fearless-boundary-alignment`
+- Validation: focused artwork acceptance nextest, `cargo fmt --all -- --check`,
+  and path-scoped `git diff --check` pass.
 - Status: IN_PROGRESS
 - Review: pending after the next workflow-port slice.
 - Evidence: `DESIGN.md`, `TODO.md`, `MILESTONES.md`, `EVIDENCE_AND_GATES.md`.
@@ -99,6 +101,10 @@ format, stage, or commit them unless the user explicitly asks.
   sidecar-apply audit, outbox, and durable job lease handoff operations. The
   actual `NfoService` repository dependency stays intact for import/export
   domain behavior.
+- `CRFBA-040` now narrows `crates/nako-server/src/app/artwork.rs` behind a
+  dedicated artwork acceptance workflow store for candidate lookup,
+  media/item-state validation, and acceptance commit while leaving the rest of
+  the managed-artwork operations on the existing broad store.
 - `CRFBA-050` split `MetadataScrapeRuntime` into `query`, `orchestration`,
   `response`, `runtime`, `writeback`, and `bulk` modules with unchanged public
   payloads.
@@ -128,7 +134,7 @@ format, stage, or commit them unless the user explicitly asks.
 
 ## Next Recommended Action
 
-Review CRFBA-020 as a server workflow-port slice and decide whether it is
-complete enough to unlock CRFBA-040 Candidate/Acceptance authority work. Keep
-CRFBA-030 only as a follow-up review note unless the migration blocker is
-independently resolved.
+Continue CRFBA-040 by reviewing whether the remaining managed-artwork
+operations should share the same acceptance authority slice or be split into
+follow-ons. Keep CRFBA-030 only as a follow-up review note unless the migration
+blocker is independently resolved.

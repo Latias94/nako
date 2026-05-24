@@ -174,6 +174,12 @@ Use `verify-rust-workstream` before marking this lane complete.
   --check` passed, `cargo check -p nako-server --bin nako-server` passed with
   existing dead-code warnings, and path-scoped `git diff --check` passed with
   line-ending warnings only.
+- 2026-05-24 CRFBA-040: `cargo nextest run -p nako-server
+  admin_accept_artwork_candidate_queues_managed_ingest_without_public_artwork_or_url_echo
+  --no-fail-fast` passed after narrowing `crates/nako-server/src/app/artwork.rs`
+  candidate lookup, media lookup, library-item-state validation, and acceptance
+  commit behind `ArtworkAcceptanceWorkflowStore`. `cargo fmt --all -- --check`
+  also passed.
 
 ## Recent Addon Evidence
 

@@ -80,10 +80,14 @@ Task IDs use the `CRFBA` prefix.
   blocked by an unrelated migration 38 duplicate-column conflict outside this
   slice.
 
-- [ ] CRFBA-040 [owner=unassigned] [deps=CRFBA-020] [scope=crates/nako-metadata,crates/nako-nfo,crates/nako-catalog,crates/nako-server]
+- [ ] CRFBA-040 [owner=codex] [deps=CRFBA-020] [scope=crates/nako-metadata,crates/nako-nfo,crates/nako-catalog,crates/nako-server]
   Goal: Make Candidate/Acceptance vocabulary the explicit host-side write
   boundary for provider refresh, NFO import/export, Addon protected writes,
   artwork selection, and future AI-like suggestions.
+  Progress: `crates/nako-server/src/app/artwork.rs` now routes candidate
+  lookup, media/item-state validation, and acceptance commit through a
+  dedicated `ArtworkAcceptanceWorkflowStore` instead of calling the broad
+  `NakoDatabase` facade directly.
   Validation: focused tests for one accepted metadata or artwork path; docs
   updated if public semantics change.
   Review: Providers and Addons must produce evidence-backed candidates, not

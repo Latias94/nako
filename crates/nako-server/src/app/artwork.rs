@@ -1,5 +1,6 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
+use async_trait::async_trait;
 use nako_api::admin::{
     AcceptManagedArtworkCandidateResponse, AdminManagedArtworkArtifactCleanupResponse,
     AdminManagedArtworkArtifactFileCleanupSummary, AdminManagedArtworkArtifactLifecycleResponse,
@@ -21,10 +22,11 @@ use nako_api::admin::{
 };
 use nako_api::public_client::page_info_from_request;
 use nako_core::{
-    ArtworkCandidateId, ArtworkCandidateRepository, ArtworkCandidateStatus, JobId, JobKind,
-    LibraryItemRepository, ManagedArtworkArtifactId, ManagedArtworkArtifactLifecycleFilter,
+    ArtworkCandidateId, ArtworkCandidateRecord, ArtworkCandidateRepository, ArtworkCandidateStatus,
+    JobId, JobKind, LibraryItemRepository, LibraryItemState, ManagedArtworkAcceptanceRecord,
+    ManagedArtworkArtifactId, ManagedArtworkArtifactLifecycleFilter,
     ManagedArtworkIngestClaimRecord, ManagedArtworkIngestId, ManagedArtworkIngestStatus,
-    ManagedArtworkRepository, MediaItemId, MediaRepository, NakoError, NewJob,
+    ManagedArtworkRepository, MediaItem, MediaItemId, MediaRepository, NakoError, NewJob,
     NewManagedArtworkIngest, PageRequest, Result, SelectedArtworkId,
 };
 use nako_db::NakoDatabase;
@@ -48,9 +50,79 @@ mod variant;
 
 pub(crate) use variant::{ImageVariantRequest, ManagedArtworkImageBytes};
 
+#[async_trait]
+trait ArtworkAcceptanceWorkflowStore: std::fmt::Debug + Send + Sync {
+    async fn get_artwork_candidate(
+        &self,
+        id: ArtworkCandidateId,
+    ) -> Result<Option<ArtworkCandidateRecord>>;
+
+    async fn get_media_item(&self, id: MediaItemId) -> Result<Option<MediaItem>>;
+
+    async fn get_library_item_state(
+        &self,
+        library_id: nako_core::LibraryId,
+        item_id: MediaItemId,
+    ) -> Result<Option<LibraryItemState>>;
+
+    async fn accept_managed_artwork_candidate_ingest(
+        &self,
+        candidate_id: ArtworkCandidateId,
+        ingest: NewManagedArtworkIngest,
+        job: NewJob,
+    ) -> Result<ManagedArtworkAcceptanceRecord>;
+}
+
+#[async_trait]
+impl<T> ArtworkAcceptanceWorkflowStore for T
+where
+    T: ArtworkCandidateRepository
+        + LibraryItemRepository
+        + ManagedArtworkRepository
+        + MediaRepository
+        + std::fmt::Debug
+        + Send
+        + Sync,
+{
+    async fn get_artwork_candidate(
+        &self,
+        id: ArtworkCandidateId,
+    ) -> Result<Option<ArtworkCandidateRecord>> {
+        ArtworkCandidateRepository::get_artwork_candidate(self, id).await
+    }
+
+    async fn get_media_item(&self, id: MediaItemId) -> Result<Option<MediaItem>> {
+        MediaRepository::get_media_item(self, id).await
+    }
+
+    async fn get_library_item_state(
+        &self,
+        library_id: nako_core::LibraryId,
+        item_id: MediaItemId,
+    ) -> Result<Option<LibraryItemState>> {
+        LibraryItemRepository::get_library_item_state(self, library_id, item_id).await
+    }
+
+    async fn accept_managed_artwork_candidate_ingest(
+        &self,
+        candidate_id: ArtworkCandidateId,
+        ingest: NewManagedArtworkIngest,
+        job: NewJob,
+    ) -> Result<ManagedArtworkAcceptanceRecord> {
+        ManagedArtworkRepository::accept_managed_artwork_candidate_ingest(
+            self,
+            candidate_id,
+            ingest,
+            job,
+        )
+        .await
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct ManagedArtworkAppService {
     store: NakoDatabase,
+    acceptance_store: Arc<dyn ArtworkAcceptanceWorkflowStore>,
     ingest_pipeline: ManagedArtworkIngestPipeline,
     artifact_store: LocalManagedArtworkArtifactStore,
     variant_policy: ImageVariantPolicy,
@@ -59,8 +131,10 @@ pub(crate) struct ManagedArtworkAppService {
 
 impl ManagedArtworkAppService {
     pub(crate) fn new(config: ArtworkConfig, store: NakoDatabase) -> Result<Self> {
+        let acceptance_store = Arc::new(store.clone());
         Ok(Self {
             store,
+            acceptance_store,
             ingest_pipeline: ManagedArtworkIngestPipeline::new(config.clone())?,
             variant_policy: ImageVariantPolicy::new(config.max_width, config.max_height),
             artifact_store: LocalManagedArtworkArtifactStore::new(config.artifact_root),
@@ -118,7 +192,7 @@ impl ManagedArtworkAppService {
         candidate_id: ArtworkCandidateId,
     ) -> Result<AcceptManagedArtworkCandidateResponse> {
         let candidate = self
-            .store
+            .acceptance_store
             .get_artwork_candidate(candidate_id)
             .await?
             .ok_or_else(|| NakoError::NotFound {
@@ -132,14 +206,14 @@ impl ManagedArtworkAppService {
             });
         }
 
-        self.store
+        self.acceptance_store
             .get_media_item(candidate.item_id)
             .await?
             .ok_or_else(|| NakoError::NotFound {
                 entity: "media_item",
                 id: candidate.item_id.to_string(),
             })?;
-        self.store
+        self.acceptance_store
             .get_library_item_state(candidate.library_id, candidate.item_id)
             .await?
             .ok_or_else(|| NakoError::NotFound {
@@ -158,7 +232,7 @@ impl ManagedArtworkAppService {
             message: format!("failed to serialize managed artwork ingest job input: {err}"),
         })?;
         let acceptance = self
-            .store
+            .acceptance_store
             .accept_managed_artwork_candidate_ingest(
                 candidate_id,
                 NewManagedArtworkIngest {
@@ -220,8 +294,7 @@ impl ManagedArtworkAppService {
         kind: nako_core::ImageKind,
         artifact_id: ManagedArtworkArtifactId,
     ) -> Result<PublishSelectedArtworkResponse> {
-        self.store
-            .get_media_item(item_id)
+        nako_core::MediaRepository::get_media_item(&self.store, item_id)
             .await?
             .ok_or_else(|| NakoError::NotFound {
                 entity: "media_item",
@@ -241,8 +314,7 @@ impl ManagedArtworkAppService {
         item_id: MediaItemId,
         kind: nako_core::ImageKind,
     ) -> Result<UnpublishSelectedArtworkResponse> {
-        self.store
-            .get_media_item(item_id)
+        nako_core::MediaRepository::get_media_item(&self.store, item_id)
             .await?
             .ok_or_else(|| NakoError::NotFound {
                 entity: "media_item",
@@ -262,8 +334,7 @@ impl ManagedArtworkAppService {
         item_id: MediaItemId,
         page: PageRequest,
     ) -> Result<AdminManagedArtworkGalleryResponse> {
-        self.store
-            .get_media_item(item_id)
+        nako_core::MediaRepository::get_media_item(&self.store, item_id)
             .await?
             .ok_or_else(|| NakoError::NotFound {
                 entity: "media_item",
