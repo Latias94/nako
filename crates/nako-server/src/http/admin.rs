@@ -54,7 +54,7 @@ use nako_core::{
     ArtworkCandidateId, AutomationArtifactId, ImageKind, JobId, ManagedArtworkArtifactId,
     ManagedArtworkIngestId, MediaItemId, NakoError, PageRequest,
 };
-use nako_db::{DatabaseBackendCapabilities, NakoDatabase};
+use nako_db::DatabaseBackendCapabilities;
 use nako_transcode::{
     HardwareAccelerationCapability, HardwareDeviceInitializationStatus,
     HardwareEncoderDiscoveryStatus, HardwareSmokeProbeStatus, hardware_acceleration_readiness,
@@ -544,7 +544,7 @@ pub(super) async fn get_admin_system_config(
         network: network_access_diagnostics(config),
         database: database_config_diagnostics(
             config,
-            app.store(),
+            app.database_diagnostics(),
             app.startup_report().database_migrated,
         ),
         runtime: AdminRuntimeConfigDiagnostics {
@@ -931,19 +931,18 @@ fn fingerprint_key(value: &str) -> String {
 
 fn database_config_diagnostics(
     config: &crate::config::NakoServerConfig,
-    store: &NakoDatabase,
+    database: crate::app::DatabaseDiagnostics,
     migrated_on_startup: bool,
 ) -> AdminDatabaseConfigDiagnostics {
     let configured_backend = config.database_backend;
-    let active_backend = store.backend_kind();
 
     AdminDatabaseConfigDiagnostics {
         configured_backend_kind: configured_backend.as_str().to_owned(),
-        active_backend_kind: active_backend.as_str().to_owned(),
+        active_backend_kind: database.backend_kind.as_str().to_owned(),
         url_scheme: database_url_scheme_from_config(config),
-        runtime_supported: configured_backend == active_backend,
+        runtime_supported: configured_backend == database.backend_kind,
         migrated_on_startup,
-        capabilities: database_backend_capabilities_diagnostics(store.capabilities()),
+        capabilities: database_backend_capabilities_diagnostics(database.capabilities),
     }
 }
 

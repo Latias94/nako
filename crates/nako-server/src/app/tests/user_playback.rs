@@ -1,8 +1,14 @@
-use nako_core::{DatabaseLifecycle, UserPlaybackStateRepository, UserPrincipalId};
+use tokio::sync::Mutex;
+
+use nako_core::{
+    DatabaseLifecycle, UserPlaybackState, UserPlaybackStateRepository, UserPlaybackStateWrite,
+    UserPrincipalId,
+};
 
 use super::*;
 use crate::app::user_playback::{
     SetUserWatchedStateRequest, UpdateUserPlaybackProgressRequest, UserPlaybackAppService,
+    UserPlaybackStore,
 };
 
 #[tokio::test]
@@ -25,6 +31,30 @@ async fn user_playback_get_state_returns_default_for_existing_item_without_state
     assert!(!state.watched);
     assert_eq!(state.updated_at_ms, 0);
     assert_eq!(state.version, 0);
+}
+
+#[tokio::test]
+async fn user_playback_service_uses_the_focused_store_port() {
+    let store = FakeUserPlaybackStore::new();
+    let service = UserPlaybackAppService::new(store.clone());
+    let principal = UserPrincipalId::local_admin();
+
+    let updated = service
+        .update_progress(UpdateUserPlaybackProgressRequest {
+            principal_id: principal.clone(),
+            item_id: store.item.id,
+            source_id: Some(store.source.id),
+            position_ms: 120_000,
+            duration_ms: Some(600_000),
+            reported_at_ms: Some(1_000),
+        })
+        .await
+        .unwrap();
+
+    let loaded = service.get_state(&principal, store.item.id).await.unwrap();
+
+    assert_eq!(loaded, updated);
+    assert_eq!(store.state.lock().await.clone().unwrap(), updated);
 }
 
 #[tokio::test]
@@ -69,10 +99,13 @@ async fn user_playback_progress_persists_resume_until_watched_threshold() {
     assert_eq!(watched.watched_at_ms, Some(2_000));
     assert_eq!(watched.resume_position_ms, None);
     assert_eq!(
-        store
-            .list_continue_watching_states(&watched.principal_id, PageRequest::first_page())
-            .await
-            .unwrap(),
+        UserPlaybackStateRepository::list_continue_watching_states(
+            &store,
+            &watched.principal_id,
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap(),
         Vec::new()
     );
 }
@@ -325,4 +358,105 @@ async fn add_source(store: &NakoDatabase, title: &str, locator: &str) -> MediaSo
     store.upsert_media_source(&source).await.unwrap();
 
     source
+}
+
+#[derive(Clone, Debug)]
+struct FakeUserPlaybackStore {
+    item: MediaItem,
+    source: MediaSource,
+    state: Arc<Mutex<Option<UserPlaybackState>>>,
+}
+
+impl FakeUserPlaybackStore {
+    fn new() -> Self {
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(nako_core::LibraryPreset::Movies),
+        };
+        let item = MediaItem {
+            id: MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: "Night Harbor".to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        };
+        let source = MediaSource {
+            id: MediaSourceId::new(),
+            library_id: library.id,
+            item_id: item.id,
+            locator: "local:///Movies/Night Harbor.mkv".to_owned(),
+            file_name: "Night Harbor.mkv".to_owned(),
+            size_bytes: Some(128),
+            fingerprint: Some("night-harbor".to_owned()),
+        };
+
+        Self {
+            item,
+            source,
+            state: Arc::new(Mutex::new(None)),
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl UserPlaybackStore for FakeUserPlaybackStore {
+    async fn load_user_playback_state(
+        &self,
+        principal_id: &UserPrincipalId,
+        item_id: MediaItemId,
+    ) -> nako_core::Result<Option<UserPlaybackState>> {
+        let state = self.state.lock().await;
+        Ok(state
+            .clone()
+            .filter(|state| state.principal_id == *principal_id && state.item_id == item_id))
+    }
+
+    async fn store_user_playback_state(
+        &self,
+        write: UserPlaybackStateWrite,
+    ) -> nako_core::Result<UserPlaybackState> {
+        let state = UserPlaybackState {
+            principal_id: write.principal_id.clone(),
+            item_id: write.item_id,
+            source_id: write.source_id,
+            resume_position_ms: write.resume_position_ms,
+            duration_ms: write.duration_ms,
+            watched: write.watched,
+            watched_at_ms: write.watched_at_ms,
+            last_played_at_ms: write.last_played_at_ms,
+            updated_at_ms: write.updated_at_ms,
+            version: 1,
+        };
+        *self.state.lock().await = Some(state.clone());
+        Ok(state)
+    }
+
+    async fn list_continue_watching_user_playback_states(
+        &self,
+        principal_id: &UserPrincipalId,
+        page: nako_core::PageRequest,
+    ) -> nako_core::Result<Vec<UserPlaybackState>> {
+        let state = self.state.lock().await.clone();
+        let mut states = state
+            .into_iter()
+            .filter(|state| state.principal_id == *principal_id && !state.watched)
+            .collect::<Vec<_>>();
+        states.truncate(page.limit as usize);
+        Ok(states)
+    }
+
+    async fn load_media_item(&self, item_id: MediaItemId) -> nako_core::Result<Option<MediaItem>> {
+        Ok((self.item.id == item_id).then_some(self.item.clone()))
+    }
+
+    async fn load_media_source(
+        &self,
+        source_id: MediaSourceId,
+    ) -> nako_core::Result<Option<MediaSource>> {
+        Ok((self.source.id == source_id).then_some(self.source.clone()))
+    }
 }

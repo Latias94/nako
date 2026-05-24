@@ -4,7 +4,9 @@ use std::{
 };
 
 use nako_core::{NakoError, Result};
-use nako_db::{DatabaseConnectOptions, NakoDatabase};
+use nako_db::{
+    DatabaseBackendCapabilities, DatabaseBackendKind, DatabaseConnectOptions, NakoDatabase,
+};
 
 use crate::config::{NakoServerConfig, resolve_database_url};
 
@@ -65,6 +67,12 @@ pub struct NakoApp {
     inner: Arc<NakoAppComposition>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct DatabaseDiagnostics {
+    pub(crate) backend_kind: DatabaseBackendKind,
+    pub(crate) capabilities: DatabaseBackendCapabilities,
+}
+
 impl NakoApp {
     pub async fn new(config: NakoServerConfig) -> Result<Self> {
         let store = NakoDatabase::connect_with_options(DatabaseConnectOptions {
@@ -88,8 +96,11 @@ impl NakoApp {
     }
 
     #[must_use]
-    pub(crate) fn store(&self) -> &NakoDatabase {
-        &self.inner.store
+    pub(crate) fn database_diagnostics(&self) -> DatabaseDiagnostics {
+        DatabaseDiagnostics {
+            backend_kind: self.inner.store.backend_kind(),
+            capabilities: self.inner.store.capabilities(),
+        }
     }
 
     fn services(&self) -> &NakoAppServices {

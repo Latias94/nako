@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use nako_core::{
     MediaItemId, MediaRepository, MediaSourceId, NakoError, Result, UserPlaybackState,
     UserPlaybackStateRepository, UserPlaybackStateWrite, UserPrincipalId,
@@ -5,11 +6,6 @@ use nako_core::{
 use nako_db::NakoDatabase;
 
 use super::current_time_ms;
-
-#[derive(Clone, Debug)]
-pub(crate) struct UserPlaybackAppService {
-    store: NakoDatabase,
-}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct UpdateUserPlaybackProgressRequest {
@@ -32,8 +28,80 @@ pub(crate) struct SetUserWatchedStateRequest {
     pub marked_at_ms: Option<i64>,
 }
 
-impl UserPlaybackAppService {
-    pub(crate) fn new(store: NakoDatabase) -> Self {
+#[async_trait]
+pub(crate) trait UserPlaybackStore: Clone + Send + Sync + std::fmt::Debug {
+    async fn load_user_playback_state(
+        &self,
+        principal_id: &UserPrincipalId,
+        item_id: MediaItemId,
+    ) -> Result<Option<UserPlaybackState>>;
+
+    async fn store_user_playback_state(
+        &self,
+        write: UserPlaybackStateWrite,
+    ) -> Result<UserPlaybackState>;
+
+    async fn list_continue_watching_user_playback_states(
+        &self,
+        principal_id: &UserPrincipalId,
+        page: nako_core::PageRequest,
+    ) -> Result<Vec<UserPlaybackState>>;
+
+    async fn load_media_item(&self, item_id: MediaItemId) -> Result<Option<nako_core::MediaItem>>;
+
+    async fn load_media_source(
+        &self,
+        source_id: MediaSourceId,
+    ) -> Result<Option<nako_core::MediaSource>>;
+}
+
+#[async_trait]
+impl UserPlaybackStore for NakoDatabase {
+    async fn load_user_playback_state(
+        &self,
+        principal_id: &UserPrincipalId,
+        item_id: MediaItemId,
+    ) -> Result<Option<UserPlaybackState>> {
+        UserPlaybackStateRepository::get_user_playback_state(self, principal_id, item_id).await
+    }
+
+    async fn store_user_playback_state(
+        &self,
+        write: UserPlaybackStateWrite,
+    ) -> Result<UserPlaybackState> {
+        UserPlaybackStateRepository::upsert_user_playback_state(self, write).await
+    }
+
+    async fn list_continue_watching_user_playback_states(
+        &self,
+        principal_id: &UserPrincipalId,
+        page: nako_core::PageRequest,
+    ) -> Result<Vec<UserPlaybackState>> {
+        UserPlaybackStateRepository::list_continue_watching_states(self, principal_id, page).await
+    }
+
+    async fn load_media_item(&self, item_id: MediaItemId) -> Result<Option<nako_core::MediaItem>> {
+        MediaRepository::get_media_item(self, item_id).await
+    }
+
+    async fn load_media_source(
+        &self,
+        source_id: MediaSourceId,
+    ) -> Result<Option<nako_core::MediaSource>> {
+        MediaRepository::get_media_source(self, source_id).await
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct UserPlaybackAppService<S = NakoDatabase> {
+    store: S,
+}
+
+impl<S> UserPlaybackAppService<S>
+where
+    S: UserPlaybackStore,
+{
+    pub(crate) fn new(store: S) -> Self {
         Self { store }
     }
 
@@ -46,7 +114,7 @@ impl UserPlaybackAppService {
 
         Ok(self
             .store
-            .get_user_playback_state(principal_id, item_id)
+            .load_user_playback_state(principal_id, item_id)
             .await?
             .unwrap_or_else(|| default_user_playback_state(principal_id.clone(), item_id)))
     }
@@ -64,7 +132,7 @@ impl UserPlaybackAppService {
         let event_at_ms = request.reported_at_ms.unwrap_or(current_time_ms()?);
         let existing = self
             .store
-            .get_user_playback_state(&request.principal_id, request.item_id)
+            .load_user_playback_state(&request.principal_id, request.item_id)
             .await?;
         if let Some(existing) = &existing {
             if existing.updated_at_ms > event_at_ms {
@@ -104,7 +172,7 @@ impl UserPlaybackAppService {
             }
         }
 
-        self.store.upsert_user_playback_state(write).await
+        self.store.store_user_playback_state(write).await
     }
 
     pub(crate) async fn set_watched_state(
@@ -129,7 +197,7 @@ impl UserPlaybackAppService {
         };
 
         self.store
-            .upsert_user_playback_state(UserPlaybackStateWrite {
+            .store_user_playback_state(UserPlaybackStateWrite {
                 principal_id: request.principal_id,
                 item_id: request.item_id,
                 source_id: request.source_id,
@@ -152,13 +220,13 @@ impl UserPlaybackAppService {
         page: nako_core::PageRequest,
     ) -> Result<Vec<UserPlaybackState>> {
         self.store
-            .list_continue_watching_states(principal_id, page)
+            .list_continue_watching_user_playback_states(principal_id, page)
             .await
     }
 
     async fn ensure_item_exists(&self, item_id: MediaItemId) -> Result<()> {
         self.store
-            .get_media_item(item_id)
+            .load_media_item(item_id)
             .await?
             .ok_or_else(|| NakoError::NotFound {
                 entity: "media_item",
@@ -174,7 +242,7 @@ impl UserPlaybackAppService {
     ) -> Result<()> {
         let source = self
             .store
-            .get_media_source(source_id)
+            .load_media_source(source_id)
             .await?
             .ok_or_else(|| NakoError::NotFound {
                 entity: "media_source",
