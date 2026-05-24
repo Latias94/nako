@@ -13,22 +13,25 @@ to write one Docker Compose service per small capability.
 
 AEF-010 is complete as the authority freeze. AEF-020 is complete: Addon Task
 runs now persist deterministic request fingerprints and reject mismatched
-idempotency-key reuse.
+idempotency-key reuse. AEF-030 is complete: Nako's built-in official source
+catalog and the official metadata scraper runtime now share descriptor facts
+through `nako-official-addon-catalog`.
 
 ## Active Task
 
-- Task ID: AEF-030
+- Task ID: AEF-040
 - Owner: codex
 - Files:
-  - `crates/nako-server/src/app/addons.rs`
-  - `F:\SourceCodes\Rust\nako-official-addons\crates\nako-metadata-scraper\src\manifest.rs`
-  - official addon focused manifest/catalog tests
+  - `crates/nako-core`
+  - `crates/nako-db`
+  - `crates/nako-server`
+  - `crates/nako-addon-client`
 - Validation:
-  - `cargo nextest run -p nako-server addon_source_catalog --no-fail-fast`
-  - official addon focused manifest tests
+  - `cargo nextest run -p nako-server addon_event --no-fail-fast`
+  - `cargo nextest run -p nako-db event --no-fail-fast`
 - Status: READY
 - Review: pending
-- Evidence: AEF-020 evidence is recorded in `EVIDENCE_AND_GATES.md`.
+- Evidence: AEF-020 and AEF-030 evidence is recorded in `EVIDENCE_AND_GATES.md`.
 
 ## Decisions Since Last Update
 
@@ -47,5 +50,5 @@ idempotency-key reuse.
 
 ## Next Recommended Action
 
-Implement AEF-030 catalog drift prevention before event delivery or new
-official addon breadth.
+Implement AEF-040 Addon Event Delivery before adding broad official addon
+feature breadth.

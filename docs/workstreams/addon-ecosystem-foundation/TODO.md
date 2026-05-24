@@ -33,14 +33,16 @@ Last updated: 2026-05-25
 
 ## M2 — Official Catalog Drift Prevention
 
-- [ ] AEF-030 [owner=codex] [deps=AEF-010] [scope=crates/nako-server,docs,official-addon-repo]
+- [x] AEF-030 [owner=codex] [deps=AEF-010] [scope=crates/nako-server,docs,official-addon-repo]
   Goal: Prevent built-in official addon catalog descriptors from drifting from
   official addon manifest/task/config facts.
-  Validation: `cargo nextest run -p nako-server addon_source_catalog --no-fail-fast`
-  plus the official addon focused manifest tests.
+  Validation: `cargo nextest run -p nako-server addon_source_catalog --no-fail-fast`,
+  `cargo nextest run -p nako-official-addon-catalog --no-fail-fast`, and
+  official addon focused manifest tests.
   Review: Confirm the catalog remains a discovery surface, not package
   supervision or hidden lifecycle execution.
-  Evidence: `crates/nako-server/src/app/addons.rs`,
+  Evidence: `crates/nako-official-addon-catalog`,
+  `crates/nako-server/src/app/addons.rs`,
   `F:\SourceCodes\Rust\nako-official-addons\crates\nako-metadata-scraper\src\manifest.rs`.
   Handoff: Prefer generated/shared descriptor facts or a drift test over
   duplicated hand-written version/task facts.

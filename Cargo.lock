@@ -1499,6 +1499,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "nako-official-addon-catalog"
+version = "0.1.0-alpha.2"
+dependencies = [
+ "nako-addon-protocol",
+ "serde_json",
+]
+
+[[package]]
 name = "nako-reference-addon"
 version = "0.1.0-alpha.1"
 dependencies = [
@@ -1537,6 +1545,7 @@ dependencies = [
  "nako-media-probe",
  "nako-metadata",
  "nako-nfo",
+ "nako-official-addon-catalog",
  "nako-reference-addon",
  "nako-search",
  "nako-streaming",

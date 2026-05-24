@@ -28,6 +28,7 @@ nako-api = { path = "../nako-api" }
 nako-catalog = { path = "../nako-catalog" }
 nako-db = { path = "../nako-db" }
 nako-core = { path = "../nako-core" }
+nako-official-addon-catalog = { path = "../nako-official-addon-catalog" }
 nako-automation = { path = "../nako-automation" }
 nako-library = { path = "../nako-library" }
 nako-media-probe = { path = "../nako-media-probe" }

@@ -7,10 +7,11 @@
   "scope_kind": "architecture",
   "problem": "Nako's Addon sidecar direction is correct, but event delivery, task idempotency, official catalog drift prevention, and suite-shaped deployment need to be deepened before broad official addon features land.",
   "task_prefix": "AEF",
-  "current_task": "AEF-030",
+  "current_task": "AEF-040",
   "completed_tasks": [
     "AEF-010",
-    "AEF-020"
+    "AEF-020",
+    "AEF-030"
   ],
   "authoritative_docs": [
     {
@@ -44,6 +45,7 @@
     "cargo nextest run -p nako-db addon_task --no-fail-fast",
     "cargo nextest run -p nako-server addon_task --no-fail-fast",
     "cargo nextest run -p nako-server addon_source_catalog --no-fail-fast",
+    "cargo nextest run -p nako-official-addon-catalog --no-fail-fast",
     "cargo nextest run -p nako-server addon_event --no-fail-fast",
     "cargo nextest run -p nako-db event --no-fail-fast",
     "cargo fmt --all -- --check",
@@ -55,6 +57,7 @@
     "docs/workstreams/addon-ecosystem-foundation/DESIGN.md",
     "docs/workstreams/addon-ecosystem-foundation/TODO.md",
     "docs/workstreams/addon-ecosystem-foundation/EVIDENCE_AND_GATES.md",
+    "crates/nako-official-addon-catalog",
     "F:\\SourceCodes\\Rust\\nako-official-addons\\crates\\nako-metadata-scraper"
   ],
   "adr_refs": [
@@ -69,7 +72,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "AEF-030",
-    "notes": "Continue with official catalog drift prevention, then Addon Event Delivery and the official event addon proof. Split full notification, watch-state sync, MCP, Arr-stack, DLNA/UPnP/WebDAV, Network Tunnel Provider, package signing, and process supervision into follow-ons unless explicitly pulled into this lane."
+    "next_task": "AEF-040",
+    "notes": "Continue with Addon Event Delivery and then the official event addon proof. Split full notification, watch-state sync, MCP, Arr-stack, DLNA/UPnP/WebDAV, Network Tunnel Provider, package signing, and process supervision into follow-ons unless explicitly pulled into this lane."
   }
 }

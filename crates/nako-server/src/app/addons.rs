@@ -4,9 +4,7 @@ use nako_addon_client::{
     AddonClientError, ReqwestAddonTransport, call_addon_resource_with_outcome, check_addon_health,
 };
 use nako_addon_protocol::{
-    ADDON_PROTOCOL_VERSION, AddonAuth, AddonInstallDescriptor, AddonManifest, AddonResource,
-    AddonResourceDeclaration, AddonRuntimeKind, AddonRuntimeRequirement, AddonScope,
-    AddonSecretReferenceBinding, AddonSecretReferenceFieldDeclaration,
+    AddonInstallDescriptor, AddonManifest, AddonScope,
     addon_install_guide as protocol_addon_install_guide, ensure_scope_grant,
     validate_install_descriptor, validate_manifest,
 };
@@ -39,6 +37,7 @@ use nako_core::{
     NewAddonGrant, NewAddonRegistration, NewAddonRoutingPlan, NewAddonToken, Result, SecretString,
 };
 use nako_db::NakoDatabase;
+use nako_official_addon_catalog::metadata_scraper;
 use tokio::sync::Semaphore;
 
 use super::{runtime::RuntimeSupervisor, storage::StorageBackendRegistry};
@@ -1517,14 +1516,14 @@ fn builtin_addon_catalog_entries() -> Result<Vec<AdminAddonSourceCatalogEntry>> 
 
     Ok(vec![addon_catalog_entry_from_descriptor(
         "nako-official",
-        "nako.official.metadata-scraper",
+        metadata_scraper::ADDON_ID,
         &descriptor,
     )])
 }
 
 fn builtin_addon_catalog_descriptor(entry_id: &str) -> Result<AddonInstallDescriptor> {
     match entry_id {
-        "nako.official.metadata-scraper" => Ok(official_metadata_scraper_descriptor()),
+        metadata_scraper::ADDON_ID => Ok(official_metadata_scraper_descriptor()),
         _ => Err(NakoError::NotFound {
             entity: "addon_catalog_entry",
             id: entry_id.to_owned(),
@@ -1570,63 +1569,7 @@ fn addon_catalog_entry_from_descriptor(
 }
 
 fn official_metadata_scraper_descriptor() -> AddonInstallDescriptor {
-    AddonInstallDescriptor {
-        manifest: AddonManifest {
-            id: "nako.official.metadata-scraper".to_owned(),
-            name: "Nako Metadata Scraper".to_owned(),
-            version: "0.1.0-alpha.1".to_owned(),
-            protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
-            base_url: "http://127.0.0.1:19100".to_owned(),
-            description: Some(
-                "Official metadata scraper sidecar for alpha metadata resource diagnostics"
-                    .to_owned(),
-            ),
-            resources: vec![AddonResourceDeclaration {
-                kind: AddonResource::Metadata,
-                path: "/metadata".to_owned(),
-                input_schema: Some("nako.metadata.request.v1".to_owned()),
-                output_schema: Some("nako.metadata.response.v1".to_owned()),
-                required_scopes: vec![
-                    AddonScope::ItemMetadataRead,
-                    AddonScope::ItemMetadataSuggest,
-                ],
-                timeout_ms: Some(10_000),
-                max_attempts: Some(2),
-            }],
-            entry_points: Vec::new(),
-            hosted_pages: Vec::new(),
-            configuration_schema: None,
-            secret_reference_fields: vec![AddonSecretReferenceFieldDeclaration::new(
-                "metadata_api_key",
-                "Metadata provider API key",
-                Some("Optional provider credential resolved by the operator environment".to_owned()),
-                false,
-            )],
-            event_subscriptions: Vec::new(),
-            tasks: Vec::new(),
-            auth: AddonAuth::None,
-            default_timeout_ms: Some(10_000),
-            default_max_attempts: Some(2),
-            scopes: vec![
-                AddonScope::ItemMetadataRead,
-                AddonScope::ItemMetadataSuggest,
-            ],
-        },
-        runtime: AddonRuntimeRequirement {
-            kind: AddonRuntimeKind::HttpSidecar,
-            image: None,
-            binary: Some("nako-metadata-scraper".to_owned()),
-            command: None,
-        },
-        secret_reference_bindings: vec![AddonSecretReferenceBinding {
-            field_id: "metadata_api_key".to_owned(),
-            secret_ref: "env:NAKO_METADATA_SCRAPER_API_KEY".to_owned(),
-        }],
-        install_notes: vec![
-            "Install from crates.io with `cargo install nako-metadata-scraper --version 0.1.0-alpha.1 --locked`.".to_owned(),
-            "Run the sidecar outside Nako and register the resolved manifest through the existing Admin Addon APIs.".to_owned(),
-        ],
-    }
+    metadata_scraper::container_install_descriptor()
 }
 
 fn docker_compose_install_snippet(
@@ -1977,6 +1920,14 @@ mod tests {
             created_at: "2026-05-24T00:00:00.000Z".to_owned(),
             updated_at: "2026-05-24T00:00:00.000Z".to_owned(),
         }
+    }
+
+    #[test]
+    fn official_metadata_scraper_catalog_descriptor_uses_shared_catalog_facts() {
+        assert_eq!(
+            official_metadata_scraper_descriptor(),
+            metadata_scraper::container_install_descriptor()
+        );
     }
 
     #[test]

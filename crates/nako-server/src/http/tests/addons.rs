@@ -1,6 +1,7 @@
 use super::*;
 use axum::Json;
 use axum::http::HeaderValue;
+use nako_official_addon_catalog::metadata_scraper;
 use std::collections::VecDeque;
 use std::sync::{
     Arc as StdArc,
@@ -934,14 +935,25 @@ async fn admin_addon_source_catalog_browses_and_resolves_without_hidden_lifecycl
     assert_eq!(entries.source_id, "nako-official");
     assert_eq!(entries.entries.len(), 1);
     let entry = &entries.entries[0];
-    assert_eq!(entry.entry_id, "nako.official.metadata-scraper");
-    assert_eq!(entry.manifest_id, "nako.official.metadata-scraper");
-    assert_eq!(entry.addon_name, "Nako Metadata Scraper");
-    assert_eq!(entry.addon_version, "0.1.0-alpha.1");
+    assert_eq!(entry.entry_id, metadata_scraper::ADDON_ID);
+    assert_eq!(entry.manifest_id, metadata_scraper::ADDON_ID);
+    assert_eq!(entry.addon_name, metadata_scraper::ADDON_NAME);
+    assert_eq!(entry.addon_version, metadata_scraper::ADDON_VERSION);
     assert_eq!(entry.protocol_version, ADDON_PROTOCOL_VERSION);
     assert_eq!(entry.runtime_kind, AddonRuntimeKind::HttpSidecar);
     assert_eq!(entry.resources, vec![AddonResource::Metadata]);
-    assert_eq!(entry.tasks, Vec::<String>::new());
+    assert_eq!(
+        entry.scopes,
+        vec![
+            AddonScope::ItemMetadataRead,
+            AddonScope::ItemMetadataSuggest,
+            AddonScope::AutomationRun,
+        ]
+    );
+    assert_eq!(
+        entry.tasks,
+        vec![metadata_scraper::BULK_METADATA_SCRAPE_TASK_ID.to_owned()]
+    );
     assert!(!entry.package_signing_verified);
     assert_eq!(entry.lifecycle_boundary.nako_manages_packages, false);
     assert_eq!(entry.lifecycle_boundary.nako_manages_processes, false);
@@ -959,25 +971,70 @@ async fn admin_addon_source_catalog_browses_and_resolves_without_hidden_lifecycl
     let resolved = serde_json::from_str::<AdminAddonSourceCatalogResolveResponse>(&text).unwrap();
 
     assert_eq!(resolved.source_id, "nako-official");
-    assert_eq!(resolved.entry.entry_id, "nako.official.metadata-scraper");
+    assert_eq!(resolved.entry.entry_id, metadata_scraper::ADDON_ID);
+    assert_eq!(resolved.descriptor.manifest.id, metadata_scraper::ADDON_ID);
     assert_eq!(
-        resolved.descriptor.manifest.id,
-        "nako.official.metadata-scraper"
+        resolved.descriptor.manifest.version,
+        metadata_scraper::ADDON_VERSION
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.base_url,
+        metadata_scraper::DEFAULT_CONTAINER_BASE_URL
     );
     assert_eq!(
         resolved.descriptor.manifest.protocol_version,
         ADDON_PROTOCOL_VERSION
     );
     assert_eq!(resolved.descriptor.manifest.resources.len(), 1);
-    assert_eq!(resolved.descriptor.secret_reference_bindings.len(), 1);
+    assert_eq!(resolved.descriptor.manifest.entry_points.len(), 1);
     assert_eq!(
-        resolved.descriptor.secret_reference_bindings[0].secret_ref,
-        "env:NAKO_METADATA_SCRAPER_API_KEY"
+        resolved.descriptor.manifest.entry_points[0].id,
+        metadata_scraper::DIAGNOSTICS_ENTRY_POINT_ID
     );
+    assert_eq!(resolved.descriptor.manifest.hosted_pages.len(), 1);
+    assert_eq!(
+        resolved.descriptor.manifest.hosted_pages[0].id,
+        metadata_scraper::DIAGNOSTICS_HOSTED_PAGE_ID
+    );
+    assert_eq!(
+        resolved
+            .descriptor
+            .manifest
+            .configuration_schema
+            .as_ref()
+            .unwrap()
+            .schema_id,
+        metadata_scraper::CONFIG_SCHEMA_ID
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.tasks[0].id,
+        metadata_scraper::BULK_METADATA_SCRAPE_TASK_ID
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.tasks[0].path,
+        metadata_scraper::BULK_METADATA_SCRAPE_TASK_PATH
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.tasks[0].required_scopes,
+        vec![AddonScope::AutomationRun]
+    );
+    assert!(
+        resolved
+            .descriptor
+            .manifest
+            .secret_reference_fields
+            .is_empty()
+    );
+    assert!(resolved.descriptor.secret_reference_bindings.is_empty());
     assert_eq!(
         resolved.install_guide.runtime_reference.value,
-        "nako-metadata-scraper"
+        metadata_scraper::RUNTIME_IMAGE
     );
+    assert!(resolved.install_guide.has_configuration_schema);
+    assert_eq!(resolved.install_guide.entry_point_count, 1);
+    assert_eq!(resolved.install_guide.hosted_page_count, 1);
+    assert_eq!(resolved.install_guide.task_count, 1);
+    assert_eq!(resolved.install_guide.event_subscription_count, 0);
 
     for forbidden in [
         "secret-value",

@@ -1,0 +1,20 @@
+[package]
+name = "nako-official-addon-catalog"
+version = "0.1.0-alpha.2"
+edition.workspace = true
+rust-version.workspace = true
+license = "Apache-2.0 OR MIT"
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Shared official addon catalog facts for Nako and official addon sidecars."
+readme = "README.md"
+keywords = ["nako", "addons", "catalog", "media-server"]
+categories = ["api-bindings", "web-programming"]
+
+[lints]
+workspace = true
+
+[dependencies]
+nako-addon-protocol = { path = "../nako-addon-protocol", version = "0.1.0-alpha.2" }
+serde_json.workspace = true
