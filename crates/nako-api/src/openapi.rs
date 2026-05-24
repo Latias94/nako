@@ -772,7 +772,7 @@ fn schemas() -> Value {
             "realtime_monitor": boolean_schema(),
             "max_depth": json!({"type": "integer", "format": "int32", "nullable": true})
         })),
-        "MetadataProfileDto": object_schema(&["item_kinds", "local_readers", "metadata_providers", "image_providers", "language", "country", "refresh_mode", "local_metadata_policy"], json!({
+        "MetadataProfileDto": object_schema(&["item_kinds", "local_readers", "metadata_providers", "image_providers", "language", "country", "refresh_mode", "local_metadata_policy", "scan"], json!({
             "item_kinds": array_schema(schema_ref("ClientMediaKind")),
             "local_readers": array_schema(string_schema()),
             "metadata_providers": array_schema(string_schema()),
@@ -780,7 +780,11 @@ fn schemas() -> Value {
             "language": nullable_string_schema(),
             "country": nullable_string_schema(),
             "refresh_mode": enum_schema(&["none", "validation_only", "default", "missing_only", "full_refresh"]),
-            "local_metadata_policy": enum_schema(&["disabled", "read_only", "local_first", "remote_first", "write_sidecar"])
+            "local_metadata_policy": enum_schema(&["disabled", "read_only", "local_first", "remote_first", "write_sidecar"]),
+            "scan": schema_ref("MetadataScanPolicyDto")
+        })),
+        "MetadataScanPolicyDto": object_schema(&["enabled"], json!({
+            "enabled": boolean_schema()
         })),
         "ItemsResponse": object_schema(&["items", "page"], json!({
             "items": array_schema(schema_ref("MediaItemDto")),

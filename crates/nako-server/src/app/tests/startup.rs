@@ -231,6 +231,105 @@ async fn scan_library_persists_job_success() {
 }
 
 #[tokio::test]
+async fn scan_library_imports_enabled_nfo_metadata_after_probe() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_root = temp.path().join("library");
+    fs::create_dir_all(&library_root).unwrap();
+    write_fixture_mp4(&library_root.join("demo.mp4"));
+    fs::write(
+        library_root.join("demo.nfo"),
+        r#"<movie>
+  <title>NFO Scan Title</title>
+  <plot>Imported during scan.</plot>
+</movie>
+"#,
+    )
+    .unwrap();
+    let library_id = LibraryId::new();
+    let config = startup_config(
+        temp.path(),
+        vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: library_root,
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    );
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+
+    let output = app.library_scan().scan_library(library_id).await.unwrap();
+    let sources = store
+        .list_media_sources(library_id, PageRequest::first_page())
+        .await
+        .unwrap();
+    let item = store
+        .get_media_item(sources[0].item_id)
+        .await
+        .unwrap()
+        .unwrap();
+    let nfo = output.metadata.nfo_import.expect("scan should import NFO");
+
+    assert_eq!(output.index.discovered_files, 1);
+    assert_eq!(output.probe.probed_sources, 1);
+    assert_eq!(nfo.discovered_nfo, 1);
+    assert_eq!(nfo.imported_items, 1);
+    assert_eq!(item.metadata.title, "NFO Scan Title");
+    assert_eq!(
+        item.metadata.overview.as_deref(),
+        Some("Imported during scan.")
+    );
+}
+
+#[tokio::test]
+async fn scan_library_skips_nfo_import_when_scan_metadata_is_disabled() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_root = temp.path().join("library");
+    fs::create_dir_all(&library_root).unwrap();
+    write_fixture_mp4(&library_root.join("demo.mp4"));
+    fs::write(
+        library_root.join("demo.nfo"),
+        r#"<movie><title>Should Not Import</title></movie>"#,
+    )
+    .unwrap();
+    let library_id = LibraryId::new();
+    let mut config = startup_config(
+        temp.path(),
+        vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: library_root,
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    );
+    let mut profile = nako_core::MetadataProfile::from_preset(nako_core::LibraryPreset::Movies);
+    profile.scan = nako_core::MetadataScanPolicy::disabled();
+    config.metadata.library_profiles.insert(library_id, profile);
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+
+    let output = app.library_scan().scan_library(library_id).await.unwrap();
+    let sources = store
+        .list_media_sources(library_id, PageRequest::first_page())
+        .await
+        .unwrap();
+    let item = store
+        .get_media_item(sources[0].item_id)
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert!(output.metadata.nfo_import.is_none());
+    assert_eq!(item.metadata.title, "demo");
+}
+
+#[tokio::test]
 async fn background_scan_job_uses_runtime_job_supervision() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
@@ -277,6 +376,29 @@ async fn background_scan_job_uses_runtime_job_supervision() {
     assert_eq!(persisted.status, JobStatus::Succeeded);
     assert_eq!(diagnostics.completed_tasks, 1);
     assert_eq!(diagnostics.failed_tasks, 0);
+}
+
+fn write_fixture_mp4(path: &Path) {
+    let status = std::process::Command::new("ffmpeg")
+        .args([
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=black:s=16x16:d=0.1",
+            "-an",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+        ])
+        .arg(path)
+        .status()
+        .expect("ffmpeg should be available for Nako app scan tests");
+    assert!(status.success(), "ffmpeg failed to create fixture mp4");
 }
 
 #[tokio::test]

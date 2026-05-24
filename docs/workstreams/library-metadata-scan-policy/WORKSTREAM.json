@@ -1,0 +1,32 @@
+{
+  "slug": "library-metadata-scan-policy",
+  "status": "closed",
+  "last_updated": "2026-05-25",
+  "problem": "Library scan discovers and probes sources but does not apply configured local metadata such as NFO unless a separate import command is run.",
+  "target_state": "Media Library Metadata Profiles produce an explicit scan-time metadata acquisition plan. The first implementation runs NFO Import after scan/probe when the profile enables NFO local readers, while provider/addon/embedded/artwork breadth remains split follow-on work.",
+  "current_task": "closed",
+  "files": [
+    "docs/workstreams/library-metadata-scan-policy/README.md",
+    "docs/workstreams/library-metadata-scan-policy/DESIGN.md",
+    "docs/workstreams/library-metadata-scan-policy/TODO.md",
+    "docs/workstreams/library-metadata-scan-policy/MILESTONES.md",
+    "docs/workstreams/library-metadata-scan-policy/EVIDENCE_AND_GATES.md",
+    "docs/workstreams/library-metadata-scan-policy/HANDOFF.md"
+  ],
+  "planned_gates": [
+    "cargo fmt --all -- --check",
+    "cargo nextest run -p nako-core metadata_profile --no-fail-fast",
+    "cargo nextest run -p nako-server library_scan nfo --no-fail-fast",
+    "cargo check -p nako-server --bin nako-server",
+    "git diff --check"
+  ],
+  "closed_at": "2026-05-25",
+  "closeout_summary": "NFO Import now runs during library scan when the per-library Metadata Profile scan acquisition plan enables local NFO metadata. Real local and NAS narrow smoke passed.",
+  "non_goals": [
+    "new external metadata provider behavior",
+    "Addon Sidecar execution during scan",
+    "schema migrations",
+    "NFO XML parsing/export semantic changes",
+    "full NAS root scan before progress/cancellation visibility improves"
+  ]
+}

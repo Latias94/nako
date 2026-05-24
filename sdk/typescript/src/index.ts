@@ -282,6 +282,11 @@ export interface MetadataProfileDto {
   local_readers: Array<string>;
   metadata_providers: Array<string>;
   refresh_mode: "none" | "validation_only" | "default" | "missing_only" | "full_refresh";
+  scan: MetadataScanPolicyDto;
+}
+
+export interface MetadataScanPolicyDto {
+  enabled: boolean;
 }
 
 export interface PageInfo {

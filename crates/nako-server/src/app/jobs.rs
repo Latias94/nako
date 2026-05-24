@@ -15,6 +15,9 @@ use nako_library::{
     LibraryProbeWorkflow, LibraryScannerOptions,
 };
 use nako_media_probe::FfprobeMediaProbe;
+use nako_nfo::{
+    MovieNfoCodec, NfoImportRequest, NfoImportSummary, NfoLibraryRunOutcome, NfoService,
+};
 use serde::Serialize;
 use tokio::sync::Semaphore;
 use tracing::{Instrument, info, info_span, warn};
@@ -35,6 +38,13 @@ pub struct ScanCommandOutput {
     pub job: Job,
     pub index: LibraryIndexSummary,
     pub probe: LibraryProbeSummary,
+    pub metadata: LibraryScanMetadataSummary,
+}
+
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct LibraryScanMetadataSummary {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nfo_import: Option<NfoImportSummary>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -398,10 +408,11 @@ impl LibraryScanAppService {
                 job_id,
                 "library scan job",
                 |context| async { self.run_library_scan(job_id, library_id, context).await },
-                |(index, probe)| {
+                |(index, probe, metadata)| {
                     let summary = ScanJobSummary {
                         index: index.clone(),
                         probe: probe.clone(),
+                        metadata: metadata.clone(),
                     };
                     DurableJobRuntime::serialize_summary(&summary, "library scan job summary")
                 },
@@ -410,7 +421,7 @@ impl LibraryScanAppService {
 
         match run {
             DurableJobRunOutcome::Completed(run) => {
-                let (index, probe) = run.output;
+                let (index, probe, metadata) = run.output;
                 self.record_library_scanned_event(job_id, library_id, &index, &probe)
                     .await;
 
@@ -418,6 +429,7 @@ impl LibraryScanAppService {
                     job: run.job,
                     index,
                     probe,
+                    metadata,
                 }))
             }
             DurableJobRunOutcome::Cancelled(job) => Ok(LibraryScanExecution::Cancelled(job)),
@@ -473,7 +485,11 @@ impl LibraryScanAppService {
         job_id: JobId,
         library_id: LibraryId,
         context: DurableJobContext,
-    ) -> DurableJobOperationResult<(LibraryIndexSummary, LibraryProbeSummary)> {
+    ) -> DurableJobOperationResult<(
+        LibraryIndexSummary,
+        LibraryProbeSummary,
+        LibraryScanMetadataSummary,
+    )> {
         let library = self.library_for_scan(library_id).await?;
         info!(
             job_id = %job_id,
@@ -532,7 +548,62 @@ impl LibraryScanAppService {
             .await?;
 
         context.check_cancelled().await?;
-        Ok((index, probe))
+        let metadata = self
+            .run_scan_metadata_acquisition(job_id, &library, context)
+            .await?;
+
+        Ok((index, probe, metadata))
+    }
+
+    async fn run_scan_metadata_acquisition(
+        &self,
+        job_id: JobId,
+        library: &Library,
+        context: DurableJobContext,
+    ) -> DurableJobOperationResult<LibraryScanMetadataSummary> {
+        let plan = library.options.metadata_profile.scan_acquisition_plan();
+        let mut summary = LibraryScanMetadataSummary::default();
+
+        if plan.local_nfo_import {
+            context.check_cancelled().await?;
+            info!(
+                job_id = %job_id,
+                library_id = %library.id,
+                "running scan-time NFO import"
+            );
+            let storage_backend = self
+                .storage_backends
+                .backend_for_library_root(library)
+                .await?;
+            let nfo = NfoService::new(
+                storage_backend,
+                self.execution_store.store.clone(),
+                MovieNfoCodec,
+            );
+            let import = nfo
+                .import_library_with_cancellation(
+                    NfoImportRequest {
+                        job_id,
+                        library_id: library.id,
+                        policy: library.options.metadata_profile.local_metadata_policy,
+                        force: false,
+                    },
+                    &ScanMetadataCancellationCheck {
+                        context: context.clone(),
+                    },
+                )
+                .await?;
+            match import {
+                NfoLibraryRunOutcome::Completed(import) => {
+                    summary.nfo_import = Some(import);
+                }
+                NfoLibraryRunOutcome::Cancelled(_) => {
+                    return Err(super::job_runtime::DurableJobOperationError::Cancelled);
+                }
+            }
+        }
+
+        Ok(summary)
     }
 
     async fn record_outbox_event(&self, event: NewOutboxEvent) {
@@ -572,10 +643,32 @@ fn library_scanner_options(library: &Library) -> LibraryScannerOptions {
 struct ScanJobSummary {
     index: LibraryIndexSummary,
     probe: LibraryProbeSummary,
+    metadata: LibraryScanMetadataSummary,
 }
 
 #[derive(Clone, Debug, Serialize)]
 struct LibraryScanJobInput {
     library_id: LibraryId,
     force: bool,
+}
+
+#[derive(Clone, Debug)]
+struct ScanMetadataCancellationCheck {
+    context: DurableJobContext,
+}
+
+#[async_trait::async_trait]
+impl nako_nfo::NfoCancellationCheck for ScanMetadataCancellationCheck {
+    async fn check(
+        &self,
+        _checkpoint: nako_nfo::NfoSidecarCheckpoint,
+    ) -> nako_core::Result<nako_nfo::NfoCancellationDecision> {
+        match self.context.check_cancelled().await {
+            Ok(()) => Ok(nako_nfo::NfoCancellationDecision::Continue),
+            Err(super::job_runtime::DurableJobOperationError::Cancelled) => {
+                Ok(nako_nfo::NfoCancellationDecision::Cancel)
+            }
+            Err(super::job_runtime::DurableJobOperationError::Failed(err)) => Err(err),
+        }
+    }
 }

@@ -118,6 +118,12 @@ pub struct MetadataProfileDto {
     pub country: Option<String>,
     pub refresh_mode: ClientMetadataRefreshMode,
     pub local_metadata_policy: ClientLocalMetadataPolicy,
+    pub scan: MetadataScanPolicyDto,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataScanPolicyDto {
+    pub enabled: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

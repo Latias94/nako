@@ -25,9 +25,9 @@ pub use nako_client_protocol::{
     ItemCreditsResponse, ItemDetailResponse, ItemGenreDto, ItemStudioDto, ItemTagDto,
     ItemsResponse, LibraryDto, LibraryListResponse, LibraryOptionsDto, LibraryResponse,
     LibraryScanOptionsDto, LibrarySourceResponse, LibrarySourcesResponse, MediaItemDto,
-    MediaProbeDto, MediaSourceDto, MediaStreamDto, MetadataProfileDto, PLAYBACK_SESSION_ID_HEADER,
-    PageInfo, PeopleResponse, PersonDto, PersonItemsResponse, PersonResponse,
-    PlaybackDecisionResponse, PublicImageRefDto, SearchItemHit, SearchResponse,
+    MediaProbeDto, MediaSourceDto, MediaStreamDto, MetadataProfileDto, MetadataScanPolicyDto,
+    PLAYBACK_SESSION_ID_HEADER, PageInfo, PeopleResponse, PersonDto, PersonItemsResponse,
+    PersonResponse, PlaybackDecisionResponse, PublicImageRefDto, SearchItemHit, SearchResponse,
     SetWatchedStateRequest, SourceProbeResponse, StudioRefDto, TagDto, TagItemsResponse,
     TagsResponse, TranscodeSessionDto, TranscodeSessionResponse, UpdatePlaybackProgressRequest,
     UserPlaybackStateDto, UserPlaybackStateResponse,
@@ -95,6 +95,9 @@ pub fn metadata_profile_to_dto(profile: MetadataProfile) -> MetadataProfileDto {
         country: profile.country,
         refresh_mode: metadata_refresh_mode_to_dto(profile.refresh_mode),
         local_metadata_policy: local_metadata_policy_to_dto(profile.local_metadata_policy),
+        scan: MetadataScanPolicyDto {
+            enabled: profile.scan.enabled,
+        },
     }
 }
 

@@ -64,4 +64,29 @@ mod tests {
         );
         assert!(!matches!(MediaKind::Movie, MediaKind::Unknown));
     }
+
+    #[test]
+    fn metadata_profile_builds_scan_acquisition_plan_from_local_readers_and_policy() {
+        let mut profile = MetadataProfile::from_preset(LibraryPreset::Movies);
+
+        let plan = profile.scan_acquisition_plan();
+
+        assert!(plan.local_nfo_import);
+        assert!(!plan.provider_refresh);
+        assert!(!plan.addon_scrape);
+        assert!(!plan.embedded_read);
+        assert!(!plan.sidecar_read);
+        assert!(!plan.image_discovery);
+
+        profile.local_metadata_policy = LocalMetadataPolicy::Disabled;
+        assert!(!profile.scan_acquisition_plan().local_nfo_import);
+
+        profile.local_metadata_policy = LocalMetadataPolicy::LocalFirst;
+        profile.local_readers.clear();
+        assert!(!profile.scan_acquisition_plan().local_nfo_import);
+
+        profile.local_readers = vec![LocalMetadataReader::Nfo];
+        profile.scan = MetadataScanPolicy::disabled();
+        assert!(!profile.scan_acquisition_plan().local_nfo_import);
+    }
 }

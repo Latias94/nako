@@ -1138,6 +1138,12 @@ public data class MetadataProfileDto(
     public val metadataProviders: List<String>,
     @SerialName("refresh_mode")
     public val refreshMode: MetadataProfileDtoRefreshMode,
+    public val scan: MetadataScanPolicyDto,
+)
+
+@Serializable
+public data class MetadataScanPolicyDto(
+    public val enabled: Boolean,
 )
 
 @Serializable

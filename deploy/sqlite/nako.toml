@@ -86,3 +86,15 @@ id = "018f0000-0000-7000-8000-000000000001"
 name = "Movies"
 root = "/media/movies"
 preset = "movies"
+
+[metadata.library_profiles.018f0000-0000-7000-8000-000000000001]
+item_kinds = ["movie", "collection", "extra"]
+local_readers = ["nfo"]
+metadata_providers = ["tmdb", "douban"]
+image_providers = ["tmdb"]
+language = "en-US"
+refresh_mode = "default"
+local_metadata_policy = "local_first"
+
+[metadata.library_profiles.018f0000-0000-7000-8000-000000000001.scan]
+enabled = true

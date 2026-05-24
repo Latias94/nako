@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     fmt, fs,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     path::{Path, PathBuf},
@@ -285,6 +286,8 @@ pub struct MetadataConfig {
     pub raw_cache_retention_ms: u64,
     #[serde(default)]
     pub maintenance: MetadataMaintenanceConfig,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub library_profiles: BTreeMap<LibraryId, MetadataProfile>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub providers: Vec<MetadataProviderConfig>,
 }
@@ -295,6 +298,7 @@ impl Default for MetadataConfig {
             runtime: MetadataProviderRuntimeConfig::default(),
             raw_cache_retention_ms: default_metadata_raw_cache_retention_ms(),
             maintenance: MetadataMaintenanceConfig::default(),
+            library_profiles: BTreeMap::new(),
             providers: Vec::new(),
         }
     }
@@ -543,7 +547,7 @@ pub fn libraries_from_config(config: &NakoServerConfig) -> Vec<Library> {
     config
         .libraries
         .iter()
-        .map(library_from_library_config)
+        .map(|library| library_from_server_config(config, library))
         .collect()
 }
 
@@ -560,6 +564,23 @@ pub fn configured_library_config_for(
             entity: "library",
             id: library_id.to_string(),
         })
+}
+
+pub fn library_from_server_config(
+    config: &NakoServerConfig,
+    library: &LocalLibraryConfig,
+) -> Library {
+    let mut options = LibraryOptions::from_preset(library.preset);
+    if let Some(profile) = config.metadata.library_profiles.get(&library.id) {
+        options.metadata_profile = profile.clone();
+    }
+
+    Library {
+        id: library.id,
+        name: library.name.clone(),
+        roots: vec![configured_library_root(library)],
+        options,
+    }
 }
 
 pub fn library_from_library_config(config: &LocalLibraryConfig) -> Library {
@@ -1006,6 +1027,48 @@ mod tests {
                 .max_attempts,
             4
         );
+    }
+
+    #[test]
+    fn config_applies_library_metadata_profile_overrides() {
+        let config = toml::from_str::<NakoServerConfig>(
+            r#"
+            database_url = "sqlite://nako.db"
+
+            [[libraries]]
+            id = "018f0000-0000-7000-8000-000000000001"
+            name = "Movies"
+            root = "F:/Media/Movies"
+            preset = "movies"
+
+            [metadata.library_profiles.018f0000-0000-7000-8000-000000000001]
+            item_kinds = ["movie", "collection", "extra"]
+            local_readers = []
+            metadata_providers = ["douban"]
+            image_providers = []
+            language = "zh-CN"
+            refresh_mode = "missing_only"
+            local_metadata_policy = "disabled"
+
+            [metadata.library_profiles.018f0000-0000-7000-8000-000000000001.scan]
+            enabled = false
+            "#,
+        )
+        .unwrap();
+
+        let library = default_library_from_config(&config).unwrap();
+        let profile = library.options.metadata_profile;
+
+        assert!(profile.local_readers.is_empty());
+        assert_eq!(profile.metadata_providers, vec![ExternalProvider::Douban]);
+        assert_eq!(profile.language.as_deref(), Some("zh-CN"));
+        assert_eq!(profile.refresh_mode, MetadataRefreshMode::MissingOnly);
+        assert_eq!(
+            profile.local_metadata_policy,
+            nako_core::LocalMetadataPolicy::Disabled
+        );
+        assert_eq!(profile.scan, nako_core::MetadataScanPolicy::disabled());
+        assert!(!profile.scan_acquisition_plan().local_nfo_import);
     }
 
     #[test]
