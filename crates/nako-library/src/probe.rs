@@ -2,8 +2,9 @@ use std::path::PathBuf;
 
 use futures_util::{StreamExt, stream};
 use nako_core::{
-    IngestionFailurePhase, IngestionFailureRepository, MediaProbeRepository, MediaRepository,
-    MediaSource, NakoError, NewIngestionFailure, PageRequest, Result,
+    IngestionFailurePhase, IngestionFailureRecord, IngestionFailureRepository,
+    MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, NakoError,
+    NewIngestionFailure, PageRequest, Result,
 };
 use nako_media_probe::{MediaProbe, MediaProbeRequest};
 use nako_vfs::{ByteRange, StorageBackend, StorageUri};
@@ -12,6 +13,86 @@ use super::{
     failure::{ingestion_failure_class, ingestion_failure_is_retryable, ingestion_failure_time_ms},
     summary::{LibraryProbeFailure, LibraryProbeRequest, LibraryProbeSummary},
 };
+
+#[async_trait::async_trait]
+pub trait LibraryProbeWorkflow: Send + Sync {
+    async fn list_media_sources(
+        &self,
+        library_id: nako_core::LibraryId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaSource>>;
+
+    async fn get_media_probe(&self, source_id: MediaSourceId) -> Result<Option<MediaProbeResult>>;
+
+    async fn upsert_media_probe(
+        &self,
+        source_id: MediaSourceId,
+        result: &MediaProbeResult,
+    ) -> Result<()>;
+
+    async fn record_ingestion_failure(
+        &self,
+        failure: NewIngestionFailure,
+    ) -> Result<IngestionFailureRecord>;
+
+    async fn resolve_ingestion_failure(
+        &self,
+        library_id: nako_core::LibraryId,
+        phase: IngestionFailurePhase,
+        target_uri: &str,
+        resolved_at_ms: i64,
+    ) -> Result<Option<IngestionFailureRecord>>;
+}
+
+#[async_trait::async_trait]
+impl<T> LibraryProbeWorkflow for T
+where
+    T: IngestionFailureRepository + MediaRepository + MediaProbeRepository,
+{
+    async fn list_media_sources(
+        &self,
+        library_id: nako_core::LibraryId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaSource>> {
+        MediaRepository::list_media_sources(self, library_id, page).await
+    }
+
+    async fn get_media_probe(&self, source_id: MediaSourceId) -> Result<Option<MediaProbeResult>> {
+        MediaProbeRepository::get_media_probe(self, source_id).await
+    }
+
+    async fn upsert_media_probe(
+        &self,
+        source_id: MediaSourceId,
+        result: &MediaProbeResult,
+    ) -> Result<()> {
+        MediaProbeRepository::upsert_media_probe(self, source_id, result).await
+    }
+
+    async fn record_ingestion_failure(
+        &self,
+        failure: NewIngestionFailure,
+    ) -> Result<IngestionFailureRecord> {
+        IngestionFailureRepository::record_ingestion_failure(self, failure).await
+    }
+
+    async fn resolve_ingestion_failure(
+        &self,
+        library_id: nako_core::LibraryId,
+        phase: IngestionFailurePhase,
+        target_uri: &str,
+        resolved_at_ms: i64,
+    ) -> Result<Option<IngestionFailureRecord>> {
+        IngestionFailureRepository::resolve_ingestion_failure(
+            self,
+            library_id,
+            phase,
+            target_uri,
+            resolved_at_ms,
+        )
+        .await
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LibraryProbeOptions {
@@ -65,7 +146,7 @@ impl<B, P, R> LibraryProbeService<B, P, R>
 where
     B: StorageBackend,
     P: MediaProbe,
-    R: IngestionFailureRepository + MediaRepository + MediaProbeRepository,
+    R: LibraryProbeWorkflow,
 {
     pub async fn probe_library(&self, request: LibraryProbeRequest) -> Result<LibraryProbeSummary> {
         let sources = self.list_all_media_sources(request.library_id).await?;

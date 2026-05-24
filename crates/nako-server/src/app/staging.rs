@@ -10,7 +10,6 @@ use nako_core::{
     NakoError, NewStagingManifestRecord, PageRequest, Result, StagingManifestId,
     StagingManifestRecord, StagingManifestRepository, StagingPurpose, StagingState,
 };
-use nako_db::NakoDatabase;
 use nako_vfs::{
     ByteRange, ObjectListing, ObjectMetadata, ReadRange, ReadStream, StageRequest, StagedFile,
     StorageBackend, StorageUri, VirtualFile, deterministic_stage_path,
@@ -21,7 +20,7 @@ use tracing::warn;
 use super::{current_time_ms, runtime::RuntimeSupervisor};
 
 pub(super) async fn record_staged_input(
-    store: &NakoDatabase,
+    store: &dyn StagingManifestRepository,
     purpose: StagingPurpose,
     uri: &StorageUri,
     staged: &StagedFile,
@@ -71,7 +70,7 @@ pub(super) struct StagingCleanupSummary {
 }
 
 pub(super) async fn cleanup_expired_staging_inputs(
-    store: &NakoDatabase,
+    store: &dyn StagingManifestRepository,
     now_ms: i64,
 ) -> Result<StagingCleanupSummary> {
     let mut summary = StagingCleanupSummary {
@@ -150,7 +149,7 @@ pub(super) async fn cleanup_expired_staging_inputs(
 
 pub(super) struct ManifestRecordingStorageBackend {
     inner: Arc<dyn StorageBackend>,
-    store: NakoDatabase,
+    store: Arc<dyn StagingManifestRepository>,
     purpose: StagingPurpose,
     max_bytes: u64,
     retention_ms: u64,
@@ -165,7 +164,7 @@ struct StagingReservation {
 impl ManifestRecordingStorageBackend {
     pub(super) fn new(
         inner: Arc<dyn StorageBackend>,
-        store: NakoDatabase,
+        store: Arc<dyn StagingManifestRepository>,
         purpose: StagingPurpose,
         max_bytes: u64,
         retention_ms: u64,
@@ -245,7 +244,7 @@ impl ManifestRecordingStorageBackend {
         }
 
         record_staged_input(
-            &self.store,
+            self.store.as_ref(),
             self.purpose,
             &staged.uri,
             staged,
@@ -374,7 +373,7 @@ impl StorageBackend for ManifestRecordingStorageBackend {
 }
 
 pub(super) struct StagingLease {
-    store: NakoDatabase,
+    store: Arc<dyn StagingManifestRepository>,
     record_id: StagingManifestId,
     local_path: PathBuf,
     runtime: RuntimeSupervisor,
@@ -383,7 +382,7 @@ pub(super) struct StagingLease {
 
 impl StagingLease {
     pub(super) async fn acquire(
-        store: NakoDatabase,
+        store: Arc<dyn StagingManifestRepository>,
         record_id: StagingManifestId,
         runtime: RuntimeSupervisor,
     ) -> Result<Self> {

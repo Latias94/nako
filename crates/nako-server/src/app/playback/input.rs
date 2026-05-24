@@ -1,7 +1,6 @@
-use std::path::PathBuf;
+use std::{fmt, path::PathBuf, sync::Arc};
 
 use nako_core::{MediaSource, NakoError, Result, StagingManifestRepository, StagingPurpose};
-use nako_db::NakoDatabase;
 use nako_vfs::{StageRequest, StorageBackend, StorageUri};
 
 use crate::config::NakoServerConfig;
@@ -17,17 +16,27 @@ pub(super) struct FfmpegSourceInput {
     lease: Option<StagingLease>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub(super) struct FfmpegInputService {
     config: NakoServerConfig,
-    store: NakoDatabase,
+    store: Arc<dyn StagingManifestRepository>,
     runtime: RuntimeSupervisor,
+}
+
+impl fmt::Debug for FfmpegInputService {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("FfmpegInputService")
+            .field("config", &self.config)
+            .field("runtime", &self.runtime)
+            .finish_non_exhaustive()
+    }
 }
 
 impl FfmpegInputService {
     pub(super) fn new(
         config: NakoServerConfig,
-        store: NakoDatabase,
+        store: Arc<dyn StagingManifestRepository>,
         runtime: RuntimeSupervisor,
     ) -> Self {
         Self {

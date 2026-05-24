@@ -2,10 +2,8 @@ use std::{collections::HashSet, path::PathBuf, sync::Arc};
 
 use nako_core::{
     MediaSource, MediaSourceId, NakoError, NewTranscodeSession, Result, TranscodeFailureCategory,
-    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionRepository,
-    TranscodeSessionState,
+    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
 };
-use nako_db::NakoDatabase;
 use nako_streaming::PlaybackDecision;
 use nako_transcode::{
     CancellationToken, FfmpegCommandBuilder, FfmpegHardwareAccelerationDetector, FfmpegHlsRunner,
@@ -80,7 +78,7 @@ impl HlsAppService {
 
     pub(super) async fn run(
         &self,
-        sessions: &NakoDatabase,
+        sessions: &dyn super::PlaybackRuntimeStore,
         source: MediaSource,
         decision: PlaybackDecision,
         input_path: PathBuf,
@@ -113,7 +111,7 @@ impl HlsAppService {
 
     async fn reserve(
         &self,
-        sessions: &NakoDatabase,
+        sessions: &dyn super::PlaybackRuntimeStore,
         key: &HlsRequestKey,
         layout: &HlsOutputLayout,
     ) -> Result<HlsRequestAdmission> {
@@ -188,7 +186,7 @@ impl HlsAppService {
 
     async fn run_reserved(
         &self,
-        sessions: &NakoDatabase,
+        sessions: &dyn super::PlaybackRuntimeStore,
         persisted_session: TranscodeSessionRecord,
         source: MediaSource,
         decision: PlaybackDecision,

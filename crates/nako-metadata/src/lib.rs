@@ -35,8 +35,9 @@ pub use runtime::{
     MetadataHttpRuntimeStatus,
 };
 pub use strategy::{
-    MetadataProviderAttempt, MetadataRefreshJobInput, MetadataRefreshRequest,
-    MetadataRefreshService, MetadataRefreshSummary, MetadataStrategyExecutor,
+    MetadataAttemptPort, MetadataProviderAttempt, MetadataRefreshCommit, MetadataRefreshJobInput,
+    MetadataRefreshPort, MetadataRefreshRequest, MetadataRefreshService, MetadataRefreshSnapshot,
+    MetadataRefreshSummary, MetadataStrategyExecutor,
 };
 pub use types::{
     MetadataCandidate, MetadataFetchRequest, MetadataFetchResult, MetadataLookup, MetadataProvider,

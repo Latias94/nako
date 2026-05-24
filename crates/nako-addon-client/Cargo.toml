@@ -1,6 +1,6 @@
 [package]
 name = "nako-addon-client"
-version.workspace = true
+version = "0.1.0-alpha.2"
 edition.workspace = true
 rust-version.workspace = true
 license = "Apache-2.0 OR MIT"
@@ -18,8 +18,9 @@ workspace = true
 [dependencies]
 async-trait.workspace = true
 reqwest.workspace = true
+serde.workspace = true
 serde_json.workspace = true
-nako-addon-protocol = { path = "../nako-addon-protocol", version = "0.1.0-alpha.1" }
+nako-addon-protocol = { path = "../nako-addon-protocol", version = "0.1.0-alpha.2" }
 
 [dev-dependencies]
 tokio.workspace = true

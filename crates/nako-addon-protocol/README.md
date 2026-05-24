@@ -3,7 +3,8 @@
 Wire types and validation helpers for the Nako Addon Protocol.
 
 This crate is intended for Addon Sidecar authors and integration tools. It
-does not depend on Nako server internals.
+does not depend on Nako server internals. It contains manifest, resource,
+task, and runtime side-effect wire types.
 
 ```rust
 use nako_addon_protocol::{ADDON_PROTOCOL_VERSION, AddonManifest};

@@ -6,10 +6,8 @@ use std::{
 
 use nako_core::{
     MediaSource, MediaSourceId, NakoError, NewTranscodeSession, Result, TranscodeFailureCategory,
-    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionRepository,
-    TranscodeSessionState,
+    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
 };
-use nako_db::NakoDatabase;
 use nako_streaming::PlaybackDecision;
 use nako_transcode::{
     CancellationToken, FfmpegCommandBuilder, FfmpegOverwritePolicy, FfmpegRemuxRunner,
@@ -54,7 +52,7 @@ impl RemuxAppService {
 
     pub(super) async fn run(
         &self,
-        sessions: &NakoDatabase,
+        sessions: &dyn super::PlaybackRuntimeStore,
         source: MediaSource,
         decision: PlaybackDecision,
         input_path: PathBuf,
@@ -96,7 +94,7 @@ impl RemuxAppService {
 
     async fn reserve(
         &self,
-        sessions: &NakoDatabase,
+        sessions: &dyn super::PlaybackRuntimeStore,
         key: &RemuxRequestKey,
         output_path: &Path,
     ) -> Result<RemuxRequestAdmission> {
@@ -167,7 +165,7 @@ impl RemuxAppService {
 
     async fn run_reserved(
         &self,
-        sessions: &NakoDatabase,
+        sessions: &dyn super::PlaybackRuntimeStore,
         persisted_session: TranscodeSessionRecord,
         source: MediaSource,
         decision: PlaybackDecision,

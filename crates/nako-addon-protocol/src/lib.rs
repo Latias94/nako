@@ -607,6 +607,130 @@ pub struct AddonArtworkWritePayload {
     pub height: Option<u32>,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonPermission {
+    MetadataWrite,
+    ArtworkWrite,
+    SubtitleWrite,
+    LibraryFileWrite,
+}
+
+impl AddonPermission {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::MetadataWrite => "metadata_write",
+            Self::ArtworkWrite => "artwork_write",
+            Self::SubtitleWrite => "subtitle_write",
+            Self::LibraryFileWrite => "library_file_write",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonSideEffectTargetKind {
+    MediaItem,
+    MediaSource,
+}
+
+impl AddonSideEffectTargetKind {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::MediaItem => "media_item",
+            Self::MediaSource => "media_source",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonSideEffectTarget {
+    pub kind: AddonSideEffectTargetKind,
+    pub id: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonAccessCheckRequest {
+    pub permission: AddonPermission,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub library_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonAccessCheckResponse {
+    pub addon_id: String,
+    pub token_id: String,
+    pub permission: AddonPermission,
+    #[serde(default)]
+    pub library_id: Option<String>,
+    pub allowed: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SubmitAddonSideEffectRequest {
+    pub permission: AddonPermission,
+    pub library_id: String,
+    pub target: AddonSideEffectTarget,
+    pub idempotency_key: String,
+    pub provenance: serde_json::Value,
+    pub payload: serde_json::Value,
+}
+
+#[derive(Clone, Debug)]
+pub struct SubmitAddonMetadataWriteRequest {
+    pub library_id: String,
+    pub target: AddonSideEffectTarget,
+    pub idempotency_key: String,
+    pub provenance: serde_json::Value,
+    pub patch: AddonMetadataPatch,
+}
+
+#[derive(Clone, Debug)]
+pub struct SubmitAddonArtworkWriteRequest {
+    pub library_id: String,
+    pub target: AddonSideEffectTarget,
+    pub idempotency_key: String,
+    pub provenance: serde_json::Value,
+    pub artwork: AddonArtworkWritePayload,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonSideEffectResponse {
+    pub side_effect: AddonSideEffectSummary,
+    pub idempotent_replay: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonSideEffectSummary {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub addon_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token_id: Option<String>,
+    pub permission: AddonPermission,
+    pub library_id: String,
+    pub target: AddonSideEffectTarget,
+    pub idempotency_key: String,
+    pub validation_status: String,
+    #[serde(default)]
+    pub safe_error_code: Option<String>,
+    pub apply_status: String,
+    #[serde(default)]
+    pub apply_error_code: Option<String>,
+    #[serde(default)]
+    pub applied_item_id: Option<String>,
+    #[serde(default)]
+    pub applied_source: Option<String>,
+    #[serde(default)]
+    pub apply_report: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub applied_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AddonLibraryFileRole {
@@ -1220,13 +1344,13 @@ fn validate_manifest_declarations(
     }
 
     for entry_point in &manifest.entry_points {
-        if let Some(hosted_page_id) = &entry_point.hosted_page_id {
-            if !hosted_page_ids.contains(hosted_page_id) {
-                return Err(AddonManifestError::UnknownHostedPageReference {
-                    entry_point_id: entry_point.id.clone(),
-                    hosted_page_id: hosted_page_id.clone(),
-                });
-            }
+        if let Some(hosted_page_id) = &entry_point.hosted_page_id
+            && !hosted_page_ids.contains(hosted_page_id)
+        {
+            return Err(AddonManifestError::UnknownHostedPageReference {
+                entry_point_id: entry_point.id.clone(),
+                hosted_page_id: hosted_page_id.clone(),
+            });
         }
     }
 

@@ -842,6 +842,9 @@ fn safe_addon_task_client_error_code(error: &AddonClientError) -> &'static str {
             ..
         }) => "unsafe_response",
         AddonClientError::Protocol(_) => "protocol_mismatch",
+        AddonClientError::InvalidRequest { .. } => "invalid_request",
+        AddonClientError::InvalidResponse { .. } => "invalid_response",
+        AddonClientError::UnsafeRequestBody => "unsafe_request_body",
         AddonClientError::HttpStatus {
             retryable: true, ..
         } => "retryable_http_failure",

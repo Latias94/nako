@@ -1,12 +1,10 @@
 use nako_core::{
-    DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, NewOutboxEvent,
-    TranscodeSessionRecord,
+    DomainEventKind, DomainEventSubject, EventId, NewOutboxEvent, TranscodeSessionRecord,
 };
-use nako_db::NakoDatabase;
 use tracing::warn;
 
 pub(super) async fn record_playback_session_finished_event(
-    store: &NakoDatabase,
+    store: &dyn super::PlaybackRuntimeStore,
     session: &TranscodeSessionRecord,
 ) {
     let payload = serde_json::json!({

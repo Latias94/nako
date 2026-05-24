@@ -1,8 +1,4 @@
-use nako_core::{
-    NakoError, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionRepository,
-    TranscodeSessionState,
-};
-use nako_db::NakoDatabase;
+use nako_core::{NakoError, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionState};
 use tracing::error;
 
 pub(super) fn map_remux_runner_error(error: NakoError) -> NakoError {
@@ -54,7 +50,7 @@ pub(super) fn map_hls_runner_error(error: NakoError) -> NakoError {
 }
 
 pub(super) async fn persist_session_failure(
-    sessions: &NakoDatabase,
+    sessions: &dyn super::PlaybackRuntimeStore,
     session_id: TranscodeSessionId,
     error: &NakoError,
 ) {

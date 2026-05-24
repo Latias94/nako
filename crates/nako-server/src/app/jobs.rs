@@ -1,15 +1,18 @@
 use std::sync::Arc;
 
 use nako_core::{
-    DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, Job,
-    JobCancellationRequestRecord, JobId, JobKind, JobLeaseRepository, JobListFilter, JobRepository,
-    Library, LibraryId, LibraryRepository, NakoError, NewJob, NewOutboxEvent, PageRequest,
-    RequestJobCancellation, Result, StagingPurpose,
+    CancelLeasedJob, CompleteLeasedJob, DomainEventKind, DomainEventSubject, EventId,
+    EventOutboxRepository, FailLeasedJob, IngestionFailurePhase, IngestionFailureRecord, Job,
+    JobCancellationRequestRecord, JobId, JobKind, JobLeaseClaimRequest, JobLeaseHeartbeat,
+    JobLeaseRepository, JobListFilter, JobRepository, LeasedJob, Library, LibraryId,
+    LibraryRepository, MediaProbeResult, MediaSource, NakoError, NewIngestionFailure, NewJob,
+    NewOutboxEvent, OutboxEventRecord, PageRequest, RequestJobCancellation, Result, StagingPurpose,
 };
 use nako_db::NakoDatabase;
 use nako_library::{
-    LibraryIndexRequest, LibraryIndexService, LibraryIndexSummary, LibraryProbeOptions,
-    LibraryProbeRequest, LibraryProbeService, LibraryProbeSummary, LibraryScannerOptions,
+    LibraryIndexRequest, LibraryIndexService, LibraryIndexSummary, LibraryIngestionWorkflow,
+    LibraryProbeOptions, LibraryProbeRequest, LibraryProbeService, LibraryProbeSummary,
+    LibraryProbeWorkflow, LibraryScannerOptions,
 };
 use nako_media_probe::FfprobeMediaProbe;
 use serde::Serialize;
@@ -81,10 +84,184 @@ impl JobAppService {
     }
 }
 
+#[async_trait::async_trait]
+pub(super) trait LibraryScanWorkflowStore: std::fmt::Debug + Send + Sync {
+    async fn enqueue_job(&self, job: NewJob) -> Result<Job>;
+
+    async fn get_library(&self, id: LibraryId) -> Result<Option<Library>>;
+
+    async fn enqueue_outbox_event(&self, event: NewOutboxEvent) -> Result<OutboxEventRecord>;
+}
+
+#[async_trait::async_trait]
+impl<T> LibraryScanWorkflowStore for T
+where
+    T: EventOutboxRepository + JobRepository + LibraryRepository + std::fmt::Debug + Send + Sync,
+{
+    async fn enqueue_job(&self, job: NewJob) -> Result<Job> {
+        JobRepository::enqueue_job(self, job).await
+    }
+
+    async fn get_library(&self, id: LibraryId) -> Result<Option<Library>> {
+        LibraryRepository::get_library(self, id).await
+    }
+
+    async fn enqueue_outbox_event(&self, event: NewOutboxEvent) -> Result<OutboxEventRecord> {
+        EventOutboxRepository::enqueue_outbox_event(self, event).await
+    }
+}
+
+#[derive(Clone, Debug)]
+struct LibraryScanExecutionStore {
+    store: NakoDatabase,
+}
+
+impl LibraryScanExecutionStore {
+    fn new(store: NakoDatabase) -> Self {
+        Self { store }
+    }
+}
+
+#[async_trait::async_trait]
+impl super::job_runtime::DurableJobLeaseStore for LibraryScanExecutionStore {
+    async fn claim_next_job_lease(
+        &self,
+        request: JobLeaseClaimRequest,
+    ) -> Result<Option<LeasedJob>> {
+        super::job_runtime::DurableJobLeaseStore::claim_next_job_lease(&self.store, request).await
+    }
+
+    async fn heartbeat_job_lease(&self, heartbeat: JobLeaseHeartbeat) -> Result<LeasedJob> {
+        super::job_runtime::DurableJobLeaseStore::heartbeat_job_lease(&self.store, heartbeat).await
+    }
+
+    async fn succeed_leased_job(&self, completion: CompleteLeasedJob) -> Result<Job> {
+        super::job_runtime::DurableJobLeaseStore::succeed_leased_job(&self.store, completion).await
+    }
+
+    async fn fail_leased_job(&self, failure: FailLeasedJob) -> Result<Job> {
+        super::job_runtime::DurableJobLeaseStore::fail_leased_job(&self.store, failure).await
+    }
+
+    async fn cancel_leased_job(&self, cancellation: CancelLeasedJob) -> Result<Job> {
+        super::job_runtime::DurableJobLeaseStore::cancel_leased_job(&self.store, cancellation).await
+    }
+}
+
+#[async_trait::async_trait]
+impl LibraryIngestionWorkflow for LibraryScanExecutionStore {
+    async fn ensure_library_for_ingestion(&self, library: &Library) -> Result<()> {
+        LibraryIngestionWorkflow::ensure_library_for_ingestion(&self.store, library).await
+    }
+
+    async fn begin_ingestion_scan(
+        &self,
+        id: nako_core::ScanSnapshotId,
+        library_id: LibraryId,
+        root: &str,
+    ) -> Result<nako_core::ScanSnapshot> {
+        LibraryIngestionWorkflow::begin_ingestion_scan(&self.store, id, library_id, root).await
+    }
+
+    async fn complete_ingestion_scan(
+        &self,
+        id: nako_core::ScanSnapshotId,
+        status: nako_core::ScanStatus,
+        error: Option<String>,
+    ) -> Result<nako_core::ScanSnapshot> {
+        LibraryIngestionWorkflow::complete_ingestion_scan(&self.store, id, status, error).await
+    }
+
+    async fn record_scan_failure(
+        &self,
+        commit: nako_library::LibraryScanFailureCommit,
+    ) -> Result<()> {
+        LibraryIngestionWorkflow::record_scan_failure(&self.store, commit).await
+    }
+
+    async fn commit_directory_observation(
+        &self,
+        commit: nako_library::LibraryDirectoryObservationCommit,
+    ) -> Result<()> {
+        LibraryIngestionWorkflow::commit_directory_observation(&self.store, commit).await
+    }
+
+    async fn commit_source_observation(
+        &self,
+        commit: nako_library::LibrarySourceObservationCommit,
+    ) -> Result<nako_library::LibrarySourceIngestionSummary> {
+        LibraryIngestionWorkflow::commit_source_observation(&self.store, commit).await
+    }
+
+    async fn tombstone_sources_missing_from_scan(
+        &self,
+        library_id: LibraryId,
+        scan_id: nako_core::ScanSnapshotId,
+    ) -> Result<u64> {
+        LibraryIngestionWorkflow::tombstone_sources_missing_from_scan(
+            &self.store,
+            library_id,
+            scan_id,
+        )
+        .await
+    }
+}
+
+#[async_trait::async_trait]
+impl LibraryProbeWorkflow for LibraryScanExecutionStore {
+    async fn list_media_sources(
+        &self,
+        library_id: LibraryId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaSource>> {
+        LibraryProbeWorkflow::list_media_sources(&self.store, library_id, page).await
+    }
+
+    async fn get_media_probe(
+        &self,
+        source_id: nako_core::MediaSourceId,
+    ) -> Result<Option<MediaProbeResult>> {
+        LibraryProbeWorkflow::get_media_probe(&self.store, source_id).await
+    }
+
+    async fn upsert_media_probe(
+        &self,
+        source_id: nako_core::MediaSourceId,
+        result: &MediaProbeResult,
+    ) -> Result<()> {
+        LibraryProbeWorkflow::upsert_media_probe(&self.store, source_id, result).await
+    }
+
+    async fn record_ingestion_failure(
+        &self,
+        failure: NewIngestionFailure,
+    ) -> Result<IngestionFailureRecord> {
+        LibraryProbeWorkflow::record_ingestion_failure(&self.store, failure).await
+    }
+
+    async fn resolve_ingestion_failure(
+        &self,
+        library_id: LibraryId,
+        phase: IngestionFailurePhase,
+        target_uri: &str,
+        resolved_at_ms: i64,
+    ) -> Result<Option<IngestionFailureRecord>> {
+        LibraryProbeWorkflow::resolve_ingestion_failure(
+            &self.store,
+            library_id,
+            phase,
+            target_uri,
+            resolved_at_ms,
+        )
+        .await
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct LibraryScanAppService {
     config: NakoServerConfig,
-    store: NakoDatabase,
+    workflow_store: Arc<dyn LibraryScanWorkflowStore>,
+    execution_store: LibraryScanExecutionStore,
     permits: Arc<Semaphore>,
     storage_backends: StorageBackendRegistry,
     runtime: RuntimeSupervisor,
@@ -98,9 +275,12 @@ impl LibraryScanAppService {
         storage_backends: StorageBackendRegistry,
         runtime: RuntimeSupervisor,
     ) -> Self {
+        let workflow_store = Arc::new(store.clone());
+        let execution_store = LibraryScanExecutionStore::new(store);
         Self {
             config,
-            store,
+            workflow_store,
+            execution_store,
             permits,
             storage_backends,
             runtime,
@@ -162,7 +342,7 @@ impl LibraryScanAppService {
             message: format!("failed to serialize job input: {err}"),
         })?;
 
-        self.store
+        self.workflow_store
             .enqueue_job(NewJob {
                 id: JobId::new(),
                 kind: JobKind::LibraryScan,
@@ -212,7 +392,7 @@ impl LibraryScanAppService {
                 })?;
         let _permit = permit;
 
-        let runtime = DurableJobRuntime::new(self.store.clone());
+        let runtime = DurableJobRuntime::new(self.execution_store.clone());
         let run = runtime
             .run_job_with_context(
                 job_id,
@@ -311,7 +491,7 @@ impl LibraryScanAppService {
             index_backend,
             library_scanner_options(&library),
         );
-        let index_service = LibraryIndexService::new(scanner, self.store.clone());
+        let index_service = LibraryIndexService::new(scanner, self.execution_store.clone());
         let index = index_service
             .index_library(LibraryIndexRequest {
                 job_id,
@@ -327,7 +507,7 @@ impl LibraryScanAppService {
             .await?;
         let probe_backend = ManifestRecordingStorageBackend::new(
             storage_backend.clone(),
-            self.store.clone(),
+            Arc::new(self.execution_store.store.clone()),
             StagingPurpose::ProbeInput,
             self.config.staging.max_bytes,
             self.config.staging.retention_ms,
@@ -337,7 +517,7 @@ impl LibraryScanAppService {
         let probe_service = LibraryProbeService::with_options(
             probe_backend,
             probe,
-            self.store.clone(),
+            self.execution_store.clone(),
             LibraryProbeOptions {
                 max_concurrent_probes: self.config.probe_concurrency.max(1),
                 staging_root: remote_probe_staging_root(&library, &self.config),
@@ -358,7 +538,7 @@ impl LibraryScanAppService {
     async fn record_outbox_event(&self, event: NewOutboxEvent) {
         let kind = event.kind.as_str();
         let idempotency_key = event.idempotency_key.clone();
-        if let Err(err) = self.store.enqueue_outbox_event(event).await {
+        if let Err(err) = self.workflow_store.enqueue_outbox_event(event).await {
             warn!(
                 kind,
                 idempotency_key,
@@ -369,7 +549,7 @@ impl LibraryScanAppService {
     }
 
     async fn library_for_scan(&self, library_id: LibraryId) -> Result<Library> {
-        self.store
+        self.workflow_store
             .get_library(library_id)
             .await?
             .ok_or_else(|| NakoError::NotFound {

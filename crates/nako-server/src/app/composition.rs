@@ -19,7 +19,7 @@ use super::{
     metadata::MetadataAppService,
     metadata_runtime,
     nfo::NfoAppService,
-    playback::PlaybackAppService,
+    playback::{PlaybackAppService, PlaybackRuntimeStore},
     runtime::RuntimeSupervisor,
     startup::{ServerStartupReport, ServerStartupWorkflow},
     storage::{StorageBackendRegistry, StorageDiagnosticsAppService},
@@ -155,9 +155,12 @@ impl NakoAppServices {
             runtime.storage_backends.clone(),
             runtime.supervisor.clone(),
         );
+        let runtime_store: Arc<dyn PlaybackRuntimeStore> = Arc::new(store.clone());
+        let staging_store: Arc<dyn nako_core::StagingManifestRepository> = Arc::new(store.clone());
         let playback = PlaybackAppService::new(
             config.clone(),
-            store.clone(),
+            runtime_store,
+            staging_store,
             runtime.storage_backends,
             runtime.supervisor,
         )?;

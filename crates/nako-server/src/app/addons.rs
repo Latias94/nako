@@ -1024,7 +1024,10 @@ pub(super) fn ensure_addon_accepts_runtime_authority(
 
 fn health_status_for_client_error(err: &AddonClientError) -> AdminAddonHealthCheckStatus {
     match err {
-        AddonClientError::Protocol(_) => AdminAddonHealthCheckStatus::ProtocolMismatch,
+        AddonClientError::Protocol(_)
+        | AddonClientError::InvalidRequest { .. }
+        | AddonClientError::InvalidResponse { .. }
+        | AddonClientError::UnsafeRequestBody => AdminAddonHealthCheckStatus::ProtocolMismatch,
         AddonClientError::HttpStatus { .. } | AddonClientError::Http { .. } => {
             AdminAddonHealthCheckStatus::Unreachable
         }
@@ -1080,6 +1083,9 @@ fn runtime_readiness_check_name_for_client_error(
             ..
         }) => AdminAddonRuntimeReadinessCheckName::Safety,
         AddonClientError::Protocol(_) => AdminAddonRuntimeReadinessCheckName::Safety,
+        AddonClientError::InvalidRequest { .. }
+        | AddonClientError::InvalidResponse { .. }
+        | AddonClientError::UnsafeRequestBody => AdminAddonRuntimeReadinessCheckName::Safety,
         AddonClientError::HttpStatus { .. } | AddonClientError::Http { .. } => {
             AdminAddonRuntimeReadinessCheckName::Reachability
         }
@@ -1111,6 +1117,18 @@ fn runtime_readiness_reason_and_code(
         AddonClientError::Protocol(_) => (
             AdminAddonRuntimeReadinessReason::UnsafeResponse,
             "unsafe_response",
+        ),
+        AddonClientError::InvalidRequest { .. } => (
+            AdminAddonRuntimeReadinessReason::UnsafeResponse,
+            "invalid_request",
+        ),
+        AddonClientError::InvalidResponse { .. } => (
+            AdminAddonRuntimeReadinessReason::UnsafeResponse,
+            "invalid_response",
+        ),
+        AddonClientError::UnsafeRequestBody => (
+            AdminAddonRuntimeReadinessReason::UnsafeResponse,
+            "unsafe_request_body",
         ),
         AddonClientError::HttpStatus { .. } => (
             AdminAddonRuntimeReadinessReason::Unavailable,
@@ -1163,6 +1181,9 @@ fn addon_runtime_network_policy_blocked(base_url: &str) -> bool {
 fn safe_health_error_code(err: &AddonClientError) -> &'static str {
     match err {
         AddonClientError::Protocol(_) => "protocol_mismatch",
+        AddonClientError::InvalidRequest { .. } => "invalid_request",
+        AddonClientError::InvalidResponse { .. } => "invalid_response",
+        AddonClientError::UnsafeRequestBody => "unsafe_request_body",
         AddonClientError::HttpStatus { status, .. } if *status == 401 || *status == 403 => {
             "unauthorized"
         }
@@ -1194,6 +1215,12 @@ fn resource_diagnostic_status_for_client_error(
             ..
         }) => AdminAddonResourceCallDiagnosticStatus::UnsafeResponse,
         AddonClientError::Protocol(_) => AdminAddonResourceCallDiagnosticStatus::ProtocolMismatch,
+        AddonClientError::InvalidRequest { .. } => {
+            AdminAddonResourceCallDiagnosticStatus::ProtocolMismatch
+        }
+        AddonClientError::InvalidResponse { .. } | AddonClientError::UnsafeRequestBody => {
+            AdminAddonResourceCallDiagnosticStatus::UnsafeResponse
+        }
         AddonClientError::HttpStatus {
             retryable: true, ..
         } => AdminAddonResourceCallDiagnosticStatus::RetryableHttpFailure,
@@ -1219,6 +1246,9 @@ fn safe_resource_diagnostic_error_code(err: &AddonClientError) -> &'static str {
             ..
         }) => "unsafe_response",
         AddonClientError::Protocol(_) => "protocol_mismatch",
+        AddonClientError::InvalidRequest { .. } => "invalid_request",
+        AddonClientError::InvalidResponse { .. } => "invalid_response",
+        AddonClientError::UnsafeRequestBody => "unsafe_request_body",
         AddonClientError::HttpStatus {
             retryable: true, ..
         } => "retryable_http_failure",

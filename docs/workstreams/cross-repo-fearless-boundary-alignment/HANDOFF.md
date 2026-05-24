@@ -6,29 +6,35 @@ Last updated: 2026-05-24
 ## Current State
 
 The workstream is active. CRFBA-030 has landed in `crates/nako-library`, and
-CRFBA-020 now owns the active addon registration workflow-port slice in
+CRFBA-020 now owns the active server workflow-port slice in
 `crates/nako-server`. That server lane has now also narrowed
 `crates/nako-server/src/app/acquisition_intake.rs` behind a workflow store for
 candidate record/list/discovery/acceptance and
 `crates/nako-server/src/app/job_runtime.rs` behind a durable job lease store
 for claim/heartbeat/succeed/fail/cancel. `crates/nako-server/src/app/metadata.rs`
-has now also narrowed direct metadata refresh, maintenance, raw-response, and
-attempt queries behind a dedicated metadata workflow store.
-`crates/nako-server/src/app/nfo.rs` now routes NFO job creation,
-library/item/source lookups, sidecar-apply audit state transitions, outbox
-writes, and durable job runtime lease handoff behind a dedicated NFO workflow
-store while keeping `NfoService` as the import/export domain repository
-boundary. `crates/nako-server/src/app/artwork.rs` now routes artwork candidate
-lookup, media lookup, library-item-state validation, and acceptance commit
-through a dedicated `ArtworkAcceptanceWorkflowStore` while leaving the rest of
-the managed-artwork operations on the existing store. It now also routes
-publish/select/unpublish through a dedicated `ArtworkSelectionWorkflowStore`
-while keeping gallery and ingest processing on the existing broad store. It
-now also routes ingest claim/requeue/commit/fail through a dedicated
-`ArtworkIngestWorkflowStore` while leaving gallery, artifact lifecycle, and
-cleanup diagnostics on the remaining narrow read/store seam. CRFBA-050 and
-CRFBA-060 have now landed in `../nako-official-addons` with focused module
-splits and passing package tests.
+now narrows direct metadata refresh, maintenance, raw-response, and attempt
+queries behind a dedicated metadata workflow store plus a smaller execution
+store for catalog hydration, refresh snapshot/commit, and attempt recording.
+`crates/nako-server/src/app/jobs.rs` now narrows library scan enqueue, library
+lookup, outbox writes, scan ingestion, probe execution, and failure
+bookkeeping behind a dedicated library-scan workflow store plus an execution
+store. `crates/nako-server/src/app/playback/mod.rs` now narrows transcode
+session access, cancellation, and playback execution through a dedicated
+runtime store. `crates/nako-server/src/app/playback/input.rs` now keeps
+staging manifest lookup and lease acquisition on `Arc<dyn
+StagingManifestRepository>`, and `PlaybackAppService::new` now receives the
+runtime/staging ports from composition instead of the raw database facade.
+`crates/nako-server/src/app/nfo.rs` now routes NFO job
+creation, library/item/source lookups, sidecar-apply audit state transitions,
+outbox writes, and durable job runtime lease handoff behind a dedicated NFO
+workflow store while keeping `NfoService` as the import/export domain
+repository boundary. CRFBA-050 and CRFBA-060 have now landed in
+`../nako-official-addons` with focused module splits and passing package tests.
+CRFBA-070 now aligns protected-write host-client responsibilities across
+`crates/nako-addon-protocol`, `crates/nako-addon-client`, and the official
+metadata scraper `nako_runtime` facade: protocol owns wire payload shapes,
+client owns runtime HTTP behavior, and the official addon delegates to the
+public crates instead of keeping a private duplicate implementation.
 
 Initial review found:
 
@@ -46,14 +52,24 @@ Initial review found:
 
 ## Active Task
 
-- Task ID: CRFBA-040
+- Task ID: CRFBA-070
 - Owner: codex
-- Files: `crates/nako-server/src/app/artwork.rs`, `docs/workstreams/cross-repo-fearless-boundary-alignment`
-- Validation: focused artwork acceptance, selection, and ingest nextest,
-  `cargo fmt --all -- --check`, and path-scoped `git diff --check` pass.
-- Status: IN_PROGRESS
-- Review: pending after the next workflow-port slice.
-- Evidence: `DESIGN.md`, `TODO.md`, `MILESTONES.md`, `EVIDENCE_AND_GATES.md`.
+- Files: `crates/nako-addon-protocol/src/lib.rs`,
+  `crates/nako-addon-client/src/lib.rs`,
+  `../nako-official-addons/Cargo.toml`,
+  `../nako-official-addons/crates/nako-metadata-scraper/Cargo.toml`,
+  `../nako-official-addons/crates/nako-metadata-scraper/src/nako_runtime.rs`,
+  `docs/workstreams/cross-repo-fearless-boundary-alignment`
+- Validation: focused `cargo nextest run -p nako-addon-client -p
+  nako-addon-protocol --no-fail-fast` in Nako and focused `cargo nextest run -p
+  nako-metadata-scraper nako_runtime --no-fail-fast` in
+  `../nako-official-addons` pass. Focused clippy gates for the public client/
+  protocol crates and the official metadata scraper pass. Fresh formatting and
+  path-scoped diff checks pass with LF-to-CRLF warnings only.
+- Status: DONE_WITH_CONCERNS
+- Review: pending before accepting CRFBA-070.
+- Evidence: `TODO.md`, `EVIDENCE_AND_GATES.md`,
+  `JOURNAL/2026-05-24-CRFBA-070.md`.
 
 ## Dirty Worktree Notes
 
@@ -106,6 +122,25 @@ format, stage, or commit them unless the user explicitly asks.
   sidecar-apply audit, outbox, and durable job lease handoff operations. The
   actual `NfoService` repository dependency stays intact for import/export
   domain behavior.
+- `CRFBA-020` now also narrows `crates/nako-server/src/app/jobs.rs` behind a
+  dedicated library-scan workflow store and execution store so library scan
+  enqueue, library lookup, outbox, scan ingestion, probe execution, and
+  failure bookkeeping no longer reach straight through the broad database
+  facade.
+- `CRFBA-020` now also narrows `crates/nako-server/src/app/playback/mod.rs`
+  behind a dedicated playback runtime store so playback decisions,
+  remux/HLS execution, transcode-session access, cancellation, and
+  finished-event writes no longer call the broad database facade directly.
+- `CRFBA-020` now also narrows `crates/nako-server/src/app/playback/input.rs`
+  behind `Arc<dyn StagingManifestRepository>` for staging manifest lookup and
+  lease acquisition, while `PlaybackAppService::new` now receives runtime and
+  staging ports from composition instead of the raw database facade.
+- `crates/nako-library/src/probe.rs` now depends on `LibraryProbeWorkflow`,
+  which keeps probe execution on a narrower source/probe/failure port instead
+  of the full repository set.
+- `crates/nako-metadata/src/lib.rs` now re-exports focused metadata strategy
+  ports so `MetadataExecutionStore` can own refresh snapshot/commit and
+  attempt-record operations without widening the public metadata surface.
 - `CRFBA-040` now narrows `crates/nako-server/src/app/artwork.rs` behind a
   dedicated artwork acceptance workflow store for candidate lookup,
   media/item-state validation, and acceptance commit while leaving the rest of
@@ -124,6 +159,18 @@ format, stage, or commit them unless the user explicitly asks.
 - `CRFBA-060` split TMDB into provider-local `client`, `search`, `parser`,
   `mapper`, `enrichment`, and `test_support` modules with focused provider
   tests.
+- `CRFBA-070` moved protected-write access-check and side-effect client behavior
+  into the public `nako-addon-client` crate while keeping wire payload shapes in
+  `nako-addon-protocol`.
+- `CRFBA-070` kept the permissive protocol crate free of reqwest-heavy runtime
+  behavior; the runtime HTTP client lives in `nako-addon-client`.
+- `CRFBA-070` changed the official metadata scraper `nako_runtime` module into
+  a thin facade over the public client/protocol crates. The official addon uses
+  local path dependencies for the current cross-repo proof; release/versioning
+  is a separate follow-on if distribution requires it.
+- `CRFBA-070` review found and fixed a safe-error-mapping gap in the reusable
+  reqwest transport: public client transport errors now strip request URLs and
+  cap error text before surfacing `AddonClientError::Http`.
 
 ## Blockers
 
@@ -147,7 +194,7 @@ format, stage, or commit them unless the user explicitly asks.
 
 ## Next Recommended Action
 
-Continue CRFBA-040 by reviewing whether the remaining managed-artwork
-operations should share the same acceptance authority slice or be split into
-follow-ons. Keep CRFBA-030 only as a follow-up review note unless the migration
-blocker is independently resolved.
+CRFBA-070 has no known blocking review findings after the safe-error-mapping
+fix. Next choose either CRFBA-080 playback runtime/transcode ownership or
+CRFBA-090 contract drift hardening. Do not mix public crate release/versioning
+into CRFBA-070; split it as a follow-on if needed.

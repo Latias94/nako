@@ -262,7 +262,12 @@ mod tests {
         assert_eq!(summary.probed_sources, 1);
         assert!(observed_path.starts_with(staging_root.path()));
         assert_eq!(fs::read(&observed_path).unwrap(), b"remote movie");
-        assert!(store.get_media_probe(source.id).await.unwrap().is_some());
+        assert!(
+            MediaProbeRepository::get_media_probe(&store, source.id)
+                .await
+                .unwrap()
+                .is_some()
+        );
     }
 
     #[tokio::test]
@@ -296,10 +301,10 @@ mod tests {
 
         let first_summary = service.index_library(request.clone()).await.unwrap();
         let second_summary = service.index_library(request).await.unwrap();
-        let sources = store
-            .list_media_sources(library.id, PageRequest::first_page())
-            .await
-            .unwrap();
+        let sources =
+            MediaRepository::list_media_sources(&store, library.id, PageRequest::first_page())
+                .await
+                .unwrap();
         let item = store
             .get_media_item(sources[0].item_id)
             .await
@@ -374,12 +379,12 @@ mod tests {
         };
 
         service.index_library(request.clone()).await.unwrap();
-        let source = store
-            .list_media_sources(library.id, PageRequest::first_page())
-            .await
-            .unwrap()
-            .pop()
-            .unwrap();
+        let source =
+            MediaRepository::list_media_sources(&store, library.id, PageRequest::first_page())
+                .await
+                .unwrap()
+                .pop()
+                .unwrap();
         let mut confirmed_item = store.get_media_item(source.item_id).await.unwrap().unwrap();
         confirmed_item.metadata.title = "Curated Matrix Title".to_owned();
         confirmed_item.metadata.release_date = Some("1999-03-31".to_owned());
@@ -450,10 +455,10 @@ mod tests {
             })
             .await
             .unwrap();
-        let sources = store
-            .list_media_sources(library.id, PageRequest::first_page())
-            .await
-            .unwrap();
+        let sources =
+            MediaRepository::list_media_sources(&store, library.id, PageRequest::first_page())
+                .await
+                .unwrap();
         let episode = store
             .get_media_item(sources[0].item_id)
             .await
@@ -549,12 +554,12 @@ mod tests {
             })
             .await
             .unwrap();
-        let source = store
-            .list_media_sources(library.id, PageRequest::first_page())
-            .await
-            .unwrap()
-            .pop()
-            .unwrap();
+        let source =
+            MediaRepository::list_media_sources(&store, library.id, PageRequest::first_page())
+                .await
+                .unwrap()
+                .pop()
+                .unwrap();
         let item = store.get_media_item(source.item_id).await.unwrap().unwrap();
         let evidence = store
             .list_local_inference_evidence_for_source(source.id, PageRequest::first_page())
@@ -617,14 +622,20 @@ mod tests {
         .await
         .unwrap();
 
-        let first_sources = store
-            .list_media_sources(first_library.id, PageRequest::first_page())
-            .await
-            .unwrap();
-        let second_sources = store
-            .list_media_sources(second_library.id, PageRequest::first_page())
-            .await
-            .unwrap();
+        let first_sources = MediaRepository::list_media_sources(
+            &store,
+            first_library.id,
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+        let second_sources = MediaRepository::list_media_sources(
+            &store,
+            second_library.id,
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
         let first_state = store
             .get_source_state(first_library.id, "local:///Movie.mkv")
             .await
@@ -704,15 +715,13 @@ mod tests {
         assert_eq!(fs::read(first_observed_path).unwrap(), b"first");
         assert_eq!(fs::read(second_observed_path).unwrap(), b"second");
         assert!(
-            store
-                .get_media_probe(first_sources[0].id)
+            MediaProbeRepository::get_media_probe(&store, first_sources[0].id)
                 .await
                 .unwrap()
                 .is_some()
         );
         assert!(
-            store
-                .get_media_probe(second_sources[0].id)
+            MediaProbeRepository::get_media_probe(&store, second_sources[0].id)
                 .await
                 .unwrap()
                 .is_some()
@@ -872,10 +881,10 @@ mod tests {
             .await
             .unwrap();
 
-        let sources = store
-            .list_media_sources(library.id, PageRequest::first_page())
-            .await
-            .unwrap();
+        let sources =
+            MediaRepository::list_media_sources(&store, library.id, PageRequest::first_page())
+                .await
+                .unwrap();
         let failures = store
             .list_ingestion_failures(
                 IngestionFailureFilter {
@@ -964,12 +973,17 @@ mod tests {
         assert_eq!(summary.failed_sources, 0);
         assert!(max_seen.load(Ordering::SeqCst) <= 2);
 
-        for source in store
-            .list_media_sources(library.id, PageRequest::first_page())
-            .await
-            .unwrap()
+        for source in
+            MediaRepository::list_media_sources(&store, library.id, PageRequest::first_page())
+                .await
+                .unwrap()
         {
-            assert!(store.get_media_probe(source.id).await.unwrap().is_some());
+            assert!(
+                MediaProbeRepository::get_media_probe(&store, source.id)
+                    .await
+                    .unwrap()
+                    .is_some()
+            );
         }
     }
 

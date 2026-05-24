@@ -20,5 +20,5 @@ default = []
 addon-client = ["dep:nako-addon-client"]
 
 [dependencies]
-nako-addon-protocol = { path = "../nako-addon-protocol", version = "0.1.0-alpha.1" }
-nako-addon-client = { path = "../nako-addon-client", version = "0.1.0-alpha.1", optional = true }
+nako-addon-protocol = { path = "../nako-addon-protocol", version = "0.1.0-alpha.2" }
+nako-addon-client = { path = "../nako-addon-client", version = "0.1.0-alpha.2", optional = true }

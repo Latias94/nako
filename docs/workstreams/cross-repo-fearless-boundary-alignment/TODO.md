@@ -54,8 +54,28 @@ Task IDs use the `CRFBA` prefix.
   writes, and durable job runtime lease handoff through a dedicated
   `NfoWorkflowStore`; `NfoService` keeps its own repository dependency for
   import/export domain work.
+  `crates/nako-server/src/app/jobs.rs` now routes library scan enqueue,
+  library lookup, outbox writes, scan ingestion, probe execution, and
+  ingestion-failure bookkeeping through `LibraryScanWorkflowStore` and a
+  dedicated execution store instead of a raw `NakoDatabase` handle.
+  `crates/nako-server/src/app/playback/mod.rs` now routes playback decisions,
+  remux/HLS execution, transcode-session access, cancellation, and
+  finished-event writes through `PlaybackRuntimeStore`.
+  `crates/nako-server/src/app/playback/input.rs` now routes staging-record
+  lookup and lease acquisition through `Arc<dyn StagingManifestRepository>`,
+  and `PlaybackAppService::new` accepts runtime/staging ports instead of a raw
+  `NakoDatabase` handle.
+  `crates/nako-library/src/probe.rs` now depends on `LibraryProbeWorkflow`
+  so probe execution only requires source/probe/failure operations instead of
+  the full repository set.
+  `crates/nako-metadata/src/lib.rs` now re-exports focused metadata strategy
+  ports so `MetadataExecutionStore` can depend on refresh snapshot/commit and
+  attempt-record operations without widening the public metadata surface.
   Validation: focused nextest for the touched workflow and backend contract
-  tests; `cargo fmt --all -- --check` when practical.
+  tests; targeted `nako-library`, `nako-metadata`, `nako-server metadata`,
+  `nako-server playback`, `nako-server staging`, and `nako-server startup`
+  gates; `cargo check -p nako-server`; `cargo fmt --all -- --check` when
+  practical.
   Review: The slice must reduce caller authority, not just rename repository
   traits.
   Evidence: focused tests and updated architecture notes.
@@ -132,16 +152,33 @@ Task IDs use the `CRFBA` prefix.
   Handoff: Repeat for Bangumi and Douban only after the first provider split is
   reviewed.
 
-- [ ] CRFBA-070 [owner=unassigned] [deps=CRFBA-050] [scope=crates/nako-addon-client,crates/nako-addon-protocol,../nako-official-addons/crates/nako-metadata-scraper/src/nako_runtime.rs]
+- [x] CRFBA-070 [owner=codex] [deps=CRFBA-050] [scope=crates/nako-addon-client,crates/nako-addon-protocol,../nako-official-addons/crates/nako-metadata-scraper/src/nako_runtime.rs]
   Goal: Align official addon protected-write host-client responsibilities with
   public protocol/client crates without depending on private server crates.
+  Progress: `crates/nako-addon-protocol` now exposes public Addon permission,
+  access-check, side-effect target, side-effect request/response, and typed
+  metadata/artwork write request shapes. `crates/nako-addon-client` now owns the
+  reusable Nako Runtime HTTP client behavior for access-check and protected
+  side-effect submission, including bearer-token header placement, token-body
+  leak rejection, retryability classification, redaction-safe HTTP errors, and
+  version-tolerant side-effect response parsing. The official metadata scraper
+  now keeps a thin `nako_runtime` facade over the public client/protocol crates
+  instead of carrying its own duplicated request, transport, and error
+  implementation.
   Validation: protocol/client tests plus addon fake-transport tests proving
   bearer token placement, redaction, safe error mapping, and version tolerance.
   Review: Do not move reqwest-heavy runtime behavior into the permissive
   protocol crate unless an ADR says so.
   Evidence: tests and any required ADR/workstream update.
-  Handoff: If a public crate release is needed, split release/versioning into a
-  separate lane.
+  Result: DONE_WITH_CONCERNS 2026-05-24. Focused protocol/client and official
+  addon runtime facade tests pass, including a regression test proving reqwest
+  transport errors do not expose request URLs or query tokens. The official
+  addon currently uses local path dependencies to the public client/protocol
+  crates for this cross-repo proof; public crate release/publishing remains a
+  separate follow-on if distribution needs it.
+  Handoff: Review this cross-repo contract slice before continuing to
+  CRFBA-080/090. If a public crate release is needed, split release/versioning
+  into a separate lane.
 
 ## M3 - Playback Runtime Ownership
 

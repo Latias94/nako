@@ -194,6 +194,29 @@ Use `verify-rust-workstream` before marking this lane complete.
   after narrowing `crates/nako-server/src/app/artwork.rs` claim/requeue/commit/
   fail operations behind `ArtworkIngestWorkflowStore`. `cargo fmt --all --
   --check` also passed.
+- 2026-05-24 CRFBA-020 follow-up: `cargo nextest run -p nako-library probe
+  --no-fail-fast` passed 4 tests after narrowing
+  `crates/nako-library/src/probe.rs` behind `LibraryProbeWorkflow` and fixing
+  the test fixtures to call the intended repository trait explicitly.
+- 2026-05-24 CRFBA-020 follow-up: `cargo nextest run -p nako-server metadata
+  --no-fail-fast` passed 27 tests after `MetadataAppService` split execution
+  duties into a dedicated `MetadataExecutionStore`; `cargo nextest run -p
+  nako-metadata --no-fail-fast` passed 36 tests after re-exporting the
+  focused metadata strategy ports.
+- 2026-05-24 CRFBA-020 follow-up: `cargo nextest run -p nako-server playback
+  --no-fail-fast` passed 55 tests after `PlaybackAppService` moved transcode
+  session and execution access behind `PlaybackRuntimeStore`.
+- 2026-05-24 CRFBA-020 follow-up: `cargo nextest run -p nako-server startup
+  --no-fail-fast` passed 20 tests after the library-scan workflow and
+  execution stores were split in `crates/nako-server/src/app/jobs.rs`.
+- 2026-05-24 CRFBA-020 follow-up: `cargo check -p nako-server` and
+  `cargo nextest run -p nako-server staging --no-fail-fast` both passed after
+  `crates/nako-server/src/app/playback/input.rs` moved staging manifest lookup
+  and lease acquisition behind `Arc<dyn StagingManifestRepository>` and
+  `PlaybackAppService::new` started receiving runtime/staging ports from
+  composition instead of the raw database facade. `cargo nextest run -p
+  nako-server playback --no-fail-fast`, `cargo nextest run -p nako-server
+  startup --no-fail-fast`, and `cargo fmt --all -- --check` also passed.
 
 ## Recent Addon Evidence
 
@@ -210,3 +233,31 @@ Use `verify-rust-workstream` before marking this lane complete.
   were split.
 - 2026-05-24 formatting verification: `cargo fmt --all -- --check` passed
   after formatting the touched addon files.
+- 2026-05-24 CRFBA-070: `cargo nextest run -p nako-addon-client -p
+  nako-addon-protocol --no-fail-fast` passed 26 tests after moving
+  protected-write access-check and side-effect request/response shapes into the
+  public protocol crate and reusable runtime HTTP behavior into the public
+  client crate. This includes a regression test proving reqwest transport
+  errors are mapped without exposing request URLs or query tokens.
+- 2026-05-24 CRFBA-070: in `../nako-official-addons`, `cargo nextest run -p
+  nako-metadata-scraper nako_runtime --no-fail-fast` passed 4 tests after the
+  official metadata scraper `nako_runtime` module delegated to
+  `nako-addon-client`/`nako-addon-protocol` instead of carrying duplicate
+  transport, request, response, and error types.
+- 2026-05-24 CRFBA-070 verification: in Nako, `cargo fmt --all -- --check`
+  passed and path-scoped `git diff --check` over
+  `crates/nako-addon-client`, `crates/nako-addon-protocol`, and the CRFBA
+  workstream docs reported only existing LF-to-CRLF warnings.
+- 2026-05-24 CRFBA-070 verification: in `../nako-official-addons`, `cargo fmt
+  --all -- --check` passed and path-scoped `git diff --check` over
+  `Cargo.toml`, `Cargo.lock`,
+  `crates/nako-metadata-scraper/Cargo.toml`, and
+  `crates/nako-metadata-scraper/src/nako_runtime.rs` reported only an existing
+  LF-to-CRLF warning for `Cargo.lock`.
+- 2026-05-24 CRFBA-070 review verification: `cargo clippy -p
+  nako-addon-client -p nako-addon-protocol --all-targets -- -D warnings`
+  passed after fixing the reqwest transport safe-error mapping regression and
+  two clippy cleanup findings in the touched public crates.
+- 2026-05-24 CRFBA-070 review verification: in `../nako-official-addons`,
+  `cargo clippy -p nako-metadata-scraper --all-targets -- -D warnings`
+  passed against the public-client-backed `nako_runtime` facade.

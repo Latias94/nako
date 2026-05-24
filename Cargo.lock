@@ -1272,18 +1272,19 @@ dependencies = [
 
 [[package]]
 name = "nako-addon-client"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "async-trait",
  "nako-addon-protocol",
  "reqwest",
+ "serde",
  "serde_json",
  "tokio",
 ]
 
 [[package]]
 name = "nako-addon-protocol"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "serde",
  "serde_json",

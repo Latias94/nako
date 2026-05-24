@@ -10,7 +10,7 @@ async fn manifest_recording_backend_records_probe_staging() {
             bytes: b"probe-media".to_vec(),
             local_path_hint: None,
         }),
-        store.clone(),
+        Arc::new(store.clone()),
         StagingPurpose::ProbeInput,
         StagingConfig::default().max_bytes,
         StagingConfig::default().retention_ms,
@@ -75,7 +75,7 @@ async fn manifest_recording_backend_rejects_staging_over_disk_budget() {
             bytes: b"probe-media".to_vec(),
             local_path_hint: None,
         }),
-        store.clone(),
+        Arc::new(store.clone()),
         StagingPurpose::ProbeInput,
         5,
         StagingConfig::default().retention_ms,
@@ -115,7 +115,7 @@ async fn manifest_recording_backend_serializes_budget_check_and_record() {
             bytes: vec![b'x'; 8],
             local_path_hint: None,
         }),
-        store.clone(),
+        Arc::new(store.clone()),
         StagingPurpose::ProbeInput,
         10,
         StagingConfig::default().retention_ms,
@@ -181,7 +181,7 @@ async fn manifest_recording_backend_reserves_budget_without_serializing_download
             bytes: vec![b'x'; 8],
             control: control.clone(),
         }),
-        store.clone(),
+        Arc::new(store.clone()),
         StagingPurpose::ProbeInput,
         32,
         StagingConfig::default().retention_ms,
@@ -242,7 +242,7 @@ async fn manifest_recording_backend_rolls_back_reservation_when_stage_fails() {
             len: 8,
             fingerprint: "failing-stage".to_owned(),
         }),
-        store.clone(),
+        Arc::new(store.clone()),
         StagingPurpose::ProbeInput,
         32,
         StagingConfig::default().retention_ms,
@@ -306,7 +306,7 @@ async fn manifest_recording_backend_rejects_active_duplicate_path_reservation() 
             len: 8,
             fingerprint: "reserved".to_owned(),
         }),
-        store,
+        Arc::new(store.clone()),
         StagingPurpose::ProbeInput,
         32,
         StagingConfig::default().retention_ms,
@@ -337,7 +337,7 @@ async fn manifest_recording_backend_waits_for_stage_budget() {
             bytes: b"probe-media".to_vec(),
             local_path_hint: None,
         }),
-        store,
+        Arc::new(store.clone()),
         StagingPurpose::ProbeInput,
         StagingConfig::default().max_bytes,
         StagingConfig::default().retention_ms,
@@ -626,10 +626,13 @@ async fn staging_lease_transitions_between_ready_and_leased() {
         .unwrap();
 
     let runtime = crate::app::runtime::RuntimeSupervisor::new();
-    let lease =
-        crate::app::staging::StagingLease::acquire(store.clone(), record_id, runtime.clone())
-            .await
-            .unwrap();
+    let lease = crate::app::staging::StagingLease::acquire(
+        Arc::new(store.clone()),
+        record_id,
+        runtime.clone(),
+    )
+    .await
+    .unwrap();
     let leased = store
         .get_staging_manifest_record(record_id)
         .await
@@ -662,10 +665,13 @@ async fn dropped_staging_lease_releases_manifest_record() {
         .unwrap();
 
     let runtime = crate::app::runtime::RuntimeSupervisor::new();
-    let lease =
-        crate::app::staging::StagingLease::acquire(store.clone(), record_id, runtime.clone())
-            .await
-            .unwrap();
+    let lease = crate::app::staging::StagingLease::acquire(
+        Arc::new(store.clone()),
+        record_id,
+        runtime.clone(),
+    )
+    .await
+    .unwrap();
     drop(lease);
 
     for _ in 0..50 {

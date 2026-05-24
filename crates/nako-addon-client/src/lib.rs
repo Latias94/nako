@@ -2,11 +2,13 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use nako_addon_protocol::{
-    AddonAuth, AddonHealthCheckRequest, AddonHealthCheckResponse, AddonManifest,
-    AddonManifestError, AddonResource, AddonResourceRequest, AddonResourceResponse, AddonScope,
-    AddonTaskRequest, AddonTaskResponse, ensure_scope_grant, ensure_task_scope_grant,
-    validate_health_check_response, validate_manifest, validate_resource_response,
-    validate_task_response,
+    AddonAccessCheckRequest, AddonAccessCheckResponse, AddonAuth, AddonHealthCheckRequest,
+    AddonHealthCheckResponse, AddonManifest, AddonManifestError, AddonPermission, AddonResource,
+    AddonResourceRequest, AddonResourceResponse, AddonScope, AddonSideEffectResponse,
+    AddonSideEffectTargetKind, AddonTaskRequest, AddonTaskResponse, SubmitAddonArtworkWriteRequest,
+    SubmitAddonMetadataWriteRequest, SubmitAddonSideEffectRequest, ensure_scope_grant,
+    ensure_task_scope_grant, validate_health_check_response, validate_manifest,
+    validate_resource_response, validate_task_response,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -26,6 +28,9 @@ pub struct AddonHttpResponse {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AddonClientError {
     Protocol(AddonManifestError),
+    InvalidRequest { message: String },
+    InvalidResponse { message: String },
+    UnsafeRequestBody,
     HttpStatus { status: u16, retryable: bool },
     Http { message: String },
 }
@@ -34,6 +39,18 @@ impl std::fmt::Display for AddonClientError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Protocol(err) => write!(formatter, "{err}"),
+            Self::InvalidRequest { message } => {
+                write!(formatter, "addon client invalid request: {message}")
+            }
+            Self::InvalidResponse { message } => {
+                write!(formatter, "addon client invalid response: {message}")
+            }
+            Self::UnsafeRequestBody => {
+                write!(
+                    formatter,
+                    "addon client request body contained token material"
+                )
+            }
             Self::HttpStatus { status, .. } => write!(formatter, "addon returned HTTP {status}"),
             Self::Http { message } => write!(formatter, "addon HTTP call failed: {message}"),
         }
@@ -88,6 +105,19 @@ pub struct AddonTaskCallFailure {
     pub attempts: u32,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NakoRuntimeClientConfig {
+    pub base_url: String,
+    pub addon_token: String,
+    pub timeout_ms: u64,
+}
+
+#[derive(Clone, Debug)]
+pub struct NakoRuntimeClient<T = ReqwestAddonTransport> {
+    config: NakoRuntimeClientConfig,
+    transport: T,
+}
+
 #[async_trait]
 pub trait AddonTransport: Send + Sync {
     async fn post(&self, request: AddonHttpRequest) -> AddonClientResult<AddonHttpResponse>;
@@ -126,16 +156,9 @@ impl AddonTransport for ReqwestAddonTransport {
             builder = builder.header(name, value);
         }
 
-        let response = builder.send().await.map_err(|err| AddonClientError::Http {
-            message: err.to_string(),
-        })?;
+        let response = builder.send().await.map_err(addon_http_error)?;
         let status = response.status().as_u16();
-        let body = response
-            .text()
-            .await
-            .map_err(|err| AddonClientError::Http {
-                message: err.to_string(),
-            })?;
+        let body = response.text().await.map_err(addon_http_error)?;
 
         Ok(AddonHttpResponse { status, body })
     }
@@ -443,11 +466,11 @@ where
             attempts: dispatch_attempt,
         })?;
 
-        return Ok(AddonTaskCallOutcome {
+        Ok(AddonTaskCallOutcome {
             response: envelope,
             http_status: response.status,
             attempts: dispatch_attempt,
-        });
+        })
     }
 }
 
@@ -510,8 +533,143 @@ where
     Ok(envelope)
 }
 
+impl NakoRuntimeClient<ReqwestAddonTransport> {
+    #[must_use]
+    pub fn new(config: NakoRuntimeClientConfig) -> Self {
+        Self::with_transport(config, ReqwestAddonTransport::default())
+    }
+}
+
+impl<T> NakoRuntimeClient<T>
+where
+    T: AddonTransport,
+{
+    #[must_use]
+    pub const fn with_transport(config: NakoRuntimeClientConfig, transport: T) -> Self {
+        Self { config, transport }
+    }
+
+    pub async fn access_check(
+        &self,
+        request: AddonAccessCheckRequest,
+    ) -> AddonClientResult<AddonAccessCheckResponse> {
+        self.post_runtime_json("/addon/v1/access-check", &request)
+            .await
+    }
+
+    pub async fn submit_side_effect(
+        &self,
+        request: SubmitAddonSideEffectRequest,
+    ) -> AddonClientResult<AddonSideEffectResponse> {
+        self.post_runtime_json("/addon/v1/side-effects", &request)
+            .await
+    }
+
+    pub async fn submit_metadata_write(
+        &self,
+        request: SubmitAddonMetadataWriteRequest,
+    ) -> AddonClientResult<AddonSideEffectResponse> {
+        let payload =
+            serde_json::to_value(&request.patch).map_err(invalid_runtime_request_envelope)?;
+        self.submit_side_effect(SubmitAddonSideEffectRequest {
+            permission: AddonPermission::MetadataWrite,
+            library_id: request.library_id,
+            target: request.target,
+            idempotency_key: request.idempotency_key,
+            provenance: request.provenance,
+            payload,
+        })
+        .await
+    }
+
+    pub async fn submit_artwork_write(
+        &self,
+        request: SubmitAddonArtworkWriteRequest,
+    ) -> AddonClientResult<AddonSideEffectResponse> {
+        if request.target.kind != AddonSideEffectTargetKind::MediaItem {
+            return Err(invalid_runtime_request(
+                "artwork_write target must be media_item",
+            ));
+        }
+        let payload =
+            serde_json::to_value(&request.artwork).map_err(invalid_runtime_request_envelope)?;
+        self.submit_side_effect(SubmitAddonSideEffectRequest {
+            permission: AddonPermission::ArtworkWrite,
+            library_id: request.library_id,
+            target: request.target,
+            idempotency_key: request.idempotency_key,
+            provenance: request.provenance,
+            payload,
+        })
+        .await
+    }
+
+    async fn post_runtime_json<B, R>(&self, path: &str, body: &B) -> AddonClientResult<R>
+    where
+        B: serde::Serialize,
+        R: for<'de> serde::Deserialize<'de>,
+    {
+        let body = serde_json::to_string(body).map_err(invalid_runtime_request_envelope)?;
+        if !self.config.addon_token.trim().is_empty() && body.contains(&self.config.addon_token) {
+            return Err(AddonClientError::UnsafeRequestBody);
+        }
+
+        let response = self
+            .transport
+            .post(AddonHttpRequest {
+                url: resource_url(&self.config.base_url, path),
+                headers: vec![
+                    ("accept".to_owned(), "application/json".to_owned()),
+                    ("content-type".to_owned(), "application/json".to_owned()),
+                    (
+                        "authorization".to_owned(),
+                        format!("Bearer {}", self.config.addon_token),
+                    ),
+                ],
+                body,
+                timeout_ms: self.config.timeout_ms,
+            })
+            .await?;
+
+        if !(200..300).contains(&response.status) {
+            return Err(AddonClientError::HttpStatus {
+                status: response.status,
+                retryable: is_retryable_http_status(response.status),
+            });
+        }
+
+        serde_json::from_str(&response.body).map_err(runtime_response_envelope_error)
+    }
+}
+
 fn resource_url(base_url: &str, path: &str) -> String {
     format!("{}{}", base_url.trim_end_matches('/'), path)
+}
+
+fn invalid_runtime_request(message: impl Into<String>) -> AddonClientError {
+    AddonClientError::InvalidRequest {
+        message: message.into(),
+    }
+}
+
+fn invalid_runtime_request_envelope(error: serde_json::Error) -> AddonClientError {
+    invalid_runtime_request(format!("failed to serialize Nako runtime request: {error}"))
+}
+
+fn runtime_response_envelope_error(error: serde_json::Error) -> AddonClientError {
+    AddonClientError::InvalidResponse {
+        message: format!("failed to parse Nako runtime response: {error}"),
+    }
+}
+
+fn addon_http_error(error: reqwest::Error) -> AddonClientError {
+    AddonClientError::Http {
+        message: safe_error_text(&error.without_url().to_string()),
+    }
+}
+
+fn safe_error_text(value: &str) -> String {
+    value.replace(['\r', '\n'], " ").chars().take(240).collect()
 }
 
 impl AddonClientError {
@@ -520,7 +678,10 @@ impl AddonClientError {
         match self {
             Self::Http { .. } => true,
             Self::HttpStatus { retryable, .. } => *retryable,
-            Self::Protocol(_) => false,
+            Self::Protocol(_)
+            | Self::InvalidRequest { .. }
+            | Self::InvalidResponse { .. }
+            | Self::UnsafeRequestBody => false,
         }
     }
 }
@@ -548,7 +709,11 @@ impl AddonClientError {
     pub const fn http_status(&self) -> Option<u16> {
         match self {
             Self::HttpStatus { status, .. } => Some(*status),
-            Self::Protocol(_) | Self::Http { .. } => None,
+            Self::Protocol(_)
+            | Self::InvalidRequest { .. }
+            | Self::InvalidResponse { .. }
+            | Self::UnsafeRequestBody
+            | Self::Http { .. } => None,
         }
     }
 
@@ -556,7 +721,26 @@ impl AddonClientError {
     pub const fn was_retryable_http_status(&self) -> bool {
         match self {
             Self::HttpStatus { retryable, .. } => *retryable,
-            Self::Protocol(_) | Self::Http { .. } => false,
+            Self::Protocol(_)
+            | Self::InvalidRequest { .. }
+            | Self::InvalidResponse { .. }
+            | Self::UnsafeRequestBody
+            | Self::Http { .. } => false,
+        }
+    }
+
+    #[must_use]
+    pub const fn safe_code(&self) -> &'static str {
+        match self {
+            Self::Protocol(_) | Self::InvalidRequest { .. } => "invalid_request",
+            Self::InvalidResponse { .. } => "invalid_response",
+            Self::UnsafeRequestBody => "unsafe_request_body",
+            Self::Http { .. } => "transport_error",
+            Self::HttpStatus { status, .. } => match *status {
+                400..=499 => "http_client_error",
+                500..=599 => "http_server_error",
+                _ => "http_status_error",
+            },
         }
     }
 }
@@ -566,6 +750,9 @@ impl AddonClientError {
     pub fn kind(&self) -> &'static str {
         match self {
             Self::Protocol(_) => "protocol",
+            Self::InvalidRequest { .. } => "invalid_request",
+            Self::InvalidResponse { .. } => "invalid_response",
+            Self::UnsafeRequestBody => "unsafe_request_body",
             Self::HttpStatus { .. } => "http_status",
             Self::Http { .. } => "http",
         }
@@ -578,7 +765,11 @@ fn assert_error_shape(err: &AddonClientError) {
         AddonClientError::HttpStatus { status, retryable } => {
             assert_eq!(*retryable, is_retryable_http_status(*status));
         }
-        AddonClientError::Protocol(_) | AddonClientError::Http { .. } => {}
+        AddonClientError::Protocol(_)
+        | AddonClientError::InvalidRequest { .. }
+        | AddonClientError::InvalidResponse { .. }
+        | AddonClientError::UnsafeRequestBody
+        | AddonClientError::Http { .. } => {}
     }
 }
 
@@ -883,6 +1074,251 @@ mod tests {
         assert!(requests[0].body.contains("\"mode\":\"missing-only\""));
     }
 
+    #[tokio::test]
+    async fn runtime_access_check_sends_bearer_token_only_in_header() {
+        let transport = MockTransport::with_response(Ok(AddonHttpResponse {
+            status: 200,
+            body: serde_json::json!({
+                "addon_id": "addon-1",
+                "token_id": "token-1",
+                "permission": "metadata_write",
+                "library_id": "library-1",
+                "allowed": true
+            })
+            .to_string(),
+        }));
+        let client = runtime_client(transport.clone());
+
+        let response = client
+            .access_check(AddonAccessCheckRequest {
+                permission: AddonPermission::MetadataWrite,
+                library_id: Some("library-1".to_owned()),
+            })
+            .await
+            .unwrap();
+
+        assert!(response.allowed);
+        let requests = transport.requests();
+        assert_eq!(requests.len(), 1);
+        assert_eq!(
+            requests[0].url,
+            "https://nako.example/addon/v1/access-check"
+        );
+        assert_eq!(
+            header_value(&requests[0], "authorization"),
+            Some("Bearer addon-token-secret")
+        );
+        assert!(!requests[0].body.contains("addon-token-secret"));
+        assert!(
+            requests[0]
+                .body
+                .contains("\"permission\":\"metadata_write\"")
+        );
+    }
+
+    #[tokio::test]
+    async fn runtime_side_effect_submission_parses_version_tolerant_summary() {
+        let transport = MockTransport::with_response(Ok(AddonHttpResponse {
+            status: 200,
+            body: serde_json::json!({
+                "side_effect": {
+                    "id": "effect-1",
+                    "addon_id": "addon-1",
+                    "token_id": "token-1",
+                    "permission": "metadata_write",
+                    "library_id": "library-1",
+                    "target": {"kind": "media_source", "id": "source-1"},
+                    "idempotency_key": "metadata-demo-1",
+                    "validation_status": "accepted",
+                    "safe_error_code": null,
+                    "apply_status": "applied",
+                    "apply_error_code": null,
+                    "applied_item_id": "item-1",
+                    "applied_source": "addon:addon-1",
+                    "apply_report": null,
+                    "applied_at": "2026-05-24T09:00:00Z",
+                    "created_at": "2026-05-24T09:00:00Z"
+                },
+                "idempotent_replay": false
+            })
+            .to_string(),
+        }));
+        let client = runtime_client(transport.clone());
+
+        let response = client
+            .submit_side_effect(SubmitAddonSideEffectRequest {
+                permission: AddonPermission::MetadataWrite,
+                library_id: "library-1".to_owned(),
+                target: nako_addon_protocol::AddonSideEffectTarget {
+                    kind: AddonSideEffectTargetKind::MediaSource,
+                    id: "source-1".to_owned(),
+                },
+                idempotency_key: "metadata-demo-1".to_owned(),
+                provenance: serde_json::json!({"origin": "official-addon"}),
+                payload: serde_json::json!({"title": "Demo"}),
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(response.side_effect.apply_status, "applied");
+        assert_eq!(
+            response.side_effect.applied_item_id.as_deref(),
+            Some("item-1")
+        );
+        let requests = transport.requests();
+        assert_eq!(
+            requests[0].url,
+            "https://nako.example/addon/v1/side-effects"
+        );
+        assert_eq!(
+            header_value(&requests[0], "authorization"),
+            Some("Bearer addon-token-secret")
+        );
+        assert!(!requests[0].body.contains("addon-token-secret"));
+        assert!(
+            requests[0]
+                .body
+                .contains("\"idempotency_key\":\"metadata-demo-1\"")
+        );
+    }
+
+    #[tokio::test]
+    async fn runtime_metadata_write_serializes_patch_under_side_effect_payload() {
+        let transport = MockTransport::with_response(Ok(AddonHttpResponse {
+            status: 200,
+            body: runtime_side_effect_response_json("metadata_write", "media_source"),
+        }));
+        let client = runtime_client(transport.clone());
+
+        client
+            .submit_metadata_write(SubmitAddonMetadataWriteRequest {
+                library_id: "library-1".to_owned(),
+                target: nako_addon_protocol::AddonSideEffectTarget {
+                    kind: AddonSideEffectTargetKind::MediaSource,
+                    id: "source-1".to_owned(),
+                },
+                idempotency_key: "metadata-demo-2".to_owned(),
+                provenance: serde_json::json!({"origin": "official-addon"}),
+                patch: nako_addon_protocol::AddonMetadataPatch {
+                    title: Some("The Matrix".to_owned()),
+                    ..nako_addon_protocol::AddonMetadataPatch::default()
+                },
+            })
+            .await
+            .unwrap();
+
+        let requests = transport.requests();
+        let body: serde_json::Value = serde_json::from_str(&requests[0].body).unwrap();
+        assert_eq!(body["permission"], "metadata_write");
+        assert_eq!(body["target"]["kind"], "media_source");
+        assert_eq!(body["payload"]["title"], "The Matrix");
+        assert_eq!(body["payload"]["overview"], serde_json::Value::Null);
+    }
+
+    #[tokio::test]
+    async fn runtime_artwork_write_rejects_non_media_item_targets_before_http() {
+        let transport = MockTransport::default();
+        let client = runtime_client(transport.clone());
+
+        let error = client
+            .submit_artwork_write(SubmitAddonArtworkWriteRequest {
+                library_id: "library-1".to_owned(),
+                target: nako_addon_protocol::AddonSideEffectTarget {
+                    kind: AddonSideEffectTargetKind::MediaSource,
+                    id: "source-1".to_owned(),
+                },
+                idempotency_key: "artwork-demo-1".to_owned(),
+                provenance: serde_json::json!({"origin": "official-addon"}),
+                artwork: nako_addon_protocol::AddonArtworkWritePayload {
+                    intent: nako_addon_protocol::AddonArtworkIntent::ProposeArtwork,
+                    kind: nako_addon_protocol::AddonArtworkKind::Poster,
+                    source: nako_addon_protocol::AddonArtworkSourcePayload {
+                        kind: nako_addon_protocol::AddonArtworkSourceKind::RemoteUrl,
+                        url: "https://example.test/poster.jpg".to_owned(),
+                    },
+                    language: None,
+                    width: None,
+                    height: None,
+                },
+            })
+            .await
+            .unwrap_err();
+
+        assert!(matches!(error, AddonClientError::InvalidRequest { .. }));
+        assert_eq!(error.safe_code(), "invalid_request");
+        assert!(transport.requests().is_empty());
+    }
+
+    #[tokio::test]
+    async fn runtime_request_rejects_body_token_material_before_http() {
+        let transport = MockTransport::default();
+        let client = runtime_client(transport.clone());
+
+        let error = client
+            .submit_side_effect(SubmitAddonSideEffectRequest {
+                permission: AddonPermission::MetadataWrite,
+                library_id: "library-1".to_owned(),
+                target: nako_addon_protocol::AddonSideEffectTarget {
+                    kind: AddonSideEffectTargetKind::MediaSource,
+                    id: "source-1".to_owned(),
+                },
+                idempotency_key: "metadata-demo-token".to_owned(),
+                provenance: serde_json::json!({"origin": "official-addon"}),
+                payload: serde_json::json!({"leak": "addon-token-secret"}),
+            })
+            .await
+            .unwrap_err();
+
+        assert_eq!(error, AddonClientError::UnsafeRequestBody);
+        assert_eq!(error.safe_code(), "unsafe_request_body");
+        assert!(transport.requests().is_empty());
+    }
+
+    #[tokio::test]
+    async fn runtime_http_errors_do_not_expose_response_bodies() {
+        let transport = MockTransport::with_response(Ok(AddonHttpResponse {
+            status: 403,
+            body: "forbidden: addon-token-secret".to_owned(),
+        }));
+        let client = runtime_client(transport);
+
+        let error = client
+            .access_check(AddonAccessCheckRequest {
+                permission: AddonPermission::MetadataWrite,
+                library_id: None,
+            })
+            .await
+            .unwrap_err();
+
+        assert_eq!(
+            error,
+            AddonClientError::HttpStatus {
+                status: 403,
+                retryable: false
+            }
+        );
+        assert_eq!(error.safe_code(), "http_client_error");
+        assert!(!error.to_string().contains("addon-token-secret"));
+    }
+
+    #[tokio::test]
+    async fn reqwest_transport_errors_do_not_expose_request_url_or_query_tokens() {
+        let error = reqwest::Client::new()
+            .get("http://127.0.0.1:1/addon/v1/access-check?token=addon-token-secret")
+            .timeout(Duration::from_millis(50))
+            .send()
+            .await
+            .unwrap_err();
+
+        let error = addon_http_error(error);
+        let message = error.to_string();
+
+        assert_eq!(error.safe_code(), "transport_error");
+        assert!(!message.contains("addon-token-secret"));
+        assert!(!message.contains("/addon/v1/access-check"));
+        assert!(!message.contains("127.0.0.1:1"));
+    }
+
     fn valid_manifest() -> AddonManifest {
         AddonManifest {
             id: "example".to_owned(),
@@ -947,6 +1383,38 @@ mod tests {
             }],
         })
         .unwrap()
+    }
+
+    fn runtime_client(transport: MockTransport) -> NakoRuntimeClient<MockTransport> {
+        NakoRuntimeClient::with_transport(
+            NakoRuntimeClientConfig {
+                base_url: "https://nako.example".to_owned(),
+                addon_token: "addon-token-secret".to_owned(),
+                timeout_ms: 9_000,
+            },
+            transport,
+        )
+    }
+
+    fn runtime_side_effect_response_json(permission: &str, target_kind: &str) -> String {
+        serde_json::json!({
+            "side_effect": {
+                "id": "effect-1",
+                "permission": permission,
+                "library_id": "library-1",
+                "target": {"kind": target_kind, "id": "source-1"},
+                "idempotency_key": "demo-1",
+                "validation_status": "accepted",
+                "safe_error_code": null,
+                "apply_status": "applied",
+                "apply_error_code": null,
+                "applied_item_id": "item-1",
+                "applied_source": "addon:addon-1",
+                "apply_report": null
+            },
+            "idempotent_replay": false
+        })
+        .to_string()
     }
 
     fn header_value<'a>(request: &'a AddonHttpRequest, name: &str) -> Option<&'a str> {

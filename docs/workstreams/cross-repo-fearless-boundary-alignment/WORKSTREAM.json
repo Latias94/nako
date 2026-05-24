@@ -7,7 +7,7 @@
   "scope_kind": "architecture_execution",
   "problem": "Nako core and the official metadata addon have strong high-level seams, but cross-repo feature breadth is now pressuring overly broad internal facades around persistence, ingestion, metadata acceptance, addon scrape runtime, provider adapters, and playback/transcode ownership.",
   "task_prefix": "CRFBA",
-  "current_task": "CRFBA-040",
+  "current_task": "CRFBA-070",
   "authoritative_docs": [
     {
       "role": "overview",
@@ -87,8 +87,10 @@
   "completed_tasks": [
     "CRFBA-010",
     "CRFBA-011",
+    "CRFBA-030",
     "CRFBA-050",
-    "CRFBA-060"
+    "CRFBA-060",
+    "CRFBA-070"
   ],
   "non_goals": [
     "copying reference project implementation code",
@@ -103,7 +105,7 @@
   ],
   "continue_policy": {
     "default_action": "review_scope_first",
-    "next_task": "CRFBA-040",
-    "notes": "Treat this as a draft architecture lane until the user accepts the scope. Start implementation only after CRFBA-010 and CRFBA-011 are complete."
+    "next_task": "review CRFBA-070, then choose CRFBA-080 or CRFBA-090",
+    "notes": "CRFBA-070 has implementation and focused validation evidence, but should still receive review-workstream before final acceptance. Public crate release/versioning remains a separate follow-on if needed."
   }
 }

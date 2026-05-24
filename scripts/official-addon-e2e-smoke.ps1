@@ -4,12 +4,13 @@ param(
     [string]$AddonRepo = '',
     [ValidateSet('cargo-install', 'workspace')]
     [string]$AddonBinarySource = 'cargo-install',
-    [string]$AddonVersion = '0.1.0-alpha.1',
+    [string]$AddonVersion = '0.1.0-alpha.2',
     [string]$NakoImage = 'ghcr.io/latias94/nako-server:0.1.0-alpha.1',
     [int]$NakoPort = 30130,
     [int]$SidecarPort = 19100,
     [switch]$SkipAddonBuild,
     [switch]$ForceAddonInstall,
+    [switch]$PreflightOnly,
     [switch]$NoCleanup
 )
 
@@ -41,6 +42,28 @@ function Invoke-NativeStep {
     & $Action
     if ($LASTEXITCODE -ne 0) {
         throw "$Name failed with exit code $LASTEXITCODE."
+    }
+}
+
+function Assert-NativeCommandAvailable {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+
+    if ($null -eq (Get-Command $Name -ErrorAction SilentlyContinue)) {
+        throw "Required command '$Name' was not found on PATH."
+    }
+}
+
+function Assert-DockerDaemonAvailable {
+    $output = & docker version --format '{{.Server.Version}}' 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        $message = ($output | Out-String).Trim()
+        if ([string]::IsNullOrWhiteSpace($message)) {
+            $message = 'no output'
+        }
+
+        throw "Docker daemon is not reachable. Start Docker Desktop or the Docker service and retry. docker version output: $message"
     }
 }
 
@@ -128,14 +151,6 @@ if (Test-TcpPortOpen -HostName '127.0.0.1' -Port $SidecarPort) {
     throw "Metadata scraper sidecar port is already in use: 127.0.0.1:$SidecarPort"
 }
 
-$RunId = Get-Date -Format 'yyyyMMdd-HHmmss'
-$RunRoot = Join-Path $RepoRoot "target\oae2e-alpha2-hosted\$RunId"
-$DataDir = Join-Path $RunRoot 'data'
-$CacheDir = Join-Path $RunRoot 'cache'
-$MediaDir = Join-Path $RunRoot 'media'
-$LogDir = Join-Path $RunRoot 'logs'
-New-Item -ItemType Directory -Force -Path $DataDir, $CacheDir, $MediaDir, $LogDir | Out-Null
-
 $ConfigPath = (Resolve-Path 'deploy\container\sqlite.nako.toml').Path
 $AdminToken = "oae2e-alpha2-local-token-$([guid]::NewGuid())"
 $Container = "nako-oae2e-alpha2-$PID"
@@ -148,6 +163,34 @@ $SidecarBinary = if ($AddonBinarySource -eq 'cargo-install') {
 } else {
     Join-Path $AddonRepo "target\debug\$BinaryName"
 }
+
+Assert-NativeCommandAvailable -Name 'pwsh'
+Assert-NativeCommandAvailable -Name 'docker'
+Assert-NativeCommandAvailable -Name 'cargo'
+Assert-DockerDaemonAvailable
+if (-not (Test-Path $ConfigPath)) {
+    throw "Nako container config not found: $ConfigPath"
+}
+if ($AddonBinarySource -eq 'workspace' -and $SkipAddonBuild -and -not (Test-Path $SidecarBinary)) {
+    throw "Workspace metadata scraper binary not found while -SkipAddonBuild is set: $SidecarBinary"
+}
+if ($PreflightOnly) {
+    Write-Host '[ok] Official Addon E2E smoke preflight completed.'
+    Write-Host "Nako image: $NakoImage"
+    Write-Host "Addon repo: $AddonRepo"
+    Write-Host "Addon binary source: $AddonBinarySource"
+    Write-Host "Nako port: $NakoPort"
+    Write-Host "Sidecar port: $SidecarPort"
+    exit 0
+}
+
+$RunId = Get-Date -Format 'yyyyMMdd-HHmmss'
+$RunRoot = Join-Path $RepoRoot "target\oae2e-alpha2-hosted\$RunId"
+$DataDir = Join-Path $RunRoot 'data'
+$CacheDir = Join-Path $RunRoot 'cache'
+$MediaDir = Join-Path $RunRoot 'media'
+$LogDir = Join-Path $RunRoot 'logs'
+New-Item -ItemType Directory -Force -Path $DataDir, $CacheDir, $MediaDir, $LogDir | Out-Null
 
 try {
     Write-Host "Run root: $RunRoot"
@@ -259,6 +302,7 @@ try {
             -RegisterInNako `
             -Enable `
             -RunResourceCall `
+            -RunTaskPath `
             -RequireNako
     }
 

@@ -12,19 +12,23 @@ use nako_api::{
     },
     public_client::page_info_from_request,
 };
+use nako_catalog::{CatalogHydrationPort, CatalogHydrationSummary};
 use nako_core::{
-    DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository, ExternalProvider, Job,
-    JobId, JobKind, JobRepository, Library, LibraryId, LibraryRepository, MediaItem, MediaItemId,
-    MediaRepository, MediaSource, MetadataAttemptFilter, MetadataProfile,
-    MetadataProviderAttemptRecord, MetadataProviderAttemptStatus, MetadataRefreshMode,
-    MetadataRepository, NakoError, NewJob, NewOutboxEvent, OutboxEventRecord, PageRequest,
-    ProviderRawResponse, ProviderRawResponseCleanup, ProviderRawResponseFilter, Result,
+    CancelLeasedJob, CompleteLeasedJob, DomainEventKind, DomainEventSubject, EventId,
+    EventOutboxRepository, ExternalProvider, FailLeasedJob, Job, JobId, JobKind,
+    JobLeaseClaimRequest, JobLeaseHeartbeat, JobRepository, LeasedJob, Library, LibraryId,
+    LibraryRepository, MediaItem, MediaItemId, MediaRepository, MediaSource, MetadataAttemptFilter,
+    MetadataProfile, MetadataProviderAttemptRecord, MetadataProviderAttemptStatus,
+    MetadataRefreshMode, MetadataRepository, NakoError, NewJob, NewOutboxEvent, OutboxEventRecord,
+    PageRequest, ProviderRawResponse, ProviderRawResponseCleanup, ProviderRawResponseFilter,
+    Result,
 };
 use nako_db::NakoDatabase;
 use nako_metadata::{
-    MetadataCandidateConflictReview, MetadataCandidateConflictReviewStatus, MetadataCandidateMatch,
-    MetadataCandidateMatchDecision, MetadataCandidateMatchReason, MetadataProviderRegistry,
-    MetadataRefreshJobInput, MetadataRefreshRequest, MetadataRefreshSummary,
+    MetadataAttemptPort, MetadataCandidateConflictReview, MetadataCandidateConflictReviewStatus,
+    MetadataCandidateMatch, MetadataCandidateMatchDecision, MetadataCandidateMatchReason,
+    MetadataProviderRegistry, MetadataRefreshCommit, MetadataRefreshJobInput, MetadataRefreshPort,
+    MetadataRefreshRequest, MetadataRefreshSnapshot, MetadataRefreshSummary,
     MetadataStrategyExecutor, build_candidate_conflict_review,
 };
 use serde::Serialize;
@@ -88,8 +92,8 @@ pub struct MetadataMaintenanceItemError {
 #[derive(Clone, Debug)]
 pub(crate) struct MetadataAppService {
     config: NakoServerConfig,
-    store: NakoDatabase,
     workflow_store: Arc<dyn MetadataWorkflowStore>,
+    execution_store: MetadataExecutionStore,
     permits: Arc<Semaphore>,
     providers: MetadataProviderRegistry,
     runtime: RuntimeSupervisor,
@@ -222,6 +226,75 @@ where
     }
 }
 
+#[derive(Clone, Debug)]
+struct MetadataExecutionStore {
+    store: NakoDatabase,
+}
+
+impl MetadataExecutionStore {
+    fn new(store: NakoDatabase) -> Self {
+        Self { store }
+    }
+}
+
+#[async_trait::async_trait]
+impl super::job_runtime::DurableJobLeaseStore for MetadataExecutionStore {
+    async fn claim_next_job_lease(
+        &self,
+        request: JobLeaseClaimRequest,
+    ) -> Result<Option<LeasedJob>> {
+        super::job_runtime::DurableJobLeaseStore::claim_next_job_lease(&self.store, request).await
+    }
+
+    async fn heartbeat_job_lease(&self, heartbeat: JobLeaseHeartbeat) -> Result<LeasedJob> {
+        super::job_runtime::DurableJobLeaseStore::heartbeat_job_lease(&self.store, heartbeat).await
+    }
+
+    async fn succeed_leased_job(&self, completion: CompleteLeasedJob) -> Result<Job> {
+        super::job_runtime::DurableJobLeaseStore::succeed_leased_job(&self.store, completion).await
+    }
+
+    async fn fail_leased_job(&self, failure: FailLeasedJob) -> Result<Job> {
+        super::job_runtime::DurableJobLeaseStore::fail_leased_job(&self.store, failure).await
+    }
+
+    async fn cancel_leased_job(&self, cancellation: CancelLeasedJob) -> Result<Job> {
+        super::job_runtime::DurableJobLeaseStore::cancel_leased_job(&self.store, cancellation).await
+    }
+}
+
+#[async_trait::async_trait]
+impl CatalogHydrationPort for MetadataExecutionStore {
+    async fn hydrate_catalog(
+        &self,
+        item_id: MediaItemId,
+        source: nako_core::MetadataSource,
+    ) -> Result<CatalogHydrationSummary> {
+        CatalogHydrationPort::hydrate_catalog(&self.store, item_id, source).await
+    }
+}
+
+#[async_trait::async_trait]
+impl MetadataRefreshPort for MetadataExecutionStore {
+    async fn load_refresh_snapshot(&self, item_id: MediaItemId) -> Result<MetadataRefreshSnapshot> {
+        MetadataRefreshPort::load_refresh_snapshot(&self.store, item_id).await
+    }
+
+    async fn commit_refresh(&self, commit: MetadataRefreshCommit) -> Result<()> {
+        MetadataRefreshPort::commit_refresh(&self.store, commit).await
+    }
+}
+
+#[async_trait::async_trait]
+impl MetadataAttemptPort for MetadataExecutionStore {
+    async fn record_metadata_attempt(
+        &self,
+        attempt: nako_core::NewMetadataProviderAttempt,
+    ) -> Result<()> {
+        MetadataAttemptPort::record_metadata_attempt(&self.store, attempt).await
+    }
+}
+
 impl MetadataAppService {
     pub(super) fn new(
         config: NakoServerConfig,
@@ -230,10 +303,12 @@ impl MetadataAppService {
         providers: MetadataProviderRegistry,
         runtime: RuntimeSupervisor,
     ) -> Self {
+        let workflow_store = Arc::new(store.clone());
+        let execution_store = MetadataExecutionStore::new(store);
         Self {
             config,
-            store: store.clone(),
-            workflow_store: Arc::new(store),
+            workflow_store,
+            execution_store,
             permits,
             providers,
             runtime,
@@ -528,7 +603,7 @@ impl MetadataAppService {
                 })?;
         let _permit = permit;
 
-        let runtime = DurableJobRuntime::new(self.store.clone());
+        let runtime = DurableJobRuntime::new(self.execution_store.clone());
         let run = runtime
             .run_job(
                 job_id,
@@ -564,7 +639,7 @@ impl MetadataAppService {
                 })?;
         let _permit = permit;
 
-        let runtime = DurableJobRuntime::new(self.store.clone());
+        let runtime = DurableJobRuntime::new(self.execution_store.clone());
         let run = runtime
             .run_job_with_context(
                 job_id,
@@ -712,7 +787,7 @@ impl MetadataAppService {
         force: bool,
     ) -> Result<MetadataRefreshSummary> {
         let registry = self.metadata_provider_registry();
-        let executor = MetadataStrategyExecutor::new(registry, self.store.clone());
+        let executor = MetadataStrategyExecutor::new(registry, self.execution_store.clone());
 
         executor
             .refresh_item(MetadataRefreshRequest {
