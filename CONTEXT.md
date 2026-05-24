@@ -22,6 +22,16 @@ _Avoid_: Nako server version
 The implementation or package version of an **Addon Sidecar**.
 _Avoid_: Addon Protocol Version, Nako release version
 
+**Addon Package**:
+A distribution artifact such as a binary, container image, archive, or package
+manager entry that contains one or more **Addons** or **Addon Sidecars**.
+_Avoid_: Addon, Addon Protocol
+
+**Addon Suite**:
+An **Addon Package** that intentionally groups related **Addons** for operator
+convenience while preserving per-Addon manifests, grants, tasks, and events.
+_Avoid_: One global addon, coarse permission bundle
+
 **Addon Sidecar**:
 An independently running process or service that implements the **Addon Protocol**.
 _Avoid_: In-process plugin
@@ -409,6 +419,12 @@ _Avoid_: Addon callback
 - An **Addon** runs as an **Addon Sidecar** in the first implementation phase.
 - An **Addon Sidecar** may call Nako APIs with an **Addon Token**.
 - An **Addon** declares one or more **Addon Resources**.
+- An **Addon Package** is a deployment or distribution unit, not the permission
+  unit.
+- An **Addon Suite** may expose multiple **Addons** from one deployed package or
+  sidecar process.
+- Nako should preserve fine-grained **Addon** grants even when operators deploy
+  a coarse-grained **Addon Suite**.
 - An **Addon** may declare **Addon Entry Points** for settings, tasks, item actions, admin actions, or diagnostics.
 - An **Addon Entry Point** may link to an **Addon Hosted Page** for advanced workflows.
 - An **Addon** may declare an **Addon Configuration Schema**.
@@ -519,6 +535,9 @@ _Avoid_: Addon callback
 >
 > **Dev:** "Does Nako install and launch addons itself?"
 > **Domain expert:** "Not in the first phase. An **Addon** is an **Addon Sidecar** registered through the **Addon Protocol**; an **Addon Manager** can come later."
+>
+> **Dev:** "If official addons grow, does each feature need its own Docker Compose service?"
+> **Domain expert:** "No. Use an **Addon Suite** when the capabilities share a trust and lifecycle profile. Nako still grants and audits each **Addon** separately."
 >
 > **Dev:** "Should Nako control Docker to install addons?"
 > **Domain expert:** "Not first. Prefer **Addon Install Guide** output and **Addon Health Check** over Nako-managed container lifecycle."
@@ -669,6 +688,10 @@ _Avoid_: Addon callback
 - Addon-hosted settings or diagnostics use **Addon Hosted Pages** and must not receive Nako admin credentials.
 - Addon installation and automatic lifecycle management belong to a future **Addon Manager**, not the first **Addon Protocol** slice.
 - The first **Addon Manager** should not require Docker socket or process-supervision authority.
+- **Addon Package** and **Addon Suite** describe distribution shape, while
+  **Addon** remains the permission, manifest, task, event, and audit unit.
+- Official addon deployment should prefer fine-grained permissions with
+  coarse-grained deployment when capabilities share trust and lifecycle.
 - Addon-initiated writes use an **Addon Token** and Nako APIs, not direct database or filesystem mutation.
 - Addon authentication starts with revocable long-lived tokens and explicit rotation, not OAuth.
 - Addon event automation uses **Addon Event Subscriptions**, not database polling or hidden API polling loops.

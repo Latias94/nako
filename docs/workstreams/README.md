@@ -6,6 +6,12 @@ attention.
 
 ## Current Workstreams
 
+- [addon-ecosystem-foundation](addon-ecosystem-foundation/README.md):
+  active architecture lane for Addon Package / Addon Suite deployment, Addon
+  Task fingerprinting, official catalog drift prevention, Addon Event
+  Delivery, and the first event-driven official addon proof before broader
+  notification, watch-state sync, MCP, Arr-stack, DLNA, WebDAV, UPnP, and
+  network-tunnel breadth.
 - [official-addon-e2e-alpha2](official-addon-e2e-alpha2/README.md):
   completed alpha2 lane for proving Nako `v0.1.0-alpha.1`, the public Addon
   Protocol crates, the GHCR server image, and

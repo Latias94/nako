@@ -26,7 +26,53 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal is currently set.
+### Addon Ecosystem Foundation
+
+Status: active.
+
+Objective:
+
+- Record and execute the next Addon ecosystem deepening wave.
+- Keep fine-grained Addon manifests, grants, tasks, and event delivery while
+  allowing coarse-grained Addon Package and Addon Suite deployment.
+- Harden Addon Task idempotency, official catalog drift prevention, Addon Event
+  Delivery, and the first official event-driven addon proof before broad
+  notification, watch-state sync, MCP, Arr-stack, DLNA, WebDAV, UPnP, or
+  network-tunnel breadth lands.
+
+Deliverables:
+
+- `docs/adr/0034-package-addon-capabilities-into-sidecar-suites.md`
+- `docs/workstreams/addon-ecosystem-foundation/`
+- Addon Task request fingerprinting
+- official addon catalog/descriptor drift prevention
+- Addon Event Delivery runtime
+- first event-driven official addon proof
+
+Non-goals:
+
+- no Native Plugin ABI;
+- no Jellyfin Plugin Compatibility;
+- no Nako-owned Docker socket, systemd, Kubernetes, SSH, or host-agent
+  supervision in this goal;
+- no built-in NAT traversal runtime in Nako core;
+- no direct AI mutation of canonical state;
+- no direct addon database or raw library-path writes.
+
+Exit criteria:
+
+- AEF-010 through AEF-060 are complete or split into explicit follow-on lanes.
+- The Addon Package / Addon Suite decision is recorded in ADR and workstream
+  docs.
+- Task, catalog, and event delivery seams are implemented or verified with
+  focused tests.
+- Final evidence and handoff notes are recorded.
+
+Evidence:
+
+- `docs/adr/0034-package-addon-capabilities-into-sidecar-suites.md`
+- `docs/workstreams/addon-ecosystem-foundation/`
+- focused Cargo nextest gates and official addon manifest tests
 
 ## Completed Goals
 

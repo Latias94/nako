@@ -11,7 +11,22 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: no active architecture focus is currently set.
+Status: active.
+
+Active architecture focus:
+
+Addon Ecosystem Foundation is the current architecture focus. It deepens the
+Addon ecosystem before broader official addon breadth lands:
+
+- Addon Package and Addon Suite deployment shape;
+- Addon Task request fingerprinting;
+- official addon catalog and descriptor drift prevention;
+- Addon Event Delivery runtime;
+- first event-driven official addon proof.
+
+Authoritative lane:
+
+- `docs/workstreams/addon-ecosystem-foundation/`
 
 Latest completed architecture focus:
 
