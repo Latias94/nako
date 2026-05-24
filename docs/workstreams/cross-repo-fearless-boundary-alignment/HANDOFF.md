@@ -23,9 +23,12 @@ lookup, media lookup, library-item-state validation, and acceptance commit
 through a dedicated `ArtworkAcceptanceWorkflowStore` while leaving the rest of
 the managed-artwork operations on the existing store. It now also routes
 publish/select/unpublish through a dedicated `ArtworkSelectionWorkflowStore`
-while keeping gallery and ingest processing on the existing broad store.
-CRFBA-050 and CRFBA-060 have now landed in `../nako-official-addons` with
-focused module splits and passing package tests.
+while keeping gallery and ingest processing on the existing broad store. It
+now also routes ingest claim/requeue/commit/fail through a dedicated
+`ArtworkIngestWorkflowStore` while leaving gallery, artifact lifecycle, and
+cleanup diagnostics on the remaining narrow read/store seam. CRFBA-050 and
+CRFBA-060 have now landed in `../nako-official-addons` with focused module
+splits and passing package tests.
 
 Initial review found:
 
@@ -46,8 +49,8 @@ Initial review found:
 - Task ID: CRFBA-040
 - Owner: codex
 - Files: `crates/nako-server/src/app/artwork.rs`, `docs/workstreams/cross-repo-fearless-boundary-alignment`
-- Validation: focused artwork acceptance and selection nextest, `cargo fmt
-  --all -- --check`, and path-scoped `git diff --check` pass.
+- Validation: focused artwork acceptance, selection, and ingest nextest,
+  `cargo fmt --all -- --check`, and path-scoped `git diff --check` pass.
 - Status: IN_PROGRESS
 - Review: pending after the next workflow-port slice.
 - Evidence: `DESIGN.md`, `TODO.md`, `MILESTONES.md`, `EVIDENCE_AND_GATES.md`.
@@ -111,6 +114,10 @@ format, stage, or commit them unless the user explicitly asks.
   a dedicated artwork selection workflow store for publish, select, and
   unpublish operations while keeping gallery and ingest processing on the
   existing broad store.
+- `CRFBA-040` now also narrows `crates/nako-server/src/app/artwork.rs` behind
+  a dedicated artwork ingest workflow store for claim, requeue, commit, and
+  fail operations while leaving the remaining lifecycle and cleanup reads on
+  the narrower lifecycle store.
 - `CRFBA-050` split `MetadataScrapeRuntime` into `query`, `orchestration`,
   `response`, `runtime`, `writeback`, and `bulk` modules with unchanged public
   payloads.

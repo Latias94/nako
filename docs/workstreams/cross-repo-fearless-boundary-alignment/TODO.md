@@ -89,7 +89,9 @@ Task IDs use the `CRFBA` prefix.
   dedicated `ArtworkAcceptanceWorkflowStore` instead of calling the broad
   `NakoDatabase` facade directly. It also now routes publish/select/unpublish
   through a dedicated `ArtworkSelectionWorkflowStore` instead of calling the
-  broad store directly for selection writes.
+  broad store directly for selection writes. It also routes ingest
+  claim/requeue/commit/fail through a dedicated `ArtworkIngestWorkflowStore`
+  instead of calling the broad store directly for ingest writes.
   Validation: focused tests for one accepted metadata or artwork path; docs
   updated if public semantics change.
   Review: Providers and Addons must produce evidence-backed candidates, not

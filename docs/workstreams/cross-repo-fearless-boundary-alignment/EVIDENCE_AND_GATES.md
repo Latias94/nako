@@ -187,6 +187,13 @@ Use `verify-rust-workstream` before marking this lane complete.
   --no-fail-fast` both passed after narrowing `crates/nako-server/src/app/artwork.rs`
   publish/select/unpublish operations behind `ArtworkSelectionWorkflowStore`.
   `cargo fmt --all -- --check` also passed.
+- 2026-05-24 CRFBA-040 follow-up: `cargo nextest run -p nako-server
+  admin_process_next_managed_artwork_ingest --no-fail-fast` passed 3 ingest
+  tests, and `cargo nextest run -p nako-server
+  admin_managed_artwork_ingest_requeue --no-fail-fast` passed 1 requeue test
+  after narrowing `crates/nako-server/src/app/artwork.rs` claim/requeue/commit/
+  fail operations behind `ArtworkIngestWorkflowStore`. `cargo fmt --all --
+  --check` also passed.
 
 ## Recent Addon Evidence
 

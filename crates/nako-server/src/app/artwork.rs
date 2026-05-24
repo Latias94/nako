@@ -24,11 +24,14 @@ use nako_api::public_client::page_info_from_request;
 use nako_core::{
     ArtworkCandidateId, ArtworkCandidateRecord, ArtworkCandidateRepository, ArtworkCandidateStatus,
     JobId, JobKind, LibraryItemRepository, LibraryItemState, ManagedArtworkAcceptanceRecord,
-    ManagedArtworkArtifactId, ManagedArtworkArtifactLifecycleFilter,
-    ManagedArtworkIngestClaimRecord, ManagedArtworkIngestId, ManagedArtworkIngestStatus,
-    ManagedArtworkRepository, MediaItem, MediaItemId, MediaRepository, NakoError, NewJob,
+    ManagedArtworkArtifactCleanupReport, ManagedArtworkArtifactId,
+    ManagedArtworkArtifactLifecycleFilter, ManagedArtworkArtifactLifecycleSnapshot,
+    ManagedArtworkArtifactRecord, ManagedArtworkGallerySnapshot, ManagedArtworkIngestClaimRecord,
+    ManagedArtworkIngestId, ManagedArtworkIngestProcessingRecord,
+    ManagedArtworkIngestRequeueRecord, ManagedArtworkIngestStatus, ManagedArtworkRepository,
+    MediaItem, MediaItemId, MediaRepository, NakoError, NewJob, NewManagedArtworkArtifact,
     NewManagedArtworkIngest, PageRequest, Result, SelectedArtworkId,
-    SelectedArtworkPublicationRecord, SelectedArtworkUnpublicationRecord,
+    SelectedArtworkPublicationRecord, SelectedArtworkRecord, SelectedArtworkUnpublicationRecord,
 };
 use nako_db::NakoDatabase;
 use serde::Serialize;
@@ -95,6 +98,63 @@ trait ArtworkSelectionWorkflowStore: std::fmt::Debug + Send + Sync {
         item_id: MediaItemId,
         kind: nako_core::ImageKind,
     ) -> Result<SelectedArtworkUnpublicationRecord>;
+}
+
+#[async_trait]
+trait ArtworkIngestWorkflowStore: std::fmt::Debug + Send + Sync {
+    async fn claim_next_queued_managed_artwork_ingest(
+        &self,
+    ) -> Result<Option<ManagedArtworkIngestClaimRecord>>;
+
+    async fn requeue_managed_artwork_ingest(
+        &self,
+        ingest_id: ManagedArtworkIngestId,
+    ) -> Result<ManagedArtworkIngestRequeueRecord>;
+
+    async fn commit_managed_artwork_artifact(
+        &self,
+        ingest_id: ManagedArtworkIngestId,
+        artifact: NewManagedArtworkArtifact,
+        job_summary_json: Option<String>,
+    ) -> Result<ManagedArtworkIngestProcessingRecord>;
+
+    async fn fail_managed_artwork_ingest(
+        &self,
+        ingest_id: ManagedArtworkIngestId,
+        failure_code: String,
+        job_error: String,
+        job_summary_json: Option<String>,
+    ) -> Result<ManagedArtworkIngestProcessingRecord>;
+}
+
+#[async_trait]
+trait ArtworkLifecycleWorkflowStore: std::fmt::Debug + Send + Sync {
+    async fn get_selected_artwork(
+        &self,
+        id: SelectedArtworkId,
+    ) -> Result<Option<SelectedArtworkRecord>>;
+
+    async fn get_managed_artwork_artifact(
+        &self,
+        id: ManagedArtworkArtifactId,
+    ) -> Result<Option<ManagedArtworkArtifactRecord>>;
+
+    async fn get_managed_artwork_gallery_for_item(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<ManagedArtworkGallerySnapshot>;
+
+    async fn list_managed_artwork_artifact_lifecycle(
+        &self,
+        filter: ManagedArtworkArtifactLifecycleFilter,
+        page: PageRequest,
+    ) -> Result<ManagedArtworkArtifactLifecycleSnapshot>;
+
+    async fn cleanup_unselected_managed_artwork_artifacts(
+        &self,
+        page: PageRequest,
+    ) -> Result<ManagedArtworkArtifactCleanupReport>;
 }
 
 #[async_trait]
@@ -184,11 +244,106 @@ where
     }
 }
 
+#[async_trait]
+impl<T> ArtworkIngestWorkflowStore for T
+where
+    T: ManagedArtworkRepository + std::fmt::Debug + Send + Sync,
+{
+    async fn claim_next_queued_managed_artwork_ingest(
+        &self,
+    ) -> Result<Option<ManagedArtworkIngestClaimRecord>> {
+        ManagedArtworkRepository::claim_next_queued_managed_artwork_ingest(self).await
+    }
+
+    async fn requeue_managed_artwork_ingest(
+        &self,
+        ingest_id: ManagedArtworkIngestId,
+    ) -> Result<ManagedArtworkIngestRequeueRecord> {
+        ManagedArtworkRepository::requeue_managed_artwork_ingest(self, ingest_id).await
+    }
+
+    async fn commit_managed_artwork_artifact(
+        &self,
+        ingest_id: ManagedArtworkIngestId,
+        artifact: NewManagedArtworkArtifact,
+        job_summary_json: Option<String>,
+    ) -> Result<ManagedArtworkIngestProcessingRecord> {
+        ManagedArtworkRepository::commit_managed_artwork_artifact(
+            self,
+            ingest_id,
+            artifact,
+            job_summary_json,
+        )
+        .await
+    }
+
+    async fn fail_managed_artwork_ingest(
+        &self,
+        ingest_id: ManagedArtworkIngestId,
+        failure_code: String,
+        job_error: String,
+        job_summary_json: Option<String>,
+    ) -> Result<ManagedArtworkIngestProcessingRecord> {
+        ManagedArtworkRepository::fail_managed_artwork_ingest(
+            self,
+            ingest_id,
+            failure_code,
+            job_error,
+            job_summary_json,
+        )
+        .await
+    }
+}
+
+#[async_trait]
+impl<T> ArtworkLifecycleWorkflowStore for T
+where
+    T: ManagedArtworkRepository + std::fmt::Debug + Send + Sync,
+{
+    async fn get_selected_artwork(
+        &self,
+        id: SelectedArtworkId,
+    ) -> Result<Option<SelectedArtworkRecord>> {
+        ManagedArtworkRepository::get_selected_artwork(self, id).await
+    }
+
+    async fn get_managed_artwork_artifact(
+        &self,
+        id: ManagedArtworkArtifactId,
+    ) -> Result<Option<ManagedArtworkArtifactRecord>> {
+        ManagedArtworkRepository::get_managed_artwork_artifact(self, id).await
+    }
+
+    async fn get_managed_artwork_gallery_for_item(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<ManagedArtworkGallerySnapshot> {
+        ManagedArtworkRepository::get_managed_artwork_gallery_for_item(self, item_id, page).await
+    }
+
+    async fn list_managed_artwork_artifact_lifecycle(
+        &self,
+        filter: ManagedArtworkArtifactLifecycleFilter,
+        page: PageRequest,
+    ) -> Result<ManagedArtworkArtifactLifecycleSnapshot> {
+        ManagedArtworkRepository::list_managed_artwork_artifact_lifecycle(self, filter, page).await
+    }
+
+    async fn cleanup_unselected_managed_artwork_artifacts(
+        &self,
+        page: PageRequest,
+    ) -> Result<ManagedArtworkArtifactCleanupReport> {
+        ManagedArtworkRepository::cleanup_unselected_managed_artwork_artifacts(self, page).await
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct ManagedArtworkAppService {
-    store: NakoDatabase,
     acceptance_store: Arc<dyn ArtworkAcceptanceWorkflowStore>,
     selection_store: Arc<dyn ArtworkSelectionWorkflowStore>,
+    ingest_store: Arc<dyn ArtworkIngestWorkflowStore>,
+    lifecycle_store: Arc<dyn ArtworkLifecycleWorkflowStore>,
     ingest_pipeline: ManagedArtworkIngestPipeline,
     artifact_store: LocalManagedArtworkArtifactStore,
     variant_policy: ImageVariantPolicy,
@@ -199,10 +354,13 @@ impl ManagedArtworkAppService {
     pub(crate) fn new(config: ArtworkConfig, store: NakoDatabase) -> Result<Self> {
         let acceptance_store = Arc::new(store.clone());
         let selection_store = Arc::new(store.clone());
+        let ingest_store = Arc::new(store.clone());
+        let lifecycle_store = Arc::new(store);
         Ok(Self {
-            store,
             acceptance_store,
             selection_store,
+            ingest_store,
+            lifecycle_store,
             ingest_pipeline: ManagedArtworkIngestPipeline::new(config.clone())?,
             variant_policy: ImageVariantPolicy::new(config.max_width, config.max_height),
             artifact_store: LocalManagedArtworkArtifactStore::new(config.artifact_root),
@@ -342,7 +500,10 @@ impl ManagedArtworkAppService {
         &self,
         ingest_id: ManagedArtworkIngestId,
     ) -> Result<RequeueManagedArtworkIngestResponse> {
-        let requeue = self.store.requeue_managed_artwork_ingest(ingest_id).await?;
+        let requeue = self
+            .ingest_store
+            .requeue_managed_artwork_ingest(ingest_id)
+            .await?;
         Ok(RequeueManagedArtworkIngestResponse::from_requeue(requeue))
     }
 
@@ -407,14 +568,15 @@ impl ManagedArtworkAppService {
         item_id: MediaItemId,
         page: PageRequest,
     ) -> Result<AdminManagedArtworkGalleryResponse> {
-        nako_core::MediaRepository::get_media_item(&self.store, item_id)
+        self.selection_store
+            .get_media_item(item_id)
             .await?
             .ok_or_else(|| NakoError::NotFound {
                 entity: "media_item",
                 id: item_id.to_string(),
             })?;
         let snapshot = self
-            .store
+            .lifecycle_store
             .get_managed_artwork_gallery_for_item(item_id, page)
             .await?;
         let returned = snapshot.candidates.len().max(snapshot.artifacts.len());
@@ -431,7 +593,7 @@ impl ManagedArtworkAppService {
         page: PageRequest,
     ) -> Result<AdminManagedArtworkArtifactLifecycleResponse> {
         let snapshot = self
-            .store
+            .lifecycle_store
             .list_managed_artwork_artifact_lifecycle(filter, page)
             .await?;
         let returned = snapshot.artifacts.len();
@@ -447,7 +609,7 @@ impl ManagedArtworkAppService {
         page: PageRequest,
     ) -> Result<AdminManagedArtworkArtifactCleanupResponse> {
         let report = self
-            .store
+            .lifecycle_store
             .cleanup_unselected_managed_artwork_artifacts(page)
             .await?;
         let mut file_cleanup = AdminManagedArtworkArtifactFileCleanupSummary::default();
@@ -485,7 +647,7 @@ impl ManagedArtworkAppService {
     ) -> Result<AdminManagedArtworkArtifactStorageDriftResponse> {
         let page = page.clamped();
         let snapshot = self
-            .store
+            .lifecycle_store
             .list_managed_artwork_artifact_lifecycle(
                 ManagedArtworkArtifactLifecycleFilter::All,
                 page,
@@ -669,7 +831,7 @@ impl ManagedArtworkAppService {
                 continue;
             };
             if self
-                .store
+                .lifecycle_store
                 .get_managed_artwork_artifact(artifact_id)
                 .await?
                 .is_some()
@@ -738,7 +900,7 @@ impl ManagedArtworkAppService {
                 ..
             } => {
                 let Some(artifact) = self
-                    .store
+                    .lifecycle_store
                     .get_managed_artwork_artifact(*artifact_id)
                     .await?
                 else {
@@ -775,7 +937,7 @@ impl ManagedArtworkAppService {
         let variant = self.variant_policy.validate(variant)?;
 
         let selected = self
-            .store
+            .lifecycle_store
             .get_selected_artwork(selected_id)
             .await?
             .ok_or_else(|| NakoError::NotFound {
@@ -783,7 +945,7 @@ impl ManagedArtworkAppService {
                 id: selected_id.to_string(),
             })?;
         let artifact = self
-            .store
+            .lifecycle_store
             .get_managed_artwork_artifact(selected.artifact_id)
             .await?
             .ok_or_else(|| NakoError::Database {
@@ -815,7 +977,7 @@ impl ManagedArtworkAppService {
             .prepare_artifact(&claim, &self.artifact_store)
             .await?;
         let result = self
-            .store
+            .ingest_store
             .commit_managed_artwork_artifact(
                 claim.ingest.id,
                 prepared.artifact,
@@ -838,7 +1000,7 @@ impl ManagedArtworkAppService {
         &self,
     ) -> Result<Option<nako_core::ManagedArtworkIngestProcessingRecord>> {
         let Some(claim) = self
-            .store
+            .ingest_store
             .claim_next_queued_managed_artwork_ingest()
             .await?
         else {
@@ -859,7 +1021,7 @@ impl ManagedArtworkAppService {
             Err(failure) => {
                 let (failure_code, summary_json) =
                     ManagedArtworkIngestPipeline::failure_summary_json(failure, &claim);
-                self.store
+                self.ingest_store
                     .fail_managed_artwork_ingest(
                         claim.ingest.id,
                         failure_code.clone(),
