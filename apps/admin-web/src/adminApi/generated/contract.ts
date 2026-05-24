@@ -6,12 +6,16 @@ export const NAKO_ADMIN_API_VERSION = "v1" as const;
 export const NAKO_ADMIN_ROUTES = {
   overview: "/admin/v1/overview",
   addons: "/admin/v1/addons",
+  addonCatalogSources: "/admin/v1/addons/catalog/sources",
+  addonCatalogEntries: "/admin/v1/addons/catalog/entries",
+  addonCatalogResolve: "/admin/v1/addons/catalog/entries/{entry_id}/resolve",
   addonDetail: "/admin/v1/addons/:addon_id",
   addonStatus: "/admin/v1/addons/:addon_id/status",
   addonUnregister: "/admin/v1/addons/:addon_id/unregister",
   addonHealthCheck: "/admin/v1/addons/:addon_id/health-check",
   addonSurfaces: "/admin/v1/addons/:addon_id/surfaces",
   addonInstallGuide: "/admin/v1/addons/:addon_id/install-guide",
+  addonManagerPlan: "/admin/v1/addons/:addon_id/manager-plan",
   addonResourceCallDiagnostic: "/admin/v1/addons/:addon_id/diagnostics/resource-call",
   acquisitionIntakeCandidates: "/admin/v1/acquisition/intake/candidates",
   acquisitionIntakeWatchFolderDiscovery: "/admin/v1/acquisition/intake/watch-folder-discovery",
@@ -158,6 +162,7 @@ export interface AdminAddonsQuery {
 export interface RegisterAddonRequest {
   id?: string;
   manifest: AdminAddonManifest;
+  outbound_task_dispatch_secret_env?: string;
   granted_scopes?: AddonScope[];
   status?: AddonStatus;
 }
@@ -245,6 +250,7 @@ export interface AdminAddonRegistrationSummary {
   version: string;
   protocol_version: string;
   base_url: string;
+  outbound_task_dispatch_secret_env?: string;
   granted_scopes: string[];
   status: AddonStatus;
   created_at: string;
@@ -260,12 +266,131 @@ export interface AdminAddonRegistrationResponse {
   addon: AdminAddonRegistrationDetail;
 }
 
+export type AdminAddonLifecycleIntent = "install" | "update" | "remove";
+
+export interface AdminAddonManagerPlanRequest {
+  intent: AdminAddonLifecycleIntent;
+  operator_confirmed: boolean;
+}
+
 export interface AdminAddonRegistrationsResponse {
   addons: AdminAddonRegistrationSummary[];
 }
 
 export interface UpdateAddonStatusRequest {
   status: AddonStatus;
+}
+
+export type AddonRuntimeKind = "http_sidecar";
+
+export interface AdminAddonRuntimeRequirement {
+  kind: AddonRuntimeKind;
+  image?: string;
+  binary?: string;
+  command?: string;
+}
+
+export interface AdminAddonSecretReferenceBinding {
+  field_id: string;
+  secret_ref: string;
+}
+
+export interface AdminAddonInstallDescriptor {
+  manifest: AdminAddonManifest;
+  runtime: AdminAddonRuntimeRequirement;
+  secret_reference_bindings?: AdminAddonSecretReferenceBinding[];
+  install_notes?: string[];
+}
+
+export type AdminAddonRuntimeReferenceKind = "image" | "binary" | "command";
+
+export interface AdminAddonRuntimeReference {
+  kind: AdminAddonRuntimeReferenceKind;
+  value: string;
+}
+
+export type AdminAddonInstallStepKind =
+  | "run_sidecar"
+  | "configure_secret_reference"
+  | "register_manifest"
+  | "grant_scopes";
+
+export interface AdminAddonProtocolInstallSecretField {
+  id: string;
+  label: string;
+  required: boolean;
+  provided: boolean;
+}
+
+export interface AdminAddonProtocolInstallStep {
+  kind: AdminAddonInstallStepKind;
+  summary: string;
+}
+
+export interface AdminAddonProtocolInstallGuide {
+  manifest_id: string;
+  addon_name: string;
+  protocol_version: string;
+  runtime_kind: AddonRuntimeKind;
+  runtime_reference: AdminAddonRuntimeReference;
+  base_url_scheme: string;
+  base_url_configured: boolean;
+  declared_resources: AddonResource[];
+  declared_scopes: AddonScope[];
+  required_secret_fields: AdminAddonProtocolInstallSecretField[];
+  provided_secret_refs: string[];
+  missing_required_secret_fields: string[];
+  has_configuration_schema: boolean;
+  entry_point_count: number;
+  hosted_page_count: number;
+  task_count: number;
+  event_subscription_count: number;
+  install_steps: AdminAddonProtocolInstallStep[];
+}
+
+export type AdminAddonSourceCatalogSourceKind = "builtin_official";
+
+export interface AdminAddonSourceCatalogSource {
+  id: string;
+  name: string;
+  description?: string;
+  kind: AdminAddonSourceCatalogSourceKind;
+  entry_count: number;
+  provides_package_signing: boolean;
+  provides_process_supervision: boolean;
+  provides_provider_breadth: boolean;
+}
+
+export interface AdminAddonSourceCatalogSourcesResponse {
+  sources: AdminAddonSourceCatalogSource[];
+}
+
+export interface AdminAddonSourceCatalogEntry {
+  source_id: string;
+  entry_id: string;
+  manifest_id: string;
+  addon_name: string;
+  addon_version: string;
+  protocol_version: string;
+  description?: string;
+  runtime_kind: AddonRuntimeKind;
+  resources: AddonResource[];
+  scopes: AddonScope[];
+  tasks: string[];
+  package_signing_verified: boolean;
+  lifecycle_boundary: AdminAddonInstallGuideLifecycleBoundary;
+}
+
+export interface AdminAddonSourceCatalogEntriesResponse {
+  source_id: string;
+  entries: AdminAddonSourceCatalogEntry[];
+}
+
+export interface AdminAddonSourceCatalogResolveResponse {
+  source_id: string;
+  entry: AdminAddonSourceCatalogEntry;
+  descriptor: AdminAddonInstallDescriptor;
+  install_guide: AdminAddonProtocolInstallGuide;
 }
 
 export interface AdminAddonHealthCheckResponse {
@@ -368,6 +493,17 @@ export interface AdminAddonInstallGuideResponse {
   health_check_steps: AdminAddonInstallGuideStep[];
   registration_verification_steps: AdminAddonInstallGuideStep[];
   lifecycle_boundary: AdminAddonInstallGuideLifecycleBoundary;
+}
+
+export interface AdminAddonManagerPlanResponse {
+  addon_id: string;
+  intent?: AdminAddonLifecycleIntent;
+  operator_confirmed: boolean;
+  source: AdminAddonRegistrationDetail;
+  health_check: AdminAddonHealthCheckResponse;
+  tokens: AddonTokensResponse;
+  grants: AddonGrantsResponse;
+  install_guide: AdminAddonInstallGuideResponse;
 }
 
 export interface AdminAddonInstallGuideSnippet {

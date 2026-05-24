@@ -207,6 +207,7 @@ export interface AdminAddonsQuery {
 export interface RegisterAddonRequest {
   id?: string;
   manifest: AdminAddonManifest;
+  outbound_task_dispatch_secret_env?: string;
   granted_scopes?: AddonScope[];
   status?: AddonStatus;
 }
@@ -294,6 +295,7 @@ export interface AdminAddonRegistrationSummary {
   version: string;
   protocol_version: string;
   base_url: string;
+  outbound_task_dispatch_secret_env?: string;
   granted_scopes: string[];
   status: AddonStatus;
   created_at: string;

@@ -242,11 +242,11 @@ async fn task_path_addon_server_with_gate(
     (format!("http://{addr}"), requests)
 }
 
-fn task_path_manifest(base_url: String) -> AddonManifest {
+fn task_path_manifest_with_auth(base_url: String, auth: AddonAuth) -> AddonManifest {
     let mut manifest = addon_manifest();
     manifest.id = "example.task-dispatch".to_owned();
     manifest.base_url = base_url;
-    manifest.auth = AddonAuth::None;
+    manifest.auth = auth;
     manifest.tasks = vec![
         AddonTaskDeclaration::new(
             "bulk-task",
@@ -261,13 +261,23 @@ fn task_path_manifest(base_url: String) -> AddonManifest {
 }
 
 async fn register_task_path_addon(router: &Router, base_url: String) -> AddonId {
+    register_task_path_addon_with_auth(router, base_url, AddonAuth::None, None).await
+}
+
+async fn register_task_path_addon_with_auth(
+    router: &Router,
+    base_url: String,
+    auth: AddonAuth,
+    outbound_task_dispatch_secret_env: Option<String>,
+) -> AddonId {
     let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
         router,
         Method::POST,
         "/admin/v1/addons",
         &RegisterAddonRequest {
             id: None,
-            manifest: task_path_manifest(base_url),
+            manifest: task_path_manifest_with_auth(base_url, auth),
+            outbound_task_dispatch_secret_env,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -400,6 +410,7 @@ pub(super) async fn propose_and_accept_remote_artwork(
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -478,6 +489,7 @@ async fn register_artwork_addon(router: &Router, library_id: LibraryId) -> Strin
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -573,6 +585,7 @@ async fn register_addon_routes_disabled_by_default_and_validate_contract() {
         RegisterAddonRequest {
             id: None,
             manifest: manifest.clone(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -590,6 +603,7 @@ async fn register_addon_routes_disabled_by_default_and_validate_contract() {
         &RegisterAddonRequest {
             id: None,
             manifest: manifest.clone(),
+            outbound_task_dispatch_secret_env: Some("NAKO_ADDON_DISPATCH_SECRET".to_owned()),
             granted_scopes: vec![
                 AddonScope::ItemMetadataSuggest,
                 AddonScope::ItemMetadataRead,
@@ -601,6 +615,14 @@ async fn register_addon_routes_disabled_by_default_and_validate_contract() {
 
     assert_eq!(response.addon.summary.manifest_id, manifest.id);
     assert_eq!(response.addon.summary.status, AddonStatus::Disabled);
+    assert_eq!(
+        response
+            .addon
+            .summary
+            .outbound_task_dispatch_secret_env
+            .as_deref(),
+        Some("NAKO_ADDON_DISPATCH_SECRET")
+    );
     assert_eq!(
         response.addon.summary.granted_scopes,
         vec!["item_metadata_suggest", "item_metadata_read"]
@@ -648,6 +670,7 @@ async fn register_addon_routes_disabled_by_default_and_validate_contract() {
         RegisterAddonRequest {
             id: None,
             manifest: invalid_manifest,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -668,6 +691,7 @@ async fn register_addon_routes_disabled_by_default_and_validate_contract() {
         RegisterAddonRequest {
             id: None,
             manifest: unsupported_protocol,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -696,6 +720,7 @@ async fn register_addon_routes_disabled_by_default_and_validate_contract() {
                 manifest.id = "example.metadata.disabled-without-grants".to_owned();
                 manifest
             },
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![],
             status: Some(AddonStatus::Disabled),
         },
@@ -718,6 +743,7 @@ async fn register_addon_routes_disabled_by_default_and_validate_contract() {
         RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![AddonScope::ItemMetadataRead],
             status: Some(AddonStatus::Enabled),
         },
@@ -1002,6 +1028,7 @@ async fn admin_addon_status_patch_enables_and_disables_runtime_access() {
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataSuggest,
                 AddonScope::ItemMetadataRead,
@@ -1127,6 +1154,7 @@ async fn admin_addon_unregister_revokes_tokens_clears_grants_and_preserves_audit
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataSuggest,
                 AddonScope::ItemMetadataRead,
@@ -1228,6 +1256,7 @@ async fn admin_addon_unregister_revokes_tokens_clears_grants_and_preserves_audit
         &RegisterAddonRequest {
             id: None,
             manifest: registered.addon.manifest.clone(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataSuggest,
                 AddonScope::ItemMetadataRead,
@@ -1252,6 +1281,7 @@ async fn admin_addon_unregister_revokes_tokens_clears_grants_and_preserves_audit
         &RegisterAddonRequest {
             id: Some(nako_core::AddonId::new()),
             manifest: registered.addon.manifest.clone(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataSuggest,
                 AddonScope::ItemMetadataRead,
@@ -1322,6 +1352,7 @@ async fn register_addon_routes_accept_manifest_declarations_and_reject_invalid_o
         &RegisterAddonRequest {
             id: None,
             manifest: manifest.clone(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: manifest.scopes.clone(),
             status: Some(AddonStatus::Enabled),
         },
@@ -1347,6 +1378,7 @@ async fn register_addon_routes_accept_manifest_declarations_and_reject_invalid_o
         RegisterAddonRequest {
             id: None,
             manifest: invalid_manifest,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: manifest.scopes,
             status: Some(AddonStatus::Enabled),
         },
@@ -1381,6 +1413,7 @@ async fn reference_addon_registers_queries_and_handles_resource_call() {
         &RegisterAddonRequest {
             id: None,
             manifest,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -1447,6 +1480,7 @@ async fn admin_addon_health_check_reports_safe_reachability_without_tokens() {
         &RegisterAddonRequest {
             id: None,
             manifest,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -1502,6 +1536,7 @@ async fn admin_addon_health_check_classifies_unreachable_without_raw_error_leak(
         &RegisterAddonRequest {
             id: None,
             manifest,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -1551,6 +1586,7 @@ async fn admin_addon_runtime_readiness_reports_ready_sidecar_without_token_or_pa
         &RegisterAddonRequest {
             id: None,
             manifest,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -1614,6 +1650,7 @@ async fn admin_addon_runtime_readiness_preserves_sidecar_degraded_status() {
         &RegisterAddonRequest {
             id: None,
             manifest,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -1709,6 +1746,7 @@ async fn admin_addon_runtime_readiness_classifies_local_gaps_without_sidecar_cal
             protocol_version: manifest.protocol_version.clone(),
             base_url: manifest.base_url.clone(),
             manifest_json,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![AddonScope::ItemMetadataRead.as_str().to_owned()],
             status: AddonStatus::Enabled,
         })
@@ -1756,6 +1794,7 @@ async fn admin_addon_runtime_readiness_classifies_network_policy_blockers_withou
         &RegisterAddonRequest {
             id: None,
             manifest,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -1812,6 +1851,7 @@ async fn admin_addon_runtime_readiness_classifies_protocol_manifest_and_unsafe_r
         &RegisterAddonRequest {
             id: None,
             manifest: protocol_manifest,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -1862,6 +1902,7 @@ async fn admin_addon_runtime_readiness_classifies_protocol_manifest_and_unsafe_r
         &RegisterAddonRequest {
             id: None,
             manifest,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -1912,6 +1953,7 @@ async fn admin_addon_runtime_readiness_classifies_protocol_manifest_and_unsafe_r
         &RegisterAddonRequest {
             id: None,
             manifest: unsafe_manifest,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -1992,6 +2034,7 @@ async fn admin_addon_surfaces_returns_manifest_declarations_without_launch_secre
         &RegisterAddonRequest {
             id: None,
             manifest,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -2078,6 +2121,7 @@ async fn admin_addon_install_guide_generates_sidecar_snippets_without_lifecycle_
         &RegisterAddonRequest {
             id: None,
             manifest,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -2216,6 +2260,7 @@ async fn admin_addon_manager_plan_combines_registry_permissions_tokens_health_an
         &RegisterAddonRequest {
             id: None,
             manifest,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -2340,6 +2385,7 @@ async fn admin_addon_manager_plan_requires_operator_confirmation_for_lifecycle_i
         &RegisterAddonRequest {
             id: None,
             manifest,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -2452,6 +2498,7 @@ async fn admin_addon_routing_plans_syncs_manifest_declarations_without_hidden_wo
         &RegisterAddonRequest {
             id: None,
             manifest,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -2563,6 +2610,7 @@ async fn admin_addon_routing_plans_defers_missing_grants_and_unsupported_events_
         &RegisterAddonRequest {
             id: None,
             manifest,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -2636,6 +2684,7 @@ async fn admin_addon_routing_plans_defers_disabled_addons_without_runtime_target
         &RegisterAddonRequest {
             id: None,
             manifest,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -2698,6 +2747,7 @@ async fn addon_task_run_runtime_is_host_owned_and_reports_progress_result() {
         &RegisterAddonRequest {
             id: None,
             manifest,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -2877,6 +2927,7 @@ async fn addon_task_run_failure_can_be_retried_until_max_attempts() {
         &RegisterAddonRequest {
             id: None,
             manifest,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -2987,6 +3038,7 @@ async fn addon_task_run_cancellation_is_requested_by_host_and_acknowledged_by_si
         &RegisterAddonRequest {
             id: None,
             manifest,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -3156,6 +3208,170 @@ async fn addon_task_run_direct_dispatch_calls_declared_sidecar_path_and_complete
 }
 
 #[tokio::test]
+async fn addon_task_run_direct_dispatch_sends_bearer_token_from_host_secret_env() {
+    let secret_env = "NAKO_TEST_ADDON_TASK_BEARER_TOKEN";
+    let secret = "nako_bearer_direct_secret";
+    let _secret_guard = crate::app::set_test_outbound_task_dispatch_secret(secret_env, secret);
+    let (_temp, router, source, _store) =
+        router_with_media_source_config("addon-task-direct-bearer.mkv", b"media", |_| {}).await;
+    let (base_url, requests) = task_path_addon_server(vec![StatusCode::OK]).await;
+    let addon_id = register_task_path_addon_with_auth(
+        &router,
+        base_url,
+        AddonAuth::Bearer,
+        Some(secret_env.to_owned()),
+    )
+    .await;
+
+    let created = request_body_json::<AddonTaskRunResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/task-runs"),
+        &CreateAddonTaskRunRequest {
+            declaration_id: "bulk-task".to_owned(),
+            idempotency_key: "direct-bearer:first".to_owned(),
+            dispatch: AddonTaskRunDispatchMode::Direct,
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            payload: serde_json::json!({
+                "mode": "bearer",
+                "secret": "nako_at_should_not_echo"
+            }),
+        },
+    )
+    .await;
+
+    let completed =
+        wait_for_addon_task_status(&router, addon_id, created.run.job_id, JobStatus::Succeeded)
+            .await;
+    assert_eq!(completed.run.status, JobStatus::Succeeded);
+    let captured = requests.lock().await;
+    assert_eq!(captured.len(), 1);
+    assert!(captured[0].headers.iter().any(
+        |(name, value)| name == "authorization" && value == "Bearer nako_bearer_direct_secret"
+    ));
+    assert!(
+        captured[0]
+            .headers
+            .iter()
+            .all(|(name, _)| name != "x-nako-addon-secret")
+    );
+
+    let body = serde_json::to_string(&completed).unwrap();
+    assert!(!body.contains(secret));
+    assert!(!body.contains("nako_at_should_not_echo"));
+}
+
+#[tokio::test]
+async fn addon_task_run_direct_dispatch_sends_shared_secret_from_host_secret_env() {
+    let secret_env = "NAKO_TEST_ADDON_TASK_SHARED_SECRET";
+    let secret = "nako_shared_direct_secret";
+    let _secret_guard = crate::app::set_test_outbound_task_dispatch_secret(secret_env, secret);
+    let (_temp, router, source, _store) =
+        router_with_media_source_config("addon-task-direct-shared-secret.mkv", b"media", |_| {})
+            .await;
+    let (base_url, requests) = task_path_addon_server(vec![StatusCode::OK]).await;
+    let addon_id = register_task_path_addon_with_auth(
+        &router,
+        base_url,
+        AddonAuth::SharedSecret,
+        Some(secret_env.to_owned()),
+    )
+    .await;
+
+    let created = request_body_json::<AddonTaskRunResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/task-runs"),
+        &CreateAddonTaskRunRequest {
+            declaration_id: "bulk-task".to_owned(),
+            idempotency_key: "direct-shared-secret:first".to_owned(),
+            dispatch: AddonTaskRunDispatchMode::Direct,
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            payload: serde_json::json!({
+                "mode": "shared-secret",
+                "secret": "nako_at_should_not_echo"
+            }),
+        },
+    )
+    .await;
+
+    let completed =
+        wait_for_addon_task_status(&router, addon_id, created.run.job_id, JobStatus::Succeeded)
+            .await;
+    assert_eq!(completed.run.status, JobStatus::Succeeded);
+    let captured = requests.lock().await;
+    assert_eq!(captured.len(), 1);
+    assert!(
+        captured[0]
+            .headers
+            .iter()
+            .any(|(name, value)| name == "x-nako-addon-secret" && value == secret)
+    );
+    assert!(
+        captured[0]
+            .headers
+            .iter()
+            .all(|(name, _)| name != "authorization")
+    );
+
+    let body = serde_json::to_string(&completed).unwrap();
+    assert!(!body.contains(secret));
+    assert!(!body.contains("nako_at_should_not_echo"));
+}
+
+#[tokio::test]
+async fn addon_task_run_direct_dispatch_missing_host_secret_env_fails_safely() {
+    let (_temp, router, source, _store) =
+        router_with_media_source_config("addon-task-direct-missing-secret.mkv", b"media", |_| {})
+            .await;
+    let (base_url, requests) = task_path_addon_server(vec![StatusCode::OK]).await;
+    let missing_env = format!(
+        "NAKO_TEST_MISSING_ADDON_TASK_SECRET_{}",
+        JobId::new().to_string().replace('-', "_")
+    );
+    let addon_id = register_task_path_addon_with_auth(
+        &router,
+        base_url,
+        AddonAuth::Bearer,
+        Some(missing_env.clone()),
+    )
+    .await;
+
+    let created = request_body_json::<AddonTaskRunResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/task-runs"),
+        &CreateAddonTaskRunRequest {
+            declaration_id: "bulk-task".to_owned(),
+            idempotency_key: "direct-missing-secret:first".to_owned(),
+            dispatch: AddonTaskRunDispatchMode::Direct,
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            payload: serde_json::json!({
+                "mode": "missing-secret",
+                "secret": "nako_at_should_not_echo"
+            }),
+        },
+    )
+    .await;
+
+    let failed =
+        wait_for_addon_task_status(&router, addon_id, created.run.job_id, JobStatus::Failed).await;
+    assert_eq!(failed.run.status, JobStatus::Failed);
+    assert_eq!(
+        failed.run.safe_error_code.as_deref(),
+        Some("authorization_gap")
+    );
+    assert!(requests.lock().await.is_empty());
+
+    let body = serde_json::to_string(&failed).unwrap();
+    assert!(!body.contains(&missing_env));
+    assert!(!body.contains("nako_at_should_not_echo"));
+}
+
+#[tokio::test]
 async fn addon_task_run_direct_dispatch_failure_can_be_retried_as_direct_dispatch() {
     let (_temp, router, source, _store) =
         router_with_media_source_config("addon-task-direct-retry.mkv", b"media", |_| {}).await;
@@ -3288,6 +3504,7 @@ async fn addon_generated_artifact_handoff_enters_ailo_without_canonical_or_file_
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -3484,6 +3701,7 @@ async fn addon_acquisition_candidate_handoff_enters_dwi_without_managed_import_o
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -3586,6 +3804,7 @@ async fn addon_handoff_rejects_missing_scopes_and_stale_targets_without_records(
         &RegisterAddonRequest {
             id: None,
             manifest: narrow_manifest.clone(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![AddonScope::ItemMetadataRead],
             status: Some(AddonStatus::Disabled),
         },
@@ -3636,6 +3855,7 @@ async fn addon_handoff_rejects_missing_scopes_and_stale_targets_without_records(
         &RegisterAddonRequest {
             id: Some(addon_id),
             manifest: addon_manifest(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -3782,6 +4002,7 @@ async fn admin_addon_resource_call_diagnostic_classifies_safe_success_without_pa
         &RegisterAddonRequest {
             id: None,
             manifest,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -3844,6 +4065,7 @@ async fn admin_addon_resource_call_diagnostic_classifies_safe_failures() {
         &RegisterAddonRequest {
             id: None,
             manifest: auth_gap_manifest,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -3908,6 +4130,7 @@ async fn admin_addon_resource_call_diagnostic_classifies_safe_failures() {
         &RegisterAddonRequest {
             id: None,
             manifest: retryable_manifest,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -3960,6 +4183,7 @@ async fn admin_addon_resource_call_diagnostic_classifies_safe_failures() {
         &RegisterAddonRequest {
             id: None,
             manifest: unsafe_manifest,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -4013,6 +4237,7 @@ async fn admin_addon_resource_call_diagnostic_classifies_safe_failures() {
         &RegisterAddonRequest {
             id: None,
             manifest: protocol_manifest,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -4069,6 +4294,7 @@ async fn addon_admin_routes_issue_rotate_revoke_tokens_and_replace_grants_withou
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -4210,6 +4436,7 @@ async fn addon_runtime_access_check_enforces_token_permission_and_library_scope(
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -4429,6 +4656,7 @@ async fn addon_side_effect_intake_accepts_authorized_metadata_write_without_echo
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -4621,6 +4849,7 @@ async fn addon_side_effect_library_file_write_exports_missing_nfo_without_echoin
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -4773,6 +5002,7 @@ async fn addon_side_effect_library_file_write_replaces_existing_nfo_with_backup_
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -4890,6 +5120,7 @@ async fn addon_side_effect_library_file_write_rejects_raw_payload_and_media_item
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -5012,6 +5243,7 @@ async fn addon_side_effect_artwork_write_proposes_candidate_without_public_artwo
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -5183,6 +5415,7 @@ async fn admin_accept_artwork_candidate_queues_managed_ingest_without_public_art
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -5335,6 +5568,7 @@ async fn admin_process_next_managed_artwork_ingest_stores_internal_artifact_with
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -7225,6 +7459,7 @@ async fn addon_side_effect_artwork_write_rejects_unsafe_payloads_and_media_sourc
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -7479,6 +7714,7 @@ async fn addon_side_effect_metadata_write_scalar_patch_preserves_catalog_graph_s
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -7608,6 +7844,7 @@ async fn addon_side_effect_metadata_write_label_patch_only_replaces_touched_cata
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -7718,6 +7955,7 @@ async fn addon_side_effect_intake_rejects_unauthorized_scope_revoked_token_and_b
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -7859,6 +8097,7 @@ async fn addon_side_effect_metadata_write_records_apply_failure_without_leaking_
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
@@ -7953,6 +8192,7 @@ async fn register_addon_with_admin_token(
         &RegisterAddonRequest {
             id: None,
             manifest: addon_manifest(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,

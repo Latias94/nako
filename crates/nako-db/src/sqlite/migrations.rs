@@ -187,6 +187,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "addon task runs",
         include_str!("../../migrations/0037_addon_task_runs.sql"),
     ),
+    (
+        38,
+        "addon outbound task-dispatch credentials",
+        include_str!("../../migrations/0038_addon_outbound_task_dispatch_credentials.sql"),
+    ),
 ];
 
 #[async_trait::async_trait]

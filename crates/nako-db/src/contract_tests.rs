@@ -2060,6 +2060,7 @@ async fn addon_metadata_write_commit_updates_projection_apply_outcome_and_rolls_
             protocol_version: "2026-05".to_owned(),
             base_url: "http://127.0.0.1:43124".to_owned(),
             manifest_json: r#"{"id":"dev.nako.contract.addon-metadata-write"}"#.to_owned(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec!["metadata.write".to_owned()],
             status: AddonStatus::Enabled,
         })
@@ -2831,6 +2832,7 @@ where
             protocol_version: "2026-05".to_owned(),
             base_url: "http://127.0.0.1:43123".to_owned(),
             manifest_json: r#"{"id":"dev.nako.contract.addon","name":"Contract Addon"}"#.to_owned(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec!["metadata.write".to_owned(), "artwork.write".to_owned()],
             status: AddonStatus::Enabled,
         })
@@ -3084,6 +3086,7 @@ where
             protocol_version: "2026-05".to_owned(),
             base_url: "https://example.test/addon".to_owned(),
             manifest_json: r#"{"id":"dev.nako.contract.routing","version":"0.1.0"}"#.to_owned(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec!["automation_run".to_owned(), "webhook_event_read".to_owned()],
             status: AddonStatus::Enabled,
         })
@@ -3406,6 +3409,7 @@ where
             protocol_version: "0.1.0-alpha.1".to_owned(),
             base_url: "https://example.test/addon".to_owned(),
             manifest_json: r#"{"id":"dev.nako.contract.managed-artwork"}"#.to_owned(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec!["artwork_write".to_owned()],
             status: AddonStatus::Enabled,
         })

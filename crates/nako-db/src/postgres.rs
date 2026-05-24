@@ -69,6 +69,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "addon task runs",
         include_str!("../migrations/postgres/0009_addon_task_runs.sql"),
     ),
+    (
+        10,
+        "addon outbound task-dispatch credentials",
+        include_str!("../migrations/postgres/0010_addon_outbound_task_dispatch_credentials.sql"),
+    ),
 ];
 
 #[derive(Clone, Debug)]

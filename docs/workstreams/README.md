@@ -64,6 +64,11 @@ attention.
   progress, results, cancellation, and retry without collapsing source catalog,
   package signing, provider breadth, or process supervision into the first
   slice.
+- [addon-outbound-task-dispatch-credentials](addon-outbound-task-dispatch-credentials/README.md):
+  active follow-on lane for authenticated outbound task-dispatch credential
+  storage and resolution for `AddonAuth::Bearer` and
+  `AddonAuth::SharedSecret`, keeping direct task dispatch host-owned and
+  redaction-safe.
 - [ai-assisted-library-ops](ai-assisted-library-ops/README.md):
   completed post-RPD mainline lane for Generated Artifact proposal/readiness,
   Admin-only redacted diagnostics, and explicit accept/reject planning for

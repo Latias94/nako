@@ -32,6 +32,8 @@ mod webhooks;
 
 use acquisition_intake::AcquisitionIntakeAppService;
 use addons::AddonAppService;
+#[cfg(test)]
+pub(crate) use addons::set_test_outbound_task_dispatch_secret;
 use artwork::ManagedArtworkAppService;
 pub(crate) use artwork::{ImageVariantRequest, ManagedArtworkImageBytes};
 use automation::AutomationAppService;

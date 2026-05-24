@@ -50,6 +50,7 @@ const ADDON_REGISTRATION_SELECT: &str = r#"
                 protocol_version,
                 base_url,
                 manifest_json,
+                outbound_task_dispatch_secret_env,
                 granted_scopes_json::text AS granted_scopes_json,
                 status,
                 to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS created_at,
@@ -136,10 +137,11 @@ impl AddonRepository for PostgresStore {
                 protocol_version,
                 base_url,
                 manifest_json,
+                outbound_task_dispatch_secret_env,
                 granted_scopes_json,
                 status
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10)
             ON CONFLICT(id) DO UPDATE SET
                 manifest_id = excluded.manifest_id,
                 name = excluded.name,
@@ -147,6 +149,7 @@ impl AddonRepository for PostgresStore {
                 protocol_version = excluded.protocol_version,
                 base_url = excluded.base_url,
                 manifest_json = excluded.manifest_json,
+                outbound_task_dispatch_secret_env = excluded.outbound_task_dispatch_secret_env,
                 granted_scopes_json = excluded.granted_scopes_json,
                 status = excluded.status,
                 updated_at = statement_timestamp()
@@ -160,6 +163,7 @@ impl AddonRepository for PostgresStore {
         .bind(&addon.protocol_version)
         .bind(&addon.base_url)
         .bind(&addon.manifest_json)
+        .bind(&addon.outbound_task_dispatch_secret_env)
         .bind(granted_scopes_json)
         .bind(addon.status.as_str())
         .execute(&self.pool)
@@ -1186,6 +1190,7 @@ fn row_to_addon_registration(row: PgRow) -> Result<AddonRegistrationRecord> {
         protocol_version: row_get(&row, "protocol_version")?,
         base_url: row_get(&row, "base_url")?,
         manifest_json: row_get(&row, "manifest_json")?,
+        outbound_task_dispatch_secret_env: row_get(&row, "outbound_task_dispatch_secret_env")?,
         granted_scopes,
         status: AddonStatus::parse(&row_get::<String>(&row, "status")?)?,
         created_at: row_get(&row, "created_at")?,

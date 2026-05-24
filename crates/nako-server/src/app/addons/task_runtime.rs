@@ -2,7 +2,7 @@ use nako_addon_client::{
     AddonClientError, AddonTaskCallFailure, AddonTaskCallRequest, ReqwestAddonTransport,
     call_addon_task_with_outcome,
 };
-use nako_addon_protocol::{AddonScope, AddonTaskDeclaration, validate_manifest};
+use nako_addon_protocol::{AddonAuth, AddonScope, AddonTaskDeclaration, validate_manifest};
 use nako_api::extension::{
     AddonTaskRunDispatchMode, AddonTaskRunLease, AddonTaskRunResponse, AddonTaskRunSummary,
     AddonTaskRunsResponse, CancelAddonTaskRunRequest, ClaimAddonTaskRunRequest,
@@ -21,7 +21,7 @@ use nako_core::{
 
 use super::{
     AddonAppService, declaration_scopes_granted, ensure_addon_accepts_runtime_authority,
-    stored_granted_scopes,
+    resolve_outbound_task_dispatch_secret, stored_granted_scopes,
 };
 
 impl AddonAppService {
@@ -559,6 +559,14 @@ impl AddonAppService {
             .map_err(|_| AddonTaskDirectDispatchFailure::host_contract("invalid_grants"))?;
         ensure_task_scopes_granted(task, &granted_scopes, addon.id)
             .map_err(|_| AddonTaskDirectDispatchFailure::host_contract("missing_grant"))?;
+        let outbound_secret = match manifest.auth {
+            AddonAuth::None => None,
+            AddonAuth::Bearer | AddonAuth::SharedSecret => {
+                resolve_outbound_task_dispatch_secret(addon).map_err(|_| {
+                    AddonTaskDirectDispatchFailure::host_contract("authorization_gap")
+                })?
+            }
+        };
         let outcome = call_addon_task_with_outcome(
             &ReqwestAddonTransport::default(),
             &manifest,
@@ -576,7 +584,9 @@ impl AddonAppService {
                     .cloned()
                     .unwrap_or(serde_json::Value::Null),
             },
-            None,
+            outbound_secret
+                .as_ref()
+                .map(nako_core::SecretString::expose_secret),
         )
         .await
         .map_err(AddonTaskDirectDispatchFailure::from_client_failure)?;

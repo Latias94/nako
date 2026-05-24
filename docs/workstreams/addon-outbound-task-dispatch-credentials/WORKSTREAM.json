@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "slug": "addon-outbound-task-dispatch-credentials",
+  "title": "Addon Outbound Task Dispatch Credentials",
+  "status": "active",
+  "updated": "2026-05-24",
+  "scope_kind": "implementation",
+  "problem": "Nako can already dispatch Addon Tasks directly, but the direct-dispatch path currently passes no outbound credential, so addons that declare AddonAuth::Bearer or AddonAuth::SharedSecret cannot be called through the host-owned runtime without a safe storage and resolution boundary.",
+  "authoritative_docs": [
+    {
+      "role": "readme",
+      "path": "docs/workstreams/addon-outbound-task-dispatch-credentials/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/addon-outbound-task-dispatch-credentials/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/addon-outbound-task-dispatch-credentials/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/addon-outbound-task-dispatch-credentials/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/addon-outbound-task-dispatch-credentials/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/addon-outbound-task-dispatch-credentials/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "git diff --check",
+    "cargo fmt --all -- --check",
+    "cargo check -p nako-addon-client -p nako-server",
+    "cargo nextest run -p nako-addon-client --no-fail-fast",
+    "cargo nextest run -p nako-server addon --no-fail-fast"
+  ],
+  "evidence": [
+    {
+      "date": "2026-05-24",
+      "task": "AOTDC-010",
+      "summary": "Current direct dispatch still passes no outbound credential, while the Addon client already knows how to emit bearer and shared-secret headers when given a token."
+    },
+    {
+      "date": "2026-05-24",
+      "task": "AOTDC-020",
+      "summary": "Addon registrations now persist outbound_task_dispatch_secret_env, the Admin registration summary exposes the env reference, and the server resolves it with safe missing-env diagnostics."
+    },
+    {
+      "date": "2026-05-24",
+      "task": "AOTDC-030",
+      "summary": "Direct dispatch now resolves host-owned outbound credentials for bearer and shared-secret addons, injects the matching header into addon-client calls, and fails safely when the secret reference cannot be resolved."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "This lane should close after outbound credential storage/resolution and direct dispatch injection are proven. If the first secret-provider shape is too narrow, split a separate vault/provider follow-on instead of widening host-owned dispatch."
+  }
+}

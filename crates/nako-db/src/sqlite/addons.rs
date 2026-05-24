@@ -22,10 +22,11 @@ impl AddonRepository for SqliteStore {
                 protocol_version,
                 base_url,
                 manifest_json,
+                outbound_task_dispatch_secret_env,
                 granted_scopes_json,
                 status
             )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
             ON CONFLICT(id) DO UPDATE SET
                 manifest_id = excluded.manifest_id,
                 name = excluded.name,
@@ -33,6 +34,7 @@ impl AddonRepository for SqliteStore {
                 protocol_version = excluded.protocol_version,
                 base_url = excluded.base_url,
                 manifest_json = excluded.manifest_json,
+                outbound_task_dispatch_secret_env = excluded.outbound_task_dispatch_secret_env,
                 granted_scopes_json = excluded.granted_scopes_json,
                 status = excluded.status,
                 updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
@@ -46,6 +48,7 @@ impl AddonRepository for SqliteStore {
         .bind(&addon.protocol_version)
         .bind(&addon.base_url)
         .bind(&addon.manifest_json)
+        .bind(&addon.outbound_task_dispatch_secret_env)
         .bind(granted_scopes_json)
         .bind(addon.status.as_str())
         .execute(&self.pool)
@@ -70,6 +73,7 @@ impl AddonRepository for SqliteStore {
                 protocol_version,
                 base_url,
                 manifest_json,
+                outbound_task_dispatch_secret_env,
                 granted_scopes_json,
                 status,
                 created_at,
@@ -100,6 +104,7 @@ impl AddonRepository for SqliteStore {
                 protocol_version,
                 base_url,
                 manifest_json,
+                outbound_task_dispatch_secret_env,
                 granted_scopes_json,
                 status,
                 created_at,
@@ -131,6 +136,7 @@ impl AddonRepository for SqliteStore {
                     protocol_version,
                     base_url,
                     manifest_json,
+                    outbound_task_dispatch_secret_env,
                     granted_scopes_json,
                     status,
                     created_at,
@@ -155,6 +161,7 @@ impl AddonRepository for SqliteStore {
                     protocol_version,
                     base_url,
                     manifest_json,
+                    outbound_task_dispatch_secret_env,
                     granted_scopes_json,
                     status,
                     created_at,

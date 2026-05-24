@@ -112,6 +112,8 @@ pub struct AutomationArtifactsResponse {
 pub struct RegisterAddonRequest {
     pub id: Option<AddonId>,
     pub manifest: AddonManifest,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outbound_task_dispatch_secret_env: Option<String>,
     #[serde(default)]
     pub granted_scopes: Vec<AddonScope>,
     #[serde(default)]
@@ -126,6 +128,8 @@ pub struct AdminAddonRegistrationSummary {
     pub version: String,
     pub protocol_version: String,
     pub base_url: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outbound_task_dispatch_secret_env: Option<String>,
     pub granted_scopes: Vec<String>,
     pub status: AddonStatus,
     pub created_at: String,
@@ -142,6 +146,7 @@ impl AdminAddonRegistrationSummary {
             version: record.version.clone(),
             protocol_version: record.protocol_version.clone(),
             base_url: record.base_url.clone(),
+            outbound_task_dispatch_secret_env: record.outbound_task_dispatch_secret_env.clone(),
             granted_scopes: record.granted_scopes.clone(),
             status: record.status,
             created_at: record.created_at.clone(),

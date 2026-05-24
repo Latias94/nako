@@ -418,6 +418,8 @@ pub struct NewAddonRegistration {
     pub protocol_version: String,
     pub base_url: String,
     pub manifest_json: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outbound_task_dispatch_secret_env: Option<String>,
     pub granted_scopes: Vec<String>,
     pub status: AddonStatus,
 }
@@ -431,6 +433,8 @@ pub struct AddonRegistrationRecord {
     pub protocol_version: String,
     pub base_url: String,
     pub manifest_json: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outbound_task_dispatch_secret_env: Option<String>,
     pub granted_scopes: Vec<String>,
     pub status: AddonStatus,
     pub created_at: String,
@@ -696,6 +700,7 @@ mod tests {
                 protocol_version: "0.1.0-alpha.1".to_owned(),
                 base_url: "https://example.test/addon".to_owned(),
                 manifest_json: "{}".to_owned(),
+                outbound_task_dispatch_secret_env: None,
                 granted_scopes: Vec::new(),
                 status: AddonStatus::Enabled,
                 created_at: "2026-05-18T00:00:00.000Z".to_owned(),

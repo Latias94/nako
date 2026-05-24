@@ -3089,6 +3089,7 @@ async fn nako_database_sqlite_round_trips_addon_registration() {
             protocol_version: "0.1.0-alpha.1".to_owned(),
             base_url: "https://example.test/addon".to_owned(),
             manifest_json,
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec!["item_metadata_read".to_owned()],
             status: AddonStatus::Disabled,
         })
@@ -3169,6 +3170,7 @@ async fn nako_database_sqlite_round_trips_addon_tokens_and_grants() {
             protocol_version: "0.1.0-alpha.1".to_owned(),
             base_url: "https://example.test/addon".to_owned(),
             manifest_json: "{}".to_owned(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec!["item_metadata_read".to_owned()],
             status: AddonStatus::Enabled,
         })
@@ -3315,6 +3317,7 @@ async fn nako_database_sqlite_unregisters_addon_registration_atomically() {
             protocol_version: "0.1.0-alpha.1".to_owned(),
             base_url: "https://example.test/addon".to_owned(),
             manifest_json: r#"{"id":"example.unregister"}"#.to_owned(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec!["item_metadata_read".to_owned()],
             status: AddonStatus::Enabled,
         })
@@ -3437,6 +3440,7 @@ async fn nako_database_sqlite_round_trips_addon_side_effects_idempotently() {
             protocol_version: "0.1.0-alpha.1".to_owned(),
             base_url: "https://example.test/addon".to_owned(),
             manifest_json: "{}".to_owned(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec!["item_metadata_read".to_owned()],
             status: AddonStatus::Enabled,
         })
@@ -3564,6 +3568,7 @@ async fn nako_database_sqlite_records_addon_side_effect_apply_outcome() {
             protocol_version: "0.1.0-alpha.1".to_owned(),
             base_url: "https://example.test/addon".to_owned(),
             manifest_json: "{}".to_owned(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec!["item_metadata_read".to_owned()],
             status: AddonStatus::Enabled,
         })
@@ -3679,6 +3684,7 @@ async fn nako_database_sqlite_round_trips_addon_artwork_candidates_idempotently(
             protocol_version: "0.1.0-alpha.1".to_owned(),
             base_url: "https://example.test/addon".to_owned(),
             manifest_json: "{}".to_owned(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec!["item_artwork_suggest".to_owned()],
             status: AddonStatus::Enabled,
         })
@@ -3830,6 +3836,7 @@ async fn nako_database_sqlite_accepts_artwork_candidate_into_managed_ingest_atom
             protocol_version: "0.1.0-alpha.1".to_owned(),
             base_url: "https://example.test/addon".to_owned(),
             manifest_json: "{}".to_owned(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec!["item_artwork_suggest".to_owned()],
             status: AddonStatus::Enabled,
         })
@@ -4077,6 +4084,7 @@ async fn nako_database_sqlite_managed_artwork_ingest_requeue_resets_failed_inges
             protocol_version: "0.1.0-alpha.1".to_owned(),
             base_url: "https://example.test/addon".to_owned(),
             manifest_json: "{}".to_owned(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec!["artwork_write".to_owned()],
             status: AddonStatus::Enabled,
         })
@@ -4289,6 +4297,7 @@ async fn nako_database_sqlite_managed_artwork_startup_recovery_fails_only_claime
             protocol_version: "0.1.0-alpha.1".to_owned(),
             base_url: "https://example.test/addon".to_owned(),
             manifest_json: "{}".to_owned(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec!["artwork_write".to_owned()],
             status: AddonStatus::Enabled,
         })
@@ -4492,6 +4501,7 @@ async fn nako_database_sqlite_publishes_stored_managed_artifact_as_selected_artw
             protocol_version: "0.1.0-alpha.1".to_owned(),
             base_url: "https://example.test/addon".to_owned(),
             manifest_json: "{}".to_owned(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec!["artwork_write".to_owned()],
             status: AddonStatus::Enabled,
         })
@@ -4675,6 +4685,7 @@ async fn nako_database_sqlite_publishes_selected_artwork_with_item_kind_guard() 
             protocol_version: "0.1.0-alpha.1".to_owned(),
             base_url: "https://example.test/addon".to_owned(),
             manifest_json: "{}".to_owned(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec!["artwork_write".to_owned()],
             status: AddonStatus::Enabled,
         })
@@ -4849,6 +4860,7 @@ async fn nako_database_sqlite_selected_artwork_unpublish_without_deleting_artifa
             protocol_version: "0.1.0-alpha.1".to_owned(),
             base_url: "https://example.test/addon".to_owned(),
             manifest_json: "{}".to_owned(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec!["artwork_write".to_owned()],
             status: AddonStatus::Enabled,
         })
@@ -5053,6 +5065,7 @@ async fn nako_database_sqlite_lists_managed_artwork_gallery_for_item_without_raw
             protocol_version: "0.1.0-alpha.1".to_owned(),
             base_url: "https://example.test/addon".to_owned(),
             manifest_json: "{}".to_owned(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec!["artwork_write".to_owned()],
             status: AddonStatus::Enabled,
         })
@@ -5241,6 +5254,7 @@ async fn nako_database_sqlite_lists_managed_artwork_lifecycle_with_selected_artw
             protocol_version: "0.1.0-alpha.1".to_owned(),
             base_url: "https://example.test/addon".to_owned(),
             manifest_json: "{}".to_owned(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec!["artwork_write".to_owned()],
             status: AddonStatus::Enabled,
         })
@@ -5478,6 +5492,7 @@ async fn nako_database_sqlite_cleanup_marks_only_unselected_managed_artwork_arti
             protocol_version: "0.1.0-alpha.1".to_owned(),
             base_url: "https://example.test/addon".to_owned(),
             manifest_json: "{}".to_owned(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec!["artwork_write".to_owned()],
             status: AddonStatus::Enabled,
         })
@@ -5649,6 +5664,7 @@ async fn nako_database_sqlite_rejects_addon_token_rotation_across_addons() {
                 protocol_version: "0.1.0-alpha.1".to_owned(),
                 base_url: "https://example.test/addon".to_owned(),
                 manifest_json: "{}".to_owned(),
+                outbound_task_dispatch_secret_env: None,
                 granted_scopes: vec!["item_metadata_read".to_owned()],
                 status: AddonStatus::Enabled,
             })

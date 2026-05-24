@@ -693,6 +693,7 @@ pub(crate) fn row_to_addon_registration(row: SqliteRow) -> Result<AddonRegistrat
         protocol_version: row_get(&row, "protocol_version")?,
         base_url: row_get(&row, "base_url")?,
         manifest_json: row_get(&row, "manifest_json")?,
+        outbound_task_dispatch_secret_env: row_get(&row, "outbound_task_dispatch_secret_env")?,
         granted_scopes,
         status: AddonStatus::parse(&row_get::<String>(&row, "status")?)?,
         created_at: row_get(&row, "created_at")?,

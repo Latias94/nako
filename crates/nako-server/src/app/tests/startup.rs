@@ -73,6 +73,7 @@ async fn create_startup_managed_artwork_ingest(
             protocol_version: "0.1.0-alpha.1".to_owned(),
             base_url: "https://example.test/addon".to_owned(),
             manifest_json: "{}".to_owned(),
+            outbound_task_dispatch_secret_env: None,
             granted_scopes: vec!["artwork_write".to_owned()],
             status: AddonStatus::Enabled,
         })
