@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "slug": "cross-repo-fearless-boundary-alignment",
+  "title": "Cross-Repo Fearless Boundary Alignment",
+  "status": "active",
+  "updated": "2026-05-24",
+  "scope_kind": "architecture_execution",
+  "problem": "Nako core and the official metadata addon have strong high-level seams, but cross-repo feature breadth is now pressuring overly broad internal facades around persistence, ingestion, metadata acceptance, addon scrape runtime, provider adapters, and playback/transcode ownership.",
+  "task_prefix": "CRFBA",
+  "current_task": "CRFBA-020",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/cross-repo-fearless-boundary-alignment/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/cross-repo-fearless-boundary-alignment/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/cross-repo-fearless-boundary-alignment/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/cross-repo-fearless-boundary-alignment/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/cross-repo-fearless-boundary-alignment/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/cross-repo-fearless-boundary-alignment/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "git status --short in both repositories before implementation",
+    "focused cargo nextest run for every touched package",
+    "cargo fmt --all -- --check when practical and safe for the current dirty worktree",
+    "path-scoped git diff --check when unrelated dirty files exist",
+    "review-workstream before accepting implementation slices",
+    "verify-rust-workstream before lane closeout"
+  ],
+  "evidence": [
+    "CONTEXT.md",
+    "docs/adr/0001-modular-monolith-rust-workspace.md",
+    "docs/adr/0019-server-architecture-hardening-boundaries.md",
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md",
+    "docs/adr/0029-postgresql-ready-persistence-boundary.md",
+    "docs/workstreams/fearless-architecture-deepening/",
+    "docs/workstreams/fearless-future-architecture-refactor/",
+    "docs/workstreams/addon-architecture-deepening/",
+    "../nako-official-addons/docs/workstreams/official-metadata-addon-fearless-refactor/",
+    "../nako-official-addons/docs/workstreams/official-metadata-addon-side-effect-writer/"
+  ],
+  "adr_refs": [
+    "docs/adr/0001-modular-monolith-rust-workspace.md",
+    "docs/adr/0003-http-addons-before-in-process-plugins.md",
+    "docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md",
+    "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
+    "docs/adr/0008-nfo-as-local-metadata-boundary.md",
+    "docs/adr/0011-normalized-catalog-graph-and-search-projection.md",
+    "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
+    "docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md",
+    "docs/adr/0018-metadata-provider-runtime-and-diagnostics.md",
+    "docs/adr/0019-server-architecture-hardening-boundaries.md",
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md",
+    "docs/adr/0021-video-first-media-server-domain-model.md",
+    "docs/adr/0022-keep-public-protocol-crates-permissive-while-server-crates-remain-agpl.md",
+    "docs/adr/0029-postgresql-ready-persistence-boundary.md",
+    "docs/adr/0030-postgresql-ready-sql-dialect-and-migration-policy.md",
+    "docs/adr/0033-version-addon-protocol-independently-from-addon-and-crate-releases.md"
+  ],
+  "priority_order": [
+    "scope_and_dirty_worktree_freeze",
+    "server_workflow_port_deepening",
+    "local_inference_ingestion_commit_split",
+    "metadata_candidate_acceptance_authority",
+    "official_addon_scrape_runtime_split",
+    "official_addon_provider_adapter_split",
+    "addon_protected_write_client_alignment",
+    "playback_runtime_transcode_ownership",
+    "contract_drift_hardening",
+    "closeout_or_follow_on_split"
+  ],
+  "completed_tasks": [
+    "CRFBA-010",
+    "CRFBA-011",
+    "CRFBA-050",
+    "CRFBA-060"
+  ],
+  "non_goals": [
+    "copying reference project implementation code",
+    "Jellyfin plugin compatibility",
+    "native in-process plugin ABI",
+    "new metadata provider count for its own sake",
+    "broad Admin Web redesign",
+    "Network Tunnel Provider implementation",
+    "adaptive bitrate ladder implementation",
+    "AI model provider integration",
+    "public protocol release unless a slice proves it is required"
+  ],
+  "continue_policy": {
+    "default_action": "review_scope_first",
+    "next_task": "CRFBA-010",
+    "notes": "Treat this as a draft architecture lane until the user accepts the scope. Start implementation only after CRFBA-010 and CRFBA-011 are complete."
+  }
+}

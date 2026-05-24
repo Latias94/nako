@@ -5,10 +5,9 @@ use std::{
 
 use nako_core::{
     CancelLeasedJob, CompleteLeasedJob, FailLeasedJob, Job, JobId, JobLeaseClaimFilter,
-    JobLeaseClaimRequest, JobLeaseGuard, JobLeaseHeartbeat, JobLeaseRepository, JobRepository,
-    JobWorkerId, NakoError, Result,
+    JobLeaseClaimRequest, JobLeaseGuard, JobLeaseHeartbeat, JobLeaseRepository, JobWorkerId,
+    LeasedJob, NakoError, Result,
 };
-use nako_db::NakoDatabase;
 use serde::Serialize;
 use tokio::sync::oneshot;
 use tokio_util::sync::CancellationToken;
@@ -17,9 +16,54 @@ use tracing::{debug, warn};
 const DEFAULT_LEASE_DURATION_MS: u64 = 30_000;
 const DEFAULT_HEARTBEAT_INTERVAL_MS: u64 = 10_000;
 
+#[async_trait::async_trait]
+pub(super) trait DurableJobLeaseStore: std::fmt::Debug + Send + Sync {
+    async fn claim_next_job_lease(
+        &self,
+        request: JobLeaseClaimRequest,
+    ) -> Result<Option<LeasedJob>>;
+
+    async fn heartbeat_job_lease(&self, heartbeat: JobLeaseHeartbeat) -> Result<LeasedJob>;
+
+    async fn succeed_leased_job(&self, completion: CompleteLeasedJob) -> Result<Job>;
+
+    async fn fail_leased_job(&self, failure: FailLeasedJob) -> Result<Job>;
+
+    async fn cancel_leased_job(&self, cancellation: CancelLeasedJob) -> Result<Job>;
+}
+
+#[async_trait::async_trait]
+impl<T> DurableJobLeaseStore for T
+where
+    T: JobLeaseRepository + std::fmt::Debug + Send + Sync,
+{
+    async fn claim_next_job_lease(
+        &self,
+        request: JobLeaseClaimRequest,
+    ) -> Result<Option<LeasedJob>> {
+        JobLeaseRepository::claim_next_job_lease(self, request).await
+    }
+
+    async fn heartbeat_job_lease(&self, heartbeat: JobLeaseHeartbeat) -> Result<LeasedJob> {
+        JobLeaseRepository::heartbeat_job_lease(self, heartbeat).await
+    }
+
+    async fn succeed_leased_job(&self, completion: CompleteLeasedJob) -> Result<Job> {
+        JobLeaseRepository::succeed_leased_job(self, completion).await
+    }
+
+    async fn fail_leased_job(&self, failure: FailLeasedJob) -> Result<Job> {
+        JobLeaseRepository::fail_leased_job(self, failure).await
+    }
+
+    async fn cancel_leased_job(&self, cancellation: CancelLeasedJob) -> Result<Job> {
+        JobLeaseRepository::cancel_leased_job(self, cancellation).await
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(super) struct DurableJobRuntime {
-    store: NakoDatabase,
+    store: Arc<dyn DurableJobLeaseStore>,
     worker_id: JobWorkerId,
     lease_duration_ms: u64,
     heartbeat_interval_ms: u64,
@@ -33,7 +77,7 @@ pub(super) struct DurableJobRun<T> {
 
 #[derive(Clone, Debug)]
 pub(super) struct DurableJobContext {
-    store: NakoDatabase,
+    store: Arc<dyn DurableJobLeaseStore>,
     guard: JobLeaseGuard,
     lease_duration_ms: u64,
     cancellation: DurableJobCancellation,
@@ -107,9 +151,12 @@ impl<T> DurableJobRunOutcome<T> {
 }
 
 impl DurableJobRuntime {
-    pub(super) fn new(store: NakoDatabase) -> Self {
+    pub(super) fn new<S>(store: S) -> Self
+    where
+        S: DurableJobLeaseStore + 'static,
+    {
         Self {
-            store,
+            store: Arc::new(store),
             worker_id: default_worker_id(),
             lease_duration_ms: DEFAULT_LEASE_DURATION_MS,
             heartbeat_interval_ms: DEFAULT_HEARTBEAT_INTERVAL_MS,
@@ -117,13 +164,16 @@ impl DurableJobRuntime {
     }
 
     #[cfg(test)]
-    pub(super) fn with_lease_timing(
-        store: NakoDatabase,
+    pub(super) fn with_lease_timing<S>(
+        store: S,
         lease_duration_ms: u64,
         heartbeat_interval_ms: u64,
-    ) -> Self {
+    ) -> Self
+    where
+        S: DurableJobLeaseStore + 'static,
+    {
         Self {
-            store,
+            store: Arc::new(store),
             worker_id: JobWorkerId::new(),
             lease_duration_ms,
             heartbeat_interval_ms,
@@ -395,7 +445,9 @@ impl DurableJobHeartbeat {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nako_core::{DatabaseLifecycle, JobKind, JobLeaseClaimFilter, JobStatus, NewJob};
+    use nako_core::{
+        DatabaseLifecycle, JobKind, JobLeaseClaimFilter, JobRepository, JobStatus, NewJob,
+    };
     use nako_db::NakoDatabase;
     use tokio::sync::Notify;
 
@@ -460,18 +512,20 @@ mod tests {
             JobStatus::Queued
         );
         assert!(
-            store
-                .claim_next_job_lease(nako_core::JobLeaseClaimRequest {
+            nako_core::JobLeaseRepository::claim_next_job_lease(
+                &store,
+                nako_core::JobLeaseClaimRequest {
                     worker_id: nako_core::JobWorkerId::new(),
                     lease_duration_ms: 10_000,
                     filter: JobLeaseClaimFilter {
                         job_id: Some(job.id),
                         ..JobLeaseClaimFilter::default()
                     },
-                })
-                .await
-                .unwrap()
-                .is_none()
+                },
+            )
+            .await
+            .unwrap()
+            .is_none()
         );
     }
 
