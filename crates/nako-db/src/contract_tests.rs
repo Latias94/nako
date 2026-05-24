@@ -3,58 +3,59 @@ use std::{future::Future, sync::OnceLock};
 use nako_core::{
     AcquisitionIntakeCandidateId, AcquisitionIntakeCandidateListFilter,
     AcquisitionIntakeCandidateState, AcquisitionIntakeRepository, AcquisitionIntakeSourceKind,
-    AddonId, AddonManifestFingerprint, AddonMetadataWriteCatalogCommit,
-    AddonMetadataWritePersistenceCommit, AddonPermission, AddonRepository,
-    AddonRoutingDeclarationKind, AddonRoutingPlanId, AddonRoutingPlanStatus,
-    AddonRoutingPlanTarget, AddonSideEffectApplyOutcome, AddonSideEffectApplyStatus,
-    AddonSideEffectId, AddonSideEffectRequestFingerprint, AddonSideEffectTarget,
-    AddonSideEffectValidationStatus, AddonStatus, AddonTaskRunListFilter, AddonTaskRunRepository,
-    AddonTaskRunRequestFingerprint, AddonTokenId, ArtworkCandidateId, ArtworkCandidateRecord,
-    ArtworkCandidateRepository, ArtworkCandidateSourceKind, ArtworkCandidateStatus, ArtworkTask,
-    ArtworkTaskId, ArtworkTaskKind, ArtworkTaskRepository, AutomationArtifactKind,
-    AutomationArtifactStatus, AutomationCapability, AutomationProviderStatus, AutomationRepository,
-    CancelLeasedJob, CanonicalMetadata, CatalogGovernanceItemListFilter,
-    CatalogGovernanceRepository, CatalogItemGraphReplacement, CatalogItemProjectionCommit,
-    CatalogRepository, CatalogSearchProjection, Collection, CollectionId, CollectionItem,
-    CompleteLeasedJob, CreditRole, DatabaseLifecycle, DirectorySnapshot, DomainEventKind,
-    DomainEventSubject, EventOutboxRepository, ExternalId, ExternalProvider, FailLeasedJob, Genre,
-    GenreId, ImageAsset, ImageAssetId, ImageKind, ImageOwner, IngestionFailureClass,
-    IngestionFailureFilter, IngestionFailurePhase, IngestionFailureRepository,
-    IngestionFailureResolution, IngestionFailureStatus, ItemCredit, ItemGenre, ItemStudio, ItemTag,
-    Job, JobId, JobKind, JobLeaseClaimFilter, JobLeaseClaimRequest, JobLeaseGuard,
-    JobLeaseHeartbeat, JobLeaseRepository, JobListFilter, JobRepository, JobRunToken, JobStatus,
-    JobWorkerId, Library, LibraryId, LibraryItemRepository, LibraryItemState, LibraryOptions,
-    LibraryPreset, LibraryRepository, LibraryScanSourcePersistenceCommit, LocalInferenceEvidence,
-    LocalInferenceEvidenceId, LocalInferenceEvidenceSource, LocalInferenceRepository,
-    ManagedArtworkAcceptanceRecord, ManagedArtworkArtifactId,
-    ManagedArtworkArtifactLifecycleFilter, ManagedArtworkIngestId, ManagedArtworkIngestStatus,
-    ManagedArtworkRepository, ManagedImportArtifactId, ManagedImportArtifactListFilter,
-    ManagedImportArtifactState, ManagedImportPromotionApplyId, ManagedImportPromotionApplyState,
-    ManagedImportPromotionOperationKind, ManagedImportRepository, ManagedImportSourceKind,
-    MediaItem, MediaItemId, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository,
-    MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataAttemptFilter,
-    MetadataField, MetadataFieldLock, MetadataMatchKind, MetadataProviderAttemptId,
-    MetadataProviderAttemptStatus, MetadataRefreshPersistenceCommit,
+    AddonEventDeliveryAttemptId, AddonEventDeliveryRepository, AddonEventDeliveryStatus, AddonId,
+    AddonManifestFingerprint, AddonMetadataWriteCatalogCommit, AddonMetadataWritePersistenceCommit,
+    AddonPermission, AddonRepository, AddonRoutingDeclarationKind, AddonRoutingPlanId,
+    AddonRoutingPlanStatus, AddonRoutingPlanTarget, AddonSideEffectApplyOutcome,
+    AddonSideEffectApplyStatus, AddonSideEffectId, AddonSideEffectRequestFingerprint,
+    AddonSideEffectTarget, AddonSideEffectValidationStatus, AddonStatus, AddonTaskRunListFilter,
+    AddonTaskRunRepository, AddonTaskRunRequestFingerprint, AddonTokenId, ArtworkCandidateId,
+    ArtworkCandidateRecord, ArtworkCandidateRepository, ArtworkCandidateSourceKind,
+    ArtworkCandidateStatus, ArtworkTask, ArtworkTaskId, ArtworkTaskKind, ArtworkTaskRepository,
+    AutomationArtifactKind, AutomationArtifactStatus, AutomationCapability,
+    AutomationProviderStatus, AutomationRepository, CancelLeasedJob, CanonicalMetadata,
+    CatalogGovernanceItemListFilter, CatalogGovernanceRepository, CatalogItemGraphReplacement,
+    CatalogItemProjectionCommit, CatalogRepository, CatalogSearchProjection, Collection,
+    CollectionId, CollectionItem, CompleteLeasedJob, CreditRole, DatabaseLifecycle,
+    DirectorySnapshot, DomainEventKind, DomainEventSubject, EventOutboxRepository, ExternalId,
+    ExternalProvider, FailLeasedJob, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind,
+    ImageOwner, IngestionFailureClass, IngestionFailureFilter, IngestionFailurePhase,
+    IngestionFailureRepository, IngestionFailureResolution, IngestionFailureStatus, ItemCredit,
+    ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind, JobLeaseClaimFilter, JobLeaseClaimRequest,
+    JobLeaseGuard, JobLeaseHeartbeat, JobLeaseRepository, JobListFilter, JobRepository,
+    JobRunToken, JobStatus, JobWorkerId, Library, LibraryId, LibraryItemRepository,
+    LibraryItemState, LibraryOptions, LibraryPreset, LibraryRepository,
+    LibraryScanSourcePersistenceCommit, LocalInferenceEvidence, LocalInferenceEvidenceId,
+    LocalInferenceEvidenceSource, LocalInferenceRepository, ManagedArtworkAcceptanceRecord,
+    ManagedArtworkArtifactId, ManagedArtworkArtifactLifecycleFilter, ManagedArtworkIngestId,
+    ManagedArtworkIngestStatus, ManagedArtworkRepository, ManagedImportArtifactId,
+    ManagedImportArtifactListFilter, ManagedImportArtifactState, ManagedImportPromotionApplyId,
+    ManagedImportPromotionApplyState, ManagedImportPromotionOperationKind, ManagedImportRepository,
+    ManagedImportSourceKind, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
+    MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
+    MediaStreamKind, MetadataAttemptFilter, MetadataField, MetadataFieldLock, MetadataMatchKind,
+    MetadataProviderAttemptId, MetadataProviderAttemptStatus, MetadataRefreshPersistenceCommit,
     MetadataRefreshProviderMappingCommit, MetadataRepository, MetadataSource, NakoError,
-    NewAcquisitionIntakeCandidate, NewAddonGrant, NewAddonRegistration, NewAddonRoutingPlan,
-    NewAddonSideEffect, NewAddonTaskRun, NewAddonToken, NewArtworkCandidate, NewAutomationArtifact,
-    NewAutomationProviderConfig, NewIngestionFailure, NewJob, NewManagedArtworkArtifact,
-    NewManagedArtworkIngest, NewManagedImportArtifact, NewManagedImportPromotionApply,
-    NewMetadataProviderAttempt, NewNfoSidecarApply, NewOutboxEvent, NewStagingManifestRecord,
-    NewTranscodeSession, NewVfsCacheFailure, NewWebhookDeliveryAttempt, NewWebhookEndpoint,
-    NfoImportPersistenceCommit, NfoSidecarApplyId, NfoSidecarApplyOperationKind,
-    NfoSidecarApplyRepository, NfoSidecarApplyState, OutboxEventListFilter, OutboxEventStatus,
-    PageRequest, Person, PersonId, ProviderMapping, ProviderMappingId, ProviderMappingRepository,
-    ProviderMappingStatus, ProviderRawResponse, ProviderSubject, ProviderSubjectId,
-    ProviderSubjectKind, RecoverExpiredJobLeases, RequestJobCancellation, ScanRepository,
-    ScanSnapshotId, ScanStatus, SourceDuplicateEvidenceKind, SourceDuplicateRelationship,
-    SourceDuplicateRelationshipId, SourceDuplicateRelationshipStatus, SourceDuplicateRepository,
-    SourceState, StagingManifestId, StagingManifestRepository, StagingPurpose, StagingState,
-    Studio, StudioId, Tag, TagId, TranscodeFailureCategory, TranscodeSessionId,
-    TranscodeSessionKind, TranscodeSessionListFilter, TranscodeSessionRepository,
-    TranscodeSessionState, UserPlaybackStateRepository, UserPlaybackStateWrite, UserPrincipalId,
-    VfsCacheOperation, VfsCacheRepository, VfsCachedListing, VfsCachedObject, VfsCachedObjectKind,
-    WebhookDeliveryStatus, WebhookEndpointStatus, WebhookRepository,
+    NewAcquisitionIntakeCandidate, NewAddonEventDeliveryAttempt, NewAddonGrant,
+    NewAddonRegistration, NewAddonRoutingPlan, NewAddonSideEffect, NewAddonTaskRun, NewAddonToken,
+    NewArtworkCandidate, NewAutomationArtifact, NewAutomationProviderConfig, NewIngestionFailure,
+    NewJob, NewManagedArtworkArtifact, NewManagedArtworkIngest, NewManagedImportArtifact,
+    NewManagedImportPromotionApply, NewMetadataProviderAttempt, NewNfoSidecarApply, NewOutboxEvent,
+    NewStagingManifestRecord, NewTranscodeSession, NewVfsCacheFailure, NewWebhookDeliveryAttempt,
+    NewWebhookEndpoint, NfoImportPersistenceCommit, NfoSidecarApplyId,
+    NfoSidecarApplyOperationKind, NfoSidecarApplyRepository, NfoSidecarApplyState,
+    OutboxEventListFilter, OutboxEventStatus, PageRequest, Person, PersonId, ProviderMapping,
+    ProviderMappingId, ProviderMappingRepository, ProviderMappingStatus, ProviderRawResponse,
+    ProviderSubject, ProviderSubjectId, ProviderSubjectKind, RecoverExpiredJobLeases,
+    RequestJobCancellation, ScanRepository, ScanSnapshotId, ScanStatus,
+    SourceDuplicateEvidenceKind, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
+    SourceDuplicateRelationshipStatus, SourceDuplicateRepository, SourceState, StagingManifestId,
+    StagingManifestRepository, StagingPurpose, StagingState, Studio, StudioId, Tag, TagId,
+    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter,
+    TranscodeSessionRepository, TranscodeSessionState, UserPlaybackStateRepository,
+    UserPlaybackStateWrite, UserPrincipalId, VfsCacheOperation, VfsCacheRepository,
+    VfsCachedListing, VfsCachedObject, VfsCachedObjectKind, WebhookDeliveryStatus,
+    WebhookEndpointStatus, WebhookRepository,
 };
 use nako_search::{SearchIndex, SearchQuery};
 
@@ -262,6 +263,7 @@ impl<T> PlaybackRuntimeContractBackend for T where
 
 trait EventAddonAutomationContractBackend:
     LifecycleContractBackend
+    + AddonEventDeliveryRepository
     + AddonRepository
     + AddonTaskRunRepository
     + AutomationRepository
@@ -275,6 +277,7 @@ trait EventAddonAutomationContractBackend:
 
 impl<T> EventAddonAutomationContractBackend for T where
     T: LifecycleContractBackend
+        + AddonEventDeliveryRepository
         + AddonRepository
         + AddonTaskRunRepository
         + AutomationRepository
@@ -2810,6 +2813,130 @@ where
         .unwrap();
     assert_eq!(attempts.len(), 1);
     assert_eq!(attempts[0].id, attempt.id);
+}
+
+async fn addon_event_delivery_attempt_contract<S>(store: S)
+where
+    S: EventAddonAutomationContractBackend,
+{
+    let library = seed_contract_library(&store).await;
+    let source = seed_contract_media_item_with_source(
+        &store,
+        library.id,
+        "Addon Event Contract Movie",
+        "local:///Contract Movies/addon-event-contract.mkv",
+    )
+    .await;
+    let event = store
+        .enqueue_outbox_event(NewOutboxEvent {
+            id: nako_core::EventId::new(),
+            kind: DomainEventKind::LibraryScanned,
+            subject: DomainEventSubject::Library(library.id),
+            library_id: Some(library.id),
+            source_id: Some(source.id),
+            idempotency_key: "library-scan:addon-event-contract".to_owned(),
+            payload_json: format!(
+                r#"{{"library_id":"{}","source_id":"{}"}}"#,
+                library.id, source.id
+            ),
+        })
+        .await
+        .unwrap();
+
+    let addon_id = AddonId::new();
+    store
+        .upsert_addon_registration(NewAddonRegistration {
+            id: addon_id,
+            manifest_id: "dev.nako.contract.event-delivery".to_owned(),
+            name: "Contract Event Addon".to_owned(),
+            version: "0.1.0".to_owned(),
+            protocol_version: "0.1.0-alpha.1".to_owned(),
+            base_url: "https://example.test/addon".to_owned(),
+            manifest_json: r#"{"id":"dev.nako.contract.event-delivery"}"#.to_owned(),
+            outbound_task_dispatch_secret_env: None,
+            granted_scopes: vec!["webhook_event_read".to_owned()],
+            status: AddonStatus::Enabled,
+        })
+        .await
+        .unwrap();
+
+    let attempt = store
+        .create_addon_event_delivery_attempt(NewAddonEventDeliveryAttempt {
+            id: AddonEventDeliveryAttemptId::new(),
+            addon_id,
+            event_id: event.id,
+            declaration_id: "library-scanned".to_owned(),
+            attempt_number: 1,
+        })
+        .await
+        .unwrap();
+    assert_eq!(attempt.addon_id, addon_id);
+    assert_eq!(attempt.event_id, event.id);
+    assert_eq!(attempt.declaration_id, "library-scanned");
+    assert_eq!(attempt.status, AddonEventDeliveryStatus::Pending);
+    assert_eq!(attempt.completed_at, None);
+
+    let failed = store
+        .set_addon_event_delivery_attempt_result(
+            attempt.id,
+            AddonEventDeliveryStatus::Failed,
+            Some(503),
+            Some("sidecar unavailable".to_owned()),
+            Some("2026-05-25T00:01:00.000Z".to_owned()),
+        )
+        .await
+        .unwrap();
+    assert_eq!(failed.status, AddonEventDeliveryStatus::Failed);
+    assert_eq!(failed.http_status, Some(503));
+    assert_eq!(failed.error.as_deref(), Some("sidecar unavailable"));
+    assert_eq!(
+        failed.next_retry_at.as_deref(),
+        Some("2026-05-25T00:01:00.000Z")
+    );
+    assert!(failed.completed_at.is_some());
+
+    let second_attempt = store
+        .create_addon_event_delivery_attempt(NewAddonEventDeliveryAttempt {
+            id: AddonEventDeliveryAttemptId::new(),
+            addon_id,
+            event_id: event.id,
+            declaration_id: "library-scanned".to_owned(),
+            attempt_number: 2,
+        })
+        .await
+        .unwrap();
+    let succeeded = store
+        .set_addon_event_delivery_attempt_result(
+            second_attempt.id,
+            AddonEventDeliveryStatus::Succeeded,
+            Some(202),
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+    assert_eq!(succeeded.status, AddonEventDeliveryStatus::Succeeded);
+    assert_eq!(succeeded.http_status, Some(202));
+    assert_eq!(succeeded.error, None);
+
+    let attempts = store
+        .list_addon_event_delivery_attempts(event.id)
+        .await
+        .unwrap();
+    assert_eq!(attempts.len(), 2);
+    assert_eq!(
+        attempts
+            .iter()
+            .map(|attempt| attempt.attempt_number)
+            .collect::<Vec<_>>(),
+        vec![1, 2]
+    );
+
+    let addon_attempts = store
+        .list_addon_event_delivery_attempts_for_addon(addon_id, event.id, "library-scanned")
+        .await
+        .unwrap();
+    assert_eq!(addon_attempts, attempts);
 }
 
 async fn addon_registration_token_grant_and_side_effect_contract<S>(store: S)
@@ -5507,6 +5634,16 @@ database_contract_pair!(
         "event_outbox_and_webhook_delivery"
     ),
     contract = event_outbox_and_webhook_delivery_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_event_addon_automation_contract_addon_event_delivery_attempt,
+    postgres = postgres_event_addon_automation_contract_addon_event_delivery_attempt,
+    case = ContractCase::migrated(
+        ContractFamily::EventAddonAutomation,
+        "addon_event_delivery_attempt"
+    ),
+    contract = addon_event_delivery_attempt_contract,
 );
 
 database_contract_pair!(

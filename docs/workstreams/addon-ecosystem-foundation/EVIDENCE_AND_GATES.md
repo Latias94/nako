@@ -72,6 +72,7 @@ blocking findings, missing gates, and residual risks in this file or in
 - `crates/nako-db/src/sqlite/addon_tasks.rs`
 - `crates/nako-server/src/app/addons.rs`
 - `crates/nako-server/src/app/addons/task_runtime.rs`
+- `crates/nako-server/src/app/addons/event_runtime.rs`
 - `crates/nako-official-addon-catalog`
 - `crates/nako-addon-client`
 - `F:\SourceCodes\Rust\nako-official-addons\crates\nako-metadata-scraper`
@@ -137,6 +138,46 @@ Notes:
   catalog resolve test still proves no registration or job is created and no
   package/process/container lifecycle control is implied.
 - Official addon tests ran in `F:\SourceCodes\Rust\nako-official-addons`.
+
+### 2026-05-25 — AEF-040 Addon Event Delivery Runtime
+
+Claim: Manifest-declared Addon Event Subscriptions can be delivered from
+Nako's durable event outbox through a host-owned runtime, with durable delivery
+attempt records, grant checks, protocol envelope validation, retryable failure
+metadata, and redaction-safe admin responses.
+Manual dispatch is idempotent after a subscription succeeds: repeated dispatch
+for the same addon, event, and subscription skips the sidecar call instead of
+duplicating a notification.
+
+Commands:
+
+```powershell
+cargo nextest run -p nako-server addon_event --no-fail-fast
+cargo nextest run -p nako-db event --no-fail-fast
+cargo nextest run -p nako-addon-client calls_declared_event_subscription_path_with_event_envelope --no-fail-fast
+cargo check -p nako-core -p nako-db -p nako-addon-protocol -p nako-addon-client -p nako-api -p nako-server --tests
+cargo fmt --all -- --check
+```
+
+Result: passed.
+
+Notes:
+
+- SQLite event/addon/automation contracts now cover addon event delivery
+  attempt persistence, status transitions, per-subscription listing, and
+  retry timestamps.
+- PostgreSQL has matching migration and repository implementation, but the
+  ignored PostgreSQL contract was not run because `NAKO_TEST_POSTGRES_URL` is
+  not configured for this local pass.
+- Admin Addon Event dispatch responses intentionally expose only a redacted
+  event summary, never raw outbox `payload_json`; the sidecar request still
+  receives the event payload.
+- Repeated manual dispatch skips addon/event/subscription tuples with an
+  existing succeeded attempt. A separate explicit replay API should be designed
+  if forced redelivery is needed later.
+- Event subscription filters are preserved in routing plan metadata but are
+  not yet evaluated by the delivery runtime. Treat filter execution as a
+  follow-on before broad provider fan-out.
 
 ## Notes
 

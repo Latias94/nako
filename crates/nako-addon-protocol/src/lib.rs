@@ -586,6 +586,30 @@ pub struct AddonTaskResponse {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonEventRequest {
+    pub protocol_version: String,
+    pub addon_id: String,
+    pub subscription_id: String,
+    pub event_id: String,
+    pub event_kind: String,
+    pub subject_kind: String,
+    pub subject_id: String,
+    pub occurred_at: String,
+    pub attempt: u32,
+    pub payload: serde_json::Value,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonEventResponse {
+    pub protocol_version: String,
+    pub addon_id: String,
+    pub subscription_id: String,
+    pub event_id: String,
+    #[serde(default)]
+    pub output: serde_json::Value,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AddonHealthCheckRequest {
     pub protocol_version: String,
     pub manifest_id: String,
@@ -929,6 +953,9 @@ pub enum AddonManifestError {
     ResourceNotDeclared {
         resource: AddonResource,
     },
+    EventSubscriptionNotDeclared {
+        subscription_id: String,
+    },
     TaskNotDeclared {
         task_id: String,
     },
@@ -1037,6 +1064,12 @@ impl fmt::Display for AddonManifestError {
                     formatter,
                     "addon resource is not declared: {}",
                     resource.as_str()
+                )
+            }
+            Self::EventSubscriptionNotDeclared { subscription_id } => {
+                write!(
+                    formatter,
+                    "addon event subscription is not declared: {subscription_id}"
                 )
             }
             Self::TaskNotDeclared { task_id } => {
@@ -1157,6 +1190,33 @@ pub fn ensure_task_scope_grant(
         if !granted.contains(scope) {
             return Err(AddonManifestError::MissingDeclaredScopeForDeclaration {
                 declaration: "task",
+                scope: *scope,
+            });
+        }
+    }
+
+    Ok(())
+}
+
+pub fn ensure_event_subscription_scope_grant(
+    manifest: &AddonManifest,
+    subscription_id: &str,
+    granted_scopes: &[AddonScope],
+) -> AddonProtocolResult<()> {
+    validate_manifest(manifest)?;
+    let granted = granted_scopes.iter().copied().collect::<HashSet<_>>();
+    let declaration = manifest
+        .event_subscriptions
+        .iter()
+        .find(|candidate| candidate.id == subscription_id)
+        .ok_or_else(|| AddonManifestError::EventSubscriptionNotDeclared {
+            subscription_id: subscription_id.to_owned(),
+        })?;
+
+    for scope in &declaration.required_scopes {
+        if !granted.contains(scope) {
+            return Err(AddonManifestError::MissingDeclaredScopeForDeclaration {
+                declaration: "event_subscription",
                 scope: *scope,
             });
         }
@@ -1352,6 +1412,53 @@ pub fn validate_task_response(
             message: format!(
                 "task response request_id {} did not match {request_id}",
                 response.request_id
+            ),
+        });
+    }
+
+    Ok(())
+}
+
+pub fn validate_event_response(
+    response: &AddonEventResponse,
+    manifest: &AddonManifest,
+    subscription_id: &str,
+    event_id: &str,
+) -> AddonProtocolResult<()> {
+    if !is_supported_addon_protocol_version(&response.protocol_version) {
+        return Err(AddonManifestError::UnsupportedProtocolVersion {
+            actual: response.protocol_version.clone(),
+        });
+    }
+    if response.protocol_version != manifest.protocol_version {
+        return Err(AddonManifestError::InvalidEnvelope {
+            message: format!(
+                "event response protocol_version {} did not match manifest protocol_version {}",
+                response.protocol_version, manifest.protocol_version
+            ),
+        });
+    }
+    if response.addon_id != manifest.id {
+        return Err(AddonManifestError::InvalidEnvelope {
+            message: format!(
+                "event response addon_id {} did not match {}",
+                response.addon_id, manifest.id
+            ),
+        });
+    }
+    if response.subscription_id != subscription_id {
+        return Err(AddonManifestError::InvalidEnvelope {
+            message: format!(
+                "event response subscription_id {} did not match {subscription_id}",
+                response.subscription_id
+            ),
+        });
+    }
+    if response.event_id != event_id {
+        return Err(AddonManifestError::InvalidEnvelope {
+            message: format!(
+                "event response event_id {} did not match {event_id}",
+                response.event_id
             ),
         });
     }

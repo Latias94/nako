@@ -43,6 +43,7 @@ use tokio::sync::Semaphore;
 use super::{runtime::RuntimeSupervisor, storage::StorageBackendRegistry};
 
 mod artwork_write;
+mod event_runtime;
 mod intake;
 mod library_file_write;
 mod metadata_write;

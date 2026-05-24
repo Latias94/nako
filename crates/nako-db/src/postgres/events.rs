@@ -75,6 +75,22 @@ const WEBHOOK_DELIVERY_ATTEMPT_SELECT: &str = r#"
             FROM webhook_delivery_attempts
             "#;
 
+const ADDON_EVENT_DELIVERY_ATTEMPT_SELECT: &str = r#"
+            SELECT
+                id::text AS id,
+                addon_id::text AS addon_id,
+                event_id::text AS event_id,
+                declaration_id,
+                attempt_number,
+                status,
+                http_status,
+                error,
+                to_char(requested_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS requested_at,
+                to_char(completed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS completed_at,
+                next_retry_at
+            FROM addon_event_delivery_attempts
+            "#;
+
 #[async_trait::async_trait]
 impl EventOutboxRepository for PostgresStore {
     async fn enqueue_outbox_event(&self, event: NewOutboxEvent) -> Result<OutboxEventRecord> {
@@ -370,6 +386,140 @@ impl PostgresStore {
     }
 }
 
+#[async_trait::async_trait]
+impl AddonEventDeliveryRepository for PostgresStore {
+    async fn create_addon_event_delivery_attempt(
+        &self,
+        attempt: NewAddonEventDeliveryAttempt,
+    ) -> Result<AddonEventDeliveryAttemptRecord> {
+        sqlx::query(
+            r#"
+            INSERT INTO addon_event_delivery_attempts (
+                id,
+                addon_id,
+                event_id,
+                declaration_id,
+                attempt_number,
+                status
+            )
+            VALUES ($1, $2, $3, $4, $5, $6)
+            "#,
+        )
+        .bind(attempt.id.as_uuid())
+        .bind(attempt.addon_id.as_uuid())
+        .bind(attempt.event_id.as_uuid())
+        .bind(&attempt.declaration_id)
+        .bind(u32_to_i64(attempt.attempt_number))
+        .bind(AddonEventDeliveryStatus::Pending.as_str())
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.get_addon_event_delivery_attempt_or_not_found(attempt.id)
+            .await
+    }
+
+    async fn set_addon_event_delivery_attempt_result(
+        &self,
+        id: AddonEventDeliveryAttemptId,
+        status: AddonEventDeliveryStatus,
+        http_status: Option<u16>,
+        error: Option<String>,
+        next_retry_at: Option<String>,
+    ) -> Result<AddonEventDeliveryAttemptRecord> {
+        sqlx::query(
+            r#"
+            UPDATE addon_event_delivery_attempts
+            SET
+                status = $2,
+                http_status = $3,
+                error = $4,
+                completed_at = statement_timestamp(),
+                next_retry_at = $5
+            WHERE id = $1
+            "#,
+        )
+        .bind(id.as_uuid())
+        .bind(status.as_str())
+        .bind(http_status.map(i64::from))
+        .bind(error)
+        .bind(next_retry_at)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.get_addon_event_delivery_attempt_or_not_found(id).await
+    }
+
+    async fn list_addon_event_delivery_attempts(
+        &self,
+        event_id: EventId,
+    ) -> Result<Vec<AddonEventDeliveryAttemptRecord>> {
+        let rows = sqlx::query(&format!(
+            r#"
+            {ADDON_EVENT_DELIVERY_ATTEMPT_SELECT}
+            WHERE event_id = $1
+            ORDER BY addon_id ASC, declaration_id ASC, attempt_number ASC, requested_at ASC, id ASC
+            "#
+        ))
+        .bind(event_id.as_uuid())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter()
+            .map(row_to_addon_event_delivery_attempt)
+            .collect()
+    }
+
+    async fn list_addon_event_delivery_attempts_for_addon(
+        &self,
+        addon_id: AddonId,
+        event_id: EventId,
+        declaration_id: &str,
+    ) -> Result<Vec<AddonEventDeliveryAttemptRecord>> {
+        let rows = sqlx::query(&format!(
+            r#"
+            {ADDON_EVENT_DELIVERY_ATTEMPT_SELECT}
+            WHERE addon_id = $1 AND event_id = $2 AND declaration_id = $3
+            ORDER BY attempt_number ASC, requested_at ASC, id ASC
+            "#
+        ))
+        .bind(addon_id.as_uuid())
+        .bind(event_id.as_uuid())
+        .bind(declaration_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter()
+            .map(row_to_addon_event_delivery_attempt)
+            .collect()
+    }
+}
+
+impl PostgresStore {
+    async fn get_addon_event_delivery_attempt_or_not_found(
+        &self,
+        id: AddonEventDeliveryAttemptId,
+    ) -> Result<AddonEventDeliveryAttemptRecord> {
+        let row = sqlx::query(&format!(
+            "{ADDON_EVENT_DELIVERY_ATTEMPT_SELECT} WHERE id = $1"
+        ))
+        .bind(id.as_uuid())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_addon_event_delivery_attempt)
+            .transpose()?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "addon_event_delivery_attempt",
+                id: id.to_string(),
+            })
+    }
+}
+
 fn row_to_outbox_event(row: PgRow) -> Result<OutboxEventRecord> {
     Ok(OutboxEventRecord {
         id: parse_id(row_get::<String>(&row, "id")?)?,
@@ -417,6 +567,22 @@ fn row_to_webhook_delivery_attempt(row: PgRow) -> Result<WebhookDeliveryAttemptR
         event_id: parse_id(row_get::<String>(&row, "event_id")?)?,
         attempt_number: i64_to_u32(row_get(&row, "attempt_number")?)?,
         status: WebhookDeliveryStatus::parse(&row_get::<String>(&row, "status")?)?,
+        http_status: optional_i64_to_u16(row_get(&row, "http_status")?)?,
+        error: row_get(&row, "error")?,
+        requested_at: row_get(&row, "requested_at")?,
+        completed_at: row_get(&row, "completed_at")?,
+        next_retry_at: row_get(&row, "next_retry_at")?,
+    })
+}
+
+fn row_to_addon_event_delivery_attempt(row: PgRow) -> Result<AddonEventDeliveryAttemptRecord> {
+    Ok(AddonEventDeliveryAttemptRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        addon_id: parse_id(row_get::<String>(&row, "addon_id")?)?,
+        event_id: parse_id(row_get::<String>(&row, "event_id")?)?,
+        declaration_id: row_get(&row, "declaration_id")?,
+        attempt_number: i64_to_u32(row_get(&row, "attempt_number")?)?,
+        status: AddonEventDeliveryStatus::parse(&row_get::<String>(&row, "status")?)?,
         http_status: optional_i64_to_u16(row_get(&row, "http_status")?)?,
         error: row_get(&row, "error")?,
         requested_at: row_get(&row, "requested_at")?,

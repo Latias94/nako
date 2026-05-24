@@ -21,7 +21,7 @@ use nako_api::extension::{
     SubmitAddonAcquisitionCandidateRequest, SubmitAddonGeneratedArtifactRequest,
     SubmitAddonSideEffectRequest, UpdateAddonStatusRequest,
 };
-use nako_core::{AddonId, AddonTokenId, JobId};
+use nako_core::{AddonId, AddonTokenId, EventId, JobId};
 use tracing::instrument;
 
 use crate::app::NakoApp;
@@ -75,6 +75,14 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/admin/v1/addons/{addon_id}/routing-plans",
             post(sync_addon_routing_plans),
+        )
+        .route(
+            "/admin/v1/events/{event_id}/addon-event-attempts",
+            get(list_addon_event_delivery_attempts),
+        )
+        .route(
+            "/admin/v1/events/{event_id}/addon-events/deliver",
+            post(deliver_addon_events_for_event),
         )
         .route(
             "/admin/v1/addons/{addon_id}/task-runs",
@@ -261,6 +269,30 @@ pub(super) async fn sync_addon_routing_plans(
     Path(addon_id): Path<AddonId>,
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(app.addons().sync_addon_routing_plans(addon_id).await?))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn list_addon_event_delivery_attempts(
+    State(app): State<NakoApp>,
+    Path(event_id): Path<EventId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.addons()
+            .list_addon_event_delivery_attempts(event_id)
+            .await?,
+    ))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn deliver_addon_events_for_event(
+    State(app): State<NakoApp>,
+    Path(event_id): Path<EventId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.addons()
+            .deliver_addon_events_for_event(event_id)
+            .await?,
+    ))
 }
 
 #[instrument(skip(app))]

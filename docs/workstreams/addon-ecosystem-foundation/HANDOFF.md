@@ -15,23 +15,26 @@ AEF-010 is complete as the authority freeze. AEF-020 is complete: Addon Task
 runs now persist deterministic request fingerprints and reject mismatched
 idempotency-key reuse. AEF-030 is complete: Nako's built-in official source
 catalog and the official metadata scraper runtime now share descriptor facts
-through `nako-official-addon-catalog`.
+through `nako-official-addon-catalog`. AEF-040 is complete: manifest-declared
+Addon Event Subscriptions can be delivered from the durable outbox through a
+host-owned runtime with durable attempts, retries, grant checks, protocol
+envelopes, and redaction-safe admin responses.
 
 ## Active Task
 
-- Task ID: AEF-040
+- Task ID: AEF-050
 - Owner: codex
 - Files:
-  - `crates/nako-core`
-  - `crates/nako-db`
-  - `crates/nako-server`
-  - `crates/nako-addon-client`
+  - `F:\SourceCodes\Rust\nako-official-addons`
+  - `scripts`
+  - `docs`
 - Validation:
-  - `cargo nextest run -p nako-server addon_event --no-fail-fast`
-  - `cargo nextest run -p nako-db event --no-fail-fast`
+  - focused official addon tests
+  - a Nako-hosted smoke where feasible
 - Status: READY
 - Review: pending
-- Evidence: AEF-020 and AEF-030 evidence is recorded in `EVIDENCE_AND_GATES.md`.
+- Evidence: AEF-020, AEF-030, and AEF-040 evidence is recorded in
+  `EVIDENCE_AND_GATES.md`.
 
 ## Decisions Since Last Update
 
@@ -43,6 +46,12 @@ through `nako-official-addon-catalog`.
   Endpoint facts.
 - MCP/AI outputs should enter through Generated Artifacts and Acceptance
   Workflow unless a specific Addon write grant applies.
+- Addon Event dispatch admin responses must expose redacted event summaries,
+  not raw outbox payloads.
+- Addon Event manual dispatch is idempotent after success; forced replay should
+  be a separate explicit API, not the default deliver path.
+- Event subscription filters are metadata today; evaluate them in the runtime
+  before broad provider fan-out.
 
 ## Blockers
 
@@ -50,5 +59,6 @@ through `nako-official-addon-catalog`.
 
 ## Next Recommended Action
 
-Implement AEF-040 Addon Event Delivery before adding broad official addon
-feature breadth.
+Implement AEF-050 as a small official event-driven addon proof path before
+adding broad notification, sync, MCP, Arr-stack, tunnel, or compatibility
+provider breadth.

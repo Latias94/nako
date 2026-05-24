@@ -49,14 +49,20 @@ Last updated: 2026-05-25
 
 ## M3 — Addon Event Delivery Runtime
 
-- [ ] AEF-040 [owner=codex] [deps=AEF-020,AEF-030] [scope=crates/nako-core,crates/nako-db,crates/nako-server,crates/nako-addon-client]
+- [x] AEF-040 [owner=codex] [deps=AEF-020,AEF-030] [scope=crates/nako-core,crates/nako-db,crates/nako-server,crates/nako-addon-client]
   Goal: Deliver manifest-declared Addon Event Subscriptions from Nako's durable
   event outbox to Addon Sidecars through a host-owned runtime.
   Validation: `cargo nextest run -p nako-server addon_event --no-fail-fast`
   and `cargo nextest run -p nako-db event --no-fail-fast`.
   Review: Check retry/backoff, grant checks, token authority, redaction,
   cancellation, and event replay behavior.
-  Evidence: event delivery runtime module and tests.
+  Evidence: `crates/nako-core/src/addon_event.rs`,
+  `crates/nako-core/src/repository/addon_event.rs`,
+  `crates/nako-db/src/sqlite/addon_events.rs`,
+  `crates/nako-db/src/postgres/events.rs`,
+  `crates/nako-addon-client/src/lib.rs`,
+  `crates/nako-server/src/app/addons/event_runtime.rs`,
+  `crates/nako-server/src/http/tests/addons.rs`.
   Handoff: Keep webhook delivery and Addon Event Delivery as separate adapters
   over the same durable outbox concept.
 

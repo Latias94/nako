@@ -1,5 +1,6 @@
 mod acquisition_intake;
 mod addon;
+mod addon_event;
 mod addon_task;
 mod automation;
 mod catalog;
@@ -21,6 +22,7 @@ mod webhook;
 
 pub use acquisition_intake::*;
 pub use addon::*;
+pub use addon_event::*;
 pub use addon_task::*;
 pub use automation::*;
 pub use catalog::*;

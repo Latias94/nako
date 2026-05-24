@@ -4,15 +4,17 @@ use nako_addon_protocol::{
     AddonTaskDeclaration,
 };
 use nako_core::{
-    ADDON_TASK_RUN_PROGRESS_SCHEMA, ADDON_TASK_RUN_RESULT_SCHEMA, AddonGrantRecord, AddonId,
-    AddonPermission, AddonRegistrationRecord, AddonRoutingDeclarationKind, AddonRoutingPlanRecord,
-    AddonRoutingPlanStatus, AddonRoutingPlanTarget, AddonSideEffectApplyStatus, AddonSideEffectId,
-    AddonSideEffectRecord, AddonSideEffectTarget, AddonSideEffectTargetKind,
-    AddonSideEffectValidationStatus, AddonStatus, AddonTaskRunLeaseGuard, AddonTaskRunRecord,
-    AddonTokenId, AddonTokenRecord, AddonTokenStatus, AutomationArtifactId, AutomationArtifactKind,
-    AutomationArtifactRecord, AutomationArtifactStatus, AutomationCapability, AutomationJobInput,
-    AutomationProviderConfigRecord, AutomationProviderId, AutomationProviderStatus, EventId, JobId,
-    JobKind, JobStatus, JobWorkerId, LibraryId, MediaItemId, MediaSourceId, OutboxEventRecord,
+    ADDON_TASK_RUN_PROGRESS_SCHEMA, ADDON_TASK_RUN_RESULT_SCHEMA, AddonEventDeliveryAttemptRecord,
+    AddonGrantRecord, AddonId, AddonPermission, AddonRegistrationRecord,
+    AddonRoutingDeclarationKind, AddonRoutingPlanRecord, AddonRoutingPlanStatus,
+    AddonRoutingPlanTarget, AddonSideEffectApplyStatus, AddonSideEffectId, AddonSideEffectRecord,
+    AddonSideEffectTarget, AddonSideEffectTargetKind, AddonSideEffectValidationStatus, AddonStatus,
+    AddonTaskRunLeaseGuard, AddonTaskRunRecord, AddonTokenId, AddonTokenRecord, AddonTokenStatus,
+    AutomationArtifactId, AutomationArtifactKind, AutomationArtifactRecord,
+    AutomationArtifactStatus, AutomationCapability, AutomationJobInput,
+    AutomationProviderConfigRecord, AutomationProviderId, AutomationProviderStatus,
+    DomainEventKind, DomainEventSubject, EventId, JobId, JobKind, JobStatus, JobWorkerId,
+    LibraryId, MediaItemId, MediaSourceId, OutboxEventRecord, OutboxEventStatus,
     WebhookDeliveryAttemptRecord, WebhookEndpointId, WebhookEndpointRecord, WebhookEndpointStatus,
 };
 use serde::{Deserialize, Serialize};
@@ -53,6 +55,58 @@ pub struct WebhookDispatchResponse {
     pub failed: u32,
     pub skipped_endpoints: u32,
     pub attempts: Vec<WebhookDeliveryAttemptRecord>,
+    pub errors: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonEventDeliveryAttemptsResponse {
+    pub event_id: EventId,
+    pub attempts: Vec<AddonEventDeliveryAttemptRecord>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonEventDispatchEventSummary {
+    pub id: EventId,
+    pub kind: DomainEventKind,
+    pub subject: DomainEventSubject,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub library_id: Option<LibraryId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_id: Option<MediaSourceId>,
+    pub status: OutboxEventStatus,
+    pub attempts: u32,
+    pub occurred_at: String,
+    pub updated_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub next_attempt_at: Option<String>,
+}
+
+impl AddonEventDispatchEventSummary {
+    #[must_use]
+    pub fn from_record(record: &OutboxEventRecord) -> Self {
+        Self {
+            id: record.id,
+            kind: record.kind,
+            subject: record.subject,
+            library_id: record.library_id,
+            source_id: record.source_id,
+            status: record.status,
+            attempts: record.attempts,
+            occurred_at: record.occurred_at.clone(),
+            updated_at: record.updated_at.clone(),
+            next_attempt_at: record.next_attempt_at.clone(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonEventDispatchResponse {
+    pub event: AddonEventDispatchEventSummary,
+    pub attempted_subscriptions: u32,
+    pub delivered: u32,
+    pub failed: u32,
+    pub skipped_subscriptions: u32,
+    pub attempts: Vec<AddonEventDeliveryAttemptRecord>,
     pub errors: Vec<String>,
 }
 

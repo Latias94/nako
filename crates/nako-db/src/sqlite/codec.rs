@@ -681,6 +681,24 @@ pub(crate) fn row_to_webhook_delivery_attempt(
     })
 }
 
+pub(crate) fn row_to_addon_event_delivery_attempt(
+    row: SqliteRow,
+) -> Result<AddonEventDeliveryAttemptRecord> {
+    Ok(AddonEventDeliveryAttemptRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        addon_id: parse_id(row_get::<String>(&row, "addon_id")?)?,
+        event_id: parse_id(row_get::<String>(&row, "event_id")?)?,
+        declaration_id: row_get(&row, "declaration_id")?,
+        attempt_number: i64_to_u32(row_get(&row, "attempt_number")?)?,
+        status: AddonEventDeliveryStatus::parse(&row_get::<String>(&row, "status")?)?,
+        http_status: optional_i64_to_u16(row_get(&row, "http_status")?)?,
+        error: row_get(&row, "error")?,
+        requested_at: row_get(&row, "requested_at")?,
+        completed_at: row_get(&row, "completed_at")?,
+        next_retry_at: row_get(&row, "next_retry_at")?,
+    })
+}
+
 pub(crate) fn row_to_addon_registration(row: SqliteRow) -> Result<AddonRegistrationRecord> {
     let granted_scopes = serde_json::from_str(&row_get::<String>(&row, "granted_scopes_json")?)
         .map_err(database_error)?;

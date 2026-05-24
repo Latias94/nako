@@ -14,12 +14,13 @@ use axum::{
 use nako_addon_client::{ReqwestAddonTransport, call_addon_resource};
 use nako_addon_protocol::{
     ADDON_PROTOCOL_VERSION, AddonAuth, AddonConfigurationSchema, AddonEntryPointDeclaration,
-    AddonEntryPointKind, AddonEventSubscriptionDeclaration, AddonHealthCheckRequest,
-    AddonHealthCheckResponse as ProtocolAddonHealthCheckResponse, AddonHealthManifestFacts,
-    AddonHealthStatus, AddonHostedPageDeclaration, AddonInstallDescriptor, AddonManifest,
-    AddonResource, AddonResourceDeclaration, AddonRuntimeKind, AddonRuntimeRequirement, AddonScope,
-    AddonSecretReferenceBinding, AddonSecretReferenceFieldDeclaration, AddonTaskDeclaration,
-    AddonTaskRequest, AddonTaskResponse,
+    AddonEntryPointKind, AddonEventRequest, AddonEventResponse, AddonEventSubscriptionDeclaration,
+    AddonHealthCheckRequest, AddonHealthCheckResponse as ProtocolAddonHealthCheckResponse,
+    AddonHealthManifestFacts, AddonHealthStatus, AddonHostedPageDeclaration,
+    AddonInstallDescriptor, AddonManifest, AddonResource, AddonResourceDeclaration,
+    AddonRuntimeKind, AddonRuntimeRequirement, AddonScope, AddonSecretReferenceBinding,
+    AddonSecretReferenceFieldDeclaration, AddonTaskDeclaration, AddonTaskRequest,
+    AddonTaskResponse,
 };
 use nako_api::{
     admin::{
@@ -49,6 +50,7 @@ use nako_api::{
     },
     extension::{
         AddonAccessCheckRequest, AddonAccessCheckResponse, AddonAcquisitionCandidateResponse,
+        AddonEventDeliveryAttemptsResponse, AddonEventDispatchResponse,
         AddonGeneratedArtifactResponse, AddonGrantAssignment, AddonGrantsResponse,
         AddonSideEffectResponse, AddonSideEffectTargetRequest, AddonTaskRunDispatchMode,
         AddonTaskRunResponse, AddonTokenIssuedResponse, AddonTokenResponse,

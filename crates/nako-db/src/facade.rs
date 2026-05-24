@@ -11,6 +11,7 @@ use crate::{
 
 trait DatabaseBackendAdapter:
     AcquisitionIntakeRepository
+    + AddonEventDeliveryRepository
     + AddonRepository
     + AddonTaskRunRepository
     + AutomationRepository
@@ -49,6 +50,7 @@ trait DatabaseBackendAdapter:
 
 impl<T> DatabaseBackendAdapter for T where
     T: AcquisitionIntakeRepository
+        + AddonEventDeliveryRepository
         + AddonRepository
         + AddonTaskRunRepository
         + AutomationRepository
@@ -991,6 +993,51 @@ impl EventOutboxRepository for NakoDatabase {
         page: PageRequest,
     ) -> Result<Vec<OutboxEventRecord>> {
         self.backend().list_outbox_events(filter, page).await
+    }
+}
+
+#[async_trait::async_trait]
+impl AddonEventDeliveryRepository for NakoDatabase {
+    async fn create_addon_event_delivery_attempt(
+        &self,
+        attempt: NewAddonEventDeliveryAttempt,
+    ) -> Result<AddonEventDeliveryAttemptRecord> {
+        self.backend()
+            .create_addon_event_delivery_attempt(attempt)
+            .await
+    }
+
+    async fn set_addon_event_delivery_attempt_result(
+        &self,
+        id: AddonEventDeliveryAttemptId,
+        status: AddonEventDeliveryStatus,
+        http_status: Option<u16>,
+        error: Option<String>,
+        next_retry_at: Option<String>,
+    ) -> Result<AddonEventDeliveryAttemptRecord> {
+        self.backend()
+            .set_addon_event_delivery_attempt_result(id, status, http_status, error, next_retry_at)
+            .await
+    }
+
+    async fn list_addon_event_delivery_attempts(
+        &self,
+        event_id: EventId,
+    ) -> Result<Vec<AddonEventDeliveryAttemptRecord>> {
+        self.backend()
+            .list_addon_event_delivery_attempts(event_id)
+            .await
+    }
+
+    async fn list_addon_event_delivery_attempts_for_addon(
+        &self,
+        addon_id: AddonId,
+        event_id: EventId,
+        declaration_id: &str,
+    ) -> Result<Vec<AddonEventDeliveryAttemptRecord>> {
+        self.backend()
+            .list_addon_event_delivery_attempts_for_addon(addon_id, event_id, declaration_id)
+            .await
     }
 }
 

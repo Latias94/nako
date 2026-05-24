@@ -170,6 +170,67 @@ struct CapturedAddonTaskRequest {
     request: AddonTaskRequest,
 }
 
+#[derive(Clone, Debug)]
+struct CapturedAddonEventRequest {
+    headers: Vec<(String, String)>,
+    request: AddonEventRequest,
+}
+
+async fn event_path_addon_server(
+    status: StatusCode,
+) -> (String, StdArc<TokioMutex<Vec<CapturedAddonEventRequest>>>) {
+    let requests = StdArc::new(TokioMutex::new(Vec::new()));
+    let router = Router::new().route(
+        "/events/library-scanned",
+        axum::routing::post({
+            let requests = StdArc::clone(&requests);
+            move |headers: axum::http::HeaderMap, Json(request): Json<AddonEventRequest>| {
+                let requests = StdArc::clone(&requests);
+                async move {
+                    requests.lock().await.push(CapturedAddonEventRequest {
+                        headers: headers
+                            .iter()
+                            .filter_map(|(name, value)| {
+                                value
+                                    .to_str()
+                                    .ok()
+                                    .map(|value| (name.as_str().to_owned(), value.to_owned()))
+                            })
+                            .collect(),
+                        request: request.clone(),
+                    });
+                    if !status.is_success() {
+                        return (status, "sidecar failed").into_response();
+                    }
+
+                    (
+                        status,
+                        Json(AddonEventResponse {
+                            protocol_version: request.protocol_version,
+                            addon_id: request.addon_id,
+                            subscription_id: request.subscription_id,
+                            event_id: request.event_id,
+                            output: serde_json::json!({
+                                "accepted": true,
+                                "attempt": request.attempt,
+                            }),
+                        }),
+                    )
+                        .into_response()
+                }
+            }
+        }),
+    );
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, router).await.unwrap();
+    });
+    yield_now().await;
+
+    (format!("http://{addr}"), requests)
+}
+
 async fn task_path_addon_server(
     statuses: Vec<StatusCode>,
 ) -> (String, StdArc<TokioMutex<Vec<CapturedAddonTaskRequest>>>) {
@@ -259,6 +320,51 @@ fn task_path_manifest_with_auth(base_url: String, auth: AddonAuth) -> AddonManif
     ];
     manifest.scopes.push(AddonScope::AutomationRun);
     manifest
+}
+
+fn event_path_manifest(base_url: String) -> AddonManifest {
+    let mut manifest = addon_manifest();
+    manifest.id = "example.event-delivery".to_owned();
+    manifest.base_url = base_url;
+    manifest.auth = AddonAuth::None;
+    manifest.event_subscriptions = vec![AddonEventSubscriptionDeclaration::new(
+        "library-scanned",
+        DomainEventKind::LibraryScanned.as_str(),
+        "/events/library-scanned",
+        vec![AddonScope::WebhookEventRead],
+        serde_json::Value::Null,
+    )];
+    manifest.scopes.push(AddonScope::WebhookEventRead);
+    manifest
+}
+
+async fn register_event_path_addon(router: &Router, base_url: String) -> AddonId {
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: event_path_manifest(base_url),
+            outbound_task_dispatch_secret_env: None,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+                AddonScope::WebhookEventRead,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    request_json::<AdminAddonRoutingPlansResponse>(
+        router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/routing-plans"),
+    )
+    .await;
+
+    addon_id
 }
 
 async fn register_task_path_addon(router: &Router, base_url: String) -> AddonId {
@@ -2779,6 +2885,229 @@ async fn admin_addon_routing_plans_defers_disabled_addons_without_runtime_target
         Some(DomainEventKind::LibraryScanned.as_str())
     );
     assert!(!text.contains("nako_at_should_not_echo"));
+}
+
+#[tokio::test]
+async fn addon_event_delivery_dispatches_outbox_event_to_executable_subscription() {
+    let (_temp, router, source, store) =
+        router_with_media_source_config("addon-event.mkv", b"media", |_| {}).await;
+    let (base_url, requests) = event_path_addon_server(StatusCode::ACCEPTED).await;
+    let addon_id = register_event_path_addon(&router, base_url).await;
+    let event = store
+        .enqueue_outbox_event(NewOutboxEvent {
+            id: EventId::new(),
+            kind: DomainEventKind::LibraryScanned,
+            subject: DomainEventSubject::Library(source.library_id),
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            idempotency_key: format!("addon-event:{}", source.id),
+            payload_json: serde_json::json!({
+                "library_id": source.library_id,
+                "source_id": source.id,
+                "secret": "nako_at_should_not_echo"
+            })
+            .to_string(),
+        })
+        .await
+        .unwrap();
+
+    let raw = response_for(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/events/{}/addon-events/deliver", event.id),
+    )
+    .await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let bytes = to_bytes(raw.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let response = serde_json::from_str::<AddonEventDispatchResponse>(&text).unwrap();
+
+    assert_eq!(response.event.id, event.id);
+    assert_eq!(response.attempted_subscriptions, 1);
+    assert_eq!(response.delivered, 1);
+    assert_eq!(response.failed, 0);
+    assert_eq!(response.attempts.len(), 1);
+    assert_eq!(response.attempts[0].addon_id, addon_id);
+    assert_eq!(response.attempts[0].declaration_id, "library-scanned");
+    assert_eq!(
+        response.attempts[0].status,
+        nako_core::AddonEventDeliveryStatus::Succeeded
+    );
+    assert_eq!(response.attempts[0].http_status, Some(202));
+    assert_eq!(response.attempts[0].next_retry_at, None);
+    assert!(!text.contains("nako_at_should_not_echo"));
+
+    let captured = requests.lock().await;
+    assert_eq!(captured.len(), 1);
+    let captured_request = &captured[0];
+    assert_eq!(captured_request.request.addon_id, "example.event-delivery");
+    assert_eq!(
+        captured_request.request.protocol_version,
+        ADDON_PROTOCOL_VERSION
+    );
+    assert_eq!(captured_request.request.subscription_id, "library-scanned");
+    assert_eq!(captured_request.request.event_id, event.id.to_string());
+    assert_eq!(
+        captured_request.request.event_kind,
+        DomainEventKind::LibraryScanned.as_str()
+    );
+    assert_eq!(captured_request.request.subject_kind, "library");
+    assert_eq!(
+        captured_request.request.subject_id,
+        source.library_id.to_string()
+    );
+    assert_eq!(captured_request.request.attempt, 1);
+    assert_eq!(
+        captured_request.request.payload["source_id"],
+        source.id.to_string()
+    );
+    assert!(
+        captured_request
+            .headers
+            .iter()
+            .any(|(name, value)| name == "x-nako-addon-operation" && value == "event-delivery")
+    );
+    assert!(captured_request.headers.iter().any(|(name, value)| name
+        == "x-nako-addon-event-subscription"
+        && value == "library-scanned"));
+    assert!(
+        captured_request
+            .headers
+            .iter()
+            .all(|(name, _)| name != "authorization" && name != "x-nako-addon-secret")
+    );
+
+    let listed = request_json::<AddonEventDeliveryAttemptsResponse>(
+        &router,
+        Method::GET,
+        &format!("/admin/v1/events/{}/addon-event-attempts", event.id),
+    )
+    .await;
+    assert_eq!(listed.event_id, event.id);
+    assert_eq!(listed.attempts, response.attempts);
+
+    let stored_event = store.get_outbox_event(event.id).await.unwrap().unwrap();
+    assert_eq!(stored_event.status, OutboxEventStatus::Pending);
+    assert_eq!(stored_event.attempts, 0);
+}
+
+#[tokio::test]
+async fn addon_event_delivery_skips_already_succeeded_subscription() {
+    let (_temp, router, source, store) =
+        router_with_media_source_config("addon-event-replay.mkv", b"media", |_| {}).await;
+    let (base_url, requests) = event_path_addon_server(StatusCode::ACCEPTED).await;
+    register_event_path_addon(&router, base_url).await;
+    let event = store
+        .enqueue_outbox_event(NewOutboxEvent {
+            id: EventId::new(),
+            kind: DomainEventKind::LibraryScanned,
+            subject: DomainEventSubject::Library(source.library_id),
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            idempotency_key: format!("addon-event-replay:{}", source.id),
+            payload_json: serde_json::json!({
+                "library_id": source.library_id,
+                "source_id": source.id
+            })
+            .to_string(),
+        })
+        .await
+        .unwrap();
+    let path = format!("/admin/v1/events/{}/addon-events/deliver", event.id);
+
+    let first = request_json::<AddonEventDispatchResponse>(&router, Method::POST, &path).await;
+    assert_eq!(first.attempted_subscriptions, 1);
+    assert_eq!(first.delivered, 1);
+    assert_eq!(first.skipped_subscriptions, 0);
+    assert_eq!(first.attempts.len(), 1);
+
+    let second = request_json::<AddonEventDispatchResponse>(&router, Method::POST, &path).await;
+    assert_eq!(second.attempted_subscriptions, 1);
+    assert_eq!(second.delivered, 0);
+    assert_eq!(second.failed, 0);
+    assert_eq!(second.skipped_subscriptions, 1);
+    assert!(second.attempts.is_empty());
+
+    let captured = requests.lock().await;
+    assert_eq!(captured.len(), 1);
+    drop(captured);
+
+    let listed = request_json::<AddonEventDeliveryAttemptsResponse>(
+        &router,
+        Method::GET,
+        &format!("/admin/v1/events/{}/addon-event-attempts", event.id),
+    )
+    .await;
+    assert_eq!(listed.attempts.len(), 1);
+    assert_eq!(
+        listed.attempts[0].status,
+        nako_core::AddonEventDeliveryStatus::Succeeded
+    );
+}
+
+#[tokio::test]
+async fn addon_event_delivery_records_retryable_failure_without_echoing_payload() {
+    let (_temp, router, source, store) =
+        router_with_media_source_config("addon-event-failure.mkv", b"media", |_| {}).await;
+    let (base_url, requests) = event_path_addon_server(StatusCode::SERVICE_UNAVAILABLE).await;
+    let addon_id = register_event_path_addon(&router, base_url).await;
+    let event = store
+        .enqueue_outbox_event(NewOutboxEvent {
+            id: EventId::new(),
+            kind: DomainEventKind::LibraryScanned,
+            subject: DomainEventSubject::Library(source.library_id),
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            idempotency_key: format!("addon-event-failure:{}", source.id),
+            payload_json: serde_json::json!({
+                "library_id": source.library_id,
+                "source_id": source.id,
+                "secret": "nako_at_should_not_echo"
+            })
+            .to_string(),
+        })
+        .await
+        .unwrap();
+
+    let raw = response_for(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/events/{}/addon-events/deliver", event.id),
+    )
+    .await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let bytes = to_bytes(raw.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let response = serde_json::from_str::<AddonEventDispatchResponse>(&text).unwrap();
+
+    assert_eq!(response.event.id, event.id);
+    assert_eq!(response.attempted_subscriptions, 1);
+    assert_eq!(response.delivered, 0);
+    assert_eq!(response.failed, 1);
+    assert_eq!(response.errors, Vec::<String>::new());
+    assert_eq!(response.attempts.len(), 1);
+    assert_eq!(response.attempts[0].addon_id, addon_id);
+    assert_eq!(response.attempts[0].declaration_id, "library-scanned");
+    assert_eq!(
+        response.attempts[0].status,
+        nako_core::AddonEventDeliveryStatus::Failed
+    );
+    assert_eq!(response.attempts[0].http_status, Some(503));
+    assert!(response.attempts[0].next_retry_at.is_some());
+    let error = response.attempts[0].error.as_deref().unwrap();
+    assert!(error.contains("retryable_http_failure"));
+    assert!(error.contains("\"retryable\":true"));
+    assert!(!error.contains("nako_at_should_not_echo"));
+    assert!(!text.contains("nako_at_should_not_echo"));
+    assert!(!text.contains("sidecar failed"));
+
+    let captured = requests.lock().await;
+    assert_eq!(captured.len(), 1);
+    assert_eq!(captured[0].request.attempt, 1);
+    assert_eq!(
+        captured[0].request.payload["secret"],
+        "nako_at_should_not_echo"
+    );
 }
 
 #[tokio::test]

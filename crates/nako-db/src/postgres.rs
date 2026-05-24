@@ -74,6 +74,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "addon outbound task-dispatch credentials",
         include_str!("../migrations/postgres/0010_addon_outbound_task_dispatch_credentials.sql"),
     ),
+    (
+        11,
+        "addon event delivery attempts",
+        include_str!("../migrations/postgres/0011_addon_event_delivery_attempts.sql"),
+    ),
 ];
 
 #[derive(Clone, Debug)]

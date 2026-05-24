@@ -3,12 +3,13 @@ use std::time::Duration;
 use async_trait::async_trait;
 use nako_addon_protocol::{
     ADDON_RUNTIME_ACCESS_CHECK_PATH, ADDON_RUNTIME_SIDE_EFFECTS_PATH, AddonAccessCheckRequest,
-    AddonAccessCheckResponse, AddonAuth, AddonHealthCheckRequest, AddonHealthCheckResponse,
-    AddonManifest, AddonManifestError, AddonPermission, AddonResource, AddonResourceRequest,
-    AddonResourceResponse, AddonScope, AddonSideEffectResponse, AddonSideEffectTargetKind,
-    AddonTaskRequest, AddonTaskResponse, SubmitAddonArtworkWriteRequest,
-    SubmitAddonMetadataWriteRequest, SubmitAddonSideEffectRequest, ensure_scope_grant,
-    ensure_task_scope_grant, validate_health_check_response, validate_manifest,
+    AddonAccessCheckResponse, AddonAuth, AddonEventRequest, AddonEventResponse,
+    AddonHealthCheckRequest, AddonHealthCheckResponse, AddonManifest, AddonManifestError,
+    AddonPermission, AddonResource, AddonResourceRequest, AddonResourceResponse, AddonScope,
+    AddonSideEffectResponse, AddonSideEffectTargetKind, AddonTaskRequest, AddonTaskResponse,
+    SubmitAddonArtworkWriteRequest, SubmitAddonMetadataWriteRequest, SubmitAddonSideEffectRequest,
+    ensure_event_subscription_scope_grant, ensure_scope_grant, ensure_task_scope_grant,
+    validate_event_response, validate_health_check_response, validate_manifest,
     validate_resource_response, validate_task_response,
 };
 
@@ -102,6 +103,31 @@ pub struct AddonTaskCallOutcome {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AddonTaskCallFailure {
+    pub error: AddonClientError,
+    pub attempts: u32,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AddonEventCallRequest {
+    pub subscription_id: String,
+    pub event_id: String,
+    pub event_kind: String,
+    pub subject_kind: String,
+    pub subject_id: String,
+    pub occurred_at: String,
+    pub attempt: u32,
+    pub payload: serde_json::Value,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AddonEventCallOutcome {
+    pub response: AddonEventResponse,
+    pub http_status: u16,
+    pub attempts: u32,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AddonEventCallFailure {
     pub error: AddonClientError,
     pub attempts: u32,
 }
@@ -475,6 +501,143 @@ where
     }
 }
 
+pub async fn call_addon_event_with_outcome<T>(
+    transport: &T,
+    manifest: &AddonManifest,
+    granted_scopes: &[AddonScope],
+    request: AddonEventCallRequest,
+    bearer_token: Option<&str>,
+) -> Result<AddonEventCallOutcome, AddonEventCallFailure>
+where
+    T: AddonTransport,
+{
+    validate_manifest(manifest).map_err(event_call_setup_failure)?;
+    ensure_event_subscription_scope_grant(manifest, &request.subscription_id, granted_scopes)
+        .map_err(event_call_setup_failure)?;
+    let declaration = manifest
+        .event_subscriptions
+        .iter()
+        .find(|candidate| candidate.id == request.subscription_id)
+        .ok_or_else(|| AddonManifestError::EventSubscriptionNotDeclared {
+            subscription_id: request.subscription_id.clone(),
+        })
+        .map_err(event_call_setup_failure)?;
+    if declaration.event_kind != request.event_kind {
+        return Err(event_call_setup_failure(
+            AddonManifestError::InvalidEnvelope {
+                message: format!(
+                    "event subscription {} declares {} but request used {}",
+                    declaration.id, declaration.event_kind, request.event_kind
+                ),
+            },
+        ));
+    }
+
+    let timeout_ms = manifest.default_timeout_ms.unwrap_or(10_000);
+    let protocol_version = manifest.protocol_version.clone();
+    let envelope = AddonEventRequest {
+        protocol_version: protocol_version.clone(),
+        addon_id: manifest.id.clone(),
+        subscription_id: request.subscription_id.clone(),
+        event_id: request.event_id.clone(),
+        event_kind: request.event_kind.clone(),
+        subject_kind: request.subject_kind.clone(),
+        subject_id: request.subject_id.clone(),
+        occurred_at: request.occurred_at.clone(),
+        attempt: request.attempt,
+        payload: request.payload,
+    };
+    let body = serde_json::to_string(&envelope)
+        .map_err(|err| AddonManifestError::InvalidEnvelope {
+            message: format!("failed to serialize addon event request: {err}"),
+        })
+        .map_err(event_call_setup_failure)?;
+    let mut headers = vec![
+        ("content-type".to_owned(), "application/json".to_owned()),
+        ("x-nako-addon-protocol-version".to_owned(), protocol_version),
+        ("x-nako-addon-id".to_owned(), manifest.id.clone()),
+        (
+            "x-nako-addon-operation".to_owned(),
+            "event-delivery".to_owned(),
+        ),
+        (
+            "x-nako-addon-event-subscription".to_owned(),
+            request.subscription_id.clone(),
+        ),
+        ("x-nako-event-id".to_owned(), request.event_id.clone()),
+        ("x-nako-event-kind".to_owned(), request.event_kind.clone()),
+        ("x-nako-attempt".to_owned(), request.attempt.to_string()),
+    ];
+    match manifest.auth {
+        AddonAuth::None => {}
+        AddonAuth::Bearer => {
+            let token = bearer_token
+                .ok_or(AddonManifestError::MissingAuthToken {
+                    auth: AddonAuth::Bearer,
+                })
+                .map_err(event_call_setup_failure)?;
+            headers.push(("authorization".to_owned(), format!("Bearer {token}")));
+        }
+        AddonAuth::SharedSecret => {
+            let token = bearer_token
+                .ok_or(AddonManifestError::MissingAuthToken {
+                    auth: AddonAuth::SharedSecret,
+                })
+                .map_err(event_call_setup_failure)?;
+            headers.push(("x-nako-addon-secret".to_owned(), token.to_owned()));
+        }
+    }
+
+    let dispatch_attempt = 1;
+    let response = transport
+        .post(AddonHttpRequest {
+            url: resource_url(&manifest.base_url, &declaration.path),
+            headers,
+            body,
+            timeout_ms,
+        })
+        .await
+        .map_err(|err| AddonEventCallFailure {
+            error: err,
+            attempts: dispatch_attempt,
+        })?;
+
+    if !(200..300).contains(&response.status) {
+        return Err(AddonEventCallFailure {
+            error: AddonClientError::HttpStatus {
+                status: response.status,
+                retryable: is_retryable_http_status(response.status),
+            },
+            attempts: dispatch_attempt,
+        });
+    }
+
+    let envelope = serde_json::from_str::<AddonEventResponse>(&response.body)
+        .map_err(|err| AddonManifestError::InvalidEnvelope {
+            message: format!("failed to parse addon event response: {err}"),
+        })
+        .map_err(|error| AddonEventCallFailure {
+            error: error.into(),
+            attempts: dispatch_attempt,
+        })?;
+    validate_event_response(
+        &envelope,
+        manifest,
+        &request.subscription_id,
+        &request.event_id,
+    )
+    .map_err(|error| AddonEventCallFailure {
+        error: error.into(),
+        attempts: dispatch_attempt,
+    })?;
+
+    Ok(AddonEventCallOutcome {
+        response: envelope,
+        http_status: response.status,
+        attempts: dispatch_attempt,
+    })
+}
+
 pub async fn check_addon_health<T>(
     transport: &T,
     manifest: &AddonManifest,
@@ -705,6 +868,13 @@ fn task_call_setup_failure(error: impl Into<AddonClientError>) -> AddonTaskCallF
     }
 }
 
+fn event_call_setup_failure(error: impl Into<AddonClientError>) -> AddonEventCallFailure {
+    AddonEventCallFailure {
+        error: error.into(),
+        attempts: 0,
+    }
+}
+
 impl AddonClientError {
     #[must_use]
     pub const fn http_status(&self) -> Option<u16> {
@@ -799,7 +969,8 @@ mod tests {
     };
 
     use nako_addon_protocol::{
-        ADDON_PROTOCOL_VERSION, AddonArtifact, AddonResourceDeclaration, AddonTaskDeclaration,
+        ADDON_PROTOCOL_VERSION, AddonArtifact, AddonEventSubscriptionDeclaration,
+        AddonResourceDeclaration, AddonTaskDeclaration,
     };
 
     use super::*;
@@ -1073,6 +1244,70 @@ mod tests {
         assert!(requests[0].body.contains("\"task_id\":\"bulk-task\""));
         assert!(requests[0].body.contains("\"retry_of_job_id\":\"job-0\""));
         assert!(requests[0].body.contains("\"mode\":\"missing-only\""));
+    }
+
+    #[tokio::test]
+    async fn calls_declared_event_subscription_path_with_event_envelope() {
+        let manifest = valid_manifest_with_event_subscription();
+        let transport = MockTransport::with_response(Ok(AddonHttpResponse {
+            status: 202,
+            body: serde_json::to_string(&AddonEventResponse {
+                protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+                addon_id: manifest.id.clone(),
+                subscription_id: "library-scanned".to_owned(),
+                event_id: "event-1".to_owned(),
+                output: serde_json::json!({"queued": true}),
+            })
+            .unwrap(),
+        }));
+
+        let outcome = call_addon_event_with_outcome(
+            &transport,
+            &manifest,
+            &[AddonScope::WebhookEventRead],
+            AddonEventCallRequest {
+                subscription_id: "library-scanned".to_owned(),
+                event_id: "event-1".to_owned(),
+                event_kind: "library.scanned".to_owned(),
+                subject_kind: "library".to_owned(),
+                subject_id: "library-1".to_owned(),
+                occurred_at: "2026-05-25T00:00:00.000Z".to_owned(),
+                attempt: 2,
+                payload: serde_json::json!({"library_id": "library-1"}),
+            },
+            None,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(outcome.http_status, 202);
+        assert_eq!(outcome.response.output["queued"], true);
+        let requests = transport.requests();
+        assert_eq!(requests.len(), 1);
+        assert_eq!(
+            requests[0].url,
+            "https://example.test/addon/events/library-scanned".to_owned()
+        );
+        assert_eq!(
+            header_value(&requests[0], "x-nako-addon-operation"),
+            Some("event-delivery")
+        );
+        assert_eq!(
+            header_value(&requests[0], "x-nako-addon-event-subscription"),
+            Some("library-scanned")
+        );
+        assert_eq!(
+            header_value(&requests[0], "x-nako-event-kind"),
+            Some("library.scanned")
+        );
+        assert_eq!(header_value(&requests[0], "x-nako-attempt"), Some("2"));
+        assert!(
+            requests[0]
+                .body
+                .contains("\"subscription_id\":\"library-scanned\"")
+        );
+        assert!(requests[0].body.contains("\"event_id\":\"event-1\""));
+        assert!(requests[0].body.contains("\"library_id\":\"library-1\""));
     }
 
     #[tokio::test]
@@ -1368,6 +1603,20 @@ mod tests {
             .with_execution_bounds(Some(7_000), Some(3)),
         ];
         manifest.scopes.push(AddonScope::AutomationRun);
+        manifest
+    }
+
+    fn valid_manifest_with_event_subscription() -> AddonManifest {
+        let mut manifest = valid_manifest();
+        manifest.auth = AddonAuth::None;
+        manifest.event_subscriptions = vec![AddonEventSubscriptionDeclaration::new(
+            "library-scanned",
+            "library.scanned",
+            "/events/library-scanned",
+            vec![AddonScope::WebhookEventRead],
+            serde_json::Value::Null,
+        )];
+        manifest.scopes.push(AddonScope::WebhookEventRead);
         manifest
     }
 
