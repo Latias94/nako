@@ -1,7 +1,7 @@
 # Addon Outbound Task Dispatch Credentials - TODO
 
-Status: Active
-Last updated: 2026-05-24
+Status: Completed
+Last updated: 2026-05-25
 
 ## M0 - Boundary Freeze
 
@@ -50,9 +50,15 @@ Last updated: 2026-05-24
 
 ## M3 - Closeout Or Split
 
-- [ ] AOTDC-060 [owner=planner] [deps=AOTDC-030] [scope=docs/workstreams/addon-outbound-task-dispatch-credentials]
+- [x] AOTDC-060 [owner=planner] [deps=AOTDC-030] [scope=docs/workstreams/addon-outbound-task-dispatch-credentials]
   Goal: Close the lane or split any secret-provider follow-ons.
   Validation: verify-rust-workstream records fresh final gate evidence.
   Review: review-workstream has no blocking findings.
-  Evidence: EVIDENCE_AND_GATES.md, WORKSTREAM.json
-  Handoff: Summarize residual risks in HANDOFF.md.
+  Evidence: DONE. 2026-05-25 closeout recorded fresh `cargo fmt --all --
+  --check`, `cargo check -p nako-addon-client -p nako-server`, `cargo nextest
+  run -p nako-addon-client --no-fail-fast`, focused direct-dispatch server
+  tests, broad server addon tests, and `git diff --check` evidence in
+  EVIDENCE_AND_GATES.md and WORKSTREAM.json.
+  Handoff: DONE. The lane is closed. A richer vault or secret-provider
+  abstraction is a future follow-on only if env-backed references are
+  insufficient.

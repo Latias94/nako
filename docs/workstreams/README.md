@@ -65,7 +65,7 @@ attention.
   package signing, provider breadth, or process supervision into the first
   slice.
 - [addon-outbound-task-dispatch-credentials](addon-outbound-task-dispatch-credentials/README.md):
-  active follow-on lane for authenticated outbound task-dispatch credential
+  completed follow-on lane for authenticated outbound task-dispatch credential
   storage and resolution for `AddonAuth::Bearer` and
   `AddonAuth::SharedSecret`, keeping direct task dispatch host-owned and
   redaction-safe.

@@ -1,21 +1,21 @@
 # Addon Outbound Task Dispatch Credentials
 
-Status: Active
-Last updated: 2026-05-24
+Status: Completed
+Last updated: 2026-05-25
 
 ## Problem
 
-`call_addon_task_with_outcome` already knows how to send `Authorization:
+`call_addon_task_with_outcome` already knew how to send `Authorization:
 Bearer <token>` or `x-nako-addon-secret`, but the server-side direct-dispatch
-path currently passes `None` for the outbound credential.
+path previously passed `None` for the outbound credential.
 
-That means authenticated sidecars cannot be reached through the host-owned
+That meant authenticated sidecars could not be reached through the host-owned
 task runtime without a safe storage and resolution boundary for the dispatch
 credential.
 
 ## Target State
 
-Nako should be able to:
+Nako can now:
 
 - persist an outbound task-dispatch credential env reference for an addon
   registration;
@@ -62,7 +62,7 @@ credential layer necessary to resolve it. Prefer storing environment-variable
 references and resolving them at dispatch time over persisting raw secret
 material.
 
-The current implementation stores `outbound_task_dispatch_secret_env` on the
+The shipped implementation stores `outbound_task_dispatch_secret_env` on the
 addon registration record and resolves it from the host environment immediately
 before direct dispatch. Missing or empty env values fail with a redaction-safe
 configuration error.
@@ -70,6 +70,13 @@ configuration error.
 The direct-dispatch path should stay responsible for scheduling, retries, and
 result handling. This lane only fills the outbound auth gap required by
 authenticated sidecars.
+
+## Closeout
+
+Closed on 2026-05-25 after fresh formatting, compile, Addon client, Addon
+server, focused direct-dispatch, and diff gates passed. A richer vault or
+secret-provider abstraction remains outside this lane and should be split only
+if env-backed references prove too narrow for deployment.
 
 ## Related Docs
 

@@ -1,27 +1,25 @@
 # Addon Outbound Task Dispatch Credentials
 
-Status: Active
-Last updated: 2026-05-24
+Status: Completed
+Last updated: 2026-05-25
 
-This workstream adds storage and resolution for outbound task-dispatch
+This workstream added storage and resolution for outbound task-dispatch
 credentials for addon sidecars that declare `AddonAuth::Bearer` or
 `AddonAuth::SharedSecret`.
 
-The host-owned task runtime already exists. Direct dispatch currently calls the
-Addon client without a credential, so authenticated sidecars cannot be reached
-through the host-owned path without a safe credential-management boundary. The
-first implementation slice stores an environment-variable reference on the addon
-registration and resolves it at dispatch time on the host.
+The host-owned task runtime already exists. Direct dispatch now resolves an
+environment-variable credential reference stored on the addon registration and
+passes the resolved credential to the Addon client at dispatch time.
 
 ## Problem
 
-Nako can dispatch Addon Tasks directly, but the current direct-dispatch path
-passes no outbound credential. That leaves `Bearer` and `SharedSecret`
-sidecars without a host-owned way to receive authenticated task calls.
+Nako could dispatch Addon Tasks directly, but the direct-dispatch path passed no
+outbound credential. That left `Bearer` and `SharedSecret` sidecars without a
+host-owned way to receive authenticated task calls.
 
 ## Target State
 
-This lane closes when Nako can:
+This lane closed after Nako could:
 
 - store or resolve an outbound task-dispatch credential env reference for an
   addon without exposing raw secret values in public APIs or logs;
@@ -58,9 +56,17 @@ not invent a new auth vocabulary; it should define how Nako stores, resolves,
 and injects the credential that a manifest already requires. The current slice
 uses `outbound_task_dispatch_secret_env` as the host-owned reference.
 
-The first slice should prefer secret references over raw secret values and keep
-resolution on the host side at dispatch time. Diagnostics should say whether a
-credential reference is present or missing, not echo the secret itself.
+The shipped slice stores `outbound_task_dispatch_secret_env` on the addon
+registration and resolves it on the host side at dispatch time. Diagnostics say
+whether a credential reference is present or missing without echoing the secret
+itself.
+
+## Closeout
+
+Closed on 2026-05-25 after fresh compile, formatting, Addon client, Addon
+server, focused direct-dispatch, and diff gates passed. A richer vault or
+secret-provider abstraction remains a separate follow-on if env-backed
+references prove too narrow.
 
 ## Related Docs
 

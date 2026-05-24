@@ -2,10 +2,10 @@
   "schema_version": 1,
   "slug": "addon-outbound-task-dispatch-credentials",
   "title": "Addon Outbound Task Dispatch Credentials",
-  "status": "active",
-  "updated": "2026-05-24",
+  "status": "completed",
+  "updated": "2026-05-25",
   "scope_kind": "implementation",
-  "problem": "Nako can already dispatch Addon Tasks directly, but the direct-dispatch path currently passes no outbound credential, so addons that declare AddonAuth::Bearer or AddonAuth::SharedSecret cannot be called through the host-owned runtime without a safe storage and resolution boundary.",
+  "problem": "Nako could already dispatch Addon Tasks directly, but the direct-dispatch path previously passed no outbound credential, so addons that declare AddonAuth::Bearer or AddonAuth::SharedSecret needed a safe host-owned storage and resolution boundary.",
   "authoritative_docs": [
     {
       "role": "readme",
@@ -37,6 +37,7 @@
     "cargo fmt --all -- --check",
     "cargo check -p nako-addon-client -p nako-server",
     "cargo nextest run -p nako-addon-client --no-fail-fast",
+    "cargo nextest run -p nako-server addon_task_run_direct_dispatch --no-fail-fast",
     "cargo nextest run -p nako-server addon --no-fail-fast"
   ],
   "evidence": [
@@ -54,13 +55,18 @@
       "date": "2026-05-24",
       "task": "AOTDC-030",
       "summary": "Direct dispatch now resolves host-owned outbound credentials for bearer and shared-secret addons, injects the matching header into addon-client calls, and fails safely when the secret reference cannot be resolved."
+    },
+    {
+      "date": "2026-05-25",
+      "task": "AOTDC-060",
+      "summary": "Closed the lane after fresh formatting, compile, Addon client, focused direct-dispatch, broad server addon, and diff gates passed. Vault or secret-provider integration remains a separate follow-on only if env-backed references prove too narrow."
     }
   ],
   "adr_refs": [
     "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "This lane should close after outbound credential storage/resolution and direct dispatch injection are proven. If the first secret-provider shape is too narrow, split a separate vault/provider follow-on instead of widening host-owned dispatch."
+    "default_action": "closed",
+    "notes": "The outbound credential storage/resolution and direct dispatch injection lane is complete. If env-backed references prove too narrow, split a separate vault/provider follow-on instead of widening host-owned dispatch."
   }
 }

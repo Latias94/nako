@@ -1,14 +1,13 @@
 # Addon Outbound Task Dispatch Credentials - Handoff
 
-Status: Active
-Last updated: 2026-05-24
+Status: Completed
+Last updated: 2026-05-25
 
 ## Current State
 
-This lane has been opened to close the outbound auth gap left by the host-owned
-Addon Task runtime. The direct dispatch path already exists, but it currently
-passes `None` to the Addon client, so authenticated sidecars cannot be called
-through the host-owned dispatch path without a credential-management layer.
+This lane is closed. It filled the outbound auth gap left by the host-owned
+Addon Task runtime without moving scheduling, retry, or result handling into
+sidecars.
 
 `crates/nako-addon-client/src/lib.rs` already knows how to emit `Authorization:
 Bearer` and `x-nako-addon-secret` headers from a supplied token. The host-side
@@ -21,7 +20,7 @@ secret auth.
 
 ## Next Task
 
-- AOTDC-060
+None in this lane.
 
 ## Known Risks
 

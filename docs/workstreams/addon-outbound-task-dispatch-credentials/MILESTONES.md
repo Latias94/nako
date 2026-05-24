@@ -1,7 +1,7 @@
 # Addon Outbound Task Dispatch Credentials - Milestones
 
-Status: Active
-Last updated: 2026-05-24
+Status: Completed
+Last updated: 2026-05-25
 
 ## M0 - Boundary Frozen
 
@@ -41,3 +41,7 @@ Exit criteria:
 - final gates are recorded;
 - docs match the shipped behavior;
 - any richer secret-provider or vault follow-ons are split explicitly.
+
+Status: achieved on 2026-05-25. Final gates are recorded in
+`EVIDENCE_AND_GATES.md`; the shipped boundary remains env-reference based; any
+richer vault/provider design is deliberately deferred to a separate follow-on.
