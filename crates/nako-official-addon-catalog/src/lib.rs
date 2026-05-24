@@ -1,8 +1,9 @@
 use nako_addon_protocol::{
     ADDON_PROTOCOL_VERSION, AddonAuth, AddonConfigurationSchema, AddonEntryPointDeclaration,
-    AddonEntryPointKind, AddonHostedPageDeclaration, AddonInstallDescriptor, AddonManifest,
-    AddonResource, AddonResourceDeclaration, AddonRuntimeKind, AddonRuntimeRequirement, AddonScope,
-    AddonSecretReferenceFieldDeclaration, AddonTaskDeclaration,
+    AddonEntryPointKind, AddonEventSubscriptionDeclaration, AddonHostedPageDeclaration,
+    AddonInstallDescriptor, AddonManifest, AddonResource, AddonResourceDeclaration,
+    AddonRuntimeKind, AddonRuntimeRequirement, AddonScope, AddonSecretReferenceFieldDeclaration,
+    AddonTaskDeclaration,
 };
 
 pub mod metadata_scraper {
@@ -29,6 +30,9 @@ pub mod metadata_scraper {
     pub const BULK_METADATA_SCRAPE_TASK_PATH: &str = "/tasks/bulk-metadata-scrape";
     pub const BULK_METADATA_SCRAPE_TASK_DESCRIPTION: &str =
         "Runs metadata suggestions for a bounded batch of items";
+    pub const LIBRARY_SCANNED_EVENT_SUBSCRIPTION_ID: &str = "library-scanned";
+    pub const LIBRARY_SCANNED_EVENT_KIND: &str = "library.scanned";
+    pub const LIBRARY_SCANNED_EVENT_PATH: &str = "/events/library-scanned";
     pub const DEFAULT_LANGUAGE: &str = "en-US";
     pub const DEFAULT_TIMEOUT_MS: u64 = 10_000;
     pub const DEFAULT_MAX_ATTEMPTS: u32 = 2;
@@ -144,7 +148,13 @@ pub mod metadata_scraper {
             }],
             configuration_schema: Some(configuration_schema(preferred_language, providers)),
             secret_reference_fields,
-            event_subscriptions: Vec::new(),
+            event_subscriptions: vec![AddonEventSubscriptionDeclaration::new(
+                LIBRARY_SCANNED_EVENT_SUBSCRIPTION_ID,
+                LIBRARY_SCANNED_EVENT_KIND,
+                LIBRARY_SCANNED_EVENT_PATH,
+                vec![AddonScope::WebhookEventRead],
+                serde_json::Value::Null,
+            )],
             tasks: vec![
                 AddonTaskDeclaration::new(
                     BULK_METADATA_SCRAPE_TASK_ID,
@@ -162,6 +172,7 @@ pub mod metadata_scraper {
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
                 AddonScope::AutomationRun,
+                AddonScope::WebhookEventRead,
             ],
         }
     }
@@ -257,7 +268,23 @@ mod tests {
         assert_eq!(manifest.hosted_pages[0].id, DIAGNOSTICS_HOSTED_PAGE_ID);
         assert_eq!(manifest.tasks[0].id, BULK_METADATA_SCRAPE_TASK_ID);
         assert_eq!(manifest.secret_reference_fields, Vec::new());
-        assert_eq!(manifest.event_subscriptions, Vec::new());
+        assert_eq!(manifest.event_subscriptions.len(), 1);
+        assert_eq!(
+            manifest.event_subscriptions[0].id,
+            LIBRARY_SCANNED_EVENT_SUBSCRIPTION_ID
+        );
+        assert_eq!(
+            manifest.event_subscriptions[0].event_kind,
+            LIBRARY_SCANNED_EVENT_KIND
+        );
+        assert_eq!(
+            manifest.event_subscriptions[0].path,
+            LIBRARY_SCANNED_EVENT_PATH
+        );
+        assert_eq!(
+            manifest.event_subscriptions[0].required_scopes,
+            vec![nako_addon_protocol::AddonScope::WebhookEventRead]
+        );
     }
 
     #[test]
@@ -272,6 +299,7 @@ mod tests {
         );
         assert_eq!(guide.runtime_reference.value, RUNTIME_BINARY);
         assert_eq!(guide.task_count, 1);
+        assert_eq!(guide.event_subscription_count, 1);
         assert_eq!(guide.entry_point_count, 1);
         assert_eq!(guide.hosted_page_count, 1);
     }
@@ -289,6 +317,7 @@ mod tests {
         );
         assert_eq!(guide.runtime_reference.value, RUNTIME_IMAGE);
         assert_eq!(guide.task_count, 1);
+        assert_eq!(guide.event_subscription_count, 1);
         assert_eq!(guide.entry_point_count, 1);
         assert_eq!(guide.hosted_page_count, 1);
     }

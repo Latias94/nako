@@ -1054,6 +1054,7 @@ async fn admin_addon_source_catalog_browses_and_resolves_without_hidden_lifecycl
             AddonScope::ItemMetadataRead,
             AddonScope::ItemMetadataSuggest,
             AddonScope::AutomationRun,
+            AddonScope::WebhookEventRead,
         ]
     );
     assert_eq!(
@@ -1124,6 +1125,23 @@ async fn admin_addon_source_catalog_browses_and_resolves_without_hidden_lifecycl
         resolved.descriptor.manifest.tasks[0].required_scopes,
         vec![AddonScope::AutomationRun]
     );
+    assert_eq!(resolved.descriptor.manifest.event_subscriptions.len(), 1);
+    assert_eq!(
+        resolved.descriptor.manifest.event_subscriptions[0].id,
+        metadata_scraper::LIBRARY_SCANNED_EVENT_SUBSCRIPTION_ID
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.event_subscriptions[0].event_kind,
+        metadata_scraper::LIBRARY_SCANNED_EVENT_KIND
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.event_subscriptions[0].path,
+        metadata_scraper::LIBRARY_SCANNED_EVENT_PATH
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.event_subscriptions[0].required_scopes,
+        vec![AddonScope::WebhookEventRead]
+    );
     assert!(
         resolved
             .descriptor
@@ -1140,7 +1158,7 @@ async fn admin_addon_source_catalog_browses_and_resolves_without_hidden_lifecycl
     assert_eq!(resolved.install_guide.entry_point_count, 1);
     assert_eq!(resolved.install_guide.hosted_page_count, 1);
     assert_eq!(resolved.install_guide.task_count, 1);
-    assert_eq!(resolved.install_guide.event_subscription_count, 0);
+    assert_eq!(resolved.install_guide.event_subscription_count, 1);
 
     for forbidden in [
         "secret-value",
