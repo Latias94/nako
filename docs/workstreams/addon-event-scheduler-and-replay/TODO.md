@@ -29,16 +29,18 @@ Last updated: 2026-05-25
 
 ## M2 — In-Flight Guard And Automatic Retry
 
-- [ ] AESR-030 [owner=codex] [deps=AESR-020] [scope=crates/nako-core,crates/nako-db,crates/nako-server]
+- [x] AESR-030 [owner=codex] [deps=AESR-020] [scope=crates/nako-core,crates/nako-db,crates/nako-server]
   Goal: Prevent duplicate concurrent delivery for the same
   addon/event/subscription tuple and consume `next_retry_at` for automatic
   retries.
   Validation: `cargo nextest run -p nako-server addon_event_scheduler --no-fail-fast`.
   Review: Check crash recovery, lease expiry, max attempts, and resource budget
   behavior.
-  Evidence: runtime tests proving one sidecar call under concurrent scheduler
-  pressure and retry after a retryable failure.
-  Handoff: Prefer a simple durable lease over in-memory-only guards.
+  Evidence: repository claim contract plus runtime tests proving one sidecar call
+  under concurrent scheduler pressure, waiting retry skip, and retry after
+  `next_retry_at` becomes due.
+  Handoff: Durable claim now writes `running` attempts with `lease_expires_at`;
+  AESR-040 can build a scheduler loop on top of the same claim API.
 
 ## M3 — Scheduler Runtime Integration
 

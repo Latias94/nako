@@ -696,6 +696,7 @@ pub(crate) fn row_to_addon_event_delivery_attempt(
         requested_at: row_get(&row, "requested_at")?,
         completed_at: row_get(&row, "completed_at")?,
         next_retry_at: row_get(&row, "next_retry_at")?,
+        lease_expires_at: row_get(&row, "lease_expires_at")?,
     })
 }
 

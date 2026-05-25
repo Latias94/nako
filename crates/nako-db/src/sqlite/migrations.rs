@@ -197,6 +197,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "addon event delivery attempts",
         include_str!("../../migrations/0039_addon_event_delivery_attempts.sql"),
     ),
+    (
+        40,
+        "addon event delivery leases",
+        include_str!("../../migrations/0040_addon_event_delivery_leases.sql"),
+    ),
 ];
 
 #[async_trait::async_trait]

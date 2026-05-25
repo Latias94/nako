@@ -15,26 +15,27 @@ use nako_core::{
     AutomationArtifactKind, AutomationArtifactStatus, AutomationCapability,
     AutomationProviderStatus, AutomationRepository, CancelLeasedJob, CanonicalMetadata,
     CatalogGovernanceItemListFilter, CatalogGovernanceRepository, CatalogItemGraphReplacement,
-    CatalogItemProjectionCommit, CatalogRepository, CatalogSearchProjection, Collection,
-    CollectionId, CollectionItem, CompleteLeasedJob, CreditRole, DatabaseLifecycle,
-    DirectorySnapshot, DomainEventKind, DomainEventSubject, EventOutboxRepository, ExternalId,
-    ExternalProvider, FailLeasedJob, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind,
-    ImageOwner, IngestionFailureClass, IngestionFailureFilter, IngestionFailurePhase,
-    IngestionFailureRepository, IngestionFailureResolution, IngestionFailureStatus, ItemCredit,
-    ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind, JobLeaseClaimFilter, JobLeaseClaimRequest,
-    JobLeaseGuard, JobLeaseHeartbeat, JobLeaseRepository, JobListFilter, JobRepository,
-    JobRunToken, JobStatus, JobWorkerId, Library, LibraryId, LibraryItemRepository,
-    LibraryItemState, LibraryOptions, LibraryPreset, LibraryRepository,
-    LibraryScanSourcePersistenceCommit, LocalInferenceEvidence, LocalInferenceEvidenceId,
-    LocalInferenceEvidenceSource, LocalInferenceRepository, ManagedArtworkAcceptanceRecord,
-    ManagedArtworkArtifactId, ManagedArtworkArtifactLifecycleFilter, ManagedArtworkIngestId,
-    ManagedArtworkIngestStatus, ManagedArtworkRepository, ManagedImportArtifactId,
-    ManagedImportArtifactListFilter, ManagedImportArtifactState, ManagedImportPromotionApplyId,
-    ManagedImportPromotionApplyState, ManagedImportPromotionOperationKind, ManagedImportRepository,
-    ManagedImportSourceKind, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
-    MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
-    MediaStreamKind, MetadataAttemptFilter, MetadataField, MetadataFieldLock, MetadataMatchKind,
-    MetadataProviderAttemptId, MetadataProviderAttemptStatus, MetadataRefreshPersistenceCommit,
+    CatalogItemProjectionCommit, CatalogRepository, CatalogSearchProjection,
+    ClaimAddonEventDeliveryAttempt, Collection, CollectionId, CollectionItem, CompleteLeasedJob,
+    CreditRole, DatabaseLifecycle, DirectorySnapshot, DomainEventKind, DomainEventSubject,
+    EventOutboxRepository, ExternalId, ExternalProvider, FailLeasedJob, Genre, GenreId, ImageAsset,
+    ImageAssetId, ImageKind, ImageOwner, IngestionFailureClass, IngestionFailureFilter,
+    IngestionFailurePhase, IngestionFailureRepository, IngestionFailureResolution,
+    IngestionFailureStatus, ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind,
+    JobLeaseClaimFilter, JobLeaseClaimRequest, JobLeaseGuard, JobLeaseHeartbeat,
+    JobLeaseRepository, JobListFilter, JobRepository, JobRunToken, JobStatus, JobWorkerId, Library,
+    LibraryId, LibraryItemRepository, LibraryItemState, LibraryOptions, LibraryPreset,
+    LibraryRepository, LibraryScanSourcePersistenceCommit, LocalInferenceEvidence,
+    LocalInferenceEvidenceId, LocalInferenceEvidenceSource, LocalInferenceRepository,
+    ManagedArtworkAcceptanceRecord, ManagedArtworkArtifactId,
+    ManagedArtworkArtifactLifecycleFilter, ManagedArtworkIngestId, ManagedArtworkIngestStatus,
+    ManagedArtworkRepository, ManagedImportArtifactId, ManagedImportArtifactListFilter,
+    ManagedImportArtifactState, ManagedImportPromotionApplyId, ManagedImportPromotionApplyState,
+    ManagedImportPromotionOperationKind, ManagedImportRepository, ManagedImportSourceKind,
+    MediaItem, MediaItemId, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository,
+    MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataAttemptFilter,
+    MetadataField, MetadataFieldLock, MetadataMatchKind, MetadataProviderAttemptId,
+    MetadataProviderAttemptStatus, MetadataRefreshPersistenceCommit,
     MetadataRefreshProviderMappingCommit, MetadataRepository, MetadataSource, NakoError,
     NewAcquisitionIntakeCandidate, NewAddonEventDeliveryAttempt, NewAddonGrant,
     NewAddonRegistration, NewAddonRoutingPlan, NewAddonSideEffect, NewAddonTaskRun, NewAddonToken,
@@ -3159,6 +3160,130 @@ where
     assert!(!executable.has_in_flight);
 }
 
+async fn addon_event_scheduler_claim_contract<S>(store: S)
+where
+    S: EventAddonAutomationContractBackend,
+{
+    let library = seed_contract_library(&store).await;
+    let event = store
+        .enqueue_outbox_event(NewOutboxEvent {
+            id: nako_core::EventId::new(),
+            kind: DomainEventKind::LibraryScanned,
+            subject: DomainEventSubject::Library(library.id),
+            library_id: Some(library.id),
+            source_id: None,
+            idempotency_key: "library-scan:addon-event-scheduler-claim".to_owned(),
+            payload_json: r#"{"safe":true}"#.to_owned(),
+        })
+        .await
+        .unwrap();
+
+    let addon_id = AddonId::new();
+    store
+        .upsert_addon_registration(NewAddonRegistration {
+            id: addon_id,
+            manifest_id: "dev.nako.contract.event-scheduler-claim".to_owned(),
+            name: "Contract Event Scheduler Claim Addon".to_owned(),
+            version: "0.1.0".to_owned(),
+            protocol_version: "0.1.0-alpha.1".to_owned(),
+            base_url: "https://example.test/addon".to_owned(),
+            manifest_json: r#"{"id":"dev.nako.contract.event-scheduler-claim"}"#.to_owned(),
+            outbound_task_dispatch_secret_env: None,
+            granted_scopes: vec!["webhook_event_read".to_owned()],
+            status: AddonStatus::Enabled,
+        })
+        .await
+        .unwrap();
+
+    let first = store
+        .claim_addon_event_delivery_attempt(ClaimAddonEventDeliveryAttempt {
+            id: AddonEventDeliveryAttemptId::new(),
+            addon_id,
+            event_id: event.id,
+            declaration_id: "library-scanned".to_owned(),
+            max_attempts: 2,
+            now: "2026-05-25T00:00:00.000Z".to_owned(),
+            lease_expires_at: "2026-05-25T00:05:00.000Z".to_owned(),
+        })
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(first.status, AddonEventDeliveryStatus::Running);
+    assert_eq!(first.attempt_number, 1);
+    assert_eq!(
+        first.lease_expires_at.as_deref(),
+        Some("2026-05-25T00:05:00.000Z")
+    );
+
+    let duplicate_in_flight = store
+        .claim_addon_event_delivery_attempt(ClaimAddonEventDeliveryAttempt {
+            id: AddonEventDeliveryAttemptId::new(),
+            addon_id,
+            event_id: event.id,
+            declaration_id: "library-scanned".to_owned(),
+            max_attempts: 2,
+            now: "2026-05-25T00:01:00.000Z".to_owned(),
+            lease_expires_at: "2026-05-25T00:06:00.000Z".to_owned(),
+        })
+        .await
+        .unwrap();
+    assert_eq!(duplicate_in_flight, None);
+
+    store
+        .set_addon_event_delivery_attempt_result(
+            first.id,
+            AddonEventDeliveryStatus::Failed,
+            Some(503),
+            Some(r#"{"safe_error_code":"retryable_http_failure"}"#.to_owned()),
+            Some("2026-05-25T00:10:00.000Z".to_owned()),
+        )
+        .await
+        .unwrap();
+    let retry_waiting = store
+        .claim_addon_event_delivery_attempt(ClaimAddonEventDeliveryAttempt {
+            id: AddonEventDeliveryAttemptId::new(),
+            addon_id,
+            event_id: event.id,
+            declaration_id: "library-scanned".to_owned(),
+            max_attempts: 2,
+            now: "2026-05-25T00:09:00.000Z".to_owned(),
+            lease_expires_at: "2026-05-25T00:14:00.000Z".to_owned(),
+        })
+        .await
+        .unwrap();
+    assert_eq!(retry_waiting, None);
+
+    let second = store
+        .claim_addon_event_delivery_attempt(ClaimAddonEventDeliveryAttempt {
+            id: AddonEventDeliveryAttemptId::new(),
+            addon_id,
+            event_id: event.id,
+            declaration_id: "library-scanned".to_owned(),
+            max_attempts: 2,
+            now: "2026-05-25T00:10:00.000Z".to_owned(),
+            lease_expires_at: "2026-05-25T00:15:00.000Z".to_owned(),
+        })
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(second.status, AddonEventDeliveryStatus::Running);
+    assert_eq!(second.attempt_number, 2);
+
+    let exhausted = store
+        .claim_addon_event_delivery_attempt(ClaimAddonEventDeliveryAttempt {
+            id: AddonEventDeliveryAttemptId::new(),
+            addon_id,
+            event_id: event.id,
+            declaration_id: "library-scanned".to_owned(),
+            max_attempts: 2,
+            now: "2026-05-25T00:16:00.000Z".to_owned(),
+            lease_expires_at: "2026-05-25T00:21:00.000Z".to_owned(),
+        })
+        .await
+        .unwrap();
+    assert_eq!(exhausted, None);
+}
+
 async fn addon_registration_token_grant_and_side_effect_contract<S>(store: S)
 where
     S: EventAddonAutomationContractBackend,
@@ -5874,6 +5999,16 @@ database_contract_pair!(
         "addon_event_scheduler_due_work"
     ),
     contract = addon_event_scheduler_due_work_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_event_addon_automation_contract_addon_event_scheduler_claim,
+    postgres = postgres_event_addon_automation_contract_addon_event_scheduler_claim,
+    case = ContractCase::migrated(
+        ContractFamily::EventAddonAutomation,
+        "addon_event_scheduler_claim"
+    ),
+    contract = addon_event_scheduler_claim_contract,
 );
 
 database_contract_pair!(

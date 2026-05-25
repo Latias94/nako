@@ -29,6 +29,14 @@ cargo nextest run -p nako-db addon_event_scheduler --no-fail-fast
 cargo nextest run -p nako-server addon_event_scheduler --no-fail-fast
 ```
 
+### In-Flight Guard And Automatic Retry Gate
+
+```powershell
+cargo nextest run -p nako-db addon_event_scheduler --no-fail-fast
+cargo nextest run -p nako-server addon_event_scheduler --no-fail-fast
+cargo nextest run -p nako-server addon_event_delivery --no-fail-fast
+```
+
 ### Replay And Filter Gate
 
 ```powershell
@@ -121,6 +129,36 @@ Result: blocked by pre-existing parallel scan-addon worktree changes in
 `crates/nako-server/src/app/jobs.rs`, and
 `crates/nako-server/src/app/tests/startup.rs`. AESR-020 touched files were
 formatted with targeted `rustfmt --edition 2024`.
+
+### 2026-05-25 — AESR-030 In-Flight Guard And Automatic Retry
+
+Claim: Addon Event delivery now uses a durable repository claim before any
+sidecar call. The claim writes a `running` attempt with `lease_expires_at`,
+prevents duplicate active claims for the same addon/event/subscription tuple,
+allows recovery after lease expiry, respects max attempts, and consumes
+`next_retry_at` so retryable failures are skipped until due.
+
+Commands:
+
+```powershell
+cargo nextest run -p nako-db addon_event_scheduler --no-fail-fast
+cargo nextest run -p nako-server addon_event_scheduler --no-fail-fast
+cargo nextest run -p nako-server addon_event_delivery --no-fail-fast
+cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests
+cargo fmt --all -- --check
+git diff --check
+python -m json.tool docs/workstreams/addon-event-scheduler-and-replay/WORKSTREAM.json > $null
+```
+
+Result: passed.
+
+Additional formatting check:
+
+```powershell
+rustfmt --edition 2024 crates/nako-api/src/extension.rs crates/nako-core/src/addon_event.rs crates/nako-core/src/repository/addon_event.rs crates/nako-db/src/contract_tests.rs crates/nako-db/src/facade.rs crates/nako-db/src/postgres.rs crates/nako-db/src/postgres/events.rs crates/nako-db/src/sqlite/addon_events.rs crates/nako-db/src/sqlite/codec.rs crates/nako-db/src/sqlite/migrations.rs crates/nako-server/src/app/addons/event_runtime.rs crates/nako-server/src/http/tests/addons.rs
+```
+
+Result: passed.
 
 ## Notes
 

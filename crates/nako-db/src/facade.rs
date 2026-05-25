@@ -1007,6 +1007,15 @@ impl AddonEventDeliveryRepository for NakoDatabase {
             .await
     }
 
+    async fn claim_addon_event_delivery_attempt(
+        &self,
+        claim: ClaimAddonEventDeliveryAttempt,
+    ) -> Result<Option<AddonEventDeliveryAttemptRecord>> {
+        self.backend()
+            .claim_addon_event_delivery_attempt(claim)
+            .await
+    }
+
     async fn set_addon_event_delivery_attempt_result(
         &self,
         id: AddonEventDeliveryAttemptId,

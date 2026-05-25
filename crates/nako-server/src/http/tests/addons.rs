@@ -231,6 +231,79 @@ async fn event_path_addon_server(
     (format!("http://{addr}"), requests)
 }
 
+async fn blocking_event_path_addon_server(
+    status: StatusCode,
+    gate: StdArc<Notify>,
+) -> (String, StdArc<TokioMutex<Vec<CapturedAddonEventRequest>>>) {
+    let requests = StdArc::new(TokioMutex::new(Vec::new()));
+    let router = Router::new().route(
+        "/events/library-scanned",
+        axum::routing::post({
+            let requests = StdArc::clone(&requests);
+            let gate = StdArc::clone(&gate);
+            move |headers: axum::http::HeaderMap, Json(request): Json<AddonEventRequest>| {
+                let requests = StdArc::clone(&requests);
+                let gate = StdArc::clone(&gate);
+                async move {
+                    requests.lock().await.push(CapturedAddonEventRequest {
+                        headers: headers
+                            .iter()
+                            .filter_map(|(name, value)| {
+                                value
+                                    .to_str()
+                                    .ok()
+                                    .map(|value| (name.as_str().to_owned(), value.to_owned()))
+                            })
+                            .collect(),
+                        request: request.clone(),
+                    });
+                    gate.notified().await;
+                    if !status.is_success() {
+                        return (status, "sidecar failed").into_response();
+                    }
+
+                    (
+                        status,
+                        Json(AddonEventResponse {
+                            protocol_version: request.protocol_version,
+                            addon_id: request.addon_id,
+                            subscription_id: request.subscription_id,
+                            event_id: request.event_id,
+                            output: serde_json::json!({
+                                "accepted": true,
+                                "attempt": request.attempt,
+                            }),
+                        }),
+                    )
+                        .into_response()
+                }
+            }
+        }),
+    );
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, router).await.unwrap();
+    });
+    yield_now().await;
+
+    (format!("http://{addr}"), requests)
+}
+
+async fn wait_for_event_requests(
+    requests: &StdArc<TokioMutex<Vec<CapturedAddonEventRequest>>>,
+    expected: usize,
+) {
+    for _ in 0..100 {
+        if requests.lock().await.len() >= expected {
+            return;
+        }
+        sleep(Duration::from_millis(10)).await;
+    }
+
+    panic!("timed out waiting for {expected} addon event request(s)");
+}
+
 async fn task_path_addon_server(
     statuses: Vec<StatusCode>,
 ) -> (String, StdArc<TokioMutex<Vec<CapturedAddonTaskRequest>>>) {
@@ -3134,6 +3207,80 @@ async fn addon_event_delivery_skips_already_succeeded_subscription() {
 }
 
 #[tokio::test]
+async fn addon_event_scheduler_prevents_duplicate_in_flight_delivery_under_concurrency() {
+    let (_temp, router, source, store) =
+        router_with_media_source_config("addon-event-concurrent.mkv", b"media", |_| {}).await;
+    let gate = StdArc::new(Notify::new());
+    let (base_url, requests) =
+        blocking_event_path_addon_server(StatusCode::ACCEPTED, StdArc::clone(&gate)).await;
+    register_event_path_addon(&router, base_url).await;
+    let event = store
+        .enqueue_outbox_event(NewOutboxEvent {
+            id: EventId::new(),
+            kind: DomainEventKind::LibraryScanned,
+            subject: DomainEventSubject::Library(source.library_id),
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            idempotency_key: format!("addon-event-concurrent:{}", source.id),
+            payload_json: serde_json::json!({
+                "library_id": source.library_id,
+                "source_id": source.id
+            })
+            .to_string(),
+        })
+        .await
+        .unwrap();
+    let path = format!("/admin/v1/events/{}/addon-events/deliver", event.id);
+    let first_router = router.clone();
+    let first_path = path.clone();
+    let first = tokio::spawn(async move {
+        request_json::<AddonEventDispatchResponse>(&first_router, Method::POST, &first_path).await
+    });
+    wait_for_event_requests(&requests, 1).await;
+
+    let in_flight = request_json::<AddonEventSchedulerWorkResponse>(
+        &router,
+        Method::GET,
+        &format!("/admin/v1/events/{}/addon-event-scheduler/work", event.id),
+    )
+    .await;
+    assert_eq!(in_flight.due_work_count, 0);
+    assert_eq!(in_flight.blocked_work_count, 1);
+    assert_eq!(
+        in_flight.work[0].status,
+        AddonEventSchedulerWorkStatus::InFlight
+    );
+
+    let second = request_json::<AddonEventDispatchResponse>(&router, Method::POST, &path).await;
+    assert_eq!(second.attempted_subscriptions, 1);
+    assert_eq!(second.delivered, 0);
+    assert_eq!(second.failed, 0);
+    assert_eq!(second.skipped_subscriptions, 1);
+    assert!(second.attempts.is_empty());
+    assert_eq!(requests.lock().await.len(), 1);
+
+    gate.notify_waiters();
+    let first = first.await.unwrap();
+    assert_eq!(first.delivered, 1);
+    assert_eq!(first.failed, 0);
+    assert_eq!(first.attempts.len(), 1);
+    assert_eq!(
+        first.attempts[0].status,
+        nako_core::AddonEventDeliveryStatus::Succeeded
+    );
+    assert_eq!(requests.lock().await.len(), 1);
+
+    let listed = request_json::<AddonEventDeliveryAttemptsResponse>(
+        &router,
+        Method::GET,
+        &format!("/admin/v1/events/{}/addon-event-attempts", event.id),
+    )
+    .await;
+    assert_eq!(listed.attempts.len(), 1);
+    assert_eq!(listed.attempts[0].attempt_number, 1);
+}
+
+#[tokio::test]
 async fn addon_event_delivery_records_retryable_failure_without_echoing_payload() {
     let (_temp, router, source, store) =
         router_with_media_source_config("addon-event-failure.mkv", b"media", |_| {}).await;
@@ -3196,6 +3343,7 @@ async fn addon_event_delivery_records_retryable_failure_without_echoing_payload(
         captured[0].request.payload["secret"],
         "nako_at_should_not_echo"
     );
+    drop(captured);
 
     let waiting = request_json::<AddonEventSchedulerWorkResponse>(
         &router,
@@ -3213,6 +3361,19 @@ async fn addon_event_delivery_records_retryable_failure_without_echoing_payload(
         waiting.work[0].safe_reason_code.as_deref(),
         Some("retry_not_due")
     );
+
+    let blocked_retry = request_json::<AddonEventDispatchResponse>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/events/{}/addon-events/deliver", event.id),
+    )
+    .await;
+    assert_eq!(blocked_retry.attempted_subscriptions, 1);
+    assert_eq!(blocked_retry.delivered, 0);
+    assert_eq!(blocked_retry.failed, 0);
+    assert_eq!(blocked_retry.skipped_subscriptions, 1);
+    assert!(blocked_retry.attempts.is_empty());
+    assert_eq!(requests.lock().await.len(), 1);
 
     store
         .set_addon_event_delivery_attempt_result(
@@ -3237,6 +3398,23 @@ async fn addon_event_delivery_records_retryable_failure_without_echoing_payload(
     );
     let retry_text = serde_json::to_string(&retry_due).unwrap();
     assert!(!retry_text.contains("nako_at_should_not_echo"));
+
+    let retried = request_json::<AddonEventDispatchResponse>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/events/{}/addon-events/deliver", event.id),
+    )
+    .await;
+    assert_eq!(retried.attempted_subscriptions, 1);
+    assert_eq!(retried.delivered, 0);
+    assert_eq!(retried.failed, 1);
+    assert_eq!(retried.skipped_subscriptions, 0);
+    assert_eq!(retried.attempts.len(), 1);
+    assert_eq!(retried.attempts[0].attempt_number, 2);
+    assert_eq!(retried.attempts[0].next_retry_at, None);
+    let captured = requests.lock().await;
+    assert_eq!(captured.len(), 2);
+    assert_eq!(captured[1].request.attempt, 2);
 }
 
 #[tokio::test]

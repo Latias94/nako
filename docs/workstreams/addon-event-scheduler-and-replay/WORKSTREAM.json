@@ -7,10 +7,11 @@
   "scope_kind": "execution",
   "problem": "Addon Event Delivery works manually, but event-driven addons need automatic scheduling, retry, in-flight deduplication, explicit forced replay, and redaction-safe diagnostics before broad notification or sync features land.",
   "task_prefix": "AESR",
-  "current_task": "AESR-030",
+  "current_task": "AESR-040",
   "completed_tasks": [
     "AESR-010",
-    "AESR-020"
+    "AESR-020",
+    "AESR-030"
   ],
   "authoritative_docs": [
     {
@@ -68,6 +69,6 @@
   "continue_policy": {
     "default_action": "continue",
     "next_task": "AESR-030",
-    "notes": "Due work selection and redaction-safe scheduler diagnostics are in place. Next add durable in-flight guards and automatic retry. Do not start notification bridge, watch-state sync, MCP, Arr-stack, compatibility protocols, or tunnel work inside this lane."
+    "notes": "Due work selection, redaction-safe scheduler diagnostics, durable in-flight claim, and next_retry_at automatic retry are in place. Next wire a bounded scheduler loop into server lifecycle. Do not start notification bridge, watch-state sync, MCP, Arr-stack, compatibility protocols, or tunnel work inside this lane."
   }
 }

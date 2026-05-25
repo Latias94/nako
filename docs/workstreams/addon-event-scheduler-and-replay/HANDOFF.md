@@ -13,18 +13,18 @@ deduplication, explicit forced replay, and redaction-safe diagnostics.
 
 ## Active Task
 
-- Task ID: AESR-030
+- Task ID: AESR-040
 - Owner: codex
 - Files:
-  - `crates/nako-core`
-  - `crates/nako-db`
   - `crates/nako-server`
 - Validation:
   - `cargo nextest run -p nako-server addon_event_scheduler --no-fail-fast`
 - Status: READY
-- Review: AESR-020 due work selection passed focused gates; AESR-030 still
-  needs durable in-flight guards and automatic retry.
-- Evidence: AESR-020 evidence is recorded in `EVIDENCE_AND_GATES.md`.
+- Review: AESR-030 durable claim and automatic retry passed focused gates; the
+  next slice should add the background scheduler lifecycle without changing
+  replay semantics.
+- Evidence: AESR-020 and AESR-030 evidence is recorded in
+  `EVIDENCE_AND_GATES.md`.
 
 ## Decisions Since Last Update
 
@@ -35,6 +35,14 @@ deduplication, explicit forced replay, and redaction-safe diagnostics.
 - AESR-020 stores scheduler work as redaction-safe routing/attempt facts in the
   repository and computes due/deferred/retry state in the server layer, where
   manifest max attempts and current grants are available.
+- AESR-030 adds `claim_addon_event_delivery_attempt` as the durable execution
+  boundary. The claim writes a `running` attempt with `lease_expires_at`; active
+  leases suppress duplicate sidecar calls, expired leases allow the next attempt,
+  succeeded attempts suppress normal delivery, and failed attempts only retry
+  once `next_retry_at` is due.
+- Addon Event delivery now claims before taking the sidecar execution semaphore,
+  so a queued worker still leaves a durable in-flight fact for concurrent
+  schedulers to observe.
 - Event subscription filters should execute before sidecar calls, unless filter
   language complexity forces an ADR split.
 
@@ -46,7 +54,6 @@ deduplication, explicit forced replay, and redaction-safe diagnostics.
 
 ## Next Recommended Action
 
-Implement AESR-030 by adding a durable in-flight guard/lease for the
-addon/event/subscription tuple and consuming `next_retry_at` for automatic
-retry selection. Do not start the background scheduler loop until duplicate
-delivery behavior is proven.
+Implement AESR-040 by wiring a bounded scheduler loop into server runtime
+lifecycle. Reuse the existing due-work diagnostics and durable claim API; do not
+start forced replay, filters, or notification bridge work in the same slice.

@@ -13,7 +13,8 @@ const ADDON_EVENT_DELIVERY_ATTEMPT_SELECT: &str = r#"
                 error,
                 requested_at,
                 completed_at,
-                next_retry_at
+                next_retry_at,
+                lease_expires_at
             FROM addon_event_delivery_attempts
             "#;
 
@@ -50,6 +51,79 @@ impl AddonEventDeliveryRepository for SqliteStore {
             .await
     }
 
+    async fn claim_addon_event_delivery_attempt(
+        &self,
+        claim: ClaimAddonEventDeliveryAttempt,
+    ) -> Result<Option<AddonEventDeliveryAttemptRecord>> {
+        let result = sqlx::query(
+            r#"
+            WITH summary AS (
+                SELECT
+                    COALESCE(MAX(attempt_number), 0) AS max_attempt_number,
+                    COUNT(*) AS attempt_count,
+                    COALESCE(SUM(CASE WHEN status = 'succeeded' THEN 1 ELSE 0 END), 0) AS succeeded_count,
+                    COALESCE(SUM(CASE
+                        WHEN status IN ('pending', 'running')
+                            AND (lease_expires_at IS NULL OR lease_expires_at > ?6)
+                        THEN 1 ELSE 0 END), 0) AS active_in_flight_count,
+                    MAX(CASE
+                        WHEN status = 'failed'
+                            AND next_retry_at IS NOT NULL
+                            AND next_retry_at <= ?6
+                        THEN attempt_number ELSE NULL END) AS due_failed_attempt_number,
+                    MAX(CASE
+                        WHEN status IN ('pending', 'running')
+                            AND lease_expires_at IS NOT NULL
+                            AND lease_expires_at <= ?6
+                        THEN attempt_number ELSE NULL END) AS expired_in_flight_attempt_number
+                FROM addon_event_delivery_attempts
+                WHERE addon_id = ?2 AND event_id = ?3 AND declaration_id = ?4
+            ),
+            candidate AS (
+                SELECT max_attempt_number + 1 AS attempt_number
+                FROM summary
+                WHERE max_attempt_number + 1 <= ?5
+                    AND succeeded_count = 0
+                    AND active_in_flight_count = 0
+                    AND (
+                        attempt_count = 0
+                        OR due_failed_attempt_number = max_attempt_number
+                        OR expired_in_flight_attempt_number = max_attempt_number
+                    )
+            )
+            INSERT OR IGNORE INTO addon_event_delivery_attempts (
+                id,
+                addon_id,
+                event_id,
+                declaration_id,
+                attempt_number,
+                status,
+                lease_expires_at
+            )
+            SELECT ?1, ?2, ?3, ?4, attempt_number, 'running', ?7
+            FROM candidate
+            "#,
+        )
+        .bind(claim.id.to_string())
+        .bind(claim.addon_id.to_string())
+        .bind(claim.event_id.to_string())
+        .bind(&claim.declaration_id)
+        .bind(u32_to_i64(claim.max_attempts))
+        .bind(&claim.now)
+        .bind(&claim.lease_expires_at)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        if result.rows_affected() == 0 {
+            return Ok(None);
+        }
+
+        self.get_addon_event_delivery_attempt_or_not_found(claim.id)
+            .await
+            .map(Some)
+    }
+
     async fn set_addon_event_delivery_attempt_result(
         &self,
         id: AddonEventDeliveryAttemptId,
@@ -66,7 +140,8 @@ impl AddonEventDeliveryRepository for SqliteStore {
                 http_status = ?3,
                 error = ?4,
                 completed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
-                next_retry_at = ?5
+                next_retry_at = ?5,
+                lease_expires_at = NULL
             WHERE id = ?1
             "#,
         )
@@ -261,6 +336,7 @@ fn addon_event_scheduler_work_record(
         latest_attempt_status: latest.map(|attempt| attempt.status),
         latest_http_status: latest.and_then(|attempt| attempt.http_status),
         latest_next_retry_at: latest.and_then(|attempt| attempt.next_retry_at.clone()),
+        latest_lease_expires_at: latest.and_then(|attempt| attempt.lease_expires_at.clone()),
         has_succeeded,
         has_in_flight,
     })

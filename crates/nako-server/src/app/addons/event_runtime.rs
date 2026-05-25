@@ -13,7 +13,7 @@ use nako_core::{
     AddonEventDeliveryAttemptId, AddonEventDeliveryRepository, AddonEventDeliveryStatus,
     AddonEventSchedulerWorkRecord, AddonRegistrationRecord, AddonRepository,
     AddonRoutingDeclarationKind, AddonRoutingPlanStatus, AddonRoutingPlanTarget, AddonStatus,
-    EventId, EventOutboxRepository, NakoError, NewAddonEventDeliveryAttempt, OutboxEventRecord,
+    ClaimAddonEventDeliveryAttempt, EventId, EventOutboxRepository, NakoError, OutboxEventRecord,
     OutboxEventStatus, Result, SecretString,
 };
 use time::{Duration as TimeDuration, OffsetDateTime, format_description::well_known::Rfc3339};
@@ -24,6 +24,8 @@ use super::{
     AddonAppService, declaration_scopes_granted, resolve_outbound_task_dispatch_secret,
     stored_granted_scopes,
 };
+
+const ADDON_EVENT_DELIVERY_LEASE_SECONDS: i64 = 300;
 
 impl AddonAppService {
     pub async fn list_addon_event_delivery_attempts(
@@ -97,19 +99,12 @@ impl AddonAppService {
                     continue;
                 }
 
-                let permit = self.permits.clone().acquire_owned().await.map_err(|err| {
-                    NakoError::Provider {
-                        provider: "addon_event".to_owned(),
-                        message: format!("addon event resource budget was closed: {err}"),
-                    }
-                })?;
                 attempted_subscriptions += 1;
                 let service = self.clone();
                 let event = event.clone();
                 let addon = addon.clone();
                 let granted_scopes = granted_scopes.clone();
                 workers.spawn(async move {
-                    let _permit = permit;
                     service
                         .deliver_addon_event_subscription(
                             event,
@@ -134,7 +129,7 @@ impl AddonAppService {
                         }
                         attempts.push(attempt);
                     }
-                    AddonEventDeliveryOutcome::AlreadySucceeded => skipped_subscriptions += 1,
+                    AddonEventDeliveryOutcome::Skipped => skipped_subscriptions += 1,
                 },
                 Ok(Err(err)) => {
                     failed += 1;
@@ -273,6 +268,7 @@ impl AddonAppService {
             latest_attempt_status: record.latest_attempt_status,
             latest_http_status: record.latest_http_status,
             next_retry_at: record.latest_next_retry_at,
+            lease_expires_at: record.latest_lease_expires_at,
         })
     }
 
@@ -314,41 +310,21 @@ impl AddonAppService {
         }
 
         let max_attempts = manifest.default_max_attempts.unwrap_or(3);
-        let existing = self
+        let Some(attempt) = self
             .store
-            .list_addon_event_delivery_attempts_for_addon(addon.id, event.id, &subscription.id)
-            .await?;
-        if existing
-            .iter()
-            .any(|attempt| attempt.status == AddonEventDeliveryStatus::Succeeded)
-        {
-            return Ok(AddonEventDeliveryOutcome::AlreadySucceeded);
-        }
-        let attempt_number = existing
-            .iter()
-            .map(|attempt| attempt.attempt_number)
-            .max()
-            .unwrap_or(0)
-            + 1;
-        if attempt_number > max_attempts {
-            return Err(NakoError::Conflict {
-                message: format!(
-                    "addon {} event subscription {} exhausted attempts for event {}",
-                    addon.id, subscription.id, event.id
-                ),
-            });
-        }
-
-        let attempt = self
-            .store
-            .create_addon_event_delivery_attempt(NewAddonEventDeliveryAttempt {
+            .claim_addon_event_delivery_attempt(ClaimAddonEventDeliveryAttempt {
                 id: AddonEventDeliveryAttemptId::new(),
                 addon_id: addon.id,
                 event_id: event.id,
                 declaration_id: subscription.id.clone(),
-                attempt_number,
+                max_attempts,
+                now: addon_event_timestamp_now()?,
+                lease_expires_at: addon_event_delivery_lease_expires_at()?,
             })
-            .await?;
+            .await?
+        else {
+            return Ok(AddonEventDeliveryOutcome::Skipped);
+        };
         let payload =
             serde_json::from_str::<serde_json::Value>(&event.payload_json).map_err(|err| {
                 NakoError::InvalidInput {
@@ -356,6 +332,16 @@ impl AddonAppService {
                 }
             })?;
         let outbound_secret = resolve_addon_event_outbound_secret(&addon, manifest.auth)?;
+        let permit =
+            self.permits
+                .clone()
+                .acquire_owned()
+                .await
+                .map_err(|err| NakoError::Provider {
+                    provider: "addon_event".to_owned(),
+                    message: format!("addon event resource budget was closed: {err}"),
+                })?;
+        let _permit = permit;
         let outcome = call_addon_event_with_outcome(
             &ReqwestAddonTransport::default(),
             &manifest,
@@ -367,7 +353,7 @@ impl AddonAppService {
                 subject_kind: event.subject.kind().to_owned(),
                 subject_id: event.subject.id(),
                 occurred_at: event.occurred_at,
-                attempt: attempt_number,
+                attempt: attempt.attempt_number,
                 payload,
             },
             outbound_secret
@@ -390,7 +376,7 @@ impl AddonAppService {
                 .map(AddonEventDeliveryOutcome::Attempt),
             Err(failure) => {
                 let next_retry_at = if addon_event_client_error_is_retryable(&failure.error) {
-                    next_addon_event_retry_at(attempt_number, max_attempts)?
+                    next_addon_event_retry_at(attempt.attempt_number, max_attempts)?
                 } else {
                     None
                 };
@@ -465,7 +451,7 @@ fn addon_event_scheduler_work_status(
     if record.has_succeeded {
         return (AddonEventSchedulerWorkStatus::AlreadySucceeded, None);
     }
-    if record.has_in_flight {
+    if addon_event_latest_attempt_is_active_in_flight(record, now) {
         return (
             AddonEventSchedulerWorkStatus::InFlight,
             Some("delivery_in_flight".to_owned()),
@@ -479,6 +465,9 @@ fn addon_event_scheduler_work_status(
     }
     if record.attempt_count == 0 {
         return (AddonEventSchedulerWorkStatus::Due, None);
+    }
+    if addon_event_latest_attempt_is_expired_in_flight(record, now) {
+        return (AddonEventSchedulerWorkStatus::RetryDue, None);
     }
     match record.latest_next_retry_at.as_deref() {
         Some(next_retry_at) if next_retry_at > now => {
@@ -497,9 +486,57 @@ fn addon_event_scheduler_work_status(
     }
 }
 
+fn addon_event_latest_attempt_is_active_in_flight(
+    record: &AddonEventSchedulerWorkRecord,
+    now: &str,
+) -> bool {
+    if !matches!(
+        record.latest_attempt_status,
+        Some(AddonEventDeliveryStatus::Pending | AddonEventDeliveryStatus::Running)
+    ) {
+        return false;
+    }
+
+    match record.latest_lease_expires_at.as_deref() {
+        Some(lease_expires_at) => lease_expires_at > now,
+        None => true,
+    }
+}
+
+fn addon_event_latest_attempt_is_expired_in_flight(
+    record: &AddonEventSchedulerWorkRecord,
+    now: &str,
+) -> bool {
+    matches!(
+        record.latest_attempt_status,
+        Some(AddonEventDeliveryStatus::Pending | AddonEventDeliveryStatus::Running)
+    ) && record
+        .latest_lease_expires_at
+        .as_deref()
+        .is_some_and(|lease_expires_at| lease_expires_at <= now)
+}
+
 enum AddonEventDeliveryOutcome {
     Attempt(nako_core::AddonEventDeliveryAttemptRecord),
-    AlreadySucceeded,
+    Skipped,
+}
+
+fn addon_event_timestamp_now() -> Result<String> {
+    OffsetDateTime::now_utc()
+        .format(&Rfc3339)
+        .map_err(|err| NakoError::InvalidInput {
+            message: format!("failed to format addon event timestamp: {err}"),
+        })
+}
+
+fn addon_event_delivery_lease_expires_at() -> Result<String> {
+    let expires_at =
+        OffsetDateTime::now_utc() + TimeDuration::seconds(ADDON_EVENT_DELIVERY_LEASE_SECONDS);
+    expires_at
+        .format(&Rfc3339)
+        .map_err(|err| NakoError::InvalidInput {
+            message: format!("failed to format addon event delivery lease timestamp: {err}"),
+        })
 }
 
 fn resolve_addon_event_outbound_secret(

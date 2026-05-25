@@ -48,6 +48,17 @@ pub struct NewAddonEventDeliveryAttempt {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ClaimAddonEventDeliveryAttempt {
+    pub id: AddonEventDeliveryAttemptId,
+    pub addon_id: AddonId,
+    pub event_id: EventId,
+    pub declaration_id: String,
+    pub max_attempts: u32,
+    pub now: String,
+    pub lease_expires_at: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AddonEventDeliveryAttemptRecord {
     pub id: AddonEventDeliveryAttemptId,
     pub addon_id: AddonId,
@@ -60,6 +71,7 @@ pub struct AddonEventDeliveryAttemptRecord {
     pub requested_at: String,
     pub completed_at: Option<String>,
     pub next_retry_at: Option<String>,
+    pub lease_expires_at: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -76,6 +88,7 @@ pub struct AddonEventSchedulerWorkRecord {
     pub latest_attempt_status: Option<AddonEventDeliveryStatus>,
     pub latest_http_status: Option<u16>,
     pub latest_next_retry_at: Option<String>,
+    pub latest_lease_expires_at: Option<String>,
     pub has_succeeded: bool,
     pub has_in_flight: bool,
 }

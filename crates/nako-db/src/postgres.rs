@@ -79,6 +79,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "addon event delivery attempts",
         include_str!("../migrations/postgres/0011_addon_event_delivery_attempts.sql"),
     ),
+    (
+        12,
+        "addon event delivery leases",
+        include_str!("../migrations/postgres/0012_addon_event_delivery_leases.sql"),
+    ),
 ];
 
 #[derive(Clone, Debug)]

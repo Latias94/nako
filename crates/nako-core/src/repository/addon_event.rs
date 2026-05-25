@@ -2,7 +2,7 @@ use async_trait::async_trait;
 
 use crate::{
     AddonEventDeliveryAttemptId, AddonEventDeliveryAttemptRecord, AddonEventSchedulerWorkRecord,
-    AddonId, EventId, NewAddonEventDeliveryAttempt, Result,
+    AddonId, ClaimAddonEventDeliveryAttempt, EventId, NewAddonEventDeliveryAttempt, Result,
 };
 
 #[async_trait]
@@ -11,6 +11,11 @@ pub trait AddonEventDeliveryRepository: Send + Sync {
         &self,
         attempt: NewAddonEventDeliveryAttempt,
     ) -> Result<AddonEventDeliveryAttemptRecord>;
+
+    async fn claim_addon_event_delivery_attempt(
+        &self,
+        claim: ClaimAddonEventDeliveryAttempt,
+    ) -> Result<Option<AddonEventDeliveryAttemptRecord>>;
 
     async fn set_addon_event_delivery_attempt_result(
         &self,

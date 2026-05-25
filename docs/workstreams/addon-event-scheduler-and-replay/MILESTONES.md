@@ -34,6 +34,8 @@ Primary gates:
 
 ## M2 — In-Flight Guard And Automatic Retry
 
+Status: Complete.
+
 Exit criteria:
 
 - Concurrent scheduler workers cannot duplicate the same tuple.
