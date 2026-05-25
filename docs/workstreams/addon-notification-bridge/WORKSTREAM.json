@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "slug": "addon-notification-bridge",
+  "title": "Addon Notification Bridge",
+  "status": "complete",
+  "updated": "2026-05-25",
+  "scope_kind": "execution",
+  "problem": "Nako has durable Addon Event scheduling, but no real notification-style official Addon proves event-driven sidecar delivery without moving provider credentials and fan-out into core.",
+  "task_prefix": "ANB",
+  "current_task": null,
+  "completed_tasks": [
+    "ANB-010",
+    "ANB-020",
+    "ANB-030",
+    "ANB-040",
+    "ANB-050"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "readme",
+      "path": "docs/workstreams/addon-notification-bridge/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/addon-notification-bridge/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/addon-notification-bridge/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/addon-notification-bridge/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/addon-notification-bridge/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/addon-notification-bridge/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python -m json.tool docs/workstreams/addon-notification-bridge/WORKSTREAM.json > $null",
+    "git diff --check",
+    "cargo nextest run -p nako-server addon_event --no-fail-fast",
+    "cargo nextest run -p nako-db event --no-fail-fast",
+    "cargo fmt --all -- --check"
+  ],
+  "evidence": [
+    "docs/workstreams/addon-notification-bridge/DESIGN.md",
+    "docs/workstreams/addon-notification-bridge/TODO.md",
+    "docs/workstreams/addon-event-scheduler-and-replay/EVIDENCE_AND_GATES.md",
+    "docs/adr/0014-durable-event-outbox-for-webhooks-and-automation.md",
+    "docs/adr/0034-package-addon-capabilities-into-sidecar-suites.md",
+    "docs/workstreams/addon-notification-provider-adapters/",
+    "F:\\SourceCodes\\Rust\\nako-official-addons"
+  ],
+  "adr_refs": [
+    "docs/adr/0003-http-addons-before-in-process-plugins.md",
+    "docs/adr/0014-durable-event-outbox-for-webhooks-and-automation.md",
+    "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md",
+    "docs/adr/0034-package-addon-capabilities-into-sidecar-suites.md"
+  ],
+  "continue_policy": {
+    "default_action": "closed",
+    "next_task": null,
+    "notes": "Addon Notification Bridge is complete. ANB-020 added the ACK-only official sidecar, ANB-030 proved Nako host registration, health-check, routing-plan sync, and scheduled library.scanned delivery through the existing Addon Event scheduler, and ANB-040 split real provider adapters into docs/workstreams/addon-notification-provider-adapters. Do not add provider credentials, message templates, provider calls, or provider-specific retry to Nako core inside this closed lane."
+  }
+}

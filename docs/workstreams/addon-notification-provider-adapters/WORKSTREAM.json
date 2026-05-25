@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "slug": "addon-notification-provider-adapters",
+  "title": "Addon Notification Provider Adapters",
+  "status": "complete",
+  "updated": "2026-05-25",
+  "scope_kind": "execution",
+  "problem": "The official notification bridge can receive scheduled Addon Events, but real provider adapters need their own sidecar-owned credential, template, retry, and redaction decisions before implementation.",
+  "task_prefix": "ANP",
+  "current_task": null,
+  "completed_tasks": [
+    "ANP-010",
+    "ANP-020",
+    "ANP-030",
+    "ANP-040",
+    "ANP-050"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "readme",
+      "path": "docs/workstreams/addon-notification-provider-adapters/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/addon-notification-provider-adapters/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/addon-notification-provider-adapters/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/addon-notification-provider-adapters/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/addon-notification-provider-adapters/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/addon-notification-provider-adapters/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python -m json.tool docs/workstreams/addon-notification-provider-adapters/WORKSTREAM.json > $null",
+    "git diff --check",
+    "cargo nextest run -p nako-notification-bridge --no-fail-fast",
+    "cargo check -p nako-notification-bridge --tests"
+  ],
+  "evidence": [
+    "docs/workstreams/addon-notification-provider-adapters/DESIGN.md",
+    "docs/workstreams/addon-notification-provider-adapters/TODO.md",
+    "docs/workstreams/addon-notification-bridge/EVIDENCE_AND_GATES.md",
+    "F:\\SourceCodes\\Rust\\nako-official-addons\\crates\\nako-notification-bridge",
+    "F:\\SourceCodes\\Rust\\nako-official-addons\\addons\\notification-bridge"
+  ],
+  "adr_refs": [
+    "docs/adr/0003-http-addons-before-in-process-plugins.md",
+    "docs/adr/0014-durable-event-outbox-for-webhooks-and-automation.md",
+    "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md",
+    "docs/adr/0034-package-addon-capabilities-into-sidecar-suites.md"
+  ],
+  "continue_policy": {
+    "default_action": "closed",
+    "next_task": null,
+    "notes": "Addon Notification Provider Adapters is complete. ANP-010 selected http_webhook, ANP-020 added sidecar-owned configuration and diagnostics, ANP-030 implemented the fixture-backed send path, ANP-040 completed integration/docs verification, and ANP-050 closed the lane. Do not add provider credentials, provider templates, provider API calls, or provider retry state to Nako core inside this closed lane. Remaining breadth is named as follow-ons: addon-notification-platform-adapters, addon-notification-template-controls, addon-notification-provider-attempt-history, and addon-notification-provider-live-smoke."
+  }
+}

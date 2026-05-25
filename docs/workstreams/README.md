@@ -6,6 +6,26 @@ attention.
 
 ## Current Workstreams
 
+- [admin-web-v2-product-architecture](admin-web-v2-product-architecture/README.md):
+  active product-architecture lane for turning the completed Admin Web V0
+  scaffold and app-local Admin API TypeScript contract into a route-first V2
+  admin console plan with root product/design context, stack decisions, shared
+  UI vocabulary, and a first workflow proof before deeper implementation.
+- [addon-notification-bridge](addon-notification-bridge/README.md):
+  completed execution lane for the ACK-only official notification bridge proof
+  after Addon Event Scheduler And Replay, including host registration,
+  scheduler delivery, redaction-safe evidence, and a split provider-adapter
+  follow-on.
+- [addon-notification-provider-adapters](addon-notification-provider-adapters/README.md):
+  completed execution lane for selecting, implementing, verifying, and closing
+  the first sidecar-owned notification provider adapter after the ACK-only
+  notification bridge proof, without adding provider credentials, templates, or
+  provider-specific retry to Nako core.
+- [addon-event-scheduler-and-replay](addon-event-scheduler-and-replay/README.md):
+  completed execution lane for due Addon Event work discovery, durable
+  in-flight delivery claims, automatic retry, supervised disabled-by-default
+  scheduler lifecycle integration, explicit forced replay, and simple
+  redaction-safe event fact filters before notification bridge breadth.
 - [metadata-profile-configuration-authority](metadata-profile-configuration-authority/README.md):
   completed source-of-truth lane for making Media Library Metadata Profile updates
   restart-proof by distinguishing preset defaults, explicit TOML overrides, and
@@ -21,7 +41,7 @@ attention.
   Bulk Metadata Scrape suggestion-only by default, and proving explicit Addon
   metadata writeback through Nako-owned Side Effects.
 - [addon-ecosystem-foundation](addon-ecosystem-foundation/README.md):
-  active architecture lane for Addon Package / Addon Suite deployment, Addon
+  completed architecture lane for Addon Package / Addon Suite deployment, Addon
   Task fingerprinting, official catalog drift prevention, Addon Event
   Delivery, and the first event-driven official addon proof before broader
   notification, watch-state sync, MCP, Arr-stack, DLNA, WebDAV, UPnP, and
