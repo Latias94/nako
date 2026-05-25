@@ -41,7 +41,7 @@ Last updated: 2026-05-25
 
 ## M3 - Component And Design-System Extraction
 
-- [ ] AWV2-040 [owner=unassigned] [deps=AWV2-030] [scope=apps/admin-web/src/components, apps/admin-web/src/design]
+- [x] AWV2-040 [owner=codex] [deps=AWV2-030] [scope=apps/admin-web/src/components, apps/admin-web/src/design]
   Goal: Extract only the components proven by the first route proof: shell,
   route header, table, filter bar, status badges, skeletons, and safe error
   states, using shadcn/ui primitives as the default baseline.
@@ -49,9 +49,12 @@ Last updated: 2026-05-25
   mobile viewports.
   Review: verify no nested cards, text overflow, inaccessible icon buttons, or
   unsafe sensitive data rendering.
-  Evidence: component tests and Playwright/browser screenshots.
-  Handoff: Decide whether any copied `shadcn-admin` patterns should remain
-  local, be rewritten, or be replaced by direct shadcn/ui composition.
+  Evidence: `apps/admin-web/src/components/layout`,
+  `apps/admin-web/src/components/ui`, `apps/admin-web/src/design/tokens.css`,
+  component tests, and Playwright screenshots under
+  `target/admin-web-v2-smoke/*-awv2-040.png`.
+  Handoff: No direct `shadcn-admin` code was copied. Continue with AWV2-050 to
+  close this architecture lane or split focused workflow lanes.
 
 ## M4 - Closeout Or Split
 

@@ -95,6 +95,10 @@ Exit criteria:
 - Responsive behavior is browser-checked.
 - Component ownership does not leak Admin API concerns.
 
+Status: completed by AWV2-040. `/jobs` now consumes extracted shell, route,
+filter, data panel, table, badge, skeleton, empty, and safe notice components,
+with V2 design tokens isolated in `apps/admin-web/src/design/tokens.css`.
+
 ## M-AWV2.4 Closeout Or Split
 
 Objective:

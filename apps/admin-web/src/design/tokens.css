@@ -1,0 +1,28 @@
+:root {
+  --nako-admin-surface: oklch(97% 0.008 105);
+  --nako-admin-surface-raised: oklch(99% 0.006 105);
+  --nako-admin-surface-panel: oklch(94.5% 0.012 118);
+  --nako-admin-surface-field: oklch(98.5% 0.006 105);
+  --nako-admin-ink: oklch(22% 0.026 84);
+  --nako-admin-ink-soft: oklch(29% 0.024 84);
+  --nako-admin-muted: oklch(47% 0.025 94);
+  --nako-admin-line: oklch(84% 0.018 105);
+  --nako-admin-line-soft: oklch(88% 0.014 105);
+  --nako-admin-brand: oklch(58% 0.11 184);
+  --nako-admin-brand-quiet: oklch(91% 0.028 184);
+  --nako-admin-brand-ink: oklch(27% 0.08 184);
+  --nako-admin-focus: oklch(82% 0.08 184);
+  --nako-admin-attention-bg: oklch(96% 0.035 64);
+  --nako-admin-attention-line: oklch(82% 0.075 58);
+  --nako-admin-attention-ink: oklch(38% 0.074 55);
+  --nako-admin-success-bg: oklch(92% 0.055 148);
+  --nako-admin-success-ink: oklch(35% 0.08 148);
+  --nako-admin-warning-bg: oklch(94% 0.058 72);
+  --nako-admin-warning-ink: oklch(39% 0.074 68);
+  --nako-admin-danger-bg: oklch(92% 0.054 28);
+  --nako-admin-danger-ink: oklch(38% 0.1 28);
+  --nako-admin-info-bg: oklch(93% 0.046 238);
+  --nako-admin-info-ink: oklch(37% 0.08 238);
+  --nako-admin-radius: 8px;
+  --nako-admin-radius-sm: 7px;
+}

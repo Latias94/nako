@@ -65,6 +65,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "AWV2-030 is complete. Continue with AWV2-040 component extraction from the proven /jobs route only. Keep early V2 UI as shadcn/ui-style dashboard composition, record provenance if shadcn-admin code is copied directly, and split API gaps or workflow-specific UI implementation lanes when scope grows."
+    "notes": "AWV2-040 is complete. Continue with AWV2-050 closeout-or-split review. Prefer splitting focused workflow lanes such as Jobs, Media Libraries, Catalog Governance, Addons, or Settings over continuing a broad app rewrite. Keep /legacy until migrated workflows have route tests and browser evidence."
   }
 }

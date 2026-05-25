@@ -5,7 +5,7 @@ Last updated: 2026-05-25
 
 ## Current Slice Gate
 
-AWV2-030 frontend route proof:
+AWV2-040 component extraction:
 
 ```bash
 cd apps/admin-web
@@ -15,9 +15,9 @@ npm run test
 npm run build
 ```
 
-This proves the generated Admin API contract is current, the V2 route/data
-code type-checks, focused Vitest coverage passes, and the Vite production
-bundle builds.
+This proves the generated Admin API contract is current, extracted V2
+component/data code type-checks, focused Vitest coverage passes, and the Vite
+production bundle builds.
 
 Latest evidence:
 
@@ -35,6 +35,15 @@ Latest evidence:
   URL filter update, deterministic fallback label, no document-level
   horizontal overflow, and no visible unsafe terms such as raw tokens, local
   paths, or raw locator fields.
+- 2026-05-25: AWV2-040 `npm run check` passed.
+- 2026-05-25: AWV2-040 `npm run test` passed: 4 files, 26 tests.
+- 2026-05-25: AWV2-040 `npm run build` passed.
+- 2026-05-25: AWV2-040 Playwright smoke passed at desktop `1440x1000` and
+  mobile `390x844`; evidence screenshots were written to
+  `target/admin-web-v2-smoke/desktop-awv2-040.png` and
+  `target/admin-web-v2-smoke/mobile-awv2-040.png`. Checks covered nonblank
+  Jobs route, URL filter update, deterministic fallback notice, no
+  document-level horizontal overflow, and no visible unsafe terms.
 
 ## Frontend Gate Set
 
@@ -123,4 +132,6 @@ must check:
 - `apps/admin-web/src/App.tsx`
 - `apps/admin-web/src/features/jobs/JobsPage.tsx`
 - `apps/admin-web/src/components/ui/`
+- `apps/admin-web/src/components/layout/`
+- `apps/admin-web/src/design/tokens.css`
 - `apps/admin-web/src/legacy/LegacyDashboard.tsx`

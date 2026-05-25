@@ -1,7 +1,8 @@
 import { Badge } from "./ui/Badge";
-import type { DataSourceMode } from "../adminApi/dataSource";
 
-export function SourceLabel({ source }: { source: DataSourceMode }) {
+export type SourceLabelMode = "live" | "hybrid" | "mock" | "planned";
+
+export function SourceLabel({ source }: { source: SourceLabelMode }) {
   if (source === "live") {
     return <Badge tone="success">Live Admin API</Badge>;
   }

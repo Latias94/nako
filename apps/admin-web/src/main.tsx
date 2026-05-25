@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 
 import { App } from "./App";
 import { createAdminDataSource } from "./adminApi/dataSource";
+import "./design/tokens.css";
 import "./styles.css";
 
 const dataSource = createAdminDataSource({

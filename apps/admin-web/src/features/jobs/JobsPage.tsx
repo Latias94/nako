@@ -19,8 +19,12 @@ import type {
 } from "../../adminApi/types";
 import { mockJobs } from "../../adminApi/mockData";
 import { SourceLabel } from "../../components/SourceLabel";
+import { EmptyRouteState, RouteNotice, RoutePage } from "../../components/layout/RoutePage";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
+import { DataPanel } from "../../components/ui/DataPanel";
+import { FilterActions, FilterBar, FilterField } from "../../components/ui/FilterBar";
+import { RowsSkeleton } from "../../components/ui/RowsSkeleton";
 import {
   Table,
   TableBody,
@@ -116,19 +120,8 @@ export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) 
   );
 
   return (
-    <section className="routePage" aria-labelledby="jobs-route-title">
-      <div className="routeHeader">
-        <div>
-          <p className="routeKicker">Operations</p>
-          <div className="routeTitleLine">
-            <h1 id="jobs-route-title">Jobs</h1>
-            <SourceLabel source={result.source} />
-          </div>
-          <p>
-            Durable background work with route-owned filters, generated Admin API
-            DTOs, and section-local fallback.
-          </p>
-        </div>
+    <RoutePage
+      actions={
         <Button
           disabled={query.isFetching}
           onClick={() => void query.refetch()}
@@ -137,17 +130,21 @@ export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) 
           <RefreshCw size={16} />
           Refresh
         </Button>
-      </div>
-
+      }
+      description="Durable background work with route-owned filters, generated Admin API DTOs, and section-local fallback."
+      kicker="Operations"
+      status={<SourceLabel source={result.source} />}
+      title="Jobs"
+      titleId="jobs-route-title"
+    >
       {result.error ? (
-        <div className="routeNotice" role="status">
+        <RouteNotice>
           {result.error}. Showing deterministic mock fallback data.
-        </div>
+        </RouteNotice>
       ) : null}
 
-      <div className="filterBar" aria-label="Job filters">
-        <label className="filterField">
-          <span>Status</span>
+      <FilterBar label="Job filters">
+        <FilterField label="Status">
           <select
             aria-label="Job status filter"
             value={search.status ?? ""}
@@ -160,18 +157,16 @@ export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) 
             <option value="succeeded">Succeeded</option>
             <option value="cancelled">Cancelled</option>
           </select>
-        </label>
-        <label className="filterField">
-          <span>Kind</span>
+        </FilterField>
+        <FilterField label="Kind">
           <input
             aria-label="Job kind filter"
             placeholder="metadata_refresh"
             value={search.kind ?? ""}
             onChange={(event) => onSearchChange({ kind: event.target.value || undefined, offset: 0 })}
           />
-        </label>
-        <label className="filterField">
-          <span>Resource</span>
+        </FilterField>
+        <FilterField label="Resource">
           <input
             aria-label="Job resource class filter"
             placeholder="library"
@@ -180,17 +175,16 @@ export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) 
               onSearchChange({ resource_class: event.target.value || undefined, offset: 0 })
             }
           />
-        </label>
-        <label className="filterField">
-          <span>Library</span>
+        </FilterField>
+        <FilterField label="Library">
           <input
             aria-label="Job library filter"
             placeholder="library-id"
             value={search.library_id ?? ""}
             onChange={(event) => onSearchChange({ library_id: event.target.value || undefined, offset: 0 })}
           />
-        </label>
-        <div className="filterActions">
+        </FilterField>
+        <FilterActions>
           <Badge tone={activeFilterCount > 0 ? "info" : "neutral"}>
             {activeFilterCount} filters
           </Badge>
@@ -211,28 +205,23 @@ export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) 
             <X size={16} />
             Clear
           </Button>
-        </div>
-      </div>
+        </FilterActions>
+      </FilterBar>
 
-      <div className="dataPanel">
-        <div className="dataPanelHeader">
-          <div>
-            <h2>Job queue</h2>
-            <p>
-              {result.value.page.returned} returned, offset {result.value.page.offset},
-              limit {result.value.page.limit}
-            </p>
-          </div>
+      <DataPanel
+        description={`${result.value.page.returned} returned, offset ${result.value.page.offset}, limit ${result.value.page.limit}`}
+        headerAccessory={
           <div className="searchHint">
             <Search size={15} />
             URL filters are authoritative
           </div>
-        </div>
-
-        {query.isLoading ? <JobsSkeleton /> : null}
+        }
+        title="Job queue"
+      >
+        {query.isLoading ? <RowsSkeleton label="Loading jobs" /> : null}
 
         {!query.isLoading && result.value.jobs.length === 0 ? (
-          <div className="emptyRouteState">No jobs match the current filters.</div>
+          <EmptyRouteState>No jobs match the current filters.</EmptyRouteState>
         ) : null}
 
         {!query.isLoading && result.value.jobs.length > 0 ? (
@@ -265,8 +254,8 @@ export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) 
             </Table>
           </div>
         ) : null}
-      </div>
-    </section>
+      </DataPanel>
+    </RoutePage>
   );
 }
 
@@ -308,14 +297,4 @@ function JobStatusBadge({ status, hasError }: { status: string; hasError: boolea
   }
 
   return <Badge tone="success">{status}</Badge>;
-}
-
-function JobsSkeleton() {
-  return (
-    <div className="jobsSkeleton" role="status">
-      <span />
-      <span />
-      <span />
-    </div>
-  );
 }

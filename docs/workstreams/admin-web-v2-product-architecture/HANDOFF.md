@@ -19,18 +19,20 @@ TanStack Query route-local server state, TanStack Table Jobs route proof,
 shadcn-style UI primitives, URL-owned Jobs filters, deterministic section
 fallback, and a legacy console route for workflows not yet migrated.
 
+AWV2-040 is complete. The `/jobs` proof now consumes extracted layout, route,
+filter, data panel, table, badge, skeleton, empty, and safe notice components.
+V2 semantic tokens live under `apps/admin-web/src/design/tokens.css`.
+
 ## Active Task
 
-- Task ID: AWV2-040
-- Owner: unassigned
-- Files: `apps/admin-web/src/components`, `apps/admin-web/src/features`,
-  `docs/workstreams/admin-web-v2-product-architecture`
-- Validation: `cd apps/admin-web && npm run check && npm run test && npm run build`
+- Task ID: AWV2-050
+- Owner: planner
+- Files: `docs/workstreams/admin-web-v2-product-architecture`
+- Validation: final gates recorded freshly in `EVIDENCE_AND_GATES.md`
 - Status: READY
-- Review: extract only components proven by `/jobs`; do not start a broad
-  design-system rewrite.
-- Evidence needed: component tests or focused route tests plus browser smoke
-  across desktop and mobile.
+- Review: decide whether to close this architecture lane or split focused
+  implementation lanes by workflow.
+- Evidence needed: final review notes and next-lane recommendations.
 
 ## Decisions Since Last Update
 
@@ -51,22 +53,22 @@ fallback, and a legacy console route for workflows not yet migrated.
 - Successful non-JSON Admin API responses should fail with a stable client
   error before JSON parsing so Vite/browser fallbacks do not expose parser
   internals in route notices.
+- AWV2-040 copied no direct `shadcn-admin` source. Current shared components
+  are original shadcn-style primitives and local compositions.
 - Defer Tauri packaging until browser-hosted V2 route/data architecture is
   proven.
 
 ## Blockers
 
-- None for AWV2-040.
+- None for AWV2-050.
 
 ## Next Recommended Action
 
-Run AWV2-040:
+Run AWV2-050:
 
-- extract the shell, route header, table, filter bar, status badges, skeleton,
-  and safe error patterns that `/jobs` proved;
-- keep Admin API ownership inside `adminApi` and route/feature modules;
-- keep `/legacy` route covered by a narrow availability test until its
-  workflows migrate;
-- decide whether any `shadcn-admin` pattern was copied directly. If yes, add
-  provenance/license notes; if no, keep the current original shadcn-style
-  composition note.
+- run review-workstream against AWV2-030 and AWV2-040 evidence;
+- decide whether this lane should close or stay open for a second route;
+- recommended follow-on lanes are Jobs, Media Libraries, Catalog Governance,
+  Addons, or Settings, not a broad app rewrite;
+- keep `/legacy` route until migrated workflows have their own route tests and
+  browser evidence.

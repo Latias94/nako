@@ -775,8 +775,8 @@ td {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
   min-height: 100vh;
-  background: oklch(97% 0.008 105);
-  color: oklch(22% 0.026 84);
+  background: var(--nako-admin-surface);
+  color: var(--nako-admin-ink);
 }
 
 .routeSidebar {
@@ -786,8 +786,8 @@ td {
   flex-direction: column;
   gap: 18px;
   height: 100vh;
-  border-right: 1px solid oklch(84% 0.018 105);
-  background: oklch(94.5% 0.012 118);
+  border-right: 1px solid var(--nako-admin-line);
+  background: var(--nako-admin-surface-panel);
   padding: 18px 14px;
 }
 
@@ -796,7 +796,7 @@ td {
   align-items: center;
   gap: 11px;
   padding: 7px 8px 16px;
-  border-bottom: 1px solid oklch(84% 0.018 105);
+  border-bottom: 1px solid var(--nako-admin-line);
 }
 
 .routeBrand img {
@@ -815,7 +815,7 @@ td {
 }
 
 .routeBrand span {
-  color: oklch(47% 0.025 94);
+  color: var(--nako-admin-muted);
   font-size: 0.78rem;
 }
 
@@ -830,7 +830,7 @@ td {
   align-items: center;
   gap: 9px;
   min-height: 38px;
-  border-radius: 8px;
+  border-radius: var(--nako-admin-radius);
   padding: 8px 10px;
   color: oklch(35% 0.025 94);
   text-decoration: none;
@@ -839,8 +839,8 @@ td {
 .routeNavItem:hover,
 .routeNavItem:focus-visible,
 .routeNavItem.active {
-  background: oklch(91% 0.028 184);
-  color: oklch(27% 0.08 184);
+  background: var(--nako-admin-brand-quiet);
+  color: var(--nako-admin-brand-ink);
   outline: none;
 }
 
@@ -864,13 +864,13 @@ td {
 .routeHeader p {
   max-width: 74ch;
   margin: 7px 0 0;
-  color: oklch(47% 0.025 94);
+  color: var(--nako-admin-muted);
   line-height: 1.5;
 }
 
 .routeKicker {
   margin: 0 0 6px !important;
-  color: oklch(45% 0.065 184) !important;
+  color: var(--nako-admin-brand-ink) !important;
   font-size: 0.75rem;
   font-weight: 800;
   text-transform: uppercase;
@@ -889,10 +889,10 @@ td {
 }
 
 .routeNotice {
-  border: 1px solid oklch(82% 0.075 58);
-  border-radius: 8px;
-  background: oklch(96% 0.035 64);
-  color: oklch(38% 0.074 55);
+  border: 1px solid var(--nako-admin-attention-line);
+  border-radius: var(--nako-admin-radius);
+  background: var(--nako-admin-attention-bg);
+  color: var(--nako-admin-attention-ink);
   padding: 10px 12px;
 }
 
@@ -901,9 +901,9 @@ td {
   grid-template-columns: repeat(4, minmax(160px, 1fr)) auto;
   gap: 10px;
   align-items: end;
-  border: 1px solid oklch(84% 0.018 105);
-  border-radius: 8px;
-  background: oklch(99% 0.006 105);
+  border: 1px solid var(--nako-admin-line);
+  border-radius: var(--nako-admin-radius);
+  background: var(--nako-admin-surface-raised);
   padding: 12px;
 }
 
@@ -919,17 +919,17 @@ td {
 .filterField select {
   min-height: 36px;
   width: 100%;
-  border: 1px solid oklch(82% 0.018 105);
-  border-radius: 8px;
-  background: oklch(98.5% 0.006 105);
-  color: oklch(22% 0.026 84);
+  border: 1px solid var(--nako-admin-line);
+  border-radius: var(--nako-admin-radius);
+  background: var(--nako-admin-surface-field);
+  color: var(--nako-admin-ink);
   padding: 0 10px;
 }
 
 .filterField input:focus-visible,
 .filterField select:focus-visible {
-  border-color: oklch(58% 0.11 184);
-  outline: 2px solid oklch(82% 0.08 184);
+  border-color: var(--nako-admin-brand);
+  outline: 2px solid var(--nako-admin-focus);
   outline-offset: 1px;
 }
 
@@ -942,9 +942,9 @@ td {
 
 .dataPanel {
   min-width: 0;
-  border: 1px solid oklch(84% 0.018 105);
-  border-radius: 8px;
-  background: oklch(99% 0.006 105);
+  border: 1px solid var(--nako-admin-line);
+  border-radius: var(--nako-admin-radius);
+  background: var(--nako-admin-surface-raised);
 }
 
 .dataPanelHeader {
@@ -962,7 +962,7 @@ td {
 
 .dataPanelHeader p {
   margin-bottom: 0;
-  color: oklch(47% 0.025 94);
+  color: var(--nako-admin-muted);
   font-size: 0.86rem;
 }
 
@@ -970,7 +970,7 @@ td {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  color: oklch(47% 0.025 94);
+  color: var(--nako-admin-muted);
   font-size: 0.82rem;
   white-space: nowrap;
 }
@@ -989,7 +989,7 @@ td {
 .uiTableHead,
 .uiTableCell {
   padding: 11px 14px;
-  border-bottom: 1px solid oklch(88% 0.014 105);
+  border-bottom: 1px solid var(--nako-admin-line-soft);
   text-align: left;
 }
 
@@ -1001,7 +1001,7 @@ td {
 }
 
 .uiTableCell {
-  color: oklch(29% 0.024 84);
+  color: var(--nako-admin-ink-soft);
 }
 
 .uiTableRow:hover .uiTableCell {
@@ -1024,7 +1024,7 @@ td {
   justify-content: center;
   gap: 8px;
   min-height: 36px;
-  border-radius: 8px;
+  border-radius: var(--nako-admin-radius);
   font-weight: 750;
   letter-spacing: 0;
 }
@@ -1035,20 +1035,20 @@ td {
 }
 
 .uiButton:focus-visible {
-  outline: 2px solid oklch(82% 0.08 184);
+  outline: 2px solid var(--nako-admin-focus);
   outline-offset: 2px;
 }
 
 .uiButtonDefault {
   border: 1px solid oklch(50% 0.1 184);
-  background: oklch(58% 0.11 184);
-  color: oklch(98% 0.006 105);
+  background: var(--nako-admin-brand);
+  color: var(--nako-admin-surface-raised);
 }
 
 .uiButtonOutline {
-  border: 1px solid oklch(82% 0.018 105);
-  background: oklch(99% 0.006 105);
-  color: oklch(27% 0.04 184);
+  border: 1px solid var(--nako-admin-line);
+  background: var(--nako-admin-surface-raised);
+  color: var(--nako-admin-brand-ink);
 }
 
 .uiButtonGhost {
@@ -1081,40 +1081,40 @@ td {
 }
 
 .uiBadgeNeutral {
-  border: 1px solid oklch(82% 0.018 105);
+  border: 1px solid var(--nako-admin-line);
   background: oklch(95% 0.012 105);
   color: oklch(40% 0.02 94);
 }
 
 .uiBadgeSuccess {
-  background: oklch(92% 0.055 148);
-  color: oklch(35% 0.08 148);
+  background: var(--nako-admin-success-bg);
+  color: var(--nako-admin-success-ink);
 }
 
 .uiBadgeWarning {
-  background: oklch(94% 0.058 72);
-  color: oklch(39% 0.074 68);
+  background: var(--nako-admin-warning-bg);
+  color: var(--nako-admin-warning-ink);
 }
 
 .uiBadgeDanger {
-  background: oklch(92% 0.054 28);
-  color: oklch(38% 0.1 28);
+  background: var(--nako-admin-danger-bg);
+  color: var(--nako-admin-danger-ink);
 }
 
 .uiBadgeInfo {
-  background: oklch(93% 0.046 238);
-  color: oklch(37% 0.08 238);
+  background: var(--nako-admin-info-bg);
+  color: var(--nako-admin-info-ink);
 }
 
-.jobsSkeleton {
+.uiRowsSkeleton {
   display: grid;
   gap: 10px;
   padding: 16px;
 }
 
-.jobsSkeleton span {
+.uiRowsSkeleton span {
   height: 38px;
-  border-radius: 7px;
+  border-radius: var(--nako-admin-radius-sm);
   background: linear-gradient(
     90deg,
     oklch(93% 0.012 105),
@@ -1125,9 +1125,9 @@ td {
 
 .emptyRouteState {
   border: 1px dashed oklch(78% 0.024 105);
-  border-radius: 8px;
+  border-radius: var(--nako-admin-radius);
   background: oklch(98% 0.006 105);
-  color: oklch(47% 0.025 94);
+  color: var(--nako-admin-muted);
   padding: 18px;
 }
 

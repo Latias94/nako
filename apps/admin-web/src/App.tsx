@@ -1,7 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
-  Link,
   RouterProvider,
   createRootRouteWithContext,
   createRoute,
@@ -23,6 +22,8 @@ import {
 import { useMemo, useState } from "react";
 
 import type { AdminDataSource } from "./adminApi/dataSource";
+import { AdminShell, type AdminShellNavItem } from "./components/layout/AdminShell";
+import { EmptyRouteState, RoutePage } from "./components/layout/RoutePage";
 import { JobsPage, type JobsSearch } from "./features/jobs/JobsPage";
 import { LegacyDashboard } from "./legacy/LegacyDashboard";
 
@@ -76,6 +77,18 @@ const routeTree = rootRoute.addChildren([
   legacyRoute,
 ]);
 
+const adminNavItems = [
+  { to: "/overview", label: "Overview", icon: Activity },
+  { to: "/jobs", label: "Jobs", icon: ListChecks },
+  { to: "/libraries", label: "Media Libraries", icon: Library },
+  { to: "/catalog/governance", label: "Catalog", icon: Film },
+  { to: "/playback/sessions", label: "Playback", icon: PlayCircle },
+  { to: "/storage/staging", label: "Storage", icon: HardDrive },
+  { to: "/addons", label: "Addons", icon: Puzzle },
+  { to: "/settings", label: "Settings", icon: Settings },
+  { to: "/legacy", label: "Legacy Console", icon: Database },
+] satisfies readonly AdminShellNavItem[];
+
 function createAppRouter(context: RouterContext) {
   return createRouter({
     routeTree,
@@ -105,48 +118,11 @@ export function App({ dataSource }: { dataSource: AdminDataSource }) {
 
 function RootLayout() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const navItems = [
-    { to: "/overview", label: "Overview", icon: Activity },
-    { to: "/jobs", label: "Jobs", icon: ListChecks },
-    { to: "/libraries", label: "Media Libraries", icon: Library },
-    { to: "/catalog/governance", label: "Catalog", icon: Film },
-    { to: "/playback/sessions", label: "Playback", icon: PlayCircle },
-    { to: "/storage/staging", label: "Storage", icon: HardDrive },
-    { to: "/addons", label: "Addons", icon: Puzzle },
-    { to: "/settings", label: "Settings", icon: Settings },
-    { to: "/legacy", label: "Legacy Console", icon: Database },
-  ] as const;
 
   return (
-    <div className="adminRouteShell">
-      <aside className="routeSidebar" aria-label="Primary navigation">
-        <div className="routeBrand">
-          <img src="/nako-app-icon-1024.png" alt="" />
-          <div>
-            <strong>Nako</strong>
-            <span>Admin Web V2</span>
-          </div>
-        </div>
-        <nav className="routeNav">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link
-                className={pathname === item.to ? "routeNavItem active" : "routeNavItem"}
-                key={item.to}
-                to={item.to}
-              >
-                <Icon size={17} />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-      </aside>
-      <main className="routeMain">
-        <Outlet />
-      </main>
-    </div>
+    <AdminShell activePathname={pathname} navItems={adminNavItems}>
+      <Outlet />
+    </AdminShell>
   );
 }
 
@@ -175,19 +151,17 @@ function LegacyRoute() {
 
 function PlaceholderRoute({ title, description }: { title: string; description: string }) {
   return (
-    <section className="routePage" aria-labelledby={`${title}-title`}>
-      <div className="routeHeader">
-        <div>
-          <p className="routeKicker">Planned route</p>
-          <h1 id={`${title}-title`}>{title}</h1>
-          <p>{description}</p>
-        </div>
-      </div>
-      <div className="emptyRouteState">
+    <RoutePage
+      description={description}
+      kicker="Planned route"
+      title={title}
+      titleId={`${title}-title`}
+    >
+      <EmptyRouteState>
         This route is intentionally empty until its workflow is migrated from the
         legacy console.
-      </div>
-    </section>
+      </EmptyRouteState>
+    </RoutePage>
   );
 }
 
