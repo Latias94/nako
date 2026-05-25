@@ -1,6 +1,6 @@
 # Metadata Acquisition Pipeline Handoff
 
-Active lane opened on 2026-05-25.
+Lane closed on 2026-05-25.
 
 ## Current State
 
@@ -8,19 +8,28 @@ Nako already scans libraries, imports NFO sidecars, can enqueue scan-triggered
 Addon Bulk Metadata Scrape task runs, and has a protected Addon Side Effect
 path for `metadata_write`.
 
-The core product/architecture loop is now implemented: scan-time metadata
+The core product/architecture loop is implemented: scan-time metadata
 acquisition has a focused service, scan-triggered Addon scrape can opt into
 explicit writeback payloads, and the writeback path is proven through Nako's
 Addon Side Effect route.
 
-## Next Steps
+## Completed Proof
 
-1. Complete MAP-050 by re-running the local/NAS scan and playback smoke against
-   the refactored code.
-2. Decide whether an official addon sidecar process is available for a
-   post-commit writeback smoke; the in-process sidecar already proves the Nako
-   route and merge boundary.
-3. Complete MAP-060 after evidence is fresh.
+- Focused tests prove scan acquisition plan derivation, public DTO/OpenAPI/SDK
+  shape, default suggestion-only Addon scrape, explicit writeback payload, and
+  side-effect metadata merge.
+- Real-directory smoke passed for `H:\Super\Videos`.
+- Real-directory smoke passed for NAS SMB subdirectory
+  `\\frankorz-nas\home\www\Data\Video\Super\JAV_output\安位カヲル`.
+
+## Follow-Ons
+
+1. Full `\\frankorz-nas\home\www\Data\Video\Super\JAV_output` root scan is
+   intentionally deferred because it is a large batch validation, not a smoke.
+2. Official sidecar process writeback smoke can be added when the operator wants
+   an external-process proof beyond the in-process sidecar/Nako HTTP route test.
+3. UI/Admin controls for scan metadata source ordering remain product follow-on
+   work.
 
 ## Guardrails
 

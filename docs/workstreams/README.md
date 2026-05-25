@@ -7,7 +7,7 @@ attention.
 ## Current Workstreams
 
 - [metadata-acquisition-pipeline](metadata-acquisition-pipeline/README.md):
-  active architecture lane for turning scan-time metadata acquisition into a
+  completed architecture lane for turning scan-time metadata acquisition into a
   configurable Media Library pipeline, preserving NFO import, keeping Addon
   Bulk Metadata Scrape suggestion-only by default, and proving explicit Addon
   metadata writeback through Nako-owned Side Effects.

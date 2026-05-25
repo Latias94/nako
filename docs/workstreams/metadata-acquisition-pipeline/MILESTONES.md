@@ -45,6 +45,8 @@ Exit criteria:
 Outcome: The local and NAS scan/playback smoke procedure remains repeatable
 after the refactor.
 
+Status: complete 2026-05-25.
+
 Exit criteria:
 
 - Local test directory scan and byte-range playback pass.

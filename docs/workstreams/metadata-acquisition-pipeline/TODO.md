@@ -37,14 +37,20 @@
   scan-triggered bulk scrape submits `metadata_write` via `/addon/v1/side-effects`
   and the scanned Media Item receives the merged Canonical Metadata.
 
-- [ ] MAP-050 [owner=worker] [deps=MAP-040] [scope=scripts,target/codex-smoke]
+- [x] MAP-050 [owner=worker] [deps=MAP-040] [scope=scripts,target/codex-smoke]
   Goal: Re-run local directory scan/playback smoke and prepare for real NAS
   smoke with explicit Addon writeback enabled when an official sidecar is
   available.
   Validation: Record exact commands, directories, task status, scan summary, and
   playback byte-range result in evidence.
+  Result: DONE 2026-05-25. Re-ran post-refactor scan/list/serve/playback smoke
+  on `H:\Super\Videos` and the NAS SMB `安位カヲル` subdirectory. Both returned
+  healthy HTTP service, `direct_play` playback decision, and 206 Range streaming.
 
-- [ ] MAP-060 [owner=planner] [deps=MAP-020,MAP-030,MAP-040] [scope=docs/workstreams/metadata-acquisition-pipeline]
+- [x] MAP-060 [owner=planner] [deps=MAP-020,MAP-030,MAP-040,MAP-050] [scope=docs/workstreams/metadata-acquisition-pipeline]
   Goal: Close or split the lane after implementation evidence is fresh.
   Validation: Evidence table is current, TODO reflects completed work, and
   HANDOFF states remaining follow-ons.
+  Result: DONE 2026-05-25. Lane closed with implementation, tests, formatting
+  note, and real-directory smoke evidence. Full NAS-root scan and official
+  sidecar process smoke are deferred follow-ons, not blockers for this lane.

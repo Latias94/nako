@@ -1,5 +1,7 @@
 # Metadata Acquisition Pipeline Design
 
+Status: implemented 2026-05-25.
+
 ## Context
 
 Media Library scans currently run indexing, probing, then a hard-coded
@@ -41,6 +43,19 @@ Initial phases:
 
 Future phases such as embedded metadata, non-NFO sidecars, and provider refresh
 should plug into the same service without changing library scan orchestration.
+
+## Shipped Behavior
+
+`LibraryScanAppService` now delegates scan-time metadata work to
+`MetadataScanAcquisitionService`. `MetadataScanPolicy` exposes disabled-by-default
+`addon_writeback`; when both `addon_scrape` and `addon_writeback` are enabled,
+scan-triggered official bulk scrape payloads include a per-source `writeback`
+object for a Media Source target.
+
+The closed-loop proof uses a sidecar task endpoint that calls Nako's
+`/addon/v1/side-effects` route with a scoped Addon Token and Library-Scoped
+Metadata Write grant. The Media Item is updated through the existing merge
+policy and catalog/search commit path.
 
 ## Invariants
 

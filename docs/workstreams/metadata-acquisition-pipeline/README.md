@@ -1,8 +1,8 @@
 # Metadata Acquisition Pipeline
 
-Status: active
+Status: completed 2026-05-25
 
-This lane turns scan-time metadata acquisition into a configurable pipeline for
+This lane turned scan-time metadata acquisition into a configurable pipeline for
 Media Libraries. The first implementation keeps the existing NFO import
 behavior, preserves suggestion-only Addon bulk scrape by default, and adds an
 explicit writeback path that lets approved Addons submit Canonical Metadata
