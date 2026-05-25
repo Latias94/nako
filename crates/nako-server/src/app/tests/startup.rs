@@ -1,12 +1,18 @@
 use super::*;
+use nako_addon_protocol::{
+    ADDON_PROTOCOL_VERSION, AddonScope, AddonTaskRequest, AddonTaskResponse,
+};
+use nako_api::extension::RegisterAddonRequest;
 use nako_core::{
     AddonPermission, AddonRepository, AddonSideEffectTarget, AddonSideEffectValidationStatus,
-    AddonStatus, ArtworkCandidateId, ArtworkCandidateRepository, ArtworkCandidateSourceKind,
-    ImageKind, Library, LibraryItemRepository, LibraryItemState, LibraryOptions, LibraryRepository,
-    ManagedArtworkAcceptanceRecord, ManagedArtworkIngestId, ManagedArtworkIngestStatus,
-    ManagedArtworkRepository, NewAddonRegistration, NewAddonSideEffect, NewAddonToken,
-    NewArtworkCandidate, NewManagedArtworkIngest,
+    AddonStatus, AddonTaskRunRepository, ArtworkCandidateId, ArtworkCandidateRepository,
+    ArtworkCandidateSourceKind, ImageKind, Library, LibraryItemRepository, LibraryItemState,
+    LibraryOptions, LibraryRepository, ManagedArtworkAcceptanceRecord, ManagedArtworkIngestId,
+    ManagedArtworkIngestStatus, ManagedArtworkRepository, NewAddonRegistration, NewAddonSideEffect,
+    NewAddonToken, NewArtworkCandidate, NewManagedArtworkIngest,
 };
+use nako_official_addon_catalog::metadata_scraper;
+use tokio::sync::Mutex;
 
 fn startup_config(root: &Path, libraries: Vec<LocalLibraryConfig>) -> NakoServerConfig {
     NakoServerConfig {
@@ -330,6 +336,106 @@ async fn scan_library_skips_nfo_import_when_scan_metadata_is_disabled() {
 }
 
 #[tokio::test]
+async fn scan_library_enqueues_addon_bulk_metadata_scrape_when_enabled() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_root = temp.path().join("library");
+    fs::create_dir_all(&library_root).unwrap();
+    write_fixture_mp4(&library_root.join("demo.mp4"));
+    let library_id = LibraryId::new();
+    let mut config = startup_config(
+        temp.path(),
+        vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: library_root,
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    );
+    let mut profile = nako_core::MetadataProfile::from_preset(nako_core::LibraryPreset::Movies);
+    profile.scan.addon_scrape = true;
+    config.metadata.library_profiles.insert(library_id, profile);
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let (base_url, captured) = scan_bulk_metadata_scrape_addon_server().await;
+    let mut manifest = metadata_scraper::default_manifest();
+    manifest.base_url = base_url;
+    let registered = app
+        .addons()
+        .register_addon(RegisterAddonRequest {
+            id: None,
+            manifest,
+            outbound_task_dispatch_secret_env: None,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+                AddonScope::AutomationRun,
+            ],
+            status: Some(AddonStatus::Enabled),
+        })
+        .await
+        .unwrap();
+    let addon_id = registered.addon.summary.id;
+    app.addons()
+        .sync_addon_routing_plans(addon_id)
+        .await
+        .unwrap();
+
+    let output = app.library_scan().scan_library(library_id).await.unwrap();
+    let addon_scrape = output
+        .metadata
+        .addon_scrape
+        .expect("scan should enqueue addon scrape");
+    assert_eq!(addon_scrape.total_sources, 1);
+    assert_eq!(addon_scrape.enqueued_items, 1);
+    assert!(!addon_scrape.truncated);
+    assert!(addon_scrape.skipped_addons.is_empty());
+    assert_eq!(addon_scrape.task_runs.len(), 1);
+    assert_eq!(addon_scrape.task_runs[0].addon_id, addon_id);
+    assert_eq!(
+        addon_scrape.task_runs[0].declaration_id,
+        metadata_scraper::BULK_METADATA_SCRAPE_TASK_ID
+    );
+
+    let completed = wait_for_addon_task_run_status(
+        &store,
+        addon_scrape.task_runs[0].job_id,
+        JobStatus::Succeeded,
+    )
+    .await;
+    assert_eq!(completed.job.library_id, Some(library_id));
+    assert_eq!(
+        completed.declaration_id,
+        metadata_scraper::BULK_METADATA_SCRAPE_TASK_ID
+    );
+
+    let captured = captured.lock().await;
+    assert_eq!(captured.len(), 1);
+    let request = &captured[0];
+    assert_eq!(
+        request.task_id,
+        metadata_scraper::BULK_METADATA_SCRAPE_TASK_ID
+    );
+    assert_eq!(request.library_id, Some(library_id.to_string()));
+    assert!(request.source_id.is_none());
+    assert_eq!(request.payload["batch_size"], 12);
+    assert_eq!(request.payload["items"].as_array().unwrap().len(), 1);
+    assert_eq!(request.payload["items"][0]["title"], "demo");
+    assert_eq!(
+        request.payload["items"][0]["library_id"],
+        library_id.to_string()
+    );
+    assert!(request.payload["items"][0].get("writeback").is_none());
+    assert!(
+        request.payload["items"][0]
+            .get("artwork_writeback")
+            .is_none()
+    );
+}
+
+#[tokio::test]
 async fn background_scan_job_uses_runtime_job_supervision() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
@@ -399,6 +505,63 @@ fn write_fixture_mp4(path: &Path) {
         .status()
         .expect("ffmpeg should be available for Nako app scan tests");
     assert!(status.success(), "ffmpeg failed to create fixture mp4");
+}
+
+async fn scan_bulk_metadata_scrape_addon_server() -> (String, Arc<Mutex<Vec<AddonTaskRequest>>>) {
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let router = Router::new().route(
+        metadata_scraper::BULK_METADATA_SCRAPE_TASK_PATH,
+        axum::routing::post({
+            let requests = Arc::clone(&requests);
+            move |Json(request): Json<AddonTaskRequest>| {
+                let requests = Arc::clone(&requests);
+                async move {
+                    requests.lock().await.push(request.clone());
+
+                    Json(AddonTaskResponse {
+                        protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+                        addon_id: request.addon_id,
+                        task_id: request.task_id,
+                        job_id: request.job_id,
+                        request_id: request.request_id,
+                        output: serde_json::json!({
+                            "accepted": true,
+                            "item_count": request
+                                .payload
+                                .get("items")
+                                .and_then(serde_json::Value::as_array)
+                                .map_or(0, Vec::len),
+                        }),
+                    })
+                }
+            }
+        }),
+    );
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, router).await.unwrap();
+    });
+    tokio::task::yield_now().await;
+
+    (format!("http://{addr}"), requests)
+}
+
+async fn wait_for_addon_task_run_status(
+    store: &NakoDatabase,
+    job_id: JobId,
+    expected: JobStatus,
+) -> nako_core::AddonTaskRunRecord {
+    for _ in 0..100 {
+        if let Some(run) = store.get_addon_task_run(job_id).await.unwrap()
+            && run.job.status == expected
+        {
+            return run;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+
+    panic!("addon task run {job_id} did not reach {expected:?}");
 }
 
 #[tokio::test]

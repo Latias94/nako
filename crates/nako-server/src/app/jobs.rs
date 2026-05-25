@@ -25,6 +25,9 @@ use tracing::{Instrument, info, info_span, warn};
 use crate::config::{NakoServerConfig, libraries_from_config};
 
 use super::{
+    addons::{
+        AddonAppService, ScanAddonBulkMetadataScrapeRequest, ScanAddonBulkMetadataScrapeSummary,
+    },
     job_runtime::{
         DurableJobContext, DurableJobOperationResult, DurableJobRunOutcome, DurableJobRuntime,
     },
@@ -45,6 +48,8 @@ pub struct ScanCommandOutput {
 pub struct LibraryScanMetadataSummary {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub nfo_import: Option<NfoImportSummary>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub addon_scrape: Option<ScanAddonBulkMetadataScrapeSummary>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -275,6 +280,7 @@ pub(crate) struct LibraryScanAppService {
     permits: Arc<Semaphore>,
     storage_backends: StorageBackendRegistry,
     runtime: RuntimeSupervisor,
+    addons: AddonAppService,
 }
 
 impl LibraryScanAppService {
@@ -284,6 +290,7 @@ impl LibraryScanAppService {
         permits: Arc<Semaphore>,
         storage_backends: StorageBackendRegistry,
         runtime: RuntimeSupervisor,
+        addons: AddonAppService,
     ) -> Self {
         let workflow_store = Arc::new(store.clone());
         let execution_store = LibraryScanExecutionStore::new(store);
@@ -294,6 +301,7 @@ impl LibraryScanAppService {
             permits,
             storage_backends,
             runtime,
+            addons,
         }
     }
 
@@ -601,6 +609,23 @@ impl LibraryScanAppService {
                     return Err(super::job_runtime::DurableJobOperationError::Cancelled);
                 }
             }
+        }
+
+        if plan.addon_scrape {
+            context.check_cancelled().await?;
+            info!(
+                job_id = %job_id,
+                library_id = %library.id,
+                "creating scan-time Addon bulk metadata scrape task runs"
+            );
+            let addon_scrape = self
+                .addons
+                .create_scan_bulk_metadata_scrape_task_runs(ScanAddonBulkMetadataScrapeRequest {
+                    scan_job_id: job_id,
+                    library,
+                })
+                .await?;
+            summary.addon_scrape = Some(addon_scrape);
         }
 
         Ok(summary)

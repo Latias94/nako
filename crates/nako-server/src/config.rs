@@ -1072,6 +1072,43 @@ mod tests {
     }
 
     #[test]
+    fn config_applies_library_metadata_addon_scrape_policy() {
+        let config = toml::from_str::<NakoServerConfig>(
+            r#"
+            database_url = "sqlite://nako.db"
+
+            [[libraries]]
+            id = "018f0000-0000-7000-8000-000000000001"
+            name = "Movies"
+            root = "F:/Media/Movies"
+            preset = "movies"
+
+            [metadata.library_profiles.018f0000-0000-7000-8000-000000000001]
+            item_kinds = ["movie", "collection", "extra"]
+            local_readers = ["nfo"]
+            metadata_providers = ["douban"]
+            image_providers = []
+            language = "zh-CN"
+            refresh_mode = "missing_only"
+            local_metadata_policy = "local_first"
+
+            [metadata.library_profiles.018f0000-0000-7000-8000-000000000001.scan]
+            enabled = true
+            addon_scrape = true
+            "#,
+        )
+        .unwrap();
+
+        let library = default_library_from_config(&config).unwrap();
+        let profile = library.options.metadata_profile;
+
+        assert!(profile.scan.enabled);
+        assert!(profile.scan.addon_scrape);
+        assert!(profile.scan_acquisition_plan().local_nfo_import);
+        assert!(profile.scan_acquisition_plan().addon_scrape);
+    }
+
+    #[test]
     fn default_library_from_multi_library_config_returns_first_configured_library() {
         let config = toml::from_str::<NakoServerConfig>(
             r#"

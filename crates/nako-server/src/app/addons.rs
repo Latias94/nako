@@ -49,11 +49,15 @@ mod library_file_write;
 mod metadata_write;
 mod principal;
 mod runtime;
+mod scan_metadata;
 mod side_effect_apply;
 mod target;
 mod task_runtime;
 
 use principal::{normalize_grants, normalize_token_label};
+pub(crate) use scan_metadata::{
+    ScanAddonBulkMetadataScrapeRequest, ScanAddonBulkMetadataScrapeSummary,
+};
 
 #[async_trait::async_trait]
 trait AddonRegistrationStore: std::fmt::Debug + Send + Sync {

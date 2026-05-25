@@ -130,15 +130,17 @@ impl MetadataProfile {
 
     #[must_use]
     pub fn scan_acquisition_plan(&self) -> MetadataScanAcquisitionPlan {
+        let scan_enabled = self.scan.enabled;
+
         MetadataScanAcquisitionPlan {
-            local_nfo_import: self.scan.enabled
+            local_nfo_import: scan_enabled
                 && self.local_metadata_policy != LocalMetadataPolicy::Disabled
                 && self
                     .local_readers
                     .iter()
                     .any(|reader| matches!(reader, LocalMetadataReader::Nfo)),
             provider_refresh: false,
-            addon_scrape: false,
+            addon_scrape: scan_enabled && self.scan.addon_scrape,
             embedded_read: false,
             sidecar_read: false,
             image_discovery: false,
@@ -156,12 +158,17 @@ impl Default for MetadataProfile {
 pub struct MetadataScanPolicy {
     #[serde(default = "default_scan_metadata_enabled")]
     pub enabled: bool,
+    #[serde(default)]
+    pub addon_scrape: bool,
 }
 
 impl MetadataScanPolicy {
     #[must_use]
     pub const fn disabled() -> Self {
-        Self { enabled: false }
+        Self {
+            enabled: false,
+            addon_scrape: false,
+        }
     }
 }
 
@@ -169,6 +176,7 @@ impl Default for MetadataScanPolicy {
     fn default() -> Self {
         Self {
             enabled: default_scan_metadata_enabled(),
+            addon_scrape: false,
         }
     }
 }

@@ -1,0 +1,40 @@
+{
+  "slug": "scan-addon-bulk-metadata-scrape",
+  "title": "Scan Addon Bulk Metadata Scrape",
+  "status": "complete",
+  "last_updated": "2026-05-25",
+  "objective": "Make metadata scan policy explicitly enable Addon scrape and enqueue bounded bulk metadata scrape TaskRuns after scans for enabled executable Addons.",
+  "current_task": null,
+  "tasks": [
+    {
+      "id": "SABMS-010",
+      "status": "done",
+      "scope": "docs/workstreams/scan-addon-bulk-metadata-scrape"
+    },
+    {
+      "id": "SABMS-020",
+      "status": "done",
+      "scope": "crates/nako-core,crates/nako-api,crates/nako-client-protocol,crates/nako-server/src/config.rs"
+    },
+    {
+      "id": "SABMS-030",
+      "status": "done",
+      "scope": "crates/nako-server/src/app/jobs.rs,crates/nako-server/src/app/addons/task_runtime.rs,crates/nako-server/src/app/composition.rs"
+    },
+    {
+      "id": "SABMS-040",
+      "status": "done",
+      "scope": "docs/workstreams/scan-addon-bulk-metadata-scrape"
+    }
+  ],
+  "related_workstreams": [
+    "docs/workstreams/addon-ecosystem-foundation",
+    "docs/workstreams/addon-event-scheduler-and-replay"
+  ],
+  "validation": [
+    "cargo nextest run -p nako-core metadata_profile_builds_scan_acquisition_plan_from_local_readers_and_policy",
+    "cargo nextest run -p nako-server config_applies_library_metadata_profile_overrides",
+    "cargo nextest run -p nako-api openapi",
+    "cargo nextest run -p nako-server scan_library_enqueues_addon_bulk_metadata_scrape_when_enabled"
+  ]
+}

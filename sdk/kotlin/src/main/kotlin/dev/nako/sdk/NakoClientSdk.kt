@@ -1143,6 +1143,8 @@ public data class MetadataProfileDto(
 
 @Serializable
 public data class MetadataScanPolicyDto(
+    @SerialName("addon_scrape")
+    public val addonScrape: Boolean,
     public val enabled: Boolean,
 )
 

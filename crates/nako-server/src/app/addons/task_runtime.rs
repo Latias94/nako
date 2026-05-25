@@ -400,7 +400,7 @@ impl AddonAppService {
         })
     }
 
-    async fn ensure_executable_task_routing_plan(
+    pub(super) async fn ensure_executable_task_routing_plan(
         &self,
         addon_id: AddonId,
         declaration_id: &str,

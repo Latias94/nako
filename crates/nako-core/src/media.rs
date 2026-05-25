@@ -88,5 +88,18 @@ mod tests {
         profile.local_readers = vec![LocalMetadataReader::Nfo];
         profile.scan = MetadataScanPolicy::disabled();
         assert!(!profile.scan_acquisition_plan().local_nfo_import);
+
+        profile.scan = MetadataScanPolicy {
+            enabled: true,
+            addon_scrape: true,
+        };
+        let plan = profile.scan_acquisition_plan();
+        assert!(plan.local_nfo_import);
+        assert!(plan.addon_scrape);
+
+        profile.scan.enabled = false;
+        let plan = profile.scan_acquisition_plan();
+        assert!(!plan.local_nfo_import);
+        assert!(!plan.addon_scrape);
     }
 }

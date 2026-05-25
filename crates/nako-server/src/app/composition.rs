@@ -120,18 +120,19 @@ impl NakoAppServices {
             runtime.storage_backends.clone(),
         );
         let artwork = ManagedArtworkAppService::new(config.artwork.clone(), store.clone())?;
+        let addons = AddonAppService::new(
+            store.clone(),
+            runtime.metadata_permits.clone(),
+            runtime.storage_backends.clone(),
+            runtime.supervisor.clone(),
+        );
         let library_scan = LibraryScanAppService::new(
             config.clone(),
             store.clone(),
             runtime.scan_permits,
             runtime.storage_backends.clone(),
             runtime.supervisor.clone(),
-        );
-        let addons = AddonAppService::new(
-            store.clone(),
-            runtime.metadata_permits.clone(),
-            runtime.storage_backends.clone(),
-            runtime.supervisor.clone(),
+            addons.clone(),
         );
         let automation = AutomationAppService::new(store.clone());
         let webhooks = WebhookAppService::new(store.clone(), runtime.webhook_permits);
