@@ -36,6 +36,7 @@ export type {
   AdminGeneratedArtifactProposalsQuery,
   AdminJobListItem,
   AdminJobListResponse,
+  AdminJobsQuery,
   AdminLocalInferenceSummary,
   AdminNetworkAccessDiagnostics,
   AdminOutboxEventListItem,

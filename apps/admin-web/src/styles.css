@@ -770,3 +770,405 @@ td {
     grid-template-columns: 1fr;
   }
 }
+
+.adminRouteShell {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  min-height: 100vh;
+  background: oklch(97% 0.008 105);
+  color: oklch(22% 0.026 84);
+}
+
+.routeSidebar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  height: 100vh;
+  border-right: 1px solid oklch(84% 0.018 105);
+  background: oklch(94.5% 0.012 118);
+  padding: 18px 14px;
+}
+
+.routeBrand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 7px 8px 16px;
+  border-bottom: 1px solid oklch(84% 0.018 105);
+}
+
+.routeBrand img {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+}
+
+.routeBrand div {
+  display: grid;
+  gap: 2px;
+}
+
+.routeBrand strong {
+  font-size: 1rem;
+}
+
+.routeBrand span {
+  color: oklch(47% 0.025 94);
+  font-size: 0.78rem;
+}
+
+.routeNav {
+  display: grid;
+  gap: 4px;
+}
+
+.routeNavItem {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  min-height: 38px;
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: oklch(35% 0.025 94);
+  text-decoration: none;
+}
+
+.routeNavItem:hover,
+.routeNavItem:focus-visible,
+.routeNavItem.active {
+  background: oklch(91% 0.028 184);
+  color: oklch(27% 0.08 184);
+  outline: none;
+}
+
+.routeMain {
+  min-width: 0;
+  padding: 26px clamp(18px, 3vw, 38px) 42px;
+}
+
+.routePage {
+  display: grid;
+  gap: 18px;
+}
+
+.routeHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.routeHeader p {
+  max-width: 74ch;
+  margin: 7px 0 0;
+  color: oklch(47% 0.025 94);
+  line-height: 1.5;
+}
+
+.routeKicker {
+  margin: 0 0 6px !important;
+  color: oklch(45% 0.065 184) !important;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.routeTitleLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.routeTitleLine h1,
+.routeHeader h1 {
+  margin-bottom: 0;
+}
+
+.routeNotice {
+  border: 1px solid oklch(82% 0.075 58);
+  border-radius: 8px;
+  background: oklch(96% 0.035 64);
+  color: oklch(38% 0.074 55);
+  padding: 10px 12px;
+}
+
+.filterBar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr)) auto;
+  gap: 10px;
+  align-items: end;
+  border: 1px solid oklch(84% 0.018 105);
+  border-radius: 8px;
+  background: oklch(99% 0.006 105);
+  padding: 12px;
+}
+
+.filterField {
+  display: grid;
+  gap: 6px;
+  color: oklch(35% 0.025 94);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.filterField input,
+.filterField select {
+  min-height: 36px;
+  width: 100%;
+  border: 1px solid oklch(82% 0.018 105);
+  border-radius: 8px;
+  background: oklch(98.5% 0.006 105);
+  color: oklch(22% 0.026 84);
+  padding: 0 10px;
+}
+
+.filterField input:focus-visible,
+.filterField select:focus-visible {
+  border-color: oklch(58% 0.11 184);
+  outline: 2px solid oklch(82% 0.08 184);
+  outline-offset: 1px;
+}
+
+.filterActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+}
+
+.dataPanel {
+  min-width: 0;
+  border: 1px solid oklch(84% 0.018 105);
+  border-radius: 8px;
+  background: oklch(99% 0.006 105);
+}
+
+.dataPanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid oklch(86% 0.015 105);
+  padding: 14px 16px;
+}
+
+.dataPanelHeader h2 {
+  margin-bottom: 4px;
+}
+
+.dataPanelHeader p {
+  margin-bottom: 0;
+  color: oklch(47% 0.025 94);
+  font-size: 0.86rem;
+}
+
+.searchHint {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: oklch(47% 0.025 94);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.tableScroll {
+  overflow-x: auto;
+}
+
+.uiTable {
+  width: 100%;
+  min-width: 780px;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.uiTableHead,
+.uiTableCell {
+  padding: 11px 14px;
+  border-bottom: 1px solid oklch(88% 0.014 105);
+  text-align: left;
+}
+
+.uiTableHead {
+  color: oklch(43% 0.025 94);
+  font-size: 0.74rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.uiTableCell {
+  color: oklch(29% 0.024 84);
+}
+
+.uiTableRow:hover .uiTableCell {
+  background: oklch(97% 0.012 118);
+}
+
+.jobsPrimaryCell {
+  display: grid;
+  gap: 3px;
+}
+
+.jobsPrimaryCell span {
+  color: oklch(50% 0.02 94);
+  font-size: 0.78rem;
+}
+
+.uiButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  border-radius: 8px;
+  font-weight: 750;
+  letter-spacing: 0;
+}
+
+.uiButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.uiButton:focus-visible {
+  outline: 2px solid oklch(82% 0.08 184);
+  outline-offset: 2px;
+}
+
+.uiButtonDefault {
+  border: 1px solid oklch(50% 0.1 184);
+  background: oklch(58% 0.11 184);
+  color: oklch(98% 0.006 105);
+}
+
+.uiButtonOutline {
+  border: 1px solid oklch(82% 0.018 105);
+  background: oklch(99% 0.006 105);
+  color: oklch(27% 0.04 184);
+}
+
+.uiButtonGhost {
+  border: 1px solid transparent;
+  background: transparent;
+  color: oklch(35% 0.025 94);
+}
+
+.uiButtonSm {
+  min-height: 32px;
+  padding: 0 9px;
+  font-size: 0.82rem;
+}
+
+.uiButtonMd {
+  padding: 0 12px;
+  font-size: 0.88rem;
+}
+
+.uiBadge {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  border-radius: 999px;
+  padding: 5px 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.uiBadgeNeutral {
+  border: 1px solid oklch(82% 0.018 105);
+  background: oklch(95% 0.012 105);
+  color: oklch(40% 0.02 94);
+}
+
+.uiBadgeSuccess {
+  background: oklch(92% 0.055 148);
+  color: oklch(35% 0.08 148);
+}
+
+.uiBadgeWarning {
+  background: oklch(94% 0.058 72);
+  color: oklch(39% 0.074 68);
+}
+
+.uiBadgeDanger {
+  background: oklch(92% 0.054 28);
+  color: oklch(38% 0.1 28);
+}
+
+.uiBadgeInfo {
+  background: oklch(93% 0.046 238);
+  color: oklch(37% 0.08 238);
+}
+
+.jobsSkeleton {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+}
+
+.jobsSkeleton span {
+  height: 38px;
+  border-radius: 7px;
+  background: linear-gradient(
+    90deg,
+    oklch(93% 0.012 105),
+    oklch(97% 0.01 105),
+    oklch(93% 0.012 105)
+  );
+}
+
+.emptyRouteState {
+  border: 1px dashed oklch(78% 0.024 105);
+  border-radius: 8px;
+  background: oklch(98% 0.006 105);
+  color: oklch(47% 0.025 94);
+  padding: 18px;
+}
+
+@media (max-width: 1040px) {
+  .filterBar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filterActions {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 820px) {
+  .adminRouteShell {
+    grid-template-columns: 1fr;
+  }
+
+  .routeSidebar {
+    position: static;
+    height: auto;
+  }
+
+  .routeNav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .routeHeader,
+  .dataPanelHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 560px) {
+  .routeMain {
+    padding: 18px 12px 28px;
+  }
+
+  .routeNav,
+  .filterBar {
+    grid-template-columns: 1fr;
+  }
+}

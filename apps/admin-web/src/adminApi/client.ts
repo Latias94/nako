@@ -22,6 +22,7 @@ import type {
   AdminWatchFolderDiscoveryRequest,
   AdminWatchFolderDiscoveryResponse,
   AdminJobListResponse,
+  AdminJobsQuery,
   AdminOutboxEventListResponse,
   AdminOverviewResponse,
   AdminPlaybackRuntimeDiagnosticsResponse,
@@ -51,7 +52,7 @@ export class AdminApiClient {
   constructor(options: AdminApiClientOptions = {}) {
     this.baseUrl = normalizeBaseUrl(options.baseUrl);
     this.token = options.token;
-    this.fetcher = options.fetcher ?? fetch;
+    this.fetcher = options.fetcher ?? ((input, init) => fetch(input, init));
   }
 
   async getOverview(): Promise<AdminOverviewResponse> {
@@ -205,8 +206,8 @@ export class AdminApiClient {
     return this.getJson<AdminOutboxEventListResponse>(NAKO_ADMIN_ROUTES.events);
   }
 
-  async getJobs(): Promise<AdminJobListResponse> {
-    return this.getJson<AdminJobListResponse>(NAKO_ADMIN_ROUTES.jobs);
+  async getJobs(query: AdminJobsQuery = {}): Promise<AdminJobListResponse> {
+    return this.getJson<AdminJobListResponse>(withQuery(NAKO_ADMIN_ROUTES.jobs, query));
   }
 
   async getPlaybackSessions(): Promise<AdminPlaybackSessionListResponse> {
@@ -256,7 +257,7 @@ export class AdminApiClient {
       throw new Error(`Admin API request failed with HTTP ${response.status}`);
     }
 
-    return (await response.json()) as T;
+    return this.parseJson<T>(response);
   }
 
   private async postJson<T>(path: string, body: unknown): Promise<T> {
@@ -273,7 +274,7 @@ export class AdminApiClient {
       throw new Error(`Admin API request failed with HTTP ${response.status}`);
     }
 
-    return (await response.json()) as T;
+    return this.parseJson<T>(response);
   }
 
   private async patchJson<T>(path: string, body: unknown): Promise<T> {
@@ -290,7 +291,7 @@ export class AdminApiClient {
       throw new Error(`Admin API request failed with HTTP ${response.status}`);
     }
 
-    return (await response.json()) as T;
+    return this.parseJson<T>(response);
   }
 
   private async putJson<T>(path: string, body: unknown): Promise<T> {
@@ -305,6 +306,15 @@ export class AdminApiClient {
 
     if (!response.ok) {
       throw new Error(`Admin API request failed with HTTP ${response.status}`);
+    }
+
+    return this.parseJson<T>(response);
+  }
+
+  private async parseJson<T>(response: Response): Promise<T> {
+    const contentType = response.headers.get("content-type") ?? "";
+    if (!contentType.toLowerCase().includes("application/json")) {
+      throw new Error("Admin API request returned a non-JSON response");
     }
 
     return (await response.json()) as T;
@@ -341,7 +351,8 @@ function withQuery(
     | AdminPlaybackSupportQuery
     | AdminAcquisitionIntakeCandidatesQuery
     | AdminGeneratedArtifactProposalsQuery
-    | AdminAddonsQuery,
+    | AdminAddonsQuery
+    | AdminJobsQuery,
 ) {
   const params = new URLSearchParams();
 

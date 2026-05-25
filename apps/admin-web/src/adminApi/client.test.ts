@@ -56,6 +56,46 @@ describe("AdminApiClient", () => {
     await expect(client.getOverview()).rejects.toThrow("HTTP 404");
   });
 
+  it("reports successful non-JSON responses before parsing", async () => {
+    const fetcher = vi.fn(async () =>
+      new Response("<!doctype html>", {
+        headers: {
+          "Content-Type": "text/html",
+        },
+      }),
+    );
+    const client = new AdminApiClient({ fetcher });
+
+    await expect(client.getOverview()).rejects.toThrow("non-JSON response");
+  });
+
+  it("does not call the browser default fetch as an unbound client method", async () => {
+    const originalFetch = globalThis.fetch;
+    Object.defineProperty(globalThis, "fetch", {
+      configurable: true,
+      writable: true,
+      value(this: unknown) {
+        if (this instanceof AdminApiClient) {
+          throw new TypeError("Illegal invocation");
+        }
+
+        return Promise.resolve(Response.json(mockOverview));
+      },
+    });
+
+    try {
+      const client = new AdminApiClient();
+
+      await expect(client.getOverview()).resolves.toEqual(mockOverview);
+    } finally {
+      Object.defineProperty(globalThis, "fetch", {
+        configurable: true,
+        writable: true,
+        value: originalFetch,
+      });
+    }
+  });
+
   it("loads existing Admin API read models through typed route methods", async () => {
     const responses = new Map<string, unknown>([
       [NAKO_ADMIN_ROUTES.catalogGovernanceItems, mockCatalogGovernance],
@@ -103,7 +143,7 @@ describe("AdminApiClient", () => {
       mockGeneratedArtifactProposals,
     );
     await expect(client.getEvents()).resolves.toEqual(mockEvents);
-    await expect(client.getJobs()).resolves.toEqual(mockJobs);
+    await expect(client.getJobs({ status: "failed", limit: 5 })).resolves.toEqual(mockJobs);
     await expect(client.getPlaybackSessions()).resolves.toEqual(mockPlaybackSessions);
     await expect(client.getPlaybackRuntime()).resolves.toEqual(mockPlaybackRuntime);
     await expect(client.getPlaybackSupport({ session_id: "session-hls" })).resolves.toEqual(
@@ -124,7 +164,7 @@ describe("AdminApiClient", () => {
       `${NAKO_ADMIN_ROUTES.acquisitionIntakeCandidates}?library_id=library-anime&state=ready`,
       `${NAKO_ADMIN_ROUTES.generatedArtifactProposals}?limit=5`,
       NAKO_ADMIN_ROUTES.events,
-      NAKO_ADMIN_ROUTES.jobs,
+      `${NAKO_ADMIN_ROUTES.jobs}?status=failed&limit=5`,
       NAKO_ADMIN_ROUTES.playbackSessions,
       NAKO_ADMIN_ROUTES.playbackRuntime,
       `${NAKO_ADMIN_ROUTES.playbackSupport}?session_id=session-hls`,

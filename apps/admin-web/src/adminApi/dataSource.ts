@@ -33,6 +33,7 @@ import type {
   AdminCatalogGovernanceItemListResponse,
   AdminGeneratedArtifactProposalListResponse,
   AdminJobListResponse,
+  AdminJobsQuery,
   AdminOutboxEventListResponse,
   AdminPlaybackRuntimeDiagnosticsResponse,
   AdminPlaybackSessionListResponse,
@@ -71,6 +72,7 @@ export type { AdminConsoleData, AdminSourceMap, DataSourceMode };
 
 export type AdminDataSource = {
   load(): Promise<AdminConsoleData>;
+  loadJobs?(query?: AdminJobsQuery): Promise<AdminSectionResult<AdminJobListResponse>>;
   setAddonStatus?(addonId: string, status: "enabled" | "disabled"): Promise<AddonOperationsSummary>;
   checkAddonHealth?(addonId: string): Promise<AddonHealthSummary>;
   diagnoseAddonResource?(addonId: string, resource: AddonResource): Promise<AddonDiagnosticSummary>;
@@ -90,6 +92,8 @@ type LoadResult<T> = {
   source: DataSourceMode;
   error?: string;
 };
+
+export type AdminSectionResult<T> = LoadResult<T>;
 
 export function createAdminDataSource(options: AdminApiClientOptions = {}): AdminDataSource {
   const client = new AdminApiClient(options);
@@ -210,6 +214,9 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
         network: mapNetwork(systemConfig.value.network),
         settings: mapSettings(systemConfig.value),
       };
+    },
+    async loadJobs(query = {}) {
+      return loadSection(() => client.getJobs(query), mockJobs);
     },
     async setAddonStatus(addonId, status) {
       const updated = await client.updateAddonStatus(addonId, { status });

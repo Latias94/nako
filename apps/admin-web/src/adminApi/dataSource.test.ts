@@ -174,6 +174,41 @@ describe("Admin data source", () => {
     expect(data.sources.playbackRuntime).toBe("live");
   });
 
+  it("loads route-local Jobs with generated query params and section fallback", async () => {
+    const seenSearchParams: string[] = [];
+    const liveSource = createAdminDataSource({
+      fetcher: async (input: string | URL | Request) => {
+        const url = new URL(input.toString(), "http://127.0.0.1");
+        seenSearchParams.push(url.search);
+        return Response.json(mockJobs);
+      },
+    });
+
+    const liveResult = await liveSource.loadJobs?.({
+      status: "failed",
+      limit: 10,
+      offset: 20,
+    });
+
+    expect(liveResult).toMatchObject({
+      source: "live",
+      value: mockJobs,
+    });
+    expect(seenSearchParams).toEqual(["?status=failed&limit=10&offset=20"]);
+
+    const fallbackSource = createAdminDataSource({
+      fetcher: async () => new Response("offline", { status: 503 }),
+    });
+
+    const fallbackResult = await fallbackSource.loadJobs?.({ status: "failed" });
+
+    expect(fallbackResult).toMatchObject({
+      source: "mock",
+      value: mockJobs,
+      error: expect.stringContaining("HTTP 503"),
+    });
+  });
+
   it("exposes safe Addon action methods through the data-source seam", async () => {
     const dataSource = createAdminDataSource({
       fetcher: fetcherFor({

@@ -13,9 +13,15 @@
     "verify": "npm run generate:admin-api && npm run check && npm run test && npm run build"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.100.14",
+    "@tanstack/react-router": "^1.170.8",
+    "@tanstack/react-table": "^8.21.3",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "1.16.0",
     "react": "19.2.6",
     "react-dom": "19.2.6",
-    "lucide-react": "1.16.0"
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "6.9.1",

@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "slug": "admin-web-v2-product-architecture",
+  "title": "Admin Web V2 Product Architecture",
+  "status": "active",
+  "updated": "2026-05-25",
+  "scope_kind": "frontend_product_architecture",
+  "problem": "Admin Web V0 proved the app and generated Admin API contract, but V2 needs route-first product architecture, shared UI vocabulary, and stack decisions before deeper workflows are implemented.",
+  "authoritative_docs": [
+    {
+      "role": "product_context",
+      "path": "PRODUCT.md"
+    },
+    {
+      "role": "design_context",
+      "path": "DESIGN.md"
+    },
+    {
+      "role": "overview",
+      "path": "docs/workstreams/admin-web-v2-product-architecture/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/admin-web-v2-product-architecture/DESIGN.md"
+    },
+    {
+      "role": "research",
+      "path": "docs/workstreams/admin-web-v2-product-architecture/V2_RESEARCH.md"
+    },
+    {
+      "role": "route_api_readiness",
+      "path": "docs/workstreams/admin-web-v2-product-architecture/ROUTE_API_READINESS.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/admin-web-v2-product-architecture/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/admin-web-v2-product-architecture/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/admin-web-v2-product-architecture/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "git diff --check",
+    "cd apps/admin-web && npm run generate:admin-api && npm run check && npm run test && npm run build",
+    "Browser/Playwright smoke at http://127.0.0.1:5174/ for visible UI changes",
+    "cargo nextest run -p nako-api admin_contract --no-fail-fast when Admin API contract source changes",
+    "cargo nextest run -p nako-api typescript --no-fail-fast when Admin API contract generation changes"
+  ],
+  "evidence": [
+    "PRODUCT.md",
+    "DESIGN.md",
+    "docs/workstreams/admin-web-v2-product-architecture",
+    "docs/workstreams/admin-web-console",
+    "docs/workstreams/admin-api-typescript-contract",
+    "apps/admin-web"
+  ],
+  "adr_refs": [
+    "docs/adr/0027-admin-api-boundary-for-web-console.md",
+    "docs/adr/0025-openapi-public-client-sdk-contract.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "AWV2-030 is complete. Continue with AWV2-040 component extraction from the proven /jobs route only. Keep early V2 UI as shadcn/ui-style dashboard composition, record provenance if shadcn-admin code is copied directly, and split API gaps or workflow-specific UI implementation lanes when scope grows."
+  }
+}
