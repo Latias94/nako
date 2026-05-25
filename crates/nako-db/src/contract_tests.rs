@@ -2939,6 +2939,226 @@ where
     assert_eq!(addon_attempts, attempts);
 }
 
+async fn addon_event_scheduler_due_work_contract<S>(store: S)
+where
+    S: EventAddonAutomationContractBackend,
+{
+    let library = seed_contract_library(&store).await;
+    let source = seed_contract_media_item_with_source(
+        &store,
+        library.id,
+        "Addon Event Scheduler Movie",
+        "local:///Contract Movies/addon-event-scheduler.mkv",
+    )
+    .await;
+    let event = store
+        .enqueue_outbox_event(NewOutboxEvent {
+            id: nako_core::EventId::new(),
+            kind: DomainEventKind::LibraryScanned,
+            subject: DomainEventSubject::Library(library.id),
+            library_id: Some(library.id),
+            source_id: Some(source.id),
+            idempotency_key: "library-scan:addon-event-scheduler".to_owned(),
+            payload_json: r#"{"secret":"nako_at_should_not_echo","safe":true}"#.to_owned(),
+        })
+        .await
+        .unwrap();
+
+    let addon_id = AddonId::new();
+    let manifest_json = r#"{"id":"dev.nako.contract.event-scheduler"}"#.to_owned();
+    let fingerprint = AddonManifestFingerprint::new(&manifest_json);
+    store
+        .upsert_addon_registration(NewAddonRegistration {
+            id: addon_id,
+            manifest_id: "dev.nako.contract.event-scheduler".to_owned(),
+            name: "Contract Event Scheduler Addon".to_owned(),
+            version: "0.1.0".to_owned(),
+            protocol_version: "0.1.0-alpha.1".to_owned(),
+            base_url: "https://example.test/addon".to_owned(),
+            manifest_json,
+            outbound_task_dispatch_secret_env: None,
+            granted_scopes: vec!["webhook_event_read".to_owned()],
+            status: AddonStatus::Enabled,
+        })
+        .await
+        .unwrap();
+    let disabled_addon_id = AddonId::new();
+    store
+        .upsert_addon_registration(NewAddonRegistration {
+            id: disabled_addon_id,
+            manifest_id: "dev.nako.contract.disabled-event-scheduler".to_owned(),
+            name: "Disabled Event Scheduler Addon".to_owned(),
+            version: "0.1.0".to_owned(),
+            protocol_version: "0.1.0-alpha.1".to_owned(),
+            base_url: "https://example.test/disabled-addon".to_owned(),
+            manifest_json: r#"{"id":"dev.nako.contract.disabled-event-scheduler"}"#.to_owned(),
+            outbound_task_dispatch_secret_env: None,
+            granted_scopes: vec!["webhook_event_read".to_owned()],
+            status: AddonStatus::Disabled,
+        })
+        .await
+        .unwrap();
+    store
+        .replace_addon_routing_plans(
+            addon_id,
+            vec![
+                NewAddonRoutingPlan {
+                    id: AddonRoutingPlanId::new(),
+                    addon_id,
+                    manifest_id: "dev.nako.contract.event-scheduler".to_owned(),
+                    manifest_version: "0.1.0".to_owned(),
+                    manifest_fingerprint: fingerprint.clone(),
+                    declaration_kind: AddonRoutingDeclarationKind::EventSubscription,
+                    declaration_id: "deferred-library-scanned".to_owned(),
+                    status: AddonRoutingPlanStatus::Deferred,
+                    target: AddonRoutingPlanTarget::None,
+                    safe_reason_code: Some("missing_grant".to_owned()),
+                    job_kind: None,
+                    event_kind: Some(DomainEventKind::LibraryScanned.as_str().to_owned()),
+                    plan_json: r#"{"schema":"nako.addon.routing_plan.v1","declaration_id":"deferred-library-scanned"}"#.to_owned(),
+                },
+                NewAddonRoutingPlan {
+                    id: AddonRoutingPlanId::new(),
+                    addon_id,
+                    manifest_id: "dev.nako.contract.event-scheduler".to_owned(),
+                    manifest_version: "0.1.0".to_owned(),
+                    manifest_fingerprint: fingerprint,
+                    declaration_kind: AddonRoutingDeclarationKind::EventSubscription,
+                    declaration_id: "library-scanned".to_owned(),
+                    status: AddonRoutingPlanStatus::Executable,
+                    target: AddonRoutingPlanTarget::EventOutbox,
+                    safe_reason_code: None,
+                    job_kind: None,
+                    event_kind: Some(DomainEventKind::LibraryScanned.as_str().to_owned()),
+                    plan_json: r#"{"schema":"nako.addon.routing_plan.v1","declaration_id":"library-scanned"}"#.to_owned(),
+                },
+            ],
+        )
+        .await
+        .unwrap();
+    store
+        .replace_addon_routing_plans(
+            disabled_addon_id,
+            vec![NewAddonRoutingPlan {
+                id: AddonRoutingPlanId::new(),
+                addon_id: disabled_addon_id,
+                manifest_id: "dev.nako.contract.disabled-event-scheduler".to_owned(),
+                manifest_version: "0.1.0".to_owned(),
+                manifest_fingerprint: AddonManifestFingerprint::new(
+                    r#"{"id":"dev.nako.contract.disabled-event-scheduler"}"#,
+                ),
+                declaration_kind: AddonRoutingDeclarationKind::EventSubscription,
+                declaration_id: "library-scanned".to_owned(),
+                status: AddonRoutingPlanStatus::Executable,
+                target: AddonRoutingPlanTarget::EventOutbox,
+                safe_reason_code: None,
+                job_kind: None,
+                event_kind: Some(DomainEventKind::LibraryScanned.as_str().to_owned()),
+                plan_json:
+                    r#"{"schema":"nako.addon.routing_plan.v1","declaration_id":"library-scanned"}"#
+                        .to_owned(),
+            }],
+        )
+        .await
+        .unwrap();
+
+    let initial_work = store
+        .list_addon_event_scheduler_work(event.id)
+        .await
+        .unwrap();
+    assert_eq!(
+        initial_work
+            .iter()
+            .map(|work| work.declaration_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["deferred-library-scanned", "library-scanned"]
+    );
+    assert!(
+        !initial_work
+            .iter()
+            .any(|work| work.addon_id == disabled_addon_id)
+    );
+    let executable = initial_work
+        .iter()
+        .find(|work| work.declaration_id == "library-scanned")
+        .unwrap();
+    assert_eq!(executable.addon_id, addon_id);
+    assert_eq!(executable.event_id, event.id);
+    assert_eq!(
+        executable.event_kind,
+        DomainEventKind::LibraryScanned.as_str()
+    );
+    assert_eq!(
+        executable.routing_plan_status,
+        AddonRoutingPlanStatus::Executable
+    );
+    assert_eq!(
+        executable.routing_plan_target,
+        AddonRoutingPlanTarget::EventOutbox
+    );
+    assert_eq!(executable.attempt_count, 0);
+    assert_eq!(executable.next_attempt_number, 1);
+    assert_eq!(executable.latest_attempt_status, None);
+    assert!(!executable.has_succeeded);
+    assert!(!executable.has_in_flight);
+    let deferred = initial_work
+        .iter()
+        .find(|work| work.declaration_id == "deferred-library-scanned")
+        .unwrap();
+    assert_eq!(
+        deferred.routing_plan_status,
+        AddonRoutingPlanStatus::Deferred
+    );
+    assert_eq!(deferred.routing_plan_target, AddonRoutingPlanTarget::None);
+    assert_eq!(
+        deferred.routing_plan_safe_reason_code.as_deref(),
+        Some("missing_grant")
+    );
+
+    let attempt = store
+        .create_addon_event_delivery_attempt(NewAddonEventDeliveryAttempt {
+            id: AddonEventDeliveryAttemptId::new(),
+            addon_id,
+            event_id: event.id,
+            declaration_id: "library-scanned".to_owned(),
+            attempt_number: 1,
+        })
+        .await
+        .unwrap();
+    store
+        .set_addon_event_delivery_attempt_result(
+            attempt.id,
+            AddonEventDeliveryStatus::Failed,
+            Some(503),
+            Some(r#"{"safe_error_code":"retryable_http_failure"}"#.to_owned()),
+            Some("2026-05-25T00:01:00.000Z".to_owned()),
+        )
+        .await
+        .unwrap();
+
+    let retry_work = store
+        .list_addon_event_scheduler_work(event.id)
+        .await
+        .unwrap();
+    let executable = retry_work
+        .iter()
+        .find(|work| work.declaration_id == "library-scanned")
+        .unwrap();
+    assert_eq!(executable.attempt_count, 1);
+    assert_eq!(executable.next_attempt_number, 2);
+    assert_eq!(
+        executable.latest_attempt_status,
+        Some(AddonEventDeliveryStatus::Failed)
+    );
+    assert_eq!(executable.latest_http_status, Some(503));
+    assert_eq!(
+        executable.latest_next_retry_at.as_deref(),
+        Some("2026-05-25T00:01:00.000Z")
+    );
+    assert!(!executable.has_succeeded);
+    assert!(!executable.has_in_flight);
+}
+
 async fn addon_registration_token_grant_and_side_effect_contract<S>(store: S)
 where
     S: EventAddonAutomationContractBackend,
@@ -5644,6 +5864,16 @@ database_contract_pair!(
         "addon_event_delivery_attempt"
     ),
     contract = addon_event_delivery_attempt_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_event_addon_automation_contract_addon_event_scheduler_due_work,
+    postgres = postgres_event_addon_automation_contract_addon_event_scheduler_due_work,
+    case = ContractCase::migrated(
+        ContractFamily::EventAddonAutomation,
+        "addon_event_scheduler_due_work"
+    ),
+    contract = addon_event_scheduler_due_work_contract,
 );
 
 database_contract_pair!(

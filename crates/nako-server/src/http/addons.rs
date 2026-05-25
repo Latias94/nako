@@ -81,6 +81,10 @@ pub(super) fn routes() -> Router<NakoApp> {
             get(list_addon_event_delivery_attempts),
         )
         .route(
+            "/admin/v1/events/{event_id}/addon-event-scheduler/work",
+            get(list_addon_event_scheduler_work),
+        )
+        .route(
             "/admin/v1/events/{event_id}/addon-events/deliver",
             post(deliver_addon_events_for_event),
         )
@@ -279,6 +283,18 @@ pub(super) async fn list_addon_event_delivery_attempts(
     Ok(Json(
         app.addons()
             .list_addon_event_delivery_attempts(event_id)
+            .await?,
+    ))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn list_addon_event_scheduler_work(
+    State(app): State<NakoApp>,
+    Path(event_id): Path<EventId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.addons()
+            .list_addon_event_scheduler_work(event_id)
             .await?,
     ))
 }

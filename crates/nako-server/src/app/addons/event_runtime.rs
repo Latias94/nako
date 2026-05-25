@@ -7,12 +7,14 @@ use nako_addon_protocol::{
 };
 use nako_api::extension::{
     AddonEventDeliveryAttemptsResponse, AddonEventDispatchEventSummary, AddonEventDispatchResponse,
+    AddonEventSchedulerWorkItem, AddonEventSchedulerWorkResponse, AddonEventSchedulerWorkStatus,
 };
 use nako_core::{
     AddonEventDeliveryAttemptId, AddonEventDeliveryRepository, AddonEventDeliveryStatus,
-    AddonRegistrationRecord, AddonRepository, AddonRoutingDeclarationKind, AddonRoutingPlanStatus,
-    AddonRoutingPlanTarget, AddonStatus, EventId, EventOutboxRepository, NakoError,
-    NewAddonEventDeliveryAttempt, OutboxEventRecord, Result, SecretString,
+    AddonEventSchedulerWorkRecord, AddonRegistrationRecord, AddonRepository,
+    AddonRoutingDeclarationKind, AddonRoutingPlanStatus, AddonRoutingPlanTarget, AddonStatus,
+    EventId, EventOutboxRepository, NakoError, NewAddonEventDeliveryAttempt, OutboxEventRecord,
+    OutboxEventStatus, Result, SecretString,
 };
 use time::{Duration as TimeDuration, OffsetDateTime, format_description::well_known::Rfc3339};
 use tokio::task::JoinSet;
@@ -173,6 +175,107 @@ impl AddonAppService {
         })
     }
 
+    pub async fn list_addon_event_scheduler_work(
+        &self,
+        event_id: EventId,
+    ) -> Result<AddonEventSchedulerWorkResponse> {
+        let event = self.get_outbox_event_or_not_found(event_id).await?;
+        let work_records = self.store.list_addon_event_scheduler_work(event_id).await?;
+        let now =
+            OffsetDateTime::now_utc()
+                .format(&Rfc3339)
+                .map_err(|err| NakoError::InvalidInput {
+                    message: format!("failed to format addon event scheduler timestamp: {err}"),
+                })?;
+        let mut work = Vec::with_capacity(work_records.len());
+        for record in work_records {
+            work.push(
+                self.addon_event_scheduler_work_item(&event, record, now.as_str())
+                    .await?,
+            );
+        }
+        let due_work_count = work
+            .iter()
+            .filter(|item| {
+                matches!(
+                    item.status,
+                    AddonEventSchedulerWorkStatus::Due | AddonEventSchedulerWorkStatus::RetryDue
+                )
+            })
+            .count();
+        let blocked_work_count = work
+            .iter()
+            .filter(|item| {
+                matches!(
+                    item.status,
+                    AddonEventSchedulerWorkStatus::Deferred
+                        | AddonEventSchedulerWorkStatus::Exhausted
+                        | AddonEventSchedulerWorkStatus::InFlight
+                )
+            })
+            .count();
+
+        Ok(AddonEventSchedulerWorkResponse {
+            event: AddonEventDispatchEventSummary::from_record(&event),
+            due_work_count,
+            blocked_work_count,
+            work,
+        })
+    }
+
+    async fn addon_event_scheduler_work_item(
+        &self,
+        event: &OutboxEventRecord,
+        record: AddonEventSchedulerWorkRecord,
+        now: &str,
+    ) -> Result<AddonEventSchedulerWorkItem> {
+        let addon = self
+            .store
+            .get_addon_registration(record.addon_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "addon_registration",
+                id: record.addon_id.to_string(),
+            })?;
+        let manifest = self.stored_manifest(&addon)?;
+        validate_manifest(&manifest).map_err(|err| NakoError::InvalidInput {
+            message: err.to_string(),
+        })?;
+        let max_attempts = manifest.default_max_attempts.unwrap_or(3);
+        let granted_scopes = stored_granted_scopes(&addon)?;
+        let subscription = manifest
+            .event_subscriptions
+            .iter()
+            .find(|subscription| subscription.id == record.declaration_id);
+
+        let (status, safe_reason_code) = addon_event_scheduler_work_status(
+            event,
+            &record,
+            max_attempts,
+            subscription,
+            &granted_scopes,
+            now,
+        );
+
+        Ok(AddonEventSchedulerWorkItem {
+            addon_id: record.addon_id,
+            manifest_id: addon.manifest_id,
+            manifest_version: addon.version,
+            declaration_id: record.declaration_id,
+            event_kind: record.event_kind,
+            status,
+            safe_reason_code,
+            routing_plan_status: record.routing_plan_status,
+            routing_plan_target: record.routing_plan_target,
+            attempt_count: record.attempt_count,
+            next_attempt_number: record.next_attempt_number,
+            max_attempts,
+            latest_attempt_status: record.latest_attempt_status,
+            latest_http_status: record.latest_http_status,
+            next_retry_at: record.latest_next_retry_at,
+        })
+    }
+
     async fn deliver_addon_event_subscription(
         &self,
         event: OutboxEventRecord,
@@ -313,6 +416,84 @@ impl AddonAppService {
                 entity: "outbox_event",
                 id: event_id.to_string(),
             })
+    }
+}
+
+fn addon_event_scheduler_work_status(
+    event: &OutboxEventRecord,
+    record: &AddonEventSchedulerWorkRecord,
+    max_attempts: u32,
+    subscription: Option<&AddonEventSubscriptionDeclaration>,
+    granted_scopes: &[AddonScope],
+    now: &str,
+) -> (AddonEventSchedulerWorkStatus, Option<String>) {
+    if event.status != OutboxEventStatus::Pending {
+        return (
+            AddonEventSchedulerWorkStatus::Deferred,
+            Some("event_not_pending".to_owned()),
+        );
+    }
+    if record.routing_plan_status != AddonRoutingPlanStatus::Executable
+        || record.routing_plan_target != AddonRoutingPlanTarget::EventOutbox
+    {
+        return (
+            AddonEventSchedulerWorkStatus::Deferred,
+            record
+                .routing_plan_safe_reason_code
+                .clone()
+                .or_else(|| Some("routing_plan_deferred".to_owned())),
+        );
+    }
+    let Some(subscription) = subscription else {
+        return (
+            AddonEventSchedulerWorkStatus::Deferred,
+            Some("event_subscription_not_declared".to_owned()),
+        );
+    };
+    if subscription.event_kind != event.kind.as_str() {
+        return (
+            AddonEventSchedulerWorkStatus::Deferred,
+            Some("event_kind_mismatch".to_owned()),
+        );
+    }
+    if !declaration_scopes_granted(&subscription.required_scopes, granted_scopes) {
+        return (
+            AddonEventSchedulerWorkStatus::Deferred,
+            Some("missing_grant".to_owned()),
+        );
+    }
+    if record.has_succeeded {
+        return (AddonEventSchedulerWorkStatus::AlreadySucceeded, None);
+    }
+    if record.has_in_flight {
+        return (
+            AddonEventSchedulerWorkStatus::InFlight,
+            Some("delivery_in_flight".to_owned()),
+        );
+    }
+    if record.attempt_count >= max_attempts {
+        return (
+            AddonEventSchedulerWorkStatus::Exhausted,
+            Some("attempts_exhausted".to_owned()),
+        );
+    }
+    if record.attempt_count == 0 {
+        return (AddonEventSchedulerWorkStatus::Due, None);
+    }
+    match record.latest_next_retry_at.as_deref() {
+        Some(next_retry_at) if next_retry_at > now => {
+            return (
+                AddonEventSchedulerWorkStatus::WaitingRetry,
+                Some("retry_not_due".to_owned()),
+            );
+        }
+        Some(_) => return (AddonEventSchedulerWorkStatus::RetryDue, None),
+        None => {
+            return (
+                AddonEventSchedulerWorkStatus::Deferred,
+                Some("retry_not_scheduled".to_owned()),
+            );
+        }
     }
 }
 

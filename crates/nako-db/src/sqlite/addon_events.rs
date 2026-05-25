@@ -127,6 +127,67 @@ impl AddonEventDeliveryRepository for SqliteStore {
             .map(row_to_addon_event_delivery_attempt)
             .collect()
     }
+
+    async fn list_addon_event_scheduler_work(
+        &self,
+        event_id: EventId,
+    ) -> Result<Vec<AddonEventSchedulerWorkRecord>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                p.addon_id,
+                p.declaration_id,
+                p.event_kind,
+                p.status AS routing_plan_status,
+                p.target AS routing_plan_target,
+                p.safe_reason_code AS routing_plan_safe_reason_code
+            FROM event_outbox e
+            INNER JOIN addon_routing_plans p
+                ON p.event_kind = e.kind
+                AND p.declaration_kind = ?2
+            INNER JOIN addon_registrations a
+                ON a.id = p.addon_id
+                AND a.status = ?3
+            WHERE e.id = ?1
+            ORDER BY p.addon_id ASC, p.declaration_id ASC
+            "#,
+        )
+        .bind(event_id.to_string())
+        .bind(AddonRoutingDeclarationKind::EventSubscription.as_str())
+        .bind(AddonStatus::Enabled.as_str())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        let mut work = Vec::with_capacity(rows.len());
+        for row in rows {
+            let addon_id = parse_id(row_get::<String>(&row, "addon_id")?)?;
+            let declaration_id = row_get::<String>(&row, "declaration_id")?;
+            let event_kind = row_get::<String>(&row, "event_kind")?;
+            let routing_plan_status =
+                AddonRoutingPlanStatus::parse(&row_get::<String>(&row, "routing_plan_status")?)?;
+            let routing_plan_target =
+                AddonRoutingPlanTarget::parse(&row_get::<String>(&row, "routing_plan_target")?)?;
+            let routing_plan_safe_reason_code =
+                row_get::<Option<String>>(&row, "routing_plan_safe_reason_code")?;
+            let attempts = self
+                .list_addon_event_delivery_attempts_for_addon(addon_id, event_id, &declaration_id)
+                .await?;
+
+            work.push(addon_event_scheduler_work_record(
+                addon_id,
+                event_id,
+                declaration_id,
+                event_kind,
+                routing_plan_status,
+                routing_plan_target,
+                routing_plan_safe_reason_code,
+                attempts,
+            )?);
+        }
+
+        Ok(work)
+    }
 }
 
 impl SqliteStore {
@@ -149,4 +210,58 @@ impl SqliteStore {
                 id: id.to_string(),
             })
     }
+}
+
+fn addon_event_scheduler_work_record(
+    addon_id: AddonId,
+    event_id: EventId,
+    declaration_id: String,
+    event_kind: String,
+    routing_plan_status: AddonRoutingPlanStatus,
+    routing_plan_target: AddonRoutingPlanTarget,
+    routing_plan_safe_reason_code: Option<String>,
+    attempts: Vec<AddonEventDeliveryAttemptRecord>,
+) -> Result<AddonEventSchedulerWorkRecord> {
+    let attempt_count = u32::try_from(attempts.len()).map_err(|_| NakoError::Database {
+        message: "addon event scheduler attempt count overflowed u32".to_owned(),
+    })?;
+    let next_attempt_number = attempts
+        .iter()
+        .map(|attempt| attempt.attempt_number)
+        .max()
+        .unwrap_or(0)
+        .saturating_add(1);
+    let latest = attempts.iter().max_by_key(|attempt| {
+        (
+            attempt.attempt_number,
+            attempt.requested_at.as_str(),
+            attempt.id,
+        )
+    });
+    let has_succeeded = attempts
+        .iter()
+        .any(|attempt| attempt.status == AddonEventDeliveryStatus::Succeeded);
+    let has_in_flight = attempts.iter().any(|attempt| {
+        matches!(
+            attempt.status,
+            AddonEventDeliveryStatus::Pending | AddonEventDeliveryStatus::Running
+        )
+    });
+
+    Ok(AddonEventSchedulerWorkRecord {
+        addon_id,
+        event_id,
+        declaration_id,
+        event_kind,
+        routing_plan_status,
+        routing_plan_target,
+        routing_plan_safe_reason_code,
+        attempt_count,
+        next_attempt_number,
+        latest_attempt_status: latest.map(|attempt| attempt.status),
+        latest_http_status: latest.and_then(|attempt| attempt.http_status),
+        latest_next_retry_at: latest.and_then(|attempt| attempt.next_retry_at.clone()),
+        has_succeeded,
+        has_in_flight,
+    })
 }

@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 
 use crate::{
-    AddonEventDeliveryAttemptId, AddonEventDeliveryAttemptRecord, AddonId, EventId,
-    NewAddonEventDeliveryAttempt, Result,
+    AddonEventDeliveryAttemptId, AddonEventDeliveryAttemptRecord, AddonEventSchedulerWorkRecord,
+    AddonId, EventId, NewAddonEventDeliveryAttempt, Result,
 };
 
 #[async_trait]
@@ -32,4 +32,9 @@ pub trait AddonEventDeliveryRepository: Send + Sync {
         event_id: EventId,
         declaration_id: &str,
     ) -> Result<Vec<AddonEventDeliveryAttemptRecord>>;
+
+    async fn list_addon_event_scheduler_work(
+        &self,
+        event_id: EventId,
+    ) -> Result<Vec<AddonEventSchedulerWorkRecord>>;
 }

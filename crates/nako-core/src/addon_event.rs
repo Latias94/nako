@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{AddonEventDeliveryAttemptId, AddonId, EventId, NakoError, Result};
+use crate::{
+    AddonEventDeliveryAttemptId, AddonId, AddonRoutingPlanStatus, AddonRoutingPlanTarget, EventId,
+    NakoError, Result,
+};
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -57,4 +60,22 @@ pub struct AddonEventDeliveryAttemptRecord {
     pub requested_at: String,
     pub completed_at: Option<String>,
     pub next_retry_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonEventSchedulerWorkRecord {
+    pub addon_id: AddonId,
+    pub event_id: EventId,
+    pub declaration_id: String,
+    pub event_kind: String,
+    pub routing_plan_status: AddonRoutingPlanStatus,
+    pub routing_plan_target: AddonRoutingPlanTarget,
+    pub routing_plan_safe_reason_code: Option<String>,
+    pub attempt_count: u32,
+    pub next_attempt_number: u32,
+    pub latest_attempt_status: Option<AddonEventDeliveryStatus>,
+    pub latest_http_status: Option<u16>,
+    pub latest_next_retry_at: Option<String>,
+    pub has_succeeded: bool,
+    pub has_in_flight: bool,
 }

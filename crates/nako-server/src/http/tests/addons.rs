@@ -3010,6 +3010,62 @@ async fn addon_event_delivery_dispatches_outbox_event_to_executable_subscription
 }
 
 #[tokio::test]
+async fn addon_event_scheduler_due_work_reports_redaction_safe_diagnostics() {
+    let (_temp, router, source, store) =
+        router_with_media_source_config("addon-event-scheduler.mkv", b"media", |_| {}).await;
+    let (base_url, requests) = event_path_addon_server(StatusCode::ACCEPTED).await;
+    let addon_id = register_event_path_addon(&router, base_url).await;
+    let event = store
+        .enqueue_outbox_event(NewOutboxEvent {
+            id: EventId::new(),
+            kind: DomainEventKind::LibraryScanned,
+            subject: DomainEventSubject::Library(source.library_id),
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            idempotency_key: format!("addon-event-scheduler:{}", source.id),
+            payload_json: serde_json::json!({
+                "library_id": source.library_id,
+                "source_id": source.id,
+                "secret": "nako_at_should_not_echo"
+            })
+            .to_string(),
+        })
+        .await
+        .unwrap();
+
+    let raw = response_for(
+        &router,
+        Method::GET,
+        &format!("/admin/v1/events/{}/addon-event-scheduler/work", event.id),
+    )
+    .await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let bytes = to_bytes(raw.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let response = serde_json::from_str::<AddonEventSchedulerWorkResponse>(&text).unwrap();
+
+    assert_eq!(response.event.id, event.id);
+    assert_eq!(response.due_work_count, 1);
+    assert_eq!(response.blocked_work_count, 0);
+    assert_eq!(response.work.len(), 1);
+    let work = &response.work[0];
+    assert_eq!(work.addon_id, addon_id);
+    assert_eq!(work.declaration_id, "library-scanned");
+    assert_eq!(work.event_kind, DomainEventKind::LibraryScanned.as_str());
+    assert_eq!(work.status, AddonEventSchedulerWorkStatus::Due);
+    assert_eq!(work.safe_reason_code, None);
+    assert_eq!(work.attempt_count, 0);
+    assert_eq!(work.next_attempt_number, 1);
+    assert_eq!(work.max_attempts, 2);
+    assert_eq!(work.latest_attempt_status, None);
+    assert!(!text.contains("nako_at_should_not_echo"));
+    assert!(!text.contains("payload"));
+
+    let captured = requests.lock().await;
+    assert!(captured.is_empty());
+}
+
+#[tokio::test]
 async fn addon_event_delivery_skips_already_succeeded_subscription() {
     let (_temp, router, source, store) =
         router_with_media_source_config("addon-event-replay.mkv", b"media", |_| {}).await;
@@ -3060,6 +3116,20 @@ async fn addon_event_delivery_skips_already_succeeded_subscription() {
     assert_eq!(
         listed.attempts[0].status,
         nako_core::AddonEventDeliveryStatus::Succeeded
+    );
+
+    let scheduler = request_json::<AddonEventSchedulerWorkResponse>(
+        &router,
+        Method::GET,
+        &format!("/admin/v1/events/{}/addon-event-scheduler/work", event.id),
+    )
+    .await;
+    assert_eq!(scheduler.due_work_count, 0);
+    assert_eq!(scheduler.blocked_work_count, 0);
+    assert_eq!(scheduler.work.len(), 1);
+    assert_eq!(
+        scheduler.work[0].status,
+        AddonEventSchedulerWorkStatus::AlreadySucceeded
     );
 }
 
@@ -3126,6 +3196,47 @@ async fn addon_event_delivery_records_retryable_failure_without_echoing_payload(
         captured[0].request.payload["secret"],
         "nako_at_should_not_echo"
     );
+
+    let waiting = request_json::<AddonEventSchedulerWorkResponse>(
+        &router,
+        Method::GET,
+        &format!("/admin/v1/events/{}/addon-event-scheduler/work", event.id),
+    )
+    .await;
+    assert_eq!(waiting.due_work_count, 0);
+    assert_eq!(waiting.work.len(), 1);
+    assert_eq!(
+        waiting.work[0].status,
+        AddonEventSchedulerWorkStatus::WaitingRetry
+    );
+    assert_eq!(
+        waiting.work[0].safe_reason_code.as_deref(),
+        Some("retry_not_due")
+    );
+
+    store
+        .set_addon_event_delivery_attempt_result(
+            response.attempts[0].id,
+            nako_core::AddonEventDeliveryStatus::Failed,
+            Some(503),
+            Some(r#"{"safe_error_code":"retryable_http_failure"}"#.to_owned()),
+            Some("2026-05-25T00:01:00.000Z".to_owned()),
+        )
+        .await
+        .unwrap();
+    let retry_due = request_json::<AddonEventSchedulerWorkResponse>(
+        &router,
+        Method::GET,
+        &format!("/admin/v1/events/{}/addon-event-scheduler/work", event.id),
+    )
+    .await;
+    assert_eq!(retry_due.due_work_count, 1);
+    assert_eq!(
+        retry_due.work[0].status,
+        AddonEventSchedulerWorkStatus::RetryDue
+    );
+    let retry_text = serde_json::to_string(&retry_due).unwrap();
+    assert!(!retry_text.contains("nako_at_should_not_echo"));
 }
 
 #[tokio::test]

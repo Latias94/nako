@@ -15,7 +15,7 @@ Last updated: 2026-05-25
 
 ## M1 — Due Work Selection
 
-- [ ] AESR-020 [owner=codex] [deps=AESR-010] [scope=crates/nako-core,crates/nako-db,crates/nako-server]
+- [x] AESR-020 [owner=codex] [deps=AESR-010] [scope=crates/nako-core,crates/nako-db,crates/nako-server]
   Goal: Add a redaction-safe scheduler query that lists due addon event
   delivery work without loading or returning event payload values to admin
   diagnostics.
@@ -24,7 +24,8 @@ Last updated: 2026-05-25
   Review: Check event status filtering, subscription matching, grant checks,
   and SQLite/PostgreSQL parity.
   Evidence: repository contract tests and scheduler candidate tests.
-  Handoff: Do not start background looping until due work selection is proven.
+  Handoff: Due work selection is proven. AESR-030 can add durable in-flight
+  guards and automatic retry without starting a background loop first.
 
 ## M2 — In-Flight Guard And Automatic Retry
 

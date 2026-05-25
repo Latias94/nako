@@ -18,6 +18,8 @@ Primary evidence:
 
 ## M1 — Due Work Selection
 
+Status: Complete.
+
 Exit criteria:
 
 - Scheduler candidates can be listed from durable state.

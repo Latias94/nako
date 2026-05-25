@@ -90,6 +90,38 @@ cargo fmt --all -- --check
 
 Result: passed.
 
+### 2026-05-25 — AESR-020 Due Work Selection
+
+Claim: Addon Event scheduler due work can be listed from durable state without
+loading or returning raw outbox payload values to admin diagnostics. The query
+covers enabled addons, matching event subscription routing plans, SQLite and
+PostgreSQL repository parity, attempt summaries, retry timestamps, succeeded
+attempt suppression, and manifest/grant checks in the server diagnostic layer.
+
+Commands:
+
+```powershell
+cargo nextest run -p nako-db addon_event_scheduler --no-fail-fast
+cargo nextest run -p nako-server addon_event_scheduler --no-fail-fast
+cargo nextest run -p nako-server addon_event_delivery --no-fail-fast
+cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests
+git diff --check
+```
+
+Result: passed.
+
+Additional check:
+
+```powershell
+cargo fmt --all -- --check
+```
+
+Result: blocked by pre-existing parallel scan-addon worktree changes in
+`crates/nako-server/src/app/addons.rs`,
+`crates/nako-server/src/app/jobs.rs`, and
+`crates/nako-server/src/app/tests/startup.rs`. AESR-020 touched files were
+formatted with targeted `rustfmt --edition 2024`.
+
 ## Notes
 
 - Do not start notification bridge until this lane either ships or explicitly

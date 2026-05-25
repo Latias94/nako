@@ -1039,6 +1039,15 @@ impl AddonEventDeliveryRepository for NakoDatabase {
             .list_addon_event_delivery_attempts_for_addon(addon_id, event_id, declaration_id)
             .await
     }
+
+    async fn list_addon_event_scheduler_work(
+        &self,
+        event_id: EventId,
+    ) -> Result<Vec<AddonEventSchedulerWorkRecord>> {
+        self.backend()
+            .list_addon_event_scheduler_work(event_id)
+            .await
+    }
 }
 
 #[async_trait::async_trait]

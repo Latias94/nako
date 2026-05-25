@@ -13,18 +13,18 @@ deduplication, explicit forced replay, and redaction-safe diagnostics.
 
 ## Active Task
 
-- Task ID: AESR-020
-- Owner: unassigned
+- Task ID: AESR-030
+- Owner: codex
 - Files:
   - `crates/nako-core`
   - `crates/nako-db`
   - `crates/nako-server`
 - Validation:
-  - `cargo nextest run -p nako-db addon_event_scheduler --no-fail-fast`
-  - focused server scheduler diagnostics tests
+  - `cargo nextest run -p nako-server addon_event_scheduler --no-fail-fast`
 - Status: READY
-- Review: pending
-- Evidence: AESR-010 scope is recorded in this workstream.
+- Review: AESR-020 due work selection passed focused gates; AESR-030 still
+  needs durable in-flight guards and automatic retry.
+- Evidence: AESR-020 evidence is recorded in `EVIDENCE_AND_GATES.md`.
 
 ## Decisions Since Last Update
 
@@ -32,13 +32,21 @@ deduplication, explicit forced replay, and redaction-safe diagnostics.
   tuples.
 - Forced replay must be explicit and separate from normal delivery.
 - Scheduler diagnostics must not expose outbox payload values.
+- AESR-020 stores scheduler work as redaction-safe routing/attempt facts in the
+  repository and computes due/deferred/retry state in the server layer, where
+  manifest max attempts and current grants are available.
 - Event subscription filters should execute before sidecar calls, unless filter
   language complexity forces an ADR split.
 
 ## Blockers
 
-- None currently.
+- `cargo fmt --all -- --check` is currently blocked by unrelated parallel
+  scan-addon workstream edits in server files. Do not format or revert those
+  files from this lane unless that workstream owner agrees.
 
 ## Next Recommended Action
 
-Implement AESR-020 due work selection before adding a background scheduler loop.
+Implement AESR-030 by adding a durable in-flight guard/lease for the
+addon/event/subscription tuple and consuming `next_retry_at` for automatic
+retry selection. Do not start the background scheduler loop until duplicate
+delivery behavior is proven.

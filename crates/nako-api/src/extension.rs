@@ -5,7 +5,7 @@ use nako_addon_protocol::{
 };
 use nako_core::{
     ADDON_TASK_RUN_PROGRESS_SCHEMA, ADDON_TASK_RUN_RESULT_SCHEMA, AddonEventDeliveryAttemptRecord,
-    AddonGrantRecord, AddonId, AddonPermission, AddonRegistrationRecord,
+    AddonEventDeliveryStatus, AddonGrantRecord, AddonId, AddonPermission, AddonRegistrationRecord,
     AddonRoutingDeclarationKind, AddonRoutingPlanRecord, AddonRoutingPlanStatus,
     AddonRoutingPlanTarget, AddonSideEffectApplyStatus, AddonSideEffectId, AddonSideEffectRecord,
     AddonSideEffectTarget, AddonSideEffectTargetKind, AddonSideEffectValidationStatus, AddonStatus,
@@ -64,6 +64,18 @@ pub struct AddonEventDeliveryAttemptsResponse {
     pub attempts: Vec<AddonEventDeliveryAttemptRecord>,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonEventSchedulerWorkStatus {
+    Due,
+    RetryDue,
+    WaitingRetry,
+    AlreadySucceeded,
+    Exhausted,
+    InFlight,
+    Deferred,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AddonEventDispatchEventSummary {
     pub id: EventId,
@@ -108,6 +120,37 @@ pub struct AddonEventDispatchResponse {
     pub skipped_subscriptions: u32,
     pub attempts: Vec<AddonEventDeliveryAttemptRecord>,
     pub errors: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonEventSchedulerWorkItem {
+    pub addon_id: AddonId,
+    pub manifest_id: String,
+    pub manifest_version: String,
+    pub declaration_id: String,
+    pub event_kind: String,
+    pub status: AddonEventSchedulerWorkStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub safe_reason_code: Option<String>,
+    pub routing_plan_status: AddonRoutingPlanStatus,
+    pub routing_plan_target: AddonRoutingPlanTarget,
+    pub attempt_count: u32,
+    pub next_attempt_number: u32,
+    pub max_attempts: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub latest_attempt_status: Option<AddonEventDeliveryStatus>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub latest_http_status: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub next_retry_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonEventSchedulerWorkResponse {
+    pub event: AddonEventDispatchEventSummary,
+    pub due_work_count: usize,
+    pub blocked_work_count: usize,
+    pub work: Vec<AddonEventSchedulerWorkItem>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

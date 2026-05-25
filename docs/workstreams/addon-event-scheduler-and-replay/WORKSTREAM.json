@@ -7,9 +7,10 @@
   "scope_kind": "execution",
   "problem": "Addon Event Delivery works manually, but event-driven addons need automatic scheduling, retry, in-flight deduplication, explicit forced replay, and redaction-safe diagnostics before broad notification or sync features land.",
   "task_prefix": "AESR",
-  "current_task": "AESR-020",
+  "current_task": "AESR-030",
   "completed_tasks": [
-    "AESR-010"
+    "AESR-010",
+    "AESR-020"
   ],
   "authoritative_docs": [
     {
@@ -50,9 +51,13 @@
     "docs/workstreams/addon-event-scheduler-and-replay/TODO.md",
     "docs/workstreams/addon-ecosystem-foundation/EVIDENCE_AND_GATES.md",
     "crates/nako-core/src/addon_event.rs",
+    "crates/nako-core/src/repository/addon_event.rs",
     "crates/nako-db/src/sqlite/addon_events.rs",
     "crates/nako-db/src/postgres/events.rs",
-    "crates/nako-server/src/app/addons/event_runtime.rs"
+    "crates/nako-db/src/contract_tests.rs",
+    "crates/nako-server/src/app/addons/event_runtime.rs",
+    "crates/nako-server/src/http/addons.rs",
+    "crates/nako-server/src/http/tests/addons.rs"
   ],
   "adr_refs": [
     "docs/adr/0014-durable-event-outbox-for-webhooks-and-automation.md",
@@ -62,7 +67,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "AESR-020",
-    "notes": "Start with due work selection and redaction-safe scheduler diagnostics. Do not start notification bridge, watch-state sync, MCP, Arr-stack, compatibility protocols, or tunnel work inside this lane."
+    "next_task": "AESR-030",
+    "notes": "Due work selection and redaction-safe scheduler diagnostics are in place. Next add durable in-flight guards and automatic retry. Do not start notification bridge, watch-state sync, MCP, Arr-stack, compatibility protocols, or tunnel work inside this lane."
   }
 }
