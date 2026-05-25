@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "slug": "addon-notification-provider-attempt-history",
+  "title": "Addon Notification Provider Attempt History",
+  "status": "complete",
+  "updated": "2026-05-25",
+  "scope_kind": "execution",
+  "problem": "The notification sidecar has no redaction-safe recent provider attempt history, leaving operators with only immediate ACK/error output for provider troubleshooting.",
+  "task_prefix": "NAH",
+  "current_task": null,
+  "completed_tasks": [
+    "NAH-010",
+    "NAH-020",
+    "NAH-030",
+    "NAH-040",
+    "NAH-050"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "readme",
+      "path": "docs/workstreams/addon-notification-provider-attempt-history/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/addon-notification-provider-attempt-history/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/addon-notification-provider-attempt-history/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/addon-notification-provider-attempt-history/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/addon-notification-provider-attempt-history/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/addon-notification-provider-attempt-history/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python -m json.tool docs/workstreams/addon-notification-provider-attempt-history/WORKSTREAM.json > $null",
+    "git diff --check",
+    "cargo nextest run -p nako-notification-bridge --no-fail-fast",
+    "cargo check -p nako-notification-bridge --tests"
+  ],
+  "evidence": [
+    "docs/workstreams/addon-notification-provider-adapters/EVIDENCE_AND_GATES.md",
+    "F:\\SourceCodes\\Rust\\nako-official-addons\\crates\\nako-notification-bridge"
+  ],
+  "adr_refs": [
+    "docs/adr/0014-durable-event-outbox-for-webhooks-and-automation.md",
+    "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
+  ],
+  "continue_policy": {
+    "default_action": "closed",
+    "next_task": null,
+    "notes": "Addon Notification Provider Attempt History is complete for the bounded in-memory diagnostics slice. Split persistent storage, Admin UI display, or provider retry queues into later work."
+  }
+}

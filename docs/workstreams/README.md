@@ -21,6 +21,23 @@ attention.
   the first sidecar-owned notification provider adapter after the ACK-only
   notification bridge proof, without adding provider credentials, templates, or
   provider-specific retry to Nako core.
+- [addon-notification-platform-adapters](addon-notification-platform-adapters/README.md):
+  completed execution lane for adding the first named notification platform
+  adapter, `discord_webhook`, after the generic `http_webhook` proof while
+  keeping platform credentials, payload shape, diagnostics, and retry behavior
+  inside the sidecar boundary.
+- [addon-notification-template-controls](addon-notification-template-controls/README.md):
+  completed execution lane for adding safe notification template controls that
+  use whitelisted event facts and payload keys without exposing raw event
+  payload values, provider secrets, or Nako-managed provider concepts.
+- [addon-notification-provider-attempt-history](addon-notification-provider-attempt-history/README.md):
+  completed execution lane for adding redaction-safe sidecar-owned provider
+  attempt history so operators can inspect notification provider outcomes
+  without moving provider retry state into Nako core.
+- [addon-notification-provider-live-smoke](addon-notification-provider-live-smoke/README.md):
+  completed execution lane for opt-in live smoke coverage of notification
+  provider delivery using explicit local secrets, skipped by default and never
+  required by CI.
 - [addon-event-scheduler-and-replay](addon-event-scheduler-and-replay/README.md):
   completed execution lane for due Addon Event work discovery, durable
   in-flight delivery claims, automatic retry, supervised disabled-by-default

@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "slug": "addon-notification-provider-live-smoke",
+  "title": "Addon Notification Provider Live Smoke",
+  "status": "complete",
+  "updated": "2026-05-25",
+  "scope_kind": "execution",
+  "problem": "Notification provider delivery has fixture coverage, but no opt-in live smoke workflow that operators can run without leaking provider secrets or requiring CI credentials.",
+  "task_prefix": "NLS",
+  "current_task": null,
+  "completed_tasks": [
+    "NLS-010",
+    "NLS-020",
+    "NLS-030",
+    "NLS-040"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "readme",
+      "path": "docs/workstreams/addon-notification-provider-live-smoke/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/addon-notification-provider-live-smoke/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/addon-notification-provider-live-smoke/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/addon-notification-provider-live-smoke/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/addon-notification-provider-live-smoke/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/addon-notification-provider-live-smoke/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python -m json.tool docs/workstreams/addon-notification-provider-live-smoke/WORKSTREAM.json > $null",
+    "git diff --check",
+    "PowerShell parser check for addons/notification-bridge/smoke.live.ps1",
+    "pwsh -File addons/notification-bridge/smoke.live.ps1"
+  ],
+  "evidence": [
+    "docs/workstreams/addon-notification-provider-adapters/EVIDENCE_AND_GATES.md",
+    "F:\\SourceCodes\\Rust\\nako-official-addons\\addons\\notification-bridge"
+  ],
+  "adr_refs": [
+    "docs/adr/0003-http-addons-before-in-process-plugins.md",
+    "docs/adr/0014-durable-event-outbox-for-webhooks-and-automation.md",
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
+  ],
+  "continue_policy": {
+    "default_action": "closed",
+    "next_task": null,
+    "notes": "Addon Notification Provider Live Smoke is complete for the opt-in script and default-skip behavior. Enabled live-provider execution remains local/operator-owned and must not be required by CI."
+  }
+}

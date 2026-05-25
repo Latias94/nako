@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "slug": "addon-notification-template-controls",
+  "title": "Addon Notification Template Controls",
+  "status": "complete",
+  "updated": "2026-05-25",
+  "scope_kind": "execution",
+  "problem": "Notification providers currently send fixed summaries, but configurable templates must not expose raw event payload values, provider secrets, or Nako-managed provider concepts.",
+  "task_prefix": "NTC",
+  "current_task": null,
+  "completed_tasks": [
+    "NTC-010",
+    "NTC-020",
+    "NTC-030",
+    "NTC-040",
+    "NTC-050"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "readme",
+      "path": "docs/workstreams/addon-notification-template-controls/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/addon-notification-template-controls/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/addon-notification-template-controls/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/addon-notification-template-controls/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/addon-notification-template-controls/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/addon-notification-template-controls/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python -m json.tool docs/workstreams/addon-notification-template-controls/WORKSTREAM.json > $null",
+    "git diff --check",
+    "cargo nextest run -p nako-notification-bridge --no-fail-fast",
+    "cargo check -p nako-notification-bridge --tests"
+  ],
+  "evidence": [
+    "docs/workstreams/addon-notification-provider-adapters/EVIDENCE_AND_GATES.md",
+    "F:\\SourceCodes\\Rust\\nako-official-addons\\crates\\nako-notification-bridge"
+  ],
+  "adr_refs": [
+    "docs/adr/0014-durable-event-outbox-for-webhooks-and-automation.md",
+    "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
+  ],
+  "continue_policy": {
+    "default_action": "closed",
+    "next_task": null,
+    "notes": "Addon Notification Template Controls is complete for the safe summary template slice. Templates remain sidecar-owned and use whitelisted event facts only. Split Admin UI/API template management or richer provider-specific formatting if requested."
+  }
+}

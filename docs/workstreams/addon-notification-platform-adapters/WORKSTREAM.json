@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "slug": "addon-notification-platform-adapters",
+  "title": "Addon Notification Platform Adapters",
+  "status": "complete",
+  "updated": "2026-05-25",
+  "scope_kind": "execution",
+  "problem": "The notification bridge has a generic http_webhook provider, but no named platform adapter proves platform-specific payload shape, diagnostics, and failure mapping without moving provider concepts into Nako core.",
+  "task_prefix": "NPL",
+  "current_task": null,
+  "completed_tasks": [
+    "NPL-010",
+    "NPL-020",
+    "NPL-030",
+    "NPL-040",
+    "NPL-050"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "readme",
+      "path": "docs/workstreams/addon-notification-platform-adapters/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/addon-notification-platform-adapters/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/addon-notification-platform-adapters/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/addon-notification-platform-adapters/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/addon-notification-platform-adapters/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/addon-notification-platform-adapters/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python -m json.tool docs/workstreams/addon-notification-platform-adapters/WORKSTREAM.json > $null",
+    "git diff --check",
+    "cargo nextest run -p nako-notification-bridge --no-fail-fast",
+    "cargo check -p nako-notification-bridge --tests"
+  ],
+  "evidence": [
+    "docs/workstreams/addon-notification-provider-adapters/EVIDENCE_AND_GATES.md",
+    "F:\\SourceCodes\\Rust\\nako-official-addons\\crates\\nako-notification-bridge"
+  ],
+  "adr_refs": [
+    "docs/adr/0003-http-addons-before-in-process-plugins.md",
+    "docs/adr/0014-durable-event-outbox-for-webhooks-and-automation.md",
+    "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md",
+    "docs/adr/0034-package-addon-capabilities-into-sidecar-suites.md"
+  ],
+  "continue_policy": {
+    "default_action": "closed",
+    "next_task": null,
+    "notes": "Addon Notification Platform Adapters is complete for the first named platform adapter. discord_webhook is implemented and verified. Additional platform adapters should be opened as separate named lanes while keeping provider credentials, payload shape, diagnostics, and retry behavior sidecar-owned."
+  }
+}
