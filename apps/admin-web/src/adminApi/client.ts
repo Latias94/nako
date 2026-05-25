@@ -17,6 +17,7 @@ import type {
   AdminAddonSurfacesResponse,
   AdminAddonsQuery,
   AdminCatalogGovernanceItemListResponse,
+  AdminCatalogGovernanceItemsQuery,
   AdminGeneratedArtifactProposalListResponse,
   AdminGeneratedArtifactProposalsQuery,
   AdminWatchFolderDiscoveryRequest,
@@ -26,10 +27,12 @@ import type {
   AdminOutboxEventListResponse,
   AdminOverviewResponse,
   AdminPlaybackRuntimeDiagnosticsResponse,
+  AdminPlaybackSessionsQuery,
   AdminPlaybackSessionListResponse,
   AdminPlaybackSupportEvidenceResponse,
   AdminPlaybackSupportQuery,
   AdminServerConfigDiagnosticsResponse,
+  AdminStorageStagingQuery,
   AdminStorageStagingDiagnosticsResponse,
   IssueAddonTokenRequest,
   RegisterAddonRequest,
@@ -171,9 +174,11 @@ export class AdminApiClient {
     );
   }
 
-  async getCatalogGovernanceItems(): Promise<AdminCatalogGovernanceItemListResponse> {
+  async getCatalogGovernanceItems(
+    query: AdminCatalogGovernanceItemsQuery = {},
+  ): Promise<AdminCatalogGovernanceItemListResponse> {
     return this.getJson<AdminCatalogGovernanceItemListResponse>(
-      NAKO_ADMIN_ROUTES.catalogGovernanceItems,
+      withQuery(NAKO_ADMIN_ROUTES.catalogGovernanceItems, query),
     );
   }
 
@@ -210,8 +215,12 @@ export class AdminApiClient {
     return this.getJson<AdminJobListResponse>(withQuery(NAKO_ADMIN_ROUTES.jobs, query));
   }
 
-  async getPlaybackSessions(): Promise<AdminPlaybackSessionListResponse> {
-    return this.getJson<AdminPlaybackSessionListResponse>(NAKO_ADMIN_ROUTES.playbackSessions);
+  async getPlaybackSessions(
+    query: AdminPlaybackSessionsQuery = {},
+  ): Promise<AdminPlaybackSessionListResponse> {
+    return this.getJson<AdminPlaybackSessionListResponse>(
+      withQuery(NAKO_ADMIN_ROUTES.playbackSessions, query),
+    );
   }
 
   async getPlaybackRuntime(): Promise<AdminPlaybackRuntimeDiagnosticsResponse> {
@@ -240,8 +249,12 @@ export class AdminApiClient {
     );
   }
 
-  async getStorageStaging(): Promise<AdminStorageStagingDiagnosticsResponse> {
-    return this.getJson<AdminStorageStagingDiagnosticsResponse>(NAKO_ADMIN_ROUTES.storageStaging);
+  async getStorageStaging(
+    query: AdminStorageStagingQuery = {},
+  ): Promise<AdminStorageStagingDiagnosticsResponse> {
+    return this.getJson<AdminStorageStagingDiagnosticsResponse>(
+      withQuery(NAKO_ADMIN_ROUTES.storageStaging, query),
+    );
   }
 
   async getSystemConfig(): Promise<AdminServerConfigDiagnosticsResponse> {
@@ -352,13 +365,16 @@ function withQuery(
     | AdminAcquisitionIntakeCandidatesQuery
     | AdminGeneratedArtifactProposalsQuery
     | AdminAddonsQuery
+    | AdminCatalogGovernanceItemsQuery
+    | AdminPlaybackSessionsQuery
+    | AdminStorageStagingQuery
     | AdminJobsQuery,
 ) {
   const params = new URLSearchParams();
 
   for (const [key, value] of Object.entries(query)) {
-    if (value) {
-      params.set(key, value);
+    if (value !== undefined && value !== null && value !== "") {
+      params.set(key, String(value));
     }
   }
 

@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "slug": "admin-web-v2-system-settings-route",
+  "title": "Admin Web V2 System Settings Route",
+  "status": "completed",
+  "updated": "2026-05-25",
+  "scope_kind": "execution",
+  "problem": "Settings remains a placeholder instead of a route-first read-only diagnostics page backed by redacted Admin system config.",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/admin-web-v2-system-settings-route/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/admin-web-v2-system-settings-route/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/admin-web-v2-system-settings-route/EVIDENCE_AND_GATES.md"
+    }
+  ],
+  "gates": [
+    "cd apps/admin-web && npm run generate:admin-api",
+    "cd apps/admin-web && npm run check",
+    "cd apps/admin-web && npm run test",
+    "cd apps/admin-web && npm run build",
+    "git diff --check",
+    "Playwright smoke for /settings desktop and mobile"
+  ],
+  "evidence": [
+    {
+      "date": "2026-05-25",
+      "kind": "frontend-gates",
+      "path": "docs/workstreams/admin-web-v2-system-settings-route/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "date": "2026-05-25",
+      "kind": "browser-smoke",
+      "path": "target/admin-web-v2-settings-smoke/"
+    },
+    {
+      "date": "2026-05-25",
+      "kind": "closeout",
+      "path": "docs/workstreams/admin-web-v2-system-settings-route/CLOSEOUT.md"
+    }
+  ],
+  "adr_refs": [],
+  "continue_policy": {
+    "default_action": "split_follow_on",
+    "notes": "This read-only /settings diagnostics lane is complete. Split mutation workflows into follow-ons."
+  }
+}

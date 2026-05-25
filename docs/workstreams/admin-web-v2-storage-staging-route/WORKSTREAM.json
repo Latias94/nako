@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "slug": "admin-web-v2-storage-staging-route",
+  "title": "Admin Web V2 Storage Staging Route",
+  "status": "completed",
+  "updated": "2026-05-25",
+  "scope_kind": "execution",
+  "problem": "Storage Staging remains a placeholder instead of a route-first V2 diagnostics page with Admin API query ownership.",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/admin-web-v2-storage-staging-route/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/admin-web-v2-storage-staging-route/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/admin-web-v2-storage-staging-route/EVIDENCE_AND_GATES.md"
+    }
+  ],
+  "gates": [
+    "cd apps/admin-web && npm run generate:admin-api",
+    "cd apps/admin-web && npm run check",
+    "cd apps/admin-web && npm run test",
+    "cd apps/admin-web && npm run build",
+    "git diff --check",
+    "Playwright smoke for /storage/staging desktop and mobile"
+  ],
+  "evidence": [
+    {
+      "date": "2026-05-25",
+      "kind": "frontend-gates",
+      "path": "docs/workstreams/admin-web-v2-storage-staging-route/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "date": "2026-05-25",
+      "kind": "browser-smoke",
+      "path": "target/admin-web-v2-storage-staging-smoke/"
+    }
+  ],
+  "adr_refs": [],
+  "continue_policy": {
+    "default_action": "split_follow_on",
+    "notes": "This read-only /storage/staging lane is complete. Split cleanup/delete/repair workflows into follow-ons."
+  }
+}

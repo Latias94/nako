@@ -1008,14 +1008,239 @@ td {
   background: oklch(97% 0.012 118);
 }
 
-.jobsPrimaryCell {
+.jobsPrimaryCell,
+.routePrimaryCell {
   display: grid;
   gap: 3px;
 }
 
-.jobsPrimaryCell span {
+.jobsPrimaryCell span,
+.routePrimaryCell span {
   color: oklch(50% 0.02 94);
   font-size: 0.78rem;
+}
+
+.issueBadgeList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.overviewMetricGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.overviewMetric {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 116px;
+  border: 1px solid var(--nako-admin-line);
+  border-radius: var(--nako-admin-radius);
+  background: var(--nako-admin-surface-raised);
+  padding: 14px;
+}
+
+.overviewMetric span {
+  color: var(--nako-admin-muted);
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.overviewMetric strong {
+  color: var(--nako-admin-ink);
+  font-size: 1.35rem;
+  line-height: 1.12;
+}
+
+.settingsSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.settingsSummaryCard {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 116px;
+  border: 1px solid var(--nako-admin-line);
+  border-radius: var(--nako-admin-radius);
+  background: var(--nako-admin-surface-raised);
+  padding: 14px;
+}
+
+.settingsSummaryCard span {
+  color: var(--nako-admin-muted);
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.settingsSummaryCard strong {
+  color: var(--nako-admin-ink);
+  font-size: 1.25rem;
+  line-height: 1.15;
+}
+
+.settingsPanelGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.settingsRowList {
+  display: grid;
+  padding: 4px 16px 8px;
+}
+
+.settingsDiagnosticRow,
+.settingsProviderRow {
+  min-width: 0;
+  border-bottom: 1px solid var(--nako-admin-line-soft);
+  padding: 12px 0;
+}
+
+.settingsDiagnosticRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.settingsDiagnosticRow:last-child,
+.settingsProviderRow:last-child {
+  border-bottom: 0;
+}
+
+.settingsDiagnosticRow div,
+.settingsProviderRow div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.settingsDiagnosticRow span,
+.settingsDiagnosticRow small,
+.settingsProviderRow span {
+  color: var(--nako-admin-muted);
+  font-size: 0.8rem;
+}
+
+.settingsDiagnosticRow strong,
+.settingsProviderRow strong {
+  overflow-wrap: anywhere;
+  color: var(--nako-admin-ink-soft);
+  font-size: 0.92rem;
+}
+
+.settingsProviderList {
+  display: grid;
+  border-top: 1px solid var(--nako-admin-line-soft);
+  padding: 0 16px 8px;
+}
+
+.settingsProviderRow {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) auto minmax(120px, 0.8fr) minmax(120px, 0.8fr) minmax(100px, 0.6fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.addonsSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.addonsRouteGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.addonsFactList {
+  display: grid;
+  padding: 4px 16px 8px;
+}
+
+.addonsFactRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 0;
+  border-bottom: 1px solid var(--nako-admin-line-soft);
+  padding: 12px 0;
+}
+
+.addonsFactRow:last-child {
+  border-bottom: 0;
+}
+
+.addonsFactRow div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.addonsFactRow span,
+.addonsFactRow small {
+  color: var(--nako-admin-muted);
+  font-size: 0.8rem;
+}
+
+.addonsFactRow strong {
+  overflow-wrap: anywhere;
+  color: var(--nako-admin-ink-soft);
+  font-size: 0.92rem;
+}
+
+.addonsCountGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 16px;
+}
+
+.addonsCountTile {
+  display: grid;
+  gap: 7px;
+  min-height: 82px;
+  border: 1px solid var(--nako-admin-line);
+  border-radius: var(--nako-admin-radius);
+  background: oklch(98% 0.006 105);
+  padding: 12px;
+}
+
+.addonsCountTile span {
+  color: var(--nako-admin-muted);
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.addonsCountTile strong {
+  color: var(--nako-admin-ink);
+  font-size: 1.05rem;
+}
+
+.addonsCredentialGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.addonsCredentialGrid h3 {
+  margin: 14px 16px 0;
+  font-size: 0.95rem;
+}
+
+.addonsBoundaryMessage {
+  margin: 8px 0 4px;
+  color: var(--nako-admin-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
 }
 
 .uiButton {
@@ -1160,6 +1385,15 @@ td {
     align-items: stretch;
     flex-direction: column;
   }
+
+  .settingsSummaryGrid,
+  .settingsPanelGrid,
+  .settingsProviderRow,
+  .addonsSummaryGrid,
+  .addonsRouteGrid,
+  .addonsCredentialGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 560px) {
@@ -1168,7 +1402,11 @@ td {
   }
 
   .routeNav,
-  .filterBar {
+  .filterBar,
+  .overviewMetricGrid,
+  .settingsSummaryGrid,
+  .addonsSummaryGrid,
+  .addonsCountGrid {
     grid-template-columns: 1fr;
   }
 }

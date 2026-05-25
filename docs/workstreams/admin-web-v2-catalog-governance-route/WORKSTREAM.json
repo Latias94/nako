@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "slug": "admin-web-v2-catalog-governance-route",
+  "title": "Admin Web V2 Catalog Governance Route",
+  "status": "completed",
+  "updated": "2026-05-25",
+  "scope_kind": "execution",
+  "problem": "Catalog Governance remains in the legacy dashboard instead of a route-first V2 page with Admin API query ownership.",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/admin-web-v2-catalog-governance-route/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/admin-web-v2-catalog-governance-route/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/admin-web-v2-catalog-governance-route/EVIDENCE_AND_GATES.md"
+    }
+  ],
+  "gates": [
+    "cd apps/admin-web && npm run generate:admin-api",
+    "cd apps/admin-web && npm run check",
+    "cd apps/admin-web && npm run test",
+    "cd apps/admin-web && npm run build",
+    "git diff --check",
+    "Playwright smoke for /catalog/governance desktop and mobile"
+  ],
+  "evidence": [
+    {
+      "date": "2026-05-25",
+      "kind": "frontend-gates",
+      "path": "docs/workstreams/admin-web-v2-catalog-governance-route/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "date": "2026-05-25",
+      "kind": "browser-smoke",
+      "path": "target/admin-web-v2-catalog-governance-smoke/"
+    }
+  ],
+  "adr_refs": [],
+  "continue_policy": {
+    "default_action": "split_follow_on",
+    "notes": "This read-only /catalog/governance lane is complete. Split detail and repair workflows into follow-ons."
+  }
+}

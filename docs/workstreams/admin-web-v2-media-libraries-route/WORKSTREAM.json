@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "slug": "admin-web-v2-media-libraries-route",
+  "title": "Admin Web V2 Media Libraries Route",
+  "status": "completed",
+  "updated": "2026-05-25",
+  "scope_kind": "execution",
+  "problem": "Media Libraries still live in the legacy console as a mostly mock panel instead of a route-first V2 page backed by Admin API diagnostics.",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/admin-web-v2-media-libraries-route/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/admin-web-v2-media-libraries-route/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/admin-web-v2-media-libraries-route/EVIDENCE_AND_GATES.md"
+    }
+  ],
+  "gates": [
+    "cd apps/admin-web && npm run generate:admin-api",
+    "cd apps/admin-web && npm run check",
+    "cd apps/admin-web && npm run test",
+    "cd apps/admin-web && npm run build",
+    "git diff --check",
+    "Playwright smoke for /libraries desktop and mobile"
+  ],
+  "evidence": [
+    {
+      "date": "2026-05-25",
+      "kind": "frontend-gates",
+      "path": "docs/workstreams/admin-web-v2-media-libraries-route/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "date": "2026-05-25",
+      "kind": "browser-smoke",
+      "path": "target/admin-web-v2-libraries-smoke/"
+    }
+  ],
+  "adr_refs": [],
+  "continue_policy": {
+    "default_action": "split_follow_on",
+    "notes": "This read-only /libraries lane is complete. Split metadata profile editing, scan actions, NFO workflows, and richer inventory into follow-ons."
+  }
+}

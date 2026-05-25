@@ -128,7 +128,14 @@ describe("AdminApiClient", () => {
     });
     const client = new AdminApiClient({ fetcher });
 
-    await expect(client.getCatalogGovernanceItems()).resolves.toEqual(mockCatalogGovernance);
+    await expect(
+      client.getCatalogGovernanceItems({
+        library_id: "library-anime",
+        max_confidence_milli: 500,
+        limit: 5,
+        offset: 0,
+      }),
+    ).resolves.toEqual(mockCatalogGovernance);
     await expect(client.getAddons({ status: "enabled" })).resolves.toEqual(mockAddons);
     await expect(client.getAddonDetail("addon-subtitle-lab")).resolves.toEqual(mockAddonDetail);
     await expect(client.checkAddonHealth("addon-subtitle-lab")).resolves.toEqual(mockAddonHealth);
@@ -144,16 +151,30 @@ describe("AdminApiClient", () => {
     );
     await expect(client.getEvents()).resolves.toEqual(mockEvents);
     await expect(client.getJobs({ status: "failed", limit: 5 })).resolves.toEqual(mockJobs);
-    await expect(client.getPlaybackSessions()).resolves.toEqual(mockPlaybackSessions);
+    await expect(
+      client.getPlaybackSessions({
+        source_id: "source-hls",
+        state: "running",
+        limit: 5,
+        offset: 0,
+      }),
+    ).resolves.toEqual(mockPlaybackSessions);
     await expect(client.getPlaybackRuntime()).resolves.toEqual(mockPlaybackRuntime);
     await expect(client.getPlaybackSupport({ session_id: "session-hls" })).resolves.toEqual(
       mockPlaybackSupport,
     );
-    await expect(client.getStorageStaging()).resolves.toEqual(mockStorageStaging);
+    await expect(
+      client.getStorageStaging({
+        purpose: "ffmpeg_input",
+        state: "ready",
+        limit: 5,
+        offset: 0,
+      }),
+    ).resolves.toEqual(mockStorageStaging);
     await expect(client.getSystemConfig()).resolves.toEqual(mockSystemConfig);
 
     expect(fetcher.mock.calls.map(([input]) => input.toString())).toEqual([
-      NAKO_ADMIN_ROUTES.catalogGovernanceItems,
+      `${NAKO_ADMIN_ROUTES.catalogGovernanceItems}?library_id=library-anime&max_confidence_milli=500&limit=5&offset=0`,
       `${NAKO_ADMIN_ROUTES.addons}?status=enabled`,
       NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab"),
       NAKO_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab"),
@@ -165,10 +186,10 @@ describe("AdminApiClient", () => {
       `${NAKO_ADMIN_ROUTES.generatedArtifactProposals}?limit=5`,
       NAKO_ADMIN_ROUTES.events,
       `${NAKO_ADMIN_ROUTES.jobs}?status=failed&limit=5`,
-      NAKO_ADMIN_ROUTES.playbackSessions,
+      `${NAKO_ADMIN_ROUTES.playbackSessions}?source_id=source-hls&state=running&limit=5&offset=0`,
       NAKO_ADMIN_ROUTES.playbackRuntime,
       `${NAKO_ADMIN_ROUTES.playbackSupport}?session_id=session-hls`,
-      NAKO_ADMIN_ROUTES.storageStaging,
+      `${NAKO_ADMIN_ROUTES.storageStaging}?purpose=ffmpeg_input&state=ready&limit=5&offset=0`,
       NAKO_ADMIN_ROUTES.systemConfig,
     ]);
   });

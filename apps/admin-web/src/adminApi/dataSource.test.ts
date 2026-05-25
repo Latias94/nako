@@ -10,6 +10,7 @@ import {
   mockAddonHealth,
   mockAddonInstallGuide,
   mockAddons,
+  mockAddonsRouteSummary,
   mockAddonSurfaces,
   mockAddonTokens,
   mockCatalogGovernance,
@@ -174,6 +175,37 @@ describe("Admin data source", () => {
     expect(data.sources.playbackRuntime).toBe("live");
   });
 
+  it("loads route-local Overview with section fallback", async () => {
+    const seenPaths: string[] = [];
+    const liveSource = createAdminDataSource({
+      fetcher: async (input: string | URL | Request) => {
+        const url = new URL(input.toString(), "http://127.0.0.1");
+        seenPaths.push(url.pathname);
+        return Response.json(mockOverview);
+      },
+    });
+
+    const liveResult = await liveSource.loadOverview?.();
+
+    expect(liveResult).toMatchObject({
+      source: "live",
+      value: mockOverview,
+    });
+    expect(seenPaths).toEqual([NAKO_ADMIN_ROUTES.overview]);
+
+    const fallbackSource = createAdminDataSource({
+      fetcher: async () => new Response("offline", { status: 503 }),
+    });
+
+    const fallbackResult = await fallbackSource.loadOverview?.();
+
+    expect(fallbackResult).toMatchObject({
+      source: "mock",
+      value: mockOverview,
+      error: expect.stringContaining("HTTP 503"),
+    });
+  });
+
   it("loads route-local Jobs with generated query params and section fallback", async () => {
     const seenSearchParams: string[] = [];
     const liveSource = createAdminDataSource({
@@ -205,6 +237,347 @@ describe("Admin data source", () => {
     expect(fallbackResult).toMatchObject({
       source: "mock",
       value: mockJobs,
+      error: expect.stringContaining("HTTP 503"),
+    });
+  });
+
+  it("loads route-local Media Libraries diagnostics from system config with section fallback", async () => {
+    const seenPaths: string[] = [];
+    const liveSource = createAdminDataSource({
+      fetcher: async (input: string | URL | Request) => {
+        const url = new URL(input.toString(), "http://127.0.0.1");
+        seenPaths.push(url.pathname);
+        return Response.json(mockSystemConfig);
+      },
+    });
+
+    const liveResult = await liveSource.loadLibraries?.();
+
+    expect(liveResult).toMatchObject({
+      source: "live",
+      value: mockSystemConfig,
+    });
+    expect(seenPaths).toEqual([NAKO_ADMIN_ROUTES.systemConfig]);
+
+    const fallbackSource = createAdminDataSource({
+      fetcher: async () => new Response("offline", { status: 503 }),
+    });
+
+    const fallbackResult = await fallbackSource.loadLibraries?.();
+
+    expect(fallbackResult).toMatchObject({
+      source: "mock",
+      value: mockSystemConfig,
+      error: expect.stringContaining("HTTP 503"),
+    });
+  });
+
+  it("loads route-local System Settings diagnostics from system config with section fallback", async () => {
+    const seenPaths: string[] = [];
+    const liveSource = createAdminDataSource({
+      fetcher: async (input: string | URL | Request) => {
+        const url = new URL(input.toString(), "http://127.0.0.1");
+        seenPaths.push(url.pathname);
+        return Response.json(mockSystemConfig);
+      },
+    });
+
+    const liveResult = await liveSource.loadSettings?.();
+
+    expect(liveResult).toMatchObject({
+      source: "live",
+      value: mockSystemConfig,
+    });
+    expect(seenPaths).toEqual([NAKO_ADMIN_ROUTES.systemConfig]);
+
+    const fallbackSource = createAdminDataSource({
+      fetcher: async () => new Response("offline", { status: 503 }),
+    });
+
+    const fallbackResult = await fallbackSource.loadSettings?.();
+
+    expect(fallbackResult).toMatchObject({
+      source: "mock",
+      value: mockSystemConfig,
+      error: expect.stringContaining("HTTP 503"),
+    });
+  });
+
+  it("loads route-local Acquisition Intake with generated query params and section fallback", async () => {
+    const seenSearchParams: string[] = [];
+    const liveSource = createAdminDataSource({
+      fetcher: async (input: string | URL | Request) => {
+        const url = new URL(input.toString(), "http://127.0.0.1");
+        seenSearchParams.push(url.search);
+        return Response.json(mockAcquisitionIntakeCandidates);
+      },
+    });
+
+    const liveResult = await liveSource.loadAcquisitionIntake?.({
+      library_id: "library-anime",
+      state: "ready",
+      source_kind: "watch_folder",
+      managed_import_artifact_id: "artifact-managed",
+      limit: 10,
+      offset: 20,
+    });
+
+    expect(liveResult).toMatchObject({
+      source: "live",
+      value: mockAcquisitionIntakeCandidates,
+    });
+    expect(seenSearchParams).toEqual([
+      "?library_id=library-anime&state=ready&source_kind=watch_folder&managed_import_artifact_id=artifact-managed&limit=10&offset=20",
+    ]);
+
+    const fallbackSource = createAdminDataSource({
+      fetcher: async () => new Response("offline", { status: 503 }),
+    });
+
+    const fallbackResult = await fallbackSource.loadAcquisitionIntake?.({
+      state: "ready",
+    });
+
+    expect(fallbackResult).toMatchObject({
+      source: "mock",
+      value: mockAcquisitionIntakeCandidates,
+      error: expect.stringContaining("HTTP 503"),
+    });
+  });
+
+  it("loads route-local Generated Artifacts with generated query params and section fallback", async () => {
+    const seenSearchParams: string[] = [];
+    const liveSource = createAdminDataSource({
+      fetcher: async (input: string | URL | Request) => {
+        const url = new URL(input.toString(), "http://127.0.0.1");
+        seenSearchParams.push(url.search);
+        return Response.json(mockGeneratedArtifactProposals);
+      },
+    });
+
+    const liveResult = await liveSource.loadGeneratedArtifacts?.({
+      limit: 10,
+      offset: 20,
+    });
+
+    expect(liveResult).toMatchObject({
+      source: "live",
+      value: mockGeneratedArtifactProposals,
+    });
+    expect(seenSearchParams).toEqual(["?limit=10&offset=20"]);
+
+    const fallbackSource = createAdminDataSource({
+      fetcher: async () => new Response("offline", { status: 503 }),
+    });
+
+    const fallbackResult = await fallbackSource.loadGeneratedArtifacts?.({
+      limit: 10,
+    });
+
+    expect(fallbackResult).toMatchObject({
+      source: "mock",
+      value: mockGeneratedArtifactProposals,
+      error: expect.stringContaining("HTTP 503"),
+    });
+  });
+
+  it("loads route-local Addons with generated query params and safe section fallback", async () => {
+    const seenRequests: string[] = [];
+    const liveSource = createAdminDataSource({
+      fetcher: async (input: string | URL | Request) => {
+        const url = new URL(input.toString(), "http://127.0.0.1");
+        seenRequests.push(`${url.pathname}${url.search}`);
+
+        if (url.pathname === NAKO_ADMIN_ROUTES.addons) {
+          return Response.json(mockAddons);
+        }
+        if (url.pathname === NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")) {
+          return Response.json(mockAddonDetail);
+        }
+        if (url.pathname === NAKO_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab")) {
+          return Response.json(mockAddonHealth);
+        }
+        if (url.pathname === NAKO_ADMIN_ROUTES.addonSurfaces.replace(":addon_id", "addon-subtitle-lab")) {
+          return Response.json(mockAddonSurfaces);
+        }
+        if (url.pathname === NAKO_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab")) {
+          return Response.json(mockAddonInstallGuide);
+        }
+        if (url.pathname === `${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`) {
+          return Response.json(mockAddonTokens);
+        }
+        if (url.pathname === `${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`) {
+          return Response.json(mockAddonGrants);
+        }
+
+        return new Response("not found", { status: 404 });
+      },
+    });
+
+    const liveResult = await liveSource.loadAddons?.({ status: "enabled" });
+
+    expect(liveResult).toMatchObject({
+      source: "live",
+      value: {
+        addons: expect.arrayContaining([
+          expect.objectContaining({
+            name: "Subtitle Lab",
+            grantedScopeCount: 2,
+          }),
+        ]),
+        selectedAddon: {
+          name: "Subtitle Lab",
+          resourceCount: 2,
+          authMode: "bearer",
+        },
+        surfaceSummary: {
+          hostedPageCount: 1,
+          taskCount: 1,
+        },
+        installBoundary: {
+          secretReferenceCount: 1,
+          nakoManagesContainers: false,
+        },
+      },
+    });
+    expect(seenRequests[0]).toBe(`${NAKO_ADMIN_ROUTES.addons}?status=enabled`);
+    expect(JSON.stringify(liveResult?.value)).not.toContain("http://subtitle-lab:9100");
+    expect(JSON.stringify(liveResult?.value)).not.toContain("ADDON_SECRET_SUBTITLE_PROVIDER_KEY");
+    expect(JSON.stringify(liveResult?.value)).not.toContain("/pages/diagnostics");
+    expect(JSON.stringify(liveResult?.value)).not.toContain("docker_compose");
+
+    const fallbackSource = createAdminDataSource({
+      fetcher: async () => new Response("offline", { status: 503 }),
+    });
+
+    const fallbackResult = await fallbackSource.loadAddons?.({ status: "enabled" });
+
+    expect(fallbackResult).toMatchObject({
+      source: "mock",
+      value: {
+        addons: [mockAddonsRouteSummary.addons[0]],
+      },
+      error: expect.stringContaining("HTTP 503"),
+    });
+  });
+
+  it("loads route-local Catalog Governance with generated query params and section fallback", async () => {
+    const seenSearchParams: string[] = [];
+    const liveSource = createAdminDataSource({
+      fetcher: async (input: string | URL | Request) => {
+        const url = new URL(input.toString(), "http://127.0.0.1");
+        seenSearchParams.push(url.search);
+        return Response.json(mockCatalogGovernance);
+      },
+    });
+
+    const liveResult = await liveSource.loadCatalogGovernance?.({
+      library_id: "library-anime",
+      max_confidence_milli: 500,
+      limit: 10,
+      offset: 0,
+    });
+
+    expect(liveResult).toMatchObject({
+      source: "live",
+      value: mockCatalogGovernance,
+    });
+    expect(seenSearchParams).toEqual([
+      "?library_id=library-anime&max_confidence_milli=500&limit=10&offset=0",
+    ]);
+
+    const fallbackSource = createAdminDataSource({
+      fetcher: async () => new Response("offline", { status: 503 }),
+    });
+
+    const fallbackResult = await fallbackSource.loadCatalogGovernance?.({
+      library_id: "library-anime",
+    });
+
+    expect(fallbackResult).toMatchObject({
+      source: "mock",
+      value: mockCatalogGovernance,
+      error: expect.stringContaining("HTTP 503"),
+    });
+  });
+
+  it("loads route-local Playback Sessions with generated query params and section fallback", async () => {
+    const seenSearchParams: string[] = [];
+    const liveSource = createAdminDataSource({
+      fetcher: async (input: string | URL | Request) => {
+        const url = new URL(input.toString(), "http://127.0.0.1");
+        seenSearchParams.push(url.search);
+        return Response.json(mockPlaybackSessions);
+      },
+    });
+
+    const liveResult = await liveSource.loadPlaybackSessions?.({
+      source_id: "source-hls",
+      kind: "hls_transcode",
+      state: "running",
+      limit: 10,
+      offset: 0,
+    });
+
+    expect(liveResult).toMatchObject({
+      source: "live",
+      value: mockPlaybackSessions,
+    });
+    expect(seenSearchParams).toEqual([
+      "?source_id=source-hls&kind=hls_transcode&state=running&limit=10&offset=0",
+    ]);
+
+    const fallbackSource = createAdminDataSource({
+      fetcher: async () => new Response("offline", { status: 503 }),
+    });
+
+    const fallbackResult = await fallbackSource.loadPlaybackSessions?.({
+      state: "running",
+    });
+
+    expect(fallbackResult).toMatchObject({
+      source: "mock",
+      value: mockPlaybackSessions,
+      error: expect.stringContaining("HTTP 503"),
+    });
+  });
+
+  it("loads route-local Storage Staging with generated query params and section fallback", async () => {
+    const seenSearchParams: string[] = [];
+    const liveSource = createAdminDataSource({
+      fetcher: async (input: string | URL | Request) => {
+        const url = new URL(input.toString(), "http://127.0.0.1");
+        seenSearchParams.push(url.search);
+        return Response.json(mockStorageStaging);
+      },
+    });
+
+    const liveResult = await liveSource.loadStorageStaging?.({
+      purpose: "ffmpeg_input",
+      state: "ready",
+      limit: 10,
+      offset: 0,
+    });
+
+    expect(liveResult).toMatchObject({
+      source: "live",
+      value: mockStorageStaging,
+    });
+    expect(seenSearchParams).toEqual([
+      "?purpose=ffmpeg_input&state=ready&limit=10&offset=0",
+    ]);
+
+    const fallbackSource = createAdminDataSource({
+      fetcher: async () => new Response("offline", { status: 503 }),
+    });
+
+    const fallbackResult = await fallbackSource.loadStorageStaging?.({
+      state: "ready",
+    });
+
+    expect(fallbackResult).toMatchObject({
+      source: "mock",
+      value: mockStorageStaging,
       error: expect.stringContaining("HTTP 503"),
     });
   });

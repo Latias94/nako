@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "slug": "admin-web-v2-acquisition-intake-route",
+  "title": "Admin Web V2 Acquisition Intake Route",
+  "status": "completed",
+  "updated": "2026-05-25",
+  "scope_kind": "frontend_route_migration",
+  "problem": "Acquisition Intake still lives only inside the legacy anchor dashboard even though the generated Admin API already exposes a safe candidates read model.",
+  "authoritative_docs": [
+    {
+      "role": "product_context",
+      "path": "PRODUCT.md"
+    },
+    {
+      "role": "design_context",
+      "path": "DESIGN.md"
+    },
+    {
+      "role": "route_api_readiness",
+      "path": "docs/workstreams/admin-web-v2-product-architecture/ROUTE_API_READINESS.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/admin-web-v2-acquisition-intake-route/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/admin-web-v2-acquisition-intake-route/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/admin-web-v2-acquisition-intake-route/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/admin-web-v2-acquisition-intake-route/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/admin-web-v2-acquisition-intake-route/CLOSEOUT.md"
+    }
+  ],
+  "gates": [
+    "cd apps/admin-web && npm run generate:admin-api",
+    "cd apps/admin-web && npm run check",
+    "cd apps/admin-web && npm run test",
+    "cd apps/admin-web && npm run build",
+    "git diff --check",
+    "Playwright smoke for /acquisition/intake at desktop and mobile viewports"
+  ],
+  "evidence": [
+    "apps/admin-web/src/App.tsx",
+    "apps/admin-web/src/features/acquisition/AcquisitionIntakePage.tsx",
+    "apps/admin-web/src/adminApi/dataSource.ts",
+    "apps/admin-web/src/App.test.tsx",
+    "apps/admin-web/src/adminApi/dataSource.test.ts"
+  ],
+  "adr_refs": [
+    "docs/adr/0027-admin-api-boundary-for-web-console.md",
+    "docs/adr/0025-openapi-public-client-sdk-contract.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Continue this lane until /acquisition/intake is a route-first read-only V2 page with query ownership, tests, redaction checks, browser evidence, and closeout notes."
+  }
+}

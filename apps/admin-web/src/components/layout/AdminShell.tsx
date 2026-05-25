@@ -7,6 +7,8 @@ export type AdminRouteTo =
   | "/jobs"
   | "/libraries"
   | "/catalog/governance"
+  | "/acquisition/intake"
+  | "/automation/generated-artifacts"
   | "/playback/sessions"
   | "/storage/staging"
   | "/addons"

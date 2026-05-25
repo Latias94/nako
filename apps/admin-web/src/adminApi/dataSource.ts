@@ -24,20 +24,28 @@ import type {
   AddonGrantsResponse,
   AddonTokensResponse,
   AdminAcquisitionIntakeCandidateListResponse,
+  AdminAcquisitionIntakeCandidatesQuery,
+  AdminAddonsQuery,
   AdminAddonHealthCheckResponse,
   AdminAddonInstallGuideResponse,
   AdminAddonRegistrationResponse,
+  AdminAddonRegistrationSummary,
   AdminAddonRegistrationsResponse,
   AdminAddonResourceCallDiagnosticResponse,
   AdminAddonSurfacesResponse,
   AdminCatalogGovernanceItemListResponse,
+  AdminCatalogGovernanceItemsQuery,
   AdminGeneratedArtifactProposalListResponse,
+  AdminGeneratedArtifactProposalsQuery,
   AdminJobListResponse,
   AdminJobsQuery,
   AdminOutboxEventListResponse,
+  AdminOverviewResponse,
   AdminPlaybackRuntimeDiagnosticsResponse,
+  AdminPlaybackSessionsQuery,
   AdminPlaybackSessionListResponse,
   AdminServerConfigDiagnosticsResponse,
+  AdminStorageStagingQuery,
   AdminStorageStagingDiagnosticsResponse,
 } from "./generated/contract";
 import type {
@@ -53,6 +61,7 @@ import type {
   AddonInstallGuideSummary,
   AddonOnboardingResult,
   AddonOperationsSummary,
+  AddonsRouteSummary,
   AddonTokenActionResult,
   AddonTokenSummaryRow,
   AddonGrantSummaryRow,
@@ -72,7 +81,26 @@ export type { AdminConsoleData, AdminSourceMap, DataSourceMode };
 
 export type AdminDataSource = {
   load(): Promise<AdminConsoleData>;
+  loadOverview?(): Promise<AdminSectionResult<AdminOverviewResponse>>;
+  loadAddons?(query?: AdminAddonsQuery): Promise<AdminSectionResult<AddonsRouteSummary>>;
   loadJobs?(query?: AdminJobsQuery): Promise<AdminSectionResult<AdminJobListResponse>>;
+  loadLibraries?(): Promise<AdminSectionResult<AdminServerConfigDiagnosticsResponse>>;
+  loadSettings?(): Promise<AdminSectionResult<AdminServerConfigDiagnosticsResponse>>;
+  loadAcquisitionIntake?(
+    query?: AdminAcquisitionIntakeCandidatesQuery,
+  ): Promise<AdminSectionResult<AdminAcquisitionIntakeCandidateListResponse>>;
+  loadGeneratedArtifacts?(
+    query?: AdminGeneratedArtifactProposalsQuery,
+  ): Promise<AdminSectionResult<AdminGeneratedArtifactProposalListResponse>>;
+  loadCatalogGovernance?(
+    query?: AdminCatalogGovernanceItemsQuery,
+  ): Promise<AdminSectionResult<AdminCatalogGovernanceItemListResponse>>;
+  loadPlaybackSessions?(
+    query?: AdminPlaybackSessionsQuery,
+  ): Promise<AdminSectionResult<AdminPlaybackSessionListResponse>>;
+  loadStorageStaging?(
+    query?: AdminStorageStagingQuery,
+  ): Promise<AdminSectionResult<AdminStorageStagingDiagnosticsResponse>>;
   setAddonStatus?(addonId: string, status: "enabled" | "disabled"): Promise<AddonOperationsSummary>;
   checkAddonHealth?(addonId: string): Promise<AddonHealthSummary>;
   diagnoseAddonResource?(addonId: string, resource: AddonResource): Promise<AddonDiagnosticSummary>;
@@ -218,6 +246,39 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
     async loadJobs(query = {}) {
       return loadSection(() => client.getJobs(query), mockJobs);
     },
+    async loadOverview() {
+      return loadSection(() => client.getOverview(), mockOverview);
+    },
+    async loadAddons(query = {}) {
+      return loadAddonsRouteSummary(client, query);
+    },
+    async loadLibraries() {
+      return loadSection(() => client.getSystemConfig(), mockSystemConfig);
+    },
+    async loadSettings() {
+      return loadSection(() => client.getSystemConfig(), mockSystemConfig);
+    },
+    async loadAcquisitionIntake(query = {}) {
+      return loadSection(
+        () => client.getAcquisitionIntakeCandidates(query),
+        mockAcquisitionIntakeCandidates,
+      );
+    },
+    async loadGeneratedArtifacts(query = {}) {
+      return loadSection(
+        () => client.getGeneratedArtifactProposals(query),
+        mockGeneratedArtifactProposals,
+      );
+    },
+    async loadCatalogGovernance(query = {}) {
+      return loadSection(() => client.getCatalogGovernanceItems(query), mockCatalogGovernance);
+    },
+    async loadPlaybackSessions(query = {}) {
+      return loadSection(() => client.getPlaybackSessions(query), mockPlaybackSessions);
+    },
+    async loadStorageStaging(query = {}) {
+      return loadSection(() => client.getStorageStaging(query), mockStorageStaging);
+    },
     async setAddonStatus(addonId, status) {
       const updated = await client.updateAddonStatus(addonId, { status });
       return mapAddons(
@@ -353,6 +414,236 @@ function mapAddonOnboardingResult(
 
 function stringField(value: unknown) {
   return typeof value === "string" ? value : "";
+}
+
+async function loadAddonsRouteSummary(
+  client: AdminApiClient,
+  query: AdminAddonsQuery,
+): Promise<AdminSectionResult<AddonsRouteSummary>> {
+  const registrations = await loadSection(() => client.getAddons(query), mockAddonsForQuery(query));
+  const selectedSummary = registrations.value.addons[0] ?? null;
+
+  if (!selectedSummary) {
+    return {
+      value: mapAddonsRouteSummary(registrations.value, null, null, null, null, null, null),
+      source: registrations.source,
+      error: registrations.error,
+    };
+  }
+
+  const fallback = fallbackAddonReadModels(selectedSummary);
+  const [detail, health, surfaces, installGuide, tokens, grants] = await Promise.all([
+    loadSection(() => client.getAddonDetail(selectedSummary.id), fallback.detail),
+    loadSection(() => client.checkAddonHealth(selectedSummary.id), fallback.health),
+    loadSection(() => client.getAddonSurfaces(selectedSummary.id), fallback.surfaces),
+    loadSection(() => client.getAddonInstallGuide(selectedSummary.id), fallback.installGuide),
+    loadSection(() => client.getAddonTokens(selectedSummary.id), fallback.tokens),
+    loadSection(() => client.getAddonGrants(selectedSummary.id), fallback.grants),
+  ]);
+  const sections = [registrations, detail, health, surfaces, installGuide, tokens, grants];
+
+  return {
+    value: mapAddonsRouteSummary(
+      registrations.value,
+      detail.value,
+      health.value,
+      surfaces.value,
+      installGuide.value,
+      tokens.value,
+      grants.value,
+    ),
+    source: combineLoadSources(sections.map((section) => section.source)),
+    error: combineLoadErrors(sections),
+  };
+}
+
+function mockAddonsForQuery(query: AdminAddonsQuery): AdminAddonRegistrationsResponse {
+  if (!query.status) {
+    return mockAddons;
+  }
+
+  return {
+    addons: mockAddons.addons.filter((addon) => addon.status === query.status),
+  };
+}
+
+function fallbackAddonReadModels(summary: AdminAddonRegistrationSummary) {
+  if (summary.id === mockAddonDetail.addon.summary.id) {
+    return {
+      detail: mockAddonDetail,
+      health: mockAddonHealth,
+      surfaces: mockAddonSurfaces,
+      installGuide: mockAddonInstallGuide,
+      tokens: mockAddonTokens,
+      grants: mockAddonGrants,
+    };
+  }
+
+  return {
+    detail: fallbackAddonDetail(summary),
+    health: fallbackAddonHealth(summary),
+    surfaces: emptyAddonSurfaces(summary),
+    installGuide: fallbackAddonInstallGuide(summary),
+    tokens: { tokens: [] },
+    grants: { grants: [] },
+  };
+}
+
+function fallbackAddonDetail(summary: AdminAddonRegistrationSummary): AdminAddonRegistrationResponse {
+  return {
+    addon: {
+      summary,
+      manifest: {
+        id: summary.manifest_id,
+        name: summary.name,
+        version: summary.version,
+        protocol_version: summary.protocol_version,
+        base_url: summary.base_url,
+        description: null,
+        resources: [],
+        auth: "none",
+        default_timeout_ms: null,
+        default_max_attempts: null,
+        scopes: [],
+      },
+    },
+  };
+}
+
+function fallbackAddonHealth(summary: AdminAddonRegistrationSummary): AdminAddonHealthCheckResponse {
+  return {
+    addon_id: summary.id,
+    manifest_id: summary.manifest_id,
+    status: "unreachable",
+    latency_ms: 0,
+    protocol_version: summary.protocol_version,
+    addon_version: summary.version,
+    safe_error_code: "route_fallback",
+  };
+}
+
+function emptyAddonSurfaces(summary: AdminAddonRegistrationSummary): AdminAddonSurfacesResponse {
+  return {
+    addon_id: summary.id,
+    manifest_id: summary.manifest_id,
+    entry_points: [],
+    hosted_pages: [],
+    secret_reference_fields: [],
+    tasks: [],
+    event_subscriptions: [],
+  };
+}
+
+function fallbackAddonInstallGuide(
+  summary: AdminAddonRegistrationSummary,
+): AdminAddonInstallGuideResponse {
+  const emptySnippet = {
+    title: "Unavailable",
+    filename: "",
+    content: "",
+    notes: [],
+  };
+
+  return {
+    addon_id: summary.id,
+    manifest_id: summary.manifest_id,
+    addon_name: summary.name,
+    addon_version: summary.version,
+    protocol_version: summary.protocol_version,
+    base_url: summary.base_url,
+    status: summary.status,
+    docker_compose: emptySnippet,
+    systemd: emptySnippet,
+    secret_references: [],
+    health_check_steps: [],
+    registration_verification_steps: [],
+    lifecycle_boundary: {
+      nako_manages_containers: false,
+      nako_manages_processes: false,
+      nako_manages_packages: false,
+      message:
+        "Install guide unavailable. Nako does not manage Addon Sidecar lifecycle from this route.",
+    },
+  };
+}
+
+function mapAddonsRouteSummary(
+  registrations: AdminAddonRegistrationsResponse,
+  detail: AdminAddonRegistrationResponse | null,
+  health: AdminAddonHealthCheckResponse | null,
+  surfaces: AdminAddonSurfacesResponse | null,
+  installGuide: AdminAddonInstallGuideResponse | null,
+  tokens: AddonTokensResponse | null,
+  grants: AddonGrantsResponse | null,
+): AddonsRouteSummary {
+  const selectedAddon = detail?.addon ?? null;
+
+  return {
+    addons: registrations.addons.map(mapAddonsRouteRow),
+    selectedAddon: selectedAddon
+      ? {
+          ...mapAddonsRouteRow(selectedAddon.summary),
+          resourceCount: selectedAddon.manifest.resources.length,
+          resourceKinds: selectedAddon.manifest.resources.map((resource) => resource.kind),
+          authMode: selectedAddon.manifest.auth,
+          grantedScopes: selectedAddon.summary.granted_scopes,
+          defaultTimeoutMs: selectedAddon.manifest.default_timeout_ms,
+          defaultMaxAttempts: selectedAddon.manifest.default_max_attempts,
+        }
+      : null,
+    statusCounts: countAddonStatuses(registrations.addons),
+    health: health ? mapAddonHealth(health) : null,
+    surfaceSummary: surfaces
+      ? {
+          entryPointCount: surfaces.entry_points.length,
+          hostedPageCount: surfaces.hosted_pages.length,
+          configurationSchemaDeclared: Boolean(surfaces.configuration_schema),
+          secretReferenceFieldCount: surfaces.secret_reference_fields.length,
+          taskCount: surfaces.tasks.length,
+          eventSubscriptionCount: surfaces.event_subscriptions.length,
+        }
+      : null,
+    installBoundary: installGuide
+      ? {
+          nakoManagesContainers: installGuide.lifecycle_boundary.nako_manages_containers,
+          nakoManagesProcesses: installGuide.lifecycle_boundary.nako_manages_processes,
+          nakoManagesPackages: installGuide.lifecycle_boundary.nako_manages_packages,
+          secretReferenceCount: installGuide.secret_references.length,
+          healthCheckStepCount: installGuide.health_check_steps.length,
+          registrationVerificationStepCount:
+            installGuide.registration_verification_steps.length,
+        }
+      : null,
+    tokens: tokens?.tokens.map(mapAddonToken) ?? [],
+    grants: grants?.grants.map(mapAddonGrant) ?? [],
+  };
+}
+
+function mapAddonsRouteRow(addon: AdminAddonRegistrationSummary) {
+  return {
+    id: addon.id,
+    manifestId: addon.manifest_id,
+    name: addon.name,
+    version: addon.version,
+    protocolVersion: addon.protocol_version,
+    status: addon.status,
+    grantedScopeCount: addon.granted_scopes.length,
+    updatedAt: addon.updated_at,
+  };
+}
+
+function countAddonStatuses(addons: AdminAddonRegistrationSummary[]) {
+  const counts = {
+    enabled: 0,
+    disabled: 0,
+    unregistered: 0,
+  };
+
+  for (const addon of addons) {
+    counts[addon.status] += 1;
+  }
+
+  return counts;
 }
 
 function mapAddons(
@@ -545,6 +836,30 @@ function recordError<T>(errors: AdminErrorMap, section: AdminSectionKey, result:
   if (result.error) {
     errors[section] = result.error;
   }
+}
+
+function combineLoadSources(sources: DataSourceMode[]): DataSourceMode {
+  if (sources.length === 0) {
+    return "mock";
+  }
+
+  if (sources.every((source) => source === "live")) {
+    return "live";
+  }
+
+  if (sources.some((source) => source === "live")) {
+    return "hybrid";
+  }
+
+  return "mock";
+}
+
+function combineLoadErrors(results: Array<{ error?: string }>) {
+  const messages = Array.from(
+    new Set(results.map((result) => result.error).filter((message): message is string => Boolean(message))),
+  );
+
+  return messages.length > 0 ? messages.join("; ") : undefined;
 }
 
 function mapCatalogGovernance(

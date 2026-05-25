@@ -31,6 +31,7 @@ export type {
   AdminAddonsQuery,
   AdminCatalogGovernanceItem,
   AdminCatalogGovernanceItemListResponse,
+  AdminCatalogGovernanceItemsQuery,
   AdminGeneratedArtifactProposal,
   AdminGeneratedArtifactProposalListResponse,
   AdminGeneratedArtifactProposalsQuery,
@@ -44,11 +45,13 @@ export type {
   AdminOverviewResponse,
   AdminOverviewStatus,
   AdminPlaybackRuntimeDiagnosticsResponse,
+  AdminPlaybackSessionsQuery,
   AdminPlaybackSessionListItem,
   AdminPlaybackSessionListResponse,
   AdminPlaybackSupportEvidenceResponse,
   AdminPlaybackSupportQuery,
   AdminServerConfigDiagnosticsResponse,
+  AdminStorageStagingQuery,
   AdminStorageStagingDiagnosticsResponse,
   AdminWatchFolderDiscoveryRequest,
   AdminWatchFolderDiscoveryResponse,
@@ -115,6 +118,59 @@ export type AddonOperationsSummary = {
   tokens: AddonTokenSummaryRow[];
   grants: AddonGrantSummaryRow[];
   diagnostic: AddonDiagnosticSummary | null;
+};
+
+export type AddonsRouteSummary = {
+  addons: AddonsRouteRow[];
+  selectedAddon: AddonsRouteDetail | null;
+  statusCounts: {
+    enabled: number;
+    disabled: number;
+    unregistered: number;
+  };
+  health: AddonHealthSummary | null;
+  surfaceSummary: AddonsRouteSurfaceSummary | null;
+  installBoundary: AddonsRouteInstallBoundary | null;
+  tokens: AddonTokenSummaryRow[];
+  grants: AddonGrantSummaryRow[];
+};
+
+export type AddonsRouteRow = {
+  id: string;
+  manifestId: string;
+  name: string;
+  version: string;
+  protocolVersion: string;
+  status: string;
+  grantedScopeCount: number;
+  updatedAt: string;
+};
+
+export type AddonsRouteDetail = AddonsRouteRow & {
+  resourceCount: number;
+  resourceKinds: AddonResource[];
+  authMode: string;
+  grantedScopes: string[];
+  defaultTimeoutMs: number | null;
+  defaultMaxAttempts: number | null;
+};
+
+export type AddonsRouteSurfaceSummary = {
+  entryPointCount: number;
+  hostedPageCount: number;
+  configurationSchemaDeclared: boolean;
+  secretReferenceFieldCount: number;
+  taskCount: number;
+  eventSubscriptionCount: number;
+};
+
+export type AddonsRouteInstallBoundary = {
+  nakoManagesContainers: boolean;
+  nakoManagesProcesses: boolean;
+  nakoManagesPackages: boolean;
+  secretReferenceCount: number;
+  healthCheckStepCount: number;
+  registrationVerificationStepCount: number;
 };
 
 export type AddonOnboardingResult =

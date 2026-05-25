@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "slug": "admin-web-v2-playback-sessions-route",
+  "title": "Admin Web V2 Playback Sessions Route",
+  "status": "completed",
+  "updated": "2026-05-25",
+  "scope_kind": "execution",
+  "problem": "Playback Sessions remains a placeholder instead of a route-first V2 page with Admin API query ownership.",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/admin-web-v2-playback-sessions-route/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/admin-web-v2-playback-sessions-route/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/admin-web-v2-playback-sessions-route/EVIDENCE_AND_GATES.md"
+    }
+  ],
+  "gates": [
+    "cd apps/admin-web && npm run generate:admin-api",
+    "cd apps/admin-web && npm run check",
+    "cd apps/admin-web && npm run test",
+    "cd apps/admin-web && npm run build",
+    "git diff --check",
+    "Playwright smoke for /playback/sessions desktop and mobile"
+  ],
+  "evidence": [
+    {
+      "date": "2026-05-25",
+      "kind": "frontend-gates",
+      "path": "docs/workstreams/admin-web-v2-playback-sessions-route/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "date": "2026-05-25",
+      "kind": "browser-smoke",
+      "path": "target/admin-web-v2-playback-sessions-smoke/"
+    }
+  ],
+  "adr_refs": [],
+  "continue_policy": {
+    "default_action": "split_follow_on",
+    "notes": "This read-only /playback/sessions lane is complete. Split support evidence and detail workflows into follow-ons."
+  }
+}

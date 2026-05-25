@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "slug": "admin-web-v2-overview-route",
+  "title": "Admin Web V2 Overview Route",
+  "status": "completed",
+  "updated": "2026-05-25",
+  "scope_kind": "execution",
+  "problem": "Overview remains a placeholder and the V2 root route still redirects to Jobs instead of a route-owned summary page.",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/admin-web-v2-overview-route/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/admin-web-v2-overview-route/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/admin-web-v2-overview-route/EVIDENCE_AND_GATES.md"
+    }
+  ],
+  "gates": [
+    "cd apps/admin-web && npm run generate:admin-api",
+    "cd apps/admin-web && npm run check",
+    "cd apps/admin-web && npm run test",
+    "cd apps/admin-web && npm run build",
+    "git diff --check",
+    "Playwright smoke for /overview and / desktop and mobile"
+  ],
+  "evidence": [
+    {
+      "date": "2026-05-25",
+      "kind": "frontend-gates",
+      "path": "docs/workstreams/admin-web-v2-overview-route/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "date": "2026-05-25",
+      "kind": "browser-smoke",
+      "path": "target/admin-web-v2-overview-smoke/"
+    },
+    {
+      "date": "2026-05-25",
+      "kind": "closeout",
+      "path": "docs/workstreams/admin-web-v2-overview-route/CLOSEOUT.md"
+    }
+  ],
+  "adr_refs": [],
+  "continue_policy": {
+    "default_action": "split_follow_on",
+    "notes": "This default /overview lane is complete. Split richer overview cards or new backend overview fields into follow-ons."
+  }
+}

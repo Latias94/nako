@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "slug": "admin-web-v2-addons-route",
+  "title": "Admin Web V2 Addons Route",
+  "status": "completed",
+  "updated": "2026-05-25",
+  "scope_kind": "execution",
+  "problem": "Addons remains a placeholder instead of a route-first read-only operations page backed by safe Admin addon summaries.",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/admin-web-v2-addons-route/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/admin-web-v2-addons-route/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/admin-web-v2-addons-route/EVIDENCE_AND_GATES.md"
+    }
+  ],
+  "gates": [
+    "cd apps/admin-web && npm run generate:admin-api",
+    "cd apps/admin-web && npm run check",
+    "cd apps/admin-web && npm run test",
+    "cd apps/admin-web && npm run build",
+    "git diff --check",
+    "Playwright smoke for /addons desktop and mobile"
+  ],
+  "evidence": [
+    {
+      "date": "2026-05-25",
+      "kind": "frontend-gates",
+      "path": "docs/workstreams/admin-web-v2-addons-route/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "date": "2026-05-25",
+      "kind": "browser-smoke",
+      "path": "target/admin-web-v2-addons-smoke/"
+    },
+    {
+      "date": "2026-05-25",
+      "kind": "closeout",
+      "path": "docs/workstreams/admin-web-v2-addons-route/CLOSEOUT.md"
+    }
+  ],
+  "adr_refs": [],
+  "continue_policy": {
+    "default_action": "split_follow_on",
+    "notes": "This read-only /addons route lane is complete. Split Addon registration, token, grant, health-check action, diagnostic action, and install-guide snippet workflows into follow-ons."
+  }
+}

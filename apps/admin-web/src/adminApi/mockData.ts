@@ -23,6 +23,7 @@ import type {
 import type {
   AdminConsoleData,
   AdminSourceMap,
+  AddonsRouteSummary,
 } from "./types";
 
 export const mockOverview: AdminOverviewResponse = {
@@ -560,6 +561,78 @@ export const mockAddonInstallGuide: AdminAddonInstallGuideResponse = {
     nako_manages_packages: false,
     message: "Nako generates this guide only. The operator owns Addon Sidecar installation, start/stop, upgrades, logs, and removal outside Nako.",
   },
+};
+
+export const mockAddonsRouteSummary: AddonsRouteSummary = {
+  addons: mockAddons.addons.map((addon) => ({
+    id: addon.id,
+    manifestId: addon.manifest_id,
+    name: addon.name,
+    version: addon.version,
+    protocolVersion: addon.protocol_version,
+    status: addon.status,
+    grantedScopeCount: addon.granted_scopes.length,
+    updatedAt: addon.updated_at,
+  })),
+  selectedAddon: {
+    id: mockAddonDetail.addon.summary.id,
+    manifestId: mockAddonDetail.addon.summary.manifest_id,
+    name: mockAddonDetail.addon.summary.name,
+    version: mockAddonDetail.addon.summary.version,
+    protocolVersion: mockAddonDetail.addon.summary.protocol_version,
+    status: mockAddonDetail.addon.summary.status,
+    grantedScopeCount: mockAddonDetail.addon.summary.granted_scopes.length,
+    updatedAt: mockAddonDetail.addon.summary.updated_at,
+    resourceCount: mockAddonDetail.addon.manifest.resources.length,
+    resourceKinds: mockAddonDetail.addon.manifest.resources.map((resource) => resource.kind),
+    authMode: mockAddonDetail.addon.manifest.auth,
+    grantedScopes: mockAddonDetail.addon.summary.granted_scopes,
+    defaultTimeoutMs: mockAddonDetail.addon.manifest.default_timeout_ms,
+    defaultMaxAttempts: mockAddonDetail.addon.manifest.default_max_attempts,
+  },
+  statusCounts: {
+    enabled: 1,
+    disabled: 1,
+    unregistered: 0,
+  },
+  health: {
+    addonId: mockAddonHealth.addon_id,
+    status: mockAddonHealth.status,
+    latencyMs: mockAddonHealth.latency_ms,
+    protocolVersion: mockAddonHealth.protocol_version ?? null,
+    addonVersion: mockAddonHealth.addon_version ?? null,
+    resourceCount: mockAddonHealth.resource_count ?? null,
+    safeErrorCode: mockAddonHealth.safe_error_code ?? null,
+  },
+  surfaceSummary: {
+    entryPointCount: mockAddonSurfaces.entry_points.length,
+    hostedPageCount: mockAddonSurfaces.hosted_pages.length,
+    configurationSchemaDeclared: Boolean(mockAddonSurfaces.configuration_schema),
+    secretReferenceFieldCount: mockAddonSurfaces.secret_reference_fields.length,
+    taskCount: mockAddonSurfaces.tasks.length,
+    eventSubscriptionCount: mockAddonSurfaces.event_subscriptions.length,
+  },
+  installBoundary: {
+    nakoManagesContainers: mockAddonInstallGuide.lifecycle_boundary.nako_manages_containers,
+    nakoManagesProcesses: mockAddonInstallGuide.lifecycle_boundary.nako_manages_processes,
+    nakoManagesPackages: mockAddonInstallGuide.lifecycle_boundary.nako_manages_packages,
+    secretReferenceCount: mockAddonInstallGuide.secret_references.length,
+    healthCheckStepCount: mockAddonInstallGuide.health_check_steps.length,
+    registrationVerificationStepCount:
+      mockAddonInstallGuide.registration_verification_steps.length,
+  },
+  tokens: mockAddonTokens.tokens.map((token) => ({
+    id: token.id,
+    label: token.label,
+    tokenPrefix: token.token_prefix,
+    status: token.status,
+    lastUsedAt: token.last_used_at,
+  })),
+  grants: mockAddonGrants.grants.map((grant) => ({
+    id: grant.id,
+    permission: grant.permission,
+    libraryId: grant.library_id,
+  })),
 };
 
 export const mockEvents: AdminOutboxEventListResponse = {
