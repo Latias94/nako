@@ -1,6 +1,6 @@
 # Addon Ecosystem Foundation — Milestones
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-25
 
 ## M0 — Scope And Authority
@@ -68,11 +68,14 @@ Exit criteria:
 - Suite deployment guidance avoids one Compose service per small Addon.
 - The proof does not expand into full notification, watch-sync, MCP, Arr, or
   compatibility feature breadth.
+- Nako's shared official catalog facts expose the same event subscription shape
+  as the official sidecar manifest.
 
 Primary gates:
 
-- focused official addon tests;
-- Nako-hosted event delivery smoke when feasible.
+- `cargo nextest run -p nako-metadata-scraper addon_manifest manifest_endpoint library_scanned_event_endpoint --no-fail-fast`
+- `cargo nextest run -p nako-official-addon-catalog metadata_scraper --no-fail-fast`
+- `cargo nextest run -p nako-server addon_source_catalog --no-fail-fast`
 
 ## M5 — Closeout And Follow-On Split
 
@@ -82,3 +85,7 @@ Exit criteria:
 - Tier 1/2/3 feature work has named follow-ons or clear deferral.
 - Final evidence is recorded.
 - `WORKSTREAM.json` status is updated.
+
+Primary follow-on:
+
+- `docs/workstreams/addon-event-scheduler-and-replay/`

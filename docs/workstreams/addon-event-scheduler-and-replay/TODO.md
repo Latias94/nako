@@ -1,0 +1,76 @@
+# Addon Event Scheduler And Replay — TODO
+
+Status: Active
+Last updated: 2026-05-25
+
+## M0 — Scope And Evidence Freeze
+
+- [x] AESR-010 [owner=planner] [deps=none] [scope=docs/workstreams/addon-event-scheduler-and-replay]
+  Goal: Freeze scheduler/replay problem, target state, non-goals, and evidence
+  gates after Addon Ecosystem Foundation closeout.
+  Validation: `DESIGN.md`, `MILESTONES.md`, `EVIDENCE_AND_GATES.md`,
+  `WORKSTREAM.json`, and `HANDOFF.md` exist and agree.
+  Evidence: `docs/workstreams/addon-event-scheduler-and-replay/DESIGN.md`.
+  Handoff: Start implementation at AESR-020.
+
+## M1 — Due Work Selection
+
+- [ ] AESR-020 [owner=codex] [deps=AESR-010] [scope=crates/nako-core,crates/nako-db,crates/nako-server]
+  Goal: Add a redaction-safe scheduler query that lists due addon event
+  delivery work without loading or returning event payload values to admin
+  diagnostics.
+  Validation: `cargo nextest run -p nako-db addon_event_scheduler --no-fail-fast`
+  and focused server diagnostics tests.
+  Review: Check event status filtering, subscription matching, grant checks,
+  and SQLite/PostgreSQL parity.
+  Evidence: repository contract tests and scheduler candidate tests.
+  Handoff: Do not start background looping until due work selection is proven.
+
+## M2 — In-Flight Guard And Automatic Retry
+
+- [ ] AESR-030 [owner=codex] [deps=AESR-020] [scope=crates/nako-core,crates/nako-db,crates/nako-server]
+  Goal: Prevent duplicate concurrent delivery for the same
+  addon/event/subscription tuple and consume `next_retry_at` for automatic
+  retries.
+  Validation: `cargo nextest run -p nako-server addon_event_scheduler --no-fail-fast`.
+  Review: Check crash recovery, lease expiry, max attempts, and resource budget
+  behavior.
+  Evidence: runtime tests proving one sidecar call under concurrent scheduler
+  pressure and retry after a retryable failure.
+  Handoff: Prefer a simple durable lease over in-memory-only guards.
+
+## M3 — Scheduler Runtime Integration
+
+- [ ] AESR-040 [owner=codex] [deps=AESR-030] [scope=crates/nako-server]
+  Goal: Wire the scheduler loop into server runtime lifecycle with explicit
+  configuration and bounded concurrency.
+  Validation: `cargo nextest run -p nako-server addon_event_scheduler --no-fail-fast`.
+  Review: Check shutdown, jitter/backoff, observability, and that manual admin
+  delivery still works.
+  Evidence: server lifecycle tests or deterministic scheduler harness.
+  Handoff: Keep scheduler disabled or deterministic in tests unless the harness
+  controls time.
+
+## M4 — Forced Replay And Filters
+
+- [ ] AESR-050 [owner=codex] [deps=AESR-040] [scope=crates/nako-api,crates/nako-server,crates/nako-db]
+  Goal: Add explicit forced replay with operator intent and evaluate persisted
+  event subscription filters before scheduling sidecar calls.
+  Validation: `cargo nextest run -p nako-server addon_event_replay addon_event_filter --no-fail-fast`.
+  Review: Confirm replay is separate from normal delivery and filter evaluation
+  cannot expose payload values in responses.
+  Evidence: HTTP tests for replay, filter skip, and redaction.
+  Handoff: Split filter language expansion into an ADR if simple JSON event
+  facts are insufficient.
+
+## M5 — Closeout
+
+- [ ] AESR-060 [owner=planner] [deps=AESR-050] [scope=docs/workstreams/addon-event-scheduler-and-replay]
+  Goal: Close the scheduler/replay lane or split notification bridge as the
+  next workstream.
+  Validation: `cargo fmt --all -- --check`, focused nextest gates,
+  `git diff --check`, and `WORKSTREAM.json` parse.
+  Review: Run review-workstream and verify-rust-workstream before closeout.
+  Evidence: `EVIDENCE_AND_GATES.md`, `HANDOFF.md`, `WORKSTREAM.json`.
+  Handoff: Notification bridge should not start until scheduler/replay is
+  operational or explicitly deferred with risk accepted.

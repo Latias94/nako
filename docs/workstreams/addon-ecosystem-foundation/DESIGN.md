@@ -1,6 +1,6 @@
 # Addon Ecosystem Foundation
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-25
 
 ## Why This Lane Exists
@@ -175,3 +175,21 @@ This lane can close when:
 - `WORKSTREAM.json` and `HANDOFF.md` reflect the final state;
 - no event/task/catalog correctness work remains hidden in future feature
   buckets.
+
+## Closeout Summary
+
+Closed on 2026-05-25. Tier 0 foundation work shipped:
+
+- Addon Package and Addon Suite authority is recorded in ADR 0034.
+- Addon Task run idempotency now has request fingerprint parity with protected
+  side effects.
+- Official addon catalog facts are shared with the official metadata scraper
+  runtime manifest.
+- Addon Event Delivery exists as a host-owned runtime over the durable outbox.
+- The official metadata scraper sidecar exposes a minimal `library.scanned`
+  event proof path in the same deployment unit as metadata resources and bulk
+  task execution.
+
+The next durable lane is `docs/workstreams/addon-event-scheduler-and-replay/`.
+Notification bridges, watch-state sync, MCP, Arr-stack, compatibility
+protocols, and network tunnel provider work remain outside this lane.

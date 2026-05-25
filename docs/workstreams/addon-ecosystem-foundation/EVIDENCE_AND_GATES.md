@@ -1,6 +1,6 @@
 # Addon Ecosystem Foundation — Evidence And Gates
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-25
 
 ## Smallest Current Repro
@@ -49,7 +49,7 @@ cargo nextest run -p nako-db event --no-fail-fast
 
 ```powershell
 cargo fmt --all -- --check
-cargo check -p nako-core -p nako-db -p nako-addon-client -p nako-server --tests
+cargo check -p nako-core -p nako-db -p nako-addon-protocol -p nako-addon-client -p nako-api -p nako-server --tests
 ```
 
 Use `cargo nextest run --workspace --no-fail-fast` before final closeout when
@@ -76,6 +76,7 @@ blocking findings, missing gates, and residual risks in this file or in
 - `crates/nako-official-addon-catalog`
 - `crates/nako-addon-client`
 - `F:\SourceCodes\Rust\nako-official-addons\crates\nako-metadata-scraper`
+- `F:\SourceCodes\Rust\nako-official-addons\addons\metadata-scraper\smoke.local.ps1`
 
 ## Recorded Evidence
 
@@ -187,3 +188,58 @@ Notes:
   protocol, scope, grant, or token checks.
 - Network Tunnel Provider behavior remains outside Nako core until a future
   ADR explicitly grants that authority.
+
+### 2026-05-25 — AEF-050 Official Event Addon Proof
+
+Claim: The official metadata scraper sidecar now proves an event-driven Addon
+path by declaring and serving a small `library.scanned` event subscription in
+the same deployment unit as its metadata resource and bulk task.
+
+Commands:
+
+```powershell
+cargo nextest run -p nako-metadata-scraper addon_manifest manifest_endpoint library_scanned_event_endpoint --no-fail-fast
+cargo check -p nako-metadata-scraper --tests
+cargo fmt --all -- --check
+cargo nextest run -p nako-official-addon-catalog metadata_scraper --no-fail-fast
+cargo nextest run -p nako-server addon_source_catalog --no-fail-fast
+cargo check -p nako-official-addon-catalog -p nako-server --tests
+```
+
+Result: passed.
+
+Notes:
+
+- Official addon tests ran in
+  `F:\SourceCodes\Rust\nako-official-addons`.
+- Nako catalog facts were updated in `nako-official-addon-catalog` so the
+  official source catalog, checked-in manifest example, and sidecar runtime
+  manifest keep the same event subscription shape.
+- The sidecar event response returns a redaction-safe ACK with payload keys,
+  not payload values.
+- This proof intentionally does not implement notification delivery,
+  watch-state sync, MCP, Arr-stack integration, or compatibility protocols.
+
+### 2026-05-25 — AEF-060 Closeout And Follow-On Split
+
+Claim: Addon Ecosystem Foundation is complete and broad future addon feature
+ideas have been split or deferred instead of staying as unowned prose.
+
+Commands:
+
+```powershell
+python -m json.tool docs/workstreams/addon-ecosystem-foundation/WORKSTREAM.json > $null
+python -m json.tool docs/workstreams/addon-event-scheduler-and-replay/WORKSTREAM.json > $null
+git diff --check
+cargo fmt --all -- --check
+```
+
+Result: passed. `git diff --check` emitted CRLF conversion warnings only.
+
+Follow-ons:
+
+- Opened `docs/workstreams/addon-event-scheduler-and-replay/` as the immediate
+  next lane.
+- Deferred notification bridge, watch-state sync, MCP media steward,
+  Arr-stack integration, DLNA/UPnP/WebDAV compatibility, and Network Tunnel
+  Provider work to future named lanes.

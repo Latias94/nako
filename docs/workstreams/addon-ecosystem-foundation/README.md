@@ -1,6 +1,6 @@
 # Addon Ecosystem Foundation
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-25
 
 This workstream turns the Addon sidecar direction into a stronger ecosystem

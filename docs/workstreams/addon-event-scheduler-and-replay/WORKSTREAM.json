@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "slug": "addon-event-scheduler-and-replay",
+  "title": "Addon Event Scheduler And Replay",
+  "status": "active",
+  "updated": "2026-05-25",
+  "scope_kind": "execution",
+  "problem": "Addon Event Delivery works manually, but event-driven addons need automatic scheduling, retry, in-flight deduplication, explicit forced replay, and redaction-safe diagnostics before broad notification or sync features land.",
+  "task_prefix": "AESR",
+  "current_task": "AESR-020",
+  "completed_tasks": [
+    "AESR-010"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/addon-event-scheduler-and-replay/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/addon-event-scheduler-and-replay/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/addon-event-scheduler-and-replay/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/addon-event-scheduler-and-replay/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/addon-event-scheduler-and-replay/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python -m json.tool docs/workstreams/addon-event-scheduler-and-replay/WORKSTREAM.json > $null",
+    "git diff --check",
+    "cargo nextest run -p nako-db addon_event_scheduler --no-fail-fast",
+    "cargo nextest run -p nako-server addon_event_scheduler --no-fail-fast",
+    "cargo nextest run -p nako-server addon_event_replay --no-fail-fast",
+    "cargo nextest run -p nako-server addon_event_filter --no-fail-fast",
+    "cargo nextest run -p nako-server addon_event --no-fail-fast",
+    "cargo nextest run -p nako-db event --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "cargo check -p nako-core -p nako-db -p nako-addon-protocol -p nako-addon-client -p nako-api -p nako-server --tests"
+  ],
+  "evidence": [
+    "docs/workstreams/addon-event-scheduler-and-replay/DESIGN.md",
+    "docs/workstreams/addon-event-scheduler-and-replay/TODO.md",
+    "docs/workstreams/addon-ecosystem-foundation/EVIDENCE_AND_GATES.md",
+    "crates/nako-core/src/addon_event.rs",
+    "crates/nako-db/src/sqlite/addon_events.rs",
+    "crates/nako-db/src/postgres/events.rs",
+    "crates/nako-server/src/app/addons/event_runtime.rs"
+  ],
+  "adr_refs": [
+    "docs/adr/0014-durable-event-outbox-for-webhooks-and-automation.md",
+    "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md",
+    "docs/adr/0034-package-addon-capabilities-into-sidecar-suites.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "next_task": "AESR-020",
+    "notes": "Start with due work selection and redaction-safe scheduler diagnostics. Do not start notification bridge, watch-state sync, MCP, Arr-stack, compatibility protocols, or tunnel work inside this lane."
+  }
+}

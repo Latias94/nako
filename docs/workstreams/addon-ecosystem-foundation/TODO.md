@@ -1,6 +1,6 @@
 # Addon Ecosystem Foundation — TODO
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-25
 
 ## M0 — Scope And Authority
@@ -68,24 +68,29 @@ Last updated: 2026-05-25
 
 ## M4 — Official Event Addon Proof
 
-- [ ] AEF-050 [owner=codex] [deps=AEF-040] [scope=official-addon-repo,scripts,docs]
+- [x] AEF-050 [owner=codex] [deps=AEF-040] [scope=official-addon-repo,scripts,docs]
   Goal: Add the first official event-driven addon proof path and suite-facing
   deployment guidance.
   Validation: focused official addon tests and a Nako-hosted smoke where
   feasible.
   Review: Confirm the proof is small and does not expand into a full
   notification provider matrix.
-  Evidence: official addon crate or suite route and docs.
+  Evidence:
+  `F:\SourceCodes\Rust\nako-official-addons\crates\nako-metadata-scraper\src\routes.rs`,
+  `F:\SourceCodes\Rust\nako-official-addons\addons\metadata-scraper\manifest.example.json`,
+  `F:\SourceCodes\Rust\nako-official-addons\addons\metadata-scraper\smoke.local.ps1`,
+  `crates/nako-official-addon-catalog/src/lib.rs`.
   Handoff: Split notification bridge, watch-state sync, MCP, Arr-stack, and
   compatibility protocols into named follow-ons after the event proof.
 
 ## M5 — Closeout And Follow-On Split
 
-- [ ] AEF-060 [owner=planner] [deps=AEF-050] [scope=docs/workstreams/addon-ecosystem-foundation]
+- [x] AEF-060 [owner=planner] [deps=AEF-050] [scope=docs/workstreams/addon-ecosystem-foundation]
   Goal: Close this lane or split any remaining Tier 1/2/3 feature work into
   named workstreams.
   Validation: `cargo fmt --all -- --check`, focused nextest gates, relevant
   official addon gates, `git diff --check`, and `WORKSTREAM.json` parse.
   Review: Run review-workstream and verify-rust-workstream before closeout.
-  Evidence: `EVIDENCE_AND_GATES.md`, `HANDOFF.md`, `WORKSTREAM.json`.
+  Evidence: `EVIDENCE_AND_GATES.md`, `HANDOFF.md`, `WORKSTREAM.json`,
+  `docs/workstreams/addon-event-scheduler-and-replay/`.
   Handoff: Do not leave broad addon feature ideas as unowned prose.

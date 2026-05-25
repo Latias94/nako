@@ -2,17 +2,19 @@
   "schema_version": 1,
   "slug": "addon-ecosystem-foundation",
   "title": "Addon Ecosystem Foundation",
-  "status": "active",
+  "status": "complete",
   "updated": "2026-05-25",
   "scope_kind": "architecture",
   "problem": "Nako's Addon sidecar direction is correct, but event delivery, task idempotency, official catalog drift prevention, and suite-shaped deployment need to be deepened before broad official addon features land.",
   "task_prefix": "AEF",
-  "current_task": "AEF-050",
+  "current_task": null,
   "completed_tasks": [
     "AEF-010",
     "AEF-020",
     "AEF-030",
-    "AEF-040"
+    "AEF-040",
+    "AEF-050",
+    "AEF-060"
   ],
   "authoritative_docs": [
     {
@@ -60,6 +62,7 @@
     "docs/workstreams/addon-ecosystem-foundation/EVIDENCE_AND_GATES.md",
     "crates/nako-server/src/app/addons/event_runtime.rs",
     "crates/nako-official-addon-catalog",
+    "docs/workstreams/addon-event-scheduler-and-replay",
     "F:\\SourceCodes\\Rust\\nako-official-addons\\crates\\nako-metadata-scraper"
   ],
   "adr_refs": [
@@ -74,7 +77,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "AEF-050",
-    "notes": "Continue with the official event addon proof. Split full notification, watch-state sync, MCP, Arr-stack, DLNA/UPnP/WebDAV, Network Tunnel Provider, package signing, process supervision, and event filter execution into follow-ons unless explicitly pulled into this lane."
+    "next_task": "AESR-010",
+    "notes": "Addon Ecosystem Foundation is closed. Continue in docs/workstreams/addon-event-scheduler-and-replay/ before notification bridge, watch-state sync, MCP, Arr-stack, DLNA/UPnP/WebDAV, or Network Tunnel Provider breadth."
   }
 }
