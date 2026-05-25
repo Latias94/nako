@@ -515,6 +515,7 @@ pub(super) async fn get_admin_overview(State(app): State<NakoApp>) -> Json<Admin
         metadata_raw_cache_deleted: startup.metadata_raw_cache_deleted,
         metadata_lifecycle_tasks_started: usize_to_u32(startup.metadata_lifecycle_tasks_started),
         artwork_ingest_worker_started: startup.artwork_ingest_worker_started,
+        addon_event_scheduler_started: startup.addon_event_scheduler_started,
     };
     let status = overview_status(&storage, &metadata, &runtime);
 

@@ -119,6 +119,7 @@ async fn ingestion_failure_routes_list_and_ignore_failures() {
         metadata_concurrency: 1,
         remux_concurrency: 1,
         webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),

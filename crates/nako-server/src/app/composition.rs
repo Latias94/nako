@@ -51,6 +51,9 @@ impl NakoAppComposition {
             .ingest_worker_enabled
             .then(|| services.artwork.start_ingest_worker(&runtime))
             .unwrap_or(false);
+        let addon_event_scheduler_started = services
+            .addons
+            .start_addon_event_scheduler(config.addon_event_scheduler);
 
         Ok(Self {
             config,
@@ -59,6 +62,7 @@ impl NakoAppComposition {
             services,
             startup_report: ServerStartupReport {
                 artwork_ingest_worker_started,
+                addon_event_scheduler_started,
                 ..startup_report
             },
         })

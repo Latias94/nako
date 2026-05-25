@@ -242,6 +242,7 @@ pub struct AdminOverviewStartupSummary {
     pub metadata_raw_cache_deleted: u64,
     pub metadata_lifecycle_tasks_started: u32,
     pub artwork_ingest_worker_started: bool,
+    pub addon_event_scheduler_started: bool,
 }
 
 #[cfg(test)]
@@ -299,6 +300,7 @@ mod tests {
                 metadata_raw_cache_deleted: 0,
                 metadata_lifecycle_tasks_started: 0,
                 artwork_ingest_worker_started: false,
+                addon_event_scheduler_started: false,
             },
         };
 

@@ -1257,6 +1257,7 @@ async fn remux_app_with_source_and_transcode(
         metadata_concurrency: 1,
         remux_concurrency: 1,
         webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: staging_root,
         metadata: MetadataConfig::default(),

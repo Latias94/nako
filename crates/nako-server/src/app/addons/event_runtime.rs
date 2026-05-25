@@ -1,3 +1,5 @@
+use std::{sync::Arc, time::Duration as StdDuration};
+
 use nako_addon_client::{
     AddonClientError, AddonEventCallFailure, AddonEventCallRequest, ReqwestAddonTransport,
     call_addon_event_with_outcome,
@@ -13,12 +15,15 @@ use nako_core::{
     AddonEventDeliveryAttemptId, AddonEventDeliveryRepository, AddonEventDeliveryStatus,
     AddonEventSchedulerWorkRecord, AddonRegistrationRecord, AddonRepository,
     AddonRoutingDeclarationKind, AddonRoutingPlanStatus, AddonRoutingPlanTarget, AddonStatus,
-    ClaimAddonEventDeliveryAttempt, EventId, EventOutboxRepository, NakoError, OutboxEventRecord,
-    OutboxEventStatus, Result, SecretString,
+    ClaimAddonEventDeliveryAttempt, EventId, EventOutboxRepository, NakoError,
+    OutboxEventListFilter, OutboxEventRecord, OutboxEventStatus, PageRequest, Result, SecretString,
 };
 use time::{Duration as TimeDuration, OffsetDateTime, format_description::well_known::Rfc3339};
-use tokio::task::JoinSet;
+use tokio::{sync::Semaphore, task::JoinSet};
+use tokio_util::sync::CancellationToken;
 use tracing::warn;
+
+use crate::config::AddonEventSchedulerConfig;
 
 use super::{
     AddonAppService, declaration_scopes_granted, resolve_outbound_task_dispatch_secret,
@@ -28,6 +33,89 @@ use super::{
 const ADDON_EVENT_DELIVERY_LEASE_SECONDS: i64 = 300;
 
 impl AddonAppService {
+    pub(crate) fn start_addon_event_scheduler(&self, config: AddonEventSchedulerConfig) -> bool {
+        if !config.enabled {
+            return false;
+        }
+
+        let service = self.clone();
+        let shutdown = self.runtime.shutdown_token();
+        self.runtime.spawn(
+            "addon_event_scheduler",
+            "addon.event.scheduler",
+            async move {
+                run_addon_event_scheduler_loop(service, config, shutdown).await;
+            },
+        );
+
+        true
+    }
+
+    pub(crate) async fn run_addon_event_scheduler_tick(
+        &self,
+        config: AddonEventSchedulerConfig,
+    ) -> Result<()> {
+        let events = self
+            .store
+            .list_outbox_events(
+                OutboxEventListFilter {
+                    status: Some(OutboxEventStatus::Pending),
+                    ..OutboxEventListFilter::default()
+                },
+                PageRequest::new(config.batch_size.max(1), 0).clamped(),
+            )
+            .await?;
+        let event_permits = Arc::new(Semaphore::new(config.concurrency.max(1)));
+        let mut workers = JoinSet::new();
+
+        for event in events {
+            let work = self.list_addon_event_scheduler_work(event.id).await?;
+            if work.due_work_count == 0 {
+                continue;
+            }
+
+            let service = self.clone();
+            let event_id = event.id;
+            let event_permits = Arc::clone(&event_permits);
+            workers.spawn(async move {
+                let _permit =
+                    event_permits
+                        .acquire_owned()
+                        .await
+                        .map_err(|err| NakoError::Provider {
+                            provider: "addon_event_scheduler".to_owned(),
+                            message: format!(
+                                "addon event scheduler concurrency budget was closed: {err}"
+                            ),
+                        })?;
+                service
+                    .deliver_addon_events_for_event(event_id)
+                    .await
+                    .map(|_| ())
+            });
+        }
+
+        while let Some(result) = workers.join_next().await {
+            match result {
+                Ok(Ok(())) => {}
+                Ok(Err(err)) => {
+                    warn!(
+                        error = %err,
+                        "addon event scheduler failed to deliver due event"
+                    );
+                }
+                Err(err) => {
+                    warn!(
+                        error = %err,
+                        "addon event scheduler worker join failed"
+                    );
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     pub async fn list_addon_event_delivery_attempts(
         &self,
         event_id: EventId,
@@ -402,6 +490,30 @@ impl AddonAppService {
                 entity: "outbox_event",
                 id: event_id.to_string(),
             })
+    }
+}
+
+async fn run_addon_event_scheduler_loop(
+    service: AddonAppService,
+    config: AddonEventSchedulerConfig,
+    shutdown: CancellationToken,
+) {
+    while !shutdown.is_cancelled() {
+        let sleep_for = match service.run_addon_event_scheduler_tick(config).await {
+            Ok(()) => StdDuration::from_millis(config.interval_ms.max(1)),
+            Err(err) => {
+                warn!(
+                    error = %err,
+                    "addon event scheduler tick failed"
+                );
+                StdDuration::from_millis(config.error_backoff_ms.max(1))
+            }
+        };
+
+        tokio::select! {
+            () = shutdown.cancelled() => break,
+            () = tokio::time::sleep(sleep_for) => {}
+        }
     }
 }
 

@@ -31,6 +31,7 @@ fn startup_config(root: &Path, libraries: Vec<LocalLibraryConfig>) -> NakoServer
         metadata_concurrency: 1,
         remux_concurrency: 1,
         webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: root.join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -185,6 +186,7 @@ async fn scan_library_persists_job_success() {
         metadata_concurrency: 1,
         remux_concurrency: 1,
         webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -644,6 +646,7 @@ async fn background_scan_job_uses_runtime_job_supervision() {
         metadata_concurrency: 1,
         remux_concurrency: 1,
         webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -878,6 +881,7 @@ async fn background_scan_job_acknowledges_cancellation_before_probe_stage() {
         metadata_concurrency: 1,
         remux_concurrency: 1,
         webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -1256,6 +1260,7 @@ async fn app_startup_rejects_duplicate_configured_library_ids() {
         metadata_concurrency: 1,
         remux_concurrency: 1,
         webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -1323,6 +1328,38 @@ async fn app_startup_rejects_duplicate_configured_library_roots() {
     };
     assert!(message.contains("duplicate configured library root"));
     assert!(message.contains(&root.display().to_string()));
+}
+
+#[tokio::test]
+async fn addon_event_scheduler_runtime_task_is_supervised_and_stops_on_shutdown() {
+    let temp = tempfile::tempdir().unwrap();
+    let library = LocalLibraryConfig {
+        id: LibraryId::new(),
+        name: "Movies".to_owned(),
+        root: temp.path().join("movies"),
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    fs::create_dir_all(&library.root).unwrap();
+    let mut config = startup_config(temp.path(), vec![library]);
+    config.addon_event_scheduler.enabled = true;
+    config.addon_event_scheduler.interval_ms = 1_000;
+
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store).await.unwrap();
+
+    assert!(app.startup_report().addon_event_scheduler_started);
+    let diagnostics = app.runtime_diagnostics();
+    assert_eq!(diagnostics.active_tasks, 1);
+    assert_eq!(diagnostics.tasks[0].name, "addon_event_scheduler");
+    assert_eq!(diagnostics.tasks[0].resource_class, "addon.event.scheduler");
+
+    app.shutdown_runtime();
+    tokio::task::yield_now().await;
+
+    let diagnostics = app.runtime_diagnostics();
+    assert!(diagnostics.shutdown_requested);
+    assert_eq!(diagnostics.active_tasks, 0);
 }
 
 #[tokio::test]
@@ -1452,6 +1489,7 @@ async fn app_startup_rejects_duplicate_metadata_provider_configs() {
         metadata_concurrency: 1,
         remux_concurrency: 1,
         webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata,
@@ -1546,6 +1584,7 @@ async fn app_startup_recovers_unfinished_jobs_and_preserves_queued_artwork_inges
         metadata_concurrency: 1,
         remux_concurrency: 1,
         webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -1731,6 +1770,7 @@ async fn startup_report_tracks_disabled_staging_cleanup() {
         metadata_concurrency: 1,
         remux_concurrency: 1,
         webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),

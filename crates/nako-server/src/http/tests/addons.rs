@@ -1970,6 +1970,7 @@ async fn admin_addon_runtime_readiness_classifies_local_gaps_without_sidecar_cal
         metadata_concurrency: 1,
         remux_concurrency: 1,
         webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -3278,6 +3279,111 @@ async fn addon_event_scheduler_prevents_duplicate_in_flight_delivery_under_concu
     .await;
     assert_eq!(listed.attempts.len(), 1);
     assert_eq!(listed.attempts[0].attempt_number, 1);
+}
+
+#[tokio::test]
+async fn addon_event_scheduler_loop_dispatches_due_outbox_event_when_enabled() {
+    let (_temp, router, source, store) =
+        router_with_media_source_config("addon-event-scheduler-loop.mkv", b"media", |config| {
+            config.addon_event_scheduler.enabled = true;
+            config.addon_event_scheduler.interval_ms = 10;
+            config.addon_event_scheduler.batch_size = 10;
+            config.addon_event_scheduler.concurrency = 1;
+        })
+        .await;
+    let (base_url, requests) = event_path_addon_server(StatusCode::ACCEPTED).await;
+    register_event_path_addon(&router, base_url).await;
+    let event = store
+        .enqueue_outbox_event(NewOutboxEvent {
+            id: EventId::new(),
+            kind: DomainEventKind::LibraryScanned,
+            subject: DomainEventSubject::Library(source.library_id),
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            idempotency_key: format!("addon-event-scheduler-loop:{}", source.id),
+            payload_json: serde_json::json!({
+                "library_id": source.library_id,
+                "source_id": source.id
+            })
+            .to_string(),
+        })
+        .await
+        .unwrap();
+
+    wait_for_event_requests(&requests, 1).await;
+    let captured = requests.lock().await;
+    assert_eq!(captured.len(), 1);
+    assert_eq!(captured[0].request.event_id, event.id.to_string());
+    assert_eq!(captured[0].request.attempt, 1);
+    drop(captured);
+
+    let listed = request_json::<AddonEventDeliveryAttemptsResponse>(
+        &router,
+        Method::GET,
+        &format!("/admin/v1/events/{}/addon-event-attempts", event.id),
+    )
+    .await;
+    assert_eq!(listed.attempts.len(), 1);
+    assert_eq!(
+        listed.attempts[0].status,
+        nako_core::AddonEventDeliveryStatus::Succeeded
+    );
+
+    let overview =
+        request_json::<AdminOverviewResponse>(&router, Method::GET, "/admin/v1/overview").await;
+    assert!(overview.startup.addon_event_scheduler_started);
+}
+
+#[tokio::test]
+async fn addon_event_scheduler_loop_honors_configured_event_concurrency() {
+    let (_temp, router, source, store) = router_with_media_source_config(
+        "addon-event-scheduler-concurrency.mkv",
+        b"media",
+        |config| {
+            config.metadata_concurrency = 8;
+            config.addon_event_scheduler.enabled = true;
+            config.addon_event_scheduler.interval_ms = 10;
+            config.addon_event_scheduler.batch_size = 10;
+            config.addon_event_scheduler.concurrency = 1;
+        },
+    )
+    .await;
+    let gate = StdArc::new(Notify::new());
+    let (base_url, requests) =
+        blocking_event_path_addon_server(StatusCode::ACCEPTED, StdArc::clone(&gate)).await;
+    register_event_path_addon(&router, base_url).await;
+
+    for index in 0..2 {
+        store
+            .enqueue_outbox_event(NewOutboxEvent {
+                id: EventId::new(),
+                kind: DomainEventKind::LibraryScanned,
+                subject: DomainEventSubject::Library(source.library_id),
+                library_id: Some(source.library_id),
+                source_id: Some(source.id),
+                idempotency_key: format!("addon-event-scheduler-concurrency:{}:{index}", source.id),
+                payload_json: serde_json::json!({
+                    "library_id": source.library_id,
+                    "source_id": source.id,
+                    "index": index
+                })
+                .to_string(),
+            })
+            .await
+            .unwrap();
+    }
+
+    wait_for_event_requests(&requests, 1).await;
+    sleep(Duration::from_millis(80)).await;
+    assert_eq!(requests.lock().await.len(), 1);
+
+    gate.notify_waiters();
+    wait_for_event_requests(&requests, 2).await;
+    gate.notify_waiters();
+    let captured = requests.lock().await;
+    assert_eq!(captured.len(), 2);
+    assert_eq!(captured[0].request.attempt, 1);
+    assert_eq!(captured[1].request.attempt, 1);
 }
 
 #[tokio::test]

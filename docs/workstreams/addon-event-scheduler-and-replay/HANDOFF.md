@@ -13,17 +13,19 @@ deduplication, explicit forced replay, and redaction-safe diagnostics.
 
 ## Active Task
 
-- Task ID: AESR-040
+- Task ID: AESR-050
 - Owner: codex
 - Files:
+  - `crates/nako-api`
   - `crates/nako-server`
+  - `crates/nako-db`
 - Validation:
-  - `cargo nextest run -p nako-server addon_event_scheduler --no-fail-fast`
+  - `cargo nextest run -p nako-server addon_event_replay addon_event_filter --no-fail-fast`
 - Status: READY
-- Review: AESR-030 durable claim and automatic retry passed focused gates; the
-  next slice should add the background scheduler lifecycle without changing
-  replay semantics.
-- Evidence: AESR-020 and AESR-030 evidence is recorded in
+- Review: AESR-040 scheduler lifecycle passed focused gates; the next slice
+  should keep forced replay explicit and evaluate subscription filters before
+  sidecar calls.
+- Evidence: AESR-020 through AESR-040 evidence is recorded in
   `EVIDENCE_AND_GATES.md`.
 
 ## Decisions Since Last Update
@@ -45,15 +47,20 @@ deduplication, explicit forced replay, and redaction-safe diagnostics.
   schedulers to observe.
 - Event subscription filters should execute before sidecar calls, unless filter
   language complexity forces an ADR split.
+- AESR-040 adds a disabled-by-default `addon_event_scheduler` config block and
+  starts a supervised `addon_event_scheduler` runtime task only when enabled.
+  The loop scans pending outbox events in bounded batches, checks due/retry-due
+  scheduler work, and dispatches through the existing durable delivery path with
+  configured event concurrency.
+- Startup diagnostics now expose whether the scheduler runtime task was started.
 
 ## Blockers
 
-- `cargo fmt --all -- --check` is currently blocked by unrelated parallel
-  scan-addon workstream edits in server files. Do not format or revert those
-  files from this lane unless that workstream owner agrees.
+- None currently known for AESR-050.
 
 ## Next Recommended Action
 
-Implement AESR-040 by wiring a bounded scheduler loop into server runtime
-lifecycle. Reuse the existing due-work diagnostics and durable claim API; do not
-start forced replay, filters, or notification bridge work in the same slice.
+Implement AESR-050 by adding explicit forced replay and event subscription
+filter evaluation. Keep replay separate from normal scheduled delivery, keep
+payload values out of diagnostics, and do not start notification bridge work in
+this lane.

@@ -48,6 +48,8 @@ Primary gate:
 
 ## M3 — Scheduler Runtime Integration
 
+Status: Complete.
+
 Exit criteria:
 
 - Scheduler lifecycle starts and stops with the server runtime.

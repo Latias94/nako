@@ -7,11 +7,12 @@
   "scope_kind": "execution",
   "problem": "Addon Event Delivery works manually, but event-driven addons need automatic scheduling, retry, in-flight deduplication, explicit forced replay, and redaction-safe diagnostics before broad notification or sync features land.",
   "task_prefix": "AESR",
-  "current_task": "AESR-040",
+  "current_task": "AESR-050",
   "completed_tasks": [
     "AESR-010",
     "AESR-020",
-    "AESR-030"
+    "AESR-030",
+    "AESR-040"
   ],
   "authoritative_docs": [
     {
@@ -56,7 +57,11 @@
     "crates/nako-db/src/sqlite/addon_events.rs",
     "crates/nako-db/src/postgres/events.rs",
     "crates/nako-db/src/contract_tests.rs",
+    "crates/nako-api/src/admin.rs",
+    "crates/nako-server/src/app/startup.rs",
+    "crates/nako-server/src/app/composition.rs",
     "crates/nako-server/src/app/addons/event_runtime.rs",
+    "crates/nako-server/src/http/admin.rs",
     "crates/nako-server/src/http/addons.rs",
     "crates/nako-server/src/http/tests/addons.rs"
   ],
@@ -68,7 +73,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "AESR-030",
-    "notes": "Due work selection, redaction-safe scheduler diagnostics, durable in-flight claim, and next_retry_at automatic retry are in place. Next wire a bounded scheduler loop into server lifecycle. Do not start notification bridge, watch-state sync, MCP, Arr-stack, compatibility protocols, or tunnel work inside this lane."
+    "next_task": "AESR-050",
+    "notes": "Due work selection, redaction-safe scheduler diagnostics, durable in-flight claim, next_retry_at automatic retry, and a disabled-by-default supervised scheduler loop are in place. Next add explicit forced replay and subscription filter evaluation. Do not start notification bridge, watch-state sync, MCP, Arr-stack, compatibility protocols, or tunnel work inside this lane."
   }
 }

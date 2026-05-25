@@ -44,6 +44,8 @@ pub struct NakoServerConfig {
     pub remux_concurrency: usize,
     #[serde(default = "default_webhook_concurrency")]
     pub webhook_concurrency: usize,
+    #[serde(default)]
+    pub addon_event_scheduler: AddonEventSchedulerConfig,
     #[serde(default = "default_remux_timeout_ms")]
     pub remux_timeout_ms: u64,
     #[serde(default = "default_remux_staging_root")]
@@ -60,6 +62,32 @@ pub struct NakoServerConfig {
     pub artwork: ArtworkConfig,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub libraries: Vec<LocalLibraryConfig>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonEventSchedulerConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_addon_event_scheduler_interval_ms")]
+    pub interval_ms: u64,
+    #[serde(default = "default_addon_event_scheduler_error_backoff_ms")]
+    pub error_backoff_ms: u64,
+    #[serde(default = "default_addon_event_scheduler_batch_size")]
+    pub batch_size: u32,
+    #[serde(default = "default_addon_event_scheduler_concurrency")]
+    pub concurrency: usize,
+}
+
+impl Default for AddonEventSchedulerConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            interval_ms: default_addon_event_scheduler_interval_ms(),
+            error_backoff_ms: default_addon_event_scheduler_error_backoff_ms(),
+            batch_size: default_addon_event_scheduler_batch_size(),
+            concurrency: default_addon_event_scheduler_concurrency(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -513,6 +541,7 @@ pub fn example_config() -> Result<String> {
         metadata_concurrency: default_metadata_concurrency(),
         remux_concurrency: default_remux_concurrency(),
         webhook_concurrency: default_webhook_concurrency(),
+        addon_event_scheduler: AddonEventSchedulerConfig::default(),
         remux_timeout_ms: default_remux_timeout_ms(),
         remux_staging_root: default_remux_staging_root(),
         metadata: MetadataConfig::default(),
@@ -637,6 +666,22 @@ const fn default_remux_concurrency() -> usize {
 }
 
 const fn default_webhook_concurrency() -> usize {
+    2
+}
+
+const fn default_addon_event_scheduler_interval_ms() -> u64 {
+    5_000
+}
+
+const fn default_addon_event_scheduler_error_backoff_ms() -> u64 {
+    30_000
+}
+
+const fn default_addon_event_scheduler_batch_size() -> u32 {
+    50
+}
+
+const fn default_addon_event_scheduler_concurrency() -> usize {
     2
 }
 
@@ -806,6 +851,13 @@ mod tests {
             ingest_worker_enabled = true
             ingest_worker_idle_ms = 250
 
+            [addon_event_scheduler]
+            enabled = true
+            interval_ms = 250
+            error_backoff_ms = 1000
+            batch_size = 25
+            concurrency = 3
+
             [[libraries]]
             id = "018f0000-0000-7000-8000-000000000001"
             name = "Movies"
@@ -869,6 +921,11 @@ mod tests {
         assert_eq!(config.metadata_concurrency, 4);
         assert_eq!(config.remux_concurrency, 2);
         assert_eq!(config.webhook_concurrency, 3);
+        assert!(config.addon_event_scheduler.enabled);
+        assert_eq!(config.addon_event_scheduler.interval_ms, 250);
+        assert_eq!(config.addon_event_scheduler.error_backoff_ms, 1_000);
+        assert_eq!(config.addon_event_scheduler.batch_size, 25);
+        assert_eq!(config.addon_event_scheduler.concurrency, 3);
         assert_eq!(config.remux_timeout_ms, 60_000);
         assert_eq!(
             config.remux_staging_root,
@@ -1716,6 +1773,7 @@ mod tests {
             metadata_concurrency: default_metadata_concurrency(),
             remux_concurrency: default_remux_concurrency(),
             webhook_concurrency: default_webhook_concurrency(),
+            addon_event_scheduler: AddonEventSchedulerConfig::default(),
             remux_timeout_ms: default_remux_timeout_ms(),
             remux_staging_root: PathBuf::from("nako-cache/remux"),
             metadata: MetadataConfig::default(),

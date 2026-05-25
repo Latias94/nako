@@ -44,15 +44,17 @@ Last updated: 2026-05-25
 
 ## M3 — Scheduler Runtime Integration
 
-- [ ] AESR-040 [owner=codex] [deps=AESR-030] [scope=crates/nako-server]
+- [x] AESR-040 [owner=codex] [deps=AESR-030] [scope=crates/nako-server]
   Goal: Wire the scheduler loop into server runtime lifecycle with explicit
   configuration and bounded concurrency.
   Validation: `cargo nextest run -p nako-server addon_event_scheduler --no-fail-fast`.
   Review: Check shutdown, jitter/backoff, observability, and that manual admin
   delivery still works.
-  Evidence: server lifecycle tests or deterministic scheduler harness.
-  Handoff: Keep scheduler disabled or deterministic in tests unless the harness
-  controls time.
+  Evidence: server lifecycle test plus HTTP scheduler loop tests for due-event
+  dispatch and configured event concurrency.
+  Handoff: Scheduler is disabled by default, starts only when configured, is
+  supervised by the runtime, and reuses durable delivery claims. Continue at
+  AESR-050 for forced replay and filters.
 
 ## M4 — Forced Replay And Filters
 

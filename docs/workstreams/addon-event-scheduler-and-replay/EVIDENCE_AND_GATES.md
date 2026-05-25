@@ -160,6 +160,39 @@ rustfmt --edition 2024 crates/nako-api/src/extension.rs crates/nako-core/src/add
 
 Result: passed.
 
+### 2026-05-25 — AESR-040 Scheduler Runtime Integration
+
+Claim: Addon Event scheduling is wired into server runtime lifecycle behind an
+explicit disabled-by-default config block. When enabled, a supervised background
+loop scans pending outbox events, dispatches due/retry-due work through the
+existing durable delivery path, honors configured event concurrency, exposes
+startup diagnostics, and stops with runtime shutdown. Manual admin delivery
+remains available.
+
+Commands:
+
+```powershell
+cargo nextest run -p nako-server addon_event_scheduler --no-fail-fast
+cargo nextest run -p nako-server addon_event_delivery --no-fail-fast
+cargo nextest run -p nako-server config_round_trips_from_toml --no-fail-fast
+cargo nextest run -p nako-api admin_overview_response_serializes_safe_summary_fields --no-fail-fast
+cargo check -p nako-core -p nako-db -p nako-addon-protocol -p nako-addon-client -p nako-api -p nako-server --tests
+cargo fmt --all -- --check
+git diff --check
+python -m json.tool docs/workstreams/addon-event-scheduler-and-replay/WORKSTREAM.json > $null
+```
+
+Result: passed. `git diff --check` emitted only existing CRLF conversion
+warnings from Git on Windows.
+
+Broader replay/filter and DB scheduler gates were not rerun for AESR-040 because
+this slice did not change replay, filter, or repository claim/query code.
+
+Review: no blocking workstream-compliance or code-quality findings. Residual
+risk: scheduler event selection currently uses the existing outbox listing page
+instead of an oldest-first scheduler-specific repository query; split a follow-up
+if sustained high-volume event production requires stronger fairness guarantees.
+
 ## Notes
 
 - Do not start notification bridge until this lane either ships or explicitly

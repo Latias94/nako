@@ -29,6 +29,7 @@ pub(crate) struct ServerStartupReport {
     pub metadata_raw_cache_deleted: u64,
     pub metadata_lifecycle_tasks_started: usize,
     pub artwork_ingest_worker_started: bool,
+    pub addon_event_scheduler_started: bool,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -81,6 +82,7 @@ impl<'a> ServerStartupWorkflow<'a> {
             metadata_raw_cache_deleted,
             metadata_lifecycle_tasks_started,
             artwork_ingest_worker_started: false,
+            addon_event_scheduler_started: false,
         })
     }
 
