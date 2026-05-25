@@ -23,6 +23,7 @@ mod library_reconciliation;
 mod managed_import;
 mod metadata;
 mod metadata_runtime;
+mod metadata_scan;
 mod nfo;
 pub(crate) mod playback;
 mod runtime;

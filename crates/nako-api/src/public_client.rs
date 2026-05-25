@@ -98,6 +98,7 @@ pub fn metadata_profile_to_dto(profile: MetadataProfile) -> MetadataProfileDto {
         scan: MetadataScanPolicyDto {
             enabled: profile.scan.enabled,
             addon_scrape: profile.scan.addon_scrape,
+            addon_writeback: profile.scan.addon_writeback,
         },
     }
 }

@@ -287,6 +287,7 @@ export interface MetadataProfileDto {
 
 export interface MetadataScanPolicyDto {
   addon_scrape: boolean;
+  addon_writeback: boolean;
   enabled: boolean;
 }
 

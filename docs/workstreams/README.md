@@ -6,6 +6,11 @@ attention.
 
 ## Current Workstreams
 
+- [metadata-acquisition-pipeline](metadata-acquisition-pipeline/README.md):
+  active architecture lane for turning scan-time metadata acquisition into a
+  configurable Media Library pipeline, preserving NFO import, keeping Addon
+  Bulk Metadata Scrape suggestion-only by default, and proving explicit Addon
+  metadata writeback through Nako-owned Side Effects.
 - [addon-ecosystem-foundation](addon-ecosystem-foundation/README.md):
   active architecture lane for Addon Package / Addon Suite deployment, Addon
   Task fingerprinting, official catalog drift prevention, Addon Event

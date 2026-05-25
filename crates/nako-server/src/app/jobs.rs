@@ -15,9 +15,6 @@ use nako_library::{
     LibraryProbeWorkflow, LibraryScannerOptions,
 };
 use nako_media_probe::FfprobeMediaProbe;
-use nako_nfo::{
-    MovieNfoCodec, NfoImportRequest, NfoImportSummary, NfoLibraryRunOutcome, NfoService,
-};
 use serde::Serialize;
 use tokio::sync::Semaphore;
 use tracing::{Instrument, info, info_span, warn};
@@ -25,11 +22,12 @@ use tracing::{Instrument, info, info_span, warn};
 use crate::config::{NakoServerConfig, libraries_from_config};
 
 use super::{
-    addons::{
-        AddonAppService, ScanAddonBulkMetadataScrapeRequest, ScanAddonBulkMetadataScrapeSummary,
-    },
+    addons::AddonAppService,
     job_runtime::{
         DurableJobContext, DurableJobOperationResult, DurableJobRunOutcome, DurableJobRuntime,
+    },
+    metadata_scan::{
+        LibraryScanMetadataSummary, MetadataScanAcquisitionRequest, MetadataScanAcquisitionService,
     },
     runtime::RuntimeSupervisor,
     staging::ManifestRecordingStorageBackend,
@@ -42,14 +40,6 @@ pub struct ScanCommandOutput {
     pub index: LibraryIndexSummary,
     pub probe: LibraryProbeSummary,
     pub metadata: LibraryScanMetadataSummary,
-}
-
-#[derive(Clone, Debug, Default, Serialize)]
-pub struct LibraryScanMetadataSummary {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub nfo_import: Option<NfoImportSummary>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub addon_scrape: Option<ScanAddonBulkMetadataScrapeSummary>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -280,7 +270,7 @@ pub(crate) struct LibraryScanAppService {
     permits: Arc<Semaphore>,
     storage_backends: StorageBackendRegistry,
     runtime: RuntimeSupervisor,
-    addons: AddonAppService,
+    metadata_scan: MetadataScanAcquisitionService,
 }
 
 impl LibraryScanAppService {
@@ -293,7 +283,9 @@ impl LibraryScanAppService {
         addons: AddonAppService,
     ) -> Self {
         let workflow_store = Arc::new(store.clone());
-        let execution_store = LibraryScanExecutionStore::new(store);
+        let execution_store = LibraryScanExecutionStore::new(store.clone());
+        let metadata_scan =
+            MetadataScanAcquisitionService::new(store, storage_backends.clone(), addons);
         Self {
             config,
             workflow_store,
@@ -301,7 +293,7 @@ impl LibraryScanAppService {
             permits,
             storage_backends,
             runtime,
-            addons,
+            metadata_scan,
         }
     }
 
@@ -557,78 +549,15 @@ impl LibraryScanAppService {
 
         context.check_cancelled().await?;
         let metadata = self
-            .run_scan_metadata_acquisition(job_id, &library, context)
+            .metadata_scan
+            .run(MetadataScanAcquisitionRequest {
+                job_id,
+                library: &library,
+                context,
+            })
             .await?;
 
         Ok((index, probe, metadata))
-    }
-
-    async fn run_scan_metadata_acquisition(
-        &self,
-        job_id: JobId,
-        library: &Library,
-        context: DurableJobContext,
-    ) -> DurableJobOperationResult<LibraryScanMetadataSummary> {
-        let plan = library.options.metadata_profile.scan_acquisition_plan();
-        let mut summary = LibraryScanMetadataSummary::default();
-
-        if plan.local_nfo_import {
-            context.check_cancelled().await?;
-            info!(
-                job_id = %job_id,
-                library_id = %library.id,
-                "running scan-time NFO import"
-            );
-            let storage_backend = self
-                .storage_backends
-                .backend_for_library_root(library)
-                .await?;
-            let nfo = NfoService::new(
-                storage_backend,
-                self.execution_store.store.clone(),
-                MovieNfoCodec,
-            );
-            let import = nfo
-                .import_library_with_cancellation(
-                    NfoImportRequest {
-                        job_id,
-                        library_id: library.id,
-                        policy: library.options.metadata_profile.local_metadata_policy,
-                        force: false,
-                    },
-                    &ScanMetadataCancellationCheck {
-                        context: context.clone(),
-                    },
-                )
-                .await?;
-            match import {
-                NfoLibraryRunOutcome::Completed(import) => {
-                    summary.nfo_import = Some(import);
-                }
-                NfoLibraryRunOutcome::Cancelled(_) => {
-                    return Err(super::job_runtime::DurableJobOperationError::Cancelled);
-                }
-            }
-        }
-
-        if plan.addon_scrape {
-            context.check_cancelled().await?;
-            info!(
-                job_id = %job_id,
-                library_id = %library.id,
-                "creating scan-time Addon bulk metadata scrape task runs"
-            );
-            let addon_scrape = self
-                .addons
-                .create_scan_bulk_metadata_scrape_task_runs(ScanAddonBulkMetadataScrapeRequest {
-                    scan_job_id: job_id,
-                    library,
-                })
-                .await?;
-            summary.addon_scrape = Some(addon_scrape);
-        }
-
-        Ok(summary)
     }
 
     async fn record_outbox_event(&self, event: NewOutboxEvent) {
@@ -675,25 +604,4 @@ struct ScanJobSummary {
 struct LibraryScanJobInput {
     library_id: LibraryId,
     force: bool,
-}
-
-#[derive(Clone, Debug)]
-struct ScanMetadataCancellationCheck {
-    context: DurableJobContext,
-}
-
-#[async_trait::async_trait]
-impl nako_nfo::NfoCancellationCheck for ScanMetadataCancellationCheck {
-    async fn check(
-        &self,
-        _checkpoint: nako_nfo::NfoSidecarCheckpoint,
-    ) -> nako_core::Result<nako_nfo::NfoCancellationDecision> {
-        match self.context.check_cancelled().await {
-            Ok(()) => Ok(nako_nfo::NfoCancellationDecision::Continue),
-            Err(super::job_runtime::DurableJobOperationError::Cancelled) => {
-                Ok(nako_nfo::NfoCancellationDecision::Cancel)
-            }
-            Err(super::job_runtime::DurableJobOperationError::Failed(err)) => Err(err),
-        }
-    }
 }

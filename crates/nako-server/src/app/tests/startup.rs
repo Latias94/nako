@@ -2,7 +2,9 @@ use super::*;
 use nako_addon_protocol::{
     ADDON_PROTOCOL_VERSION, AddonScope, AddonTaskRequest, AddonTaskResponse,
 };
-use nako_api::extension::RegisterAddonRequest;
+use nako_api::extension::{
+    AddonGrantAssignment, IssueAddonTokenRequest, RegisterAddonRequest, ReplaceAddonGrantsRequest,
+};
 use nako_core::{
     AddonPermission, AddonRepository, AddonSideEffectTarget, AddonSideEffectValidationStatus,
     AddonStatus, AddonTaskRunRepository, ArtworkCandidateId, ArtworkCandidateRepository,
@@ -436,6 +438,195 @@ async fn scan_library_enqueues_addon_bulk_metadata_scrape_when_enabled() {
 }
 
 #[tokio::test]
+async fn scan_library_adds_addon_bulk_metadata_writeback_when_enabled() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_root = temp.path().join("library");
+    fs::create_dir_all(&library_root).unwrap();
+    write_fixture_mp4(&library_root.join("demo.mp4"));
+    let library_id = LibraryId::new();
+    let mut config = startup_config(
+        temp.path(),
+        vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: library_root,
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    );
+    let mut profile = nako_core::MetadataProfile::from_preset(nako_core::LibraryPreset::Movies);
+    profile.scan.addon_scrape = true;
+    profile.scan.addon_writeback = true;
+    config.metadata.library_profiles.insert(library_id, profile);
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let (base_url, captured) = scan_bulk_metadata_scrape_addon_server().await;
+    let mut manifest = metadata_scraper::default_manifest();
+    manifest.base_url = base_url;
+    let registered = app
+        .addons()
+        .register_addon(RegisterAddonRequest {
+            id: None,
+            manifest,
+            outbound_task_dispatch_secret_env: None,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+                AddonScope::AutomationRun,
+            ],
+            status: Some(AddonStatus::Enabled),
+        })
+        .await
+        .unwrap();
+    app.addons()
+        .sync_addon_routing_plans(registered.addon.summary.id)
+        .await
+        .unwrap();
+
+    let output = app.library_scan().scan_library(library_id).await.unwrap();
+    let addon_scrape = output
+        .metadata
+        .addon_scrape
+        .expect("scan should enqueue addon scrape");
+    wait_for_addon_task_run_status(
+        &store,
+        addon_scrape.task_runs[0].job_id,
+        JobStatus::Succeeded,
+    )
+    .await;
+
+    let captured = captured.lock().await;
+    let item = &captured[0].payload["items"][0];
+    let writeback = item
+        .get("writeback")
+        .expect("writeback should be explicit when enabled");
+
+    assert_eq!(writeback["library_id"], library_id.to_string());
+    assert_eq!(writeback["target"]["kind"], "media_source");
+    assert_eq!(writeback["target"]["id"], item["source_id"]);
+    assert!(
+        writeback["idempotency_key"]
+            .as_str()
+            .unwrap()
+            .starts_with(&format!(
+                "library-scan:{}:addon-bulk-metadata-writeback:",
+                output.job.id
+            ))
+    );
+    assert!(item.get("artwork_writeback").is_none());
+}
+
+#[tokio::test]
+async fn scan_library_addon_bulk_metadata_writeback_merges_metadata_via_side_effect() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_root = temp.path().join("library");
+    fs::create_dir_all(&library_root).unwrap();
+    write_fixture_mp4(&library_root.join("demo.mp4"));
+    let library_id = LibraryId::new();
+    let mut config = startup_config(
+        temp.path(),
+        vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: library_root,
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    );
+    let mut profile = nako_core::MetadataProfile::from_preset(nako_core::LibraryPreset::Movies);
+    profile.scan.addon_scrape = true;
+    profile.scan.addon_writeback = true;
+    config.metadata.library_profiles.insert(library_id, profile);
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let nako_base_url = start_nako_http_server(app.clone()).await;
+    let (sidecar_base_url, captured, raw_token_slot) =
+        scan_bulk_metadata_writeback_addon_server(nako_base_url).await;
+    let mut manifest = metadata_scraper::default_manifest();
+    manifest.base_url = sidecar_base_url;
+    let registered = app
+        .addons()
+        .register_addon(RegisterAddonRequest {
+            id: None,
+            manifest,
+            outbound_task_dispatch_secret_env: None,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+                AddonScope::AutomationRun,
+            ],
+            status: Some(AddonStatus::Enabled),
+        })
+        .await
+        .unwrap();
+    let addon_id = registered.addon.summary.id;
+    app.addons()
+        .replace_addon_grants(
+            addon_id,
+            ReplaceAddonGrantsRequest {
+                grants: vec![AddonGrantAssignment {
+                    permission: AddonPermission::MetadataWrite,
+                    library_id: Some(library_id),
+                }],
+            },
+        )
+        .await
+        .unwrap();
+    let issued = app
+        .addons()
+        .issue_addon_token(
+            addon_id,
+            IssueAddonTokenRequest {
+                label: Some("scan writeback sidecar".to_owned()),
+            },
+        )
+        .await
+        .unwrap();
+    *raw_token_slot.lock().await = Some(issued.raw_token);
+    app.addons()
+        .sync_addon_routing_plans(addon_id)
+        .await
+        .unwrap();
+
+    let output = app.library_scan().scan_library(library_id).await.unwrap();
+    let addon_scrape = output
+        .metadata
+        .addon_scrape
+        .expect("scan should enqueue addon scrape");
+    let completed = wait_for_addon_task_run_status(
+        &store,
+        addon_scrape.task_runs[0].job_id,
+        JobStatus::Succeeded,
+    )
+    .await;
+
+    assert_eq!(completed.job.library_id, Some(library_id));
+    let captured = captured.lock().await;
+    assert_eq!(captured.len(), 1);
+    assert!(captured[0].payload["items"][0].get("writeback").is_some());
+
+    let sources = store
+        .list_media_sources(library_id, PageRequest::first_page())
+        .await
+        .unwrap();
+    let item = store
+        .get_media_item(sources[0].item_id)
+        .await
+        .unwrap()
+        .expect("media item should exist");
+
+    assert_eq!(item.metadata.title, "Addon Scan Writeback Title");
+    assert_eq!(
+        item.metadata.overview.as_deref(),
+        Some("Merged through the Addon Side Effect runtime.")
+    );
+}
+
+#[tokio::test]
 async fn background_scan_job_uses_runtime_job_supervision() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
@@ -507,6 +698,18 @@ fn write_fixture_mp4(path: &Path) {
     assert!(status.success(), "ffmpeg failed to create fixture mp4");
 }
 
+async fn start_nako_http_server(app: NakoApp) -> String {
+    let router = crate::http::build_router(app);
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, router).await.unwrap();
+    });
+    tokio::task::yield_now().await;
+
+    format!("http://{addr}")
+}
+
 async fn scan_bulk_metadata_scrape_addon_server() -> (String, Arc<Mutex<Vec<AddonTaskRequest>>>) {
     let requests = Arc::new(Mutex::new(Vec::new()));
     let router = Router::new().route(
@@ -545,6 +748,98 @@ async fn scan_bulk_metadata_scrape_addon_server() -> (String, Arc<Mutex<Vec<Addo
     tokio::task::yield_now().await;
 
     (format!("http://{addr}"), requests)
+}
+
+async fn scan_bulk_metadata_writeback_addon_server(
+    nako_base_url: String,
+) -> (
+    String,
+    Arc<Mutex<Vec<AddonTaskRequest>>>,
+    Arc<Mutex<Option<String>>>,
+) {
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let raw_token = Arc::new(Mutex::new(None::<String>));
+    let router = Router::new().route(
+        metadata_scraper::BULK_METADATA_SCRAPE_TASK_PATH,
+        axum::routing::post({
+            let requests = Arc::clone(&requests);
+            let raw_token = Arc::clone(&raw_token);
+            let nako_base_url = nako_base_url.clone();
+            move |Json(request): Json<AddonTaskRequest>| {
+                let requests = Arc::clone(&requests);
+                let raw_token = Arc::clone(&raw_token);
+                let nako_base_url = nako_base_url.clone();
+                async move {
+                    requests.lock().await.push(request.clone());
+                    let raw_token = raw_token
+                        .lock()
+                        .await
+                        .clone()
+                        .expect("addon raw token must be configured before scan");
+                    let client = reqwest::Client::new();
+                    let mut items = Vec::new();
+                    for item in request.payload["items"].as_array().unwrap() {
+                        let writeback = item
+                            .get("writeback")
+                            .expect("writeback should be present in scan payload");
+                        let side_effect = serde_json::json!({
+                            "permission": "metadata_write",
+                            "library_id": writeback["library_id"].clone(),
+                            "target": writeback["target"].clone(),
+                            "idempotency_key": writeback["idempotency_key"].clone(),
+                            "provenance": {
+                                "origin": "scan-writeback-test-sidecar",
+                                "request_id": request.request_id.clone(),
+                                "job_id": request.job_id.clone(),
+                                "source_id": item["source_id"].clone()
+                            },
+                            "payload": {
+                                "title": "Addon Scan Writeback Title",
+                                "overview": "Merged through the Addon Side Effect runtime."
+                            }
+                        });
+                        let response = client
+                            .post(format!("{nako_base_url}/addon/v1/side-effects"))
+                            .bearer_auth(&raw_token)
+                            .json(&side_effect)
+                            .send()
+                            .await
+                            .expect("test sidecar should submit metadata_write side effect");
+                        let status = response.status().as_u16();
+                        let response_body = response
+                            .json::<serde_json::Value>()
+                            .await
+                            .expect("side effect response should be JSON");
+                        items.push(serde_json::json!({
+                            "source_id": item["source_id"].clone(),
+                            "writeback_http_status": status,
+                            "side_effect": response_body.get("side_effect").cloned()
+                        }));
+                    }
+
+                    Json(AddonTaskResponse {
+                        protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+                        addon_id: request.addon_id,
+                        task_id: request.task_id,
+                        job_id: request.job_id,
+                        request_id: request.request_id,
+                        output: serde_json::json!({
+                            "accepted": true,
+                            "items": items
+                        }),
+                    })
+                }
+            }
+        }),
+    );
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, router).await.unwrap();
+    });
+    tokio::task::yield_now().await;
+
+    (format!("http://{addr}"), requests, raw_token)
 }
 
 async fn wait_for_addon_task_run_status(

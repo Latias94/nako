@@ -783,9 +783,10 @@ fn schemas() -> Value {
             "local_metadata_policy": enum_schema(&["disabled", "read_only", "local_first", "remote_first", "write_sidecar"]),
             "scan": schema_ref("MetadataScanPolicyDto")
         })),
-        "MetadataScanPolicyDto": object_schema(&["enabled", "addon_scrape"], json!({
+        "MetadataScanPolicyDto": object_schema(&["enabled", "addon_scrape", "addon_writeback"], json!({
             "enabled": boolean_schema(),
-            "addon_scrape": boolean_schema()
+            "addon_scrape": boolean_schema(),
+            "addon_writeback": boolean_schema()
         })),
         "ItemsResponse": object_schema(&["items", "page"], json!({
             "items": array_schema(schema_ref("MediaItemDto")),

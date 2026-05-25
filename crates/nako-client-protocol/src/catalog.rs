@@ -125,6 +125,7 @@ pub struct MetadataProfileDto {
 pub struct MetadataScanPolicyDto {
     pub enabled: bool,
     pub addon_scrape: bool,
+    pub addon_writeback: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

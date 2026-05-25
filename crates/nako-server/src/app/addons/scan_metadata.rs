@@ -1,8 +1,8 @@
 use nako_api::extension::{AddonTaskRunDispatchMode, CreateAddonTaskRunRequest};
 use nako_core::{
-    AddonId, AddonRegistrationRecord, AddonStatus, ExternalProvider, JobId, JobStatus, Library,
-    LibraryId, MediaItem, MediaItemId, MediaKind, MediaRepository, MediaSource, MediaSourceId,
-    NakoError, PageRequest, Result,
+    AddonId, AddonRegistrationRecord, AddonSideEffectTarget, AddonStatus, ExternalProvider, JobId,
+    JobStatus, Library, LibraryId, MediaItem, MediaItemId, MediaKind, MediaRepository, MediaSource,
+    MediaSourceId, NakoError, PageRequest, Result,
 };
 use nako_official_addon_catalog::metadata_scraper;
 use serde::Serialize;
@@ -43,6 +43,7 @@ pub(crate) struct ScanAddonBulkMetadataScrapeSkippedAddon {
 pub(crate) struct ScanAddonBulkMetadataScrapeRequest<'a> {
     pub scan_job_id: JobId,
     pub library: &'a Library,
+    pub writeback: bool,
 }
 
 impl AddonAppService {
@@ -54,7 +55,12 @@ impl AddonAppService {
             .scan_bulk_metadata_scrape_sources(request.library.id)
             .await?;
         let payload = self
-            .scan_bulk_metadata_scrape_payload(request.library, &sources)
+            .scan_bulk_metadata_scrape_payload(
+                request.scan_job_id,
+                request.library,
+                &sources,
+                request.writeback,
+            )
             .await?;
         let mut summary = ScanAddonBulkMetadataScrapeSummary {
             total_sources: sources.len(),
@@ -166,16 +172,20 @@ impl AddonAppService {
 
     async fn scan_bulk_metadata_scrape_payload(
         &self,
+        scan_job_id: JobId,
         library: &Library,
         sources: &[MediaSource],
+        writeback: bool,
     ) -> Result<ScanAddonBulkMetadataScrapePayload> {
         let mut items = Vec::with_capacity(sources.len().min(SCAN_ADDON_SCRAPE_BATCH_SIZE));
         for source in sources.iter().take(SCAN_ADDON_SCRAPE_BATCH_SIZE) {
             let item = self.store.get_media_item(source.item_id).await?;
             items.push(scan_addon_bulk_metadata_scrape_item(
+                scan_job_id,
                 library,
                 source,
                 item.as_ref(),
+                writeback,
             ));
         }
 
@@ -216,6 +226,8 @@ struct ScanAddonBulkMetadataScrapeItem {
     #[serde(skip_serializing_if = "Option::is_none")]
     size_bytes: Option<u64>,
     external_ids: Vec<ScanAddonBulkMetadataScrapeExternalId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    writeback: Option<ScanAddonBulkMetadataScrapeWriteback>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -224,10 +236,19 @@ struct ScanAddonBulkMetadataScrapeExternalId {
     value: String,
 }
 
+#[derive(Clone, Debug, Serialize)]
+struct ScanAddonBulkMetadataScrapeWriteback {
+    library_id: LibraryId,
+    target: AddonSideEffectTarget,
+    idempotency_key: String,
+}
+
 fn scan_addon_bulk_metadata_scrape_item(
+    scan_job_id: JobId,
     library: &Library,
     source: &MediaSource,
     item: Option<&MediaItem>,
+    writeback: bool,
 ) -> ScanAddonBulkMetadataScrapeItem {
     let metadata = item.map(|item| &item.metadata);
     let title = metadata
@@ -260,6 +281,14 @@ fn scan_addon_bulk_metadata_scrape_item(
                     value: external_id.value.clone(),
                 })
                 .collect()
+        }),
+        writeback: writeback.then(|| ScanAddonBulkMetadataScrapeWriteback {
+            library_id: library.id,
+            target: AddonSideEffectTarget::media_source(source.id),
+            idempotency_key: format!(
+                "library-scan:{scan_job_id}:addon-bulk-metadata-writeback:{}",
+                source.id
+            ),
         }),
     }
 }

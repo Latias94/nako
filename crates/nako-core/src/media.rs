@@ -74,6 +74,7 @@ mod tests {
         assert!(plan.local_nfo_import);
         assert!(!plan.provider_refresh);
         assert!(!plan.addon_scrape);
+        assert!(!plan.addon_writeback);
         assert!(!plan.embedded_read);
         assert!(!plan.sidecar_read);
         assert!(!plan.image_discovery);
@@ -92,14 +93,21 @@ mod tests {
         profile.scan = MetadataScanPolicy {
             enabled: true,
             addon_scrape: true,
+            addon_writeback: true,
         };
         let plan = profile.scan_acquisition_plan();
         assert!(plan.local_nfo_import);
         assert!(plan.addon_scrape);
+        assert!(plan.addon_writeback);
 
         profile.scan.enabled = false;
         let plan = profile.scan_acquisition_plan();
         assert!(!plan.local_nfo_import);
         assert!(!plan.addon_scrape);
+        assert!(!plan.addon_writeback);
+
+        profile.scan.enabled = true;
+        profile.scan.addon_scrape = false;
+        assert!(!profile.scan_acquisition_plan().addon_writeback);
     }
 }

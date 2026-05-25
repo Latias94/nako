@@ -141,6 +141,7 @@ impl MetadataProfile {
                     .any(|reader| matches!(reader, LocalMetadataReader::Nfo)),
             provider_refresh: false,
             addon_scrape: scan_enabled && self.scan.addon_scrape,
+            addon_writeback: scan_enabled && self.scan.addon_scrape && self.scan.addon_writeback,
             embedded_read: false,
             sidecar_read: false,
             image_discovery: false,
@@ -160,6 +161,8 @@ pub struct MetadataScanPolicy {
     pub enabled: bool,
     #[serde(default)]
     pub addon_scrape: bool,
+    #[serde(default)]
+    pub addon_writeback: bool,
 }
 
 impl MetadataScanPolicy {
@@ -168,6 +171,7 @@ impl MetadataScanPolicy {
         Self {
             enabled: false,
             addon_scrape: false,
+            addon_writeback: false,
         }
     }
 }
@@ -177,6 +181,7 @@ impl Default for MetadataScanPolicy {
         Self {
             enabled: default_scan_metadata_enabled(),
             addon_scrape: false,
+            addon_writeback: false,
         }
     }
 }
@@ -186,6 +191,7 @@ pub struct MetadataScanAcquisitionPlan {
     pub local_nfo_import: bool,
     pub provider_refresh: bool,
     pub addon_scrape: bool,
+    pub addon_writeback: bool,
     pub embedded_read: bool,
     pub sidecar_read: bool,
     pub image_discovery: bool,

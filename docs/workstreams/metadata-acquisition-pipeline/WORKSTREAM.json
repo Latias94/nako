@@ -1,0 +1,15 @@
+{
+  "id": "metadata-acquisition-pipeline",
+  "status": "active",
+  "created": "2026-05-25",
+  "objective": "Make scan-time metadata acquisition configurable and prove explicit Addon writeback through Nako-owned side effects.",
+  "tasks": [
+    "MAP-010",
+    "MAP-020",
+    "MAP-030",
+    "MAP-040",
+    "MAP-050",
+    "MAP-060"
+  ],
+  "current_focus": "MAP-050"
+}

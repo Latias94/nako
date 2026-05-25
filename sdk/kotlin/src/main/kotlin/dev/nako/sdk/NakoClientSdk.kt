@@ -1145,6 +1145,8 @@ public data class MetadataProfileDto(
 public data class MetadataScanPolicyDto(
     @SerialName("addon_scrape")
     public val addonScrape: Boolean,
+    @SerialName("addon_writeback")
+    public val addonWriteback: Boolean,
     public val enabled: Boolean,
 )
 
