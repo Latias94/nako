@@ -17,7 +17,7 @@ use nako_api::extension::{
     AdminAddonResourceCallDiagnosticRequest, CancelAddonTaskRunRequest, ClaimAddonTaskRunRequest,
     CompleteAddonTaskRunRequest, CreateAddonTaskRunRequest, FailAddonTaskRunRequest,
     IssueAddonTokenRequest, RegisterAddonRequest, ReplaceAddonGrantsRequest,
-    ReportAddonTaskRunProgressRequest, RetryAddonTaskRunRequest,
+    ReplayAddonEventRequest, ReportAddonTaskRunProgressRequest, RetryAddonTaskRunRequest,
     SubmitAddonAcquisitionCandidateRequest, SubmitAddonGeneratedArtifactRequest,
     SubmitAddonSideEffectRequest, UpdateAddonStatusRequest,
 };
@@ -87,6 +87,10 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/admin/v1/events/{event_id}/addon-events/deliver",
             post(deliver_addon_events_for_event),
+        )
+        .route(
+            "/admin/v1/events/{event_id}/addon-events/replay",
+            post(replay_addon_events_for_event),
         )
         .route(
             "/admin/v1/addons/{addon_id}/task-runs",
@@ -307,6 +311,19 @@ pub(super) async fn deliver_addon_events_for_event(
     Ok(Json(
         app.addons()
             .deliver_addon_events_for_event(event_id)
+            .await?,
+    ))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn replay_addon_events_for_event(
+    State(app): State<NakoApp>,
+    Path(event_id): Path<EventId>,
+    Json(request): Json<ReplayAddonEventRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.addons()
+            .replay_addon_events_for_event(event_id, request)
             .await?,
     ))
 }

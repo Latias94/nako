@@ -697,6 +697,8 @@ pub(crate) fn row_to_addon_event_delivery_attempt(
         completed_at: row_get(&row, "completed_at")?,
         next_retry_at: row_get(&row, "next_retry_at")?,
         lease_expires_at: row_get(&row, "lease_expires_at")?,
+        forced_replay: row_get::<i64>(&row, "forced_replay")? != 0,
+        replay_reason_code: row_get(&row, "replay_reason_code")?,
     })
 }
 

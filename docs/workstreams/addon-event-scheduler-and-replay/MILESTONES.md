@@ -1,6 +1,6 @@
 # Addon Event Scheduler And Replay — Milestones
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-25
 
 ## M0 — Scope And Evidence Freeze
@@ -62,6 +62,8 @@ Primary gate:
 
 ## M4 — Forced Replay And Filters
 
+Status: Complete.
+
 Exit criteria:
 
 - Forced replay is a separate admin action with explicit operator intent.
@@ -75,8 +77,16 @@ Primary gates:
 
 ## M5 — Closeout
 
+Status: Complete.
+
 Exit criteria:
 
 - Evidence is recorded.
 - `WORKSTREAM.json` status reflects final state.
 - Notification bridge and other breadth work are either opened or deferred.
+
+Result: AESR-060 closed the lane on 2026-05-25 after fresh focused Addon Event
+gates, DB event gates, addon-client event envelope regression, formatting,
+JSON, whitespace, and cross-crate test compilation all passed. Notification
+bridge is the recommended next named follow-on; it must not be implemented in
+this closed scheduler/replay lane.

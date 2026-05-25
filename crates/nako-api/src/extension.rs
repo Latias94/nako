@@ -123,6 +123,17 @@ pub struct AddonEventDispatchResponse {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ReplayAddonEventRequest {
+    pub reason_code: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonEventReplayResponse {
+    pub reason_code: String,
+    pub dispatch: AddonEventDispatchResponse,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AddonEventSchedulerWorkItem {
     pub addon_id: AddonId,
     pub manifest_id: String,

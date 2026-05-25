@@ -14,7 +14,9 @@ const ADDON_EVENT_DELIVERY_ATTEMPT_SELECT: &str = r#"
                 requested_at,
                 completed_at,
                 next_retry_at,
-                lease_expires_at
+                lease_expires_at,
+                forced_replay,
+                replay_reason_code
             FROM addon_event_delivery_attempts
             "#;
 
@@ -82,13 +84,18 @@ impl AddonEventDeliveryRepository for SqliteStore {
             candidate AS (
                 SELECT max_attempt_number + 1 AS attempt_number
                 FROM summary
-                WHERE max_attempt_number + 1 <= ?5
-                    AND succeeded_count = 0
-                    AND active_in_flight_count = 0
+                WHERE active_in_flight_count = 0
                     AND (
-                        attempt_count = 0
-                        OR due_failed_attempt_number = max_attempt_number
-                        OR expired_in_flight_attempt_number = max_attempt_number
+                        ?8 = 1
+                        OR (
+                            max_attempt_number + 1 <= ?5
+                            AND succeeded_count = 0
+                            AND (
+                                attempt_count = 0
+                                OR due_failed_attempt_number = max_attempt_number
+                                OR expired_in_flight_attempt_number = max_attempt_number
+                            )
+                        )
                     )
             )
             INSERT OR IGNORE INTO addon_event_delivery_attempts (
@@ -98,9 +105,11 @@ impl AddonEventDeliveryRepository for SqliteStore {
                 declaration_id,
                 attempt_number,
                 status,
-                lease_expires_at
+                lease_expires_at,
+                forced_replay,
+                replay_reason_code
             )
-            SELECT ?1, ?2, ?3, ?4, attempt_number, 'running', ?7
+            SELECT ?1, ?2, ?3, ?4, attempt_number, 'running', ?7, ?8, ?9
             FROM candidate
             "#,
         )
@@ -111,6 +120,8 @@ impl AddonEventDeliveryRepository for SqliteStore {
         .bind(u32_to_i64(claim.max_attempts))
         .bind(&claim.now)
         .bind(&claim.lease_expires_at)
+        .bind(if claim.forced_replay { 1_i64 } else { 0_i64 })
+        .bind(&claim.replay_reason_code)
         .execute(&self.pool)
         .await
         .map_err(database_error)?;

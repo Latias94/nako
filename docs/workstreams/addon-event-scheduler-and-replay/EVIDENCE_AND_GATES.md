@@ -1,6 +1,6 @@
 # Addon Event Scheduler And Replay — Evidence And Gates
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-25
 
 ## Smallest Current Repro
@@ -193,9 +193,72 @@ risk: scheduler event selection currently uses the existing outbox listing page
 instead of an oldest-first scheduler-specific repository query; split a follow-up
 if sustained high-volume event production requires stronger fairness guarantees.
 
+### 2026-05-25 — AESR-050 Forced Replay And Filters
+
+Claim: Addon Event replay is an explicit admin action with operator intent and
+durable audit fields, separate from normal delivery. Normal delivery still skips
+already succeeded subscriptions, forced replay writes a new attempt with
+`forced_replay` and `replay_reason_code`, and host-side subscription filters
+evaluate simple event facts before durable claims and sidecar calls without
+exposing raw outbox payload values in responses.
+Matching event fact filters continue to allow delivery, so non-empty filters do
+not become an accidental blanket deny.
+
+Commands:
+
+```powershell
+cargo nextest run -p nako-server addon_event_replay addon_event_filter --no-fail-fast
+cargo nextest run -p nako-server addon_event_scheduler addon_event_delivery --no-fail-fast
+cargo nextest run -p nako-db addon_event_scheduler --no-fail-fast
+cargo nextest run -p nako-server addon_event --no-fail-fast
+cargo nextest run -p nako-db event --no-fail-fast
+cargo check -p nako-core -p nako-db -p nako-addon-protocol -p nako-addon-client -p nako-api -p nako-server --tests
+cargo fmt --all -- --check
+git diff --check
+python -m json.tool docs/workstreams/addon-event-scheduler-and-replay/WORKSTREAM.json > $null
+```
+
+Result: passed. `git diff --check` emitted only Windows CRLF conversion
+warnings.
+
+Review: filter execution is intentionally limited to deterministic event facts
+(`event_kind`, subject kind/id, `library_id`, and `source_id`). Payload or nested
+predicate matching should be split into a separate ADR instead of extending this
+lane implicitly.
+
+### 2026-05-25 — AESR-060 Closeout
+
+Claim: Addon Event Scheduler And Replay is complete. The lane now has automatic
+due-work scheduling, durable in-flight suppression, retry consumption, bounded
+runtime lifecycle integration, explicit forced replay with operator intent,
+simple redaction-safe host-side event fact filters, and final closeout docs.
+
+Commands:
+
+```powershell
+python -m json.tool docs\workstreams\addon-event-scheduler-and-replay\WORKSTREAM.json > $null
+git diff --check
+cargo fmt --all -- --check
+cargo nextest run -p nako-server addon_event_replay addon_event_filter --no-fail-fast
+cargo nextest run -p nako-server addon_event_scheduler addon_event_delivery --no-fail-fast
+cargo nextest run -p nako-db addon_event_scheduler --no-fail-fast
+cargo nextest run -p nako-server addon_event --no-fail-fast
+cargo nextest run -p nako-db event --no-fail-fast
+cargo nextest run -p nako-addon-client calls_declared_event_subscription_path_with_event_envelope --no-fail-fast
+cargo check -p nako-core -p nako-db -p nako-addon-protocol -p nako-addon-client -p nako-api -p nako-server --tests
+```
+
+Result: passed. `git diff --check` emitted only Windows CRLF conversion
+warnings.
+
+Review: no blocking workstream-compliance or code-quality findings. Residual
+risk remains intentionally bounded: filter matching is limited to deterministic
+event facts, and notification bridge/provider breadth is deferred to a separate
+follow-on lane.
+
 ## Notes
 
-- Do not start notification bridge until this lane either ships or explicitly
-  accepts scheduler/retry risk.
+- Do not restart implementation in this closed lane. Open a separate
+  notification bridge workstream before adding provider fan-out.
 - Forced replay must remain separate from normal scheduled delivery.
 - Do not expose raw outbox payloads in scheduler diagnostics.

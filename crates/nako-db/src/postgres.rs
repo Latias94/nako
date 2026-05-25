@@ -84,6 +84,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "addon event delivery leases",
         include_str!("../migrations/postgres/0012_addon_event_delivery_leases.sql"),
     ),
+    (
+        13,
+        "addon event forced replay",
+        include_str!("../migrations/postgres/0013_addon_event_forced_replay.sql"),
+    ),
 ];
 
 #[derive(Clone, Debug)]

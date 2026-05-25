@@ -56,6 +56,8 @@ pub struct ClaimAddonEventDeliveryAttempt {
     pub max_attempts: u32,
     pub now: String,
     pub lease_expires_at: String,
+    pub forced_replay: bool,
+    pub replay_reason_code: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -72,6 +74,8 @@ pub struct AddonEventDeliveryAttemptRecord {
     pub completed_at: Option<String>,
     pub next_retry_at: Option<String>,
     pub lease_expires_at: Option<String>,
+    pub forced_replay: bool,
+    pub replay_reason_code: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

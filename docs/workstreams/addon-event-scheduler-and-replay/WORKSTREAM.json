@@ -2,17 +2,19 @@
   "schema_version": 1,
   "slug": "addon-event-scheduler-and-replay",
   "title": "Addon Event Scheduler And Replay",
-  "status": "active",
+  "status": "complete",
   "updated": "2026-05-25",
   "scope_kind": "execution",
   "problem": "Addon Event Delivery works manually, but event-driven addons need automatic scheduling, retry, in-flight deduplication, explicit forced replay, and redaction-safe diagnostics before broad notification or sync features land.",
   "task_prefix": "AESR",
-  "current_task": "AESR-050",
+  "current_task": null,
   "completed_tasks": [
     "AESR-010",
     "AESR-020",
     "AESR-030",
-    "AESR-040"
+    "AESR-040",
+    "AESR-050",
+    "AESR-060"
   ],
   "authoritative_docs": [
     {
@@ -72,8 +74,8 @@
     "docs/adr/0034-package-addon-capabilities-into-sidecar-suites.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "next_task": "AESR-050",
-    "notes": "Due work selection, redaction-safe scheduler diagnostics, durable in-flight claim, next_retry_at automatic retry, and a disabled-by-default supervised scheduler loop are in place. Next add explicit forced replay and subscription filter evaluation. Do not start notification bridge, watch-state sync, MCP, Arr-stack, compatibility protocols, or tunnel work inside this lane."
+    "default_action": "closed",
+    "next_task": null,
+    "notes": "Addon Event Scheduler And Replay is complete. Due work selection, redaction-safe scheduler diagnostics, durable in-flight claim, next_retry_at automatic retry, disabled-by-default supervised scheduler loop, explicit forced replay, and simple host-side event fact filters are in place. Open notification bridge, watch-state sync, MCP, Arr-stack, compatibility protocols, or tunnel behavior as separate follow-on lanes; do not restart implementation inside this closed lane."
   }
 }

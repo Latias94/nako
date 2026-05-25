@@ -1,31 +1,28 @@
 # Addon Event Scheduler And Replay — Handoff
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-25
 
 ## Current State
 
-This workstream is opened as the immediate follow-on to Addon Ecosystem
-Foundation. Manual Addon Event Delivery exists and the official metadata
-scraper has a minimal `library.scanned` event proof. What remains is
-operational scheduling: due work discovery, automatic retry, in-flight
-deduplication, explicit forced replay, and redaction-safe diagnostics.
+This workstream is closed. Nako now has operational Addon Event scheduling:
+due work discovery, automatic retry through durable `next_retry_at`, in-flight
+deduplication through delivery claims, disabled-by-default supervised scheduler
+lifecycle integration, explicit forced replay with operator intent, and
+redaction-safe scheduler diagnostics with simple host-side event fact filters.
 
 ## Active Task
 
-- Task ID: AESR-050
-- Owner: codex
+- Task ID: none
+- Owner: planner
 - Files:
-  - `crates/nako-api`
-  - `crates/nako-server`
-  - `crates/nako-db`
+  - `docs/workstreams/addon-event-scheduler-and-replay`
 - Validation:
-  - `cargo nextest run -p nako-server addon_event_replay addon_event_filter --no-fail-fast`
-- Status: READY
-- Review: AESR-040 scheduler lifecycle passed focused gates; the next slice
-  should keep forced replay explicit and evaluate subscription filters before
-  sidecar calls.
-- Evidence: AESR-020 through AESR-040 evidence is recorded in
+  - see `EVIDENCE_AND_GATES.md`
+- Status: DONE
+- Review: AESR-060 closeout found no blocking workstream-compliance or
+  code-quality findings.
+- Evidence: AESR-020 through AESR-060 evidence is recorded in
   `EVIDENCE_AND_GATES.md`.
 
 ## Decisions Since Last Update
@@ -53,14 +50,24 @@ deduplication, explicit forced replay, and redaction-safe diagnostics.
   scheduler work, and dispatches through the existing durable delivery path with
   configured event concurrency.
 - Startup diagnostics now expose whether the scheduler runtime task was started.
+- AESR-050 adds `POST /admin/v1/events/{event_id}/addon-events/replay` with a
+  required operator `reason_code`. Replays write a new delivery attempt with
+  `forced_replay=true` and `replay_reason_code`, while normal delivery still
+  skips already succeeded addon/event/subscription tuples.
+- Host-side subscription filters now evaluate simple JSON event facts before
+  durable claims and sidecar calls. Supported facts are event kind, subject
+  kind/id, `library_id`, and `source_id`. Non-matches are reported with the
+  redaction-safe `filter_not_matched` reason.
 
 ## Blockers
 
-- None currently known for AESR-050.
+- None currently known.
 
-## Next Recommended Action
+## Follow-Ons
 
-Implement AESR-050 by adding explicit forced replay and event subscription
-filter evaluation. Keep replay separate from normal scheduled delivery, keep
-payload values out of diagnostics, and do not start notification bridge work in
-this lane.
+- Open notification bridge as a separate workstream before implementing
+  provider fan-out.
+- Keep watch-state sync, MCP media steward, Arr-stack integration,
+  DLNA/UPnP/WebDAV compatibility, and Network Tunnel Provider behavior as
+  separate lanes with their own gates and ADRs when they become active.
+- Do not add hidden scheduler/replay scope back into this closed lane.

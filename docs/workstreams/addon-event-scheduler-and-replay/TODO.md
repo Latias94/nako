@@ -1,6 +1,6 @@
 # Addon Event Scheduler And Replay — TODO
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-25
 
 ## M0 — Scope And Evidence Freeze
@@ -58,24 +58,29 @@ Last updated: 2026-05-25
 
 ## M4 — Forced Replay And Filters
 
-- [ ] AESR-050 [owner=codex] [deps=AESR-040] [scope=crates/nako-api,crates/nako-server,crates/nako-db]
+- [x] AESR-050 [owner=codex] [deps=AESR-040] [scope=crates/nako-api,crates/nako-server,crates/nako-db]
   Goal: Add explicit forced replay with operator intent and evaluate persisted
   event subscription filters before scheduling sidecar calls.
   Validation: `cargo nextest run -p nako-server addon_event_replay addon_event_filter --no-fail-fast`.
   Review: Confirm replay is separate from normal delivery and filter evaluation
   cannot expose payload values in responses.
-  Evidence: HTTP tests for replay, filter skip, and redaction.
-  Handoff: Split filter language expansion into an ADR if simple JSON event
-  facts are insufficient.
+  Evidence: HTTP tests prove forced replay creates an audited replay attempt
+  after a successful normal delivery, matching event fact filters allow delivery,
+  and non-matching filters skip scheduler/manual sidecar calls without echoing
+  payload values.
+  Handoff: Forced replay and simple JSON event fact filters are implemented.
+  Split filter language expansion into an ADR if payload or nested predicates
+  become necessary.
 
 ## M5 — Closeout
 
-- [ ] AESR-060 [owner=planner] [deps=AESR-050] [scope=docs/workstreams/addon-event-scheduler-and-replay]
+- [x] AESR-060 [owner=planner] [deps=AESR-050] [scope=docs/workstreams/addon-event-scheduler-and-replay]
   Goal: Close the scheduler/replay lane or split notification bridge as the
   next workstream.
   Validation: `cargo fmt --all -- --check`, focused nextest gates,
   `git diff --check`, and `WORKSTREAM.json` parse.
   Review: Run review-workstream and verify-rust-workstream before closeout.
   Evidence: `EVIDENCE_AND_GATES.md`, `HANDOFF.md`, `WORKSTREAM.json`.
-  Handoff: Notification bridge should not start until scheduler/replay is
-  operational or explicitly deferred with risk accepted.
+  Handoff: DONE. Scheduler/replay is operational and this lane is closed.
+  Notification bridge is the next named follow-on and must be opened as a
+  separate lane before implementation.

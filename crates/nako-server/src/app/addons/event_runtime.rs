@@ -9,7 +9,8 @@ use nako_addon_protocol::{
 };
 use nako_api::extension::{
     AddonEventDeliveryAttemptsResponse, AddonEventDispatchEventSummary, AddonEventDispatchResponse,
-    AddonEventSchedulerWorkItem, AddonEventSchedulerWorkResponse, AddonEventSchedulerWorkStatus,
+    AddonEventReplayResponse, AddonEventSchedulerWorkItem, AddonEventSchedulerWorkResponse,
+    AddonEventSchedulerWorkStatus, ReplayAddonEventRequest,
 };
 use nako_core::{
     AddonEventDeliveryAttemptId, AddonEventDeliveryRepository, AddonEventDeliveryStatus,
@@ -133,6 +134,36 @@ impl AddonAppService {
         &self,
         event_id: EventId,
     ) -> Result<AddonEventDispatchResponse> {
+        self.dispatch_addon_events_for_event(event_id, AddonEventDeliveryMode::Normal)
+            .await
+    }
+
+    pub async fn replay_addon_events_for_event(
+        &self,
+        event_id: EventId,
+        request: ReplayAddonEventRequest,
+    ) -> Result<AddonEventReplayResponse> {
+        let reason_code = validate_replay_reason_code(&request.reason_code)?;
+        let dispatch = self
+            .dispatch_addon_events_for_event(
+                event_id,
+                AddonEventDeliveryMode::ForcedReplay {
+                    reason_code: reason_code.clone(),
+                },
+            )
+            .await?;
+
+        Ok(AddonEventReplayResponse {
+            reason_code,
+            dispatch,
+        })
+    }
+
+    async fn dispatch_addon_events_for_event(
+        &self,
+        event_id: EventId,
+        mode: AddonEventDeliveryMode,
+    ) -> Result<AddonEventDispatchResponse> {
         let event = self.get_outbox_event_or_not_found(event_id).await?;
         let addons = self
             .store
@@ -186,12 +217,17 @@ impl AddonAppService {
                     skipped_subscriptions += 1;
                     continue;
                 }
+                if !addon_event_subscription_filter_matches(&event, &subscription.filters) {
+                    skipped_subscriptions += 1;
+                    continue;
+                }
 
                 attempted_subscriptions += 1;
                 let service = self.clone();
                 let event = event.clone();
                 let addon = addon.clone();
                 let granted_scopes = granted_scopes.clone();
+                let mode = mode.clone();
                 workers.spawn(async move {
                     service
                         .deliver_addon_event_subscription(
@@ -199,6 +235,7 @@ impl AddonAppService {
                             addon,
                             subscription,
                             granted_scopes,
+                            mode,
                         )
                         .await
                 });
@@ -366,6 +403,7 @@ impl AddonAppService {
         addon: AddonRegistrationRecord,
         subscription: AddonEventSubscriptionDeclaration,
         granted_scopes: Vec<AddonScope>,
+        mode: AddonEventDeliveryMode,
     ) -> Result<AddonEventDeliveryOutcome> {
         if addon.status != AddonStatus::Enabled {
             return Err(NakoError::Conflict {
@@ -396,6 +434,9 @@ impl AddonAppService {
                 ),
             });
         }
+        if !addon_event_subscription_filter_matches(&event, &subscription.filters) {
+            return Ok(AddonEventDeliveryOutcome::Skipped);
+        }
 
         let max_attempts = manifest.default_max_attempts.unwrap_or(3);
         let Some(attempt) = self
@@ -408,6 +449,8 @@ impl AddonAppService {
                 max_attempts,
                 now: addon_event_timestamp_now()?,
                 lease_expires_at: addon_event_delivery_lease_expires_at()?,
+                forced_replay: mode.is_forced_replay(),
+                replay_reason_code: mode.replay_reason_code().map(ToOwned::to_owned),
             })
             .await?
         else {
@@ -517,6 +560,47 @@ async fn run_addon_event_scheduler_loop(
     }
 }
 
+#[derive(Clone, Debug)]
+enum AddonEventDeliveryMode {
+    Normal,
+    ForcedReplay { reason_code: String },
+}
+
+impl AddonEventDeliveryMode {
+    fn is_forced_replay(&self) -> bool {
+        matches!(self, Self::ForcedReplay { .. })
+    }
+
+    fn replay_reason_code(&self) -> Option<&str> {
+        match self {
+            Self::Normal => None,
+            Self::ForcedReplay { reason_code } => Some(reason_code),
+        }
+    }
+}
+
+fn validate_replay_reason_code(raw: &str) -> Result<String> {
+    let reason_code = raw.trim();
+    if reason_code.is_empty() {
+        return Err(NakoError::InvalidInput {
+            message: "addon event replay reason_code must not be empty".to_owned(),
+        });
+    }
+    if reason_code.len() > 128 {
+        return Err(NakoError::InvalidInput {
+            message: "addon event replay reason_code must be at most 128 bytes".to_owned(),
+        });
+    }
+    if reason_code.chars().any(char::is_control) {
+        return Err(NakoError::InvalidInput {
+            message: "addon event replay reason_code must not contain control characters"
+                .to_owned(),
+        });
+    }
+
+    Ok(reason_code.to_owned())
+}
+
 fn addon_event_scheduler_work_status(
     event: &OutboxEventRecord,
     record: &AddonEventSchedulerWorkRecord,
@@ -560,6 +644,12 @@ fn addon_event_scheduler_work_status(
             Some("missing_grant".to_owned()),
         );
     }
+    if !addon_event_subscription_filter_matches(event, &subscription.filters) {
+        return (
+            AddonEventSchedulerWorkStatus::Deferred,
+            Some("filter_not_matched".to_owned()),
+        );
+    }
     if record.has_succeeded {
         return (AddonEventSchedulerWorkStatus::AlreadySucceeded, None);
     }
@@ -595,6 +685,57 @@ fn addon_event_scheduler_work_status(
                 Some("retry_not_scheduled".to_owned()),
             );
         }
+    }
+}
+
+fn addon_event_subscription_filter_matches(
+    event: &OutboxEventRecord,
+    filters: &serde_json::Value,
+) -> bool {
+    let Some(filters) = filters.as_object() else {
+        return filters.is_null();
+    };
+    if filters.is_empty() {
+        return true;
+    }
+
+    filters
+        .iter()
+        .all(|(field, expected)| addon_event_filter_field_matches(event, field, expected))
+}
+
+fn addon_event_filter_field_matches(
+    event: &OutboxEventRecord,
+    field: &str,
+    expected: &serde_json::Value,
+) -> bool {
+    let actual = match field {
+        "event_kind" | "kind" => Some(event.kind.as_str().to_owned()),
+        "subject_kind" | "subject.kind" => Some(event.subject.kind().to_owned()),
+        "subject_id" | "subject.id" => Some(event.subject.id()),
+        "library_id" => event.library_id.map(|id| id.to_string()),
+        "source_id" => event.source_id.map(|id| id.to_string()),
+        _ => return false,
+    };
+
+    addon_event_filter_value_matches(actual.as_deref(), expected)
+}
+
+fn addon_event_filter_value_matches(actual: Option<&str>, expected: &serde_json::Value) -> bool {
+    match expected {
+        serde_json::Value::Null => actual.is_none(),
+        serde_json::Value::String(expected) => actual == Some(expected.as_str()),
+        serde_json::Value::Array(expected_values) => expected_values
+            .iter()
+            .any(|expected| addon_event_filter_value_matches(actual, expected)),
+        serde_json::Value::Bool(expected) => {
+            actual == Some(if *expected { "true" } else { "false" })
+        }
+        serde_json::Value::Number(expected) => {
+            let expected = expected.to_string();
+            actual == Some(expected.as_str())
+        }
+        serde_json::Value::Object(_) => false,
     }
 }
 

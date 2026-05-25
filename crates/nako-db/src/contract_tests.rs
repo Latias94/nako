@@ -3204,6 +3204,8 @@ where
             max_attempts: 2,
             now: "2026-05-25T00:00:00.000Z".to_owned(),
             lease_expires_at: "2026-05-25T00:05:00.000Z".to_owned(),
+            forced_replay: false,
+            replay_reason_code: None,
         })
         .await
         .unwrap()
@@ -3224,6 +3226,8 @@ where
             max_attempts: 2,
             now: "2026-05-25T00:01:00.000Z".to_owned(),
             lease_expires_at: "2026-05-25T00:06:00.000Z".to_owned(),
+            forced_replay: false,
+            replay_reason_code: None,
         })
         .await
         .unwrap();
@@ -3248,6 +3252,8 @@ where
             max_attempts: 2,
             now: "2026-05-25T00:09:00.000Z".to_owned(),
             lease_expires_at: "2026-05-25T00:14:00.000Z".to_owned(),
+            forced_replay: false,
+            replay_reason_code: None,
         })
         .await
         .unwrap();
@@ -3262,6 +3268,8 @@ where
             max_attempts: 2,
             now: "2026-05-25T00:10:00.000Z".to_owned(),
             lease_expires_at: "2026-05-25T00:15:00.000Z".to_owned(),
+            forced_replay: false,
+            replay_reason_code: None,
         })
         .await
         .unwrap()
@@ -3278,6 +3286,8 @@ where
             max_attempts: 2,
             now: "2026-05-25T00:16:00.000Z".to_owned(),
             lease_expires_at: "2026-05-25T00:21:00.000Z".to_owned(),
+            forced_replay: false,
+            replay_reason_code: None,
         })
         .await
         .unwrap();

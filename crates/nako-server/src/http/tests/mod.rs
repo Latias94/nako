@@ -50,7 +50,7 @@ use nako_api::{
     },
     extension::{
         AddonAccessCheckRequest, AddonAccessCheckResponse, AddonAcquisitionCandidateResponse,
-        AddonEventDeliveryAttemptsResponse, AddonEventDispatchResponse,
+        AddonEventDeliveryAttemptsResponse, AddonEventDispatchResponse, AddonEventReplayResponse,
         AddonEventSchedulerWorkResponse, AddonEventSchedulerWorkStatus,
         AddonGeneratedArtifactResponse, AddonGrantAssignment, AddonGrantsResponse,
         AddonSideEffectResponse, AddonSideEffectTargetRequest, AddonTaskRunDispatchMode,
@@ -70,11 +70,11 @@ use nako_api::{
         CancelAddonTaskRunRequest, ClaimAddonTaskRunRequest, ClaimAddonTaskRunResponse,
         CompleteAddonTaskRunRequest, CreateAddonTaskRunRequest, EnqueueAutomationJobRequest,
         FailAddonTaskRunRequest, IssueAddonTokenRequest, RegisterAddonRequest,
-        ReplaceAddonGrantsRequest, ReportAddonTaskRunProgressRequest, RetryAddonTaskRunRequest,
-        SubmitAddonAcquisitionCandidateRequest, SubmitAddonGeneratedArtifactRequest,
-        SubmitAddonSideEffectRequest, UpdateAddonStatusRequest, UpsertAutomationProviderRequest,
-        UpsertWebhookEndpointRequest, WebhookDeliveryAttemptsResponse, WebhookEndpointResponse,
-        WebhookEndpointsResponse,
+        ReplaceAddonGrantsRequest, ReplayAddonEventRequest, ReportAddonTaskRunProgressRequest,
+        RetryAddonTaskRunRequest, SubmitAddonAcquisitionCandidateRequest,
+        SubmitAddonGeneratedArtifactRequest, SubmitAddonSideEffectRequest,
+        UpdateAddonStatusRequest, UpsertAutomationProviderRequest, UpsertWebhookEndpointRequest,
+        WebhookDeliveryAttemptsResponse, WebhookEndpointResponse, WebhookEndpointsResponse,
     },
     metadata_diagnostics::{
         EnqueueMetadataMaintenanceRequest, MetadataCandidateReviewDecisionKind,
@@ -877,6 +877,11 @@ where
 {
     let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
     serde_json::from_slice(&bytes).unwrap()
+}
+
+async fn response_text(response: axum::response::Response) -> String {
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    String::from_utf8(bytes.to_vec()).unwrap()
 }
 
 struct MockWebDavServer {

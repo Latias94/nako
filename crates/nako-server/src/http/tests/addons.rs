@@ -3208,6 +3208,238 @@ async fn addon_event_delivery_skips_already_succeeded_subscription() {
 }
 
 #[tokio::test]
+async fn addon_event_replay_forces_succeeded_subscription_with_operator_reason() {
+    let (_temp, router, source, store) =
+        router_with_media_source_config("addon-event-forced-replay.mkv", b"media", |_| {}).await;
+    let (base_url, requests) = event_path_addon_server(StatusCode::ACCEPTED).await;
+    register_event_path_addon(&router, base_url).await;
+    let event = store
+        .enqueue_outbox_event(NewOutboxEvent {
+            id: EventId::new(),
+            kind: DomainEventKind::LibraryScanned,
+            subject: DomainEventSubject::Library(source.library_id),
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            idempotency_key: format!("addon-event-forced-replay:{}", source.id),
+            payload_json: serde_json::json!({
+                "library_id": source.library_id,
+                "source_id": source.id,
+                "secret": "nako_at_should_not_echo"
+            })
+            .to_string(),
+        })
+        .await
+        .unwrap();
+    let deliver_path = format!("/admin/v1/events/{}/addon-events/deliver", event.id);
+    let replay_path = format!("/admin/v1/events/{}/addon-events/replay", event.id);
+
+    let first =
+        request_json::<AddonEventDispatchResponse>(&router, Method::POST, &deliver_path).await;
+    assert_eq!(first.delivered, 1);
+    assert_eq!(requests.lock().await.len(), 1);
+
+    let replay_raw = response_body_json(
+        &router,
+        Method::POST,
+        &replay_path,
+        &ReplayAddonEventRequest {
+            reason_code: "operator_requested".to_owned(),
+        },
+    )
+    .await;
+    assert_eq!(replay_raw.status(), StatusCode::OK);
+    let replay_text = response_text(replay_raw).await;
+    let replay = serde_json::from_str::<AddonEventReplayResponse>(&replay_text).unwrap();
+
+    assert_eq!(replay.reason_code, "operator_requested");
+    assert_eq!(replay.dispatch.attempted_subscriptions, 1);
+    assert_eq!(replay.dispatch.delivered, 1);
+    assert_eq!(replay.dispatch.failed, 0);
+    assert_eq!(replay.dispatch.skipped_subscriptions, 0);
+    assert_eq!(replay.dispatch.attempts.len(), 1);
+    assert_eq!(replay.dispatch.attempts[0].attempt_number, 2);
+    assert!(replay.dispatch.attempts[0].forced_replay);
+    assert_eq!(
+        replay.dispatch.attempts[0].replay_reason_code.as_deref(),
+        Some("operator_requested")
+    );
+    assert!(!replay_text.contains("nako_at_should_not_echo"));
+
+    let captured = requests.lock().await;
+    assert_eq!(captured.len(), 2);
+    assert_eq!(captured[1].request.attempt, 2);
+    drop(captured);
+
+    let listed = request_json::<AddonEventDeliveryAttemptsResponse>(
+        &router,
+        Method::GET,
+        &format!("/admin/v1/events/{}/addon-event-attempts", event.id),
+    )
+    .await;
+    assert_eq!(listed.attempts.len(), 2);
+    assert!(!listed.attempts[0].forced_replay);
+    assert!(listed.attempts[1].forced_replay);
+    assert_eq!(
+        listed.attempts[1].replay_reason_code.as_deref(),
+        Some("operator_requested")
+    );
+}
+
+#[tokio::test]
+async fn addon_event_filter_skips_non_matching_subscription_without_payload_leak() {
+    let (_temp, router, source, store) =
+        router_with_media_source_config("addon-event-filter.mkv", b"media", |_| {}).await;
+    let (base_url, requests) = event_path_addon_server(StatusCode::ACCEPTED).await;
+    let mut manifest = event_path_manifest(base_url);
+    manifest.event_subscriptions[0].filters = serde_json::json!({
+        "source_id": MediaSourceId::new().to_string()
+    });
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest,
+            outbound_task_dispatch_secret_env: None,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+                AddonScope::WebhookEventRead,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    request_json::<AdminAddonRoutingPlansResponse>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/routing-plans"),
+    )
+    .await;
+    let event = store
+        .enqueue_outbox_event(NewOutboxEvent {
+            id: EventId::new(),
+            kind: DomainEventKind::LibraryScanned,
+            subject: DomainEventSubject::Library(source.library_id),
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            idempotency_key: format!("addon-event-filter:{}", source.id),
+            payload_json: serde_json::json!({
+                "library_id": source.library_id,
+                "source_id": source.id,
+                "secret": "nako_at_should_not_echo"
+            })
+            .to_string(),
+        })
+        .await
+        .unwrap();
+
+    let scheduler_raw = response_for(
+        &router,
+        Method::GET,
+        &format!("/admin/v1/events/{}/addon-event-scheduler/work", event.id),
+    )
+    .await;
+    assert_eq!(scheduler_raw.status(), StatusCode::OK);
+    let scheduler_text = response_text(scheduler_raw).await;
+    let scheduler =
+        serde_json::from_str::<AddonEventSchedulerWorkResponse>(&scheduler_text).unwrap();
+    assert_eq!(scheduler.due_work_count, 0);
+    assert_eq!(scheduler.blocked_work_count, 1);
+    assert_eq!(scheduler.work.len(), 1);
+    assert_eq!(
+        scheduler.work[0].status,
+        AddonEventSchedulerWorkStatus::Deferred
+    );
+    assert_eq!(
+        scheduler.work[0].safe_reason_code.as_deref(),
+        Some("filter_not_matched")
+    );
+    assert!(!scheduler_text.contains("nako_at_should_not_echo"));
+
+    let delivered = request_json::<AddonEventDispatchResponse>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/events/{}/addon-events/deliver", event.id),
+    )
+    .await;
+    assert_eq!(delivered.attempted_subscriptions, 0);
+    assert_eq!(delivered.delivered, 0);
+    assert_eq!(delivered.failed, 0);
+    assert_eq!(delivered.skipped_subscriptions, 1);
+    assert!(delivered.attempts.is_empty());
+    assert!(requests.lock().await.is_empty());
+}
+
+#[tokio::test]
+async fn addon_event_filter_allows_matching_event_facts() {
+    let (_temp, router, source, store) =
+        router_with_media_source_config("addon-event-filter-match.mkv", b"media", |_| {}).await;
+    let (base_url, requests) = event_path_addon_server(StatusCode::ACCEPTED).await;
+    let mut manifest = event_path_manifest(base_url);
+    manifest.event_subscriptions[0].filters = serde_json::json!({
+        "event_kind": "library.scanned",
+        "subject_kind": "library",
+        "library_id": source.library_id.to_string(),
+        "source_id": source.id.to_string()
+    });
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest,
+            outbound_task_dispatch_secret_env: None,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+                AddonScope::WebhookEventRead,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    request_json::<AdminAddonRoutingPlansResponse>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/routing-plans"),
+    )
+    .await;
+    let event = store
+        .enqueue_outbox_event(NewOutboxEvent {
+            id: EventId::new(),
+            kind: DomainEventKind::LibraryScanned,
+            subject: DomainEventSubject::Library(source.library_id),
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            idempotency_key: format!("addon-event-filter-match:{}", source.id),
+            payload_json: serde_json::json!({
+                "library_id": source.library_id,
+                "source_id": source.id
+            })
+            .to_string(),
+        })
+        .await
+        .unwrap();
+
+    let delivered = request_json::<AddonEventDispatchResponse>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/events/{}/addon-events/deliver", event.id),
+    )
+    .await;
+    assert_eq!(delivered.attempted_subscriptions, 1);
+    assert_eq!(delivered.delivered, 1);
+    assert_eq!(delivered.failed, 0);
+    assert_eq!(delivered.skipped_subscriptions, 0);
+    assert_eq!(requests.lock().await.len(), 1);
+}
+
+#[tokio::test]
 async fn addon_event_scheduler_prevents_duplicate_in_flight_delivery_under_concurrency() {
     let (_temp, router, source, store) =
         router_with_media_source_config("addon-event-concurrent.mkv", b"media", |_| {}).await;

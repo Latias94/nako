@@ -1,6 +1,6 @@
 # Addon Event Scheduler And Replay
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-25
 
 ## Why This Lane Exists
@@ -114,3 +114,12 @@ This lane can close when:
 - SQLite and PostgreSQL persistence contracts agree;
 - admin diagnostics are redaction-safe;
 - final evidence is recorded and follow-ons are named.
+
+## Closeout Result
+
+Closed on 2026-05-25. AESR-020 through AESR-050 shipped due work discovery,
+durable in-flight claims, retry consumption, disabled-by-default supervised
+scheduler lifecycle integration, explicit forced replay, and simple host-side
+event fact filters. AESR-060 verified the final gate set and keeps
+notification bridge, watch-state sync, MCP, Arr-stack, compatibility protocols,
+and tunnel behavior as separate follow-on lanes.

@@ -88,7 +88,9 @@ const ADDON_EVENT_DELIVERY_ATTEMPT_SELECT: &str = r#"
                 to_char(requested_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS requested_at,
                 to_char(completed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS completed_at,
                 next_retry_at,
-                lease_expires_at
+                lease_expires_at,
+                forced_replay,
+                replay_reason_code
             FROM addon_event_delivery_attempts
             "#;
 
@@ -451,13 +453,18 @@ impl AddonEventDeliveryRepository for PostgresStore {
             candidate AS (
                 SELECT max_attempt_number + 1 AS attempt_number
                 FROM summary
-                WHERE max_attempt_number + 1 <= $5
-                    AND succeeded_count = 0
-                    AND active_in_flight_count = 0
+                WHERE active_in_flight_count = 0
                     AND (
-                        attempt_count = 0
-                        OR due_failed_attempt_number = max_attempt_number
-                        OR expired_in_flight_attempt_number = max_attempt_number
+                        $8 = TRUE
+                        OR (
+                            max_attempt_number + 1 <= $5
+                            AND succeeded_count = 0
+                            AND (
+                                attempt_count = 0
+                                OR due_failed_attempt_number = max_attempt_number
+                                OR expired_in_flight_attempt_number = max_attempt_number
+                            )
+                        )
                     )
             ),
             inserted AS (
@@ -468,9 +475,11 @@ impl AddonEventDeliveryRepository for PostgresStore {
                     declaration_id,
                     attempt_number,
                     status,
-                    lease_expires_at
+                    lease_expires_at,
+                    forced_replay,
+                    replay_reason_code
                 )
-                SELECT $1, $2, $3, $4, attempt_number, 'running', $7
+                SELECT $1, $2, $3, $4, attempt_number, 'running', $7, $8, $9
                 FROM candidate
                 ON CONFLICT(addon_id, event_id, declaration_id, attempt_number) DO NOTHING
                 RETURNING id::text AS id
@@ -485,6 +494,8 @@ impl AddonEventDeliveryRepository for PostgresStore {
         .bind(u32_to_i64(claim.max_attempts))
         .bind(&claim.now)
         .bind(&claim.lease_expires_at)
+        .bind(claim.forced_replay)
+        .bind(&claim.replay_reason_code)
         .fetch_optional(&self.pool)
         .await
         .map_err(database_error)?;
@@ -730,6 +741,8 @@ fn row_to_addon_event_delivery_attempt(row: PgRow) -> Result<AddonEventDeliveryA
         completed_at: row_get(&row, "completed_at")?,
         next_retry_at: row_get(&row, "next_retry_at")?,
         lease_expires_at: row_get(&row, "lease_expires_at")?,
+        forced_replay: row_get(&row, "forced_replay")?,
+        replay_reason_code: row_get(&row, "replay_reason_code")?,
     })
 }
 
