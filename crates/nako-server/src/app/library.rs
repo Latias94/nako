@@ -1,4 +1,5 @@
 use nako_api::{
+    admin::{AdminLibraryMetadataProfileResponse, AdminUpdateLibraryMetadataProfileRequest},
     admin::{IngestionFailureDiagnostic, IngestionFailuresResponse},
     public_client::{
         LibraryListResponse, LibraryResponse, LibrarySourceResponse, LibrarySourcesResponse,
@@ -9,7 +10,7 @@ use nako_api::{
 use nako_core::{
     IngestionFailureFilter, IngestionFailurePhase, IngestionFailureRepository,
     IngestionFailureStatus, LibraryId, LibraryRepository, MediaProbeRepository, MediaRepository,
-    NakoError, PageRequest, Result,
+    MetadataProfileSource, NakoError, PageRequest, Result,
 };
 use nako_db::NakoDatabase;
 
@@ -37,6 +38,34 @@ impl LibraryAppService {
         Ok(LibraryResponse {
             library: library_to_dto(self.get_library_or_not_found(library_id).await?),
         })
+    }
+
+    pub async fn get_admin_metadata_profile(
+        &self,
+        library_id: LibraryId,
+    ) -> Result<AdminLibraryMetadataProfileResponse> {
+        let library = self.get_library_or_not_found(library_id).await?;
+
+        Ok(AdminLibraryMetadataProfileResponse::from_profile(
+            library.id,
+            library.options.metadata_profile,
+        ))
+    }
+
+    pub async fn update_admin_metadata_profile(
+        &self,
+        library_id: LibraryId,
+        request: AdminUpdateLibraryMetadataProfileRequest,
+    ) -> Result<AdminLibraryMetadataProfileResponse> {
+        let mut library = self.get_library_or_not_found(library_id).await?;
+        library.options.metadata_profile = request.profile;
+        library.options.metadata_profile_source = MetadataProfileSource::Admin;
+        self.store.upsert_library(&library).await?;
+
+        Ok(AdminLibraryMetadataProfileResponse::from_profile(
+            library.id,
+            library.options.metadata_profile,
+        ))
     }
 
     pub async fn list_library_sources(

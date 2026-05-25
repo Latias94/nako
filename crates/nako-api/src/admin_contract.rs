@@ -1,6 +1,6 @@
 use crate::admin::ADMIN_API_VERSION;
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 28] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 29] = [
     ("overview", "overview"),
     ("addons", "addons"),
     ("addonCatalogSources", "addons/catalog/sources"),
@@ -43,6 +43,10 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 28] = [
     ("catalogGovernanceItems", "catalog/governance/items"),
     ("events", "events"),
     ("jobs", "jobs"),
+    (
+        "libraryMetadataProfile",
+        "libraries/{library_id}/metadata-profile",
+    ),
     ("playbackSessions", "playback/sessions"),
     ("playbackRuntime", "playback/runtime"),
     ("playbackSupport", "playback/support"),
@@ -139,6 +143,60 @@ export interface AdminGeneratedArtifactProposalsQuery extends AdminPageQuery {}
 
 export interface AdminGeneratedArtifactReviewRequest {
   decision: "accept" | "reject";
+}
+
+export type AdminMetadataRefreshMode =
+  | "none"
+  | "validation_only"
+  | "default"
+  | "missing_only"
+  | "full_refresh";
+
+export type AdminLocalMetadataPolicy =
+  | "disabled"
+  | "read_only"
+  | "local_first"
+  | "remote_first"
+  | "write_sidecar";
+
+export interface AdminMetadataScanPolicy {
+  enabled: boolean;
+  addon_scrape: boolean;
+  addon_writeback: boolean;
+}
+
+export interface AdminMetadataProfile {
+  item_kinds: string[];
+  local_readers: string[];
+  metadata_providers: string[];
+  image_providers: string[];
+  language: string | null;
+  country: string | null;
+  refresh_mode: AdminMetadataRefreshMode;
+  local_metadata_policy: AdminLocalMetadataPolicy;
+  scan: AdminMetadataScanPolicy;
+}
+
+export interface AdminMetadataScanAcquisitionPlan {
+  local_nfo_import: boolean;
+  provider_refresh: boolean;
+  addon_scrape: boolean;
+  addon_writeback: boolean;
+  embedded_read: boolean;
+  sidecar_read: boolean;
+  image_discovery: boolean;
+}
+
+export interface AdminUpdateLibraryMetadataProfileRequest {
+  profile: AdminMetadataProfile;
+}
+
+export interface AdminLibraryMetadataProfileResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  library_id: string;
+  profile: AdminMetadataProfile;
+  scan_acquisition_plan: AdminMetadataScanAcquisitionPlan;
 }
 export type AddonStatus = "enabled" | "disabled" | "unregistered";
 
@@ -1407,6 +1465,10 @@ mod tests {
             "AdminGeneratedArtifactProposalListResponse",
             "AdminGeneratedArtifactReviewPlanResponse",
             "AdminGeneratedArtifactReviewResponse",
+            "AdminMetadataProfile",
+            "AdminMetadataScanPolicy",
+            "AdminUpdateLibraryMetadataProfileRequest",
+            "AdminLibraryMetadataProfileResponse",
             "AdminStorageStagingQuery",
             "AdminOverviewResponse",
             "AdminPlaybackSupportEvidenceResponse",

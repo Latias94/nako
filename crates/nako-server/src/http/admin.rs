@@ -42,7 +42,8 @@ use nako_api::{
         AdminRuntimeConfigDiagnostics, AdminServerConfigDiagnosticsResponse,
         AdminStorageStagingDiagnosticsResponse, AdminStorageStagingRecord,
         AdminStorageStagingSummary, AdminTranscodeConfigDiagnostics, AdminTrustedProxyDiagnostics,
-        AdminTunnelProviderDiagnostics, AdminTunnelProviderKind, AdminVfsCacheSummary,
+        AdminTunnelProviderDiagnostics, AdminTunnelProviderKind,
+        AdminUpdateLibraryMetadataProfileRequest, AdminVfsCacheSummary,
         AdminWatchFolderDiscoveryFailure, AdminWatchFolderDiscoveryRequest,
         AdminWatchFolderDiscoveryResponse, StorageBackendDiagnosticsResponse, StorageBackendKind,
         StorageBackendRuntimeStateScope, StorageBackendStatus,
@@ -111,6 +112,10 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route("/admin/v1/events", get(list_admin_outbox_events))
         .route("/admin/v1/jobs", get(list_admin_jobs))
         .route("/admin/v1/jobs/{job_id}/cancel", post(cancel_admin_job))
+        .route(
+            "/admin/v1/libraries/{library_id}/metadata-profile",
+            get(get_admin_library_metadata_profile).put(update_admin_library_metadata_profile),
+        )
         .route(
             "/admin/v1/artwork/candidates/{candidate_id}/accept",
             post(accept_admin_artwork_candidate),
@@ -372,6 +377,27 @@ pub(super) async fn review_admin_generated_artifact(
     Ok(Json(AdminGeneratedArtifactReviewResponse::from_result(
         result,
     )))
+}
+
+pub(super) async fn get_admin_library_metadata_profile(
+    State(app): State<NakoApp>,
+    Path(library_id): Path<nako_core::LibraryId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.library().get_admin_metadata_profile(library_id).await?,
+    ))
+}
+
+pub(super) async fn update_admin_library_metadata_profile(
+    State(app): State<NakoApp>,
+    Path(library_id): Path<nako_core::LibraryId>,
+    Json(request): Json<AdminUpdateLibraryMetadataProfileRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.library()
+            .update_admin_metadata_profile(library_id, request)
+            .await?,
+    ))
 }
 
 fn admin_acquisition_intake_candidate(

@@ -1058,6 +1058,106 @@ async fn app_startup_overwrites_persisted_library_with_configured_desired_state(
 }
 
 #[tokio::test]
+async fn metadata_profile_restart_preserves_admin_update_without_toml_profile_override() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let config = startup_config(
+        temp.path(),
+        vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().join("movies"),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    );
+    let app = NakoApp::new_with_store(config.clone(), store.clone())
+        .await
+        .unwrap();
+    let mut admin_profile =
+        nako_core::MetadataProfile::from_preset(nako_core::LibraryPreset::Movies);
+    admin_profile.scan = nako_core::MetadataScanPolicy::disabled();
+    admin_profile.local_metadata_policy = nako_core::LocalMetadataPolicy::Disabled;
+
+    app.library()
+        .update_admin_metadata_profile(
+            library_id,
+            nako_api::admin::AdminUpdateLibraryMetadataProfileRequest {
+                profile: admin_profile.clone(),
+            },
+        )
+        .await
+        .unwrap();
+    drop(app);
+
+    let restarted = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let loaded = store.get_library(library_id).await.unwrap().unwrap();
+    let response = restarted
+        .library()
+        .get_admin_metadata_profile(library_id)
+        .await
+        .unwrap();
+
+    assert_eq!(loaded.options.metadata_profile, admin_profile);
+    assert_eq!(response.profile, admin_profile);
+    assert!(!response.scan_acquisition_plan.local_nfo_import);
+}
+
+#[tokio::test]
+async fn metadata_profile_restart_toml_profile_override_replaces_admin_update() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let mut config = startup_config(
+        temp.path(),
+        vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().join("movies"),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    );
+    let mut configured_profile =
+        nako_core::MetadataProfile::from_preset(nako_core::LibraryPreset::Movies);
+    configured_profile.language = Some("zh-CN".to_owned());
+    configured_profile.scan.addon_scrape = true;
+    config
+        .metadata
+        .library_profiles
+        .insert(library_id, configured_profile.clone());
+    let app = NakoApp::new_with_store(config.clone(), store.clone())
+        .await
+        .unwrap();
+    let mut admin_profile =
+        nako_core::MetadataProfile::from_preset(nako_core::LibraryPreset::Movies);
+    admin_profile.scan = nako_core::MetadataScanPolicy::disabled();
+    admin_profile.local_metadata_policy = nako_core::LocalMetadataPolicy::Disabled;
+
+    app.library()
+        .update_admin_metadata_profile(
+            library_id,
+            nako_api::admin::AdminUpdateLibraryMetadataProfileRequest {
+                profile: admin_profile,
+            },
+        )
+        .await
+        .unwrap();
+    drop(app);
+
+    NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let loaded = store.get_library(library_id).await.unwrap().unwrap();
+
+    assert_eq!(loaded.options.metadata_profile, configured_profile);
+    assert!(loaded.options.metadata_profile.scan.addon_scrape);
+}
+
+#[tokio::test]
 async fn app_startup_retains_persisted_library_missing_from_config() {
     let temp = tempfile::tempdir().unwrap();
     let retained_id = LibraryId::new();

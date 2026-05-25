@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "slug": "admin-library-metadata-profile-configuration",
+  "title": "Admin Library Metadata Profile Configuration",
+  "status": "completed",
+  "created": "2026-05-25",
+  "completed": "2026-05-25",
+  "last_updated": "2026-05-25",
+  "objective": "Expose and persist Media Library Metadata Profile configuration through Admin API so scan-time metadata acquisition can be changed without TOML edits.",
+  "task_prefix": "ALMPC",
+  "current_task": null,
+  "completed_tasks": [
+    "ALMPC-010",
+    "ALMPC-020",
+    "ALMPC-030"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/admin-library-metadata-profile-configuration/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/admin-library-metadata-profile-configuration/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/admin-library-metadata-profile-configuration/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/admin-library-metadata-profile-configuration/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/admin-library-metadata-profile-configuration/HANDOFF.md"
+    }
+  ],
+  "planned_gates": [
+    "cargo nextest run -p nako-api admin_contract --no-fail-fast",
+    "cargo nextest run -p nako-server admin_library_metadata_profile --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "related_workstreams": [
+    "docs/workstreams/library-metadata-scan-policy",
+    "docs/workstreams/scan-addon-bulk-metadata-scrape",
+    "docs/workstreams/metadata-acquisition-pipeline",
+    "docs/workstreams/addon-protected-writes"
+  ]
+}

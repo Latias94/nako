@@ -25,6 +25,8 @@ pub struct LibraryOptions {
     pub preset: LibraryPreset,
     pub scan: LibraryScanOptions,
     pub naming_strategy: NamingStrategy,
+    #[serde(default)]
+    pub metadata_profile_source: MetadataProfileSource,
     pub metadata_profile: MetadataProfile,
 }
 
@@ -37,6 +39,7 @@ impl LibraryOptions {
             preset,
             scan: LibraryScanOptions::default(),
             naming_strategy: preset.default_naming_strategy(),
+            metadata_profile_source: MetadataProfileSource::Preset,
             metadata_profile: MetadataProfile::from_preset(preset),
         }
     }
@@ -46,6 +49,15 @@ impl Default for LibraryOptions {
     fn default() -> Self {
         Self::from_preset(LibraryPreset::MixedVideo)
     }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MetadataProfileSource {
+    #[default]
+    Preset,
+    Configured,
+    Admin,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]

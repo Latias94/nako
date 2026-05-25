@@ -25,6 +25,7 @@ export const NAKO_ADMIN_ROUTES = {
   catalogGovernanceItems: "/admin/v1/catalog/governance/items",
   events: "/admin/v1/events",
   jobs: "/admin/v1/jobs",
+  libraryMetadataProfile: "/admin/v1/libraries/{library_id}/metadata-profile",
   playbackSessions: "/admin/v1/playback/sessions",
   playbackRuntime: "/admin/v1/playback/runtime",
   playbackSupport: "/admin/v1/playback/support",
@@ -94,6 +95,60 @@ export interface AdminGeneratedArtifactProposalsQuery extends AdminPageQuery {}
 
 export interface AdminGeneratedArtifactReviewRequest {
   decision: "accept" | "reject";
+}
+
+export type AdminMetadataRefreshMode =
+  | "none"
+  | "validation_only"
+  | "default"
+  | "missing_only"
+  | "full_refresh";
+
+export type AdminLocalMetadataPolicy =
+  | "disabled"
+  | "read_only"
+  | "local_first"
+  | "remote_first"
+  | "write_sidecar";
+
+export interface AdminMetadataScanPolicy {
+  enabled: boolean;
+  addon_scrape: boolean;
+  addon_writeback: boolean;
+}
+
+export interface AdminMetadataProfile {
+  item_kinds: string[];
+  local_readers: string[];
+  metadata_providers: string[];
+  image_providers: string[];
+  language: string | null;
+  country: string | null;
+  refresh_mode: AdminMetadataRefreshMode;
+  local_metadata_policy: AdminLocalMetadataPolicy;
+  scan: AdminMetadataScanPolicy;
+}
+
+export interface AdminMetadataScanAcquisitionPlan {
+  local_nfo_import: boolean;
+  provider_refresh: boolean;
+  addon_scrape: boolean;
+  addon_writeback: boolean;
+  embedded_read: boolean;
+  sidecar_read: boolean;
+  image_discovery: boolean;
+}
+
+export interface AdminUpdateLibraryMetadataProfileRequest {
+  profile: AdminMetadataProfile;
+}
+
+export interface AdminLibraryMetadataProfileResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  library_id: string;
+  profile: AdminMetadataProfile;
+  scan_acquisition_plan: AdminMetadataScanAcquisitionPlan;
 }
 export type AddonStatus = "enabled" | "disabled" | "unregistered";
 

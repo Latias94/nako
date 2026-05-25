@@ -102,6 +102,168 @@ async fn nfo_routes_queue_background_jobs() {
 }
 
 #[tokio::test]
+async fn admin_library_metadata_profile_route_reads_and_persists_updates() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("nako-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let router = build_router(app);
+    let path = format!("/admin/v1/libraries/{library_id}/metadata-profile");
+
+    let current = request_json::<nako_api::admin::AdminLibraryMetadataProfileResponse>(
+        &router,
+        Method::GET,
+        &path,
+    )
+    .await;
+    assert_eq!(current.library_id, library_id);
+    assert!(current.profile.scan.enabled);
+    assert!(!current.profile.scan.addon_scrape);
+    assert!(!current.profile.scan.addon_writeback);
+    assert!(current.scan_acquisition_plan.local_nfo_import);
+    assert!(!current.scan_acquisition_plan.addon_scrape);
+
+    let mut profile = nako_core::MetadataProfile::from_preset(nako_core::LibraryPreset::Movies);
+    profile.local_metadata_policy = LocalMetadataPolicy::Disabled;
+    profile.scan.addon_scrape = true;
+    profile.scan.addon_writeback = true;
+    let request = nako_api::admin::AdminUpdateLibraryMetadataProfileRequest {
+        profile: profile.clone(),
+    };
+
+    let updated = request_body_json::<nako_api::admin::AdminLibraryMetadataProfileResponse, _>(
+        &router,
+        Method::PUT,
+        &path,
+        &request,
+    )
+    .await;
+    assert_eq!(updated.library_id, library_id);
+    assert_eq!(updated.profile, profile);
+    assert!(!updated.scan_acquisition_plan.local_nfo_import);
+    assert!(updated.scan_acquisition_plan.addon_scrape);
+    assert!(updated.scan_acquisition_plan.addon_writeback);
+
+    let persisted = store.get_library(library_id).await.unwrap().unwrap();
+    assert_eq!(persisted.options.metadata_profile, profile);
+
+    let reread = request_json::<nako_api::admin::AdminLibraryMetadataProfileResponse>(
+        &router,
+        Method::GET,
+        &path,
+    )
+    .await;
+    assert_eq!(reread.profile, profile);
+}
+
+#[tokio::test]
+async fn admin_library_metadata_profile_update_changes_next_scan_metadata_plan() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_root = temp.path().join("library");
+    fs::create_dir_all(&library_root).unwrap();
+    write_admin_profile_fixture_mp4(&library_root.join("demo.mp4"));
+    fs::write(
+        library_root.join("demo.nfo"),
+        r#"<movie><title>Should Not Import After Admin Update</title></movie>"#,
+    )
+    .unwrap();
+    let library_id = LibraryId::new();
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("nako-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: library_root,
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let router = build_router(app.clone());
+    let path = format!("/admin/v1/libraries/{library_id}/metadata-profile");
+    let mut profile = nako_core::MetadataProfile::from_preset(nako_core::LibraryPreset::Movies);
+    profile.scan = nako_core::MetadataScanPolicy::disabled();
+
+    let updated = request_body_json::<nako_api::admin::AdminLibraryMetadataProfileResponse, _>(
+        &router,
+        Method::PUT,
+        &path,
+        &nako_api::admin::AdminUpdateLibraryMetadataProfileRequest { profile },
+    )
+    .await;
+    assert!(!updated.scan_acquisition_plan.local_nfo_import);
+
+    let output = app.library_scan().scan_library(library_id).await.unwrap();
+    let sources = store
+        .list_media_sources(library_id, PageRequest::first_page())
+        .await
+        .unwrap();
+    let item = store
+        .get_media_item(sources[0].item_id)
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert!(output.metadata.nfo_import.is_none());
+    assert_eq!(item.metadata.title, "demo");
+}
+
+#[tokio::test]
 async fn ingestion_failure_routes_list_and_ignore_failures() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
@@ -186,6 +348,29 @@ async fn ingestion_failure_routes_list_and_ignore_failures() {
     let ignored_list =
         request_json::<IngestionFailuresResponse>(&router, Method::GET, &ignored_path).await;
     assert_eq!(ignored_list.failures.len(), 1);
+}
+
+fn write_admin_profile_fixture_mp4(path: &std::path::Path) {
+    let status = std::process::Command::new("ffmpeg")
+        .args([
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=black:s=16x16:d=0.1",
+            "-an",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+        ])
+        .arg(path)
+        .status()
+        .expect("ffmpeg should be available for Nako HTTP scan tests");
+    assert!(status.success(), "ffmpeg failed to create fixture mp4");
 }
 
 #[tokio::test]

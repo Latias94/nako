@@ -7,7 +7,7 @@ use std::{
 
 use nako_core::{
     ExternalProvider, Library, LibraryId, LibraryOptions, LibraryPreset, MediaItemId, MediaKind,
-    MetadataProfile, MetadataRefreshMode, NakoError, Result, SecretString,
+    MetadataProfile, MetadataProfileSource, MetadataRefreshMode, NakoError, Result, SecretString,
 };
 use nako_db::DatabaseBackendKind;
 use nako_transcode::{
@@ -602,6 +602,7 @@ pub fn library_from_server_config(
     let mut options = LibraryOptions::from_preset(library.preset);
     if let Some(profile) = config.metadata.library_profiles.get(&library.id) {
         options.metadata_profile = profile.clone();
+        options.metadata_profile_source = MetadataProfileSource::Configured;
     }
 
     Library {

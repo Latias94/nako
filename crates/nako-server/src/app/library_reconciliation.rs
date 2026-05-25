@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
-use nako_core::{Library, LibraryId, LibraryRepository, NakoError, PageRequest, Result};
+use nako_core::{
+    Library, LibraryId, LibraryRepository, MetadataProfileSource, NakoError, PageRequest, Result,
+};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(crate) struct ConfiguredLibraryReconciliationReport {
@@ -51,7 +53,11 @@ where
             ..ConfiguredLibraryReconciliationReport::default()
         };
 
-        for library in desired_libraries {
+        for mut library in desired_libraries {
+            if let Some(persisted) = persisted_by_id.get(&library.id) {
+                preserve_admin_metadata_profile_when_config_uses_preset(&mut library, persisted);
+            }
+
             match persisted_by_id.get(&library.id) {
                 None => report.added_libraries += 1,
                 Some(persisted) if *persisted == &library => report.unchanged_libraries += 1,
@@ -85,6 +91,18 @@ where
                         message: "library reconciliation pagination offset overflowed".to_owned(),
                     })?;
         }
+    }
+}
+
+fn preserve_admin_metadata_profile_when_config_uses_preset(
+    desired: &mut Library,
+    persisted: &Library,
+) {
+    if desired.options.metadata_profile_source == MetadataProfileSource::Preset
+        && persisted.options.metadata_profile_source == MetadataProfileSource::Admin
+    {
+        desired.options.metadata_profile = persisted.options.metadata_profile.clone();
+        desired.options.metadata_profile_source = MetadataProfileSource::Admin;
     }
 }
 

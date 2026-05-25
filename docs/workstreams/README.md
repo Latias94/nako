@@ -6,6 +6,15 @@ attention.
 
 ## Current Workstreams
 
+- [metadata-profile-configuration-authority](metadata-profile-configuration-authority/README.md):
+  completed source-of-truth lane for making Media Library Metadata Profile updates
+  restart-proof by distinguishing preset defaults, explicit TOML overrides, and
+  Admin API changes.
+- [admin-library-metadata-profile-configuration](admin-library-metadata-profile-configuration/README.md):
+  completed Admin API productization lane for reading and updating each Media
+  Library's effective Metadata Profile so scan-time NFO Import, Addon Bulk
+  Metadata Scrape, and explicit Addon metadata writeback can be configured
+  without TOML edits.
 - [metadata-acquisition-pipeline](metadata-acquisition-pipeline/README.md):
   completed architecture lane for turning scan-time metadata acquisition into a
   configurable Media Library pipeline, preserving NFO import, keeping Addon
