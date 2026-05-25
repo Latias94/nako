@@ -1,7 +1,7 @@
 use super::*;
 use axum::Json;
 use axum::http::HeaderValue;
-use nako_official_addon_catalog::metadata_scraper;
+use nako_official_addon_catalog::{metadata_scraper, notification_bridge};
 use std::collections::VecDeque;
 use std::sync::{
     Arc as StdArc,
@@ -176,6 +176,8 @@ struct CapturedAddonEventRequest {
     request: AddonEventRequest,
 }
 
+type CapturedAddonEventRequests = StdArc<TokioMutex<Vec<CapturedAddonEventRequest>>>;
+
 async fn event_path_addon_server(
     status: StatusCode,
 ) -> (String, StdArc<TokioMutex<Vec<CapturedAddonEventRequest>>>) {
@@ -221,6 +223,111 @@ async fn event_path_addon_server(
             }
         }),
     );
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, router).await.unwrap();
+    });
+    yield_now().await;
+
+    (format!("http://{addr}"), requests)
+}
+
+async fn notification_bridge_server() -> (String, CapturedAddonEventRequests) {
+    let requests = StdArc::new(TokioMutex::new(Vec::new()));
+    let router = Router::new()
+        .route(
+            "/health",
+            axum::routing::post(
+                move |Json(request): Json<AddonHealthCheckRequest>| async move {
+                    assert_eq!(request.manifest_id, notification_bridge::ADDON_ID);
+                    assert_eq!(
+                        request.expected_addon_version,
+                        notification_bridge::ADDON_VERSION
+                    );
+                    assert_eq!(request.expected_resource_count, 1);
+
+                    Json(ProtocolAddonHealthCheckResponse {
+                        protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+                        manifest_id: request.manifest_id,
+                        status: AddonHealthStatus::Ok,
+                        checked_at: "2026-05-25T00:00:00.000Z".to_owned(),
+                        manifest: AddonHealthManifestFacts {
+                            addon_version: notification_bridge::ADDON_VERSION.to_owned(),
+                            resource_count: 1,
+                        },
+                        diagnostics: serde_json::json!({
+                            "mode": "ack_only",
+                            "provider_fan_out": false
+                        }),
+                    })
+                },
+            ),
+        )
+        .route(
+            notification_bridge::LIBRARY_SCANNED_EVENT_PATH,
+            axum::routing::post({
+                let requests = StdArc::clone(&requests);
+                move |headers: axum::http::HeaderMap, Json(request): Json<AddonEventRequest>| {
+                    let requests = StdArc::clone(&requests);
+                    async move {
+                        requests.lock().await.push(CapturedAddonEventRequest {
+                            headers: headers
+                                .iter()
+                                .filter_map(|(name, value)| {
+                                    value
+                                        .to_str()
+                                        .ok()
+                                        .map(|value| (name.as_str().to_owned(), value.to_owned()))
+                                })
+                                .collect(),
+                            request: request.clone(),
+                        });
+                        if request.protocol_version != ADDON_PROTOCOL_VERSION
+                            || request.addon_id != notification_bridge::ADDON_ID
+                            || request.subscription_id
+                                != notification_bridge::LIBRARY_SCANNED_EVENT_SUBSCRIPTION_ID
+                            || request.event_kind != notification_bridge::LIBRARY_SCANNED_EVENT_KIND
+                        {
+                            return (
+                                StatusCode::BAD_REQUEST,
+                                Json(serde_json::json!({
+                                    "safe_error_code": "invalid_event_envelope"
+                                })),
+                            )
+                                .into_response();
+                        }
+
+                        let payload_keys = request
+                            .payload
+                            .as_object()
+                            .map(|object| {
+                                let mut keys = object.keys().cloned().collect::<Vec<_>>();
+                                keys.sort();
+                                keys
+                            })
+                            .unwrap_or_default();
+
+                        Json(AddonEventResponse {
+                            protocol_version: request.protocol_version,
+                            addon_id: request.addon_id,
+                            subscription_id: request.subscription_id,
+                            event_id: request.event_id,
+                            output: serde_json::json!({
+                                "schema": notification_bridge::WEBHOOK_RESPONSE_SCHEMA,
+                                "accepted": true,
+                                "mode": "ack_only",
+                                "attempt": request.attempt,
+                                "subject_kind": request.subject_kind,
+                                "subject_id": request.subject_id,
+                                "payload_keys": payload_keys
+                            }),
+                        })
+                        .into_response()
+                    }
+                }
+            }),
+        );
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     tokio::spawn(async move {
@@ -1100,7 +1207,7 @@ async fn admin_addon_source_catalog_browses_and_resolves_without_hidden_lifecycl
         source.kind,
         AdminAddonSourceCatalogSourceKind::BuiltinOfficial
     );
-    assert_eq!(source.entry_count, 1);
+    assert_eq!(source.entry_count, 2);
     assert!(!source.provides_package_signing);
     assert!(!source.provides_process_supervision);
     assert!(!source.provides_provider_breadth);
@@ -1112,8 +1219,12 @@ async fn admin_addon_source_catalog_browses_and_resolves_without_hidden_lifecycl
     )
     .await;
     assert_eq!(entries.source_id, "nako-official");
-    assert_eq!(entries.entries.len(), 1);
-    let entry = &entries.entries[0];
+    assert_eq!(entries.entries.len(), 2);
+    let entry = entries
+        .entries
+        .iter()
+        .find(|entry| entry.entry_id == metadata_scraper::ADDON_ID)
+        .unwrap();
     assert_eq!(entry.entry_id, metadata_scraper::ADDON_ID);
     assert_eq!(entry.manifest_id, metadata_scraper::ADDON_ID);
     assert_eq!(entry.addon_name, metadata_scraper::ADDON_NAME);
@@ -1267,6 +1378,82 @@ async fn admin_addon_source_catalog_browses_and_resolves_without_hidden_lifecycl
             .unwrap()
             .is_empty()
     );
+}
+
+#[tokio::test]
+async fn admin_addon_source_catalog_resolves_notification_bridge_event_manifest() {
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+
+    let entries = request_json::<AdminAddonSourceCatalogEntriesResponse>(
+        &router,
+        Method::GET,
+        "/admin/v1/addons/catalog/entries",
+    )
+    .await;
+    let entry = entries
+        .entries
+        .iter()
+        .find(|entry| entry.entry_id == notification_bridge::ADDON_ID)
+        .unwrap();
+    assert_eq!(entry.manifest_id, notification_bridge::ADDON_ID);
+    assert_eq!(entry.addon_name, notification_bridge::ADDON_NAME);
+    assert_eq!(entry.addon_version, notification_bridge::ADDON_VERSION);
+    assert_eq!(entry.resources, vec![AddonResource::Webhook]);
+    assert_eq!(entry.scopes, vec![AddonScope::WebhookEventRead]);
+    assert!(entry.tasks.is_empty());
+
+    let raw = response_for(
+        &router,
+        Method::GET,
+        "/admin/v1/addons/catalog/entries/nako.official.notification-bridge/resolve",
+    )
+    .await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let bytes = to_bytes(raw.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let resolved = serde_json::from_str::<AdminAddonSourceCatalogResolveResponse>(&text).unwrap();
+
+    assert_eq!(resolved.source_id, "nako-official");
+    assert_eq!(resolved.entry.entry_id, notification_bridge::ADDON_ID);
+    assert_eq!(
+        resolved.descriptor.manifest.id,
+        notification_bridge::ADDON_ID
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.base_url,
+        notification_bridge::DEFAULT_CONTAINER_BASE_URL
+    );
+    assert_eq!(resolved.descriptor.manifest.resources.len(), 1);
+    assert_eq!(
+        resolved.descriptor.manifest.resources[0].kind,
+        AddonResource::Webhook
+    );
+    assert!(resolved.descriptor.manifest.tasks.is_empty());
+    assert_eq!(resolved.descriptor.manifest.event_subscriptions.len(), 1);
+    assert_eq!(
+        resolved.descriptor.manifest.event_subscriptions[0].id,
+        notification_bridge::LIBRARY_SCANNED_EVENT_SUBSCRIPTION_ID
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.event_subscriptions[0].event_kind,
+        notification_bridge::LIBRARY_SCANNED_EVENT_KIND
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.event_subscriptions[0].path,
+        notification_bridge::LIBRARY_SCANNED_EVENT_PATH
+    );
+    assert_eq!(
+        resolved.install_guide.runtime_reference.value,
+        notification_bridge::RUNTIME_IMAGE
+    );
+    assert!(!resolved.install_guide.has_configuration_schema);
+    assert_eq!(resolved.install_guide.hosted_page_count, 1);
+    assert_eq!(resolved.install_guide.task_count, 0);
+    assert_eq!(resolved.install_guide.event_subscription_count, 1);
+    assert!(!text.contains("Telegram"));
+    assert!(!text.contains("Discord"));
+    assert!(!text.contains("nako_at_"));
 }
 
 #[tokio::test]
@@ -3564,6 +3751,151 @@ async fn addon_event_scheduler_loop_dispatches_due_outbox_event_when_enabled() {
     let overview =
         request_json::<AdminOverviewResponse>(&router, Method::GET, "/admin/v1/overview").await;
     assert!(overview.startup.addon_event_scheduler_started);
+}
+
+#[tokio::test]
+async fn addon_event_scheduler_acknowledges_official_notification_bridge() {
+    let (_temp, router, source, store) = router_with_media_source_config(
+        "official-notification-bridge-event.mkv",
+        b"media",
+        |config| {
+            config.addon_event_scheduler.enabled = true;
+            config.addon_event_scheduler.interval_ms = 10;
+            config.addon_event_scheduler.batch_size = 10;
+            config.addon_event_scheduler.concurrency = 1;
+        },
+    )
+    .await;
+    let (base_url, requests) = notification_bridge_server().await;
+    let mut manifest = notification_bridge::default_manifest();
+    manifest.base_url = base_url;
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest,
+            outbound_task_dispatch_secret_env: None,
+            granted_scopes: vec![AddonScope::WebhookEventRead],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    assert_eq!(registered.addon.manifest.id, notification_bridge::ADDON_ID);
+    assert_eq!(
+        registered.addon.manifest.event_subscriptions[0].id,
+        notification_bridge::LIBRARY_SCANNED_EVENT_SUBSCRIPTION_ID
+    );
+
+    let health = request_json::<AdminAddonHealthCheckResponse>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/health-check"),
+    )
+    .await;
+    assert_eq!(health.status, AdminAddonHealthCheckStatus::Reachable);
+    assert_eq!(health.resource_count, Some(1));
+
+    let routing = request_json::<AdminAddonRoutingPlansResponse>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/routing-plans"),
+    )
+    .await;
+    assert_eq!(routing.executable, 1);
+    assert_eq!(routing.deferred, 0);
+    assert_eq!(routing.plans.len(), 1);
+    assert_eq!(
+        routing.plans[0].declaration_id,
+        notification_bridge::LIBRARY_SCANNED_EVENT_SUBSCRIPTION_ID
+    );
+    assert_eq!(routing.plans[0].target, AddonRoutingPlanTarget::EventOutbox);
+
+    let event = store
+        .enqueue_outbox_event(NewOutboxEvent {
+            id: EventId::new(),
+            kind: DomainEventKind::LibraryScanned,
+            subject: DomainEventSubject::Library(source.library_id),
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            idempotency_key: format!("notification-bridge-event:{}", source.id),
+            payload_json: serde_json::json!({
+                "library_id": source.library_id,
+                "source_id": source.id,
+                "secret": "nako_at_should_not_echo"
+            })
+            .to_string(),
+        })
+        .await
+        .unwrap();
+
+    wait_for_event_requests(&requests, 1).await;
+    let captured = requests.lock().await;
+    assert_eq!(captured.len(), 1);
+    let request = &captured[0].request;
+    assert_eq!(request.addon_id, notification_bridge::ADDON_ID);
+    assert_eq!(
+        request.subscription_id,
+        notification_bridge::LIBRARY_SCANNED_EVENT_SUBSCRIPTION_ID
+    );
+    assert_eq!(
+        request.event_kind,
+        notification_bridge::LIBRARY_SCANNED_EVENT_KIND
+    );
+    assert_eq!(request.event_id, event.id.to_string());
+    assert_eq!(request.subject_id, source.library_id.to_string());
+    assert_eq!(request.payload["source_id"], source.id.to_string());
+    assert!(
+        captured[0]
+            .headers
+            .iter()
+            .any(|(name, value)| name == "x-nako-addon-operation" && value == "event-delivery")
+    );
+    assert!(
+        captured[0]
+            .headers
+            .iter()
+            .all(|(name, _)| name != "authorization" && name != "x-nako-addon-secret")
+    );
+    drop(captured);
+
+    let attempts = request_json::<AddonEventDeliveryAttemptsResponse>(
+        &router,
+        Method::GET,
+        &format!("/admin/v1/events/{}/addon-event-attempts", event.id),
+    )
+    .await;
+    assert_eq!(attempts.attempts.len(), 1);
+    assert_eq!(attempts.attempts[0].addon_id, addon_id);
+    assert_eq!(
+        attempts.attempts[0].declaration_id,
+        notification_bridge::LIBRARY_SCANNED_EVENT_SUBSCRIPTION_ID
+    );
+    assert_eq!(
+        attempts.attempts[0].status,
+        nako_core::AddonEventDeliveryStatus::Succeeded
+    );
+    assert_eq!(attempts.attempts[0].http_status, Some(200));
+    assert!(
+        !serde_json::to_string(&attempts)
+            .unwrap()
+            .contains("nako_at_should_not_echo")
+    );
+
+    let scheduler = request_json::<AddonEventSchedulerWorkResponse>(
+        &router,
+        Method::GET,
+        &format!("/admin/v1/events/{}/addon-event-scheduler/work", event.id),
+    )
+    .await;
+    assert_eq!(scheduler.due_work_count, 0);
+    assert_eq!(scheduler.work.len(), 1);
+    assert_eq!(
+        scheduler.work[0].status,
+        AddonEventSchedulerWorkStatus::AlreadySucceeded
+    );
 }
 
 #[tokio::test]

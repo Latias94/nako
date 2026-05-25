@@ -37,7 +37,7 @@ use nako_core::{
     NewAddonGrant, NewAddonRegistration, NewAddonRoutingPlan, NewAddonToken, Result, SecretString,
 };
 use nako_db::NakoDatabase;
-use nako_official_addon_catalog::metadata_scraper;
+use nako_official_addon_catalog::{metadata_scraper, notification_bridge};
 use tokio::sync::Semaphore;
 
 use super::{runtime::RuntimeSupervisor, storage::StorageBackendRegistry};
@@ -1514,21 +1514,34 @@ fn addon_install_guide(
 }
 
 fn builtin_addon_catalog_entries() -> Result<Vec<AdminAddonSourceCatalogEntry>> {
-    let descriptor = official_metadata_scraper_descriptor();
-    validate_install_descriptor(&descriptor).map_err(|_err| NakoError::InvalidInput {
-        message: "invalid built-in addon catalog descriptor".to_owned(),
-    })?;
+    let descriptors = vec![
+        (
+            metadata_scraper::ADDON_ID,
+            official_metadata_scraper_descriptor(),
+        ),
+        (
+            notification_bridge::ADDON_ID,
+            official_notification_bridge_descriptor(),
+        ),
+    ];
+    for (_, descriptor) in &descriptors {
+        validate_install_descriptor(descriptor).map_err(|_err| NakoError::InvalidInput {
+            message: "invalid built-in addon catalog descriptor".to_owned(),
+        })?;
+    }
 
-    Ok(vec![addon_catalog_entry_from_descriptor(
-        "nako-official",
-        metadata_scraper::ADDON_ID,
-        &descriptor,
-    )])
+    Ok(descriptors
+        .into_iter()
+        .map(|(entry_id, descriptor)| {
+            addon_catalog_entry_from_descriptor("nako-official", entry_id, &descriptor)
+        })
+        .collect())
 }
 
 fn builtin_addon_catalog_descriptor(entry_id: &str) -> Result<AddonInstallDescriptor> {
     match entry_id {
         metadata_scraper::ADDON_ID => Ok(official_metadata_scraper_descriptor()),
+        notification_bridge::ADDON_ID => Ok(official_notification_bridge_descriptor()),
         _ => Err(NakoError::NotFound {
             entity: "addon_catalog_entry",
             id: entry_id.to_owned(),
@@ -1575,6 +1588,10 @@ fn addon_catalog_entry_from_descriptor(
 
 fn official_metadata_scraper_descriptor() -> AddonInstallDescriptor {
     metadata_scraper::container_install_descriptor()
+}
+
+fn official_notification_bridge_descriptor() -> AddonInstallDescriptor {
+    notification_bridge::container_install_descriptor()
 }
 
 fn docker_compose_install_snippet(
@@ -1932,6 +1949,14 @@ mod tests {
         assert_eq!(
             official_metadata_scraper_descriptor(),
             metadata_scraper::container_install_descriptor()
+        );
+    }
+
+    #[test]
+    fn official_notification_bridge_catalog_descriptor_uses_shared_catalog_facts() {
+        assert_eq!(
+            official_notification_bridge_descriptor(),
+            notification_bridge::container_install_descriptor()
         );
     }
 
