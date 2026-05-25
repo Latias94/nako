@@ -1,6 +1,6 @@
 # Admin Web V2 Product Architecture Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-25
 
 ## Current Slice Gate
@@ -44,6 +44,8 @@ Latest evidence:
   `target/admin-web-v2-smoke/mobile-awv2-040.png`. Checks covered nonblank
   Jobs route, URL filter update, deterministic fallback notice, no
   document-level horizontal overflow, and no visible unsafe terms.
+- 2026-05-25: AWV2-050 closeout review found no blocking or important
+  findings. Follow-on lanes are recorded in `CLOSEOUT.md`.
 
 ## Frontend Gate Set
 
@@ -135,3 +137,4 @@ must check:
 - `apps/admin-web/src/components/layout/`
 - `apps/admin-web/src/design/tokens.css`
 - `apps/admin-web/src/legacy/LegacyDashboard.tsx`
+- `docs/workstreams/admin-web-v2-product-architecture/CLOSEOUT.md`

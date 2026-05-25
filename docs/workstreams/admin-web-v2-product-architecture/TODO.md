@@ -1,6 +1,6 @@
 # Admin Web V2 Product Architecture TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-25
 
 ## M0 - Context And Research Baseline
@@ -58,11 +58,11 @@ Last updated: 2026-05-25
 
 ## M4 - Closeout Or Split
 
-- [ ] AWV2-050 [owner=planner] [deps=AWV2-040] [scope=docs/workstreams/admin-web-v2-product-architecture]
+- [x] AWV2-050 [owner=codex] [deps=AWV2-040] [scope=docs/workstreams/admin-web-v2-product-architecture]
   Goal: Close this design lane or split the next V2 implementation lanes by
   workflow.
   Validation: final gates are recorded freshly in `EVIDENCE_AND_GATES.md`.
   Review: review-workstream has no blocking findings.
-  Evidence: `HANDOFF.md`, `WORKSTREAM.json`, final gate notes.
+  Evidence: `CLOSEOUT.md`, `HANDOFF.md`, `WORKSTREAM.json`, final gate notes.
   Handoff: Recommended next lanes should be Jobs, Media Libraries, Catalog
   Governance, Addons, or Settings, not a broad app rewrite.

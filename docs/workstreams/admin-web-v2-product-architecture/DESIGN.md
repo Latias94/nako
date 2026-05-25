@@ -1,6 +1,6 @@
 # Admin Web V2 Product Architecture
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-25
 
 ## Why This Lane Exists
@@ -152,3 +152,5 @@ This lane can close when:
   workstream;
 - frontend gates and any touched Rust/API gates pass freshly;
 - remaining work is split or explicitly deferred in `HANDOFF.md`.
+
+Status: satisfied on 2026-05-25. See `CLOSEOUT.md`.

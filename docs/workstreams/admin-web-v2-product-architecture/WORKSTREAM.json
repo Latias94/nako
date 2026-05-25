@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "admin-web-v2-product-architecture",
   "title": "Admin Web V2 Product Architecture",
-  "status": "active",
+  "status": "completed",
   "updated": "2026-05-25",
   "scope_kind": "frontend_product_architecture",
   "problem": "Admin Web V0 proved the app and generated Admin API contract, but V2 needs route-first product architecture, shared UI vocabulary, and stack decisions before deeper workflows are implemented.",
@@ -42,6 +42,10 @@
     {
       "role": "handoff",
       "path": "docs/workstreams/admin-web-v2-product-architecture/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/admin-web-v2-product-architecture/CLOSEOUT.md"
     }
   ],
   "gates": [
@@ -65,6 +69,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "AWV2-040 is complete. Continue with AWV2-050 closeout-or-split review. Prefer splitting focused workflow lanes such as Jobs, Media Libraries, Catalog Governance, Addons, or Settings over continuing a broad app rewrite. Keep /legacy until migrated workflows have route tests and browser evidence."
+    "notes": "This architecture lane is closed. Continue Admin Web V2 through focused follow-on workflow lanes such as Jobs, Media Libraries, Catalog Governance, Addons, or Settings. Keep /legacy until migrated workflows have route tests and browser evidence."
   }
 }

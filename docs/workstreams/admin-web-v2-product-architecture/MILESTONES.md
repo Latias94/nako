@@ -1,6 +1,6 @@
 # Admin Web V2 Product Architecture Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-25
 
 ## M-AWV2.0 Context And Research Baseline
@@ -115,3 +115,6 @@ Exit criteria:
 
 - Remaining work is not hidden inside a broad V2 label.
 - Next tasks are independently executable and reviewable.
+
+Status: completed by AWV2-050. Follow-ons are split in `CLOSEOUT.md` and
+`HANDOFF.md`.

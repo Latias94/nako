@@ -1,6 +1,6 @@
 # Admin Web V2 Product Architecture Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-25
 
 ## Current State
@@ -23,16 +23,14 @@ AWV2-040 is complete. The `/jobs` proof now consumes extracted layout, route,
 filter, data panel, table, badge, skeleton, empty, and safe notice components.
 V2 semantic tokens live under `apps/admin-web/src/design/tokens.css`.
 
+AWV2-050 is complete. This architecture lane is closed. `CLOSEOUT.md` records
+the review result, evidence anchors, residual risks, and follow-on lanes.
+
 ## Active Task
 
-- Task ID: AWV2-050
-- Owner: planner
-- Files: `docs/workstreams/admin-web-v2-product-architecture`
-- Validation: final gates recorded freshly in `EVIDENCE_AND_GATES.md`
-- Status: READY
-- Review: decide whether to close this architecture lane or split focused
-  implementation lanes by workflow.
-- Evidence needed: final review notes and next-lane recommendations.
+- Task ID: none in this lane
+- Status: CLOSED
+- Next owner: planner or implementation agent for a follow-on workflow lane
 
 ## Decisions Since Last Update
 
@@ -60,14 +58,12 @@ V2 semantic tokens live under `apps/admin-web/src/design/tokens.css`.
 
 ## Blockers
 
-- None for AWV2-050.
+- None.
 
 ## Next Recommended Action
 
-Run AWV2-050:
+Open a focused follow-on lane:
 
-- run review-workstream against AWV2-030 and AWV2-040 evidence;
-- decide whether this lane should close or stay open for a second route;
 - recommended follow-on lanes are Jobs, Media Libraries, Catalog Governance,
   Addons, or Settings, not a broad app rewrite;
 - keep `/legacy` route until migrated workflows have their own route tests and
