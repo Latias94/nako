@@ -1,6 +1,6 @@
 # Browser Playback Auth Transport - TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-26
 
 Task IDs use the `BPAT` prefix.
@@ -94,7 +94,7 @@ Task IDs use the `BPAT` prefix.
 
 ## M5 - Closeout
 
-- [ ] BPAT-060 [owner=planner] [deps=BPAT-050] [scope=docs/workstreams/browser-playback-auth-transport]
+- [x] BPAT-060 [owner=codex] [deps=BPAT-050] [scope=docs/workstreams/browser-playback-auth-transport]
   Goal: Verify final gates, record browser playback evidence, and close or
   split follow-ons for desktop native playback, subtitles, advanced codecs,
   and credential/session UX.
@@ -103,3 +103,7 @@ Task IDs use the `BPAT` prefix.
   Review: close-workstream before completion claims.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`
   Handoff: Do not expand this lane into Tauri/native playback or account UX.
+  Result: DONE 2026-05-26. Final contract, server, frontend, formatting,
+  boundary grep, and browser smoke gates passed. The workstream is closed with
+  follow-ons split for desktop native playback, subtitles, codec/HDR
+  capability mapping, credential/session UX, and account/admin roles.

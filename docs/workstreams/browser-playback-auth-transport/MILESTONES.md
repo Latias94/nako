@@ -1,6 +1,6 @@
 # Browser Playback Auth Transport - Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-26
 
 ## M0 - Transport Decision
@@ -77,3 +77,8 @@ Exit criteria:
 - Desktop native playback, credential/session UX, subtitles, and advanced
   codec work are split or deferred.
 - `WORKSTREAM.json` status is updated.
+
+Result: DONE 2026-05-26. Final Public Client contract, server playback,
+frontend Media Web, formatting, boundary grep, build, and browser smoke gates
+passed. The lane is closed; native desktop playback, account/session UX,
+subtitles, and advanced codec/HDR behavior remain separate follow-ons.

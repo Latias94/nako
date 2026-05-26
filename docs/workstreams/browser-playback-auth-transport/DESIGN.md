@@ -1,6 +1,6 @@
 # Browser Playback Auth Transport
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-26
 
 ## Why This Lane Exists
@@ -129,3 +129,11 @@ This lane can close when:
   fixture limitation;
 - follow-ons for desktop native playback and full credential/session UX remain
   split.
+
+Result: CLOSED 2026-05-26. The lane shipped short-lived browser playback
+tickets, server-side ticket validation for direct/remux/HLS byte routes, Media
+Web HTML5 player integration, and User Playback State writes from player
+events. Fixture browser smoke covers desktop and mobile layouts; fixture media
+URLs intentionally log a media-load error because they are not backed by a real
+media server. Desktop native playback, subtitles, advanced codec/HDR handling,
+credential/session UX, and account/admin role work remain follow-ons.

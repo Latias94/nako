@@ -1,6 +1,6 @@
 # Browser Playback Auth Transport - Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-26
 
 ## Current State
@@ -29,19 +29,14 @@ BPAT-050 is complete. Media Web watch players now write User Playback State
 progress after playback starts, throttle normal `timeupdate` writes, flush on
 pause, and mark the selected source watched on ended.
 
+BPAT-060 is complete. The lane has been fully verified and closed. Remaining
+desktop native playback, subtitles, advanced codec/HDR capability mapping,
+credential/session UX, and account/admin role work are follow-ons, not part of
+this lane.
+
 ## Active Task
 
-- Task ID: BPAT-060
-- Owner: planner
-- Files: `docs/workstreams/browser-playback-auth-transport`,
-  `apps/admin-web/src/surfaces/media`, `crates/nako-server`
-- Validation: relevant Rust gates, package-local Media Web check/test/build,
-  `git diff --check`, browser desktop/mobile smoke, and review-workstream.
-- Status: READY
-- Review: close or split follow-ons for desktop native playback, subtitles,
-  advanced codec/HDR capability mapping, credential/session UX, and broader
-  account/admin role work.
-- Evidence: update `EVIDENCE_AND_GATES.md`
+- None. The workstream is closed.
 
 ## Decisions Since Last Update
 
@@ -77,6 +72,6 @@ pause, and mark the selected source watched on ended.
 
 ## Next Recommended Action
 
-Run BPAT-060. Verify the lane end to end, record final evidence, then close or
-split follow-ons rather than expanding this lane into desktop native playback,
-subtitles, advanced codecs, sessions, or account UX.
+Split follow-on workstreams for desktop native playback, subtitles, advanced
+codec/HDR capability mapping, credential/session UX, and account/admin roles if
+those become active goals.
