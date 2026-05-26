@@ -226,27 +226,47 @@ describe("Media Web surface", () => {
     });
   });
 
-  it("renders a watch shell without minting a browser stream URL", async () => {
+  it("renders a ticketed browser player without exposing transport secrets as text", async () => {
     window.history.pushState(
       null,
       "",
       "/media/watch/item-episode-1?source_id=source-episode-1-alt",
     );
+    const dataSource = createFixtureMediaDataSource();
+    const createBrowserPlaybackTicket = vi.fn(dataSource.createBrowserPlaybackTicket);
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          createBrowserPlaybackTicket,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
 
     const { container } = render(
       <App
         dataSource={emptyAdminDataSource()}
         initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
       />,
     );
 
     expect(await screen.findByRole("heading", { name: "Pilot" })).toBeInTheDocument();
     expect(screen.getByText("Player")).toBeInTheDocument();
-    expect(screen.getAllByText("Secure stream transport required").length).toBeGreaterThan(0);
+    const player = await screen.findByLabelText("Pilot player");
+    expect(player.tagName).toBe("VIDEO");
+    expect(player).toHaveAttribute("controls");
     expect(screen.getByRole("button", { name: /Pilot\.alt\.mp4/ })).toBeInTheDocument();
     expect(screen.getAllByText("direct_play").length).toBeGreaterThan(0);
-    expect(container.querySelector("video")).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(createBrowserPlaybackTicket).toHaveBeenCalledWith(
+        "source-episode-1-alt",
+        expect.objectContaining({ mode: "direct" }),
+      );
+    });
+    expect((player as HTMLVideoElement).getAttribute("src")).toContain("nako_bpt_fixture");
+    expect(container.textContent).not.toContain("nako_bpt_fixture");
     expect(container.textContent).not.toContain("/sources/");
+    expect(container.textContent).not.toContain("Bearer");
   });
 });
 

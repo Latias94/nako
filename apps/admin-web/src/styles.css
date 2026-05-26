@@ -1303,6 +1303,43 @@ td {
   font-size: 0.86rem;
 }
 
+.mediaPlayerFrame {
+  display: grid;
+  gap: 10px;
+}
+
+.mediaPlayer {
+  display: block;
+  width: 100%;
+  max-height: min(68vh, 640px);
+  border: 1px solid var(--media-line);
+  border-radius: 8px;
+  aspect-ratio: 16 / 9;
+  background: oklch(14% 0.015 116);
+}
+
+.mediaPlayer:focus-visible {
+  border-color: var(--media-brand);
+  outline: 2px solid oklch(73% 0.14 172 / 32%);
+  outline-offset: 2px;
+}
+
+.mediaPlayerFacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mediaPlayerFacts span {
+  border: 1px solid var(--media-line);
+  border-radius: 999px;
+  background: oklch(20% 0.02 116);
+  color: var(--media-muted);
+  padding: 6px 9px;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
 .mediaPlaybackState > div:first-child {
   display: grid;
   gap: 4px;

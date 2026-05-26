@@ -58,7 +58,7 @@ Task IDs use the `BPAT` prefix.
 
 ## M3 - Media Web Real Player
 
-- [ ] BPAT-040 [owner=unassigned] [deps=BPAT-030] [scope=apps/admin-web/src/surfaces/media,sdk/typescript]
+- [x] BPAT-040 [owner=codex] [deps=BPAT-030] [scope=apps/admin-web/src/surfaces/media,sdk/typescript]
   Goal: Replace the Media Web safe watch shell with a real browser player for
   the accepted MVP transport.
   Validation: `cd apps/admin-web && npm run check && npm run test -- mediaSurface.test.tsx mediaDataSource.test.ts`; boundary grep under `apps/admin-web/src/surfaces/media`.
@@ -66,6 +66,12 @@ Task IDs use the `BPAT` prefix.
   Source Locators, local paths, or Admin API diagnostics.
   Evidence: player tests, data-source tests, redaction checks.
   Handoff: Keep codec/HDR/subtitle/hardware decode limitations explicit.
+  Result: DONE 2026-05-26. Media Web watch pages now request browser playback
+  tickets through the Public Client data source and render an HTML5 player
+  from the browser-safe URL envelope. Tests cover live SDK ticket issuance,
+  fixture ticketing, source selection, and visible-text redaction for ticket
+  values, bearer credentials, and raw stream paths. Browser smoke covered
+  desktop and mobile watch states with the expected fixture media load error.
 
 ## M4 - Playback Progress Writes
 

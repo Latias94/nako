@@ -1,6 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import type {
   ContinueWatchingResponse,
+  BrowserPlaybackTicketRequest,
+  BrowserPlaybackTicketResponse,
   ItemDetailResponse,
   ItemsResponse,
   LibraryListResponse,
@@ -338,6 +340,7 @@ export function MediaWatchPage(props: MediaItemPageProps) {
 
   return (
     <MediaWatch
+      browserTicket={playback.browserTicket}
       decision={playback.decision}
       mutationError={playback.mutationError}
       onMarkWatched={playback.onMarkWatched}
@@ -367,6 +370,19 @@ function useMediaItemPlayback({
     dataSource,
     (source) => source.getUserPlaybackState(itemId),
     [itemId],
+  );
+  const browserTicket = useMediaLoad(
+    selectedSourceId && decision.value ? dataSource : null,
+    (source) =>
+      source.createBrowserPlaybackTicket(
+        selectedSourceId!,
+        browserPlaybackTicketRequest(decision.value!),
+      ),
+    [
+      selectedSourceId,
+      decision.value?.decision.mode,
+      decision.value?.decision.transcode_plan?.output_container,
+    ],
   );
   const [playbackStateOverride, setPlaybackStateOverride] =
     useState<UserPlaybackStateResponse | null>(null);
@@ -410,6 +426,7 @@ function useMediaItemPlayback({
 
   return {
     dataSource,
+    browserTicket,
     decision,
     mutationError: playbackMutationError,
     onMarkWatched: markWatched,
@@ -700,6 +717,7 @@ function MediaItemDetail({
 }
 
 function MediaWatch({
+  browserTicket,
   decision,
   mutationError,
   onMarkWatched,
@@ -709,6 +727,7 @@ function MediaWatch({
   savingPlaybackState,
   selectedSourceId,
 }: {
+  browserTicket: MediaAsyncState<BrowserPlaybackTicketResponse>;
   decision: MediaAsyncState<PlaybackDecisionResponse>;
   mutationError: string | null;
   onMarkWatched(watched: boolean): void;
@@ -738,12 +757,9 @@ function MediaWatch({
       <section className="mediaPanel mediaPlayerShell" aria-labelledby="media-player-title">
         <div className="mediaPanelHeader">
           <h3 id="media-player-title">Player</h3>
-          <span>{decision.value?.decision.mode ?? "pending"}</span>
+          <span>{browserTicket.value?.mode ?? decision.value?.decision.mode ?? "pending"}</span>
         </div>
-        <div className="mediaPlayerPlaceholder" role="status">
-          <strong>{metadata.title}</strong>
-          <span>Secure stream transport required</span>
-        </div>
+        <MediaBrowserPlayer result={browserTicket} title={metadata.title} />
       </section>
       <MediaSourceVersions
         onSourceChange={onSourceChange}
@@ -859,7 +875,49 @@ function MediaPlaybackDecision({
       </div>
       <div>
         <span>Transport</span>
-        <strong>Secure stream transport required</strong>
+        <strong>Issued on watch page</strong>
+      </div>
+    </div>
+  );
+}
+
+function MediaBrowserPlayer({
+  result,
+  title,
+}: {
+  result: MediaAsyncState<BrowserPlaybackTicketResponse>;
+  title: string;
+}) {
+  if (result.loading) {
+    return <div className="mediaSkeleton" />;
+  }
+
+  if (result.error) {
+    return <div className="mediaError">{result.error}</div>;
+  }
+
+  const ticket = result.value;
+  const primaryUrl = ticket?.urls[0];
+
+  if (!ticket || !primaryUrl) {
+    return <div className="mediaEmpty">Playback URL unavailable</div>;
+  }
+
+  return (
+    <div className="mediaPlayerFrame">
+      <video
+        aria-label={`${title} player`}
+        className="mediaPlayer"
+        controls
+        playsInline
+        preload="metadata"
+        src={primaryUrl.url}
+      />
+      <div className="mediaPlayerFacts">
+        <span>{ticket.mode}</span>
+        <span>{primaryUrl.content_type}</span>
+        <span>{primaryUrl.supports_range_requests ? "range ready" : "playlist"}</span>
+        <span>expires {ticket.expires_at}</span>
       </div>
     </div>
   );
@@ -1032,6 +1090,34 @@ function formatRuntimeMinutes(value: number | null) {
 
 function formatRuntimeMs(value: number | null | undefined) {
   return value ? `${Math.round(value / 60_000)} min` : "duration unknown";
+}
+
+function browserPlaybackTicketRequest(
+  decision: PlaybackDecisionResponse,
+): BrowserPlaybackTicketRequest {
+  const mode = browserPlaybackMode(decision);
+  return {
+    capabilities: {
+      audio_codec: ["aac", "opus", "mp3", "flac"],
+      container: ["mp4", "matroska", "webm", "mpegts"],
+      direct_play: mode === "direct",
+      output_container: mode === "remux" ? "mp4" : undefined,
+      video_codec: ["h264", "hevc", "vp9", "av1"],
+    },
+    mode,
+  };
+}
+
+function browserPlaybackMode(
+  decision: PlaybackDecisionResponse,
+): BrowserPlaybackTicketRequest["mode"] {
+  if (decision.decision.mode === "direct_play") {
+    return "direct";
+  }
+  if (decision.decision.mode === "remux") {
+    return "remux";
+  }
+  return "hls";
 }
 
 function sourceSummary(source: MediaSourceDto) {

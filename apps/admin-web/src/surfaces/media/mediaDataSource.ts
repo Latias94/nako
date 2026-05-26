@@ -1,5 +1,7 @@
 import {
   NakoClient,
+  type BrowserPlaybackTicketRequest,
+  type BrowserPlaybackTicketResponse,
   type ContinueWatchingResponse,
   type FetchLike,
   type ItemDetailResponse,
@@ -64,6 +66,10 @@ export type MediaWebDataSource = {
     sourceId: string,
     capabilities?: PlaybackCapabilitiesQuery,
   ): Promise<MediaLoadResult<PlaybackDecisionResponse>>;
+  createBrowserPlaybackTicket(
+    sourceId: string,
+    body: BrowserPlaybackTicketRequest,
+  ): Promise<MediaLoadResult<BrowserPlaybackTicketResponse>>;
   getUserPlaybackState(itemId: string): Promise<MediaLoadResult<UserPlaybackStateResponse>>;
   updateUserPlaybackProgress(
     itemId: string,
@@ -123,6 +129,14 @@ export function createPublicClientMediaDataSource(
     async getPlaybackDecision(sourceId, capabilities) {
       return liveResult(await client.getPlaybackDecision(sourceId, capabilities));
     },
+    async createBrowserPlaybackTicket(sourceId, body) {
+      return liveResult(
+        resolveBrowserPlaybackUrls(
+          await client.createBrowserPlaybackTicket(sourceId, body),
+          connection.baseUrl,
+        ),
+      );
+    },
     async getUserPlaybackState(itemId) {
       return liveResult(await client.getUserPlaybackState(itemId));
     },
@@ -172,6 +186,9 @@ export function createFixtureMediaDataSource(): MediaWebDataSource {
     },
     async getPlaybackDecision(sourceId) {
       return fixtureResult(fixturePlaybackDecision(sourceId));
+    },
+    async createBrowserPlaybackTicket(sourceId, body) {
+      return fixtureResult(fixtureBrowserPlaybackTicket(sourceId, body));
     },
     async getUserPlaybackState() {
       return fixtureResult(fixtureUserPlaybackState);
@@ -226,6 +243,52 @@ function liveResult<T>(value: T): MediaLoadResult<T> {
     value,
   };
 }
+
+function resolveBrowserPlaybackUrls(
+  ticket: BrowserPlaybackTicketResponse,
+  baseUrl: string,
+): BrowserPlaybackTicketResponse {
+  return {
+    ...ticket,
+    urls: ticket.urls.map((url) => ({
+      ...url,
+      url: new URL(url.url, baseUrl).toString(),
+    })),
+  };
+}
+
+function fixtureBrowserPlaybackTicket(
+  sourceId: string,
+  body: BrowserPlaybackTicketRequest,
+): BrowserPlaybackTicketResponse {
+  const encodedSourceId = encodeURIComponent(sourceId);
+  const streamPath =
+    body.mode === "hls"
+      ? `/sources/${encodedSourceId}/stream/hls/playlist.m3u8`
+      : body.mode === "remux"
+        ? `/sources/${encodedSourceId}/stream/remux?output_container=${
+            body.capabilities?.output_container ?? "mp4"
+          }`
+        : `/sources/${encodedSourceId}/stream`;
+  const separator = streamPath.includes("?") ? "&" : "?";
+  const isPlaylist = body.mode === "hls";
+
+  return {
+    expires_at: "2026-05-26T12:00:00Z",
+    item_id: "item-episode-1",
+    mode: body.mode,
+    source_id: sourceId,
+    urls: [
+      {
+        content_type: isPlaylist ? "application/vnd.apple.mpegurl" : "video/mp4",
+        kind: isPlaylist ? "playlist" : "stream",
+        supports_range_requests: !isPlaylist,
+        url: `https://fixture.nako.test${streamPath}${separator}ticket=nako_bpt_fixture`,
+      },
+    ],
+  };
+}
+
 function fixtureResult<T>(value: T): MediaLoadResult<T> {
   return {
     source: "fixture",

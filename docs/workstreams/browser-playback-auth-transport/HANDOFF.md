@@ -20,18 +20,23 @@ BPAT-030 is complete. The server now issues opaque in-memory playback tickets
 and validates ticketed direct stream, remux, HLS playlist, and HLS segment
 requests before serving bytes.
 
+BPAT-040 is complete. Media Web watch pages now request browser playback
+tickets through the Public Client data source and render an HTML5 player from
+the browser-safe URL envelope without exposing bearer tokens, raw Source
+Locators, raw stream paths, or ticket values in visible UI text.
+
 ## Active Task
 
-- Task ID: BPAT-040
+- Task ID: BPAT-050
 - Owner: unassigned
-- Files: `apps/admin-web/src/surfaces/media`, `sdk/typescript`,
+- Files: `apps/admin-web/src/surfaces/media`,
   `docs/workstreams/browser-playback-auth-transport`
-- Validation: `cd apps/admin-web && npm run check && npm run test -- mediaSurface.test.tsx mediaDataSource.test.ts`; boundary grep under `apps/admin-web/src/surfaces/media`; browser smoke when a dev server is available.
+- Validation: focused Media Web tests for progress throttling, pause/end
+  updates, source-aware state, and no writes when playback is not active.
 - Status: READY
-- Review: Replace the safe watch shell with a real browser player that calls
-  the Public Client ticket route and uses only browser-safe playback URLs.
-  The UI must not render bearer tokens, raw stream internals, raw Source
-  Locators, local paths, or Admin API diagnostics.
+- Review: Wire real player events to User Playback State progress writes using
+  Public Client `/users/me/playback-state` routes. Do not depend on Admin API
+  state or write playback progress before playback is active.
 - Evidence: update `EVIDENCE_AND_GATES.md`
 
 ## Decisions Since Last Update
@@ -54,9 +59,15 @@ requests before serving bytes.
 - Auth middleware bypass is intentionally narrow: GET/HEAD media byte routes
   with a `ticket` query are allowed through to route-level ticket validation;
   Admin/Public JSON routes stay bearer-protected.
+- BPAT-040 keeps ticket values out of visible UI text. The raw ticket remains
+  only inside the media element URL attribute, which is the accepted browser
+  transport boundary for this lane.
+- Fixture browser smoke uses `https://fixture.nako.test/...` URLs and therefore
+  produces an expected media-load console error without a real fixture media
+  service.
 
 ## Next Recommended Action
 
-Run BPAT-040. Wire Media Web's watch surface to request browser playback
-tickets and render a real player without exposing bearer tokens or raw media
-internals.
+Run BPAT-050. Wire the real player to playback progress writes with throttled
+`timeupdate` handling, pause/end flushes, source-aware state, and no writes
+until playback has actually started.

@@ -147,6 +147,55 @@ describe("Media Web Public Client data source", () => {
       }),
     );
   });
+
+  it("uses generated Public Client SDK route for browser playback tickets", async () => {
+    const fetch = vi.fn(async (_input: string | URL | Request, _init?: RequestInit) =>
+      jsonResponse({
+        expires_at: "2026-05-26T12:00:00Z",
+        item_id: "item episode",
+        mode: "direct",
+        source_id: "source episode",
+        urls: [
+          {
+            content_type: "video/mp4",
+            kind: "stream",
+            supports_range_requests: true,
+            url: "/sources/source%20episode/stream?ticket=nako_bpt_secret",
+          },
+        ],
+      }),
+    );
+    const dataSource = createPublicClientMediaDataSource(
+      {
+        baseUrl: "http://nako.test/api/",
+        bearerToken: "secret-token",
+        mode: "live",
+      },
+      fetch,
+    );
+
+    const ticket = await dataSource.createBrowserPlaybackTicket("source episode", {
+      capabilities: { direct_play: true },
+      mode: "direct",
+    });
+
+    expect(fetch).toHaveBeenCalledWith(
+      "http://nako.test/api/sources/source%20episode/playback/browser-ticket",
+      expect.objectContaining({
+        body: JSON.stringify({
+          capabilities: { direct_play: true },
+          mode: "direct",
+        }),
+        method: "POST",
+      }),
+    );
+    const headers = fetch.mock.calls[0][1]?.headers as Headers;
+    expect(headers.get("Authorization")).toBe("Bearer secret-token");
+    expect(ticket.value.urls[0].url).toBe(
+      "http://nako.test/sources/source%20episode/stream?ticket=nako_bpt_secret",
+    );
+    expect(ticket.value.urls[0].url).not.toContain("Bearer");
+  });
 });
 
 function jsonResponse(body: unknown) {

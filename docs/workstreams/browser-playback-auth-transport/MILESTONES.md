@@ -48,6 +48,12 @@ Exit criteria:
   Client API-backed.
 - No bearer token, raw locator, or privileged permanent URL is rendered.
 
+Result: DONE 2026-05-26. `/media/watch/:itemId` now renders an HTML5 browser
+player backed by short-lived browser playback tickets. Source selection remains
+URL-owned, the live data source uses the generated Public Client SDK ticket
+route, and visible UI text does not expose ticket values, bearer credentials,
+or raw stream paths.
+
 ## M4 - Playback Progress Writes
 
 Exit criteria:
