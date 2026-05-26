@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "slug": "backend-media-product-deepening",
+  "title": "Backend Media Product Deepening",
+  "status": "active",
+  "current_task": "BMPD-030",
+  "completed_tasks": [
+    "BMPD-010",
+    "BMPD-020"
+  ],
+  "updated": "2026-05-27",
+  "scope_kind": "execution",
+  "problem": "Nako has strong local-media backend pieces, but migration baseline, identity onboarding, playback runtime sessions, and admin/media context links still need deeper product seams before mature Admin Web, Media Web, desktop, and mobile clients can rely on them.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/backend-media-product-deepening/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/backend-media-product-deepening/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/backend-media-product-deepening/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/backend-media-product-deepening/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/backend-media-product-deepening/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/backend-media-product-deepening/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python -m json.tool docs/workstreams/backend-media-product-deepening/WORKSTREAM.json",
+    "git diff --check -- docs/workstreams/backend-media-product-deepening docs/workstreams/README.md",
+    "cargo nextest run -p nako-db --no-fail-fast",
+    "cargo nextest run -p nako-server -E 'test(admin_access) | test(local_session) | test(playback)' --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "BMPD-010",
+      "summary": "Opened backend product deepening lane after auditing existing migration, identity, playback, admin API, and reference media-server architecture."
+    },
+    {
+      "task": "BMPD-020",
+      "summary": "Flattened SQLite/PostgreSQL baselines into direct current-schema definitions and added regression tests that reject historical replay fragments."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md",
+    "docs/adr/0028-user-playback-state-principal-and-public-contract.md",
+    "docs/adr/0036-short-lived-browser-playback-tickets.md",
+    "docs/adr/0037-local-credential-and-session-auth.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Continue with BMPD-030 invitation onboarding, then Playback Session runtime and Management Context Links."
+  }
+}

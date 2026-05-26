@@ -6,6 +6,13 @@ attention.
 
 ## Current Workstreams
 
+- [backend-media-product-deepening](backend-media-product-deepening/README.md):
+  active backend execution lane for hardening Nako's local-media product seams
+  after Media Web foundation and credential/session auth. It covers clean
+  database baselines, controlled invitation registration, Playback Session
+  runtime deepening, and permission-gated Management Context Links between
+  media browsing and admin operations without adding frontend UI,
+  recommendations, open registration, or native desktop implementation.
 - [metadata-application-policy-seam](metadata-application-policy-seam/README.md):
   completed backend execution lane for deepening Nako's host-owned Canonical
   Metadata application seam. It added a `MetadataApplication` Module so Addon

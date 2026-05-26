@@ -396,6 +396,15 @@ fn database_error<E: Display>(err: E) -> NakoError {
 mod tests {
     use super::*;
 
+    const HISTORICAL_REPLAY_FRAGMENTS: &[&str] = &[
+        "-- From ",
+        "ALTER TABLE",
+        "ADD COLUMN",
+        "DROP INDEX",
+        "DROP CONSTRAINT",
+        "DELETE FROM",
+    ];
+
     #[test]
     fn postgres_baseline_migration_contains_identity_and_library_access_schema() {
         assert_eq!(MIGRATIONS.len(), 1);
@@ -412,6 +421,17 @@ mod tests {
             assert!(
                 sql.contains(expected),
                 "missing PostgreSQL baseline SQL: {expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn postgres_baseline_migration_describes_direct_schema_shape() {
+        let sql = MIGRATIONS[0].2;
+        for fragment in HISTORICAL_REPLAY_FRAGMENTS {
+            assert!(
+                !sql.contains(fragment),
+                "PostgreSQL baseline still contains historical replay fragment: {fragment}"
             );
         }
     }

@@ -39,6 +39,15 @@ fn migrator() -> Migrator {
 mod tests {
     use super::*;
 
+    const HISTORICAL_REPLAY_FRAGMENTS: &[&str] = &[
+        "-- From ",
+        "ALTER TABLE",
+        "ADD COLUMN",
+        "DROP INDEX",
+        "DROP CONSTRAINT",
+        "DELETE FROM",
+    ];
+
     fn single_migration(sql: &'static str) -> Migrator {
         Migrator {
             migrations: Cow::Owned(vec![Migration::new(
@@ -49,6 +58,21 @@ mod tests {
                 false,
             )]),
             ..Migrator::DEFAULT
+        }
+    }
+
+    #[test]
+    fn baseline_migration_describes_direct_schema_shape() {
+        assert_eq!(MIGRATIONS.len(), 1);
+        assert_eq!(MIGRATIONS[0].0, 1);
+        assert_eq!(MIGRATIONS[0].1, "baseline");
+
+        let sql = MIGRATIONS[0].2;
+        for fragment in HISTORICAL_REPLAY_FRAGMENTS {
+            assert!(
+                !sql.contains(fragment),
+                "SQLite baseline still contains historical replay fragment: {fragment}"
+            );
         }
     }
 

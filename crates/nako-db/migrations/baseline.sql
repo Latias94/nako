@@ -1,14 +1,15 @@
--- Consolidated SQLite baseline for Nako's pre-production schema.
--- Generated from the previous backend-owned migration chain on 2026-05-26.
+-- Authoritative SQLite baseline for Nako's current pre-production schema.
 -- Runtime migrations intentionally start from this single baseline while Nako has no production database compatibility burden.
 
--- From 0001_initial.sql
 CREATE TABLE libraries (
     id TEXT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
     roots_json TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    domain TEXT NOT NULL DEFAULT 'mixed',
+    preset TEXT NOT NULL DEFAULT 'mixed_video',
+    options_json TEXT
 );
 
 CREATE TABLE media_items (
@@ -21,7 +22,8 @@ CREATE TABLE media_items (
     overview TEXT,
     release_date TEXT,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    metadata_json TEXT
 );
 
 CREATE INDEX media_items_parent_id_idx ON media_items(parent_id);
@@ -55,7 +57,6 @@ CREATE INDEX media_sources_library_id_idx ON media_sources(library_id);
 CREATE INDEX media_sources_item_id_idx ON media_sources(item_id);
 
 
--- From 0002_media_probe.sql
 CREATE TABLE media_source_probes (
     source_id TEXT PRIMARY KEY NOT NULL REFERENCES media_sources(id) ON DELETE CASCADE,
     duration_ms INTEGER,
@@ -85,7 +86,6 @@ CREATE INDEX media_streams_source_id_idx ON media_streams(source_id);
 CREATE INDEX media_streams_kind_idx ON media_streams(kind, kind_key);
 
 
--- From 0003_jobs.sql
 CREATE TABLE jobs (
     id TEXT PRIMARY KEY NOT NULL,
     kind TEXT NOT NULL,
@@ -98,21 +98,25 @@ CREATE TABLE jobs (
     queued_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     started_at TEXT,
     completed_at TEXT,
-    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    input_json TEXT,
+    worker_id TEXT,
+    run_token TEXT,
+    heartbeat_at TEXT,
+    lease_expires_at TEXT,
+    cancel_requested_at TEXT,
+    cancel_reason TEXT
 );
 
 CREATE INDEX jobs_status_idx ON jobs(status);
 CREATE INDEX jobs_kind_idx ON jobs(kind);
 CREATE INDEX jobs_library_id_idx ON jobs(library_id);
 CREATE INDEX jobs_source_id_idx ON jobs(source_id);
+CREATE INDEX jobs_lease_claim_idx
+    ON jobs(status, kind, resource_class, queued_at, id);
+CREATE INDEX jobs_lease_expiry_idx
+    ON jobs(status, lease_expires_at);
 
-
--- From 0004_job_input_payload.sql
-ALTER TABLE jobs ADD COLUMN input_json TEXT;
-
-
--- From 0005_metadata_policy.sql
-ALTER TABLE media_items ADD COLUMN metadata_json TEXT;
 
 CREATE TABLE metadata_field_locks (
     item_id TEXT NOT NULL REFERENCES media_items(id) ON DELETE CASCADE,
@@ -142,14 +146,6 @@ CREATE INDEX provider_raw_responses_item_id_idx ON provider_raw_responses(item_i
 CREATE INDEX provider_raw_responses_lookup_idx
     ON provider_raw_responses(provider, provider_key, item_id);
 
-
--- From 0006_library_profiles.sql
-ALTER TABLE libraries ADD COLUMN domain TEXT NOT NULL DEFAULT 'mixed';
-ALTER TABLE libraries ADD COLUMN preset TEXT NOT NULL DEFAULT 'mixed_video';
-ALTER TABLE libraries ADD COLUMN options_json TEXT;
-
-
--- From 0007_catalog_ingestion.sql
 CREATE TABLE people (
     id TEXT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
@@ -388,7 +384,6 @@ CREATE INDEX artwork_tasks_status_idx ON artwork_tasks(status);
 CREATE INDEX artwork_tasks_resource_class_idx ON artwork_tasks(resource_class);
 
 
--- From 0008_transcode_sessions.sql
 CREATE TABLE transcode_sessions (
     id TEXT PRIMARY KEY NOT NULL,
     source_id TEXT NOT NULL REFERENCES media_sources(id) ON DELETE CASCADE,
@@ -418,7 +413,6 @@ CREATE UNIQUE INDEX transcode_sessions_active_request_idx
     WHERE state IN ('planned', 'starting', 'running', 'cancel_requested');
 
 
--- From 0009_event_outbox.sql
 CREATE TABLE event_outbox (
     id TEXT PRIMARY KEY NOT NULL,
     kind TEXT NOT NULL,
@@ -450,7 +444,6 @@ CREATE INDEX event_outbox_source_idx
     ON event_outbox(source_id, occurred_at);
 
 
--- From 0010_webhooks.sql
 CREATE TABLE webhook_endpoints (
     id TEXT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
@@ -491,7 +484,6 @@ CREATE INDEX webhook_delivery_attempts_status_idx
     ON webhook_delivery_attempts(status, next_retry_at);
 
 
--- From 0011_automation.sql
 CREATE TABLE automation_providers (
     id TEXT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
@@ -534,7 +526,6 @@ CREATE INDEX automation_artifacts_status_idx
     ON automation_artifacts(status, created_at);
 
 
--- From 0012_addons.sql
 CREATE TABLE addon_registrations (
     id TEXT PRIMARY KEY NOT NULL,
     manifest_id TEXT NOT NULL,
@@ -546,14 +537,18 @@ CREATE TABLE addon_registrations (
     granted_scopes_json TEXT NOT NULL,
     status TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    outbound_task_dispatch_secret_env TEXT
 );
 
 CREATE INDEX addon_registrations_status_idx
     ON addon_registrations(status, created_at);
 
+CREATE UNIQUE INDEX addon_registrations_active_manifest_idx
+    ON addon_registrations(manifest_id)
+    WHERE status <> 'unregistered';
 
--- From 0013_vfs_cache.sql
+
 CREATE TABLE vfs_cache_objects (
     uri TEXT PRIMARY KEY NOT NULL,
     scheme TEXT NOT NULL,
@@ -610,8 +605,7 @@ CREATE INDEX vfs_cache_failures_scheme_idx
     ON vfs_cache_failures(scheme, operation, failed_at_ms);
 
 
--- From 0014_staging_manifest.sql
-CREATE TABLE IF NOT EXISTS staging_manifest_records (
+CREATE TABLE staging_manifest_records (
     id TEXT PRIMARY KEY NOT NULL,
     source_uri TEXT NOT NULL,
     source_scheme TEXT NOT NULL,
@@ -629,21 +623,13 @@ CREATE TABLE IF NOT EXISTS staging_manifest_records (
     validation_error TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_staging_manifest_source_purpose
+CREATE INDEX idx_staging_manifest_source_purpose
 ON staging_manifest_records (source_uri, purpose);
 
-CREATE INDEX IF NOT EXISTS idx_staging_manifest_cleanup
+CREATE INDEX idx_staging_manifest_cleanup
 ON staging_manifest_records (state, active_leases, expires_at_ms, last_accessed_at_ms);
 
 
--- From 0015_media_source_library_locator.sql
-DROP INDEX IF EXISTS media_sources_locator_idx;
-
-CREATE UNIQUE INDEX IF NOT EXISTS media_sources_library_locator_idx
-    ON media_sources(library_id, locator);
-
-
--- From 0016_metadata_provider_attempts.sql
 CREATE TABLE metadata_provider_attempts (
     id TEXT PRIMARY KEY NOT NULL,
     job_id TEXT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
@@ -666,7 +652,6 @@ CREATE INDEX metadata_provider_attempts_item_id_idx
     ON metadata_provider_attempts(item_id, started_at);
 
 
--- From 0017_ingestion_failures.sql
 CREATE TABLE ingestion_failures (
     library_id TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
     phase TEXT NOT NULL,
@@ -702,7 +687,6 @@ CREATE INDEX ingestion_failures_source_idx
     ON ingestion_failures(source_id);
 
 
--- From 0018_metadata_catalog_domain.sql
 CREATE TABLE provider_subjects (
     id TEXT PRIMARY KEY NOT NULL,
     provider TEXT NOT NULL,
@@ -784,7 +768,6 @@ CREATE INDEX local_inference_evidence_source_id_idx
     ON local_inference_evidence(source_id, inference_version);
 
 
--- From 0019_library_item_states.sql
 CREATE TABLE library_item_states (
     library_id TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
     item_id TEXT NOT NULL REFERENCES media_items(id) ON DELETE CASCADE,
@@ -801,14 +784,6 @@ CREATE INDEX library_item_states_library_provisional_idx
     ON library_item_states(library_id, provisional);
 
 
--- From 0020_local_inference_evidence_snapshot_key.sql
-DELETE FROM local_inference_evidence
-WHERE rowid NOT IN (
-    SELECT MAX(rowid)
-    FROM local_inference_evidence
-    GROUP BY source_id, evidence_source, evidence_source_key, inference_version
-);
-
 CREATE UNIQUE INDEX local_inference_evidence_snapshot_idx
     ON local_inference_evidence(
         source_id,
@@ -818,7 +793,6 @@ CREATE UNIQUE INDEX local_inference_evidence_snapshot_idx
     );
 
 
--- From 0021_addon_tokens_and_grants.sql
 CREATE TABLE addon_tokens (
     id TEXT PRIMARY KEY NOT NULL,
     addon_id TEXT NOT NULL REFERENCES addon_registrations(id) ON DELETE CASCADE,
@@ -851,7 +825,6 @@ CREATE UNIQUE INDEX addon_grants_unique_scope_idx
     ON addon_grants(addon_id, permission, COALESCE(library_id, ''));
 
 
--- From 0022_addon_side_effects.sql
 CREATE TABLE addon_side_effects (
     id TEXT PRIMARY KEY NOT NULL,
     addon_id TEXT NOT NULL,
@@ -866,6 +839,12 @@ CREATE TABLE addon_side_effects (
     payload_json TEXT NOT NULL,
     validation_status TEXT NOT NULL,
     safe_error_code TEXT,
+    apply_status TEXT NOT NULL DEFAULT 'pending',
+    apply_error_code TEXT,
+    applied_item_id TEXT,
+    applied_source TEXT,
+    applied_at TEXT,
+    apply_report_json TEXT,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     UNIQUE(addon_id, idempotency_key)
 );
@@ -876,33 +855,10 @@ CREATE INDEX addon_side_effects_addon_created_idx
 CREATE INDEX addon_side_effects_library_target_idx
     ON addon_side_effects(library_id, target_kind, target_id, created_at);
 
-
--- From 0023_addon_side_effect_apply_outcome.sql
-ALTER TABLE addon_side_effects
-    ADD COLUMN apply_status TEXT NOT NULL DEFAULT 'pending';
-
-ALTER TABLE addon_side_effects
-    ADD COLUMN apply_error_code TEXT;
-
-ALTER TABLE addon_side_effects
-    ADD COLUMN applied_item_id TEXT;
-
-ALTER TABLE addon_side_effects
-    ADD COLUMN applied_source TEXT;
-
-ALTER TABLE addon_side_effects
-    ADD COLUMN applied_at TEXT;
-
 CREATE INDEX addon_side_effects_apply_status_idx
     ON addon_side_effects(apply_status, created_at, id);
 
 
--- From 0024_addon_side_effect_apply_report.sql
-ALTER TABLE addon_side_effects
-    ADD COLUMN apply_report_json TEXT;
-
-
--- From 0025_addon_artwork_candidates.sql
 CREATE TABLE addon_artwork_candidates (
     id TEXT PRIMARY KEY NOT NULL,
     addon_id TEXT NOT NULL REFERENCES addon_registrations(id) ON DELETE CASCADE,
@@ -926,7 +882,6 @@ CREATE INDEX addon_artwork_candidates_item_idx
     ON addon_artwork_candidates(item_id, status, kind, kind_key);
 
 
--- From 0026_managed_artwork_ingest.sql
 CREATE TABLE managed_artwork_ingests (
     id TEXT PRIMARY KEY NOT NULL,
     candidate_id TEXT NOT NULL UNIQUE REFERENCES addon_artwork_candidates(id) ON DELETE CASCADE,
@@ -961,6 +916,7 @@ CREATE TABLE managed_artwork_artifacts (
     height INTEGER CHECK(height IS NULL OR (height BETWEEN 1 AND 20000)),
     byte_len INTEGER CHECK(byte_len IS NULL OR byte_len >= 0),
     media_type TEXT CHECK(media_type IS NULL OR length(media_type) <= 128),
+    deleted_at TEXT,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
@@ -969,7 +925,6 @@ CREATE INDEX managed_artwork_artifacts_item_idx
     ON managed_artwork_artifacts(item_id, kind, kind_key);
 
 
--- From 0027_selected_artwork_publication.sql
 CREATE TABLE selected_artworks (
     id TEXT PRIMARY KEY NOT NULL,
     library_id TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
@@ -988,31 +943,10 @@ CREATE INDEX selected_artworks_artifact_idx
 CREATE INDEX selected_artworks_item_idx
     ON selected_artworks(item_id, kind, kind_key);
 
-
--- From 0028_managed_artwork_artifact_cleanup.sql
-ALTER TABLE managed_artwork_artifacts
-    ADD COLUMN deleted_at TEXT;
-
 CREATE INDEX managed_artwork_artifacts_deleted_idx
     ON managed_artwork_artifacts(deleted_at, created_at, id);
 
 
--- From 0029_job_ownership_leases.sql
-ALTER TABLE jobs ADD COLUMN worker_id TEXT;
-ALTER TABLE jobs ADD COLUMN run_token TEXT;
-ALTER TABLE jobs ADD COLUMN heartbeat_at TEXT;
-ALTER TABLE jobs ADD COLUMN lease_expires_at TEXT;
-ALTER TABLE jobs ADD COLUMN cancel_requested_at TEXT;
-ALTER TABLE jobs ADD COLUMN cancel_reason TEXT;
-
-CREATE INDEX jobs_lease_claim_idx
-    ON jobs(status, kind, resource_class, queued_at, id);
-
-CREATE INDEX jobs_lease_expiry_idx
-    ON jobs(status, lease_expires_at);
-
-
--- From 0030_user_playback_states.sql
 CREATE TABLE user_playback_states (
     principal_id TEXT NOT NULL,
     item_id TEXT NOT NULL REFERENCES media_items(id) ON DELETE CASCADE,
@@ -1041,7 +975,6 @@ CREATE INDEX user_playback_states_source_id_idx
     ON user_playback_states(source_id);
 
 
--- From 0031_managed_import_artifacts.sql
 CREATE TABLE managed_import_artifacts (
     id TEXT PRIMARY KEY NOT NULL,
     target_library_id TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
@@ -1079,7 +1012,6 @@ CREATE INDEX managed_import_artifacts_fingerprint_idx
     WHERE fingerprint IS NOT NULL;
 
 
--- From 0032_managed_import_promotion_applies.sql
 CREATE TABLE managed_import_promotion_applies (
     id TEXT PRIMARY KEY NOT NULL,
     artifact_id TEXT NOT NULL REFERENCES managed_import_artifacts(id) ON DELETE CASCADE,
@@ -1112,7 +1044,6 @@ CREATE INDEX managed_import_promotion_applies_library_state_idx
     ON managed_import_promotion_applies(target_library_id, state, updated_at_ms DESC, id);
 
 
--- From 0033_nfo_sidecar_applies.sql
 CREATE TABLE nfo_sidecar_applies (
     id TEXT PRIMARY KEY NOT NULL,
     target_library_id TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
@@ -1150,7 +1081,6 @@ CREATE INDEX nfo_sidecar_applies_library_state_idx
     ON nfo_sidecar_applies(target_library_id, state, updated_at_ms DESC, id);
 
 
--- From 0034_acquisition_intake_candidates.sql
 CREATE TABLE acquisition_intake_candidates (
     id TEXT PRIMARY KEY NOT NULL,
     target_library_id TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
@@ -1191,14 +1121,6 @@ CREATE INDEX acquisition_intake_candidates_fingerprint_idx
     ON acquisition_intake_candidates(target_library_id, fingerprint)
     WHERE fingerprint IS NOT NULL;
 
-
--- From 0035_addon_unregistration.sql
-CREATE UNIQUE INDEX IF NOT EXISTS addon_registrations_active_manifest_idx
-    ON addon_registrations(manifest_id)
-    WHERE status <> 'unregistered';
-
-
--- From 0036_addon_routing_plans.sql
 CREATE TABLE addon_routing_plans (
     id TEXT PRIMARY KEY NOT NULL,
     addon_id TEXT NOT NULL REFERENCES addon_registrations(id) ON DELETE CASCADE,
@@ -1225,7 +1147,6 @@ CREATE INDEX addon_routing_plans_status_idx
     ON addon_routing_plans(status, target, updated_at);
 
 
--- From 0037_addon_task_runs.sql
 CREATE TABLE addon_task_runs (
     job_id TEXT PRIMARY KEY NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
     addon_id TEXT NOT NULL REFERENCES addon_registrations(id) ON DELETE CASCADE,
@@ -1255,13 +1176,6 @@ CREATE INDEX addon_task_runs_addon_declaration_idx
 CREATE INDEX addon_task_runs_retry_idx
     ON addon_task_runs(retry_of_job_id);
 
-
--- From 0038_addon_outbound_task_dispatch_credentials.sql
-ALTER TABLE addon_registrations
-    ADD COLUMN outbound_task_dispatch_secret_env TEXT;
-
-
--- From 0039_addon_event_delivery_attempts.sql
 CREATE TABLE addon_event_delivery_attempts (
     id TEXT PRIMARY KEY NOT NULL,
     addon_id TEXT NOT NULL REFERENCES addon_registrations(id) ON DELETE CASCADE,
@@ -1274,6 +1188,9 @@ CREATE TABLE addon_event_delivery_attempts (
     requested_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     completed_at TEXT,
     next_retry_at TEXT,
+    lease_expires_at TEXT,
+    forced_replay INTEGER NOT NULL DEFAULT 0,
+    replay_reason_code TEXT,
     UNIQUE(addon_id, event_id, declaration_id, attempt_number)
 );
 
@@ -1286,24 +1203,10 @@ CREATE INDEX addon_event_delivery_attempts_addon_idx
 CREATE INDEX addon_event_delivery_attempts_status_idx
     ON addon_event_delivery_attempts(status, next_retry_at);
 
-
--- From 0040_addon_event_delivery_leases.sql
-ALTER TABLE addon_event_delivery_attempts
-    ADD COLUMN lease_expires_at TEXT;
-
 CREATE INDEX addon_event_delivery_attempts_lease_idx
     ON addon_event_delivery_attempts(status, lease_expires_at);
 
 
--- From 0041_addon_event_forced_replay.sql
-ALTER TABLE addon_event_delivery_attempts
-    ADD COLUMN forced_replay INTEGER NOT NULL DEFAULT 0;
-
-ALTER TABLE addon_event_delivery_attempts
-    ADD COLUMN replay_reason_code TEXT;
-
-
--- From 0042_admin_settings.sql
 CREATE TABLE admin_metadata_raw_cache_settings (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     retention_ms INTEGER NOT NULL,

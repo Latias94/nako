@@ -1,8 +1,6 @@
--- Consolidated PostgreSQL baseline for Nako's pre-production schema.
--- Generated from the previous backend-owned migration chain on 2026-05-26.
+-- Authoritative PostgreSQL baseline for Nako's current pre-production schema.
 -- Runtime migrations intentionally start from this single baseline while Nako has no production database compatibility burden.
 
--- From 0001_contract_jobs.sql
 CREATE TABLE IF NOT EXISTS libraries (
     id uuid PRIMARY KEY NOT NULL,
     name text NOT NULL,
@@ -702,6 +700,7 @@ CREATE TABLE IF NOT EXISTS addon_registrations (
     manifest_json text NOT NULL,
     granted_scopes_json jsonb NOT NULL,
     status text NOT NULL,
+    outbound_task_dispatch_secret_env text,
     created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
     updated_at timestamptz NOT NULL DEFAULT statement_timestamp()
 );
@@ -857,7 +856,6 @@ CREATE INDEX IF NOT EXISTS idx_staging_manifest_cleanup
     ON staging_manifest_records(state, active_leases, expires_at_ms, last_accessed_at_ms);
 
 
--- From 0002_managed_artwork.sql
 CREATE TABLE IF NOT EXISTS artwork_tasks (
     id uuid PRIMARY KEY NOT NULL,
     image_id uuid NOT NULL REFERENCES image_assets(id) ON DELETE CASCADE,
@@ -973,7 +971,6 @@ CREATE INDEX IF NOT EXISTS selected_artworks_item_idx
     ON selected_artworks(item_id, kind, kind_key);
 
 
--- From 0003_managed_import_artifacts.sql
 CREATE TABLE IF NOT EXISTS managed_import_artifacts (
     id uuid PRIMARY KEY NOT NULL,
     target_library_id uuid NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
@@ -1011,7 +1008,6 @@ CREATE INDEX IF NOT EXISTS managed_import_artifacts_fingerprint_idx
     WHERE fingerprint IS NOT NULL;
 
 
--- From 0004_managed_import_promotion_applies.sql
 CREATE TABLE IF NOT EXISTS managed_import_promotion_applies (
     id uuid PRIMARY KEY NOT NULL,
     artifact_id uuid NOT NULL REFERENCES managed_import_artifacts(id) ON DELETE CASCADE,
@@ -1044,7 +1040,6 @@ CREATE INDEX IF NOT EXISTS managed_import_promotion_applies_library_state_idx
     ON managed_import_promotion_applies(target_library_id, state, updated_at_ms DESC, id);
 
 
--- From 0005_nfo_sidecar_applies.sql
 CREATE TABLE IF NOT EXISTS nfo_sidecar_applies (
     id uuid PRIMARY KEY NOT NULL,
     target_library_id uuid NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
@@ -1082,7 +1077,6 @@ CREATE INDEX IF NOT EXISTS nfo_sidecar_applies_library_state_idx
     ON nfo_sidecar_applies(target_library_id, state, updated_at_ms DESC, id);
 
 
--- From 0006_acquisition_intake_candidates.sql
 CREATE TABLE IF NOT EXISTS acquisition_intake_candidates (
     id uuid PRIMARY KEY NOT NULL,
     target_library_id uuid NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
@@ -1123,17 +1117,6 @@ CREATE INDEX IF NOT EXISTS acquisition_intake_candidates_fingerprint_idx
     ON acquisition_intake_candidates(target_library_id, fingerprint)
     WHERE fingerprint IS NOT NULL;
 
-
--- From 0007_addon_unregistration.sql
-ALTER TABLE addon_registrations
-    DROP CONSTRAINT IF EXISTS addon_registrations_manifest_id_key;
-
-CREATE UNIQUE INDEX IF NOT EXISTS addon_registrations_active_manifest_idx
-    ON addon_registrations(manifest_id)
-    WHERE status <> 'unregistered';
-
-
--- From 0008_addon_routing_plans.sql
 CREATE TABLE IF NOT EXISTS addon_routing_plans (
     id uuid PRIMARY KEY NOT NULL,
     addon_id uuid NOT NULL REFERENCES addon_registrations(id) ON DELETE CASCADE,
@@ -1160,7 +1143,6 @@ CREATE INDEX IF NOT EXISTS addon_routing_plans_status_idx
     ON addon_routing_plans(status, target, updated_at);
 
 
--- From 0009_addon_task_runs.sql
 CREATE TABLE IF NOT EXISTS addon_task_runs (
     job_id uuid PRIMARY KEY NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
     addon_id uuid NOT NULL REFERENCES addon_registrations(id) ON DELETE CASCADE,
@@ -1190,13 +1172,6 @@ CREATE INDEX IF NOT EXISTS addon_task_runs_addon_declaration_idx
 CREATE INDEX IF NOT EXISTS addon_task_runs_retry_idx
     ON addon_task_runs(retry_of_job_id);
 
-
--- From 0010_addon_outbound_task_dispatch_credentials.sql
-ALTER TABLE addon_registrations
-    ADD COLUMN IF NOT EXISTS outbound_task_dispatch_secret_env text;
-
-
--- From 0011_addon_event_delivery_attempts.sql
 CREATE TABLE IF NOT EXISTS addon_event_delivery_attempts (
     id uuid PRIMARY KEY NOT NULL,
     addon_id uuid NOT NULL REFERENCES addon_registrations(id) ON DELETE CASCADE,
@@ -1209,6 +1184,9 @@ CREATE TABLE IF NOT EXISTS addon_event_delivery_attempts (
     requested_at timestamptz NOT NULL DEFAULT statement_timestamp(),
     completed_at timestamptz,
     next_retry_at text,
+    lease_expires_at text,
+    forced_replay boolean NOT NULL DEFAULT false,
+    replay_reason_code text,
     UNIQUE(addon_id, event_id, declaration_id, attempt_number)
 );
 
@@ -1221,24 +1199,10 @@ CREATE INDEX IF NOT EXISTS addon_event_delivery_attempts_addon_idx
 CREATE INDEX IF NOT EXISTS addon_event_delivery_attempts_status_idx
     ON addon_event_delivery_attempts(status, next_retry_at);
 
-
--- From 0012_addon_event_delivery_leases.sql
-ALTER TABLE addon_event_delivery_attempts
-    ADD COLUMN IF NOT EXISTS lease_expires_at text;
-
 CREATE INDEX IF NOT EXISTS addon_event_delivery_attempts_lease_idx
     ON addon_event_delivery_attempts(status, lease_expires_at);
 
 
--- From 0013_addon_event_forced_replay.sql
-ALTER TABLE addon_event_delivery_attempts
-    ADD COLUMN forced_replay BOOLEAN NOT NULL DEFAULT FALSE;
-
-ALTER TABLE addon_event_delivery_attempts
-    ADD COLUMN replay_reason_code TEXT;
-
-
--- From 0014_admin_settings.sql
 CREATE TABLE admin_metadata_raw_cache_settings (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     retention_ms BIGINT NOT NULL,
