@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "slug": "browser-playback-auth-transport",
+  "title": "Browser Playback Auth Transport",
+  "status": "active",
+  "current_task": "BPAT-010",
+  "completed_tasks": [],
+  "updated": "2026-05-26",
+  "scope_kind": "execution",
+  "problem": "Media Web needs a secure browser playback transport because normal media element requests cannot attach bearer Authorization headers.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/browser-playback-auth-transport/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/browser-playback-auth-transport/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/browser-playback-auth-transport/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/browser-playback-auth-transport/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/browser-playback-auth-transport/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/browser-playback-auth-transport/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python -m json.tool docs/workstreams/browser-playback-auth-transport/WORKSTREAM.json",
+    "git diff --check -- docs/workstreams/browser-playback-auth-transport docs/workstreams/README.md",
+    "cargo test -p nako-api public_openapi -- --nocapture",
+    "cargo run -q -p nako-api --example emit-typescript-sdk -- --output sdk/typescript/src/index.ts",
+    "cd apps/admin-web && npm run check && npm run test && npm run build"
+  ],
+  "evidence": [
+    {
+      "task": "BPAT-010",
+      "summary": "Opened the Browser Playback Auth Transport lane after Media Web foundation closeout, with short-lived playback tickets as the recommended default pending decision review."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0024-inbound-token-authentication-boundary.md",
+    "docs/adr/0028-user-playback-state-principal-and-public-contract.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Start with BPAT-010. Do not implement stream routes before the accepted browser playback auth transport and threat model are frozen."
+  }
+}
