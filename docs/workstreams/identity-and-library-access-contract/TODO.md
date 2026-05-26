@@ -1,6 +1,6 @@
 # Identity And Library Access Contract - TODO
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-26
 
 ## M0 - Workstream Open
@@ -49,9 +49,9 @@ Last updated: 2026-05-26
 
 ## M5 - Closeout And Follow-Ons
 
-- [ ] ILA-050 [owner=planner] [deps=ILA-030,ILA-040] [scope=docs/workstreams/identity-and-library-access-contract,docs/workstreams/client-surface-and-access-product-architecture]
+- [x] ILA-050 [owner=codex] [deps=ILA-030,ILA-040] [scope=docs/workstreams/identity-and-library-access-contract,docs/workstreams/client-surface-and-access-product-architecture]
   Goal: Close the lane or split Admin Web account UI, Media Web login, invitations, and context-link implementation.
   Validation: verify-rust-workstream records fresh final gate evidence.
   Review: review-workstream has no blocking findings.
-  Evidence: EVIDENCE_AND_GATES.md, WORKSTREAM.json, HANDOFF.md.
-  Handoff: Recommend the next implementation goal.
+  Evidence: `EVIDENCE_AND_GATES.md`; `WORKSTREAM.json`; `HANDOFF.md`; `cargo nextest run -p nako-server catalog playback user_playback bearer_auth --no-fail-fast`; `cargo fmt --all -- --check`; `python -m json.tool docs\workstreams\identity-and-library-access-contract\WORKSTREAM.json > $null`; `git diff --check`.
+  Handoff: DONE. Lane closed. Recommended next implementation goal is Media Web foundation with login/account switching, after a short Admin Web account UI follow-on if local-user management needs a browser surface first.

@@ -2,8 +2,16 @@
   "schema_version": 1,
   "slug": "identity-and-library-access-contract",
   "title": "Identity And Library Access Contract",
-  "status": "active",
-  "current_task": "ILA-050",
+  "status": "complete",
+  "current_task": null,
+  "completed_tasks": [
+    "ILA-000",
+    "ILA-010",
+    "ILA-020",
+    "ILA-030",
+    "ILA-040",
+    "ILA-050"
+  ],
   "updated": "2026-05-26",
   "scope_kind": "execution",
   "problem": "Nako needs durable local users, roles, Library Access, and principal resolution before Media Web, multi-user playback, or permission-gated admin context links can ship.",
@@ -60,6 +68,10 @@
     {
       "task": "ILA-040",
       "summary": "Applied effective Library Access to Public Client API library/catalog/source/image/playback and User Playback State routes without adding Admin policy internals to public DTOs."
+    },
+    {
+      "task": "ILA-050",
+      "summary": "Closed the identity/access lane and split Admin Web account UI, Media Web login/account switching, invitation onboarding, and Management Context Links into follow-on scopes."
     }
   ],
   "adr_refs": [
@@ -70,7 +82,7 @@
     "docs/adr/0030-postgresql-ready-sql-dialect-and-migration-policy.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "Continue with ILA-050. Identity persistence, Admin API access-management contracts, and Public Client API effective Library Access enforcement are implemented. Close the lane or split Admin Web account UI, Media Web login, invitations, and Management Context Links."
+    "default_action": "close",
+    "notes": "Identity/access contract lane is complete. Start a new focused workstream for Admin Web account UI, Media Web login/account switching, invitation onboarding, or Management Context Links instead of reopening this lane."
   }
 }

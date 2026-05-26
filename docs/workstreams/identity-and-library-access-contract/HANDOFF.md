@@ -1,6 +1,6 @@
 # Identity And Library Access Contract - Handoff
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-26
 
 ## Current State
@@ -54,17 +54,16 @@ routes now enforce effective Library Access from `AuthenticatedPrincipal`:
 
 ## Next Task
 
-ILA-050: close the lane or split follow-on work.
+This lane is closed. Start a new focused workstream for the next product slice.
 
 Suggested first steps:
 
-1. Run final verification with `verify-rust-workstream`.
-2. Decide whether to close this lane now or keep ILA-050 as a short closeout
-   task.
-3. Split follow-ons for Admin Web account UI, Media Web login/account
+1. Split follow-ons for Admin Web account UI, Media Web login/account
    switching, invitation onboarding, and Management Context Links.
-4. Keep credential/session/login UX separate from this persistence and access
+2. Keep credential/session/login UX separate from this persistence and access
    enforcement lane.
+3. Do not reopen this lane unless the identity/access contract itself is found
+   to be wrong.
 
 ## Important Constraints
 
@@ -85,3 +84,10 @@ Suggested first steps:
 - Invitation-based onboarding.
 - Management Context Links implementation.
 - OAuth/OIDC/LDAP/passkeys after local account mode is stable.
+
+## Recommended Next Goal
+
+Open a Media Web foundation lane that consumes Public Client API browse,
+playback, and User Playback State routes with login/account switching. If
+admin-created local users need a browser surface first, split a smaller Admin
+Web account UI lane before Media Web.

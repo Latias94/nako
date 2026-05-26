@@ -1,6 +1,6 @@
 # Identity And Library Access Contract
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-26
 
 This workstream owns the first real post-Single-Admin identity model for Nako.
@@ -20,6 +20,6 @@ Authoritative docs:
 - `EVIDENCE_AND_GATES.md`
 - `HANDOFF.md`
 
-Current executable task: `ILA-050`, close the lane or split follow-on work for
-Admin Web account UI, Media Web login, invitations, and Management Context
-Links.
+This lane is complete. Follow-on work should be split into focused lanes for
+Admin Web account UI, Media Web login/account switching, invitation onboarding,
+and Management Context Links.

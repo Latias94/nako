@@ -1,6 +1,6 @@
 # Identity And Library Access Contract - Milestones
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-26
 
 ## M0 - Workstream Open
@@ -80,3 +80,8 @@ Exit criteria:
 - Fresh verification evidence is recorded.
 - Admin Web account UI, Media Web login, invitation flow, and Management
   Context Links are split or explicitly deferred.
+
+Status: Complete for ILA-050. The identity/access lane is closed. Follow-ons
+are explicitly deferred to separate scopes: Admin Web account UI, Media Web
+login/account switching, invitation onboarding, Management Context Links,
+credential/session UX, and optional external identity providers.

@@ -1,6 +1,6 @@
 # Identity And Library Access Contract
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-26
 
 ## Why This Lane Exists
@@ -297,3 +297,9 @@ This lane can close when:
 - Public Client API behavior is either unchanged with evidence or updated
   through a dedicated public contract task;
 - docs, HTTP API notes, and workstream evidence are current.
+
+Closeout accepted in ILA-050. The lane delivered durable identity/access
+storage, deterministic bootstrap admin semantics, Admin API access-management
+contracts, and Public Client API effective Library Access enforcement. Admin
+Web account UI, Media Web login/account switching, invitation onboarding, and
+Management Context Links are follow-on scopes.
