@@ -373,7 +373,7 @@ async fn hls_source_uses_selected_cpu_acceleration_when_gpu_falls_back() {
 }
 
 #[tokio::test]
-async fn hls_source_request_identity_separates_selected_hardware_profiles() {
+async fn hls_source_request_identity_separates_selected_acceleration_profiles() {
     let script_root = tempfile::tempdir().unwrap();
     let cpu_ffmpeg = fake_cpu_only_hls_ffmpeg_script(script_root.path(), "hls_cpu_profile");
     let (_temp, app, store, source) = remux_app_with_source_and_transcode(
@@ -399,7 +399,7 @@ async fn hls_source_request_identity_separates_selected_hardware_profiles() {
             .request_key
             .contains("kind%3Dhls_single_variant")
     );
-    assert!(cpu_output.session.request_key.contains("hw%3Dnone"));
+    assert!(cpu_output.session.request_key.contains("encode%3Dnone"));
 
     let mut config = app.config().clone();
     config.ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_nvenc_profile");
@@ -412,7 +412,7 @@ async fn hls_source_request_identity_separates_selected_hardware_profiles() {
     assert_eq!(gpu_output.disposition, HlsSourceDisposition::Finished);
     assert_ne!(gpu_output.session.id, cpu_output.session.id);
     assert_ne!(gpu_output.playlist_path, cpu_output.playlist_path);
-    assert!(gpu_output.session.request_key.contains("hw%3Dnvenc"));
+    assert!(gpu_output.session.request_key.contains("encode%3Dnvenc"));
 }
 
 #[tokio::test]

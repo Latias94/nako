@@ -6,7 +6,10 @@ use std::{
 use nako_core::{MediaSourceId, NakoError, Result};
 use serde::{Deserialize, Serialize};
 
-use super::hardware::HardwareAcceleration;
+use super::{
+    HardwareAcceleration, TranscodeAccelerationPlan, TranscodeExecutionPolicy,
+    TranscodeSubtitleStrategy,
+};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct FfmpegCommandPlan {
@@ -97,7 +100,7 @@ pub struct HlsRequest {
     pub playlist_path: PathBuf,
     pub segment_pattern: PathBuf,
     pub segment_time_seconds: u32,
-    pub hardware_acceleration: HardwareAcceleration,
+    pub execution_policy: TranscodeExecutionPolicy,
     pub overwrite: FfmpegOverwritePolicy,
 }
 
@@ -255,6 +258,8 @@ impl FfmpegCommandBuilder {
         };
         let segment_time = request.segment_time_seconds.max(1).to_string();
 
+        validate_hls_subtitle_strategy(request.execution_policy.subtitle_strategy)?;
+
         let mut args = vec![
             FfmpegArg::raw("-hide_banner"),
             FfmpegArg::raw("-loglevel"),
@@ -267,7 +272,8 @@ impl FfmpegCommandBuilder {
             FfmpegArg::raw("-map"),
             FfmpegArg::raw("0:a:0?"),
         ];
-        append_hls_video_encoder_args(&mut args, request.hardware_acceleration);
+        append_hls_video_encoder_args(&mut args, request.execution_policy.acceleration);
+        append_hls_output_constraint_args(&mut args, request.execution_policy);
         args.extend([
             FfmpegArg::raw("-c:a"),
             FfmpegArg::raw("aac"),
@@ -286,8 +292,22 @@ impl FfmpegCommandBuilder {
     }
 }
 
-fn append_hls_video_encoder_args(args: &mut Vec<FfmpegArg>, acceleration: HardwareAcceleration) {
-    match acceleration {
+fn validate_hls_subtitle_strategy(strategy: TranscodeSubtitleStrategy) -> Result<()> {
+    match strategy {
+        TranscodeSubtitleStrategy::None | TranscodeSubtitleStrategy::OmitSelected => Ok(()),
+        TranscodeSubtitleStrategy::PreserveInContainer
+        | TranscodeSubtitleStrategy::BurnInSelected
+        | TranscodeSubtitleStrategy::SidecarSelected => Err(NakoError::Unsupported(
+            "hls subtitle strategy is not implemented by the ffmpeg adapter",
+        )),
+    }
+}
+
+fn append_hls_video_encoder_args(
+    args: &mut Vec<FfmpegArg>,
+    acceleration: TranscodeAccelerationPlan,
+) {
+    match acceleration.encode.accelerator {
         HardwareAcceleration::None => {
             args.push(FfmpegArg::raw("-c:v"));
             args.push(FfmpegArg::raw("libx264"));
@@ -310,6 +330,17 @@ fn append_hls_video_encoder_args(args: &mut Vec<FfmpegArg>, acceleration: Hardwa
             args.push(FfmpegArg::raw("-c:v"));
             args.push(FfmpegArg::raw("h264_qsv"));
         }
+    }
+}
+
+fn append_hls_output_constraint_args(args: &mut Vec<FfmpegArg>, policy: TranscodeExecutionPolicy) {
+    if let Some(max_video_bitrate) = policy.output_constraints.max_video_bitrate {
+        args.push(FfmpegArg::raw("-maxrate"));
+        args.push(FfmpegArg::raw(max_video_bitrate.to_string()));
+        args.push(FfmpegArg::raw("-bufsize"));
+        args.push(FfmpegArg::raw(
+            max_video_bitrate.saturating_mul(2).to_string(),
+        ));
     }
 }
 

@@ -107,3 +107,30 @@ python -m json.tool docs/workstreams/playback-transcode-policy-deepening/WORKSTR
   - `cargo nextest run -p nako-transcode --no-fail-fast` passed: 35 passed,
     0 skipped.
   - `cargo fmt --all -- --check` passed.
+- 2026-05-27: PTP-050 replaced the shallow HLS hardware field with
+  `TranscodeExecutionPolicy`. HLS profile identity and FFmpeg HLS request
+  planning now carry a decode/filter/encode `TranscodeAccelerationPlan`,
+  fallback evidence, output constraints, and subtitle strategy. The FFmpeg
+  adapter still owns FFmpeg encoder/filter strings, applies HLS bitrate
+  constraints, and rejects unimplemented subtitle strategies instead of hiding
+  policy gaps. Public Client transcode plans no longer expose service-side
+  hardware selection; TypeScript and Kotlin SDK outputs were regenerated.
+  Verified:
+  - `cargo check -p nako-transcode -p nako-playback -p nako-client-protocol -p nako-api -p nako-server`
+    passed with pre-existing `nako-server` warnings.
+  - `cargo nextest run -p nako-transcode --no-fail-fast` passed: 36 passed,
+    0 skipped.
+  - `cargo nextest run -p nako-playback --no-fail-fast` passed: 7 passed,
+    0 skipped.
+  - `cargo nextest run -p nako-server -E 'test(hls_source_uses_selected_cpu_acceleration_when_gpu_falls_back) | test(hls_source_request_identity_separates_selected_acceleration_profiles)' --no-fail-fast`
+    passed: 2 passed, 346 skipped.
+  - `cargo nextest run -p nako-client-protocol public --no-fail-fast` passed:
+    10 passed, 0 skipped.
+  - `cargo nextest run -p nako-api -E 'test(public_openapi) | test(sdk) | test(admin_contract)' --no-fail-fast`
+    passed: 20 passed, 39 skipped.
+  - `cargo nextest run -p nako-server playback --no-fail-fast` passed: 66
+    passed, 282 skipped.
+  - `cargo fmt --all -- --check` passed.
+  - `python -m json.tool docs/workstreams/playback-transcode-policy-deepening/WORKSTREAM.json`
+    passed.
+  - `git diff --check` passed with Git line-ending warnings only.

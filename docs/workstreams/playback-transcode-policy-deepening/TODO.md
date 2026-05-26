@@ -60,7 +60,7 @@ Last updated: 2026-05-27
 
 ## M4 - Transcode Policy And Acceleration Plan
 
-- [ ] PTP-050 [owner=codex] [deps=PTP-030,PTP-040] [scope=crates/nako-transcode/src,crates/nako-core/src,crates/nako-server/src/app/playback]
+- [x] PTP-050 [owner=codex] [deps=PTP-030,PTP-040] [scope=crates/nako-transcode/src,crates/nako-core/src,crates/nako-server/src/app/playback]
   Goal: Replace shallow hardware selection with typed decode/filter/encode
   acceleration plans, fallback policy, bitrate/output constraints, and subtitle
   strategy.
@@ -68,7 +68,12 @@ Last updated: 2026-05-27
   focused `nako-server` hardware/fallback playback tests.
   Review: no `hardware_acceleration: bool` style policy seam; FFmpeg-specific
   strings stay behind the engine Adapter.
-  Evidence: transcode policy tests and route behavior parity.
+  Evidence: Added `TranscodeExecutionPolicy`,
+  `TranscodeAccelerationPlan`, output constraints, and subtitle strategy;
+  HLS profile/request identity now carries the policy, FFmpeg command planning
+  consumes policy behind the adapter boundary, Public Client transcode plans no
+  longer expose server hardware selection, and focused transcode/server/API
+  gates passed.
   Handoff: PTP-060 can bind policy to runtime inventory and engine execution.
 
 ## M5 - Runtime Inventory And Engine Adapter

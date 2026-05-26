@@ -12,7 +12,7 @@ use nako_playback::{
     ClientPlaybackCapabilities, DirectPlayPlan, PlaybackDecision, PlaybackDecisionReason,
     PlaybackMode,
 };
-use nako_transcode::{HardwareAcceleration, OutputContainer, TranscodePlan};
+use nako_transcode::{OutputContainer, TranscodePlan};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 pub use nako_client_protocol::{
@@ -20,16 +20,16 @@ pub use nako_client_protocol::{
     BrowserPlaybackOutputContainer, BrowserPlaybackTicketRequest, BrowserPlaybackTicketResponse,
     BrowserPlaybackUrlDto, BrowserPlaybackUrlKind, CLIENT_PROTOCOL_VERSION as API_VERSION,
     CanonicalMetadataDto, ClientCreditRole, ClientDirectPlayPlan, ClientErrorCode,
-    ClientExternalProvider, ClientHardwareAcceleration, ClientImageKind, ClientImageOwner,
-    ClientLibraryPreset, ClientLocalMetadataPolicy, ClientLocalMetadataReader,
-    ClientManagementAction, ClientManagementDisabledReason, ClientManagementHttpMethod,
-    ClientManagementRequiredAccess, ClientManagementSurface, ClientMediaDomain, ClientMediaKind,
-    ClientMediaStreamKind, ClientMetadataRefreshMode, ClientMetadataSource, ClientNamingStrategy,
-    ClientOutputContainer, ClientPlaybackCapabilitiesDto, ClientPlaybackDecision,
-    ClientPlaybackDecisionReason, ClientPlaybackMode, ClientPlaybackSessionMode,
-    ClientPlaybackSessionState, ClientTranscodeFailureCategory, ClientTranscodePlan,
-    ClientTranscodeSessionKind, ClientTranscodeSessionState, CollectionItemDto, CollectionRefDto,
-    ContentRatingDto, ContinueWatchingItemDto, ContinueWatchingResponse, CreditDto, CurrentUserDto,
+    ClientExternalProvider, ClientImageKind, ClientImageOwner, ClientLibraryPreset,
+    ClientLocalMetadataPolicy, ClientLocalMetadataReader, ClientManagementAction,
+    ClientManagementDisabledReason, ClientManagementHttpMethod, ClientManagementRequiredAccess,
+    ClientManagementSurface, ClientMediaDomain, ClientMediaKind, ClientMediaStreamKind,
+    ClientMetadataRefreshMode, ClientMetadataSource, ClientNamingStrategy, ClientOutputContainer,
+    ClientPlaybackCapabilitiesDto, ClientPlaybackDecision, ClientPlaybackDecisionReason,
+    ClientPlaybackMode, ClientPlaybackSessionMode, ClientPlaybackSessionState,
+    ClientTranscodeFailureCategory, ClientTranscodePlan, ClientTranscodeSessionKind,
+    ClientTranscodeSessionState, CollectionItemDto, CollectionRefDto, ContentRatingDto,
+    ContinueWatchingItemDto, ContinueWatchingResponse, CreditDto, CurrentUserDto,
     CurrentUserResponse, ErrorResponse, ExternalIdDto, GenreDto, GenreItemsResponse,
     GenreListResponse, HealthResponse, ImagesResponse, ItemCreditDto, ItemCreditsResponse,
     ItemDetailResponse, ItemGenreDto, ItemStudioDto, ItemTagDto, ItemsResponse, LibraryDto,
@@ -238,7 +238,6 @@ fn transcode_plan_to_dto(plan: TranscodePlan) -> ClientTranscodePlan {
         output_container: output_container_to_dto(plan.output_container),
         video_codec: plan.video_codec,
         audio_codec: plan.audio_codec,
-        hardware_acceleration: hardware_acceleration_to_dto(plan.hardware_acceleration),
     }
 }
 
@@ -681,15 +680,6 @@ fn output_container_to_dto(container: OutputContainer) -> ClientOutputContainer 
     }
 }
 
-fn hardware_acceleration_to_dto(acceleration: HardwareAcceleration) -> ClientHardwareAcceleration {
-    match acceleration {
-        HardwareAcceleration::None => ClientHardwareAcceleration::None,
-        HardwareAcceleration::Vaapi => ClientHardwareAcceleration::Vaapi,
-        HardwareAcceleration::Nvenc => ClientHardwareAcceleration::Nvenc,
-        HardwareAcceleration::QuickSync => ClientHardwareAcceleration::QuickSync,
-    }
-}
-
 fn transcode_session_kind_to_dto(kind: TranscodeSessionKind) -> ClientTranscodeSessionKind {
     match kind {
         TranscodeSessionKind::Remux => ClientTranscodeSessionKind::Remux,
@@ -883,7 +873,6 @@ mod tests {
             output_container: OutputContainer::Hls,
             video_codec: Some("h264".to_owned()),
             audio_codec: Some("aac".to_owned()),
-            hardware_acceleration: HardwareAcceleration::None,
         };
         let decision = PlaybackDecision {
             mode: PlaybackMode::Transcode,
@@ -905,6 +894,11 @@ mod tests {
         assert_eq!(value["reason"], "client_disabled_direct_play");
         assert_eq!(value["transcode_plan"]["output_container"], "hls");
         assert!(value["transcode_plan"].get("input_locator").is_none());
+        assert!(
+            value["transcode_plan"]
+                .get("hardware_acceleration")
+                .is_none()
+        );
         assert!(value.get("selected_source").is_none());
         assert!(value.get("execution").is_none());
     }

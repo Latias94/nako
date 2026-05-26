@@ -855,9 +855,10 @@ impl PlaybackAppService {
             context,
         });
         let transcode_plan = hls_transcode_plan(&decision)?;
-        let profile_identity = playback_profile
-            .try_hls_transcode_profile(transcode_plan, self.hls.hardware_selection.acceleration)?
-            .identity();
+        let hls_profile = playback_profile
+            .try_hls_transcode_profile(transcode_plan, self.hls.acceleration_plan)?;
+        let execution_policy = hls_profile.execution_policy;
+        let profile_identity = hls_profile.identity();
         let request_identity =
             profile_identity.bind_source(&TranscodeSourceIdentity::from_media_source(&source));
         let input = self
@@ -874,6 +875,7 @@ impl PlaybackAppService {
                 decision,
                 input.path.clone(),
                 layout,
+                execution_policy,
                 request_identity,
             )
             .await;

@@ -1,15 +1,12 @@
 use nako_core::{NakoError, Result};
 use serde::{Deserialize, Serialize};
 
-use super::hardware::HardwareAcceleration;
-
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct TranscodePlan {
     pub input_locator: String,
     pub output_container: OutputContainer,
     pub video_codec: Option<String>,
     pub audio_codec: Option<String>,
-    pub hardware_acceleration: HardwareAcceleration,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -37,7 +34,6 @@ pub enum TranscodePlanValidationReason {
     InputLocatorRequired,
     HlsMustUseSupportedVideoCodec,
     HlsMustUseSupportedAudioCodec,
-    HardwareAccelerationMustBeSelectedByRuntime,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -63,13 +59,6 @@ impl TranscodePlan {
             return Err(TranscodePlanValidationError::new(
                 TranscodePlanValidationReason::InputLocatorRequired,
                 "playback transcode plan requires an input locator",
-            ));
-        }
-
-        if self.hardware_acceleration != HardwareAcceleration::None {
-            return Err(TranscodePlanValidationError::new(
-                TranscodePlanValidationReason::HardwareAccelerationMustBeSelectedByRuntime,
-                "playback transcode plan must leave hardware acceleration selection to the runtime",
             ));
         }
 

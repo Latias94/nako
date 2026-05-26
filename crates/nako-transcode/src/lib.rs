@@ -2,6 +2,7 @@ mod ffmpeg;
 mod hardware;
 mod hls;
 mod plan;
+mod policy;
 mod profile;
 mod remux;
 mod runner_util;
@@ -12,6 +13,7 @@ pub use ffmpeg::*;
 pub use hardware::*;
 pub use hls::*;
 pub use plan::*;
+pub use policy::*;
 pub use profile::*;
 pub use remux::*;
 pub use runtime::*;
@@ -98,7 +100,7 @@ mod tests {
             playlist_path: PathBuf::from("hls/playlist.m3u8"),
             segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
             segment_time_seconds: 6,
-            hardware_acceleration: HardwareAcceleration::None,
+            execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
 
@@ -145,7 +147,7 @@ mod tests {
             playlist_path: PathBuf::from("outside/playlist.m3u8"),
             segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
             segment_time_seconds: 6,
-            hardware_acceleration: HardwareAcceleration::None,
+            execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
 
@@ -162,7 +164,7 @@ mod tests {
             playlist_path: PathBuf::from("hls/playlist.m3u8"),
             segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
             segment_time_seconds: 6,
-            hardware_acceleration: HardwareAcceleration::Nvenc,
+            execution_policy: hls_policy(HardwareAcceleration::Nvenc),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
 
@@ -174,14 +176,61 @@ mod tests {
     }
 
     #[test]
-    fn transcode_profile_identity_changes_when_hls_hardware_policy_changes() {
+    fn ffmpeg_builder_applies_hls_output_constraints_from_policy() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let mut execution_policy = hls_policy(HardwareAcceleration::None);
+        execution_policy.output_constraints.max_video_bitrate = Some(8_000_000);
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            output_dir: PathBuf::from("hls"),
+            playlist_path: PathBuf::from("hls/playlist.m3u8"),
+            segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
+            segment_time_seconds: 6,
+            execution_policy,
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let argv = builder.hls(&request).unwrap().argv_lossy();
+
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-maxrate" && args[1] == "8000000")
+        );
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-bufsize" && args[1] == "16000000")
+        );
+    }
+
+    #[test]
+    fn ffmpeg_builder_rejects_unimplemented_hls_subtitle_strategies() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let mut execution_policy = hls_policy(HardwareAcceleration::None);
+        execution_policy.subtitle_strategy = TranscodeSubtitleStrategy::SidecarSelected;
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            output_dir: PathBuf::from("hls"),
+            playlist_path: PathBuf::from("hls/playlist.m3u8"),
+            segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
+            segment_time_seconds: 6,
+            execution_policy,
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let err = builder.hls(&request).unwrap_err();
+
+        assert!(err.to_string().contains("subtitle strategy"));
+    }
+
+    #[test]
+    fn transcode_profile_identity_changes_when_hls_acceleration_plan_changes() {
         let cpu = TranscodeProfile::hls_single_variant(HlsTranscodeProfile {
             video_codec: Some("h264".to_owned()),
             audio_codec: Some("aac".to_owned()),
-            hardware_acceleration: HardwareAcceleration::None,
+            execution_policy: hls_policy(HardwareAcceleration::None),
             track_selection: TranscodeTrackSelection::default(),
-            max_video_bitrate: None,
-            prefer_hdr: None,
             remote_input: false,
             playback_profile_key: "playback-profile:v1;client=default".to_owned(),
         })
@@ -189,10 +238,8 @@ mod tests {
         let nvenc = TranscodeProfile::hls_single_variant(HlsTranscodeProfile {
             video_codec: Some("h264".to_owned()),
             audio_codec: Some("aac".to_owned()),
-            hardware_acceleration: HardwareAcceleration::Nvenc,
+            execution_policy: hls_policy(HardwareAcceleration::Nvenc),
             track_selection: TranscodeTrackSelection::default(),
-            max_video_bitrate: None,
-            prefer_hdr: None,
             remote_input: false,
             playback_profile_key: "playback-profile:v1;client=default".to_owned(),
         })
@@ -204,8 +251,11 @@ mod tests {
             cpu.persisted_request_key()
                 .contains("kind=hls_single_variant")
         );
-        assert!(cpu.persisted_request_key().contains("hw=none"));
-        assert!(nvenc.persisted_request_key().contains("hw=nvenc"));
+        assert!(
+            cpu.persisted_request_key()
+                .contains("acceleration=accel:v1:decode=none")
+        );
+        assert!(nvenc.persisted_request_key().contains("encode=nvenc"));
         assert!(cpu.storage_slug().starts_with("hls_single_variant-v1-"));
     }
 
@@ -235,10 +285,8 @@ mod tests {
         let hls = TranscodeProfile::hls_single_variant(HlsTranscodeProfile {
             video_codec: Some("h264".to_owned()),
             audio_codec: Some("aac".to_owned()),
-            hardware_acceleration: HardwareAcceleration::None,
+            execution_policy: hls_policy(HardwareAcceleration::None),
             track_selection: TranscodeTrackSelection::default(),
-            max_video_bitrate: None,
-            prefer_hdr: None,
             remote_input: false,
             playback_profile_key,
         })
@@ -306,7 +354,8 @@ mod tests {
             remote_input: false,
             playback_profile_key: "playback-profile:v1;client=default".to_owned(),
         });
-        profile.hardware_acceleration = HardwareAcceleration::Nvenc;
+        profile.execution_policy.acceleration =
+            TranscodeAccelerationPlan::for_selected_hardware(HardwareAcceleration::Nvenc);
 
         let _ = profile.identity();
     }
@@ -316,10 +365,8 @@ mod tests {
         let mut profile = TranscodeProfile::hls_single_variant(HlsTranscodeProfile {
             video_codec: Some("vp9".to_owned()),
             audio_codec: Some("aac".to_owned()),
-            hardware_acceleration: HardwareAcceleration::None,
+            execution_policy: hls_policy(HardwareAcceleration::None),
             track_selection: TranscodeTrackSelection::default(),
-            max_video_bitrate: None,
-            prefer_hdr: None,
             remote_input: false,
             playback_profile_key: "playback-profile:v1;client=default".to_owned(),
         });
@@ -345,13 +392,21 @@ mod tests {
         let profile = TranscodeProfile::hls_single_variant(HlsTranscodeProfile {
             video_codec: Some("H264".to_owned()),
             audio_codec: Some(" AAC ".to_owned()),
-            hardware_acceleration: HardwareAcceleration::Nvenc,
+            execution_policy: TranscodeExecutionPolicy::hls_single_variant(
+                TranscodeAccelerationPlan::for_selected_hardware(HardwareAcceleration::Nvenc),
+                TranscodeTrackSelection {
+                    audio_stream: Some(1),
+                    subtitle_stream: Some(2),
+                },
+                TranscodeOutputConstraints {
+                    max_video_bitrate: Some(8_000_000),
+                    prefer_hdr: Some(true),
+                },
+            ),
             track_selection: TranscodeTrackSelection {
                 audio_stream: Some(1),
                 subtitle_stream: Some(2),
             },
-            max_video_bitrate: Some(8_000_000),
-            prefer_hdr: Some(true),
             remote_input: true,
             playback_profile_key: "playback-profile:v1;client=default".to_owned(),
         });
@@ -362,32 +417,12 @@ mod tests {
     }
 
     #[test]
-    fn playback_transcode_plan_validation_rejects_runtime_selected_hardware() {
-        let plan = TranscodePlan {
-            input_locator: "local:///demo.mkv".to_owned(),
-            output_container: OutputContainer::Hls,
-            video_codec: Some("h264".to_owned()),
-            audio_codec: Some("aac".to_owned()),
-            hardware_acceleration: HardwareAcceleration::Nvenc,
-        };
-
-        let err = plan.validate_for_playback_request().unwrap_err();
-
-        assert_eq!(
-            err.reason,
-            TranscodePlanValidationReason::HardwareAccelerationMustBeSelectedByRuntime
-        );
-        assert!(!err.operator_message.contains("local:///"));
-    }
-
-    #[test]
     fn playback_transcode_plan_validation_rejects_unsupported_hls_codecs() {
         let mut plan = TranscodePlan {
             input_locator: "local:///demo.mkv".to_owned(),
             output_container: OutputContainer::Hls,
             video_codec: Some("vp9".to_owned()),
             audio_codec: Some("aac".to_owned()),
-            hardware_acceleration: HardwareAcceleration::None,
         };
 
         let err = plan.validate_for_playback_request().unwrap_err();
@@ -429,6 +464,20 @@ mod tests {
         assert!(!nvenc.fallback_used);
         assert_eq!(fallback.acceleration, HardwareAcceleration::None);
         assert!(fallback.fallback_used);
+
+        let fallback_plan = TranscodeAccelerationPlan::from_hardware_selection(
+            HardwareAccelerationPolicy {
+                requested: HardwareAcceleration::Vaapi,
+                fallback: HardwareAccelerationFallback::Cpu,
+            },
+            &fallback,
+        );
+        assert_eq!(fallback_plan.encode.accelerator, HardwareAcceleration::None);
+        assert_eq!(
+            fallback_plan.fallback.requested,
+            HardwareAcceleration::Vaapi
+        );
+        assert!(fallback_plan.fallback.fallback_used);
     }
 
     #[test]
@@ -765,7 +814,7 @@ mod tests {
             playlist_path: PathBuf::from("hls/playlist.m3u8"),
             segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
             segment_time_seconds: 6,
-            hardware_acceleration: HardwareAcceleration::None,
+            execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
 
@@ -1053,6 +1102,14 @@ mod tests {
         (manager, session)
     }
 
+    fn hls_policy(acceleration: HardwareAcceleration) -> TranscodeExecutionPolicy {
+        TranscodeExecutionPolicy::hls_single_variant(
+            TranscodeAccelerationPlan::for_selected_hardware(acceleration),
+            TranscodeTrackSelection::default(),
+            TranscodeOutputConstraints::default(),
+        )
+    }
+
     fn planned_hls_session(
         ffmpeg_path: &Path,
         output_dir: &Path,
@@ -1070,7 +1127,7 @@ mod tests {
                     playlist_path: playlist_path.to_path_buf(),
                     segment_pattern: segment_pattern.to_path_buf(),
                     segment_time_seconds: 6,
-                    hardware_acceleration: HardwareAcceleration::None,
+                    execution_policy: hls_policy(HardwareAcceleration::None),
                     overwrite: FfmpegOverwritePolicy::Allow,
                 },
                 &builder,

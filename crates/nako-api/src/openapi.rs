@@ -1116,11 +1116,10 @@ fn schemas() -> Value {
             "content_type": string_schema(),
             "supports_range_requests": boolean_schema()
         })),
-        "ClientTranscodePlan": object_schema(&["output_container", "video_codec", "audio_codec", "hardware_acceleration"], json!({
+        "ClientTranscodePlan": object_schema(&["output_container", "video_codec", "audio_codec"], json!({
             "output_container": enum_schema(&["hls", "mp4", "mkv"]),
             "video_codec": nullable_string_schema(),
-            "audio_codec": nullable_string_schema(),
-            "hardware_acceleration": enum_schema(&["none", "vaapi", "nvenc", "quick_sync"])
+            "audio_codec": nullable_string_schema()
         })),
         "TranscodeSessionResponse": object_schema(&["session"], json!({
             "session": schema_ref("TranscodeSessionDto")

@@ -1,8 +1,9 @@
 use nako_core::{LibraryId, MediaProbeResult, MediaSource, MediaSourceId, MediaStreamKind, Result};
 use nako_transcode::{
-    HardwareAcceleration, HlsTranscodeProfile, OutputContainer, RemuxContainer,
-    RemuxTranscodeProfile, TranscodePlan, TranscodeProfile, TranscodeTrackSelection,
-    validate_playback_transcode_plan, validate_transcode_profile,
+    HlsTranscodeProfile, OutputContainer, RemuxContainer, RemuxTranscodeProfile,
+    TranscodeAccelerationPlan, TranscodeExecutionPolicy, TranscodeOutputConstraints, TranscodePlan,
+    TranscodeProfile, TranscodeTrackSelection, validate_playback_transcode_plan,
+    validate_transcode_profile,
 };
 use serde::{Deserialize, Serialize};
 
@@ -180,25 +181,32 @@ impl PlaybackProfile {
     pub fn hls_transcode_profile(
         &self,
         plan: &TranscodePlan,
-        hardware_acceleration: HardwareAcceleration,
+        acceleration: TranscodeAccelerationPlan,
     ) -> TranscodeProfile {
-        self.try_hls_transcode_profile(plan, hardware_acceleration)
+        self.try_hls_transcode_profile(plan, acceleration)
             .expect("playback hls profile must be valid")
     }
 
     pub fn try_hls_transcode_profile(
         &self,
         plan: &TranscodePlan,
-        hardware_acceleration: HardwareAcceleration,
+        acceleration: TranscodeAccelerationPlan,
     ) -> Result<TranscodeProfile> {
         validate_playback_transcode_plan(plan)?;
+        let track_selection = self.track_selection();
+        let output_constraints = TranscodeOutputConstraints {
+            max_video_bitrate: self.preferences.max_video_bitrate,
+            prefer_hdr: self.preferences.prefer_hdr,
+        };
         let profile = TranscodeProfile::hls_single_variant(HlsTranscodeProfile {
             video_codec: plan.video_codec.clone(),
             audio_codec: plan.audio_codec.clone(),
-            hardware_acceleration,
-            track_selection: self.track_selection(),
-            max_video_bitrate: self.preferences.max_video_bitrate,
-            prefer_hdr: self.preferences.prefer_hdr,
+            execution_policy: TranscodeExecutionPolicy::hls_single_variant(
+                acceleration,
+                track_selection,
+                output_constraints,
+            ),
+            track_selection,
             remote_input: self.storage.remote,
             playback_profile_key: self.identity().persisted_request_key().to_owned(),
         });
@@ -422,7 +430,6 @@ fn transcode_decision(
         output_container,
         video_codec: Some("h264".to_owned()),
         audio_codec: Some("aac".to_owned()),
-        hardware_acceleration: HardwareAcceleration::None,
     };
 
     PlaybackDecision {
@@ -742,25 +749,50 @@ mod tests {
     }
 
     #[test]
-    fn playback_profile_rejects_invalid_runtime_selected_hardware_plan() {
+    fn playback_profile_builds_hls_execution_policy_from_runtime_acceleration() {
         let profile = PlaybackProfile::from_context(
             &ClientPlaybackCapabilities::default(),
-            PlaybackSelectionContext::default(),
+            PlaybackSelectionContext {
+                storage: PlaybackStorageContext::default(),
+                preferences: PlaybackPreferenceContext {
+                    requested_subtitle_stream: Some(2),
+                    max_video_bitrate: Some(8_000_000),
+                    prefer_hdr: Some(true),
+                    ..Default::default()
+                },
+            },
         );
         let plan = nako_transcode::TranscodePlan {
             input_locator: "local:///demo.mkv".to_owned(),
             output_container: nako_transcode::OutputContainer::Hls,
             video_codec: Some("h264".to_owned()),
             audio_codec: Some("aac".to_owned()),
-            hardware_acceleration: nako_transcode::HardwareAcceleration::Nvenc,
         };
 
-        let err = profile
-            .try_hls_transcode_profile(&plan, nako_transcode::HardwareAcceleration::Nvenc)
-            .unwrap_err();
+        let hls_profile = profile
+            .try_hls_transcode_profile(
+                &plan,
+                nako_transcode::TranscodeAccelerationPlan::for_selected_hardware(
+                    nako_transcode::HardwareAcceleration::Nvenc,
+                ),
+            )
+            .unwrap();
 
-        assert!(err.to_string().contains("hardware acceleration selection"));
-        assert!(!err.to_string().contains("local:///"));
+        assert_eq!(
+            hls_profile.execution_policy.acceleration.encode.accelerator,
+            nako_transcode::HardwareAcceleration::Nvenc
+        );
+        assert_eq!(
+            hls_profile
+                .execution_policy
+                .output_constraints
+                .max_video_bitrate,
+            Some(8_000_000)
+        );
+        assert_eq!(
+            hls_profile.execution_policy.subtitle_strategy,
+            nako_transcode::TranscodeSubtitleStrategy::OmitSelected
+        );
     }
 
     fn media_source(file_name: &str) -> MediaSource {

@@ -3,7 +3,7 @@ use sha2::{Digest, Sha256};
 
 use nako_core::{MediaSource, NakoError, Result};
 
-use super::{HardwareAcceleration, OutputContainer, RemuxContainer};
+use super::{OutputContainer, RemuxContainer, TranscodeExecutionPolicy};
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -56,10 +56,8 @@ pub struct RemuxTranscodeProfile {
 pub struct HlsTranscodeProfile {
     pub video_codec: Option<String>,
     pub audio_codec: Option<String>,
-    pub hardware_acceleration: HardwareAcceleration,
+    pub execution_policy: TranscodeExecutionPolicy,
     pub track_selection: TranscodeTrackSelection,
-    pub max_video_bitrate: Option<u64>,
-    pub prefer_hdr: Option<bool>,
     pub remote_input: bool,
     pub playback_profile_key: String,
 }
@@ -70,10 +68,8 @@ pub struct TranscodeProfile {
     pub output_container: String,
     pub video_codec: Option<String>,
     pub audio_codec: Option<String>,
-    pub hardware_acceleration: HardwareAcceleration,
+    pub execution_policy: TranscodeExecutionPolicy,
     pub track_selection: TranscodeTrackSelection,
-    pub max_video_bitrate: Option<u64>,
-    pub prefer_hdr: Option<bool>,
     pub remote_input: bool,
     pub reuse_policy: TranscodeReusePolicy,
     pub playback_profile_key: String,
@@ -117,10 +113,8 @@ impl TranscodeProfile {
             output_container: profile.output_container.file_extension().to_owned(),
             video_codec: None,
             audio_codec: None,
-            hardware_acceleration: HardwareAcceleration::None,
+            execution_policy: TranscodeExecutionPolicy::remux(),
             track_selection: profile.track_selection,
-            max_video_bitrate: None,
-            prefer_hdr: None,
             remote_input: profile.remote_input,
             reuse_policy: TranscodeReusePolicy::FinishedOutput,
             playback_profile_key: profile.playback_profile_key,
@@ -134,10 +128,8 @@ impl TranscodeProfile {
             output_container: OutputContainer::Hls.as_str().to_owned(),
             video_codec: normalized_optional(profile.video_codec),
             audio_codec: normalized_optional(profile.audio_codec),
-            hardware_acceleration: profile.hardware_acceleration,
+            execution_policy: profile.execution_policy,
             track_selection: profile.track_selection,
-            max_video_bitrate: profile.max_video_bitrate,
-            prefer_hdr: profile.prefer_hdr,
             remote_input: profile.remote_input,
             reuse_policy: TranscodeReusePolicy::FinishedOutput,
             playback_profile_key: profile.playback_profile_key,
@@ -173,16 +165,17 @@ impl TranscodeProfile {
 
     fn persisted_request_key(&self) -> String {
         format!(
-            "transcode-profile:v1;kind={};container={};vcodec={};acodec={};hw={};audio={};subtitle={};max_video_bitrate={};prefer_hdr={};remote_input={};reuse={};playback={}",
+            "transcode-profile:v1;kind={};container={};vcodec={};acodec={};acceleration={};audio={};subtitle={};subtitle_strategy={};max_video_bitrate={};prefer_hdr={};remote_input={};reuse={};playback={}",
             self.kind.as_str(),
             canonical_value(&self.output_container),
             optional_str(self.video_codec.as_deref()),
             optional_str(self.audio_codec.as_deref()),
-            self.hardware_acceleration.as_str(),
+            self.execution_policy.acceleration.identity_key(),
             optional_u32(self.track_selection.audio_stream),
             optional_u32(self.track_selection.subtitle_stream),
-            optional_u64(self.max_video_bitrate),
-            optional_bool(self.prefer_hdr),
+            self.execution_policy.subtitle_strategy.as_str(),
+            optional_u64(self.execution_policy.output_constraints.max_video_bitrate),
+            optional_bool(self.execution_policy.output_constraints.prefer_hdr),
             self.remote_input,
             self.reuse_policy.as_str(),
             escaped_component(&self.playback_profile_key),
@@ -202,19 +195,29 @@ impl TranscodeProfile {
                 "remux profile must not request audio transcoding",
             ));
         }
-        if self.hardware_acceleration != HardwareAcceleration::None {
+        if !self.execution_policy.acceleration.is_software_only() {
             return Err(TranscodeProfileValidationError::new(
                 TranscodeProfileValidationReason::RemuxMustUseCpuPath,
                 "remux profile must not request hardware acceleration",
             ));
         }
-        if self.max_video_bitrate.is_some() {
+        if self
+            .execution_policy
+            .output_constraints
+            .max_video_bitrate
+            .is_some()
+        {
             return Err(TranscodeProfileValidationError::new(
                 TranscodeProfileValidationReason::RemuxMustNotSetVideoBitrate,
                 "remux profile must not set a video bitrate limit",
             ));
         }
-        if self.prefer_hdr.is_some() {
+        if self
+            .execution_policy
+            .output_constraints
+            .prefer_hdr
+            .is_some()
+        {
             return Err(TranscodeProfileValidationError::new(
                 TranscodeProfileValidationReason::RemuxMustNotSetHdrPreference,
                 "remux profile must not set an HDR preference",
@@ -248,7 +251,12 @@ impl TranscodeProfile {
                 ));
             }
         }
-        if self.max_video_bitrate.is_some_and(|value| value == 0) {
+        if self
+            .execution_policy
+            .output_constraints
+            .max_video_bitrate
+            .is_some_and(|value| value == 0)
+        {
             return Err(TranscodeProfileValidationError::new(
                 TranscodeProfileValidationReason::HlsVideoBitrateMustBePositive,
                 "hls transcode profile video bitrate limit must be positive",

@@ -474,7 +474,6 @@ pub struct ClientTranscodePlan {
     pub output_container: ClientOutputContainer,
     pub video_codec: Option<String>,
     pub audio_codec: Option<String>,
-    pub hardware_acceleration: ClientHardwareAcceleration,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -638,15 +637,6 @@ public_string_value! {
         Hls => "hls",
         Mp4 => "mp4",
         Mkv => "mkv",
-    }
-}
-
-public_string_value! {
-    pub enum ClientHardwareAcceleration {
-        None => "none",
-        Vaapi => "vaapi",
-        Nvenc => "nvenc",
-        QuickSync => "quick_sync",
     }
 }
 

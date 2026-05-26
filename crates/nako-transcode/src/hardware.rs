@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use super::ffmpeg::stderr_message;
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum HardwareAcceleration {
     #[default]
@@ -32,12 +32,22 @@ impl HardwareAcceleration {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum HardwareAccelerationFallback {
     #[default]
     Cpu,
     Fail,
+}
+
+impl HardwareAccelerationFallback {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Cpu => "cpu",
+            Self::Fail => "fail",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]

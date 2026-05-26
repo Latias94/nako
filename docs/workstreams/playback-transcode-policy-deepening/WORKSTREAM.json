@@ -3,12 +3,13 @@
   "slug": "playback-transcode-policy-deepening",
   "title": "Playback Transcode Policy Deepening",
   "status": "active",
-  "current_task": "PTP-050",
+  "current_task": "PTP-060",
   "completed_tasks": [
     "PTP-010",
     "PTP-020",
     "PTP-030",
-    "PTP-040"
+    "PTP-040",
+    "PTP-050"
   ],
   "updated": "2026-05-27",
   "scope_kind": "execution",
@@ -63,6 +64,10 @@
     {
       "task": "PTP-040",
       "summary": "Promoted Public Client playback reason and capability DTOs: ClientPlaybackDecisionReason is a stable wire enum, playback sessions reuse ClientPlaybackCapabilitiesDto, and TypeScript/Kotlin SDKs were regenerated."
+    },
+    {
+      "task": "PTP-050",
+      "summary": "Replaced shallow HLS hardware selection with TranscodeExecutionPolicy: decode/filter/encode acceleration stages, fallback evidence, output constraints, and subtitle strategy now drive HLS profile identity and FFmpeg request planning; Public Client transcode plans no longer expose service-side hardware selection."
     }
   ],
   "adr_refs": [
@@ -72,6 +77,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Continue with PTP-050 Transcode Policy and Acceleration Plan before implementing Runtime Inventory, FFmpeg Engine Adapter, Admin settings, or route closeout."
+    "notes": "Continue with PTP-060 Runtime Inventory and Engine Adapter now that TranscodeExecutionPolicy is the HLS policy seam."
   }
 }

@@ -163,6 +163,13 @@ PTP-040 established `ClientPlaybackDecisionReason` and
 planner reasons may grow faster than the public contract; `nako-api` is the
 adapter that maps internal reasons to stable, safe wire values.
 
+PTP-050 established `TranscodeExecutionPolicy` as the policy record consumed by
+HLS profile identity and FFmpeg command planning. The policy carries
+decode/filter/encode acceleration stages, selected/requested fallback evidence,
+output constraints, and subtitle strategy. Public Client transcode plans no
+longer expose server hardware selection; that remains Admin/runtime evidence
+and execution policy.
+
 PTP-030 extracted `nako-playback` because the deletion test became real:
 removing selection from `nako-streaming` leaves a smaller transport crate, while
 server app code and public DTO adapters both consume playback planning records.

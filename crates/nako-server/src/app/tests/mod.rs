@@ -159,11 +159,13 @@ fn local_hls_request_identity(
         output_container: OutputContainer::Hls,
         video_codec: Some("h264".to_owned()),
         audio_codec: Some("aac".to_owned()),
-        hardware_acceleration: HardwareAcceleration::None,
     };
 
     profile
-        .hls_transcode_profile(&plan, acceleration)
+        .hls_transcode_profile(
+            &plan,
+            nako_transcode::TranscodeAccelerationPlan::for_selected_hardware(acceleration),
+        )
         .identity()
         .bind_source(&nako_transcode::TranscodeSourceIdentity::from_media_source(
             source,

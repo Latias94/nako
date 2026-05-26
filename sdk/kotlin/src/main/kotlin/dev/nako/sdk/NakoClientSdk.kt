@@ -579,29 +579,6 @@ public value class ClientPlaybackDecisionMode(
 
 @JvmInline
 @Serializable
-public value class ClientTranscodePlanHardwareAcceleration(
-    public val wireValue: String,
-) {
-    public val isKnown: Boolean
-        get() = wireValue in KnownWireValues
-
-    public companion object {
-        public val None: ClientTranscodePlanHardwareAcceleration = ClientTranscodePlanHardwareAcceleration("none")
-        public val Vaapi: ClientTranscodePlanHardwareAcceleration = ClientTranscodePlanHardwareAcceleration("vaapi")
-        public val Nvenc: ClientTranscodePlanHardwareAcceleration = ClientTranscodePlanHardwareAcceleration("nvenc")
-        public val QuickSync: ClientTranscodePlanHardwareAcceleration = ClientTranscodePlanHardwareAcceleration("quick_sync")
-
-        public val KnownWireValues: Set<String> = setOf(
-            "none",
-            "vaapi",
-            "nvenc",
-            "quick_sync",
-        )
-    }
-}
-
-@JvmInline
-@Serializable
 public value class ClientTranscodePlanOutputContainer(
     public val wireValue: String,
 ) {
@@ -1244,8 +1221,6 @@ public value class ClientPlaybackDecisionReason(
 public data class ClientTranscodePlan(
     @SerialName("audio_codec")
     public val audioCodec: String?,
-    @SerialName("hardware_acceleration")
-    public val hardwareAcceleration: ClientTranscodePlanHardwareAcceleration,
     @SerialName("output_container")
     public val outputContainer: ClientTranscodePlanOutputContainer,
     @SerialName("video_codec")

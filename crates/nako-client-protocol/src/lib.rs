@@ -742,8 +742,7 @@ mod tests {
                 "transcode_plan": {
                     "output_container": "future_container",
                     "video_codec": null,
-                    "audio_codec": null,
-                    "hardware_acceleration": "quantum_gpu"
+                    "audio_codec": null
                 }
             }
         }))
@@ -764,10 +763,6 @@ mod tests {
             plan.output_container,
             ClientOutputContainer::Other("future_container".to_owned())
         );
-        assert_eq!(
-            plan.hardware_acceleration,
-            ClientHardwareAcceleration::Other("quantum_gpu".to_owned())
-        );
 
         let encoded = serde_json::to_value(PlaybackDecisionResponse {
             source: response.source,
@@ -787,9 +782,10 @@ mod tests {
             encoded["decision"]["transcode_plan"]["output_container"],
             "future_container"
         );
-        assert_eq!(
-            encoded["decision"]["transcode_plan"]["hardware_acceleration"],
-            "quantum_gpu"
+        assert!(
+            encoded["decision"]["transcode_plan"]
+                .get("hardware_acceleration")
+                .is_none()
         );
 
         let browser_ticket =

@@ -116,7 +116,6 @@ export type ClientPlaybackDecisionReason = "compatible" | "requested_transcode_o
 
 export interface ClientTranscodePlan {
   audio_codec: string | null;
-  hardware_acceleration: "none" | "vaapi" | "nvenc" | "quick_sync";
   output_container: "hls" | "mp4" | "mkv";
   video_codec: string | null;
 }

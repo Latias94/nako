@@ -9,8 +9,8 @@ use nako_transcode::{
     CancellationToken, FfmpegCommandBuilder, FfmpegHardwareAccelerationDetector, FfmpegHlsRunner,
     FfmpegOverwritePolicy, HardwareAccelerationDetector, HardwareAccelerationReport,
     HardwareAccelerationSelection, HlsRequest, HlsRunOutcome, RemuxRuntimeGuard,
-    RemuxRuntimeLimits, TranscodeRequestIdentity, TranscodeSessionManager,
-    select_hardware_acceleration,
+    RemuxRuntimeLimits, TranscodeAccelerationPlan, TranscodeExecutionPolicy,
+    TranscodeRequestIdentity, TranscodeSessionManager, select_hardware_acceleration,
 };
 use tokio::sync::Mutex;
 
@@ -28,6 +28,7 @@ pub(super) struct HlsAppService {
     runner: FfmpegHlsRunner,
     pub(super) hardware_report: HardwareAccelerationReport,
     pub(super) hardware_selection: HardwareAccelerationSelection,
+    pub(super) acceleration_plan: TranscodeAccelerationPlan,
     cancellations: PlaybackSessionCancellationRegistry,
     in_flight: Arc<Mutex<HashSet<HlsRequestKey>>>,
 }
@@ -60,9 +61,14 @@ impl HlsAppService {
     ) -> Result<Self> {
         let hardware_policy = config.transcode.hardware_policy();
         let hardware_selection = select_hardware_acceleration(hardware_policy, &hardware_report)?;
+        let acceleration_plan = TranscodeAccelerationPlan::from_hardware_selection(
+            hardware_policy,
+            &hardware_selection,
+        );
         let transcode_budget = config.transcode.resource_budget();
         let guard = RemuxRuntimeGuard::new(RemuxRuntimeLimits {
-            max_concurrent_sessions: transcode_budget.slots_for(hardware_selection.acceleration),
+            max_concurrent_sessions: transcode_budget
+                .slots_for(acceleration_plan.resource_acceleration()),
             timeout_ms: config.remux_timeout_ms,
         });
 
@@ -71,6 +77,7 @@ impl HlsAppService {
             runner: FfmpegHlsRunner::new(guard),
             hardware_report,
             hardware_selection,
+            acceleration_plan,
             cancellations,
             in_flight: Arc::new(Mutex::new(HashSet::new())),
         })
@@ -83,6 +90,7 @@ impl HlsAppService {
         decision: PlaybackDecision,
         input_path: PathBuf,
         layout: HlsOutputLayout,
+        execution_policy: TranscodeExecutionPolicy,
         request_identity: TranscodeRequestIdentity,
     ) -> Result<HlsSourceOutput> {
         let key = HlsRequestKey {
@@ -101,7 +109,15 @@ impl HlsAppService {
             }),
             HlsRequestAdmission::Run { session } => {
                 let result = self
-                    .run_reserved(sessions, session, source, decision, input_path, layout)
+                    .run_reserved(
+                        sessions,
+                        session,
+                        source,
+                        decision,
+                        input_path,
+                        layout,
+                        execution_policy,
+                    )
                     .await;
                 self.release(&key).await;
                 result
@@ -192,6 +208,7 @@ impl HlsAppService {
         decision: PlaybackDecision,
         input_path: PathBuf,
         layout: HlsOutputLayout,
+        execution_policy: TranscodeExecutionPolicy,
     ) -> Result<HlsSourceOutput> {
         let session_id = persisted_session.id;
         let cancel = CancellationToken::new();
@@ -207,7 +224,7 @@ impl HlsAppService {
                 playlist_path: layout.playlist_path.clone(),
                 segment_pattern: layout.segment_pattern.clone(),
                 segment_time_seconds: 6,
-                hardware_acceleration: self.hardware_selection.acceleration,
+                execution_policy,
                 overwrite: FfmpegOverwritePolicy::Allow,
             },
             &self.builder,
