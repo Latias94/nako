@@ -8,6 +8,7 @@ use crate::metadata_diagnostics::MetadataProviderDiagnosticStatus;
 
 pub const ADMIN_API_VERSION: &str = "v1";
 
+mod access;
 mod automation;
 mod catalog_governance;
 mod intake;
@@ -17,6 +18,7 @@ mod network;
 mod operations;
 mod playback;
 mod storage;
+pub use access::*;
 pub use automation::*;
 pub use catalog_governance::*;
 pub use intake::*;

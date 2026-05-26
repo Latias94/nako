@@ -19,6 +19,7 @@ trait DatabaseBackendAdapter:
     + CatalogRepository
     + CatalogGovernanceRepository
     + IngestionFailureRepository
+    + IdentityAccessRepository
     + JobRepository
     + JobLeaseRepository
     + EventOutboxRepository
@@ -59,6 +60,7 @@ impl<T> DatabaseBackendAdapter for T where
         + CatalogRepository
         + CatalogGovernanceRepository
         + IngestionFailureRepository
+        + IdentityAccessRepository
         + JobRepository
         + JobLeaseRepository
         + EventOutboxRepository
@@ -321,6 +323,73 @@ impl AdminSettingsRepository for NakoDatabase {
         &self,
     ) -> Result<Option<AdminMetadataRawCacheSettingsRecord>> {
         self.backend().get_admin_metadata_raw_cache_settings().await
+    }
+}
+
+#[async_trait::async_trait]
+impl IdentityAccessRepository for NakoDatabase {
+    async fn upsert_user(&self, user: &User) -> Result<()> {
+        self.backend().upsert_user(user).await
+    }
+
+    async fn get_user(&self, id: UserId) -> Result<Option<User>> {
+        self.backend().get_user(id).await
+    }
+
+    async fn get_user_by_principal(&self, principal_id: &UserPrincipalId) -> Result<Option<User>> {
+        self.backend().get_user_by_principal(principal_id).await
+    }
+
+    async fn list_users(&self, page: PageRequest) -> Result<Vec<User>> {
+        self.backend().list_users(page).await
+    }
+
+    async fn replace_role_assignments(
+        &self,
+        user_id: UserId,
+        assignments: &[RoleAssignment],
+    ) -> Result<()> {
+        self.backend()
+            .replace_role_assignments(user_id, assignments)
+            .await
+    }
+
+    async fn list_role_assignments(&self, user_id: UserId) -> Result<Vec<RoleAssignment>> {
+        self.backend().list_role_assignments(user_id).await
+    }
+
+    async fn upsert_library_access_policy(&self, policy: &LibraryAccessPolicy) -> Result<()> {
+        self.backend().upsert_library_access_policy(policy).await
+    }
+
+    async fn delete_library_access_policy(
+        &self,
+        scope: LibraryAccessPolicyScope,
+        library_id: LibraryId,
+    ) -> Result<()> {
+        self.backend()
+            .delete_library_access_policy(scope, library_id)
+            .await
+    }
+
+    async fn list_library_access_policies(
+        &self,
+        filter: LibraryAccessPolicyFilter,
+        page: PageRequest,
+    ) -> Result<Vec<LibraryAccessPolicy>> {
+        self.backend()
+            .list_library_access_policies(filter, page)
+            .await
+    }
+
+    async fn resolve_effective_library_access(
+        &self,
+        user_id: UserId,
+        library_id: LibraryId,
+    ) -> Result<EffectiveLibraryAccess> {
+        self.backend()
+            .resolve_effective_library_access(user_id, library_id)
+            .await
     }
 }
 

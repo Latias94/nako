@@ -3,7 +3,7 @@
   "slug": "identity-and-library-access-contract",
   "title": "Identity And Library Access Contract",
   "status": "active",
-  "current_task": "ILA-020",
+  "current_task": "ILA-040",
   "updated": "2026-05-26",
   "scope_kind": "execution",
   "problem": "Nako needs durable local users, roles, Library Access, and principal resolution before Media Web, multi-user playback, or permission-gated admin context links can ship.",
@@ -48,6 +48,14 @@
     {
       "task": "ILA-010",
       "summary": "Defined identity/access domain records and repository skeletons; generated SQLite/PostgreSQL baseline migration files; rewired backend migrators to one baseline migration each; removed old numbered migration files; focused core/db gates passed."
+    },
+    {
+      "task": "ILA-020",
+      "summary": "Implemented SQLite/PostgreSQL identity/access repository adapters and contract coverage; startup now creates the deterministic bootstrap administrator user for local-admin; inbound auth resolves the configured bearer token to stable principal data without storing token material."
+    },
+    {
+      "task": "ILA-030",
+      "summary": "Added redaction-safe Admin API access-management DTOs, routes, validation, generated Admin Web contract types, and system coverage for local users, roles, status changes, and Library Access policy rows."
     }
   ],
   "adr_refs": [
@@ -59,6 +67,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Continue with ILA-020. Baseline runtime migrations are consolidated to one file per backend. If production compatibility appears, stop and switch to forward-only migrations."
+    "notes": "Continue with ILA-040. Admin API access-management contracts exist, but Public Client API browse/playback/user-state flows still need effective Library Access enforcement. If production compatibility appears, stop and switch to forward-only migrations."
   }
 }

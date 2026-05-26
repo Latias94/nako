@@ -8,10 +8,12 @@ use nako_api::extension::{
 use nako_core::{
     AddonPermission, AddonRepository, AddonSideEffectTarget, AddonSideEffectValidationStatus,
     AddonStatus, AddonTaskRunRepository, ArtworkCandidateId, ArtworkCandidateRepository,
-    ArtworkCandidateSourceKind, ImageKind, Library, LibraryItemRepository, LibraryItemState,
-    LibraryOptions, LibraryRepository, ManagedArtworkAcceptanceRecord, ManagedArtworkIngestId,
-    ManagedArtworkIngestStatus, ManagedArtworkRepository, NewAddonRegistration, NewAddonSideEffect,
-    NewAddonToken, NewArtworkCandidate, NewManagedArtworkIngest,
+    ArtworkCandidateSourceKind, IdentityAccessRepository, ImageKind, Library,
+    LibraryItemRepository, LibraryItemState, LibraryOptions, LibraryRepository,
+    ManagedArtworkAcceptanceRecord, ManagedArtworkIngestId, ManagedArtworkIngestStatus,
+    ManagedArtworkRepository, NewAddonRegistration, NewAddonSideEffect, NewAddonToken,
+    NewArtworkCandidate, NewManagedArtworkIngest, UserPrincipalId, UserRole,
+    bootstrap_admin_user_id,
 };
 use nako_official_addon_catalog::metadata_scraper;
 use tokio::sync::Mutex;
@@ -63,6 +65,58 @@ async fn wait_for_runtime_jobs(
     panic!(
         "runtime job diagnostics did not reach expected state: {:?}",
         app.runtime_diagnostics()
+    );
+}
+
+#[tokio::test]
+async fn app_startup_creates_deterministic_bootstrap_admin_user() {
+    let temp = tempfile::tempdir().unwrap();
+    let config = startup_config(
+        temp.path(),
+        vec![LocalLibraryConfig {
+            id: LibraryId::new(),
+            name: "Bootstrap Movies".to_owned(),
+            root: temp.path().join("movies"),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    );
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+
+    let app = NakoApp::new_with_store(config.clone(), store.clone())
+        .await
+        .unwrap();
+    assert!(app.startup_report().database_migrated);
+
+    let user = store
+        .get_user_by_principal(&UserPrincipalId::local_admin())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(user.id, bootstrap_admin_user_id());
+    assert_eq!(user.username, "admin");
+    assert_eq!(user.display_name, "Local administrator");
+    assert_eq!(user.status, nako_core::UserStatus::Active);
+    assert!(
+        store
+            .list_role_assignments(user.id)
+            .await
+            .unwrap()
+            .iter()
+            .any(|assignment| assignment.role == UserRole::Administrator)
+    );
+
+    let restarted = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    assert!(restarted.startup_report().database_migrated);
+    assert_eq!(
+        store
+            .list_users(PageRequest::first_page())
+            .await
+            .unwrap()
+            .len(),
+        1
     );
 }
 

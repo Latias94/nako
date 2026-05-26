@@ -1,25 +1,30 @@
+use std::collections::HashSet;
+
 use axum::{
     Extension, Json, Router,
     extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{delete, get, post},
+    routing::{delete, get, patch, post, put},
 };
 use nako_api::{
     admin::{
         ADMIN_API_VERSION, AdminAccessAuthSummary, AdminAccessCapabilityState,
         AdminAccessCapabilitySummary, AdminAccessMode, AdminAccessPrincipalKind,
-        AdminAccessPrincipalSummary, AdminAccessSummaryResponse,
-        AdminAcquisitionIntakeCandidateDiagnostic, AdminAcquisitionIntakeCandidateListResponse,
-        AdminArtworkConfigDiagnostics, AdminAuthConfigDiagnostics, AdminCatalogGovernanceItem,
+        AdminAccessPrincipalSummary, AdminAccessSummaryResponse, AdminAccessUserListResponse,
+        AdminAccessUserRecord, AdminAccessUserResponse, AdminAcquisitionIntakeCandidateDiagnostic,
+        AdminAcquisitionIntakeCandidateListResponse, AdminArtworkConfigDiagnostics,
+        AdminAuthConfigDiagnostics, AdminCatalogGovernanceItem,
         AdminCatalogGovernanceItemListResponse, AdminCatalogGovernanceProviderMappingReviewRequest,
-        AdminConfigPlaybackDiagnostics, AdminConfigStagingDiagnostics,
+        AdminConfigPlaybackDiagnostics, AdminConfigStagingDiagnostics, AdminCreateUserRequest,
         AdminDatabaseBackendCapabilitiesDiagnostics, AdminDatabaseConfigDiagnostics,
         AdminGeneratedArtifactProposal, AdminGeneratedArtifactProposalListResponse,
         AdminGeneratedArtifactReviewPlanResponse, AdminGeneratedArtifactReviewRequest,
         AdminGeneratedArtifactReviewResponse, AdminJobCancelRequestResponse, AdminJobListItem,
-        AdminJobListResponse, AdminLibraryAccessLevel, AdminLibraryAccessReason,
-        AdminLibraryAccessSummary, AdminLibraryAccessSummaryEntry, AdminLibraryConfigDiagnostics,
+        AdminJobListResponse, AdminLibraryAccessLevel, AdminLibraryAccessPolicyDeleteResponse,
+        AdminLibraryAccessPolicyListResponse, AdminLibraryAccessPolicyRecord,
+        AdminLibraryAccessPolicyResponse, AdminLibraryAccessReason, AdminLibraryAccessSummary,
+        AdminLibraryAccessSummaryEntry, AdminLibraryConfigDiagnostics,
         AdminMetadataConfigDiagnostics, AdminMetadataProviderConfigDiagnostics,
         AdminMetadataRuntimeConfigDiagnostics, AdminNetworkAccessDiagnostics,
         AdminNetworkExposureMode, AdminNetworkExternalEndpointDiagnostics,
@@ -44,12 +49,13 @@ use nako_api::{
         AdminPlaybackSupportRedactionEvidence, AdminPlaybackSupportRuntimeEvidence,
         AdminPlaybackSupportSessionEvidence, AdminPlaybackSupportSourceEvidence,
         AdminPlaybackSupportSubject, AdminPlaybackTranscodeBudgetDiagnostics,
-        AdminRuntimeConfigDiagnostics, AdminServerConfigDiagnosticsResponse,
-        AdminStorageStagingDiagnosticsResponse, AdminStorageStagingRecord,
-        AdminStorageStagingSummary, AdminTranscodeConfigDiagnostics, AdminTrustedProxyDiagnostics,
-        AdminTunnelProviderDiagnostics, AdminTunnelProviderKind,
+        AdminReplaceUserRolesRequest, AdminRuntimeConfigDiagnostics,
+        AdminServerConfigDiagnosticsResponse, AdminStorageStagingDiagnosticsResponse,
+        AdminStorageStagingRecord, AdminStorageStagingSummary, AdminTranscodeConfigDiagnostics,
+        AdminTrustedProxyDiagnostics, AdminTunnelProviderDiagnostics, AdminTunnelProviderKind,
         AdminUpdateLibraryMetadataProfileRequest, AdminUpdateMetadataRawCacheSettingsRequest,
-        AdminVfsCacheSummary, AdminWatchFolderDiscoveryFailure, AdminWatchFolderDiscoveryRequest,
+        AdminUpdateUserStatusRequest, AdminUpsertLibraryAccessPolicyRequest, AdminVfsCacheSummary,
+        AdminWatchFolderDiscoveryFailure, AdminWatchFolderDiscoveryRequest,
         AdminWatchFolderDiscoveryResponse, JobResponse, StorageBackendDiagnosticsResponse,
         StorageBackendKind, StorageBackendRuntimeStateScope, StorageBackendStatus,
     },
@@ -57,9 +63,10 @@ use nako_api::{
     public_client::{API_VERSION, page_info_from_request},
 };
 use nako_core::{
-    ArtworkCandidateId, AutomationArtifactId, ImageKind, JobId, LibraryId,
-    ManagedArtworkArtifactId, ManagedArtworkIngestId, MediaItemId, NakoError, PageRequest,
-    ProviderMappingId, UserPrincipalId,
+    ArtworkCandidateId, AutomationArtifactId, ImageKind, JobId, LibraryAccessPolicy,
+    LibraryAccessPolicyFilter, LibraryAccessPolicyScope, LibraryId, ManagedArtworkArtifactId,
+    ManagedArtworkIngestId, MediaItemId, NakoError, PageRequest, ProviderMappingId, RoleAssignment,
+    User, UserId, UserPrincipalId, UserRole, UserStatus,
 };
 use nako_db::DatabaseBackendCapabilities;
 use nako_transcode::{
@@ -131,6 +138,24 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route("/admin/v1/jobs", get(list_admin_jobs))
         .route("/admin/v1/jobs/{job_id}/cancel", post(cancel_admin_job))
         .route("/admin/v1/access/summary", get(get_admin_access_summary))
+        .route(
+            "/admin/v1/access/users",
+            get(list_admin_access_users).post(create_admin_access_user),
+        )
+        .route(
+            "/admin/v1/access/users/{user_id}/roles",
+            put(replace_admin_access_user_roles),
+        )
+        .route(
+            "/admin/v1/access/users/{user_id}/status",
+            patch(update_admin_access_user_status),
+        )
+        .route(
+            "/admin/v1/access/library-policies",
+            get(list_admin_library_access_policies)
+                .put(upsert_admin_library_access_policy)
+                .delete(delete_admin_library_access_policy),
+        )
         .route(
             "/admin/v1/libraries/{library_id}/metadata-profile",
             get(get_admin_library_metadata_profile).put(update_admin_library_metadata_profile),
@@ -498,6 +523,136 @@ pub(super) struct SelectAdminItemArtworkRequest {
     pub(super) artifact_id: ManagedArtworkArtifactId,
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize)]
+pub(super) struct AdminAccessUsersQuery {
+    #[serde(flatten)]
+    pub(super) page: PageQuery,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize)]
+pub(super) struct AdminLibraryAccessPolicyListQuery {
+    pub(super) user_id: Option<UserId>,
+    pub(super) role: Option<UserRole>,
+    pub(super) library_id: Option<LibraryId>,
+    #[serde(flatten)]
+    pub(super) page: PageQuery,
+}
+
+impl AdminLibraryAccessPolicyListQuery {
+    fn into_filter_and_page(self) -> Result<(LibraryAccessPolicyFilter, PageRequest), NakoError> {
+        Ok((
+            LibraryAccessPolicyFilter {
+                user_id: self.user_id,
+                role: self.role,
+                library_id: self.library_id,
+            },
+            self.page.try_into()?,
+        ))
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+pub(super) struct AdminLibraryAccessPolicyDeleteQuery {
+    pub(super) user_id: Option<UserId>,
+    pub(super) role: Option<UserRole>,
+    pub(super) library_id: LibraryId,
+}
+
+impl AdminLibraryAccessPolicyDeleteQuery {
+    fn into_scope_and_library(self) -> Result<(LibraryAccessPolicyScope, LibraryId), NakoError> {
+        let scope = match (self.user_id, self.role) {
+            (Some(user_id), None) => LibraryAccessPolicyScope::User(user_id),
+            (None, Some(role)) => LibraryAccessPolicyScope::Role(role),
+            (None, None) => {
+                return Err(NakoError::InvalidInput {
+                    message: "either user_id or role is required".to_owned(),
+                });
+            }
+            (Some(_), Some(_)) => {
+                return Err(NakoError::InvalidInput {
+                    message: "user_id and role filters are mutually exclusive".to_owned(),
+                });
+            }
+        };
+
+        Ok((scope, self.library_id))
+    }
+}
+
+async fn admin_access_user_record(
+    app: &NakoApp,
+    user: User,
+) -> Result<AdminAccessUserRecord, NakoError> {
+    let roles = app
+        .list_role_assignments(user.id)
+        .await?
+        .into_iter()
+        .map(|assignment| assignment.role)
+        .collect();
+    let bootstrap = is_bootstrap_admin_user(&user);
+
+    Ok(AdminAccessUserRecord::from_user(user, roles, bootstrap))
+}
+
+async fn admin_access_user_or_not_found(app: &NakoApp, user_id: UserId) -> Result<User, NakoError> {
+    app.get_user(user_id)
+        .await?
+        .ok_or_else(|| NakoError::NotFound {
+            entity: "user",
+            id: user_id.to_string(),
+        })
+}
+
+fn role_assignments_for_user(
+    user_id: UserId,
+    roles: &[UserRole],
+    granted_at_ms: i64,
+) -> Vec<RoleAssignment> {
+    roles
+        .iter()
+        .copied()
+        .map(|role| RoleAssignment {
+            user_id,
+            role,
+            granted_at_ms,
+        })
+        .collect()
+}
+
+fn validate_admin_access_roles(roles: &[UserRole]) -> Result<(), NakoError> {
+    let mut unique = HashSet::new();
+    for role in roles {
+        if !unique.insert(*role) {
+            return Err(NakoError::InvalidInput {
+                message: format!("duplicate Role in request: {}", role.as_str()),
+            });
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_access_user_text(field: &str, value: String) -> Result<String, NakoError> {
+    let value = value.trim().to_owned();
+    if value.is_empty() {
+        return Err(NakoError::InvalidInput {
+            message: format!("{field} cannot be empty"),
+        });
+    }
+    if value.chars().any(char::is_control) {
+        return Err(NakoError::InvalidInput {
+            message: format!("{field} cannot contain control characters"),
+        });
+    }
+
+    Ok(value)
+}
+
+fn is_bootstrap_admin_user(user: &User) -> bool {
+    user.principal_id == UserPrincipalId::local_admin()
+        && user.id == nako_core::bootstrap_admin_user_id()
+}
+
 fn parse_admin_artwork_kind(value: &str) -> Result<ImageKind, NakoError> {
     match value {
         "poster" => Ok(ImageKind::Poster),
@@ -738,8 +893,9 @@ pub(super) async fn get_admin_system_config(
 pub(super) async fn get_admin_access_summary(
     State(app): State<NakoApp>,
     Extension(principal): Extension<UserPrincipalId>,
-) -> Json<AdminAccessSummaryResponse> {
+) -> ApiResult<impl IntoResponse> {
     let config = app.config();
+    let user = app.get_user_by_principal(&principal).await?;
     let libraries = config
         .libraries
         .iter()
@@ -756,13 +912,16 @@ pub(super) async fn get_admin_access_summary(
         })
         .collect::<Vec<_>>();
 
-    Json(AdminAccessSummaryResponse {
+    Ok(Json(AdminAccessSummaryResponse {
         admin_api_version: ADMIN_API_VERSION.to_owned(),
         public_api_version: API_VERSION.to_owned(),
         mode: AdminAccessMode::SingleAdmin,
         principal: AdminAccessPrincipalSummary {
             principal_id: principal.to_string(),
-            display_name: "Local administrator".to_owned(),
+            display_name: user
+                .as_ref()
+                .map(|user| user.display_name.clone())
+                .unwrap_or_else(|| "Local administrator".to_owned()),
             principal_kind: AdminAccessPrincipalKind::LocalAdmin,
         },
         auth: AdminAccessAuthSummary {
@@ -771,15 +930,168 @@ pub(super) async fn get_admin_access_summary(
         },
         readiness: AdminAccessCapabilitySummary {
             single_admin_mode: AdminAccessCapabilityState::Active,
-            user_accounts: AdminAccessCapabilityState::Planned,
-            roles: AdminAccessCapabilityState::Planned,
-            library_access_policy: AdminAccessCapabilityState::Planned,
+            user_accounts: AdminAccessCapabilityState::Active,
+            roles: AdminAccessCapabilityState::Active,
+            library_access_policy: AdminAccessCapabilityState::Active,
         },
         library_access: AdminLibraryAccessSummary {
             configured_libraries: usize_to_u32(libraries.len()),
             libraries,
         },
-    })
+    }))
+}
+
+pub(super) async fn list_admin_access_users(
+    State(app): State<NakoApp>,
+    Query(query): Query<AdminAccessUsersQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let page: PageRequest = query.page.try_into()?;
+    let users = app.list_users(page).await?;
+    let returned = users.len();
+    let mut records = Vec::with_capacity(users.len());
+
+    for user in users {
+        records.push(admin_access_user_record(&app, user).await?);
+    }
+
+    Ok(Json(AdminAccessUserListResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        users: records,
+        page: page_info_from_request(page, returned),
+    }))
+}
+
+pub(super) async fn create_admin_access_user(
+    State(app): State<NakoApp>,
+    Json(request): Json<AdminCreateUserRequest>,
+) -> ApiResult<impl IntoResponse> {
+    validate_admin_access_roles(&request.roles)?;
+    let now_ms = crate::app::current_time_ms()?;
+    let user_id = UserId::new();
+    let user = User {
+        id: user_id,
+        principal_id: UserPrincipalId::new(format!("local-user:{user_id}"))?,
+        username: validate_access_user_text("username", request.username)?,
+        display_name: validate_access_user_text("display_name", request.display_name)?,
+        status: UserStatus::Active,
+        created_at_ms: now_ms,
+        updated_at_ms: now_ms,
+    };
+    let assignments = role_assignments_for_user(user.id, &request.roles, now_ms);
+
+    app.upsert_user(&user).await?;
+    app.replace_role_assignments(user.id, &assignments).await?;
+
+    Ok(Json(AdminAccessUserResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        user: admin_access_user_record(&app, user).await?,
+    }))
+}
+
+pub(super) async fn replace_admin_access_user_roles(
+    State(app): State<NakoApp>,
+    Path(user_id): Path<UserId>,
+    Json(request): Json<AdminReplaceUserRolesRequest>,
+) -> ApiResult<impl IntoResponse> {
+    validate_admin_access_roles(&request.roles)?;
+    let user = admin_access_user_or_not_found(&app, user_id).await?;
+    if is_bootstrap_admin_user(&user) && !request.roles.contains(&UserRole::Administrator) {
+        return Err(NakoError::InvalidInput {
+            message: "bootstrap administrator must retain the administrator role".to_owned(),
+        }
+        .into());
+    }
+
+    let assignments =
+        role_assignments_for_user(user.id, &request.roles, crate::app::current_time_ms()?);
+    app.replace_role_assignments(user.id, &assignments).await?;
+
+    Ok(Json(AdminAccessUserResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        user: admin_access_user_record(&app, user).await?,
+    }))
+}
+
+pub(super) async fn update_admin_access_user_status(
+    State(app): State<NakoApp>,
+    Path(user_id): Path<UserId>,
+    Json(request): Json<AdminUpdateUserStatusRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let mut user = admin_access_user_or_not_found(&app, user_id).await?;
+    if is_bootstrap_admin_user(&user) && request.status != UserStatus::Active {
+        return Err(NakoError::InvalidInput {
+            message: "bootstrap administrator cannot be disabled".to_owned(),
+        }
+        .into());
+    }
+
+    user.status = request.status;
+    user.updated_at_ms = crate::app::current_time_ms()?;
+    app.upsert_user(&user).await?;
+
+    Ok(Json(AdminAccessUserResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        user: admin_access_user_record(&app, user).await?,
+    }))
+}
+
+pub(super) async fn list_admin_library_access_policies(
+    State(app): State<NakoApp>,
+    Query(query): Query<AdminLibraryAccessPolicyListQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let (filter, page) = query.into_filter_and_page()?;
+    let policies = app.list_library_access_policies(filter, page).await?;
+    let returned = policies.len();
+    let policies = policies
+        .into_iter()
+        .map(AdminLibraryAccessPolicyRecord::from)
+        .collect();
+
+    Ok(Json(AdminLibraryAccessPolicyListResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        policies,
+        page: page_info_from_request(page, returned),
+    }))
+}
+
+pub(super) async fn upsert_admin_library_access_policy(
+    State(app): State<NakoApp>,
+    Json(request): Json<AdminUpsertLibraryAccessPolicyRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let now_ms = crate::app::current_time_ms()?;
+    let policy = LibraryAccessPolicy {
+        scope: request.scope.into(),
+        library_id: request.library_id,
+        access: request.access,
+        created_at_ms: now_ms,
+        updated_at_ms: now_ms,
+    };
+    app.upsert_library_access_policy(&policy).await?;
+
+    Ok(Json(AdminLibraryAccessPolicyResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        policy: AdminLibraryAccessPolicyRecord::from(policy),
+    }))
+}
+
+pub(super) async fn delete_admin_library_access_policy(
+    State(app): State<NakoApp>,
+    Query(query): Query<AdminLibraryAccessPolicyDeleteQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let (scope, library_id) = query.into_scope_and_library()?;
+    app.delete_library_access_policy(scope, library_id).await?;
+
+    Ok(Json(AdminLibraryAccessPolicyDeleteResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        deleted: true,
+    }))
 }
 
 pub(super) async fn get_admin_metadata_raw_cache_settings(

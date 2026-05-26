@@ -1,6 +1,6 @@
 # Identity And Library Access Contract - Evidence And Gates
 
-Status: Draft
+Status: Active
 Last updated: 2026-05-26
 
 ## Gate Policy
@@ -42,16 +42,27 @@ If any compatibility requirement appears, use forward-only migrations instead.
 | --- | --- | --- | --- |
 | 2026-05-26 | ILA-000 workstream open | Read ADR 0024, 0027, 0028, 0029, 0030; inspected SQLite and PostgreSQL migration inventories and migrator code; opened docs-first identity/access execution lane. | Draft lane opened. |
 | 2026-05-26 | ILA-010 domain/schema baseline | Added `UserId`, `User`, `UserRole`, `RoleAssignment`, `LibraryAccessPolicy`, `EffectiveLibraryAccess`, and `IdentityAccessRepository`; generated SQLite/PostgreSQL baseline SQL files; rewired SQLite/PostgreSQL migrators to one baseline migration each; removed old numbered SQLite/PostgreSQL SQL files after baseline generation. | `cargo nextest run -p nako-core identity --no-fail-fast` passed; `cargo nextest run -p nako-db baseline_migration --no-fail-fast` passed; `cargo nextest run -p nako-db migration --no-fail-fast` passed; `cargo nextest run -p nako-db user_playback --no-fail-fast` passed; `cargo fmt --all -- --check` passed. |
+| 2026-05-26 | ILA-020 repository/principal | Implemented SQLite/PostgreSQL `IdentityAccessRepository` adapters, facade dispatch, backend-neutral identity/access contract coverage, deterministic bootstrap administrator startup, and inbound auth `AuthenticatedPrincipal` insertion. Updated Admin access summary readiness/copy to reflect backend identity storage while keeping mutations hidden. | `cargo nextest run -p nako-core identity --no-fail-fast` passed; `cargo nextest run -p nako-db user --no-fail-fast` passed; `cargo nextest run -p nako-server auth --no-fail-fast` passed; `cargo nextest run -p nako-server app_startup_creates_deterministic_bootstrap_admin_user admin_v1_access_summary --no-fail-fast` passed; `cargo fmt --all -- --check` passed; `python -m json.tool docs\workstreams\identity-and-library-access-contract\WORKSTREAM.json > $null` passed; `npm run test -- App.test.tsx -t "Users & Access"` passed; `git diff --check` passed. |
+| 2026-05-26 | ILA-030 Admin API access management | Added explicit Admin API DTOs, generated contract route constants/types, server handlers, validation, and system tests for local users, Role assignments, user status, and Library Access policy rows. Updated Admin Web copy to keep edit controls hidden until credential/login/lockout UX is accepted. | `cargo nextest run -p nako-api admin_contract_includes_route_constants --no-fail-fast` passed; `cargo nextest run -p nako-api admin_web_generated_contract_matches_generator_output --no-fail-fast` passed; `cargo nextest run -p nako-server admin_v1_access_management admin_v1_access_summary --no-fail-fast` passed; `npm run generate:admin-api` passed; `npm run check` passed; `cargo fmt --all` and `cargo fmt --all -- --check` passed; `python -m json.tool docs\workstreams\identity-and-library-access-contract\WORKSTREAM.json > $null` passed; `git diff --check` passed with line-ending warnings only. |
+| 2026-05-26 | Goal verification for ILA-020/ILA-030 | Re-ran focused gates covering bootstrap identity semantics, identity/access repository contracts, auth principal resolution, deterministic startup, Admin API generated contracts, Admin API access-management round trips, Admin Web typecheck, workstream JSON, formatting, and whitespace checks. | `cargo nextest run -p nako-core identity --no-fail-fast` passed; `cargo nextest run -p nako-db user --no-fail-fast` passed; `cargo nextest run -p nako-server auth app_startup_creates_deterministic_bootstrap_admin_user --no-fail-fast` passed; `cargo nextest run -p nako-api admin_contract_includes_route_constants --no-fail-fast` passed; `cargo nextest run -p nako-api admin_web_generated_contract_matches_generator_output --no-fail-fast` passed; `cargo nextest run -p nako-server admin_v1_access_management admin_v1_access_summary --no-fail-fast` passed; `npm run check` in `apps/admin-web` passed. |
 
 ## Verification Notes
 
-- ILA-010 did not change `nako-server` auth/principal resolution, so the
-  server auth gate is deferred to ILA-020.
-- Public API/OpenAPI/Admin Web gates were not run because ILA-010 did not
-  change API DTOs, generated contracts, or UI code.
+- ILA-030 added generated Admin Web route constants/types for Admin-only access
+  management routes. Public Client OpenAPI/SDK artifacts were not changed.
+- Admin Web mutation controls remain hidden after ILA-030 because password,
+  login, invitation, and lockout UX are still unaccepted follow-ons.
+- Focused clippy was attempted with
+  `cargo clippy -p nako-core -p nako-db -p nako-api -p nako-server --all-targets -- -D warnings -A clippy::double_must_use -A clippy::derivable_impls`.
+  After fixing the identity/access findings, clippy remains blocked by
+  existing unrelated warnings in crates such as `nako-catalog`,
+  `nako-transcode`, `nako-vfs`, and pre-existing `nako-db` modules/tests.
+  The reported failures are outside the new identity/access files and should
+  be handled by a separate lint-cleanup lane.
 - PostgreSQL runtime integration was not run because this environment does not
   provide `NAKO_TEST_POSTGRES_URL`; the local Postgres baseline test verifies
-  the registered migration inventory and identity/access SQL presence.
+  the registered migration inventory and identity/access SQL presence, and the
+  PostgreSQL adapter compiles through the ignored backend-neutral contract.
 
 ## Redaction Rules
 

@@ -1,8 +1,9 @@
 use std::collections::HashSet;
 
 use nako_core::{
-    JobRepository, ManagedArtworkRepository, NakoError, Result, TranscodeFailureCategory,
-    TranscodeSessionRepository,
+    IdentityAccessRepository, JobRepository, ManagedArtworkRepository, NakoError, Result,
+    RoleAssignment, TranscodeFailureCategory, TranscodeSessionRepository, UserPrincipalId,
+    UserRole, bootstrap_admin_user,
 };
 use nako_db::NakoDatabase;
 use nako_vfs::StorageUri;
@@ -64,6 +65,7 @@ impl<'a> ServerStartupWorkflow<'a> {
         let staging_cleanup = self.cleanup_staging_inputs().await?;
         let library_reconciliation = self.reconcile_configured_libraries().await?;
         let configured_libraries = library_reconciliation.configured_libraries;
+        self.ensure_bootstrap_admin_user().await?;
         let metadata_raw_cache_deleted = self
             .metadata
             .cleanup_metadata_raw_cache_on_startup()
@@ -82,6 +84,37 @@ impl<'a> ServerStartupWorkflow<'a> {
             artwork_ingest_worker_started: false,
             addon_event_scheduler_started: false,
         })
+    }
+
+    async fn ensure_bootstrap_admin_user(&self) -> Result<()> {
+        let now_ms = current_time_ms()?;
+        let user = match self
+            .store
+            .get_user_by_principal(&UserPrincipalId::local_admin())
+            .await?
+        {
+            Some(user) => user,
+            None => {
+                let user = bootstrap_admin_user(now_ms);
+                self.store.upsert_user(&user).await?;
+                user
+            }
+        };
+
+        let mut roles = self.store.list_role_assignments(user.id).await?;
+        if !roles
+            .iter()
+            .any(|assignment| assignment.role == UserRole::Administrator)
+        {
+            roles.push(RoleAssignment {
+                user_id: user.id,
+                role: UserRole::Administrator,
+                granted_at_ms: now_ms,
+            });
+            self.store.replace_role_assignments(user.id, &roles).await?;
+        }
+
+        Ok(())
     }
 
     async fn recover_stale_transcode_sessions(&self) -> Result<u64> {

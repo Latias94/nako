@@ -2252,6 +2252,131 @@ async fn admin_v1_system_config_reports_postgres_capability_gaps_for_injected_st
 }
 
 #[tokio::test]
+async fn admin_v1_access_management_round_trips_users_roles_and_library_policies() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 1,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        remux_timeout_ms: 60_000,
+        remux_staging_root: temp.path().join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Managed Movies".to_owned(),
+            root: temp.path().join("managed"),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store).await.unwrap();
+    let router = build_router(app);
+
+    let initial =
+        request_json::<AdminAccessUserListResponse>(&router, Method::GET, "/admin/v1/access/users")
+            .await;
+    let bootstrap = initial
+        .users
+        .iter()
+        .find(|user| user.bootstrap)
+        .expect("bootstrap administrator should be listed");
+    assert_eq!(bootstrap.principal_id, nako_core::LOCAL_ADMIN_PRINCIPAL_ID);
+    assert!(bootstrap.roles.contains(&UserRole::Administrator));
+
+    let created = request_body_json::<AdminAccessUserResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/access/users",
+        &AdminCreateUserRequest {
+            username: "viewer".to_owned(),
+            display_name: "Viewer".to_owned(),
+            roles: vec![UserRole::Viewer],
+        },
+    )
+    .await;
+    assert_eq!(created.user.username, "viewer");
+    assert_eq!(created.user.status, UserStatus::Active);
+    assert!(created.user.roles.contains(&UserRole::Viewer));
+    assert!(!created.user.principal_id.contains("token"));
+
+    let roles_path = format!("/admin/v1/access/users/{}/roles", created.user.user_id);
+    let rerolled = request_body_json::<AdminAccessUserResponse, _>(
+        &router,
+        Method::PUT,
+        &roles_path,
+        &AdminReplaceUserRolesRequest {
+            roles: vec![UserRole::Viewer, UserRole::LibraryManager],
+        },
+    )
+    .await;
+    assert!(rerolled.user.roles.contains(&UserRole::Viewer));
+    assert!(rerolled.user.roles.contains(&UserRole::LibraryManager));
+
+    let status_path = format!("/admin/v1/access/users/{}/status", created.user.user_id);
+    let disabled = request_body_json::<AdminAccessUserResponse, _>(
+        &router,
+        Method::PATCH,
+        &status_path,
+        &AdminUpdateUserStatusRequest {
+            status: UserStatus::Disabled,
+        },
+    )
+    .await;
+    assert_eq!(disabled.user.status, UserStatus::Disabled);
+
+    let policy = request_body_json::<nako_api::admin::AdminLibraryAccessPolicyResponse, _>(
+        &router,
+        Method::PUT,
+        "/admin/v1/access/library-policies",
+        &AdminUpsertLibraryAccessPolicyRequest {
+            scope: AdminLibraryAccessPolicyScope::Role {
+                role: UserRole::Viewer,
+            },
+            library_id,
+            access: LibraryAccessLevel::Play,
+        },
+    )
+    .await;
+    assert_eq!(policy.policy.library_id, library_id);
+    assert_eq!(policy.policy.access, LibraryAccessLevel::Play);
+
+    let list_path =
+        format!("/admin/v1/access/library-policies?role=viewer&library_id={library_id}");
+    let listed =
+        request_json::<AdminLibraryAccessPolicyListResponse>(&router, Method::GET, &list_path)
+            .await;
+    assert_eq!(listed.policies.len(), 1);
+    assert_eq!(listed.policies[0].access, LibraryAccessLevel::Play);
+
+    let deleted =
+        request_json::<AdminLibraryAccessPolicyDeleteResponse>(&router, Method::DELETE, &list_path)
+            .await;
+    assert!(deleted.deleted);
+
+    let listed =
+        request_json::<AdminLibraryAccessPolicyListResponse>(&router, Method::GET, &list_path)
+            .await;
+    assert!(listed.policies.is_empty());
+}
+
+#[tokio::test]
 async fn admin_v1_access_summary_reports_single_admin_effective_library_access_without_secrets() {
     let temp = tempfile::tempdir().unwrap();
     let local_library_id = LibraryId::new();
@@ -2360,12 +2485,12 @@ async fn admin_v1_access_summary_reports_single_admin_effective_library_access_w
     );
     assert_eq!(
         summary.readiness.user_accounts,
-        AdminAccessCapabilityState::Planned
+        AdminAccessCapabilityState::Active
     );
-    assert_eq!(summary.readiness.roles, AdminAccessCapabilityState::Planned);
+    assert_eq!(summary.readiness.roles, AdminAccessCapabilityState::Active);
     assert_eq!(
         summary.readiness.library_access_policy,
-        AdminAccessCapabilityState::Planned
+        AdminAccessCapabilityState::Active
     );
     assert_eq!(summary.library_access.configured_libraries, 2);
     assert_eq!(summary.library_access.libraries.len(), 2);

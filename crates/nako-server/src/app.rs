@@ -3,7 +3,11 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use nako_core::{AdminSettingsRepository, NakoError, Result};
+use nako_core::{
+    AdminSettingsRepository, IdentityAccessRepository, LibraryAccessPolicy,
+    LibraryAccessPolicyFilter, LibraryAccessPolicyScope, LibraryId, NakoError, PageRequest, Result,
+    RoleAssignment, User, UserId, UserPrincipalId,
+};
 use nako_db::{
     DatabaseBackendCapabilities, DatabaseBackendKind, DatabaseConnectOptions, NakoDatabase,
 };
@@ -189,6 +193,72 @@ impl NakoApp {
 
     pub(crate) fn startup_report(&self) -> &ServerStartupReport {
         &self.inner.startup_report
+    }
+
+    pub(crate) async fn get_user_by_principal(
+        &self,
+        principal: &UserPrincipalId,
+    ) -> Result<Option<User>> {
+        self.inner.store.get_user_by_principal(principal).await
+    }
+
+    pub(crate) async fn upsert_user(&self, user: &User) -> Result<()> {
+        self.inner.store.upsert_user(user).await
+    }
+
+    pub(crate) async fn get_user(&self, user_id: UserId) -> Result<Option<User>> {
+        self.inner.store.get_user(user_id).await
+    }
+
+    pub(crate) async fn list_users(&self, page: PageRequest) -> Result<Vec<User>> {
+        self.inner.store.list_users(page).await
+    }
+
+    pub(crate) async fn replace_role_assignments(
+        &self,
+        user_id: UserId,
+        assignments: &[RoleAssignment],
+    ) -> Result<()> {
+        self.inner
+            .store
+            .replace_role_assignments(user_id, assignments)
+            .await
+    }
+
+    pub(crate) async fn list_role_assignments(
+        &self,
+        user_id: UserId,
+    ) -> Result<Vec<RoleAssignment>> {
+        self.inner.store.list_role_assignments(user_id).await
+    }
+
+    pub(crate) async fn upsert_library_access_policy(
+        &self,
+        policy: &LibraryAccessPolicy,
+    ) -> Result<()> {
+        self.inner.store.upsert_library_access_policy(policy).await
+    }
+
+    pub(crate) async fn delete_library_access_policy(
+        &self,
+        scope: LibraryAccessPolicyScope,
+        library_id: LibraryId,
+    ) -> Result<()> {
+        self.inner
+            .store
+            .delete_library_access_policy(scope, library_id)
+            .await
+    }
+
+    pub(crate) async fn list_library_access_policies(
+        &self,
+        filter: LibraryAccessPolicyFilter,
+        page: PageRequest,
+    ) -> Result<Vec<LibraryAccessPolicy>> {
+        self.inner
+            .store
+            .list_library_access_policies(filter, page)
+            .await
     }
 
     pub(crate) fn shutdown_runtime(&self) {

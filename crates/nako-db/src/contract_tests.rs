@@ -20,23 +20,25 @@ use nako_core::{
     CatalogRepository, CatalogSearchProjection, ClaimAddonEventDeliveryAttempt, Collection,
     CollectionId, CollectionItem, CompleteLeasedJob, CreditRole, DatabaseLifecycle,
     DirectorySnapshot, DomainEventKind, DomainEventSubject, EventOutboxRepository, ExternalId,
-    ExternalProvider, FailLeasedJob, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind,
-    ImageOwner, IngestionFailureClass, IngestionFailureFilter, IngestionFailurePhase,
-    IngestionFailureRepository, IngestionFailureResolution, IngestionFailureStatus, ItemCredit,
-    ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind, JobLeaseClaimFilter, JobLeaseClaimRequest,
-    JobLeaseGuard, JobLeaseHeartbeat, JobLeaseRepository, JobListFilter, JobRepository,
-    JobRunToken, JobStatus, JobWorkerId, Library, LibraryId, LibraryItemRepository,
-    LibraryItemState, LibraryOptions, LibraryPreset, LibraryRepository,
-    LibraryScanSourcePersistenceCommit, LocalInferenceEvidence, LocalInferenceEvidenceId,
-    LocalInferenceEvidenceSource, LocalInferenceRepository, ManagedArtworkAcceptanceRecord,
-    ManagedArtworkArtifactId, ManagedArtworkArtifactLifecycleFilter, ManagedArtworkIngestId,
-    ManagedArtworkIngestStatus, ManagedArtworkRepository, ManagedImportArtifactId,
-    ManagedImportArtifactListFilter, ManagedImportArtifactState, ManagedImportPromotionApplyId,
-    ManagedImportPromotionApplyState, ManagedImportPromotionOperationKind, ManagedImportRepository,
-    ManagedImportSourceKind, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
-    MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
-    MediaStreamKind, MetadataAttemptFilter, MetadataField, MetadataFieldLock, MetadataMatchKind,
-    MetadataProviderAttemptId, MetadataProviderAttemptStatus, MetadataRefreshPersistenceCommit,
+    ExternalProvider, FailLeasedJob, Genre, GenreId, IdentityAccessRepository, ImageAsset,
+    ImageAssetId, ImageKind, ImageOwner, IngestionFailureClass, IngestionFailureFilter,
+    IngestionFailurePhase, IngestionFailureRepository, IngestionFailureResolution,
+    IngestionFailureStatus, ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind,
+    JobLeaseClaimFilter, JobLeaseClaimRequest, JobLeaseGuard, JobLeaseHeartbeat,
+    JobLeaseRepository, JobListFilter, JobRepository, JobRunToken, JobStatus, JobWorkerId, Library,
+    LibraryAccessLevel, LibraryAccessPolicy, LibraryAccessPolicyFilter, LibraryAccessPolicyScope,
+    LibraryId, LibraryItemRepository, LibraryItemState, LibraryOptions, LibraryPreset,
+    LibraryRepository, LibraryScanSourcePersistenceCommit, LocalInferenceEvidence,
+    LocalInferenceEvidenceId, LocalInferenceEvidenceSource, LocalInferenceRepository,
+    ManagedArtworkAcceptanceRecord, ManagedArtworkArtifactId,
+    ManagedArtworkArtifactLifecycleFilter, ManagedArtworkIngestId, ManagedArtworkIngestStatus,
+    ManagedArtworkRepository, ManagedImportArtifactId, ManagedImportArtifactListFilter,
+    ManagedImportArtifactState, ManagedImportPromotionApplyId, ManagedImportPromotionApplyState,
+    ManagedImportPromotionOperationKind, ManagedImportRepository, ManagedImportSourceKind,
+    MediaItem, MediaItemId, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository,
+    MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataAttemptFilter,
+    MetadataField, MetadataFieldLock, MetadataMatchKind, MetadataProviderAttemptId,
+    MetadataProviderAttemptStatus, MetadataRefreshPersistenceCommit,
     MetadataRefreshProviderMappingCommit, MetadataRepository, MetadataSource, NakoError,
     NewAcquisitionIntakeCandidate, NewAddonEventDeliveryAttempt, NewAddonGrant,
     NewAddonRegistration, NewAddonRoutingPlan, NewAddonSideEffect, NewAddonTaskRun, NewAddonToken,
@@ -49,15 +51,15 @@ use nako_core::{
     OutboxEventListFilter, OutboxEventStatus, PageRequest, Person, PersonId, ProviderMapping,
     ProviderMappingId, ProviderMappingRepository, ProviderMappingStatus, ProviderRawResponse,
     ProviderSubject, ProviderSubjectId, ProviderSubjectKind, RecoverExpiredJobLeases,
-    RequestJobCancellation, ScanRepository, ScanSnapshotId, ScanStatus,
+    RequestJobCancellation, RoleAssignment, ScanRepository, ScanSnapshotId, ScanStatus,
     SourceDuplicateEvidenceKind, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
     SourceDuplicateRelationshipStatus, SourceDuplicateRepository, SourceState, StagingManifestId,
     StagingManifestRepository, StagingPurpose, StagingState, Studio, StudioId, Tag, TagId,
     TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter,
-    TranscodeSessionRepository, TranscodeSessionState, UserPlaybackStateRepository,
-    UserPlaybackStateWrite, UserPrincipalId, VfsCacheOperation, VfsCacheRepository,
-    VfsCachedListing, VfsCachedObject, VfsCachedObjectKind, WebhookDeliveryStatus,
-    WebhookEndpointStatus, WebhookRepository,
+    TranscodeSessionRepository, TranscodeSessionState, User, UserId, UserPlaybackStateRepository,
+    UserPlaybackStateWrite, UserPrincipalId, UserRole, UserStatus, VfsCacheOperation,
+    VfsCacheRepository, VfsCachedListing, VfsCachedObject, VfsCachedObjectKind,
+    WebhookDeliveryStatus, WebhookEndpointStatus, WebhookRepository,
 };
 use nako_search::{SearchIndex, SearchQuery};
 
@@ -83,6 +85,7 @@ enum ContractFamily {
     RuntimePromotion,
     VfsStaging,
     AdminSettings,
+    IdentityAccess,
 }
 
 impl ContractFamily {
@@ -102,6 +105,7 @@ impl ContractFamily {
             Self::RuntimePromotion => "runtime_promotion",
             Self::VfsStaging => "vfs_staging",
             Self::AdminSettings => "admin_settings",
+            Self::IdentityAccess => "identity_access",
         }
     }
 }
@@ -149,6 +153,16 @@ trait AdminSettingsContractBackend: LifecycleContractBackend + AdminSettingsRepo
 
 impl<T> AdminSettingsContractBackend for T where
     T: LifecycleContractBackend + AdminSettingsRepository
+{
+}
+
+trait IdentityAccessContractBackend:
+    LifecycleContractBackend + IdentityAccessRepository + LibraryRepository
+{
+}
+
+impl<T> IdentityAccessContractBackend for T where
+    T: LifecycleContractBackend + IdentityAccessRepository + LibraryRepository
 {
 }
 
@@ -5871,6 +5885,155 @@ where
     );
 }
 
+async fn identity_access_user_roles_and_library_policies_contract<S>(store: S)
+where
+    S: IdentityAccessContractBackend,
+{
+    let library = seed_contract_library(&store).await;
+    let user = User {
+        id: UserId::new(),
+        principal_id: UserPrincipalId::new("contract-viewer").unwrap(),
+        username: "Contract Viewer".to_owned(),
+        display_name: "Contract Viewer".to_owned(),
+        status: UserStatus::Active,
+        created_at_ms: 1_000,
+        updated_at_ms: 1_000,
+    };
+
+    store.upsert_user(&user).await.unwrap();
+
+    assert_eq!(store.get_user(user.id).await.unwrap(), Some(user.clone()));
+    assert_eq!(
+        store
+            .get_user_by_principal(&user.principal_id)
+            .await
+            .unwrap(),
+        Some(user.clone())
+    );
+    assert_eq!(
+        store
+            .list_users(PageRequest::first_page())
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|user| user.id)
+            .collect::<Vec<_>>(),
+        vec![user.id]
+    );
+
+    store
+        .replace_role_assignments(
+            user.id,
+            &[
+                RoleAssignment {
+                    user_id: user.id,
+                    role: UserRole::Viewer,
+                    granted_at_ms: 1_100,
+                },
+                RoleAssignment {
+                    user_id: user.id,
+                    role: UserRole::LibraryManager,
+                    granted_at_ms: 1_200,
+                },
+            ],
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        store.list_role_assignments(user.id).await.unwrap(),
+        vec![
+            RoleAssignment {
+                user_id: user.id,
+                role: UserRole::LibraryManager,
+                granted_at_ms: 1_200,
+            },
+            RoleAssignment {
+                user_id: user.id,
+                role: UserRole::Viewer,
+                granted_at_ms: 1_100,
+            },
+        ]
+    );
+
+    let role_policy = LibraryAccessPolicy {
+        scope: LibraryAccessPolicyScope::Role(UserRole::Viewer),
+        library_id: library.id,
+        access: LibraryAccessLevel::Play,
+        created_at_ms: 2_000,
+        updated_at_ms: 2_000,
+    };
+    let user_policy = LibraryAccessPolicy {
+        scope: LibraryAccessPolicyScope::User(user.id),
+        library_id: library.id,
+        access: LibraryAccessLevel::Browse,
+        created_at_ms: 2_100,
+        updated_at_ms: 2_100,
+    };
+    store
+        .upsert_library_access_policy(&role_policy)
+        .await
+        .unwrap();
+    store
+        .upsert_library_access_policy(&user_policy)
+        .await
+        .unwrap();
+
+    let effective = store
+        .resolve_effective_library_access(user.id, library.id)
+        .await
+        .unwrap();
+    assert_eq!(effective.access, LibraryAccessLevel::Play);
+
+    let upgraded_user_policy = LibraryAccessPolicy {
+        access: LibraryAccessLevel::Manage,
+        updated_at_ms: 2_200,
+        ..user_policy
+    };
+    store
+        .upsert_library_access_policy(&upgraded_user_policy)
+        .await
+        .unwrap();
+    let effective = store
+        .resolve_effective_library_access(user.id, library.id)
+        .await
+        .unwrap();
+    assert_eq!(effective.access, LibraryAccessLevel::Manage);
+
+    assert_eq!(
+        store
+            .list_library_access_policies(
+                LibraryAccessPolicyFilter {
+                    user_id: Some(user.id),
+                    role: None,
+                    library_id: Some(library.id),
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap(),
+        vec![upgraded_user_policy]
+    );
+
+    store
+        .delete_library_access_policy(LibraryAccessPolicyScope::Role(UserRole::Viewer), library.id)
+        .await
+        .unwrap();
+    assert!(
+        store
+            .list_library_access_policies(
+                LibraryAccessPolicyFilter {
+                    user_id: None,
+                    role: Some(UserRole::Viewer),
+                    library_id: Some(library.id),
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
 database_contract_pair!(
     sqlite = sqlite_lifecycle_contract_migrate_is_idempotent,
     postgres = postgres_lifecycle_contract_migrate_is_idempotent,
@@ -5886,6 +6049,16 @@ database_contract_pair!(
         "metadata_raw_cache_settings_round_trip"
     ),
     contract = admin_metadata_raw_cache_settings_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_identity_access_contract_user_roles_and_library_policies,
+    postgres = postgres_identity_access_contract_user_roles_and_library_policies,
+    case = ContractCase::migrated(
+        ContractFamily::IdentityAccess,
+        "user_roles_and_library_policies"
+    ),
+    contract = identity_access_user_roles_and_library_policies_contract,
 );
 
 database_contract_pair!(

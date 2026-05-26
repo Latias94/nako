@@ -1,6 +1,6 @@
 # Identity And Library Access Contract - Milestones
 
-Status: Draft
+Status: Active
 Last updated: 2026-05-26
 
 ## M0 - Workstream Open
@@ -35,6 +35,14 @@ Exit criteria:
 - Auth principal resolution maps credentials to stable user principals.
 - User Playback State remains stable and does not store token values.
 
+Status: Complete for ILA-020. SQLite and PostgreSQL implement
+`IdentityAccessRepository`; backend-neutral contract coverage exercises users,
+role replacement, Library Access policy upsert/delete/list, and effective
+access. Startup creates a deterministic bootstrap administrator user for
+`local-admin`, and inbound bearer auth inserts both the stable principal id and
+an authenticated bootstrap administrator principal without storing token
+material.
+
 ## M3 - Admin Contract
 
 Exit criteria:
@@ -42,6 +50,12 @@ Exit criteria:
 - Admin API can safely report users, roles, Library Access, and readiness.
 - Mutations use explicit request models and validation.
 - Responses are redaction-safe and do not expose credentials or token values.
+
+Status: Complete for the first ILA-030 slice. Admin API now has explicit
+contracts for listing/creating local user records, replacing roles, updating
+user status, and listing/upserting/deleting Library Access policies. These
+contracts intentionally do not create password credentials, sessions,
+invitations, or public registration.
 
 ## M4 - Public Client Enforcement
 

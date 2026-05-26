@@ -1,6 +1,6 @@
 # Identity And Library Access Contract
 
-Status: Draft
+Status: Active
 Last updated: 2026-05-26
 
 ## Why This Lane Exists
@@ -215,6 +215,35 @@ ILA-010 accepted the runtime baseline consolidation:
 - `UserPlaybackState` still stores stable `principal_id` values and has not
   been linked by foreign key to users. ILA-020 owns the deterministic mapping
   from credentials/bootstrap administrator behavior to concrete user principals.
+
+ILA-020 accepted the first runtime identity mapping:
+
+- SQLite and PostgreSQL implement `IdentityAccessRepository`.
+- Startup creates a deterministic bootstrap administrator user for
+  `local-admin` when missing and ensures that user has the `administrator`
+  Role.
+- The existing configured bearer token still gates inbound requests, but it
+  resolves to `UserPrincipalId::local_admin()` plus an `AuthenticatedPrincipal`
+  for the bootstrap administrator.
+- Raw bearer token values are not stored as user ids or credential material.
+- Admin access summary may report identity/Role/Library Access storage
+  readiness as active. Account and policy mutation routes were deferred from
+  ILA-020 and accepted in ILA-030 below.
+
+ILA-030 accepted the first Admin API access-management contract:
+
+- Admin API exposes redaction-safe routes for listing/creating local user
+  records, replacing Role assignments, updating user status, and
+  listing/upserting/deleting Library Access policies.
+- These routes mutate identity and access-control records only. They do not
+  create password credentials, sessions, invitation tokens, OAuth/OIDC links,
+  public registration, or Public Client API DTOs.
+- The bootstrap administrator user cannot be disabled and cannot lose the
+  `administrator` Role through these routes.
+- Admin Web generated contracts now know these routes, but edit controls remain
+  hidden until credential creation, login, and account lockout UX are accepted.
+- ILA-040 owns enforcement of effective Library Access on Public Client API
+  browse/playback/user-state flows.
 
 ### API Boundaries
 

@@ -11,6 +11,7 @@ pub(crate) mod catalog;
 pub(crate) mod catalog_governance;
 pub(crate) mod codec;
 pub(crate) mod event_outbox;
+pub(crate) mod identity;
 pub(crate) mod ingestion;
 pub(crate) mod jobs;
 pub(crate) mod library;

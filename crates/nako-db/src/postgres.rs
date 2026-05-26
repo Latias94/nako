@@ -15,6 +15,7 @@ mod addons_automation;
 mod admin_settings;
 mod core_catalog;
 mod events;
+mod identity;
 mod import_state;
 mod jobs;
 mod managed_artwork;

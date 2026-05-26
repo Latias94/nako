@@ -1,6 +1,6 @@
 # Identity And Library Access Contract
 
-Status: Draft
+Status: Active
 Last updated: 2026-05-26
 
 This workstream owns the first real post-Single-Admin identity model for Nako.
@@ -20,5 +20,6 @@ Authoritative docs:
 - `EVIDENCE_AND_GATES.md`
 - `HANDOFF.md`
 
-Current executable task: `ILA-020`, implement the identity/access repository
-adapters and principal-resolution behavior on top of the accepted baseline.
+Current executable task: `ILA-040`, apply effective Library Access to Public
+Client API browse/playback and user-state flows without exposing Admin policy
+internals.

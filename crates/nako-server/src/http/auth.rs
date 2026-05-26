@@ -6,7 +6,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use nako_api::public_client::{ClientErrorCode, ErrorResponse};
-use nako_core::{SecretString, UserPrincipalId};
+use nako_core::{AuthenticatedPrincipal, SecretString, UserPrincipalId};
 
 use crate::config::AuthConfig;
 
@@ -49,9 +49,7 @@ pub(super) async fn require_auth(request: Request, next: Next) -> Response {
     };
 
     if !auth.enabled {
-        request
-            .extensions_mut()
-            .insert(UserPrincipalId::local_admin());
+        insert_bootstrap_admin_principal(&mut request);
         return next.run(request).await;
     }
 
@@ -62,9 +60,7 @@ pub(super) async fn require_auth(request: Request, next: Next) -> Response {
     });
 
     if authorized {
-        request
-            .extensions_mut()
-            .insert(UserPrincipalId::local_admin());
+        insert_bootstrap_admin_principal(&mut request);
         next.run(request).await
     } else {
         unauthorized_response()
@@ -100,6 +96,14 @@ fn unauthorized_response() -> Response {
     response
 }
 
+fn insert_bootstrap_admin_principal(request: &mut Request) {
+    let principal = AuthenticatedPrincipal::bootstrap_admin();
+    request
+        .extensions_mut()
+        .insert(principal.principal_id.clone());
+    request.extensions_mut().insert(principal);
+}
+
 fn constant_time_eq(actual: &[u8], expected: &[u8]) -> bool {
     let max_len = actual.len().max(expected.len());
     let mut diff = actual.len() ^ expected.len();
@@ -132,11 +136,19 @@ mod tests {
             .route(
                 "/principal",
                 get(|request: Request| async move {
-                    request
+                    let legacy_principal = request
                         .extensions()
                         .get::<UserPrincipalId>()
                         .map(ToString::to_string)
-                        .unwrap_or_default()
+                        .unwrap_or_default();
+                    let resolved_principal = request
+                        .extensions()
+                        .get::<AuthenticatedPrincipal>()
+                        .filter(|principal| principal.is_administrator())
+                        .map(|principal| principal.principal_id.to_string())
+                        .unwrap_or_default();
+
+                    format!("{legacy_principal}:{resolved_principal}")
                 }),
             )
             .layer(axum::middleware::from_fn(require_auth))
@@ -152,7 +164,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(body.as_ref(), b"local-admin");
+        assert_eq!(body.as_ref(), b"local-admin:local-admin");
     }
 
     #[tokio::test]

@@ -1,6 +1,62 @@
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::{LibraryId, UserId, UserPrincipalId};
+
+pub const BOOTSTRAP_ADMIN_USERNAME: &str = "admin";
+pub const BOOTSTRAP_ADMIN_DISPLAY_NAME: &str = "Local administrator";
+
+#[must_use]
+pub const fn bootstrap_admin_user_id() -> UserId {
+    UserId::from_uuid(Uuid::from_u128(0x018f_0000_0000_7000_8000_0000_0000_00ad))
+}
+
+#[must_use]
+pub fn bootstrap_admin_user(now_ms: i64) -> User {
+    User {
+        id: bootstrap_admin_user_id(),
+        principal_id: UserPrincipalId::local_admin(),
+        username: BOOTSTRAP_ADMIN_USERNAME.to_owned(),
+        display_name: BOOTSTRAP_ADMIN_DISPLAY_NAME.to_owned(),
+        status: UserStatus::Active,
+        created_at_ms: now_ms,
+        updated_at_ms: now_ms,
+    }
+}
+
+#[must_use]
+pub const fn bootstrap_admin_role_assignment(now_ms: i64) -> RoleAssignment {
+    RoleAssignment {
+        user_id: bootstrap_admin_user_id(),
+        role: UserRole::Administrator,
+        granted_at_ms: now_ms,
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AuthenticatedPrincipal {
+    pub user_id: UserId,
+    pub principal_id: UserPrincipalId,
+    pub roles: Vec<UserRole>,
+    pub bootstrap: bool,
+}
+
+impl AuthenticatedPrincipal {
+    #[must_use]
+    pub fn bootstrap_admin() -> Self {
+        Self {
+            user_id: bootstrap_admin_user_id(),
+            principal_id: UserPrincipalId::local_admin(),
+            roles: vec![UserRole::Administrator],
+            bootstrap: true,
+        }
+    }
+
+    #[must_use]
+    pub fn is_administrator(&self) -> bool {
+        self.roles.contains(&UserRole::Administrator)
+    }
+}
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct User {
@@ -202,7 +258,7 @@ pub fn effective_library_access(
     for policy in policies
         .iter()
         .filter(|policy| policy.library_id == library_id)
-        .filter(|policy| policy_matches_user(*policy, user_id, roles))
+        .filter(|policy| policy_matches_user(policy, user_id, roles))
     {
         let reason = match policy.scope {
             LibraryAccessPolicyScope::User(_) => EffectiveLibraryAccessReason::UserPolicy,
@@ -329,5 +385,20 @@ mod tests {
         assert!(!access.access.allows_browse());
         assert!(!access.access.allows_play());
         assert!(!access.access.allows_manage());
+    }
+
+    #[test]
+    fn bootstrap_admin_identity_is_deterministic_and_administrator_scoped() {
+        let user = bootstrap_admin_user(42);
+        let role = bootstrap_admin_role_assignment(43);
+        let principal = AuthenticatedPrincipal::bootstrap_admin();
+
+        assert_eq!(user.id, bootstrap_admin_user_id());
+        assert_eq!(user.principal_id, UserPrincipalId::local_admin());
+        assert_eq!(user.username, BOOTSTRAP_ADMIN_USERNAME);
+        assert_eq!(role.user_id, bootstrap_admin_user_id());
+        assert_eq!(role.role, UserRole::Administrator);
+        assert!(principal.is_administrator());
+        assert!(principal.bootstrap);
     }
 }

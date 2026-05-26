@@ -547,6 +547,13 @@ GET  /items/{item_id}/automation/artifacts?limit=50&offset=0
 GET  /jobs/{job_id}
 GET  /admin/v1/overview
 GET  /admin/v1/access/summary
+GET  /admin/v1/access/users
+POST /admin/v1/access/users
+PUT  /admin/v1/access/users/{user_id}/roles
+PATCH /admin/v1/access/users/{user_id}/status
+GET  /admin/v1/access/library-policies
+PUT  /admin/v1/access/library-policies
+DELETE /admin/v1/access/library-policies
 GET  /admin/v1/automation/generated-artifacts/proposals
 POST /admin/v1/automation/generated-artifacts/{artifact_id}/review-plan
 POST /admin/v1/automation/generated-artifacts/{artifact_id}/review
@@ -581,6 +588,10 @@ The Admin Web console consumes an app-local generated Admin API TypeScript
 contract for the first read-model routes above:
 `GET /admin/v1/overview`,
 `GET /admin/v1/access/summary`,
+`GET|POST /admin/v1/access/users`,
+`PUT /admin/v1/access/users/{user_id}/roles`,
+`PATCH /admin/v1/access/users/{user_id}/status`,
+`GET|PUT|DELETE /admin/v1/access/library-policies`,
 `GET /admin/v1/automation/generated-artifacts/proposals`,
 `POST /admin/v1/automation/generated-artifacts/{artifact_id}/review-plan`,
 `POST /admin/v1/automation/generated-artifacts/{artifact_id}/review`,
@@ -625,17 +636,29 @@ Public Client OpenAPI or generated SDK artifacts.
 
 `GET /admin/v1/access/summary` returns the current access boundary for Admin
 Web. In the first implementation this reports Single-Admin Mode, the resolved
-stable `local-admin` principal, auth enablement, whether a bearer token
-reference is configured, Role/account/Library Access policy readiness, and the
-effective access for each configured Media Library. In Single-Admin Mode the
-current principal has `manage` access to all configured libraries.
+stable `local-admin` principal backed by the bootstrap administrator user,
+auth enablement, whether a bearer token reference is configured,
+Role/account/Library Access policy readiness, and the effective access for each
+configured Media Library. In Single-Admin Mode the current principal has
+`manage` access to all configured libraries.
 
 The access summary route is read-only. It does not create user accounts, assign
-Roles, mutate Library Access, or imply that RBAC is active. It never returns
-bearer token values, auth token environment variable names, local filesystem
-roots, source URIs, hosts, URLs, WebDAV credentials, database URLs, provider
-secrets, Addon tokens, webhook secrets, or raw request headers. It is an Admin
-API route and is not part of Public Client OpenAPI or generated SDK artifacts.
+Roles, mutate Library Access, or imply that Library Access is already enforced
+on every Public Client API browse/playback route. It never returns bearer token
+values, auth token environment variable names, local filesystem roots, source
+URIs, hosts, URLs, WebDAV credentials, database URLs, provider secrets, Addon
+tokens, webhook secrets, or raw request headers. It is an Admin API route and
+is not part of Public Client OpenAPI or generated SDK artifacts.
+
+`GET|POST /admin/v1/access/users`,
+`PUT /admin/v1/access/users/{user_id}/roles`,
+`PATCH /admin/v1/access/users/{user_id}/status`, and
+`GET|PUT|DELETE /admin/v1/access/library-policies` are the first Admin API
+access-management mutation routes. They manage local user records, Role
+assignments, and Library Access policy rows only. They do not create passwords,
+sessions, invitation tokens, OAuth/OIDC links, public registration, or Public
+Client API DTOs. The bootstrap administrator user cannot be disabled and must
+retain the administrator Role.
 
 `GET /admin/v1/settings/metadata/raw-cache` returns the Admin settings
 authority view for the metadata raw cache retention group. It reports

@@ -6,6 +6,10 @@ export const NAKO_ADMIN_API_VERSION = "v1" as const;
 export const NAKO_ADMIN_ROUTES = {
   overview: "/admin/v1/overview",
   accessSummary: "/admin/v1/access/summary",
+  accessUsers: "/admin/v1/access/users",
+  accessUserRoles: "/admin/v1/access/users/{user_id}/roles",
+  accessUserStatus: "/admin/v1/access/users/{user_id}/status",
+  accessLibraryPolicies: "/admin/v1/access/library-policies",
   addons: "/admin/v1/addons",
   addonCatalogSources: "/admin/v1/addons/catalog/sources",
   addonCatalogEntries: "/admin/v1/addons/catalog/entries",
@@ -71,6 +75,22 @@ export type AdminAccessCapabilityState = "active" | "planned";
 export type AdminLibraryAccessLevel = "manage";
 
 export type AdminLibraryAccessReason = "single_admin_mode";
+
+export type AdminUserStatus = "active" | "disabled";
+
+export type AdminUserRole = "administrator" | "library_manager" | "viewer";
+
+export type AdminLibraryAccessPolicyLevel = "none" | "browse" | "play" | "manage";
+
+export type AdminLibraryAccessPolicyScope =
+  | {
+      scope: "user";
+      user_id: string;
+    }
+  | {
+      scope: "role";
+      role: AdminUserRole;
+    };
 
 export interface AdminOutboxEventsQuery extends AdminPageQuery {
   kind?: string;
@@ -1548,6 +1568,78 @@ export interface AdminAccessSummaryResponse {
       reason: AdminLibraryAccessReason;
     }>;
   };
+}
+
+export interface AdminAccessUserRecord {
+  user_id: string;
+  principal_id: string;
+  username: string;
+  display_name: string;
+  status: AdminUserStatus;
+  roles: AdminUserRole[];
+  bootstrap: boolean;
+  created_at_ms: number;
+  updated_at_ms: number;
+}
+
+export interface AdminAccessUserListResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  users: AdminAccessUserRecord[];
+  page: PageInfo;
+}
+
+export interface AdminAccessUserResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  user: AdminAccessUserRecord;
+}
+
+export interface AdminCreateUserRequest {
+  username: string;
+  display_name: string;
+  roles?: AdminUserRole[];
+}
+
+export interface AdminReplaceUserRolesRequest {
+  roles: AdminUserRole[];
+}
+
+export interface AdminUpdateUserStatusRequest {
+  status: AdminUserStatus;
+}
+
+export interface AdminLibraryAccessPolicyRecord {
+  scope: AdminLibraryAccessPolicyScope;
+  library_id: string;
+  access: AdminLibraryAccessPolicyLevel;
+  created_at_ms: number;
+  updated_at_ms: number;
+}
+
+export interface AdminLibraryAccessPolicyListResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  policies: AdminLibraryAccessPolicyRecord[];
+  page: PageInfo;
+}
+
+export interface AdminLibraryAccessPolicyResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  policy: AdminLibraryAccessPolicyRecord;
+}
+
+export interface AdminLibraryAccessPolicyDeleteResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  deleted: boolean;
+}
+
+export interface AdminUpsertLibraryAccessPolicyRequest {
+  scope: AdminLibraryAccessPolicyScope;
+  library_id: string;
+  access: AdminLibraryAccessPolicyLevel;
 }
 
 export interface AdminServerConfigDiagnosticsResponse {

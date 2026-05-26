@@ -1,6 +1,6 @@
 # Identity And Library Access Contract - TODO
 
-Status: Draft
+Status: Active
 Last updated: 2026-05-26
 
 ## M0 - Workstream Open
@@ -22,21 +22,21 @@ Last updated: 2026-05-26
 
 ## M2 - Repository And Principal Resolution
 
-- [ ] ILA-020 [owner=unassigned] [deps=ILA-010] [scope=crates/nako-core,crates/nako-db,crates/nako-server]
+- [x] ILA-020 [owner=codex] [deps=ILA-010] [scope=crates/nako-core,crates/nako-db,crates/nako-server,docs/api,apps/admin-web/src/i18n]
   Goal: Implement repository contracts and principal resolution for local users, roles, Library Access, and bootstrap administrator semantics.
   Validation: focused `cargo nextest run -p nako-db user --no-fail-fast`; focused `cargo nextest run -p nako-server auth --no-fail-fast`; `cargo fmt --all -- --check`.
   Review: review-workstream for persistence contracts and auth boundary.
-  Evidence: Repository contract tests and auth/principal tests.
-  Handoff: Do not store raw bearer tokens or password material in user ids.
+  Evidence: `crates/nako-db/src/sqlite/identity.rs`; `crates/nako-db/src/postgres/identity.rs`; `crates/nako-db/src/contract_tests.rs`; `crates/nako-server/src/app/startup.rs`; `crates/nako-server/src/http/auth.rs`; `cargo nextest run -p nako-core identity --no-fail-fast`; `cargo nextest run -p nako-db user --no-fail-fast`; `cargo nextest run -p nako-server auth --no-fail-fast`; `cargo nextest run -p nako-server app_startup_creates_deterministic_bootstrap_admin_user admin_v1_access_summary --no-fail-fast`.
+  Handoff: DONE. Existing bearer-token auth now resolves to the stable `local-admin` principal plus an `AuthenticatedPrincipal` for the deterministic bootstrap administrator user. User Playback State remains principal-scoped and raw bearer tokens are not stored as user ids.
 
 ## M3 - Admin API Access Management Contract
 
-- [ ] ILA-030 [owner=unassigned] [deps=ILA-020] [scope=crates/nako-api,crates/nako-server,docs/api]
+- [x] ILA-030 [owner=codex] [deps=ILA-020] [scope=crates/nako-api,crates/nako-server,apps/admin-web,docs/api]
   Goal: Add redaction-safe Admin API read/mutation contracts for users, role assignments, Library Access policies, and bootstrap readiness.
   Validation: `cargo nextest run -p nako-api admin_contract --no-fail-fast`; focused `cargo nextest run -p nako-server admin_access --no-fail-fast`; generated Admin contract parity if touched.
   Review: review-workstream for Admin/Public boundary leakage.
-  Evidence: HTTP API docs and Admin contract tests.
-  Handoff: Admin Web UI remains a follow-on until these contracts are stable.
+  Evidence: `crates/nako-api/src/admin/access.rs`; `crates/nako-api/src/admin_contract.rs`; `crates/nako-server/src/http/admin.rs`; `crates/nako-server/src/http/tests/system.rs`; `apps/admin-web/src/adminApi/generated/contract.ts`; `cargo nextest run -p nako-api admin_contract_includes_route_constants --no-fail-fast`; `cargo nextest run -p nako-api admin_web_generated_contract_matches_generator_output --no-fail-fast`; `cargo nextest run -p nako-server admin_v1_access_management admin_v1_access_summary --no-fail-fast`; `npm run generate:admin-api`; `npm run check`.
+  Handoff: DONE. Admin API has backend read/write contracts for users, roles, and Library Access policies. Admin Web edit controls, credential creation, password/login, invitations, and public-client enforcement remain follow-ons.
 
 ## M4 - Public Client Effective Access
 
