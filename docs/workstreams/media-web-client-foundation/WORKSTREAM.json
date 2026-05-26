@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "slug": "media-web-client-foundation",
+  "title": "Media Web Client Foundation",
+  "status": "active",
+  "current_task": "MWF-020",
+  "completed_tasks": [
+    "MWF-010"
+  ],
+  "updated": "2026-05-26",
+  "scope_kind": "execution",
+  "problem": "Nako needs a first-party browser Media Web client for local media browsing and playback through the Public Client API without turning Admin Web into the player surface.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/media-web-client-foundation/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/media-web-client-foundation/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/media-web-client-foundation/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/media-web-client-foundation/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/media-web-client-foundation/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/media-web-client-foundation/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python -m json.tool docs/workstreams/media-web-client-foundation/WORKSTREAM.json",
+    "git diff --check -- docs/workstreams/media-web-client-foundation docs/workstreams/client-surface-and-access-product-architecture docs/workstreams/README.md",
+    "cargo test -p nako-api public_openapi -- --nocapture",
+    "cargo run -q -p nako-api --example emit-typescript-sdk -- --output sdk/typescript/src/index.ts",
+    "cd apps/media-web && npm run check && npm run test && npm run build"
+  ],
+  "evidence": [
+    {
+      "task": "MWF-010",
+      "summary": "Opened the Media Web foundation lane for local-media-first browser browsing/playback through Public Client API after identity/access contract closeout."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0024-inbound-token-authentication-boundary.md",
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md",
+    "docs/adr/0028-user-playback-state-principal-and-public-contract.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Run MWF-020 before app scaffolding. If Public Client API gaps block a route, split or fix the smallest public contract gap instead of bridging through Admin API."
+  }
+}
+

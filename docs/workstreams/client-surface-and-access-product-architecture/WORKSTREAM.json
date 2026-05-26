@@ -2,8 +2,8 @@
   "schema_version": 1,
   "slug": "client-surface-and-access-product-architecture",
   "title": "Client Surface And Access Product Architecture",
-  "status": "draft",
-  "current_task": "CSAPA-010",
+  "status": "active",
+  "current_task": "CSAPA-040",
   "updated": "2026-05-26",
   "scope_kind": "planning",
   "problem": "Nako needs an accepted product architecture for Admin Web, Media Web, desktop playback, mobile clients, users, roles, Library Access, and permission-gated switching between media consumption and management.",
@@ -41,6 +41,14 @@
     {
       "task": "CSAPA-010",
       "summary": "Opened a docs-first planning lane for Admin Web, Media Web, account/access staging, Management Context Links, desktop Tauri playback strategy, and mobile/native boundaries."
+    },
+    {
+      "task": "CSAPA-020",
+      "summary": "Completed by identity-and-library-access-contract: durable local users, roles, Library Access persistence, bootstrap administrator semantics, Admin API access management, and Public Client API effective-access enforcement."
+    },
+    {
+      "task": "CSAPA-030",
+      "summary": "Split media-web-client-foundation for local-media-first browser browsing/playback through Public Client API with route/API readiness as the first task."
     }
   ],
   "adr_refs": [

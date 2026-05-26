@@ -1,0 +1,89 @@
+# Media Web Client Foundation - Milestones
+
+Status: Active
+Last updated: 2026-05-26
+
+## M0 - Scope And Evidence Freeze
+
+Exit criteria:
+
+- Media Web boundary is split from Admin Web and the product architecture lane.
+- Route map, auth assumptions, Public Client API dependency, and non-goals are
+  explicit.
+- First executable task is chosen.
+
+Primary evidence:
+
+- `docs/workstreams/media-web-client-foundation/DESIGN.md`
+- `docs/workstreams/media-web-client-foundation/TODO.md`
+
+## M1 - Public Client API And SDK Readiness
+
+Exit criteria:
+
+- The first Media Web route set is mapped to Public Client API/OpenAPI/SDK
+  support.
+- Gaps are listed before UI scaffolding depends on them.
+- Admin API leakage checks remain clean.
+
+Primary gates:
+
+- `cargo test -p nako-api public_openapi -- --nocapture`
+- `cargo run -q -p nako-api --example emit-typescript-sdk -- --output sdk/typescript/src/index.ts`
+
+## M2 - App Scaffold And Connect Shell
+
+Exit criteria:
+
+- `apps/media-web` exists with package scripts, route shell, connect/login MVP,
+  data-source boundary, tests, and no Admin API dependency.
+- The app can run in fixture mode and has a path to live Public Client API
+  mode.
+
+Primary gates:
+
+- `cd apps/media-web && npm run check && npm run test`
+- `rg -n "admin/v1|AdminApi|adminApi" apps/media-web`
+
+## M3 - Browse, Search, And Detail
+
+Exit criteria:
+
+- Libraries, Media Library detail, search, and Media Item detail are usable.
+- Route state is URL-owned where useful.
+- Library Access is treated as server authority.
+- Unsafe internal fields are redacted from viewer UI.
+
+Primary gates:
+
+- `cd apps/media-web && npm run check && npm run test`
+- Browser smoke for the browse/detail routes.
+
+## M4 - Source Selection, Player, And User Playback State
+
+Exit criteria:
+
+- Source/Version Picker and player shell use Public Client API playback
+  decisions.
+- Playback progress writes use User Playback State routes.
+- Playback errors are client-safe.
+- Desktop/native playback limitations are recorded rather than hidden.
+
+Primary gates:
+
+- Focused Media Web player tests.
+- Focused Rust/Public API tests for any touched playback or `me/playback`
+  behavior.
+- Browser smoke for a fixture or live playback path.
+
+## M5 - Closeout And Follow-On Split
+
+Exit criteria:
+
+- Package-local Media Web gates pass.
+- Relevant Rust gates pass or are explicitly scoped out.
+- Browser desktop/mobile smoke is recorded.
+- Management Context Links, credentials/invitations, desktop native playback,
+  and richer recommendations are split or deferred.
+- `WORKSTREAM.json` status is updated.
+

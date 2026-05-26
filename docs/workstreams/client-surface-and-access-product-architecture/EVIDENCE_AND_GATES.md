@@ -1,6 +1,6 @@
 # Client Surface And Access Product Architecture - Evidence And Gates
 
-Status: Draft
+Status: Active
 Last updated: 2026-05-26
 
 ## Gate Policy
@@ -29,6 +29,8 @@ Implementation follow-ons must choose their own gates:
 | --- | --- | --- | --- |
 | 2026-05-26 | CSAPA-010 planning open | Read `CONTEXT.md`, PRODUCT/DESIGN context, ADR 0024/0026/0027/0028, Admin Web V2 docs, Users & Access readiness, Android UX context, Public Client API design, and Jellyfin reference notes. | Draft planning lane opened. |
 | 2026-05-26 | CSAPA-010 validation | `python -m json.tool docs/workstreams/client-surface-and-access-product-architecture/WORKSTREAM.json > $null`; `git diff --check -- docs/workstreams/client-surface-and-access-product-architecture docs/workstreams/README.md` | Pass. `git diff --check` emitted the existing CRLF conversion warning for `docs/workstreams/README.md` only. |
+| 2026-05-26 | CSAPA-020 identity/access split | `docs/workstreams/identity-and-library-access-contract/` | Complete. Identity/access persistence, bootstrap administrator semantics, Admin API access management, and Public Client API effective-access enforcement landed in the execution lane. |
+| 2026-05-26 | CSAPA-030 Media Web split | `docs/workstreams/media-web-client-foundation/` | Complete. Media Web foundation lane opened with MWF-020 route/API readiness as the first executable task. |
 
 ## Redaction And Safety Checks
 

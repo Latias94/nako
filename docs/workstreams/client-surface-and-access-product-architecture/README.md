@@ -1,6 +1,6 @@
 # Client Surface And Access Product Architecture
 
-Status: Draft
+Status: Active
 Last updated: 2026-05-26
 
 This planning lane defines how Nako should grow from Single-Admin Mode and
@@ -25,6 +25,8 @@ Authoritative docs:
 - `EVIDENCE_AND_GATES.md`
 - `HANDOFF.md`
 
-The lane is product-architecture first. It does not implement account storage,
-new Public Client API routes, Admin Web controls, Media Web, Tauri packaging,
-or native player integration until follow-on tasks accept narrower contracts.
+The lane is product-architecture first. Identity/access is now owned by the
+completed `identity-and-library-access-contract` lane, and browser Media Web is
+now owned by the active `media-web-client-foundation` lane. Remaining planning
+work should split Management Context Links and desktop playback strategy rather
+than reopening broad product scope here.

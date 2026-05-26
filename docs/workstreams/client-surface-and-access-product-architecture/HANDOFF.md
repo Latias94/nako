@@ -1,6 +1,6 @@
 # Client Surface And Access Product Architecture - Handoff
 
-Status: Draft
+Status: Active
 Last updated: 2026-05-26
 
 ## Current State
@@ -9,20 +9,27 @@ This planning lane is open. CSAPA-010 drafted the product architecture for
 Admin Web, Media Web, desktop, mobile, accounts, roles, Library Access, and
 Management Context Links.
 
-No code has been changed. No runtime behavior is claimed.
+CSAPA-020 is complete through `identity-and-library-access-contract`. The
+backend now has durable identity/access persistence, bootstrap administrator
+semantics, Admin API access-management routes, and Public Client API
+effective-access enforcement.
+
+CSAPA-030 is complete through `media-web-client-foundation`. The Media Web
+execution lane is now split and its first task is MWF-020 route/API readiness.
 
 ## Next Recommended Task
 
-CSAPA-020: split or write the identity/access contract follow-on.
+CSAPA-040: split the Management Context Links route/link matrix once Media Web
+route readiness is known.
 
 Recommended first decisions:
 
-- keep Single-Admin Mode as the bootstrap mode;
-- add local admin-created accounts before public registration;
-- disable public registration by default;
-- model coarse roles plus Library Access before fine-grained permissions;
-- decide whether first login uses bearer tokens, username/password sessions,
-  or an intermediate local account token model.
+- define media-to-admin links from libraries, Media Items, source/version
+  choice, and playback errors;
+- define admin-to-media links from library detail and item detail;
+- gate each link by Role plus Library Access;
+- keep stable IDs and safe query params only;
+- leave destructive or broad actions owned by Admin Web confirmation flows.
 
 ## Key Constraints
 
@@ -37,8 +44,8 @@ Recommended first decisions:
 
 ## Follow-On Candidates
 
-- `identity-and-library-access-contract`
-- `media-web-client-foundation`
+- `identity-and-library-access-contract` (complete)
+- `media-web-client-foundation` (active)
 - `admin-media-management-context-links`
 - `desktop-tauri-native-playback-spike`
 

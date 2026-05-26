@@ -1,6 +1,6 @@
 # Client Surface And Access Product Architecture - Milestones
 
-Status: Draft
+Status: Active
 Last updated: 2026-05-26
 
 ## M0 - Product Architecture Accepted
@@ -15,6 +15,8 @@ Exit criteria:
 
 ## M1 - Identity Follow-On Split
 
+Status: Complete
+
 Exit criteria:
 
 - A narrower identity/access workstream or ADR owns local accounts, roles,
@@ -25,6 +27,8 @@ Exit criteria:
 
 ## M2 - Media Web Follow-On Split
 
+Status: Complete
+
 Exit criteria:
 
 - A Media Web foundation lane owns the first local-media browse/play routes.
@@ -32,6 +36,8 @@ Exit criteria:
 - No Admin API DTOs are accepted as Media Web state.
 
 ## M3 - Context Switching Follow-On Split
+
+Status: Next
 
 Exit criteria:
 

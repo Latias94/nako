@@ -6,18 +6,26 @@ attention.
 
 ## Current Workstreams
 
+- [media-web-client-foundation](media-web-client-foundation/README.md):
+  active execution lane for the first browser-based Media Web surface: local
+  media browsing, search, Media Item detail, Source/Version Picker, playback,
+  and User Playback State through the Public Client API without turning Admin
+  Web into the playback client. The first task audits Public Client API and
+  generated SDK readiness before scaffolding `apps/media-web`.
 - [identity-and-library-access-contract](identity-and-library-access-contract/README.md):
-  draft execution lane for adding the first real post-Single-Admin identity
+  completed execution lane for adding the first real post-Single-Admin identity
   model: local users, coarse roles, Library Access, bootstrap administrator
-  behavior, principal resolution, and Admin/Public API access contracts. The
-  first task is schema baseline consolidation because Nako currently has no
-  production users or database compatibility burden.
+  behavior, principal resolution, Admin API access-management routes, and
+  Public Client API effective-access enforcement. Follow-ons own Admin Web
+  account UI, Media Web login/account switching, invitations, and Management
+  Context Links.
 - [client-surface-and-access-product-architecture](client-surface-and-access-product-architecture/README.md):
-  draft planning lane for deciding how Nako grows from Single-Admin Mode and
+  active planning lane for deciding how Nako grows from Single-Admin Mode and
   Admin Web V2 into separate but connected Admin Web, Media Web, desktop, and
   mobile surfaces. It records account/access staging, Library Access,
   permission-gated media-to-admin management links, and Tauri/native desktop
-  playback direction before narrower implementation lanes start.
+  playback direction. Identity/access and Media Web have been split to narrower
+  lanes; Management Context Links are next.
 - [admin-web-v2-i18n-expansion](admin-web-v2-i18n-expansion/README.md):
   active execution lane for expanding Admin Web V2 localization beyond the
   shell and Media Library management routes. The first slice migrates
