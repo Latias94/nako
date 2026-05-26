@@ -300,6 +300,66 @@ pub struct MediaProbeDto {
     pub streams: Vec<MediaStreamDto>,
 }
 
+public_string_value! {
+    pub enum BrowserPlaybackMode {
+        Direct => "direct",
+        Remux => "remux",
+        Hls => "hls",
+    }
+}
+
+public_string_value! {
+    pub enum BrowserPlaybackUrlKind {
+        Stream => "stream",
+        Playlist => "playlist",
+    }
+}
+
+public_string_value! {
+    pub enum BrowserPlaybackOutputContainer {
+        Mp4 => "mp4",
+        Mkv => "mkv",
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct BrowserPlaybackTicketRequest {
+    pub mode: BrowserPlaybackMode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capabilities: Option<BrowserPlaybackCapabilitiesDto>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct BrowserPlaybackCapabilitiesDto {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub direct_play: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub container: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub video_codec: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audio_codec: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_container: Option<BrowserPlaybackOutputContainer>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct BrowserPlaybackTicketResponse {
+    pub source_id: String,
+    pub item_id: Option<String>,
+    pub mode: BrowserPlaybackMode,
+    pub expires_at: String,
+    pub urls: Vec<BrowserPlaybackUrlDto>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct BrowserPlaybackUrlDto {
+    pub kind: BrowserPlaybackUrlKind,
+    pub url: String,
+    pub content_type: String,
+    pub supports_range_requests: bool,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct PlaybackDecisionResponse {
     pub source: MediaSourceDto,

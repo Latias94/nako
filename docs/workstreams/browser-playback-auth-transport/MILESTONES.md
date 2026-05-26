@@ -23,6 +23,10 @@ Exit criteria:
 - TypeScript SDK is current.
 - Contract redaction and boundary checks are explicit.
 
+Result: DONE 2026-05-26. Public OpenAPI, protocol DTOs, Rust and TypeScript
+SDK methods, and generated SDK entries expose browser playback ticket issuance.
+Server issuance, storage, expiry, and stream validation remain M2.
+
 ## M2 - Server Validation And Stream Use
 
 Exit criteria:

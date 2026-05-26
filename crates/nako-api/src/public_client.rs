@@ -12,12 +12,14 @@ use nako_transcode::{HardwareAcceleration, OutputContainer, TranscodePlan};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 pub use nako_client_protocol::{
-    API_VERSION_HEADER, CLIENT_PROTOCOL_VERSION as API_VERSION, CanonicalMetadataDto,
-    ClientCreditRole, ClientDirectPlayPlan, ClientErrorCode, ClientExternalProvider,
-    ClientHardwareAcceleration, ClientImageKind, ClientImageOwner, ClientLibraryPreset,
-    ClientLocalMetadataPolicy, ClientLocalMetadataReader, ClientMediaDomain, ClientMediaKind,
-    ClientMediaStreamKind, ClientMetadataRefreshMode, ClientMetadataSource, ClientNamingStrategy,
-    ClientOutputContainer, ClientPlaybackDecision, ClientPlaybackMode,
+    API_VERSION_HEADER, BrowserPlaybackCapabilitiesDto, BrowserPlaybackMode,
+    BrowserPlaybackOutputContainer, BrowserPlaybackTicketRequest, BrowserPlaybackTicketResponse,
+    BrowserPlaybackUrlDto, BrowserPlaybackUrlKind, CLIENT_PROTOCOL_VERSION as API_VERSION,
+    CanonicalMetadataDto, ClientCreditRole, ClientDirectPlayPlan, ClientErrorCode,
+    ClientExternalProvider, ClientHardwareAcceleration, ClientImageKind, ClientImageOwner,
+    ClientLibraryPreset, ClientLocalMetadataPolicy, ClientLocalMetadataReader, ClientMediaDomain,
+    ClientMediaKind, ClientMediaStreamKind, ClientMetadataRefreshMode, ClientMetadataSource,
+    ClientNamingStrategy, ClientOutputContainer, ClientPlaybackDecision, ClientPlaybackMode,
     ClientTranscodeFailureCategory, ClientTranscodePlan, ClientTranscodeSessionKind,
     ClientTranscodeSessionState, CollectionItemDto, CollectionRefDto, ContentRatingDto,
     ContinueWatchingItemDto, ContinueWatchingResponse, CreditDto, ErrorResponse, ExternalIdDto,

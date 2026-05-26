@@ -22,6 +22,9 @@ git diff --check -- docs/workstreams/browser-playback-auth-transport docs/workst
 ### Public Client Contract Gate
 
 ```bash
+cargo test -p nako-client-protocol public -- --nocapture
+cargo test -p nako-client playback_decision_ticket_and_session_cancel_paths_are_stable -- --nocapture
+cargo test -p nako-client sdk_inventory -- --nocapture
 cargo test -p nako-api public_openapi -- --nocapture
 cargo run -q -p nako-api --example emit-typescript-sdk -- --output sdk/typescript/src/index.ts
 git diff --check
@@ -71,10 +74,17 @@ Use a local server and deterministic test media to verify:
 | Date | Task | Evidence | Result |
 | --- | --- | --- | --- |
 | 2026-05-26 | BPAT-010 transport decision | `DESIGN.md`, `TODO.md`, `MILESTONES.md`, `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`, `docs/adr/0036-short-lived-browser-playback-tickets.md`; `python -m json.tool docs/workstreams/browser-playback-auth-transport/WORKSTREAM.json`; `git diff --check -- docs/workstreams/browser-playback-auth-transport docs/workstreams/README.md docs/adr` | DONE. Short-lived browser playback tickets are accepted as the first browser playback transport. Cookie/session auth is deferred to credential/session UX, and JavaScript HLS/MSE with headers remains a later playback layer rather than the MVP transport. |
+| 2026-05-26 | BPAT-020 public contract and SDK | `crates/nako-client-protocol/src/catalog.rs`, `crates/nako-client-protocol/src/lib.rs`, `crates/nako-client/src/lib.rs`, `crates/nako-api/src/openapi.rs`, `crates/nako-api/src/sdk.rs`, `sdk/typescript/src/index.ts`, `sdk/kotlin/src/main/kotlin/dev/nako/sdk/NakoClientSdk.kt`; `cargo test -p nako-client-protocol public -- --nocapture`; `cargo test -p nako-client playback_decision_ticket_and_session_cancel_paths_are_stable -- --nocapture`; `cargo test -p nako-client sdk_inventory -- --nocapture`; `cargo test -p nako-api public_openapi -- --nocapture`; `cargo test -p nako-api typescript_sdk -- --nocapture`; `cargo test -p nako-api kotlin_sdk -- --nocapture`; `cargo test -p nako-api sdk`; `cargo run -q -p nako-api --example emit-typescript-sdk -- --output sdk/typescript/src/index.ts`; `cargo run -q -p nako-api --example emit-kotlin-sdk -- --output sdk/kotlin/src/main/kotlin/dev/nako/sdk/NakoClientSdk.kt`; `git diff --check` | PASS. Public contract now issues browser playback ticket envelopes without raw locators, local paths, bearer-token media URLs, permanent privileged URLs, Admin API state, or provider payloads. |
 
 ## Notes
 
 Fresh verification is required before marking any task, goal, or lane complete.
+
+## BPAT-020 Route Matrix
+
+| Route | Method | Request | Response | Notes |
+| --- | --- | --- | --- | --- |
+| `/sources/{source_id}/playback/browser-ticket` | `POST` | `BrowserPlaybackTicketRequest` with `mode` (`direct`, `remux`, `hls`) and optional browser capability fields | `BrowserPlaybackTicketResponse` with `source_id`, optional `item_id`, selected `mode`, `expires_at`, and one or more browser-safe URL descriptors | JSON-only issuance contract. It does not serve bytes and does not expose raw Source Locators, local paths, bearer tokens, Admin API state, or provider payloads. Direct/remux/HLS request validation is BPAT-030. |
 
 ## BPAT-010 Decision Matrix
 

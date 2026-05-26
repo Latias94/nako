@@ -754,6 +754,12 @@ public object NakoPublicClientRequests {
             ),
         )
 
+    public fun createBrowserPlaybackTicket(sourceId: String): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "POST",
+            pathAndQuery = "/sources/${encodePathSegment(sourceId)}/playback/browser-ticket",
+        )
+
     public fun streamSource(sourceId: String): NakoRequestDescriptor =
         NakoRequestDescriptor(
             method = "GET",
@@ -1158,6 +1164,10 @@ export class NakoClient {
     return this.requestJson("GET", `/sources/${encodeURIComponent(sourceId)}/playback/decision`, { query: capabilities });
   }
 
+  createBrowserPlaybackTicket(sourceId: string, body: BrowserPlaybackTicketRequest): Promise<BrowserPlaybackTicketResponse> {
+    return this.requestJson("POST", `/sources/${encodeURIComponent(sourceId)}/playback/browser-ticket`, { body });
+  }
+
   streamSource(sourceId: string, range?: string): Promise<Response> {
     return this.requestRaw("GET", `/sources/${encodeURIComponent(sourceId)}/stream`, { range });
   }
@@ -1319,6 +1329,7 @@ mod tests {
             "getLibrary(",
             "searchItems(",
             "getPlaybackDecision(",
+            "createBrowserPlaybackTicket(",
             "streamSource(",
             "headStreamSource(",
             "remuxStreamSource(",
@@ -1351,6 +1362,10 @@ mod tests {
             "NAKO_PLAYBACK_SESSION_ID_HEADER",
             "NakoApiError",
             "ErrorResponse",
+            "BrowserPlaybackTicketRequest",
+            "BrowserPlaybackTicketResponse",
+            "BrowserPlaybackCapabilitiesDto",
+            "BrowserPlaybackUrlDto",
             "limit?: number",
             "offset?: number",
             "ImageVariantQuery",
@@ -1427,6 +1442,7 @@ mod tests {
             "public object NakoPublicClientRequests",
             "public fun health(): NakoRequestDescriptor",
             "public fun listLibraries(page: PageQuery = PageQuery()): NakoRequestDescriptor",
+            "public fun createBrowserPlaybackTicket(sourceId: String): NakoRequestDescriptor",
             "public value class ClientMediaKind",
             "public val wireValue: String",
             "public val isKnown: Boolean",

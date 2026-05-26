@@ -228,6 +228,19 @@ fn public_paths() -> Value {
         }),
     );
     paths.insert(
+        "/sources/{source_id}/playback/browser-ticket".to_owned(),
+        json!({
+            "post": json_post_with_body(
+                "createBrowserPlaybackTicket",
+                "Issue a browser playback ticket for one source.",
+                "playback",
+                vec![path_parameter("source_id", "Media source id.")],
+                schema_ref("BrowserPlaybackTicketRequest"),
+                schema_ref("BrowserPlaybackTicketResponse")
+            )
+        }),
+    );
+    paths.insert(
         "/sources/{source_id}/stream".to_owned(),
         json!({
             "get": binary_get("streamSource", "Stream direct-play bytes for one source.", vec![path_parameter("source_id", "Media source id."), range_header_parameter()]),
@@ -364,6 +377,32 @@ fn json_post(
         parameters,
         json_response("OK.", response_schema),
     )
+}
+
+fn json_post_with_body(
+    operation_id: &str,
+    summary: &str,
+    tag: &str,
+    parameters: Vec<Value>,
+    request_schema: Value,
+    response_schema: Value,
+) -> Value {
+    let mut value = operation(
+        operation_id,
+        summary,
+        tag,
+        parameters,
+        json_response("OK.", response_schema),
+    );
+    value["requestBody"] = json!({
+        "required": true,
+        "content": {
+            "application/json": {
+                "schema": request_schema
+            }
+        }
+    });
+    value
 }
 
 fn json_put(
@@ -853,6 +892,30 @@ fn schemas() -> Value {
             "source_id": uuid_schema(),
             "probe": schema_ref("MediaProbeDto")
         })),
+        "BrowserPlaybackTicketRequest": object_schema(&["mode"], json!({
+            "mode": enum_schema(&["direct", "remux", "hls"]),
+            "capabilities": schema_ref("BrowserPlaybackCapabilitiesDto")
+        })),
+        "BrowserPlaybackCapabilitiesDto": object_schema(&[], json!({
+            "direct_play": boolean_schema(),
+            "container": array_schema(string_schema()),
+            "video_codec": array_schema(string_schema()),
+            "audio_codec": array_schema(string_schema()),
+            "output_container": enum_schema(&["mp4", "mkv"])
+        })),
+        "BrowserPlaybackTicketResponse": object_schema(&["source_id", "mode", "expires_at", "urls"], json!({
+            "source_id": uuid_schema(),
+            "item_id": nullable_uuid_schema(),
+            "mode": enum_schema(&["direct", "remux", "hls"]),
+            "expires_at": string_schema(),
+            "urls": non_empty_array_schema(schema_ref("BrowserPlaybackUrlDto"))
+        })),
+        "BrowserPlaybackUrlDto": object_schema(&["kind", "url", "content_type", "supports_range_requests"], json!({
+            "kind": enum_schema(&["stream", "playlist"]),
+            "url": string_schema(),
+            "content_type": string_schema(),
+            "supports_range_requests": boolean_schema()
+        })),
         "PlaybackDecisionResponse": object_schema(&["source", "probe", "decision"], json!({
             "source": schema_ref("MediaSourceDto"),
             "probe": nullable_ref("MediaProbeDto"),
@@ -1047,6 +1110,14 @@ fn uuid_schema() -> Value {
     json!({"type": "string", "format": "uuid"})
 }
 
+fn nullable_uuid_schema() -> Value {
+    json!({"type": "string", "format": "uuid", "nullable": true})
+}
+
+fn non_empty_array_schema(item_schema: Value) -> Value {
+    json!({"type": "array", "items": item_schema, "minItems": 1})
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1236,6 +1307,59 @@ mod tests {
             assert!(
                 !serialized.contains(forbidden),
                 "public OpenAPI image contract leaked forbidden term: {forbidden}"
+            );
+        }
+    }
+
+    #[test]
+    fn public_openapi_browser_playback_ticket_contract_uses_safe_ticket_urls() {
+        let document = public_openapi_v1();
+        let schemas = document["components"]["schemas"].as_object().unwrap();
+        let serialized = public_openapi_v1_json().to_ascii_lowercase();
+
+        assert!(schemas.contains_key("BrowserPlaybackCapabilitiesDto"));
+        assert!(schemas.contains_key("BrowserPlaybackTicketRequest"));
+        assert!(schemas.contains_key("BrowserPlaybackTicketResponse"));
+        assert!(schemas.contains_key("BrowserPlaybackUrlDto"));
+        assert_eq!(
+            document["paths"]["/sources/{source_id}/playback/browser-ticket"]["post"]["requestBody"]
+                ["content"]["application/json"]["schema"]["$ref"],
+            "#/components/schemas/BrowserPlaybackTicketRequest"
+        );
+        assert_eq!(
+            document["paths"]["/sources/{source_id}/playback/browser-ticket"]["post"]["responses"]
+                ["200"]["content"]["application/json"]["schema"]["$ref"],
+            "#/components/schemas/BrowserPlaybackTicketResponse"
+        );
+        assert_eq!(
+            document["components"]["schemas"]["BrowserPlaybackTicketRequest"]["properties"]["capabilities"]
+                ["$ref"],
+            "#/components/schemas/BrowserPlaybackCapabilitiesDto"
+        );
+        assert_eq!(
+            document["components"]["schemas"]["BrowserPlaybackTicketResponse"]["properties"]["urls"]
+                ["items"]["$ref"],
+            "#/components/schemas/BrowserPlaybackUrlDto"
+        );
+        assert_eq!(
+            document["components"]["schemas"]["BrowserPlaybackUrlDto"]["properties"]["kind"]["enum"],
+            json!(["stream", "playlist"])
+        );
+        assert_eq!(
+            document["components"]["schemas"]["BrowserPlaybackTicketResponse"]["properties"]["item_id"]
+                ["format"],
+            "uuid"
+        );
+        assert_eq!(
+            document["components"]["schemas"]["BrowserPlaybackTicketResponse"]["properties"]["item_id"]
+                ["nullable"],
+            true
+        );
+
+        for forbidden in ["locator", "source_uri", "cache_uri", "storage_uri"] {
+            assert!(
+                !serialized.contains(forbidden),
+                "browser playback ticket contract leaked forbidden term: {forbidden}"
             );
         }
     }

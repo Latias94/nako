@@ -6,14 +6,17 @@ use nako_client_core::{
     CoreRuntimeFailure, CoreRuntimeFailureKind,
 };
 pub use nako_client_protocol::{
-    API_VERSION_HEADER, CLIENT_PROTOCOL_VERSION as API_VERSION, ClientOutputContainer,
-    ContinueWatchingResponse, ErrorResponse, GenreItemsResponse, GenreListResponse, HealthResponse,
-    ImagesResponse, ItemCreditsResponse, ItemDetailResponse, ItemsResponse, LibraryListResponse,
-    LibraryResponse, LibrarySourcesResponse, PLAYBACK_SESSION_ID_HEADER, PageInfo, PeopleResponse,
-    PersonItemsResponse, PersonResponse, PlaybackDecisionResponse, PublicClientRustSdkExposure,
-    SearchResponse, SetWatchedStateRequest, SourceProbeResponse, TagItemsResponse, TagsResponse,
-    TranscodeSessionResponse, UpdatePlaybackProgressRequest, UserPlaybackStateResponse,
-    public_client_json_routes, public_client_paths, public_client_streaming_routes,
+    API_VERSION_HEADER, BrowserPlaybackCapabilitiesDto, BrowserPlaybackMode,
+    BrowserPlaybackOutputContainer, BrowserPlaybackTicketRequest, BrowserPlaybackTicketResponse,
+    BrowserPlaybackUrlDto, BrowserPlaybackUrlKind, CLIENT_PROTOCOL_VERSION as API_VERSION,
+    ClientOutputContainer, ContinueWatchingResponse, ErrorResponse, GenreItemsResponse,
+    GenreListResponse, HealthResponse, ImagesResponse, ItemCreditsResponse, ItemDetailResponse,
+    ItemsResponse, LibraryListResponse, LibraryResponse, LibrarySourcesResponse,
+    PLAYBACK_SESSION_ID_HEADER, PageInfo, PeopleResponse, PersonItemsResponse, PersonResponse,
+    PlaybackDecisionResponse, PublicClientRustSdkExposure, SearchResponse, SetWatchedStateRequest,
+    SourceProbeResponse, TagItemsResponse, TagsResponse, TranscodeSessionResponse,
+    UpdatePlaybackProgressRequest, UserPlaybackStateResponse, public_client_json_routes,
+    public_client_paths, public_client_streaming_routes,
 };
 use reqwest::{
     Method, StatusCode, Url,
@@ -371,6 +374,28 @@ impl NakoClient {
                 encode_path_segment(source_id.as_ref())
             ),
             capabilities.as_ref(),
+            true,
+        )
+        .await
+    }
+
+    /// Issue a browser playback ticket for one source.
+    ///
+    /// # Errors
+    ///
+    /// Returns transport, HTTP, version, encode, or decode errors.
+    pub async fn create_browser_playback_ticket(
+        &self,
+        source_id: impl AsRef<str>,
+        request: &BrowserPlaybackTicketRequest,
+    ) -> Result<BrowserPlaybackTicketResponse, NakoClientError> {
+        self.request_json_body(
+            Method::POST,
+            &format!(
+                "/sources/{}/playback/browser-ticket",
+                encode_path_segment(source_id.as_ref())
+            ),
+            request,
             true,
         )
         .await
@@ -1287,7 +1312,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn playback_decision_query_and_session_cancel_paths_are_stable() {
+    async fn playback_decision_ticket_and_session_cancel_paths_are_stable() {
         let transport = MockTransport::default();
         transport.push_json(
             StatusCode::OK,
@@ -1312,6 +1337,21 @@ mod tests {
                     },
                     "transcode_plan": null
                 }
+            }),
+        );
+        transport.push_json(
+            StatusCode::OK,
+            json!({
+                "source_id": "source 1",
+                "item_id": "item-1",
+                "mode": "hls",
+                "expires_at": "2026-05-26T12:00:00Z",
+                "urls": [{
+                    "kind": "playlist",
+                    "url": "/sources/source%201/stream/hls/playlist.m3u8?ticket=opaque",
+                    "content_type": "application/vnd.apple.mpegurl",
+                    "supports_range_requests": false
+                }]
             }),
         );
         transport.push_json(
@@ -1348,9 +1388,27 @@ mod tests {
             )
             .await
             .unwrap();
+        let ticket = client
+            .create_browser_playback_ticket(
+                "source 1",
+                &BrowserPlaybackTicketRequest {
+                    mode: BrowserPlaybackMode::Hls,
+                    capabilities: Some(BrowserPlaybackCapabilitiesDto {
+                        direct_play: Some(true),
+                        container: Some(vec!["mp4".to_owned(), "webm".to_owned()]),
+                        video_codec: Some(vec!["h264".to_owned()]),
+                        audio_codec: Some(vec!["aac".to_owned()]),
+                        output_container: Some(BrowserPlaybackOutputContainer::Mp4),
+                    }),
+                },
+            )
+            .await
+            .unwrap();
         let session = client.cancel_playback_session("session-1").await.unwrap();
 
         assert_eq!(decision.source.id, "source 1");
+        assert_eq!(ticket.mode, BrowserPlaybackMode::Hls);
+        assert_eq!(ticket.urls[0].kind, BrowserPlaybackUrlKind::Playlist);
         assert_eq!(
             session.session.state,
             ClientTranscodeSessionState::CancelRequested
@@ -1362,9 +1420,25 @@ mod tests {
         );
         assert_eq!(
             requests[1].url.as_str(),
-            "http://localhost:3000/playback/sessions/session-1/cancel"
+            "http://localhost:3000/sources/source%201/playback/browser-ticket"
         );
         assert_eq!(requests[1].method, Method::POST);
+        assert_eq!(
+            requests[1]
+                .headers
+                .get(reqwest::header::CONTENT_TYPE)
+                .unwrap(),
+            HeaderValue::from_static("application/json")
+        );
+        let ticket_body = serde_json::from_slice::<serde_json::Value>(&requests[1].body).unwrap();
+        assert_eq!(ticket_body["mode"], "hls");
+        assert_eq!(ticket_body["capabilities"]["container"][0], "mp4");
+        assert_eq!(ticket_body["capabilities"]["output_container"], "mp4");
+        assert_eq!(
+            requests[2].url.as_str(),
+            "http://localhost:3000/playback/sessions/session-1/cancel"
+        );
+        assert_eq!(requests[2].method, Method::POST);
     }
 
     #[tokio::test]
@@ -1685,6 +1759,7 @@ mod tests {
             "/search",
             "/sources/{source_id}/probe",
             "/sources/{source_id}/playback/decision",
+            "/sources/{source_id}/playback/browser-ticket",
             "/playback/sessions/{session_id}",
             "/playback/sessions/{session_id}/cancel",
         ] {

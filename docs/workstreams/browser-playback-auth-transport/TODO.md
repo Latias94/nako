@@ -23,15 +23,19 @@ Task IDs use the `BPAT` prefix.
 
 ## M1 - Public Contract And SDK
 
-- [ ] BPAT-020 [owner=unassigned] [deps=BPAT-010] [scope=crates/nako-api,sdk/typescript,docs/workstreams/browser-playback-auth-transport]
+- [x] BPAT-020 [owner=codex] [deps=BPAT-010] [scope=crates/nako-api,crates/nako-client-protocol,crates/nako-client,sdk/typescript,sdk/kotlin,docs/workstreams/browser-playback-auth-transport]
   Goal: Add the accepted Public Client API/OpenAPI/SDK contract for browser
   playback transport issuance.
-  Validation: `cargo test -p nako-api public_openapi -- --nocapture`; `cargo run -q -p nako-api --example emit-typescript-sdk -- --output sdk/typescript/src/index.ts`; `git diff --check`
+  Validation: `cargo test -p nako-client-protocol public -- --nocapture`; `cargo test -p nako-client playback_decision_ticket_and_session_cancel_paths_are_stable -- --nocapture`; `cargo test -p nako-client sdk_inventory -- --nocapture`; `cargo test -p nako-api public_openapi -- --nocapture`; `cargo run -q -p nako-api --example emit-typescript-sdk -- --output sdk/typescript/src/index.ts`; `git diff --check`
   Review: The contract must not expose raw Source Locators, local paths,
   bearer tokens, permanent privileged URLs, Admin API state, or provider
   payloads.
   Evidence: OpenAPI test, SDK diff, route matrix notes.
   Handoff: Split if the contract requires credential/session prerequisites.
+  Result: DONE 2026-05-26. Added protocol-owned browser playback ticket
+  request/response DTOs, `POST /sources/{source_id}/playback/browser-ticket`,
+  TypeScript and Rust client methods, and refreshed generated SDK entries.
+  Server issuance and stream validation remain BPAT-030.
 
 ## M2 - Server Validation And Stream Use
 

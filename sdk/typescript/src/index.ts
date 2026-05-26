@@ -26,6 +26,7 @@ export const NAKO_PUBLIC_PATHS = [
   "/search",
   "/sources/{source_id}/probe",
   "/sources/{source_id}/playback/decision",
+  "/sources/{source_id}/playback/browser-ticket",
   "/sources/{source_id}/stream",
   "/sources/{source_id}/stream/remux",
   "/sources/{source_id}/stream/hls/playlist.m3u8",
@@ -37,6 +38,34 @@ export const NAKO_PUBLIC_PATHS = [
   "/users/me/playback-state/items/{item_id}/progress",
   "/users/me/playback-state/items/{item_id}/watched",
 ] as const;
+
+export interface BrowserPlaybackCapabilitiesDto {
+  audio_codec?: Array<string>;
+  container?: Array<string>;
+  direct_play?: boolean;
+  output_container?: "mp4" | "mkv";
+  video_codec?: Array<string>;
+}
+
+export interface BrowserPlaybackTicketRequest {
+  capabilities?: BrowserPlaybackCapabilitiesDto;
+  mode: "direct" | "remux" | "hls";
+}
+
+export interface BrowserPlaybackTicketResponse {
+  expires_at: string;
+  item_id?: string | null;
+  mode: "direct" | "remux" | "hls";
+  source_id: string;
+  urls: Array<BrowserPlaybackUrlDto>;
+}
+
+export interface BrowserPlaybackUrlDto {
+  content_type: string;
+  kind: "stream" | "playlist";
+  supports_range_requests: boolean;
+  url: string;
+}
 
 export interface CanonicalMetadataDto {
   collections: Array<CollectionRefDto>;
@@ -557,6 +586,10 @@ export class NakoClient {
 
   getPlaybackDecision(sourceId: string, capabilities?: PlaybackCapabilitiesQuery): Promise<PlaybackDecisionResponse> {
     return this.requestJson("GET", `/sources/${encodeURIComponent(sourceId)}/playback/decision`, { query: capabilities });
+  }
+
+  createBrowserPlaybackTicket(sourceId: string, body: BrowserPlaybackTicketRequest): Promise<BrowserPlaybackTicketResponse> {
+    return this.requestJson("POST", `/sources/${encodeURIComponent(sourceId)}/playback/browser-ticket`, { body });
   }
 
   streamSource(sourceId: string, range?: string): Promise<Response> {

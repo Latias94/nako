@@ -166,6 +166,12 @@ pub const PUBLIC_CLIENT_ROUTES: &[PublicClientRoute] = &[
         rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
     },
     PublicClientRoute {
+        path: "/sources/{source_id}/playback/browser-ticket",
+        methods: &[PublicClientHttpMethod::Post],
+        kind: PublicClientRouteKind::Playback,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
         path: "/sources/{source_id}/stream",
         methods: &[PublicClientHttpMethod::Get, PublicClientHttpMethod::Head],
         kind: PublicClientRouteKind::Playback,
@@ -396,10 +402,11 @@ mod tests {
     fn public_route_inventory_is_protocol_owned_and_complete() {
         let paths = public_client_paths().collect::<Vec<_>>();
 
-        assert_eq!(paths.len(), 29);
+        assert_eq!(paths.len(), 30);
         assert!(paths.contains(&"/health"));
         assert!(paths.contains(&"/images/{image_id}"));
         assert!(paths.contains(&"/sources/{source_id}/stream"));
+        assert!(paths.contains(&"/sources/{source_id}/playback/browser-ticket"));
         assert!(paths.contains(&"/playback/sessions/{session_id}/hls/segments/{segment_name}"));
         assert!(paths.contains(&"/users/me/playback-state/items/{item_id}"));
         assert!(paths.contains(&"/users/me/playback-state/continue-watching"));
@@ -424,9 +431,27 @@ mod tests {
             vec!["GET", "HEAD"]
         );
 
+        let browser_ticket = PUBLIC_CLIENT_ROUTES
+            .iter()
+            .find(|route| route.path == "/sources/{source_id}/playback/browser-ticket")
+            .expect("browser playback ticket route exists");
+        assert_eq!(browser_ticket.kind, PublicClientRouteKind::Playback);
+        assert_eq!(
+            browser_ticket.rust_sdk_exposure,
+            PublicClientRustSdkExposure::JsonMethod
+        );
+        assert_eq!(
+            browser_ticket
+                .methods
+                .iter()
+                .map(|method| method.as_str())
+                .collect::<Vec<_>>(),
+            vec!["POST"]
+        );
+
         let json_count = public_client_json_routes().count();
         let streaming_count = public_client_streaming_routes().count();
-        assert_eq!(json_count, 24);
+        assert_eq!(json_count, 25);
         assert_eq!(streaming_count, 5);
         assert_eq!(json_count + streaming_count, PUBLIC_CLIENT_ROUTES.len());
         let remux_stream = PUBLIC_CLIENT_ROUTES
@@ -557,6 +582,58 @@ mod tests {
     }
 
     #[test]
+    fn public_browser_playback_ticket_uses_protocol_owned_safe_urls() {
+        let empty_request = serde_json::to_value(BrowserPlaybackTicketRequest {
+            mode: BrowserPlaybackMode::Direct,
+            capabilities: None,
+        })
+        .unwrap();
+
+        assert_eq!(empty_request["mode"], "direct");
+        assert!(empty_request.get("capabilities").is_none());
+
+        let request = BrowserPlaybackTicketRequest {
+            mode: BrowserPlaybackMode::Hls,
+            capabilities: Some(BrowserPlaybackCapabilitiesDto {
+                direct_play: Some(true),
+                container: Some(vec!["mp4".to_owned(), "webm".to_owned()]),
+                video_codec: Some(vec!["h264".to_owned()]),
+                audio_codec: Some(vec!["aac".to_owned()]),
+                output_container: Some(BrowserPlaybackOutputContainer::Mp4),
+            }),
+        };
+
+        let request_value = serde_json::to_value(request).unwrap();
+        assert_eq!(request_value["mode"], "hls");
+        assert_eq!(request_value["capabilities"]["direct_play"], true);
+        assert_eq!(request_value["capabilities"]["container"][0], "mp4");
+        assert_eq!(request_value["capabilities"]["output_container"], "mp4");
+
+        let response = BrowserPlaybackTicketResponse {
+            source_id: "source-1".to_owned(),
+            item_id: Some("item-1".to_owned()),
+            mode: BrowserPlaybackMode::Hls,
+            expires_at: "2026-05-26T12:00:00Z".to_owned(),
+            urls: vec![BrowserPlaybackUrlDto {
+                kind: BrowserPlaybackUrlKind::Playlist,
+                url: "/sources/source-1/stream/hls/playlist.m3u8?ticket=opaque".to_owned(),
+                content_type: "application/vnd.apple.mpegurl".to_owned(),
+                supports_range_requests: false,
+            }],
+        };
+
+        let value = serde_json::to_value(response).unwrap();
+        assert_eq!(value["mode"], "hls");
+        assert_eq!(value["urls"][0]["kind"], "playlist");
+        assert_eq!(
+            value["urls"][0]["content_type"],
+            "application/vnd.apple.mpegurl"
+        );
+        assert!(value.get("locator").is_none());
+        assert!(value.get("bearer_token").is_none());
+    }
+
+    #[test]
     fn public_wire_values_preserve_unknown_additive_strings() {
         let response = serde_json::from_value::<PlaybackDecisionResponse>(serde_json::json!({
             "source": {
@@ -617,6 +694,30 @@ mod tests {
         assert_eq!(
             encoded["decision"]["transcode_plan"]["hardware_acceleration"],
             "quantum_gpu"
+        );
+
+        let browser_ticket =
+            serde_json::from_value::<BrowserPlaybackTicketResponse>(serde_json::json!({
+                "source_id": "source-1",
+                "item_id": null,
+                "mode": "future_browser_mode",
+                "expires_at": "2026-05-26T12:00:00Z",
+                "urls": [{
+                    "kind": "future_url_kind",
+                    "url": "/playback/future",
+                    "content_type": "video/example",
+                    "supports_range_requests": true
+                }]
+            }))
+            .unwrap();
+
+        assert_eq!(
+            browser_ticket.mode,
+            BrowserPlaybackMode::Other("future_browser_mode".to_owned())
+        );
+        assert_eq!(
+            browser_ticket.urls[0].kind,
+            BrowserPlaybackUrlKind::Other("future_url_kind".to_owned())
         );
     }
 

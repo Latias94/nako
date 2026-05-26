@@ -35,6 +35,7 @@ public val NAKO_PUBLIC_PATHS: List<String> = listOf(
     "/search",
     "/sources/{source_id}/probe",
     "/sources/{source_id}/playback/decision",
+    "/sources/{source_id}/playback/browser-ticket",
     "/sources/{source_id}/stream",
     "/sources/{source_id}/stream/remux",
     "/sources/{source_id}/stream/hls/playlist.m3u8",
@@ -264,6 +265,12 @@ public object NakoPublicClientRequests {
             ),
         )
 
+    public fun createBrowserPlaybackTicket(sourceId: String): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "POST",
+            pathAndQuery = "/sources/${encodePathSegment(sourceId)}/playback/browser-ticket",
+        )
+
     public fun streamSource(sourceId: String): NakoRequestDescriptor =
         NakoRequestDescriptor(
             method = "GET",
@@ -430,6 +437,86 @@ public object NakoPublicClientRequests {
         URLEncoder.encode(value, StandardCharsets.UTF_8)
 }
 
+
+@JvmInline
+@Serializable
+public value class BrowserPlaybackCapabilitiesDtoOutputContainer(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val Mp4: BrowserPlaybackCapabilitiesDtoOutputContainer = BrowserPlaybackCapabilitiesDtoOutputContainer("mp4")
+        public val Mkv: BrowserPlaybackCapabilitiesDtoOutputContainer = BrowserPlaybackCapabilitiesDtoOutputContainer("mkv")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "mp4",
+            "mkv",
+        )
+    }
+}
+
+@JvmInline
+@Serializable
+public value class BrowserPlaybackTicketRequestMode(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val Direct: BrowserPlaybackTicketRequestMode = BrowserPlaybackTicketRequestMode("direct")
+        public val Remux: BrowserPlaybackTicketRequestMode = BrowserPlaybackTicketRequestMode("remux")
+        public val Hls: BrowserPlaybackTicketRequestMode = BrowserPlaybackTicketRequestMode("hls")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "direct",
+            "remux",
+            "hls",
+        )
+    }
+}
+
+@JvmInline
+@Serializable
+public value class BrowserPlaybackTicketResponseMode(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val Direct: BrowserPlaybackTicketResponseMode = BrowserPlaybackTicketResponseMode("direct")
+        public val Remux: BrowserPlaybackTicketResponseMode = BrowserPlaybackTicketResponseMode("remux")
+        public val Hls: BrowserPlaybackTicketResponseMode = BrowserPlaybackTicketResponseMode("hls")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "direct",
+            "remux",
+            "hls",
+        )
+    }
+}
+
+@JvmInline
+@Serializable
+public value class BrowserPlaybackUrlDtoKind(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val Stream: BrowserPlaybackUrlDtoKind = BrowserPlaybackUrlDtoKind("stream")
+        public val Playlist: BrowserPlaybackUrlDtoKind = BrowserPlaybackUrlDtoKind("playlist")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "stream",
+            "playlist",
+        )
+    }
+}
 
 @JvmInline
 @Serializable
@@ -779,6 +866,47 @@ public value class TranscodeSessionDtoState(
         )
     }
 }
+
+@Serializable
+public data class BrowserPlaybackCapabilitiesDto(
+    @SerialName("audio_codec")
+    public val audioCodec: List<String> = emptyList(),
+    public val container: List<String> = emptyList(),
+    @SerialName("direct_play")
+    public val directPlay: Boolean? = null,
+    @SerialName("output_container")
+    public val outputContainer: BrowserPlaybackCapabilitiesDtoOutputContainer? = null,
+    @SerialName("video_codec")
+    public val videoCodec: List<String> = emptyList(),
+)
+
+@Serializable
+public data class BrowserPlaybackTicketRequest(
+    public val capabilities: BrowserPlaybackCapabilitiesDto? = null,
+    public val mode: BrowserPlaybackTicketRequestMode,
+)
+
+@Serializable
+public data class BrowserPlaybackTicketResponse(
+    @SerialName("expires_at")
+    public val expiresAt: String,
+    @SerialName("item_id")
+    public val itemId: String? = null,
+    public val mode: BrowserPlaybackTicketResponseMode,
+    @SerialName("source_id")
+    public val sourceId: String,
+    public val urls: List<BrowserPlaybackUrlDto>,
+)
+
+@Serializable
+public data class BrowserPlaybackUrlDto(
+    @SerialName("content_type")
+    public val contentType: String,
+    public val kind: BrowserPlaybackUrlDtoKind,
+    @SerialName("supports_range_requests")
+    public val supportsRangeRequests: Boolean,
+    public val url: String,
+)
 
 @Serializable
 public data class CanonicalMetadataDto(

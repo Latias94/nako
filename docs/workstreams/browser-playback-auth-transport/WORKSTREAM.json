@@ -3,9 +3,10 @@
   "slug": "browser-playback-auth-transport",
   "title": "Browser Playback Auth Transport",
   "status": "active",
-  "current_task": "BPAT-020",
+  "current_task": "BPAT-030",
   "completed_tasks": [
-    "BPAT-010"
+    "BPAT-010",
+    "BPAT-020"
   ],
   "updated": "2026-05-26",
   "scope_kind": "execution",
@@ -39,7 +40,11 @@
   "gates": [
     "python -m json.tool docs/workstreams/browser-playback-auth-transport/WORKSTREAM.json",
     "git diff --check -- docs/workstreams/browser-playback-auth-transport docs/workstreams/README.md",
+    "cargo test -p nako-client-protocol public -- --nocapture",
+    "cargo test -p nako-client playback_decision_ticket_and_session_cancel_paths_are_stable -- --nocapture",
+    "cargo test -p nako-client sdk_inventory -- --nocapture",
     "cargo test -p nako-api public_openapi -- --nocapture",
+    "cargo test -p nako-api sdk",
     "cargo run -q -p nako-api --example emit-typescript-sdk -- --output sdk/typescript/src/index.ts",
     "cd apps/admin-web && npm run check && npm run test && npm run build"
   ],
@@ -47,6 +52,10 @@
     {
       "task": "BPAT-010",
       "summary": "Accepted short-lived browser playback tickets as the first browser media transport and recorded the decision in ADR 0036 after comparing cookie/session auth and JavaScript HLS/MSE with headers."
+    },
+    {
+      "task": "BPAT-020",
+      "summary": "Added protocol-owned browser playback ticket request/response DTOs, Public Client OpenAPI route POST /sources/{source_id}/playback/browser-ticket, Rust and TypeScript client methods, and generated SDK coverage for browser-safe URL envelopes without raw locators or bearer-token media URLs."
     }
   ],
   "adr_refs": [
@@ -56,6 +65,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Start BPAT-020 by adding the Public Client API/OpenAPI/SDK contract for issuing short-lived browser playback tickets. Do not implement stream route validation before the contract is accepted."
+    "notes": "Start BPAT-030 by implementing server-side short-lived browser playback ticket issuance and validation for direct stream, remux, HLS playlist, and HLS segment requests. Do not wire the Media Web real player before protected byte routes validate tickets."
   }
 }
