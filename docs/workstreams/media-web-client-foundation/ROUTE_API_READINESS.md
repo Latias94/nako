@@ -1,6 +1,6 @@
 # Media Web Route/API Readiness
 
-Status: Draft
+Status: Closed
 Last updated: 2026-05-26
 
 This note records MWF-020 findings after checking the generated Public Client

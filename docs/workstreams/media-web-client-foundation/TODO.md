@@ -1,6 +1,6 @@
 # Media Web Client Foundation - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-26
 
 Task IDs use the `MWF` prefix.
@@ -93,7 +93,7 @@ Task IDs use the `MWF` prefix.
 
 ## M5 - Closeout And Follow-On Split
 
-- [ ] MWF-060 [owner=planner] [deps=MWF-050] [scope=docs/workstreams/media-web-client-foundation]
+- [x] MWF-060 [owner=codex] [deps=MWF-050] [scope=docs/workstreams/media-web-client-foundation]
   Goal: Verify final gates, close the lane, and split Management Context Links,
   credential/session UX, invitation onboarding, desktop Tauri/native playback,
   and recommendations as needed.
@@ -103,3 +103,7 @@ Task IDs use the `MWF` prefix.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`
   Handoff: Do not reopen this lane for broad product expansion after the first
   local-media browse/play path lands.
+  Result: DONE 2026-05-26. Final evidence is recorded, `CLOSEOUT.md` closes
+  the lane, and `FOLLOW_ON_SPLIT.md` separates browser playback auth
+  transport, credential/session UX, Management Context Links, library-scoped
+  browse, desktop native playback, invitation onboarding, and recommendations.

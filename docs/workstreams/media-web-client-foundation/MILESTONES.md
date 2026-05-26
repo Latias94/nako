@@ -1,6 +1,6 @@
 # Media Web Client Foundation - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-26
 
 ## M0 - Scope And Evidence Freeze
@@ -90,3 +90,7 @@ Exit criteria:
 - Management Context Links, credentials/invitations, desktop native playback,
   and richer recommendations are split or deferred.
 - `WORKSTREAM.json` status is updated.
+
+Result: DONE 2026-05-26. Final gates and browser smoke are recorded in
+`EVIDENCE_AND_GATES.md`; follow-ons are split in `FOLLOW_ON_SPLIT.md`; lane
+status is closed in `WORKSTREAM.json`.

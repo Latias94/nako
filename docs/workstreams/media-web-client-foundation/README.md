@@ -1,6 +1,6 @@
 # Media Web Client Foundation
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-26
 
 This workstream owns the first browser-based Media Web surface for local media
@@ -18,6 +18,9 @@ Authoritative docs:
 - `MILESTONES.md`
 - `EVIDENCE_AND_GATES.md`
 - `HANDOFF.md`
+- `ROUTE_API_READINESS.md`
+- `FOLLOW_ON_SPLIT.md`
+- `CLOSEOUT.md`
 
 The first product slice is deliberately local-media-first:
 
@@ -27,7 +30,7 @@ The first product slice is deliberately local-media-first:
 - Libraries and Media Library detail;
 - search and Media Item detail;
 - Source/Version Picker;
-- browser playback through Public Client API playback decisions;
+- safe browser watch shell through Public Client API playback decisions;
 - User Playback State and Continue Watching when available;
 - no Admin API state, no public registration, no recommendations, and no
   streaming-storefront discovery.

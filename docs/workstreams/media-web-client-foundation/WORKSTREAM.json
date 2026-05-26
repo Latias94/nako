@@ -2,14 +2,15 @@
   "schema_version": 1,
   "slug": "media-web-client-foundation",
   "title": "Media Web Client Foundation",
-  "status": "active",
-  "current_task": "MWF-060",
+  "status": "closed",
+  "current_task": null,
   "completed_tasks": [
     "MWF-010",
     "MWF-020",
     "MWF-030",
     "MWF-040",
-    "MWF-050"
+    "MWF-050",
+    "MWF-060"
   ],
   "updated": "2026-05-26",
   "scope_kind": "execution",
@@ -42,6 +43,14 @@
     {
       "role": "route-api-readiness",
       "path": "docs/workstreams/media-web-client-foundation/ROUTE_API_READINESS.md"
+    },
+    {
+      "role": "follow-on-split",
+      "path": "docs/workstreams/media-web-client-foundation/FOLLOW_ON_SPLIT.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/media-web-client-foundation/CLOSEOUT.md"
     }
   ],
   "gates": [
@@ -71,6 +80,10 @@
     {
       "task": "MWF-050",
       "summary": "Added Source/Version Picker, playback decision preview, safe watch shell, and User Playback State watched/unwatched writes through the shared Media surface, while keeping real browser stream playback gated on the auth transport follow-on."
+    },
+    {
+      "task": "MWF-060",
+      "summary": "Closed the Media Web foundation lane with final evidence review, closeout notes, and bounded follow-ons for browser playback auth, credential/session UX, Management Context Links, library browse gaps, desktop native playback, invitations, and recommendations."
     }
   ],
   "adr_refs": [
@@ -80,7 +93,7 @@
     "docs/adr/0028-user-playback-state-principal-and-public-contract.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "MWF-060 should close the lane after final evidence review. Keep the real browser media element split to the playback auth transport follow-on; do not reopen this lane for Management Context Links, credential/session UX, Tauri/native playback, or recommendations."
+    "default_action": "closed",
+    "notes": "Do not reopen this lane for broad product expansion. Start a new bounded lane from FOLLOW_ON_SPLIT.md, with Browser Playback Auth Transport recommended first."
   }
 }

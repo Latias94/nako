@@ -7,12 +7,11 @@ attention.
 ## Current Workstreams
 
 - [media-web-client-foundation](media-web-client-foundation/README.md):
-  active execution lane for the first browser-based Media Web surface inside
+  closed execution lane for the first browser-based Media Web surface inside
   the shared web frontend: local media browsing, search, Media Item detail,
-  Source/Version Picker, playback, and User Playback State through the Public
-  Client API without turning Admin routes into the playback client. The current
-  task scaffolds Admin/Media surface coexistence and Media Public Client API
-  boundaries in `apps/admin-web`.
+  Source/Version Picker, safe watch shell, and User Playback State through the
+  Public Client API without turning Admin routes into the playback client.
+  Closeout recommends opening Browser Playback Auth Transport next.
 - [identity-and-library-access-contract](identity-and-library-access-contract/README.md):
   completed execution lane for adding the first real post-Single-Admin identity
   model: local users, coarse roles, Library Access, bootstrap administrator

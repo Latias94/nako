@@ -1,6 +1,6 @@
 # Media Web Client Foundation - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-26
 
 ## Current State
@@ -10,6 +10,7 @@ generated TypeScript SDK. MWF-030 added the first shared Admin/Media frontend
 surface boundary inside `apps/admin-web`. MWF-040 added the first browse,
 search, and detail viewer routes. MWF-050 added source/version selection,
 playback decision preview, a safe watch shell, and User Playback State writes.
+MWF-060 closed the lane and split follow-ons.
 
 The accepted direction is one shared frontend project with explicit Admin and
 Media surfaces. The Media surface consumes Public Client API contracts only. It
@@ -18,35 +19,19 @@ Admin routes the playback client.
 
 ## Latest Task
 
-- Task ID: MWF-050
+- Task ID: MWF-060
 - Owner: codex
-- Files: `apps/admin-web/src/App.tsx`, `apps/admin-web/src/surfaces/media`,
-  `apps/admin-web/src/styles.css`, workstream docs
-- Validation: `cd apps/admin-web && npm run test -- mediaSurface.test.tsx mediaDataSource.test.ts`;
-  `cd apps/admin-web && npm run test -- App.test.tsx mediaSurface.test.tsx mediaDataSource.test.ts`;
-  `cd apps/admin-web && npm run check`; `cd apps/admin-web && npm run test`;
-  `cd apps/admin-web && npm run build`; boundary grep under
-  `apps/admin-web/src/surfaces/media`; Playwright smoke for source switching,
-  watch shell, and watched-state writes.
-- Status: DONE_WITH_CONCERNS
-- Review: Media Item detail and `/media/watch/:itemId` now share
-  Source/Version Picker state via `source_id`, call playback decisions through
-  the generated Public Client SDK, and write watched/unwatched state through
-  `/users/me/playback-state`. The watch route does not render a fake `<video>`
-  or mint stream URLs while browser playback auth transport is unresolved.
-- Evidence: `EVIDENCE_AND_GATES.md`
+- Files: `docs/workstreams/media-web-client-foundation`
+- Validation: final package-local Media Web gates, JSON validation,
+  `git diff --check`, boundary grep, and desktop/mobile browser smoke review.
+- Status: DONE
+- Review: The lane is closed in `CLOSEOUT.md`; remaining work is split in
+  `FOLLOW_ON_SPLIT.md`. Real browser playback remains gated on MWF-GAP-004.
+- Evidence: `EVIDENCE_AND_GATES.md`, `CLOSEOUT.md`, `FOLLOW_ON_SPLIT.md`
 
 ## Active Task
 
-- Task ID: MWF-060
-- Owner: planner
-- Files: `docs/workstreams/media-web-client-foundation`
-- Validation: final package-local Media Web gates, `git diff --check`, JSON
-  validation, browser desktop/mobile smoke review, and closeout docs.
-- Status: READY
-- Review: Close the lane with named follow-ons instead of broadening this
-  foundation slice. Keep real browser playback gated on MWF-GAP-004.
-- Evidence: update `EVIDENCE_AND_GATES.md`
+None. This workstream is closed.
 
 ## Decisions Since Last Update
 
@@ -72,7 +57,5 @@ Admin routes the playback client.
 
 ## Next Recommended Action
 
-Run MWF-060 closeout. Verify final gates, record the watch-shell evidence, and
-split follow-ons for Management Context Links, credential/session UX,
-invitation onboarding, browser playback auth transport, desktop Tauri/native
-playback, and recommendations.
+Start a new bounded lane from `FOLLOW_ON_SPLIT.md`. Recommended first lane:
+Browser Playback Auth Transport.
