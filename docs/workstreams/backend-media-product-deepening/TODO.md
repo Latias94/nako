@@ -1,6 +1,6 @@
 # Backend Media Product Deepening - TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-27
 
 ## M0 - Workstream Open
@@ -83,7 +83,7 @@ Last updated: 2026-05-27
 
 ## M5 - Closeout
 
-- [ ] BMPD-060 [owner=codex] [deps=BMPD-050] [scope=docs/workstreams/backend-media-product-deepening,docs/workstreams/README.md]
+- [x] BMPD-060 [owner=codex] [deps=BMPD-050] [scope=docs/workstreams/backend-media-product-deepening,docs/workstreams/README.md]
   Goal: Verify the lane, record evidence, split remaining follow-ons, and close
   or continue the workstream truthfully.
   Validation: `cargo fmt --all -- --check`; `cargo nextest run -p nako-core
@@ -91,6 +91,7 @@ Last updated: 2026-05-27
   `cargo nextest run -p nako-server --no-fail-fast`; `git diff --check`;
   `python -m json.tool docs/workstreams/backend-media-product-deepening/WORKSTREAM.json`.
   Review: close-workstream only after implementation evidence is current.
-  Evidence: `EVIDENCE_AND_GATES.md`; `HANDOFF.md`; commits.
-  Handoff: Split desktop native player, recommendations, OIDC/LDAP, and
-  frontend UX lanes as needed.
+  Evidence: Closeout gates passed and are recorded in `EVIDENCE_AND_GATES.md`.
+  Handoff: Lane closed. Split frontend consumption, desktop native player,
+  scoped manager job views, recommendations, OIDC/LDAP, account recovery, and
+  invitation delivery into separate lanes as needed.

@@ -2,14 +2,15 @@
   "schema_version": 1,
   "slug": "backend-media-product-deepening",
   "title": "Backend Media Product Deepening",
-  "status": "active",
-  "current_task": "BMPD-060",
+  "status": "completed",
+  "current_task": null,
   "completed_tasks": [
     "BMPD-010",
     "BMPD-020",
     "BMPD-030",
     "BMPD-040",
-    "BMPD-050"
+    "BMPD-050",
+    "BMPD-060"
   ],
   "updated": "2026-05-27",
   "scope_kind": "execution",
@@ -68,6 +69,10 @@
     {
       "task": "BMPD-050",
       "summary": "Added Public Client Management Context Links backed by server-side context resolution and Library Access/Admin authority, plus Admin API and metadata-route permission gates."
+    },
+    {
+      "task": "BMPD-060",
+      "summary": "Verified closeout gates, closed the backend product deepening lane, and split frontend/native player/identity/recommendation breadth into follow-ons."
     }
   ],
   "adr_refs": [
@@ -78,7 +83,7 @@
     "docs/adr/0037-local-credential-and-session-auth.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "Continue with BMPD-060 closeout and decide whether to split remaining frontend/native-player follow-ons."
+    "default_action": "close",
+    "notes": "Backend Media Product Deepening is complete. Open separate follow-on lanes for frontend Management Context Link consumption, desktop native playback engine integration, scoped manager job views, OIDC/LDAP/passkeys, account recovery, invitation delivery, recommendations, or richer player capability negotiation."
   }
 }

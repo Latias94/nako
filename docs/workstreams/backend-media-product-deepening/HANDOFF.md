@@ -1,11 +1,11 @@
 # Backend Media Product Deepening - Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-27
 
 ## Current State
 
-The lane is open. BMPD-020, BMPD-030, BMPD-040, and BMPD-050 are complete. Discovery found that
+The lane is closed. BMPD-020 through BMPD-060 are complete. Discovery found that
 Nako already has:
 
 - consolidated SQLite/PostgreSQL baseline migration files;
@@ -49,11 +49,14 @@ IDs, enabled state, required access, and disabled reasons. Admin API routes are
 now administrator-only, while item metadata refresh/diagnostic routes require
 Library Access Manage so link state matches actual server authority.
 
+BMPD-060 refreshed closeout gates and closed the backend lane. Remaining work
+is split as follow-on product lanes rather than hidden implementation debt.
+
 ## Active Task
 
-- Task ID: BMPD-060
-- Status: ready
-- Scope: Closeout, final evidence refresh, and follow-on split.
+- Task ID: none
+- Status: closed
+- Scope: no active task in this workstream.
 
 ## Decisions
 
@@ -78,9 +81,15 @@ Library Access Manage so link state matches actual server authority.
 
 - None.
 
-## Next Action
+## Follow-Ons
 
-Run BMPD-060 closeout. Refresh the documented gates, decide whether to close
-this lane, and split follow-ons for frontend consumption, desktop native
-player integration, scoped manager job views, OIDC/LDAP, and recommendation
-work rather than hiding them inside this backend lane.
+- Admin Web / Media Web should consume `/management/context-links` and render
+  context-aware transitions without embedding Admin API internals in media UI.
+- Desktop can reuse the shared web surface for browse/admin UX, but should bind
+  playback to a mature native engine such as mpv/libmpv, GStreamer, or platform
+  media frameworks behind the Playback Session contract.
+- Browser playback transport continues in
+  `docs/workstreams/browser-playback-auth-transport/`.
+- Scoped manager job views, OIDC/LDAP/passkeys, account recovery, email
+  invitation delivery, recommendations, and richer player capability
+  negotiation should be opened as separate lanes when prioritized.

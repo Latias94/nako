@@ -1,6 +1,6 @@
 # Backend Media Product Deepening
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-27
 
 This workstream owns the backend refactor that makes Nako's local-media product
@@ -10,6 +10,11 @@ clients.
 The lane is intentionally backend-first. Frontend implementation is out of
 scope while the UI is being redesigned, but the backend contracts must be good
 enough for a mature media client to consume later.
+
+Closeout result: BMPD-020 through BMPD-060 are complete. Nako now has direct
+pre-production database baselines, controlled invitation registration,
+durable Playback Sessions, and permission-gated Management Context Links
+between media contexts and admin operations.
 
 ## Goals
 
@@ -61,3 +66,16 @@ session state, source selection, tickets, jobs, and redacted read models.
 - `EVIDENCE_AND_GATES.md`
 - `HANDOFF.md`
 - `WORKSTREAM.json`
+
+## Follow-On Boundaries
+
+- Frontend Admin Web / Media Web integration should consume Management Context
+  Links instead of hard-coding admin affordances into media pages.
+- Desktop native playback should reuse the shared browse/admin web surface
+  where useful, but bind serious playback to a mature native engine such as
+  mpv/libmpv, GStreamer, or platform media frameworks behind the Playback
+  Session contract.
+- Browser playback transport continues in
+  `docs/workstreams/browser-playback-auth-transport/`.
+- OIDC/LDAP/passkeys, account recovery, email invitation delivery, scoped
+  manager job views, and recommendations should be opened as separate lanes.

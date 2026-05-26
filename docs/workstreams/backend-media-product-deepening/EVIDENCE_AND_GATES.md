@@ -1,6 +1,6 @@
 # Backend Media Product Deepening - Evidence And Gates
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-27
 
 ## Planned Gates
@@ -139,3 +139,16 @@ python -m json.tool docs/workstreams/backend-media-product-deepening/WORKSTREAM.
     passed: 15 passed, 43 skipped.
   - `cargo nextest run -p nako-api -E 'test(public_openapi) | test(sdk) | test(admin_contract)' --no-fail-fast`
     passed: 19 passed, 39 skipped.
+- 2026-05-27: BMPD-060 closed the lane after refreshing the closeout gates and
+  splitting frontend/native/identity/recommendation breadth into follow-ons.
+  Verified:
+  - `cargo fmt --all -- --check` passed.
+  - `python -m json.tool docs/workstreams/backend-media-product-deepening/WORKSTREAM.json`
+    passed.
+  - `cargo nextest run -p nako-core --no-fail-fast` passed: 17 passed, 0
+    skipped.
+  - `cargo nextest run -p nako-db --no-fail-fast` passed: 112 passed, 39
+    skipped.
+  - `cargo nextest run -p nako-server --no-fail-fast` passed: 347 passed, 0
+    skipped.
+  - `git diff --check` passed with Git line-ending warnings only.

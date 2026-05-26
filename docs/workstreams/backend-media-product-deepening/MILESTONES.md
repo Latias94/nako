@@ -1,6 +1,6 @@
 # Backend Media Product Deepening - Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-27
 
 ## M0 - Workstream Open
@@ -13,6 +13,8 @@ Exit criteria:
 
 ## M1 - Clean Baseline
 
+Status: Complete.
+
 Exit criteria:
 
 - SQLite and PostgreSQL baselines describe the final schema directly.
@@ -21,6 +23,8 @@ Exit criteria:
 - Identity, addon, job, and playback schema parity is preserved.
 
 ## M2 - Invitation Registration
+
+Status: Complete.
 
 Exit criteria:
 
@@ -56,6 +60,8 @@ Exit criteria:
   bootstrap admin cases.
 
 ## M5 - Closeout
+
+Status: Complete.
 
 Exit criteria:
 

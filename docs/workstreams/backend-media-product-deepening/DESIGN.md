@@ -1,6 +1,6 @@
 # Backend Media Product Deepening Design
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-27
 
 ## Problem
@@ -169,3 +169,22 @@ Out of scope:
   Library Access before returning enabled actions.
 - Baseline cleanup must not accidentally remove schema needed by completed
   lanes. Repository contract tests are required after edits.
+
+## Closeout Result
+
+This lane is complete as of BMPD-060. The backend now owns the product seams
+needed before frontend/native clients compose the mature local-media
+experience:
+
+- database baseline files describe the current pre-production schema directly;
+- invitation redemption is controlled, hashed, one-time, and transactional;
+- Playback Session is the user/client playback attempt, with optional
+  Transcode Session artifacts linked beneath it;
+- Management Context Links are computed by server-side authority checks and do
+  not expose Admin Web routes, raw locators, or storage paths.
+
+Remaining work belongs in separate lanes. Frontend should consume these
+contracts. Desktop should choose a native playback engine adapter later, not
+push decoder ownership into Nako server. SSO, account recovery, email delivery,
+recommendations, scoped manager job views, and richer player capability
+negotiation are intentionally outside this closed lane.
