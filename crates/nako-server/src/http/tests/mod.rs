@@ -135,9 +135,9 @@ use nako_core::{
     ProviderRawResponseFilter, ProviderSubject, ProviderSubjectId, ProviderSubjectKind,
     RoleAssignment, StagingManifestId, StagingManifestRepository, StagingPurpose, StagingState,
     StorageErrorKind, Tag, TagId, TranscodeFailureCategory, TranscodeSessionId,
-    TranscodeSessionKind, TranscodeSessionRepository, TranscodeSessionState, User, UserId,
-    UserPrincipalId, UserRole, UserStatus, VfsCacheOperation, VfsCacheRepository, VfsCachedObject,
-    VfsCachedObjectKind, WebhookEndpointStatus,
+    TranscodeSessionKind, TranscodeSessionListFilter, TranscodeSessionRepository,
+    TranscodeSessionState, User, UserId, UserPrincipalId, UserRole, UserStatus, VfsCacheOperation,
+    VfsCacheRepository, VfsCachedObject, VfsCachedObjectKind, WebhookEndpointStatus,
 };
 use nako_db::NakoDatabase;
 use nako_search::{SearchDocument, SearchIndex, SearchQuery};

@@ -253,6 +253,62 @@ async fn direct_stream_head_returns_headers_without_body() {
 }
 
 #[tokio::test]
+async fn direct_stream_route_records_playback_session_without_transcode_artifact() {
+    let (_temp, router, source, store) =
+        router_with_media_source("direct-session.mp4", b"0123456789").await;
+
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/sources/{}/stream", source.id))
+                .header(header::RANGE, "bytes=2-5")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
+    let session_id = response
+        .headers()
+        .get(PLAYBACK_SESSION_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .expect("direct stream should expose a playback session id")
+        .to_owned();
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(&bytes[..], b"2345");
+
+    let session = store
+        .get_playback_session(session_id.parse().unwrap())
+        .await
+        .unwrap()
+        .expect("direct stream session header should point at durable playback session");
+    assert_eq!(session.source_id, source.id);
+    assert_eq!(session.item_id, source.item_id);
+    assert_eq!(session.mode, PlaybackSessionMode::Direct);
+    assert_eq!(session.state, PlaybackSessionState::Active);
+    assert!(session.transcode_session_id.is_none());
+    assert!(session.client_capabilities_json.is_some());
+
+    let transcode_artifacts = store
+        .list_transcode_sessions(
+            TranscodeSessionListFilter {
+                source_id: Some(source.id),
+                kind: None,
+                state: None,
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert!(
+        transcode_artifacts.is_empty(),
+        "direct play must not create fake transcode artifacts"
+    );
+}
+
+#[tokio::test]
 async fn browser_playback_ticket_streams_direct_bytes_without_bearer() {
     let (_temp, app, source, _store) =
         app_with_media_source_config("ticket.mp4", b"0123456789", |_| {}).await;

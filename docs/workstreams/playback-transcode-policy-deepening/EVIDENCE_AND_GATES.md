@@ -58,3 +58,15 @@ python -m json.tool docs/workstreams/playback-transcode-policy-deepening/WORKSTR
     passed.
   - `git diff --check -- docs/workstreams/playback-transcode-policy-deepening docs/workstreams/README.md docs/adr`
     passed with Git line-ending warnings only for tracked index files.
+- 2026-05-27: PTP-020 characterized the critical Playback Session invariant
+  before planner refactoring: direct play creates a durable Playback Session
+  with mode `direct` and client capability evidence, but creates no Transcode
+  Session artifact. Existing remux/HLS/browser-ticket/redaction/hardware
+  fallback coverage was refreshed.
+  Verified:
+  - `cargo nextest run -p nako-server direct_stream_route_records_playback_session_without_transcode_artifact --no-fail-fast`
+    passed: 1 passed, 347 skipped.
+  - `cargo nextest run -p nako-server playback --no-fail-fast` passed: 66
+    passed, 282 skipped.
+  - `cargo nextest run -p nako-transcode --no-fail-fast` passed: 35 passed,
+    0 skipped.

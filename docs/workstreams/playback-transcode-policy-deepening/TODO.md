@@ -15,13 +15,15 @@ Last updated: 2026-05-27
 
 ## M1 - Feature Pressure And Characterization
 
-- [ ] PTP-020 [owner=codex] [deps=PTP-010] [scope=crates/nako-server/src/http/tests/playback.rs,crates/nako-server/src/app/tests/playback.rs,docs/workstreams/playback-transcode-policy-deepening]
+- [x] PTP-020 [owner=codex] [deps=PTP-010] [scope=crates/nako-server/src/http/tests/playback.rs,crates/nako-server/src/app/tests/playback.rs,docs/workstreams/playback-transcode-policy-deepening]
   Goal: Characterize current direct/remux/HLS/Playback Session behavior against
   Jellyfin-class feature pressure before refactoring.
   Validation: `cargo nextest run -p nako-server playback --no-fail-fast`;
   `cargo nextest run -p nako-transcode --no-fail-fast`.
   Review: prove no path/ticket/command leakage and document current gaps.
-  Evidence: tests and an updated evidence log.
+  Evidence: Added direct-play characterization proving Direct Playback Sessions
+  do not create fake Transcode Session artifacts. Focused playback/transcode
+  gates passed.
   Handoff: PTP-030 can add planner records without guessing current behavior.
 
 ## M2 - Playback Planner
@@ -99,4 +101,3 @@ Last updated: 2026-05-27
   Evidence: `EVIDENCE_AND_GATES.md`; `HANDOFF.md`; commits.
   Handoff: Split adaptive HLS ladders, optimized versions, remote transcode
   workers, desktop player integration, SyncPlay, and DLNA into separate lanes.
-

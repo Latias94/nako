@@ -5,7 +5,7 @@ Last updated: 2026-05-27
 
 ## Current State
 
-The lane is open. PTP-010 is complete.
+The lane is open. PTP-010 and PTP-020 are complete.
 
 Nako already has:
 
@@ -15,6 +15,11 @@ Nako already has:
 - FFmpeg-backed remux/HLS command planning and runners;
 - Admin playback runtime diagnostics;
 - redacted playback session lists and support evidence.
+
+PTP-020 added a direct-play characterization test proving that direct playback
+creates a durable Playback Session and no fake Transcode Session artifact. The
+existing remux, HLS, browser ticket, redaction, cancellation, and hardware
+fallback tests remain green.
 
 Jellyfin reference review found the feature pressures Nako must be ready for:
 
@@ -28,9 +33,9 @@ Jellyfin reference review found the feature pressures Nako must be ready for:
 
 ## Active Task
 
-- Task ID: PTP-020
+- Task ID: PTP-030
 - Status: ready
-- Scope: characterization tests and current-gap audit.
+- Scope: Playback Planner records and Module.
 
 ## Decisions
 
@@ -51,8 +56,6 @@ Jellyfin reference review found the feature pressures Nako must be ready for:
 
 ## Next Action
 
-Run PTP-020. Add characterization tests around current direct/remux/HLS
-Playback Session behavior, route redaction, browser ticket compatibility, and
-transcode hardware fallback. Update `EVIDENCE_AND_GATES.md` with fresh command
-evidence before moving to planner implementation.
-
+Run PTP-030. Add a Playback Planner Module that returns direct/remux/HLS plans
+and typed decision reasons from source facts, client capabilities, runtime
+facts, and policy. Keep HTTP routes as adapters over planner output.
