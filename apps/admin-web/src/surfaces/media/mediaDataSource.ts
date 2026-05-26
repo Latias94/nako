@@ -8,7 +8,12 @@ import {
   type LibraryListResponse,
   type LibrarySourcesResponse,
   type PageQuery,
+  type PlaybackCapabilitiesQuery,
+  type PlaybackDecisionResponse,
   type SearchResponse,
+  type SetWatchedStateRequest,
+  type UpdatePlaybackProgressRequest,
+  type UserPlaybackStateResponse,
 } from "@nako/sdk";
 
 import {
@@ -17,7 +22,9 @@ import {
   fixtureItems,
   fixtureLibraries,
   fixtureLibrarySources,
+  fixturePlaybackDecision,
   fixtureSearch,
+  fixtureUserPlaybackState,
 } from "./fixtures";
 
 export type MediaConnection =
@@ -53,6 +60,19 @@ export type MediaWebDataSource = {
     query: { facet?: string | string[]; q?: string } & PageQuery,
   ): Promise<MediaLoadResult<SearchResponse>>;
   getItem(itemId: string): Promise<MediaLoadResult<ItemDetailResponse>>;
+  getPlaybackDecision(
+    sourceId: string,
+    capabilities?: PlaybackCapabilitiesQuery,
+  ): Promise<MediaLoadResult<PlaybackDecisionResponse>>;
+  getUserPlaybackState(itemId: string): Promise<MediaLoadResult<UserPlaybackStateResponse>>;
+  updateUserPlaybackProgress(
+    itemId: string,
+    body: UpdatePlaybackProgressRequest,
+  ): Promise<MediaLoadResult<UserPlaybackStateResponse>>;
+  setUserWatchedState(
+    itemId: string,
+    body: SetWatchedStateRequest,
+  ): Promise<MediaLoadResult<UserPlaybackStateResponse>>;
   listContinueWatching(page?: PageQuery): Promise<MediaLoadResult<ContinueWatchingResponse>>;
 };
 
@@ -100,6 +120,18 @@ export function createPublicClientMediaDataSource(
     async getItem(itemId) {
       return liveResult(await client.getItem(itemId));
     },
+    async getPlaybackDecision(sourceId, capabilities) {
+      return liveResult(await client.getPlaybackDecision(sourceId, capabilities));
+    },
+    async getUserPlaybackState(itemId) {
+      return liveResult(await client.getUserPlaybackState(itemId));
+    },
+    async updateUserPlaybackProgress(itemId, body) {
+      return liveResult(await client.updateUserPlaybackProgress(itemId, body));
+    },
+    async setUserWatchedState(itemId, body) {
+      return liveResult(await client.setUserWatchedState(itemId, body));
+    },
     async listContinueWatching(page = defaultPage()) {
       return liveResult(await client.listContinueWatching(page));
     },
@@ -137,6 +169,46 @@ export function createFixtureMediaDataSource(): MediaWebDataSource {
     },
     async getItem() {
       return fixtureResult(fixtureItemDetail);
+    },
+    async getPlaybackDecision(sourceId) {
+      return fixtureResult(fixturePlaybackDecision(sourceId));
+    },
+    async getUserPlaybackState() {
+      return fixtureResult(fixtureUserPlaybackState);
+    },
+    async updateUserPlaybackProgress(itemId, body) {
+      return fixtureResult({
+        state: {
+          ...fixtureUserPlaybackState.state,
+          duration_ms: body.duration_ms ?? fixtureUserPlaybackState.state.duration_ms,
+          item_id: itemId,
+          last_played_at: body.reported_at ?? "2026-05-26T10:30:00Z",
+          progress_percent: body.duration_ms ? body.position_ms / body.duration_ms : null,
+          resume_position_ms: body.position_ms,
+          source_id: body.source_id ?? fixtureUserPlaybackState.state.source_id,
+          updated_at: body.reported_at ?? "2026-05-26T10:30:00Z",
+          watched: false,
+          watched_at: null,
+          version: fixtureUserPlaybackState.state.version + 1,
+        },
+      });
+    },
+    async setUserWatchedState(itemId, body) {
+      return fixtureResult({
+        state: {
+          ...fixtureUserPlaybackState.state,
+          duration_ms: body.duration_ms ?? fixtureUserPlaybackState.state.duration_ms,
+          item_id: itemId,
+          progress_percent: body.watched ? 1 : fixtureUserPlaybackState.state.progress_percent,
+          resume_position_ms:
+            body.position_ms ?? fixtureUserPlaybackState.state.resume_position_ms,
+          source_id: body.source_id ?? fixtureUserPlaybackState.state.source_id,
+          updated_at: body.marked_at ?? "2026-05-26T10:35:00Z",
+          version: fixtureUserPlaybackState.state.version + 1,
+          watched: body.watched,
+          watched_at: body.watched ? (body.marked_at ?? "2026-05-26T10:35:00Z") : null,
+        },
+      });
     },
     async listContinueWatching() {
       return fixtureResult(fixtureContinueWatching);

@@ -8,7 +8,9 @@ import type {
   LibrarySourcesResponse,
   MediaItemDto,
   MediaSourceDto,
+  PlaybackDecisionResponse,
   SearchResponse,
+  UserPlaybackStateResponse,
 } from "@nako/sdk";
 import { ArrowLeft, ArrowRight, Search } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
@@ -29,6 +31,10 @@ export type MediaPageSearch = {
 export type MediaSearchRouteSearch = MediaPageSearch & {
   facet?: string;
   q?: string;
+};
+
+export type MediaItemSearch = {
+  source_id?: string;
 };
 
 type MediaSearchChange<TSearch> = (next: Partial<TSearch>) => void;
@@ -272,27 +278,150 @@ export function MediaSearchPage({
   );
 }
 
-export function MediaItemDetailPage({ itemId }: { itemId: string }) {
-  const { dataSource } = useMediaSession();
-  const result = useMediaLoad(dataSource, (source) => source.getItem(itemId), [itemId]);
+type MediaItemPageProps = {
+  itemId: string;
+  onSearchChange: MediaSearchChange<MediaItemSearch>;
+  search: MediaItemSearch;
+};
 
-  if (!dataSource) {
+export function MediaItemDetailPage(props: MediaItemPageProps) {
+  const playback = useMediaItemPlayback(props);
+
+  if (!playback.dataSource) {
     return <MediaConnectPage />;
   }
 
-  if (result.loading) {
+  if (playback.result.loading) {
     return <div className="mediaSkeletonGrid" />;
   }
 
-  if (result.error) {
-    return <div className="mediaError">{result.error}</div>;
+  if (playback.result.error) {
+    return <div className="mediaError">{playback.result.error}</div>;
   }
 
-  if (!result.value) {
+  if (!playback.result.value) {
     return <div className="mediaEmpty">Media Item unavailable</div>;
   }
 
-  return <MediaItemDetail result={result.value} />;
+  return (
+    <MediaItemDetail
+      decision={playback.decision}
+      mutationError={playback.mutationError}
+      onMarkWatched={playback.onMarkWatched}
+      onSourceChange={playback.onSourceChange}
+      playbackState={playback.playbackState}
+      result={playback.result.value}
+      savingPlaybackState={playback.savingPlaybackState}
+      selectedSourceId={playback.selectedSourceId}
+    />
+  );
+}
+
+export function MediaWatchPage(props: MediaItemPageProps) {
+  const playback = useMediaItemPlayback(props);
+
+  if (!playback.dataSource) {
+    return <MediaConnectPage />;
+  }
+
+  if (playback.result.loading) {
+    return <div className="mediaSkeletonGrid" />;
+  }
+
+  if (playback.result.error) {
+    return <div className="mediaError">{playback.result.error}</div>;
+  }
+
+  if (!playback.result.value) {
+    return <div className="mediaEmpty">Media Item unavailable</div>;
+  }
+
+  return (
+    <MediaWatch
+      decision={playback.decision}
+      mutationError={playback.mutationError}
+      onMarkWatched={playback.onMarkWatched}
+      onSourceChange={playback.onSourceChange}
+      playbackState={playback.playbackState}
+      result={playback.result.value}
+      savingPlaybackState={playback.savingPlaybackState}
+      selectedSourceId={playback.selectedSourceId}
+    />
+  );
+}
+
+function useMediaItemPlayback({
+  itemId,
+  onSearchChange,
+  search,
+}: MediaItemPageProps) {
+  const { dataSource } = useMediaSession();
+  const result = useMediaLoad(dataSource, (source) => source.getItem(itemId), [itemId]);
+  const selectedSourceId = search.source_id ?? result.value?.sources[0]?.id;
+  const decision = useMediaLoad(
+    selectedSourceId ? dataSource : null,
+    (source) => source.getPlaybackDecision(selectedSourceId!, { direct_play: true }),
+    [selectedSourceId],
+  );
+  const playbackState = useMediaLoad(
+    dataSource,
+    (source) => source.getUserPlaybackState(itemId),
+    [itemId],
+  );
+  const [playbackStateOverride, setPlaybackStateOverride] =
+    useState<UserPlaybackStateResponse | null>(null);
+  const [playbackMutationError, setPlaybackMutationError] = useState<string | null>(null);
+  const [savingPlaybackState, setSavingPlaybackState] = useState(false);
+
+  async function markWatched(watched: boolean) {
+    if (!dataSource || !selectedSourceId) {
+      return;
+    }
+
+    setSavingPlaybackState(true);
+    setPlaybackMutationError(null);
+    try {
+      const durationMs =
+        decision.value?.probe?.duration_ms ??
+        (result.value?.item.metadata.runtime_minutes
+          ? result.value.item.metadata.runtime_minutes * 60_000
+          : null);
+      const response = await dataSource.setUserWatchedState(itemId, {
+        duration_ms: durationMs,
+        position_ms: watched ? durationMs : playbackState.value?.state.resume_position_ms,
+        source_id: selectedSourceId,
+        watched,
+      });
+      setPlaybackStateOverride(response.value);
+    } catch (error: unknown) {
+      setPlaybackMutationError(
+        error instanceof Error ? error.message : "Playback state update failed",
+      );
+    } finally {
+      setSavingPlaybackState(false);
+    }
+  }
+
+  function selectSource(sourceId: string) {
+    onSearchChange({ source_id: sourceId });
+    setPlaybackStateOverride(null);
+    setPlaybackMutationError(null);
+  }
+
+  return {
+    dataSource,
+    decision,
+    mutationError: playbackMutationError,
+    onMarkWatched: markWatched,
+    onSourceChange: selectSource,
+    playbackState: {
+      ...playbackState,
+      value: playbackStateOverride ?? playbackState.value,
+    },
+    result,
+    savingPlaybackState,
+    selectedSourceId,
+  };
 }
 
 function MediaContinueWatching({
@@ -473,8 +602,28 @@ function MediaItemCard({ badge, item }: { badge?: string; item: MediaItemDto }) 
   );
 }
 
-function MediaItemDetail({ result }: { result: ItemDetailResponse }) {
+function MediaItemDetail({
+  decision,
+  mutationError,
+  onMarkWatched,
+  onSourceChange,
+  playbackState,
+  result,
+  savingPlaybackState,
+  selectedSourceId,
+}: {
+  decision: MediaAsyncState<PlaybackDecisionResponse>;
+  mutationError: string | null;
+  onMarkWatched(watched: boolean): void;
+  onSourceChange(sourceId: string): void;
+  playbackState: MediaAsyncState<UserPlaybackStateResponse>;
+  result: ItemDetailResponse;
+  savingPlaybackState: boolean;
+  selectedSourceId: string | undefined;
+}) {
   const metadata = result.item.metadata;
+  const selectedSource =
+    result.sources.find((source) => source.id === selectedSourceId) ?? result.sources[0];
 
   return (
     <section className="mediaPage" aria-labelledby="media-item-title">
@@ -484,33 +633,48 @@ function MediaItemDetail({ result }: { result: ItemDetailResponse }) {
           <h2 id="media-item-title">{metadata.title}</h2>
           {metadata.overview ? <p>{metadata.overview}</p> : null}
         </div>
-        <div className="mediaMetaPills">
-          <span>{formatRuntimeMinutes(metadata.runtime_minutes)}</span>
-          {metadata.release_date ? <span>{metadata.release_date}</span> : null}
-          {metadata.genres.slice(0, 3).map((genre) => (
-            <span key={genre}>{genre}</span>
-          ))}
+        <div className="mediaHeroActions">
+          <div className="mediaMetaPills">
+            <span>{formatRuntimeMinutes(metadata.runtime_minutes)}</span>
+            {metadata.release_date ? <span>{metadata.release_date}</span> : null}
+            {metadata.genres.slice(0, 3).map((genre) => (
+              <span key={genre}>{genre}</span>
+            ))}
+          </div>
+          <Link
+            className="uiButton uiButtonDefault uiButtonSm"
+            params={{ itemId: result.item.id }}
+            search={selectedSource ? { source_id: selectedSource.id } : {}}
+            to="/media/watch/$itemId"
+          >
+            Watch
+          </Link>
         </div>
       </header>
-      <section className="mediaPanel" aria-labelledby="media-item-sources-title">
+      <MediaSourceVersions
+        onSourceChange={onSourceChange}
+        result={result}
+        selectedSource={selectedSource}
+      />
+      <section className="mediaPanel" aria-labelledby="media-playback-decision-title">
         <div className="mediaPanelHeader">
-          <h3 id="media-item-sources-title">Available sources</h3>
-          <span>{result.sources.length} versions</span>
+          <h3 id="media-playback-decision-title">Playback decision</h3>
+          <span>{decision.value?.decision.mode ?? "pending"}</span>
         </div>
-        <div className="mediaSourceList">
-          {result.sources.map((source) => (
-            <article className="mediaSourceRow" key={source.id}>
-              <div>
-                <span>{source.file_name}</span>
-                <strong>{sourceSummary(source)}</strong>
-              </div>
-              <div className="mediaSourceFacts">
-                <span>{formatBytes(source.size_bytes)}</span>
-                <span>{source.library_id}</span>
-              </div>
-            </article>
-          ))}
+        <MediaPlaybackDecision result={decision} />
+      </section>
+      <section className="mediaPanel" aria-labelledby="media-playback-state-title">
+        <div className="mediaPanelHeader">
+          <h3 id="media-playback-state-title">Playback state</h3>
+          <span>{playbackState.value?.state.watched ? "watched" : "in progress"}</span>
         </div>
+        <MediaPlaybackState
+          disabled={savingPlaybackState}
+          error={mutationError}
+          onMarkWatched={onMarkWatched}
+          result={playbackState}
+          selectedSource={selectedSource}
+        />
       </section>
       <section className="mediaPanel" aria-labelledby="media-item-metadata-title">
         <div className="mediaPanelHeader">
@@ -532,6 +696,231 @@ function MediaItemDetail({ result }: { result: ItemDetailResponse }) {
         </div>
       </section>
     </section>
+  );
+}
+
+function MediaWatch({
+  decision,
+  mutationError,
+  onMarkWatched,
+  onSourceChange,
+  playbackState,
+  result,
+  savingPlaybackState,
+  selectedSourceId,
+}: {
+  decision: MediaAsyncState<PlaybackDecisionResponse>;
+  mutationError: string | null;
+  onMarkWatched(watched: boolean): void;
+  onSourceChange(sourceId: string): void;
+  playbackState: MediaAsyncState<UserPlaybackStateResponse>;
+  result: ItemDetailResponse;
+  savingPlaybackState: boolean;
+  selectedSourceId: string | undefined;
+}) {
+  const metadata = result.item.metadata;
+  const selectedSource =
+    result.sources.find((source) => source.id === selectedSourceId) ?? result.sources[0];
+
+  return (
+    <section className="mediaPage" aria-labelledby="media-watch-title">
+      <header className="mediaItemHero">
+        <div>
+          <p className="mediaKicker">Playback</p>
+          <h2 id="media-watch-title">{metadata.title}</h2>
+          <p>{selectedSource?.file_name ?? "No source selected"}</p>
+        </div>
+        <div className="mediaMetaPills">
+          <span>{decision.value?.decision.mode ?? "decision pending"}</span>
+          <span>{formatRuntimeMinutes(metadata.runtime_minutes)}</span>
+        </div>
+      </header>
+      <section className="mediaPanel mediaPlayerShell" aria-labelledby="media-player-title">
+        <div className="mediaPanelHeader">
+          <h3 id="media-player-title">Player</h3>
+          <span>{decision.value?.decision.mode ?? "pending"}</span>
+        </div>
+        <div className="mediaPlayerPlaceholder" role="status">
+          <strong>{metadata.title}</strong>
+          <span>Secure stream transport required</span>
+        </div>
+      </section>
+      <MediaSourceVersions
+        onSourceChange={onSourceChange}
+        result={result}
+        selectedSource={selectedSource}
+      />
+      <section className="mediaPanel" aria-labelledby="media-playback-decision-title">
+        <div className="mediaPanelHeader">
+          <h3 id="media-playback-decision-title">Playback decision</h3>
+          <span>{decision.value?.decision.mode ?? "pending"}</span>
+        </div>
+        <MediaPlaybackDecision result={decision} />
+      </section>
+      <section className="mediaPanel" aria-labelledby="media-playback-state-title">
+        <div className="mediaPanelHeader">
+          <h3 id="media-playback-state-title">Playback state</h3>
+          <span>{playbackState.value?.state.watched ? "watched" : "in progress"}</span>
+        </div>
+        <MediaPlaybackState
+          disabled={savingPlaybackState}
+          error={mutationError}
+          onMarkWatched={onMarkWatched}
+          result={playbackState}
+          selectedSource={selectedSource}
+        />
+      </section>
+    </section>
+  );
+}
+
+function MediaSourceVersions({
+  onSourceChange,
+  result,
+  selectedSource,
+}: {
+  onSourceChange(sourceId: string): void;
+  result: ItemDetailResponse;
+  selectedSource: MediaSourceDto | undefined;
+}) {
+  return (
+    <section className="mediaPanel" aria-labelledby="media-item-sources-title">
+      <div className="mediaPanelHeader">
+        <h3 id="media-item-sources-title">Source versions</h3>
+        <span>{result.sources.length} versions</span>
+      </div>
+      <div className="mediaSectionHint">Available sources</div>
+      <div className="mediaSourceList">
+        {result.sources.map((source) => (
+          <button
+            aria-pressed={source.id === selectedSource?.id}
+            className={
+              source.id === selectedSource?.id
+                ? "mediaSourceRow mediaSourceButton active"
+                : "mediaSourceRow mediaSourceButton"
+            }
+            key={source.id}
+            onClick={() => onSourceChange(source.id)}
+            type="button"
+          >
+            <div>
+              <span>{source.file_name}</span>
+              <strong>{sourceSummary(source)}</strong>
+            </div>
+            <div className="mediaSourceFacts">
+              <span>{formatBytes(source.size_bytes)}</span>
+              <span>{source.library_id}</span>
+            </div>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function MediaPlaybackDecision({
+  result,
+}: {
+  result: MediaAsyncState<PlaybackDecisionResponse>;
+}) {
+  if (result.loading) {
+    return <div className="mediaSkeleton" />;
+  }
+
+  if (result.error) {
+    return <div className="mediaError">{result.error}</div>;
+  }
+
+  if (!result.value) {
+    return <div className="mediaEmpty">No playback decision available</div>;
+  }
+
+  const decision = result.value.decision;
+
+  return (
+    <div className="mediaDecisionGrid">
+      <div>
+        <span>Mode</span>
+        <strong>{decision.mode}</strong>
+      </div>
+      <div>
+        <span>Reason</span>
+        <strong>{decision.reason}</strong>
+      </div>
+      <div>
+        <span>Container</span>
+        <strong>{result.value.probe?.container ?? "unknown"}</strong>
+      </div>
+      <div>
+        <span>Range</span>
+        <strong>
+          {decision.direct_play?.supports_range_requests ? "range ready" : "range unknown"}
+        </strong>
+      </div>
+      <div>
+        <span>Transport</span>
+        <strong>Secure stream transport required</strong>
+      </div>
+    </div>
+  );
+}
+
+function MediaPlaybackState({
+  disabled,
+  error,
+  onMarkWatched,
+  result,
+  selectedSource,
+}: {
+  disabled: boolean;
+  error: string | null;
+  onMarkWatched(watched: boolean): void;
+  result: MediaAsyncState<UserPlaybackStateResponse>;
+  selectedSource: MediaSourceDto | undefined;
+}) {
+  if (result.loading) {
+    return <div className="mediaSkeleton" />;
+  }
+
+  if (result.error) {
+    return <div className="mediaError">{result.error}</div>;
+  }
+
+  const state = result.value?.state;
+  const progress = state?.progress_percent ?? 0;
+
+  return (
+    <div className="mediaPlaybackState">
+      <div>
+        <strong>
+          {state?.resume_position_ms
+            ? `Continue from ${formatRuntimeMs(state.resume_position_ms)}`
+            : "Start from beginning"}
+        </strong>
+        <span>{selectedSource?.file_name ?? "No source selected"}</span>
+      </div>
+      <progress value={progress} max={1} />
+      <div className="mediaPlaybackActions">
+        <Button
+          disabled={disabled || state?.watched === true}
+          onClick={() => onMarkWatched(true)}
+          size="sm"
+          type="button"
+        >
+          Mark watched
+        </Button>
+        <Button
+          disabled={disabled || state?.watched === false}
+          onClick={() => onMarkWatched(false)}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          Mark unwatched
+        </Button>
+      </div>
+      {error ? <div className="mediaError">{error}</div> : null}
+    </div>
   );
 }
 

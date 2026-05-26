@@ -5,7 +5,9 @@ import type {
   LibraryListResponse,
   LibrarySourcesResponse,
   MetadataProfileDto,
+  PlaybackDecisionResponse,
   SearchResponse,
+  UserPlaybackStateResponse,
 } from "@nako/sdk";
 
 const page = {
@@ -221,7 +223,71 @@ export const fixtureItemDetail: ItemDetailResponse = {
       library_id: "library-anime",
       size_bytes: 1_468_006_400,
     },
+    {
+      file_name: "Pilot.alt.mp4",
+      fingerprint: "redacted",
+      id: "source-episode-1-alt",
+      item_id: "item-episode-1",
+      library_id: "library-anime",
+      size_bytes: 1_126_400_000,
+    },
   ],
   studios: [],
   tags: [],
 };
+
+export const fixtureUserPlaybackState: UserPlaybackStateResponse = {
+  state: fixtureContinueWatching.items[0].state,
+};
+
+export function fixturePlaybackDecision(sourceId: string): PlaybackDecisionResponse {
+  const source =
+    fixtureItemDetail.sources.find((candidate) => candidate.id === sourceId) ??
+    fixtureItemDetail.sources[0];
+  const isMp4 = source.file_name.endsWith(".mp4");
+
+  return {
+    decision: {
+      direct_play: {
+        content_type: isMp4 ? "video/mp4" : "video/x-matroska",
+        source_id: source.id,
+        supports_range_requests: true,
+      },
+      mode: "direct_play",
+      reason: "direct_play",
+      transcode_plan: null,
+    },
+    probe: {
+      bit_rate: isMp4 ? 6_100_000 : 8_200_000,
+      container: isMp4 ? "mp4" : "matroska",
+      duration_ms: 1_440_000,
+      streams: [
+        {
+          bit_rate: isMp4 ? 5_700_000 : 7_800_000,
+          channels: null,
+          codec: "h264",
+          duration_ms: 1_440_000,
+          height: isMp4 ? 720 : 1080,
+          index: 0,
+          kind: "video",
+          language: null,
+          sample_rate: null,
+          width: isMp4 ? 1280 : 1920,
+        },
+        {
+          bit_rate: 384_000,
+          channels: 2,
+          codec: "aac",
+          duration_ms: 1_440_000,
+          height: null,
+          index: 1,
+          kind: "audio",
+          language: "ja",
+          sample_rate: 48_000,
+          width: null,
+        },
+      ],
+    },
+    source,
+  };
+}

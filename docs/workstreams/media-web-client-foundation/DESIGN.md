@@ -186,6 +186,9 @@ through Admin API for viewer state.
 The browser player should use Public Client API playback decisions and the
 server's direct stream, remux, HLS, or transcode routes. It should save progress
 through User Playback State routes and surface client-safe playback errors.
+Until a secure browser playback auth transport is accepted, Media Web may ship
+a watch shell that shows source selection, playback decisions, and personal
+playback state without rendering a real media element or stream URL.
 
 Do not promise hardware acceleration, HDR, audio device routing, advanced
 subtitle handling, or broad codec support inside this web lane. Those belong to

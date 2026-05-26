@@ -148,10 +148,105 @@ describe("Media Web surface", () => {
     expect(await screen.findByRole("heading", { name: "Pilot" })).toBeInTheDocument();
     expect(screen.getByText("A carefully kept local episode.")).toBeInTheDocument();
     expect(screen.getByText("Available sources")).toBeInTheDocument();
-    expect(screen.getByText("Pilot.mkv")).toBeInTheDocument();
+    expect(screen.getAllByText("Pilot.mkv").length).toBeGreaterThan(0);
     expect(container.textContent).not.toContain("raw source locator");
     expect(container.textContent).not.toContain("fingerprint");
     expect(container.textContent).not.toContain("redacted-root");
+  });
+
+  it("renders source selection and playback decision preview without stream URLs", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/media/items/item-episode-1?source_id=source-episode-1",
+    );
+
+    const { container } = render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Pilot" })).toBeInTheDocument();
+    expect(screen.getByText("Source versions")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Pilot\.mkv/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Pilot\.alt\.mp4/ })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Watch" })).toHaveAttribute(
+      "href",
+      "/media/watch/item-episode-1?source_id=source-episode-1",
+    );
+    expect(screen.getByText("Playback decision")).toBeInTheDocument();
+    expect(screen.getAllByText("direct_play").length).toBeGreaterThan(0);
+    expect(screen.getByText("Continue from 9 min")).toBeInTheDocument();
+    expect(container.textContent).not.toContain("/sources/");
+    expect(container.textContent).not.toContain("secret-token");
+  });
+
+  it("keeps selected source in the URL and writes watched state through Public Client data", async () => {
+    window.history.pushState(null, "", "/media/items/item-episode-1");
+    const dataSource = createFixtureMediaDataSource();
+    const getPlaybackDecision = vi.fn(dataSource.getPlaybackDecision);
+    const setUserWatchedState = vi.fn(dataSource.setUserWatchedState);
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          getPlaybackDecision,
+          setUserWatchedState,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /Pilot\.alt\.mp4/ }));
+
+    await waitFor(() => {
+      expect(window.location.search).toContain("source_id=source-episode-1-alt");
+      expect(getPlaybackDecision).toHaveBeenLastCalledWith("source-episode-1-alt", {
+        direct_play: true,
+      });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Mark watched" }));
+
+    await waitFor(() => {
+      expect(setUserWatchedState).toHaveBeenCalledWith("item-episode-1", {
+        duration_ms: 1440000,
+        position_ms: 1440000,
+        source_id: "source-episode-1-alt",
+        watched: true,
+      });
+    });
+  });
+
+  it("renders a watch shell without minting a browser stream URL", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/media/watch/item-episode-1?source_id=source-episode-1-alt",
+    );
+
+    const { container } = render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Pilot" })).toBeInTheDocument();
+    expect(screen.getByText("Player")).toBeInTheDocument();
+    expect(screen.getAllByText("Secure stream transport required").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /Pilot\.alt\.mp4/ })).toBeInTheDocument();
+    expect(screen.getAllByText("direct_play").length).toBeGreaterThan(0);
+    expect(container.querySelector("video")).not.toBeInTheDocument();
+    expect(container.textContent).not.toContain("/sources/");
   });
 });
 

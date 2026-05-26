@@ -83,6 +83,70 @@ describe("Media Web Public Client data source", () => {
       expect.objectContaining({ method: "GET" }),
     );
   });
+
+  it("uses generated Public Client SDK routes for playback decisions and user playback state", async () => {
+    const fetch = vi.fn(async (input: string | URL | Request, _init?: RequestInit) =>
+      jsonResponse({ ok: true, path: String(input) }),
+    );
+    const dataSource = createPublicClientMediaDataSource(
+      {
+        baseUrl: "http://nako.test",
+        bearerToken: "secret-token",
+        mode: "live",
+      },
+      fetch,
+    );
+
+    await dataSource.getPlaybackDecision("source episode", { direct_play: true });
+    await dataSource.getUserPlaybackState("item episode");
+    await dataSource.updateUserPlaybackProgress("item episode", {
+      duration_ms: 1440000,
+      position_ms: 90000,
+      source_id: "source episode",
+    });
+    await dataSource.setUserWatchedState("item episode", {
+      duration_ms: 1440000,
+      position_ms: 1440000,
+      source_id: "source episode",
+      watched: true,
+    });
+
+    expect(fetch).toHaveBeenNthCalledWith(
+      1,
+      "http://nako.test/sources/source%20episode/playback/decision?direct_play=true",
+      expect.objectContaining({ method: "GET" }),
+    );
+    expect(fetch).toHaveBeenNthCalledWith(
+      2,
+      "http://nako.test/users/me/playback-state/items/item%20episode",
+      expect.objectContaining({ method: "GET" }),
+    );
+    expect(fetch).toHaveBeenNthCalledWith(
+      3,
+      "http://nako.test/users/me/playback-state/items/item%20episode/progress",
+      expect.objectContaining({
+        body: JSON.stringify({
+          duration_ms: 1440000,
+          position_ms: 90000,
+          source_id: "source episode",
+        }),
+        method: "PUT",
+      }),
+    );
+    expect(fetch).toHaveBeenNthCalledWith(
+      4,
+      "http://nako.test/users/me/playback-state/items/item%20episode/watched",
+      expect.objectContaining({
+        body: JSON.stringify({
+          duration_ms: 1440000,
+          position_ms: 1440000,
+          source_id: "source episode",
+          watched: true,
+        }),
+        method: "PUT",
+      }),
+    );
+  });
 });
 
 function jsonResponse(body: unknown) {

@@ -940,6 +940,27 @@ td {
   white-space: nowrap;
 }
 
+.mediaShell .uiButton {
+  border-radius: 7px;
+  text-decoration: none;
+}
+
+.mediaShell .uiButtonDefault {
+  border-color: oklch(66% 0.13 174);
+  background: var(--media-brand);
+  color: oklch(16% 0.018 116);
+}
+
+.mediaShell .uiButtonOutline {
+  border-color: var(--media-line);
+  background: oklch(20% 0.02 116);
+  color: var(--media-ink);
+}
+
+.mediaShell .uiButtonGhost {
+  color: var(--media-muted);
+}
+
 .mediaPage,
 .mediaConnect {
   display: grid;
@@ -1156,6 +1177,12 @@ td {
   line-height: 1.55;
 }
 
+.mediaHeroActions {
+  display: grid;
+  justify-items: end;
+  gap: 10px;
+}
+
 .mediaSourceList,
 .mediaFactGrid {
   display: grid;
@@ -1171,6 +1198,20 @@ td {
   border-radius: 8px;
   background: oklch(21% 0.021 116);
   padding: 12px;
+}
+
+.mediaSourceButton {
+  width: 100%;
+  color: inherit;
+  text-align: left;
+}
+
+.mediaSourceButton.active,
+.mediaSourceButton:hover,
+.mediaSourceButton:focus-visible {
+  border-color: var(--media-brand);
+  background: var(--media-panel-soft);
+  outline: none;
 }
 
 .mediaSourceRow > div:first-child {
@@ -1197,11 +1238,19 @@ td {
   text-underline-offset: 3px;
 }
 
-.mediaFactGrid {
+.mediaSectionHint {
+  margin: -4px 0 10px;
+  color: var(--media-muted);
+  font-size: 0.82rem;
+}
+
+.mediaFactGrid,
+.mediaDecisionGrid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.mediaFactGrid div {
+.mediaFactGrid div,
+.mediaDecisionGrid div {
   display: grid;
   gap: 6px;
   border: 1px solid var(--media-line);
@@ -1210,16 +1259,69 @@ td {
   padding: 12px;
 }
 
-.mediaFactGrid span {
+.mediaFactGrid span,
+.mediaDecisionGrid span {
   color: var(--media-brand);
   font-size: 0.76rem;
   font-weight: 850;
   text-transform: uppercase;
 }
 
-.mediaFactGrid strong {
+.mediaFactGrid strong,
+.mediaDecisionGrid strong {
   color: var(--media-ink);
   overflow-wrap: anywhere;
+}
+
+.mediaDecisionGrid,
+.mediaPlaybackState {
+  display: grid;
+  gap: 10px;
+}
+
+.mediaPlayerShell {
+  min-height: 220px;
+}
+
+.mediaPlayerPlaceholder {
+  display: grid;
+  min-height: 156px;
+  align-content: center;
+  justify-items: center;
+  gap: 8px;
+  border: 1px solid var(--media-line);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, oklch(23% 0.024 116), oklch(18% 0.018 116)),
+    oklch(20% 0.02 116);
+  color: var(--media-ink);
+  text-align: center;
+}
+
+.mediaPlayerPlaceholder span {
+  color: var(--media-muted);
+  font-size: 0.86rem;
+}
+
+.mediaPlaybackState > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.mediaPlaybackState > div:first-child span {
+  color: var(--media-muted);
+  font-size: 0.82rem;
+}
+
+.mediaPlaybackState progress {
+  width: 100%;
+  accent-color: var(--media-brand);
+}
+
+.mediaPlaybackActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .mediaPager {
@@ -1282,13 +1384,16 @@ td {
 
   .mediaLibraryGrid,
   .mediaItemGrid,
-  .mediaFactGrid {
+  .mediaFactGrid,
+  .mediaDecisionGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .mediaMetaPills,
+  .mediaHeroActions,
   .mediaPager,
   .mediaSourceFacts {
+    justify-items: start;
     justify-content: flex-start;
   }
 
@@ -1307,7 +1412,8 @@ td {
   .mediaSearch,
   .mediaLibraryGrid,
   .mediaItemGrid,
-  .mediaFactGrid {
+  .mediaFactGrid,
+  .mediaDecisionGrid {
     grid-template-columns: 1fr;
   }
 }

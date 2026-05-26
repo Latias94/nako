@@ -66,16 +66,19 @@ Exit criteria:
 
 - Source/Version Picker and player shell use Public Client API playback
   decisions.
-- Playback progress writes use User Playback State routes.
+- User Playback State writes use `/users/me/playback-state` routes.
 - Playback errors are client-safe.
-- Desktop/native playback limitations are recorded rather than hidden.
+- Browser stream auth and desktop/native playback limitations are recorded
+  rather than hidden.
+- A real browser media element is not required until a secure playback auth
+  transport is accepted.
 
 Primary gates:
 
-- Focused Media Web player tests.
+- Focused Media Web source/playback shell tests.
 - Focused Rust/Public API tests for any touched playback or `me/playback`
   behavior.
-- Browser smoke for a fixture or live playback path.
+- Browser smoke for the fixture watch shell and User Playback State writes.
 
 ## M5 - Closeout And Follow-On Split
 

@@ -80,11 +80,13 @@ import {
   MediaConnectPage,
   MediaHomePage,
   MediaItemDetailPage,
+  type MediaItemSearch,
   MediaLibraryDetailPage,
   MediaLibrariesPage,
   type MediaPageSearch,
   MediaSearchPage,
   type MediaSearchRouteSearch,
+  MediaWatchPage,
 } from "./surfaces/media/MediaPages";
 import {
   createMediaWebDataSource,
@@ -251,7 +253,15 @@ const mediaSearchRoute = createRoute({
 const mediaItemDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/media/items/$itemId",
+  validateSearch: validateMediaItemSearch,
   component: MediaItemDetailRoute,
+});
+
+const mediaWatchRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/media/watch/$itemId",
+  validateSearch: validateMediaItemSearch,
+  component: MediaWatchRoute,
 });
 
 const routeTree = rootRoute.addChildren([
@@ -280,6 +290,7 @@ const routeTree = rootRoute.addChildren([
   mediaLibraryDetailRoute,
   mediaSearchRoute,
   mediaItemDetailRoute,
+  mediaWatchRoute,
 ]);
 
 const adminNavItems = [
@@ -677,7 +688,38 @@ function MediaSearchRoute() {
 
 function MediaItemDetailRoute() {
   const { itemId } = mediaItemDetailRoute.useParams();
-  return <MediaItemDetailPage itemId={itemId} />;
+  const search = mediaItemDetailRoute.useSearch();
+  const navigate = mediaItemDetailRoute.useNavigate();
+
+  return (
+    <MediaItemDetailPage
+      itemId={itemId}
+      onSearchChange={(next) => {
+        void navigate({
+          search: (current) => normalizeMediaItemSearch({ ...current, ...next }),
+        });
+      }}
+      search={search}
+    />
+  );
+}
+
+function MediaWatchRoute() {
+  const { itemId } = mediaWatchRoute.useParams();
+  const search = mediaWatchRoute.useSearch();
+  const navigate = mediaWatchRoute.useNavigate();
+
+  return (
+    <MediaWatchPage
+      itemId={itemId}
+      onSearchChange={(next) => {
+        void navigate({
+          search: (current) => normalizeMediaItemSearch({ ...current, ...next }),
+        });
+      }}
+      search={search}
+    />
+  );
 }
 
 function validateMediaPageSearch(search: Record<string, unknown>): MediaPageSearch {
@@ -709,6 +751,18 @@ function normalizeMediaSearch(search: Partial<MediaSearchRouteSearch>): MediaSea
     limit: positiveIntSearch(search.limit, 20),
     offset: nonNegativeIntSearch(search.offset, 0),
     q: emptyToUndefined(search.q),
+  };
+}
+
+function validateMediaItemSearch(search: Record<string, unknown>): MediaItemSearch {
+  return normalizeMediaItemSearch({
+    source_id: stringSearch(search.source_id),
+  });
+}
+
+function normalizeMediaItemSearch(search: Partial<MediaItemSearch>): MediaItemSearch {
+  return {
+    source_id: emptyToUndefined(search.source_id),
   };
 }
 

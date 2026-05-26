@@ -73,7 +73,7 @@ Task IDs use the `MWF` prefix.
 
 ## M4 - Source Selection, Player, And User Playback State
 
-- [ ] MWF-050 [owner=unassigned] [deps=MWF-040] [scope=apps/admin-web/src/surfaces/media,crates/nako-api,crates/nako-server]
+- [x] MWF-050 [owner=codex] [deps=MWF-040] [scope=apps/admin-web/src/surfaces/media,crates/nako-api,crates/nako-server]
   Goal: Add Source/Version Picker, playback decision integration, browser
   player shell, playback error state, and User Playback State progress writes.
   Validation: Focused Media Web tests plus focused server/Public API tests for
@@ -83,6 +83,13 @@ Task IDs use the `MWF` prefix.
   Evidence: Tests and browser playback smoke against fixture or live server.
   Handoff: Split desktop/native player capability gaps instead of hiding them
   inside browser playback.
+  Result: DONE_WITH_CONCERNS 2026-05-26. Media Item detail and
+  `/media/watch/:itemId` now share a Source/Version Picker, URL-owned
+  `source_id`, playback decision preview, safe player shell, and User Playback
+  State watched/unwatched writes through the Public Client SDK. The browser
+  shell intentionally does not render a real media element or stream URL until
+  MWF-GAP-004 chooses a secure playback auth transport. Continuous time-based
+  progress writes remain tied to that real player follow-on.
 
 ## M5 - Closeout And Follow-On Split
 

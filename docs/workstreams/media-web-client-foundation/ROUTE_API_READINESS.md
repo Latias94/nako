@@ -28,7 +28,7 @@ The generated SDK was already current after regeneration.
 | `/search` | `searchItems()` / `GET /search` | Ready for MVP | Search supports `q`, `facet`, limit, and offset. Facets are lightweight strings without typed counts; acceptable for the first slice. |
 | `/items/:itemId` | `getItem()`, `listItemCredits()`, `listItemImages()` | Ready | Item detail includes sources, credits, tags, genres, collections, studios, and selected artwork refs. |
 | Artwork | `image()` / `GET /images/{image_id}` | Ready | Variant query uses safe selected artwork ids and dimensions. |
-| Source/Version Picker | `ItemDetailResponse.sources`, `getSourceProbe()` | Ready for MVP | Enough for a source list using file names and technical facts. Rich Source Variant labels remain future work. |
+| Source/Version Picker | `ItemDetailResponse.sources`, `getPlaybackDecision()` | Ready for MVP | MWF-050 uses item sources plus playback decision facts for version choice. Rich Source Variant labels remain future work. |
 | Playback decision | `getPlaybackDecision()` | Ready | Decision returns direct/remux/transcode mode without leaking server internals. |
 | Browser direct/remux stream | `streamSource()`, `remuxStreamSource()` | Gap for native video element | SDK can fetch with bearer headers, but a normal `<video src>` cannot attach Authorization headers. Direct streaming through `fetch` is not a robust range-streaming player path. |
 | Browser HLS | `hlsPlaylist()`, `hlsSegment()` | Partial | JavaScript HLS clients may attach headers. Native HLS playback cannot reliably attach bearer headers. The first player must choose a supported auth transport instead of assuming plain media URLs work. |
@@ -92,6 +92,12 @@ Recommended options before MWF-050:
 The first Media Web player should not pretend direct `<video src>` playback is
 securely available with bearer-only auth.
 
+MWF-050 narrowed this gap by shipping a source picker, playback-decision
+preview, and `/media/watch/:itemId` shell without rendering a real media
+element or stream URL. The remaining follow-on is to choose one transport:
+JavaScript HLS/MSE with headers, browser cookie/session auth, or short-lived
+playback tickets that preserve Library Access and playback-session policy.
+
 ## Accepted MWF-030 Scaffold Boundary
 
 MWF-030 may still scaffold the Media surface inside `apps/admin-web` if it
@@ -103,3 +109,16 @@ stays within this boundary:
 - fixture mode must be visibly development/test-only;
 - do not implement a real library item grid, Recently Added rail, or browser
   player until the relevant gaps are resolved or consciously narrowed.
+
+## Accepted MWF-050 Playback Shell Boundary
+
+MWF-050 may expose Source/Version Picker, playback-decision preview, and
+User Playback State writes in Media Item detail and `/media/watch/:itemId` if:
+
+- source selection is URL-owned through safe Media Source IDs;
+- decisions are loaded through `getPlaybackDecision()`;
+- watched/unwatched writes use `/users/me/playback-state`;
+- the UI does not render raw stream URLs, local paths, raw Source Locators, or
+  Admin API diagnostics;
+- the watch shell clearly waits for a secure stream transport instead of
+  pretending bearer-only `<video src>` works.

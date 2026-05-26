@@ -3,12 +3,13 @@
   "slug": "media-web-client-foundation",
   "title": "Media Web Client Foundation",
   "status": "active",
-  "current_task": "MWF-050",
+  "current_task": "MWF-060",
   "completed_tasks": [
     "MWF-010",
     "MWF-020",
     "MWF-030",
-    "MWF-040"
+    "MWF-040",
+    "MWF-050"
   ],
   "updated": "2026-05-26",
   "scope_kind": "execution",
@@ -66,6 +67,10 @@
     {
       "task": "MWF-040",
       "summary": "Added Media Libraries, Media Library detail, URL-owned search, and Media Item detail routes against Public Client SDK methods, with fixture/live data-source coverage, redaction tests, and browser smoke."
+    },
+    {
+      "task": "MWF-050",
+      "summary": "Added Source/Version Picker, playback decision preview, safe watch shell, and User Playback State watched/unwatched writes through the shared Media surface, while keeping real browser stream playback gated on the auth transport follow-on."
     }
   ],
   "adr_refs": [
@@ -76,6 +81,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "MWF-050 should continue inside the shared Admin Web frontend package. Build source selection and playback-decision UX against Public Client API contracts only; do not add a browser player until the playback auth transport gap is resolved."
+    "notes": "MWF-060 should close the lane after final evidence review. Keep the real browser media element split to the playback auth transport follow-on; do not reopen this lane for Management Context Links, credential/session UX, Tauri/native playback, or recommendations."
   }
 }
