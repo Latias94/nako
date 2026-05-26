@@ -3,7 +3,7 @@
   "slug": "identity-and-library-access-contract",
   "title": "Identity And Library Access Contract",
   "status": "active",
-  "current_task": "ILA-040",
+  "current_task": "ILA-050",
   "updated": "2026-05-26",
   "scope_kind": "execution",
   "problem": "Nako needs durable local users, roles, Library Access, and principal resolution before Media Web, multi-user playback, or permission-gated admin context links can ship.",
@@ -56,6 +56,10 @@
     {
       "task": "ILA-030",
       "summary": "Added redaction-safe Admin API access-management DTOs, routes, validation, generated Admin Web contract types, and system coverage for local users, roles, status changes, and Library Access policy rows."
+    },
+    {
+      "task": "ILA-040",
+      "summary": "Applied effective Library Access to Public Client API library/catalog/source/image/playback and User Playback State routes without adding Admin policy internals to public DTOs."
     }
   ],
   "adr_refs": [
@@ -67,6 +71,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Continue with ILA-040. Admin API access-management contracts exist, but Public Client API browse/playback/user-state flows still need effective Library Access enforcement. If production compatibility appears, stop and switch to forward-only migrations."
+    "notes": "Continue with ILA-050. Identity persistence, Admin API access-management contracts, and Public Client API effective Library Access enforcement are implemented. Close the lane or split Admin Web account UI, Media Web login, invitations, and Management Context Links."
   }
 }

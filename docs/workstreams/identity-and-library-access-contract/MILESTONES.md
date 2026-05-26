@@ -65,6 +65,14 @@ Exit criteria:
 - Public DTOs expose only client-safe access summaries when needed.
 - Public SDK/OpenAPI inventories remain free of admin-only policy internals.
 
+Status: Complete for ILA-040. Public library/catalog/source/image/playback
+and User Playback State handlers resolve effective Library Access from the
+authenticated principal. Browse routes filter inaccessible libraries/items,
+playback and User Playback State write routes require `play`, legacy public
+library management commands require `manage`, and Continue Watching filters
+returned items by current access. Public DTOs were not expanded with Admin
+policy internals.
+
 ## M5 - Closeout
 
 Exit criteria:

@@ -4,9 +4,10 @@ use std::{
 };
 
 use nako_core::{
-    AdminSettingsRepository, IdentityAccessRepository, LibraryAccessPolicy,
-    LibraryAccessPolicyFilter, LibraryAccessPolicyScope, LibraryId, NakoError, PageRequest, Result,
-    RoleAssignment, User, UserId, UserPrincipalId,
+    AdminSettingsRepository, EffectiveLibraryAccess, IdentityAccessRepository, LibraryAccessPolicy,
+    LibraryAccessPolicyFilter, LibraryAccessPolicyScope, LibraryId, ManagedArtworkRepository,
+    MediaItemId, MediaRepository, MediaSource, MediaSourceId, NakoError, PageRequest, Result,
+    RoleAssignment, SelectedArtworkId, SelectedArtworkRecord, User, UserId, UserPrincipalId,
 };
 use nako_db::{
     DatabaseBackendCapabilities, DatabaseBackendKind, DatabaseConnectOptions, NakoDatabase,
@@ -259,6 +260,39 @@ impl NakoApp {
             .store
             .list_library_access_policies(filter, page)
             .await
+    }
+
+    pub(crate) async fn resolve_effective_library_access(
+        &self,
+        user_id: UserId,
+        library_id: LibraryId,
+    ) -> Result<EffectiveLibraryAccess> {
+        self.inner
+            .store
+            .resolve_effective_library_access(user_id, library_id)
+            .await
+    }
+
+    pub(crate) async fn get_media_source_record(
+        &self,
+        source_id: MediaSourceId,
+    ) -> Result<Option<MediaSource>> {
+        MediaRepository::get_media_source(&self.inner.store, source_id).await
+    }
+
+    pub(crate) async fn list_item_media_sources(
+        &self,
+        item_id: MediaItemId,
+    ) -> Result<Vec<MediaSource>> {
+        MediaRepository::list_item_sources(&self.inner.store, item_id, PageRequest::first_page())
+            .await
+    }
+
+    pub(crate) async fn get_selected_artwork_record(
+        &self,
+        selected_id: SelectedArtworkId,
+    ) -> Result<Option<SelectedArtworkRecord>> {
+        ManagedArtworkRepository::get_selected_artwork(&self.inner.store, selected_id).await
     }
 
     pub(crate) fn shutdown_runtime(&self) {

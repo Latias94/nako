@@ -5,8 +5,8 @@ Last updated: 2026-05-26
 
 ## Current State
 
-ILA-030 is complete for the first Admin API access-management slice. The user
-explicitly accepted fearless refactoring and database migration consolidation
+ILA-040 is complete for the first Public Client API effective-access slice. The
+user explicitly accepted fearless refactoring and database migration consolidation
 because Nako currently has no users. The runtime migrators use one baseline
 migration per backend:
 
@@ -39,20 +39,32 @@ These routes manage user records, Role assignments, and Library Access policy
 rows only. They do not create password credentials, sessions, invitation
 tokens, OAuth/OIDC links, or public registration.
 
+Public Client API library/catalog/source/image/playback/User Playback State
+routes now enforce effective Library Access from `AuthenticatedPrincipal`:
+
+- `browse` can list/view client-safe library and catalog data.
+- `play` is required for playback decisions, streams, remux/HLS,
+  playback-session lookup/cancel, and User Playback State writes.
+- `manage` is required for legacy public library management commands outside
+  `/admin/v1`.
+- Continue Watching stays principal-scoped and filters returned items by
+  current access.
+- Public DTOs do not expose Admin policy rows, Role assignments, policy
+  reasons, credentials, or account internals.
+
 ## Next Task
 
-ILA-040: apply effective Library Access to Public Client API browse/playback
-and user-state flows.
+ILA-050: close the lane or split follow-on work.
 
 Suggested first steps:
 
-1. Identify public library/item/source/playback route query points that must
-   check effective Library Access.
-2. Add tests proving a viewer cannot browse or play unassigned Media Libraries.
-3. Keep Admin policy rows out of public DTOs; expose only client-safe effective
-   access summaries if needed.
-4. Keep User Playback State stable by principal while enforcing item/library
-   visibility.
+1. Run final verification with `verify-rust-workstream`.
+2. Decide whether to close this lane now or keep ILA-050 as a short closeout
+   task.
+3. Split follow-ons for Admin Web account UI, Media Web login/account
+   switching, invitation onboarding, and Management Context Links.
+4. Keep credential/session/login UX separate from this persistence and access
+   enforcement lane.
 
 ## Important Constraints
 
@@ -62,6 +74,7 @@ Suggested first steps:
 - Do not expose Admin Web edit controls until credential/login UX and lockout
   behavior are accepted.
 - Do not add public registration by default.
+- Do not expose Admin policy internals through Public Client DTOs.
 - If production database compatibility becomes required, stop baseline
   consolidation and switch to forward-only migrations.
 

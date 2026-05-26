@@ -643,12 +643,17 @@ configured Media Library. In Single-Admin Mode the current principal has
 `manage` access to all configured libraries.
 
 The access summary route is read-only. It does not create user accounts, assign
-Roles, mutate Library Access, or imply that Library Access is already enforced
-on every Public Client API browse/playback route. It never returns bearer token
-values, auth token environment variable names, local filesystem roots, source
-URIs, hosts, URLs, WebDAV credentials, database URLs, provider secrets, Addon
-tokens, webhook secrets, or raw request headers. It is an Admin API route and
-is not part of Public Client OpenAPI or generated SDK artifacts.
+Roles, or mutate Library Access. It never returns bearer token values, auth
+token environment variable names, local filesystem roots, source URIs, hosts,
+URLs, WebDAV credentials, database URLs, provider secrets, Addon tokens,
+webhook secrets, or raw request headers. It is an Admin API route and is not
+part of Public Client OpenAPI or generated SDK artifacts.
+
+Public Client API browse/playback/user-state routes resolve effective Library
+Access from the authenticated principal before returning media-library,
+catalog, source, playback, image, or Continue Watching data. Public responses
+only expose filtered client-safe data; they do not expose Admin policy rows,
+policy reasons, Role assignments, or credential/account internals.
 
 `GET|POST /admin/v1/access/users`,
 `PUT /admin/v1/access/users/{user_id}/roles`,

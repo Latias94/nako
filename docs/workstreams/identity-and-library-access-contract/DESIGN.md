@@ -245,6 +245,21 @@ ILA-030 accepted the first Admin API access-management contract:
 - ILA-040 owns enforcement of effective Library Access on Public Client API
   browse/playback/user-state flows.
 
+ILA-040 accepted the first Public Client API effective-access enforcement:
+
+- Public media-library, catalog item, selected image, source probe, playback,
+  and User Playback State routes now read `AuthenticatedPrincipal` and resolve
+  effective Library Access before returning data or starting playback.
+- `browse` access can list/view client-safe library and catalog data.
+- `play` access is required for playback decisions, direct streams, remux/HLS
+  entrypoints, playback-session lookup/cancel, and User Playback State writes.
+- `manage` access is required for legacy public library management commands
+  that remain outside `/admin/v1`.
+- Continue Watching keeps the stable principal-scoped storage model but filters
+  returned items by current effective Library Access.
+- Public DTOs were not expanded with Admin policy rows, Role assignments,
+  policy reasons, or credential/account details.
+
 ### API Boundaries
 
 Admin API owns:

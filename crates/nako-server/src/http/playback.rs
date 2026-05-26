@@ -1,7 +1,7 @@
 use std::{io::SeekFrom, path::Path as FsPath};
 
 use axum::{
-    Json, Router,
+    Extension, Json, Router,
     body::Body,
     extract::{Path, Query, State},
     http::{HeaderMap, HeaderValue, StatusCode, header},
@@ -11,6 +11,7 @@ use axum::{
 use nako_api::public_client::{
     PLAYBACK_SESSION_ID_HEADER, TranscodeSessionResponse, transcode_session_response_from_record,
 };
+use nako_core::AuthenticatedPrincipal;
 use nako_core::{MediaSourceId, NakoError, TranscodeSessionId};
 use nako_streaming::{
     ClientPlaybackCapabilities, DirectPlayRangeRequest, DirectPlayResponsePlan,
@@ -27,7 +28,10 @@ use crate::app::{
     DirectPlaySourceBody, HlsSourceRequest, NakoApp, RemuxSourceDisposition, RemuxSourceRequest,
 };
 
-use super::error::ApiResult;
+use super::{
+    access::{RequiredLibraryAccess, require_source_access},
+    error::ApiResult,
+};
 
 pub(super) fn routes() -> Router<NakoApp> {
     Router::new()
@@ -61,9 +65,12 @@ pub(super) fn routes() -> Router<NakoApp> {
 #[instrument(skip(app))]
 pub(super) async fn get_source_playback_decision(
     State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(source_id): Path<MediaSourceId>,
     Query(query): Query<PlaybackCapabilitiesQuery>,
 ) -> ApiResult<impl IntoResponse> {
+    require_source_access(&app, &principal, source_id, RequiredLibraryAccess::Play).await?;
+
     Ok(Json(
         app.playback()
             .get_source_playback_decision(source_id, query.into())
@@ -74,9 +81,12 @@ pub(super) async fn get_source_playback_decision(
 #[instrument(skip(app, headers))]
 pub(super) async fn stream_source(
     State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(source_id): Path<MediaSourceId>,
     headers: HeaderMap,
 ) -> ApiResult<Response> {
+    require_source_access(&app, &principal, source_id, RequiredLibraryAccess::Play).await?;
+
     let direct_play = app
         .playback()
         .plan_direct_play(source_id, direct_play_range_request(&headers))
@@ -93,9 +103,12 @@ pub(super) async fn stream_source(
 #[instrument(skip(app, headers))]
 pub(super) async fn head_stream_source(
     State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(source_id): Path<MediaSourceId>,
     headers: HeaderMap,
 ) -> ApiResult<Response> {
+    require_source_access(&app, &principal, source_id, RequiredLibraryAccess::Play).await?;
+
     let response = app
         .playback()
         .plan_direct_play_preflight(source_id, direct_play_range_request(&headers))
@@ -107,10 +120,13 @@ pub(super) async fn head_stream_source(
 #[instrument(skip(app, headers))]
 pub(super) async fn remux_stream_source(
     State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(source_id): Path<MediaSourceId>,
     Query(query): Query<RemuxPlaybackQuery>,
     headers: HeaderMap,
 ) -> ApiResult<Response> {
+    require_source_access(&app, &principal, source_id, RequiredLibraryAccess::Play).await?;
+
     let output_container = query.output_container.unwrap_or(RemuxContainer::Mp4);
     let remux = app
         .playback()
@@ -167,9 +183,12 @@ pub(super) async fn remux_stream_source(
 #[instrument(skip(app))]
 pub(super) async fn head_remux_stream_source(
     State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(source_id): Path<MediaSourceId>,
     Query(query): Query<RemuxPlaybackQuery>,
 ) -> ApiResult<Response> {
+    require_source_access(&app, &principal, source_id, RequiredLibraryAccess::Play).await?;
+
     let output_container = query.output_container.unwrap_or(RemuxContainer::Mp4);
     let remux = app
         .playback()
@@ -197,9 +216,12 @@ pub(super) async fn head_remux_stream_source(
 #[instrument(skip(app))]
 pub(super) async fn hls_playlist_source(
     State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(source_id): Path<MediaSourceId>,
     Query(query): Query<PlaybackCapabilitiesQuery>,
 ) -> ApiResult<Response> {
+    require_source_access(&app, &principal, source_id, RequiredLibraryAccess::Play).await?;
+
     let playlist = app
         .playback()
         .hls_playlist(HlsSourceRequest {
@@ -217,8 +239,18 @@ pub(super) async fn hls_playlist_source(
 #[instrument(skip(app))]
 pub(super) async fn hls_segment(
     State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
     Path((session_id, segment_name)): Path<(TranscodeSessionId, String)>,
 ) -> ApiResult<Response> {
+    let session = app.playback().get_transcode_session(session_id).await?;
+    require_source_access(
+        &app,
+        &principal,
+        session.source_id,
+        RequiredLibraryAccess::Play,
+    )
+    .await?;
+
     let segment = app
         .playback()
         .plan_hls_segment(session_id, &segment_name)
@@ -249,18 +281,36 @@ pub(super) async fn hls_segment(
 #[instrument(skip(app))]
 pub(super) async fn get_playback_session(
     State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(session_id): Path<TranscodeSessionId>,
 ) -> ApiResult<Json<TranscodeSessionResponse>> {
-    Ok(Json(transcode_session_response_from_record(
-        app.playback().get_transcode_session(session_id).await?,
-    )))
+    let session = app.playback().get_transcode_session(session_id).await?;
+    require_source_access(
+        &app,
+        &principal,
+        session.source_id,
+        RequiredLibraryAccess::Play,
+    )
+    .await?;
+
+    Ok(Json(transcode_session_response_from_record(session)))
 }
 
 #[instrument(skip(app))]
 pub(super) async fn cancel_playback_session(
     State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(session_id): Path<TranscodeSessionId>,
 ) -> ApiResult<Json<TranscodeSessionResponse>> {
+    let session = app.playback().get_transcode_session(session_id).await?;
+    require_source_access(
+        &app,
+        &principal,
+        session.source_id,
+        RequiredLibraryAccess::Play,
+    )
+    .await?;
+
     Ok(Json(transcode_session_response_from_record(
         app.playback().cancel_transcode_session(session_id).await?,
     )))

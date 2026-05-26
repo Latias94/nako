@@ -4,6 +4,7 @@ use nako_api::public_client::{API_VERSION, API_VERSION_HEADER};
 
 use crate::app::NakoApp;
 
+mod access;
 mod addons;
 mod admin;
 mod auth;

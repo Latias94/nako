@@ -20,6 +20,6 @@ Authoritative docs:
 - `EVIDENCE_AND_GATES.md`
 - `HANDOFF.md`
 
-Current executable task: `ILA-040`, apply effective Library Access to Public
-Client API browse/playback and user-state flows without exposing Admin policy
-internals.
+Current executable task: `ILA-050`, close the lane or split follow-on work for
+Admin Web account UI, Media Web login, invitations, and Management Context
+Links.

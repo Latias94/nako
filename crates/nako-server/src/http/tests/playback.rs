@@ -155,6 +155,32 @@ async fn playback_decision_and_direct_stream_routes_work() {
 }
 
 #[tokio::test]
+async fn playback_routes_require_play_library_access() {
+    let (_temp, app, source, store) =
+        app_with_media_source_config("access-denied.mkv", b"media", |_| {}).await;
+    let principal =
+        local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::Browse)
+            .await;
+    let router = public_client_router_with_principal(app, principal);
+
+    let decision = response_for(
+        &router,
+        Method::GET,
+        &format!("/sources/{}/playback/decision", source.id),
+    )
+    .await;
+    let stream = response_for(
+        &router,
+        Method::GET,
+        &format!("/sources/{}/stream", source.id),
+    )
+    .await;
+
+    assert_eq!(decision.status(), StatusCode::FORBIDDEN);
+    assert_eq!(stream.status(), StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
 async fn direct_stream_head_returns_headers_without_body() {
     let (_temp, router, source, _store) = router_with_media_source("demo.mp4", b"0123456789").await;
 

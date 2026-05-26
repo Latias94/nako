@@ -5,7 +5,7 @@ use std::{
 };
 
 use axum::{
-    Json,
+    Extension, Json,
     body::{Body, to_bytes},
     http::{Method, Request, StatusCode, header},
     response::{IntoResponse, Response},
@@ -105,15 +105,16 @@ use nako_core::{
     AddonId, AddonPermission, AddonRepository, AddonRoutingPlanStatus, AddonRoutingPlanTarget,
     AddonSideEffectApplyStatus, AddonSideEffectTargetKind, AddonSideEffectValidationStatus,
     AddonStatus, AddonTokenStatus, ArtworkCandidateRepository, ArtworkCandidateSourceKind,
-    ArtworkCandidateStatus, AutomationArtifactId, AutomationArtifactKind, AutomationArtifactStatus,
-    AutomationCapability, AutomationJobInput, AutomationProviderId, AutomationProviderStatus,
-    AutomationRepository, CanonicalMetadata, CatalogRepository, CreditRole, DomainEventKind,
-    DomainEventSubject, EventId, EventOutboxRepository, ExternalProvider,
-    GeneratedArtifactReviewDecision, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind,
-    ImageOwner, IngestionFailureClass, IngestionFailurePhase, IngestionFailureRepository,
-    IngestionFailureStatus, ItemCredit, ItemGenre, ItemTag, JobId, JobKind, JobRepository,
-    JobStatus, Library, LibraryAccessLevel, LibraryId, LibraryItemRepository, LibraryItemState,
-    LibraryOptions, LibraryRepository, LocalInferenceEvidence, LocalInferenceEvidenceId,
+    ArtworkCandidateStatus, AuthenticatedPrincipal, AutomationArtifactId, AutomationArtifactKind,
+    AutomationArtifactStatus, AutomationCapability, AutomationJobInput, AutomationProviderId,
+    AutomationProviderStatus, AutomationRepository, CanonicalMetadata, CatalogRepository,
+    CreditRole, DomainEventKind, DomainEventSubject, EventId, EventOutboxRepository,
+    ExternalProvider, GeneratedArtifactReviewDecision, Genre, GenreId, IdentityAccessRepository,
+    ImageAsset, ImageAssetId, ImageKind, ImageOwner, IngestionFailureClass, IngestionFailurePhase,
+    IngestionFailureRepository, IngestionFailureStatus, ItemCredit, ItemGenre, ItemTag, JobId,
+    JobKind, JobRepository, JobStatus, Library, LibraryAccessLevel, LibraryAccessPolicy,
+    LibraryAccessPolicyScope, LibraryId, LibraryItemRepository, LibraryItemState, LibraryOptions,
+    LibraryRepository, LocalInferenceEvidence, LocalInferenceEvidenceId,
     LocalInferenceEvidenceSource, LocalInferenceRepository, LocalMetadataPolicy,
     ManagedArtworkArtifactId, ManagedArtworkIngestStatus, ManagedArtworkRepository,
     ManagedImportRepository, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
@@ -125,11 +126,11 @@ use nako_core::{
     NewTranscodeSession, NewVfsCacheFailure, OutboxEventStatus, PageRequest, Person, PersonId,
     ProviderMapping, ProviderMappingId, ProviderMappingRepository, ProviderMappingStatus,
     ProviderRawResponse, ProviderRawResponseFilter, ProviderSubject, ProviderSubjectId,
-    ProviderSubjectKind, StagingManifestId, StagingManifestRepository, StagingPurpose,
-    StagingState, StorageErrorKind, Tag, TagId, TranscodeFailureCategory, TranscodeSessionId,
-    TranscodeSessionKind, TranscodeSessionRepository, TranscodeSessionState, UserRole, UserStatus,
-    VfsCacheOperation, VfsCacheRepository, VfsCachedObject, VfsCachedObjectKind,
-    WebhookEndpointStatus,
+    ProviderSubjectKind, RoleAssignment, StagingManifestId, StagingManifestRepository,
+    StagingPurpose, StagingState, StorageErrorKind, Tag, TagId, TranscodeFailureCategory,
+    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRepository, TranscodeSessionState,
+    User, UserId, UserPrincipalId, UserRole, UserStatus, VfsCacheOperation, VfsCacheRepository,
+    VfsCachedObject, VfsCachedObjectKind, WebhookEndpointStatus,
 };
 use nako_db::NakoDatabase;
 use nako_search::{SearchDocument, SearchIndex, SearchQuery};
@@ -171,11 +172,84 @@ async fn router_with_media_source(
     router_with_media_source_config(file_name, content, |_| {}).await
 }
 
+fn public_client_router_with_principal(app: NakoApp, principal: AuthenticatedPrincipal) -> Router {
+    let principal_id = principal.principal_id.clone();
+
+    Router::new()
+        .merge(super::library::routes())
+        .merge(super::catalog::routes())
+        .merge(super::playback::routes())
+        .merge(super::user_playback::routes())
+        .layer(Extension(principal_id))
+        .layer(Extension(principal))
+        .with_state(app)
+}
+
+async fn local_viewer_with_library_access(
+    store: &NakoDatabase,
+    library_id: LibraryId,
+    access: LibraryAccessLevel,
+) -> AuthenticatedPrincipal {
+    let user_id = UserId::new();
+    let principal_id = UserPrincipalId::new(format!("local-user:{user_id}")).unwrap();
+    let user = User {
+        id: user_id,
+        principal_id: principal_id.clone(),
+        username: format!("viewer-{}", user_id),
+        display_name: "Library viewer".to_owned(),
+        status: UserStatus::Active,
+        created_at_ms: 1,
+        updated_at_ms: 1,
+    };
+
+    store.upsert_user(&user).await.unwrap();
+    store
+        .replace_role_assignments(
+            user_id,
+            &[RoleAssignment {
+                user_id,
+                role: UserRole::Viewer,
+                granted_at_ms: 1,
+            }],
+        )
+        .await
+        .unwrap();
+    store
+        .upsert_library_access_policy(&LibraryAccessPolicy {
+            scope: LibraryAccessPolicyScope::User(user_id),
+            library_id,
+            access,
+            created_at_ms: 1,
+            updated_at_ms: 1,
+        })
+        .await
+        .unwrap();
+
+    AuthenticatedPrincipal {
+        user_id,
+        principal_id,
+        roles: vec![UserRole::Viewer],
+        bootstrap: false,
+    }
+}
+
 async fn router_with_media_source_config(
     file_name: &str,
     content: &[u8],
     configure: impl FnOnce(&mut NakoServerConfig),
 ) -> (tempfile::TempDir, Router, MediaSource, NakoDatabase) {
+    let (temp, app, source, store) =
+        app_with_media_source_config(file_name, content, configure).await;
+    let router = build_router(app);
+
+    (temp, router, source, store)
+}
+
+async fn app_with_media_source_config(
+    file_name: &str,
+    content: &[u8],
+    configure: impl FnOnce(&mut NakoServerConfig),
+) -> (tempfile::TempDir, NakoApp, MediaSource, NakoDatabase) {
     let temp = tempfile::tempdir().unwrap();
     fs::write(temp.path().join(file_name), content).unwrap();
     let library_id = LibraryId::new();
@@ -245,9 +319,8 @@ async fn router_with_media_source_config(
         .await
         .unwrap();
     store.upsert_media_source(&source).await.unwrap();
-    let router = build_router(app);
 
-    (temp, router, source, store)
+    (temp, app, source, store)
 }
 
 async fn router_with_remux_source(

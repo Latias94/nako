@@ -40,12 +40,12 @@ Last updated: 2026-05-26
 
 ## M4 - Public Client Effective Access
 
-- [ ] ILA-040 [owner=unassigned] [deps=ILA-020] [scope=crates/nako-api,crates/nako-server,crates/nako-client-protocol]
+- [x] ILA-040 [owner=codex] [deps=ILA-020] [scope=crates/nako-server,docs/api,docs/workstreams]
   Goal: Apply effective Library Access to public browse/playback/user-state flows and expose only client-safe current-user/access summaries if needed.
   Validation: focused Public Client API route tests; generated public SDK/OpenAPI leakage checks if DTOs change.
   Review: review-workstream for protocol compatibility.
-  Evidence: Public route tests and SDK/OpenAPI checks.
-  Handoff: Do not expose Admin policy rows through public DTOs.
+  Evidence: `crates/nako-server/src/http/access.rs`; `crates/nako-server/src/http/library.rs`; `crates/nako-server/src/http/catalog.rs`; `crates/nako-server/src/http/playback.rs`; `crates/nako-server/src/http/user_playback.rs`; `cargo nextest run -p nako-server public_browse_routes_filter_libraries_and_items_by_effective_access playback_routes_require_play_library_access user_playback_write_routes_require_play_library_access continue_watching_filters_items_without_current_library_access --no-fail-fast`; `cargo nextest run -p nako-server catalog playback user_playback bearer_auth --no-fail-fast`.
+  Handoff: DONE. Public browse/playback/user-state routes enforce effective Library Access through the authenticated principal without exposing Admin policy rows through public DTOs. Public client protocol DTOs did not change.
 
 ## M5 - Closeout And Follow-Ons
 
