@@ -18,7 +18,7 @@ Task IDs use the `MWF` prefix.
 
 ## M1 - Public Client API And SDK Readiness
 
-- [ ] MWF-020 [owner=unassigned] [deps=MWF-010] [scope=crates/nako-api,sdk/typescript,docs/workstreams/media-web-client-foundation]
+- [x] MWF-020 [owner=unassigned] [deps=MWF-010] [scope=crates/nako-api,sdk/typescript,docs/workstreams/media-web-client-foundation]
   Goal: Audit the generated Public Client SDK/OpenAPI routes needed by the
   first Media Web routes and list gaps before UI code depends on them.
   Validation: `cargo test -p nako-api public_openapi -- --nocapture`; `cargo run -q -p nako-api --example emit-typescript-sdk -- --output sdk/typescript/src/index.ts`; `git diff --check`
@@ -56,7 +56,7 @@ Task IDs use the `MWF` prefix.
 
 ## M3 - Browse, Search, And Detail
 
-- [ ] MWF-040 [owner=unassigned] [deps=MWF-030] [scope=apps/admin-web/src/surfaces/media]
+- [x] MWF-040 [owner=codex] [deps=MWF-030] [scope=apps/admin-web/src/App.tsx,apps/admin-web/src/surfaces/media,apps/admin-web/src/styles.css]
   Goal: Implement accessible Media Libraries, Media Library detail, search,
   and Media Item detail from Public Client API data.
   Validation: `cd apps/admin-web && npm run check && npm run test`; browser smoke for `/media/libraries`, `/media/libraries/:libraryId`, `/media/search`, and `/media/items/:itemId`.
@@ -64,6 +64,12 @@ Task IDs use the `MWF` prefix.
   admin diagnostics or unsafe source/provider/storage fields.
   Evidence: Route tests, redaction tests, and browser screenshots or notes.
   Handoff: Defer recommendations and storefront discovery.
+  Result: DONE 2026-05-26. `/media/libraries`,
+  `/media/libraries/:libraryId`, `/media/search`, and `/media/items/:itemId`
+  now use Public Client SDK data-source methods with URL-owned pagination/search
+  state. The library detail route shows a source evidence list, not a fake
+  library-scoped item grid; MWF-GAP-002 remains open for a first-class public
+  library item browse contract.
 
 ## M4 - Source Selection, Player, And User Playback State
 

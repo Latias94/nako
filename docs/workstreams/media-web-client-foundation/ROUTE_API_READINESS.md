@@ -21,6 +21,7 @@ The generated SDK was already current after regeneration.
 | Current account display | None | Gap | No Public Client `GET /users/me`, session, or profile route exists. Account switching can only mean clearing/replacing the active connection until credential/session work exists. |
 | `/libraries` | `listLibraries()` / `GET /libraries` | Ready | Server now filters returned libraries by effective Library Access. |
 | `/libraries/:libraryId` header | `getLibrary()` / `GET /libraries/{library_id}` | Ready | Server gates by browse Library Access. |
+| `/libraries/:libraryId` source evidence | `listLibrarySources()` / `GET /libraries/{library_id}/sources` | Ready for MWF-040 | MWF-040 may show this as source evidence. It must not be labeled as the consumer library item grid. |
 | `/libraries/:libraryId` item grid | Partial | Gap | `listLibrarySources()` exists, but it is source-centric. `listItems()` has only page query and cannot filter by library or sort by library item state. Add `GET /libraries/{library_id}/items` or a typed `library_id` filter on `GET /items` before building a real library browse grid. |
 | Home Continue Watching | `listContinueWatching()` / `GET /users/me/playback-state/continue-watching` | Ready | Server filters returned items by current Library Access. |
 | Home Recently Added | Partial | Gap | `listItems()` has no sort key or library/date-added query. Do not label a generic item page as Recently Added until a typed sort/filter contract exists. |
@@ -55,13 +56,17 @@ Media Web needs a user-facing library page. The current public route for a
 library's contents is `GET /libraries/{library_id}/sources`, which is useful for
 operator/source evidence but not ideal as the consumer item grid.
 
-Recommended follow-on before MWF-040:
+Recommended follow-on before replacing the source evidence list with a real
+library item grid:
 
 - Add `GET /libraries/{library_id}/items` with page, optional kind/facet/sort
   query, and server-side Library Access enforcement; or
 - Extend `GET /items` with a typed `library_id` filter and explicit sort keys.
 
 Do not use Admin API catalog governance routes for this.
+
+MWF-040 intentionally uses `listLibrarySources()` as a source evidence list and
+keeps this gap open for a later user-facing library item grid.
 
 ### MWF-GAP-003 - Recently Added Sort/Feed
 

@@ -3,11 +3,12 @@
   "slug": "media-web-client-foundation",
   "title": "Media Web Client Foundation",
   "status": "active",
-  "current_task": "MWF-040",
+  "current_task": "MWF-050",
   "completed_tasks": [
     "MWF-010",
     "MWF-020",
-    "MWF-030"
+    "MWF-030",
+    "MWF-040"
   ],
   "updated": "2026-05-26",
   "scope_kind": "execution",
@@ -61,6 +62,10 @@
     {
       "task": "MWF-030",
       "summary": "Added the shared Admin/Media frontend surface boundary inside apps/admin-web with symmetric switchers, Media connect shell, fixture/live Public Client SDK data source, focused tests, package validation, and browser smoke."
+    },
+    {
+      "task": "MWF-040",
+      "summary": "Added Media Libraries, Media Library detail, URL-owned search, and Media Item detail routes against Public Client SDK methods, with fixture/live data-source coverage, redaction tests, and browser smoke."
     }
   ],
   "adr_refs": [
@@ -71,6 +76,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "MWF-040 should continue inside the shared Admin Web frontend package and add browse/search/detail routes only against Public Client API contracts. If a Public Client API gap blocks a route, split or fix the smallest public contract gap instead of bridging through Admin API."
+    "notes": "MWF-050 should continue inside the shared Admin Web frontend package. Build source selection and playback-decision UX against Public Client API contracts only; do not add a browser player until the playback auth transport gap is resolved."
   }
 }

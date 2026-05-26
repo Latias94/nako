@@ -45,7 +45,9 @@ export function MediaShell({
           {mediaNavItems.map((item) => {
             const Icon = item.icon;
             const active =
-              activePathname === item.to || activePathname.startsWith(`${item.to}/`);
+              item.to === "/media"
+                ? activePathname === item.to
+                : activePathname === item.to || activePathname.startsWith(`${item.to}/`);
             return (
               <Link
                 className={active ? "mediaNavItem active" : "mediaNavItem"}

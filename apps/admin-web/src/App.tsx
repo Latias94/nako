@@ -79,16 +79,22 @@ import { MediaSessionProvider } from "./surfaces/media/MediaSession";
 import {
   MediaConnectPage,
   MediaHomePage,
+  MediaItemDetailPage,
+  MediaLibraryDetailPage,
   MediaLibrariesPage,
+  type MediaPageSearch,
   MediaSearchPage,
+  type MediaSearchRouteSearch,
 } from "./surfaces/media/MediaPages";
 import {
   createMediaWebDataSource,
+  type MediaConnection,
   type MediaDataSourceFactory,
 } from "./surfaces/media/mediaDataSource";
 
 type RouterContext = {
   dataSource: AdminDataSource;
+  initialMediaConnection: MediaConnection | null;
   mediaDataSourceFactory: MediaDataSourceFactory;
 };
 
@@ -224,13 +230,28 @@ const mediaConnectRoute = createRoute({
 const mediaLibrariesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/media/libraries",
+  validateSearch: validateMediaPageSearch,
   component: MediaLibrariesRoute,
+});
+
+const mediaLibraryDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/media/libraries/$libraryId",
+  validateSearch: validateMediaPageSearch,
+  component: MediaLibraryDetailRoute,
 });
 
 const mediaSearchRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/media/search",
+  validateSearch: validateMediaSearch,
   component: MediaSearchRoute,
+});
+
+const mediaItemDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/media/items/$itemId",
+  component: MediaItemDetailRoute,
 });
 
 const routeTree = rootRoute.addChildren([
@@ -256,7 +277,9 @@ const routeTree = rootRoute.addChildren([
   mediaRoute,
   mediaConnectRoute,
   mediaLibrariesRoute,
+  mediaLibraryDetailRoute,
   mediaSearchRoute,
+  mediaItemDetailRoute,
 ]);
 
 const adminNavItems = [
@@ -292,17 +315,19 @@ declare module "@tanstack/react-router" {
 
 export function App({
   dataSource,
+  initialMediaConnection = null,
   initialLocale,
   mediaDataSourceFactory = createMediaWebDataSource,
 }: {
   dataSource: AdminDataSource;
+  initialMediaConnection?: MediaConnection | null;
   initialLocale?: AdminLocale;
   mediaDataSourceFactory?: MediaDataSourceFactory;
 }) {
   const [queryClient] = useState(() => new QueryClient());
   const router = useMemo(
-    () => createAppRouter({ dataSource, mediaDataSourceFactory }),
-    [dataSource, mediaDataSourceFactory],
+    () => createAppRouter({ dataSource, initialMediaConnection, mediaDataSourceFactory }),
+    [dataSource, initialMediaConnection, mediaDataSourceFactory],
   );
 
   return (
@@ -316,7 +341,7 @@ export function App({
 
 function RootLayout() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const { mediaDataSourceFactory } = rootRoute.useRouteContext();
+  const { initialMediaConnection, mediaDataSourceFactory } = rootRoute.useRouteContext();
   const { locale, setLocale, t } = useI18n();
   const navItems = useMemo(
     () =>
@@ -328,7 +353,10 @@ function RootLayout() {
   );
 
   return (
-    <MediaSessionProvider dataSourceFactory={mediaDataSourceFactory}>
+    <MediaSessionProvider
+      dataSourceFactory={mediaDataSourceFactory}
+      initialConnection={initialMediaConnection}
+    >
       {pathname.startsWith("/media") ? (
         <MediaShell activePathname={pathname}>
           <Outlet />
@@ -598,11 +626,90 @@ function MediaConnectRoute() {
 }
 
 function MediaLibrariesRoute() {
-  return <MediaLibrariesPage />;
+  const search = mediaLibrariesRoute.useSearch();
+  const navigate = mediaLibrariesRoute.useNavigate();
+
+  return (
+    <MediaLibrariesPage
+      onSearchChange={(next) => {
+        void navigate({
+          search: (current) => normalizeMediaPageSearch({ ...current, ...next }),
+        });
+      }}
+      search={search}
+    />
+  );
+}
+
+function MediaLibraryDetailRoute() {
+  const { libraryId } = mediaLibraryDetailRoute.useParams();
+  const search = mediaLibraryDetailRoute.useSearch();
+  const navigate = mediaLibraryDetailRoute.useNavigate();
+
+  return (
+    <MediaLibraryDetailPage
+      libraryId={libraryId}
+      onSearchChange={(next) => {
+        void navigate({
+          search: (current) => normalizeMediaPageSearch({ ...current, ...next }),
+        });
+      }}
+      search={search}
+    />
+  );
 }
 
 function MediaSearchRoute() {
-  return <MediaSearchPage />;
+  const search = mediaSearchRoute.useSearch();
+  const navigate = mediaSearchRoute.useNavigate();
+
+  return (
+    <MediaSearchPage
+      onSearchChange={(next) => {
+        void navigate({
+          search: (current) => normalizeMediaSearch({ ...current, ...next }),
+        });
+      }}
+      search={search}
+    />
+  );
+}
+
+function MediaItemDetailRoute() {
+  const { itemId } = mediaItemDetailRoute.useParams();
+  return <MediaItemDetailPage itemId={itemId} />;
+}
+
+function validateMediaPageSearch(search: Record<string, unknown>): MediaPageSearch {
+  return normalizeMediaPageSearch({
+    limit: positiveIntSearch(search.limit, 20),
+    offset: nonNegativeIntSearch(search.offset, 0),
+  });
+}
+
+function normalizeMediaPageSearch(search: Partial<MediaPageSearch>): MediaPageSearch {
+  return {
+    limit: positiveIntSearch(search.limit, 20),
+    offset: nonNegativeIntSearch(search.offset, 0),
+  };
+}
+
+function validateMediaSearch(search: Record<string, unknown>): MediaSearchRouteSearch {
+  return normalizeMediaSearch({
+    facet: stringSearch(search.facet),
+    limit: positiveIntSearch(search.limit, 20),
+    offset: nonNegativeIntSearch(search.offset, 0),
+    q: stringSearch(search.q),
+  });
+}
+
+function normalizeMediaSearch(search: Partial<MediaSearchRouteSearch>): MediaSearchRouteSearch {
+  return {
+    facet: emptyToUndefined(search.facet),
+    limit: positiveIntSearch(search.limit, 20),
+    offset: nonNegativeIntSearch(search.offset, 0),
+    q: emptyToUndefined(search.q),
+  };
 }
 
 function validateJobsSearch(search: Record<string, unknown>): JobsSearch {

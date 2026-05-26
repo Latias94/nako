@@ -7,7 +7,8 @@ Last updated: 2026-05-26
 
 MWF-010 opened the workstream. MWF-020 audited Public Client OpenAPI and the
 generated TypeScript SDK. MWF-030 added the first shared Admin/Media frontend
-surface boundary inside `apps/admin-web`.
+surface boundary inside `apps/admin-web`. MWF-040 added the first browse,
+search, and detail viewer routes.
 
 The accepted direction is one shared frontend project with explicit Admin and
 Media surfaces. The Media surface consumes Public Client API contracts only. It
@@ -16,34 +17,32 @@ Admin routes the playback client.
 
 ## Latest Task
 
-- Task ID: MWF-030
+- Task ID: MWF-040
 - Owner: codex
-- Files: `apps/admin-web/package.json`, `apps/admin-web/src/App.tsx`,
-  `apps/admin-web/src/components/layout/AdminShell.tsx`,
-  `apps/admin-web/src/surfaces/media`, `apps/admin-web/src/styles.css`,
-  workstream docs
-- Validation: `cd apps/admin-web && npm run check`; `cd apps/admin-web && npm run build`;
-  `cd apps/admin-web && npm run test`; boundary grep under
-  `apps/admin-web/src/surfaces/media`; Playwright smoke for `/media` and
-  `/overview`.
+- Files: `apps/admin-web/src/App.tsx`, `apps/admin-web/src/surfaces/media`,
+  `apps/admin-web/src/styles.css`, workstream docs
+- Validation: `cd apps/admin-web && npm run check`; `cd apps/admin-web && npm run test`;
+  `cd apps/admin-web && npm run build`; boundary grep under
+  `apps/admin-web/src/surfaces/media`; Playwright smoke for `/media/libraries`,
+  `/media/libraries/:libraryId`, `/media/items/:itemId`, and `/media/search`.
 - Status: DONE
-- Review: Media and Admin now coexist through route namespaces and symmetric
-  surface switchers. Media uses generated Public Client SDK data sources and
-  does not import Admin API runtime modules.
+- Review: Media Libraries, Media Library detail, URL-owned search, and Media
+  Item detail now use Public Client SDK data-source methods. Library detail
+  shows source evidence rather than pretending a first-class library item grid
+  exists.
 - Evidence: `EVIDENCE_AND_GATES.md`
 
 ## Active Task
 
-- Task ID: MWF-040
+- Task ID: MWF-050
 - Owner: unassigned
 - Files: `apps/admin-web/src/surfaces/media`
-- Validation: `cd apps/admin-web && npm run check && npm run test`; browser
-  smoke for `/media/libraries`, `/media/libraries/:libraryId`,
-  `/media/search`, and `/media/items/:itemId`.
+- Validation: focused Media Web tests plus focused server/Public API tests for
+  any touched playback or `me/playback` route behavior.
 - Status: READY
-- Review: Implement browse/search/detail only from accepted Public Client API
-  routes. Split the smallest Public Client API gap before adding fake viewer
-  contracts.
+- Review: Do not add a browser player until the playback auth transport is
+  accepted. Source selection can use `ItemDetailResponse.sources` and source
+  probe facts without exposing raw server internals.
 - Evidence: update `EVIDENCE_AND_GATES.md`
 
 ## Decisions Since Last Update
@@ -68,7 +67,7 @@ Admin routes the playback client.
 
 ## Next Recommended Action
 
-Run MWF-040: add Media Library detail, URL-owned search/browse state, and Media
-Item detail using Public Client API routes. Keep the current fixture/live
-boundary, and split MWF-GAP-002 before implementing a real library-scoped item
-grid. Do not start the player until MWF-GAP-004 has an accepted auth transport.
+Run MWF-050 only after choosing the browser playback auth transport. A safe
+next slice is Source/Version Picker plus playback-decision preview from
+`ItemDetailResponse.sources` and `getPlaybackDecision()`, with the actual player
+still gated by MWF-GAP-004.

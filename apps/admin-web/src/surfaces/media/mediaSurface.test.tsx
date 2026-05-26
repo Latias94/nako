@@ -66,6 +66,93 @@ describe("Media Web surface", () => {
     expect(screen.getAllByText("Fixture mode").length).toBeGreaterThan(0);
     expect(await screen.findByText("Films")).toBeInTheDocument();
   });
+
+  it("renders a Media Library detail route from Public Client fixture data", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/media/libraries/library-anime?limit=1&offset=0",
+    );
+
+    const { container } = render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Anime Vault" })).toBeInTheDocument();
+    expect(screen.getByText("anime")).toBeInTheDocument();
+    expect(screen.getByText("Library sources")).toBeInTheDocument();
+    expect(screen.getByText("Pilot.mkv")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Pilot" })).toHaveAttribute(
+      "href",
+      "/media/items/item-episode-1",
+    );
+    expect(container.textContent).not.toContain("redacted-root");
+    expect(container.textContent).not.toContain("fingerprint");
+  });
+
+  it("keeps Media search state URL-owned", async () => {
+    window.history.pushState(null, "", "/media/search?q=rain&limit=5&offset=10");
+    const dataSource = createFixtureMediaDataSource();
+    const searchItems = vi.fn(dataSource.searchItems);
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          searchItems,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    const input = await screen.findByLabelText("Search media");
+    expect(input).toHaveValue("rain");
+    await waitFor(() => {
+      expect(searchItems).toHaveBeenCalledWith({
+        facet: undefined,
+        limit: 5,
+        offset: 10,
+        q: "rain",
+      });
+    });
+
+    fireEvent.change(input, { target: { value: "pilot" } });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe("/media/search");
+      expect(window.location.search).toContain("q=pilot");
+      expect(window.location.search).toContain("limit=5");
+      expect(window.location.search).toContain("offset=0");
+    });
+  });
+
+  it("renders a Media Item detail route without unsafe source internals", async () => {
+    window.history.pushState(null, "", "/media/items/item-episode-1");
+
+    const { container } = render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Pilot" })).toBeInTheDocument();
+    expect(screen.getByText("A carefully kept local episode.")).toBeInTheDocument();
+    expect(screen.getByText("Available sources")).toBeInTheDocument();
+    expect(screen.getByText("Pilot.mkv")).toBeInTheDocument();
+    expect(container.textContent).not.toContain("raw source locator");
+    expect(container.textContent).not.toContain("fingerprint");
+    expect(container.textContent).not.toContain("redacted-root");
+  });
 });
 
 function emptyAdminDataSource() {

@@ -4,7 +4,9 @@ import {
   type FetchLike,
   type ItemDetailResponse,
   type ItemsResponse,
+  type LibraryResponse,
   type LibraryListResponse,
+  type LibrarySourcesResponse,
   type PageQuery,
   type SearchResponse,
 } from "@nako/sdk";
@@ -14,6 +16,7 @@ import {
   fixtureItemDetail,
   fixtureItems,
   fixtureLibraries,
+  fixtureLibrarySources,
   fixtureSearch,
 } from "./fixtures";
 
@@ -40,8 +43,15 @@ export type MediaWebDataSource = {
   readonly label: string;
   checkConnection(): Promise<void>;
   listLibraries(page?: PageQuery): Promise<MediaLoadResult<LibraryListResponse>>;
+  getLibrary(libraryId: string): Promise<MediaLoadResult<LibraryResponse>>;
+  listLibrarySources(
+    libraryId: string,
+    page?: PageQuery,
+  ): Promise<MediaLoadResult<LibrarySourcesResponse>>;
   listItems(page?: PageQuery): Promise<MediaLoadResult<ItemsResponse>>;
-  searchItems(query: { q?: string } & PageQuery): Promise<MediaLoadResult<SearchResponse>>;
+  searchItems(
+    query: { facet?: string | string[]; q?: string } & PageQuery,
+  ): Promise<MediaLoadResult<SearchResponse>>;
   getItem(itemId: string): Promise<MediaLoadResult<ItemDetailResponse>>;
   listContinueWatching(page?: PageQuery): Promise<MediaLoadResult<ContinueWatchingResponse>>;
 };
@@ -75,6 +85,12 @@ export function createPublicClientMediaDataSource(
     async listLibraries(page = defaultPage()) {
       return liveResult(await client.listLibraries(page));
     },
+    async getLibrary(libraryId) {
+      return liveResult(await client.getLibrary(libraryId));
+    },
+    async listLibrarySources(libraryId, page = defaultPage()) {
+      return liveResult(await client.listLibrarySources(libraryId, page));
+    },
     async listItems(page = defaultPage()) {
       return liveResult(await client.listItems(page));
     },
@@ -99,6 +115,19 @@ export function createFixtureMediaDataSource(): MediaWebDataSource {
     },
     async listLibraries() {
       return fixtureResult(fixtureLibraries);
+    },
+    async getLibrary(libraryId) {
+      const library = fixtureLibraries.libraries.find((candidate) => candidate.id === libraryId);
+      if (!library) {
+        throw new Error("Media Library not found");
+      }
+      return fixtureResult({ library });
+    },
+    async listLibrarySources(libraryId) {
+      if (fixtureLibrarySources.library.id !== libraryId) {
+        throw new Error("Media Library sources not found");
+      }
+      return fixtureResult(fixtureLibrarySources);
     },
     async listItems() {
       return fixtureResult(fixtureItems);

@@ -3,6 +3,7 @@ import type {
   ItemDetailResponse,
   ItemsResponse,
   LibraryListResponse,
+  LibrarySourcesResponse,
   MetadataProfileDto,
   SearchResponse,
 } from "@nako/sdk";
@@ -142,6 +143,59 @@ export const fixtureContinueWatching: ContinueWatchingResponse = {
     offset: 0,
     returned: 1,
   },
+};
+
+export const fixtureLibrarySources: LibrarySourcesResponse = {
+  library: fixtureLibraries.libraries[0],
+  page: {
+    limit: 20,
+    offset: 0,
+    returned: 1,
+  },
+  sources: [
+    {
+      item: fixtureItems.items[0],
+      probe: {
+        bit_rate: 8_200_000,
+        container: "matroska",
+        duration_ms: 1_440_000,
+        streams: [
+          {
+            bit_rate: 7_800_000,
+            channels: null,
+            codec: "h264",
+            duration_ms: 1_440_000,
+            height: 1080,
+            index: 0,
+            kind: "video",
+            language: null,
+            sample_rate: null,
+            width: 1920,
+          },
+          {
+            bit_rate: 384_000,
+            channels: 2,
+            codec: "aac",
+            duration_ms: 1_440_000,
+            height: null,
+            index: 1,
+            kind: "audio",
+            language: "ja",
+            sample_rate: 48_000,
+            width: null,
+          },
+        ],
+      },
+      source: {
+        file_name: "Pilot.mkv",
+        fingerprint: "redacted",
+        id: "source-episode-1",
+        item_id: "item-episode-1",
+        library_id: "library-anime",
+        size_bytes: 1_468_006_400,
+      },
+    },
+  ],
 };
 
 export const fixtureSearch: SearchResponse = {

@@ -1,19 +1,37 @@
-import { Search } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import type {
+  ContinueWatchingResponse,
+  ItemDetailResponse,
+  ItemsResponse,
+  LibraryListResponse,
+  LibraryResponse,
+  LibrarySourcesResponse,
+  MediaItemDto,
+  MediaSourceDto,
+  SearchResponse,
+} from "@nako/sdk";
+import { ArrowLeft, ArrowRight, Search } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 
 import { Button } from "../../components/ui/Button";
 import type {
-  MediaLoadResult,
   MediaConnection,
+  MediaLoadResult,
   MediaWebDataSource,
 } from "./mediaDataSource";
 import { useMediaSession } from "./MediaSession";
-import type {
-  ContinueWatchingResponse,
-  ItemsResponse,
-  LibraryListResponse,
-  SearchResponse,
-} from "@nako/sdk";
+
+export type MediaPageSearch = {
+  limit: number;
+  offset: number;
+};
+
+export type MediaSearchRouteSearch = MediaPageSearch & {
+  facet?: string;
+  q?: string;
+};
+
+type MediaSearchChange<TSearch> = (next: Partial<TSearch>) => void;
 
 export function MediaHomePage() {
   const { dataSource } = useMediaSession();
@@ -101,9 +119,19 @@ export function MediaConnectPage() {
   );
 }
 
-export function MediaLibrariesPage() {
+export function MediaLibrariesPage({
+  onSearchChange,
+  search,
+}: {
+  onSearchChange: MediaSearchChange<MediaPageSearch>;
+  search: MediaPageSearch;
+}) {
   const { dataSource } = useMediaSession();
-  const result = useMediaLoad(dataSource, (source) => source.listLibraries());
+  const result = useMediaLoad(
+    dataSource,
+    (source) => source.listLibraries(search),
+    [search.limit, search.offset],
+  );
 
   if (!dataSource) {
     return <MediaConnectPage />;
@@ -112,23 +140,94 @@ export function MediaLibrariesPage() {
   return (
     <section className="mediaPage" aria-labelledby="media-libraries-title">
       <header className="mediaPageHeader">
-        <h2 id="media-libraries-title">Media Libraries</h2>
+        <div>
+          <p className="mediaKicker">Browse</p>
+          <h2 id="media-libraries-title">Media Libraries</h2>
+        </div>
         <span>{result.value?.page.returned ?? 0} accessible</span>
       </header>
       <MediaLibraryGrid result={result} />
+      <MediaPager
+        label="Media Libraries"
+        onSearchChange={onSearchChange}
+        page={result.value?.page}
+        search={search}
+      />
     </section>
   );
 }
 
-export function MediaSearchPage() {
+export function MediaLibraryDetailPage({
+  libraryId,
+  onSearchChange,
+  search,
+}: {
+  libraryId: string;
+  onSearchChange: MediaSearchChange<MediaPageSearch>;
+  search: MediaPageSearch;
+}) {
   const { dataSource } = useMediaSession();
-  const [query, setQuery] = useState("");
-  const [submittedQuery, setSubmittedQuery] = useState("");
+  const library = useMediaLoad(
+    dataSource,
+    (source) => source.getLibrary(libraryId),
+    [libraryId],
+  );
+  const sources = useMediaLoad(
+    dataSource,
+    (source) => source.listLibrarySources(libraryId, search),
+    [libraryId, search.limit, search.offset],
+  );
+
+  if (!dataSource) {
+    return <MediaConnectPage />;
+  }
+
+  return (
+    <section className="mediaPage" aria-labelledby="media-library-title">
+      {library.loading ? <div className="mediaSkeleton" /> : null}
+      {library.error ? <div className="mediaError">{library.error}</div> : null}
+      {library.value ? <MediaLibraryDetailHeader result={library.value} /> : null}
+      <section className="mediaPanel" aria-labelledby="media-library-sources-title">
+        <div className="mediaPanelHeader">
+          <h3 id="media-library-sources-title">Library sources</h3>
+          <span>{sources.value?.page.returned ?? 0} shown</span>
+        </div>
+        <MediaLibrarySources result={sources} />
+        <MediaPager
+          label="Library sources"
+          onSearchChange={onSearchChange}
+          page={sources.value?.page}
+          search={search}
+        />
+      </section>
+    </section>
+  );
+}
+
+export function MediaSearchPage({
+  onSearchChange,
+  search,
+}: {
+  onSearchChange: MediaSearchChange<MediaSearchRouteSearch>;
+  search: MediaSearchRouteSearch;
+}) {
+  const { dataSource } = useMediaSession();
+  const [query, setQuery] = useState(search.q ?? "");
   const result = useMediaLoad(
     dataSource,
-    (source) => source.searchItems({ q: submittedQuery, limit: 20, offset: 0 }),
-    [submittedQuery],
+    (source) =>
+      source.searchItems({
+        facet: search.facet,
+        limit: search.limit,
+        offset: search.offset,
+        q: search.q,
+      }),
+    [search.facet, search.limit, search.offset, search.q],
   );
+
+  useEffect(() => {
+    setQuery(search.q ?? "");
+  }, [search.q]);
 
   if (!dataSource) {
     return <MediaConnectPage />;
@@ -137,13 +236,17 @@ export function MediaSearchPage() {
   return (
     <section className="mediaPage" aria-labelledby="media-search-title">
       <header className="mediaPageHeader">
-        <h2 id="media-search-title">Search</h2>
+        <div>
+          <p className="mediaKicker">Find</p>
+          <h2 id="media-search-title">Search</h2>
+        </div>
+        <span>{result.value?.page.returned ?? 0} results</span>
       </header>
       <form
         className="mediaSearch"
         onSubmit={(event) => {
           event.preventDefault();
-          setSubmittedQuery(query.trim());
+          onSearchChange({ offset: 0, q: query.trim() || undefined });
         }}
       >
         <label>
@@ -159,8 +262,37 @@ export function MediaSearchPage() {
         </Button>
       </form>
       <MediaSearchResults result={result} />
+      <MediaPager
+        label="Search results"
+        onSearchChange={onSearchChange}
+        page={result.value?.page}
+        search={search}
+      />
     </section>
   );
+}
+
+export function MediaItemDetailPage({ itemId }: { itemId: string }) {
+  const { dataSource } = useMediaSession();
+  const result = useMediaLoad(dataSource, (source) => source.getItem(itemId), [itemId]);
+
+  if (!dataSource) {
+    return <MediaConnectPage />;
+  }
+
+  if (result.loading) {
+    return <div className="mediaSkeletonGrid" />;
+  }
+
+  if (result.error) {
+    return <div className="mediaError">{result.error}</div>;
+  }
+
+  if (!result.value) {
+    return <div className="mediaEmpty">Media Item unavailable</div>;
+  }
+
+  return <MediaItemDetail result={result.value} />;
 }
 
 function MediaContinueWatching({
@@ -211,10 +343,80 @@ function MediaLibraryGrid({
   return (
     <div className="mediaLibraryGrid">
       {result.value?.libraries.map((library) => (
-        <article className="mediaLibraryCard" key={library.id}>
+        <Link
+          className="mediaLibraryCard"
+          key={library.id}
+          params={{ libraryId: library.id }}
+          search={{ limit: 20, offset: 0 }}
+          to="/media/libraries/$libraryId"
+        >
           <span>{library.options.preset}</span>
           <strong>{library.name}</strong>
           <small>{library.options.metadata_profile.item_kinds.join(", ")}</small>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function MediaLibraryDetailHeader({ result }: { result: LibraryResponse }) {
+  const library = result.library;
+
+  return (
+    <header className="mediaPageHeader">
+      <div>
+        <p className="mediaKicker">Media Library</p>
+        <h2 id="media-library-title">{library.name}</h2>
+      </div>
+      <div className="mediaMetaPills">
+        <span>{library.options.preset}</span>
+        <span>{library.options.domain}</span>
+        <span>{library.options.metadata_profile.item_kinds.join(", ")}</span>
+      </div>
+    </header>
+  );
+}
+
+function MediaLibrarySources({
+  result,
+}: {
+  result: MediaAsyncState<LibrarySourcesResponse>;
+}) {
+  if (result.loading) {
+    return <div className="mediaSkeletonGrid" />;
+  }
+
+  if (result.error) {
+    return <div className="mediaError">{result.error}</div>;
+  }
+
+  if (!result.value?.sources.length) {
+    return <div className="mediaEmpty">No accessible sources in this library</div>;
+  }
+
+  return (
+    <div className="mediaSourceList">
+      {result.value.sources.map((entry) => (
+        <article className="mediaSourceRow" key={entry.source.id}>
+          <div>
+            <span>{entry.source.file_name}</span>
+            {entry.item ? (
+              <Link
+                className="mediaInlineLink"
+                to="/media/items/$itemId"
+                params={{ itemId: entry.item.id }}
+              >
+                {entry.item.metadata.title}
+              </Link>
+            ) : (
+              <strong>Unmatched source</strong>
+            )}
+          </div>
+          <div className="mediaSourceFacts">
+            <span>{formatBytes(entry.source.size_bytes)}</span>
+            <span>{entry.probe?.container ?? "container unknown"}</span>
+            <span>{formatRuntimeMs(entry.probe?.duration_ms)}</span>
+          </div>
         </article>
       ))}
     </div>
@@ -233,11 +435,7 @@ function MediaItemGrid({ result }: { result: MediaAsyncState<ItemsResponse> }) {
   return (
     <div className="mediaItemGrid">
       {result.value?.items.map((item) => (
-        <article className="mediaItemCard" key={item.id}>
-          <span>{item.kind}</span>
-          <strong>{item.metadata.title}</strong>
-          <small>{item.metadata.runtime_minutes ? `${item.metadata.runtime_minutes} min` : "Runtime unknown"}</small>
-        </article>
+        <MediaItemCard item={item} key={item.id} />
       ))}
     </div>
   );
@@ -255,12 +453,127 @@ function MediaSearchResults({ result }: { result: MediaAsyncState<SearchResponse
   return (
     <div className="mediaItemGrid">
       {result.value?.hits.map((hit) => (
-        <article className="mediaItemCard" key={hit.item.id}>
-          <span>{Math.round(hit.score * 100)} match</span>
-          <strong>{hit.item.metadata.title}</strong>
-          <small>{hit.item.kind}</small>
-        </article>
+        <MediaItemCard
+          badge={`${Math.round(hit.score * 100)} match`}
+          item={hit.item}
+          key={hit.item.id}
+        />
       ))}
+    </div>
+  );
+}
+
+function MediaItemCard({ badge, item }: { badge?: string; item: MediaItemDto }) {
+  return (
+    <Link className="mediaItemCard" to="/media/items/$itemId" params={{ itemId: item.id }}>
+      <span>{badge ?? item.kind}</span>
+      <strong>{item.metadata.title}</strong>
+      <small>{formatRuntimeMinutes(item.metadata.runtime_minutes)}</small>
+    </Link>
+  );
+}
+
+function MediaItemDetail({ result }: { result: ItemDetailResponse }) {
+  const metadata = result.item.metadata;
+
+  return (
+    <section className="mediaPage" aria-labelledby="media-item-title">
+      <header className="mediaItemHero">
+        <div>
+          <p className="mediaKicker">{result.item.kind}</p>
+          <h2 id="media-item-title">{metadata.title}</h2>
+          {metadata.overview ? <p>{metadata.overview}</p> : null}
+        </div>
+        <div className="mediaMetaPills">
+          <span>{formatRuntimeMinutes(metadata.runtime_minutes)}</span>
+          {metadata.release_date ? <span>{metadata.release_date}</span> : null}
+          {metadata.genres.slice(0, 3).map((genre) => (
+            <span key={genre}>{genre}</span>
+          ))}
+        </div>
+      </header>
+      <section className="mediaPanel" aria-labelledby="media-item-sources-title">
+        <div className="mediaPanelHeader">
+          <h3 id="media-item-sources-title">Available sources</h3>
+          <span>{result.sources.length} versions</span>
+        </div>
+        <div className="mediaSourceList">
+          {result.sources.map((source) => (
+            <article className="mediaSourceRow" key={source.id}>
+              <div>
+                <span>{source.file_name}</span>
+                <strong>{sourceSummary(source)}</strong>
+              </div>
+              <div className="mediaSourceFacts">
+                <span>{formatBytes(source.size_bytes)}</span>
+                <span>{source.library_id}</span>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+      <section className="mediaPanel" aria-labelledby="media-item-metadata-title">
+        <div className="mediaPanelHeader">
+          <h3 id="media-item-metadata-title">Metadata</h3>
+        </div>
+        <div className="mediaFactGrid">
+          <div>
+            <span>Original title</span>
+            <strong>{metadata.original_title ?? "Unavailable"}</strong>
+          </div>
+          <div>
+            <span>Studios</span>
+            <strong>{metadata.studios.map((studio) => studio.name).join(", ") || "Unavailable"}</strong>
+          </div>
+          <div>
+            <span>Tags</span>
+            <strong>{metadata.tags.join(", ") || "Unavailable"}</strong>
+          </div>
+        </div>
+      </section>
+    </section>
+  );
+}
+
+function MediaPager<TSearch extends MediaPageSearch>({
+  label,
+  onSearchChange,
+  page,
+  search,
+}: {
+  label: string;
+  onSearchChange: MediaSearchChange<TSearch>;
+  page?: { limit: number; offset: number; returned: number };
+  search: TSearch;
+}) {
+  const canGoBack = search.offset > 0;
+  const canGoForward = Boolean(page && page.returned >= search.limit);
+
+  return (
+    <div className="mediaPager" aria-label={`${label} pagination`}>
+      <Button
+        disabled={!canGoBack}
+        onClick={() => onSearchChange({ offset: Math.max(0, search.offset - search.limit) } as Partial<TSearch>)}
+        size="sm"
+        type="button"
+        variant="outline"
+      >
+        <ArrowLeft size={15} />
+        <span>Previous</span>
+      </Button>
+      <span>
+        {search.offset + 1}-{search.offset + (page?.returned ?? 0)}
+      </span>
+      <Button
+        disabled={!canGoForward}
+        onClick={() => onSearchChange({ offset: search.offset + search.limit } as Partial<TSearch>)}
+        size="sm"
+        type="button"
+        variant="outline"
+      >
+        <span>Next</span>
+        <ArrowRight size={15} />
+      </Button>
     </div>
   );
 }
@@ -313,4 +626,25 @@ function useMediaLoad<T>(
   }, [dataSource, ...deps]);
 
   return state;
+}
+
+function formatBytes(value: number | null) {
+  if (!value) {
+    return "size unknown";
+  }
+
+  const gib = value / 1024 / 1024 / 1024;
+  return `${gib.toFixed(gib >= 10 ? 0 : 1)} GiB`;
+}
+
+function formatRuntimeMinutes(value: number | null) {
+  return value ? `${value} min` : "Runtime unknown";
+}
+
+function formatRuntimeMs(value: number | null | undefined) {
+  return value ? `${Math.round(value / 60_000)} min` : "duration unknown";
+}
+
+function sourceSummary(source: MediaSourceDto) {
+  return source.size_bytes ? "Local source" : "Source";
 }
