@@ -1099,10 +1099,18 @@ fn schemas() -> Value {
         })),
         "ClientPlaybackDecision": object_schema(&["mode", "reason", "direct_play", "transcode_plan"], json!({
             "mode": enum_schema(&["direct_play", "remux", "transcode"]),
-            "reason": string_schema(),
+            "reason": schema_ref("ClientPlaybackDecisionReason"),
             "direct_play": nullable_ref("ClientDirectPlayPlan"),
             "transcode_plan": nullable_ref("ClientTranscodePlan")
         })),
+        "ClientPlaybackDecisionReason": enum_schema(&[
+            "compatible",
+            "requested_transcode_output",
+            "client_disabled_direct_play",
+            "source_container_unknown",
+            "client_container_unsupported",
+            "source_codecs_unsupported"
+        ]),
         "ClientDirectPlayPlan": object_schema(&["source_id", "content_type", "supports_range_requests"], json!({
             "source_id": uuid_schema(),
             "content_type": string_schema(),
@@ -1129,13 +1137,13 @@ fn schemas() -> Value {
             "transcode_session_id": nullable_uuid_schema(),
             "position_ms": json!({"type": "integer", "format": "int64", "nullable": true}),
             "duration_ms": json!({"type": "integer", "format": "int64", "nullable": true}),
-            "client_capabilities": nullable_ref("PlaybackSessionClientCapabilitiesDto"),
+            "client_capabilities": nullable_ref("ClientPlaybackCapabilitiesDto"),
             "last_heartbeat_at": nullable_string_schema(),
             "started_at": nullable_string_schema(),
             "ended_at": nullable_string_schema(),
             "updated_at": string_schema()
         })),
-        "PlaybackSessionClientCapabilitiesDto": object_schema(&["direct_play", "containers", "video_codecs", "audio_codecs"], json!({
+        "ClientPlaybackCapabilitiesDto": object_schema(&["direct_play", "containers", "video_codecs", "audio_codecs"], json!({
             "direct_play": boolean_schema(),
             "containers": array_schema(string_schema()),
             "video_codecs": array_schema(string_schema()),
@@ -1567,6 +1575,41 @@ mod tests {
                 "browser playback ticket contract leaked forbidden term: {forbidden}"
             );
         }
+    }
+
+    #[test]
+    fn public_openapi_playback_decision_uses_typed_reason_and_capabilities() {
+        let document = public_openapi_v1();
+        let schemas = document["components"]["schemas"].as_object().unwrap();
+
+        assert!(schemas.contains_key("ClientPlaybackDecisionReason"));
+        assert!(schemas.contains_key("ClientPlaybackCapabilitiesDto"));
+        assert!(!schemas.contains_key("PlaybackSessionClientCapabilitiesDto"));
+        assert_eq!(
+            document["components"]["schemas"]["ClientPlaybackDecision"]["properties"]["reason"]["$ref"],
+            "#/components/schemas/ClientPlaybackDecisionReason"
+        );
+        assert_eq!(
+            document["components"]["schemas"]["ClientPlaybackDecisionReason"]["enum"],
+            json!([
+                "compatible",
+                "requested_transcode_output",
+                "client_disabled_direct_play",
+                "source_container_unknown",
+                "client_container_unsupported",
+                "source_codecs_unsupported"
+            ])
+        );
+        assert_eq!(
+            document["components"]["schemas"]["PlaybackSessionDto"]["properties"]["client_capabilities"]
+                ["allOf"][0]["$ref"],
+            "#/components/schemas/ClientPlaybackCapabilitiesDto"
+        );
+        assert_eq!(
+            document["components"]["schemas"]["PlaybackSessionDto"]["properties"]["client_capabilities"]
+                ["nullable"],
+            true
+        );
     }
 
     #[test]

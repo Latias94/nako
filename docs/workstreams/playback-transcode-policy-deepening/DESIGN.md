@@ -158,6 +158,11 @@ play and have no transcode artifact at all.
 - `nako-client-protocol`: Public Client playback decisions, capabilities,
   sessions, and browser-safe transport DTOs.
 
+PTP-040 established `ClientPlaybackDecisionReason` and
+`ClientPlaybackCapabilitiesDto` as Public Client protocol types. Internal
+planner reasons may grow faster than the public contract; `nako-api` is the
+adapter that maps internal reasons to stable, safe wire values.
+
 PTP-030 extracted `nako-playback` because the deletion test became real:
 removing selection from `nako-streaming` leaves a smaller transport crate, while
 server app code and public DTO adapters both consume playback planning records.

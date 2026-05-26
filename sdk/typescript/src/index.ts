@@ -98,12 +98,21 @@ export interface ClientDirectPlayPlan {
 
 export type ClientMediaKind = "movie" | "series" | "season" | "episode" | "collection" | "extra" | "unknown";
 
+export interface ClientPlaybackCapabilitiesDto {
+  audio_codecs: Array<string>;
+  containers: Array<string>;
+  direct_play: boolean;
+  video_codecs: Array<string>;
+}
+
 export interface ClientPlaybackDecision {
   direct_play: ClientDirectPlayPlan | null;
   mode: "direct_play" | "remux" | "transcode";
-  reason: string;
+  reason: ClientPlaybackDecisionReason;
   transcode_plan: ClientTranscodePlan | null;
 }
+
+export type ClientPlaybackDecisionReason = "compatible" | "requested_transcode_output" | "client_disabled_direct_play" | "source_container_unknown" | "client_container_unsupported" | "source_codecs_unsupported";
 
 export interface ClientTranscodePlan {
   audio_codec: string | null;
@@ -410,15 +419,8 @@ export interface PlaybackDecisionResponse {
   source: MediaSourceDto;
 }
 
-export interface PlaybackSessionClientCapabilitiesDto {
-  audio_codecs: Array<string>;
-  containers: Array<string>;
-  direct_play: boolean;
-  video_codecs: Array<string>;
-}
-
 export interface PlaybackSessionDto {
-  client_capabilities?: PlaybackSessionClientCapabilitiesDto | null;
+  client_capabilities?: ClientPlaybackCapabilitiesDto | null;
   duration_ms?: number | null;
   ended_at?: string | null;
   id: string;

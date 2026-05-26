@@ -5,7 +5,7 @@ Last updated: 2026-05-27
 
 ## Current State
 
-The lane is open. PTP-010, PTP-020, and PTP-030 are complete.
+The lane is open. PTP-010, PTP-020, PTP-030, and PTP-040 are complete.
 
 Nako already has:
 
@@ -18,13 +18,16 @@ Nako already has:
 - `nako-playback`, which owns playback planning records, client capability
   matching, profile identity, selected source records, and typed internal
   decision reasons.
+- Public Client playback contracts with typed `ClientPlaybackDecisionReason`
+  and shared `ClientPlaybackCapabilitiesDto`.
 
 PTP-020 added a direct-play characterization test proving that direct playback
 creates a durable Playback Session and no fake Transcode Session artifact.
 PTP-030 then moved playback selection out of `nako-streaming` into
 `nako-playback`; `nako-streaming` now remains direct/range transport mechanics.
-The existing remux, HLS, browser ticket, redaction, cancellation, and hardware
-fallback tests remain green.
+PTP-040 promoted public playback reason/capability DTOs and regenerated the
+TypeScript/Kotlin SDKs. The existing remux, HLS, browser ticket, redaction,
+cancellation, and hardware fallback tests remain green.
 
 Jellyfin reference review found the feature pressures Nako must be ready for:
 
@@ -38,9 +41,9 @@ Jellyfin reference review found the feature pressures Nako must be ready for:
 
 ## Active Task
 
-- Task ID: PTP-040
+- Task ID: PTP-050
 - Status: ready
-- Scope: stable Client Playback Capabilities and Playback Decision Reasons.
+- Scope: Transcode Policy and Acceleration Plan.
 
 ## Decisions
 
@@ -56,9 +59,9 @@ Jellyfin reference review found the feature pressures Nako must be ready for:
   because deleting selection from `nako-streaming` made transport boundaries
   cleaner and both server app code and API adapters consume the planning
   records.
-- Public Client DTOs still expose reason as a safe string. PTP-040 should
-  decide the stable protocol reason vocabulary before richer admin diagnostics
-  rely on it.
+- Public Client DTOs expose reason as stable wire values. Admin diagnostics may
+  carry richer runtime evidence, but should not leak raw host details into
+  Public Client responses.
 
 ## Blockers
 
@@ -66,6 +69,7 @@ Jellyfin reference review found the feature pressures Nako must be ready for:
 
 ## Next Action
 
-Run PTP-040. Promote typed Client Playback Capabilities and Playback Decision
-Reasons into stable protocol/API shapes without copying Jellyfin's DLNA profile
-model. Keep richer operator diagnostics out of Public Client DTOs.
+Run PTP-050. Replace shallow hardware selection with typed transcode policy and
+acceleration planning: decode/filter/encode stage choices, fallback policy,
+bitrate/output constraints, and subtitle strategy. Keep FFmpeg-specific strings
+below the engine/command adapter.

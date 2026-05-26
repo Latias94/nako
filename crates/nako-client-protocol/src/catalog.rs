@@ -438,9 +438,20 @@ pub struct PlaybackDecisionResponse {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ClientPlaybackDecision {
     pub mode: ClientPlaybackMode,
-    pub reason: String,
+    pub reason: ClientPlaybackDecisionReason,
     pub direct_play: Option<ClientDirectPlayPlan>,
     pub transcode_plan: Option<ClientTranscodePlan>,
+}
+
+public_string_value! {
+    pub enum ClientPlaybackDecisionReason {
+        Compatible => "compatible",
+        RequestedTranscodeOutput => "requested_transcode_output",
+        ClientDisabledDirectPlay => "client_disabled_direct_play",
+        SourceContainerUnknown => "source_container_unknown",
+        ClientContainerUnsupported => "client_container_unsupported",
+        SourceCodecsUnsupported => "source_codecs_unsupported",
+    }
 }
 
 public_string_value! {
@@ -481,7 +492,7 @@ pub struct PlaybackSessionDto {
     pub transcode_session_id: Option<String>,
     pub position_ms: Option<u64>,
     pub duration_ms: Option<u64>,
-    pub client_capabilities: Option<PlaybackSessionClientCapabilitiesDto>,
+    pub client_capabilities: Option<ClientPlaybackCapabilitiesDto>,
     pub last_heartbeat_at: Option<String>,
     pub started_at: Option<String>,
     pub ended_at: Option<String>,
@@ -489,7 +500,7 @@ pub struct PlaybackSessionDto {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct PlaybackSessionClientCapabilitiesDto {
+pub struct ClientPlaybackCapabilitiesDto {
     pub direct_play: bool,
     pub containers: Vec<String>,
     pub video_codecs: Vec<String>,

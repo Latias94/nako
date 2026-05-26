@@ -91,3 +91,19 @@ python -m json.tool docs/workstreams/playback-transcode-policy-deepening/WORKSTR
     0 skipped.
   - `cargo fmt --all -- --check` passed.
   - `git diff --check` passed with Git line-ending warnings only.
+- 2026-05-27: PTP-040 promoted Public Client playback protocol types without
+  adopting Jellyfin/DLNA profile breadth. `ClientPlaybackDecision.reason` is now
+  `ClientPlaybackDecisionReason` instead of free text, playback sessions reuse
+  `ClientPlaybackCapabilitiesDto`, and the API adapter maps internal planner
+  reasons to safe protocol wire values. TypeScript and Kotlin SDK outputs were
+  regenerated.
+  Verified:
+  - `cargo nextest run -p nako-client-protocol public --no-fail-fast` passed:
+    10 passed, 0 skipped.
+  - `cargo nextest run -p nako-api -E 'test(public_openapi) | test(sdk) | test(admin_contract)' --no-fail-fast`
+    passed: 20 passed, 39 skipped.
+  - `cargo nextest run -p nako-server playback --no-fail-fast` passed: 66
+    passed, 282 skipped.
+  - `cargo nextest run -p nako-transcode --no-fail-fast` passed: 35 passed,
+    0 skipped.
+  - `cargo fmt --all -- --check` passed.

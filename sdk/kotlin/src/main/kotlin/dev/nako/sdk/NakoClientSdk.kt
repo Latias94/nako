@@ -1193,14 +1193,52 @@ public value class ClientMediaKind(
 }
 
 @Serializable
+public data class ClientPlaybackCapabilitiesDto(
+    @SerialName("audio_codecs")
+    public val audioCodecs: List<String>,
+    public val containers: List<String>,
+    @SerialName("direct_play")
+    public val directPlay: Boolean,
+    @SerialName("video_codecs")
+    public val videoCodecs: List<String>,
+)
+
+@Serializable
 public data class ClientPlaybackDecision(
     @SerialName("direct_play")
     public val directPlay: ClientDirectPlayPlan?,
     public val mode: ClientPlaybackDecisionMode,
-    public val reason: String,
+    public val reason: ClientPlaybackDecisionReason,
     @SerialName("transcode_plan")
     public val transcodePlan: ClientTranscodePlan?,
 )
+
+@JvmInline
+@Serializable
+public value class ClientPlaybackDecisionReason(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val Compatible: ClientPlaybackDecisionReason = ClientPlaybackDecisionReason("compatible")
+        public val RequestedTranscodeOutput: ClientPlaybackDecisionReason = ClientPlaybackDecisionReason("requested_transcode_output")
+        public val ClientDisabledDirectPlay: ClientPlaybackDecisionReason = ClientPlaybackDecisionReason("client_disabled_direct_play")
+        public val SourceContainerUnknown: ClientPlaybackDecisionReason = ClientPlaybackDecisionReason("source_container_unknown")
+        public val ClientContainerUnsupported: ClientPlaybackDecisionReason = ClientPlaybackDecisionReason("client_container_unsupported")
+        public val SourceCodecsUnsupported: ClientPlaybackDecisionReason = ClientPlaybackDecisionReason("source_codecs_unsupported")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "compatible",
+            "requested_transcode_output",
+            "client_disabled_direct_play",
+            "source_container_unknown",
+            "client_container_unsupported",
+            "source_codecs_unsupported",
+        )
+    }
+}
 
 @Serializable
 public data class ClientTranscodePlan(
@@ -1609,20 +1647,9 @@ public data class PlaybackDecisionResponse(
 )
 
 @Serializable
-public data class PlaybackSessionClientCapabilitiesDto(
-    @SerialName("audio_codecs")
-    public val audioCodecs: List<String>,
-    public val containers: List<String>,
-    @SerialName("direct_play")
-    public val directPlay: Boolean,
-    @SerialName("video_codecs")
-    public val videoCodecs: List<String>,
-)
-
-@Serializable
 public data class PlaybackSessionDto(
     @SerialName("client_capabilities")
-    public val clientCapabilities: PlaybackSessionClientCapabilitiesDto? = null,
+    public val clientCapabilities: ClientPlaybackCapabilitiesDto? = null,
     @SerialName("duration_ms")
     public val durationMs: Long? = null,
     @SerialName("ended_at")

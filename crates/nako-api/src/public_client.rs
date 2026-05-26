@@ -8,7 +8,10 @@ use nako_core::{
     TranscodeFailureCategory, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
     UserPlaybackState,
 };
-use nako_playback::{ClientPlaybackCapabilities, DirectPlayPlan, PlaybackDecision, PlaybackMode};
+use nako_playback::{
+    ClientPlaybackCapabilities, DirectPlayPlan, PlaybackDecision, PlaybackDecisionReason,
+    PlaybackMode,
+};
 use nako_transcode::{HardwareAcceleration, OutputContainer, TranscodePlan};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
@@ -22,7 +25,8 @@ pub use nako_client_protocol::{
     ClientManagementAction, ClientManagementDisabledReason, ClientManagementHttpMethod,
     ClientManagementRequiredAccess, ClientManagementSurface, ClientMediaDomain, ClientMediaKind,
     ClientMediaStreamKind, ClientMetadataRefreshMode, ClientMetadataSource, ClientNamingStrategy,
-    ClientOutputContainer, ClientPlaybackDecision, ClientPlaybackMode, ClientPlaybackSessionMode,
+    ClientOutputContainer, ClientPlaybackCapabilitiesDto, ClientPlaybackDecision,
+    ClientPlaybackDecisionReason, ClientPlaybackMode, ClientPlaybackSessionMode,
     ClientPlaybackSessionState, ClientTranscodeFailureCategory, ClientTranscodePlan,
     ClientTranscodeSessionKind, ClientTranscodeSessionState, CollectionItemDto, CollectionRefDto,
     ContentRatingDto, ContinueWatchingItemDto, ContinueWatchingResponse, CreditDto, CurrentUserDto,
@@ -34,12 +38,11 @@ pub use nako_client_protocol::{
     ManagementContextDto, ManagementContextLinkDto, ManagementContextLinksResponse, MediaItemDto,
     MediaProbeDto, MediaSourceDto, MediaStreamDto, MetadataProfileDto, MetadataScanPolicyDto,
     PLAYBACK_SESSION_ID_HEADER, PageInfo, PeopleResponse, PersonDto, PersonItemsResponse,
-    PersonResponse, PlaybackDecisionResponse, PlaybackSessionClientCapabilitiesDto,
-    PlaybackSessionDto, PlaybackSessionHeartbeatRequest, PlaybackSessionResponse,
-    PublicImageRefDto, RedeemInvitationRequest, SearchItemHit, SearchResponse,
-    SetWatchedStateRequest, SourceProbeResponse, StudioRefDto, TagDto, TagItemsResponse,
-    TagsResponse, TranscodeSessionDto, TranscodeSessionResponse, UpdatePlaybackProgressRequest,
-    UserPlaybackStateDto, UserPlaybackStateResponse, UserSessionDto,
+    PersonResponse, PlaybackDecisionResponse, PlaybackSessionDto, PlaybackSessionHeartbeatRequest,
+    PlaybackSessionResponse, PublicImageRefDto, RedeemInvitationRequest, SearchItemHit,
+    SearchResponse, SetWatchedStateRequest, SourceProbeResponse, StudioRefDto, TagDto,
+    TagItemsResponse, TagsResponse, TranscodeSessionDto, TranscodeSessionResponse,
+    UpdatePlaybackProgressRequest, UserPlaybackStateDto, UserPlaybackStateResponse, UserSessionDto,
 };
 
 #[must_use]
@@ -216,7 +219,7 @@ pub fn playback_decision_response_to_dto(
 pub fn playback_decision_to_dto(decision: PlaybackDecision) -> ClientPlaybackDecision {
     ClientPlaybackDecision {
         mode: playback_mode_to_dto(decision.mode),
-        reason: decision.reason.message().to_owned(),
+        reason: playback_decision_reason_to_dto(decision.reason),
         direct_play: decision.direct_play.map(direct_play_plan_to_dto),
         transcode_plan: decision.transcode_plan.map(transcode_plan_to_dto),
     }
@@ -617,6 +620,27 @@ fn playback_mode_to_dto(mode: PlaybackMode) -> ClientPlaybackMode {
     }
 }
 
+fn playback_decision_reason_to_dto(reason: PlaybackDecisionReason) -> ClientPlaybackDecisionReason {
+    match reason {
+        PlaybackDecisionReason::Compatible => ClientPlaybackDecisionReason::Compatible,
+        PlaybackDecisionReason::RequestedTranscodeOutput => {
+            ClientPlaybackDecisionReason::RequestedTranscodeOutput
+        }
+        PlaybackDecisionReason::ClientDisabledDirectPlay => {
+            ClientPlaybackDecisionReason::ClientDisabledDirectPlay
+        }
+        PlaybackDecisionReason::SourceContainerUnknown => {
+            ClientPlaybackDecisionReason::SourceContainerUnknown
+        }
+        PlaybackDecisionReason::ClientContainerUnsupported => {
+            ClientPlaybackDecisionReason::ClientContainerUnsupported
+        }
+        PlaybackDecisionReason::SourceCodecsUnsupported => {
+            ClientPlaybackDecisionReason::SourceCodecsUnsupported
+        }
+    }
+}
+
 fn playback_session_mode_to_dto(mode: PlaybackSessionMode) -> ClientPlaybackSessionMode {
     match mode {
         PlaybackSessionMode::Direct => ClientPlaybackSessionMode::Direct,
@@ -638,10 +662,10 @@ fn playback_session_state_to_dto(state: PlaybackSessionState) -> ClientPlaybackS
 
 fn playback_session_client_capabilities_from_json(
     value: &str,
-) -> Option<PlaybackSessionClientCapabilitiesDto> {
+) -> Option<ClientPlaybackCapabilitiesDto> {
     let capabilities = serde_json::from_str::<ClientPlaybackCapabilities>(value).ok()?;
 
-    Some(PlaybackSessionClientCapabilitiesDto {
+    Some(ClientPlaybackCapabilitiesDto {
         direct_play: capabilities.direct_play,
         containers: capabilities.containers,
         video_codecs: capabilities.video_codecs,
@@ -878,6 +902,7 @@ mod tests {
         let value = serde_json::to_value(playback_decision_to_dto(decision)).unwrap();
 
         assert_eq!(value["mode"], "transcode");
+        assert_eq!(value["reason"], "client_disabled_direct_play");
         assert_eq!(value["transcode_plan"]["output_container"], "hls");
         assert!(value["transcode_plan"].get("input_locator").is_none());
         assert!(value.get("selected_source").is_none());

@@ -652,7 +652,7 @@ mod tests {
             probe: None,
             decision: ClientPlaybackDecision {
                 mode: ClientPlaybackMode::DirectPlay,
-                reason: "compatible".to_owned(),
+                reason: ClientPlaybackDecisionReason::Compatible,
                 direct_play: Some(ClientDirectPlayPlan {
                     source_id: "source-1".to_owned(),
                     content_type: "video/mp4".to_owned(),
@@ -665,6 +665,7 @@ mod tests {
         let value = serde_json::to_value(response).unwrap();
 
         assert_eq!(value["decision"]["mode"], "direct_play");
+        assert_eq!(value["decision"]["reason"], "compatible");
         assert_eq!(value["decision"]["direct_play"]["source_id"], "source-1");
         assert!(value["source"].get("locator").is_none());
         assert!(value["decision"].get("transcode_plan").is_some());
@@ -736,7 +737,7 @@ mod tests {
             "probe": null,
             "decision": {
                 "mode": "server_future_mode",
-                "reason": "future mode",
+                "reason": "server_future_reason",
                 "direct_play": null,
                 "transcode_plan": {
                     "output_container": "future_container",
@@ -753,6 +754,11 @@ mod tests {
             ClientPlaybackMode::Other("server_future_mode".to_owned())
         );
         assert!(!response.decision.mode.is_known());
+        assert_eq!(
+            response.decision.reason,
+            ClientPlaybackDecisionReason::Other("server_future_reason".to_owned())
+        );
+        assert!(!response.decision.reason.is_known());
         let plan = response.decision.transcode_plan.unwrap();
         assert_eq!(
             plan.output_container,
@@ -768,7 +774,7 @@ mod tests {
             probe: None,
             decision: ClientPlaybackDecision {
                 mode: ClientPlaybackMode::Other("server_future_mode".to_owned()),
-                reason: "future mode".to_owned(),
+                reason: ClientPlaybackDecisionReason::Other("server_future_reason".to_owned()),
                 direct_play: None,
                 transcode_plan: Some(plan),
             },
@@ -776,6 +782,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(encoded["decision"]["mode"], "server_future_mode");
+        assert_eq!(encoded["decision"]["reason"], "server_future_reason");
         assert_eq!(
             encoded["decision"]["transcode_plan"]["output_container"],
             "future_container"

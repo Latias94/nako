@@ -44,14 +44,18 @@ Last updated: 2026-05-27
 
 ## M3 - Capabilities And Reasons
 
-- [ ] PTP-040 [owner=codex] [deps=PTP-030] [scope=crates/nako-client-protocol/src,crates/nako-api/src,crates/nako-core/src]
+- [x] PTP-040 [owner=codex] [deps=PTP-030] [scope=crates/nako-client-protocol/src,crates/nako-api/src,sdk/typescript,sdk/kotlin]
   Goal: Add typed Client Playback Capabilities and Playback Decision Reasons
   without copying Jellyfin's DLNA profiles.
   Validation: `cargo nextest run -p nako-client-protocol public --no-fail-fast`;
   `cargo nextest run -p nako-api -E 'test(public_openapi) | test(sdk) | test(admin_contract)' --no-fail-fast`.
   Review: Public Client reasons are stable and safe; Admin diagnostics can be
   richer without leaking into public DTOs.
-  Evidence: protocol/API contract tests and regenerated SDKs if needed.
+  Evidence: Added `ClientPlaybackDecisionReason` as a stable wire enum and
+  `ClientPlaybackCapabilitiesDto` as the shared public capability DTO; public
+  DTO adapters map internal planner reasons to protocol reasons; TypeScript and
+  Kotlin SDK outputs were regenerated. Protocol/API/server playback gates
+  passed.
   Handoff: PTP-050 can consume capability/reason records in transcode policy.
 
 ## M4 - Transcode Policy And Acceleration Plan
