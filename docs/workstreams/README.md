@@ -6,6 +6,12 @@ attention.
 
 ## Current Workstreams
 
+- [playback-transcode-policy-deepening](playback-transcode-policy-deepening/README.md):
+  active architecture-first execution lane for making Nako's playback planner,
+  transcode policy, runtime inventory, and engine Adapter seams mature enough
+  for Jellyfin-class device capability, transcode reason, hardware fallback,
+  Admin diagnostics, and playback artifact lifecycle features without copying
+  Jellyfin's DLNA model or embedding a new media engine in the server.
 - [backend-media-product-deepening](backend-media-product-deepening/README.md):
   completed backend execution lane for hardening Nako's local-media product seams
   after Media Web foundation and credential/session auth. It covers clean

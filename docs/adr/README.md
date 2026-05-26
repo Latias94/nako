@@ -56,3 +56,4 @@ evidence has been reviewed.
 - [0035: Addon Native Metadata Writeback](0035-addon-native-metadata-writeback.md)
 - [0036: Use Short-Lived Playback Tickets for Browser Media Transport](0036-short-lived-browser-playback-tickets.md)
 - [0037: Add Local Credential and Session Authentication](0037-local-credential-and-session-auth.md)
+- [0038: Deepen Playback Planning and Transcode Policy Seams](0038-playback-planning-and-transcode-policy-seams.md)
