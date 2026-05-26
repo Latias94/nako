@@ -3,10 +3,11 @@
   "slug": "browser-playback-auth-transport",
   "title": "Browser Playback Auth Transport",
   "status": "active",
-  "current_task": "BPAT-030",
+  "current_task": "BPAT-040",
   "completed_tasks": [
     "BPAT-010",
-    "BPAT-020"
+    "BPAT-020",
+    "BPAT-030"
   ],
   "updated": "2026-05-26",
   "scope_kind": "execution",
@@ -56,6 +57,10 @@
     {
       "task": "BPAT-020",
       "summary": "Added protocol-owned browser playback ticket request/response DTOs, Public Client OpenAPI route POST /sources/{source_id}/playback/browser-ticket, Rust and TypeScript client methods, and generated SDK coverage for browser-safe URL envelopes without raw locators or bearer-token media URLs."
+    },
+    {
+      "task": "BPAT-030",
+      "summary": "Implemented opaque in-memory browser playback ticket issuance and validation in nako-server for direct stream, remux, HLS playlist, and HLS segment routes, including expiry, source/mode scope, Library Access rechecks, Range preservation, HLS segment ticketing, and redaction-safe errors/debug output."
     }
   ],
   "adr_refs": [
@@ -65,6 +70,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Start BPAT-030 by implementing server-side short-lived browser playback ticket issuance and validation for direct stream, remux, HLS playlist, and HLS segment requests. Do not wire the Media Web real player before protected byte routes validate tickets."
+    "notes": "Start BPAT-040 by wiring Media Web to request browser playback tickets and render a real player. Do not expose bearer tokens, raw Source Locators, local paths, Admin API diagnostics, or raw ticket values in visible UI state."
   }
 }

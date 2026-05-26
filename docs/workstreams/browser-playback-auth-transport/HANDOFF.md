@@ -16,19 +16,22 @@ BPAT-020 is complete. The Public Client contract now exposes
 request/response DTOs, Rust/TypeScript client methods, and generated SDK
 coverage.
 
+BPAT-030 is complete. The server now issues opaque in-memory playback tickets
+and validates ticketed direct stream, remux, HLS playlist, and HLS segment
+requests before serving bytes.
+
 ## Active Task
 
-- Task ID: BPAT-030
+- Task ID: BPAT-040
 - Owner: unassigned
-- Files: `crates/nako-server`, `crates/nako-api`, `crates/nako-core`,
-  `crates/nako-db`, `docs/workstreams/browser-playback-auth-transport`
-- Validation: focused Rust tests for ticket issuance, expiry, source/mode
-  scope mismatch, Library Access denial, Range handling, remux/HLS behavior,
-  and redaction; use `cargo nextest run` where practical.
+- Files: `apps/admin-web/src/surfaces/media`, `sdk/typescript`,
+  `docs/workstreams/browser-playback-auth-transport`
+- Validation: `cd apps/admin-web && npm run check && npm run test -- mediaSurface.test.tsx mediaDataSource.test.ts`; boundary grep under `apps/admin-web/src/surfaces/media`; browser smoke when a dev server is available.
 - Status: READY
-- Review: Implement server-side ticket issuance and per-request validation for
-  direct stream, remux, HLS playlist, and HLS segment routes. Ticket values
-  must not be logged or surfaced in client-safe errors.
+- Review: Replace the safe watch shell with a real browser player that calls
+  the Public Client ticket route and uses only browser-safe playback URLs.
+  The UI must not render bearer tokens, raw stream internals, raw Source
+  Locators, local paths, or Admin API diagnostics.
 - Evidence: update `EVIDENCE_AND_GATES.md`
 
 ## Decisions Since Last Update
@@ -43,8 +46,17 @@ coverage.
   `POST /sources/{source_id}/playback/browser-ticket`.
 - The issuance contract returns browser-safe URL descriptors only; actual byte
   serving remains protected by BPAT-030 validation.
+- BPAT-030 uses an in-memory opaque ticket service rather than reversible
+  signed claims. The server stores only hashed token lookup keys and scoped
+  ticket records.
+- Ticket validation rechecks current Library Access at use, not only at
+  issuance.
+- Auth middleware bypass is intentionally narrow: GET/HEAD media byte routes
+  with a `ticket` query are allowed through to route-level ticket validation;
+  Admin/Public JSON routes stay bearer-protected.
 
 ## Next Recommended Action
 
-Run BPAT-030. Add the backend ticket model and validation boundary before
-Media Web renders a real player.
+Run BPAT-040. Wire Media Web's watch surface to request browser playback
+tickets and render a real player without exposing bearer tokens or raw media
+internals.

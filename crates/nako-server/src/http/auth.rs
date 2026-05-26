@@ -1,7 +1,7 @@
 use axum::{
     Json,
     extract::Request,
-    http::{HeaderMap, HeaderValue, StatusCode, header},
+    http::{HeaderMap, HeaderValue, Method, StatusCode, Uri, header},
     middleware::Next,
     response::{IntoResponse, Response},
 };
@@ -50,6 +50,10 @@ pub(super) async fn require_auth(request: Request, next: Next) -> Response {
 
     if !auth.enabled {
         insert_bootstrap_admin_principal(&mut request);
+        return next.run(request).await;
+    }
+
+    if playback_ticket_bypass_allowed(request.method(), request.uri()) {
         return next.run(request).await;
     }
 
@@ -102,6 +106,34 @@ fn insert_bootstrap_admin_principal(request: &mut Request) {
         .extensions_mut()
         .insert(principal.principal_id.clone());
     request.extensions_mut().insert(principal);
+}
+
+fn playback_ticket_bypass_allowed(method: &Method, uri: &Uri) -> bool {
+    if method != Method::GET && method != Method::HEAD {
+        return false;
+    }
+    if !query_has_playback_ticket(uri.query()) {
+        return false;
+    }
+
+    let parts = uri.path().trim_matches('/').split('/').collect::<Vec<_>>();
+
+    matches!(
+        parts.as_slice(),
+        ["sources", _, "stream"]
+            | ["sources", _, "stream", "remux"]
+            | ["sources", _, "stream", "hls", "playlist.m3u8"]
+            | ["playback", "sessions", _, "hls", "segments", _]
+    )
+}
+
+fn query_has_playback_ticket(query: Option<&str>) -> bool {
+    query.is_some_and(|query| {
+        query.split('&').any(|part| {
+            part.split_once('=')
+                .map_or(part == "ticket", |(name, _)| name == "ticket")
+        })
+    })
 }
 
 fn constant_time_eq(actual: &[u8], expected: &[u8]) -> bool {
@@ -196,5 +228,50 @@ mod tests {
             .unwrap();
 
         assert_eq!(body.as_ref(), b"local-admin");
+    }
+
+    #[test]
+    fn playback_ticket_bypass_is_limited_to_media_byte_routes() {
+        assert!(playback_ticket_bypass_allowed(
+            &Method::GET,
+            &"/sources/123/stream?ticket=opaque".parse().unwrap()
+        ));
+        assert!(playback_ticket_bypass_allowed(
+            &Method::HEAD,
+            &"/sources/123/stream/remux?output_container=mp4&ticket=opaque"
+                .parse()
+                .unwrap()
+        ));
+        assert!(playback_ticket_bypass_allowed(
+            &Method::GET,
+            &"/sources/123/stream/hls/playlist.m3u8?ticket=opaque"
+                .parse()
+                .unwrap()
+        ));
+        assert!(playback_ticket_bypass_allowed(
+            &Method::GET,
+            &"/playback/sessions/abc/hls/segments/000.ts?ticket=opaque"
+                .parse()
+                .unwrap()
+        ));
+
+        assert!(!playback_ticket_bypass_allowed(
+            &Method::POST,
+            &"/sources/123/playback/browser-ticket?ticket=opaque"
+                .parse()
+                .unwrap()
+        ));
+        assert!(!playback_ticket_bypass_allowed(
+            &Method::GET,
+            &"/admin/v1/overview?ticket=opaque".parse().unwrap()
+        ));
+        assert!(!playback_ticket_bypass_allowed(
+            &Method::GET,
+            &"/libraries?ticket=opaque".parse().unwrap()
+        ));
+        assert!(!playback_ticket_bypass_allowed(
+            &Method::GET,
+            &"/sources/123/stream?not_ticket=opaque".parse().unwrap()
+        ));
     }
 }

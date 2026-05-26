@@ -31,6 +31,7 @@ mod metadata_runtime;
 mod metadata_scan;
 mod nfo;
 pub(crate) mod playback;
+mod playback_ticket;
 mod runtime;
 mod staging;
 mod startup;
@@ -56,6 +57,9 @@ pub(crate) use playback::DirectPlayStreamBody;
 use playback::PlaybackAppService;
 pub(crate) use playback::{
     DirectPlaySourceBody, HlsSourceRequest, RemuxSourceDisposition, RemuxSourceRequest,
+};
+pub(crate) use playback_ticket::{
+    BrowserPlaybackTicketMode, BrowserPlaybackTicketService, IssuedBrowserPlaybackTicket,
 };
 pub(crate) use runtime::RuntimeSupervisorDiagnostics;
 #[cfg(test)]
@@ -181,6 +185,11 @@ impl NakoApp {
     #[must_use]
     pub(crate) fn playback(&self) -> PlaybackAppService {
         self.services().playback.clone()
+    }
+
+    #[must_use]
+    pub(crate) fn playback_tickets(&self) -> BrowserPlaybackTicketService {
+        self.services().playback_tickets.clone()
     }
 
     #[must_use]

@@ -35,6 +35,10 @@ Exit criteria:
 - Expiry, source scope, mode scope, Library Access denial, Range handling, and
   redaction are tested.
 
+Result: DONE 2026-05-26. Server-side opaque browser playback tickets now
+protect direct stream, remux, HLS playlist, and HLS segment routes with focused
+nextest and broader playback regression coverage.
+
 ## M3 - Media Web Real Player
 
 Exit criteria:

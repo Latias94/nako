@@ -10,6 +10,16 @@ async fn wait_for_marker(marker: &std::path::Path) {
     panic!("remux fixture did not start before timeout: {marker:?}");
 }
 
+fn ticket_param(url: &str) -> &str {
+    url.split_once('?')
+        .and_then(|(_, query)| {
+            query
+                .split('&')
+                .find_map(|part| part.strip_prefix("ticket="))
+        })
+        .expect("browser playback URL contains ticket query parameter")
+}
+
 #[tokio::test]
 async fn playback_decision_and_direct_stream_routes_work() {
     let temp = tempfile::tempdir().unwrap();
@@ -219,6 +229,178 @@ async fn direct_stream_head_returns_headers_without_body() {
     );
     let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
     assert!(bytes.is_empty());
+}
+
+#[tokio::test]
+async fn browser_playback_ticket_streams_direct_bytes_without_bearer() {
+    let (_temp, app, source, _store) =
+        app_with_media_source_config("ticket.mp4", b"0123456789", |_| {}).await;
+    let router = build_router_with_auth(app, auth::InboundAuthState::bearer_token("secret"));
+    let issue_request = nako_api::public_client::BrowserPlaybackTicketRequest {
+        mode: nako_api::public_client::BrowserPlaybackMode::Direct,
+        capabilities: Some(nako_api::public_client::BrowserPlaybackCapabilitiesDto {
+            direct_play: Some(true),
+            container: Some(vec!["mp4".to_owned()]),
+            video_codec: Some(vec!["h264".to_owned()]),
+            audio_codec: Some(vec!["aac".to_owned()]),
+            output_container: None,
+        }),
+    };
+
+    let unauthenticated = response_for(
+        &router,
+        Method::GET,
+        &format!("/sources/{}/stream", source.id),
+    )
+    .await;
+    assert_eq!(unauthenticated.status(), StatusCode::UNAUTHORIZED);
+
+    let ticket_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!("/sources/{}/playback/browser-ticket", source.id))
+                .header(header::AUTHORIZATION, "Bearer secret")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(serde_json::to_vec(&issue_request).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(ticket_response.status(), StatusCode::OK);
+    let ticket =
+        body_json::<nako_api::public_client::BrowserPlaybackTicketResponse>(ticket_response).await;
+    assert_eq!(
+        ticket.mode,
+        nako_api::public_client::BrowserPlaybackMode::Direct
+    );
+    assert_eq!(
+        ticket.urls[0].kind,
+        nako_api::public_client::BrowserPlaybackUrlKind::Stream
+    );
+    assert!(ticket.urls[0].url.contains("ticket="));
+    assert!(!ticket.urls[0].url.contains("Bearer"));
+    let ticket_token = ticket_param(&ticket.urls[0].url);
+    assert!(ticket_token.starts_with("nako_bpt_"));
+    assert!(!ticket_token.contains(&source.id.to_string()));
+
+    let stream_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&ticket.urls[0].url)
+                .header(header::RANGE, "bytes=2-5")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(stream_response.status(), StatusCode::PARTIAL_CONTENT);
+    let bytes = to_bytes(stream_response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    assert_eq!(&bytes[..], b"2345");
+
+    let invalid = response_for(
+        &router,
+        Method::GET,
+        &format!("/sources/{}/stream?ticket=not-a-ticket", source.id),
+    )
+    .await;
+    assert_eq!(invalid.status(), StatusCode::UNAUTHORIZED);
+    let error = body_json::<ErrorResponse>(invalid).await;
+    assert_eq!(error.code, "unauthorized");
+    assert!(!error.message.contains("not-a-ticket"));
+}
+
+#[tokio::test]
+async fn browser_playback_ticket_rejects_browse_only_access_and_revocation_at_use() {
+    let (_temp, app, source, store) =
+        app_with_media_source_config("ticket-access.mp4", b"0123456789", |_| {}).await;
+    let browse_principal =
+        local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::Browse)
+            .await;
+    let browse_router = public_client_router_with_principal(app.clone(), browse_principal);
+    let issue_request = nako_api::public_client::BrowserPlaybackTicketRequest {
+        mode: nako_api::public_client::BrowserPlaybackMode::Direct,
+        capabilities: None,
+    };
+
+    let browse_only = response_body_json(
+        &browse_router,
+        Method::POST,
+        &format!("/sources/{}/playback/browser-ticket", source.id),
+        &issue_request,
+    )
+    .await;
+    assert_eq!(browse_only.status(), StatusCode::FORBIDDEN);
+
+    let play_principal =
+        local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::Play).await;
+    let play_user_id = play_principal.user_id;
+    let play_router = public_client_router_with_principal(app, play_principal);
+    let ticket = request_body_json::<nako_api::public_client::BrowserPlaybackTicketResponse, _>(
+        &play_router,
+        Method::POST,
+        &format!("/sources/{}/playback/browser-ticket", source.id),
+        &issue_request,
+    )
+    .await;
+
+    store
+        .delete_library_access_policy(
+            LibraryAccessPolicyScope::User(play_user_id),
+            source.library_id,
+        )
+        .await
+        .unwrap();
+
+    let revoked = response_for(&play_router, Method::GET, &ticket.urls[0].url).await;
+    assert_eq!(revoked.status(), StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn browser_playback_ticket_is_scoped_to_playback_mode() {
+    let (_temp, router, source, _store) =
+        router_with_media_source("ticket-scope.mp4", b"0123456789").await;
+    let issue_request = nako_api::public_client::BrowserPlaybackTicketRequest {
+        mode: nako_api::public_client::BrowserPlaybackMode::Direct,
+        capabilities: None,
+    };
+    let ticket = request_body_json::<nako_api::public_client::BrowserPlaybackTicketResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/sources/{}/playback/browser-ticket", source.id),
+        &issue_request,
+    )
+    .await;
+    let token = ticket_param(&ticket.urls[0].url);
+
+    let remux = response_for(
+        &router,
+        Method::GET,
+        &format!(
+            "/sources/{}/stream/remux?output_container=mp4&ticket={token}",
+            source.id
+        ),
+    )
+    .await;
+    assert_eq!(remux.status(), StatusCode::UNAUTHORIZED);
+
+    let hls = response_for(
+        &router,
+        Method::GET,
+        &format!(
+            "/sources/{}/stream/hls/playlist.m3u8?ticket={token}",
+            source.id
+        ),
+    )
+    .await;
+    assert_eq!(hls.status(), StatusCode::UNAUTHORIZED);
 }
 
 #[tokio::test]
@@ -497,6 +679,60 @@ async fn remux_stream_route_runs_and_reuses_completed_output() {
     assert_eq!(reused.status(), StatusCode::OK);
     let bytes = to_bytes(reused.into_body(), usize::MAX).await.unwrap();
     assert_eq!(&bytes[..], b"remuxed");
+}
+
+#[tokio::test]
+async fn browser_playback_ticket_streams_remux_bytes() {
+    let (_temp, router, source, _staging_root, _ffmpeg_path, _marker, _store) =
+        router_with_remux_source(false).await;
+    let issue_request = nako_api::public_client::BrowserPlaybackTicketRequest {
+        mode: nako_api::public_client::BrowserPlaybackMode::Remux,
+        capabilities: Some(nako_api::public_client::BrowserPlaybackCapabilitiesDto {
+            direct_play: Some(false),
+            container: Some(vec!["mkv".to_owned()]),
+            video_codec: Some(vec!["h264".to_owned()]),
+            audio_codec: Some(vec!["aac".to_owned()]),
+            output_container: Some(nako_api::public_client::BrowserPlaybackOutputContainer::Mp4),
+        }),
+    };
+    let ticket = request_body_json::<nako_api::public_client::BrowserPlaybackTicketResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/sources/{}/playback/browser-ticket", source.id),
+        &issue_request,
+    )
+    .await;
+
+    assert_eq!(
+        ticket.mode,
+        nako_api::public_client::BrowserPlaybackMode::Remux
+    );
+    assert!(ticket.urls[0].url.contains("output_container=mp4"));
+    assert!(ticket.urls[0].supports_range_requests);
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&ticket.urls[0].url)
+                .header(header::RANGE, "bytes=1-4")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
+    assert_eq!(
+        response
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok()),
+        Some("video/mp4")
+    );
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(&bytes[..], b"emux");
 }
 
 #[tokio::test]
@@ -1022,6 +1258,69 @@ async fn hls_playlist_and_segment_routes_work() {
         .unwrap();
 
     assert_eq!(missing.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn browser_playback_ticket_protects_hls_playlist_and_segments() {
+    let (_temp, router, source, _store) = router_with_hls_source().await;
+    let issue_request = nako_api::public_client::BrowserPlaybackTicketRequest {
+        mode: nako_api::public_client::BrowserPlaybackMode::Hls,
+        capabilities: Some(nako_api::public_client::BrowserPlaybackCapabilitiesDto {
+            direct_play: Some(true),
+            container: Some(vec!["mp4".to_owned()]),
+            video_codec: Some(vec!["h264".to_owned()]),
+            audio_codec: Some(vec!["aac".to_owned()]),
+            output_container: None,
+        }),
+    };
+
+    let ticket = request_body_json::<nako_api::public_client::BrowserPlaybackTicketResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/sources/{}/playback/browser-ticket", source.id),
+        &issue_request,
+    )
+    .await;
+
+    assert_eq!(
+        ticket.mode,
+        nako_api::public_client::BrowserPlaybackMode::Hls
+    );
+    assert_eq!(
+        ticket.urls[0].kind,
+        nako_api::public_client::BrowserPlaybackUrlKind::Playlist
+    );
+    assert!(ticket.urls[0].url.contains("ticket="));
+
+    let playlist_response = response_for(&router, Method::GET, &ticket.urls[0].url).await;
+    assert_eq!(playlist_response.status(), StatusCode::OK);
+    let playlist = response_text(playlist_response).await;
+    assert!(playlist.contains("?ticket="));
+    assert!(!playlist.contains("Bearer"));
+    let segment_uri = playlist
+        .lines()
+        .find(|line| line.starts_with("/playback/sessions/"))
+        .expect("playlist contains ticketed segment URL")
+        .to_owned();
+
+    let segment_response = response_for(&router, Method::GET, &segment_uri).await;
+    assert_eq!(segment_response.status(), StatusCode::OK);
+    let segment = to_bytes(segment_response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    assert_eq!(&segment[..], b"segment");
+
+    let segment_path = segment_uri
+        .split_once('?')
+        .map(|(path, _)| path)
+        .unwrap_or(segment_uri.as_str());
+    let invalid = response_for(
+        &router,
+        Method::GET,
+        &format!("{segment_path}?ticket=not-a-ticket"),
+    )
+    .await;
+    assert_eq!(invalid.status(), StatusCode::UNAUTHORIZED);
 }
 
 #[tokio::test]

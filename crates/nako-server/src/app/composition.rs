@@ -23,6 +23,7 @@ use super::{
     metadata_runtime,
     nfo::NfoAppService,
     playback::{PlaybackAppService, PlaybackRuntimeStore},
+    playback_ticket::BrowserPlaybackTicketService,
     runtime::RuntimeSupervisor,
     startup::{ServerStartupReport, ServerStartupWorkflow},
     storage::{StorageBackendRegistry, StorageDiagnosticsAppService},
@@ -133,6 +134,7 @@ pub(super) struct NakoAppServices {
     pub(super) managed_import: ManagedImportAppService,
     pub(super) nfo: NfoAppService,
     pub(super) playback: PlaybackAppService,
+    pub(super) playback_tickets: BrowserPlaybackTicketService,
     pub(super) user_playback: UserPlaybackAppService,
 }
 
@@ -193,6 +195,7 @@ impl NakoAppServices {
             runtime.storage_backends,
             runtime.supervisor,
         )?;
+        let playback_tickets = BrowserPlaybackTicketService::new();
         let user_playback = UserPlaybackAppService::new(store);
 
         Ok(Self {
@@ -210,6 +213,7 @@ impl NakoAppServices {
             managed_import,
             nfo,
             playback,
+            playback_tickets,
             user_playback,
         })
     }

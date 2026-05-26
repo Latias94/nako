@@ -39,7 +39,7 @@ Task IDs use the `BPAT` prefix.
 
 ## M2 - Server Validation And Stream Use
 
-- [ ] BPAT-030 [owner=unassigned] [deps=BPAT-020] [scope=crates/nako-server,crates/nako-api,crates/nako-core,crates/nako-db]
+- [x] BPAT-030 [owner=codex] [deps=BPAT-020] [scope=crates/nako-server,crates/nako-api,crates/nako-core,crates/nako-db]
   Goal: Implement server-side ticket/session/header validation for stream,
   remux, playlist, and segment requests according to the accepted transport.
   Validation: focused Rust tests for ticket issuance, expiry, scope mismatch,
@@ -49,6 +49,12 @@ Task IDs use the `BPAT` prefix.
   Evidence: focused nextest output and security-case notes.
   Handoff: If HLS segment protection needs a separate playback-session model,
   split the smallest backend task before frontend player work.
+  Result: DONE 2026-05-26. Added an opaque in-memory browser playback ticket
+  service with hashed token lookup, 6-hour expiry, source/mode/principal
+  binding, issuance-time and use-time Library Access checks, and protected
+  direct stream, remux, HLS playlist, and HLS segment routes. Ticket query
+  auth bypass is limited to media byte routes; token values are not surfaced
+  in client-safe errors or Debug output.
 
 ## M3 - Media Web Real Player
 
