@@ -1,9 +1,13 @@
 use crate::admin::ADMIN_API_VERSION;
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 44] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 45] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
+    (
+        "accessUserLocalPassword",
+        "access/users/{user_id}/local-password",
+    ),
     ("accessUserRoles", "access/users/{user_id}/roles"),
     ("accessUserStatus", "access/users/{user_id}/status"),
     ("accessLibraryPolicies", "access/library-policies"),
@@ -1638,6 +1642,7 @@ export interface AdminAccessUserRecord {
   status: AdminUserStatus;
   roles: AdminUserRole[];
   bootstrap: boolean;
+  local_password_configured: boolean;
   created_at_ms: number;
   updated_at_ms: number;
 }
@@ -1667,6 +1672,17 @@ export interface AdminReplaceUserRolesRequest {
 
 export interface AdminUpdateUserStatusRequest {
   status: AdminUserStatus;
+}
+
+export interface AdminSetLocalPasswordRequest {
+  password: string;
+}
+
+export interface AdminLocalPasswordResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  user_id: string;
+  local_password_configured: boolean;
 }
 
 export interface AdminLibraryAccessPolicyRecord {
@@ -1916,6 +1932,8 @@ mod tests {
             "AdminAddonRoutingPlansResponse",
             "AdminNetworkAccessDiagnostics",
             "AdminAccessSummaryResponse",
+            "AdminSetLocalPasswordRequest",
+            "AdminLocalPasswordResponse",
             "AdminAccessMode",
             "AdminAccessCapabilityState",
             "AdminLibraryAccessLevel",

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{LibraryId, UserId, UserPrincipalId};
+use crate::{LibraryId, UserId, UserPrincipalId, UserSessionId};
 
 pub const BOOTSTRAP_ADMIN_USERNAME: &str = "admin";
 pub const BOOTSTRAP_ADMIN_DISPLAY_NAME: &str = "Local administrator";
@@ -67,6 +67,31 @@ pub struct User {
     pub status: UserStatus,
     pub created_at_ms: i64,
     pub updated_at_ms: i64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct LocalCredentialRecord {
+    pub user_id: UserId,
+    pub password_hash: String,
+    pub updated_at_ms: i64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct UserSessionRecord {
+    pub id: UserSessionId,
+    pub user_id: UserId,
+    pub token_hash: String,
+    pub created_at_ms: i64,
+    pub last_seen_at_ms: i64,
+    pub expires_at_ms: i64,
+    pub revoked_at_ms: Option<i64>,
+}
+
+impl UserSessionRecord {
+    #[must_use]
+    pub const fn is_active_at(&self, now_ms: i64) -> bool {
+        self.revoked_at_ms.is_none() && self.expires_at_ms > now_ms
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]

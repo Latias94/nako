@@ -6,6 +6,14 @@ attention.
 
 ## Current Workstreams
 
+- [credential-session-auth](credential-session-auth/README.md):
+  completed backend execution lane for adding Nako's first local password
+  credential and durable session authority after the completed User/Role/Library
+  Access contract. It shipped Admin API password provisioning, Public Client
+  login/current-account/logout, Bearer session resolution through
+  `AuthenticatedPrincipal`, and refreshed generated client contracts. Admin Web,
+  Media Web, cookies, invitations, account recovery, SSO, and Management
+  Context Links remain focused follow-ons.
 - [browser-playback-auth-transport](browser-playback-auth-transport/README.md):
   active execution lane for choosing and implementing the secure browser
   playback transport that lets Media Web render a real player without exposing

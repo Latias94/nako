@@ -344,6 +344,63 @@ impl IdentityAccessRepository for NakoDatabase {
         self.backend().list_users(page).await
     }
 
+    async fn upsert_local_credential(&self, credential: &LocalCredentialRecord) -> Result<()> {
+        self.backend().upsert_local_credential(credential).await
+    }
+
+    async fn get_local_credential_by_user(
+        &self,
+        user_id: UserId,
+    ) -> Result<Option<LocalCredentialRecord>> {
+        self.backend().get_local_credential_by_user(user_id).await
+    }
+
+    async fn get_local_credential_by_username(
+        &self,
+        username: &str,
+    ) -> Result<Option<LocalCredentialRecord>> {
+        self.backend()
+            .get_local_credential_by_username(username)
+            .await
+    }
+
+    async fn delete_local_credential(&self, user_id: UserId) -> Result<()> {
+        self.backend().delete_local_credential(user_id).await
+    }
+
+    async fn create_user_session(&self, session: &UserSessionRecord) -> Result<()> {
+        self.backend().create_user_session(session).await
+    }
+
+    async fn get_user_session(&self, id: UserSessionId) -> Result<Option<UserSessionRecord>> {
+        self.backend().get_user_session(id).await
+    }
+
+    async fn get_user_session_by_token_hash(
+        &self,
+        token_hash: &str,
+    ) -> Result<Option<UserSessionRecord>> {
+        self.backend()
+            .get_user_session_by_token_hash(token_hash)
+            .await
+    }
+
+    async fn touch_user_session(
+        &self,
+        id: UserSessionId,
+        last_seen_at_ms: i64,
+    ) -> Result<Option<UserSessionRecord>> {
+        self.backend().touch_user_session(id, last_seen_at_ms).await
+    }
+
+    async fn revoke_user_session(
+        &self,
+        id: UserSessionId,
+        revoked_at_ms: i64,
+    ) -> Result<Option<UserSessionRecord>> {
+        self.backend().revoke_user_session(id, revoked_at_ms).await
+    }
+
     async fn replace_role_assignments(
         &self,
         user_id: UserId,

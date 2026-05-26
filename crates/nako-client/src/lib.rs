@@ -9,9 +9,10 @@ pub use nako_client_protocol::{
     API_VERSION_HEADER, BrowserPlaybackCapabilitiesDto, BrowserPlaybackMode,
     BrowserPlaybackOutputContainer, BrowserPlaybackTicketRequest, BrowserPlaybackTicketResponse,
     BrowserPlaybackUrlDto, BrowserPlaybackUrlKind, CLIENT_PROTOCOL_VERSION as API_VERSION,
-    ClientOutputContainer, ContinueWatchingResponse, ErrorResponse, GenreItemsResponse,
-    GenreListResponse, HealthResponse, ImagesResponse, ItemCreditsResponse, ItemDetailResponse,
-    ItemsResponse, LibraryListResponse, LibraryResponse, LibrarySourcesResponse,
+    ClientOutputContainer, ContinueWatchingResponse, CurrentUserResponse, ErrorResponse,
+    GenreItemsResponse, GenreListResponse, HealthResponse, ImagesResponse, ItemCreditsResponse,
+    ItemDetailResponse, ItemsResponse, LibraryListResponse, LibraryResponse,
+    LibrarySourcesResponse, LoginRequest, LoginResponse, LogoutResponse,
     PLAYBACK_SESSION_ID_HEADER, PageInfo, PeopleResponse, PersonItemsResponse, PersonResponse,
     PlaybackDecisionResponse, PublicClientRustSdkExposure, SearchResponse, SetWatchedStateRequest,
     SourceProbeResponse, TagItemsResponse, TagsResponse, TranscodeSessionResponse,
@@ -95,6 +96,36 @@ impl NakoClient {
     /// Returns transport, HTTP, version, or decode errors.
     pub async fn health(&self) -> Result<HealthResponse, NakoClientError> {
         self.request_json_no_query(Method::GET, "/health", false)
+            .await
+    }
+
+    /// Create a local user session.
+    ///
+    /// # Errors
+    ///
+    /// Returns transport, HTTP, version, encode, or decode errors.
+    pub async fn login(&self, request: &LoginRequest) -> Result<LoginResponse, NakoClientError> {
+        self.request_json_body(Method::POST, "/auth/login", request, false)
+            .await
+    }
+
+    /// Revoke the current local user session.
+    ///
+    /// # Errors
+    ///
+    /// Returns transport, HTTP, version, or decode errors.
+    pub async fn logout(&self) -> Result<LogoutResponse, NakoClientError> {
+        self.request_json_no_query(Method::POST, "/auth/logout", true)
+            .await
+    }
+
+    /// Get the current user account.
+    ///
+    /// # Errors
+    ///
+    /// Returns transport, HTTP, version, or decode errors.
+    pub async fn current_user(&self) -> Result<CurrentUserResponse, NakoClientError> {
+        self.request_json_no_query(Method::GET, "/users/me", true)
             .await
     }
 
@@ -1267,6 +1298,79 @@ mod tests {
         assert_eq!(request.method, Method::GET);
         assert_eq!(request.url.as_str(), "http://localhost:3000/health");
         assert!(request.headers.get(AUTHORIZATION).is_none());
+    }
+
+    #[tokio::test]
+    async fn account_login_skips_auth_and_me_logout_use_bearer() {
+        let transport = MockTransport::default();
+        transport.push_json(
+            StatusCode::OK,
+            json!({
+                "session": {
+                    "token": "nako_sess_returned",
+                    "expires_at_ms": 1234
+                },
+                "account": {
+                    "user": {
+                        "id": "018f0000-0000-7000-8000-000000000001",
+                        "username": "viewer",
+                        "display_name": "Viewer",
+                        "roles": ["viewer"],
+                        "bootstrap": false
+                    }
+                }
+            }),
+        );
+        transport.push_json(
+            StatusCode::OK,
+            json!({
+                "user": {
+                    "id": "018f0000-0000-7000-8000-000000000001",
+                    "username": "viewer",
+                    "display_name": "Viewer",
+                    "roles": ["viewer"],
+                    "bootstrap": false
+                }
+            }),
+        );
+        transport.push_json(StatusCode::OK, json!({"revoked": true}));
+        let client = NakoClient::with_transport("http://localhost:3000", transport.clone())
+            .unwrap()
+            .bearer_token("session-token");
+
+        let login = client
+            .login(&LoginRequest {
+                username: "viewer".to_owned(),
+                password: "password".to_owned(),
+            })
+            .await
+            .unwrap();
+        let me = client.current_user().await.unwrap();
+        let logout = client.logout().await.unwrap();
+
+        assert_eq!(login.session.token, "nako_sess_returned");
+        assert_eq!(me.user.username, "viewer");
+        assert!(logout.revoked);
+        let requests = transport.requests();
+        assert_eq!(requests[0].method, Method::POST);
+        assert_eq!(requests[0].url.as_str(), "http://localhost:3000/auth/login");
+        assert!(requests[0].headers.get(AUTHORIZATION).is_none());
+        assert!(String::from_utf8_lossy(&requests[0].body).contains("\"password\""));
+        assert_eq!(requests[1].method, Method::GET);
+        assert_eq!(requests[1].url.as_str(), "http://localhost:3000/users/me");
+        assert_eq!(
+            requests[1].headers.get(AUTHORIZATION).unwrap(),
+            HeaderValue::from_static("Bearer session-token")
+        );
+        assert_eq!(requests[2].method, Method::POST);
+        assert_eq!(
+            requests[2].url.as_str(),
+            "http://localhost:3000/auth/logout"
+        );
+        assert_eq!(
+            requests[2].headers.get(AUTHORIZATION).unwrap(),
+            HeaderValue::from_static("Bearer session-token")
+        );
     }
 
     #[tokio::test]

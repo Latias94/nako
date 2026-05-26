@@ -4,7 +4,8 @@ use super::PageRequest;
 use crate::Result;
 use crate::{
     EffectiveLibraryAccess, LibraryAccessPolicy, LibraryAccessPolicyScope, LibraryId,
-    RoleAssignment, User, UserId, UserPrincipalId, UserRole,
+    LocalCredentialRecord, RoleAssignment, User, UserId, UserPrincipalId, UserRole, UserSessionId,
+    UserSessionRecord,
 };
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -23,6 +24,41 @@ pub trait IdentityAccessRepository: Send + Sync {
     async fn get_user_by_principal(&self, principal_id: &UserPrincipalId) -> Result<Option<User>>;
 
     async fn list_users(&self, page: PageRequest) -> Result<Vec<User>>;
+
+    async fn upsert_local_credential(&self, credential: &LocalCredentialRecord) -> Result<()>;
+
+    async fn get_local_credential_by_user(
+        &self,
+        user_id: UserId,
+    ) -> Result<Option<LocalCredentialRecord>>;
+
+    async fn get_local_credential_by_username(
+        &self,
+        username: &str,
+    ) -> Result<Option<LocalCredentialRecord>>;
+
+    async fn delete_local_credential(&self, user_id: UserId) -> Result<()>;
+
+    async fn create_user_session(&self, session: &UserSessionRecord) -> Result<()>;
+
+    async fn get_user_session(&self, id: UserSessionId) -> Result<Option<UserSessionRecord>>;
+
+    async fn get_user_session_by_token_hash(
+        &self,
+        token_hash: &str,
+    ) -> Result<Option<UserSessionRecord>>;
+
+    async fn touch_user_session(
+        &self,
+        id: UserSessionId,
+        last_seen_at_ms: i64,
+    ) -> Result<Option<UserSessionRecord>>;
+
+    async fn revoke_user_session(
+        &self,
+        id: UserSessionId,
+        revoked_at_ms: i64,
+    ) -> Result<Option<UserSessionRecord>>;
 
     async fn replace_role_assignments(
         &self,

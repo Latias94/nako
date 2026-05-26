@@ -55,3 +55,4 @@ evidence has been reviewed.
 - [0034: Package Addon Capabilities Into Sidecar Suites](0034-package-addon-capabilities-into-sidecar-suites.md)
 - [0035: Addon Native Metadata Writeback](0035-addon-native-metadata-writeback.md)
 - [0036: Use Short-Lived Playback Tickets for Browser Media Transport](0036-short-lived-browser-playback-tickets.md)
+- [0037: Add Local Credential and Session Authentication](0037-local-credential-and-session-auth.md)

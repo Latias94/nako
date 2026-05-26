@@ -14,6 +14,23 @@ const USER_SELECT: &str = r#"
             FROM users
             "#;
 
+const LOCAL_CREDENTIAL_SELECT: &str = r#"
+            SELECT user_id, password_hash, updated_at_ms
+            FROM local_user_credentials
+            "#;
+
+const USER_SESSION_SELECT: &str = r#"
+            SELECT
+                id,
+                user_id,
+                token_hash,
+                created_at_ms,
+                last_seen_at_ms,
+                expires_at_ms,
+                revoked_at_ms
+            FROM user_sessions
+            "#;
+
 #[async_trait::async_trait]
 impl IdentityAccessRepository for SqliteStore {
     async fn upsert_user(&self, user: &User) -> Result<()> {
@@ -94,6 +111,170 @@ impl IdentityAccessRepository for SqliteStore {
             .map_err(database_error)?;
 
         rows.into_iter().map(row_to_user).collect()
+    }
+
+    async fn upsert_local_credential(&self, credential: &LocalCredentialRecord) -> Result<()> {
+        sqlx::query(
+            r#"
+            INSERT INTO local_user_credentials (user_id, password_hash, updated_at_ms)
+            VALUES (?1, ?2, ?3)
+            ON CONFLICT(user_id) DO UPDATE SET
+                password_hash = excluded.password_hash,
+                updated_at_ms = excluded.updated_at_ms,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            "#,
+        )
+        .bind(credential.user_id.to_string())
+        .bind(&credential.password_hash)
+        .bind(credential.updated_at_ms)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        Ok(())
+    }
+
+    async fn get_local_credential_by_user(
+        &self,
+        user_id: UserId,
+    ) -> Result<Option<LocalCredentialRecord>> {
+        let query = format!("{LOCAL_CREDENTIAL_SELECT} WHERE user_id = ?1");
+        let row = sqlx::query(&query)
+            .bind(user_id.to_string())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        row.map(row_to_local_credential).transpose()
+    }
+
+    async fn get_local_credential_by_username(
+        &self,
+        username: &str,
+    ) -> Result<Option<LocalCredentialRecord>> {
+        let query = format!(
+            r#"
+            {LOCAL_CREDENTIAL_SELECT}
+            WHERE user_id = (
+                SELECT id FROM users WHERE normalized_username = ?1
+            )
+            "#
+        );
+        let row = sqlx::query(&query)
+            .bind(normalized_username(username)?)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        row.map(row_to_local_credential).transpose()
+    }
+
+    async fn delete_local_credential(&self, user_id: UserId) -> Result<()> {
+        sqlx::query("DELETE FROM local_user_credentials WHERE user_id = ?1")
+            .bind(user_id.to_string())
+            .execute(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        Ok(())
+    }
+
+    async fn create_user_session(&self, session: &UserSessionRecord) -> Result<()> {
+        sqlx::query(
+            r#"
+            INSERT INTO user_sessions (
+                id,
+                user_id,
+                token_hash,
+                created_at_ms,
+                last_seen_at_ms,
+                expires_at_ms,
+                revoked_at_ms
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+            "#,
+        )
+        .bind(session.id.to_string())
+        .bind(session.user_id.to_string())
+        .bind(&session.token_hash)
+        .bind(session.created_at_ms)
+        .bind(session.last_seen_at_ms)
+        .bind(session.expires_at_ms)
+        .bind(session.revoked_at_ms)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        Ok(())
+    }
+
+    async fn get_user_session(&self, id: UserSessionId) -> Result<Option<UserSessionRecord>> {
+        let query = format!("{USER_SESSION_SELECT} WHERE id = ?1");
+        let row = sqlx::query(&query)
+            .bind(id.to_string())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        row.map(row_to_user_session).transpose()
+    }
+
+    async fn get_user_session_by_token_hash(
+        &self,
+        token_hash: &str,
+    ) -> Result<Option<UserSessionRecord>> {
+        let query = format!("{USER_SESSION_SELECT} WHERE token_hash = ?1");
+        let row = sqlx::query(&query)
+            .bind(token_hash)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        row.map(row_to_user_session).transpose()
+    }
+
+    async fn touch_user_session(
+        &self,
+        id: UserSessionId,
+        last_seen_at_ms: i64,
+    ) -> Result<Option<UserSessionRecord>> {
+        sqlx::query(
+            r#"
+            UPDATE user_sessions
+            SET last_seen_at_ms = ?2,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE id = ?1
+            "#,
+        )
+        .bind(id.to_string())
+        .bind(last_seen_at_ms)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.get_user_session(id).await
+    }
+
+    async fn revoke_user_session(
+        &self,
+        id: UserSessionId,
+        revoked_at_ms: i64,
+    ) -> Result<Option<UserSessionRecord>> {
+        sqlx::query(
+            r#"
+            UPDATE user_sessions
+            SET revoked_at_ms = COALESCE(revoked_at_ms, ?2),
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE id = ?1
+            "#,
+        )
+        .bind(id.to_string())
+        .bind(revoked_at_ms)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.get_user_session(id).await
     }
 
     async fn replace_role_assignments(
@@ -326,6 +507,26 @@ fn row_to_user(row: SqliteRow) -> Result<User> {
         status: parse_user_status(row_get(&row, "status")?)?,
         created_at_ms: row_get(&row, "created_at_ms")?,
         updated_at_ms: row_get(&row, "updated_at_ms")?,
+    })
+}
+
+fn row_to_local_credential(row: SqliteRow) -> Result<LocalCredentialRecord> {
+    Ok(LocalCredentialRecord {
+        user_id: parse_id(row_get::<String>(&row, "user_id")?)?,
+        password_hash: row_get(&row, "password_hash")?,
+        updated_at_ms: row_get(&row, "updated_at_ms")?,
+    })
+}
+
+fn row_to_user_session(row: SqliteRow) -> Result<UserSessionRecord> {
+    Ok(UserSessionRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        user_id: parse_id(row_get::<String>(&row, "user_id")?)?,
+        token_hash: row_get(&row, "token_hash")?,
+        created_at_ms: row_get(&row, "created_at_ms")?,
+        last_seen_at_ms: row_get(&row, "last_seen_at_ms")?,
+        expires_at_ms: row_get(&row, "expires_at_ms")?,
+        revoked_at_ms: row_get(&row, "revoked_at_ms")?,
     })
 }
 

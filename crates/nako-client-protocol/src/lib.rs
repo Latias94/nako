@@ -39,6 +39,7 @@ impl PublicClientHttpMethod {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PublicClientRouteKind {
     System,
+    Account,
     Library,
     Catalog,
     Playback,
@@ -55,6 +56,24 @@ pub const PUBLIC_CLIENT_ROUTES: &[PublicClientRoute] = &[
         path: "/health",
         methods: &[PublicClientHttpMethod::Get],
         kind: PublicClientRouteKind::System,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/auth/login",
+        methods: &[PublicClientHttpMethod::Post],
+        kind: PublicClientRouteKind::Account,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/auth/logout",
+        methods: &[PublicClientHttpMethod::Post],
+        kind: PublicClientRouteKind::Account,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/users/me",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::Account,
         rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
     },
     PublicClientRoute {
@@ -351,6 +370,43 @@ impl From<ClientErrorCode> for String {
     }
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct LoginRequest {
+    pub username: String,
+    pub password: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct LoginResponse {
+    pub session: UserSessionDto,
+    pub account: CurrentUserResponse,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CurrentUserResponse {
+    pub user: CurrentUserDto,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CurrentUserDto {
+    pub id: String,
+    pub username: String,
+    pub display_name: String,
+    pub roles: Vec<String>,
+    pub bootstrap: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct UserSessionDto {
+    pub token: String,
+    pub expires_at_ms: i64,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct LogoutResponse {
+    pub revoked: bool,
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct PageInfo {
     pub limit: u32,
@@ -402,8 +458,11 @@ mod tests {
     fn public_route_inventory_is_protocol_owned_and_complete() {
         let paths = public_client_paths().collect::<Vec<_>>();
 
-        assert_eq!(paths.len(), 30);
+        assert_eq!(paths.len(), 33);
         assert!(paths.contains(&"/health"));
+        assert!(paths.contains(&"/auth/login"));
+        assert!(paths.contains(&"/auth/logout"));
+        assert!(paths.contains(&"/users/me"));
         assert!(paths.contains(&"/images/{image_id}"));
         assert!(paths.contains(&"/sources/{source_id}/stream"));
         assert!(paths.contains(&"/sources/{source_id}/playback/browser-ticket"));
@@ -451,7 +510,7 @@ mod tests {
 
         let json_count = public_client_json_routes().count();
         let streaming_count = public_client_streaming_routes().count();
-        assert_eq!(json_count, 25);
+        assert_eq!(json_count, 28);
         assert_eq!(streaming_count, 5);
         assert_eq!(json_count + streaming_count, PUBLIC_CLIENT_ROUTES.len());
         let remux_stream = PUBLIC_CLIENT_ROUTES

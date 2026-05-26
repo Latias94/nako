@@ -3,15 +3,21 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use argon2::{
+    Argon2, PasswordHash, PasswordHasher, PasswordVerifier,
+    password_hash::{SaltString, rand_core::OsRng},
+};
 use nako_core::{
     AdminSettingsRepository, EffectiveLibraryAccess, IdentityAccessRepository, LibraryAccessPolicy,
     LibraryAccessPolicyFilter, LibraryAccessPolicyScope, LibraryId, ManagedArtworkRepository,
     MediaItemId, MediaRepository, MediaSource, MediaSourceId, NakoError, PageRequest, Result,
     RoleAssignment, SelectedArtworkId, SelectedArtworkRecord, User, UserId, UserPrincipalId,
+    UserRole, UserSessionId, UserSessionRecord,
 };
 use nako_db::{
     DatabaseBackendCapabilities, DatabaseBackendKind, DatabaseConnectOptions, NakoDatabase,
 };
+use sha2::{Digest, Sha256};
 
 use crate::config::{NakoServerConfig, resolve_database_url};
 
@@ -82,6 +88,22 @@ pub(crate) struct DatabaseDiagnostics {
     pub(crate) backend_kind: DatabaseBackendKind,
     pub(crate) capabilities: DatabaseBackendCapabilities,
 }
+
+#[derive(Clone, Debug)]
+pub(crate) struct IssuedUserSession {
+    pub(crate) token: String,
+    pub(crate) session: UserSessionRecord,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ResolvedSessionPrincipal {
+    pub(crate) principal: nako_core::AuthenticatedPrincipal,
+    pub(crate) session_id: UserSessionId,
+}
+
+const USER_SESSION_TTL_MS: i64 = 30 * 24 * 60 * 60 * 1_000;
+const USER_SESSION_TOKEN_PREFIX: &str = "nako_sess_";
+const MIN_LOCAL_PASSWORD_LEN: usize = 8;
 
 impl NakoApp {
     pub async fn new(config: NakoServerConfig) -> Result<Self> {
@@ -224,6 +246,137 @@ impl NakoApp {
         self.inner.store.list_users(page).await
     }
 
+    pub(crate) async fn set_local_password(&self, user_id: UserId, password: &str) -> Result<()> {
+        validate_local_password(password)?;
+        let user = self
+            .get_user(user_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "user",
+                id: user_id.to_string(),
+            })?;
+        if !user.status.can_authenticate() {
+            return Err(NakoError::InvalidInput {
+                message: "cannot set local password for disabled user".to_owned(),
+            });
+        }
+        let now_ms = current_time_ms()?;
+        self.inner
+            .store
+            .upsert_local_credential(&nako_core::LocalCredentialRecord {
+                user_id,
+                password_hash: hash_local_password(password)?,
+                updated_at_ms: now_ms,
+            })
+            .await
+    }
+
+    pub(crate) async fn get_local_credential_by_user(
+        &self,
+        user_id: UserId,
+    ) -> Result<Option<nako_core::LocalCredentialRecord>> {
+        self.inner.store.get_local_credential_by_user(user_id).await
+    }
+
+    pub(crate) async fn delete_local_password(&self, user_id: UserId) -> Result<()> {
+        self.inner.store.delete_local_credential(user_id).await
+    }
+
+    pub(crate) async fn login_with_local_password(
+        &self,
+        username: &str,
+        password: &str,
+    ) -> Result<(IssuedUserSession, User, Vec<UserRole>)> {
+        let credential = self
+            .inner
+            .store
+            .get_local_credential_by_username(username)
+            .await?
+            .ok_or_else(invalid_login)?;
+        verify_local_password(password, &credential.password_hash)?;
+
+        let user = self
+            .get_user(credential.user_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "user",
+                id: credential.user_id.to_string(),
+            })?;
+        if !user.status.can_authenticate() {
+            return Err(invalid_login());
+        }
+        let roles = self
+            .list_role_assignments(user.id)
+            .await?
+            .into_iter()
+            .map(|assignment| assignment.role)
+            .collect::<Vec<_>>();
+        let session = self.issue_user_session(user.id).await?;
+
+        Ok((session, user, roles))
+    }
+
+    pub(crate) async fn resolve_user_session_token(
+        &self,
+        token: &str,
+    ) -> Result<Option<ResolvedSessionPrincipal>> {
+        if token.trim().is_empty() {
+            return Ok(None);
+        }
+
+        let now_ms = current_time_ms()?;
+        let token_hash = hash_session_token(token);
+        let Some(session) = self
+            .inner
+            .store
+            .get_user_session_by_token_hash(&token_hash)
+            .await?
+        else {
+            return Ok(None);
+        };
+        if !session.is_active_at(now_ms) {
+            return Ok(None);
+        }
+
+        let Some(user) = self.get_user(session.user_id).await? else {
+            return Ok(None);
+        };
+        if !user.status.can_authenticate() {
+            return Ok(None);
+        }
+
+        let roles = self
+            .list_role_assignments(user.id)
+            .await?
+            .into_iter()
+            .map(|assignment| assignment.role)
+            .collect::<Vec<_>>();
+        let _ = self
+            .inner
+            .store
+            .touch_user_session(session.id, now_ms)
+            .await?;
+
+        Ok(Some(ResolvedSessionPrincipal {
+            principal: nako_core::AuthenticatedPrincipal {
+                user_id: user.id,
+                principal_id: user.principal_id,
+                roles,
+                bootstrap: false,
+            },
+            session_id: session.id,
+        }))
+    }
+
+    pub(crate) async fn revoke_user_session(&self, id: UserSessionId) -> Result<bool> {
+        let revoked = self
+            .inner
+            .store
+            .revoke_user_session(id, current_time_ms()?)
+            .await?;
+        Ok(revoked.is_some())
+    }
+
     pub(crate) async fn replace_role_assignments(
         &self,
         user_id: UserId,
@@ -280,6 +433,38 @@ impl NakoApp {
             .store
             .resolve_effective_library_access(user_id, library_id)
             .await
+    }
+
+    async fn issue_user_session(&self, user_id: UserId) -> Result<IssuedUserSession> {
+        let now_ms = current_time_ms()?;
+        let expires_at_ms =
+            now_ms
+                .checked_add(USER_SESSION_TTL_MS)
+                .ok_or_else(|| NakoError::InvalidInput {
+                    message: "user session expiry overflowed".to_owned(),
+                })?;
+
+        for _ in 0..8 {
+            let token = generate_user_session_token();
+            let session = UserSessionRecord {
+                id: UserSessionId::new(),
+                user_id,
+                token_hash: hash_session_token(&token),
+                created_at_ms: now_ms,
+                last_seen_at_ms: now_ms,
+                expires_at_ms,
+                revoked_at_ms: None,
+            };
+            match self.inner.store.create_user_session(&session).await {
+                Ok(()) => return Ok(IssuedUserSession { token, session }),
+                Err(NakoError::Database { message }) if message.contains("UNIQUE") => continue,
+                Err(error) => return Err(error),
+            }
+        }
+
+        Err(NakoError::Conflict {
+            message: "could not allocate a unique user session token".to_owned(),
+        })
     }
 
     pub(crate) async fn get_media_source_record(
@@ -348,6 +533,55 @@ impl NakoApp {
             Some(record),
         ))
     }
+}
+
+fn validate_local_password(password: &str) -> Result<()> {
+    if password.len() < MIN_LOCAL_PASSWORD_LEN {
+        return Err(NakoError::InvalidInput {
+            message: format!("local password must be at least {MIN_LOCAL_PASSWORD_LEN} characters"),
+        });
+    }
+    if password.chars().any(char::is_control) {
+        return Err(NakoError::InvalidInput {
+            message: "local password cannot contain control characters".to_owned(),
+        });
+    }
+    Ok(())
+}
+
+fn hash_local_password(password: &str) -> Result<String> {
+    let salt = SaltString::generate(&mut OsRng);
+    Argon2::default()
+        .hash_password(password.as_bytes(), &salt)
+        .map(|hash| hash.to_string())
+        .map_err(|err| NakoError::InvalidInput {
+            message: format!("could not hash local password: {err}"),
+        })
+}
+
+fn verify_local_password(password: &str, password_hash: &str) -> Result<()> {
+    let parsed = PasswordHash::new(password_hash).map_err(|_| invalid_login())?;
+    Argon2::default()
+        .verify_password(password.as_bytes(), &parsed)
+        .map_err(|_| invalid_login())
+}
+
+fn invalid_login() -> NakoError {
+    NakoError::Unauthorized {
+        message: "invalid username or password".to_owned(),
+    }
+}
+
+fn generate_user_session_token() -> String {
+    format!(
+        "{USER_SESSION_TOKEN_PREFIX}{}{}",
+        uuid::Uuid::new_v4().simple(),
+        uuid::Uuid::new_v4().simple()
+    )
+}
+
+fn hash_session_token(token: &str) -> String {
+    format!("sha256:{:x}", Sha256::digest(token.as_bytes()))
 }
 
 fn validate_metadata_raw_cache_settings_request(

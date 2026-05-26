@@ -8,6 +8,9 @@ export const NAKO_PLAYBACK_SESSION_ID_HEADER = "x-nako-playback-session-id" as c
 
 export const NAKO_PUBLIC_PATHS = [
   "/health",
+  "/auth/login",
+  "/auth/logout",
+  "/users/me",
   "/libraries",
   "/libraries/{library_id}",
   "/libraries/{library_id}/sources",
@@ -143,6 +146,18 @@ export interface CreditDto {
   role: string;
 }
 
+export interface CurrentUserDto {
+  bootstrap: boolean;
+  display_name: string;
+  id: string;
+  roles: Array<"administrator" | "library_manager" | "viewer">;
+  username: string;
+}
+
+export interface CurrentUserResponse {
+  user: CurrentUserDto;
+}
+
 export interface ErrorResponse {
   code: "invalid_input" | "not_found" | "conflict" | "unsupported" | "unauthorized" | "forbidden" | "provider_error" | "storage_error" | "ffmpeg_error" | "staging_budget_exhausted" | "staging_validation_mismatch" | "storage_timeout" | "storage_unauthorized" | "storage_rate_limited" | "database_error";
   message: string;
@@ -264,6 +279,20 @@ export interface LibrarySourcesResponse {
   library: LibraryDto;
   page: PageInfo;
   sources: Array<LibrarySourceResponse>;
+}
+
+export interface LoginRequest {
+  password: string;
+  username: string;
+}
+
+export interface LoginResponse {
+  account: CurrentUserResponse;
+  session: UserSessionDto;
+}
+
+export interface LogoutResponse {
+  revoked: boolean;
 }
 
 export interface MediaItemDto {
@@ -454,6 +483,11 @@ export interface UserPlaybackStateResponse {
   state: UserPlaybackStateDto;
 }
 
+export interface UserSessionDto {
+  expires_at_ms: number;
+  token: string;
+}
+
 export interface PageQuery {
   limit?: number;
   offset?: number;
@@ -510,6 +544,18 @@ export class NakoClient {
 
   health(): Promise<HealthResponse> {
     return this.requestJson("GET", "/health", { auth: false });
+  }
+
+  login(body: LoginRequest): Promise<LoginResponse> {
+    return this.requestJson("POST", "/auth/login", { auth: false, body });
+  }
+
+  logout(): Promise<LogoutResponse> {
+    return this.requestJson("POST", "/auth/logout");
+  }
+
+  currentUser(): Promise<CurrentUserResponse> {
+    return this.requestJson("GET", "/users/me");
   }
 
   listLibraries(page?: PageQuery): Promise<LibraryListResponse> {

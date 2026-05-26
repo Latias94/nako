@@ -50,9 +50,10 @@ use nako_api::{
         AdminPlaybackSupportSessionEvidence, AdminPlaybackSupportSourceEvidence,
         AdminPlaybackSupportSubject, AdminPlaybackTranscodeBudgetDiagnostics,
         AdminReplaceUserRolesRequest, AdminRuntimeConfigDiagnostics,
-        AdminServerConfigDiagnosticsResponse, AdminStorageStagingDiagnosticsResponse,
-        AdminStorageStagingRecord, AdminStorageStagingSummary, AdminTranscodeConfigDiagnostics,
-        AdminTrustedProxyDiagnostics, AdminTunnelProviderDiagnostics, AdminTunnelProviderKind,
+        AdminServerConfigDiagnosticsResponse, AdminSetLocalPasswordRequest,
+        AdminStorageStagingDiagnosticsResponse, AdminStorageStagingRecord,
+        AdminStorageStagingSummary, AdminTranscodeConfigDiagnostics, AdminTrustedProxyDiagnostics,
+        AdminTunnelProviderDiagnostics, AdminTunnelProviderKind,
         AdminUpdateLibraryMetadataProfileRequest, AdminUpdateMetadataRawCacheSettingsRequest,
         AdminUpdateUserStatusRequest, AdminUpsertLibraryAccessPolicyRequest, AdminVfsCacheSummary,
         AdminWatchFolderDiscoveryFailure, AdminWatchFolderDiscoveryRequest,
@@ -149,6 +150,10 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/admin/v1/access/users/{user_id}/status",
             patch(update_admin_access_user_status),
+        )
+        .route(
+            "/admin/v1/access/users/{user_id}/local-password",
+            put(set_admin_access_user_local_password).delete(delete_admin_access_user_local_password),
         )
         .route(
             "/admin/v1/access/library-policies",
@@ -590,8 +595,14 @@ async fn admin_access_user_record(
         .map(|assignment| assignment.role)
         .collect();
     let bootstrap = is_bootstrap_admin_user(&user);
+    let local_password_configured = app.get_local_credential_by_user(user.id).await?.is_some();
 
-    Ok(AdminAccessUserRecord::from_user(user, roles, bootstrap))
+    Ok(AdminAccessUserRecord::from_user(
+        user,
+        roles,
+        bootstrap,
+        local_password_configured,
+    ))
 }
 
 async fn admin_access_user_or_not_found(app: &NakoApp, user_id: UserId) -> Result<User, NakoError> {
@@ -1036,6 +1047,36 @@ pub(super) async fn update_admin_access_user_status(
         admin_api_version: ADMIN_API_VERSION.to_owned(),
         public_api_version: API_VERSION.to_owned(),
         user: admin_access_user_record(&app, user).await?,
+    }))
+}
+
+pub(super) async fn set_admin_access_user_local_password(
+    State(app): State<NakoApp>,
+    Path(user_id): Path<UserId>,
+    Json(request): Json<AdminSetLocalPasswordRequest>,
+) -> ApiResult<impl IntoResponse> {
+    app.set_local_password(user_id, &request.password).await?;
+
+    Ok(Json(nako_api::admin::AdminLocalPasswordResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        user_id,
+        local_password_configured: true,
+    }))
+}
+
+pub(super) async fn delete_admin_access_user_local_password(
+    State(app): State<NakoApp>,
+    Path(user_id): Path<UserId>,
+) -> ApiResult<impl IntoResponse> {
+    let _ = admin_access_user_or_not_found(&app, user_id).await?;
+    app.delete_local_password(user_id).await?;
+
+    Ok(Json(nako_api::admin::AdminLocalPasswordResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        user_id,
+        local_password_configured: false,
     }))
 }
 

@@ -7,6 +7,7 @@ export const NAKO_ADMIN_ROUTES = {
   overview: "/admin/v1/overview",
   accessSummary: "/admin/v1/access/summary",
   accessUsers: "/admin/v1/access/users",
+  accessUserLocalPassword: "/admin/v1/access/users/{user_id}/local-password",
   accessUserRoles: "/admin/v1/access/users/{user_id}/roles",
   accessUserStatus: "/admin/v1/access/users/{user_id}/status",
   accessLibraryPolicies: "/admin/v1/access/library-policies",
@@ -1578,6 +1579,7 @@ export interface AdminAccessUserRecord {
   status: AdminUserStatus;
   roles: AdminUserRole[];
   bootstrap: boolean;
+  local_password_configured: boolean;
   created_at_ms: number;
   updated_at_ms: number;
 }
@@ -1607,6 +1609,17 @@ export interface AdminReplaceUserRolesRequest {
 
 export interface AdminUpdateUserStatusRequest {
   status: AdminUserStatus;
+}
+
+export interface AdminSetLocalPasswordRequest {
+  password: string;
+}
+
+export interface AdminLocalPasswordResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  user_id: string;
+  local_password_configured: boolean;
 }
 
 export interface AdminLibraryAccessPolicyRecord {

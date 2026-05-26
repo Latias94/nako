@@ -29,13 +29,19 @@ pub struct AdminAccessUserRecord {
     pub status: UserStatus,
     pub roles: Vec<UserRole>,
     pub bootstrap: bool,
+    pub local_password_configured: bool,
     pub created_at_ms: i64,
     pub updated_at_ms: i64,
 }
 
 impl AdminAccessUserRecord {
     #[must_use]
-    pub fn from_user(user: User, roles: Vec<UserRole>, bootstrap: bool) -> Self {
+    pub fn from_user(
+        user: User,
+        roles: Vec<UserRole>,
+        bootstrap: bool,
+        local_password_configured: bool,
+    ) -> Self {
         Self {
             user_id: user.id,
             principal_id: user.principal_id.to_string(),
@@ -44,6 +50,7 @@ impl AdminAccessUserRecord {
             status: user.status,
             roles,
             bootstrap,
+            local_password_configured,
             created_at_ms: user.created_at_ms,
             updated_at_ms: user.updated_at_ms,
         }
@@ -66,6 +73,19 @@ pub struct AdminUpdateUserStatusRequest {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminReplaceUserRolesRequest {
     pub roles: Vec<UserRole>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminSetLocalPasswordRequest {
+    pub password: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminLocalPasswordResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub user_id: UserId,
+    pub local_password_configured: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

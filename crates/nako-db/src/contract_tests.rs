@@ -28,9 +28,9 @@ use nako_core::{
     JobLeaseRepository, JobListFilter, JobRepository, JobRunToken, JobStatus, JobWorkerId, Library,
     LibraryAccessLevel, LibraryAccessPolicy, LibraryAccessPolicyFilter, LibraryAccessPolicyScope,
     LibraryId, LibraryItemRepository, LibraryItemState, LibraryOptions, LibraryPreset,
-    LibraryRepository, LibraryScanSourcePersistenceCommit, LocalInferenceEvidence,
-    LocalInferenceEvidenceId, LocalInferenceEvidenceSource, LocalInferenceRepository,
-    ManagedArtworkAcceptanceRecord, ManagedArtworkArtifactId,
+    LibraryRepository, LibraryScanSourcePersistenceCommit, LocalCredentialRecord,
+    LocalInferenceEvidence, LocalInferenceEvidenceId, LocalInferenceEvidenceSource,
+    LocalInferenceRepository, ManagedArtworkAcceptanceRecord, ManagedArtworkArtifactId,
     ManagedArtworkArtifactLifecycleFilter, ManagedArtworkIngestId, ManagedArtworkIngestStatus,
     ManagedArtworkRepository, ManagedImportArtifactId, ManagedImportArtifactListFilter,
     ManagedImportArtifactState, ManagedImportPromotionApplyId, ManagedImportPromotionApplyState,
@@ -57,9 +57,9 @@ use nako_core::{
     StagingManifestRepository, StagingPurpose, StagingState, Studio, StudioId, Tag, TagId,
     TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter,
     TranscodeSessionRepository, TranscodeSessionState, User, UserId, UserPlaybackStateRepository,
-    UserPlaybackStateWrite, UserPrincipalId, UserRole, UserStatus, VfsCacheOperation,
-    VfsCacheRepository, VfsCachedListing, VfsCachedObject, VfsCachedObjectKind,
-    WebhookDeliveryStatus, WebhookEndpointStatus, WebhookRepository,
+    UserPlaybackStateWrite, UserPrincipalId, UserRole, UserSessionId, UserSessionRecord,
+    UserStatus, VfsCacheOperation, VfsCacheRepository, VfsCachedListing, VfsCachedObject,
+    VfsCachedObjectKind, WebhookDeliveryStatus, WebhookEndpointStatus, WebhookRepository,
 };
 use nako_search::{SearchIndex, SearchQuery};
 
@@ -86,6 +86,7 @@ enum ContractFamily {
     VfsStaging,
     AdminSettings,
     IdentityAccess,
+    CredentialSession,
 }
 
 impl ContractFamily {
@@ -106,6 +107,7 @@ impl ContractFamily {
             Self::VfsStaging => "vfs_staging",
             Self::AdminSettings => "admin_settings",
             Self::IdentityAccess => "identity_access",
+            Self::CredentialSession => "credential_session",
         }
     }
 }
@@ -163,6 +165,13 @@ trait IdentityAccessContractBackend:
 
 impl<T> IdentityAccessContractBackend for T where
     T: LifecycleContractBackend + IdentityAccessRepository + LibraryRepository
+{
+}
+
+trait CredentialSessionContractBackend: LifecycleContractBackend + IdentityAccessRepository {}
+
+impl<T> CredentialSessionContractBackend for T where
+    T: LifecycleContractBackend + IdentityAccessRepository
 {
 }
 
@@ -6034,6 +6043,94 @@ where
     );
 }
 
+async fn credential_session_lifecycle_contract<S>(store: S)
+where
+    S: CredentialSessionContractBackend,
+{
+    let user = User {
+        id: UserId::new(),
+        principal_id: UserPrincipalId::new("credential-session-user").unwrap(),
+        username: "Credential User".to_owned(),
+        display_name: "Credential User".to_owned(),
+        status: UserStatus::Active,
+        created_at_ms: 1_000,
+        updated_at_ms: 1_000,
+    };
+    store.upsert_user(&user).await.unwrap();
+
+    let credential = LocalCredentialRecord {
+        user_id: user.id,
+        password_hash: "$argon2id$v=19$m=65536,t=3,p=1$first$safe-hash".to_owned(),
+        updated_at_ms: 2_000,
+    };
+    store.upsert_local_credential(&credential).await.unwrap();
+
+    assert_eq!(
+        store.get_local_credential_by_user(user.id).await.unwrap(),
+        Some(credential.clone())
+    );
+    assert_eq!(
+        store
+            .get_local_credential_by_username(" credential USER ")
+            .await
+            .unwrap(),
+        Some(credential.clone())
+    );
+
+    let rotated = LocalCredentialRecord {
+        password_hash: "$argon2id$v=19$m=65536,t=3,p=1$second$safe-hash".to_owned(),
+        updated_at_ms: 3_000,
+        ..credential
+    };
+    store.upsert_local_credential(&rotated).await.unwrap();
+    assert_eq!(
+        store.get_local_credential_by_user(user.id).await.unwrap(),
+        Some(rotated)
+    );
+
+    let session = UserSessionRecord {
+        id: UserSessionId::new(),
+        user_id: user.id,
+        token_hash: "sha256:session-token-hash".to_owned(),
+        created_at_ms: 4_000,
+        last_seen_at_ms: 4_000,
+        expires_at_ms: 8_000,
+        revoked_at_ms: None,
+    };
+    store.create_user_session(&session).await.unwrap();
+    assert_eq!(
+        store
+            .get_user_session_by_token_hash("sha256:session-token-hash")
+            .await
+            .unwrap(),
+        Some(session.clone())
+    );
+
+    let touched = store
+        .touch_user_session(session.id, 4_500)
+        .await
+        .unwrap()
+        .expect("session should exist");
+    assert_eq!(touched.last_seen_at_ms, 4_500);
+    assert_eq!(touched.revoked_at_ms, None);
+
+    let revoked = store
+        .revoke_user_session(session.id, 5_000)
+        .await
+        .unwrap()
+        .expect("session should exist");
+    assert_eq!(revoked.revoked_at_ms, Some(5_000));
+    assert_eq!(
+        store
+            .get_user_session_by_token_hash("sha256:session-token-hash")
+            .await
+            .unwrap()
+            .unwrap()
+            .revoked_at_ms,
+        Some(5_000)
+    );
+}
+
 database_contract_pair!(
     sqlite = sqlite_lifecycle_contract_migrate_is_idempotent,
     postgres = postgres_lifecycle_contract_migrate_is_idempotent,
@@ -6059,6 +6156,13 @@ database_contract_pair!(
         "user_roles_and_library_policies"
     ),
     contract = identity_access_user_roles_and_library_policies_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_credential_session_contract_lifecycle,
+    postgres = postgres_credential_session_contract_lifecycle,
+    case = ContractCase::migrated(ContractFamily::CredentialSession, "lifecycle"),
+    contract = credential_session_lifecycle_contract,
 );
 
 database_contract_pair!(

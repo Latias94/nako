@@ -2377,6 +2377,291 @@ async fn admin_v1_access_management_round_trips_users_roles_and_library_policies
 }
 
 #[tokio::test]
+async fn local_session_auth_login_me_and_logout_use_real_user_principal() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let token = "test-admin-token";
+    let router = test_router_with_bearer_auth(temp.path().to_path_buf(), library_id, token).await;
+
+    let created = request_body_json_with_bearer::<AdminAccessUserResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/access/users",
+        &AdminCreateUserRequest {
+            username: "viewer".to_owned(),
+            display_name: "Viewer".to_owned(),
+            roles: vec![UserRole::Viewer],
+        },
+        token,
+    )
+    .await;
+    assert!(!created.user.local_password_configured);
+
+    let password_path = format!(
+        "/admin/v1/access/users/{}/local-password",
+        created.user.user_id
+    );
+    let password_response =
+        request_body_json_with_bearer::<nako_api::admin::AdminLocalPasswordResponse, _>(
+            &router,
+            Method::PUT,
+            &password_path,
+            &nako_api::admin::AdminSetLocalPasswordRequest {
+                password: "correct horse battery staple".to_owned(),
+            },
+            token,
+        )
+        .await;
+    assert_eq!(password_response.user_id, created.user.user_id);
+    assert!(password_response.local_password_configured);
+
+    let users = request_json_with_bearer::<AdminAccessUserListResponse>(
+        &router,
+        Method::GET,
+        "/admin/v1/access/users",
+        token,
+    )
+    .await;
+    let viewer = users
+        .users
+        .iter()
+        .find(|user| user.user_id == created.user.user_id)
+        .expect("created user should be listed");
+    assert!(viewer.local_password_configured);
+
+    let login = request_body_json::<LoginResponse, _>(
+        &router,
+        Method::POST,
+        "/auth/login",
+        &LoginRequest {
+            username: " VIEWER ".to_owned(),
+            password: "correct horse battery staple".to_owned(),
+        },
+    )
+    .await;
+    assert!(login.session.token.starts_with("nako_sess_"));
+    assert_eq!(login.account.user.id, created.user.user_id.to_string());
+    assert_eq!(login.account.user.username, "viewer");
+    assert!(!login.account.user.bootstrap);
+    assert!(login.account.user.roles.contains(&"viewer".to_owned()));
+    let login_json = serde_json::to_string(&login).unwrap();
+    assert!(!login_json.contains("correct horse"));
+    assert!(!login_json.contains("password_hash"));
+
+    let me = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/users/me")
+                .header(
+                    header::AUTHORIZATION,
+                    format!("Bearer {}", login.session.token),
+                )
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(me.status(), StatusCode::OK);
+    let me = body_json::<CurrentUserResponse>(me).await;
+    assert_eq!(me.user.id, created.user.user_id.to_string());
+
+    let forbidden_library = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/libraries")
+                .header(
+                    header::AUTHORIZATION,
+                    format!("Bearer {}", login.session.token),
+                )
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(forbidden_library.status(), StatusCode::OK);
+    let hidden_libraries = body_json::<LibraryListResponse>(forbidden_library).await;
+    assert!(hidden_libraries.libraries.is_empty());
+
+    let policy =
+        request_body_json_with_bearer::<nako_api::admin::AdminLibraryAccessPolicyResponse, _>(
+            &router,
+            Method::PUT,
+            "/admin/v1/access/library-policies",
+            &AdminUpsertLibraryAccessPolicyRequest {
+                scope: AdminLibraryAccessPolicyScope::User {
+                    user_id: created.user.user_id,
+                },
+                library_id,
+                access: LibraryAccessLevel::Browse,
+            },
+            token,
+        )
+        .await;
+    assert_eq!(policy.policy.access, LibraryAccessLevel::Browse);
+
+    let allowed_library = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/libraries")
+                .header(
+                    header::AUTHORIZATION,
+                    format!("Bearer {}", login.session.token),
+                )
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(allowed_library.status(), StatusCode::OK);
+    let libraries = body_json::<LibraryListResponse>(allowed_library).await;
+    assert_eq!(libraries.libraries[0].id, library_id.to_string());
+
+    let logout = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/auth/logout")
+                .header(
+                    header::AUTHORIZATION,
+                    format!("Bearer {}", login.session.token),
+                )
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(logout.status(), StatusCode::OK);
+    assert!(body_json::<LogoutResponse>(logout).await.revoked);
+
+    let after_logout = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/users/me")
+                .header(
+                    header::AUTHORIZATION,
+                    format!("Bearer {}", login.session.token),
+                )
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(after_logout.status(), StatusCode::UNAUTHORIZED);
+
+    let bad_login = response_body_json(
+        &router,
+        Method::POST,
+        "/auth/login",
+        &LoginRequest {
+            username: "viewer".to_owned(),
+            password: "wrong password".to_owned(),
+        },
+    )
+    .await;
+    assert_eq!(bad_login.status(), StatusCode::UNAUTHORIZED);
+    let bad_login_json =
+        serde_json::to_string(&body_json::<ErrorResponse>(bad_login).await).unwrap();
+    assert!(!bad_login_json.contains("wrong password"));
+    assert!(!bad_login_json.contains("correct horse"));
+}
+
+#[tokio::test]
+async fn local_session_auth_rejects_disabled_users() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let token = "test-admin-token";
+    let router = test_router_with_bearer_auth(temp.path().to_path_buf(), library_id, token).await;
+
+    let created = request_body_json_with_bearer::<AdminAccessUserResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/access/users",
+        &AdminCreateUserRequest {
+            username: "disabled-viewer".to_owned(),
+            display_name: "Disabled Viewer".to_owned(),
+            roles: vec![UserRole::Viewer],
+        },
+        token,
+    )
+    .await;
+    let password_path = format!(
+        "/admin/v1/access/users/{}/local-password",
+        created.user.user_id
+    );
+    request_body_json_with_bearer::<nako_api::admin::AdminLocalPasswordResponse, _>(
+        &router,
+        Method::PUT,
+        &password_path,
+        &nako_api::admin::AdminSetLocalPasswordRequest {
+            password: "correct horse battery staple".to_owned(),
+        },
+        token,
+    )
+    .await;
+
+    let login = request_body_json::<LoginResponse, _>(
+        &router,
+        Method::POST,
+        "/auth/login",
+        &LoginRequest {
+            username: "disabled-viewer".to_owned(),
+            password: "correct horse battery staple".to_owned(),
+        },
+    )
+    .await;
+
+    let status_path = format!("/admin/v1/access/users/{}/status", created.user.user_id);
+    request_body_json_with_bearer::<AdminAccessUserResponse, _>(
+        &router,
+        Method::PATCH,
+        &status_path,
+        &AdminUpdateUserStatusRequest {
+            status: UserStatus::Disabled,
+        },
+        token,
+    )
+    .await;
+
+    let login_after_disable = response_body_json(
+        &router,
+        Method::POST,
+        "/auth/login",
+        &LoginRequest {
+            username: "disabled-viewer".to_owned(),
+            password: "correct horse battery staple".to_owned(),
+        },
+    )
+    .await;
+    assert_eq!(login_after_disable.status(), StatusCode::UNAUTHORIZED);
+
+    let me_after_disable = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/users/me")
+                .header(
+                    header::AUTHORIZATION,
+                    format!("Bearer {}", login.session.token),
+                )
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(me_after_disable.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
 async fn admin_v1_access_summary_reports_single_admin_effective_library_access_without_secrets() {
     let temp = tempfile::tempdir().unwrap();
     let local_library_id = LibraryId::new();

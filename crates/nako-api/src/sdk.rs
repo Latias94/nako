@@ -1088,6 +1088,18 @@ export class NakoClient {
     return this.requestJson("GET", "/health", { auth: false });
   }
 
+  login(body: LoginRequest): Promise<LoginResponse> {
+    return this.requestJson("POST", "/auth/login", { auth: false, body });
+  }
+
+  logout(): Promise<LogoutResponse> {
+    return this.requestJson("POST", "/auth/logout");
+  }
+
+  currentUser(): Promise<CurrentUserResponse> {
+    return this.requestJson("GET", "/users/me");
+  }
+
   listLibraries(page?: PageQuery): Promise<LibraryListResponse> {
     return this.requestJson("GET", "/libraries", { query: page });
   }

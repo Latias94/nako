@@ -73,6 +73,31 @@ fn public_paths() -> Value {
         }),
     );
     paths.insert(
+        "/auth/login".to_owned(),
+        json!({
+            "post": public_json_post_with_body(
+                "login",
+                "Create a local user session.",
+                "account",
+                vec![],
+                schema_ref("LoginRequest"),
+                schema_ref("LoginResponse")
+            )
+        }),
+    );
+    paths.insert(
+        "/auth/logout".to_owned(),
+        json!({
+            "post": json_post("logout", "Revoke the current local user session.", "account", vec![], schema_ref("LogoutResponse"))
+        }),
+    );
+    paths.insert(
+        "/users/me".to_owned(),
+        json!({
+            "get": json_get("getCurrentUser", "Get the current user account.", "account", vec![], schema_ref("CurrentUserResponse"))
+        }),
+    );
+    paths.insert(
         "/libraries".to_owned(),
         json!({
             "get": json_get("listLibraries", "List configured media libraries.", "library", vec![parameter_ref("Limit"), parameter_ref("Offset")], schema_ref("LibraryListResponse"))
@@ -405,6 +430,32 @@ fn json_post_with_body(
     value
 }
 
+fn public_json_post_with_body(
+    operation_id: &str,
+    summary: &str,
+    tag: &str,
+    parameters: Vec<Value>,
+    request_schema: Value,
+    response_schema: Value,
+) -> Value {
+    let mut value = public_operation(
+        operation_id,
+        summary,
+        tag,
+        parameters,
+        json_response("OK.", response_schema),
+    );
+    value["requestBody"] = json!({
+        "required": true,
+        "content": {
+            "application/json": {
+                "schema": request_schema
+            }
+        }
+    });
+    value
+}
+
 fn json_put(
     operation_id: &str,
     summary: &str,
@@ -556,6 +607,29 @@ fn operation(
         "summary": summary,
         "tags": [tag],
         "security": [{"BearerAuth": []}],
+        "parameters": parameters,
+        "responses": responses
+    })
+}
+
+fn public_operation(
+    operation_id: &str,
+    summary: &str,
+    tag: &str,
+    parameters: Vec<Value>,
+    success_response: Value,
+) -> Value {
+    let mut responses = Map::new();
+    responses.insert("200".to_owned(), success_response);
+    responses.insert("400".to_owned(), response_ref("BadRequest"));
+    responses.insert("401".to_owned(), response_ref("Unauthorized"));
+    responses.insert("409".to_owned(), response_ref("Conflict"));
+    responses.insert("500".to_owned(), response_ref("InternalServerError"));
+
+    json!({
+        "operationId": operation_id,
+        "summary": summary,
+        "tags": [tag],
         "parameters": parameters,
         "responses": responses
     })
@@ -771,6 +845,31 @@ fn schemas() -> Value {
         "ErrorResponse": object_schema(&["code", "message"], json!({
             "code": enum_schema(ClientErrorCode::ALL.iter().map(|code| code.as_str()).collect::<Vec<_>>().as_slice()),
             "message": string_schema()
+        })),
+        "LoginRequest": object_schema(&["username", "password"], json!({
+            "username": string_schema(),
+            "password": string_schema()
+        })),
+        "LoginResponse": object_schema(&["session", "account"], json!({
+            "session": schema_ref("UserSessionDto"),
+            "account": schema_ref("CurrentUserResponse")
+        })),
+        "LogoutResponse": object_schema(&["revoked"], json!({
+            "revoked": boolean_schema()
+        })),
+        "UserSessionDto": object_schema(&["token", "expires_at_ms"], json!({
+            "token": string_schema(),
+            "expires_at_ms": integer_schema("int64")
+        })),
+        "CurrentUserResponse": object_schema(&["user"], json!({
+            "user": schema_ref("CurrentUserDto")
+        })),
+        "CurrentUserDto": object_schema(&["id", "username", "display_name", "roles", "bootstrap"], json!({
+            "id": uuid_schema(),
+            "username": string_schema(),
+            "display_name": string_schema(),
+            "roles": array_schema(enum_schema(&["administrator", "library_manager", "viewer"])),
+            "bootstrap": boolean_schema()
         })),
         "PageInfo": object_schema(&["limit", "offset", "returned"], json!({
             "limit": integer_schema("int32"),

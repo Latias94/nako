@@ -17,6 +17,9 @@ public const val NAKO_PLAYBACK_SESSION_ID_HEADER: String = "x-nako-playback-sess
 
 public val NAKO_PUBLIC_PATHS: List<String> = listOf(
     "/health",
+    "/auth/login",
+    "/auth/logout",
+    "/users/me",
     "/libraries",
     "/libraries/{library_id}",
     "/libraries/{library_id}/sources",
@@ -1042,6 +1045,21 @@ public data class CreditDto(
 )
 
 @Serializable
+public data class CurrentUserDto(
+    public val bootstrap: Boolean,
+    @SerialName("display_name")
+    public val displayName: String,
+    public val id: String,
+    public val roles: List<String>,
+    public val username: String,
+)
+
+@Serializable
+public data class CurrentUserResponse(
+    public val user: CurrentUserDto,
+)
+
+@Serializable
 public data class ErrorResponse(
     public val code: ErrorResponseCode,
     public val message: String,
@@ -1198,6 +1216,23 @@ public data class LibrarySourcesResponse(
     public val library: LibraryDto,
     public val page: PageInfo,
     public val sources: List<LibrarySourceResponse>,
+)
+
+@Serializable
+public data class LoginRequest(
+    public val password: String,
+    public val username: String,
+)
+
+@Serializable
+public data class LoginResponse(
+    public val account: CurrentUserResponse,
+    public val session: UserSessionDto,
+)
+
+@Serializable
+public data class LogoutResponse(
+    public val revoked: Boolean,
 )
 
 @Serializable
@@ -1459,4 +1494,11 @@ public data class UserPlaybackStateDto(
 @Serializable
 public data class UserPlaybackStateResponse(
     public val state: UserPlaybackStateDto,
+)
+
+@Serializable
+public data class UserSessionDto(
+    @SerialName("expires_at_ms")
+    public val expiresAtMs: Long,
+    public val token: String,
 )

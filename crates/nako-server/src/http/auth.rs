@@ -8,6 +8,7 @@ use axum::{
 use nako_api::public_client::{ClientErrorCode, ErrorResponse};
 use nako_core::{AuthenticatedPrincipal, SecretString, UserPrincipalId};
 
+use crate::app::NakoApp;
 use crate::config::AuthConfig;
 
 #[derive(Clone, Debug)]
@@ -57,17 +58,30 @@ pub(super) async fn require_auth(request: Request, next: Next) -> Response {
         return next.run(request).await;
     }
 
-    let authorized = bearer_token(request.headers()).is_some_and(|token| {
-        auth.token.as_ref().is_some_and(|expected| {
-            constant_time_eq(token.as_bytes(), expected.expose_secret().as_bytes())
-        })
-    });
+    let Some(token) = bearer_token(request.headers()) else {
+        return unauthorized_response();
+    };
 
-    if authorized {
+    if auth.token.as_ref().is_some_and(|expected| {
+        constant_time_eq(token.as_bytes(), expected.expose_secret().as_bytes())
+    }) {
         insert_bootstrap_admin_principal(&mut request);
-        next.run(request).await
-    } else {
-        unauthorized_response()
+        return next.run(request).await;
+    }
+
+    let Some(app) = request.extensions().get::<NakoApp>().cloned() else {
+        return unauthorized_response();
+    };
+    match app.resolve_user_session_token(token).await {
+        Ok(Some(resolved)) => {
+            request
+                .extensions_mut()
+                .insert(resolved.principal.principal_id.clone());
+            request.extensions_mut().insert(resolved.principal);
+            request.extensions_mut().insert(resolved.session_id);
+            next.run(request).await
+        }
+        Ok(None) | Err(_) => unauthorized_response(),
     }
 }
 

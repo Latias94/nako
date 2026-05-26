@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "slug": "credential-session-auth",
+  "title": "Credential Session Auth",
+  "status": "complete",
+  "current_task": null,
+  "completed_tasks": [
+    "CSA-000",
+    "CSA-010",
+    "CSA-020",
+    "CSA-030",
+    "CSA-040"
+  ],
+  "updated": "2026-05-26",
+  "scope_kind": "execution",
+  "problem": "Nako has users, roles, and Library Access but no durable local credential/session authority for real user login.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/credential-session-auth/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/credential-session-auth/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/credential-session-auth/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/credential-session-auth/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/credential-session-auth/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/credential-session-auth/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python -m json.tool docs/workstreams/credential-session-auth/WORKSTREAM.json",
+    "git diff --check -- docs/workstreams/credential-session-auth docs/workstreams/README.md docs/adr",
+    "cargo nextest run -p nako-core -E 'test(identity)' --no-fail-fast",
+    "cargo nextest run -p nako-db -E 'test(credential_session)' --no-fail-fast",
+    "cargo nextest run -p nako-server -E 'test(local_session_auth) | test(admin_v1_access_management) | test(bearer_auth)' --no-fail-fast",
+    "cargo nextest run -p nako-api -E 'test(public_openapi) | test(admin_contract) | test(sdk)' --no-fail-fast",
+    "cargo nextest run -p nako-client -E 'test(account)' --no-fail-fast",
+    "cargo nextest run -p nako-client-protocol -E 'test(public_route_inventory)' --no-fail-fast",
+    "cargo fmt --all -- --check"
+  ],
+  "evidence": [
+    {
+      "task": "CSA-000",
+      "summary": "Opened backend-only credential/session auth lane and recorded the accepted local credential/session direction in ADR 0037."
+    },
+    {
+      "task": "CSA-010",
+      "summary": "Added local credential and user session records, repository methods, SQLite/PostgreSQL baseline schema support, and focused credential/session storage contract coverage."
+    },
+    {
+      "task": "CSA-020",
+      "summary": "Added Admin API local password set/rotate/delete behavior for existing users, redaction-safe account credential state, and refreshed the generated Admin Web contract."
+    },
+    {
+      "task": "CSA-030",
+      "summary": "Added Public Client login/current-account/logout routes, Bearer session principal resolution, disabled-user rejection, bootstrap admin compatibility, OpenAPI updates, and refreshed Rust/TypeScript/Kotlin client contracts."
+    },
+    {
+      "task": "CSA-040",
+      "summary": "Closed the credential/session auth lane after fresh focused server, DB, API, client, protocol, formatting, JSON, and whitespace gates passed."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0024-inbound-token-authentication-boundary.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md",
+    "docs/adr/0028-user-playback-state-principal-and-public-contract.md",
+    "docs/adr/0037-local-credential-and-session-auth.md"
+  ],
+  "continue_policy": {
+    "default_action": "split_follow_on",
+    "notes": "Credential/session backend authority is complete. Start focused follow-on lanes for Admin Web account UI, Media Web login/account switching, cookie transport, invitation onboarding, recovery, SSO, or Management Context Links instead of reopening this lane."
+  }
+}

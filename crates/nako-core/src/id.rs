@@ -63,6 +63,7 @@ macro_rules! define_id {
 }
 
 define_id!(UserId);
+define_id!(UserSessionId);
 define_id!(LibraryId);
 define_id!(MediaItemId);
 define_id!(MediaSourceId);

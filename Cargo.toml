@@ -17,6 +17,7 @@ unsafe_code = "forbid"
 
 [workspace.dependencies]
 async-trait = "0.1"
+argon2 = { version = "0.5", features = ["std"] }
 axum = "0.8"
 bitflags = { version = "2", features = ["serde"] }
 bytes = "1"

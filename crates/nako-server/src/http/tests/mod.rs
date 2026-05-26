@@ -96,8 +96,9 @@ use nako_api::{
         MetadataRawCleanupResponse, MetadataRawResponsesResponse,
     },
     public_client::{
-        ClientTranscodeFailureCategory, ClientTranscodeSessionState, ErrorResponse, HealthResponse,
-        LibraryListResponse, LibraryResponse, PLAYBACK_SESSION_ID_HEADER, TranscodeSessionResponse,
+        ClientTranscodeFailureCategory, ClientTranscodeSessionState, CurrentUserResponse,
+        ErrorResponse, HealthResponse, LibraryListResponse, LibraryResponse, LoginRequest,
+        LoginResponse, LogoutResponse, PLAYBACK_SESSION_ID_HEADER, TranscodeSessionResponse,
     },
 };
 use nako_core::{
@@ -917,6 +918,32 @@ where
     body_json(response).await
 }
 
+async fn request_json_with_bearer<T>(
+    router: &Router,
+    method: Method,
+    uri: &str,
+    bearer_token: &str,
+) -> T
+where
+    T: DeserializeOwned,
+{
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(method)
+                .uri(uri)
+                .header(header::AUTHORIZATION, format!("Bearer {bearer_token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    body_json(response).await
+}
+
 async fn request_body_json<T, B>(router: &Router, method: Method, uri: &str, body: &B) -> T
 where
     T: DeserializeOwned,
@@ -928,6 +955,35 @@ where
             Request::builder()
                 .method(method)
                 .uri(uri)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(serde_json::to_vec(body).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    body_json(response).await
+}
+
+async fn request_body_json_with_bearer<T, B>(
+    router: &Router,
+    method: Method,
+    uri: &str,
+    body: &B,
+    bearer_token: &str,
+) -> T
+where
+    T: DeserializeOwned,
+    B: Serialize,
+{
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(method)
+                .uri(uri)
+                .header(header::AUTHORIZATION, format!("Bearer {bearer_token}"))
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(serde_json::to_vec(body).unwrap()))
                 .unwrap(),

@@ -1272,6 +1272,39 @@ CREATE TABLE users (
 
 CREATE INDEX users_status_idx ON users(status, normalized_username);
 
+CREATE TABLE local_user_credentials (
+    user_id uuid PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    password_hash text NOT NULL,
+    updated_at_ms BIGINT NOT NULL,
+    updated_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+    CHECK (length(password_hash) > 0),
+    CHECK (updated_at_ms >= 0)
+);
+
+CREATE TABLE user_sessions (
+    id uuid PRIMARY KEY NOT NULL,
+    user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash text NOT NULL UNIQUE,
+    created_at_ms BIGINT NOT NULL,
+    last_seen_at_ms BIGINT NOT NULL,
+    expires_at_ms BIGINT NOT NULL,
+    revoked_at_ms BIGINT,
+    created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+    updated_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+    CHECK (length(token_hash) > 0),
+    CHECK (created_at_ms >= 0),
+    CHECK (last_seen_at_ms >= 0),
+    CHECK (expires_at_ms >= 0),
+    CHECK (revoked_at_ms IS NULL OR revoked_at_ms >= 0)
+);
+
+CREATE INDEX user_sessions_user_idx
+    ON user_sessions(user_id, expires_at_ms);
+
+CREATE INDEX user_sessions_active_idx
+    ON user_sessions(expires_at_ms, user_id)
+    WHERE revoked_at_ms IS NULL;
+
 CREATE TABLE user_role_assignments (
     user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     role text NOT NULL,
