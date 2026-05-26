@@ -22,7 +22,8 @@ use nako_core::{
 
 use super::{
     AddonAppService, declaration_scopes_granted, ensure_addon_accepts_runtime_authority,
-    resolve_outbound_task_dispatch_secret, stored_granted_scopes,
+    resolve_outbound_task_dispatch_secret,
+    scan_metadata::scan_addon_bulk_metadata_scrape_continuation_request, stored_granted_scopes,
 };
 
 impl AddonAppService {
@@ -332,7 +333,8 @@ impl AddonAppService {
         let principal = self.resolve_addon_principal(raw_token).await?;
         self.ensure_addon_owns_task_run(principal.addon.id, request.guard.job_id)
             .await?;
-        let result = addon_task_run_result_json("succeeded", request.output, None, None);
+        let output = request.output;
+        let result = addon_task_run_result_json("succeeded", output.clone(), None, None);
         let completed = self
             .store
             .complete_addon_task_run(CompleteAddonTaskRun {
@@ -340,6 +342,8 @@ impl AddonAppService {
                 result_json: result.to_string(),
             })
             .await?;
+        self.try_enqueue_scan_addon_task_continuation(&principal.addon, &completed, &output)
+            .await;
 
         Ok(AddonTaskRunResponse {
             run: AddonTaskRunSummary::from_record(completed),
@@ -525,15 +529,18 @@ impl AddonAppService {
                     .job)
             }
             Ok(dispatch) => {
-                let result = addon_task_run_result_json("succeeded", dispatch.output, None, None);
-                Ok(self
+                let output = dispatch.output;
+                let result = addon_task_run_result_json("succeeded", output.clone(), None, None);
+                let completed = self
                     .store
                     .complete_addon_task_run(CompleteAddonTaskRun {
                         guard: dispatch.guard,
                         result_json: result.to_string(),
                     })
-                    .await?
-                    .job)
+                    .await?;
+                self.try_enqueue_scan_addon_task_continuation(&addon, &completed, &output)
+                    .await;
+                Ok(completed.job)
             }
             Err(failure) => {
                 let result = addon_task_run_result_json(
@@ -553,6 +560,55 @@ impl AddonAppService {
                     .job)
             }
         }
+    }
+
+    async fn try_enqueue_scan_addon_task_continuation(
+        &self,
+        addon: &AddonRegistrationRecord,
+        completed: &nako_core::AddonTaskRunRecord,
+        output: &serde_json::Value,
+    ) {
+        if let Err(error) = self
+            .enqueue_scan_addon_task_continuation(addon, completed, output)
+            .await
+        {
+            tracing::warn!(
+                addon_id = %addon.id,
+                job_id = %completed.job.id,
+                declaration_id = completed.declaration_id,
+                error = %error,
+                "failed to enqueue scan addon task continuation"
+            );
+        }
+    }
+
+    async fn enqueue_scan_addon_task_continuation(
+        &self,
+        addon: &AddonRegistrationRecord,
+        completed: &nako_core::AddonTaskRunRecord,
+        output: &serde_json::Value,
+    ) -> Result<()> {
+        let Some(request) =
+            scan_addon_bulk_metadata_scrape_continuation_request(completed, output)?
+        else {
+            return Ok(());
+        };
+        let next_cursor = request
+            .payload
+            .get("cursor")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or_default();
+        let response = self.create_addon_task_run(addon.id, request).await?;
+        tracing::info!(
+            addon_id = %response.run.addon_id,
+            job_id = %response.run.job_id,
+            previous_job_id = %completed.job.id,
+            next_cursor,
+            idempotent_replay = response.idempotent_replay,
+            "enqueued scan addon task continuation"
+        );
+
+        Ok(())
     }
 
     async fn call_addon_task_run_path(
@@ -723,7 +779,7 @@ fn addon_task_run_lease_from_leased(run: LeasedAddonTaskRun) -> Result<AddonTask
     })
 }
 
-fn retry_payload_from_previous_input(input_json: &str) -> Result<serde_json::Value> {
+pub(super) fn retry_payload_from_previous_input(input_json: &str) -> Result<serde_json::Value> {
     let input = addon_task_run_input(input_json)?;
 
     Ok(input
@@ -732,7 +788,9 @@ fn retry_payload_from_previous_input(input_json: &str) -> Result<serde_json::Val
         .unwrap_or(serde_json::Value::Null))
 }
 
-fn retry_dispatch_from_previous_input(input_json: &str) -> Result<AddonTaskRunDispatchMode> {
+pub(super) fn retry_dispatch_from_previous_input(
+    input_json: &str,
+) -> Result<AddonTaskRunDispatchMode> {
     let input = addon_task_run_input(input_json)?;
     let Some(value) = input.get("dispatch").and_then(serde_json::Value::as_str) else {
         return Ok(AddonTaskRunDispatchMode::SidecarClaim);

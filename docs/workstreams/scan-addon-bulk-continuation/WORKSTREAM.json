@@ -1,0 +1,39 @@
+{
+  "slug": "scan-addon-bulk-continuation",
+  "title": "Scan Addon Bulk Continuation",
+  "status": "complete",
+  "last_updated": "2026-05-26",
+  "objective": "Schedule follow-up Addon bulk metadata scrape TaskRuns from sidecar next_cursor output without looping inside scan jobs.",
+  "current_task": null,
+  "tasks": [
+    {
+      "id": "SABC-010",
+      "status": "done",
+      "scope": "docs/workstreams/scan-addon-bulk-continuation"
+    },
+    {
+      "id": "SABC-020",
+      "status": "done",
+      "scope": "crates/nako-server/src/app/tests/startup.rs"
+    },
+    {
+      "id": "SABC-030",
+      "status": "done",
+      "scope": "crates/nako-server/src/app/addons/scan_metadata.rs"
+    },
+    {
+      "id": "SABC-040",
+      "status": "done",
+      "scope": "crates/nako-server/src/app/addons/task_runtime.rs"
+    }
+  ],
+  "related_workstreams": [
+    "docs/workstreams/scan-addon-bulk-metadata-scrape",
+    "docs/workstreams/metadata-application-policy-seam"
+  ],
+  "validation": [
+    "cargo fmt --all -- --check",
+    "cargo nextest run -p nako-server -E 'test(scan_library_enqueues_addon_bulk_metadata_scrape_when_enabled) | test(scan_library_adds_addon_bulk_metadata_writeback_when_enabled) | test(scan_library_addon_bulk_metadata_writeback_merges_metadata_via_side_effect) | test(scan_library_continues_addon_bulk_metadata_scrape_from_next_cursor)' --no-fail-fast",
+    "git diff --check"
+  ]
+}

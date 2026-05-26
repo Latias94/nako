@@ -6,10 +6,10 @@ use nako_api::extension::{
     AddonGrantAssignment, IssueAddonTokenRequest, RegisterAddonRequest, ReplaceAddonGrantsRequest,
 };
 use nako_core::{
-    AddonPermission, AddonRepository, AddonSideEffectTarget, AddonSideEffectValidationStatus,
-    AddonStatus, AddonTaskRunRepository, ArtworkCandidateId, ArtworkCandidateRepository,
-    ArtworkCandidateSourceKind, IdentityAccessRepository, ImageKind, Library,
-    LibraryItemRepository, LibraryItemState, LibraryOptions, LibraryRepository,
+    AddonId, AddonPermission, AddonRepository, AddonSideEffectTarget,
+    AddonSideEffectValidationStatus, AddonStatus, AddonTaskRunRepository, ArtworkCandidateId,
+    ArtworkCandidateRepository, ArtworkCandidateSourceKind, IdentityAccessRepository, ImageKind,
+    Library, LibraryItemRepository, LibraryItemState, LibraryOptions, LibraryRepository,
     ManagedArtworkAcceptanceRecord, ManagedArtworkIngestId, ManagedArtworkIngestStatus,
     ManagedArtworkRepository, NewAddonRegistration, NewAddonSideEffect, NewAddonToken,
     NewArtworkCandidate, NewManagedArtworkIngest, UserPrincipalId, UserRole,
@@ -575,6 +575,83 @@ async fn scan_library_adds_addon_bulk_metadata_writeback_when_enabled() {
 }
 
 #[tokio::test]
+async fn scan_library_continues_addon_bulk_metadata_scrape_from_next_cursor() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_root = temp.path().join("library");
+    fs::create_dir_all(&library_root).unwrap();
+    for index in 0..13 {
+        write_fixture_mp4(&library_root.join(format!("demo-{index:02}.mp4")));
+    }
+    let library_id = LibraryId::new();
+    let mut config = startup_config(
+        temp.path(),
+        vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: library_root,
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    );
+    let mut profile = nako_core::MetadataProfile::from_preset(nako_core::LibraryPreset::Movies);
+    profile.scan.addon_scrape = true;
+    config.metadata.library_profiles.insert(library_id, profile);
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let (base_url, captured) = scan_bulk_metadata_scrape_addon_server().await;
+    let mut manifest = metadata_scraper::default_manifest();
+    manifest.base_url = base_url;
+    let registered = app
+        .addons()
+        .register_addon(RegisterAddonRequest {
+            id: None,
+            manifest,
+            outbound_task_dispatch_secret_env: None,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+                AddonScope::AutomationRun,
+            ],
+            status: Some(AddonStatus::Enabled),
+        })
+        .await
+        .unwrap();
+    let addon_id = registered.addon.summary.id;
+    app.addons()
+        .sync_addon_routing_plans(addon_id)
+        .await
+        .unwrap();
+
+    let output = app.library_scan().scan_library(library_id).await.unwrap();
+    let addon_scrape = output
+        .metadata
+        .addon_scrape
+        .expect("scan should enqueue addon scrape");
+    assert_eq!(addon_scrape.total_sources, 13);
+    assert_eq!(addon_scrape.enqueued_items, 13);
+    assert!(!addon_scrape.truncated);
+    let _first = wait_for_addon_task_run_status(
+        &store,
+        addon_scrape.task_runs[0].job_id,
+        JobStatus::Succeeded,
+    )
+    .await;
+    let second = wait_for_continuation_task_run(&store, addon_id, 12).await;
+
+    let captured = captured.lock().await;
+    assert_eq!(captured.len(), 2);
+    assert_eq!(captured[0].payload["cursor"], 0);
+    assert_eq!(captured[0].payload["items"].as_array().unwrap().len(), 13);
+    assert_eq!(captured[1].payload["cursor"], 12);
+    assert_eq!(captured[1].payload["batch_size"], 12);
+    assert_eq!(captured[1].payload["resume_state"]["marker"], "cursor-0");
+    assert_eq!(second.retry_of_job_id, None);
+    assert_eq!(second.job.library_id, Some(library_id));
+}
+
+#[tokio::test]
 async fn scan_library_addon_bulk_metadata_writeback_merges_metadata_via_side_effect() {
     let temp = tempfile::tempdir().unwrap();
     let library_root = temp.path().join("library");
@@ -777,6 +854,24 @@ async fn scan_bulk_metadata_scrape_addon_server() -> (String, Arc<Mutex<Vec<Addo
             move |Json(request): Json<AddonTaskRequest>| {
                 let requests = Arc::clone(&requests);
                 async move {
+                    let cursor = request
+                        .payload
+                        .get("cursor")
+                        .and_then(serde_json::Value::as_u64)
+                        .unwrap_or(0) as usize;
+                    let batch_size = request
+                        .payload
+                        .get("batch_size")
+                        .and_then(serde_json::Value::as_u64)
+                        .unwrap_or(12) as usize;
+                    let item_count = request
+                        .payload
+                        .get("items")
+                        .and_then(serde_json::Value::as_array)
+                        .map_or(0, Vec::len);
+                    let next_cursor = cursor.saturating_add(batch_size);
+                    let next_cursor =
+                        (next_cursor < item_count).then_some(serde_json::json!(next_cursor));
                     requests.lock().await.push(request.clone());
 
                     Json(AddonTaskResponse {
@@ -787,11 +882,12 @@ async fn scan_bulk_metadata_scrape_addon_server() -> (String, Arc<Mutex<Vec<Addo
                         request_id: request.request_id,
                         output: serde_json::json!({
                             "accepted": true,
-                            "item_count": request
-                                .payload
-                                .get("items")
-                                .and_then(serde_json::Value::as_array)
-                                .map_or(0, Vec::len),
+                            "item_count": item_count,
+                            "next_cursor": next_cursor,
+                            "resume_state": {
+                                "previous_cursor": cursor,
+                                "marker": format!("cursor-{cursor}")
+                            }
                         }),
                     })
                 }
@@ -915,6 +1011,44 @@ async fn wait_for_addon_task_run_status(
     }
 
     panic!("addon task run {job_id} did not reach {expected:?}");
+}
+
+async fn wait_for_continuation_task_run(
+    store: &NakoDatabase,
+    addon_id: AddonId,
+    cursor: u64,
+) -> nako_core::AddonTaskRunRecord {
+    for _ in 0..100 {
+        let runs = store
+            .list_addon_task_runs(
+                nako_core::AddonTaskRunListFilter {
+                    addon_id: Some(addon_id),
+                    declaration_id: Some(metadata_scraper::BULK_METADATA_SCRAPE_TASK_ID.to_owned()),
+                    ..nako_core::AddonTaskRunListFilter::default()
+                },
+                PageRequest::new(20, 0),
+            )
+            .await
+            .unwrap();
+        if let Some(run) = runs
+            .into_iter()
+            .find(|run| addon_task_run_payload_cursor(run) == Some(cursor))
+            && run.job.status == JobStatus::Succeeded
+        {
+            return run;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+
+    panic!("addon continuation task run for cursor {cursor} did not succeed");
+}
+
+fn addon_task_run_payload_cursor(run: &nako_core::AddonTaskRunRecord) -> Option<u64> {
+    serde_json::from_str::<serde_json::Value>(&run.input_json)
+        .ok()?
+        .get("payload")?
+        .get("cursor")?
+        .as_u64()
 }
 
 #[tokio::test]

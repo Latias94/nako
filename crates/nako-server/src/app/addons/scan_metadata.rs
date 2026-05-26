@@ -1,13 +1,16 @@
 use nako_api::extension::{AddonTaskRunDispatchMode, CreateAddonTaskRunRequest};
 use nako_core::{
-    AddonId, AddonRegistrationRecord, AddonSideEffectTarget, AddonStatus, ExternalProvider, JobId,
-    JobStatus, Library, LibraryId, MediaItem, MediaItemId, MediaKind, MediaRepository, MediaSource,
-    MediaSourceId, NakoError, PageRequest, Result,
+    AddonId, AddonRegistrationRecord, AddonSideEffectTarget, AddonStatus, AddonTaskRunRecord,
+    ExternalProvider, JobId, JobStatus, Library, LibraryId, MediaItem, MediaItemId, MediaKind,
+    MediaRepository, MediaSource, MediaSourceId, NakoError, PageRequest, Result,
 };
 use nako_official_addon_catalog::metadata_scraper;
 use serde::Serialize;
 
-use super::AddonAppService;
+use super::{
+    AddonAppService,
+    task_runtime::{retry_dispatch_from_previous_input, retry_payload_from_previous_input},
+};
 
 const SCAN_ADDON_SCRAPE_BATCH_SIZE: usize = 12;
 const SCAN_ADDON_SCRAPE_SOURCE_LIMIT: u32 = 500;
@@ -65,7 +68,7 @@ impl AddonAppService {
         let mut summary = ScanAddonBulkMetadataScrapeSummary {
             total_sources: sources.len(),
             enqueued_items: payload.items.len(),
-            truncated: sources.len() > payload.items.len(),
+            truncated: sources.len() >= SCAN_ADDON_SCRAPE_SOURCE_LIMIT as usize,
             ..ScanAddonBulkMetadataScrapeSummary::default()
         };
 
@@ -177,8 +180,8 @@ impl AddonAppService {
         sources: &[MediaSource],
         writeback: bool,
     ) -> Result<ScanAddonBulkMetadataScrapePayload> {
-        let mut items = Vec::with_capacity(sources.len().min(SCAN_ADDON_SCRAPE_BATCH_SIZE));
-        for source in sources.iter().take(SCAN_ADDON_SCRAPE_BATCH_SIZE) {
+        let mut items = Vec::with_capacity(sources.len());
+        for source in sources {
             let item = self.store.get_media_item(source.item_id).await?;
             items.push(scan_addon_bulk_metadata_scrape_item(
                 scan_job_id,
@@ -202,6 +205,89 @@ struct ScanAddonBulkMetadataScrapePayload {
     items: Vec<ScanAddonBulkMetadataScrapeItem>,
     cursor: usize,
     batch_size: usize,
+}
+
+pub(super) fn scan_addon_bulk_metadata_scrape_continuation_request(
+    completed: &AddonTaskRunRecord,
+    output: &serde_json::Value,
+) -> Result<Option<CreateAddonTaskRunRequest>> {
+    if completed.declaration_id != metadata_scraper::BULK_METADATA_SCRAPE_TASK_ID {
+        return Ok(None);
+    }
+
+    let Some(next_cursor) = output
+        .get("next_cursor")
+        .and_then(serde_json::Value::as_u64)
+    else {
+        return Ok(None);
+    };
+    let Some(payload) = scan_addon_bulk_metadata_scrape_continuation_payload(
+        &completed.input_json,
+        next_cursor,
+        output,
+    )?
+    else {
+        return Ok(None);
+    };
+
+    Ok(Some(CreateAddonTaskRunRequest {
+        declaration_id: completed.declaration_id.clone(),
+        idempotency_key: scan_addon_bulk_metadata_scrape_continuation_idempotency_key(
+            &completed.idempotency_key,
+            next_cursor,
+        ),
+        dispatch: retry_dispatch_from_previous_input(&completed.input_json)?,
+        library_id: completed.job.library_id,
+        source_id: completed.job.source_id,
+        payload,
+    }))
+}
+
+fn scan_addon_bulk_metadata_scrape_continuation_payload(
+    previous_input_json: &str,
+    next_cursor: u64,
+    output: &serde_json::Value,
+) -> Result<Option<serde_json::Value>> {
+    let mut payload = retry_payload_from_previous_input(previous_input_json)?;
+    let Some(object) = payload.as_object_mut() else {
+        return Err(NakoError::InvalidInput {
+            message: "scan addon metadata scrape continuation payload must be an object".to_owned(),
+        });
+    };
+    let current_cursor = object
+        .get("cursor")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(0);
+    let total_items = object
+        .get("items")
+        .and_then(serde_json::Value::as_array)
+        .map(|items| items.len() as u64);
+    if next_cursor <= current_cursor || total_items.is_some_and(|total| next_cursor >= total) {
+        return Ok(None);
+    }
+
+    object.insert("cursor".to_owned(), serde_json::json!(next_cursor));
+    if let Some(batch_size) = output.get("batch_size") {
+        object.insert("batch_size".to_owned(), batch_size.clone());
+    }
+    if let Some(provider_policy) = output.get("provider_policy") {
+        object.insert("provider_policy".to_owned(), provider_policy.clone());
+    }
+    if let Some(resume_state) = output.get("resume_state") {
+        object.insert("resume_state".to_owned(), resume_state.clone());
+    }
+
+    Ok(Some(payload))
+}
+
+fn scan_addon_bulk_metadata_scrape_continuation_idempotency_key(
+    previous: &str,
+    next_cursor: u64,
+) -> String {
+    let root = previous
+        .split_once(":cursor:")
+        .map_or(previous, |(root, _)| root);
+    format!("{root}:cursor:{next_cursor}")
 }
 
 #[derive(Clone, Debug, Serialize)]

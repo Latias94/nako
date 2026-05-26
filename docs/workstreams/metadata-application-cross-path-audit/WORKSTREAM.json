@@ -1,0 +1,36 @@
+{
+  "slug": "metadata-application-cross-path-audit",
+  "title": "Metadata Application Cross-Path Audit",
+  "status": "complete",
+  "last_updated": "2026-05-26",
+  "objective": "Audit whether provider refresh and hierarchy confirmation should reuse server MetadataApplication or only shared core merge decisions.",
+  "current_task": null,
+  "tasks": [
+    {
+      "id": "MACPA-010",
+      "status": "done",
+      "scope": "crates/nako-metadata/src/provider_attempt.rs"
+    },
+    {
+      "id": "MACPA-020",
+      "status": "done",
+      "scope": "crates/nako-metadata/src/confirmation.rs"
+    },
+    {
+      "id": "MACPA-030",
+      "status": "done",
+      "scope": "crates/nako-core/src/media/merge.rs,crates/nako-server/src/app/metadata_application.rs"
+    },
+    {
+      "id": "MACPA-040",
+      "status": "done",
+      "scope": "docs/workstreams/metadata-application-cross-path-audit"
+    }
+  ],
+  "related_workstreams": [
+    "docs/workstreams/metadata-application-policy-seam"
+  ],
+  "validation": [
+    "documentation-only audit"
+  ]
+}
