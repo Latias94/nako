@@ -43,6 +43,8 @@ Exit criteria:
 
 ## M4 - Management Context Links
 
+Status: Complete.
+
 Exit criteria:
 
 - Context links are computed by the backend from principal, role, Library

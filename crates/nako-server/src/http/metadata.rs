@@ -1,5 +1,5 @@
 use axum::{
-    Json, Router,
+    Extension, Json, Router,
     extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
@@ -7,15 +7,19 @@ use axum::{
 };
 use nako_api::{admin::JobResponse, metadata_diagnostics::EnqueueMetadataMaintenanceRequest};
 use nako_core::{
-    ExternalProvider, MediaItemId, MetadataAttemptFilter, MetadataProviderAttemptStatus,
-    ProviderRawResponseFilter,
+    AuthenticatedPrincipal, ExternalProvider, MediaItemId, MetadataAttemptFilter,
+    MetadataProviderAttemptStatus, ProviderRawResponseFilter,
 };
 use serde::Deserialize;
 use tracing::instrument;
 
 use crate::app::NakoApp;
 
-use super::{error::ApiResult, query::PageQuery};
+use super::{
+    access::{RequiredLibraryAccess, require_administrator, require_item_access},
+    error::ApiResult,
+    query::PageQuery,
+};
 
 #[derive(Clone, Debug, Default, Deserialize)]
 pub(super) struct MetadataAttemptsQuery {
@@ -81,8 +85,11 @@ pub(super) fn routes() -> Router<NakoApp> {
 #[instrument(skip(app))]
 pub(super) async fn refresh_item_metadata(
     State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(item_id): Path<MediaItemId>,
 ) -> ApiResult<impl IntoResponse> {
+    require_item_access(&app, &principal, item_id, RequiredLibraryAccess::Manage).await?;
+
     let job = app.metadata().enqueue_metadata_refresh(item_id).await?;
 
     Ok((StatusCode::ACCEPTED, Json(JobResponse::from_job(job))))
@@ -91,9 +98,12 @@ pub(super) async fn refresh_item_metadata(
 #[instrument(skip(app))]
 pub(super) async fn list_item_metadata_attempts(
     State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(item_id): Path<MediaItemId>,
     Query(query): Query<MetadataAttemptsQuery>,
 ) -> ApiResult<impl IntoResponse> {
+    require_item_access(&app, &principal, item_id, RequiredLibraryAccess::Manage).await?;
+
     Ok(Json(
         app.metadata()
             .list_metadata_provider_attempts_for_item(
@@ -111,9 +121,12 @@ pub(super) async fn list_item_metadata_attempts(
 #[instrument(skip(app))]
 pub(super) async fn list_item_metadata_raw_responses(
     State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(item_id): Path<MediaItemId>,
     Query(query): Query<MetadataRawResponsesQuery>,
 ) -> ApiResult<impl IntoResponse> {
+    require_item_access(&app, &principal, item_id, RequiredLibraryAccess::Manage).await?;
+
     Ok(Json(
         app.metadata()
             .list_provider_raw_responses_for_item(
@@ -130,9 +143,12 @@ pub(super) async fn list_item_metadata_raw_responses(
 #[instrument(skip(app))]
 pub(super) async fn review_item_metadata_candidates(
     State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(item_id): Path<MediaItemId>,
     Query(query): Query<MetadataCandidateReviewQuery>,
 ) -> ApiResult<impl IntoResponse> {
+    require_item_access(&app, &principal, item_id, RequiredLibraryAccess::Manage).await?;
+
     Ok(Json(
         app.metadata()
             .review_metadata_candidates(
@@ -147,8 +163,11 @@ pub(super) async fn review_item_metadata_candidates(
 #[instrument(skip(app, request))]
 pub(super) async fn enqueue_metadata_maintenance(
     State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
     Json(request): Json<EnqueueMetadataMaintenanceRequest>,
 ) -> ApiResult<impl IntoResponse> {
+    require_administrator(&principal)?;
+
     let job = app.metadata().enqueue_metadata_maintenance(request).await?;
 
     Ok((StatusCode::ACCEPTED, Json(JobResponse::from_job(job))))
@@ -157,8 +176,11 @@ pub(super) async fn enqueue_metadata_maintenance(
 #[instrument(skip(app, request))]
 pub(super) async fn plan_metadata_maintenance(
     State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
     Json(request): Json<EnqueueMetadataMaintenanceRequest>,
 ) -> ApiResult<impl IntoResponse> {
+    require_administrator(&principal)?;
+
     Ok(Json(
         app.metadata().plan_metadata_maintenance(request).await?,
     ))
@@ -167,8 +189,11 @@ pub(super) async fn plan_metadata_maintenance(
 #[instrument(skip(app))]
 pub(super) async fn cleanup_metadata_raw_responses(
     State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
     Query(query): Query<MetadataRawCleanupQuery>,
 ) -> ApiResult<impl IntoResponse> {
+    require_administrator(&principal)?;
+
     Ok(Json(
         app.metadata()
             .cleanup_provider_raw_responses(
@@ -185,6 +210,9 @@ pub(super) async fn cleanup_metadata_raw_responses(
 #[instrument(skip(app))]
 pub(super) async fn list_metadata_providers(
     State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
 ) -> ApiResult<impl IntoResponse> {
+    require_administrator(&principal)?;
+
     Ok(Json(app.metadata().list_metadata_provider_diagnostics()))
 }

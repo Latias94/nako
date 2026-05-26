@@ -37,6 +37,7 @@ public val NAKO_PUBLIC_PATHS: List<String> = listOf(
     "/genres",
     "/genres/{genre_id}/items",
     "/search",
+    "/management/context-links",
     "/sources/{source_id}/probe",
     "/sources/{source_id}/playback/decision",
     "/sources/{source_id}/playback/browser-ticket",
@@ -67,6 +68,13 @@ public data class PageQuery(
 public data class ImageVariantQuery(
     public val width: Int? = null,
     public val height: Int? = null,
+)
+
+public data class ManagementContextQuery(
+    public val libraryId: String? = null,
+    public val itemId: String? = null,
+    public val sourceId: String? = null,
+    public val playbackSessionId: String? = null,
 )
 
 public data class PlaybackCapabilitiesQuery(
@@ -252,6 +260,17 @@ public object NakoPublicClientRequests {
             ),
         )
 
+    public fun managementContextLinks(
+        query: ManagementContextQuery = ManagementContextQuery(),
+    ): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "GET",
+            pathAndQuery = pathWithQuery(
+                "/management/context-links",
+                managementContextQuery(query),
+            ),
+        )
+
     public fun getSourceProbe(sourceId: String): NakoRequestDescriptor =
         NakoRequestDescriptor(
             method = "GET",
@@ -405,6 +424,14 @@ public object NakoPublicClientRequests {
         buildList {
             variant.width?.let { add("width" to it.toString()) }
             variant.height?.let { add("height" to it.toString()) }
+        }
+
+    private fun managementContextQuery(query: ManagementContextQuery): List<Pair<String, String>> =
+        buildList {
+            query.libraryId?.let { add("library_id" to it) }
+            query.itemId?.let { add("item_id" to it) }
+            query.sourceId?.let { add("source_id" to it) }
+            query.playbackSessionId?.let { add("playback_session_id" to it) }
         }
 
     private fun playbackCapabilitiesQuery(
@@ -747,6 +774,115 @@ public value class LibraryOptionsDtoPreset(
             "mixed_video",
             "online_catalog",
             "custom",
+        )
+    }
+}
+
+@JvmInline
+@Serializable
+public value class ManagementContextLinkDtoAction(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val ScanLibrary: ManagementContextLinkDtoAction = ManagementContextLinkDtoAction("scan_library")
+        public val UpdateLibraryMetadataProfile: ManagementContextLinkDtoAction = ManagementContextLinkDtoAction("update_library_metadata_profile")
+        public val RefreshItemMetadata: ManagementContextLinkDtoAction = ManagementContextLinkDtoAction("refresh_item_metadata")
+        public val ViewJobs: ManagementContextLinkDtoAction = ManagementContextLinkDtoAction("view_jobs")
+        public val ViewPlaybackDiagnostics: ManagementContextLinkDtoAction = ManagementContextLinkDtoAction("view_playback_diagnostics")
+        public val ViewPlaybackRuntime: ManagementContextLinkDtoAction = ManagementContextLinkDtoAction("view_playback_runtime")
+        public val ManageLibraryAccess: ManagementContextLinkDtoAction = ManagementContextLinkDtoAction("manage_library_access")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "scan_library",
+            "update_library_metadata_profile",
+            "refresh_item_metadata",
+            "view_jobs",
+            "view_playback_diagnostics",
+            "view_playback_runtime",
+            "manage_library_access",
+        )
+    }
+}
+
+@JvmInline
+@Serializable
+public value class ManagementContextLinkDtoDisabledReason(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val MissingContext: ManagementContextLinkDtoDisabledReason = ManagementContextLinkDtoDisabledReason("missing_context")
+        public val InsufficientPermission: ManagementContextLinkDtoDisabledReason = ManagementContextLinkDtoDisabledReason("insufficient_permission")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "missing_context",
+            "insufficient_permission",
+        )
+    }
+}
+
+@JvmInline
+@Serializable
+public value class ManagementContextLinkDtoMethod(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val Get: ManagementContextLinkDtoMethod = ManagementContextLinkDtoMethod("GET")
+        public val Post: ManagementContextLinkDtoMethod = ManagementContextLinkDtoMethod("POST")
+        public val Put: ManagementContextLinkDtoMethod = ManagementContextLinkDtoMethod("PUT")
+        public val Delete: ManagementContextLinkDtoMethod = ManagementContextLinkDtoMethod("DELETE")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "GET",
+            "POST",
+            "PUT",
+            "DELETE",
+        )
+    }
+}
+
+@JvmInline
+@Serializable
+public value class ManagementContextLinkDtoRequiredAccess(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val LibraryManage: ManagementContextLinkDtoRequiredAccess = ManagementContextLinkDtoRequiredAccess("library_manage")
+        public val Administrator: ManagementContextLinkDtoRequiredAccess = ManagementContextLinkDtoRequiredAccess("administrator")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "library_manage",
+            "administrator",
+        )
+    }
+}
+
+@JvmInline
+@Serializable
+public value class ManagementContextLinkDtoSurface(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val Management: ManagementContextLinkDtoSurface = ManagementContextLinkDtoSurface("management")
+        public val Media: ManagementContextLinkDtoSurface = ManagementContextLinkDtoSurface("media")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "management",
+            "media",
         )
     }
 }
@@ -1316,6 +1452,39 @@ public data class LoginResponse(
 @Serializable
 public data class LogoutResponse(
     public val revoked: Boolean,
+)
+
+@Serializable
+public data class ManagementContextDto(
+    @SerialName("item_id")
+    public val itemId: String?,
+    @SerialName("library_id")
+    public val libraryId: String?,
+    @SerialName("playback_session_id")
+    public val playbackSessionId: String?,
+    @SerialName("source_id")
+    public val sourceId: String?,
+)
+
+@Serializable
+public data class ManagementContextLinkDto(
+    public val action: ManagementContextLinkDtoAction,
+    @SerialName("disabled_reason")
+    public val disabledReason: ManagementContextLinkDtoDisabledReason?,
+    public val enabled: Boolean,
+    public val method: ManagementContextLinkDtoMethod,
+    @SerialName("required_access")
+    public val requiredAccess: ManagementContextLinkDtoRequiredAccess,
+    @SerialName("route_name")
+    public val routeName: String,
+    public val surface: ManagementContextLinkDtoSurface,
+    public val target: ManagementContextDto,
+)
+
+@Serializable
+public data class ManagementContextLinksResponse(
+    public val context: ManagementContextDto,
+    public val links: List<ManagementContextLinkDto>,
 )
 
 @Serializable

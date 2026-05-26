@@ -99,8 +99,9 @@ use nako_api::{
     },
     public_client::{
         CurrentUserResponse, ErrorResponse, HealthResponse, LibraryListResponse, LibraryResponse,
-        LoginRequest, LoginResponse, LogoutResponse, PLAYBACK_SESSION_ID_HEADER,
-        PlaybackSessionResponse, RedeemInvitationRequest,
+        LoginRequest, LoginResponse, LogoutResponse, ManagementContextLinkDto,
+        ManagementContextLinksResponse, PLAYBACK_SESSION_ID_HEADER, PlaybackSessionResponse,
+        RedeemInvitationRequest,
     },
 };
 use nako_core::{
@@ -164,6 +165,7 @@ mod addons;
 mod automation;
 mod catalog;
 mod library;
+mod management_context;
 mod metadata;
 mod playback;
 mod self_host_smoke;
@@ -184,6 +186,8 @@ fn public_client_router_with_principal(app: NakoApp, principal: AuthenticatedPri
     Router::new()
         .merge(super::library::routes())
         .merge(super::catalog::routes())
+        .merge(super::management_context::routes())
+        .merge(super::metadata::routes())
         .merge(super::playback::routes())
         .merge(super::user_playback::routes())
         .layer(Extension(principal_id))
@@ -196,13 +200,22 @@ async fn local_viewer_with_library_access(
     library_id: LibraryId,
     access: LibraryAccessLevel,
 ) -> AuthenticatedPrincipal {
+    local_principal_with_library_access(store, library_id, UserRole::Viewer, access).await
+}
+
+async fn local_principal_with_library_access(
+    store: &NakoDatabase,
+    library_id: LibraryId,
+    role: UserRole,
+    access: LibraryAccessLevel,
+) -> AuthenticatedPrincipal {
     let user_id = UserId::new();
     let principal_id = UserPrincipalId::new(format!("local-user:{user_id}")).unwrap();
     let user = User {
         id: user_id,
         principal_id: principal_id.clone(),
-        username: format!("viewer-{}", user_id),
-        display_name: "Library viewer".to_owned(),
+        username: format!("{}-{}", role.as_str(), user_id),
+        display_name: "Library principal".to_owned(),
         status: UserStatus::Active,
         created_at_ms: 1,
         updated_at_ms: 1,
@@ -214,7 +227,7 @@ async fn local_viewer_with_library_access(
             user_id,
             &[RoleAssignment {
                 user_id,
-                role: UserRole::Viewer,
+                role,
                 granted_at_ms: 1,
             }],
         )
@@ -234,7 +247,7 @@ async fn local_viewer_with_library_access(
     AuthenticatedPrincipal {
         user_id,
         principal_id,
-        roles: vec![UserRole::Viewer],
+        roles: vec![role],
         bootstrap: false,
     }
 }

@@ -19,6 +19,7 @@ use super::{
     jobs::{JobAppService, LibraryScanAppService},
     library::LibraryAppService,
     managed_import::ManagedImportAppService,
+    management_context::ManagementContextAppService,
     metadata::MetadataAppService,
     metadata_runtime,
     nfo::NfoAppService,
@@ -129,6 +130,7 @@ pub(super) struct NakoAppServices {
     pub(super) webhooks: WebhookAppService,
     pub(super) catalog: CatalogAppService,
     pub(super) library: LibraryAppService,
+    pub(super) management_context: ManagementContextAppService,
     pub(super) storage: StorageDiagnosticsAppService,
     pub(super) metadata: MetadataAppService,
     pub(super) managed_import: ManagedImportAppService,
@@ -168,6 +170,7 @@ impl NakoAppServices {
         let webhooks = WebhookAppService::new(store.clone(), runtime.webhook_permits);
         let catalog = CatalogAppService::new(store.clone());
         let library = LibraryAppService::new(store.clone());
+        let management_context = ManagementContextAppService::new(store.clone());
         let storage = StorageDiagnosticsAppService::new(runtime.storage_backends.clone());
         let metadata = MetadataAppService::new(
             config.clone(),
@@ -208,6 +211,7 @@ impl NakoAppServices {
             webhooks,
             catalog,
             library,
+            management_context,
             storage,
             metadata,
             managed_import,

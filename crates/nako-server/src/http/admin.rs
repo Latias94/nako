@@ -2,9 +2,12 @@ use std::collections::HashSet;
 
 use axum::{
     Extension, Json, Router,
+    extract::Request,
     extract::{Path, Query, State},
     http::StatusCode,
-    response::IntoResponse,
+    middleware,
+    middleware::Next,
+    response::{IntoResponse, Response},
     routing::{delete, get, patch, post, put},
 };
 use nako_api::{
@@ -63,7 +66,7 @@ use nako_api::{
         StorageBackendKind, StorageBackendRuntimeStateScope, StorageBackendStatus,
     },
     metadata_diagnostics::{MetadataProviderDiagnosticStatus, MetadataProviderDiagnosticsResponse},
-    public_client::{API_VERSION, page_info_from_request},
+    public_client::{API_VERSION, ClientErrorCode, ErrorResponse, page_info_from_request},
 };
 use nako_core::{
     ArtworkCandidateId, AutomationArtifactId, ImageKind, JobId, LibraryAccessPolicy,
@@ -253,6 +256,26 @@ pub(super) fn routes() -> Router<NakoApp> {
             "/admin/v1/playback/sessions",
             get(list_admin_playback_sessions),
         )
+        .route_layer(middleware::from_fn(require_admin_principal))
+}
+
+async fn require_admin_principal(
+    Extension(principal): Extension<nako_core::AuthenticatedPrincipal>,
+    request: Request,
+    next: Next,
+) -> Response {
+    if principal.is_administrator() {
+        return next.run(request).await;
+    }
+
+    (
+        StatusCode::FORBIDDEN,
+        Json(ErrorResponse::new(
+            ClientErrorCode::Forbidden,
+            "administrator role is required",
+        )),
+    )
+        .into_response()
 }
 
 pub(super) async fn accept_admin_artwork_candidate(

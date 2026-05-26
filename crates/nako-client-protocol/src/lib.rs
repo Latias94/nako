@@ -42,6 +42,7 @@ pub enum PublicClientRouteKind {
     Account,
     Library,
     Catalog,
+    Management,
     Playback,
 }
 
@@ -176,6 +177,12 @@ pub const PUBLIC_CLIENT_ROUTES: &[PublicClientRoute] = &[
         path: "/search",
         methods: &[PublicClientHttpMethod::Get],
         kind: PublicClientRouteKind::Catalog,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/management/context-links",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::Management,
         rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
     },
     PublicClientRoute {
@@ -478,12 +485,13 @@ mod tests {
     fn public_route_inventory_is_protocol_owned_and_complete() {
         let paths = public_client_paths().collect::<Vec<_>>();
 
-        assert_eq!(paths.len(), 35);
+        assert_eq!(paths.len(), 36);
         assert!(paths.contains(&"/health"));
         assert!(paths.contains(&"/auth/login"));
         assert!(paths.contains(&"/auth/invitations/redeem"));
         assert!(paths.contains(&"/auth/logout"));
         assert!(paths.contains(&"/users/me"));
+        assert!(paths.contains(&"/management/context-links"));
         assert!(paths.contains(&"/images/{image_id}"));
         assert!(paths.contains(&"/sources/{source_id}/stream"));
         assert!(paths.contains(&"/sources/{source_id}/playback/browser-ticket"));
@@ -532,7 +540,7 @@ mod tests {
 
         let json_count = public_client_json_routes().count();
         let streaming_count = public_client_streaming_routes().count();
-        assert_eq!(json_count, 30);
+        assert_eq!(json_count, 31);
         assert_eq!(streaming_count, 5);
         assert_eq!(json_count + streaming_count, PUBLIC_CLIENT_ROUTES.len());
         let remux_stream = PUBLIC_CLIENT_ROUTES

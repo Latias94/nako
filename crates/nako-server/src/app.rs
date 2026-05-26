@@ -33,6 +33,7 @@ mod jobs;
 mod library;
 mod library_reconciliation;
 mod managed_import;
+mod management_context;
 mod metadata;
 mod metadata_application;
 mod metadata_runtime;
@@ -58,6 +59,8 @@ use catalog::CatalogAppService;
 use composition::{NakoAppComposition, NakoAppServices};
 use jobs::{JobAppService, LibraryScanAppService};
 use library::LibraryAppService;
+use management_context::ManagementContextAppService;
+pub(crate) use management_context::ManagementContextRequest;
 use metadata::MetadataAppService;
 use nfo::NfoAppService;
 #[cfg(test)]
@@ -183,6 +186,11 @@ impl NakoApp {
     #[must_use]
     pub(crate) fn library(&self) -> LibraryAppService {
         self.services().library.clone()
+    }
+
+    #[must_use]
+    pub(crate) fn management_context(&self) -> ManagementContextAppService {
+        self.services().management_context.clone()
     }
 
     #[must_use]

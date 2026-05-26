@@ -216,6 +216,74 @@ pub struct SearchItemHit {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ManagementContextLinksResponse {
+    pub context: ManagementContextDto,
+    pub links: Vec<ManagementContextLinkDto>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ManagementContextDto {
+    pub library_id: Option<String>,
+    pub item_id: Option<String>,
+    pub source_id: Option<String>,
+    pub playback_session_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ManagementContextLinkDto {
+    pub route_name: String,
+    pub method: ClientManagementHttpMethod,
+    pub surface: ClientManagementSurface,
+    pub action: ClientManagementAction,
+    pub target: ManagementContextDto,
+    pub enabled: bool,
+    pub required_access: ClientManagementRequiredAccess,
+    pub disabled_reason: Option<ClientManagementDisabledReason>,
+}
+
+public_string_value! {
+    pub enum ClientManagementHttpMethod {
+        Get => "GET",
+        Post => "POST",
+        Put => "PUT",
+        Delete => "DELETE",
+    }
+}
+
+public_string_value! {
+    pub enum ClientManagementSurface {
+        Management => "management",
+        Media => "media",
+    }
+}
+
+public_string_value! {
+    pub enum ClientManagementAction {
+        ScanLibrary => "scan_library",
+        UpdateLibraryMetadataProfile => "update_library_metadata_profile",
+        RefreshItemMetadata => "refresh_item_metadata",
+        ViewJobs => "view_jobs",
+        ViewPlaybackDiagnostics => "view_playback_diagnostics",
+        ViewPlaybackRuntime => "view_playback_runtime",
+        ManageLibraryAccess => "manage_library_access",
+    }
+}
+
+public_string_value! {
+    pub enum ClientManagementRequiredAccess {
+        LibraryManage => "library_manage",
+        Administrator => "administrator",
+    }
+}
+
+public_string_value! {
+    pub enum ClientManagementDisabledReason {
+        MissingContext => "missing_context",
+        InsufficientPermission => "insufficient_permission",
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct SourceProbeResponse {
     pub source_id: String,
     pub probe: MediaProbeDto,

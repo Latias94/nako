@@ -67,16 +67,18 @@ Last updated: 2026-05-27
 
 ## M4 - Management Context Links
 
-- [ ] BMPD-050 [owner=codex] [deps=BMPD-030,BMPD-040] [scope=crates/nako-api/src,crates/nako-client-protocol/src,crates/nako-server/src/app,crates/nako-server/src/http]
+- [x] BMPD-050 [owner=codex] [deps=BMPD-030,BMPD-040] [scope=crates/nako-api/src,crates/nako-client-protocol/src,crates/nako-server/src/app,crates/nako-server/src/http]
   Goal: Add permission-gated context links from library/item/source/playback
   contexts to safe admin/media operations.
   Validation: focused HTTP tests for administrator, library manager, viewer,
   no-access, disabled user, and bootstrap admin cases.
   Review: enabled/disabled state, reasons, safe IDs, no admin data leakage,
   stable route names, and no frontend route coupling.
-  Evidence: Public Client or Admin API context-link route returns scan,
-  metadata refresh, jobs, playback diagnostics, runtime settings, and access
-  links according to principal authority.
+  Evidence: Public Client `/management/context-links` returns backend-computed
+  scan, metadata refresh, jobs, playback diagnostics, runtime settings, and
+  access links with stable route names, safe context IDs, enabled state, and
+  disabled reasons. Admin API routes now require administrator role, while item
+  metadata refresh/diagnostic routes require library Manage access.
   Handoff: Frontend can render links later without hard-coding Admin internals.
 
 ## M5 - Closeout

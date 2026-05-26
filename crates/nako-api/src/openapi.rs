@@ -248,6 +248,23 @@ fn public_paths() -> Value {
         }),
     );
     paths.insert(
+        "/management/context-links".to_owned(),
+        json!({
+            "get": json_get(
+                "getManagementContextLinks",
+                "List management actions available from the current media context.",
+                "management",
+                vec![
+                    query_parameter("library_id", "Optional library id for the current context.", uuid_schema(), false),
+                    query_parameter("item_id", "Optional media item id for the current context.", uuid_schema(), false),
+                    query_parameter("source_id", "Optional media source id for the current context.", uuid_schema(), false),
+                    query_parameter("playback_session_id", "Optional playback session id for the current context.", uuid_schema(), false)
+                ],
+                schema_ref("ManagementContextLinksResponse")
+            )
+        }),
+    );
+    paths.insert(
         "/sources/{source_id}/probe".to_owned(),
         json!({
             "get": json_get("getSourceProbe", "Get persisted media probe data for one source.", "playback", vec![path_parameter("source_id", "Media source id.")], schema_ref("SourceProbeResponse"))
@@ -1018,6 +1035,34 @@ fn schemas() -> Value {
         "SearchItemHit": object_schema(&["item", "score"], json!({
             "item": schema_ref("MediaItemDto"),
             "score": json!({"type": "number", "format": "float"})
+        })),
+        "ManagementContextLinksResponse": object_schema(&["context", "links"], json!({
+            "context": schema_ref("ManagementContextDto"),
+            "links": array_schema(schema_ref("ManagementContextLinkDto"))
+        })),
+        "ManagementContextDto": object_schema(&["library_id", "item_id", "source_id", "playback_session_id"], json!({
+            "library_id": nullable_uuid_schema(),
+            "item_id": nullable_uuid_schema(),
+            "source_id": nullable_uuid_schema(),
+            "playback_session_id": nullable_uuid_schema()
+        })),
+        "ManagementContextLinkDto": object_schema(&["route_name", "method", "surface", "action", "target", "enabled", "required_access", "disabled_reason"], json!({
+            "route_name": string_schema(),
+            "method": enum_schema(&["GET", "POST", "PUT", "DELETE"]),
+            "surface": enum_schema(&["management", "media"]),
+            "action": enum_schema(&[
+                "scan_library",
+                "update_library_metadata_profile",
+                "refresh_item_metadata",
+                "view_jobs",
+                "view_playback_diagnostics",
+                "view_playback_runtime",
+                "manage_library_access"
+            ]),
+            "target": schema_ref("ManagementContextDto"),
+            "enabled": boolean_schema(),
+            "required_access": enum_schema(&["library_manage", "administrator"]),
+            "disabled_reason": json!({"type": "string", "nullable": true, "enum": ["missing_context", "insufficient_permission"]})
         })),
         "SourceProbeResponse": object_schema(&["source_id", "probe"], json!({
             "source_id": uuid_schema(),

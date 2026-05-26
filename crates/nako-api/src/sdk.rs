@@ -553,6 +553,13 @@ public data class ImageVariantQuery(
     public val height: Int? = null,
 )
 
+public data class ManagementContextQuery(
+    public val libraryId: String? = null,
+    public val itemId: String? = null,
+    public val sourceId: String? = null,
+    public val playbackSessionId: String? = null,
+)
+
 public data class PlaybackCapabilitiesQuery(
     public val directPlay: Boolean? = null,
     public val containers: List<String> = emptyList(),
@@ -736,6 +743,17 @@ public object NakoPublicClientRequests {
             ),
         )
 
+    public fun managementContextLinks(
+        query: ManagementContextQuery = ManagementContextQuery(),
+    ): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "GET",
+            pathAndQuery = pathWithQuery(
+                "/management/context-links",
+                managementContextQuery(query),
+            ),
+        )
+
     public fun getSourceProbe(sourceId: String): NakoRequestDescriptor =
         NakoRequestDescriptor(
             method = "GET",
@@ -889,6 +907,14 @@ public object NakoPublicClientRequests {
         buildList {
             variant.width?.let { add("width" to it.toString()) }
             variant.height?.let { add("height" to it.toString()) }
+        }
+
+    private fun managementContextQuery(query: ManagementContextQuery): List<Pair<String, String>> =
+        buildList {
+            query.libraryId?.let { add("library_id" to it) }
+            query.itemId?.let { add("item_id" to it) }
+            query.sourceId?.let { add("source_id" to it) }
+            query.playbackSessionId?.let { add("playback_session_id" to it) }
         }
 
     private fun playbackCapabilitiesQuery(
@@ -1057,6 +1083,13 @@ export interface ImageVariantQuery {
   height?: number;
 }
 
+export interface ManagementContextQuery {
+  library_id?: string;
+  item_id?: string;
+  source_id?: string;
+  playback_session_id?: string;
+}
+
 export interface NakoClientOptions {
   baseUrl: string;
   bearerToken?: string;
@@ -1176,6 +1209,10 @@ export class NakoClient {
 
   searchItems(params: { q?: string; facet?: string | string[] } & PageQuery): Promise<SearchResponse> {
     return this.requestJson("GET", "/search", { query: params });
+  }
+
+  managementContextLinks(query?: ManagementContextQuery): Promise<ManagementContextLinksResponse> {
+    return this.requestJson("GET", "/management/context-links", { query });
   }
 
   getSourceProbe(sourceId: string): Promise<SourceProbeResponse> {
@@ -1354,6 +1391,7 @@ mod tests {
             "listLibraries(",
             "getLibrary(",
             "searchItems(",
+            "managementContextLinks(",
             "getPlaybackDecision(",
             "createBrowserPlaybackTicket(",
             "streamSource(",
@@ -1464,6 +1502,7 @@ mod tests {
             "public const val NAKO_PLAYBACK_SESSION_ID_HEADER: String = \"x-nako-playback-session-id\"",
             "public data class HealthResponse",
             "public data class LibraryListResponse",
+            "public data class ManagementContextLinksResponse",
             "public data class PlaybackDecisionResponse",
             "public data class UserPlaybackStateResponse",
             "public data class ErrorResponse",
@@ -1471,6 +1510,7 @@ mod tests {
             "public object NakoPublicClientRequests",
             "public fun health(): NakoRequestDescriptor",
             "public fun listLibraries(page: PageQuery = PageQuery()): NakoRequestDescriptor",
+            "public fun managementContextLinks(",
             "public fun createBrowserPlaybackTicket(sourceId: String): NakoRequestDescriptor",
             "public fun heartbeatPlaybackSession(sessionId: String): NakoRequestDescriptor",
             "public value class ClientMediaKind",

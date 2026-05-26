@@ -5,7 +5,7 @@ Last updated: 2026-05-27
 
 ## Current State
 
-The lane is open. BMPD-020, BMPD-030, and BMPD-040 are complete. Discovery found that
+The lane is open. BMPD-020, BMPD-030, BMPD-040, and BMPD-050 are complete. Discovery found that
 Nako already has:
 
 - consolidated SQLite/PostgreSQL baseline migration files;
@@ -42,12 +42,18 @@ legacy transcode-id segment compatibility, and public/admin/generated contracts
 use Playback Session DTOs for user-facing state. The public route inventory now
 also includes invitation redemption and playback heartbeat.
 
+BMPD-050 added backend-computed Management Context Links. Public clients can
+ask `/management/context-links` with library, item, source, or playback session
+IDs and receive safe action descriptors with stable route names, safe target
+IDs, enabled state, required access, and disabled reasons. Admin API routes are
+now administrator-only, while item metadata refresh/diagnostic routes require
+Library Access Manage so link state matches actual server authority.
+
 ## Active Task
 
-- Task ID: BMPD-050
+- Task ID: BMPD-060
 - Status: ready
-- Scope: Management Context Links between media/library/playback contexts and
-  permission-gated admin operations.
+- Scope: Closeout, final evidence refresh, and follow-on split.
 
 ## Decisions
 
@@ -61,6 +67,12 @@ also includes invitation redemption and playback heartbeat.
   the correct first registration model.
 - Management Context Links are backend-computed actions, not shared frontend
   privileged state.
+- Context links expose semantic route names such as `library.scan` and
+  `playback.runtime`; they do not expose Admin Web routes or raw storage data.
+- Library managers can use library-scoped operations such as scan and metadata
+  refresh when they have Library Access Manage. Global runtime, jobs, and access
+  policy surfaces remain administrator-only until a scoped manager API is
+  intentionally designed.
 
 ## Blockers
 
@@ -68,6 +80,7 @@ also includes invitation redemption and playback heartbeat.
 
 ## Next Action
 
-Run BMPD-050: add backend-computed Management Context Links so media clients
-can discover safe scan, metadata refresh, job, playback diagnostic, runtime
-settings, and access actions without embedding Admin Web route knowledge.
+Run BMPD-060 closeout. Refresh the documented gates, decide whether to close
+this lane, and split follow-ons for frontend consumption, desktop native
+player integration, scoped manager job views, OIDC/LDAP, and recommendation
+work rather than hiding them inside this backend lane.

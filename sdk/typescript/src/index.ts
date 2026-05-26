@@ -28,6 +28,7 @@ export const NAKO_PUBLIC_PATHS = [
   "/genres",
   "/genres/{genre_id}/items",
   "/search",
+  "/management/context-links",
   "/sources/{source_id}/probe",
   "/sources/{source_id}/playback/decision",
   "/sources/{source_id}/playback/browser-ticket",
@@ -297,6 +298,29 @@ export interface LogoutResponse {
   revoked: boolean;
 }
 
+export interface ManagementContextDto {
+  item_id: string | null;
+  library_id: string | null;
+  playback_session_id: string | null;
+  source_id: string | null;
+}
+
+export interface ManagementContextLinkDto {
+  action: "scan_library" | "update_library_metadata_profile" | "refresh_item_metadata" | "view_jobs" | "view_playback_diagnostics" | "view_playback_runtime" | "manage_library_access";
+  disabled_reason: "missing_context" | "insufficient_permission" | null;
+  enabled: boolean;
+  method: "GET" | "POST" | "PUT" | "DELETE";
+  required_access: "library_manage" | "administrator";
+  route_name: string;
+  surface: "management" | "media";
+  target: ManagementContextDto;
+}
+
+export interface ManagementContextLinksResponse {
+  context: ManagementContextDto;
+  links: Array<ManagementContextLinkDto>;
+}
+
 export interface MediaItemDto {
   id: string;
   kind: ClientMediaKind;
@@ -551,6 +575,13 @@ export interface ImageVariantQuery {
   height?: number;
 }
 
+export interface ManagementContextQuery {
+  library_id?: string;
+  item_id?: string;
+  source_id?: string;
+  playback_session_id?: string;
+}
+
 export interface NakoClientOptions {
   baseUrl: string;
   bearerToken?: string;
@@ -670,6 +701,10 @@ export class NakoClient {
 
   searchItems(params: { q?: string; facet?: string | string[] } & PageQuery): Promise<SearchResponse> {
     return this.requestJson("GET", "/search", { query: params });
+  }
+
+  managementContextLinks(query?: ManagementContextQuery): Promise<ManagementContextLinksResponse> {
+    return this.requestJson("GET", "/management/context-links", { query });
   }
 
   getSourceProbe(sourceId: string): Promise<SourceProbeResponse> {

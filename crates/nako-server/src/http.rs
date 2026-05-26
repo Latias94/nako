@@ -14,6 +14,7 @@ mod catalog;
 mod error;
 mod jobs;
 mod library;
+mod management_context;
 mod metadata;
 mod network;
 mod playback;
@@ -38,6 +39,7 @@ fn build_router_with_auth(app: NakoApp, auth: auth::InboundAuthState) -> Router 
         .merge(admin::routes())
         .merge(library::routes())
         .merge(catalog::routes())
+        .merge(management_context::routes())
         .merge(metadata::routes())
         .merge(playback::routes())
         .merge(user_playback::routes())

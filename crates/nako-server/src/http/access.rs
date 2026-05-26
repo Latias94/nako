@@ -58,6 +58,17 @@ pub(super) async fn require_library_access(
     Err(library_access_forbidden(required).into())
 }
 
+pub(super) fn require_administrator(principal: &AuthenticatedPrincipal) -> ApiResult<()> {
+    if principal.is_administrator() {
+        return Ok(());
+    }
+
+    Err(NakoError::Forbidden {
+        message: "administrator role is required".to_owned(),
+    }
+    .into())
+}
+
 pub(super) async fn item_has_access(
     app: &NakoApp,
     principal: &AuthenticatedPrincipal,

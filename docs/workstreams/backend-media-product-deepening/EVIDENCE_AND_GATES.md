@@ -102,6 +102,10 @@ python -m json.tool docs/workstreams/backend-media-product-deepening/WORKSTREAM.
     10 passed.
   - `cargo nextest run -p nako-api -E 'test(public_openapi) | test(sdk) | test(admin_contract)' --no-fail-fast`
     passed: 19 passed, 39 skipped.
+  - `python -m json.tool docs/workstreams/backend-media-product-deepening/WORKSTREAM.json`
+    passed.
+  - `cargo fmt --all -- --check` passed.
+  - `git diff --check` passed with Git line-ending warnings only.
   - `cargo nextest run -p nako-db playback_session_tracks_user_attempt_independent_of_transcode --no-fail-fast`
     passed: 1 passed, 150 skipped.
   - `cargo nextest run -p nako-server playback --no-fail-fast` passed: 65
@@ -110,3 +114,28 @@ python -m json.tool docs/workstreams/backend-media-product-deepening/WORKSTREAM.
   - `cargo nextest run -p nako-transcode --no-fail-fast` passed: 35 passed.
   - `cargo fmt --all -- --check` passed.
   - `git diff --check` passed with Git line-ending warnings only.
+- 2026-05-27: BMPD-050 added backend-computed Management Context Links at
+  `/management/context-links`. The app service resolves library/item/source/
+  playback-session context, enforces browse visibility before returning safe
+  IDs, and returns stable route names with enabled/disabled state and reasons
+  for scan, metadata refresh, filtered jobs, playback support, playback
+  runtime, metadata profile, and library access policy actions. Admin API
+  routes now require administrator role, and item metadata refresh/diagnostic
+  routes require Library Access Manage.
+  Verified:
+  - `cargo nextest run -p nako-server management_context --no-fail-fast`
+    passed: 5 passed, 342 skipped.
+  - `cargo nextest run -p nako-server -E 'test(management_context) | test(metadata_refresh_route_queues_background_job)' --no-fail-fast`
+    passed: 6 passed, 341 skipped.
+  - `cargo nextest run -p nako-server -E 'test(local_session_auth) | test(admin_v1_access) | test(bearer_auth)' --no-fail-fast`
+    passed: 5 passed, 342 skipped.
+  - `cargo nextest run -p nako-server -E 'test(management_context) | test(admin_access) | test(playback)' --no-fail-fast`
+    passed: 70 passed, 277 skipped.
+  - `cargo nextest run -p nako-server metadata --no-fail-fast` passed: 47
+    passed, 300 skipped.
+  - `cargo nextest run -p nako-client-protocol public --no-fail-fast`
+    passed: 10 passed.
+  - `cargo nextest run -p nako-api -E 'test(public_openapi) | test(sdk)' --no-fail-fast`
+    passed: 15 passed, 43 skipped.
+  - `cargo nextest run -p nako-api -E 'test(public_openapi) | test(sdk) | test(admin_contract)' --no-fail-fast`
+    passed: 19 passed, 39 skipped.
