@@ -89,7 +89,8 @@ securely available with bearer-only auth.
 
 ## Accepted MWF-030 Scaffold Boundary
 
-MWF-030 may still scaffold `apps/media-web` if it stays within this boundary:
+MWF-030 may still scaffold the Media surface inside `apps/admin-web` if it
+stays within this boundary:
 
 - connect to a server URL and bearer token;
 - use `health()`, `listLibraries()`, `listItems()`, `searchItems()`, and item
@@ -97,4 +98,3 @@ MWF-030 may still scaffold `apps/media-web` if it stays within this boundary:
 - fixture mode must be visibly development/test-only;
 - do not implement a real library item grid, Recently Added rail, or browser
   player until the relevant gaps are resolved or consciously narrowed.
-

@@ -25,7 +25,7 @@ Last updated: 2026-05-26
 
 ## M2 - Media Web Foundation
 
-- [x] CSAPA-030 [owner=codex] [deps=CSAPA-020] [scope=docs/workstreams,apps/media-web or accepted route namespace]
+- [x] CSAPA-030 [owner=codex] [deps=CSAPA-020] [scope=docs/workstreams,apps/admin-web or accepted route namespace]
   Goal: Split the first browser Media Web lane for local media browsing and playback through Public Client API.
   Validation: Product design lists first routes, Public Client API gaps, auth/session expectations, player limitations, and no Admin API dependencies.
   Review: UX/product review before code scaffold.
@@ -36,7 +36,7 @@ Last updated: 2026-05-26
 
 ## M3 - Management Context Links
 
-- [ ] CSAPA-040 [owner=unassigned] [deps=CSAPA-020,CSAPA-030] [scope=apps/admin-web,apps/media-web,docs]
+- [ ] CSAPA-040 [owner=unassigned] [deps=CSAPA-020,CSAPA-030] [scope=apps/admin-web,docs]
   Goal: Define and implement the first permission-gated links between media consumption and management actions.
   Validation: Route/link matrix, role gating tests, redaction tests, and browser smoke once implemented.
   Review: review-workstream for boundary leakage and UX consistency.

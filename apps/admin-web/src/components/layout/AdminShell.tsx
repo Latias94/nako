@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import type { LucideIcon } from "lucide-react";
+import { Library, Settings, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { supportedAdminLocales, useI18n } from "../../i18n/I18nProvider";
@@ -50,6 +50,16 @@ export function AdminShell({
             <strong>Nako</strong>
             <span>{t("shell.product")}</span>
           </div>
+        </div>
+        <div className="adminSurfaceSwitch" aria-label="Surface">
+          <Link className="adminSurfaceSwitchItem active" to="/overview">
+            <Settings size={16} />
+            <span>Admin</span>
+          </Link>
+          <Link className="adminSurfaceSwitchItem" to="/media">
+            <Library size={16} />
+            <span>Media</span>
+          </Link>
         </div>
         <nav className="routeNav" aria-label={t("shell.primaryNavigation")}>
           {navItems.map((item) => {

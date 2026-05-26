@@ -11,8 +11,9 @@ enforcement. It still lacks a first-party browser client where a viewer can
 browse local media and play it without entering the operator console.
 
 Admin Web must remain a governance and operations surface. Media Web should be
-the browser playback surface, and desktop playback can later package or extend
-that surface instead of turning Admin Web into a player.
+the browser playback surface. They should coexist in one frontend project first
+so login state, navigation, and Management Context Links feel coherent, while
+code boundaries still prevent Admin API data from becoming viewer state.
 
 ## Relevant Authority
 
@@ -47,7 +48,7 @@ The current browser story is split across surfaces:
   connect model that does not imply open registration, password flows, or
   account switching that the backend cannot support yet.
 - Desktop Tauri work should reuse the Media Web playback experience, but the
-  browser client must land first so desktop does not start from Admin Web.
+  browser client must land first so desktop does not start from Admin routes.
 - Management Context Links need a media surface to link from, but the first
   Media Web slice should not block on admin-to-media and media-to-admin deep
   linking.
@@ -56,7 +57,8 @@ The current browser story is split across surfaces:
 
 When this lane closes:
 
-- `apps/media-web` exists as a route-owned browser Client Application.
+- `apps/admin-web` contains route-owned Admin and Media surfaces with explicit
+  `/admin/*` and `/media/*` namespaces or an equivalent accepted namespace.
 - It consumes the Public Client API or generated Public Client SDK only.
 - It has a truthful connect/login boundary for the current access model.
 - It renders local Media Libraries, Media Library detail, search, Media Item
@@ -76,7 +78,7 @@ When this lane closes:
 ## In Scope
 
 - Media Web product route map and UX constraints.
-- App scaffold under `apps/media-web`.
+- Media surface scaffold under `apps/admin-web`.
 - Public Client API data-source boundary and generated SDK usage.
 - Connect/login MVP based on the currently accepted auth mechanism.
 - Libraries, Media Library detail, search, Media Item detail, source selection,
@@ -102,7 +104,7 @@ When this lane closes:
 
 | Assumption | Confidence | Evidence | Consequence if wrong |
 | --- | --- | --- | --- |
-| Media Web should be a separate app package instead of an Admin Web route. | High | `PRODUCT.md`, ADR 0027, and the Admin Web governance lanes keep Admin Web operations-first. | Reopen product architecture before adding watch-first playback to Admin Web. |
+| Media Web should share the frontend project but keep a separate surface namespace and API boundary. | High | The product needs Jellyfin-like Admin/Media switching, while ADR 0027 keeps Admin API and Public Client API separate. | Split a package later if desktop/player dependencies become heavy or the boundary is repeatedly violated. |
 | Public Client API is sufficient for a first browsing/playback slice. | Medium | Existing Public Client API and generated SDK cover libraries, catalog, item detail, playback decisions, images, and User Playback State. | Add a narrow Public Client API gap task before building UI around hidden Admin API data. |
 | The first connect/login UX can use the accepted bearer-token model without adding password credentials. | Medium | Identity/access persistence exists, but credential/session UX is intentionally split. | Split a credential/session workstream before shipping user-facing username/password login. |
 | Public registration should stay disabled. | High | Nako is self-hosted private media software, and identity/access closeout defers invitation onboarding. | Opening registration requires abuse controls, invite/email semantics, audit, and recovery work. |
@@ -112,19 +114,23 @@ When this lane closes:
 
 ### Surface Boundary
 
-Media Web is a Client Application. It consumes Public Client API contracts and
-should be deployable beside Admin Web without importing Admin Web route models
+Media Web is a Client Application surface inside the shared web frontend. It
+consumes Public Client API contracts and must not import Admin Web route models
 or Admin API clients.
 
 ```text
-apps/media-web
-  viewer-facing browser client
-  Public Client API data source
-  generated Public Client SDK or explicit public route adapter
-  route-owned fixtures for tests and offline development
+apps/admin-web
+  src/app-shell
+    shared connection/session and surface switcher
+  src/surfaces/admin
+    operator routes, Admin API data source
+  src/surfaces/media
+    viewer routes, Public Client API data source
+  src/shared
+    safe UI primitives, routing helpers, i18n, test helpers
 ```
 
-Admin Web may link to Media Web later, and Media Web may expose admin-only
+Admin routes may link to Media routes, and Media routes may expose admin-only
 Management Context Links later. Those links are route URLs with stable safe IDs,
 not shared privileged state.
 
@@ -132,15 +138,19 @@ not shared privileged state.
 
 The first route set should be small enough to validate end to end:
 
-- `/connect`: server URL and token/session entry.
-- `/`: home with Continue Watching and Recently Added when backed by public
+- `/media/connect`: server URL and token/session entry when no connection
+  exists.
+- `/media`: home with Continue Watching and Recently Added when backed by public
   data.
-- `/libraries`: accessible Media Libraries.
-- `/libraries/:libraryId`: library browse, facets, and sort controls.
-- `/search`: global search through Public Client API.
-- `/items/:itemId`: Media Item detail with artwork, metadata, user state, and
-  playable sources.
-- `/watch/:itemId`: Source/Version Picker plus browser player.
+- `/media/libraries`: accessible Media Libraries.
+- `/media/libraries/:libraryId`: library browse, facets, and sort controls.
+- `/media/search`: global search through Public Client API.
+- `/media/items/:itemId`: Media Item detail with artwork, metadata, user state,
+  and playable sources.
+- `/media/watch/:itemId`: Source/Version Picker plus browser player.
+
+Admin routes should use an explicit `/admin/*` namespace over time. Existing
+Admin Web V2 routes may be kept as compatibility redirects during migration.
 
 Route names can change during implementation, but the app must preserve the
 same product separation: browse and playback first, admin context later.
@@ -196,11 +206,11 @@ Media Web should feel distinct from Admin Web:
 
 This lane can close when:
 
-- `apps/media-web` has a validated first local-media browse/play path;
+- the shared frontend has a validated first local-media browse/play path under
+  the Media surface;
 - auth/connect behavior is truthful for the backend capability that exists;
 - Public Client API gaps are recorded or resolved;
 - no Admin API dependency exists in the Media Web state path;
 - package-local check/test/build and browser smoke evidence are recorded;
 - follow-ons for Management Context Links, credentials/invitations, desktop
   Tauri/native playback, and richer recommendations are split or deferred.
-

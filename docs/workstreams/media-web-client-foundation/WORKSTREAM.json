@@ -3,10 +3,11 @@
   "slug": "media-web-client-foundation",
   "title": "Media Web Client Foundation",
   "status": "active",
-  "current_task": "MWF-030",
+  "current_task": "MWF-040",
   "completed_tasks": [
     "MWF-010",
-    "MWF-020"
+    "MWF-020",
+    "MWF-030"
   ],
   "updated": "2026-05-26",
   "scope_kind": "execution",
@@ -46,7 +47,7 @@
     "git diff --check -- docs/workstreams/media-web-client-foundation docs/workstreams/client-surface-and-access-product-architecture docs/workstreams/README.md",
     "cargo test -p nako-api public_openapi -- --nocapture",
     "cargo run -q -p nako-api --example emit-typescript-sdk -- --output sdk/typescript/src/index.ts",
-    "cd apps/media-web && npm run check && npm run test && npm run build"
+    "cd apps/admin-web && npm run check && npm run test && npm run build"
   ],
   "evidence": [
     {
@@ -56,6 +57,10 @@
     {
       "task": "MWF-020",
       "summary": "Audited Public Client OpenAPI and TypeScript SDK readiness; recorded ready route coverage and gaps for current principal/session summary, library-scoped item browse, Recently Added, and browser playback auth transport."
+    },
+    {
+      "task": "MWF-030",
+      "summary": "Added the shared Admin/Media frontend surface boundary inside apps/admin-web with symmetric switchers, Media connect shell, fixture/live Public Client SDK data source, focused tests, package validation, and browser smoke."
     }
   ],
   "adr_refs": [
@@ -66,6 +71,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Run MWF-020 before app scaffolding. If Public Client API gaps block a route, split or fix the smallest public contract gap instead of bridging through Admin API."
+    "notes": "MWF-040 should continue inside the shared Admin Web frontend package and add browse/search/detail routes only against Public Client API contracts. If a Public Client API gap blocks a route, split or fix the smallest public contract gap instead of bridging through Admin API."
   }
 }

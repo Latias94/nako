@@ -37,21 +37,29 @@ Task IDs use the `MWF` prefix.
 
 ## M2 - App Scaffold And Connect Shell
 
-- [ ] MWF-030 [owner=unassigned] [deps=MWF-020] [scope=apps/media-web,package.json]
-  Goal: Add `apps/media-web` with a route-owned app shell, connect/login MVP,
-  fixture/live data-source boundary, and no Admin API imports.
-  Validation: `cd apps/media-web && npm run check && npm run test`; `rg -n "admin/v1|AdminApi|adminApi" apps/media-web` returns no runtime dependency.
-  Review: The shell must be a viewer client, not a copied Admin Web console.
+- [x] MWF-030 [owner=codex] [deps=MWF-020] [scope=apps/admin-web/src/App.tsx,apps/admin-web/src/components/layout/AdminShell.tsx,apps/admin-web/src/surfaces/media,apps/admin-web/src/styles.css]
+  Goal: Add the first shared frontend app-shell boundary with explicit Admin
+  and Media surfaces, a Media connect/login MVP, fixture/live Public Client
+  data-source boundary, and no Admin API imports inside the Media surface.
+  Validation: `cd apps/admin-web && npm run check && npm run test -- App.test.tsx mediaSurface.test.tsx mediaDataSource.test.ts`; `rg -n "admin/v1|AdminApi|adminApi" apps/admin-web/src/surfaces/media` returns no runtime dependency.
+  Review: The Media surface must be a viewer client that coexists with Admin
+  Web through navigation and route namespaces, not a copied Admin console and
+  not a separate package.
   Evidence: App tests, data-source tests, and browser smoke notes.
   Handoff: Account switching means replacing/clearing the active connection
   until real credential/session APIs exist.
+  Result: DONE 2026-05-26. Admin and Media now coexist inside
+  `apps/admin-web` with explicit route namespaces and symmetric surface
+  switchers. Media has an in-memory connect shell, fixture/live Public Client
+  data-source boundary, generated SDK dependency, focused tests, and browser
+  smoke evidence.
 
 ## M3 - Browse, Search, And Detail
 
-- [ ] MWF-040 [owner=unassigned] [deps=MWF-030] [scope=apps/media-web,apps/media-web/src/features]
+- [ ] MWF-040 [owner=unassigned] [deps=MWF-030] [scope=apps/admin-web/src/surfaces/media]
   Goal: Implement accessible Media Libraries, Media Library detail, search,
   and Media Item detail from Public Client API data.
-  Validation: `cd apps/media-web && npm run check && npm run test`; browser smoke for `/libraries`, `/libraries/:libraryId`, `/search`, and `/items/:itemId`.
+  Validation: `cd apps/admin-web && npm run check && npm run test`; browser smoke for `/media/libraries`, `/media/libraries/:libraryId`, `/media/search`, and `/media/items/:itemId`.
   Review: UI must rely on server-filtered Library Access and must not expose
   admin diagnostics or unsafe source/provider/storage fields.
   Evidence: Route tests, redaction tests, and browser screenshots or notes.
@@ -59,7 +67,7 @@ Task IDs use the `MWF` prefix.
 
 ## M4 - Source Selection, Player, And User Playback State
 
-- [ ] MWF-050 [owner=unassigned] [deps=MWF-040] [scope=apps/media-web,crates/nako-api,crates/nako-server]
+- [ ] MWF-050 [owner=unassigned] [deps=MWF-040] [scope=apps/admin-web/src/surfaces/media,crates/nako-api,crates/nako-server]
   Goal: Add Source/Version Picker, playback decision integration, browser
   player shell, playback error state, and User Playback State progress writes.
   Validation: Focused Media Web tests plus focused server/Public API tests for

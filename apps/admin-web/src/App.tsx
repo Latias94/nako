@@ -74,9 +74,22 @@ import {
 import { SettingsPage } from "./features/settings/SettingsPage";
 import { LegacyDashboard } from "./legacy/LegacyDashboard";
 import type { AddonStatus } from "./adminApi/types";
+import { MediaShell } from "./surfaces/media/MediaShell";
+import { MediaSessionProvider } from "./surfaces/media/MediaSession";
+import {
+  MediaConnectPage,
+  MediaHomePage,
+  MediaLibrariesPage,
+  MediaSearchPage,
+} from "./surfaces/media/MediaPages";
+import {
+  createMediaWebDataSource,
+  type MediaDataSourceFactory,
+} from "./surfaces/media/mediaDataSource";
 
 type RouterContext = {
   dataSource: AdminDataSource;
+  mediaDataSourceFactory: MediaDataSourceFactory;
 };
 
 const rootRoute = createRootRouteWithContext<RouterContext>()({
@@ -196,6 +209,30 @@ const legacyRoute = createRoute({
   component: LegacyRoute,
 });
 
+const mediaRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/media",
+  component: MediaHomeRoute,
+});
+
+const mediaConnectRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/media/connect",
+  component: MediaConnectRoute,
+});
+
+const mediaLibrariesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/media/libraries",
+  component: MediaLibrariesRoute,
+});
+
+const mediaSearchRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/media/search",
+  component: MediaSearchRoute,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   jobsRoute,
@@ -216,6 +253,10 @@ const routeTree = rootRoute.addChildren([
   addonsRoute,
   settingsRoute,
   legacyRoute,
+  mediaRoute,
+  mediaConnectRoute,
+  mediaLibrariesRoute,
+  mediaSearchRoute,
 ]);
 
 const adminNavItems = [
@@ -252,12 +293,17 @@ declare module "@tanstack/react-router" {
 export function App({
   dataSource,
   initialLocale,
+  mediaDataSourceFactory = createMediaWebDataSource,
 }: {
   dataSource: AdminDataSource;
   initialLocale?: AdminLocale;
+  mediaDataSourceFactory?: MediaDataSourceFactory;
 }) {
   const [queryClient] = useState(() => new QueryClient());
-  const router = useMemo(() => createAppRouter({ dataSource }), [dataSource]);
+  const router = useMemo(
+    () => createAppRouter({ dataSource, mediaDataSourceFactory }),
+    [dataSource, mediaDataSourceFactory],
+  );
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -270,6 +316,7 @@ export function App({
 
 function RootLayout() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const { mediaDataSourceFactory } = rootRoute.useRouteContext();
   const { locale, setLocale, t } = useI18n();
   const navItems = useMemo(
     () =>
@@ -281,14 +328,22 @@ function RootLayout() {
   );
 
   return (
-    <AdminShell
-      activePathname={pathname}
-      locale={locale}
-      navItems={navItems}
-      onLocaleChange={setLocale}
-    >
-      <Outlet />
-    </AdminShell>
+    <MediaSessionProvider dataSourceFactory={mediaDataSourceFactory}>
+      {pathname.startsWith("/media") ? (
+        <MediaShell activePathname={pathname}>
+          <Outlet />
+        </MediaShell>
+      ) : (
+        <AdminShell
+          activePathname={pathname}
+          locale={locale}
+          navItems={navItems}
+          onLocaleChange={setLocale}
+        >
+          <Outlet />
+        </AdminShell>
+      )}
+    </MediaSessionProvider>
   );
 }
 
@@ -532,6 +587,22 @@ function SettingsRoute() {
 function LegacyRoute() {
   const { dataSource } = legacyRoute.useRouteContext();
   return <LegacyDashboard dataSource={dataSource} />;
+}
+
+function MediaHomeRoute() {
+  return <MediaHomePage />;
+}
+
+function MediaConnectRoute() {
+  return <MediaConnectPage />;
+}
+
+function MediaLibrariesRoute() {
+  return <MediaLibrariesPage />;
+}
+
+function MediaSearchRoute() {
+  return <MediaSearchPage />;
 }
 
 function validateJobsSearch(search: Record<string, unknown>): JobsSearch {

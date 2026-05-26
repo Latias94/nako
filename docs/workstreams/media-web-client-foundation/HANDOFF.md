@@ -6,42 +6,50 @@ Last updated: 2026-05-26
 ## Current State
 
 MWF-010 opened the workstream. MWF-020 audited Public Client OpenAPI and the
-generated TypeScript SDK. No runtime behavior has been changed yet.
+generated TypeScript SDK. MWF-030 added the first shared Admin/Media frontend
+surface boundary inside `apps/admin-web`.
 
-The accepted direction is a separate `apps/media-web` browser Client
-Application that consumes Public Client API contracts only. It should not reuse
-Admin Web data models as viewer state, and it should not make Admin Web the
-playback client.
+The accepted direction is one shared frontend project with explicit Admin and
+Media surfaces. The Media surface consumes Public Client API contracts only. It
+should not reuse Admin Web data models as viewer state, and it should not make
+Admin routes the playback client.
 
 ## Latest Task
 
-- Task ID: MWF-020
+- Task ID: MWF-030
 - Owner: codex
-- Files: `crates/nako-api`, `sdk/typescript`,
-  `docs/workstreams/media-web-client-foundation`
-- Validation: `cargo test -p nako-api public_openapi -- --nocapture`;
-  `cargo run -q -p nako-api --example emit-typescript-sdk -- --output sdk/typescript/src/index.ts`;
-  `git diff --check`
-- Status: DONE_WITH_CONCERNS
-- Review: `ROUTE_API_READINESS.md` records the route matrix and blocking or
-  deferred gaps.
+- Files: `apps/admin-web/package.json`, `apps/admin-web/src/App.tsx`,
+  `apps/admin-web/src/components/layout/AdminShell.tsx`,
+  `apps/admin-web/src/surfaces/media`, `apps/admin-web/src/styles.css`,
+  workstream docs
+- Validation: `cd apps/admin-web && npm run check`; `cd apps/admin-web && npm run build`;
+  `cd apps/admin-web && npm run test`; boundary grep under
+  `apps/admin-web/src/surfaces/media`; Playwright smoke for `/media` and
+  `/overview`.
+- Status: DONE
+- Review: Media and Admin now coexist through route namespaces and symmetric
+  surface switchers. Media uses generated Public Client SDK data sources and
+  does not import Admin API runtime modules.
 - Evidence: `EVIDENCE_AND_GATES.md`
 
 ## Active Task
 
-- Task ID: MWF-030
+- Task ID: MWF-040
 - Owner: unassigned
-- Files: `apps/media-web`, `package.json`
-- Validation: `cd apps/media-web && npm run check && npm run test`; boundary
-  grep for Admin API dependencies.
-- Status: NEEDS_CONTEXT
-- Review: Scaffold only the accepted boundary from `ROUTE_API_READINESS.md`.
+- Files: `apps/admin-web/src/surfaces/media`
+- Validation: `cd apps/admin-web && npm run check && npm run test`; browser
+  smoke for `/media/libraries`, `/media/libraries/:libraryId`,
+  `/media/search`, and `/media/items/:itemId`.
+- Status: READY
+- Review: Implement browse/search/detail only from accepted Public Client API
+  routes. Split the smallest Public Client API gap before adding fake viewer
+  contracts.
 - Evidence: update `EVIDENCE_AND_GATES.md`
 
 ## Decisions Since Last Update
 
-- Media Web is a separate browser Client Application, not an Admin Web playback
-  route.
+- Media Web is a separate surface inside the shared browser frontend, not an
+  Admin route with playback controls and not a separate package for now.
 - The first slice is local-media-first: libraries, browse/search, item detail,
   source selection, playback, and User Playback State.
 - Public registration remains out of scope.
@@ -60,7 +68,7 @@ playback client.
 
 ## Next Recommended Action
 
-Run MWF-030 only inside the accepted scaffold boundary: connect shell,
-Public Client SDK data-source boundary, fixture/live separation, and routes
-that use existing contracts. Split MWF-GAP-002 before building a real library
-item grid and MWF-GAP-004 before a real browser player.
+Run MWF-040: add Media Library detail, URL-owned search/browse state, and Media
+Item detail using Public Client API routes. Keep the current fixture/live
+boundary, and split MWF-GAP-002 before implementing a real library-scoped item
+grid. Do not start the player until MWF-GAP-004 has an accepted auth transport.

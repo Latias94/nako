@@ -69,8 +69,9 @@ surfaces and access:
 
 - Admin Web remains the operator console.
 - Media Web becomes the browser-based local media browsing and playback
-  surface, either under a separate app package or an explicitly separated route
-  namespace.
+  surface inside the same web frontend first, using an explicitly separated
+  route namespace and module boundary. A separate package can still be split
+  later if desktop/player dependencies justify it.
 - Admin Web and Media Web share domain terms, auth session context, public
   design primitives where useful, and safe deep links, but they do not share
   Admin API data models as consumer UI state.
@@ -114,7 +115,7 @@ surfaces and access:
   invitation token storage, or session-cookie infrastructure.
 - Adding Public Client API routes in this lane.
 - Adding Admin API routes or Admin Web code in this lane.
-- Building `apps/media-web` or Tauri packaging in this lane.
+- Building the Media Web surface or Tauri packaging in this lane.
 - Mobile native implementation changes.
 - Recommendation algorithms, global discovery, social sharing, comments,
   review systems, or streaming-provider aggregation.
@@ -264,7 +265,9 @@ features until local browse/play/repair/support flows are strong.
 ### Desktop Client Direction
 
 Desktop should reuse Media Web UI, not Admin Web UI, for the playback
-experience.
+experience. In the first implementation, that means packaging or deep-linking
+to the Media surface route namespace inside the shared web frontend, not
+turning Admin routes into playback routes.
 
 Recommended tiers:
 

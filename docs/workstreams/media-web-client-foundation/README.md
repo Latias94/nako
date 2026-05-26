@@ -21,6 +21,8 @@ Authoritative docs:
 
 The first product slice is deliberately local-media-first:
 
+- Admin and Media coexist in one frontend project with separate route
+  namespaces and module boundaries;
 - connect/login using the current accepted access model;
 - Libraries and Media Library detail;
 - search and Media Item detail;
@@ -29,4 +31,3 @@ The first product slice is deliberately local-media-first:
 - User Playback State and Continue Watching when available;
 - no Admin API state, no public registration, no recommendations, and no
   streaming-storefront discovery.
-

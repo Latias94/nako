@@ -35,15 +35,16 @@ Primary gates:
 
 Exit criteria:
 
-- `apps/media-web` exists with package scripts, route shell, connect/login MVP,
-  data-source boundary, tests, and no Admin API dependency.
-- The app can run in fixture mode and has a path to live Public Client API
-  mode.
+- The shared frontend has explicit Admin and Media surface boundaries.
+- The Media surface has a route shell, connect/login MVP, data-source boundary,
+  tests, and no Admin API dependency.
+- The Media surface can run in fixture mode and has a path to live Public
+  Client API mode.
 
 Primary gates:
 
-- `cd apps/media-web && npm run check && npm run test`
-- `rg -n "admin/v1|AdminApi|adminApi" apps/media-web`
+- `cd apps/admin-web && npm run check && npm run test -- App.test.tsx mediaSurface.test.tsx mediaDataSource.test.ts`
+- `rg -n "admin/v1|AdminApi|adminApi" apps/admin-web/src/surfaces/media`
 
 ## M3 - Browse, Search, And Detail
 
@@ -56,8 +57,8 @@ Exit criteria:
 
 Primary gates:
 
-- `cd apps/media-web && npm run check && npm run test`
-- Browser smoke for the browse/detail routes.
+- `cd apps/admin-web && npm run check && npm run test`
+- Browser smoke for the `/media/*` browse/detail routes.
 
 ## M4 - Source Selection, Player, And User Playback State
 
@@ -86,4 +87,3 @@ Exit criteria:
 - Management Context Links, credentials/invitations, desktop native playback,
   and richer recommendations are split or deferred.
 - `WORKSTREAM.json` status is updated.
-

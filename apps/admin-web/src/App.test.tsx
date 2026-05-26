@@ -546,7 +546,7 @@ describe("Admin Web V2 route shell", () => {
     expect(screen.getByText("local-admin")).toBeInTheDocument();
     expect(screen.getByText("Effective Library Access")).toBeInTheDocument();
     expect(screen.getByText("Anime Vault")).toBeInTheDocument();
-    expect(screen.getByText("No account CRUD route is available.")).toBeInTheDocument();
+    expect(screen.getByText("Backend edit contracts are available.")).toBeInTheDocument();
     expect(screen.getByText("Live Admin API")).toBeInTheDocument();
     expect(loadAccessSummary).toHaveBeenCalledTimes(1);
   });
@@ -590,7 +590,7 @@ describe("Admin Web V2 route shell", () => {
     expect(await screen.findByRole("heading", { name: "用户与访问" })).toBeInTheDocument();
     expect(await screen.findByText("当前主体")).toBeInTheDocument();
     expect(await screen.findByText("有效 Library Access")).toBeInTheDocument();
-    expect(await screen.findByText("没有可用的账号 CRUD 路由。")).toBeInTheDocument();
+    expect(await screen.findByText("后端编辑契约已经可用。")).toBeInTheDocument();
     expect(await screen.findByText("本地管理员")).toBeInTheDocument();
     expect((await screen.findAllByText("实时 Admin API")).length).toBeGreaterThan(0);
   });

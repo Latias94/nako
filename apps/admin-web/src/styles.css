@@ -771,6 +771,408 @@ td {
   }
 }
 
+.mediaShell {
+  --media-bg: oklch(19% 0.019 112);
+  --media-panel: oklch(25% 0.026 116);
+  --media-panel-soft: oklch(29% 0.03 112);
+  --media-ink: oklch(94% 0.012 95);
+  --media-muted: oklch(73% 0.026 98);
+  --media-line: oklch(39% 0.032 112);
+  --media-brand: oklch(73% 0.14 172);
+  --media-warm: oklch(76% 0.13 72);
+  --media-danger: oklch(67% 0.14 28);
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr);
+  min-height: 100vh;
+  background: var(--media-bg);
+  color: var(--media-ink);
+}
+
+.mediaSidebar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  height: 100vh;
+  border-right: 1px solid var(--media-line);
+  background: oklch(16% 0.018 116);
+  padding: 18px 14px;
+}
+
+.mediaBrand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 7px 8px 14px;
+  border-bottom: 1px solid var(--media-line);
+}
+
+.mediaBrand img {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+}
+
+.mediaBrand div,
+.mediaConnection {
+  display: grid;
+  gap: 4px;
+}
+
+.mediaBrand strong {
+  font-size: 1rem;
+}
+
+.mediaBrand span,
+.mediaConnectionHost {
+  color: var(--media-muted);
+  font-size: 0.78rem;
+}
+
+.surfaceSwitch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  border: 1px solid var(--media-line);
+  border-radius: 8px;
+  padding: 5px;
+  background: oklch(20% 0.02 116);
+}
+
+.surfaceSwitchItem,
+.mediaNavItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  border-radius: 7px;
+  color: var(--media-muted);
+  font-size: 0.86rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.surfaceSwitchItem {
+  justify-content: center;
+}
+
+.surfaceSwitchItem.active,
+.surfaceSwitchItem:hover,
+.surfaceSwitchItem:focus-visible,
+.mediaNavItem.active,
+.mediaNavItem:hover,
+.mediaNavItem:focus-visible {
+  background: var(--media-panel-soft);
+  color: var(--media-ink);
+  outline: none;
+}
+
+.mediaNav {
+  display: grid;
+  gap: 5px;
+}
+
+.mediaNavItem {
+  padding: 8px 10px;
+}
+
+.mediaConnection {
+  margin-top: auto;
+  border-top: 1px solid var(--media-line);
+  padding-top: 14px;
+}
+
+.mediaLogoutButton {
+  justify-content: flex-start;
+  color: var(--media-muted);
+}
+
+.mediaMain {
+  min-width: 0;
+  padding: 28px clamp(18px, 3.2vw, 42px) 42px;
+}
+
+.mediaTopbar,
+.mediaPageHeader,
+.mediaPanelHeader,
+.mediaConnectActions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.mediaTopbar {
+  margin-bottom: 24px;
+}
+
+.mediaTopbar h1,
+.mediaPage h2,
+.mediaConnect h2,
+.mediaPanel h3 {
+  color: var(--media-ink);
+}
+
+.mediaTopbar h1 {
+  font-size: 1.55rem;
+}
+
+.mediaKicker {
+  margin: 0 0 6px;
+  color: var(--media-brand);
+  font-size: 0.76rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.mediaTopbarStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  border: 1px solid var(--media-line);
+  border-radius: 999px;
+  background: var(--media-panel);
+  color: var(--media-muted);
+  padding: 0 11px;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.mediaPage,
+.mediaConnect {
+  display: grid;
+  gap: 16px;
+}
+
+.mediaConnect {
+  max-width: 760px;
+  border: 1px solid var(--media-line);
+  border-radius: 8px;
+  background: var(--media-panel);
+  padding: 18px;
+}
+
+.mediaConnectIntro p:last-child {
+  max-width: 62ch;
+  margin-bottom: 0;
+  color: var(--media-muted);
+  line-height: 1.5;
+}
+
+.mediaConnectForm {
+  display: grid;
+  gap: 13px;
+}
+
+.mediaConnectForm label,
+.mediaSearch label {
+  display: grid;
+  gap: 6px;
+  color: var(--media-muted);
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.mediaConnectForm input,
+.mediaSearch input {
+  min-height: 38px;
+  width: 100%;
+  border: 1px solid var(--media-line);
+  border-radius: 7px;
+  background: oklch(20% 0.02 116);
+  color: var(--media-ink);
+  padding: 0 11px;
+}
+
+.mediaConnectForm input:focus-visible,
+.mediaSearch input:focus-visible {
+  border-color: var(--media-brand);
+  outline: 2px solid oklch(73% 0.14 172 / 28%);
+  outline-offset: 2px;
+}
+
+.mediaConnectActions {
+  justify-content: flex-start;
+}
+
+.mediaPanel {
+  min-width: 0;
+  border: 1px solid var(--media-line);
+  border-radius: 8px;
+  background: var(--media-panel);
+  padding: 14px;
+}
+
+.mediaPanelHeader {
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.mediaPanelHeader h3,
+.mediaPageHeader h2 {
+  margin-bottom: 0;
+}
+
+.mediaPanelHeader span,
+.mediaPageHeader span {
+  color: var(--media-muted);
+  font-size: 0.82rem;
+}
+
+.mediaLibraryGrid,
+.mediaItemGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.mediaLibraryCard,
+.mediaItemCard,
+.mediaContinueRow {
+  min-width: 0;
+  border: 1px solid var(--media-line);
+  border-radius: 8px;
+  background: oklch(21% 0.021 116);
+  padding: 13px;
+}
+
+.mediaLibraryCard,
+.mediaItemCard {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 116px;
+}
+
+.mediaLibraryCard span,
+.mediaItemCard span {
+  color: var(--media-brand);
+  font-size: 0.76rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.mediaLibraryCard strong,
+.mediaItemCard strong,
+.mediaContinueRow strong {
+  overflow-wrap: anywhere;
+  color: var(--media-ink);
+}
+
+.mediaLibraryCard small,
+.mediaItemCard small,
+.mediaContinueRow span {
+  color: var(--media-muted);
+  font-size: 0.82rem;
+}
+
+.mediaContinueList {
+  display: grid;
+  gap: 9px;
+}
+
+.mediaContinueRow {
+  display: grid;
+  gap: 10px;
+}
+
+.mediaContinueRow div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mediaContinueRow progress {
+  width: 100%;
+  accent-color: var(--media-brand);
+}
+
+.mediaSearch {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+  border: 1px solid var(--media-line);
+  border-radius: 8px;
+  background: var(--media-panel);
+  padding: 12px;
+}
+
+.mediaError,
+.mediaEmpty {
+  border: 1px solid var(--media-line);
+  border-radius: 7px;
+  padding: 11px;
+  color: var(--media-muted);
+}
+
+.mediaError {
+  border-color: oklch(52% 0.09 28);
+  background: oklch(23% 0.045 28);
+  color: oklch(88% 0.04 28);
+}
+
+.mediaSkeleton,
+.mediaSkeletonGrid {
+  min-height: 96px;
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    oklch(23% 0.022 116),
+    oklch(29% 0.03 116),
+    oklch(23% 0.022 116)
+  );
+}
+
+.mediaSkeletonGrid {
+  min-height: 156px;
+}
+
+@media (max-width: 920px) {
+  .mediaShell {
+    grid-template-columns: 1fr;
+  }
+
+  .mediaSidebar {
+    position: static;
+    height: auto;
+  }
+
+  .mediaNav {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .mediaTopbar,
+  .mediaPageHeader,
+  .mediaPanelHeader,
+  .mediaConnectActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .mediaLibraryGrid,
+  .mediaItemGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .mediaMain {
+    padding: 18px 12px 28px;
+  }
+
+  .surfaceSwitch,
+  .mediaNav,
+  .mediaSearch,
+  .mediaLibraryGrid,
+  .mediaItemGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .adminRouteShell {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
@@ -817,6 +1219,37 @@ td {
 .routeBrand span {
   color: var(--nako-admin-muted);
   font-size: 0.78rem;
+}
+
+.adminSurfaceSwitch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  border: 1px solid var(--nako-admin-line);
+  border-radius: 8px;
+  padding: 5px;
+  background: var(--nako-admin-surface-raised);
+}
+
+.adminSurfaceSwitchItem {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 34px;
+  border-radius: 7px;
+  color: var(--nako-admin-muted);
+  font-size: 0.86rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.adminSurfaceSwitchItem.active,
+.adminSurfaceSwitchItem:hover,
+.adminSurfaceSwitchItem:focus-visible {
+  background: var(--nako-admin-brand-quiet);
+  color: var(--nako-admin-brand-ink);
+  outline: none;
 }
 
 .routeNav {
