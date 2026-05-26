@@ -412,6 +412,40 @@ CREATE UNIQUE INDEX transcode_sessions_active_request_idx
     ON transcode_sessions(source_id, kind, request_key)
     WHERE state IN ('planned', 'starting', 'running', 'cancel_requested');
 
+CREATE TABLE playback_sessions (
+    id TEXT PRIMARY KEY NOT NULL,
+    principal_id TEXT NOT NULL,
+    source_id TEXT NOT NULL REFERENCES media_sources(id) ON DELETE CASCADE,
+    item_id TEXT NOT NULL REFERENCES media_items(id) ON DELETE CASCADE,
+    mode TEXT NOT NULL,
+    state TEXT NOT NULL,
+    client_capabilities_json TEXT,
+    transcode_session_id TEXT REFERENCES transcode_sessions(id) ON DELETE SET NULL,
+    position_ms INTEGER,
+    duration_ms INTEGER,
+    last_heartbeat_at_ms INTEGER,
+    started_at_ms INTEGER NOT NULL,
+    updated_at_ms INTEGER NOT NULL,
+    ended_at_ms INTEGER,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    CHECK (length(principal_id) > 0),
+    CHECK (position_ms IS NULL OR position_ms >= 0),
+    CHECK (duration_ms IS NULL OR duration_ms >= 0)
+);
+
+CREATE INDEX playback_sessions_principal_idx
+    ON playback_sessions(principal_id, updated_at DESC, id DESC);
+
+CREATE INDEX playback_sessions_source_idx
+    ON playback_sessions(source_id, updated_at DESC, id DESC);
+
+CREATE INDEX playback_sessions_state_idx
+    ON playback_sessions(state, updated_at DESC, id DESC);
+
+CREATE INDEX playback_sessions_transcode_idx
+    ON playback_sessions(transcode_session_id);
+
 
 CREATE TABLE event_outbox (
     id TEXT PRIMARY KEY NOT NULL,

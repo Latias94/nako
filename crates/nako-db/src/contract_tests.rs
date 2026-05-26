@@ -45,17 +45,19 @@ use nako_core::{
     NewArtworkCandidate, NewAutomationArtifact, NewAutomationProviderConfig, NewIngestionFailure,
     NewJob, NewManagedArtworkArtifact, NewManagedArtworkIngest, NewManagedImportArtifact,
     NewManagedImportPromotionApply, NewMetadataProviderAttempt, NewNfoSidecarApply, NewOutboxEvent,
-    NewStagingManifestRecord, NewTranscodeSession, NewVfsCacheFailure, NewWebhookDeliveryAttempt,
-    NewWebhookEndpoint, NfoImportPersistenceCommit, NfoSidecarApplyId,
+    NewPlaybackSession, NewStagingManifestRecord, NewTranscodeSession, NewVfsCacheFailure,
+    NewWebhookDeliveryAttempt, NewWebhookEndpoint, NfoImportPersistenceCommit, NfoSidecarApplyId,
     NfoSidecarApplyOperationKind, NfoSidecarApplyRepository, NfoSidecarApplyState,
-    OutboxEventListFilter, OutboxEventStatus, PageRequest, Person, PersonId, ProviderMapping,
-    ProviderMappingId, ProviderMappingRepository, ProviderMappingStatus, ProviderRawResponse,
-    ProviderSubject, ProviderSubjectId, ProviderSubjectKind, RecoverExpiredJobLeases,
-    RequestJobCancellation, RoleAssignment, ScanRepository, ScanSnapshotId, ScanStatus,
-    SourceDuplicateEvidenceKind, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
-    SourceDuplicateRelationshipStatus, SourceDuplicateRepository, SourceState, StagingManifestId,
-    StagingManifestRepository, StagingPurpose, StagingState, Studio, StudioId, Tag, TagId,
-    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter,
+    OutboxEventListFilter, OutboxEventStatus, PageRequest, Person, PersonId,
+    PlaybackSessionHeartbeat, PlaybackSessionId, PlaybackSessionListFilter, PlaybackSessionMode,
+    PlaybackSessionRepository, PlaybackSessionState, ProviderMapping, ProviderMappingId,
+    ProviderMappingRepository, ProviderMappingStatus, ProviderRawResponse, ProviderSubject,
+    ProviderSubjectId, ProviderSubjectKind, RecoverExpiredJobLeases, RequestJobCancellation,
+    RoleAssignment, ScanRepository, ScanSnapshotId, ScanStatus, SourceDuplicateEvidenceKind,
+    SourceDuplicateRelationship, SourceDuplicateRelationshipId, SourceDuplicateRelationshipStatus,
+    SourceDuplicateRepository, SourceState, StagingManifestId, StagingManifestRepository,
+    StagingPurpose, StagingState, Studio, StudioId, Tag, TagId, TranscodeFailureCategory,
+    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter,
     TranscodeSessionRepository, TranscodeSessionState, User, UserId, UserInvitationId,
     UserInvitationRecord, UserInvitationStatus, UserPlaybackStateRepository,
     UserPlaybackStateWrite, UserPrincipalId, UserRole, UserSessionId, UserSessionRecord,
@@ -282,6 +284,7 @@ trait PlaybackRuntimeContractBackend:
     LifecycleContractBackend
     + LibraryRepository
     + MediaRepository
+    + PlaybackSessionRepository
     + TranscodeSessionRepository
     + UserPlaybackStateRepository
 {
@@ -291,6 +294,7 @@ impl<T> PlaybackRuntimeContractBackend for T where
     T: LifecycleContractBackend
         + LibraryRepository
         + MediaRepository
+        + PlaybackSessionRepository
         + TranscodeSessionRepository
         + UserPlaybackStateRepository
 {
@@ -2690,6 +2694,122 @@ where
             .unwrap()
             .state,
         TranscodeSessionState::Cancelled
+    );
+}
+
+async fn playback_session_tracks_user_attempt_independent_of_transcode_contract<S>(store: S)
+where
+    S: PlaybackRuntimeContractBackend,
+{
+    let library = seed_contract_library(&store).await;
+    let source = seed_contract_media_item_with_source(
+        &store,
+        library.id,
+        "Direct Runtime Session",
+        "local:///Contract Movies/Direct Runtime Session.mkv",
+    )
+    .await;
+    let principal_id = UserPrincipalId::local_admin();
+    let now_ms = 1_779_814_400_000;
+    let session_id = PlaybackSessionId::new();
+
+    let created = store
+        .create_playback_session(NewPlaybackSession {
+            id: session_id,
+            principal_id: principal_id.clone(),
+            source_id: source.id,
+            item_id: source.item_id,
+            mode: PlaybackSessionMode::Direct,
+            state: PlaybackSessionState::Active,
+            client_capabilities_json: Some(
+                r#"{"direct_play":true,"container":["mp4"],"video_codec":["h264"]}"#.to_owned(),
+            ),
+            started_at_ms: now_ms,
+            updated_at_ms: now_ms,
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(created.id, session_id);
+    assert_eq!(created.mode, PlaybackSessionMode::Direct);
+    assert_eq!(created.state, PlaybackSessionState::Active);
+    assert_eq!(created.principal_id, principal_id);
+    assert_eq!(created.source_id, source.id);
+    assert_eq!(created.item_id, source.item_id);
+    assert_eq!(created.transcode_session_id, None);
+
+    let heartbeat = store
+        .record_playback_session_heartbeat(PlaybackSessionHeartbeat {
+            id: session_id,
+            state: PlaybackSessionState::Paused,
+            position_ms: Some(42_000),
+            duration_ms: Some(600_000),
+            heartbeat_at_ms: now_ms + 1_000,
+        })
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(heartbeat.state, PlaybackSessionState::Paused);
+    assert_eq!(heartbeat.position_ms, Some(42_000));
+    assert_eq!(heartbeat.duration_ms, Some(600_000));
+    assert_eq!(heartbeat.last_heartbeat_at_ms, Some(now_ms + 1_000));
+
+    let listed = store
+        .list_playback_sessions(
+            PlaybackSessionListFilter {
+                principal_id: Some(principal_id.clone()),
+                source_id: Some(source.id),
+                state: Some(PlaybackSessionState::Paused),
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].id, session_id);
+
+    let transcode_session_id = TranscodeSessionId::new();
+    store
+        .create_transcode_session(NewTranscodeSession {
+            id: transcode_session_id,
+            source_id: source.id,
+            kind: TranscodeSessionKind::Remux,
+            request_key: "contract-profile:linked-remux".to_owned(),
+            output_path: "cache/remux/linked-remux.mp4".into(),
+            state: TranscodeSessionState::Planned,
+        })
+        .await
+        .unwrap();
+    let linked = store
+        .link_playback_session_transcode(session_id, transcode_session_id)
+        .await
+        .unwrap();
+    assert_eq!(linked.transcode_session_id, Some(transcode_session_id));
+
+    let ended = store
+        .set_playback_session_state(
+            session_id,
+            PlaybackSessionState::Ended,
+            Some(now_ms + 2_000),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(ended.state, PlaybackSessionState::Ended);
+    assert_eq!(ended.ended_at_ms, Some(now_ms + 2_000));
+
+    assert!(
+        store
+            .record_playback_session_heartbeat(PlaybackSessionHeartbeat {
+                id: session_id,
+                state: PlaybackSessionState::Active,
+                position_ms: Some(60_000),
+                duration_ms: Some(600_000),
+                heartbeat_at_ms: now_ms + 3_000,
+            })
+            .await
+            .unwrap()
+            .is_none()
     );
 }
 
@@ -6470,6 +6590,16 @@ database_contract_pair!(
         "transcode_session_lifecycle_filters_cancellation_and_stale"
     ),
     contract = transcode_session_lifecycle_filters_cancellation_and_stale_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_playback_runtime_contract_playback_session_tracks_user_attempt_independent_of_transcode,
+    postgres = postgres_playback_runtime_contract_playback_session_tracks_user_attempt_independent_of_transcode,
+    case = ContractCase::migrated(
+        ContractFamily::PlaybackRuntime,
+        "playback_session_tracks_user_attempt_independent_of_transcode"
+    ),
+    contract = playback_session_tracks_user_attempt_independent_of_transcode_contract,
 );
 
 database_contract_pair!(

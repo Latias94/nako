@@ -19,6 +19,206 @@ const TRANSCODE_SESSION_SELECT_BY_ID: &str = r#"
             WHERE id = ?1
             "#;
 
+const PLAYBACK_SESSION_SELECT: &str = r#"
+            SELECT
+                id, principal_id, source_id, item_id, mode, state,
+                client_capabilities_json, transcode_session_id,
+                position_ms, duration_ms, last_heartbeat_at_ms,
+                started_at_ms, ended_at_ms, created_at, updated_at
+            FROM playback_sessions
+            "#;
+
+const PLAYBACK_SESSION_SELECT_BY_ID: &str = r#"
+            SELECT
+                id, principal_id, source_id, item_id, mode, state,
+                client_capabilities_json, transcode_session_id,
+                position_ms, duration_ms, last_heartbeat_at_ms,
+                started_at_ms, ended_at_ms, created_at, updated_at
+            FROM playback_sessions
+            WHERE id = ?1
+            "#;
+
+#[async_trait::async_trait]
+impl PlaybackSessionRepository for SqliteStore {
+    async fn create_playback_session(
+        &self,
+        session: NewPlaybackSession,
+    ) -> Result<PlaybackSessionRecord> {
+        sqlx::query(
+            r#"
+            INSERT INTO playback_sessions (
+                id, principal_id, source_id, item_id, mode, state,
+                client_capabilities_json, started_at_ms, updated_at_ms
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+            "#,
+        )
+        .bind(session.id.to_string())
+        .bind(session.principal_id.as_str())
+        .bind(session.source_id.to_string())
+        .bind(session.item_id.to_string())
+        .bind(session.mode.as_str())
+        .bind(session.state.as_str())
+        .bind(session.client_capabilities_json)
+        .bind(session.started_at_ms)
+        .bind(session.updated_at_ms)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.get_playback_session_or_not_found(session.id).await
+    }
+
+    async fn get_playback_session(
+        &self,
+        id: PlaybackSessionId,
+    ) -> Result<Option<PlaybackSessionRecord>> {
+        let row = sqlx::query(PLAYBACK_SESSION_SELECT_BY_ID)
+            .bind(id.to_string())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        row.map(row_to_playback_session).transpose()
+    }
+
+    async fn list_playback_sessions(
+        &self,
+        filter: PlaybackSessionListFilter,
+        page: PageRequest,
+    ) -> Result<Vec<PlaybackSessionRecord>> {
+        let page = page.clamped();
+        let mut query = QueryBuilder::new(PLAYBACK_SESSION_SELECT);
+        query.push(" WHERE 1 = 1");
+
+        if let Some(principal_id) = filter.principal_id {
+            query.push(" AND principal_id = ");
+            query.push_bind(principal_id.as_str().to_owned());
+        }
+        if let Some(source_id) = filter.source_id {
+            query.push(" AND source_id = ");
+            query.push_bind(source_id.to_string());
+        }
+        if let Some(state) = filter.state {
+            query.push(" AND state = ");
+            query.push_bind(state.as_str());
+        }
+
+        query.push(" ORDER BY updated_at DESC, id DESC LIMIT ");
+        query.push_bind(u32_to_i64(page.limit));
+        query.push(" OFFSET ");
+        query.push_bind(u64_to_i64(page.offset)?);
+
+        let rows = query
+            .build()
+            .fetch_all(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_playback_session).collect()
+    }
+
+    async fn link_playback_session_transcode(
+        &self,
+        id: PlaybackSessionId,
+        transcode_session_id: TranscodeSessionId,
+    ) -> Result<PlaybackSessionRecord> {
+        sqlx::query(
+            r#"
+            UPDATE playback_sessions
+            SET
+                transcode_session_id = ?2,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE id = ?1
+            "#,
+        )
+        .bind(id.to_string())
+        .bind(transcode_session_id.to_string())
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.get_playback_session_or_not_found(id).await
+    }
+
+    async fn record_playback_session_heartbeat(
+        &self,
+        heartbeat: PlaybackSessionHeartbeat,
+    ) -> Result<Option<PlaybackSessionRecord>> {
+        let result = sqlx::query(
+            r#"
+            UPDATE playback_sessions
+            SET
+                state = ?2,
+                position_ms = ?3,
+                duration_ms = ?4,
+                last_heartbeat_at_ms = ?5,
+                updated_at_ms = ?5,
+                ended_at_ms = CASE
+                    WHEN ?2 IN ('cancelled', 'ended', 'failed')
+                    THEN COALESCE(ended_at_ms, ?5)
+                    ELSE ended_at_ms
+                END,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE id = ?1
+                AND state NOT IN ('cancelled', 'ended', 'failed')
+            "#,
+        )
+        .bind(heartbeat.id.to_string())
+        .bind(heartbeat.state.as_str())
+        .bind(heartbeat.position_ms.map(u64_to_i64).transpose()?)
+        .bind(heartbeat.duration_ms.map(u64_to_i64).transpose()?)
+        .bind(heartbeat.heartbeat_at_ms)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        if result.rows_affected() == 0 {
+            return Ok(None);
+        }
+
+        Ok(Some(
+            self.get_playback_session_or_not_found(heartbeat.id).await?,
+        ))
+    }
+
+    async fn set_playback_session_state(
+        &self,
+        id: PlaybackSessionId,
+        state: PlaybackSessionState,
+        ended_at_ms: Option<i64>,
+    ) -> Result<Option<PlaybackSessionRecord>> {
+        let result = sqlx::query(
+            r#"
+            UPDATE playback_sessions
+            SET
+                state = ?2,
+                updated_at_ms = COALESCE(?3, updated_at_ms),
+                ended_at_ms = CASE
+                    WHEN ?2 IN ('cancelled', 'ended', 'failed')
+                    THEN COALESCE(ended_at_ms, ?3)
+                    ELSE ended_at_ms
+                END,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE id = ?1
+                AND state NOT IN ('cancelled', 'ended', 'failed')
+            "#,
+        )
+        .bind(id.to_string())
+        .bind(state.as_str())
+        .bind(ended_at_ms)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        if result.rows_affected() == 0 {
+            return Ok(None);
+        }
+
+        Ok(Some(self.get_playback_session_or_not_found(id).await?))
+    }
+}
+
 #[async_trait::async_trait]
 impl TranscodeSessionRepository for SqliteStore {
     async fn create_transcode_session(
@@ -251,6 +451,18 @@ impl TranscodeSessionRepository for SqliteStore {
 }
 
 impl SqliteStore {
+    pub(crate) async fn get_playback_session_or_not_found(
+        &self,
+        id: PlaybackSessionId,
+    ) -> Result<PlaybackSessionRecord> {
+        self.get_playback_session(id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "playback_session",
+                id: id.to_string(),
+            })
+    }
+
     pub(crate) async fn get_transcode_session_or_not_found(
         &self,
         id: TranscodeSessionId,

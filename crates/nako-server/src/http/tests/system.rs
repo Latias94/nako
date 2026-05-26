@@ -3122,7 +3122,7 @@ async fn admin_v1_playback_sessions_lists_filters_and_redacts_output_paths() {
     store.upsert_media_item(&item).await.unwrap();
     store.upsert_media_source(&source).await.unwrap();
 
-    let session = store
+    let transcode_session = store
         .create_transcode_session(NewTranscodeSession {
             id: TranscodeSessionId::new(),
             source_id: source.id,
@@ -3140,7 +3140,7 @@ async fn admin_v1_playback_sessions_lists_filters_and_redacts_output_paths() {
         .unwrap();
     store
         .set_transcode_session_state(
-            session.id,
+            transcode_session.id,
             TranscodeSessionState::Failed,
             Some(nako_core::TranscodeFailureCategory::Runner),
             Some(format!(
@@ -3148,6 +3148,27 @@ async fn admin_v1_playback_sessions_lists_filters_and_redacts_output_paths() {
                 temp.path().join("nako-cache").join("hls").display()
             )),
         )
+        .await
+        .unwrap();
+    let playback_session = store
+        .create_playback_session(NewPlaybackSession {
+            id: PlaybackSessionId::new(),
+            principal_id: UserPrincipalId::local_admin(),
+            source_id: source.id,
+            item_id: source.item_id,
+            mode: PlaybackSessionMode::Hls,
+            state: PlaybackSessionState::Failed,
+            client_capabilities_json: Some(
+                r#"{"direct_play":true,"containers":["mp4"],"video_codecs":["h264"],"audio_codecs":["aac"]}"#
+                    .to_owned(),
+            ),
+            started_at_ms: 1_779_814_400_000,
+            updated_at_ms: 1_779_814_401_000,
+        })
+        .await
+        .unwrap();
+    store
+        .link_playback_session_transcode(playback_session.id, transcode_session.id)
         .await
         .unwrap();
     store
@@ -3173,7 +3194,7 @@ async fn admin_v1_playback_sessions_lists_filters_and_redacts_output_paths() {
             Request::builder()
                 .method(Method::GET)
                 .uri(format!(
-                    "/admin/v1/playback/sessions?source_id={}&kind=hls_transcode&state=failed&limit=5",
+                    "/admin/v1/playback/sessions?source_id={}&state=failed&limit=5",
                     source.id
                 ))
                 .body(Body::empty())
@@ -3194,18 +3215,16 @@ async fn admin_v1_playback_sessions_lists_filters_and_redacts_output_paths() {
     let sessions: AdminPlaybackSessionListResponse = serde_json::from_str(&body).unwrap();
 
     assert_eq!(sessions.sessions.len(), 1);
-    assert_eq!(sessions.sessions[0].id, session.id);
+    assert_eq!(sessions.sessions[0].id, playback_session.id);
     assert_eq!(sessions.sessions[0].source_id, source.id);
+    assert_eq!(sessions.sessions[0].item_id, source.item_id);
+    assert_eq!(sessions.sessions[0].mode, PlaybackSessionMode::Hls);
+    assert_eq!(sessions.sessions[0].state, PlaybackSessionState::Failed);
     assert_eq!(
-        sessions.sessions[0].kind,
-        TranscodeSessionKind::HlsTranscode
+        sessions.sessions[0].transcode_session_id,
+        Some(transcode_session.id)
     );
-    assert_eq!(sessions.sessions[0].state, TranscodeSessionState::Failed);
-    assert_eq!(
-        sessions.sessions[0].failure_category,
-        Some(nako_core::TranscodeFailureCategory::Runner)
-    );
-    assert!(sessions.sessions[0].has_failure_message);
+    assert!(sessions.sessions[0].has_client_capabilities);
     assert!(!sessions.sessions[0].active);
     assert!(sessions.sessions[0].terminal);
     assert_eq!(sessions.page.limit, 5);

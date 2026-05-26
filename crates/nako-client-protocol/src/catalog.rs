@@ -399,6 +399,43 @@ pub struct ClientTranscodePlan {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PlaybackSessionResponse {
+    pub session: PlaybackSessionDto,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PlaybackSessionDto {
+    pub id: String,
+    pub source_id: String,
+    pub item_id: String,
+    pub mode: ClientPlaybackSessionMode,
+    pub state: ClientPlaybackSessionState,
+    pub transcode_session_id: Option<String>,
+    pub position_ms: Option<u64>,
+    pub duration_ms: Option<u64>,
+    pub client_capabilities: Option<PlaybackSessionClientCapabilitiesDto>,
+    pub last_heartbeat_at: Option<String>,
+    pub started_at: Option<String>,
+    pub ended_at: Option<String>,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PlaybackSessionClientCapabilitiesDto {
+    pub direct_play: bool,
+    pub containers: Vec<String>,
+    pub video_codecs: Vec<String>,
+    pub audio_codecs: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PlaybackSessionHeartbeatRequest {
+    pub state: ClientPlaybackSessionState,
+    pub position_ms: Option<u64>,
+    pub duration_ms: Option<u64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct TranscodeSessionResponse {
     pub session: TranscodeSessionDto,
 }
@@ -465,6 +502,25 @@ pub struct SetWatchedStateRequest {
     pub position_ms: Option<u64>,
     pub duration_ms: Option<u64>,
     pub marked_at: Option<String>,
+}
+
+public_string_value! {
+    pub enum ClientPlaybackSessionMode {
+        Direct => "direct",
+        Remux => "remux",
+        Hls => "hls",
+    }
+}
+
+public_string_value! {
+    pub enum ClientPlaybackSessionState {
+        Active => "active",
+        Paused => "paused",
+        CancelRequested => "cancel_requested",
+        Cancelled => "cancelled",
+        Ended => "ended",
+        Failed => "failed",
+    }
 }
 
 public_string_value! {

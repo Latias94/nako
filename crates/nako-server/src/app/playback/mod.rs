@@ -4,10 +4,12 @@ use async_trait::async_trait;
 use nako_api::public_client::{PlaybackDecisionResponse, playback_decision_response_to_dto};
 use nako_core::{
     EventOutboxRepository, MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource,
-    MediaSourceId, NakoError, NewOutboxEvent, NewTranscodeSession, OutboxEventRecord, PageRequest,
-    Result, StagingManifestRepository, TranscodeFailureCategory, TranscodeSessionId,
-    TranscodeSessionKind, TranscodeSessionListFilter, TranscodeSessionRecord,
-    TranscodeSessionRepository, TranscodeSessionState,
+    MediaSourceId, NakoError, NewOutboxEvent, NewPlaybackSession, NewTranscodeSession,
+    OutboxEventRecord, PageRequest, PlaybackSessionHeartbeat, PlaybackSessionId,
+    PlaybackSessionListFilter, PlaybackSessionMode, PlaybackSessionRecord,
+    PlaybackSessionRepository, PlaybackSessionState, Result, StagingManifestRepository,
+    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
+    TranscodeSessionRepository, TranscodeSessionState, UserPrincipalId,
 };
 use nako_streaming::{
     ClientPlaybackCapabilities, DirectPlayRangeRequest, DirectPlayResponsePlan, PlaybackDecision,
@@ -61,6 +63,40 @@ pub(crate) trait PlaybackRuntimeStore: std::fmt::Debug + Send + Sync {
 
     async fn get_media_probe(&self, id: MediaSourceId) -> Result<Option<MediaProbeResult>>;
 
+    async fn create_playback_session(
+        &self,
+        session: NewPlaybackSession,
+    ) -> Result<PlaybackSessionRecord>;
+
+    async fn get_playback_session(
+        &self,
+        id: PlaybackSessionId,
+    ) -> Result<Option<PlaybackSessionRecord>>;
+
+    async fn list_playback_sessions(
+        &self,
+        filter: PlaybackSessionListFilter,
+        page: PageRequest,
+    ) -> Result<Vec<PlaybackSessionRecord>>;
+
+    async fn link_playback_session_transcode(
+        &self,
+        id: PlaybackSessionId,
+        transcode_session_id: TranscodeSessionId,
+    ) -> Result<PlaybackSessionRecord>;
+
+    async fn record_playback_session_heartbeat(
+        &self,
+        heartbeat: PlaybackSessionHeartbeat,
+    ) -> Result<Option<PlaybackSessionRecord>>;
+
+    async fn set_playback_session_state(
+        &self,
+        id: PlaybackSessionId,
+        state: PlaybackSessionState,
+        ended_at_ms: Option<i64>,
+    ) -> Result<Option<PlaybackSessionRecord>>;
+
     async fn create_transcode_session(
         &self,
         session: NewTranscodeSession,
@@ -70,12 +106,6 @@ pub(crate) trait PlaybackRuntimeStore: std::fmt::Debug + Send + Sync {
         &self,
         id: TranscodeSessionId,
     ) -> Result<Option<TranscodeSessionRecord>>;
-
-    async fn list_transcode_sessions(
-        &self,
-        filter: TranscodeSessionListFilter,
-        page: PageRequest,
-    ) -> Result<Vec<TranscodeSessionRecord>>;
 
     async fn find_latest_transcode_session(
         &self,
@@ -114,6 +144,7 @@ where
     T: EventOutboxRepository
         + MediaProbeRepository
         + MediaRepository
+        + PlaybackSessionRepository
         + TranscodeSessionRepository
         + std::fmt::Debug
         + Send
@@ -125,6 +156,53 @@ where
 
     async fn get_media_probe(&self, id: MediaSourceId) -> Result<Option<MediaProbeResult>> {
         MediaProbeRepository::get_media_probe(self, id).await
+    }
+
+    async fn create_playback_session(
+        &self,
+        session: NewPlaybackSession,
+    ) -> Result<PlaybackSessionRecord> {
+        PlaybackSessionRepository::create_playback_session(self, session).await
+    }
+
+    async fn get_playback_session(
+        &self,
+        id: PlaybackSessionId,
+    ) -> Result<Option<PlaybackSessionRecord>> {
+        PlaybackSessionRepository::get_playback_session(self, id).await
+    }
+
+    async fn list_playback_sessions(
+        &self,
+        filter: PlaybackSessionListFilter,
+        page: PageRequest,
+    ) -> Result<Vec<PlaybackSessionRecord>> {
+        PlaybackSessionRepository::list_playback_sessions(self, filter, page).await
+    }
+
+    async fn link_playback_session_transcode(
+        &self,
+        id: PlaybackSessionId,
+        transcode_session_id: TranscodeSessionId,
+    ) -> Result<PlaybackSessionRecord> {
+        PlaybackSessionRepository::link_playback_session_transcode(self, id, transcode_session_id)
+            .await
+    }
+
+    async fn record_playback_session_heartbeat(
+        &self,
+        heartbeat: PlaybackSessionHeartbeat,
+    ) -> Result<Option<PlaybackSessionRecord>> {
+        PlaybackSessionRepository::record_playback_session_heartbeat(self, heartbeat).await
+    }
+
+    async fn set_playback_session_state(
+        &self,
+        id: PlaybackSessionId,
+        state: PlaybackSessionState,
+        ended_at_ms: Option<i64>,
+    ) -> Result<Option<PlaybackSessionRecord>> {
+        PlaybackSessionRepository::set_playback_session_state(self, id, state, ended_at_ms).await
     }
 
     async fn create_transcode_session(
@@ -139,14 +217,6 @@ where
         id: TranscodeSessionId,
     ) -> Result<Option<TranscodeSessionRecord>> {
         TranscodeSessionRepository::get_transcode_session(self, id).await
-    }
-
-    async fn list_transcode_sessions(
-        &self,
-        filter: TranscodeSessionListFilter,
-        page: PageRequest,
-    ) -> Result<Vec<TranscodeSessionRecord>> {
-        TranscodeSessionRepository::list_transcode_sessions(self, filter, page).await
     }
 
     async fn find_latest_transcode_session(
@@ -286,6 +356,22 @@ pub struct HlsSegmentPlan {
     pub content_type: &'static str,
 }
 
+#[derive(Clone, Debug)]
+pub(crate) struct StartPlaybackSessionRequest {
+    pub principal_id: UserPrincipalId,
+    pub source_id: MediaSourceId,
+    pub mode: PlaybackSessionMode,
+    pub client: Option<ClientPlaybackCapabilities>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct PlaybackSessionHeartbeatRequest {
+    pub session_id: PlaybackSessionId,
+    pub state: PlaybackSessionState,
+    pub position_ms: Option<u64>,
+    pub duration_ms: Option<u64>,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct PlaybackRuntimeDiagnostics {
     pub hardware_policy: HardwareAccelerationPolicy,
@@ -368,6 +454,96 @@ impl PlaybackAppService {
         Ok(playback_decision_response_to_dto(source, probe, decision))
     }
 
+    pub(crate) async fn start_playback_session(
+        &self,
+        request: StartPlaybackSessionRequest,
+    ) -> Result<PlaybackSessionRecord> {
+        let source = self.get_source_or_not_found(request.source_id).await?;
+        let now_ms = crate::app::current_time_ms()?;
+        let client_capabilities_json = request
+            .client
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(|err| NakoError::InvalidInput {
+                message: format!("playback client capabilities could not be serialized: {err}"),
+            })?;
+
+        PlaybackRuntimeStore::create_playback_session(
+            self.runtime_store.as_ref(),
+            NewPlaybackSession {
+                id: PlaybackSessionId::new(),
+                principal_id: request.principal_id,
+                source_id: source.id,
+                item_id: source.item_id,
+                mode: request.mode,
+                state: PlaybackSessionState::Active,
+                client_capabilities_json,
+                started_at_ms: now_ms,
+                updated_at_ms: now_ms,
+            },
+        )
+        .await
+    }
+
+    pub(crate) async fn get_playback_session(
+        &self,
+        session_id: PlaybackSessionId,
+    ) -> Result<PlaybackSessionRecord> {
+        PlaybackRuntimeStore::get_playback_session(self.runtime_store.as_ref(), session_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "playback_session",
+                id: session_id.to_string(),
+            })
+    }
+
+    pub(crate) async fn list_playback_sessions(
+        &self,
+        filter: PlaybackSessionListFilter,
+        page: PageRequest,
+    ) -> Result<Vec<PlaybackSessionRecord>> {
+        PlaybackRuntimeStore::list_playback_sessions(self.runtime_store.as_ref(), filter, page)
+            .await
+    }
+
+    pub(crate) async fn record_playback_session_heartbeat(
+        &self,
+        request: PlaybackSessionHeartbeatRequest,
+    ) -> Result<PlaybackSessionRecord> {
+        let now_ms = crate::app::current_time_ms()?;
+        PlaybackRuntimeStore::record_playback_session_heartbeat(
+            self.runtime_store.as_ref(),
+            PlaybackSessionHeartbeat {
+                id: request.session_id,
+                state: request.state,
+                position_ms: request.position_ms,
+                duration_ms: request.duration_ms,
+                heartbeat_at_ms: now_ms,
+            },
+        )
+        .await?
+        .ok_or_else(|| NakoError::Conflict {
+            message: format!(
+                "playback session {} is terminal or no longer accepts heartbeat updates",
+                request.session_id
+            ),
+        })
+    }
+
+    pub(crate) async fn link_playback_session_transcode(
+        &self,
+        playback_session_id: PlaybackSessionId,
+        transcode_session_id: TranscodeSessionId,
+    ) -> Result<PlaybackSessionRecord> {
+        PlaybackRuntimeStore::link_playback_session_transcode(
+            self.runtime_store.as_ref(),
+            playback_session_id,
+            transcode_session_id,
+        )
+        .await
+    }
+
     pub(crate) async fn plan_direct_play(
         &self,
         source_id: MediaSourceId,
@@ -415,25 +591,6 @@ impl PlaybackAppService {
         self.run_remux_source_context(context).await
     }
 
-    pub(crate) async fn remux_source_or_wait(
-        &self,
-        request: RemuxSourceRequest,
-    ) -> Result<RemuxSourceOutput> {
-        let context = self.remux_source_context(&request).await?;
-        if let Some(active) = PlaybackRuntimeStore::find_active_transcode_session(
-            self.runtime_store.as_ref(),
-            context.source.id,
-            TranscodeSessionKind::Remux,
-            &context.request_key,
-        )
-        .await?
-        {
-            return self.wait_for_remux_source_context(context, active.id).await;
-        }
-
-        self.run_remux_source_context(context).await
-    }
-
     pub(crate) async fn start_remux_source(
         &self,
         request: RemuxSourceRequest,
@@ -476,6 +633,20 @@ impl PlaybackAppService {
             });
 
         self.wait_for_started_remux_source_context(context).await
+    }
+
+    pub(crate) async fn wait_for_remux_start(
+        &self,
+        start: RemuxSessionStart,
+    ) -> Result<RemuxSourceOutput> {
+        self.wait_for_remux_session_output(
+            start.source,
+            start.decision,
+            start.output_path,
+            start.output_container,
+            start.session.id,
+        )
+        .await
     }
 
     async fn run_remux_source_context(
@@ -558,9 +729,12 @@ impl PlaybackAppService {
         }
     }
 
-    async fn wait_for_remux_source_context(
+    async fn wait_for_remux_session_output(
         &self,
-        context: RemuxSourceContext,
+        source: MediaSource,
+        decision: PlaybackDecision,
+        output_path: PathBuf,
+        output_container: RemuxContainer,
         session_id: TranscodeSessionId,
     ) -> Result<RemuxSourceOutput> {
         let deadline = tokio::time::Instant::now()
@@ -569,28 +743,28 @@ impl PlaybackAppService {
             let session = self.get_transcode_session(session_id).await?;
             match session.state {
                 TranscodeSessionState::Finished => {
-                    if !path_exists(&context.output_path)? {
+                    if !path_exists(&output_path)? {
                         return Err(NakoError::storage_io(
-                            context.output_path.display().to_string(),
+                            output_path.display().to_string(),
                             "finished remux session output is missing",
                         ));
                     }
 
                     return Ok(RemuxSourceOutput {
-                        source: context.source,
-                        decision: context.decision,
-                        output_path: context.output_path,
-                        output_container: context.output_container,
+                        source,
+                        decision,
+                        output_path,
+                        output_container,
                         disposition: RemuxSourceDisposition::ReusedExisting,
                         session: Some(session),
                     });
                 }
                 TranscodeSessionState::Cancelled => {
                     return Ok(RemuxSourceOutput {
-                        source: context.source,
-                        decision: context.decision,
-                        output_path: context.output_path,
-                        output_container: context.output_container,
+                        source,
+                        decision,
+                        output_path,
+                        output_container,
                         disposition: RemuxSourceDisposition::Cancelled,
                         session: Some(session),
                     });
@@ -809,15 +983,6 @@ impl PlaybackAppService {
             })
     }
 
-    pub(crate) async fn list_transcode_sessions(
-        &self,
-        filter: TranscodeSessionListFilter,
-        page: nako_core::PageRequest,
-    ) -> Result<Vec<TranscodeSessionRecord>> {
-        PlaybackRuntimeStore::list_transcode_sessions(self.runtime_store.as_ref(), filter, page)
-            .await
-    }
-
     pub(crate) async fn support_evidence_context(
         &self,
         request: PlaybackSupportEvidenceRequest,
@@ -870,11 +1035,11 @@ impl PlaybackAppService {
         }
     }
 
-    pub(crate) async fn cancel_transcode_session(
+    pub(crate) async fn cancel_playback_session(
         &self,
-        session_id: TranscodeSessionId,
-    ) -> Result<TranscodeSessionRecord> {
-        let session = self.get_transcode_session(session_id).await?;
+        session_id: PlaybackSessionId,
+    ) -> Result<PlaybackSessionRecord> {
+        let session = self.get_playback_session(session_id).await?;
 
         if session.state.is_terminal() {
             return Err(NakoError::Conflict {
@@ -885,18 +1050,30 @@ impl PlaybackAppService {
             });
         }
 
-        if !self.cancellations.cancel(session_id) {
-            return Err(NakoError::Conflict {
-                message: format!(
-                    "playback session {session_id} is active but is not running in this process"
-                ),
-            });
+        if let Some(transcode_session_id) = session.transcode_session_id {
+            let transcode = self.get_transcode_session(transcode_session_id).await?;
+            if transcode.state.is_active() {
+                if !self.cancellations.cancel(transcode_session_id) {
+                    return Err(NakoError::Conflict {
+                        message: format!(
+                            "playback session {session_id} is active but linked transcode session {transcode_session_id} is not running in this process"
+                        ),
+                    });
+                }
+                let _ = PlaybackRuntimeStore::request_transcode_session_cancellation(
+                    self.runtime_store.as_ref(),
+                    transcode_session_id,
+                    "playback session cancellation requested".to_owned(),
+                )
+                .await?;
+            }
         }
 
-        PlaybackRuntimeStore::request_transcode_session_cancellation(
+        PlaybackRuntimeStore::set_playback_session_state(
             self.runtime_store.as_ref(),
             session_id,
-            "playback session cancellation requested".to_owned(),
+            PlaybackSessionState::Cancelled,
+            Some(crate::app::current_time_ms()?),
         )
         .await?
         .ok_or_else(|| NakoError::Conflict {

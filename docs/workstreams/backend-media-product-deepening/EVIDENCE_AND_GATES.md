@@ -31,6 +31,9 @@ cargo nextest run -p nako-server -E 'test(admin_access) | test(local_session) | 
 ### Playback Session Runtime
 
 ```powershell
+cargo nextest run -p nako-client-protocol public --no-fail-fast
+cargo nextest run -p nako-api -E 'test(public_openapi) | test(sdk) | test(admin_contract)' --no-fail-fast
+cargo nextest run -p nako-db playback_session_tracks_user_attempt_independent_of_transcode --no-fail-fast
 cargo nextest run -p nako-streaming --no-fail-fast
 cargo nextest run -p nako-transcode --no-fail-fast
 cargo nextest run -p nako-server playback --no-fail-fast
@@ -84,5 +87,26 @@ python -m json.tool docs/workstreams/backend-media-product-deepening/WORKSTREAM.
     145 skipped.
   - `cargo nextest run -p nako-server -E 'test(admin_access) | test(local_session) | test(register) | test(invitation)' --no-fail-fast`
     passed: 9 passed, 333 skipped.
+  - `cargo fmt --all -- --check` passed.
+  - `git diff --check` passed with Git line-ending warnings only.
+- 2026-05-27: BMPD-040 introduced durable Playback Sessions as the
+  user/client playback attempt boundary. Direct play now records sessions
+  without fake transcode rows. Remux and HLS sessions link to optional
+  Transcode Session artifacts. Public API and generated SDKs expose playback
+  session get/cancel/heartbeat routes, while Admin playback lists report
+  session state and linked artifact IDs without output paths or raw failure
+  messages. The public route inventory was also corrected to include
+  invitation redemption and playback heartbeat.
+  Verified:
+  - `cargo nextest run -p nako-client-protocol public --no-fail-fast` passed:
+    10 passed.
+  - `cargo nextest run -p nako-api -E 'test(public_openapi) | test(sdk) | test(admin_contract)' --no-fail-fast`
+    passed: 19 passed, 39 skipped.
+  - `cargo nextest run -p nako-db playback_session_tracks_user_attempt_independent_of_transcode --no-fail-fast`
+    passed: 1 passed, 150 skipped.
+  - `cargo nextest run -p nako-server playback --no-fail-fast` passed: 65
+    passed, 277 skipped.
+  - `cargo nextest run -p nako-streaming --no-fail-fast` passed: 10 passed.
+  - `cargo nextest run -p nako-transcode --no-fail-fast` passed: 35 passed.
   - `cargo fmt --all -- --check` passed.
   - `git diff --check` passed with Git line-ending warnings only.

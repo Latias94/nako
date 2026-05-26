@@ -1564,6 +1564,7 @@ fn database_backend_capabilities_diagnostics(
         scan_commits: capabilities.scan_commits,
         metadata: capabilities.metadata,
         catalog: capabilities.catalog,
+        playback_sessions: capabilities.playback_sessions,
         playback_state: capabilities.playback_state,
         transcode_sessions: capabilities.transcode_sessions,
         event_outbox: capabilities.event_outbox,
@@ -1723,7 +1724,7 @@ pub(super) async fn list_admin_playback_sessions(
     Query(query): Query<PlaybackSessionListQuery>,
 ) -> ApiResult<impl IntoResponse> {
     let (filter, page) = query.into_filter_and_page()?;
-    let sessions = app.playback().list_transcode_sessions(filter, page).await?;
+    let sessions = app.playback().list_playback_sessions(filter, page).await?;
     let returned = sessions.len();
     let sessions = sessions
         .into_iter()

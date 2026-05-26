@@ -2,7 +2,128 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{MediaSourceId, NakoError, StorageErrorKind, TranscodeSessionId};
+use crate::{
+    MediaItemId, MediaSourceId, NakoError, PlaybackSessionId, StorageErrorKind, TranscodeSessionId,
+    UserPrincipalId,
+};
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlaybackSessionMode {
+    Direct,
+    Remux,
+    Hls,
+}
+
+impl PlaybackSessionMode {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Direct => "direct",
+            Self::Remux => "remux",
+            Self::Hls => "hls",
+        }
+    }
+
+    #[must_use]
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "direct" => Some(Self::Direct),
+            "remux" => Some(Self::Remux),
+            "hls" => Some(Self::Hls),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlaybackSessionState {
+    Active,
+    Paused,
+    CancelRequested,
+    Cancelled,
+    Ended,
+    Failed,
+}
+
+impl PlaybackSessionState {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Active => "active",
+            Self::Paused => "paused",
+            Self::CancelRequested => "cancel_requested",
+            Self::Cancelled => "cancelled",
+            Self::Ended => "ended",
+            Self::Failed => "failed",
+        }
+    }
+
+    #[must_use]
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "active" => Some(Self::Active),
+            "paused" => Some(Self::Paused),
+            "cancel_requested" => Some(Self::CancelRequested),
+            "cancelled" => Some(Self::Cancelled),
+            "ended" => Some(Self::Ended),
+            "failed" => Some(Self::Failed),
+            _ => None,
+        }
+    }
+
+    #[must_use]
+    pub const fn is_active(self) -> bool {
+        matches!(self, Self::Active | Self::Paused | Self::CancelRequested)
+    }
+
+    #[must_use]
+    pub const fn is_terminal(self) -> bool {
+        matches!(self, Self::Cancelled | Self::Ended | Self::Failed)
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct NewPlaybackSession {
+    pub id: PlaybackSessionId,
+    pub principal_id: UserPrincipalId,
+    pub source_id: MediaSourceId,
+    pub item_id: MediaItemId,
+    pub mode: PlaybackSessionMode,
+    pub state: PlaybackSessionState,
+    pub client_capabilities_json: Option<String>,
+    pub started_at_ms: i64,
+    pub updated_at_ms: i64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PlaybackSessionRecord {
+    pub id: PlaybackSessionId,
+    pub principal_id: UserPrincipalId,
+    pub source_id: MediaSourceId,
+    pub item_id: MediaItemId,
+    pub mode: PlaybackSessionMode,
+    pub state: PlaybackSessionState,
+    pub client_capabilities_json: Option<String>,
+    pub transcode_session_id: Option<TranscodeSessionId>,
+    pub position_ms: Option<u64>,
+    pub duration_ms: Option<u64>,
+    pub last_heartbeat_at_ms: Option<i64>,
+    pub started_at_ms: i64,
+    pub ended_at_ms: Option<i64>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PlaybackSessionHeartbeat {
+    pub id: PlaybackSessionId,
+    pub state: PlaybackSessionState,
+    pub position_ms: Option<u64>,
+    pub duration_ms: Option<u64>,
+    pub heartbeat_at_ms: i64,
+}
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]

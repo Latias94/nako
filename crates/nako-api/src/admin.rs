@@ -150,6 +150,7 @@ pub struct AdminDatabaseBackendCapabilitiesDiagnostics {
     pub scan_commits: bool,
     pub metadata: bool,
     pub catalog: bool,
+    pub playback_sessions: bool,
     pub playback_state: bool,
     pub transcode_sessions: bool,
     pub event_outbox: bool,

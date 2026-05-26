@@ -98,6 +98,7 @@ define_id!(NfoSidecarApplyId);
 define_id!(SelectedArtworkId);
 define_id!(ScanSnapshotId);
 define_id!(ArtworkTaskId);
+define_id!(PlaybackSessionId);
 define_id!(TranscodeSessionId);
 define_id!(StagingManifestId);
 define_id!(MetadataProviderAttemptId);

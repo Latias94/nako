@@ -20,6 +20,27 @@ fn ticket_param(url: &str) -> &str {
         .expect("browser playback URL contains ticket query parameter")
 }
 
+async fn latest_playback_session_for_source(
+    store: &NakoDatabase,
+    source_id: MediaSourceId,
+    mode: PlaybackSessionMode,
+) -> PlaybackSessionRecord {
+    store
+        .list_playback_sessions(
+            PlaybackSessionListFilter {
+                principal_id: None,
+                source_id: Some(source_id),
+                state: None,
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|session| session.mode == mode)
+        .expect("playback route should persist a matching playback session")
+}
+
 #[tokio::test]
 async fn playback_decision_and_direct_stream_routes_work() {
     let temp = tempfile::tempdir().unwrap();
@@ -760,15 +781,9 @@ async fn head_remux_stream_route_exposes_session_without_body() {
             .and_then(|value| value.to_str().ok()),
         Some("video/mp4")
     );
-    let session = store
-        .find_latest_transcode_session(
-            source.id,
-            TranscodeSessionKind::Remux,
-            &local_remux_request_key(&source, nako_transcode::RemuxContainer::Mp4),
-        )
-        .await
-        .unwrap()
-        .unwrap();
+    let session =
+        latest_playback_session_for_source(&store, source.id, PlaybackSessionMode::Remux).await;
+    assert!(session.transcode_session_id.is_some());
     let session_id = session.id.to_string();
     assert_eq!(
         response
@@ -811,6 +826,11 @@ async fn head_remux_stream_route_exposes_active_session_before_ffmpeg_finishes()
 
     wait_for_marker(&marker).await;
 
+    let playback_session = store
+        .get_playback_session(session_id.parse().unwrap())
+        .await
+        .unwrap()
+        .expect("playback session header should point at durable playback session");
     let active = store
         .find_active_transcode_session(
             source.id,
@@ -820,7 +840,7 @@ async fn head_remux_stream_route_exposes_active_session_before_ffmpeg_finishes()
         .await
         .unwrap()
         .expect("remux preflight session should still be active");
-    assert_eq!(active.id.to_string(), session_id);
+    assert_eq!(playback_session.transcode_session_id, Some(active.id));
     assert!(active.state.is_active());
 
     let cancel_response = router
@@ -840,14 +860,16 @@ async fn head_remux_stream_route_exposes_active_session_before_ffmpeg_finishes()
     let mut final_session = None;
     let mut last_state = None;
     for _ in 0..150 {
-        let session_response = request_json::<TranscodeSessionResponse>(
+        let session_response = request_json::<PlaybackSessionResponse>(
             &router,
             Method::GET,
             &format!("/playback/sessions/{session_id}"),
         )
         .await;
         last_state = Some(session_response.session.state.clone());
-        if session_response.session.state == ClientTranscodeSessionState::Cancelled {
+        if session_response.session.state
+            == nako_api::public_client::ClientPlaybackSessionState::Cancelled
+        {
             final_session = Some(session_response.session);
             break;
         }
@@ -858,14 +880,14 @@ async fn head_remux_stream_route_exposes_active_session_before_ffmpeg_finishes()
     });
 
     assert_eq!(
-        final_session.failure_category,
-        Some(ClientTranscodeFailureCategory::Cancelled)
+        final_session.transcode_session_id.as_deref(),
+        Some(active.id.to_string().as_str())
     );
 }
 
 #[tokio::test]
 async fn playback_session_route_returns_remux_session_state() {
-    let (_temp, router, source, _staging_root, _ffmpeg_path, _marker, store) =
+    let (_temp, router, source, _staging_root, _ffmpeg_path, _marker, _store) =
         router_with_remux_source(false).await;
     let remux_path = format!("/sources/{}/stream/remux?output_container=mp4", source.id);
 
@@ -882,27 +904,29 @@ async fn playback_session_route_returns_remux_session_state() {
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
 
-    let session = store
-        .find_latest_transcode_session(
-            source.id,
-            TranscodeSessionKind::Remux,
-            &local_remux_request_key(&source, nako_transcode::RemuxContainer::Mp4),
-        )
-        .await
-        .unwrap()
-        .unwrap();
-    let session_response = request_json::<TranscodeSessionResponse>(
+    let session_id = response
+        .headers()
+        .get(PLAYBACK_SESSION_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .expect("remux stream should expose playback session id")
+        .to_owned();
+    let session_response = request_json::<PlaybackSessionResponse>(
         &router,
         Method::GET,
-        &format!("/playback/sessions/{}", session.id),
+        &format!("/playback/sessions/{session_id}"),
     )
     .await;
 
-    assert_eq!(session_response.session.id, session.id.to_string());
+    assert_eq!(session_response.session.id, session_id);
+    assert_eq!(
+        session_response.session.mode,
+        nako_api::public_client::ClientPlaybackSessionMode::Remux
+    );
     assert_eq!(
         session_response.session.state,
-        ClientTranscodeSessionState::Finished
+        nako_api::public_client::ClientPlaybackSessionState::Active
     );
+    assert!(session_response.session.transcode_session_id.is_some());
     let session_json = serde_json::to_value(&session_response).unwrap();
     assert!(session_json["session"].get("output_path").is_none());
 }
@@ -932,22 +956,43 @@ async fn playback_session_route_maps_internal_failure_taxonomy_to_public_contrac
         .await
         .unwrap();
 
-    let response = request_json::<TranscodeSessionResponse>(
+    let playback_session = store
+        .create_playback_session(NewPlaybackSession {
+            id: PlaybackSessionId::new(),
+            principal_id: UserPrincipalId::local_admin(),
+            source_id: source.id,
+            item_id: source.item_id,
+            mode: PlaybackSessionMode::Remux,
+            state: PlaybackSessionState::Failed,
+            client_capabilities_json: None,
+            started_at_ms: 1_779_814_400_000,
+            updated_at_ms: 1_779_814_401_000,
+        })
+        .await
+        .unwrap();
+    store
+        .link_playback_session_transcode(playback_session.id, session.id)
+        .await
+        .unwrap();
+
+    let response = request_json::<PlaybackSessionResponse>(
         &router,
         Method::GET,
-        &format!("/playback/sessions/{}", session.id),
+        &format!("/playback/sessions/{}", playback_session.id),
     )
     .await;
 
+    assert_eq!(response.session.id, playback_session.id.to_string());
     assert_eq!(
-        response.session.failure_category,
-        Some(ClientTranscodeFailureCategory::InvalidRequest)
+        response.session.state,
+        nako_api::public_client::ClientPlaybackSessionState::Failed
     );
     assert_eq!(
-        response.session.failure_message.as_deref(),
-        Some("playback transcode planning failed")
+        response.session.transcode_session_id.as_deref(),
+        Some(session.id.to_string().as_str())
     );
     let json = serde_json::to_string(&response).unwrap();
+    assert!(!json.contains("playback transcode planning failed"));
     assert!(!json.contains("output_path"));
     assert!(!json.contains("cache/remux/private"));
 }
@@ -980,20 +1025,36 @@ async fn playback_session_route_redacts_raw_persisted_failure_message() {
         .await
         .unwrap();
 
-    let response = request_json::<TranscodeSessionResponse>(
+    let playback_session = store
+        .create_playback_session(NewPlaybackSession {
+            id: PlaybackSessionId::new(),
+            principal_id: UserPrincipalId::local_admin(),
+            source_id: source.id,
+            item_id: source.item_id,
+            mode: PlaybackSessionMode::Remux,
+            state: PlaybackSessionState::Failed,
+            client_capabilities_json: None,
+            started_at_ms: 1_779_814_400_000,
+            updated_at_ms: 1_779_814_401_000,
+        })
+        .await
+        .unwrap();
+    store
+        .link_playback_session_transcode(playback_session.id, session.id)
+        .await
+        .unwrap();
+
+    let response = request_json::<PlaybackSessionResponse>(
         &router,
         Method::GET,
-        &format!("/playback/sessions/{}", session.id),
+        &format!("/playback/sessions/{}", playback_session.id),
     )
     .await;
 
+    assert_eq!(response.session.id, playback_session.id.to_string());
     assert_eq!(
-        response.session.failure_category,
-        Some(ClientTranscodeFailureCategory::Runner)
-    );
-    assert_eq!(
-        response.session.failure_message.as_deref(),
-        Some("playback transcode runner failed")
+        response.session.state,
+        nako_api::public_client::ClientPlaybackSessionState::Failed
     );
     let json = serde_json::to_string(&response).unwrap();
     assert!(!json.contains("C:\\secret"));
@@ -1023,7 +1084,7 @@ async fn playback_session_cancel_route_cancels_active_remux_session() {
 
     wait_for_marker(&marker).await;
 
-    let session = store
+    let active_transcode = store
         .find_active_transcode_session(
             source.id,
             TranscodeSessionKind::Remux,
@@ -1032,12 +1093,19 @@ async fn playback_session_cancel_route_cancels_active_remux_session() {
         .await
         .unwrap()
         .unwrap();
+    let playback_session =
+        latest_playback_session_for_source(&store, source.id, PlaybackSessionMode::Remux).await;
+    assert_eq!(
+        playback_session.transcode_session_id,
+        Some(active_transcode.id)
+    );
+
     let cancel_response = router
         .clone()
         .oneshot(
             Request::builder()
                 .method(Method::POST)
-                .uri(format!("/playback/sessions/{}/cancel", session.id))
+                .uri(format!("/playback/sessions/{}/cancel", playback_session.id))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -1045,15 +1113,15 @@ async fn playback_session_cancel_route_cancels_active_remux_session() {
         .unwrap();
 
     assert_eq!(cancel_response.status(), StatusCode::OK);
-    let cancel_body = body_json::<TranscodeSessionResponse>(cancel_response).await;
-    assert_eq!(cancel_body.session.id, session.id.to_string());
-    assert!(matches!(
-        cancel_body.session.state,
-        ClientTranscodeSessionState::CancelRequested | ClientTranscodeSessionState::Cancelled
-    ));
+    let cancel_body = body_json::<PlaybackSessionResponse>(cancel_response).await;
+    assert_eq!(cancel_body.session.id, playback_session.id.to_string());
     assert_eq!(
-        cancel_body.session.failure_category,
-        Some(ClientTranscodeFailureCategory::Cancelled)
+        cancel_body.session.state,
+        nako_api::public_client::ClientPlaybackSessionState::Cancelled
+    );
+    assert_eq!(
+        cancel_body.session.transcode_session_id.as_deref(),
+        Some(active_transcode.id.to_string().as_str())
     );
 
     let first_response = first.await.unwrap();
@@ -1063,13 +1131,15 @@ async fn playback_session_cancel_route_cancels_active_remux_session() {
 
     let mut final_session = None;
     for _ in 0..50 {
-        let session_response = request_json::<TranscodeSessionResponse>(
+        let session_response = request_json::<PlaybackSessionResponse>(
             &router,
             Method::GET,
-            &format!("/playback/sessions/{}", session.id),
+            &format!("/playback/sessions/{}", playback_session.id),
         )
         .await;
-        if session_response.session.state == ClientTranscodeSessionState::Cancelled {
+        if session_response.session.state
+            == nako_api::public_client::ClientPlaybackSessionState::Cancelled
+        {
             final_session = Some(session_response.session);
             break;
         }
@@ -1077,11 +1147,7 @@ async fn playback_session_cancel_route_cancels_active_remux_session() {
     }
     let final_session = final_session.expect("cancelled remux session should become terminal");
 
-    assert_eq!(
-        final_session.failure_category,
-        Some(ClientTranscodeFailureCategory::Cancelled)
-    );
-    assert!(final_session.completed_at.is_some());
+    assert!(final_session.ended_at.is_some());
 }
 
 #[tokio::test]
@@ -1103,7 +1169,7 @@ async fn playback_session_cancel_route_rejects_terminal_session() {
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
 
-    let session = store
+    let transcode_session = store
         .find_latest_transcode_session(
             source.id,
             TranscodeSessionKind::Remux,
@@ -1112,13 +1178,27 @@ async fn playback_session_cancel_route_rejects_terminal_session() {
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(session.state, TranscodeSessionState::Finished);
+    assert_eq!(transcode_session.state, TranscodeSessionState::Finished);
+    let playback_session =
+        latest_playback_session_for_source(&store, source.id, PlaybackSessionMode::Remux).await;
+    assert_eq!(
+        playback_session.transcode_session_id,
+        Some(transcode_session.id)
+    );
+    store
+        .set_playback_session_state(
+            playback_session.id,
+            PlaybackSessionState::Ended,
+            Some(1_779_814_402_000),
+        )
+        .await
+        .unwrap();
 
     let cancel_response = router
         .oneshot(
             Request::builder()
                 .method(Method::POST)
-                .uri(format!("/playback/sessions/{}/cancel", session.id))
+                .uri(format!("/playback/sessions/{}/cancel", playback_session.id))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -1145,12 +1225,30 @@ async fn playback_session_cancel_route_rejects_process_local_stale_active_sessio
         })
         .await
         .unwrap();
+    let playback_session = store
+        .create_playback_session(NewPlaybackSession {
+            id: PlaybackSessionId::new(),
+            principal_id: UserPrincipalId::local_admin(),
+            source_id: source.id,
+            item_id: source.item_id,
+            mode: PlaybackSessionMode::Remux,
+            state: PlaybackSessionState::Active,
+            client_capabilities_json: None,
+            started_at_ms: 1_779_814_400_000,
+            updated_at_ms: 1_779_814_401_000,
+        })
+        .await
+        .unwrap();
+    store
+        .link_playback_session_transcode(playback_session.id, stale.id)
+        .await
+        .unwrap();
 
     let cancel_response = router
         .oneshot(
             Request::builder()
                 .method(Method::POST)
-                .uri(format!("/playback/sessions/{}/cancel", stale.id))
+                .uri(format!("/playback/sessions/{}/cancel", playback_session.id))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -1203,7 +1301,18 @@ async fn hls_playlist_and_segment_routes_work() {
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(session_header, Some(session.id.to_string()));
+    let playback_session = store
+        .get_playback_session(
+            session_header
+                .as_deref()
+                .expect("hls playlist should expose playback session id")
+                .parse()
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+        .expect("hls playlist header should point at durable playback session");
+    assert_eq!(playback_session.transcode_session_id, Some(session.id));
     let playlist = String::from_utf8(
         to_bytes(playlist_response.into_body(), usize::MAX)
             .await
@@ -1213,7 +1322,7 @@ async fn hls_playlist_and_segment_routes_work() {
     .unwrap();
     let segment_path = format!(
         "/playback/sessions/{}/hls/segments/segment_00000.ts",
-        session.id
+        playback_session.id
     );
 
     assert!(playlist.contains(&segment_path));
@@ -1249,7 +1358,7 @@ async fn hls_playlist_and_segment_routes_work() {
                 .method(Method::GET)
                 .uri(format!(
                     "/playback/sessions/{}/hls/segments/missing.ts",
-                    session.id
+                    playback_session.id
                 ))
                 .body(Body::empty())
                 .unwrap(),
@@ -1361,7 +1470,7 @@ async fn hls_segment_route_rejects_unfinished_session() {
 
 #[tokio::test]
 async fn remux_stream_route_waits_for_in_flight_duplicate_and_reuses_session() {
-    let (_temp, router, source, _staging_root, _ffmpeg_path, marker, _store) =
+    let (_temp, router, source, _staging_root, _ffmpeg_path, marker, store) =
         router_with_remux_source(true).await;
     let path = format!("/sources/{}/stream/remux?output_container=mp4", source.id);
     let first_router = router.clone();
@@ -1411,7 +1520,22 @@ async fn remux_stream_route_waits_for_in_flight_duplicate_and_reuses_session() {
         .and_then(|value| value.to_str().ok())
         .expect("first remux stream should expose session id")
         .to_owned();
-    assert_eq!(first_session_id, duplicate_session_id);
+    assert_ne!(first_session_id, duplicate_session_id);
+    let first_playback_session = store
+        .get_playback_session(first_session_id.parse().unwrap())
+        .await
+        .unwrap()
+        .expect("first remux response should expose durable playback session");
+    let duplicate_playback_session = store
+        .get_playback_session(duplicate_session_id.parse().unwrap())
+        .await
+        .unwrap()
+        .expect("duplicate remux response should expose durable playback session");
+    assert_eq!(
+        first_playback_session.transcode_session_id,
+        duplicate_playback_session.transcode_session_id
+    );
+    assert!(first_playback_session.transcode_session_id.is_some());
     let bytes = to_bytes(first_response.into_body(), usize::MAX)
         .await
         .unwrap();

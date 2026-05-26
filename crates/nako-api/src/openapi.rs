@@ -313,13 +313,26 @@ fn public_paths() -> Value {
     paths.insert(
         "/playback/sessions/{session_id}".to_owned(),
         json!({
-            "get": json_get("getPlaybackSession", "Get one playback session.", "playback", vec![path_parameter("session_id", "Playback session id.")], schema_ref("TranscodeSessionResponse"))
+            "get": json_get("getPlaybackSession", "Get one playback session.", "playback", vec![path_parameter("session_id", "Playback session id.")], schema_ref("PlaybackSessionResponse"))
         }),
     );
     paths.insert(
         "/playback/sessions/{session_id}/cancel".to_owned(),
         json!({
-            "post": json_post("cancelPlaybackSession", "Request playback session cancellation.", "playback", vec![path_parameter("session_id", "Playback session id.")], schema_ref("TranscodeSessionResponse"))
+            "post": json_post("cancelPlaybackSession", "Request playback session cancellation.", "playback", vec![path_parameter("session_id", "Playback session id.")], schema_ref("PlaybackSessionResponse"))
+        }),
+    );
+    paths.insert(
+        "/playback/sessions/{session_id}/heartbeat".to_owned(),
+        json!({
+            "post": json_post_with_body(
+                "heartbeatPlaybackSession",
+                "Record playback session heartbeat and position.",
+                "playback",
+                vec![path_parameter("session_id", "Playback session id.")],
+                schema_ref("PlaybackSessionHeartbeatRequest"),
+                schema_ref("PlaybackSessionResponse")
+            )
         }),
     );
     paths.insert(
@@ -1058,6 +1071,35 @@ fn schemas() -> Value {
         })),
         "TranscodeSessionResponse": object_schema(&["session"], json!({
             "session": schema_ref("TranscodeSessionDto")
+        })),
+        "PlaybackSessionResponse": object_schema(&["session"], json!({
+            "session": schema_ref("PlaybackSessionDto")
+        })),
+        "PlaybackSessionDto": object_schema(&["id", "source_id", "item_id", "mode", "state", "updated_at"], json!({
+            "id": uuid_schema(),
+            "source_id": uuid_schema(),
+            "item_id": uuid_schema(),
+            "mode": enum_schema(&["direct", "remux", "hls"]),
+            "state": enum_schema(&["active", "paused", "cancel_requested", "cancelled", "ended", "failed"]),
+            "transcode_session_id": nullable_uuid_schema(),
+            "position_ms": json!({"type": "integer", "format": "int64", "nullable": true}),
+            "duration_ms": json!({"type": "integer", "format": "int64", "nullable": true}),
+            "client_capabilities": nullable_ref("PlaybackSessionClientCapabilitiesDto"),
+            "last_heartbeat_at": nullable_string_schema(),
+            "started_at": nullable_string_schema(),
+            "ended_at": nullable_string_schema(),
+            "updated_at": string_schema()
+        })),
+        "PlaybackSessionClientCapabilitiesDto": object_schema(&["direct_play", "containers", "video_codecs", "audio_codecs"], json!({
+            "direct_play": boolean_schema(),
+            "containers": array_schema(string_schema()),
+            "video_codecs": array_schema(string_schema()),
+            "audio_codecs": array_schema(string_schema())
+        })),
+        "PlaybackSessionHeartbeatRequest": object_schema(&["state"], json!({
+            "state": enum_schema(&["active", "paused", "cancel_requested", "cancelled", "ended", "failed"]),
+            "position_ms": json!({"type": "integer", "format": "int64", "nullable": true}),
+            "duration_ms": json!({"type": "integer", "format": "int64", "nullable": true})
         })),
         "TranscodeSessionDto": object_schema(&["id", "source_id", "kind", "request_key", "state", "failure_category", "failure_message", "created_at", "updated_at", "started_at", "completed_at"], json!({
             "id": uuid_schema(),

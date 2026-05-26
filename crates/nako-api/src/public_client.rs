@@ -3,11 +3,12 @@ use nako_core::{
     ImageKind, ItemCredit, ItemGenre, ItemStudio, ItemTag, Library, LibraryOptions, LibraryPreset,
     LocalMetadataPolicy, LocalMetadataReader, ManagedArtworkArtifactRecord, MediaDomain, MediaItem,
     MediaKind, MediaProbeResult, MediaSource, MediaStreamInfo, MediaStreamKind, MetadataProfile,
-    MetadataRefreshMode, MetadataSource, NamingStrategy, PageRequest, Person,
-    SelectedArtworkRecord, Tag, TranscodeFailureCategory, TranscodeSessionKind,
-    TranscodeSessionRecord, TranscodeSessionState, UserPlaybackState,
+    MetadataRefreshMode, MetadataSource, NamingStrategy, PageRequest, Person, PlaybackSessionMode,
+    PlaybackSessionRecord, PlaybackSessionState, SelectedArtworkRecord, Tag,
+    TranscodeFailureCategory, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
+    UserPlaybackState,
 };
-use nako_streaming::{DirectPlayPlan, PlaybackDecision, PlaybackMode};
+use nako_streaming::{ClientPlaybackCapabilities, DirectPlayPlan, PlaybackDecision, PlaybackMode};
 use nako_transcode::{HardwareAcceleration, OutputContainer, TranscodePlan};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
@@ -20,21 +21,22 @@ pub use nako_client_protocol::{
     ClientLibraryPreset, ClientLocalMetadataPolicy, ClientLocalMetadataReader, ClientMediaDomain,
     ClientMediaKind, ClientMediaStreamKind, ClientMetadataRefreshMode, ClientMetadataSource,
     ClientNamingStrategy, ClientOutputContainer, ClientPlaybackDecision, ClientPlaybackMode,
-    ClientTranscodeFailureCategory, ClientTranscodePlan, ClientTranscodeSessionKind,
-    ClientTranscodeSessionState, CollectionItemDto, CollectionRefDto, ContentRatingDto,
-    ContinueWatchingItemDto, ContinueWatchingResponse, CreditDto, CurrentUserDto,
-    CurrentUserResponse, ErrorResponse, ExternalIdDto, GenreDto, GenreItemsResponse,
-    GenreListResponse, HealthResponse, ImagesResponse, ItemCreditDto, ItemCreditsResponse,
-    ItemDetailResponse, ItemGenreDto, ItemStudioDto, ItemTagDto, ItemsResponse, LibraryDto,
-    LibraryListResponse, LibraryOptionsDto, LibraryResponse, LibraryScanOptionsDto,
-    LibrarySourceResponse, LibrarySourcesResponse, LoginRequest, LoginResponse, LogoutResponse,
-    MediaItemDto, MediaProbeDto, MediaSourceDto, MediaStreamDto, MetadataProfileDto,
-    MetadataScanPolicyDto, PLAYBACK_SESSION_ID_HEADER, PageInfo, PeopleResponse, PersonDto,
-    PersonItemsResponse, PersonResponse, PlaybackDecisionResponse, PublicImageRefDto,
-    RedeemInvitationRequest, SearchItemHit, SearchResponse, SetWatchedStateRequest,
-    SourceProbeResponse, StudioRefDto, TagDto, TagItemsResponse, TagsResponse, TranscodeSessionDto,
-    TranscodeSessionResponse, UpdatePlaybackProgressRequest, UserPlaybackStateDto,
-    UserPlaybackStateResponse, UserSessionDto,
+    ClientPlaybackSessionMode, ClientPlaybackSessionState, ClientTranscodeFailureCategory,
+    ClientTranscodePlan, ClientTranscodeSessionKind, ClientTranscodeSessionState,
+    CollectionItemDto, CollectionRefDto, ContentRatingDto, ContinueWatchingItemDto,
+    ContinueWatchingResponse, CreditDto, CurrentUserDto, CurrentUserResponse, ErrorResponse,
+    ExternalIdDto, GenreDto, GenreItemsResponse, GenreListResponse, HealthResponse, ImagesResponse,
+    ItemCreditDto, ItemCreditsResponse, ItemDetailResponse, ItemGenreDto, ItemStudioDto,
+    ItemTagDto, ItemsResponse, LibraryDto, LibraryListResponse, LibraryOptionsDto, LibraryResponse,
+    LibraryScanOptionsDto, LibrarySourceResponse, LibrarySourcesResponse, LoginRequest,
+    LoginResponse, LogoutResponse, MediaItemDto, MediaProbeDto, MediaSourceDto, MediaStreamDto,
+    MetadataProfileDto, MetadataScanPolicyDto, PLAYBACK_SESSION_ID_HEADER, PageInfo,
+    PeopleResponse, PersonDto, PersonItemsResponse, PersonResponse, PlaybackDecisionResponse,
+    PlaybackSessionClientCapabilitiesDto, PlaybackSessionDto, PlaybackSessionHeartbeatRequest,
+    PlaybackSessionResponse, PublicImageRefDto, RedeemInvitationRequest, SearchItemHit,
+    SearchResponse, SetWatchedStateRequest, SourceProbeResponse, StudioRefDto, TagDto,
+    TagItemsResponse, TagsResponse, TranscodeSessionDto, TranscodeSessionResponse,
+    UpdatePlaybackProgressRequest, UserPlaybackStateDto, UserPlaybackStateResponse, UserSessionDto,
 };
 
 #[must_use]
@@ -240,6 +242,39 @@ pub fn transcode_session_response_from_record(
 ) -> TranscodeSessionResponse {
     TranscodeSessionResponse {
         session: transcode_session_to_dto(session),
+    }
+}
+
+#[must_use]
+pub fn playback_session_response_from_record(
+    session: PlaybackSessionRecord,
+) -> PlaybackSessionResponse {
+    PlaybackSessionResponse {
+        session: playback_session_to_dto(session),
+    }
+}
+
+#[must_use]
+pub fn playback_session_to_dto(session: PlaybackSessionRecord) -> PlaybackSessionDto {
+    let client_capabilities = session
+        .client_capabilities_json
+        .as_deref()
+        .and_then(playback_session_client_capabilities_from_json);
+
+    PlaybackSessionDto {
+        id: session.id.to_string(),
+        source_id: session.source_id.to_string(),
+        item_id: session.item_id.to_string(),
+        mode: playback_session_mode_to_dto(session.mode),
+        state: playback_session_state_to_dto(session.state),
+        transcode_session_id: session.transcode_session_id.map(|id| id.to_string()),
+        position_ms: session.position_ms,
+        duration_ms: session.duration_ms,
+        client_capabilities,
+        last_heartbeat_at: timestamp_ms_to_rfc3339(session.last_heartbeat_at_ms),
+        started_at: timestamp_ms_to_rfc3339(Some(session.started_at_ms)),
+        ended_at: timestamp_ms_to_rfc3339(session.ended_at_ms),
+        updated_at: session.updated_at,
     }
 }
 
@@ -577,6 +612,38 @@ fn playback_mode_to_dto(mode: PlaybackMode) -> ClientPlaybackMode {
         PlaybackMode::Remux => ClientPlaybackMode::Remux,
         PlaybackMode::Transcode => ClientPlaybackMode::Transcode,
     }
+}
+
+fn playback_session_mode_to_dto(mode: PlaybackSessionMode) -> ClientPlaybackSessionMode {
+    match mode {
+        PlaybackSessionMode::Direct => ClientPlaybackSessionMode::Direct,
+        PlaybackSessionMode::Remux => ClientPlaybackSessionMode::Remux,
+        PlaybackSessionMode::Hls => ClientPlaybackSessionMode::Hls,
+    }
+}
+
+fn playback_session_state_to_dto(state: PlaybackSessionState) -> ClientPlaybackSessionState {
+    match state {
+        PlaybackSessionState::Active => ClientPlaybackSessionState::Active,
+        PlaybackSessionState::Paused => ClientPlaybackSessionState::Paused,
+        PlaybackSessionState::CancelRequested => ClientPlaybackSessionState::CancelRequested,
+        PlaybackSessionState::Cancelled => ClientPlaybackSessionState::Cancelled,
+        PlaybackSessionState::Ended => ClientPlaybackSessionState::Ended,
+        PlaybackSessionState::Failed => ClientPlaybackSessionState::Failed,
+    }
+}
+
+fn playback_session_client_capabilities_from_json(
+    value: &str,
+) -> Option<PlaybackSessionClientCapabilitiesDto> {
+    let capabilities = serde_json::from_str::<ClientPlaybackCapabilities>(value).ok()?;
+
+    Some(PlaybackSessionClientCapabilitiesDto {
+        direct_play: capabilities.direct_play,
+        containers: capabilities.containers,
+        video_codecs: capabilities.video_codecs,
+        audio_codecs: capabilities.audio_codecs,
+    })
 }
 
 fn output_container_to_dto(container: OutputContainer) -> ClientOutputContainer {

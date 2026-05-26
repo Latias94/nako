@@ -4,8 +4,8 @@ use nako_core::{
     DEFAULT_CATALOG_GOVERNANCE_CONFIDENCE_THRESHOLD_MILLI, DomainEventKind, IngestionFailurePhase,
     IngestionFailureStatus, JobKind, JobListFilter, JobStatus, LibraryId,
     ManagedArtworkArtifactLifecycleFilter, ManagedImportArtifactId, MediaSourceId, NakoError,
-    OutboxEventListFilter, OutboxEventStatus, PageRequest, StagingPurpose, StagingState,
-    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter, TranscodeSessionState,
+    OutboxEventListFilter, OutboxEventStatus, PageRequest, PlaybackSessionListFilter,
+    PlaybackSessionState, StagingPurpose, StagingState, TranscodeSessionId,
 };
 use serde::Deserialize;
 
@@ -186,8 +186,8 @@ impl OutboxEventListQuery {
 
 #[derive(Clone, Debug, Default, Deserialize)]
 pub(super) struct PlaybackSessionListQuery {
+    pub(super) principal_id: Option<String>,
     pub(super) source_id: Option<String>,
-    pub(super) kind: Option<String>,
     pub(super) state: Option<String>,
     pub(super) limit: Option<String>,
     pub(super) offset: Option<String>,
@@ -291,7 +291,7 @@ impl PlaybackSupportEvidenceQuery {
 impl PlaybackSessionListQuery {
     pub(super) fn into_filter_and_page(
         self,
-    ) -> Result<(TranscodeSessionListFilter, PageRequest), NakoError> {
+    ) -> Result<(PlaybackSessionListFilter, PageRequest), NakoError> {
         let page = PageQuery {
             limit: self
                 .limit
@@ -304,7 +304,15 @@ impl PlaybackSessionListQuery {
         };
 
         Ok((
-            TranscodeSessionListFilter {
+            PlaybackSessionListFilter {
+                principal_id: self
+                    .principal_id
+                    .map(|value| {
+                        value.parse().map_err(|err| NakoError::InvalidInput {
+                            message: format!("invalid principal_id filter: {err}"),
+                        })
+                    })
+                    .transpose()?,
                 source_id: self
                     .source_id
                     .map(|value| {
@@ -315,13 +323,9 @@ impl PlaybackSessionListQuery {
                             })
                     })
                     .transpose()?,
-                kind: self
-                    .kind
-                    .map(parse_transcode_session_kind_filter)
-                    .transpose()?,
                 state: self
                     .state
-                    .map(parse_transcode_session_state_filter)
+                    .map(parse_playback_session_state_filter)
                     .transpose()?,
             },
             page.try_into()?,
@@ -560,14 +564,8 @@ fn parse_outbox_event_status_filter(value: String) -> Result<OutboxEventStatus, 
     })
 }
 
-fn parse_transcode_session_kind_filter(value: String) -> Result<TranscodeSessionKind, NakoError> {
-    TranscodeSessionKind::parse(&value).ok_or_else(|| NakoError::InvalidInput {
-        message: format!("invalid kind filter: {value}"),
-    })
-}
-
-fn parse_transcode_session_state_filter(value: String) -> Result<TranscodeSessionState, NakoError> {
-    TranscodeSessionState::parse(&value).ok_or_else(|| NakoError::InvalidInput {
+fn parse_playback_session_state_filter(value: String) -> Result<PlaybackSessionState, NakoError> {
+    PlaybackSessionState::parse(&value).ok_or_else(|| NakoError::InvalidInput {
         message: format!("invalid state filter: {value}"),
     })
 }

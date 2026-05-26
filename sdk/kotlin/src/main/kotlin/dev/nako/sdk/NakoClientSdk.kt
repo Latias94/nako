@@ -18,6 +18,7 @@ public const val NAKO_PLAYBACK_SESSION_ID_HEADER: String = "x-nako-playback-sess
 public val NAKO_PUBLIC_PATHS: List<String> = listOf(
     "/health",
     "/auth/login",
+    "/auth/invitations/redeem",
     "/auth/logout",
     "/users/me",
     "/libraries",
@@ -44,6 +45,7 @@ public val NAKO_PUBLIC_PATHS: List<String> = listOf(
     "/sources/{source_id}/stream/hls/playlist.m3u8",
     "/playback/sessions/{session_id}",
     "/playback/sessions/{session_id}/cancel",
+    "/playback/sessions/{session_id}/heartbeat",
     "/playback/sessions/{session_id}/hls/segments/{segment_name}",
     "/users/me/playback-state/items/{item_id}",
     "/users/me/playback-state/continue-watching",
@@ -332,6 +334,12 @@ public object NakoPublicClientRequests {
         NakoRequestDescriptor(
             method = "POST",
             pathAndQuery = "/playback/sessions/${encodePathSegment(sessionId)}/cancel",
+        )
+
+    public fun heartbeatPlaybackSession(sessionId: String): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "POST",
+            pathAndQuery = "/playback/sessions/${encodePathSegment(sessionId)}/heartbeat",
         )
 
     public fun hlsSegment(
@@ -789,6 +797,81 @@ public value class MetadataProfileDtoRefreshMode(
             "default",
             "missing_only",
             "full_refresh",
+        )
+    }
+}
+
+@JvmInline
+@Serializable
+public value class PlaybackSessionDtoMode(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val Direct: PlaybackSessionDtoMode = PlaybackSessionDtoMode("direct")
+        public val Remux: PlaybackSessionDtoMode = PlaybackSessionDtoMode("remux")
+        public val Hls: PlaybackSessionDtoMode = PlaybackSessionDtoMode("hls")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "direct",
+            "remux",
+            "hls",
+        )
+    }
+}
+
+@JvmInline
+@Serializable
+public value class PlaybackSessionDtoState(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val Active: PlaybackSessionDtoState = PlaybackSessionDtoState("active")
+        public val Paused: PlaybackSessionDtoState = PlaybackSessionDtoState("paused")
+        public val CancelRequested: PlaybackSessionDtoState = PlaybackSessionDtoState("cancel_requested")
+        public val Cancelled: PlaybackSessionDtoState = PlaybackSessionDtoState("cancelled")
+        public val Ended: PlaybackSessionDtoState = PlaybackSessionDtoState("ended")
+        public val Failed: PlaybackSessionDtoState = PlaybackSessionDtoState("failed")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "active",
+            "paused",
+            "cancel_requested",
+            "cancelled",
+            "ended",
+            "failed",
+        )
+    }
+}
+
+@JvmInline
+@Serializable
+public value class PlaybackSessionHeartbeatRequestState(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val Active: PlaybackSessionHeartbeatRequestState = PlaybackSessionHeartbeatRequestState("active")
+        public val Paused: PlaybackSessionHeartbeatRequestState = PlaybackSessionHeartbeatRequestState("paused")
+        public val CancelRequested: PlaybackSessionHeartbeatRequestState = PlaybackSessionHeartbeatRequestState("cancel_requested")
+        public val Cancelled: PlaybackSessionHeartbeatRequestState = PlaybackSessionHeartbeatRequestState("cancelled")
+        public val Ended: PlaybackSessionHeartbeatRequestState = PlaybackSessionHeartbeatRequestState("ended")
+        public val Failed: PlaybackSessionHeartbeatRequestState = PlaybackSessionHeartbeatRequestState("failed")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "active",
+            "paused",
+            "cancel_requested",
+            "cancelled",
+            "ended",
+            "failed",
         )
     }
 }
@@ -1357,6 +1440,58 @@ public data class PlaybackDecisionResponse(
 )
 
 @Serializable
+public data class PlaybackSessionClientCapabilitiesDto(
+    @SerialName("audio_codecs")
+    public val audioCodecs: List<String>,
+    public val containers: List<String>,
+    @SerialName("direct_play")
+    public val directPlay: Boolean,
+    @SerialName("video_codecs")
+    public val videoCodecs: List<String>,
+)
+
+@Serializable
+public data class PlaybackSessionDto(
+    @SerialName("client_capabilities")
+    public val clientCapabilities: PlaybackSessionClientCapabilitiesDto? = null,
+    @SerialName("duration_ms")
+    public val durationMs: Long? = null,
+    @SerialName("ended_at")
+    public val endedAt: String? = null,
+    public val id: String,
+    @SerialName("item_id")
+    public val itemId: String,
+    @SerialName("last_heartbeat_at")
+    public val lastHeartbeatAt: String? = null,
+    public val mode: PlaybackSessionDtoMode,
+    @SerialName("position_ms")
+    public val positionMs: Long? = null,
+    @SerialName("source_id")
+    public val sourceId: String,
+    @SerialName("started_at")
+    public val startedAt: String? = null,
+    public val state: PlaybackSessionDtoState,
+    @SerialName("transcode_session_id")
+    public val transcodeSessionId: String? = null,
+    @SerialName("updated_at")
+    public val updatedAt: String,
+)
+
+@Serializable
+public data class PlaybackSessionHeartbeatRequest(
+    @SerialName("duration_ms")
+    public val durationMs: Long? = null,
+    @SerialName("position_ms")
+    public val positionMs: Long? = null,
+    public val state: PlaybackSessionHeartbeatRequestState,
+)
+
+@Serializable
+public data class PlaybackSessionResponse(
+    public val session: PlaybackSessionDto,
+)
+
+@Serializable
 public data class PublicImageRefDto(
     public val etag: String?,
     public val height: Int?,
@@ -1368,6 +1503,15 @@ public data class PublicImageRefDto(
     public val owner: Map<String, String>,
     public val url: String,
     public val width: Int?,
+)
+
+@Serializable
+public data class RedeemInvitationRequest(
+    @SerialName("display_name")
+    public val displayName: String,
+    public val password: String,
+    public val token: String,
+    public val username: String,
 )
 
 @Serializable

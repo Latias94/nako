@@ -172,8 +172,8 @@ export interface AdminJobsQuery extends AdminPageQuery {
 }
 
 export interface AdminPlaybackSessionsQuery extends AdminPageQuery {
+  principal_id?: string;
   source_id?: string;
-  kind?: string;
   state?: string;
 }
 
@@ -1134,18 +1134,20 @@ export interface AdminJobListResponse {
 
 export interface AdminPlaybackSessionListItem {
   id: string;
+  principal_id: string;
   source_id: string;
-  kind: string;
-  request_key: string;
+  item_id: string;
+  mode: string;
   state: string;
-  failure_category: string | null;
-  has_failure_message: boolean;
+  transcode_session_id: string | null;
+  has_client_capabilities: boolean;
   active: boolean;
   terminal: boolean;
   created_at: string;
   updated_at: string;
-  started_at: string | null;
-  completed_at: string | null;
+  started_at_ms: number;
+  ended_at_ms: number | null;
+  last_heartbeat_at_ms: number | null;
 }
 
 export interface AdminPlaybackSessionListResponse {
@@ -1782,6 +1784,7 @@ export interface AdminServerConfigDiagnosticsResponse {
       metadata: boolean;
       catalog: boolean;
       playback_state: boolean;
+      playback_sessions: boolean;
       transcode_sessions: boolean;
       event_outbox: boolean;
       addons: boolean;

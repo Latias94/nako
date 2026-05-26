@@ -587,6 +587,37 @@ CREATE UNIQUE INDEX IF NOT EXISTS transcode_sessions_active_request_idx
     ON transcode_sessions(source_id, kind, request_key)
     WHERE state IN ('planned', 'starting', 'running', 'cancel_requested');
 
+CREATE TABLE IF NOT EXISTS playback_sessions (
+    id uuid PRIMARY KEY NOT NULL,
+    principal_id text NOT NULL,
+    source_id uuid NOT NULL REFERENCES media_sources(id) ON DELETE CASCADE,
+    item_id uuid NOT NULL REFERENCES media_items(id) ON DELETE CASCADE,
+    mode text NOT NULL,
+    state text NOT NULL,
+    client_capabilities_json text,
+    transcode_session_id uuid REFERENCES transcode_sessions(id) ON DELETE SET NULL,
+    position_ms bigint,
+    duration_ms bigint,
+    last_heartbeat_at_ms bigint,
+    started_at_ms bigint NOT NULL,
+    updated_at_ms bigint NOT NULL,
+    ended_at_ms bigint,
+    created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+    updated_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+    CHECK (length(principal_id) > 0),
+    CHECK (position_ms IS NULL OR position_ms >= 0),
+    CHECK (duration_ms IS NULL OR duration_ms >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS playback_sessions_principal_idx
+    ON playback_sessions(principal_id, updated_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS playback_sessions_source_idx
+    ON playback_sessions(source_id, updated_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS playback_sessions_state_idx
+    ON playback_sessions(state, updated_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS playback_sessions_transcode_idx
+    ON playback_sessions(transcode_session_id);
+
 CREATE TABLE IF NOT EXISTS event_outbox (
     id uuid PRIMARY KEY NOT NULL,
     kind text NOT NULL,

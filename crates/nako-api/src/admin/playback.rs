@@ -1,7 +1,8 @@
 use nako_client_protocol::PageInfo;
 use nako_core::{
-    LibraryId, MediaItemId, MediaSource, MediaSourceId, TranscodeFailureCategory,
-    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
+    LibraryId, MediaItemId, MediaSource, MediaSourceId, PlaybackSessionId, PlaybackSessionMode,
+    PlaybackSessionRecord, PlaybackSessionState, TranscodeFailureCategory, TranscodeSessionId,
+    TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
 };
 use nako_transcode::{
     HardwareAcceleration, HardwareAccelerationPolicy, HardwareAccelerationReadiness,
@@ -21,38 +22,40 @@ pub struct AdminPlaybackSessionListResponse {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminPlaybackSessionListItem {
-    pub id: TranscodeSessionId,
+    pub id: PlaybackSessionId,
     pub source_id: MediaSourceId,
-    pub kind: TranscodeSessionKind,
-    pub request_key: String,
-    pub state: TranscodeSessionState,
-    pub failure_category: Option<TranscodeFailureCategory>,
-    pub has_failure_message: bool,
+    pub item_id: MediaItemId,
+    pub mode: PlaybackSessionMode,
+    pub state: PlaybackSessionState,
+    pub transcode_session_id: Option<TranscodeSessionId>,
+    pub has_client_capabilities: bool,
     pub active: bool,
     pub terminal: bool,
+    pub started_at_ms: i64,
+    pub ended_at_ms: Option<i64>,
+    pub last_heartbeat_at_ms: Option<i64>,
     pub created_at: String,
     pub updated_at: String,
-    pub started_at: Option<String>,
-    pub completed_at: Option<String>,
 }
 
 impl AdminPlaybackSessionListItem {
     #[must_use]
-    pub fn from_record(session: TranscodeSessionRecord) -> Self {
+    pub fn from_record(session: PlaybackSessionRecord) -> Self {
         Self {
             id: session.id,
             source_id: session.source_id,
-            kind: session.kind,
-            request_key: session.request_key,
+            item_id: session.item_id,
+            mode: session.mode,
             state: session.state,
-            failure_category: session.failure_category,
-            has_failure_message: session.failure_message.is_some(),
+            transcode_session_id: session.transcode_session_id,
+            has_client_capabilities: session.client_capabilities_json.is_some(),
             active: session.state.is_active(),
             terminal: session.state.is_terminal(),
+            started_at_ms: session.started_at_ms,
+            ended_at_ms: session.ended_at_ms,
+            last_heartbeat_at_ms: session.last_heartbeat_at_ms,
             created_at: session.created_at,
             updated_at: session.updated_at,
-            started_at: session.started_at,
-            completed_at: session.completed_at,
         }
     }
 }
@@ -538,39 +541,43 @@ mod tests {
     use super::*;
 
     #[test]
-    fn admin_playback_session_list_item_redacts_output_path_and_failure_message() {
-        let session = TranscodeSessionRecord {
-            id: TranscodeSessionId::new(),
+    fn admin_playback_session_list_item_summarizes_playback_not_transcode_artifacts() {
+        let session = PlaybackSessionRecord {
+            id: PlaybackSessionId::new(),
             source_id: MediaSourceId::new(),
-            kind: TranscodeSessionKind::HlsTranscode,
-            request_key: "transcode-profile:v1;kind=hls_single_variant".to_owned(),
-            output_path: "C:\\nako-cache\\hls\\secret\\playlist.m3u8".into(),
-            state: TranscodeSessionState::Failed,
-            failure_category: Some(TranscodeFailureCategory::Runner),
-            failure_message: Some(
-                "ffmpeg failed while writing C:\\nako-cache\\hls\\secret\\playlist.m3u8".to_owned(),
+            item_id: MediaItemId::new(),
+            principal_id: nako_core::UserPrincipalId::local_admin(),
+            mode: PlaybackSessionMode::Direct,
+            state: PlaybackSessionState::Active,
+            client_capabilities_json: Some(
+                r#"{"direct_play":true,"container":["mp4"],"video_codec":["h264"]}"#.to_owned(),
             ),
+            transcode_session_id: None,
+            position_ms: Some(42_000),
+            duration_ms: Some(600_000),
+            last_heartbeat_at_ms: Some(1_779_814_401_000),
+            started_at_ms: 1_779_814_400_000,
+            ended_at_ms: None,
             created_at: "2026-05-18T00:00:00Z".to_owned(),
             updated_at: "2026-05-18T00:00:01Z".to_owned(),
-            started_at: Some("2026-05-18T00:00:00Z".to_owned()),
-            completed_at: Some("2026-05-18T00:00:01Z".to_owned()),
         };
+        let session_id = session.id;
+        let source_id = session.source_id;
 
         let item = AdminPlaybackSessionListItem::from_record(session);
         let body = serde_json::to_string(&item).unwrap();
 
-        assert_eq!(item.kind, TranscodeSessionKind::HlsTranscode);
-        assert_eq!(item.state, TranscodeSessionState::Failed);
-        assert_eq!(
-            item.failure_category,
-            Some(TranscodeFailureCategory::Runner)
-        );
-        assert!(item.has_failure_message);
-        assert!(!item.active);
-        assert!(item.terminal);
+        assert_eq!(item.id, session_id);
+        assert_eq!(item.source_id, source_id);
+        assert_eq!(item.mode, PlaybackSessionMode::Direct);
+        assert_eq!(item.state, PlaybackSessionState::Active);
+        assert!(item.has_client_capabilities);
+        assert!(item.active);
+        assert!(!item.terminal);
         assert!(!body.contains("nako-cache"));
         assert!(!body.contains("playlist.m3u8"));
         assert!(!body.contains("output_path"));
+        assert!(!body.contains("request_key"));
         assert!(!body.contains("ffmpeg failed while writing"));
     }
 

@@ -38,6 +38,7 @@ trait DatabaseBackendAdapter:
     + LocalInferenceRepository
     + ScanRepository
     + DatabaseLifecycle
+    + PlaybackSessionRepository
     + TranscodeSessionRepository
     + UserPlaybackStateRepository
     + VfsCacheRepository
@@ -79,6 +80,7 @@ impl<T> DatabaseBackendAdapter for T where
         + LocalInferenceRepository
         + ScanRepository
         + DatabaseLifecycle
+        + PlaybackSessionRepository
         + TranscodeSessionRepository
         + UserPlaybackStateRepository
         + VfsCacheRepository
@@ -102,6 +104,7 @@ pub struct DatabaseBackendCapabilities {
     pub scan_commits: bool,
     pub metadata: bool,
     pub catalog: bool,
+    pub playback_sessions: bool,
     pub playback_state: bool,
     pub transcode_sessions: bool,
     pub event_outbox: bool,
@@ -128,6 +131,7 @@ impl DatabaseBackendCapabilities {
             scan_commits: true,
             metadata: true,
             catalog: true,
+            playback_sessions: true,
             playback_state: true,
             transcode_sessions: true,
             event_outbox: true,
@@ -154,6 +158,7 @@ impl DatabaseBackendCapabilities {
             scan_commits: true,
             metadata: true,
             catalog: true,
+            playback_sessions: true,
             playback_state: true,
             transcode_sessions: true,
             event_outbox: true,
@@ -2066,6 +2071,61 @@ impl ScanRepository for NakoDatabase {
 impl DatabaseLifecycle for NakoDatabase {
     async fn migrate(&self) -> Result<()> {
         self.backend().migrate().await
+    }
+}
+
+#[async_trait::async_trait]
+impl PlaybackSessionRepository for NakoDatabase {
+    async fn create_playback_session(
+        &self,
+        session: NewPlaybackSession,
+    ) -> Result<PlaybackSessionRecord> {
+        self.backend().create_playback_session(session).await
+    }
+
+    async fn get_playback_session(
+        &self,
+        id: PlaybackSessionId,
+    ) -> Result<Option<PlaybackSessionRecord>> {
+        self.backend().get_playback_session(id).await
+    }
+
+    async fn list_playback_sessions(
+        &self,
+        filter: PlaybackSessionListFilter,
+        page: PageRequest,
+    ) -> Result<Vec<PlaybackSessionRecord>> {
+        self.backend().list_playback_sessions(filter, page).await
+    }
+
+    async fn link_playback_session_transcode(
+        &self,
+        id: PlaybackSessionId,
+        transcode_session_id: TranscodeSessionId,
+    ) -> Result<PlaybackSessionRecord> {
+        self.backend()
+            .link_playback_session_transcode(id, transcode_session_id)
+            .await
+    }
+
+    async fn record_playback_session_heartbeat(
+        &self,
+        heartbeat: PlaybackSessionHeartbeat,
+    ) -> Result<Option<PlaybackSessionRecord>> {
+        self.backend()
+            .record_playback_session_heartbeat(heartbeat)
+            .await
+    }
+
+    async fn set_playback_session_state(
+        &self,
+        id: PlaybackSessionId,
+        state: PlaybackSessionState,
+        ended_at_ms: Option<i64>,
+    ) -> Result<Option<PlaybackSessionRecord>> {
+        self.backend()
+            .set_playback_session_state(id, state, ended_at_ms)
+            .await
     }
 }
 

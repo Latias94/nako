@@ -820,6 +820,12 @@ public object NakoPublicClientRequests {
             pathAndQuery = "/playback/sessions/${encodePathSegment(sessionId)}/cancel",
         )
 
+    public fun heartbeatPlaybackSession(sessionId: String): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "POST",
+            pathAndQuery = "/playback/sessions/${encodePathSegment(sessionId)}/heartbeat",
+        )
+
     public fun hlsSegment(
         sessionId: String,
         segmentName: String,
@@ -1204,12 +1210,16 @@ export class NakoClient {
     return this.requestText("GET", `/sources/${encodeURIComponent(sourceId)}/stream/hls/playlist.m3u8`, { query: capabilities });
   }
 
-  getPlaybackSession(sessionId: string): Promise<TranscodeSessionResponse> {
+  getPlaybackSession(sessionId: string): Promise<PlaybackSessionResponse> {
     return this.requestJson("GET", `/playback/sessions/${encodeURIComponent(sessionId)}`);
   }
 
-  cancelPlaybackSession(sessionId: string): Promise<TranscodeSessionResponse> {
+  cancelPlaybackSession(sessionId: string): Promise<PlaybackSessionResponse> {
     return this.requestJson("POST", `/playback/sessions/${encodeURIComponent(sessionId)}/cancel`);
+  }
+
+  heartbeatPlaybackSession(sessionId: string, body: PlaybackSessionHeartbeatRequest): Promise<PlaybackSessionResponse> {
+    return this.requestJson("POST", `/playback/sessions/${encodeURIComponent(sessionId)}/heartbeat`, { body });
   }
 
   hlsSegment(sessionId: string, segmentName: string): Promise<Response> {
@@ -1353,6 +1363,7 @@ mod tests {
             "hlsPlaylist(",
             "getPlaybackSession(",
             "cancelPlaybackSession(",
+            "heartbeatPlaybackSession(",
             "getUserPlaybackState(",
             "listContinueWatching(",
             "updateUserPlaybackProgress(",
@@ -1382,6 +1393,8 @@ mod tests {
             "BrowserPlaybackTicketResponse",
             "BrowserPlaybackCapabilitiesDto",
             "BrowserPlaybackUrlDto",
+            "PlaybackSessionResponse",
+            "PlaybackSessionHeartbeatRequest",
             "limit?: number",
             "offset?: number",
             "ImageVariantQuery",
@@ -1459,6 +1472,7 @@ mod tests {
             "public fun health(): NakoRequestDescriptor",
             "public fun listLibraries(page: PageQuery = PageQuery()): NakoRequestDescriptor",
             "public fun createBrowserPlaybackTicket(sourceId: String): NakoRequestDescriptor",
+            "public fun heartbeatPlaybackSession(sessionId: String): NakoRequestDescriptor",
             "public value class ClientMediaKind",
             "public val wireValue: String",
             "public val isKnown: Boolean",

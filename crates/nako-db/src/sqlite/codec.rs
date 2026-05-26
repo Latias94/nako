@@ -269,6 +269,18 @@ pub(crate) fn parse_transcode_failure_category(
         .transpose()
 }
 
+pub(crate) fn parse_playback_session_mode(value: String) -> Result<PlaybackSessionMode> {
+    PlaybackSessionMode::parse(&value).ok_or_else(|| NakoError::Database {
+        message: format!("unknown playback session mode stored in database: {value}"),
+    })
+}
+
+pub(crate) fn parse_playback_session_state(value: String) -> Result<PlaybackSessionState> {
+    PlaybackSessionState::parse(&value).ok_or_else(|| NakoError::Database {
+        message: format!("unknown playback session state stored in database: {value}"),
+    })
+}
+
 pub(crate) fn ingestion_failure_phase_to_str(phase: IngestionFailurePhase) -> &'static str {
     phase.as_str()
 }
@@ -828,6 +840,29 @@ pub(crate) fn row_to_transcode_session(row: SqliteRow) -> Result<TranscodeSessio
         updated_at: row_get(&row, "updated_at")?,
         started_at: row_get(&row, "started_at")?,
         completed_at: row_get(&row, "completed_at")?,
+    })
+}
+
+pub(crate) fn row_to_playback_session(row: SqliteRow) -> Result<PlaybackSessionRecord> {
+    Ok(PlaybackSessionRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        principal_id: UserPrincipalId::new(row_get::<String>(&row, "principal_id")?)?,
+        source_id: parse_id(row_get::<String>(&row, "source_id")?)?,
+        item_id: parse_id(row_get::<String>(&row, "item_id")?)?,
+        mode: parse_playback_session_mode(row_get(&row, "mode")?)?,
+        state: parse_playback_session_state(row_get(&row, "state")?)?,
+        client_capabilities_json: row_get(&row, "client_capabilities_json")?,
+        transcode_session_id: parse_optional_id(row_get::<Option<String>>(
+            &row,
+            "transcode_session_id",
+        )?)?,
+        position_ms: optional_i64_to_u64(row_get(&row, "position_ms")?)?,
+        duration_ms: optional_i64_to_u64(row_get(&row, "duration_ms")?)?,
+        last_heartbeat_at_ms: row_get(&row, "last_heartbeat_at_ms")?,
+        started_at_ms: row_get(&row, "started_at_ms")?,
+        ended_at_ms: row_get(&row, "ended_at_ms")?,
+        created_at: row_get(&row, "created_at")?,
+        updated_at: row_get(&row, "updated_at")?,
     })
 }
 

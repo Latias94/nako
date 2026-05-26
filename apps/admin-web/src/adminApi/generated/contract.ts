@@ -109,8 +109,8 @@ export interface AdminJobsQuery extends AdminPageQuery {
 }
 
 export interface AdminPlaybackSessionsQuery extends AdminPageQuery {
+  principal_id?: string;
   source_id?: string;
-  kind?: string;
   state?: string;
 }
 
@@ -1071,18 +1071,20 @@ export interface AdminJobListResponse {
 
 export interface AdminPlaybackSessionListItem {
   id: string;
+  principal_id: string;
   source_id: string;
-  kind: string;
-  request_key: string;
+  item_id: string;
+  mode: string;
   state: string;
-  failure_category: string | null;
-  has_failure_message: boolean;
+  transcode_session_id: string | null;
+  has_client_capabilities: boolean;
   active: boolean;
   terminal: boolean;
   created_at: string;
   updated_at: string;
-  started_at: string | null;
-  completed_at: string | null;
+  started_at_ms: number;
+  ended_at_ms: number | null;
+  last_heartbeat_at_ms: number | null;
 }
 
 export interface AdminPlaybackSessionListResponse {
@@ -1622,6 +1624,46 @@ export interface AdminLocalPasswordResponse {
   local_password_configured: boolean;
 }
 
+export interface AdminInvitationRecord {
+  invitation_id: string;
+  created_by_user_id: string;
+  email_or_username: string | null;
+  status: "pending" | "redeemed" | "revoked" | "expired";
+  roles: AdminUserRole[];
+  expires_at_ms: number;
+  redeemed_at_ms: number | null;
+  redeemed_by_user_id: string | null;
+  revoked_at_ms: number | null;
+  created_at_ms: number;
+  updated_at_ms: number;
+}
+
+export interface AdminInvitationListResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  invitations: AdminInvitationRecord[];
+  page: PageInfo;
+}
+
+export interface AdminInvitationResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  invitation: AdminInvitationRecord;
+}
+
+export interface AdminCreateInvitationResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  invitation: AdminInvitationRecord;
+  token: string;
+}
+
+export interface AdminCreateInvitationRequest {
+  email_or_username?: string | null;
+  roles?: AdminUserRole[];
+  expires_in_ms?: number | null;
+}
+
 export interface AdminLibraryAccessPolicyRecord {
   scope: AdminLibraryAccessPolicyScope;
   library_id: string;
@@ -1679,6 +1721,7 @@ export interface AdminServerConfigDiagnosticsResponse {
       metadata: boolean;
       catalog: boolean;
       playback_state: boolean;
+      playback_sessions: boolean;
       transcode_sessions: boolean;
       event_outbox: boolean;
       addons: boolean;

@@ -31,6 +31,8 @@ Exit criteria:
 
 ## M3 - Playback Session Runtime
 
+Status: Complete.
+
 Exit criteria:
 
 - Playback Session is distinct from Transcode Session in domain/API language.

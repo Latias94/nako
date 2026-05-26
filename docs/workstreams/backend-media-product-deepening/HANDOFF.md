@@ -5,7 +5,7 @@ Last updated: 2026-05-27
 
 ## Current State
 
-The lane is open. BMPD-020 and BMPD-030 are complete. Discovery found that
+The lane is open. BMPD-020, BMPD-030, and BMPD-040 are complete. Discovery found that
 Nako already has:
 
 - consolidated SQLite/PostgreSQL baseline migration files;
@@ -33,11 +33,21 @@ into a local user credential and session. Invitation tokens are only returned
 at creation time; stored state uses token hashes and list responses are
 redacted.
 
+BMPD-040 added durable Playback Sessions. Playback Session is now the
+user/client playback attempt; Transcode Session is an optional remux/HLS
+artifact. Direct play records sessions without fake transcode rows. Remux/HLS
+headers expose Playback Session IDs, cancellation acts on the linked artifact
+when present, HLS segment routes accept Playback Session IDs while preserving
+legacy transcode-id segment compatibility, and public/admin/generated contracts
+use Playback Session DTOs for user-facing state. The public route inventory now
+also includes invitation redemption and playback heartbeat.
+
 ## Active Task
 
-- Task ID: BMPD-040
+- Task ID: BMPD-050
 - Status: ready
-- Scope: Playback Session runtime distinct from Transcode Session.
+- Scope: Management Context Links between media/library/playback contexts and
+  permission-gated admin operations.
 
 ## Decisions
 
@@ -58,5 +68,6 @@ redacted.
 
 ## Next Action
 
-Run BMPD-040: introduce a durable Playback Session as the user/client playback
-attempt and link optional transcode artifacts to it.
+Run BMPD-050: add backend-computed Management Context Links so media clients
+can discover safe scan, metadata refresh, job, playback diagnostic, runtime
+settings, and access actions without embedding Admin Web route knowledge.

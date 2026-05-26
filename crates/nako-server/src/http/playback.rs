@@ -11,11 +11,15 @@ use axum::{
 use nako_api::public_client::{
     BrowserPlaybackCapabilitiesDto, BrowserPlaybackMode, BrowserPlaybackOutputContainer,
     BrowserPlaybackTicketRequest, BrowserPlaybackTicketResponse, BrowserPlaybackUrlDto,
-    BrowserPlaybackUrlKind, PLAYBACK_SESSION_ID_HEADER, TranscodeSessionResponse,
-    timestamp_ms_to_rfc3339, transcode_session_response_from_record,
+    BrowserPlaybackUrlKind, ClientPlaybackSessionState, PLAYBACK_SESSION_ID_HEADER,
+    PlaybackSessionHeartbeatRequest as PublicPlaybackSessionHeartbeatRequest,
+    PlaybackSessionResponse, playback_session_response_from_record, timestamp_ms_to_rfc3339,
 };
 use nako_core::AuthenticatedPrincipal;
-use nako_core::{MediaSourceId, NakoError, TranscodeSessionId};
+use nako_core::{
+    MediaSourceId, NakoError, PlaybackSessionId, PlaybackSessionMode, PlaybackSessionState,
+    TranscodeSessionId,
+};
 use nako_streaming::{
     ClientPlaybackCapabilities, DirectPlayRangeRequest, DirectPlayResponsePlan,
     DirectPlayResponseStatus, content_type_for_file_name, parse_http_range_header,
@@ -29,7 +33,8 @@ use tracing::instrument;
 
 use crate::app::{
     BrowserPlaybackTicketMode, DirectPlaySourceBody, HlsSourceRequest, IssuedBrowserPlaybackTicket,
-    NakoApp, RemuxSourceDisposition, RemuxSourceRequest,
+    NakoApp, PlaybackSessionHeartbeatRequest as AppPlaybackSessionHeartbeatRequest,
+    RemuxSourceDisposition, RemuxSourceRequest, StartPlaybackSessionRequest,
 };
 
 use super::{
@@ -63,6 +68,10 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/playback/sessions/{session_id}/cancel",
             post(cancel_playback_session),
+        )
+        .route(
+            "/playback/sessions/{session_id}/heartbeat",
+            post(heartbeat_playback_session),
         )
         .route(
             "/playback/sessions/{session_id}/hls/segments/{segment_name}",
@@ -135,7 +144,7 @@ pub(super) async fn stream_source(
     Query(ticket_query): Query<BrowserPlaybackTicketQuery>,
     headers: HeaderMap,
 ) -> ApiResult<Response> {
-    let _principal = resolve_source_playback_principal(
+    let principal = resolve_source_playback_principal(
         &app,
         principal,
         source_id,
@@ -153,8 +162,21 @@ pub(super) async fn stream_source(
         return Ok(empty_direct_play_response(&direct_play.response));
     }
 
+    let playback_session = app
+        .playback()
+        .start_playback_session(StartPlaybackSessionRequest {
+            principal_id: principal.principal_id,
+            source_id,
+            mode: PlaybackSessionMode::Direct,
+            client: Some(ClientPlaybackCapabilities::default()),
+        })
+        .await?;
     let uri = direct_play.source.locator.clone();
-    stream_direct_play_response(direct_play.body, &uri, &direct_play.response).await
+    let mut response =
+        stream_direct_play_response(direct_play.body, &uri, &direct_play.response).await?;
+    insert_playback_session_header(&mut response, playback_session.id);
+
+    Ok(response)
 }
 
 #[instrument(skip(app, principal, ticket_query, headers))]
@@ -165,7 +187,7 @@ pub(super) async fn head_stream_source(
     Query(ticket_query): Query<BrowserPlaybackTicketQuery>,
     headers: HeaderMap,
 ) -> ApiResult<Response> {
-    let _principal = resolve_source_playback_principal(
+    let principal = resolve_source_playback_principal(
         &app,
         principal,
         source_id,
@@ -179,7 +201,19 @@ pub(super) async fn head_stream_source(
         .plan_direct_play_preflight(source_id, direct_play_range_request(&headers))
         .await?;
 
-    Ok(empty_direct_play_response(&response))
+    let playback_session = app
+        .playback()
+        .start_playback_session(StartPlaybackSessionRequest {
+            principal_id: principal.principal_id,
+            source_id,
+            mode: PlaybackSessionMode::Direct,
+            client: Some(ClientPlaybackCapabilities::default()),
+        })
+        .await?;
+    let mut response = empty_direct_play_response(&response);
+    insert_playback_session_header(&mut response, playback_session.id);
+
+    Ok(response)
 }
 
 #[instrument(skip(app, principal, query, headers))]
@@ -191,7 +225,7 @@ pub(super) async fn remux_stream_source(
     headers: HeaderMap,
 ) -> ApiResult<Response> {
     let ticket = query.ticket.clone();
-    let _principal = resolve_source_playback_principal(
+    let principal = resolve_source_playback_principal(
         &app,
         principal,
         source_id,
@@ -201,14 +235,28 @@ pub(super) async fn remux_stream_source(
     .await?;
 
     let output_container = query.output_container.unwrap_or(RemuxContainer::Mp4);
-    let remux = app
+    let client: ClientPlaybackCapabilities = query.capabilities().into();
+    let playback_session = app
         .playback()
-        .remux_source_or_wait(RemuxSourceRequest {
+        .start_playback_session(StartPlaybackSessionRequest {
+            principal_id: principal.principal_id,
             source_id,
-            client: query.capabilities().into(),
+            mode: PlaybackSessionMode::Remux,
+            client: Some(client.clone()),
+        })
+        .await?;
+    let remux_start = app
+        .playback()
+        .start_remux_source(RemuxSourceRequest {
+            source_id,
+            client,
             output_container,
         })
         .await?;
+    app.playback()
+        .link_playback_session_transcode(playback_session.id, remux_start.session.id)
+        .await?;
+    let remux = app.playback().wait_for_remux_start(remux_start).await?;
 
     if remux.disposition == RemuxSourceDisposition::Cancelled {
         return Err(NakoError::Provider {
@@ -237,19 +285,13 @@ pub(super) async fn remux_stream_source(
         return Ok(empty_direct_play_response(&response_plan));
     }
 
-    let session_id = remux.session.as_ref().map(|session| session.id.to_string());
     let mut response = stream_local_file_response(
         &remux.output_path,
         &remux.output_path.display().to_string(),
         &response_plan,
     )
     .await?;
-    if let Some(session_id) = session_id {
-        response.headers_mut().insert(
-            PLAYBACK_SESSION_ID_HEADER,
-            HeaderValue::from_str(&session_id).expect("session id is a valid header value"),
-        );
-    }
+    insert_playback_session_header(&mut response, playback_session.id);
     Ok(response)
 }
 
@@ -261,7 +303,7 @@ pub(super) async fn head_remux_stream_source(
     Query(query): Query<RemuxPlaybackQuery>,
 ) -> ApiResult<Response> {
     let ticket = query.ticket.clone();
-    let _principal = resolve_source_playback_principal(
+    let principal = resolve_source_playback_principal(
         &app,
         principal,
         source_id,
@@ -271,13 +313,26 @@ pub(super) async fn head_remux_stream_source(
     .await?;
 
     let output_container = query.output_container.unwrap_or(RemuxContainer::Mp4);
+    let client: ClientPlaybackCapabilities = query.capabilities().into();
+    let playback_session = app
+        .playback()
+        .start_playback_session(StartPlaybackSessionRequest {
+            principal_id: principal.principal_id,
+            source_id,
+            mode: PlaybackSessionMode::Remux,
+            client: Some(client.clone()),
+        })
+        .await?;
     let remux = app
         .playback()
         .start_remux_source(RemuxSourceRequest {
             source_id,
-            client: query.capabilities().into(),
+            client,
             output_container,
         })
+        .await?;
+    app.playback()
+        .link_playback_session_transcode(playback_session.id, remux.session.id)
         .await?;
 
     let response_plan = plan_direct_play_response(
@@ -286,11 +341,7 @@ pub(super) async fn head_remux_stream_source(
         DirectPlayRangeRequest::None,
     );
     let mut response = empty_direct_play_response(&response_plan);
-    response.headers_mut().insert(
-        PLAYBACK_SESSION_ID_HEADER,
-        HeaderValue::from_str(&remux.session.id.to_string())
-            .expect("session id is a valid header value"),
-    );
+    insert_playback_session_header(&mut response, playback_session.id);
     Ok(response)
 }
 
@@ -302,7 +353,7 @@ pub(super) async fn hls_playlist_source(
     Query(query): Query<HlsPlaybackQuery>,
 ) -> ApiResult<Response> {
     let ticket = query.ticket.clone();
-    let _principal = resolve_source_playback_principal(
+    let principal = resolve_source_playback_principal(
         &app,
         principal,
         source_id,
@@ -311,37 +362,69 @@ pub(super) async fn hls_playlist_source(
     )
     .await?;
 
-    let playlist = app
+    let client: ClientPlaybackCapabilities = query.capabilities().into();
+    let playback_session = app
         .playback()
-        .hls_playlist(HlsSourceRequest {
+        .start_playback_session(StartPlaybackSessionRequest {
+            principal_id: principal.principal_id,
             source_id,
-            client: query.capabilities().into(),
+            mode: PlaybackSessionMode::Hls,
+            client: Some(client.clone()),
         })
         .await?;
+    let playlist = app
+        .playback()
+        .hls_playlist(HlsSourceRequest { source_id, client })
+        .await?;
+    app.playback()
+        .link_playback_session_transcode(playback_session.id, playlist.session.id)
+        .await?;
+    let body =
+        rewrite_hls_playlist_segments_for_playback_session(&playlist.body, playback_session.id);
     let body = if let Some(ticket) = ticket {
-        append_ticket_to_hls_playlist_segments(&playlist.body, &ticket)
+        append_ticket_to_hls_playlist_segments(&body, &ticket)
     } else {
-        playlist.body
+        body
     };
 
-    Ok(hls_playlist_response(
-        body,
-        Some(playlist.session.id.to_string()),
-    ))
+    Ok(hls_playlist_response(body, Some(playback_session.id)))
 }
 
 #[instrument(skip(app, principal, ticket_query))]
 pub(super) async fn hls_segment(
     State(app): State<NakoApp>,
     principal: Option<Extension<AuthenticatedPrincipal>>,
-    Path((session_id, segment_name)): Path<(TranscodeSessionId, String)>,
+    Path((session_id, segment_name)): Path<(PlaybackSessionId, String)>,
     Query(ticket_query): Query<BrowserPlaybackTicketQuery>,
 ) -> ApiResult<Response> {
-    let session = app.playback().get_transcode_session(session_id).await?;
+    let lookup = app.playback().get_playback_session(session_id).await;
+    let (source_id, transcode_session_id) = match lookup {
+        Ok(playback_session) => {
+            let transcode_session_id =
+                playback_session
+                    .transcode_session_id
+                    .ok_or_else(|| NakoError::Conflict {
+                        message: format!(
+                            "playback session {session_id} does not have an hls artifact"
+                        ),
+                    })?;
+            (playback_session.source_id, transcode_session_id)
+        }
+        Err(NakoError::NotFound { .. }) => {
+            let transcode_session_id = TranscodeSessionId::from_uuid(session_id.as_uuid());
+            let transcode_session = app
+                .playback()
+                .get_transcode_session(transcode_session_id)
+                .await?;
+            (transcode_session.source_id, transcode_session_id)
+        }
+        Err(error) => return Err(error.into()),
+    };
+
     let _principal = resolve_source_playback_principal(
         &app,
         principal,
-        session.source_id,
+        source_id,
         BrowserPlaybackTicketMode::Hls,
         ticket_query.ticket.as_deref(),
     )
@@ -349,7 +432,7 @@ pub(super) async fn hls_segment(
 
     let segment = app
         .playback()
-        .plan_hls_segment(session_id, &segment_name)
+        .plan_hls_segment(transcode_session_id, &segment_name)
         .await?;
     let total_len = tokio::fs::metadata(&segment.path)
         .await
@@ -378,9 +461,9 @@ pub(super) async fn hls_segment(
 pub(super) async fn get_playback_session(
     State(app): State<NakoApp>,
     Extension(principal): Extension<AuthenticatedPrincipal>,
-    Path(session_id): Path<TranscodeSessionId>,
-) -> ApiResult<Json<TranscodeSessionResponse>> {
-    let session = app.playback().get_transcode_session(session_id).await?;
+    Path(session_id): Path<PlaybackSessionId>,
+) -> ApiResult<Json<PlaybackSessionResponse>> {
+    let session = app.playback().get_playback_session(session_id).await?;
     require_source_access(
         &app,
         &principal,
@@ -389,16 +472,16 @@ pub(super) async fn get_playback_session(
     )
     .await?;
 
-    Ok(Json(transcode_session_response_from_record(session)))
+    Ok(Json(playback_session_response_from_record(session)))
 }
 
 #[instrument(skip(app))]
 pub(super) async fn cancel_playback_session(
     State(app): State<NakoApp>,
     Extension(principal): Extension<AuthenticatedPrincipal>,
-    Path(session_id): Path<TranscodeSessionId>,
-) -> ApiResult<Json<TranscodeSessionResponse>> {
-    let session = app.playback().get_transcode_session(session_id).await?;
+    Path(session_id): Path<PlaybackSessionId>,
+) -> ApiResult<Json<PlaybackSessionResponse>> {
+    let session = app.playback().get_playback_session(session_id).await?;
     require_source_access(
         &app,
         &principal,
@@ -407,8 +490,36 @@ pub(super) async fn cancel_playback_session(
     )
     .await?;
 
-    Ok(Json(transcode_session_response_from_record(
-        app.playback().cancel_transcode_session(session_id).await?,
+    Ok(Json(playback_session_response_from_record(
+        app.playback().cancel_playback_session(session_id).await?,
+    )))
+}
+
+#[instrument(skip(app, request))]
+pub(super) async fn heartbeat_playback_session(
+    State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
+    Path(session_id): Path<PlaybackSessionId>,
+    Json(request): Json<PublicPlaybackSessionHeartbeatRequest>,
+) -> ApiResult<Json<PlaybackSessionResponse>> {
+    let session = app.playback().get_playback_session(session_id).await?;
+    require_source_access(
+        &app,
+        &principal,
+        session.source_id,
+        RequiredLibraryAccess::Play,
+    )
+    .await?;
+
+    Ok(Json(playback_session_response_from_record(
+        app.playback()
+            .record_playback_session_heartbeat(AppPlaybackSessionHeartbeatRequest {
+                session_id,
+                state: playback_session_state_from_public(&request.state)?,
+                position_ms: request.position_ms,
+                duration_ms: request.duration_ms,
+            })
+            .await?,
     )))
 }
 
@@ -421,6 +532,23 @@ fn browser_ticket_mode_from_public(
         BrowserPlaybackMode::Hls => Ok(BrowserPlaybackTicketMode::Hls),
         BrowserPlaybackMode::Other(_) => Err(NakoError::InvalidInput {
             message: "unsupported browser playback mode".to_owned(),
+        }
+        .into()),
+    }
+}
+
+fn playback_session_state_from_public(
+    state: &ClientPlaybackSessionState,
+) -> ApiResult<PlaybackSessionState> {
+    match state {
+        ClientPlaybackSessionState::Active => Ok(PlaybackSessionState::Active),
+        ClientPlaybackSessionState::Paused => Ok(PlaybackSessionState::Paused),
+        ClientPlaybackSessionState::CancelRequested => Ok(PlaybackSessionState::CancelRequested),
+        ClientPlaybackSessionState::Cancelled => Ok(PlaybackSessionState::Cancelled),
+        ClientPlaybackSessionState::Ended => Ok(PlaybackSessionState::Ended),
+        ClientPlaybackSessionState::Failed => Ok(PlaybackSessionState::Failed),
+        ClientPlaybackSessionState::Other(value) => Err(NakoError::InvalidInput {
+            message: format!("unsupported playback session state: {value}"),
         }
         .into()),
     }
@@ -544,6 +672,32 @@ fn append_ticket_to_hls_playlist_segments(body: &str, ticket: &str) -> String {
         .join("\n")
 }
 
+fn rewrite_hls_playlist_segments_for_playback_session(
+    body: &str,
+    session_id: PlaybackSessionId,
+) -> String {
+    body.lines()
+        .map(|line| {
+            let Some(rest) = line.strip_prefix("/playback/sessions/") else {
+                return line.to_owned();
+            };
+            let Some((_old_session_id, segment_path)) = rest.split_once("/hls/segments/") else {
+                return line.to_owned();
+            };
+
+            format!("/playback/sessions/{session_id}/hls/segments/{segment_path}")
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn insert_playback_session_header(response: &mut Response, session_id: PlaybackSessionId) {
+    response.headers_mut().insert(
+        PLAYBACK_SESSION_ID_HEADER,
+        HeaderValue::from_str(&session_id.to_string()).expect("session id is a valid header value"),
+    );
+}
+
 fn direct_play_range_request(headers: &HeaderMap) -> DirectPlayRangeRequest {
     let Some(value) = headers.get(header::RANGE) else {
         return DirectPlayRangeRequest::None;
@@ -565,7 +719,7 @@ fn empty_direct_play_response(plan: &DirectPlayResponsePlan) -> Response {
     response
 }
 
-fn hls_playlist_response(body: String, session_id: Option<String>) -> Response {
+fn hls_playlist_response(body: String, session_id: Option<PlaybackSessionId>) -> Response {
     let body_len = body.len();
     let mut response = Body::from(body).into_response();
     let headers = response.headers_mut();
@@ -580,7 +734,8 @@ fn hls_playlist_response(body: String, session_id: Option<String>) -> Response {
     if let Some(session_id) = session_id {
         headers.insert(
             PLAYBACK_SESSION_ID_HEADER,
-            HeaderValue::from_str(&session_id).expect("session id is a valid header value"),
+            HeaderValue::from_str(&session_id.to_string())
+                .expect("session id is a valid header value"),
         );
     }
     response
@@ -683,12 +838,12 @@ pub(super) struct RemuxPlaybackQuery {
 }
 
 impl RemuxPlaybackQuery {
-    fn capabilities(self) -> PlaybackCapabilitiesQuery {
+    fn capabilities(&self) -> PlaybackCapabilitiesQuery {
         PlaybackCapabilitiesQuery {
             direct_play: self.direct_play,
-            container: self.container,
-            video_codec: self.video_codec,
-            audio_codec: self.audio_codec,
+            container: self.container.clone(),
+            video_codec: self.video_codec.clone(),
+            audio_codec: self.audio_codec.clone(),
         }
     }
 }
@@ -703,12 +858,12 @@ pub(super) struct HlsPlaybackQuery {
 }
 
 impl HlsPlaybackQuery {
-    fn capabilities(self) -> PlaybackCapabilitiesQuery {
+    fn capabilities(&self) -> PlaybackCapabilitiesQuery {
         PlaybackCapabilitiesQuery {
             direct_play: self.direct_play,
-            container: self.container,
-            video_codec: self.video_codec,
-            audio_codec: self.audio_codec,
+            container: self.container.clone(),
+            video_codec: self.video_codec.clone(),
+            audio_codec: self.audio_codec.clone(),
         }
     }
 }

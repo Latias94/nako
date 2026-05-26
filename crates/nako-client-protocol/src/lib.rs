@@ -65,6 +65,12 @@ pub const PUBLIC_CLIENT_ROUTES: &[PublicClientRoute] = &[
         rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
     },
     PublicClientRoute {
+        path: "/auth/invitations/redeem",
+        methods: &[PublicClientHttpMethod::Post],
+        kind: PublicClientRouteKind::Account,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
         path: "/auth/logout",
         methods: &[PublicClientHttpMethod::Post],
         kind: PublicClientRouteKind::Account,
@@ -216,6 +222,12 @@ pub const PUBLIC_CLIENT_ROUTES: &[PublicClientRoute] = &[
     },
     PublicClientRoute {
         path: "/playback/sessions/{session_id}/cancel",
+        methods: &[PublicClientHttpMethod::Post],
+        kind: PublicClientRouteKind::Playback,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/playback/sessions/{session_id}/heartbeat",
         methods: &[PublicClientHttpMethod::Post],
         kind: PublicClientRouteKind::Playback,
         rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
@@ -466,14 +478,16 @@ mod tests {
     fn public_route_inventory_is_protocol_owned_and_complete() {
         let paths = public_client_paths().collect::<Vec<_>>();
 
-        assert_eq!(paths.len(), 33);
+        assert_eq!(paths.len(), 35);
         assert!(paths.contains(&"/health"));
         assert!(paths.contains(&"/auth/login"));
+        assert!(paths.contains(&"/auth/invitations/redeem"));
         assert!(paths.contains(&"/auth/logout"));
         assert!(paths.contains(&"/users/me"));
         assert!(paths.contains(&"/images/{image_id}"));
         assert!(paths.contains(&"/sources/{source_id}/stream"));
         assert!(paths.contains(&"/sources/{source_id}/playback/browser-ticket"));
+        assert!(paths.contains(&"/playback/sessions/{session_id}/heartbeat"));
         assert!(paths.contains(&"/playback/sessions/{session_id}/hls/segments/{segment_name}"));
         assert!(paths.contains(&"/users/me/playback-state/items/{item_id}"));
         assert!(paths.contains(&"/users/me/playback-state/continue-watching"));
@@ -518,7 +532,7 @@ mod tests {
 
         let json_count = public_client_json_routes().count();
         let streaming_count = public_client_streaming_routes().count();
-        assert_eq!(json_count, 28);
+        assert_eq!(json_count, 30);
         assert_eq!(streaming_count, 5);
         assert_eq!(json_count + streaming_count, PUBLIC_CLIENT_ROUTES.len());
         let remux_stream = PUBLIC_CLIENT_ROUTES

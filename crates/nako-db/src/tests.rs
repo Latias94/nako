@@ -34,6 +34,7 @@ async fn nako_database_postgres_runtime_capabilities_include_managed_artwork() {
             scan_commits: true,
             metadata: true,
             catalog: true,
+            playback_sessions: true,
             playback_state: true,
             transcode_sessions: true,
             event_outbox: true,

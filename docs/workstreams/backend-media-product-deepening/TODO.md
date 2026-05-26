@@ -45,7 +45,7 @@ Last updated: 2026-05-27
 
 ## M3 - Playback Session Runtime
 
-- [ ] BMPD-040 [owner=codex] [deps=BMPD-020] [scope=crates/nako-core/src,crates/nako-db/src,crates/nako-server/src/app/playback,crates/nako-server/src/http/playback.rs,crates/nako-api/src/admin,crates/nako-client-protocol/src]
+- [x] BMPD-040 [owner=codex] [deps=BMPD-020] [scope=crates/nako-core/src,crates/nako-db/src,crates/nako-server/src/app/playback,crates/nako-server/src/http/playback.rs,crates/nako-api/src/admin,crates/nako-client-protocol/src]
   Goal: Introduce Playback Session as the durable user/client playback attempt
   and link optional Transcode Session artifacts to it.
   Validation: focused playback app/server tests for direct, remux, HLS, cancel,
@@ -55,8 +55,15 @@ Last updated: 2026-05-27
   Review: compatibility with existing transcode routes, no path/token leakage,
   direct-play sessions represented without fake transcode records, and client
   capability persistence.
-  Evidence: New records/repositories/API DTOs use Playback Session language.
-  Handoff: Desktop native playback consumes the same session contract later.
+  Evidence: New `PlaybackSession` ID/records/repository/schema/API DTOs track
+  direct, remux, and HLS playback attempts separately from optional transcode
+  artifacts. Public playback session get/cancel/heartbeat routes and Admin
+  playback lists now use Playback Session language. Verified with focused
+  `nako-client-protocol`, `nako-api`, `nako-db`, `nako-server`,
+  `nako-streaming`, and `nako-transcode` gates.
+  Handoff: Desktop native playback consumes the same session contract later;
+  richer player capability negotiation can build on persisted client
+  capabilities without making transcode artifacts user-facing.
 
 ## M4 - Management Context Links
 

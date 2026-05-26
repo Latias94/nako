@@ -98,10 +98,9 @@ use nako_api::{
         MetadataRawCleanupResponse, MetadataRawResponsesResponse,
     },
     public_client::{
-        ClientTranscodeFailureCategory, ClientTranscodeSessionState, CurrentUserResponse,
-        ErrorResponse, HealthResponse, LibraryListResponse, LibraryResponse, LoginRequest,
-        LoginResponse, LogoutResponse, PLAYBACK_SESSION_ID_HEADER, RedeemInvitationRequest,
-        TranscodeSessionResponse,
+        CurrentUserResponse, ErrorResponse, HealthResponse, LibraryListResponse, LibraryResponse,
+        LoginRequest, LoginResponse, LogoutResponse, PLAYBACK_SESSION_ID_HEADER,
+        PlaybackSessionResponse, RedeemInvitationRequest,
     },
 };
 use nako_core::{
@@ -127,9 +126,11 @@ use nako_core::{
     MetadataProviderAttemptId, MetadataProviderAttemptStatus, MetadataProviderErrorClass,
     MetadataRefreshMode, MetadataRepository, MetadataSource, NakoError, NewAddonRegistration,
     NewAutomationArtifact, NewAutomationProviderConfig, NewIngestionFailure, NewJob,
-    NewMetadataProviderAttempt, NewOutboxEvent, NewStagingManifestRecord, NewTranscodeSession,
-    NewVfsCacheFailure, OutboxEventStatus, PageRequest, Person, PersonId, ProviderMapping,
-    ProviderMappingId, ProviderMappingRepository, ProviderMappingStatus, ProviderRawResponse,
+    NewMetadataProviderAttempt, NewOutboxEvent, NewPlaybackSession, NewStagingManifestRecord,
+    NewTranscodeSession, NewVfsCacheFailure, OutboxEventStatus, PageRequest, Person, PersonId,
+    PlaybackSessionId, PlaybackSessionListFilter, PlaybackSessionMode, PlaybackSessionRecord,
+    PlaybackSessionRepository, PlaybackSessionState, ProviderMapping, ProviderMappingId,
+    ProviderMappingRepository, ProviderMappingStatus, ProviderRawResponse,
     ProviderRawResponseFilter, ProviderSubject, ProviderSubjectId, ProviderSubjectKind,
     RoleAssignment, StagingManifestId, StagingManifestRepository, StagingPurpose, StagingState,
     StorageErrorKind, Tag, TagId, TranscodeFailureCategory, TranscodeSessionId,

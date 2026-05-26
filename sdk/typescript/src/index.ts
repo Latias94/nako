@@ -9,6 +9,7 @@ export const NAKO_PLAYBACK_SESSION_ID_HEADER = "x-nako-playback-session-id" as c
 export const NAKO_PUBLIC_PATHS = [
   "/health",
   "/auth/login",
+  "/auth/invitations/redeem",
   "/auth/logout",
   "/users/me",
   "/libraries",
@@ -35,6 +36,7 @@ export const NAKO_PUBLIC_PATHS = [
   "/sources/{source_id}/stream/hls/playlist.m3u8",
   "/playback/sessions/{session_id}",
   "/playback/sessions/{session_id}/cancel",
+  "/playback/sessions/{session_id}/heartbeat",
   "/playback/sessions/{session_id}/hls/segments/{segment_name}",
   "/users/me/playback-state/items/{item_id}",
   "/users/me/playback-state/continue-watching",
@@ -384,6 +386,39 @@ export interface PlaybackDecisionResponse {
   source: MediaSourceDto;
 }
 
+export interface PlaybackSessionClientCapabilitiesDto {
+  audio_codecs: Array<string>;
+  containers: Array<string>;
+  direct_play: boolean;
+  video_codecs: Array<string>;
+}
+
+export interface PlaybackSessionDto {
+  client_capabilities?: PlaybackSessionClientCapabilitiesDto | null;
+  duration_ms?: number | null;
+  ended_at?: string | null;
+  id: string;
+  item_id: string;
+  last_heartbeat_at?: string | null;
+  mode: "direct" | "remux" | "hls";
+  position_ms?: number | null;
+  source_id: string;
+  started_at?: string | null;
+  state: "active" | "paused" | "cancel_requested" | "cancelled" | "ended" | "failed";
+  transcode_session_id?: string | null;
+  updated_at: string;
+}
+
+export interface PlaybackSessionHeartbeatRequest {
+  duration_ms?: number | null;
+  position_ms?: number | null;
+  state: "active" | "paused" | "cancel_requested" | "cancelled" | "ended" | "failed";
+}
+
+export interface PlaybackSessionResponse {
+  session: PlaybackSessionDto;
+}
+
 export interface PublicImageRefDto {
   etag: string | null;
   height: number | null;
@@ -394,6 +429,13 @@ export interface PublicImageRefDto {
   owner: Record<string, unknown>;
   url: string;
   width: number | null;
+}
+
+export interface RedeemInvitationRequest {
+  display_name: string;
+  password: string;
+  token: string;
+  username: string;
 }
 
 export interface SearchItemHit {
@@ -550,6 +592,10 @@ export class NakoClient {
     return this.requestJson("POST", "/auth/login", { auth: false, body });
   }
 
+  redeemInvitation(body: RedeemInvitationRequest): Promise<LoginResponse> {
+    return this.requestJson("POST", "/auth/invitations/redeem", { auth: false, body });
+  }
+
   logout(): Promise<LogoutResponse> {
     return this.requestJson("POST", "/auth/logout");
   }
@@ -658,12 +704,16 @@ export class NakoClient {
     return this.requestText("GET", `/sources/${encodeURIComponent(sourceId)}/stream/hls/playlist.m3u8`, { query: capabilities });
   }
 
-  getPlaybackSession(sessionId: string): Promise<TranscodeSessionResponse> {
+  getPlaybackSession(sessionId: string): Promise<PlaybackSessionResponse> {
     return this.requestJson("GET", `/playback/sessions/${encodeURIComponent(sessionId)}`);
   }
 
-  cancelPlaybackSession(sessionId: string): Promise<TranscodeSessionResponse> {
+  cancelPlaybackSession(sessionId: string): Promise<PlaybackSessionResponse> {
     return this.requestJson("POST", `/playback/sessions/${encodeURIComponent(sessionId)}/cancel`);
+  }
+
+  heartbeatPlaybackSession(sessionId: string, body: PlaybackSessionHeartbeatRequest): Promise<PlaybackSessionResponse> {
+    return this.requestJson("POST", `/playback/sessions/${encodeURIComponent(sessionId)}/heartbeat`, { body });
   }
 
   hlsSegment(sessionId: string, segmentName: string): Promise<Response> {
