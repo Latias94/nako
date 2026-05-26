@@ -33,6 +33,7 @@ mod library;
 mod library_reconciliation;
 mod managed_import;
 mod metadata;
+mod metadata_application;
 mod metadata_runtime;
 mod metadata_scan;
 mod nfo;

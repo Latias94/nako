@@ -592,6 +592,7 @@ async fn scan_library_addon_bulk_metadata_writeback_merges_metadata_via_side_eff
         }],
     );
     let mut profile = nako_core::MetadataProfile::from_preset(nako_core::LibraryPreset::Movies);
+    profile.refresh_mode = MetadataRefreshMode::MissingOnly;
     profile.scan.addon_scrape = true;
     profile.scan.addon_writeback = true;
     config.metadata.library_profiles.insert(library_id, profile);
@@ -675,7 +676,7 @@ async fn scan_library_addon_bulk_metadata_writeback_merges_metadata_via_side_eff
         .unwrap()
         .expect("media item should exist");
 
-    assert_eq!(item.metadata.title, "Addon Scan Writeback Title");
+    assert_eq!(item.metadata.title, "demo");
     assert_eq!(
         item.metadata.overview.as_deref(),
         Some("Merged through the Addon Side Effect runtime.")

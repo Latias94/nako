@@ -6,6 +6,12 @@ attention.
 
 ## Current Workstreams
 
+- [metadata-application-policy-seam](metadata-application-policy-seam/README.md):
+  completed backend execution lane for deepening Nako's host-owned Canonical
+  Metadata application seam. It added a `MetadataApplication` Module so Addon
+  writeback remains a fact-submission Adapter while Nako owns field locks,
+  merge mode, catalog projection, persistence, and apply reporting. Official
+  Addon adapter cleanup and scan Addon bulk continuation remain follow-ons.
 - [credential-session-auth](credential-session-auth/README.md):
   completed backend execution lane for adding Nako's first local password
   credential and durable session authority after the completed User/Role/Library

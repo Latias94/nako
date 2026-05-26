@@ -4,27 +4,33 @@ use nako_addon_protocol::{
     AddonMetadataCollection, AddonMetadataContentRating, AddonMetadataCredit,
     AddonMetadataExternalId, AddonMetadataImage, AddonMetadataPatch, AddonMetadataStudio,
 };
-use nako_catalog::plan_item_catalog_projection;
 use nako_core::{
-    AddonId, AddonMetadataWriteCatalogCommit, AddonMetadataWritePersistenceCommit,
-    AddonSideEffectRecord, CanonicalMetadata, CollectionRef, ContentRating, Credit, CreditRole,
-    ExternalId, ExternalProvider, ImageKind, ImageRef, MediaItem, MetadataMergePolicy,
-    MetadataRefreshMode, MetadataRepository, MetadataSource, NakoError, Result, StudioRef,
+    AddonMetadataWriteCatalogCommit, AddonMetadataWritePersistenceCommit, AddonSideEffectRecord,
+    CanonicalMetadata, CollectionRef, ContentRating, Credit, CreditRole, ExternalId,
+    ExternalProvider, ImageKind, ImageRef, MetadataSource, NakoError, Result, StudioRef,
 };
 use nako_db::NakoDatabase;
 
 use super::{
     side_effect_apply::AddonSideEffectApplyCommand, target::resolve_side_effect_media_item,
 };
+use crate::app::metadata_application::{
+    MetadataApplication, MetadataApplicationCommand, MetadataApplicationMode,
+    MetadataApplicationProvenance,
+};
 
 #[derive(Clone, Debug)]
 pub(super) struct AddonMetadataWriteAdapter {
+    application: MetadataApplication,
     store: NakoDatabase,
 }
 
 impl AddonMetadataWriteAdapter {
     pub(super) fn new(store: NakoDatabase) -> Self {
-        Self { store }
+        Self {
+            application: MetadataApplication::new(store.clone()),
+            store,
+        }
     }
 
     pub(super) async fn apply(
@@ -35,32 +41,33 @@ impl AddonMetadataWriteAdapter {
         let patch = parse_addon_metadata_patch(&side_effect.payload_json)?;
         let incoming = patch.apply_to(existing.metadata.clone())?;
         let source = MetadataSource::Addon(side_effect.addon_id);
-        let locks = self.store.list_field_locks(existing.id).await?;
-        let policy = MetadataMergePolicy::for_source_refresh_mode(
-            &locks,
-            &source,
-            MetadataRefreshMode::FullRefresh,
-        );
-        let merged = policy.merge(&existing.metadata, &incoming);
-        let updated = MediaItem {
-            metadata: merged,
-            ..existing
-        };
-        let projection =
-            plan_item_catalog_projection(&self.store, updated.clone(), source.clone()).await?;
+        let applied = self
+            .application
+            .apply(MetadataApplicationCommand {
+                item: existing,
+                source,
+                incoming,
+                mode: MetadataApplicationMode::LibraryProfile {
+                    library_id: side_effect.library_id,
+                },
+                provenance: MetadataApplicationProvenance::AddonSideEffect {
+                    addon_id: side_effect.addon_id,
+                    library_id: side_effect.library_id,
+                },
+            })
+            .await?;
         let catalog = AddonMetadataWriteCatalogCommit {
-            graph: Some(projection.graph),
-            search: projection.search,
+            graph: Some(applied.projection.graph),
+            search: applied.projection.search,
         };
-        let applied_source = addon_metadata_source_label(side_effect.addon_id);
 
         Ok(AddonSideEffectApplyCommand::MetadataWrite(
             AddonMetadataWritePersistenceCommit {
                 side_effect_id: side_effect.id,
-                item: updated,
+                item: applied.item,
                 catalog,
-                applied_source,
-                apply_report_json: None,
+                applied_source: applied.applied_source,
+                apply_report_json: applied.apply_report_json,
             },
         ))
     }
@@ -568,8 +575,4 @@ fn image_kind_key(kind: &ImageKind) -> String {
         ImageKind::Banner => "banner".to_owned(),
         ImageKind::Other(value) => format!("other:{}", value.to_lowercase()),
     }
-}
-
-fn addon_metadata_source_label(addon_id: AddonId) -> String {
-    format!("addon:{addon_id}")
 }

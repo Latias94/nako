@@ -9187,6 +9187,180 @@ async fn addon_side_effect_metadata_write_scalar_patch_reprojects_canonical_grap
 }
 
 #[tokio::test]
+async fn addon_side_effect_metadata_write_missing_only_preserves_existing_fields_and_fills_gaps() {
+    let (_temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
+    let library_id = source.library_id;
+    let mut library = store
+        .get_library(library_id)
+        .await
+        .unwrap()
+        .expect("library exists");
+    library.options.metadata_profile.refresh_mode = MetadataRefreshMode::MissingOnly;
+    store.upsert_library(&library).await.unwrap();
+
+    let mut item = store
+        .get_media_item(source.item_id)
+        .await
+        .unwrap()
+        .expect("media item exists");
+    item.metadata.title = "Existing Host Title".to_owned();
+    item.metadata.overview = Some("Existing host overview.".to_owned());
+    item.metadata.tagline = None;
+    store.upsert_media_item(&item).await.unwrap();
+
+    let addon = register_metadata_write_addon(&router, library_id).await;
+    let request = SubmitAddonSideEffectRequest {
+        permission: AddonPermission::MetadataWrite,
+        library_id,
+        target: AddonSideEffectTargetRequest {
+            kind: AddonSideEffectTargetKind::MediaSource,
+            id: source.id.to_string(),
+        },
+        idempotency_key: "metadata-missing-only".to_owned(),
+        provenance: serde_json::json!({"origin": "reference-addon"}),
+        payload: serde_json::json!({
+            "title": "Addon Replacement Title",
+            "overview": "Addon replacement overview.",
+            "tagline": "Addon fills the missing tagline",
+            "tags": ["addon-gap"]
+        }),
+    };
+
+    let response = addon_side_effect(&router, Some(&addon.issued.raw_token), &request).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = body_json::<AddonSideEffectResponse>(response).await;
+    assert_eq!(
+        body.side_effect.apply_status,
+        AddonSideEffectApplyStatus::Applied
+    );
+    let report = body
+        .side_effect
+        .apply_report
+        .expect("metadata application report should be returned");
+    assert_eq!(report["source"], format!("addon:{}", addon.addon_id));
+    assert_eq!(report["refresh_mode"], "missing_only");
+    assert_eq!(report["changed"], true);
+    assert!(report.get("payload").is_none());
+
+    let item = store
+        .get_media_item(source.item_id)
+        .await
+        .unwrap()
+        .expect("media item was updated");
+    assert_eq!(item.metadata.title, "Existing Host Title");
+    assert_eq!(
+        item.metadata.overview.as_deref(),
+        Some("Existing host overview.")
+    );
+    assert_eq!(
+        item.metadata.tagline.as_deref(),
+        Some("Addon fills the missing tagline")
+    );
+    assert_eq!(item.metadata.tags, vec!["addon-gap"]);
+}
+
+#[tokio::test]
+async fn addon_side_effect_metadata_write_respects_user_locked_fields() {
+    let (_temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
+    let library_id = source.library_id;
+    let mut item = store
+        .get_media_item(source.item_id)
+        .await
+        .unwrap()
+        .expect("media item exists");
+    item.metadata.title = "User Locked Title".to_owned();
+    item.metadata.overview = None;
+    store.upsert_media_item(&item).await.unwrap();
+    store
+        .upsert_field_lock(&MetadataFieldLock {
+            item_id: source.item_id,
+            field: MetadataField::Title,
+            locked: true,
+            source: MetadataSource::User,
+        })
+        .await
+        .unwrap();
+
+    let addon = register_metadata_write_addon(&router, library_id).await;
+    let request = SubmitAddonSideEffectRequest {
+        permission: AddonPermission::MetadataWrite,
+        library_id,
+        target: AddonSideEffectTargetRequest {
+            kind: AddonSideEffectTargetKind::MediaSource,
+            id: source.id.to_string(),
+        },
+        idempotency_key: "metadata-user-lock".to_owned(),
+        provenance: serde_json::json!({"origin": "reference-addon"}),
+        payload: serde_json::json!({
+            "title": "Addon Title Should Not Win",
+            "overview": "Addon can still fill an unlocked field."
+        }),
+    };
+
+    let response = addon_side_effect(&router, Some(&addon.issued.raw_token), &request).await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let item = store
+        .get_media_item(source.item_id)
+        .await
+        .unwrap()
+        .expect("media item was updated");
+    assert_eq!(item.metadata.title, "User Locked Title");
+    assert_eq!(
+        item.metadata.overview.as_deref(),
+        Some("Addon can still fill an unlocked field.")
+    );
+}
+
+#[tokio::test]
+async fn addon_side_effect_metadata_write_same_source_lock_allows_refresh() {
+    let (_temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
+    let library_id = source.library_id;
+    let mut item = store
+        .get_media_item(source.item_id)
+        .await
+        .unwrap()
+        .expect("media item exists");
+    item.metadata.title = "Addon Previous Title".to_owned();
+    store.upsert_media_item(&item).await.unwrap();
+
+    let addon = register_metadata_write_addon(&router, library_id).await;
+    store
+        .upsert_field_lock(&MetadataFieldLock {
+            item_id: source.item_id,
+            field: MetadataField::Title,
+            locked: true,
+            source: MetadataSource::Addon(addon.addon_id),
+        })
+        .await
+        .unwrap();
+
+    let request = SubmitAddonSideEffectRequest {
+        permission: AddonPermission::MetadataWrite,
+        library_id,
+        target: AddonSideEffectTargetRequest {
+            kind: AddonSideEffectTargetKind::MediaSource,
+            id: source.id.to_string(),
+        },
+        idempotency_key: "metadata-same-source-lock".to_owned(),
+        provenance: serde_json::json!({"origin": "reference-addon"}),
+        payload: serde_json::json!({
+            "title": "Addon Refreshed Title"
+        }),
+    };
+
+    let response = addon_side_effect(&router, Some(&addon.issued.raw_token), &request).await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let item = store
+        .get_media_item(source.item_id)
+        .await
+        .unwrap()
+        .expect("media item was updated");
+    assert_eq!(item.metadata.title, "Addon Refreshed Title");
+}
+
+#[tokio::test]
 async fn addon_side_effect_metadata_write_label_patch_reprojects_full_catalog_graph() {
     let (_temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
     let library_id = source.library_id;
@@ -9798,6 +9972,58 @@ async fn addon_side_effect(
         )
         .await
         .unwrap()
+}
+
+#[derive(Clone, Debug)]
+struct MetadataWriteAddonHarness {
+    addon_id: AddonId,
+    issued: AddonTokenIssuedResponse,
+}
+
+async fn register_metadata_write_addon(
+    router: &Router,
+    library_id: LibraryId,
+) -> MetadataWriteAddonHarness {
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: addon_manifest(),
+            outbound_task_dispatch_secret_env: None,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let issued = request_body_json::<AddonTokenIssuedResponse, _>(
+        router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/tokens"),
+        &IssueAddonTokenRequest {
+            label: Some("metadata runtime".to_owned()),
+        },
+    )
+    .await;
+    request_body_json::<AddonGrantsResponse, _>(
+        router,
+        Method::PUT,
+        &format!("/admin/v1/addons/{addon_id}/grants"),
+        &ReplaceAddonGrantsRequest {
+            grants: vec![AddonGrantAssignment {
+                permission: AddonPermission::MetadataWrite,
+                library_id: Some(library_id),
+            }],
+        },
+    )
+    .await;
+
+    MetadataWriteAddonHarness { addon_id, issued }
 }
 
 async fn addon_generated_artifact(

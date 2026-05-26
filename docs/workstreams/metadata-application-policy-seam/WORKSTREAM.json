@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "slug": "metadata-application-policy-seam",
+  "title": "Metadata Application Policy Seam",
+  "status": "completed",
+  "current_task": null,
+  "completed_tasks": [
+    "MPS-010",
+    "MPS-020",
+    "MPS-030",
+    "MPS-040",
+    "MPS-050"
+  ],
+  "updated": "2026-05-26",
+  "scope_kind": "execution",
+  "problem": "Addon writeback currently mixes protocol adaptation with host-owned Canonical Metadata application policy, lock-aware merge, catalog projection, and apply reporting.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/metadata-application-policy-seam/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/metadata-application-policy-seam/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/metadata-application-policy-seam/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/metadata-application-policy-seam/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/metadata-application-policy-seam/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/metadata-application-policy-seam/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python -m json.tool docs/workstreams/metadata-application-policy-seam/WORKSTREAM.json",
+    "git diff --check -- docs/workstreams/metadata-application-policy-seam docs/workstreams/README.md",
+    "cargo nextest run -p nako-server -E 'test(addon_side_effect_metadata_write) | test(scan_library_addon_bulk_metadata_writeback_merges_metadata_via_side_effect)' --no-fail-fast",
+    "cargo nextest run -p nako-core metadata --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "MPS-010",
+      "summary": "Opened host-owned metadata application seam lane and scoped Addon adapter cleanup plus bulk continuation as follow-ons."
+    },
+    {
+      "task": "MPS-020",
+      "summary": "Added characterization tests for Addon MissingOnly behavior, field locks, same-source lock refresh, catalog projection, safe apply reports, and scan-time writeback policy."
+    },
+    {
+      "task": "MPS-030",
+      "summary": "Added server app MetadataApplication Module for lock lookup, source-aware merge, catalog projection, and apply reporting."
+    },
+    {
+      "task": "MPS-040",
+      "summary": "Converted Addon metadata_write into a protocol Adapter and removed hard-coded FullRefresh from the Addon apply path."
+    },
+    {
+      "task": "MPS-050",
+      "summary": "Audited provider refresh and hierarchy confirmation; kept them in nako-metadata behind ports and deferred pure cross-crate extraction until reuse pressure is real."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
+    "docs/adr/0035-addon-native-metadata-writeback.md"
+  ],
+  "continue_policy": {
+    "default_action": "close",
+    "notes": "Host metadata application seam is complete for Addon writeback. Open official Addon adapter cleanup or scan Addon bulk continuation as separate follow-on lanes when prioritized."
+  }
+}
