@@ -1685,6 +1685,46 @@ export interface AdminLocalPasswordResponse {
   local_password_configured: boolean;
 }
 
+export interface AdminInvitationRecord {
+  invitation_id: string;
+  created_by_user_id: string;
+  email_or_username: string | null;
+  status: "pending" | "redeemed" | "revoked" | "expired";
+  roles: AdminUserRole[];
+  expires_at_ms: number;
+  redeemed_at_ms: number | null;
+  redeemed_by_user_id: string | null;
+  revoked_at_ms: number | null;
+  created_at_ms: number;
+  updated_at_ms: number;
+}
+
+export interface AdminInvitationListResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  invitations: AdminInvitationRecord[];
+  page: PageInfo;
+}
+
+export interface AdminInvitationResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  invitation: AdminInvitationRecord;
+}
+
+export interface AdminCreateInvitationResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  invitation: AdminInvitationRecord;
+  token: string;
+}
+
+export interface AdminCreateInvitationRequest {
+  email_or_username?: string | null;
+  roles?: AdminUserRole[];
+  expires_in_ms?: number | null;
+}
+
 export interface AdminLibraryAccessPolicyRecord {
   scope: AdminLibraryAccessPolicyScope;
   library_id: string;

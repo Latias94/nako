@@ -1,7 +1,7 @@
 use nako_client_protocol::PageInfo;
 use nako_core::{
     LibraryAccessLevel, LibraryAccessPolicy, LibraryAccessPolicyScope, LibraryId, User, UserId,
-    UserRole, UserStatus,
+    UserInvitationId, UserInvitationRecord, UserInvitationStatus, UserRole, UserStatus,
 };
 use serde::{Deserialize, Serialize};
 
@@ -86,6 +86,70 @@ pub struct AdminLocalPasswordResponse {
     pub public_api_version: String,
     pub user_id: UserId,
     pub local_password_configured: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminInvitationListResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub invitations: Vec<AdminInvitationRecord>,
+    pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminInvitationResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub invitation: AdminInvitationRecord,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminCreateInvitationResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub invitation: AdminInvitationRecord,
+    pub token: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminInvitationRecord {
+    pub invitation_id: UserInvitationId,
+    pub created_by_user_id: UserId,
+    pub email_or_username: Option<String>,
+    pub status: UserInvitationStatus,
+    pub roles: Vec<UserRole>,
+    pub expires_at_ms: i64,
+    pub redeemed_at_ms: Option<i64>,
+    pub redeemed_by_user_id: Option<UserId>,
+    pub revoked_at_ms: Option<i64>,
+    pub created_at_ms: i64,
+    pub updated_at_ms: i64,
+}
+
+impl From<UserInvitationRecord> for AdminInvitationRecord {
+    fn from(value: UserInvitationRecord) -> Self {
+        Self {
+            invitation_id: value.id,
+            created_by_user_id: value.created_by_user_id,
+            email_or_username: value.email_or_username,
+            status: value.status,
+            roles: value.roles,
+            expires_at_ms: value.expires_at_ms,
+            redeemed_at_ms: value.redeemed_at_ms,
+            redeemed_by_user_id: value.redeemed_by_user_id,
+            revoked_at_ms: value.revoked_at_ms,
+            created_at_ms: value.created_at_ms,
+            updated_at_ms: value.updated_at_ms,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminCreateInvitationRequest {
+    pub email_or_username: Option<String>,
+    #[serde(default)]
+    pub roles: Vec<UserRole>,
+    pub expires_in_ms: Option<i64>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

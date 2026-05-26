@@ -4,8 +4,8 @@ use super::PageRequest;
 use crate::Result;
 use crate::{
     EffectiveLibraryAccess, LibraryAccessPolicy, LibraryAccessPolicyScope, LibraryId,
-    LocalCredentialRecord, RoleAssignment, User, UserId, UserPrincipalId, UserRole, UserSessionId,
-    UserSessionRecord,
+    LocalCredentialRecord, RoleAssignment, User, UserId, UserInvitationId, UserInvitationRecord,
+    UserPrincipalId, UserRole, UserSessionId, UserSessionRecord,
 };
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -17,6 +17,42 @@ pub struct LibraryAccessPolicyFilter {
 
 #[async_trait]
 pub trait IdentityAccessRepository: Send + Sync {
+    async fn create_user_invitation(&self, invitation: &UserInvitationRecord) -> Result<()>;
+
+    async fn get_user_invitation(
+        &self,
+        invitation_id: UserInvitationId,
+    ) -> Result<Option<UserInvitationRecord>>;
+
+    async fn get_user_invitation_by_token_hash(
+        &self,
+        token_hash: &str,
+    ) -> Result<Option<UserInvitationRecord>>;
+
+    async fn list_user_invitations(&self, page: PageRequest) -> Result<Vec<UserInvitationRecord>>;
+
+    async fn mark_user_invitation_redeemed(
+        &self,
+        invitation_id: UserInvitationId,
+        redeemed_by_user_id: UserId,
+        redeemed_at_ms: i64,
+    ) -> Result<Option<UserInvitationRecord>>;
+
+    async fn redeem_user_invitation(
+        &self,
+        invitation_id: UserInvitationId,
+        user: &User,
+        credential: &LocalCredentialRecord,
+        assignments: &[RoleAssignment],
+        redeemed_at_ms: i64,
+    ) -> Result<Option<UserInvitationRecord>>;
+
+    async fn revoke_user_invitation(
+        &self,
+        invitation_id: UserInvitationId,
+        revoked_at_ms: i64,
+    ) -> Result<Option<UserInvitationRecord>>;
+
     async fn upsert_user(&self, user: &User) -> Result<()>;
 
     async fn get_user(&self, id: UserId) -> Result<Option<User>>;

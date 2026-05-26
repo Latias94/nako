@@ -86,6 +86,19 @@ fn public_paths() -> Value {
         }),
     );
     paths.insert(
+        "/auth/invitations/redeem".to_owned(),
+        json!({
+            "post": public_json_post_with_body(
+                "redeemInvitation",
+                "Redeem a local invitation into a user session.",
+                "account",
+                vec![],
+                schema_ref("RedeemInvitationRequest"),
+                schema_ref("LoginResponse")
+            )
+        }),
+    );
+    paths.insert(
         "/auth/logout".to_owned(),
         json!({
             "post": json_post("logout", "Revoke the current local user session.", "account", vec![], schema_ref("LogoutResponse"))
@@ -853,6 +866,12 @@ fn schemas() -> Value {
         "LoginResponse": object_schema(&["session", "account"], json!({
             "session": schema_ref("UserSessionDto"),
             "account": schema_ref("CurrentUserResponse")
+        })),
+        "RedeemInvitationRequest": object_schema(&["token", "username", "display_name", "password"], json!({
+            "token": string_schema(),
+            "username": string_schema(),
+            "display_name": string_schema(),
+            "password": string_schema()
         })),
         "LogoutResponse": object_schema(&["revoked"], json!({
             "revoked": boolean_schema()

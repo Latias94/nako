@@ -6,7 +6,7 @@ use axum::{
 };
 use nako_api::public_client::{
     CurrentUserDto, CurrentUserResponse, LoginRequest, LoginResponse, LogoutResponse,
-    UserSessionDto,
+    RedeemInvitationRequest, UserSessionDto,
 };
 use nako_core::{AuthenticatedPrincipal, NakoError, UserRole, UserSessionId};
 
@@ -14,7 +14,9 @@ use super::error::ApiResult;
 use crate::app::NakoApp;
 
 pub(super) fn public_routes() -> Router<NakoApp> {
-    Router::new().route("/auth/login", post(login))
+    Router::new()
+        .route("/auth/login", post(login))
+        .route("/auth/invitations/redeem", post(redeem_invitation))
 }
 
 pub(super) fn routes() -> Router<NakoApp> {
@@ -29,6 +31,36 @@ async fn login(
 ) -> ApiResult<impl IntoResponse> {
     let (issued, user, roles) = app
         .login_with_local_password(&request.username, &request.password)
+        .await?;
+    let principal = AuthenticatedPrincipal {
+        user_id: user.id,
+        principal_id: user.principal_id,
+        roles,
+        bootstrap: false,
+    };
+
+    Ok(Json(LoginResponse {
+        session: UserSessionDto {
+            token: issued.token,
+            expires_at_ms: issued.session.expires_at_ms,
+        },
+        account: CurrentUserResponse {
+            user: current_user_dto(&user.username, &user.display_name, &principal),
+        },
+    }))
+}
+
+async fn redeem_invitation(
+    State(app): State<NakoApp>,
+    Json(request): Json<RedeemInvitationRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let (issued, user, roles) = app
+        .redeem_user_invitation(
+            &request.token,
+            &request.username,
+            &request.display_name,
+            &request.password,
+        )
         .await?;
     let principal = AuthenticatedPrincipal {
         user_id: user.id,

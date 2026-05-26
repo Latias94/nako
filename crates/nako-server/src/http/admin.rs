@@ -16,11 +16,13 @@ use nako_api::{
         AdminAcquisitionIntakeCandidateListResponse, AdminArtworkConfigDiagnostics,
         AdminAuthConfigDiagnostics, AdminCatalogGovernanceItem,
         AdminCatalogGovernanceItemListResponse, AdminCatalogGovernanceProviderMappingReviewRequest,
-        AdminConfigPlaybackDiagnostics, AdminConfigStagingDiagnostics, AdminCreateUserRequest,
+        AdminConfigPlaybackDiagnostics, AdminConfigStagingDiagnostics,
+        AdminCreateInvitationRequest, AdminCreateInvitationResponse, AdminCreateUserRequest,
         AdminDatabaseBackendCapabilitiesDiagnostics, AdminDatabaseConfigDiagnostics,
         AdminGeneratedArtifactProposal, AdminGeneratedArtifactProposalListResponse,
         AdminGeneratedArtifactReviewPlanResponse, AdminGeneratedArtifactReviewRequest,
-        AdminGeneratedArtifactReviewResponse, AdminJobCancelRequestResponse, AdminJobListItem,
+        AdminGeneratedArtifactReviewResponse, AdminInvitationListResponse, AdminInvitationRecord,
+        AdminInvitationResponse, AdminJobCancelRequestResponse, AdminJobListItem,
         AdminJobListResponse, AdminLibraryAccessLevel, AdminLibraryAccessPolicyDeleteResponse,
         AdminLibraryAccessPolicyListResponse, AdminLibraryAccessPolicyRecord,
         AdminLibraryAccessPolicyResponse, AdminLibraryAccessReason, AdminLibraryAccessSummary,
@@ -67,7 +69,7 @@ use nako_core::{
     ArtworkCandidateId, AutomationArtifactId, ImageKind, JobId, LibraryAccessPolicy,
     LibraryAccessPolicyFilter, LibraryAccessPolicyScope, LibraryId, ManagedArtworkArtifactId,
     ManagedArtworkIngestId, MediaItemId, NakoError, PageRequest, ProviderMappingId, RoleAssignment,
-    User, UserId, UserPrincipalId, UserRole, UserStatus,
+    User, UserId, UserInvitationId, UserPrincipalId, UserRole, UserStatus,
 };
 use nako_db::DatabaseBackendCapabilities;
 use nako_transcode::{
@@ -142,6 +144,14 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/admin/v1/access/users",
             get(list_admin_access_users).post(create_admin_access_user),
+        )
+        .route(
+            "/admin/v1/access/invitations",
+            get(list_admin_access_invitations).post(create_admin_access_invitation),
+        )
+        .route(
+            "/admin/v1/access/invitations/{invitation_id}/revoke",
+            post(revoke_admin_access_invitation),
         )
         .route(
             "/admin/v1/access/users/{user_id}/roles",
@@ -998,6 +1008,62 @@ pub(super) async fn create_admin_access_user(
         admin_api_version: ADMIN_API_VERSION.to_owned(),
         public_api_version: API_VERSION.to_owned(),
         user: admin_access_user_record(&app, user).await?,
+    }))
+}
+
+pub(super) async fn list_admin_access_invitations(
+    State(app): State<NakoApp>,
+    Query(query): Query<AdminAccessUsersQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let page: PageRequest = query.page.try_into()?;
+    let invitations = app.list_user_invitations(page).await?;
+    let returned = invitations.len();
+    let invitations = invitations
+        .into_iter()
+        .map(AdminInvitationRecord::from)
+        .collect();
+
+    Ok(Json(AdminInvitationListResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        invitations,
+        page: page_info_from_request(page, returned),
+    }))
+}
+
+pub(super) async fn create_admin_access_invitation(
+    State(app): State<NakoApp>,
+    Extension(principal): Extension<nako_core::AuthenticatedPrincipal>,
+    Json(request): Json<AdminCreateInvitationRequest>,
+) -> ApiResult<impl IntoResponse> {
+    validate_admin_access_roles(&request.roles)?;
+    let issued = app
+        .create_user_invitation(
+            principal.user_id,
+            request.email_or_username,
+            request.roles,
+            request.expires_in_ms,
+        )
+        .await?;
+
+    Ok(Json(AdminCreateInvitationResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        invitation: AdminInvitationRecord::from(issued.invitation),
+        token: issued.token,
+    }))
+}
+
+pub(super) async fn revoke_admin_access_invitation(
+    State(app): State<NakoApp>,
+    Path(invitation_id): Path<UserInvitationId>,
+) -> ApiResult<impl IntoResponse> {
+    let invitation = app.revoke_user_invitation(invitation_id).await?;
+
+    Ok(Json(AdminInvitationResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        invitation: AdminInvitationRecord::from(invitation),
     }))
 }
 

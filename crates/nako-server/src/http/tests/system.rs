@@ -2575,6 +2575,121 @@ async fn local_session_auth_login_me_and_logout_use_real_user_principal() {
 }
 
 #[tokio::test]
+async fn invitation_registration_redeems_once_and_does_not_list_raw_tokens() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let token = "test-admin-token";
+    let router = test_router_with_bearer_auth(temp.path().to_path_buf(), library_id, token).await;
+
+    let issued = request_body_json_with_bearer::<AdminCreateInvitationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/access/invitations",
+        &AdminCreateInvitationRequest {
+            email_or_username: Some("invitee@example.test".to_owned()),
+            roles: vec![UserRole::Viewer],
+            expires_in_ms: Some(60 * 60 * 1_000),
+        },
+        token,
+    )
+    .await;
+    assert!(issued.token.starts_with("nako_inv_"));
+    assert_eq!(
+        issued.invitation.email_or_username.as_deref(),
+        Some("invitee@example.test")
+    );
+    assert_eq!(issued.invitation.roles, vec![UserRole::Viewer]);
+
+    let listed = request_json_with_bearer::<AdminInvitationListResponse>(
+        &router,
+        Method::GET,
+        "/admin/v1/access/invitations",
+        token,
+    )
+    .await;
+    assert_eq!(listed.invitations.len(), 1);
+    assert_eq!(
+        listed.invitations[0].invitation_id,
+        issued.invitation.invitation_id
+    );
+    let listed_json = serde_json::to_string(&listed).unwrap();
+    assert!(!listed_json.contains(&issued.token));
+    assert!(!listed_json.contains("token_hash"));
+
+    let redeemed = request_body_json::<LoginResponse, _>(
+        &router,
+        Method::POST,
+        "/auth/invitations/redeem",
+        &RedeemInvitationRequest {
+            token: issued.token.clone(),
+            username: "invited-viewer".to_owned(),
+            display_name: "Invited Viewer".to_owned(),
+            password: "correct horse battery staple".to_owned(),
+        },
+    )
+    .await;
+    assert!(redeemed.session.token.starts_with("nako_sess_"));
+    assert_eq!(redeemed.account.user.username, "invited-viewer");
+    assert!(redeemed.account.user.roles.contains(&"viewer".to_owned()));
+
+    let duplicate = response_body_json(
+        &router,
+        Method::POST,
+        "/auth/invitations/redeem",
+        &RedeemInvitationRequest {
+            token: issued.token.clone(),
+            username: "second-user".to_owned(),
+            display_name: "Second User".to_owned(),
+            password: "correct horse battery staple".to_owned(),
+        },
+    )
+    .await;
+    assert_eq!(duplicate.status(), StatusCode::UNAUTHORIZED);
+
+    let revoked_issue = request_body_json_with_bearer::<AdminCreateInvitationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/access/invitations",
+        &AdminCreateInvitationRequest {
+            email_or_username: None,
+            roles: vec![UserRole::Viewer],
+            expires_in_ms: Some(60 * 60 * 1_000),
+        },
+        token,
+    )
+    .await;
+    let revoke_path = format!(
+        "/admin/v1/access/invitations/{}/revoke",
+        revoked_issue.invitation.invitation_id
+    );
+    let revoked = request_json_with_bearer::<AdminInvitationResponse>(
+        &router,
+        Method::POST,
+        &revoke_path,
+        token,
+    )
+    .await;
+    assert_eq!(
+        revoked.invitation.status,
+        nako_core::UserInvitationStatus::Revoked
+    );
+
+    let revoked_redeem = response_body_json(
+        &router,
+        Method::POST,
+        "/auth/invitations/redeem",
+        &RedeemInvitationRequest {
+            token: revoked_issue.token,
+            username: "revoked-user".to_owned(),
+            display_name: "Revoked User".to_owned(),
+            password: "correct horse battery staple".to_owned(),
+        },
+    )
+    .await;
+    assert_eq!(revoked_redeem.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
 async fn local_session_auth_rejects_disabled_users() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();

@@ -31,9 +31,10 @@ pub use nako_client_protocol::{
     MediaItemDto, MediaProbeDto, MediaSourceDto, MediaStreamDto, MetadataProfileDto,
     MetadataScanPolicyDto, PLAYBACK_SESSION_ID_HEADER, PageInfo, PeopleResponse, PersonDto,
     PersonItemsResponse, PersonResponse, PlaybackDecisionResponse, PublicImageRefDto,
-    SearchItemHit, SearchResponse, SetWatchedStateRequest, SourceProbeResponse, StudioRefDto,
-    TagDto, TagItemsResponse, TagsResponse, TranscodeSessionDto, TranscodeSessionResponse,
-    UpdatePlaybackProgressRequest, UserPlaybackStateDto, UserPlaybackStateResponse, UserSessionDto,
+    RedeemInvitationRequest, SearchItemHit, SearchResponse, SetWatchedStateRequest,
+    SourceProbeResponse, StudioRefDto, TagDto, TagItemsResponse, TagsResponse, TranscodeSessionDto,
+    TranscodeSessionResponse, UpdatePlaybackProgressRequest, UserPlaybackStateDto,
+    UserPlaybackStateResponse, UserSessionDto,
 };
 
 #[must_use]

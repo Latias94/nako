@@ -1092,6 +1092,10 @@ export class NakoClient {
     return this.requestJson("POST", "/auth/login", { auth: false, body });
   }
 
+  redeemInvitation(body: RedeemInvitationRequest): Promise<LoginResponse> {
+    return this.requestJson("POST", "/auth/invitations/redeem", { auth: false, body });
+  }
+
   logout(): Promise<LogoutResponse> {
     return this.requestJson("POST", "/auth/logout");
   }

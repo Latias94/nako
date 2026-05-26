@@ -56,7 +56,8 @@ use nako_core::{
     SourceDuplicateRelationshipStatus, SourceDuplicateRepository, SourceState, StagingManifestId,
     StagingManifestRepository, StagingPurpose, StagingState, Studio, StudioId, Tag, TagId,
     TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter,
-    TranscodeSessionRepository, TranscodeSessionState, User, UserId, UserPlaybackStateRepository,
+    TranscodeSessionRepository, TranscodeSessionState, User, UserId, UserInvitationId,
+    UserInvitationRecord, UserInvitationStatus, UserPlaybackStateRepository,
     UserPlaybackStateWrite, UserPrincipalId, UserRole, UserSessionId, UserSessionRecord,
     UserStatus, VfsCacheOperation, VfsCacheRepository, VfsCachedListing, VfsCachedObject,
     VfsCachedObjectKind, WebhookDeliveryStatus, WebhookEndpointStatus, WebhookRepository,
@@ -6131,6 +6132,135 @@ where
     );
 }
 
+async fn invitation_lifecycle_contract<S>(store: S)
+where
+    S: CredentialSessionContractBackend,
+{
+    let inviter = User {
+        id: UserId::new(),
+        principal_id: UserPrincipalId::new("invitation-admin").unwrap(),
+        username: "Invitation Admin".to_owned(),
+        display_name: "Invitation Admin".to_owned(),
+        status: UserStatus::Active,
+        created_at_ms: 1_000,
+        updated_at_ms: 1_000,
+    };
+    store.upsert_user(&inviter).await.unwrap();
+
+    let invitation = UserInvitationRecord {
+        id: UserInvitationId::new(),
+        created_by_user_id: inviter.id,
+        email_or_username: Some("invitee@example.test".to_owned()),
+        token_hash: "sha256:invitation-token-hash".to_owned(),
+        roles: vec![UserRole::Viewer],
+        status: UserInvitationStatus::Pending,
+        expires_at_ms: 86_400_000,
+        redeemed_at_ms: None,
+        redeemed_by_user_id: None,
+        revoked_at_ms: None,
+        created_at_ms: 2_000,
+        updated_at_ms: 2_000,
+    };
+    store.create_user_invitation(&invitation).await.unwrap();
+
+    assert_eq!(
+        store.get_user_invitation(invitation.id).await.unwrap(),
+        Some(invitation.clone())
+    );
+    assert_eq!(
+        store
+            .get_user_invitation_by_token_hash("sha256:invitation-token-hash")
+            .await
+            .unwrap(),
+        Some(invitation.clone())
+    );
+    assert_eq!(
+        store
+            .list_user_invitations(PageRequest::first_page())
+            .await
+            .unwrap(),
+        vec![invitation.clone()]
+    );
+
+    let invitee = User {
+        id: UserId::new(),
+        principal_id: UserPrincipalId::new("invited-user").unwrap(),
+        username: "Invited User".to_owned(),
+        display_name: "Invited User".to_owned(),
+        status: UserStatus::Active,
+        created_at_ms: 3_000,
+        updated_at_ms: 3_000,
+    };
+    let redeemed = store
+        .redeem_user_invitation(
+            invitation.id,
+            &invitee,
+            &LocalCredentialRecord {
+                user_id: invitee.id,
+                password_hash: "$argon2id$v=19$m=65536,t=3,p=1$invited$safe-hash".to_owned(),
+                updated_at_ms: 4_000,
+            },
+            &[RoleAssignment {
+                user_id: invitee.id,
+                role: UserRole::Viewer,
+                granted_at_ms: 4_000,
+            }],
+            4_000,
+        )
+        .await
+        .unwrap()
+        .expect("invitation should exist");
+    assert_eq!(redeemed.status, UserInvitationStatus::Redeemed);
+    assert_eq!(redeemed.redeemed_at_ms, Some(4_000));
+    assert_eq!(redeemed.redeemed_by_user_id, Some(invitee.id));
+    assert_eq!(redeemed.revoked_at_ms, None);
+    assert!(!redeemed.is_redeemable_at(4_001));
+    assert_eq!(
+        store.get_user(invitee.id).await.unwrap(),
+        Some(invitee.clone())
+    );
+    assert_eq!(
+        store.list_role_assignments(invitee.id).await.unwrap(),
+        vec![RoleAssignment {
+            user_id: invitee.id,
+            role: UserRole::Viewer,
+            granted_at_ms: 4_000,
+        }]
+    );
+    assert!(
+        store
+            .get_local_credential_by_user(invitee.id)
+            .await
+            .unwrap()
+            .is_some()
+    );
+
+    let unchanged = store
+        .revoke_user_invitation(invitation.id, 5_000)
+        .await
+        .unwrap()
+        .expect("invitation should still exist");
+    assert_eq!(unchanged.status, UserInvitationStatus::Redeemed);
+    assert_eq!(unchanged.revoked_at_ms, None);
+
+    let revoke_only = UserInvitationRecord {
+        id: UserInvitationId::new(),
+        token_hash: "sha256:revoke-token-hash".to_owned(),
+        created_at_ms: 6_000,
+        updated_at_ms: 6_000,
+        ..invitation
+    };
+    store.create_user_invitation(&revoke_only).await.unwrap();
+    let revoked = store
+        .revoke_user_invitation(revoke_only.id, 7_000)
+        .await
+        .unwrap()
+        .expect("invitation should exist");
+    assert_eq!(revoked.status, UserInvitationStatus::Revoked);
+    assert_eq!(revoked.revoked_at_ms, Some(7_000));
+    assert!(!revoked.is_redeemable_at(7_001));
+}
+
 database_contract_pair!(
     sqlite = sqlite_lifecycle_contract_migrate_is_idempotent,
     postgres = postgres_lifecycle_contract_migrate_is_idempotent,
@@ -6163,6 +6293,13 @@ database_contract_pair!(
     postgres = postgres_credential_session_contract_lifecycle,
     case = ContractCase::migrated(ContractFamily::CredentialSession, "lifecycle"),
     contract = credential_session_lifecycle_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_credential_session_contract_invitation_lifecycle,
+    postgres = postgres_credential_session_contract_invitation_lifecycle,
+    case = ContractCase::migrated(ContractFamily::CredentialSession, "invitation_lifecycle"),
+    contract = invitation_lifecycle_contract,
 );
 
 database_contract_pair!(

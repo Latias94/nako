@@ -70,3 +70,19 @@ python -m json.tool docs/workstreams/backend-media-product-deepening/WORKSTREAM.
     skipped.
   - `cargo nextest run -p nako-server -E 'test(admin_access) | test(local_session) | test(playback)' --no-fail-fast`
     passed: 67 passed, 274 skipped.
+- 2026-05-27: BMPD-030 added controlled invitation registration. Admin API can
+  create/list/revoke invitations, public API can redeem an invitation into a
+  local user/password/session, raw invitation tokens are stored only as hashes
+  and list responses do not expose tokens, and redemption is transactional in
+  the identity repository.
+  Verified:
+  - `cargo nextest run -p nako-db invitation_lifecycle --no-fail-fast` passed:
+    1 passed, 148 skipped.
+  - `cargo nextest run -p nako-server invitation --no-fail-fast` passed: 1
+    passed, 341 skipped.
+  - `cargo nextest run -p nako-db identity --no-fail-fast` passed: 4 passed,
+    145 skipped.
+  - `cargo nextest run -p nako-server -E 'test(admin_access) | test(local_session) | test(register) | test(invitation)' --no-fail-fast`
+    passed: 9 passed, 333 skipped.
+  - `cargo fmt --all -- --check` passed.
+  - `git diff --check` passed with Git line-ending warnings only.

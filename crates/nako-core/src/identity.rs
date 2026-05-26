@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{LibraryId, UserId, UserPrincipalId, UserSessionId};
+use crate::{LibraryId, UserId, UserInvitationId, UserPrincipalId, UserSessionId};
 
 pub const BOOTSTRAP_ADMIN_USERNAME: &str = "admin";
 pub const BOOTSTRAP_ADMIN_DISPLAY_NAME: &str = "Local administrator";
@@ -91,6 +91,64 @@ impl UserSessionRecord {
     #[must_use]
     pub const fn is_active_at(&self, now_ms: i64) -> bool {
         self.revoked_at_ms.is_none() && self.expires_at_ms > now_ms
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct UserInvitationRecord {
+    pub id: UserInvitationId,
+    pub created_by_user_id: UserId,
+    pub email_or_username: Option<String>,
+    pub token_hash: String,
+    pub roles: Vec<UserRole>,
+    pub status: UserInvitationStatus,
+    pub expires_at_ms: i64,
+    pub redeemed_at_ms: Option<i64>,
+    pub redeemed_by_user_id: Option<UserId>,
+    pub revoked_at_ms: Option<i64>,
+    pub created_at_ms: i64,
+    pub updated_at_ms: i64,
+}
+
+impl UserInvitationRecord {
+    #[must_use]
+    pub const fn is_redeemable_at(&self, now_ms: i64) -> bool {
+        self.redeemed_at_ms.is_none()
+            && self.revoked_at_ms.is_none()
+            && self.expires_at_ms > now_ms
+            && matches!(self.status, UserInvitationStatus::Pending)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UserInvitationStatus {
+    Pending,
+    Redeemed,
+    Revoked,
+    Expired,
+}
+
+impl UserInvitationStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Pending => "pending",
+            Self::Redeemed => "redeemed",
+            Self::Revoked => "revoked",
+            Self::Expired => "expired",
+        }
+    }
+
+    #[must_use]
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "pending" => Some(Self::Pending),
+            "redeemed" => Some(Self::Redeemed),
+            "revoked" => Some(Self::Revoked),
+            "expired" => Some(Self::Expired),
+            _ => None,
+        }
     }
 }
 

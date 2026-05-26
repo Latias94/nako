@@ -11,8 +11,9 @@ use nako_core::{
     AdminSettingsRepository, EffectiveLibraryAccess, IdentityAccessRepository, LibraryAccessPolicy,
     LibraryAccessPolicyFilter, LibraryAccessPolicyScope, LibraryId, ManagedArtworkRepository,
     MediaItemId, MediaRepository, MediaSource, MediaSourceId, NakoError, PageRequest, Result,
-    RoleAssignment, SelectedArtworkId, SelectedArtworkRecord, User, UserId, UserPrincipalId,
-    UserRole, UserSessionId, UserSessionRecord,
+    RoleAssignment, SelectedArtworkId, SelectedArtworkRecord, User, UserId, UserInvitationId,
+    UserInvitationRecord, UserInvitationStatus, UserPrincipalId, UserRole, UserSessionId,
+    UserSessionRecord, UserStatus,
 };
 use nako_db::{
     DatabaseBackendCapabilities, DatabaseBackendKind, DatabaseConnectOptions, NakoDatabase,
@@ -96,6 +97,12 @@ pub(crate) struct IssuedUserSession {
     pub(crate) session: UserSessionRecord,
 }
 
+#[derive(Clone, Debug)]
+pub(crate) struct IssuedUserInvitation {
+    pub(crate) token: String,
+    pub(crate) invitation: UserInvitationRecord,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct ResolvedSessionPrincipal {
     pub(crate) principal: nako_core::AuthenticatedPrincipal,
@@ -104,6 +111,8 @@ pub(crate) struct ResolvedSessionPrincipal {
 
 const USER_SESSION_TTL_MS: i64 = 30 * 24 * 60 * 60 * 1_000;
 const USER_SESSION_TOKEN_PREFIX: &str = "nako_sess_";
+const USER_INVITATION_TTL_MS: i64 = 7 * 24 * 60 * 60 * 1_000;
+const USER_INVITATION_TOKEN_PREFIX: &str = "nako_inv_";
 const MIN_LOCAL_PASSWORD_LEN: usize = 8;
 
 impl NakoApp {
@@ -245,6 +254,137 @@ impl NakoApp {
 
     pub(crate) async fn list_users(&self, page: PageRequest) -> Result<Vec<User>> {
         self.inner.store.list_users(page).await
+    }
+
+    pub(crate) async fn create_user_invitation(
+        &self,
+        created_by_user_id: UserId,
+        email_or_username: Option<String>,
+        roles: Vec<UserRole>,
+        expires_in_ms: Option<i64>,
+    ) -> Result<IssuedUserInvitation> {
+        validate_user_roles(&roles)?;
+        let now_ms = current_time_ms()?;
+        let ttl_ms = expires_in_ms.unwrap_or(USER_INVITATION_TTL_MS);
+        if ttl_ms <= 0 {
+            return Err(NakoError::InvalidInput {
+                message: "invitation expires_in_ms must be greater than zero".to_owned(),
+            });
+        }
+        let expires_at_ms = now_ms
+            .checked_add(ttl_ms)
+            .ok_or_else(|| NakoError::InvalidInput {
+                message: "invitation expiry overflowed".to_owned(),
+            })?;
+        let email_or_username = email_or_username
+            .map(|value| validate_user_text("email_or_username", value))
+            .transpose()?;
+
+        for _ in 0..8 {
+            let token = generate_user_invitation_token();
+            let invitation = UserInvitationRecord {
+                id: UserInvitationId::new(),
+                created_by_user_id,
+                email_or_username: email_or_username.clone(),
+                token_hash: hash_invitation_token(&token),
+                roles: roles.clone(),
+                status: UserInvitationStatus::Pending,
+                expires_at_ms,
+                redeemed_at_ms: None,
+                redeemed_by_user_id: None,
+                revoked_at_ms: None,
+                created_at_ms: now_ms,
+                updated_at_ms: now_ms,
+            };
+            match self.inner.store.create_user_invitation(&invitation).await {
+                Ok(()) => return Ok(IssuedUserInvitation { token, invitation }),
+                Err(NakoError::Database { message }) if message.contains("UNIQUE") => continue,
+                Err(error) => return Err(error),
+            }
+        }
+
+        Err(NakoError::Conflict {
+            message: "could not allocate a unique user invitation token".to_owned(),
+        })
+    }
+
+    pub(crate) async fn list_user_invitations(
+        &self,
+        page: PageRequest,
+    ) -> Result<Vec<UserInvitationRecord>> {
+        self.inner.store.list_user_invitations(page).await
+    }
+
+    pub(crate) async fn revoke_user_invitation(
+        &self,
+        invitation_id: UserInvitationId,
+    ) -> Result<UserInvitationRecord> {
+        self.inner
+            .store
+            .revoke_user_invitation(invitation_id, current_time_ms()?)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "user_invitation",
+                id: invitation_id.to_string(),
+            })
+    }
+
+    pub(crate) async fn redeem_user_invitation(
+        &self,
+        token: &str,
+        username: &str,
+        display_name: &str,
+        password: &str,
+    ) -> Result<(IssuedUserSession, User, Vec<UserRole>)> {
+        validate_local_password(password)?;
+        let username = validate_user_text("username", username.to_owned())?;
+        let display_name = validate_user_text("display_name", display_name.to_owned())?;
+        let now_ms = current_time_ms()?;
+        let invitation = self
+            .inner
+            .store
+            .get_user_invitation_by_token_hash(&hash_invitation_token(token))
+            .await?
+            .ok_or_else(invalid_invitation)?;
+        if !invitation.is_redeemable_at(now_ms) {
+            return Err(invalid_invitation());
+        }
+
+        let user_id = UserId::new();
+        let user = User {
+            id: user_id,
+            principal_id: UserPrincipalId::new(format!("local-user:{user_id}"))?,
+            username,
+            display_name,
+            status: UserStatus::Active,
+            created_at_ms: now_ms,
+            updated_at_ms: now_ms,
+        };
+        let roles = invitation.roles.clone();
+        let assignments = role_assignments_for_user(user.id, &roles, now_ms);
+
+        let redeemed = self
+            .inner
+            .store
+            .redeem_user_invitation(
+                invitation.id,
+                &user,
+                &nako_core::LocalCredentialRecord {
+                    user_id: user.id,
+                    password_hash: hash_local_password(password)?,
+                    updated_at_ms: now_ms,
+                },
+                &assignments,
+                now_ms,
+            )
+            .await?
+            .ok_or_else(invalid_invitation)?;
+        if redeemed.redeemed_by_user_id != Some(user.id) {
+            return Err(invalid_invitation());
+        }
+        let session = self.issue_user_session(user.id).await?;
+
+        Ok((session, user, roles))
     }
 
     pub(crate) async fn set_local_password(&self, user_id: UserId, password: &str) -> Result<()> {
@@ -573,6 +713,12 @@ fn invalid_login() -> NakoError {
     }
 }
 
+fn invalid_invitation() -> NakoError {
+    NakoError::Unauthorized {
+        message: "invalid or expired invitation".to_owned(),
+    }
+}
+
 fn generate_user_session_token() -> String {
     format!(
         "{USER_SESSION_TOKEN_PREFIX}{}{}",
@@ -583,6 +729,63 @@ fn generate_user_session_token() -> String {
 
 fn hash_session_token(token: &str) -> String {
     format!("sha256:{:x}", Sha256::digest(token.as_bytes()))
+}
+
+fn generate_user_invitation_token() -> String {
+    format!(
+        "{USER_INVITATION_TOKEN_PREFIX}{}{}",
+        uuid::Uuid::new_v4().simple(),
+        uuid::Uuid::new_v4().simple()
+    )
+}
+
+fn hash_invitation_token(token: &str) -> String {
+    format!("sha256:{:x}", Sha256::digest(token.as_bytes()))
+}
+
+fn validate_user_text(field: &str, value: String) -> Result<String> {
+    let value = value.trim().to_owned();
+    if value.is_empty() {
+        return Err(NakoError::InvalidInput {
+            message: format!("{field} cannot be empty"),
+        });
+    }
+    if value.chars().any(char::is_control) {
+        return Err(NakoError::InvalidInput {
+            message: format!("{field} cannot contain control characters"),
+        });
+    }
+
+    Ok(value)
+}
+
+fn validate_user_roles(roles: &[UserRole]) -> Result<()> {
+    let mut unique = std::collections::HashSet::new();
+    for role in roles {
+        if !unique.insert(*role) {
+            return Err(NakoError::InvalidInput {
+                message: format!("duplicate Role in request: {}", role.as_str()),
+            });
+        }
+    }
+
+    Ok(())
+}
+
+fn role_assignments_for_user(
+    user_id: UserId,
+    roles: &[UserRole],
+    granted_at_ms: i64,
+) -> Vec<RoleAssignment> {
+    roles
+        .iter()
+        .copied()
+        .map(|role| RoleAssignment {
+            user_id,
+            role,
+            granted_at_ms,
+        })
+        .collect()
 }
 
 fn validate_metadata_raw_cache_settings_request(

@@ -383,6 +383,14 @@ pub struct LoginResponse {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct RedeemInvitationRequest {
+    pub token: String,
+    pub username: String,
+    pub display_name: String,
+    pub password: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct CurrentUserResponse {
     pub user: CurrentUserDto,
 }

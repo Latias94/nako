@@ -29,7 +29,7 @@ Last updated: 2026-05-27
 
 ## M2 - Invitation Registration
 
-- [ ] BMPD-030 [owner=codex] [deps=BMPD-020] [scope=crates/nako-core/src/identity.rs,crates/nako-core/src/repository/identity.rs,crates/nako-db/src,crates/nako-api/src,crates/nako-client-protocol/src,crates/nako-server/src/app.rs,crates/nako-server/src/http/account.rs,crates/nako-server/src/http/admin.rs]
+- [x] BMPD-030 [owner=codex] [deps=BMPD-020] [scope=crates/nako-core/src/identity.rs,crates/nako-core/src/repository/identity.rs,crates/nako-db/src,crates/nako-api/src,crates/nako-client-protocol/src,crates/nako-server/src/app.rs,crates/nako-server/src/http/account.rs,crates/nako-server/src/http/admin.rs]
   Goal: Add controlled invitation-based registration and redemption while
   keeping public self-registration closed by default.
   Validation: focused `nako-db` identity contract tests; focused
@@ -37,8 +37,11 @@ Last updated: 2026-05-27
   Review: token hashing, one-time redemption, expiry, atomic user/credential/
   role/session creation, redaction, and disabled invitation behavior.
   Evidence: Admin invitation create/list/revoke routes and Public Client
-  invitation redemption route.
-  Handoff: Email delivery, recovery, and OIDC/LDAP stay follow-ons.
+  invitation redemption route. Verified with focused `nako-db` identity tests,
+  focused `nako-server` auth/invitation tests, `cargo fmt --all -- --check`,
+  and `git diff --check`.
+  Handoff: Email delivery, recovery, invitation delivery UI, and OIDC/LDAP stay
+  follow-ons.
 
 ## M3 - Playback Session Runtime
 

@@ -328,6 +328,64 @@ impl AdminSettingsRepository for NakoDatabase {
 
 #[async_trait::async_trait]
 impl IdentityAccessRepository for NakoDatabase {
+    async fn create_user_invitation(&self, invitation: &UserInvitationRecord) -> Result<()> {
+        self.backend().create_user_invitation(invitation).await
+    }
+
+    async fn get_user_invitation(
+        &self,
+        invitation_id: UserInvitationId,
+    ) -> Result<Option<UserInvitationRecord>> {
+        self.backend().get_user_invitation(invitation_id).await
+    }
+
+    async fn get_user_invitation_by_token_hash(
+        &self,
+        token_hash: &str,
+    ) -> Result<Option<UserInvitationRecord>> {
+        self.backend()
+            .get_user_invitation_by_token_hash(token_hash)
+            .await
+    }
+
+    async fn list_user_invitations(&self, page: PageRequest) -> Result<Vec<UserInvitationRecord>> {
+        self.backend().list_user_invitations(page).await
+    }
+
+    async fn mark_user_invitation_redeemed(
+        &self,
+        invitation_id: UserInvitationId,
+        redeemed_by_user_id: UserId,
+        redeemed_at_ms: i64,
+    ) -> Result<Option<UserInvitationRecord>> {
+        self.backend()
+            .mark_user_invitation_redeemed(invitation_id, redeemed_by_user_id, redeemed_at_ms)
+            .await
+    }
+
+    async fn redeem_user_invitation(
+        &self,
+        invitation_id: UserInvitationId,
+        user: &User,
+        credential: &LocalCredentialRecord,
+        assignments: &[RoleAssignment],
+        redeemed_at_ms: i64,
+    ) -> Result<Option<UserInvitationRecord>> {
+        self.backend()
+            .redeem_user_invitation(invitation_id, user, credential, assignments, redeemed_at_ms)
+            .await
+    }
+
+    async fn revoke_user_invitation(
+        &self,
+        invitation_id: UserInvitationId,
+        revoked_at_ms: i64,
+    ) -> Result<Option<UserInvitationRecord>> {
+        self.backend()
+            .revoke_user_invitation(invitation_id, revoked_at_ms)
+            .await
+    }
+
     async fn upsert_user(&self, user: &User) -> Result<()> {
         self.backend().upsert_user(user).await
     }

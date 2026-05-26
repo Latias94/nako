@@ -33,8 +33,268 @@ const USER_SESSION_SELECT: &str = r#"
             FROM user_sessions
             "#;
 
+const USER_INVITATION_SELECT: &str = r#"
+            SELECT
+                id::text AS id,
+                created_by_user_id::text AS created_by_user_id,
+                email_or_username,
+                token_hash,
+                roles_json::text AS roles_json,
+                status,
+                expires_at_ms,
+                redeemed_at_ms,
+                redeemed_by_user_id::text AS redeemed_by_user_id,
+                revoked_at_ms,
+                created_at_ms,
+                updated_at_ms
+            FROM user_invitations
+            "#;
+
 #[async_trait::async_trait]
 impl IdentityAccessRepository for PostgresStore {
+    async fn create_user_invitation(&self, invitation: &UserInvitationRecord) -> Result<()> {
+        sqlx::query(
+            r#"
+            INSERT INTO user_invitations (
+                id,
+                created_by_user_id,
+                email_or_username,
+                token_hash,
+                roles_json,
+                status,
+                expires_at_ms,
+                redeemed_at_ms,
+                redeemed_by_user_id,
+                revoked_at_ms,
+                created_at_ms,
+                updated_at_ms
+            )
+            VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10, $11, $12)
+            "#,
+        )
+        .bind(invitation.id.as_uuid())
+        .bind(invitation.created_by_user_id.as_uuid())
+        .bind(&invitation.email_or_username)
+        .bind(&invitation.token_hash)
+        .bind(invitation_roles_json(&invitation.roles)?)
+        .bind(invitation.status.as_str())
+        .bind(invitation.expires_at_ms)
+        .bind(invitation.redeemed_at_ms)
+        .bind(invitation.redeemed_by_user_id.map(|id| id.as_uuid()))
+        .bind(invitation.revoked_at_ms)
+        .bind(invitation.created_at_ms)
+        .bind(invitation.updated_at_ms)
+        .execute(self.pool())
+        .await
+        .map_err(database_error)?;
+
+        Ok(())
+    }
+
+    async fn get_user_invitation(
+        &self,
+        invitation_id: UserInvitationId,
+    ) -> Result<Option<UserInvitationRecord>> {
+        let query = format!("{USER_INVITATION_SELECT} WHERE id = $1");
+        let row = sqlx::query(&query)
+            .bind(invitation_id.as_uuid())
+            .fetch_optional(self.pool())
+            .await
+            .map_err(database_error)?;
+
+        row.map(row_to_user_invitation).transpose()
+    }
+
+    async fn get_user_invitation_by_token_hash(
+        &self,
+        token_hash: &str,
+    ) -> Result<Option<UserInvitationRecord>> {
+        let query = format!("{USER_INVITATION_SELECT} WHERE token_hash = $1");
+        let row = sqlx::query(&query)
+            .bind(token_hash)
+            .fetch_optional(self.pool())
+            .await
+            .map_err(database_error)?;
+
+        row.map(row_to_user_invitation).transpose()
+    }
+
+    async fn list_user_invitations(&self, page: PageRequest) -> Result<Vec<UserInvitationRecord>> {
+        let page = page.clamped();
+        let query = format!(
+            r#"
+            {USER_INVITATION_SELECT}
+            ORDER BY created_at_ms DESC, id ASC
+            LIMIT $1 OFFSET $2
+            "#
+        );
+        let rows = sqlx::query(&query)
+            .bind(u32_to_i64(page.limit))
+            .bind(u64_to_i64(page.offset)?)
+            .fetch_all(self.pool())
+            .await
+            .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_user_invitation).collect()
+    }
+
+    async fn mark_user_invitation_redeemed(
+        &self,
+        invitation_id: UserInvitationId,
+        redeemed_by_user_id: UserId,
+        redeemed_at_ms: i64,
+    ) -> Result<Option<UserInvitationRecord>> {
+        sqlx::query(
+            r#"
+            UPDATE user_invitations
+            SET status = 'redeemed',
+                redeemed_at_ms = $2,
+                redeemed_by_user_id = $3,
+                updated_at_ms = $2,
+                updated_at = statement_timestamp()
+            WHERE id = $1
+              AND status = 'pending'
+              AND redeemed_at_ms IS NULL
+              AND revoked_at_ms IS NULL
+            "#,
+        )
+        .bind(invitation_id.as_uuid())
+        .bind(redeemed_at_ms)
+        .bind(redeemed_by_user_id.as_uuid())
+        .execute(self.pool())
+        .await
+        .map_err(database_error)?;
+
+        self.get_user_invitation(invitation_id).await
+    }
+
+    async fn redeem_user_invitation(
+        &self,
+        invitation_id: UserInvitationId,
+        user: &User,
+        credential: &LocalCredentialRecord,
+        assignments: &[RoleAssignment],
+        redeemed_at_ms: i64,
+    ) -> Result<Option<UserInvitationRecord>> {
+        let mut transaction = self.pool().begin().await.map_err(database_error)?;
+        sqlx::query(
+            r#"
+            INSERT INTO users (
+                id,
+                principal_id,
+                username,
+                normalized_username,
+                display_name,
+                status,
+                created_at_ms,
+                updated_at_ms
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            "#,
+        )
+        .bind(user.id.as_uuid())
+        .bind(user.principal_id.as_str())
+        .bind(&user.username)
+        .bind(normalized_username(&user.username)?)
+        .bind(&user.display_name)
+        .bind(user.status.as_str())
+        .bind(user.created_at_ms)
+        .bind(user.updated_at_ms)
+        .execute(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+
+        for assignment in assignments {
+            if assignment.user_id != user.id {
+                return Err(NakoError::InvalidInput {
+                    message: "role assignment user_id must match redeemed user".to_owned(),
+                });
+            }
+            sqlx::query(
+                r#"
+                INSERT INTO user_role_assignments (user_id, role, granted_at_ms)
+                VALUES ($1, $2, $3)
+                "#,
+            )
+            .bind(assignment.user_id.as_uuid())
+            .bind(assignment.role.as_str())
+            .bind(assignment.granted_at_ms)
+            .execute(&mut *transaction)
+            .await
+            .map_err(database_error)?;
+        }
+
+        if credential.user_id != user.id {
+            return Err(NakoError::InvalidInput {
+                message: "credential user_id must match redeemed user".to_owned(),
+            });
+        }
+        sqlx::query(
+            r#"
+            INSERT INTO local_user_credentials (user_id, password_hash, updated_at_ms)
+            VALUES ($1, $2, $3)
+            "#,
+        )
+        .bind(credential.user_id.as_uuid())
+        .bind(&credential.password_hash)
+        .bind(credential.updated_at_ms)
+        .execute(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+
+        sqlx::query(
+            r#"
+            UPDATE user_invitations
+            SET status = 'redeemed',
+                redeemed_at_ms = $2,
+                redeemed_by_user_id = $3,
+                updated_at_ms = $2,
+                updated_at = statement_timestamp()
+            WHERE id = $1
+              AND status = 'pending'
+              AND redeemed_at_ms IS NULL
+              AND revoked_at_ms IS NULL
+            "#,
+        )
+        .bind(invitation_id.as_uuid())
+        .bind(redeemed_at_ms)
+        .bind(user.id.as_uuid())
+        .execute(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+
+        transaction.commit().await.map_err(database_error)?;
+
+        self.get_user_invitation(invitation_id).await
+    }
+
+    async fn revoke_user_invitation(
+        &self,
+        invitation_id: UserInvitationId,
+        revoked_at_ms: i64,
+    ) -> Result<Option<UserInvitationRecord>> {
+        sqlx::query(
+            r#"
+            UPDATE user_invitations
+            SET status = 'revoked',
+                revoked_at_ms = $2,
+                updated_at_ms = $2,
+                updated_at = statement_timestamp()
+            WHERE id = $1
+              AND status = 'pending'
+              AND redeemed_at_ms IS NULL
+              AND revoked_at_ms IS NULL
+            "#,
+        )
+        .bind(invitation_id.as_uuid())
+        .bind(revoked_at_ms)
+        .execute(self.pool())
+        .await
+        .map_err(database_error)?;
+
+        self.get_user_invitation(invitation_id).await
+    }
+
     async fn upsert_user(&self, user: &User) -> Result<()> {
         sqlx::query(
             r#"
@@ -542,6 +802,25 @@ fn row_to_user_session(row: PgRow) -> Result<UserSessionRecord> {
     })
 }
 
+fn row_to_user_invitation(row: PgRow) -> Result<UserInvitationRecord> {
+    Ok(UserInvitationRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        created_by_user_id: parse_id(row_get::<String>(&row, "created_by_user_id")?)?,
+        email_or_username: row_get(&row, "email_or_username")?,
+        token_hash: row_get(&row, "token_hash")?,
+        roles: invitation_roles_from_json(row_get(&row, "roles_json")?)?,
+        status: parse_user_invitation_status(row_get(&row, "status")?)?,
+        expires_at_ms: row_get(&row, "expires_at_ms")?,
+        redeemed_at_ms: row_get(&row, "redeemed_at_ms")?,
+        redeemed_by_user_id: row_get::<Option<String>>(&row, "redeemed_by_user_id")?
+            .map(parse_id)
+            .transpose()?,
+        revoked_at_ms: row_get(&row, "revoked_at_ms")?,
+        created_at_ms: row_get(&row, "created_at_ms")?,
+        updated_at_ms: row_get(&row, "updated_at_ms")?,
+    })
+}
+
 fn row_to_role_assignment(row: PgRow) -> Result<RoleAssignment> {
     Ok(RoleAssignment {
         user_id: parse_id(row_get::<String>(&row, "user_id")?)?,
@@ -596,6 +875,31 @@ fn parse_user_role(value: String) -> Result<UserRole> {
     UserRole::parse(&value).ok_or_else(|| NakoError::Database {
         message: format!("unknown user role stored in PostgreSQL database: {value}"),
     })
+}
+
+fn parse_user_invitation_status(value: String) -> Result<UserInvitationStatus> {
+    UserInvitationStatus::parse(&value).ok_or_else(|| NakoError::Database {
+        message: format!("unknown user invitation status stored in PostgreSQL database: {value}"),
+    })
+}
+
+fn invitation_roles_json(roles: &[UserRole]) -> Result<String> {
+    let roles = roles.iter().map(|role| role.as_str()).collect::<Vec<_>>();
+    serde_json::to_string(&roles).map_err(database_error)
+}
+
+fn invitation_roles_from_json(value: String) -> Result<Vec<UserRole>> {
+    let values = serde_json::from_str::<Vec<String>>(&value).map_err(database_error)?;
+    values
+        .into_iter()
+        .map(|value| {
+            UserRole::parse(&value).ok_or_else(|| NakoError::Database {
+                message: format!(
+                    "unknown user role stored in PostgreSQL invitation roles: {value}"
+                ),
+            })
+        })
+        .collect()
 }
 
 fn parse_library_access_level(value: String) -> Result<LibraryAccessLevel> {

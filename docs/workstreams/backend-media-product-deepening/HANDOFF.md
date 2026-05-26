@@ -5,7 +5,8 @@ Last updated: 2026-05-27
 
 ## Current State
 
-The lane is open. BMPD-020 is complete. Discovery found that Nako already has:
+The lane is open. BMPD-020 and BMPD-030 are complete. Discovery found that
+Nako already has:
 
 - consolidated SQLite/PostgreSQL baseline migration files;
 - durable users, roles, Library Access, local password credentials, login,
@@ -17,7 +18,6 @@ The lane is open. BMPD-020 is complete. Discovery found that Nako already has:
 
 The remaining backend gaps are not empty features. They are product seams:
 
-- invitation onboarding, not open registration;
 - Playback Session, not Transcode Session as the user-facing playback attempt;
 - permission-gated Management Context Links, not frontend hard-coded admin
   route knowledge.
@@ -27,11 +27,17 @@ the current schema directly. The baselines no longer contain old `-- From`
 markers, `ALTER TABLE`, add-column replay, drop-index/constraint cleanup, or
 fresh-database data cleanup. Regression tests now reject those fragments.
 
+BMPD-030 added controlled invitation onboarding. Administrators can create,
+list, and revoke invitations. Public clients can redeem a one-time invitation
+into a local user credential and session. Invitation tokens are only returned
+at creation time; stored state uses token hashes and list responses are
+redacted.
+
 ## Active Task
 
-- Task ID: BMPD-030
+- Task ID: BMPD-040
 - Status: ready
-- Scope: controlled invitation-based registration and redemption.
+- Scope: Playback Session runtime distinct from Transcode Session.
 
 ## Decisions
 
@@ -52,5 +58,5 @@ fresh-database data cleanup. Regression tests now reject those fragments.
 
 ## Next Action
 
-Run BMPD-030: add invitation creation/list/revoke for administrators and public
-invitation redemption into local user credentials plus a session.
+Run BMPD-040: introduce a durable Playback Session as the user/client playback
+attempt and link optional transcode artifacts to it.

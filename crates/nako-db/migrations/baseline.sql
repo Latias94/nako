@@ -1275,6 +1275,37 @@ CREATE INDEX user_sessions_active_idx
     ON user_sessions(expires_at_ms, user_id)
     WHERE revoked_at_ms IS NULL;
 
+CREATE TABLE user_invitations (
+    id TEXT PRIMARY KEY NOT NULL,
+    created_by_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    email_or_username TEXT,
+    token_hash TEXT NOT NULL UNIQUE,
+    roles_json TEXT NOT NULL,
+    status TEXT NOT NULL,
+    expires_at_ms INTEGER NOT NULL,
+    redeemed_at_ms INTEGER,
+    redeemed_by_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+    revoked_at_ms INTEGER,
+    created_at_ms INTEGER NOT NULL,
+    updated_at_ms INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    CHECK (length(id) > 0),
+    CHECK (length(token_hash) > 0),
+    CHECK (status IN ('pending', 'redeemed', 'revoked', 'expired')),
+    CHECK (expires_at_ms >= 0),
+    CHECK (redeemed_at_ms IS NULL OR redeemed_at_ms >= 0),
+    CHECK (revoked_at_ms IS NULL OR revoked_at_ms >= 0),
+    CHECK (created_at_ms >= 0),
+    CHECK (updated_at_ms >= 0)
+);
+
+CREATE INDEX user_invitations_status_idx
+    ON user_invitations(status, expires_at_ms, created_at_ms);
+
+CREATE INDEX user_invitations_created_by_idx
+    ON user_invitations(created_by_user_id, created_at_ms);
+
 CREATE TABLE user_role_assignments (
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     role TEXT NOT NULL,
