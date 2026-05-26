@@ -9052,7 +9052,7 @@ async fn addon_side_effect_artwork_write_rejects_unsafe_payloads_and_media_sourc
 }
 
 #[tokio::test]
-async fn addon_side_effect_metadata_write_scalar_patch_preserves_catalog_graph_sources() {
+async fn addon_side_effect_metadata_write_scalar_patch_reprojects_canonical_graph() {
     let (_temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
     let library_id = source.library_id;
     let tmdb_genre = Genre {
@@ -9167,20 +9167,8 @@ async fn addon_side_effect_metadata_write_scalar_patch_preserves_catalog_graph_s
     assert_eq!(item.metadata.title, "Scalar Addon Title");
     let item_genres = store.list_item_genres(source.item_id).await.unwrap();
     let item_tags = store.list_item_tags(source.item_id).await.unwrap();
-    assert_eq!(
-        item_genres,
-        vec![ItemGenre {
-            item_id: source.item_id,
-            genre_id: tmdb_genre.id,
-        }]
-    );
-    assert_eq!(
-        item_tags,
-        vec![ItemTag {
-            item_id: source.item_id,
-            tag_id: tmdb_tag.id,
-        }]
-    );
+    assert!(item_genres.is_empty());
+    assert!(item_tags.is_empty());
     let genres = store
         .list_genres(nako_core::PageRequest::first_page())
         .await
@@ -9192,25 +9180,14 @@ async fn addon_side_effect_metadata_write_scalar_patch_preserves_catalog_graph_s
     assert_eq!(genres, vec![tmdb_genre]);
     assert_eq!(tags, vec![tmdb_tag]);
     let hits = store
-        .search(
-            SearchQuery::from_facet_labels(
-                "Scalar-only",
-                vec![
-                    "genre:Existing Genre".to_owned(),
-                    "tag:existing-tag".to_owned(),
-                ],
-                10,
-                0,
-            )
-            .unwrap(),
-        )
+        .search(SearchQuery::from_facet_labels("Scalar-only", Vec::new(), 10, 0).unwrap())
         .await
         .unwrap();
     assert_eq!(hits[0].item_id, source.item_id);
 }
 
 #[tokio::test]
-async fn addon_side_effect_metadata_write_label_patch_only_replaces_touched_catalog_labels() {
+async fn addon_side_effect_metadata_write_label_patch_reprojects_full_catalog_graph() {
     let (_temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
     let library_id = source.library_id;
     let tmdb_genre = Genre {
@@ -9289,13 +9266,7 @@ async fn addon_side_effect_metadata_write_label_patch_only_replaces_touched_cata
     );
 
     let item_genres = store.list_item_genres(source.item_id).await.unwrap();
-    assert_eq!(
-        item_genres,
-        vec![ItemGenre {
-            item_id: source.item_id,
-            genre_id: tmdb_genre.id,
-        }]
-    );
+    assert!(item_genres.is_empty());
     let genres = store
         .list_genres(nako_core::PageRequest::first_page())
         .await
@@ -9309,15 +9280,174 @@ async fn addon_side_effect_metadata_write_label_patch_only_replaces_touched_cata
     assert_eq!(tags[0].name, "addon-tag");
     assert_eq!(tags[0].source, MetadataSource::Addon(addon_id));
     let hits = store
-        .search(
-            SearchQuery::from_facet_labels(
-                "addon-tag",
-                vec!["genre:Existing Genre".to_owned()],
-                10,
-                0,
-            )
-            .unwrap(),
-        )
+        .search(SearchQuery::from_facet_labels("addon-tag", Vec::new(), 10, 0).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(hits[0].item_id, source.item_id);
+}
+
+#[tokio::test]
+async fn addon_side_effect_metadata_write_graph_patch_hydrates_catalog_graph() {
+    let (_temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
+    let library_id = source.library_id;
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: addon_manifest(),
+            outbound_task_dispatch_secret_env: None,
+            granted_scopes: vec![
+                AddonScope::ItemMetadataRead,
+                AddonScope::ItemMetadataSuggest,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let issued = request_body_json::<AddonTokenIssuedResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/tokens"),
+        &IssueAddonTokenRequest {
+            label: Some("metadata runtime".to_owned()),
+        },
+    )
+    .await;
+    request_body_json::<AddonGrantsResponse, _>(
+        &router,
+        Method::PUT,
+        &format!("/admin/v1/addons/{addon_id}/grants"),
+        &ReplaceAddonGrantsRequest {
+            grants: vec![AddonGrantAssignment {
+                permission: AddonPermission::MetadataWrite,
+                library_id: Some(library_id),
+            }],
+        },
+    )
+    .await;
+
+    let request = SubmitAddonSideEffectRequest {
+        permission: AddonPermission::MetadataWrite,
+        library_id,
+        target: AddonSideEffectTargetRequest {
+            kind: AddonSideEffectTargetKind::MediaSource,
+            id: source.id.to_string(),
+        },
+        idempotency_key: "metadata-graph-patch".to_owned(),
+        provenance: serde_json::json!({"origin": "reference-addon"}),
+        payload: serde_json::json!({
+            "title": "Native AV Title",
+            "credits": [
+                {
+                    "name": "Alice Actor",
+                    "role": "actor",
+                    "order": 1,
+                    "external_ids": [{"provider": "javdb_actor", "value": "alice"}]
+                },
+                {"name": "Diana Director", "role": "director"}
+            ],
+            "studios": [
+                {
+                    "name": "Studio One",
+                    "external_ids": [{"provider": "javbus_studio", "value": "studio-one"}]
+                }
+            ],
+            "collections": [
+                {
+                    "name": "Series One",
+                    "sort_order": 7,
+                    "external_ids": [{"provider": "javbus_series", "value": "series-one"}]
+                }
+            ],
+            "images": [
+                {
+                    "kind": "poster",
+                    "uri": "https://images.example.test/poster.jpg",
+                    "provider": "javdb",
+                    "width": 800,
+                    "height": 1200
+                },
+                {
+                    "kind": "backdrop",
+                    "uri": "https://images.example.test/backdrop.jpg",
+                    "provider": "javbus"
+                }
+            ],
+            "ratings": [{"source": "javdb", "value": "4.8"}],
+            "external_ids": [{"provider": "javdb", "value": "abc-001"}]
+        }),
+    };
+
+    let response = addon_side_effect(&router, Some(&issued.raw_token), &request).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = body_json::<AddonSideEffectResponse>(response).await;
+    assert_eq!(
+        body.side_effect.apply_status,
+        AddonSideEffectApplyStatus::Applied
+    );
+
+    let item = store
+        .get_media_item(source.item_id)
+        .await
+        .unwrap()
+        .expect("media item was updated");
+    assert_eq!(item.metadata.title, "Native AV Title");
+    assert_eq!(item.metadata.credits.len(), 2);
+    assert_eq!(item.metadata.studios[0].name, "Studio One");
+    assert_eq!(item.metadata.collections[0].name, "Series One");
+    assert_eq!(item.metadata.images.len(), 2);
+    assert_eq!(item.metadata.external_ids[0].value, "abc-001");
+
+    let people = store.list_people(PageRequest::first_page()).await.unwrap();
+    assert_eq!(people.len(), 2);
+    assert!(people.iter().any(|person| person.name == "Alice Actor"));
+    assert!(people.iter().any(|person| person.name == "Diana Director"));
+    let credits = store.list_item_credits(source.item_id).await.unwrap();
+    assert_eq!(credits.len(), 2);
+    assert!(
+        credits
+            .iter()
+            .any(|credit| credit.role == CreditRole::Actor)
+    );
+    assert!(
+        credits
+            .iter()
+            .any(|credit| credit.role == CreditRole::Director)
+    );
+
+    let collections = store
+        .list_collections(PageRequest::first_page())
+        .await
+        .unwrap();
+    assert_eq!(collections.len(), 1);
+    assert_eq!(collections[0].name, "Series One");
+    assert_eq!(
+        store
+            .list_item_collections(source.item_id)
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+
+    let studios = store.list_studios(PageRequest::first_page()).await.unwrap();
+    assert_eq!(studios.len(), 1);
+    assert_eq!(studios[0].name, "Studio One");
+    assert_eq!(
+        store.list_item_studios(source.item_id).await.unwrap().len(),
+        1
+    );
+
+    let images = store.list_item_images(source.item_id).await.unwrap();
+    assert_eq!(images.len(), 2);
+    assert!(images.iter().any(|image| image.kind == ImageKind::Poster));
+    assert!(images.iter().any(|image| image.kind == ImageKind::Backdrop));
+
+    let hits = store
+        .search(SearchQuery::from_facet_labels("Alice Actor", Vec::new(), 10, 0).unwrap())
         .await
         .unwrap();
     assert_eq!(hits[0].item_id, source.item_id);

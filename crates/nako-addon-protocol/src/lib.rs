@@ -670,6 +670,79 @@ pub struct AddonMetadataPatch {
     pub genres: Option<Vec<String>>,
     #[serde(default)]
     pub tags: Option<Vec<String>>,
+    #[serde(default)]
+    pub ratings: Option<Vec<AddonMetadataContentRating>>,
+    #[serde(default)]
+    pub images: Option<Vec<AddonMetadataImage>>,
+    #[serde(default)]
+    pub credits: Option<Vec<AddonMetadataCredit>>,
+    #[serde(default)]
+    pub collections: Option<Vec<AddonMetadataCollection>>,
+    #[serde(default)]
+    pub studios: Option<Vec<AddonMetadataStudio>>,
+    #[serde(default)]
+    pub external_ids: Option<Vec<AddonMetadataExternalId>>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AddonMetadataContentRating {
+    pub source: String,
+    pub value: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AddonMetadataImage {
+    pub kind: String,
+    pub uri: String,
+    pub provider: String,
+    #[serde(default)]
+    pub width: Option<u32>,
+    #[serde(default)]
+    pub height: Option<u32>,
+    #[serde(default)]
+    pub language: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AddonMetadataCredit {
+    pub name: String,
+    pub role: String,
+    #[serde(default)]
+    pub character: Option<String>,
+    #[serde(default)]
+    pub order: Option<u32>,
+    #[serde(default)]
+    pub external_ids: Vec<AddonMetadataExternalId>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AddonMetadataCollection {
+    pub name: String,
+    #[serde(default)]
+    pub overview: Option<String>,
+    #[serde(default)]
+    pub sort_order: Option<u32>,
+    #[serde(default)]
+    pub external_ids: Vec<AddonMetadataExternalId>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AddonMetadataStudio {
+    pub name: String,
+    #[serde(default)]
+    pub external_ids: Vec<AddonMetadataExternalId>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AddonMetadataExternalId {
+    pub provider: String,
+    pub value: String,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -2174,7 +2247,13 @@ mod tests {
                 "runtime_minutes": null,
                 "tagline": null,
                 "genres": ["Drama"],
-                "tags": null
+                "tags": null,
+                "ratings": null,
+                "images": null,
+                "credits": null,
+                "collections": null,
+                "studios": null,
+                "external_ids": null
             })
         );
 
