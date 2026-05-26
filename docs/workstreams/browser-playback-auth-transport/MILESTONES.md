@@ -12,6 +12,9 @@ Exit criteria:
 - The accepted transport is documented.
 - ADR impact is decided.
 
+Result: DONE 2026-05-26. ADR 0036 accepts short-lived browser playback tickets
+as the first browser transport.
+
 ## M1 - Public Contract And SDK
 
 Exit criteria:

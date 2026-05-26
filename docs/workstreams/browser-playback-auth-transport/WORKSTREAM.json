@@ -3,8 +3,10 @@
   "slug": "browser-playback-auth-transport",
   "title": "Browser Playback Auth Transport",
   "status": "active",
-  "current_task": "BPAT-010",
-  "completed_tasks": [],
+  "current_task": "BPAT-020",
+  "completed_tasks": [
+    "BPAT-010"
+  ],
   "updated": "2026-05-26",
   "scope_kind": "execution",
   "problem": "Media Web needs a secure browser playback transport because normal media element requests cannot attach bearer Authorization headers.",
@@ -44,15 +46,16 @@
   "evidence": [
     {
       "task": "BPAT-010",
-      "summary": "Opened the Browser Playback Auth Transport lane after Media Web foundation closeout, with short-lived playback tickets as the recommended default pending decision review."
+      "summary": "Accepted short-lived browser playback tickets as the first browser media transport and recorded the decision in ADR 0036 after comparing cookie/session auth and JavaScript HLS/MSE with headers."
     }
   ],
   "adr_refs": [
     "docs/adr/0024-inbound-token-authentication-boundary.md",
-    "docs/adr/0028-user-playback-state-principal-and-public-contract.md"
+    "docs/adr/0028-user-playback-state-principal-and-public-contract.md",
+    "docs/adr/0036-short-lived-browser-playback-tickets.md"
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Start with BPAT-010. Do not implement stream routes before the accepted browser playback auth transport and threat model are frozen."
+    "notes": "Start BPAT-020 by adding the Public Client API/OpenAPI/SDK contract for issuing short-lived browser playback tickets. Do not implement stream route validation before the contract is accepted."
   }
 }

@@ -70,8 +70,17 @@ Use a local server and deterministic test media to verify:
 
 | Date | Task | Evidence | Result |
 | --- | --- | --- | --- |
-| 2026-05-26 | BPAT-010 opened | `DESIGN.md`, `TODO.md`, `MILESTONES.md`, `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md` | Browser Playback Auth Transport lane opened from Media Web closeout. |
+| 2026-05-26 | BPAT-010 transport decision | `DESIGN.md`, `TODO.md`, `MILESTONES.md`, `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`, `docs/adr/0036-short-lived-browser-playback-tickets.md`; `python -m json.tool docs/workstreams/browser-playback-auth-transport/WORKSTREAM.json`; `git diff --check -- docs/workstreams/browser-playback-auth-transport docs/workstreams/README.md docs/adr` | DONE. Short-lived browser playback tickets are accepted as the first browser playback transport. Cookie/session auth is deferred to credential/session UX, and JavaScript HLS/MSE with headers remains a later playback layer rather than the MVP transport. |
 
 ## Notes
 
 Fresh verification is required before marking any task, goal, or lane complete.
+
+## BPAT-010 Decision Matrix
+
+| Option | Result | Rationale |
+| --- | --- | --- |
+| Short-lived playback tickets | Accepted | Works with native media elements, Range requests, remux URLs, and HLS playlist/segment URLs without putting the long-lived bearer token in browser-visible media URLs. |
+| Cookie/session auth | Deferred | Good long-term browser model, but it depends on credential/session semantics, CSRF/same-site policy, reverse proxy behavior, logout, and account switching. |
+| JavaScript HLS/MSE with headers | Deferred | Useful for advanced HLS/MSE playback, but it does not solve direct native `<video src>` and adds browser compatibility and buffering complexity. |
+| Bearer token in media URL | Rejected | Leaks the long-lived inbound credential through history, logs, referrers, copied URLs, and devtools. |

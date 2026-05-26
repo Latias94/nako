@@ -53,3 +53,5 @@ evidence has been reviewed.
 - [0032: Pull Shared Rust Client Core Forward Behind App-Supplied Transport](0032-shared-rust-client-core-app-supplied-transport.md)
 - [0033: Version Addon Protocol Compatibility Separately From Addon and Crate Releases](0033-version-addon-protocol-independently-from-addon-and-crate-releases.md)
 - [0034: Package Addon Capabilities Into Sidecar Suites](0034-package-addon-capabilities-into-sidecar-suites.md)
+- [0035: Addon Native Metadata Writeback](0035-addon-native-metadata-writeback.md)
+- [0036: Use Short-Lived Playback Tickets for Browser Media Transport](0036-short-lived-browser-playback-tickets.md)

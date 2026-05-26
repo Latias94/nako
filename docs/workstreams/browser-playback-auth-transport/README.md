@@ -12,8 +12,8 @@ transport that lets browser playback respect Library Access, playback-session
 policy, range requests, and User Playback State without exposing privileged
 permanent URLs.
 
-Recommended default direction: short-lived playback tickets, unless BPAT-010
-proves a better transport.
+Accepted direction after BPAT-010: short-lived browser playback tickets, as
+recorded in ADR 0036.
 
 Authoritative docs:
 
@@ -24,4 +24,4 @@ Authoritative docs:
 - `WORKSTREAM.json`
 - `HANDOFF.md`
 
-First executable task: BPAT-010.
+Next executable task: BPAT-020.

@@ -54,7 +54,7 @@ When this lane closes:
 
 | Assumption | Confidence | Evidence | Consequence if wrong |
 | --- | --- | --- | --- |
-| Short-lived playback tickets are the best default browser transport. | Medium | They work with native `<video>`, Range, remux URLs, HLS playlists, and do not require browser cookies. | BPAT-010 may choose JavaScript HLS/MSE with headers or cookie/session auth instead. |
+| Short-lived playback tickets are the accepted browser transport. | High | ADR 0036 records the decision after comparing tickets, cookie/session auth, and JavaScript HLS/MSE with headers. | Revisit only if implementation proves native browser media playback cannot renew or protect tickets safely. |
 | Ticket issuance should be Public Client API-owned. | High | Playback must respect current principal, Library Access, and ADR 0028 user state boundaries. | Add an ADR before exposing any Admin-owned or privileged transport. |
 | HLS segments need the same protection as playlists. | High | Playlist-only auth would leak segment URLs or create bypass paths. | Ticket/session scope must cover playlist and segments together. |
 | Real browser playback can start with direct/remux MVP. | Medium | Some local media will be browser-playable or remuxable. | HLS/transcode may need to move earlier if browser codec support is too narrow. |
@@ -90,22 +90,23 @@ Useful for future HLS playback, not the only first transport.
 
 ## Architecture Direction
 
-The preferred contract shape is:
+The accepted contract shape is:
 
 1. Public Client requests a playback decision.
-2. Public Client requests a browser playback ticket for the selected source and
-   mode.
+2. Public Client requests a short-lived browser playback ticket for the selected
+   source and mode.
 3. Server returns browser-safe playback URLs or a compact ticket response.
 4. Browser player uses those URLs without bearer headers.
 5. Server validates every stream, remux, playlist, and segment request against
    ticket scope and current playback policy.
 6. Media Web writes progress through User Playback State.
 
-The exact route names are decided in BPAT-010/BPAT-020.
+The exact route names are finalized in BPAT-020 against ADR 0036.
 
 ## Security Requirements
 
 - Tickets must be scoped to source, mode, principal or session, and expiry.
+- Tickets must carry only opaque secret material in browser-visible URLs.
 - Tickets must not encode raw Source Locators, local paths, or storage handles
   in client-readable form.
 - Ticket validation must enforce Library Access at issuance and at use, or

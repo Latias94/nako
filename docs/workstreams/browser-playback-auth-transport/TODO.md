@@ -7,7 +7,7 @@ Task IDs use the `BPAT` prefix.
 
 ## M0 - Transport Decision
 
-- [ ] BPAT-010 [owner=planner] [deps=none] [scope=docs/workstreams/browser-playback-auth-transport,docs/adr]
+- [x] BPAT-010 [owner=codex] [deps=none] [scope=docs/workstreams/browser-playback-auth-transport,docs/adr]
   Goal: Freeze the browser playback auth transport decision, threat model, and
   API shape before implementation.
   Validation: `python -m json.tool docs/workstreams/browser-playback-auth-transport/WORKSTREAM.json`; `git diff --check -- docs/workstreams/browser-playback-auth-transport docs/workstreams/README.md`
@@ -17,6 +17,9 @@ Task IDs use the `BPAT` prefix.
   Evidence: `DESIGN.md`, `EVIDENCE_AND_GATES.md`, and optional ADR.
   Handoff: Do not implement stream routes until ticket/session/header semantics
   are accepted.
+  Result: DONE 2026-05-26. ADR 0036 accepts short-lived browser playback
+  tickets as the first transport. Cookie/session auth and JavaScript HLS/MSE
+  with headers remain alternatives or later layers, not the MVP transport.
 
 ## M1 - Public Contract And SDK
 

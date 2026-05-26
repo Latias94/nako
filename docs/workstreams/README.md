@@ -10,8 +10,8 @@ attention.
   active execution lane for choosing and implementing the secure browser
   playback transport that lets Media Web render a real player without exposing
   bearer tokens, raw Source Locators, local paths, or privileged permanent
-  stream URLs. The recommended default is short-lived playback tickets pending
-  BPAT-010 decision review.
+  stream URLs. ADR 0036 accepts short-lived browser playback tickets; BPAT-020
+  now owns the Public Client contract and SDK shape.
 - [media-web-client-foundation](media-web-client-foundation/README.md):
   closed execution lane for the first browser-based Media Web surface inside
   the shared web frontend: local media browsing, search, Media Item detail,

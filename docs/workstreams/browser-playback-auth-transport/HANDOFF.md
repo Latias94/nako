@@ -9,31 +9,33 @@ This lane was opened after Media Web Client Foundation closed. Media Web has a
 safe watch shell, but no real browser player because bearer-only `<video src>`
 cannot attach Authorization headers.
 
-The recommended default direction is short-lived playback tickets, pending
-BPAT-010 decision review.
+ADR 0036 accepts short-lived browser playback tickets as the first transport.
 
 ## Active Task
 
-- Task ID: BPAT-010
-- Owner: planner
-- Files: `docs/workstreams/browser-playback-auth-transport`, optional
-  `docs/adr`
-- Validation: `python -m json.tool docs/workstreams/browser-playback-auth-transport/WORKSTREAM.json`;
-  `git diff --check -- docs/workstreams/browser-playback-auth-transport docs/workstreams/README.md`
+- Task ID: BPAT-020
+- Owner: unassigned
+- Files: `crates/nako-api`, `sdk/typescript`,
+  `docs/workstreams/browser-playback-auth-transport`
+- Validation: `cargo test -p nako-api public_openapi -- --nocapture`;
+  `cargo run -q -p nako-api --example emit-typescript-sdk -- --output sdk/typescript/src/index.ts`;
+  `git diff --check`
 - Status: READY
-- Review: Compare short-lived playback tickets, cookie/session auth, and
-  JavaScript HLS/MSE with headers before implementation.
+- Review: Add the Public Client API/OpenAPI/SDK contract for issuing browser
+  playback tickets without exposing raw locators, local paths, bearer tokens,
+  or permanent privileged URLs.
 - Evidence: update `EVIDENCE_AND_GATES.md`
 
-## Decisions To Make First
+## Decisions Since Last Update
 
-- Is short-lived playback ticket the accepted MVP transport?
-- Does ticket issuance need a new ADR or an update to ADR 0024/0028?
-- Which playback modes are MVP: direct stream, remux, HLS, or a subset?
-- Should Library Access be revalidated at ticket use, issuance, or both?
-- How are HLS segment URLs protected?
+- Short-lived browser playback tickets are the accepted MVP transport.
+- ADR 0036 records the durable auth boundary decision.
+- Ticket validation must protect direct stream, remux, HLS playlist, and HLS
+  segment requests.
+- Ticket values are secrets and must be redacted.
+- Cookie/session auth and JavaScript HLS/MSE with headers are deferred.
 
 ## Next Recommended Action
 
-Run BPAT-010 and freeze the transport decision before touching server stream
-routes.
+Run BPAT-020 and add the Public Client contract plus generated SDK shape for
+issuing browser playback tickets.
