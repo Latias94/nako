@@ -69,6 +69,7 @@ a local server with test media is available.
 | Date | Task | Evidence | Result |
 | --- | --- | --- | --- |
 | 2026-05-26 | MWF-010 split | `DESIGN.md`, `TODO.md`, `MILESTONES.md`, `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md` | Media Web foundation lane opened from client-surface planning. |
+| 2026-05-26 | MWF-020 Public Client readiness | `cargo test -p nako-api public_openapi -- --nocapture`; `cargo run -q -p nako-api --example emit-typescript-sdk -- --output sdk/typescript/src/index.ts`; `ROUTE_API_READINESS.md` | DONE_WITH_CONCERNS. OpenAPI tests passed and SDK regeneration produced no content diff. First route matrix is recorded; app scaffold can proceed only inside the accepted boundary until public gaps are resolved. |
 
 ## Redaction And Safety Checks
 
@@ -87,4 +88,3 @@ Media Web must not expose these in normal viewer routes:
 ## Notes
 
 Fresh verification is required before marking any task, goal, or lane complete.
-

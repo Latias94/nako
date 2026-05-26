@@ -3,9 +3,10 @@
   "slug": "media-web-client-foundation",
   "title": "Media Web Client Foundation",
   "status": "active",
-  "current_task": "MWF-020",
+  "current_task": "MWF-030",
   "completed_tasks": [
-    "MWF-010"
+    "MWF-010",
+    "MWF-020"
   ],
   "updated": "2026-05-26",
   "scope_kind": "execution",
@@ -34,6 +35,10 @@
     {
       "role": "handoff",
       "path": "docs/workstreams/media-web-client-foundation/HANDOFF.md"
+    },
+    {
+      "role": "route-api-readiness",
+      "path": "docs/workstreams/media-web-client-foundation/ROUTE_API_READINESS.md"
     }
   ],
   "gates": [
@@ -47,6 +52,10 @@
     {
       "task": "MWF-010",
       "summary": "Opened the Media Web foundation lane for local-media-first browser browsing/playback through Public Client API after identity/access contract closeout."
+    },
+    {
+      "task": "MWF-020",
+      "summary": "Audited Public Client OpenAPI and TypeScript SDK readiness; recorded ready route coverage and gaps for current principal/session summary, library-scoped item browse, Recently Added, and browser playback auth transport."
     }
   ],
   "adr_refs": [
@@ -60,4 +69,3 @@
     "notes": "Run MWF-020 before app scaffolding. If Public Client API gaps block a route, split or fix the smallest public contract gap instead of bridging through Admin API."
   }
 }
-

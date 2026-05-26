@@ -5,25 +5,37 @@ Last updated: 2026-05-26
 
 ## Current State
 
-The workstream is opened. No runtime behavior has been changed yet.
+MWF-010 opened the workstream. MWF-020 audited Public Client OpenAPI and the
+generated TypeScript SDK. No runtime behavior has been changed yet.
 
 The accepted direction is a separate `apps/media-web` browser Client
 Application that consumes Public Client API contracts only. It should not reuse
 Admin Web data models as viewer state, and it should not make Admin Web the
 playback client.
 
-## Active Task
+## Latest Task
 
 - Task ID: MWF-020
-- Owner: unassigned
+- Owner: codex
 - Files: `crates/nako-api`, `sdk/typescript`,
   `docs/workstreams/media-web-client-foundation`
 - Validation: `cargo test -p nako-api public_openapi -- --nocapture`;
   `cargo run -q -p nako-api --example emit-typescript-sdk -- --output sdk/typescript/src/index.ts`;
   `git diff --check`
+- Status: DONE_WITH_CONCERNS
+- Review: `ROUTE_API_READINESS.md` records the route matrix and blocking or
+  deferred gaps.
+- Evidence: `EVIDENCE_AND_GATES.md`
+
+## Active Task
+
+- Task ID: MWF-030
+- Owner: unassigned
+- Files: `apps/media-web`, `package.json`
+- Validation: `cd apps/media-web && npm run check && npm run test`; boundary
+  grep for Admin API dependencies.
 - Status: NEEDS_CONTEXT
-- Review: Public Client SDK/OpenAPI route readiness and leakage review before
-  scaffolding app UI.
+- Review: Scaffold only the accepted boundary from `ROUTE_API_READINESS.md`.
 - Evidence: update `EVIDENCE_AND_GATES.md`
 
 ## Decisions Since Last Update
@@ -39,14 +51,16 @@ playback client.
 
 ## Blockers
 
-- MWF-020 must confirm whether the generated Public Client SDK has enough
-  route coverage for the first app slice.
+- No Public Client current-principal/session summary exists.
+- No first-class library-scoped item browse or Recently Added sort/feed exists.
+- Browser playback needs an accepted auth transport because plain
+  `<video src>` cannot send bearer headers.
 - Username/password login, invitation redemption, and persistent browser
   sessions do not have accepted backend contracts yet.
 
 ## Next Recommended Action
 
-Run MWF-020. Build a route-to-Public-Client-contract matrix and either confirm
-the first app slice can scaffold safely or split the smallest public API gap
-before UI work starts.
-
+Run MWF-030 only inside the accepted scaffold boundary: connect shell,
+Public Client SDK data-source boundary, fixture/live separation, and routes
+that use existing contracts. Split MWF-GAP-002 before building a real library
+item grid and MWF-GAP-004 before a real browser player.

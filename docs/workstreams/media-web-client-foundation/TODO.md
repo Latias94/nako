@@ -28,6 +28,12 @@ Task IDs use the `MWF` prefix.
   Evidence: `EVIDENCE_AND_GATES.md` plus any SDK/OpenAPI parity diff.
   Handoff: If a route is missing, split the smallest Public Client API gap
   before scaffolding Media Web around a fake contract.
+  Result: DONE_WITH_CONCERNS 2026-05-26. Public OpenAPI tests pass and the
+  TypeScript SDK regenerated without content changes. `ROUTE_API_READINESS.md`
+  records ready coverage for libraries, items, search, images, playback
+  decisions, playback sessions, and User Playback State, plus gaps for current
+  principal/session summary, library-scoped item browse, Recently Added
+  sort/feed, and browser playback auth transport.
 
 ## M2 - App Scaffold And Connect Shell
 
@@ -76,4 +82,3 @@ Task IDs use the `MWF` prefix.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`
   Handoff: Do not reopen this lane for broad product expansion after the first
   local-media browse/play path lands.
-
