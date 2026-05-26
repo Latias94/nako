@@ -2,7 +2,7 @@
 
 register: product
 
-Last updated: 2026-05-25
+Last updated: 2026-05-26
 
 ## Product Purpose
 
@@ -40,6 +40,10 @@ SaaS dashboard.
 - Keep web administration separate from playback-client design. Light browsing
   is allowed when it supports governance, but watching-first workflows belong
   to client applications.
+- Connect media and administration through permission-gated context links. An
+  administrator should be able to jump from a media problem to scan, metadata,
+  playback, job, session, or settings workflows without exposing Admin API
+  data to ordinary viewers.
 - Preserve self-hosted clarity. Network access, reverse proxy, tunnel provider,
   and addon lifecycle boundaries should describe what Nako owns and what the
   operator owns.
@@ -70,7 +74,14 @@ that help operators act quickly.
 
 - Admin Web: server administration, diagnostics, media governance, addons,
   automation, metadata authority, storage, network, and settings.
-- Client Applications: browsing, playback, personal state, and user-facing
-  media interaction through the Public Client API.
+- Media Web: browser-based browsing, playback, personal state, and local-media
+  interaction through the Public Client API. It may expose admin context links
+  only for principals with the required role.
+- Desktop Client: a packaged media client that may reuse Media Web UI, but
+  should use a native playback core for robust local media playback when
+  WebView playback is insufficient.
+- Mobile Client Applications: native playback-first clients that consume the
+  Public Client API and keep server administration outside the main mobile
+  experience.
 - Addon surfaces: external Addon Hosted Pages and declared Addon Entry Points
   that Nako can surface without treating addon UI as trusted admin code.

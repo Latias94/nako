@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "slug": "admin-web-v2-users-access-readiness",
+  "title": "Admin Web V2 Users Access Readiness",
+  "status": "complete",
+  "current_task": null,
+  "updated": "2026-05-26",
+  "scope_kind": "execution",
+  "problem": "Admin Web V2 needs a truthful users, roles, and Library Access surface, but Nako currently only has Single-Admin Mode and a stable local-admin principal.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/admin-web-v2-users-access-readiness/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/admin-web-v2-users-access-readiness/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/admin-web-v2-users-access-readiness/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/admin-web-v2-users-access-readiness/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/admin-web-v2-users-access-readiness/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/admin-web-v2-users-access-readiness/CLOSEOUT.md"
+    }
+  ],
+  "gates": [
+    "cargo nextest run -p nako-server admin_v1_access_summary --no-fail-fast",
+    "cargo test -p nako-api admin_contract_includes_route_constants -- --nocapture",
+    "cargo test -p nako-api admin_web_generated_contract_matches_generator_output -- --nocapture",
+    "cargo fmt --all --check",
+    "cd apps/admin-web && npm run generate:admin-api && npm run test -- adminApi/client.test.ts adminApi/dataSource.test.ts App.test.tsx && npm run check && npm run build",
+    "git diff --check",
+    "Browser smoke for /access desktop and mobile"
+  ],
+  "evidence": [
+    {
+      "task": "AWR-010",
+      "summary": "Confirmed the current boundary: Single-Admin Mode and local-admin principal exist; account, Role, and per-library Library Access policy stores are follow-ons."
+    },
+    {
+      "task": "AWR-020",
+      "summary": "Added GET /admin/v1/access/summary, generated Admin Web contract route/types, HTTP docs, and focused server coverage for redaction-safe Single-Admin Mode effective Library Access."
+    },
+    {
+      "task": "AWR-030",
+      "summary": "Added Admin Web /access with AdminApiClient/AdminDataSource support, mock fallback, route nav, responsive styling, and route/data-source/client tests."
+    },
+    {
+      "task": "AWR-040",
+      "summary": "Ran focused and broad gates, formatting, generated contract parity, Admin Web build/test/check, JSON validity, whitespace checks, and browser desktop/mobile plus intercepted-live smoke."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0024-inbound-token-authentication-boundary.md",
+    "docs/adr/0028-user-playback-state-principal-and-public-contract.md"
+  ],
+  "continue_policy": {
+    "default_action": "close",
+    "notes": "This readiness lane is complete. Follow-on account/RBAC/Library Access policy mutation work must be opened as a new backend-authority lane before Admin Web adds edit controls."
+  }
+}

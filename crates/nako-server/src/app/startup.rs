@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 
 use nako_core::{
-    DatabaseLifecycle, JobRepository, ManagedArtworkRepository, NakoError, Result,
-    TranscodeFailureCategory, TranscodeSessionRepository,
+    JobRepository, ManagedArtworkRepository, NakoError, Result, TranscodeFailureCategory,
+    TranscodeSessionRepository,
 };
 use nako_db::NakoDatabase;
 use nako_vfs::StorageUri;
@@ -59,8 +59,6 @@ impl<'a> ServerStartupWorkflow<'a> {
     }
 
     pub(crate) async fn run(&self) -> Result<ServerStartupReport> {
-        self.store.migrate().await?;
-
         let recovered_transcode_sessions = self.recover_stale_transcode_sessions().await?;
         let recovered_jobs = self.recover_unfinished_jobs().await?;
         let staging_cleanup = self.cleanup_staging_inputs().await?;

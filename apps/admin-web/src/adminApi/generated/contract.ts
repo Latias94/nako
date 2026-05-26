@@ -5,6 +5,7 @@ export const NAKO_ADMIN_API_VERSION = "v1" as const;
 
 export const NAKO_ADMIN_ROUTES = {
   overview: "/admin/v1/overview",
+  accessSummary: "/admin/v1/access/summary",
   addons: "/admin/v1/addons",
   addonCatalogSources: "/admin/v1/addons/catalog/sources",
   addonCatalogEntries: "/admin/v1/addons/catalog/entries",
@@ -22,10 +23,19 @@ export const NAKO_ADMIN_ROUTES = {
   generatedArtifactProposals: "/admin/v1/automation/generated-artifacts/proposals",
   generatedArtifactReviewPlan: "/admin/v1/automation/generated-artifacts/{artifact_id}/review-plan",
   generatedArtifactReview: "/admin/v1/automation/generated-artifacts/{artifact_id}/review",
+  itemArtworkGallery: "/admin/v1/items/{item_id}/artwork",
+  itemArtworkSelect: "/admin/v1/items/{item_id}/artwork/{kind}/select",
+  itemArtworkSelection: "/admin/v1/items/{item_id}/artwork/{kind}/selection",
   catalogGovernanceItems: "/admin/v1/catalog/governance/items",
+  catalogGovernanceItemDetail: "/admin/v1/catalog/governance/items/{item_id}",
+  catalogGovernanceProviderMappingReviewPlan: "/admin/v1/catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review-plan",
+  catalogGovernanceProviderMappingReview: "/admin/v1/catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review",
   events: "/admin/v1/events",
   jobs: "/admin/v1/jobs",
   libraryMetadataProfile: "/admin/v1/libraries/{library_id}/metadata-profile",
+  libraryScan: "/admin/v1/libraries/{library_id}/scan",
+  libraryNfoImport: "/admin/v1/libraries/{library_id}/nfo/import",
+  libraryNfoExport: "/admin/v1/libraries/{library_id}/nfo/export",
   playbackSessions: "/admin/v1/playback/sessions",
   playbackRuntime: "/admin/v1/playback/runtime",
   playbackSupport: "/admin/v1/playback/support",
@@ -33,6 +43,7 @@ export const NAKO_ADMIN_ROUTES = {
   addonRoutingPlans: "/admin/v1/addons/{addon_id}/routing-plans",
   storageStaging: "/admin/v1/storage/staging",
   systemConfig: "/admin/v1/system/config",
+  settingsMetadataRawCache: "/admin/v1/settings/metadata/raw-cache",
 } as const;
 
 export type AdminApiRouteKey = keyof typeof NAKO_ADMIN_ROUTES;
@@ -46,6 +57,20 @@ export interface AdminCatalogGovernanceItemsQuery extends AdminPageQuery {
   library_id?: string;
   max_confidence_milli?: number;
 }
+
+export type AdminSettingsSource = "configured" | "admin";
+
+export type AdminSettingsEffect = "active" | "requires_restart";
+
+export type AdminAccessMode = "single_admin";
+
+export type AdminAccessPrincipalKind = "local_admin";
+
+export type AdminAccessCapabilityState = "active" | "planned";
+
+export type AdminLibraryAccessLevel = "manage";
+
+export type AdminLibraryAccessReason = "single_admin_mode";
 
 export interface AdminOutboxEventsQuery extends AdminPageQuery {
   kind?: string;
@@ -95,6 +120,134 @@ export interface AdminGeneratedArtifactProposalsQuery extends AdminPageQuery {}
 
 export interface AdminGeneratedArtifactReviewRequest {
   decision: "accept" | "reject";
+}
+
+export type AdminArtworkKind =
+  | "poster"
+  | "backdrop"
+  | "logo"
+  | "thumbnail"
+  | "banner";
+
+export interface AdminItemArtworkGalleryQuery extends AdminPageQuery {}
+
+export interface AdminSelectItemArtworkRequest {
+  artifact_id: string;
+}
+
+export interface ManagedArtworkIngestSummary {
+  id: string;
+  candidate_id: string;
+  job_id: string;
+  library_id: string;
+  item_id: string;
+  kind: AdminArtworkKind | string;
+  status: string;
+  has_artifact: boolean;
+  has_failure: boolean;
+  failure_code: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SelectedArtworkSummary {
+  id: string;
+  library_id: string;
+  item_id: string;
+  kind: AdminArtworkKind | string;
+  artifact_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminPublicImageRef {
+  id: string;
+  owner: Record<string, unknown>;
+  kind: string;
+  url: string;
+  width: number | null;
+  height: number | null;
+  language: string | null;
+  media_type: string | null;
+  etag: string | null;
+}
+
+export interface AdminManagedArtworkGallerySummary {
+  candidates: number;
+  artifacts: number;
+  selected: number;
+}
+
+export interface AdminManagedArtworkGalleryCandidate {
+  id: string;
+  addon_id: string;
+  side_effect_id: string;
+  library_id: string;
+  item_id: string;
+  kind: AdminArtworkKind | string;
+  source_kind: string;
+  status: string;
+  width: number | null;
+  height: number | null;
+  language: string | null;
+  ingest: ManagedArtworkIngestSummary | null;
+  artifact_id: string | null;
+  has_stored_artifact: boolean;
+  selected_artwork_count: number;
+  selected: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminManagedArtworkGalleryArtifact {
+  id: string;
+  ingest_id: string;
+  candidate_id: string;
+  library_id: string;
+  item_id: string;
+  kind: AdminArtworkKind | string;
+  selected_artwork_count: number;
+  selected: boolean;
+  width: number | null;
+  height: number | null;
+  byte_len: number | null;
+  media_type: string | null;
+  has_content_hash: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminManagedArtworkGallerySelected {
+  selected_artwork: SelectedArtworkSummary;
+  artifact: AdminManagedArtworkGalleryArtifact;
+  image: AdminPublicImageRef;
+}
+
+export interface AdminManagedArtworkGalleryResponse {
+  item_id: string;
+  summary: AdminManagedArtworkGallerySummary;
+  candidates: AdminManagedArtworkGalleryCandidate[];
+  artifacts: AdminManagedArtworkGalleryArtifact[];
+  selected: AdminManagedArtworkGallerySelected[];
+  page: PageInfo;
+}
+
+export interface PublishSelectedArtworkResponse {
+  selected_artwork: SelectedArtworkSummary;
+  image: AdminPublicImageRef;
+  changed: boolean;
+}
+
+export interface UnpublishedSelectedArtworkSummary {
+  selected_artwork: SelectedArtworkSummary;
+  previous_image: AdminPublicImageRef;
+}
+
+export interface UnpublishSelectedArtworkResponse {
+  item_id: string;
+  kind: AdminArtworkKind | string;
+  changed: boolean;
+  unpublished: UnpublishedSelectedArtworkSummary | null;
 }
 
 export type AdminMetadataRefreshMode =
@@ -723,6 +876,123 @@ export interface AdminCatalogGovernanceItem {
   issues: string[];
 }
 
+export interface AdminCatalogGovernanceItemDetailResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  item: AdminCatalogGovernanceItem;
+  provider_mappings: AdminCatalogGovernanceProviderMappingSummary[];
+  repair_actions: AdminCatalogGovernanceRepairAction[];
+}
+
+export interface AdminCatalogGovernanceProviderMappingSummary {
+  mapping_id: string;
+  item_id: string;
+  status: AdminProviderMappingStatus;
+  confidence_milli: number | null;
+  source: AdminMetadataSource;
+  subject: AdminCatalogGovernanceProviderSubjectSummary;
+}
+
+export interface AdminCatalogGovernanceProviderSubjectSummary {
+  subject_id: string;
+  provider: AdminExternalProvider;
+  subject_kind: AdminProviderSubjectKind;
+  subject_key: string;
+  title: string | null;
+  release_year: number | null;
+  locale: string | null;
+}
+
+export type AdminCatalogGovernanceRepairAction = "provider_mapping_review";
+
+export type AdminCatalogGovernanceProviderMappingReviewDecision = "accept" | "reject";
+
+export type AdminProviderMappingStatus = "candidate" | "accepted" | "rejected";
+
+export type AdminExternalProvider =
+  | "tmdb"
+  | "douban"
+  | "bangumi"
+  | "imdb"
+  | "local"
+  | { other: string };
+
+export type AdminProviderSubjectKind =
+  | "movie"
+  | "series"
+  | "season"
+  | "episode"
+  | "collection"
+  | "subject"
+  | "person"
+  | { other: string };
+
+export type AdminMetadataSource =
+  | "local"
+  | "nfo"
+  | { provider: AdminExternalProvider }
+  | "user"
+  | { addon: string };
+
+export interface AdminCatalogGovernanceProviderMappingReviewRequest {
+  decision: AdminCatalogGovernanceProviderMappingReviewDecision;
+}
+
+export interface AdminCatalogGovernanceProviderMappingReviewPlanResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  plan: AdminCatalogGovernanceProviderMappingReviewPlan;
+}
+
+export interface AdminCatalogGovernanceProviderMappingReviewResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  item_id: string;
+  mapping_id: string;
+  decision: AdminCatalogGovernanceProviderMappingReviewDecision;
+  previous_status: AdminProviderMappingStatus;
+  current_status: AdminProviderMappingStatus;
+  changed: boolean;
+  idempotent_replay: boolean;
+  plan: AdminCatalogGovernanceProviderMappingReviewPlan;
+}
+
+export interface AdminCatalogGovernanceProviderMappingReviewPlan {
+  item: AdminCatalogGovernanceItem;
+  mapping: AdminCatalogGovernanceProviderMappingSummary;
+  decision: AdminCatalogGovernanceProviderMappingReviewDecision;
+  current_status: AdminProviderMappingStatus;
+  target_status: AdminProviderMappingStatus;
+  status: AdminCatalogGovernanceRepairPlanStatus;
+  readiness: AdminCatalogGovernanceRepairReadiness;
+  boundary: AdminCatalogGovernanceRepairBoundary;
+}
+
+export type AdminCatalogGovernanceRepairPlanStatus = "ready" | "blocked";
+
+export type AdminCatalogGovernanceRepairReason =
+  | "provider_mapping_status_change"
+  | "already_in_target_status";
+
+export interface AdminCatalogGovernanceRepairReadiness {
+  status: AdminCatalogGovernanceRepairPlanStatus;
+  actionable: boolean;
+  reasons: AdminCatalogGovernanceRepairReason[];
+}
+
+export interface AdminCatalogGovernanceRepairBoundary {
+  updates_provider_mapping_status: boolean;
+  updates_canonical_metadata: boolean;
+  updates_provider_subject: boolean;
+  updates_local_inference: boolean;
+  updates_source_duplicates: boolean;
+  updates_hierarchy: boolean;
+  writes_nfo: boolean;
+  writes_library_files: boolean;
+  updates_artwork: boolean;
+  updates_playback_state: boolean;
+}
+
 export interface AdminLocalInferenceSummary {
   source_id: string;
   inferred_kind: string;
@@ -770,6 +1040,8 @@ export interface AdminJobListItem {
   started_at: string | null;
   completed_at: string | null;
 }
+
+export type AdminJobCommandResponse = AdminJobListItem;
 
 export interface AdminJobListResponse {
   jobs: AdminJobListItem[];
@@ -1246,6 +1518,38 @@ export interface AdminNetworkAccessDiagnostics {
   }>;
 }
 
+export interface AdminAccessSummaryResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  mode: AdminAccessMode;
+  principal: {
+    principal_id: string;
+    display_name: string;
+    principal_kind: AdminAccessPrincipalKind;
+  };
+  auth: {
+    enabled: boolean;
+    token_reference_configured: boolean;
+  };
+  readiness: {
+    single_admin_mode: AdminAccessCapabilityState;
+    user_accounts: AdminAccessCapabilityState;
+    roles: AdminAccessCapabilityState;
+    library_access_policy: AdminAccessCapabilityState;
+  };
+  library_access: {
+    configured_libraries: number;
+    libraries: Array<{
+      library_id: string;
+      library_name: string;
+      preset: string;
+      backend_kind: string;
+      access: AdminLibraryAccessLevel;
+      reason: AdminLibraryAccessReason;
+    }>;
+  };
+}
+
 export interface AdminServerConfigDiagnosticsResponse {
   admin_api_version: string;
   public_api_version: string;
@@ -1355,4 +1659,18 @@ export interface AdminServerConfigDiagnosticsResponse {
     max_width: number;
     max_height: number;
   };
+}
+
+export interface AdminUpdateMetadataRawCacheSettingsRequest {
+  retention_ms: number;
+  cleanup_on_startup: boolean;
+}
+
+export interface AdminMetadataRawCacheSettingsResponse {
+  admin_api_version: string;
+  retention_ms: number;
+  cleanup_on_startup: boolean;
+  source: AdminSettingsSource;
+  effect: AdminSettingsEffect;
+  updated_at_ms: number | null;
 }

@@ -6,8 +6,72 @@ attention.
 
 ## Current Workstreams
 
+- [identity-and-library-access-contract](identity-and-library-access-contract/README.md):
+  draft execution lane for adding the first real post-Single-Admin identity
+  model: local users, coarse roles, Library Access, bootstrap administrator
+  behavior, principal resolution, and Admin/Public API access contracts. The
+  first task is schema baseline consolidation because Nako currently has no
+  production users or database compatibility burden.
+- [client-surface-and-access-product-architecture](client-surface-and-access-product-architecture/README.md):
+  draft planning lane for deciding how Nako grows from Single-Admin Mode and
+  Admin Web V2 into separate but connected Admin Web, Media Web, desktop, and
+  mobile surfaces. It records account/access staging, Library Access,
+  permission-gated media-to-admin management links, and Tauri/native desktop
+  playback direction before narrower implementation lanes start.
+- [admin-web-v2-i18n-expansion](admin-web-v2-i18n-expansion/README.md):
+  active execution lane for expanding Admin Web V2 localization beyond the
+  shell and Media Library management routes. The first slice migrates
+  `/overview` and `/access` route-visible copy while preserving API enum values
+  and diagnostic facts.
+- [admin-web-v2-users-access-readiness](admin-web-v2-users-access-readiness/README.md):
+  completed execution lane for adding a truthful Users & Access surface to
+  Admin Web V2. The first slice exposes Single-Admin Mode, the stable
+  local-admin principal, role/account readiness, and effective Library Access
+  without fake account or RBAC mutation controls.
+- [admin-settings-configuration-authority](admin-settings-configuration-authority/README.md):
+  active backend architecture lane split from Admin Web V2 settings mutation
+  readiness. It defines the source of truth, startup merge, hot-apply or
+  restart-required semantics, persistence, and Admin API shape needed before
+  `/settings` can expose real save controls.
+- [admin-web-v2-settings-mutation-authority](admin-web-v2-settings-mutation-authority/README.md):
+  active execution lane for defining and implementing the first safe Admin Web
+  V2 settings mutation path after the read-only `/settings` route. The first
+  readiness task found no safe global settings mutation surface yet; Admin Web
+  save controls are blocked until `admin-settings-configuration-authority`
+  provides a real backend route or accepted runtime-only model.
+- [admin-web-v2-catalog-repair-actions](admin-web-v2-catalog-repair-actions/README.md):
+  completed execution lane for turning the read-only Catalog Governance queue into
+  bounded, review-plan-driven repair workflows after Generated Artifact review
+  and item artwork selection. The first executable task is route/API repair
+  readiness, followed by Provider Mapping review-plan and confirmed mutation
+  workflows.
+- [admin-web-v2-item-artwork-selection](admin-web-v2-item-artwork-selection/README.md):
+  completed execution lane for adding an item-scoped Managed Artwork gallery and
+  guarded Selected Artwork select/unpublish workflows to Admin Web V2 after the
+  Generated Artifact review/actions closeout. Closeout recommends opening
+  `admin-web-v2-catalog-repair-actions` next unless settings mutation or
+  users/permissions/Library Access is pulled forward.
+- [admin-web-v2-generated-artifact-review-actions](admin-web-v2-generated-artifact-review-actions/README.md):
+  completed execution lane for adding one-proposal Generated Artifact
+  review-plan and accept/reject confirmation workflows to Admin Web V2 after
+  the read-only `/automation/generated-artifacts` route and media
+  browsing/detail governance lane closeout. Closeout recommends opening
+  `admin-web-v2-item-artwork-selection` unless settings mutation or
+  users/Library Access is pulled forward.
+- [admin-web-v2-media-browsing-and-item-detail-governance](admin-web-v2-media-browsing-and-item-detail-governance/README.md):
+  completed execution lane for adding governance-oriented `/catalog` and
+  `/items/:itemId` routes after library management, using explicit public-read
+  bridges and safe item/source/metadata/artwork/NFO readiness summaries without
+  turning Admin Web into a playback client. Closeout recommends opening
+  `admin-web-v2-generated-artifact-review-actions`.
+- [admin-web-v2-library-management-and-localization](admin-web-v2-library-management-and-localization/README.md):
+  completed execution lane for turning the read-only Admin Web V2 Media Libraries
+  route into a library-management workflow with `/libraries/:libraryId`,
+  metadata-profile visibility/editing, source/scan/NFO action policy, and the
+  first Admin Web localization boundary. Closeout recommends opening a bounded
+  media browsing/item detail governance lane.
 - [admin-web-v2-product-architecture](admin-web-v2-product-architecture/README.md):
-  active product-architecture lane for turning the completed Admin Web V0
+  completed product-architecture lane for turning the completed Admin Web V0
   scaffold and app-local Admin API TypeScript contract into a route-first V2
   admin console plan with root product/design context, stack decisions, shared
   UI vocabulary, and a first workflow proof before deeper implementation.
@@ -519,6 +583,15 @@ Expected future splits:
 - SDK package publishing, client streaming/download helpers, Dart/Flutter SDK,
   Rust CLI, or concrete Flutter/web app work after the public protocol and
   first TypeScript/Rust SDK foundations stabilize.
+- Admin Web V2 item artwork gallery/selection after generated Admin contract
+  coverage for item artwork routes: `admin-web-v2-item-artwork-selection`.
+- Admin Web V2 catalog repair/actions after safe catalog item detail, Provider
+  Mapping, and Local Inference evidence semantics are defined:
+  `admin-web-v2-catalog-repair-actions` (opened as the active lane).
+- Admin Web V2 safe metadata diagnostics, item NFO status/actions, playback
+  support detail, settings mutation, users/permissions/Library Access, and
+  full-site i18n as separate lanes rather than extensions of the media
+  browse/detail read slice.
 
 Keep unsplit domains in `server-foundation` until a split reduces real
 coordination cost. Avoid splitting merely because a domain exists conceptually.

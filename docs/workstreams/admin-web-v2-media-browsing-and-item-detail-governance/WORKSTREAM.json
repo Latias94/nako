@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "slug": "admin-web-v2-media-browsing-and-item-detail-governance",
+  "title": "Admin Web V2 Media Browsing And Item Detail Governance",
+  "status": "completed",
+  "updated": "2026-05-25",
+  "scope_kind": "execution",
+  "problem": "Admin Web V2 can manage a Media Library, but operators still lack a governance-oriented /catalog and /items/:itemId inspection workflow for Media Items, Media Sources, metadata authority, artwork/NFO readiness, and support evidence.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/admin-web-v2-media-browsing-and-item-detail-governance/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/admin-web-v2-media-browsing-and-item-detail-governance/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/admin-web-v2-media-browsing-and-item-detail-governance/TODO.md"
+    },
+    {
+      "role": "route-api-readiness",
+      "path": "docs/workstreams/admin-web-v2-media-browsing-and-item-detail-governance/ROUTE_API_READINESS.md"
+    },
+    {
+      "role": "follow-on-split",
+      "path": "docs/workstreams/admin-web-v2-media-browsing-and-item-detail-governance/FOLLOW_ON_SPLIT.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/admin-web-v2-media-browsing-and-item-detail-governance/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/admin-web-v2-media-browsing-and-item-detail-governance/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/admin-web-v2-media-browsing-and-item-detail-governance/CLOSEOUT.md"
+    }
+  ],
+  "gates": [
+    "git diff --check",
+    "cd apps/admin-web && npm run check && npm run test -- App.test.tsx adminApi/client.test.ts adminApi/dataSource.test.ts",
+    "cd apps/admin-web && npm run check && npm run test && npm run build"
+  ],
+  "evidence": [
+    {
+      "task": "MBG-010",
+      "summary": "Opened the media browsing and item detail governance lane from the closed library-management parity split."
+    },
+    {
+      "task": "MBG-020",
+      "summary": "Audited current public/admin browse and item detail route readiness, accepted public-read bridges for /catalog and /items/:itemId, and split metadata diagnostics, generated artifacts, admin artwork, and repair actions to follow-ons."
+    },
+    {
+      "task": "MBG-030",
+      "summary": "Implemented route-owned /catalog browse/search using explicit public-read bridges for /items and /search, URL-owned q/facet/limit/offset params, safe summaries, deterministic fallback, redaction tests, and desktop/mobile browser smoke."
+    },
+    {
+      "task": "MBG-040",
+      "summary": "Implemented route-owned /items/:itemId governance detail using getPublicItemDetailBridge, bounded live source probes, safe summaries, readiness placeholders, deterministic fallback, redaction tests, and desktop/mobile browser smoke."
+    },
+    {
+      "task": "MBG-050",
+      "summary": "Re-scored item-scoped repair/action gaps and split Generated Artifact review/actions, item artwork selection, catalog repair/actions, safe metadata diagnostics, item NFO status/actions, and playback support detail into bounded follow-ons."
+    },
+    {
+      "task": "MBG-060",
+      "summary": "Closed the media browsing and item detail governance lane after final Admin Web gates, browser smoke, closeout review, evidence updates, and follow-on split."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "continue_policy": {
+    "default_action": "split_follow_on",
+    "notes": "This lane is complete. Open admin-web-v2-generated-artifact-review-actions as the recommended next Admin Web V2 lane."
+  }
+}

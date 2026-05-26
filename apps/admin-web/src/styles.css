@@ -844,6 +844,36 @@ td {
   outline: none;
 }
 
+.routeSidebarFooter {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--nako-admin-line);
+}
+
+.routeLocaleControl {
+  display: grid;
+  gap: 7px;
+  color: var(--nako-admin-muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.routeLocaleControl select {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid var(--nako-admin-line);
+  border-radius: var(--nako-admin-radius);
+  background: var(--nako-admin-surface-raised);
+  color: var(--nako-admin-ink);
+  padding: 0 9px;
+}
+
+.routeLocaleControl select:focus-visible {
+  border-color: var(--nako-admin-brand);
+  outline: 2px solid var(--nako-admin-focus);
+  outline-offset: 2px;
+}
+
 .routeMain {
   min-width: 0;
   padding: 26px clamp(18px, 3vw, 38px) 42px;
@@ -886,6 +916,37 @@ td {
 .routeTitleLine h1,
 .routeHeader h1 {
   margin-bottom: 0;
+}
+
+.routeActionGroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.routeTextLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--nako-admin-brand-ink);
+  font-size: 0.86rem;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.routeTextLink:hover,
+.routeTextLink:focus-visible {
+  color: var(--nako-admin-brand);
+  outline: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.routeBackLink {
+  min-height: 36px;
 }
 
 .routeNotice {
@@ -1090,6 +1151,153 @@ td {
   gap: 14px;
 }
 
+.accessSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.accessSummaryCard {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 112px;
+  border: 1px solid var(--nako-admin-line);
+  border-radius: var(--nako-admin-radius);
+  background: var(--nako-admin-surface-raised);
+  padding: 14px;
+}
+
+.accessSummaryCard span {
+  color: var(--nako-admin-muted);
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.accessSummaryCard strong {
+  color: var(--nako-admin-ink);
+  font-size: 1.18rem;
+  line-height: 1.16;
+}
+
+.accessPanelGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.3fr);
+  gap: 14px;
+}
+
+.accessPanelGrid .dataPanel:last-child {
+  grid-column: 1 / -1;
+}
+
+.accessPrincipalPanel {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px;
+}
+
+.accessPrincipalPanel div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.accessPrincipalPanel span,
+.accessPrincipalPanel small {
+  color: var(--nako-admin-muted);
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.accessPrincipalPanel strong {
+  color: var(--nako-admin-ink);
+  font-size: 1.08rem;
+  overflow-wrap: anywhere;
+}
+
+.accessPrincipalPanel small {
+  overflow-wrap: anywhere;
+}
+
+.accessReadinessList,
+.accessLibraryList {
+  display: grid;
+  padding: 4px 16px 12px;
+}
+
+.accessReadinessRow,
+.accessLibraryRow {
+  min-width: 0;
+  border-top: 1px solid var(--nako-admin-line-soft);
+  padding: 12px 0;
+}
+
+.accessReadinessRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.accessReadinessRow span {
+  color: var(--nako-admin-ink-soft);
+  font-size: 0.9rem;
+  font-weight: 760;
+}
+
+.accessLibraryRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+}
+
+.accessLibraryRow div:first-child {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.accessLibraryRow strong {
+  color: var(--nako-admin-ink);
+  overflow-wrap: anywhere;
+}
+
+.accessLibraryRow span,
+.accessLibraryRow small {
+  color: var(--nako-admin-muted);
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.accessLibraryMeta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.accessMutationNotice {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  color: var(--nako-admin-ink-soft);
+}
+
+.accessMutationNotice strong {
+  color: var(--nako-admin-ink);
+}
+
+.accessMutationNotice span {
+  max-width: 72ch;
+  color: var(--nako-admin-muted);
+  line-height: 1.5;
+}
+
 .settingsRowList {
   display: grid;
   padding: 4px 16px 8px;
@@ -1141,11 +1349,432 @@ td {
   padding: 0 16px 8px;
 }
 
+.settingsMutationPanel {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  border-top: 1px solid var(--nako-admin-line-soft);
+  padding: 14px 16px;
+}
+
+.settingsMutationHeader {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settingsMutationHeader div:first-child {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.settingsMutationHeader strong {
+  overflow-wrap: anywhere;
+  color: var(--nako-admin-ink);
+  font-size: 0.95rem;
+}
+
+.settingsMutationHeader span,
+.settingsMutationFacts span,
+.settingsMutationActions span {
+  color: var(--nako-admin-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.settingsMutationBadges,
+.settingsMutationActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.settingsMutationFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.settingsMutationFields label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: oklch(35% 0.025 94);
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.settingsMutationFields input[type="number"] {
+  min-height: 36px;
+  width: 100%;
+  border: 1px solid var(--nako-admin-line);
+  border-radius: var(--nako-admin-radius);
+  background: var(--nako-admin-surface-field);
+  color: var(--nako-admin-ink);
+  padding: 0 10px;
+}
+
+.settingsMutationFields input:focus-visible {
+  border-color: var(--nako-admin-brand);
+  outline: 2px solid var(--nako-admin-focus);
+  outline-offset: 1px;
+}
+
+.settingsToggleField {
+  align-content: center;
+  grid-template-columns: auto 1fr;
+  min-height: 36px;
+}
+
+.settingsMutationFacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
+.settingsInlineNotice {
+  border: 1px solid var(--nako-admin-attention-line);
+  border-radius: var(--nako-admin-radius);
+  background: var(--nako-admin-attention-bg);
+  color: var(--nako-admin-attention-ink);
+  padding: 9px 10px;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.settingsInlineNotice.success {
+  border-color: var(--nako-admin-success-bg);
+  background: oklch(96% 0.02 150);
+  color: var(--nako-admin-success-ink);
+}
+
+.settingsInlineNotice.danger {
+  border-color: oklch(78% 0.09 28);
+  background: oklch(96% 0.025 28);
+  color: var(--nako-admin-danger-ink);
+}
+
 .settingsProviderRow {
   display: grid;
   grid-template-columns: minmax(120px, 1fr) auto minmax(120px, 0.8fr) minmax(120px, 0.8fr) minmax(100px, 0.6fr);
   align-items: center;
   gap: 10px;
+}
+
+.libraryDetailGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.libraryDetailGrid .dataPanel:nth-child(n + 3) {
+  grid-column: 1 / -1;
+}
+
+.libraryFactList {
+  display: grid;
+  padding: 4px 16px 8px;
+}
+
+.libraryFactRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 0;
+  border-bottom: 1px solid var(--nako-admin-line-soft);
+  padding: 12px 0;
+}
+
+.libraryFactRow:last-child {
+  border-bottom: 0;
+}
+
+.libraryFactRow div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.libraryFactRow span,
+.libraryFactRow small {
+  color: var(--nako-admin-muted);
+  font-size: 0.8rem;
+}
+
+.libraryFactRow strong {
+  overflow-wrap: anywhere;
+  color: var(--nako-admin-ink-soft);
+  font-size: 0.92rem;
+}
+
+.libraryPlanGrid,
+.libraryOperationGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0 16px 16px;
+}
+
+.libraryPlanBadge,
+.libraryOperationTile {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 82px;
+  border: 1px solid var(--nako-admin-line);
+  border-radius: var(--nako-admin-radius);
+  background: oklch(98% 0.006 105);
+  padding: 12px;
+}
+
+.libraryPlanBadge span,
+.libraryOperationTile span {
+  color: var(--nako-admin-muted);
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.libraryOperationTile strong {
+  color: var(--nako-admin-ink);
+  font-size: 1rem;
+  line-height: 1.18;
+}
+
+.libraryAuthorityNotice,
+.libraryInlineNotice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 16px 0;
+  color: var(--nako-admin-muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.libraryInlineNotice {
+  border: 1px solid var(--nako-admin-attention-line);
+  border-radius: var(--nako-admin-radius);
+  background: var(--nako-admin-attention-bg);
+  color: var(--nako-admin-attention-ink);
+  padding: 9px 10px;
+}
+
+.libraryInlineNotice.success {
+  border-color: var(--nako-admin-success-bg);
+  background: oklch(96% 0.02 150);
+  color: var(--nako-admin-success-ink);
+}
+
+.metadataProfileEditor {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px 16px 16px;
+}
+
+.metadataProfileEditor label,
+.metadataProfileToggles label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: oklch(35% 0.025 94);
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.metadataProfileEditor input,
+.metadataProfileEditor select,
+.metadataProfileEditor textarea {
+  width: 100%;
+  border: 1px solid var(--nako-admin-line);
+  border-radius: var(--nako-admin-radius);
+  background: var(--nako-admin-surface-field);
+  color: var(--nako-admin-ink);
+  padding: 9px 10px;
+}
+
+.metadataProfileEditor textarea {
+  min-height: 76px;
+  resize: vertical;
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.metadataProfileToggles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  grid-column: 1 / -1;
+}
+
+.metadataProfileToggles label {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+}
+
+.metadataProfileToggles input {
+  width: auto;
+}
+
+.metadataProfileActions {
+  display: flex;
+  justify-content: flex-end;
+  grid-column: 1 / -1;
+}
+
+.librarySourceSamples {
+  display: grid;
+  gap: 0;
+  padding: 0 16px 16px;
+}
+
+.librarySourceSample {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  border-top: 1px solid var(--nako-admin-line-soft);
+  padding: 10px 0;
+}
+
+.librarySourceSample div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.librarySourceSample strong,
+.librarySourceSample span {
+  overflow-wrap: anywhere;
+}
+
+.librarySourceSample span {
+  color: var(--nako-admin-muted);
+  font-size: 0.8rem;
+}
+
+.artworkSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0 16px 16px;
+}
+
+.artworkSummaryTile {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 82px;
+  border: 1px solid var(--nako-admin-line);
+  border-radius: var(--nako-admin-radius);
+  background: oklch(98% 0.006 105);
+  padding: 12px;
+}
+
+.artworkSummaryTile span {
+  color: var(--nako-admin-muted);
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.artworkSummaryTile strong {
+  overflow-wrap: anywhere;
+  color: var(--nako-admin-ink);
+  font-size: 1rem;
+  line-height: 1.18;
+}
+
+.artworkGalleryGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 0 16px 16px;
+}
+
+.artworkTile {
+  display: grid;
+  grid-template-rows: minmax(180px, auto) 1fr;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--nako-admin-line);
+  border-radius: var(--nako-admin-radius);
+  background: var(--nako-admin-surface-field);
+}
+
+.artworkPreview {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 2 / 3;
+  min-height: 180px;
+  background: oklch(93% 0.012 210);
+}
+
+.artworkPreview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.artworkPreview span {
+  color: var(--nako-admin-muted);
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.artworkTileBody {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+}
+
+.artworkTileBody strong,
+.artworkTileBody span {
+  overflow-wrap: anywhere;
+}
+
+.artworkTileBody span {
+  color: var(--nako-admin-muted);
+  font-size: 0.8rem;
+}
+
+.artworkActionBlock {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.artworkActionBlock div {
+  display: grid;
+  gap: 4px;
+}
+
+.artworkActionBlock .routeActionGroup {
+  display: flex;
+}
+
+.libraryCommandConfirm {
+  display: grid;
+  gap: 8px;
+}
+
+.libraryCommandConfirm small {
+  color: var(--nako-admin-muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.libraryCommandConfirm div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .addonsSummaryGrid {
@@ -1388,11 +2017,37 @@ td {
 
   .settingsSummaryGrid,
   .settingsPanelGrid,
+  .accessSummaryGrid,
+  .accessPanelGrid,
   .settingsProviderRow,
+  .settingsMutationHeader,
+  .settingsMutationFields,
+  .libraryDetailGrid,
+  .metadataProfileEditor,
+  .metadataProfileToggles,
+  .artworkSummaryGrid,
+  .artworkGalleryGrid,
   .addonsSummaryGrid,
   .addonsRouteGrid,
   .addonsCredentialGrid {
     grid-template-columns: 1fr;
+  }
+
+  .settingsMutationHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .accessPanelGrid .dataPanel:last-child {
+    grid-column: auto;
+  }
+
+  .accessLibraryRow {
+    grid-template-columns: 1fr;
+  }
+
+  .accessLibraryMeta {
+    justify-content: flex-start;
   }
 }
 
@@ -1404,7 +2059,12 @@ td {
   .routeNav,
   .filterBar,
   .overviewMetricGrid,
-  .settingsSummaryGrid,
+    .settingsSummaryGrid,
+    .accessSummaryGrid,
+    .artworkSummaryGrid,
+    .artworkGalleryGrid,
+    .libraryPlanGrid,
+  .libraryOperationGrid,
   .addonsSummaryGrid,
   .addonsCountGrid {
     grid-template-columns: 1fr;

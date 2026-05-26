@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "slug": "admin-web-v2-generated-artifact-review-actions",
+  "title": "Admin Web V2 Generated Artifact Review Actions",
+  "status": "completed",
+  "updated": "2026-05-25",
+  "scope_kind": "execution",
+  "problem": "Admin Web V2 can list Generated Artifact proposals, but operators still lack a guarded review-plan and accept/reject workflow with confirmation, audit result summaries, and redaction evidence.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/admin-web-v2-generated-artifact-review-actions/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/admin-web-v2-generated-artifact-review-actions/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/admin-web-v2-generated-artifact-review-actions/TODO.md"
+    },
+    {
+      "role": "route-api-readiness",
+      "path": "docs/workstreams/admin-web-v2-generated-artifact-review-actions/ROUTE_API_READINESS.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/admin-web-v2-generated-artifact-review-actions/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/admin-web-v2-generated-artifact-review-actions/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/admin-web-v2-generated-artifact-review-actions/CLOSEOUT.md"
+    }
+  ],
+  "gates": [
+    "git diff --check",
+    "cd apps/admin-web && npm run check && npm run test -- App.test.tsx adminApi/client.test.ts adminApi/dataSource.test.ts",
+    "cd apps/admin-web && npm run check && npm run test && npm run build"
+  ],
+  "evidence": [
+    {
+      "task": "GAR-010",
+      "summary": "Opened the generated artifact review/action lane from MBG-050 closeout recommendation and the closed read-only Generated Artifacts route."
+    },
+    {
+      "task": "GAR-020",
+      "summary": "Accepted existing generated Admin API review-plan and review routes for a one-proposal guarded review workflow, documented safe projection rules, and updated HTTP API route inventory."
+    },
+    {
+      "task": "GAR-030",
+      "summary": "Implemented the non-mutating one-proposal review-plan route with decision search state, safe data-source projection, deterministic fallback, redaction tests, focused/full frontend gates, build, diff check, and browser smoke evidence."
+    },
+    {
+      "task": "GAR-040",
+      "summary": "Implemented explicit prepare/confirm review action flow, real Admin API review mutation wiring, redacted result rendering, visible mutation error behavior, no fake mutation fallback, focused/full frontend gates, build, diff check, and confirmation-path browser smoke evidence."
+    },
+    {
+      "task": "GAR-050",
+      "summary": "Ran fresh final Admin Web gates, git diff check, and browser smoke for the proposal queue plus review confirmation paths at desktop and mobile widths."
+    },
+    {
+      "task": "GAR-060",
+      "summary": "Closed the generated artifact review/actions lane after final Admin Web gates, closeout review, git diff check, browser smoke, and follow-on split confirmation."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "continue_policy": {
+    "default_action": "split_follow_on",
+    "notes": "This lane is complete. Open admin-web-v2-item-artwork-selection next unless product priority pulls settings mutation or users/permissions/Library Access forward."
+  }
+}

@@ -1,11 +1,20 @@
 # Nako Design Context
 
-Last updated: 2026-05-25
+Last updated: 2026-05-26
 
 ## Register
 
 Product UI. Design serves repeated administrative tasks and should stay quiet,
 dense, and predictable.
+
+## Surface Scope
+
+This file currently defines the Admin Web product UI baseline. Media Web,
+desktop playback clients, and native mobile clients should use separate
+surface-specific design context before implementation. They may share Nako
+terminology, auth state, route-link patterns, and basic component discipline,
+but should not inherit Admin Web's light, dense, operations-first visual model
+for watch-first browsing and playback.
 
 ## Physical Scene
 

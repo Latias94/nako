@@ -12,6 +12,7 @@ use sqlx::{Executor, postgres::PgConnectOptions};
 
 mod addon_tasks;
 mod addons_automation;
+mod admin_settings;
 mod core_catalog;
 mod events;
 mod import_state;
@@ -23,73 +24,11 @@ mod vfs_staging;
 
 const POSTGRES_MAX_CONNECTIONS: u32 = 5;
 
-const MIGRATIONS: &[(i64, &str, &str)] = &[
-    (
-        1,
-        "contract jobs",
-        include_str!("../migrations/postgres/0001_contract_jobs.sql"),
-    ),
-    (
-        2,
-        "managed artwork",
-        include_str!("../migrations/postgres/0002_managed_artwork.sql"),
-    ),
-    (
-        3,
-        "managed import artifacts",
-        include_str!("../migrations/postgres/0003_managed_import_artifacts.sql"),
-    ),
-    (
-        4,
-        "managed import promotion applies",
-        include_str!("../migrations/postgres/0004_managed_import_promotion_applies.sql"),
-    ),
-    (
-        5,
-        "nfo sidecar applies",
-        include_str!("../migrations/postgres/0005_nfo_sidecar_applies.sql"),
-    ),
-    (
-        6,
-        "acquisition intake candidates",
-        include_str!("../migrations/postgres/0006_acquisition_intake_candidates.sql"),
-    ),
-    (
-        7,
-        "addon unregistration",
-        include_str!("../migrations/postgres/0007_addon_unregistration.sql"),
-    ),
-    (
-        8,
-        "addon routing plans",
-        include_str!("../migrations/postgres/0008_addon_routing_plans.sql"),
-    ),
-    (
-        9,
-        "addon task runs",
-        include_str!("../migrations/postgres/0009_addon_task_runs.sql"),
-    ),
-    (
-        10,
-        "addon outbound task-dispatch credentials",
-        include_str!("../migrations/postgres/0010_addon_outbound_task_dispatch_credentials.sql"),
-    ),
-    (
-        11,
-        "addon event delivery attempts",
-        include_str!("../migrations/postgres/0011_addon_event_delivery_attempts.sql"),
-    ),
-    (
-        12,
-        "addon event delivery leases",
-        include_str!("../migrations/postgres/0012_addon_event_delivery_leases.sql"),
-    ),
-    (
-        13,
-        "addon event forced replay",
-        include_str!("../migrations/postgres/0013_addon_event_forced_replay.sql"),
-    ),
-];
+const MIGRATIONS: &[(i64, &str, &str)] = &[(
+    1,
+    "baseline",
+    include_str!("../migrations/postgres/baseline.sql"),
+)];
 
 #[derive(Clone, Debug)]
 pub(crate) struct PostgresStore {
@@ -375,7 +314,7 @@ fn u32_to_i64(value: u32) -> i64 {
     i64::from(value)
 }
 
-fn u64_to_i64(value: u64) -> Result<i64> {
+pub(crate) fn u64_to_i64(value: u64) -> Result<i64> {
     i64::try_from(value).map_err(|err| NakoError::Database {
         message: format!("value does not fit into PostgreSQL bigint: {err}"),
     })
@@ -385,7 +324,7 @@ fn optional_u64_to_i64(value: Option<u64>) -> Result<Option<i64>> {
     value.map(u64_to_i64).transpose()
 }
 
-fn i64_to_u64(value: i64) -> Result<u64> {
+pub(crate) fn i64_to_u64(value: i64) -> Result<u64> {
     u64::try_from(value).map_err(|err| NakoError::Database {
         message: format!("PostgreSQL bigint cannot be converted to u64: {err}"),
     })
@@ -449,5 +388,30 @@ fn validate_schema_name(schema_name: &str) -> Result<()> {
 fn database_error<E: Display>(err: E) -> NakoError {
     NakoError::Database {
         message: err.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn postgres_baseline_migration_contains_identity_and_library_access_schema() {
+        assert_eq!(MIGRATIONS.len(), 1);
+        assert_eq!(MIGRATIONS[0].0, 1);
+        assert_eq!(MIGRATIONS[0].1, "baseline");
+
+        let sql = MIGRATIONS[0].2;
+        for expected in [
+            "CREATE TABLE users",
+            "CREATE TABLE user_role_assignments",
+            "CREATE TABLE user_library_access_policies",
+            "CREATE TABLE role_library_access_policies",
+        ] {
+            assert!(
+                sql.contains(expected),
+                "missing PostgreSQL baseline SQL: {expected}"
+            );
+        }
     }
 }

@@ -33,6 +33,8 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/Table";
+import { useI18n } from "../../i18n/I18nProvider";
+import type { MessageId } from "../../i18n/messages";
 
 export type PlaybackSessionsSearch = {
   source_id?: string;
@@ -54,50 +56,15 @@ type PlaybackSessionsResult = {
   error?: string;
 };
 
-const columns: Array<ColumnDef<AdminPlaybackSessionListItem>> = [
-  {
-    accessorKey: "kind",
-    header: "Session",
-    cell: ({ row }) => (
-      <div className="routePrimaryCell">
-        <strong>{row.original.kind}</strong>
-        <span>{row.original.id}</span>
-      </div>
-    ),
-  },
-  {
-    accessorKey: "state",
-    header: "State",
-    cell: ({ row }) => <SessionStateBadge session={row.original} />,
-  },
-  {
-    accessorKey: "source_id",
-    header: "Media Source",
-  },
-  {
-    id: "lifecycle",
-    header: "Lifecycle",
-    cell: ({ row }) => lifecycleLabel(row.original),
-  },
-  {
-    accessorKey: "failure_category",
-    header: "Failure",
-    cell: ({ row }) => row.original.failure_category ?? "none",
-  },
-  {
-    accessorKey: "updated_at",
-    header: "Updated",
-  },
-];
-
 export function PlaybackSessionsPage({
   dataSource,
   search,
   onSearchChange,
 }: PlaybackSessionsPageProps) {
+  const { locale, t } = useI18n();
   const query = useQuery({
-    queryKey: ["admin-playback-sessions", search],
-    queryFn: () => loadPlaybackSessions(dataSource, search),
+    queryKey: ["admin-playback-sessions", search, locale],
+    queryFn: () => loadPlaybackSessions(dataSource, search, t("playback.dataSourceUnavailable")),
   });
   const result = query.data ?? {
     value: mockPlaybackSessions,
@@ -109,7 +76,7 @@ export function PlaybackSessionsPage({
   );
   const table = useReactTable({
     data: result.value.sessions,
-    columns,
+    columns: createColumns(t),
     getCoreRowModel: getCoreRowModel(),
   });
 
@@ -122,55 +89,55 @@ export function PlaybackSessionsPage({
           variant="outline"
         >
           <RefreshCw size={16} />
-          Refresh
+          {t("playback.refresh")}
         </Button>
       }
-      description="Playback and transcode sessions with route-owned filters and support evidence deferred to detail workflows."
-      kicker="Playback operations"
+      description={t("playback.description")}
+      kicker={t("playback.kicker")}
       status={<SourceLabel source={result.source} />}
-      title="Playback Sessions"
+      title={t("playback.title")}
       titleId="playback-sessions-route-title"
     >
       {result.error ? (
         <RouteNotice>
-          {result.error}. Showing deterministic mock fallback data.
+          {t("playback.fallback", { error: result.error })}
         </RouteNotice>
       ) : null}
 
-      <FilterBar label="Playback session filters">
-        <FilterField label="Source">
+      <FilterBar label={t("playback.filters")}>
+        <FilterField label={t("playback.filter.source")}>
           <input
-            aria-label="Playback source filter"
+            aria-label={t("playback.filter.sourceAria")}
             placeholder="source-id"
             value={search.source_id ?? ""}
             onChange={(event) => onSearchChange({ source_id: event.target.value || undefined, offset: 0 })}
           />
         </FilterField>
-        <FilterField label="Kind">
+        <FilterField label={t("playback.filter.kind")}>
           <input
-            aria-label="Playback kind filter"
+            aria-label={t("playback.filter.kindAria")}
             placeholder="hls_transcode"
             value={search.kind ?? ""}
             onChange={(event) => onSearchChange({ kind: event.target.value || undefined, offset: 0 })}
           />
         </FilterField>
-        <FilterField label="State">
+        <FilterField label={t("playback.filter.state")}>
           <select
-            aria-label="Playback state filter"
+            aria-label={t("playback.filter.stateAria")}
             value={search.state ?? ""}
             onChange={(event) => onSearchChange({ state: event.target.value || undefined, offset: 0 })}
           >
-            <option value="">Any state</option>
-            <option value="starting">Starting</option>
-            <option value="running">Running</option>
-            <option value="failed">Failed</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
+            <option value="">{t("playback.filter.anyState")}</option>
+            <option value="starting">{t("playback.state.starting")}</option>
+            <option value="running">{t("playback.state.running")}</option>
+            <option value="failed">{t("playback.state.failed")}</option>
+            <option value="completed">{t("playback.state.completed")}</option>
+            <option value="cancelled">{t("playback.state.cancelled")}</option>
           </select>
         </FilterField>
-        <FilterField label="Limit">
+        <FilterField label={t("playback.filter.limit")}>
           <input
-            aria-label="Playback page limit"
+            aria-label={t("playback.filter.limitAria")}
             min={1}
             type="number"
             value={search.limit}
@@ -179,7 +146,7 @@ export function PlaybackSessionsPage({
         </FilterField>
         <FilterActions>
           <Badge tone={activeFilterCount > 0 ? "info" : "neutral"}>
-            {activeFilterCount} filters
+            {t("playback.filter.active", { count: activeFilterCount })}
           </Badge>
           <Button
             disabled={activeFilterCount === 0}
@@ -194,25 +161,29 @@ export function PlaybackSessionsPage({
             variant="ghost"
           >
             <X size={16} />
-            Clear
+            {t("playback.clear")}
           </Button>
         </FilterActions>
       </FilterBar>
 
       <DataPanel
-        description={`${result.value.page.returned} returned, offset ${result.value.page.offset}, limit ${result.value.page.limit}`}
+        description={t("playback.queue.description", {
+          returned: result.value.page.returned,
+          offset: result.value.page.offset,
+          limit: result.value.page.limit,
+        })}
         headerAccessory={
           <div className="searchHint">
             <Search size={15} />
-            URL filters are authoritative
+            {t("playback.queue.urlFilters")}
           </div>
         }
-        title="Session queue"
+        title={t("playback.queue.title")}
       >
-        {query.isLoading ? <RowsSkeleton label="Loading Playback Sessions" /> : null}
+        {query.isLoading ? <RowsSkeleton label={t("playback.loading")} /> : null}
 
         {!query.isLoading && result.value.sessions.length === 0 ? (
-          <EmptyRouteState>No Playback Sessions match the current filters.</EmptyRouteState>
+          <EmptyRouteState>{t("playback.empty")}</EmptyRouteState>
         ) : null}
 
         {!query.isLoading && result.value.sessions.length > 0 ? (
@@ -250,15 +221,56 @@ export function PlaybackSessionsPage({
   );
 }
 
+type Translate = (id: MessageId, values?: Record<string, number | string>) => string;
+
+function createColumns(t: Translate): Array<ColumnDef<AdminPlaybackSessionListItem>> {
+  return [
+    {
+      accessorKey: "kind",
+      header: t("playback.column.session"),
+      cell: ({ row }) => (
+        <div className="routePrimaryCell">
+          <strong>{row.original.kind}</strong>
+          <span>{row.original.id}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "state",
+      header: t("playback.column.state"),
+      cell: ({ row }) => <SessionStateBadge session={row.original} />,
+    },
+    {
+      accessorKey: "source_id",
+      header: t("playback.column.mediaSource"),
+    },
+    {
+      id: "lifecycle",
+      header: t("playback.column.lifecycle"),
+      cell: ({ row }) => lifecycleLabel(row.original, t),
+    },
+    {
+      accessorKey: "failure_category",
+      header: t("playback.column.failure"),
+      cell: ({ row }) => row.original.failure_category ?? t("playback.none"),
+    },
+    {
+      accessorKey: "updated_at",
+      header: t("playback.column.updated"),
+    },
+  ];
+}
+
 async function loadPlaybackSessions(
   dataSource: AdminDataSource,
   search: PlaybackSessionsSearch,
+  unavailableMessage: string,
 ): Promise<PlaybackSessionsResult> {
   if (!dataSource.loadPlaybackSessions) {
     return {
       value: mockPlaybackSessions,
       source: "mock",
-      error: "Playback Sessions route data source is unavailable",
+      error: unavailableMessage,
     };
   }
 
@@ -291,16 +303,16 @@ function SessionStateBadge({ session }: { session: AdminPlaybackSessionListItem 
   return <Badge tone={session.terminal ? "success" : "neutral"}>{session.state}</Badge>;
 }
 
-function lifecycleLabel(session: AdminPlaybackSessionListItem) {
+function lifecycleLabel(session: AdminPlaybackSessionListItem, t: Translate) {
   if (session.terminal) {
-    return "terminal";
+    return t("playback.lifecycle.terminal");
   }
 
   if (session.active) {
-    return "active";
+    return t("playback.lifecycle.active");
   }
 
-  return "inactive";
+  return t("playback.lifecycle.inactive");
 }
 
 function numberInput(value: string) {

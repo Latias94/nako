@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "slug": "admin-web-v2-item-artwork-selection",
+  "title": "Admin Web V2 Item Artwork Selection",
+  "status": "closed",
+  "updated": "2026-05-25",
+  "scope_kind": "execution",
+  "problem": "Admin Web V2 can inspect Media Items, but operators still lack an item-scoped Managed Artwork gallery and guarded Selected Artwork select/unpublish workflow.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/admin-web-v2-item-artwork-selection/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/admin-web-v2-item-artwork-selection/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/admin-web-v2-item-artwork-selection/TODO.md"
+    },
+    {
+      "role": "route-api-readiness",
+      "path": "docs/workstreams/admin-web-v2-item-artwork-selection/ROUTE_API_READINESS.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/admin-web-v2-item-artwork-selection/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/admin-web-v2-item-artwork-selection/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/admin-web-v2-item-artwork-selection/CLOSEOUT.md"
+    }
+  ],
+  "gates": [
+    "git diff --check",
+    "cd apps/admin-web && npm run generate:admin-api && npm run check && npm run test -- adminApi/client.test.ts",
+    "cd apps/admin-web && npm run check && npm run test -- App.test.tsx adminApi/client.test.ts adminApi/dataSource.test.ts",
+    "cd apps/admin-web && npm run check && npm run test && npm run build"
+  ],
+  "evidence": [
+    {
+      "task": "AWA-010",
+      "summary": "Opened the item artwork selection lane from GAR closeout and MBG follow-on order; initial inventory found backend/HTTP item artwork routes but missing generated Admin Web contract coverage."
+    },
+    {
+      "task": "AWA-020",
+      "summary": "Accepted backend item artwork gallery/select/unpublish routes for the first Admin Web artwork slice, documented redaction-safe fields and mutation fallback rules, and confirmed generated Admin Web contract coverage is the next prerequisite."
+    },
+    {
+      "task": "AWA-030",
+      "summary": "Added generated Admin Web contract route constants and DTOs for item artwork gallery/select/unpublish, regenerated the app-local contract, and added AdminApiClient methods plus tests for gallery GET, select POST, and unpublish DELETE."
+    },
+    {
+      "task": "AWA-040",
+      "summary": "Added the read-only /items/:itemId/artwork gallery route, Media Item detail entrypoint, safe AdminDataSource projection, deterministic fallback, and route/data-source redaction tests without posting select/unpublish mutations."
+    },
+    {
+      "task": "AWA-050",
+      "summary": "Added guarded select/replace and unpublish confirmation flows, live-only AdminDataSource mutation wrappers, redaction-safe result rendering, visible mutation failures, and no fake mutation fallback."
+    },
+    {
+      "task": "AWA-060",
+      "summary": "Ran full Admin Web check/test/build and Playwright CLI browser smoke for item detail, artwork gallery, select confirmation, unpublish confirmation, desktop/mobile overflow, console errors, and unsafe artwork text exclusions."
+    },
+    {
+      "task": "AWA-070",
+      "summary": "Closed the lane after review and fresh closeout verification: Admin Web check/test/build, focused nako-api admin contract tests, cargo fmt, git diff --check, and AWA-060 browser smoke reuse because closeout changed only docs."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "continue_policy": {
+    "default_action": "open_follow_on",
+    "notes": "Open admin-web-v2-catalog-repair-actions next if continuing the MBG media-governance follow-on sequence. Pull settings mutation or users/permissions/Library Access forward only if product priority changes."
+  }
+}

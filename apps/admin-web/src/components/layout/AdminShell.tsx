@@ -2,10 +2,15 @@ import { Link } from "@tanstack/react-router";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { supportedAdminLocales, useI18n } from "../../i18n/I18nProvider";
+import type { AdminLocale } from "../../i18n/messages";
+
 export type AdminRouteTo =
   | "/overview"
   | "/jobs"
+  | "/access"
   | "/libraries"
+  | "/catalog"
   | "/catalog/governance"
   | "/acquisition/intake"
   | "/automation/generated-artifacts"
@@ -24,28 +29,37 @@ export type AdminShellNavItem = {
 export function AdminShell({
   activePathname,
   children,
+  locale,
   navItems,
+  onLocaleChange,
 }: {
   activePathname: string;
   children: ReactNode;
+  locale: AdminLocale;
   navItems: readonly AdminShellNavItem[];
+  onLocaleChange(locale: AdminLocale): void;
 }) {
+  const { t } = useI18n();
+
   return (
     <div className="adminRouteShell">
-      <aside className="routeSidebar" aria-label="Primary navigation">
+      <aside className="routeSidebar">
         <div className="routeBrand">
           <img src="/nako-app-icon-1024.png" alt="" />
           <div>
             <strong>Nako</strong>
-            <span>Admin Web V2</span>
+            <span>{t("shell.product")}</span>
           </div>
         </div>
-        <nav className="routeNav">
+        <nav className="routeNav" aria-label={t("shell.primaryNavigation")}>
           {navItems.map((item) => {
             const Icon = item.icon;
+            const active =
+              activePathname === item.to || activePathname.startsWith(`${item.to}/`);
             return (
               <Link
-                className={activePathname === item.to ? "routeNavItem active" : "routeNavItem"}
+                activeOptions={{ exact: true }}
+                className={active ? "routeNavItem active" : "routeNavItem"}
                 key={item.to}
                 to={item.to}
               >
@@ -55,6 +69,22 @@ export function AdminShell({
             );
           })}
         </nav>
+        <div className="routeSidebarFooter">
+          <label className="routeLocaleControl">
+            <span>{t("shell.locale")}</span>
+            <select
+              aria-label={t("shell.locale")}
+              onChange={(event) => onLocaleChange(event.currentTarget.value as AdminLocale)}
+              value={locale}
+            >
+              {supportedAdminLocales().map((option) => (
+                <option key={option} value={option}>
+                  {option === "zh-Hans" ? t("locale.zhHans") : t("locale.enUS")}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </aside>
       <main className="routeMain">{children}</main>
     </div>

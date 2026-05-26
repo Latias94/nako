@@ -3,7 +3,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use nako_core::{NakoError, Result};
+use nako_core::{AdminSettingsRepository, NakoError, Result};
 use nako_db::{
     DatabaseBackendCapabilities, DatabaseBackendKind, DatabaseConnectOptions, NakoDatabase,
 };
@@ -193,6 +193,105 @@ impl NakoApp {
 
     pub(crate) fn shutdown_runtime(&self) {
         self.inner.shutdown_runtime();
+    }
+
+    pub(crate) async fn get_admin_metadata_raw_cache_settings(
+        &self,
+    ) -> Result<nako_api::admin::AdminMetadataRawCacheSettingsResponse> {
+        let record = self
+            .inner
+            .store
+            .get_admin_metadata_raw_cache_settings()
+            .await?;
+
+        Ok(admin_metadata_raw_cache_settings_response(
+            configured_metadata_raw_cache_settings(&self.inner.config),
+            record,
+        ))
+    }
+
+    pub(crate) async fn update_admin_metadata_raw_cache_settings(
+        &self,
+        request: nako_api::admin::AdminUpdateMetadataRawCacheSettingsRequest,
+    ) -> Result<nako_api::admin::AdminMetadataRawCacheSettingsResponse> {
+        validate_metadata_raw_cache_settings_request(&request)?;
+        let record = nako_core::AdminMetadataRawCacheSettingsRecord {
+            settings: nako_core::AdminMetadataRawCacheSettings {
+                retention_ms: request.retention_ms,
+                cleanup_on_startup: request.cleanup_on_startup,
+            },
+            source: nako_core::AdminSettingsSource::Admin,
+            effect: nako_core::AdminSettingsEffect::RequiresRestart,
+            updated_at_ms: current_time_ms()?,
+        };
+        let record = self
+            .inner
+            .store
+            .upsert_admin_metadata_raw_cache_settings(record)
+            .await?;
+
+        Ok(admin_metadata_raw_cache_settings_response(
+            configured_metadata_raw_cache_settings(&self.inner.config),
+            Some(record),
+        ))
+    }
+}
+
+fn validate_metadata_raw_cache_settings_request(
+    request: &nako_api::admin::AdminUpdateMetadataRawCacheSettingsRequest,
+) -> Result<()> {
+    if request.retention_ms == 0 {
+        return Err(NakoError::InvalidInput {
+            message: "metadata raw cache retention_ms must be greater than zero".to_owned(),
+        });
+    }
+
+    Ok(())
+}
+
+fn admin_metadata_raw_cache_settings_response(
+    configured: nako_core::AdminMetadataRawCacheSettings,
+    record: Option<nako_core::AdminMetadataRawCacheSettingsRecord>,
+) -> nako_api::admin::AdminMetadataRawCacheSettingsResponse {
+    let (settings, source, effect, updated_at_ms) = match record {
+        Some(record) => {
+            let effect = if record.settings == configured {
+                nako_core::AdminSettingsEffect::Active
+            } else {
+                nako_core::AdminSettingsEffect::RequiresRestart
+            };
+
+            (
+                record.settings,
+                nako_core::AdminSettingsSource::Admin,
+                effect,
+                Some(record.updated_at_ms),
+            )
+        }
+        None => (
+            configured,
+            nako_core::AdminSettingsSource::Configured,
+            nako_core::AdminSettingsEffect::Active,
+            None,
+        ),
+    };
+
+    nako_api::admin::AdminMetadataRawCacheSettingsResponse {
+        admin_api_version: nako_api::admin::ADMIN_API_VERSION.to_owned(),
+        retention_ms: settings.retention_ms,
+        cleanup_on_startup: settings.cleanup_on_startup,
+        source,
+        effect,
+        updated_at_ms,
+    }
+}
+
+fn configured_metadata_raw_cache_settings(
+    config: &NakoServerConfig,
+) -> nako_core::AdminMetadataRawCacheSettings {
+    nako_core::AdminMetadataRawCacheSettings {
+        retention_ms: config.metadata.raw_cache_retention_ms,
+        cleanup_on_startup: config.metadata.maintenance.raw_cache_cleanup_on_startup,
     }
 }
 

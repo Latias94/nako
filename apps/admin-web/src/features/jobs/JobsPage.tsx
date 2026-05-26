@@ -33,6 +33,8 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/Table";
+import { useI18n } from "../../i18n/I18nProvider";
+import type { MessageId } from "../../i18n/messages";
 
 export type JobsSearch = {
   status?: string;
@@ -56,51 +58,17 @@ type JobsResult = {
   error?: string;
 };
 
-const columns: Array<ColumnDef<AdminJobListItem>> = [
-  {
-    accessorKey: "kind",
-    header: "Kind",
-    cell: ({ row }) => (
-      <div className="jobsPrimaryCell">
-        <strong>{row.original.kind}</strong>
-        <span>{row.original.id}</span>
-      </div>
-    ),
-  },
-  {
-    accessorKey: "status",
-    header: "Status",
-    cell: ({ row }) => <JobStatusBadge status={row.original.status} hasError={row.original.has_error} />,
-  },
-  {
-    accessorKey: "resource_class",
-    header: "Resource",
-  },
-  {
-    accessorKey: "library_id",
-    header: "Media Library",
-    cell: ({ row }) => row.original.library_id ?? "none",
-  },
-  {
-    accessorKey: "source_id",
-    header: "Media Source",
-    cell: ({ row }) => row.original.source_id ?? "none",
-  },
-  {
-    accessorKey: "queued_at",
-    header: "Queued",
-  },
-];
-
 export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) {
+  const { locale, t } = useI18n();
   const query = useQuery({
-    queryKey: ["admin-jobs", search],
-    queryFn: () => loadJobs(dataSource, search),
+    queryKey: ["admin-jobs", search, locale],
+    queryFn: () => loadJobs(dataSource, search, t("jobs.dataSourceUnavailable")),
   });
   const result = query.data ?? {
     value: mockJobs,
     source: "mock" as const,
   };
+  const columns = createColumns(t);
 
   const table = useReactTable({
     data: result.value.jobs,
@@ -128,47 +96,47 @@ export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) 
           variant="outline"
         >
           <RefreshCw size={16} />
-          Refresh
+          {t("jobs.refresh")}
         </Button>
       }
-      description="Durable background work with route-owned filters, generated Admin API DTOs, and section-local fallback."
-      kicker="Operations"
+      description={t("jobs.description")}
+      kicker={t("jobs.kicker")}
       status={<SourceLabel source={result.source} />}
-      title="Jobs"
+      title={t("jobs.title")}
       titleId="jobs-route-title"
     >
       {result.error ? (
         <RouteNotice>
-          {result.error}. Showing deterministic mock fallback data.
+          {t("jobs.fallback", { error: result.error })}
         </RouteNotice>
       ) : null}
 
-      <FilterBar label="Job filters">
-        <FilterField label="Status">
+      <FilterBar label={t("jobs.filters")}>
+        <FilterField label={t("jobs.filter.status")}>
           <select
-            aria-label="Job status filter"
+            aria-label={t("jobs.filter.statusAria")}
             value={search.status ?? ""}
             onChange={(event) => onSearchChange({ status: event.target.value || undefined, offset: 0 })}
           >
-            <option value="">Any status</option>
-            <option value="queued">Queued</option>
-            <option value="running">Running</option>
-            <option value="failed">Failed</option>
-            <option value="succeeded">Succeeded</option>
-            <option value="cancelled">Cancelled</option>
+            <option value="">{t("jobs.filter.anyStatus")}</option>
+            <option value="queued">{t("jobs.status.queued")}</option>
+            <option value="running">{t("jobs.status.running")}</option>
+            <option value="failed">{t("jobs.status.failed")}</option>
+            <option value="succeeded">{t("jobs.status.succeeded")}</option>
+            <option value="cancelled">{t("jobs.status.cancelled")}</option>
           </select>
         </FilterField>
-        <FilterField label="Kind">
+        <FilterField label={t("jobs.filter.kind")}>
           <input
-            aria-label="Job kind filter"
+            aria-label={t("jobs.filter.kindAria")}
             placeholder="metadata_refresh"
             value={search.kind ?? ""}
             onChange={(event) => onSearchChange({ kind: event.target.value || undefined, offset: 0 })}
           />
         </FilterField>
-        <FilterField label="Resource">
+        <FilterField label={t("jobs.filter.resource")}>
           <input
-            aria-label="Job resource class filter"
+            aria-label={t("jobs.filter.resourceAria")}
             placeholder="library"
             value={search.resource_class ?? ""}
             onChange={(event) =>
@@ -176,9 +144,9 @@ export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) 
             }
           />
         </FilterField>
-        <FilterField label="Library">
+        <FilterField label={t("jobs.filter.library")}>
           <input
-            aria-label="Job library filter"
+            aria-label={t("jobs.filter.libraryAria")}
             placeholder="library-id"
             value={search.library_id ?? ""}
             onChange={(event) => onSearchChange({ library_id: event.target.value || undefined, offset: 0 })}
@@ -186,7 +154,7 @@ export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) 
         </FilterField>
         <FilterActions>
           <Badge tone={activeFilterCount > 0 ? "info" : "neutral"}>
-            {activeFilterCount} filters
+            {t("jobs.filter.active", { count: activeFilterCount })}
           </Badge>
           <Button
             disabled={activeFilterCount === 0}
@@ -203,25 +171,29 @@ export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) 
             variant="ghost"
           >
             <X size={16} />
-            Clear
+            {t("jobs.clear")}
           </Button>
         </FilterActions>
       </FilterBar>
 
       <DataPanel
-        description={`${result.value.page.returned} returned, offset ${result.value.page.offset}, limit ${result.value.page.limit}`}
+        description={t("jobs.queue.description", {
+          returned: result.value.page.returned,
+          offset: result.value.page.offset,
+          limit: result.value.page.limit,
+        })}
         headerAccessory={
           <div className="searchHint">
             <Search size={15} />
-            URL filters are authoritative
+            {t("jobs.queue.urlFilters")}
           </div>
         }
-        title="Job queue"
+        title={t("jobs.queue.title")}
       >
-        {query.isLoading ? <RowsSkeleton label="Loading jobs" /> : null}
+        {query.isLoading ? <RowsSkeleton label={t("jobs.loading")} /> : null}
 
         {!query.isLoading && result.value.jobs.length === 0 ? (
-          <EmptyRouteState>No jobs match the current filters.</EmptyRouteState>
+          <EmptyRouteState>{t("jobs.empty")}</EmptyRouteState>
         ) : null}
 
         {!query.isLoading && result.value.jobs.length > 0 ? (
@@ -259,12 +231,56 @@ export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) 
   );
 }
 
-async function loadJobs(dataSource: AdminDataSource, search: JobsSearch): Promise<JobsResult> {
+type Translate = (id: MessageId, values?: Record<string, number | string>) => string;
+
+function createColumns(t: Translate): Array<ColumnDef<AdminJobListItem>> {
+  return [
+    {
+      accessorKey: "kind",
+      header: t("jobs.column.kind"),
+      cell: ({ row }) => (
+        <div className="jobsPrimaryCell">
+          <strong>{row.original.kind}</strong>
+          <span>{row.original.id}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "status",
+      header: t("jobs.column.status"),
+      cell: ({ row }) => <JobStatusBadge status={row.original.status} hasError={row.original.has_error} />,
+    },
+    {
+      accessorKey: "resource_class",
+      header: t("jobs.column.resource"),
+    },
+    {
+      accessorKey: "library_id",
+      header: t("jobs.column.mediaLibrary"),
+      cell: ({ row }) => row.original.library_id ?? t("jobs.none"),
+    },
+    {
+      accessorKey: "source_id",
+      header: t("jobs.column.mediaSource"),
+      cell: ({ row }) => row.original.source_id ?? t("jobs.none"),
+    },
+    {
+      accessorKey: "queued_at",
+      header: t("jobs.column.queued"),
+    },
+  ];
+}
+
+async function loadJobs(
+  dataSource: AdminDataSource,
+  search: JobsSearch,
+  unavailableMessage: string,
+): Promise<JobsResult> {
   if (!dataSource.loadJobs) {
     return {
       value: mockJobs,
       source: "mock",
-      error: "Jobs route data source is unavailable",
+      error: unavailableMessage,
     };
   }
 

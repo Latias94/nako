@@ -546,7 +546,14 @@ GET  /automation/jobs/{job_id}/artifacts
 GET  /items/{item_id}/automation/artifacts?limit=50&offset=0
 GET  /jobs/{job_id}
 GET  /admin/v1/overview
+GET  /admin/v1/access/summary
+GET  /admin/v1/automation/generated-artifacts/proposals
+POST /admin/v1/automation/generated-artifacts/{artifact_id}/review-plan
+POST /admin/v1/automation/generated-artifacts/{artifact_id}/review
 GET  /admin/v1/catalog/governance/items
+GET  /admin/v1/catalog/governance/items/{item_id}
+POST /admin/v1/catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review-plan
+POST /admin/v1/catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review
 GET  /admin/v1/events
 GET  /admin/v1/jobs
 POST /admin/v1/jobs/{job_id}/cancel
@@ -566,14 +573,26 @@ GET  /admin/v1/playback/sessions
 GET  /admin/v1/playback/runtime
 GET  /admin/v1/storage/staging
 GET  /admin/v1/system/config
+GET  /admin/v1/settings/metadata/raw-cache
+PUT  /admin/v1/settings/metadata/raw-cache
 ```
 
 The Admin Web console consumes an app-local generated Admin API TypeScript
 contract for the first read-model routes above:
-`GET /admin/v1/overview`, `GET /admin/v1/catalog/governance/items`,
-`GET /admin/v1/events`, `GET /admin/v1/jobs`,
-`GET /admin/v1/playback/sessions`, `GET /admin/v1/playback/runtime`,
-`GET /admin/v1/storage/staging`, and `GET /admin/v1/system/config`.
+`GET /admin/v1/overview`,
+`GET /admin/v1/access/summary`,
+`GET /admin/v1/automation/generated-artifacts/proposals`,
+`POST /admin/v1/automation/generated-artifacts/{artifact_id}/review-plan`,
+`POST /admin/v1/automation/generated-artifacts/{artifact_id}/review`,
+`GET /admin/v1/catalog/governance/items`,
+`GET /admin/v1/catalog/governance/items/{item_id}`,
+`POST /admin/v1/catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review-plan`,
+`POST /admin/v1/catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review`,
+`GET /admin/v1/events`,
+`GET /admin/v1/jobs`, `GET /admin/v1/playback/sessions`,
+`GET /admin/v1/playback/runtime`, `GET /admin/v1/storage/staging`,
+`GET /admin/v1/system/config`, and
+`GET|PUT /admin/v1/settings/metadata/raw-cache`.
 Refresh it from `apps/admin-web` with `npm run generate:admin-api`.
 
 This generated Admin contract is separate from the Public Client TypeScript SDK
@@ -603,6 +622,45 @@ The staging/cache diagnostics route never returns staging `local_path`, full
 fingerprint values, validation error text, cache error text, WebDAV
 credentials, or secret values. It is an Admin API route and is not part of
 Public Client OpenAPI or generated SDK artifacts.
+
+`GET /admin/v1/access/summary` returns the current access boundary for Admin
+Web. In the first implementation this reports Single-Admin Mode, the resolved
+stable `local-admin` principal, auth enablement, whether a bearer token
+reference is configured, Role/account/Library Access policy readiness, and the
+effective access for each configured Media Library. In Single-Admin Mode the
+current principal has `manage` access to all configured libraries.
+
+The access summary route is read-only. It does not create user accounts, assign
+Roles, mutate Library Access, or imply that RBAC is active. It never returns
+bearer token values, auth token environment variable names, local filesystem
+roots, source URIs, hosts, URLs, WebDAV credentials, database URLs, provider
+secrets, Addon tokens, webhook secrets, or raw request headers. It is an Admin
+API route and is not part of Public Client OpenAPI or generated SDK artifacts.
+
+`GET /admin/v1/settings/metadata/raw-cache` returns the Admin settings
+authority view for the metadata raw cache retention group. It reports
+`retention_ms`, `cleanup_on_startup`, `source`, `effect`, and
+`updated_at_ms`. `source` is `configured` when the value comes from startup
+configuration and `admin` when a persisted Admin override exists. `effect` is
+`active` when the current process has adopted the reported value and
+`requires_restart` when a persisted Admin override will be applied on the next
+server start.
+
+`PUT /admin/v1/settings/metadata/raw-cache` replaces that field group with a
+persisted Admin override:
+
+```json
+{
+  "retention_ms": 3600000,
+  "cleanup_on_startup": false
+}
+```
+
+`retention_ms` must be greater than zero. The route is intentionally scoped to
+safe scalar settings: it does not accept or return raw TOML, paths, roots,
+URLs, hosts, provider credentials, tokens, secret values, or environment
+variable names. It is an Admin API route and is not part of Public Client
+OpenAPI or generated SDK artifacts.
 
 `GET /admin/v1/overview` includes a redacted runtime summary with active and
 completed task counts plus supervised job outcome counters:
@@ -683,10 +741,51 @@ source count, representative Media Source ID and file name, redacted Local
 Inference summary, Provider Mapping counts, duplicate relationship count, and
 computed governance issue codes.
 
-The catalog governance route never returns source locators, local filesystem
-paths, raw Local Inference `evidence_value`, provider raw response bodies, NFO
-sidecar paths, tokens, or secret values. It is an Admin API route and is not
-part of Public Client OpenAPI or generated SDK artifacts.
+`GET /admin/v1/catalog/governance/items/{item_id}` returns a redacted one-item
+repair context for the first Catalog Governance action slice. It includes the
+safe queue row summary, Provider Mapping summaries, safe Provider Subject
+display facts, and available repair action codes. It does not expose raw
+Provider Mapping payloads or Local Inference evidence values.
+
+`POST /admin/v1/catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review-plan`
+returns a dry-run review plan for one Provider Mapping decision:
+
+```json
+{
+  "decision": "accept"
+}
+```
+
+`decision` is `accept` or `reject`. The plan reports current and target mapping
+status, readiness reason codes, and explicit boundary booleans. This route does
+not mutate state.
+
+`POST /admin/v1/catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review`
+confirms the same Provider Mapping decision after the UI has shown review-plan
+context:
+
+```json
+{
+  "decision": "accept"
+}
+```
+
+The mutation updates only the selected Provider Mapping status. It returns the
+item ID, mapping ID, decision, previous status, current status, `changed`, an
+`idempotent_replay` flag, and the same redaction-safe plan shape for result
+rendering. Repeating a request that is already in the target status is an
+idempotent replay and must not be reported as a fresh change.
+
+This mutation must not update Canonical Metadata, Provider Subjects, Local
+Inference, duplicate-source relationships, hierarchy, NFO sidecars, Library
+Files, artwork, playback state, Public Client API state, or arbitrary metadata
+payloads.
+
+Catalog governance routes never return source locators, local filesystem paths,
+raw Local Inference `evidence_value`, provider raw response bodies, provider
+request URLs, NFO sidecar paths or XML, tokens, credentials, or secret values.
+They are Admin API routes and are not part of Public Client OpenAPI or
+generated SDK artifacts.
 
 `GET /search` reads the SQLite search projection behind `nako-search`. `facet`
 is optional and comma-separated for the current lightweight route shape. Search

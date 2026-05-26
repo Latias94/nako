@@ -12,14 +12,32 @@ import type {
   AdminAddonRegistrationsResponse,
   AdminAddonResourceCallDiagnosticRequest,
   AdminAddonResourceCallDiagnosticResponse,
+  AdminAccessSummaryResponse,
   AdminAddonRoutingPlansResponse,
   AdminAddonRuntimeReadinessResponse,
   AdminAddonSurfacesResponse,
   AdminAddonsQuery,
   AdminCatalogGovernanceItemListResponse,
   AdminCatalogGovernanceItemsQuery,
+  AdminCatalogGovernanceItemDetailResponse,
+  AdminCatalogGovernanceProviderMappingReviewDecision,
+  AdminCatalogGovernanceProviderMappingReviewPlanResponse,
+  AdminCatalogGovernanceProviderMappingReviewRequest,
+  AdminCatalogGovernanceProviderMappingReviewResponse,
   AdminGeneratedArtifactProposalListResponse,
   AdminGeneratedArtifactProposalsQuery,
+  AdminGeneratedArtifactReviewPlanResponse,
+  AdminGeneratedArtifactReviewRequest,
+  AdminGeneratedArtifactReviewResponse,
+  AdminArtworkKind,
+  AdminItemArtworkGalleryQuery,
+  AdminManagedArtworkGalleryResponse,
+  AdminSelectItemArtworkRequest,
+  AdminJobCommandResponse,
+  AdminLibraryMetadataProfileResponse,
+  AdminMetadataRawCacheSettingsResponse,
+  AdminMetadataProfile,
+  AdminUpdateMetadataRawCacheSettingsRequest,
   AdminWatchFolderDiscoveryRequest,
   AdminWatchFolderDiscoveryResponse,
   AdminJobListResponse,
@@ -37,9 +55,23 @@ import type {
   IssueAddonTokenRequest,
   RegisterAddonRequest,
   ReplaceAddonGrantsRequest,
+  AdminUpdateLibraryMetadataProfileRequest,
+  PublishSelectedArtworkResponse,
   UpdateAddonStatusRequest,
+  UnpublishSelectedArtworkResponse,
 } from "./generated/contract";
 import { NAKO_ADMIN_ROUTES } from "./generated/contract";
+import type {
+  PublicCatalogItemsQuery,
+  PublicCatalogItemsResponse,
+  PublicCatalogSearchQuery,
+  PublicCatalogSearchResponse,
+  PublicItemCreditsResponse,
+  PublicItemDetailResponse,
+  PublicItemImagesResponse,
+  PublicLibrarySourcesResponse,
+  PublicSourceProbeResponse,
+} from "./types";
 
 export type AdminApiClientOptions = {
   baseUrl?: string;
@@ -60,6 +92,10 @@ export class AdminApiClient {
 
   async getOverview(): Promise<AdminOverviewResponse> {
     return this.getJson<AdminOverviewResponse>(NAKO_ADMIN_ROUTES.overview);
+  }
+
+  async getAccessSummary(): Promise<AdminAccessSummaryResponse> {
+    return this.getJson<AdminAccessSummaryResponse>(NAKO_ADMIN_ROUTES.accessSummary);
   }
 
   async getAddons(query: AdminAddonsQuery = {}): Promise<AdminAddonRegistrationsResponse> {
@@ -182,6 +218,56 @@ export class AdminApiClient {
     );
   }
 
+  async getCatalogGovernanceItemDetail(
+    itemId: string,
+  ): Promise<AdminCatalogGovernanceItemDetailResponse> {
+    return this.getJson<AdminCatalogGovernanceItemDetailResponse>(
+      routeWithParam(NAKO_ADMIN_ROUTES.catalogGovernanceItemDetail, "item_id", itemId),
+    );
+  }
+
+  async planCatalogGovernanceProviderMappingReview(
+    itemId: string,
+    mappingId: string,
+    decision: AdminCatalogGovernanceProviderMappingReviewDecision,
+  ): Promise<AdminCatalogGovernanceProviderMappingReviewPlanResponse> {
+    const path = routeWithParam(
+      routeWithParam(
+        NAKO_ADMIN_ROUTES.catalogGovernanceProviderMappingReviewPlan,
+        "item_id",
+        itemId,
+      ),
+      "mapping_id",
+      mappingId,
+    );
+
+    return this.postJson<AdminCatalogGovernanceProviderMappingReviewPlanResponse>(
+      path,
+      { decision } satisfies AdminCatalogGovernanceProviderMappingReviewRequest,
+    );
+  }
+
+  async reviewCatalogGovernanceProviderMapping(
+    itemId: string,
+    mappingId: string,
+    decision: AdminCatalogGovernanceProviderMappingReviewDecision,
+  ): Promise<AdminCatalogGovernanceProviderMappingReviewResponse> {
+    const path = routeWithParam(
+      routeWithParam(
+        NAKO_ADMIN_ROUTES.catalogGovernanceProviderMappingReview,
+        "item_id",
+        itemId,
+      ),
+      "mapping_id",
+      mappingId,
+    );
+
+    return this.postJson<AdminCatalogGovernanceProviderMappingReviewResponse>(
+      path,
+      { decision } satisfies AdminCatalogGovernanceProviderMappingReviewRequest,
+    );
+  }
+
   async getAcquisitionIntakeCandidates(
     query: AdminAcquisitionIntakeCandidatesQuery = {},
   ): Promise<AdminAcquisitionIntakeCandidateListResponse> {
@@ -204,6 +290,55 @@ export class AdminApiClient {
   ): Promise<AdminGeneratedArtifactProposalListResponse> {
     return this.getJson<AdminGeneratedArtifactProposalListResponse>(
       withQuery(NAKO_ADMIN_ROUTES.generatedArtifactProposals, query),
+    );
+  }
+
+  async planGeneratedArtifactReview(
+    artifactId: string,
+    decision: AdminGeneratedArtifactReviewRequest["decision"],
+  ): Promise<AdminGeneratedArtifactReviewPlanResponse> {
+    return this.postJson<AdminGeneratedArtifactReviewPlanResponse>(
+      routeWithParam(NAKO_ADMIN_ROUTES.generatedArtifactReviewPlan, "artifact_id", artifactId),
+      { decision } satisfies AdminGeneratedArtifactReviewRequest,
+    );
+  }
+
+  async reviewGeneratedArtifact(
+    artifactId: string,
+    decision: AdminGeneratedArtifactReviewRequest["decision"],
+  ): Promise<AdminGeneratedArtifactReviewResponse> {
+    return this.postJson<AdminGeneratedArtifactReviewResponse>(
+      routeWithParam(NAKO_ADMIN_ROUTES.generatedArtifactReview, "artifact_id", artifactId),
+      { decision } satisfies AdminGeneratedArtifactReviewRequest,
+    );
+  }
+
+  async getItemArtworkGallery(
+    itemId: string,
+    query: AdminItemArtworkGalleryQuery = {},
+  ): Promise<AdminManagedArtworkGalleryResponse> {
+    return this.getJson<AdminManagedArtworkGalleryResponse>(
+      withQuery(routeWithParam(NAKO_ADMIN_ROUTES.itemArtworkGallery, "item_id", itemId), query),
+    );
+  }
+
+  async selectItemArtwork(
+    itemId: string,
+    kind: AdminArtworkKind | string,
+    artifactId: AdminSelectItemArtworkRequest["artifact_id"],
+  ): Promise<PublishSelectedArtworkResponse> {
+    return this.postJson<PublishSelectedArtworkResponse>(
+      itemArtworkPath(NAKO_ADMIN_ROUTES.itemArtworkSelect, itemId, kind),
+      { artifact_id: artifactId } satisfies AdminSelectItemArtworkRequest,
+    );
+  }
+
+  async unpublishItemArtwork(
+    itemId: string,
+    kind: AdminArtworkKind | string,
+  ): Promise<UnpublishSelectedArtworkResponse> {
+    return this.deleteJson<UnpublishSelectedArtworkResponse>(
+      itemArtworkPath(NAKO_ADMIN_ROUTES.itemArtworkSelection, itemId, kind),
     );
   }
 
@@ -259,6 +394,97 @@ export class AdminApiClient {
 
   async getSystemConfig(): Promise<AdminServerConfigDiagnosticsResponse> {
     return this.getJson<AdminServerConfigDiagnosticsResponse>(NAKO_ADMIN_ROUTES.systemConfig);
+  }
+
+  async getMetadataRawCacheSettings(): Promise<AdminMetadataRawCacheSettingsResponse> {
+    return this.getJson<AdminMetadataRawCacheSettingsResponse>(
+      NAKO_ADMIN_ROUTES.settingsMetadataRawCache,
+    );
+  }
+
+  async updateMetadataRawCacheSettings(
+    request: AdminUpdateMetadataRawCacheSettingsRequest,
+  ): Promise<AdminMetadataRawCacheSettingsResponse> {
+    return this.putJson<AdminMetadataRawCacheSettingsResponse>(
+      NAKO_ADMIN_ROUTES.settingsMetadataRawCache,
+      request,
+    );
+  }
+
+  async getLibraryMetadataProfile(libraryId: string): Promise<AdminLibraryMetadataProfileResponse> {
+    return this.getJson<AdminLibraryMetadataProfileResponse>(
+      routeWithParam(NAKO_ADMIN_ROUTES.libraryMetadataProfile, "library_id", libraryId),
+    );
+  }
+
+  async updateLibraryMetadataProfile(
+    libraryId: string,
+    profile: AdminMetadataProfile,
+  ): Promise<AdminLibraryMetadataProfileResponse> {
+    return this.putJson<AdminLibraryMetadataProfileResponse>(
+      routeWithParam(NAKO_ADMIN_ROUTES.libraryMetadataProfile, "library_id", libraryId),
+      { profile } satisfies AdminUpdateLibraryMetadataProfileRequest,
+    );
+  }
+
+  async enqueueLibraryScan(libraryId: string): Promise<AdminJobCommandResponse> {
+    return this.postJson<AdminJobCommandResponse>(
+      routeWithParam(NAKO_ADMIN_ROUTES.libraryScan, "library_id", libraryId),
+      {},
+    );
+  }
+
+  async enqueueLibraryNfoImport(libraryId: string): Promise<AdminJobCommandResponse> {
+    return this.postJson<AdminJobCommandResponse>(
+      routeWithParam(NAKO_ADMIN_ROUTES.libraryNfoImport, "library_id", libraryId),
+      {},
+    );
+  }
+
+  async enqueueLibraryNfoExport(libraryId: string): Promise<AdminJobCommandResponse> {
+    return this.postJson<AdminJobCommandResponse>(
+      routeWithParam(NAKO_ADMIN_ROUTES.libraryNfoExport, "library_id", libraryId),
+      {},
+    );
+  }
+
+  async getPublicLibrarySourceInventoryBridge(
+    libraryId: string,
+    query: { limit?: number; offset?: number } = {},
+  ): Promise<PublicLibrarySourcesResponse> {
+    return this.getJson<PublicLibrarySourcesResponse>(
+      withQuery(`/libraries/${encodeURIComponent(libraryId)}/sources`, query),
+    );
+  }
+
+  async getPublicCatalogItemsBridge(
+    query: PublicCatalogItemsQuery = {},
+  ): Promise<PublicCatalogItemsResponse> {
+    return this.getJson<PublicCatalogItemsResponse>(withQuery("/items", query));
+  }
+
+  async getPublicCatalogSearchBridge(
+    query: PublicCatalogSearchQuery = {},
+  ): Promise<PublicCatalogSearchResponse> {
+    return this.getJson<PublicCatalogSearchResponse>(withQuery("/search", query));
+  }
+
+  async getPublicItemDetailBridge(itemId: string): Promise<PublicItemDetailResponse> {
+    return this.getJson<PublicItemDetailResponse>(`/items/${encodeURIComponent(itemId)}`);
+  }
+
+  async getPublicItemCreditsBridge(itemId: string): Promise<PublicItemCreditsResponse> {
+    return this.getJson<PublicItemCreditsResponse>(`/items/${encodeURIComponent(itemId)}/credits`);
+  }
+
+  async getPublicItemImagesBridge(itemId: string): Promise<PublicItemImagesResponse> {
+    return this.getJson<PublicItemImagesResponse>(`/items/${encodeURIComponent(itemId)}/images`);
+  }
+
+  async getPublicSourceProbeBridge(sourceId: string): Promise<PublicSourceProbeResponse> {
+    return this.getJson<PublicSourceProbeResponse>(
+      `/sources/${encodeURIComponent(sourceId)}/probe`,
+    );
   }
 
   private async getJson<T>(path: string): Promise<T> {
@@ -324,6 +550,19 @@ export class AdminApiClient {
     return this.parseJson<T>(response);
   }
 
+  private async deleteJson<T>(path: string): Promise<T> {
+    const response = await this.fetcher(`${this.baseUrl}${path}`, {
+      method: "DELETE",
+      headers: this.headers(),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Admin API request failed with HTTP ${response.status}`);
+    }
+
+    return this.parseJson<T>(response);
+  }
+
   private async parseJson<T>(response: Response): Promise<T> {
     const contentType = response.headers.get("content-type") ?? "";
     if (!contentType.toLowerCase().includes("application/json")) {
@@ -358,18 +597,11 @@ function routeWithParam(path: string, name: string, value: string) {
   return path.replace(`{${name}}`, encodeURIComponent(value));
 }
 
-function withQuery(
-  path: string,
-  query:
-    | AdminPlaybackSupportQuery
-    | AdminAcquisitionIntakeCandidatesQuery
-    | AdminGeneratedArtifactProposalsQuery
-    | AdminAddonsQuery
-    | AdminCatalogGovernanceItemsQuery
-    | AdminPlaybackSessionsQuery
-    | AdminStorageStagingQuery
-    | AdminJobsQuery,
-) {
+function itemArtworkPath(path: string, itemId: string, kind: string) {
+  return routeWithParam(routeWithParam(path, "item_id", itemId), "kind", kind);
+}
+
+function withQuery(path: string, query: object) {
   const params = new URLSearchParams();
 
   for (const [key, value] of Object.entries(query)) {

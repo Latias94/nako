@@ -7,13 +7,23 @@ import {
   mockAddonGrants,
   mockAddonHealth,
   mockAddonInstallGuide,
+  mockAccessSummary,
   mockAddons,
   mockAddonSurfaces,
   mockAddonTokens,
   mockCatalogGovernance,
+  mockCatalogGovernanceItemDetail,
+  mockCatalogGovernanceProviderMappingReviewPlan,
+  mockPublicItemDetail,
+  mockPublicCatalogItems,
+  mockPublicCatalogSearch,
   mockEvents,
   mockGeneratedArtifactProposals,
+  mockGeneratedArtifactReviewPlan,
+  mockAdminItemArtworkGallery,
   mockJobs,
+  mockLibraryMetadataProfile,
+  mockMetadataRawCacheSettings,
   mockOverview,
   mockPlaybackRuntime,
   mockPlaybackSessions,
@@ -33,20 +43,39 @@ import type {
   AdminAddonRegistrationsResponse,
   AdminAddonResourceCallDiagnosticResponse,
   AdminAddonSurfacesResponse,
+  AdminAccessSummaryResponse,
+  AdminCatalogGovernanceItem,
+  AdminCatalogGovernanceItemDetailResponse,
   AdminCatalogGovernanceItemListResponse,
   AdminCatalogGovernanceItemsQuery,
+  AdminCatalogGovernanceProviderMappingReviewPlanResponse,
+  AdminCatalogGovernanceProviderMappingReviewResponse,
+  AdminCatalogGovernanceProviderMappingSummary,
+  AdminExternalProvider,
   AdminGeneratedArtifactProposalListResponse,
   AdminGeneratedArtifactProposalsQuery,
+  AdminGeneratedArtifactReviewPlanResponse,
+  AdminGeneratedArtifactReviewResponse,
+  AdminMetadataSource,
+  AdminArtworkKind,
+  AdminItemArtworkGalleryQuery,
+  AdminManagedArtworkGalleryResponse,
+  AdminJobCommandResponse,
   AdminJobListResponse,
   AdminJobsQuery,
+  AdminLibraryMetadataProfileResponse,
+  AdminMetadataRawCacheSettingsResponse,
+  AdminUpdateMetadataRawCacheSettingsRequest,
   AdminOutboxEventListResponse,
   AdminOverviewResponse,
   AdminPlaybackRuntimeDiagnosticsResponse,
   AdminPlaybackSessionsQuery,
   AdminPlaybackSessionListResponse,
+  PublishSelectedArtworkResponse,
   AdminServerConfigDiagnosticsResponse,
   AdminStorageStagingQuery,
   AdminStorageStagingDiagnosticsResponse,
+  UnpublishSelectedArtworkResponse,
 } from "./generated/contract";
 import type {
   AddonResource,
@@ -65,14 +94,41 @@ import type {
   AddonTokenActionResult,
   AddonTokenSummaryRow,
   AddonGrantSummaryRow,
+  CatalogBrowseQuery,
+  CatalogBrowseSummary,
+  CatalogGovernanceItemDetailSummary,
+  CatalogGovernanceItemSummary,
+  CatalogGovernanceProviderMappingSummary,
+  CatalogGovernanceProviderMappingReviewDecision,
+  CatalogGovernanceProviderMappingReviewPlanSummary,
+  CatalogGovernanceProviderMappingReviewResultSummary,
   CatalogGovernanceSummary,
   DataSourceMode,
   EventSummary,
+  GeneratedArtifactReviewDecision,
   GeneratedArtifactProposalSummary,
+  GeneratedArtifactReviewPlanSummary,
+  GeneratedArtifactReviewResultSummary,
   IntakeSummary,
+  ItemArtworkGallerySummary,
+  ItemArtworkMutationResultSummary,
+  ItemDetailSummary,
   JobRow,
+  LibraryCommandAction,
+  LibraryCommandResult,
+  LibraryJobSummary,
+  LibraryManagementDetail,
+  LibrarySourceInventorySummary,
   NetworkSummary,
   PlaybackSummary,
+  PublicCatalogItemsResponse,
+  PublicCatalogMediaItem,
+  PublicCatalogSearchResponse,
+  PublicItemDetailResponse,
+  PublicMediaProbe,
+  PublicLibrarySourcesResponse,
+  PublicSourceProbeResponse,
+  AdminMetadataProfile,
   SettingRow,
   StorageSummary,
 } from "./types";
@@ -81,26 +137,76 @@ export type { AdminConsoleData, AdminSourceMap, DataSourceMode };
 
 export type AdminDataSource = {
   load(): Promise<AdminConsoleData>;
+  loadAccessSummary?(): Promise<AdminSectionResult<AdminAccessSummaryResponse>>;
   loadOverview?(): Promise<AdminSectionResult<AdminOverviewResponse>>;
   loadAddons?(query?: AdminAddonsQuery): Promise<AdminSectionResult<AddonsRouteSummary>>;
   loadJobs?(query?: AdminJobsQuery): Promise<AdminSectionResult<AdminJobListResponse>>;
   loadLibraries?(): Promise<AdminSectionResult<AdminServerConfigDiagnosticsResponse>>;
+  loadLibraryDetail?(libraryId: string): Promise<AdminSectionResult<LibraryManagementDetail>>;
   loadSettings?(): Promise<AdminSectionResult<AdminServerConfigDiagnosticsResponse>>;
+  loadMetadataRawCacheSettings?(): Promise<AdminSectionResult<AdminMetadataRawCacheSettingsResponse>>;
+  updateMetadataRawCacheSettings?(
+    request: AdminUpdateMetadataRawCacheSettingsRequest,
+  ): Promise<AdminMetadataRawCacheSettingsResponse>;
   loadAcquisitionIntake?(
     query?: AdminAcquisitionIntakeCandidatesQuery,
   ): Promise<AdminSectionResult<AdminAcquisitionIntakeCandidateListResponse>>;
   loadGeneratedArtifacts?(
     query?: AdminGeneratedArtifactProposalsQuery,
   ): Promise<AdminSectionResult<AdminGeneratedArtifactProposalListResponse>>;
+  loadGeneratedArtifactReviewPlan?(
+    artifactId: string,
+    decision: GeneratedArtifactReviewDecision,
+  ): Promise<AdminSectionResult<GeneratedArtifactReviewPlanSummary>>;
+  reviewGeneratedArtifact?(
+    artifactId: string,
+    decision: GeneratedArtifactReviewDecision,
+  ): Promise<GeneratedArtifactReviewResultSummary>;
+  loadItemArtworkGallery?(
+    itemId: string,
+    query?: AdminItemArtworkGalleryQuery,
+  ): Promise<AdminSectionResult<ItemArtworkGallerySummary>>;
+  selectItemArtwork?(
+    itemId: string,
+    kind: AdminArtworkKind | string,
+    artifactId: string,
+  ): Promise<ItemArtworkMutationResultSummary>;
+  unpublishItemArtwork?(
+    itemId: string,
+    kind: AdminArtworkKind | string,
+  ): Promise<ItemArtworkMutationResultSummary>;
+  loadCatalog?(query?: CatalogBrowseQuery): Promise<AdminSectionResult<CatalogBrowseSummary>>;
+  loadItemDetail?(itemId: string): Promise<AdminSectionResult<ItemDetailSummary>>;
   loadCatalogGovernance?(
     query?: AdminCatalogGovernanceItemsQuery,
   ): Promise<AdminSectionResult<AdminCatalogGovernanceItemListResponse>>;
+  loadCatalogGovernanceItemDetail?(
+    itemId: string,
+  ): Promise<AdminSectionResult<CatalogGovernanceItemDetailSummary>>;
+  loadCatalogGovernanceProviderMappingReviewPlan?(
+    itemId: string,
+    mappingId: string,
+    decision: CatalogGovernanceProviderMappingReviewDecision,
+  ): Promise<AdminSectionResult<CatalogGovernanceProviderMappingReviewPlanSummary>>;
+  reviewCatalogGovernanceProviderMapping?(
+    itemId: string,
+    mappingId: string,
+    decision: CatalogGovernanceProviderMappingReviewDecision,
+  ): Promise<CatalogGovernanceProviderMappingReviewResultSummary>;
   loadPlaybackSessions?(
     query?: AdminPlaybackSessionsQuery,
   ): Promise<AdminSectionResult<AdminPlaybackSessionListResponse>>;
   loadStorageStaging?(
     query?: AdminStorageStagingQuery,
   ): Promise<AdminSectionResult<AdminStorageStagingDiagnosticsResponse>>;
+  updateLibraryMetadataProfile?(
+    libraryId: string,
+    profile: AdminMetadataProfile,
+  ): Promise<AdminLibraryMetadataProfileResponse>;
+  runLibraryCommand?(
+    libraryId: string,
+    action: LibraryCommandAction,
+  ): Promise<LibraryCommandResult>;
   setAddonStatus?(addonId: string, status: "enabled" | "disabled"): Promise<AddonOperationsSummary>;
   checkAddonHealth?(addonId: string): Promise<AddonHealthSummary>;
   diagnoseAddonResource?(addonId: string, resource: AddonResource): Promise<AddonDiagnosticSummary>;
@@ -249,14 +355,38 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
     async loadOverview() {
       return loadSection(() => client.getOverview(), mockOverview);
     },
+    async loadAccessSummary() {
+      return loadSection(() => client.getAccessSummary(), mockAccessSummary);
+    },
     async loadAddons(query = {}) {
       return loadAddonsRouteSummary(client, query);
     },
     async loadLibraries() {
       return loadSection(() => client.getSystemConfig(), mockSystemConfig);
     },
+    async loadLibraryDetail(libraryId) {
+      return loadLibraryDetail(client, libraryId);
+    },
+    async updateLibraryMetadataProfile(libraryId, profile) {
+      return client.updateLibraryMetadataProfile(libraryId, profile);
+    },
+    async runLibraryCommand(libraryId, action) {
+      return {
+        action,
+        job: mapLibraryJob(await enqueueLibraryCommand(client, libraryId, action)),
+      };
+    },
     async loadSettings() {
       return loadSection(() => client.getSystemConfig(), mockSystemConfig);
+    },
+    async loadMetadataRawCacheSettings() {
+      return loadSection(
+        () => client.getMetadataRawCacheSettings(),
+        mockMetadataRawCacheSettings,
+      );
+    },
+    async updateMetadataRawCacheSettings(request) {
+      return client.updateMetadataRawCacheSettings(request);
     },
     async loadAcquisitionIntake(query = {}) {
       return loadSection(
@@ -270,8 +400,49 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
         mockGeneratedArtifactProposals,
       );
     },
+    async loadGeneratedArtifactReviewPlan(artifactId, decision) {
+      return loadGeneratedArtifactReviewPlan(client, artifactId, decision);
+    },
+    async reviewGeneratedArtifact(artifactId, decision) {
+      return mapGeneratedArtifactReviewResult(
+        await client.reviewGeneratedArtifact(artifactId, decision),
+      );
+    },
+    async loadItemArtworkGallery(itemId, query = {}) {
+      return loadItemArtworkGallery(client, itemId, query);
+    },
+    async selectItemArtwork(itemId, kind, artifactId) {
+      return mapPublishSelectedArtwork(
+        await client.selectItemArtwork(itemId, kind, artifactId),
+      );
+    },
+    async unpublishItemArtwork(itemId, kind) {
+      return mapUnpublishSelectedArtwork(await client.unpublishItemArtwork(itemId, kind));
+    },
+    async loadCatalog(query = {}) {
+      return loadCatalogBrowse(client, query);
+    },
+    async loadItemDetail(itemId) {
+      return loadItemDetail(client, itemId);
+    },
     async loadCatalogGovernance(query = {}) {
       return loadSection(() => client.getCatalogGovernanceItems(query), mockCatalogGovernance);
+    },
+    async loadCatalogGovernanceItemDetail(itemId) {
+      return loadCatalogGovernanceItemDetail(client, itemId);
+    },
+    async loadCatalogGovernanceProviderMappingReviewPlan(itemId, mappingId, decision) {
+      return loadCatalogGovernanceProviderMappingReviewPlan(
+        client,
+        itemId,
+        mappingId,
+        decision,
+      );
+    },
+    async reviewCatalogGovernanceProviderMapping(itemId, mappingId, decision) {
+      return mapCatalogGovernanceProviderMappingReviewResult(
+        await client.reviewCatalogGovernanceProviderMapping(itemId, mappingId, decision),
+      );
     },
     async loadPlaybackSessions(query = {}) {
       return loadSection(() => client.getPlaybackSessions(query), mockPlaybackSessions);
@@ -355,6 +526,547 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
       });
       return response.grants.map(mapAddonGrant);
     },
+  };
+}
+
+async function loadLibraryDetail(
+  client: AdminApiClient,
+  libraryId: string,
+): Promise<AdminSectionResult<LibraryManagementDetail>> {
+  const [systemConfig, metadataProfile, sourceInventory, jobs] = await Promise.all([
+    loadSection(() => client.getSystemConfig(), mockSystemConfig),
+    loadSection(() => client.getLibraryMetadataProfile(libraryId), mockLibraryMetadataProfile(libraryId)),
+    loadSection(
+      () => client.getPublicLibrarySourceInventoryBridge(libraryId, { limit: 50, offset: 0 }),
+      emptyPublicLibrarySourcesResponse(libraryId),
+    ),
+    loadSection(() => client.getJobs({ library_id: libraryId, limit: 5, offset: 0 }), mockJobs),
+  ]);
+  const sourceInventoryResult = mapLibrarySourceInventory(
+    sourceInventory.value,
+    jobs.value,
+    libraryId,
+    combineLoadSources([sourceInventory.source, jobs.source]),
+    combineLoadErrors([sourceInventory, jobs]),
+  );
+
+  return {
+    value: {
+      configuredLibraryCount: systemConfig.value.libraries.length,
+      library:
+        systemConfig.value.libraries.find((library) => library.id === libraryId) ?? null,
+      metadataProfile: metadataProfile.value,
+      sourceInventory: sourceInventoryResult,
+    },
+    source: combineLoadSources([
+      systemConfig.source,
+      metadataProfile.source,
+      sourceInventory.source,
+      jobs.source,
+    ]),
+    error: combineLoadErrors([systemConfig, metadataProfile, sourceInventory, jobs]),
+  };
+}
+
+async function loadGeneratedArtifactReviewPlan(
+  client: AdminApiClient,
+  artifactId: string,
+  decision: GeneratedArtifactReviewDecision,
+): Promise<AdminSectionResult<GeneratedArtifactReviewPlanSummary>> {
+  const result = await loadSection(
+    () => client.planGeneratedArtifactReview(artifactId, decision),
+    mockGeneratedArtifactReviewPlan(artifactId, decision),
+  );
+
+  return {
+    value: mapGeneratedArtifactReviewPlan(result.value),
+    source: result.source,
+    error: result.error,
+  };
+}
+
+async function loadCatalogGovernanceItemDetail(
+  client: AdminApiClient,
+  itemId: string,
+): Promise<AdminSectionResult<CatalogGovernanceItemDetailSummary>> {
+  const result = await loadSection(
+    () => client.getCatalogGovernanceItemDetail(itemId),
+    mockCatalogGovernanceItemDetail(itemId),
+  );
+
+  return {
+    value: mapCatalogGovernanceItemDetail(result.value),
+    source: result.source,
+    error: result.error,
+  };
+}
+
+async function loadCatalogGovernanceProviderMappingReviewPlan(
+  client: AdminApiClient,
+  itemId: string,
+  mappingId: string,
+  decision: CatalogGovernanceProviderMappingReviewDecision,
+): Promise<AdminSectionResult<CatalogGovernanceProviderMappingReviewPlanSummary>> {
+  const result = await loadSection(
+    () => client.planCatalogGovernanceProviderMappingReview(itemId, mappingId, decision),
+    mockCatalogGovernanceProviderMappingReviewPlan(itemId, mappingId, decision),
+  );
+
+  return {
+    value: mapCatalogGovernanceProviderMappingReviewPlan(result.value),
+    source: result.source,
+    error: result.error,
+  };
+}
+
+async function loadCatalogBrowse(
+  client: AdminApiClient,
+  query: CatalogBrowseQuery,
+): Promise<AdminSectionResult<CatalogBrowseSummary>> {
+  if (isCatalogSearch(query)) {
+    const searchResult = await loadSection(
+      () => client.getPublicCatalogSearchBridge(query),
+      mockPublicCatalogSearch,
+    );
+
+    return {
+      value: mapPublicCatalogSearch(searchResult.value),
+      source: searchResult.source,
+      error: searchResult.error,
+    };
+  }
+
+  const browseResult = await loadSection(
+    () =>
+      client.getPublicCatalogItemsBridge({
+        limit: query.limit,
+        offset: query.offset,
+      }),
+    mockPublicCatalogItems,
+  );
+
+  return {
+    value: mapPublicCatalogItems(browseResult.value),
+    source: browseResult.source,
+    error: browseResult.error,
+  };
+}
+
+async function loadItemDetail(
+  client: AdminApiClient,
+  itemId: string,
+): Promise<AdminSectionResult<ItemDetailSummary>> {
+  const detail = await loadSection(
+    () => client.getPublicItemDetailBridge(itemId),
+    mockPublicItemDetail(itemId),
+  );
+
+  if (detail.error) {
+    return {
+      value: mapPublicItemDetail(detail.value, new Map()),
+      source: detail.source,
+      error: detail.error,
+    };
+  }
+
+  const probedSourceIds = detail.value.sources.slice(0, 3).map((source) => source.id);
+  const probeResults = await Promise.all(
+    probedSourceIds.map((sourceId) =>
+      loadSection(
+        () => client.getPublicSourceProbeBridge(sourceId),
+        emptyPublicSourceProbeResponse(sourceId),
+      ),
+    ),
+  );
+  const successfulProbes = new Map<string, PublicMediaProbe>();
+
+  for (const result of probeResults) {
+    if (!result.error) {
+      successfulProbes.set(result.value.source_id, result.value.probe);
+    }
+  }
+
+  const sections = [detail, ...probeResults];
+
+  return {
+    value: mapPublicItemDetail(detail.value, successfulProbes),
+    source: combineLoadSources(sections.map((section) => section.source)),
+    error: combineLoadErrors(sections),
+  };
+}
+
+async function loadItemArtworkGallery(
+  client: AdminApiClient,
+  itemId: string,
+  query: AdminItemArtworkGalleryQuery,
+): Promise<AdminSectionResult<ItemArtworkGallerySummary>> {
+  const gallery = await loadSection(
+    () => client.getItemArtworkGallery(itemId, query),
+    mockAdminItemArtworkGallery(itemId),
+  );
+
+  return {
+    value: mapItemArtworkGallery(gallery.value),
+    source: gallery.source,
+    error: gallery.error,
+  };
+}
+
+function isCatalogSearch(query: CatalogBrowseQuery) {
+  return Boolean(query.q?.trim() || query.facet?.trim());
+}
+
+function mapPublicCatalogItems(response: PublicCatalogItemsResponse): CatalogBrowseSummary {
+  return {
+    mode: "browse",
+    items: response.items.map((item) => mapPublicCatalogItem(item, null)),
+    page: response.page,
+  };
+}
+
+function mapPublicCatalogSearch(response: PublicCatalogSearchResponse): CatalogBrowseSummary {
+  return {
+    mode: "search",
+    items: response.hits.map((hit) => mapPublicCatalogItem(hit.item, hit.score)),
+    page: response.page,
+  };
+}
+
+function mapPublicCatalogItem(
+  item: PublicCatalogMediaItem,
+  score: number | null,
+): CatalogBrowseSummary["items"][number] {
+  return {
+    id: item.id,
+    parentId: item.parent_id,
+    title: item.metadata.title,
+    kind: item.kind,
+    releaseDate: item.metadata.release_date,
+    runtimeMinutes: item.metadata.runtime_minutes,
+    genreCount: item.metadata.genres.length,
+    tagCount: item.metadata.tags.length,
+    creditCount: item.metadata.credits.length,
+    collectionCount: item.metadata.collections.length,
+    studioCount: item.metadata.studios.length,
+    imageCount: null,
+    sourceCount: null,
+    score,
+  };
+}
+
+function mapPublicItemDetail(
+  response: PublicItemDetailResponse,
+  probes: Map<string, PublicMediaProbe>,
+): ItemDetailSummary {
+  const metadata = response.item.metadata;
+
+  return {
+    item: {
+      id: response.item.id,
+      parentId: response.item.parent_id,
+      title: metadata.title,
+      kind: response.item.kind,
+      releaseDate: metadata.release_date,
+      runtimeMinutes: metadata.runtime_minutes,
+      genreCount: metadata.genres.length,
+      tagCount: metadata.tags.length,
+      creditCount: response.credits.length || metadata.credits.length,
+      collectionCount: response.collections.length || metadata.collections.length,
+      studioCount: response.studios.length || metadata.studios.length,
+      imageCount: response.images.length,
+      sourceCount: response.sources.length,
+    },
+    canonical: {
+      genres: metadata.genres,
+      tags: metadata.tags,
+      credits: metadata.credits.slice(0, 5).map((credit) => ({
+        name: credit.name,
+        role: credit.role,
+        character: credit.character,
+      })),
+      collections: metadata.collections.map((collection) => collection.name),
+      studios: metadata.studios.map((studio) => studio.name),
+      ratingCount: metadata.ratings.length,
+      externalIdCount: metadata.external_ids.length,
+    },
+    sources: response.sources.map((source) => ({
+      id: source.id,
+      libraryId: source.library_id,
+      fileName: source.file_name,
+      sizeBytes: source.size_bytes,
+      hasFingerprint: Boolean(source.fingerprint),
+      probe: mapProbeSummary(probes.get(source.id) ?? null),
+    })),
+    images: response.images.map((image) => ({
+      id: image.id,
+      kind: image.kind,
+      routePath: safeImageRoutePath(image.url),
+      width: image.width,
+      height: image.height,
+      language: image.language,
+      mediaType: image.media_type,
+      hasEtag: Boolean(image.etag),
+    })),
+    readiness: [
+      {
+        label: "NFO sidecar status",
+        status: "split",
+        detail: "Admin NFO item status read model is split from MBG-040.",
+      },
+      {
+        label: "Provider Mapping",
+        status: "split",
+        detail: "Provider Mapping decisions need a follow-on repair workflow.",
+      },
+      {
+        label: "Local Inference",
+        status: "split",
+        detail: "Local Inference evidence diagnostics need an Admin read model.",
+      },
+      {
+        label: "Generated Artifacts",
+        status: "planned",
+        detail: "Use route-level automation queue until per-item review is split.",
+      },
+      {
+        label: "Artwork decisions",
+        status: response.images.length > 0 ? "ready" : "planned",
+        detail: response.images.length > 0
+          ? "Public image refs are available for presentation readiness."
+          : "Admin artwork selection workflow remains split.",
+      },
+      {
+        label: "Catalog repair",
+        status: "split",
+        detail: "Repair/apply mutations stay out of the first item detail slice.",
+      },
+    ],
+  };
+}
+
+function mapProbeSummary(probe: PublicMediaProbe | null): ItemDetailSummary["sources"][number]["probe"] {
+  if (!probe) {
+    return null;
+  }
+
+  return {
+    durationMs: probe.duration_ms,
+    container: probe.container,
+    bitRate: probe.bit_rate,
+    streamCount: probe.streams.length,
+    videoStreamCount: probe.streams.filter((stream) => stream.kind === "video").length,
+    audioStreamCount: probe.streams.filter((stream) => stream.kind === "audio").length,
+    subtitleStreamCount: probe.streams.filter((stream) => stream.kind === "subtitle").length,
+  };
+}
+
+function safeImageRoutePath(url: string | null): string | null {
+  return url?.startsWith("/images/") ? url : null;
+}
+
+function mapItemArtworkGallery(
+  response: AdminManagedArtworkGalleryResponse,
+): ItemArtworkGallerySummary {
+  return {
+    itemId: response.item_id,
+    totals: {
+      candidateCount: response.summary.candidates,
+      artifactCount: response.summary.artifacts,
+      selectedCount: response.summary.selected,
+    },
+    candidates: response.candidates.map((candidate) => ({
+      id: candidate.id,
+      addonId: candidate.addon_id,
+      sideEffectId: candidate.side_effect_id,
+      libraryId: candidate.library_id,
+      itemId: candidate.item_id,
+      kind: candidate.kind,
+      sourceKind: candidate.source_kind,
+      status: candidate.status,
+      width: candidate.width,
+      height: candidate.height,
+      language: candidate.language,
+      ingestId: candidate.ingest?.id ?? null,
+      ingestStatus: candidate.ingest?.status ?? null,
+      hasIngestArtifact: candidate.ingest?.has_artifact ?? false,
+      hasIngestFailure: candidate.ingest?.has_failure ?? false,
+      ingestFailureCode: candidate.ingest?.failure_code ?? null,
+      artifactId: candidate.artifact_id,
+      hasStoredArtifact: candidate.has_stored_artifact,
+      selectedArtworkCount: candidate.selected_artwork_count,
+      selected: candidate.selected,
+      updatedAt: candidate.updated_at,
+    })),
+    artifacts: response.artifacts.map((artifact) => ({
+      id: artifact.id,
+      ingestId: artifact.ingest_id,
+      candidateId: artifact.candidate_id,
+      libraryId: artifact.library_id,
+      itemId: artifact.item_id,
+      kind: artifact.kind,
+      selectedArtworkCount: artifact.selected_artwork_count,
+      selected: artifact.selected,
+      width: artifact.width,
+      height: artifact.height,
+      byteLen: artifact.byte_len,
+      mediaType: artifact.media_type,
+      hasContentHash: artifact.has_content_hash,
+      updatedAt: artifact.updated_at,
+    })),
+    selected: response.selected.map((selection) => ({
+      selectedArtworkId: selection.selected_artwork.id,
+      libraryId: selection.selected_artwork.library_id,
+      itemId: selection.selected_artwork.item_id,
+      kind: selection.selected_artwork.kind,
+      artifactId: selection.selected_artwork.artifact_id,
+      imageId: selection.image.id,
+      routePath: safeImageRoutePath(selection.image.url),
+      width: selection.image.width,
+      height: selection.image.height,
+      language: selection.image.language,
+      mediaType: selection.image.media_type,
+      selectedAt: selection.selected_artwork.created_at,
+      updatedAt: selection.selected_artwork.updated_at,
+    })),
+    page: response.page,
+  };
+}
+
+function mapPublishSelectedArtwork(
+  response: PublishSelectedArtworkResponse,
+): ItemArtworkMutationResultSummary {
+  return {
+    action: "select",
+    itemId: response.selected_artwork.item_id,
+    kind: response.selected_artwork.kind,
+    changed: response.changed,
+    selectedArtworkId: response.selected_artwork.id,
+    artifactId: response.selected_artwork.artifact_id,
+    imageId: response.image.id,
+    routePath: safeImageRoutePath(response.image.url),
+    width: response.image.width,
+    height: response.image.height,
+    language: response.image.language,
+    mediaType: response.image.media_type,
+  };
+}
+
+function mapUnpublishSelectedArtwork(
+  response: UnpublishSelectedArtworkResponse,
+): ItemArtworkMutationResultSummary {
+  return {
+    action: "unpublish",
+    itemId: response.item_id,
+    kind: response.kind,
+    changed: response.changed,
+    selectedArtworkId: response.unpublished?.selected_artwork.id ?? null,
+    artifactId: response.unpublished?.selected_artwork.artifact_id ?? null,
+    imageId: response.unpublished?.previous_image.id ?? null,
+    routePath: safeImageRoutePath(response.unpublished?.previous_image.url ?? null),
+    width: response.unpublished?.previous_image.width ?? null,
+    height: response.unpublished?.previous_image.height ?? null,
+    language: response.unpublished?.previous_image.language ?? null,
+    mediaType: response.unpublished?.previous_image.media_type ?? null,
+  };
+}
+
+function emptyPublicSourceProbeResponse(sourceId: string): PublicSourceProbeResponse {
+  return {
+    source_id: sourceId,
+    probe: {
+      duration_ms: null,
+      container: null,
+      bit_rate: null,
+      streams: [],
+    },
+  };
+}
+
+function emptyPublicLibrarySourcesResponse(libraryId: string): PublicLibrarySourcesResponse {
+  return {
+    library: {
+      id: libraryId,
+      name: libraryId,
+    },
+    sources: [],
+    page: {
+      limit: 50,
+      offset: 0,
+      returned: 0,
+    },
+  };
+}
+
+function mapLibrarySourceInventory(
+  response: PublicLibrarySourcesResponse,
+  jobs: AdminJobListResponse,
+  libraryId: string,
+  source: DataSourceMode,
+  error?: string,
+): LibrarySourceInventorySummary {
+  const libraryJobs = jobs.jobs.filter((job) => job.library_id === libraryId);
+  const latestScanJob = libraryJobs.find(isLibraryScanJob) ?? null;
+  const failedJobCount = libraryJobs.filter(
+    (job) => job.has_error || job.status === "failed",
+  ).length;
+  const totalSizeBytes = response.sources.reduce<number | null>((total, row) => {
+    if (typeof row.source.size_bytes !== "number") {
+      return total;
+    }
+
+    return (total ?? 0) + row.source.size_bytes;
+  }, null);
+
+  return {
+    source,
+    error,
+    sourceCount: response.page.returned,
+    returnedSourceCount: response.sources.length,
+    linkedItemCount: response.sources.filter((row) => row.item).length,
+    probedSourceCount: response.sources.filter((row) => row.probe).length,
+    totalSizeBytes,
+    latestScanJob: latestScanJob ? mapLibraryJob(latestScanJob) : null,
+    failedJobCount,
+    page: response.page,
+    samples: response.sources.slice(0, 4).map((row) => ({
+      id: row.source.id,
+      fileName: row.source.file_name,
+      itemTitle: row.item?.title ?? null,
+      sizeBytes: row.source.size_bytes,
+      hasProbe: Boolean(row.probe),
+    })),
+  };
+}
+
+function isLibraryScanJob(job: AdminJobListResponse["jobs"][number]) {
+  return job.kind === "library_scan" || job.resource_class === "disk.scan";
+}
+
+async function enqueueLibraryCommand(
+  client: AdminApiClient,
+  libraryId: string,
+  action: LibraryCommandAction,
+): Promise<AdminJobCommandResponse> {
+  if (action === "scan") {
+    return client.enqueueLibraryScan(libraryId);
+  }
+
+  if (action === "nfoImport") {
+    return client.enqueueLibraryNfoImport(libraryId);
+  }
+
+  return client.enqueueLibraryNfoExport(libraryId);
+}
+
+function mapLibraryJob(job: AdminJobCommandResponse | AdminJobListResponse["jobs"][number]): LibraryJobSummary {
+  return {
+    id: job.id,
+    kind: job.kind,
+    status: job.status,
+    resourceClass: job.resource_class,
+    queuedAt: job.queued_at,
+    completedAt: job.completed_at,
+    hasError: job.has_error,
   };
 }
 
@@ -866,16 +1578,147 @@ function mapCatalogGovernance(
   response: AdminCatalogGovernanceItemListResponse,
 ): CatalogGovernanceSummary {
   return {
-    items: response.items.map((item) => ({
-      id: item.item_id,
-      title: item.title,
-      kind: item.kind,
-      issues: item.issues,
-      sourceCount: item.source_count,
-      providerMappingCount: item.provider_mapping_count,
-    })),
+    items: response.items.map(mapCatalogGovernanceItem),
     page: response.page,
   };
+}
+
+function mapCatalogGovernanceItemDetail(
+  response: AdminCatalogGovernanceItemDetailResponse,
+): CatalogGovernanceItemDetailSummary {
+  return {
+    item: mapCatalogGovernanceItem(response.item),
+    providerMappings: response.provider_mappings.map(mapCatalogGovernanceProviderMapping),
+    repairActions: response.repair_actions,
+  };
+}
+
+function mapCatalogGovernanceItem(
+  item: AdminCatalogGovernanceItem,
+): CatalogGovernanceItemSummary {
+  return {
+    id: item.item_id,
+    libraryId: item.library_id,
+    kind: item.kind,
+    parentId: item.parent_id,
+    title: item.title,
+    releaseDate: item.release_date,
+    issues: item.issues,
+    sourceCount: item.source_count,
+    representativeSourceId: item.representative_source_id,
+    representativeFileName: item.representative_file_name,
+    providerMappingCount: item.provider_mapping_count,
+    acceptedProviderMappingCount: item.accepted_provider_mapping_count,
+    duplicateRelationshipCount: item.duplicate_relationship_count,
+    localInference: item.local_inference
+      ? {
+          sourceId: item.local_inference.source_id,
+          inferredKind: item.local_inference.inferred_kind,
+          inferredTitle: item.local_inference.inferred_title,
+          inferredYear: item.local_inference.inferred_year,
+          inferredSeason: item.local_inference.inferred_season,
+          inferredEpisode: item.local_inference.inferred_episode,
+          confidenceMilli: item.local_inference.confidence_milli,
+          evidenceSource: item.local_inference.evidence_source,
+          hasEvidence: item.local_inference.has_evidence,
+          inferenceVersion: item.local_inference.inference_version,
+        }
+      : null,
+  };
+}
+
+function mapCatalogGovernanceProviderMapping(
+  mapping: AdminCatalogGovernanceProviderMappingSummary,
+): CatalogGovernanceProviderMappingSummary {
+  return {
+    id: mapping.mapping_id,
+    itemId: mapping.item_id,
+    status: mapping.status,
+    confidenceMilli: mapping.confidence_milli,
+    source: formatMetadataSource(mapping.source),
+    subject: {
+      id: mapping.subject.subject_id,
+      provider: formatExternalProvider(mapping.subject.provider),
+      kind: formatProviderSubjectKind(mapping.subject.subject_kind),
+      key: mapping.subject.subject_key,
+      title: mapping.subject.title,
+      releaseYear: mapping.subject.release_year,
+      locale: mapping.subject.locale,
+    },
+  };
+}
+
+function mapCatalogGovernanceProviderMappingReviewPlan(
+  response: AdminCatalogGovernanceProviderMappingReviewPlanResponse,
+): CatalogGovernanceProviderMappingReviewPlanSummary {
+  const { plan } = response;
+
+  return {
+    item: mapCatalogGovernanceItem(plan.item),
+    mapping: mapCatalogGovernanceProviderMapping(plan.mapping),
+    decision: plan.decision,
+    currentStatus: plan.current_status,
+    targetStatus: plan.target_status,
+    status: plan.status,
+    readiness: {
+      status: plan.readiness.status,
+      actionable: plan.readiness.actionable,
+      reasons: plan.readiness.reasons,
+    },
+    boundary: {
+      updatesProviderMappingStatus: plan.boundary.updates_provider_mapping_status,
+      updatesCanonicalMetadata: plan.boundary.updates_canonical_metadata,
+      updatesProviderSubject: plan.boundary.updates_provider_subject,
+      updatesLocalInference: plan.boundary.updates_local_inference,
+      updatesSourceDuplicates: plan.boundary.updates_source_duplicates,
+      updatesHierarchy: plan.boundary.updates_hierarchy,
+      writesNfo: plan.boundary.writes_nfo,
+      writesLibraryFiles: plan.boundary.writes_library_files,
+      updatesArtwork: plan.boundary.updates_artwork,
+      updatesPlaybackState: plan.boundary.updates_playback_state,
+    },
+  };
+}
+
+function mapCatalogGovernanceProviderMappingReviewResult(
+  response: AdminCatalogGovernanceProviderMappingReviewResponse,
+): CatalogGovernanceProviderMappingReviewResultSummary {
+  return {
+    itemId: response.item_id,
+    mappingId: response.mapping_id,
+    decision: response.decision,
+    previousStatus: response.previous_status,
+    currentStatus: response.current_status,
+    changed: response.changed,
+    idempotentReplay: response.idempotent_replay,
+    plan: mapCatalogGovernanceProviderMappingReviewPlan({
+      admin_api_version: response.admin_api_version,
+      public_api_version: response.public_api_version,
+      plan: response.plan,
+    }),
+  };
+}
+
+function formatMetadataSource(source: AdminMetadataSource): string {
+  if (typeof source === "string") {
+    return source;
+  }
+
+  if ("provider" in source) {
+    return `provider:${formatExternalProvider(source.provider)}`;
+  }
+
+  return `addon:${source.addon}`;
+}
+
+function formatExternalProvider(provider: AdminExternalProvider): string {
+  return typeof provider === "string" ? provider : provider.other;
+}
+
+function formatProviderSubjectKind(
+  kind: AdminCatalogGovernanceProviderMappingSummary["subject"]["subject_kind"],
+): string {
+  return typeof kind === "string" ? kind : kind.other;
 }
 
 function mapAcquisitionIntake(
@@ -914,6 +1757,68 @@ function mapGeneratedArtifactProposals(
       payloadFingerprint: proposal.payload.payload_fingerprint,
     })),
     page: response.page,
+  };
+}
+
+function mapGeneratedArtifactReviewPlan(
+  response: AdminGeneratedArtifactReviewPlanResponse,
+): GeneratedArtifactReviewPlanSummary {
+  const { plan } = response;
+
+  return {
+    artifactId: plan.artifact_id,
+    decision: plan.decision,
+    status: plan.status,
+    action: plan.action,
+    reasons: plan.reasons,
+    capability: plan.capability,
+    kind: plan.kind,
+    target: {
+      kind: plan.target.kind,
+      libraryId: plan.target.library_id,
+      itemId: plan.target.item_id,
+      sourceId: plan.target.source_id,
+    },
+    payload: {
+      validJson: plan.payload.valid_json,
+      shape: plan.payload.shape,
+      payloadFingerprint: plan.payload.payload_fingerprint,
+      payloadBytes: plan.payload.payload_bytes,
+      objectFieldCount: plan.payload.object_field_count,
+      arrayItemCount: plan.payload.array_item_count,
+      hasTextualValues: plan.payload.has_textual_values,
+      hasExplanation: plan.payload.has_explanation,
+      confidenceMilli: plan.payload.confidence_milli,
+    },
+    readiness: {
+      status: plan.readiness.status,
+      actionable: plan.readiness.actionable,
+      reasons: plan.readiness.reasons,
+    },
+    boundary: {
+      acceptedIntoCanonicalMetadata: plan.boundary.accepted_into_canonical_metadata,
+      writesSidecar: plan.boundary.writes_sidecar,
+      writesLibraryFiles: plan.boundary.writes_library_files,
+      appliesImmediately: plan.boundary.applies_immediately,
+      requiresMetadataAuthorityApply: plan.boundary.requires_metadata_authority_apply,
+    },
+  };
+}
+
+function mapGeneratedArtifactReviewResult(
+  response: AdminGeneratedArtifactReviewResponse,
+): GeneratedArtifactReviewResultSummary {
+  return {
+    artifactId: response.artifact_id,
+    decision: response.decision,
+    artifactStatus: response.artifact_status,
+    acceptedAt: response.accepted_at,
+    idempotentReplay: response.idempotent_replay,
+    plan: mapGeneratedArtifactReviewPlan({
+      admin_api_version: response.admin_api_version,
+      public_api_version: response.public_api_version,
+      plan: response.plan,
+    }),
   };
 }
 

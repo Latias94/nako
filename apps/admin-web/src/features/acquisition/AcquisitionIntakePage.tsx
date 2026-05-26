@@ -33,6 +33,8 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/Table";
+import { useI18n } from "../../i18n/I18nProvider";
+import type { MessageId } from "../../i18n/messages";
 
 export type AcquisitionIntakeSearch = {
   library_id?: string;
@@ -57,71 +59,16 @@ type AcquisitionIntakeResult = {
 
 type BadgeTone = "neutral" | "success" | "warning" | "danger" | "info";
 
-const columns: Array<ColumnDef<AdminAcquisitionIntakeCandidateDiagnostic>> = [
-  {
-    accessorKey: "id",
-    header: "Candidate",
-    cell: ({ row }) => (
-      <div className="routePrimaryCell">
-        <strong>{row.original.id}</strong>
-        <span>{row.original.target_library_id}</span>
-      </div>
-    ),
-  },
-  {
-    accessorKey: "state",
-    header: "State",
-    cell: ({ row }) => <Badge tone={candidateStateTone(row.original.state)}>{row.original.state}</Badge>,
-  },
-  {
-    accessorKey: "source_kind",
-    header: "Source",
-    cell: ({ row }) => (
-      <div className="routePrimaryCell">
-        <strong>{row.original.source_kind}</strong>
-        <span>{row.original.source_scheme ?? "unknown scheme"}</span>
-      </div>
-    ),
-  },
-  {
-    accessorKey: "size_bytes",
-    header: "Size",
-    cell: ({ row }) => formatBytes(row.original.size_bytes),
-  },
-  {
-    id: "diagnostics",
-    header: "Diagnostics",
-    cell: ({ row }) => (
-      <Badge tone={row.original.has_diagnostics ? "info" : "neutral"}>
-        {row.original.has_diagnostics ? "available" : "none"}
-      </Badge>
-    ),
-  },
-  {
-    accessorKey: "managed_import_artifact_id",
-    header: "Managed Import",
-    cell: ({ row }) => row.original.managed_import_artifact_id ?? "not linked",
-  },
-  {
-    accessorKey: "first_seen_at_ms",
-    header: "First Seen",
-    cell: ({ row }) => timestampLabel(row.original.first_seen_at_ms),
-  },
-  {
-    accessorKey: "updated_at_ms",
-    header: "Updated",
-    cell: ({ row }) => timestampLabel(row.original.updated_at_ms),
-  },
-];
-
 export function AcquisitionIntakePage({
   dataSource,
   search,
   onSearchChange,
 }: AcquisitionIntakePageProps) {
+  const { locale, t } = useI18n();
   const query = useQuery({
-    queryKey: ["admin-acquisition-intake", search],
-    queryFn: () => loadAcquisitionIntake(dataSource, search),
+    queryKey: ["admin-acquisition-intake", search, locale],
+    queryFn: () =>
+      loadAcquisitionIntake(dataSource, search, t("acquisition.dataSourceUnavailable")),
   });
   const result = query.data ?? {
     value: mockAcquisitionIntakeCandidates,
@@ -139,7 +86,7 @@ export function AcquisitionIntakePage({
   );
   const table = useReactTable({
     data: result.value.candidates,
-    columns,
+    columns: createColumns(t),
     getCoreRowModel: getCoreRowModel(),
   });
 
@@ -152,54 +99,54 @@ export function AcquisitionIntakePage({
           variant="outline"
         >
           <RefreshCw size={16} />
-          Refresh
+          {t("acquisition.refresh")}
         </Button>
       }
-      description="Watch-folder candidates before Managed Import and promotion apply, without raw locators or filesystem paths."
-      kicker="Acquisition"
+      description={t("acquisition.description")}
+      kicker={t("acquisition.kicker")}
       status={<SourceLabel source={result.source} />}
-      title="Acquisition Intake"
+      title={t("acquisition.title")}
       titleId="acquisition-intake-route-title"
     >
       {result.error ? (
         <RouteNotice>
-          {result.error}. Showing deterministic mock fallback data.
+          {t("acquisition.fallback", { error: result.error })}
         </RouteNotice>
       ) : null}
 
-      <FilterBar label="Acquisition intake filters">
-        <FilterField label="Library">
+      <FilterBar label={t("acquisition.filters")}>
+        <FilterField label={t("acquisition.filter.library")}>
           <input
-            aria-label="Intake library filter"
+            aria-label={t("acquisition.filter.libraryAria")}
             placeholder="library-id"
             value={search.library_id ?? ""}
             onChange={(event) => onSearchChange({ library_id: event.target.value || undefined, offset: 0 })}
           />
         </FilterField>
-        <FilterField label="State">
+        <FilterField label={t("acquisition.filter.state")}>
           <select
-            aria-label="Intake state filter"
+            aria-label={t("acquisition.filter.stateAria")}
             value={search.state ?? ""}
             onChange={(event) => onSearchChange({ state: event.target.value || undefined, offset: 0 })}
           >
-            <option value="">Any state</option>
-            <option value="ready">Ready</option>
-            <option value="blocked">Blocked</option>
-            <option value="incomplete">Incomplete</option>
-            <option value="unsupported">Unsupported</option>
+            <option value="">{t("acquisition.filter.anyState")}</option>
+            <option value="ready">{t("acquisition.state.ready")}</option>
+            <option value="blocked">{t("acquisition.state.blocked")}</option>
+            <option value="incomplete">{t("acquisition.state.incomplete")}</option>
+            <option value="unsupported">{t("acquisition.state.unsupported")}</option>
           </select>
         </FilterField>
-        <FilterField label="Source Kind">
+        <FilterField label={t("acquisition.filter.sourceKind")}>
           <input
-            aria-label="Intake source kind filter"
+            aria-label={t("acquisition.filter.sourceKindAria")}
             placeholder="watch_folder"
             value={search.source_kind ?? ""}
             onChange={(event) => onSearchChange({ source_kind: event.target.value || undefined, offset: 0 })}
           />
         </FilterField>
-        <FilterField label="Managed Import">
+        <FilterField label={t("acquisition.filter.managedImport")}>
           <input
-            aria-label="Intake managed import filter"
+            aria-label={t("acquisition.filter.managedImportAria")}
             placeholder="artifact-id"
             value={search.managed_import_artifact_id ?? ""}
             onChange={(event) =>
@@ -210,18 +157,18 @@ export function AcquisitionIntakePage({
             }
           />
         </FilterField>
-        <FilterField label="Limit">
+        <FilterField label={t("acquisition.filter.limit")}>
           <input
-            aria-label="Intake page limit"
+            aria-label={t("acquisition.filter.limitAria")}
             min={1}
             type="number"
             value={search.limit}
             onChange={(event) => onSearchChange({ limit: numberInput(event.target.value) ?? 20, offset: 0 })}
           />
         </FilterField>
-        <FilterField label="Offset">
+        <FilterField label={t("acquisition.filter.offset")}>
           <input
-            aria-label="Intake page offset"
+            aria-label={t("acquisition.filter.offsetAria")}
             min={0}
             type="number"
             value={search.offset}
@@ -230,7 +177,7 @@ export function AcquisitionIntakePage({
         </FilterField>
         <FilterActions>
           <Badge tone={activeFilterCount > 0 ? "info" : "neutral"}>
-            {activeFilterCount} filters
+            {t("acquisition.filter.active", { count: activeFilterCount })}
           </Badge>
           <Button
             disabled={activeFilterCount === 0 && search.offset === 0}
@@ -246,25 +193,29 @@ export function AcquisitionIntakePage({
             variant="ghost"
           >
             <X size={16} />
-            Clear
+            {t("acquisition.clear")}
           </Button>
         </FilterActions>
       </FilterBar>
 
       <DataPanel
-        description={`${result.value.page.returned} returned, offset ${result.value.page.offset}, limit ${result.value.page.limit}`}
+        description={t("acquisition.candidates.description", {
+          returned: result.value.page.returned,
+          offset: result.value.page.offset,
+          limit: result.value.page.limit,
+        })}
         headerAccessory={
           <div className="searchHint">
             <Search size={15} />
-            URL filters are authoritative
+            {t("acquisition.candidates.urlFilters")}
           </div>
         }
-        title="Intake candidates"
+        title={t("acquisition.candidates.title")}
       >
-        {query.isLoading ? <RowsSkeleton label="Loading Acquisition Intake candidates" /> : null}
+        {query.isLoading ? <RowsSkeleton label={t("acquisition.loading")} /> : null}
 
         {!query.isLoading && result.value.candidates.length === 0 ? (
-          <EmptyRouteState>No Acquisition Intake candidates match the current filters.</EmptyRouteState>
+          <EmptyRouteState>{t("acquisition.empty")}</EmptyRouteState>
         ) : null}
 
         {!query.isLoading && result.value.candidates.length > 0 ? (
@@ -305,12 +256,13 @@ export function AcquisitionIntakePage({
 async function loadAcquisitionIntake(
   dataSource: AdminDataSource,
   search: AcquisitionIntakeSearch,
+  unavailableMessage: string,
 ): Promise<AcquisitionIntakeResult> {
   if (!dataSource.loadAcquisitionIntake) {
     return {
       value: mockAcquisitionIntakeCandidates,
       source: "mock",
-      error: "Acquisition Intake route data source is unavailable",
+      error: unavailableMessage,
     };
   }
 
@@ -328,6 +280,67 @@ function toAdminAcquisitionIntakeQuery(
     limit: search.limit,
     offset: search.offset,
   };
+}
+
+type Translate = (id: MessageId, values?: Record<string, number | string>) => string;
+
+function createColumns(t: Translate): Array<ColumnDef<AdminAcquisitionIntakeCandidateDiagnostic>> {
+  return [
+    {
+      accessorKey: "id",
+      header: t("acquisition.column.candidate"),
+      cell: ({ row }) => (
+        <div className="routePrimaryCell">
+          <strong>{row.original.id}</strong>
+          <span>{row.original.target_library_id}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "state",
+      header: t("acquisition.column.state"),
+      cell: ({ row }) => <Badge tone={candidateStateTone(row.original.state)}>{row.original.state}</Badge>,
+    },
+    {
+      accessorKey: "source_kind",
+      header: t("acquisition.column.source"),
+      cell: ({ row }) => (
+        <div className="routePrimaryCell">
+          <strong>{row.original.source_kind}</strong>
+          <span>{row.original.source_scheme ?? t("acquisition.unknownScheme")}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "size_bytes",
+      header: t("acquisition.column.size"),
+      cell: ({ row }) => formatBytes(row.original.size_bytes, t),
+    },
+    {
+      id: "diagnostics",
+      header: t("acquisition.column.diagnostics"),
+      cell: ({ row }) => (
+        <Badge tone={row.original.has_diagnostics ? "info" : "neutral"}>
+          {row.original.has_diagnostics ? t("acquisition.diagnostics.available") : t("acquisition.none")}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: "managed_import_artifact_id",
+      header: t("acquisition.column.managedImport"),
+      cell: ({ row }) => row.original.managed_import_artifact_id ?? t("acquisition.notLinked"),
+    },
+    {
+      accessorKey: "first_seen_at_ms",
+      header: t("acquisition.column.firstSeen"),
+      cell: ({ row }) => timestampLabel(row.original.first_seen_at_ms),
+    },
+    {
+      accessorKey: "updated_at_ms",
+      header: t("acquisition.column.updated"),
+      cell: ({ row }) => timestampLabel(row.original.updated_at_ms),
+    },
+  ];
 }
 
 function candidateStateTone(state: string): BadgeTone {
@@ -364,9 +377,9 @@ function timestampLabel(value: number) {
   return new Date(value).toISOString();
 }
 
-function formatBytes(value: number | null) {
+function formatBytes(value: number | null, t: Translate) {
   if (value === null) {
-    return "unknown";
+    return t("acquisition.unknown");
   }
 
   if (value < 1024) {

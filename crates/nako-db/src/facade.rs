@@ -11,6 +11,7 @@ use crate::{
 
 trait DatabaseBackendAdapter:
     AcquisitionIntakeRepository
+    + AdminSettingsRepository
     + AddonEventDeliveryRepository
     + AddonRepository
     + AddonTaskRunRepository
@@ -50,6 +51,7 @@ trait DatabaseBackendAdapter:
 
 impl<T> DatabaseBackendAdapter for T where
     T: AcquisitionIntakeRepository
+        + AdminSettingsRepository
         + AddonEventDeliveryRepository
         + AddonRepository
         + AddonTaskRunRepository
@@ -301,6 +303,24 @@ impl AcquisitionIntakeRepository for NakoDatabase {
                 diagnostics_json,
             )
             .await
+    }
+}
+
+#[async_trait::async_trait]
+impl AdminSettingsRepository for NakoDatabase {
+    async fn upsert_admin_metadata_raw_cache_settings(
+        &self,
+        record: AdminMetadataRawCacheSettingsRecord,
+    ) -> Result<AdminMetadataRawCacheSettingsRecord> {
+        self.backend()
+            .upsert_admin_metadata_raw_cache_settings(record)
+            .await
+    }
+
+    async fn get_admin_metadata_raw_cache_settings(
+        &self,
+    ) -> Result<Option<AdminMetadataRawCacheSettingsRecord>> {
+        self.backend().get_admin_metadata_raw_cache_settings().await
     }
 }
 

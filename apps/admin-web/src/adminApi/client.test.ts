@@ -4,6 +4,7 @@ import { AdminApiClient } from "./client";
 import { NAKO_ADMIN_ROUTES } from "./generated/contract";
 import {
   mockAcquisitionIntakeCandidates,
+  mockAccessSummary,
   mockAddonDetail,
   mockAddonDiagnostic,
   mockAddonGrants,
@@ -13,13 +14,24 @@ import {
   mockAddonSurfaces,
   mockAddonTokens,
   mockCatalogGovernance,
+  mockCatalogGovernanceItemDetail,
+  mockCatalogGovernanceProviderMappingReviewPlan,
+  mockCatalogGovernanceProviderMappingReviewResponse,
   mockEvents,
   mockGeneratedArtifactProposals,
+  mockGeneratedArtifactReviewPlan,
+  mockGeneratedArtifactReviewResponse,
   mockJobs,
+  mockLibraryMetadataProfile,
+  mockMetadataRawCacheSettings,
   mockOverview,
   mockPlaybackRuntime,
   mockPlaybackSessions,
   mockPlaybackSupport,
+  mockPublicCatalogItems,
+  mockPublicCatalogSearch,
+  mockPublicItemDetail,
+  mockPublicSourceProbe,
   mockStorageStaging,
   mockSystemConfig,
   mockWatchFolderDiscovery,
@@ -99,6 +111,11 @@ describe("AdminApiClient", () => {
   it("loads existing Admin API read models through typed route methods", async () => {
     const responses = new Map<string, unknown>([
       [NAKO_ADMIN_ROUTES.catalogGovernanceItems, mockCatalogGovernance],
+      [NAKO_ADMIN_ROUTES.accessSummary, mockAccessSummary],
+      [
+        NAKO_ADMIN_ROUTES.catalogGovernanceItemDetail.replace("{item_id}", "item-candidate"),
+        mockCatalogGovernanceItemDetail("item-candidate"),
+      ],
       [NAKO_ADMIN_ROUTES.addons, mockAddons],
       [NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab"), mockAddonDetail],
       [NAKO_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab"), mockAddonHealth],
@@ -110,11 +127,16 @@ describe("AdminApiClient", () => {
       [NAKO_ADMIN_ROUTES.generatedArtifactProposals, mockGeneratedArtifactProposals],
       [NAKO_ADMIN_ROUTES.events, mockEvents],
       [NAKO_ADMIN_ROUTES.jobs, mockJobs],
+      [
+        NAKO_ADMIN_ROUTES.libraryMetadataProfile.replace("{library_id}", "library-anime"),
+        mockLibraryMetadataProfile("library-anime"),
+      ],
       [NAKO_ADMIN_ROUTES.playbackSessions, mockPlaybackSessions],
       [NAKO_ADMIN_ROUTES.playbackRuntime, mockPlaybackRuntime],
       [NAKO_ADMIN_ROUTES.playbackSupport, mockPlaybackSupport],
       [NAKO_ADMIN_ROUTES.storageStaging, mockStorageStaging],
       [NAKO_ADMIN_ROUTES.systemConfig, mockSystemConfig],
+      [NAKO_ADMIN_ROUTES.settingsMetadataRawCache, mockMetadataRawCacheSettings],
     ]);
     const fetcher = vi.fn(async (input: string | URL | Request) => {
       const url = new URL(input.toString(), "http://127.0.0.1");
@@ -136,6 +158,10 @@ describe("AdminApiClient", () => {
         offset: 0,
       }),
     ).resolves.toEqual(mockCatalogGovernance);
+    await expect(client.getAccessSummary()).resolves.toEqual(mockAccessSummary);
+    await expect(client.getCatalogGovernanceItemDetail("item-candidate")).resolves.toEqual(
+      mockCatalogGovernanceItemDetail("item-candidate"),
+    );
     await expect(client.getAddons({ status: "enabled" })).resolves.toEqual(mockAddons);
     await expect(client.getAddonDetail("addon-subtitle-lab")).resolves.toEqual(mockAddonDetail);
     await expect(client.checkAddonHealth("addon-subtitle-lab")).resolves.toEqual(mockAddonHealth);
@@ -151,6 +177,9 @@ describe("AdminApiClient", () => {
     );
     await expect(client.getEvents()).resolves.toEqual(mockEvents);
     await expect(client.getJobs({ status: "failed", limit: 5 })).resolves.toEqual(mockJobs);
+    await expect(client.getLibraryMetadataProfile("library-anime")).resolves.toEqual(
+      mockLibraryMetadataProfile("library-anime"),
+    );
     await expect(
       client.getPlaybackSessions({
         source_id: "source-hls",
@@ -172,9 +201,14 @@ describe("AdminApiClient", () => {
       }),
     ).resolves.toEqual(mockStorageStaging);
     await expect(client.getSystemConfig()).resolves.toEqual(mockSystemConfig);
+    await expect(client.getMetadataRawCacheSettings()).resolves.toEqual(
+      mockMetadataRawCacheSettings,
+    );
 
     expect(fetcher.mock.calls.map(([input]) => input.toString())).toEqual([
       `${NAKO_ADMIN_ROUTES.catalogGovernanceItems}?library_id=library-anime&max_confidence_milli=500&limit=5&offset=0`,
+      NAKO_ADMIN_ROUTES.accessSummary,
+      NAKO_ADMIN_ROUTES.catalogGovernanceItemDetail.replace("{item_id}", "item-candidate"),
       `${NAKO_ADMIN_ROUTES.addons}?status=enabled`,
       NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab"),
       NAKO_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab"),
@@ -186,11 +220,255 @@ describe("AdminApiClient", () => {
       `${NAKO_ADMIN_ROUTES.generatedArtifactProposals}?limit=5`,
       NAKO_ADMIN_ROUTES.events,
       `${NAKO_ADMIN_ROUTES.jobs}?status=failed&limit=5`,
+      NAKO_ADMIN_ROUTES.libraryMetadataProfile.replace("{library_id}", "library-anime"),
       `${NAKO_ADMIN_ROUTES.playbackSessions}?source_id=source-hls&state=running&limit=5&offset=0`,
       NAKO_ADMIN_ROUTES.playbackRuntime,
       `${NAKO_ADMIN_ROUTES.playbackSupport}?session_id=session-hls`,
       `${NAKO_ADMIN_ROUTES.storageStaging}?purpose=ffmpeg_input&state=ready&limit=5&offset=0`,
       NAKO_ADMIN_ROUTES.systemConfig,
+      NAKO_ADMIN_ROUTES.settingsMetadataRawCache,
+    ]);
+  });
+
+  it("updates metadata raw cache settings through the Admin settings route", async () => {
+    const fetcher = vi.fn(async () =>
+      Response.json({
+        ...mockMetadataRawCacheSettings,
+        retention_ms: 3_600_000,
+        cleanup_on_startup: false,
+        source: "admin",
+        effect: "requires_restart",
+        updated_at_ms: 1779700000000,
+      }),
+    );
+    const client = new AdminApiClient({ fetcher });
+
+    await expect(
+      client.updateMetadataRawCacheSettings({
+        retention_ms: 3_600_000,
+        cleanup_on_startup: false,
+      }),
+    ).resolves.toMatchObject({
+      retention_ms: 3_600_000,
+      cleanup_on_startup: false,
+      source: "admin",
+      effect: "requires_restart",
+    });
+
+    expect(fetcher).toHaveBeenCalledWith(
+      NAKO_ADMIN_ROUTES.settingsMetadataRawCache,
+      expect.objectContaining({
+        method: "PUT",
+        body: JSON.stringify({
+          retention_ms: 3_600_000,
+          cleanup_on_startup: false,
+        }),
+      }),
+    );
+  });
+
+  it("posts Catalog Governance Provider Mapping review-plan decisions through Admin-only routes", async () => {
+    const fetcher = vi.fn(async () =>
+      Response.json(
+        mockCatalogGovernanceProviderMappingReviewPlan(
+          "item/unsafe id",
+          "mapping/unsafe id",
+          "reject",
+        ),
+      ),
+    );
+    const client = new AdminApiClient({ fetcher });
+
+    await expect(
+      client.planCatalogGovernanceProviderMappingReview(
+        "item/unsafe id",
+        "mapping/unsafe id",
+        "reject",
+      ),
+    ).resolves.toEqual(
+      mockCatalogGovernanceProviderMappingReviewPlan(
+        "item/unsafe id",
+        "mapping/unsafe id",
+        "reject",
+      ),
+    );
+
+    expect(fetcher).toHaveBeenCalledWith(
+      NAKO_ADMIN_ROUTES.catalogGovernanceProviderMappingReviewPlan
+        .replace("{item_id}", encodeURIComponent("item/unsafe id"))
+        .replace("{mapping_id}", encodeURIComponent("mapping/unsafe id")),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ decision: "reject" }),
+      }),
+    );
+  });
+
+  it("posts Catalog Governance Provider Mapping review mutations through Admin-only routes", async () => {
+    const fetcher = vi.fn(async () =>
+      Response.json(
+        mockCatalogGovernanceProviderMappingReviewResponse(
+          "item/unsafe id",
+          "mapping/unsafe id",
+          "accept",
+        ),
+      ),
+    );
+    const client = new AdminApiClient({ fetcher });
+
+    await expect(
+      client.reviewCatalogGovernanceProviderMapping(
+        "item/unsafe id",
+        "mapping/unsafe id",
+        "accept",
+      ),
+    ).resolves.toEqual(
+      mockCatalogGovernanceProviderMappingReviewResponse(
+        "item/unsafe id",
+        "mapping/unsafe id",
+        "accept",
+      ),
+    );
+
+    expect(fetcher).toHaveBeenCalledWith(
+      NAKO_ADMIN_ROUTES.catalogGovernanceProviderMappingReview
+        .replace("{item_id}", encodeURIComponent("item/unsafe id"))
+        .replace("{mapping_id}", encodeURIComponent("mapping/unsafe id")),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ decision: "accept" }),
+      }),
+    );
+  });
+
+  it("posts Generated Artifact review-plan decisions through Admin-only routes", async () => {
+    const fetcher = vi.fn(async () => Response.json(mockGeneratedArtifactReviewPlan("artifact/unsafe id", "reject")));
+    const client = new AdminApiClient({ fetcher });
+
+    await expect(client.planGeneratedArtifactReview("artifact/unsafe id", "reject")).resolves.toEqual(
+      mockGeneratedArtifactReviewPlan("artifact/unsafe id", "reject"),
+    );
+
+    expect(fetcher).toHaveBeenCalledWith(
+      NAKO_ADMIN_ROUTES.generatedArtifactReviewPlan.replace(
+        "{artifact_id}",
+        encodeURIComponent("artifact/unsafe id"),
+      ),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ decision: "reject" }),
+      }),
+    );
+  });
+
+  it("posts Generated Artifact review decisions through Admin-only routes", async () => {
+    const fetcher = vi.fn(async () => Response.json(mockGeneratedArtifactReviewResponse("artifact/unsafe id", "accept")));
+    const client = new AdminApiClient({ fetcher });
+
+    await expect(client.reviewGeneratedArtifact("artifact/unsafe id", "accept")).resolves.toEqual(
+      mockGeneratedArtifactReviewResponse("artifact/unsafe id", "accept"),
+    );
+
+    expect(fetcher).toHaveBeenCalledWith(
+      NAKO_ADMIN_ROUTES.generatedArtifactReview.replace(
+        "{artifact_id}",
+        encodeURIComponent("artifact/unsafe id"),
+      ),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ decision: "accept" }),
+      }),
+    );
+  });
+
+  it("uses generated item artwork routes for gallery, select, and unpublish", async () => {
+    const gallery = {
+      item_id: "item/unsafe id",
+      summary: { candidates: 1, artifacts: 1, selected: 1 },
+      candidates: [],
+      artifacts: [],
+      selected: [],
+      page: { limit: 5, offset: 10, returned: 0 },
+    };
+    const selected = {
+      selected_artwork: {
+        id: "selected-artwork-1",
+        library_id: "library-anime",
+        item_id: "item/unsafe id",
+        kind: "poster",
+        artifact_id: "artifact/unsafe id",
+        created_at: "2026-05-25T10:00:00Z",
+        updated_at: "2026-05-25T10:00:00Z",
+      },
+      image: {
+        id: "selected-artwork-1",
+        owner: { item_id: "item/unsafe id" },
+        kind: "poster",
+        url: "/images/selected-artwork-1",
+        width: 800,
+        height: 1200,
+        language: null,
+        media_type: "image/png",
+        etag: null,
+      },
+      changed: true,
+    };
+    const unpublished = {
+      item_id: "item/unsafe id",
+      kind: "poster",
+      changed: true,
+      unpublished: {
+        selected_artwork: selected.selected_artwork,
+        previous_image: selected.image,
+      },
+    };
+    const fetcher = vi.fn(async (input: string | URL | Request) => {
+      const url = new URL(input.toString(), "http://127.0.0.1");
+      if (url.pathname.endsWith("/select")) {
+        return Response.json(selected);
+      }
+      if (url.pathname.endsWith("/selection")) {
+        return Response.json(unpublished);
+      }
+      return Response.json(gallery);
+    });
+    const client = new AdminApiClient({ fetcher });
+
+    await expect(
+      client.getItemArtworkGallery("item/unsafe id", { limit: 5, offset: 10 }),
+    ).resolves.toEqual(gallery);
+    await expect(
+      client.selectItemArtwork("item/unsafe id", "poster", "artifact/unsafe id"),
+    ).resolves.toEqual(selected);
+    await expect(
+      client.unpublishItemArtwork("item/unsafe id", "poster"),
+    ).resolves.toEqual(unpublished);
+
+    expect(fetcher.mock.calls).toMatchObject([
+      [
+        `${NAKO_ADMIN_ROUTES.itemArtworkGallery.replace(
+          "{item_id}",
+          encodeURIComponent("item/unsafe id"),
+        )}?limit=5&offset=10`,
+        {},
+      ],
+      [
+        NAKO_ADMIN_ROUTES.itemArtworkSelect
+          .replace("{item_id}", encodeURIComponent("item/unsafe id"))
+          .replace("{kind}", "poster"),
+        {
+          method: "POST",
+          body: JSON.stringify({ artifact_id: "artifact/unsafe id" }),
+        },
+      ],
+      [
+        NAKO_ADMIN_ROUTES.itemArtworkSelection
+          .replace("{item_id}", encodeURIComponent("item/unsafe id"))
+          .replace("{kind}", "poster"),
+        {
+          method: "DELETE",
+        },
+      ],
     ]);
   });
 
@@ -369,6 +647,223 @@ describe("AdminApiClient", () => {
         }),
       },
     );
+  });
+
+  it("sends library profile replacement and commands through Admin API routes", async () => {
+    const profile = {
+      ...mockLibraryMetadataProfile("library-anime").profile,
+      language: "ja-JP",
+      country: "JP",
+    };
+    const job = {
+      ...mockJobs.jobs[0],
+      kind: "library_scan",
+      resource_class: "disk.scan",
+      library_id: "library-anime",
+    };
+    const fetcher = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(input.toString(), "http://127.0.0.1");
+
+      if (url.pathname === NAKO_ADMIN_ROUTES.libraryMetadataProfile.replace("{library_id}", "library-anime")) {
+        return Response.json({ ...mockLibraryMetadataProfile("library-anime"), profile });
+      }
+
+      if (
+        url.pathname === NAKO_ADMIN_ROUTES.libraryScan.replace("{library_id}", "library-anime") ||
+        url.pathname === NAKO_ADMIN_ROUTES.libraryNfoImport.replace("{library_id}", "library-anime") ||
+        url.pathname === NAKO_ADMIN_ROUTES.libraryNfoExport.replace("{library_id}", "library-anime")
+      ) {
+        expect(init?.method).toBe("POST");
+        return Response.json(job);
+      }
+
+      if (url.pathname === "/libraries/library-anime/sources") {
+        return Response.json({
+          library: { id: "library-anime", name: "Anime Vault" },
+          sources: [],
+          page: { limit: 50, offset: 0, returned: 0 },
+        });
+      }
+
+      return new Response("not found", { status: 404 });
+    });
+    const client = new AdminApiClient({ token: "redacted-test-token", fetcher });
+
+    await expect(client.updateLibraryMetadataProfile("library-anime", profile)).resolves.toMatchObject({
+      profile: {
+        language: "ja-JP",
+        country: "JP",
+      },
+    });
+    await expect(client.enqueueLibraryScan("library-anime")).resolves.toMatchObject({
+      kind: "library_scan",
+      resource_class: "disk.scan",
+    });
+    await expect(client.enqueueLibraryNfoImport("library-anime")).resolves.toMatchObject({
+      library_id: "library-anime",
+    });
+    await expect(client.enqueueLibraryNfoExport("library-anime")).resolves.toMatchObject({
+      library_id: "library-anime",
+    });
+    await expect(
+      client.getPublicLibrarySourceInventoryBridge("library-anime", { limit: 50, offset: 0 }),
+    ).resolves.toMatchObject({
+      page: {
+        returned: 0,
+      },
+    });
+
+    expect(fetcher.mock.calls).toMatchObject([
+      [
+        NAKO_ADMIN_ROUTES.libraryMetadataProfile.replace("{library_id}", "library-anime"),
+        {
+          method: "PUT",
+          body: JSON.stringify({ profile }),
+        },
+      ],
+      [
+        NAKO_ADMIN_ROUTES.libraryScan.replace("{library_id}", "library-anime"),
+        {
+          method: "POST",
+          body: JSON.stringify({}),
+        },
+      ],
+      [
+        NAKO_ADMIN_ROUTES.libraryNfoImport.replace("{library_id}", "library-anime"),
+        {
+          method: "POST",
+          body: JSON.stringify({}),
+        },
+      ],
+      [
+        NAKO_ADMIN_ROUTES.libraryNfoExport.replace("{library_id}", "library-anime"),
+        {
+          method: "POST",
+          body: JSON.stringify({}),
+        },
+      ],
+      [
+        "/libraries/library-anime/sources?limit=50&offset=0",
+        {
+          headers: {
+            Authorization: "Bearer redacted-test-token",
+          },
+        },
+      ],
+    ]);
+  });
+
+  it("bridges public Catalog and item reads through explicit methods", async () => {
+    const itemDetail = mockPublicItemDetail("item-unknown-1");
+    const sourceProbe = mockPublicSourceProbe("source-unknown-1");
+    const fetcher = vi.fn(async (input: string | URL | Request) => {
+      const url = new URL(input.toString(), "http://127.0.0.1");
+
+      if (url.pathname === "/items") {
+        return Response.json(mockPublicCatalogItems);
+      }
+
+      if (url.pathname === "/search") {
+        return Response.json(mockPublicCatalogSearch);
+      }
+
+      if (url.pathname === "/items/item-unknown-1") {
+        return Response.json(itemDetail);
+      }
+
+      if (url.pathname === "/items/item-unknown-1/credits") {
+        return Response.json({
+          item_id: "item-unknown-1",
+          credits: itemDetail.credits,
+          people: [],
+        });
+      }
+
+      if (url.pathname === "/items/item-unknown-1/images") {
+        return Response.json({
+          item_id: "item-unknown-1",
+          images: itemDetail.images,
+        });
+      }
+
+      if (url.pathname === "/sources/source-unknown-1/probe") {
+        return Response.json(sourceProbe);
+      }
+
+      return new Response("not found", { status: 404 });
+    });
+    const client = new AdminApiClient({ token: "redacted-test-token", fetcher });
+
+    await expect(
+      client.getPublicCatalogItemsBridge({ limit: 10, offset: 20 }),
+    ).resolves.toEqual(mockPublicCatalogItems);
+    await expect(
+      client.getPublicCatalogSearchBridge({
+        q: "ova",
+        facet: "kind:movie",
+        limit: 5,
+        offset: 0,
+      }),
+    ).resolves.toEqual(mockPublicCatalogSearch);
+    await expect(client.getPublicItemDetailBridge("item-unknown-1")).resolves.toEqual(itemDetail);
+    await expect(client.getPublicItemCreditsBridge("item-unknown-1")).resolves.toMatchObject({
+      item_id: "item-unknown-1",
+    });
+    await expect(client.getPublicItemImagesBridge("item-unknown-1")).resolves.toMatchObject({
+      images: itemDetail.images,
+    });
+    await expect(client.getPublicSourceProbeBridge("source-unknown-1")).resolves.toEqual(sourceProbe);
+
+    expect(fetcher.mock.calls).toMatchObject([
+      [
+        "/items?limit=10&offset=20",
+        {
+          headers: {
+            Authorization: "Bearer redacted-test-token",
+          },
+        },
+      ],
+      [
+        "/search?q=ova&facet=kind%3Amovie&limit=5&offset=0",
+        {
+          headers: {
+            Authorization: "Bearer redacted-test-token",
+          },
+        },
+      ],
+      [
+        "/items/item-unknown-1",
+        {
+          headers: {
+            Authorization: "Bearer redacted-test-token",
+          },
+        },
+      ],
+      [
+        "/items/item-unknown-1/credits",
+        {
+          headers: {
+            Authorization: "Bearer redacted-test-token",
+          },
+        },
+      ],
+      [
+        "/items/item-unknown-1/images",
+        {
+          headers: {
+            Authorization: "Bearer redacted-test-token",
+          },
+        },
+      ],
+      [
+        "/sources/source-unknown-1/probe",
+        {
+          headers: {
+            Authorization: "Bearer redacted-test-token",
+          },
+        },
+      ],
+    ]);
   });
 
   it("posts addon runtime readiness diagnostics through the Admin-only route", async () => {

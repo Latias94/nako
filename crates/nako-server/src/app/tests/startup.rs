@@ -1158,6 +1158,52 @@ async fn metadata_profile_restart_toml_profile_override_replaces_admin_update() 
 }
 
 #[tokio::test]
+async fn admin_metadata_raw_cache_settings_survive_restart_as_admin_override() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let config = startup_config(
+        temp.path(),
+        vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().join("movies"),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    );
+    let app = NakoApp::new_with_store(config.clone(), store.clone())
+        .await
+        .unwrap();
+
+    app.update_admin_metadata_raw_cache_settings(
+        nako_api::admin::AdminUpdateMetadataRawCacheSettingsRequest {
+            retention_ms: 3_600_000,
+            cleanup_on_startup: false,
+        },
+    )
+    .await
+    .unwrap();
+    drop(app);
+
+    let restarted = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+
+    assert_eq!(
+        restarted.config().metadata.raw_cache_retention_ms,
+        3_600_000
+    );
+    assert!(
+        !restarted
+            .config()
+            .metadata
+            .maintenance
+            .raw_cache_cleanup_on_startup
+    );
+}
+
+#[tokio::test]
 async fn app_startup_retains_persisted_library_missing_from_config() {
     let temp = tempfile::tempdir().unwrap();
     let retained_id = LibraryId::new();

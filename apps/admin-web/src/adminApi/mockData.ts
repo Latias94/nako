@@ -8,8 +8,19 @@ import type {
   AdminAddonRegistrationsResponse,
   AdminAddonResourceCallDiagnosticResponse,
   AdminAddonSurfacesResponse,
+  AdminAccessSummaryResponse,
+  AdminCatalogGovernanceItemDetailResponse,
   AdminCatalogGovernanceItemListResponse,
+  AdminCatalogGovernanceProviderMappingReviewDecision,
+  AdminCatalogGovernanceProviderMappingReviewPlanResponse,
+  AdminCatalogGovernanceProviderMappingReviewResponse,
   AdminGeneratedArtifactProposalListResponse,
+  AdminGeneratedArtifactReviewPlanResponse,
+  AdminGeneratedArtifactReviewRequest,
+  AdminGeneratedArtifactReviewResponse,
+  AdminMetadataRawCacheSettingsResponse,
+  AdminManagedArtworkGalleryResponse,
+  AdminLibraryMetadataProfileResponse,
   AdminJobListResponse,
   AdminOutboxEventListResponse,
   AdminOverviewResponse,
@@ -24,7 +35,56 @@ import type {
   AdminConsoleData,
   AdminSourceMap,
   AddonsRouteSummary,
+  CatalogBrowseSummary,
+  ItemArtworkGallerySummary,
+  ItemDetailSummary,
+  PublicCatalogItemsResponse,
+  PublicCatalogSearchResponse,
+  PublicItemDetailResponse,
+  PublicSourceProbeResponse,
 } from "./types";
+
+export const mockAccessSummary: AdminAccessSummaryResponse = {
+  admin_api_version: "v1",
+  public_api_version: "v1",
+  mode: "single_admin",
+  principal: {
+    principal_id: "local-admin",
+    display_name: "Local administrator",
+    principal_kind: "local_admin",
+  },
+  auth: {
+    enabled: true,
+    token_reference_configured: true,
+  },
+  readiness: {
+    single_admin_mode: "active",
+    user_accounts: "planned",
+    roles: "planned",
+    library_access_policy: "planned",
+  },
+  library_access: {
+    configured_libraries: 2,
+    libraries: [
+      {
+        library_id: "library-anime",
+        library_name: "Anime Vault",
+        preset: "series",
+        backend_kind: "local",
+        access: "manage",
+        reason: "single_admin_mode",
+      },
+      {
+        library_id: "library-films",
+        library_name: "Films",
+        preset: "movies",
+        backend_kind: "webdav",
+        access: "manage",
+        reason: "single_admin_mode",
+      },
+    ],
+  },
+};
 
 export const mockOverview: AdminOverviewResponse = {
   admin_api_version: "v1",
@@ -137,6 +197,707 @@ export const mockCatalogGovernance: AdminCatalogGovernanceItemListResponse = {
   ],
   page: { limit: 20, offset: 0, returned: 2 },
 };
+
+export function mockCatalogGovernanceItemDetail(
+  itemId = "item-low-confidence",
+): AdminCatalogGovernanceItemDetailResponse {
+  const item =
+    mockCatalogGovernance.items.find((candidate) => candidate.item_id === itemId) ??
+    mockCatalogGovernance.items[1];
+
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    item: {
+      ...item,
+      item_id: itemId,
+      provider_mapping_count: 1,
+      accepted_provider_mapping_count: 0,
+      issues: ["missing_accepted_provider_mapping"],
+    },
+    provider_mappings: [
+      {
+        mapping_id: "mapping-tmdb-603",
+        item_id: itemId,
+        status: "candidate",
+        confidence_milli: 820,
+        source: { provider: "tmdb" },
+        subject: {
+          subject_id: "subject-tmdb-603",
+          provider: "tmdb",
+          subject_kind: "movie",
+          subject_key: "603",
+          title: "The Candidate",
+          release_year: 2026,
+          locale: "en-US",
+        },
+      },
+    ],
+    repair_actions: ["provider_mapping_review"],
+  };
+}
+
+export function mockCatalogGovernanceProviderMappingReviewPlan(
+  itemId = "item-low-confidence",
+  mappingId = "mapping-tmdb-603",
+  decision: AdminCatalogGovernanceProviderMappingReviewDecision = "accept",
+): AdminCatalogGovernanceProviderMappingReviewPlanResponse {
+  const detail = mockCatalogGovernanceItemDetail(itemId);
+  const mapping = {
+    ...detail.provider_mappings[0],
+    mapping_id: mappingId,
+  };
+  const targetStatus = decision === "accept" ? "accepted" : "rejected";
+
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    plan: {
+      item: detail.item,
+      mapping,
+      decision,
+      current_status: mapping.status,
+      target_status: targetStatus,
+      status: "ready",
+      readiness: {
+        status: "ready",
+        actionable: true,
+        reasons:
+          mapping.status === targetStatus
+            ? ["already_in_target_status"]
+            : ["provider_mapping_status_change"],
+      },
+      boundary: {
+        updates_provider_mapping_status: true,
+        updates_canonical_metadata: false,
+        updates_provider_subject: false,
+        updates_local_inference: false,
+        updates_source_duplicates: false,
+        updates_hierarchy: false,
+        writes_nfo: false,
+        writes_library_files: false,
+        updates_artwork: false,
+        updates_playback_state: false,
+      },
+    },
+  };
+}
+
+export function mockCatalogGovernanceProviderMappingReviewResponse(
+  itemId = "item-low-confidence",
+  mappingId = "mapping-tmdb-603",
+  decision: AdminCatalogGovernanceProviderMappingReviewDecision = "accept",
+  idempotentReplay = false,
+): AdminCatalogGovernanceProviderMappingReviewResponse {
+  const plan = mockCatalogGovernanceProviderMappingReviewPlan(itemId, mappingId, decision).plan;
+  const previousStatus = idempotentReplay ? plan.target_status : plan.current_status;
+
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    item_id: itemId,
+    mapping_id: mappingId,
+    decision,
+    previous_status: previousStatus,
+    current_status: plan.target_status,
+    changed: !idempotentReplay,
+    idempotent_replay: idempotentReplay,
+    plan: {
+      ...plan,
+      current_status: idempotentReplay ? plan.target_status : plan.current_status,
+      mapping: {
+        ...plan.mapping,
+        status: plan.target_status,
+      },
+      readiness: {
+        ...plan.readiness,
+        reasons: idempotentReplay
+          ? ["already_in_target_status"]
+          : ["provider_mapping_status_change"],
+      },
+    },
+  };
+}
+
+export const mockPublicCatalogItems: PublicCatalogItemsResponse = {
+  items: [
+    {
+      id: "item-unknown-1",
+      kind: "unknown",
+      parent_id: null,
+      metadata: {
+        title: "Unmatched OVA Special",
+        original_title: null,
+        sort_title: "Unmatched OVA Special",
+        overview: "Locally inferred item awaiting hierarchy confirmation.",
+        release_date: null,
+        runtime_minutes: 48,
+        tagline: null,
+        genres: ["anime"],
+        tags: ["needs-review", "local-inference"],
+        ratings: [],
+        credits: [],
+        collections: [],
+        studios: [],
+        external_ids: [],
+      },
+    },
+    {
+      id: "item-low-confidence",
+      kind: "movie",
+      parent_id: null,
+      metadata: {
+        title: "Film Needs Mapping",
+        original_title: null,
+        sort_title: "Film Needs Mapping",
+        overview: null,
+        release_date: "1999-01-01",
+        runtime_minutes: 101,
+        tagline: null,
+        genres: ["drama", "mystery"],
+        tags: ["provider-mapping"],
+        ratings: [{ source: "local", value: "PG-13" }],
+        credits: [
+          {
+            name: "Demo Director",
+            role: "director",
+            character: null,
+            order: 1,
+            external_ids: [],
+          },
+        ],
+        collections: [],
+        studios: [{ name: "Demo Studio", external_ids: [] }],
+        external_ids: [],
+      },
+    },
+  ],
+  page: { limit: 20, offset: 0, returned: 2 },
+};
+
+export const mockPublicCatalogSearch: PublicCatalogSearchResponse = {
+  hits: [
+    {
+      item: mockPublicCatalogItems.items[0],
+      score: 0.91,
+    },
+  ],
+  page: { limit: 20, offset: 0, returned: 1 },
+};
+
+export const mockCatalogBrowse: CatalogBrowseSummary = {
+  mode: "browse",
+  items: mockPublicCatalogItems.items.map((item) => ({
+    id: item.id,
+    parentId: item.parent_id,
+    title: item.metadata.title,
+    kind: item.kind,
+    releaseDate: item.metadata.release_date,
+    runtimeMinutes: item.metadata.runtime_minutes,
+    genreCount: item.metadata.genres.length,
+    tagCount: item.metadata.tags.length,
+    creditCount: item.metadata.credits.length,
+    collectionCount: item.metadata.collections.length,
+    studioCount: item.metadata.studios.length,
+    imageCount: null,
+    sourceCount: null,
+    score: null,
+  })),
+  page: mockPublicCatalogItems.page,
+};
+
+export function mockPublicItemDetail(itemId = "item-unknown-1"): PublicItemDetailResponse {
+  const item =
+    mockPublicCatalogItems.items.find((candidate) => candidate.id === itemId)
+    ?? {
+      ...mockPublicCatalogItems.items[0],
+      id: itemId,
+      metadata: {
+        ...mockPublicCatalogItems.items[0].metadata,
+        title: `Media Item ${itemId}`,
+      },
+    };
+
+  return {
+    item,
+    sources: [
+      {
+        id: "source-unknown-1",
+        library_id: "library-anime",
+        item_id: item.id,
+        file_name: "Unmatched OVA Special.mkv",
+        size_bytes: 1468006400,
+        fingerprint: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      },
+      {
+        id: "source-unknown-2",
+        library_id: "library-anime",
+        item_id: item.id,
+        file_name: "Unmatched OVA Special - 1080p.mkv",
+        size_bytes: 2147483648,
+        fingerprint: null,
+      },
+    ],
+    credits: [
+      {
+        item_id: item.id,
+        person_id: "person-demo-director",
+        role: "director",
+        character: null,
+        sort_order: 1,
+      },
+    ],
+    genres: [{ item_id: item.id, genre_id: "genre-anime" }],
+    tags: [
+      { item_id: item.id, tag_id: "tag-needs-review" },
+      { item_id: item.id, tag_id: "tag-local-inference" },
+    ],
+    collections: [],
+    studios: [{ item_id: item.id, studio_id: "studio-demo" }],
+    images: [
+      {
+        id: "image-unknown-poster",
+        owner: { kind: "item", item_id: item.id },
+        kind: "poster",
+        url: "/images/image-unknown-poster",
+        width: 1000,
+        height: 1500,
+        language: null,
+        media_type: "image/jpeg",
+        etag: "poster-etag",
+      },
+    ],
+  };
+}
+
+export function mockAdminItemArtworkGallery(
+  itemId = "item-unknown-1",
+): AdminManagedArtworkGalleryResponse {
+  return {
+    item_id: itemId,
+    summary: {
+      candidates: 2,
+      artifacts: 2,
+      selected: 1,
+    },
+    candidates: [
+      {
+        id: "candidate-poster-1",
+        addon_id: "addon-artwork-curator",
+        side_effect_id: "side-effect-poster-1",
+        library_id: "library-anime",
+        item_id: itemId,
+        kind: "poster",
+        source_kind: "provider",
+        status: "accepted",
+        width: 1000,
+        height: 1500,
+        language: "ja",
+        ingest: {
+          id: "ingest-poster-1",
+          candidate_id: "candidate-poster-1",
+          job_id: "job-artwork-1",
+          library_id: "library-anime",
+          item_id: itemId,
+          kind: "poster",
+          status: "completed",
+          has_artifact: true,
+          has_failure: false,
+          failure_code: null,
+          created_at: "2026-05-25T01:00:00Z",
+          updated_at: "2026-05-25T01:10:00Z",
+        },
+        artifact_id: "artifact-poster-1",
+        has_stored_artifact: true,
+        selected_artwork_count: 1,
+        selected: true,
+        created_at: "2026-05-25T00:59:00Z",
+        updated_at: "2026-05-25T01:11:00Z",
+      },
+      {
+        id: "candidate-backdrop-1",
+        addon_id: "addon-artwork-curator",
+        side_effect_id: "side-effect-backdrop-1",
+        library_id: "library-anime",
+        item_id: itemId,
+        kind: "backdrop",
+        source_kind: "local",
+        status: "accepted",
+        width: 1920,
+        height: 1080,
+        language: null,
+        ingest: {
+          id: "ingest-backdrop-1",
+          candidate_id: "candidate-backdrop-1",
+          job_id: "job-artwork-2",
+          library_id: "library-anime",
+          item_id: itemId,
+          kind: "backdrop",
+          status: "completed",
+          has_artifact: true,
+          has_failure: false,
+          failure_code: null,
+          created_at: "2026-05-25T01:20:00Z",
+          updated_at: "2026-05-25T01:21:00Z",
+        },
+        artifact_id: "artifact-backdrop-1",
+        has_stored_artifact: true,
+        selected_artwork_count: 0,
+        selected: false,
+        created_at: "2026-05-25T01:19:00Z",
+        updated_at: "2026-05-25T01:22:00Z",
+      },
+    ],
+    artifacts: [
+      {
+        id: "artifact-poster-1",
+        ingest_id: "ingest-poster-1",
+        candidate_id: "candidate-poster-1",
+        library_id: "library-anime",
+        item_id: itemId,
+        kind: "poster",
+        selected_artwork_count: 1,
+        selected: true,
+        width: 1000,
+        height: 1500,
+        byte_len: 542000,
+        media_type: "image/jpeg",
+        has_content_hash: true,
+        created_at: "2026-05-25T01:10:00Z",
+        updated_at: "2026-05-25T01:11:00Z",
+      },
+      {
+        id: "artifact-backdrop-1",
+        ingest_id: "ingest-backdrop-1",
+        candidate_id: "candidate-backdrop-1",
+        library_id: "library-anime",
+        item_id: itemId,
+        kind: "backdrop",
+        selected_artwork_count: 0,
+        selected: false,
+        width: 1920,
+        height: 1080,
+        byte_len: 804000,
+        media_type: "image/webp",
+        has_content_hash: true,
+        created_at: "2026-05-25T01:21:00Z",
+        updated_at: "2026-05-25T01:22:00Z",
+      },
+    ],
+    selected: [
+      {
+        selected_artwork: {
+          id: "selected-poster-1",
+          library_id: "library-anime",
+          item_id: itemId,
+          kind: "poster",
+          artifact_id: "artifact-poster-1",
+          created_at: "2026-05-25T01:12:00Z",
+          updated_at: "2026-05-25T01:12:00Z",
+        },
+        artifact: {
+          id: "artifact-poster-1",
+          ingest_id: "ingest-poster-1",
+          candidate_id: "candidate-poster-1",
+          library_id: "library-anime",
+          item_id: itemId,
+          kind: "poster",
+          selected_artwork_count: 1,
+          selected: true,
+          width: 1000,
+          height: 1500,
+          byte_len: 542000,
+          media_type: "image/jpeg",
+          has_content_hash: true,
+          created_at: "2026-05-25T01:10:00Z",
+          updated_at: "2026-05-25T01:11:00Z",
+        },
+        image: {
+          id: "image-poster-1",
+          owner: {
+            kind: "item",
+            item_id: itemId,
+          },
+          kind: "poster",
+          url: "/images/image-poster-1",
+          width: 1000,
+          height: 1500,
+          language: "ja",
+          media_type: "image/jpeg",
+          etag: "poster-etag",
+        },
+      },
+    ],
+    page: {
+      limit: 20,
+      offset: 0,
+      returned: 2,
+    },
+  };
+}
+
+export function mockItemArtworkGallerySummary(
+  itemId = "item-unknown-1",
+): ItemArtworkGallerySummary {
+  return {
+    itemId,
+    totals: {
+      candidateCount: 2,
+      artifactCount: 2,
+      selectedCount: 1,
+    },
+    candidates: [
+      {
+        id: "candidate-poster-1",
+        addonId: "addon-artwork-curator",
+        sideEffectId: "side-effect-poster-1",
+        libraryId: "library-anime",
+        itemId,
+        kind: "poster",
+        sourceKind: "provider",
+        status: "accepted",
+        width: 1000,
+        height: 1500,
+        language: "ja",
+        ingestId: "ingest-poster-1",
+        ingestStatus: "completed",
+        hasIngestArtifact: true,
+        hasIngestFailure: false,
+        ingestFailureCode: null,
+        artifactId: "artifact-poster-1",
+        hasStoredArtifact: true,
+        selectedArtworkCount: 1,
+        selected: true,
+        updatedAt: "2026-05-25T01:11:00Z",
+      },
+      {
+        id: "candidate-backdrop-1",
+        addonId: "addon-artwork-curator",
+        sideEffectId: "side-effect-backdrop-1",
+        libraryId: "library-anime",
+        itemId,
+        kind: "backdrop",
+        sourceKind: "local",
+        status: "accepted",
+        width: 1920,
+        height: 1080,
+        language: null,
+        ingestId: "ingest-backdrop-1",
+        ingestStatus: "completed",
+        hasIngestArtifact: true,
+        hasIngestFailure: false,
+        ingestFailureCode: null,
+        artifactId: "artifact-backdrop-1",
+        hasStoredArtifact: true,
+        selectedArtworkCount: 0,
+        selected: false,
+        updatedAt: "2026-05-25T01:22:00Z",
+      },
+    ],
+    artifacts: [
+      {
+        id: "artifact-poster-1",
+        ingestId: "ingest-poster-1",
+        candidateId: "candidate-poster-1",
+        libraryId: "library-anime",
+        itemId,
+        kind: "poster",
+        selectedArtworkCount: 1,
+        selected: true,
+        width: 1000,
+        height: 1500,
+        byteLen: 542000,
+        mediaType: "image/jpeg",
+        hasContentHash: true,
+        updatedAt: "2026-05-25T01:11:00Z",
+      },
+      {
+        id: "artifact-backdrop-1",
+        ingestId: "ingest-backdrop-1",
+        candidateId: "candidate-backdrop-1",
+        libraryId: "library-anime",
+        itemId,
+        kind: "backdrop",
+        selectedArtworkCount: 0,
+        selected: false,
+        width: 1920,
+        height: 1080,
+        byteLen: 804000,
+        mediaType: "image/webp",
+        hasContentHash: true,
+        updatedAt: "2026-05-25T01:22:00Z",
+      },
+    ],
+    selected: [
+      {
+        selectedArtworkId: "selected-poster-1",
+        libraryId: "library-anime",
+        itemId,
+        kind: "poster",
+        artifactId: "artifact-poster-1",
+        imageId: "image-poster-1",
+        routePath: "/images/image-poster-1",
+        width: 1000,
+        height: 1500,
+        language: "ja",
+        mediaType: "image/jpeg",
+        selectedAt: "2026-05-25T01:12:00Z",
+        updatedAt: "2026-05-25T01:12:00Z",
+      },
+    ],
+    page: {
+      limit: 20,
+      offset: 0,
+      returned: 2,
+    },
+  };
+}
+
+export function mockPublicSourceProbe(sourceId = "source-unknown-1"): PublicSourceProbeResponse {
+  return {
+    source_id: sourceId,
+    probe: {
+      duration_ms: 2880000,
+      container: "matroska",
+      bit_rate: 4200000,
+      streams: [
+        {
+          index: 0,
+          kind: "video",
+          codec: "h264",
+          language: null,
+          duration_ms: 2880000,
+          bit_rate: 3600000,
+          width: 1920,
+          height: 1080,
+          channels: null,
+          sample_rate: null,
+        },
+        {
+          index: 1,
+          kind: "audio",
+          codec: "aac",
+          language: "ja",
+          duration_ms: 2880000,
+          bit_rate: 192000,
+          width: null,
+          height: null,
+          channels: 2,
+          sample_rate: 48000,
+        },
+        {
+          index: 2,
+          kind: "subtitle",
+          codec: "ass",
+          language: "en",
+          duration_ms: null,
+          bit_rate: null,
+          width: null,
+          height: null,
+          channels: null,
+          sample_rate: null,
+        },
+      ],
+    },
+  };
+}
+
+export function mockItemDetailSummary(itemId = "item-unknown-1"): ItemDetailSummary {
+  const detail = mockPublicItemDetail(itemId);
+  const probe = mockPublicSourceProbe(detail.sources[0]?.id ?? "source-unknown-1").probe;
+
+  return {
+    item: {
+      id: detail.item.id,
+      parentId: detail.item.parent_id,
+      title: detail.item.metadata.title,
+      kind: detail.item.kind,
+      releaseDate: detail.item.metadata.release_date,
+      runtimeMinutes: detail.item.metadata.runtime_minutes,
+      genreCount: detail.item.metadata.genres.length,
+      tagCount: detail.item.metadata.tags.length,
+      creditCount: detail.credits.length,
+      collectionCount: detail.collections.length,
+      studioCount: detail.studios.length,
+      imageCount: detail.images.length,
+      sourceCount: detail.sources.length,
+    },
+    canonical: {
+      genres: detail.item.metadata.genres,
+      tags: detail.item.metadata.tags,
+      credits: detail.item.metadata.credits.map((credit) => ({
+        name: credit.name,
+        role: credit.role,
+        character: credit.character,
+      })),
+      collections: detail.item.metadata.collections.map((collection) => collection.name),
+      studios: detail.item.metadata.studios.map((studio) => studio.name),
+      ratingCount: detail.item.metadata.ratings.length,
+      externalIdCount: detail.item.metadata.external_ids.length,
+    },
+    sources: detail.sources.map((source, index) => ({
+      id: source.id,
+      libraryId: source.library_id,
+      fileName: source.file_name,
+      sizeBytes: source.size_bytes,
+      hasFingerprint: Boolean(source.fingerprint),
+      probe:
+        index === 0
+          ? {
+              durationMs: probe.duration_ms,
+              container: probe.container,
+              bitRate: probe.bit_rate,
+              streamCount: probe.streams.length,
+              videoStreamCount: 1,
+              audioStreamCount: 1,
+              subtitleStreamCount: 1,
+            }
+          : null,
+    })),
+    images: detail.images.map((image) => ({
+      id: image.id,
+      kind: image.kind,
+      routePath: image.url.startsWith("/images/") ? image.url : null,
+      width: image.width,
+      height: image.height,
+      language: image.language,
+      mediaType: image.media_type,
+      hasEtag: Boolean(image.etag),
+    })),
+    readiness: [
+      {
+        label: "NFO sidecar status",
+        status: "split",
+        detail: "Admin NFO item status read model is split from MBG-040.",
+      },
+      {
+        label: "Provider Mapping",
+        status: "split",
+        detail: "Provider Mapping decisions need a follow-on repair workflow.",
+      },
+      {
+        label: "Local Inference",
+        status: "split",
+        detail: "Local Inference evidence diagnostics need an Admin read model.",
+      },
+      {
+        label: "Generated Artifacts",
+        status: "planned",
+        detail: "Use route-level automation queue until per-item review is split.",
+      },
+      {
+        label: "Artwork decisions",
+        status: "ready",
+        detail: "Public image refs are available for presentation readiness.",
+      },
+      {
+        label: "Catalog repair",
+        status: "split",
+        detail: "Repair/apply mutations stay out of the first item detail slice.",
+      },
+    ],
+  };
+}
 
 export const mockAcquisitionIntakeCandidates: AdminAcquisitionIntakeCandidateListResponse = {
   admin_api_version: "v1",
@@ -292,6 +1053,55 @@ export const mockGeneratedArtifactProposals: AdminGeneratedArtifactProposalListR
   ],
   page: { limit: 20, offset: 0, returned: 2 },
 };
+
+export function mockGeneratedArtifactReviewPlan(
+  artifactId = "artifact-metadata-cleanup",
+  decision: AdminGeneratedArtifactReviewRequest["decision"] = "accept",
+): AdminGeneratedArtifactReviewPlanResponse {
+  const proposal =
+    mockGeneratedArtifactProposals.proposals.find((candidate) => candidate.id === artifactId) ??
+    mockGeneratedArtifactProposals.proposals[0];
+
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    plan: {
+      artifact_id: artifactId,
+      decision,
+      status: proposal.readiness.actionable ? "ready" : "blocked",
+      action: decision === "accept" ? "stage_metadata_authority_review" : "mark_rejected",
+      reasons: proposal.readiness.reasons,
+      capability: proposal.capability,
+      kind: proposal.kind,
+      target: proposal.target,
+      payload: proposal.payload,
+      readiness: proposal.readiness,
+      boundary: {
+        accepted_into_canonical_metadata: false,
+        writes_sidecar: false,
+        writes_library_files: false,
+        applies_immediately: false,
+        requires_metadata_authority_apply: decision === "accept",
+      },
+    },
+  };
+}
+
+export function mockGeneratedArtifactReviewResponse(
+  artifactId = "artifact-metadata-cleanup",
+  decision: AdminGeneratedArtifactReviewRequest["decision"] = "accept",
+): AdminGeneratedArtifactReviewResponse {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    artifact_id: artifactId,
+    decision,
+    artifact_status: decision === "accept" ? "accepted" : "rejected",
+    accepted_at: decision === "accept" ? "2026-05-25T11:00:00Z" : null,
+    idempotent_replay: false,
+    plan: mockGeneratedArtifactReviewPlan(artifactId, decision).plan,
+  };
+}
 
 export const mockAddons: AdminAddonRegistrationsResponse = {
   addons: [
@@ -1170,6 +1980,49 @@ export const mockSystemConfig: AdminServerConfigDiagnosticsResponse = {
   },
 };
 
+export const mockMetadataRawCacheSettings: AdminMetadataRawCacheSettingsResponse = {
+  admin_api_version: "v1",
+  retention_ms: mockSystemConfig.metadata.raw_cache_retention_ms,
+  cleanup_on_startup: mockSystemConfig.metadata.raw_cache_cleanup_on_startup,
+  source: "configured",
+  effect: "active",
+  updated_at_ms: null,
+};
+
+export function mockLibraryMetadataProfile(
+  libraryId = "library-anime",
+): AdminLibraryMetadataProfileResponse {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    library_id: libraryId,
+    profile: {
+      item_kinds: ["series", "episode", "movie"],
+      local_readers: ["nfo", "embedded"],
+      metadata_providers: ["nfo", "tmdb", "bangumi"],
+      image_providers: ["local", "tmdb"],
+      language: "en-US",
+      country: "US",
+      refresh_mode: "missing_only",
+      local_metadata_policy: "local_first",
+      scan: {
+        enabled: true,
+        addon_scrape: true,
+        addon_writeback: false,
+      },
+    },
+    scan_acquisition_plan: {
+      local_nfo_import: true,
+      provider_refresh: true,
+      addon_scrape: true,
+      addon_writeback: false,
+      embedded_read: true,
+      sidecar_read: true,
+      image_discovery: true,
+    },
+  };
+}
+
 export const mockSources: AdminSourceMap = {
   overview: "mock",
   addons: "mock",
@@ -1355,11 +2208,32 @@ export const mockAdminConsoleData: AdminConsoleData = {
   catalog: {
     items: mockCatalogGovernance.items.map((item) => ({
       id: item.item_id,
-      title: item.title,
+      libraryId: item.library_id,
       kind: item.kind,
+      parentId: item.parent_id,
+      title: item.title,
+      releaseDate: item.release_date,
       issues: item.issues,
       sourceCount: item.source_count,
+      representativeSourceId: item.representative_source_id,
+      representativeFileName: item.representative_file_name,
       providerMappingCount: item.provider_mapping_count,
+      acceptedProviderMappingCount: item.accepted_provider_mapping_count,
+      duplicateRelationshipCount: item.duplicate_relationship_count,
+      localInference: item.local_inference
+        ? {
+            sourceId: item.local_inference.source_id,
+            inferredKind: item.local_inference.inferred_kind,
+            inferredTitle: item.local_inference.inferred_title,
+            inferredYear: item.local_inference.inferred_year,
+            inferredSeason: item.local_inference.inferred_season,
+            inferredEpisode: item.local_inference.inferred_episode,
+            confidenceMilli: item.local_inference.confidence_milli,
+            evidenceSource: item.local_inference.evidence_source,
+            hasEvidence: item.local_inference.has_evidence,
+            inferenceVersion: item.local_inference.inference_version,
+          }
+        : null,
     })),
     page: mockCatalogGovernance.page,
   },

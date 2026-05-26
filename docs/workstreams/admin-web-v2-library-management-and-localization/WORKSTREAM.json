@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "slug": "admin-web-v2-library-management-and-localization",
+  "title": "Admin Web V2 Library Management And Localization",
+  "status": "closed",
+  "updated": "2026-05-25",
+  "scope_kind": "execution",
+  "problem": "Admin Web V2 has a clean read-only Media Libraries route, but it cannot yet manage a library, inspect source/profile readiness, run safe library actions, or support localized UI copy.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/admin-web-v2-library-management-and-localization/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/admin-web-v2-library-management-and-localization/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/admin-web-v2-library-management-and-localization/TODO.md"
+    },
+    {
+      "role": "parity-gap-split",
+      "path": "docs/workstreams/admin-web-v2-library-management-and-localization/PARITY_GAP_SPLIT.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/admin-web-v2-library-management-and-localization/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/admin-web-v2-library-management-and-localization/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/admin-web-v2-library-management-and-localization/CLOSEOUT.md"
+    }
+  ],
+  "gates": [
+    "cd apps/admin-web && npm run check && npm run test -- App.test.tsx adminApi/dataSource.test.ts",
+    "cd apps/admin-web && npm run check && npm run test -- App.test.tsx adminApi/client.test.ts adminApi/dataSource.test.ts",
+    "cd apps/admin-web && npm run check && npm run test && npm run build",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "AWL-010",
+      "summary": "Opened workstream docs and task ledger from the Admin Web V2 media-library parity audit."
+    },
+    {
+      "task": "AWL-020",
+      "summary": "Implemented route-owned /libraries/:libraryId detail with system-config plus metadata-profile data-source composition, safe fallback states, source/scan/NFO readiness placeholders, and redaction tests."
+    },
+    {
+      "task": "AWL-040",
+      "summary": "Added dependency-free Admin Web i18n foundation with English and Simplified Chinese catalogs, shell locale selector, localized SourceLabel text, and library management message-id coverage."
+    },
+    {
+      "task": "AWL-030",
+      "summary": "Implemented Metadata Profile full-replacement editing, safe public-read Source inventory bridge summaries, and confirmed Admin API scan/NFO command wrappers returning redaction-safe job summaries."
+    },
+    {
+      "task": "AWL-050",
+      "summary": "Re-scored remaining Admin Web V2 parity gaps and split follow-on lane candidates for media browsing/item detail, settings/network mutation authority, users/library access, governance repair actions, Addon operations mutations, playback support detail, and i18n expansion."
+    },
+    {
+      "task": "AWL-060",
+      "summary": "Closed the lane after fresh Admin Web, Rust, browser, review, and whitespace gates; handed off to admin-web-v2-media-browsing-and-item-detail-governance."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "continue_policy": {
+    "default_action": "open_follow_on",
+    "notes": "Open admin-web-v2-media-browsing-and-item-detail-governance as the recommended next Admin Web V2 follow-on before implementing media browsing or item detail work."
+  }
+}

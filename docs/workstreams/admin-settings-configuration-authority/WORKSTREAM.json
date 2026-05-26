@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "slug": "admin-settings-configuration-authority",
+  "title": "Admin Settings Configuration Authority",
+  "status": "closed",
+  "current_task": null,
+  "updated": "2026-05-26",
+  "scope_kind": "architecture",
+  "problem": "Global settings are loaded from TOML at startup and copied into runtime/router state, so Admin Web cannot safely expose settings mutation until a backend source of truth exists.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/admin-settings-configuration-authority/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/admin-settings-configuration-authority/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/admin-settings-configuration-authority/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/admin-settings-configuration-authority/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/admin-settings-configuration-authority/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "rg -n \"NakoServerConfig|load_config|NetworkBoundaryState|Semaphore::new|settings|config\" crates/nako-server/src crates/nako-db/src crates/nako-core/src",
+    "git diff --check",
+    "cargo nextest run -p nako-server <admin-settings-filter> --no-fail-fast",
+    "cargo nextest run -p nako-db <settings-contract-filter> --no-fail-fast",
+    "cargo test -p nako-api admin_contract_includes_route_constants -- --nocapture",
+    "cargo fmt --all --check"
+  ],
+  "evidence": [
+    {
+      "task": "ASCA-010",
+      "summary": "Opened backend configuration-authority lane after Admin Web settings mutation readiness showed no safe global settings source of truth."
+    },
+    {
+      "task": "ASCA-020",
+      "summary": "Selected metadata raw cache retention as the first safe global settings field group with persisted Admin desired-state, TOML-first startup merge, restart-required PUT semantics, and redaction-safe route shape."
+    },
+    {
+      "task": "ASCA-030",
+      "summary": "Implemented GET/PUT /admin/v1/settings/metadata/raw-cache, SQLite/PostgreSQL settings persistence, startup override merge, generated Admin contract DTOs, HTTP docs, and focused Rust gates."
+    },
+    {
+      "task": "ASCA-040",
+      "summary": "Reviewed, verified, and closed the backend settings authority lane with handoff back to Admin Web settings mutation for metadata raw cache controls only; PostgreSQL runtime contract remains skipped locally without NAKO_TEST_POSTGRES_URL."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0027-admin-api-boundary-for-web-console.md",
+    "docs/adr/0009-resolve-provider-secrets-from-environment.md"
+  ],
+  "continue_policy": {
+    "default_action": "handoff",
+    "notes": "Closed. Continue in admin-web-v2-settings-mutation-authority ASM-030/ASM-040 for UI controls limited to metadata raw cache settings."
+  }
+}

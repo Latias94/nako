@@ -4,7 +4,8 @@ import {
   useReactTable,
   type ColumnDef,
 } from "@tanstack/react-table";
-import { RefreshCw, Search, X } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { ChevronRight, RefreshCw, Search, X } from "lucide-react";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -33,6 +34,8 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/Table";
+import { useI18n } from "../../i18n/I18nProvider";
+import type { MessageId } from "../../i18n/messages";
 
 export type GeneratedArtifactsSearch = {
   limit: number;
@@ -53,90 +56,16 @@ type GeneratedArtifactsResult = {
 
 type BadgeTone = "neutral" | "success" | "warning" | "danger" | "info";
 
-const columns: Array<ColumnDef<AdminGeneratedArtifactProposal>> = [
-  {
-    accessorKey: "capability",
-    header: "Proposal",
-    cell: ({ row }) => (
-      <div className="routePrimaryCell">
-        <strong>{row.original.capability}</strong>
-        <span>{row.original.id}</span>
-      </div>
-    ),
-  },
-  {
-    accessorKey: "status",
-    header: "Status",
-    cell: ({ row }) => <Badge tone={proposalStatusTone(row.original.status)}>{row.original.status}</Badge>,
-  },
-  {
-    accessorKey: "readiness.status",
-    header: "Readiness",
-    cell: ({ row }) => (
-      <Badge tone={readinessTone(row.original.readiness.status, row.original.readiness.actionable)}>
-        {row.original.readiness.status}
-      </Badge>
-    ),
-  },
-  {
-    accessorKey: "target.kind",
-    header: "Target",
-    cell: ({ row }) => (
-      <div className="routePrimaryCell">
-        <strong>{row.original.target.kind}</strong>
-        <span>{targetLabel(row.original)}</span>
-      </div>
-    ),
-  },
-  {
-    accessorKey: "provenance.provider_name",
-    header: "Provider",
-    cell: ({ row }) => (
-      <div className="routePrimaryCell">
-        <strong>{row.original.provenance.provider_name ?? "unknown provider"}</strong>
-        <span>{row.original.provenance.attempt_count ?? 0} attempts</span>
-      </div>
-    ),
-  },
-  {
-    accessorKey: "payload.shape",
-    header: "Payload",
-    cell: ({ row }) => (
-      <div className="routePrimaryCell">
-        <strong>{row.original.payload.shape}</strong>
-        <span>{formatBytes(row.original.payload.payload_bytes)}</span>
-      </div>
-    ),
-  },
-  {
-    accessorKey: "payload.confidence_milli",
-    header: "Confidence",
-    cell: ({ row }) => confidenceLabel(row.original.payload.confidence_milli),
-  },
-  {
-    id: "fingerprints",
-    header: "Fingerprints",
-    cell: ({ row }) => (
-      <div className="routePrimaryCell">
-        <strong>{shortFingerprint(row.original.payload.payload_fingerprint)}</strong>
-        <span>{shortFingerprint(row.original.provenance.prompt_fingerprint)}</span>
-      </div>
-    ),
-  },
-  {
-    accessorKey: "updated_at",
-    header: "Updated",
-  },
-];
-
 export function GeneratedArtifactsPage({
   dataSource,
   search,
   onSearchChange,
 }: GeneratedArtifactsPageProps) {
+  const { locale, t } = useI18n();
   const query = useQuery({
-    queryKey: ["admin-generated-artifacts", search],
-    queryFn: () => loadGeneratedArtifacts(dataSource, search),
+    queryKey: ["admin-generated-artifacts", search, locale],
+    queryFn: () =>
+      loadGeneratedArtifacts(dataSource, search, t("generatedArtifacts.dataSourceUnavailable")),
   });
   const result = query.data ?? {
     value: mockGeneratedArtifactProposals,
@@ -149,7 +78,7 @@ export function GeneratedArtifactsPage({
   );
   const table = useReactTable({
     data: result.value.proposals,
-    columns,
+    columns: createColumns(t),
     getCoreRowModel: getCoreRowModel(),
   });
 
@@ -162,34 +91,34 @@ export function GeneratedArtifactsPage({
           variant="outline"
         >
           <RefreshCw size={16} />
-          Refresh
+          {t("generatedArtifacts.refresh")}
         </Button>
       }
-      description="AI-assisted proposals reduced to readiness, payload shape, confidence, and fingerprints. Review mutations stay out of this route."
-      kicker="Automation"
+      description={t("generatedArtifacts.description")}
+      kicker={t("generatedArtifacts.kicker")}
       status={<SourceLabel source={result.source} />}
-      title="Generated Artifacts"
+      title={t("generatedArtifacts.title")}
       titleId="generated-artifacts-route-title"
     >
       {result.error ? (
         <RouteNotice>
-          {result.error}. Showing deterministic mock fallback data.
+          {t("generatedArtifacts.fallback", { error: result.error })}
         </RouteNotice>
       ) : null}
 
-      <FilterBar label="Generated artifact pagination">
-        <FilterField label="Limit">
+      <FilterBar label={t("generatedArtifacts.pagination")}>
+        <FilterField label={t("generatedArtifacts.limit")}>
           <input
-            aria-label="Generated artifacts page limit"
+            aria-label={t("generatedArtifacts.limitAria")}
             min={1}
             type="number"
             value={search.limit}
             onChange={(event) => onSearchChange({ limit: numberInput(event.target.value) ?? 20, offset: 0 })}
           />
         </FilterField>
-        <FilterField label="Offset">
+        <FilterField label={t("generatedArtifacts.offset")}>
           <input
-            aria-label="Generated artifacts page offset"
+            aria-label={t("generatedArtifacts.offsetAria")}
             min={0}
             type="number"
             value={search.offset}
@@ -198,7 +127,7 @@ export function GeneratedArtifactsPage({
         </FilterField>
         <FilterActions>
           <Badge tone={activeProposalCount > 0 ? "info" : "neutral"}>
-            {activeProposalCount} actionable
+            {t("generatedArtifacts.actionableCount", { count: activeProposalCount })}
           </Badge>
           <Button
             disabled={!hasPaginationDelta}
@@ -211,25 +140,29 @@ export function GeneratedArtifactsPage({
             variant="ghost"
           >
             <X size={16} />
-            Reset
+            {t("generatedArtifacts.reset")}
           </Button>
         </FilterActions>
       </FilterBar>
 
       <DataPanel
-        description={`${result.value.page.returned} returned, offset ${result.value.page.offset}, limit ${result.value.page.limit}`}
+        description={t("generatedArtifacts.queue.description", {
+          returned: result.value.page.returned,
+          offset: result.value.page.offset,
+          limit: result.value.page.limit,
+        })}
         headerAccessory={
           <div className="searchHint">
             <Search size={15} />
-            URL pagination is authoritative
+            {t("generatedArtifacts.queue.urlPagination")}
           </div>
         }
-        title="Proposal queue"
+        title={t("generatedArtifacts.queue.title")}
       >
-        {query.isLoading ? <RowsSkeleton label="Loading Generated Artifacts proposals" /> : null}
+        {query.isLoading ? <RowsSkeleton label={t("generatedArtifacts.loading")} /> : null}
 
         {!query.isLoading && result.value.proposals.length === 0 ? (
-          <EmptyRouteState>No Generated Artifact proposals match the current page.</EmptyRouteState>
+          <EmptyRouteState>{t("generatedArtifacts.empty")}</EmptyRouteState>
         ) : null}
 
         {!query.isLoading && result.value.proposals.length > 0 ? (
@@ -270,12 +203,13 @@ export function GeneratedArtifactsPage({
 async function loadGeneratedArtifacts(
   dataSource: AdminDataSource,
   search: GeneratedArtifactsSearch,
+  unavailableMessage: string,
 ): Promise<GeneratedArtifactsResult> {
   if (!dataSource.loadGeneratedArtifacts) {
     return {
       value: mockGeneratedArtifactProposals,
       source: "mock",
-      error: "Generated Artifacts route data source is unavailable",
+      error: unavailableMessage,
     };
   }
 
@@ -289,6 +223,102 @@ function toAdminGeneratedArtifactProposalsQuery(
     limit: search.limit,
     offset: search.offset,
   };
+}
+
+type Translate = (id: MessageId, values?: Record<string, number | string>) => string;
+
+function createColumns(t: Translate): Array<ColumnDef<AdminGeneratedArtifactProposal>> {
+  return [
+    {
+      accessorKey: "capability",
+      header: t("generatedArtifacts.column.proposal"),
+      cell: ({ row }) => (
+        <div className="routePrimaryCell">
+          <strong>{row.original.capability}</strong>
+          <span>{row.original.id}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "status",
+      header: t("generatedArtifacts.column.status"),
+      cell: ({ row }) => <Badge tone={proposalStatusTone(row.original.status)}>{row.original.status}</Badge>,
+    },
+    {
+      accessorKey: "readiness.status",
+      header: t("generatedArtifacts.column.readiness"),
+      cell: ({ row }) => (
+        <Badge tone={readinessTone(row.original.readiness.status, row.original.readiness.actionable)}>
+          {row.original.readiness.status}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: "target.kind",
+      header: t("generatedArtifacts.column.target"),
+      cell: ({ row }) => (
+        <div className="routePrimaryCell">
+          <strong>{row.original.target.kind}</strong>
+          <span>{targetLabel(row.original, t)}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "provenance.provider_name",
+      header: t("generatedArtifacts.column.provider"),
+      cell: ({ row }) => (
+        <div className="routePrimaryCell">
+          <strong>{row.original.provenance.provider_name ?? t("generatedArtifacts.unknownProvider")}</strong>
+          <span>{t("generatedArtifacts.attempts", { count: row.original.provenance.attempt_count ?? 0 })}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "payload.shape",
+      header: t("generatedArtifacts.column.payload"),
+      cell: ({ row }) => (
+        <div className="routePrimaryCell">
+          <strong>{row.original.payload.shape}</strong>
+          <span>{formatBytes(row.original.payload.payload_bytes)}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "payload.confidence_milli",
+      header: t("generatedArtifacts.column.confidence"),
+      cell: ({ row }) => confidenceLabel(row.original.payload.confidence_milli, t),
+    },
+    {
+      id: "fingerprints",
+      header: t("generatedArtifacts.column.fingerprints"),
+      cell: ({ row }) => (
+        <div className="routePrimaryCell">
+          <strong>{shortFingerprint(row.original.payload.payload_fingerprint, t)}</strong>
+          <span>{shortFingerprint(row.original.provenance.prompt_fingerprint, t)}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "updated_at",
+      header: t("generatedArtifacts.column.updated"),
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => (
+        <Link
+          aria-label={t("generatedArtifacts.reviewAria", { artifactId: row.original.id })}
+          className="routeTextLink"
+          params={{ artifactId: row.original.id }}
+          search={{ decision: "accept" }}
+          to="/automation/generated-artifacts/$artifactId/review"
+        >
+          {t("generatedArtifacts.review")}
+          <ChevronRight size={15} />
+        </Link>
+      ),
+    },
+  ];
 }
 
 function proposalStatusTone(status: string): BadgeTone {
@@ -315,19 +345,19 @@ function readinessTone(status: string, actionable: boolean): BadgeTone {
   return "danger";
 }
 
-function targetLabel(proposal: AdminGeneratedArtifactProposal) {
+function targetLabel(proposal: AdminGeneratedArtifactProposal, t: Translate) {
   return [proposal.target.library_id, proposal.target.item_id, proposal.target.source_id]
     .filter(Boolean)
-    .join(" / ") || "no target id";
+    .join(" / ") || t("generatedArtifacts.noTargetId");
 }
 
-function confidenceLabel(value: number | null) {
-  return value === null ? "unknown" : `${value} / 1000`;
+function confidenceLabel(value: number | null, t: Translate) {
+  return value === null ? t("generatedArtifacts.unknown") : `${value} / 1000`;
 }
 
-function shortFingerprint(value: string | null) {
+function shortFingerprint(value: string | null, t: Translate) {
   if (!value) {
-    return "no fingerprint";
+    return t("generatedArtifacts.noFingerprint");
   }
 
   return value.length > 24 ? `${value.slice(0, 21)}...` : value;

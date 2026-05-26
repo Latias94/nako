@@ -1,4 +1,6 @@
-use nako_core::{ExternalProvider, LibraryId, LibraryPreset};
+use nako_core::{
+    AdminSettingsEffect, AdminSettingsSource, ExternalProvider, LibraryId, LibraryPreset,
+};
 use nako_transcode::HardwareAccelerationPolicy;
 use serde::{Deserialize, Serialize};
 
@@ -39,6 +41,85 @@ pub struct AdminServerConfigDiagnosticsResponse {
     pub staging: AdminConfigStagingDiagnostics,
     pub playback: AdminConfigPlaybackDiagnostics,
     pub artwork: AdminArtworkConfigDiagnostics,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAccessSummaryResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub mode: AdminAccessMode,
+    pub principal: AdminAccessPrincipalSummary,
+    pub auth: AdminAccessAuthSummary,
+    pub readiness: AdminAccessCapabilitySummary,
+    pub library_access: AdminLibraryAccessSummary,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminAccessMode {
+    SingleAdmin,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAccessPrincipalSummary {
+    pub principal_id: String,
+    pub display_name: String,
+    pub principal_kind: AdminAccessPrincipalKind,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminAccessPrincipalKind {
+    LocalAdmin,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAccessAuthSummary {
+    pub enabled: bool,
+    pub token_reference_configured: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAccessCapabilitySummary {
+    pub single_admin_mode: AdminAccessCapabilityState,
+    pub user_accounts: AdminAccessCapabilityState,
+    pub roles: AdminAccessCapabilityState,
+    pub library_access_policy: AdminAccessCapabilityState,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminAccessCapabilityState {
+    Active,
+    Planned,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminLibraryAccessSummary {
+    pub configured_libraries: u32,
+    pub libraries: Vec<AdminLibraryAccessSummaryEntry>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminLibraryAccessSummaryEntry {
+    pub library_id: LibraryId,
+    pub library_name: String,
+    pub preset: LibraryPreset,
+    pub backend_kind: StorageBackendKind,
+    pub access: AdminLibraryAccessLevel,
+    pub reason: AdminLibraryAccessReason,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminLibraryAccessLevel {
+    Manage,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminLibraryAccessReason {
+    SingleAdminMode,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -136,6 +217,22 @@ pub struct AdminMetadataProviderConfigDiagnostics {
     pub header_count: u32,
     pub secret_header_count: u32,
     pub has_provider_runtime_override: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminUpdateMetadataRawCacheSettingsRequest {
+    pub retention_ms: u64,
+    pub cleanup_on_startup: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataRawCacheSettingsResponse {
+    pub admin_api_version: String,
+    pub retention_ms: u64,
+    pub cleanup_on_startup: bool,
+    pub source: AdminSettingsSource,
+    pub effect: AdminSettingsEffect,
+    pub updated_at_ms: Option<i64>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

@@ -27,6 +27,8 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/Table";
+import { useI18n } from "../../i18n/I18nProvider";
+import type { MessageId } from "../../i18n/messages";
 
 export type OverviewPageProps = {
   dataSource: AdminDataSource;
@@ -41,50 +43,18 @@ type OverviewResult = {
 type StorageBackend = AdminOverviewResponse["storage"]["backends"][number];
 type MetadataProvider = AdminOverviewResponse["metadata"]["providers"][number];
 
-const storageColumns: Array<ColumnDef<StorageBackend>> = [
-  {
-    accessorKey: "library_name",
-    header: "Media Library",
-    cell: ({ row }) => (
-      <div className="routePrimaryCell">
-        <strong>{row.original.library_name}</strong>
-        <span>{row.original.library_id}</span>
-      </div>
-    ),
-  },
-  {
-    accessorKey: "backend_kind",
-    header: "Backend",
-  },
-  {
-    accessorKey: "status",
-    header: "Status",
-    cell: ({ row }) => <StatusBadge status={row.original.status} />,
-  },
-];
-
-const metadataColumns: Array<ColumnDef<MetadataProvider>> = [
-  {
-    accessorKey: "provider",
-    header: "Provider",
-    cell: ({ row }) => row.original.provider.toUpperCase(),
-  },
-  {
-    accessorKey: "status",
-    header: "Status",
-    cell: ({ row }) => <StatusBadge status={row.original.status} />,
-  },
-];
-
 export function OverviewPage({ dataSource }: OverviewPageProps) {
+  const { locale, t } = useI18n();
   const query = useQuery({
-    queryKey: ["admin-overview"],
-    queryFn: () => loadOverview(dataSource),
+    queryKey: ["admin-overview", locale],
+    queryFn: () => loadOverview(dataSource, t("overview.dataSourceUnavailable")),
   });
   const result = query.data ?? {
     value: mockOverview,
     source: "mock" as const,
   };
+  const storageColumns = createStorageColumns(t);
+  const metadataColumns = createMetadataColumns(t);
   const storageTable = useReactTable({
     data: result.value.storage.backends,
     columns: storageColumns,
@@ -105,74 +75,91 @@ export function OverviewPage({ dataSource }: OverviewPageProps) {
           variant="outline"
         >
           <RefreshCw size={16} />
-          Refresh
+          {t("overview.refresh")}
         </Button>
       }
-      description="Server health, runtime counters, Media Library storage, and provider availability from the Admin overview read model."
-      kicker="Operations"
+      description={t("overview.description")}
+      kicker={t("overview.kicker")}
       status={<SourceLabel source={result.source} />}
-      title="Overview"
+      title={t("overview.title")}
       titleId="overview-route-title"
     >
       {result.error ? (
-        <RouteNotice>
-          {result.error}. Showing deterministic mock fallback data.
-        </RouteNotice>
+        <RouteNotice>{t("overview.fallback", { error: result.error })}</RouteNotice>
       ) : null}
 
-      {query.isLoading ? <RowsSkeleton label="Loading Overview" /> : null}
+      {query.isLoading ? <RowsSkeleton label={t("overview.loading")} /> : null}
 
       {!query.isLoading ? (
         <>
           <div className="overviewMetricGrid">
             <OverviewMetric
-              badge={result.value.status === "healthy" ? "Healthy" : "Degraded"}
-              label="Server status"
+              badge={
+                result.value.status === "healthy"
+                  ? t("overview.metric.serverStatus.healthy")
+                  : t("overview.metric.serverStatus.degraded")
+              }
+              label={t("overview.metric.serverStatus.label")}
               value={result.value.status}
               tone={result.value.status === "healthy" ? "success" : "warning"}
             />
             <OverviewMetric
-              badge={storageBadge(result.value)}
-              label="Storage backends"
-              value={`${result.value.storage.ready_backends}/${result.value.storage.total_backends} ready`}
+              badge={storageBadge(result.value, t)}
+              label={t("overview.metric.storage.label")}
+              value={t("overview.metric.storage.value", {
+                ready: result.value.storage.ready_backends,
+                total: result.value.storage.total_backends,
+              })}
               tone={storageTone(result.value)}
             />
             <OverviewMetric
-              badge="Running"
-              label="Active tasks"
+              badge={t("overview.metric.activeTasks.badge")}
+              label={t("overview.metric.activeTasks.label")}
               value={result.value.runtime.active_tasks.toString()}
               tone="info"
             />
             <OverviewMetric
-              badge={result.value.runtime.failed_jobs > 0 ? "Attention" : "Clear"}
-              label="Failed jobs"
+              badge={
+                result.value.runtime.failed_jobs > 0
+                  ? t("overview.metric.failedJobs.attention")
+                  : t("overview.metric.failedJobs.clear")
+              }
+              label={t("overview.metric.failedJobs.label")}
               value={result.value.runtime.failed_jobs.toString()}
               tone={result.value.runtime.failed_jobs > 0 ? "warning" : "success"}
             />
             <OverviewMetric
-              badge="Configured"
-              label="Configured libraries"
+              badge={t("overview.metric.configuredLibraries.badge")}
+              label={t("overview.metric.configuredLibraries.label")}
               value={result.value.startup.configured_libraries.toString()}
               tone="neutral"
             />
             <OverviewMetric
-              badge="Recovered"
-              label="Recovered jobs"
+              badge={t("overview.metric.recoveredJobs.badge")}
+              label={t("overview.metric.recoveredJobs.label")}
               value={result.value.startup.recovered_jobs.toString()}
               tone="neutral"
             />
           </div>
 
           <DataPanel
-            description={`${result.value.storage.ready_backends} ready, ${result.value.storage.degraded_backends} degraded, ${result.value.storage.unavailable_backends} unavailable`}
-            title="Storage backends"
+            description={t("overview.storage.description", {
+              ready: result.value.storage.ready_backends,
+              degraded: result.value.storage.degraded_backends,
+              unavailable: result.value.storage.unavailable_backends,
+            })}
+            title={t("overview.metric.storage.label")}
           >
             <OverviewTable table={storageTable} />
           </DataPanel>
 
           <DataPanel
-            description={`${result.value.metadata.available_providers} available, ${result.value.metadata.disabled_providers} disabled, ${result.value.metadata.unavailable_providers} unavailable`}
-            title="Metadata providers"
+            description={t("overview.metadata.description", {
+              available: result.value.metadata.available_providers,
+              disabled: result.value.metadata.disabled_providers,
+              unavailable: result.value.metadata.unavailable_providers,
+            })}
+            title={t("overview.metadata.title")}
           >
             <OverviewTable table={metadataTable} />
           </DataPanel>
@@ -182,12 +169,15 @@ export function OverviewPage({ dataSource }: OverviewPageProps) {
   );
 }
 
-async function loadOverview(dataSource: AdminDataSource): Promise<OverviewResult> {
+async function loadOverview(
+  dataSource: AdminDataSource,
+  missingDataSourceMessage: string,
+): Promise<OverviewResult> {
   if (!dataSource.loadOverview) {
     return {
       value: mockOverview,
       source: "mock",
-      error: "Overview route data source is unavailable",
+      error: missingDataSourceMessage,
     };
   }
 
@@ -228,16 +218,16 @@ function storageTone(
   return "success";
 }
 
-function storageBadge(overview: AdminOverviewResponse) {
+function storageBadge(overview: AdminOverviewResponse, t: Translate) {
   if (overview.storage.unavailable_backends > 0) {
-    return "Unavailable";
+    return t("overview.metric.storage.unavailable");
   }
 
   if (overview.storage.degraded_backends > 0) {
-    return "Degraded";
+    return t("overview.metric.storage.degraded");
   }
 
-  return "Ready";
+  return t("overview.metric.storage.ready");
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -283,4 +273,45 @@ function OverviewTable<T>({ table }: { table: ReturnType<typeof useReactTable<T>
       </Table>
     </div>
   );
+}
+
+type Translate = (id: MessageId, values?: Record<string, number | string>) => string;
+
+function createStorageColumns(t: Translate): Array<ColumnDef<StorageBackend>> {
+  return [
+    {
+      accessorKey: "library_name",
+      header: t("overview.column.mediaLibrary"),
+      cell: ({ row }) => (
+        <div className="routePrimaryCell">
+          <strong>{row.original.library_name}</strong>
+          <span>{row.original.library_id}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "backend_kind",
+      header: t("overview.column.backend"),
+    },
+    {
+      accessorKey: "status",
+      header: t("overview.column.status"),
+      cell: ({ row }) => <StatusBadge status={row.original.status} />,
+    },
+  ];
+}
+
+function createMetadataColumns(t: Translate): Array<ColumnDef<MetadataProvider>> {
+  return [
+    {
+      accessorKey: "provider",
+      header: t("overview.column.provider"),
+      cell: ({ row }) => row.original.provider.toUpperCase(),
+    },
+    {
+      accessorKey: "status",
+      header: t("overview.column.status"),
+      cell: ({ row }) => <StatusBadge status={row.original.status} />,
+    },
+  ];
 }

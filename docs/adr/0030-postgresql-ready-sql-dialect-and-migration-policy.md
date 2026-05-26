@@ -18,9 +18,9 @@ policy before adding PostgreSQL. Otherwise a PostgreSQL adapter would either
 copy SQLite's storage shape blindly or leak PostgreSQL behavior back into
 application services.
 
-FRA-050 inventoried the current SQLite assumptions:
+FRA-050 inventoried the then-current SQLite assumptions:
 
-- migrations are a single SQLite-owned list of 30 embedded SQL files;
+- migrations were a SQLite-owned list of many embedded SQL files;
 - SQLite runtime policy enables foreign keys, WAL for on-disk databases, a
   busy timeout, and a one-connection in-memory test pool;
 - schema files and repository SQL use SQLite timestamp expressions such as
@@ -49,14 +49,20 @@ pretending one SQL dialect can serve all databases.
 Migration files are backend-owned. There will be no shared SQL migration file
 used by both SQLite and PostgreSQL.
 
-- The current `crates/nako-db/migrations/*.sql` tree is SQLite-owned even if it
-  is not yet nested under a `sqlite/` directory.
+- The current `crates/nako-db/migrations/baseline.sql` file is SQLite-owned.
+- The current `crates/nako-db/migrations/postgres/baseline.sql` file is
+  PostgreSQL-owned.
 - PostgreSQL must get its own migration tree when added.
 - Migration version numbers are backend-local. Version `0030` in SQLite and
   version `0030` in PostgreSQL do not need to contain identical SQL.
 - Behavioral equivalence is proven by repository contracts and facade tests,
   not by textual migration parity.
 - Backend-specific migration tests remain inside backend adapter modules.
+
+ILA-010 consolidated Nako's pre-production migration history into one baseline
+file per backend because the project has no production database compatibility
+burden. Future production-era schema changes should return to forward-only
+backend-owned migrations unless an explicit ADR allows another baseline reset.
 
 ### Database Lifecycle Naming
 

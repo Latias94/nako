@@ -32,6 +32,8 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/Table";
+import { useI18n } from "../../i18n/I18nProvider";
+import type { MessageId } from "../../i18n/messages";
 
 export type StorageStagingSearch = {
   purpose?: string;
@@ -54,55 +56,15 @@ type StorageStagingResult = {
 
 type StorageRecord = AdminStorageStagingDiagnosticsResponse["records"][number];
 
-const columns: Array<ColumnDef<StorageRecord>> = [
-  {
-    accessorKey: "id",
-    header: "Record",
-    cell: ({ row }) => (
-      <div className="routePrimaryCell">
-        <strong>{row.original.id}</strong>
-        <span>{row.original.purpose}</span>
-      </div>
-    ),
-  },
-  {
-    accessorKey: "state",
-    header: "State",
-    cell: ({ row }) => <StorageStateBadge record={row.original} />,
-  },
-  {
-    accessorKey: "source_scheme",
-    header: "Source Scheme",
-  },
-  {
-    accessorKey: "size_bytes",
-    header: "Size",
-    cell: ({ row }) => formatBytes(row.original.size_bytes),
-  },
-  {
-    accessorKey: "active_leases",
-    header: "Leases",
-  },
-  {
-    id: "validation",
-    header: "Validation",
-    cell: ({ row }) => (row.original.has_validation_error ? "failed" : "clean"),
-  },
-  {
-    accessorKey: "expires_at_ms",
-    header: "Expires",
-    cell: ({ row }) => timestampLabel(row.original.expires_at_ms),
-  },
-];
-
 export function StorageStagingPage({
   dataSource,
   search,
   onSearchChange,
 }: StorageStagingPageProps) {
+  const { locale, t } = useI18n();
   const query = useQuery({
-    queryKey: ["admin-storage-staging", search],
-    queryFn: () => loadStorageStaging(dataSource, search),
+    queryKey: ["admin-storage-staging", search, locale],
+    queryFn: () => loadStorageStaging(dataSource, search, t("storage.dataSourceUnavailable")),
   });
   const result = query.data ?? {
     value: mockStorageStaging,
@@ -114,7 +76,7 @@ export function StorageStagingPage({
   );
   const table = useReactTable({
     data: result.value.records,
-    columns,
+    columns: createColumns(t),
     getCoreRowModel: getCoreRowModel(),
   });
 
@@ -127,46 +89,46 @@ export function StorageStagingPage({
           variant="outline"
         >
           <RefreshCw size={16} />
-          Refresh
+          {t("storage.refresh")}
         </Button>
       }
-      description="Staging records and VFS cache health without roots, Source Locators, cache URIs, or credentials."
-      kicker="Storage operations"
+      description={t("storage.description")}
+      kicker={t("storage.kicker")}
       status={<SourceLabel source={result.source} />}
-      title="Storage Staging"
+      title={t("storage.title")}
       titleId="storage-staging-route-title"
     >
       {result.error ? (
         <RouteNotice>
-          {result.error}. Showing deterministic mock fallback data.
+          {t("storage.fallback", { error: result.error })}
         </RouteNotice>
       ) : null}
 
-      <FilterBar label="Storage staging filters">
-        <FilterField label="Purpose">
+      <FilterBar label={t("storage.filters")}>
+        <FilterField label={t("storage.filter.purpose")}>
           <input
-            aria-label="Storage purpose filter"
+            aria-label={t("storage.filter.purposeAria")}
             placeholder="ffmpeg_input"
             value={search.purpose ?? ""}
             onChange={(event) => onSearchChange({ purpose: event.target.value || undefined, offset: 0 })}
           />
         </FilterField>
-        <FilterField label="State">
+        <FilterField label={t("storage.filter.state")}>
           <select
-            aria-label="Storage state filter"
+            aria-label={t("storage.filter.stateAria")}
             value={search.state ?? ""}
             onChange={(event) => onSearchChange({ state: event.target.value || undefined, offset: 0 })}
           >
-            <option value="">Any state</option>
-            <option value="ready">Ready</option>
-            <option value="failed">Failed</option>
-            <option value="stale">Stale</option>
-            <option value="expired">Expired</option>
+            <option value="">{t("storage.filter.anyState")}</option>
+            <option value="ready">{t("storage.state.ready")}</option>
+            <option value="failed">{t("storage.state.failed")}</option>
+            <option value="stale">{t("storage.state.stale")}</option>
+            <option value="expired">{t("storage.state.expired")}</option>
           </select>
         </FilterField>
-        <FilterField label="Limit">
+        <FilterField label={t("storage.filter.limit")}>
           <input
-            aria-label="Storage page limit"
+            aria-label={t("storage.filter.limitAria")}
             min={1}
             type="number"
             value={search.limit}
@@ -175,7 +137,7 @@ export function StorageStagingPage({
         </FilterField>
         <FilterActions>
           <Badge tone={activeFilterCount > 0 ? "info" : "neutral"}>
-            {activeFilterCount} filters
+            {t("storage.filter.active", { count: activeFilterCount })}
           </Badge>
           <Button
             disabled={activeFilterCount === 0}
@@ -189,25 +151,29 @@ export function StorageStagingPage({
             variant="ghost"
           >
             <X size={16} />
-            Clear
+            {t("storage.clear")}
           </Button>
         </FilterActions>
       </FilterBar>
 
       <DataPanel
-        description={`${result.value.page.returned} returned, ${formatBytes(result.value.summary.used_manifest_bytes)} used of ${formatBytes(result.value.summary.configured_max_bytes)}`}
+        description={t("storage.records.description", {
+          returned: result.value.page.returned,
+          used: formatBytes(result.value.summary.used_manifest_bytes, t),
+          max: formatBytes(result.value.summary.configured_max_bytes, t),
+        })}
         headerAccessory={
           <div className="searchHint">
             <Search size={15} />
-            URL filters are authoritative
+            {t("storage.records.urlFilters")}
           </div>
         }
-        title="Staging records"
+        title={t("storage.records.title")}
       >
-        {query.isLoading ? <RowsSkeleton label="Loading Storage Staging records" /> : null}
+        {query.isLoading ? <RowsSkeleton label={t("storage.loading")} /> : null}
 
         {!query.isLoading && result.value.records.length === 0 ? (
-          <EmptyRouteState>No Storage Staging records match the current filters.</EmptyRouteState>
+          <EmptyRouteState>{t("storage.empty")}</EmptyRouteState>
         ) : null}
 
         {!query.isLoading && result.value.records.length > 0 ? (
@@ -245,15 +211,64 @@ export function StorageStagingPage({
   );
 }
 
+type Translate = (id: MessageId, values?: Record<string, number | string>) => string;
+
+function createColumns(t: Translate): Array<ColumnDef<StorageRecord>> {
+  return [
+    {
+      accessorKey: "id",
+      header: t("storage.column.record"),
+      cell: ({ row }) => (
+        <div className="routePrimaryCell">
+          <strong>{row.original.id}</strong>
+          <span>{row.original.purpose}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "state",
+      header: t("storage.column.state"),
+      cell: ({ row }) => <StorageStateBadge record={row.original} />,
+    },
+    {
+      accessorKey: "source_scheme",
+      header: t("storage.column.sourceScheme"),
+    },
+    {
+      accessorKey: "size_bytes",
+      header: t("storage.column.size"),
+      cell: ({ row }) => formatBytes(row.original.size_bytes, t),
+    },
+    {
+      accessorKey: "active_leases",
+      header: t("storage.column.leases"),
+    },
+    {
+      id: "validation",
+      header: t("storage.column.validation"),
+      cell: ({ row }) =>
+        row.original.has_validation_error
+          ? t("storage.validation.failed")
+          : t("storage.validation.clean"),
+    },
+    {
+      accessorKey: "expires_at_ms",
+      header: t("storage.column.expires"),
+      cell: ({ row }) => timestampLabel(row.original.expires_at_ms, t),
+    },
+  ];
+}
+
 async function loadStorageStaging(
   dataSource: AdminDataSource,
   search: StorageStagingSearch,
+  unavailableMessage: string,
 ): Promise<StorageStagingResult> {
   if (!dataSource.loadStorageStaging) {
     return {
       value: mockStorageStaging,
       source: "mock",
-      error: "Storage Staging route data source is unavailable",
+      error: unavailableMessage,
     };
   }
 
@@ -290,17 +305,17 @@ function numberInput(value: string) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
 }
 
-function timestampLabel(value: number | null) {
+function timestampLabel(value: number | null, t: Translate) {
   if (value === null) {
-    return "none";
+    return t("storage.none");
   }
 
   return new Date(value).toISOString();
 }
 
-function formatBytes(value: number | null) {
+function formatBytes(value: number | null, t: Translate) {
   if (value === null) {
-    return "unknown";
+    return t("storage.unknown");
   }
 
   if (value < 1024) {

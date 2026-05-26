@@ -33,6 +33,8 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/Table";
+import { useI18n } from "../../i18n/I18nProvider";
+import type { MessageId } from "../../i18n/messages";
 
 export type AddonsSearch = {
   status?: AddonStatus;
@@ -52,49 +54,15 @@ type AddonsResult = {
 
 type BadgeTone = "neutral" | "success" | "warning" | "danger" | "info";
 
-const columns: Array<ColumnDef<AddonsRouteRow>> = [
-  {
-    accessorKey: "name",
-    header: "Addon",
-    cell: ({ row }) => (
-      <div className="routePrimaryCell">
-        <strong>{row.original.name}</strong>
-        <span>{row.original.id}</span>
-      </div>
-    ),
-  },
-  {
-    accessorKey: "status",
-    header: "Status",
-    cell: ({ row }) => <AddonStatusBadge status={row.original.status} />,
-  },
-  {
-    accessorKey: "version",
-    header: "Addon Version",
-  },
-  {
-    accessorKey: "protocolVersion",
-    header: "Protocol",
-  },
-  {
-    accessorKey: "grantedScopeCount",
-    header: "Granted Scopes",
-  },
-  {
-    accessorKey: "updatedAt",
-    header: "Updated",
-    cell: ({ row }) => timestampLabel(row.original.updatedAt),
-  },
-];
-
 export function AddonsPage({
   dataSource,
   search,
   onSearchChange,
 }: AddonsPageProps) {
+  const { locale, t } = useI18n();
   const query = useQuery({
-    queryKey: ["admin-addons", search],
-    queryFn: () => loadAddons(dataSource, search),
+    queryKey: ["admin-addons", search, locale],
+    queryFn: () => loadAddons(dataSource, search, t("addons.dataSourceUnavailable")),
   });
   const result = query.data ?? {
     value: mockAddonsRouteSummary,
@@ -104,7 +72,7 @@ export function AddonsPage({
   const activeFilterCount = useMemo(() => (search.status ? 1 : 0), [search.status]);
   const table = useReactTable({
     data: summary.addons,
-    columns,
+    columns: createColumns(t),
     getCoreRowModel: getCoreRowModel(),
   });
 
@@ -117,25 +85,25 @@ export function AddonsPage({
           variant="outline"
         >
           <RefreshCw size={16} />
-          Refresh
+          {t("addons.refresh")}
         </Button>
       }
-      description="Registered Addons, health, grants, token prefixes, declared surfaces, and install ownership without credential material."
-      kicker="Addon operations"
+      description={t("addons.description")}
+      kicker={t("addons.kicker")}
       status={<SourceLabel source={result.source} />}
-      title="Addons"
+      title={t("addons.title")}
       titleId="addons-route-title"
     >
       {result.error ? (
         <RouteNotice>
-          {result.error}. Showing deterministic mock fallback data.
+          {t("addons.fallback", { error: result.error })}
         </RouteNotice>
       ) : null}
 
-      <FilterBar label="Addon filters">
-        <FilterField label="Status">
+      <FilterBar label={t("addons.filters")}>
+        <FilterField label={t("addons.filter.status")}>
           <select
-            aria-label="Addon status filter"
+            aria-label={t("addons.filter.statusAria")}
             value={search.status ?? ""}
             onChange={(event) =>
               onSearchChange({
@@ -143,15 +111,15 @@ export function AddonsPage({
               })
             }
           >
-            <option value="">Any status</option>
-            <option value="enabled">Enabled</option>
-            <option value="disabled">Disabled</option>
-            <option value="unregistered">Unregistered</option>
+            <option value="">{t("addons.filter.anyStatus")}</option>
+            <option value="enabled">{t("addons.status.enabled")}</option>
+            <option value="disabled">{t("addons.status.disabled")}</option>
+            <option value="unregistered">{t("addons.status.unregistered")}</option>
           </select>
         </FilterField>
         <FilterActions>
           <Badge tone={activeFilterCount > 0 ? "info" : "neutral"}>
-            {activeFilterCount} filters
+            {t("addons.filter.active", { count: activeFilterCount })}
           </Badge>
           <Button
             disabled={activeFilterCount === 0}
@@ -159,54 +127,58 @@ export function AddonsPage({
             variant="ghost"
           >
             <X size={16} />
-            Clear
+            {t("addons.clear")}
           </Button>
         </FilterActions>
       </FilterBar>
 
-      {query.isLoading ? <RowsSkeleton label="Loading Addons" /> : null}
+      {query.isLoading ? <RowsSkeleton label={t("addons.loading")} /> : null}
 
       {!query.isLoading ? (
         <>
           <div className="addonsSummaryGrid">
             <SummaryCard
-              badge={`${summary.statusCounts.enabled} enabled`}
-              label="Registered Addons"
+              badge={t("addons.summary.registered.badge", { count: summary.statusCounts.enabled })}
+              label={t("addons.summary.registered.label")}
               tone={summary.statusCounts.enabled > 0 ? "success" : "neutral"}
               value={summary.addons.length.toString()}
             />
             <SummaryCard
-              badge={summary.health?.status ?? "not checked"}
-              label="Selected health"
+              badge={summary.health?.status ?? t("addons.summary.health.notChecked")}
+              label={t("addons.summary.health.label")}
               tone={healthTone(summary.health?.status)}
-              value={summary.selectedAddon?.name ?? "None"}
+              value={summary.selectedAddon?.name ?? t("addons.summary.health.none")}
             />
             <SummaryCard
-              badge={`${summary.tokens.length} tracked`}
-              label="Token prefixes"
+              badge={t("addons.summary.tokens.badge", { count: summary.tokens.length })}
+              label={t("addons.summary.tokens.label")}
               tone={summary.tokens.some((token) => token.status === "active") ? "success" : "warning"}
-              value={`${summary.tokens.filter((token) => token.status === "active").length} active`}
+              value={t("addons.summary.tokens.active", {
+                count: summary.tokens.filter((token) => token.status === "active").length,
+              })}
             />
             <SummaryCard
-              badge={`${summary.grants.length} accepted`}
-              label="Addon Permissions"
+              badge={t("addons.summary.permissions.badge", { count: summary.grants.length })}
+              label={t("addons.summary.permissions.label")}
               tone={summary.grants.length > 0 ? "info" : "warning"}
-              value={`${summary.selectedAddon?.grantedScopeCount ?? 0} scopes`}
+              value={t("addons.summary.permissions.value", {
+                count: summary.selectedAddon?.grantedScopeCount ?? 0,
+              })}
             />
           </div>
 
           <DataPanel
-            description={`${summary.addons.length} Addons returned by the route-owned status filter`}
+            description={t("addons.registry.description", { count: summary.addons.length })}
             headerAccessory={
               <div className="searchHint">
                 <Search size={15} />
-                URL filters are authoritative
+                {t("addons.registry.urlFilters")}
               </div>
             }
-            title="Addon registry"
+            title={t("addons.registry.title")}
           >
             {summary.addons.length === 0 ? (
-              <EmptyRouteState>No Addons match the current filters.</EmptyRouteState>
+              <EmptyRouteState>{t("addons.registry.empty")}</EmptyRouteState>
             ) : null}
 
             {summary.addons.length > 0 ? (
@@ -243,107 +215,121 @@ export function AddonsPage({
 
           <div className="addonsRouteGrid">
             <DataPanel
-              description="Manifest and registration facts after stripping runtime endpoints, paths, and raw manifest payloads."
-              title="Selected Addon"
+              description={t("addons.selected.description")}
+              title={t("addons.selected.title")}
             >
               {summary.selectedAddon ? (
                 <div className="addonsFactList">
                   <FactRow
                     badge={summary.selectedAddon.status}
-                    label="Registration"
+                    label={t("addons.selected.registration")}
                     tone={addonStatusTone(summary.selectedAddon.status)}
                     value={summary.selectedAddon.manifestId}
                   />
                   <FactRow
-                    detail={summary.selectedAddon.resourceKinds.join(", ") || "none declared"}
-                    label="Addon Resources"
-                    value={`${summary.selectedAddon.resourceCount} declared`}
+                    detail={summary.selectedAddon.resourceKinds.join(", ") || t("addons.selected.noneDeclared")}
+                    label={t("addons.selected.resources")}
+                    value={t("addons.selected.declaredCount", { count: summary.selectedAddon.resourceCount })}
                   />
                   <FactRow
-                    detail={summary.selectedAddon.grantedScopes.join(", ") || "none granted"}
-                    label="Granted scopes"
-                    value={`${summary.selectedAddon.grantedScopeCount} scopes`}
+                    detail={summary.selectedAddon.grantedScopes.join(", ") || t("addons.selected.noneGranted")}
+                    label={t("addons.selected.grantedScopes")}
+                    value={t("addons.selected.scopeCount", { count: summary.selectedAddon.grantedScopeCount })}
                   />
                   <FactRow
-                    detail={runtimePolicy(summary.selectedAddon)}
-                    label="Runtime auth"
+                    detail={runtimePolicy(summary.selectedAddon, t)}
+                    label={t("addons.selected.runtimeAuth")}
                     value={summary.selectedAddon.authMode}
                   />
                 </div>
               ) : (
-                <EmptyRouteState>No selected Addon is available.</EmptyRouteState>
+                <EmptyRouteState>{t("addons.selected.empty")}</EmptyRouteState>
               )}
             </DataPanel>
 
             <DataPanel
-              description="Reachability and protocol facts from the Addon Health Check response."
-              title="Health"
+              description={t("addons.health.description")}
+              title={t("addons.health.title")}
             >
               {summary.health ? (
                 <div className="addonsFactList">
                   <FactRow
                     badge={summary.health.status}
-                    label="Health status"
+                    label={t("addons.health.status")}
                     tone={healthTone(summary.health.status)}
                     value={`${summary.health.latencyMs} ms`}
                   />
                   <FactRow
-                    label="Protocol version"
-                    value={summary.health.protocolVersion ?? "not reported"}
+                    label={t("addons.health.protocolVersion")}
+                    value={summary.health.protocolVersion ?? t("addons.health.notReported")}
                   />
                   <FactRow
-                    label="Addon version"
-                    value={summary.health.addonVersion ?? "not reported"}
+                    label={t("addons.health.addonVersion")}
+                    value={summary.health.addonVersion ?? t("addons.health.notReported")}
                   />
                   <FactRow
-                    label="Safe error code"
-                    value={summary.health.safeErrorCode ?? "none"}
+                    label={t("addons.health.safeErrorCode")}
+                    value={summary.health.safeErrorCode ?? t("addons.none")}
                   />
                 </div>
               ) : (
-                <EmptyRouteState>No Addon Health Check response is available.</EmptyRouteState>
+                <EmptyRouteState>{t("addons.health.empty")}</EmptyRouteState>
               )}
             </DataPanel>
 
             <DataPanel
-              description="Declared Addon Entry Points, Addon Hosted Pages, tasks, events, and schema presence as counts only."
-              title="Surface declarations"
+              description={t("addons.surface.description")}
+              title={t("addons.surface.title")}
             >
               {summary.surfaceSummary ? (
                 <div className="addonsCountGrid">
-                  <CountTile label="Entry Points" value={summary.surfaceSummary.entryPointCount} />
-                  <CountTile label="Hosted Pages" value={summary.surfaceSummary.hostedPageCount} />
-                  <CountTile label="Addon Tasks" value={summary.surfaceSummary.taskCount} />
-                  <CountTile label="Event Subscriptions" value={summary.surfaceSummary.eventSubscriptionCount} />
-                  <CountTile label="Secret Reference Fields" value={summary.surfaceSummary.secretReferenceFieldCount} />
+                  <CountTile label={t("addons.surface.entryPoints")} value={summary.surfaceSummary.entryPointCount} />
+                  <CountTile label={t("addons.surface.hostedPages")} value={summary.surfaceSummary.hostedPageCount} />
+                  <CountTile label={t("addons.surface.tasks")} value={summary.surfaceSummary.taskCount} />
                   <CountTile
-                    label="Configuration Schema"
-                    value={summary.surfaceSummary.configurationSchemaDeclared ? "declared" : "not declared"}
+                    label={t("addons.surface.eventSubscriptions")}
+                    value={summary.surfaceSummary.eventSubscriptionCount}
+                  />
+                  <CountTile
+                    label={t("addons.surface.secretReferenceFields")}
+                    value={summary.surfaceSummary.secretReferenceFieldCount}
+                  />
+                  <CountTile
+                    label={t("addons.surface.configurationSchema")}
+                    value={
+                      summary.surfaceSummary.configurationSchemaDeclared
+                        ? t("addons.surface.declared")
+                        : t("addons.surface.notDeclared")
+                    }
                   />
                 </div>
               ) : (
-                <EmptyRouteState>No Addon surface declarations are available.</EmptyRouteState>
+                <EmptyRouteState>{t("addons.surface.empty")}</EmptyRouteState>
               )}
             </DataPanel>
 
             <DataPanel
-              description="Token summaries expose prefixes only. Raw one-time tokens and credential-producing actions stay in follow-ons."
+              description={t("addons.credentials.description")}
               headerAccessory={
                 <div className="searchHint">
                   <ShieldCheck size={15} />
-                  Credentials redacted
+                  {t("addons.credentials.redacted")}
                 </div>
               }
-              title="Credentials and grants"
+              title={t("addons.credentials.title")}
             >
               <div className="addonsCredentialGrid">
-                <section aria-label="Addon token prefixes">
-                  <h3>Token prefixes</h3>
+                <section aria-label={t("addons.credentials.tokenSectionAria")}>
+                  <h3>{t("addons.credentials.tokenPrefixes")}</h3>
                   <div className="addonsFactList">
                     {summary.tokens.map((token) => (
                       <FactRow
                         badge={token.status}
-                        detail={token.lastUsedAt ? `last used ${timestampLabel(token.lastUsedAt)}` : "never used"}
+                        detail={
+                          token.lastUsedAt
+                            ? t("addons.credentials.lastUsed", { time: timestampLabel(token.lastUsedAt) })
+                            : t("addons.credentials.neverUsed")
+                        }
                         key={token.id}
                         label={token.label}
                         tone={token.status === "active" ? "success" : "neutral"}
@@ -351,25 +337,29 @@ export function AddonsPage({
                       />
                     ))}
                     {summary.tokens.length === 0 ? (
-                      <EmptyRouteState>No Addon Token summaries are available.</EmptyRouteState>
+                      <EmptyRouteState>{t("addons.credentials.tokensEmpty")}</EmptyRouteState>
                     ) : null}
                   </div>
                 </section>
-                <section aria-label="Addon permission grants">
-                  <h3>Accepted grants</h3>
+                <section aria-label={t("addons.credentials.grantsSectionAria")}>
+                  <h3>{t("addons.credentials.acceptedGrants")}</h3>
                   <div className="addonsFactList">
                     {summary.grants.map((grant) => (
                       <FactRow
-                        badge={grant.libraryId ? "library scoped" : "global"}
+                        badge={
+                          grant.libraryId
+                            ? t("addons.credentials.libraryScoped")
+                            : t("addons.credentials.global")
+                        }
                         detail={grant.id}
                         key={grant.id}
                         label={grant.permission}
                         tone="info"
-                        value={grant.libraryId ?? "all libraries"}
+                        value={grant.libraryId ?? t("addons.credentials.allLibraries")}
                       />
                     ))}
                     {summary.grants.length === 0 ? (
-                      <EmptyRouteState>No Addon Permission grants are configured.</EmptyRouteState>
+                      <EmptyRouteState>{t("addons.credentials.grantsEmpty")}</EmptyRouteState>
                     ) : null}
                   </div>
                 </section>
@@ -377,38 +367,60 @@ export function AddonsPage({
             </DataPanel>
 
             <DataPanel
-              description="Install Guide ownership summary without snippets, shell commands, env var names, URLs, or paths."
-              title="Install boundary"
+              description={t("addons.install.description")}
+              title={t("addons.install.title")}
             >
               {summary.installBoundary ? (
                 <div className="addonsFactList">
                   <p className="addonsBoundaryMessage">
-                    {installBoundaryMessage(summary.installBoundary)}
+                    {installBoundaryMessage(summary.installBoundary, t)}
                   </p>
                   <FactRow
-                    badge={summary.installBoundary.nakoManagesContainers ? "managed" : "operator owned"}
-                    label="Containers"
+                    badge={
+                      summary.installBoundary.nakoManagesContainers
+                        ? t("addons.install.managed")
+                        : t("addons.install.operatorOwned")
+                    }
+                    label={t("addons.install.containers")}
                     tone={summary.installBoundary.nakoManagesContainers ? "warning" : "neutral"}
-                    value={summary.installBoundary.nakoManagesContainers ? "Nako managed" : "External lifecycle"}
+                    value={
+                      summary.installBoundary.nakoManagesContainers
+                        ? t("addons.install.nakoManaged")
+                        : t("addons.install.externalLifecycle")
+                    }
                   />
                   <FactRow
-                    badge={summary.installBoundary.nakoManagesProcesses ? "managed" : "operator owned"}
-                    label="Processes"
+                    badge={
+                      summary.installBoundary.nakoManagesProcesses
+                        ? t("addons.install.managed")
+                        : t("addons.install.operatorOwned")
+                    }
+                    label={t("addons.install.processes")}
                     tone={summary.installBoundary.nakoManagesProcesses ? "warning" : "neutral"}
-                    value={summary.installBoundary.nakoManagesProcesses ? "Nako managed" : "External lifecycle"}
+                    value={
+                      summary.installBoundary.nakoManagesProcesses
+                        ? t("addons.install.nakoManaged")
+                        : t("addons.install.externalLifecycle")
+                    }
                   />
                   <FactRow
-                    label="Secret References"
-                    value={`${summary.installBoundary.secretReferenceCount} declared`}
+                    label={t("addons.install.secretReferences")}
+                    value={t("addons.install.secretReferencesValue", {
+                      count: summary.installBoundary.secretReferenceCount,
+                    })}
                   />
                   <FactRow
-                    detail={`${summary.installBoundary.registrationVerificationStepCount} registration checks`}
-                    label="Verification steps"
-                    value={`${summary.installBoundary.healthCheckStepCount} health checks`}
+                    detail={t("addons.install.registrationChecks", {
+                      count: summary.installBoundary.registrationVerificationStepCount,
+                    })}
+                    label={t("addons.install.verificationSteps")}
+                    value={t("addons.install.healthChecks", {
+                      count: summary.installBoundary.healthCheckStepCount,
+                    })}
                   />
                 </div>
               ) : (
-                <EmptyRouteState>No Addon Install Guide boundary is available.</EmptyRouteState>
+                <EmptyRouteState>{t("addons.install.empty")}</EmptyRouteState>
               )}
             </DataPanel>
           </div>
@@ -421,12 +433,13 @@ export function AddonsPage({
 async function loadAddons(
   dataSource: AdminDataSource,
   search: AddonsSearch,
+  unavailableMessage: string,
 ): Promise<AddonsResult> {
   if (!dataSource.loadAddons) {
     return {
       value: mockAddonsRouteSummary,
       source: "mock",
-      error: "Addons route data source is unavailable",
+      error: unavailableMessage,
     };
   }
 
@@ -445,6 +458,45 @@ function addonStatusInput(value: string): AddonStatus | undefined {
   }
 
   return undefined;
+}
+
+type Translate = (id: MessageId, values?: Record<string, number | string>) => string;
+
+function createColumns(t: Translate): Array<ColumnDef<AddonsRouteRow>> {
+  return [
+    {
+      accessorKey: "name",
+      header: t("addons.column.addon"),
+      cell: ({ row }) => (
+        <div className="routePrimaryCell">
+          <strong>{row.original.name}</strong>
+          <span>{row.original.id}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "status",
+      header: t("addons.column.status"),
+      cell: ({ row }) => <AddonStatusBadge status={row.original.status} />,
+    },
+    {
+      accessorKey: "version",
+      header: t("addons.column.version"),
+    },
+    {
+      accessorKey: "protocolVersion",
+      header: t("addons.column.protocol"),
+    },
+    {
+      accessorKey: "grantedScopeCount",
+      header: t("addons.column.grantedScopes"),
+    },
+    {
+      accessorKey: "updatedAt",
+      header: t("addons.column.updated"),
+      cell: ({ row }) => timestampLabel(row.original.updatedAt),
+    },
+  ];
 }
 
 function SummaryCard({
@@ -533,19 +585,23 @@ function healthTone(status: string | undefined): BadgeTone {
   return "neutral";
 }
 
-function runtimePolicy(addon: AddonsRouteSummary["selectedAddon"]) {
+function runtimePolicy(addon: AddonsRouteSummary["selectedAddon"], t: Translate) {
   if (!addon) {
-    return "not available";
+    return t("addons.runtime.notAvailable");
   }
 
-  const timeout = addon.defaultTimeoutMs ? `${addon.defaultTimeoutMs} ms` : "default timeout";
-  const attempts = addon.defaultMaxAttempts ? `${addon.defaultMaxAttempts} attempts` : "default attempts";
+  const timeout = addon.defaultTimeoutMs
+    ? t("addons.runtime.timeoutMs", { count: addon.defaultTimeoutMs })
+    : t("addons.runtime.defaultTimeout");
+  const attempts = addon.defaultMaxAttempts
+    ? t("addons.runtime.attempts", { count: addon.defaultMaxAttempts })
+    : t("addons.runtime.defaultAttempts");
   return `${timeout} / ${attempts}`;
 }
 
-function installBoundaryMessage(boundary: AddonsRouteSummary["installBoundary"]) {
+function installBoundaryMessage(boundary: AddonsRouteSummary["installBoundary"], t: Translate) {
   if (!boundary) {
-    return "No Addon Install Guide boundary is available.";
+    return t("addons.install.empty");
   }
 
   const managedCount = [
@@ -555,14 +611,14 @@ function installBoundaryMessage(boundary: AddonsRouteSummary["installBoundary"])
   ].filter(Boolean).length;
 
   if (managedCount === 0) {
-    return "Nako reports the operator owns Addon Sidecar installation, start/stop, upgrades, logs, and removal outside Nako.";
+    return t("addons.install.message.operatorOwned");
   }
 
   if (managedCount === 3) {
-    return "Nako reports Addon Sidecar lifecycle is managed inside Nako.";
+    return t("addons.install.message.nakoManaged");
   }
 
-  return "Nako reports partial Addon Sidecar lifecycle management. Review dedicated mutation workflows before changing lifecycle state.";
+  return t("addons.install.message.partial");
 }
 
 function timestampLabel(value: string) {

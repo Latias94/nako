@@ -102,6 +102,55 @@ async fn nfo_routes_queue_background_jobs() {
 }
 
 #[tokio::test]
+async fn admin_library_command_routes_queue_background_jobs() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let router = test_router(temp.path().to_path_buf(), library_id).await;
+
+    let cases = [
+        (
+            format!("/admin/v1/libraries/{library_id}/scan"),
+            JobKind::LibraryScan,
+            "disk.scan",
+        ),
+        (
+            format!("/admin/v1/libraries/{library_id}/nfo/import"),
+            JobKind::NfoImport,
+            "metadata.nfo.import",
+        ),
+        (
+            format!("/admin/v1/libraries/{library_id}/nfo/export"),
+            JobKind::NfoExport,
+            "metadata.nfo.export",
+        ),
+    ];
+
+    for (path, kind, resource_class) in cases {
+        let response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri(path)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::ACCEPTED);
+        let job = body_json::<JobResponse>(response).await;
+        assert_eq!(job.kind, kind);
+        assert_eq!(job.status, JobStatus::Queued);
+        assert_eq!(job.resource_class, resource_class);
+        assert_eq!(job.library_id, Some(library_id));
+        assert!(job.has_input);
+        assert!(!job.has_summary);
+        assert!(!job.has_error);
+    }
+}
+
+#[tokio::test]
 async fn admin_library_metadata_profile_route_reads_and_persists_updates() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();

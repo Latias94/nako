@@ -381,6 +381,380 @@ async fn admin_v1_catalog_governance_lists_unknown_low_confidence_and_redacts_ev
 }
 
 #[tokio::test]
+async fn admin_v1_catalog_governance_provider_mapping_review_plan_is_redacted() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("nako-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Candidate Mapping".to_owned(),
+            release_date: Some("2026-05-25".to_owned()),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: "local:///Movies/Private/Candidate.Mapping.mkv?token=secret".to_owned(),
+        file_name: "Candidate.Mapping.mkv".to_owned(),
+        size_bytes: Some(42),
+        fingerprint: Some("sha256-private-fingerprint".to_owned()),
+    };
+    let subject = ProviderSubject {
+        id: ProviderSubjectId::new(),
+        provider: ExternalProvider::Tmdb,
+        subject_kind: ProviderSubjectKind::Movie,
+        subject_key: "603".to_owned(),
+        title: Some("The Candidate".to_owned()),
+        release_year: Some(2026),
+        locale: Some("en-US".to_owned()),
+    };
+    let mapping = ProviderMapping {
+        id: ProviderMappingId::new(),
+        item_id: item.id,
+        subject_id: subject.id,
+        status: ProviderMappingStatus::Candidate,
+        confidence_milli: Some(820),
+        source: MetadataSource::Provider(ExternalProvider::Tmdb),
+    };
+
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+    store
+        .upsert_local_inference_evidence(&LocalInferenceEvidence {
+            id: LocalInferenceEvidenceId::new(),
+            source_id: source.id,
+            inferred_kind: MediaKind::Movie,
+            inferred_title: Some("Candidate Mapping".to_owned()),
+            inferred_year: Some(2026),
+            inferred_season: None,
+            inferred_episode: None,
+            confidence_milli: Some(510),
+            evidence_source: LocalInferenceEvidenceSource::Path,
+            evidence_value: "local:///Movies/Private/raw-evidence-token.mkv".to_owned(),
+            inference_version: "nako-naming:1".to_owned(),
+        })
+        .await
+        .unwrap();
+    store.upsert_provider_subject(&subject).await.unwrap();
+    store.upsert_provider_mapping(&mapping).await.unwrap();
+
+    let router = build_router(app);
+    let detail_path = format!("/admin/v1/catalog/governance/items/{}", item.id);
+    let detail_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&detail_path)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let detail_status = detail_response.status();
+    let detail_body = String::from_utf8(
+        to_bytes(detail_response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(detail_status, StatusCode::OK, "{detail_body}");
+    let detail: AdminCatalogGovernanceItemDetailResponse =
+        serde_json::from_str(&detail_body).unwrap();
+
+    assert_eq!(detail.item.item_id, item.id);
+    assert_eq!(detail.provider_mappings.len(), 1);
+    assert_eq!(detail.provider_mappings[0].mapping_id, mapping.id);
+    assert_eq!(
+        detail.provider_mappings[0].status,
+        ProviderMappingStatus::Candidate
+    );
+    assert_eq!(detail.provider_mappings[0].subject.subject_key, "603");
+    assert_eq!(
+        detail.repair_actions[0],
+        AdminCatalogGovernanceRepairAction::ProviderMappingReview
+    );
+    assert!(!detail_body.contains("evidence_value"));
+    assert!(!detail_body.contains("local:///"));
+    assert!(!detail_body.contains("raw-evidence-token"));
+    assert!(!detail_body.contains("sha256-private-fingerprint"));
+    assert!(!detail_body.contains(&temp.path().display().to_string()));
+
+    let review_plan_path = format!(
+        "/admin/v1/catalog/governance/items/{}/provider-mappings/{}/review-plan",
+        item.id, mapping.id
+    );
+    let review_plan_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(&review_plan_path)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_vec(&AdminCatalogGovernanceProviderMappingReviewRequest {
+                        decision: AdminCatalogGovernanceProviderMappingReviewDecision::Accept,
+                    })
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let review_plan_status = review_plan_response.status();
+    let review_plan_body = String::from_utf8(
+        to_bytes(review_plan_response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(review_plan_status, StatusCode::OK, "{review_plan_body}");
+    let plan: AdminCatalogGovernanceProviderMappingReviewPlanResponse =
+        serde_json::from_str(&review_plan_body).unwrap();
+
+    assert_eq!(plan.plan.item.item_id, item.id);
+    assert_eq!(plan.plan.mapping.mapping_id, mapping.id);
+    assert_eq!(plan.plan.current_status, ProviderMappingStatus::Candidate);
+    assert_eq!(plan.plan.target_status, ProviderMappingStatus::Accepted);
+    assert_eq!(
+        plan.plan.status,
+        AdminCatalogGovernanceRepairPlanStatus::Ready
+    );
+    assert!(plan.plan.readiness.actionable);
+    assert!(plan.plan.boundary.updates_provider_mapping_status);
+    assert!(!plan.plan.boundary.updates_canonical_metadata);
+    assert!(!plan.plan.boundary.writes_nfo);
+    assert!(!plan.plan.boundary.writes_library_files);
+    assert!(!review_plan_body.contains("evidence_value"));
+    assert!(!review_plan_body.contains("local:///"));
+    assert!(!review_plan_body.contains("raw-evidence-token"));
+    assert!(!review_plan_body.contains("sha256-private-fingerprint"));
+    assert!(!review_plan_body.contains(&temp.path().display().to_string()));
+}
+
+#[tokio::test]
+async fn admin_v1_catalog_governance_provider_mapping_review_mutates_idempotently() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("nako-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Candidate Mapping".to_owned(),
+            release_date: Some("2026-05-25".to_owned()),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: "local:///Movies/Private/Candidate.Mapping.mkv?token=secret".to_owned(),
+        file_name: "Candidate.Mapping.mkv".to_owned(),
+        size_bytes: Some(42),
+        fingerprint: Some("sha256-private-fingerprint".to_owned()),
+    };
+    let subject = ProviderSubject {
+        id: ProviderSubjectId::new(),
+        provider: ExternalProvider::Tmdb,
+        subject_kind: ProviderSubjectKind::Movie,
+        subject_key: "603".to_owned(),
+        title: Some("The Candidate".to_owned()),
+        release_year: Some(2026),
+        locale: Some("en-US".to_owned()),
+    };
+    let mapping = ProviderMapping {
+        id: ProviderMappingId::new(),
+        item_id: item.id,
+        subject_id: subject.id,
+        status: ProviderMappingStatus::Candidate,
+        confidence_milli: Some(820),
+        source: MetadataSource::Provider(ExternalProvider::Tmdb),
+    };
+
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+    store
+        .upsert_local_inference_evidence(&LocalInferenceEvidence {
+            id: LocalInferenceEvidenceId::new(),
+            source_id: source.id,
+            inferred_kind: MediaKind::Movie,
+            inferred_title: Some("Candidate Mapping".to_owned()),
+            inferred_year: Some(2026),
+            inferred_season: None,
+            inferred_episode: None,
+            confidence_milli: Some(510),
+            evidence_source: LocalInferenceEvidenceSource::Path,
+            evidence_value: "local:///Movies/Private/raw-evidence-token.mkv".to_owned(),
+            inference_version: "nako-naming:1".to_owned(),
+        })
+        .await
+        .unwrap();
+    store.upsert_provider_subject(&subject).await.unwrap();
+    store.upsert_provider_mapping(&mapping).await.unwrap();
+
+    let router = build_router(app);
+    let review_path = format!(
+        "/admin/v1/catalog/governance/items/{}/provider-mappings/{}/review",
+        item.id, mapping.id
+    );
+    let request_body = serde_json::to_vec(&AdminCatalogGovernanceProviderMappingReviewRequest {
+        decision: AdminCatalogGovernanceProviderMappingReviewDecision::Accept,
+    })
+    .unwrap();
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(&review_path)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(request_body.clone()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let review: AdminCatalogGovernanceProviderMappingReviewResponse =
+        serde_json::from_str(&body).unwrap();
+
+    assert_eq!(review.item_id, item.id);
+    assert_eq!(review.mapping_id, mapping.id);
+    assert_eq!(
+        review.decision,
+        AdminCatalogGovernanceProviderMappingReviewDecision::Accept
+    );
+    assert_eq!(review.previous_status, ProviderMappingStatus::Candidate);
+    assert_eq!(review.current_status, ProviderMappingStatus::Accepted);
+    assert!(review.changed);
+    assert!(!review.idempotent_replay);
+    assert!(review.plan.boundary.updates_provider_mapping_status);
+    assert!(!review.plan.boundary.updates_canonical_metadata);
+    assert!(!body.contains("evidence_value"));
+    assert!(!body.contains("local:///"));
+    assert!(!body.contains("raw-evidence-token"));
+    assert!(!body.contains("sha256-private-fingerprint"));
+    assert!(!body.contains(&temp.path().display().to_string()));
+
+    let stored = store
+        .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+        .await
+        .unwrap();
+    assert_eq!(stored[0].status, ProviderMappingStatus::Accepted);
+
+    let replay_response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(&review_path)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(request_body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let replay_status = replay_response.status();
+    let replay_body = String::from_utf8(
+        to_bytes(replay_response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(replay_status, StatusCode::OK, "{replay_body}");
+    let replay: AdminCatalogGovernanceProviderMappingReviewResponse =
+        serde_json::from_str(&replay_body).unwrap();
+
+    assert_eq!(replay.previous_status, ProviderMappingStatus::Accepted);
+    assert_eq!(replay.current_status, ProviderMappingStatus::Accepted);
+    assert!(!replay.changed);
+    assert!(replay.idempotent_replay);
+}
+
+#[tokio::test]
 async fn admin_v1_generated_artifact_proposals_are_admin_only_redacted_and_read_only() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
@@ -1875,6 +2249,292 @@ async fn admin_v1_system_config_reports_postgres_capability_gaps_for_injected_st
     assert!(!body.contains("secret"));
     assert!(!body.contains("db.example.test"));
     assert!(!body.contains("sslmode"));
+}
+
+#[tokio::test]
+async fn admin_v1_access_summary_reports_single_admin_effective_library_access_without_secrets() {
+    let temp = tempfile::tempdir().unwrap();
+    let local_library_id = LibraryId::new();
+    let remote_library_id = LibraryId::new();
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite://F:/secret/access.db".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig {
+            enabled: true,
+            token_env: Some("NAKO_ADMIN_TOKEN".to_owned()),
+        },
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 1,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        remux_timeout_ms: 60_000,
+        remux_staging_root: temp.path().join("private-remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![
+            LocalLibraryConfig {
+                id: local_library_id,
+                name: "Movies".to_owned(),
+                root: temp.path().join("local-root-secret"),
+                preset: nako_core::LibraryPreset::Movies,
+                webdav: None,
+            },
+            LocalLibraryConfig {
+                id: remote_library_id,
+                name: "Remote Anime".to_owned(),
+                root: temp.path().join("remote-root-secret"),
+                preset: nako_core::LibraryPreset::Anime,
+                webdav: Some(crate::config::WebDavLibraryConfig {
+                    root: "webdav:///PrivateAnime".to_owned(),
+                    base_url: "https://user:webdav-secret@example.test/dav".to_owned(),
+                    username: Some("webdav-user".to_owned()),
+                    password_env: Some("NAKO_WEBDAV_PASSWORD".to_owned()),
+                    timeout_ms: 11_000,
+                    max_attempts: 3,
+                }),
+            },
+        ],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store).await.unwrap();
+    let router = build_router_with_auth(
+        app,
+        auth::InboundAuthState::bearer_token("redacted-admin-token"),
+    );
+
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/access/summary")
+                .header(header::AUTHORIZATION, "Bearer redacted-admin-token")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let summary: AdminAccessSummaryResponse = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(
+        summary.admin_api_version,
+        nako_api::admin::ADMIN_API_VERSION
+    );
+    assert_eq!(
+        summary.public_api_version,
+        nako_api::public_client::API_VERSION
+    );
+    assert_eq!(summary.mode, AdminAccessMode::SingleAdmin);
+    assert_eq!(
+        summary.principal.principal_id,
+        nako_core::LOCAL_ADMIN_PRINCIPAL_ID
+    );
+    assert_eq!(
+        summary.principal.principal_kind,
+        AdminAccessPrincipalKind::LocalAdmin
+    );
+    assert_eq!(summary.principal.display_name, "Local administrator");
+    assert!(summary.auth.enabled);
+    assert!(summary.auth.token_reference_configured);
+    assert_eq!(
+        summary.readiness.single_admin_mode,
+        AdminAccessCapabilityState::Active
+    );
+    assert_eq!(
+        summary.readiness.user_accounts,
+        AdminAccessCapabilityState::Planned
+    );
+    assert_eq!(summary.readiness.roles, AdminAccessCapabilityState::Planned);
+    assert_eq!(
+        summary.readiness.library_access_policy,
+        AdminAccessCapabilityState::Planned
+    );
+    assert_eq!(summary.library_access.configured_libraries, 2);
+    assert_eq!(summary.library_access.libraries.len(), 2);
+    assert!(summary.library_access.libraries.iter().any(|library| {
+        library.library_id == local_library_id
+            && library.library_name == "Movies"
+            && library.backend_kind == StorageBackendKind::Local
+            && library.access == AdminLibraryAccessLevel::Manage
+            && library.reason == AdminLibraryAccessReason::SingleAdminMode
+    }));
+    assert!(summary.library_access.libraries.iter().any(|library| {
+        library.library_id == remote_library_id
+            && library.library_name == "Remote Anime"
+            && library.backend_kind == StorageBackendKind::WebDav
+            && library.access == AdminLibraryAccessLevel::Manage
+            && library.reason == AdminLibraryAccessReason::SingleAdminMode
+    }));
+
+    assert!(!body.contains("NAKO_ADMIN_TOKEN"));
+    assert!(!body.contains("redacted-admin-token"));
+    assert!(!body.contains("F:/secret"));
+    assert!(!body.contains("local-root-secret"));
+    assert!(!body.contains("remote-root-secret"));
+    assert!(!body.contains("PrivateAnime"));
+    assert!(!body.contains("https://user:webdav-secret@example.test/dav"));
+    assert!(!body.contains("webdav-secret"));
+    assert!(!body.contains("webdav-user"));
+    assert!(!body.contains("NAKO_WEBDAV_PASSWORD"));
+    assert!(!body.contains(&temp.path().display().to_string()));
+}
+
+#[tokio::test]
+async fn admin_v1_metadata_raw_cache_settings_round_trips_persisted_override() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 1,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        remux_timeout_ms: 60_000,
+        remux_staging_root: temp.path().join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig {
+            cleanup_on_startup: false,
+            ..StagingConfig::default()
+        },
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config.clone(), store.clone())
+        .await
+        .unwrap();
+    let router = build_router(app);
+
+    let configured = request_json::<AdminMetadataRawCacheSettingsResponse>(
+        &router,
+        Method::GET,
+        "/admin/v1/settings/metadata/raw-cache",
+    )
+    .await;
+    assert_eq!(
+        configured.source,
+        nako_core::AdminSettingsSource::Configured
+    );
+    assert_eq!(configured.effect, nako_core::AdminSettingsEffect::Active);
+    assert_eq!(configured.updated_at_ms, None);
+
+    let update = request_body_json::<
+        AdminMetadataRawCacheSettingsResponse,
+        AdminUpdateMetadataRawCacheSettingsRequest,
+    >(
+        &router,
+        Method::PUT,
+        "/admin/v1/settings/metadata/raw-cache",
+        &AdminUpdateMetadataRawCacheSettingsRequest {
+            retention_ms: 3_600_000,
+            cleanup_on_startup: false,
+        },
+    )
+    .await;
+    assert_eq!(update.retention_ms, 3_600_000);
+    assert!(!update.cleanup_on_startup);
+    assert_eq!(update.source, nako_core::AdminSettingsSource::Admin);
+    assert_eq!(
+        update.effect,
+        nako_core::AdminSettingsEffect::RequiresRestart
+    );
+    assert!(update.updated_at_ms.is_some());
+
+    let persisted = request_json::<AdminMetadataRawCacheSettingsResponse>(
+        &router,
+        Method::GET,
+        "/admin/v1/settings/metadata/raw-cache",
+    )
+    .await;
+    assert_eq!(persisted.retention_ms, 3_600_000);
+    assert_eq!(
+        persisted.effect,
+        nako_core::AdminSettingsEffect::RequiresRestart
+    );
+
+    drop(router);
+    let restarted = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let restarted_router = build_router(restarted);
+    let active = request_json::<AdminMetadataRawCacheSettingsResponse>(
+        &restarted_router,
+        Method::GET,
+        "/admin/v1/settings/metadata/raw-cache",
+    )
+    .await;
+    assert_eq!(active.source, nako_core::AdminSettingsSource::Admin);
+    assert_eq!(active.effect, nako_core::AdminSettingsEffect::Active);
+    assert_eq!(active.retention_ms, 3_600_000);
+    assert!(!active.cleanup_on_startup);
+
+    let diagnostics = request_json::<AdminServerConfigDiagnosticsResponse>(
+        &restarted_router,
+        Method::GET,
+        "/admin/v1/system/config",
+    )
+    .await;
+    assert_eq!(diagnostics.metadata.raw_cache_retention_ms, 3_600_000);
+    assert!(!diagnostics.metadata.raw_cache_cleanup_on_startup);
+}
+
+#[tokio::test]
+async fn admin_v1_metadata_raw_cache_settings_rejects_zero_retention() {
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+
+    let response = response_body_json(
+        &router,
+        Method::PUT,
+        "/admin/v1/settings/metadata/raw-cache",
+        &AdminUpdateMetadataRawCacheSettingsRequest {
+            retention_ms: 0,
+            cleanup_on_startup: true,
+        },
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let error = body_json::<ErrorResponse>(response).await;
+    assert_eq!(
+        error.code,
+        nako_api::public_client::ClientErrorCode::InvalidInput.as_str()
+    );
 }
 
 #[tokio::test]

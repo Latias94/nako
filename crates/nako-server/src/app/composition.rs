@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use nako_core::{NakoError, Result};
+use nako_core::{
+    AdminSettingsEffect, AdminSettingsRepository, AdminSettingsSource, DatabaseLifecycle,
+    NakoError, Result,
+};
 use nako_db::NakoDatabase;
 use nako_metadata::MetadataProviderRegistry;
 use tokio::sync::Semaphore;
@@ -38,6 +41,8 @@ pub(super) struct NakoAppComposition {
 
 impl NakoAppComposition {
     pub(super) async fn build(config: NakoServerConfig, store: NakoDatabase) -> Result<Self> {
+        store.migrate().await?;
+        let config = effective_startup_config(config, &store).await?;
         validate_configured_backend_runtime_scope(&config, &store)?;
         let runtime_resources = NakoRuntimeResources::build(&config, store.clone())?;
         let runtime = runtime_resources.supervisor.clone();
@@ -71,6 +76,25 @@ impl NakoAppComposition {
     pub(super) fn shutdown_runtime(&self) {
         self.runtime.shutdown();
     }
+}
+
+async fn effective_startup_config(
+    mut config: NakoServerConfig,
+    store: &NakoDatabase,
+) -> Result<NakoServerConfig> {
+    if let Some(record) = store.get_admin_metadata_raw_cache_settings().await?
+        && record.source == AdminSettingsSource::Admin
+        && matches!(
+            record.effect,
+            AdminSettingsEffect::RequiresRestart | AdminSettingsEffect::Active
+        )
+    {
+        config.metadata.raw_cache_retention_ms = record.settings.retention_ms;
+        config.metadata.maintenance.raw_cache_cleanup_on_startup =
+            record.settings.cleanup_on_startup;
+    }
+
+    Ok(config)
 }
 
 fn validate_configured_backend_runtime_scope(

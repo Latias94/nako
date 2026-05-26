@@ -9,33 +9,34 @@ use nako_core::{
     AddonRoutingPlanStatus, AddonRoutingPlanTarget, AddonSideEffectApplyOutcome,
     AddonSideEffectApplyStatus, AddonSideEffectId, AddonSideEffectRequestFingerprint,
     AddonSideEffectTarget, AddonSideEffectValidationStatus, AddonStatus, AddonTaskRunListFilter,
-    AddonTaskRunRepository, AddonTaskRunRequestFingerprint, AddonTokenId, ArtworkCandidateId,
-    ArtworkCandidateRecord, ArtworkCandidateRepository, ArtworkCandidateSourceKind,
-    ArtworkCandidateStatus, ArtworkTask, ArtworkTaskId, ArtworkTaskKind, ArtworkTaskRepository,
-    AutomationArtifactKind, AutomationArtifactStatus, AutomationCapability,
-    AutomationProviderStatus, AutomationRepository, CancelLeasedJob, CanonicalMetadata,
-    CatalogGovernanceItemListFilter, CatalogGovernanceRepository, CatalogItemGraphReplacement,
-    CatalogItemProjectionCommit, CatalogRepository, CatalogSearchProjection,
-    ClaimAddonEventDeliveryAttempt, Collection, CollectionId, CollectionItem, CompleteLeasedJob,
-    CreditRole, DatabaseLifecycle, DirectorySnapshot, DomainEventKind, DomainEventSubject,
-    EventOutboxRepository, ExternalId, ExternalProvider, FailLeasedJob, Genre, GenreId, ImageAsset,
-    ImageAssetId, ImageKind, ImageOwner, IngestionFailureClass, IngestionFailureFilter,
-    IngestionFailurePhase, IngestionFailureRepository, IngestionFailureResolution,
-    IngestionFailureStatus, ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind,
-    JobLeaseClaimFilter, JobLeaseClaimRequest, JobLeaseGuard, JobLeaseHeartbeat,
-    JobLeaseRepository, JobListFilter, JobRepository, JobRunToken, JobStatus, JobWorkerId, Library,
-    LibraryId, LibraryItemRepository, LibraryItemState, LibraryOptions, LibraryPreset,
-    LibraryRepository, LibraryScanSourcePersistenceCommit, LocalInferenceEvidence,
-    LocalInferenceEvidenceId, LocalInferenceEvidenceSource, LocalInferenceRepository,
-    ManagedArtworkAcceptanceRecord, ManagedArtworkArtifactId,
-    ManagedArtworkArtifactLifecycleFilter, ManagedArtworkIngestId, ManagedArtworkIngestStatus,
-    ManagedArtworkRepository, ManagedImportArtifactId, ManagedImportArtifactListFilter,
-    ManagedImportArtifactState, ManagedImportPromotionApplyId, ManagedImportPromotionApplyState,
-    ManagedImportPromotionOperationKind, ManagedImportRepository, ManagedImportSourceKind,
-    MediaItem, MediaItemId, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository,
-    MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataAttemptFilter,
-    MetadataField, MetadataFieldLock, MetadataMatchKind, MetadataProviderAttemptId,
-    MetadataProviderAttemptStatus, MetadataRefreshPersistenceCommit,
+    AddonTaskRunRepository, AddonTaskRunRequestFingerprint, AddonTokenId,
+    AdminMetadataRawCacheSettings, AdminMetadataRawCacheSettingsRecord, AdminSettingsEffect,
+    AdminSettingsRepository, AdminSettingsSource, ArtworkCandidateId, ArtworkCandidateRecord,
+    ArtworkCandidateRepository, ArtworkCandidateSourceKind, ArtworkCandidateStatus, ArtworkTask,
+    ArtworkTaskId, ArtworkTaskKind, ArtworkTaskRepository, AutomationArtifactKind,
+    AutomationArtifactStatus, AutomationCapability, AutomationProviderStatus, AutomationRepository,
+    CancelLeasedJob, CanonicalMetadata, CatalogGovernanceItemListFilter,
+    CatalogGovernanceRepository, CatalogItemGraphReplacement, CatalogItemProjectionCommit,
+    CatalogRepository, CatalogSearchProjection, ClaimAddonEventDeliveryAttempt, Collection,
+    CollectionId, CollectionItem, CompleteLeasedJob, CreditRole, DatabaseLifecycle,
+    DirectorySnapshot, DomainEventKind, DomainEventSubject, EventOutboxRepository, ExternalId,
+    ExternalProvider, FailLeasedJob, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind,
+    ImageOwner, IngestionFailureClass, IngestionFailureFilter, IngestionFailurePhase,
+    IngestionFailureRepository, IngestionFailureResolution, IngestionFailureStatus, ItemCredit,
+    ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind, JobLeaseClaimFilter, JobLeaseClaimRequest,
+    JobLeaseGuard, JobLeaseHeartbeat, JobLeaseRepository, JobListFilter, JobRepository,
+    JobRunToken, JobStatus, JobWorkerId, Library, LibraryId, LibraryItemRepository,
+    LibraryItemState, LibraryOptions, LibraryPreset, LibraryRepository,
+    LibraryScanSourcePersistenceCommit, LocalInferenceEvidence, LocalInferenceEvidenceId,
+    LocalInferenceEvidenceSource, LocalInferenceRepository, ManagedArtworkAcceptanceRecord,
+    ManagedArtworkArtifactId, ManagedArtworkArtifactLifecycleFilter, ManagedArtworkIngestId,
+    ManagedArtworkIngestStatus, ManagedArtworkRepository, ManagedImportArtifactId,
+    ManagedImportArtifactListFilter, ManagedImportArtifactState, ManagedImportPromotionApplyId,
+    ManagedImportPromotionApplyState, ManagedImportPromotionOperationKind, ManagedImportRepository,
+    ManagedImportSourceKind, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
+    MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
+    MediaStreamKind, MetadataAttemptFilter, MetadataField, MetadataFieldLock, MetadataMatchKind,
+    MetadataProviderAttemptId, MetadataProviderAttemptStatus, MetadataRefreshPersistenceCommit,
     MetadataRefreshProviderMappingCommit, MetadataRepository, MetadataSource, NakoError,
     NewAcquisitionIntakeCandidate, NewAddonEventDeliveryAttempt, NewAddonGrant,
     NewAddonRegistration, NewAddonRoutingPlan, NewAddonSideEffect, NewAddonTaskRun, NewAddonToken,
@@ -81,6 +82,7 @@ enum ContractFamily {
     EventAddonAutomation,
     RuntimePromotion,
     VfsStaging,
+    AdminSettings,
 }
 
 impl ContractFamily {
@@ -99,6 +101,7 @@ impl ContractFamily {
             Self::EventAddonAutomation => "event_addon_automation",
             Self::RuntimePromotion => "runtime_promotion",
             Self::VfsStaging => "vfs_staging",
+            Self::AdminSettings => "admin_settings",
         }
     }
 }
@@ -141,6 +144,13 @@ impl ContractCase {
 trait LifecycleContractBackend: DatabaseLifecycle + Send + Sync {}
 
 impl<T> LifecycleContractBackend for T where T: DatabaseLifecycle + Send + Sync {}
+
+trait AdminSettingsContractBackend: LifecycleContractBackend + AdminSettingsRepository {}
+
+impl<T> AdminSettingsContractBackend for T where
+    T: LifecycleContractBackend + AdminSettingsRepository
+{
+}
 
 trait JobLeaseContractBackend:
     LifecycleContractBackend + JobRepository + JobLeaseRepository + LibraryRepository
@@ -5804,11 +5814,78 @@ where
     store.migrate().await.unwrap();
 }
 
+async fn admin_metadata_raw_cache_settings_contract<S>(store: S)
+where
+    S: AdminSettingsContractBackend,
+{
+    assert!(
+        store
+            .get_admin_metadata_raw_cache_settings()
+            .await
+            .unwrap()
+            .is_none()
+    );
+
+    let first = AdminMetadataRawCacheSettingsRecord {
+        settings: AdminMetadataRawCacheSettings {
+            retention_ms: 3_600_000,
+            cleanup_on_startup: false,
+        },
+        source: AdminSettingsSource::Admin,
+        effect: AdminSettingsEffect::RequiresRestart,
+        updated_at_ms: 1_000,
+    };
+    store
+        .upsert_admin_metadata_raw_cache_settings(first.clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        store
+            .get_admin_metadata_raw_cache_settings()
+            .await
+            .unwrap()
+            .unwrap(),
+        first
+    );
+
+    let replacement = AdminMetadataRawCacheSettingsRecord {
+        settings: AdminMetadataRawCacheSettings {
+            retention_ms: 7_200_000,
+            cleanup_on_startup: true,
+        },
+        source: AdminSettingsSource::Admin,
+        effect: AdminSettingsEffect::RequiresRestart,
+        updated_at_ms: 2_000,
+    };
+    store
+        .upsert_admin_metadata_raw_cache_settings(replacement.clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        store
+            .get_admin_metadata_raw_cache_settings()
+            .await
+            .unwrap()
+            .unwrap(),
+        replacement
+    );
+}
+
 database_contract_pair!(
     sqlite = sqlite_lifecycle_contract_migrate_is_idempotent,
     postgres = postgres_lifecycle_contract_migrate_is_idempotent,
     case = ContractCase::fresh(ContractFamily::Lifecycle, "migrate_is_idempotent"),
     contract = migrate_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_admin_settings_contract_metadata_raw_cache_settings_round_trip,
+    postgres = postgres_admin_settings_contract_metadata_raw_cache_settings_round_trip,
+    case = ContractCase::migrated(
+        ContractFamily::AdminSettings,
+        "metadata_raw_cache_settings_round_trip"
+    ),
+    contract = admin_metadata_raw_cache_settings_contract,
 );
 
 database_contract_pair!(

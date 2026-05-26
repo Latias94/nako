@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "slug": "admin-web-v2-settings-mutation-authority",
+  "title": "Admin Web V2 Settings Mutation Authority",
+  "status": "closed",
+  "current_task": null,
+  "updated": "2026-05-26",
+  "scope_kind": "execution",
+  "problem": "Admin Web V2 has a read-only /settings route, but no accepted Admin API or source-of-truth model for safely mutating global settings.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/admin-web-v2-settings-mutation-authority/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/admin-web-v2-settings-mutation-authority/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/admin-web-v2-settings-mutation-authority/TODO.md"
+    },
+    {
+      "role": "route-api-readiness",
+      "path": "docs/workstreams/admin-web-v2-settings-mutation-authority/ROUTE_API_READINESS.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/admin-web-v2-settings-mutation-authority/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/admin-web-v2-settings-mutation-authority/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "rg -n \"system/config|update.*config|NetworkAccessConfig|SettingsPage|loadSettings\" crates/nako-server/src crates/nako-api/src apps/admin-web/src docs/api/HTTP_API.md",
+    "git diff --check",
+    "cargo nextest run -p nako-server <settings-mutation-test-filter> --no-fail-fast",
+    "cargo test -p nako-api admin_contract_includes_route_constants -- --nocapture",
+    "cd apps/admin-web && npm run generate:admin-api && npm run check && npm run test && npm run build"
+  ],
+  "evidence": [
+    {
+      "task": "ASM-010",
+      "summary": "Opened the settings mutation authority lane after the read-only System Settings route closeout and documented that current system config is diagnostic-only."
+    },
+    {
+      "task": "ASM-020",
+      "summary": "Audited settings mutation readiness and found no safe global settings mutation surface because config, router state, runtime semaphores, and service resources are startup-owned. Split admin-settings-configuration-authority as the backend predecessor."
+    },
+    {
+      "task": "ASM-030",
+      "summary": "Backend predecessor closed with GET/PUT /admin/v1/settings/metadata/raw-cache, generated Admin contract, restart-required effect semantics, and focused Rust evidence. Admin Web UI may continue only for metadata raw cache settings."
+    },
+    {
+      "task": "ASM-040",
+      "summary": "Admin Web Settings consumes the raw-cache route through AdminDataSource, exposes live-only prepare/confirm save controls, disables mock fallback mutation, and renders success, error, and requires-restart states."
+    },
+    {
+      "task": "ASM-050",
+      "summary": "Verified focused Rust/API/Admin Web gates, full Admin Web tests, generated contract, production build, desktop/mobile browser smoke, and closeout docs. PostgreSQL contract remains skipped locally without NAKO_TEST_POSTGRES_URL."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0027-admin-api-boundary-for-web-console.md",
+    "docs/adr/0009-resolve-provider-secrets-from-environment.md"
+  ],
+  "continue_policy": {
+    "default_action": "handoff",
+    "notes": "Settings mutation lane is closed for the metadata raw cache slice. Continue the broader Admin Web V2 goal with users/permissions/Library Access, or open a new backend authority lane before adding any additional settings mutation group."
+  }
+}

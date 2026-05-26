@@ -1,17 +1,32 @@
-use nako_api::public_client::{
-    GenreItemsResponse, GenreListResponse, ImagesResponse, ItemCreditsResponse, ItemDetailResponse,
-    ItemsResponse, PeopleResponse, PersonItemsResponse, PersonResponse, SearchItemHit,
-    SearchResponse, TagItemsResponse, TagsResponse, collection_item_to_dto, genre_to_dto,
-    item_credit_to_dto, item_genre_to_dto, item_studio_to_dto, item_tag_to_dto, media_item_to_dto,
-    media_probe_to_dto, media_source_to_dto, page_info_from_request, person_to_dto,
-    selected_artwork_to_public_image_ref, tag_to_dto,
+use std::collections::HashSet;
+
+use nako_api::{
+    admin::{
+        AdminCatalogGovernanceItem, AdminCatalogGovernanceItemDetailResponse,
+        AdminCatalogGovernanceProviderMappingReviewDecision,
+        AdminCatalogGovernanceProviderMappingReviewPlan,
+        AdminCatalogGovernanceProviderMappingReviewPlanResponse,
+        AdminCatalogGovernanceProviderMappingReviewResponse,
+        AdminCatalogGovernanceProviderMappingSummary,
+        catalog_governance_record_from_item_sources_and_counts,
+    },
+    public_client::{
+        GenreItemsResponse, GenreListResponse, ImagesResponse, ItemCreditsResponse,
+        ItemDetailResponse, ItemsResponse, PeopleResponse, PersonItemsResponse, PersonResponse,
+        SearchItemHit, SearchResponse, TagItemsResponse, TagsResponse, collection_item_to_dto,
+        genre_to_dto, item_credit_to_dto, item_genre_to_dto, item_studio_to_dto, item_tag_to_dto,
+        media_item_to_dto, media_probe_to_dto, media_source_to_dto, page_info_from_request,
+        person_to_dto, selected_artwork_to_public_image_ref, tag_to_dto,
+    },
 };
 use nako_core::{
     CatalogGovernanceItemListFilter, CatalogGovernanceItemRecord, CatalogGovernanceRepository,
-    CatalogRepository, GenreId, ManagedArtworkRepository, MediaItemId, MediaProbeRepository,
-    MediaRepository, MediaSource, MediaSourceId, NakoError, PageRequest, PersonId, Result,
-    SourceDuplicateEvidenceKind, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
-    SourceDuplicateRelationshipStatus, SourceDuplicateRepository, TagId,
+    CatalogRepository, GenreId, LocalInferenceEvidence, LocalInferenceRepository,
+    ManagedArtworkRepository, MediaItemId, MediaProbeRepository, MediaRepository, MediaSource,
+    MediaSourceId, NakoError, PageRequest, PersonId, ProviderMapping, ProviderMappingId,
+    ProviderMappingRepository, ProviderMappingStatus, Result, SourceDuplicateEvidenceKind,
+    SourceDuplicateRelationship, SourceDuplicateRelationshipId, SourceDuplicateRelationshipStatus,
+    SourceDuplicateRepository, TagId,
 };
 use nako_db::NakoDatabase;
 use nako_search::{SearchIndex, SearchQuery};
@@ -43,6 +58,203 @@ impl CatalogAppService {
         page: PageRequest,
     ) -> Result<Vec<CatalogGovernanceItemRecord>> {
         self.store.list_catalog_governance_items(filter, page).await
+    }
+
+    pub async fn get_catalog_governance_item_detail(
+        &self,
+        item_id: MediaItemId,
+    ) -> Result<AdminCatalogGovernanceItemDetailResponse> {
+        let (_item, _library_id, admin_item, provider_mappings) =
+            self.catalog_governance_detail_parts(item_id).await?;
+
+        Ok(AdminCatalogGovernanceItemDetailResponse::new(
+            admin_item,
+            provider_mappings,
+        ))
+    }
+
+    pub async fn plan_catalog_governance_provider_mapping_review(
+        &self,
+        item_id: MediaItemId,
+        mapping_id: ProviderMappingId,
+        decision: AdminCatalogGovernanceProviderMappingReviewDecision,
+    ) -> Result<AdminCatalogGovernanceProviderMappingReviewPlanResponse> {
+        let (_item, _library_id, admin_item, provider_mappings) =
+            self.catalog_governance_detail_parts(item_id).await?;
+        let mapping = provider_mappings
+            .into_iter()
+            .find(|mapping| mapping.mapping_id == mapping_id)
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "provider_mapping",
+                id: mapping_id.to_string(),
+            })?;
+
+        Ok(
+            AdminCatalogGovernanceProviderMappingReviewPlanResponse::new(
+                AdminCatalogGovernanceProviderMappingReviewPlan::new(admin_item, mapping, decision),
+            ),
+        )
+    }
+
+    pub async fn review_catalog_governance_provider_mapping(
+        &self,
+        item_id: MediaItemId,
+        mapping_id: ProviderMappingId,
+        decision: AdminCatalogGovernanceProviderMappingReviewDecision,
+    ) -> Result<AdminCatalogGovernanceProviderMappingReviewResponse> {
+        let (_item, _library_id, admin_item, provider_mappings) =
+            self.catalog_governance_detail_parts(item_id).await?;
+        let mapping_summary = provider_mappings
+            .into_iter()
+            .find(|mapping| mapping.mapping_id == mapping_id)
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "provider_mapping",
+                id: mapping_id.to_string(),
+            })?;
+        let previous_status = mapping_summary.status;
+        let target_status = decision.target_status();
+        let mut mapping = self
+            .store
+            .list_provider_mappings_for_item(item_id, PageRequest::first_page())
+            .await?
+            .into_iter()
+            .find(|mapping| mapping.id == mapping_id)
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "provider_mapping",
+                id: mapping_id.to_string(),
+            })?;
+
+        if previous_status != target_status {
+            mapping.status = target_status;
+            self.store.upsert_provider_mapping(&mapping).await?;
+        }
+
+        let updated_summary = self.provider_mapping_summary(mapping).await?;
+        let plan = AdminCatalogGovernanceProviderMappingReviewPlan::new(
+            admin_item,
+            updated_summary,
+            decision,
+        );
+
+        Ok(AdminCatalogGovernanceProviderMappingReviewResponse::new(
+            previous_status,
+            plan,
+        ))
+    }
+
+    async fn catalog_governance_detail_parts(
+        &self,
+        item_id: MediaItemId,
+    ) -> Result<(
+        nako_core::MediaItem,
+        nako_core::LibraryId,
+        AdminCatalogGovernanceItem,
+        Vec<AdminCatalogGovernanceProviderMappingSummary>,
+    )> {
+        let item =
+            self.store
+                .get_media_item(item_id)
+                .await?
+                .ok_or_else(|| NakoError::NotFound {
+                    entity: "media_item",
+                    id: item_id.to_string(),
+                })?;
+        let sources = self
+            .store
+            .list_item_sources(item.id, PageRequest::first_page())
+            .await?;
+        let library_id = sources
+            .first()
+            .map(|source| source.library_id)
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "media_source",
+                id: format!("item {}", item.id),
+            })?;
+        let sources_for_library = sources
+            .into_iter()
+            .filter(|source| source.library_id == library_id)
+            .collect::<Vec<_>>();
+        let best_local_inference =
+            best_local_inference_for_sources(&self.store, &sources_for_library).await?;
+        let provider_mappings = self.provider_mapping_summaries(item.id).await?;
+        let accepted_provider_mapping_count = provider_mappings
+            .iter()
+            .filter(|mapping| mapping.status == ProviderMappingStatus::Accepted)
+            .count() as u32;
+        let duplicate_relationship_count = self
+            .duplicate_relationship_count_for_sources(&sources_for_library)
+            .await?;
+        let record = catalog_governance_record_from_item_sources_and_counts(
+            item.clone(),
+            library_id,
+            sources_for_library,
+            best_local_inference,
+            provider_mappings.len() as u32,
+            accepted_provider_mapping_count,
+            duplicate_relationship_count,
+        );
+        let admin_item = AdminCatalogGovernanceItem::from_record(
+            record,
+            nako_core::DEFAULT_CATALOG_GOVERNANCE_CONFIDENCE_THRESHOLD_MILLI,
+        );
+
+        Ok((item, library_id, admin_item, provider_mappings))
+    }
+
+    async fn provider_mapping_summaries(
+        &self,
+        item_id: MediaItemId,
+    ) -> Result<Vec<AdminCatalogGovernanceProviderMappingSummary>> {
+        let mappings = self
+            .store
+            .list_provider_mappings_for_item(item_id, PageRequest::first_page())
+            .await?;
+        let mut summaries = Vec::with_capacity(mappings.len());
+
+        for mapping in mappings {
+            summaries.push(self.provider_mapping_summary(mapping).await?);
+        }
+
+        Ok(summaries)
+    }
+
+    async fn provider_mapping_summary(
+        &self,
+        mapping: ProviderMapping,
+    ) -> Result<AdminCatalogGovernanceProviderMappingSummary> {
+        let subject = self
+            .store
+            .get_provider_subject(mapping.subject_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "provider_subject",
+                id: mapping.subject_id.to_string(),
+            })?;
+
+        Ok(
+            AdminCatalogGovernanceProviderMappingSummary::from_mapping_and_subject(
+                mapping, subject,
+            ),
+        )
+    }
+
+    async fn duplicate_relationship_count_for_sources(
+        &self,
+        sources: &[MediaSource],
+    ) -> Result<u32> {
+        let mut relationship_ids = HashSet::new();
+
+        for source in sources {
+            for relationship in self
+                .store
+                .list_source_duplicate_relationships(source.id, PageRequest::first_page())
+                .await?
+            {
+                relationship_ids.insert(relationship.id);
+            }
+        }
+
+        Ok(relationship_ids.len() as u32)
     }
 
     pub async fn record_filesystem_link_duplicate_suggestion(
@@ -364,6 +576,45 @@ impl CatalogAppService {
                 id: source_id.to_string(),
             })
     }
+}
+
+async fn best_local_inference_for_sources(
+    store: &NakoDatabase,
+    sources: &[MediaSource],
+) -> Result<Option<LocalInferenceEvidence>> {
+    let mut best: Option<LocalInferenceEvidence> = None;
+
+    for source in sources {
+        for evidence in store
+            .list_local_inference_evidence_for_source(source.id, PageRequest::first_page())
+            .await?
+        {
+            if local_inference_is_better(best.as_ref(), &evidence) {
+                best = Some(evidence);
+            }
+        }
+    }
+
+    Ok(best)
+}
+
+fn local_inference_is_better(
+    current: Option<&LocalInferenceEvidence>,
+    candidate: &LocalInferenceEvidence,
+) -> bool {
+    let Some(current) = current else {
+        return true;
+    };
+
+    (
+        candidate.confidence_milli.unwrap_or(0),
+        &candidate.inference_version,
+        candidate.id,
+    ) > (
+        current.confidence_milli.unwrap_or(0),
+        &current.inference_version,
+        current.id,
+    )
 }
 
 fn is_filesystem_link_duplicate_evidence_status(status: StorageLinkPlanStatus) -> bool {

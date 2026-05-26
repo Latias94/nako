@@ -4,6 +4,7 @@ pub(crate) mod acquisition_intake;
 pub(crate) mod addon_events;
 pub(crate) mod addon_tasks;
 pub(crate) mod addons;
+pub(crate) mod admin_settings;
 pub(crate) mod artwork;
 pub(crate) mod automation;
 pub(crate) mod catalog;

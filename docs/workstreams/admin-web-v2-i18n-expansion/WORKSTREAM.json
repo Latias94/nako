@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "slug": "admin-web-v2-i18n-expansion",
+  "title": "Admin Web V2 I18n Expansion",
+  "status": "closed",
+  "current_task": null,
+  "updated": "2026-05-26",
+  "scope_kind": "execution",
+  "problem": "Admin Web V2 has an i18n boundary, but only the shell and library-management routes are broadly localized.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/admin-web-v2-i18n-expansion/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/admin-web-v2-i18n-expansion/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/admin-web-v2-i18n-expansion/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/admin-web-v2-i18n-expansion/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/admin-web-v2-i18n-expansion/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/admin-web-v2-i18n-expansion/CLOSEOUT.md"
+    }
+  ],
+  "gates": [
+    "cd apps/admin-web && npm run test -- App.test.tsx",
+    "cd apps/admin-web && npm run check",
+    "cd apps/admin-web && npm run test",
+    "cd apps/admin-web && npm run build",
+    "git diff --check",
+    "Browser smoke for each localized route batch desktop and mobile"
+  ],
+  "evidence": [
+    {
+      "task": "I18N-010",
+      "summary": "Confirmed the existing i18n provider/catalog/shell boundary and selected /overview plus /access as the first route batch."
+    },
+    {
+      "task": "I18N-020",
+      "summary": "Migrated /overview and /access route-visible copy to English and Simplified Chinese message ids, added localized route tests, ran Admin Web gates, and completed desktop/mobile Chinese browser smoke."
+    },
+    {
+      "task": "I18N-030",
+      "summary": "Migrated /settings route-visible diagnostics and raw-cache mutation copy to English and Simplified Chinese message ids, added localized route tests, ran Admin Web gates, and completed desktop/mobile Chinese browser smoke."
+    },
+    {
+      "task": "I18N-040",
+      "summary": "Migrated /catalog/governance and /catalog/governance/:itemId route-visible queue, review-plan, repair-boundary, and confirmed-action copy to English and Simplified Chinese message ids, added localized route tests, ran Admin Web gates, and completed desktop/mobile Chinese browser smoke."
+    },
+    {
+      "task": "I18N-050",
+      "summary": "Migrated /items/:itemId, /items/:itemId/artwork, and /automation/generated-artifacts/:artifactId/review route-visible detail, artwork confirmation, review-plan, boundary, and mutation-result copy to English and Simplified Chinese message ids, added localized route tests, ran Admin Web gates, and completed desktop/mobile Chinese browser smoke."
+    },
+    {
+      "task": "I18N-060",
+      "summary": "Audited residual Admin Web V2 hard-coded route copy, migrated /jobs, /playback/sessions, and /storage/staging table-route copy to English and Simplified Chinese message ids, added localized route tests, ran Admin Web gates, and completed desktop/mobile Chinese browser smoke."
+    },
+    {
+      "task": "I18N-070",
+      "summary": "Migrated /catalog, /acquisition/intake, and /automation/generated-artifacts queue/list route copy to English and Simplified Chinese message ids, added localized route tests, ran Admin Web gates, and completed desktop/mobile Chinese browser smoke."
+    },
+    {
+      "task": "I18N-080",
+      "summary": "Migrated /addons route-visible copy to English and Simplified Chinese message ids, added localized route tests, ran Admin Web gates, and completed desktop/mobile Chinese browser smoke."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "continue_policy": {
+    "default_action": "handoff",
+    "notes": "Lane complete. Continue the broader Admin Web V2 goal with users/permissions/Library Access or open a separate follow-on if future route-visible i18n work appears. LegacyDashboard hard-coded English remains legacy scope, not V2 route-local closeout. Keep addon ids, versions, permission strings, hosted-page ids, protocol values, token prefixes, health/status payloads, API enum values, ids, timestamps, file names, provider keys, generated-artifact names, and diagnostic facts stable."
+  }
+}

@@ -4,7 +4,8 @@ import {
   useReactTable,
   type ColumnDef,
 } from "@tanstack/react-table";
-import { RefreshCw, ShieldCheck } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { ChevronRight, RefreshCw, ShieldCheck } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 import type {
@@ -19,6 +20,7 @@ import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { DataPanel } from "../../components/ui/DataPanel";
 import { RowsSkeleton } from "../../components/ui/RowsSkeleton";
+import { useI18n } from "../../i18n/I18nProvider";
 import {
   Table,
   TableBody,
@@ -39,47 +41,13 @@ type LibrariesResult = {
 };
 
 type LibraryConfigDiagnostics = AdminServerConfigDiagnosticsResponse["libraries"][number];
-
-const columns: Array<ColumnDef<LibraryConfigDiagnostics>> = [
-  {
-    accessorKey: "name",
-    header: "Media Library",
-    cell: ({ row }) => (
-      <div className="routePrimaryCell">
-        <strong>{row.original.name}</strong>
-        <span>{row.original.id}</span>
-      </div>
-    ),
-  },
-  {
-    accessorKey: "preset",
-    header: "Preset",
-  },
-  {
-    accessorKey: "backend_kind",
-    header: "Backend",
-    cell: ({ row }) => <Badge tone="info">{row.original.backend_kind}</Badge>,
-  },
-  {
-    accessorKey: "root_scheme",
-    header: "Root Scheme",
-  },
-  {
-    accessorKey: "has_webdav_password_env",
-    header: "Secret Reference",
-    cell: ({ row }) => <SecretReferenceBadge library={row.original} />,
-  },
-  {
-    id: "runtime",
-    header: "Runtime Policy",
-    cell: ({ row }) => runtimePolicyLabel(row.original),
-  },
-];
+type Translate = ReturnType<typeof useI18n>["t"];
 
 export function LibrariesPage({ dataSource }: LibrariesPageProps) {
+  const { locale, t } = useI18n();
   const query = useQuery({
-    queryKey: ["admin-libraries"],
-    queryFn: () => loadLibraries(dataSource),
+    queryKey: ["admin-libraries", locale],
+    queryFn: () => loadLibraries(dataSource, t),
   });
   const result = query.data ?? {
     value: mockSystemConfig,
@@ -88,7 +56,7 @@ export function LibrariesPage({ dataSource }: LibrariesPageProps) {
   const libraries = result.value.libraries;
   const table = useReactTable({
     data: libraries,
-    columns,
+    columns: libraryColumns(t),
     getCoreRowModel: getCoreRowModel(),
   });
 
@@ -101,35 +69,35 @@ export function LibrariesPage({ dataSource }: LibrariesPageProps) {
           variant="outline"
         >
           <RefreshCw size={16} />
-          Refresh
+          {t("libraries.refresh")}
         </Button>
       }
-      description="Configured Media Library boundaries from redacted Admin system diagnostics."
-      kicker="Library operations"
+      description={t("libraries.description")}
+      kicker={t("libraries.kicker")}
       status={<SourceLabel source={result.source} />}
-      title="Media Libraries"
+      title={t("libraries.title")}
       titleId="libraries-route-title"
     >
       {result.error ? (
         <RouteNotice>
-          {result.error}. Showing deterministic mock fallback data.
+          {t("libraries.fallback", { error: result.error })}
         </RouteNotice>
       ) : null}
 
       <DataPanel
-        description={`${libraries.length} configured from Admin system config diagnostics`}
+        description={t("libraries.configured.description", { count: libraries.length })}
         headerAccessory={
           <div className="searchHint">
             <ShieldCheck size={15} />
-            Root references stay redacted
+            {t("libraries.redactionHint")}
           </div>
         }
-        title="Configured libraries"
+        title={t("libraries.configured.title")}
       >
-        {query.isLoading ? <RowsSkeleton label="Loading Media Libraries" /> : null}
+        {query.isLoading ? <RowsSkeleton label={t("libraries.loading")} /> : null}
 
         {!query.isLoading && libraries.length === 0 ? (
-          <EmptyRouteState>No Media Libraries are configured.</EmptyRouteState>
+          <EmptyRouteState>{t("libraries.empty")}</EmptyRouteState>
         ) : null}
 
         {!query.isLoading && libraries.length > 0 ? (
@@ -167,36 +135,96 @@ export function LibrariesPage({ dataSource }: LibrariesPageProps) {
   );
 }
 
-async function loadLibraries(dataSource: AdminDataSource): Promise<LibrariesResult> {
+async function loadLibraries(
+  dataSource: AdminDataSource,
+  t: Translate,
+): Promise<LibrariesResult> {
   if (!dataSource.loadLibraries) {
     return {
       value: mockSystemConfig,
       source: "mock",
-      error: "Media Libraries route data source is unavailable",
+      error: t("libraries.dataSourceUnavailable"),
     };
   }
 
   return dataSource.loadLibraries();
 }
 
-function SecretReferenceBadge({ library }: { library: LibraryConfigDiagnostics }) {
+function libraryColumns(t: Translate): Array<ColumnDef<LibraryConfigDiagnostics>> {
+  return [
+    {
+      accessorKey: "name",
+      header: t("libraries.column.mediaLibrary"),
+      cell: ({ row }) => (
+        <div className="routePrimaryCell">
+          <strong>{row.original.name}</strong>
+          <span>{row.original.id}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "preset",
+      header: t("libraries.column.preset"),
+    },
+    {
+      accessorKey: "backend_kind",
+      header: t("libraries.column.backend"),
+      cell: ({ row }) => <Badge tone="info">{row.original.backend_kind}</Badge>,
+    },
+    {
+      accessorKey: "root_scheme",
+      header: t("libraries.column.rootScheme"),
+    },
+    {
+      accessorKey: "has_webdav_password_env",
+      header: t("libraries.column.secretReference"),
+      cell: ({ row }) => <SecretReferenceBadge library={row.original} t={t} />,
+    },
+    {
+      id: "runtime",
+      header: t("libraries.column.runtimePolicy"),
+      cell: ({ row }) => runtimePolicyLabel(row.original, t),
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => (
+        <Link
+          aria-label={t("libraries.manageAria", { name: row.original.name })}
+          className="routeTextLink"
+          params={{ libraryId: row.original.id }}
+          to="/libraries/$libraryId"
+        >
+          {t("libraries.manage")}
+          <ChevronRight size={15} />
+        </Link>
+      ),
+    },
+  ];
+}
+
+function SecretReferenceBadge({ library, t }: { library: LibraryConfigDiagnostics; t: Translate }) {
   if (library.backend_kind !== "webdav") {
-    return <Badge tone="neutral">Not required</Badge>;
+    return <Badge tone="neutral">{t("libraries.secret.notRequired")}</Badge>;
   }
 
   if (library.has_webdav_password_env) {
-    return <Badge tone="success">Secret Reference configured</Badge>;
+    return <Badge tone="success">{t("libraries.secret.configured")}</Badge>;
   }
 
-  return <Badge tone="warning">Secret Reference missing</Badge>;
+  return <Badge tone="warning">{t("libraries.secret.missing")}</Badge>;
 }
 
-function runtimePolicyLabel(library: LibraryConfigDiagnostics) {
-  const timeout = library.webdav_timeout_ms ? `${library.webdav_timeout_ms} ms` : "default timeout";
-  const attempts = library.webdav_max_attempts ? `${library.webdav_max_attempts} attempts` : "default attempts";
+function runtimePolicyLabel(library: LibraryConfigDiagnostics, t: Translate) {
+  const timeout = library.webdav_timeout_ms
+    ? `${library.webdav_timeout_ms} ms`
+    : t("libraries.runtime.defaultTimeout");
+  const attempts = library.webdav_max_attempts
+    ? `${library.webdav_max_attempts} attempts`
+    : t("libraries.runtime.defaultAttempts");
 
   if (library.backend_kind !== "webdav") {
-    return "local policy";
+    return t("libraries.runtime.localPolicy");
   }
 
   return `${timeout} / ${attempts}`;

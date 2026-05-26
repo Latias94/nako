@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "slug": "admin-web-v2-catalog-repair-actions",
+  "title": "Admin Web V2 Catalog Repair Actions",
+  "status": "complete",
+  "current_task": null,
+  "updated": "2026-05-25",
+  "scope_kind": "execution",
+  "problem": "Admin Web V2 can list Catalog Governance issues, but operators still lack bounded review-plan-driven repair workflows for unknown, low-confidence, missing Provider Mapping, and duplicate-source cases.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/admin-web-v2-catalog-repair-actions/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/admin-web-v2-catalog-repair-actions/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/admin-web-v2-catalog-repair-actions/TODO.md"
+    },
+    {
+      "role": "route-api-readiness",
+      "path": "docs/workstreams/admin-web-v2-catalog-repair-actions/ROUTE_API_READINESS.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/admin-web-v2-catalog-repair-actions/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/admin-web-v2-catalog-repair-actions/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "git diff --check",
+    "cd apps/admin-web && npm run generate:admin-api && npm run check && npm run test -- adminApi/client.test.ts",
+    "cd apps/admin-web && npm run check && npm run test -- App.test.tsx adminApi/client.test.ts adminApi/dataSource.test.ts",
+    "cd apps/admin-web && npm run check && npm run test && npm run build"
+  ],
+  "evidence": [
+    {
+      "task": "CRA-010",
+      "summary": "Opened the Catalog Repair Actions lane from AWA closeout and MBG follow-on order; initial inventory found a read-only Catalog Governance list route but no accepted repair detail, review-plan, or mutation routes."
+    },
+    {
+      "task": "CRA-020",
+      "summary": "Accepted one Media Item plus one Provider Mapping accept/reject as the first catalog repair action; documented missing detail, review-plan, mutation, generated contract, and redaction requirements before Admin Web UI work."
+    },
+    {
+      "task": "CRA-030",
+      "summary": "Implemented redaction-safe Catalog Governance item detail and Provider Mapping review-plan Admin API routes, generated Admin Web contract coverage, client wrappers, HTTP API docs, and focused redaction tests."
+    },
+    {
+      "task": "CRA-040",
+      "summary": "Implemented the confirmed Provider Mapping review mutation with idempotent result semantics, generated Admin Web contract coverage, redaction-safe client/data-source wrappers, HTTP API docs, and no-fake-mutation-fallback tests."
+    },
+    {
+      "task": "CRA-050",
+      "summary": "Implemented the route-owned Catalog Governance repair UI with queue-to-review navigation, Provider Mapping selection, decision URL state, review-plan preview, explicit confirmation, result/failure states, and unsafe text exclusion tests."
+    },
+    {
+      "task": "CRA-060",
+      "summary": "Ran focused Rust/API/Admin Web gates and browser smoke for queue, repair context, review-plan, confirmation success, visible failure, desktop/mobile overflow, console errors, and unsafe text exclusion."
+    },
+    {
+      "task": "CRA-070",
+      "summary": "Closed the lane and split broader Catalog Governance repair classes into follow-on work."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "continue_policy": {
+    "default_action": "close",
+    "notes": "Lane complete. Open a new workstream for rematch/provider search, duplicate-source repair, hierarchy repair, NFO writes, arbitrary metadata editing, users/permissions, or Library Access."
+  }
+}

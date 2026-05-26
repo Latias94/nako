@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "slug": "identity-and-library-access-contract",
+  "title": "Identity And Library Access Contract",
+  "status": "active",
+  "current_task": "ILA-020",
+  "updated": "2026-05-26",
+  "scope_kind": "execution",
+  "problem": "Nako needs durable local users, roles, Library Access, and principal resolution before Media Web, multi-user playback, or permission-gated admin context links can ship.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/identity-and-library-access-contract/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/identity-and-library-access-contract/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/identity-and-library-access-contract/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/identity-and-library-access-contract/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/identity-and-library-access-contract/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/identity-and-library-access-contract/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python -m json.tool docs/workstreams/identity-and-library-access-contract/WORKSTREAM.json",
+    "git diff --check -- docs/workstreams/identity-and-library-access-contract docs/workstreams/README.md",
+    "cargo fmt --all -- --check",
+    "cargo nextest run -p nako-db <identity-or-migration-filter> --no-fail-fast",
+    "cargo nextest run -p nako-server <auth-or-access-filter> --no-fail-fast"
+  ],
+  "evidence": [
+    {
+      "task": "ILA-000",
+      "summary": "Opened identity/access execution lane with baseline migration consolidation allowed while Nako has no production users."
+    },
+    {
+      "task": "ILA-010",
+      "summary": "Defined identity/access domain records and repository skeletons; generated SQLite/PostgreSQL baseline migration files; rewired backend migrators to one baseline migration each; removed old numbered migration files; focused core/db gates passed."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0024-inbound-token-authentication-boundary.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md",
+    "docs/adr/0028-user-playback-state-principal-and-public-contract.md",
+    "docs/adr/0029-postgresql-ready-persistence-boundary.md",
+    "docs/adr/0030-postgresql-ready-sql-dialect-and-migration-policy.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Continue with ILA-020. Baseline runtime migrations are consolidated to one file per backend. If production compatibility appears, stop and switch to forward-only migrations."
+  }
+}

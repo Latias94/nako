@@ -5,209 +5,8 @@ use sqlx::migrate::{Migration, MigrationType, Migrator};
 
 use super::{SqliteStore, codec::database_error};
 
-const MIGRATIONS: &[(i64, &str, &str)] = &[
-    (
-        1,
-        "initial",
-        include_str!("../../migrations/0001_initial.sql"),
-    ),
-    (
-        2,
-        "media probe",
-        include_str!("../../migrations/0002_media_probe.sql"),
-    ),
-    (3, "jobs", include_str!("../../migrations/0003_jobs.sql")),
-    (
-        4,
-        "job input payload",
-        include_str!("../../migrations/0004_job_input_payload.sql"),
-    ),
-    (
-        5,
-        "metadata policy",
-        include_str!("../../migrations/0005_metadata_policy.sql"),
-    ),
-    (
-        6,
-        "library profiles",
-        include_str!("../../migrations/0006_library_profiles.sql"),
-    ),
-    (
-        7,
-        "catalog ingestion",
-        include_str!("../../migrations/0007_catalog_ingestion.sql"),
-    ),
-    (
-        8,
-        "transcode sessions",
-        include_str!("../../migrations/0008_transcode_sessions.sql"),
-    ),
-    (
-        9,
-        "event outbox",
-        include_str!("../../migrations/0009_event_outbox.sql"),
-    ),
-    (
-        10,
-        "webhooks",
-        include_str!("../../migrations/0010_webhooks.sql"),
-    ),
-    (
-        11,
-        "automation",
-        include_str!("../../migrations/0011_automation.sql"),
-    ),
-    (
-        12,
-        "addons",
-        include_str!("../../migrations/0012_addons.sql"),
-    ),
-    (
-        13,
-        "vfs cache",
-        include_str!("../../migrations/0013_vfs_cache.sql"),
-    ),
-    (
-        14,
-        "staging manifest",
-        include_str!("../../migrations/0014_staging_manifest.sql"),
-    ),
-    (
-        15,
-        "media source library locator",
-        include_str!("../../migrations/0015_media_source_library_locator.sql"),
-    ),
-    (
-        16,
-        "metadata provider attempts",
-        include_str!("../../migrations/0016_metadata_provider_attempts.sql"),
-    ),
-    (
-        17,
-        "ingestion failures",
-        include_str!("../../migrations/0017_ingestion_failures.sql"),
-    ),
-    (
-        18,
-        "metadata catalog domain",
-        include_str!("../../migrations/0018_metadata_catalog_domain.sql"),
-    ),
-    (
-        19,
-        "library item states",
-        include_str!("../../migrations/0019_library_item_states.sql"),
-    ),
-    (
-        20,
-        "local inference evidence snapshot key",
-        include_str!("../../migrations/0020_local_inference_evidence_snapshot_key.sql"),
-    ),
-    (
-        21,
-        "addon tokens and grants",
-        include_str!("../../migrations/0021_addon_tokens_and_grants.sql"),
-    ),
-    (
-        22,
-        "addon side effects",
-        include_str!("../../migrations/0022_addon_side_effects.sql"),
-    ),
-    (
-        23,
-        "addon side effect apply outcome",
-        include_str!("../../migrations/0023_addon_side_effect_apply_outcome.sql"),
-    ),
-    (
-        24,
-        "addon side effect apply report",
-        include_str!("../../migrations/0024_addon_side_effect_apply_report.sql"),
-    ),
-    (
-        25,
-        "addon artwork candidates",
-        include_str!("../../migrations/0025_addon_artwork_candidates.sql"),
-    ),
-    (
-        26,
-        "managed artwork ingest",
-        include_str!("../../migrations/0026_managed_artwork_ingest.sql"),
-    ),
-    (
-        27,
-        "selected artwork publication",
-        include_str!("../../migrations/0027_selected_artwork_publication.sql"),
-    ),
-    (
-        28,
-        "managed artwork artifact cleanup",
-        include_str!("../../migrations/0028_managed_artwork_artifact_cleanup.sql"),
-    ),
-    (
-        29,
-        "job ownership leases",
-        include_str!("../../migrations/0029_job_ownership_leases.sql"),
-    ),
-    (
-        30,
-        "user playback states",
-        include_str!("../../migrations/0030_user_playback_states.sql"),
-    ),
-    (
-        31,
-        "managed import artifacts",
-        include_str!("../../migrations/0031_managed_import_artifacts.sql"),
-    ),
-    (
-        32,
-        "managed import promotion applies",
-        include_str!("../../migrations/0032_managed_import_promotion_applies.sql"),
-    ),
-    (
-        33,
-        "nfo sidecar applies",
-        include_str!("../../migrations/0033_nfo_sidecar_applies.sql"),
-    ),
-    (
-        34,
-        "acquisition intake candidates",
-        include_str!("../../migrations/0034_acquisition_intake_candidates.sql"),
-    ),
-    (
-        35,
-        "addon unregistration",
-        include_str!("../../migrations/0035_addon_unregistration.sql"),
-    ),
-    (
-        36,
-        "addon routing plans",
-        include_str!("../../migrations/0036_addon_routing_plans.sql"),
-    ),
-    (
-        37,
-        "addon task runs",
-        include_str!("../../migrations/0037_addon_task_runs.sql"),
-    ),
-    (
-        38,
-        "addon outbound task-dispatch credentials",
-        include_str!("../../migrations/0038_addon_outbound_task_dispatch_credentials.sql"),
-    ),
-    (
-        39,
-        "addon event delivery attempts",
-        include_str!("../../migrations/0039_addon_event_delivery_attempts.sql"),
-    ),
-    (
-        40,
-        "addon event delivery leases",
-        include_str!("../../migrations/0040_addon_event_delivery_leases.sql"),
-    ),
-    (
-        41,
-        "addon event forced replay",
-        include_str!("../../migrations/0041_addon_event_forced_replay.sql"),
-    ),
-];
+const MIGRATIONS: &[(i64, &str, &str)] =
+    &[(1, "baseline", include_str!("../../migrations/baseline.sql"))];
 
 #[async_trait::async_trait]
 impl DatabaseLifecycle for SqliteStore {
@@ -251,6 +50,126 @@ mod tests {
             )]),
             ..Migrator::DEFAULT
         }
+    }
+
+    #[tokio::test]
+    async fn baseline_migration_creates_identity_and_library_access_schema() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+
+        store.migrate().await.unwrap();
+
+        let applied_versions: Vec<i64> =
+            sqlx::query_scalar("SELECT version FROM _sqlx_migrations ORDER BY version")
+                .fetch_all(store.pool())
+                .await
+                .unwrap();
+
+        assert_eq!(applied_versions, vec![1]);
+
+        for table in [
+            "users",
+            "user_role_assignments",
+            "user_library_access_policies",
+            "role_library_access_policies",
+        ] {
+            let exists: Option<i64> = sqlx::query_scalar(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1",
+            )
+            .bind(table)
+            .fetch_optional(store.pool())
+            .await
+            .unwrap();
+
+            assert_eq!(exists, Some(1), "missing baseline table {table}");
+        }
+
+        sqlx::query(
+            r#"
+            INSERT INTO libraries (id, name, roots_json, domain, preset, options_json)
+            VALUES ('018f0000-0000-7000-8000-000000000001', 'Movies', '[]', 'video', 'movies', '{}')
+            "#,
+        )
+        .execute(store.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            r#"
+            INSERT INTO users (
+                id,
+                principal_id,
+                username,
+                normalized_username,
+                display_name,
+                status,
+                created_at_ms,
+                updated_at_ms
+            )
+            VALUES (
+                '018f0000-0000-7000-8000-000000000002',
+                'local-admin',
+                'admin',
+                'admin',
+                'Local administrator',
+                'active',
+                1,
+                1
+            )
+            "#,
+        )
+        .execute(store.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            r#"
+            INSERT INTO user_role_assignments (user_id, role, granted_at_ms)
+            VALUES ('018f0000-0000-7000-8000-000000000002', 'administrator', 1)
+            "#,
+        )
+        .execute(store.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            r#"
+            INSERT INTO user_library_access_policies (
+                user_id,
+                library_id,
+                access,
+                created_at_ms,
+                updated_at_ms
+            )
+            VALUES (
+                '018f0000-0000-7000-8000-000000000002',
+                '018f0000-0000-7000-8000-000000000001',
+                'manage',
+                1,
+                1
+            )
+            "#,
+        )
+        .execute(store.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            r#"
+            INSERT INTO role_library_access_policies (
+                role,
+                library_id,
+                access,
+                created_at_ms,
+                updated_at_ms
+            )
+            VALUES (
+                'viewer',
+                '018f0000-0000-7000-8000-000000000001',
+                'play',
+                1,
+                1
+            )
+            "#,
+        )
+        .execute(store.pool())
+        .await
+        .unwrap();
     }
 
     #[tokio::test]

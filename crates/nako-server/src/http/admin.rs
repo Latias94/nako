@@ -1,39 +1,44 @@
 use axum::{
-    Json, Router,
+    Extension, Json, Router,
     extract::{Path, Query, State},
+    http::StatusCode,
     response::IntoResponse,
     routing::{delete, get, post},
 };
 use nako_api::{
     admin::{
-        ADMIN_API_VERSION, AdminAcquisitionIntakeCandidateDiagnostic,
-        AdminAcquisitionIntakeCandidateListResponse, AdminArtworkConfigDiagnostics,
-        AdminAuthConfigDiagnostics, AdminCatalogGovernanceItem,
-        AdminCatalogGovernanceItemListResponse, AdminConfigPlaybackDiagnostics,
-        AdminConfigStagingDiagnostics, AdminDatabaseBackendCapabilitiesDiagnostics,
-        AdminDatabaseConfigDiagnostics, AdminGeneratedArtifactProposal,
-        AdminGeneratedArtifactProposalListResponse, AdminGeneratedArtifactReviewPlanResponse,
-        AdminGeneratedArtifactReviewRequest, AdminGeneratedArtifactReviewResponse,
-        AdminJobCancelRequestResponse, AdminJobListItem, AdminJobListResponse,
-        AdminLibraryConfigDiagnostics, AdminMetadataConfigDiagnostics,
-        AdminMetadataProviderConfigDiagnostics, AdminMetadataRuntimeConfigDiagnostics,
-        AdminNetworkAccessDiagnostics, AdminNetworkExposureMode,
-        AdminNetworkExternalEndpointDiagnostics, AdminNetworkReadinessCheck,
-        AdminNetworkReadinessCheckName, AdminNetworkReadinessDiagnostics,
-        AdminNetworkReadinessReason, AdminOriginPolicyDiagnostics, AdminOutboxEventListItem,
-        AdminOutboxEventListResponse, AdminOverviewMetadataProviderSummary,
-        AdminOverviewMetadataSummary, AdminOverviewResponse, AdminOverviewRuntimeSummary,
-        AdminOverviewStartupSummary, AdminOverviewStatus, AdminOverviewStorageBackendSummary,
-        AdminOverviewStorageSummary, AdminPlaybackFfmpegDiagnostics,
-        AdminPlaybackHardwareCapability, AdminPlaybackHardwareCapabilityReason,
-        AdminPlaybackHardwareDeviceInitialization, AdminPlaybackHardwareDeviceInitializationStatus,
-        AdminPlaybackHardwareDiagnostics, AdminPlaybackHardwareEncoderDiscovery,
-        AdminPlaybackHardwareEncoderDiscoveryStatus, AdminPlaybackHardwareSmokeProbe,
-        AdminPlaybackHardwareSmokeProbeStatus, AdminPlaybackReadinessCheck,
-        AdminPlaybackReadinessCheckName, AdminPlaybackReadinessDiagnostics,
-        AdminPlaybackReadinessReason, AdminPlaybackRemoteBudgetDiagnostics,
-        AdminPlaybackRemuxRuntimeDiagnostics, AdminPlaybackRuntimeDiagnosticsResponse,
-        AdminPlaybackRuntimeStatus, AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
+        ADMIN_API_VERSION, AdminAccessAuthSummary, AdminAccessCapabilityState,
+        AdminAccessCapabilitySummary, AdminAccessMode, AdminAccessPrincipalKind,
+        AdminAccessPrincipalSummary, AdminAccessSummaryResponse,
+        AdminAcquisitionIntakeCandidateDiagnostic, AdminAcquisitionIntakeCandidateListResponse,
+        AdminArtworkConfigDiagnostics, AdminAuthConfigDiagnostics, AdminCatalogGovernanceItem,
+        AdminCatalogGovernanceItemListResponse, AdminCatalogGovernanceProviderMappingReviewRequest,
+        AdminConfigPlaybackDiagnostics, AdminConfigStagingDiagnostics,
+        AdminDatabaseBackendCapabilitiesDiagnostics, AdminDatabaseConfigDiagnostics,
+        AdminGeneratedArtifactProposal, AdminGeneratedArtifactProposalListResponse,
+        AdminGeneratedArtifactReviewPlanResponse, AdminGeneratedArtifactReviewRequest,
+        AdminGeneratedArtifactReviewResponse, AdminJobCancelRequestResponse, AdminJobListItem,
+        AdminJobListResponse, AdminLibraryAccessLevel, AdminLibraryAccessReason,
+        AdminLibraryAccessSummary, AdminLibraryAccessSummaryEntry, AdminLibraryConfigDiagnostics,
+        AdminMetadataConfigDiagnostics, AdminMetadataProviderConfigDiagnostics,
+        AdminMetadataRuntimeConfigDiagnostics, AdminNetworkAccessDiagnostics,
+        AdminNetworkExposureMode, AdminNetworkExternalEndpointDiagnostics,
+        AdminNetworkReadinessCheck, AdminNetworkReadinessCheckName,
+        AdminNetworkReadinessDiagnostics, AdminNetworkReadinessReason,
+        AdminOriginPolicyDiagnostics, AdminOutboxEventListItem, AdminOutboxEventListResponse,
+        AdminOverviewMetadataProviderSummary, AdminOverviewMetadataSummary, AdminOverviewResponse,
+        AdminOverviewRuntimeSummary, AdminOverviewStartupSummary, AdminOverviewStatus,
+        AdminOverviewStorageBackendSummary, AdminOverviewStorageSummary,
+        AdminPlaybackFfmpegDiagnostics, AdminPlaybackHardwareCapability,
+        AdminPlaybackHardwareCapabilityReason, AdminPlaybackHardwareDeviceInitialization,
+        AdminPlaybackHardwareDeviceInitializationStatus, AdminPlaybackHardwareDiagnostics,
+        AdminPlaybackHardwareEncoderDiscovery, AdminPlaybackHardwareEncoderDiscoveryStatus,
+        AdminPlaybackHardwareSmokeProbe, AdminPlaybackHardwareSmokeProbeStatus,
+        AdminPlaybackReadinessCheck, AdminPlaybackReadinessCheckName,
+        AdminPlaybackReadinessDiagnostics, AdminPlaybackReadinessReason,
+        AdminPlaybackRemoteBudgetDiagnostics, AdminPlaybackRemuxRuntimeDiagnostics,
+        AdminPlaybackRuntimeDiagnosticsResponse, AdminPlaybackRuntimeStatus,
+        AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
         AdminPlaybackStagingDiagnostics, AdminPlaybackSupportEvidenceResponse,
         AdminPlaybackSupportHardwareCapabilityEvidence, AdminPlaybackSupportHardwareEvidence,
         AdminPlaybackSupportRedactionEvidence, AdminPlaybackSupportRuntimeEvidence,
@@ -43,17 +48,18 @@ use nako_api::{
         AdminStorageStagingDiagnosticsResponse, AdminStorageStagingRecord,
         AdminStorageStagingSummary, AdminTranscodeConfigDiagnostics, AdminTrustedProxyDiagnostics,
         AdminTunnelProviderDiagnostics, AdminTunnelProviderKind,
-        AdminUpdateLibraryMetadataProfileRequest, AdminVfsCacheSummary,
-        AdminWatchFolderDiscoveryFailure, AdminWatchFolderDiscoveryRequest,
-        AdminWatchFolderDiscoveryResponse, StorageBackendDiagnosticsResponse, StorageBackendKind,
-        StorageBackendRuntimeStateScope, StorageBackendStatus,
+        AdminUpdateLibraryMetadataProfileRequest, AdminUpdateMetadataRawCacheSettingsRequest,
+        AdminVfsCacheSummary, AdminWatchFolderDiscoveryFailure, AdminWatchFolderDiscoveryRequest,
+        AdminWatchFolderDiscoveryResponse, JobResponse, StorageBackendDiagnosticsResponse,
+        StorageBackendKind, StorageBackendRuntimeStateScope, StorageBackendStatus,
     },
     metadata_diagnostics::{MetadataProviderDiagnosticStatus, MetadataProviderDiagnosticsResponse},
     public_client::{API_VERSION, page_info_from_request},
 };
 use nako_core::{
-    ArtworkCandidateId, AutomationArtifactId, ImageKind, JobId, ManagedArtworkArtifactId,
-    ManagedArtworkIngestId, MediaItemId, NakoError, PageRequest,
+    ArtworkCandidateId, AutomationArtifactId, ImageKind, JobId, LibraryId,
+    ManagedArtworkArtifactId, ManagedArtworkIngestId, MediaItemId, NakoError, PageRequest,
+    ProviderMappingId, UserPrincipalId,
 };
 use nako_db::DatabaseBackendCapabilities;
 use nako_transcode::{
@@ -109,12 +115,37 @@ pub(super) fn routes() -> Router<NakoApp> {
             "/admin/v1/catalog/governance/items",
             get(list_admin_catalog_governance_items),
         )
+        .route(
+            "/admin/v1/catalog/governance/items/{item_id}",
+            get(get_admin_catalog_governance_item_detail),
+        )
+        .route(
+            "/admin/v1/catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review-plan",
+            post(plan_admin_catalog_governance_provider_mapping_review),
+        )
+        .route(
+            "/admin/v1/catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review",
+            post(review_admin_catalog_governance_provider_mapping),
+        )
         .route("/admin/v1/events", get(list_admin_outbox_events))
         .route("/admin/v1/jobs", get(list_admin_jobs))
         .route("/admin/v1/jobs/{job_id}/cancel", post(cancel_admin_job))
+        .route("/admin/v1/access/summary", get(get_admin_access_summary))
         .route(
             "/admin/v1/libraries/{library_id}/metadata-profile",
             get(get_admin_library_metadata_profile).put(update_admin_library_metadata_profile),
+        )
+        .route(
+            "/admin/v1/libraries/{library_id}/scan",
+            post(scan_admin_library),
+        )
+        .route(
+            "/admin/v1/libraries/{library_id}/nfo/import",
+            post(import_admin_library_nfo),
+        )
+        .route(
+            "/admin/v1/libraries/{library_id}/nfo/export",
+            post(export_admin_library_nfo),
         )
         .route(
             "/admin/v1/artwork/candidates/{candidate_id}/accept",
@@ -166,6 +197,10 @@ pub(super) fn routes() -> Router<NakoApp> {
         )
         .route("/admin/v1/storage/staging", get(list_admin_storage_staging))
         .route("/admin/v1/system/config", get(get_admin_system_config))
+        .route(
+            "/admin/v1/settings/metadata/raw-cache",
+            get(get_admin_metadata_raw_cache_settings).put(update_admin_metadata_raw_cache_settings),
+        )
         .route(
             "/admin/v1/playback/runtime",
             get(get_admin_playback_runtime),
@@ -381,7 +416,7 @@ pub(super) async fn review_admin_generated_artifact(
 
 pub(super) async fn get_admin_library_metadata_profile(
     State(app): State<NakoApp>,
-    Path(library_id): Path<nako_core::LibraryId>,
+    Path(library_id): Path<LibraryId>,
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(
         app.library().get_admin_metadata_profile(library_id).await?,
@@ -390,7 +425,7 @@ pub(super) async fn get_admin_library_metadata_profile(
 
 pub(super) async fn update_admin_library_metadata_profile(
     State(app): State<NakoApp>,
-    Path(library_id): Path<nako_core::LibraryId>,
+    Path(library_id): Path<LibraryId>,
     Json(request): Json<AdminUpdateLibraryMetadataProfileRequest>,
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(
@@ -398,6 +433,33 @@ pub(super) async fn update_admin_library_metadata_profile(
             .update_admin_metadata_profile(library_id, request)
             .await?,
     ))
+}
+
+pub(super) async fn scan_admin_library(
+    State(app): State<NakoApp>,
+    Path(library_id): Path<LibraryId>,
+) -> ApiResult<impl IntoResponse> {
+    let job = app.library_scan().enqueue_library_scan(library_id).await?;
+
+    Ok((StatusCode::ACCEPTED, Json(JobResponse::from_job(job))))
+}
+
+pub(super) async fn import_admin_library_nfo(
+    State(app): State<NakoApp>,
+    Path(library_id): Path<LibraryId>,
+) -> ApiResult<impl IntoResponse> {
+    let job = app.nfo().enqueue_nfo_import(library_id).await?;
+
+    Ok((StatusCode::ACCEPTED, Json(JobResponse::from_job(job))))
+}
+
+pub(super) async fn export_admin_library_nfo(
+    State(app): State<NakoApp>,
+    Path(library_id): Path<LibraryId>,
+) -> ApiResult<impl IntoResponse> {
+    let job = app.nfo().enqueue_nfo_export(library_id).await?;
+
+    Ok((StatusCode::ACCEPTED, Json(JobResponse::from_job(job))))
 }
 
 fn admin_acquisition_intake_candidate(
@@ -515,6 +577,41 @@ pub(super) async fn list_admin_catalog_governance_items(
         items,
         page: page_info_from_request(page, returned),
     }))
+}
+
+pub(super) async fn get_admin_catalog_governance_item_detail(
+    State(app): State<NakoApp>,
+    Path(item_id): Path<MediaItemId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.catalog()
+            .get_catalog_governance_item_detail(item_id)
+            .await?,
+    ))
+}
+
+pub(super) async fn plan_admin_catalog_governance_provider_mapping_review(
+    State(app): State<NakoApp>,
+    Path((item_id, mapping_id)): Path<(MediaItemId, ProviderMappingId)>,
+    Json(request): Json<AdminCatalogGovernanceProviderMappingReviewRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.catalog()
+            .plan_catalog_governance_provider_mapping_review(item_id, mapping_id, request.decision)
+            .await?,
+    ))
+}
+
+pub(super) async fn review_admin_catalog_governance_provider_mapping(
+    State(app): State<NakoApp>,
+    Path((item_id, mapping_id)): Path<(MediaItemId, ProviderMappingId)>,
+    Json(request): Json<AdminCatalogGovernanceProviderMappingReviewRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.catalog()
+            .review_catalog_governance_provider_mapping(item_id, mapping_id, request.decision)
+            .await?,
+    ))
 }
 
 pub(super) async fn get_admin_overview(State(app): State<NakoApp>) -> Json<AdminOverviewResponse> {
@@ -636,6 +733,69 @@ pub(super) async fn get_admin_system_config(
             max_height: config.artwork.max_height,
         },
     })
+}
+
+pub(super) async fn get_admin_access_summary(
+    State(app): State<NakoApp>,
+    Extension(principal): Extension<UserPrincipalId>,
+) -> Json<AdminAccessSummaryResponse> {
+    let config = app.config();
+    let libraries = config
+        .libraries
+        .iter()
+        .map(|library| {
+            let diagnostics = library_config_diagnostics(library);
+            AdminLibraryAccessSummaryEntry {
+                library_id: diagnostics.id,
+                library_name: diagnostics.name,
+                preset: diagnostics.preset,
+                backend_kind: diagnostics.backend_kind,
+                access: AdminLibraryAccessLevel::Manage,
+                reason: AdminLibraryAccessReason::SingleAdminMode,
+            }
+        })
+        .collect::<Vec<_>>();
+
+    Json(AdminAccessSummaryResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        mode: AdminAccessMode::SingleAdmin,
+        principal: AdminAccessPrincipalSummary {
+            principal_id: principal.to_string(),
+            display_name: "Local administrator".to_owned(),
+            principal_kind: AdminAccessPrincipalKind::LocalAdmin,
+        },
+        auth: AdminAccessAuthSummary {
+            enabled: config.auth.enabled,
+            token_reference_configured: config.auth.token_env.is_some(),
+        },
+        readiness: AdminAccessCapabilitySummary {
+            single_admin_mode: AdminAccessCapabilityState::Active,
+            user_accounts: AdminAccessCapabilityState::Planned,
+            roles: AdminAccessCapabilityState::Planned,
+            library_access_policy: AdminAccessCapabilityState::Planned,
+        },
+        library_access: AdminLibraryAccessSummary {
+            configured_libraries: usize_to_u32(libraries.len()),
+            libraries,
+        },
+    })
+}
+
+pub(super) async fn get_admin_metadata_raw_cache_settings(
+    State(app): State<NakoApp>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.get_admin_metadata_raw_cache_settings().await?))
+}
+
+pub(super) async fn update_admin_metadata_raw_cache_settings(
+    State(app): State<NakoApp>,
+    Json(request): Json<AdminUpdateMetadataRawCacheSettingsRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.update_admin_metadata_raw_cache_settings(request)
+            .await?,
+    ))
 }
 
 pub(super) async fn list_admin_storage_staging(
