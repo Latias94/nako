@@ -11,10 +11,11 @@ use nako_core::{
     TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
     TranscodeSessionRepository, TranscodeSessionState, UserPrincipalId,
 };
-use nako_streaming::{
-    ClientPlaybackCapabilities, DirectPlayRangeRequest, DirectPlayResponsePlan, PlaybackDecision,
-    PlaybackProfile, PlaybackSelectionContext, PlaybackSelectionRequest, select_playback_source,
+use nako_playback::{
+    ClientPlaybackCapabilities, PlaybackDecision, PlaybackPlanner, PlaybackPlanningRequest,
+    PlaybackProfile, PlaybackSelectionContext,
 };
+use nako_streaming::{DirectPlayRangeRequest, DirectPlayResponsePlan};
 use nako_transcode::{
     HardwareAccelerationPolicy, HardwareAccelerationReport, HardwareAccelerationSelection,
     RemuxContainer, TranscodeRequestIdentity, TranscodeResourceBudget, TranscodeSourceIdentity,
@@ -407,6 +408,7 @@ pub(crate) struct PlaybackAppService {
     storage_backends: StorageBackendRegistry,
     runtime: RuntimeSupervisor,
     input: FfmpegInputService,
+    planner: PlaybackPlanner,
     cancellations: PlaybackSessionCancellationRegistry,
     remux: RemuxAppService,
     hls: HlsAppService,
@@ -425,6 +427,7 @@ impl PlaybackAppService {
 
         Ok(Self {
             input,
+            planner: PlaybackPlanner::new(),
             remux: RemuxAppService::new(&config, cancellations.clone()),
             hls: HlsAppService::new(&config, cancellations.clone())?,
             config,
@@ -444,7 +447,7 @@ impl PlaybackAppService {
         let probe =
             PlaybackRuntimeStore::get_media_probe(self.runtime_store.as_ref(), source.id).await?;
         let context = self.playback_selection_context_for_source(&source).await?;
-        let decision = select_playback_source(PlaybackSelectionRequest {
+        let decision = self.planner.plan(PlaybackPlanningRequest {
             source: &source,
             probe: probe.as_ref(),
             client: &client,
@@ -805,7 +808,7 @@ impl PlaybackAppService {
         let mut context = playback_selection_context(&uri, backend.as_ref()).await;
         context.preferences.remux_output_container = Some(request.output_container);
         let playback_profile = PlaybackProfile::from_context(&request.client, context.clone());
-        let decision = select_playback_source(PlaybackSelectionRequest {
+        let decision = self.planner.plan(PlaybackPlanningRequest {
             source: &source,
             probe: probe.as_ref(),
             client: &request.client,
@@ -845,7 +848,7 @@ impl PlaybackAppService {
         let mut context = playback_selection_context(&uri, backend.as_ref()).await;
         context.preferences.transcode_output_container = Some(nako_transcode::OutputContainer::Hls);
         let playback_profile = PlaybackProfile::from_context(&request.client, context.clone());
-        let decision = select_playback_source(PlaybackSelectionRequest {
+        let decision = self.planner.plan(PlaybackPlanningRequest {
             source: &source,
             probe: probe.as_ref(),
             client: &request.client,

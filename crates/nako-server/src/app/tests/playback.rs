@@ -599,7 +599,7 @@ async fn direct_play_uses_vfs_stream_when_backend_has_no_local_path() {
     };
     let source = remote_media_source("webdav:///Movies/Demo.mkv");
     let uri = StorageUri::parse(&source.locator).unwrap();
-    let range = nako_streaming::RequestedByteRange {
+    let range = RequestedByteRange {
         start: Some(2),
         end: Some(5),
     };

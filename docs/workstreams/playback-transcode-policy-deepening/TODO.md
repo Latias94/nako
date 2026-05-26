@@ -28,15 +28,19 @@ Last updated: 2026-05-27
 
 ## M2 - Playback Planner
 
-- [ ] PTP-030 [owner=codex] [deps=PTP-020] [scope=crates/nako-core/src,crates/nako-server/src/app/playback]
+- [x] PTP-030 [owner=codex] [deps=PTP-020] [scope=crates/nako-playback/src,crates/nako-streaming/src,crates/nako-server/src/app/playback,crates/nako-api/src]
   Goal: Add a Playback Planner Module that returns direct/remux/HLS plans and
   typed decision reasons from source facts, client capabilities, runtime facts,
   and policy.
   Validation: focused planner tests plus `cargo nextest run -p nako-server playback --no-fail-fast`.
   Review: HTTP handlers should adapt planner output instead of owning playback
   compatibility decisions.
-  Evidence: planner Module and tests.
-  Handoff: PTP-040 expands capability/reason vocabulary.
+  Evidence: Added `nako-playback` as the planner/profile/reason crate; reduced
+  `nako-streaming` to direct byte-range serving mechanics; routed server
+  playback app and public DTO adapters through planner records. Focused
+  playback/API/transcode gates passed.
+  Handoff: PTP-040 expands capability/reason vocabulary into stable public
+  protocol shapes and richer admin-safe diagnostics.
 
 ## M3 - Capabilities And Reasons
 

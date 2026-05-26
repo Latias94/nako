@@ -8,7 +8,7 @@ use nako_core::{
     TranscodeFailureCategory, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
     UserPlaybackState,
 };
-use nako_streaming::{ClientPlaybackCapabilities, DirectPlayPlan, PlaybackDecision, PlaybackMode};
+use nako_playback::{ClientPlaybackCapabilities, DirectPlayPlan, PlaybackDecision, PlaybackMode};
 use nako_transcode::{HardwareAcceleration, OutputContainer, TranscodePlan};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
@@ -216,7 +216,7 @@ pub fn playback_decision_response_to_dto(
 pub fn playback_decision_to_dto(decision: PlaybackDecision) -> ClientPlaybackDecision {
     ClientPlaybackDecision {
         mode: playback_mode_to_dto(decision.mode),
-        reason: decision.reason,
+        reason: decision.reason.message().to_owned(),
         direct_play: decision.direct_play.map(direct_play_plan_to_dto),
         transcode_plan: decision.transcode_plan.map(transcode_plan_to_dto),
     }
@@ -863,14 +863,14 @@ mod tests {
         };
         let decision = PlaybackDecision {
             mode: PlaybackMode::Transcode,
-            reason: "client disabled direct play".to_owned(),
-            selected_source: nako_streaming::PlaybackSelectedSource {
+            reason: nako_playback::PlaybackDecisionReason::ClientDisabledDirectPlay,
+            selected_source: nako_playback::PlaybackSelectedSource {
                 source_id,
                 library_id,
                 locator: "local:///Movies/Demo.mp4".to_owned(),
                 file_name: "Demo.mp4".to_owned(),
             },
-            execution: nako_streaming::PlaybackExecutionPlan::Transcode(transcode_plan.clone()),
+            execution: nako_playback::PlaybackExecutionPlan::Transcode(transcode_plan.clone()),
             direct_play: None,
             transcode_plan: Some(transcode_plan),
         };

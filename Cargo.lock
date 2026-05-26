@@ -1318,6 +1318,7 @@ dependencies = [
  "nako-addon-protocol",
  "nako-client-protocol",
  "nako-core",
+ "nako-playback",
  "nako-streaming",
  "nako-transcode",
  "serde",
@@ -1528,6 +1529,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "nako-playback"
+version = "0.1.0-alpha.1"
+dependencies = [
+ "nako-core",
+ "nako-transcode",
+ "serde",
+]
+
+[[package]]
 name = "nako-reference-addon"
 version = "0.1.0-alpha.1"
 dependencies = [
@@ -1568,6 +1578,7 @@ dependencies = [
  "nako-metadata",
  "nako-nfo",
  "nako-official-addon-catalog",
+ "nako-playback",
  "nako-reference-addon",
  "nako-search",
  "nako-streaming",
@@ -1593,7 +1604,6 @@ name = "nako-streaming"
 version = "0.1.0-alpha.1"
 dependencies = [
  "nako-core",
- "nako-transcode",
  "serde",
 ]
 

@@ -31,10 +31,11 @@ use nako_core::{
 use nako_core::{ExternalProvider, MetadataMatchKind, MetadataProviderAttemptStatus};
 use nako_library::{LibraryScanRequest, LibraryScanner};
 use nako_metadata::MetadataRefreshSummary;
-use nako_streaming::{
-    ClientPlaybackCapabilities, DirectPlayRangeRequest, PlaybackPreferenceContext, PlaybackProfile,
+use nako_playback::{
+    ClientPlaybackCapabilities, PlaybackPreferenceContext, PlaybackProfile,
     PlaybackSelectionContext, PlaybackStorageContext,
 };
+use nako_streaming::{DirectPlayRangeRequest, RequestedByteRange};
 use nako_transcode::{
     HardwareAcceleration, HardwareAccelerationFallback, OutputContainer, RemuxContainer,
     TranscodePlan, TranscodeRequestIdentity,

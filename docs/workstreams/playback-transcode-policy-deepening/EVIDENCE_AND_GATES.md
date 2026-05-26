@@ -70,3 +70,24 @@ python -m json.tool docs/workstreams/playback-transcode-policy-deepening/WORKSTR
     passed, 282 skipped.
   - `cargo nextest run -p nako-transcode --no-fail-fast` passed: 35 passed,
     0 skipped.
+- 2026-05-27: PTP-030 extracted playback planning from `nako-streaming` into
+  `nako-playback`. The new crate owns planner/profile/capability/decision
+  records and typed decision reasons; `nako-streaming` now stays focused on
+  direct byte-range response planning. Server playback app code calls
+  `PlaybackPlanner`; public DTO adapters convert internal typed reasons into
+  safe client strings until PTP-040 promotes stable protocol reason shapes.
+  Verified:
+  - `cargo check -p nako-playback -p nako-streaming` passed.
+  - `cargo check -p nako-api -p nako-server` passed with pre-existing warnings.
+  - `cargo nextest run -p nako-playback --no-fail-fast` passed: 7 passed,
+    0 skipped.
+  - `cargo nextest run -p nako-streaming --no-fail-fast` passed: 3 passed,
+    0 skipped.
+  - `cargo nextest run -p nako-server playback --no-fail-fast` passed: 66
+    passed, 282 skipped.
+  - `cargo nextest run -p nako-api -E 'test(public_openapi) | test(sdk) | test(admin_contract)' --no-fail-fast`
+    passed: 19 passed, 39 skipped.
+  - `cargo nextest run -p nako-transcode --no-fail-fast` passed: 35 passed,
+    0 skipped.
+  - `cargo fmt --all -- --check` passed.
+  - `git diff --check` passed with Git line-ending warnings only.

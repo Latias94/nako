@@ -6,12 +6,10 @@ use nako_transcode::{
 };
 use serde::{Deserialize, Serialize};
 
-use super::direct::content_type_for_file_name;
-
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct PlaybackDecision {
     pub mode: PlaybackMode,
-    pub reason: String,
+    pub reason: PlaybackDecisionReason,
     pub selected_source: PlaybackSelectedSource,
     pub execution: PlaybackExecutionPlan,
     pub direct_play: Option<DirectPlayPlan>,
@@ -26,6 +24,37 @@ pub enum PlaybackMode {
     Transcode,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlaybackDecisionReason {
+    Compatible,
+    RequestedTranscodeOutput,
+    ClientDisabledDirectPlay,
+    SourceContainerUnknown,
+    ClientContainerUnsupported,
+    SourceCodecsUnsupported,
+}
+
+impl PlaybackDecisionReason {
+    #[must_use]
+    pub const fn message(self) -> &'static str {
+        match self {
+            Self::Compatible => {
+                "source container and codecs are compatible with client capabilities"
+            }
+            Self::RequestedTranscodeOutput => "playback request requires transcode output",
+            Self::ClientDisabledDirectPlay => "client disabled direct play",
+            Self::SourceContainerUnknown => "source container could not be inferred from file name",
+            Self::ClientContainerUnsupported => {
+                "client does not advertise support for the source container"
+            }
+            Self::SourceCodecsUnsupported => {
+                "source codecs are not compatible with client capabilities"
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct DirectPlayPlan {
     pub source_id: MediaSourceId,
@@ -34,7 +63,7 @@ pub struct DirectPlayPlan {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct PlaybackSelectionRequest<'a> {
+pub struct PlaybackPlanningRequest<'a> {
     pub source: &'a MediaSource,
     pub probe: Option<&'a MediaProbeResult>,
     pub client: &'a ClientPlaybackCapabilities,
@@ -232,21 +261,24 @@ impl Default for ClientPlaybackCapabilities {
     }
 }
 
-pub fn decide_playback(
-    source: &MediaSource,
-    probe: Option<&MediaProbeResult>,
-    client: &ClientPlaybackCapabilities,
-) -> PlaybackDecision {
-    select_playback_source(PlaybackSelectionRequest {
-        source,
-        probe,
-        client,
-        context: PlaybackSelectionContext::default(),
-    })
+#[derive(Clone, Debug, Default)]
+pub struct PlaybackPlanner;
+
+impl PlaybackPlanner {
+    #[must_use]
+    pub const fn new() -> Self {
+        Self
+    }
+
+    #[must_use]
+    pub fn plan(&self, request: PlaybackPlanningRequest<'_>) -> PlaybackDecision {
+        plan_playback(request)
+    }
 }
 
-pub fn select_playback_source(request: PlaybackSelectionRequest<'_>) -> PlaybackDecision {
-    let PlaybackSelectionRequest {
+#[must_use]
+pub fn plan_playback(request: PlaybackPlanningRequest<'_>) -> PlaybackDecision {
+    let PlaybackPlanningRequest {
         source,
         probe,
         client,
@@ -261,7 +293,7 @@ pub fn select_playback_source(request: PlaybackSelectionRequest<'_>) -> Playback
             selected_source,
             source.locator.clone(),
             output_container,
-            "playback request requires transcode output".to_owned(),
+            PlaybackDecisionReason::RequestedTranscodeOutput,
         );
     }
 
@@ -270,7 +302,7 @@ pub fn select_playback_source(request: PlaybackSelectionRequest<'_>) -> Playback
             selected_source,
             source.locator.clone(),
             OutputContainer::Hls,
-            "client disabled direct play".to_owned(),
+            PlaybackDecisionReason::ClientDisabledDirectPlay,
         );
     }
 
@@ -279,7 +311,7 @@ pub fn select_playback_source(request: PlaybackSelectionRequest<'_>) -> Playback
             selected_source,
             source.locator.clone(),
             OutputContainer::Hls,
-            "source container could not be inferred from file name".to_owned(),
+            PlaybackDecisionReason::SourceContainerUnknown,
         );
     };
 
@@ -292,7 +324,6 @@ pub fn select_playback_source(request: PlaybackSelectionRequest<'_>) -> Playback
     if !container_allowed {
         let codecs_allowed = probe.is_some_and(|probe| codecs_are_supported(probe, client));
 
-        let reason = format!("client does not advertise support for {container} container");
         return if codecs_allowed {
             remux_decision(
                 selected_source,
@@ -301,14 +332,14 @@ pub fn select_playback_source(request: PlaybackSelectionRequest<'_>) -> Playback
                     .preferences
                     .remux_output_container
                     .unwrap_or(RemuxContainer::Mp4),
-                reason,
+                PlaybackDecisionReason::ClientContainerUnsupported,
             )
         } else {
             transcode_decision(
                 selected_source,
                 source.locator.clone(),
                 OutputContainer::Hls,
-                reason,
+                PlaybackDecisionReason::ClientContainerUnsupported,
             )
         };
     }
@@ -318,7 +349,7 @@ pub fn select_playback_source(request: PlaybackSelectionRequest<'_>) -> Playback
             selected_source,
             source.locator.clone(),
             OutputContainer::Hls,
-            "source codecs are not compatible with client capabilities".to_owned(),
+            PlaybackDecisionReason::SourceCodecsUnsupported,
         );
     }
 
@@ -330,7 +361,7 @@ pub fn select_playback_source(request: PlaybackSelectionRequest<'_>) -> Playback
     direct_play_decision(
         selected_source,
         direct_play,
-        "source container and codecs are compatible with client capabilities".to_owned(),
+        PlaybackDecisionReason::Compatible,
     )
 }
 
@@ -348,7 +379,7 @@ impl From<&MediaSource> for PlaybackSelectedSource {
 fn direct_play_decision(
     selected_source: PlaybackSelectedSource,
     direct_play: DirectPlayPlan,
-    reason: String,
+    reason: PlaybackDecisionReason,
 ) -> PlaybackDecision {
     PlaybackDecision {
         mode: PlaybackMode::DirectPlay,
@@ -364,7 +395,7 @@ fn remux_decision(
     selected_source: PlaybackSelectedSource,
     input_locator: String,
     output_container: RemuxContainer,
-    reason: String,
+    reason: PlaybackDecisionReason,
 ) -> PlaybackDecision {
     PlaybackDecision {
         mode: PlaybackMode::Remux,
@@ -384,7 +415,7 @@ fn transcode_decision(
     selected_source: PlaybackSelectedSource,
     input_locator: String,
     output_container: OutputContainer,
-    reason: String,
+    reason: PlaybackDecisionReason,
 ) -> PlaybackDecision {
     let transcode_plan = TranscodePlan {
         input_locator,
@@ -423,7 +454,7 @@ fn codec_allowed(codec: Option<&str>, allowed: &[String]) -> bool {
 }
 
 fn container_for_file_name(file_name: &str) -> Option<&str> {
-    match super::direct::extension(file_name)?.as_str() {
+    match extension(file_name)?.as_str() {
         "mp4" | "m4v" => Some("mp4"),
         "webm" => Some("webm"),
         "mkv" => Some("mkv"),
@@ -432,6 +463,27 @@ fn container_for_file_name(file_name: &str) -> Option<&str> {
         "ts" | "m2ts" | "mts" => Some("mpegts"),
         _ => None,
     }
+}
+
+#[must_use]
+pub fn content_type_for_file_name(file_name: &str) -> &'static str {
+    match extension(file_name).as_deref().unwrap_or_default() {
+        "mp4" | "m4v" => "video/mp4",
+        "webm" => "video/webm",
+        "mkv" => "video/x-matroska",
+        "mov" => "video/quicktime",
+        "avi" => "video/x-msvideo",
+        "ts" | "m2ts" | "mts" => "video/mp2t",
+        _ => "application/octet-stream",
+    }
+}
+
+fn extension(file_name: &str) -> Option<String> {
+    file_name
+        .rsplit_once('.')
+        .map(|(_stem, extension)| extension)
+        .filter(|extension| !extension.is_empty())
+        .map(str::to_ascii_lowercase)
 }
 
 fn normalized_values(values: &[String]) -> Vec<String> {
@@ -463,4 +515,278 @@ fn optional_u64(value: Option<u64>) -> String {
 
 fn optional_bool(value: Option<bool>) -> String {
     value.map_or_else(|| "auto".to_owned(), |value| value.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use nako_core::{
+        MediaProbeResult, MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind,
+    };
+
+    use super::*;
+
+    #[test]
+    fn planner_allows_direct_play_for_compatible_mp4() {
+        let source = media_source("movie.mp4");
+        let probe = MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some("mov,mp4,m4a,3gp,3g2,mj2".to_owned()),
+            bit_rate: None,
+            streams: vec![
+                stream(MediaStreamKind::Video, Some("h264")),
+                stream(MediaStreamKind::Audio, Some("aac")),
+            ],
+        };
+
+        let decision = PlaybackPlanner::new().plan(PlaybackPlanningRequest {
+            source: &source,
+            probe: Some(&probe),
+            client: &ClientPlaybackCapabilities::default(),
+            context: PlaybackSelectionContext::default(),
+        });
+
+        assert_eq!(decision.mode, PlaybackMode::DirectPlay);
+        assert_eq!(decision.reason, PlaybackDecisionReason::Compatible);
+        assert_eq!(decision.selected_source.source_id, source.id);
+        assert!(matches!(
+            decision.execution,
+            PlaybackExecutionPlan::DirectPlay(_)
+        ));
+        assert_eq!(
+            decision.direct_play.unwrap().content_type,
+            "video/mp4".to_owned()
+        );
+    }
+
+    #[test]
+    fn unsupported_container_with_supported_codecs_requests_remux() {
+        let source = media_source("movie.mkv");
+        let probe = MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some("matroska,webm".to_owned()),
+            bit_rate: None,
+            streams: vec![
+                stream(MediaStreamKind::Video, Some("h264")),
+                stream(MediaStreamKind::Audio, Some("aac")),
+            ],
+        };
+
+        let decision = PlaybackPlanner::new().plan(PlaybackPlanningRequest {
+            source: &source,
+            probe: Some(&probe),
+            client: &ClientPlaybackCapabilities::default(),
+            context: PlaybackSelectionContext::default(),
+        });
+
+        assert_eq!(decision.mode, PlaybackMode::Remux);
+        assert_eq!(
+            decision.reason,
+            PlaybackDecisionReason::ClientContainerUnsupported
+        );
+        assert!(matches!(
+            decision.execution,
+            PlaybackExecutionPlan::Remux(RemuxPlaybackPlan {
+                output_container: nako_transcode::RemuxContainer::Mp4,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn planning_request_can_choose_requested_remux_output_container() {
+        let source = media_source("movie.mkv");
+        let probe = MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some("matroska,webm".to_owned()),
+            bit_rate: None,
+            streams: vec![
+                stream(MediaStreamKind::Video, Some("h264")),
+                stream(MediaStreamKind::Audio, Some("aac")),
+            ],
+        };
+        let decision = PlaybackPlanner::new().plan(PlaybackPlanningRequest {
+            source: &source,
+            probe: Some(&probe),
+            client: &ClientPlaybackCapabilities::default(),
+            context: PlaybackSelectionContext {
+                storage: PlaybackStorageContext::default(),
+                preferences: PlaybackPreferenceContext {
+                    remux_output_container: Some(nako_transcode::RemuxContainer::Mkv),
+                    ..Default::default()
+                },
+            },
+        });
+
+        assert!(matches!(
+            decision.execution,
+            PlaybackExecutionPlan::Remux(RemuxPlaybackPlan {
+                output_container: nako_transcode::RemuxContainer::Mkv,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn planning_request_carries_storage_and_preference_context() {
+        let source = media_source("movie.mp4");
+        let client = ClientPlaybackCapabilities::default();
+
+        let decision = PlaybackPlanner::new().plan(PlaybackPlanningRequest {
+            source: &source,
+            probe: None,
+            client: &client,
+            context: PlaybackSelectionContext {
+                storage: PlaybackStorageContext {
+                    remote: true,
+                    range_readable: Some(false),
+                },
+                preferences: PlaybackPreferenceContext {
+                    requested_audio_stream: Some(1),
+                    requested_subtitle_stream: Some(2),
+                    max_video_bitrate: Some(4_000_000),
+                    prefer_hdr: Some(false),
+                    remux_output_container: Some(nako_transcode::RemuxContainer::Mkv),
+                    transcode_output_container: None,
+                },
+            },
+        });
+
+        assert_eq!(decision.mode, PlaybackMode::DirectPlay);
+        assert_eq!(decision.selected_source.library_id, source.library_id);
+        assert_eq!(decision.direct_play.unwrap().supports_range_requests, false);
+    }
+
+    #[test]
+    fn planning_request_can_require_hls_transcode_output() {
+        let source = media_source("movie.mp4");
+        let client = ClientPlaybackCapabilities::default();
+
+        let decision = PlaybackPlanner::new().plan(PlaybackPlanningRequest {
+            source: &source,
+            probe: None,
+            client: &client,
+            context: PlaybackSelectionContext {
+                storage: PlaybackStorageContext::default(),
+                preferences: PlaybackPreferenceContext {
+                    transcode_output_container: Some(nako_transcode::OutputContainer::Hls),
+                    ..Default::default()
+                },
+            },
+        });
+
+        assert_eq!(decision.mode, PlaybackMode::Transcode);
+        assert_eq!(
+            decision.reason,
+            PlaybackDecisionReason::RequestedTranscodeOutput
+        );
+        assert!(matches!(
+            decision.execution,
+            PlaybackExecutionPlan::Transcode(nako_transcode::TranscodePlan {
+                output_container: nako_transcode::OutputContainer::Hls,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn playback_profile_identity_normalizes_capability_order_and_case() {
+        let left = PlaybackProfile::from_context(
+            &ClientPlaybackCapabilities {
+                direct_play: true,
+                containers: vec!["MP4".to_owned(), "webm".to_owned(), "mp4".to_owned()],
+                video_codecs: vec!["H264".to_owned(), "hevc".to_owned()],
+                audio_codecs: vec!["AAC".to_owned(), "opus".to_owned()],
+            },
+            PlaybackSelectionContext {
+                storage: PlaybackStorageContext {
+                    remote: true,
+                    range_readable: Some(false),
+                },
+                preferences: PlaybackPreferenceContext {
+                    requested_audio_stream: Some(2),
+                    requested_subtitle_stream: None,
+                    max_video_bitrate: Some(8_000_000),
+                    prefer_hdr: Some(true),
+                    remux_output_container: Some(nako_transcode::RemuxContainer::Mp4),
+                    transcode_output_container: Some(nako_transcode::OutputContainer::Hls),
+                },
+            },
+        );
+        let right = PlaybackProfile::from_context(
+            &ClientPlaybackCapabilities {
+                direct_play: true,
+                containers: vec!["webm".to_owned(), "mp4".to_owned()],
+                video_codecs: vec!["hevc".to_owned(), "h264".to_owned()],
+                audio_codecs: vec!["opus".to_owned(), "aac".to_owned()],
+            },
+            PlaybackSelectionContext {
+                storage: PlaybackStorageContext {
+                    remote: true,
+                    range_readable: Some(false),
+                },
+                preferences: PlaybackPreferenceContext {
+                    requested_audio_stream: Some(2),
+                    requested_subtitle_stream: None,
+                    max_video_bitrate: Some(8_000_000),
+                    prefer_hdr: Some(true),
+                    remux_output_container: Some(nako_transcode::RemuxContainer::Mp4),
+                    transcode_output_container: Some(nako_transcode::OutputContainer::Hls),
+                },
+            },
+        );
+
+        assert_eq!(left.identity_key(), right.identity_key());
+        assert!(left.identity_key().contains("containers=mp4|webm"));
+        assert!(left.identity_key().contains("audio=2"));
+        assert!(left.identity_key().contains("transcode=hls"));
+    }
+
+    #[test]
+    fn playback_profile_rejects_invalid_runtime_selected_hardware_plan() {
+        let profile = PlaybackProfile::from_context(
+            &ClientPlaybackCapabilities::default(),
+            PlaybackSelectionContext::default(),
+        );
+        let plan = nako_transcode::TranscodePlan {
+            input_locator: "local:///demo.mkv".to_owned(),
+            output_container: nako_transcode::OutputContainer::Hls,
+            video_codec: Some("h264".to_owned()),
+            audio_codec: Some("aac".to_owned()),
+            hardware_acceleration: nako_transcode::HardwareAcceleration::Nvenc,
+        };
+
+        let err = profile
+            .try_hls_transcode_profile(&plan, nako_transcode::HardwareAcceleration::Nvenc)
+            .unwrap_err();
+
+        assert!(err.to_string().contains("hardware acceleration selection"));
+        assert!(!err.to_string().contains("local:///"));
+    }
+
+    fn media_source(file_name: &str) -> MediaSource {
+        MediaSource {
+            id: MediaSourceId::new(),
+            library_id: nako_core::LibraryId::new(),
+            item_id: nako_core::MediaItemId::new(),
+            locator: format!("local:///{file_name}"),
+            file_name: file_name.to_owned(),
+            size_bytes: Some(1_000),
+            fingerprint: None,
+        }
+    }
+
+    fn stream(kind: MediaStreamKind, codec: Option<&str>) -> MediaStreamInfo {
+        MediaStreamInfo {
+            index: 0,
+            kind,
+            codec: codec.map(ToOwned::to_owned),
+            language: None,
+            duration_ms: None,
+            bit_rate: None,
+            width: None,
+            height: None,
+            channels: None,
+            sample_rate: None,
+        }
+    }
 }

@@ -36,6 +36,7 @@ nako-media-probe = { path = "../nako-media-probe" }
 nako-metadata = { path = "../nako-metadata" }
 nako-events = { path = "../nako-events" }
 nako-nfo = { path = "../nako-nfo" }
+nako-playback = { path = "../nako-playback" }
 nako-search = { path = "../nako-search" }
 nako-streaming = { path = "../nako-streaming" }
 nako-transcode = { path = "../nako-transcode" }

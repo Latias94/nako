@@ -4,7 +4,7 @@ use nako_core::{
     MediaSource, MediaSourceId, NakoError, NewTranscodeSession, Result, TranscodeFailureCategory,
     TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
 };
-use nako_streaming::PlaybackDecision;
+use nako_playback::PlaybackDecision;
 use nako_transcode::{
     CancellationToken, FfmpegCommandBuilder, FfmpegHardwareAccelerationDetector, FfmpegHlsRunner,
     FfmpegOverwritePolicy, HardwareAccelerationDetector, HardwareAccelerationReport,

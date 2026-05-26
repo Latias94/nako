@@ -145,6 +145,10 @@ play and have no transcode artifact at all.
 
 - `nako-core`: pure playback policy records, IDs, enum vocabulary, repository
   traits where needed by more than one crate.
+- `nako-playback`: playback planning records, client capability matching,
+  decision reasons, selected source records, and playback profile identity. It
+  must stay playback-shaped and must not serve bytes or build FFmpeg command
+  lines.
 - `nako-transcode`: FFmpeg command planning, capability probing, failure
   taxonomy, and FFmpeg engine Adapter.
 - `nako-streaming`: byte-range, direct body, HLS/remux serving mechanics.
@@ -154,8 +158,12 @@ play and have no transcode artifact at all.
 - `nako-client-protocol`: Public Client playback decisions, capabilities,
   sessions, and browser-safe transport DTOs.
 
-Do not split a new crate until the deletion test says the current Module is
-earning its boundary and multiple real callers/adapters need it.
+PTP-030 extracted `nako-playback` because the deletion test became real:
+removing selection from `nako-streaming` leaves a smaller transport crate, while
+server app code and public DTO adapters both consume playback planning records.
+Future extractions should use the same rule: split only when deletion makes an
+existing crate more coherent and at least two callers need the resulting
+domain-shaped API.
 
 ## Scope
 
@@ -190,8 +198,8 @@ Out of scope:
   subtitle burn-in, per-codec support, and explainable fallback.
 - Moving FFmpeg command building too high would leak host paths/commands into
   policy and Admin/Public contracts.
-- Adding a new crate too early could create shallow pass-through modules. Start
-  with deep app Modules and extract only under reuse pressure.
+- New crates can become shallow pass-through modules. Keep `nako-playback`
+  responsible for actual planning decisions and profile identity, not merely
+  re-exporting server or transcode types.
 - Route compatibility must be handled carefully so browser playback tickets and
   legacy HLS segment URLs keep working while the planner lands.
-

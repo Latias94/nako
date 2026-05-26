@@ -20,10 +20,10 @@ use nako_core::{
     MediaSourceId, NakoError, PlaybackSessionId, PlaybackSessionMode, PlaybackSessionState,
     TranscodeSessionId,
 };
+use nako_playback::ClientPlaybackCapabilities;
 use nako_streaming::{
-    ClientPlaybackCapabilities, DirectPlayRangeRequest, DirectPlayResponsePlan,
-    DirectPlayResponseStatus, content_type_for_file_name, parse_http_range_header,
-    plan_direct_play_response,
+    DirectPlayRangeRequest, DirectPlayResponsePlan, DirectPlayResponseStatus,
+    content_type_for_file_name, parse_http_range_header, plan_direct_play_response,
 };
 use nako_transcode::RemuxContainer;
 use serde::Deserialize;

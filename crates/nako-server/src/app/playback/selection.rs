@@ -1,5 +1,5 @@
 use nako_core::{NakoError, Result};
-use nako_streaming::{
+use nako_playback::{
     PlaybackDecision, PlaybackExecutionPlan, PlaybackSelectionContext, PlaybackStorageContext,
 };
 use nako_transcode::{OutputContainer, RemuxContainer, TranscodePlan};
