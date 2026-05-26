@@ -25,18 +25,22 @@ tickets through the Public Client data source and render an HTML5 player from
 the browser-safe URL envelope without exposing bearer tokens, raw Source
 Locators, raw stream paths, or ticket values in visible UI text.
 
+BPAT-050 is complete. Media Web watch players now write User Playback State
+progress after playback starts, throttle normal `timeupdate` writes, flush on
+pause, and mark the selected source watched on ended.
+
 ## Active Task
 
-- Task ID: BPAT-050
-- Owner: unassigned
-- Files: `apps/admin-web/src/surfaces/media`,
-  `docs/workstreams/browser-playback-auth-transport`
-- Validation: focused Media Web tests for progress throttling, pause/end
-  updates, source-aware state, and no writes when playback is not active.
+- Task ID: BPAT-060
+- Owner: planner
+- Files: `docs/workstreams/browser-playback-auth-transport`,
+  `apps/admin-web/src/surfaces/media`, `crates/nako-server`
+- Validation: relevant Rust gates, package-local Media Web check/test/build,
+  `git diff --check`, browser desktop/mobile smoke, and review-workstream.
 - Status: READY
-- Review: Wire real player events to User Playback State progress writes using
-  Public Client `/users/me/playback-state` routes. Do not depend on Admin API
-  state or write playback progress before playback is active.
+- Review: close or split follow-ons for desktop native playback, subtitles,
+  advanced codec/HDR capability mapping, credential/session UX, and broader
+  account/admin role work.
 - Evidence: update `EVIDENCE_AND_GATES.md`
 
 ## Decisions Since Last Update
@@ -65,9 +69,14 @@ Locators, raw stream paths, or ticket values in visible UI text.
 - Fixture browser smoke uses `https://fixture.nako.test/...` URLs and therefore
   produces an expected media-load console error without a real fixture media
   service.
+- BPAT-050 writes progress through Public Client playback-state routes only.
+  It does not use Admin API state or expose transport credentials in the UI.
+- Progress throttling is position-based, not wall-clock-based: normal
+  `timeupdate` writes require at least 30 seconds of playback-position delta;
+  pause writes force a flush.
 
 ## Next Recommended Action
 
-Run BPAT-050. Wire the real player to playback progress writes with throttled
-`timeupdate` handling, pause/end flushes, source-aware state, and no writes
-until playback has actually started.
+Run BPAT-060. Verify the lane end to end, record final evidence, then close or
+split follow-ons rather than expanding this lane into desktop native playback,
+subtitles, advanced codecs, sessions, or account UX.

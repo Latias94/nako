@@ -3,12 +3,13 @@
   "slug": "browser-playback-auth-transport",
   "title": "Browser Playback Auth Transport",
   "status": "active",
-  "current_task": "BPAT-050",
+  "current_task": "BPAT-060",
   "completed_tasks": [
     "BPAT-010",
     "BPAT-020",
     "BPAT-030",
-    "BPAT-040"
+    "BPAT-040",
+    "BPAT-050"
   ],
   "updated": "2026-05-26",
   "scope_kind": "execution",
@@ -66,6 +67,10 @@
     {
       "task": "BPAT-040",
       "summary": "Wired Media Web watch pages to request browser playback tickets through the Public Client data source and render an HTML5 player from browser-safe URL envelopes without exposing bearer tokens, raw Source Locators, raw stream paths, or ticket values in visible UI text."
+    },
+    {
+      "task": "BPAT-050",
+      "summary": "Wired Media Web watch player events to User Playback State writes through the Public Client data source with start gating, 30-second playback-position throttling, pause flushes, selected-source payloads, and end-of-play watched behavior."
     }
   ],
   "adr_refs": [
@@ -75,6 +80,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Start BPAT-050 by wiring real player events to User Playback State progress writes. Use Public Client playback-state routes, throttle writes, flush pause/end state, keep source-aware state, and avoid writes before playback is active."
+    "notes": "Run BPAT-060 closeout. Verify final backend/frontend gates, record browser smoke, and close or split follow-ons for desktop native playback, subtitles, advanced codec/HDR capability mapping, credential/session UX, and account/admin roles."
   }
 }

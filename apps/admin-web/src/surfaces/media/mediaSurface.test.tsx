@@ -268,6 +268,120 @@ describe("Media Web surface", () => {
     expect(container.textContent).not.toContain("/sources/");
     expect(container.textContent).not.toContain("Bearer");
   });
+
+  it("writes throttled playback progress only after browser playback starts", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/media/watch/item-episode-1?source_id=source-episode-1-alt",
+    );
+    const dataSource = createFixtureMediaDataSource();
+    const updateUserPlaybackProgress = vi.fn(dataSource.updateUserPlaybackProgress);
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          updateUserPlaybackProgress,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    const player = await screen.findByLabelText("Pilot player");
+    setMediaTiming(player, 45, 1440);
+    fireEvent.timeUpdate(player);
+    expect(updateUserPlaybackProgress).not.toHaveBeenCalled();
+
+    fireEvent.play(player);
+    setMediaTiming(player, 12, 1440);
+    fireEvent.timeUpdate(player);
+    expect(updateUserPlaybackProgress).not.toHaveBeenCalled();
+
+    setMediaTiming(player, 31, 1440);
+    fireEvent.timeUpdate(player);
+    await waitFor(() => {
+      expect(updateUserPlaybackProgress).toHaveBeenCalledWith("item-episode-1", {
+        duration_ms: 1440000,
+        position_ms: 31000,
+        source_id: "source-episode-1-alt",
+      });
+    });
+
+    setMediaTiming(player, 45, 1440);
+    fireEvent.timeUpdate(player);
+    expect(updateUserPlaybackProgress).toHaveBeenCalledTimes(1);
+
+    setMediaTiming(player, 61, 1440);
+    fireEvent.timeUpdate(player);
+    await waitFor(() => {
+      expect(updateUserPlaybackProgress).toHaveBeenCalledTimes(2);
+    });
+    expect(updateUserPlaybackProgress).toHaveBeenLastCalledWith("item-episode-1", {
+      duration_ms: 1440000,
+      position_ms: 61000,
+      source_id: "source-episode-1-alt",
+    });
+  });
+
+  it("flushes progress on pause and marks the source watched on ended", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/media/watch/item-episode-1?source_id=source-episode-1-alt",
+    );
+    const dataSource = createFixtureMediaDataSource();
+    const updateUserPlaybackProgress = vi.fn(dataSource.updateUserPlaybackProgress);
+    const setUserWatchedState = vi.fn(dataSource.setUserWatchedState);
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          setUserWatchedState,
+          updateUserPlaybackProgress,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    const player = await screen.findByLabelText("Pilot player");
+    fireEvent.pause(player);
+    expect(updateUserPlaybackProgress).not.toHaveBeenCalled();
+    expect(setUserWatchedState).not.toHaveBeenCalled();
+
+    fireEvent.play(player);
+    setMediaTiming(player, 10, 1440);
+    fireEvent.pause(player);
+    await waitFor(() => {
+      expect(updateUserPlaybackProgress).toHaveBeenCalledWith("item-episode-1", {
+        duration_ms: 1440000,
+        position_ms: 10000,
+        source_id: "source-episode-1-alt",
+      });
+    });
+
+    setMediaTiming(player, 1439, 1440);
+    fireEvent.ended(player);
+    await waitFor(() => {
+      expect(setUserWatchedState).toHaveBeenCalledWith("item-episode-1", {
+        duration_ms: 1440000,
+        position_ms: 1440000,
+        source_id: "source-episode-1-alt",
+        watched: true,
+      });
+    });
+  });
 });
 
 function emptyAdminDataSource() {
@@ -276,4 +390,15 @@ function emptyAdminDataSource() {
       throw new Error("admin data source should not load for media routes");
     },
   };
+}
+
+function setMediaTiming(player: HTMLElement, currentTimeSeconds: number, durationSeconds: number) {
+  Object.defineProperty(player, "currentTime", {
+    configurable: true,
+    value: currentTimeSeconds,
+  });
+  Object.defineProperty(player, "duration", {
+    configurable: true,
+    value: durationSeconds,
+  });
 }

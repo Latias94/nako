@@ -75,7 +75,7 @@ Task IDs use the `BPAT` prefix.
 
 ## M4 - Playback Progress Writes
 
-- [ ] BPAT-050 [owner=unassigned] [deps=BPAT-040] [scope=apps/admin-web/src/surfaces/media]
+- [x] BPAT-050 [owner=codex] [deps=BPAT-040] [scope=apps/admin-web/src/surfaces/media]
   Goal: Wire real player events to User Playback State progress writes with
   sane throttling and end-of-play watched behavior.
   Validation: focused Media Web tests for progress throttling, pause/end
@@ -84,6 +84,13 @@ Task IDs use the `BPAT` prefix.
   routes and must not depend on Admin API state.
   Evidence: route tests and browser smoke.
   Handoff: Split offline sync or multi-device conflict resolution if needed.
+  Result: DONE 2026-05-26. Media Web watch players now write progress through
+  the Public Client data source only after playback starts, throttle
+  `timeupdate` writes by playback position, flush progress on pause, and mark
+  the selected source watched on ended. Tests cover no pre-start writes,
+  source-aware progress payloads, pause flushes, and end-of-play watched
+  behavior. Fixture browser smoke confirmed visible state updates and no
+  transport secret text leakage.
 
 ## M5 - Closeout
 

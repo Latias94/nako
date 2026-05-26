@@ -1,8 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import type {
-  ContinueWatchingResponse,
   BrowserPlaybackTicketRequest,
   BrowserPlaybackTicketResponse,
+  ContinueWatchingResponse,
   ItemDetailResponse,
   ItemsResponse,
   LibraryListResponse,
@@ -15,7 +15,7 @@ import type {
   UserPlaybackStateResponse,
 } from "@nako/sdk";
 import { ArrowLeft, ArrowRight, Search } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
 import { Button } from "../../components/ui/Button";
 import type {
@@ -24,6 +24,8 @@ import type {
   MediaWebDataSource,
 } from "./mediaDataSource";
 import { useMediaSession } from "./MediaSession";
+
+const MEDIA_PROGRESS_WRITE_INTERVAL_MS = 30_000;
 
 export type MediaPageSearch = {
   limit: number;
@@ -344,6 +346,10 @@ export function MediaWatchPage(props: MediaItemPageProps) {
       decision={playback.decision}
       mutationError={playback.mutationError}
       onMarkWatched={playback.onMarkWatched}
+      onPlaybackEnded={playback.onPlaybackEnded}
+      onPlaybackPaused={playback.onPlaybackPaused}
+      onPlaybackProgress={playback.onPlaybackProgress}
+      onPlaybackStarted={playback.onPlaybackStarted}
       onSourceChange={playback.onSourceChange}
       playbackState={playback.playbackState}
       result={playback.result.value}
@@ -388,6 +394,15 @@ function useMediaItemPlayback({
     useState<UserPlaybackStateResponse | null>(null);
   const [playbackMutationError, setPlaybackMutationError] = useState<string | null>(null);
   const [savingPlaybackState, setSavingPlaybackState] = useState(false);
+  const fallbackDurationMs = playbackDurationMs(result.value, decision.value);
+  const playbackProgress = useMediaPlaybackProgress({
+    dataSource,
+    fallbackDurationMs,
+    itemId,
+    selectedSourceId,
+    setPlaybackMutationError,
+    setPlaybackStateOverride,
+  });
 
   async function markWatched(watched: boolean) {
     if (!dataSource || !selectedSourceId) {
@@ -397,14 +412,9 @@ function useMediaItemPlayback({
     setSavingPlaybackState(true);
     setPlaybackMutationError(null);
     try {
-      const durationMs =
-        decision.value?.probe?.duration_ms ??
-        (result.value?.item.metadata.runtime_minutes
-          ? result.value.item.metadata.runtime_minutes * 60_000
-          : null);
       const response = await dataSource.setUserWatchedState(itemId, {
-        duration_ms: durationMs,
-        position_ms: watched ? durationMs : playbackState.value?.state.resume_position_ms,
+        duration_ms: fallbackDurationMs,
+        position_ms: watched ? fallbackDurationMs : playbackState.value?.state.resume_position_ms,
         source_id: selectedSourceId,
         watched,
       });
@@ -430,6 +440,10 @@ function useMediaItemPlayback({
     decision,
     mutationError: playbackMutationError,
     onMarkWatched: markWatched,
+    onPlaybackEnded: playbackProgress.onEnded,
+    onPlaybackPaused: playbackProgress.onPaused,
+    onPlaybackProgress: playbackProgress.onProgress,
+    onPlaybackStarted: playbackProgress.onStarted,
     onSourceChange: selectSource,
     playbackState: {
       ...playbackState,
@@ -438,6 +452,140 @@ function useMediaItemPlayback({
     result,
     savingPlaybackState,
     selectedSourceId,
+  };
+}
+
+type MediaPlaybackProgressSnapshot = {
+  durationMs: number | null;
+  positionMs: number;
+};
+
+function useMediaPlaybackProgress({
+  dataSource,
+  fallbackDurationMs,
+  itemId,
+  selectedSourceId,
+  setPlaybackMutationError,
+  setPlaybackStateOverride,
+}: {
+  dataSource: MediaWebDataSource | null;
+  fallbackDurationMs: number | null;
+  itemId: string;
+  selectedSourceId: string | undefined;
+  setPlaybackMutationError(value: string | null): void;
+  setPlaybackStateOverride(value: UserPlaybackStateResponse | null): void;
+}) {
+  const playbackStartedRef = useRef(false);
+  const lastProgressPositionRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    playbackStartedRef.current = false;
+    lastProgressPositionRef.current = null;
+  }, [dataSource, itemId, selectedSourceId]);
+
+  const onStarted = useCallback(() => {
+    playbackStartedRef.current = true;
+  }, []);
+
+  const writeProgress = useCallback(
+    async (snapshot: MediaPlaybackProgressSnapshot, force: boolean) => {
+      if (
+        !dataSource ||
+        !selectedSourceId ||
+        !playbackStartedRef.current ||
+        snapshot.positionMs <= 0
+      ) {
+        return;
+      }
+
+      const lastPositionMs = lastProgressPositionRef.current;
+      if (lastPositionMs === snapshot.positionMs) {
+        return;
+      }
+      if (!force) {
+        const positionDeltaMs =
+          lastPositionMs === null
+            ? snapshot.positionMs
+            : Math.abs(snapshot.positionMs - lastPositionMs);
+        if (positionDeltaMs < MEDIA_PROGRESS_WRITE_INTERVAL_MS) {
+          return;
+        }
+      }
+
+      lastProgressPositionRef.current = snapshot.positionMs;
+      try {
+        const response = await dataSource.updateUserPlaybackProgress(itemId, {
+          duration_ms: snapshot.durationMs ?? fallbackDurationMs,
+          position_ms: snapshot.positionMs,
+          source_id: selectedSourceId,
+        });
+        setPlaybackMutationError(null);
+        setPlaybackStateOverride(response.value);
+      } catch (error: unknown) {
+        setPlaybackMutationError(
+          error instanceof Error ? error.message : "Playback progress update failed",
+        );
+      }
+    },
+    [
+      dataSource,
+      fallbackDurationMs,
+      itemId,
+      selectedSourceId,
+      setPlaybackMutationError,
+      setPlaybackStateOverride,
+    ],
+  );
+
+  const markEndedWatched = useCallback(
+    async (snapshot: MediaPlaybackProgressSnapshot) => {
+      if (!dataSource || !selectedSourceId || !playbackStartedRef.current) {
+        return;
+      }
+
+      const durationMs = snapshot.durationMs ?? fallbackDurationMs;
+      const positionMs = durationMs ?? snapshot.positionMs;
+      if (positionMs <= 0) {
+        return;
+      }
+
+      lastProgressPositionRef.current = positionMs;
+      try {
+        const response = await dataSource.setUserWatchedState(itemId, {
+          duration_ms: durationMs,
+          position_ms: positionMs,
+          source_id: selectedSourceId,
+          watched: true,
+        });
+        setPlaybackMutationError(null);
+        setPlaybackStateOverride(response.value);
+      } catch (error: unknown) {
+        setPlaybackMutationError(
+          error instanceof Error ? error.message : "Playback watched update failed",
+        );
+      }
+    },
+    [
+      dataSource,
+      fallbackDurationMs,
+      itemId,
+      selectedSourceId,
+      setPlaybackMutationError,
+      setPlaybackStateOverride,
+    ],
+  );
+
+  return {
+    onEnded: (snapshot: MediaPlaybackProgressSnapshot) => {
+      void markEndedWatched(snapshot);
+    },
+    onPaused: (snapshot: MediaPlaybackProgressSnapshot) => {
+      void writeProgress(snapshot, true);
+    },
+    onProgress: (snapshot: MediaPlaybackProgressSnapshot) => {
+      void writeProgress(snapshot, false);
+    },
+    onStarted,
   };
 }
 
@@ -721,6 +869,10 @@ function MediaWatch({
   decision,
   mutationError,
   onMarkWatched,
+  onPlaybackEnded,
+  onPlaybackPaused,
+  onPlaybackProgress,
+  onPlaybackStarted,
   onSourceChange,
   playbackState,
   result,
@@ -731,6 +883,10 @@ function MediaWatch({
   decision: MediaAsyncState<PlaybackDecisionResponse>;
   mutationError: string | null;
   onMarkWatched(watched: boolean): void;
+  onPlaybackEnded(snapshot: MediaPlaybackProgressSnapshot): void;
+  onPlaybackPaused(snapshot: MediaPlaybackProgressSnapshot): void;
+  onPlaybackProgress(snapshot: MediaPlaybackProgressSnapshot): void;
+  onPlaybackStarted(): void;
   onSourceChange(sourceId: string): void;
   playbackState: MediaAsyncState<UserPlaybackStateResponse>;
   result: ItemDetailResponse;
@@ -740,6 +896,7 @@ function MediaWatch({
   const metadata = result.item.metadata;
   const selectedSource =
     result.sources.find((source) => source.id === selectedSourceId) ?? result.sources[0];
+  const fallbackDurationMs = playbackDurationMs(result, decision.value);
 
   return (
     <section className="mediaPage" aria-labelledby="media-watch-title">
@@ -759,7 +916,15 @@ function MediaWatch({
           <h3 id="media-player-title">Player</h3>
           <span>{browserTicket.value?.mode ?? decision.value?.decision.mode ?? "pending"}</span>
         </div>
-        <MediaBrowserPlayer result={browserTicket} title={metadata.title} />
+        <MediaBrowserPlayer
+          fallbackDurationMs={fallbackDurationMs}
+          onPlaybackEnded={onPlaybackEnded}
+          onPlaybackPaused={onPlaybackPaused}
+          onPlaybackProgress={onPlaybackProgress}
+          onPlaybackStarted={onPlaybackStarted}
+          result={browserTicket}
+          title={metadata.title}
+        />
       </section>
       <MediaSourceVersions
         onSourceChange={onSourceChange}
@@ -882,9 +1047,19 @@ function MediaPlaybackDecision({
 }
 
 function MediaBrowserPlayer({
+  fallbackDurationMs,
+  onPlaybackEnded,
+  onPlaybackPaused,
+  onPlaybackProgress,
+  onPlaybackStarted,
   result,
   title,
 }: {
+  fallbackDurationMs: number | null;
+  onPlaybackEnded(snapshot: MediaPlaybackProgressSnapshot): void;
+  onPlaybackPaused(snapshot: MediaPlaybackProgressSnapshot): void;
+  onPlaybackProgress(snapshot: MediaPlaybackProgressSnapshot): void;
+  onPlaybackStarted(): void;
   result: MediaAsyncState<BrowserPlaybackTicketResponse>;
   title: string;
 }) {
@@ -909,6 +1084,17 @@ function MediaBrowserPlayer({
         aria-label={`${title} player`}
         className="mediaPlayer"
         controls
+        onEnded={(event) =>
+          onPlaybackEnded(mediaPlaybackProgressSnapshot(event.currentTarget, fallbackDurationMs))
+        }
+        onPause={(event) =>
+          onPlaybackPaused(mediaPlaybackProgressSnapshot(event.currentTarget, fallbackDurationMs))
+        }
+        onPlay={onPlaybackStarted}
+        onPlaying={onPlaybackStarted}
+        onTimeUpdate={(event) =>
+          onPlaybackProgress(mediaPlaybackProgressSnapshot(event.currentTarget, fallbackDurationMs))
+        }
         playsInline
         preload="metadata"
         src={primaryUrl.url}
@@ -1090,6 +1276,35 @@ function formatRuntimeMinutes(value: number | null) {
 
 function formatRuntimeMs(value: number | null | undefined) {
   return value ? `${Math.round(value / 60_000)} min` : "duration unknown";
+}
+
+function playbackDurationMs(
+  item: ItemDetailResponse | null,
+  decision: PlaybackDecisionResponse | null,
+) {
+  return (
+    decision?.probe?.duration_ms ??
+    (item?.item.metadata.runtime_minutes
+      ? item.item.metadata.runtime_minutes * 60_000
+      : null)
+  );
+}
+
+function mediaPlaybackProgressSnapshot(
+  video: HTMLVideoElement,
+  fallbackDurationMs: number | null,
+): MediaPlaybackProgressSnapshot {
+  const durationMs = mediaSecondsToMs(video.duration) ?? fallbackDurationMs;
+  const positionMs = mediaSecondsToMs(video.currentTime) ?? 0;
+  return {
+    durationMs,
+    positionMs:
+      durationMs && positionMs > durationMs ? durationMs : positionMs,
+  };
+}
+
+function mediaSecondsToMs(value: number) {
+  return Number.isFinite(value) && value > 0 ? Math.round(value * 1000) : null;
 }
 
 function browserPlaybackTicketRequest(

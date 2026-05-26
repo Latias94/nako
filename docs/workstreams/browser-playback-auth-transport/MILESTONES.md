@@ -62,6 +62,11 @@ Exit criteria:
 - Writes are throttled and source-aware.
 - End-of-play watched behavior is covered.
 
+Result: DONE 2026-05-26. Watch player events now write User Playback State
+progress only after playback starts, throttle `timeupdate` writes by playback
+position, flush pause state, and mark the selected source watched when playback
+ends.
+
 ## M5 - Closeout
 
 Exit criteria:
