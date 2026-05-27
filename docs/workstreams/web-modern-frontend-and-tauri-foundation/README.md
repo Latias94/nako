@@ -15,10 +15,9 @@ Authoritative files:
 - [MILESTONES.md](MILESTONES.md)
 - [EVIDENCE_AND_GATES.md](EVIDENCE_AND_GATES.md)
 - [RUST_CAPABILITY_GAPS.md](RUST_CAPABILITY_GAPS.md)
+- [ADMIN_WEB_RETIREMENT_PLAN.md](ADMIN_WEB_RETIREMENT_PLAN.md)
 - [WORKSTREAM.json](WORKSTREAM.json)
 - [HANDOFF.md](HANDOFF.md)
 
-Current executable task: `WMFT-030`, deepen the route shell and visual system
-from the v0 UX direction with Browser/Playwright screenshots. `WMFT-020`
-created the `web/` Vite React product app, package scripts, first Media/Admin
-routes, Tauri shell skeleton, and Nako-owned Tauri icons.
+Current executable task: `WMFT-090`, close this foundation lane or split
+remaining work to narrower lanes.

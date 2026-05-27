@@ -116,7 +116,7 @@ Last updated: 2026-05-28
 
 ## M7 - Old Admin Web Retirement Plan
 
-- [ ] WMFT-080 [owner=unassigned] [deps=WMFT-050,WMFT-060] [scope=apps/admin-web,web,docs]
+- [x] WMFT-080 [owner=codex] [deps=WMFT-050,WMFT-060] [scope=apps/admin-web,web,docs]
   Goal: Define and execute the safe retirement or archive plan for
   `apps/admin-web` after `web/` owns equivalent validation coverage.
   Validation: parity matrix, replacement test gates, and explicit deletion or
@@ -125,11 +125,14 @@ Last updated: 2026-05-28
   continuity.
   Evidence: parity matrix and final diff.
   Handoff: Never delete the old frontend only because the new app scaffold
-  exists.
+  exists. DONE. `ADMIN_WEB_RETIREMENT_PLAN.md` records the parity matrix,
+  retention rules, deletion-over-archive target, and blocking gaps. Current
+  decision: keep `apps/admin-web` as validation-only until every row is ready,
+  moved to CI, or split to an accepted follow-on.
 
 ## M8 - Closeout
 
-- [ ] WMFT-090 [owner=planner] [deps=WMFT-020,WMFT-030,WMFT-040,WMFT-050,WMFT-060] [scope=docs/workstreams/web-modern-frontend-and-tauri-foundation]
+- [ ] WMFT-090 [owner=planner] [deps=WMFT-020,WMFT-030,WMFT-040,WMFT-050,WMFT-060,WMFT-070,WMFT-080] [scope=docs/workstreams/web-modern-frontend-and-tauri-foundation]
   Goal: Close this lane or split remaining work to narrower product/frontend
   lanes.
   Validation: verify-rust-workstream records fresh final gate evidence,

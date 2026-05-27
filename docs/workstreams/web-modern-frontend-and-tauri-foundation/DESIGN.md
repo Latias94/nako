@@ -37,6 +37,7 @@ The product decision is now explicit:
 - `docs/workstreams/browser-playback-auth-transport/`
 - `docs/workstreams/client-surface-and-access-product-architecture/`
 - `docs/workstreams/web-modern-frontend-and-tauri-foundation/RUST_CAPABILITY_GAPS.md`
+- `docs/workstreams/web-modern-frontend-and-tauri-foundation/ADMIN_WEB_RETIREMENT_PLAN.md`
 - `apps/admin-web`
 - `repo-ref/nako-admin-web`
 

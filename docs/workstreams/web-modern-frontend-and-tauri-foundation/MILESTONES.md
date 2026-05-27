@@ -87,6 +87,8 @@ Exit criteria:
 
 ## M7 - Old Admin Web Retirement
 
+Status: Complete
+
 Exit criteria:
 
 - A parity matrix lists which old `apps/admin-web` validation responsibilities

@@ -3,7 +3,7 @@
   "slug": "web-modern-frontend-and-tauri-foundation",
   "title": "Web Modern Frontend And Tauri Foundation",
   "status": "active",
-  "current_task": "WMFT-080",
+  "current_task": "WMFT-090",
   "completed_tasks": [
     "WMFT-010",
     "WMFT-020",
@@ -11,7 +11,8 @@
     "WMFT-040",
     "WMFT-050",
     "WMFT-060",
-    "WMFT-070"
+    "WMFT-070",
+    "WMFT-080"
   ],
   "updated": "2026-05-28",
   "scope_kind": "frontend_product_replacement",
@@ -40,6 +41,10 @@
     {
       "role": "rust-capability-gaps",
       "path": "docs/workstreams/web-modern-frontend-and-tauri-foundation/RUST_CAPABILITY_GAPS.md"
+    },
+    {
+      "role": "old-admin-web-retirement-plan",
+      "path": "docs/workstreams/web-modern-frontend-and-tauri-foundation/ADMIN_WEB_RETIREMENT_PLAN.md"
     },
     {
       "role": "handoff",
@@ -83,6 +88,10 @@
     {
       "task": "WMFT-070",
       "summary": "Deepened the Tauri shell with no-secret server profile bootstrap commands, runtime health-check-backed server profile storage, desktop/browser setup UI state, and Windows Tauri build smoke while keeping native playback explicitly split."
+    },
+    {
+      "task": "WMFT-080",
+      "summary": "Recorded the old apps/admin-web retirement plan, parity matrix, validation-only maintenance rules, deletion-over-archive target, and blocking gaps while keeping the old console in place."
     }
   ],
   "adr_refs": [
@@ -95,6 +104,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Continue with WMFT-080. Do not delete apps/admin-web before parity and validation replacement are documented. Do not ship the v0 Next.js app, TMDb API route, Vercel analytics, or bundled third-party media artwork."
+    "notes": "Continue with WMFT-090 closeout. Do not delete apps/admin-web before ADMIN_WEB_RETIREMENT_PLAN.md rows are ready, moved to CI, or split to accepted follow-ons. Do not ship the v0 Next.js app, TMDb API route, Vercel analytics, or bundled third-party media artwork."
   }
 }

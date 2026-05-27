@@ -14,7 +14,7 @@ The lane has been opened to reflect the accepted product direction:
 - Tauri is part of the frontend direction, but serious desktop playback still
   requires a later native playback-core spike.
 
-WMFT-020 through WMFT-070 are complete:
+WMFT-020 through WMFT-080 are complete:
 
 - `web/` exists as the product frontend package.
 - The stack is Vite 8, React 19, Tailwind v4, shadcn-style local primitives,
@@ -51,19 +51,25 @@ WMFT-020 through WMFT-070 are complete:
   `native_playback_core_not_integrated`, preserving the ADR 0026 split between
   WebView convenience playback and future native desktop playback.
 - Windows Tauri smoke builds `web/src-tauri/target/release/nako-web-shell.exe`.
+- `ADMIN_WEB_RETIREMENT_PLAN.md` records the old `apps/admin-web` parity matrix.
+  The current decision is to retain it as validation-only; future deletion is
+  allowed only after matrix rows are ready, moved to CI, or split to accepted
+  follow-ons.
+- `apps/admin-web/README.md` now labels the old app as a historical validation
+  console rather than the product frontend.
 
 ## Next Recommended Task
 
-Run `WMFT-080`: define the old Admin Web retirement or archive plan.
+Run `WMFT-090`: close this lane or split remaining work to narrower lanes.
 
 Recommended implementation choices:
 
-- Build a parity matrix before deleting or archiving anything.
-- Keep old Admin validation checks until `web/` or CI owns equivalent contract
-  and smoke coverage.
-- Treat deletion as an explicit task with a precise staging list, not incidental
-  cleanup.
-- Do not remove `apps/admin-web`; old validation retirement is WMFT-080.
+- Do not mark the whole frontend migration as complete; close only this
+  foundation lane.
+- Split follow-ons for Addon Manager UI, Admin mutation parity, redaction
+  corpus migration, Media playback state, route-level code splitting, i18n,
+  and native desktop playback.
+- Keep `apps/admin-web` retained according to `ADMIN_WEB_RETIREMENT_PLAN.md`.
 
 ## Key Constraints
 
@@ -103,6 +109,7 @@ Before coding, re-read:
 - `web/src/api/desktop.ts`
 - `web/src-tauri/src/lib.rs`
 - `web/src/router.tsx`
+- `docs/workstreams/web-modern-frontend-and-tauri-foundation/ADMIN_WEB_RETIREMENT_PLAN.md`
 - `repo-ref/nako-admin-web/app/page.tsx`
 - `repo-ref/nako-admin-web/components/nako/media-surface.tsx`
 - `repo-ref/nako-admin-web/components/nako/admin-surface.tsx`
