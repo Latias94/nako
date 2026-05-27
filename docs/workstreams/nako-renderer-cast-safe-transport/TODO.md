@@ -1,6 +1,6 @@
 # Nako Renderer Cast-Safe Transport TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-27
 
 ## Task Ledger
@@ -199,7 +199,7 @@ Evidence:
 
 ### NRCT-070 - Close workstream
 
-Status: Pending
+Status: Complete
 Owner: current agent
 Depends on: NRCT-060
 
@@ -220,3 +220,10 @@ cargo nextest run -p nako-api -E 'test(public_openapi) | test(admin_contract) | 
 cargo fmt --all -- --check
 git diff --check
 ```
+
+Evidence:
+
+- Final closeout gates passed.
+- Workstream status was closed.
+- Follow-on protocol casting workstream was opened at
+  `docs/workstreams/external-casting-adapter-boundary/`.

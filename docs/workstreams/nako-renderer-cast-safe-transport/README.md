@@ -1,11 +1,11 @@
 # Nako Renderer Cast-Safe Transport
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-27
 
 ## Purpose
 
-This workstream implements the first non-direct renderer media transport for
+This workstream implemented the first non-direct renderer media transport for
 Nako remote clients. It keeps the Public Client renderer control plane on
 bearer-authenticated routes while adding renderer-scoped media URLs for direct,
 remux, and HLS playback decisions.
@@ -38,9 +38,8 @@ Out of scope:
 
 ## First Executable Task
 
-Start with `NRCT-020` characterization. Prove the current direct-only renderer
-behavior, the current Nako renderer transport-auth registration boundary, and
-the reason browser playback tickets cannot be reused as renderer cast tickets.
+Closed with `NRCT-070`. The follow-on protocol casting lane is
+`docs/workstreams/external-casting-adapter-boundary/`.
 
 ## Authoritative Docs
 

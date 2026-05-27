@@ -6,10 +6,16 @@ attention.
 
 ## Current Workstreams
 
+- [external-casting-adapter-boundary](external-casting-adapter-boundary/README.md):
+  active execution lane for adding Chromecast, DLNA, and AirPlay through
+  protocol-specific renderer adapters after Nako remote-client cast-safe
+  transport. It keeps Nako host-owned policy, Renderer Sessions, Playback
+  Sessions, and transport tickets while moving protocol discovery/control into
+  adapter boundaries.
 - [nako-renderer-cast-safe-transport](nako-renderer-cast-safe-transport/README.md):
-  active execution lane for adding renderer-scoped cast-safe media transport
+  completed execution lane for adding renderer-scoped cast-safe media transport
   for Nako remote clients before protocol-specific Chromecast, DLNA, or AirPlay
-  adapters. It keeps renderer control on bearer-authenticated Public Client
+  adapters. It kept renderer control on bearer-authenticated Public Client
   routes while making direct, remux, and HLS media URLs target-scoped and
   expiring.
 - [playback-policy-and-renderer-targets](playback-policy-and-renderer-targets/README.md):

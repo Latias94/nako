@@ -1,6 +1,6 @@
 # Nako Renderer Cast-Safe Transport Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-27
 
 ## Evidence Log
@@ -196,6 +196,39 @@ Results:
 - focused server renderer/admin gate: 86 passed, 284 skipped.
 - format check passed.
 - diff check passed. Git printed CRLF conversion warnings only.
+
+### NRCT-070
+
+Completed on 2026-05-27.
+
+Evidence:
+
+- ran fresh closeout gates after NRCT-060;
+- closed the Nako renderer cast-safe transport workstream;
+- opened `docs/workstreams/external-casting-adapter-boundary/` as the follow-on
+  protocol casting lane.
+
+Gates:
+
+```powershell
+python -m json.tool docs/workstreams/nako-renderer-cast-safe-transport/WORKSTREAM.json
+cargo nextest run -p nako-server -E 'test(renderer) | test(playback)' --no-fail-fast
+cargo nextest run -p nako-server -E 'test(renderer) | test(playback) | test(transcode)' --no-fail-fast
+cargo nextest run -p nako-client-protocol public --no-fail-fast
+cargo nextest run -p nako-api -E 'test(public_openapi) | test(admin_contract) | test(sdk)' --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
+```
+
+Results:
+
+- JSON parsed.
+- server renderer/playback gate: 88 passed, 282 skipped.
+- server renderer/playback/transcode gate: 89 passed, 281 skipped.
+- `nako-client-protocol public`: 12 passed.
+- `nako-api public_openapi/admin_contract/sdk`: 21 passed, 40 skipped.
+- format check passed.
+- diff check passed.
 
 ## Gate Policy
 

@@ -1,6 +1,6 @@
 # Nako Renderer Cast-Safe Transport Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-27
 
 ## Current State
@@ -26,9 +26,10 @@ HLS segment URLs are protected with the same renderer scope.
 `nako_remote_client_cast_safe_transport` as ready, while Chromecast, DLNA, and
 AirPlay remain planned protocol adapter follow-ons. ADR 0041 is accepted.
 
-## Next Task
+## Closeout
 
-Run `NRCT-070`.
+This lane is closed. The next execution lane is
+`docs/workstreams/external-casting-adapter-boundary/`.
 
 `NRCT-020` is complete. It locked the current gaps:
 
@@ -43,9 +44,9 @@ typed Public Client envelope, and `NRCT-050` wired both through renderer
 registration, command queueing, command polling, direct/remux/HLS media routes,
 and HLS segment protection.
 
-`NRCT-070` should run closeout gates, update final status/docs, and name or
-open the first protocol casting workstream for Chromecast/DLNA/AirPlay adapter
-design. Do not implement protocol discovery/control inside NRCT.
+`NRCT-070` ran closeout gates, updated final status/docs, and opened the first
+protocol casting workstream for Chromecast/DLNA/AirPlay adapter design. Do not
+add protocol discovery/control inside this closed lane.
 
 ## Important Files
 

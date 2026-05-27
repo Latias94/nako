@@ -1,6 +1,6 @@
 # Nako Renderer Cast-Safe Transport Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-27
 
 ## Milestone 1 - Boundary Accepted
@@ -73,7 +73,7 @@ Tasks:
 
 ## Milestone 6 - Ready For Protocol Casting Workstreams
 
-Status: In progress
+Status: Complete
 
 Exit criteria:
 

@@ -1,6 +1,6 @@
 # Nako Renderer Cast-Safe Transport Design
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-27
 
 ## Problem
