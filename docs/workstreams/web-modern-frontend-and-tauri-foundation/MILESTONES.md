@@ -41,6 +41,8 @@ Exit criteria:
 
 ## M3 - API Boundaries
 
+Status: Complete
+
 Exit criteria:
 
 - Public Client SDK consumption is isolated to Media modules.

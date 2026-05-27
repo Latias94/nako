@@ -14,7 +14,7 @@ The lane has been opened to reflect the accepted product direction:
 - Tauri is part of the frontend direction, but serious desktop playback still
   requires a later native playback-core spike.
 
-WMFT-020 and WMFT-030 are complete:
+WMFT-020 through WMFT-040 are complete:
 
 - `web/` exists as the product frontend package.
 - The stack is Vite 8, React 19, Tailwind v4, shadcn-style local primitives,
@@ -29,21 +29,22 @@ WMFT-020 and WMFT-030 are complete:
 - Browser smoke covered Media/Admin desktop and mobile viewports. A media CSS
   token self-reference found during smoke was fixed by splitting media tokens
   into `--media-*` and mapping them into `--app-*` inside the shell.
+- `web/src/api` now owns the release frontend API boundary: Media uses
+  `@nako/sdk`, Admin uses a generated `web/src/api/admin/generated/contract.ts`,
+  and both surfaces expose live/fixture section results without leaking tokens.
+- `nako-api` now checks that the Admin API TypeScript contract generated for
+  `web/` matches the generator output, alongside the old Admin validation copy.
 
 ## Next Recommended Task
 
-Run `WMFT-040`: connect API boundaries without collapsing Media and Admin data
-contracts.
+Run `WMFT-050`: implement the first API-backed Media Web product slice.
 
 Recommended implementation choices:
 
-- Create `web/src/api` modules that separate Public Client API reads from Admin
-  API operations.
-- Preserve disconnected fixture seams, but make live/fallback status explicit
-  and local to each route section.
-- Keep `apps/admin-web` validation until the new Admin route tests replace the
-  old surface responsibilities.
-- Do not import backend DTOs into shared UI primitives.
+- Move media routes from shell copy to `web/src/api/media` query data.
+- Keep playback tickets short-lived and never store bearer tokens in media URLs.
+- Add route-level loading, fallback, and error states before adding mutations.
+- Keep Admin API DTO imports out of Media routes and shared UI primitives.
 
 ## Key Constraints
 
@@ -77,6 +78,8 @@ Before coding, re-read:
 - ADR 0026, ADR 0027, ADR 0032, ADR 0036, ADR 0037
 - `apps/admin-web/src/surfaces/media/mediaDataSource.ts`
 - `apps/admin-web/src/surfaces/media/MediaPages.tsx`
+- `web/src/api/media/client.ts`
+- `web/src/api/admin/client.ts`
 - `repo-ref/nako-admin-web/app/page.tsx`
 - `repo-ref/nako-admin-web/components/nako/media-surface.tsx`
 - `repo-ref/nako-admin-web/components/nako/admin-surface.tsx`

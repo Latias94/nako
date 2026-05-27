@@ -6,6 +6,7 @@
   "description": "Nako product frontend and Tauri shell.",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
+    "generate:admin-api": "cargo run -q --manifest-path ../Cargo.toml -p nako-api --example emit-admin-typescript-contract -- --output src/api/admin/generated/contract.ts",
     "build": "tsc -b && vite build",
     "check": "tsc -b",
     "preview": "vite preview --host 127.0.0.1",
@@ -13,9 +14,10 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
-    "verify": "npm run check && npm run test && npm run build"
+    "verify": "npm run generate:admin-api && npm run check && npm run test && npm run build"
   },
   "dependencies": {
+    "@nako/sdk": "file:../sdk/typescript",
     "@tanstack/react-query": "^5.100.14",
     "@tanstack/react-router": "^1.170.8",
     "@tanstack/react-table": "^8.21.3",

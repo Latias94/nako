@@ -3,11 +3,12 @@
   "slug": "web-modern-frontend-and-tauri-foundation",
   "title": "Web Modern Frontend And Tauri Foundation",
   "status": "active",
-  "current_task": "WMFT-040",
+  "current_task": "WMFT-050",
   "completed_tasks": [
     "WMFT-010",
     "WMFT-020",
-    "WMFT-030"
+    "WMFT-030",
+    "WMFT-040"
   ],
   "updated": "2026-05-28",
   "scope_kind": "frontend_product_replacement",
@@ -63,18 +64,22 @@
     {
       "task": "WMFT-030",
       "summary": "Re-authored the route shell into Nako-owned visual tokens, active navigation, product-facing empty states, generated artwork placeholders, and desktop/mobile-smoked Media/Admin surfaces while preserving Tauri compile health."
+    },
+    {
+      "task": "WMFT-040",
+      "summary": "Added web/src/api Media and Admin boundaries, wired @nako/sdk for Public Client access, generated a web-local Admin API contract, added fixture/live section results, and extended Rust generator drift tests to cover the new contract copy."
     }
   ],
   "adr_refs": [
     "docs/adr/0024-inbound-token-authentication-boundary.md",
     "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
     "docs/adr/0027-admin-api-boundary-for-web-console.md",
-    "docs/adr/0032-shared-rust-client-core-transport-boundary.md",
-    "docs/adr/0036-browser-playback-ticket-transport.md",
-    "docs/adr/0037-local-credentials-and-opaque-sessions.md"
+    "docs/adr/0032-shared-rust-client-core-app-supplied-transport.md",
+    "docs/adr/0036-short-lived-browser-playback-tickets.md",
+    "docs/adr/0037-local-credential-and-session-auth.md"
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Continue with WMFT-040. Do not delete apps/admin-web before parity and validation replacement are documented. Do not ship the v0 Next.js app, TMDb API route, Vercel analytics, or bundled third-party media artwork."
+    "notes": "Continue with WMFT-050. Do not delete apps/admin-web before parity and validation replacement are documented. Do not ship the v0 Next.js app, TMDb API route, Vercel analytics, or bundled third-party media artwork."
   }
 }

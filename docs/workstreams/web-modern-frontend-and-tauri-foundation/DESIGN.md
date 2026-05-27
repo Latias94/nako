@@ -29,9 +29,9 @@ The product decision is now explicit:
 - `docs/adr/0024-inbound-token-authentication-boundary.md`
 - `docs/adr/0026-native-client-shells-with-shared-rust-client-core.md`
 - `docs/adr/0027-admin-api-boundary-for-web-console.md`
-- `docs/adr/0032-shared-rust-client-core-transport-boundary.md`
-- `docs/adr/0036-browser-playback-ticket-transport.md`
-- `docs/adr/0037-local-credentials-and-opaque-sessions.md`
+- `docs/adr/0032-shared-rust-client-core-app-supplied-transport.md`
+- `docs/adr/0036-short-lived-browser-playback-tickets.md`
+- `docs/adr/0037-local-credential-and-session-auth.md`
 - `docs/workstreams/admin-web-v2-product-architecture/`
 - `docs/workstreams/media-web-client-foundation/`
 - `docs/workstreams/browser-playback-auth-transport/`

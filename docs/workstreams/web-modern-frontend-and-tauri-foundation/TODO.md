@@ -49,7 +49,7 @@ Last updated: 2026-05-28
 
 ## M3 - API Boundary Integration
 
-- [ ] WMFT-040 [owner=unassigned] [deps=WMFT-020] [scope=web/src/api,sdk/typescript,crates/nako-api]
+- [x] WMFT-040 [owner=codex] [deps=WMFT-020] [scope=web/src/api,sdk/typescript,crates/nako-api]
   Goal: Connect the new frontend to Public Client SDK and generated Admin API
   contract through surface-specific data modules and fixture/live seams.
   Validation: SDK/Admin contract generation commands, npm --prefix web run
@@ -58,7 +58,11 @@ Last updated: 2026-05-28
   Review: Boundary review for Admin DTO leakage into Media routes, Public DTO
   leakage into Admin-only operations, and redaction safety.
   Evidence: web/src/api, generated contract path, EVIDENCE_AND_GATES.md.
-  Handoff: Keep `apps/admin-web` validation until equivalent `web/` tests pass.
+  Handoff: DONE. `web/` now depends on `@nako/sdk`, generates its own Admin
+  API contract at `web/src/api/admin/generated/contract.ts`, and has
+  surface-specific Media/Admin API modules with live/fixture section results.
+  Rust contract drift tests now compare the generator output against both
+  `apps/admin-web` and `web/`.
 
 ## M4 - Media Web First Product Slice
 
