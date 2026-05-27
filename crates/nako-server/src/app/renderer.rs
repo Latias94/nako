@@ -127,6 +127,15 @@ where
             .collect())
     }
 
+    pub(crate) async fn list_renderer_sessions_for_admin(
+        &self,
+        page: PageRequest,
+    ) -> Result<Vec<RendererSessionRecord>> {
+        self.store
+            .list_renderer_sessions(RendererSessionListFilter::default(), page)
+            .await
+    }
+
     pub(crate) async fn heartbeat_renderer(
         &self,
         request: RendererHeartbeatUpdate,

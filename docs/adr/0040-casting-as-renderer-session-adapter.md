@@ -59,6 +59,16 @@ Implementation order:
 4. Add DLNA/AirPlay only after discovery/network trust, URL exposure, and
    limited-control semantics are explicit.
 
+Admin diagnostics are part of the boundary. They expose redaction-safe renderer
+session summaries and adapter readiness, but not owner principals,
+capability JSON payloads, source locators, local paths, bearer tokens, cast
+ticket material, or protocol-private network addresses.
+
+External protocol readiness is not reported as a runtime failure while those
+adapters are intentionally unimplemented. `nako_remote_client` can be ready
+while Chromecast, DLNA, AirPlay, and non-direct cast-safe transport are
+reported as planned adapter follow-ons.
+
 Control commands should be typed and bounded:
 
 ```text
@@ -89,6 +99,8 @@ The server must verify:
   session, and ticket primitives.
 - Cast-safe URLs are treated as secrets and do not expose raw Source Locators or
   local paths.
+- Admin Web can show current renderer state and future adapter readiness without
+  implying that planned protocols are broken runtime dependencies.
 - SyncPlay/watch-party behavior remains a separate later lane; it can reuse
   renderer/session primitives when needed.
 

@@ -55,7 +55,11 @@ use nako_api::{
         AdminPlaybackSupportRedactionEvidence, AdminPlaybackSupportRuntimeEvidence,
         AdminPlaybackSupportSessionEvidence, AdminPlaybackSupportSourceEvidence,
         AdminPlaybackSupportSubject, AdminPlaybackThrottleDiagnostics,
-        AdminPlaybackTranscodeBudgetDiagnostics, AdminReplaceUserRolesRequest,
+        AdminPlaybackTranscodeBudgetDiagnostics, AdminRendererAdapterDiagnostics,
+        AdminRendererAdapterKind, AdminRendererAdapterReason, AdminRendererAdapterStatus,
+        AdminRendererControlPlane, AdminRendererDiscoveryMode, AdminRendererMediaTransport,
+        AdminRendererReadinessDiagnostics, AdminRendererRuntimeDiagnosticsResponse,
+        AdminRendererSessionDiagnostics, AdminRendererSessionSummary, AdminReplaceUserRolesRequest,
         AdminRuntimeConfigDiagnostics, AdminServerConfigDiagnosticsResponse,
         AdminSetLocalPasswordRequest, AdminStorageStagingDiagnosticsResponse,
         AdminStorageStagingRecord, AdminStorageStagingSummary, AdminTranscodeConfigDiagnostics,
@@ -73,8 +77,9 @@ use nako_api::{
 use nako_core::{
     ArtworkCandidateId, AutomationArtifactId, ImageKind, JobId, LibraryAccessPolicy,
     LibraryAccessPolicyFilter, LibraryAccessPolicyScope, LibraryId, ManagedArtworkArtifactId,
-    ManagedArtworkIngestId, MediaItemId, NakoError, PageRequest, ProviderMappingId, RoleAssignment,
-    User, UserId, UserInvitationId, UserPrincipalId, UserRole, UserStatus,
+    ManagedArtworkIngestId, MediaItemId, NakoError, PageRequest, PlaybackTargetKind,
+    PlaybackTargetTransportAuth, ProviderMappingId, RendererSessionRecord, RendererSessionState,
+    RoleAssignment, User, UserId, UserInvitationId, UserPrincipalId, UserRole, UserStatus,
 };
 use nako_db::DatabaseBackendCapabilities;
 use nako_transcode::{
@@ -262,6 +267,10 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/admin/v1/playback/sessions",
             get(list_admin_playback_sessions),
+        )
+        .route(
+            "/admin/v1/playback/renderers",
+            get(get_admin_playback_renderers),
         )
         .route_layer(middleware::from_fn(require_admin_principal))
 }
@@ -1796,6 +1805,21 @@ pub(super) async fn get_admin_playback_runtime(
     Json(admin_playback_runtime_diagnostics(&app).await)
 }
 
+pub(super) async fn get_admin_playback_renderers(
+    State(app): State<NakoApp>,
+    Query(page): Query<PageQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let page = page.try_into()?;
+    let sessions = app
+        .renderer()
+        .list_renderer_sessions_for_admin(page)
+        .await?;
+    let returned = sessions.len();
+    let diagnostics = admin_renderer_runtime_diagnostics(sessions, page, returned);
+
+    Ok(Json(diagnostics))
+}
+
 pub(super) async fn get_admin_playback_support_evidence(
     State(app): State<NakoApp>,
     Query(query): Query<PlaybackSupportEvidenceQuery>,
@@ -2039,6 +2063,117 @@ fn playback_runtime_status(status: TranscodeRuntimeInventoryStatus) -> AdminPlay
         TranscodeRuntimeInventoryStatus::Ready => AdminPlaybackRuntimeStatus::Ready,
         TranscodeRuntimeInventoryStatus::Degraded => AdminPlaybackRuntimeStatus::Degraded,
     }
+}
+
+fn admin_renderer_runtime_diagnostics(
+    sessions: Vec<RendererSessionRecord>,
+    page: PageRequest,
+    returned: usize,
+) -> AdminRendererRuntimeDiagnosticsResponse {
+    let now_ms = crate::app::current_time_ms().unwrap_or(i64::MAX);
+    let sessions = sessions
+        .into_iter()
+        .map(|session| AdminRendererSessionDiagnostics::from_record(session, now_ms))
+        .collect::<Vec<_>>();
+    let summary = renderer_session_summary(&sessions);
+
+    AdminRendererRuntimeDiagnosticsResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        readiness: AdminRendererReadinessDiagnostics::ready(),
+        summary,
+        adapters: renderer_adapter_diagnostics(),
+        sessions,
+        page: page_info_from_request(page, returned),
+    }
+}
+
+fn renderer_session_summary(
+    sessions: &[AdminRendererSessionDiagnostics],
+) -> AdminRendererSessionSummary {
+    AdminRendererSessionSummary {
+        returned_sessions: usize_to_u32(sessions.len()),
+        online_sessions: usize_to_u32(
+            sessions
+                .iter()
+                .filter(|session| session.state == RendererSessionState::Online)
+                .count(),
+        ),
+        offline_sessions: usize_to_u32(
+            sessions
+                .iter()
+                .filter(|session| session.state == RendererSessionState::Offline)
+                .count(),
+        ),
+        revoked_sessions: usize_to_u32(
+            sessions
+                .iter()
+                .filter(|session| session.state == RendererSessionState::Revoked)
+                .count(),
+        ),
+        expired_sessions: usize_to_u32(sessions.iter().filter(|session| session.expired).count()),
+        active_playback_sessions: usize_to_u32(
+            sessions
+                .iter()
+                .filter(|session| session.active_playback_session_id.is_some())
+                .count(),
+        ),
+    }
+}
+
+fn renderer_adapter_diagnostics() -> Vec<AdminRendererAdapterDiagnostics> {
+    vec![
+        AdminRendererAdapterDiagnostics {
+            adapter: AdminRendererAdapterKind::NakoRemoteClient,
+            target_kind: PlaybackTargetKind::NakoRemoteClient,
+            status: AdminRendererAdapterStatus::Ready,
+            reason: AdminRendererAdapterReason::NakoRemoteClientReady,
+            control_plane: AdminRendererControlPlane::PublicClientPolling,
+            discovery: AdminRendererDiscoveryMode::ClientRegistration,
+            media_transport: AdminRendererMediaTransport::AuthenticatedNakoClientStream,
+            transport_auth: PlaybackTargetTransportAuth::Bearer,
+        },
+        AdminRendererAdapterDiagnostics {
+            adapter: AdminRendererAdapterKind::NakoRemoteClientCastSafeTransport,
+            target_kind: PlaybackTargetKind::NakoRemoteClient,
+            status: AdminRendererAdapterStatus::Planned,
+            reason: AdminRendererAdapterReason::CastSafeTransportPending,
+            control_plane: AdminRendererControlPlane::PublicClientPolling,
+            discovery: AdminRendererDiscoveryMode::ClientRegistration,
+            media_transport: AdminRendererMediaTransport::CastSafeUrl,
+            transport_auth: PlaybackTargetTransportAuth::CastTicket,
+        },
+        AdminRendererAdapterDiagnostics {
+            adapter: AdminRendererAdapterKind::Chromecast,
+            target_kind: PlaybackTargetKind::Chromecast,
+            status: AdminRendererAdapterStatus::Planned,
+            reason: AdminRendererAdapterReason::ChromecastAdapterPlanned,
+            control_plane: AdminRendererControlPlane::AdapterProcess,
+            discovery: AdminRendererDiscoveryMode::LocalNetworkDiscovery,
+            media_transport: AdminRendererMediaTransport::CastSafeUrl,
+            transport_auth: PlaybackTargetTransportAuth::CastTicket,
+        },
+        AdminRendererAdapterDiagnostics {
+            adapter: AdminRendererAdapterKind::DlnaRenderer,
+            target_kind: PlaybackTargetKind::DlnaRenderer,
+            status: AdminRendererAdapterStatus::Planned,
+            reason: AdminRendererAdapterReason::DlnaAdapterPlanned,
+            control_plane: AdminRendererControlPlane::AdapterProcess,
+            discovery: AdminRendererDiscoveryMode::LocalNetworkDiscovery,
+            media_transport: AdminRendererMediaTransport::CastSafeUrl,
+            transport_auth: PlaybackTargetTransportAuth::CastTicket,
+        },
+        AdminRendererAdapterDiagnostics {
+            adapter: AdminRendererAdapterKind::Airplay,
+            target_kind: PlaybackTargetKind::Airplay,
+            status: AdminRendererAdapterStatus::Planned,
+            reason: AdminRendererAdapterReason::AirplayAdapterPlanned,
+            control_plane: AdminRendererControlPlane::AdapterProcess,
+            discovery: AdminRendererDiscoveryMode::PlatformDiscovery,
+            media_transport: AdminRendererMediaTransport::NativeProtocolStream,
+            transport_auth: PlaybackTargetTransportAuth::CastTicket,
+        },
+    ]
 }
 
 fn playback_support_runtime_evidence(

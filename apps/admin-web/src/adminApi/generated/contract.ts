@@ -43,6 +43,7 @@ export const NAKO_ADMIN_ROUTES = {
   libraryNfoExport: "/admin/v1/libraries/{library_id}/nfo/export",
   playbackSessions: "/admin/v1/playback/sessions",
   playbackRuntime: "/admin/v1/playback/runtime",
+  playbackRenderers: "/admin/v1/playback/renderers",
   playbackSupport: "/admin/v1/playback/support",
   addonRuntimeReadiness: "/admin/v1/addons/{addon_id}/runtime-readiness",
   addonRoutingPlans: "/admin/v1/addons/{addon_id}/routing-plans",
@@ -1345,6 +1346,126 @@ export interface AdminPlaybackRuntimeDiagnosticsResponse {
     enabled: boolean;
     delay_ms: number;
   };
+}
+
+export type AdminRendererReadinessStatus = "ready" | "degraded" | "unavailable";
+
+export type AdminRendererReadinessReason =
+  | "ready"
+  | "renderer_repository_ready"
+  | "nako_remote_client_adapter_ready"
+  | "renderer_repository_unavailable";
+
+export type AdminRendererReadinessCheckName =
+  | "renderer_repository"
+  | "nako_remote_client_adapter";
+
+export type AdminRendererTargetKind =
+  | "browser"
+  | "native_desktop"
+  | "native_mobile"
+  | "nako_remote_client"
+  | "chromecast"
+  | "dlna_renderer"
+  | "airplay";
+
+export type AdminRendererNetworkScope = "local" | "remote" | "unknown";
+
+export type AdminRendererTransportAuth =
+  | "bearer"
+  | "browser_ticket"
+  | "cast_ticket"
+  | "none";
+
+export type AdminRendererSessionState = "online" | "offline" | "revoked";
+
+export type AdminRendererControlCommand =
+  | "show_item"
+  | "play"
+  | "pause"
+  | "resume"
+  | "seek"
+  | "stop"
+  | "set_volume";
+
+export type AdminRendererAdapterKind =
+  | "nako_remote_client"
+  | "nako_remote_client_cast_safe_transport"
+  | "chromecast"
+  | "dlna_renderer"
+  | "airplay";
+
+export type AdminRendererAdapterStatus = "ready" | "planned";
+
+export type AdminRendererAdapterReason =
+  | "nako_remote_client_ready"
+  | "cast_safe_transport_pending"
+  | "chromecast_adapter_planned"
+  | "dlna_adapter_planned"
+  | "airplay_adapter_planned";
+
+export type AdminRendererControlPlane =
+  | "public_client_polling"
+  | "adapter_process";
+
+export type AdminRendererDiscoveryMode =
+  | "client_registration"
+  | "local_network_discovery"
+  | "platform_discovery";
+
+export type AdminRendererMediaTransport =
+  | "authenticated_nako_client_stream"
+  | "cast_safe_url"
+  | "native_protocol_stream";
+
+export interface AdminRendererRuntimeDiagnosticsResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  readiness: {
+    status: AdminRendererReadinessStatus;
+    reason: AdminRendererReadinessReason;
+    checks: Array<{
+      name: AdminRendererReadinessCheckName;
+      status: AdminRendererReadinessStatus;
+      reason: AdminRendererReadinessReason;
+    }>;
+  };
+  summary: {
+    returned_sessions: number;
+    online_sessions: number;
+    offline_sessions: number;
+    revoked_sessions: number;
+    expired_sessions: number;
+    active_playback_sessions: number;
+  };
+  adapters: Array<{
+    adapter: AdminRendererAdapterKind;
+    target_kind: AdminRendererTargetKind;
+    status: AdminRendererAdapterStatus;
+    reason: AdminRendererAdapterReason;
+    control_plane: AdminRendererControlPlane;
+    discovery: AdminRendererDiscoveryMode;
+    media_transport: AdminRendererMediaTransport;
+    transport_auth: AdminRendererTransportAuth;
+  }>;
+  sessions: Array<{
+    id: string;
+    target_kind: AdminRendererTargetKind;
+    display_name: string;
+    network_scope: AdminRendererNetworkScope;
+    transport_auth: AdminRendererTransportAuth;
+    state: AdminRendererSessionState;
+    active_playback_session_id: string | null;
+    supported_commands: AdminRendererControlCommand[];
+    has_media_capabilities: boolean;
+    direct_play_supported: boolean;
+    expired: boolean;
+    last_seen_at_ms: number;
+    expires_at_ms: number | null;
+    created_at: string;
+    updated_at: string;
+  }>;
+  page: PageInfo;
 }
 
 export interface AdminPlaybackRuntimeSettingsPayload {

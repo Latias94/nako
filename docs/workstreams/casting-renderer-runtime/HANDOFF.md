@@ -1,6 +1,6 @@
 # Casting Renderer Runtime - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-27
 
 ## Current State
@@ -35,17 +35,18 @@ queues a renderer `play` command, and attaches the session to the renderer. If
 remote control/cast/playback policy denies the action, tests prove no Playback
 Session, Transcode Session, ticket, or Renderer Command is created.
 
+CAST-060 is complete. Admin now has
+`GET /admin/v1/playback/renderers` for redaction-safe renderer runtime
+diagnostics. The response reports readiness, session summary, safe session
+facts, and adapter readiness. `nako_remote_client` over bearer auth is ready;
+non-direct Nako renderer transport, Chromecast, DLNA, and AirPlay are reported
+as planned adapter entries, not broken runtime dependencies. Admin Web
+generated contract output includes `playbackRenderers`. Protocol-specific
+follow-ons are defined in `ADAPTER_FOLLOW_ONS.md`.
+
 ## Active Task
 
-- Task ID: CAST-060
-- Owner: codex
-- Files: `crates/nako-api/src`, `crates/nako-server/src/http/admin.rs`,
-  `docs/workstreams/casting-renderer-runtime`
-- Validation: `cargo nextest run -p nako-api -E 'test(admin_contract) | test(public_openapi) | test(sdk)' --no-fail-fast`;
-  `cargo nextest run -p nako-server renderer --no-fail-fast`
-- Status: READY
-- Review: pending
-- Evidence: pending
+None. This workstream is closed.
 
 ## Decisions Since Last Update
 
@@ -63,13 +64,18 @@ Session, Transcode Session, ticket, or Renderer Command is created.
   through `/renderers`.
 - CAST-050 kept remux/HLS renderer transport out of the play command path until
   cast-safe URLs and target-specific adapter contracts are explicit.
+- CAST-060 made Admin renderer diagnostics part of the runtime boundary and
+  split protocol-specific follow-ons. Planned adapters are visible to Admin Web
+  without being treated as runtime readiness failures.
 
 ## Blockers
 
-- None.
+- None for this closed workstream.
+- Non-direct renderer transport and external protocols are intentionally split
+  to follow-ons.
 
 ## Next Recommended Action
 
-Start CAST-060 by adding redaction-safe Admin diagnostics for renderer runtime
-state/readiness and splitting external adapter follow-ons for Chromecast, DLNA,
-AirPlay, plus non-direct Nako renderer transport.
+Start a new bounded lane from `ADAPTER_FOLLOW_ONS.md` when ready. Recommended
+order: Nako remote-client non-direct transport, then Chromecast, then DLNA,
+then AirPlay.

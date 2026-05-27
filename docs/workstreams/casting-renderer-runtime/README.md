@@ -1,6 +1,6 @@
 # Casting Renderer Runtime
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-27
 
 This workstream implements casting now that playback policy and renderer target
@@ -14,9 +14,13 @@ Authoritative docs:
 - `MILESTONES.md`
 - `EVIDENCE_AND_GATES.md`
 - `HANDOFF.md`
+- `ADAPTER_FOLLOW_ONS.md`
+- `CLOSEOUT.md`
 - `WORKSTREAM.json`
 - `docs/adr/0040-casting-as-renderer-session-adapter.md`
 
-First executable task: `CAST-020`, characterization and readiness tests for
-Playback Session, browser-ticket, Public Client session heartbeat, and
-remote-control gaps.
+Outcome: Nako-to-Nako casting is implemented through Renderer Sessions,
+Renderer Commands, policy-checked play command flow, Public Client renderer
+routes, and redaction-safe Admin renderer diagnostics. Chromecast, DLNA,
+AirPlay, and non-direct cast-safe renderer transport are split to follow-ons in
+`ADAPTER_FOLLOW_ONS.md`.

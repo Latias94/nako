@@ -1,6 +1,6 @@
 # Casting Renderer Runtime
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-27
 
 ## Why This Lane Exists
@@ -29,6 +29,7 @@ effective playback policy and renderer target vocabulary.
 - `docs/workstreams/network-access-boundary/`
 - `docs/workstreams/browser-playback-auth-transport/`
 - `docs/workstreams/playback-transcode-policy-deepening/`
+- `docs/workstreams/casting-renderer-runtime/ADAPTER_FOLLOW_ONS.md`
 
 ## Jellyfin-Class Feature Pressure
 
@@ -73,6 +74,8 @@ When this lane closes:
   tasks unless this lane reaches them after the Nako-to-Nako proof.
 - Admin diagnostics can show redaction-safe active renderer sessions,
   controllability, and adapter readiness.
+
+Closeout status: satisfied on 2026-05-27. See `CLOSEOUT.md`.
 
 ## In Scope
 
@@ -156,6 +159,10 @@ Adapters:
 - `chromecast`: later, receiver application plus cast-safe URL behavior.
 - `dlna_renderer`: later, discovery/control adapter with limited command set.
 - `airplay`: later, protocol-specific adapter after network/security review.
+
+`ADAPTER_FOLLOW_ONS.md` is the task seed for protocol-specific lanes. It keeps
+Chromecast, DLNA, AirPlay, and non-direct Nako renderer transport behind the
+same adapter contract instead of adding protocol branches to playback routes.
 
 ### Security Boundary
 

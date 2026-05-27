@@ -1,10 +1,17 @@
-use nako_api::public_client::{
-    ClientPlaybackCapabilitiesDto, ClientPlaybackTargetKind, ClientPlaybackTargetNetworkScope,
-    ClientPlaybackTargetTransportAuth, ClientRendererCommandState,
-    ClientRendererControlCapabilitiesDto, ClientRendererControlCommand, ClientRendererSessionState,
-    ErrorResponse, RendererCommandCompletionRequest, RendererCommandPollResponse,
-    RendererPlayCommandRequest, RendererPlayCommandResponse, RendererRegistrationRequest,
-    RendererSessionResponse, RendererSessionsResponse,
+use nako_api::{
+    admin::{
+        AdminRendererAdapterKind, AdminRendererAdapterStatus, AdminRendererControlPlane,
+        AdminRendererDiscoveryMode, AdminRendererMediaTransport, AdminRendererReadinessReason,
+        AdminRendererReadinessStatus, AdminRendererRuntimeDiagnosticsResponse,
+    },
+    public_client::{
+        ClientPlaybackCapabilitiesDto, ClientPlaybackTargetKind, ClientPlaybackTargetNetworkScope,
+        ClientPlaybackTargetTransportAuth, ClientRendererCommandState,
+        ClientRendererControlCapabilitiesDto, ClientRendererControlCommand,
+        ClientRendererSessionState, ErrorResponse, RendererCommandCompletionRequest,
+        RendererCommandPollResponse, RendererPlayCommandRequest, RendererPlayCommandResponse,
+        RendererRegistrationRequest, RendererSessionResponse, RendererSessionsResponse,
+    },
 };
 use nako_core::{
     RendererCommandListFilter, RendererControlCommand, RendererSessionId,
@@ -253,6 +260,121 @@ async fn renderer_play_command_denied_by_policy_creates_no_runtime_records() {
             .unwrap()
             .is_empty()
     );
+}
+
+#[tokio::test]
+async fn admin_v1_playback_renderers_reports_safe_diagnostics_and_adapter_readiness() {
+    let (_temp, app, _source, _store) =
+        app_with_media_source_config("movie.mp4", b"movie bytes", |_| {}).await;
+    let router = build_router(app);
+    let registered: RendererSessionResponse = request_body_json(
+        &router,
+        Method::POST,
+        "/renderers",
+        &renderer_registration_request("Living Room Desktop"),
+    )
+    .await;
+
+    let diagnostics: AdminRendererRuntimeDiagnosticsResponse =
+        request_json(&router, Method::GET, "/admin/v1/playback/renderers").await;
+
+    assert_eq!(
+        diagnostics.admin_api_version,
+        nako_api::admin::ADMIN_API_VERSION
+    );
+    assert_eq!(
+        diagnostics.public_api_version,
+        nako_api::public_client::API_VERSION
+    );
+    assert_eq!(
+        diagnostics.readiness.status,
+        AdminRendererReadinessStatus::Ready
+    );
+    assert_eq!(
+        diagnostics.readiness.reason,
+        AdminRendererReadinessReason::RendererRepositoryReady
+    );
+    assert_eq!(diagnostics.summary.returned_sessions, 1);
+    assert_eq!(diagnostics.summary.online_sessions, 1);
+    assert_eq!(diagnostics.summary.offline_sessions, 0);
+    assert_eq!(diagnostics.summary.revoked_sessions, 0);
+    assert_eq!(diagnostics.summary.expired_sessions, 0);
+    assert_eq!(diagnostics.summary.active_playback_sessions, 0);
+    assert_eq!(diagnostics.page.returned, 1);
+
+    let nako_adapter = diagnostics
+        .adapters
+        .iter()
+        .find(|adapter| adapter.adapter == AdminRendererAdapterKind::NakoRemoteClient)
+        .expect("nako remote client adapter readiness is reported");
+    assert_eq!(nako_adapter.status, AdminRendererAdapterStatus::Ready);
+    assert_eq!(
+        nako_adapter.control_plane,
+        AdminRendererControlPlane::PublicClientPolling
+    );
+    assert_eq!(
+        nako_adapter.discovery,
+        AdminRendererDiscoveryMode::ClientRegistration
+    );
+    assert_eq!(
+        nako_adapter.media_transport,
+        AdminRendererMediaTransport::AuthenticatedNakoClientStream
+    );
+
+    for planned in [
+        AdminRendererAdapterKind::NakoRemoteClientCastSafeTransport,
+        AdminRendererAdapterKind::Chromecast,
+        AdminRendererAdapterKind::DlnaRenderer,
+        AdminRendererAdapterKind::Airplay,
+    ] {
+        assert!(
+            diagnostics
+                .adapters
+                .iter()
+                .any(|adapter| adapter.adapter == planned
+                    && adapter.status == AdminRendererAdapterStatus::Planned),
+            "expected planned adapter diagnostics for {planned:?}"
+        );
+    }
+
+    let session = diagnostics
+        .sessions
+        .iter()
+        .find(|session| session.id.to_string() == registered.renderer.id)
+        .expect("registered renderer is listed for admin diagnostics");
+    assert_eq!(session.display_name, "Living Room Desktop");
+    assert_eq!(
+        session.target_kind,
+        nako_core::PlaybackTargetKind::NakoRemoteClient
+    );
+    assert_eq!(
+        session.transport_auth,
+        nako_core::PlaybackTargetTransportAuth::Bearer
+    );
+    assert!(session.direct_play_supported);
+    assert!(session.has_media_capabilities);
+    assert!(
+        session
+            .supported_commands
+            .contains(&RendererControlCommand::Play)
+    );
+
+    let body = serde_json::to_string(&diagnostics).unwrap();
+    for forbidden in [
+        "principal",
+        "payload_json",
+        "media_capabilities_json",
+        "source_locator",
+        "local_path",
+        "bearer_token",
+        "access_token",
+        "token_value",
+    ] {
+        assert!(
+            !body.contains(forbidden),
+            "renderer diagnostics leaked forbidden term: {forbidden}"
+        );
+    }
 }
 
 #[tokio::test]

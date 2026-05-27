@@ -2,14 +2,16 @@
   "schema_version": 1,
   "slug": "casting-renderer-runtime",
   "title": "Casting Renderer Runtime",
-  "status": "active",
-  "current_task": "CAST-060",
+  "status": "closed",
+  "current_task": null,
   "completed_tasks": [
     "CAST-010",
     "CAST-020",
     "CAST-030",
     "CAST-040",
-    "CAST-050"
+    "CAST-050",
+    "CAST-060",
+    "CAST-070"
   ],
   "updated": "2026-05-27",
   "scope_kind": "execution",
@@ -38,6 +40,14 @@
     {
       "role": "handoff",
       "path": "docs/workstreams/casting-renderer-runtime/HANDOFF.md"
+    },
+    {
+      "role": "adapter_follow_ons",
+      "path": "docs/workstreams/casting-renderer-runtime/ADAPTER_FOLLOW_ONS.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/casting-renderer-runtime/CLOSEOUT.md"
     }
   ],
   "gates": [
@@ -68,6 +78,14 @@
     {
       "task": "CAST-050",
       "summary": "Added policy-checked Nako renderer play command flow that creates a direct-play Playback Session, queues a renderer play command, attaches the session to the renderer, and proves denied policy/control creates no playback, transcode, ticket, or command runtime records."
+    },
+    {
+      "task": "CAST-060",
+      "summary": "Added redaction-safe Admin renderer runtime diagnostics, Admin Web contract coverage, and protocol adapter follow-on contracts for Nako non-direct transport, Chromecast, DLNA, and AirPlay."
+    },
+    {
+      "task": "CAST-070",
+      "summary": "Closed the casting renderer runtime lane with fresh playback/renderer, Public Client, formatting, whitespace, and JSON gates, leaving external protocol work split to adapter follow-ons."
     }
   ],
   "adr_refs": [
@@ -76,7 +94,7 @@
     "docs/adr/0040-casting-as-renderer-session-adapter.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "CAST-050 shipped the policy-checked Nako renderer play command flow. Continue with CAST-060 to add redaction-safe diagnostics and split external protocol adapter follow-ons."
+    "default_action": "closed",
+    "notes": "Casting renderer runtime is complete for Nako-to-Nako casting, renderer sessions, commands, Admin diagnostics, and adapter contracts. Start new bounded lanes from ADAPTER_FOLLOW_ONS.md for non-direct Nako transport, Chromecast, DLNA, or AirPlay."
   }
 }

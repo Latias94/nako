@@ -1549,6 +1549,7 @@ mod tests {
             "/admin/v1/artwork/ingests/process-next",
             "/admin/v1/playback/runtime",
             "/admin/v1/playback/sessions",
+            "/admin/v1/playback/renderers",
             "/admin/v1/storage/staging",
             "/admin/v1/system/config",
             "/storage/backends",

@@ -1,6 +1,6 @@
 # Casting Renderer Runtime - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-27
 
 ## M0 - Workstream Open
@@ -89,19 +89,24 @@ Last updated: 2026-05-27
 
 ## M5 - Diagnostics And External Adapter Follow-Ons
 
-- [ ] CAST-060 [owner=codex] [deps=CAST-050] [scope=crates/nako-api/src,crates/nako-server/src/http/admin.rs,docs/workstreams/casting-renderer-runtime]
+- [x] CAST-060 [owner=codex] [deps=CAST-050] [scope=crates/nako-api/src,crates/nako-server/src/http/admin.rs,docs/workstreams/casting-renderer-runtime]
   Goal: Add redaction-safe Admin diagnostics/readiness and split Chromecast,
   DLNA, and AirPlay follow-ons with concrete adapter contracts.
   Validation: `cargo nextest run -p nako-api -E 'test(admin_contract) | test(public_openapi) | test(sdk)' --no-fail-fast`;
   `cargo nextest run -p nako-server renderer --no-fail-fast`.
   Review: Diagnostics expose adapter readiness and active renderer state, not
   secrets or private network details.
-  Evidence: Admin/API tests and workstream handoff notes.
-  Handoff: CAST-070 closes or opens protocol-specific workstreams.
+  Evidence: Added `GET /admin/v1/playback/renderers` with safe runtime
+  readiness, session summary, adapter readiness, and generated Admin Web
+  contract coverage. Added API/server redaction tests and
+  `ADAPTER_FOLLOW_ONS.md` for Nako non-direct transport, Chromecast, DLNA, and
+  AirPlay adapter contracts. Gates passed: API admin/openapi/sdk 22 passed/39
+  skipped; server renderer 6 passed/358 skipped.
+  Handoff: CAST-070 can close the lane or open protocol-specific workstreams.
 
 ## M6 - Closeout
 
-- [ ] CAST-070 [owner=planner] [deps=CAST-060] [scope=docs/workstreams/casting-renderer-runtime]
+- [x] CAST-070 [owner=planner] [deps=CAST-060] [scope=docs/workstreams/casting-renderer-runtime]
   Goal: Verify casting runtime, update evidence, and close/split remaining
   external protocol adapter work.
   Validation: `cargo nextest run -p nako-server -E 'test(playback) | test(renderer)' --no-fail-fast`;
@@ -110,6 +115,9 @@ Last updated: 2026-05-27
   `git diff --check`;
   `python -m json.tool docs/workstreams/casting-renderer-runtime/WORKSTREAM.json`.
   Review: `review-workstream` must find no blocking findings.
-  Evidence: `EVIDENCE_AND_GATES.md`; `WORKSTREAM.json`; `HANDOFF.md`.
-  Handoff: External adapter lanes can start from the accepted Renderer Adapter
-  contract.
+  Evidence: `CLOSEOUT.md`; `EVIDENCE_AND_GATES.md`; `WORKSTREAM.json`;
+  `HANDOFF.md`. Gates passed: server playback/renderer 82 passed/282 skipped;
+  Public Client protocol 11 passed; `cargo fmt --all -- --check` passed;
+  `git diff --check` passed; `WORKSTREAM.json` parsed.
+  Handoff: DONE. Lane closed with protocol-specific follow-ons split in
+  `ADAPTER_FOLLOW_ONS.md`.

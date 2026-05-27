@@ -1,7 +1,9 @@
 use nako_client_protocol::PageInfo;
 use nako_core::{
     LibraryId, MediaItemId, MediaSource, MediaSourceId, PlaybackPermission, PlaybackSessionId,
-    PlaybackSessionMode, PlaybackSessionRecord, PlaybackSessionState, TranscodeFailureCategory,
+    PlaybackSessionMode, PlaybackSessionRecord, PlaybackSessionState, PlaybackTargetKind,
+    PlaybackTargetNetworkScope, PlaybackTargetTransportAuth, RendererControlCommand,
+    RendererSessionId, RendererSessionRecord, RendererSessionState, TranscodeFailureCategory,
     TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
 };
 use nako_transcode::{
@@ -74,6 +76,217 @@ pub struct AdminPlaybackRuntimeDiagnosticsResponse {
     pub staging: AdminPlaybackStagingDiagnostics,
     pub artifact_lifecycle: AdminPlaybackArtifactLifecycleDiagnostics,
     pub throttle: AdminPlaybackThrottleDiagnostics,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminRendererRuntimeDiagnosticsResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub readiness: AdminRendererReadinessDiagnostics,
+    pub summary: AdminRendererSessionSummary,
+    pub adapters: Vec<AdminRendererAdapterDiagnostics>,
+    pub sessions: Vec<AdminRendererSessionDiagnostics>,
+    pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminRendererReadinessDiagnostics {
+    pub status: AdminRendererReadinessStatus,
+    pub reason: AdminRendererReadinessReason,
+    pub checks: Vec<AdminRendererReadinessCheck>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminRendererReadinessStatus {
+    Ready,
+    Degraded,
+    Unavailable,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminRendererReadinessReason {
+    Ready,
+    RendererRepositoryReady,
+    NakoRemoteClientAdapterReady,
+    RendererRepositoryUnavailable,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminRendererReadinessCheck {
+    pub name: AdminRendererReadinessCheckName,
+    pub status: AdminRendererReadinessStatus,
+    pub reason: AdminRendererReadinessReason,
+}
+
+impl AdminRendererReadinessCheck {
+    #[must_use]
+    pub const fn ready(
+        name: AdminRendererReadinessCheckName,
+        reason: AdminRendererReadinessReason,
+    ) -> Self {
+        Self {
+            name,
+            status: AdminRendererReadinessStatus::Ready,
+            reason,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminRendererReadinessCheckName {
+    RendererRepository,
+    NakoRemoteClientAdapter,
+}
+
+impl AdminRendererReadinessDiagnostics {
+    #[must_use]
+    pub fn ready() -> Self {
+        Self {
+            status: AdminRendererReadinessStatus::Ready,
+            reason: AdminRendererReadinessReason::RendererRepositoryReady,
+            checks: vec![
+                AdminRendererReadinessCheck::ready(
+                    AdminRendererReadinessCheckName::RendererRepository,
+                    AdminRendererReadinessReason::RendererRepositoryReady,
+                ),
+                AdminRendererReadinessCheck::ready(
+                    AdminRendererReadinessCheckName::NakoRemoteClientAdapter,
+                    AdminRendererReadinessReason::NakoRemoteClientAdapterReady,
+                ),
+            ],
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminRendererSessionSummary {
+    pub returned_sessions: u32,
+    pub online_sessions: u32,
+    pub offline_sessions: u32,
+    pub revoked_sessions: u32,
+    pub expired_sessions: u32,
+    pub active_playback_sessions: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminRendererSessionDiagnostics {
+    pub id: RendererSessionId,
+    pub target_kind: PlaybackTargetKind,
+    pub display_name: String,
+    pub network_scope: PlaybackTargetNetworkScope,
+    pub transport_auth: PlaybackTargetTransportAuth,
+    pub state: RendererSessionState,
+    pub active_playback_session_id: Option<PlaybackSessionId>,
+    pub supported_commands: Vec<RendererControlCommand>,
+    pub has_media_capabilities: bool,
+    pub direct_play_supported: bool,
+    pub expired: bool,
+    pub last_seen_at_ms: i64,
+    pub expires_at_ms: Option<i64>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl AdminRendererSessionDiagnostics {
+    #[must_use]
+    pub fn from_record(session: RendererSessionRecord, now_ms: i64) -> Self {
+        let direct_play_supported = session
+            .media_capabilities_json
+            .as_deref()
+            .and_then(|value| serde_json::from_str::<serde_json::Value>(value).ok())
+            .and_then(|value| {
+                value
+                    .get("direct_play")
+                    .and_then(serde_json::Value::as_bool)
+            })
+            .unwrap_or(false);
+        let expired = session
+            .expires_at_ms
+            .is_some_and(|expires_at_ms| expires_at_ms <= now_ms);
+
+        Self {
+            id: session.id,
+            target_kind: session.target_kind,
+            display_name: session.display_name,
+            network_scope: session.network_scope,
+            transport_auth: session.transport_auth,
+            state: session.state,
+            active_playback_session_id: session.active_playback_session_id,
+            supported_commands: session.control_capabilities.commands,
+            has_media_capabilities: session.media_capabilities_json.is_some(),
+            direct_play_supported,
+            expired,
+            last_seen_at_ms: session.last_seen_at_ms,
+            expires_at_ms: session.expires_at_ms,
+            created_at: session.created_at,
+            updated_at: session.updated_at,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminRendererAdapterDiagnostics {
+    pub adapter: AdminRendererAdapterKind,
+    pub target_kind: PlaybackTargetKind,
+    pub status: AdminRendererAdapterStatus,
+    pub reason: AdminRendererAdapterReason,
+    pub control_plane: AdminRendererControlPlane,
+    pub discovery: AdminRendererDiscoveryMode,
+    pub media_transport: AdminRendererMediaTransport,
+    pub transport_auth: PlaybackTargetTransportAuth,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminRendererAdapterKind {
+    NakoRemoteClient,
+    NakoRemoteClientCastSafeTransport,
+    Chromecast,
+    DlnaRenderer,
+    Airplay,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminRendererAdapterStatus {
+    Ready,
+    Planned,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminRendererAdapterReason {
+    NakoRemoteClientReady,
+    CastSafeTransportPending,
+    ChromecastAdapterPlanned,
+    DlnaAdapterPlanned,
+    AirplayAdapterPlanned,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminRendererControlPlane {
+    PublicClientPolling,
+    AdapterProcess,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminRendererDiscoveryMode {
+    ClientRegistration,
+    LocalNetworkDiscovery,
+    PlatformDiscovery,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminRendererMediaTransport {
+    AuthenticatedNakoClientStream,
+    CastSafeUrl,
+    NativeProtocolStream,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -900,5 +1113,99 @@ mod tests {
         assert!(!body.contains("output_path"));
         assert!(!body.contains("secret"));
         assert!(!body.contains("token"));
+    }
+
+    #[test]
+    fn admin_renderer_runtime_diagnostics_serializes_adapter_state_without_secrets() {
+        let response = AdminRendererRuntimeDiagnosticsResponse {
+            admin_api_version: ADMIN_API_VERSION.to_owned(),
+            public_api_version: API_VERSION.to_owned(),
+            readiness: AdminRendererReadinessDiagnostics::ready(),
+            summary: AdminRendererSessionSummary {
+                returned_sessions: 1,
+                online_sessions: 1,
+                offline_sessions: 0,
+                revoked_sessions: 0,
+                expired_sessions: 0,
+                active_playback_sessions: 0,
+            },
+            adapters: vec![
+                AdminRendererAdapterDiagnostics {
+                    adapter: AdminRendererAdapterKind::NakoRemoteClient,
+                    target_kind: PlaybackTargetKind::NakoRemoteClient,
+                    status: AdminRendererAdapterStatus::Ready,
+                    reason: AdminRendererAdapterReason::NakoRemoteClientReady,
+                    control_plane: AdminRendererControlPlane::PublicClientPolling,
+                    discovery: AdminRendererDiscoveryMode::ClientRegistration,
+                    media_transport: AdminRendererMediaTransport::AuthenticatedNakoClientStream,
+                    transport_auth: PlaybackTargetTransportAuth::Bearer,
+                },
+                AdminRendererAdapterDiagnostics {
+                    adapter: AdminRendererAdapterKind::Chromecast,
+                    target_kind: PlaybackTargetKind::Chromecast,
+                    status: AdminRendererAdapterStatus::Planned,
+                    reason: AdminRendererAdapterReason::ChromecastAdapterPlanned,
+                    control_plane: AdminRendererControlPlane::AdapterProcess,
+                    discovery: AdminRendererDiscoveryMode::LocalNetworkDiscovery,
+                    media_transport: AdminRendererMediaTransport::CastSafeUrl,
+                    transport_auth: PlaybackTargetTransportAuth::CastTicket,
+                },
+            ],
+            sessions: vec![AdminRendererSessionDiagnostics {
+                id: RendererSessionId::new(),
+                target_kind: PlaybackTargetKind::NakoRemoteClient,
+                display_name: "Living Room Desktop".to_owned(),
+                network_scope: PlaybackTargetNetworkScope::Local,
+                transport_auth: PlaybackTargetTransportAuth::Bearer,
+                state: RendererSessionState::Online,
+                active_playback_session_id: None,
+                supported_commands: vec![
+                    RendererControlCommand::Play,
+                    RendererControlCommand::Seek,
+                ],
+                has_media_capabilities: true,
+                direct_play_supported: true,
+                expired: false,
+                last_seen_at_ms: 1_779_814_400_000,
+                expires_at_ms: Some(1_779_814_520_000),
+                created_at: "2026-05-27T00:00:00Z".to_owned(),
+                updated_at: "2026-05-27T00:00:01Z".to_owned(),
+            }],
+            page: PageInfo {
+                limit: 50,
+                offset: 0,
+                returned: 1,
+            },
+        };
+
+        let value = serde_json::to_value(&response).unwrap();
+        let body = value.to_string();
+
+        assert_eq!(value["readiness"]["status"], "ready");
+        assert_eq!(
+            value["adapters"][0]["media_transport"],
+            "authenticated_nako_client_stream"
+        );
+        assert_eq!(value["adapters"][1]["status"], "planned");
+        assert_eq!(
+            value["sessions"][0]["supported_commands"],
+            serde_json::json!(["play", "seek"])
+        );
+        assert_eq!(value["sessions"][0]["direct_play_supported"], true);
+        for forbidden in [
+            "principal",
+            "payload_json",
+            "media_capabilities_json",
+            "source_locator",
+            "local_path",
+            "bearer_token",
+            "access_token",
+            "token_value",
+        ] {
+            assert!(
+                !body.contains(forbidden),
+                "renderer diagnostics leaked forbidden term: {forbidden}"
+            );
+        }
     }
 }

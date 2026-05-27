@@ -1,6 +1,6 @@
 # Casting Renderer Runtime - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-27
 
 ## Smallest Current Repro
@@ -9,9 +9,9 @@ Last updated: 2026-05-27
 cargo nextest run -p nako-server renderer --no-fail-fast
 ```
 
-This proves the Nako-to-Nako renderer registration, heartbeat, listing, and
-command delivery surface before CAST-050 binds play commands to the Playback
-App Service.
+This proves the Nako-to-Nako renderer registration, heartbeat, listing,
+command delivery, policy-checked play command flow, and Admin renderer
+diagnostics.
 
 ## Gate Set
 
@@ -75,12 +75,14 @@ blocking findings, missing gates, and residual risks here or in `HANDOFF.md`.
 
 - `docs/adr/0040-casting-as-renderer-session-adapter.md`
 - `docs/workstreams/casting-renderer-runtime/DESIGN.md`
+- `docs/workstreams/casting-renderer-runtime/ADAPTER_FOLLOW_ONS.md`
 - `docs/workstreams/casting-renderer-runtime/TODO.md`
 - `crates/nako-server/src/app/renderer.rs`
 - `crates/nako-server/src/app/casting.rs`
 - `crates/nako-server/src/http/renderer.rs`
 - `crates/nako-client-protocol/src/catalog.rs`
-- future Admin renderer diagnostics DTOs
+- `crates/nako-api/src/admin/playback.rs`
+- `crates/nako-server/src/http/admin.rs`
 
 ## Dependency Evidence
 
@@ -282,6 +284,89 @@ Notes:
   normal playback, not a renderer-specific bypass.
 - CAST-060 can add redaction-safe Admin diagnostics and split external
   Chromecast, DLNA, AirPlay, and non-direct Nako renderer transport work.
+
+### CAST-060 - Diagnostics And External Adapter Follow-Ons
+
+Changed behavior:
+
+- Added Admin route `GET /admin/v1/playback/renderers`.
+- Added `AdminRendererRuntimeDiagnosticsResponse` with renderer runtime
+  readiness, session counts, safe session summaries, and adapter readiness.
+- Added Admin Web generated contract route/type coverage for
+  `playbackRenderers`.
+- Added `ADAPTER_FOLLOW_ONS.md` with concrete adapter contracts for Nako
+  non-direct renderer transport, Chromecast, DLNA renderer, and AirPlay.
+- Updated ADR 0040 to state that Admin diagnostics are part of the casting
+  boundary and that planned external adapters are not runtime failures.
+
+Boundary decision:
+
+- `nako_remote_client` with bearer auth is the only ready adapter today.
+- Non-direct Nako renderer transport, Chromecast, DLNA, and AirPlay are exposed
+  as planned adapter readiness entries so Admin Web can show roadmap state
+  without misreporting them as broken dependencies.
+- Diagnostics intentionally exclude owner principals, raw capability JSON,
+  command payload JSON, source locators, local paths, bearer tokens, cast ticket
+  material, and protocol-private network addresses.
+
+Validation:
+
+```bash
+cargo nextest run -p nako-server admin_v1_playback_renderers_reports_safe_diagnostics_and_adapter_readiness --no-fail-fast
+cargo run -q -p nako-api --example emit-admin-typescript-contract -- --output apps/admin-web/src/adminApi/generated/contract.ts
+cargo nextest run -p nako-api -E 'test(admin_contract) | test(public_openapi) | test(sdk)' --no-fail-fast
+cargo nextest run -p nako-server renderer --no-fail-fast
+cargo nextest run -p nako-api -E 'test(admin_contract) | test(public_openapi) | test(sdk) | test(admin_renderer_runtime_diagnostics)' --no-fail-fast
+```
+
+Result:
+
+- Targeted Admin renderer diagnostics test: 1 passed, 363 skipped.
+- Admin contract generation: passed.
+- API admin/openapi/sdk gate: 21 passed, 39 skipped.
+- Server renderer gate: 6 passed, 358 skipped.
+- API admin/openapi/sdk plus renderer DTO redaction gate: 22 passed, 39
+  skipped.
+
+Notes:
+
+- CAST-070 should close this lane unless review finds a blocking issue.
+- Protocol-specific follow-ons should start from
+  `ADAPTER_FOLLOW_ONS.md` instead of adding protocol branches to playback
+  routes.
+
+### CAST-070 - Closeout
+
+Review result:
+
+- Workstream Compliance: no blocking findings. Renderer Sessions, command
+  lifecycle, Nako-to-Nako adapter routes, policy-checked play command flow,
+  Admin renderer diagnostics, and adapter follow-on contracts match the lane
+  target.
+- Code Quality: no blocking findings. Runtime orchestration stays in
+  `RendererAppService` and `CastingAppService`; Admin HTTP only maps safe
+  diagnostics; protocol-specific work is not mixed into playback routes.
+- Missing Gates: none for this lane.
+- Residual Risk: non-direct Nako renderer transport, Chromecast, DLNA, and
+  AirPlay are not implemented; they are split in `ADAPTER_FOLLOW_ONS.md`.
+
+Final validation:
+
+```bash
+cargo nextest run -p nako-server -E 'test(playback) | test(renderer)' --no-fail-fast
+cargo nextest run -p nako-client-protocol public --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
+python -m json.tool docs/workstreams/casting-renderer-runtime/WORKSTREAM.json
+```
+
+Result:
+
+- `nako-server playback/renderer`: 82 passed, 282 skipped.
+- `nako-client-protocol public`: 11 passed.
+- `cargo fmt --all -- --check`: passed.
+- `git diff --check`: passed.
+- `WORKSTREAM.json`: parsed.
 
 ## Notes
 

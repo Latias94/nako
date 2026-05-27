@@ -1,6 +1,6 @@
 # Casting Renderer Runtime - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-27
 
 ## M0 - Workstream Open
@@ -79,6 +79,7 @@ Exit criteria:
 
 - Admin diagnostics show renderer runtime readiness and active target summary.
 - Chromecast, DLNA, and AirPlay follow-ons are split with adapter boundaries.
+- Non-direct Nako renderer transport is split before external protocol adapters.
 - Cast-safe ticket lifecycle is implemented or explicitly deferred until the
   first no-bearer external adapter.
 
@@ -94,6 +95,8 @@ Exit criteria:
 - Workstream evidence is current.
 - `WORKSTREAM.json` status and completed tasks are current.
 - Remaining protocol adapter work is split or deliberately deferred.
+- `CLOSEOUT.md` records final review, verification, residual risks, and
+  recommended follow-ons.
 
 Primary gates:
 
