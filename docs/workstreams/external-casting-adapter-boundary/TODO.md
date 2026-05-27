@@ -1,6 +1,6 @@
 # External Casting Adapter Boundary TODO
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-27
 
 ## Task Ledger
@@ -171,7 +171,7 @@ Evidence:
 
 ### ECAB-060 - Implement first real protocol adapter slice
 
-Status: Pending
+Status: Complete
 Owner: current agent or worker
 Depends on: ECAB-050
 
@@ -189,9 +189,22 @@ cargo fmt --all -- --check
 git diff --check
 ```
 
+Evidence:
+
+- Nako addon protocol now declares the `renderer_adapter` resource, read/control
+  scopes, and typed readiness/discovery/command payloads.
+- The official catalog now includes
+  `nako.official.chromecast-renderer` with hosted diagnostics, resource schema,
+  runtime binary, and container image facts.
+- `nako-official-addons` commit `18d3df0` adds
+  `nako-chromecast-renderer`, package files, smoke script, and its workstream.
+- The official sidecar validates resource envelopes, publishes manual
+  Chromecast targets, builds redaction-safe Chromecast command plans, links
+  `oxicast`, and keeps live LAN discovery/control behind explicit flags.
+
 ### ECAB-070 - Close or split follow-ons
 
-Status: Pending
+Status: Complete
 Owner: current agent
 Depends on: ECAB-060
 
@@ -211,3 +224,10 @@ cargo nextest run -p nako-api -E 'test(admin_contract) | test(public_openapi) | 
 cargo fmt --all -- --check
 git diff --check
 ```
+
+Evidence:
+
+- Added `FOLLOW_ONS.md` for live Chromecast hardening, DLNA renderer profiles,
+  AirPlay feasibility, frontend casting picker, and network trust policy.
+- Kept physical receiver smoke out of required CI gates.
+- Closeout gates are recorded in `EVIDENCE_AND_GATES.md`.

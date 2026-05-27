@@ -1,6 +1,6 @@
 # External Casting Adapter Boundary Handoff
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-27
 
 ## Current State
@@ -27,24 +27,31 @@ implemented as an official sidecar in `nako-official-addons`. `oxicast` is the
 preferred first dependency, `cast-sender` is the fallback, and DLNA is deferred
 until a Nako renderer device-profile workstream exists.
 
+`ECAB-060` is complete. Nako now has the typed addon protocol surface and
+official catalog descriptor for renderer adapters, and `nako-official-addons`
+commit `18d3df0` adds the `nako-chromecast-renderer` sidecar.
+
+`ECAB-070` is complete. Remaining mature casting work is split into
+`FOLLOW_ONS.md`.
+
 ## Next Task
 
-Run `ECAB-060`.
-
-`ECAB-060` should add the host addon protocol resource/scope for renderer
-adapters, then open and implement the official Chromecast adapter sidecar slice
-in `nako-official-addons`.
+Recommended next lane: live Chromecast hardening only after a local receiver can
+be used for manual smoke, or DLNA renderer-profile design if the priority is
+Jellyfin-like broad device compatibility.
 
 ## Important Files
 
 - `docs/adr/0042-sidecar-renderer-adapters-for-external-casting-protocols.md`
 - `docs/adr/0043-ship-chromecast-first-as-official-renderer-adapter.md`
 - `docs/workstreams/external-casting-adapter-boundary/PROTOCOL_SELECTION.md`
+- `docs/workstreams/external-casting-adapter-boundary/FOLLOW_ONS.md`
 - `docs/workstreams/external-casting-adapter-boundary/TODO.md`
 - `crates/nako-server/src/http/admin.rs`
 - `crates/nako-server/src/http/renderer.rs`
 - `crates/nako-server/src/http/tests/renderer.rs`
 - `crates/nako-api/src/admin/playback.rs`
+- `F:/SourceCodes/Rust/nako-official-addons/crates/nako-chromecast-renderer`
 
 ## Cautions
 
@@ -52,3 +59,5 @@ in `nako-official-addons`.
 - Do not give adapters bearer tokens, Source Locators, local paths, or
   Transcode Session IDs as credentials.
 - Use a synthetic adapter proof before depending on physical receiver hardware.
+- Keep live Chromecast hardware smoke optional unless CI has a controlled
+  receiver fixture.

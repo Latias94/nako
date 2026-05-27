@@ -1,6 +1,6 @@
 # External Casting Adapter Boundary Milestones
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-27
 
 ## Milestone 1 - Boundary Opened
@@ -58,8 +58,8 @@ Tasks:
 
 Exit criteria:
 
-- The chosen first protocol slice lands, or a narrower workstream is opened with
-  concrete evidence for the split.
+- The chosen first protocol slice lands, and remaining mature casting work is
+  split into follow-on lanes.
 - Admin diagnostics remain redaction-safe.
 - Final gates pass.
 

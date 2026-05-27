@@ -1,6 +1,6 @@
 # External Casting Adapter Boundary Evidence And Gates
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-27
 
 ## Evidence Log
@@ -148,6 +148,76 @@ Results:
 
 - diff check passed. Git printed CRLF conversion warnings only.
 
+### ECAB-060
+
+Completed on 2026-05-27.
+
+Evidence:
+
+- added `AddonResource::RendererAdapter`,
+  `AddonScope::RendererAdapterRead`, and
+  `AddonScope::RendererAdapterControl` to `nako-addon-protocol`;
+- added typed renderer adapter payloads for readiness, target discovery, command
+  envelopes, transport URLs, and command results;
+- updated `nako-official-addon-catalog` with the official Chromecast renderer
+  sidecar descriptor;
+- regenerated Admin Web contract types for the new addon resource/scope enums;
+- implemented the official Chromecast sidecar in
+  `nako-official-addons` commit `18d3df0`.
+
+Nako gates:
+
+```powershell
+cargo nextest run -p nako-addon-protocol renderer_adapter --no-fail-fast
+cargo nextest run -p nako-official-addon-catalog chromecast_renderer --no-fail-fast
+cargo nextest run -p nako-server -E 'test(admin_addon_source_catalog) | test(official_chromecast_renderer) | test(renderer_adapter) | test(renderer)' --no-fail-fast
+cargo nextest run -p nako-api -E 'test(admin_contract)' --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
+```
+
+Results:
+
+- addon protocol renderer adapter contract: 1 passed, 12 skipped.
+- official addon catalog Chromecast renderer: 2 passed, 5 skipped.
+- server addon catalog/renderer adapter/renderer gate: 21 passed, 356 skipped.
+- `nako-api admin_contract`: 5 passed, 56 skipped after regenerating the Admin
+  Web TypeScript contract.
+- format check passed.
+- diff check passed. Git printed CRLF conversion warnings only.
+
+Official sidecar gates:
+
+```powershell
+cargo nextest run -p nako-chromecast-renderer --no-fail-fast
+cargo fmt -p nako-chromecast-renderer -- --check
+git diff --check -- Cargo.toml Cargo.lock README.md crates/nako-chromecast-renderer addons/chromecast-renderer docs/workstreams/official-chromecast-renderer-adapter
+```
+
+Results:
+
+- `nako-chromecast-renderer`: 20 passed, 0 skipped.
+- package format check passed.
+- touched-path diff check passed with the repository's `Cargo.lock` CRLF warning
+  only.
+
+Not run:
+
+- Live Chromecast hardware smoke. It requires a Chromecast-capable receiver on
+  the same trusted LAN and is intentionally optional.
+
+### ECAB-070
+
+Completed on 2026-05-27.
+
+Evidence:
+
+- added `FOLLOW_ONS.md` with concrete post-ECAB lanes for live Chromecast
+  hardening, DLNA renderer profiles, AirPlay feasibility, frontend casting
+  picker, and network trust/access policy;
+- kept the ECAB lane focused on the boundary plus first real protocol slice;
+- final closeout gates are recorded below after this documentation update.
+
 ## Gate Policy
 
 Use synthetic adapter tests before real LAN protocol tests. Physical receiver
@@ -186,3 +256,14 @@ cargo nextest run -p nako-api -E 'test(admin_contract) | test(public_openapi) | 
 cargo fmt --all -- --check
 git diff --check
 ```
+
+Closeout results:
+
+- `python -m json.tool docs/workstreams/external-casting-adapter-boundary/WORKSTREAM.json`
+  passed.
+- `cargo nextest run -p nako-server -E 'test(renderer_adapter) | test(renderer) | test(playback)' --no-fail-fast`
+  passed: 95 tests run, 95 passed, 282 skipped.
+- `cargo nextest run -p nako-api -E 'test(admin_contract) | test(public_openapi) | test(sdk)' --no-fail-fast`
+  passed: 21 tests run, 21 passed, 40 skipped.
+- `cargo fmt --all -- --check` passed.
+- `git diff --check` passed. Git printed CRLF conversion warnings only.
