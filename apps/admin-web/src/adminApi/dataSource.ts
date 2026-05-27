@@ -1858,7 +1858,7 @@ function mapPlayback(
     })),
     sessions: sessions.sessions.map((session) => ({
       id: session.id,
-      kind: session.kind,
+      kind: session.mode,
       sourceTitle: session.source_id,
       state: session.state,
     })),

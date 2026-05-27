@@ -256,6 +256,22 @@ export function fixturePlaybackDecision(sourceId: string): PlaybackDecisionRespo
       },
       mode: "direct_play",
       reason: "compatible",
+      report: {
+        denial: null,
+        direct_play: {
+          reasons: ["compatible"],
+          supported: true,
+        },
+        remux: {
+          reasons: ["container_unsupported"],
+          supported: false,
+        },
+        selected_mode: "direct_play",
+        transcode: {
+          reasons: ["requested_transcode_output"],
+          supported: false,
+        },
+      },
       transcode_plan: null,
     },
     probe: {

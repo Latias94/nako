@@ -223,7 +223,6 @@ export function ItemDetailPage({ dataSource, itemId }: ItemDetailPageProps) {
                     className="routeTextLink"
                     search={{
                       source_id: firstSourceId,
-                      kind: undefined,
                       state: undefined,
                       limit: 20,
                       offset: 0,

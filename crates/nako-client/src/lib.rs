@@ -1431,9 +1431,40 @@ mod tests {
                     "fingerprint": null
                 },
                 "probe": null,
+                "target": {
+                    "kind": "browser",
+                    "network_scope": "local",
+                    "transport_auth": "browser_ticket",
+                    "media_capabilities": {
+                        "direct_play": true,
+                        "containers": ["mp4", "webm"],
+                        "video_codecs": ["h264"],
+                        "audio_codecs": ["aac"]
+                    },
+                    "control_capabilities": {
+                        "commands": ["play", "pause", "seek", "stop"]
+                    }
+                },
                 "decision": {
                     "mode": "direct_play",
                     "reason": "compatible",
+                    "report": {
+                        "selected_mode": "direct_play",
+                        "direct_play": {
+                            "supported": true,
+                            "reasons": ["compatible"]
+                        },
+                        "remux": {
+                            "supported": false,
+                            "reasons": ["client_container_unsupported"]
+                        },
+                        "transcode": {
+                            "supported": false,
+                            "reasons": ["requested_transcode_output"]
+                        },
+                        "denial": null
+                    },
+                    "denial": null,
                     "direct_play": {
                         "source_id": "source 1",
                         "content_type": "video/mp4",

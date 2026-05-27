@@ -38,7 +38,6 @@ import type { MessageId } from "../../i18n/messages";
 
 export type PlaybackSessionsSearch = {
   source_id?: string;
-  kind?: string;
   state?: string;
   limit: number;
   offset: number;
@@ -71,8 +70,8 @@ export function PlaybackSessionsPage({
     source: "mock" as const,
   };
   const activeFilterCount = useMemo(
-    () => [search.source_id, search.kind, search.state].filter(Boolean).length,
-    [search.kind, search.source_id, search.state],
+    () => [search.source_id, search.state].filter(Boolean).length,
+    [search.source_id, search.state],
   );
   const table = useReactTable({
     data: result.value.sessions,
@@ -113,14 +112,6 @@ export function PlaybackSessionsPage({
             onChange={(event) => onSearchChange({ source_id: event.target.value || undefined, offset: 0 })}
           />
         </FilterField>
-        <FilterField label={t("playback.filter.kind")}>
-          <input
-            aria-label={t("playback.filter.kindAria")}
-            placeholder="hls_transcode"
-            value={search.kind ?? ""}
-            onChange={(event) => onSearchChange({ kind: event.target.value || undefined, offset: 0 })}
-          />
-        </FilterField>
         <FilterField label={t("playback.filter.state")}>
           <select
             aria-label={t("playback.filter.stateAria")}
@@ -153,7 +144,6 @@ export function PlaybackSessionsPage({
             onClick={() =>
               onSearchChange({
                 source_id: undefined,
-                kind: undefined,
                 state: undefined,
                 offset: 0,
               })
@@ -226,11 +216,11 @@ type Translate = (id: MessageId, values?: Record<string, number | string>) => st
 function createColumns(t: Translate): Array<ColumnDef<AdminPlaybackSessionListItem>> {
   return [
     {
-      accessorKey: "kind",
+      accessorKey: "mode",
       header: t("playback.column.session"),
       cell: ({ row }) => (
         <div className="routePrimaryCell">
-          <strong>{row.original.kind}</strong>
+          <strong>{row.original.mode}</strong>
           <span>{row.original.id}</span>
         </div>
       ),
@@ -250,9 +240,9 @@ function createColumns(t: Translate): Array<ColumnDef<AdminPlaybackSessionListIt
       cell: ({ row }) => lifecycleLabel(row.original, t),
     },
     {
-      accessorKey: "failure_category",
-      header: t("playback.column.failure"),
-      cell: ({ row }) => row.original.failure_category ?? t("playback.none"),
+      accessorKey: "transcode_session_id",
+      header: t("playback.column.transcodeSession"),
+      cell: ({ row }) => row.original.transcode_session_id ?? t("playback.none"),
     },
     {
       accessorKey: "updated_at",
@@ -280,7 +270,6 @@ async function loadPlaybackSessions(
 function toAdminPlaybackSessionsQuery(search: PlaybackSessionsSearch): AdminPlaybackSessionsQuery {
   return {
     source_id: search.source_id,
-    kind: search.kind,
     state: search.state,
     limit: search.limit,
     offset: search.offset,
@@ -288,7 +277,7 @@ function toAdminPlaybackSessionsQuery(search: PlaybackSessionsSearch): AdminPlay
 }
 
 function SessionStateBadge({ session }: { session: AdminPlaybackSessionListItem }) {
-  if (session.failure_category || session.state === "failed") {
+  if (session.state === "failed") {
     return <Badge tone="danger">{session.state}</Badge>;
   }
 

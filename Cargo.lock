@@ -1285,7 +1285,7 @@ dependencies = [
 
 [[package]]
 name = "nako"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "nako-addon-client",
  "nako-addon-protocol",
@@ -1313,7 +1313,7 @@ dependencies = [
 
 [[package]]
 name = "nako-api"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "nako-addon-protocol",
  "nako-client-protocol",
@@ -1329,7 +1329,7 @@ dependencies = [
 
 [[package]]
 name = "nako-automation"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "async-trait",
  "nako-core",
@@ -1341,7 +1341,7 @@ dependencies = [
 
 [[package]]
 name = "nako-catalog"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "async-trait",
  "nako-core",
@@ -1354,7 +1354,7 @@ dependencies = [
 
 [[package]]
 name = "nako-client"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "async-trait",
  "nako-client-core",
@@ -1368,7 +1368,7 @@ dependencies = [
 
 [[package]]
 name = "nako-client-cli"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "async-trait",
  "clap",
@@ -1382,7 +1382,7 @@ dependencies = [
 
 [[package]]
 name = "nako-client-core"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "nako-client-protocol",
  "serde_json",
@@ -1390,7 +1390,7 @@ dependencies = [
 
 [[package]]
 name = "nako-client-protocol"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -1398,7 +1398,7 @@ dependencies = [
 
 [[package]]
 name = "nako-client-uniffi"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "nako-client-core",
  "uniffi",
@@ -1406,7 +1406,7 @@ dependencies = [
 
 [[package]]
 name = "nako-core"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "async-trait",
  "serde",
@@ -1417,7 +1417,7 @@ dependencies = [
 
 [[package]]
 name = "nako-db"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "async-trait",
  "nako-core",
@@ -1432,7 +1432,7 @@ dependencies = [
 
 [[package]]
 name = "nako-events"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "async-trait",
  "axum",
@@ -1449,7 +1449,7 @@ dependencies = [
 
 [[package]]
 name = "nako-library"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "async-trait",
  "axum",
@@ -1468,7 +1468,7 @@ dependencies = [
 
 [[package]]
 name = "nako-media-probe"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "async-trait",
  "nako-core",
@@ -1481,7 +1481,7 @@ dependencies = [
 
 [[package]]
 name = "nako-metadata"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "async-trait",
  "axum",
@@ -1498,14 +1498,14 @@ dependencies = [
 
 [[package]]
 name = "nako-naming"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "nako-nfo"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "async-trait",
  "nako-catalog",
@@ -1530,7 +1530,7 @@ dependencies = [
 
 [[package]]
 name = "nako-playback"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "nako-core",
  "nako-transcode",
@@ -1539,7 +1539,7 @@ dependencies = [
 
 [[package]]
 name = "nako-reference-addon"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "axum",
  "nako-addon-protocol",
@@ -1548,7 +1548,7 @@ dependencies = [
 
 [[package]]
 name = "nako-search"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "async-trait",
  "nako-core",
@@ -1557,7 +1557,7 @@ dependencies = [
 
 [[package]]
 name = "nako-server"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "argon2",
  "async-trait",
@@ -1601,7 +1601,7 @@ dependencies = [
 
 [[package]]
 name = "nako-streaming"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "nako-core",
  "serde",
@@ -1609,7 +1609,7 @@ dependencies = [
 
 [[package]]
 name = "nako-transcode"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "nako-core",
  "serde",
@@ -1620,14 +1620,14 @@ dependencies = [
 
 [[package]]
 name = "nako-uniffi-bindgen"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "uniffi",
 ]
 
 [[package]]
 name = "nako-vfs"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "async-trait",
  "axum",

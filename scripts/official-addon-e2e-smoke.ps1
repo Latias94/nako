@@ -5,7 +5,7 @@ param(
     [ValidateSet('cargo-install', 'workspace')]
     [string]$AddonBinarySource = 'cargo-install',
     [string]$AddonVersion = '0.1.0-alpha.2',
-    [string]$NakoImage = 'ghcr.io/latias94/nako-server:0.1.0-alpha.1',
+    [string]$NakoImage = 'ghcr.io/latias94/nako-server:0.1.0-alpha.2',
     [int]$NakoPort = 30130,
     [int]$SidecarPort = 19100,
     [switch]$SkipAddonBuild,

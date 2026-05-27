@@ -2347,7 +2347,7 @@ describe("Admin Web V2 route shell", () => {
     window.history.pushState(
       null,
       "",
-      "/playback/sessions?source_id=source-hls&kind=hls_transcode&state=running&limit=10&offset=20",
+      "/playback/sessions?source_id=source-hls&state=running&limit=10&offset=20",
     );
 
     render(<App dataSource={{ load: async () => emptyConsoleData(), loadPlaybackSessions }} />);
@@ -2355,7 +2355,6 @@ describe("Admin Web V2 route shell", () => {
     await waitFor(() => {
       expect(loadPlaybackSessions).toHaveBeenCalledWith({
         source_id: "source-hls",
-        kind: "hls_transcode",
         state: "running",
         limit: 10,
         offset: 20,
@@ -2374,11 +2373,10 @@ describe("Admin Web V2 route shell", () => {
 
     expect(await screen.findByRole("heading", { name: "Playback Sessions" })).toBeInTheDocument();
     expect(await screen.findByText("session-hls")).toBeInTheDocument();
-    expect(screen.getByText("hls_transcode")).toBeInTheDocument();
+    expect(screen.getByText("transcode")).toBeInTheDocument();
     expect(screen.getByText("Live Admin API")).toBeInTheDocument();
     expect(loadPlaybackSessions).toHaveBeenCalledWith({
       source_id: undefined,
-      kind: undefined,
       state: undefined,
       limit: 20,
       offset: 0,

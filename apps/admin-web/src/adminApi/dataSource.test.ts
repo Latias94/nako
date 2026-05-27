@@ -1881,7 +1881,6 @@ describe("Admin data source", () => {
 
     const liveResult = await liveSource.loadPlaybackSessions?.({
       source_id: "source-hls",
-      kind: "hls_transcode",
       state: "running",
       limit: 10,
       offset: 0,
@@ -1892,7 +1891,7 @@ describe("Admin data source", () => {
       value: mockPlaybackSessions,
     });
     expect(seenSearchParams).toEqual([
-      "?source_id=source-hls&kind=hls_transcode&state=running&limit=10&offset=0",
+      "?source_id=source-hls&state=running&limit=10&offset=0",
     ]);
 
     const fallbackSource = createAdminDataSource({

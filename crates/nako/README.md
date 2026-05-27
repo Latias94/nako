@@ -21,7 +21,7 @@ Enable the `addon-client` feature to use Nako's Rust HTTP caller helper:
 
 ```toml
 [dependencies]
-nako = { version = "0.1.0-alpha.1", features = ["addon-client"] }
+nako = { version = "0.1.0-alpha.2", features = ["addon-client"] }
 ```
 
 ```rust

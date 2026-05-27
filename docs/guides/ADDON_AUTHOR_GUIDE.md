@@ -19,7 +19,7 @@ Required manifest fields:
 - `scopes`: all scopes the addon may request.
 
 The current Addon Protocol Version is `0.1.0-alpha.1`. Nako accepts only
-explicitly supported Addon Protocol Versions; during `alpha.1`, the supported
+explicitly supported Addon Protocol Versions; during `alpha.2`, the supported
 set contains `0.1.0-alpha.1`.
 
 Addon Version, Addon Protocol Version, and Rust crate package versions are
@@ -27,10 +27,10 @@ different contracts. `nako-addon-protocol` may share the repository release
 version for packaging convenience, but runtime compatibility is decided by the
 manifest `protocol_version` and Nako's supported protocol list.
 
-For the released `alpha.1` loop, the repeatable smoke lives in
+For the released `alpha.2` loop, the repeatable smoke lives in
 [`scripts/official-addon-e2e-smoke.ps1`](https://github.com/Latias94/nako/blob/main/scripts/official-addon-e2e-smoke.ps1).
 It starts the published Nako image, uses the published
-`nako-metadata-scraper@0.1.0-alpha.1` binary from crates.io by default, and
+`nako-metadata-scraper@0.1.0-alpha.2` binary from crates.io by default, and
 proves registration, hosted health, enablement, and one hosted resource call
 without needing the sibling addon worktree. Use `-AddonBinarySource workspace`
 only when validating a clean candidate in `nako-official-addons`.

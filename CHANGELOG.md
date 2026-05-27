@@ -2,6 +2,81 @@
 
 All notable changes to Nako are recorded here.
 
+## 0.1.0-alpha.2 - 2026-05-27
+
+Nako alpha.2 is still a technical-preview release, but it is a much more
+complete self-hosted media server baseline than alpha.1. This release focuses
+on usable browser playback, local users and access controls, Admin/media
+navigation, Addon-driven metadata, casting foundations, and more reliable
+FFmpeg/transcode diagnostics.
+
+### Added
+
+- Media Web foundation inside the existing web app, including media browsing,
+  media detail routes, a playback shell, and browser player progress writes.
+- Ticketed browser playback for direct media streams, remux output, HLS
+  playlists, and HLS segments.
+- Durable playback and transcode session tracking so active, finished, failed,
+  cancelled, and reused playback work can be inspected.
+- Local credential sessions, invitation-based local registration, user status,
+  roles, and library access policies.
+- Library access enforcement on public routes and playback policy resolution
+  for direct play, remux, transcode, and policy target decisions.
+- Management context links so operators can move from media/library context to
+  relevant Admin actions.
+- Renderer session persistence, renderer Admin diagnostics, policy-checked
+  play commands, renderer transport tickets, cast-safe media transport, and
+  the first Chromecast official adapter contract.
+- Library metadata profiles, scan-time NFO import, scan acquisition pipeline
+  writeback, Addon bulk scrape scheduling, Addon metadata graph writeback, and
+  host-owned metadata application policy for authority, lock, merge, and
+  catalog projection.
+- Addon event subscriptions, event delivery, scheduler claims/work queues,
+  replay filters, source catalog discovery, manager lifecycle plan intents,
+  outbound task dispatch credentials, host-owned task runtime dispatch, and
+  official addon catalog facts.
+- Expanded Admin diagnostics for playback runtime, renderer runtime, storage,
+  jobs, Addons, metadata, managed artwork, system config, runtime settings, and
+  policy readiness.
+- Transcode execution policy, profile-driven playback capability planning,
+  runtime FFmpeg inventory diagnostics, FFmpeg probe inventory, and a
+  stage-aware hardware pipeline planner.
+- Release packaging, Docker image publishing, public crate dry-run/publish
+  workflows, release gates, self-host smoke coverage, and PostgreSQL managed
+  artwork contract coverage.
+
+### Changed
+
+- Browser playback now uses host-issued tickets instead of exposing raw media
+  access through generic Admin assumptions.
+- Addon and provider metadata writes now go through a host-owned metadata
+  application seam instead of letting adapter code decide merge/catalog policy.
+- Pre-production database migrations were flattened into a simpler baseline for
+  the next alpha while there are no production users to preserve.
+- Admin Web moved toward route-first v2 surfaces and shared Media/Admin
+  coexistence instead of treating media browsing as a separate product.
+- CPU HLS fallback readiness now requires the software encoders it actually
+  needs (`libx264` and `aac`) instead of assuming CPU transcode always works.
+- HLS transcode unavailability no longer prevents the server from starting;
+  Admin diagnostics report unavailable HLS readiness and selected HLS slots
+  accurately.
+- Redaction and SDK/Admin contract checks were broadened so sensitive paths,
+  locators, raw provider payloads, tokens, and secrets stay out of generated
+  responses.
+
+### Upgrade Notes
+
+- This is still an alpha release. Back up the database, artwork artifacts,
+  config, secrets, and NFO sidecars before upgrading.
+- Do not downgrade an alpha.2 database unless restoring a complete alpha.1
+  backup. The migration baseline was intentionally flattened before alpha.2.
+- The Addon Protocol remains `0.1.0-alpha.1` for this release. Addons targeting
+  the alpha.1 protocol should continue to register against alpha.2 unless they
+  depend on host features added after alpha.1.
+- If FFmpeg lacks `libx264` or `aac`, HLS transcode is reported unavailable
+  instead of silently falling back and failing later. Direct play, remux,
+  browsing, and Admin startup should still work.
+
 ## 0.1.0-alpha.1 - 2026-05-23
 
 ### Added

@@ -4,7 +4,7 @@
 [![release-package](https://github.com/Latias94/nako/actions/workflows/release-package.yml/badge.svg)](https://github.com/Latias94/nako/actions/workflows/release-package.yml)
 [![crates-publish](https://github.com/Latias94/nako/actions/workflows/crates-publish.yml/badge.svg)](https://github.com/Latias94/nako/actions/workflows/crates-publish.yml)
 [![docker-publish](https://github.com/Latias94/nako/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/Latias94/nako/actions/workflows/docker-publish.yml)
-![status: alpha.1](https://img.shields.io/badge/status-alpha.1-orange)
+![status: alpha.2](https://img.shields.io/badge/status-alpha.2-orange)
 ![rust: 1.95+](https://img.shields.io/badge/rust-1.95%2B-orange)
 ![server license: AGPL-3.0-or-later](https://img.shields.io/badge/server%20license-AGPL--3.0--or--later-blue)
 ![addon/client SDK: Apache-2.0 OR MIT](https://img.shields.io/badge/addon%2Fclient%20SDK-Apache--2.0%20OR%20MIT-blue)
@@ -20,7 +20,7 @@ own films, shows, anime, and personal collection on hardware they control.
 
 ## Status
 
-Nako is currently `0.1.0-alpha.1`.
+Nako is currently `0.1.0-alpha.2`.
 
 This is a technical preview. It is useful for development, self-hosted testing,
 and early addon work, but it is not a stable Jellyfin or Plex replacement yet.
@@ -55,18 +55,18 @@ compatibility, and Rust crate package versions are separate contracts.
   start, stop, remove, log, or supervise addon processes.
 - `nako-official-addons` is the companion repository for official Addon
   Sidecar experiments. The first alpha companion addon is
-  `nako-metadata-scraper@0.1.0-alpha.1`:
+  `nako-metadata-scraper@0.1.0-alpha.2`:
   <https://github.com/Latias94/nako-official-addons>
 - The repeatable alpha host/addon smoke is
   [`scripts/official-addon-e2e-smoke.ps1`](https://github.com/Latias94/nako/blob/main/scripts/official-addon-e2e-smoke.ps1).
   It starts the published Nako GHCR image, uses the published
-  `nako-metadata-scraper@0.1.0-alpha.1` binary from crates.io by default, and
+  `nako-metadata-scraper@0.1.0-alpha.2` binary from crates.io by default, and
   proves registration, hosted health, enablement, and one hosted resource call.
   Use `-AddonBinarySource workspace` only when validating a clean candidate
   worktree in `nako-official-addons`.
 - Network tunnel support is policy/readiness oriented. Nako does not currently
   run a built-in NAT traversal or relay service.
-- AI-assisted workflows are intentionally not part of the `alpha.1` release
+- AI-assisted workflows are intentionally not part of the `alpha.2` release
   promise.
 - Keep Nako local-only, private-network, VPN, reverse-proxy, or tunnel-bounded
   with auth enabled. Do not expose placeholder configs to the public internet.
@@ -80,8 +80,9 @@ The first crates.io publishing lane is small on purpose:
 - `nako-addon-client`: optional Rust HTTP caller helper for Addon Sidecars.
 
 Server implementation crates are not published as library APIs during alpha.
-The first official companion addon, `nako-metadata-scraper`, uses
-`nako-addon-protocol = 0.1.0-alpha.1` from crates.io.
+Recommended Rust SDK crate versions for Nako `0.1.0-alpha.2` are
+`0.1.0-alpha.2`. The runtime Addon Protocol compatibility contract remains
+`0.1.0-alpha.1`.
 
 ## Quick start
 
@@ -106,14 +107,14 @@ docker compose --env-file deploy/compose/.env -f deploy/compose/nako-sqlite.yml 
 Published alpha image:
 
 ```powershell
-docker pull ghcr.io/latias94/nako-server:0.1.0-alpha.1
+docker pull ghcr.io/latias94/nako-server:0.1.0-alpha.2
 docker pull ghcr.io/latias94/nako-server:alpha
 ```
 
 Direct image build:
 
 ```powershell
-docker build -t nako:0.1.0-alpha.1 .
+docker build -t nako:0.1.0-alpha.2 .
 ```
 
 If `deb.debian.org` is unstable from your network, override the Debian mirrors:
@@ -122,7 +123,7 @@ If `deb.debian.org` is unstable from your network, override the Debian mirrors:
 docker build `
   --build-arg DEBIAN_MIRROR=http://mirrors.aliyun.com/debian `
   --build-arg DEBIAN_SECURITY_MIRROR=http://mirrors.aliyun.com/debian-security `
-  -t nako:0.1.0-alpha.1 .
+  -t nako:0.1.0-alpha.2 .
 ```
 
 For full operator notes, see:

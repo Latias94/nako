@@ -58,7 +58,7 @@ then pushes only after the smoke checks pass. For an existing tag, run it
 manually with:
 
 ```text
-release_ref = v0.1.0-alpha.1
+release_ref = v0.1.0-alpha.2
 publish = true
 ```
 
@@ -140,7 +140,7 @@ Run the official alpha host/addon loop after the release artifacts are ready:
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/official-addon-e2e-smoke.ps1
 ```
 
-The script defaults to the published `nako-metadata-scraper@0.1.0-alpha.1`
+The script defaults to the published `nako-metadata-scraper@0.1.0-alpha.2`
 binary from crates.io. Use `-AddonBinarySource workspace` only when validating
 a clean candidate worktree in `nako-official-addons`.
 

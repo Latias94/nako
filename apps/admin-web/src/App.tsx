@@ -921,7 +921,6 @@ function normalizeItemArtworkGallerySearch(
 function validatePlaybackSessionsSearch(search: Record<string, unknown>): PlaybackSessionsSearch {
   return normalizePlaybackSessionsSearch({
     source_id: stringSearch(search.source_id),
-    kind: stringSearch(search.kind),
     state: stringSearch(search.state),
     limit: positiveIntSearch(search.limit, 20),
     offset: nonNegativeIntSearch(search.offset, 0),
@@ -933,7 +932,6 @@ function normalizePlaybackSessionsSearch(
 ): PlaybackSessionsSearch {
   return {
     source_id: emptyToUndefined(search.source_id),
-    kind: emptyToUndefined(search.kind),
     state: emptyToUndefined(search.state),
     limit: positiveIntSearch(search.limit, 20),
     offset: nonNegativeIntSearch(search.offset, 0),
