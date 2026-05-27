@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "slug": "web-modern-frontend-and-tauri-foundation",
+  "title": "Web Modern Frontend And Tauri Foundation",
+  "status": "active",
+  "current_task": "WMFT-030",
+  "completed_tasks": [
+    "WMFT-010",
+    "WMFT-020"
+  ],
+  "updated": "2026-05-28",
+  "scope_kind": "frontend_product_replacement",
+  "problem": "Nako needs a release-oriented product frontend in web/ with a Tauri path. The existing apps/admin-web remains useful as validation/prototype support, while the v0 reference has strong UX direction but unacceptable Next.js, Vercel, TMDb, mock-data, and asset assumptions for shipping.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/web-modern-frontend-and-tauri-foundation/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/web-modern-frontend-and-tauri-foundation/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/web-modern-frontend-and-tauri-foundation/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/web-modern-frontend-and-tauri-foundation/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/web-modern-frontend-and-tauri-foundation/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "rust-capability-gaps",
+      "path": "docs/workstreams/web-modern-frontend-and-tauri-foundation/RUST_CAPABILITY_GAPS.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/web-modern-frontend-and-tauri-foundation/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python -m json.tool docs/workstreams/web-modern-frontend-and-tauri-foundation/WORKSTREAM.json",
+    "git diff --check -- docs/workstreams/web-modern-frontend-and-tauri-foundation docs/workstreams/README.md",
+    "npm --prefix web run check once web/ exists",
+    "npm --prefix web run test once web/ exists",
+    "npm --prefix web run build once web/ exists",
+    "Browser/Playwright smoke for visible frontend route changes",
+    "npm --prefix apps/admin-web run check && npm --prefix apps/admin-web run test && npm --prefix apps/admin-web run build until validation parity moves to web/"
+  ],
+  "evidence": [
+    {
+      "task": "WMFT-010",
+      "summary": "Opened the replacement frontend lane after accepting that web/ is the product release line, apps/admin-web is validation/prototype support, and the v0 reference should be re-authored into a Vite React SPA with a Tauri path."
+    },
+    {
+      "task": "WMFT-020",
+      "summary": "Created the web/ Vite React product frontend, route-first Media/Admin shell, Tailwind v4 and shadcn-style primitives, TanStack Router/Query package, Tauri v2 shell skeleton, Nako-owned Tauri icons, and initial Rust/server capability gap inventory."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0024-inbound-token-authentication-boundary.md",
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md",
+    "docs/adr/0032-shared-rust-client-core-transport-boundary.md",
+    "docs/adr/0036-browser-playback-ticket-transport.md",
+    "docs/adr/0037-local-credentials-and-opaque-sessions.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Continue with WMFT-030. Do not delete apps/admin-web before parity and validation replacement are documented. Do not ship the v0 Next.js app, TMDb API route, Vercel analytics, or bundled third-party media artwork."
+  }
+}

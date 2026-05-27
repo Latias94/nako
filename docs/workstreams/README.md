@@ -6,6 +6,11 @@ attention.
 
 ## Current Workstreams
 
+- [web-modern-frontend-and-tauri-foundation](web-modern-frontend-and-tauri-foundation/README.md):
+  active replacement lane for making `web/` the product frontend release line,
+  re-authoring the v0 UX direction into a Vite React/Tailwind/TanStack app with
+  a Tauri path, and keeping `apps/admin-web` only as validation/prototype
+  support until parity gates allow retirement.
 - [external-casting-adapter-boundary](external-casting-adapter-boundary/README.md):
   active execution lane for adding Chromecast, DLNA, and AirPlay through
   protocol-specific renderer adapters after Nako remote-client cast-safe

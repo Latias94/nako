@@ -1,0 +1,20 @@
+[package]
+name = "nako-web-shell"
+version = "0.1.0-alpha.2"
+edition = "2024"
+rust-version = "1.95"
+description = "Tauri shell for the Nako product frontend."
+license = "AGPL-3.0-or-later"
+publish = false
+
+[lib]
+name = "nako_web_shell_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = "2.6.2"
+
+[dependencies]
+tauri = "2.11.2"
+
+[workspace]
