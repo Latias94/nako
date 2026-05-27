@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "slug": "ffmpeg-probe-inventory",
+  "title": "FFmpeg Probe Inventory",
+  "status": "complete",
+  "updated": "2026-05-27",
+  "scope_kind": "execution",
+  "problem": "Nako's hardware capability report can represent stage facts, but the detector still derives most evidence from ffmpeg encoder discovery.",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/ffmpeg-probe-inventory/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/ffmpeg-probe-inventory/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/ffmpeg-probe-inventory/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/ffmpeg-probe-inventory/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/ffmpeg-probe-inventory/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python -m json.tool docs/workstreams/ffmpeg-probe-inventory/WORKSTREAM.json",
+    "cargo nextest run -p nako-transcode --no-fail-fast",
+    "cargo nextest run -p nako-api --no-fail-fast",
+    "cargo nextest run -p nako-server playback --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "FPI-010",
+      "summary": "Opened the FFmpeg probe inventory lane and accepted ADR 0046 for structured stage-aware probe ownership."
+    },
+    {
+      "task": "FPI-020",
+      "summary": "Added FfmpegProbeInventory and parser coverage for encoders, decoders, hwaccels, filters, and bitstream filters."
+    },
+    {
+      "task": "FPI-030",
+      "summary": "Mapped probe inventory facts into required and optional hardware stage capabilities."
+    },
+    {
+      "task": "FPI-040",
+      "summary": "Updated FFmpeg detector execution to run all required inventory probes and degrade safely on probe failure."
+    },
+    {
+      "task": "FPI-050",
+      "summary": "Updated Admin diagnostics, verified focused gates, and closed the lane with follow-ons documented in HANDOFF.md."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0045-ffmpeg-hardware-pipeline-planner.md",
+    "docs/adr/0046-ffmpeg-probe-inventory.md"
+  ],
+  "continue_policy": {
+    "default_action": "closed",
+    "notes": "This lane is closed. Open a follow-on for filter-option probing, CPU codec readiness, QSV/VideoToolbox decoder command tightening, or Admin Web diagnostics wiring."
+  }
+}

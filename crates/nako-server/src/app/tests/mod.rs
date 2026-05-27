@@ -1030,13 +1030,80 @@ fn mock_multistatus(fixtures: &[MockWebDavFixture]) -> String {
     )
 }
 
+#[cfg(unix)]
+fn push_unix_ffmpeg_probe_handlers(content: &mut String, encoder_lines: &[&str]) {
+    content.push_str("if [ \"$1\" = \"-hide_banner\" ]; then\n");
+    content.push_str("case \"$2\" in\n");
+    content.push_str("-encoders)\n");
+    content.push_str("cat <<'EOF'\n");
+    for line in encoder_lines {
+        content.push_str(line);
+        content.push('\n');
+    }
+    content.push_str("EOF\nexit 0\n;;\n");
+    content.push_str("-decoders)\n");
+    content.push_str("cat <<'EOF'\n VFS..D h264\n V..... h264_qsv\nEOF\nexit 0\n;;\n");
+    content.push_str("-hwaccels)\n");
+    content.push_str("cat <<'EOF'\nvaapi\nqsv\nvideotoolbox\nEOF\nexit 0\n;;\n");
+    content.push_str("-filters)\n");
+    content.push_str("cat <<'EOF'\n ... hwupload\n ... scale_vaapi\nEOF\nexit 0\n;;\n");
+    content.push_str("-bsfs)\n");
+    content.push_str("cat <<'EOF'\nh264_mp4toannexb\nEOF\nexit 0\n;;\n");
+    content.push_str("esac\nfi\n");
+}
+
+#[cfg(windows)]
+fn push_windows_ffmpeg_probe_handlers(content: &mut String) {
+    content.push_str("if \"%~1\"==\"-hide_banner\" if \"%~2\"==\"-encoders\" goto encoders\r\n");
+    content.push_str("if \"%~1\"==\"-hide_banner\" if \"%~2\"==\"-decoders\" goto decoders\r\n");
+    content.push_str("if \"%~1\"==\"-hide_banner\" if \"%~2\"==\"-hwaccels\" goto hwaccels\r\n");
+    content.push_str("if \"%~1\"==\"-hide_banner\" if \"%~2\"==\"-filters\" goto filters\r\n");
+    content.push_str("if \"%~1\"==\"-hide_banner\" if \"%~2\"==\"-bsfs\" goto bsfs\r\n");
+}
+
+#[cfg(windows)]
+fn push_windows_ffmpeg_probe_labels(content: &mut String, encoder_lines: &[&str]) {
+    content.push_str(":encoders\r\n");
+    for line in encoder_lines {
+        content.push_str(&format!("echo {line}\r\n"));
+    }
+    content.push_str("exit /b 0\r\n");
+    content.push_str(":decoders\r\n");
+    content.push_str("echo  VFS..D h264\r\n");
+    content.push_str("echo  V..... h264_qsv\r\n");
+    content.push_str("exit /b 0\r\n");
+    content.push_str(":hwaccels\r\n");
+    content.push_str("echo vaapi\r\n");
+    content.push_str("echo qsv\r\n");
+    content.push_str("echo videotoolbox\r\n");
+    content.push_str("exit /b 0\r\n");
+    content.push_str(":filters\r\n");
+    content.push_str("echo  ... hwupload\r\n");
+    content.push_str("echo  ... scale_vaapi\r\n");
+    content.push_str("exit /b 0\r\n");
+    content.push_str(":bsfs\r\n");
+    content.push_str("echo h264_mp4toannexb\r\n");
+    content.push_str("exit /b 0\r\n");
+}
+
 fn fake_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
 
         let path = root.join(name);
-        let content = "#!/bin/sh\nif [ \"$1\" = \"-hide_banner\" ] && [ \"$2\" = \"-encoders\" ]; then\n  printf ' V..... h264_nvenc\\n V..... h264_vaapi\\n V..... h264_qsv\\n'\n  exit 0\nfi\nfor arg do out=\"$arg\"; done\nprintf remuxed > \"$out\"\nexit 0\n";
+        let mut content = String::from("#!/bin/sh\n");
+        push_unix_ffmpeg_probe_handlers(
+            &mut content,
+            &[
+                " V..... h264_nvenc",
+                " V..... h264_vaapi",
+                " V..... h264_qsv",
+            ],
+        );
+        content.push_str("for arg do out=\"$arg\"; done\n");
+        content.push_str("printf remuxed > \"$out\"\n");
+        content.push_str("exit 0\n");
         fs::write(&path, content).unwrap();
         let mut permissions = fs::metadata(&path).unwrap().permissions();
         permissions.set_mode(0o755);
@@ -1048,8 +1115,7 @@ fn fake_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
     {
         let path = root.join(format!("{name}.cmd"));
         let mut content = String::from("@echo off\r\n");
-        content
-            .push_str("if \"%~1\"==\"-hide_banner\" if \"%~2\"==\"-encoders\" goto encoders\r\n");
+        push_windows_ffmpeg_probe_handlers(&mut content);
         content.push_str("setlocal enabledelayedexpansion\r\n");
         content.push_str(":args\r\n");
         content.push_str("if \"%~1\"==\"\" goto run\r\n");
@@ -1059,11 +1125,14 @@ fn fake_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
         content.push_str(":run\r\n");
         content.push_str("<nul set /p dummy=remuxed>\"%out%\"\r\n");
         content.push_str("exit /b 0\r\n");
-        content.push_str(":encoders\r\n");
-        content.push_str("echo  V..... h264_nvenc\r\n");
-        content.push_str("echo  V..... h264_vaapi\r\n");
-        content.push_str("echo  V..... h264_qsv\r\n");
-        content.push_str("exit /b 0\r\n");
+        push_windows_ffmpeg_probe_labels(
+            &mut content,
+            &[
+                " V..... h264_nvenc",
+                " V..... h264_vaapi",
+                " V..... h264_qsv",
+            ],
+        );
         fs::write(&path, content).unwrap();
         path
     }
@@ -1075,10 +1144,19 @@ fn fake_failing_ffmpeg_script_with_stderr(root: &Path, name: &str, stderr: &str)
         use std::os::unix::fs::PermissionsExt;
 
         let path = root.join(name);
-        let content = format!(
-            "#!/bin/sh\nif [ \"$1\" = \"-hide_banner\" ] && [ \"$2\" = \"-encoders\" ]; then\n  printf ' V..... h264_nvenc\\n V..... h264_vaapi\\n V..... h264_qsv\\n'\n  exit 0\nfi\nprintf '%s\\n' '{}' >&2\nexit 7\n",
-            stderr.replace('\'', "'\\''")
+        let mut content = String::from("#!/bin/sh\n");
+        push_unix_ffmpeg_probe_handlers(
+            &mut content,
+            &[
+                " V..... h264_nvenc",
+                " V..... h264_vaapi",
+                " V..... h264_qsv",
+            ],
         );
+        content.push_str(&format!(
+            "printf '%s\\n' '{}' >&2\nexit 7\n",
+            stderr.replace('\'', "'\\''")
+        ));
         fs::write(&path, content).unwrap();
         let mut permissions = fs::metadata(&path).unwrap().permissions();
         permissions.set_mode(0o755);
@@ -1090,15 +1168,17 @@ fn fake_failing_ffmpeg_script_with_stderr(root: &Path, name: &str, stderr: &str)
     {
         let path = root.join(format!("{name}.cmd"));
         let mut content = String::from("@echo off\r\n");
-        content
-            .push_str("if \"%~1\"==\"-hide_banner\" if \"%~2\"==\"-encoders\" goto encoders\r\n");
+        push_windows_ffmpeg_probe_handlers(&mut content);
         content.push_str(&format!("echo {} 1>&2\r\n", stderr));
         content.push_str("exit /b 7\r\n");
-        content.push_str(":encoders\r\n");
-        content.push_str("echo  V..... h264_nvenc\r\n");
-        content.push_str("echo  V..... h264_vaapi\r\n");
-        content.push_str("echo  V..... h264_qsv\r\n");
-        content.push_str("exit /b 0\r\n");
+        push_windows_ffmpeg_probe_labels(
+            &mut content,
+            &[
+                " V..... h264_nvenc",
+                " V..... h264_vaapi",
+                " V..... h264_qsv",
+            ],
+        );
         fs::write(&path, content).unwrap();
         path
     }
@@ -1110,7 +1190,19 @@ fn fake_slow_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
         use std::os::unix::fs::PermissionsExt;
 
         let path = root.join(name);
-        let content = "#!/bin/sh\nif [ \"$1\" = \"-hide_banner\" ] && [ \"$2\" = \"-encoders\" ]; then\n  printf ' V..... h264_nvenc\\n V..... h264_vaapi\\n V..... h264_qsv\\n'\n  exit 0\nfi\nfor arg do out=\"$arg\"; done\nprintf partial > \"$out\"\nsleep 5\nexit 0\n";
+        let mut content = String::from("#!/bin/sh\n");
+        push_unix_ffmpeg_probe_handlers(
+            &mut content,
+            &[
+                " V..... h264_nvenc",
+                " V..... h264_vaapi",
+                " V..... h264_qsv",
+            ],
+        );
+        content.push_str("for arg do out=\"$arg\"; done\n");
+        content.push_str("printf partial > \"$out\"\n");
+        content.push_str("sleep 5\n");
+        content.push_str("exit 0\n");
         fs::write(&path, content).unwrap();
         let mut permissions = fs::metadata(&path).unwrap().permissions();
         permissions.set_mode(0o755);
@@ -1122,8 +1214,7 @@ fn fake_slow_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
     {
         let path = root.join(format!("{name}.cmd"));
         let mut content = String::from("@echo off\r\n");
-        content
-            .push_str("if \"%~1\"==\"-hide_banner\" if \"%~2\"==\"-encoders\" goto encoders\r\n");
+        push_windows_ffmpeg_probe_handlers(&mut content);
         content.push_str("setlocal enabledelayedexpansion\r\n");
         content.push_str(":args\r\n");
         content.push_str("if \"%~1\"==\"\" goto run\r\n");
@@ -1134,11 +1225,14 @@ fn fake_slow_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
         content.push_str("<nul set /p dummy=partial>\"%out%\"\r\n");
         content.push_str("ping -n 6 127.0.0.1 > nul\r\n");
         content.push_str("exit /b 0\r\n");
-        content.push_str(":encoders\r\n");
-        content.push_str("echo  V..... h264_nvenc\r\n");
-        content.push_str("echo  V..... h264_vaapi\r\n");
-        content.push_str("echo  V..... h264_qsv\r\n");
-        content.push_str("exit /b 0\r\n");
+        push_windows_ffmpeg_probe_labels(
+            &mut content,
+            &[
+                " V..... h264_nvenc",
+                " V..... h264_vaapi",
+                " V..... h264_qsv",
+            ],
+        );
         fs::write(&path, content).unwrap();
         path
     }
@@ -1171,13 +1265,7 @@ fn hls_ffmpeg_script(root: &Path, name: &str, success: bool, encoder_lines: &[&s
 
         let path = root.join(name);
         let mut content = String::from("#!/bin/sh\n");
-        content.push_str("if [ \"$1\" = \"-hide_banner\" ] && [ \"$2\" = \"-encoders\" ]; then\n");
-        content.push_str("  cat <<'EOF'\n");
-        for line in encoder_lines {
-            content.push_str(line);
-            content.push('\n');
-        }
-        content.push_str("EOF\n  exit 0\nfi\n");
+        push_unix_ffmpeg_probe_handlers(&mut content, encoder_lines);
         content.push_str("for arg do out=\"$arg\"; done\n");
         content.push_str("dir=$(dirname \"$out\")\n");
         content.push_str("mkdir -p \"$dir\"\n");
@@ -1203,8 +1291,7 @@ fn hls_ffmpeg_script(root: &Path, name: &str, success: bool, encoder_lines: &[&s
     {
         let path = root.join(format!("{name}.cmd"));
         let mut content = String::from("@echo off\r\n");
-        content
-            .push_str("if \"%~1\"==\"-hide_banner\" if \"%~2\"==\"-encoders\" goto encoders\r\n");
+        push_windows_ffmpeg_probe_handlers(&mut content);
         content.push_str("setlocal enabledelayedexpansion\r\n");
         content.push_str(":args\r\n");
         content.push_str("if \"%~1\"==\"\" goto run\r\n");
@@ -1226,13 +1313,7 @@ fn hls_ffmpeg_script(root: &Path, name: &str, success: bool, encoder_lines: &[&s
             content.push_str("echo hls-failed 1>&2\r\n");
             content.push_str("exit /b 42\r\n");
         }
-        content.push_str(":encoders\r\n");
-        for line in encoder_lines {
-            content.push_str("echo ");
-            content.push_str(line);
-            content.push_str("\r\n");
-        }
-        content.push_str("exit /b 0\r\n");
+        push_windows_ffmpeg_probe_labels(&mut content, encoder_lines);
         fs::write(&path, content).unwrap();
         path
     }

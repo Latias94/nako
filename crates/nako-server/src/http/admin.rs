@@ -2241,6 +2241,7 @@ fn hardware_capability_diagnostic(
             .map(|stage| AdminPlaybackHardwareStageCapability {
                 stage: stage.stage,
                 available: stage.available,
+                required: stage.required,
                 feature: stage.feature.clone(),
                 discovery_status: hardware_encoder_discovery_status(stage.discovery_status),
                 has_detail: stage.detail.is_some(),

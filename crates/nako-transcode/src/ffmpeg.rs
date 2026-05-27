@@ -265,14 +265,18 @@ impl FfmpegCommandBuilder {
             FfmpegArg::raw("-loglevel"),
             FfmpegArg::raw("warning"),
             FfmpegArg::raw(overwrite_arg),
+        ];
+        append_hls_decode_args(&mut args, request.execution_policy.acceleration);
+        args.extend([
             FfmpegArg::raw("-i"),
             FfmpegArg::path(request.input_path.clone()),
             FfmpegArg::raw("-map"),
             FfmpegArg::raw("0:v:0"),
             FfmpegArg::raw("-map"),
             FfmpegArg::raw("0:a:0?"),
-        ];
-        append_hls_video_pipeline_args(&mut args, request.execution_policy.acceleration);
+        ]);
+        append_hls_filter_args(&mut args, request.execution_policy.acceleration);
+        append_hls_encoder_args(&mut args, request.execution_policy.acceleration);
         append_hls_output_constraint_args(&mut args, request.execution_policy);
         args.extend([
             FfmpegArg::raw("-c:a"),
@@ -301,15 +305,6 @@ fn validate_hls_subtitle_strategy(strategy: TranscodeSubtitleStrategy) -> Result
             "hls subtitle strategy is not implemented by the ffmpeg adapter",
         )),
     }
-}
-
-fn append_hls_video_pipeline_args(
-    args: &mut Vec<FfmpegArg>,
-    acceleration: TranscodeAccelerationPlan,
-) {
-    append_hls_decode_args(args, acceleration);
-    append_hls_filter_args(args, acceleration);
-    append_hls_encoder_args(args, acceleration);
 }
 
 fn append_hls_decode_args(args: &mut Vec<FfmpegArg>, acceleration: TranscodeAccelerationPlan) {

@@ -5,6 +5,7 @@ mod hls;
 mod pipeline;
 mod plan;
 mod policy;
+mod probe;
 mod profile;
 mod remux;
 mod runner_util;
@@ -18,6 +19,7 @@ pub use hls::*;
 pub use pipeline::*;
 pub use plan::*;
 pub use policy::*;
+pub use probe::*;
 pub use profile::*;
 pub use remux::*;
 pub use runtime::*;
@@ -199,6 +201,10 @@ mod tests {
         assert!(
             argv.windows(2)
                 .any(|args| args[0] == "-hwaccel" && args[1] == "vaapi")
+        );
+        assert!(
+            argv.iter().position(|arg| arg == "-hwaccel").unwrap()
+                < argv.iter().position(|arg| arg == "-i").unwrap()
         );
         assert!(
             argv.windows(2)
@@ -551,7 +557,7 @@ mod tests {
 
     #[test]
     fn ffmpeg_encoder_report_detects_hardware_accelerators() {
-        let report = report_from_ffmpeg_encoders(
+        let report = hls_probe_report(
             r#"
  V..... libx264
  V..... h264_nvenc
@@ -578,8 +584,96 @@ mod tests {
     }
 
     #[test]
+    fn ffmpeg_probe_inventory_parses_stage_lists_without_headers() {
+        let inventory = FfmpegProbeInventory::from_outputs(
+            r#"
+Encoders:
+ V..... h264_nvenc        NVIDIA NVENC H.264 encoder
+ A..... aac               AAC encoder
+"#,
+            r#"
+Decoders:
+ VFS..D h264              H.264 decoder
+ V..... h264_qsv          H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10
+"#,
+            r#"
+Hardware acceleration methods:
+vaapi
+qsv
+videotoolbox
+"#,
+            r#"
+Filters:
+ T.. = Timeline support
+ ... hwupload          Upload a normal frame to a hardware frame
+ ... scale_vaapi       Scale to/from VAAPI surfaces
+"#,
+            r#"
+Bitstream filters:
+h264_mp4toannexb
+hevc_metadata
+"#,
+        );
+
+        assert!(inventory.has_encoder("h264_nvenc"));
+        assert!(inventory.has_decoder("h264"));
+        assert!(inventory.has_decoder("h264_qsv"));
+        assert!(inventory.has_hwaccel("vaapi"));
+        assert!(inventory.has_filter("hwupload"));
+        assert!(inventory.has_bitstream_filter("h264_mp4toannexb"));
+        assert!(!inventory.encoders.contains("Encoders:"));
+    }
+
+    #[test]
+    fn ffmpeg_probe_detector_runs_stage_inventory_commands() {
+        let temp = tempfile::tempdir().unwrap();
+        let ffmpeg_path = fake_probe_ffmpeg_script(temp.path(), "probe_success", false);
+        let detector = FfmpegHardwareAccelerationDetector::new(ffmpeg_path);
+
+        let report = detector.detect_result().unwrap();
+        let vaapi = report.capability_for(HardwareAcceleration::Vaapi).unwrap();
+
+        assert!(report.is_available(HardwareAcceleration::Vaapi));
+        assert!(vaapi.stage_capabilities.iter().any(|stage| {
+            stage.stage == HardwarePipelineStage::Hwaccel
+                && stage.required
+                && stage.discovery_status == HardwareEncoderDiscoveryStatus::Listed
+                && stage.feature.as_deref() == Some("vaapi")
+        }));
+        assert!(vaapi.stage_capabilities.iter().any(|stage| {
+            stage.stage == HardwarePipelineStage::Filter
+                && stage.required
+                && stage.discovery_status == HardwareEncoderDiscoveryStatus::Listed
+                && stage.feature.as_deref() == Some("hwupload")
+        }));
+        assert!(vaapi.stage_capabilities.iter().any(|stage| {
+            stage.stage == HardwarePipelineStage::BitstreamFilter
+                && !stage.required
+                && stage.discovery_status == HardwareEncoderDiscoveryStatus::Listed
+                && stage.feature.as_deref() == Some("h264_mp4toannexb")
+        }));
+    }
+
+    #[test]
+    fn ffmpeg_probe_detector_degrades_when_stage_command_fails() {
+        let temp = tempfile::tempdir().unwrap();
+        let ffmpeg_path = fake_probe_ffmpeg_script(temp.path(), "probe_failure", true);
+        let detector = FfmpegHardwareAccelerationDetector::new(ffmpeg_path);
+
+        let report = detector.detect();
+        let vaapi = report.capability_for(HardwareAcceleration::Vaapi).unwrap();
+
+        assert!(!report.is_available(HardwareAcceleration::Vaapi));
+        assert!(vaapi.has_probe_error());
+        assert!(vaapi.stage_capabilities.iter().any(|stage| {
+            stage.stage == HardwarePipelineStage::Filter
+                && stage.discovery_status == HardwareEncoderDiscoveryStatus::ProbeError
+        }));
+    }
+
+    #[test]
     fn transcode_runtime_inventory_summarizes_ffmpeg_probe_without_paths() {
-        let report = report_from_ffmpeg_encoders(
+        let report = hls_probe_report(
             r#"
  V..... libx264
  V..... h264_nvenc
@@ -634,7 +728,7 @@ mod tests {
 
     #[test]
     fn ffmpeg_encoder_report_records_safe_evidence_and_operator_smoke_checks() {
-        let report = report_from_ffmpeg_encoders(" V..... h264_nvenc\n");
+        let report = hls_probe_report(" V..... h264_nvenc\n");
         let nvenc = report.capability_for(HardwareAcceleration::Nvenc).unwrap();
         let cpu = report.capability_for(HardwareAcceleration::None).unwrap();
 
@@ -675,10 +769,8 @@ mod tests {
                 HardwareSmokeProbe::failed(HardwareAcceleration::Vaapi, "device smoke failed"),
             ),
         ]);
-        let report = report_from_ffmpeg_encoders_with_smoke_probe(
-            " V..... h264_nvenc\n V..... h264_vaapi\n",
-            &smoke_probe,
-        );
+        let inventory = hls_probe_inventory(" V..... h264_nvenc\n V..... h264_vaapi\n");
+        let report = report_from_ffmpeg_probe_inventory_with_smoke_probe(&inventory, &smoke_probe);
         let nvenc = report.capability_for(HardwareAcceleration::Nvenc).unwrap();
         let vaapi = report.capability_for(HardwareAcceleration::Vaapi).unwrap();
 
@@ -715,8 +807,9 @@ mod tests {
                 HardwareSmokeProbe::passed(HardwareAcceleration::Vaapi),
             ),
         ]);
-        let report = report_from_ffmpeg_encoders_with_diagnostics(
-            " V..... h264_nvenc\n V..... h264_vaapi\n",
+        let inventory = hls_probe_inventory(" V..... h264_nvenc\n V..... h264_vaapi\n");
+        let report = report_from_ffmpeg_probe_inventory_with_diagnostics(
+            &inventory,
             &initialization,
             &smoke_probe,
         );
@@ -769,7 +862,7 @@ mod tests {
 
     #[test]
     fn ffmpeg_encoder_report_marks_missing_hardware_unavailable() {
-        let report = report_from_ffmpeg_encoders(" V..... libx264\n");
+        let report = hls_probe_report(" V..... libx264\n");
 
         assert!(report.is_available(HardwareAcceleration::None));
         assert!(!report.is_available(HardwareAcceleration::Nvenc));
@@ -1322,6 +1415,114 @@ mod tests {
             .unwrap();
 
         (manager, session)
+    }
+
+    fn hls_probe_report(encoders: &str) -> HardwareAccelerationReport {
+        report_from_ffmpeg_probe_inventory(&hls_probe_inventory(encoders))
+    }
+
+    fn hls_probe_inventory(encoders: &str) -> FfmpegProbeInventory {
+        FfmpegProbeInventory::from_outputs(
+            encoders,
+            r#"
+ VFS..D h264
+ V..... h264_qsv
+"#,
+            r#"
+vaapi
+qsv
+videotoolbox
+"#,
+            r#"
+ ... hwupload
+ ... scale_vaapi
+"#,
+            r#"
+h264_mp4toannexb
+"#,
+        )
+    }
+
+    fn fake_probe_ffmpeg_script(root: &Path, name: &str, fail_filters: bool) -> PathBuf {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+
+            let path = root.join(name);
+            let mut content = String::from("#!/bin/sh\n");
+            content.push_str("for arg do\n");
+            content.push_str("case \"$arg\" in\n");
+            content.push_str("-encoders)\n");
+            content.push_str("cat <<'EOF'\n V..... h264_vaapi\n V..... h264_nvenc\nEOF\n");
+            content.push_str("exit 0\n;;\n");
+            content.push_str("-decoders)\n");
+            content.push_str("cat <<'EOF'\n VFS..D h264\nEOF\n");
+            content.push_str("exit 0\n;;\n");
+            content.push_str("-hwaccels)\n");
+            content.push_str("cat <<'EOF'\nvaapi\nqsv\nEOF\n");
+            content.push_str("exit 0\n;;\n");
+            content.push_str("-filters)\n");
+            if fail_filters {
+                content.push_str("echo filters denied 1>&2\nexit 42\n;;\n");
+            } else {
+                content.push_str("cat <<'EOF'\n ... hwupload\n ... scale_vaapi\nEOF\n");
+                content.push_str("exit 0\n;;\n");
+            }
+            content.push_str("-bsfs)\n");
+            content.push_str("cat <<'EOF'\nh264_mp4toannexb\nEOF\n");
+            content.push_str("exit 0\n;;\n");
+            content.push_str("esac\ndone\n");
+            content.push_str("echo missing probe argument 1>&2\nexit 64\n");
+            fs::write(&path, content).unwrap();
+            let mut permissions = fs::metadata(&path).unwrap().permissions();
+            permissions.set_mode(0o755);
+            fs::set_permissions(&path, permissions).unwrap();
+            path
+        }
+
+        #[cfg(windows)]
+        {
+            let path = root.join(format!("{name}.cmd"));
+            let mut content = String::from("@echo off\r\n");
+            content.push_str("setlocal\r\n");
+            content.push_str(":args\r\n");
+            content.push_str("if \"%~1\"==\"\" goto missing\r\n");
+            content.push_str("if \"%~1\"==\"-encoders\" goto encoders\r\n");
+            content.push_str("if \"%~1\"==\"-decoders\" goto decoders\r\n");
+            content.push_str("if \"%~1\"==\"-hwaccels\" goto hwaccels\r\n");
+            content.push_str("if \"%~1\"==\"-filters\" goto filters\r\n");
+            content.push_str("if \"%~1\"==\"-bsfs\" goto bsfs\r\n");
+            content.push_str("shift\r\n");
+            content.push_str("goto args\r\n");
+            content.push_str(":encoders\r\n");
+            content.push_str("echo  V..... h264_vaapi\r\n");
+            content.push_str("echo  V..... h264_nvenc\r\n");
+            content.push_str("exit /b 0\r\n");
+            content.push_str(":decoders\r\n");
+            content.push_str("echo  VFS..D h264\r\n");
+            content.push_str("exit /b 0\r\n");
+            content.push_str(":hwaccels\r\n");
+            content.push_str("echo vaapi\r\n");
+            content.push_str("echo qsv\r\n");
+            content.push_str("exit /b 0\r\n");
+            content.push_str(":filters\r\n");
+            if fail_filters {
+                content.push_str("echo filters denied 1>&2\r\n");
+                content.push_str("exit /b 42\r\n");
+            } else {
+                content.push_str("echo  ... hwupload\r\n");
+                content.push_str("echo  ... scale_vaapi\r\n");
+                content.push_str("exit /b 0\r\n");
+            }
+            content.push_str(":bsfs\r\n");
+            content.push_str("echo h264_mp4toannexb\r\n");
+            content.push_str("exit /b 0\r\n");
+            content.push_str(":missing\r\n");
+            content.push_str("echo missing probe argument 1>&2\r\n");
+            content.push_str("exit /b 64\r\n");
+            fs::write(&path, content).unwrap();
+            path
+        }
     }
 
     fn fake_ffmpeg_script(root: &Path, name: &str, lines: &[&str]) -> PathBuf {

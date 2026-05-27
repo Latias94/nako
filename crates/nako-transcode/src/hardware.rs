@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use nako_core::{NakoError, Result};
 use serde::{Deserialize, Serialize};
 
-use super::ffmpeg::stderr_message;
+use super::{ffmpeg::stderr_message, probe::FfmpegProbeInventory};
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -97,6 +97,7 @@ impl HardwarePipelineStage {
 pub struct HardwareStageCapability {
     pub stage: HardwarePipelineStage,
     pub available: bool,
+    pub required: bool,
     pub feature: Option<String>,
     pub discovery_status: HardwareEncoderDiscoveryStatus,
     pub detail: Option<String>,
@@ -108,6 +109,7 @@ impl HardwareStageCapability {
         Self {
             stage,
             available: true,
+            required: false,
             feature: None,
             discovery_status: HardwareEncoderDiscoveryStatus::NotRequired,
             detail: None,
@@ -119,6 +121,7 @@ impl HardwareStageCapability {
         Self {
             stage,
             available: true,
+            required: true,
             feature: Some(feature.into()),
             discovery_status: HardwareEncoderDiscoveryStatus::Static,
             detail: None,
@@ -130,6 +133,7 @@ impl HardwareStageCapability {
         Self {
             stage,
             available: true,
+            required: true,
             feature: Some(feature.into()),
             discovery_status: HardwareEncoderDiscoveryStatus::Listed,
             detail: None,
@@ -141,6 +145,31 @@ impl HardwareStageCapability {
         Self {
             stage,
             available: false,
+            required: true,
+            feature: Some(feature.into()),
+            discovery_status: HardwareEncoderDiscoveryStatus::Missing,
+            detail: None,
+        }
+    }
+
+    #[must_use]
+    pub fn optional_listed(stage: HardwarePipelineStage, feature: impl Into<String>) -> Self {
+        Self {
+            stage,
+            available: true,
+            required: false,
+            feature: Some(feature.into()),
+            discovery_status: HardwareEncoderDiscoveryStatus::Listed,
+            detail: None,
+        }
+    }
+
+    #[must_use]
+    pub fn optional_missing(stage: HardwarePipelineStage, feature: impl Into<String>) -> Self {
+        Self {
+            stage,
+            available: false,
+            required: false,
             feature: Some(feature.into()),
             discovery_status: HardwareEncoderDiscoveryStatus::Missing,
             detail: None,
@@ -152,6 +181,7 @@ impl HardwareStageCapability {
         Self {
             stage,
             available: false,
+            required: true,
             feature: None,
             discovery_status: HardwareEncoderDiscoveryStatus::ProbeError,
             detail: Some(detail.into()),
@@ -546,31 +576,46 @@ where
     }
 
     pub fn detect_result(&self) -> Result<HardwareAccelerationReport> {
+        let encoders = self.probe_output("-encoders", "encoders")?;
+        let decoders = self.probe_output("-decoders", "decoders")?;
+        let hwaccels = self.probe_output("-hwaccels", "hwaccels")?;
+        let filters = self.probe_output("-filters", "filters")?;
+        let bitstream_filters = self.probe_output("-bsfs", "bitstream filters")?;
+        let inventory = FfmpegProbeInventory::from_outputs(
+            &encoders,
+            &decoders,
+            &hwaccels,
+            &filters,
+            &bitstream_filters,
+        );
+        Ok(report_from_ffmpeg_probe_inventory_with_diagnostics(
+            &inventory,
+            &OperatorHardwareDeviceInitialization,
+            &self.smoke_probe,
+        ))
+    }
+
+    fn probe_output(&self, argument: &'static str, label: &'static str) -> Result<String> {
         let output = std::process::Command::new(&self.ffmpeg_path)
             .arg("-hide_banner")
-            .arg("-encoders")
+            .arg(argument)
             .output()
             .map_err(|err| NakoError::Provider {
                 provider: "ffmpeg".to_owned(),
-                message: format!("failed to run ffmpeg hardware capability probe: {err}"),
+                message: format!("failed to run ffmpeg {label} capability probe: {err}"),
             })?;
 
         if !output.status.success() {
             return Err(NakoError::Provider {
                 provider: "ffmpeg".to_owned(),
                 message: format!(
-                    "ffmpeg hardware capability probe failed: {}",
+                    "ffmpeg {label} capability probe failed: {}",
                     stderr_message(&output.stderr)
                 ),
             });
         }
 
-        let encoders = String::from_utf8_lossy(&output.stdout);
-        Ok(report_from_ffmpeg_encoders_with_diagnostics(
-            &encoders,
-            &OperatorHardwareDeviceInitialization,
-            &self.smoke_probe,
-        ))
+        Ok(String::from_utf8_lossy(&output.stdout).into_owned())
     }
 }
 
@@ -596,67 +641,63 @@ impl StaticHardwareAccelerationDetector {
     }
 }
 
-pub fn report_from_ffmpeg_encoders(encoders: &str) -> HardwareAccelerationReport {
-    report_from_ffmpeg_encoders_with_smoke_probe(encoders, &OperatorHardwareSmokeProbe)
+pub fn report_from_ffmpeg_probe_inventory(
+    inventory: &FfmpegProbeInventory,
+) -> HardwareAccelerationReport {
+    report_from_ffmpeg_probe_inventory_with_smoke_probe(inventory, &OperatorHardwareSmokeProbe)
 }
 
-pub fn report_from_ffmpeg_encoders_with_smoke_probe(
-    encoders: &str,
+pub fn report_from_ffmpeg_probe_inventory_with_smoke_probe(
+    inventory: &FfmpegProbeInventory,
     smoke_probe: &dyn HardwareSmokeProbeDetector,
 ) -> HardwareAccelerationReport {
-    report_from_ffmpeg_encoders_with_diagnostics(
-        encoders,
+    report_from_ffmpeg_probe_inventory_with_diagnostics(
+        inventory,
         &OperatorHardwareDeviceInitialization,
         smoke_probe,
     )
 }
 
-pub fn report_from_ffmpeg_encoders_with_diagnostics(
-    encoders: &str,
+pub fn report_from_ffmpeg_probe_inventory_with_diagnostics(
+    inventory: &FfmpegProbeInventory,
     device_initialization: &dyn HardwareDeviceInitializationDetector,
     smoke_probe: &dyn HardwareSmokeProbeDetector,
 ) -> HardwareAccelerationReport {
-    let has_vaapi = encoders.contains("h264_vaapi");
-    let has_nvenc = encoders.contains("h264_nvenc");
-    let has_qsv = encoders.contains("h264_qsv");
-    let has_amf = encoders.contains("h264_amf");
-    let has_videotoolbox = encoders.contains("h264_videotoolbox");
-
     HardwareAccelerationReport {
         capabilities: vec![
             cpu_capability(),
             encoder_capability(
                 HardwareAcceleration::Vaapi,
                 "h264_vaapi",
-                has_vaapi,
+                inventory,
                 device_initialization,
                 smoke_probe,
             ),
             encoder_capability(
                 HardwareAcceleration::Nvenc,
                 "h264_nvenc",
-                has_nvenc,
+                inventory,
                 device_initialization,
                 smoke_probe,
             ),
             encoder_capability(
                 HardwareAcceleration::QuickSync,
                 "h264_qsv",
-                has_qsv,
+                inventory,
                 device_initialization,
                 smoke_probe,
             ),
             encoder_capability(
                 HardwareAcceleration::Amf,
                 "h264_amf",
-                has_amf,
+                inventory,
                 device_initialization,
                 smoke_probe,
             ),
             encoder_capability(
                 HardwareAcceleration::VideoToolbox,
                 "h264_videotoolbox",
-                has_videotoolbox,
+                inventory,
                 device_initialization,
                 smoke_probe,
             ),
@@ -667,10 +708,13 @@ pub fn report_from_ffmpeg_encoders_with_diagnostics(
 fn encoder_capability(
     accelerator: HardwareAcceleration,
     encoder: &'static str,
-    encoder_listed: bool,
+    inventory: &FfmpegProbeInventory,
     device_initialization: &dyn HardwareDeviceInitializationDetector,
     smoke_probe: &dyn HardwareSmokeProbeDetector,
 ) -> HardwareAccelerationCapability {
+    let encoder_listed = inventory.has_encoder(encoder);
+    let stage_capabilities = stage_capabilities_for_inventory(accelerator, encoder, inventory);
+    let stages_available = required_stage_capabilities_available(&stage_capabilities);
     let initialization = if encoder_listed {
         device_initialization.initialize(accelerator)
     } else {
@@ -681,14 +725,16 @@ fn encoder_capability(
     } else {
         HardwareSmokeProbe::not_run(accelerator)
     };
-    let available = encoder_listed
-        && initialization.status != HardwareDeviceInitializationStatus::Failed
-        && smoke.status != HardwareSmokeProbeStatus::Failed;
     let encoder_discovery = if encoder_listed {
         HardwareEncoderDiscovery::listed(encoder)
     } else {
         HardwareEncoderDiscovery::missing(encoder)
     };
+
+    let available = encoder_listed
+        && stages_available
+        && initialization.status != HardwareDeviceInitializationStatus::Failed
+        && smoke.status != HardwareSmokeProbeStatus::Failed;
 
     HardwareAccelerationCapability {
         accelerator,
@@ -696,9 +742,11 @@ fn encoder_capability(
         device: None,
         reason: Some(if encoder_listed {
             if available {
-                format!("ffmpeg encoder {encoder} is available")
+                format!("ffmpeg hardware pipeline for {encoder} is available")
             } else if smoke.status == HardwareSmokeProbeStatus::Failed {
                 format!("ffmpeg encoder {encoder} is listed but hardware smoke probe failed")
+            } else if !stages_available {
+                missing_stage_reason(encoder, &stage_capabilities)
             } else {
                 format!(
                     "ffmpeg encoder {encoder} is listed but hardware device initialization failed"
@@ -707,7 +755,7 @@ fn encoder_capability(
         } else {
             format!("ffmpeg encoder {encoder} is not listed")
         }),
-        stage_capabilities: stage_capabilities_for_encoder(accelerator, encoder, encoder_listed),
+        stage_capabilities,
         encoder_discovery,
         device_initialization: initialization,
         smoke_probe: smoke,
@@ -736,10 +784,13 @@ fn probe_error_capability(
         available: false,
         device: None,
         reason: Some(message.to_owned()),
-        stage_capabilities: vec![HardwareStageCapability::probe_error(
-            HardwarePipelineStage::Encode,
-            message,
-        )],
+        stage_capabilities: vec![
+            HardwareStageCapability::probe_error(HardwarePipelineStage::Decode, message),
+            HardwareStageCapability::probe_error(HardwarePipelineStage::Hwaccel, message),
+            HardwareStageCapability::probe_error(HardwarePipelineStage::Filter, message),
+            HardwareStageCapability::probe_error(HardwarePipelineStage::Encode, message),
+            HardwareStageCapability::probe_error(HardwarePipelineStage::BitstreamFilter, message),
+        ],
         encoder_discovery: HardwareEncoderDiscovery::probe_error(message),
         device_initialization: HardwareDeviceInitialization::not_run(accelerator),
         smoke_probe: HardwareSmokeProbe::not_run(accelerator),
@@ -780,53 +831,131 @@ fn static_capability(accelerator: HardwareAcceleration) -> HardwareAccelerationC
     }
 }
 
-fn stage_capabilities_for_encoder(
+fn required_stage_capabilities_available(stages: &[HardwareStageCapability]) -> bool {
+    stages
+        .iter()
+        .filter(|stage| stage.required)
+        .all(|stage| stage.available)
+}
+
+fn missing_stage_reason(encoder: &str, stages: &[HardwareStageCapability]) -> String {
+    let Some(stage) = stages
+        .iter()
+        .find(|stage| stage.required && !stage.available)
+    else {
+        return format!("ffmpeg encoder {encoder} is listed but hardware pipeline is unavailable");
+    };
+
+    let feature = stage.feature.as_deref().unwrap_or("unknown");
+    format!(
+        "ffmpeg encoder {encoder} is listed but required {} capability {feature} is not listed",
+        stage.stage.as_str()
+    )
+}
+
+fn stage_capabilities_for_inventory(
     accelerator: HardwareAcceleration,
     encoder: &'static str,
-    encoder_listed: bool,
+    inventory: &FfmpegProbeInventory,
 ) -> Vec<HardwareStageCapability> {
-    let encode = if encoder_listed {
-        HardwareStageCapability::listed(HardwarePipelineStage::Encode, encoder)
-    } else {
-        HardwareStageCapability::missing(HardwarePipelineStage::Encode, encoder)
-    };
+    let encode = encoder_stage(inventory, encoder);
+    let bsf = optional_bitstream_filter_stage(inventory, "h264_mp4toannexb");
 
     match accelerator {
         HardwareAcceleration::None => vec![
             HardwareStageCapability::static_available(HardwarePipelineStage::Decode, "software"),
             HardwareStageCapability::static_available(HardwarePipelineStage::Filter, "software"),
             encode,
+            bsf,
         ],
         HardwareAcceleration::Nvenc => vec![
             HardwareStageCapability::static_available(HardwarePipelineStage::Decode, "software"),
             HardwareStageCapability::static_available(HardwarePipelineStage::Filter, "software"),
             encode,
+            bsf,
         ],
         HardwareAcceleration::Vaapi => vec![
-            HardwareStageCapability::static_available(HardwarePipelineStage::Hwaccel, "vaapi"),
-            HardwareStageCapability::static_available(HardwarePipelineStage::Decode, "vaapi"),
-            HardwareStageCapability::static_available(HardwarePipelineStage::Filter, "vaapi"),
+            hwaccel_stage(inventory, "vaapi"),
+            decoder_stage(inventory, "h264"),
+            filter_stage(inventory, "hwupload"),
             encode,
+            bsf,
         ],
         HardwareAcceleration::QuickSync => vec![
-            HardwareStageCapability::static_available(HardwarePipelineStage::Hwaccel, "qsv"),
-            HardwareStageCapability::static_available(HardwarePipelineStage::Decode, "qsv"),
+            hwaccel_stage(inventory, "qsv"),
+            decoder_stage(inventory, "h264_qsv"),
             HardwareStageCapability::static_available(HardwarePipelineStage::Filter, "software"),
             encode,
+            bsf,
         ],
         HardwareAcceleration::Amf => vec![
             HardwareStageCapability::static_available(HardwarePipelineStage::Decode, "software"),
             HardwareStageCapability::static_available(HardwarePipelineStage::Filter, "software"),
             encode,
+            bsf,
         ],
         HardwareAcceleration::VideoToolbox => vec![
-            HardwareStageCapability::static_available(
-                HardwarePipelineStage::Decode,
-                "videotoolbox",
-            ),
+            hwaccel_stage(inventory, "videotoolbox"),
+            decoder_stage(inventory, "h264"),
             HardwareStageCapability::static_available(HardwarePipelineStage::Filter, "software"),
             encode,
+            bsf,
         ],
+    }
+}
+
+fn encoder_stage(
+    inventory: &FfmpegProbeInventory,
+    feature: &'static str,
+) -> HardwareStageCapability {
+    if inventory.has_encoder(feature) {
+        HardwareStageCapability::listed(HardwarePipelineStage::Encode, feature)
+    } else {
+        HardwareStageCapability::missing(HardwarePipelineStage::Encode, feature)
+    }
+}
+
+fn decoder_stage(
+    inventory: &FfmpegProbeInventory,
+    feature: &'static str,
+) -> HardwareStageCapability {
+    if inventory.has_decoder(feature) {
+        HardwareStageCapability::listed(HardwarePipelineStage::Decode, feature)
+    } else {
+        HardwareStageCapability::missing(HardwarePipelineStage::Decode, feature)
+    }
+}
+
+fn hwaccel_stage(
+    inventory: &FfmpegProbeInventory,
+    feature: &'static str,
+) -> HardwareStageCapability {
+    if inventory.has_hwaccel(feature) {
+        HardwareStageCapability::listed(HardwarePipelineStage::Hwaccel, feature)
+    } else {
+        HardwareStageCapability::missing(HardwarePipelineStage::Hwaccel, feature)
+    }
+}
+
+fn filter_stage(
+    inventory: &FfmpegProbeInventory,
+    feature: &'static str,
+) -> HardwareStageCapability {
+    if inventory.has_filter(feature) {
+        HardwareStageCapability::listed(HardwarePipelineStage::Filter, feature)
+    } else {
+        HardwareStageCapability::missing(HardwarePipelineStage::Filter, feature)
+    }
+}
+
+fn optional_bitstream_filter_stage(
+    inventory: &FfmpegProbeInventory,
+    feature: &'static str,
+) -> HardwareStageCapability {
+    if inventory.has_bitstream_filter(feature) {
+        HardwareStageCapability::optional_listed(HardwarePipelineStage::BitstreamFilter, feature)
+    } else {
+        HardwareStageCapability::optional_missing(HardwarePipelineStage::BitstreamFilter, feature)
     }
 }
 

@@ -713,6 +713,7 @@ pub struct AdminPlaybackHardwareCapability {
 pub struct AdminPlaybackHardwareStageCapability {
     pub stage: nako_transcode::HardwarePipelineStage,
     pub available: bool,
+    pub required: bool,
     pub feature: Option<String>,
     pub discovery_status: AdminPlaybackHardwareEncoderDiscoveryStatus,
     pub has_detail: bool,
@@ -1027,6 +1028,7 @@ mod tests {
                     stage_capabilities: vec![AdminPlaybackHardwareStageCapability {
                         stage: nako_transcode::HardwarePipelineStage::Encode,
                         available: false,
+                        required: true,
                         feature: None,
                         discovery_status: AdminPlaybackHardwareEncoderDiscoveryStatus::ProbeError,
                         has_detail: true,
