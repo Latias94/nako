@@ -57,3 +57,6 @@ evidence has been reviewed.
 - [0036: Use Short-Lived Playback Tickets for Browser Media Transport](0036-short-lived-browser-playback-tickets.md)
 - [0037: Add Local Credential and Session Authentication](0037-local-credential-and-session-auth.md)
 - [0038: Deepen Playback Planning and Transcode Policy Seams](0038-playback-planning-and-transcode-policy-seams.md)
+- [0039: Keep Playback Policy and Renderer Targets Explicit](0039-playback-policy-and-renderer-target-boundary.md)
+- [0040: Model Casting as Renderer Sessions and Protocol Adapters](0040-casting-as-renderer-session-adapter.md)
+- [0041: Separate Renderer Cast-Safe Transport Tickets From Browser Tickets](0041-renderer-cast-safe-transport-tickets.md)

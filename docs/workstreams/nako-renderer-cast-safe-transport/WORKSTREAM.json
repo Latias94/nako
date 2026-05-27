@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "slug": "nako-renderer-cast-safe-transport",
+  "title": "Nako Renderer Cast-Safe Transport",
+  "status": "active",
+  "current_task": "NRCT-020",
+  "completed_tasks": [
+    "NRCT-010"
+  ],
+  "updated": "2026-05-27",
+  "scope_kind": "execution",
+  "problem": "Nako-to-Nako casting can queue direct-play renderer commands, but non-direct remux/HLS renderer playback lacks a cast-safe media transport distinct from browser playback tickets and bearer control auth.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/nako-renderer-cast-safe-transport/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/nako-renderer-cast-safe-transport/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/nako-renderer-cast-safe-transport/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/nako-renderer-cast-safe-transport/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/nako-renderer-cast-safe-transport/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/nako-renderer-cast-safe-transport/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python -m json.tool docs/workstreams/nako-renderer-cast-safe-transport/WORKSTREAM.json",
+    "git diff --check -- docs/workstreams/nako-renderer-cast-safe-transport docs/adr/0041-renderer-cast-safe-transport-tickets.md docs/adr/README.md docs/workstreams/README.md",
+    "cargo nextest run -p nako-server -E 'test(renderer) | test(playback)' --no-fail-fast",
+    "cargo nextest run -p nako-client-protocol public --no-fail-fast",
+    "cargo nextest run -p nako-api -E 'test(public_openapi) | test(admin_contract) | test(sdk)' --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "NRCT-010",
+      "summary": "Opened the Nako renderer cast-safe transport lane and ADR 0041, separating renderer-scoped media tickets from browser playback tickets while keeping Public Client renderer control on bearer-authenticated routes."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0036-short-lived-browser-playback-tickets.md",
+    "docs/adr/0039-playback-policy-and-renderer-target-boundary.md",
+    "docs/adr/0040-casting-as-renderer-session-adapter.md",
+    "docs/adr/0041-renderer-cast-safe-transport-tickets.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Run NRCT-020 characterization next, then implement the renderer transport ticket service and safe command transport envelope before opening Chromecast/DLNA/AirPlay workstreams."
+  }
+}

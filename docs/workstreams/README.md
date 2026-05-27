@@ -6,17 +6,24 @@ attention.
 
 ## Current Workstreams
 
+- [nako-renderer-cast-safe-transport](nako-renderer-cast-safe-transport/README.md):
+  active execution lane for adding renderer-scoped cast-safe media transport
+  for Nako remote clients before protocol-specific Chromecast, DLNA, or AirPlay
+  adapters. It keeps renderer control on bearer-authenticated Public Client
+  routes while making direct, remux, and HLS media URLs target-scoped and
+  expiring.
 - [playback-policy-and-renderer-targets](playback-policy-and-renderer-targets/README.md):
-  active execution lane for making playback decisions policy-aware and target
-  aware after the completed playback/transcode policy deepening. It introduces
-  effective playback permissions and renderer target vocabulary for browser,
-  desktop, mobile, and future casting without implementing casting protocols in
-  this lane.
+  completed execution lane for making playback decisions policy-aware and target
+  aware after playback/transcode policy deepening. It introduced effective
+  playback permissions and renderer target vocabulary for browser, desktop,
+  mobile, and future casting without implementing casting protocols in that
+  lane.
 - [casting-renderer-runtime](casting-renderer-runtime/README.md):
-  planned follow-on lane for implementing casting as Renderer Sessions plus
+  closed execution lane for implementing casting as Renderer Sessions plus
   protocol adapters after playback policy and renderer targets are in place. It
-  starts with Nako-to-Nako cast and keeps Chromecast, DLNA, and AirPlay as
-  adapter-specific work instead of playback planner modes.
+  shipped Nako-to-Nako direct play, renderer commands, and Admin diagnostics,
+  then split non-direct Nako transport, Chromecast, DLNA, and AirPlay into
+  follow-on lanes.
 - [playback-transcode-policy-deepening](playback-transcode-policy-deepening/README.md):
   completed architecture-first execution lane for making Nako's playback planner,
   transcode policy, runtime inventory, and engine Adapter seams mature enough
@@ -45,11 +52,11 @@ attention.
   Media Web, cookies, invitations, account recovery, SSO, and Management
   Context Links remain focused follow-ons.
 - [browser-playback-auth-transport](browser-playback-auth-transport/README.md):
-  active execution lane for choosing and implementing the secure browser
+  completed execution lane for choosing and implementing the secure browser
   playback transport that lets Media Web render a real player without exposing
   bearer tokens, raw Source Locators, local paths, or privileged permanent
-  stream URLs. ADR 0036 accepts short-lived browser playback tickets; BPAT-020
-  now owns the Public Client contract and SDK shape.
+  stream URLs. ADR 0036 accepts short-lived browser playback tickets; renderer
+  transport now remains intentionally separate.
 - [media-web-client-foundation](media-web-client-foundation/README.md):
   closed execution lane for the first browser-based Media Web surface inside
   the shared web frontend: local media browsing, search, Media Item detail,
