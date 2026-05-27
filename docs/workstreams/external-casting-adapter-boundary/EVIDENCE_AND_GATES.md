@@ -91,6 +91,38 @@ Results:
 - format check passed.
 - diff check passed. Git printed CRLF conversion warnings only.
 
+### ECAB-040
+
+Completed on 2026-05-27.
+
+Evidence:
+
+- wired `RendererAdapterBridgeService` into app composition;
+- added internal adapter renderer registration that accepts bridge-validated
+  Chromecast/DLNA/AirPlay targets without opening Public renderer registration
+  to external protocols;
+- proved a synthetic Chromecast-like renderer can receive a play command through
+  the existing renderer playback pipeline and get cast-safe transport URLs;
+- proved adapter command envelopes stay redaction-safe;
+- proved remote-control denial creates no playback, command, or transcode side
+  effects for synthetic external adapter renderers.
+
+Gates:
+
+```powershell
+cargo nextest run -p nako-server -E 'test(synthetic_external_adapter_play_command_receives_cast_safe_transport_envelope) | test(synthetic_external_adapter_policy_denial_creates_no_runtime_records) | test(renderer_adapter)' --no-fail-fast
+cargo nextest run -p nako-server -E 'test(renderer_adapter) | test(renderer) | test(playback)' --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
+```
+
+Results:
+
+- targeted synthetic adapter run: 5 passed, 370 skipped.
+- focused renderer adapter/renderer/playback gate: 93 passed, 282 skipped.
+- format check passed.
+- diff check passed. Git printed CRLF conversion warnings only.
+
 ## Gate Policy
 
 Use synthetic adapter tests before real LAN protocol tests. Physical receiver

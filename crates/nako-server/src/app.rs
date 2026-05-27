@@ -81,7 +81,13 @@ pub(crate) use playback::{
 pub(crate) use playback_ticket::{
     BrowserPlaybackTicketMode, BrowserPlaybackTicketService, IssuedBrowserPlaybackTicket,
 };
+pub(crate) use renderer::RegisterRendererAdapterSessionRequest;
 use renderer::RendererAppService;
+use renderer_adapter::RendererAdapterBridgeService;
+pub(crate) use renderer_adapter::{
+    BuildRendererAdapterCommandEnvelopeRequest, PublishRendererAdapterTargetRequest,
+    RendererAdapterTargetRecord,
+};
 pub(crate) use renderer_transport_ticket::{
     IssueRendererTransportTicketRequest, RendererTransportTicketScope,
     RendererTransportTicketService, ValidateRendererTransportTicketRequest,
@@ -254,6 +260,11 @@ impl NakoApp {
     #[must_use]
     pub(crate) fn renderer_transport_tickets(&self) -> RendererTransportTicketService {
         self.services().renderer_transport_tickets.clone()
+    }
+
+    #[must_use]
+    pub(crate) fn renderer_adapters(&self) -> RendererAdapterBridgeService {
+        self.services().renderer_adapters.clone()
     }
 
     #[must_use]

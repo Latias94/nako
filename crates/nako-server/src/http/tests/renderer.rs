@@ -16,11 +16,15 @@ use nako_api::{
     },
 };
 use nako_core::{
-    RendererCommandListFilter, RendererControlCommand, RendererSessionId,
-    RendererSessionRepository, UserPrincipalId,
+    RendererCommandListFilter, RendererControlCapabilities, RendererControlCommand,
+    RendererSessionId, RendererSessionRepository, UserPrincipalId,
 };
 
-use crate::app::renderer::QueueRendererCommandRequest;
+use crate::app::{
+    BuildRendererAdapterCommandEnvelopeRequest, PublishRendererAdapterTargetRequest,
+    RegisterRendererAdapterSessionRequest, casting::renderer_command_transport_payload,
+    renderer::QueueRendererCommandRequest,
+};
 
 use super::*;
 
@@ -564,6 +568,170 @@ async fn public_renderer_registration_rejects_external_cast_protocol_targets() {
 }
 
 #[tokio::test]
+async fn synthetic_external_adapter_play_command_receives_cast_safe_transport_envelope() {
+    let (_temp, app, source, store) =
+        app_with_media_source_config("movie.mp4", b"movie bytes", |_| {}).await;
+    let adapter_target = publish_chromecast_adapter_target(&app);
+    let renderer = app
+        .renderer()
+        .register_adapter_renderer(RegisterRendererAdapterSessionRequest {
+            principal_id: UserPrincipalId::local_admin(),
+            target: adapter_target.clone(),
+            ttl_ms: Some(120_000),
+        })
+        .await
+        .unwrap();
+    let router = build_router(app.clone());
+
+    let play: RendererPlayCommandResponse = request_body_json(
+        &router,
+        Method::POST,
+        &format!("/renderers/{}/commands/play", renderer.id),
+        &RendererPlayCommandRequest {
+            source_id: source.id.to_string(),
+            position_ms: Some(9_000),
+        },
+    )
+    .await;
+
+    assert_eq!(play.command.command, ClientRendererControlCommand::Play);
+    assert_eq!(play.command.position_ms, Some(9_000));
+    let transport = play
+        .command
+        .transport
+        .as_ref()
+        .expect("external adapter renderer command receives cast-safe transport");
+    assert_eq!(transport.mode, RendererTransportMode::Direct);
+    assert!(transport.urls[0].url.contains("renderer_ticket="));
+    assert!(transport.urls[0].url.contains(&renderer.id.to_string()));
+    assert!(!transport.urls[0].url.contains("Bearer"));
+    assert!(!transport.urls[0].url.contains("local:///"));
+
+    let commands = store
+        .list_renderer_commands(
+            RendererCommandListFilter {
+                renderer_session_id: Some(renderer.id),
+                state: None,
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    let command = commands
+        .iter()
+        .find(|command| command.id.to_string() == play.command.id)
+        .expect("play command was queued for the external adapter renderer");
+    let payload =
+        renderer_command_transport_payload(command).expect("queued command carries transport plan");
+    let envelope = app
+        .renderer_adapters()
+        .build_command_envelope(BuildRendererAdapterCommandEnvelopeRequest {
+            adapter_id: adapter_target.adapter_id.clone(),
+            stable_device_id: adapter_target.stable_device_id.clone(),
+            renderer_session_id: renderer.id,
+            playback_session_id: play.session.id.parse().unwrap(),
+            source_id: source.id,
+            command: RendererControlCommand::Play,
+            position_ms: play.command.position_ms,
+            transport: payload.transport,
+        })
+        .unwrap();
+
+    assert_eq!(
+        envelope.target_kind,
+        nako_core::PlaybackTargetKind::Chromecast
+    );
+    assert_eq!(envelope.renderer_session_id, renderer.id);
+    assert_eq!(envelope.command, RendererControlCommand::Play);
+    let debug = format!("{envelope:?}").to_ascii_lowercase();
+    for forbidden in [
+        "bearer",
+        "payload_json",
+        "source_locator",
+        "local_path",
+        "renderer_ticket",
+        "nako_rtt_",
+    ] {
+        assert!(
+            !debug.contains(forbidden),
+            "synthetic external adapter envelope leaked forbidden term: {forbidden}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn synthetic_external_adapter_policy_denial_creates_no_runtime_records() {
+    let (_temp, app, source, store) =
+        app_with_media_source_config("movie.mp4", b"movie bytes", |_| {}).await;
+    let principal =
+        local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::Play).await;
+    let adapter_target = publish_chromecast_adapter_target(&app);
+    let renderer = app
+        .renderer()
+        .register_adapter_renderer(RegisterRendererAdapterSessionRequest {
+            principal_id: principal.principal_id.clone(),
+            target: adapter_target,
+            ttl_ms: Some(120_000),
+        })
+        .await
+        .unwrap();
+    let router = public_client_router_with_principal(app, principal);
+
+    let response = response_body_json(
+        &router,
+        Method::POST,
+        &format!("/renderers/{}/commands/play", renderer.id),
+        &RendererPlayCommandRequest {
+            source_id: source.id.to_string(),
+            position_ms: None,
+        },
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    let body: ErrorResponse = body_json(response).await;
+    assert_eq!(body.code, "forbidden");
+    assert!(
+        body.message.contains("remote_control"),
+        "expected remote_control denial, got {}",
+        body.message
+    );
+    assert!(
+        store
+            .list_playback_sessions(
+                PlaybackSessionListFilter::default(),
+                PageRequest::first_page()
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        store
+            .list_renderer_commands(
+                RendererCommandListFilter {
+                    renderer_session_id: Some(renderer.id),
+                    state: None,
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        store
+            .list_transcode_sessions(
+                TranscodeSessionListFilter::default(),
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
 async fn public_renderer_registration_accepts_nako_remote_cast_ticket_transport() {
     let (_temp, app, _source, _store) =
         app_with_media_source_config("movie.mp4", b"movie bytes", |_| {}).await;
@@ -577,6 +745,28 @@ async fn public_renderer_registration_accepts_nako_remote_cast_ticket_transport(
         response.renderer.transport_auth,
         ClientPlaybackTargetTransportAuth::CastTicket
     );
+}
+
+fn publish_chromecast_adapter_target(
+    app: &crate::app::NakoApp,
+) -> crate::app::RendererAdapterTargetRecord {
+    app.renderer_adapters()
+        .publish_target(PublishRendererAdapterTargetRequest {
+            adapter_id: "official.chromecast".to_owned(),
+            stable_device_id: "living-room-tv".to_owned(),
+            target_kind: nako_core::PlaybackTargetKind::Chromecast,
+            display_name: "Living Room TV".to_owned(),
+            network_scope: nako_core::PlaybackTargetNetworkScope::Local,
+            media_capabilities: nako_playback::ClientPlaybackCapabilities {
+                direct_play: true,
+                containers: vec!["mp4".to_owned()],
+                video_codecs: vec!["h264".to_owned()],
+                audio_codecs: vec!["aac".to_owned()],
+            },
+            control_capabilities: RendererControlCapabilities::basic_playback(),
+            now_ms: 1_779_814_400_000,
+        })
+        .unwrap()
 }
 
 fn renderer_registration_request(display_name: &str) -> RendererRegistrationRequest {

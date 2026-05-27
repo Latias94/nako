@@ -12,6 +12,7 @@ use nako_db::NakoDatabase;
 use nako_playback::ClientPlaybackCapabilities;
 
 use super::current_time_ms;
+use super::renderer_adapter::RendererAdapterTargetRecord;
 
 const DEFAULT_RENDERER_SESSION_TTL_MS: i64 = 60_000;
 const MAX_RENDERER_SESSION_TTL_MS: i64 = 10 * 60 * 1_000;
@@ -26,6 +27,13 @@ pub(crate) struct RegisterRendererRequest {
     pub transport_auth: PlaybackTargetTransportAuth,
     pub media_capabilities: Option<ClientPlaybackCapabilities>,
     pub control_capabilities: RendererControlCapabilities,
+    pub ttl_ms: Option<u64>,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct RegisterRendererAdapterSessionRequest {
+    pub principal_id: UserPrincipalId,
+    pub target: RendererAdapterTargetRecord,
     pub ttl_ms: Option<u64>,
 }
 
@@ -94,6 +102,38 @@ where
                 network_scope: request.network_scope,
                 transport_auth: request.transport_auth,
                 media_capabilities_json: Some(media_capabilities_json(&media_capabilities)?),
+                control_capabilities,
+                state: RendererSessionState::Online,
+                last_seen_at_ms: now_ms,
+                expires_at_ms,
+                created_at_ms: now_ms,
+                updated_at_ms: now_ms,
+            })
+            .await
+    }
+
+    pub(crate) async fn register_adapter_renderer(
+        &self,
+        request: RegisterRendererAdapterSessionRequest,
+    ) -> Result<RendererSessionRecord> {
+        validate_external_adapter_renderer_target(request.target.target_kind)?;
+        let display_name = normalize_display_name(request.target.display_name)?;
+        let control_capabilities =
+            normalize_control_capabilities(request.target.control_capabilities)?;
+        let now_ms = current_time_ms()?;
+        let expires_at_ms = renderer_expiry(now_ms, request.ttl_ms)?;
+
+        self.store
+            .upsert_renderer_session(NewRendererSession {
+                id: RendererSessionId::new(),
+                owner_principal_id: request.principal_id,
+                target_kind: request.target.target_kind,
+                display_name,
+                network_scope: request.target.network_scope,
+                transport_auth: PlaybackTargetTransportAuth::CastTicket,
+                media_capabilities_json: Some(media_capabilities_json(
+                    &request.target.media_capabilities,
+                )?),
                 control_capabilities,
                 state: RendererSessionState::Online,
                 last_seen_at_ms: now_ms,
@@ -452,6 +492,24 @@ fn validate_nako_renderer_target(
     }
 
     Ok(())
+}
+
+fn validate_external_adapter_renderer_target(target_kind: PlaybackTargetKind) -> Result<()> {
+    if matches!(
+        target_kind,
+        PlaybackTargetKind::Chromecast
+            | PlaybackTargetKind::DlnaRenderer
+            | PlaybackTargetKind::Airplay
+    ) {
+        return Ok(());
+    }
+
+    Err(NakoError::InvalidInput {
+        message: format!(
+            "renderer adapter sessions require an external renderer target, got {}",
+            target_kind.as_str()
+        ),
+    })
 }
 
 fn normalize_control_capabilities(

@@ -18,13 +18,17 @@ renderer ticket values.
 adapter bridge contract for external renderer targets and bounded command
 envelopes.
 
+`ECAB-040` is complete. A synthetic Chromecast-like adapter target can become a
+host-owned Renderer Session, use the existing play command pipeline, receive
+cast-safe transport, and preserve denied-policy no-side-effect behavior.
+
 ## Next Task
 
-Run `ECAB-040`.
+Run `ECAB-050`.
 
-`ECAB-040` should prove a synthetic external adapter command flow through host
-policy, Renderer Session/Playback Session state, and cast-safe transport
-without adding real Chromecast/DLNA/AirPlay discovery.
+`ECAB-050` should select the first real protocol implementation and repository
+boundary. It should compare Chromecast and DLNA library/process options and
+decide whether the real adapter belongs in `nako` or `nako-official-addons`.
 
 ## Important Files
 

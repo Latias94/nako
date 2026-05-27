@@ -3,11 +3,12 @@
   "slug": "external-casting-adapter-boundary",
   "title": "External Casting Adapter Boundary",
   "status": "active",
-  "current_task": "ECAB-040",
+  "current_task": "ECAB-050",
   "completed_tasks": [
     "ECAB-010",
     "ECAB-020",
-    "ECAB-030"
+    "ECAB-030",
+    "ECAB-040"
   ],
   "updated": "2026-05-27",
   "scope_kind": "execution",
@@ -57,6 +58,10 @@
     {
       "task": "ECAB-030",
       "summary": "Added a host-owned RendererAdapterBridgeService that records external adapter targets, projects them to cast-ticket PlaybackTargets, and builds redaction-safe command envelopes for registered adapter devices."
+    },
+    {
+      "task": "ECAB-040",
+      "summary": "Proved a synthetic external adapter flow: adapter targets become host-owned Renderer Sessions, play commands use cast-safe transport, command envelopes stay redacted, and denied policy creates no runtime side effects."
     }
   ],
   "adr_refs": [
@@ -68,6 +73,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Run ECAB-040 next to prove a synthetic external adapter command flow through host policy and cast-safe transport."
+    "notes": "Run ECAB-050 next to select the first real casting protocol implementation and repository boundary."
   }
 }

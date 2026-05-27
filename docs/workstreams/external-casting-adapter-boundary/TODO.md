@@ -105,7 +105,7 @@ Evidence:
 
 ### ECAB-040 - Prove synthetic external adapter command flow
 
-Status: Pending
+Status: Complete
 Owner: current agent or worker
 Depends on: ECAB-030
 
@@ -125,6 +125,19 @@ cargo nextest run -p nako-server -E 'test(renderer_adapter) | test(renderer) | t
 cargo fmt --all -- --check
 git diff --check
 ```
+
+Evidence:
+
+- App composition exposes the renderer adapter bridge as a host service.
+- Adapter-published external targets can become host-owned Renderer Sessions
+  without using Public renderer registration.
+- Synthetic Chromecast-like play command uses the existing renderer playback
+  pipeline and returns cast-safe transport URLs.
+- Synthetic adapter command envelopes are built from internal transport plans
+  without bearer tokens, Source Locators, local paths, raw payload JSON, or
+  renderer ticket values.
+- Remote-control policy denial creates no Playback Session, Renderer Command,
+  or Transcode Session side effects.
 
 ### ECAB-050 - Select first real protocol implementation
 
