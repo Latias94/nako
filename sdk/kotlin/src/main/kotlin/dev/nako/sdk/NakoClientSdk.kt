@@ -627,6 +627,29 @@ public value class ClientPlaybackDecisionMode(
 
 @JvmInline
 @Serializable
+public value class ClientPlaybackDecisionReportSelectedMode(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val DirectPlay: ClientPlaybackDecisionReportSelectedMode = ClientPlaybackDecisionReportSelectedMode("direct_play")
+        public val Remux: ClientPlaybackDecisionReportSelectedMode = ClientPlaybackDecisionReportSelectedMode("remux")
+        public val Transcode: ClientPlaybackDecisionReportSelectedMode = ClientPlaybackDecisionReportSelectedMode("transcode")
+        public val Denied: ClientPlaybackDecisionReportSelectedMode = ClientPlaybackDecisionReportSelectedMode("denied")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "direct_play",
+            "remux",
+            "transcode",
+            "denied",
+        )
+    }
+}
+
+@JvmInline
+@Serializable
 public value class ClientTranscodePlanOutputContainer(
     public val wireValue: String,
 ) {
@@ -1229,12 +1252,64 @@ public data class ClientPlaybackCapabilitiesDto(
 )
 
 @Serializable
+public data class ClientPlaybackCapabilityEvaluation(
+    public val reasons: List<ClientPlaybackCompatibilityCondition>,
+    public val supported: Boolean,
+)
+
+@JvmInline
+@Serializable
+public value class ClientPlaybackCompatibilityCondition(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val Compatible: ClientPlaybackCompatibilityCondition = ClientPlaybackCompatibilityCondition("compatible")
+        public val DirectPlayDisabled: ClientPlaybackCompatibilityCondition = ClientPlaybackCompatibilityCondition("direct_play_disabled")
+        public val MediaTechnicalFactsMissing: ClientPlaybackCompatibilityCondition = ClientPlaybackCompatibilityCondition("media_technical_facts_missing")
+        public val ContainerUnknown: ClientPlaybackCompatibilityCondition = ClientPlaybackCompatibilityCondition("container_unknown")
+        public val ContainerUnsupported: ClientPlaybackCompatibilityCondition = ClientPlaybackCompatibilityCondition("container_unsupported")
+        public val RemuxContainerUnsupported: ClientPlaybackCompatibilityCondition = ClientPlaybackCompatibilityCondition("remux_container_unsupported")
+        public val VideoCodecUnsupported: ClientPlaybackCompatibilityCondition = ClientPlaybackCompatibilityCondition("video_codec_unsupported")
+        public val AudioCodecUnsupported: ClientPlaybackCompatibilityCondition = ClientPlaybackCompatibilityCondition("audio_codec_unsupported")
+        public val VideoBitrateUnsupported: ClientPlaybackCompatibilityCondition = ClientPlaybackCompatibilityCondition("video_bitrate_unsupported")
+        public val VideoResolutionUnsupported: ClientPlaybackCompatibilityCondition = ClientPlaybackCompatibilityCondition("video_resolution_unsupported")
+        public val AudioChannelsUnsupported: ClientPlaybackCompatibilityCondition = ClientPlaybackCompatibilityCondition("audio_channels_unsupported")
+        public val SubtitleDeliveryUnsupported: ClientPlaybackCompatibilityCondition = ClientPlaybackCompatibilityCondition("subtitle_delivery_unsupported")
+        public val RequestedTranscodeOutput: ClientPlaybackCompatibilityCondition = ClientPlaybackCompatibilityCondition("requested_transcode_output")
+        public val TranscodeProfileUnsupported: ClientPlaybackCompatibilityCondition = ClientPlaybackCompatibilityCondition("transcode_profile_unsupported")
+        public val PolicyDenied: ClientPlaybackCompatibilityCondition = ClientPlaybackCompatibilityCondition("policy_denied")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "compatible",
+            "direct_play_disabled",
+            "media_technical_facts_missing",
+            "container_unknown",
+            "container_unsupported",
+            "remux_container_unsupported",
+            "video_codec_unsupported",
+            "audio_codec_unsupported",
+            "video_bitrate_unsupported",
+            "video_resolution_unsupported",
+            "audio_channels_unsupported",
+            "subtitle_delivery_unsupported",
+            "requested_transcode_output",
+            "transcode_profile_unsupported",
+            "policy_denied",
+        )
+    }
+}
+
+@Serializable
 public data class ClientPlaybackDecision(
     public val denial: ClientPlaybackDenialDto?,
     @SerialName("direct_play")
     public val directPlay: ClientDirectPlayPlan?,
     public val mode: ClientPlaybackDecisionMode,
     public val reason: ClientPlaybackDecisionReason,
+    public val report: ClientPlaybackDecisionReport,
     @SerialName("transcode_plan")
     public val transcodePlan: ClientTranscodePlan?,
 )
@@ -1267,6 +1342,17 @@ public value class ClientPlaybackDecisionReason(
         )
     }
 }
+
+@Serializable
+public data class ClientPlaybackDecisionReport(
+    public val denial: ClientPlaybackDenialDto? = null,
+    @SerialName("direct_play")
+    public val directPlay: ClientPlaybackCapabilityEvaluation,
+    public val remux: ClientPlaybackCapabilityEvaluation,
+    @SerialName("selected_mode")
+    public val selectedMode: ClientPlaybackDecisionReportSelectedMode,
+    public val transcode: ClientPlaybackCapabilityEvaluation,
+)
 
 @Serializable
 public data class ClientPlaybackDenialDto(

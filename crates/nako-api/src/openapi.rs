@@ -1222,13 +1222,42 @@ fn schemas() -> Value {
             "target": schema_ref("ClientPlaybackTargetDto"),
             "decision": schema_ref("ClientPlaybackDecision")
         })),
-        "ClientPlaybackDecision": object_schema(&["mode", "reason", "denial", "direct_play", "transcode_plan"], json!({
+        "ClientPlaybackDecision": object_schema(&["mode", "reason", "report", "denial", "direct_play", "transcode_plan"], json!({
             "mode": enum_schema(&["direct_play", "remux", "transcode", "denied"]),
             "reason": schema_ref("ClientPlaybackDecisionReason"),
+            "report": schema_ref("ClientPlaybackDecisionReport"),
             "denial": nullable_ref("ClientPlaybackDenialDto"),
             "direct_play": nullable_ref("ClientDirectPlayPlan"),
             "transcode_plan": nullable_ref("ClientTranscodePlan")
         })),
+        "ClientPlaybackDecisionReport": object_schema(&["selected_mode", "direct_play", "remux", "transcode"], json!({
+            "selected_mode": enum_schema(&["direct_play", "remux", "transcode", "denied"]),
+            "direct_play": schema_ref("ClientPlaybackCapabilityEvaluation"),
+            "remux": schema_ref("ClientPlaybackCapabilityEvaluation"),
+            "transcode": schema_ref("ClientPlaybackCapabilityEvaluation"),
+            "denial": nullable_ref("ClientPlaybackDenialDto")
+        })),
+        "ClientPlaybackCapabilityEvaluation": object_schema(&["supported", "reasons"], json!({
+            "supported": boolean_schema(),
+            "reasons": array_schema(schema_ref("ClientPlaybackCompatibilityCondition"))
+        })),
+        "ClientPlaybackCompatibilityCondition": enum_schema(&[
+            "compatible",
+            "direct_play_disabled",
+            "media_technical_facts_missing",
+            "container_unknown",
+            "container_unsupported",
+            "remux_container_unsupported",
+            "video_codec_unsupported",
+            "audio_codec_unsupported",
+            "video_bitrate_unsupported",
+            "video_resolution_unsupported",
+            "audio_channels_unsupported",
+            "subtitle_delivery_unsupported",
+            "requested_transcode_output",
+            "transcode_profile_unsupported",
+            "policy_denied"
+        ]),
         "ClientPlaybackDecisionReason": enum_schema(&[
             "compatible",
             "requested_transcode_output",
@@ -1791,6 +1820,9 @@ mod tests {
         let schemas = document["components"]["schemas"].as_object().unwrap();
 
         assert!(schemas.contains_key("ClientPlaybackDecisionReason"));
+        assert!(schemas.contains_key("ClientPlaybackDecisionReport"));
+        assert!(schemas.contains_key("ClientPlaybackCapabilityEvaluation"));
+        assert!(schemas.contains_key("ClientPlaybackCompatibilityCondition"));
         assert!(schemas.contains_key("ClientPlaybackCapabilitiesDto"));
         assert!(schemas.contains_key("ClientPlaybackTargetDto"));
         assert!(schemas.contains_key("ClientPlaybackDenialDto"));
@@ -1803,6 +1835,20 @@ mod tests {
         assert_eq!(
             document["components"]["schemas"]["ClientPlaybackDecision"]["properties"]["reason"]["$ref"],
             "#/components/schemas/ClientPlaybackDecisionReason"
+        );
+        assert_eq!(
+            document["components"]["schemas"]["ClientPlaybackDecision"]["properties"]["report"]["$ref"],
+            "#/components/schemas/ClientPlaybackDecisionReport"
+        );
+        assert_eq!(
+            document["components"]["schemas"]["ClientPlaybackDecisionReport"]["properties"]["direct_play"]
+                ["$ref"],
+            "#/components/schemas/ClientPlaybackCapabilityEvaluation"
+        );
+        assert_eq!(
+            document["components"]["schemas"]["ClientPlaybackCapabilityEvaluation"]["properties"]["reasons"]
+                ["items"]["$ref"],
+            "#/components/schemas/ClientPlaybackCompatibilityCondition"
         );
         assert_eq!(
             document["components"]["schemas"]["ClientPlaybackDecision"]["properties"]["denial"]["allOf"]
@@ -1832,6 +1878,26 @@ mod tests {
                 "source_container_unknown",
                 "client_container_unsupported",
                 "source_codecs_unsupported",
+                "policy_denied"
+            ])
+        );
+        assert_eq!(
+            document["components"]["schemas"]["ClientPlaybackCompatibilityCondition"]["enum"],
+            json!([
+                "compatible",
+                "direct_play_disabled",
+                "media_technical_facts_missing",
+                "container_unknown",
+                "container_unsupported",
+                "remux_container_unsupported",
+                "video_codec_unsupported",
+                "audio_codec_unsupported",
+                "video_bitrate_unsupported",
+                "video_resolution_unsupported",
+                "audio_channels_unsupported",
+                "subtitle_delivery_unsupported",
+                "requested_transcode_output",
+                "transcode_profile_unsupported",
                 "policy_denied"
             ])
         );

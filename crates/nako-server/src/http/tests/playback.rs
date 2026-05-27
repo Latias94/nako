@@ -167,6 +167,15 @@ async fn playback_decision_and_direct_stream_routes_work() {
         decision.decision.mode,
         nako_api::public_client::ClientPlaybackMode::DirectPlay
     );
+    assert_eq!(
+        decision.decision.report.selected_mode,
+        nako_api::public_client::ClientPlaybackMode::DirectPlay
+    );
+    assert!(decision.decision.report.direct_play.supported);
+    assert_eq!(
+        decision_json["decision"]["report"]["direct_play"]["reasons"][0],
+        "direct_play_disabled"
+    );
     assert!(decision_json["source"].get("locator").is_none());
     assert!(
         decision_json["decision"]["transcode_plan"]
@@ -260,6 +269,18 @@ async fn playback_decision_returns_safe_target_and_policy_denial() {
     assert_eq!(
         decision.decision.reason,
         nako_api::public_client::ClientPlaybackDecisionReason::PolicyDenied
+    );
+    assert_eq!(
+        decision.decision.report.selected_mode,
+        nako_api::public_client::ClientPlaybackMode::Denied
+    );
+    assert_eq!(
+        decision.decision.report.denial.as_ref().unwrap().permission,
+        nako_api::public_client::ClientPlaybackPermission::Remux
+    );
+    assert_eq!(
+        decision.decision.report.direct_play.reasons[0],
+        nako_api::public_client::ClientPlaybackCompatibilityCondition::PolicyDenied
     );
     let denial = decision.decision.denial.unwrap();
     assert_eq!(

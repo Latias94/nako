@@ -4,7 +4,7 @@ pub use nako_core::{
     PlaybackTargetId, PlaybackTargetKind, PlaybackTargetNetworkScope, PlaybackTargetTransportAuth,
     RendererControlCapabilities, RendererControlCommand,
 };
-use nako_core::{LibraryId, MediaProbeResult, MediaSource, MediaSourceId, MediaStreamKind, Result};
+use nako_core::{LibraryId, MediaProbeResult, MediaSource, MediaSourceId, Result};
 use nako_transcode::{
     HlsTranscodeProfile, OutputContainer, RemuxContainer, RemuxTranscodeProfile,
     TranscodeAccelerationPlan, TranscodeExecutionPolicy, TranscodeOutputConstraints, TranscodePlan,
@@ -13,12 +13,22 @@ use nako_transcode::{
 };
 use serde::{Deserialize, Serialize};
 
+mod capability;
+
+pub use capability::{
+    DirectPlayCapabilityProfile, PlaybackCapabilityEvaluation, PlaybackCompatibilityCondition,
+    PlaybackDecisionReport, PlaybackTargetProfile, RemuxCapabilityProfile,
+    TranscodeCapabilityProfile,
+};
+use capability::{evaluate_direct_play, evaluate_remux, evaluate_transcode};
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct PlaybackDecision {
     pub mode: PlaybackMode,
     pub reason: PlaybackDecisionReason,
     pub selected_source: PlaybackSelectedSource,
     pub execution: PlaybackExecutionPlan,
+    pub report: PlaybackDecisionReport,
     pub direct_play: Option<DirectPlayPlan>,
     pub transcode_plan: Option<TranscodePlan>,
     pub denial: Option<PlaybackDenial>,
@@ -126,13 +136,23 @@ impl PlaybackProfile {
         client: &ClientPlaybackCapabilities,
         context: PlaybackSelectionContext,
     ) -> Self {
+        Self::from_target_profile(&PlaybackTargetProfile::from_capabilities(client, context))
+    }
+
+    #[must_use]
+    pub fn from_target_profile(profile: &PlaybackTargetProfile) -> Self {
+        let direct_play_profile = profile
+            .direct_play_profiles
+            .first()
+            .cloned()
+            .unwrap_or_default();
         Self {
-            direct_play: client.direct_play,
-            containers: normalized_values(&client.containers),
-            video_codecs: normalized_values(&client.video_codecs),
-            audio_codecs: normalized_values(&client.audio_codecs),
-            storage: context.storage,
-            preferences: context.preferences,
+            direct_play: profile.direct_play,
+            containers: direct_play_profile.containers,
+            video_codecs: direct_play_profile.video_codecs,
+            audio_codecs: direct_play_profile.audio_codecs,
+            storage: profile.storage.clone(),
+            preferences: profile.preferences.clone(),
         }
     }
 
@@ -382,118 +402,128 @@ pub fn plan_playback(request: PlaybackPlanningRequest<'_>) -> PlaybackDecision {
         effective_policy,
         context,
     } = request;
-    let client = &target.media_capabilities;
+    let target_profile = PlaybackTargetProfile::from_target(target, context);
     let content_type = content_type_for_file_name(&source.file_name).to_owned();
     let container = container_for_file_name(&source.file_name);
     let selected_source = PlaybackSelectedSource::from(source);
+    let mut report = PlaybackDecisionReport::new(source.id, target_profile.identity_key());
 
-    if target.is_remote_network() || context.storage.remote {
+    if target.is_remote_network() || target_profile.storage.remote {
         if let Some(denial) = policy_denial(effective_policy, PlaybackPermission::RemotePlayback) {
-            return denied_decision(selected_source, denial);
+            return denied_decision(selected_source, denial, report);
         }
     }
 
     if target.requires_cast_permission() {
         if let Some(denial) = policy_denial(effective_policy, PlaybackPermission::Cast) {
-            return denied_decision(selected_source, denial);
+            return denied_decision(selected_source, denial, report);
         }
     }
 
-    if let Some(output_container) = context.preferences.transcode_output_container {
+    report.direct_play = evaluate_direct_play(probe, &target_profile, container);
+    report.remux = evaluate_remux(probe, &target_profile);
+    report.transcode = evaluate_transcode(&target_profile);
+
+    if let Some(output_container) = target_profile.preferences.transcode_output_container {
         if let Some(denial) = transcode_policy_denial(effective_policy) {
-            return denied_decision(selected_source, denial);
+            return denied_decision(selected_source, denial, report);
         }
+        report.transcode = PlaybackCapabilityEvaluation::unsupported(vec![
+            PlaybackCompatibilityCondition::RequestedTranscodeOutput,
+        ]);
         return transcode_decision(
             selected_source,
             source.locator.clone(),
             output_container,
             PlaybackDecisionReason::RequestedTranscodeOutput,
+            report,
         );
     }
 
-    if !client.direct_play {
+    if !target_profile.direct_play {
         if let Some(denial) = transcode_policy_denial(effective_policy) {
-            return denied_decision(selected_source, denial);
+            return denied_decision(selected_source, denial, report);
         }
         return transcode_decision(
             selected_source,
             source.locator.clone(),
             OutputContainer::Hls,
             PlaybackDecisionReason::ClientDisabledDirectPlay,
+            report,
         );
     }
 
-    let Some(container) = container else {
+    let Some(_container) = container else {
         if let Some(denial) = transcode_policy_denial(effective_policy) {
-            return denied_decision(selected_source, denial);
+            return denied_decision(selected_source, denial, report);
         }
         return transcode_decision(
             selected_source,
             source.locator.clone(),
             OutputContainer::Hls,
             PlaybackDecisionReason::SourceContainerUnknown,
+            report,
         );
     };
 
-    let container_allowed = client.containers.is_empty()
-        || client
-            .containers
-            .iter()
-            .any(|value| value.eq_ignore_ascii_case(container));
-
-    if !container_allowed {
-        let codecs_allowed = probe.is_some_and(|probe| codecs_are_supported(probe, client));
-
-        return if codecs_allowed {
+    if report
+        .direct_play
+        .has(PlaybackCompatibilityCondition::ContainerUnsupported)
+    {
+        return if report.remux.supported {
             if let Some(denial) = policy_denial(effective_policy, PlaybackPermission::Remux) {
-                return denied_decision(selected_source, denial);
+                return denied_decision(selected_source, denial, report);
             }
             remux_decision(
                 selected_source,
                 source.locator.clone(),
-                context
+                target_profile
                     .preferences
                     .remux_output_container
                     .unwrap_or(RemuxContainer::Mp4),
                 PlaybackDecisionReason::ClientContainerUnsupported,
+                report,
             )
         } else {
             if let Some(denial) = transcode_policy_denial(effective_policy) {
-                return denied_decision(selected_source, denial);
+                return denied_decision(selected_source, denial, report);
             }
             transcode_decision(
                 selected_source,
                 source.locator.clone(),
                 OutputContainer::Hls,
                 PlaybackDecisionReason::ClientContainerUnsupported,
+                report,
             )
         };
     }
 
-    if probe.is_some_and(|probe| !codecs_are_supported(probe, client)) {
+    if !report.direct_play.supported {
         if let Some(denial) = transcode_policy_denial(effective_policy) {
-            return denied_decision(selected_source, denial);
+            return denied_decision(selected_source, denial, report);
         }
         return transcode_decision(
             selected_source,
             source.locator.clone(),
             OutputContainer::Hls,
             PlaybackDecisionReason::SourceCodecsUnsupported,
+            report,
         );
     }
 
     let direct_play = DirectPlayPlan {
         source_id: source.id,
         content_type,
-        supports_range_requests: context.storage.range_readable.unwrap_or(true),
+        supports_range_requests: target_profile.storage.range_readable.unwrap_or(true),
     };
     if let Some(denial) = policy_denial(effective_policy, PlaybackPermission::DirectPlay) {
-        return denied_decision(selected_source, denial);
+        return denied_decision(selected_source, denial, report);
     }
     direct_play_decision(
         selected_source,
         direct_play,
         PlaybackDecisionReason::Compatible,
+        report,
     )
 }
 
@@ -512,12 +542,14 @@ fn direct_play_decision(
     selected_source: PlaybackSelectedSource,
     direct_play: DirectPlayPlan,
     reason: PlaybackDecisionReason,
+    report: PlaybackDecisionReport,
 ) -> PlaybackDecision {
     PlaybackDecision {
         mode: PlaybackMode::DirectPlay,
         reason,
         selected_source,
         execution: PlaybackExecutionPlan::DirectPlay(direct_play.clone()),
+        report: report.with_selected_mode(PlaybackMode::DirectPlay),
         direct_play: Some(direct_play),
         transcode_plan: None,
         denial: None,
@@ -529,6 +561,7 @@ fn remux_decision(
     input_locator: String,
     output_container: RemuxContainer,
     reason: PlaybackDecisionReason,
+    report: PlaybackDecisionReport,
 ) -> PlaybackDecision {
     PlaybackDecision {
         mode: PlaybackMode::Remux,
@@ -538,6 +571,7 @@ fn remux_decision(
             input_locator,
             output_container,
         }),
+        report: report.with_selected_mode(PlaybackMode::Remux),
         selected_source,
         direct_play: None,
         transcode_plan: None,
@@ -550,6 +584,7 @@ fn transcode_decision(
     input_locator: String,
     output_container: OutputContainer,
     reason: PlaybackDecisionReason,
+    report: PlaybackDecisionReport,
 ) -> PlaybackDecision {
     let transcode_plan = TranscodePlan {
         input_locator,
@@ -562,6 +597,7 @@ fn transcode_decision(
         mode: PlaybackMode::Transcode,
         reason,
         execution: PlaybackExecutionPlan::Transcode(transcode_plan.clone()),
+        report: report.with_selected_mode(PlaybackMode::Transcode),
         selected_source,
         direct_play: None,
         transcode_plan: Some(transcode_plan),
@@ -572,12 +608,16 @@ fn transcode_decision(
 fn denied_decision(
     selected_source: PlaybackSelectedSource,
     denial: PlaybackDenial,
+    report: PlaybackDecisionReport,
 ) -> PlaybackDecision {
     PlaybackDecision {
         mode: PlaybackMode::Denied,
         reason: PlaybackDecisionReason::PolicyDenied,
         selected_source,
         execution: PlaybackExecutionPlan::Denied(denial),
+        report: report
+            .with_denial(denial)
+            .with_selected_mode(PlaybackMode::Denied),
         direct_play: None,
         transcode_plan: None,
         denial: Some(denial),
@@ -598,24 +638,6 @@ fn policy_denial(
 fn transcode_policy_denial(policy: &EffectivePlaybackPolicy) -> Option<PlaybackDenial> {
     policy_denial(policy, PlaybackPermission::VideoTranscode)
         .or_else(|| policy_denial(policy, PlaybackPermission::AudioTranscode))
-}
-
-fn codecs_are_supported(probe: &MediaProbeResult, client: &ClientPlaybackCapabilities) -> bool {
-    probe.streams.iter().all(|stream| match stream.kind {
-        MediaStreamKind::Video => codec_allowed(stream.codec.as_deref(), &client.video_codecs),
-        MediaStreamKind::Audio => codec_allowed(stream.codec.as_deref(), &client.audio_codecs),
-        MediaStreamKind::Subtitle | MediaStreamKind::Data | MediaStreamKind::Attachment => true,
-        MediaStreamKind::Other(_) => true,
-    })
-}
-
-fn codec_allowed(codec: Option<&str>, allowed: &[String]) -> bool {
-    allowed.is_empty()
-        || codec.is_none_or(|codec| {
-            allowed
-                .iter()
-                .any(|value| value.eq_ignore_ascii_case(codec))
-        })
 }
 
 fn container_for_file_name(file_name: &str) -> Option<&str> {
@@ -649,17 +671,6 @@ fn extension(file_name: &str) -> Option<String> {
         .map(|(_stem, extension)| extension)
         .filter(|extension| !extension.is_empty())
         .map(str::to_ascii_lowercase)
-}
-
-fn normalized_values(values: &[String]) -> Vec<String> {
-    let mut values = values
-        .iter()
-        .map(|value| value.trim().to_ascii_lowercase())
-        .filter(|value| !value.is_empty())
-        .collect::<Vec<_>>();
-    values.sort();
-    values.dedup();
-    values
 }
 
 fn list_key(values: &[String]) -> String {
@@ -756,6 +767,14 @@ mod tests {
             decision.reason,
             PlaybackDecisionReason::ClientContainerUnsupported
         );
+        assert_eq!(decision.report.selected_mode, PlaybackMode::Remux);
+        assert!(
+            decision
+                .report
+                .direct_play
+                .has(PlaybackCompatibilityCondition::ContainerUnsupported)
+        );
+        assert!(decision.report.remux.supported);
         assert!(matches!(
             decision.execution,
             PlaybackExecutionPlan::Remux(RemuxPlaybackPlan {
@@ -942,6 +961,12 @@ mod tests {
             decision.reason,
             PlaybackDecisionReason::RequestedTranscodeOutput
         );
+        assert!(
+            decision
+                .report
+                .transcode
+                .has(PlaybackCompatibilityCondition::RequestedTranscodeOutput)
+        );
         assert!(matches!(
             decision.execution,
             PlaybackExecutionPlan::Transcode(nako_transcode::TranscodePlan {
@@ -1002,6 +1027,71 @@ mod tests {
         assert!(left.identity_key().contains("containers=mp4|webm"));
         assert!(left.identity_key().contains("audio=2"));
         assert!(left.identity_key().contains("transcode=hls"));
+    }
+
+    #[test]
+    fn playback_target_profile_identity_includes_capability_profiles() {
+        let profile = PlaybackTargetProfile::from_capabilities(
+            &ClientPlaybackCapabilities {
+                direct_play: true,
+                containers: vec!["MP4".to_owned(), "mkv".to_owned()],
+                video_codecs: vec!["H264".to_owned()],
+                audio_codecs: vec!["AAC".to_owned()],
+            },
+            PlaybackSelectionContext {
+                storage: PlaybackStorageContext {
+                    remote: false,
+                    range_readable: Some(true),
+                },
+                preferences: PlaybackPreferenceContext {
+                    max_video_bitrate: Some(5_000_000),
+                    ..Default::default()
+                },
+            },
+        );
+
+        let identity = profile.identity_key();
+
+        assert!(identity.contains("playback-target-profile:v1"));
+        assert!(identity.contains("containers=mkv|mp4"));
+        assert!(identity.contains("vcodecs=h264"));
+        assert!(identity.contains("maxv=5000000"));
+        assert!(identity.contains("transcode=container=hls,vcodec=h264,acodec=aac"));
+    }
+
+    #[test]
+    fn planner_reports_video_codec_mismatch_before_transcode() {
+        let source = media_source("movie.mp4");
+        let probe = MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some("mov,mp4,m4a,3gp,3g2,mj2".to_owned()),
+            bit_rate: None,
+            streams: vec![
+                stream(MediaStreamKind::Video, Some("mpeg2video")),
+                stream(MediaStreamKind::Audio, Some("aac")),
+            ],
+        };
+
+        let decision = plan_with_policy(
+            &source,
+            Some(&probe),
+            ClientPlaybackCapabilities::default(),
+            PlaybackSelectionContext::default(),
+            EffectivePlaybackPolicy::from_library_access(
+                source.library_id,
+                nako_core::LibraryAccessLevel::Play,
+            ),
+        );
+
+        assert_eq!(decision.mode, PlaybackMode::Transcode);
+        assert_eq!(decision.report.selected_mode, PlaybackMode::Transcode);
+        assert!(
+            decision
+                .report
+                .direct_play
+                .has(PlaybackCompatibilityCondition::VideoCodecUnsupported)
+        );
+        assert!(decision.report.transcode.supported);
     }
 
     #[test]

@@ -509,9 +509,25 @@ pub struct PlaybackDecisionResponse {
 pub struct ClientPlaybackDecision {
     pub mode: ClientPlaybackMode,
     pub reason: ClientPlaybackDecisionReason,
+    pub report: ClientPlaybackDecisionReport,
     pub denial: Option<ClientPlaybackDenialDto>,
     pub direct_play: Option<ClientDirectPlayPlan>,
     pub transcode_plan: Option<ClientTranscodePlan>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ClientPlaybackDecisionReport {
+    pub selected_mode: ClientPlaybackMode,
+    pub direct_play: ClientPlaybackCapabilityEvaluation,
+    pub remux: ClientPlaybackCapabilityEvaluation,
+    pub transcode: ClientPlaybackCapabilityEvaluation,
+    pub denial: Option<ClientPlaybackDenialDto>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ClientPlaybackCapabilityEvaluation {
+    pub supported: bool,
+    pub reasons: Vec<ClientPlaybackCompatibilityCondition>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -542,6 +558,26 @@ public_string_value! {
         SourceContainerUnknown => "source_container_unknown",
         ClientContainerUnsupported => "client_container_unsupported",
         SourceCodecsUnsupported => "source_codecs_unsupported",
+        PolicyDenied => "policy_denied",
+    }
+}
+
+public_string_value! {
+    pub enum ClientPlaybackCompatibilityCondition {
+        Compatible => "compatible",
+        DirectPlayDisabled => "direct_play_disabled",
+        MediaTechnicalFactsMissing => "media_technical_facts_missing",
+        ContainerUnknown => "container_unknown",
+        ContainerUnsupported => "container_unsupported",
+        RemuxContainerUnsupported => "remux_container_unsupported",
+        VideoCodecUnsupported => "video_codec_unsupported",
+        AudioCodecUnsupported => "audio_codec_unsupported",
+        VideoBitrateUnsupported => "video_bitrate_unsupported",
+        VideoResolutionUnsupported => "video_resolution_unsupported",
+        AudioChannelsUnsupported => "audio_channels_unsupported",
+        SubtitleDeliveryUnsupported => "subtitle_delivery_unsupported",
+        RequestedTranscodeOutput => "requested_transcode_output",
+        TranscodeProfileUnsupported => "transcode_profile_unsupported",
         PolicyDenied => "policy_denied",
     }
 }

@@ -15,7 +15,7 @@ use nako_core::{
 use nako_playback::{
     ClientPlaybackCapabilities, EffectivePlaybackPolicy, PlaybackDecision, PlaybackMode,
     PlaybackPlanner, PlaybackPlanningRequest, PlaybackProfile, PlaybackSelectionContext,
-    PlaybackTarget,
+    PlaybackTarget, PlaybackTargetProfile,
 };
 use nako_streaming::{DirectPlayRangeRequest, DirectPlayResponsePlan};
 use nako_transcode::{
@@ -1552,8 +1552,9 @@ impl PlaybackAppService {
         let (uri, backend) = self.storage_backend_for_media_source(&source).await?;
         let mut context = playback_selection_context(&uri, backend.as_ref()).await;
         context.preferences.remux_output_container = Some(request.output_container);
-        let playback_profile = PlaybackProfile::from_context(&request.client, context.clone());
         let target = playback_target_for_client(request.client.clone());
+        let target_profile = PlaybackTargetProfile::from_target(&target, context.clone());
+        let playback_profile = PlaybackProfile::from_target_profile(&target_profile);
         let effective_policy = effective_policy
             .into()
             .unwrap_or_else(|| default_playback_policy_for_source(&source));
@@ -1606,8 +1607,9 @@ impl PlaybackAppService {
         let (uri, backend) = self.storage_backend_for_media_source(&source).await?;
         let mut context = playback_selection_context(&uri, backend.as_ref()).await;
         context.preferences.transcode_output_container = Some(nako_transcode::OutputContainer::Hls);
-        let playback_profile = PlaybackProfile::from_context(&request.client, context.clone());
         let target = playback_target_for_client(request.client.clone());
+        let target_profile = PlaybackTargetProfile::from_target(&target, context.clone());
+        let playback_profile = PlaybackProfile::from_target_profile(&target_profile);
         let effective_policy = effective_policy
             .into()
             .unwrap_or_else(|| default_playback_policy_for_source(&source));

@@ -731,6 +731,24 @@ mod tests {
             decision: ClientPlaybackDecision {
                 mode: ClientPlaybackMode::DirectPlay,
                 reason: ClientPlaybackDecisionReason::Compatible,
+                report: ClientPlaybackDecisionReport {
+                    selected_mode: ClientPlaybackMode::DirectPlay,
+                    direct_play: ClientPlaybackCapabilityEvaluation {
+                        supported: true,
+                        reasons: vec![ClientPlaybackCompatibilityCondition::Compatible],
+                    },
+                    remux: ClientPlaybackCapabilityEvaluation {
+                        supported: false,
+                        reasons: vec![
+                            ClientPlaybackCompatibilityCondition::MediaTechnicalFactsMissing,
+                        ],
+                    },
+                    transcode: ClientPlaybackCapabilityEvaluation {
+                        supported: true,
+                        reasons: vec![ClientPlaybackCompatibilityCondition::Compatible],
+                    },
+                    denial: None,
+                },
                 denial: None,
                 direct_play: Some(ClientDirectPlayPlan {
                     source_id: "source-1".to_owned(),
@@ -869,6 +887,22 @@ mod tests {
             "decision": {
                 "mode": "server_future_mode",
                 "reason": "server_future_reason",
+                "report": {
+                    "selected_mode": "server_future_mode",
+                    "direct_play": {
+                        "supported": false,
+                        "reasons": ["future_direct_reason"]
+                    },
+                    "remux": {
+                        "supported": false,
+                        "reasons": ["future_remux_reason"]
+                    },
+                    "transcode": {
+                        "supported": true,
+                        "reasons": ["future_transcode_reason"]
+                    },
+                    "denial": null
+                },
                 "denial": {
                     "permission": "server_future_permission",
                     "reason": "server_future_denial"
@@ -905,6 +939,10 @@ mod tests {
             response.decision.denial.as_ref().unwrap().permission,
             ClientPlaybackPermission::Other("server_future_permission".to_owned())
         );
+        assert_eq!(
+            response.decision.report.direct_play.reasons[0],
+            ClientPlaybackCompatibilityCondition::Other("future_direct_reason".to_owned())
+        );
         let plan = response.decision.transcode_plan.unwrap();
         assert_eq!(
             plan.output_container,
@@ -918,6 +956,28 @@ mod tests {
             decision: ClientPlaybackDecision {
                 mode: ClientPlaybackMode::Other("server_future_mode".to_owned()),
                 reason: ClientPlaybackDecisionReason::Other("server_future_reason".to_owned()),
+                report: ClientPlaybackDecisionReport {
+                    selected_mode: ClientPlaybackMode::Other("server_future_mode".to_owned()),
+                    direct_play: ClientPlaybackCapabilityEvaluation {
+                        supported: false,
+                        reasons: vec![ClientPlaybackCompatibilityCondition::Other(
+                            "future_direct_reason".to_owned(),
+                        )],
+                    },
+                    remux: ClientPlaybackCapabilityEvaluation {
+                        supported: false,
+                        reasons: vec![ClientPlaybackCompatibilityCondition::Other(
+                            "future_remux_reason".to_owned(),
+                        )],
+                    },
+                    transcode: ClientPlaybackCapabilityEvaluation {
+                        supported: true,
+                        reasons: vec![ClientPlaybackCompatibilityCondition::Other(
+                            "future_transcode_reason".to_owned(),
+                        )],
+                    },
+                    denial: None,
+                },
                 denial: Some(ClientPlaybackDenialDto {
                     permission: ClientPlaybackPermission::Other(
                         "server_future_permission".to_owned(),

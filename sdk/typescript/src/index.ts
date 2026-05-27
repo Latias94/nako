@@ -110,15 +110,31 @@ export interface ClientPlaybackCapabilitiesDto {
   video_codecs: Array<string>;
 }
 
+export interface ClientPlaybackCapabilityEvaluation {
+  reasons: Array<ClientPlaybackCompatibilityCondition>;
+  supported: boolean;
+}
+
+export type ClientPlaybackCompatibilityCondition = "compatible" | "direct_play_disabled" | "media_technical_facts_missing" | "container_unknown" | "container_unsupported" | "remux_container_unsupported" | "video_codec_unsupported" | "audio_codec_unsupported" | "video_bitrate_unsupported" | "video_resolution_unsupported" | "audio_channels_unsupported" | "subtitle_delivery_unsupported" | "requested_transcode_output" | "transcode_profile_unsupported" | "policy_denied";
+
 export interface ClientPlaybackDecision {
   denial: ClientPlaybackDenialDto | null;
   direct_play: ClientDirectPlayPlan | null;
   mode: "direct_play" | "remux" | "transcode" | "denied";
   reason: ClientPlaybackDecisionReason;
+  report: ClientPlaybackDecisionReport;
   transcode_plan: ClientTranscodePlan | null;
 }
 
 export type ClientPlaybackDecisionReason = "compatible" | "requested_transcode_output" | "client_disabled_direct_play" | "source_container_unknown" | "client_container_unsupported" | "source_codecs_unsupported" | "policy_denied";
+
+export interface ClientPlaybackDecisionReport {
+  denial?: ClientPlaybackDenialDto | null;
+  direct_play: ClientPlaybackCapabilityEvaluation;
+  remux: ClientPlaybackCapabilityEvaluation;
+  selected_mode: "direct_play" | "remux" | "transcode" | "denied";
+  transcode: ClientPlaybackCapabilityEvaluation;
+}
 
 export interface ClientPlaybackDenialDto {
   permission: ClientPlaybackPermission;

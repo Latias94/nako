@@ -10,10 +10,11 @@ use nako_core::{
     TranscodeSessionRecord, TranscodeSessionState, UserPlaybackState,
 };
 use nako_playback::{
-    ClientPlaybackCapabilities, DirectPlayPlan, PlaybackDecision, PlaybackDecisionReason,
-    PlaybackDenial, PlaybackMode, PlaybackPermission, PlaybackPermissionDecisionReason,
-    PlaybackTarget, PlaybackTargetKind, PlaybackTargetNetworkScope, PlaybackTargetTransportAuth,
-    RendererControlCommand,
+    ClientPlaybackCapabilities, DirectPlayPlan, PlaybackCapabilityEvaluation,
+    PlaybackCompatibilityCondition, PlaybackDecision, PlaybackDecisionReason,
+    PlaybackDecisionReport, PlaybackDenial, PlaybackMode, PlaybackPermission,
+    PlaybackPermissionDecisionReason, PlaybackTarget, PlaybackTargetKind,
+    PlaybackTargetNetworkScope, PlaybackTargetTransportAuth, RendererControlCommand,
 };
 use nako_transcode::{OutputContainer, TranscodePlan};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
@@ -28,15 +29,16 @@ pub use nako_client_protocol::{
     ClientManagementDisabledReason, ClientManagementHttpMethod, ClientManagementRequiredAccess,
     ClientManagementSurface, ClientMediaDomain, ClientMediaKind, ClientMediaStreamKind,
     ClientMetadataRefreshMode, ClientMetadataSource, ClientNamingStrategy, ClientOutputContainer,
-    ClientPlaybackCapabilitiesDto, ClientPlaybackDecision, ClientPlaybackDecisionReason,
-    ClientPlaybackDenialDto, ClientPlaybackMode, ClientPlaybackPermission,
-    ClientPlaybackPermissionDecisionReason, ClientPlaybackSessionMode, ClientPlaybackSessionState,
-    ClientPlaybackTargetDto, ClientPlaybackTargetKind, ClientPlaybackTargetNetworkScope,
-    ClientPlaybackTargetTransportAuth, ClientRendererCommandState,
-    ClientRendererControlCapabilitiesDto, ClientRendererControlCommand, ClientRendererSessionState,
-    ClientTranscodeFailureCategory, ClientTranscodePlan, ClientTranscodeSessionKind,
-    ClientTranscodeSessionState, CollectionItemDto, CollectionRefDto, ContentRatingDto,
-    ContinueWatchingItemDto, ContinueWatchingResponse, CreditDto, CurrentUserDto,
+    ClientPlaybackCapabilitiesDto, ClientPlaybackCapabilityEvaluation,
+    ClientPlaybackCompatibilityCondition, ClientPlaybackDecision, ClientPlaybackDecisionReason,
+    ClientPlaybackDecisionReport, ClientPlaybackDenialDto, ClientPlaybackMode,
+    ClientPlaybackPermission, ClientPlaybackPermissionDecisionReason, ClientPlaybackSessionMode,
+    ClientPlaybackSessionState, ClientPlaybackTargetDto, ClientPlaybackTargetKind,
+    ClientPlaybackTargetNetworkScope, ClientPlaybackTargetTransportAuth,
+    ClientRendererCommandState, ClientRendererControlCapabilitiesDto, ClientRendererControlCommand,
+    ClientRendererSessionState, ClientTranscodeFailureCategory, ClientTranscodePlan,
+    ClientTranscodeSessionKind, ClientTranscodeSessionState, CollectionItemDto, CollectionRefDto,
+    ContentRatingDto, ContinueWatchingItemDto, ContinueWatchingResponse, CreditDto, CurrentUserDto,
     CurrentUserResponse, ErrorResponse, ExternalIdDto, GenreDto, GenreItemsResponse,
     GenreListResponse, HealthResponse, ImagesResponse, ItemCreditDto, ItemCreditsResponse,
     ItemDetailResponse, ItemGenreDto, ItemStudioDto, ItemTagDto, ItemsResponse, LibraryDto,
@@ -234,9 +236,33 @@ pub fn playback_decision_to_dto(decision: PlaybackDecision) -> ClientPlaybackDec
     ClientPlaybackDecision {
         mode: playback_mode_to_dto(decision.mode),
         reason: playback_decision_reason_to_dto(decision.reason),
+        report: playback_decision_report_to_dto(decision.report),
         denial: decision.denial.map(playback_denial_to_dto),
         direct_play: decision.direct_play.map(direct_play_plan_to_dto),
         transcode_plan: decision.transcode_plan.map(transcode_plan_to_dto),
+    }
+}
+
+fn playback_decision_report_to_dto(report: PlaybackDecisionReport) -> ClientPlaybackDecisionReport {
+    ClientPlaybackDecisionReport {
+        selected_mode: playback_mode_to_dto(report.selected_mode),
+        direct_play: playback_capability_evaluation_to_dto(report.direct_play),
+        remux: playback_capability_evaluation_to_dto(report.remux),
+        transcode: playback_capability_evaluation_to_dto(report.transcode),
+        denial: report.denial.map(playback_denial_to_dto),
+    }
+}
+
+fn playback_capability_evaluation_to_dto(
+    evaluation: PlaybackCapabilityEvaluation,
+) -> ClientPlaybackCapabilityEvaluation {
+    ClientPlaybackCapabilityEvaluation {
+        supported: evaluation.supported,
+        reasons: evaluation
+            .reasons
+            .into_iter()
+            .map(playback_compatibility_condition_to_dto)
+            .collect(),
     }
 }
 
@@ -784,6 +810,58 @@ fn playback_decision_reason_to_dto(reason: PlaybackDecisionReason) -> ClientPlay
     }
 }
 
+fn playback_compatibility_condition_to_dto(
+    condition: PlaybackCompatibilityCondition,
+) -> ClientPlaybackCompatibilityCondition {
+    match condition {
+        PlaybackCompatibilityCondition::Compatible => {
+            ClientPlaybackCompatibilityCondition::Compatible
+        }
+        PlaybackCompatibilityCondition::DirectPlayDisabled => {
+            ClientPlaybackCompatibilityCondition::DirectPlayDisabled
+        }
+        PlaybackCompatibilityCondition::MediaTechnicalFactsMissing => {
+            ClientPlaybackCompatibilityCondition::MediaTechnicalFactsMissing
+        }
+        PlaybackCompatibilityCondition::ContainerUnknown => {
+            ClientPlaybackCompatibilityCondition::ContainerUnknown
+        }
+        PlaybackCompatibilityCondition::ContainerUnsupported => {
+            ClientPlaybackCompatibilityCondition::ContainerUnsupported
+        }
+        PlaybackCompatibilityCondition::RemuxContainerUnsupported => {
+            ClientPlaybackCompatibilityCondition::RemuxContainerUnsupported
+        }
+        PlaybackCompatibilityCondition::VideoCodecUnsupported => {
+            ClientPlaybackCompatibilityCondition::VideoCodecUnsupported
+        }
+        PlaybackCompatibilityCondition::AudioCodecUnsupported => {
+            ClientPlaybackCompatibilityCondition::AudioCodecUnsupported
+        }
+        PlaybackCompatibilityCondition::VideoBitrateUnsupported => {
+            ClientPlaybackCompatibilityCondition::VideoBitrateUnsupported
+        }
+        PlaybackCompatibilityCondition::VideoResolutionUnsupported => {
+            ClientPlaybackCompatibilityCondition::VideoResolutionUnsupported
+        }
+        PlaybackCompatibilityCondition::AudioChannelsUnsupported => {
+            ClientPlaybackCompatibilityCondition::AudioChannelsUnsupported
+        }
+        PlaybackCompatibilityCondition::SubtitleDeliveryUnsupported => {
+            ClientPlaybackCompatibilityCondition::SubtitleDeliveryUnsupported
+        }
+        PlaybackCompatibilityCondition::RequestedTranscodeOutput => {
+            ClientPlaybackCompatibilityCondition::RequestedTranscodeOutput
+        }
+        PlaybackCompatibilityCondition::TranscodeProfileUnsupported => {
+            ClientPlaybackCompatibilityCondition::TranscodeProfileUnsupported
+        }
+        PlaybackCompatibilityCondition::PolicyDenied => {
+            ClientPlaybackCompatibilityCondition::PolicyDenied
+        }
+    }
+}
+
 fn playback_denial_to_dto(denial: PlaybackDenial) -> ClientPlaybackDenialDto {
     ClientPlaybackDenialDto {
         permission: playback_permission_to_dto(denial.permission),
@@ -1175,6 +1253,19 @@ mod tests {
                 file_name: "Demo.mp4".to_owned(),
             },
             execution: nako_playback::PlaybackExecutionPlan::Transcode(transcode_plan.clone()),
+            report: nako_playback::PlaybackDecisionReport {
+                source_id,
+                profile_key: "test-profile".to_owned(),
+                selected_mode: PlaybackMode::Transcode,
+                direct_play: nako_playback::PlaybackCapabilityEvaluation::unsupported(vec![
+                    nako_playback::PlaybackCompatibilityCondition::DirectPlayDisabled,
+                ]),
+                remux: nako_playback::PlaybackCapabilityEvaluation::unsupported(vec![
+                    nako_playback::PlaybackCompatibilityCondition::MediaTechnicalFactsMissing,
+                ]),
+                transcode: nako_playback::PlaybackCapabilityEvaluation::supported(),
+                denial: None,
+            },
             direct_play: None,
             transcode_plan: Some(transcode_plan),
             denial: None,
@@ -1184,6 +1275,10 @@ mod tests {
 
         assert_eq!(value["mode"], "transcode");
         assert_eq!(value["reason"], "client_disabled_direct_play");
+        assert_eq!(
+            value["report"]["direct_play"]["reasons"][0],
+            "direct_play_disabled"
+        );
         assert_eq!(value["transcode_plan"]["output_container"], "hls");
         assert!(value["transcode_plan"].get("input_locator").is_none());
         assert!(
