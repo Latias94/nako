@@ -168,7 +168,7 @@ Evidence:
 
 ### NRCT-060 - Admin readiness, docs, and protocol follow-on split
 
-Status: Pending
+Status: Complete
 Owner: current agent or worker
 Depends on: NRCT-050
 
@@ -188,6 +188,14 @@ cargo nextest run -p nako-api -E 'test(admin_contract) | test(public_openapi)' -
 cargo fmt --all -- --check
 git diff --check
 ```
+
+Evidence:
+
+- Admin renderer diagnostics now report `nako_remote_client_cast_safe_transport`
+  as ready with a dedicated readiness check and adapter reason.
+- Chromecast, DLNA, and AirPlay remain planned protocol adapter follow-ons.
+- Admin TypeScript contract was regenerated.
+- ADR 0041 is accepted after implementation evidence.
 
 ### NRCT-070 - Close workstream
 

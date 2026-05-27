@@ -1,7 +1,8 @@
 use nako_api::{
     admin::{
-        AdminRendererAdapterKind, AdminRendererAdapterStatus, AdminRendererControlPlane,
-        AdminRendererDiscoveryMode, AdminRendererMediaTransport, AdminRendererReadinessReason,
+        AdminRendererAdapterKind, AdminRendererAdapterReason, AdminRendererAdapterStatus,
+        AdminRendererControlPlane, AdminRendererDiscoveryMode, AdminRendererMediaTransport,
+        AdminRendererReadinessCheckName, AdminRendererReadinessReason,
         AdminRendererReadinessStatus, AdminRendererRuntimeDiagnosticsResponse,
     },
     public_client::{
@@ -422,6 +423,11 @@ async fn admin_v1_playback_renderers_reports_safe_diagnostics_and_adapter_readin
         diagnostics.readiness.reason,
         AdminRendererReadinessReason::RendererRepositoryReady
     );
+    assert!(diagnostics.readiness.checks.iter().any(|check| {
+        check.name == AdminRendererReadinessCheckName::NakoRemoteClientCastSafeTransport
+            && check.status == AdminRendererReadinessStatus::Ready
+            && check.reason == AdminRendererReadinessReason::NakoRemoteClientCastSafeTransportReady
+    }));
     assert_eq!(diagnostics.summary.returned_sessions, 1);
     assert_eq!(diagnostics.summary.online_sessions, 1);
     assert_eq!(diagnostics.summary.offline_sessions, 0);
@@ -449,8 +455,32 @@ async fn admin_v1_playback_renderers_reports_safe_diagnostics_and_adapter_readin
         AdminRendererMediaTransport::AuthenticatedNakoClientStream
     );
 
+    let cast_safe_adapter = diagnostics
+        .adapters
+        .iter()
+        .find(|adapter| {
+            adapter.adapter == AdminRendererAdapterKind::NakoRemoteClientCastSafeTransport
+        })
+        .expect("nako remote client cast-safe transport readiness is reported");
+    assert_eq!(cast_safe_adapter.status, AdminRendererAdapterStatus::Ready);
+    assert_eq!(
+        cast_safe_adapter.reason,
+        AdminRendererAdapterReason::CastSafeTransportReady
+    );
+    assert_eq!(
+        cast_safe_adapter.control_plane,
+        AdminRendererControlPlane::PublicClientPolling
+    );
+    assert_eq!(
+        cast_safe_adapter.discovery,
+        AdminRendererDiscoveryMode::ClientRegistration
+    );
+    assert_eq!(
+        cast_safe_adapter.media_transport,
+        AdminRendererMediaTransport::CastSafeUrl
+    );
+
     for planned in [
-        AdminRendererAdapterKind::NakoRemoteClientCastSafeTransport,
         AdminRendererAdapterKind::Chromecast,
         AdminRendererAdapterKind::DlnaRenderer,
         AdminRendererAdapterKind::Airplay,

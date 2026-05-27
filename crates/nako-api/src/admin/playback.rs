@@ -110,6 +110,7 @@ pub enum AdminRendererReadinessReason {
     Ready,
     RendererRepositoryReady,
     NakoRemoteClientAdapterReady,
+    NakoRemoteClientCastSafeTransportReady,
     RendererRepositoryUnavailable,
 }
 
@@ -139,6 +140,7 @@ impl AdminRendererReadinessCheck {
 pub enum AdminRendererReadinessCheckName {
     RendererRepository,
     NakoRemoteClientAdapter,
+    NakoRemoteClientCastSafeTransport,
 }
 
 impl AdminRendererReadinessDiagnostics {
@@ -155,6 +157,10 @@ impl AdminRendererReadinessDiagnostics {
                 AdminRendererReadinessCheck::ready(
                     AdminRendererReadinessCheckName::NakoRemoteClientAdapter,
                     AdminRendererReadinessReason::NakoRemoteClientAdapterReady,
+                ),
+                AdminRendererReadinessCheck::ready(
+                    AdminRendererReadinessCheckName::NakoRemoteClientCastSafeTransport,
+                    AdminRendererReadinessReason::NakoRemoteClientCastSafeTransportReady,
                 ),
             ],
         }
@@ -260,6 +266,7 @@ pub enum AdminRendererAdapterStatus {
 #[serde(rename_all = "snake_case")]
 pub enum AdminRendererAdapterReason {
     NakoRemoteClientReady,
+    CastSafeTransportReady,
     CastSafeTransportPending,
     ChromecastAdapterPlanned,
     DlnaAdapterPlanned,
@@ -1141,12 +1148,12 @@ mod tests {
                     transport_auth: PlaybackTargetTransportAuth::Bearer,
                 },
                 AdminRendererAdapterDiagnostics {
-                    adapter: AdminRendererAdapterKind::Chromecast,
-                    target_kind: PlaybackTargetKind::Chromecast,
-                    status: AdminRendererAdapterStatus::Planned,
-                    reason: AdminRendererAdapterReason::ChromecastAdapterPlanned,
-                    control_plane: AdminRendererControlPlane::AdapterProcess,
-                    discovery: AdminRendererDiscoveryMode::LocalNetworkDiscovery,
+                    adapter: AdminRendererAdapterKind::NakoRemoteClientCastSafeTransport,
+                    target_kind: PlaybackTargetKind::NakoRemoteClient,
+                    status: AdminRendererAdapterStatus::Ready,
+                    reason: AdminRendererAdapterReason::CastSafeTransportReady,
+                    control_plane: AdminRendererControlPlane::PublicClientPolling,
+                    discovery: AdminRendererDiscoveryMode::ClientRegistration,
                     media_transport: AdminRendererMediaTransport::CastSafeUrl,
                     transport_auth: PlaybackTargetTransportAuth::CastTicket,
                 },
@@ -1186,7 +1193,8 @@ mod tests {
             value["adapters"][0]["media_transport"],
             "authenticated_nako_client_stream"
         );
-        assert_eq!(value["adapters"][1]["status"], "planned");
+        assert_eq!(value["adapters"][1]["status"], "ready");
+        assert_eq!(value["adapters"][1]["reason"], "cast_safe_transport_ready");
         assert_eq!(
             value["sessions"][0]["supported_commands"],
             serde_json::json!(["play", "seek"])

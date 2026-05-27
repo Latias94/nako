@@ -2136,8 +2136,8 @@ fn renderer_adapter_diagnostics() -> Vec<AdminRendererAdapterDiagnostics> {
         AdminRendererAdapterDiagnostics {
             adapter: AdminRendererAdapterKind::NakoRemoteClientCastSafeTransport,
             target_kind: PlaybackTargetKind::NakoRemoteClient,
-            status: AdminRendererAdapterStatus::Planned,
-            reason: AdminRendererAdapterReason::CastSafeTransportPending,
+            status: AdminRendererAdapterStatus::Ready,
+            reason: AdminRendererAdapterReason::CastSafeTransportReady,
             control_plane: AdminRendererControlPlane::PublicClientPolling,
             discovery: AdminRendererDiscoveryMode::ClientRegistration,
             media_transport: AdminRendererMediaTransport::CastSafeUrl,

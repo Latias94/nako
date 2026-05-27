@@ -22,9 +22,13 @@ Direct, Remux, and HLS Playback Sessions with scoped command transport URLs.
 Those URLs use renderer transport tickets, not browser playback tickets, and
 HLS segment URLs are protected with the same renderer scope.
 
+`NRCT-060` is complete. Admin renderer diagnostics now report
+`nako_remote_client_cast_safe_transport` as ready, while Chromecast, DLNA, and
+AirPlay remain planned protocol adapter follow-ons. ADR 0041 is accepted.
+
 ## Next Task
 
-Run `NRCT-060`.
+Run `NRCT-070`.
 
 `NRCT-020` is complete. It locked the current gaps:
 
@@ -39,10 +43,9 @@ typed Public Client envelope, and `NRCT-050` wired both through renderer
 registration, command queueing, command polling, direct/remux/HLS media routes,
 and HLS segment protection.
 
-`NRCT-060` should verify and adjust Admin diagnostics/readiness so the admin
-surface reports Nako remote-client non-direct transport as ready without
-leaking tickets, raw command payloads, source locators, or local paths. Keep
-Chromecast, DLNA, and AirPlay as follow-on workstreams.
+`NRCT-070` should run closeout gates, update final status/docs, and name or
+open the first protocol casting workstream for Chromecast/DLNA/AirPlay adapter
+design. Do not implement protocol discovery/control inside NRCT.
 
 ## Important Files
 

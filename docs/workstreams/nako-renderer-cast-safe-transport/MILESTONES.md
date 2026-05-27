@@ -73,7 +73,7 @@ Tasks:
 
 ## Milestone 6 - Ready For Protocol Casting Workstreams
 
-Status: Pending
+Status: In progress
 
 Exit criteria:
 

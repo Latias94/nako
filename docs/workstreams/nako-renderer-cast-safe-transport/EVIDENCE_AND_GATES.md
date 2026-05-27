@@ -163,6 +163,40 @@ Results:
 - format check passed.
 - diff check passed. Git printed CRLF conversion warnings only.
 
+### NRCT-060
+
+Completed on 2026-05-27.
+
+Evidence:
+
+- updated Admin renderer readiness so
+  `nako_remote_client_cast_safe_transport` reports ready after the NRCT-050
+  implementation gates passed;
+- added a dedicated readiness check/reason for Nako remote-client cast-safe
+  transport;
+- kept Chromecast, DLNA, and AirPlay adapter diagnostics as planned follow-ons;
+- regenerated the Admin Web TypeScript contract;
+- promoted ADR 0041 to accepted and updated ADR 0040's stale planned-transport
+  wording.
+
+Gates:
+
+```powershell
+cargo nextest run -p nako-server admin_v1_playback_renderers_reports_safe_diagnostics_and_adapter_readiness --no-fail-fast
+cargo nextest run -p nako-api -E 'test(admin_contract) | test(public_openapi)' --no-fail-fast
+cargo nextest run -p nako-server -E 'test(renderer) | test(admin)' --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
+```
+
+Results:
+
+- targeted Admin renderer diagnostics test: 1 passed, 369 skipped.
+- `nako-api admin_contract/public_openapi`: 13 passed, 48 skipped.
+- focused server renderer/admin gate: 86 passed, 284 skipped.
+- format check passed.
+- diff check passed. Git printed CRLF conversion warnings only.
+
 ## Gate Policy
 
 Use focused gates while developing, then broaden only when a task crosses API,

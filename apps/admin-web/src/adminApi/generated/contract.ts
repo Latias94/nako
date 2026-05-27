@@ -1354,11 +1354,13 @@ export type AdminRendererReadinessReason =
   | "ready"
   | "renderer_repository_ready"
   | "nako_remote_client_adapter_ready"
+  | "nako_remote_client_cast_safe_transport_ready"
   | "renderer_repository_unavailable";
 
 export type AdminRendererReadinessCheckName =
   | "renderer_repository"
-  | "nako_remote_client_adapter";
+  | "nako_remote_client_adapter"
+  | "nako_remote_client_cast_safe_transport";
 
 export type AdminRendererTargetKind =
   | "browser"
@@ -1399,6 +1401,7 @@ export type AdminRendererAdapterStatus = "ready" | "planned";
 
 export type AdminRendererAdapterReason =
   | "nako_remote_client_ready"
+  | "cast_safe_transport_ready"
   | "cast_safe_transport_pending"
   | "chromecast_adapter_planned"
   | "dlna_adapter_planned"

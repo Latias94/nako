@@ -66,8 +66,9 @@ ticket material, or protocol-private network addresses.
 
 External protocol readiness is not reported as a runtime failure while those
 adapters are intentionally unimplemented. `nako_remote_client` can be ready
-while Chromecast, DLNA, AirPlay, and non-direct cast-safe transport are
-reported as planned adapter follow-ons.
+while Chromecast, DLNA, and AirPlay are reported as planned adapter
+follow-ons. Nako remote-client cast-safe transport is now a ready host
+primitive that those protocol adapters can reuse.
 
 Control commands should be typed and bounded:
 
