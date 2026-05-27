@@ -1,7 +1,7 @@
 use super::*;
 use axum::Json;
 use axum::http::HeaderValue;
-use nako_official_addon_catalog::{metadata_scraper, notification_bridge};
+use nako_official_addon_catalog::{chromecast_renderer, metadata_scraper, notification_bridge};
 use std::collections::VecDeque;
 use std::sync::{
     Arc as StdArc,
@@ -1207,7 +1207,7 @@ async fn admin_addon_source_catalog_browses_and_resolves_without_hidden_lifecycl
         source.kind,
         AdminAddonSourceCatalogSourceKind::BuiltinOfficial
     );
-    assert_eq!(source.entry_count, 2);
+    assert_eq!(source.entry_count, 3);
     assert!(!source.provides_package_signing);
     assert!(!source.provides_process_supervision);
     assert!(!source.provides_provider_breadth);
@@ -1219,7 +1219,7 @@ async fn admin_addon_source_catalog_browses_and_resolves_without_hidden_lifecycl
     )
     .await;
     assert_eq!(entries.source_id, "nako-official");
-    assert_eq!(entries.entries.len(), 2);
+    assert_eq!(entries.entries.len(), 3);
     let entry = entries
         .entries
         .iter()
@@ -1454,6 +1454,92 @@ async fn admin_addon_source_catalog_resolves_notification_bridge_event_manifest(
     assert!(!text.contains("Telegram"));
     assert!(!text.contains("Discord"));
     assert!(!text.contains("nako_at_"));
+}
+
+#[tokio::test]
+async fn admin_addon_source_catalog_resolves_chromecast_renderer_adapter_manifest() {
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+
+    let entries = request_json::<AdminAddonSourceCatalogEntriesResponse>(
+        &router,
+        Method::GET,
+        "/admin/v1/addons/catalog/entries",
+    )
+    .await;
+    let entry = entries
+        .entries
+        .iter()
+        .find(|entry| entry.entry_id == chromecast_renderer::ADDON_ID)
+        .unwrap();
+    assert_eq!(entry.manifest_id, chromecast_renderer::ADDON_ID);
+    assert_eq!(entry.addon_name, chromecast_renderer::ADDON_NAME);
+    assert_eq!(entry.addon_version, chromecast_renderer::ADDON_VERSION);
+    assert_eq!(entry.resources, vec![AddonResource::RendererAdapter]);
+    assert_eq!(
+        entry.scopes,
+        vec![
+            AddonScope::RendererAdapterRead,
+            AddonScope::RendererAdapterControl,
+        ]
+    );
+    assert!(entry.tasks.is_empty());
+
+    let raw = response_for(
+        &router,
+        Method::GET,
+        "/admin/v1/addons/catalog/entries/nako.official.chromecast-renderer/resolve",
+    )
+    .await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let bytes = to_bytes(raw.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let resolved = serde_json::from_str::<AdminAddonSourceCatalogResolveResponse>(&text).unwrap();
+
+    assert_eq!(resolved.source_id, "nako-official");
+    assert_eq!(resolved.entry.entry_id, chromecast_renderer::ADDON_ID);
+    assert_eq!(
+        resolved.descriptor.manifest.id,
+        chromecast_renderer::ADDON_ID
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.base_url,
+        chromecast_renderer::DEFAULT_CONTAINER_BASE_URL
+    );
+    assert_eq!(resolved.descriptor.manifest.resources.len(), 1);
+    assert_eq!(
+        resolved.descriptor.manifest.resources[0].kind,
+        AddonResource::RendererAdapter
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.resources[0].path,
+        chromecast_renderer::RENDERER_ADAPTER_RESOURCE_PATH
+    );
+    assert_eq!(resolved.descriptor.manifest.entry_points.len(), 1);
+    assert_eq!(
+        resolved.descriptor.manifest.entry_points[0].id,
+        chromecast_renderer::DIAGNOSTICS_ENTRY_POINT_ID
+    );
+    assert_eq!(resolved.descriptor.manifest.hosted_pages.len(), 1);
+    assert_eq!(
+        resolved.descriptor.manifest.hosted_pages[0].id,
+        chromecast_renderer::DIAGNOSTICS_HOSTED_PAGE_ID
+    );
+    assert!(resolved.descriptor.manifest.tasks.is_empty());
+    assert!(resolved.descriptor.manifest.event_subscriptions.is_empty());
+    assert_eq!(
+        resolved.install_guide.runtime_reference.value,
+        chromecast_renderer::RUNTIME_IMAGE
+    );
+    assert!(resolved.install_guide.has_configuration_schema);
+    assert_eq!(resolved.install_guide.entry_point_count, 1);
+    assert_eq!(resolved.install_guide.hosted_page_count, 1);
+    assert_eq!(resolved.install_guide.task_count, 0);
+    assert_eq!(resolved.install_guide.event_subscription_count, 0);
+    assert!(!text.contains("renderer_ticket"));
+    assert!(!text.contains("nako_rtt_"));
+    assert!(!text.contains("Bearer "));
+    assert!(!text.contains("docker.sock"));
 }
 
 #[tokio::test]

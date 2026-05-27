@@ -37,7 +37,7 @@ use nako_core::{
     NewAddonGrant, NewAddonRegistration, NewAddonRoutingPlan, NewAddonToken, Result, SecretString,
 };
 use nako_db::NakoDatabase;
-use nako_official_addon_catalog::{metadata_scraper, notification_bridge};
+use nako_official_addon_catalog::{chromecast_renderer, metadata_scraper, notification_bridge};
 use tokio::sync::Semaphore;
 
 use super::{runtime::RuntimeSupervisor, storage::StorageBackendRegistry};
@@ -1523,6 +1523,10 @@ fn builtin_addon_catalog_entries() -> Result<Vec<AdminAddonSourceCatalogEntry>> 
             notification_bridge::ADDON_ID,
             official_notification_bridge_descriptor(),
         ),
+        (
+            chromecast_renderer::ADDON_ID,
+            official_chromecast_renderer_descriptor(),
+        ),
     ];
     for (_, descriptor) in &descriptors {
         validate_install_descriptor(descriptor).map_err(|_err| NakoError::InvalidInput {
@@ -1542,6 +1546,7 @@ fn builtin_addon_catalog_descriptor(entry_id: &str) -> Result<AddonInstallDescri
     match entry_id {
         metadata_scraper::ADDON_ID => Ok(official_metadata_scraper_descriptor()),
         notification_bridge::ADDON_ID => Ok(official_notification_bridge_descriptor()),
+        chromecast_renderer::ADDON_ID => Ok(official_chromecast_renderer_descriptor()),
         _ => Err(NakoError::NotFound {
             entity: "addon_catalog_entry",
             id: entry_id.to_owned(),
@@ -1592,6 +1597,10 @@ fn official_metadata_scraper_descriptor() -> AddonInstallDescriptor {
 
 fn official_notification_bridge_descriptor() -> AddonInstallDescriptor {
     notification_bridge::container_install_descriptor()
+}
+
+fn official_chromecast_renderer_descriptor() -> AddonInstallDescriptor {
+    chromecast_renderer::container_install_descriptor()
 }
 
 fn docker_compose_install_snippet(
@@ -1957,6 +1966,14 @@ mod tests {
         assert_eq!(
             official_notification_bridge_descriptor(),
             notification_bridge::container_install_descriptor()
+        );
+    }
+
+    #[test]
+    fn official_chromecast_renderer_catalog_descriptor_uses_shared_catalog_facts() {
+        assert_eq!(
+            official_chromecast_renderer_descriptor(),
+            chromecast_renderer::container_install_descriptor()
         );
     }
 

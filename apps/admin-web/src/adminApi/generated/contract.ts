@@ -336,7 +336,9 @@ export type AddonScope =
   | "stream_url_read"
   | "recommendation_write"
   | "automation_run"
-  | "webhook_event_read";
+  | "webhook_event_read"
+  | "renderer_adapter_read"
+  | "renderer_adapter_control";
 
 export type AddonResource =
   | "catalog"
@@ -346,7 +348,8 @@ export type AddonResource =
   | "subtitle"
   | "recommendation"
   | "automation"
-  | "webhook";
+  | "webhook"
+  | "renderer_adapter";
 
 export type AddonEntryPointKind =
   | "item_action"

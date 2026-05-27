@@ -250,6 +250,185 @@ pub mod metadata_scraper {
     }
 }
 
+pub mod chromecast_renderer {
+    use super::*;
+
+    pub const ADDON_ID: &str = "nako.official.chromecast-renderer";
+    pub const ADDON_NAME: &str = "Nako Chromecast Renderer";
+    pub const ADDON_VERSION: &str = "0.1.0-alpha.2";
+    pub const DEFAULT_BASE_URL: &str = "http://127.0.0.1:9120";
+    pub const DEFAULT_CONTAINER_BASE_URL: &str = "http://nako-chromecast-renderer:9120";
+    pub const RUNTIME_BINARY: &str = "nako-chromecast-renderer";
+    pub const RUNTIME_IMAGE: &str = "ghcr.io/latias94/nako-chromecast-renderer:0.1.0-alpha.2";
+    pub const DESCRIPTION: &str = "Official Nako Chromecast renderer adapter sidecar. It discovers local Cast receivers and translates host-owned renderer command envelopes into Chromecast protocol actions.";
+    pub const CONFIG_SCHEMA_ID: &str = "nako.official.chromecast-renderer.config.v1";
+    pub const RENDERER_ADAPTER_RESOURCE_PATH: &str = "/renderer-adapter";
+    pub const RENDERER_ADAPTER_REQUEST_SCHEMA: &str = "nako.renderer-adapter.request.v1";
+    pub const RENDERER_ADAPTER_RESPONSE_SCHEMA: &str = "nako.renderer-adapter.response.v1";
+    pub const DIAGNOSTICS_ENTRY_POINT_ID: &str = "chromecast-renderer-diagnostics";
+    pub const DIAGNOSTICS_HOSTED_PAGE_ID: &str = "diagnostics";
+    pub const DIAGNOSTICS_LABEL: &str = "Chromecast Renderer Diagnostics";
+    pub const DIAGNOSTICS_PATH: &str = "/ui/diagnostics";
+    pub const DEFAULT_RECEIVER_APP_ID: &str = "CC1AD845";
+    pub const DEFAULT_TIMEOUT_MS: u64 = 10_000;
+    pub const DEFAULT_MAX_ATTEMPTS: u32 = 2;
+
+    #[must_use]
+    pub fn default_manifest() -> AddonManifest {
+        manifest_with_version(ADDON_VERSION, DEFAULT_BASE_URL, DEFAULT_RECEIVER_APP_ID)
+    }
+
+    #[must_use]
+    pub fn container_manifest() -> AddonManifest {
+        manifest_with_version(
+            ADDON_VERSION,
+            DEFAULT_CONTAINER_BASE_URL,
+            DEFAULT_RECEIVER_APP_ID,
+        )
+    }
+
+    #[must_use]
+    pub fn manifest(
+        base_url: impl Into<String>,
+        receiver_app_id: impl Into<String>,
+    ) -> AddonManifest {
+        manifest_with_version(ADDON_VERSION, base_url, receiver_app_id)
+    }
+
+    #[must_use]
+    pub fn manifest_with_version(
+        version: impl Into<String>,
+        base_url: impl Into<String>,
+        receiver_app_id: impl Into<String>,
+    ) -> AddonManifest {
+        AddonManifest {
+            id: ADDON_ID.to_owned(),
+            name: ADDON_NAME.to_owned(),
+            version: version.into(),
+            protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+            base_url: base_url.into(),
+            description: Some(DESCRIPTION.to_owned()),
+            resources: vec![AddonResourceDeclaration {
+                kind: AddonResource::RendererAdapter,
+                path: RENDERER_ADAPTER_RESOURCE_PATH.to_owned(),
+                input_schema: Some(RENDERER_ADAPTER_REQUEST_SCHEMA.to_owned()),
+                output_schema: Some(RENDERER_ADAPTER_RESPONSE_SCHEMA.to_owned()),
+                required_scopes: vec![
+                    AddonScope::RendererAdapterRead,
+                    AddonScope::RendererAdapterControl,
+                ],
+                timeout_ms: Some(DEFAULT_TIMEOUT_MS),
+                max_attempts: Some(DEFAULT_MAX_ATTEMPTS),
+            }],
+            entry_points: vec![AddonEntryPointDeclaration::hosted_page(
+                DIAGNOSTICS_ENTRY_POINT_ID,
+                AddonEntryPointKind::Diagnostics,
+                DIAGNOSTICS_LABEL,
+                DIAGNOSTICS_PATH,
+                DIAGNOSTICS_HOSTED_PAGE_ID,
+                vec![AddonScope::RendererAdapterRead],
+            )],
+            hosted_pages: vec![AddonHostedPageDeclaration {
+                id: DIAGNOSTICS_HOSTED_PAGE_ID.to_owned(),
+                title: DIAGNOSTICS_LABEL.to_owned(),
+                path: DIAGNOSTICS_PATH.to_owned(),
+                required_scopes: vec![AddonScope::RendererAdapterRead],
+            }],
+            configuration_schema: Some(configuration_schema(receiver_app_id)),
+            secret_reference_fields: Vec::new(),
+            event_subscriptions: Vec::new(),
+            tasks: Vec::new(),
+            auth: AddonAuth::None,
+            default_timeout_ms: Some(DEFAULT_TIMEOUT_MS),
+            default_max_attempts: Some(DEFAULT_MAX_ATTEMPTS),
+            scopes: vec![
+                AddonScope::RendererAdapterRead,
+                AddonScope::RendererAdapterControl,
+            ],
+        }
+    }
+
+    #[must_use]
+    pub fn binary_install_descriptor() -> AddonInstallDescriptor {
+        AddonInstallDescriptor {
+            manifest: default_manifest(),
+            runtime: AddonRuntimeRequirement {
+                kind: AddonRuntimeKind::HttpSidecar,
+                image: None,
+                binary: Some(RUNTIME_BINARY.to_owned()),
+                command: None,
+            },
+            secret_reference_bindings: Vec::new(),
+            install_notes: vec![
+                format!("Install from crates.io with `cargo install {RUNTIME_BINARY} --version {ADDON_VERSION} --locked`."),
+                "Run the sidecar on the same trusted LAN as Chromecast receivers and register the resolved manifest through the existing Admin Addon APIs.".to_owned(),
+            ],
+        }
+    }
+
+    #[must_use]
+    pub fn container_install_descriptor() -> AddonInstallDescriptor {
+        AddonInstallDescriptor {
+            manifest: container_manifest(),
+            runtime: AddonRuntimeRequirement {
+                kind: AddonRuntimeKind::HttpSidecar,
+                image: Some(RUNTIME_IMAGE.to_owned()),
+                binary: None,
+                command: None,
+            },
+            secret_reference_bindings: Vec::new(),
+            install_notes: vec![
+                format!("Run the official container image `{RUNTIME_IMAGE}` or build from the `addons/chromecast-renderer` Dockerfile."),
+                "Run the sidecar on the same trusted LAN as Chromecast receivers and register the resolved manifest through the existing Admin Addon APIs.".to_owned(),
+            ],
+        }
+    }
+
+    #[must_use]
+    fn configuration_schema(receiver_app_id: impl Into<String>) -> AddonConfigurationSchema {
+        AddonConfigurationSchema {
+            schema_id: CONFIG_SCHEMA_ID.to_owned(),
+            schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "receiver_app_id": {
+                        "type": "string",
+                        "default": receiver_app_id.into(),
+                        "description": "Google Cast receiver application id. Defaults to the Cast Default Media Receiver."
+                    },
+                    "discovery_timeout_ms": {
+                        "type": "integer",
+                        "default": 3000,
+                        "minimum": 250,
+                        "maximum": 30000
+                    },
+                    "manual_devices": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["stable_device_id", "display_name", "host"],
+                            "properties": {
+                                "stable_device_id": { "type": "string" },
+                                "display_name": { "type": "string" },
+                                "host": { "type": "string" },
+                                "port": {
+                                    "type": "integer",
+                                    "default": 8009,
+                                    "minimum": 1,
+                                    "maximum": 65535
+                                }
+                            },
+                            "additionalProperties": false
+                        },
+                        "default": []
+                    }
+                },
+                "additionalProperties": false,
+            }),
+        }
+    }
+}
+
 pub mod notification_bridge {
     use super::*;
 
@@ -379,6 +558,7 @@ pub mod notification_bridge {
 mod tests {
     use nako_addon_protocol::{AddonRuntimeReferenceKind, addon_install_guide, validate_manifest};
 
+    use super::chromecast_renderer;
     use super::metadata_scraper::*;
     use super::notification_bridge;
 
@@ -484,6 +664,71 @@ mod tests {
             manifest.event_subscriptions[0].path,
             notification_bridge::LIBRARY_SCANNED_EVENT_PATH
         );
+    }
+
+    #[test]
+    fn chromecast_renderer_default_manifest_matches_official_catalog_facts() {
+        let manifest = chromecast_renderer::default_manifest();
+
+        validate_manifest(&manifest).unwrap();
+        assert_eq!(manifest.id, chromecast_renderer::ADDON_ID);
+        assert_eq!(manifest.version, chromecast_renderer::ADDON_VERSION);
+        assert_eq!(manifest.base_url, chromecast_renderer::DEFAULT_BASE_URL);
+        assert_eq!(
+            manifest.scopes,
+            vec![
+                nako_addon_protocol::AddonScope::RendererAdapterRead,
+                nako_addon_protocol::AddonScope::RendererAdapterControl,
+            ]
+        );
+        assert_eq!(manifest.resources.len(), 1);
+        assert_eq!(
+            manifest.resources[0].kind,
+            nako_addon_protocol::AddonResource::RendererAdapter
+        );
+        assert_eq!(
+            manifest.resources[0].path,
+            chromecast_renderer::RENDERER_ADAPTER_RESOURCE_PATH
+        );
+        assert_eq!(
+            manifest.entry_points[0].id,
+            chromecast_renderer::DIAGNOSTICS_ENTRY_POINT_ID
+        );
+        assert_eq!(
+            manifest.hosted_pages[0].id,
+            chromecast_renderer::DIAGNOSTICS_HOSTED_PAGE_ID
+        );
+        assert!(manifest.tasks.is_empty());
+        assert!(manifest.event_subscriptions.is_empty());
+        assert!(manifest.secret_reference_fields.is_empty());
+    }
+
+    #[test]
+    fn chromecast_renderer_container_descriptor_matches_renderer_adapter_shape() {
+        let descriptor = chromecast_renderer::container_install_descriptor();
+        nako_addon_protocol::validate_install_descriptor(&descriptor).unwrap();
+
+        let guide = addon_install_guide(&descriptor);
+        assert_eq!(
+            descriptor.manifest.base_url,
+            chromecast_renderer::DEFAULT_CONTAINER_BASE_URL
+        );
+        assert_eq!(
+            guide.runtime_reference.kind,
+            AddonRuntimeReferenceKind::Image
+        );
+        assert_eq!(
+            guide.runtime_reference.value,
+            chromecast_renderer::RUNTIME_IMAGE
+        );
+        assert_eq!(
+            guide.declared_resources,
+            vec![nako_addon_protocol::AddonResource::RendererAdapter]
+        );
+        assert_eq!(guide.task_count, 0);
+        assert_eq!(guide.event_subscription_count, 0);
+        assert_eq!(guide.entry_point_count, 1);
+        assert_eq!(guide.hosted_page_count, 1);
     }
 
     #[test]

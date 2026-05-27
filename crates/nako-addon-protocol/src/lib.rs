@@ -252,6 +252,7 @@ pub enum AddonResource {
     Recommendation,
     Automation,
     Webhook,
+    RendererAdapter,
 }
 
 impl AddonResource {
@@ -266,6 +267,7 @@ impl AddonResource {
             Self::Recommendation => "recommendation",
             Self::Automation => "automation",
             Self::Webhook => "webhook",
+            Self::RendererAdapter => "renderer_adapter",
         }
     }
 }
@@ -509,6 +511,8 @@ pub enum AddonScope {
     RecommendationWrite,
     AutomationRun,
     WebhookEventRead,
+    RendererAdapterRead,
+    RendererAdapterControl,
 }
 
 impl AddonScope {
@@ -524,6 +528,8 @@ impl AddonScope {
             Self::RecommendationWrite => "recommendation_write",
             Self::AutomationRun => "automation_run",
             Self::WebhookEventRead => "webhook_event_read",
+            Self::RendererAdapterRead => "renderer_adapter_read",
+            Self::RendererAdapterControl => "renderer_adapter_control",
         }
     }
 }
@@ -583,6 +589,315 @@ pub struct AddonTaskResponse {
     pub request_id: String,
     #[serde(default)]
     pub output: serde_json::Value,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonRendererAdapterProtocol {
+    Chromecast,
+    DlnaRenderer,
+    Airplay,
+}
+
+impl AddonRendererAdapterProtocol {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Chromecast => "chromecast",
+            Self::DlnaRenderer => "dlna_renderer",
+            Self::Airplay => "airplay",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(tag = "action", rename_all = "snake_case")]
+pub enum AddonRendererAdapterRequest {
+    InspectReadiness {
+        protocol: AddonRendererAdapterProtocol,
+    },
+    DiscoverTargets {
+        protocol: AddonRendererAdapterProtocol,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        timeout_ms: Option<u64>,
+    },
+    DispatchCommand {
+        protocol: AddonRendererAdapterProtocol,
+        envelope: AddonRendererAdapterCommandEnvelope,
+    },
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum AddonRendererAdapterResponse {
+    Readiness {
+        readiness: AddonRendererAdapterReadiness,
+    },
+    Targets {
+        targets: Vec<AddonRendererAdapterTarget>,
+    },
+    CommandResult {
+        result: AddonRendererAdapterCommandResult,
+    },
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonRendererAdapterReadiness {
+    pub protocol: AddonRendererAdapterProtocol,
+    pub status: AddonRendererAdapterReadinessStatus,
+    pub reason_code: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub safe_message: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonRendererAdapterReadinessStatus {
+    Ready,
+    Degraded,
+    ConfigurationRequired,
+    Unavailable,
+}
+
+impl AddonRendererAdapterReadinessStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Ready => "ready",
+            Self::Degraded => "degraded",
+            Self::ConfigurationRequired => "configuration_required",
+            Self::Unavailable => "unavailable",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonRendererAdapterTarget {
+    pub stable_device_id: String,
+    pub target_kind: AddonRendererAdapterProtocol,
+    pub display_name: String,
+    pub network_scope: AddonRendererAdapterNetworkScope,
+    pub media_capabilities: AddonRendererAdapterMediaCapabilities,
+    pub control_capabilities: AddonRendererAdapterControlCapabilities,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub discovered_at_ms: Option<u64>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonRendererAdapterNetworkScope {
+    Local,
+    Remote,
+    Unknown,
+}
+
+impl AddonRendererAdapterNetworkScope {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Local => "local",
+            Self::Remote => "remote",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonRendererAdapterMediaCapabilities {
+    pub direct_play: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub containers: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub video_codecs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub audio_codecs: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonRendererAdapterControlCapabilities {
+    pub play: bool,
+    pub pause: bool,
+    pub resume: bool,
+    pub seek: bool,
+    pub stop: bool,
+    pub set_volume: bool,
+}
+
+impl AddonRendererAdapterControlCapabilities {
+    #[must_use]
+    pub const fn basic_playback() -> Self {
+        Self {
+            play: true,
+            pause: true,
+            resume: true,
+            seek: true,
+            stop: true,
+            set_volume: false,
+        }
+    }
+}
+
+#[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonRendererAdapterCommandEnvelope {
+    pub adapter_id: String,
+    pub stable_device_id: String,
+    pub target_kind: AddonRendererAdapterProtocol,
+    pub renderer_session_id: String,
+    pub playback_session_id: String,
+    pub source_id: String,
+    pub command: AddonRendererAdapterCommand,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub position_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub volume_percent: Option<u8>,
+    pub transport: AddonRendererAdapterTransport,
+}
+
+impl fmt::Debug for AddonRendererAdapterCommandEnvelope {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("AddonRendererAdapterCommandEnvelope")
+            .field("adapter_id", &self.adapter_id)
+            .field("stable_device_id", &self.stable_device_id)
+            .field("target_kind", &self.target_kind)
+            .field("renderer_session_id", &self.renderer_session_id)
+            .field("playback_session_id", &self.playback_session_id)
+            .field("source_id", &self.source_id)
+            .field("command", &self.command)
+            .field("position_ms", &self.position_ms)
+            .field("volume_percent", &self.volume_percent)
+            .field("transport", &self.transport)
+            .finish()
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonRendererAdapterCommand {
+    Play,
+    Pause,
+    Resume,
+    Seek,
+    Stop,
+    SetVolume,
+}
+
+impl AddonRendererAdapterCommand {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Play => "play",
+            Self::Pause => "pause",
+            Self::Resume => "resume",
+            Self::Seek => "seek",
+            Self::Stop => "stop",
+            Self::SetVolume => "set_volume",
+        }
+    }
+}
+
+#[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonRendererAdapterTransport {
+    pub mode: AddonRendererAdapterTransportMode,
+    pub expires_at: String,
+    pub urls: Vec<AddonRendererAdapterTransportUrl>,
+}
+
+impl fmt::Debug for AddonRendererAdapterTransport {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("AddonRendererAdapterTransport")
+            .field("mode", &self.mode)
+            .field("expires_at", &self.expires_at)
+            .field("url_count", &self.urls.len())
+            .finish()
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonRendererAdapterTransportMode {
+    Direct,
+    Remux,
+    Hls,
+}
+
+impl AddonRendererAdapterTransportMode {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Direct => "direct",
+            Self::Remux => "remux",
+            Self::Hls => "hls",
+        }
+    }
+}
+
+#[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonRendererAdapterTransportUrl {
+    pub kind: AddonRendererAdapterTransportUrlKind,
+    pub url: String,
+    pub content_type: String,
+    pub supports_range_requests: bool,
+}
+
+impl fmt::Debug for AddonRendererAdapterTransportUrl {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("AddonRendererAdapterTransportUrl")
+            .field("kind", &self.kind)
+            .field("url", &"<redacted>")
+            .field("content_type", &self.content_type)
+            .field("supports_range_requests", &self.supports_range_requests)
+            .finish()
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonRendererAdapterTransportUrlKind {
+    Stream,
+    Playlist,
+    SegmentBase,
+}
+
+impl AddonRendererAdapterTransportUrlKind {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Stream => "stream",
+            Self::Playlist => "playlist",
+            Self::SegmentBase => "segment_base",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonRendererAdapterCommandResult {
+    pub stable_device_id: String,
+    pub command: AddonRendererAdapterCommand,
+    pub state: AddonRendererAdapterCommandState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub safe_reason_code: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonRendererAdapterCommandState {
+    Accepted,
+    Rejected,
+    Failed,
+}
+
+impl AddonRendererAdapterCommandState {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Accepted => "accepted",
+            Self::Rejected => "rejected",
+            Self::Failed => "failed",
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -2188,6 +2503,96 @@ mod tests {
             serde_json::from_str::<AddonResourceRequest>(&json).unwrap(),
             request
         );
+    }
+
+    #[test]
+    fn renderer_adapter_payload_contracts_round_trip_and_redact_debug() {
+        let target = AddonRendererAdapterTarget {
+            stable_device_id: "living-room-tv".to_owned(),
+            target_kind: AddonRendererAdapterProtocol::Chromecast,
+            display_name: "Living Room TV".to_owned(),
+            network_scope: AddonRendererAdapterNetworkScope::Local,
+            media_capabilities: AddonRendererAdapterMediaCapabilities {
+                direct_play: true,
+                containers: vec!["mp4".to_owned()],
+                video_codecs: vec!["h264".to_owned()],
+                audio_codecs: vec!["aac".to_owned()],
+            },
+            control_capabilities: AddonRendererAdapterControlCapabilities::basic_playback(),
+            discovered_at_ms: Some(1_779_814_400_000),
+        };
+        let targets = AddonRendererAdapterResponse::Targets {
+            targets: vec![target],
+        };
+        assert_eq!(
+            serde_json::to_value(&targets).unwrap(),
+            serde_json::json!({
+                "kind": "targets",
+                "targets": [{
+                    "stable_device_id": "living-room-tv",
+                    "target_kind": "chromecast",
+                    "display_name": "Living Room TV",
+                    "network_scope": "local",
+                    "media_capabilities": {
+                        "direct_play": true,
+                        "containers": ["mp4"],
+                        "video_codecs": ["h264"],
+                        "audio_codecs": ["aac"]
+                    },
+                    "control_capabilities": {
+                        "play": true,
+                        "pause": true,
+                        "resume": true,
+                        "seek": true,
+                        "stop": true,
+                        "set_volume": false
+                    },
+                    "discovered_at_ms": 1779814400000u64
+                }]
+            })
+        );
+
+        let envelope = AddonRendererAdapterCommandEnvelope {
+            adapter_id: "nako.official.chromecast-renderer".to_owned(),
+            stable_device_id: "living-room-tv".to_owned(),
+            target_kind: AddonRendererAdapterProtocol::Chromecast,
+            renderer_session_id: "018f0000-0000-7000-8000-000000000010".to_owned(),
+            playback_session_id: "018f0000-0000-7000-8000-000000000011".to_owned(),
+            source_id: "018f0000-0000-7000-8000-000000000012".to_owned(),
+            command: AddonRendererAdapterCommand::Play,
+            position_ms: Some(9_000),
+            volume_percent: None,
+            transport: AddonRendererAdapterTransport {
+                mode: AddonRendererAdapterTransportMode::Direct,
+                expires_at: "2026-05-27T12:00:00.000Z".to_owned(),
+                urls: vec![AddonRendererAdapterTransportUrl {
+                    kind: AddonRendererAdapterTransportUrlKind::Stream,
+                    url: "https://nako.example/playback/stream?renderer_ticket=nako_rtt_secret"
+                        .to_owned(),
+                    content_type: "video/mp4".to_owned(),
+                    supports_range_requests: true,
+                }],
+            },
+        };
+        let request = AddonRendererAdapterRequest::DispatchCommand {
+            protocol: AddonRendererAdapterProtocol::Chromecast,
+            envelope,
+        };
+        let json = serde_json::to_string(&request).unwrap();
+
+        assert_eq!(
+            serde_json::from_str::<AddonRendererAdapterRequest>(&json).unwrap(),
+            request
+        );
+        assert!(json.contains("renderer_ticket=nako_rtt_secret"));
+
+        let debug = format!("{request:?}").to_ascii_lowercase();
+        for forbidden in ["renderer_ticket", "nako_rtt_secret", "bearer", "local://"] {
+            assert!(
+                !debug.contains(forbidden),
+                "renderer adapter debug leaked forbidden term: {forbidden}"
+            );
+        }
     }
 
     #[test]
