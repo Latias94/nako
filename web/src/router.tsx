@@ -26,7 +26,7 @@ import {
   Workflow,
 } from "lucide-react";
 
-import { mediaApi } from "@/api/runtime";
+import { adminApi, mediaApi } from "@/api/runtime";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -697,18 +697,41 @@ function MediaWatchPage() {
 }
 
 function AdminOverviewPage() {
+  const overview = useQuery({
+    queryKey: ["admin", "overview"],
+    queryFn: () => adminApi.getOverview(),
+  });
+  const access = useQuery({
+    queryKey: ["admin", "access-summary"],
+    queryFn: () => adminApi.getAccessSummary(),
+  });
+  const overviewValue = overview.data?.value;
+  const accessValue = access.data?.value;
+
   return (
     <SurfaceShell
       eyebrow="Operator Console"
-      status="Admin surface"
+      status={dataStatus(overview.data?.source)}
       summary="Monitor library health, runtime work, Addons, network exposure, and configuration without revealing secrets or raw paths."
       surface="admin"
       title="Overview"
     >
       <MetricsGrid>
-        <MetricCard label="Libraries" value="Governed" detail="Scan, metadata, artwork, and write policy stay in admin." />
-        <MetricCard label="Playback" value="Observable" detail="Runtime diagnostics stay separate from viewer pages." />
-        <MetricCard label="Addons" value="Sandboxed" detail="Sidecar code and hosted pages remain outside trusted admin UI." />
+        <MetricCard
+          label="Libraries"
+          value={access.isPending ? "Loading" : `${accessValue?.library_access.configured_libraries ?? 0}`}
+          detail="Scan, metadata, artwork, and write policy stay in admin."
+        />
+        <MetricCard
+          label="Runtime"
+          value={overview.isPending ? "Loading" : `${overviewValue?.runtime.active_tasks ?? 0}`}
+          detail="Active task count comes from the Admin overview contract."
+        />
+        <MetricCard
+          label="Status"
+          value={overviewValue?.status ?? "Loading"}
+          detail={overview.data?.error ?? "Admin diagnostics stay separate from viewer pages."}
+        />
       </MetricsGrid>
 
       <SectionCard title="Operational Areas" summary="The first release surface keeps each workflow behind a stable route.">
@@ -727,50 +750,132 @@ function AdminOverviewPage() {
 }
 
 function AdminLibrariesPage() {
+  const access = useQuery({
+    queryKey: ["admin", "access-summary"],
+    queryFn: () => adminApi.getAccessSummary(),
+  });
+  const libraries = access.data?.value.library_access.libraries ?? [];
+
   return (
     <SurfaceShell
       eyebrow="Library Management"
-      status="Admin-only"
+      status={dataStatus(access.data?.source)}
       summary="Scan controls, NFO writes, metadata authority, and destructive file operations stay under the Admin API."
       surface="admin"
       title="Libraries"
     >
       <SectionCard title="Library Operations">
         <div className="grid gap-3 md:grid-cols-3">
-          <MetricCard label="Scan" value="Confirm first" detail="Broad library operations need dry-run and review states." />
+          <MetricCard
+            label="Visible Libraries"
+            value={access.isPending ? "Loading" : `${libraries.length}`}
+            detail="Admin API decides which libraries this principal can manage."
+          />
           <MetricCard label="NFO" value="Controlled" detail="Sidecar writes are explicit Library File Writes." />
           <MetricCard label="Metadata" value="Auditable" detail="Canonical Metadata records show source and confidence." />
         </div>
+      </SectionCard>
+
+      <SectionCard title="Managed Libraries" summary={access.data?.error ?? "Library access is read from the Admin API."}>
+        {access.isPending ? (
+          <EmptyPanel icon={LibraryBig} title="Loading libraries" description="Nako is reading admin library access." />
+        ) : libraries.length > 0 ? (
+          <div className="grid gap-3">
+            {libraries.map((library) => (
+              <div
+                key={library.library_id}
+                className="grid gap-3 rounded-lg border border-[color:var(--app-line)] bg-[color:var(--app-panel)] p-4 md:grid-cols-[minmax(0,1fr)_160px]"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">{library.library_name}</p>
+                  <p className="mt-1 text-sm text-[color:var(--app-muted)]">
+                    {library.preset} · {library.backend_kind}
+                  </p>
+                </div>
+                <Badge className="border-[color:var(--app-line)] bg-[color:var(--app-panel-soft)] md:justify-self-end">
+                  {library.access}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <EmptyPanel
+            icon={LibraryBig}
+            title="No managed libraries"
+            description="Managed library rows appear after the Admin API reports access."
+          />
+        )}
       </SectionCard>
     </SurfaceShell>
   );
 }
 
 function AdminJobsPage() {
+  const jobs = useQuery({
+    queryKey: ["admin", "jobs"],
+    queryFn: () => adminApi.getJobs(),
+  });
+  const rows = jobs.data?.value.jobs ?? [];
+
   return (
     <SurfaceShell
       eyebrow="Runtime"
-      status="Read model"
+      status={dataStatus(jobs.data?.source)}
       summary="Jobs and sessions give operators a view of work in progress without leaking viewer-only media state."
       surface="admin"
       title="Jobs"
     >
       <SectionCard title="Runtime Queues">
         <div className="grid gap-3 md:grid-cols-3">
-          <MetricCard label="Library scan" value="No server" detail="Queue state loads after connection." />
-          <MetricCard label="Artwork ingest" value="No server" detail="Managed Artwork jobs stay server-owned." />
-          <MetricCard label="Transcode" value="No server" detail="Hardware and session diagnostics stay admin-owned." />
+          <MetricCard
+            label="Jobs"
+            value={jobs.isPending ? "Loading" : `${rows.length}`}
+            detail="Queue state loads from the Admin API."
+          />
+          <MetricCard
+            label="Failures"
+            value={jobs.isPending ? "Loading" : `${rows.filter((job) => job.has_error).length}`}
+            detail="Error detail stays redaction-safe."
+          />
+          <MetricCard label="Sessions" value="Split" detail="Playback sessions remain a dedicated admin route." />
         </div>
+      </SectionCard>
+
+      <SectionCard title="Job Rows" summary={jobs.data?.error ?? "Recent jobs from the Admin API."}>
+        {jobs.isPending ? (
+          <EmptyPanel icon={Workflow} title="Loading jobs" description="Nako is reading runtime work." />
+        ) : rows.length > 0 ? (
+          <div className="overflow-hidden rounded-lg border border-[color:var(--app-line)] bg-[color:var(--app-panel)]">
+            {rows.map((job) => (
+              <div
+                key={job.id}
+                className="grid gap-2 border-b border-[color:var(--app-line)] px-4 py-3 last:border-b-0 md:grid-cols-[minmax(0,1fr)_140px_120px]"
+              >
+                <span className="truncate text-sm font-semibold">{job.kind}</span>
+                <span className="text-sm text-[color:var(--app-muted)]">{job.status}</span>
+                <span className="text-sm text-[color:var(--app-muted)]">{job.resource_class}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <EmptyPanel icon={Workflow} title="No jobs reported" description="Runtime work appears after the server reports jobs." />
+        )}
       </SectionCard>
     </SurfaceShell>
   );
 }
 
 function AdminAddonsPage() {
+  const addons = useQuery({
+    queryKey: ["admin", "addons"],
+    queryFn: () => adminApi.getAddons(),
+  });
+  const rows = addons.data?.value.addons ?? [];
+
   return (
     <SurfaceShell
       eyebrow="Addon Operations"
-      status="Separate trust"
+      status={dataStatus(addons.data?.source)}
       summary="Addon Sidecars stay explicit: grants, hosted pages, and lifecycle actions are reviewed by the operator."
       surface="admin"
       title="Addons"
@@ -778,29 +883,108 @@ function AdminAddonsPage() {
       <SectionCard title="Addon Boundary">
         <div className="grid gap-3 md:grid-cols-3">
           <MetricCard label="Protocol" value="Sidecar" detail="External code stays outside the server process." />
-          <MetricCard label="Grants" value="Scoped" detail="Secrets and tokens are represented through safe references." />
+          <MetricCard
+            label="Registrations"
+            value={addons.isPending ? "Loading" : `${rows.length}`}
+            detail="Addon rows come from the Admin API."
+          />
           <MetricCard label="Lifecycle" value="Reviewed" detail="Install, update, and remove need explicit operator approval." />
         </div>
+      </SectionCard>
+
+      <SectionCard title="Addon Registrations" summary={addons.data?.error ?? "Registered Addon Sidecars and their safe grant summaries."}>
+        {addons.isPending ? (
+          <EmptyPanel icon={Puzzle} title="Loading Addons" description="Nako is reading Addon registrations." />
+        ) : rows.length > 0 ? (
+          <div className="grid gap-3">
+            {rows.map((addon) => (
+              <div
+                key={addon.id}
+                className="grid gap-3 rounded-lg border border-[color:var(--app-line)] bg-[color:var(--app-panel)] p-4 md:grid-cols-[minmax(0,1fr)_140px]"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">{addon.name}</p>
+                  <p className="mt-1 text-sm text-[color:var(--app-muted)]">
+                    {addon.manifest_id} · {addon.granted_scopes.length} scopes
+                  </p>
+                </div>
+                <Badge className="border-[color:var(--app-line)] bg-[color:var(--app-panel-soft)] md:justify-self-end">
+                  {addon.status}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <EmptyPanel
+            icon={Puzzle}
+            title="No Addons registered"
+            description="Addon registrations appear after the Admin API reports sidecars."
+          />
+        )}
       </SectionCard>
     </SurfaceShell>
   );
 }
 
 function AdminSettingsPage() {
+  const access = useQuery({
+    queryKey: ["admin", "access-summary"],
+    queryFn: () => adminApi.getAccessSummary(),
+  });
+  const readiness = access.data?.value.readiness;
+
   return (
     <SurfaceShell
       eyebrow="Configuration"
-      status="Authority view"
+      status={dataStatus(access.data?.source)}
       summary="Settings surfaces show server-owned policy while keeping secrets, local paths, and unsafe responses redacted."
       surface="admin"
       title="Settings"
     >
       <SectionCard title="Settings Families">
         <div className="grid gap-3 md:grid-cols-3">
-          <MetricCard label="Network" value="Exposure" detail="Remote access needs clear ownership and risk state." />
-          <MetricCard label="Playback" value="Policy" detail="Device profiles and hardware selection stay backend-owned." />
-          <MetricCard label="Storage" value="Redacted" detail="Source Locators and raw paths stay out of ordinary views." />
+          <MetricCard
+            label="Accounts"
+            value={readiness?.user_accounts ?? "Loading"}
+            detail="Account readiness comes from Admin access summary."
+          />
+          <MetricCard
+            label="Roles"
+            value={readiness?.roles ?? "Loading"}
+            detail="Role capability is reported by the server."
+          />
+          <MetricCard
+            label="Library Access"
+            value={readiness?.library_access_policy ?? "Loading"}
+            detail="Source Locators and raw paths stay out of ordinary views."
+          />
         </div>
+      </SectionCard>
+
+      <SectionCard title="Readiness" summary={access.data?.error ?? "Configuration readiness without secrets or raw credentials."}>
+        {access.isPending ? (
+          <EmptyPanel icon={Settings2} title="Loading readiness" description="Nako is reading configuration authority." />
+        ) : readiness ? (
+          <div className="grid gap-3 md:grid-cols-2">
+            {Object.entries(readiness).map(([name, state]) => (
+              <div
+                key={name}
+                className="flex items-center justify-between gap-3 rounded-lg border border-[color:var(--app-line)] bg-[color:var(--app-panel)] p-4"
+              >
+                <span className="text-sm font-semibold">{formatSettingName(name)}</span>
+                <Badge className="border-[color:var(--app-line)] bg-[color:var(--app-panel-soft)]">
+                  {state}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <EmptyPanel
+            icon={Settings2}
+            title="No readiness data"
+            description="Settings readiness appears after the Admin API responds."
+          />
+        )}
       </SectionCard>
     </SurfaceShell>
   );
@@ -997,6 +1181,13 @@ function formatProbe(
   const minutes = probe.duration_ms ? `${Math.round(probe.duration_ms / 60_000)} min` : "duration unknown";
 
   return `${probe.container ?? "container unknown"} · ${resolution} · ${minutes}`;
+}
+
+function formatSettingName(name: string): string {
+  return name
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function EmptyPanel({

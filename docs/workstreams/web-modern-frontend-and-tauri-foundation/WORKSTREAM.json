@@ -3,13 +3,14 @@
   "slug": "web-modern-frontend-and-tauri-foundation",
   "title": "Web Modern Frontend And Tauri Foundation",
   "status": "active",
-  "current_task": "WMFT-060",
+  "current_task": "WMFT-070",
   "completed_tasks": [
     "WMFT-010",
     "WMFT-020",
     "WMFT-030",
     "WMFT-040",
-    "WMFT-050"
+    "WMFT-050",
+    "WMFT-060"
   ],
   "updated": "2026-05-28",
   "scope_kind": "frontend_product_replacement",
@@ -73,6 +74,10 @@
     {
       "task": "WMFT-050",
       "summary": "Connected Media Web routes to the web/src/api/media boundary with TanStack Query, fixture/live result status, Continue Watching, libraries, library source inventory, item source selection, and browser playback ticket handling."
+    },
+    {
+      "task": "WMFT-060",
+      "summary": "Connected Admin routes to the web/src/api/admin boundary with TanStack Query, fixture/live result status, overview metrics, managed-library readiness, jobs, Addon registrations, and settings readiness without adding unsafe mutation controls."
     }
   ],
   "adr_refs": [
@@ -85,6 +90,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Continue with WMFT-060. Do not delete apps/admin-web before parity and validation replacement are documented. Do not ship the v0 Next.js app, TMDb API route, Vercel analytics, or bundled third-party media artwork."
+    "notes": "Continue with WMFT-070. Do not delete apps/admin-web before parity and validation replacement are documented. Do not ship the v0 Next.js app, TMDb API route, Vercel analytics, or bundled third-party media artwork."
   }
 }

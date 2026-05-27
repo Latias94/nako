@@ -14,7 +14,7 @@ The lane has been opened to reflect the accepted product direction:
 - Tauri is part of the frontend direction, but serious desktop playback still
   requires a later native playback-core spike.
 
-WMFT-020 through WMFT-050 are complete:
+WMFT-020 through WMFT-060 are complete:
 
 - `web/` exists as the product frontend package.
 - The stack is Vite 8, React 19, Tailwind v4, shadcn-style local primitives,
@@ -39,18 +39,22 @@ WMFT-020 through WMFT-050 are complete:
   and browser playback ticket state are driven by fixture/live results.
 - Browser playback only assigns a ticket URL to `<video src>` for live results.
   Fixture tickets stay visible as state, not as a network load.
+- Admin routes now consume `web/src/api/admin` through TanStack Query: Overview,
+  Libraries, Jobs, Addons, and Settings render fixture/live results without
+  adding unsafe mutation controls.
 
 ## Next Recommended Task
 
-Run `WMFT-060`: implement the first API-backed Admin product slice.
+Run `WMFT-070`: deepen the Tauri foundation.
 
 Recommended implementation choices:
 
-- Move Admin routes from static shell copy to `web/src/api/admin` query data.
-- Keep Admin DTO imports out of shared UI primitives and Media routes.
-- Add redaction tests for settings, playback diagnostics, Addons, and jobs
-  before introducing mutation controls.
-- Preserve `apps/admin-web` as validation until `web/` owns equivalent checks.
+- Keep Tauri focused on packaging and connection bootstrap, not native playback
+  quality.
+- Record platform smoke evidence for Windows first.
+- Keep native playback core integration split as a separate spike until the
+  Rust playback boundary is accepted.
+- Do not remove `apps/admin-web`; old validation retirement is WMFT-080.
 
 ## Key Constraints
 

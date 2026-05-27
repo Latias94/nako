@@ -84,7 +84,7 @@ Last updated: 2026-05-28
 
 ## M5 - Admin Product Slice
 
-- [ ] WMFT-060 [owner=unassigned] [deps=WMFT-030,WMFT-040] [scope=web/src/surfaces/admin]
+- [x] WMFT-060 [owner=codex] [deps=WMFT-030,WMFT-040] [scope=web/src/surfaces/admin]
   Goal: Implement the first API-backed Admin route family in the new product
   frontend: overview, libraries, jobs/sessions, Addons, settings/readiness, and
   safe links back into Media routes.
@@ -93,7 +93,10 @@ Last updated: 2026-05-28
   Review: Admin boundary review for redaction, operation confirmation, and
   truthful unsupported controls.
   Evidence: web/src/surfaces/admin, route tests, smoke evidence.
-  Handoff: Do not move broad destructive workflows without Admin API authority.
+  Handoff: DONE. Admin Overview, Libraries, Jobs, Addons, and Settings now read
+  from `web/src/api/admin` through TanStack Query. The slice remains read-only:
+  broad operations and destructive controls stay out until Admin API authority
+  and confirmation UX are added.
 
 ## M6 - Tauri Foundation
 

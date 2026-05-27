@@ -1,5 +1,6 @@
 import type {
   AdminAccessSummaryResponse,
+  AdminAddonRegistrationsResponse,
   AdminJobListResponse,
   AdminOverviewResponse,
 } from "@/api/admin/generated/contract";
@@ -75,4 +76,21 @@ export const fixtureAdminAccessSummary: AdminAccessSummaryResponse = {
     single_admin_mode: "active",
     user_accounts: "planned",
   },
+};
+
+export const fixtureAdminAddons: AdminAddonRegistrationsResponse = {
+  addons: [
+    {
+      base_url: "http://127.0.0.1:9000",
+      created_at: "2026-05-28T01:00:00Z",
+      granted_scopes: ["catalog_read"],
+      id: "local-metadata-sidecar",
+      manifest_id: "dev.nako.local-metadata",
+      name: "Local Metadata Sidecar",
+      protocol_version: "v1",
+      status: "disabled",
+      updated_at: "2026-05-28T01:00:00Z",
+      version: "0.1.0",
+    },
+  ],
 };

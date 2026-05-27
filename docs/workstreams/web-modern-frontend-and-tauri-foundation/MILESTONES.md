@@ -65,6 +65,8 @@ Exit criteria:
 
 ## M5 - Admin Product Slice
 
+Status: Complete
+
 Exit criteria:
 
 - The new `/admin/*` surface has the first useful API-backed operator routes.

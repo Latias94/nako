@@ -1,12 +1,15 @@
 import {
   NAKO_ADMIN_ROUTES,
   type AdminAccessSummaryResponse,
+  type AdminAddonsQuery,
+  type AdminAddonRegistrationsResponse,
   type AdminJobListResponse,
   type AdminJobsQuery,
   type AdminOverviewResponse,
 } from "@/api/admin/generated/contract";
 import {
   fixtureAdminAccessSummary,
+  fixtureAdminAddons,
   fixtureAdminJobs,
   fixtureAdminOverview,
 } from "@/api/admin/fixtures";
@@ -33,6 +36,7 @@ export type AdminApi = {
   readonly source: "fixture" | "live";
   getOverview(): Promise<ApiLoadResult<AdminOverviewResponse>>;
   getAccessSummary(): Promise<ApiLoadResult<AdminAccessSummaryResponse>>;
+  getAddons(query?: AdminAddonsQuery): Promise<ApiLoadResult<AdminAddonRegistrationsResponse>>;
   getJobs(query?: AdminJobsQuery): Promise<ApiLoadResult<AdminJobListResponse>>;
 };
 
@@ -67,6 +71,12 @@ function createLiveAdminApi(
         fixtureAdminAccessSummary,
       );
     },
+    async getAddons(query = {}) {
+      return loadAdminSection(
+        () => client.getJson(withQuery(NAKO_ADMIN_ROUTES.addons, query)),
+        fixtureAdminAddons,
+      );
+    },
     async getJobs(query = {}) {
       return loadAdminSection(
         () => client.getJson(withQuery(NAKO_ADMIN_ROUTES.jobs, query)),
@@ -84,6 +94,9 @@ function createFixtureAdminApi(): AdminApi {
     },
     async getAccessSummary() {
       return fixtureResult(fixtureAdminAccessSummary);
+    },
+    async getAddons() {
+      return fixtureResult(fixtureAdminAddons);
     },
     async getJobs() {
       return fixtureResult(fixtureAdminJobs);

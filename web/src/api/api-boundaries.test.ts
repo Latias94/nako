@@ -103,6 +103,30 @@ describe("web API boundaries", () => {
     expect(result.error).toContain("HTTP 503");
     expect(JSON.stringify(result)).not.toContain("admin_secret");
   });
+
+  it("keeps Admin Addon data behind the Admin API boundary", async () => {
+    const requests: string[] = [];
+    const api = createAdminApi(
+      {
+        mode: "live",
+        baseUrl: "http://127.0.0.1:7833",
+        token: "admin_secret",
+      },
+      async (input) => {
+        requests.push(requestUrl(input));
+
+        return jsonResponse({
+          addons: [],
+        });
+      },
+    );
+
+    const result = await api.getAddons({ status: "enabled" });
+
+    expect(result.source).toBe("live");
+    expect(requests).toEqual(["http://127.0.0.1:7833/admin/v1/addons?status=enabled"]);
+    expect(JSON.stringify(result)).not.toContain("admin_secret");
+  });
 });
 
 function jsonResponse(body: unknown, status = 200) {
