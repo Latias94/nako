@@ -16,13 +16,18 @@ Last updated: 2026-05-27
 
 ## M1 - Readiness And Characterization
 
-- [ ] CAST-020 [owner=codex] [deps=CAST-010,PRT-070] [scope=crates/nako-server/src/http/tests/playback.rs,crates/nako-server/src/app/tests/playback.rs,crates/nako-client-protocol/src]
+- [x] CAST-020 [owner=codex] [deps=CAST-010,PRT-070] [scope=crates/nako-server/src/http/tests/playback.rs,crates/nako-client-protocol/src]
   Goal: Characterize current gaps for renderer registration, remote control,
   playback session handoff, and cast-safe URL transport.
   Validation: `cargo nextest run -p nako-server playback --no-fail-fast`;
   `cargo nextest run -p nako-client-protocol public --no-fail-fast`.
   Review: Prove Playback Session exists but Renderer Session/control does not.
-  Evidence: Tests or explicit compile-time route inventory assertions.
+  Evidence: Added protocol route inventory coverage proving Public Client has
+  Playback Session routes but no renderer/cast control surface yet. Added HTTP
+  playback coverage proving browser playback creates a Playback Session and
+  heartbeat state, while session JSON has no renderer session, target, command,
+  or supported-command fields. Gates passed: server playback 77 passed/282
+  skipped; Public Client protocol 11 passed.
   Handoff: CAST-030 can add renderer-session records.
 
 ## M2 - Renderer Session Domain

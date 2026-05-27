@@ -277,6 +277,103 @@ async fn playback_decision_returns_safe_target_and_policy_denial() {
 }
 
 #[tokio::test]
+async fn browser_playback_session_currently_has_no_renderer_session_surface() {
+    let (_temp, app, source, store) =
+        app_with_media_source_config("renderer-gap.mp4", b"0123456789", |_| {}).await;
+    store
+        .upsert_media_probe(source.id, &compatible_probe())
+        .await
+        .unwrap();
+    let router = build_router(app);
+
+    let decision = request_json::<nako_api::public_client::PlaybackDecisionResponse>(
+        &router,
+        Method::GET,
+        &format!(
+            "/sources/{}/playback/decision?container=mp4&video_codec=h264&audio_codec=aac",
+            source.id
+        ),
+    )
+    .await;
+    assert_eq!(
+        decision.target.kind,
+        nako_api::public_client::ClientPlaybackTargetKind::Browser
+    );
+    assert!(decision.target.control_capabilities.commands.is_empty());
+
+    let response = response_for(
+        &router,
+        Method::GET,
+        &format!("/sources/{}/stream", source.id),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let session_id = response
+        .headers()
+        .get(PLAYBACK_SESSION_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .expect("direct stream should expose playback session id")
+        .to_owned();
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(&bytes[..], b"0123456789");
+
+    let session_response = request_json::<PlaybackSessionResponse>(
+        &router,
+        Method::GET,
+        &format!("/playback/sessions/{session_id}"),
+    )
+    .await;
+    let session_json = serde_json::to_value(&session_response).unwrap();
+    assert_eq!(session_response.session.id, session_id);
+    assert_eq!(
+        session_response.session.mode,
+        nako_api::public_client::ClientPlaybackSessionMode::Direct
+    );
+    assert_eq!(
+        session_response.session.state,
+        nako_api::public_client::ClientPlaybackSessionState::Active
+    );
+    assert!(session_json["session"].get("renderer_session_id").is_none());
+    assert!(session_json["session"].get("target").is_none());
+    assert!(session_json["session"].get("target_kind").is_none());
+    assert!(
+        session_json["session"]
+            .get("control_capabilities")
+            .is_none()
+    );
+    assert!(session_json["session"].get("supported_commands").is_none());
+    assert!(session_json["session"].get("command_endpoint").is_none());
+
+    let heartbeat = request_body_json::<PlaybackSessionResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/playback/sessions/{session_id}/heartbeat"),
+        &nako_api::public_client::PlaybackSessionHeartbeatRequest {
+            state: nako_api::public_client::ClientPlaybackSessionState::Paused,
+            position_ms: Some(1_000),
+            duration_ms: Some(10_000),
+        },
+    )
+    .await;
+    let heartbeat_json = serde_json::to_value(&heartbeat).unwrap();
+    assert_eq!(
+        heartbeat.session.state,
+        nako_api::public_client::ClientPlaybackSessionState::Paused
+    );
+    assert!(
+        heartbeat_json["session"]
+            .get("renderer_session_id")
+            .is_none()
+    );
+    assert!(heartbeat_json["session"].get("target").is_none());
+    assert!(
+        heartbeat_json["session"]
+            .get("supported_commands")
+            .is_none()
+    );
+}
+
+#[tokio::test]
 async fn browser_ticket_play_access_currently_allows_all_playback_modes() {
     let (_temp, app, source, store) =
         app_with_media_source_config("policy-gap.mkv", b"media", |_| {}).await;

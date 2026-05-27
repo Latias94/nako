@@ -86,6 +86,44 @@ blocking findings, missing gates, and residual risks here or in `HANDOFF.md`.
 - Safe Public playback target/denial DTOs and Admin policy diagnostics exist,
   so this lane can focus on Renderer Sessions, commands, and adapters.
 
+## Task Evidence
+
+### CAST-020 - Readiness And Characterization
+
+Added characterization tests:
+
+- `public_route_inventory_currently_has_no_renderer_session_surface` proves the
+  Public Client protocol has Playback Session, cancel, and heartbeat routes,
+  but no renderer or cast route surface yet.
+- `browser_playback_session_currently_has_no_renderer_session_surface` proves
+  browser playback can create a Playback Session and accept heartbeat updates,
+  while the public session JSON has no `renderer_session_id`, target, command
+  endpoint, control capabilities, or supported commands.
+
+Validation:
+
+```bash
+cargo nextest run -p nako-client-protocol public_route_inventory_currently_has_no_renderer_session_surface --no-fail-fast
+cargo nextest run -p nako-server browser_playback_session_currently_has_no_renderer_session_surface --no-fail-fast
+cargo nextest run -p nako-server playback --no-fail-fast
+cargo nextest run -p nako-client-protocol public --no-fail-fast
+cargo fmt --all
+```
+
+Result:
+
+- Protocol targeted test: 1 passed, 10 skipped.
+- Server targeted test: 1 passed, 358 skipped.
+- `nako-server playback`: 77 passed, 282 skipped.
+- `nako-client-protocol public`: 11 passed.
+- `cargo fmt --all`: passed.
+
+Conclusion:
+
+- CAST-030 should add explicit Renderer Session and Renderer Command records.
+- Current Playback Session and browser-ticket behavior should remain the
+  playback transport baseline, not become the renderer/control model.
+
 ## Notes
 
 External protocol work should remain adapter-specific and must not expose raw

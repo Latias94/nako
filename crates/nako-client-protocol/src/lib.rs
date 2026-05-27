@@ -558,6 +558,25 @@ mod tests {
     }
 
     #[test]
+    fn public_route_inventory_currently_has_no_renderer_session_surface() {
+        let paths = public_client_paths().collect::<Vec<_>>();
+
+        assert!(paths.contains(&"/playback/sessions/{session_id}"));
+        assert!(paths.contains(&"/playback/sessions/{session_id}/heartbeat"));
+        assert!(paths.contains(&"/playback/sessions/{session_id}/cancel"));
+        assert!(paths.iter().all(|path| !path.contains("renderer")));
+        assert!(paths.iter().all(|path| !path.contains("cast")));
+        assert!(
+            PUBLIC_CLIENT_ROUTES
+                .iter()
+                .filter(|route| route.kind == PublicClientRouteKind::Playback)
+                .all(|route| route.path.starts_with("/sources/")
+                    || route.path.starts_with("/playback/")
+                    || route.path.starts_with("/users/me/playback-state/"))
+        );
+    }
+
+    #[test]
     fn public_route_inventory_rejects_internal_and_secret_surfaces() {
         let serialized = PUBLIC_CLIENT_ROUTES
             .iter()

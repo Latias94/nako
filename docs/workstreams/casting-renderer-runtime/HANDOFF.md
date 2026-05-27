@@ -10,14 +10,18 @@ Renderer Adapters. `playback-policy-and-renderer-targets` is closed, so this
 lane can consume policy-aware target planning, safe target DTOs, and Admin
 policy diagnostics.
 
+CAST-020 is complete. Current behavior is now characterized: Nako has durable
+Playback Sessions, playback heartbeat, browser tickets, and safe target
+vocabulary, but no Public Client renderer registration, renderer session,
+remote-control command, or cast route surface yet.
+
 ## Active Task
 
-- Task ID: CAST-020
+- Task ID: CAST-030
 - Owner: codex
-- Files: `crates/nako-server/src/http/tests/playback.rs`,
-  `crates/nako-server/src/app/tests/playback.rs`, `crates/nako-client-protocol/src`
-- Validation: `cargo nextest run -p nako-server playback --no-fail-fast`;
-  `cargo nextest run -p nako-client-protocol public --no-fail-fast`
+- Files: `crates/nako-core/src`, `crates/nako-db/src`
+- Validation: `cargo nextest run -p nako-core renderer --no-fail-fast`;
+  `cargo nextest run -p nako-db renderer --no-fail-fast`
 - Status: READY
 - Review: pending
 - Evidence: pending
@@ -29,6 +33,8 @@ policy diagnostics.
 - Renderer Session is separate from Playback Session and Transcode Session.
 - Cast-safe URLs/tickets are introduced only when a target cannot use bearer
   auth or an authenticated Nako client channel.
+- CAST-020 fixed current gaps in tests before adding the Renderer Session
+  domain.
 
 ## Blockers
 
@@ -36,6 +42,6 @@ policy diagnostics.
 
 ## Next Recommended Action
 
-Start CAST-020 by adding characterization tests for the missing Renderer
-Session/control surface and the existing Playback Session behavior the casting
-lane must preserve.
+Start CAST-030 by adding Renderer Session and Renderer Command domain records
+at the core boundary, then decide whether the first repository is durable or
+process-local with an explicit extraction path.
