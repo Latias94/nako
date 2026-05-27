@@ -15,13 +15,17 @@ Last updated: 2026-05-27
 
 ## M1 - Current Behavior Characterization
 
-- [ ] PRT-020 [owner=codex] [deps=PRT-010] [scope=crates/nako-server/src/http/tests/playback.rs,crates/nako-server/src/app/tests/playback.rs,crates/nako-playback/src/lib.rs]
+- [x] PRT-020 [owner=codex] [deps=PRT-010] [scope=crates/nako-server/src/http/tests/playback.rs,crates/nako-server/src/app/tests/playback.rs,crates/nako-playback/src/lib.rs]
   Goal: Characterize current playback policy gaps before changing behavior.
   Validation: `cargo nextest run -p nako-server playback --no-fail-fast`;
   `cargo nextest run -p nako-playback --no-fail-fast`.
   Review: Tests must prove current playback only gates on Library Access and
   has no separate direct/remux/transcode/remote/cast policy.
-  Evidence: Playback tests and planner tests.
+  Evidence: Added Public Client browser-ticket coverage showing a Play-scoped
+  viewer can currently request direct/remux/HLS tickets; added app-service
+  coverage showing remux starts without principal/policy input; added planner
+  coverage showing remote context is profile identity, not a permission gate.
+  Targeted and task gates passed.
   Handoff: PRT-030 can add policy records without guessing current behavior.
 
 ## M2 - Policy And Target Domain Records

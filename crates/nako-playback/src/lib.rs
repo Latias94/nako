@@ -664,6 +664,33 @@ mod tests {
     }
 
     #[test]
+    fn planner_characterizes_remote_context_as_not_a_permission_gate_yet() {
+        let source = media_source("movie.mp4");
+        let client = ClientPlaybackCapabilities::default();
+        let context = PlaybackSelectionContext {
+            storage: PlaybackStorageContext {
+                remote: true,
+                range_readable: Some(true),
+            },
+            preferences: PlaybackPreferenceContext::default(),
+        };
+
+        let profile = PlaybackProfile::from_context(&client, context.clone());
+        let decision = PlaybackPlanner::new().plan(PlaybackPlanningRequest {
+            source: &source,
+            probe: None,
+            client: &client,
+            context,
+        });
+
+        assert_eq!(decision.mode, PlaybackMode::DirectPlay);
+        assert_eq!(decision.reason, PlaybackDecisionReason::Compatible);
+        assert!(profile.identity_key().contains("remote=true"));
+        assert!(!profile.identity_key().contains("allow_remote"));
+        assert!(!profile.identity_key().contains("policy"));
+    }
+
+    #[test]
     fn planning_request_can_require_hls_transcode_output() {
         let source = media_source("movie.mp4");
         let client = ClientPlaybackCapabilities::default();

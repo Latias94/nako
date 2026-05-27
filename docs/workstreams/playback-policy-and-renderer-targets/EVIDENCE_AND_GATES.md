@@ -84,6 +84,36 @@ blocking findings, missing gates, and residual risks here or in `HANDOFF.md`.
 - `crates/nako-client-protocol/src/catalog.rs`
 - `crates/nako-api/src/public_client.rs`
 
+## Task Evidence
+
+### PRT-020 - Current Behavior Characterization
+
+Added characterization tests:
+
+- `browser_ticket_play_access_currently_allows_all_playback_modes` proves a
+  viewer with `LibraryAccessLevel::Play` can currently request direct, remux,
+  and HLS browser playback tickets without mode-specific policy.
+- `remux_source_currently_starts_without_principal_or_playback_policy` proves
+  the app-service remux path currently starts from source/client/container
+  facts without principal or effective playback policy input.
+- `planner_characterizes_remote_context_as_not_a_permission_gate_yet` proves
+  `remote=true` is currently profile identity/context, not an allow/deny
+  permission gate.
+
+Validation:
+
+```bash
+cargo nextest run -p nako-playback planner_characterizes_remote_context_as_not_a_permission_gate_yet --no-fail-fast
+cargo nextest run -p nako-server -E 'test(browser_ticket_play_access_currently_allows_all_playback_modes) | test(remux_source_currently_starts_without_principal_or_playback_policy)' --no-fail-fast
+cargo nextest run -p nako-server playback --no-fail-fast
+cargo nextest run -p nako-playback --no-fail-fast
+```
+
+Result:
+
+- `nako-server playback`: 71 passed, 282 skipped.
+- `nako-playback`: 8 passed.
+
 ## Notes
 
 Fresh verification is required before marking a task, Codex goal, or lane

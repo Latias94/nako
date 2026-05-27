@@ -79,6 +79,33 @@ async fn remux_source_runs_runner_and_reuses_completed_output() {
 }
 
 #[tokio::test]
+async fn remux_source_currently_starts_without_principal_or_playback_policy() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "policy_gap");
+    let (_temp, app, _store, source) = remux_app_with_source(ffmpeg_path).await;
+
+    let output = app
+        .playback()
+        .remux_source(RemuxSourceRequest {
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+            output_container: RemuxContainer::Mp4,
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(output.disposition, RemuxSourceDisposition::Finished);
+    assert_eq!(
+        output.session.as_ref().unwrap().kind,
+        TranscodeSessionKind::Remux
+    );
+    assert_eq!(
+        output.session.as_ref().unwrap().state,
+        TranscodeSessionState::Finished
+    );
+}
+
+#[tokio::test]
 async fn remux_source_rejects_persisted_active_duplicate() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "success");

@@ -212,6 +212,48 @@ async fn playback_routes_require_play_library_access() {
 }
 
 #[tokio::test]
+async fn browser_ticket_play_access_currently_allows_all_playback_modes() {
+    let (_temp, app, source, store) =
+        app_with_media_source_config("policy-gap.mkv", b"media", |_| {}).await;
+    let principal =
+        local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::Play).await;
+    let router = public_client_router_with_principal(app, principal);
+    let modes = [
+        (
+            nako_api::public_client::BrowserPlaybackMode::Direct,
+            nako_api::public_client::BrowserPlaybackUrlKind::Stream,
+        ),
+        (
+            nako_api::public_client::BrowserPlaybackMode::Remux,
+            nako_api::public_client::BrowserPlaybackUrlKind::Stream,
+        ),
+        (
+            nako_api::public_client::BrowserPlaybackMode::Hls,
+            nako_api::public_client::BrowserPlaybackUrlKind::Playlist,
+        ),
+    ];
+
+    for (mode, expected_url_kind) in modes {
+        let response =
+            request_body_json::<nako_api::public_client::BrowserPlaybackTicketResponse, _>(
+                &router,
+                Method::POST,
+                &format!("/sources/{}/playback/browser-ticket", source.id),
+                &nako_api::public_client::BrowserPlaybackTicketRequest {
+                    mode: mode.clone(),
+                    capabilities: None,
+                },
+            )
+            .await;
+
+        assert_eq!(response.mode, mode);
+        assert_eq!(response.urls.len(), 1);
+        assert_eq!(response.urls[0].kind, expected_url_kind);
+        assert!(response.urls[0].url.contains("ticket="));
+    }
+}
+
+#[tokio::test]
 async fn direct_stream_head_returns_headers_without_body() {
     let (_temp, router, source, _store) = router_with_media_source("demo.mp4", b"0123456789").await;
 

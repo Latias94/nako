@@ -3,9 +3,10 @@
   "slug": "playback-policy-and-renderer-targets",
   "title": "Playback Policy And Renderer Targets",
   "status": "active",
-  "current_task": "PRT-020",
+  "current_task": "PRT-030",
   "completed_tasks": [
-    "PRT-010"
+    "PRT-010",
+    "PRT-020"
   ],
   "updated": "2026-05-27",
   "scope_kind": "execution",
@@ -48,6 +49,10 @@
     {
       "task": "PRT-010",
       "summary": "Opened the playback policy and renderer target lane, capturing Jellyfin-class user policy, device profile, playback-info, session, and cast receiver pressure while keeping Nako's policy/target/planner boundaries original."
+    },
+    {
+      "task": "PRT-020",
+      "summary": "Added characterization coverage proving current playback gates only on Library Access Play: a Play-scoped viewer can request direct/remux/HLS browser tickets, remux app execution has no principal/policy input, and remote context is not a permission gate in the planner."
     }
   ],
   "adr_refs": [
