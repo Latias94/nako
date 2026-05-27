@@ -99,8 +99,8 @@ When this lane closes:
 - Public Client DTO additions for target/capability request and safe denial
   reasons when needed.
 - Admin diagnostics/readiness for effective playback policy.
-- Repository/storage only if policy persistence is required for a meaningful
-  first slice.
+- Repository/storage for user/role playback policy rows needed by effective
+  policy resolution and tests.
 - Focused route/app tests proving denied modes do not start Playback Sessions
   or Transcode Sessions.
 

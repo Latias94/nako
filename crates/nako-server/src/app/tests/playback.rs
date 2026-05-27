@@ -106,6 +106,181 @@ async fn remux_source_currently_starts_without_principal_or_playback_policy() {
 }
 
 #[tokio::test]
+async fn direct_playback_policy_denial_does_not_create_session() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "policy_denied_direct");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let principal = local_playback_viewer(&store, source.library_id).await;
+    let mut permissions = PlaybackPermissionPolicy::current_playback_defaults();
+    permissions.allow_direct_play = false;
+    store
+        .upsert_playback_policy(&PlaybackPolicy::user(
+            principal.user_id,
+            source.library_id,
+            permissions,
+            2,
+        ))
+        .await
+        .unwrap();
+
+    let err = app
+        .playback()
+        .direct_playback_stream(DirectPlaybackStreamRequest {
+            principal: principal.clone(),
+            source_id: source.id,
+            range_request: DirectPlayRangeRequest::None,
+            client: ClientPlaybackCapabilities::default(),
+        })
+        .await
+        .unwrap_err();
+
+    let NakoError::Forbidden { message } = err else {
+        panic!("expected playback policy forbidden error");
+    };
+    assert!(message.contains("direct_play"));
+    assert!(
+        store
+            .list_playback_sessions(
+                PlaybackSessionListFilter {
+                    principal_id: Some(principal.principal_id),
+                    source_id: Some(source.id),
+                    state: None,
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn remux_playback_policy_denial_does_not_create_sessions_or_artifacts() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "policy_denied_remux");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let principal = local_playback_viewer(&store, source.library_id).await;
+    let mut permissions = PlaybackPermissionPolicy::current_playback_defaults();
+    permissions.allow_remux = false;
+    store
+        .upsert_playback_policy(&PlaybackPolicy::user(
+            principal.user_id,
+            source.library_id,
+            permissions,
+            2,
+        ))
+        .await
+        .unwrap();
+
+    let err = app
+        .playback()
+        .remux_playback_stream(RemuxPlaybackStreamRequest {
+            principal: principal.clone(),
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+            output_container: RemuxContainer::Mp4,
+            range_request: DirectPlayRangeRequest::None,
+        })
+        .await
+        .unwrap_err();
+
+    let NakoError::Forbidden { message } = err else {
+        panic!("expected playback policy forbidden error");
+    };
+    assert!(message.contains("remux"));
+    assert!(
+        store
+            .list_playback_sessions(
+                PlaybackSessionListFilter {
+                    principal_id: Some(principal.principal_id),
+                    source_id: Some(source.id),
+                    state: None,
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        store
+            .list_transcode_sessions(
+                TranscodeSessionListFilter {
+                    source_id: Some(source.id),
+                    kind: Some(TranscodeSessionKind::Remux),
+                    state: None,
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn hls_playback_policy_denial_does_not_create_sessions_or_artifacts() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "policy_denied_hls");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let principal = local_playback_viewer(&store, source.library_id).await;
+    let mut permissions = PlaybackPermissionPolicy::current_playback_defaults();
+    permissions.allow_video_transcode = false;
+    store
+        .upsert_playback_policy(&PlaybackPolicy::user(
+            principal.user_id,
+            source.library_id,
+            permissions,
+            2,
+        ))
+        .await
+        .unwrap();
+
+    let err = app
+        .playback()
+        .hls_playlist_playback(HlsPlaylistPlaybackRequest {
+            principal: principal.clone(),
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+        })
+        .await
+        .unwrap_err();
+
+    let NakoError::Forbidden { message } = err else {
+        panic!("expected playback policy forbidden error");
+    };
+    assert!(message.contains("video_transcode"));
+    assert!(
+        store
+            .list_playback_sessions(
+                PlaybackSessionListFilter {
+                    principal_id: Some(principal.principal_id),
+                    source_id: Some(source.id),
+                    state: None,
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        store
+            .list_transcode_sessions(
+                TranscodeSessionListFilter {
+                    source_id: Some(source.id),
+                    kind: Some(TranscodeSessionKind::HlsTranscode),
+                    state: None,
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
 async fn remux_source_rejects_persisted_active_duplicate() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "success");
@@ -826,4 +1001,51 @@ fn hls_staging_policy_rejects_escaping_roots() {
             .and_then(|value| value.to_str()),
         Some("playlist.m3u8")
     );
+}
+
+async fn local_playback_viewer(
+    store: &NakoDatabase,
+    library_id: LibraryId,
+) -> AuthenticatedPrincipal {
+    let user_id = UserId::new();
+    let principal_id = UserPrincipalId::new(format!("local-user:{user_id}")).unwrap();
+    let user = User {
+        id: user_id,
+        principal_id: principal_id.clone(),
+        username: format!("viewer-{user_id}"),
+        display_name: "Playback viewer".to_owned(),
+        status: UserStatus::Active,
+        created_at_ms: 1,
+        updated_at_ms: 1,
+    };
+
+    store.upsert_user(&user).await.unwrap();
+    store
+        .replace_role_assignments(
+            user_id,
+            &[RoleAssignment {
+                user_id,
+                role: UserRole::Viewer,
+                granted_at_ms: 1,
+            }],
+        )
+        .await
+        .unwrap();
+    store
+        .upsert_library_access_policy(&LibraryAccessPolicy {
+            scope: LibraryAccessPolicyScope::User(user_id),
+            library_id,
+            access: LibraryAccessLevel::Play,
+            created_at_ms: 1,
+            updated_at_ms: 1,
+        })
+        .await
+        .unwrap();
+
+    AuthenticatedPrincipal {
+        user_id,
+        principal_id,
+        roles: vec![UserRole::Viewer],
+        bootstrap: false,
+    }
 }

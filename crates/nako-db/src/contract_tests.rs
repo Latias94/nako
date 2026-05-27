@@ -50,15 +50,16 @@ use nako_core::{
     NewWebhookDeliveryAttempt, NewWebhookEndpoint, NfoImportPersistenceCommit, NfoSidecarApplyId,
     NfoSidecarApplyOperationKind, NfoSidecarApplyRepository, NfoSidecarApplyState,
     OutboxEventListFilter, OutboxEventStatus, PageRequest, Person, PersonId,
-    PlaybackSessionHeartbeat, PlaybackSessionId, PlaybackSessionListFilter, PlaybackSessionMode,
-    PlaybackSessionRepository, PlaybackSessionState, ProviderMapping, ProviderMappingId,
-    ProviderMappingRepository, ProviderMappingStatus, ProviderRawResponse, ProviderSubject,
-    ProviderSubjectId, ProviderSubjectKind, RecoverExpiredJobLeases, RequestJobCancellation,
-    RoleAssignment, ScanRepository, ScanSnapshotId, ScanStatus, SourceDuplicateEvidenceKind,
-    SourceDuplicateRelationship, SourceDuplicateRelationshipId, SourceDuplicateRelationshipStatus,
-    SourceDuplicateRepository, SourceState, StagingManifestId, StagingManifestRepository,
-    StagingPurpose, StagingState, Studio, StudioId, Tag, TagId, TranscodeFailureCategory,
-    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter,
+    PlaybackPermissionPolicy, PlaybackPolicy, PlaybackPolicyFilter, PlaybackPolicyRepository,
+    PlaybackPolicyScope, PlaybackSessionHeartbeat, PlaybackSessionId, PlaybackSessionListFilter,
+    PlaybackSessionMode, PlaybackSessionRepository, PlaybackSessionState, ProviderMapping,
+    ProviderMappingId, ProviderMappingRepository, ProviderMappingStatus, ProviderRawResponse,
+    ProviderSubject, ProviderSubjectId, ProviderSubjectKind, RecoverExpiredJobLeases,
+    RequestJobCancellation, RoleAssignment, ScanRepository, ScanSnapshotId, ScanStatus,
+    SourceDuplicateEvidenceKind, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
+    SourceDuplicateRelationshipStatus, SourceDuplicateRepository, SourceState, StagingManifestId,
+    StagingManifestRepository, StagingPurpose, StagingState, Studio, StudioId, Tag, TagId,
+    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter,
     TranscodeSessionRepository, TranscodeSessionState, User, UserId, UserInvitationId,
     UserInvitationRecord, UserInvitationStatus, UserPlaybackStateRepository,
     UserPlaybackStateWrite, UserPrincipalId, UserRole, UserSessionId, UserSessionRecord,
@@ -163,12 +164,15 @@ impl<T> AdminSettingsContractBackend for T where
 }
 
 trait IdentityAccessContractBackend:
-    LifecycleContractBackend + IdentityAccessRepository + LibraryRepository
+    LifecycleContractBackend + IdentityAccessRepository + LibraryRepository + PlaybackPolicyRepository
 {
 }
 
 impl<T> IdentityAccessContractBackend for T where
-    T: LifecycleContractBackend + IdentityAccessRepository + LibraryRepository
+    T: LifecycleContractBackend
+        + IdentityAccessRepository
+        + LibraryRepository
+        + PlaybackPolicyRepository
 {
 }
 
@@ -6185,6 +6189,75 @@ where
         store
             .list_library_access_policies(
                 LibraryAccessPolicyFilter {
+                    user_id: None,
+                    role: Some(UserRole::Viewer),
+                    library_id: Some(library.id),
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+
+    let mut viewer_playback = PlaybackPermissionPolicy::current_playback_defaults();
+    viewer_playback.allow_remux = false;
+    viewer_playback.max_remote_bitrate = Some(4_000_000);
+    let role_playback_policy =
+        PlaybackPolicy::role(UserRole::Viewer, library.id, viewer_playback, 3_000);
+    store
+        .upsert_playback_policy(&role_playback_policy)
+        .await
+        .unwrap();
+
+    let effective_playback = store
+        .resolve_effective_playback_policy(user.id, library.id)
+        .await
+        .unwrap();
+    assert!(!effective_playback.permissions.allow_remux);
+    assert_eq!(
+        effective_playback.permissions.max_remote_bitrate,
+        Some(4_000_000)
+    );
+
+    let mut user_playback = PlaybackPermissionPolicy::current_playback_defaults();
+    user_playback.allow_video_transcode = false;
+    user_playback.max_streaming_bitrate = Some(8_000_000);
+    let user_playback_policy = PlaybackPolicy::user(user.id, library.id, user_playback, 3_100);
+    store
+        .upsert_playback_policy(&user_playback_policy)
+        .await
+        .unwrap();
+
+    let effective_playback = store
+        .resolve_effective_playback_policy(user.id, library.id)
+        .await
+        .unwrap();
+    assert!(effective_playback.permissions.allow_remux);
+    assert!(!effective_playback.permissions.allow_video_transcode);
+    assert_eq!(
+        store
+            .list_playback_policies(
+                PlaybackPolicyFilter {
+                    user_id: Some(user.id),
+                    role: None,
+                    library_id: Some(library.id),
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap(),
+        vec![user_playback_policy]
+    );
+
+    store
+        .delete_playback_policy(PlaybackPolicyScope::Role(UserRole::Viewer), library.id)
+        .await
+        .unwrap();
+    assert!(
+        store
+            .list_playback_policies(
+                PlaybackPolicyFilter {
                     user_id: None,
                     role: Some(UserRole::Viewer),
                     library_id: Some(library.id),

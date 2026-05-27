@@ -48,6 +48,15 @@ cargo nextest run -p nako-server playback --no-fail-fast
 This proves route/app behavior, session creation, ticket validation, and
 transcode artifact behavior.
 
+### DB Playback Policy Gate
+
+```bash
+cargo nextest run -p nako-db identity_access --no-fail-fast
+```
+
+This proves persisted Library Access and Playback Permission Policy repository
+behavior when the lane touches policy storage.
+
 ### API Contract Gate
 
 ```bash
@@ -184,6 +193,50 @@ npm --prefix sdk/typescript run check
 
 Result: failed because `tsc` was not installed or available in the local
 environment; no TypeScript type error was reported.
+
+### PRT-050 - Server App And HTTP Integration
+
+Changed server/storage behavior:
+
+- Added persisted user/role Playback Permission Policy records to the SQLite
+  and PostgreSQL baselines.
+- Added `PlaybackPolicyRepository` so effective playback policy is resolved
+  from user, roles, Library Access, and optional user/role playback policy rows.
+- Server playback app now resolves policy from `AuthenticatedPrincipal` before
+  issuing browser tickets or starting direct/remux/HLS playback.
+- Direct denial stops before `PlaybackSession` creation.
+- Remux and HLS denial stop before `PlaybackSession`, `TranscodeSession`, and
+  artifact creation.
+- HTTP playback routes remain thin adapters: they parse auth/query/body facts
+  and delegate policy-aware orchestration to `PlaybackAppService`.
+- Internal sidecar/source-only remux and HLS helper paths keep the current
+  default local playback policy until a future task gives them principals.
+
+Validation:
+
+```bash
+cargo nextest run -p nako-server direct_playback_policy_denial_does_not_create_session --no-fail-fast
+cargo nextest run -p nako-core playback_policy --no-fail-fast
+cargo nextest run -p nako-db sqlite_identity_access_contract_user_roles_and_library_policies --no-fail-fast
+cargo nextest run -p nako-server browser_ticket_respects_effective_playback_policy_before_issue --no-fail-fast
+cargo nextest run -p nako-server -E 'test(remux_playback_policy_denial_does_not_create_sessions_or_artifacts) | test(hls_playback_policy_denial_does_not_create_sessions_or_artifacts)' --no-fail-fast
+cargo nextest run -p nako-server playback --no-fail-fast
+cargo nextest run -p nako-core playback --no-fail-fast
+cargo nextest run -p nako-playback --no-fail-fast
+cargo nextest run -p nako-db identity_access --no-fail-fast
+```
+
+Result:
+
+- `direct_playback_policy_denial_does_not_create_session`: 1 passed.
+- `nako-core playback_policy`: 7 passed.
+- `sqlite_identity_access_contract_user_roles_and_library_policies`: 1 passed.
+- `browser_ticket_respects_effective_playback_policy_before_issue`: 1 passed.
+- `remux/hls policy denial`: 2 passed.
+- `nako-server playback`: 75 passed, 282 skipped.
+- `nako-core playback`: 10 passed.
+- `nako-playback`: 15 passed.
+- `nako-db identity_access`: 1 passed, 150 skipped.
 
 ## Notes
 

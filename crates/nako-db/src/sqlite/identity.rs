@@ -712,6 +712,187 @@ impl IdentityAccessRepository for SqliteStore {
     }
 }
 
+#[async_trait::async_trait]
+impl PlaybackPolicyRepository for SqliteStore {
+    async fn upsert_playback_policy(&self, policy: &PlaybackPolicy) -> Result<()> {
+        match policy.scope {
+            PlaybackPolicyScope::User(user_id) => {
+                sqlx::query(
+                    r#"
+                    INSERT INTO user_playback_permission_policies (
+                        user_id, library_id,
+                        allow_media_playback, allow_direct_play, allow_remux,
+                        allow_audio_transcode, allow_video_transcode,
+                        allow_remote_playback, allow_remote_control, allow_cast,
+                        max_streaming_bitrate, max_remote_bitrate,
+                        created_at_ms, updated_at_ms
+                    )
+                    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
+                    ON CONFLICT(user_id, library_id) DO UPDATE SET
+                        allow_media_playback = excluded.allow_media_playback,
+                        allow_direct_play = excluded.allow_direct_play,
+                        allow_remux = excluded.allow_remux,
+                        allow_audio_transcode = excluded.allow_audio_transcode,
+                        allow_video_transcode = excluded.allow_video_transcode,
+                        allow_remote_playback = excluded.allow_remote_playback,
+                        allow_remote_control = excluded.allow_remote_control,
+                        allow_cast = excluded.allow_cast,
+                        max_streaming_bitrate = excluded.max_streaming_bitrate,
+                        max_remote_bitrate = excluded.max_remote_bitrate,
+                        updated_at_ms = excluded.updated_at_ms
+                    "#,
+                )
+                .bind(user_id.to_string())
+                .bind(policy.library_id.to_string())
+                .bind(bool_to_i64(policy.permissions.allow_media_playback))
+                .bind(bool_to_i64(policy.permissions.allow_direct_play))
+                .bind(bool_to_i64(policy.permissions.allow_remux))
+                .bind(bool_to_i64(policy.permissions.allow_audio_transcode))
+                .bind(bool_to_i64(policy.permissions.allow_video_transcode))
+                .bind(bool_to_i64(policy.permissions.allow_remote_playback))
+                .bind(bool_to_i64(policy.permissions.allow_remote_control))
+                .bind(bool_to_i64(policy.permissions.allow_cast))
+                .bind(optional_u64_to_i64(
+                    policy.permissions.max_streaming_bitrate,
+                )?)
+                .bind(optional_u64_to_i64(policy.permissions.max_remote_bitrate)?)
+                .bind(policy.created_at_ms)
+                .bind(policy.updated_at_ms)
+                .execute(&self.pool)
+                .await
+                .map_err(database_error)?;
+            }
+            PlaybackPolicyScope::Role(role) => {
+                sqlx::query(
+                    r#"
+                    INSERT INTO role_playback_permission_policies (
+                        role, library_id,
+                        allow_media_playback, allow_direct_play, allow_remux,
+                        allow_audio_transcode, allow_video_transcode,
+                        allow_remote_playback, allow_remote_control, allow_cast,
+                        max_streaming_bitrate, max_remote_bitrate,
+                        created_at_ms, updated_at_ms
+                    )
+                    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
+                    ON CONFLICT(role, library_id) DO UPDATE SET
+                        allow_media_playback = excluded.allow_media_playback,
+                        allow_direct_play = excluded.allow_direct_play,
+                        allow_remux = excluded.allow_remux,
+                        allow_audio_transcode = excluded.allow_audio_transcode,
+                        allow_video_transcode = excluded.allow_video_transcode,
+                        allow_remote_playback = excluded.allow_remote_playback,
+                        allow_remote_control = excluded.allow_remote_control,
+                        allow_cast = excluded.allow_cast,
+                        max_streaming_bitrate = excluded.max_streaming_bitrate,
+                        max_remote_bitrate = excluded.max_remote_bitrate,
+                        updated_at_ms = excluded.updated_at_ms
+                    "#,
+                )
+                .bind(role.as_str())
+                .bind(policy.library_id.to_string())
+                .bind(bool_to_i64(policy.permissions.allow_media_playback))
+                .bind(bool_to_i64(policy.permissions.allow_direct_play))
+                .bind(bool_to_i64(policy.permissions.allow_remux))
+                .bind(bool_to_i64(policy.permissions.allow_audio_transcode))
+                .bind(bool_to_i64(policy.permissions.allow_video_transcode))
+                .bind(bool_to_i64(policy.permissions.allow_remote_playback))
+                .bind(bool_to_i64(policy.permissions.allow_remote_control))
+                .bind(bool_to_i64(policy.permissions.allow_cast))
+                .bind(optional_u64_to_i64(
+                    policy.permissions.max_streaming_bitrate,
+                )?)
+                .bind(optional_u64_to_i64(policy.permissions.max_remote_bitrate)?)
+                .bind(policy.created_at_ms)
+                .bind(policy.updated_at_ms)
+                .execute(&self.pool)
+                .await
+                .map_err(database_error)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn delete_playback_policy(
+        &self,
+        scope: PlaybackPolicyScope,
+        library_id: LibraryId,
+    ) -> Result<()> {
+        match scope {
+            PlaybackPolicyScope::User(user_id) => {
+                sqlx::query(
+                    "DELETE FROM user_playback_permission_policies WHERE user_id = ?1 AND library_id = ?2",
+                )
+                .bind(user_id.to_string())
+                .bind(library_id.to_string())
+                .execute(&self.pool)
+                .await
+                .map_err(database_error)?;
+            }
+            PlaybackPolicyScope::Role(role) => {
+                sqlx::query(
+                    "DELETE FROM role_playback_permission_policies WHERE role = ?1 AND library_id = ?2",
+                )
+                .bind(role.as_str())
+                .bind(library_id.to_string())
+                .execute(&self.pool)
+                .await
+                .map_err(database_error)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn list_playback_policies(
+        &self,
+        filter: PlaybackPolicyFilter,
+        page: PageRequest,
+    ) -> Result<Vec<PlaybackPolicy>> {
+        let mut policies = Vec::new();
+
+        if filter.role.is_none() {
+            policies.extend(self.list_user_playback_policies(filter).await?);
+        }
+        if filter.user_id.is_none() {
+            policies.extend(self.list_role_playback_policies(filter).await?);
+        }
+
+        policies.sort_by_key(playback_policy_sort_key);
+        Ok(page_vec(policies, page))
+    }
+
+    async fn resolve_effective_playback_policy(
+        &self,
+        user_id: UserId,
+        library_id: LibraryId,
+    ) -> Result<EffectivePlaybackPolicy> {
+        let roles = self
+            .list_role_assignments(user_id)
+            .await?
+            .into_iter()
+            .map(|assignment| assignment.role)
+            .collect::<Vec<_>>();
+        let library_access = self
+            .resolve_effective_library_access(user_id, library_id)
+            .await?;
+        let filter = PlaybackPolicyFilter {
+            user_id: None,
+            role: None,
+            library_id: Some(library_id),
+        };
+        let mut policies = self.list_user_playback_policies(filter).await?;
+        policies.extend(self.list_role_playback_policies(filter).await?);
+
+        Ok(effective_playback_policy(
+            user_id,
+            &roles,
+            library_access,
+            &policies,
+        ))
+    }
+}
+
 impl SqliteStore {
     async fn list_user_library_access_policies(
         &self,
@@ -755,6 +936,62 @@ impl SqliteStore {
         .map_err(database_error)?;
 
         rows.into_iter().map(row_to_role_policy).collect()
+    }
+
+    async fn list_user_playback_policies(
+        &self,
+        filter: PlaybackPolicyFilter,
+    ) -> Result<Vec<PlaybackPolicy>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                user_id, library_id,
+                allow_media_playback, allow_direct_play, allow_remux,
+                allow_audio_transcode, allow_video_transcode,
+                allow_remote_playback, allow_remote_control, allow_cast,
+                max_streaming_bitrate, max_remote_bitrate,
+                created_at_ms, updated_at_ms
+            FROM user_playback_permission_policies
+            WHERE (?1 IS NULL OR user_id = ?1)
+              AND (?2 IS NULL OR library_id = ?2)
+            ORDER BY library_id ASC, user_id ASC
+            "#,
+        )
+        .bind(filter.user_id.map(|id| id.to_string()))
+        .bind(filter.library_id.map(|id| id.to_string()))
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_user_playback_policy).collect()
+    }
+
+    async fn list_role_playback_policies(
+        &self,
+        filter: PlaybackPolicyFilter,
+    ) -> Result<Vec<PlaybackPolicy>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                role, library_id,
+                allow_media_playback, allow_direct_play, allow_remux,
+                allow_audio_transcode, allow_video_transcode,
+                allow_remote_playback, allow_remote_control, allow_cast,
+                max_streaming_bitrate, max_remote_bitrate,
+                created_at_ms, updated_at_ms
+            FROM role_playback_permission_policies
+            WHERE (?1 IS NULL OR role = ?1)
+              AND (?2 IS NULL OR library_id = ?2)
+            ORDER BY library_id ASC, role ASC
+            "#,
+        )
+        .bind(filter.role.map(|role| role.as_str().to_owned()))
+        .bind(filter.library_id.map(|id| id.to_string()))
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_role_playback_policy).collect()
     }
 }
 
@@ -837,6 +1074,41 @@ fn row_to_role_policy(row: SqliteRow) -> Result<LibraryAccessPolicy> {
     })
 }
 
+fn row_to_user_playback_policy(row: SqliteRow) -> Result<PlaybackPolicy> {
+    Ok(PlaybackPolicy {
+        scope: PlaybackPolicyScope::User(parse_id(row_get::<String>(&row, "user_id")?)?),
+        library_id: parse_id(row_get::<String>(&row, "library_id")?)?,
+        permissions: row_to_playback_permission_policy(&row)?,
+        created_at_ms: row_get(&row, "created_at_ms")?,
+        updated_at_ms: row_get(&row, "updated_at_ms")?,
+    })
+}
+
+fn row_to_role_playback_policy(row: SqliteRow) -> Result<PlaybackPolicy> {
+    Ok(PlaybackPolicy {
+        scope: PlaybackPolicyScope::Role(parse_user_role(row_get(&row, "role")?)?),
+        library_id: parse_id(row_get::<String>(&row, "library_id")?)?,
+        permissions: row_to_playback_permission_policy(&row)?,
+        created_at_ms: row_get(&row, "created_at_ms")?,
+        updated_at_ms: row_get(&row, "updated_at_ms")?,
+    })
+}
+
+fn row_to_playback_permission_policy(row: &SqliteRow) -> Result<PlaybackPermissionPolicy> {
+    Ok(PlaybackPermissionPolicy {
+        allow_media_playback: i64_to_bool(row_get(row, "allow_media_playback")?)?,
+        allow_direct_play: i64_to_bool(row_get(row, "allow_direct_play")?)?,
+        allow_remux: i64_to_bool(row_get(row, "allow_remux")?)?,
+        allow_audio_transcode: i64_to_bool(row_get(row, "allow_audio_transcode")?)?,
+        allow_video_transcode: i64_to_bool(row_get(row, "allow_video_transcode")?)?,
+        allow_remote_playback: i64_to_bool(row_get(row, "allow_remote_playback")?)?,
+        allow_remote_control: i64_to_bool(row_get(row, "allow_remote_control")?)?,
+        allow_cast: i64_to_bool(row_get(row, "allow_cast")?)?,
+        max_streaming_bitrate: optional_i64_to_u64(row_get(row, "max_streaming_bitrate")?)?,
+        max_remote_bitrate: optional_i64_to_u64(row_get(row, "max_remote_bitrate")?)?,
+    })
+}
+
 fn normalized_username(username: &str) -> Result<String> {
     let normalized = username.trim().to_lowercase();
     if normalized.is_empty() {
@@ -900,6 +1172,13 @@ fn policy_sort_key(policy: &LibraryAccessPolicy) -> (LibraryId, &'static str, St
         LibraryAccessPolicyScope::Role(role) => {
             (policy.library_id, "role", role.as_str().to_owned())
         }
+    }
+}
+
+fn playback_policy_sort_key(policy: &PlaybackPolicy) -> (LibraryId, &'static str, String) {
+    match policy.scope {
+        PlaybackPolicyScope::User(user_id) => (policy.library_id, "user", user_id.to_string()),
+        PlaybackPolicyScope::Role(role) => (policy.library_id, "role", role.as_str().to_owned()),
     }
 }
 

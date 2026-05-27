@@ -67,9 +67,10 @@ use nfo::NfoAppService;
 pub(crate) use playback::DirectPlayStreamBody;
 use playback::PlaybackAppService;
 pub(crate) use playback::{
-    DirectPlaySourceBody, DirectPlaybackPreflightRequest, DirectPlaybackStreamRequest,
-    HlsPlaylistPlaybackRequest, HlsSourceRequest, PlaybackSessionHeartbeatRequest,
-    RemuxPlaybackPreflightRequest, RemuxPlaybackStreamRequest, RemuxSourceRequest,
+    BrowserPlaybackTicketValidationRequest, DirectPlaySourceBody, DirectPlaybackPreflightRequest,
+    DirectPlaybackStreamRequest, HlsPlaylistPlaybackRequest, HlsSourceRequest,
+    PlaybackSessionHeartbeatRequest, RemuxPlaybackPreflightRequest, RemuxPlaybackStreamRequest,
+    RemuxSourceRequest,
 };
 pub(crate) use playback_ticket::{
     BrowserPlaybackTicketMode, BrowserPlaybackTicketService, IssuedBrowserPlaybackTicket,

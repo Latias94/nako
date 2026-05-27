@@ -331,7 +331,7 @@ pub(crate) fn i64_to_u64(value: i64) -> Result<u64> {
     })
 }
 
-fn optional_i64_to_u64(value: Option<i64>) -> Result<Option<u64>> {
+pub(crate) fn optional_i64_to_u64(value: Option<i64>) -> Result<Option<u64>> {
     value.map(i64_to_u64).transpose()
 }
 

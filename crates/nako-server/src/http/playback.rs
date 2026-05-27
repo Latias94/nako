@@ -29,8 +29,9 @@ use tokio_util::io::ReaderStream;
 use tracing::instrument;
 
 use crate::app::{
-    BrowserPlaybackTicketMode, DirectPlaySourceBody, DirectPlaybackPreflightRequest,
-    DirectPlaybackStreamRequest, HlsPlaylistPlaybackRequest, IssuedBrowserPlaybackTicket, NakoApp,
+    BrowserPlaybackTicketMode, BrowserPlaybackTicketValidationRequest, DirectPlaySourceBody,
+    DirectPlaybackPreflightRequest, DirectPlaybackStreamRequest, HlsPlaylistPlaybackRequest,
+    IssuedBrowserPlaybackTicket, NakoApp,
     PlaybackSessionHeartbeatRequest as AppPlaybackSessionHeartbeatRequest,
     RemuxPlaybackPreflightRequest, RemuxPlaybackStreamRequest,
 };
@@ -88,7 +89,7 @@ pub(super) async fn get_source_playback_decision(
 
     Ok(Json(
         app.playback()
-            .get_source_playback_decision(source_id, query.into())
+            .get_source_playback_decision(&principal, source_id, query.into())
             .await?,
     ))
 }
@@ -110,6 +111,16 @@ pub(super) async fn create_browser_playback_ticket(
             entity: "media_source",
             id: source_id.to_string(),
         })?;
+    if matches!(mode, BrowserPlaybackTicketMode::Remux) {
+        let _ = requested_remux_container(request.capabilities.as_ref())?;
+    }
+    app.playback()
+        .validate_browser_playback_ticket_request(BrowserPlaybackTicketValidationRequest {
+            principal: principal.clone(),
+            source_id,
+            mode,
+        })
+        .await?;
     let issued = app.playback_tickets().issue_source_ticket(
         &principal,
         source_id,
@@ -154,7 +165,7 @@ pub(super) async fn stream_source(
     let direct_play = app
         .playback()
         .direct_playback_stream(DirectPlaybackStreamRequest {
-            principal_id: principal.principal_id,
+            principal,
             source_id,
             range_request: direct_play_range_request(&headers),
             client: ClientPlaybackCapabilities::default(),
@@ -198,7 +209,7 @@ pub(super) async fn head_stream_source(
     let direct_play = app
         .playback()
         .direct_playback_preflight(DirectPlaybackPreflightRequest {
-            principal_id: principal.principal_id,
+            principal,
             source_id,
             range_request: direct_play_range_request(&headers),
             client: ClientPlaybackCapabilities::default(),
@@ -233,7 +244,7 @@ pub(super) async fn remux_stream_source(
     let remux = app
         .playback()
         .remux_playback_stream(RemuxPlaybackStreamRequest {
-            principal_id: principal.principal_id,
+            principal,
             source_id,
             client,
             output_container,
@@ -277,7 +288,7 @@ pub(super) async fn head_remux_stream_source(
     let remux = app
         .playback()
         .remux_playback_preflight(RemuxPlaybackPreflightRequest {
-            principal_id: principal.principal_id,
+            principal,
             source_id,
             client,
             output_container,
@@ -310,7 +321,7 @@ pub(super) async fn hls_playlist_source(
     let playlist = app
         .playback()
         .hls_playlist_playback(HlsPlaylistPlaybackRequest {
-            principal_id: principal.principal_id,
+            principal,
             source_id,
             client,
         })

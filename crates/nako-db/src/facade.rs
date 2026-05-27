@@ -38,6 +38,7 @@ trait DatabaseBackendAdapter:
     + LocalInferenceRepository
     + ScanRepository
     + DatabaseLifecycle
+    + PlaybackPolicyRepository
     + PlaybackSessionRepository
     + TranscodeSessionRepository
     + UserPlaybackStateRepository
@@ -80,6 +81,7 @@ impl<T> DatabaseBackendAdapter for T where
         + LocalInferenceRepository
         + ScanRepository
         + DatabaseLifecycle
+        + PlaybackPolicyRepository
         + PlaybackSessionRepository
         + TranscodeSessionRepository
         + UserPlaybackStateRepository
@@ -523,6 +525,41 @@ impl IdentityAccessRepository for NakoDatabase {
     ) -> Result<EffectiveLibraryAccess> {
         self.backend()
             .resolve_effective_library_access(user_id, library_id)
+            .await
+    }
+}
+
+#[async_trait::async_trait]
+impl PlaybackPolicyRepository for NakoDatabase {
+    async fn upsert_playback_policy(&self, policy: &PlaybackPolicy) -> Result<()> {
+        self.backend().upsert_playback_policy(policy).await
+    }
+
+    async fn delete_playback_policy(
+        &self,
+        scope: PlaybackPolicyScope,
+        library_id: LibraryId,
+    ) -> Result<()> {
+        self.backend()
+            .delete_playback_policy(scope, library_id)
+            .await
+    }
+
+    async fn list_playback_policies(
+        &self,
+        filter: PlaybackPolicyFilter,
+        page: PageRequest,
+    ) -> Result<Vec<PlaybackPolicy>> {
+        self.backend().list_playback_policies(filter, page).await
+    }
+
+    async fn resolve_effective_playback_policy(
+        &self,
+        user_id: UserId,
+        library_id: LibraryId,
+    ) -> Result<EffectivePlaybackPolicy> {
+        self.backend()
+            .resolve_effective_playback_policy(user_id, library_id)
             .await
     }
 }

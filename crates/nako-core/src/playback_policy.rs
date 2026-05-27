@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{LibraryAccessLevel, LibraryId};
+use crate::{
+    EffectiveLibraryAccess, EffectiveLibraryAccessReason, LibraryAccessLevel, LibraryId, UserId,
+    UserRole,
+};
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -252,6 +255,56 @@ pub enum EffectivePlaybackPolicyReason {
     NoPlayAccess,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case", tag = "scope", content = "value")]
+pub enum PlaybackPolicyScope {
+    User(UserId),
+    Role(UserRole),
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PlaybackPolicy {
+    pub scope: PlaybackPolicyScope,
+    pub library_id: LibraryId,
+    pub permissions: PlaybackPermissionPolicy,
+    pub created_at_ms: i64,
+    pub updated_at_ms: i64,
+}
+
+impl PlaybackPolicy {
+    #[must_use]
+    pub const fn user(
+        user_id: UserId,
+        library_id: LibraryId,
+        permissions: PlaybackPermissionPolicy,
+        now_ms: i64,
+    ) -> Self {
+        Self {
+            scope: PlaybackPolicyScope::User(user_id),
+            library_id,
+            permissions,
+            created_at_ms: now_ms,
+            updated_at_ms: now_ms,
+        }
+    }
+
+    #[must_use]
+    pub const fn role(
+        role: UserRole,
+        library_id: LibraryId,
+        permissions: PlaybackPermissionPolicy,
+        now_ms: i64,
+    ) -> Self {
+        Self {
+            scope: PlaybackPolicyScope::Role(role),
+            library_id,
+            permissions,
+            created_at_ms: now_ms,
+            updated_at_ms: now_ms,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct EffectivePlaybackPolicy {
     pub library_id: LibraryId,
@@ -281,6 +334,26 @@ impl EffectivePlaybackPolicy {
     }
 
     #[must_use]
+    pub fn from_effective_library_access(access: EffectiveLibraryAccess) -> Self {
+        match access.reason {
+            EffectiveLibraryAccessReason::SingleAdminMode => Self {
+                library_id: access.library_id,
+                library_access: access.access,
+                permissions: PlaybackPermissionPolicy::administrator_defaults(),
+                reason: EffectivePlaybackPolicyReason::SingleAdminMode,
+            },
+            EffectiveLibraryAccessReason::AdministratorRole => {
+                Self::administrator(access.library_id, access.access)
+            }
+            EffectiveLibraryAccessReason::UserPolicy
+            | EffectiveLibraryAccessReason::RolePolicy
+            | EffectiveLibraryAccessReason::NoPolicy => {
+                Self::from_library_access(access.library_id, access.access)
+            }
+        }
+    }
+
+    #[must_use]
     pub fn administrator(library_id: LibraryId, access: LibraryAccessLevel) -> Self {
         Self {
             library_id,
@@ -303,9 +376,108 @@ impl EffectivePlaybackPolicy {
     }
 }
 
+#[must_use]
+pub fn effective_playback_policy(
+    user_id: UserId,
+    roles: &[UserRole],
+    library_access: EffectiveLibraryAccess,
+    policies: &[PlaybackPolicy],
+) -> EffectivePlaybackPolicy {
+    if !library_access.access.allows_play() {
+        return EffectivePlaybackPolicy::from_library_access(
+            library_access.library_id,
+            library_access.access,
+        );
+    }
+
+    if roles.contains(&UserRole::Administrator)
+        || matches!(
+            library_access.reason,
+            EffectiveLibraryAccessReason::AdministratorRole
+                | EffectiveLibraryAccessReason::SingleAdminMode
+        )
+    {
+        return EffectivePlaybackPolicy::from_effective_library_access(library_access);
+    }
+
+    let mut role_policy = None;
+    let mut user_policy = None;
+
+    for policy in policies
+        .iter()
+        .filter(|policy| policy.library_id == library_access.library_id)
+    {
+        match policy.scope {
+            PlaybackPolicyScope::User(policy_user_id) if policy_user_id == user_id => {
+                user_policy = Some(policy.permissions);
+            }
+            PlaybackPolicyScope::Role(role) if roles.contains(&role) => {
+                role_policy = Some(match role_policy {
+                    Some(current) => restrictive_playback_policy(current, policy.permissions),
+                    None => policy.permissions,
+                });
+            }
+            _ => {}
+        }
+    }
+
+    if let Some(permissions) = user_policy {
+        return EffectivePlaybackPolicy {
+            library_id: library_access.library_id,
+            library_access: library_access.access,
+            permissions,
+            reason: EffectivePlaybackPolicyReason::UserPolicy,
+        };
+    }
+
+    if let Some(permissions) = role_policy {
+        return EffectivePlaybackPolicy {
+            library_id: library_access.library_id,
+            library_access: library_access.access,
+            permissions,
+            reason: EffectivePlaybackPolicyReason::RolePolicy,
+        };
+    }
+
+    EffectivePlaybackPolicy::from_effective_library_access(library_access)
+}
+
+#[must_use]
+pub const fn restrictive_playback_policy(
+    left: PlaybackPermissionPolicy,
+    right: PlaybackPermissionPolicy,
+) -> PlaybackPermissionPolicy {
+    PlaybackPermissionPolicy {
+        allow_media_playback: left.allow_media_playback && right.allow_media_playback,
+        allow_direct_play: left.allow_direct_play && right.allow_direct_play,
+        allow_remux: left.allow_remux && right.allow_remux,
+        allow_audio_transcode: left.allow_audio_transcode && right.allow_audio_transcode,
+        allow_video_transcode: left.allow_video_transcode && right.allow_video_transcode,
+        allow_remote_playback: left.allow_remote_playback && right.allow_remote_playback,
+        allow_remote_control: left.allow_remote_control && right.allow_remote_control,
+        allow_cast: left.allow_cast && right.allow_cast,
+        max_streaming_bitrate: min_optional_bitrate(
+            left.max_streaming_bitrate,
+            right.max_streaming_bitrate,
+        ),
+        max_remote_bitrate: min_optional_bitrate(left.max_remote_bitrate, right.max_remote_bitrate),
+    }
+}
+
+const fn min_optional_bitrate(left: Option<u64>, right: Option<u64>) -> Option<u64> {
+    match (left, right) {
+        (Some(left), Some(right)) if left <= right => Some(left),
+        (Some(_), Some(right)) => Some(right),
+        (Some(left), None) => Some(left),
+        (None, Some(right)) => Some(right),
+        (None, None) => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::EffectiveLibraryAccessReason;
 
     #[test]
     fn playback_policy_from_play_access_matches_current_playback_defaults() {
@@ -382,5 +554,96 @@ mod tests {
         );
         assert!(policy.check(PlaybackPermission::RemoteControl).allowed);
         assert!(policy.check(PlaybackPermission::Cast).allowed);
+    }
+
+    #[test]
+    fn effective_playback_policy_uses_role_policy_after_library_access() {
+        let user_id = UserId::new();
+        let library_id = LibraryId::new();
+        let library_access = EffectiveLibraryAccess {
+            library_id,
+            access: LibraryAccessLevel::Play,
+            reason: EffectiveLibraryAccessReason::RolePolicy,
+        };
+        let mut permissions = PlaybackPermissionPolicy::current_playback_defaults();
+        permissions.allow_remux = false;
+
+        let policy = effective_playback_policy(
+            user_id,
+            &[UserRole::Viewer],
+            library_access,
+            &[PlaybackPolicy {
+                scope: PlaybackPolicyScope::Role(UserRole::Viewer),
+                library_id,
+                permissions,
+                created_at_ms: 1,
+                updated_at_ms: 1,
+            }],
+        );
+
+        assert_eq!(policy.reason, EffectivePlaybackPolicyReason::RolePolicy);
+        assert_eq!(
+            policy.check(PlaybackPermission::Remux).reason,
+            PlaybackPermissionDecisionReason::RemuxDisabled
+        );
+        assert!(policy.check(PlaybackPermission::DirectPlay).allowed);
+    }
+
+    #[test]
+    fn effective_playback_policy_user_policy_overrides_role_policy() {
+        let user_id = UserId::new();
+        let library_id = LibraryId::new();
+        let library_access = EffectiveLibraryAccess {
+            library_id,
+            access: LibraryAccessLevel::Play,
+            reason: EffectiveLibraryAccessReason::UserPolicy,
+        };
+        let mut role_permissions = PlaybackPermissionPolicy::current_playback_defaults();
+        role_permissions.allow_remux = false;
+        let mut user_permissions = PlaybackPermissionPolicy::current_playback_defaults();
+        user_permissions.allow_cast = true;
+
+        let policy = effective_playback_policy(
+            user_id,
+            &[UserRole::Viewer],
+            library_access,
+            &[
+                PlaybackPolicy::role(UserRole::Viewer, library_id, role_permissions, 1),
+                PlaybackPolicy::user(user_id, library_id, user_permissions, 2),
+            ],
+        );
+
+        assert_eq!(policy.reason, EffectivePlaybackPolicyReason::UserPolicy);
+        assert!(policy.check(PlaybackPermission::Remux).allowed);
+        assert!(policy.check(PlaybackPermission::Cast).allowed);
+    }
+
+    #[test]
+    fn effective_playback_policy_library_access_still_gates_playback_policy() {
+        let user_id = UserId::new();
+        let library_id = LibraryId::new();
+        let library_access = EffectiveLibraryAccess {
+            library_id,
+            access: LibraryAccessLevel::Browse,
+            reason: EffectiveLibraryAccessReason::UserPolicy,
+        };
+
+        let policy = effective_playback_policy(
+            user_id,
+            &[UserRole::Viewer],
+            library_access,
+            &[PlaybackPolicy::user(
+                user_id,
+                library_id,
+                PlaybackPermissionPolicy::administrator_defaults(),
+                1,
+            )],
+        );
+
+        assert_eq!(policy.reason, EffectivePlaybackPolicyReason::NoPlayAccess);
+        assert_eq!(
+            policy.check(PlaybackPermission::DirectPlay).reason,
+            PlaybackPermissionDecisionReason::LibraryAccessDoesNotAllowPlay
+        );
     }
 }

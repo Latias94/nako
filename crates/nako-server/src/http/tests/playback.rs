@@ -254,6 +254,39 @@ async fn browser_ticket_play_access_currently_allows_all_playback_modes() {
 }
 
 #[tokio::test]
+async fn browser_ticket_respects_effective_playback_policy_before_issue() {
+    let (_temp, app, source, store) =
+        app_with_media_source_config("policy-denied.mkv", b"media", |_| {}).await;
+    let principal =
+        local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::Play).await;
+    let mut permissions = PlaybackPermissionPolicy::current_playback_defaults();
+    permissions.allow_remux = false;
+    store
+        .upsert_playback_policy(&PlaybackPolicy::user(
+            principal.user_id,
+            source.library_id,
+            permissions,
+            2,
+        ))
+        .await
+        .unwrap();
+    let router = public_client_router_with_principal(app, principal);
+
+    let response = response_for_body_json(
+        &router,
+        Method::POST,
+        &format!("/sources/{}/playback/browser-ticket", source.id),
+        &nako_api::public_client::BrowserPlaybackTicketRequest {
+            mode: nako_api::public_client::BrowserPlaybackMode::Remux,
+            capabilities: None,
+        },
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
 async fn direct_stream_head_returns_headers_without_body() {
     let (_temp, router, source, _store) = router_with_media_source("demo.mp4", b"0123456789").await;
 

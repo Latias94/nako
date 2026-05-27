@@ -18,15 +18,19 @@ use axum::{
 };
 use nako_api::metadata_diagnostics::EnqueueMetadataMaintenanceRequest;
 use nako_core::{
-    CanonicalMetadata, DatabaseLifecycle, DomainEventKind, DomainEventSubject,
-    EventOutboxRepository, JobId, JobKind, JobRepository, JobStatus, Library, LibraryId,
-    LibraryOptions, LibraryRepository, LocalMetadataPolicy, MediaItem, MediaItemId, MediaKind,
-    MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource, MediaSourceId,
-    MediaStreamInfo, MediaStreamKind, MetadataField, MetadataRefreshMode, MetadataRepository,
-    MetadataSource, NewJob, NewStagingManifestRecord, NewTranscodeSession, PageRequest,
-    ProviderRawResponse, StagingManifestId, StagingManifestRepository, StagingPurpose,
-    StagingState, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
-    TranscodeSessionRepository, TranscodeSessionState,
+    AuthenticatedPrincipal, CanonicalMetadata, DatabaseLifecycle, DomainEventKind,
+    DomainEventSubject, EventOutboxRepository, IdentityAccessRepository, JobId, JobKind,
+    JobRepository, JobStatus, Library, LibraryAccessLevel, LibraryAccessPolicy,
+    LibraryAccessPolicyScope, LibraryId, LibraryOptions, LibraryRepository, LocalMetadataPolicy,
+    MediaItem, MediaItemId, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository,
+    MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataField,
+    MetadataRefreshMode, MetadataRepository, MetadataSource, NewJob, NewStagingManifestRecord,
+    NewTranscodeSession, PageRequest, PlaybackPermissionPolicy, PlaybackPolicy,
+    PlaybackPolicyRepository, PlaybackSessionListFilter, PlaybackSessionRepository,
+    ProviderRawResponse, RoleAssignment, StagingManifestId, StagingManifestRepository,
+    StagingPurpose, StagingState, TranscodeFailureCategory, TranscodeSessionId,
+    TranscodeSessionKind, TranscodeSessionListFilter, TranscodeSessionRepository,
+    TranscodeSessionState, User, UserId, UserPrincipalId, UserRole, UserStatus,
 };
 use nako_core::{ExternalProvider, MetadataMatchKind, MetadataProviderAttemptStatus};
 use nako_library::{LibraryScanRequest, LibraryScanner};

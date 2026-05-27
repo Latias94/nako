@@ -64,14 +64,19 @@ Last updated: 2026-05-27
 
 ## M4 - Server App And HTTP Integration
 
-- [ ] PRT-050 [owner=codex] [deps=PRT-040] [scope=crates/nako-server/src/app/playback,crates/nako-server/src/http/playback.rs,crates/nako-server/src/http/access.rs]
+- [x] PRT-050 [owner=codex] [deps=PRT-040] [scope=crates/nako-server/src/app/playback,crates/nako-server/src/http/playback.rs,crates/nako-server/src/http/access.rs,crates/nako-core/src/repository,crates/nako-db/src]
   Goal: Resolve effective playback policy in the server app and enforce it
   before creating Playback Sessions, Transcode Sessions, or browser tickets.
   Validation: `cargo nextest run -p nako-server playback --no-fail-fast`.
   Review: HTTP routes remain auth/query/ticket/response adapters; app service
   owns policy-aware playback orchestration.
-  Evidence: Route/app tests proving denied modes do not create sessions or
-  artifacts.
+  Evidence: Added persisted user/role playback policy rows and repository
+  adapters; the server app now resolves effective playback policy from the
+  authenticated user before direct/remux/HLS/ticket execution; tests prove
+  direct denial creates no Playback Session, remux/HLS denial creates no
+  Playback Session or Transcode Session/artifact, and denied browser tickets
+  are rejected before issue. Core, DB, playback, and server playback gates
+  passed.
   Handoff: PRT-060 can expose safe API/Admin surfaces.
 
 ## M5 - API And Diagnostics

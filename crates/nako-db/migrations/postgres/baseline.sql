@@ -1381,3 +1381,54 @@ CREATE TABLE role_library_access_policies (
 
 CREATE INDEX role_library_access_policies_library_idx
     ON role_library_access_policies(library_id, access);
+
+CREATE TABLE user_playback_permission_policies (
+    user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    library_id uuid NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+    allow_media_playback boolean NOT NULL,
+    allow_direct_play boolean NOT NULL,
+    allow_remux boolean NOT NULL,
+    allow_audio_transcode boolean NOT NULL,
+    allow_video_transcode boolean NOT NULL,
+    allow_remote_playback boolean NOT NULL,
+    allow_remote_control boolean NOT NULL,
+    allow_cast boolean NOT NULL,
+    max_streaming_bitrate BIGINT,
+    max_remote_bitrate BIGINT,
+    created_at_ms BIGINT NOT NULL,
+    updated_at_ms BIGINT NOT NULL,
+    PRIMARY KEY (user_id, library_id),
+    CHECK (max_streaming_bitrate IS NULL OR max_streaming_bitrate >= 0),
+    CHECK (max_remote_bitrate IS NULL OR max_remote_bitrate >= 0),
+    CHECK (created_at_ms >= 0),
+    CHECK (updated_at_ms >= 0)
+);
+
+CREATE INDEX user_playback_permission_policies_library_idx
+    ON user_playback_permission_policies(library_id);
+
+CREATE TABLE role_playback_permission_policies (
+    role text NOT NULL,
+    library_id uuid NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+    allow_media_playback boolean NOT NULL,
+    allow_direct_play boolean NOT NULL,
+    allow_remux boolean NOT NULL,
+    allow_audio_transcode boolean NOT NULL,
+    allow_video_transcode boolean NOT NULL,
+    allow_remote_playback boolean NOT NULL,
+    allow_remote_control boolean NOT NULL,
+    allow_cast boolean NOT NULL,
+    max_streaming_bitrate BIGINT,
+    max_remote_bitrate BIGINT,
+    created_at_ms BIGINT NOT NULL,
+    updated_at_ms BIGINT NOT NULL,
+    PRIMARY KEY (role, library_id),
+    CHECK (role IN ('administrator', 'library_manager', 'viewer')),
+    CHECK (max_streaming_bitrate IS NULL OR max_streaming_bitrate >= 0),
+    CHECK (max_remote_bitrate IS NULL OR max_remote_bitrate >= 0),
+    CHECK (created_at_ms >= 0),
+    CHECK (updated_at_ms >= 0)
+);
+
+CREATE INDEX role_playback_permission_policies_library_idx
+    ON role_playback_permission_policies(library_id);

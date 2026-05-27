@@ -130,7 +130,8 @@ use nako_core::{
     NewAutomationArtifact, NewAutomationProviderConfig, NewIngestionFailure, NewJob,
     NewMetadataProviderAttempt, NewOutboxEvent, NewPlaybackSession, NewStagingManifestRecord,
     NewTranscodeSession, NewVfsCacheFailure, OutboxEventStatus, PageRequest, Person, PersonId,
-    PlaybackSessionId, PlaybackSessionListFilter, PlaybackSessionMode, PlaybackSessionRecord,
+    PlaybackPermissionPolicy, PlaybackPolicy, PlaybackPolicyRepository, PlaybackSessionId,
+    PlaybackSessionListFilter, PlaybackSessionMode, PlaybackSessionRecord,
     PlaybackSessionRepository, PlaybackSessionState, ProviderMapping, ProviderMappingId,
     ProviderMappingRepository, ProviderMappingStatus, ProviderRawResponse,
     ProviderRawResponseFilter, ProviderSubject, ProviderSubjectId, ProviderSubjectKind,
@@ -923,6 +924,29 @@ async fn response_for(router: &Router, method: Method, uri: &str) -> axum::respo
                 .method(method)
                 .uri(uri)
                 .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+}
+
+async fn response_for_body_json<B>(
+    router: &Router,
+    method: Method,
+    uri: &str,
+    body: &B,
+) -> axum::response::Response
+where
+    B: Serialize,
+{
+    router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(method)
+                .uri(uri)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(serde_json::to_vec(body).unwrap()))
                 .unwrap(),
         )
         .await

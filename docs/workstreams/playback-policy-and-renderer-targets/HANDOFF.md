@@ -22,16 +22,24 @@ target kind/network/transport/control vocabulary, and planner-facing
 PRT-040 is complete. The planner consumes `PlaybackTarget` and
 `EffectivePlaybackPolicy`, returns internal denied decisions, and Public Client
 API maps them to safe `denied` / `policy_denied` wire values. Server playback
-currently passes default policy/target values to preserve existing behavior.
+was still passing default policy/target values at that point.
+
+PRT-050 is complete. Playback Permission Policy now has persisted user/role
+rows behind `PlaybackPolicyRepository`. The server app resolves effective
+playback policy from the authenticated user and Library Access before issuing
+browser tickets or starting direct/remux/HLS playback. Denied direct playback
+does not create a Playback Session; denied remux/HLS playback does not create
+Playback Sessions, Transcode Sessions, or artifacts.
 
 ## Active Task
 
-- Task ID: PRT-050
+- Task ID: PRT-060
 - Owner: codex
-- Files: `crates/nako-server/src/app/playback`,
-  `crates/nako-server/src/http/playback.rs`, `crates/nako-server/src/http/access.rs`
-- Validation: `cargo nextest run -p nako-server playback --no-fail-fast`
-- Status: NEEDS_CONTEXT
+- Files: `crates/nako-client-protocol/src`, `crates/nako-api/src`,
+  `apps/admin-web/src/adminApi/generated/contract.ts`
+- Validation: `cargo nextest run -p nako-client-protocol public --no-fail-fast`;
+  `cargo nextest run -p nako-api -E 'test(public_openapi) | test(sdk) | test(admin_contract)' --no-fail-fast`
+- Status: READY
 - Review: pending
 - Evidence: pending
 
@@ -48,6 +56,13 @@ currently passes default policy/target values to preserve existing behavior.
   `ClientPlaybackCapabilities`.
 - Public Client gets only safe denied mode/reason; detailed policy rows and
   role/access internals remain server/Admin concerns.
+- First storage slice persists playback policy rows because app-service policy
+  resolution needed normal repository-backed tests instead of route-local
+  hard-coding.
+- Multiple matching role playback policies are merged restrictively; a user
+  playback policy overrides role playback policy for the same library.
+- Administrators keep administrator playback defaults; Library Access remains
+  the first playback gate.
 
 ## Blockers
 
@@ -55,7 +70,7 @@ currently passes default policy/target values to preserve existing behavior.
 
 ## Next Recommended Action
 
-Start PRT-050 by resolving effective playback policy in the server app from
-authenticated principal and Library Access, then enforce denied planner
-decisions before creating tickets, Playback Sessions, Transcode Sessions, or
-artifacts.
+Start PRT-060 by adding safe Public/Admin DTOs for target/capability and
+effective playback policy diagnostics. Do not expose raw policy rows, role
+assignment internals, source locators, FFmpeg command strings, or ticket
+secrets through Public Client responses.

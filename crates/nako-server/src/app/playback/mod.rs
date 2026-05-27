@@ -3,13 +3,14 @@ use std::{path::PathBuf, sync::Arc};
 use async_trait::async_trait;
 use nako_api::public_client::{PlaybackDecisionResponse, playback_decision_response_to_dto};
 use nako_core::{
-    EventOutboxRepository, LibraryAccessLevel, MediaProbeRepository, MediaProbeResult,
-    MediaRepository, MediaSource, MediaSourceId, NakoError, NewOutboxEvent, NewPlaybackSession,
-    NewTranscodeSession, OutboxEventRecord, PageRequest, PlaybackSessionHeartbeat,
-    PlaybackSessionId, PlaybackSessionListFilter, PlaybackSessionMode, PlaybackSessionRecord,
+    AuthenticatedPrincipal, EventOutboxRepository, LibraryAccessLevel, MediaProbeRepository,
+    MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, NakoError, NewOutboxEvent,
+    NewPlaybackSession, NewTranscodeSession, OutboxEventRecord, PageRequest, PlaybackPermission,
+    PlaybackPolicyRepository, PlaybackSessionHeartbeat, PlaybackSessionId,
+    PlaybackSessionListFilter, PlaybackSessionMode, PlaybackSessionRecord,
     PlaybackSessionRepository, PlaybackSessionState, Result, StagingManifestRepository,
     TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
-    TranscodeSessionRepository, TranscodeSessionState, UserPrincipalId,
+    TranscodeSessionRepository, TranscodeSessionState, UserId, UserPrincipalId,
 };
 use nako_playback::{
     ClientPlaybackCapabilities, EffectivePlaybackPolicy, PlaybackDecision, PlaybackPlanner,
@@ -27,7 +28,10 @@ use tracing::warn;
 
 use crate::config::NakoServerConfig;
 
-use super::{runtime::RuntimeSupervisor, storage::StorageBackendRegistry};
+use super::{
+    playback_ticket::BrowserPlaybackTicketMode, runtime::RuntimeSupervisor,
+    storage::StorageBackendRegistry,
+};
 
 mod control;
 mod direct;
@@ -64,6 +68,12 @@ pub(crate) trait PlaybackRuntimeStore: std::fmt::Debug + Send + Sync {
     async fn get_media_source(&self, id: MediaSourceId) -> Result<Option<MediaSource>>;
 
     async fn get_media_probe(&self, id: MediaSourceId) -> Result<Option<MediaProbeResult>>;
+
+    async fn resolve_effective_playback_policy(
+        &self,
+        user_id: UserId,
+        library_id: nako_core::LibraryId,
+    ) -> Result<EffectivePlaybackPolicy>;
 
     async fn create_playback_session(
         &self,
@@ -146,6 +156,7 @@ where
     T: EventOutboxRepository
         + MediaProbeRepository
         + MediaRepository
+        + PlaybackPolicyRepository
         + PlaybackSessionRepository
         + TranscodeSessionRepository
         + std::fmt::Debug
@@ -158,6 +169,14 @@ where
 
     async fn get_media_probe(&self, id: MediaSourceId) -> Result<Option<MediaProbeResult>> {
         MediaProbeRepository::get_media_probe(self, id).await
+    }
+
+    async fn resolve_effective_playback_policy(
+        &self,
+        user_id: UserId,
+        library_id: nako_core::LibraryId,
+    ) -> Result<EffectivePlaybackPolicy> {
+        PlaybackPolicyRepository::resolve_effective_playback_policy(self, user_id, library_id).await
     }
 
     async fn create_playback_session(
@@ -360,7 +379,7 @@ pub struct HlsSegmentPlan {
 
 #[derive(Clone, Debug)]
 pub(crate) struct DirectPlaybackStreamRequest {
-    pub principal_id: UserPrincipalId,
+    pub principal: AuthenticatedPrincipal,
     pub source_id: MediaSourceId,
     pub range_request: DirectPlayRangeRequest,
     pub client: ClientPlaybackCapabilities,
@@ -376,7 +395,7 @@ pub(crate) struct DirectPlaybackStreamOutput {
 
 #[derive(Clone, Debug)]
 pub(crate) struct DirectPlaybackPreflightRequest {
-    pub principal_id: UserPrincipalId,
+    pub principal: AuthenticatedPrincipal,
     pub source_id: MediaSourceId,
     pub range_request: DirectPlayRangeRequest,
     pub client: ClientPlaybackCapabilities,
@@ -390,7 +409,7 @@ pub(crate) struct DirectPlaybackPreflightOutput {
 
 #[derive(Clone, Debug)]
 pub(crate) struct RemuxPlaybackStreamRequest {
-    pub principal_id: UserPrincipalId,
+    pub principal: AuthenticatedPrincipal,
     pub source_id: MediaSourceId,
     pub client: ClientPlaybackCapabilities,
     pub output_container: RemuxContainer,
@@ -406,7 +425,7 @@ pub(crate) struct RemuxPlaybackStreamOutput {
 
 #[derive(Clone, Debug)]
 pub(crate) struct RemuxPlaybackPreflightRequest {
-    pub principal_id: UserPrincipalId,
+    pub principal: AuthenticatedPrincipal,
     pub source_id: MediaSourceId,
     pub client: ClientPlaybackCapabilities,
     pub output_container: RemuxContainer,
@@ -420,7 +439,7 @@ pub(crate) struct RemuxPlaybackPreflightOutput {
 
 #[derive(Clone, Debug)]
 pub(crate) struct HlsPlaylistPlaybackRequest {
-    pub principal_id: UserPrincipalId,
+    pub principal: AuthenticatedPrincipal,
     pub source_id: MediaSourceId,
     pub client: ClientPlaybackCapabilities,
 }
@@ -443,6 +462,13 @@ pub(crate) struct StartPlaybackSessionRequest {
     pub source_id: MediaSourceId,
     pub mode: PlaybackSessionMode,
     pub client: Option<ClientPlaybackCapabilities>,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct BrowserPlaybackTicketValidationRequest {
+    pub principal: AuthenticatedPrincipal,
+    pub source_id: MediaSourceId,
+    pub mode: BrowserPlaybackTicketMode,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -527,6 +553,7 @@ impl PlaybackAppService {
 
     pub(crate) async fn get_source_playback_decision(
         &self,
+        principal: &AuthenticatedPrincipal,
         source_id: MediaSourceId,
         client: ClientPlaybackCapabilities,
     ) -> Result<PlaybackDecisionResponse> {
@@ -535,7 +562,9 @@ impl PlaybackAppService {
             PlaybackRuntimeStore::get_media_probe(self.runtime_store.as_ref(), source.id).await?;
         let context = self.playback_selection_context_for_source(&source).await?;
         let target = playback_target_for_client(client);
-        let effective_policy = current_playback_policy_for_source(&source);
+        let effective_policy = self
+            .effective_playback_policy_for_source(principal, &source)
+            .await?;
         let decision = self.planner.plan(PlaybackPlanningRequest {
             source: &source,
             probe: probe.as_ref(),
@@ -545,6 +574,45 @@ impl PlaybackAppService {
         });
 
         Ok(playback_decision_response_to_dto(source, probe, decision))
+    }
+
+    pub(crate) async fn validate_browser_playback_ticket_request(
+        &self,
+        request: BrowserPlaybackTicketValidationRequest,
+    ) -> Result<()> {
+        let source = self.get_source_or_not_found(request.source_id).await?;
+        let effective_policy = self
+            .effective_playback_policy_for_source(&request.principal, &source)
+            .await?;
+        let context = self.playback_selection_context_for_source(&source).await?;
+        if context.storage.remote {
+            ensure_playback_permission_allowed(
+                &effective_policy,
+                PlaybackPermission::RemotePlayback,
+            )?;
+        }
+
+        match request.mode {
+            BrowserPlaybackTicketMode::Direct => ensure_playback_permission_allowed(
+                &effective_policy,
+                PlaybackPermission::DirectPlay,
+            ),
+            BrowserPlaybackTicketMode::Remux => {
+                ensure_playback_permission_allowed(&effective_policy, PlaybackPermission::Remux)
+            }
+            BrowserPlaybackTicketMode::Hls => {
+                ensure_playback_permission_allowed(
+                    &effective_policy,
+                    PlaybackPermission::VideoTranscode,
+                )?;
+                ensure_playback_permission_allowed(
+                    &effective_policy,
+                    PlaybackPermission::AudioTranscode,
+                )
+            }
+        }?;
+
+        Ok(())
     }
 
     pub(crate) async fn start_playback_session(
@@ -680,6 +748,8 @@ impl PlaybackAppService {
         &self,
         request: DirectPlaybackStreamRequest,
     ) -> Result<DirectPlaybackStreamOutput> {
+        self.ensure_direct_playback_allowed(&request.principal, request.source_id)
+            .await?;
         let direct_play = self
             .plan_direct_play(request.source_id, request.range_request)
             .await?;
@@ -696,7 +766,7 @@ impl PlaybackAppService {
 
         let session = self
             .start_playback_session(StartPlaybackSessionRequest {
-                principal_id: request.principal_id,
+                principal_id: request.principal.principal_id,
                 source_id: request.source_id,
                 mode: PlaybackSessionMode::Direct,
                 client: Some(request.client),
@@ -715,12 +785,14 @@ impl PlaybackAppService {
         &self,
         request: DirectPlaybackPreflightRequest,
     ) -> Result<DirectPlaybackPreflightOutput> {
+        self.ensure_direct_playback_allowed(&request.principal, request.source_id)
+            .await?;
         let response = self
             .plan_direct_play_preflight(request.source_id, request.range_request)
             .await?;
         let session = self
             .start_playback_session(StartPlaybackSessionRequest {
-                principal_id: request.principal_id,
+                principal_id: request.principal.principal_id,
                 source_id: request.source_id,
                 mode: PlaybackSessionMode::Direct,
                 client: Some(request.client),
@@ -734,19 +806,23 @@ impl PlaybackAppService {
         &self,
         request: RemuxPlaybackStreamRequest,
     ) -> Result<RemuxPlaybackStreamOutput> {
+        let effective_policy = self
+            .effective_playback_policy_for_source_id(&request.principal, request.source_id)
+            .await?;
+        let remux_request = RemuxSourceRequest {
+            source_id: request.source_id,
+            client: request.client.clone(),
+            output_container: request.output_container,
+        };
+        let remux_start = self
+            .start_remux_source_with_policy(remux_request, effective_policy)
+            .await?;
         let playback_session = self
             .start_playback_session(StartPlaybackSessionRequest {
-                principal_id: request.principal_id,
+                principal_id: request.principal.principal_id,
                 source_id: request.source_id,
                 mode: PlaybackSessionMode::Remux,
                 client: Some(request.client.clone()),
-            })
-            .await?;
-        let remux_start = self
-            .start_remux_source(RemuxSourceRequest {
-                source_id: request.source_id,
-                client: request.client,
-                output_container: request.output_container,
             })
             .await?;
         self.link_playback_session_transcode(playback_session.id, remux_start.session.id)
@@ -789,19 +865,25 @@ impl PlaybackAppService {
         &self,
         request: RemuxPlaybackPreflightRequest,
     ) -> Result<RemuxPlaybackPreflightOutput> {
+        let effective_policy = self
+            .effective_playback_policy_for_source_id(&request.principal, request.source_id)
+            .await?;
+        let remux = self
+            .start_remux_source_with_policy(
+                RemuxSourceRequest {
+                    source_id: request.source_id,
+                    client: request.client.clone(),
+                    output_container: request.output_container,
+                },
+                effective_policy,
+            )
+            .await?;
         let playback_session = self
             .start_playback_session(StartPlaybackSessionRequest {
-                principal_id: request.principal_id,
+                principal_id: request.principal.principal_id,
                 source_id: request.source_id,
                 mode: PlaybackSessionMode::Remux,
                 client: Some(request.client.clone()),
-            })
-            .await?;
-        let remux = self
-            .start_remux_source(RemuxSourceRequest {
-                source_id: request.source_id,
-                client: request.client,
-                output_container: request.output_container,
             })
             .await?;
         self.link_playback_session_transcode(playback_session.id, remux.session.id)
@@ -826,18 +908,24 @@ impl PlaybackAppService {
         &self,
         request: HlsPlaylistPlaybackRequest,
     ) -> Result<HlsPlaylistPlaybackOutput> {
+        let effective_policy = self
+            .effective_playback_policy_for_source_id(&request.principal, request.source_id)
+            .await?;
+        let playlist = self
+            .hls_playlist_with_policy(
+                HlsSourceRequest {
+                    source_id: request.source_id,
+                    client: request.client.clone(),
+                },
+                effective_policy,
+            )
+            .await?;
         let playback_session = self
             .start_playback_session(StartPlaybackSessionRequest {
-                principal_id: request.principal_id,
+                principal_id: request.principal.principal_id,
                 source_id: request.source_id,
                 mode: PlaybackSessionMode::Hls,
                 client: Some(request.client.clone()),
-            })
-            .await?;
-        let playlist = self
-            .hls_playlist(HlsSourceRequest {
-                source_id: request.source_id,
-                client: request.client,
             })
             .await?;
         self.link_playback_session_transcode(playback_session.id, playlist.session.id)
@@ -855,15 +943,19 @@ impl PlaybackAppService {
         &self,
         request: RemuxSourceRequest,
     ) -> Result<RemuxSourceOutput> {
-        let context = self.remux_source_context(&request).await?;
+        let context = self.remux_source_context(&request, None).await?;
         self.run_remux_source_context(context).await
     }
 
-    pub(crate) async fn start_remux_source(
+    async fn start_remux_source_with_policy(
         &self,
         request: RemuxSourceRequest,
+        effective_policy: impl Into<Option<EffectivePlaybackPolicy>>,
     ) -> Result<RemuxSessionStart> {
-        let context = self.remux_source_context(&request).await?;
+        let effective_policy = effective_policy.into();
+        let context = self
+            .remux_source_context(&request, effective_policy)
+            .await?;
         if let Some(active) = PlaybackRuntimeStore::find_active_transcode_session(
             self.runtime_store.as_ref(),
             context.source.id,
@@ -893,14 +985,29 @@ impl PlaybackAppService {
 
         let task_app = self.clone();
         let task_request = request.clone();
+        let task_effective_policy = effective_policy;
         self.runtime
             .spawn("playback_remux_start", "playback.remux", async move {
-                if let Err(error) = task_app.remux_source(task_request).await {
+                if let Err(error) = task_app
+                    .remux_source_with_policy(task_request, task_effective_policy)
+                    .await
+                {
                     warn!(error = %error, "background remux start failed");
                 }
             });
 
         self.wait_for_started_remux_source_context(context).await
+    }
+
+    async fn remux_source_with_policy(
+        &self,
+        request: RemuxSourceRequest,
+        effective_policy: Option<EffectivePlaybackPolicy>,
+    ) -> Result<RemuxSourceOutput> {
+        let context = self
+            .remux_source_context(&request, effective_policy)
+            .await?;
+        self.run_remux_source_context(context).await
     }
 
     pub(crate) async fn wait_for_remux_start(
@@ -1065,6 +1172,7 @@ impl PlaybackAppService {
     async fn remux_source_context(
         &self,
         request: &RemuxSourceRequest,
+        effective_policy: impl Into<Option<EffectivePlaybackPolicy>>,
     ) -> Result<RemuxSourceContext> {
         let source = self.get_source_or_not_found(request.source_id).await?;
         let probe =
@@ -1074,7 +1182,9 @@ impl PlaybackAppService {
         context.preferences.remux_output_container = Some(request.output_container);
         let playback_profile = PlaybackProfile::from_context(&request.client, context.clone());
         let target = playback_target_for_client(request.client.clone());
-        let effective_policy = current_playback_policy_for_source(&source);
+        let effective_policy = effective_policy
+            .into()
+            .unwrap_or_else(|| default_playback_policy_for_source(&source));
         let decision = self.planner.plan(PlaybackPlanningRequest {
             source: &source,
             probe: probe.as_ref(),
@@ -1082,6 +1192,7 @@ impl PlaybackAppService {
             effective_policy: &effective_policy,
             context,
         });
+        ensure_playback_decision_allowed(&decision)?;
         let output_container = remux_output_container(&decision)?;
         let profile_identity = playback_profile
             .try_remux_transcode_profile(output_container)?
@@ -1109,6 +1220,14 @@ impl PlaybackAppService {
     }
 
     pub(crate) async fn hls_source(&self, request: HlsSourceRequest) -> Result<HlsSourceOutput> {
+        self.hls_source_with_policy(request, None).await
+    }
+
+    async fn hls_source_with_policy(
+        &self,
+        request: HlsSourceRequest,
+        effective_policy: impl Into<Option<EffectivePlaybackPolicy>>,
+    ) -> Result<HlsSourceOutput> {
         let source = self.get_source_or_not_found(request.source_id).await?;
         let probe =
             PlaybackRuntimeStore::get_media_probe(self.runtime_store.as_ref(), source.id).await?;
@@ -1117,7 +1236,9 @@ impl PlaybackAppService {
         context.preferences.transcode_output_container = Some(nako_transcode::OutputContainer::Hls);
         let playback_profile = PlaybackProfile::from_context(&request.client, context.clone());
         let target = playback_target_for_client(request.client.clone());
-        let effective_policy = current_playback_policy_for_source(&source);
+        let effective_policy = effective_policy
+            .into()
+            .unwrap_or_else(|| default_playback_policy_for_source(&source));
         let decision = self.planner.plan(PlaybackPlanningRequest {
             source: &source,
             probe: probe.as_ref(),
@@ -1125,6 +1246,7 @@ impl PlaybackAppService {
             effective_policy: &effective_policy,
             context,
         });
+        ensure_playback_decision_allowed(&decision)?;
         let transcode_plan = hls_transcode_plan(&decision)?;
         let hls_profile = playback_profile
             .try_hls_transcode_profile(transcode_plan, self.hls.acceleration_plan)?;
@@ -1171,7 +1293,17 @@ impl PlaybackAppService {
         &self,
         request: HlsSourceRequest,
     ) -> Result<HlsPlaylistOutput> {
-        let output = self.hls_source(request).await?;
+        self.hls_playlist_with_policy(request, None).await
+    }
+
+    async fn hls_playlist_with_policy(
+        &self,
+        request: HlsSourceRequest,
+        effective_policy: impl Into<Option<EffectivePlaybackPolicy>>,
+    ) -> Result<HlsPlaylistOutput> {
+        let output = self
+            .hls_source_with_policy(request, effective_policy)
+            .await?;
 
         if output.disposition == HlsSourceDisposition::Cancelled {
             return Err(NakoError::Provider {
@@ -1429,6 +1561,48 @@ impl PlaybackAppService {
         let (uri, backend) = self.storage_backend_for_media_source(source).await?;
         Ok(playback_selection_context(&uri, backend.as_ref()).await)
     }
+
+    async fn effective_playback_policy_for_source_id(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        source_id: MediaSourceId,
+    ) -> Result<EffectivePlaybackPolicy> {
+        let source = self.get_source_or_not_found(source_id).await?;
+        self.effective_playback_policy_for_source(principal, &source)
+            .await
+    }
+
+    async fn effective_playback_policy_for_source(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        source: &MediaSource,
+    ) -> Result<EffectivePlaybackPolicy> {
+        PlaybackRuntimeStore::resolve_effective_playback_policy(
+            self.runtime_store.as_ref(),
+            principal.user_id,
+            source.library_id,
+        )
+        .await
+    }
+
+    async fn ensure_direct_playback_allowed(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        source_id: MediaSourceId,
+    ) -> Result<()> {
+        let source = self.get_source_or_not_found(source_id).await?;
+        let effective_policy = self
+            .effective_playback_policy_for_source(principal, &source)
+            .await?;
+        let context = self.playback_selection_context_for_source(&source).await?;
+        if context.storage.remote {
+            ensure_playback_permission_allowed(
+                &effective_policy,
+                PlaybackPermission::RemotePlayback,
+            )?;
+        }
+        ensure_playback_permission_allowed(&effective_policy, PlaybackPermission::DirectPlay)
+    }
 }
 
 fn rewrite_hls_playlist_segments_for_playback_session(
@@ -1454,8 +1628,50 @@ fn playback_target_for_client(client: ClientPlaybackCapabilities) -> PlaybackTar
     PlaybackTarget::browser_with_capabilities("Public Client", client)
 }
 
-fn current_playback_policy_for_source(source: &MediaSource) -> EffectivePlaybackPolicy {
+fn default_playback_policy_for_source(source: &MediaSource) -> EffectivePlaybackPolicy {
     EffectivePlaybackPolicy::from_library_access(source.library_id, LibraryAccessLevel::Play)
+}
+
+fn ensure_playback_decision_allowed(decision: &PlaybackDecision) -> Result<()> {
+    if decision.denial.is_some() {
+        return Err(playback_policy_forbidden(decision));
+    }
+
+    Ok(())
+}
+
+fn ensure_playback_permission_allowed(
+    policy: &EffectivePlaybackPolicy,
+    permission: PlaybackPermission,
+) -> Result<()> {
+    let decision = policy.check(permission);
+    if decision.allowed {
+        return Ok(());
+    }
+
+    Err(NakoError::Forbidden {
+        message: format!(
+            "playback policy denied {}: {}",
+            decision.permission.as_str(),
+            decision.reason.as_str()
+        ),
+    })
+}
+
+fn playback_policy_forbidden(decision: &PlaybackDecision) -> NakoError {
+    let Some(denial) = &decision.denial else {
+        return NakoError::Forbidden {
+            message: "playback policy denied playback".to_owned(),
+        };
+    };
+
+    NakoError::Forbidden {
+        message: format!(
+            "playback policy denied {}: {}",
+            denial.permission.as_str(),
+            denial.reason.as_str()
+        ),
+    }
 }
 
 #[derive(Clone, Debug)]
