@@ -31,6 +31,7 @@ Nako publishes only public permissive crates to crates.io during alpha:
 
 - `nako-addon-protocol`
 - `nako-addon-client`
+- `nako-official-addon-catalog`
 - `nako`
 
 Server implementation crates are marked `publish = false` and are not release
@@ -43,7 +44,10 @@ python scripts/publish_crates.py --mode dry-run
 Actual crates.io publishing is manual-approval only through the
 `crates-publish` workflow, using the `crates-io` GitHub environment and
 `CARGO_REGISTRY_TOKEN` secret. Publish order is dependency order:
-`nako-addon-protocol`, `nako-addon-client`, then `nako`.
+`nako-addon-protocol`, `nako-addon-client`,
+`nako-official-addon-catalog`, then `nako`. The publish script skips a crate
+whose current version already exists on crates.io, which allows a release to
+resume after a partial publish.
 
 ## 1b. Docker Image Publishing
 

@@ -2,7 +2,10 @@ param(
     [ValidateSet('dry-run', 'publish')]
     [string] $Mode = 'dry-run',
 
-    [switch] $AllowDirty
+    [switch] $AllowDirty,
+
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]] $ExtraArgs = @()
 )
 
 $ErrorActionPreference = 'Stop'
@@ -12,5 +15,6 @@ $Arguments = @($Script, '--mode', $Mode)
 if ($AllowDirty) {
     $Arguments += '--allow-dirty'
 }
+$Arguments += $ExtraArgs
 
 python @Arguments
