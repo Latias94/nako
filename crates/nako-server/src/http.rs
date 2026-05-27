@@ -19,6 +19,7 @@ mod metadata;
 mod network;
 mod playback;
 mod query;
+mod renderer;
 mod system;
 mod user_playback;
 mod webhooks;
@@ -42,6 +43,7 @@ fn build_router_with_auth(app: NakoApp, auth: auth::InboundAuthState) -> Router 
         .merge(management_context::routes())
         .merge(metadata::routes())
         .merge(playback::routes())
+        .merge(renderer::routes())
         .merge(user_playback::routes())
         .merge(webhooks::routes())
         .merge(automation::routes())

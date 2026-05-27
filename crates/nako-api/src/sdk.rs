@@ -855,6 +855,41 @@ public object NakoPublicClientRequests {
             }",
         )
 
+    public fun listRenderers(page: PageQuery = PageQuery()): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "GET",
+            pathAndQuery = pathWithQuery("/renderers", pageQuery(page)),
+        )
+
+    public fun registerRenderer(): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "POST",
+            pathAndQuery = "/renderers",
+        )
+
+    public fun heartbeatRenderer(rendererSessionId: String): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "POST",
+            pathAndQuery = "/renderers/${encodePathSegment(rendererSessionId)}/heartbeat",
+        )
+
+    public fun pollNextRendererCommand(rendererSessionId: String): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "POST",
+            pathAndQuery = "/renderers/${encodePathSegment(rendererSessionId)}/commands/next",
+        )
+
+    public fun completeRendererCommand(
+        rendererSessionId: String,
+        commandId: String,
+    ): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "POST",
+            pathAndQuery = "/renderers/${encodePathSegment(rendererSessionId)}/commands/${
+                encodePathSegment(commandId)
+            }/complete",
+        )
+
     public fun getUserPlaybackState(itemId: String): NakoRequestDescriptor =
         NakoRequestDescriptor(
             method = "GET",
@@ -1263,6 +1298,26 @@ export class NakoClient {
     return this.requestRaw("GET", `/playback/sessions/${encodeURIComponent(sessionId)}/hls/segments/${encodeURIComponent(segmentName)}`);
   }
 
+  listRenderers(page?: PageQuery): Promise<RendererSessionsResponse> {
+    return this.requestJson("GET", "/renderers", { query: page });
+  }
+
+  registerRenderer(body: RendererRegistrationRequest): Promise<RendererSessionResponse> {
+    return this.requestJson("POST", "/renderers", { body });
+  }
+
+  heartbeatRenderer(rendererSessionId: string, body: RendererHeartbeatRequest): Promise<RendererSessionResponse> {
+    return this.requestJson("POST", `/renderers/${encodeURIComponent(rendererSessionId)}/heartbeat`, { body });
+  }
+
+  pollNextRendererCommand(rendererSessionId: string): Promise<RendererCommandPollResponse> {
+    return this.requestJson("POST", `/renderers/${encodeURIComponent(rendererSessionId)}/commands/next`);
+  }
+
+  completeRendererCommand(rendererSessionId: string, commandId: string, body: RendererCommandCompletionRequest): Promise<RendererCommandResponse> {
+    return this.requestJson("POST", `/renderers/${encodeURIComponent(rendererSessionId)}/commands/${encodeURIComponent(commandId)}/complete`, { body });
+  }
+
   getUserPlaybackState(itemId: string): Promise<UserPlaybackStateResponse> {
     return this.requestJson("GET", `/users/me/playback-state/items/${encodeURIComponent(itemId)}`);
   }
@@ -1402,6 +1457,11 @@ mod tests {
             "getPlaybackSession(",
             "cancelPlaybackSession(",
             "heartbeatPlaybackSession(",
+            "listRenderers(",
+            "registerRenderer(",
+            "heartbeatRenderer(",
+            "pollNextRendererCommand(",
+            "completeRendererCommand(",
             "getUserPlaybackState(",
             "listContinueWatching(",
             "updateUserPlaybackProgress(",
@@ -1434,6 +1494,8 @@ mod tests {
             "ClientPlaybackCapabilitiesDto",
             "ClientPlaybackDecisionReason",
             "\"client_disabled_direct_play\"",
+            "RendererSessionResponse",
+            "RendererCommandPollResponse",
             "PlaybackSessionResponse",
             "PlaybackSessionHeartbeatRequest",
             "limit?: number",
@@ -1519,6 +1581,8 @@ mod tests {
             "public fun managementContextLinks(",
             "public fun createBrowserPlaybackTicket(sourceId: String): NakoRequestDescriptor",
             "public fun heartbeatPlaybackSession(sessionId: String): NakoRequestDescriptor",
+            "public fun listRenderers(page: PageQuery = PageQuery()): NakoRequestDescriptor",
+            "public fun pollNextRendererCommand(rendererSessionId: String): NakoRequestDescriptor",
             "public value class ClientMediaKind",
             "public val wireValue: String",
             "public val isKnown: Boolean",

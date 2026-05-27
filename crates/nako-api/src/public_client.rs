@@ -4,9 +4,10 @@ use nako_core::{
     LocalMetadataPolicy, LocalMetadataReader, ManagedArtworkArtifactRecord, MediaDomain, MediaItem,
     MediaKind, MediaProbeResult, MediaSource, MediaStreamInfo, MediaStreamKind, MetadataProfile,
     MetadataRefreshMode, MetadataSource, NamingStrategy, PageRequest, Person, PlaybackSessionMode,
-    PlaybackSessionRecord, PlaybackSessionState, SelectedArtworkRecord, Tag,
-    TranscodeFailureCategory, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
-    UserPlaybackState,
+    PlaybackSessionRecord, PlaybackSessionState, RendererCommandRecord, RendererCommandState,
+    RendererControlCapabilities, RendererSessionRecord, RendererSessionState,
+    SelectedArtworkRecord, Tag, TranscodeFailureCategory, TranscodeSessionKind,
+    TranscodeSessionRecord, TranscodeSessionState, UserPlaybackState,
 };
 use nako_playback::{
     ClientPlaybackCapabilities, DirectPlayPlan, PlaybackDecision, PlaybackDecisionReason,
@@ -31,10 +32,11 @@ pub use nako_client_protocol::{
     ClientPlaybackDenialDto, ClientPlaybackMode, ClientPlaybackPermission,
     ClientPlaybackPermissionDecisionReason, ClientPlaybackSessionMode, ClientPlaybackSessionState,
     ClientPlaybackTargetDto, ClientPlaybackTargetKind, ClientPlaybackTargetNetworkScope,
-    ClientPlaybackTargetTransportAuth, ClientRendererControlCapabilitiesDto,
-    ClientRendererControlCommand, ClientTranscodeFailureCategory, ClientTranscodePlan,
-    ClientTranscodeSessionKind, ClientTranscodeSessionState, CollectionItemDto, CollectionRefDto,
-    ContentRatingDto, ContinueWatchingItemDto, ContinueWatchingResponse, CreditDto, CurrentUserDto,
+    ClientPlaybackTargetTransportAuth, ClientRendererCommandState,
+    ClientRendererControlCapabilitiesDto, ClientRendererControlCommand, ClientRendererSessionState,
+    ClientTranscodeFailureCategory, ClientTranscodePlan, ClientTranscodeSessionKind,
+    ClientTranscodeSessionState, CollectionItemDto, CollectionRefDto, ContentRatingDto,
+    ContinueWatchingItemDto, ContinueWatchingResponse, CreditDto, CurrentUserDto,
     CurrentUserResponse, ErrorResponse, ExternalIdDto, GenreDto, GenreItemsResponse,
     GenreListResponse, HealthResponse, ImagesResponse, ItemCreditDto, ItemCreditsResponse,
     ItemDetailResponse, ItemGenreDto, ItemStudioDto, ItemTagDto, ItemsResponse, LibraryDto,
@@ -44,7 +46,10 @@ pub use nako_client_protocol::{
     MediaProbeDto, MediaSourceDto, MediaStreamDto, MetadataProfileDto, MetadataScanPolicyDto,
     PLAYBACK_SESSION_ID_HEADER, PageInfo, PeopleResponse, PersonDto, PersonItemsResponse,
     PersonResponse, PlaybackDecisionResponse, PlaybackSessionDto, PlaybackSessionHeartbeatRequest,
-    PlaybackSessionResponse, PublicImageRefDto, RedeemInvitationRequest, SearchItemHit,
+    PlaybackSessionResponse, PublicImageRefDto, RedeemInvitationRequest,
+    RendererCommandCompletionRequest, RendererCommandDto, RendererCommandPollResponse,
+    RendererCommandResponse, RendererHeartbeatRequest, RendererRegistrationRequest,
+    RendererSessionDto, RendererSessionResponse, RendererSessionsResponse, SearchItemHit,
     SearchResponse, SetWatchedStateRequest, SourceProbeResponse, StudioRefDto, TagDto,
     TagItemsResponse, TagsResponse, TranscodeSessionDto, TranscodeSessionResponse,
     UpdatePlaybackProgressRequest, UserPlaybackStateDto, UserPlaybackStateResponse, UserSessionDto,
@@ -306,6 +311,73 @@ pub fn playback_session_to_dto(session: PlaybackSessionRecord) -> PlaybackSessio
         started_at: timestamp_ms_to_rfc3339(Some(session.started_at_ms)),
         ended_at: timestamp_ms_to_rfc3339(session.ended_at_ms),
         updated_at: session.updated_at,
+    }
+}
+
+#[must_use]
+pub fn renderer_session_response_from_record(
+    session: RendererSessionRecord,
+) -> RendererSessionResponse {
+    RendererSessionResponse {
+        renderer: renderer_session_to_dto(session),
+    }
+}
+
+#[must_use]
+pub fn renderer_session_to_dto(session: RendererSessionRecord) -> RendererSessionDto {
+    let media_capabilities = session
+        .media_capabilities_json
+        .as_deref()
+        .and_then(playback_session_client_capabilities_from_json);
+
+    RendererSessionDto {
+        id: session.id.to_string(),
+        target_kind: playback_target_kind_to_dto(session.target_kind),
+        display_name: session.display_name,
+        network_scope: playback_target_network_scope_to_dto(session.network_scope),
+        transport_auth: playback_target_transport_auth_to_dto(session.transport_auth),
+        media_capabilities,
+        control_capabilities: renderer_control_capabilities_to_dto(session.control_capabilities),
+        state: renderer_session_state_to_dto(session.state),
+        active_playback_session_id: session.active_playback_session_id.map(|id| id.to_string()),
+        last_seen_at: timestamp_ms_to_rfc3339(Some(session.last_seen_at_ms)),
+        expires_at: timestamp_ms_to_rfc3339(session.expires_at_ms),
+        updated_at: session.updated_at,
+    }
+}
+
+#[must_use]
+pub fn renderer_command_poll_response_from_record(
+    command: Option<RendererCommandRecord>,
+) -> RendererCommandPollResponse {
+    RendererCommandPollResponse {
+        command: command.map(renderer_command_to_dto),
+    }
+}
+
+#[must_use]
+pub fn renderer_command_response_from_record(
+    command: RendererCommandRecord,
+) -> RendererCommandResponse {
+    RendererCommandResponse {
+        command: renderer_command_to_dto(command),
+    }
+}
+
+#[must_use]
+pub fn renderer_command_to_dto(command: RendererCommandRecord) -> RendererCommandDto {
+    RendererCommandDto {
+        id: command.id.to_string(),
+        renderer_session_id: command.renderer_session_id.to_string(),
+        command: renderer_control_command_to_dto(command.command),
+        state: renderer_command_state_to_dto(command.state),
+        item_id: command.item_id.map(|id| id.to_string()),
+        source_id: command.source_id.map(|id| id.to_string()),
+        playback_session_id: command.playback_session_id.map(|id| id.to_string()),
+        position_ms: command.position_ms,
+        volume_percent: command.volume_percent,
+        created_at: command.created_at,
+        updated_at: command.updated_at,
     }
 }
 
@@ -760,6 +832,18 @@ fn playback_target_transport_auth_to_dto(
     }
 }
 
+fn renderer_control_capabilities_to_dto(
+    capabilities: RendererControlCapabilities,
+) -> ClientRendererControlCapabilitiesDto {
+    ClientRendererControlCapabilitiesDto {
+        commands: capabilities
+            .commands
+            .into_iter()
+            .map(renderer_control_command_to_dto)
+            .collect(),
+    }
+}
+
 fn renderer_control_command_to_dto(
     command: RendererControlCommand,
 ) -> ClientRendererControlCommand {
@@ -771,6 +855,24 @@ fn renderer_control_command_to_dto(
         RendererControlCommand::Seek => ClientRendererControlCommand::Seek,
         RendererControlCommand::Stop => ClientRendererControlCommand::Stop,
         RendererControlCommand::SetVolume => ClientRendererControlCommand::SetVolume,
+    }
+}
+
+fn renderer_session_state_to_dto(state: RendererSessionState) -> ClientRendererSessionState {
+    match state {
+        RendererSessionState::Online => ClientRendererSessionState::Online,
+        RendererSessionState::Offline => ClientRendererSessionState::Offline,
+        RendererSessionState::Revoked => ClientRendererSessionState::Revoked,
+    }
+}
+
+fn renderer_command_state_to_dto(state: RendererCommandState) -> ClientRendererCommandState {
+    match state {
+        RendererCommandState::Queued => ClientRendererCommandState::Queued,
+        RendererCommandState::Delivered => ClientRendererCommandState::Delivered,
+        RendererCommandState::Acknowledged => ClientRendererCommandState::Acknowledged,
+        RendererCommandState::Failed => ClientRendererCommandState::Failed,
+        RendererCommandState::Cancelled => ClientRendererCommandState::Cancelled,
     }
 }
 

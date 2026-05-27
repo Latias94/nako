@@ -44,6 +44,7 @@ pub enum PublicClientRouteKind {
     Catalog,
     Management,
     Playback,
+    Renderer,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -244,6 +245,30 @@ pub const PUBLIC_CLIENT_ROUTES: &[PublicClientRoute] = &[
         methods: &[PublicClientHttpMethod::Get],
         kind: PublicClientRouteKind::Playback,
         rust_sdk_exposure: PublicClientRustSdkExposure::StreamingBuilder,
+    },
+    PublicClientRoute {
+        path: "/renderers",
+        methods: &[PublicClientHttpMethod::Get, PublicClientHttpMethod::Post],
+        kind: PublicClientRouteKind::Renderer,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/renderers/{renderer_session_id}/heartbeat",
+        methods: &[PublicClientHttpMethod::Post],
+        kind: PublicClientRouteKind::Renderer,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/renderers/{renderer_session_id}/commands/next",
+        methods: &[PublicClientHttpMethod::Post],
+        kind: PublicClientRouteKind::Renderer,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/renderers/{renderer_session_id}/commands/{command_id}/complete",
+        methods: &[PublicClientHttpMethod::Post],
+        kind: PublicClientRouteKind::Renderer,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
     },
     PublicClientRoute {
         path: "/users/me/playback-state/items/{item_id}",
@@ -485,7 +510,7 @@ mod tests {
     fn public_route_inventory_is_protocol_owned_and_complete() {
         let paths = public_client_paths().collect::<Vec<_>>();
 
-        assert_eq!(paths.len(), 36);
+        assert_eq!(paths.len(), 40);
         assert!(paths.contains(&"/health"));
         assert!(paths.contains(&"/auth/login"));
         assert!(paths.contains(&"/auth/invitations/redeem"));
@@ -497,6 +522,10 @@ mod tests {
         assert!(paths.contains(&"/sources/{source_id}/playback/browser-ticket"));
         assert!(paths.contains(&"/playback/sessions/{session_id}/heartbeat"));
         assert!(paths.contains(&"/playback/sessions/{session_id}/hls/segments/{segment_name}"));
+        assert!(paths.contains(&"/renderers"));
+        assert!(paths.contains(&"/renderers/{renderer_session_id}/heartbeat"));
+        assert!(paths.contains(&"/renderers/{renderer_session_id}/commands/next"));
+        assert!(paths.contains(&"/renderers/{renderer_session_id}/commands/{command_id}/complete"));
         assert!(paths.contains(&"/users/me/playback-state/items/{item_id}"));
         assert!(paths.contains(&"/users/me/playback-state/continue-watching"));
         assert!(paths.contains(&"/users/me/playback-state/items/{item_id}/progress"));
@@ -540,7 +569,7 @@ mod tests {
 
         let json_count = public_client_json_routes().count();
         let streaming_count = public_client_streaming_routes().count();
-        assert_eq!(json_count, 31);
+        assert_eq!(json_count, 35);
         assert_eq!(streaming_count, 5);
         assert_eq!(json_count + streaming_count, PUBLIC_CLIENT_ROUTES.len());
         let remux_stream = PUBLIC_CLIENT_ROUTES
@@ -558,13 +587,15 @@ mod tests {
     }
 
     #[test]
-    fn public_route_inventory_currently_has_no_renderer_session_surface() {
+    fn public_route_inventory_has_renderer_session_surface_without_external_cast_routes() {
         let paths = public_client_paths().collect::<Vec<_>>();
 
         assert!(paths.contains(&"/playback/sessions/{session_id}"));
         assert!(paths.contains(&"/playback/sessions/{session_id}/heartbeat"));
         assert!(paths.contains(&"/playback/sessions/{session_id}/cancel"));
-        assert!(paths.iter().all(|path| !path.contains("renderer")));
+        assert!(paths.contains(&"/renderers"));
+        assert!(paths.contains(&"/renderers/{renderer_session_id}/heartbeat"));
+        assert!(paths.contains(&"/renderers/{renderer_session_id}/commands/next"));
         assert!(paths.iter().all(|path| !path.contains("cast")));
         assert!(
             PUBLIC_CLIENT_ROUTES
@@ -573,6 +604,12 @@ mod tests {
                 .all(|route| route.path.starts_with("/sources/")
                     || route.path.starts_with("/playback/")
                     || route.path.starts_with("/users/me/playback-state/"))
+        );
+        assert!(
+            PUBLIC_CLIENT_ROUTES
+                .iter()
+                .filter(|route| route.kind == PublicClientRouteKind::Renderer)
+                .all(|route| route.path.starts_with("/renderers"))
         );
     }
 

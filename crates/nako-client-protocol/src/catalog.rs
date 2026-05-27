@@ -607,6 +607,89 @@ pub struct PlaybackSessionHeartbeatRequest {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct RendererRegistrationRequest {
+    pub display_name: String,
+    pub target_kind: ClientPlaybackTargetKind,
+    pub network_scope: ClientPlaybackTargetNetworkScope,
+    pub transport_auth: ClientPlaybackTargetTransportAuth,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub media_capabilities: Option<ClientPlaybackCapabilitiesDto>,
+    pub control_capabilities: ClientRendererControlCapabilitiesDto,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ttl_ms: Option<u64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct RendererHeartbeatRequest {
+    pub state: ClientRendererSessionState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub media_capabilities: Option<ClientPlaybackCapabilitiesDto>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub control_capabilities: Option<ClientRendererControlCapabilitiesDto>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ttl_ms: Option<u64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct RendererSessionResponse {
+    pub renderer: RendererSessionDto,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct RendererSessionsResponse {
+    pub renderers: Vec<RendererSessionDto>,
+    pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct RendererSessionDto {
+    pub id: String,
+    pub target_kind: ClientPlaybackTargetKind,
+    pub display_name: String,
+    pub network_scope: ClientPlaybackTargetNetworkScope,
+    pub transport_auth: ClientPlaybackTargetTransportAuth,
+    pub media_capabilities: Option<ClientPlaybackCapabilitiesDto>,
+    pub control_capabilities: ClientRendererControlCapabilitiesDto,
+    pub state: ClientRendererSessionState,
+    pub active_playback_session_id: Option<String>,
+    pub last_seen_at: Option<String>,
+    pub expires_at: Option<String>,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct RendererCommandPollResponse {
+    pub command: Option<RendererCommandDto>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct RendererCommandResponse {
+    pub command: RendererCommandDto,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct RendererCommandDto {
+    pub id: String,
+    pub renderer_session_id: String,
+    pub command: ClientRendererControlCommand,
+    pub state: ClientRendererCommandState,
+    pub item_id: Option<String>,
+    pub source_id: Option<String>,
+    pub playback_session_id: Option<String>,
+    pub position_ms: Option<u64>,
+    pub volume_percent: Option<u8>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct RendererCommandCompletionRequest {
+    pub state: ClientRendererCommandState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure_message: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct TranscodeSessionResponse {
     pub session: TranscodeSessionDto,
 }
@@ -691,6 +774,24 @@ public_string_value! {
         Cancelled => "cancelled",
         Ended => "ended",
         Failed => "failed",
+    }
+}
+
+public_string_value! {
+    pub enum ClientRendererSessionState {
+        Online => "online",
+        Offline => "offline",
+        Revoked => "revoked",
+    }
+}
+
+public_string_value! {
+    pub enum ClientRendererCommandState {
+        Queued => "queued",
+        Delivered => "delivered",
+        Acknowledged => "acknowledged",
+        Failed => "failed",
+        Cancelled => "cancelled",
     }
 }
 

@@ -20,14 +20,20 @@ records with durable SQLite/PostgreSQL repository adapters. Renderer Session is
 the controllable target identity; Playback Session remains the media playback
 attempt; Transcode Session remains an internal artifact.
 
+CAST-040 is complete. Public Client now has Nako-to-Nako renderer registration,
+heartbeat/capability update, controllable target listing, command polling, and
+command completion. The server-side boundary is `RendererAppService`, which
+keeps owner checks, TTL expiry, target validation, capability normalization,
+and command lifecycle rules out of HTTP handlers. Public OpenAPI and generated
+TypeScript/Kotlin SDK outputs were refreshed with the renderer surface.
+
 ## Active Task
 
-- Task ID: CAST-040
+- Task ID: CAST-050
 - Owner: codex
-- Files: `crates/nako-server/src/app`, `crates/nako-server/src/http`,
-  `crates/nako-client-protocol/src`
-- Validation: `cargo nextest run -p nako-server renderer --no-fail-fast`;
-  `cargo nextest run -p nako-client-protocol public --no-fail-fast`
+- Files: `crates/nako-server/src/app/playback`, `crates/nako-server/src/app`,
+  `crates/nako-server/src/http`
+- Validation: `cargo nextest run -p nako-server -E 'test(playback) | test(renderer)' --no-fail-fast`
 - Status: READY
 - Review: pending
 - Evidence: pending
@@ -43,6 +49,9 @@ attempt; Transcode Session remains an internal artifact.
   domain.
 - CAST-030 chose durable renderer persistence now because command polling and
   future adapter processes need a stable queue boundary.
+- CAST-040 kept external cast protocols out of Public Client registration.
+  Only Nako remote/native renderer targets using bearer auth can register
+  through `/renderers`.
 
 ## Blockers
 
@@ -50,6 +59,7 @@ attempt; Transcode Session remains an internal artifact.
 
 ## Next Recommended Action
 
-Start CAST-040 by adding Nako-to-Nako renderer registration, heartbeat,
-controllable target listing, and command polling/delivery through Public Client
-API routes.
+Start CAST-050 by adding an authorized controller route/service method that
+queues a play command for a renderer target through the existing policy-aware
+Playback App Service. Denied policy/control must not create Playback Sessions,
+Transcode Sessions, browser tickets, or renderer commands.

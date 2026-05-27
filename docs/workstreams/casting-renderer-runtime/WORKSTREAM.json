@@ -3,11 +3,12 @@
   "slug": "casting-renderer-runtime",
   "title": "Casting Renderer Runtime",
   "status": "active",
-  "current_task": "CAST-040",
+  "current_task": "CAST-050",
   "completed_tasks": [
     "CAST-010",
     "CAST-020",
-    "CAST-030"
+    "CAST-030",
+    "CAST-040"
   ],
   "updated": "2026-05-27",
   "scope_kind": "execution",
@@ -58,6 +59,10 @@
     {
       "task": "CAST-030",
       "summary": "Added core Renderer Session and Renderer Command records, durable SQLite/PostgreSQL repository adapters, baseline tables, and contract coverage for registration heartbeat, playback attachment, command claim, and terminal completion."
+    },
+    {
+      "task": "CAST-040",
+      "summary": "Added Nako-to-Nako Public Client renderer registration, heartbeat/capability update, controllable renderer listing, command polling/completion, safe DTO/OpenAPI/SDK contracts, and route tests that keep external cast protocols out of this adapter path."
     }
   ],
   "adr_refs": [
@@ -67,6 +72,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "CAST-030 shipped the durable renderer repository seam. Continue with CAST-040 Nako-to-Nako registration, heartbeat, target listing, and command delivery."
+    "notes": "CAST-040 shipped the Nako-to-Nako renderer adapter surface. Continue with CAST-050 to bind authorized play commands to the policy-aware Playback App Service."
   }
 }

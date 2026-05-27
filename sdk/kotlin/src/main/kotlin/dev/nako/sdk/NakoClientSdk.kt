@@ -48,6 +48,10 @@ public val NAKO_PUBLIC_PATHS: List<String> = listOf(
     "/playback/sessions/{session_id}/cancel",
     "/playback/sessions/{session_id}/heartbeat",
     "/playback/sessions/{session_id}/hls/segments/{segment_name}",
+    "/renderers",
+    "/renderers/{renderer_session_id}/heartbeat",
+    "/renderers/{renderer_session_id}/commands/next",
+    "/renderers/{renderer_session_id}/commands/{command_id}/complete",
     "/users/me/playback-state/items/{item_id}",
     "/users/me/playback-state/continue-watching",
     "/users/me/playback-state/items/{item_id}/progress",
@@ -370,6 +374,41 @@ public object NakoPublicClientRequests {
             pathAndQuery = "/playback/sessions/${encodePathSegment(sessionId)}/hls/segments/${
                 encodePathSegment(segmentName)
             }",
+        )
+
+    public fun listRenderers(page: PageQuery = PageQuery()): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "GET",
+            pathAndQuery = pathWithQuery("/renderers", pageQuery(page)),
+        )
+
+    public fun registerRenderer(): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "POST",
+            pathAndQuery = "/renderers",
+        )
+
+    public fun heartbeatRenderer(rendererSessionId: String): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "POST",
+            pathAndQuery = "/renderers/${encodePathSegment(rendererSessionId)}/heartbeat",
+        )
+
+    public fun pollNextRendererCommand(rendererSessionId: String): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "POST",
+            pathAndQuery = "/renderers/${encodePathSegment(rendererSessionId)}/commands/next",
+        )
+
+    public fun completeRendererCommand(
+        rendererSessionId: String,
+        commandId: String,
+    ): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "POST",
+            pathAndQuery = "/renderers/${encodePathSegment(rendererSessionId)}/commands/${
+                encodePathSegment(commandId)
+            }/complete",
         )
 
     public fun getUserPlaybackState(itemId: String): NakoRequestDescriptor =
@@ -1380,6 +1419,31 @@ public value class ClientPlaybackTargetTransportAuth(
     }
 }
 
+@JvmInline
+@Serializable
+public value class ClientRendererCommandState(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val Queued: ClientRendererCommandState = ClientRendererCommandState("queued")
+        public val Delivered: ClientRendererCommandState = ClientRendererCommandState("delivered")
+        public val Acknowledged: ClientRendererCommandState = ClientRendererCommandState("acknowledged")
+        public val Failed: ClientRendererCommandState = ClientRendererCommandState("failed")
+        public val Cancelled: ClientRendererCommandState = ClientRendererCommandState("cancelled")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "queued",
+            "delivered",
+            "acknowledged",
+            "failed",
+            "cancelled",
+        )
+    }
+}
+
 @Serializable
 public data class ClientRendererControlCapabilitiesDto(
     public val commands: List<ClientRendererControlCommand>,
@@ -1410,6 +1474,27 @@ public value class ClientRendererControlCommand(
             "seek",
             "stop",
             "set_volume",
+        )
+    }
+}
+
+@JvmInline
+@Serializable
+public value class ClientRendererSessionState(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val Online: ClientRendererSessionState = ClientRendererSessionState("online")
+        public val Offline: ClientRendererSessionState = ClientRendererSessionState("offline")
+        public val Revoked: ClientRendererSessionState = ClientRendererSessionState("revoked")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "online",
+            "offline",
+            "revoked",
         )
     }
 }
@@ -1881,6 +1966,112 @@ public data class RedeemInvitationRequest(
     public val password: String,
     public val token: String,
     public val username: String,
+)
+
+@Serializable
+public data class RendererCommandCompletionRequest(
+    @SerialName("failure_message")
+    public val failureMessage: String? = null,
+    public val state: ClientRendererCommandState,
+)
+
+@Serializable
+public data class RendererCommandDto(
+    public val command: ClientRendererControlCommand,
+    @SerialName("created_at")
+    public val createdAt: String,
+    public val id: String,
+    @SerialName("item_id")
+    public val itemId: String? = null,
+    @SerialName("playback_session_id")
+    public val playbackSessionId: String? = null,
+    @SerialName("position_ms")
+    public val positionMs: Long? = null,
+    @SerialName("renderer_session_id")
+    public val rendererSessionId: String,
+    @SerialName("source_id")
+    public val sourceId: String? = null,
+    public val state: ClientRendererCommandState,
+    @SerialName("updated_at")
+    public val updatedAt: String,
+    @SerialName("volume_percent")
+    public val volumePercent: Int? = null,
+)
+
+@Serializable
+public data class RendererCommandPollResponse(
+    public val command: RendererCommandDto?,
+)
+
+@Serializable
+public data class RendererCommandResponse(
+    public val command: RendererCommandDto,
+)
+
+@Serializable
+public data class RendererHeartbeatRequest(
+    @SerialName("control_capabilities")
+    public val controlCapabilities: ClientRendererControlCapabilitiesDto? = null,
+    @SerialName("media_capabilities")
+    public val mediaCapabilities: ClientPlaybackCapabilitiesDto? = null,
+    public val state: ClientRendererSessionState,
+    @SerialName("ttl_ms")
+    public val ttlMs: Long? = null,
+)
+
+@Serializable
+public data class RendererRegistrationRequest(
+    @SerialName("control_capabilities")
+    public val controlCapabilities: ClientRendererControlCapabilitiesDto,
+    @SerialName("display_name")
+    public val displayName: String,
+    @SerialName("media_capabilities")
+    public val mediaCapabilities: ClientPlaybackCapabilitiesDto? = null,
+    @SerialName("network_scope")
+    public val networkScope: ClientPlaybackTargetNetworkScope,
+    @SerialName("target_kind")
+    public val targetKind: ClientPlaybackTargetKind,
+    @SerialName("transport_auth")
+    public val transportAuth: ClientPlaybackTargetTransportAuth,
+    @SerialName("ttl_ms")
+    public val ttlMs: Long? = null,
+)
+
+@Serializable
+public data class RendererSessionDto(
+    @SerialName("active_playback_session_id")
+    public val activePlaybackSessionId: String? = null,
+    @SerialName("control_capabilities")
+    public val controlCapabilities: ClientRendererControlCapabilitiesDto,
+    @SerialName("display_name")
+    public val displayName: String,
+    @SerialName("expires_at")
+    public val expiresAt: String? = null,
+    public val id: String,
+    @SerialName("last_seen_at")
+    public val lastSeenAt: String? = null,
+    @SerialName("media_capabilities")
+    public val mediaCapabilities: ClientPlaybackCapabilitiesDto? = null,
+    @SerialName("network_scope")
+    public val networkScope: ClientPlaybackTargetNetworkScope,
+    public val state: ClientRendererSessionState,
+    @SerialName("target_kind")
+    public val targetKind: ClientPlaybackTargetKind,
+    @SerialName("transport_auth")
+    public val transportAuth: ClientPlaybackTargetTransportAuth,
+    @SerialName("updated_at")
+    public val updatedAt: String,
+)
+
+@Serializable
+public data class RendererSessionResponse(
+    public val renderer: RendererSessionDto,
+)
+
+@Serializable
+public data class RendererSessionsResponse(
+    public val page: PageInfo,
+    public val renderers: List<RendererSessionDto>,
 )
 
 @Serializable

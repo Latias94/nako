@@ -170,6 +170,7 @@ mod library;
 mod management_context;
 mod metadata;
 mod playback;
+mod renderer;
 mod self_host_smoke;
 mod system;
 mod user_playback;
@@ -191,6 +192,7 @@ fn public_client_router_with_principal(app: NakoApp, principal: AuthenticatedPri
         .merge(super::management_context::routes())
         .merge(super::metadata::routes())
         .merge(super::playback::routes())
+        .merge(super::renderer::routes())
         .merge(super::user_playback::routes())
         .layer(Extension(principal_id))
         .layer(Extension(principal))

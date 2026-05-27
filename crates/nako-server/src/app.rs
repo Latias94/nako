@@ -41,6 +41,7 @@ mod metadata_scan;
 mod nfo;
 pub(crate) mod playback;
 mod playback_ticket;
+pub(crate) mod renderer;
 mod runtime;
 mod staging;
 mod startup;
@@ -75,6 +76,7 @@ pub(crate) use playback::{
 pub(crate) use playback_ticket::{
     BrowserPlaybackTicketMode, BrowserPlaybackTicketService, IssuedBrowserPlaybackTicket,
 };
+use renderer::RendererAppService;
 pub(crate) use runtime::RuntimeSupervisorDiagnostics;
 #[cfg(test)]
 use staging::cleanup_expired_staging_inputs;
@@ -233,6 +235,11 @@ impl NakoApp {
     #[must_use]
     pub(crate) fn playback_tickets(&self) -> BrowserPlaybackTicketService {
         self.services().playback_tickets.clone()
+    }
+
+    #[must_use]
+    pub(crate) fn renderer(&self) -> RendererAppService {
+        self.services().renderer.clone()
     }
 
     #[must_use]

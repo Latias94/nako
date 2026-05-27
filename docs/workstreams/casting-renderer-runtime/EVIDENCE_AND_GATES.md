@@ -6,11 +6,12 @@ Last updated: 2026-05-27
 ## Smallest Current Repro
 
 ```bash
-cargo nextest run -p nako-server playback --no-fail-fast
+cargo nextest run -p nako-server renderer --no-fail-fast
 ```
 
-This proves the current Playback Session and playback route behavior before
-Renderer Session and command delivery are added.
+This proves the Nako-to-Nako renderer registration, heartbeat, listing, and
+command delivery surface before CAST-050 binds play commands to the Playback
+App Service.
 
 ## Gate Set
 
@@ -75,8 +76,9 @@ blocking findings, missing gates, and residual risks here or in `HANDOFF.md`.
 - `docs/adr/0040-casting-as-renderer-session-adapter.md`
 - `docs/workstreams/casting-renderer-runtime/DESIGN.md`
 - `docs/workstreams/casting-renderer-runtime/TODO.md`
-- future renderer runtime modules
-- future Public Client renderer DTOs
+- `crates/nako-server/src/app/renderer.rs`
+- `crates/nako-server/src/http/renderer.rs`
+- `crates/nako-client-protocol/src/catalog.rs`
 - future Admin renderer diagnostics DTOs
 
 ## Dependency Evidence
@@ -167,6 +169,63 @@ Notes:
   existing `NAKO_TEST_POSTGRES_URL` gate. The SQLite contract ran and passed.
 - CAST-040 can now add Public Client registration, heartbeat, target listing,
   and command polling/delivery on top of the repository seam.
+
+### CAST-040 - Nako Remote Client Adapter
+
+Changed behavior:
+
+- Added Public Client renderer routes:
+  - `GET /renderers`
+  - `POST /renderers`
+  - `POST /renderers/{renderer_session_id}/heartbeat`
+  - `POST /renderers/{renderer_session_id}/commands/next`
+  - `POST /renderers/{renderer_session_id}/commands/{command_id}/complete`
+- Added protocol-owned renderer DTOs for registration, heartbeat, renderer
+  session listing, command polling, and command completion.
+- Added `RendererAppService` as the server-side adapter boundary over the
+  durable renderer repository. It owns Nako-to-Nako target validation, owner
+  checks, TTL expiry, capability normalization, command shape validation, and
+  terminal completion rules.
+- Updated Public OpenAPI and generated TypeScript/Kotlin SDK outputs so the
+  route inventory, OpenAPI document, and SDK package entries remain in sync.
+
+Boundary decision:
+
+- CAST-040 accepts only Nako remote/native renderer targets over bearer auth.
+  Chromecast, DLNA, and AirPlay remain future Renderer Adapters; they cannot
+  register through the Nako-to-Nako Public Client route.
+- Public renderer DTOs do not expose owner principals, raw Source Locators,
+  local paths, bearer tokens, or command payload JSON.
+
+Validation:
+
+```bash
+cargo nextest run -p nako-server renderer --no-fail-fast
+cargo nextest run -p nako-server -E 'test(playback) | test(renderer)' --no-fail-fast
+cargo nextest run -p nako-client-protocol public --no-fail-fast
+cargo nextest run -p nako-api -E 'test(admin_contract) | test(public_openapi) | test(sdk)' --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
+```
+
+Result:
+
+- `nako-server renderer`: 3 passed, 358 skipped.
+- `nako-server playback/renderer`: 79 passed, 282 skipped.
+- `nako-client-protocol public`: 11 passed.
+- `nako-api admin_contract/public_openapi/sdk`: 21 passed, 39 skipped.
+- `cargo fmt --all -- --check`: passed.
+- `git diff --check`: passed.
+
+Notes:
+
+- The server renderer gate also runs
+  `browser_playback_session_currently_has_no_renderer_session_surface`, which
+  continues to prove Playback Session JSON remains separate from Renderer
+  Session/control state.
+- CAST-050 should add the controller-to-renderer play command flow through the
+  existing policy-aware Playback App Service instead of bypassing playback
+  policy.
 
 ## Notes
 

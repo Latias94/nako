@@ -39,6 +39,10 @@ export const NAKO_PUBLIC_PATHS = [
   "/playback/sessions/{session_id}/cancel",
   "/playback/sessions/{session_id}/heartbeat",
   "/playback/sessions/{session_id}/hls/segments/{segment_name}",
+  "/renderers",
+  "/renderers/{renderer_session_id}/heartbeat",
+  "/renderers/{renderer_session_id}/commands/next",
+  "/renderers/{renderer_session_id}/commands/{command_id}/complete",
   "/users/me/playback-state/items/{item_id}",
   "/users/me/playback-state/continue-watching",
   "/users/me/playback-state/items/{item_id}/progress",
@@ -138,11 +142,15 @@ export type ClientPlaybackTargetNetworkScope = "local" | "remote" | "unknown";
 
 export type ClientPlaybackTargetTransportAuth = "bearer" | "browser_ticket" | "cast_ticket" | "none";
 
+export type ClientRendererCommandState = "queued" | "delivered" | "acknowledged" | "failed" | "cancelled";
+
 export interface ClientRendererControlCapabilitiesDto {
   commands: Array<ClientRendererControlCommand>;
 }
 
 export type ClientRendererControlCommand = "show_item" | "play" | "pause" | "resume" | "seek" | "stop" | "set_volume";
+
+export type ClientRendererSessionState = "online" | "offline" | "revoked";
 
 export interface ClientTranscodePlan {
   audio_codec: string | null;
@@ -494,6 +502,74 @@ export interface RedeemInvitationRequest {
   username: string;
 }
 
+export interface RendererCommandCompletionRequest {
+  failure_message?: string | null;
+  state: ClientRendererCommandState;
+}
+
+export interface RendererCommandDto {
+  command: ClientRendererControlCommand;
+  created_at: string;
+  id: string;
+  item_id?: string | null;
+  playback_session_id?: string | null;
+  position_ms?: number | null;
+  renderer_session_id: string;
+  source_id?: string | null;
+  state: ClientRendererCommandState;
+  updated_at: string;
+  volume_percent?: number | null;
+}
+
+export interface RendererCommandPollResponse {
+  command: RendererCommandDto | null;
+}
+
+export interface RendererCommandResponse {
+  command: RendererCommandDto;
+}
+
+export interface RendererHeartbeatRequest {
+  control_capabilities?: ClientRendererControlCapabilitiesDto | null;
+  media_capabilities?: ClientPlaybackCapabilitiesDto | null;
+  state: ClientRendererSessionState;
+  ttl_ms?: number | null;
+}
+
+export interface RendererRegistrationRequest {
+  control_capabilities: ClientRendererControlCapabilitiesDto;
+  display_name: string;
+  media_capabilities?: ClientPlaybackCapabilitiesDto | null;
+  network_scope: ClientPlaybackTargetNetworkScope;
+  target_kind: ClientPlaybackTargetKind;
+  transport_auth: ClientPlaybackTargetTransportAuth;
+  ttl_ms?: number | null;
+}
+
+export interface RendererSessionDto {
+  active_playback_session_id?: string | null;
+  control_capabilities: ClientRendererControlCapabilitiesDto;
+  display_name: string;
+  expires_at?: string | null;
+  id: string;
+  last_seen_at?: string | null;
+  media_capabilities?: ClientPlaybackCapabilitiesDto | null;
+  network_scope: ClientPlaybackTargetNetworkScope;
+  state: ClientRendererSessionState;
+  target_kind: ClientPlaybackTargetKind;
+  transport_auth: ClientPlaybackTargetTransportAuth;
+  updated_at: string;
+}
+
+export interface RendererSessionResponse {
+  renderer: RendererSessionDto;
+}
+
+export interface RendererSessionsResponse {
+  page: PageInfo;
+  renderers: Array<RendererSessionDto>;
+}
+
 export interface SearchItemHit {
   item: MediaItemDto;
   score: number;
@@ -785,6 +861,26 @@ export class NakoClient {
 
   hlsSegment(sessionId: string, segmentName: string): Promise<Response> {
     return this.requestRaw("GET", `/playback/sessions/${encodeURIComponent(sessionId)}/hls/segments/${encodeURIComponent(segmentName)}`);
+  }
+
+  listRenderers(page?: PageQuery): Promise<RendererSessionsResponse> {
+    return this.requestJson("GET", "/renderers", { query: page });
+  }
+
+  registerRenderer(body: RendererRegistrationRequest): Promise<RendererSessionResponse> {
+    return this.requestJson("POST", "/renderers", { body });
+  }
+
+  heartbeatRenderer(rendererSessionId: string, body: RendererHeartbeatRequest): Promise<RendererSessionResponse> {
+    return this.requestJson("POST", `/renderers/${encodeURIComponent(rendererSessionId)}/heartbeat`, { body });
+  }
+
+  pollNextRendererCommand(rendererSessionId: string): Promise<RendererCommandPollResponse> {
+    return this.requestJson("POST", `/renderers/${encodeURIComponent(rendererSessionId)}/commands/next`);
+  }
+
+  completeRendererCommand(rendererSessionId: string, commandId: string, body: RendererCommandCompletionRequest): Promise<RendererCommandResponse> {
+    return this.requestJson("POST", `/renderers/${encodeURIComponent(rendererSessionId)}/commands/${encodeURIComponent(commandId)}/complete`, { body });
   }
 
   getUserPlaybackState(itemId: string): Promise<UserPlaybackStateResponse> {

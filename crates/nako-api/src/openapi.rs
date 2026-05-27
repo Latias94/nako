@@ -363,6 +363,67 @@ fn public_paths() -> Value {
         }),
     );
     paths.insert(
+        "/renderers".to_owned(),
+        json!({
+            "get": json_get(
+                "listRenderers",
+                "List controllable renderer sessions owned by the current user.",
+                "renderer",
+                vec![parameter_ref("Limit"), parameter_ref("Offset")],
+                schema_ref("RendererSessionsResponse")
+            ),
+            "post": json_post_with_body(
+                "registerRenderer",
+                "Register or refresh a Nako remote renderer session.",
+                "renderer",
+                vec![],
+                schema_ref("RendererRegistrationRequest"),
+                schema_ref("RendererSessionResponse")
+            )
+        }),
+    );
+    paths.insert(
+        "/renderers/{renderer_session_id}/heartbeat".to_owned(),
+        json!({
+            "post": json_post_with_body(
+                "heartbeatRenderer",
+                "Record renderer heartbeat and optional capability updates.",
+                "renderer",
+                vec![path_parameter("renderer_session_id", "Renderer session id.")],
+                schema_ref("RendererHeartbeatRequest"),
+                schema_ref("RendererSessionResponse")
+            )
+        }),
+    );
+    paths.insert(
+        "/renderers/{renderer_session_id}/commands/next".to_owned(),
+        json!({
+            "post": json_post(
+                "pollNextRendererCommand",
+                "Claim the next queued command for a renderer session.",
+                "renderer",
+                vec![path_parameter("renderer_session_id", "Renderer session id.")],
+                schema_ref("RendererCommandPollResponse")
+            )
+        }),
+    );
+    paths.insert(
+        "/renderers/{renderer_session_id}/commands/{command_id}/complete".to_owned(),
+        json!({
+            "post": json_post_with_body(
+                "completeRendererCommand",
+                "Acknowledge or fail a delivered renderer command.",
+                "renderer",
+                vec![
+                    path_parameter("renderer_session_id", "Renderer session id."),
+                    path_parameter("command_id", "Renderer command id.")
+                ],
+                schema_ref("RendererCommandCompletionRequest"),
+                schema_ref("RendererCommandResponse")
+            )
+        }),
+    );
+    paths.insert(
         "/users/me/playback-state/items/{item_id}".to_owned(),
         json!({
             "get": json_get(
@@ -1104,6 +1165,8 @@ fn schemas() -> Value {
         "ClientPlaybackTargetNetworkScope": enum_schema(&["local", "remote", "unknown"]),
         "ClientPlaybackTargetTransportAuth": enum_schema(&["bearer", "browser_ticket", "cast_ticket", "none"]),
         "ClientRendererControlCommand": enum_schema(&["show_item", "play", "pause", "resume", "seek", "stop", "set_volume"]),
+        "ClientRendererSessionState": enum_schema(&["online", "offline", "revoked"]),
+        "ClientRendererCommandState": enum_schema(&["queued", "delivered", "acknowledged", "failed", "cancelled"]),
         "ClientPlaybackPermission": enum_schema(&[
             "media_playback",
             "direct_play",
@@ -1203,6 +1266,65 @@ fn schemas() -> Value {
             "state": enum_schema(&["active", "paused", "cancel_requested", "cancelled", "ended", "failed"]),
             "position_ms": json!({"type": "integer", "format": "int64", "nullable": true}),
             "duration_ms": json!({"type": "integer", "format": "int64", "nullable": true})
+        })),
+        "RendererRegistrationRequest": object_schema(&["display_name", "target_kind", "network_scope", "transport_auth", "control_capabilities"], json!({
+            "display_name": string_schema(),
+            "target_kind": schema_ref("ClientPlaybackTargetKind"),
+            "network_scope": schema_ref("ClientPlaybackTargetNetworkScope"),
+            "transport_auth": schema_ref("ClientPlaybackTargetTransportAuth"),
+            "media_capabilities": nullable_ref("ClientPlaybackCapabilitiesDto"),
+            "control_capabilities": schema_ref("ClientRendererControlCapabilitiesDto"),
+            "ttl_ms": json!({"type": "integer", "format": "int64", "nullable": true})
+        })),
+        "RendererHeartbeatRequest": object_schema(&["state"], json!({
+            "state": schema_ref("ClientRendererSessionState"),
+            "media_capabilities": nullable_ref("ClientPlaybackCapabilitiesDto"),
+            "control_capabilities": nullable_ref("ClientRendererControlCapabilitiesDto"),
+            "ttl_ms": json!({"type": "integer", "format": "int64", "nullable": true})
+        })),
+        "RendererSessionResponse": object_schema(&["renderer"], json!({
+            "renderer": schema_ref("RendererSessionDto")
+        })),
+        "RendererSessionsResponse": object_schema(&["renderers", "page"], json!({
+            "renderers": array_schema(schema_ref("RendererSessionDto")),
+            "page": schema_ref("PageInfo")
+        })),
+        "RendererSessionDto": object_schema(&["id", "target_kind", "display_name", "network_scope", "transport_auth", "control_capabilities", "state", "updated_at"], json!({
+            "id": uuid_schema(),
+            "target_kind": schema_ref("ClientPlaybackTargetKind"),
+            "display_name": string_schema(),
+            "network_scope": schema_ref("ClientPlaybackTargetNetworkScope"),
+            "transport_auth": schema_ref("ClientPlaybackTargetTransportAuth"),
+            "media_capabilities": nullable_ref("ClientPlaybackCapabilitiesDto"),
+            "control_capabilities": schema_ref("ClientRendererControlCapabilitiesDto"),
+            "state": schema_ref("ClientRendererSessionState"),
+            "active_playback_session_id": nullable_uuid_schema(),
+            "last_seen_at": nullable_string_schema(),
+            "expires_at": nullable_string_schema(),
+            "updated_at": string_schema()
+        })),
+        "RendererCommandPollResponse": object_schema(&["command"], json!({
+            "command": nullable_ref("RendererCommandDto")
+        })),
+        "RendererCommandResponse": object_schema(&["command"], json!({
+            "command": schema_ref("RendererCommandDto")
+        })),
+        "RendererCommandDto": object_schema(&["id", "renderer_session_id", "command", "state", "created_at", "updated_at"], json!({
+            "id": uuid_schema(),
+            "renderer_session_id": uuid_schema(),
+            "command": schema_ref("ClientRendererControlCommand"),
+            "state": schema_ref("ClientRendererCommandState"),
+            "item_id": nullable_uuid_schema(),
+            "source_id": nullable_uuid_schema(),
+            "playback_session_id": nullable_uuid_schema(),
+            "position_ms": json!({"type": "integer", "format": "int64", "nullable": true}),
+            "volume_percent": json!({"type": "integer", "format": "int32", "nullable": true, "minimum": 0, "maximum": 100}),
+            "created_at": string_schema(),
+            "updated_at": string_schema()
+        })),
+        "RendererCommandCompletionRequest": object_schema(&["state"], json!({
+            "state": schema_ref("ClientRendererCommandState"),
+            "failure_message": nullable_string_schema()
         })),
         "TranscodeSessionDto": object_schema(&["id", "source_id", "kind", "request_key", "state", "failure_category", "failure_message", "created_at", "updated_at", "started_at", "completed_at"], json!({
             "id": uuid_schema(),
@@ -1700,6 +1822,60 @@ mod tests {
                 ["nullable"],
             true
         );
+    }
+
+    #[test]
+    fn public_openapi_renderer_contract_exposes_control_surface_without_principals() {
+        let document = public_openapi_v1();
+        let schemas = document["components"]["schemas"].as_object().unwrap();
+
+        assert!(schemas.contains_key("RendererRegistrationRequest"));
+        assert!(schemas.contains_key("RendererSessionDto"));
+        assert!(schemas.contains_key("RendererCommandDto"));
+        assert_eq!(
+            document["paths"]["/renderers"]["post"]["requestBody"]["content"]["application/json"]["schema"]
+                ["$ref"],
+            "#/components/schemas/RendererRegistrationRequest"
+        );
+        assert_eq!(
+            document["paths"]["/renderers/{renderer_session_id}/commands/next"]["post"]["responses"]
+                ["200"]["content"]["application/json"]["schema"]["$ref"],
+            "#/components/schemas/RendererCommandPollResponse"
+        );
+        assert_eq!(
+            document["components"]["schemas"]["RendererSessionDto"]["properties"]["control_capabilities"]
+                ["$ref"],
+            "#/components/schemas/ClientRendererControlCapabilitiesDto"
+        );
+        assert_eq!(
+            document["components"]["schemas"]["RendererCommandDto"]["properties"]["state"]["$ref"],
+            "#/components/schemas/ClientRendererCommandState"
+        );
+
+        let renderer_contract = json!({
+            "paths": {
+                "/renderers": document["paths"]["/renderers"].clone(),
+                "/renderers/{renderer_session_id}/heartbeat": document["paths"]["/renderers/{renderer_session_id}/heartbeat"].clone(),
+                "/renderers/{renderer_session_id}/commands/next": document["paths"]["/renderers/{renderer_session_id}/commands/next"].clone(),
+                "/renderers/{renderer_session_id}/commands/{command_id}/complete": document["paths"]["/renderers/{renderer_session_id}/commands/{command_id}/complete"].clone()
+            },
+            "schemas": {
+                "RendererRegistrationRequest": document["components"]["schemas"]["RendererRegistrationRequest"].clone(),
+                "RendererHeartbeatRequest": document["components"]["schemas"]["RendererHeartbeatRequest"].clone(),
+                "RendererSessionDto": document["components"]["schemas"]["RendererSessionDto"].clone(),
+                "RendererCommandDto": document["components"]["schemas"]["RendererCommandDto"].clone(),
+                "RendererCommandCompletionRequest": document["components"]["schemas"]["RendererCommandCompletionRequest"].clone()
+            }
+        })
+        .to_string()
+        .to_ascii_lowercase();
+
+        for forbidden in ["principal_id", "owner_principal", "payload_json", "token"] {
+            assert!(
+                !renderer_contract.contains(forbidden),
+                "public renderer contract leaked forbidden term: {forbidden}"
+            );
+        }
     }
 
     #[test]

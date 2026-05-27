@@ -50,16 +50,22 @@ Last updated: 2026-05-27
 
 ## M3 - Nako Remote Client Adapter
 
-- [ ] CAST-040 [owner=codex] [deps=CAST-030] [scope=crates/nako-server/src/app,crates/nako-server/src/http,crates/nako-client-protocol/src]
+- [x] CAST-040 [owner=codex] [deps=CAST-030] [scope=crates/nako-server/src/app,crates/nako-server/src/http,crates/nako-client-protocol/src]
   Goal: Implement Nako-to-Nako renderer registration, heartbeat, capability
   update, and command polling or delivery.
   Validation: `cargo nextest run -p nako-server renderer --no-fail-fast`;
   `cargo nextest run -p nako-client-protocol public --no-fail-fast`.
   Review: Public DTOs must not expose internal principal IDs, raw paths,
   Source Locators, or token material.
-  Evidence: Route/app tests for register, heartbeat, list controllable targets,
-  and command delivery.
-  Handoff: CAST-050 can bind play commands to Playback App Service.
+  Evidence: Added Public Client renderer routes and DTOs, `RendererAppService`
+  owner/TTL/capability/command lifecycle checks, route tests for registration,
+  heartbeat, controllable target listing, command polling/completion, and a
+  rejection test for external cast protocol registration. OpenAPI and generated
+  TypeScript/Kotlin SDK contracts were refreshed so the public route inventory
+  stays complete. Gates passed: server renderer 3 passed/358 skipped; server
+  playback/renderer integration 79 passed/282 skipped; Public Client protocol
+  11 passed; API admin/openapi/sdk 21 passed/39 skipped.
+  Handoff: CAST-050 can bind authorized play commands to Playback App Service.
 
 ## M4 - Cast Play Command Flow
 
