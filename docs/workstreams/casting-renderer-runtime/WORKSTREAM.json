@@ -2,11 +2,8 @@
   "schema_version": 1,
   "slug": "casting-renderer-runtime",
   "title": "Casting Renderer Runtime",
-  "status": "planned",
+  "status": "active",
   "current_task": "CAST-020",
-  "blocked_by": [
-    "docs/workstreams/playback-policy-and-renderer-targets/"
-  ],
   "completed_tasks": [
     "CAST-010"
   ],
@@ -59,7 +56,7 @@
     "docs/adr/0040-casting-as-renderer-session-adapter.md"
   ],
   "continue_policy": {
-    "default_action": "wait_for_dependency",
-    "notes": "Start implementation only after playback-policy-and-renderer-targets closes or hands off policy-aware target planning. Keep external protocols as adapters."
+    "default_action": "continue",
+    "notes": "Dependency is satisfied by playback-policy-and-renderer-targets closeout. Continue with CAST-020 characterization before adding Renderer Session records."
   }
 }

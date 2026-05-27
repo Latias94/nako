@@ -1,6 +1,6 @@
 # Playback Policy And Renderer Targets - Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-27
 
 ## M0 - Workstream Open
@@ -95,6 +95,7 @@ Exit criteria:
 - All task evidence is recorded.
 - `WORKSTREAM.json` status and completed tasks are current.
 - Casting handoff is updated with concrete assumptions from this lane.
+- Follow-on work is split instead of keeping this lane open.
 
 Primary gates:
 
@@ -102,3 +103,8 @@ Primary gates:
 - `cargo nextest run -p nako-playback --no-fail-fast`
 - `cargo fmt --all -- --check`
 - `git diff --check`
+
+Closeout result:
+
+- Completed on 2026-05-27.
+- `casting-renderer-runtime` is the active follow-on.

@@ -1,6 +1,6 @@
 # Casting Renderer Runtime - Evidence And Gates
 
-Status: Planned
+Status: Active
 Last updated: 2026-05-27
 
 ## Smallest Current Repro
@@ -79,9 +79,14 @@ blocking findings, missing gates, and residual risks here or in `HANDOFF.md`.
 - future Public Client renderer DTOs
 - future Admin renderer diagnostics DTOs
 
+## Dependency Evidence
+
+- `playback-policy-and-renderer-targets` closed on 2026-05-27.
+- Effective playback policy and `PlaybackTarget` are available to reuse.
+- Safe Public playback target/denial DTOs and Admin policy diagnostics exist,
+  so this lane can focus on Renderer Sessions, commands, and adapters.
+
 ## Notes
 
-Do not mark this lane executable until `playback-policy-and-renderer-targets`
-hands off policy and target records. External protocol work should remain
-adapter-specific and must not expose raw Source Locators, local paths, bearer
-tokens, or Transcode Session IDs.
+External protocol work should remain adapter-specific and must not expose raw
+Source Locators, local paths, bearer tokens, or Transcode Session IDs.

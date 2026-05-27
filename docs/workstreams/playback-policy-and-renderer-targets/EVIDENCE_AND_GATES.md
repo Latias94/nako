@@ -1,6 +1,6 @@
 # Playback Policy And Renderer Targets - Evidence And Gates
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-27
 
 ## Smallest Current Repro
@@ -292,6 +292,44 @@ Result:
   `AdminPlaybackSessionsQuery.kind`. The PRT-060 policy/target fixture fields
   were updated, but this frontend session-list drift remains for the frontend
   lane.
+
+### PRT-070 - Closeout And Casting Handoff
+
+Review result:
+
+- Workstream compliance: no blocking findings. ADR 0039, task ledger, shipped
+  code boundaries, API contracts, and evidence agree with the target state.
+- Code quality: no blocking findings. Policy resolution stays in server app
+  composition, the planner remains repository-free, and Public Client DTOs only
+  expose safe target and denial outcomes.
+- Residual risks are split to follow-ons: persistent policy editing/admin UI,
+  bitrate-limit enforcement in selection/planning, target-kind request inputs
+  for native/cast clients, and Admin Web Playback Sessions type drift.
+
+Validation:
+
+```bash
+cargo nextest run -p nako-playback --no-fail-fast
+cargo nextest run -p nako-db identity_access --no-fail-fast
+cargo nextest run -p nako-server playback --no-fail-fast
+cargo fmt --all -- --check
+python -m json.tool docs/workstreams/playback-policy-and-renderer-targets/WORKSTREAM.json
+git diff --check
+```
+
+Result:
+
+- `nako-playback`: 15 passed.
+- `nako-db identity_access`: 1 passed, 150 skipped.
+- `nako-server playback`: 76 passed, 282 skipped.
+- `cargo fmt --all -- --check`: passed.
+- `WORKSTREAM.json` validation: passed.
+- `git diff --check`: passed.
+
+Handoff:
+
+- `casting-renderer-runtime` can start CAST-020 because policy-aware target
+  planning, safe Public DTOs, and Admin readiness diagnostics are now in place.
 
 ## Notes
 

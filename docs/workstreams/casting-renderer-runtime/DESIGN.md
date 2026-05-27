@@ -1,6 +1,6 @@
 # Casting Renderer Runtime
 
-Status: Planned
+Status: Active
 Last updated: 2026-05-27
 
 ## Why This Lane Exists
@@ -16,7 +16,7 @@ concerns:
 - whether playback is local or remote;
 - how progress, pause/seek/stop, and current connection state are tracked.
 
-This lane starts only after `playback-policy-and-renderer-targets` establishes
+This lane starts after `playback-policy-and-renderer-targets` established
 effective playback policy and renderer target vocabulary.
 
 ## Relevant Authority

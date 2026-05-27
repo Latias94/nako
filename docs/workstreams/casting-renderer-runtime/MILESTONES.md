@@ -1,6 +1,6 @@
 # Casting Renderer Runtime - Milestones
 
-Status: Planned
+Status: Active
 Last updated: 2026-05-27
 
 ## M0 - Workstream Open
@@ -11,6 +11,7 @@ Exit criteria:
 - Workstream docs agree that casting starts after playback policy/target
   readiness.
 - Nako-to-Nako cast is chosen as the first implementation target.
+- `playback-policy-and-renderer-targets` is closed.
 
 Primary evidence:
 

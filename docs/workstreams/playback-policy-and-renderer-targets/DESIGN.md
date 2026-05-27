@@ -1,6 +1,6 @@
 # Playback Policy And Renderer Targets
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-27
 
 ## Why This Lane Exists
@@ -235,7 +235,7 @@ Public DTOs must not expose:
 
 ## Closeout Condition
 
-This lane can close when:
+This lane closed on 2026-05-27 after:
 
 - ADR 0039 and workstream docs match shipped behavior;
 - policy and target records exist at the right crate boundary;
@@ -243,5 +243,7 @@ This lane can close when:
 - public and admin DTOs expose only safe policy/target facts;
 - focused tests prove mode denial, no artifact/session creation on denial, and
   unchanged compatible playback behavior;
-- follow-on casting work is either started through `casting-renderer-runtime`
-  or explicitly deferred with evidence.
+- follow-on casting work is activated through `casting-renderer-runtime`.
+
+Follow-on policy editing, bitrate-limit enforcement, and non-Nako casting
+protocol adapters remain outside this lane.

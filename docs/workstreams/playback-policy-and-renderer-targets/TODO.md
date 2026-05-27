@@ -1,6 +1,6 @@
 # Playback Policy And Renderer Targets - TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-27
 
 ## M0 - Workstream Open
@@ -97,7 +97,7 @@ Last updated: 2026-05-27
 
 ## M6 - Closeout
 
-- [ ] PRT-070 [owner=planner] [deps=PRT-060] [scope=docs/workstreams/playback-policy-and-renderer-targets,docs/workstreams/casting-renderer-runtime]
+- [x] PRT-070 [owner=planner] [deps=PRT-060] [scope=docs/workstreams/playback-policy-and-renderer-targets,docs/workstreams/casting-renderer-runtime]
   Goal: Verify the lane, update evidence, and hand off to casting renderer
   runtime.
   Validation: `cargo nextest run -p nako-server playback --no-fail-fast`;
@@ -107,5 +107,8 @@ Last updated: 2026-05-27
   `python -m json.tool docs/workstreams/playback-policy-and-renderer-targets/WORKSTREAM.json`.
   Review: `review-workstream` must find no blocking workstream or code-quality
   issues before closeout.
-  Evidence: `EVIDENCE_AND_GATES.md`; `WORKSTREAM.json`; HANDOFF update.
-  Handoff: Start CAST-020 after PRT closeout unless a blocker is recorded.
+  Evidence: Fresh closeout gates passed: server playback 76 passed/282
+  skipped; `nako-playback` 15 passed; DB identity access 1 passed/150 skipped;
+  `cargo fmt --all -- --check`, JSON validation, and `git diff --check`
+  passed. Review found no blocking findings.
+  Handoff: `casting-renderer-runtime` is unblocked and can start CAST-020.

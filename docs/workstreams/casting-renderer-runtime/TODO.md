@@ -1,6 +1,6 @@
 # Casting Renderer Runtime - TODO
 
-Status: Planned
+Status: Active
 Last updated: 2026-05-27
 
 ## M0 - Workstream Open
@@ -11,8 +11,8 @@ Last updated: 2026-05-27
   Validation: `python -m json.tool docs/workstreams/casting-renderer-runtime/WORKSTREAM.json`;
   `git diff --check -- docs/workstreams/casting-renderer-runtime docs/adr/0040-casting-as-renderer-session-adapter.md`.
   Evidence: `DESIGN.md`; ADR 0040; `WORKSTREAM.json`.
-  Handoff: Start CAST-020 only after `playback-policy-and-renderer-targets`
-  closes or explicitly hands off its policy/target records.
+  Handoff: `playback-policy-and-renderer-targets` is closed, so CAST-020 can
+  start.
 
 ## M1 - Readiness And Characterization
 

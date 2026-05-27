@@ -2,15 +2,16 @@
   "schema_version": 1,
   "slug": "playback-policy-and-renderer-targets",
   "title": "Playback Policy And Renderer Targets",
-  "status": "active",
-  "current_task": "PRT-070",
+  "status": "completed",
+  "current_task": null,
   "completed_tasks": [
     "PRT-010",
     "PRT-020",
     "PRT-030",
     "PRT-040",
     "PRT-050",
-    "PRT-060"
+    "PRT-060",
+    "PRT-070"
   ],
   "updated": "2026-05-27",
   "scope_kind": "execution",
@@ -74,6 +75,10 @@
     {
       "task": "PRT-060",
       "summary": "Added safe Public playback target and denial DTOs, exposed Admin playback policy readiness diagnostics, refreshed generated Public SDKs and Admin Web contract, and proved the API surfaces do not expose raw policy rows or role internals."
+    },
+    {
+      "task": "PRT-070",
+      "summary": "Closed the lane with fresh playback, planner, storage, formatting, JSON, and diff gates, reviewed the shipped boundary, and unblocked casting-renderer-runtime for renderer-session work."
     }
   ],
   "adr_refs": [
@@ -82,7 +87,7 @@
     "docs/adr/0039-playback-policy-and-renderer-target-boundary.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "Continue through PRT-020..PRT-070 while the policy/target boundary remains valid. Start casting-renderer-runtime only after this lane proves policy-aware target planning."
+    "default_action": "close",
+    "notes": "Playback policy and renderer target boundary is complete. Continue with casting-renderer-runtime for Renderer Sessions and Nako-to-Nako casting; keep policy editing, bitrate limits, and non-Nako protocol adapters as follow-ons."
   }
 }

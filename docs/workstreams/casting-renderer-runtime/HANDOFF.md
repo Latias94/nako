@@ -1,14 +1,14 @@
 # Casting Renderer Runtime - Handoff
 
-Status: Planned
+Status: Active
 Last updated: 2026-05-27
 
 ## Current State
 
-The casting lane is opened as a planned follow-on. ADR 0040 defines casting as
-Renderer Sessions plus Renderer Adapters. This lane should not start
-implementation until `playback-policy-and-renderer-targets` closes or provides
-an explicit handoff with policy/target records ready to consume.
+The casting lane is active. ADR 0040 defines casting as Renderer Sessions plus
+Renderer Adapters. `playback-policy-and-renderer-targets` is closed, so this
+lane can consume policy-aware target planning, safe target DTOs, and Admin
+policy diagnostics.
 
 ## Active Task
 
@@ -18,7 +18,7 @@ an explicit handoff with policy/target records ready to consume.
   `crates/nako-server/src/app/tests/playback.rs`, `crates/nako-client-protocol/src`
 - Validation: `cargo nextest run -p nako-server playback --no-fail-fast`;
   `cargo nextest run -p nako-client-protocol public --no-fail-fast`
-- Status: BLOCKED
+- Status: READY
 - Review: pending
 - Evidence: pending
 
@@ -32,11 +32,10 @@ an explicit handoff with policy/target records ready to consume.
 
 ## Blockers
 
-- Waiting for `playback-policy-and-renderer-targets` to deliver policy-aware
-  target planning.
+- None.
 
 ## Next Recommended Action
 
-After PRT-070, start CAST-020 by adding characterization tests for the missing
-Renderer Session/control surface and the existing Playback Session behavior the
-casting lane must preserve.
+Start CAST-020 by adding characterization tests for the missing Renderer
+Session/control surface and the existing Playback Session behavior the casting
+lane must preserve.

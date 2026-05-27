@@ -1,6 +1,6 @@
 # Playback Policy And Renderer Targets - Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-27
 
 ## Current State
@@ -36,20 +36,12 @@ policy denial outcomes. Admin playback runtime/support diagnostics now expose
 policy readiness, not raw user/role policy rows. Public TypeScript/Kotlin SDKs
 and the Admin Web generated contract were refreshed.
 
+PRT-070 is complete. Fresh closeout gates passed, review found no blocking
+findings, and the follow-on casting lane is unblocked.
+
 ## Active Task
 
-- Task ID: PRT-070
-- Owner: codex
-- Files: `docs/workstreams/playback-policy-and-renderer-targets`,
-  `docs/workstreams/casting-renderer-runtime`
-- Validation: `cargo nextest run -p nako-server playback --no-fail-fast`;
-  `cargo nextest run -p nako-playback --no-fail-fast`;
-  `cargo fmt --all -- --check`;
-  `git diff --check`;
-  `python -m json.tool docs/workstreams/playback-policy-and-renderer-targets/WORKSTREAM.json`
-- Status: READY
-- Review: pending
-- Evidence: pending
+None. This workstream is closed.
 
 ## Decisions Since Last Update
 
@@ -76,17 +68,19 @@ and the Admin Web generated contract were refreshed.
   or FFmpeg command details.
 - Admin policy diagnostics describe policy readiness and resolution rules. They
   intentionally do not expose stored user/role policy row contents.
+- Closeout keeps persistent policy editing, bitrate-limit enforcement, and
+  target-kind request input as separate follow-ons instead of extending this
+  boundary-focused lane.
 
 ## Blockers
 
-- None for the Rust/API workstream.
+- None for this closed workstream.
 - Frontend note: `npm --prefix apps/admin-web run check` still fails on
   existing Playback Sessions page/mock-data type drift unrelated to PRT-060's
   policy/target DTO additions.
 
 ## Next Recommended Action
 
-Start PRT-070 closeout. Verify the lane, update final evidence, and either
-close `playback-policy-and-renderer-targets` or split follow-up tasks for
-persistent policy editing and bitrate-limit enforcement before beginning
-`casting-renderer-runtime`.
+Start `casting-renderer-runtime` CAST-020. The next backend slice should
+characterize the missing Renderer Session/control surface before adding the
+renderer domain and Nako-to-Nako adapter.
