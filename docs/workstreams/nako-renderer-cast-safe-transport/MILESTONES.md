@@ -58,6 +58,8 @@ Tasks:
 
 ## Milestone 5 - Nako Remote Non-Direct Playback Works
 
+Status: Complete
+
 Exit criteria:
 
 - Nako remote-client renderer playback can use direct, remux, and HLS decisions.
@@ -70,6 +72,8 @@ Tasks:
 - `NRCT-050`
 
 ## Milestone 6 - Ready For Protocol Casting Workstreams
+
+Status: Pending
 
 Exit criteria:
 

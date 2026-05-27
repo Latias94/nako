@@ -29,6 +29,7 @@ use super::{
     playback::{PlaybackAppService, PlaybackRuntimeStore},
     playback_ticket::BrowserPlaybackTicketService,
     renderer::RendererAppService,
+    renderer_transport_ticket::RendererTransportTicketService,
     runtime::RuntimeSupervisor,
     startup::{ServerStartupReport, ServerStartupWorkflow},
     storage::{StorageBackendRegistry, StorageDiagnosticsAppService},
@@ -157,6 +158,7 @@ pub(super) struct NakoAppServices {
     pub(super) nfo: NfoAppService,
     pub(super) playback: PlaybackAppService,
     pub(super) playback_tickets: BrowserPlaybackTicketService,
+    pub(super) renderer_transport_tickets: RendererTransportTicketService,
     pub(super) renderer: RendererAppService,
     pub(super) user_playback: UserPlaybackAppService,
 }
@@ -220,6 +222,7 @@ impl NakoAppServices {
             runtime.supervisor,
         )?;
         let playback_tickets = BrowserPlaybackTicketService::new();
+        let renderer_transport_tickets = RendererTransportTicketService::new();
         let renderer = RendererAppService::new(store.clone());
         let casting = CastingAppService::new(renderer.clone(), playback.clone());
         let user_playback = UserPlaybackAppService::new(store);
@@ -242,6 +245,7 @@ impl NakoAppServices {
             nfo,
             playback,
             playback_tickets,
+            renderer_transport_tickets,
             renderer,
             user_playback,
         })

@@ -72,14 +72,19 @@ pub(crate) use playback::DirectPlayStreamBody;
 use playback::PlaybackAppService;
 pub(crate) use playback::{
     BrowserPlaybackTicketValidationRequest, DirectPlaySourceBody, DirectPlaybackPreflightRequest,
-    DirectPlaybackStreamRequest, HlsPlaylistPlaybackRequest, HlsSourceRequest,
-    PlaybackSessionHeartbeatRequest, RemuxPlaybackPreflightRequest, RemuxPlaybackStreamRequest,
-    RemuxSourceRequest,
+    DirectPlaybackSessionStreamRequest, DirectPlaybackStreamRequest, HlsPlaylistPlaybackRequest,
+    HlsPlaylistSessionRequest, HlsSourceRequest, PlaybackSessionHeartbeatRequest,
+    RemuxPlaybackPreflightRequest, RemuxPlaybackSessionStreamRequest, RemuxPlaybackStreamRequest,
+    RemuxSourceRequest, RendererPlaybackTransportPlan,
 };
 pub(crate) use playback_ticket::{
     BrowserPlaybackTicketMode, BrowserPlaybackTicketService, IssuedBrowserPlaybackTicket,
 };
 use renderer::RendererAppService;
+pub(crate) use renderer_transport_ticket::{
+    IssueRendererTransportTicketRequest, RendererTransportTicketScope,
+    RendererTransportTicketService, ValidateRendererTransportTicketRequest,
+};
 pub(crate) use runtime::RuntimeSupervisorDiagnostics;
 #[cfg(test)]
 use staging::cleanup_expired_staging_inputs;
@@ -243,6 +248,11 @@ impl NakoApp {
     #[must_use]
     pub(crate) fn playback_tickets(&self) -> BrowserPlaybackTicketService {
         self.services().playback_tickets.clone()
+    }
+
+    #[must_use]
+    pub(crate) fn renderer_transport_tickets(&self) -> RendererTransportTicketService {
+        self.services().renderer_transport_tickets.clone()
     }
 
     #[must_use]

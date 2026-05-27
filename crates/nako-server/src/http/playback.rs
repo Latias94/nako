@@ -16,7 +16,10 @@ use nako_api::public_client::{
     PlaybackSessionResponse, playback_session_response_from_record, timestamp_ms_to_rfc3339,
 };
 use nako_core::AuthenticatedPrincipal;
-use nako_core::{MediaSourceId, NakoError, PlaybackSessionId, PlaybackSessionState};
+use nako_core::{
+    MediaSourceId, NakoError, PlaybackSessionId, PlaybackSessionMode, PlaybackSessionState,
+    RendererSessionId,
+};
 use nako_playback::ClientPlaybackCapabilities;
 use nako_streaming::{
     DirectPlayRangeRequest, DirectPlayResponsePlan, DirectPlayResponseStatus,
@@ -30,10 +33,12 @@ use tracing::instrument;
 
 use crate::app::{
     BrowserPlaybackTicketMode, BrowserPlaybackTicketValidationRequest, DirectPlaySourceBody,
-    DirectPlaybackPreflightRequest, DirectPlaybackStreamRequest, HlsPlaylistPlaybackRequest,
+    DirectPlaybackPreflightRequest, DirectPlaybackSessionStreamRequest,
+    DirectPlaybackStreamRequest, HlsPlaylistPlaybackRequest, HlsPlaylistSessionRequest,
     IssuedBrowserPlaybackTicket, NakoApp,
     PlaybackSessionHeartbeatRequest as AppPlaybackSessionHeartbeatRequest,
-    RemuxPlaybackPreflightRequest, RemuxPlaybackStreamRequest,
+    RemuxPlaybackPreflightRequest, RemuxPlaybackSessionStreamRequest, RemuxPlaybackStreamRequest,
+    RendererTransportTicketScope, ValidateRendererTransportTicketRequest,
 };
 
 use super::{
@@ -153,6 +158,43 @@ pub(super) async fn stream_source(
     Query(ticket_query): Query<BrowserPlaybackTicketQuery>,
     headers: HeaderMap,
 ) -> ApiResult<Response> {
+    if let Some(renderer_transport) = resolve_renderer_transport_principal(
+        &app,
+        source_id,
+        PlaybackSessionMode::Direct,
+        ticket_query.renderer_session_id.as_deref(),
+        ticket_query.playback_session_id.as_deref(),
+        ticket_query.renderer_ticket.as_deref(),
+    )
+    .await?
+    {
+        let direct_play = app
+            .playback()
+            .direct_playback_session_stream(DirectPlaybackSessionStreamRequest {
+                principal: renderer_transport.principal,
+                playback_session_id: renderer_transport.playback_session_id,
+                source_id,
+                range_request: direct_play_range_request(&headers),
+            })
+            .await?;
+
+        if direct_play.response.is_range_not_satisfiable() {
+            return Ok(empty_direct_play_response(&direct_play.response));
+        }
+
+        let mut response = stream_direct_play_response(
+            direct_play.body,
+            &direct_play.source_uri,
+            &direct_play.response,
+        )
+        .await?;
+        if let Some(session) = direct_play.session {
+            insert_playback_session_header(&mut response, session.id);
+        }
+
+        return Ok(response);
+    }
+
     let principal = resolve_source_playback_principal(
         &app,
         principal,
@@ -197,6 +239,33 @@ pub(super) async fn head_stream_source(
     Query(ticket_query): Query<BrowserPlaybackTicketQuery>,
     headers: HeaderMap,
 ) -> ApiResult<Response> {
+    if let Some(renderer_transport) = resolve_renderer_transport_principal(
+        &app,
+        source_id,
+        PlaybackSessionMode::Direct,
+        ticket_query.renderer_session_id.as_deref(),
+        ticket_query.playback_session_id.as_deref(),
+        ticket_query.renderer_ticket.as_deref(),
+    )
+    .await?
+    {
+        let direct_play = app
+            .playback()
+            .direct_playback_session_stream(DirectPlaybackSessionStreamRequest {
+                principal: renderer_transport.principal,
+                playback_session_id: renderer_transport.playback_session_id,
+                source_id,
+                range_request: direct_play_range_request(&headers),
+            })
+            .await?;
+        let mut response = empty_direct_play_response(&direct_play.response);
+        if let Some(session) = direct_play.session {
+            insert_playback_session_header(&mut response, session.id);
+        }
+
+        return Ok(response);
+    }
+
     let principal = resolve_source_playback_principal(
         &app,
         principal,
@@ -229,6 +298,42 @@ pub(super) async fn remux_stream_source(
     Query(query): Query<RemuxPlaybackQuery>,
     headers: HeaderMap,
 ) -> ApiResult<Response> {
+    if let Some(renderer_transport) = resolve_renderer_transport_principal(
+        &app,
+        source_id,
+        PlaybackSessionMode::Remux,
+        query.renderer_session_id.as_deref(),
+        query.playback_session_id.as_deref(),
+        query.renderer_ticket.as_deref(),
+    )
+    .await?
+    {
+        let output_container = query.output_container.unwrap_or(RemuxContainer::Mp4);
+        let remux = app
+            .playback()
+            .remux_playback_session_stream(RemuxPlaybackSessionStreamRequest {
+                principal: renderer_transport.principal,
+                playback_session_id: renderer_transport.playback_session_id,
+                source_id,
+                output_container,
+                range_request: direct_play_range_request(&headers),
+            })
+            .await?;
+
+        if remux.response.is_range_not_satisfiable() {
+            return Ok(empty_direct_play_response(&remux.response));
+        }
+
+        let mut response = stream_local_file_response(
+            &remux.output_path,
+            &remux.output_path.display().to_string(),
+            &remux.response,
+        )
+        .await?;
+        insert_playback_session_header(&mut response, remux.session.id);
+        return Ok(response);
+    }
+
     let ticket = query.ticket.clone();
     let principal = resolve_source_playback_principal(
         &app,
@@ -273,6 +378,33 @@ pub(super) async fn head_remux_stream_source(
     Path(source_id): Path<MediaSourceId>,
     Query(query): Query<RemuxPlaybackQuery>,
 ) -> ApiResult<Response> {
+    if let Some(renderer_transport) = resolve_renderer_transport_principal(
+        &app,
+        source_id,
+        PlaybackSessionMode::Remux,
+        query.renderer_session_id.as_deref(),
+        query.playback_session_id.as_deref(),
+        query.renderer_ticket.as_deref(),
+    )
+    .await?
+    {
+        let output_container = query.output_container.unwrap_or(RemuxContainer::Mp4);
+        let remux = app
+            .playback()
+            .remux_playback_session_stream(RemuxPlaybackSessionStreamRequest {
+                principal: renderer_transport.principal,
+                playback_session_id: renderer_transport.playback_session_id,
+                source_id,
+                output_container,
+                range_request: DirectPlayRangeRequest::None,
+            })
+            .await?;
+
+        let mut response = empty_direct_play_response(&remux.response);
+        insert_playback_session_header(&mut response, remux.session.id);
+        return Ok(response);
+    }
+
     let ticket = query.ticket.clone();
     let principal = resolve_source_playback_principal(
         &app,
@@ -307,6 +439,36 @@ pub(super) async fn hls_playlist_source(
     Path(source_id): Path<MediaSourceId>,
     Query(query): Query<HlsPlaybackQuery>,
 ) -> ApiResult<Response> {
+    if let Some(renderer_transport) = resolve_renderer_transport_principal(
+        &app,
+        source_id,
+        PlaybackSessionMode::Hls,
+        query.renderer_session_id.as_deref(),
+        query.playback_session_id.as_deref(),
+        query.renderer_ticket.as_deref(),
+    )
+    .await?
+    {
+        let playlist = app
+            .playback()
+            .hls_playlist_for_playback_session(HlsPlaylistSessionRequest {
+                principal: renderer_transport.principal,
+                playback_session_id: renderer_transport.playback_session_id,
+                source_id,
+            })
+            .await?;
+        let body = append_renderer_ticket_to_hls_playlist_segments(
+            &playlist.body,
+            renderer_transport.renderer_session_id,
+            query
+                .renderer_ticket
+                .as_deref()
+                .expect("renderer ticket was validated"),
+        );
+
+        return Ok(hls_playlist_response(body, Some(playlist.session.id)));
+    }
+
     let ticket = query.ticket.clone();
     let principal = resolve_source_playback_principal(
         &app,
@@ -347,14 +509,26 @@ pub(super) async fn hls_segment(
         .hls_segment_playback_target(session_id)
         .await?;
 
-    let _principal = resolve_source_playback_principal(
+    if resolve_renderer_transport_principal_for_session(
         &app,
-        principal,
         target.source_id,
-        BrowserPlaybackTicketMode::Hls,
-        ticket_query.ticket.as_deref(),
+        PlaybackSessionMode::Hls,
+        ticket_query.renderer_session_id.as_deref(),
+        session_id,
+        ticket_query.renderer_ticket.as_deref(),
     )
-    .await?;
+    .await?
+    .is_none()
+    {
+        let _principal = resolve_source_playback_principal(
+            &app,
+            principal,
+            target.source_id,
+            BrowserPlaybackTicketMode::Hls,
+            ticket_query.ticket.as_deref(),
+        )
+        .await?;
+    }
 
     let segment = app
         .playback()
@@ -560,10 +734,123 @@ async fn resolve_source_playback_principal(
     .into())
 }
 
+#[derive(Clone, Debug)]
+struct ResolvedRendererTransport {
+    principal: AuthenticatedPrincipal,
+    renderer_session_id: RendererSessionId,
+    playback_session_id: PlaybackSessionId,
+}
+
+async fn resolve_renderer_transport_principal(
+    app: &NakoApp,
+    source_id: MediaSourceId,
+    mode: PlaybackSessionMode,
+    renderer_session_id: Option<&str>,
+    playback_session_id: Option<&str>,
+    renderer_ticket: Option<&str>,
+) -> ApiResult<Option<ResolvedRendererTransport>> {
+    let Some(playback_session_id) = playback_session_id else {
+        if renderer_ticket.is_some() {
+            return Err(invalid_renderer_transport_ticket().into());
+        }
+
+        return Ok(None);
+    };
+    let playback_session_id = parse_playback_session_id(playback_session_id)?;
+
+    resolve_renderer_transport_principal_for_session(
+        app,
+        source_id,
+        mode,
+        renderer_session_id,
+        playback_session_id,
+        renderer_ticket,
+    )
+    .await
+}
+
+async fn resolve_renderer_transport_principal_for_session(
+    app: &NakoApp,
+    source_id: MediaSourceId,
+    mode: PlaybackSessionMode,
+    renderer_session_id: Option<&str>,
+    playback_session_id: PlaybackSessionId,
+    renderer_ticket: Option<&str>,
+) -> ApiResult<Option<ResolvedRendererTransport>> {
+    let Some(ticket) = renderer_ticket else {
+        return Ok(None);
+    };
+    if ticket.trim().is_empty() {
+        return Err(invalid_renderer_transport_ticket().into());
+    }
+    let Some(renderer_session_id) = renderer_session_id else {
+        return Err(invalid_renderer_transport_ticket().into());
+    };
+    let renderer_session_id = parse_renderer_session_id(renderer_session_id)?;
+    let renderer = app
+        .renderer()
+        .get_online_renderer(renderer_session_id)
+        .await?;
+    let validated =
+        app.renderer_transport_tickets()
+            .validate(ValidateRendererTransportTicketRequest {
+                token: ticket.to_owned(),
+                scope: RendererTransportTicketScope {
+                    renderer_session_id,
+                    playback_session_id,
+                    source_id,
+                    mode,
+                    network_scope: renderer.network_scope,
+                },
+                now_ms: crate::app::current_time_ms()?,
+            })?;
+    if validated.principal.principal_id != renderer.owner_principal_id {
+        return Err(invalid_renderer_transport_ticket().into());
+    }
+
+    require_source_access(
+        app,
+        &validated.principal,
+        source_id,
+        RequiredLibraryAccess::Play,
+    )
+    .await?;
+
+    Ok(Some(ResolvedRendererTransport {
+        principal: validated.principal,
+        renderer_session_id,
+        playback_session_id,
+    }))
+}
+
 fn invalid_browser_playback_ticket() -> NakoError {
     NakoError::Unauthorized {
         message: "invalid browser playback ticket".to_owned(),
     }
+}
+
+fn invalid_renderer_transport_ticket() -> NakoError {
+    NakoError::Unauthorized {
+        message: "invalid renderer transport ticket".to_owned(),
+    }
+}
+
+fn parse_playback_session_id(value: &str) -> ApiResult<PlaybackSessionId> {
+    value.parse::<PlaybackSessionId>().map_err(|err| {
+        NakoError::InvalidInput {
+            message: format!("invalid playback_session_id: {err}"),
+        }
+        .into()
+    })
+}
+
+fn parse_renderer_session_id(value: &str) -> ApiResult<RendererSessionId> {
+    value.parse::<RendererSessionId>().map_err(|err| {
+        NakoError::InvalidInput {
+            message: format!("invalid renderer_session_id: {err}"),
+        }
+        .into()
+    })
 }
 
 fn format_ticket_timestamp(timestamp_ms: i64) -> String {
@@ -576,6 +863,26 @@ fn append_ticket_to_hls_playlist_segments(body: &str, ticket: &str) -> String {
             if line.starts_with("/playback/sessions/") {
                 let separator = if line.contains('?') { '&' } else { '?' };
                 format!("{line}{separator}ticket={ticket}")
+            } else {
+                line.to_owned()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn append_renderer_ticket_to_hls_playlist_segments(
+    body: &str,
+    renderer_session_id: RendererSessionId,
+    renderer_ticket: &str,
+) -> String {
+    body.lines()
+        .map(|line| {
+            if line.starts_with("/playback/sessions/") {
+                let separator = if line.contains('?') { '&' } else { '?' };
+                format!(
+                    "{line}{separator}renderer_session_id={renderer_session_id}&renderer_ticket={renderer_ticket}"
+                )
             } else {
                 line.to_owned()
             }
@@ -728,6 +1035,9 @@ pub(super) struct RemuxPlaybackQuery {
     audio_codec: Option<String>,
     output_container: Option<RemuxContainer>,
     ticket: Option<String>,
+    renderer_session_id: Option<String>,
+    playback_session_id: Option<String>,
+    renderer_ticket: Option<String>,
 }
 
 impl RemuxPlaybackQuery {
@@ -748,6 +1058,9 @@ pub(super) struct HlsPlaybackQuery {
     video_codec: Option<String>,
     audio_codec: Option<String>,
     ticket: Option<String>,
+    renderer_session_id: Option<String>,
+    playback_session_id: Option<String>,
+    renderer_ticket: Option<String>,
 }
 
 impl HlsPlaybackQuery {
@@ -764,6 +1077,9 @@ impl HlsPlaybackQuery {
 #[derive(Clone, Debug, Default, Deserialize)]
 pub(super) struct BrowserPlaybackTicketQuery {
     ticket: Option<String>,
+    renderer_session_id: Option<String>,
+    playback_session_id: Option<String>,
+    renderer_ticket: Option<String>,
 }
 
 impl From<PlaybackCapabilitiesQuery> for ClientPlaybackCapabilities {

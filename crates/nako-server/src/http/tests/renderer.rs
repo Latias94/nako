@@ -11,6 +11,7 @@ use nako_api::{
         ClientRendererSessionState, ErrorResponse, RendererCommandCompletionRequest,
         RendererCommandPollResponse, RendererPlayCommandRequest, RendererPlayCommandResponse,
         RendererRegistrationRequest, RendererSessionResponse, RendererSessionsResponse,
+        RendererTransportMode, RendererTransportUrlKind,
     },
 };
 use nako_core::{
@@ -263,24 +264,16 @@ async fn renderer_play_command_denied_by_policy_creates_no_runtime_records() {
 }
 
 #[tokio::test]
-async fn renderer_play_command_currently_rejects_remux_decision_without_runtime_records() {
-    let (_temp, app, source, store) =
-        app_with_media_source_config("renderer-remux-gap.mkv", b"movie bytes", |_| {}).await;
-    store
-        .upsert_media_probe(source.id, &compatible_probe())
-        .await
-        .unwrap();
-    let router = build_router(app);
-    let registered: RendererSessionResponse = request_body_json(
-        &router,
-        Method::POST,
-        "/renderers",
-        &renderer_registration_request("Remux Gap Desktop"),
-    )
-    .await;
+async fn renderer_play_command_with_cast_ticket_remux_returns_ticketed_transport() {
+    let (_temp, router, source, _staging_root, _ffmpeg_path, _marker, store) =
+        router_with_remux_source(false).await;
+    let mut registration = renderer_registration_request("Remux Cast Desktop");
+    registration.transport_auth = ClientPlaybackTargetTransportAuth::CastTicket;
+    let registered: RendererSessionResponse =
+        request_body_json(&router, Method::POST, "/renderers", &registration).await;
     let renderer_session_id = registered.renderer.id.parse::<RendererSessionId>().unwrap();
 
-    let response = response_body_json(
+    let play: RendererPlayCommandResponse = request_body_json(
         &router,
         Method::POST,
         &format!("/renderers/{renderer_session_id}/commands/play"),
@@ -291,24 +284,43 @@ async fn renderer_play_command_currently_rejects_remux_decision_without_runtime_
     )
     .await;
 
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-    let body: ErrorResponse = body_json(response).await;
-    assert_eq!(body.code, "unsupported");
-    assert!(
-        body.message.contains("direct-play decision"),
-        "expected current direct-only renderer gap, got {}",
-        body.message
+    assert_eq!(
+        play.session.mode,
+        nako_api::public_client::ClientPlaybackSessionMode::Remux
     );
-    assert_renderer_play_gap_created_no_runtime_records(&store, source.id, renderer_session_id)
-        .await;
+    let transport = play
+        .command
+        .transport
+        .as_ref()
+        .expect("cast-ticket remux command includes a safe transport envelope");
+    assert_eq!(transport.mode, RendererTransportMode::Remux);
+    assert_eq!(transport.urls.len(), 1);
+    assert_eq!(transport.urls[0].kind, RendererTransportUrlKind::Stream);
+    assert!(transport.urls[0].url.contains("renderer_ticket="));
+    assert!(transport.urls[0].url.contains("renderer_session_id="));
+    assert!(transport.urls[0].url.contains("playback_session_id="));
+    assert!(!transport.urls[0].url.contains("Bearer"));
+    assert!(!transport.urls[0].url.contains("local:///"));
+
+    let stream = response_for(&router, Method::GET, &transport.urls[0].url).await;
+    assert_eq!(stream.status(), StatusCode::OK);
+    let bytes = to_bytes(stream.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(&bytes[..], b"remuxed");
+
+    let session = store
+        .get_playback_session(play.session.id.parse().unwrap())
+        .await
+        .unwrap()
+        .expect("renderer remux play creates a durable playback session");
+    assert_eq!(session.source_id, source.id);
+    assert!(session.transcode_session_id.is_some());
 }
 
 #[tokio::test]
-async fn renderer_play_command_currently_rejects_hls_decision_without_runtime_records() {
-    let (_temp, app, source, store) =
-        app_with_media_source_config("renderer-hls-gap.mp4", b"movie bytes", |_| {}).await;
-    let router = build_router(app);
-    let mut registration = renderer_registration_request("HLS Gap Desktop");
+async fn renderer_play_command_with_cast_ticket_hls_protects_playlist_and_segments() {
+    let (_temp, router, source, _store) = router_with_hls_source().await;
+    let mut registration = renderer_registration_request("HLS Cast Desktop");
+    registration.transport_auth = ClientPlaybackTargetTransportAuth::CastTicket;
     registration.media_capabilities = Some(ClientPlaybackCapabilitiesDto {
         direct_play: false,
         containers: vec!["mp4".to_owned()],
@@ -319,7 +331,7 @@ async fn renderer_play_command_currently_rejects_hls_decision_without_runtime_re
         request_body_json(&router, Method::POST, "/renderers", &registration).await;
     let renderer_session_id = registered.renderer.id.parse::<RendererSessionId>().unwrap();
 
-    let response = response_body_json(
+    let play: RendererPlayCommandResponse = request_body_json(
         &router,
         Method::POST,
         &format!("/renderers/{renderer_session_id}/commands/play"),
@@ -330,16 +342,52 @@ async fn renderer_play_command_currently_rejects_hls_decision_without_runtime_re
     )
     .await;
 
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-    let body: ErrorResponse = body_json(response).await;
-    assert_eq!(body.code, "unsupported");
-    assert!(
-        body.message.contains("direct-play decision"),
-        "expected current direct-only renderer gap, got {}",
-        body.message
+    assert_eq!(
+        play.session.mode,
+        nako_api::public_client::ClientPlaybackSessionMode::Hls
     );
-    assert_renderer_play_gap_created_no_runtime_records(&store, source.id, renderer_session_id)
-        .await;
+    let transport = play
+        .command
+        .transport
+        .as_ref()
+        .expect("cast-ticket hls command includes a safe transport envelope");
+    assert_eq!(transport.mode, RendererTransportMode::Hls);
+    assert_eq!(transport.urls[0].kind, RendererTransportUrlKind::Playlist);
+    assert!(transport.urls[0].url.contains("renderer_ticket="));
+
+    let playlist_response = response_for(&router, Method::GET, &transport.urls[0].url).await;
+    assert_eq!(playlist_response.status(), StatusCode::OK);
+    let playlist = response_text(playlist_response).await;
+    assert!(playlist.contains("renderer_ticket="));
+    assert!(!playlist.contains("?ticket="));
+    assert!(!playlist.contains("&ticket="));
+    assert!(!playlist.contains("Bearer"));
+    let segment_uri = playlist
+        .lines()
+        .find(|line| line.starts_with("/playback/sessions/"))
+        .expect("renderer hls playlist contains ticketed segment URL")
+        .to_owned();
+
+    let segment_response = response_for(&router, Method::GET, &segment_uri).await;
+    assert_eq!(segment_response.status(), StatusCode::OK);
+    let segment = to_bytes(segment_response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    assert_eq!(&segment[..], b"segment");
+
+    let segment_path = segment_uri
+        .split_once('?')
+        .map(|(path, _)| path)
+        .unwrap_or(segment_uri.as_str());
+    let invalid = response_for(
+        &router,
+        Method::GET,
+        &format!(
+            "{segment_path}?renderer_session_id={renderer_session_id}&renderer_ticket=not-a-ticket"
+        ),
+    )
+    .await;
+    assert_eq!(invalid.status(), StatusCode::UNAUTHORIZED);
 }
 
 #[tokio::test]
@@ -474,23 +522,18 @@ async fn public_renderer_registration_rejects_external_cast_protocol_targets() {
 }
 
 #[tokio::test]
-async fn public_renderer_registration_currently_rejects_nako_remote_cast_ticket_transport() {
+async fn public_renderer_registration_accepts_nako_remote_cast_ticket_transport() {
     let (_temp, app, _source, _store) =
         app_with_media_source_config("movie.mp4", b"movie bytes", |_| {}).await;
     let router = build_router(app);
     let mut registration = renderer_registration_request("Cast Ticket Desktop");
     registration.transport_auth = ClientPlaybackTargetTransportAuth::CastTicket;
 
-    let response = response_body_json(&router, Method::POST, "/renderers", &registration).await;
-
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-    let body: ErrorResponse = body_json(response).await;
-    assert_eq!(body.code, "unsupported");
-    assert!(
-        body.message
-            .contains("requires bearer-authenticated Nako clients"),
-        "expected current bearer-only renderer registration boundary, got {}",
-        body.message
+    let response: RendererSessionResponse =
+        request_body_json(&router, Method::POST, "/renderers", &registration).await;
+    assert_eq!(
+        response.renderer.transport_auth,
+        ClientPlaybackTargetTransportAuth::CastTicket
     );
 }
 
@@ -517,48 +560,4 @@ fn renderer_registration_request(display_name: &str) -> RendererRegistrationRequ
         },
         ttl_ms: Some(120_000),
     }
-}
-
-async fn assert_renderer_play_gap_created_no_runtime_records(
-    store: &NakoDatabase,
-    source_id: MediaSourceId,
-    renderer_session_id: RendererSessionId,
-) {
-    assert!(
-        store
-            .list_playback_sessions(
-                PlaybackSessionListFilter::default(),
-                PageRequest::first_page()
-            )
-            .await
-            .unwrap()
-            .is_empty()
-    );
-    assert!(
-        store
-            .list_renderer_commands(
-                RendererCommandListFilter {
-                    renderer_session_id: Some(renderer_session_id),
-                    state: None,
-                },
-                PageRequest::first_page(),
-            )
-            .await
-            .unwrap()
-            .is_empty()
-    );
-    assert!(
-        store
-            .list_transcode_sessions(
-                TranscodeSessionListFilter {
-                    source_id: Some(source_id),
-                    kind: None,
-                    state: None,
-                },
-                PageRequest::first_page(),
-            )
-            .await
-            .unwrap()
-            .is_empty()
-    );
 }

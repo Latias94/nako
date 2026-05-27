@@ -3,9 +3,11 @@ use nako_core::{
     RendererControlCommand, RendererSessionId, RendererSessionRecord, Result,
 };
 use nako_playback::{ClientPlaybackCapabilities, PlaybackTarget};
+use serde::{Deserialize, Serialize};
 
 use super::{
-    PlaybackAppService, RendererAppService, playback::StartRendererPlaybackSessionRequest,
+    PlaybackAppService, RendererAppService,
+    playback::{RendererPlaybackTransportPlan, StartRendererPlaybackSessionRequest},
     renderer::QueueRendererCommandRequest,
 };
 
@@ -21,6 +23,11 @@ pub(crate) struct PlayOnRendererRequest {
 pub(crate) struct PlayOnRendererOutput {
     pub command: RendererCommandRecord,
     pub session: nako_core::PlaybackSessionRecord,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub(crate) struct RendererCommandTransportPayload {
+    pub transport: RendererPlaybackTransportPlan,
 }
 
 #[derive(Clone, Debug)]
@@ -74,7 +81,9 @@ impl CastingAppService {
                 playback_session_id: Some(playback.session.id),
                 position_ms: request.position_ms,
                 volume_percent: None,
-                payload_json: None,
+                payload_json: Some(renderer_command_transport_payload_json(
+                    &playback.transport,
+                )?),
             })
             .await?;
         self.renderer
@@ -90,6 +99,26 @@ impl CastingAppService {
             session: playback.session,
         })
     }
+}
+
+pub(crate) fn renderer_command_transport_payload(
+    command: &RendererCommandRecord,
+) -> Option<RendererCommandTransportPayload> {
+    command
+        .payload_json
+        .as_deref()
+        .and_then(|payload| serde_json::from_str(payload).ok())
+}
+
+fn renderer_command_transport_payload_json(
+    transport: &RendererPlaybackTransportPlan,
+) -> Result<String> {
+    serde_json::to_string(&RendererCommandTransportPayload {
+        transport: transport.clone(),
+    })
+    .map_err(|err| NakoError::InvalidInput {
+        message: format!("renderer command transport payload could not be serialized: {err}"),
+    })
 }
 
 fn renderer_playback_target(renderer: &RendererSessionRecord) -> Result<PlaybackTarget> {

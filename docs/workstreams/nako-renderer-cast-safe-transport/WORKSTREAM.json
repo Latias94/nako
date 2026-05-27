@@ -3,12 +3,13 @@
   "slug": "nako-renderer-cast-safe-transport",
   "title": "Nako Renderer Cast-Safe Transport",
   "status": "active",
-  "current_task": "NRCT-050",
+  "current_task": "NRCT-060",
   "completed_tasks": [
     "NRCT-010",
     "NRCT-020",
     "NRCT-030",
-    "NRCT-040"
+    "NRCT-040",
+    "NRCT-050"
   ],
   "updated": "2026-05-27",
   "scope_kind": "execution",
@@ -64,6 +65,10 @@
     {
       "task": "NRCT-040",
       "summary": "Added typed Public Client renderer transport envelope DTOs, OpenAPI schemas, and generated TypeScript/Kotlin SDK updates while keeping raw command payloads private and existing command mappings transport-empty until playback wiring."
+    },
+    {
+      "task": "NRCT-050",
+      "summary": "Wired renderer transport tickets into Nako remote-client playback so direct, remux, and HLS renderer commands create real Playback Sessions and scoped ticketed media URLs, including protected HLS segment URLs."
     }
   ],
   "adr_refs": [
@@ -74,6 +79,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Run NRCT-050 next to wire the renderer transport ticket service and safe command transport envelope into direct/remux/HLS renderer playback before opening Chromecast/DLNA/AirPlay workstreams."
+    "notes": "Run NRCT-060 next to finish admin readiness diagnostics and split Chromecast/DLNA/AirPlay into explicit follow-on casting workstreams."
   }
 }

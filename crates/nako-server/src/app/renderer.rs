@@ -226,6 +226,13 @@ where
             .await
     }
 
+    pub(crate) async fn get_online_renderer(
+        &self,
+        renderer_session_id: RendererSessionId,
+    ) -> Result<RendererSessionRecord> {
+        self.require_online_renderer(renderer_session_id).await
+    }
+
     pub(crate) async fn attach_playback_session(
         &self,
         principal_id: &UserPrincipalId,
@@ -435,9 +442,12 @@ fn validate_nako_renderer_target(
             "public renderer registration only accepts Nako remote client targets",
         ));
     }
-    if !matches!(transport_auth, PlaybackTargetTransportAuth::Bearer) {
+    if !matches!(
+        transport_auth,
+        PlaybackTargetTransportAuth::Bearer | PlaybackTargetTransportAuth::CastTicket
+    ) {
         return Err(NakoError::Unsupported(
-            "public renderer registration requires bearer-authenticated Nako clients",
+            "public renderer registration requires bearer or cast-ticket media transport for Nako clients",
         ));
     }
 

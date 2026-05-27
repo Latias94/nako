@@ -358,6 +358,16 @@ pub fn renderer_command_poll_response_from_record(
 }
 
 #[must_use]
+pub fn renderer_command_poll_response_from_record_with_transport(
+    command: Option<RendererCommandRecord>,
+    transport: Option<RendererCommandTransportDto>,
+) -> RendererCommandPollResponse {
+    RendererCommandPollResponse {
+        command: command.map(|command| renderer_command_to_dto_with_transport(command, transport)),
+    }
+}
+
+#[must_use]
 pub fn renderer_command_response_from_record(
     command: RendererCommandRecord,
 ) -> RendererCommandResponse {
@@ -378,7 +388,27 @@ pub fn renderer_play_command_response_from_records(
 }
 
 #[must_use]
+pub fn renderer_play_command_response_from_records_with_transport(
+    command: RendererCommandRecord,
+    session: PlaybackSessionRecord,
+    transport: Option<RendererCommandTransportDto>,
+) -> RendererPlayCommandResponse {
+    RendererPlayCommandResponse {
+        command: renderer_command_to_dto_with_transport(command, transport),
+        session: playback_session_to_dto(session),
+    }
+}
+
+#[must_use]
 pub fn renderer_command_to_dto(command: RendererCommandRecord) -> RendererCommandDto {
+    renderer_command_to_dto_with_transport(command, None)
+}
+
+#[must_use]
+pub fn renderer_command_to_dto_with_transport(
+    command: RendererCommandRecord,
+    transport: Option<RendererCommandTransportDto>,
+) -> RendererCommandDto {
     RendererCommandDto {
         id: command.id.to_string(),
         renderer_session_id: command.renderer_session_id.to_string(),
@@ -389,7 +419,7 @@ pub fn renderer_command_to_dto(command: RendererCommandRecord) -> RendererComman
         playback_session_id: command.playback_session_id.map(|id| id.to_string()),
         position_ms: command.position_ms,
         volume_percent: command.volume_percent,
-        transport: None,
+        transport,
         created_at: command.created_at,
         updated_at: command.updated_at,
     }

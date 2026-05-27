@@ -5,8 +5,8 @@ Last updated: 2026-05-27
 
 ## Current State
 
-The lane has been opened to implement Nako remote-client non-direct renderer
-transport before protocol-specific casting adapters.
+The lane has implemented the Nako remote-client renderer transport primitive
+needed before protocol-specific casting adapters.
 
 The design decision is:
 
@@ -17,9 +17,14 @@ The design decision is:
 - Chromecast, DLNA, and AirPlay are follow-on workstreams after this primitive
   exists.
 
+`NRCT-050` is complete. Nako remote-client renderer play can now produce real
+Direct, Remux, and HLS Playback Sessions with scoped command transport URLs.
+Those URLs use renderer transport tickets, not browser playback tickets, and
+HLS segment URLs are protected with the same renderer scope.
+
 ## Next Task
 
-Run or continue `NRCT-050`.
+Run `NRCT-060`.
 
 `NRCT-020` is complete. It locked the current gaps:
 
@@ -29,17 +34,15 @@ Run or continue `NRCT-050`.
 - browser playback ticket responses do not carry Renderer Session, Playback
   Session, command, network scope, or cast-ticket transport scope.
 
-`NRCT-030` added the renderer transport ticket service but intentionally did not
-wire it into `NakoAppServices` yet. Wire it when `NRCT-040` or `NRCT-050`
-needs the service to issue command transport URLs.
+`NRCT-030` added the renderer transport ticket service, `NRCT-040` added the
+typed Public Client envelope, and `NRCT-050` wired both through renderer
+registration, command queueing, command polling, direct/remux/HLS media routes,
+and HLS segment protection.
 
-`NRCT-040` added the typed Public Client renderer transport envelope and kept
-raw `payload_json` private. Existing command mappings still set
-`transport: None`.
-
-`NRCT-050` should wire the renderer transport ticket service into app
-composition and renderer playback so Nako remote clients can receive real
-direct/remux/HLS transport URLs.
+`NRCT-060` should verify and adjust Admin diagnostics/readiness so the admin
+surface reports Nako remote-client non-direct transport as ready without
+leaking tickets, raw command payloads, source locators, or local paths. Keep
+Chromecast, DLNA, and AirPlay as follow-on workstreams.
 
 ## Important Files
 

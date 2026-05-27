@@ -123,7 +123,7 @@ git diff --check
 
 ### NRCT-050 - Enable Nako remote-client remux/HLS renderer playback
 
-Status: In progress
+Status: Complete
 Owner: current agent or worker
 Depends on: NRCT-040
 
@@ -155,6 +155,16 @@ cargo nextest run -p nako-client-protocol public --no-fail-fast
 cargo fmt --all -- --check
 git diff --check
 ```
+
+Evidence:
+
+- Nako remote-client `cast_ticket` registration is accepted.
+- Renderer play now creates real Direct/Remux/HLS Playback Sessions and command
+  transport envelopes instead of placeholder command gaps.
+- Remux and HLS renderer media URLs validate renderer-scoped transport tickets
+  and never reuse browser playback tickets.
+- HLS playlists add renderer ticket scope to segment URLs, and invalid segment
+  ticket use returns unauthorized.
 
 ### NRCT-060 - Admin readiness, docs, and protocol follow-on split
 

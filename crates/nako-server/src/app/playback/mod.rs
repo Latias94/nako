@@ -24,7 +24,7 @@ use nako_transcode::{
     TranscodeSourceIdentity,
 };
 use nako_vfs::StorageUri;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tracing::warn;
 
 use crate::config::NakoServerConfig;
@@ -457,6 +457,38 @@ pub(crate) struct HlsSegmentPlaybackTarget {
     pub transcode_session_id: TranscodeSessionId,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub(crate) struct RendererPlaybackTransportPlan {
+    pub mode: PlaybackSessionMode,
+    pub remux_container: Option<RemuxContainer>,
+    pub content_type: String,
+    pub supports_range_requests: bool,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct DirectPlaybackSessionStreamRequest {
+    pub principal: AuthenticatedPrincipal,
+    pub playback_session_id: PlaybackSessionId,
+    pub source_id: MediaSourceId,
+    pub range_request: DirectPlayRangeRequest,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct RemuxPlaybackSessionStreamRequest {
+    pub principal: AuthenticatedPrincipal,
+    pub playback_session_id: PlaybackSessionId,
+    pub source_id: MediaSourceId,
+    pub output_container: RemuxContainer,
+    pub range_request: DirectPlayRangeRequest,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct HlsPlaylistSessionRequest {
+    pub principal: AuthenticatedPrincipal,
+    pub playback_session_id: PlaybackSessionId,
+    pub source_id: MediaSourceId,
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct StartPlaybackSessionRequest {
     pub principal_id: UserPrincipalId,
@@ -475,6 +507,7 @@ pub(crate) struct StartRendererPlaybackSessionRequest {
 #[derive(Clone, Debug)]
 pub(crate) struct StartRendererPlaybackSessionOutput {
     pub session: PlaybackSessionRecord,
+    pub transport: RendererPlaybackTransportPlan,
 }
 
 #[derive(Clone, Debug)]
@@ -684,27 +717,100 @@ impl PlaybackAppService {
         });
         ensure_playback_decision_allowed(&decision)?;
 
-        let mode = match decision.mode {
-            PlaybackMode::DirectPlay => PlaybackSessionMode::Direct,
-            PlaybackMode::Remux | PlaybackMode::Transcode => {
-                return Err(NakoError::Unsupported(
-                    "renderer play command currently requires a direct-play decision",
-                ));
-            }
-            PlaybackMode::Denied => {
-                return Err(playback_policy_forbidden(&decision));
-            }
-        };
-        let session = self
-            .start_playback_session(StartPlaybackSessionRequest {
-                principal_id: request.principal.principal_id,
-                source_id: request.source_id,
-                mode,
-                client: Some(request.target.media_capabilities.clone()),
-            })
-            .await?;
+        match decision.mode {
+            PlaybackMode::DirectPlay => {
+                let direct = decision.direct_play.as_ref().ok_or_else(|| {
+                    NakoError::Unsupported("direct renderer decision did not include a direct plan")
+                })?;
+                let session = self
+                    .start_playback_session(StartPlaybackSessionRequest {
+                        principal_id: request.principal.principal_id,
+                        source_id: request.source_id,
+                        mode: PlaybackSessionMode::Direct,
+                        client: Some(request.target.media_capabilities.clone()),
+                    })
+                    .await?;
 
-        Ok(StartRendererPlaybackSessionOutput { session })
+                Ok(StartRendererPlaybackSessionOutput {
+                    session,
+                    transport: RendererPlaybackTransportPlan {
+                        mode: PlaybackSessionMode::Direct,
+                        remux_container: None,
+                        content_type: direct.content_type.clone(),
+                        supports_range_requests: direct.supports_range_requests,
+                    },
+                })
+            }
+            PlaybackMode::Remux => {
+                let output_container = remux_output_container(&decision)?;
+                let remux = self
+                    .start_remux_source_with_policy(
+                        RemuxSourceRequest {
+                            source_id: request.source_id,
+                            client: request.target.media_capabilities.clone(),
+                            output_container,
+                        },
+                        effective_policy.clone(),
+                    )
+                    .await?;
+                let session = self
+                    .start_playback_session(StartPlaybackSessionRequest {
+                        principal_id: request.principal.principal_id,
+                        source_id: request.source_id,
+                        mode: PlaybackSessionMode::Remux,
+                        client: Some(request.target.media_capabilities.clone()),
+                    })
+                    .await?;
+                self.link_playback_session_transcode(session.id, remux.session.id)
+                    .await?;
+
+                Ok(StartRendererPlaybackSessionOutput {
+                    session,
+                    transport: RendererPlaybackTransportPlan {
+                        mode: PlaybackSessionMode::Remux,
+                        remux_container: Some(output_container),
+                        content_type: nako_streaming::content_type_for_file_name(&format!(
+                            "stream.{}",
+                            output_container.file_extension()
+                        ))
+                        .to_owned(),
+                        supports_range_requests: true,
+                    },
+                })
+            }
+            PlaybackMode::Transcode => {
+                let playlist = self
+                    .hls_playlist_with_policy(
+                        HlsSourceRequest {
+                            source_id: request.source_id,
+                            client: request.target.media_capabilities.clone(),
+                        },
+                        effective_policy.clone(),
+                    )
+                    .await?;
+                let session = self
+                    .start_playback_session(StartPlaybackSessionRequest {
+                        principal_id: request.principal.principal_id,
+                        source_id: request.source_id,
+                        mode: PlaybackSessionMode::Hls,
+                        client: Some(request.target.media_capabilities.clone()),
+                    })
+                    .await?;
+                self.link_playback_session_transcode(session.id, playlist.session.id)
+                    .await?;
+
+                Ok(StartRendererPlaybackSessionOutput {
+                    session,
+                    transport: RendererPlaybackTransportPlan {
+                        mode: PlaybackSessionMode::Hls,
+                        remux_container: None,
+                        content_type: "application/vnd.apple.mpegurl".to_owned(),
+                        supports_range_requests: false,
+                    },
+                })
+            }
+            PlaybackMode::Denied => Err(playback_policy_forbidden(&decision)),
+        }
     }
 
     pub(crate) async fn get_playback_session(
@@ -841,6 +947,40 @@ impl PlaybackAppService {
         })
     }
 
+    pub(crate) async fn direct_playback_session_stream(
+        &self,
+        request: DirectPlaybackSessionStreamRequest,
+    ) -> Result<DirectPlaybackStreamOutput> {
+        let session = self
+            .existing_playback_session_for_media_request(
+                &request.principal,
+                request.playback_session_id,
+                request.source_id,
+                PlaybackSessionMode::Direct,
+            )
+            .await?;
+        let direct_play = self
+            .plan_direct_play(request.source_id, request.range_request)
+            .await?;
+        let source_uri = direct_play.source.locator.clone();
+
+        if direct_play.response.is_range_not_satisfiable() {
+            return Ok(DirectPlaybackStreamOutput {
+                session: Some(session),
+                source_uri,
+                body: DirectPlaySourceBody::Empty,
+                response: direct_play.response,
+            });
+        }
+
+        Ok(DirectPlaybackStreamOutput {
+            session: Some(session),
+            source_uri,
+            body: direct_play.body,
+            response: direct_play.response,
+        })
+    }
+
     pub(crate) async fn direct_playback_preflight(
         &self,
         request: DirectPlaybackPreflightRequest,
@@ -921,6 +1061,64 @@ impl PlaybackAppService {
         })
     }
 
+    pub(crate) async fn remux_playback_session_stream(
+        &self,
+        request: RemuxPlaybackSessionStreamRequest,
+    ) -> Result<RemuxPlaybackStreamOutput> {
+        let playback_session = self
+            .existing_playback_session_for_media_request(
+                &request.principal,
+                request.playback_session_id,
+                request.source_id,
+                PlaybackSessionMode::Remux,
+            )
+            .await?;
+        let transcode_session_id =
+            playback_session
+                .transcode_session_id
+                .ok_or_else(|| NakoError::Conflict {
+                    message: format!(
+                        "playback session {} does not have a remux artifact",
+                        playback_session.id
+                    ),
+                })?;
+        let transcode = self
+            .wait_for_remux_transcode_output(transcode_session_id)
+            .await?;
+        if transcode.source_id != request.source_id {
+            return Err(NakoError::InvalidInput {
+                message: format!(
+                    "remux playback session {} source_id does not match transcode session {}",
+                    playback_session.id, transcode.id
+                ),
+            });
+        }
+
+        let total_len = tokio::fs::metadata(&transcode.output_path)
+            .await
+            .map_err(|err| {
+                NakoError::storage_io(
+                    transcode.output_path.display().to_string(),
+                    format!("failed to read remux output length: {err}"),
+                )
+            })?
+            .len();
+        let response = nako_streaming::plan_direct_play_response(
+            total_len,
+            nako_streaming::content_type_for_file_name(&format!(
+                "stream.{}",
+                request.output_container.file_extension()
+            )),
+            request.range_request,
+        );
+
+        Ok(RemuxPlaybackStreamOutput {
+            session: playback_session,
+            output_path: transcode.output_path,
+            response,
+        })
+    }
+
     pub(crate) async fn remux_playback_preflight(
         &self,
         request: RemuxPlaybackPreflightRequest,
@@ -992,6 +1190,65 @@ impl PlaybackAppService {
             .await?;
         let body =
             rewrite_hls_playlist_segments_for_playback_session(&playlist.body, playback_session.id);
+
+        Ok(HlsPlaylistPlaybackOutput {
+            session: playback_session,
+            body,
+        })
+    }
+
+    pub(crate) async fn hls_playlist_for_playback_session(
+        &self,
+        request: HlsPlaylistSessionRequest,
+    ) -> Result<HlsPlaylistPlaybackOutput> {
+        let playback_session = self
+            .existing_playback_session_for_media_request(
+                &request.principal,
+                request.playback_session_id,
+                request.source_id,
+                PlaybackSessionMode::Hls,
+            )
+            .await?;
+        let transcode_session_id =
+            playback_session
+                .transcode_session_id
+                .ok_or_else(|| NakoError::Conflict {
+                    message: format!(
+                        "playback session {} does not have an hls artifact",
+                        playback_session.id
+                    ),
+                })?;
+        let transcode = self.get_transcode_session(transcode_session_id).await?;
+        if transcode.kind != TranscodeSessionKind::HlsTranscode {
+            return Err(NakoError::InvalidInput {
+                message: format!("session {transcode_session_id} is not an hls transcode session"),
+            });
+        }
+        if transcode.source_id != request.source_id {
+            return Err(NakoError::InvalidInput {
+                message: format!(
+                    "hls playback session {} source_id does not match transcode session {}",
+                    playback_session.id, transcode.id
+                ),
+            });
+        }
+        if transcode.state != TranscodeSessionState::Finished {
+            return Err(NakoError::Conflict {
+                message: format!(
+                    "hls session {transcode_session_id} is not ready; current state is {:?}",
+                    transcode.state
+                ),
+            });
+        }
+        let body = tokio::fs::read_to_string(&transcode.output_path)
+            .await
+            .map_err(|err| {
+                NakoError::storage_io(
+                    transcode.output_path.display().to_string(),
+                    format!("failed to read hls playlist: {err}"),
+                )
+            })?;
+        let body = rewrite_hls_playlist_segments_for_playback_session(&body, playback_session.id);
 
         Ok(HlsPlaylistPlaybackOutput {
             session: playback_session,
@@ -1202,6 +1459,61 @@ impl PlaybackAppService {
                         output_container,
                         disposition: RemuxSourceDisposition::Cancelled,
                         session: Some(session),
+                    });
+                }
+                TranscodeSessionState::Failed => {
+                    return Err(NakoError::Provider {
+                        provider: "ffmpeg_remux".to_owned(),
+                        message: session
+                            .failure_message
+                            .unwrap_or_else(|| "remux runner failed".to_owned()),
+                    });
+                }
+                TranscodeSessionState::Planned
+                | TranscodeSessionState::Starting
+                | TranscodeSessionState::Running
+                | TranscodeSessionState::CancelRequested => {}
+            }
+
+            if tokio::time::Instant::now() >= deadline {
+                return Err(NakoError::Provider {
+                    provider: "ffmpeg_remux".to_owned(),
+                    message: format!("remux session {session_id} timed out while waiting"),
+                });
+            }
+
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+    }
+
+    async fn wait_for_remux_transcode_output(
+        &self,
+        session_id: TranscodeSessionId,
+    ) -> Result<TranscodeSessionRecord> {
+        let deadline = tokio::time::Instant::now()
+            + std::time::Duration::from_millis(self.config.remux_timeout_ms.max(1));
+        loop {
+            let session = self.get_transcode_session(session_id).await?;
+            if session.kind != TranscodeSessionKind::Remux {
+                return Err(NakoError::InvalidInput {
+                    message: format!("session {session_id} is not a remux session"),
+                });
+            }
+            match session.state {
+                TranscodeSessionState::Finished => {
+                    if !path_exists(&session.output_path)? {
+                        return Err(NakoError::storage_io(
+                            session.output_path.display().to_string(),
+                            "finished remux session output is missing",
+                        ));
+                    }
+
+                    return Ok(session);
+                }
+                TranscodeSessionState::Cancelled => {
+                    return Err(NakoError::Provider {
+                        provider: "ffmpeg_remux".to_owned(),
+                        message: "remux session was cancelled".to_owned(),
                     });
                 }
                 TranscodeSessionState::Failed => {
@@ -1606,6 +1918,48 @@ impl PlaybackAppService {
             })
     }
 
+    async fn existing_playback_session_for_media_request(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        session_id: PlaybackSessionId,
+        source_id: MediaSourceId,
+        mode: PlaybackSessionMode,
+    ) -> Result<PlaybackSessionRecord> {
+        let session = self.get_playback_session(session_id).await?;
+        if session.principal_id != principal.principal_id {
+            return Err(NakoError::Forbidden {
+                message: "playback session belongs to a different principal".to_owned(),
+            });
+        }
+        if session.source_id != source_id {
+            return Err(NakoError::InvalidInput {
+                message: format!(
+                    "playback session {session_id} belongs to source {}, not {source_id}",
+                    session.source_id
+                ),
+            });
+        }
+        if session.mode != mode {
+            return Err(NakoError::InvalidInput {
+                message: format!(
+                    "playback session {session_id} is {}, not {}",
+                    session.mode.as_str(),
+                    mode.as_str()
+                ),
+            });
+        }
+        if session.state.is_terminal() {
+            return Err(NakoError::Conflict {
+                message: format!(
+                    "playback session {session_id} is terminal; current state is {}",
+                    session.state.as_str()
+                ),
+            });
+        }
+
+        Ok(session)
+    }
+
     #[cfg_attr(not(test), allow(dead_code))]
     pub(super) async fn storage_backend_for_media_source(
         &self,
@@ -1669,10 +2023,15 @@ fn rewrite_hls_playlist_segments_for_playback_session(
     body: &str,
     session_id: PlaybackSessionId,
 ) -> String {
-    body.lines()
+    let mut rewritten = body
+        .lines()
         .map(|line| {
-            let Some(rest) = line.strip_prefix("/playback/sessions/") else {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
                 return line.to_owned();
+            }
+            let Some(rest) = line.strip_prefix("/playback/sessions/") else {
+                return format!("/playback/sessions/{session_id}/hls/segments/{trimmed}");
             };
             let Some((_old_session_id, segment_path)) = rest.split_once("/hls/segments/") else {
                 return line.to_owned();
@@ -1681,7 +2040,13 @@ fn rewrite_hls_playlist_segments_for_playback_session(
             format!("/playback/sessions/{session_id}/hls/segments/{segment_path}")
         })
         .collect::<Vec<_>>()
-        .join("\n")
+        .join("\n");
+
+    if body.ends_with('\n') {
+        rewritten.push('\n');
+    }
+
+    rewritten
 }
 
 fn playback_target_for_client(client: ClientPlaybackCapabilities) -> PlaybackTarget {

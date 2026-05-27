@@ -124,6 +124,45 @@ Results:
 - format check passed.
 - diff check passed.
 
+### NRCT-050
+
+Completed on 2026-05-27.
+
+Evidence:
+
+- wired `RendererTransportTicketService` into `NakoAppServices`;
+- allowed Public renderer registration for `nako_remote_client + cast_ticket`
+  while keeping renderer control routes bearer-authenticated;
+- changed renderer playback orchestration to create real Direct, Remux, and HLS
+  Playback Sessions and to persist transport metadata on queued commands;
+- issued per-command renderer media URLs bound to Renderer Session, Playback
+  Session, Media Source, playback mode, network scope, principal, and expiry;
+- added ticket validation for direct/remux/HLS byte routes and HLS segments;
+- rewrote HLS playlists so ticketed renderer segment URLs do not expose browser
+  tickets or Transcode Session IDs as credentials.
+
+Gates:
+
+```powershell
+cargo nextest run -p nako-server -E 'test(renderer_play_command_with_cast_ticket_remux_returns_ticketed_transport) | test(renderer_play_command_with_cast_ticket_hls_protects_playlist_and_segments) | test(public_renderer_registration_accepts_nako_remote_cast_ticket_transport)' --no-fail-fast
+cargo nextest run -p nako-server -E 'test(renderer) | test(playback)' --no-fail-fast
+cargo nextest run -p nako-server -E 'test(renderer) | test(playback) | test(transcode)' --no-fail-fast
+cargo nextest run -p nako-client-protocol public --no-fail-fast
+cargo nextest run -p nako-api -E 'test(public_openapi) | test(sdk)' --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
+```
+
+Results:
+
+- targeted renderer cast-ticket run: 3 passed, 367 skipped.
+- focused renderer/playback gate: 88 passed, 282 skipped.
+- focused renderer/playback/transcode gate: 89 passed, 281 skipped.
+- `nako-client-protocol public`: 12 passed.
+- `nako-api public_openapi/sdk`: 17 passed, 44 skipped.
+- format check passed.
+- diff check passed. Git printed CRLF conversion warnings only.
+
 ## Gate Policy
 
 Use focused gates while developing, then broaden only when a task crosses API,
