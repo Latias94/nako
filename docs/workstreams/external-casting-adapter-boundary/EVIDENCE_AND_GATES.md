@@ -123,6 +123,31 @@ Results:
 - format check passed.
 - diff check passed. Git printed CRLF conversion warnings only.
 
+### ECAB-050
+
+Completed on 2026-05-27.
+
+Evidence:
+
+- added `PROTOCOL_SELECTION.md` with Jellyfin reference findings, current Rust
+  crate findings, and the first-slice plan;
+- accepted ADR 0042;
+- added ADR 0043 selecting Chromecast first as an official renderer adapter
+  sidecar;
+- selected `oxicast` as the preferred first Chromecast sidecar dependency;
+- kept DLNA as a follow-on because mature DLNA needs a Nako device-profile
+  model before protocol control is useful.
+
+Gates:
+
+```powershell
+git diff --check -- docs/workstreams/external-casting-adapter-boundary docs/adr
+```
+
+Results:
+
+- diff check passed. Git printed CRLF conversion warnings only.
+
 ## Gate Policy
 
 Use synthetic adapter tests before real LAN protocol tests. Physical receiver

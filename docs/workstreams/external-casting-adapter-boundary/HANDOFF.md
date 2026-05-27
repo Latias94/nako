@@ -22,17 +22,24 @@ envelopes.
 host-owned Renderer Session, use the existing play command pipeline, receive
 cast-safe transport, and preserve denied-policy no-side-effect behavior.
 
+`ECAB-050` is complete. Chromecast is selected as the first real protocol,
+implemented as an official sidecar in `nako-official-addons`. `oxicast` is the
+preferred first dependency, `cast-sender` is the fallback, and DLNA is deferred
+until a Nako renderer device-profile workstream exists.
+
 ## Next Task
 
-Run `ECAB-050`.
+Run `ECAB-060`.
 
-`ECAB-050` should select the first real protocol implementation and repository
-boundary. It should compare Chromecast and DLNA library/process options and
-decide whether the real adapter belongs in `nako` or `nako-official-addons`.
+`ECAB-060` should add the host addon protocol resource/scope for renderer
+adapters, then open and implement the official Chromecast adapter sidecar slice
+in `nako-official-addons`.
 
 ## Important Files
 
 - `docs/adr/0042-sidecar-renderer-adapters-for-external-casting-protocols.md`
+- `docs/adr/0043-ship-chromecast-first-as-official-renderer-adapter.md`
+- `docs/workstreams/external-casting-adapter-boundary/PROTOCOL_SELECTION.md`
 - `docs/workstreams/external-casting-adapter-boundary/TODO.md`
 - `crates/nako-server/src/http/admin.rs`
 - `crates/nako-server/src/http/renderer.rs`

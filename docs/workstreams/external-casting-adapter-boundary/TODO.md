@@ -141,7 +141,7 @@ Evidence:
 
 ### ECAB-050 - Select first real protocol implementation
 
-Status: Pending
+Status: Complete
 Owner: current agent
 Depends on: ECAB-040
 
@@ -157,6 +157,17 @@ Validation:
 ```powershell
 git diff --check -- docs/workstreams/external-casting-adapter-boundary docs/adr
 ```
+
+Evidence:
+
+- Added `PROTOCOL_SELECTION.md`.
+- Accepted ADR 0042 and added ADR 0043.
+- Selected Chromecast as the first real protocol.
+- Selected `nako-official-addons` as the implementation repository for the
+  protocol sidecar.
+- Selected `oxicast` as the preferred first sidecar dependency, with
+  `cast-sender` as the fallback.
+- Deferred DLNA until a renderer device-profile workstream exists.
 
 ### ECAB-060 - Implement first real protocol adapter slice
 

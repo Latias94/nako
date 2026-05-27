@@ -43,9 +43,11 @@ credentials.
 ## Authoritative Docs
 
 - [DESIGN.md](DESIGN.md)
+- [PROTOCOL_SELECTION.md](PROTOCOL_SELECTION.md)
 - [TODO.md](TODO.md)
 - [MILESTONES.md](MILESTONES.md)
 - [EVIDENCE_AND_GATES.md](EVIDENCE_AND_GATES.md)
 - [HANDOFF.md](HANDOFF.md)
 - [WORKSTREAM.json](WORKSTREAM.json)
 - [ADR 0042](../../adr/0042-sidecar-renderer-adapters-for-external-casting-protocols.md)
+- [ADR 0043](../../adr/0043-ship-chromecast-first-as-official-renderer-adapter.md)

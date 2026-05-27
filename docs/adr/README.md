@@ -61,3 +61,4 @@ evidence has been reviewed.
 - [0040: Model Casting as Renderer Sessions and Protocol Adapters](0040-casting-as-renderer-session-adapter.md)
 - [0041: Separate Renderer Cast-Safe Transport Tickets From Browser Tickets](0041-renderer-cast-safe-transport-tickets.md)
 - [0042: Use Sidecar Renderer Adapters For External Casting Protocols](0042-sidecar-renderer-adapters-for-external-casting-protocols.md)
+- [0043: Ship Chromecast First As An Official Renderer Adapter Sidecar](0043-ship-chromecast-first-as-official-renderer-adapter.md)
