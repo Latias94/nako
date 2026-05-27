@@ -1254,33 +1254,18 @@ impl PlaybackAppService {
         &self,
         session_id: PlaybackSessionId,
     ) -> Result<HlsSegmentPlaybackTarget> {
-        match self.get_playback_session(session_id).await {
-            Ok(playback_session) => {
-                let transcode_session_id =
-                    playback_session
-                        .transcode_session_id
-                        .ok_or_else(|| NakoError::Conflict {
-                            message: format!(
-                                "playback session {session_id} does not have an hls artifact"
-                            ),
-                        })?;
+        let playback_session = self.get_playback_session(session_id).await?;
+        let transcode_session_id =
+            playback_session
+                .transcode_session_id
+                .ok_or_else(|| NakoError::Conflict {
+                    message: format!("playback session {session_id} does not have an hls artifact"),
+                })?;
 
-                Ok(HlsSegmentPlaybackTarget {
-                    source_id: playback_session.source_id,
-                    transcode_session_id,
-                })
-            }
-            Err(NakoError::NotFound { .. }) => {
-                let transcode_session_id = TranscodeSessionId::from_uuid(session_id.as_uuid());
-                let transcode_session = self.get_transcode_session(transcode_session_id).await?;
-
-                Ok(HlsSegmentPlaybackTarget {
-                    source_id: transcode_session.source_id,
-                    transcode_session_id,
-                })
-            }
-            Err(error) => Err(error),
-        }
+        Ok(HlsSegmentPlaybackTarget {
+            source_id: playback_session.source_id,
+            transcode_session_id,
+        })
     }
 
     pub(crate) async fn get_transcode_session(

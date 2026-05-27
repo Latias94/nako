@@ -52,7 +52,7 @@ diagnostics, generated Admin TypeScript contract updates, and startup artifact
 cleanup.
 PTP-080 moved route-owned direct/remux/HLS playback orchestration into
 `PlaybackAppService`, preserved browser ticket behavior, and added explicit
-coverage for legacy HLS segment URLs by Transcode Session id.
+coverage that old HLS segment URLs by Transcode Session id are rejected.
 
 Jellyfin reference review found the feature pressures Nako must be ready for:
 

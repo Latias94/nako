@@ -69,5 +69,6 @@ Exit criteria:
 - Remaining breadth is split into named follow-on lanes.
 
 Status: Complete via PTP-080. Playback routes are thin adapters over
-`PlaybackAppService`, browser tickets and legacy HLS segment URLs are covered,
-and follow-on feature breadth is explicitly deferred.
+`PlaybackAppService`, browser tickets and canonical HLS segment URLs are
+covered, old Transcode Session id segment URLs are rejected, and follow-on
+feature breadth is explicitly deferred.

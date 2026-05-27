@@ -139,8 +139,8 @@ python -m json.tool docs/workstreams/playback-transcode-policy-deepening/WORKSTR
   playback, and HLS segment target resolution now flow through
   `PlaybackAppService`. The route layer keeps auth, query parsing, ticket
   handling, and byte response adaptation. Added coverage proving the generated
-  playlist uses durable Playback Session ids while legacy Transcode Session
-  segment URLs still work.
+  playlist uses durable Playback Session ids and old Transcode Session id
+  segment URLs are rejected.
   Verified:
   - `cargo nextest run -p nako-server playback --no-fail-fast` passed: 69
     passed, 282 skipped.

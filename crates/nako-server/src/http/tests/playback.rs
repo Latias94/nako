@@ -1426,11 +1426,7 @@ async fn hls_playlist_and_segment_routes_work() {
         .await
         .unwrap();
 
-    assert_eq!(legacy_segment_response.status(), StatusCode::OK);
-    let legacy_segment = to_bytes(legacy_segment_response.into_body(), usize::MAX)
-        .await
-        .unwrap();
-    assert_eq!(&legacy_segment[..], b"segment");
+    assert_eq!(legacy_segment_response.status(), StatusCode::NOT_FOUND);
 
     let missing = router
         .oneshot(
@@ -1526,12 +1522,31 @@ async fn hls_segment_route_rejects_unfinished_session() {
         })
         .await
         .unwrap();
+    let playback_session = store
+        .create_playback_session(NewPlaybackSession {
+            id: PlaybackSessionId::new(),
+            principal_id: UserPrincipalId::local_admin(),
+            source_id: source.id,
+            item_id: source.item_id,
+            mode: PlaybackSessionMode::Hls,
+            state: PlaybackSessionState::Active,
+            client_capabilities_json: None,
+            started_at_ms: 1,
+            updated_at_ms: 1,
+        })
+        .await
+        .unwrap();
+    store
+        .link_playback_session_transcode(playback_session.id, active.id)
+        .await
+        .unwrap();
     let path = format!(
         "/playback/sessions/{}/hls/segments/segment_00000.ts",
-        active.id
+        playback_session.id
     );
 
     let response = router
+        .clone()
         .oneshot(
             Request::builder()
                 .method(Method::GET)
@@ -1546,6 +1561,23 @@ async fn hls_segment_route_rejects_unfinished_session() {
     let error = body_json::<ErrorResponse>(response).await;
     assert_eq!(error.code, "conflict");
     assert!(error.message.contains("is not ready"));
+
+    let legacy_path = format!(
+        "/playback/sessions/{}/hls/segments/segment_00000.ts",
+        active.id
+    );
+    let legacy_response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(legacy_path)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(legacy_response.status(), StatusCode::NOT_FOUND);
 }
 
 #[tokio::test]

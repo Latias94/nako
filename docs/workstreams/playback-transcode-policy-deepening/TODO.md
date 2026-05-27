@@ -117,11 +117,11 @@ Last updated: 2026-05-27
   Validation: `cargo nextest run -p nako-server playback --no-fail-fast`;
   `cargo nextest run -p nako-transcode --no-fail-fast`; `cargo fmt --all -- --check`;
   `git diff --check`; `python -m json.tool docs/workstreams/playback-transcode-policy-deepening/WORKSTREAM.json`.
-  Review: route compatibility, browser tickets, legacy segment URLs, and
-  redaction behavior survive the refactor.
+  Review: canonical route behavior, browser tickets, Playback Session segment
+  URLs, and redaction behavior survive the refactor.
   Evidence: Moved direct/remux/HLS playback orchestration into
   `PlaybackAppService`, kept HTTP routes as auth/query/response adapters, added
-  coverage for legacy HLS segment URLs by Transcode Session id, and ran
+  coverage proving Transcode Session id segment URLs are rejected, and ran
   playback/transcode closeout gates.
   Handoff: Split adaptive HLS ladders, optimized versions, remote transcode
   workers, desktop player integration, SyncPlay, and DLNA into separate lanes.

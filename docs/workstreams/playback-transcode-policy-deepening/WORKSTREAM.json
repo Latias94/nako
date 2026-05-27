@@ -82,7 +82,7 @@
     },
     {
       "task": "PTP-080",
-      "summary": "Closed the lane by moving direct/remux/HLS playback orchestration from HTTP routes into PlaybackAppService, preserving browser tickets and legacy HLS segment URLs with focused playback/transcode gates."
+      "summary": "Closed the lane by moving direct/remux/HLS playback orchestration from HTTP routes into PlaybackAppService, preserving browser tickets and rejecting old Transcode Session id HLS segment URLs with focused playback/transcode gates."
     }
   ],
   "adr_refs": [

@@ -188,7 +188,7 @@ orchestration out of HTTP routes and into `PlaybackAppService`. Routes now
 perform access checks, query/body parsing, ticket handling, and response
 streaming; the app service owns session creation, transcode linkage, remux wait
 semantics, HLS playlist session-id rewriting, and legacy HLS segment target
-resolution.
+rejection.
 
 PTP-030 extracted `nako-playback` because the deletion test became real:
 removing selection from `nako-streaming` leaves a smaller transport crate, while
@@ -234,4 +234,5 @@ Out of scope:
   responsible for actual planning decisions and profile identity, not merely
   re-exporting server or transcode types.
 - Route compatibility must be handled carefully so browser playback tickets and
-  legacy HLS segment URLs keep working while the planner lands.
+  canonical Playback Session segment URLs keep working while old internal
+  Transcode Session segment URLs are rejected.
