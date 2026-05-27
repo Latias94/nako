@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "slug": "casting-renderer-runtime",
+  "title": "Casting Renderer Runtime",
+  "status": "planned",
+  "current_task": "CAST-020",
+  "blocked_by": [
+    "docs/workstreams/playback-policy-and-renderer-targets/"
+  ],
+  "completed_tasks": [
+    "CAST-010"
+  ],
+  "updated": "2026-05-27",
+  "scope_kind": "execution",
+  "problem": "Nako should support casting, but it needs Renderer Sessions, renderer-control commands, adapter boundaries, and cast-safe transport instead of stretching browser tickets or Transcode Session IDs into protocol-specific playback control.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/casting-renderer-runtime/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/casting-renderer-runtime/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/casting-renderer-runtime/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/casting-renderer-runtime/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/casting-renderer-runtime/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/casting-renderer-runtime/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python -m json.tool docs/workstreams/casting-renderer-runtime/WORKSTREAM.json",
+    "git diff --check -- docs/workstreams/casting-renderer-runtime docs/adr/0040-casting-as-renderer-session-adapter.md",
+    "cargo nextest run -p nako-server -E 'test(playback) | test(renderer)' --no-fail-fast",
+    "cargo nextest run -p nako-client-protocol public --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "CAST-010",
+      "summary": "Opened the casting renderer runtime lane and ADR 0040, choosing Renderer Sessions plus protocol adapters with Nako-to-Nako cast before Chromecast, DLNA, or AirPlay."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0036-short-lived-browser-playback-tickets.md",
+    "docs/adr/0039-playback-policy-and-renderer-target-boundary.md",
+    "docs/adr/0040-casting-as-renderer-session-adapter.md"
+  ],
+  "continue_policy": {
+    "default_action": "wait_for_dependency",
+    "notes": "Start implementation only after playback-policy-and-renderer-targets closes or hands off policy-aware target planning. Keep external protocols as adapters."
+  }
+}

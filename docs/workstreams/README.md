@@ -6,8 +6,19 @@ attention.
 
 ## Current Workstreams
 
+- [playback-policy-and-renderer-targets](playback-policy-and-renderer-targets/README.md):
+  active execution lane for making playback decisions policy-aware and target
+  aware after the completed playback/transcode policy deepening. It introduces
+  effective playback permissions and renderer target vocabulary for browser,
+  desktop, mobile, and future casting without implementing casting protocols in
+  this lane.
+- [casting-renderer-runtime](casting-renderer-runtime/README.md):
+  planned follow-on lane for implementing casting as Renderer Sessions plus
+  protocol adapters after playback policy and renderer targets are in place. It
+  starts with Nako-to-Nako cast and keeps Chromecast, DLNA, and AirPlay as
+  adapter-specific work instead of playback planner modes.
 - [playback-transcode-policy-deepening](playback-transcode-policy-deepening/README.md):
-  active architecture-first execution lane for making Nako's playback planner,
+  completed architecture-first execution lane for making Nako's playback planner,
   transcode policy, runtime inventory, and engine Adapter seams mature enough
   for Jellyfin-class device capability, transcode reason, hardware fallback,
   Admin diagnostics, and playback artifact lifecycle features without copying
