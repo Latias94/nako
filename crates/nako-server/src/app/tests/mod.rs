@@ -1096,6 +1096,8 @@ fn fake_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
         push_unix_ffmpeg_probe_handlers(
             &mut content,
             &[
+                " V..... libx264",
+                " A..... aac",
                 " V..... h264_nvenc",
                 " V..... h264_vaapi",
                 " V..... h264_qsv",
@@ -1128,6 +1130,8 @@ fn fake_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
         push_windows_ffmpeg_probe_labels(
             &mut content,
             &[
+                " V..... libx264",
+                " A..... aac",
                 " V..... h264_nvenc",
                 " V..... h264_vaapi",
                 " V..... h264_qsv",
@@ -1148,6 +1152,8 @@ fn fake_failing_ffmpeg_script_with_stderr(root: &Path, name: &str, stderr: &str)
         push_unix_ffmpeg_probe_handlers(
             &mut content,
             &[
+                " V..... libx264",
+                " A..... aac",
                 " V..... h264_nvenc",
                 " V..... h264_vaapi",
                 " V..... h264_qsv",
@@ -1174,6 +1180,8 @@ fn fake_failing_ffmpeg_script_with_stderr(root: &Path, name: &str, stderr: &str)
         push_windows_ffmpeg_probe_labels(
             &mut content,
             &[
+                " V..... libx264",
+                " A..... aac",
                 " V..... h264_nvenc",
                 " V..... h264_vaapi",
                 " V..... h264_qsv",
@@ -1194,6 +1202,8 @@ fn fake_slow_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
         push_unix_ffmpeg_probe_handlers(
             &mut content,
             &[
+                " V..... libx264",
+                " A..... aac",
                 " V..... h264_nvenc",
                 " V..... h264_vaapi",
                 " V..... h264_qsv",
@@ -1228,6 +1238,8 @@ fn fake_slow_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
         push_windows_ffmpeg_probe_labels(
             &mut content,
             &[
+                " V..... libx264",
+                " A..... aac",
                 " V..... h264_nvenc",
                 " V..... h264_vaapi",
                 " V..... h264_qsv",
@@ -1247,11 +1259,13 @@ fn fake_failing_hls_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
 }
 
 fn fake_cpu_only_hls_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
-    hls_ffmpeg_script(root, name, true, &[" V..... libx264"])
+    hls_ffmpeg_script(root, name, true, &[" V..... libx264", " A..... aac"])
 }
 
 fn hardware_encoder_lines() -> &'static [&'static str] {
     &[
+        " V..... libx264",
+        " A..... aac",
         " V..... h264_nvenc",
         " V..... h264_vaapi",
         " V..... h264_qsv",

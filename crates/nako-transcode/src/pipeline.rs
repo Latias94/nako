@@ -23,6 +23,8 @@ pub enum TranscodePipelineReadinessReason {
     RequestedPipelineReady,
     RequestedPipelineUnavailableFallbackToCpu,
     RequestedPipelineUnavailableFailPolicy,
+    SoftwarePipelineUnavailable,
+    CpuFallbackUnavailable,
     ProbeError,
     DeviceInitializationFailed,
     SmokeProbeFailed,
@@ -133,6 +135,12 @@ fn select_pipeline_acceleration(
     report: &HardwareAccelerationReport,
 ) -> Result<TranscodePipelineReadiness> {
     if policy.requested == HardwareAcceleration::None {
+        if !report.is_available(HardwareAcceleration::None) {
+            return Err(NakoError::Unsupported(
+                "software transcode pipeline is unavailable",
+            ));
+        }
+
         return Ok(TranscodePipelineReadiness {
             status: TranscodePipelineReadinessStatus::Ready,
             reason: TranscodePipelineReadinessReason::CpuRequested,
@@ -154,13 +162,21 @@ fn select_pipeline_acceleration(
 
     let reason = unavailable_reason(policy, report);
     match policy.fallback {
-        HardwareAccelerationFallback::Cpu => Ok(TranscodePipelineReadiness {
-            status: TranscodePipelineReadinessStatus::Degraded,
-            reason,
-            requested: policy.requested,
-            selected: HardwareAcceleration::None,
-            fallback_used: true,
-        }),
+        HardwareAccelerationFallback::Cpu => {
+            if !report.is_available(HardwareAcceleration::None) {
+                return Err(NakoError::Unsupported(
+                    "requested hardware pipeline is unavailable and cpu fallback is unavailable",
+                ));
+            }
+
+            Ok(TranscodePipelineReadiness {
+                status: TranscodePipelineReadinessStatus::Degraded,
+                reason,
+                requested: policy.requested,
+                selected: HardwareAcceleration::None,
+                fallback_used: true,
+            })
+        }
         HardwareAccelerationFallback::Fail => Err(NakoError::Unsupported(
             "requested hardware pipeline is unavailable",
         )),
@@ -172,13 +188,37 @@ pub fn transcode_pipeline_readiness_without_selection(
     policy: HardwareAccelerationPolicy,
     report: &HardwareAccelerationReport,
 ) -> TranscodePipelineReadiness {
-    select_pipeline_acceleration(policy, report).unwrap_or(TranscodePipelineReadiness {
+    select_pipeline_acceleration(policy, report)
+        .unwrap_or_else(|_| unavailable_pipeline_readiness(policy, report))
+}
+
+fn unavailable_pipeline_readiness(
+    policy: HardwareAccelerationPolicy,
+    report: &HardwareAccelerationReport,
+) -> TranscodePipelineReadiness {
+    let reason = if policy.requested == HardwareAcceleration::None {
+        TranscodePipelineReadinessReason::SoftwarePipelineUnavailable
+    } else if policy.fallback == HardwareAccelerationFallback::Cpu
+        && !report.is_available(HardwareAcceleration::None)
+    {
+        TranscodePipelineReadinessReason::CpuFallbackUnavailable
+    } else {
+        TranscodePipelineReadinessReason::RequestedPipelineUnavailableFailPolicy
+    };
+
+    let selected = match reason {
+        TranscodePipelineReadinessReason::SoftwarePipelineUnavailable
+        | TranscodePipelineReadinessReason::CpuFallbackUnavailable => HardwareAcceleration::None,
+        _ => policy.requested,
+    };
+
+    TranscodePipelineReadiness {
         status: TranscodePipelineReadinessStatus::Unavailable,
-        reason: TranscodePipelineReadinessReason::RequestedPipelineUnavailableFailPolicy,
+        reason,
         requested: policy.requested,
-        selected: policy.requested,
+        selected,
         fallback_used: false,
-    })
+    }
 }
 
 fn unavailable_reason(

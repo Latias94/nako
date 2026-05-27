@@ -511,7 +511,10 @@ mod tests {
 
     #[test]
     fn pipeline_planner_selects_available_and_falls_back_to_cpu() {
-        let report = HardwareAccelerationReport::with_available([HardwareAcceleration::Nvenc]);
+        let report = HardwareAccelerationReport::with_available([
+            HardwareAcceleration::None,
+            HardwareAcceleration::Nvenc,
+        ]);
         let planner = TranscodePipelinePlanner::new();
         let nvenc = planner
             .plan_hls_single_variant(
@@ -560,6 +563,7 @@ mod tests {
         let report = hls_probe_report(
             r#"
  V..... libx264
+ A..... aac
  V..... h264_nvenc
  V..... h264_vaapi
  V..... h264_qsv
@@ -676,6 +680,7 @@ hevc_metadata
         let report = hls_probe_report(
             r#"
  V..... libx264
+ A..... aac
  V..... h264_nvenc
 "#,
         );
@@ -728,7 +733,7 @@ hevc_metadata
 
     #[test]
     fn ffmpeg_encoder_report_records_safe_evidence_and_operator_smoke_checks() {
-        let report = hls_probe_report(" V..... h264_nvenc\n");
+        let report = hls_probe_report(" V..... libx264\n A..... aac\n V..... h264_nvenc\n");
         let nvenc = report.capability_for(HardwareAcceleration::Nvenc).unwrap();
         let cpu = report.capability_for(HardwareAcceleration::None).unwrap();
 
@@ -745,7 +750,11 @@ hevc_metadata
         assert!(!nvenc.smoke_probe.operator_check.contains('\\'));
         assert_eq!(
             cpu.encoder_discovery.status,
-            HardwareEncoderDiscoveryStatus::NotRequired
+            HardwareEncoderDiscoveryStatus::Listed
+        );
+        assert_eq!(
+            cpu.encoder_discovery.encoder.as_deref(),
+            Some("libx264,aac")
         );
         assert_eq!(
             cpu.device_initialization.status,
@@ -862,7 +871,7 @@ hevc_metadata
 
     #[test]
     fn ffmpeg_encoder_report_marks_missing_hardware_unavailable() {
-        let report = hls_probe_report(" V..... libx264\n");
+        let report = hls_probe_report(" V..... libx264\n A..... aac\n");
 
         assert!(report.is_available(HardwareAcceleration::None));
         assert!(!report.is_available(HardwareAcceleration::Nvenc));
@@ -887,6 +896,27 @@ hevc_metadata
                 .unwrap()
                 .contains("not listed")
         );
+    }
+
+    #[test]
+    fn ffmpeg_encoder_report_marks_cpu_unavailable_without_required_software_encoders() {
+        let report = hls_probe_report(" V..... libx264\n");
+        let cpu = report.capability_for(HardwareAcceleration::None).unwrap();
+
+        assert!(!report.is_available(HardwareAcceleration::None));
+        assert!(!cpu.available);
+        assert_eq!(
+            cpu.encoder_discovery.status,
+            HardwareEncoderDiscoveryStatus::Missing
+        );
+        assert_eq!(cpu.encoder_discovery.encoder.as_deref(), Some("aac"));
+        assert!(cpu.stage_capabilities.iter().any(|stage| {
+            stage.stage == HardwarePipelineStage::Encode
+                && stage.required
+                && !stage.available
+                && stage.feature.as_deref() == Some("aac")
+        }));
+        assert!(cpu.reason.as_deref().unwrap().contains("aac"));
     }
 
     #[test]
@@ -953,26 +983,83 @@ hevc_metadata
     }
 
     #[test]
-    fn hardware_readiness_preserves_probe_failure_reason_for_cpu_fallback() {
-        let report = HardwareAccelerationReport {
-            capabilities: vec![HardwareAccelerationCapability {
-                accelerator: HardwareAcceleration::Vaapi,
-                available: false,
-                device: None,
-                reason: Some("ffmpeg hardware capability probe failed".to_owned()),
-                stage_capabilities: vec![HardwareStageCapability::probe_error(
-                    HardwarePipelineStage::Encode,
-                    "failed to run ffmpeg hardware capability probe: denied",
-                )],
-                encoder_discovery: HardwareEncoderDiscovery::probe_error(
-                    "failed to run ffmpeg hardware capability probe: denied",
-                ),
-                device_initialization: HardwareDeviceInitialization::not_run(
-                    HardwareAcceleration::Vaapi,
-                ),
-                smoke_probe: HardwareSmokeProbe::not_run(HardwareAcceleration::Vaapi),
-            }],
+    fn pipeline_planner_rejects_unavailable_software_pipeline() {
+        let report = hls_probe_report(" V..... h264_nvenc\n");
+        let planner = TranscodePipelinePlanner::new();
+        let cpu_policy = HardwareAccelerationPolicy {
+            requested: HardwareAcceleration::None,
+            fallback: HardwareAccelerationFallback::Cpu,
         };
+        let fallback_policy = HardwareAccelerationPolicy {
+            requested: HardwareAcceleration::Vaapi,
+            fallback: HardwareAccelerationFallback::Cpu,
+        };
+
+        let cpu_err = planner
+            .plan_hls_single_variant(
+                TranscodePipelineRequest::hls_single_variant(
+                    cpu_policy,
+                    TranscodeTrackSelection::default(),
+                    TranscodeOutputConstraints::default(),
+                ),
+                &report,
+            )
+            .unwrap_err();
+        let fallback_err = planner
+            .plan_hls_single_variant(
+                TranscodePipelineRequest::hls_single_variant(
+                    fallback_policy,
+                    TranscodeTrackSelection::default(),
+                    TranscodeOutputConstraints::default(),
+                ),
+                &report,
+            )
+            .unwrap_err();
+        let cpu_readiness = transcode_pipeline_readiness_without_selection(cpu_policy, &report);
+        let fallback_readiness =
+            transcode_pipeline_readiness_without_selection(fallback_policy, &report);
+
+        assert!(cpu_err.to_string().contains("software transcode"));
+        assert!(fallback_err.to_string().contains("cpu fallback"));
+        assert_eq!(
+            cpu_readiness.status,
+            TranscodePipelineReadinessStatus::Unavailable
+        );
+        assert_eq!(
+            cpu_readiness.reason,
+            TranscodePipelineReadinessReason::SoftwarePipelineUnavailable
+        );
+        assert_eq!(
+            fallback_readiness.status,
+            TranscodePipelineReadinessStatus::Unavailable
+        );
+        assert_eq!(
+            fallback_readiness.reason,
+            TranscodePipelineReadinessReason::CpuFallbackUnavailable
+        );
+        assert!(!fallback_readiness.fallback_used);
+    }
+
+    #[test]
+    fn hardware_readiness_preserves_probe_failure_reason_for_cpu_fallback() {
+        let mut report = HardwareAccelerationReport::cpu_only();
+        report.capabilities.push(HardwareAccelerationCapability {
+            accelerator: HardwareAcceleration::Vaapi,
+            available: false,
+            device: None,
+            reason: Some("ffmpeg hardware capability probe failed".to_owned()),
+            stage_capabilities: vec![HardwareStageCapability::probe_error(
+                HardwarePipelineStage::Encode,
+                "failed to run ffmpeg hardware capability probe: denied",
+            )],
+            encoder_discovery: HardwareEncoderDiscovery::probe_error(
+                "failed to run ffmpeg hardware capability probe: denied",
+            ),
+            device_initialization: HardwareDeviceInitialization::not_run(
+                HardwareAcceleration::Vaapi,
+            ),
+            smoke_probe: HardwareSmokeProbe::not_run(HardwareAcceleration::Vaapi),
+        });
         let policy = HardwareAccelerationPolicy {
             requested: HardwareAcceleration::Vaapi,
             fallback: HardwareAccelerationFallback::Cpu,
@@ -1453,7 +1540,7 @@ h264_mp4toannexb
             content.push_str("for arg do\n");
             content.push_str("case \"$arg\" in\n");
             content.push_str("-encoders)\n");
-            content.push_str("cat <<'EOF'\n V..... h264_vaapi\n V..... h264_nvenc\nEOF\n");
+            content.push_str("cat <<'EOF'\n V..... libx264\n A..... aac\n V..... h264_vaapi\n V..... h264_nvenc\nEOF\n");
             content.push_str("exit 0\n;;\n");
             content.push_str("-decoders)\n");
             content.push_str("cat <<'EOF'\n VFS..D h264\nEOF\n");
@@ -1495,6 +1582,8 @@ h264_mp4toannexb
             content.push_str("shift\r\n");
             content.push_str("goto args\r\n");
             content.push_str(":encoders\r\n");
+            content.push_str("echo  V..... libx264\r\n");
+            content.push_str("echo  A..... aac\r\n");
             content.push_str("echo  V..... h264_vaapi\r\n");
             content.push_str("echo  V..... h264_nvenc\r\n");
             content.push_str("exit /b 0\r\n");

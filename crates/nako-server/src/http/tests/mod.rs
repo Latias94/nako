@@ -670,6 +670,8 @@ fn fake_ffmpeg_script(root: &FsPath, name: &str, slow: bool, marker: &FsPath) ->
         push_unix_ffmpeg_probe_handlers(
             &mut content,
             &[
+                " V..... libx264",
+                " A..... aac",
                 " V..... h264_nvenc",
                 " V..... h264_vaapi",
                 " V..... h264_qsv",
@@ -717,6 +719,8 @@ fn fake_ffmpeg_script(root: &FsPath, name: &str, slow: bool, marker: &FsPath) ->
         push_windows_ffmpeg_probe_labels(
             &mut content,
             &[
+                " V..... libx264",
+                " A..... aac",
                 " V..... h264_nvenc",
                 " V..... h264_vaapi",
                 " V..... h264_qsv",
@@ -775,6 +779,8 @@ fn fake_hls_ffmpeg_script(root: &FsPath, name: &str) -> PathBuf {
         push_unix_ffmpeg_probe_handlers(
             &mut content,
             &[
+                " V..... libx264",
+                " A..... aac",
                 " V..... h264_nvenc",
                 " V..... h264_vaapi",
                 " V..... h264_qsv",
@@ -818,6 +824,8 @@ fn fake_hls_ffmpeg_script(root: &FsPath, name: &str) -> PathBuf {
         push_windows_ffmpeg_probe_labels(
             &mut content,
             &[
+                " V..... libx264",
+                " A..... aac",
                 " V..... h264_nvenc",
                 " V..... h264_vaapi",
                 " V..... h264_qsv",

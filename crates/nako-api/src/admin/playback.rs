@@ -536,6 +536,8 @@ pub enum AdminPlaybackReadinessReason {
     RequestedAcceleratorReady,
     RequestedAcceleratorUnavailableFallbackToCpu,
     RequestedAcceleratorUnavailableFailPolicy,
+    SoftwarePipelineUnavailable,
+    CpuFallbackUnavailable,
     ProbeError,
     DeviceInitializationFailed,
     SmokeProbeFailed,
@@ -564,6 +566,12 @@ impl From<TranscodePipelineReadinessReason> for AdminPlaybackReadinessReason {
             }
             TranscodePipelineReadinessReason::RequestedPipelineUnavailableFailPolicy => {
                 Self::RequestedAcceleratorUnavailableFailPolicy
+            }
+            TranscodePipelineReadinessReason::SoftwarePipelineUnavailable => {
+                Self::SoftwarePipelineUnavailable
+            }
+            TranscodePipelineReadinessReason::CpuFallbackUnavailable => {
+                Self::CpuFallbackUnavailable
             }
             TranscodePipelineReadinessReason::ProbeError => Self::ProbeError,
             TranscodePipelineReadinessReason::DeviceInitializationFailed => {

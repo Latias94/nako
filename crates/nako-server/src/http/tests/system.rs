@@ -3454,8 +3454,11 @@ async fn admin_v1_playback_sessions_lists_filters_and_redacts_output_paths() {
 async fn admin_v1_playback_support_evidence_is_bounded_and_redacted() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
-    let ffmpeg_path =
-        fake_ffmpeg_encoder_script(temp.path(), "support-evidence", &[" V..... libx264"]);
+    let ffmpeg_path = fake_ffmpeg_encoder_script(
+        temp.path(),
+        "support-evidence",
+        &[" V..... libx264", " A..... aac"],
+    );
     let config = NakoServerConfig {
         database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
@@ -3962,8 +3965,11 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
 async fn admin_v1_playback_runtime_reports_typed_readiness_for_cpu_fallback() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
-    let ffmpeg_path =
-        fake_ffmpeg_encoder_script(temp.path(), "runtime-cpu-fallback", &[" V..... libx264"]);
+    let ffmpeg_path = fake_ffmpeg_encoder_script(
+        temp.path(),
+        "runtime-cpu-fallback",
+        &[" V..... libx264", " A..... aac"],
+    );
     let config = NakoServerConfig {
         database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),

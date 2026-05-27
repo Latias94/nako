@@ -5,6 +5,10 @@ use serde::{Deserialize, Serialize};
 
 use super::{ffmpeg::stderr_message, probe::FfmpegProbeInventory};
 
+const CPU_HLS_VIDEO_ENCODER: &str = "libx264";
+const CPU_HLS_AUDIO_ENCODER: &str = "aac";
+const H264_ANNEX_B_BITSTREAM_FILTER: &str = "h264_mp4toannexb";
+
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum HardwareAcceleration {
@@ -396,11 +400,9 @@ impl HardwareAccelerationReport {
 
     #[must_use]
     pub fn is_available(&self, accelerator: HardwareAcceleration) -> bool {
-        accelerator == HardwareAcceleration::None
-            || self
-                .capabilities
-                .iter()
-                .any(|capability| capability.accelerator == accelerator && capability.available)
+        self.capabilities
+            .iter()
+            .any(|capability| capability.accelerator == accelerator && capability.available)
     }
 
     #[must_use]
@@ -665,7 +667,7 @@ pub fn report_from_ffmpeg_probe_inventory_with_diagnostics(
 ) -> HardwareAccelerationReport {
     HardwareAccelerationReport {
         capabilities: vec![
-            cpu_capability(),
+            cpu_capability_from_inventory(inventory),
             encoder_capability(
                 HardwareAcceleration::Vaapi,
                 "h264_vaapi",
@@ -702,6 +704,35 @@ pub fn report_from_ffmpeg_probe_inventory_with_diagnostics(
                 smoke_probe,
             ),
         ],
+    }
+}
+
+fn cpu_capability_from_inventory(
+    inventory: &FfmpegProbeInventory,
+) -> HardwareAccelerationCapability {
+    let stage_capabilities = vec![
+        HardwareStageCapability::static_available(HardwarePipelineStage::Decode, "software"),
+        HardwareStageCapability::static_available(HardwarePipelineStage::Filter, "software"),
+        encoder_stage(inventory, CPU_HLS_VIDEO_ENCODER),
+        encoder_stage(inventory, CPU_HLS_AUDIO_ENCODER),
+        optional_bitstream_filter_stage(inventory, H264_ANNEX_B_BITSTREAM_FILTER),
+    ];
+    let available = required_stage_capabilities_available(&stage_capabilities);
+    let encoder_discovery = cpu_encoder_discovery(&stage_capabilities);
+
+    HardwareAccelerationCapability {
+        accelerator: HardwareAcceleration::None,
+        available,
+        device: None,
+        reason: Some(if available {
+            "ffmpeg software pipeline for hls h264/aac is available".to_owned()
+        } else {
+            missing_cpu_stage_reason(&stage_capabilities)
+        }),
+        stage_capabilities,
+        encoder_discovery,
+        device_initialization: HardwareDeviceInitialization::not_required(),
+        smoke_probe: HardwareSmokeProbe::not_required(),
     }
 }
 
@@ -802,11 +833,18 @@ fn cpu_capability() -> HardwareAccelerationCapability {
         accelerator: HardwareAcceleration::None,
         available: true,
         device: None,
-        reason: Some("cpu encode is always available".to_owned()),
+        reason: Some("static cpu transcode fixture is available".to_owned()),
         stage_capabilities: vec![
             HardwareStageCapability::static_available(HardwarePipelineStage::Decode, "software"),
             HardwareStageCapability::static_available(HardwarePipelineStage::Filter, "software"),
-            HardwareStageCapability::static_available(HardwarePipelineStage::Encode, "libx264"),
+            HardwareStageCapability::static_available(
+                HardwarePipelineStage::Encode,
+                CPU_HLS_VIDEO_ENCODER,
+            ),
+            HardwareStageCapability::static_available(
+                HardwarePipelineStage::Encode,
+                CPU_HLS_AUDIO_ENCODER,
+            ),
         ],
         encoder_discovery: HardwareEncoderDiscovery::not_required(),
         device_initialization: HardwareDeviceInitialization::not_required(),
@@ -853,13 +891,51 @@ fn missing_stage_reason(encoder: &str, stages: &[HardwareStageCapability]) -> St
     )
 }
 
+fn missing_cpu_stage_reason(stages: &[HardwareStageCapability]) -> String {
+    let missing = stages
+        .iter()
+        .find(|stage| stage.required && !stage.available);
+
+    let Some(stage) = missing else {
+        return "ffmpeg software pipeline for hls h264/aac is unavailable".to_owned();
+    };
+
+    let feature = stage.feature.as_deref().unwrap_or("unknown");
+    format!(
+        "ffmpeg software pipeline for hls h264/aac is unavailable because required {} capability {feature} is not listed",
+        stage.stage.as_str()
+    )
+}
+
+fn cpu_encoder_discovery(stages: &[HardwareStageCapability]) -> HardwareEncoderDiscovery {
+    let missing_encoder = stages.iter().find(|stage| {
+        stage.stage == HardwarePipelineStage::Encode && stage.required && !stage.available
+    });
+
+    if let Some(stage) = missing_encoder {
+        return HardwareEncoderDiscovery {
+            status: HardwareEncoderDiscoveryStatus::Missing,
+            encoder: stage.feature.clone(),
+            detail: Some(
+                "hls cpu transcode requires libx264 video and aac audio encoders".to_owned(),
+            ),
+        };
+    }
+
+    HardwareEncoderDiscovery {
+        status: HardwareEncoderDiscoveryStatus::Listed,
+        encoder: Some(format!("{CPU_HLS_VIDEO_ENCODER},{CPU_HLS_AUDIO_ENCODER}")),
+        detail: Some("hls cpu transcode requires libx264 video and aac audio encoders".to_owned()),
+    }
+}
+
 fn stage_capabilities_for_inventory(
     accelerator: HardwareAcceleration,
     encoder: &'static str,
     inventory: &FfmpegProbeInventory,
 ) -> Vec<HardwareStageCapability> {
     let encode = encoder_stage(inventory, encoder);
-    let bsf = optional_bitstream_filter_stage(inventory, "h264_mp4toannexb");
+    let bsf = optional_bitstream_filter_stage(inventory, H264_ANNEX_B_BITSTREAM_FILTER);
 
     match accelerator {
         HardwareAcceleration::None => vec![
