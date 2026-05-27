@@ -19,7 +19,7 @@ The design decision is:
 
 ## Next Task
 
-Run or continue `NRCT-040`.
+Run or continue `NRCT-050`.
 
 `NRCT-020` is complete. It locked the current gaps:
 
@@ -33,8 +33,13 @@ Run or continue `NRCT-040`.
 wire it into `NakoAppServices` yet. Wire it when `NRCT-040` or `NRCT-050`
 needs the service to issue command transport URLs.
 
-`NRCT-040` should add the typed Public Client renderer transport envelope and
-keep raw `payload_json` private.
+`NRCT-040` added the typed Public Client renderer transport envelope and kept
+raw `payload_json` private. Existing command mappings still set
+`transport: None`.
+
+`NRCT-050` should wire the renderer transport ticket service into app
+composition and renderer playback so Nako remote clients can receive real
+direct/remux/HLS transport URLs.
 
 ## Important Files
 

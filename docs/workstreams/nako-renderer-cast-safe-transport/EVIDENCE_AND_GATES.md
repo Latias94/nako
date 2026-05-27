@@ -93,6 +93,37 @@ Results:
 - format check passed.
 - diff check passed.
 
+### NRCT-040
+
+Completed on 2026-05-27.
+
+Evidence:
+
+- added typed Public Client renderer transport DTOs for transport mode, URL
+  kind, envelope, and URL entries;
+- attached optional `transport` to `RendererCommandDto` so both play responses
+  and renderer command polling can carry the same safe envelope;
+- kept raw `payload_json` private and left existing command mappings with
+  `transport: None` until NRCT-050 wires real URLs;
+- updated Public OpenAPI and regenerated TypeScript/Kotlin SDK package entries;
+- added protocol serialization and OpenAPI assertions for the safe envelope.
+
+Gates:
+
+```powershell
+cargo nextest run -p nako-client-protocol public --no-fail-fast
+cargo nextest run -p nako-api -E 'test(public_openapi) | test(sdk)' --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
+```
+
+Results:
+
+- `nako-client-protocol public`: 12 passed.
+- `nako-api public_openapi/sdk`: 17 passed, 44 skipped.
+- format check passed.
+- diff check passed.
+
 ## Gate Policy
 
 Use focused gates while developing, then broaden only when a task crosses API,

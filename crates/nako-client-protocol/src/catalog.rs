@@ -678,8 +678,41 @@ pub struct RendererCommandDto {
     pub playback_session_id: Option<String>,
     pub position_ms: Option<u64>,
     pub volume_percent: Option<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transport: Option<RendererCommandTransportDto>,
     pub created_at: String,
     pub updated_at: String,
+}
+
+public_string_value! {
+    pub enum RendererTransportMode {
+        Direct => "direct",
+        Remux => "remux",
+        Hls => "hls",
+    }
+}
+
+public_string_value! {
+    pub enum RendererTransportUrlKind {
+        Stream => "stream",
+        Playlist => "playlist",
+        SegmentBase => "segment_base",
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct RendererCommandTransportDto {
+    pub mode: RendererTransportMode,
+    pub expires_at: String,
+    pub urls: Vec<RendererCommandTransportUrlDto>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct RendererCommandTransportUrlDto {
+    pub kind: RendererTransportUrlKind,
+    pub url: String,
+    pub content_type: String,
+    pub supports_range_requests: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

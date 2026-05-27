@@ -91,7 +91,7 @@ git diff --check
 
 ### NRCT-040 - Add safe renderer transport DTO contract
 
-Status: In progress
+Status: Complete
 Owner: current agent or worker
 Depends on: NRCT-030
 
@@ -123,7 +123,7 @@ git diff --check
 
 ### NRCT-050 - Enable Nako remote-client remux/HLS renderer playback
 
-Status: Pending
+Status: In progress
 Owner: current agent or worker
 Depends on: NRCT-040
 

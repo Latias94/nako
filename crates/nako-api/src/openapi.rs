@@ -1332,9 +1332,23 @@ fn schemas() -> Value {
             "playback_session_id": nullable_uuid_schema(),
             "position_ms": json!({"type": "integer", "format": "int64", "nullable": true}),
             "volume_percent": json!({"type": "integer", "format": "int32", "nullable": true, "minimum": 0, "maximum": 100}),
+            "transport": nullable_ref("RendererCommandTransportDto"),
             "created_at": string_schema(),
             "updated_at": string_schema()
         })),
+        "RendererCommandTransportDto": object_schema(&["mode", "expires_at", "urls"], json!({
+            "mode": schema_ref("RendererTransportMode"),
+            "expires_at": string_schema(),
+            "urls": array_schema(schema_ref("RendererCommandTransportUrlDto"))
+        })),
+        "RendererCommandTransportUrlDto": object_schema(&["kind", "url", "content_type", "supports_range_requests"], json!({
+            "kind": schema_ref("RendererTransportUrlKind"),
+            "url": string_schema(),
+            "content_type": string_schema(),
+            "supports_range_requests": boolean_schema()
+        })),
+        "RendererTransportMode": enum_schema(&["direct", "remux", "hls"]),
+        "RendererTransportUrlKind": enum_schema(&["stream", "playlist", "segment_base"]),
         "RendererCommandCompletionRequest": object_schema(&["state"], json!({
             "state": schema_ref("ClientRendererCommandState"),
             "failure_message": nullable_string_schema()
@@ -1854,6 +1868,7 @@ mod tests {
         assert!(schemas.contains_key("RendererRegistrationRequest"));
         assert!(schemas.contains_key("RendererSessionDto"));
         assert!(schemas.contains_key("RendererCommandDto"));
+        assert!(schemas.contains_key("RendererCommandTransportDto"));
         assert!(schemas.contains_key("RendererPlayCommandRequest"));
         assert_eq!(
             document["paths"]["/renderers"]["post"]["requestBody"]["content"]["application/json"]["schema"]
@@ -1879,6 +1894,16 @@ mod tests {
             document["components"]["schemas"]["RendererCommandDto"]["properties"]["state"]["$ref"],
             "#/components/schemas/ClientRendererCommandState"
         );
+        assert_eq!(
+            document["components"]["schemas"]["RendererCommandDto"]["properties"]["transport"]["allOf"]
+                [0]["$ref"],
+            "#/components/schemas/RendererCommandTransportDto"
+        );
+        assert_eq!(
+            document["components"]["schemas"]["RendererCommandTransportDto"]["properties"]["urls"]
+                ["items"]["$ref"],
+            "#/components/schemas/RendererCommandTransportUrlDto"
+        );
 
         let renderer_contract = json!({
             "paths": {
@@ -1893,6 +1918,10 @@ mod tests {
                 "RendererHeartbeatRequest": document["components"]["schemas"]["RendererHeartbeatRequest"].clone(),
                 "RendererSessionDto": document["components"]["schemas"]["RendererSessionDto"].clone(),
                 "RendererCommandDto": document["components"]["schemas"]["RendererCommandDto"].clone(),
+                "RendererCommandTransportDto": document["components"]["schemas"]["RendererCommandTransportDto"].clone(),
+                "RendererCommandTransportUrlDto": document["components"]["schemas"]["RendererCommandTransportUrlDto"].clone(),
+                "RendererTransportMode": document["components"]["schemas"]["RendererTransportMode"].clone(),
+                "RendererTransportUrlKind": document["components"]["schemas"]["RendererTransportUrlKind"].clone(),
                 "RendererCommandCompletionRequest": document["components"]["schemas"]["RendererCommandCompletionRequest"].clone(),
                 "RendererPlayCommandRequest": document["components"]["schemas"]["RendererPlayCommandRequest"].clone(),
                 "RendererPlayCommandResponse": document["components"]["schemas"]["RendererPlayCommandResponse"].clone()

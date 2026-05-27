@@ -1999,6 +1999,7 @@ public data class RendererCommandDto(
     @SerialName("source_id")
     public val sourceId: String? = null,
     public val state: ClientRendererCommandState,
+    public val transport: RendererCommandTransportDto? = null,
     @SerialName("updated_at")
     public val updatedAt: String,
     @SerialName("volume_percent")
@@ -2013,6 +2014,24 @@ public data class RendererCommandPollResponse(
 @Serializable
 public data class RendererCommandResponse(
     public val command: RendererCommandDto,
+)
+
+@Serializable
+public data class RendererCommandTransportDto(
+    @SerialName("expires_at")
+    public val expiresAt: String,
+    public val mode: RendererTransportMode,
+    public val urls: List<RendererCommandTransportUrlDto>,
+)
+
+@Serializable
+public data class RendererCommandTransportUrlDto(
+    @SerialName("content_type")
+    public val contentType: String,
+    public val kind: RendererTransportUrlKind,
+    @SerialName("supports_range_requests")
+    public val supportsRangeRequests: Boolean,
+    public val url: String,
 )
 
 @Serializable
@@ -2094,6 +2113,48 @@ public data class RendererSessionsResponse(
     public val page: PageInfo,
     public val renderers: List<RendererSessionDto>,
 )
+
+@JvmInline
+@Serializable
+public value class RendererTransportMode(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val Direct: RendererTransportMode = RendererTransportMode("direct")
+        public val Remux: RendererTransportMode = RendererTransportMode("remux")
+        public val Hls: RendererTransportMode = RendererTransportMode("hls")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "direct",
+            "remux",
+            "hls",
+        )
+    }
+}
+
+@JvmInline
+@Serializable
+public value class RendererTransportUrlKind(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val Stream: RendererTransportUrlKind = RendererTransportUrlKind("stream")
+        public val Playlist: RendererTransportUrlKind = RendererTransportUrlKind("playlist")
+        public val SegmentBase: RendererTransportUrlKind = RendererTransportUrlKind("segment_base")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "stream",
+            "playlist",
+            "segment_base",
+        )
+    }
+}
 
 @Serializable
 public data class SearchItemHit(

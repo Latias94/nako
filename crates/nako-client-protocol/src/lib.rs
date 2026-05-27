@@ -806,6 +806,41 @@ mod tests {
     }
 
     #[test]
+    fn public_renderer_command_transport_uses_typed_safe_envelope() {
+        let command = RendererCommandDto {
+            id: "command-1".to_owned(),
+            renderer_session_id: "renderer-1".to_owned(),
+            command: ClientRendererControlCommand::Play,
+            state: ClientRendererCommandState::Queued,
+            item_id: Some("item-1".to_owned()),
+            source_id: Some("source-1".to_owned()),
+            playback_session_id: Some("playback-1".to_owned()),
+            position_ms: Some(1_000),
+            volume_percent: None,
+            transport: Some(RendererCommandTransportDto {
+                mode: RendererTransportMode::Hls,
+                expires_at: "2026-05-27T12:00:00Z".to_owned(),
+                urls: vec![RendererCommandTransportUrlDto {
+                    kind: RendererTransportUrlKind::Playlist,
+                    url: "/sources/source-1/stream/hls/playlist.m3u8?ticket=opaque".to_owned(),
+                    content_type: "application/vnd.apple.mpegurl".to_owned(),
+                    supports_range_requests: false,
+                }],
+            }),
+            created_at: "2026-05-27T11:00:00Z".to_owned(),
+            updated_at: "2026-05-27T11:00:00Z".to_owned(),
+        };
+
+        let value = serde_json::to_value(command).unwrap();
+        assert_eq!(value["transport"]["mode"], "hls");
+        assert_eq!(value["transport"]["urls"][0]["kind"], "playlist");
+        assert!(value.get("payload_json").is_none());
+        assert!(value.get("bearer_token").is_none());
+        assert!(value.get("source_locator").is_none());
+        assert!(value.get("transcode_session_id").is_none());
+    }
+
+    #[test]
     fn public_wire_values_preserve_unknown_additive_strings() {
         let response = serde_json::from_value::<PlaybackDecisionResponse>(serde_json::json!({
             "source": {

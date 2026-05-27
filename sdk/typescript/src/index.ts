@@ -518,6 +518,7 @@ export interface RendererCommandDto {
   renderer_session_id: string;
   source_id?: string | null;
   state: ClientRendererCommandState;
+  transport?: RendererCommandTransportDto | null;
   updated_at: string;
   volume_percent?: number | null;
 }
@@ -528,6 +529,19 @@ export interface RendererCommandPollResponse {
 
 export interface RendererCommandResponse {
   command: RendererCommandDto;
+}
+
+export interface RendererCommandTransportDto {
+  expires_at: string;
+  mode: RendererTransportMode;
+  urls: Array<RendererCommandTransportUrlDto>;
+}
+
+export interface RendererCommandTransportUrlDto {
+  content_type: string;
+  kind: RendererTransportUrlKind;
+  supports_range_requests: boolean;
+  url: string;
 }
 
 export interface RendererHeartbeatRequest {
@@ -580,6 +594,10 @@ export interface RendererSessionsResponse {
   page: PageInfo;
   renderers: Array<RendererSessionDto>;
 }
+
+export type RendererTransportMode = "direct" | "remux" | "hls";
+
+export type RendererTransportUrlKind = "stream" | "playlist" | "segment_base";
 
 export interface SearchItemHit {
   item: MediaItemDto;

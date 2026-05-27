@@ -48,12 +48,13 @@ pub use nako_client_protocol::{
     PersonResponse, PlaybackDecisionResponse, PlaybackSessionDto, PlaybackSessionHeartbeatRequest,
     PlaybackSessionResponse, PublicImageRefDto, RedeemInvitationRequest,
     RendererCommandCompletionRequest, RendererCommandDto, RendererCommandPollResponse,
-    RendererCommandResponse, RendererHeartbeatRequest, RendererPlayCommandRequest,
-    RendererPlayCommandResponse, RendererRegistrationRequest, RendererSessionDto,
-    RendererSessionResponse, RendererSessionsResponse, SearchItemHit, SearchResponse,
-    SetWatchedStateRequest, SourceProbeResponse, StudioRefDto, TagDto, TagItemsResponse,
-    TagsResponse, TranscodeSessionDto, TranscodeSessionResponse, UpdatePlaybackProgressRequest,
-    UserPlaybackStateDto, UserPlaybackStateResponse, UserSessionDto,
+    RendererCommandResponse, RendererCommandTransportDto, RendererCommandTransportUrlDto,
+    RendererHeartbeatRequest, RendererPlayCommandRequest, RendererPlayCommandResponse,
+    RendererRegistrationRequest, RendererSessionDto, RendererSessionResponse,
+    RendererSessionsResponse, RendererTransportMode, RendererTransportUrlKind, SearchItemHit,
+    SearchResponse, SetWatchedStateRequest, SourceProbeResponse, StudioRefDto, TagDto,
+    TagItemsResponse, TagsResponse, TranscodeSessionDto, TranscodeSessionResponse,
+    UpdatePlaybackProgressRequest, UserPlaybackStateDto, UserPlaybackStateResponse, UserSessionDto,
 };
 
 #[must_use]
@@ -388,6 +389,7 @@ pub fn renderer_command_to_dto(command: RendererCommandRecord) -> RendererComman
         playback_session_id: command.playback_session_id.map(|id| id.to_string()),
         position_ms: command.position_ms,
         volume_percent: command.volume_percent,
+        transport: None,
         created_at: command.created_at,
         updated_at: command.updated_at,
     }
