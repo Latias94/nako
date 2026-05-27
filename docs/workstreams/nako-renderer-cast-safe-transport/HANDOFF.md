@@ -19,7 +19,7 @@ The design decision is:
 
 ## Next Task
 
-Run or continue `NRCT-030`.
+Run or continue `NRCT-040`.
 
 `NRCT-020` is complete. It locked the current gaps:
 
@@ -29,7 +29,12 @@ Run or continue `NRCT-030`.
 - browser playback ticket responses do not carry Renderer Session, Playback
   Session, command, network scope, or cast-ticket transport scope.
 
-`NRCT-030` should add the renderer transport ticket service.
+`NRCT-030` added the renderer transport ticket service but intentionally did not
+wire it into `NakoAppServices` yet. Wire it when `NRCT-040` or `NRCT-050`
+needs the service to issue command transport URLs.
+
+`NRCT-040` should add the typed Public Client renderer transport envelope and
+keep raw `payload_json` private.
 
 ## Important Files
 

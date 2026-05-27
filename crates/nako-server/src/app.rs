@@ -43,6 +43,7 @@ mod nfo;
 pub(crate) mod playback;
 mod playback_ticket;
 pub(crate) mod renderer;
+mod renderer_transport_ticket;
 mod runtime;
 mod staging;
 mod startup;

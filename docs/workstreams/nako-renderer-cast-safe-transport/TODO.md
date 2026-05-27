@@ -60,7 +60,7 @@ git diff --check
 
 ### NRCT-030 - Add renderer transport ticket service
 
-Status: In progress
+Status: Complete
 Owner: current agent or worker
 Depends on: NRCT-020
 
@@ -91,7 +91,7 @@ git diff --check
 
 ### NRCT-040 - Add safe renderer transport DTO contract
 
-Status: Pending
+Status: In progress
 Owner: current agent or worker
 Depends on: NRCT-030
 

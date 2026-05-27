@@ -62,6 +62,37 @@ Results:
 - format check passed.
 - diff check passed.
 
+### NRCT-030
+
+Completed on 2026-05-27.
+
+Evidence:
+
+- added `RendererTransportTicketService` as a focused server app module;
+- added issue/validate commands with scope binding for principal, Renderer
+  Session, Playback Session, Media Source, playback mode, network scope, and
+  expiry;
+- stored only hashed ticket tokens and kept issued-ticket Debug output
+  redaction-safe;
+- validated expiry cleanup and scope mismatch failures;
+- intentionally did not inject the service into `NakoAppServices` until the
+  command transport envelope and playback flow need it, avoiding unused
+  composition state.
+
+Gates:
+
+```powershell
+cargo nextest run -p nako-server renderer_transport_ticket --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
+```
+
+Results:
+
+- renderer transport ticket tests: 2 passed, 368 skipped.
+- format check passed.
+- diff check passed.
+
 ## Gate Policy
 
 Use focused gates while developing, then broaden only when a task crosses API,
