@@ -654,7 +654,7 @@ async fn hls_source_request_identity_changes_when_source_revision_changes() {
 }
 
 #[tokio::test]
-async fn hls_service_rejects_unavailable_gpu_when_fallback_is_fail() {
+async fn hls_service_degrades_unavailable_gpu_when_fallback_is_fail() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_cpu_only_hls_ffmpeg_script(script_root.path(), "hls_gpu_required");
     let temp = tempfile::tempdir().unwrap();
@@ -698,10 +698,18 @@ async fn hls_service_rejects_unavailable_gpu_when_fallback_is_fail() {
     };
     let store = NakoDatabase::connect_in_memory().await.unwrap();
 
-    let err = NakoApp::new_with_store(config, store).await.unwrap_err();
+    let app = NakoApp::new_with_store(config, store).await.unwrap();
+    let diagnostics = app.playback().runtime_diagnostics();
 
-    assert!(matches!(err, NakoError::Unsupported(_)));
-    assert!(err.to_string().contains("hardware pipeline"));
+    assert_eq!(
+        diagnostics.hls_pipeline_readiness.status,
+        nako_transcode::TranscodePipelineReadinessStatus::Unavailable
+    );
+    assert_eq!(
+        diagnostics.hls_pipeline_readiness.reason,
+        nako_transcode::TranscodePipelineReadinessReason::RequestedPipelineUnavailableFailPolicy
+    );
+    assert_eq!(diagnostics.selected_hls_slots, 0);
 }
 
 #[tokio::test]

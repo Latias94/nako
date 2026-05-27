@@ -2009,8 +2009,8 @@ async fn admin_playback_runtime_diagnostics(
     let policy = AdminPlaybackPolicyDiagnostics::ready();
     let readiness = playback_readiness_diagnostics(
         playback.runtime_inventory.has_probe_error,
-        playback.hls_pipeline_plan.readiness,
-        playback.hls_pipeline_plan.fallback_used(),
+        playback.hls_pipeline_readiness,
+        playback.hls_pipeline_readiness.fallback_used,
         playback.transcode_budget,
         transcode_budget,
         &remote_playback,
@@ -2032,7 +2032,7 @@ async fn admin_playback_runtime_diagnostics(
         },
         hardware: AdminPlaybackHardwareDiagnostics {
             policy: playback.hardware_policy,
-            pipeline: playback.hls_pipeline_plan.readiness,
+            pipeline: playback.hls_pipeline_readiness,
             capabilities,
         },
         transcode: AdminPlaybackTranscodeBudgetDiagnostics {
@@ -2399,7 +2399,14 @@ fn playback_readiness_diagnostics(
             )
         },
         AdminPlaybackReadinessCheck::from_hardware(hardware_readiness),
-        if fallback_used {
+        if hardware_readiness.status
+            == nako_transcode::TranscodePipelineReadinessStatus::Unavailable
+        {
+            AdminPlaybackReadinessCheck::unavailable(
+                AdminPlaybackReadinessCheckName::SelectedFallback,
+                hardware_readiness.reason.into(),
+            )
+        } else if fallback_used {
             AdminPlaybackReadinessCheck::degraded(
                 AdminPlaybackReadinessCheckName::SelectedFallback,
                 AdminPlaybackReadinessReason::CpuFallbackActive,

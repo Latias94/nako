@@ -10,9 +10,10 @@ use nako_transcode::{
     FfmpegOverwritePolicy, HardwareAccelerationDetector, HardwareAccelerationReport, HlsRequest,
     TranscodeEngineAdapter, TranscodeEngineStartCommand, TranscodeEngineStartOutcome,
     TranscodeExecutionPolicy, TranscodeOutputConstraints, TranscodePipelinePlan,
-    TranscodePipelinePlanner, TranscodePipelineRequest, TranscodeRequestIdentity,
-    TranscodeRuntimeGuard, TranscodeRuntimeLimits, TranscodeSessionManager,
-    TranscodeTrackSelection,
+    TranscodePipelinePlanner, TranscodePipelineReadiness, TranscodePipelineRequest,
+    TranscodeRequestIdentity, TranscodeResourceBudget, TranscodeRuntimeGuard,
+    TranscodeRuntimeLimits, TranscodeSessionManager, TranscodeTrackSelection,
+    transcode_pipeline_readiness_without_selection,
 };
 use tokio::sync::Mutex;
 
@@ -30,7 +31,8 @@ pub(super) struct HlsAppService {
     engine: FfmpegHlsRunner,
     hardware_policy: nako_transcode::HardwareAccelerationPolicy,
     pub(super) hardware_report: HardwareAccelerationReport,
-    pub(super) pipeline_plan: TranscodePipelinePlan,
+    pipeline_plan: Option<TranscodePipelinePlan>,
+    pipeline_readiness: TranscodePipelineReadiness,
     pipeline_planner: TranscodePipelinePlanner,
     cancellations: PlaybackSessionCancellationRegistry,
     in_flight: Arc<Mutex<HashSet<HlsRequestKey>>>,
@@ -71,11 +73,16 @@ impl HlsAppService {
                 TranscodeOutputConstraints::default(),
             ),
             &hardware_report,
-        )?;
+        );
+        let pipeline_readiness = pipeline_plan.as_ref().map_or_else(
+            |_| transcode_pipeline_readiness_without_selection(hardware_policy, &hardware_report),
+            |plan| plan.readiness,
+        );
         let transcode_budget = config.transcode.resource_budget();
         let guard = TranscodeRuntimeGuard::new(TranscodeRuntimeLimits {
-            max_concurrent_sessions: transcode_budget
-                .slots_for(pipeline_plan.selected_acceleration()),
+            max_concurrent_sessions: pipeline_plan.as_ref().map_or(1, |plan| {
+                transcode_budget.slots_for(plan.selected_acceleration())
+            }),
             timeout_ms: config.remux_timeout_ms,
         });
 
@@ -84,7 +91,8 @@ impl HlsAppService {
             engine: FfmpegHlsRunner::new(guard),
             hardware_policy,
             hardware_report,
-            pipeline_plan,
+            pipeline_plan: pipeline_plan.ok(),
+            pipeline_readiness,
             pipeline_planner,
             cancellations,
             in_flight: Arc::new(Mutex::new(HashSet::new())),
@@ -107,6 +115,17 @@ impl HlsAppService {
                 &self.hardware_report,
             )?
             .execution_policy())
+    }
+
+    #[must_use]
+    pub(super) const fn pipeline_readiness(&self) -> TranscodePipelineReadiness {
+        self.pipeline_readiness
+    }
+
+    #[must_use]
+    pub(super) fn selected_hls_slots(&self, budget: TranscodeResourceBudget) -> usize {
+        self.pipeline_plan
+            .map_or(0, |plan| budget.slots_for(plan.selected_acceleration()))
     }
 
     pub(super) async fn run(

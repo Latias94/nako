@@ -20,7 +20,7 @@ use nako_playback::{
 use nako_streaming::{DirectPlayRangeRequest, DirectPlayResponsePlan};
 use nako_transcode::{
     HardwareAccelerationPolicy, HardwareAccelerationReport, RemuxContainer,
-    TranscodeOutputConstraints, TranscodePipelinePlan, TranscodeRequestIdentity,
+    TranscodeOutputConstraints, TranscodePipelineReadiness, TranscodeRequestIdentity,
     TranscodeResourceBudget, TranscodeRuntimeInventory, TranscodeSourceIdentity,
 };
 use nako_vfs::StorageUri;
@@ -530,7 +530,7 @@ pub(crate) struct PlaybackRuntimeDiagnostics {
     pub runtime_inventory: TranscodeRuntimeInventory,
     pub hardware_policy: HardwareAccelerationPolicy,
     pub hardware_report: HardwareAccelerationReport,
-    pub hls_pipeline_plan: TranscodePipelinePlan,
+    pub hls_pipeline_readiness: TranscodePipelineReadiness,
     pub transcode_budget: TranscodeResourceBudget,
     pub selected_hls_slots: usize,
     pub remux_concurrency: usize,
@@ -1841,10 +1841,9 @@ impl PlaybackAppService {
             runtime_inventory: TranscodeRuntimeInventory::ffmpeg_cli(&self.hls.hardware_report),
             hardware_policy,
             hardware_report: self.hls.hardware_report.clone(),
-            hls_pipeline_plan: self.hls.pipeline_plan,
+            hls_pipeline_readiness: self.hls.pipeline_readiness(),
             transcode_budget,
-            selected_hls_slots: transcode_budget
-                .slots_for(self.hls.pipeline_plan.selected_acceleration()),
+            selected_hls_slots: self.hls.selected_hls_slots(transcode_budget),
             remux_concurrency: self.config.remux_concurrency.max(1),
             remux_timeout_ms: self.config.remux_timeout_ms.max(1),
             remote_stream_concurrency: self.config.playback.remote_stream_concurrency.max(1),
@@ -2187,9 +2186,45 @@ mod tests {
         let service = HlsAppService::new_with_hardware_detector(&config, &detector).unwrap();
 
         assert_eq!(
-            service.pipeline_plan.selected_acceleration(),
+            service.pipeline_readiness().selected,
             HardwareAcceleration::Nvenc
         );
-        assert!(!service.pipeline_plan.fallback_used());
+        assert!(!service.pipeline_readiness().fallback_used);
+        assert_eq!(
+            service.selected_hls_slots(config.transcode.resource_budget()),
+            2
+        );
+    }
+
+    #[test]
+    fn hls_service_rejects_execution_policy_when_startup_pipeline_is_unavailable() {
+        let config = test_config(TranscodeConfig {
+            hardware_acceleration: HardwareAcceleration::Nvenc,
+            hardware_fallback: HardwareAccelerationFallback::Fail,
+            cpu_concurrency: 1,
+            gpu_concurrency: 2,
+        });
+        let detector =
+            StaticHardwareAccelerationDetector::new(HardwareAccelerationReport::with_available([
+                HardwareAcceleration::None,
+            ]));
+        let service = HlsAppService::new_with_hardware_detector(&config, &detector).unwrap();
+
+        let err = service
+            .execution_policy_for_hls(
+                nako_transcode::TranscodeTrackSelection::default(),
+                TranscodeOutputConstraints::default(),
+            )
+            .unwrap_err();
+
+        assert_eq!(
+            service.pipeline_readiness().status,
+            nako_transcode::TranscodePipelineReadinessStatus::Unavailable
+        );
+        assert_eq!(
+            service.selected_hls_slots(config.transcode.resource_budget()),
+            0
+        );
+        assert!(err.to_string().contains("hardware pipeline"));
     }
 }

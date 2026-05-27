@@ -3962,6 +3962,128 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
 }
 
 #[tokio::test]
+async fn admin_v1_playback_runtime_reports_unavailable_cpu_pipeline_without_blocking_startup() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let ffmpeg_path =
+        fake_ffmpeg_encoder_script(temp.path(), "runtime-missing-cpu-aac", &[" V..... libx264"]);
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: ffmpeg_path.clone(),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 3,
+        webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        remux_timeout_ms: 90_000,
+        remux_staging_root: temp.path().join("secret-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig {
+            hardware_acceleration: nako_transcode::HardwareAcceleration::None,
+            hardware_fallback: nako_transcode::HardwareAccelerationFallback::Cpu,
+            cpu_concurrency: 2,
+            gpu_concurrency: 4,
+        },
+        staging: StagingConfig {
+            max_bytes: 123_456,
+            retention_ms: 654_321,
+            cleanup_on_startup: true,
+        },
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store).await.unwrap();
+    let router = build_router(app);
+
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/playback/runtime")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let diagnostics: AdminPlaybackRuntimeDiagnosticsResponse = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(
+        diagnostics.readiness.status,
+        AdminPlaybackReadinessStatus::Unavailable
+    );
+    assert_eq!(
+        diagnostics.readiness.reason,
+        AdminPlaybackReadinessReason::SoftwarePipelineUnavailable
+    );
+    assert!(diagnostics.readiness.checks.iter().any(|check| check.name
+        == AdminPlaybackReadinessCheckName::HardwareAcceleration
+        && check.reason == AdminPlaybackReadinessReason::SoftwarePipelineUnavailable));
+    assert!(diagnostics.readiness.checks.iter().any(|check| check.name
+        == AdminPlaybackReadinessCheckName::SelectedFallback
+        && check.status == AdminPlaybackReadinessStatus::Unavailable
+        && check.reason == AdminPlaybackReadinessReason::SoftwarePipelineUnavailable));
+    assert_eq!(
+        diagnostics.hardware.pipeline.status,
+        nako_transcode::TranscodePipelineReadinessStatus::Unavailable
+    );
+    assert_eq!(
+        diagnostics.hardware.pipeline.reason,
+        nako_transcode::TranscodePipelineReadinessReason::SoftwarePipelineUnavailable
+    );
+    assert_eq!(
+        diagnostics.hardware.pipeline.selected,
+        nako_transcode::HardwareAcceleration::None
+    );
+    assert!(!diagnostics.hardware.pipeline.fallback_used);
+    assert_eq!(diagnostics.transcode.selected_hls_slots, 0);
+
+    let cpu_capability = diagnostics
+        .hardware
+        .capabilities
+        .iter()
+        .find(|capability| capability.accelerator == nako_transcode::HardwareAcceleration::None)
+        .unwrap();
+    assert!(!cpu_capability.available);
+    assert!(cpu_capability.stage_capabilities.iter().any(|stage| {
+        stage.stage == nako_transcode::HardwarePipelineStage::Encode
+            && stage.required
+            && !stage.available
+            && stage.feature.as_deref() == Some("aac")
+    }));
+
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains(&ffmpeg_path.display().to_string()));
+    assert!(!body.contains("secret-cache"));
+    assert!(!body.contains("ffmpeg_path"));
+    assert!(!body.contains("remux_staging_root"));
+}
+
+#[tokio::test]
 async fn admin_v1_playback_runtime_reports_typed_readiness_for_cpu_fallback() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
