@@ -1,3 +1,4 @@
+mod engine;
 mod ffmpeg;
 mod hardware;
 mod hls;
@@ -9,6 +10,7 @@ mod runner_util;
 mod runtime;
 mod session;
 
+pub use engine::*;
 pub use ffmpeg::*;
 pub use hardware::*;
 pub use hls::*;
@@ -507,6 +509,57 @@ mod tests {
     }
 
     #[test]
+    fn transcode_runtime_inventory_summarizes_ffmpeg_probe_without_paths() {
+        let report = report_from_ffmpeg_encoders(
+            r#"
+ V..... libx264
+ V..... h264_nvenc
+"#,
+        );
+
+        let inventory = TranscodeRuntimeInventory::ffmpeg_cli(&report);
+
+        assert_eq!(inventory.engine, TranscodeEngineAdapterKind::FfmpegCli);
+        assert_eq!(
+            inventory.probe_status,
+            TranscodeRuntimeInventoryStatus::Ready
+        );
+        assert!(!inventory.has_probe_error);
+        assert_eq!(inventory.hardware_capability_count, 4);
+        assert_eq!(inventory.available_gpu_capabilities, 1);
+    }
+
+    #[test]
+    fn transcode_runtime_inventory_degrades_on_probe_error() {
+        let report = HardwareAccelerationReport {
+            capabilities: vec![HardwareAccelerationCapability {
+                accelerator: HardwareAcceleration::Vaapi,
+                available: false,
+                device: None,
+                reason: Some("ffmpeg hardware capability probe failed".to_owned()),
+                encoder_discovery: HardwareEncoderDiscovery::probe_error(
+                    "failed to run ffmpeg hardware capability probe: denied",
+                ),
+                device_initialization: HardwareDeviceInitialization::not_run(
+                    HardwareAcceleration::Vaapi,
+                ),
+                smoke_probe: HardwareSmokeProbe::not_run(HardwareAcceleration::Vaapi),
+            }],
+        };
+
+        let inventory = TranscodeRuntimeInventory::ffmpeg_cli(&report);
+
+        assert_eq!(inventory.engine, TranscodeEngineAdapterKind::FfmpegCli);
+        assert_eq!(
+            inventory.probe_status,
+            TranscodeRuntimeInventoryStatus::Degraded
+        );
+        assert!(inventory.has_probe_error);
+        assert_eq!(inventory.hardware_capability_count, 1);
+        assert_eq!(inventory.available_gpu_capabilities, 0);
+    }
+
+    #[test]
     fn ffmpeg_encoder_report_records_safe_evidence_and_operator_smoke_checks() {
         let report = report_from_ffmpeg_encoders(" V..... h264_nvenc\n");
         let nvenc = report.capability_for(HardwareAcceleration::Nvenc).unwrap();
@@ -877,7 +930,7 @@ mod tests {
         );
         let output_path = temp.path().join("output.mp4");
         let (mut manager, session) = planned_remux_session(&script, &output_path);
-        let runner = FfmpegRemuxRunner::new(RemuxRuntimeGuard::new(RemuxRuntimeLimits {
+        let runner = FfmpegRemuxRunner::new(TranscodeRuntimeGuard::new(TranscodeRuntimeLimits {
             max_concurrent_sessions: 1,
             timeout_ms: 5_000,
         }));
@@ -903,6 +956,54 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn ffmpeg_remux_engine_adapter_returns_typed_artifact_outcome() {
+        let temp = tempfile::tempdir().unwrap();
+        let script = fake_ffmpeg_script(
+            temp.path(),
+            "success",
+            &["printf remuxed > \"$out\"", "exit 0"],
+        );
+        let output_path = temp.path().join("output.mp4");
+        let (mut manager, session) = planned_remux_session(&script, &output_path);
+        let engine = FfmpegRemuxRunner::new(TranscodeRuntimeGuard::new(TranscodeRuntimeLimits {
+            max_concurrent_sessions: 1,
+            timeout_ms: 5_000,
+        }));
+
+        let outcome = engine
+            .start(
+                &mut manager,
+                TranscodeEngineStartCommand {
+                    session_id: session.id,
+                    cancel: CancellationToken::new(),
+                },
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            outcome,
+            TranscodeEngineStartOutcome::Finished {
+                session_id: session.id,
+                artifact_kind: TranscodeEngineArtifactKind::RemuxFile,
+                output_path: output_path.clone()
+            }
+        );
+        assert_eq!(
+            engine.progress(&manager, session.id).unwrap(),
+            TranscodeEngineProgress {
+                session_id: session.id,
+                adapter_kind: TranscodeEngineAdapterKind::FfmpegCli,
+                artifact_kind: TranscodeEngineArtifactKind::RemuxFile,
+                state: TranscodeSessionState::Finished,
+                output_path: output_path.clone(),
+                failure_message: None
+            }
+        );
+        assert_eq!(fs::read_to_string(&output_path).unwrap(), "remuxed");
+    }
+
+    #[tokio::test]
     async fn remux_runner_cleans_temp_output_on_failure() {
         let temp = tempfile::tempdir().unwrap();
         let script = fake_ffmpeg_script(
@@ -912,7 +1013,7 @@ mod tests {
         );
         let output_path = temp.path().join("output.mp4");
         let (mut manager, session) = planned_remux_session(&script, &output_path);
-        let runner = FfmpegRemuxRunner::new(RemuxRuntimeGuard::new(RemuxRuntimeLimits {
+        let runner = FfmpegRemuxRunner::new(TranscodeRuntimeGuard::new(TranscodeRuntimeLimits {
             max_concurrent_sessions: 1,
             timeout_ms: 5_000,
         }));
@@ -940,7 +1041,7 @@ mod tests {
         let segment_pattern = output_dir.join("segment_%05d.ts");
         let (mut manager, session) =
             planned_hls_session(&script, &output_dir, &playlist_path, &segment_pattern);
-        let runner = FfmpegHlsRunner::new(RemuxRuntimeGuard::new(RemuxRuntimeLimits {
+        let runner = FfmpegHlsRunner::new(TranscodeRuntimeGuard::new(TranscodeRuntimeLimits {
             max_concurrent_sessions: 1,
             timeout_ms: 5_000,
         }));
@@ -985,7 +1086,7 @@ mod tests {
         let (mut manager, session) = planned_remux_session(&script, &output_path);
         let cancel = CancellationToken::new();
         let cancel_handle = cancel.clone();
-        let runner = FfmpegRemuxRunner::new(RemuxRuntimeGuard::new(RemuxRuntimeLimits {
+        let runner = FfmpegRemuxRunner::new(TranscodeRuntimeGuard::new(TranscodeRuntimeLimits {
             max_concurrent_sessions: 1,
             timeout_ms: 5_000,
         }));
@@ -1022,7 +1123,7 @@ mod tests {
         );
         let output_path = temp.path().join("output.mp4");
         let (mut manager, session) = planned_remux_session(&script, &output_path);
-        let runner = FfmpegRemuxRunner::new(RemuxRuntimeGuard::new(RemuxRuntimeLimits {
+        let runner = FfmpegRemuxRunner::new(TranscodeRuntimeGuard::new(TranscodeRuntimeLimits {
             max_concurrent_sessions: 1,
             timeout_ms: 100,
         }));
@@ -1043,7 +1144,7 @@ mod tests {
 
     #[tokio::test]
     async fn remux_runtime_guard_bounds_concurrent_sessions() {
-        let guard = RemuxRuntimeGuard::new(RemuxRuntimeLimits {
+        let guard = TranscodeRuntimeGuard::new(TranscodeRuntimeLimits {
             max_concurrent_sessions: 1,
             timeout_ms: 1_000,
         });

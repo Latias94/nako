@@ -13,13 +13,63 @@ use tokio::{
     time,
 };
 
+use super::{
+    HardwareAccelerationReport, HardwareEncoderDiscoveryStatus, TranscodeEngineAdapterKind,
+};
+
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct RemuxRuntimeLimits {
+#[serde(rename_all = "snake_case")]
+pub enum TranscodeRuntimeInventoryStatus {
+    Ready,
+    Degraded,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct TranscodeRuntimeInventory {
+    pub engine: TranscodeEngineAdapterKind,
+    pub probe_status: TranscodeRuntimeInventoryStatus,
+    pub has_probe_error: bool,
+    pub hardware_capability_count: u32,
+    pub available_gpu_capabilities: u32,
+}
+
+impl TranscodeRuntimeInventory {
+    #[must_use]
+    pub fn ffmpeg_cli(report: &HardwareAccelerationReport) -> Self {
+        let has_probe_error = report.capabilities.iter().any(|capability| {
+            capability.encoder_discovery.status == HardwareEncoderDiscoveryStatus::ProbeError
+        });
+        let available_gpu_capabilities = report
+            .capabilities
+            .iter()
+            .filter(|capability| capability.accelerator.is_gpu() && capability.available)
+            .count();
+
+        Self {
+            engine: TranscodeEngineAdapterKind::FfmpegCli,
+            probe_status: if has_probe_error {
+                TranscodeRuntimeInventoryStatus::Degraded
+            } else {
+                TranscodeRuntimeInventoryStatus::Ready
+            },
+            has_probe_error,
+            hardware_capability_count: usize_to_u32(report.capabilities.len()),
+            available_gpu_capabilities: usize_to_u32(available_gpu_capabilities),
+        }
+    }
+}
+
+fn usize_to_u32(value: usize) -> u32 {
+    u32::try_from(value).unwrap_or(u32::MAX)
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct TranscodeRuntimeLimits {
     pub max_concurrent_sessions: usize,
     pub timeout_ms: u64,
 }
 
-impl Default for RemuxRuntimeLimits {
+impl Default for TranscodeRuntimeLimits {
     fn default() -> Self {
         Self {
             max_concurrent_sessions: 1,
@@ -28,7 +78,7 @@ impl Default for RemuxRuntimeLimits {
     }
 }
 
-impl RemuxRuntimeLimits {
+impl TranscodeRuntimeLimits {
     #[must_use]
     pub fn max_concurrent_sessions(self) -> usize {
         self.max_concurrent_sessions.max(1)
@@ -41,14 +91,14 @@ impl RemuxRuntimeLimits {
 }
 
 #[derive(Clone, Debug)]
-pub struct RemuxRuntimeGuard {
+pub struct TranscodeRuntimeGuard {
     semaphore: Arc<Semaphore>,
     timeout: Duration,
 }
 
-impl RemuxRuntimeGuard {
+impl TranscodeRuntimeGuard {
     #[must_use]
-    pub fn new(limits: RemuxRuntimeLimits) -> Self {
+    pub fn new(limits: TranscodeRuntimeLimits) -> Self {
         Self {
             semaphore: Arc::new(Semaphore::new(limits.max_concurrent_sessions())),
             timeout: limits.timeout(),
@@ -60,7 +110,7 @@ impl RemuxRuntimeGuard {
         self.timeout
     }
 
-    pub async fn acquire(&self) -> Result<RemuxRuntimePermit> {
+    pub async fn acquire(&self) -> Result<TranscodeRuntimePermit> {
         let permit = self
             .semaphore
             .clone()
@@ -68,15 +118,15 @@ impl RemuxRuntimeGuard {
             .await
             .map_err(|err| NakoError::Provider {
                 provider: "ffmpeg".to_owned(),
-                message: format!("remux runtime guard closed: {err}"),
+                message: format!("transcode runtime guard closed: {err}"),
             })?;
 
-        Ok(RemuxRuntimePermit { permit })
+        Ok(TranscodeRuntimePermit { permit })
     }
 }
 
 #[derive(Debug)]
-pub struct RemuxRuntimePermit {
+pub struct TranscodeRuntimePermit {
     #[allow(dead_code)]
     permit: OwnedSemaphorePermit,
 }

@@ -18,7 +18,8 @@ use nako_playback::{
 use nako_streaming::{DirectPlayRangeRequest, DirectPlayResponsePlan};
 use nako_transcode::{
     HardwareAccelerationPolicy, HardwareAccelerationReport, HardwareAccelerationSelection,
-    RemuxContainer, TranscodeRequestIdentity, TranscodeResourceBudget, TranscodeSourceIdentity,
+    RemuxContainer, TranscodeRequestIdentity, TranscodeResourceBudget, TranscodeRuntimeInventory,
+    TranscodeSourceIdentity,
 };
 use nako_vfs::StorageUri;
 use serde::Serialize;
@@ -375,6 +376,7 @@ pub(crate) struct PlaybackSessionHeartbeatRequest {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct PlaybackRuntimeDiagnostics {
+    pub runtime_inventory: TranscodeRuntimeInventory,
     pub hardware_policy: HardwareAccelerationPolicy,
     pub hardware_report: HardwareAccelerationReport,
     pub hardware_selection: HardwareAccelerationSelection,
@@ -1024,12 +1026,13 @@ impl PlaybackAppService {
         let transcode_budget = self.config.transcode.resource_budget();
 
         PlaybackRuntimeDiagnostics {
+            runtime_inventory: TranscodeRuntimeInventory::ffmpeg_cli(&self.hls.hardware_report),
             hardware_policy,
             hardware_report: self.hls.hardware_report.clone(),
             hardware_selection: self.hls.hardware_selection.clone(),
             transcode_budget,
             selected_hls_slots: transcode_budget
-                .slots_for(self.hls.hardware_selection.acceleration),
+                .slots_for(self.hls.acceleration_plan.resource_acceleration()),
             remux_concurrency: self.config.remux_concurrency.max(1),
             remux_timeout_ms: self.config.remux_timeout_ms.max(1),
             remote_stream_concurrency: self.config.playback.remote_stream_concurrency.max(1),

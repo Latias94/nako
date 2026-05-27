@@ -5,7 +5,7 @@ Last updated: 2026-05-27
 
 ## Current State
 
-The lane is open. PTP-010, PTP-020, PTP-030, PTP-040, and PTP-050 are
+The lane is open. PTP-010, PTP-020, PTP-030, PTP-040, PTP-050, and PTP-060 are
 complete.
 
 Nako already has:
@@ -24,6 +24,10 @@ Nako already has:
 - `TranscodeExecutionPolicy`, which carries decode/filter/encode acceleration
   stage choices, fallback evidence, output constraints, and subtitle strategy
   into HLS profile identity and FFmpeg request planning.
+- `TranscodeRuntimeInventory`, which gives Admin diagnostics a redaction-safe
+  FFmpeg/runtime capability summary.
+- `TranscodeEngineAdapter`, which makes FFmpeg remux/HLS execution expose typed
+  start outcomes and progress snapshots.
 
 PTP-020 added a direct-play characterization test proving that direct playback
 creates a durable Playback Session and no fake Transcode Session artifact.
@@ -35,6 +39,8 @@ cancellation, and hardware fallback tests remain green.
 PTP-050 replaced the single HLS hardware field with stage-based transcode
 policy, removed Public Client exposure of server hardware selection, and kept
 FFmpeg encoder/filter strings inside the FFmpeg adapter.
+PTP-060 added the runtime inventory and made remux/HLS runners the first
+FFmpeg CLI engine adapters consumed by server playback orchestration.
 
 Jellyfin reference review found the feature pressures Nako must be ready for:
 
@@ -48,9 +54,9 @@ Jellyfin reference review found the feature pressures Nako must be ready for:
 
 ## Active Task
 
-- Task ID: PTP-060
+- Task ID: PTP-070
 - Status: ready
-- Scope: Runtime Inventory and Transcode Engine Adapter.
+- Scope: Admin Settings, Diagnostics, and Artifact Lifecycle.
 
 ## Decisions
 
@@ -72,6 +78,10 @@ Jellyfin reference review found the feature pressures Nako must be ready for:
 - Public Client DTOs expose reason as stable wire values. Admin diagnostics may
   carry richer runtime evidence, but should not leak raw host details into
   Public Client responses.
+- Runtime capability summaries should flow through `TranscodeRuntimeInventory`
+  instead of being recomputed separately in Admin HTTP adapters.
+- FFmpeg process details stay behind `TranscodeEngineAdapter`; server playback
+  orchestration should talk in terms of typed artifact outcomes and progress.
 
 ## Blockers
 
@@ -79,7 +89,6 @@ Jellyfin reference review found the feature pressures Nako must be ready for:
 
 ## Next Action
 
-Run PTP-060. Bind the transcode policy to a redaction-safe runtime inventory
-and start moving FFmpeg CLI execution behind a typed engine Adapter. Preserve
-the existing command runner behavior while making start/cancel/progress and
-capability evidence engine-shaped instead of route-shaped.
+Run PTP-070. Align Admin playback runtime settings and diagnostics with the
+planner/runtime inventory/engine facts, then make artifact lifecycle policies
+for cleanup, throttling, and segment retention explicit enough to test.

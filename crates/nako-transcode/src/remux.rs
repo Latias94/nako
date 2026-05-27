@@ -3,27 +3,47 @@ use std::path::{Path, PathBuf};
 use nako_core::{NakoError, Result};
 
 use super::{
+    engine::{
+        TranscodeEngineAdapter, TranscodeEngineAdapterKind, TranscodeEngineArtifactKind,
+        TranscodeEngineStartCommand, TranscodeEngineStartOutcome,
+    },
     ffmpeg::stderr_message,
     runner_util::{
         abort_stderr_task, command_with_output_path, ffmpeg_command, join_stderr_task, kill_child,
         promote_temp_output, read_child_stderr, remove_file_if_exists,
     },
-    runtime::{CancellationToken, RemuxRuntimeGuard},
+    runtime::{CancellationToken, TranscodeRuntimeGuard},
     session::{TranscodeSessionId, TranscodeSessionKind, TranscodeSessionManager},
 };
 
 #[derive(Clone, Debug)]
 pub struct FfmpegRemuxRunner {
-    guard: RemuxRuntimeGuard,
+    guard: TranscodeRuntimeGuard,
+}
+
+impl TranscodeEngineAdapter for FfmpegRemuxRunner {
+    fn adapter_kind(&self) -> TranscodeEngineAdapterKind {
+        TranscodeEngineAdapterKind::FfmpegCli
+    }
+
+    async fn start(
+        &self,
+        manager: &mut TranscodeSessionManager,
+        command: TranscodeEngineStartCommand,
+    ) -> Result<TranscodeEngineStartOutcome> {
+        self.run(manager, command.session_id, command.cancel)
+            .await
+            .map(TranscodeEngineStartOutcome::from)
+    }
 }
 
 impl FfmpegRemuxRunner {
     #[must_use]
-    pub fn new(guard: RemuxRuntimeGuard) -> Self {
+    pub fn new(guard: TranscodeRuntimeGuard) -> Self {
         Self { guard }
     }
 
-    pub async fn run(
+    pub(crate) async fn run(
         &self,
         manager: &mut TranscodeSessionManager,
         session_id: TranscodeSessionId,
@@ -114,6 +134,29 @@ impl FfmpegRemuxRunner {
                 provider: "ffmpeg".to_owned(),
                 message,
             })
+        }
+    }
+}
+
+impl From<RemuxRunOutcome> for TranscodeEngineStartOutcome {
+    fn from(outcome: RemuxRunOutcome) -> Self {
+        match outcome {
+            RemuxRunOutcome::Finished {
+                session_id,
+                output_path,
+            } => Self::Finished {
+                session_id,
+                artifact_kind: TranscodeEngineArtifactKind::RemuxFile,
+                output_path,
+            },
+            RemuxRunOutcome::Cancelled {
+                session_id,
+                temp_output,
+            } => Self::Cancelled {
+                session_id,
+                artifact_kind: TranscodeEngineArtifactKind::RemuxFile,
+                temporary_output_path: temp_output,
+            },
         }
     }
 }

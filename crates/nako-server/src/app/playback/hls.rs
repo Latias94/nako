@@ -8,9 +8,10 @@ use nako_playback::PlaybackDecision;
 use nako_transcode::{
     CancellationToken, FfmpegCommandBuilder, FfmpegHardwareAccelerationDetector, FfmpegHlsRunner,
     FfmpegOverwritePolicy, HardwareAccelerationDetector, HardwareAccelerationReport,
-    HardwareAccelerationSelection, HlsRequest, HlsRunOutcome, RemuxRuntimeGuard,
-    RemuxRuntimeLimits, TranscodeAccelerationPlan, TranscodeExecutionPolicy,
-    TranscodeRequestIdentity, TranscodeSessionManager, select_hardware_acceleration,
+    HardwareAccelerationSelection, HlsRequest, TranscodeAccelerationPlan, TranscodeEngineAdapter,
+    TranscodeEngineStartCommand, TranscodeEngineStartOutcome, TranscodeExecutionPolicy,
+    TranscodeRequestIdentity, TranscodeRuntimeGuard, TranscodeRuntimeLimits,
+    TranscodeSessionManager, select_hardware_acceleration,
 };
 use tokio::sync::Mutex;
 
@@ -25,7 +26,7 @@ use super::{
 #[derive(Clone, Debug)]
 pub(super) struct HlsAppService {
     builder: FfmpegCommandBuilder,
-    runner: FfmpegHlsRunner,
+    engine: FfmpegHlsRunner,
     pub(super) hardware_report: HardwareAccelerationReport,
     pub(super) hardware_selection: HardwareAccelerationSelection,
     pub(super) acceleration_plan: TranscodeAccelerationPlan,
@@ -66,7 +67,7 @@ impl HlsAppService {
             &hardware_selection,
         );
         let transcode_budget = config.transcode.resource_budget();
-        let guard = RemuxRuntimeGuard::new(RemuxRuntimeLimits {
+        let guard = TranscodeRuntimeGuard::new(TranscodeRuntimeLimits {
             max_concurrent_sessions: transcode_budget
                 .slots_for(acceleration_plan.resource_acceleration()),
             timeout_ms: config.remux_timeout_ms,
@@ -74,7 +75,7 @@ impl HlsAppService {
 
         Ok(Self {
             builder: FfmpegCommandBuilder::new(&config.ffmpeg_path),
-            runner: FfmpegHlsRunner::new(guard),
+            engine: FfmpegHlsRunner::new(guard),
             hardware_report,
             hardware_selection,
             acceleration_plan,
@@ -238,15 +239,18 @@ impl HlsAppService {
             .await?;
 
         let run_result = self
-            .runner
-            .run(&mut manager, session_id, cancel)
+            .engine
+            .start(
+                &mut manager,
+                TranscodeEngineStartCommand { session_id, cancel },
+            )
             .await
             .map_err(map_hls_runner_error);
 
         drop(_cancel_handle);
 
         match run_result {
-            Ok(HlsRunOutcome::Finished { .. }) => {
+            Ok(TranscodeEngineStartOutcome::Finished { .. }) => {
                 let session = sessions
                     .set_transcode_session_state(
                         session_id,
@@ -266,7 +270,7 @@ impl HlsAppService {
                     session,
                 })
             }
-            Ok(HlsRunOutcome::Cancelled { .. }) => {
+            Ok(TranscodeEngineStartOutcome::Cancelled { .. }) => {
                 let session = sessions
                     .set_transcode_session_state(
                         session_id,

@@ -170,6 +170,12 @@ output constraints, and subtitle strategy. Public Client transcode plans no
 longer expose server hardware selection; that remains Admin/runtime evidence
 and execution policy.
 
+PTP-060 established `TranscodeRuntimeInventory` and `TranscodeEngineAdapter`.
+The inventory is a redaction-safe runtime summary for Admin diagnostics and
+future planner/runtime decisions. FFmpeg CLI remains the first implementation,
+but remux/HLS runners now satisfy typed engine start/progress outcomes instead
+of being route-shaped process helpers.
+
 PTP-030 extracted `nako-playback` because the deletion test became real:
 removing selection from `nako-streaming` leaves a smaller transport crate, while
 server app code and public DTO adapters both consume playback planning records.

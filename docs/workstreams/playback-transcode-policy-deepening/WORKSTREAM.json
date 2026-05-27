@@ -3,13 +3,14 @@
   "slug": "playback-transcode-policy-deepening",
   "title": "Playback Transcode Policy Deepening",
   "status": "active",
-  "current_task": "PTP-060",
+  "current_task": "PTP-070",
   "completed_tasks": [
     "PTP-010",
     "PTP-020",
     "PTP-030",
     "PTP-040",
-    "PTP-050"
+    "PTP-050",
+    "PTP-060"
   ],
   "updated": "2026-05-27",
   "scope_kind": "execution",
@@ -68,6 +69,10 @@
     {
       "task": "PTP-050",
       "summary": "Replaced shallow HLS hardware selection with TranscodeExecutionPolicy: decode/filter/encode acceleration stages, fallback evidence, output constraints, and subtitle strategy now drive HLS profile identity and FFmpeg request planning; Public Client transcode plans no longer expose service-side hardware selection."
+    },
+    {
+      "task": "PTP-060",
+      "summary": "Added TranscodeRuntimeInventory and TranscodeEngineAdapter: Admin runtime diagnostics now consume a redaction-safe FFmpeg CLI capability summary, and FFmpeg remux/HLS execution exposes typed start outcomes plus progress snapshots behind the engine adapter seam."
     }
   ],
   "adr_refs": [
@@ -77,6 +82,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Continue with PTP-060 Runtime Inventory and Engine Adapter now that TranscodeExecutionPolicy is the HLS policy seam."
+    "notes": "Continue with PTP-070 Admin Settings, Diagnostics, and Artifact Lifecycle now that runtime inventory and FFmpeg engine adapter seams are in place."
   }
 }

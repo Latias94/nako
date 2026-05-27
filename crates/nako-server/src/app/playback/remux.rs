@@ -11,8 +11,9 @@ use nako_core::{
 use nako_playback::PlaybackDecision;
 use nako_transcode::{
     CancellationToken, FfmpegCommandBuilder, FfmpegOverwritePolicy, FfmpegRemuxRunner,
-    RemuxContainer, RemuxRequest, RemuxRunOutcome, RemuxRuntimeGuard, RemuxRuntimeLimits,
-    TranscodeRequestIdentity, TranscodeSessionManager,
+    RemuxContainer, RemuxRequest, TranscodeEngineAdapter, TranscodeEngineStartCommand,
+    TranscodeEngineStartOutcome, TranscodeRequestIdentity, TranscodeRuntimeGuard,
+    TranscodeRuntimeLimits, TranscodeSessionManager,
 };
 use tokio::sync::Mutex;
 
@@ -27,7 +28,7 @@ use super::{
 #[derive(Clone, Debug)]
 pub(super) struct RemuxAppService {
     builder: FfmpegCommandBuilder,
-    runner: FfmpegRemuxRunner,
+    engine: FfmpegRemuxRunner,
     cancellations: PlaybackSessionCancellationRegistry,
     in_flight: Arc<Mutex<HashSet<RemuxRequestKey>>>,
 }
@@ -37,14 +38,14 @@ impl RemuxAppService {
         config: &NakoServerConfig,
         cancellations: PlaybackSessionCancellationRegistry,
     ) -> Self {
-        let guard = RemuxRuntimeGuard::new(RemuxRuntimeLimits {
+        let guard = TranscodeRuntimeGuard::new(TranscodeRuntimeLimits {
             max_concurrent_sessions: config.remux_concurrency,
             timeout_ms: config.remux_timeout_ms,
         });
 
         Self {
             builder: FfmpegCommandBuilder::new(&config.ffmpeg_path),
-            runner: FfmpegRemuxRunner::new(guard),
+            engine: FfmpegRemuxRunner::new(guard),
             cancellations,
             in_flight: Arc::new(Mutex::new(HashSet::new())),
         }
@@ -203,15 +204,18 @@ impl RemuxAppService {
             .await?;
 
         let run_result = self
-            .runner
-            .run(&mut manager, session_id, cancel)
+            .engine
+            .start(
+                &mut manager,
+                TranscodeEngineStartCommand { session_id, cancel },
+            )
             .await
             .map_err(map_remux_runner_error);
 
         drop(_cancel_handle);
 
         match run_result {
-            Ok(RemuxRunOutcome::Finished { .. }) => {
+            Ok(TranscodeEngineStartOutcome::Finished { .. }) => {
                 let session = sessions
                     .set_transcode_session_state(
                         session_id,
@@ -231,7 +235,7 @@ impl RemuxAppService {
                     session: Some(session),
                 })
             }
-            Ok(RemuxRunOutcome::Cancelled { .. }) => {
+            Ok(TranscodeEngineStartOutcome::Cancelled { .. }) => {
                 let session = sessions
                     .set_transcode_session_state(
                         session_id,

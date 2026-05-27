@@ -77,7 +77,8 @@ use nako_core::{
 use nako_db::DatabaseBackendCapabilities;
 use nako_transcode::{
     HardwareAccelerationCapability, HardwareDeviceInitializationStatus,
-    HardwareEncoderDiscoveryStatus, HardwareSmokeProbeStatus, hardware_acceleration_readiness,
+    HardwareEncoderDiscoveryStatus, HardwareSmokeProbeStatus, TranscodeRuntimeInventoryStatus,
+    hardware_acceleration_readiness,
 };
 use nako_vfs::StorageUri;
 use serde::Deserialize;
@@ -1899,16 +1900,6 @@ async fn admin_playback_runtime_diagnostics(
         .iter()
         .map(hardware_capability_diagnostic)
         .collect::<Vec<_>>();
-    let has_ffmpeg_probe_error = capabilities.iter().any(|capability| {
-        matches!(
-            capability.reason_code,
-            AdminPlaybackHardwareCapabilityReason::ProbeError
-        )
-    });
-    let available_gpu_capabilities = capabilities
-        .iter()
-        .filter(|capability| capability.accelerator.is_gpu() && capability.available)
-        .count();
     let transcode_budget = playback.transcode_budget.bounded();
 
     let remote_playback = remote_budget_summary(
@@ -1930,7 +1921,7 @@ async fn admin_playback_runtime_diagnostics(
             .map_or(0, |cleanup| usize_to_u32(cleanup.deleted_files)),
     };
     let readiness = playback_readiness_diagnostics(
-        has_ffmpeg_probe_error,
+        playback.runtime_inventory.has_probe_error,
         hardware_acceleration_readiness(
             playback.hardware_policy,
             &playback.hardware_selection,
@@ -1948,14 +1939,10 @@ async fn admin_playback_runtime_diagnostics(
         public_api_version: API_VERSION.to_owned(),
         readiness,
         ffmpeg: AdminPlaybackFfmpegDiagnostics {
-            probe_status: if has_ffmpeg_probe_error {
-                AdminPlaybackRuntimeStatus::Degraded
-            } else {
-                AdminPlaybackRuntimeStatus::Ready
-            },
-            has_probe_error: has_ffmpeg_probe_error,
-            hardware_capability_count: usize_to_u32(capabilities.len()),
-            available_gpu_capabilities: usize_to_u32(available_gpu_capabilities),
+            probe_status: playback_runtime_status(playback.runtime_inventory.probe_status),
+            has_probe_error: playback.runtime_inventory.has_probe_error,
+            hardware_capability_count: playback.runtime_inventory.hardware_capability_count,
+            available_gpu_capabilities: playback.runtime_inventory.available_gpu_capabilities,
         },
         hardware: AdminPlaybackHardwareDiagnostics {
             policy: playback.hardware_policy,
@@ -1975,6 +1962,13 @@ async fn admin_playback_runtime_diagnostics(
         },
         remote_playback,
         staging,
+    }
+}
+
+fn playback_runtime_status(status: TranscodeRuntimeInventoryStatus) -> AdminPlaybackRuntimeStatus {
+    match status {
+        TranscodeRuntimeInventoryStatus::Ready => AdminPlaybackRuntimeStatus::Ready,
+        TranscodeRuntimeInventoryStatus::Degraded => AdminPlaybackRuntimeStatus::Degraded,
     }
 }
 

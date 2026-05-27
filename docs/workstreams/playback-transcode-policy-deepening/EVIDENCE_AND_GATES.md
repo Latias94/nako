@@ -134,3 +134,15 @@ python -m json.tool docs/workstreams/playback-transcode-policy-deepening/WORKSTR
   - `python -m json.tool docs/workstreams/playback-transcode-policy-deepening/WORKSTREAM.json`
     passed.
   - `git diff --check` passed with Git line-ending warnings only.
+- 2026-05-27: PTP-060 added the playback runtime inventory and engine adapter
+  seam. `TranscodeRuntimeInventory` summarizes FFmpeg CLI runtime capability
+  status without raw host paths or commands, and FFmpeg remux/HLS runners now
+  implement `TranscodeEngineAdapter` with typed start outcomes and progress
+  snapshots. Server playback orchestration calls the engine adapter rather than
+  route-shaped runner APIs, and Admin runtime diagnostics consume the inventory
+  summary.
+  Verified:
+  - `cargo nextest run -p nako-transcode --no-fail-fast` passed: 39 passed,
+    0 skipped.
+  - `cargo nextest run -p nako-server -E 'test(playback) | test(admin_v1_playback_runtime)' --no-fail-fast`
+    passed: 66 passed, 282 skipped.

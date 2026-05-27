@@ -78,14 +78,18 @@ Last updated: 2026-05-27
 
 ## M5 - Runtime Inventory And Engine Adapter
 
-- [ ] PTP-060 [owner=codex] [deps=PTP-050] [scope=crates/nako-transcode/src,crates/nako-server/src/app/playback]
+- [x] PTP-060 [owner=codex] [deps=PTP-050] [scope=crates/nako-transcode/src,crates/nako-server/src/app/playback]
   Goal: Add Playback Runtime Inventory and make FFmpeg CLI the first
   Transcode Engine Adapter behind typed start/cancel/progress semantics.
   Validation: `cargo nextest run -p nako-transcode --no-fail-fast`;
   `cargo nextest run -p nako-server -E 'test(playback) | test(admin_v1_playback_runtime)' --no-fail-fast`.
   Review: inventory output is redaction-safe and execution does not require
   callers to know FFmpeg command strings.
-  Evidence: adapter tests and diagnostics tests.
+  Evidence: Added `TranscodeRuntimeInventory` and `TranscodeEngineAdapter`
+  records; FFmpeg remux/HLS runners now satisfy typed start/progress outcome
+  semantics; server playback orchestration calls engine adapters and Admin
+  runtime diagnostics consume the inventory summary. Focused transcode/server
+  runtime gates passed.
   Handoff: PTP-070 can expose settings/diagnostics without duplicating policy.
 
 ## M6 - Admin Settings, Diagnostics, And Artifact Lifecycle
