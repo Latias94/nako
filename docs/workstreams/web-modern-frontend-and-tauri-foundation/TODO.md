@@ -1,6 +1,6 @@
 # Web Modern Frontend And Tauri Foundation - TODO
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 ## M0 - Scope And Evidence Freeze
@@ -132,7 +132,7 @@ Last updated: 2026-05-28
 
 ## M8 - Closeout
 
-- [ ] WMFT-090 [owner=planner] [deps=WMFT-020,WMFT-030,WMFT-040,WMFT-050,WMFT-060,WMFT-070,WMFT-080] [scope=docs/workstreams/web-modern-frontend-and-tauri-foundation]
+- [x] WMFT-090 [owner=codex] [deps=WMFT-020,WMFT-030,WMFT-040,WMFT-050,WMFT-060,WMFT-070,WMFT-080] [scope=docs/workstreams/web-modern-frontend-and-tauri-foundation]
   Goal: Close this lane or split remaining work to narrower product/frontend
   lanes.
   Validation: verify-rust-workstream records fresh final gate evidence,
@@ -140,4 +140,6 @@ Last updated: 2026-05-28
   Review: review-workstream has no blocking findings.
   Evidence: EVIDENCE_AND_GATES.md, WORKSTREAM.json, HANDOFF.md.
   Handoff: Split Addon Manager UI, notifications, acquisition/downloads,
-  native playback, mobile packaging, and AI workflows to separate lanes.
+  native playback, mobile packaging, and AI workflows to separate lanes. DONE.
+  `CLOSEOUT.md` closes this foundation lane and records the remaining product
+  lanes without claiming full frontend parity.

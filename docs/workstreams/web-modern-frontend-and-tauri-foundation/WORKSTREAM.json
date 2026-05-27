@@ -2,8 +2,8 @@
   "schema_version": 1,
   "slug": "web-modern-frontend-and-tauri-foundation",
   "title": "Web Modern Frontend And Tauri Foundation",
-  "status": "active",
-  "current_task": "WMFT-090",
+  "status": "closed",
+  "current_task": null,
   "completed_tasks": [
     "WMFT-010",
     "WMFT-020",
@@ -12,7 +12,8 @@
     "WMFT-050",
     "WMFT-060",
     "WMFT-070",
-    "WMFT-080"
+    "WMFT-080",
+    "WMFT-090"
   ],
   "updated": "2026-05-28",
   "scope_kind": "frontend_product_replacement",
@@ -49,6 +50,10 @@
     {
       "role": "handoff",
       "path": "docs/workstreams/web-modern-frontend-and-tauri-foundation/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/web-modern-frontend-and-tauri-foundation/CLOSEOUT.md"
     }
   ],
   "gates": [
@@ -92,6 +97,10 @@
     {
       "task": "WMFT-080",
       "summary": "Recorded the old apps/admin-web retirement plan, parity matrix, validation-only maintenance rules, deletion-over-archive target, and blocking gaps while keeping the old console in place."
+    },
+    {
+      "task": "WMFT-090",
+      "summary": "Closed the foundation lane with explicit follow-ons for frontend parity, old Admin deletion, native playback, Addon Manager, redaction migration, i18n, and bundle/code splitting."
     }
   ],
   "adr_refs": [
@@ -103,7 +112,7 @@
     "docs/adr/0037-local-credential-and-session-auth.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "Continue with WMFT-090 closeout. Do not delete apps/admin-web before ADMIN_WEB_RETIREMENT_PLAN.md rows are ready, moved to CI, or split to accepted follow-ons. Do not ship the v0 Next.js app, TMDb API route, Vercel analytics, or bundled third-party media artwork."
+    "default_action": "open_new_workstream",
+    "notes": "Closed. Open narrower lanes for Addon Manager UI, Admin mutation parity, redaction corpus migration, Media playback state, native desktop playback, route-level code splitting, i18n, or old Admin Web deletion after ADMIN_WEB_RETIREMENT_PLAN.md is satisfied."
   }
 }

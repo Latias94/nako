@@ -1,6 +1,6 @@
 # Web Modern Frontend And Tauri Foundation
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-28
 
 ## Why This Lane Exists
@@ -307,3 +307,6 @@ This lane can close when:
 - unsupported v0 features and assets are either removed, converted, or split to
   explicit follow-ons;
 - evidence gates pass and remaining work is split into narrower lanes.
+
+Closeout result: closed on 2026-05-28. See `CLOSEOUT.md` for delivered scope,
+follow-ons, and residual risks.

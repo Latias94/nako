@@ -1,6 +1,6 @@
 # Web Modern Frontend And Tauri Foundation - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-28
 
 ## Gate Policy
@@ -71,6 +71,7 @@ Expected once Tauri foundation exists:
 | 2026-05-28 | WMFT-070 Tauri desktop smoke | `npm --prefix web run tauri -- info`; `npm --prefix web run tauri -- build` | Pass. Windows environment reports WebView2 148.0.3967.83, MSVC, Rust 1.95, Tauri 2.11.2, and matching JS/Rust package versions. Release build runs the web build and produces `web/src-tauri/target/release/nako-web-shell.exe`. |
 | 2026-05-28 | WMFT-070 setup browser smoke | `playwright-cli open http://127.0.0.1:5173/setup`; screenshots `.playwright-cli/wmft-070-setup-desktop.png`, `.playwright-cli/wmft-070-setup-mobile.png`; invalid URL run-code check; `playwright-cli console` | Pass. Setup route renders the server profile form at 1280x820 and 390x844 without obvious overlap, invalid `file:///library` input shows the expected http/https validation error, and console output contains only React DevTools info. |
 | 2026-05-28 | WMFT-080 old Admin retirement plan | `npm --prefix apps/admin-web run verify`; `npm --prefix web run verify`; `cargo nextest run -p nako-api admin_web_generated_contract_matches_generator_output` | Pass. Old Admin validation remains healthy: 6 Vitest files / 160 tests, check, generated contract, and build passed with the known single large-chunk warning. New `web/` verify passed with 3 files / 11 tests. Admin contract drift test passed while comparing both old and new generated contract copies. |
+| 2026-05-28 | WMFT-090 closeout docs | `python -m json.tool docs/workstreams/web-modern-frontend-and-tauri-foundation/WORKSTREAM.json`; `git diff --check -- apps/admin-web/README.md docs/workstreams/web-modern-frontend-and-tauri-foundation docs/workstreams/README.md` | Pass. `WORKSTREAM.json` is valid, closeout docs are staged for this lane, and `git diff --check` emitted only repository LF/CRLF conversion warnings. |
 
 ## Redaction And Safety Checks
 

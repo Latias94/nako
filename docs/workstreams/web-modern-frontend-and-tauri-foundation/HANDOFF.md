@@ -1,11 +1,11 @@
 # Web Modern Frontend And Tauri Foundation - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-28
 
 ## Current State
 
-The lane has been opened to reflect the accepted product direction:
+The foundation lane is closed. It reflects the accepted product direction:
 
 - the new `web/` frontend is the release product line;
 - the existing `apps/admin-web` remains only as validation/prototype support;
@@ -14,7 +14,7 @@ The lane has been opened to reflect the accepted product direction:
 - Tauri is part of the frontend direction, but serious desktop playback still
   requires a later native playback-core spike.
 
-WMFT-020 through WMFT-080 are complete:
+WMFT-020 through WMFT-090 are complete:
 
 - `web/` exists as the product frontend package.
 - The stack is Vite 8, React 19, Tailwind v4, shadcn-style local primitives,
@@ -58,9 +58,9 @@ WMFT-020 through WMFT-080 are complete:
 - `apps/admin-web/README.md` now labels the old app as a historical validation
   console rather than the product frontend.
 
-## Next Recommended Task
+## Next Recommended Work
 
-Run `WMFT-090`: close this lane or split remaining work to narrower lanes.
+Open narrower follow-on lanes from `CLOSEOUT.md`.
 
 Recommended implementation choices:
 
@@ -93,6 +93,10 @@ Recommended implementation choices:
 - Notifications center backed by real Addon/Webhook event surfaces.
 - Acquisition/downloads UI after product boundaries are accepted.
 - Mobile packaging and responsive polish.
+- Admin mutation parity and redaction corpus migration.
+- Route-level code splitting and bundle budget.
+- `web/` i18n decision and implementation.
+- Old Admin Web deletion only after `ADMIN_WEB_RETIREMENT_PLAN.md` is satisfied.
 
 ## Resume Notes
 

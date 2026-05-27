@@ -1,6 +1,6 @@
 # Web Modern Frontend And Tauri Foundation
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-28
 
 This lane turns the v0-generated Nako frontend direction into the product
@@ -18,6 +18,8 @@ Authoritative files:
 - [ADMIN_WEB_RETIREMENT_PLAN.md](ADMIN_WEB_RETIREMENT_PLAN.md)
 - [WORKSTREAM.json](WORKSTREAM.json)
 - [HANDOFF.md](HANDOFF.md)
+- [CLOSEOUT.md](CLOSEOUT.md)
 
-Current executable task: `WMFT-090`, close this foundation lane or split
-remaining work to narrower lanes.
+This foundation lane is closed. Continue with narrower follow-ons listed in
+[CLOSEOUT.md](CLOSEOUT.md) and keep `apps/admin-web` according to
+[ADMIN_WEB_RETIREMENT_PLAN.md](ADMIN_WEB_RETIREMENT_PLAN.md).

@@ -1,6 +1,6 @@
 # Web Modern Frontend And Tauri Foundation - Milestones
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 ## M0 - Direction Accepted
@@ -98,6 +98,8 @@ Exit criteria:
 - Any removal stages only files owned by that task.
 
 ## M8 - Closeout
+
+Status: Complete
 
 Exit criteria:
 
