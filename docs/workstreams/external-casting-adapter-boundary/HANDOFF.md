@@ -14,12 +14,17 @@ Public renderer registration rejects Chromecast, DLNA, and AirPlay targets;
 Admin diagnostics keep those adapters planned; and diagnostics do not leak
 renderer ticket values.
 
+`ECAB-030` is complete. `app::renderer_adapter` now owns the first host-side
+adapter bridge contract for external renderer targets and bounded command
+envelopes.
+
 ## Next Task
 
-Run `ECAB-030`.
+Run `ECAB-040`.
 
-`ECAB-030` should add the host renderer adapter bridge contract before adding
-real protocol discovery/control.
+`ECAB-040` should prove a synthetic external adapter command flow through host
+policy, Renderer Session/Playback Session state, and cast-safe transport
+without adding real Chromecast/DLNA/AirPlay discovery.
 
 ## Important Files
 

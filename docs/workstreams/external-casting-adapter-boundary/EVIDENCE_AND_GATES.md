@@ -59,6 +59,38 @@ Results:
 - format check passed.
 - diff check passed. Git printed CRLF conversion warnings only.
 
+### ECAB-030
+
+Completed on 2026-05-27.
+
+Evidence:
+
+- added `crates/nako-server/src/app/renderer_adapter.rs`;
+- introduced `RendererAdapterBridgeService` for publishing discovered external
+  renderer targets and building bounded adapter command envelopes;
+- constrained adapter targets to Chromecast, DLNA, and AirPlay with local
+  network scope and play command support;
+- projected adapter targets to `PlaybackTarget` with cast-ticket media
+  transport;
+- added redaction tests proving command envelopes do not carry bearer tokens,
+  source locators, local paths, raw payload JSON, or renderer ticket values.
+
+Gates:
+
+```powershell
+cargo nextest run -p nako-server renderer_adapter --no-fail-fast
+cargo nextest run -p nako-api -E 'test(admin_contract)' --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
+```
+
+Results:
+
+- renderer adapter bridge tests: 3 passed, 370 skipped.
+- `nako-api admin_contract`: 5 passed, 56 skipped.
+- format check passed.
+- diff check passed. Git printed CRLF conversion warnings only.
+
 ## Gate Policy
 
 Use synthetic adapter tests before real LAN protocol tests. Physical receiver

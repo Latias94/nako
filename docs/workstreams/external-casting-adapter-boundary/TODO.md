@@ -64,7 +64,7 @@ Evidence:
 
 ### ECAB-030 - Add host renderer adapter bridge contract
 
-Status: Pending
+Status: Complete
 Owner: current agent or worker
 Depends on: ECAB-020
 
@@ -92,6 +92,16 @@ cargo nextest run -p nako-api -E 'test(admin_contract)' --no-fail-fast
 cargo fmt --all -- --check
 git diff --check
 ```
+
+Evidence:
+
+- Added `app::renderer_adapter` with a host-owned bridge service.
+- External adapter targets are limited to Chromecast, DLNA, and AirPlay.
+- Adapter targets are local-network scoped until remote casting policy is
+  accepted.
+- Playback target projection always uses cast-ticket transport.
+- Adapter command envelopes are bounded to registered targets and redaction
+  tested.
 
 ### ECAB-040 - Prove synthetic external adapter command flow
 
