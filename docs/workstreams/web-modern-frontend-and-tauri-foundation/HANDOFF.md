@@ -14,7 +14,7 @@ The lane has been opened to reflect the accepted product direction:
 - Tauri is part of the frontend direction, but serious desktop playback still
   requires a later native playback-core spike.
 
-WMFT-020 through WMFT-060 are complete:
+WMFT-020 through WMFT-070 are complete:
 
 - `web/` exists as the product frontend package.
 - The stack is Vite 8, React 19, Tailwind v4, shadcn-style local primitives,
@@ -42,18 +42,27 @@ WMFT-020 through WMFT-060 are complete:
 - Admin routes now consume `web/src/api/admin` through TanStack Query: Overview,
   Libraries, Jobs, Addons, and Settings render fixture/live results without
   adding unsafe mutation controls.
+- Tauri now has no-secret bootstrap commands for desktop server profiles:
+  `desktop_bootstrap`, `save_server_profile`, and `clear_server_profile`.
+- The web runtime verifies the Public Client `/health` endpoint before storing
+  a server profile, then routes Media/Admin API calls through the configured
+  runtime base URL.
+- Desktop bootstrap reports native playback as unavailable with
+  `native_playback_core_not_integrated`, preserving the ADR 0026 split between
+  WebView convenience playback and future native desktop playback.
+- Windows Tauri smoke builds `web/src-tauri/target/release/nako-web-shell.exe`.
 
 ## Next Recommended Task
 
-Run `WMFT-070`: deepen the Tauri foundation.
+Run `WMFT-080`: define the old Admin Web retirement or archive plan.
 
 Recommended implementation choices:
 
-- Keep Tauri focused on packaging and connection bootstrap, not native playback
-  quality.
-- Record platform smoke evidence for Windows first.
-- Keep native playback core integration split as a separate spike until the
-  Rust playback boundary is accepted.
+- Build a parity matrix before deleting or archiving anything.
+- Keep old Admin validation checks until `web/` or CI owns equivalent contract
+  and smoke coverage.
+- Treat deletion as an explicit task with a precise staging list, not incidental
+  cleanup.
 - Do not remove `apps/admin-web`; old validation retirement is WMFT-080.
 
 ## Key Constraints
@@ -90,6 +99,9 @@ Before coding, re-read:
 - `apps/admin-web/src/surfaces/media/MediaPages.tsx`
 - `web/src/api/media/client.ts`
 - `web/src/api/admin/client.ts`
+- `web/src/api/runtime.ts`
+- `web/src/api/desktop.ts`
+- `web/src-tauri/src/lib.rs`
 - `web/src/router.tsx`
 - `repo-ref/nako-admin-web/app/page.tsx`
 - `repo-ref/nako-admin-web/components/nako/media-surface.tsx`

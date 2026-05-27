@@ -76,6 +76,8 @@ Exit criteria:
 
 ## M6 - Tauri Foundation
 
+Status: Complete
+
 Exit criteria:
 
 - Tauri package structure is present or explicitly split to a narrower lane.

@@ -100,7 +100,7 @@ Last updated: 2026-05-28
 
 ## M6 - Tauri Foundation
 
-- [ ] WMFT-070 [owner=unassigned] [deps=WMFT-050] [scope=web/src-tauri,web/package.json]
+- [x] WMFT-070 [owner=codex] [deps=WMFT-050] [scope=web/src-tauri,web/package.json]
   Goal: Deepen the Tauri desktop shell beyond the WMFT-020 skeleton with server
   connection bootstrap, desktop packaging smoke, and explicit native playback
   split evidence.
@@ -109,7 +109,10 @@ Last updated: 2026-05-28
   Review: Desktop architecture review against ADR 0026 and ADR 0032.
   Evidence: web/src-tauri, Tauri command output in EVIDENCE_AND_GATES.md.
   Handoff: Split native playback core integration before claiming desktop
-  playback quality.
+  playback quality. DONE. Tauri now exposes no-secret server profile bootstrap
+  commands, the web runtime verifies `/health` before storing a server profile,
+  and `npm --prefix web run tauri -- build` produces the Windows desktop shell.
+  Native playback core remains explicitly unavailable in the bootstrap payload.
 
 ## M7 - Old Admin Web Retirement Plan
 

@@ -1,6 +1,6 @@
-import type { CSSProperties, ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Link,
   Outlet,
@@ -12,12 +12,15 @@ import {
 } from "@tanstack/react-router";
 import {
   Boxes,
+  CircleCheck,
   Clapperboard,
   FileSearch,
   HardDrive,
   LibraryBig,
+  LoaderCircle,
   PlayCircle,
   Puzzle,
+  Save,
   Search,
   ServerCog,
   Settings2,
@@ -26,7 +29,16 @@ import {
   Workflow,
 } from "lucide-react";
 
-import { adminApi, mediaApi } from "@/api/runtime";
+import {
+  adminApi,
+  bootstrapDesktopConnection,
+  clearServerConnection,
+  configureServerConnection,
+  mediaApi,
+  readConfiguredServerBaseUrl,
+  type ServerConnectionResult,
+} from "@/api/runtime";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -1013,10 +1025,65 @@ function AdminItemPage() {
 }
 
 function SetupPage() {
+  const queryClient = useQueryClient();
+  const [serverUrl, setServerUrl] = useState(() => readConfiguredServerBaseUrl() ?? "");
+  const [result, setResult] = useState<ServerConnectionResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const bootstrap = useQuery({
+    queryKey: ["desktop", "bootstrap"],
+    queryFn: bootstrapDesktopConnection,
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+
+  useEffect(() => {
+    const desktopBaseUrl = bootstrap.data?.profile?.baseUrl;
+    if (desktopBaseUrl && !serverUrl) {
+      setServerUrl(desktopBaseUrl);
+    }
+  }, [bootstrap.data?.profile?.baseUrl, serverUrl]);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    setError(null);
+
+    try {
+      const next = await configureServerConnection(serverUrl);
+      setResult(next);
+      setServerUrl(next.baseUrl);
+      await queryClient.invalidateQueries();
+    } catch (caught: unknown) {
+      setResult(null);
+      setError(caught instanceof Error ? caught.message : "Server connection failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleClear() {
+    setSaving(true);
+    setError(null);
+
+    try {
+      await clearServerConnection();
+      setServerUrl("");
+      setResult(null);
+      await queryClient.invalidateQueries();
+      await bootstrap.refetch();
+    } catch (caught: unknown) {
+      setError(caught instanceof Error ? caught.message : "Server profile could not be cleared");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const activeBaseUrl = result?.baseUrl ?? readConfiguredServerBaseUrl();
+
   return (
     <SurfaceShell
       eyebrow="Setup"
-      status="First run"
+      status={activeBaseUrl ? "Profile ready" : "First run"}
       summary="Connect this frontend to a self-hosted Nako server, then sign in with server-backed credentials."
       surface="admin"
       title="Server Connection"
@@ -1026,22 +1093,55 @@ function SetupPage() {
           <CardHeader>
             <CardTitle>Connection</CardTitle>
             <CardDescription>
-              The initial release should verify reachability before storing a server profile.
+              Nako checks the public health endpoint before storing the server profile.
             </CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-4">
-            <label className="grid gap-2 text-sm font-semibold">
-              Server URL
-              <input
-                className="min-h-11 rounded-lg border border-[color:var(--app-line)] bg-[color:var(--app-panel-soft)] px-3 text-[color:var(--app-fg)] outline-none transition-colors placeholder:text-[color:var(--app-muted)] focus:border-[color:var(--app-accent)] focus:ring-2 focus:ring-[color:var(--app-focus)]"
-                placeholder="http://127.0.0.1:7833"
-              />
-            </label>
-            <EmptyPanel
-              icon={ShieldCheck}
-              title="Credential flow pending"
-              description="The UI route is ready; session creation must come from the server authority."
-            />
+          <CardContent>
+            <form className="grid gap-4" onSubmit={handleSubmit}>
+              <label className="grid gap-2 text-sm font-semibold">
+                Server URL
+                <input
+                  className="min-h-11 rounded-lg border border-[color:var(--app-line)] bg-[color:var(--app-panel-soft)] px-3 text-[color:var(--app-fg)] outline-none transition-colors placeholder:text-[color:var(--app-muted)] focus:border-[color:var(--app-accent)] focus:ring-2 focus:ring-[color:var(--app-focus)]"
+                  disabled={saving}
+                  onChange={(event) => setServerUrl(event.target.value)}
+                  placeholder="http://127.0.0.1:7833"
+                  value={serverUrl}
+                />
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <Button disabled={saving} type="submit">
+                  {saving ? (
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  Save profile
+                </Button>
+                <Button
+                  disabled={saving || !activeBaseUrl}
+                  onClick={handleClear}
+                  type="button"
+                  variant="outline"
+                >
+                  Clear
+                </Button>
+              </div>
+              {result ? (
+                <EmptyPanel
+                  icon={CircleCheck}
+                  title="Server profile saved"
+                  description={`Health check returned ${result.status} for API ${result.apiVersion}. Authentication remains server-owned.`}
+                />
+              ) : error ? (
+                <EmptyPanel icon={ShieldCheck} title="Connection not saved" description={error} />
+              ) : (
+                <EmptyPanel
+                  icon={ShieldCheck}
+                  title="Credential flow pending"
+                  description="Saving the profile does not create a session; sign-in must come from server authority."
+                />
+              )}
+            </form>
           </CardContent>
         </Card>
         <Card className="bg-[color:var(--app-panel-soft)]">
@@ -1054,12 +1154,18 @@ function SetupPage() {
           <CardContent>
             <div className="grid gap-3 text-sm text-[color:var(--app-muted)]">
               <span className="inline-flex items-center gap-2">
+                <ServerCog className="h-4 w-4 text-[color:var(--app-accent)]" />
+                {bootstrap.data?.runtime === "tauri_desktop"
+                  ? "Desktop shell detected."
+                  : "Running in browser."}
+              </span>
+              <span className="inline-flex items-center gap-2">
                 <HardDrive className="h-4 w-4 text-[color:var(--app-accent)]" />
-                Local server profiles stay on the device.
+                Server profiles contain no credentials or local library paths.
               </span>
               <span className="inline-flex items-center gap-2">
                 <SlidersHorizontal className="h-4 w-4 text-[color:var(--app-accent)]" />
-                Playback policy stays server-owned.
+                Playback decisions remain server-owned.
               </span>
             </div>
           </CardContent>
