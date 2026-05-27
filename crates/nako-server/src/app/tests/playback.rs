@@ -522,6 +522,16 @@ async fn hls_source_runs_runner_and_reuses_completed_session() {
                 .payload_json
                 .contains(&app.config().remux_staging_root.display().to_string())
     }));
+    let persisted_session = store
+        .get_transcode_session(session_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(persisted_session.runtime_metrics.frame_count, Some(12));
+    assert_eq!(
+        persisted_session.runtime_metrics.output_time_ms,
+        Some(1_500)
+    );
 
     fs::remove_file(ffmpeg_path).unwrap();
     let reused = app.playback().hls_source(request.clone()).await.unwrap();
@@ -572,6 +582,75 @@ async fn hls_source_uses_selected_cpu_acceleration_when_gpu_falls_back() {
             .unwrap()
             .contains("#EXTM3U")
     );
+}
+
+#[tokio::test]
+async fn hls_source_falls_back_to_cpu_when_source_facts_do_not_match_hardware_decode() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_source_cpu_fallback");
+    let (_temp, app, store, source) = remux_app_with_source_and_transcode(
+        ffmpeg_path,
+        TranscodeConfig {
+            hardware_acceleration: HardwareAcceleration::Vaapi,
+            hardware_fallback: HardwareAccelerationFallback::Cpu,
+            cpu_concurrency: 1,
+            gpu_concurrency: 1,
+        },
+    )
+    .await;
+    store
+        .upsert_media_probe(
+            source.id,
+            &MediaProbeResult {
+                duration_ms: Some(1_000),
+                container: Some("matroska,webm".to_owned()),
+                bit_rate: None,
+                streams: vec![
+                    MediaStreamInfo {
+                        index: 0,
+                        kind: MediaStreamKind::Video,
+                        codec: Some("hevc".to_owned()),
+                        language: None,
+                        duration_ms: None,
+                        bit_rate: None,
+                        width: Some(1920),
+                        height: Some(1080),
+                        channels: None,
+                        sample_rate: None,
+                        technical: Default::default(),
+                    },
+                    MediaStreamInfo {
+                        index: 1,
+                        kind: MediaStreamKind::Audio,
+                        codec: Some("aac".to_owned()),
+                        language: None,
+                        duration_ms: None,
+                        bit_rate: None,
+                        width: None,
+                        height: None,
+                        channels: Some(2),
+                        sample_rate: Some(48_000),
+                        technical: Default::default(),
+                    },
+                ],
+            },
+        )
+        .await
+        .unwrap();
+
+    let output = app
+        .playback()
+        .hls_source(HlsSourceRequest {
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(output.disposition, HlsSourceDisposition::Finished);
+    assert!(output.session.request_key.contains("requested%3Dvaapi"));
+    assert!(output.session.request_key.contains("encode%3Dnone"));
+    assert!(output.session.request_key.contains("fallback_used%3Dtrue"));
 }
 
 #[tokio::test]

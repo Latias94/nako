@@ -36,10 +36,11 @@ use nako_core::{
     ManagedArtworkRepository, ManagedImportArtifactId, ManagedImportArtifactListFilter,
     ManagedImportArtifactState, ManagedImportPromotionApplyId, ManagedImportPromotionApplyState,
     ManagedImportPromotionOperationKind, ManagedImportRepository, ManagedImportSourceKind,
-    MediaItem, MediaItemId, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository,
-    MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind, MetadataAttemptFilter,
-    MetadataField, MetadataFieldLock, MetadataMatchKind, MetadataProviderAttemptId,
-    MetadataProviderAttemptStatus, MetadataRefreshPersistenceCommit,
+    MediaColorInfo, MediaHdrMetadata, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
+    MediaProbeResult, MediaRational, MediaRepository, MediaSource, MediaSourceId,
+    MediaStreamDisposition, MediaStreamInfo, MediaStreamKind, MediaStreamTechnicalFacts,
+    MetadataAttemptFilter, MetadataField, MetadataFieldLock, MetadataMatchKind,
+    MetadataProviderAttemptId, MetadataProviderAttemptStatus, MetadataRefreshPersistenceCommit,
     MetadataRefreshProviderMappingCommit, MetadataRepository, MetadataSource, NakoError,
     NewAcquisitionIntakeCandidate, NewAddonEventDeliveryAttempt, NewAddonGrant,
     NewAddonRegistration, NewAddonRoutingPlan, NewAddonSideEffect, NewAddonTaskRun, NewAddonToken,
@@ -1327,6 +1328,32 @@ where
                 height: Some(1080),
                 channels: None,
                 sample_rate: None,
+                technical: MediaStreamTechnicalFacts {
+                    codec_profile: Some("High".to_owned()),
+                    codec_level: Some(41),
+                    pixel_format: Some("yuv420p10le".to_owned()),
+                    bits_per_raw_sample: Some(10),
+                    average_frame_rate: Some(MediaRational {
+                        numerator: 24_000,
+                        denominator: 1_001,
+                    }),
+                    color: MediaColorInfo {
+                        transfer: Some("smpte2084".to_owned()),
+                        primaries: Some("bt2020".to_owned()),
+                        ..MediaColorInfo::default()
+                    },
+                    hdr: MediaHdrMetadata {
+                        dynamic_range: Some("hdr10".to_owned()),
+                        mastering_display: true,
+                        content_light_level: true,
+                        ..MediaHdrMetadata::default()
+                    },
+                    disposition: MediaStreamDisposition {
+                        default: true,
+                        ..MediaStreamDisposition::default()
+                    },
+                    ..MediaStreamTechnicalFacts::default()
+                },
             },
             MediaStreamInfo {
                 index: 1,
@@ -1339,6 +1366,11 @@ where
                 height: None,
                 channels: Some(2),
                 sample_rate: Some(48_000),
+                technical: MediaStreamTechnicalFacts {
+                    channel_layout: Some("stereo".to_owned()),
+                    bits_per_sample: Some(16),
+                    ..MediaStreamTechnicalFacts::default()
+                },
             },
         ],
     };

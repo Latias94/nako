@@ -2,7 +2,8 @@ use async_trait::async_trait;
 
 use crate::{
     MediaSourceId, NewTranscodeSession, PageRequest, Result, TranscodeFailureCategory,
-    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
+    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
+    TranscodeSessionRuntimeMetrics, TranscodeSessionState,
 };
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -51,6 +52,12 @@ pub trait TranscodeSessionRepository: Send + Sync {
         failure_category: Option<TranscodeFailureCategory>,
         failure_message: Option<String>,
     ) -> Result<TranscodeSessionRecord>;
+
+    async fn update_transcode_session_runtime_metrics(
+        &self,
+        id: TranscodeSessionId,
+        metrics: TranscodeSessionRuntimeMetrics,
+    ) -> Result<Option<TranscodeSessionRecord>>;
 
     async fn request_transcode_session_cancellation(
         &self,

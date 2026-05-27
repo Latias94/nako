@@ -54,6 +54,7 @@ async fn self_host_smoke_sqlite_operator_flow_redacts_sensitive_boundaries() {
                         height: Some(1080),
                         channels: None,
                         sample_rate: None,
+                        technical: Default::default(),
                     },
                     MediaStreamInfo {
                         index: 1,
@@ -66,6 +67,7 @@ async fn self_host_smoke_sqlite_operator_flow_redacts_sensitive_boundaries() {
                         height: None,
                         channels: Some(2),
                         sample_rate: Some(48_000),
+                        technical: Default::default(),
                     },
                 ],
             },

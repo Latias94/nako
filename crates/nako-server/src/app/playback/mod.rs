@@ -1,4 +1,8 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 use async_trait::async_trait;
 use nako_api::public_client::{PlaybackDecisionResponse, playback_decision_response_to_dto};
@@ -10,7 +14,8 @@ use nako_core::{
     PlaybackSessionListFilter, PlaybackSessionMode, PlaybackSessionRecord,
     PlaybackSessionRepository, PlaybackSessionState, Result, StagingManifestRepository,
     TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
-    TranscodeSessionRepository, TranscodeSessionState, UserId, UserPrincipalId,
+    TranscodeSessionRepository, TranscodeSessionRuntimeMetrics, TranscodeSessionState, UserId,
+    UserPrincipalId,
 };
 use nako_playback::{
     ClientPlaybackCapabilities, EffectivePlaybackPolicy, PlaybackDecision, PlaybackMode,
@@ -61,7 +66,10 @@ use paths::{ensure_remux_output_parent, path_exists};
 use playlist::{rewrite_hls_playlist, validate_hls_segment_name};
 use remux::RemuxAppService;
 pub(crate) use remux::RemuxRequestKey;
-use selection::{hls_transcode_plan, playback_selection_context, remux_output_container};
+use selection::{
+    hls_pipeline_source_facts, hls_transcode_plan, playback_selection_context,
+    remux_output_container,
+};
 pub(crate) use staging_policy::{HlsOutputLayout, HlsStagingPolicy, RemuxStagingPolicy};
 
 #[async_trait]
@@ -141,6 +149,12 @@ pub(crate) trait PlaybackRuntimeStore: std::fmt::Debug + Send + Sync {
         failure_category: Option<TranscodeFailureCategory>,
         failure_message: Option<String>,
     ) -> Result<TranscodeSessionRecord>;
+
+    async fn update_transcode_session_runtime_metrics(
+        &self,
+        id: TranscodeSessionId,
+        metrics: TranscodeSessionRuntimeMetrics,
+    ) -> Result<Option<TranscodeSessionRecord>>;
 
     async fn request_transcode_session_cancellation(
         &self,
@@ -286,6 +300,15 @@ where
             failure_message,
         )
         .await
+    }
+
+    async fn update_transcode_session_runtime_metrics(
+        &self,
+        id: TranscodeSessionId,
+        metrics: TranscodeSessionRuntimeMetrics,
+    ) -> Result<Option<TranscodeSessionRecord>> {
+        TranscodeSessionRepository::update_transcode_session_runtime_metrics(self, id, metrics)
+            .await
     }
 
     async fn request_transcode_session_cancellation(
@@ -1232,10 +1255,20 @@ impl PlaybackAppService {
                 ),
             });
         }
-        if transcode.state != TranscodeSessionState::Finished {
+        if !hls_session_can_serve_artifacts(transcode.state) {
             return Err(NakoError::Conflict {
                 message: format!(
                     "hls session {transcode_session_id} is not ready; current state is {:?}",
+                    transcode.state
+                ),
+            });
+        }
+        if !path_exists(&transcode.output_path)?
+            && transcode.state == TranscodeSessionState::Running
+        {
+            return Err(NakoError::Conflict {
+                message: format!(
+                    "hls playlist for session {transcode_session_id} is not ready; current state is {:?}",
                     transcode.state
                 ),
             });
@@ -1622,12 +1655,15 @@ impl PlaybackAppService {
         });
         ensure_playback_decision_allowed(&decision)?;
         let transcode_plan = hls_transcode_plan(&decision)?;
+        let track_selection = playback_profile.track_selection();
+        let source_facts = hls_pipeline_source_facts(probe.as_ref(), track_selection);
         let execution_policy = self.hls.execution_policy_for_hls(
-            playback_profile.track_selection(),
+            track_selection,
             TranscodeOutputConstraints {
                 max_video_bitrate: playback_profile.preferences.max_video_bitrate,
                 prefer_hdr: playback_profile.preferences.prefer_hdr,
             },
+            source_facts,
         )?;
         let hls_profile =
             playback_profile.try_hls_transcode_profile(transcode_plan, execution_policy)?;
@@ -1724,7 +1760,7 @@ impl PlaybackAppService {
             });
         }
 
-        if session.state != TranscodeSessionState::Finished {
+        if !hls_session_can_serve_artifacts(session.state) {
             return Err(NakoError::Conflict {
                 message: format!(
                     "hls session {session_id} is not ready; current state is {:?}",
@@ -1747,7 +1783,20 @@ impl PlaybackAppService {
             });
         }
 
+        cleanup_hls_segment_dir_if_enabled(&self.config.playback, segment_dir, segment_name)
+            .await?;
+
+        wait_for_hls_segment_if_configured(&self.config.playback, session.state, &path).await?;
         if !path_exists(&path)? {
+            if session.state == TranscodeSessionState::Running {
+                return Err(NakoError::Conflict {
+                    message: format!(
+                        "hls segment {segment_name} for session {session_id} is not ready; current state is {:?}",
+                        session.state
+                    ),
+                });
+            }
+
             return Err(NakoError::NotFound {
                 entity: "hls_segment",
                 id: segment_name.to_owned(),
@@ -2057,6 +2106,130 @@ fn rewrite_hls_playlist_segments_for_playback_session(
     rewritten
 }
 
+fn hls_session_can_serve_artifacts(state: TranscodeSessionState) -> bool {
+    matches!(
+        state,
+        TranscodeSessionState::Running | TranscodeSessionState::Finished
+    )
+}
+
+async fn wait_for_hls_segment_if_configured(
+    config: &crate::config::PlaybackConfig,
+    state: TranscodeSessionState,
+    path: &Path,
+) -> Result<()> {
+    if path_exists(path)?
+        || state != TranscodeSessionState::Running
+        || !config.transcode_throttle_enabled
+    {
+        return Ok(());
+    }
+
+    tokio::time::sleep(Duration::from_millis(config.transcode_throttle_delay_ms)).await;
+    Ok(())
+}
+
+async fn cleanup_hls_segment_dir_if_enabled(
+    config: &crate::config::PlaybackConfig,
+    segment_dir: &Path,
+    requested_segment: &str,
+) -> Result<()> {
+    if !config.hls_segment_cleanup_enabled {
+        return Ok(());
+    }
+
+    cleanup_hls_segment_dir_at(
+        segment_dir,
+        requested_segment,
+        config.hls_segment_keep_ms,
+        current_time_ms(),
+    )
+    .await
+}
+
+async fn cleanup_hls_segment_dir_at(
+    segment_dir: &Path,
+    requested_segment: &str,
+    keep_ms: u64,
+    now_ms: i64,
+) -> Result<()> {
+    let mut entries = match tokio::fs::read_dir(segment_dir).await {
+        Ok(entries) => entries,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(err) => {
+            return Err(NakoError::storage_io(
+                segment_dir.display().to_string(),
+                format!("failed to read hls segment directory: {err}"),
+            ));
+        }
+    };
+    let keep_ms = i64::try_from(keep_ms).unwrap_or(i64::MAX);
+
+    loop {
+        let entry = match entries.next_entry().await {
+            Ok(Some(entry)) => entry,
+            Ok(None) => break,
+            Err(err) => {
+                return Err(NakoError::storage_io(
+                    segment_dir.display().to_string(),
+                    format!("failed to iterate hls segment directory: {err}"),
+                ));
+            }
+        };
+        let path = entry.path();
+        let Some(file_name) = path.file_name().and_then(|value| value.to_str()) else {
+            continue;
+        };
+        if file_name == requested_segment
+            || path.extension().and_then(|value| value.to_str()) != Some("ts")
+        {
+            continue;
+        }
+
+        let metadata = match entry.metadata().await {
+            Ok(metadata) => metadata,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(err) => {
+                return Err(NakoError::storage_io(
+                    path.display().to_string(),
+                    format!("failed to read hls segment metadata: {err}"),
+                ));
+            }
+        };
+        if !metadata.is_file() {
+            continue;
+        }
+        let Some(modified_ms) = metadata.modified().ok().and_then(system_time_ms) else {
+            continue;
+        };
+        if now_ms.saturating_sub(modified_ms) < keep_ms {
+            continue;
+        }
+
+        if let Err(err) = tokio::fs::remove_file(&path).await {
+            if err.kind() == std::io::ErrorKind::NotFound {
+                continue;
+            }
+
+            return Err(NakoError::storage_io(
+                path.display().to_string(),
+                format!("failed to remove stale hls segment: {err}"),
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn current_time_ms() -> i64 {
+    system_time_ms(SystemTime::now()).unwrap_or(i64::MAX)
+}
+
+fn system_time_ms(value: SystemTime) -> Option<i64> {
+    let duration = value.duration_since(UNIX_EPOCH).ok()?;
+    i64::try_from(duration.as_millis()).ok()
+}
+
 fn playback_target_for_client(client: ClientPlaybackCapabilities) -> PlaybackTarget {
     PlaybackTarget::browser_with_capabilities("Public Client", client)
 }
@@ -2134,6 +2307,7 @@ impl RemuxSourceContext {
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
+    use std::time::Duration;
 
     use nako_transcode::{
         HardwareAcceleration, HardwareAccelerationFallback, HardwareAccelerationReport,
@@ -2168,6 +2342,52 @@ mod tests {
             artwork: crate::config::ArtworkConfig::default(),
             libraries: Vec::new(),
         }
+    }
+
+    #[tokio::test]
+    async fn hls_segment_waits_once_for_running_segment_when_throttle_enabled() {
+        let temp = tempfile::tempdir().unwrap();
+        let segment_path = temp.path().join("segment_00000.ts");
+        let writer_path = segment_path.clone();
+        let writer = tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            tokio::fs::write(writer_path, b"segment").await.unwrap();
+        });
+        let config = PlaybackConfig {
+            transcode_throttle_enabled: true,
+            transcode_throttle_delay_ms: 50,
+            ..PlaybackConfig::default()
+        };
+
+        wait_for_hls_segment_if_configured(&config, TranscodeSessionState::Running, &segment_path)
+            .await
+            .unwrap();
+
+        assert!(path_exists(&segment_path).unwrap());
+        writer.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn hls_segment_cleanup_removes_stale_siblings_and_keeps_requested() {
+        let temp = tempfile::tempdir().unwrap();
+        let segment_dir = temp.path();
+        let requested = segment_dir.join("segment_00001.ts");
+        let stale = segment_dir.join("segment_00000.ts");
+        let playlist = segment_dir.join("playlist.m3u8");
+        let subtitle = segment_dir.join("segment_00002.vtt");
+        tokio::fs::write(&requested, b"requested").await.unwrap();
+        tokio::fs::write(&stale, b"stale").await.unwrap();
+        tokio::fs::write(&playlist, b"playlist").await.unwrap();
+        tokio::fs::write(&subtitle, b"subtitle").await.unwrap();
+
+        cleanup_hls_segment_dir_at(segment_dir, "segment_00001.ts", 60_000, i64::MAX / 2)
+            .await
+            .unwrap();
+
+        assert!(path_exists(&requested).unwrap());
+        assert!(!path_exists(&stale).unwrap());
+        assert!(path_exists(&playlist).unwrap());
+        assert!(path_exists(&subtitle).unwrap());
     }
 
     #[test]
@@ -2214,6 +2434,7 @@ mod tests {
             .execution_policy_for_hls(
                 nako_transcode::TranscodeTrackSelection::default(),
                 TranscodeOutputConstraints::default(),
+                None,
             )
             .unwrap_err();
 

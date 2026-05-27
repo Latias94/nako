@@ -128,6 +128,7 @@ CREATE TABLE IF NOT EXISTS media_streams (
     height bigint,
     channels bigint,
     sample_rate bigint,
+    technical_json jsonb NOT NULL DEFAULT '{}'::jsonb,
     PRIMARY KEY (source_id, stream_index)
 );
 
@@ -571,6 +572,7 @@ CREATE TABLE IF NOT EXISTS transcode_sessions (
     state text NOT NULL,
     failure_category text,
     failure_message text,
+    runtime_metrics_json jsonb NOT NULL DEFAULT '{}'::jsonb,
     created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
     updated_at timestamptz NOT NULL DEFAULT statement_timestamp(),
     started_at timestamptz,

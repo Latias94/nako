@@ -402,8 +402,44 @@ pub struct TranscodeSessionRecord {
     pub state: TranscodeSessionState,
     pub failure_category: Option<TranscodeFailureCategory>,
     pub failure_message: Option<String>,
+    pub runtime_metrics: TranscodeSessionRuntimeMetrics,
     pub created_at: String,
     pub updated_at: String,
     pub started_at: Option<String>,
     pub completed_at: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TranscodeSessionRuntimeProgress {
+    Continue,
+    End,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct TranscodeSessionRuntimeMetrics {
+    pub frame_count: Option<u64>,
+    pub fps_millis: Option<u64>,
+    pub bitrate_kbps: Option<u64>,
+    pub total_size_bytes: Option<u64>,
+    pub output_time_ms: Option<u64>,
+    pub dup_frames: Option<u64>,
+    pub drop_frames: Option<u64>,
+    pub speed_millis: Option<u64>,
+    pub progress: Option<TranscodeSessionRuntimeProgress>,
+}
+
+impl TranscodeSessionRuntimeMetrics {
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.frame_count.is_none()
+            && self.fps_millis.is_none()
+            && self.bitrate_kbps.is_none()
+            && self.total_size_bytes.is_none()
+            && self.output_time_ms.is_none()
+            && self.dup_frames.is_none()
+            && self.drop_frames.is_none()
+            && self.speed_millis.is_none()
+            && self.progress.is_none()
+    }
 }

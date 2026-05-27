@@ -1118,6 +1118,7 @@ mod tests {
                     height: Some(1080),
                     channels: None,
                     sample_rate: None,
+                    technical: Default::default(),
                 }],
             })
         }

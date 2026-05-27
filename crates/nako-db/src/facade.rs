@@ -2240,6 +2240,16 @@ impl TranscodeSessionRepository for NakoDatabase {
             .await
     }
 
+    async fn update_transcode_session_runtime_metrics(
+        &self,
+        id: TranscodeSessionId,
+        metrics: TranscodeSessionRuntimeMetrics,
+    ) -> Result<Option<TranscodeSessionRecord>> {
+        self.backend()
+            .update_transcode_session_runtime_metrics(id, metrics)
+            .await
+    }
+
     async fn request_transcode_session_cancellation(
         &self,
         id: TranscodeSessionId,

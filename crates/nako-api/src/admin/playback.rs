@@ -4,7 +4,8 @@ use nako_core::{
     PlaybackSessionMode, PlaybackSessionRecord, PlaybackSessionState, PlaybackTargetKind,
     PlaybackTargetNetworkScope, PlaybackTargetTransportAuth, RendererControlCommand,
     RendererSessionId, RendererSessionRecord, RendererSessionState, TranscodeFailureCategory,
-    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
+    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
+    TranscodeSessionRuntimeMetrics, TranscodeSessionState,
 };
 use nako_transcode::{
     HardwareAcceleration, HardwareAccelerationFallback, HardwareAccelerationPolicy,
@@ -391,6 +392,7 @@ pub struct AdminPlaybackSupportSessionEvidence {
     pub terminal: bool,
     pub request_key_fingerprint: String,
     pub output_artifact_kind: AdminPlaybackOutputArtifactKind,
+    pub runtime_metrics: TranscodeSessionRuntimeMetrics,
     pub created_at: String,
     pub updated_at: String,
     pub started_at: Option<String>,
@@ -411,6 +413,7 @@ impl AdminPlaybackSupportSessionEvidence {
             terminal: session.state.is_terminal(),
             request_key_fingerprint: stable_fingerprint(&session.request_key),
             output_artifact_kind: AdminPlaybackOutputArtifactKind::from_session_kind(session.kind),
+            runtime_metrics: session.runtime_metrics,
             created_at: session.created_at,
             updated_at: session.updated_at,
             started_at: session.started_at,
@@ -541,6 +544,8 @@ pub enum AdminPlaybackReadinessReason {
     ProbeError,
     DeviceInitializationFailed,
     SmokeProbeFailed,
+    SourceVideoCodecUnsupportedByRequestedPipeline,
+    SourceVideoBitDepthUnsupportedByRequestedPipeline,
     SelectedAccelerationReady,
     CpuFallbackActive,
     TranscodeBudgetReady,
@@ -578,6 +583,12 @@ impl From<TranscodePipelineReadinessReason> for AdminPlaybackReadinessReason {
                 Self::DeviceInitializationFailed
             }
             TranscodePipelineReadinessReason::SmokeProbeFailed => Self::SmokeProbeFailed,
+            TranscodePipelineReadinessReason::SourceVideoCodecUnsupportedByRequestedPipeline => {
+                Self::SourceVideoCodecUnsupportedByRequestedPipeline
+            }
+            TranscodePipelineReadinessReason::SourceVideoBitDepthUnsupportedByRequestedPipeline => {
+                Self::SourceVideoBitDepthUnsupportedByRequestedPipeline
+            }
         }
     }
 }
@@ -935,6 +946,7 @@ mod tests {
             failure_message: Some(
                 "ffmpeg failed while writing C:\\nako-cache\\hls\\secret\\playlist.m3u8".to_owned(),
             ),
+            runtime_metrics: Default::default(),
             created_at: "2026-05-18T00:00:00Z".to_owned(),
             updated_at: "2026-05-18T00:00:01Z".to_owned(),
             started_at: Some("2026-05-18T00:00:00Z".to_owned()),

@@ -79,6 +79,7 @@ CREATE TABLE media_streams (
     height INTEGER,
     channels INTEGER,
     sample_rate INTEGER,
+    technical_json TEXT NOT NULL DEFAULT '{}',
     PRIMARY KEY (source_id, stream_index)
 );
 
@@ -393,6 +394,7 @@ CREATE TABLE transcode_sessions (
     state TEXT NOT NULL,
     failure_category TEXT,
     failure_message TEXT,
+    runtime_metrics_json TEXT NOT NULL DEFAULT '{}',
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     started_at TEXT,

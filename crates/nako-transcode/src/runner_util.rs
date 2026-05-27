@@ -186,6 +186,25 @@ pub(crate) async fn read_child_stderr(
     Ok(bytes)
 }
 
+pub(crate) async fn read_child_stdout(
+    stdout: Option<tokio::process::ChildStdout>,
+) -> Result<Vec<u8>> {
+    let Some(mut stdout) = stdout else {
+        return Ok(Vec::new());
+    };
+
+    let mut bytes = Vec::new();
+    stdout
+        .read_to_end(&mut bytes)
+        .await
+        .map_err(|err| NakoError::Provider {
+            provider: "ffmpeg".to_owned(),
+            message: format!("failed to read ffmpeg progress output: {err}"),
+        })?;
+
+    Ok(bytes)
+}
+
 pub(crate) async fn join_stderr_task(
     task: tokio::task::JoinHandle<Result<Vec<u8>>>,
 ) -> Result<Vec<u8>> {
@@ -195,7 +214,20 @@ pub(crate) async fn join_stderr_task(
     })?
 }
 
+pub(crate) async fn join_stdout_task(
+    task: tokio::task::JoinHandle<Result<Vec<u8>>>,
+) -> Result<Vec<u8>> {
+    task.await.map_err(|err| NakoError::Provider {
+        provider: "ffmpeg".to_owned(),
+        message: format!("failed to join ffmpeg progress reader: {err}"),
+    })?
+}
+
 pub(crate) fn abort_stderr_task(task: tokio::task::JoinHandle<Result<Vec<u8>>>) {
+    task.abort();
+}
+
+pub(crate) fn abort_stdout_task(task: tokio::task::JoinHandle<Result<Vec<u8>>>) {
     task.abort();
 }
 
@@ -205,6 +237,17 @@ pub(crate) fn ffmpeg_command(command: &FfmpegCommandPlan) -> Command {
         .args(command.args_as_os_strings())
         .stdin(Stdio::null())
         .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true);
+    child
+}
+
+pub(crate) fn ffmpeg_command_with_progress(command: &FfmpegCommandPlan) -> Command {
+    let mut child = Command::new(&command.program);
+    child
+        .args(command.args_as_os_strings())
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true);
     child

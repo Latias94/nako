@@ -7,6 +7,7 @@ mod plan;
 mod policy;
 mod probe;
 mod profile;
+mod progress;
 mod remux;
 mod runner_util;
 mod runtime;
@@ -21,6 +22,7 @@ pub use plan::*;
 pub use policy::*;
 pub use probe::*;
 pub use profile::*;
+pub use progress::*;
 pub use remux::*;
 pub use runtime::*;
 pub use session::*;
@@ -35,7 +37,7 @@ mod tests {
         time::Duration,
     };
 
-    use nako_core::MediaSourceId;
+    use nako_core::{MediaSourceId, MediaStreamInfo, MediaStreamKind, MediaStreamTechnicalFacts};
     use tokio::time;
 
     use super::*;
@@ -119,6 +121,9 @@ mod tests {
                 "-hide_banner",
                 "-loglevel",
                 "warning",
+                "-nostats",
+                "-progress",
+                "pipe:1",
                 "-y",
                 "-i",
                 "input.mkv",
@@ -217,6 +222,38 @@ mod tests {
     }
 
     #[test]
+    fn ffmpeg_builder_plans_hls_with_stage_aware_quicksync_policy() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            output_dir: PathBuf::from("hls"),
+            playlist_path: PathBuf::from("hls/playlist.m3u8"),
+            segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
+            segment_time_seconds: 6,
+            execution_policy: hls_policy(HardwareAcceleration::QuickSync),
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let argv = builder.hls(&request).unwrap().argv_lossy();
+
+        assert_eq!(
+            argv.windows(2)
+                .filter(|args| args[0] == "-hwaccel" && args[1] == "qsv")
+                .count(),
+            1
+        );
+        assert!(
+            argv.iter().position(|arg| arg == "-hwaccel").unwrap()
+                < argv.iter().position(|arg| arg == "-i").unwrap()
+        );
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-c:v" && args[1] == "h264_qsv")
+        );
+    }
+
+    #[test]
     fn ffmpeg_builder_plans_hls_with_platform_encoder_policies() {
         let builder = FfmpegCommandBuilder::new("ffmpeg");
 
@@ -270,6 +307,58 @@ mod tests {
             argv.windows(2)
                 .any(|args| args[0] == "-bufsize" && args[1] == "16000000")
         );
+    }
+
+    #[test]
+    fn ffmpeg_builder_accepts_hls_omitted_subtitle_strategy_without_subtitle_maps() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let mut execution_policy = hls_policy(HardwareAcceleration::None);
+        execution_policy.subtitle_strategy = TranscodeSubtitleStrategy::OmitSelected;
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            output_dir: PathBuf::from("hls"),
+            playlist_path: PathBuf::from("hls/playlist.m3u8"),
+            segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
+            segment_time_seconds: 6,
+            execution_policy,
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let argv = builder.hls(&request).unwrap().argv_lossy();
+
+        assert!(!argv.windows(2).any(|args| {
+            args[0] == "-map" && (args[1].starts_with("0:s") || args[1].starts_with("0:2"))
+        }));
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-c:a" && args[1] == "aac")
+        );
+    }
+
+    #[test]
+    fn ffmpeg_builder_plans_hls_muxer_with_minimum_segment_time() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            output_dir: PathBuf::from("hls"),
+            playlist_path: PathBuf::from("hls/playlist.m3u8"),
+            segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
+            segment_time_seconds: 0,
+            execution_policy: hls_policy(HardwareAcceleration::None),
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let argv = builder.hls(&request).unwrap().argv_lossy();
+
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-hls_time" && args[1] == "1")
+        );
+        assert!(argv.windows(2).any(|args| {
+            args[0] == "-hls_segment_filename" && args[1] == "hls/segment_%05d.ts"
+        }));
     }
 
     #[test]
@@ -510,6 +599,43 @@ mod tests {
     }
 
     #[test]
+    fn ffmpeg_progress_parser_keeps_latest_redaction_safe_metrics() {
+        let metrics = parse_ffmpeg_progress_report(
+            b"frame=12\nfps=24.98\nbitrate=1234.5kbits/s\ntotal_size=4096\nout_time_us=1500000\ndup_frames=1\ndrop_frames=2\nspeed=1.25x\nprogress=continue\nframe=24\nout_time=00:00:02.500000\nprogress=end\n",
+        );
+
+        assert_eq!(metrics.frame_count, Some(24));
+        assert_eq!(metrics.fps_millis, None);
+        assert_eq!(metrics.bitrate_kbps, None);
+        assert_eq!(metrics.total_size_bytes, None);
+        assert_eq!(metrics.output_time_ms, Some(2_500));
+        assert_eq!(
+            metrics.progress,
+            Some(nako_core::TranscodeSessionRuntimeProgress::End)
+        );
+    }
+
+    #[test]
+    fn ffmpeg_progress_parser_reads_single_snapshot_metrics() {
+        let metrics = parse_ffmpeg_progress_report(
+            b"frame=12\nfps=24.98\nbitrate=1234.5kbits/s\ntotal_size=4096\nout_time_us=1500000\ndup_frames=1\ndrop_frames=2\nspeed=1.25x\nprogress=continue\n",
+        );
+
+        assert_eq!(metrics.frame_count, Some(12));
+        assert_eq!(metrics.fps_millis, Some(24_980));
+        assert_eq!(metrics.bitrate_kbps, Some(1_234));
+        assert_eq!(metrics.total_size_bytes, Some(4_096));
+        assert_eq!(metrics.output_time_ms, Some(1_500));
+        assert_eq!(metrics.dup_frames, Some(1));
+        assert_eq!(metrics.drop_frames, Some(2));
+        assert_eq!(metrics.speed_millis, Some(1_250));
+        assert_eq!(
+            metrics.progress,
+            Some(nako_core::TranscodeSessionRuntimeProgress::Continue)
+        );
+    }
+
+    #[test]
     fn pipeline_planner_selects_available_and_falls_back_to_cpu() {
         let report = HardwareAccelerationReport::with_available([
             HardwareAcceleration::None,
@@ -556,6 +682,63 @@ mod tests {
             HardwareAcceleration::Vaapi
         );
         assert!(fallback.acceleration.fallback.fallback_used);
+    }
+
+    #[test]
+    fn pipeline_planner_falls_back_when_source_codec_does_not_match_hardware_decode_path() {
+        let report = HardwareAccelerationReport::with_available([
+            HardwareAcceleration::None,
+            HardwareAcceleration::Vaapi,
+        ]);
+        let planner = TranscodePipelinePlanner::new();
+
+        let plan = planner
+            .plan_hls_single_variant(
+                TranscodePipelineRequest::hls_single_variant(
+                    HardwareAccelerationPolicy {
+                        requested: HardwareAcceleration::Vaapi,
+                        fallback: HardwareAccelerationFallback::Cpu,
+                    },
+                    TranscodeTrackSelection::default(),
+                    TranscodeOutputConstraints::default(),
+                )
+                .with_source(source_video("hevc", None)),
+                &report,
+            )
+            .unwrap();
+
+        assert_eq!(plan.selected_acceleration(), HardwareAcceleration::None);
+        assert!(plan.fallback_used());
+        assert_eq!(
+            plan.readiness.reason,
+            TranscodePipelineReadinessReason::SourceVideoCodecUnsupportedByRequestedPipeline
+        );
+    }
+
+    #[test]
+    fn pipeline_planner_rejects_source_incompatible_hardware_when_fallback_is_fail() {
+        let report = HardwareAccelerationReport::with_available([
+            HardwareAcceleration::None,
+            HardwareAcceleration::QuickSync,
+        ]);
+        let planner = TranscodePipelinePlanner::new();
+
+        let err = planner
+            .plan_hls_single_variant(
+                TranscodePipelineRequest::hls_single_variant(
+                    HardwareAccelerationPolicy {
+                        requested: HardwareAcceleration::QuickSync,
+                        fallback: HardwareAccelerationFallback::Fail,
+                    },
+                    TranscodeTrackSelection::default(),
+                    TranscodeOutputConstraints::default(),
+                )
+                .with_source(source_video("h264", Some(10))),
+                &report,
+            )
+            .unwrap_err();
+
+        assert!(err.to_string().contains("incompatible with source media"));
     }
 
     #[test]
@@ -1263,7 +1446,8 @@ hevc_metadata
                 artifact_kind: TranscodeEngineArtifactKind::RemuxFile,
                 state: TranscodeSessionState::Finished,
                 output_path: output_path.clone(),
-                failure_message: None
+                failure_message: None,
+                runtime_metrics: Default::default()
             }
         );
         assert_eq!(fs::read_to_string(&output_path).unwrap(), "remuxed");
@@ -1336,6 +1520,18 @@ hevc_metadata
         assert_eq!(
             manager.get(session.id).unwrap().state,
             TranscodeSessionState::Finished
+        );
+        assert_eq!(
+            manager.get(session.id).unwrap().runtime_metrics.frame_count,
+            Some(12)
+        );
+        assert_eq!(
+            manager
+                .get(session.id)
+                .unwrap()
+                .runtime_metrics
+                .output_time_ms,
+            Some(1_500)
         );
         assert!(temp_hls_dirs_for(&output_dir).is_empty());
     }
@@ -1681,6 +1877,9 @@ h264_mp4toannexb
                 "printf '#EXTM3U\\n#EXTINF:1,\\nsegment_00000.ts\\n#EXT-X-ENDLIST\\n' > \"$out\"\n",
             );
             content.push_str("printf segment > \"$dir/segment_00000.ts\"\n");
+            content.push_str(
+                "printf 'frame=12\\nout_time_us=1500000\\nspeed=1.25x\\nprogress=end\\n'\n",
+            );
             content.push_str("exit 0\n");
             fs::write(&path, content).unwrap();
             let mut permissions = fs::metadata(&path).unwrap().permissions();
@@ -1707,9 +1906,36 @@ h264_mp4toannexb
             content.push_str(">>\"%out%\" echo segment_00000.ts\r\n");
             content.push_str(">>\"%out%\" echo #EXT-X-ENDLIST\r\n");
             content.push_str("<nul set /p dummy=segment>\"%dir%segment_00000.ts\"\r\n");
+            content.push_str("echo frame=12\r\n");
+            content.push_str("echo out_time_us=1500000\r\n");
+            content.push_str("echo speed=1.25x\r\n");
+            content.push_str("echo progress=end\r\n");
             content.push_str("exit /b 0\r\n");
             fs::write(&path, content).unwrap();
             path
+        }
+    }
+
+    fn source_video(codec: &str, bits_per_raw_sample: Option<u32>) -> TranscodePipelineSourceFacts {
+        TranscodePipelineSourceFacts {
+            video: Some(MediaStreamInfo {
+                index: 0,
+                kind: MediaStreamKind::Video,
+                codec: Some(codec.to_owned()),
+                language: None,
+                duration_ms: None,
+                bit_rate: None,
+                width: Some(1920),
+                height: Some(1080),
+                channels: None,
+                sample_rate: None,
+                technical: MediaStreamTechnicalFacts {
+                    bits_per_raw_sample,
+                    ..MediaStreamTechnicalFacts::default()
+                },
+            }),
+            audio: None,
+            subtitle: None,
         }
     }
 

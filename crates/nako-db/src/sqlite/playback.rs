@@ -5,16 +5,16 @@ use sqlx::QueryBuilder;
 const TRANSCODE_SESSION_SELECT: &str = r#"
             SELECT
                 id, source_id, kind, request_key, output_path, state,
-                failure_category, failure_message, created_at, updated_at,
-                started_at, completed_at
+                failure_category, failure_message, runtime_metrics_json,
+                created_at, updated_at, started_at, completed_at
             FROM transcode_sessions
             "#;
 
 const TRANSCODE_SESSION_SELECT_BY_ID: &str = r#"
             SELECT
                 id, source_id, kind, request_key, output_path, state,
-                failure_category, failure_message, created_at, updated_at,
-                started_at, completed_at
+                failure_category, failure_message, runtime_metrics_json,
+                created_at, updated_at, started_at, completed_at
             FROM transcode_sessions
             WHERE id = ?1
             "#;
@@ -305,8 +305,8 @@ impl TranscodeSessionRepository for SqliteStore {
             r#"
             SELECT
                 id, source_id, kind, request_key, output_path, state,
-                failure_category, failure_message, created_at, updated_at,
-                started_at, completed_at
+                failure_category, failure_message, runtime_metrics_json,
+                created_at, updated_at, started_at, completed_at
             FROM transcode_sessions
             WHERE source_id = ?1 AND kind = ?2 AND request_key = ?3
             ORDER BY updated_at DESC, id DESC
@@ -333,8 +333,8 @@ impl TranscodeSessionRepository for SqliteStore {
             r#"
             SELECT
                 id, source_id, kind, request_key, output_path, state,
-                failure_category, failure_message, created_at, updated_at,
-                started_at, completed_at
+                failure_category, failure_message, runtime_metrics_json,
+                created_at, updated_at, started_at, completed_at
             FROM transcode_sessions
             WHERE source_id = ?1
                 AND kind = ?2
@@ -391,6 +391,33 @@ impl TranscodeSessionRepository for SqliteStore {
         .map_err(database_error)?;
 
         self.get_transcode_session_or_not_found(id).await
+    }
+
+    async fn update_transcode_session_runtime_metrics(
+        &self,
+        id: TranscodeSessionId,
+        metrics: TranscodeSessionRuntimeMetrics,
+    ) -> Result<Option<TranscodeSessionRecord>> {
+        let result = sqlx::query(
+            r#"
+            UPDATE transcode_sessions
+            SET
+                runtime_metrics_json = ?2,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE id = ?1
+            "#,
+        )
+        .bind(id.to_string())
+        .bind(serialize_transcode_runtime_metrics_json(&metrics)?)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        if result.rows_affected() == 0 {
+            return Ok(None);
+        }
+
+        self.get_transcode_session(id).await
     }
 
     async fn request_transcode_session_cancellation(
@@ -474,4 +501,10 @@ impl SqliteStore {
                 id: id.to_string(),
             })
     }
+}
+
+fn serialize_transcode_runtime_metrics_json(
+    metrics: &TranscodeSessionRuntimeMetrics,
+) -> Result<String> {
+    serde_json::to_string(metrics).map_err(database_error)
 }

@@ -4,11 +4,15 @@ pub use nako_core::{
     PlaybackTargetId, PlaybackTargetKind, PlaybackTargetNetworkScope, PlaybackTargetTransportAuth,
     RendererControlCapabilities, RendererControlCommand,
 };
-use nako_core::{LibraryId, MediaProbeResult, MediaSource, MediaSourceId, Result};
+use nako_core::{
+    LibraryId, MediaProbeResult, MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind,
+    Result,
+};
 use nako_transcode::{
     HlsTranscodeProfile, OutputContainer, RemuxContainer, RemuxTranscodeProfile,
-    TranscodeExecutionPolicy, TranscodePlan, TranscodeProfile, TranscodeTrackSelection,
-    validate_playback_transcode_plan, validate_transcode_profile,
+    TranscodeExecutionPolicy, TranscodeOutputConstraints, TranscodePlan, TranscodeProfile,
+    TranscodeSubtitleStrategy, TranscodeTrackSelection, validate_playback_transcode_plan,
+    validate_transcode_profile,
 };
 use serde::{Deserialize, Serialize};
 
@@ -30,6 +34,7 @@ pub struct PlaybackDecision {
     pub report: PlaybackDecisionReport,
     pub direct_play: Option<DirectPlayPlan>,
     pub transcode_plan: Option<TranscodePlan>,
+    pub transcode_requirement: Option<TranscodeRequirement>,
     pub denial: Option<PlaybackDenial>,
 }
 
@@ -280,6 +285,50 @@ pub struct RemuxPlaybackPlan {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct TranscodeRequirement {
+    pub source_id: MediaSourceId,
+    pub input_locator: String,
+    pub output_container: OutputContainer,
+    pub output_video_codec: Option<String>,
+    pub output_audio_codec: Option<String>,
+    pub track_selection: TranscodeTrackSelection,
+    pub output_constraints: TranscodeOutputConstraints,
+    pub subtitle_strategy: TranscodeSubtitleStrategy,
+    pub selected_streams: TranscodeRequirementStreams,
+    pub reasons: Vec<PlaybackCompatibilityCondition>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct TranscodeRequirementStreams {
+    pub video: Option<TranscodeRequirementStream>,
+    pub audio: Option<TranscodeRequirementStream>,
+    pub subtitle: Option<TranscodeRequirementStream>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct TranscodeRequirementStream {
+    pub index: u32,
+    pub kind: MediaStreamKind,
+    pub codec: Option<String>,
+    pub language: Option<String>,
+    pub duration_ms: Option<u64>,
+    pub bit_rate: Option<u64>,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub channels: Option<u32>,
+    pub sample_rate: Option<u32>,
+    pub codec_profile: Option<String>,
+    pub codec_level: Option<u32>,
+    pub pixel_format: Option<String>,
+    pub bits_per_raw_sample: Option<u32>,
+    pub bits_per_sample: Option<u32>,
+    pub dynamic_range: Option<String>,
+    pub channel_layout: Option<String>,
+    pub forced: bool,
+    pub default: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ClientPlaybackCapabilities {
     pub direct_play: bool,
     pub containers: Vec<String>,
@@ -428,6 +477,8 @@ pub fn plan_playback(request: PlaybackPlanningRequest<'_>) -> PlaybackDecision {
             output_container,
             PlaybackDecisionReason::RequestedTranscodeOutput,
             report,
+            &target_profile,
+            probe,
         );
     }
 
@@ -441,6 +492,8 @@ pub fn plan_playback(request: PlaybackPlanningRequest<'_>) -> PlaybackDecision {
             OutputContainer::Hls,
             PlaybackDecisionReason::ClientDisabledDirectPlay,
             report,
+            &target_profile,
+            probe,
         );
     }
 
@@ -454,6 +507,8 @@ pub fn plan_playback(request: PlaybackPlanningRequest<'_>) -> PlaybackDecision {
             OutputContainer::Hls,
             PlaybackDecisionReason::SourceContainerUnknown,
             report,
+            &target_profile,
+            probe,
         );
     };
 
@@ -485,6 +540,8 @@ pub fn plan_playback(request: PlaybackPlanningRequest<'_>) -> PlaybackDecision {
                 OutputContainer::Hls,
                 PlaybackDecisionReason::ClientContainerUnsupported,
                 report,
+                &target_profile,
+                probe,
             )
         };
     }
@@ -499,6 +556,8 @@ pub fn plan_playback(request: PlaybackPlanningRequest<'_>) -> PlaybackDecision {
             OutputContainer::Hls,
             PlaybackDecisionReason::SourceCodecsUnsupported,
             report,
+            &target_profile,
+            probe,
         );
     }
 
@@ -543,6 +602,7 @@ fn direct_play_decision(
         report: report.with_selected_mode(PlaybackMode::DirectPlay),
         direct_play: Some(direct_play),
         transcode_plan: None,
+        transcode_requirement: None,
         denial: None,
     }
 }
@@ -566,6 +626,7 @@ fn remux_decision(
         selected_source,
         direct_play: None,
         transcode_plan: None,
+        transcode_requirement: None,
         denial: None,
     }
 }
@@ -576,13 +637,36 @@ fn transcode_decision(
     output_container: OutputContainer,
     reason: PlaybackDecisionReason,
     report: PlaybackDecisionReport,
+    target_profile: &PlaybackTargetProfile,
+    probe: Option<&MediaProbeResult>,
 ) -> PlaybackDecision {
+    let output_profile = target_profile
+        .transcode_profiles
+        .iter()
+        .find(|profile| profile.output_container == output_container);
+    let video_codec = output_profile
+        .and_then(|profile| profile.video_codec.clone())
+        .or_else(|| (output_container == OutputContainer::Hls).then(|| "h264".to_owned()));
+    let audio_codec = output_profile
+        .and_then(|profile| profile.audio_codec.clone())
+        .or_else(|| (output_container == OutputContainer::Hls).then(|| "aac".to_owned()));
     let transcode_plan = TranscodePlan {
+        input_locator: input_locator.clone(),
+        output_container,
+        video_codec: video_codec.clone(),
+        audio_codec: audio_codec.clone(),
+    };
+    let transcode_requirement = build_transcode_requirement(
+        selected_source.source_id,
         input_locator,
         output_container,
-        video_codec: Some("h264".to_owned()),
-        audio_codec: Some("aac".to_owned()),
-    };
+        video_codec,
+        audio_codec,
+        target_profile,
+        probe,
+        reason,
+        &report,
+    );
 
     PlaybackDecision {
         mode: PlaybackMode::Transcode,
@@ -592,6 +676,7 @@ fn transcode_decision(
         selected_source,
         direct_play: None,
         transcode_plan: Some(transcode_plan),
+        transcode_requirement: Some(transcode_requirement),
         denial: None,
     }
 }
@@ -611,7 +696,150 @@ fn denied_decision(
             .with_selected_mode(PlaybackMode::Denied),
         direct_play: None,
         transcode_plan: None,
+        transcode_requirement: None,
         denial: Some(denial),
+    }
+}
+
+fn build_transcode_requirement(
+    source_id: MediaSourceId,
+    input_locator: String,
+    output_container: OutputContainer,
+    output_video_codec: Option<String>,
+    output_audio_codec: Option<String>,
+    target_profile: &PlaybackTargetProfile,
+    probe: Option<&MediaProbeResult>,
+    reason: PlaybackDecisionReason,
+    report: &PlaybackDecisionReport,
+) -> TranscodeRequirement {
+    let track_selection = target_profile.track_selection();
+    TranscodeRequirement {
+        source_id,
+        input_locator,
+        output_container,
+        output_video_codec,
+        output_audio_codec,
+        track_selection,
+        output_constraints: TranscodeOutputConstraints {
+            max_video_bitrate: target_profile.preferences.max_video_bitrate,
+            prefer_hdr: target_profile.preferences.prefer_hdr,
+        },
+        subtitle_strategy: if track_selection.subtitle_stream.is_some() {
+            TranscodeSubtitleStrategy::OmitSelected
+        } else {
+            TranscodeSubtitleStrategy::None
+        },
+        selected_streams: selected_transcode_streams(probe, track_selection),
+        reasons: transcode_requirement_reasons(reason, report),
+    }
+}
+
+fn selected_transcode_streams(
+    probe: Option<&MediaProbeResult>,
+    track_selection: TranscodeTrackSelection,
+) -> TranscodeRequirementStreams {
+    TranscodeRequirementStreams {
+        video: selected_stream(probe, None, |stream| {
+            matches!(stream.kind, MediaStreamKind::Video)
+        }),
+        audio: selected_stream(probe, track_selection.audio_stream, |stream| {
+            matches!(stream.kind, MediaStreamKind::Audio)
+        }),
+        subtitle: selected_stream(probe, track_selection.subtitle_stream, |stream| {
+            matches!(stream.kind, MediaStreamKind::Subtitle)
+        }),
+    }
+}
+
+fn selected_stream(
+    probe: Option<&MediaProbeResult>,
+    requested_stream: Option<u32>,
+    matches_kind: impl Fn(&MediaStreamInfo) -> bool,
+) -> Option<TranscodeRequirementStream> {
+    let probe = probe?;
+    requested_stream
+        .and_then(|index| {
+            probe
+                .streams
+                .iter()
+                .find(|stream| stream.index == index && matches_kind(stream))
+        })
+        .or_else(|| probe.streams.iter().find(|stream| matches_kind(stream)))
+        .map(TranscodeRequirementStream::from)
+}
+
+impl From<&MediaStreamInfo> for TranscodeRequirementStream {
+    fn from(stream: &MediaStreamInfo) -> Self {
+        Self {
+            index: stream.index,
+            kind: stream.kind.clone(),
+            codec: stream.codec.clone(),
+            language: stream.language.clone(),
+            duration_ms: stream.duration_ms,
+            bit_rate: stream.bit_rate,
+            width: stream.width,
+            height: stream.height,
+            channels: stream.channels,
+            sample_rate: stream.sample_rate,
+            codec_profile: stream.technical.codec_profile.clone(),
+            codec_level: stream.technical.codec_level,
+            pixel_format: stream.technical.pixel_format.clone(),
+            bits_per_raw_sample: stream.technical.bits_per_raw_sample,
+            bits_per_sample: stream.technical.bits_per_sample,
+            dynamic_range: stream.technical.hdr.dynamic_range.clone(),
+            channel_layout: stream.technical.channel_layout.clone(),
+            forced: stream.technical.disposition.forced,
+            default: stream.technical.disposition.default,
+        }
+    }
+}
+
+fn transcode_requirement_reasons(
+    reason: PlaybackDecisionReason,
+    report: &PlaybackDecisionReport,
+) -> Vec<PlaybackCompatibilityCondition> {
+    let mut reasons = Vec::new();
+    if let Some(condition) = decision_reason_condition(reason) {
+        push_unique_condition(&mut reasons, condition);
+    }
+
+    for condition in &report.direct_play.reasons {
+        if *condition != PlaybackCompatibilityCondition::Compatible {
+            push_unique_condition(&mut reasons, *condition);
+        }
+    }
+
+    reasons
+}
+
+fn push_unique_condition(
+    reasons: &mut Vec<PlaybackCompatibilityCondition>,
+    reason: PlaybackCompatibilityCondition,
+) {
+    if !reasons.contains(&reason) {
+        reasons.push(reason);
+    }
+}
+
+fn decision_reason_condition(
+    reason: PlaybackDecisionReason,
+) -> Option<PlaybackCompatibilityCondition> {
+    match reason {
+        PlaybackDecisionReason::Compatible => None,
+        PlaybackDecisionReason::RequestedTranscodeOutput => {
+            Some(PlaybackCompatibilityCondition::RequestedTranscodeOutput)
+        }
+        PlaybackDecisionReason::ClientDisabledDirectPlay => {
+            Some(PlaybackCompatibilityCondition::DirectPlayDisabled)
+        }
+        PlaybackDecisionReason::SourceContainerUnknown => {
+            Some(PlaybackCompatibilityCondition::ContainerUnknown)
+        }
+        PlaybackDecisionReason::ClientContainerUnsupported => {
+            Some(PlaybackCompatibilityCondition::ContainerUnsupported)
+        }
+        PlaybackDecisionReason::SourceCodecsUnsupported => None,
+        PlaybackDecisionReason::PolicyDenied => Some(PlaybackCompatibilityCondition::PolicyDenied),
     }
 }
 
@@ -687,7 +915,8 @@ fn optional_bool(value: Option<bool>) -> String {
 #[cfg(test)]
 mod tests {
     use nako_core::{
-        MediaProbeResult, MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind,
+        MediaColorInfo, MediaHdrMetadata, MediaProbeResult, MediaSource, MediaSourceId,
+        MediaStreamDisposition, MediaStreamInfo, MediaStreamKind, MediaStreamTechnicalFacts,
     };
 
     use super::*;
@@ -965,6 +1194,129 @@ mod tests {
                 ..
             })
         ));
+    }
+
+    #[test]
+    fn transcode_decision_carries_source_aware_requirement() {
+        let source = media_source("movie.mp4");
+        let mut video = stream(MediaStreamKind::Video, Some("mpeg2video"));
+        video.index = 0;
+        video.width = Some(3840);
+        video.height = Some(2160);
+        video.bit_rate = Some(18_000_000);
+        video.technical = MediaStreamTechnicalFacts {
+            codec_profile: Some("Main 10".to_owned()),
+            codec_level: Some(51),
+            pixel_format: Some("yuv420p10le".to_owned()),
+            bits_per_raw_sample: Some(10),
+            color: MediaColorInfo {
+                transfer: Some("smpte2084".to_owned()),
+                primaries: Some("bt2020".to_owned()),
+                ..MediaColorInfo::default()
+            },
+            hdr: MediaHdrMetadata {
+                dynamic_range: Some("hdr10".to_owned()),
+                mastering_display: true,
+                content_light_level: true,
+                ..MediaHdrMetadata::default()
+            },
+            ..MediaStreamTechnicalFacts::default()
+        };
+        let mut audio = stream(MediaStreamKind::Audio, Some("aac"));
+        audio.index = 1;
+        audio.channels = Some(6);
+        audio.technical = MediaStreamTechnicalFacts {
+            channel_layout: Some("5.1".to_owned()),
+            bits_per_sample: Some(24),
+            ..MediaStreamTechnicalFacts::default()
+        };
+        let mut subtitle = stream(MediaStreamKind::Subtitle, Some("subrip"));
+        subtitle.index = 2;
+        subtitle.language = Some("jpn".to_owned());
+        subtitle.technical = MediaStreamTechnicalFacts {
+            disposition: MediaStreamDisposition {
+                forced: true,
+                ..MediaStreamDisposition::default()
+            },
+            ..MediaStreamTechnicalFacts::default()
+        };
+        let probe = MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some("mov,mp4,m4a,3gp,3g2,mj2".to_owned()),
+            bit_rate: Some(18_500_000),
+            streams: vec![video, audio, subtitle],
+        };
+
+        let decision = plan_with_policy(
+            &source,
+            Some(&probe),
+            ClientPlaybackCapabilities::default(),
+            PlaybackSelectionContext {
+                storage: PlaybackStorageContext::default(),
+                preferences: PlaybackPreferenceContext {
+                    requested_audio_stream: Some(1),
+                    requested_subtitle_stream: Some(2),
+                    max_video_bitrate: Some(8_000_000),
+                    prefer_hdr: Some(false),
+                    ..PlaybackPreferenceContext::default()
+                },
+            },
+            EffectivePlaybackPolicy::from_library_access(
+                source.library_id,
+                nako_core::LibraryAccessLevel::Play,
+            ),
+        );
+
+        assert_eq!(decision.mode, PlaybackMode::Transcode);
+        assert_eq!(
+            decision.reason,
+            PlaybackDecisionReason::SourceCodecsUnsupported
+        );
+        let requirement = decision
+            .transcode_requirement
+            .as_ref()
+            .expect("transcode decision carries source-aware requirement");
+        assert_eq!(requirement.output_container, OutputContainer::Hls);
+        assert_eq!(requirement.output_video_codec.as_deref(), Some("h264"));
+        assert_eq!(requirement.output_audio_codec.as_deref(), Some("aac"));
+        assert_eq!(requirement.track_selection.audio_stream, Some(1));
+        assert_eq!(requirement.track_selection.subtitle_stream, Some(2));
+        assert_eq!(
+            requirement.output_constraints.max_video_bitrate,
+            Some(8_000_000)
+        );
+        assert_eq!(requirement.output_constraints.prefer_hdr, Some(false));
+        assert_eq!(
+            requirement.subtitle_strategy,
+            TranscodeSubtitleStrategy::OmitSelected
+        );
+        assert!(
+            requirement
+                .reasons
+                .contains(&PlaybackCompatibilityCondition::VideoCodecUnsupported)
+        );
+
+        let selected_video = requirement.selected_streams.video.as_ref().unwrap();
+        assert_eq!(selected_video.codec.as_deref(), Some("mpeg2video"));
+        assert_eq!(selected_video.codec_profile.as_deref(), Some("Main 10"));
+        assert_eq!(selected_video.pixel_format.as_deref(), Some("yuv420p10le"));
+        assert_eq!(selected_video.bits_per_raw_sample, Some(10));
+        assert_eq!(selected_video.dynamic_range.as_deref(), Some("hdr10"));
+        assert_eq!(
+            requirement
+                .selected_streams
+                .audio
+                .as_ref()
+                .and_then(|stream| stream.channel_layout.as_deref()),
+            Some("5.1")
+        );
+        assert!(
+            requirement
+                .selected_streams
+                .subtitle
+                .as_ref()
+                .is_some_and(|stream| stream.forced)
+        );
     }
 
     #[test]
@@ -1347,6 +1699,7 @@ mod tests {
             height: None,
             channels: None,
             sample_rate: None,
+            technical: Default::default(),
         }
     }
 }

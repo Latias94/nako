@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "slug": "source-aware-transcode-runtime",
+  "title": "Source-Aware Transcode Runtime",
+  "status": "completed",
+  "updated": "2026-05-28",
+  "scope_kind": "execution",
+  "problem": "Nako's transcode stack has safe HLS/remux and stage-aware hardware readiness, but it still lacks source media facts, structured transcode requirements, source-aware pipeline planning, and runtime supervision needed for Jellyfin-class playback.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/source-aware-transcode-runtime/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/source-aware-transcode-runtime/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/source-aware-transcode-runtime/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/source-aware-transcode-runtime/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/source-aware-transcode-runtime/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/source-aware-transcode-runtime/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/source-aware-transcode-runtime/CLOSEOUT.md"
+    }
+  ],
+  "gates": [
+    "python -m json.tool docs/workstreams/source-aware-transcode-runtime/WORKSTREAM.json",
+    "cargo nextest run -p nako-media-probe --no-fail-fast",
+    "cargo nextest run -p nako-playback --no-fail-fast",
+    "cargo nextest run -p nako-transcode --no-fail-fast",
+    "cargo nextest run -p nako-server hls --no-fail-fast",
+    "cargo nextest run -p nako-server playback --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "SATR-010",
+      "summary": "Opened the source-aware transcode runtime lane and proposed ADR 0049 for source facts, transcode requirements, source-aware pipeline planning, FFmpeg command boundaries, and runtime supervision."
+    },
+    {
+      "task": "SATR-020",
+      "summary": "Added MediaStreamInfo technical facts and ffprobe parsing for codec profile/level, pixel format, bit depth, frame rate, color/HDR, disposition, rotation, and audio layout."
+    },
+    {
+      "task": "SATR-030",
+      "summary": "Persisted stream technical facts through media_streams.technical_json for SQLite and PostgreSQL baselines with round-trip coverage."
+    },
+    {
+      "task": "SATR-040",
+      "summary": "Added source-aware playback TranscodeRequirement with selected streams, output constraints, subtitle strategy, source facts, and transcode reasons."
+    },
+    {
+      "task": "SATR-050",
+      "summary": "Mapped source-aware playback evidence into redaction-safe Public typed decision reports and Admin readiness/support evidence, including runtime metrics in the Admin TypeScript contract."
+    },
+    {
+      "task": "SATR-060",
+      "summary": "Added source facts to TranscodePipelineRequest and connected HLS execution policy planning to stored ffprobe streams, with typed fallback/failure reasons for source codec and bit-depth incompatibility."
+    },
+    {
+      "task": "SATR-070",
+      "summary": "Split HLS FFmpeg command construction into staged parts for device/input, stream map, filter graph, video encoder, audio encoder, subtitle, and muxer planning, with QSV argument ordering fixed and covered."
+    },
+    {
+      "task": "SATR-080",
+      "summary": "Added FFmpeg progress parsing, redaction-safe transcode runtime metrics, SQLite/Postgres runtime_metrics_json persistence, HLS runner capture, and server HLS persistence coverage."
+    },
+    {
+      "task": "SATR-090",
+      "summary": "Prepared progressive HLS serving for running segment readiness, one-shot throttled waiting, and stale sibling .ts cleanup without regressing completed segment routes."
+    },
+    {
+      "task": "SATR-100",
+      "summary": "Closed the workstream with fresh focused gates, final formatting and diff checks, no blocking review findings, and follow-ons split for adaptive HLS, fMP4, rsmpeg adapter feasibility, and remote workers."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0038-playback-planning-and-transcode-policy-seams.md",
+    "docs/adr/0044-playback-capability-profile-planner.md",
+    "docs/adr/0045-ffmpeg-hardware-pipeline-planner.md",
+    "docs/adr/0046-ffmpeg-probe-inventory.md",
+    "docs/adr/0047-cpu-transcode-readiness.md",
+    "docs/adr/0048-playback-transcode-startup-degradation.md",
+    "docs/adr/0049-source-aware-transcode-runtime.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Closed on 2026-05-28 after the source-aware transcode planning and runtime supervision slice landed. Adaptive HLS ladders, fMP4 output, rsmpeg execution adapter replacement, remote transcode workers, and client UI remain follow-ons."
+  }
+}

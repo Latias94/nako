@@ -6,6 +6,11 @@ attention.
 
 ## Current Workstreams
 
+- [source-aware-transcode-runtime](source-aware-transcode-runtime/README.md):
+  active execution lane for deepening Nako's HLS/remux transcode stack from
+  fixed H.264/AAC command planning into source-aware media facts, structured
+  transcode requirements, source-aware hardware pipeline planning, FFmpeg
+  command boundaries, and runtime progress/segment supervision.
 - [external-casting-adapter-boundary](external-casting-adapter-boundary/README.md):
   active execution lane for adding Chromecast, DLNA, and AirPlay through
   protocol-specific renderer adapters after Nako remote-client cast-safe
