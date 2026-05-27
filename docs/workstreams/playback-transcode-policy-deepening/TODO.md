@@ -1,6 +1,6 @@
 # Playback Transcode Policy Deepening - TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-27
 
 ## M0 - Workstream Open
@@ -111,7 +111,7 @@ Last updated: 2026-05-27
 
 ## M7 - Route Cleanup And Closeout
 
-- [ ] PTP-080 [owner=codex] [deps=PTP-070] [scope=crates/nako-server/src/http/playback.rs,crates/nako-server/src/app/playback,docs/workstreams/playback-transcode-policy-deepening]
+- [x] PTP-080 [owner=codex] [deps=PTP-070] [scope=crates/nako-server/src/http/playback.rs,crates/nako-server/src/app/playback,docs/workstreams/playback-transcode-policy-deepening]
   Goal: Convert playback HTTP routes into thin adapters over planner/session/
   engine Modules and close the lane.
   Validation: `cargo nextest run -p nako-server playback --no-fail-fast`;
@@ -119,6 +119,9 @@ Last updated: 2026-05-27
   `git diff --check`; `python -m json.tool docs/workstreams/playback-transcode-policy-deepening/WORKSTREAM.json`.
   Review: route compatibility, browser tickets, legacy segment URLs, and
   redaction behavior survive the refactor.
-  Evidence: `EVIDENCE_AND_GATES.md`; `HANDOFF.md`; commits.
+  Evidence: Moved direct/remux/HLS playback orchestration into
+  `PlaybackAppService`, kept HTTP routes as auth/query/response adapters, added
+  coverage for legacy HLS segment URLs by Transcode Session id, and ran
+  playback/transcode closeout gates.
   Handoff: Split adaptive HLS ladders, optimized versions, remote transcode
   workers, desktop player integration, SyncPlay, and DLNA into separate lanes.

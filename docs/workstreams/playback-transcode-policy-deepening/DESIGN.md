@@ -1,6 +1,6 @@
 # Playback Transcode Policy Deepening Design
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-27
 
 ## Problem
@@ -182,6 +182,13 @@ artifact lifecycle and throttling policy evidence, while Public Client
 contracts remain limited to playback decisions and safe transport data. Startup
 artifact cleanup is rooted under the configured transcode staging root and
 records security skips for terminal artifacts that point outside that root.
+
+PTP-080 closed the lane by moving direct/remux/HLS playback-session
+orchestration out of HTTP routes and into `PlaybackAppService`. Routes now
+perform access checks, query/body parsing, ticket handling, and response
+streaming; the app service owns session creation, transcode linkage, remux wait
+semantics, HLS playlist session-id rewriting, and legacy HLS segment target
+resolution.
 
 PTP-030 extracted `nako-playback` because the deletion test became real:
 removing selection from `nako-streaming` leaves a smaller transport crate, while

@@ -1,6 +1,6 @@
 # Playback Transcode Policy Deepening - Evidence And Gates
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-27
 
 ## Planned Gates
@@ -130,6 +130,25 @@ python -m json.tool docs/workstreams/playback-transcode-policy-deepening/WORKSTR
     passed: 20 passed, 39 skipped.
   - `cargo nextest run -p nako-server playback --no-fail-fast` passed: 66
     passed, 282 skipped.
+  - `cargo fmt --all -- --check` passed.
+  - `python -m json.tool docs/workstreams/playback-transcode-policy-deepening/WORKSTREAM.json`
+    passed.
+  - `git diff --check` passed with Git line-ending warnings only.
+- 2026-05-27: PTP-080 closed the lane by making playback HTTP routes thin
+  adapters. Direct stream/preflight, remux stream/preflight, HLS playlist
+  playback, and HLS segment target resolution now flow through
+  `PlaybackAppService`. The route layer keeps auth, query parsing, ticket
+  handling, and byte response adaptation. Added coverage proving the generated
+  playlist uses durable Playback Session ids while legacy Transcode Session
+  segment URLs still work.
+  Verified:
+  - `cargo nextest run -p nako-server playback --no-fail-fast` passed: 69
+    passed, 282 skipped.
+  - `cargo nextest run -p nako-transcode -E "test(remux_runner_promotes_temp_output_on_success) | test(remux_runner_cleans_temp_output_on_failure) | test(hls_runner_promotes_temp_output_on_success)" --no-fail-fast`
+    passed: 3 passed, 36 skipped after an initial full-package run hit
+    transient Windows runner timeouts in these three process-spawning tests.
+  - `cargo nextest run -p nako-transcode --no-fail-fast` passed on rerun: 39
+    passed, 0 skipped.
   - `cargo fmt --all -- --check` passed.
   - `python -m json.tool docs/workstreams/playback-transcode-policy-deepening/WORKSTREAM.json`
     passed.

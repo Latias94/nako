@@ -2,8 +2,8 @@
   "schema_version": 1,
   "slug": "playback-transcode-policy-deepening",
   "title": "Playback Transcode Policy Deepening",
-  "status": "active",
-  "current_task": "PTP-080",
+  "status": "completed",
+  "current_task": null,
   "completed_tasks": [
     "PTP-010",
     "PTP-020",
@@ -11,7 +11,8 @@
     "PTP-040",
     "PTP-050",
     "PTP-060",
-    "PTP-070"
+    "PTP-070",
+    "PTP-080"
   ],
   "updated": "2026-05-27",
   "scope_kind": "execution",
@@ -78,6 +79,10 @@
     {
       "task": "PTP-070",
       "summary": "Added persisted Admin playback runtime settings, artifact lifecycle/throttle diagnostics, generated Admin TypeScript contract refresh, and startup cleanup for terminal transcode artifacts under the configured transcode root with security-skip accounting."
+    },
+    {
+      "task": "PTP-080",
+      "summary": "Closed the lane by moving direct/remux/HLS playback orchestration from HTTP routes into PlaybackAppService, preserving browser tickets and legacy HLS segment URLs with focused playback/transcode gates."
     }
   ],
   "adr_refs": [
@@ -87,6 +92,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Continue with PTP-080 Route Cleanup and Closeout now that Admin playback settings, diagnostics, and artifact lifecycle evidence are in place."
+    "notes": "The lane is closed. Future work should split follow-ons for adaptive HLS ladders, optimized versions, remote transcode workers, desktop/native player integration, subtitle/HDR policy, SyncPlay, DLNA, and per-user playback permissions."
   }
 }

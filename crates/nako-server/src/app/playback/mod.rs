@@ -355,7 +355,86 @@ pub struct HlsPlaylistOutput {
 #[derive(Clone, Debug)]
 pub struct HlsSegmentPlan {
     pub path: PathBuf,
-    pub content_type: &'static str,
+    pub response: DirectPlayResponsePlan,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct DirectPlaybackStreamRequest {
+    pub principal_id: UserPrincipalId,
+    pub source_id: MediaSourceId,
+    pub range_request: DirectPlayRangeRequest,
+    pub client: ClientPlaybackCapabilities,
+}
+
+#[derive(Debug)]
+pub(crate) struct DirectPlaybackStreamOutput {
+    pub session: Option<PlaybackSessionRecord>,
+    pub source_uri: String,
+    pub body: DirectPlaySourceBody,
+    pub response: DirectPlayResponsePlan,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct DirectPlaybackPreflightRequest {
+    pub principal_id: UserPrincipalId,
+    pub source_id: MediaSourceId,
+    pub range_request: DirectPlayRangeRequest,
+    pub client: ClientPlaybackCapabilities,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct DirectPlaybackPreflightOutput {
+    pub session: PlaybackSessionRecord,
+    pub response: DirectPlayResponsePlan,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct RemuxPlaybackStreamRequest {
+    pub principal_id: UserPrincipalId,
+    pub source_id: MediaSourceId,
+    pub client: ClientPlaybackCapabilities,
+    pub output_container: RemuxContainer,
+    pub range_request: DirectPlayRangeRequest,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct RemuxPlaybackStreamOutput {
+    pub session: PlaybackSessionRecord,
+    pub output_path: PathBuf,
+    pub response: DirectPlayResponsePlan,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct RemuxPlaybackPreflightRequest {
+    pub principal_id: UserPrincipalId,
+    pub source_id: MediaSourceId,
+    pub client: ClientPlaybackCapabilities,
+    pub output_container: RemuxContainer,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct RemuxPlaybackPreflightOutput {
+    pub session: PlaybackSessionRecord,
+    pub response: DirectPlayResponsePlan,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct HlsPlaylistPlaybackRequest {
+    pub principal_id: UserPrincipalId,
+    pub source_id: MediaSourceId,
+    pub client: ClientPlaybackCapabilities,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct HlsPlaylistPlaybackOutput {
+    pub session: PlaybackSessionRecord,
+    pub body: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct HlsSegmentPlaybackTarget {
+    pub source_id: MediaSourceId,
+    pub transcode_session_id: TranscodeSessionId,
 }
 
 #[derive(Clone, Debug)]
@@ -592,6 +671,181 @@ impl PlaybackAppService {
         let (uri, backend) = self.storage_backend_for_media_source(&source).await?;
 
         plan_direct_play_response_with_backend(&source, &uri, backend.as_ref(), range_request).await
+    }
+
+    pub(crate) async fn direct_playback_stream(
+        &self,
+        request: DirectPlaybackStreamRequest,
+    ) -> Result<DirectPlaybackStreamOutput> {
+        let direct_play = self
+            .plan_direct_play(request.source_id, request.range_request)
+            .await?;
+        let source_uri = direct_play.source.locator.clone();
+
+        if direct_play.response.is_range_not_satisfiable() {
+            return Ok(DirectPlaybackStreamOutput {
+                session: None,
+                source_uri,
+                body: DirectPlaySourceBody::Empty,
+                response: direct_play.response,
+            });
+        }
+
+        let session = self
+            .start_playback_session(StartPlaybackSessionRequest {
+                principal_id: request.principal_id,
+                source_id: request.source_id,
+                mode: PlaybackSessionMode::Direct,
+                client: Some(request.client),
+            })
+            .await?;
+
+        Ok(DirectPlaybackStreamOutput {
+            session: Some(session),
+            source_uri,
+            body: direct_play.body,
+            response: direct_play.response,
+        })
+    }
+
+    pub(crate) async fn direct_playback_preflight(
+        &self,
+        request: DirectPlaybackPreflightRequest,
+    ) -> Result<DirectPlaybackPreflightOutput> {
+        let response = self
+            .plan_direct_play_preflight(request.source_id, request.range_request)
+            .await?;
+        let session = self
+            .start_playback_session(StartPlaybackSessionRequest {
+                principal_id: request.principal_id,
+                source_id: request.source_id,
+                mode: PlaybackSessionMode::Direct,
+                client: Some(request.client),
+            })
+            .await?;
+
+        Ok(DirectPlaybackPreflightOutput { session, response })
+    }
+
+    pub(crate) async fn remux_playback_stream(
+        &self,
+        request: RemuxPlaybackStreamRequest,
+    ) -> Result<RemuxPlaybackStreamOutput> {
+        let playback_session = self
+            .start_playback_session(StartPlaybackSessionRequest {
+                principal_id: request.principal_id,
+                source_id: request.source_id,
+                mode: PlaybackSessionMode::Remux,
+                client: Some(request.client.clone()),
+            })
+            .await?;
+        let remux_start = self
+            .start_remux_source(RemuxSourceRequest {
+                source_id: request.source_id,
+                client: request.client,
+                output_container: request.output_container,
+            })
+            .await?;
+        self.link_playback_session_transcode(playback_session.id, remux_start.session.id)
+            .await?;
+        let remux = self.wait_for_remux_start(remux_start).await?;
+
+        if remux.disposition == RemuxSourceDisposition::Cancelled {
+            return Err(NakoError::Provider {
+                provider: "ffmpeg_remux".to_owned(),
+                message: "remux session was cancelled".to_owned(),
+            });
+        }
+
+        let total_len = tokio::fs::metadata(&remux.output_path)
+            .await
+            .map_err(|err| {
+                NakoError::storage_io(
+                    remux.output_path.display().to_string(),
+                    format!("failed to read remux output length: {err}"),
+                )
+            })?
+            .len();
+        let response = nako_streaming::plan_direct_play_response(
+            total_len,
+            nako_streaming::content_type_for_file_name(&format!(
+                "stream.{}",
+                request.output_container.file_extension()
+            )),
+            request.range_request,
+        );
+
+        Ok(RemuxPlaybackStreamOutput {
+            session: playback_session,
+            output_path: remux.output_path,
+            response,
+        })
+    }
+
+    pub(crate) async fn remux_playback_preflight(
+        &self,
+        request: RemuxPlaybackPreflightRequest,
+    ) -> Result<RemuxPlaybackPreflightOutput> {
+        let playback_session = self
+            .start_playback_session(StartPlaybackSessionRequest {
+                principal_id: request.principal_id,
+                source_id: request.source_id,
+                mode: PlaybackSessionMode::Remux,
+                client: Some(request.client.clone()),
+            })
+            .await?;
+        let remux = self
+            .start_remux_source(RemuxSourceRequest {
+                source_id: request.source_id,
+                client: request.client,
+                output_container: request.output_container,
+            })
+            .await?;
+        self.link_playback_session_transcode(playback_session.id, remux.session.id)
+            .await?;
+
+        let response = nako_streaming::plan_direct_play_response(
+            0,
+            nako_streaming::content_type_for_file_name(&format!(
+                "stream.{}",
+                request.output_container.file_extension()
+            )),
+            DirectPlayRangeRequest::None,
+        );
+
+        Ok(RemuxPlaybackPreflightOutput {
+            session: playback_session,
+            response,
+        })
+    }
+
+    pub(crate) async fn hls_playlist_playback(
+        &self,
+        request: HlsPlaylistPlaybackRequest,
+    ) -> Result<HlsPlaylistPlaybackOutput> {
+        let playback_session = self
+            .start_playback_session(StartPlaybackSessionRequest {
+                principal_id: request.principal_id,
+                source_id: request.source_id,
+                mode: PlaybackSessionMode::Hls,
+                client: Some(request.client.clone()),
+            })
+            .await?;
+        let playlist = self
+            .hls_playlist(HlsSourceRequest {
+                source_id: request.source_id,
+                client: request.client,
+            })
+            .await?;
+        self.link_playback_session_transcode(playback_session.id, playlist.session.id)
+            .await?;
+        let body =
+            rewrite_hls_playlist_segments_for_playback_session(&playlist.body, playback_session.id);
+
+        Ok(HlsPlaylistPlaybackOutput {
+            session: playback_session,
+            body,
+        })
     }
 
     pub(crate) async fn remux_source(
@@ -978,10 +1232,55 @@ impl PlaybackAppService {
             });
         }
 
-        Ok(HlsSegmentPlan {
-            path,
-            content_type: "video/mp2t",
-        })
+        let total_len = tokio::fs::metadata(&path)
+            .await
+            .map_err(|err| {
+                NakoError::storage_io(
+                    path.display().to_string(),
+                    format!("failed to read hls segment length: {err}"),
+                )
+            })?
+            .len();
+        let response = nako_streaming::plan_direct_play_response(
+            total_len,
+            "video/mp2t",
+            DirectPlayRangeRequest::None,
+        );
+
+        Ok(HlsSegmentPlan { path, response })
+    }
+
+    pub(crate) async fn hls_segment_playback_target(
+        &self,
+        session_id: PlaybackSessionId,
+    ) -> Result<HlsSegmentPlaybackTarget> {
+        match self.get_playback_session(session_id).await {
+            Ok(playback_session) => {
+                let transcode_session_id =
+                    playback_session
+                        .transcode_session_id
+                        .ok_or_else(|| NakoError::Conflict {
+                            message: format!(
+                                "playback session {session_id} does not have an hls artifact"
+                            ),
+                        })?;
+
+                Ok(HlsSegmentPlaybackTarget {
+                    source_id: playback_session.source_id,
+                    transcode_session_id,
+                })
+            }
+            Err(NakoError::NotFound { .. }) => {
+                let transcode_session_id = TranscodeSessionId::from_uuid(session_id.as_uuid());
+                let transcode_session = self.get_transcode_session(transcode_session_id).await?;
+
+                Ok(HlsSegmentPlaybackTarget {
+                    source_id: transcode_session.source_id,
+                    transcode_session_id,
+                })
+            }
+            Err(error) => Err(error),
+        }
     }
 
     pub(crate) async fn get_transcode_session(
@@ -1136,6 +1435,25 @@ impl PlaybackAppService {
         let (uri, backend) = self.storage_backend_for_media_source(source).await?;
         Ok(playback_selection_context(&uri, backend.as_ref()).await)
     }
+}
+
+fn rewrite_hls_playlist_segments_for_playback_session(
+    body: &str,
+    session_id: PlaybackSessionId,
+) -> String {
+    body.lines()
+        .map(|line| {
+            let Some(rest) = line.strip_prefix("/playback/sessions/") else {
+                return line.to_owned();
+            };
+            let Some((_old_session_id, segment_path)) = rest.split_once("/hls/segments/") else {
+                return line.to_owned();
+            };
+
+            format!("/playback/sessions/{session_id}/hls/segments/{segment_path}")
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 #[derive(Clone, Debug)]

@@ -300,7 +300,7 @@ async fn hls_source_runs_runner_and_reuses_completed_session() {
         .plan_hls_segment(session_id, "segment_00000.ts")
         .await
         .unwrap();
-    assert_eq!(segment.content_type, "video/mp2t");
+    assert_eq!(segment.response.content_type, "video/mp2t");
     assert!(segment.path.ends_with("segment_00000.ts"));
     assert!(
         app.playback()

@@ -1,12 +1,11 @@
 # Playback Transcode Policy Deepening - Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-27
 
 ## Current State
 
-The lane is open. PTP-010, PTP-020, PTP-030, PTP-040, PTP-050, PTP-060, and
-PTP-070 are complete.
+The lane is closed. PTP-010 through PTP-080 are complete.
 
 Nako already has:
 
@@ -33,6 +32,8 @@ Nako already has:
   support evidence.
 - startup cleanup for expired terminal remux/HLS artifacts under the configured
   transcode root, with security-skip accounting for paths outside that root.
+- thin playback HTTP routes over app-service orchestration for direct stream,
+  remux stream, HLS playlist, and HLS segment target resolution.
 
 PTP-020 added a direct-play characterization test proving that direct playback
 creates a durable Playback Session and no fake Transcode Session artifact.
@@ -49,6 +50,9 @@ FFmpeg CLI engine adapters consumed by server playback orchestration.
 PTP-070 added persisted playback runtime settings, lifecycle/throttle
 diagnostics, generated Admin TypeScript contract updates, and startup artifact
 cleanup.
+PTP-080 moved route-owned direct/remux/HLS playback orchestration into
+`PlaybackAppService`, preserved browser ticket behavior, and added explicit
+coverage for legacy HLS segment URLs by Transcode Session id.
 
 Jellyfin reference review found the feature pressures Nako must be ready for:
 
@@ -62,9 +66,9 @@ Jellyfin reference review found the feature pressures Nako must be ready for:
 
 ## Active Task
 
-- Task ID: PTP-080
-- Status: ready
-- Scope: Route Cleanup and Closeout.
+- Task ID: none
+- Status: completed
+- Scope: Playback Transcode Policy Deepening is closed.
 
 ## Decisions
 
@@ -104,6 +108,7 @@ Jellyfin reference review found the feature pressures Nako must be ready for:
 
 ## Next Action
 
-Run PTP-080. Convert remaining playback HTTP routes into thinner adapters over
-planner/session/engine modules, preserve browser ticket and legacy segment URL
-compatibility, then close or split the lane.
+Open focused follow-on lanes for adaptive HLS ladders, optimized versions,
+remote transcode workers, desktop/native player capability negotiation, subtitle
+delivery, HDR tonemapping, SyncPlay, DLNA, and per-user playback permission
+policy.

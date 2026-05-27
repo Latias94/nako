@@ -1,6 +1,6 @@
 # Playback Transcode Policy Deepening - Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-27
 
 ## M0 - Workstream Open
@@ -67,3 +67,7 @@ Exit criteria:
 - Route compatibility and browser playback tickets are preserved.
 - Evidence is fresh and recorded.
 - Remaining breadth is split into named follow-on lanes.
+
+Status: Complete via PTP-080. Playback routes are thin adapters over
+`PlaybackAppService`, browser tickets and legacy HLS segment URLs are covered,
+and follow-on feature breadth is explicitly deferred.

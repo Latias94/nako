@@ -1409,6 +1409,29 @@ async fn hls_playlist_and_segment_routes_work() {
         .unwrap();
     assert_eq!(&segment[..], b"segment");
 
+    let legacy_segment_path = format!(
+        "/playback/sessions/{}/hls/segments/segment_00000.ts",
+        session.id
+    );
+    assert!(!playlist.contains(&legacy_segment_path));
+    let legacy_segment_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&legacy_segment_path)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(legacy_segment_response.status(), StatusCode::OK);
+    let legacy_segment = to_bytes(legacy_segment_response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    assert_eq!(&legacy_segment[..], b"segment");
+
     let missing = router
         .oneshot(
             Request::builder()
