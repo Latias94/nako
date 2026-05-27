@@ -106,6 +106,7 @@ export interface ClientPlaybackCapabilitiesDto {
 }
 
 export interface ClientPlaybackDecision {
+  denial: ClientPlaybackDenialDto | null;
   direct_play: ClientDirectPlayPlan | null;
   mode: "direct_play" | "remux" | "transcode" | "denied";
   reason: ClientPlaybackDecisionReason;
@@ -113,6 +114,35 @@ export interface ClientPlaybackDecision {
 }
 
 export type ClientPlaybackDecisionReason = "compatible" | "requested_transcode_output" | "client_disabled_direct_play" | "source_container_unknown" | "client_container_unsupported" | "source_codecs_unsupported" | "policy_denied";
+
+export interface ClientPlaybackDenialDto {
+  permission: ClientPlaybackPermission;
+  reason: ClientPlaybackPermissionDecisionReason;
+}
+
+export type ClientPlaybackPermission = "media_playback" | "direct_play" | "remux" | "audio_transcode" | "video_transcode" | "remote_playback" | "remote_control" | "cast";
+
+export type ClientPlaybackPermissionDecisionReason = "allowed" | "library_access_does_not_allow_play" | "media_playback_disabled" | "direct_play_disabled" | "remux_disabled" | "audio_transcode_disabled" | "video_transcode_disabled" | "remote_playback_disabled" | "remote_control_disabled" | "cast_disabled";
+
+export interface ClientPlaybackTargetDto {
+  control_capabilities: ClientRendererControlCapabilitiesDto;
+  kind: ClientPlaybackTargetKind;
+  media_capabilities: ClientPlaybackCapabilitiesDto;
+  network_scope: ClientPlaybackTargetNetworkScope;
+  transport_auth: ClientPlaybackTargetTransportAuth;
+}
+
+export type ClientPlaybackTargetKind = "browser" | "native_desktop" | "native_mobile" | "nako_remote_client" | "chromecast" | "dlna_renderer" | "airplay";
+
+export type ClientPlaybackTargetNetworkScope = "local" | "remote" | "unknown";
+
+export type ClientPlaybackTargetTransportAuth = "bearer" | "browser_ticket" | "cast_ticket" | "none";
+
+export interface ClientRendererControlCapabilitiesDto {
+  commands: Array<ClientRendererControlCommand>;
+}
+
+export type ClientRendererControlCommand = "show_item" | "play" | "pause" | "resume" | "seek" | "stop" | "set_volume";
 
 export interface ClientTranscodePlan {
   audio_codec: string | null;
@@ -416,6 +446,7 @@ export interface PlaybackDecisionResponse {
   decision: ClientPlaybackDecision;
   probe: MediaProbeDto | null;
   source: MediaSourceDto;
+  target: ClientPlaybackTargetDto;
 }
 
 export interface PlaybackSessionDto {

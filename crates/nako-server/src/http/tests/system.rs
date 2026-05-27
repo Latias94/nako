@@ -3847,7 +3847,7 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
         diagnostics.readiness.reason,
         AdminPlaybackReadinessReason::FfmpegProbeReady
     );
-    assert_eq!(diagnostics.readiness.checks.len(), 8);
+    assert_eq!(diagnostics.readiness.checks.len(), 9);
     assert!(diagnostics.readiness.checks.iter().any(|check| check.name
         == AdminPlaybackReadinessCheckName::HardwareAcceleration
         && check.reason == AdminPlaybackReadinessReason::RequestedAcceleratorReady));
@@ -3857,6 +3857,9 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
     assert!(diagnostics.readiness.checks.iter().any(|check| check.name
         == AdminPlaybackReadinessCheckName::RemotePlaybackBudget
         && check.reason == AdminPlaybackReadinessReason::RemotePlaybackBudgetReady));
+    assert!(diagnostics.readiness.checks.iter().any(|check| check.name
+        == AdminPlaybackReadinessCheckName::PlaybackPolicy
+        && check.reason == AdminPlaybackReadinessReason::PlaybackPolicyReady));
     assert!(diagnostics.readiness.checks.iter().any(|check| check.name
         == AdminPlaybackReadinessCheckName::Staging
         && check.reason == AdminPlaybackReadinessReason::StagingReady));
@@ -3922,6 +3925,17 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
     assert_eq!(diagnostics.remote_playback.backend_count, 1);
     assert_eq!(diagnostics.remote_playback.stream_permits_max, 7);
     assert_eq!(diagnostics.remote_playback.stage_permits_max, 3);
+    assert!(diagnostics.policy.user_policy_rows_supported);
+    assert!(diagnostics.policy.role_policy_rows_supported);
+    assert!(diagnostics.policy.effective_resolution_supported);
+    assert!(diagnostics.policy.library_access_required);
+    assert!(diagnostics.policy.user_policy_overrides_role_policy);
+    assert!(
+        diagnostics
+            .policy
+            .permissions
+            .contains(&nako_core::PlaybackPermission::Remux)
+    );
     assert_eq!(diagnostics.staging.max_bytes, 123_456);
     assert_eq!(diagnostics.staging.retention_ms, 654_321);
     assert!(diagnostics.staging.cleanup_on_startup);
@@ -4027,7 +4041,7 @@ async fn admin_v1_playback_runtime_reports_typed_readiness_for_cpu_fallback() {
         diagnostics.readiness.reason,
         AdminPlaybackReadinessReason::RequestedAcceleratorUnavailableFallbackToCpu
     );
-    assert_eq!(diagnostics.readiness.checks.len(), 8);
+    assert_eq!(diagnostics.readiness.checks.len(), 9);
     assert!(diagnostics.readiness.checks.iter().any(|check| check.name
         == AdminPlaybackReadinessCheckName::HardwareAcceleration
         && check.reason

@@ -31,14 +31,22 @@ browser tickets or starting direct/remux/HLS playback. Denied direct playback
 does not create a Playback Session; denied remux/HLS playback does not create
 Playback Sessions, Transcode Sessions, or artifacts.
 
+PRT-060 is complete. Public playback decisions now carry safe target facts and
+policy denial outcomes. Admin playback runtime/support diagnostics now expose
+policy readiness, not raw user/role policy rows. Public TypeScript/Kotlin SDKs
+and the Admin Web generated contract were refreshed.
+
 ## Active Task
 
-- Task ID: PRT-060
+- Task ID: PRT-070
 - Owner: codex
-- Files: `crates/nako-client-protocol/src`, `crates/nako-api/src`,
-  `apps/admin-web/src/adminApi/generated/contract.ts`
-- Validation: `cargo nextest run -p nako-client-protocol public --no-fail-fast`;
-  `cargo nextest run -p nako-api -E 'test(public_openapi) | test(sdk) | test(admin_contract)' --no-fail-fast`
+- Files: `docs/workstreams/playback-policy-and-renderer-targets`,
+  `docs/workstreams/casting-renderer-runtime`
+- Validation: `cargo nextest run -p nako-server playback --no-fail-fast`;
+  `cargo nextest run -p nako-playback --no-fail-fast`;
+  `cargo fmt --all -- --check`;
+  `git diff --check`;
+  `python -m json.tool docs/workstreams/playback-policy-and-renderer-targets/WORKSTREAM.json`
 - Status: READY
 - Review: pending
 - Evidence: pending
@@ -63,14 +71,22 @@ Playback Sessions, Transcode Sessions, or artifacts.
   playback policy overrides role playback policy for the same library.
 - Administrators keep administrator playback defaults; Library Access remains
   the first playback gate.
+- Public playback target/denial DTOs are safe outcome DTOs. They must not grow
+  raw policy rows, role assignment internals, source locators, ticket secrets,
+  or FFmpeg command details.
+- Admin policy diagnostics describe policy readiness and resolution rules. They
+  intentionally do not expose stored user/role policy row contents.
 
 ## Blockers
 
-- None.
+- None for the Rust/API workstream.
+- Frontend note: `npm --prefix apps/admin-web run check` still fails on
+  existing Playback Sessions page/mock-data type drift unrelated to PRT-060's
+  policy/target DTO additions.
 
 ## Next Recommended Action
 
-Start PRT-060 by adding safe Public/Admin DTOs for target/capability and
-effective playback policy diagnostics. Do not expose raw policy rows, role
-assignment internals, source locators, FFmpeg command strings, or ticket
-secrets through Public Client responses.
+Start PRT-070 closeout. Verify the lane, update final evidence, and either
+close `playback-policy-and-renderer-targets` or split follow-up tasks for
+persistent policy editing and bitrate-limit enforcement before beginning
+`casting-renderer-runtime`.

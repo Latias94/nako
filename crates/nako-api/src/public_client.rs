@@ -10,7 +10,9 @@ use nako_core::{
 };
 use nako_playback::{
     ClientPlaybackCapabilities, DirectPlayPlan, PlaybackDecision, PlaybackDecisionReason,
-    PlaybackMode,
+    PlaybackDenial, PlaybackMode, PlaybackPermission, PlaybackPermissionDecisionReason,
+    PlaybackTarget, PlaybackTargetKind, PlaybackTargetNetworkScope, PlaybackTargetTransportAuth,
+    RendererControlCommand,
 };
 use nako_transcode::{OutputContainer, TranscodePlan};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
@@ -26,10 +28,13 @@ pub use nako_client_protocol::{
     ClientManagementSurface, ClientMediaDomain, ClientMediaKind, ClientMediaStreamKind,
     ClientMetadataRefreshMode, ClientMetadataSource, ClientNamingStrategy, ClientOutputContainer,
     ClientPlaybackCapabilitiesDto, ClientPlaybackDecision, ClientPlaybackDecisionReason,
-    ClientPlaybackMode, ClientPlaybackSessionMode, ClientPlaybackSessionState,
-    ClientTranscodeFailureCategory, ClientTranscodePlan, ClientTranscodeSessionKind,
-    ClientTranscodeSessionState, CollectionItemDto, CollectionRefDto, ContentRatingDto,
-    ContinueWatchingItemDto, ContinueWatchingResponse, CreditDto, CurrentUserDto,
+    ClientPlaybackDenialDto, ClientPlaybackMode, ClientPlaybackPermission,
+    ClientPlaybackPermissionDecisionReason, ClientPlaybackSessionMode, ClientPlaybackSessionState,
+    ClientPlaybackTargetDto, ClientPlaybackTargetKind, ClientPlaybackTargetNetworkScope,
+    ClientPlaybackTargetTransportAuth, ClientRendererControlCapabilitiesDto,
+    ClientRendererControlCommand, ClientTranscodeFailureCategory, ClientTranscodePlan,
+    ClientTranscodeSessionKind, ClientTranscodeSessionState, CollectionItemDto, CollectionRefDto,
+    ContentRatingDto, ContinueWatchingItemDto, ContinueWatchingResponse, CreditDto, CurrentUserDto,
     CurrentUserResponse, ErrorResponse, ExternalIdDto, GenreDto, GenreItemsResponse,
     GenreListResponse, HealthResponse, ImagesResponse, ItemCreditDto, ItemCreditsResponse,
     ItemDetailResponse, ItemGenreDto, ItemStudioDto, ItemTagDto, ItemsResponse, LibraryDto,
@@ -206,11 +211,13 @@ pub fn media_probe_to_dto(probe: MediaProbeResult) -> MediaProbeDto {
 pub fn playback_decision_response_to_dto(
     source: MediaSource,
     probe: Option<MediaProbeResult>,
+    target: PlaybackTarget,
     decision: PlaybackDecision,
 ) -> PlaybackDecisionResponse {
     PlaybackDecisionResponse {
         source: media_source_to_dto(source),
         probe: probe.map(media_probe_to_dto),
+        target: playback_target_to_dto(target),
         decision: playback_decision_to_dto(decision),
     }
 }
@@ -220,8 +227,27 @@ pub fn playback_decision_to_dto(decision: PlaybackDecision) -> ClientPlaybackDec
     ClientPlaybackDecision {
         mode: playback_mode_to_dto(decision.mode),
         reason: playback_decision_reason_to_dto(decision.reason),
+        denial: decision.denial.map(playback_denial_to_dto),
         direct_play: decision.direct_play.map(direct_play_plan_to_dto),
         transcode_plan: decision.transcode_plan.map(transcode_plan_to_dto),
+    }
+}
+
+#[must_use]
+pub fn playback_target_to_dto(target: PlaybackTarget) -> ClientPlaybackTargetDto {
+    ClientPlaybackTargetDto {
+        kind: playback_target_kind_to_dto(target.kind),
+        network_scope: playback_target_network_scope_to_dto(target.network_scope),
+        transport_auth: playback_target_transport_auth_to_dto(target.transport_auth),
+        media_capabilities: playback_capabilities_to_dto(target.media_capabilities),
+        control_capabilities: ClientRendererControlCapabilitiesDto {
+            commands: target
+                .control_capabilities
+                .commands
+                .into_iter()
+                .map(renderer_control_command_to_dto)
+                .collect(),
+        },
     }
 }
 
@@ -642,6 +668,112 @@ fn playback_decision_reason_to_dto(reason: PlaybackDecisionReason) -> ClientPlay
     }
 }
 
+fn playback_denial_to_dto(denial: PlaybackDenial) -> ClientPlaybackDenialDto {
+    ClientPlaybackDenialDto {
+        permission: playback_permission_to_dto(denial.permission),
+        reason: playback_permission_decision_reason_to_dto(denial.reason),
+    }
+}
+
+fn playback_permission_to_dto(permission: PlaybackPermission) -> ClientPlaybackPermission {
+    match permission {
+        PlaybackPermission::MediaPlayback => ClientPlaybackPermission::MediaPlayback,
+        PlaybackPermission::DirectPlay => ClientPlaybackPermission::DirectPlay,
+        PlaybackPermission::Remux => ClientPlaybackPermission::Remux,
+        PlaybackPermission::AudioTranscode => ClientPlaybackPermission::AudioTranscode,
+        PlaybackPermission::VideoTranscode => ClientPlaybackPermission::VideoTranscode,
+        PlaybackPermission::RemotePlayback => ClientPlaybackPermission::RemotePlayback,
+        PlaybackPermission::RemoteControl => ClientPlaybackPermission::RemoteControl,
+        PlaybackPermission::Cast => ClientPlaybackPermission::Cast,
+    }
+}
+
+fn playback_permission_decision_reason_to_dto(
+    reason: PlaybackPermissionDecisionReason,
+) -> ClientPlaybackPermissionDecisionReason {
+    match reason {
+        PlaybackPermissionDecisionReason::Allowed => {
+            ClientPlaybackPermissionDecisionReason::Allowed
+        }
+        PlaybackPermissionDecisionReason::LibraryAccessDoesNotAllowPlay => {
+            ClientPlaybackPermissionDecisionReason::LibraryAccessDoesNotAllowPlay
+        }
+        PlaybackPermissionDecisionReason::MediaPlaybackDisabled => {
+            ClientPlaybackPermissionDecisionReason::MediaPlaybackDisabled
+        }
+        PlaybackPermissionDecisionReason::DirectPlayDisabled => {
+            ClientPlaybackPermissionDecisionReason::DirectPlayDisabled
+        }
+        PlaybackPermissionDecisionReason::RemuxDisabled => {
+            ClientPlaybackPermissionDecisionReason::RemuxDisabled
+        }
+        PlaybackPermissionDecisionReason::AudioTranscodeDisabled => {
+            ClientPlaybackPermissionDecisionReason::AudioTranscodeDisabled
+        }
+        PlaybackPermissionDecisionReason::VideoTranscodeDisabled => {
+            ClientPlaybackPermissionDecisionReason::VideoTranscodeDisabled
+        }
+        PlaybackPermissionDecisionReason::RemotePlaybackDisabled => {
+            ClientPlaybackPermissionDecisionReason::RemotePlaybackDisabled
+        }
+        PlaybackPermissionDecisionReason::RemoteControlDisabled => {
+            ClientPlaybackPermissionDecisionReason::RemoteControlDisabled
+        }
+        PlaybackPermissionDecisionReason::CastDisabled => {
+            ClientPlaybackPermissionDecisionReason::CastDisabled
+        }
+    }
+}
+
+fn playback_target_kind_to_dto(kind: PlaybackTargetKind) -> ClientPlaybackTargetKind {
+    match kind {
+        PlaybackTargetKind::Browser => ClientPlaybackTargetKind::Browser,
+        PlaybackTargetKind::NativeDesktop => ClientPlaybackTargetKind::NativeDesktop,
+        PlaybackTargetKind::NativeMobile => ClientPlaybackTargetKind::NativeMobile,
+        PlaybackTargetKind::NakoRemoteClient => ClientPlaybackTargetKind::NakoRemoteClient,
+        PlaybackTargetKind::Chromecast => ClientPlaybackTargetKind::Chromecast,
+        PlaybackTargetKind::DlnaRenderer => ClientPlaybackTargetKind::DlnaRenderer,
+        PlaybackTargetKind::Airplay => ClientPlaybackTargetKind::Airplay,
+    }
+}
+
+fn playback_target_network_scope_to_dto(
+    scope: PlaybackTargetNetworkScope,
+) -> ClientPlaybackTargetNetworkScope {
+    match scope {
+        PlaybackTargetNetworkScope::Local => ClientPlaybackTargetNetworkScope::Local,
+        PlaybackTargetNetworkScope::Remote => ClientPlaybackTargetNetworkScope::Remote,
+        PlaybackTargetNetworkScope::Unknown => ClientPlaybackTargetNetworkScope::Unknown,
+    }
+}
+
+fn playback_target_transport_auth_to_dto(
+    auth: PlaybackTargetTransportAuth,
+) -> ClientPlaybackTargetTransportAuth {
+    match auth {
+        PlaybackTargetTransportAuth::Bearer => ClientPlaybackTargetTransportAuth::Bearer,
+        PlaybackTargetTransportAuth::BrowserTicket => {
+            ClientPlaybackTargetTransportAuth::BrowserTicket
+        }
+        PlaybackTargetTransportAuth::CastTicket => ClientPlaybackTargetTransportAuth::CastTicket,
+        PlaybackTargetTransportAuth::None => ClientPlaybackTargetTransportAuth::None,
+    }
+}
+
+fn renderer_control_command_to_dto(
+    command: RendererControlCommand,
+) -> ClientRendererControlCommand {
+    match command {
+        RendererControlCommand::ShowItem => ClientRendererControlCommand::ShowItem,
+        RendererControlCommand::Play => ClientRendererControlCommand::Play,
+        RendererControlCommand::Pause => ClientRendererControlCommand::Pause,
+        RendererControlCommand::Resume => ClientRendererControlCommand::Resume,
+        RendererControlCommand::Seek => ClientRendererControlCommand::Seek,
+        RendererControlCommand::Stop => ClientRendererControlCommand::Stop,
+        RendererControlCommand::SetVolume => ClientRendererControlCommand::SetVolume,
+    }
+}
+
 fn playback_session_mode_to_dto(mode: PlaybackSessionMode) -> ClientPlaybackSessionMode {
     match mode {
         PlaybackSessionMode::Direct => ClientPlaybackSessionMode::Direct,
@@ -672,6 +804,17 @@ fn playback_session_client_capabilities_from_json(
         video_codecs: capabilities.video_codecs,
         audio_codecs: capabilities.audio_codecs,
     })
+}
+
+fn playback_capabilities_to_dto(
+    capabilities: ClientPlaybackCapabilities,
+) -> ClientPlaybackCapabilitiesDto {
+    ClientPlaybackCapabilitiesDto {
+        direct_play: capabilities.direct_play,
+        containers: capabilities.containers,
+        video_codecs: capabilities.video_codecs,
+        audio_codecs: capabilities.audio_codecs,
+    }
 }
 
 fn output_container_to_dto(container: OutputContainer) -> ClientOutputContainer {

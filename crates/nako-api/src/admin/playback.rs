@@ -1,8 +1,8 @@
 use nako_client_protocol::PageInfo;
 use nako_core::{
-    LibraryId, MediaItemId, MediaSource, MediaSourceId, PlaybackSessionId, PlaybackSessionMode,
-    PlaybackSessionRecord, PlaybackSessionState, TranscodeFailureCategory, TranscodeSessionId,
-    TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
+    LibraryId, MediaItemId, MediaSource, MediaSourceId, PlaybackPermission, PlaybackSessionId,
+    PlaybackSessionMode, PlaybackSessionRecord, PlaybackSessionState, TranscodeFailureCategory,
+    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
 };
 use nako_transcode::{
     HardwareAcceleration, HardwareAccelerationFallback, HardwareAccelerationPolicy,
@@ -65,6 +65,7 @@ pub struct AdminPlaybackRuntimeDiagnosticsResponse {
     pub admin_api_version: String,
     pub public_api_version: String,
     pub readiness: AdminPlaybackReadinessDiagnostics,
+    pub policy: AdminPlaybackPolicyDiagnostics,
     pub ffmpeg: AdminPlaybackFfmpegDiagnostics,
     pub hardware: AdminPlaybackHardwareDiagnostics,
     pub transcode: AdminPlaybackTranscodeBudgetDiagnostics,
@@ -73,6 +74,38 @@ pub struct AdminPlaybackRuntimeDiagnosticsResponse {
     pub staging: AdminPlaybackStagingDiagnostics,
     pub artifact_lifecycle: AdminPlaybackArtifactLifecycleDiagnostics,
     pub throttle: AdminPlaybackThrottleDiagnostics,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackPolicyDiagnostics {
+    pub user_policy_rows_supported: bool,
+    pub role_policy_rows_supported: bool,
+    pub effective_resolution_supported: bool,
+    pub library_access_required: bool,
+    pub user_policy_overrides_role_policy: bool,
+    pub role_policy_merge: AdminPlaybackPolicyRoleMergeStrategy,
+    pub permissions: Vec<PlaybackPermission>,
+}
+
+impl AdminPlaybackPolicyDiagnostics {
+    #[must_use]
+    pub fn ready() -> Self {
+        Self {
+            user_policy_rows_supported: true,
+            role_policy_rows_supported: true,
+            effective_resolution_supported: true,
+            library_access_required: true,
+            user_policy_overrides_role_policy: true,
+            role_policy_merge: AdminPlaybackPolicyRoleMergeStrategy::Restrictive,
+            permissions: PlaybackPermission::ALL.to_vec(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminPlaybackPolicyRoleMergeStrategy {
+    Restrictive,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -212,6 +245,7 @@ impl AdminPlaybackOutputArtifactKind {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminPlaybackSupportRuntimeEvidence {
     pub readiness: AdminPlaybackReadinessDiagnostics,
+    pub policy: AdminPlaybackPolicyDiagnostics,
     pub ffmpeg: AdminPlaybackFfmpegDiagnostics,
     pub hardware: AdminPlaybackSupportHardwareEvidence,
     pub transcode: AdminPlaybackTranscodeBudgetDiagnostics,
@@ -296,6 +330,7 @@ pub enum AdminPlaybackReadinessReason {
     StagingBudgetDisabled,
     ArtifactLifecycleReady,
     TranscodeThrottleReady,
+    PlaybackPolicyReady,
 }
 
 impl From<HardwareAccelerationReadinessReason> for AdminPlaybackReadinessReason {
@@ -382,6 +417,7 @@ pub enum AdminPlaybackReadinessCheckName {
     SelectedFallback,
     TranscodeBudget,
     RemotePlaybackBudget,
+    PlaybackPolicy,
     Staging,
     ArtifactLifecycle,
     TranscodeThrottle,
@@ -728,10 +764,15 @@ mod tests {
                     AdminPlaybackReadinessReason::ProbeError,
                 ),
                 AdminPlaybackReadinessCheck::ready(
+                    AdminPlaybackReadinessCheckName::PlaybackPolicy,
+                    AdminPlaybackReadinessReason::PlaybackPolicyReady,
+                ),
+                AdminPlaybackReadinessCheck::ready(
                     AdminPlaybackReadinessCheckName::TranscodeBudget,
                     AdminPlaybackReadinessReason::TranscodeBudgetReady,
                 ),
             ]),
+            policy: AdminPlaybackPolicyDiagnostics::ready(),
             ffmpeg: AdminPlaybackFfmpegDiagnostics {
                 probe_status: AdminPlaybackRuntimeStatus::Degraded,
                 has_probe_error: true,
@@ -823,7 +864,11 @@ mod tests {
         assert_eq!(value["readiness"]["reason"], "probe_error");
         assert_eq!(value["readiness"]["checks"][0]["name"], "ffmpeg_probe");
         assert_eq!(value["readiness"]["checks"][0]["status"], "degraded");
-        assert_eq!(value["readiness"]["checks"][1]["name"], "transcode_budget");
+        assert_eq!(value["readiness"]["checks"][1]["name"], "playback_policy");
+        assert_eq!(value["readiness"]["checks"][2]["name"], "transcode_budget");
+        assert_eq!(value["policy"]["user_policy_rows_supported"], true);
+        assert_eq!(value["policy"]["role_policy_merge"], "restrictive");
+        assert_eq!(value["policy"]["permissions"][2], "remux");
         assert_eq!(value["ffmpeg"]["probe_status"], "degraded");
         assert_eq!(value["hardware"]["policy"]["requested"], "nvenc");
         assert_eq!(value["hardware"]["selection"]["acceleration"], "none");

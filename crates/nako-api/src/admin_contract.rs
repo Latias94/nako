@@ -1297,6 +1297,28 @@ export interface AdminGeneratedArtifactAcceptancePlan {
   };
 }
 
+export type AdminPlaybackPolicyRoleMergeStrategy = "restrictive";
+
+export type AdminPlaybackPolicyPermission =
+  | "media_playback"
+  | "direct_play"
+  | "remux"
+  | "audio_transcode"
+  | "video_transcode"
+  | "remote_playback"
+  | "remote_control"
+  | "cast";
+
+export interface AdminPlaybackPolicyDiagnostics {
+  user_policy_rows_supported: boolean;
+  role_policy_rows_supported: boolean;
+  effective_resolution_supported: boolean;
+  library_access_required: boolean;
+  user_policy_overrides_role_policy: boolean;
+  role_policy_merge: AdminPlaybackPolicyRoleMergeStrategy;
+  permissions: AdminPlaybackPolicyPermission[];
+}
+
 export interface AdminPlaybackRuntimeDiagnosticsResponse {
   admin_api_version: string;
   public_api_version: string;
@@ -1309,6 +1331,7 @@ export interface AdminPlaybackRuntimeDiagnosticsResponse {
       reason: string;
     }>;
   };
+  policy: AdminPlaybackPolicyDiagnostics;
   ffmpeg: {
     probe_status: string;
     has_probe_error: boolean;
@@ -1453,6 +1476,7 @@ export interface AdminPlaybackSupportEvidenceResponse {
   } | null;
   runtime: {
     readiness: AdminPlaybackRuntimeDiagnosticsResponse["readiness"];
+    policy: AdminPlaybackPolicyDiagnostics;
     ffmpeg: AdminPlaybackRuntimeDiagnosticsResponse["ffmpeg"];
     hardware: {
       policy: Record<string, unknown>;
@@ -2027,6 +2051,8 @@ mod tests {
             "AdminStorageStagingQuery",
             "AdminOverviewResponse",
             "AdminPlaybackSupportEvidenceResponse",
+            "AdminPlaybackPolicyDiagnostics",
+            "AdminPlaybackPolicyPermission",
             "AdminAddonRuntimeReadinessResponse",
             "AdminAddonRoutingPlansResponse",
             "AdminNetworkAccessDiagnostics",

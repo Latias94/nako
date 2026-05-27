@@ -81,14 +81,18 @@ Last updated: 2026-05-27
 
 ## M5 - API And Diagnostics
 
-- [ ] PRT-060 [owner=codex] [deps=PRT-050] [scope=crates/nako-client-protocol/src,crates/nako-api/src,apps/admin-web/src/adminApi/generated/contract.ts]
+- [x] PRT-060 [owner=codex] [deps=PRT-050] [scope=crates/nako-client-protocol/src,crates/nako-api/src,apps/admin-web/src/adminApi/generated/contract.ts]
   Goal: Add safe Public Client target/capability/denial DTOs and Admin
   diagnostics for effective playback policy readiness.
   Validation: `cargo nextest run -p nako-client-protocol public --no-fail-fast`;
   `cargo nextest run -p nako-api -E 'test(public_openapi) | test(sdk) | test(admin_contract)' --no-fail-fast`.
   Review: Public DTOs expose effective outcomes, not raw policy rows or role
   internals.
-  Evidence: Protocol/API tests and generated contract diffs.
+  Evidence: Added Public Client target, renderer-control capability, and
+  policy-denial DTOs; playback decision responses now include safe target and
+  denial outcomes. Added Admin playback policy readiness diagnostics to runtime
+  and support evidence. Regenerated Public TypeScript/Kotlin SDK outputs and
+  Admin Web generated contract. Rust protocol/API/server gates passed.
   Handoff: PRT-070 can close or split persistent policy editing as needed.
 
 ## M6 - Closeout

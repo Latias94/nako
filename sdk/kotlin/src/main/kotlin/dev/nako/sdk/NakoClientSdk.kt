@@ -1184,6 +1184,7 @@ public data class ClientPlaybackCapabilitiesDto(
 
 @Serializable
 public data class ClientPlaybackDecision(
+    public val denial: ClientPlaybackDenialDto?,
     @SerialName("direct_play")
     public val directPlay: ClientDirectPlayPlan?,
     public val mode: ClientPlaybackDecisionMode,
@@ -1217,6 +1218,198 @@ public value class ClientPlaybackDecisionReason(
             "client_container_unsupported",
             "source_codecs_unsupported",
             "policy_denied",
+        )
+    }
+}
+
+@Serializable
+public data class ClientPlaybackDenialDto(
+    public val permission: ClientPlaybackPermission,
+    public val reason: ClientPlaybackPermissionDecisionReason,
+)
+
+@JvmInline
+@Serializable
+public value class ClientPlaybackPermission(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val MediaPlayback: ClientPlaybackPermission = ClientPlaybackPermission("media_playback")
+        public val DirectPlay: ClientPlaybackPermission = ClientPlaybackPermission("direct_play")
+        public val Remux: ClientPlaybackPermission = ClientPlaybackPermission("remux")
+        public val AudioTranscode: ClientPlaybackPermission = ClientPlaybackPermission("audio_transcode")
+        public val VideoTranscode: ClientPlaybackPermission = ClientPlaybackPermission("video_transcode")
+        public val RemotePlayback: ClientPlaybackPermission = ClientPlaybackPermission("remote_playback")
+        public val RemoteControl: ClientPlaybackPermission = ClientPlaybackPermission("remote_control")
+        public val Cast: ClientPlaybackPermission = ClientPlaybackPermission("cast")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "media_playback",
+            "direct_play",
+            "remux",
+            "audio_transcode",
+            "video_transcode",
+            "remote_playback",
+            "remote_control",
+            "cast",
+        )
+    }
+}
+
+@JvmInline
+@Serializable
+public value class ClientPlaybackPermissionDecisionReason(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val Allowed: ClientPlaybackPermissionDecisionReason = ClientPlaybackPermissionDecisionReason("allowed")
+        public val LibraryAccessDoesNotAllowPlay: ClientPlaybackPermissionDecisionReason = ClientPlaybackPermissionDecisionReason("library_access_does_not_allow_play")
+        public val MediaPlaybackDisabled: ClientPlaybackPermissionDecisionReason = ClientPlaybackPermissionDecisionReason("media_playback_disabled")
+        public val DirectPlayDisabled: ClientPlaybackPermissionDecisionReason = ClientPlaybackPermissionDecisionReason("direct_play_disabled")
+        public val RemuxDisabled: ClientPlaybackPermissionDecisionReason = ClientPlaybackPermissionDecisionReason("remux_disabled")
+        public val AudioTranscodeDisabled: ClientPlaybackPermissionDecisionReason = ClientPlaybackPermissionDecisionReason("audio_transcode_disabled")
+        public val VideoTranscodeDisabled: ClientPlaybackPermissionDecisionReason = ClientPlaybackPermissionDecisionReason("video_transcode_disabled")
+        public val RemotePlaybackDisabled: ClientPlaybackPermissionDecisionReason = ClientPlaybackPermissionDecisionReason("remote_playback_disabled")
+        public val RemoteControlDisabled: ClientPlaybackPermissionDecisionReason = ClientPlaybackPermissionDecisionReason("remote_control_disabled")
+        public val CastDisabled: ClientPlaybackPermissionDecisionReason = ClientPlaybackPermissionDecisionReason("cast_disabled")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "allowed",
+            "library_access_does_not_allow_play",
+            "media_playback_disabled",
+            "direct_play_disabled",
+            "remux_disabled",
+            "audio_transcode_disabled",
+            "video_transcode_disabled",
+            "remote_playback_disabled",
+            "remote_control_disabled",
+            "cast_disabled",
+        )
+    }
+}
+
+@Serializable
+public data class ClientPlaybackTargetDto(
+    @SerialName("control_capabilities")
+    public val controlCapabilities: ClientRendererControlCapabilitiesDto,
+    public val kind: ClientPlaybackTargetKind,
+    @SerialName("media_capabilities")
+    public val mediaCapabilities: ClientPlaybackCapabilitiesDto,
+    @SerialName("network_scope")
+    public val networkScope: ClientPlaybackTargetNetworkScope,
+    @SerialName("transport_auth")
+    public val transportAuth: ClientPlaybackTargetTransportAuth,
+)
+
+@JvmInline
+@Serializable
+public value class ClientPlaybackTargetKind(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val Browser: ClientPlaybackTargetKind = ClientPlaybackTargetKind("browser")
+        public val NativeDesktop: ClientPlaybackTargetKind = ClientPlaybackTargetKind("native_desktop")
+        public val NativeMobile: ClientPlaybackTargetKind = ClientPlaybackTargetKind("native_mobile")
+        public val NakoRemoteClient: ClientPlaybackTargetKind = ClientPlaybackTargetKind("nako_remote_client")
+        public val Chromecast: ClientPlaybackTargetKind = ClientPlaybackTargetKind("chromecast")
+        public val DlnaRenderer: ClientPlaybackTargetKind = ClientPlaybackTargetKind("dlna_renderer")
+        public val Airplay: ClientPlaybackTargetKind = ClientPlaybackTargetKind("airplay")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "browser",
+            "native_desktop",
+            "native_mobile",
+            "nako_remote_client",
+            "chromecast",
+            "dlna_renderer",
+            "airplay",
+        )
+    }
+}
+
+@JvmInline
+@Serializable
+public value class ClientPlaybackTargetNetworkScope(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val Local: ClientPlaybackTargetNetworkScope = ClientPlaybackTargetNetworkScope("local")
+        public val Remote: ClientPlaybackTargetNetworkScope = ClientPlaybackTargetNetworkScope("remote")
+        public val Unknown: ClientPlaybackTargetNetworkScope = ClientPlaybackTargetNetworkScope("unknown")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "local",
+            "remote",
+            "unknown",
+        )
+    }
+}
+
+@JvmInline
+@Serializable
+public value class ClientPlaybackTargetTransportAuth(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val Bearer: ClientPlaybackTargetTransportAuth = ClientPlaybackTargetTransportAuth("bearer")
+        public val BrowserTicket: ClientPlaybackTargetTransportAuth = ClientPlaybackTargetTransportAuth("browser_ticket")
+        public val CastTicket: ClientPlaybackTargetTransportAuth = ClientPlaybackTargetTransportAuth("cast_ticket")
+        public val None: ClientPlaybackTargetTransportAuth = ClientPlaybackTargetTransportAuth("none")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "bearer",
+            "browser_ticket",
+            "cast_ticket",
+            "none",
+        )
+    }
+}
+
+@Serializable
+public data class ClientRendererControlCapabilitiesDto(
+    public val commands: List<ClientRendererControlCommand>,
+)
+
+@JvmInline
+@Serializable
+public value class ClientRendererControlCommand(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val ShowItem: ClientRendererControlCommand = ClientRendererControlCommand("show_item")
+        public val Play: ClientRendererControlCommand = ClientRendererControlCommand("play")
+        public val Pause: ClientRendererControlCommand = ClientRendererControlCommand("pause")
+        public val Resume: ClientRendererControlCommand = ClientRendererControlCommand("resume")
+        public val Seek: ClientRendererControlCommand = ClientRendererControlCommand("seek")
+        public val Stop: ClientRendererControlCommand = ClientRendererControlCommand("stop")
+        public val SetVolume: ClientRendererControlCommand = ClientRendererControlCommand("set_volume")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "show_item",
+            "play",
+            "pause",
+            "resume",
+            "seek",
+            "stop",
+            "set_volume",
         )
     }
 }
@@ -1623,6 +1816,7 @@ public data class PlaybackDecisionResponse(
     public val decision: ClientPlaybackDecision,
     public val probe: MediaProbeDto?,
     public val source: MediaSourceDto,
+    public val target: ClientPlaybackTargetDto,
 )
 
 @Serializable

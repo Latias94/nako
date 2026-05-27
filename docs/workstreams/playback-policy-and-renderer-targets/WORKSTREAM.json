@@ -3,13 +3,14 @@
   "slug": "playback-policy-and-renderer-targets",
   "title": "Playback Policy And Renderer Targets",
   "status": "active",
-  "current_task": "PRT-060",
+  "current_task": "PRT-070",
   "completed_tasks": [
     "PRT-010",
     "PRT-020",
     "PRT-030",
     "PRT-040",
-    "PRT-050"
+    "PRT-050",
+    "PRT-060"
   ],
   "updated": "2026-05-27",
   "scope_kind": "execution",
@@ -69,6 +70,10 @@
     {
       "task": "PRT-050",
       "summary": "Persisted user/role playback policy rows, added PlaybackPolicyRepository, resolved effective playback policy in the server app, and enforced direct/remux/HLS/browser-ticket policy denial before creating playback sessions, transcode sessions, artifacts, or tickets."
+    },
+    {
+      "task": "PRT-060",
+      "summary": "Added safe Public playback target and denial DTOs, exposed Admin playback policy readiness diagnostics, refreshed generated Public SDKs and Admin Web contract, and proved the API surfaces do not expose raw policy rows or role internals."
     }
   ],
   "adr_refs": [

@@ -650,9 +650,24 @@ mod tests {
                 fingerprint: None,
             },
             probe: None,
+            target: ClientPlaybackTargetDto {
+                kind: ClientPlaybackTargetKind::Browser,
+                network_scope: ClientPlaybackTargetNetworkScope::Local,
+                transport_auth: ClientPlaybackTargetTransportAuth::BrowserTicket,
+                media_capabilities: ClientPlaybackCapabilitiesDto {
+                    direct_play: true,
+                    containers: vec!["mp4".to_owned()],
+                    video_codecs: vec!["h264".to_owned()],
+                    audio_codecs: vec!["aac".to_owned()],
+                },
+                control_capabilities: ClientRendererControlCapabilitiesDto {
+                    commands: Vec::new(),
+                },
+            },
             decision: ClientPlaybackDecision {
                 mode: ClientPlaybackMode::DirectPlay,
                 reason: ClientPlaybackDecisionReason::Compatible,
+                denial: None,
                 direct_play: Some(ClientDirectPlayPlan {
                     source_id: "source-1".to_owned(),
                     content_type: "video/mp4".to_owned(),
@@ -666,9 +681,12 @@ mod tests {
 
         assert_eq!(value["decision"]["mode"], "direct_play");
         assert_eq!(value["decision"]["reason"], "compatible");
+        assert_eq!(value["target"]["kind"], "browser");
+        assert_eq!(value["target"]["transport_auth"], "browser_ticket");
         assert_eq!(value["decision"]["direct_play"]["source_id"], "source-1");
         assert!(value["source"].get("locator").is_none());
         assert!(value["decision"].get("transcode_plan").is_some());
+        assert!(value["decision"].get("denial").is_some());
     }
 
     #[test]
@@ -735,9 +753,27 @@ mod tests {
                 "fingerprint": null
             },
             "probe": null,
+            "target": {
+                "kind": "server_future_target",
+                "network_scope": "server_future_network",
+                "transport_auth": "server_future_transport",
+                "media_capabilities": {
+                    "direct_play": true,
+                    "containers": ["mp4"],
+                    "video_codecs": ["h264"],
+                    "audio_codecs": ["aac"]
+                },
+                "control_capabilities": {
+                    "commands": ["server_future_command"]
+                }
+            },
             "decision": {
                 "mode": "server_future_mode",
                 "reason": "server_future_reason",
+                "denial": {
+                    "permission": "server_future_permission",
+                    "reason": "server_future_denial"
+                },
                 "direct_play": null,
                 "transcode_plan": {
                     "output_container": "future_container",
@@ -758,6 +794,18 @@ mod tests {
             ClientPlaybackDecisionReason::Other("server_future_reason".to_owned())
         );
         assert!(!response.decision.reason.is_known());
+        assert_eq!(
+            response.target.kind,
+            ClientPlaybackTargetKind::Other("server_future_target".to_owned())
+        );
+        assert_eq!(
+            response.target.control_capabilities.commands[0],
+            ClientRendererControlCommand::Other("server_future_command".to_owned())
+        );
+        assert_eq!(
+            response.decision.denial.as_ref().unwrap().permission,
+            ClientPlaybackPermission::Other("server_future_permission".to_owned())
+        );
         let plan = response.decision.transcode_plan.unwrap();
         assert_eq!(
             plan.output_container,
@@ -767,9 +815,18 @@ mod tests {
         let encoded = serde_json::to_value(PlaybackDecisionResponse {
             source: response.source,
             probe: None,
+            target: response.target,
             decision: ClientPlaybackDecision {
                 mode: ClientPlaybackMode::Other("server_future_mode".to_owned()),
                 reason: ClientPlaybackDecisionReason::Other("server_future_reason".to_owned()),
+                denial: Some(ClientPlaybackDenialDto {
+                    permission: ClientPlaybackPermission::Other(
+                        "server_future_permission".to_owned(),
+                    ),
+                    reason: ClientPlaybackPermissionDecisionReason::Other(
+                        "server_future_denial".to_owned(),
+                    ),
+                }),
                 direct_play: None,
                 transcode_plan: Some(plan),
             },

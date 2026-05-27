@@ -1092,14 +1092,64 @@ fn schemas() -> Value {
             "content_type": string_schema(),
             "supports_range_requests": boolean_schema()
         })),
-        "PlaybackDecisionResponse": object_schema(&["source", "probe", "decision"], json!({
+        "ClientPlaybackTargetKind": enum_schema(&[
+            "browser",
+            "native_desktop",
+            "native_mobile",
+            "nako_remote_client",
+            "chromecast",
+            "dlna_renderer",
+            "airplay"
+        ]),
+        "ClientPlaybackTargetNetworkScope": enum_schema(&["local", "remote", "unknown"]),
+        "ClientPlaybackTargetTransportAuth": enum_schema(&["bearer", "browser_ticket", "cast_ticket", "none"]),
+        "ClientRendererControlCommand": enum_schema(&["show_item", "play", "pause", "resume", "seek", "stop", "set_volume"]),
+        "ClientPlaybackPermission": enum_schema(&[
+            "media_playback",
+            "direct_play",
+            "remux",
+            "audio_transcode",
+            "video_transcode",
+            "remote_playback",
+            "remote_control",
+            "cast"
+        ]),
+        "ClientPlaybackPermissionDecisionReason": enum_schema(&[
+            "allowed",
+            "library_access_does_not_allow_play",
+            "media_playback_disabled",
+            "direct_play_disabled",
+            "remux_disabled",
+            "audio_transcode_disabled",
+            "video_transcode_disabled",
+            "remote_playback_disabled",
+            "remote_control_disabled",
+            "cast_disabled"
+        ]),
+        "ClientPlaybackTargetDto": object_schema(&["kind", "network_scope", "transport_auth", "media_capabilities", "control_capabilities"], json!({
+            "kind": schema_ref("ClientPlaybackTargetKind"),
+            "network_scope": schema_ref("ClientPlaybackTargetNetworkScope"),
+            "transport_auth": schema_ref("ClientPlaybackTargetTransportAuth"),
+            "media_capabilities": schema_ref("ClientPlaybackCapabilitiesDto"),
+            "control_capabilities": schema_ref("ClientRendererControlCapabilitiesDto")
+        })),
+        "ClientRendererControlCapabilitiesDto": object_schema(&["commands"], json!({
+            "commands": array_schema(schema_ref("ClientRendererControlCommand"))
+        })),
+        "ClientPlaybackDenialDto": object_schema(&["permission", "reason"], json!({
+            "permission": schema_ref("ClientPlaybackPermission"),
+            "reason": schema_ref("ClientPlaybackPermissionDecisionReason")
+        })),
+        "PlaybackDecisionResponse": object_schema(&["source", "probe", "target", "decision"], json!({
             "source": schema_ref("MediaSourceDto"),
             "probe": nullable_ref("MediaProbeDto"),
+            "target": schema_ref("ClientPlaybackTargetDto"),
             "decision": schema_ref("ClientPlaybackDecision")
         })),
-        "ClientPlaybackDecision": object_schema(&["mode", "reason", "direct_play", "transcode_plan"], json!({
+        "ClientPlaybackDecision": object_schema(&["mode", "reason", "denial", "direct_play", "transcode_plan"], json!({
             "mode": enum_schema(&["direct_play", "remux", "transcode", "denied"]),
             "reason": schema_ref("ClientPlaybackDecisionReason"),
+            "denial": nullable_ref("ClientPlaybackDenialDto"),
             "direct_play": nullable_ref("ClientDirectPlayPlan"),
             "transcode_plan": nullable_ref("ClientTranscodePlan")
         })),
@@ -1584,10 +1634,36 @@ mod tests {
 
         assert!(schemas.contains_key("ClientPlaybackDecisionReason"));
         assert!(schemas.contains_key("ClientPlaybackCapabilitiesDto"));
+        assert!(schemas.contains_key("ClientPlaybackTargetDto"));
+        assert!(schemas.contains_key("ClientPlaybackDenialDto"));
+        assert!(schemas.contains_key("ClientPlaybackPermission"));
         assert!(!schemas.contains_key("PlaybackSessionClientCapabilitiesDto"));
+        assert_eq!(
+            document["components"]["schemas"]["PlaybackDecisionResponse"]["properties"]["target"]["$ref"],
+            "#/components/schemas/ClientPlaybackTargetDto"
+        );
         assert_eq!(
             document["components"]["schemas"]["ClientPlaybackDecision"]["properties"]["reason"]["$ref"],
             "#/components/schemas/ClientPlaybackDecisionReason"
+        );
+        assert_eq!(
+            document["components"]["schemas"]["ClientPlaybackDecision"]["properties"]["denial"]["allOf"]
+                [0]["$ref"],
+            "#/components/schemas/ClientPlaybackDenialDto"
+        );
+        assert_eq!(
+            document["components"]["schemas"]["ClientPlaybackTargetDto"]["properties"]["kind"]["$ref"],
+            "#/components/schemas/ClientPlaybackTargetKind"
+        );
+        assert_eq!(
+            document["components"]["schemas"]["ClientPlaybackTargetDto"]["properties"]["transport_auth"]
+                ["$ref"],
+            "#/components/schemas/ClientPlaybackTargetTransportAuth"
+        );
+        assert_eq!(
+            document["components"]["schemas"]["ClientPlaybackDenialDto"]["properties"]["permission"]
+                ["$ref"],
+            "#/components/schemas/ClientPlaybackPermission"
         );
         assert_eq!(
             document["components"]["schemas"]["ClientPlaybackDecisionReason"]["enum"],
@@ -1599,6 +1675,19 @@ mod tests {
                 "client_container_unsupported",
                 "source_codecs_unsupported",
                 "policy_denied"
+            ])
+        );
+        assert_eq!(
+            document["components"]["schemas"]["ClientPlaybackPermission"]["enum"],
+            json!([
+                "media_playback",
+                "direct_play",
+                "remux",
+                "audio_transcode",
+                "video_transcode",
+                "remote_playback",
+                "remote_control",
+                "cast"
             ])
         );
         assert_eq!(

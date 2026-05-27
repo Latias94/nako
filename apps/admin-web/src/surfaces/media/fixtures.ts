@@ -248,13 +248,14 @@ export function fixturePlaybackDecision(sourceId: string): PlaybackDecisionRespo
 
   return {
     decision: {
+      denial: null,
       direct_play: {
         content_type: isMp4 ? "video/mp4" : "video/x-matroska",
         source_id: source.id,
         supports_range_requests: true,
       },
       mode: "direct_play",
-      reason: "direct_play",
+      reason: "compatible",
       transcode_plan: null,
     },
     probe: {
@@ -289,5 +290,19 @@ export function fixturePlaybackDecision(sourceId: string): PlaybackDecisionRespo
       ],
     },
     source,
+    target: {
+      control_capabilities: {
+        commands: [],
+      },
+      kind: "browser",
+      media_capabilities: {
+        audio_codecs: ["aac", "mp3", "opus"],
+        containers: ["mp4", "m4v", "webm"],
+        direct_play: true,
+        video_codecs: ["h264", "hevc", "vp9"],
+      },
+      network_scope: "local",
+      transport_auth: "browser_ticket",
+    },
   };
 }

@@ -238,6 +238,61 @@ Result:
 - `nako-playback`: 15 passed.
 - `nako-db identity_access`: 1 passed, 150 skipped.
 
+### PRT-060 - API And Diagnostics
+
+Changed API/contract behavior:
+
+- Public `PlaybackDecisionResponse` now includes a safe
+  `ClientPlaybackTargetDto` with target kind, network scope, transport auth,
+  media capabilities, and renderer control commands.
+- Public `ClientPlaybackDecision` now includes optional
+  `ClientPlaybackDenialDto` with safe permission and denial reason values.
+- Admin playback runtime diagnostics now include policy readiness facts:
+  user/role policy row support, effective resolution support, Library Access
+  dependency, user-over-role precedence, restrictive role merge strategy, and
+  supported permission vocabulary.
+- Admin playback support evidence carries the same policy diagnostics.
+- Generated Public TypeScript SDK, Public Kotlin SDK, and Admin Web TypeScript
+  contract were refreshed.
+- Admin Web local mock data and media fixtures were updated for the new policy
+  and target fields.
+
+Validation:
+
+```bash
+cargo nextest run -p nako-client-protocol public --no-fail-fast
+cargo nextest run -p nako-api -E 'test(public_openapi) | test(sdk) | test(admin_contract)' --no-fail-fast
+cargo nextest run -p nako-server playback --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
+```
+
+Result:
+
+- `nako-client-protocol public`: 10 passed.
+- `nako-api public_openapi|sdk|admin_contract`: 20 passed, 39 skipped.
+- `nako-server playback`: 76 passed, 282 skipped.
+- `cargo fmt --all -- --check`: passed.
+- `git diff --check`: passed; Git printed LF-to-CRLF working-copy warnings only.
+
+Additional attempted checks:
+
+```bash
+npm --prefix sdk/typescript run check
+npm --prefix apps/admin-web run check
+```
+
+Result:
+
+- `sdk/typescript` failed because `tsc` was not installed or available in the
+  local environment.
+- `apps/admin-web` still fails on existing Playback Sessions page/mock-data
+  type drift around `AdminPlaybackSessionListItem.kind`,
+  `AdminPlaybackSessionListItem.failure_category`, and
+  `AdminPlaybackSessionsQuery.kind`. The PRT-060 policy/target fixture fields
+  were updated, but this frontend session-list drift remains for the frontend
+  lane.
+
 ## Notes
 
 Fresh verification is required before marking a task, Codex goal, or lane

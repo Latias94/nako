@@ -390,6 +390,75 @@ public_string_value! {
     }
 }
 
+public_string_value! {
+    pub enum ClientPlaybackTargetKind {
+        Browser => "browser",
+        NativeDesktop => "native_desktop",
+        NativeMobile => "native_mobile",
+        NakoRemoteClient => "nako_remote_client",
+        Chromecast => "chromecast",
+        DlnaRenderer => "dlna_renderer",
+        Airplay => "airplay",
+    }
+}
+
+public_string_value! {
+    pub enum ClientPlaybackTargetNetworkScope {
+        Local => "local",
+        Remote => "remote",
+        Unknown => "unknown",
+    }
+}
+
+public_string_value! {
+    pub enum ClientPlaybackTargetTransportAuth {
+        Bearer => "bearer",
+        BrowserTicket => "browser_ticket",
+        CastTicket => "cast_ticket",
+        None => "none",
+    }
+}
+
+public_string_value! {
+    pub enum ClientRendererControlCommand {
+        ShowItem => "show_item",
+        Play => "play",
+        Pause => "pause",
+        Resume => "resume",
+        Seek => "seek",
+        Stop => "stop",
+        SetVolume => "set_volume",
+    }
+}
+
+public_string_value! {
+    pub enum ClientPlaybackPermission {
+        MediaPlayback => "media_playback",
+        DirectPlay => "direct_play",
+        Remux => "remux",
+        AudioTranscode => "audio_transcode",
+        VideoTranscode => "video_transcode",
+        RemotePlayback => "remote_playback",
+        RemoteControl => "remote_control",
+        Cast => "cast",
+    }
+}
+
+public_string_value! {
+    pub enum ClientPlaybackPermissionDecisionReason {
+        Allowed => "allowed",
+        LibraryAccessDoesNotAllowPlay => "library_access_does_not_allow_play",
+        MediaPlaybackDisabled => "media_playback_disabled",
+        DirectPlayDisabled => "direct_play_disabled",
+        RemuxDisabled => "remux_disabled",
+        AudioTranscodeDisabled => "audio_transcode_disabled",
+        VideoTranscodeDisabled => "video_transcode_disabled",
+        RemotePlaybackDisabled => "remote_playback_disabled",
+        RemoteControlDisabled => "remote_control_disabled",
+        CastDisabled => "cast_disabled",
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct BrowserPlaybackTicketRequest {
     pub mode: BrowserPlaybackMode,
@@ -432,6 +501,7 @@ pub struct BrowserPlaybackUrlDto {
 pub struct PlaybackDecisionResponse {
     pub source: MediaSourceDto,
     pub probe: Option<MediaProbeDto>,
+    pub target: ClientPlaybackTargetDto,
     pub decision: ClientPlaybackDecision,
 }
 
@@ -439,8 +509,29 @@ pub struct PlaybackDecisionResponse {
 pub struct ClientPlaybackDecision {
     pub mode: ClientPlaybackMode,
     pub reason: ClientPlaybackDecisionReason,
+    pub denial: Option<ClientPlaybackDenialDto>,
     pub direct_play: Option<ClientDirectPlayPlan>,
     pub transcode_plan: Option<ClientTranscodePlan>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ClientPlaybackTargetDto {
+    pub kind: ClientPlaybackTargetKind,
+    pub network_scope: ClientPlaybackTargetNetworkScope,
+    pub transport_auth: ClientPlaybackTargetTransportAuth,
+    pub media_capabilities: ClientPlaybackCapabilitiesDto,
+    pub control_capabilities: ClientRendererControlCapabilitiesDto,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ClientRendererControlCapabilitiesDto {
+    pub commands: Vec<ClientRendererControlCommand>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ClientPlaybackDenialDto {
+    pub permission: ClientPlaybackPermission,
+    pub reason: ClientPlaybackPermissionDecisionReason,
 }
 
 public_string_value! {

@@ -212,6 +212,71 @@ async fn playback_routes_require_play_library_access() {
 }
 
 #[tokio::test]
+async fn playback_decision_returns_safe_target_and_policy_denial() {
+    let (_temp, app, source, store) =
+        app_with_media_source_config("policy-decision.mkv", b"media", |_| {}).await;
+    store
+        .upsert_media_probe(source.id, &compatible_probe())
+        .await
+        .unwrap();
+    let principal =
+        local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::Play).await;
+    let mut permissions = PlaybackPermissionPolicy::current_playback_defaults();
+    permissions.allow_remux = false;
+    store
+        .upsert_playback_policy(&PlaybackPolicy::user(
+            principal.user_id,
+            source.library_id,
+            permissions,
+            2,
+        ))
+        .await
+        .unwrap();
+    let router = public_client_router_with_principal(app, principal);
+
+    let decision = request_json::<nako_api::public_client::PlaybackDecisionResponse>(
+        &router,
+        Method::GET,
+        &format!(
+            "/sources/{}/playback/decision?container=mp4&video_codec=h264&audio_codec=aac",
+            source.id
+        ),
+    )
+    .await;
+    let body = serde_json::to_string(&decision).unwrap();
+
+    assert_eq!(
+        decision.target.kind,
+        nako_api::public_client::ClientPlaybackTargetKind::Browser
+    );
+    assert_eq!(
+        decision.target.transport_auth,
+        nako_api::public_client::ClientPlaybackTargetTransportAuth::BrowserTicket
+    );
+    assert_eq!(
+        decision.decision.mode,
+        nako_api::public_client::ClientPlaybackMode::Denied
+    );
+    assert_eq!(
+        decision.decision.reason,
+        nako_api::public_client::ClientPlaybackDecisionReason::PolicyDenied
+    );
+    let denial = decision.decision.denial.unwrap();
+    assert_eq!(
+        denial.permission,
+        nako_api::public_client::ClientPlaybackPermission::Remux
+    );
+    assert_eq!(
+        denial.reason,
+        nako_api::public_client::ClientPlaybackPermissionDecisionReason::RemuxDisabled
+    );
+    assert!(!body.contains("user_id"));
+    assert!(!body.contains("role"));
+    assert!(!body.contains("policy_rows"));
+    assert!(!body.contains("local:///"));
+}
+
+#[tokio::test]
 async fn browser_ticket_play_access_currently_allows_all_playback_modes() {
     let (_temp, app, source, store) =
         app_with_media_source_config("policy-gap.mkv", b"media", |_| {}).await;

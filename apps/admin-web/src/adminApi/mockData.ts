@@ -1594,6 +1594,24 @@ export const mockPlaybackRuntime: AdminPlaybackRuntimeDiagnosticsResponse = {
       { name: "staging", status: "ready", reason: "staging_ready" },
     ],
   },
+  policy: {
+    effective_resolution_supported: true,
+    library_access_required: true,
+    permissions: [
+      "media_playback",
+      "direct_play",
+      "remux",
+      "audio_transcode",
+      "video_transcode",
+      "remote_playback",
+      "remote_control",
+      "cast",
+    ],
+    role_policy_merge: "restrictive",
+    role_policy_rows_supported: true,
+    user_policy_overrides_role_policy: true,
+    user_policy_rows_supported: true,
+  },
   ffmpeg: {
     probe_status: "ready",
     has_probe_error: false,
@@ -1696,6 +1714,22 @@ export const mockPlaybackRuntime: AdminPlaybackRuntimeDiagnosticsResponse = {
     startup_deleted_records: 4,
     startup_deleted_files: 4,
   },
+  artifact_lifecycle: {
+    hls_segment_cleanup_enabled: true,
+    hls_segment_keep_ms: 60000,
+    startup_deleted_artifacts: 0,
+    startup_deleted_bytes: 0,
+    startup_deleted_directories: 0,
+    startup_deleted_files: 0,
+    startup_examined_artifacts: 0,
+    startup_skipped_security: 0,
+    transcode_artifact_cleanup_on_startup: false,
+    transcode_artifact_retention_ms: 86400000,
+  },
+  throttle: {
+    delay_ms: 3000,
+    enabled: false,
+  },
 };
 
 export const mockPlaybackSupport: AdminPlaybackSupportEvidenceResponse = {
@@ -1732,6 +1766,7 @@ export const mockPlaybackSupport: AdminPlaybackSupportEvidenceResponse = {
   },
   runtime: {
     readiness: mockPlaybackRuntime.readiness,
+    policy: mockPlaybackRuntime.policy,
     ffmpeg: mockPlaybackRuntime.ffmpeg,
     hardware: {
       policy: mockPlaybackRuntime.hardware.policy,
@@ -1752,6 +1787,8 @@ export const mockPlaybackSupport: AdminPlaybackSupportEvidenceResponse = {
     remux: mockPlaybackRuntime.remux,
     remote_playback: mockPlaybackRuntime.remote_playback,
     staging: mockPlaybackRuntime.staging,
+    artifact_lifecycle: mockPlaybackRuntime.artifact_lifecycle,
+    throttle: mockPlaybackRuntime.throttle,
   },
   redaction: {
     paths_redacted: true,
@@ -1878,6 +1915,7 @@ export const mockSystemConfig: AdminServerConfigDiagnosticsResponse = {
       scan_commits: true,
       metadata: true,
       catalog: true,
+      playback_sessions: true,
       playback_state: true,
       transcode_sessions: true,
       event_outbox: true,
@@ -1964,6 +2002,12 @@ export const mockSystemConfig: AdminServerConfigDiagnosticsResponse = {
   playback: {
     remote_stream_concurrency: 4,
     remote_stage_concurrency: 2,
+    hls_segment_cleanup_enabled: true,
+    hls_segment_keep_ms: 60000,
+    transcode_artifact_cleanup_on_startup: false,
+    transcode_artifact_retention_ms: 86400000,
+    transcode_throttle_delay_ms: 3000,
+    transcode_throttle_enabled: false,
   },
   artwork: {
     artifact_root_configured: true,

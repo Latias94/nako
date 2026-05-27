@@ -44,11 +44,12 @@ use nako_api::{
         AdminPlaybackHardwareDeviceInitialization, AdminPlaybackHardwareDeviceInitializationStatus,
         AdminPlaybackHardwareDiagnostics, AdminPlaybackHardwareEncoderDiscovery,
         AdminPlaybackHardwareEncoderDiscoveryStatus, AdminPlaybackHardwareSmokeProbe,
-        AdminPlaybackHardwareSmokeProbeStatus, AdminPlaybackReadinessCheck,
-        AdminPlaybackReadinessCheckName, AdminPlaybackReadinessDiagnostics,
-        AdminPlaybackReadinessReason, AdminPlaybackRemoteBudgetDiagnostics,
-        AdminPlaybackRemuxRuntimeDiagnostics, AdminPlaybackRuntimeDiagnosticsResponse,
-        AdminPlaybackRuntimeStatus, AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
+        AdminPlaybackHardwareSmokeProbeStatus, AdminPlaybackPolicyDiagnostics,
+        AdminPlaybackReadinessCheck, AdminPlaybackReadinessCheckName,
+        AdminPlaybackReadinessDiagnostics, AdminPlaybackReadinessReason,
+        AdminPlaybackRemoteBudgetDiagnostics, AdminPlaybackRemuxRuntimeDiagnostics,
+        AdminPlaybackRuntimeDiagnosticsResponse, AdminPlaybackRuntimeStatus,
+        AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
         AdminPlaybackStagingDiagnostics, AdminPlaybackSupportEvidenceResponse,
         AdminPlaybackSupportHardwareCapabilityEvidence, AdminPlaybackSupportHardwareEvidence,
         AdminPlaybackSupportRedactionEvidence, AdminPlaybackSupportRuntimeEvidence,
@@ -1982,6 +1983,7 @@ async fn admin_playback_runtime_diagnostics(
         enabled: playback.transcode_throttle_enabled,
         delay_ms: playback.transcode_throttle_delay_ms,
     };
+    let policy = AdminPlaybackPolicyDiagnostics::ready();
     let readiness = playback_readiness_diagnostics(
         playback.runtime_inventory.has_probe_error,
         hardware_acceleration_readiness(
@@ -2002,6 +2004,7 @@ async fn admin_playback_runtime_diagnostics(
         admin_api_version: ADMIN_API_VERSION.to_owned(),
         public_api_version: API_VERSION.to_owned(),
         readiness,
+        policy,
         ffmpeg: AdminPlaybackFfmpegDiagnostics {
             probe_status: playback_runtime_status(playback.runtime_inventory.probe_status),
             has_probe_error: playback.runtime_inventory.has_probe_error,
@@ -2059,6 +2062,7 @@ fn playback_support_runtime_evidence(
 
     AdminPlaybackSupportRuntimeEvidence {
         readiness: runtime.readiness,
+        policy: runtime.policy,
         ffmpeg: runtime.ffmpeg,
         hardware: AdminPlaybackSupportHardwareEvidence {
             policy: runtime.hardware.policy,
@@ -2288,6 +2292,10 @@ fn playback_readiness_diagnostics(
                 AdminPlaybackReadinessReason::RemotePlaybackBudgetClamped,
             )
         },
+        AdminPlaybackReadinessCheck::ready(
+            AdminPlaybackReadinessCheckName::PlaybackPolicy,
+            AdminPlaybackReadinessReason::PlaybackPolicyReady,
+        ),
         if staging.max_bytes > 0 {
             AdminPlaybackReadinessCheck::ready(
                 AdminPlaybackReadinessCheckName::Staging,

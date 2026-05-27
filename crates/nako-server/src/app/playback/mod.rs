@@ -573,7 +573,9 @@ impl PlaybackAppService {
             context,
         });
 
-        Ok(playback_decision_response_to_dto(source, probe, decision))
+        Ok(playback_decision_response_to_dto(
+            source, probe, target, decision,
+        ))
     }
 
     pub(crate) async fn validate_browser_playback_ticket_request(
