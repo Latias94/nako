@@ -263,6 +263,86 @@ async fn renderer_play_command_denied_by_policy_creates_no_runtime_records() {
 }
 
 #[tokio::test]
+async fn renderer_play_command_currently_rejects_remux_decision_without_runtime_records() {
+    let (_temp, app, source, store) =
+        app_with_media_source_config("renderer-remux-gap.mkv", b"movie bytes", |_| {}).await;
+    store
+        .upsert_media_probe(source.id, &compatible_probe())
+        .await
+        .unwrap();
+    let router = build_router(app);
+    let registered: RendererSessionResponse = request_body_json(
+        &router,
+        Method::POST,
+        "/renderers",
+        &renderer_registration_request("Remux Gap Desktop"),
+    )
+    .await;
+    let renderer_session_id = registered.renderer.id.parse::<RendererSessionId>().unwrap();
+
+    let response = response_body_json(
+        &router,
+        Method::POST,
+        &format!("/renderers/{renderer_session_id}/commands/play"),
+        &RendererPlayCommandRequest {
+            source_id: source.id.to_string(),
+            position_ms: None,
+        },
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body: ErrorResponse = body_json(response).await;
+    assert_eq!(body.code, "unsupported");
+    assert!(
+        body.message.contains("direct-play decision"),
+        "expected current direct-only renderer gap, got {}",
+        body.message
+    );
+    assert_renderer_play_gap_created_no_runtime_records(&store, source.id, renderer_session_id)
+        .await;
+}
+
+#[tokio::test]
+async fn renderer_play_command_currently_rejects_hls_decision_without_runtime_records() {
+    let (_temp, app, source, store) =
+        app_with_media_source_config("renderer-hls-gap.mp4", b"movie bytes", |_| {}).await;
+    let router = build_router(app);
+    let mut registration = renderer_registration_request("HLS Gap Desktop");
+    registration.media_capabilities = Some(ClientPlaybackCapabilitiesDto {
+        direct_play: false,
+        containers: vec!["mp4".to_owned()],
+        video_codecs: vec!["h264".to_owned()],
+        audio_codecs: vec!["aac".to_owned()],
+    });
+    let registered: RendererSessionResponse =
+        request_body_json(&router, Method::POST, "/renderers", &registration).await;
+    let renderer_session_id = registered.renderer.id.parse::<RendererSessionId>().unwrap();
+
+    let response = response_body_json(
+        &router,
+        Method::POST,
+        &format!("/renderers/{renderer_session_id}/commands/play"),
+        &RendererPlayCommandRequest {
+            source_id: source.id.to_string(),
+            position_ms: None,
+        },
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body: ErrorResponse = body_json(response).await;
+    assert_eq!(body.code, "unsupported");
+    assert!(
+        body.message.contains("direct-play decision"),
+        "expected current direct-only renderer gap, got {}",
+        body.message
+    );
+    assert_renderer_play_gap_created_no_runtime_records(&store, source.id, renderer_session_id)
+        .await;
+}
+
+#[tokio::test]
 async fn admin_v1_playback_renderers_reports_safe_diagnostics_and_adapter_readiness() {
     let (_temp, app, _source, _store) =
         app_with_media_source_config("movie.mp4", b"movie bytes", |_| {}).await;
@@ -393,6 +473,27 @@ async fn public_renderer_registration_rejects_external_cast_protocol_targets() {
     assert_eq!(body.code, "unsupported");
 }
 
+#[tokio::test]
+async fn public_renderer_registration_currently_rejects_nako_remote_cast_ticket_transport() {
+    let (_temp, app, _source, _store) =
+        app_with_media_source_config("movie.mp4", b"movie bytes", |_| {}).await;
+    let router = build_router(app);
+    let mut registration = renderer_registration_request("Cast Ticket Desktop");
+    registration.transport_auth = ClientPlaybackTargetTransportAuth::CastTicket;
+
+    let response = response_body_json(&router, Method::POST, "/renderers", &registration).await;
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body: ErrorResponse = body_json(response).await;
+    assert_eq!(body.code, "unsupported");
+    assert!(
+        body.message
+            .contains("requires bearer-authenticated Nako clients"),
+        "expected current bearer-only renderer registration boundary, got {}",
+        body.message
+    );
+}
+
 fn renderer_registration_request(display_name: &str) -> RendererRegistrationRequest {
     RendererRegistrationRequest {
         display_name: display_name.to_owned(),
@@ -416,4 +517,48 @@ fn renderer_registration_request(display_name: &str) -> RendererRegistrationRequ
         },
         ttl_ms: Some(120_000),
     }
+}
+
+async fn assert_renderer_play_gap_created_no_runtime_records(
+    store: &NakoDatabase,
+    source_id: MediaSourceId,
+    renderer_session_id: RendererSessionId,
+) {
+    assert!(
+        store
+            .list_playback_sessions(
+                PlaybackSessionListFilter::default(),
+                PageRequest::first_page()
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        store
+            .list_renderer_commands(
+                RendererCommandListFilter {
+                    renderer_session_id: Some(renderer_session_id),
+                    state: None,
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        store
+            .list_transcode_sessions(
+                TranscodeSessionListFilter {
+                    source_id: Some(source_id),
+                    kind: None,
+                    state: None,
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
 }

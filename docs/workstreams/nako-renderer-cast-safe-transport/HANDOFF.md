@@ -19,19 +19,24 @@ The design decision is:
 
 ## Next Task
 
-Run or continue `NRCT-020`.
+Run or continue `NRCT-030`.
 
-Start by adding characterization tests for:
+`NRCT-020` is complete. It locked the current gaps:
 
-- current direct-only renderer playback behavior;
-- current Nako renderer `transport_auth` registration semantics;
-- browser tickets lacking renderer/playback-session/network-scope binding.
+- renderer remux/HLS play commands are rejected before runtime records are
+  created;
+- `nako_remote_client + cast_ticket` registration is currently rejected;
+- browser playback ticket responses do not carry Renderer Session, Playback
+  Session, command, network scope, or cast-ticket transport scope.
+
+`NRCT-030` should add the renderer transport ticket service.
 
 ## Important Files
 
 - `docs/adr/0041-renderer-cast-safe-transport-tickets.md`
 - `docs/workstreams/nako-renderer-cast-safe-transport/TODO.md`
 - `crates/nako-server/src/app/playback_ticket.rs`
+- `crates/nako-server/src/app/renderer_transport_ticket.rs`
 - `crates/nako-server/src/app/playback/mod.rs`
 - `crates/nako-server/src/app/casting.rs`
 - `crates/nako-server/src/app/renderer.rs`

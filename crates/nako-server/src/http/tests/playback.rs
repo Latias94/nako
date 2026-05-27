@@ -632,6 +632,39 @@ async fn browser_playback_ticket_streams_direct_bytes_without_bearer() {
 }
 
 #[tokio::test]
+async fn browser_playback_ticket_response_currently_has_no_renderer_transport_scope() {
+    let (_temp, app, source, _store) =
+        app_with_media_source_config("ticket-scope.mp4", b"0123456789", |_| {}).await;
+    let router = build_router(app);
+    let issue_request = nako_api::public_client::BrowserPlaybackTicketRequest {
+        mode: nako_api::public_client::BrowserPlaybackMode::Direct,
+        capabilities: None,
+    };
+
+    let ticket = request_body_json::<nako_api::public_client::BrowserPlaybackTicketResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/sources/{}/playback/browser-ticket", source.id),
+        &issue_request,
+    )
+    .await;
+
+    let value = serde_json::to_value(&ticket).unwrap();
+    assert!(value.get("renderer_session_id").is_none());
+    assert!(value.get("playback_session_id").is_none());
+    assert!(value.get("renderer_command_id").is_none());
+    assert!(value.get("network_scope").is_none());
+    assert!(value.get("transport_auth").is_none());
+
+    let body = serde_json::to_string(&ticket).unwrap();
+    assert!(!body.contains("renderer_session"));
+    assert!(!body.contains("playback_session"));
+    assert!(!body.contains("network_scope"));
+    assert!(!body.contains("cast_ticket"));
+    assert!(body.contains("nako_bpt_"));
+}
+
+#[tokio::test]
 async fn browser_playback_ticket_rejects_browse_only_access_and_revocation_at_use() {
     let (_temp, app, source, store) =
         app_with_media_source_config("ticket-access.mp4", b"0123456789", |_| {}).await;

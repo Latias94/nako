@@ -30,7 +30,7 @@ Handoff:
 
 ### NRCT-020 - Characterize current renderer transport gaps
 
-Status: In progress
+Status: Complete
 Owner: current agent or worker
 Depends on: NRCT-010
 
@@ -60,7 +60,7 @@ git diff --check
 
 ### NRCT-030 - Add renderer transport ticket service
 
-Status: Pending
+Status: In progress
 Owner: current agent or worker
 Depends on: NRCT-020
 
