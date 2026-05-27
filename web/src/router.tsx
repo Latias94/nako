@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 
+import { useQuery } from "@tanstack/react-query";
 import {
   Link,
   Outlet,
@@ -7,6 +8,7 @@ import {
   createRoute,
   createRouter,
   redirect,
+  useRouterState,
 } from "@tanstack/react-router";
 import {
   Boxes,
@@ -24,6 +26,7 @@ import {
   Workflow,
 } from "lucide-react";
 
+import { mediaApi } from "@/api/runtime";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -273,10 +276,21 @@ function AdminLayout() {
 }
 
 function MediaHomePage() {
+  const continueWatching = useQuery({
+    queryKey: ["media", "continue-watching"],
+    queryFn: () => mediaApi.listContinueWatching(),
+  });
+  const libraries = useQuery({
+    queryKey: ["media", "libraries"],
+    queryFn: () => mediaApi.listLibraries(),
+  });
+  const continueItems = continueWatching.data?.value.items ?? [];
+  const libraryCount = libraries.data?.value.libraries.length ?? 0;
+
   return (
     <SurfaceShell
       eyebrow="Nako Media"
-      status="Server not connected"
+      status={dataStatus(continueWatching.data?.source)}
       summary="Browse and watch media from a self-hosted Nako server. Admin tools stay behind role-gated routes."
       surface="media"
       title="Home"
@@ -291,15 +305,50 @@ function MediaHomePage() {
     >
       <SectionCard
         title="Continue Watching"
-        summary="Playback history and next episodes appear after a server connection and account session."
+        summary={continueWatching.data?.error ?? "Playback history and next episodes for the current account."}
       >
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <EmptyPanel
-            icon={PlayCircle}
-            title="No playback state loaded"
-            description="Connect a Nako server to show resumable titles for the current account."
-            action={<InlineActionLink description="Open setup." icon={Settings2} label="Setup" to="/setup" />}
-          />
+          {continueWatching.isPending ? (
+            <EmptyPanel
+              icon={PlayCircle}
+              title="Loading playback state"
+              description="Nako is reading the current account's playback state."
+            />
+          ) : continueItems.length > 0 ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              {continueItems.map((entry) => (
+                <Link
+                  key={entry.item.id}
+                  to="/media/items/$itemId"
+                  params={{ itemId: entry.item.id }}
+                  className="grid gap-3 rounded-lg border border-[color:var(--app-line)] bg-[color:var(--app-panel)] p-4 transition-colors hover:bg-[color:var(--app-panel-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--app-focus)]"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">{entry.item.metadata.title}</p>
+                      <p className="mt-1 text-xs text-[color:var(--app-muted)]">
+                        {formatProgress(entry.state.progress_percent)}
+                      </p>
+                    </div>
+                    <PlayCircle className="h-4 w-4 text-[color:var(--app-accent)]" />
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-md bg-[color:var(--app-panel-soft)]">
+                    <div
+                      className="h-full rounded-md bg-[color:var(--app-accent)]"
+                      style={{ width: `${Math.round((entry.state.progress_percent ?? 0) * 100)}%` }}
+                    />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <EmptyPanel
+              icon={PlayCircle}
+              title="No playback state loaded"
+              description="Connect a Nako server to show resumable titles for the current account."
+              action={<InlineActionLink description="Open setup." icon={Settings2} label="Setup" to="/setup" />}
+            />
+          )}
           <PreviewRail />
         </div>
       </SectionCard>
@@ -307,17 +356,17 @@ function MediaHomePage() {
       <MetricsGrid>
         <MetricCard
           label="Media Library"
-          value="Awaiting server"
+          value={libraries.isPending ? "Loading" : `${libraryCount}`}
           detail="Libraries, collections, and source choices come from the Public Client API."
         />
         <MetricCard
           label="Playback"
-          value="Ticketed"
+          value={continueWatching.data?.source === "live" ? "Live" : "Ticketed"}
           detail="Stream URLs stay behind short-lived server grants."
         />
         <MetricCard
           label="Admin Links"
-          value="Role-gated"
+          value={continueWatching.data?.source === "fixture" ? "Fixture" : "Role-gated"}
           detail="Management context is only exposed to authorized principals."
         />
       </MetricsGrid>
@@ -334,52 +383,84 @@ function MediaHomePage() {
 }
 
 function MediaLibrariesPage() {
+  const libraries = useQuery({
+    queryKey: ["media", "libraries"],
+    queryFn: () => mediaApi.listLibraries(),
+  });
+  const rows = libraries.data?.value.libraries ?? [];
+
   return (
     <SurfaceShell
       eyebrow="Media Library"
-      status="Needs server"
+      status={dataStatus(libraries.data?.source)}
       summary="Libraries are shown through the media API boundary, separate from operator-only scan and write controls."
       surface="media"
       title="Libraries"
     >
-      <div className="grid gap-4 md:grid-cols-3">
-        {libraryCards.map((library) => (
-          <Link
-            key={library.id}
-            to="/media/libraries/$libraryId"
-            params={{ libraryId: library.id }}
-            className="grid min-h-40 gap-3 rounded-lg border border-[color:var(--app-line)] bg-[color:var(--app-panel)] p-4 transition-colors hover:bg-[color:var(--app-panel-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--app-focus)]"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--app-muted)]">
-                  {library.state}
-                </p>
-                <h2 className="mt-2 text-lg font-semibold">{library.title}</h2>
+      {libraries.isPending ? (
+        <EmptyPanel
+          icon={LibraryBig}
+          title="Loading libraries"
+          description="Nako is reading the media libraries visible to this account."
+        />
+      ) : rows.length > 0 ? (
+        <div className="grid gap-4 md:grid-cols-3">
+          {rows.map((library) => (
+            <Link
+              key={library.id}
+              to="/media/libraries/$libraryId"
+              params={{ libraryId: library.id }}
+              className="grid min-h-40 gap-3 rounded-lg border border-[color:var(--app-line)] bg-[color:var(--app-panel)] p-4 transition-colors hover:bg-[color:var(--app-panel-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--app-focus)]"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--app-muted)]">
+                    {library.options.preset}
+                  </p>
+                  <h2 className="mt-2 text-lg font-semibold">{library.name}</h2>
+                </div>
+                <Badge className="border-[color:var(--app-line)] bg-[color:var(--app-panel-soft)]">
+                  {library.options.domain}
+                </Badge>
               </div>
-              <Badge className="border-[color:var(--app-line)] bg-[color:var(--app-panel-soft)]">
-                Media
-              </Badge>
-            </div>
-            <p className="text-sm leading-6 text-[color:var(--app-muted)]">{library.detail}</p>
-          </Link>
-        ))}
-      </div>
+              <p className="text-sm leading-6 text-[color:var(--app-muted)]">
+                {library.options.metadata_profile.local_metadata_policy} metadata,{" "}
+                {library.options.scan.realtime_monitor ? "watching enabled" : "manual scan"}.
+              </p>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <EmptyPanel
+          icon={LibraryBig}
+          title="No media libraries"
+          description="Libraries appear here after they are configured on the connected server."
+        />
+      )}
     </SurfaceShell>
   );
 }
 
 function MediaLibraryDetailPage() {
   const { libraryId } = mediaLibraryRoute.useParams();
-  const title = libraryCards.find((library) => library.id === libraryId)?.title ?? libraryId;
+  const library = useQuery({
+    queryKey: ["media", "library", libraryId],
+    queryFn: () => mediaApi.getLibrary(libraryId),
+  });
+  const sources = useQuery({
+    queryKey: ["media", "library", libraryId, "sources"],
+    queryFn: () => mediaApi.listLibrarySources(libraryId),
+  });
+  const sourceRows = sources.data?.value.sources ?? [];
+  const libraryRecord = library.data?.value.library;
 
   return (
     <SurfaceShell
       eyebrow="Library"
-      status="No source loaded"
+      status={dataStatus(sources.data?.source ?? library.data?.source)}
       summary="Library detail keeps media browsing separate from source paths, scan actions, and file-write authority."
       surface="media"
-      title={title}
+      title={libraryRecord?.name ?? libraryId}
       actions={
         <InlineActionLink
           description="Open library management."
@@ -392,9 +473,52 @@ function MediaLibraryDetailPage() {
       <SectionCard title="Library state" summary="Only public media facts belong on this route.">
         <div className="grid gap-3 md:grid-cols-3">
           <MetricCard label="Visibility" value="Account scoped" detail="Access comes from the active session." />
-          <MetricCard label="Metadata" value="Canonical" detail="Provider mappings remain behind Nako records." />
-          <MetricCard label="Sources" value="Redacted" detail="Local paths and source locators stay out of media views." />
+          <MetricCard
+            label="Metadata"
+            value={libraryRecord?.options.metadata_profile.local_metadata_policy ?? "Loading"}
+            detail="Provider mappings remain behind Nako records."
+          />
+          <MetricCard
+            label="Sources"
+            value={sources.isPending ? "Loading" : `${sourceRows.length}`}
+            detail="Local paths and source locators stay out of media views."
+          />
         </div>
+      </SectionCard>
+
+      <SectionCard title="Sources" summary={sources.data?.error ?? "Playable sources and their public media facts."}>
+        {sources.isPending ? (
+          <EmptyPanel icon={HardDrive} title="Loading sources" description="Nako is reading library sources." />
+        ) : sourceRows.length > 0 ? (
+          <div className="grid gap-3">
+            {sourceRows.map((entry) => (
+              <Link
+                key={entry.source.id}
+                to="/media/items/$itemId"
+                params={{ itemId: entry.source.item_id }}
+                className="grid gap-3 rounded-lg border border-[color:var(--app-line)] bg-[color:var(--app-panel)] p-4 transition-colors hover:bg-[color:var(--app-panel-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--app-focus)] md:grid-cols-[minmax(0,1fr)_180px]"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">
+                    {entry.item?.metadata.title ?? entry.source.file_name}
+                  </p>
+                  <p className="mt-1 truncate text-sm text-[color:var(--app-muted)]">
+                    {entry.source.file_name}
+                  </p>
+                </div>
+                <div className="text-sm text-[color:var(--app-muted)] md:text-right">
+                  {formatProbe(entry.probe)}
+                </div>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <EmptyPanel
+            icon={HardDrive}
+            title="No sources visible"
+            description="Sources appear after a connected server returns library inventory."
+          />
+        )}
       </SectionCard>
     </SurfaceShell>
   );
@@ -431,14 +555,20 @@ function MediaSearchPage() {
 
 function MediaItemDetailPage() {
   const { itemId } = mediaItemRoute.useParams();
+  const item = useQuery({
+    queryKey: ["media", "item", itemId],
+    queryFn: () => mediaApi.getItem(itemId),
+  });
+  const detail = item.data?.value;
+  const title = detail?.item.metadata.title ?? `Item ${itemId}`;
 
   return (
     <SurfaceShell
       eyebrow="Media Item"
-      status="Public view"
+      status={dataStatus(item.data?.source)}
       summary="Item detail shows media facts without exposing admin diagnostics, source locators, or local file paths."
       surface="media"
-      title={`Item ${itemId}`}
+      title={title}
       actions={
         <InlineActionLink
           description="Open playback."
@@ -450,10 +580,50 @@ function MediaItemDetailPage() {
     >
       <SectionCard title="Item state">
         <div className="grid gap-3 md:grid-cols-3">
-          <MetricCard label="Artwork" value="Server served" detail="Images should come through Nako routes." />
-          <MetricCard label="Version" value="Selectable" detail="Source and edition selection belong to media." />
+          <MetricCard
+            label="Kind"
+            value={detail?.item.kind ?? "Loading"}
+            detail="Canonical media kind comes from the Public Client API."
+          />
+          <MetricCard
+            label="Sources"
+            value={item.isPending ? "Loading" : `${detail?.sources.length ?? 0}`}
+            detail="Source and edition selection belong to media."
+          />
           <MetricCard label="Management" value="Role-gated" detail="Admin context links require explicit permission." />
         </div>
+      </SectionCard>
+
+      <SectionCard title="Source Picker" summary={item.data?.error ?? "Choose a source before requesting playback."}>
+        {item.isPending ? (
+          <EmptyPanel icon={HardDrive} title="Loading sources" description="Nako is reading item sources." />
+        ) : detail && detail.sources.length > 0 ? (
+          <div className="grid gap-3 md:grid-cols-2">
+            {detail.sources.map((source) => (
+              <Link
+                key={source.id}
+                to="/media/watch/$itemId"
+                params={{ itemId: detail.item.id }}
+                search={{ sourceId: source.id }}
+                className="grid gap-3 rounded-lg border border-[color:var(--app-line)] bg-[color:var(--app-panel)] p-4 transition-colors hover:bg-[color:var(--app-panel-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--app-focus)]"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="truncate text-sm font-semibold">{source.file_name}</p>
+                  <PlayCircle className="h-4 w-4 text-[color:var(--app-accent)]" />
+                </div>
+                <p className="text-sm text-[color:var(--app-muted)]">
+                  {formatBytes(source.size_bytes)}. Source references stay server-side.
+                </p>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <EmptyPanel
+            icon={HardDrive}
+            title="No playable sources"
+            description="This item has no visible source for the current account."
+          />
+        )}
       </SectionCard>
     </SurfaceShell>
   );
@@ -461,25 +631,66 @@ function MediaItemDetailPage() {
 
 function MediaWatchPage() {
   const { itemId } = mediaWatchRoute.useParams();
+  const sourceIdFromSearch = useRouterState({
+    select: (state) => (state.location.search as { sourceId?: string }).sourceId,
+  });
+  const item = useQuery({
+    queryKey: ["media", "item", itemId],
+    queryFn: () => mediaApi.getItem(itemId),
+  });
+  const source =
+    item.data?.value.sources.find((candidate) => candidate.id === sourceIdFromSearch) ??
+    item.data?.value.sources[0];
+  const ticket = useQuery({
+    enabled: Boolean(source?.id),
+    queryKey: ["media", "item", itemId, "browser-ticket", source?.id],
+    queryFn: () => mediaApi.createBrowserPlaybackTicket(source!.id, { mode: "direct" }),
+  });
+  const title = item.data?.value.item.metadata.title ?? itemId;
+  const playbackUrl = ticket.data?.value.urls[0]?.url;
+  const canRenderVideo = ticket.data?.source === "live" && playbackUrl;
 
   return (
     <SurfaceShell
       eyebrow="Playback"
-      status="Waiting for grant"
+      status={dataStatus(ticket.data?.source ?? item.data?.source)}
       summary="Browser playback starts only after the server grants temporary access for the selected media item."
       surface="media"
-      title={`Watch ${itemId}`}
+      title={`Watch ${title}`}
     >
       <section className="grid gap-4">
         <div className="grid aspect-video place-items-center rounded-lg border border-[color:var(--app-line)] bg-[color:oklch(12%_0.022_245)]">
-          <div className="grid gap-2 px-4 text-center">
-            <Clapperboard className="mx-auto h-10 w-10 text-[color:var(--app-accent)]" />
-            <p className="text-sm font-semibold">No stream selected</p>
-            <p className="max-w-md text-sm leading-6 text-[color:var(--app-muted)]">
-              Open an item from a connected library to request playback access.
-            </p>
-          </div>
+          {canRenderVideo ? (
+            <video className="h-full w-full rounded-lg" controls src={playbackUrl} />
+          ) : (
+            <div className="grid gap-2 px-4 text-center">
+              <Clapperboard className="mx-auto h-10 w-10 text-[color:var(--app-accent)]" />
+              <p className="text-sm font-semibold">
+                {ticket.isPending || item.isPending ? "Requesting playback access" : "Playback ticket ready"}
+              </p>
+              <p className="max-w-md text-sm leading-6 text-[color:var(--app-muted)]">
+                {ticket.data?.source === "fixture"
+                  ? "Fixture tickets are not attached to the video element."
+                  : "Open an item from a connected library to request playback access."}
+              </p>
+            </div>
+          )}
         </div>
+        <SectionCard title="Playback Source" summary={ticket.data?.error ?? "Temporary stream access is scoped to the selected source."}>
+          <div className="grid gap-3 md:grid-cols-3">
+            <MetricCard label="Item" value={title} detail="Playback is requested for this media item." />
+            <MetricCard
+              label="Source"
+              value={source?.file_name ?? "Loading"}
+              detail="The source id stays in the API boundary."
+            />
+            <MetricCard
+              label="Transport"
+              value={ticket.data?.value.mode ?? "Pending"}
+              detail="Browser media uses a short-lived playback ticket."
+            />
+          </div>
+        </SectionCard>
       </section>
     </SurfaceShell>
   );
@@ -730,6 +941,62 @@ function NotFoundPage() {
       </SectionCard>
     </SurfaceShell>
   );
+}
+
+function dataStatus(source: "fixture" | "live" | undefined): string {
+  if (source === "live") {
+    return "Live data";
+  }
+
+  if (source === "fixture") {
+    return "Fixture data";
+  }
+
+  return "Loading";
+}
+
+function formatProgress(progress: number | null): string {
+  if (progress === null) {
+    return "Progress not reported";
+  }
+
+  return `${Math.round(progress * 100)}% watched`;
+}
+
+function formatBytes(sizeBytes: number | null): string {
+  if (sizeBytes === null) {
+    return "Size not reported";
+  }
+
+  const gib = sizeBytes / 1024 / 1024 / 1024;
+  if (gib >= 1) {
+    return `${gib.toFixed(1)} GiB`;
+  }
+
+  const mib = sizeBytes / 1024 / 1024;
+  return `${Math.round(mib)} MiB`;
+}
+
+function formatProbe(
+  probe: {
+    container: string | null;
+    duration_ms: number | null;
+    streams: Array<{
+      height: number | null;
+      kind: string;
+      width: number | null;
+    }>;
+  } | null,
+): string {
+  if (!probe) {
+    return "Probe pending";
+  }
+
+  const video = probe.streams.find((stream) => stream.kind === "video");
+  const resolution = video?.width && video.height ? `${video.width}x${video.height}` : "resolution unknown";
+  const minutes = probe.duration_ms ? `${Math.round(probe.duration_ms / 60_000)} min` : "duration unknown";
+
+  return `${probe.container ?? "container unknown"} · ${resolution} · ${minutes}`;
 }
 
 function EmptyPanel({

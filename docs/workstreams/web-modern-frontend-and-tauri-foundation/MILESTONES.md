@@ -53,6 +53,8 @@ Exit criteria:
 
 ## M4 - Media Web Product Slice
 
+Status: Complete
+
 Exit criteria:
 
 - Libraries, library detail, item detail, source/version picker, browser player,

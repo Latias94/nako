@@ -4,6 +4,8 @@ import type {
   ContinueWatchingResponse,
   ItemDetailResponse,
   LibraryListResponse,
+  LibraryResponse,
+  LibrarySourcesResponse,
   ManagementContextLinksResponse,
   SearchResponse,
 } from "@nako/sdk";
@@ -76,6 +78,10 @@ export const fixtureMediaLibraries: LibraryListResponse = {
     },
   ],
   page,
+};
+
+export const fixtureMediaLibrary: LibraryResponse = {
+  library: fixtureMediaLibraries.libraries[0]!,
 };
 
 const fixtureItem = {
@@ -158,6 +164,52 @@ export const fixtureItemDetail: ItemDetailResponse = {
   ],
   studios: [],
   tags: [],
+};
+
+export const fixtureLibrarySources: LibrarySourcesResponse = {
+  library: fixtureMediaLibrary.library,
+  page: {
+    limit: 20,
+    offset: 0,
+    returned: 1,
+  },
+  sources: [
+    {
+      item: fixtureItem,
+      probe: {
+        bit_rate: 6_100_000,
+        container: "mp4",
+        duration_ms: 7_080_000,
+        streams: [
+          {
+            bit_rate: 5_700_000,
+            channels: null,
+            codec: "h264",
+            duration_ms: 7_080_000,
+            height: 720,
+            index: 0,
+            kind: "video",
+            language: null,
+            sample_rate: null,
+            width: 1280,
+          },
+          {
+            bit_rate: 384_000,
+            channels: 2,
+            codec: "aac",
+            duration_ms: 7_080_000,
+            height: null,
+            index: 1,
+            kind: "audio",
+            language: "en",
+            sample_rate: 48_000,
+            width: null,
+          },
+        ],
+      },
+      source: fixtureItemDetail.sources[0]!,
+    },
+  ],
 };
 
 export const fixtureManagementContextLinks: ManagementContextLinksResponse = {

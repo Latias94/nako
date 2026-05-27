@@ -53,6 +53,25 @@ describe("web API boundaries", () => {
     expect(JSON.stringify(result)).not.toContain("session_secret");
   });
 
+  it("serves the first Media Web slice through one fixture/live interface", async () => {
+    const api = createMediaApi({ mode: "fixture" });
+
+    const libraries = await api.listLibraries();
+    const library = await api.getLibrary(libraries.value.libraries[0]!.id);
+    const sources = await api.listLibrarySources(library.value.library.id);
+    const item = await api.getItem(sources.value.sources[0]!.source.item_id);
+    const ticket = await api.createBrowserPlaybackTicket(sources.value.sources[0]!.source.id, {
+      mode: "direct",
+    });
+
+    expect(libraries.source).toBe("fixture");
+    expect(library.value.library.id).toBe(libraries.value.libraries[0]!.id);
+    expect(sources.value.sources[0]?.source.file_name).toBeTruthy();
+    expect(item.value.sources[0]?.id).toBe(sources.value.sources[0]!.source.id);
+    expect(ticket.value.urls[0]?.url).toContain("ticket=nako_bpt_fixture");
+    expect(JSON.stringify(sources.value)).not.toContain(":\\");
+  });
+
   it("keeps Admin API calls on the generated admin namespace and falls back per section", async () => {
     const requests: Array<{ auth: string | null; url: string }> = [];
     const api = createAdminApi(

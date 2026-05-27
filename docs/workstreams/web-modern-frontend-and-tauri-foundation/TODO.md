@@ -66,7 +66,7 @@ Last updated: 2026-05-28
 
 ## M4 - Media Web First Product Slice
 
-- [ ] WMFT-050 [owner=unassigned] [deps=WMFT-030,WMFT-040] [scope=web/src/surfaces/media]
+- [x] WMFT-050 [owner=codex] [deps=WMFT-030,WMFT-040] [scope=web/src/surfaces/media]
   Goal: Implement the first API-backed Media Web slice: libraries, library
   detail, item detail, source/version picker, browser playback ticket player,
   Continue Watching basics, and fixture/live parity tests.
@@ -76,7 +76,11 @@ Last updated: 2026-05-28
   Review: Product/API review for Public Client API only, playback ticket safety,
   and no raw Source Locator/local path exposure.
   Evidence: web/src/surfaces/media, browser smoke evidence.
-  Handoff: Split subtitles/audio/HDR/device capability depth if it expands.
+  Handoff: DONE. Media routes now consume `web/src/api/media` through TanStack
+  Query, including Continue Watching, Libraries, Library Detail, Item Detail,
+  source selection via `sourceId` search state, and browser playback ticket
+  request handling. Fixture tickets are not attached to the video element;
+  live tickets are the only source assigned to `<video src>`.
 
 ## M5 - Admin Product Slice
 

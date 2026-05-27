@@ -14,7 +14,7 @@ The lane has been opened to reflect the accepted product direction:
 - Tauri is part of the frontend direction, but serious desktop playback still
   requires a later native playback-core spike.
 
-WMFT-020 through WMFT-040 are complete:
+WMFT-020 through WMFT-050 are complete:
 
 - `web/` exists as the product frontend package.
 - The stack is Vite 8, React 19, Tailwind v4, shadcn-style local primitives,
@@ -34,17 +34,23 @@ WMFT-020 through WMFT-040 are complete:
   and both surfaces expose live/fixture section results without leaking tokens.
 - `nako-api` now checks that the Admin API TypeScript contract generated for
   `web/` matches the generator output, alongside the old Admin validation copy.
+- Media Web routes now consume `web/src/api/media` through TanStack Query:
+  Continue Watching, Libraries, Library Detail, Item Detail, source selection,
+  and browser playback ticket state are driven by fixture/live results.
+- Browser playback only assigns a ticket URL to `<video src>` for live results.
+  Fixture tickets stay visible as state, not as a network load.
 
 ## Next Recommended Task
 
-Run `WMFT-050`: implement the first API-backed Media Web product slice.
+Run `WMFT-060`: implement the first API-backed Admin product slice.
 
 Recommended implementation choices:
 
-- Move media routes from shell copy to `web/src/api/media` query data.
-- Keep playback tickets short-lived and never store bearer tokens in media URLs.
-- Add route-level loading, fallback, and error states before adding mutations.
-- Keep Admin API DTO imports out of Media routes and shared UI primitives.
+- Move Admin routes from static shell copy to `web/src/api/admin` query data.
+- Keep Admin DTO imports out of shared UI primitives and Media routes.
+- Add redaction tests for settings, playback diagnostics, Addons, and jobs
+  before introducing mutation controls.
+- Preserve `apps/admin-web` as validation until `web/` owns equivalent checks.
 
 ## Key Constraints
 
@@ -80,6 +86,7 @@ Before coding, re-read:
 - `apps/admin-web/src/surfaces/media/MediaPages.tsx`
 - `web/src/api/media/client.ts`
 - `web/src/api/admin/client.ts`
+- `web/src/router.tsx`
 - `repo-ref/nako-admin-web/app/page.tsx`
 - `repo-ref/nako-admin-web/components/nako/media-surface.tsx`
 - `repo-ref/nako-admin-web/components/nako/admin-surface.tsx`
