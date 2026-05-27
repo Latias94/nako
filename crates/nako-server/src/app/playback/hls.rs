@@ -7,11 +7,12 @@ use nako_core::{
 use nako_playback::PlaybackDecision;
 use nako_transcode::{
     CancellationToken, FfmpegCommandBuilder, FfmpegHardwareAccelerationDetector, FfmpegHlsRunner,
-    FfmpegOverwritePolicy, HardwareAccelerationDetector, HardwareAccelerationReport,
-    HardwareAccelerationSelection, HlsRequest, TranscodeAccelerationPlan, TranscodeEngineAdapter,
-    TranscodeEngineStartCommand, TranscodeEngineStartOutcome, TranscodeExecutionPolicy,
-    TranscodeRequestIdentity, TranscodeRuntimeGuard, TranscodeRuntimeLimits,
-    TranscodeSessionManager, select_hardware_acceleration,
+    FfmpegOverwritePolicy, HardwareAccelerationDetector, HardwareAccelerationReport, HlsRequest,
+    TranscodeEngineAdapter, TranscodeEngineStartCommand, TranscodeEngineStartOutcome,
+    TranscodeExecutionPolicy, TranscodeOutputConstraints, TranscodePipelinePlan,
+    TranscodePipelinePlanner, TranscodePipelineRequest, TranscodeRequestIdentity,
+    TranscodeRuntimeGuard, TranscodeRuntimeLimits, TranscodeSessionManager,
+    TranscodeTrackSelection,
 };
 use tokio::sync::Mutex;
 
@@ -27,9 +28,10 @@ use super::{
 pub(super) struct HlsAppService {
     builder: FfmpegCommandBuilder,
     engine: FfmpegHlsRunner,
+    hardware_policy: nako_transcode::HardwareAccelerationPolicy,
     pub(super) hardware_report: HardwareAccelerationReport,
-    pub(super) hardware_selection: HardwareAccelerationSelection,
-    pub(super) acceleration_plan: TranscodeAccelerationPlan,
+    pub(super) pipeline_plan: TranscodePipelinePlan,
+    pipeline_planner: TranscodePipelinePlanner,
     cancellations: PlaybackSessionCancellationRegistry,
     in_flight: Arc<Mutex<HashSet<HlsRequestKey>>>,
 }
@@ -61,27 +63,50 @@ impl HlsAppService {
         cancellations: PlaybackSessionCancellationRegistry,
     ) -> Result<Self> {
         let hardware_policy = config.transcode.hardware_policy();
-        let hardware_selection = select_hardware_acceleration(hardware_policy, &hardware_report)?;
-        let acceleration_plan = TranscodeAccelerationPlan::from_hardware_selection(
-            hardware_policy,
-            &hardware_selection,
-        );
+        let pipeline_planner = TranscodePipelinePlanner::new();
+        let pipeline_plan = pipeline_planner.plan_hls_single_variant(
+            TranscodePipelineRequest::hls_single_variant(
+                hardware_policy,
+                TranscodeTrackSelection::default(),
+                TranscodeOutputConstraints::default(),
+            ),
+            &hardware_report,
+        )?;
         let transcode_budget = config.transcode.resource_budget();
         let guard = TranscodeRuntimeGuard::new(TranscodeRuntimeLimits {
             max_concurrent_sessions: transcode_budget
-                .slots_for(acceleration_plan.resource_acceleration()),
+                .slots_for(pipeline_plan.selected_acceleration()),
             timeout_ms: config.remux_timeout_ms,
         });
 
         Ok(Self {
             builder: FfmpegCommandBuilder::new(&config.ffmpeg_path),
             engine: FfmpegHlsRunner::new(guard),
+            hardware_policy,
             hardware_report,
-            hardware_selection,
-            acceleration_plan,
+            pipeline_plan,
+            pipeline_planner,
             cancellations,
             in_flight: Arc::new(Mutex::new(HashSet::new())),
         })
+    }
+
+    pub(super) fn execution_policy_for_hls(
+        &self,
+        track_selection: TranscodeTrackSelection,
+        output_constraints: TranscodeOutputConstraints,
+    ) -> Result<TranscodeExecutionPolicy> {
+        Ok(self
+            .pipeline_planner
+            .plan_hls_single_variant(
+                TranscodePipelineRequest::hls_single_variant(
+                    self.hardware_policy,
+                    track_selection,
+                    output_constraints,
+                ),
+                &self.hardware_report,
+            )?
+            .execution_policy())
     }
 
     pub(super) async fn run(

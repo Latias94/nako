@@ -19,9 +19,9 @@ use nako_playback::{
 };
 use nako_streaming::{DirectPlayRangeRequest, DirectPlayResponsePlan};
 use nako_transcode::{
-    HardwareAccelerationPolicy, HardwareAccelerationReport, HardwareAccelerationSelection,
-    RemuxContainer, TranscodeRequestIdentity, TranscodeResourceBudget, TranscodeRuntimeInventory,
-    TranscodeSourceIdentity,
+    HardwareAccelerationPolicy, HardwareAccelerationReport, RemuxContainer,
+    TranscodeOutputConstraints, TranscodePipelinePlan, TranscodeRequestIdentity,
+    TranscodeResourceBudget, TranscodeRuntimeInventory, TranscodeSourceIdentity,
 };
 use nako_vfs::StorageUri;
 use serde::{Deserialize, Serialize};
@@ -530,7 +530,7 @@ pub(crate) struct PlaybackRuntimeDiagnostics {
     pub runtime_inventory: TranscodeRuntimeInventory,
     pub hardware_policy: HardwareAccelerationPolicy,
     pub hardware_report: HardwareAccelerationReport,
-    pub hardware_selection: HardwareAccelerationSelection,
+    pub hls_pipeline_plan: TranscodePipelinePlan,
     pub transcode_budget: TranscodeResourceBudget,
     pub selected_hls_slots: usize,
     pub remux_concurrency: usize,
@@ -1622,8 +1622,15 @@ impl PlaybackAppService {
         });
         ensure_playback_decision_allowed(&decision)?;
         let transcode_plan = hls_transcode_plan(&decision)?;
-        let hls_profile = playback_profile
-            .try_hls_transcode_profile(transcode_plan, self.hls.acceleration_plan)?;
+        let execution_policy = self.hls.execution_policy_for_hls(
+            playback_profile.track_selection(),
+            TranscodeOutputConstraints {
+                max_video_bitrate: playback_profile.preferences.max_video_bitrate,
+                prefer_hdr: playback_profile.preferences.prefer_hdr,
+            },
+        )?;
+        let hls_profile =
+            playback_profile.try_hls_transcode_profile(transcode_plan, execution_policy)?;
         let execution_policy = hls_profile.execution_policy;
         let profile_identity = hls_profile.identity();
         let request_identity =
@@ -1834,10 +1841,10 @@ impl PlaybackAppService {
             runtime_inventory: TranscodeRuntimeInventory::ffmpeg_cli(&self.hls.hardware_report),
             hardware_policy,
             hardware_report: self.hls.hardware_report.clone(),
-            hardware_selection: self.hls.hardware_selection.clone(),
+            hls_pipeline_plan: self.hls.pipeline_plan,
             transcode_budget,
             selected_hls_slots: transcode_budget
-                .slots_for(self.hls.acceleration_plan.resource_acceleration()),
+                .slots_for(self.hls.pipeline_plan.selected_acceleration()),
             remux_concurrency: self.config.remux_concurrency.max(1),
             remux_timeout_ms: self.config.remux_timeout_ms.max(1),
             remote_stream_concurrency: self.config.playback.remote_stream_concurrency.max(1),
@@ -2180,9 +2187,9 @@ mod tests {
         let service = HlsAppService::new_with_hardware_detector(&config, &detector).unwrap();
 
         assert_eq!(
-            service.hardware_selection.acceleration,
+            service.pipeline_plan.selected_acceleration(),
             HardwareAcceleration::Nvenc
         );
-        assert!(!service.hardware_selection.fallback_used);
+        assert!(!service.pipeline_plan.fallback_used());
     }
 }

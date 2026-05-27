@@ -701,7 +701,7 @@ async fn hls_service_rejects_unavailable_gpu_when_fallback_is_fail() {
     let err = NakoApp::new_with_store(config, store).await.unwrap_err();
 
     assert!(matches!(err, NakoError::Unsupported(_)));
-    assert!(err.to_string().contains("hardware accelerator"));
+    assert!(err.to_string().contains("hardware pipeline"));
 }
 
 #[tokio::test]

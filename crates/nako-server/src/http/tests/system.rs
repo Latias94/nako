@@ -3870,17 +3870,17 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
         == AdminPlaybackReadinessCheckName::TranscodeThrottle
         && check.reason == AdminPlaybackReadinessReason::TranscodeThrottleReady));
     assert!(!diagnostics.ffmpeg.has_probe_error);
-    assert_eq!(diagnostics.ffmpeg.hardware_capability_count, 4);
+    assert_eq!(diagnostics.ffmpeg.hardware_capability_count, 6);
     assert_eq!(diagnostics.ffmpeg.available_gpu_capabilities, 3);
     assert_eq!(
         diagnostics.hardware.policy.requested,
         nako_transcode::HardwareAcceleration::Nvenc
     );
     assert_eq!(
-        diagnostics.hardware.selection.acceleration,
+        diagnostics.hardware.pipeline.selected,
         nako_transcode::HardwareAcceleration::Nvenc
     );
-    assert!(!diagnostics.hardware.selection.fallback_used);
+    assert!(!diagnostics.hardware.pipeline.fallback_used);
     let nvenc_capability = diagnostics
         .hardware
         .capabilities
@@ -4059,10 +4059,10 @@ async fn admin_v1_playback_runtime_reports_typed_readiness_for_cpu_fallback() {
         == AdminPlaybackReadinessCheckName::TranscodeThrottle
         && check.reason == AdminPlaybackReadinessReason::TranscodeThrottleReady));
     assert_eq!(
-        diagnostics.hardware.selection.acceleration,
+        diagnostics.hardware.pipeline.selected,
         nako_transcode::HardwareAcceleration::None
     );
-    assert!(diagnostics.hardware.selection.fallback_used);
+    assert!(diagnostics.hardware.pipeline.fallback_used);
     assert_eq!(diagnostics.transcode.effective_cpu_slots, 1);
     assert_eq!(diagnostics.transcode.effective_gpu_slots, 1);
     assert_eq!(diagnostics.remote_playback.stream_permits_max, 1);

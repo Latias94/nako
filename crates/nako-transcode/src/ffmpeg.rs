@@ -272,7 +272,7 @@ impl FfmpegCommandBuilder {
             FfmpegArg::raw("-map"),
             FfmpegArg::raw("0:a:0?"),
         ];
-        append_hls_video_encoder_args(&mut args, request.execution_policy.acceleration);
+        append_hls_video_pipeline_args(&mut args, request.execution_policy.acceleration);
         append_hls_output_constraint_args(&mut args, request.execution_policy);
         args.extend([
             FfmpegArg::raw("-c:a"),
@@ -303,20 +303,54 @@ fn validate_hls_subtitle_strategy(strategy: TranscodeSubtitleStrategy) -> Result
     }
 }
 
-fn append_hls_video_encoder_args(
+fn append_hls_video_pipeline_args(
     args: &mut Vec<FfmpegArg>,
     acceleration: TranscodeAccelerationPlan,
 ) {
+    append_hls_decode_args(args, acceleration);
+    append_hls_filter_args(args, acceleration);
+    append_hls_encoder_args(args, acceleration);
+}
+
+fn append_hls_decode_args(args: &mut Vec<FfmpegArg>, acceleration: TranscodeAccelerationPlan) {
+    match acceleration.decode.accelerator {
+        HardwareAcceleration::None | HardwareAcceleration::Nvenc | HardwareAcceleration::Amf => {}
+        HardwareAcceleration::Vaapi => {
+            args.push(FfmpegArg::raw("-hwaccel"));
+            args.push(FfmpegArg::raw("vaapi"));
+        }
+        HardwareAcceleration::QuickSync => {
+            args.push(FfmpegArg::raw("-hwaccel"));
+            args.push(FfmpegArg::raw("qsv"));
+        }
+        HardwareAcceleration::VideoToolbox => {
+            args.push(FfmpegArg::raw("-hwaccel"));
+            args.push(FfmpegArg::raw("videotoolbox"));
+        }
+    }
+}
+
+fn append_hls_filter_args(args: &mut Vec<FfmpegArg>, acceleration: TranscodeAccelerationPlan) {
+    match acceleration.filter.accelerator {
+        HardwareAcceleration::None
+        | HardwareAcceleration::Nvenc
+        | HardwareAcceleration::QuickSync
+        | HardwareAcceleration::Amf
+        | HardwareAcceleration::VideoToolbox => {}
+        HardwareAcceleration::Vaapi => {
+            args.push(FfmpegArg::raw("-vf"));
+            args.push(FfmpegArg::raw("format=nv12,hwupload"));
+        }
+    }
+}
+
+fn append_hls_encoder_args(args: &mut Vec<FfmpegArg>, acceleration: TranscodeAccelerationPlan) {
     match acceleration.encode.accelerator {
         HardwareAcceleration::None => {
             args.push(FfmpegArg::raw("-c:v"));
             args.push(FfmpegArg::raw("libx264"));
         }
         HardwareAcceleration::Vaapi => {
-            args.push(FfmpegArg::raw("-hwaccel"));
-            args.push(FfmpegArg::raw("vaapi"));
-            args.push(FfmpegArg::raw("-vf"));
-            args.push(FfmpegArg::raw("format=nv12,hwupload"));
             args.push(FfmpegArg::raw("-c:v"));
             args.push(FfmpegArg::raw("h264_vaapi"));
         }
@@ -329,6 +363,14 @@ fn append_hls_video_encoder_args(
             args.push(FfmpegArg::raw("qsv"));
             args.push(FfmpegArg::raw("-c:v"));
             args.push(FfmpegArg::raw("h264_qsv"));
+        }
+        HardwareAcceleration::Amf => {
+            args.push(FfmpegArg::raw("-c:v"));
+            args.push(FfmpegArg::raw("h264_amf"));
+        }
+        HardwareAcceleration::VideoToolbox => {
+            args.push(FfmpegArg::raw("-c:v"));
+            args.push(FfmpegArg::raw("h264_videotoolbox"));
         }
     }
 }

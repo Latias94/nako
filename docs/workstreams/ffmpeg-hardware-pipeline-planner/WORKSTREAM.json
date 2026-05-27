@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "slug": "ffmpeg-hardware-pipeline-planner",
+  "title": "FFmpeg Hardware Pipeline Planner",
+  "status": "complete",
+  "updated": "2026-05-27",
+  "scope_kind": "execution",
+  "problem": "Nako's transcode runtime still treats hardware acceleration as an encoder-only selected accelerator instead of a stage-aware decode/filter/encode pipeline.",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/ffmpeg-hardware-pipeline-planner/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/ffmpeg-hardware-pipeline-planner/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/ffmpeg-hardware-pipeline-planner/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/ffmpeg-hardware-pipeline-planner/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/ffmpeg-hardware-pipeline-planner/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python -m json.tool docs/workstreams/ffmpeg-hardware-pipeline-planner/WORKSTREAM.json",
+    "cargo nextest run -p nako-transcode --no-fail-fast",
+    "cargo nextest run -p nako-playback --no-fail-fast",
+    "cargo nextest run -p nako-server playback --no-fail-fast",
+    "cargo nextest run -p nako-api --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "FHPP-010",
+      "summary": "Opened the FFmpeg hardware pipeline planner lane and accepted ADR 0045 for stage-aware transcode pipeline ownership."
+    },
+    {
+      "task": "FHPP-020",
+      "summary": "Added stage-aware hardware capability facts for decode, filter, encode, hwaccel, and bitstream-filter stages."
+    },
+    {
+      "task": "FHPP-030",
+      "summary": "Added TranscodePipelinePlanner and removed the old selected-accelerator helper chain from production code."
+    },
+    {
+      "task": "FHPP-040",
+      "summary": "Moved HLS FFmpeg command planning to pipeline-derived execution policies."
+    },
+    {
+      "task": "FHPP-050",
+      "summary": "Updated Admin playback diagnostics to expose redaction-safe pipeline readiness and stage capability evidence."
+    },
+    {
+      "task": "FHPP-060",
+      "summary": "Verified focused gates and closed the workstream with follow-ons documented in HANDOFF.md."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0038-playback-planning-and-transcode-policy-seams.md",
+    "docs/adr/0044-playback-capability-profile-planner.md",
+    "docs/adr/0045-ffmpeg-hardware-pipeline-planner.md"
+  ],
+  "continue_policy": {
+    "default_action": "closed",
+    "notes": "This lane is closed. Open a follow-on for FFmpeg decoder/filter probe deepening, HDR tone mapping, subtitle burn-in, adaptive HLS ladders, or Admin Web diagnostics wiring."
+  }
+}

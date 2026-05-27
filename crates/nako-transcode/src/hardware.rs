@@ -13,6 +13,8 @@ pub enum HardwareAcceleration {
     Vaapi,
     Nvenc,
     QuickSync,
+    Amf,
+    VideoToolbox,
 }
 
 impl HardwareAcceleration {
@@ -23,6 +25,8 @@ impl HardwareAcceleration {
             Self::Vaapi => "vaapi",
             Self::Nvenc => "nvenc",
             Self::QuickSync => "quick_sync",
+            Self::Amf => "amf",
+            Self::VideoToolbox => "video_toolbox",
         }
     }
 
@@ -64,6 +68,95 @@ pub enum HardwareEncoderDiscoveryStatus {
     Missing,
     ProbeError,
     Static,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HardwarePipelineStage {
+    Decode,
+    Filter,
+    Encode,
+    Hwaccel,
+    BitstreamFilter,
+}
+
+impl HardwarePipelineStage {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Decode => "decode",
+            Self::Filter => "filter",
+            Self::Encode => "encode",
+            Self::Hwaccel => "hwaccel",
+            Self::BitstreamFilter => "bitstream_filter",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct HardwareStageCapability {
+    pub stage: HardwarePipelineStage,
+    pub available: bool,
+    pub feature: Option<String>,
+    pub discovery_status: HardwareEncoderDiscoveryStatus,
+    pub detail: Option<String>,
+}
+
+impl HardwareStageCapability {
+    #[must_use]
+    pub fn not_required(stage: HardwarePipelineStage) -> Self {
+        Self {
+            stage,
+            available: true,
+            feature: None,
+            discovery_status: HardwareEncoderDiscoveryStatus::NotRequired,
+            detail: None,
+        }
+    }
+
+    #[must_use]
+    pub fn static_available(stage: HardwarePipelineStage, feature: impl Into<String>) -> Self {
+        Self {
+            stage,
+            available: true,
+            feature: Some(feature.into()),
+            discovery_status: HardwareEncoderDiscoveryStatus::Static,
+            detail: None,
+        }
+    }
+
+    #[must_use]
+    pub fn listed(stage: HardwarePipelineStage, feature: impl Into<String>) -> Self {
+        Self {
+            stage,
+            available: true,
+            feature: Some(feature.into()),
+            discovery_status: HardwareEncoderDiscoveryStatus::Listed,
+            detail: None,
+        }
+    }
+
+    #[must_use]
+    pub fn missing(stage: HardwarePipelineStage, feature: impl Into<String>) -> Self {
+        Self {
+            stage,
+            available: false,
+            feature: Some(feature.into()),
+            discovery_status: HardwareEncoderDiscoveryStatus::Missing,
+            detail: None,
+        }
+    }
+
+    #[must_use]
+    pub fn probe_error(stage: HardwarePipelineStage, detail: impl Into<String>) -> Self {
+        Self {
+            stage,
+            available: false,
+            feature: None,
+            discovery_status: HardwareEncoderDiscoveryStatus::ProbeError,
+            detail: Some(detail.into()),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -234,9 +327,21 @@ pub struct HardwareAccelerationCapability {
     pub available: bool,
     pub device: Option<String>,
     pub reason: Option<String>,
+    pub stage_capabilities: Vec<HardwareStageCapability>,
     pub encoder_discovery: HardwareEncoderDiscovery,
     pub device_initialization: HardwareDeviceInitialization,
     pub smoke_probe: HardwareSmokeProbe,
+}
+
+impl HardwareAccelerationCapability {
+    #[must_use]
+    pub fn has_probe_error(&self) -> bool {
+        self.encoder_discovery.status == HardwareEncoderDiscoveryStatus::ProbeError
+            || self
+                .stage_capabilities
+                .iter()
+                .any(|stage| stage.discovery_status == HardwareEncoderDiscoveryStatus::ProbeError)
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -277,42 +382,6 @@ impl HardwareAccelerationReport {
             .iter()
             .find(|capability| capability.accelerator == accelerator)
     }
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct HardwareAccelerationSelection {
-    pub acceleration: HardwareAcceleration,
-    pub fallback_used: bool,
-    pub reason: String,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum HardwareAccelerationReadinessStatus {
-    Ready,
-    Degraded,
-    Unavailable,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum HardwareAccelerationReadinessReason {
-    CpuRequested,
-    RequestedAcceleratorReady,
-    RequestedAcceleratorUnavailableFallbackToCpu,
-    RequestedAcceleratorUnavailableFailPolicy,
-    ProbeError,
-    DeviceInitializationFailed,
-    SmokeProbeFailed,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct HardwareAccelerationReadiness {
-    pub status: HardwareAccelerationReadinessStatus,
-    pub reason: HardwareAccelerationReadinessReason,
-    pub requested: HardwareAcceleration,
-    pub selected: HardwareAcceleration,
-    pub fallback_used: bool,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -550,6 +619,8 @@ pub fn report_from_ffmpeg_encoders_with_diagnostics(
     let has_vaapi = encoders.contains("h264_vaapi");
     let has_nvenc = encoders.contains("h264_nvenc");
     let has_qsv = encoders.contains("h264_qsv");
+    let has_amf = encoders.contains("h264_amf");
+    let has_videotoolbox = encoders.contains("h264_videotoolbox");
 
     HardwareAccelerationReport {
         capabilities: vec![
@@ -572,6 +643,20 @@ pub fn report_from_ffmpeg_encoders_with_diagnostics(
                 HardwareAcceleration::QuickSync,
                 "h264_qsv",
                 has_qsv,
+                device_initialization,
+                smoke_probe,
+            ),
+            encoder_capability(
+                HardwareAcceleration::Amf,
+                "h264_amf",
+                has_amf,
+                device_initialization,
+                smoke_probe,
+            ),
+            encoder_capability(
+                HardwareAcceleration::VideoToolbox,
+                "h264_videotoolbox",
+                has_videotoolbox,
                 device_initialization,
                 smoke_probe,
             ),
@@ -622,6 +707,7 @@ fn encoder_capability(
         } else {
             format!("ffmpeg encoder {encoder} is not listed")
         }),
+        stage_capabilities: stage_capabilities_for_encoder(accelerator, encoder, encoder_listed),
         encoder_discovery,
         device_initialization: initialization,
         smoke_probe: smoke,
@@ -635,6 +721,8 @@ fn hardware_report_with_probe_error(message: String) -> HardwareAccelerationRepo
             probe_error_capability(HardwareAcceleration::Vaapi, &message),
             probe_error_capability(HardwareAcceleration::Nvenc, &message),
             probe_error_capability(HardwareAcceleration::QuickSync, &message),
+            probe_error_capability(HardwareAcceleration::Amf, &message),
+            probe_error_capability(HardwareAcceleration::VideoToolbox, &message),
         ],
     }
 }
@@ -648,6 +736,10 @@ fn probe_error_capability(
         available: false,
         device: None,
         reason: Some(message.to_owned()),
+        stage_capabilities: vec![HardwareStageCapability::probe_error(
+            HardwarePipelineStage::Encode,
+            message,
+        )],
         encoder_discovery: HardwareEncoderDiscovery::probe_error(message),
         device_initialization: HardwareDeviceInitialization::not_run(accelerator),
         smoke_probe: HardwareSmokeProbe::not_run(accelerator),
@@ -660,6 +752,11 @@ fn cpu_capability() -> HardwareAccelerationCapability {
         available: true,
         device: None,
         reason: Some("cpu encode is always available".to_owned()),
+        stage_capabilities: vec![
+            HardwareStageCapability::static_available(HardwarePipelineStage::Decode, "software"),
+            HardwareStageCapability::static_available(HardwarePipelineStage::Filter, "software"),
+            HardwareStageCapability::static_available(HardwarePipelineStage::Encode, "libx264"),
+        ],
         encoder_discovery: HardwareEncoderDiscovery::not_required(),
         device_initialization: HardwareDeviceInitialization::not_required(),
         smoke_probe: HardwareSmokeProbe::not_required(),
@@ -676,9 +773,101 @@ fn static_capability(accelerator: HardwareAcceleration) -> HardwareAccelerationC
         available: true,
         device: None,
         reason: None,
+        stage_capabilities: stage_capabilities_for_static_detector(accelerator),
         encoder_discovery: HardwareEncoderDiscovery::static_detector(),
         device_initialization: HardwareDeviceInitialization::not_run(accelerator),
         smoke_probe: HardwareSmokeProbe::not_run(accelerator),
+    }
+}
+
+fn stage_capabilities_for_encoder(
+    accelerator: HardwareAcceleration,
+    encoder: &'static str,
+    encoder_listed: bool,
+) -> Vec<HardwareStageCapability> {
+    let encode = if encoder_listed {
+        HardwareStageCapability::listed(HardwarePipelineStage::Encode, encoder)
+    } else {
+        HardwareStageCapability::missing(HardwarePipelineStage::Encode, encoder)
+    };
+
+    match accelerator {
+        HardwareAcceleration::None => vec![
+            HardwareStageCapability::static_available(HardwarePipelineStage::Decode, "software"),
+            HardwareStageCapability::static_available(HardwarePipelineStage::Filter, "software"),
+            encode,
+        ],
+        HardwareAcceleration::Nvenc => vec![
+            HardwareStageCapability::static_available(HardwarePipelineStage::Decode, "software"),
+            HardwareStageCapability::static_available(HardwarePipelineStage::Filter, "software"),
+            encode,
+        ],
+        HardwareAcceleration::Vaapi => vec![
+            HardwareStageCapability::static_available(HardwarePipelineStage::Hwaccel, "vaapi"),
+            HardwareStageCapability::static_available(HardwarePipelineStage::Decode, "vaapi"),
+            HardwareStageCapability::static_available(HardwarePipelineStage::Filter, "vaapi"),
+            encode,
+        ],
+        HardwareAcceleration::QuickSync => vec![
+            HardwareStageCapability::static_available(HardwarePipelineStage::Hwaccel, "qsv"),
+            HardwareStageCapability::static_available(HardwarePipelineStage::Decode, "qsv"),
+            HardwareStageCapability::static_available(HardwarePipelineStage::Filter, "software"),
+            encode,
+        ],
+        HardwareAcceleration::Amf => vec![
+            HardwareStageCapability::static_available(HardwarePipelineStage::Decode, "software"),
+            HardwareStageCapability::static_available(HardwarePipelineStage::Filter, "software"),
+            encode,
+        ],
+        HardwareAcceleration::VideoToolbox => vec![
+            HardwareStageCapability::static_available(
+                HardwarePipelineStage::Decode,
+                "videotoolbox",
+            ),
+            HardwareStageCapability::static_available(HardwarePipelineStage::Filter, "software"),
+            encode,
+        ],
+    }
+}
+
+fn stage_capabilities_for_static_detector(
+    accelerator: HardwareAcceleration,
+) -> Vec<HardwareStageCapability> {
+    match accelerator {
+        HardwareAcceleration::None => cpu_capability().stage_capabilities,
+        HardwareAcceleration::Nvenc => vec![
+            HardwareStageCapability::static_available(HardwarePipelineStage::Decode, "software"),
+            HardwareStageCapability::static_available(HardwarePipelineStage::Filter, "software"),
+            HardwareStageCapability::static_available(HardwarePipelineStage::Encode, "h264_nvenc"),
+        ],
+        HardwareAcceleration::Vaapi => vec![
+            HardwareStageCapability::static_available(HardwarePipelineStage::Hwaccel, "vaapi"),
+            HardwareStageCapability::static_available(HardwarePipelineStage::Decode, "vaapi"),
+            HardwareStageCapability::static_available(HardwarePipelineStage::Filter, "vaapi"),
+            HardwareStageCapability::static_available(HardwarePipelineStage::Encode, "h264_vaapi"),
+        ],
+        HardwareAcceleration::QuickSync => vec![
+            HardwareStageCapability::static_available(HardwarePipelineStage::Hwaccel, "qsv"),
+            HardwareStageCapability::static_available(HardwarePipelineStage::Decode, "qsv"),
+            HardwareStageCapability::static_available(HardwarePipelineStage::Filter, "software"),
+            HardwareStageCapability::static_available(HardwarePipelineStage::Encode, "h264_qsv"),
+        ],
+        HardwareAcceleration::Amf => vec![
+            HardwareStageCapability::static_available(HardwarePipelineStage::Decode, "software"),
+            HardwareStageCapability::static_available(HardwarePipelineStage::Filter, "software"),
+            HardwareStageCapability::static_available(HardwarePipelineStage::Encode, "h264_amf"),
+        ],
+        HardwareAcceleration::VideoToolbox => vec![
+            HardwareStageCapability::static_available(
+                HardwarePipelineStage::Decode,
+                "videotoolbox",
+            ),
+            HardwareStageCapability::static_available(HardwarePipelineStage::Filter, "software"),
+            HardwareStageCapability::static_available(
+                HardwarePipelineStage::Encode,
+                "h264_videotoolbox",
+            ),
+        ],
     }
 }
 
@@ -693,6 +882,12 @@ fn operator_device_initialization_check(accelerator: HardwareAcceleration) -> &'
         }
         HardwareAcceleration::QuickSync => {
             "Verify the host exposes Intel Quick Sync devices to Nako and FFmpeg can initialize QSV before enabling Quick Sync acceleration"
+        }
+        HardwareAcceleration::Amf => {
+            "Verify the AMD driver stack and FFmpeg can initialize AMF before enabling AMF acceleration"
+        }
+        HardwareAcceleration::VideoToolbox => {
+            "Verify the host platform supports VideoToolbox and FFmpeg can initialize VideoToolbox before enabling VideoToolbox acceleration"
         }
     }
 }
@@ -709,6 +904,12 @@ fn operator_smoke_check(accelerator: HardwareAcceleration) -> &'static str {
         HardwareAcceleration::QuickSync => {
             "Run a Quick Sync H.264 encode smoke test on the host and verify h264_qsv can encode one frame"
         }
+        HardwareAcceleration::Amf => {
+            "Run an AMF H.264 encode smoke test on the host and verify h264_amf can encode one frame"
+        }
+        HardwareAcceleration::VideoToolbox => {
+            "Run a VideoToolbox H.264 encode smoke test on the host and verify h264_videotoolbox can encode one frame"
+        }
     }
 }
 
@@ -716,154 +917,4 @@ impl HardwareAccelerationDetector for StaticHardwareAccelerationDetector {
     fn detect(&self) -> HardwareAccelerationReport {
         self.report.clone()
     }
-}
-
-pub fn select_hardware_acceleration(
-    policy: HardwareAccelerationPolicy,
-    report: &HardwareAccelerationReport,
-) -> Result<HardwareAccelerationSelection> {
-    if policy.requested == HardwareAcceleration::None {
-        return Ok(HardwareAccelerationSelection {
-            acceleration: HardwareAcceleration::None,
-            fallback_used: false,
-            reason: "cpu encode requested".to_owned(),
-        });
-    }
-
-    if report.is_available(policy.requested) {
-        return Ok(HardwareAccelerationSelection {
-            acceleration: policy.requested,
-            fallback_used: false,
-            reason: format!("{} is available", policy.requested.as_str()),
-        });
-    }
-
-    match policy.fallback {
-        HardwareAccelerationFallback::Cpu => Ok(HardwareAccelerationSelection {
-            acceleration: HardwareAcceleration::None,
-            fallback_used: true,
-            reason: format!(
-                "{} is unavailable; falling back to cpu",
-                policy.requested.as_str()
-            ),
-        }),
-        HardwareAccelerationFallback::Fail => Err(NakoError::Unsupported(
-            "requested hardware accelerator is unavailable",
-        )),
-    }
-}
-
-#[must_use]
-pub fn hardware_acceleration_readiness(
-    policy: HardwareAccelerationPolicy,
-    selection: &HardwareAccelerationSelection,
-    report: &HardwareAccelerationReport,
-) -> HardwareAccelerationReadiness {
-    let reason = if policy.requested == HardwareAcceleration::None {
-        HardwareAccelerationReadinessReason::CpuRequested
-    } else if !selection.fallback_used && selection.acceleration == policy.requested {
-        HardwareAccelerationReadinessReason::RequestedAcceleratorReady
-    } else {
-        requested_accelerator_unavailable_reason(policy, report)
-    };
-    let status = match reason {
-        HardwareAccelerationReadinessReason::CpuRequested
-        | HardwareAccelerationReadinessReason::RequestedAcceleratorReady => {
-            HardwareAccelerationReadinessStatus::Ready
-        }
-        HardwareAccelerationReadinessReason::RequestedAcceleratorUnavailableFallbackToCpu
-        | HardwareAccelerationReadinessReason::ProbeError
-        | HardwareAccelerationReadinessReason::DeviceInitializationFailed
-        | HardwareAccelerationReadinessReason::SmokeProbeFailed => {
-            HardwareAccelerationReadinessStatus::Degraded
-        }
-        HardwareAccelerationReadinessReason::RequestedAcceleratorUnavailableFailPolicy => {
-            HardwareAccelerationReadinessStatus::Unavailable
-        }
-    };
-
-    HardwareAccelerationReadiness {
-        status,
-        reason,
-        requested: policy.requested,
-        selected: selection.acceleration,
-        fallback_used: selection.fallback_used,
-    }
-}
-
-#[must_use]
-pub fn hardware_acceleration_readiness_without_selection(
-    policy: HardwareAccelerationPolicy,
-    report: &HardwareAccelerationReport,
-) -> HardwareAccelerationReadiness {
-    if policy.requested == HardwareAcceleration::None {
-        return HardwareAccelerationReadiness {
-            status: HardwareAccelerationReadinessStatus::Ready,
-            reason: HardwareAccelerationReadinessReason::CpuRequested,
-            requested: policy.requested,
-            selected: HardwareAcceleration::None,
-            fallback_used: false,
-        };
-    }
-
-    if report.is_available(policy.requested) {
-        return HardwareAccelerationReadiness {
-            status: HardwareAccelerationReadinessStatus::Ready,
-            reason: HardwareAccelerationReadinessReason::RequestedAcceleratorReady,
-            requested: policy.requested,
-            selected: policy.requested,
-            fallback_used: false,
-        };
-    }
-
-    let reason = requested_accelerator_unavailable_reason(policy, report);
-    HardwareAccelerationReadiness {
-        status: match reason {
-            HardwareAccelerationReadinessReason::RequestedAcceleratorUnavailableFailPolicy => {
-                HardwareAccelerationReadinessStatus::Unavailable
-            }
-            _ => HardwareAccelerationReadinessStatus::Degraded,
-        },
-        reason,
-        requested: policy.requested,
-        selected: if policy.fallback == HardwareAccelerationFallback::Cpu {
-            HardwareAcceleration::None
-        } else {
-            policy.requested
-        },
-        fallback_used: policy.fallback == HardwareAccelerationFallback::Cpu,
-    }
-}
-
-fn requested_accelerator_unavailable_reason(
-    policy: HardwareAccelerationPolicy,
-    report: &HardwareAccelerationReport,
-) -> HardwareAccelerationReadinessReason {
-    if policy.fallback == HardwareAccelerationFallback::Fail {
-        return HardwareAccelerationReadinessReason::RequestedAcceleratorUnavailableFailPolicy;
-    }
-
-    let Some(capability) = report.capability_for(policy.requested) else {
-        return HardwareAccelerationReadinessReason::RequestedAcceleratorUnavailableFallbackToCpu;
-    };
-
-    match capability.encoder_discovery.status {
-        HardwareEncoderDiscoveryStatus::ProbeError => {
-            return HardwareAccelerationReadinessReason::ProbeError;
-        }
-        HardwareEncoderDiscoveryStatus::Missing
-        | HardwareEncoderDiscoveryStatus::NotRequired
-        | HardwareEncoderDiscoveryStatus::Listed
-        | HardwareEncoderDiscoveryStatus::Static => {}
-    }
-
-    if capability.device_initialization.status == HardwareDeviceInitializationStatus::Failed {
-        return HardwareAccelerationReadinessReason::DeviceInitializationFailed;
-    }
-
-    if capability.smoke_probe.status == HardwareSmokeProbeStatus::Failed {
-        return HardwareAccelerationReadinessReason::SmokeProbeFailed;
-    }
-
-    HardwareAccelerationReadinessReason::RequestedAcceleratorUnavailableFallbackToCpu
 }

@@ -2,6 +2,7 @@ mod engine;
 mod ffmpeg;
 mod hardware;
 mod hls;
+mod pipeline;
 mod plan;
 mod policy;
 mod profile;
@@ -14,6 +15,7 @@ pub use engine::*;
 pub use ffmpeg::*;
 pub use hardware::*;
 pub use hls::*;
+pub use pipeline::*;
 pub use plan::*;
 pub use policy::*;
 pub use profile::*;
@@ -175,6 +177,65 @@ mod tests {
 
         assert!(argv.contains(&"h264_nvenc".to_owned()));
         assert!(!argv.contains(&"libx264".to_owned()));
+        assert!(!argv.windows(2).any(|args| args[0] == "-hwaccel"));
+    }
+
+    #[test]
+    fn ffmpeg_builder_plans_hls_with_stage_aware_vaapi_policy() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            output_dir: PathBuf::from("hls"),
+            playlist_path: PathBuf::from("hls/playlist.m3u8"),
+            segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
+            segment_time_seconds: 6,
+            execution_policy: hls_policy(HardwareAcceleration::Vaapi),
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let argv = builder.hls(&request).unwrap().argv_lossy();
+
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-hwaccel" && args[1] == "vaapi")
+        );
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-vf" && args[1] == "format=nv12,hwupload")
+        );
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-c:v" && args[1] == "h264_vaapi")
+        );
+    }
+
+    #[test]
+    fn ffmpeg_builder_plans_hls_with_platform_encoder_policies() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+
+        for (acceleration, encoder) in [
+            (HardwareAcceleration::Amf, "h264_amf"),
+            (HardwareAcceleration::VideoToolbox, "h264_videotoolbox"),
+        ] {
+            let request = HlsRequest {
+                source_id: MediaSourceId::new(),
+                input_path: PathBuf::from("input.mkv"),
+                output_dir: PathBuf::from("hls"),
+                playlist_path: PathBuf::from("hls/playlist.m3u8"),
+                segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
+                segment_time_seconds: 6,
+                execution_policy: hls_policy(acceleration),
+                overwrite: FfmpegOverwritePolicy::Allow,
+            };
+
+            let argv = builder.hls(&request).unwrap().argv_lossy();
+
+            assert!(
+                argv.windows(2)
+                    .any(|args| args[0] == "-c:v" && args[1] == encoder)
+            );
+        }
     }
 
     #[test]
@@ -443,43 +504,49 @@ mod tests {
     }
 
     #[test]
-    fn hardware_policy_selects_available_and_falls_back_to_cpu() {
+    fn pipeline_planner_selects_available_and_falls_back_to_cpu() {
         let report = HardwareAccelerationReport::with_available([HardwareAcceleration::Nvenc]);
-        let nvenc = select_hardware_acceleration(
-            HardwareAccelerationPolicy {
-                requested: HardwareAcceleration::Nvenc,
-                fallback: HardwareAccelerationFallback::Cpu,
-            },
-            &report,
-        )
-        .unwrap();
-        let fallback = select_hardware_acceleration(
-            HardwareAccelerationPolicy {
-                requested: HardwareAcceleration::Vaapi,
-                fallback: HardwareAccelerationFallback::Cpu,
-            },
-            &report,
-        )
-        .unwrap();
+        let planner = TranscodePipelinePlanner::new();
+        let nvenc = planner
+            .plan_hls_single_variant(
+                TranscodePipelineRequest::hls_single_variant(
+                    HardwareAccelerationPolicy {
+                        requested: HardwareAcceleration::Nvenc,
+                        fallback: HardwareAccelerationFallback::Cpu,
+                    },
+                    TranscodeTrackSelection::default(),
+                    TranscodeOutputConstraints::default(),
+                ),
+                &report,
+            )
+            .unwrap();
+        let fallback = planner
+            .plan_hls_single_variant(
+                TranscodePipelineRequest::hls_single_variant(
+                    HardwareAccelerationPolicy {
+                        requested: HardwareAcceleration::Vaapi,
+                        fallback: HardwareAccelerationFallback::Cpu,
+                    },
+                    TranscodeTrackSelection::default(),
+                    TranscodeOutputConstraints::default(),
+                ),
+                &report,
+            )
+            .unwrap();
 
-        assert_eq!(nvenc.acceleration, HardwareAcceleration::Nvenc);
-        assert!(!nvenc.fallback_used);
-        assert_eq!(fallback.acceleration, HardwareAcceleration::None);
-        assert!(fallback.fallback_used);
-
-        let fallback_plan = TranscodeAccelerationPlan::from_hardware_selection(
-            HardwareAccelerationPolicy {
-                requested: HardwareAcceleration::Vaapi,
-                fallback: HardwareAccelerationFallback::Cpu,
-            },
-            &fallback,
-        );
-        assert_eq!(fallback_plan.encode.accelerator, HardwareAcceleration::None);
+        assert_eq!(nvenc.selected_acceleration(), HardwareAcceleration::Nvenc);
+        assert!(!nvenc.fallback_used());
+        assert_eq!(fallback.selected_acceleration(), HardwareAcceleration::None);
+        assert!(fallback.fallback_used());
         assert_eq!(
-            fallback_plan.fallback.requested,
+            fallback.acceleration.encode.accelerator,
+            HardwareAcceleration::None
+        );
+        assert_eq!(
+            fallback.acceleration.fallback.requested,
             HardwareAcceleration::Vaapi
         );
-        assert!(fallback_plan.fallback.fallback_used);
+        assert!(fallback.acceleration.fallback.fallback_used);
     }
 
     #[test]
@@ -497,6 +564,8 @@ mod tests {
         assert!(report.is_available(HardwareAcceleration::Nvenc));
         assert!(report.is_available(HardwareAcceleration::Vaapi));
         assert!(report.is_available(HardwareAcceleration::QuickSync));
+        assert!(!report.is_available(HardwareAcceleration::Amf));
+        assert!(!report.is_available(HardwareAcceleration::VideoToolbox));
         assert!(
             report
                 .capability_for(HardwareAcceleration::Nvenc)
@@ -525,7 +594,7 @@ mod tests {
             TranscodeRuntimeInventoryStatus::Ready
         );
         assert!(!inventory.has_probe_error);
-        assert_eq!(inventory.hardware_capability_count, 4);
+        assert_eq!(inventory.hardware_capability_count, 6);
         assert_eq!(inventory.available_gpu_capabilities, 1);
     }
 
@@ -537,6 +606,10 @@ mod tests {
                 available: false,
                 device: None,
                 reason: Some("ffmpeg hardware capability probe failed".to_owned()),
+                stage_capabilities: vec![HardwareStageCapability::probe_error(
+                    HardwarePipelineStage::Encode,
+                    "failed to run ffmpeg hardware capability probe: denied",
+                )],
                 encoder_discovery: HardwareEncoderDiscovery::probe_error(
                     "failed to run ffmpeg hardware capability probe: denied",
                 ),
@@ -659,6 +732,16 @@ mod tests {
             nvenc.encoder_discovery.encoder.as_deref(),
             Some("h264_nvenc")
         );
+        assert!(nvenc.stage_capabilities.iter().any(|stage| {
+            stage.stage == HardwarePipelineStage::Encode
+                && stage.discovery_status == HardwareEncoderDiscoveryStatus::Listed
+                && stage.feature.as_deref() == Some("h264_nvenc")
+        }));
+        assert!(nvenc.stage_capabilities.iter().any(|stage| {
+            stage.stage == HardwarePipelineStage::Decode
+                && stage.discovery_status == HardwareEncoderDiscoveryStatus::Static
+                && stage.feature.as_deref() == Some("software")
+        }));
         assert_eq!(
             nvenc.device_initialization.status,
             HardwareDeviceInitializationStatus::Passed
@@ -692,6 +775,8 @@ mod tests {
         assert!(!report.is_available(HardwareAcceleration::Nvenc));
         assert!(!report.is_available(HardwareAcceleration::Vaapi));
         assert!(!report.is_available(HardwareAcceleration::QuickSync));
+        assert!(!report.is_available(HardwareAcceleration::Amf));
+        assert!(!report.is_available(HardwareAcceleration::VideoToolbox));
         assert!(
             report
                 .capability_for(HardwareAcceleration::QuickSync)
@@ -714,14 +799,19 @@ mod tests {
     #[test]
     fn hardware_policy_can_fail_when_requested_acceleration_is_unavailable() {
         let report = HardwareAccelerationReport::cpu_only();
-        let err = select_hardware_acceleration(
-            HardwareAccelerationPolicy {
-                requested: HardwareAcceleration::QuickSync,
-                fallback: HardwareAccelerationFallback::Fail,
-            },
-            &report,
-        )
-        .unwrap_err();
+        let err = TranscodePipelinePlanner::new()
+            .plan_hls_single_variant(
+                TranscodePipelineRequest::hls_single_variant(
+                    HardwareAccelerationPolicy {
+                        requested: HardwareAcceleration::QuickSync,
+                        fallback: HardwareAccelerationFallback::Fail,
+                    },
+                    TranscodeTrackSelection::default(),
+                    TranscodeOutputConstraints::default(),
+                ),
+                &report,
+            )
+            .unwrap_err();
 
         assert!(err.to_string().contains("unavailable"));
     }
@@ -733,17 +823,13 @@ mod tests {
             requested: HardwareAcceleration::Nvenc,
             fallback: HardwareAccelerationFallback::Cpu,
         };
-        let selection = select_hardware_acceleration(policy, &report).unwrap();
 
-        let readiness = hardware_acceleration_readiness(policy, &selection, &report);
+        let readiness = transcode_pipeline_readiness_without_selection(policy, &report);
 
-        assert_eq!(
-            readiness.status,
-            HardwareAccelerationReadinessStatus::Degraded
-        );
+        assert_eq!(readiness.status, TranscodePipelineReadinessStatus::Degraded);
         assert_eq!(
             readiness.reason,
-            HardwareAccelerationReadinessReason::RequestedAcceleratorUnavailableFallbackToCpu
+            TranscodePipelineReadinessReason::RequestedPipelineUnavailableFallbackToCpu
         );
         assert_eq!(readiness.requested, HardwareAcceleration::Nvenc);
         assert_eq!(readiness.selected, HardwareAcceleration::None);
@@ -758,15 +844,15 @@ mod tests {
             fallback: HardwareAccelerationFallback::Fail,
         };
 
-        let readiness = hardware_acceleration_readiness_without_selection(policy, &report);
+        let readiness = transcode_pipeline_readiness_without_selection(policy, &report);
 
         assert_eq!(
             readiness.status,
-            HardwareAccelerationReadinessStatus::Unavailable
+            TranscodePipelineReadinessStatus::Unavailable
         );
         assert_eq!(
             readiness.reason,
-            HardwareAccelerationReadinessReason::RequestedAcceleratorUnavailableFailPolicy
+            TranscodePipelineReadinessReason::RequestedPipelineUnavailableFailPolicy
         );
         assert_eq!(readiness.requested, HardwareAcceleration::QuickSync);
         assert_eq!(readiness.selected, HardwareAcceleration::QuickSync);
@@ -781,6 +867,10 @@ mod tests {
                 available: false,
                 device: None,
                 reason: Some("ffmpeg hardware capability probe failed".to_owned()),
+                stage_capabilities: vec![HardwareStageCapability::probe_error(
+                    HardwarePipelineStage::Encode,
+                    "failed to run ffmpeg hardware capability probe: denied",
+                )],
                 encoder_discovery: HardwareEncoderDiscovery::probe_error(
                     "failed to run ffmpeg hardware capability probe: denied",
                 ),
@@ -794,17 +884,13 @@ mod tests {
             requested: HardwareAcceleration::Vaapi,
             fallback: HardwareAccelerationFallback::Cpu,
         };
-        let selection = select_hardware_acceleration(policy, &report).unwrap();
 
-        let readiness = hardware_acceleration_readiness(policy, &selection, &report);
+        let readiness = transcode_pipeline_readiness_without_selection(policy, &report);
 
-        assert_eq!(
-            readiness.status,
-            HardwareAccelerationReadinessStatus::Degraded
-        );
+        assert_eq!(readiness.status, TranscodePipelineReadinessStatus::Degraded);
         assert_eq!(
             readiness.reason,
-            HardwareAccelerationReadinessReason::ProbeError
+            TranscodePipelineReadinessReason::ProbeError
         );
         assert_eq!(readiness.selected, HardwareAcceleration::None);
         assert!(readiness.fallback_used);

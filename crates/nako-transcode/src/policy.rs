@@ -1,9 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{
-    HardwareAcceleration, HardwareAccelerationFallback, HardwareAccelerationPolicy,
-    HardwareAccelerationSelection, TranscodeTrackSelection,
-};
+use super::{HardwareAcceleration, HardwareAccelerationFallback, TranscodeTrackSelection};
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -101,19 +98,11 @@ impl TranscodeAccelerationPlan {
     }
 
     #[must_use]
-    pub const fn from_hardware_selection(
-        policy: HardwareAccelerationPolicy,
-        selection: &HardwareAccelerationSelection,
+    pub const fn from_pipeline_selection(
+        acceleration: HardwareAcceleration,
+        fallback: TranscodeAccelerationFallbackPlan,
     ) -> Self {
-        Self::from_selected_parts(
-            selection.acceleration,
-            TranscodeAccelerationFallbackPlan {
-                requested: policy.requested,
-                selected: selection.acceleration,
-                fallback: policy.fallback,
-                fallback_used: selection.fallback_used,
-            },
-        )
+        Self::from_selected_parts(acceleration, fallback)
     }
 
     const fn from_selected_parts(
@@ -158,6 +147,27 @@ impl TranscodeAccelerationPlan {
                 encode: AccelerationStageSelection::new(
                     TranscodeAccelerationStage::Encode,
                     HardwareAcceleration::QuickSync,
+                ),
+                fallback,
+            },
+            HardwareAcceleration::Amf => Self {
+                decode: AccelerationStageSelection::software(TranscodeAccelerationStage::Decode),
+                filter: AccelerationStageSelection::software(TranscodeAccelerationStage::Filter),
+                encode: AccelerationStageSelection::new(
+                    TranscodeAccelerationStage::Encode,
+                    HardwareAcceleration::Amf,
+                ),
+                fallback,
+            },
+            HardwareAcceleration::VideoToolbox => Self {
+                decode: AccelerationStageSelection::new(
+                    TranscodeAccelerationStage::Decode,
+                    HardwareAcceleration::VideoToolbox,
+                ),
+                filter: AccelerationStageSelection::software(TranscodeAccelerationStage::Filter),
+                encode: AccelerationStageSelection::new(
+                    TranscodeAccelerationStage::Encode,
+                    HardwareAcceleration::VideoToolbox,
                 ),
                 fallback,
             },

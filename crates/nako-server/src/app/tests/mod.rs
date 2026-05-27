@@ -168,7 +168,11 @@ fn local_hls_request_identity(
     profile
         .hls_transcode_profile(
             &plan,
-            nako_transcode::TranscodeAccelerationPlan::for_selected_hardware(acceleration),
+            nako_transcode::TranscodeExecutionPolicy::hls_single_variant(
+                nako_transcode::TranscodeAccelerationPlan::for_selected_hardware(acceleration),
+                profile.track_selection(),
+                nako_transcode::TranscodeOutputConstraints::default(),
+            ),
         )
         .identity()
         .bind_source(&nako_transcode::TranscodeSourceIdentity::from_media_source(

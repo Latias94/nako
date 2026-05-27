@@ -44,12 +44,12 @@ use nako_api::{
         AdminPlaybackHardwareDeviceInitialization, AdminPlaybackHardwareDeviceInitializationStatus,
         AdminPlaybackHardwareDiagnostics, AdminPlaybackHardwareEncoderDiscovery,
         AdminPlaybackHardwareEncoderDiscoveryStatus, AdminPlaybackHardwareSmokeProbe,
-        AdminPlaybackHardwareSmokeProbeStatus, AdminPlaybackPolicyDiagnostics,
-        AdminPlaybackReadinessCheck, AdminPlaybackReadinessCheckName,
-        AdminPlaybackReadinessDiagnostics, AdminPlaybackReadinessReason,
-        AdminPlaybackRemoteBudgetDiagnostics, AdminPlaybackRemuxRuntimeDiagnostics,
-        AdminPlaybackRuntimeDiagnosticsResponse, AdminPlaybackRuntimeStatus,
-        AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
+        AdminPlaybackHardwareSmokeProbeStatus, AdminPlaybackHardwareStageCapability,
+        AdminPlaybackPolicyDiagnostics, AdminPlaybackReadinessCheck,
+        AdminPlaybackReadinessCheckName, AdminPlaybackReadinessDiagnostics,
+        AdminPlaybackReadinessReason, AdminPlaybackRemoteBudgetDiagnostics,
+        AdminPlaybackRemuxRuntimeDiagnostics, AdminPlaybackRuntimeDiagnosticsResponse,
+        AdminPlaybackRuntimeStatus, AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
         AdminPlaybackStagingDiagnostics, AdminPlaybackSupportEvidenceResponse,
         AdminPlaybackSupportHardwareCapabilityEvidence, AdminPlaybackSupportHardwareEvidence,
         AdminPlaybackSupportRedactionEvidence, AdminPlaybackSupportRuntimeEvidence,
@@ -85,7 +85,6 @@ use nako_db::DatabaseBackendCapabilities;
 use nako_transcode::{
     HardwareAccelerationCapability, HardwareDeviceInitializationStatus,
     HardwareEncoderDiscoveryStatus, HardwareSmokeProbeStatus, TranscodeRuntimeInventoryStatus,
-    hardware_acceleration_readiness,
 };
 use nako_vfs::StorageUri;
 use serde::Deserialize;
@@ -2010,12 +2009,8 @@ async fn admin_playback_runtime_diagnostics(
     let policy = AdminPlaybackPolicyDiagnostics::ready();
     let readiness = playback_readiness_diagnostics(
         playback.runtime_inventory.has_probe_error,
-        hardware_acceleration_readiness(
-            playback.hardware_policy,
-            &playback.hardware_selection,
-            &playback.hardware_report,
-        ),
-        playback.hardware_selection.fallback_used,
+        playback.hls_pipeline_plan.readiness,
+        playback.hls_pipeline_plan.fallback_used(),
         playback.transcode_budget,
         transcode_budget,
         &remote_playback,
@@ -2037,7 +2032,7 @@ async fn admin_playback_runtime_diagnostics(
         },
         hardware: AdminPlaybackHardwareDiagnostics {
             policy: playback.hardware_policy,
-            selection: playback.hardware_selection,
+            pipeline: playback.hls_pipeline_plan.readiness,
             capabilities,
         },
         transcode: AdminPlaybackTranscodeBudgetDiagnostics {
@@ -2201,8 +2196,8 @@ fn playback_support_runtime_evidence(
         ffmpeg: runtime.ffmpeg,
         hardware: AdminPlaybackSupportHardwareEvidence {
             policy: runtime.hardware.policy,
-            selected_acceleration: runtime.hardware.selection.acceleration,
-            fallback_used: runtime.hardware.selection.fallback_used,
+            selected_acceleration: runtime.hardware.pipeline.selected,
+            fallback_used: runtime.hardware.pipeline.fallback_used,
             capability_count: usize_to_u32(runtime.hardware.capabilities.len()),
             unavailable_capabilities,
         },
@@ -2240,6 +2235,17 @@ fn hardware_capability_diagnostic(
         accelerator: capability.accelerator,
         available: capability.available,
         reason_code: hardware_capability_reason(capability),
+        stage_capabilities: capability
+            .stage_capabilities
+            .iter()
+            .map(|stage| AdminPlaybackHardwareStageCapability {
+                stage: stage.stage,
+                available: stage.available,
+                feature: stage.feature.clone(),
+                discovery_status: hardware_encoder_discovery_status(stage.discovery_status),
+                has_detail: stage.detail.is_some(),
+            })
+            .collect(),
         encoder_discovery: AdminPlaybackHardwareEncoderDiscovery {
             status: hardware_encoder_discovery_status(capability.encoder_discovery.status),
             encoder: capability.encoder_discovery.encoder.clone(),
@@ -2370,7 +2376,7 @@ fn remote_budget_summary(
 
 fn playback_readiness_diagnostics(
     has_probe_error: bool,
-    hardware_readiness: nako_transcode::HardwareAccelerationReadiness,
+    hardware_readiness: nako_transcode::TranscodePipelineReadiness,
     fallback_used: bool,
     configured_budget: nako_transcode::TranscodeResourceBudget,
     effective_budget: nako_transcode::TranscodeResourceBudget,

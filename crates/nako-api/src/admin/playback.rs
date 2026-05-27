@@ -8,8 +8,7 @@ use nako_core::{
 };
 use nako_transcode::{
     HardwareAcceleration, HardwareAccelerationFallback, HardwareAccelerationPolicy,
-    HardwareAccelerationReadiness, HardwareAccelerationReadinessReason,
-    HardwareAccelerationReadinessStatus, HardwareAccelerationSelection,
+    TranscodePipelineReadiness, TranscodePipelineReadinessReason, TranscodePipelineReadinessStatus,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -518,12 +517,12 @@ pub enum AdminPlaybackReadinessStatus {
     Unavailable,
 }
 
-impl From<HardwareAccelerationReadinessStatus> for AdminPlaybackReadinessStatus {
-    fn from(status: HardwareAccelerationReadinessStatus) -> Self {
+impl From<TranscodePipelineReadinessStatus> for AdminPlaybackReadinessStatus {
+    fn from(status: TranscodePipelineReadinessStatus) -> Self {
         match status {
-            HardwareAccelerationReadinessStatus::Ready => Self::Ready,
-            HardwareAccelerationReadinessStatus::Degraded => Self::Degraded,
-            HardwareAccelerationReadinessStatus::Unavailable => Self::Unavailable,
+            TranscodePipelineReadinessStatus::Ready => Self::Ready,
+            TranscodePipelineReadinessStatus::Degraded => Self::Degraded,
+            TranscodePipelineReadinessStatus::Unavailable => Self::Unavailable,
         }
     }
 }
@@ -553,24 +552,24 @@ pub enum AdminPlaybackReadinessReason {
     PlaybackPolicyReady,
 }
 
-impl From<HardwareAccelerationReadinessReason> for AdminPlaybackReadinessReason {
-    fn from(reason: HardwareAccelerationReadinessReason) -> Self {
+impl From<TranscodePipelineReadinessReason> for AdminPlaybackReadinessReason {
+    fn from(reason: TranscodePipelineReadinessReason) -> Self {
         match reason {
-            HardwareAccelerationReadinessReason::CpuRequested => Self::CpuRequested,
-            HardwareAccelerationReadinessReason::RequestedAcceleratorReady => {
+            TranscodePipelineReadinessReason::CpuRequested => Self::CpuRequested,
+            TranscodePipelineReadinessReason::RequestedPipelineReady => {
                 Self::RequestedAcceleratorReady
             }
-            HardwareAccelerationReadinessReason::RequestedAcceleratorUnavailableFallbackToCpu => {
+            TranscodePipelineReadinessReason::RequestedPipelineUnavailableFallbackToCpu => {
                 Self::RequestedAcceleratorUnavailableFallbackToCpu
             }
-            HardwareAccelerationReadinessReason::RequestedAcceleratorUnavailableFailPolicy => {
+            TranscodePipelineReadinessReason::RequestedPipelineUnavailableFailPolicy => {
                 Self::RequestedAcceleratorUnavailableFailPolicy
             }
-            HardwareAccelerationReadinessReason::ProbeError => Self::ProbeError,
-            HardwareAccelerationReadinessReason::DeviceInitializationFailed => {
+            TranscodePipelineReadinessReason::ProbeError => Self::ProbeError,
+            TranscodePipelineReadinessReason::DeviceInitializationFailed => {
                 Self::DeviceInitializationFailed
             }
-            HardwareAccelerationReadinessReason::SmokeProbeFailed => Self::SmokeProbeFailed,
+            TranscodePipelineReadinessReason::SmokeProbeFailed => Self::SmokeProbeFailed,
         }
     }
 }
@@ -620,7 +619,7 @@ impl AdminPlaybackReadinessCheck {
     }
 
     #[must_use]
-    pub fn from_hardware(readiness: HardwareAccelerationReadiness) -> Self {
+    pub fn from_hardware(readiness: TranscodePipelineReadiness) -> Self {
         Self {
             name: AdminPlaybackReadinessCheckName::HardwareAcceleration,
             status: readiness.status.into(),
@@ -672,7 +671,7 @@ impl AdminPlaybackReadinessDiagnostics {
     }
 
     #[must_use]
-    pub fn from_hardware(readiness: HardwareAccelerationReadiness) -> Self {
+    pub fn from_hardware(readiness: TranscodePipelineReadiness) -> Self {
         Self::from_checks(vec![AdminPlaybackReadinessCheck::from_hardware(readiness)])
     }
 }
@@ -695,7 +694,7 @@ pub enum AdminPlaybackRuntimeStatus {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminPlaybackHardwareDiagnostics {
     pub policy: HardwareAccelerationPolicy,
-    pub selection: HardwareAccelerationSelection,
+    pub pipeline: TranscodePipelineReadiness,
     pub capabilities: Vec<AdminPlaybackHardwareCapability>,
 }
 
@@ -704,9 +703,19 @@ pub struct AdminPlaybackHardwareCapability {
     pub accelerator: HardwareAcceleration,
     pub available: bool,
     pub reason_code: AdminPlaybackHardwareCapabilityReason,
+    pub stage_capabilities: Vec<AdminPlaybackHardwareStageCapability>,
     pub encoder_discovery: AdminPlaybackHardwareEncoderDiscovery,
     pub device_initialization: AdminPlaybackHardwareDeviceInitialization,
     pub smoke_probe: AdminPlaybackHardwareSmokeProbe,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackHardwareStageCapability {
+    pub stage: nako_transcode::HardwarePipelineStage,
+    pub available: bool,
+    pub feature: Option<String>,
+    pub discovery_status: AdminPlaybackHardwareEncoderDiscoveryStatus,
+    pub has_detail: bool,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -996,7 +1005,7 @@ mod tests {
             ffmpeg: AdminPlaybackFfmpegDiagnostics {
                 probe_status: AdminPlaybackRuntimeStatus::Degraded,
                 has_probe_error: true,
-                hardware_capability_count: 4,
+                hardware_capability_count: 6,
                 available_gpu_capabilities: 1,
             },
             hardware: AdminPlaybackHardwareDiagnostics {
@@ -1004,15 +1013,24 @@ mod tests {
                     requested: HardwareAcceleration::Nvenc,
                     fallback: nako_transcode::HardwareAccelerationFallback::Cpu,
                 },
-                selection: HardwareAccelerationSelection {
-                    acceleration: HardwareAcceleration::None,
+                pipeline: TranscodePipelineReadiness {
+                    status: TranscodePipelineReadinessStatus::Degraded,
+                    reason: TranscodePipelineReadinessReason::ProbeError,
+                    requested: HardwareAcceleration::Nvenc,
+                    selected: HardwareAcceleration::None,
                     fallback_used: true,
-                    reason: "nvenc is unavailable; falling back to cpu".to_owned(),
                 },
                 capabilities: vec![AdminPlaybackHardwareCapability {
                     accelerator: HardwareAcceleration::Nvenc,
                     available: false,
                     reason_code: AdminPlaybackHardwareCapabilityReason::ProbeError,
+                    stage_capabilities: vec![AdminPlaybackHardwareStageCapability {
+                        stage: nako_transcode::HardwarePipelineStage::Encode,
+                        available: false,
+                        feature: None,
+                        discovery_status: AdminPlaybackHardwareEncoderDiscoveryStatus::ProbeError,
+                        has_detail: true,
+                    }],
                     encoder_discovery: AdminPlaybackHardwareEncoderDiscovery {
                         status: AdminPlaybackHardwareEncoderDiscoveryStatus::ProbeError,
                         encoder: None,
@@ -1091,10 +1109,14 @@ mod tests {
         assert_eq!(value["policy"]["permissions"][2], "remux");
         assert_eq!(value["ffmpeg"]["probe_status"], "degraded");
         assert_eq!(value["hardware"]["policy"]["requested"], "nvenc");
-        assert_eq!(value["hardware"]["selection"]["acceleration"], "none");
+        assert_eq!(value["hardware"]["pipeline"]["selected"], "none");
         assert_eq!(
             value["hardware"]["capabilities"][0]["reason_code"],
             "probe_error"
+        );
+        assert_eq!(
+            value["hardware"]["capabilities"][0]["stage_capabilities"][0]["stage"],
+            "encode"
         );
         assert_eq!(
             value["hardware"]["capabilities"][0]["encoder_discovery"]["status"],

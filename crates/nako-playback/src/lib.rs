@@ -7,9 +7,8 @@ pub use nako_core::{
 use nako_core::{LibraryId, MediaProbeResult, MediaSource, MediaSourceId, Result};
 use nako_transcode::{
     HlsTranscodeProfile, OutputContainer, RemuxContainer, RemuxTranscodeProfile,
-    TranscodeAccelerationPlan, TranscodeExecutionPolicy, TranscodeOutputConstraints, TranscodePlan,
-    TranscodeProfile, TranscodeTrackSelection, validate_playback_transcode_plan,
-    validate_transcode_profile,
+    TranscodeExecutionPolicy, TranscodePlan, TranscodeProfile, TranscodeTrackSelection,
+    validate_playback_transcode_plan, validate_transcode_profile,
 };
 use serde::{Deserialize, Serialize};
 
@@ -218,31 +217,23 @@ impl PlaybackProfile {
     pub fn hls_transcode_profile(
         &self,
         plan: &TranscodePlan,
-        acceleration: TranscodeAccelerationPlan,
+        execution_policy: TranscodeExecutionPolicy,
     ) -> TranscodeProfile {
-        self.try_hls_transcode_profile(plan, acceleration)
+        self.try_hls_transcode_profile(plan, execution_policy)
             .expect("playback hls profile must be valid")
     }
 
     pub fn try_hls_transcode_profile(
         &self,
         plan: &TranscodePlan,
-        acceleration: TranscodeAccelerationPlan,
+        execution_policy: TranscodeExecutionPolicy,
     ) -> Result<TranscodeProfile> {
         validate_playback_transcode_plan(plan)?;
         let track_selection = self.track_selection();
-        let output_constraints = TranscodeOutputConstraints {
-            max_video_bitrate: self.preferences.max_video_bitrate,
-            prefer_hdr: self.preferences.prefer_hdr,
-        };
         let profile = TranscodeProfile::hls_single_variant(HlsTranscodeProfile {
             video_codec: plan.video_codec.clone(),
             audio_codec: plan.audio_codec.clone(),
-            execution_policy: TranscodeExecutionPolicy::hls_single_variant(
-                acceleration,
-                track_selection,
-                output_constraints,
-            ),
+            execution_policy,
             track_selection,
             remote_input: self.storage.remote,
             playback_profile_key: self.identity().persisted_request_key().to_owned(),
@@ -1118,8 +1109,15 @@ mod tests {
         let hls_profile = profile
             .try_hls_transcode_profile(
                 &plan,
-                nako_transcode::TranscodeAccelerationPlan::for_selected_hardware(
-                    nako_transcode::HardwareAcceleration::Nvenc,
+                nako_transcode::TranscodeExecutionPolicy::hls_single_variant(
+                    nako_transcode::TranscodeAccelerationPlan::for_selected_hardware(
+                        nako_transcode::HardwareAcceleration::Nvenc,
+                    ),
+                    profile.track_selection(),
+                    nako_transcode::TranscodeOutputConstraints {
+                        max_video_bitrate: profile.preferences.max_video_bitrate,
+                        prefer_hdr: profile.preferences.prefer_hdr,
+                    },
                 ),
             )
             .unwrap();
