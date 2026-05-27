@@ -30,15 +30,19 @@ Last updated: 2026-05-27
 
 ## M2 - Policy And Target Domain Records
 
-- [ ] PRT-030 [owner=codex] [deps=PRT-020] [scope=crates/nako-core/src,crates/nako-playback/src]
+- [x] PRT-030 [owner=codex] [deps=PRT-020] [scope=crates/nako-core/src,crates/nako-playback/src]
   Goal: Add playback permission policy and renderer target records at the
   correct crate boundary.
   Validation: `cargo nextest run -p nako-core playback --no-fail-fast`;
   `cargo nextest run -p nako-playback --no-fail-fast`.
   Review: Records must be playback-shaped, not copied Jellyfin `UserPolicy` or
   DLNA `DeviceProfile` shapes.
-  Evidence: Unit tests for defaults, denial reasons, target identity, and
-  forward-compatible target kinds.
+  Evidence: Added `PlaybackPermissionPolicy`, `EffectivePlaybackPolicy`,
+  `PlaybackPermission`, target kind/network/transport/control vocabulary in
+  `nako-core`, plus `PlaybackTarget` records in `nako-playback`. Unit tests
+  cover current playback defaults, mode-specific denial reasons, admin
+  control/cast defaults, cast target vocabulary, command capabilities, and
+  browser/Nako remote target transport separation. PRT-030 gates passed.
   Handoff: PRT-040 can feed policy and targets into planner decisions.
 
 ## M3 - Planner Enforcement

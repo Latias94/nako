@@ -3,10 +3,11 @@
   "slug": "playback-policy-and-renderer-targets",
   "title": "Playback Policy And Renderer Targets",
   "status": "active",
-  "current_task": "PRT-030",
+  "current_task": "PRT-040",
   "completed_tasks": [
     "PRT-010",
-    "PRT-020"
+    "PRT-020",
+    "PRT-030"
   ],
   "updated": "2026-05-27",
   "scope_kind": "execution",
@@ -53,6 +54,10 @@
     {
       "task": "PRT-020",
       "summary": "Added characterization coverage proving current playback gates only on Library Access Play: a Play-scoped viewer can request direct/remux/HLS browser tickets, remux app execution has no principal/policy input, and remote context is not a permission gate in the planner."
+    },
+    {
+      "task": "PRT-030",
+      "summary": "Added playback permission policy, effective policy, target kind/network/transport/control vocabulary in nako-core and planner-facing PlaybackTarget records in nako-playback, with tests for defaults, denial reasons, and target transport separation."
     }
   ],
   "adr_refs": [

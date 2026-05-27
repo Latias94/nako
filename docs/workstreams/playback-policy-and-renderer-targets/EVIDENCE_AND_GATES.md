@@ -114,6 +114,34 @@ Result:
 - `nako-server playback`: 71 passed, 282 skipped.
 - `nako-playback`: 8 passed.
 
+### PRT-030 - Policy And Target Domain Records
+
+Added pure records:
+
+- `crates/nako-core/src/playback_policy.rs`: playback permission vocabulary,
+  mode-specific denial reasons, `PlaybackPermissionPolicy`, and
+  `EffectivePlaybackPolicy`.
+- `crates/nako-core/src/playback_target.rs`: target kind, network scope,
+  transport auth, renderer control command, and renderer control capability
+  vocabulary.
+- `PlaybackTargetId` in `nako-core` IDs.
+- `crates/nako-playback/src/lib.rs`: `PlaybackTarget` combining target
+  vocabulary with `ClientPlaybackCapabilities`, plus re-exports needed by the
+  planner crate.
+
+Validation:
+
+```bash
+cargo fmt --all -- --check
+cargo nextest run -p nako-core playback --no-fail-fast
+cargo nextest run -p nako-playback --no-fail-fast
+```
+
+Result:
+
+- `nako-core playback`: 7 passed, 17 skipped.
+- `nako-playback`: 10 passed.
+
 ## Notes
 
 Fresh verification is required before marking a task, Codex goal, or lane

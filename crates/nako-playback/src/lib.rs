@@ -1,3 +1,9 @@
+pub use nako_core::{
+    EffectivePlaybackPolicy, EffectivePlaybackPolicyReason, PlaybackPermission,
+    PlaybackPermissionDecision, PlaybackPermissionDecisionReason, PlaybackPermissionPolicy,
+    PlaybackTargetId, PlaybackTargetKind, PlaybackTargetNetworkScope, PlaybackTargetTransportAuth,
+    RendererControlCapabilities, RendererControlCommand,
+};
 use nako_core::{LibraryId, MediaProbeResult, MediaSource, MediaSourceId, MediaStreamKind, Result};
 use nako_transcode::{
     HlsTranscodeProfile, OutputContainer, RemuxContainer, RemuxTranscodeProfile,
@@ -266,6 +272,53 @@ impl Default for ClientPlaybackCapabilities {
             video_codecs: vec!["h264".to_owned(), "hevc".to_owned(), "vp9".to_owned()],
             audio_codecs: vec!["aac".to_owned(), "mp3".to_owned(), "opus".to_owned()],
         }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PlaybackTarget {
+    pub id: PlaybackTargetId,
+    pub kind: PlaybackTargetKind,
+    pub display_name: String,
+    pub network_scope: PlaybackTargetNetworkScope,
+    pub transport_auth: PlaybackTargetTransportAuth,
+    pub media_capabilities: ClientPlaybackCapabilities,
+    pub control_capabilities: RendererControlCapabilities,
+}
+
+impl PlaybackTarget {
+    #[must_use]
+    pub fn browser_default(display_name: impl Into<String>) -> Self {
+        Self {
+            id: PlaybackTargetId::new(),
+            kind: PlaybackTargetKind::Browser,
+            display_name: display_name.into(),
+            network_scope: PlaybackTargetNetworkScope::Local,
+            transport_auth: PlaybackTargetTransportAuth::BrowserTicket,
+            media_capabilities: ClientPlaybackCapabilities::default(),
+            control_capabilities: RendererControlCapabilities::none(),
+        }
+    }
+
+    #[must_use]
+    pub fn nako_remote_client(
+        display_name: impl Into<String>,
+        media_capabilities: ClientPlaybackCapabilities,
+    ) -> Self {
+        Self {
+            id: PlaybackTargetId::new(),
+            kind: PlaybackTargetKind::NakoRemoteClient,
+            display_name: display_name.into(),
+            network_scope: PlaybackTargetNetworkScope::Local,
+            transport_auth: PlaybackTargetTransportAuth::Bearer,
+            media_capabilities,
+            control_capabilities: RendererControlCapabilities::full_remote_player(),
+        }
+    }
+
+    #[must_use]
+    pub fn requires_ticket_transport(&self) -> bool {
+        self.transport_auth.uses_ticket()
     }
 }
 
@@ -688,6 +741,51 @@ mod tests {
         assert!(profile.identity_key().contains("remote=true"));
         assert!(!profile.identity_key().contains("allow_remote"));
         assert!(!profile.identity_key().contains("policy"));
+    }
+
+    #[test]
+    fn playback_target_records_keep_transport_separate_from_media_capabilities() {
+        let browser = PlaybackTarget::browser_default("Web");
+        let remote = PlaybackTarget::nako_remote_client(
+            "Living Room",
+            ClientPlaybackCapabilities {
+                direct_play: true,
+                containers: vec!["mp4".to_owned()],
+                video_codecs: vec!["h264".to_owned()],
+                audio_codecs: vec!["aac".to_owned()],
+            },
+        );
+
+        assert_eq!(browser.kind, PlaybackTargetKind::Browser);
+        assert_eq!(
+            browser.transport_auth,
+            PlaybackTargetTransportAuth::BrowserTicket
+        );
+        assert!(browser.requires_ticket_transport());
+        assert!(browser.media_capabilities.direct_play);
+        assert_eq!(remote.kind, PlaybackTargetKind::NakoRemoteClient);
+        assert_eq!(remote.transport_auth, PlaybackTargetTransportAuth::Bearer);
+        assert!(!remote.requires_ticket_transport());
+        assert!(
+            remote
+                .control_capabilities
+                .supports(RendererControlCommand::Play)
+        );
+    }
+
+    #[test]
+    fn playback_policy_records_are_available_to_planner_crate_without_enforcement_yet() {
+        let policy = EffectivePlaybackPolicy::from_library_access(
+            nako_core::LibraryId::new(),
+            nako_core::LibraryAccessLevel::Play,
+        );
+
+        assert!(policy.check(PlaybackPermission::DirectPlay).allowed);
+        assert!(policy.check(PlaybackPermission::VideoTranscode).allowed);
+        assert_eq!(
+            policy.check(PlaybackPermission::Cast).reason,
+            PlaybackPermissionDecisionReason::CastDisabled
+        );
     }
 
     #[test]
