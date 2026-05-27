@@ -47,14 +47,19 @@ Last updated: 2026-05-27
 
 ## M3 - Planner Enforcement
 
-- [ ] PRT-040 [owner=codex] [deps=PRT-030] [scope=crates/nako-playback/src,crates/nako-api/src]
+- [x] PRT-040 [owner=codex] [deps=PRT-030] [scope=crates/nako-playback/src,crates/nako-api/src]
   Goal: Make playback planning consume effective policy and renderer target
   capabilities, returning typed allow/deny decisions and safe public reasons.
   Validation: `cargo nextest run -p nako-playback --no-fail-fast`;
   `cargo nextest run -p nako-api public --no-fail-fast`.
   Review: Planner must not query repositories or depend on HTTP/server auth.
-  Evidence: Planner tests for direct denied, remux denied, audio/video transcode
-  denied, remote denied, cast denied, and compatible allowed playback.
+  Evidence: `PlaybackPlanningRequest` now consumes `PlaybackTarget` and
+  `EffectivePlaybackPolicy`. Planner tests cover direct denied, remux denied,
+  video transcode denied, remote playback denied, cast denied, and compatible
+  allowed playback. Public API maps denied decisions to safe `denied` /
+  `policy_denied` values and refreshed TypeScript/Kotlin SDK outputs. Rust
+  gates passed; TypeScript `npm run check` could not run because `tsc` was not
+  installed locally.
   Handoff: PRT-050 can wire server effective policy resolution.
 
 ## M4 - Server App And HTTP Integration

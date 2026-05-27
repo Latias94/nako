@@ -107,12 +107,12 @@ export interface ClientPlaybackCapabilitiesDto {
 
 export interface ClientPlaybackDecision {
   direct_play: ClientDirectPlayPlan | null;
-  mode: "direct_play" | "remux" | "transcode";
+  mode: "direct_play" | "remux" | "transcode" | "denied";
   reason: ClientPlaybackDecisionReason;
   transcode_plan: ClientTranscodePlan | null;
 }
 
-export type ClientPlaybackDecisionReason = "compatible" | "requested_transcode_output" | "client_disabled_direct_play" | "source_container_unknown" | "client_container_unsupported" | "source_codecs_unsupported";
+export type ClientPlaybackDecisionReason = "compatible" | "requested_transcode_output" | "client_disabled_direct_play" | "source_container_unknown" | "client_container_unsupported" | "source_codecs_unsupported" | "policy_denied";
 
 export interface ClientTranscodePlan {
   audio_codec: string | null;

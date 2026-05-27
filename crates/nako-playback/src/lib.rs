@@ -21,6 +21,7 @@ pub struct PlaybackDecision {
     pub execution: PlaybackExecutionPlan,
     pub direct_play: Option<DirectPlayPlan>,
     pub transcode_plan: Option<TranscodePlan>,
+    pub denial: Option<PlaybackDenial>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -29,6 +30,7 @@ pub enum PlaybackMode {
     DirectPlay,
     Remux,
     Transcode,
+    Denied,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -40,6 +42,7 @@ pub enum PlaybackDecisionReason {
     SourceContainerUnknown,
     ClientContainerUnsupported,
     SourceCodecsUnsupported,
+    PolicyDenied,
 }
 
 impl PlaybackDecisionReason {
@@ -58,8 +61,15 @@ impl PlaybackDecisionReason {
             Self::SourceCodecsUnsupported => {
                 "source codecs are not compatible with client capabilities"
             }
+            Self::PolicyDenied => "effective playback policy denied the selected playback mode",
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PlaybackDenial {
+    pub permission: PlaybackPermission,
+    pub reason: PlaybackPermissionDecisionReason,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -73,7 +83,8 @@ pub struct DirectPlayPlan {
 pub struct PlaybackPlanningRequest<'a> {
     pub source: &'a MediaSource,
     pub probe: Option<&'a MediaProbeResult>,
-    pub client: &'a ClientPlaybackCapabilities,
+    pub target: &'a PlaybackTarget,
+    pub effective_policy: &'a EffectivePlaybackPolicy,
     pub context: PlaybackSelectionContext,
 }
 
@@ -247,6 +258,7 @@ pub enum PlaybackExecutionPlan {
     DirectPlay(DirectPlayPlan),
     Remux(RemuxPlaybackPlan),
     Transcode(TranscodePlan),
+    Denied(PlaybackDenial),
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -288,16 +300,24 @@ pub struct PlaybackTarget {
 
 impl PlaybackTarget {
     #[must_use]
-    pub fn browser_default(display_name: impl Into<String>) -> Self {
+    pub fn browser_with_capabilities(
+        display_name: impl Into<String>,
+        media_capabilities: ClientPlaybackCapabilities,
+    ) -> Self {
         Self {
             id: PlaybackTargetId::new(),
             kind: PlaybackTargetKind::Browser,
             display_name: display_name.into(),
             network_scope: PlaybackTargetNetworkScope::Local,
             transport_auth: PlaybackTargetTransportAuth::BrowserTicket,
-            media_capabilities: ClientPlaybackCapabilities::default(),
+            media_capabilities,
             control_capabilities: RendererControlCapabilities::none(),
         }
+    }
+
+    #[must_use]
+    pub fn browser_default(display_name: impl Into<String>) -> Self {
+        Self::browser_with_capabilities(display_name, ClientPlaybackCapabilities::default())
     }
 
     #[must_use]
@@ -319,6 +339,22 @@ impl PlaybackTarget {
     #[must_use]
     pub fn requires_ticket_transport(&self) -> bool {
         self.transport_auth.uses_ticket()
+    }
+
+    #[must_use]
+    pub const fn requires_cast_permission(&self) -> bool {
+        matches!(
+            self.kind,
+            PlaybackTargetKind::NakoRemoteClient
+                | PlaybackTargetKind::Chromecast
+                | PlaybackTargetKind::DlnaRenderer
+                | PlaybackTargetKind::Airplay
+        )
+    }
+
+    #[must_use]
+    pub const fn is_remote_network(&self) -> bool {
+        matches!(self.network_scope, PlaybackTargetNetworkScope::Remote)
     }
 }
 
@@ -342,14 +378,31 @@ pub fn plan_playback(request: PlaybackPlanningRequest<'_>) -> PlaybackDecision {
     let PlaybackPlanningRequest {
         source,
         probe,
-        client,
+        target,
+        effective_policy,
         context,
     } = request;
+    let client = &target.media_capabilities;
     let content_type = content_type_for_file_name(&source.file_name).to_owned();
     let container = container_for_file_name(&source.file_name);
     let selected_source = PlaybackSelectedSource::from(source);
 
+    if target.is_remote_network() || context.storage.remote {
+        if let Some(denial) = policy_denial(effective_policy, PlaybackPermission::RemotePlayback) {
+            return denied_decision(selected_source, denial);
+        }
+    }
+
+    if target.requires_cast_permission() {
+        if let Some(denial) = policy_denial(effective_policy, PlaybackPermission::Cast) {
+            return denied_decision(selected_source, denial);
+        }
+    }
+
     if let Some(output_container) = context.preferences.transcode_output_container {
+        if let Some(denial) = transcode_policy_denial(effective_policy) {
+            return denied_decision(selected_source, denial);
+        }
         return transcode_decision(
             selected_source,
             source.locator.clone(),
@@ -359,6 +412,9 @@ pub fn plan_playback(request: PlaybackPlanningRequest<'_>) -> PlaybackDecision {
     }
 
     if !client.direct_play {
+        if let Some(denial) = transcode_policy_denial(effective_policy) {
+            return denied_decision(selected_source, denial);
+        }
         return transcode_decision(
             selected_source,
             source.locator.clone(),
@@ -368,6 +424,9 @@ pub fn plan_playback(request: PlaybackPlanningRequest<'_>) -> PlaybackDecision {
     }
 
     let Some(container) = container else {
+        if let Some(denial) = transcode_policy_denial(effective_policy) {
+            return denied_decision(selected_source, denial);
+        }
         return transcode_decision(
             selected_source,
             source.locator.clone(),
@@ -386,6 +445,9 @@ pub fn plan_playback(request: PlaybackPlanningRequest<'_>) -> PlaybackDecision {
         let codecs_allowed = probe.is_some_and(|probe| codecs_are_supported(probe, client));
 
         return if codecs_allowed {
+            if let Some(denial) = policy_denial(effective_policy, PlaybackPermission::Remux) {
+                return denied_decision(selected_source, denial);
+            }
             remux_decision(
                 selected_source,
                 source.locator.clone(),
@@ -396,6 +458,9 @@ pub fn plan_playback(request: PlaybackPlanningRequest<'_>) -> PlaybackDecision {
                 PlaybackDecisionReason::ClientContainerUnsupported,
             )
         } else {
+            if let Some(denial) = transcode_policy_denial(effective_policy) {
+                return denied_decision(selected_source, denial);
+            }
             transcode_decision(
                 selected_source,
                 source.locator.clone(),
@@ -406,6 +471,9 @@ pub fn plan_playback(request: PlaybackPlanningRequest<'_>) -> PlaybackDecision {
     }
 
     if probe.is_some_and(|probe| !codecs_are_supported(probe, client)) {
+        if let Some(denial) = transcode_policy_denial(effective_policy) {
+            return denied_decision(selected_source, denial);
+        }
         return transcode_decision(
             selected_source,
             source.locator.clone(),
@@ -419,6 +487,9 @@ pub fn plan_playback(request: PlaybackPlanningRequest<'_>) -> PlaybackDecision {
         content_type,
         supports_range_requests: context.storage.range_readable.unwrap_or(true),
     };
+    if let Some(denial) = policy_denial(effective_policy, PlaybackPermission::DirectPlay) {
+        return denied_decision(selected_source, denial);
+    }
     direct_play_decision(
         selected_source,
         direct_play,
@@ -449,6 +520,7 @@ fn direct_play_decision(
         execution: PlaybackExecutionPlan::DirectPlay(direct_play.clone()),
         direct_play: Some(direct_play),
         transcode_plan: None,
+        denial: None,
     }
 }
 
@@ -469,6 +541,7 @@ fn remux_decision(
         selected_source,
         direct_play: None,
         transcode_plan: None,
+        denial: None,
     }
 }
 
@@ -492,7 +565,39 @@ fn transcode_decision(
         selected_source,
         direct_play: None,
         transcode_plan: Some(transcode_plan),
+        denial: None,
     }
+}
+
+fn denied_decision(
+    selected_source: PlaybackSelectedSource,
+    denial: PlaybackDenial,
+) -> PlaybackDecision {
+    PlaybackDecision {
+        mode: PlaybackMode::Denied,
+        reason: PlaybackDecisionReason::PolicyDenied,
+        selected_source,
+        execution: PlaybackExecutionPlan::Denied(denial),
+        direct_play: None,
+        transcode_plan: None,
+        denial: Some(denial),
+    }
+}
+
+fn policy_denial(
+    policy: &EffectivePlaybackPolicy,
+    permission: PlaybackPermission,
+) -> Option<PlaybackDenial> {
+    let decision = policy.check(permission);
+    (!decision.allowed).then_some(PlaybackDenial {
+        permission,
+        reason: decision.reason,
+    })
+}
+
+fn transcode_policy_denial(policy: &EffectivePlaybackPolicy) -> Option<PlaybackDenial> {
+    policy_denial(policy, PlaybackPermission::VideoTranscode)
+        .or_else(|| policy_denial(policy, PlaybackPermission::AudioTranscode))
 }
 
 fn codecs_are_supported(probe: &MediaProbeResult, client: &ClientPlaybackCapabilities) -> bool {
@@ -598,12 +703,16 @@ mod tests {
             ],
         };
 
-        let decision = PlaybackPlanner::new().plan(PlaybackPlanningRequest {
-            source: &source,
-            probe: Some(&probe),
-            client: &ClientPlaybackCapabilities::default(),
-            context: PlaybackSelectionContext::default(),
-        });
+        let decision = plan_with_policy(
+            &source,
+            Some(&probe),
+            ClientPlaybackCapabilities::default(),
+            PlaybackSelectionContext::default(),
+            EffectivePlaybackPolicy::from_library_access(
+                source.library_id,
+                nako_core::LibraryAccessLevel::Play,
+            ),
+        );
 
         assert_eq!(decision.mode, PlaybackMode::DirectPlay);
         assert_eq!(decision.reason, PlaybackDecisionReason::Compatible);
@@ -631,12 +740,16 @@ mod tests {
             ],
         };
 
-        let decision = PlaybackPlanner::new().plan(PlaybackPlanningRequest {
-            source: &source,
-            probe: Some(&probe),
-            client: &ClientPlaybackCapabilities::default(),
-            context: PlaybackSelectionContext::default(),
-        });
+        let decision = plan_with_policy(
+            &source,
+            Some(&probe),
+            ClientPlaybackCapabilities::default(),
+            PlaybackSelectionContext::default(),
+            EffectivePlaybackPolicy::from_library_access(
+                source.library_id,
+                nako_core::LibraryAccessLevel::Play,
+            ),
+        );
 
         assert_eq!(decision.mode, PlaybackMode::Remux);
         assert_eq!(
@@ -664,18 +777,22 @@ mod tests {
                 stream(MediaStreamKind::Audio, Some("aac")),
             ],
         };
-        let decision = PlaybackPlanner::new().plan(PlaybackPlanningRequest {
-            source: &source,
-            probe: Some(&probe),
-            client: &ClientPlaybackCapabilities::default(),
-            context: PlaybackSelectionContext {
+        let decision = plan_with_policy(
+            &source,
+            Some(&probe),
+            ClientPlaybackCapabilities::default(),
+            PlaybackSelectionContext {
                 storage: PlaybackStorageContext::default(),
                 preferences: PlaybackPreferenceContext {
                     remux_output_container: Some(nako_transcode::RemuxContainer::Mkv),
                     ..Default::default()
                 },
             },
-        });
+            EffectivePlaybackPolicy::from_library_access(
+                source.library_id,
+                nako_core::LibraryAccessLevel::Play,
+            ),
+        );
 
         assert!(matches!(
             decision.execution,
@@ -691,11 +808,11 @@ mod tests {
         let source = media_source("movie.mp4");
         let client = ClientPlaybackCapabilities::default();
 
-        let decision = PlaybackPlanner::new().plan(PlaybackPlanningRequest {
-            source: &source,
-            probe: None,
-            client: &client,
-            context: PlaybackSelectionContext {
+        let decision = plan_with_policy(
+            &source,
+            None,
+            client,
+            PlaybackSelectionContext {
                 storage: PlaybackStorageContext {
                     remote: true,
                     range_readable: Some(false),
@@ -709,7 +826,11 @@ mod tests {
                     transcode_output_container: None,
                 },
             },
-        });
+            EffectivePlaybackPolicy::from_library_access(
+                source.library_id,
+                nako_core::LibraryAccessLevel::Play,
+            ),
+        );
 
         assert_eq!(decision.mode, PlaybackMode::DirectPlay);
         assert_eq!(decision.selected_source.library_id, source.library_id);
@@ -728,11 +849,17 @@ mod tests {
             preferences: PlaybackPreferenceContext::default(),
         };
 
+        let target = PlaybackTarget::browser_with_capabilities("Test", client.clone());
+        let policy = EffectivePlaybackPolicy::from_library_access(
+            source.library_id,
+            nako_core::LibraryAccessLevel::Play,
+        );
         let profile = PlaybackProfile::from_context(&client, context.clone());
         let decision = PlaybackPlanner::new().plan(PlaybackPlanningRequest {
             source: &source,
             probe: None,
-            client: &client,
+            target: &target,
+            effective_policy: &policy,
             context,
         });
 
@@ -793,18 +920,22 @@ mod tests {
         let source = media_source("movie.mp4");
         let client = ClientPlaybackCapabilities::default();
 
-        let decision = PlaybackPlanner::new().plan(PlaybackPlanningRequest {
-            source: &source,
-            probe: None,
-            client: &client,
-            context: PlaybackSelectionContext {
+        let decision = plan_with_policy(
+            &source,
+            None,
+            client,
+            PlaybackSelectionContext {
                 storage: PlaybackStorageContext::default(),
                 preferences: PlaybackPreferenceContext {
                     transcode_output_container: Some(nako_transcode::OutputContainer::Hls),
                     ..Default::default()
                 },
             },
-        });
+            EffectivePlaybackPolicy::from_library_access(
+                source.library_id,
+                nako_core::LibraryAccessLevel::Play,
+            ),
+        );
 
         assert_eq!(decision.mode, PlaybackMode::Transcode);
         assert_eq!(
@@ -918,6 +1049,190 @@ mod tests {
             hls_profile.execution_policy.subtitle_strategy,
             nako_transcode::TranscodeSubtitleStrategy::OmitSelected
         );
+    }
+
+    #[test]
+    fn planner_denies_direct_play_when_effective_policy_disallows_direct() {
+        let source = media_source("movie.mp4");
+        let mut permissions = PlaybackPermissionPolicy::current_playback_defaults();
+        permissions.allow_direct_play = false;
+        let policy = EffectivePlaybackPolicy {
+            library_id: source.library_id,
+            library_access: nako_core::LibraryAccessLevel::Play,
+            permissions,
+            reason: EffectivePlaybackPolicyReason::UserPolicy,
+        };
+
+        let decision = plan_with_policy(
+            &source,
+            None,
+            ClientPlaybackCapabilities::default(),
+            PlaybackSelectionContext::default(),
+            policy,
+        );
+
+        assert_policy_denied(
+            decision,
+            PlaybackPermission::DirectPlay,
+            PlaybackPermissionDecisionReason::DirectPlayDisabled,
+        );
+    }
+
+    #[test]
+    fn planner_denies_remux_when_effective_policy_disallows_remux() {
+        let source = media_source("movie.mkv");
+        let probe = MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some("matroska,webm".to_owned()),
+            bit_rate: None,
+            streams: vec![
+                stream(MediaStreamKind::Video, Some("h264")),
+                stream(MediaStreamKind::Audio, Some("aac")),
+            ],
+        };
+        let mut permissions = PlaybackPermissionPolicy::current_playback_defaults();
+        permissions.allow_remux = false;
+        let policy = EffectivePlaybackPolicy {
+            library_id: source.library_id,
+            library_access: nako_core::LibraryAccessLevel::Play,
+            permissions,
+            reason: EffectivePlaybackPolicyReason::UserPolicy,
+        };
+
+        let decision = plan_with_policy(
+            &source,
+            Some(&probe),
+            ClientPlaybackCapabilities::default(),
+            PlaybackSelectionContext::default(),
+            policy,
+        );
+
+        assert_policy_denied(
+            decision,
+            PlaybackPermission::Remux,
+            PlaybackPermissionDecisionReason::RemuxDisabled,
+        );
+    }
+
+    #[test]
+    fn planner_denies_transcode_when_effective_policy_disallows_video_transcode() {
+        let source = media_source("movie.mkv");
+        let mut permissions = PlaybackPermissionPolicy::current_playback_defaults();
+        permissions.allow_video_transcode = false;
+        let policy = EffectivePlaybackPolicy {
+            library_id: source.library_id,
+            library_access: nako_core::LibraryAccessLevel::Play,
+            permissions,
+            reason: EffectivePlaybackPolicyReason::UserPolicy,
+        };
+
+        let decision = plan_with_policy(
+            &source,
+            None,
+            ClientPlaybackCapabilities::default(),
+            PlaybackSelectionContext::default(),
+            policy,
+        );
+
+        assert_policy_denied(
+            decision,
+            PlaybackPermission::VideoTranscode,
+            PlaybackPermissionDecisionReason::VideoTranscodeDisabled,
+        );
+    }
+
+    #[test]
+    fn planner_denies_remote_target_when_effective_policy_disallows_remote_playback() {
+        let source = media_source("movie.mp4");
+        let mut permissions = PlaybackPermissionPolicy::current_playback_defaults();
+        permissions.allow_remote_playback = false;
+        let policy = EffectivePlaybackPolicy {
+            library_id: source.library_id,
+            library_access: nako_core::LibraryAccessLevel::Play,
+            permissions,
+            reason: EffectivePlaybackPolicyReason::UserPolicy,
+        };
+        let target = PlaybackTarget {
+            network_scope: PlaybackTargetNetworkScope::Remote,
+            ..PlaybackTarget::browser_default("Remote Browser")
+        };
+
+        let decision = PlaybackPlanner::new().plan(PlaybackPlanningRequest {
+            source: &source,
+            probe: None,
+            target: &target,
+            effective_policy: &policy,
+            context: PlaybackSelectionContext::default(),
+        });
+
+        assert_policy_denied(
+            decision,
+            PlaybackPermission::RemotePlayback,
+            PlaybackPermissionDecisionReason::RemotePlaybackDisabled,
+        );
+    }
+
+    #[test]
+    fn planner_denies_cast_target_when_effective_policy_disallows_cast() {
+        let source = media_source("movie.mp4");
+        let target = PlaybackTarget::nako_remote_client(
+            "Living Room",
+            ClientPlaybackCapabilities::default(),
+        );
+        let policy = EffectivePlaybackPolicy::from_library_access(
+            source.library_id,
+            nako_core::LibraryAccessLevel::Play,
+        );
+
+        let decision = PlaybackPlanner::new().plan(PlaybackPlanningRequest {
+            source: &source,
+            probe: None,
+            target: &target,
+            effective_policy: &policy,
+            context: PlaybackSelectionContext::default(),
+        });
+
+        assert_policy_denied(
+            decision,
+            PlaybackPermission::Cast,
+            PlaybackPermissionDecisionReason::CastDisabled,
+        );
+    }
+
+    fn plan_with_policy(
+        source: &MediaSource,
+        probe: Option<&MediaProbeResult>,
+        client: ClientPlaybackCapabilities,
+        context: PlaybackSelectionContext,
+        effective_policy: EffectivePlaybackPolicy,
+    ) -> PlaybackDecision {
+        let target = PlaybackTarget::browser_with_capabilities("Test", client);
+        PlaybackPlanner::new().plan(PlaybackPlanningRequest {
+            source,
+            probe,
+            target: &target,
+            effective_policy: &effective_policy,
+            context,
+        })
+    }
+
+    fn assert_policy_denied(
+        decision: PlaybackDecision,
+        permission: PlaybackPermission,
+        reason: PlaybackPermissionDecisionReason,
+    ) {
+        assert_eq!(decision.mode, PlaybackMode::Denied);
+        assert_eq!(decision.reason, PlaybackDecisionReason::PolicyDenied);
+        assert!(matches!(
+            decision.execution,
+            PlaybackExecutionPlan::Denied(PlaybackDenial {
+                permission: actual_permission,
+                reason: actual_reason,
+            }) if actual_permission == permission && actual_reason == reason
+        ));
+        assert_eq!(decision.denial, Some(PlaybackDenial { permission, reason }));
+        assert!(decision.direct_play.is_none());
+        assert!(decision.transcode_plan.is_none());
     }
 
     fn media_source(file_name: &str) -> MediaSource {

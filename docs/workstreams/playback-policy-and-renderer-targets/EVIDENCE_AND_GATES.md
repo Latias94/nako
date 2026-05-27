@@ -142,6 +142,49 @@ Result:
 - `nako-core playback`: 7 passed, 17 skipped.
 - `nako-playback`: 10 passed.
 
+### PRT-040 - Planner Enforcement
+
+Changed planner/API behavior:
+
+- `PlaybackPlanningRequest` now receives `PlaybackTarget` and
+  `EffectivePlaybackPolicy`.
+- `PlaybackDecision` can represent an internal denied plan with
+  `PlaybackMode::Denied`, `PlaybackExecutionPlan::Denied`, and `PlaybackDenial`.
+- Planner denies direct, remux, transcode, remote, and cast paths when effective
+  policy rejects the required permission.
+- Server playback app still passes current default policy/target behavior; real
+  user/role/settings policy resolution is PRT-050.
+- Public API maps denial to safe `denied` mode and `policy_denied` reason.
+- TypeScript and Kotlin Public SDK package entries were regenerated.
+
+Validation:
+
+```bash
+cargo fmt --all -- --check
+cargo nextest run -p nako-playback --no-fail-fast
+cargo nextest run -p nako-api public --no-fail-fast
+cargo nextest run -p nako-server playback --no-fail-fast
+cargo nextest run -p nako-api -E 'test(public_openapi) | test(sdk)' --no-fail-fast
+cargo nextest run -p nako-client-protocol public --no-fail-fast
+```
+
+Result:
+
+- `nako-playback`: 15 passed.
+- `nako-api public`: 22 passed, 37 skipped.
+- `nako-server playback`: 71 passed, 282 skipped.
+- `nako-api public_openapi|sdk`: 16 passed, 43 skipped.
+- `nako-client-protocol public`: 10 passed.
+
+Additional attempted gate:
+
+```bash
+npm --prefix sdk/typescript run check
+```
+
+Result: failed because `tsc` was not installed or available in the local
+environment; no TypeScript type error was reported.
+
 ## Notes
 
 Fresh verification is required before marking a task, Codex goal, or lane

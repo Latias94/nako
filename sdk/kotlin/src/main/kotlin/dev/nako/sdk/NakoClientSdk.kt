@@ -568,11 +568,13 @@ public value class ClientPlaybackDecisionMode(
         public val DirectPlay: ClientPlaybackDecisionMode = ClientPlaybackDecisionMode("direct_play")
         public val Remux: ClientPlaybackDecisionMode = ClientPlaybackDecisionMode("remux")
         public val Transcode: ClientPlaybackDecisionMode = ClientPlaybackDecisionMode("transcode")
+        public val Denied: ClientPlaybackDecisionMode = ClientPlaybackDecisionMode("denied")
 
         public val KnownWireValues: Set<String> = setOf(
             "direct_play",
             "remux",
             "transcode",
+            "denied",
         )
     }
 }
@@ -1205,6 +1207,7 @@ public value class ClientPlaybackDecisionReason(
         public val SourceContainerUnknown: ClientPlaybackDecisionReason = ClientPlaybackDecisionReason("source_container_unknown")
         public val ClientContainerUnsupported: ClientPlaybackDecisionReason = ClientPlaybackDecisionReason("client_container_unsupported")
         public val SourceCodecsUnsupported: ClientPlaybackDecisionReason = ClientPlaybackDecisionReason("source_codecs_unsupported")
+        public val PolicyDenied: ClientPlaybackDecisionReason = ClientPlaybackDecisionReason("policy_denied")
 
         public val KnownWireValues: Set<String> = setOf(
             "compatible",
@@ -1213,6 +1216,7 @@ public value class ClientPlaybackDecisionReason(
             "source_container_unknown",
             "client_container_unsupported",
             "source_codecs_unsupported",
+            "policy_denied",
         )
     }
 }

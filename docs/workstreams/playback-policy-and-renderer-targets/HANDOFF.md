@@ -19,13 +19,18 @@ PRT-030 is complete. Shared playback permission policy, effective policy,
 target kind/network/transport/control vocabulary, and planner-facing
 `PlaybackTarget` records now exist. They are not enforced yet.
 
+PRT-040 is complete. The planner consumes `PlaybackTarget` and
+`EffectivePlaybackPolicy`, returns internal denied decisions, and Public Client
+API maps them to safe `denied` / `policy_denied` wire values. Server playback
+currently passes default policy/target values to preserve existing behavior.
+
 ## Active Task
 
-- Task ID: PRT-040
+- Task ID: PRT-050
 - Owner: codex
-- Files: `crates/nako-playback/src`, `crates/nako-api/src`
-- Validation: `cargo nextest run -p nako-playback --no-fail-fast`;
-  `cargo nextest run -p nako-api public --no-fail-fast`
+- Files: `crates/nako-server/src/app/playback`,
+  `crates/nako-server/src/http/playback.rs`, `crates/nako-server/src/http/access.rs`
+- Validation: `cargo nextest run -p nako-server playback --no-fail-fast`
 - Status: NEEDS_CONTEXT
 - Review: pending
 - Evidence: pending
@@ -41,6 +46,8 @@ target kind/network/transport/control vocabulary, and planner-facing
 - Core owns shared policy and target vocabulary; `nako-playback` owns the
   planner-facing `PlaybackTarget` because it combines target facts with
   `ClientPlaybackCapabilities`.
+- Public Client gets only safe denied mode/reason; detailed policy rows and
+  role/access internals remain server/Admin concerns.
 
 ## Blockers
 
@@ -48,6 +55,7 @@ target kind/network/transport/control vocabulary, and planner-facing
 
 ## Next Recommended Action
 
-Start PRT-040 by changing `PlaybackPlanningRequest` to receive an
-`EffectivePlaybackPolicy` and `PlaybackTarget`, then return typed denial
-decisions without repository or HTTP dependencies.
+Start PRT-050 by resolving effective playback policy in the server app from
+authenticated principal and Library Access, then enforce denied planner
+decisions before creating tickets, Playback Sessions, Transcode Sessions, or
+artifacts.

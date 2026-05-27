@@ -616,6 +616,7 @@ fn playback_mode_to_dto(mode: PlaybackMode) -> ClientPlaybackMode {
         PlaybackMode::DirectPlay => ClientPlaybackMode::DirectPlay,
         PlaybackMode::Remux => ClientPlaybackMode::Remux,
         PlaybackMode::Transcode => ClientPlaybackMode::Transcode,
+        PlaybackMode::Denied => ClientPlaybackMode::Denied,
     }
 }
 
@@ -637,6 +638,7 @@ fn playback_decision_reason_to_dto(reason: PlaybackDecisionReason) -> ClientPlay
         PlaybackDecisionReason::SourceCodecsUnsupported => {
             ClientPlaybackDecisionReason::SourceCodecsUnsupported
         }
+        PlaybackDecisionReason::PolicyDenied => ClientPlaybackDecisionReason::PolicyDenied,
     }
 }
 
@@ -886,6 +888,7 @@ mod tests {
             execution: nako_playback::PlaybackExecutionPlan::Transcode(transcode_plan.clone()),
             direct_play: None,
             transcode_plan: Some(transcode_plan),
+            denial: None,
         };
 
         let value = serde_json::to_value(playback_decision_to_dto(decision)).unwrap();

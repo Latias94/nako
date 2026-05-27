@@ -1098,7 +1098,7 @@ fn schemas() -> Value {
             "decision": schema_ref("ClientPlaybackDecision")
         })),
         "ClientPlaybackDecision": object_schema(&["mode", "reason", "direct_play", "transcode_plan"], json!({
-            "mode": enum_schema(&["direct_play", "remux", "transcode"]),
+            "mode": enum_schema(&["direct_play", "remux", "transcode", "denied"]),
             "reason": schema_ref("ClientPlaybackDecisionReason"),
             "direct_play": nullable_ref("ClientDirectPlayPlan"),
             "transcode_plan": nullable_ref("ClientTranscodePlan")
@@ -1109,7 +1109,8 @@ fn schemas() -> Value {
             "client_disabled_direct_play",
             "source_container_unknown",
             "client_container_unsupported",
-            "source_codecs_unsupported"
+            "source_codecs_unsupported",
+            "policy_denied"
         ]),
         "ClientDirectPlayPlan": object_schema(&["source_id", "content_type", "supports_range_requests"], json!({
             "source_id": uuid_schema(),
@@ -1596,7 +1597,8 @@ mod tests {
                 "client_disabled_direct_play",
                 "source_container_unknown",
                 "client_container_unsupported",
-                "source_codecs_unsupported"
+                "source_codecs_unsupported",
+                "policy_denied"
             ])
         );
         assert_eq!(

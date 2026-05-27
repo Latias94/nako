@@ -3,17 +3,17 @@ use std::{path::PathBuf, sync::Arc};
 use async_trait::async_trait;
 use nako_api::public_client::{PlaybackDecisionResponse, playback_decision_response_to_dto};
 use nako_core::{
-    EventOutboxRepository, MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource,
-    MediaSourceId, NakoError, NewOutboxEvent, NewPlaybackSession, NewTranscodeSession,
-    OutboxEventRecord, PageRequest, PlaybackSessionHeartbeat, PlaybackSessionId,
-    PlaybackSessionListFilter, PlaybackSessionMode, PlaybackSessionRecord,
+    EventOutboxRepository, LibraryAccessLevel, MediaProbeRepository, MediaProbeResult,
+    MediaRepository, MediaSource, MediaSourceId, NakoError, NewOutboxEvent, NewPlaybackSession,
+    NewTranscodeSession, OutboxEventRecord, PageRequest, PlaybackSessionHeartbeat,
+    PlaybackSessionId, PlaybackSessionListFilter, PlaybackSessionMode, PlaybackSessionRecord,
     PlaybackSessionRepository, PlaybackSessionState, Result, StagingManifestRepository,
     TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
     TranscodeSessionRepository, TranscodeSessionState, UserPrincipalId,
 };
 use nako_playback::{
-    ClientPlaybackCapabilities, PlaybackDecision, PlaybackPlanner, PlaybackPlanningRequest,
-    PlaybackProfile, PlaybackSelectionContext,
+    ClientPlaybackCapabilities, EffectivePlaybackPolicy, PlaybackDecision, PlaybackPlanner,
+    PlaybackPlanningRequest, PlaybackProfile, PlaybackSelectionContext, PlaybackTarget,
 };
 use nako_streaming::{DirectPlayRangeRequest, DirectPlayResponsePlan};
 use nako_transcode::{
@@ -534,10 +534,13 @@ impl PlaybackAppService {
         let probe =
             PlaybackRuntimeStore::get_media_probe(self.runtime_store.as_ref(), source.id).await?;
         let context = self.playback_selection_context_for_source(&source).await?;
+        let target = playback_target_for_client(client);
+        let effective_policy = current_playback_policy_for_source(&source);
         let decision = self.planner.plan(PlaybackPlanningRequest {
             source: &source,
             probe: probe.as_ref(),
-            client: &client,
+            target: &target,
+            effective_policy: &effective_policy,
             context,
         });
 
@@ -1070,10 +1073,13 @@ impl PlaybackAppService {
         let mut context = playback_selection_context(&uri, backend.as_ref()).await;
         context.preferences.remux_output_container = Some(request.output_container);
         let playback_profile = PlaybackProfile::from_context(&request.client, context.clone());
+        let target = playback_target_for_client(request.client.clone());
+        let effective_policy = current_playback_policy_for_source(&source);
         let decision = self.planner.plan(PlaybackPlanningRequest {
             source: &source,
             probe: probe.as_ref(),
-            client: &request.client,
+            target: &target,
+            effective_policy: &effective_policy,
             context,
         });
         let output_container = remux_output_container(&decision)?;
@@ -1110,10 +1116,13 @@ impl PlaybackAppService {
         let mut context = playback_selection_context(&uri, backend.as_ref()).await;
         context.preferences.transcode_output_container = Some(nako_transcode::OutputContainer::Hls);
         let playback_profile = PlaybackProfile::from_context(&request.client, context.clone());
+        let target = playback_target_for_client(request.client.clone());
+        let effective_policy = current_playback_policy_for_source(&source);
         let decision = self.planner.plan(PlaybackPlanningRequest {
             source: &source,
             probe: probe.as_ref(),
-            client: &request.client,
+            target: &target,
+            effective_policy: &effective_policy,
             context,
         });
         let transcode_plan = hls_transcode_plan(&decision)?;
@@ -1439,6 +1448,14 @@ fn rewrite_hls_playlist_segments_for_playback_session(
         })
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+fn playback_target_for_client(client: ClientPlaybackCapabilities) -> PlaybackTarget {
+    PlaybackTarget::browser_with_capabilities("Public Client", client)
+}
+
+fn current_playback_policy_for_source(source: &MediaSource) -> EffectivePlaybackPolicy {
+    EffectivePlaybackPolicy::from_library_access(source.library_id, LibraryAccessLevel::Play)
 }
 
 #[derive(Clone, Debug)]

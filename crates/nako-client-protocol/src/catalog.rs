@@ -451,6 +451,7 @@ public_string_value! {
         SourceContainerUnknown => "source_container_unknown",
         ClientContainerUnsupported => "client_container_unsupported",
         SourceCodecsUnsupported => "source_codecs_unsupported",
+        PolicyDenied => "policy_denied",
     }
 }
 
@@ -459,6 +460,7 @@ public_string_value! {
         DirectPlay => "direct_play",
         Remux => "remux",
         Transcode => "transcode",
+        Denied => "denied",
     }
 }
 
