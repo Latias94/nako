@@ -3,9 +3,10 @@
   "slug": "external-casting-adapter-boundary",
   "title": "External Casting Adapter Boundary",
   "status": "active",
-  "current_task": "ECAB-020",
+  "current_task": "ECAB-030",
   "completed_tasks": [
-    "ECAB-010"
+    "ECAB-010",
+    "ECAB-020"
   ],
   "updated": "2026-05-27",
   "scope_kind": "execution",
@@ -47,6 +48,10 @@
     {
       "task": "ECAB-010",
       "summary": "Opened the external casting adapter boundary lane and ADR 0042, choosing sidecar renderer adapters for Chromecast, DLNA, and AirPlay while keeping host-owned policy, sessions, and cast-safe media transport."
+    },
+    {
+      "task": "ECAB-020",
+      "summary": "Locked the current external casting boundary: Public renderer registration rejects Chromecast/DLNA/AirPlay targets, Admin keeps those adapters planned, and diagnostics stay redaction-safe."
     }
   ],
   "adr_refs": [
@@ -58,6 +63,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Run ECAB-020 next to lock current external protocol gaps before implementing the host adapter bridge."
+    "notes": "Run ECAB-030 next to add the host renderer adapter bridge contract before any real protocol implementation."
   }
 }

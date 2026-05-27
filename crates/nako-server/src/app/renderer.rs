@@ -439,7 +439,7 @@ fn validate_nako_renderer_target(
             | PlaybackTargetKind::NativeMobile
     ) {
         return Err(NakoError::Unsupported(
-            "public renderer registration only accepts Nako remote client targets",
+            "public renderer registration requires a Nako-controlled target; external renderer protocols require an adapter",
         ));
     }
     if !matches!(

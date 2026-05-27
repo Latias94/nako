@@ -527,6 +527,8 @@ async fn admin_v1_playback_renderers_reports_safe_diagnostics_and_adapter_readin
         "bearer_token",
         "access_token",
         "token_value",
+        "renderer_ticket=",
+        "nako_rtt_",
     ] {
         assert!(
             !body.contains(forbidden),
@@ -540,15 +542,25 @@ async fn public_renderer_registration_rejects_external_cast_protocol_targets() {
     let (_temp, app, _source, _store) =
         app_with_media_source_config("movie.mp4", b"movie bytes", |_| {}).await;
     let router = build_router(app);
-    let mut registration = renderer_registration_request("Chromecast Adapter");
-    registration.target_kind = ClientPlaybackTargetKind::Chromecast;
-    registration.transport_auth = ClientPlaybackTargetTransportAuth::CastTicket;
+    for (target_kind, display_name) in [
+        (ClientPlaybackTargetKind::Chromecast, "Chromecast Adapter"),
+        (ClientPlaybackTargetKind::DlnaRenderer, "DLNA Adapter"),
+        (ClientPlaybackTargetKind::Airplay, "AirPlay Adapter"),
+    ] {
+        let mut registration = renderer_registration_request(display_name);
+        registration.target_kind = target_kind;
+        registration.transport_auth = ClientPlaybackTargetTransportAuth::CastTicket;
 
-    let response = response_body_json(&router, Method::POST, "/renderers", &registration).await;
+        let response = response_body_json(&router, Method::POST, "/renderers", &registration).await;
 
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-    let body: ErrorResponse = body_json(response).await;
-    assert_eq!(body.code, "unsupported");
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        let body: ErrorResponse = body_json(response).await;
+        assert_eq!(body.code, "unsupported");
+        assert!(
+            body.message
+                .contains("external renderer protocols require an adapter")
+        );
+    }
 }
 
 #[tokio::test]

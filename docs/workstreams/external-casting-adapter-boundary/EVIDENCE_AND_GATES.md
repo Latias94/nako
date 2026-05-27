@@ -28,6 +28,37 @@ Results:
 - JSON parsed.
 - Diff check passed.
 
+### ECAB-020
+
+Completed on 2026-05-27.
+
+Evidence:
+
+- strengthened Public renderer registration characterization so Chromecast,
+  DLNA, and AirPlay targets all stay outside Public Client renderer
+  registration;
+- changed the rejection message to name the external adapter boundary;
+- strengthened Admin renderer diagnostics redaction checks for renderer ticket
+  query values and ticket prefixes.
+
+Gates:
+
+```powershell
+cargo nextest run -p nako-server -E 'test(public_renderer_registration_rejects_external_cast_protocol_targets) | test(admin_v1_playback_renderers_reports_safe_diagnostics_and_adapter_readiness)' --no-fail-fast
+cargo nextest run -p nako-server -E 'test(renderer) | test(admin_v1_playback_renderers)' --no-fail-fast
+cargo nextest run -p nako-api -E 'test(admin_contract)' --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
+```
+
+Results:
+
+- targeted renderer/admin characterization: 2 passed, 368 skipped.
+- focused renderer/admin renderer gate: 12 passed, 358 skipped.
+- `nako-api admin_contract`: 5 passed, 56 skipped.
+- format check passed.
+- diff check passed. Git printed CRLF conversion warnings only.
+
 ## Gate Policy
 
 Use synthetic adapter tests before real LAN protocol tests. Physical receiver

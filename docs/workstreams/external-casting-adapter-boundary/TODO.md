@@ -26,7 +26,7 @@ git diff --check -- docs/workstreams/external-casting-adapter-boundary docs/adr/
 
 ### ECAB-020 - Characterize current external casting boundary
 
-Status: Pending
+Status: Complete
 Owner: current agent or worker
 Depends on: ECAB-010
 
@@ -53,6 +53,14 @@ cargo nextest run -p nako-api -E 'test(admin_contract)' --no-fail-fast
 cargo fmt --all -- --check
 git diff --check
 ```
+
+Evidence:
+
+- Public renderer registration rejects Chromecast, DLNA, and AirPlay targets.
+- The rejection explicitly points callers to the adapter boundary.
+- Admin renderer diagnostics keep external protocol adapters planned while Nako
+  remote-client cast-safe transport remains ready.
+- Admin diagnostics do not leak renderer ticket query values or ticket prefixes.
 
 ### ECAB-030 - Add host renderer adapter bridge contract
 

@@ -9,18 +9,17 @@ The workstream is open. ADR 0042 proposes sidecar renderer adapters for
 external casting protocols. Nako remote-client cast-safe transport is already
 complete in `docs/workstreams/nako-renderer-cast-safe-transport/`.
 
+`ECAB-020` is complete. The current external boundary is now locked by tests:
+Public renderer registration rejects Chromecast, DLNA, and AirPlay targets;
+Admin diagnostics keep those adapters planned; and diagnostics do not leak
+renderer ticket values.
+
 ## Next Task
 
-Run `ECAB-020`.
+Run `ECAB-030`.
 
-`ECAB-020` should characterize the current boundary before adding any adapter
-implementation:
-
-- Public renderer registration still rejects Chromecast, DLNA, and AirPlay;
-- Admin diagnostics keep those external protocol adapters planned;
-- Nako remote-client cast-safe transport remains ready;
-- diagnostics do not leak credentials, source locators, local paths, or raw
-  payloads.
+`ECAB-030` should add the host renderer adapter bridge contract before adding
+real protocol discovery/control.
 
 ## Important Files
 
