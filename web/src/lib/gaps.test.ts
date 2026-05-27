@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { capabilityGaps, surfaceDefinitions } from "@/lib/navigation";
+import { capabilityGaps, isRouteActive, surfaceDefinitions } from "@/lib/navigation";
 
 describe("surface navigation model", () => {
   it("keeps release surfaces separated", () => {
@@ -17,5 +17,16 @@ describe("surface navigation model", () => {
         expect.objectContaining({ area: "Management Context Links route matrix" }),
       ]),
     );
+  });
+
+  it("matches active routes without highlighting sibling routes", () => {
+    const mediaHome = surfaceDefinitions.media.nav[0]!;
+    const mediaLibraries = surfaceDefinitions.media.nav[1]!;
+
+    expect(isRouteActive("/media", mediaHome)).toBe(true);
+    expect(isRouteActive("/media/libraries", mediaHome)).toBe(false);
+    expect(isRouteActive("/media/libraries", mediaLibraries)).toBe(true);
+    expect(isRouteActive("/media/libraries/movies", mediaLibraries)).toBe(true);
+    expect(isRouteActive("/media/library", mediaLibraries)).toBe(false);
   });
 });

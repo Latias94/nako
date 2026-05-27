@@ -43,53 +43,53 @@ export interface CapabilityGap {
 
 export const surfaceDefinitions: Record<SurfaceKey, SurfaceDefinition> = {
   media: {
-    accentVar: "--app-accent",
-    bgVar: "--app-bg",
-    fgVar: "--app-fg",
+    accentVar: "--media-accent",
+    bgVar: "--media-bg",
+    fgVar: "--media-fg",
     label: "Media",
     nav: [
       {
         icon: House,
         label: "Home",
         to: "/media",
-        description: "Browser-first landing area for viewing and playback.",
+        description: "Resume, browse, and open playback.",
         exact: true,
       },
       {
         icon: LibraryBig,
         label: "Libraries",
         to: "/media/libraries",
-        description: "Browse libraries, sources, and library-scoped items.",
+        description: "Browse media libraries and collections.",
       },
       {
         icon: Search,
         label: "Search",
         to: "/media/search",
-        description: "Search across the public catalog surface.",
+        description: "Find titles, people, and collections.",
       },
       {
         icon: PlayCircle,
         label: "Watch",
         to: "/media/watch/example-item",
-        description: "Reserve the browser playback ticket seam.",
+        description: "Open the browser playback view.",
       },
     ],
-    panelVar: "--app-panel",
-    sidebarVar: "--app-sidebar",
-    subtitle: "Release frontend line",
+    panelVar: "--media-panel",
+    sidebarVar: "--media-sidebar",
+    subtitle: "Browse and playback",
     title: "Nako Media",
     quickLinks: [
       {
         icon: CircleUserRound,
         label: "Account",
         to: "/account",
-        description: "Current principal and session shell.",
+        description: "Profile, roles, and sessions.",
       },
       {
         icon: Settings2,
         label: "Setup",
         to: "/setup",
-        description: "Bootstrap and connection flow.",
+        description: "Server connection and first run.",
       },
     ],
   },
@@ -103,50 +103,50 @@ export const surfaceDefinitions: Record<SurfaceKey, SurfaceDefinition> = {
         icon: Gauge,
         label: "Overview",
         to: "/admin",
-        description: "Operational summary, backlog signals, and health.",
+        description: "Health, work, and readiness.",
         exact: true,
       },
       {
         icon: LibraryBig,
         label: "Libraries",
         to: "/admin/libraries",
-        description: "Library policy, metadata control, and safe operations.",
+        description: "Scan, metadata, and write policy.",
       },
       {
         icon: Workflow,
         label: "Jobs",
         to: "/admin/jobs",
-        description: "Task runtime and queue state.",
+        description: "Queues, sessions, and runtime work.",
       },
       {
         icon: Puzzle,
         label: "Addons",
         to: "/admin/addons",
-        description: "Addon surfaces, onboarding, and future lifecycle work.",
+        description: "Sidecars, grants, and entry points.",
       },
       {
         icon: FolderKanban,
         label: "Settings",
         to: "/admin/settings",
-        description: "Network, playback, and configuration authority.",
+        description: "Network, playback, and storage.",
       },
     ],
     panelVar: "--admin-panel",
     sidebarVar: "--admin-sidebar",
-    subtitle: "Validation console",
+    subtitle: "Operator console",
     title: "Nako Admin",
     quickLinks: [
       {
         icon: CircleUserRound,
         label: "Account",
         to: "/account",
-        description: "Current principal and session shell.",
+        description: "Profile, roles, and sessions.",
       },
       {
         icon: Settings2,
         label: "Setup",
         to: "/setup",
-        description: "Bootstrap and connection flow.",
+        description: "Server connection and first run.",
       },
     ],
   },
@@ -156,31 +156,39 @@ export const capabilityGaps: CapabilityGap[] = [
   {
     area: "Desktop native playback core",
     status: "missing",
-    note: "Tauri shell work is separate from a real Rust-owned player core.",
+    note: "The desktop package needs a Rust-owned playback engine before it can claim native playback quality.",
   },
   {
     area: "Management Context Links route matrix",
     status: "partial",
-    note: "The new frontend still needs the permission-gated media-to-admin link map.",
+    note: "Media-to-admin jumps need one permission-gated map before they are safe to expose broadly.",
   },
   {
     area: "Account/session switching UX",
     status: "partial",
-    note: "Identity and session authority exist; the new frontend still needs a clean switcher flow.",
+    note: "The frontend needs a clean account switcher backed by server session authority.",
   },
   {
     area: "Remote access operator UX",
     status: "partial",
-    note: "Network tunnel and exposure policies need product-grade frontend surfaces.",
+    note: "Tunnel and exposure policy need an operator view that separates Nako-owned and user-owned network state.",
   },
   {
     area: "Addon manager lifecycle UI",
     status: "planned",
-    note: "Backend control plane exists; the release frontend still needs operator workflows.",
+    note: "Install, update, grant review, and hosted-page entry points need dedicated operator workflows.",
   },
   {
     area: "Acquisition and downloads intake UI",
     status: "planned",
-    note: "The server can accept intake concepts, but the product shell still needs release routes.",
+    note: "Download and acquisition intake should become its own release route after the core media flows are live.",
   },
 ];
+
+export function isRouteActive(pathname: string, item: SurfaceNavItem): boolean {
+  if (item.exact) {
+    return pathname === item.to;
+  }
+
+  return pathname === item.to || pathname.startsWith(`${item.to}/`);
+}

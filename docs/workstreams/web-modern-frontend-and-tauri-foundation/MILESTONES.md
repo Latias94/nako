@@ -29,6 +29,8 @@ Exit criteria:
 
 ## M2 - Design System And Shell
 
+Status: Complete
+
 Exit criteria:
 
 - Media and Admin shells are implemented with shared Nako UI primitives.

@@ -31,7 +31,7 @@ Last updated: 2026-05-28
 
 ## M2 - Design System And Route Shell
 
-- [ ] WMFT-030 [owner=unassigned] [deps=WMFT-020] [scope=web/src]
+- [x] WMFT-030 [owner=codex] [deps=WMFT-020] [scope=web/src]
   Goal: Re-author the v0 visual direction into Nako-owned tokens, layout,
   surface switcher, navigation, empty states, and route-owned Media/Admin
   shells.
@@ -42,7 +42,10 @@ Last updated: 2026-05-28
   and no unsupported feature claims.
   Evidence: web/src/components, web/src/routes, visual evidence linked from
   EVIDENCE_AND_GATES.md.
-  Handoff: Use Nako-owned/generated/server-served assets only.
+  Handoff: DONE. Shell uses Nako-owned tokens, active navigation, truthful
+  disconnected empty states, generated CSS artwork slots, and no v0 assets or
+  Next.js/Vercel assumptions. First smoke caught and fixed a media CSS token
+  self-reference that made dark-surface text unreadable.
 
 ## M3 - API Boundary Integration
 

@@ -14,7 +14,7 @@ The lane has been opened to reflect the accepted product direction:
 - Tauri is part of the frontend direction, but serious desktop playback still
   requires a later native playback-core spike.
 
-WMFT-020 is complete:
+WMFT-020 and WMFT-030 are complete:
 
 - `web/` exists as the product frontend package.
 - The stack is Vite 8, React 19, Tailwind v4, shadcn-style local primitives,
@@ -23,18 +23,27 @@ WMFT-020 is complete:
 - `web/src-tauri` exists and targets the new frontend.
 - Tauri icons were generated from `assets/brand/nako-app-icon-1024.png`.
 - `RUST_CAPABILITY_GAPS.md` records server/Rust gaps the frontend must not fake.
+- `web/src` now has Nako-owned media/admin visual tokens, active side
+  navigation, a route surface switcher, product-facing disconnected states, and
+  generated artwork placeholders rather than v0 assets.
+- Browser smoke covered Media/Admin desktop and mobile viewports. A media CSS
+  token self-reference found during smoke was fixed by splitting media tokens
+  into `--media-*` and mapping them into `--app-*` inside the shell.
 
 ## Next Recommended Task
 
-Run `WMFT-030`: deepen the route shell and visual system.
+Run `WMFT-040`: connect API boundaries without collapsing Media and Admin data
+contracts.
 
 Recommended implementation choices:
 
-- Use the v0 reference for visual direction, not source/asset import.
-- Replace fixture-like surface copy with truthful empty/loading/live states.
-- Capture Browser/Playwright screenshots for desktop and mobile.
-- Keep Admin dense and operational; keep Media route-first and playback-oriented.
-- Do not connect unsupported features before API authority exists.
+- Create `web/src/api` modules that separate Public Client API reads from Admin
+  API operations.
+- Preserve disconnected fixture seams, but make live/fallback status explicit
+  and local to each route section.
+- Keep `apps/admin-web` validation until the new Admin route tests replace the
+  old surface responsibilities.
+- Do not import backend DTOs into shared UI primitives.
 
 ## Key Constraints
 

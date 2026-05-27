@@ -12,9 +12,9 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<ButtonVariant, string> = {
   default: "border-transparent bg-[color:var(--app-accent)] text-[color:var(--app-accent-ink)]",
-  ghost: "border-transparent bg-transparent text-[color:var(--app-fg)] hover:bg-white/5",
+  ghost: "border-transparent bg-transparent text-[color:var(--app-fg)] hover:bg-[color:var(--app-hover)]",
   outline:
-    "border-[color:var(--app-line)] bg-transparent text-[color:var(--app-fg)] hover:bg-white/5",
+    "border-[color:var(--app-line)] bg-transparent text-[color:var(--app-fg)] hover:bg-[color:var(--app-hover)]",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {

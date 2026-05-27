@@ -1,15 +1,11 @@
 import type { CSSProperties, ReactNode } from "react";
 
-import { Link } from "@tanstack/react-router";
-import {
-  ArrowRight,
-  ExternalLink,
-  ScanSearch,
-} from "lucide-react";
+import { Link, useRouterState } from "@tanstack/react-router";
+import { ArrowRight, ExternalLink, ScanSearch } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/cn";
-import { surfaceDefinitions, type SurfaceKey } from "@/lib/navigation";
+import { isRouteActive, surfaceDefinitions, type SurfaceKey } from "@/lib/navigation";
 
 interface SurfaceShellProps {
   actions?: ReactNode;
@@ -31,17 +27,18 @@ export function SurfaceShell({
   title,
 }: SurfaceShellProps) {
   const definition = surfaceDefinitions[surface];
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const admin = surface === "admin";
   const style = {
     "--app-bg": `var(${definition.bgVar})`,
     "--app-sidebar": `var(${definition.sidebarVar})`,
     "--app-panel": `var(${definition.panelVar})`,
-    "--app-panel-soft": admin ? "var(--admin-panel-soft)" : "var(--app-panel-soft)",
-    "--app-line": admin ? "var(--admin-line)" : "var(--app-line)",
+    "--app-panel-soft": admin ? "var(--admin-panel-soft)" : "var(--media-panel-soft)",
+    "--app-line": admin ? "var(--admin-line)" : "var(--media-line)",
     "--app-fg": `var(${definition.fgVar})`,
-    "--app-muted": admin ? "var(--admin-muted)" : "var(--app-muted)",
+    "--app-muted": admin ? "var(--admin-muted)" : "var(--media-muted)",
     "--app-accent": `var(${definition.accentVar})`,
-    "--app-accent-ink": admin ? "var(--admin-accent-ink)" : "var(--app-accent-ink)",
+    "--app-accent-ink": admin ? "var(--admin-accent-ink)" : "var(--media-accent-ink)",
   } as CSSProperties;
 
   return (
@@ -51,34 +48,36 @@ export function SurfaceShell({
     >
       <div className="grid min-h-screen lg:grid-cols-[280px_minmax(0,1fr)]">
         <aside
-          style={{
-            backgroundColor: `var(${definition.sidebarVar})`,
-          }}
+          style={{ backgroundColor: `var(${definition.sidebarVar})` }}
           className="flex flex-col gap-5 border-b border-[color:var(--app-line)] px-4 py-4 lg:border-b-0 lg:border-r"
         >
           <div className="flex items-center gap-3 border-b border-[color:var(--app-line)] pb-4">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-[color:var(--app-accent)] text-sm font-black text-[color:var(--app-accent-ink)]">
+            <div className="grid h-10 w-10 place-items-center rounded-lg bg-[color:var(--app-accent)] text-sm font-black text-[color:var(--app-accent-ink)]">
               N
             </div>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold tracking-wide">{definition.title}</p>
-              <p className="truncate text-xs text-[color:var(--app-muted)]">{definition.subtitle}</p>
+              <p className="truncate text-xs text-[color:var(--app-muted)]">
+                {definition.subtitle}
+              </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-2 gap-1 rounded-lg border border-[color:var(--app-line)] bg-[color:var(--app-panel-soft)] p-1">
             {Object.entries(surfaceDefinitions).map(([key, item]) => {
               const active = key === surface;
 
               return (
                 <Link
                   key={key}
-                  to={active ? `/${key}` : `/${key}`}
+                  to={`/${key}`}
+                  aria-current={active ? "page" : undefined}
                   className={cn(
-                    "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+                    "inline-flex min-h-9 items-center justify-center rounded-md px-3 text-xs font-semibold transition-colors",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--app-focus)]",
                     active
-                      ? "border-transparent bg-[color:var(--app-accent)] text-[color:var(--app-accent-ink)]"
-                      : "border-[color:var(--app-line)] text-[color:var(--app-fg)] hover:bg-white/5",
+                      ? "bg-[color:var(--app-accent)] text-[color:var(--app-accent-ink)]"
+                      : "text-[color:var(--app-fg)] hover:bg-[color:var(--app-hover)]",
                   )}
                 >
                   {item.label}
@@ -90,14 +89,27 @@ export function SurfaceShell({
           <nav className="grid gap-1">
             {definition.nav.map((item) => {
               const Icon = item.icon;
+              const active = isRouteActive(pathname, item);
 
               return (
                 <Link
                   key={item.to}
                   to={item.to}
-                  className="grid grid-cols-[20px_minmax(0,1fr)] gap-3 rounded-lg border border-transparent px-3 py-3 text-left transition-colors hover:border-[color:var(--app-line)] hover:bg-white/5"
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "grid grid-cols-[20px_minmax(0,1fr)] gap-3 rounded-lg border px-3 py-3 text-left transition-colors",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--app-focus)]",
+                    active
+                      ? "border-[color:var(--app-accent)] bg-[color:var(--app-selected)]"
+                      : "border-transparent hover:border-[color:var(--app-line)] hover:bg-[color:var(--app-hover)]",
+                  )}
                 >
-                  <Icon className="mt-0.5 h-4 w-4" />
+                  <Icon
+                    className={cn(
+                      "mt-0.5 h-4 w-4",
+                      active ? "text-[color:var(--app-accent)]" : "text-[color:var(--app-muted)]",
+                    )}
+                  />
                   <span className="min-w-0">
                     <span className="block text-sm font-semibold">{item.label}</span>
                     <span className="mt-0.5 block text-xs text-[color:var(--app-muted)]">
@@ -111,19 +123,32 @@ export function SurfaceShell({
 
           <div className="mt-auto grid gap-2 border-t border-[color:var(--app-line)] pt-4">
             <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--app-muted)]">
-              Quick Links
+              Account
             </p>
             <div className="grid gap-1">
               {definition.quickLinks.map((item) => {
                 const Icon = item.icon;
+                const active = isRouteActive(pathname, item);
 
                 return (
                   <Link
                     key={item.to}
                     to={item.to}
-                    className="grid grid-cols-[20px_minmax(0,1fr)] gap-3 rounded-lg border border-[color:var(--app-line)] px-3 py-3 text-left transition-colors hover:bg-white/5"
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "grid grid-cols-[20px_minmax(0,1fr)] gap-3 rounded-lg border px-3 py-3 text-left transition-colors",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--app-focus)]",
+                      active
+                        ? "border-[color:var(--app-accent)] bg-[color:var(--app-selected)]"
+                        : "border-[color:var(--app-line)] hover:bg-[color:var(--app-hover)]",
+                    )}
                   >
-                    <Icon className="mt-0.5 h-4 w-4" />
+                    <Icon
+                      className={cn(
+                        "mt-0.5 h-4 w-4",
+                        active ? "text-[color:var(--app-accent)]" : "text-[color:var(--app-muted)]",
+                      )}
+                    />
                     <span className="min-w-0">
                       <span className="block text-sm font-semibold">{item.label}</span>
                       <span className="mt-0.5 block text-xs text-[color:var(--app-muted)]">
@@ -138,7 +163,7 @@ export function SurfaceShell({
         </aside>
 
         <main className="min-w-0 p-5 sm:p-6 xl:p-8">
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-6">
             <header className="flex flex-col gap-4 border-b border-[color:var(--app-line)] pb-5 xl:flex-row xl:items-start xl:justify-between">
               <div className="grid gap-2">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--app-muted)]">
@@ -151,7 +176,11 @@ export function SurfaceShell({
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                {status ? <Badge className="border-transparent bg-white/10">{status}</Badge> : null}
+                {status ? (
+                  <Badge className="border-[color:var(--app-line)] bg-[color:var(--app-panel-soft)]">
+                    {status}
+                  </Badge>
+                ) : null}
                 {actions}
               </div>
             </header>
@@ -176,19 +205,12 @@ export function SectionCard({
   title: string;
 }) {
   return (
-    <section
-      className={cn(
-        "rounded-xl border border-[color:var(--app-line)] bg-[color:var(--app-panel)]",
-        className,
-      )}
-    >
-      <div className="border-b border-[color:var(--app-line)] px-4 py-3">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-[color:var(--app-muted)]">
-          {title}
-        </h2>
-        {summary ? <p className="mt-1 text-sm text-[color:var(--app-muted)]">{summary}</p> : null}
+    <section className={cn("grid gap-3", className)}>
+      <div className="grid gap-1">
+        <h2 className="text-base font-semibold">{title}</h2>
+        {summary ? <p className="text-sm leading-6 text-[color:var(--app-muted)]">{summary}</p> : null}
       </div>
-      <div className="p-4">{children}</div>
+      <div>{children}</div>
     </section>
   );
 }
@@ -207,7 +229,7 @@ export function MetricCard({
   value: string;
 }) {
   return (
-    <div className="grid min-h-32 gap-2 rounded-xl border border-[color:var(--app-line)] bg-[color:var(--app-panel)] p-4">
+    <div className="grid min-h-32 gap-2 rounded-lg border border-[color:var(--app-line)] bg-[color:var(--app-panel)] p-4">
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--app-muted)]">
         {label}
       </p>
@@ -231,7 +253,10 @@ export function RouteLinkCard({
   return (
     <Link
       to={to}
-      className="grid gap-3 rounded-xl border border-[color:var(--app-line)] bg-[color:var(--app-panel)] p-4 transition-colors hover:bg-[color:var(--app-panel-soft)]"
+      className={cn(
+        "grid gap-3 rounded-lg border border-[color:var(--app-line)] bg-[color:var(--app-panel)] p-4 transition-colors",
+        "hover:bg-[color:var(--app-panel-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--app-focus)]",
+      )}
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
@@ -259,7 +284,10 @@ export function InlineActionLink({
   return (
     <Link
       to={to}
-      className="inline-flex items-center gap-2 rounded-full border border-[color:var(--app-line)] px-3 py-1.5 text-xs font-semibold text-[color:var(--app-fg)] transition-colors hover:bg-white/5"
+      className={cn(
+        "inline-flex min-h-8 items-center gap-2 rounded-md border border-[color:var(--app-line)] px-3 text-xs font-semibold text-[color:var(--app-fg)] transition-colors",
+        "hover:bg-[color:var(--app-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--app-focus)]",
+      )}
       title={description}
     >
       <Icon className="h-3.5 w-3.5" />

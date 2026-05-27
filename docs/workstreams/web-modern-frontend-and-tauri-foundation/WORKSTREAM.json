@@ -3,10 +3,11 @@
   "slug": "web-modern-frontend-and-tauri-foundation",
   "title": "Web Modern Frontend And Tauri Foundation",
   "status": "active",
-  "current_task": "WMFT-030",
+  "current_task": "WMFT-040",
   "completed_tasks": [
     "WMFT-010",
-    "WMFT-020"
+    "WMFT-020",
+    "WMFT-030"
   ],
   "updated": "2026-05-28",
   "scope_kind": "frontend_product_replacement",
@@ -58,6 +59,10 @@
     {
       "task": "WMFT-020",
       "summary": "Created the web/ Vite React product frontend, route-first Media/Admin shell, Tailwind v4 and shadcn-style primitives, TanStack Router/Query package, Tauri v2 shell skeleton, Nako-owned Tauri icons, and initial Rust/server capability gap inventory."
+    },
+    {
+      "task": "WMFT-030",
+      "summary": "Re-authored the route shell into Nako-owned visual tokens, active navigation, product-facing empty states, generated artwork placeholders, and desktop/mobile-smoked Media/Admin surfaces while preserving Tauri compile health."
     }
   ],
   "adr_refs": [
@@ -70,6 +75,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Continue with WMFT-030. Do not delete apps/admin-web before parity and validation replacement are documented. Do not ship the v0 Next.js app, TMDb API route, Vercel analytics, or bundled third-party media artwork."
+    "notes": "Continue with WMFT-040. Do not delete apps/admin-web before parity and validation replacement are documented. Do not ship the v0 Next.js app, TMDb API route, Vercel analytics, or bundled third-party media artwork."
   }
 }

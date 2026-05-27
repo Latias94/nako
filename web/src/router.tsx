@@ -1,15 +1,24 @@
-import { Link, Outlet, createRootRoute, createRoute, createRouter, redirect } from "@tanstack/react-router";
+import type { CSSProperties, ReactNode } from "react";
+
+import {
+  Link,
+  Outlet,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  redirect,
+} from "@tanstack/react-router";
 import {
   Boxes,
   Clapperboard,
   FileSearch,
   HardDrive,
   LibraryBig,
-  ListChecks,
   PlayCircle,
   Puzzle,
-  ScanSearch,
+  Search,
   ServerCog,
+  Settings2,
   ShieldCheck,
   SlidersHorizontal,
   Workflow,
@@ -168,64 +177,88 @@ const libraryCards = [
   {
     id: "movies",
     title: "Movies",
-    count: "142 items",
-    detail: "Local media, NFO import, provider mappings, and managed artwork.",
+    state: "Connect server",
+    detail: "Films, editions, local artwork, and NFO-backed metadata appear here.",
   },
   {
     id: "series",
     title: "Series",
-    count: "37 shows",
-    detail: "Season/episode browse is reserved for the first Media Web slice.",
+    state: "Connect server",
+    detail: "Shows, seasons, episodes, watch state, and source choices appear here.",
   },
   {
     id: "anime",
     title: "Anime",
-    count: "19 titles",
-    detail: "Bangumi metadata and AniDB-style naming remain follow-on depth.",
+    state: "Connect server",
+    detail: "Anime libraries can combine local inference, NFO, and provider mappings.",
   },
 ];
 
-const routeTargets = [
+const mediaRoutes = [
   {
     icon: LibraryBig,
     title: "Libraries",
     to: "/media/libraries",
-    description: "Browse first-party library routes instead of the old Admin prototype surface.",
+    description: "Open the media libraries available to this account.",
   },
   {
-    icon: ScanSearch,
+    icon: Search,
     title: "Search",
     to: "/media/search",
-    description: "Reserve a public-catalog search route for SDK-backed data later.",
+    description: "Find local media by title, people, provider mapping, or collection.",
   },
   {
     icon: PlayCircle,
-    title: "Player",
+    title: "Playback",
     to: "/media/watch/example-item",
-    description: "Keep the browser playback ticket seam visible without shipping mock streams.",
+    description: "Start browser playback after the server grants access for an item.",
   },
 ];
 
-const adminTargets = [
+const adminRoutes = [
   {
     icon: LibraryBig,
     title: "Libraries",
     to: "/admin/libraries",
-    description: "Operator library controls stay in the Admin API route family.",
+    description: "Review scan state, metadata authority, artwork, and file-write policy.",
   },
   {
     icon: Workflow,
     title: "Jobs",
     to: "/admin/jobs",
-    description: "Task runtime and playback-session diagnostics remain operator-only.",
+    description: "Inspect queues, active sessions, and playback-runtime work.",
   },
   {
     icon: Puzzle,
     title: "Addons",
     to: "/admin/addons",
-    description: "Addon lifecycle UI is tracked separately from media playback routes.",
+    description: "Manage sidecar grants, hosted entry points, and operator trust boundaries.",
   },
 ];
+
+const previewTiles = [
+  {
+    title: "Movie",
+    meta: "Artwork",
+    tone: ["oklch(42% 0.11 246)", "oklch(72% 0.14 165)"] as const,
+  },
+  {
+    title: "Episode",
+    meta: "Progress",
+    tone: ["oklch(39% 0.12 285)", "oklch(75% 0.15 62)"] as const,
+  },
+  {
+    title: "Anime",
+    meta: "Mapping",
+    tone: ["oklch(40% 0.14 18)", "oklch(74% 0.12 190)"] as const,
+  },
+];
+
+const readinessLabels = {
+  missing: "Needs design",
+  partial: "Partly covered",
+  planned: "Planned",
+} as const;
 
 function RootLayout() {
   return <Outlet />;
@@ -242,64 +275,58 @@ function AdminLayout() {
 function MediaHomePage() {
   return (
     <SurfaceShell
-      eyebrow="Media Web"
-      status="Product line"
-      summary="The new web frontend starts from media consumption and keeps admin operations behind explicit routes."
+      eyebrow="Nako Media"
+      status="Server not connected"
+      summary="Browse and watch media from a self-hosted Nako server. Admin tools stay behind role-gated routes."
       surface="media"
-      title="Media"
+      title="Home"
       actions={
         <InlineActionLink
-          description="Open the current admin surface."
+          description="Open the operator console."
           icon={ServerCog}
           label="Admin"
           to="/admin"
         />
       }
     >
-      <MetricsGrid>
-        <MetricCard
-          label="Frontend"
-          value="web/"
-          detail="Vite React shell for browser release and Tauri packaging."
-        />
-        <MetricCard
-          label="API boundary"
-          value="Public"
-          detail="Media routes are reserved for Public Client API and SDK data."
-        />
-        <MetricCard
-          label="Validation"
-          value="Kept"
-          detail="The old Admin Web remains a contract smoke surface until parity."
-        />
-      </MetricsGrid>
-
-      <SectionCard title="Route launch points" summary="Surface switching is route-owned from the first scaffold.">
-        <div className="grid gap-3 md:grid-cols-3">
-          {routeTargets.map((target) => (
-            <RouteLinkCard key={target.to} {...target} />
-          ))}
+      <SectionCard
+        title="Continue Watching"
+        summary="Playback history and next episodes appear after a server connection and account session."
+      >
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <EmptyPanel
+            icon={PlayCircle}
+            title="No playback state loaded"
+            description="Connect a Nako server to show resumable titles for the current account."
+            action={<InlineActionLink description="Open setup." icon={Settings2} label="Setup" to="/setup" />}
+          />
+          <PreviewRail />
         </div>
       </SectionCard>
 
-      <SectionCard title="Tauri target" summary="The desktop shell uses this same frontend package.">
-        <div className="grid gap-3 md:grid-cols-2">
-          <Card className="bg-[color:var(--app-panel-soft)]">
-            <CardHeader>
-              <CardTitle>WebView tier</CardTitle>
-              <CardDescription>
-                The initial Tauri shell packages the new frontend without pretending WebView playback is final.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-          <Card className="bg-[color:var(--app-panel-soft)]">
-            <CardHeader>
-              <CardTitle>Native player tier</CardTitle>
-              <CardDescription>
-                The serious desktop target remains a Rust/native playback core split to a follow-on.
-              </CardDescription>
-            </CardHeader>
-          </Card>
+      <MetricsGrid>
+        <MetricCard
+          label="Media Library"
+          value="Awaiting server"
+          detail="Libraries, collections, and source choices come from the Public Client API."
+        />
+        <MetricCard
+          label="Playback"
+          value="Ticketed"
+          detail="Stream URLs stay behind short-lived server grants."
+        />
+        <MetricCard
+          label="Admin Links"
+          value="Role-gated"
+          detail="Management context is only exposed to authorized principals."
+        />
+      </MetricsGrid>
+
+      <SectionCard title="Browse" summary="These routes form the first media surface before live data is wired.">
+        <div className="grid gap-3 md:grid-cols-3">
+          {mediaRoutes.map((target) => (
+            <RouteLinkCard key={target.to} {...target} />
+          ))}
         </div>
       </SectionCard>
     </SurfaceShell>
@@ -309,9 +336,9 @@ function MediaHomePage() {
 function MediaLibrariesPage() {
   return (
     <SurfaceShell
-      eyebrow="Public client routes"
-      status="Fixture scaffold"
-      summary="Libraries are shown as route placeholders until the SDK-backed data source is moved into web/."
+      eyebrow="Media Library"
+      status="Needs server"
+      summary="Libraries are shown through the media API boundary, separate from operator-only scan and write controls."
       surface="media"
       title="Libraries"
     >
@@ -321,16 +348,18 @@ function MediaLibrariesPage() {
             key={library.id}
             to="/media/libraries/$libraryId"
             params={{ libraryId: library.id }}
-            className="grid min-h-40 gap-3 rounded-xl border border-[color:var(--app-line)] bg-[color:var(--app-panel)] p-4 transition-colors hover:bg-[color:var(--app-panel-soft)]"
+            className="grid min-h-40 gap-3 rounded-lg border border-[color:var(--app-line)] bg-[color:var(--app-panel)] p-4 transition-colors hover:bg-[color:var(--app-panel-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--app-focus)]"
           >
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--app-muted)]">
-                  {library.count}
+                  {library.state}
                 </p>
                 <h2 className="mt-2 text-lg font-semibold">{library.title}</h2>
               </div>
-              <Badge className="border-transparent bg-white/10">Public</Badge>
+              <Badge className="border-[color:var(--app-line)] bg-[color:var(--app-panel-soft)]">
+                Media
+              </Badge>
             </div>
             <p className="text-sm leading-6 text-[color:var(--app-muted)]">{library.detail}</p>
           </Link>
@@ -342,28 +371,29 @@ function MediaLibrariesPage() {
 
 function MediaLibraryDetailPage() {
   const { libraryId } = mediaLibraryRoute.useParams();
+  const title = libraryCards.find((library) => library.id === libraryId)?.title ?? libraryId;
 
   return (
     <SurfaceShell
-      eyebrow="Library detail"
-      status="Context reserved"
-      summary="The route owns a stable library id now; API-backed source inventory arrives in a follow-on task."
+      eyebrow="Library"
+      status="No source loaded"
+      summary="Library detail keeps media browsing separate from source paths, scan actions, and file-write authority."
       surface="media"
-      title={`Library: ${libraryId}`}
+      title={title}
       actions={
         <InlineActionLink
-          description="Open the matching admin library route when the link matrix is ready."
+          description="Open library management."
           icon={ServerCog}
           label="Manage"
           to="/admin/libraries"
         />
       }
     >
-      <SectionCard title="Library route contract">
+      <SectionCard title="Library state" summary="Only public media facts belong on this route.">
         <div className="grid gap-3 md:grid-cols-3">
-          <MetricCard label="Stable id" value={libraryId} detail="Route state is URL-owned." />
-          <MetricCard label="Sources" value="Deferred" detail="SDK source inventory moves here after WMFT-040." />
-          <MetricCard label="Management" value="Gated" detail="Admin links must use role and Library Access checks." />
+          <MetricCard label="Visibility" value="Account scoped" detail="Access comes from the active session." />
+          <MetricCard label="Metadata" value="Canonical" detail="Provider mappings remain behind Nako records." />
+          <MetricCard label="Sources" value="Redacted" detail="Local paths and source locators stay out of media views." />
         </div>
       </SectionCard>
     </SurfaceShell>
@@ -373,20 +403,27 @@ function MediaLibraryDetailPage() {
 function MediaSearchPage() {
   return (
     <SurfaceShell
-      eyebrow="Catalog search"
-      status="Shell"
-      summary="Search is a first-class Media route, but real results must come from the Public Client SDK."
+      eyebrow="Catalog Search"
+      status="Needs server"
+      summary="Search reads the public catalog surface and keeps operator diagnostics out of result records."
       surface="media"
       title="Search"
     >
-      <SectionCard title="Search entry">
-        <label className="grid gap-2 text-sm font-semibold">
-          Query
-          <input
-            className="min-h-11 rounded-lg border border-[color:var(--app-line)] bg-[color:var(--app-panel-soft)] px-3 text-[color:var(--app-fg)] outline-none focus:border-[color:var(--app-accent)]"
-            placeholder="Search local media"
+      <SectionCard title="Find media">
+        <div className="grid gap-4 rounded-lg border border-[color:var(--app-line)] bg-[color:var(--app-panel)] p-4">
+          <label className="grid gap-2 text-sm font-semibold">
+            Query
+            <input
+              className="min-h-11 rounded-lg border border-[color:var(--app-line)] bg-[color:var(--app-panel-soft)] px-3 text-[color:var(--app-fg)] outline-none transition-colors placeholder:text-[color:var(--app-muted)] focus:border-[color:var(--app-accent)] focus:ring-2 focus:ring-[color:var(--app-focus)]"
+              placeholder="Search local media"
+            />
+          </label>
+          <EmptyPanel
+            icon={FileSearch}
+            title="No catalog connected"
+            description="Results appear here after the Public Client API is connected."
           />
-        </label>
+        </div>
       </SectionCard>
     </SurfaceShell>
   );
@@ -397,25 +434,25 @@ function MediaItemDetailPage() {
 
   return (
     <SurfaceShell
-      eyebrow="Media item"
-      status="Public DTO only"
-      summary="Item detail keeps media facts separate from Admin diagnostics and local file paths."
+      eyebrow="Media Item"
+      status="Public view"
+      summary="Item detail shows media facts without exposing admin diagnostics, source locators, or local file paths."
       surface="media"
-      title={`Item: ${itemId}`}
+      title={`Item ${itemId}`}
       actions={
         <InlineActionLink
-          description="Open the safe player route for this item."
+          description="Open playback."
           icon={PlayCircle}
           label="Watch"
           to={`/media/watch/${itemId}`}
         />
       }
     >
-      <SectionCard title="Item shell">
+      <SectionCard title="Item state">
         <div className="grid gap-3 md:grid-cols-3">
-          <MetricCard label="Artwork" value="Managed" detail="Images must come from Nako routes, not bundled posters." />
-          <MetricCard label="Sources" value="Picker" detail="Source/version selection belongs to the media surface." />
-          <MetricCard label="Admin link" value="Gated" detail="Management links must be permission-gated." />
+          <MetricCard label="Artwork" value="Server served" detail="Images should come through Nako routes." />
+          <MetricCard label="Version" value="Selectable" detail="Source and edition selection belong to media." />
+          <MetricCard label="Management" value="Role-gated" detail="Admin context links require explicit permission." />
         </div>
       </SectionCard>
     </SurfaceShell>
@@ -427,19 +464,19 @@ function MediaWatchPage() {
 
   return (
     <SurfaceShell
-      eyebrow="Browser playback"
-      status="Ticket seam"
-      summary="The shell reserves the browser playback route while keeping real stream URLs behind short-lived tickets."
+      eyebrow="Playback"
+      status="Waiting for grant"
+      summary="Browser playback starts only after the server grants temporary access for the selected media item."
       surface="media"
-      title={`Watch: ${itemId}`}
+      title={`Watch ${itemId}`}
     >
       <section className="grid gap-4">
-        <div className="grid aspect-video place-items-center rounded-xl border border-[color:var(--app-line)] bg-black">
-          <div className="grid gap-2 text-center">
+        <div className="grid aspect-video place-items-center rounded-lg border border-[color:var(--app-line)] bg-[color:oklch(12%_0.022_245)]">
+          <div className="grid gap-2 px-4 text-center">
             <Clapperboard className="mx-auto h-10 w-10 text-[color:var(--app-accent)]" />
-            <p className="text-sm font-semibold">Playback route ready</p>
-            <p className="max-w-md text-sm text-[color:var(--app-muted)]">
-              The actual video element lands when Public Client ticket transport is moved into web/.
+            <p className="text-sm font-semibold">No stream selected</p>
+            <p className="max-w-md text-sm leading-6 text-[color:var(--app-muted)]">
+              Open an item from a connected library to request playback access.
             </p>
           </div>
         </div>
@@ -451,40 +488,28 @@ function MediaWatchPage() {
 function AdminOverviewPage() {
   return (
     <SurfaceShell
-      eyebrow="Operator console"
-      status="Validation retained"
-      summary="The new Admin route family stays operational and redaction-safe while old apps/admin-web continues as validation."
+      eyebrow="Operator Console"
+      status="Admin surface"
+      summary="Monitor library health, runtime work, Addons, network exposure, and configuration without revealing secrets or raw paths."
       surface="admin"
       title="Overview"
     >
       <MetricsGrid>
-        <MetricCard label="Libraries" value="Route-first" detail="Admin library controls stay outside Media routes." />
-        <MetricCard label="Playback" value="Diagnostics" detail="Runtime evidence remains admin-only." />
-        <MetricCard label="Addons" value="Boundary" detail="Addon lifecycle breadth is split from the shell." />
+        <MetricCard label="Libraries" value="Governed" detail="Scan, metadata, artwork, and write policy stay in admin." />
+        <MetricCard label="Playback" value="Observable" detail="Runtime diagnostics stay separate from viewer pages." />
+        <MetricCard label="Addons" value="Sandboxed" detail="Sidecar code and hosted pages remain outside trusted admin UI." />
       </MetricsGrid>
 
-      <SectionCard title="Server capability gaps" summary="Tracked here so the frontend shell does not invent unsupported behavior.">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {capabilityGaps.map((gap) => (
-            <Card key={gap.area} className="bg-[color:var(--app-panel-soft)]">
-              <CardHeader>
-                <div className="flex items-start justify-between gap-3">
-                  <CardTitle>{gap.area}</CardTitle>
-                  <Badge className="border-[color:var(--app-line)]">{gap.status}</Badge>
-                </div>
-                <CardDescription>{gap.note}</CardDescription>
-              </CardHeader>
-            </Card>
+      <SectionCard title="Operational Areas" summary="The first release surface keeps each workflow behind a stable route.">
+        <div className="grid gap-3 md:grid-cols-3">
+          {adminRoutes.map((target) => (
+            <RouteLinkCard key={target.to} {...target} />
           ))}
         </div>
       </SectionCard>
 
-      <SectionCard title="Admin launch points">
-        <div className="grid gap-3 md:grid-cols-3">
-          {adminTargets.map((target) => (
-            <RouteLinkCard key={target.to} {...target} />
-          ))}
-        </div>
+      <SectionCard title="Readiness Board" summary="Known server and product gaps that affect a self-hosted release.">
+        <ReadinessBoard />
       </SectionCard>
     </SurfaceShell>
   );
@@ -493,17 +518,17 @@ function AdminOverviewPage() {
 function AdminLibrariesPage() {
   return (
     <SurfaceShell
-      eyebrow="Library management"
-      status="Admin API only"
-      summary="The product frontend keeps scan, metadata, NFO, and policy controls under /admin/*."
+      eyebrow="Library Management"
+      status="Admin-only"
+      summary="Scan controls, NFO writes, metadata authority, and destructive file operations stay under the Admin API."
       surface="admin"
       title="Libraries"
     >
-      <SectionCard title="Library operations">
+      <SectionCard title="Library Operations">
         <div className="grid gap-3 md:grid-cols-3">
-          <MetricCard label="Scan" value="Planned" detail="Command buttons require real Admin API authority." />
-          <MetricCard label="NFO" value="Controlled" detail="Sidecar writes remain Library File Writes." />
-          <MetricCard label="Metadata" value="Profiled" detail="Profile mutation must use accepted settings authority." />
+          <MetricCard label="Scan" value="Confirm first" detail="Broad library operations need dry-run and review states." />
+          <MetricCard label="NFO" value="Controlled" detail="Sidecar writes are explicit Library File Writes." />
+          <MetricCard label="Metadata" value="Auditable" detail="Canonical Metadata records show source and confidence." />
         </div>
       </SectionCard>
     </SurfaceShell>
@@ -515,15 +540,15 @@ function AdminJobsPage() {
     <SurfaceShell
       eyebrow="Runtime"
       status="Read model"
-      summary="Jobs and sessions are visible through operator routes, not hidden inside media playback pages."
+      summary="Jobs and sessions give operators a view of work in progress without leaking viewer-only media state."
       surface="admin"
       title="Jobs"
     >
-      <SectionCard title="Runtime queues">
+      <SectionCard title="Runtime Queues">
         <div className="grid gap-3 md:grid-cols-3">
-          <MetricCard label="Library scan" value="Queued" detail="Fixture row until live Admin API wiring lands." />
-          <MetricCard label="Artwork ingest" value="Idle" detail="Managed Artwork jobs stay server-owned." />
-          <MetricCard label="Transcode" value="Ready" detail="Playback runtime diagnostics remain admin-owned." />
+          <MetricCard label="Library scan" value="No server" detail="Queue state loads after connection." />
+          <MetricCard label="Artwork ingest" value="No server" detail="Managed Artwork jobs stay server-owned." />
+          <MetricCard label="Transcode" value="No server" detail="Hardware and session diagnostics stay admin-owned." />
         </div>
       </SectionCard>
     </SurfaceShell>
@@ -533,17 +558,17 @@ function AdminJobsPage() {
 function AdminAddonsPage() {
   return (
     <SurfaceShell
-      eyebrow="Addon operations"
-      status="Low priority"
-      summary="Addon workflows remain explicit and host-owned; the release shell only reserves the route family."
+      eyebrow="Addon Operations"
+      status="Separate trust"
+      summary="Addon Sidecars stay explicit: grants, hosted pages, and lifecycle actions are reviewed by the operator."
       surface="admin"
       title="Addons"
     >
-      <SectionCard title="Addon boundary">
+      <SectionCard title="Addon Boundary">
         <div className="grid gap-3 md:grid-cols-3">
           <MetricCard label="Protocol" value="Sidecar" detail="External code stays outside the server process." />
-          <MetricCard label="Grants" value="Scoped" detail="Secrets and tokens must stay redaction-safe." />
-          <MetricCard label="Lifecycle" value="Follow-on" detail="Install/update/remove UI is not part of WMFT-020." />
+          <MetricCard label="Grants" value="Scoped" detail="Secrets and tokens are represented through safe references." />
+          <MetricCard label="Lifecycle" value="Reviewed" detail="Install, update, and remove need explicit operator approval." />
         </div>
       </SectionCard>
     </SurfaceShell>
@@ -553,17 +578,17 @@ function AdminAddonsPage() {
 function AdminSettingsPage() {
   return (
     <SurfaceShell
-      eyebrow="Configuration authority"
-      status="Readiness"
-      summary="Settings routes should reflect backend authority instead of rendering fake save controls."
+      eyebrow="Configuration"
+      status="Authority view"
+      summary="Settings surfaces show server-owned policy while keeping secrets, local paths, and unsafe responses redacted."
       surface="admin"
       title="Settings"
     >
-      <SectionCard title="Settings families">
+      <SectionCard title="Settings Families">
         <div className="grid gap-3 md:grid-cols-3">
-          <MetricCard label="Network" value="Remote" detail="Tunnel and exposure UX still need release frontend routes." />
+          <MetricCard label="Network" value="Exposure" detail="Remote access needs clear ownership and risk state." />
           <MetricCard label="Playback" value="Policy" detail="Device profiles and hardware selection stay backend-owned." />
-          <MetricCard label="Storage" value="VFS" detail="Raw paths and Source Locators must stay redacted." />
+          <MetricCard label="Storage" value="Redacted" detail="Source Locators and raw paths stay out of ordinary views." />
         </div>
       </SectionCard>
     </SurfaceShell>
@@ -575,15 +600,15 @@ function AdminItemPage() {
 
   return (
     <SurfaceShell
-      eyebrow="Management context"
-      status="Gated"
-      summary="Admin item routes can inspect governance facts without becoming the playback client."
+      eyebrow="Management Context"
+      status="Role-gated"
+      summary="Admin item routes inspect governance facts without becoming the playback client."
       surface="admin"
-      title={`Admin item: ${itemId}`}
+      title={`Item ${itemId}`}
     >
-      <SectionCard title="Item governance">
+      <SectionCard title="Item Governance">
         <div className="grid gap-3 md:grid-cols-3">
-          <MetricCard label="Metadata" value="Review" detail="Canonical Metadata remains server-owned." />
+          <MetricCard label="Metadata" value="Reviewable" detail="Canonical Metadata remains server-owned." />
           <MetricCard label="Artwork" value="Managed" detail="Selected Artwork changes need confirmed operations." />
           <MetricCard label="Playback" value="Evidence" detail="Diagnostics stay redaction-safe." />
         </div>
@@ -596,18 +621,55 @@ function SetupPage() {
   return (
     <SurfaceShell
       eyebrow="Setup"
-      status="Bootstrap"
-      summary="The setup route is part of the product frontend so Tauri and browser users share the same first-run shell."
+      status="First run"
+      summary="Connect this frontend to a self-hosted Nako server, then sign in with server-backed credentials."
       surface="admin"
-      title="Setup"
+      title="Server Connection"
     >
-      <SectionCard title="Connection bootstrap">
-        <div className="grid gap-3 md:grid-cols-3">
-          <MetricCard label="Server" value="Local" detail="Default to self-hosted server connection." />
-          <MetricCard label="Auth" value="Session" detail="Use backend credential/session authority." />
-          <MetricCard label="Shell" value="Tauri-ready" detail="The same web route runs in desktop shell later." />
-        </div>
-      </SectionCard>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Connection</CardTitle>
+            <CardDescription>
+              The initial release should verify reachability before storing a server profile.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4">
+            <label className="grid gap-2 text-sm font-semibold">
+              Server URL
+              <input
+                className="min-h-11 rounded-lg border border-[color:var(--app-line)] bg-[color:var(--app-panel-soft)] px-3 text-[color:var(--app-fg)] outline-none transition-colors placeholder:text-[color:var(--app-muted)] focus:border-[color:var(--app-accent)] focus:ring-2 focus:ring-[color:var(--app-focus)]"
+                placeholder="http://127.0.0.1:7833"
+              />
+            </label>
+            <EmptyPanel
+              icon={ShieldCheck}
+              title="Credential flow pending"
+              description="The UI route is ready; session creation must come from the server authority."
+            />
+          </CardContent>
+        </Card>
+        <Card className="bg-[color:var(--app-panel-soft)]">
+          <CardHeader>
+            <CardTitle>Desktop Package</CardTitle>
+            <CardDescription>
+              Tauri uses this same route surface for connection bootstrap and account setup.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 text-sm text-[color:var(--app-muted)]">
+              <span className="inline-flex items-center gap-2">
+                <HardDrive className="h-4 w-4 text-[color:var(--app-accent)]" />
+                Local server profiles stay on the device.
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <SlidersHorizontal className="h-4 w-4 text-[color:var(--app-accent)]" />
+                Playback policy stays server-owned.
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </SurfaceShell>
   );
 }
@@ -616,16 +678,16 @@ function AccountPage() {
   return (
     <SurfaceShell
       eyebrow="Account"
-      status="Session shell"
-      summary="Account switching must use backend sessions and roles; this route is only the product placeholder."
+      status="No session"
+      summary="Account state must come from the connected server, including roles, library access, and active sessions."
       surface="media"
       title="Account"
     >
-      <SectionCard title="Current principal">
+      <SectionCard title="Current Principal">
         <div className="grid gap-3 md:grid-cols-3">
-          <MetricCard label="Role" value="Admin" detail="Fixture label until live account summary is wired." />
-          <MetricCard label="Library Access" value="All" detail="Effective access must come from Public Client API." />
-          <MetricCard label="Switching" value="Follow-on" detail="No frontend-only account model." />
+          <MetricCard label="Role" value="Not signed in" detail="Role claims load after authentication." />
+          <MetricCard label="Library Access" value="Not loaded" detail="Effective access comes from the server." />
+          <MetricCard label="Sessions" value="No session" detail="Switching uses backend session authority." />
         </div>
       </SectionCard>
     </SurfaceShell>
@@ -637,29 +699,29 @@ function NotFoundPage() {
     <SurfaceShell
       eyebrow="Route"
       status="Not found"
-      summary="The requested route is not part of the current product frontend scaffold."
+      summary="This address is outside the current Nako frontend routes."
       surface="media"
-      title="Not found"
+      title="Not Found"
       actions={
         <Link
           to="/media"
-          className="inline-flex items-center gap-2 rounded-full border border-[color:var(--app-line)] px-3 py-1.5 text-xs font-semibold"
+          className="inline-flex min-h-8 items-center gap-2 rounded-md border border-[color:var(--app-line)] px-3 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--app-focus)]"
         >
           <Boxes className="h-3.5 w-3.5" />
-          Media home
+          Media
         </Link>
       }
     >
-      <SectionCard title="Available surfaces">
+      <SectionCard title="Available Surfaces">
         <div className="grid gap-3 md:grid-cols-2">
           <RouteLinkCard
-            description="Return to the media product shell."
+            description="Return to media browsing and playback."
             icon={PlayCircle}
             title="Media"
             to="/media"
           />
           <RouteLinkCard
-            description="Open the admin product shell."
+            description="Open the operator console."
             icon={ShieldCheck}
             title="Admin"
             to="/admin"
@@ -667,5 +729,103 @@ function NotFoundPage() {
         </div>
       </SectionCard>
     </SurfaceShell>
+  );
+}
+
+function EmptyPanel({
+  action,
+  description,
+  icon: Icon,
+  title,
+}: {
+  action?: ReactNode;
+  description: string;
+  icon: typeof PlayCircle;
+  title: string;
+}) {
+  return (
+    <div className="grid min-h-40 place-items-center rounded-lg border border-dashed border-[color:var(--app-line)] bg-[color:var(--app-panel)] p-5 text-center">
+      <div className="grid max-w-md gap-3 justify-items-center">
+        <Icon className="h-8 w-8 text-[color:var(--app-accent)]" />
+        <div className="grid gap-1">
+          <p className="text-sm font-semibold">{title}</p>
+          <p className="text-sm leading-6 text-[color:var(--app-muted)]">{description}</p>
+        </div>
+        {action}
+      </div>
+    </div>
+  );
+}
+
+function PreviewRail() {
+  return (
+    <Card className="overflow-hidden">
+      <CardHeader>
+        <CardTitle>Library Preview</CardTitle>
+        <CardDescription>Nako-owned artwork slots before server images are loaded.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-3 gap-3">
+          {previewTiles.map((tile) => (
+            <PreviewTile key={tile.title} {...tile} />
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PreviewTile({
+  meta,
+  title,
+  tone,
+}: {
+  meta: string;
+  title: string;
+  tone: readonly [string, string];
+}) {
+  return (
+    <figure className="grid min-w-0 gap-2">
+      <div
+        className="grid aspect-[2/3] place-items-end rounded-lg border border-[color:var(--app-line)] p-2"
+        style={
+          {
+            background: `linear-gradient(145deg, ${tone[0]}, ${tone[1]})`,
+          } as CSSProperties
+        }
+      >
+        <div className="flex w-full items-center justify-between gap-2 rounded-md bg-[color:oklch(16%_0.026_245_/_82%)] px-2 py-1.5 text-[color:oklch(94%_0.014_232)]">
+          <Clapperboard className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate text-xs font-semibold">{title}</span>
+        </div>
+      </div>
+      <figcaption className="truncate text-xs text-[color:var(--app-muted)]">{meta}</figcaption>
+    </figure>
+  );
+}
+
+function ReadinessBoard() {
+  return (
+    <div className="overflow-hidden rounded-lg border border-[color:var(--app-line)] bg-[color:var(--app-panel)]">
+      <div className="grid grid-cols-[minmax(0,1fr)_120px] border-b border-[color:var(--app-line)] bg-[color:var(--app-panel-soft)] px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--app-muted)]">
+        <span>Area</span>
+        <span>Status</span>
+      </div>
+      <div className="divide-y divide-[color:var(--app-line)]">
+        {capabilityGaps.map((gap) => (
+          <div key={gap.area} className="grid gap-3 px-4 py-4 md:grid-cols-[minmax(0,1fr)_120px]">
+            <div className="grid gap-1">
+              <p className="text-sm font-semibold">{gap.area}</p>
+              <p className="text-sm leading-6 text-[color:var(--app-muted)]">{gap.note}</p>
+            </div>
+            <div className="md:justify-self-start">
+              <Badge className="border-[color:var(--app-line)] bg-[color:var(--app-panel-soft)]">
+                {readinessLabels[gap.status]}
+              </Badge>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
