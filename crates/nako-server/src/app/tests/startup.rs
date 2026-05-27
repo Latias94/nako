@@ -1902,6 +1902,89 @@ async fn app_startup_marks_stale_transcode_sessions_failed() {
 }
 
 #[tokio::test]
+async fn app_startup_cleans_expired_playback_artifacts_inside_transcode_root() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "cleanup");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let mut config = app.config().clone();
+    config.playback.transcode_artifact_cleanup_on_startup = true;
+    config.playback.transcode_artifact_retention_ms = 0;
+
+    let artifact_root = config.remux_staging_root.clone();
+    let remux_file = artifact_root.join("old-remux").join("stream.mp4");
+    let hls_dir = artifact_root.join("hls").join("session");
+    let hls_playlist = hls_dir.join("playlist.m3u8");
+    let hls_segment = hls_dir.join("segment_00000.ts");
+    let outside_file = artifact_root
+        .parent()
+        .unwrap()
+        .join("outside")
+        .join("stream.mp4");
+
+    fs::create_dir_all(remux_file.parent().unwrap()).unwrap();
+    fs::write(&remux_file, b"remux").unwrap();
+    fs::create_dir_all(&hls_dir).unwrap();
+    fs::write(&hls_playlist, b"#EXTM3U").unwrap();
+    fs::write(&hls_segment, b"segment").unwrap();
+    fs::create_dir_all(outside_file.parent().unwrap()).unwrap();
+    fs::write(&outside_file, b"outside").unwrap();
+
+    store
+        .create_transcode_session(NewTranscodeSession {
+            id: TranscodeSessionId::new(),
+            source_id: source.id,
+            kind: TranscodeSessionKind::Remux,
+            request_key: "startup-cleanup-remux".to_owned(),
+            output_path: remux_file.clone(),
+            state: TranscodeSessionState::Finished,
+        })
+        .await
+        .unwrap();
+    store
+        .create_transcode_session(NewTranscodeSession {
+            id: TranscodeSessionId::new(),
+            source_id: source.id,
+            kind: TranscodeSessionKind::HlsTranscode,
+            request_key: "startup-cleanup-hls".to_owned(),
+            output_path: hls_playlist.clone(),
+            state: TranscodeSessionState::Failed,
+        })
+        .await
+        .unwrap();
+    store
+        .create_transcode_session(NewTranscodeSession {
+            id: TranscodeSessionId::new(),
+            source_id: source.id,
+            kind: TranscodeSessionKind::Remux,
+            request_key: "startup-cleanup-outside-root".to_owned(),
+            output_path: outside_file.clone(),
+            state: TranscodeSessionState::Cancelled,
+        })
+        .await
+        .unwrap();
+
+    drop(app);
+    let restarted = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let report = restarted
+        .startup_report()
+        .playback_artifact_cleanup
+        .as_ref()
+        .unwrap();
+
+    assert_eq!(report.examined_artifacts, 3);
+    assert_eq!(report.deleted_artifacts, 2);
+    assert_eq!(report.deleted_files, 3);
+    assert_eq!(report.deleted_directories, 1);
+    assert_eq!(report.deleted_bytes, 19);
+    assert_eq!(report.skipped_security, 1);
+    assert!(!remux_file.exists());
+    assert!(!hls_dir.exists());
+    assert!(outside_file.exists());
+}
+
+#[tokio::test]
 async fn app_startup_recovers_unfinished_jobs_and_preserves_queued_artwork_ingests() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();

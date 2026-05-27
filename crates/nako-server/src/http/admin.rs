@@ -39,28 +39,29 @@ use nako_api::{
         AdminOverviewMetadataProviderSummary, AdminOverviewMetadataSummary, AdminOverviewResponse,
         AdminOverviewRuntimeSummary, AdminOverviewStartupSummary, AdminOverviewStatus,
         AdminOverviewStorageBackendSummary, AdminOverviewStorageSummary,
-        AdminPlaybackFfmpegDiagnostics, AdminPlaybackHardwareCapability,
-        AdminPlaybackHardwareCapabilityReason, AdminPlaybackHardwareDeviceInitialization,
-        AdminPlaybackHardwareDeviceInitializationStatus, AdminPlaybackHardwareDiagnostics,
-        AdminPlaybackHardwareEncoderDiscovery, AdminPlaybackHardwareEncoderDiscoveryStatus,
-        AdminPlaybackHardwareSmokeProbe, AdminPlaybackHardwareSmokeProbeStatus,
-        AdminPlaybackReadinessCheck, AdminPlaybackReadinessCheckName,
-        AdminPlaybackReadinessDiagnostics, AdminPlaybackReadinessReason,
-        AdminPlaybackRemoteBudgetDiagnostics, AdminPlaybackRemuxRuntimeDiagnostics,
-        AdminPlaybackRuntimeDiagnosticsResponse, AdminPlaybackRuntimeStatus,
-        AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
+        AdminPlaybackArtifactLifecycleDiagnostics, AdminPlaybackFfmpegDiagnostics,
+        AdminPlaybackHardwareCapability, AdminPlaybackHardwareCapabilityReason,
+        AdminPlaybackHardwareDeviceInitialization, AdminPlaybackHardwareDeviceInitializationStatus,
+        AdminPlaybackHardwareDiagnostics, AdminPlaybackHardwareEncoderDiscovery,
+        AdminPlaybackHardwareEncoderDiscoveryStatus, AdminPlaybackHardwareSmokeProbe,
+        AdminPlaybackHardwareSmokeProbeStatus, AdminPlaybackReadinessCheck,
+        AdminPlaybackReadinessCheckName, AdminPlaybackReadinessDiagnostics,
+        AdminPlaybackReadinessReason, AdminPlaybackRemoteBudgetDiagnostics,
+        AdminPlaybackRemuxRuntimeDiagnostics, AdminPlaybackRuntimeDiagnosticsResponse,
+        AdminPlaybackRuntimeStatus, AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
         AdminPlaybackStagingDiagnostics, AdminPlaybackSupportEvidenceResponse,
         AdminPlaybackSupportHardwareCapabilityEvidence, AdminPlaybackSupportHardwareEvidence,
         AdminPlaybackSupportRedactionEvidence, AdminPlaybackSupportRuntimeEvidence,
         AdminPlaybackSupportSessionEvidence, AdminPlaybackSupportSourceEvidence,
-        AdminPlaybackSupportSubject, AdminPlaybackTranscodeBudgetDiagnostics,
-        AdminReplaceUserRolesRequest, AdminRuntimeConfigDiagnostics,
-        AdminServerConfigDiagnosticsResponse, AdminSetLocalPasswordRequest,
-        AdminStorageStagingDiagnosticsResponse, AdminStorageStagingRecord,
-        AdminStorageStagingSummary, AdminTranscodeConfigDiagnostics, AdminTrustedProxyDiagnostics,
-        AdminTunnelProviderDiagnostics, AdminTunnelProviderKind,
+        AdminPlaybackSupportSubject, AdminPlaybackThrottleDiagnostics,
+        AdminPlaybackTranscodeBudgetDiagnostics, AdminReplaceUserRolesRequest,
+        AdminRuntimeConfigDiagnostics, AdminServerConfigDiagnosticsResponse,
+        AdminSetLocalPasswordRequest, AdminStorageStagingDiagnosticsResponse,
+        AdminStorageStagingRecord, AdminStorageStagingSummary, AdminTranscodeConfigDiagnostics,
+        AdminTrustedProxyDiagnostics, AdminTunnelProviderDiagnostics, AdminTunnelProviderKind,
         AdminUpdateLibraryMetadataProfileRequest, AdminUpdateMetadataRawCacheSettingsRequest,
-        AdminUpdateUserStatusRequest, AdminUpsertLibraryAccessPolicyRequest, AdminVfsCacheSummary,
+        AdminUpdatePlaybackRuntimeSettingsRequest, AdminUpdateUserStatusRequest,
+        AdminUpsertLibraryAccessPolicyRequest, AdminVfsCacheSummary,
         AdminWatchFolderDiscoveryFailure, AdminWatchFolderDiscoveryRequest,
         AdminWatchFolderDiscoveryResponse, JobResponse, StorageBackendDiagnosticsResponse,
         StorageBackendKind, StorageBackendRuntimeStateScope, StorageBackendStatus,
@@ -244,6 +245,10 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/admin/v1/settings/metadata/raw-cache",
             get(get_admin_metadata_raw_cache_settings).put(update_admin_metadata_raw_cache_settings),
+        )
+        .route(
+            "/admin/v1/settings/playback/runtime",
+            get(get_admin_playback_runtime_settings).put(update_admin_playback_runtime_settings),
         )
         .route(
             "/admin/v1/playback/runtime",
@@ -914,6 +919,14 @@ pub(super) async fn get_admin_system_config(
         playback: AdminConfigPlaybackDiagnostics {
             remote_stream_concurrency: config.playback.remote_stream_concurrency,
             remote_stage_concurrency: config.playback.remote_stage_concurrency,
+            transcode_artifact_retention_ms: config.playback.transcode_artifact_retention_ms,
+            transcode_artifact_cleanup_on_startup: config
+                .playback
+                .transcode_artifact_cleanup_on_startup,
+            hls_segment_cleanup_enabled: config.playback.hls_segment_cleanup_enabled,
+            hls_segment_keep_ms: config.playback.hls_segment_keep_ms,
+            transcode_throttle_enabled: config.playback.transcode_throttle_enabled,
+            transcode_throttle_delay_ms: config.playback.transcode_throttle_delay_ms,
         },
         artwork: AdminArtworkConfigDiagnostics {
             artifact_root_configured: !config.artwork.artifact_root.as_os_str().is_empty(),
@@ -1238,6 +1251,21 @@ pub(super) async fn update_admin_metadata_raw_cache_settings(
     Ok(Json(
         app.update_admin_metadata_raw_cache_settings(request)
             .await?,
+    ))
+}
+
+pub(super) async fn get_admin_playback_runtime_settings(
+    State(app): State<NakoApp>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(app.get_admin_playback_runtime_settings().await?))
+}
+
+pub(super) async fn update_admin_playback_runtime_settings(
+    State(app): State<NakoApp>,
+    Json(request): Json<AdminUpdatePlaybackRuntimeSettingsRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.update_admin_playback_runtime_settings(request).await?,
     ))
 }
 
@@ -1920,6 +1948,40 @@ async fn admin_playback_runtime_diagnostics(
             .as_ref()
             .map_or(0, |cleanup| usize_to_u32(cleanup.deleted_files)),
     };
+    let artifact_lifecycle = AdminPlaybackArtifactLifecycleDiagnostics {
+        transcode_artifact_retention_ms: playback.transcode_artifact_retention_ms,
+        transcode_artifact_cleanup_on_startup: playback.transcode_artifact_cleanup_on_startup,
+        hls_segment_cleanup_enabled: playback.hls_segment_cleanup_enabled,
+        hls_segment_keep_ms: playback.hls_segment_keep_ms,
+        startup_examined_artifacts: startup
+            .playback_artifact_cleanup
+            .as_ref()
+            .map_or(0, |cleanup| cleanup.examined_artifacts),
+        startup_deleted_artifacts: startup
+            .playback_artifact_cleanup
+            .as_ref()
+            .map_or(0, |cleanup| cleanup.deleted_artifacts),
+        startup_deleted_files: startup
+            .playback_artifact_cleanup
+            .as_ref()
+            .map_or(0, |cleanup| cleanup.deleted_files),
+        startup_deleted_directories: startup
+            .playback_artifact_cleanup
+            .as_ref()
+            .map_or(0, |cleanup| cleanup.deleted_directories),
+        startup_deleted_bytes: startup
+            .playback_artifact_cleanup
+            .as_ref()
+            .map_or(0, |cleanup| cleanup.deleted_bytes),
+        startup_skipped_security: startup
+            .playback_artifact_cleanup
+            .as_ref()
+            .map_or(0, |cleanup| cleanup.skipped_security),
+    };
+    let throttle = AdminPlaybackThrottleDiagnostics {
+        enabled: playback.transcode_throttle_enabled,
+        delay_ms: playback.transcode_throttle_delay_ms,
+    };
     let readiness = playback_readiness_diagnostics(
         playback.runtime_inventory.has_probe_error,
         hardware_acceleration_readiness(
@@ -1932,6 +1994,8 @@ async fn admin_playback_runtime_diagnostics(
         transcode_budget,
         &remote_playback,
         &staging,
+        &artifact_lifecycle,
+        &throttle,
     );
 
     AdminPlaybackRuntimeDiagnosticsResponse {
@@ -1962,6 +2026,8 @@ async fn admin_playback_runtime_diagnostics(
         },
         remote_playback,
         staging,
+        artifact_lifecycle,
+        throttle,
     }
 }
 
@@ -2005,6 +2071,8 @@ fn playback_support_runtime_evidence(
         remux: runtime.remux,
         remote_playback: runtime.remote_playback,
         staging: runtime.staging,
+        artifact_lifecycle: runtime.artifact_lifecycle,
+        throttle: runtime.throttle,
     }
 }
 
@@ -2169,6 +2237,8 @@ fn playback_readiness_diagnostics(
     effective_budget: nako_transcode::TranscodeResourceBudget,
     remote_playback: &AdminPlaybackRemoteBudgetDiagnostics,
     staging: &AdminPlaybackStagingDiagnostics,
+    _artifact_lifecycle: &AdminPlaybackArtifactLifecycleDiagnostics,
+    _throttle: &AdminPlaybackThrottleDiagnostics,
 ) -> AdminPlaybackReadinessDiagnostics {
     AdminPlaybackReadinessDiagnostics::from_checks(vec![
         if has_probe_error {
@@ -2229,6 +2299,14 @@ fn playback_readiness_diagnostics(
                 AdminPlaybackReadinessReason::StagingBudgetDisabled,
             )
         },
+        AdminPlaybackReadinessCheck::ready(
+            AdminPlaybackReadinessCheckName::ArtifactLifecycle,
+            AdminPlaybackReadinessReason::ArtifactLifecycleReady,
+        ),
+        AdminPlaybackReadinessCheck::ready(
+            AdminPlaybackReadinessCheckName::TranscodeThrottle,
+            AdminPlaybackReadinessReason::TranscodeThrottleReady,
+        ),
     ])
 }
 

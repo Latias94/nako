@@ -1306,6 +1306,54 @@ export interface AdminPlaybackRuntimeDiagnosticsResponse {
     startup_deleted_records: number;
     startup_deleted_files: number;
   };
+  artifact_lifecycle: {
+    transcode_artifact_retention_ms: number;
+    transcode_artifact_cleanup_on_startup: boolean;
+    hls_segment_cleanup_enabled: boolean;
+    hls_segment_keep_ms: number;
+    startup_examined_artifacts: number;
+    startup_deleted_artifacts: number;
+    startup_deleted_files: number;
+    startup_deleted_directories: number;
+    startup_deleted_bytes: number;
+    startup_skipped_security: number;
+  };
+  throttle: {
+    enabled: boolean;
+    delay_ms: number;
+  };
+}
+
+export interface AdminPlaybackRuntimeSettingsPayload {
+  hardware_acceleration: string;
+  hardware_fallback: string;
+  cpu_concurrency: number;
+  gpu_concurrency: number;
+  remux_concurrency: number;
+  remux_timeout_ms: number;
+  remote_stream_concurrency: number;
+  remote_stage_concurrency: number;
+  staging_max_bytes: number;
+  staging_retention_ms: number;
+  staging_cleanup_on_startup: boolean;
+  transcode_artifact_retention_ms: number;
+  transcode_artifact_cleanup_on_startup: boolean;
+  hls_segment_cleanup_enabled: boolean;
+  hls_segment_keep_ms: number;
+  transcode_throttle_enabled: boolean;
+  transcode_throttle_delay_ms: number;
+}
+
+export interface AdminUpdatePlaybackRuntimeSettingsRequest {
+  settings: AdminPlaybackRuntimeSettingsPayload;
+}
+
+export interface AdminPlaybackRuntimeSettingsResponse {
+  admin_api_version: string;
+  settings: AdminPlaybackRuntimeSettingsPayload;
+  source: AdminSettingsSource;
+  effect: AdminSettingsEffect;
+  updated_at_ms: number | null;
 }
 
 export interface AdminPlaybackSupportEvidenceResponse {
@@ -1360,6 +1408,8 @@ export interface AdminPlaybackSupportEvidenceResponse {
     remux: AdminPlaybackRuntimeDiagnosticsResponse["remux"];
     remote_playback: AdminPlaybackRuntimeDiagnosticsResponse["remote_playback"];
     staging: AdminPlaybackRuntimeDiagnosticsResponse["staging"];
+    artifact_lifecycle: AdminPlaybackRuntimeDiagnosticsResponse["artifact_lifecycle"];
+    throttle: AdminPlaybackRuntimeDiagnosticsResponse["throttle"];
   };
   redaction: {
     paths_redacted: boolean;
@@ -1793,6 +1843,12 @@ export interface AdminServerConfigDiagnosticsResponse {
   playback: {
     remote_stream_concurrency: number;
     remote_stage_concurrency: number;
+    transcode_artifact_retention_ms: number;
+    transcode_artifact_cleanup_on_startup: boolean;
+    hls_segment_cleanup_enabled: boolean;
+    hls_segment_keep_ms: number;
+    transcode_throttle_enabled: boolean;
+    transcode_throttle_delay_ms: number;
   };
   artwork: {
     artifact_root_configured: boolean;

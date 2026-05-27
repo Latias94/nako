@@ -389,6 +389,12 @@ pub(crate) struct PlaybackRuntimeDiagnostics {
     pub staging_max_bytes: u64,
     pub staging_retention_ms: u64,
     pub staging_cleanup_on_startup: bool,
+    pub transcode_artifact_retention_ms: u64,
+    pub transcode_artifact_cleanup_on_startup: bool,
+    pub hls_segment_cleanup_enabled: bool,
+    pub hls_segment_keep_ms: u64,
+    pub transcode_throttle_enabled: bool,
+    pub transcode_throttle_delay_ms: u64,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1040,6 +1046,15 @@ impl PlaybackAppService {
             staging_max_bytes: self.config.staging.max_bytes,
             staging_retention_ms: self.config.staging.retention_ms,
             staging_cleanup_on_startup: self.config.staging.cleanup_on_startup,
+            transcode_artifact_retention_ms: self.config.playback.transcode_artifact_retention_ms,
+            transcode_artifact_cleanup_on_startup: self
+                .config
+                .playback
+                .transcode_artifact_cleanup_on_startup,
+            hls_segment_cleanup_enabled: self.config.playback.hls_segment_cleanup_enabled,
+            hls_segment_keep_ms: self.config.playback.hls_segment_keep_ms,
+            transcode_throttle_enabled: self.config.playback.transcode_throttle_enabled,
+            transcode_throttle_delay_ms: self.config.playback.transcode_throttle_delay_ms,
         }
     }
 

@@ -176,6 +176,13 @@ future planner/runtime decisions. FFmpeg CLI remains the first implementation,
 but remux/HLS runners now satisfy typed engine start/progress outcomes instead
 of being route-shaped process helpers.
 
+PTP-070 established Admin playback runtime settings as persisted, typed
+settings payloads applied during startup. Admin diagnostics now expose
+artifact lifecycle and throttling policy evidence, while Public Client
+contracts remain limited to playback decisions and safe transport data. Startup
+artifact cleanup is rooted under the configured transcode staging root and
+records security skips for terminal artifacts that point outside that root.
+
 PTP-030 extracted `nako-playback` because the deletion test became real:
 removing selection from `nako-streaming` leaves a smaller transport crate, while
 server app code and public DTO adapters both consume playback planning records.

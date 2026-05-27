@@ -1,4 +1,7 @@
-use crate::{AdminMetadataRawCacheSettingsRecord, Result};
+use crate::{
+    AdminMetadataRawCacheSettingsRecord, AdminSettingsDocumentKey, AdminSettingsDocumentRecord,
+    Result,
+};
 
 #[async_trait::async_trait]
 pub trait AdminSettingsRepository: Send + Sync {
@@ -10,4 +13,14 @@ pub trait AdminSettingsRepository: Send + Sync {
     async fn get_admin_metadata_raw_cache_settings(
         &self,
     ) -> Result<Option<AdminMetadataRawCacheSettingsRecord>>;
+
+    async fn upsert_admin_settings_document(
+        &self,
+        record: AdminSettingsDocumentRecord,
+    ) -> Result<AdminSettingsDocumentRecord>;
+
+    async fn get_admin_settings_document(
+        &self,
+        key: AdminSettingsDocumentKey,
+    ) -> Result<Option<AdminSettingsDocumentRecord>>;
 }

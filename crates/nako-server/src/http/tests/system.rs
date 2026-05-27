@@ -1966,6 +1966,7 @@ async fn admin_v1_system_config_reports_sanitized_configuration() {
         playback: PlaybackConfig {
             remote_stream_concurrency: 9,
             remote_stage_concurrency: 10,
+            ..PlaybackConfig::default()
         },
         artwork: crate::config::ArtworkConfig {
             artifact_root: temp.path().join("artwork-secret-root"),
@@ -3063,6 +3064,220 @@ async fn admin_v1_metadata_raw_cache_settings_rejects_zero_retention() {
 }
 
 #[tokio::test]
+async fn admin_v1_playback_runtime_settings_round_trips_persisted_override() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 1,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        remux_timeout_ms: 60_000,
+        remux_staging_root: temp.path().join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig {
+            cleanup_on_startup: false,
+            ..StagingConfig::default()
+        },
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config.clone(), store.clone())
+        .await
+        .unwrap();
+    let router = build_router(app);
+
+    let configured = request_json::<AdminPlaybackRuntimeSettingsResponse>(
+        &router,
+        Method::GET,
+        "/admin/v1/settings/playback/runtime",
+    )
+    .await;
+    assert_eq!(
+        configured.source,
+        nako_core::AdminSettingsSource::Configured
+    );
+    assert_eq!(configured.effect, nako_core::AdminSettingsEffect::Active);
+    assert_eq!(configured.updated_at_ms, None);
+    assert_eq!(configured.settings.remux_timeout_ms, 60_000);
+
+    let override_settings = AdminPlaybackRuntimeSettingsPayload {
+        hardware_acceleration: nako_transcode::HardwareAcceleration::None,
+        hardware_fallback: nako_transcode::HardwareAccelerationFallback::Cpu,
+        cpu_concurrency: 2,
+        gpu_concurrency: 3,
+        remux_concurrency: 4,
+        remux_timeout_ms: 45_000,
+        remote_stream_concurrency: 5,
+        remote_stage_concurrency: 6,
+        staging_max_bytes: 7_000,
+        staging_retention_ms: 8_000,
+        staging_cleanup_on_startup: false,
+        transcode_artifact_retention_ms: 9_000,
+        transcode_artifact_cleanup_on_startup: false,
+        hls_segment_cleanup_enabled: true,
+        hls_segment_keep_ms: 10_000,
+        transcode_throttle_enabled: true,
+        transcode_throttle_delay_ms: 11_000,
+    };
+    let update = request_body_json::<
+        AdminPlaybackRuntimeSettingsResponse,
+        AdminUpdatePlaybackRuntimeSettingsRequest,
+    >(
+        &router,
+        Method::PUT,
+        "/admin/v1/settings/playback/runtime",
+        &AdminUpdatePlaybackRuntimeSettingsRequest {
+            settings: override_settings.clone(),
+        },
+    )
+    .await;
+    assert_eq!(update.settings, override_settings);
+    assert_eq!(update.source, nako_core::AdminSettingsSource::Admin);
+    assert_eq!(
+        update.effect,
+        nako_core::AdminSettingsEffect::RequiresRestart
+    );
+    assert!(update.updated_at_ms.is_some());
+
+    let persisted = request_json::<AdminPlaybackRuntimeSettingsResponse>(
+        &router,
+        Method::GET,
+        "/admin/v1/settings/playback/runtime",
+    )
+    .await;
+    assert_eq!(persisted.settings, override_settings);
+    assert_eq!(
+        persisted.effect,
+        nako_core::AdminSettingsEffect::RequiresRestart
+    );
+
+    drop(router);
+    let restarted = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let restarted_router = build_router(restarted);
+    let active = request_json::<AdminPlaybackRuntimeSettingsResponse>(
+        &restarted_router,
+        Method::GET,
+        "/admin/v1/settings/playback/runtime",
+    )
+    .await;
+    assert_eq!(active.source, nako_core::AdminSettingsSource::Admin);
+    assert_eq!(active.effect, nako_core::AdminSettingsEffect::Active);
+    assert_eq!(active.settings, override_settings);
+
+    let runtime = request_json::<AdminPlaybackRuntimeDiagnosticsResponse>(
+        &restarted_router,
+        Method::GET,
+        "/admin/v1/playback/runtime",
+    )
+    .await;
+    assert_eq!(runtime.transcode.configured_cpu_slots, 2);
+    assert_eq!(runtime.transcode.configured_gpu_slots, 3);
+    assert_eq!(runtime.remux.max_concurrent_sessions, 4);
+    assert_eq!(runtime.remux.timeout_ms, 45_000);
+    assert_eq!(runtime.remote_playback.stream_permits_max, 5);
+    assert_eq!(runtime.remote_playback.stage_permits_max, 6);
+    assert_eq!(runtime.staging.max_bytes, 7_000);
+    assert_eq!(runtime.staging.retention_ms, 8_000);
+    assert_eq!(
+        runtime.artifact_lifecycle.transcode_artifact_retention_ms,
+        9_000
+    );
+    assert!(runtime.artifact_lifecycle.hls_segment_cleanup_enabled);
+    assert_eq!(runtime.artifact_lifecycle.hls_segment_keep_ms, 10_000);
+    assert!(runtime.throttle.enabled);
+    assert_eq!(runtime.throttle.delay_ms, 11_000);
+
+    let diagnostics = request_json::<AdminServerConfigDiagnosticsResponse>(
+        &restarted_router,
+        Method::GET,
+        "/admin/v1/system/config",
+    )
+    .await;
+    assert_eq!(diagnostics.transcode.cpu_concurrency, 2);
+    assert_eq!(diagnostics.transcode.gpu_concurrency, 3);
+    assert_eq!(diagnostics.runtime.remux_concurrency, 4);
+    assert_eq!(diagnostics.runtime.remux_timeout_ms, 45_000);
+    assert_eq!(diagnostics.playback.remote_stream_concurrency, 5);
+    assert_eq!(diagnostics.playback.remote_stage_concurrency, 6);
+    assert_eq!(diagnostics.staging.max_bytes, 7_000);
+    assert_eq!(diagnostics.staging.retention_ms, 8_000);
+    assert_eq!(diagnostics.playback.transcode_artifact_retention_ms, 9_000);
+    assert!(diagnostics.playback.hls_segment_cleanup_enabled);
+    assert_eq!(diagnostics.playback.hls_segment_keep_ms, 10_000);
+    assert!(diagnostics.playback.transcode_throttle_enabled);
+    assert_eq!(diagnostics.playback.transcode_throttle_delay_ms, 11_000);
+}
+
+#[tokio::test]
+async fn admin_v1_playback_runtime_settings_rejects_invalid_policy_values() {
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+    let configured = request_json::<AdminPlaybackRuntimeSettingsResponse>(
+        &router,
+        Method::GET,
+        "/admin/v1/settings/playback/runtime",
+    )
+    .await;
+
+    let mut zero_cpu = configured.settings.clone();
+    zero_cpu.cpu_concurrency = 0;
+    let response = response_body_json(
+        &router,
+        Method::PUT,
+        "/admin/v1/settings/playback/runtime",
+        &AdminUpdatePlaybackRuntimeSettingsRequest { settings: zero_cpu },
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let error = body_json::<ErrorResponse>(response).await;
+    assert_eq!(
+        error.code,
+        nako_api::public_client::ClientErrorCode::InvalidInput.as_str()
+    );
+
+    let mut zero_throttle_delay = configured.settings;
+    zero_throttle_delay.transcode_throttle_enabled = true;
+    zero_throttle_delay.transcode_throttle_delay_ms = 0;
+    let response = response_body_json(
+        &router,
+        Method::PUT,
+        "/admin/v1/settings/playback/runtime",
+        &AdminUpdatePlaybackRuntimeSettingsRequest {
+            settings: zero_throttle_delay,
+        },
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let error = body_json::<ErrorResponse>(response).await;
+    assert_eq!(
+        error.code,
+        nako_api::public_client::ClientErrorCode::InvalidInput.as_str()
+    );
+}
+
+#[tokio::test]
 async fn admin_v1_playback_sessions_lists_filters_and_redacts_output_paths() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
@@ -3273,6 +3488,7 @@ async fn admin_v1_playback_support_evidence_is_bounded_and_redacted() {
         playback: PlaybackConfig {
             remote_stream_concurrency: 0,
             remote_stage_concurrency: 0,
+            ..PlaybackConfig::default()
         },
         artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
@@ -3573,6 +3789,7 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
         playback: PlaybackConfig {
             remote_stream_concurrency: 7,
             remote_stage_concurrency: 3,
+            ..PlaybackConfig::default()
         },
         artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
@@ -3630,7 +3847,7 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
         diagnostics.readiness.reason,
         AdminPlaybackReadinessReason::FfmpegProbeReady
     );
-    assert_eq!(diagnostics.readiness.checks.len(), 6);
+    assert_eq!(diagnostics.readiness.checks.len(), 8);
     assert!(diagnostics.readiness.checks.iter().any(|check| check.name
         == AdminPlaybackReadinessCheckName::HardwareAcceleration
         && check.reason == AdminPlaybackReadinessReason::RequestedAcceleratorReady));
@@ -3643,6 +3860,12 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
     assert!(diagnostics.readiness.checks.iter().any(|check| check.name
         == AdminPlaybackReadinessCheckName::Staging
         && check.reason == AdminPlaybackReadinessReason::StagingReady));
+    assert!(diagnostics.readiness.checks.iter().any(|check| check.name
+        == AdminPlaybackReadinessCheckName::ArtifactLifecycle
+        && check.reason == AdminPlaybackReadinessReason::ArtifactLifecycleReady));
+    assert!(diagnostics.readiness.checks.iter().any(|check| check.name
+        == AdminPlaybackReadinessCheckName::TranscodeThrottle
+        && check.reason == AdminPlaybackReadinessReason::TranscodeThrottleReady));
     assert!(!diagnostics.ffmpeg.has_probe_error);
     assert_eq!(diagnostics.ffmpeg.hardware_capability_count, 4);
     assert_eq!(diagnostics.ffmpeg.available_gpu_capabilities, 3);
@@ -3702,6 +3925,15 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
     assert_eq!(diagnostics.staging.max_bytes, 123_456);
     assert_eq!(diagnostics.staging.retention_ms, 654_321);
     assert!(diagnostics.staging.cleanup_on_startup);
+    assert!(
+        !diagnostics
+            .artifact_lifecycle
+            .transcode_artifact_cleanup_on_startup
+    );
+    assert_eq!(diagnostics.artifact_lifecycle.startup_deleted_artifacts, 0);
+    assert_eq!(diagnostics.artifact_lifecycle.hls_segment_keep_ms, 60_000);
+    assert!(!diagnostics.throttle.enabled);
+    assert_eq!(diagnostics.throttle.delay_ms, 3_000);
 
     assert!(!body.contains(&temp.path().display().to_string()));
     assert!(!body.contains(&ffmpeg_path.display().to_string()));
@@ -3750,6 +3982,7 @@ async fn admin_v1_playback_runtime_reports_typed_readiness_for_cpu_fallback() {
         playback: PlaybackConfig {
             remote_stream_concurrency: 0,
             remote_stage_concurrency: 0,
+            ..PlaybackConfig::default()
         },
         artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {
@@ -3794,7 +4027,7 @@ async fn admin_v1_playback_runtime_reports_typed_readiness_for_cpu_fallback() {
         diagnostics.readiness.reason,
         AdminPlaybackReadinessReason::RequestedAcceleratorUnavailableFallbackToCpu
     );
-    assert_eq!(diagnostics.readiness.checks.len(), 6);
+    assert_eq!(diagnostics.readiness.checks.len(), 8);
     assert!(diagnostics.readiness.checks.iter().any(|check| check.name
         == AdminPlaybackReadinessCheckName::HardwareAcceleration
         && check.reason
@@ -3805,6 +4038,12 @@ async fn admin_v1_playback_runtime_reports_typed_readiness_for_cpu_fallback() {
     assert!(diagnostics.readiness.checks.iter().any(|check| check.name
         == AdminPlaybackReadinessCheckName::TranscodeBudget
         && check.reason == AdminPlaybackReadinessReason::TranscodeBudgetClamped));
+    assert!(diagnostics.readiness.checks.iter().any(|check| check.name
+        == AdminPlaybackReadinessCheckName::ArtifactLifecycle
+        && check.reason == AdminPlaybackReadinessReason::ArtifactLifecycleReady));
+    assert!(diagnostics.readiness.checks.iter().any(|check| check.name
+        == AdminPlaybackReadinessCheckName::TranscodeThrottle
+        && check.reason == AdminPlaybackReadinessReason::TranscodeThrottleReady));
     assert_eq!(
         diagnostics.hardware.selection.acceleration,
         nako_transcode::HardwareAcceleration::None

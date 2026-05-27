@@ -683,6 +683,49 @@ impl NakoApp {
             Some(record),
         ))
     }
+
+    pub(crate) async fn get_admin_playback_runtime_settings(
+        &self,
+    ) -> Result<nako_api::admin::AdminPlaybackRuntimeSettingsResponse> {
+        let record = self
+            .inner
+            .store
+            .get_admin_settings_document(nako_core::AdminSettingsDocumentKey::PlaybackRuntime)
+            .await?;
+
+        admin_playback_runtime_settings_response(
+            configured_playback_runtime_settings(&self.inner.config),
+            record,
+        )
+    }
+
+    pub(crate) async fn update_admin_playback_runtime_settings(
+        &self,
+        request: nako_api::admin::AdminUpdatePlaybackRuntimeSettingsRequest,
+    ) -> Result<nako_api::admin::AdminPlaybackRuntimeSettingsResponse> {
+        validate_playback_runtime_settings(&request.settings)?;
+        let payload_json =
+            serde_json::to_string(&request.settings).map_err(|err| NakoError::InvalidInput {
+                message: format!("failed to serialize playback runtime settings: {err}"),
+            })?;
+        let record = nako_core::AdminSettingsDocumentRecord {
+            key: nako_core::AdminSettingsDocumentKey::PlaybackRuntime,
+            payload_json,
+            source: nako_core::AdminSettingsSource::Admin,
+            effect: nako_core::AdminSettingsEffect::RequiresRestart,
+            updated_at_ms: current_time_ms()?,
+        };
+        let record = self
+            .inner
+            .store
+            .upsert_admin_settings_document(record)
+            .await?;
+
+        admin_playback_runtime_settings_response(
+            configured_playback_runtime_settings(&self.inner.config),
+            Some(record),
+        )
+    }
 }
 
 fn validate_local_password(password: &str) -> Result<()> {
@@ -853,6 +896,154 @@ fn configured_metadata_raw_cache_settings(
         retention_ms: config.metadata.raw_cache_retention_ms,
         cleanup_on_startup: config.metadata.maintenance.raw_cache_cleanup_on_startup,
     }
+}
+
+fn validate_playback_runtime_settings(
+    settings: &nako_api::admin::AdminPlaybackRuntimeSettingsPayload,
+) -> Result<()> {
+    if settings.cpu_concurrency == 0 {
+        return Err(NakoError::InvalidInput {
+            message: "playback runtime cpu_concurrency must be greater than zero".to_owned(),
+        });
+    }
+    if settings.gpu_concurrency == 0 {
+        return Err(NakoError::InvalidInput {
+            message: "playback runtime gpu_concurrency must be greater than zero".to_owned(),
+        });
+    }
+    if settings.remux_concurrency == 0 {
+        return Err(NakoError::InvalidInput {
+            message: "playback runtime remux_concurrency must be greater than zero".to_owned(),
+        });
+    }
+    if settings.remote_stream_concurrency == 0 {
+        return Err(NakoError::InvalidInput {
+            message: "playback runtime remote_stream_concurrency must be greater than zero"
+                .to_owned(),
+        });
+    }
+    if settings.remote_stage_concurrency == 0 {
+        return Err(NakoError::InvalidInput {
+            message: "playback runtime remote_stage_concurrency must be greater than zero"
+                .to_owned(),
+        });
+    }
+    if settings.remux_timeout_ms == 0 {
+        return Err(NakoError::InvalidInput {
+            message: "playback runtime remux_timeout_ms must be greater than zero".to_owned(),
+        });
+    }
+    if settings.staging_retention_ms == 0 {
+        return Err(NakoError::InvalidInput {
+            message: "playback runtime staging_retention_ms must be greater than zero".to_owned(),
+        });
+    }
+    if settings.hls_segment_cleanup_enabled && settings.hls_segment_keep_ms == 0 {
+        return Err(NakoError::InvalidInput {
+            message: "playback runtime hls_segment_keep_ms must be greater than zero when cleanup is enabled".to_owned(),
+        });
+    }
+    if settings.transcode_throttle_enabled && settings.transcode_throttle_delay_ms == 0 {
+        return Err(NakoError::InvalidInput {
+            message: "playback runtime transcode_throttle_delay_ms must be greater than zero when throttling is enabled".to_owned(),
+        });
+    }
+
+    Ok(())
+}
+
+fn admin_playback_runtime_settings_response(
+    configured: nako_api::admin::AdminPlaybackRuntimeSettingsPayload,
+    record: Option<nako_core::AdminSettingsDocumentRecord>,
+) -> Result<nako_api::admin::AdminPlaybackRuntimeSettingsResponse> {
+    let (settings, source, effect, updated_at_ms) = match record {
+        Some(record) => {
+            let settings: nako_api::admin::AdminPlaybackRuntimeSettingsPayload =
+                serde_json::from_str(&record.payload_json).map_err(|err| NakoError::Database {
+                    message: format!("invalid persisted playback runtime settings: {err}"),
+                })?;
+            let effect = if settings == configured {
+                nako_core::AdminSettingsEffect::Active
+            } else {
+                nako_core::AdminSettingsEffect::RequiresRestart
+            };
+
+            (
+                settings,
+                nako_core::AdminSettingsSource::Admin,
+                effect,
+                Some(record.updated_at_ms),
+            )
+        }
+        None => (
+            configured,
+            nako_core::AdminSettingsSource::Configured,
+            nako_core::AdminSettingsEffect::Active,
+            None,
+        ),
+    };
+
+    Ok(nako_api::admin::AdminPlaybackRuntimeSettingsResponse {
+        admin_api_version: nako_api::admin::ADMIN_API_VERSION.to_owned(),
+        settings,
+        source,
+        effect,
+        updated_at_ms,
+    })
+}
+
+pub(super) fn configured_playback_runtime_settings(
+    config: &NakoServerConfig,
+) -> nako_api::admin::AdminPlaybackRuntimeSettingsPayload {
+    nako_api::admin::AdminPlaybackRuntimeSettingsPayload {
+        hardware_acceleration: config.transcode.hardware_acceleration,
+        hardware_fallback: config.transcode.hardware_fallback,
+        cpu_concurrency: usize_to_u32(config.transcode.cpu_concurrency),
+        gpu_concurrency: usize_to_u32(config.transcode.gpu_concurrency),
+        remux_concurrency: usize_to_u32(config.remux_concurrency),
+        remux_timeout_ms: config.remux_timeout_ms,
+        remote_stream_concurrency: usize_to_u32(config.playback.remote_stream_concurrency),
+        remote_stage_concurrency: usize_to_u32(config.playback.remote_stage_concurrency),
+        staging_max_bytes: config.staging.max_bytes,
+        staging_retention_ms: config.staging.retention_ms,
+        staging_cleanup_on_startup: config.staging.cleanup_on_startup,
+        transcode_artifact_retention_ms: config.playback.transcode_artifact_retention_ms,
+        transcode_artifact_cleanup_on_startup: config
+            .playback
+            .transcode_artifact_cleanup_on_startup,
+        hls_segment_cleanup_enabled: config.playback.hls_segment_cleanup_enabled,
+        hls_segment_keep_ms: config.playback.hls_segment_keep_ms,
+        transcode_throttle_enabled: config.playback.transcode_throttle_enabled,
+        transcode_throttle_delay_ms: config.playback.transcode_throttle_delay_ms,
+    }
+}
+
+pub(super) fn apply_playback_runtime_settings(
+    config: &mut NakoServerConfig,
+    settings: &nako_api::admin::AdminPlaybackRuntimeSettingsPayload,
+) {
+    config.transcode.hardware_acceleration = settings.hardware_acceleration;
+    config.transcode.hardware_fallback = settings.hardware_fallback;
+    config.transcode.cpu_concurrency = settings.cpu_concurrency as usize;
+    config.transcode.gpu_concurrency = settings.gpu_concurrency as usize;
+    config.remux_concurrency = settings.remux_concurrency as usize;
+    config.remux_timeout_ms = settings.remux_timeout_ms;
+    config.playback.remote_stream_concurrency = settings.remote_stream_concurrency as usize;
+    config.playback.remote_stage_concurrency = settings.remote_stage_concurrency as usize;
+    config.staging.max_bytes = settings.staging_max_bytes;
+    config.staging.retention_ms = settings.staging_retention_ms;
+    config.staging.cleanup_on_startup = settings.staging_cleanup_on_startup;
+    config.playback.transcode_artifact_retention_ms = settings.transcode_artifact_retention_ms;
+    config.playback.transcode_artifact_cleanup_on_startup =
+        settings.transcode_artifact_cleanup_on_startup;
+    config.playback.hls_segment_cleanup_enabled = settings.hls_segment_cleanup_enabled;
+    config.playback.hls_segment_keep_ms = settings.hls_segment_keep_ms;
+    config.playback.transcode_throttle_enabled = settings.transcode_throttle_enabled;
+    config.playback.transcode_throttle_delay_ms = settings.transcode_throttle_delay_ms;
+}
+
+fn usize_to_u32(value: usize) -> u32 {
+    u32::try_from(value).unwrap_or(u32::MAX)
 }
 
 pub(crate) fn current_time_ms() -> Result<i64> {

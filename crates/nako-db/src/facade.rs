@@ -329,6 +329,20 @@ impl AdminSettingsRepository for NakoDatabase {
     ) -> Result<Option<AdminMetadataRawCacheSettingsRecord>> {
         self.backend().get_admin_metadata_raw_cache_settings().await
     }
+
+    async fn upsert_admin_settings_document(
+        &self,
+        record: AdminSettingsDocumentRecord,
+    ) -> Result<AdminSettingsDocumentRecord> {
+        self.backend().upsert_admin_settings_document(record).await
+    }
+
+    async fn get_admin_settings_document(
+        &self,
+        key: AdminSettingsDocumentKey,
+    ) -> Result<Option<AdminSettingsDocumentRecord>> {
+        self.backend().get_admin_settings_document(key).await
+    }
 }
 
 #[async_trait::async_trait]

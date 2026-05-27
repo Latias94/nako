@@ -1,9 +1,15 @@
-use std::collections::HashSet;
+use std::{
+    collections::HashSet,
+    fs,
+    path::{Path, PathBuf},
+    time::UNIX_EPOCH,
+};
 
 use nako_core::{
-    IdentityAccessRepository, JobRepository, ManagedArtworkRepository, NakoError, Result,
-    RoleAssignment, TranscodeFailureCategory, TranscodeSessionRepository, UserPrincipalId,
-    UserRole, bootstrap_admin_user,
+    IdentityAccessRepository, JobRepository, ManagedArtworkRepository, NakoError, PageRequest,
+    Result, RoleAssignment, TranscodeFailureCategory, TranscodeSessionKind,
+    TranscodeSessionListFilter, TranscodeSessionRecord, TranscodeSessionRepository,
+    TranscodeSessionState, UserPrincipalId, UserRole, bootstrap_admin_user,
 };
 use nako_db::NakoDatabase;
 use nako_vfs::StorageUri;
@@ -27,6 +33,7 @@ pub(crate) struct ServerStartupReport {
     pub recovered_transcode_sessions: u64,
     pub recovered_jobs: u64,
     pub staging_cleanup: Option<ServerStartupStagingCleanupReport>,
+    pub playback_artifact_cleanup: Option<ServerStartupPlaybackArtifactCleanupReport>,
     pub metadata_raw_cache_deleted: u64,
     pub metadata_lifecycle_tasks_started: usize,
     pub artwork_ingest_worker_started: bool,
@@ -37,6 +44,16 @@ pub(crate) struct ServerStartupReport {
 pub(crate) struct ServerStartupStagingCleanupReport {
     pub deleted_records: usize,
     pub deleted_files: usize,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) struct ServerStartupPlaybackArtifactCleanupReport {
+    pub examined_artifacts: u32,
+    pub deleted_artifacts: u32,
+    pub deleted_files: u32,
+    pub deleted_directories: u32,
+    pub deleted_bytes: u64,
+    pub skipped_security: u32,
 }
 
 #[derive(Debug)]
@@ -63,6 +80,7 @@ impl<'a> ServerStartupWorkflow<'a> {
         let recovered_transcode_sessions = self.recover_stale_transcode_sessions().await?;
         let recovered_jobs = self.recover_unfinished_jobs().await?;
         let staging_cleanup = self.cleanup_staging_inputs().await?;
+        let playback_artifact_cleanup = self.cleanup_playback_artifacts().await?;
         let library_reconciliation = self.reconcile_configured_libraries().await?;
         let configured_libraries = library_reconciliation.configured_libraries;
         self.ensure_bootstrap_admin_user().await?;
@@ -79,6 +97,7 @@ impl<'a> ServerStartupWorkflow<'a> {
             recovered_transcode_sessions,
             recovered_jobs,
             staging_cleanup,
+            playback_artifact_cleanup,
             metadata_raw_cache_deleted,
             metadata_lifecycle_tasks_started,
             artwork_ingest_worker_started: false,
@@ -192,6 +211,32 @@ impl<'a> ServerStartupWorkflow<'a> {
         }))
     }
 
+    async fn cleanup_playback_artifacts(
+        &self,
+    ) -> Result<Option<ServerStartupPlaybackArtifactCleanupReport>> {
+        if !self.config.playback.transcode_artifact_cleanup_on_startup {
+            return Ok(None);
+        }
+
+        let cleanup = cleanup_expired_playback_artifacts(
+            self.store,
+            &self.config.remux_staging_root,
+            self.config.playback.transcode_artifact_retention_ms,
+            current_time_ms()?,
+        )
+        .await?;
+        if cleanup.deleted_artifacts > 0 {
+            warn!(
+                deleted_artifacts = cleanup.deleted_artifacts,
+                deleted_files = cleanup.deleted_files,
+                deleted_directories = cleanup.deleted_directories,
+                "cleaned expired playback transcode artifacts during startup"
+            );
+        }
+
+        Ok(Some(cleanup))
+    }
+
     async fn reconcile_configured_libraries(
         &self,
     ) -> Result<ConfiguredLibraryReconciliationReport> {
@@ -201,6 +246,181 @@ impl<'a> ServerStartupWorkflow<'a> {
             .reconcile(libraries)
             .await
     }
+}
+
+async fn cleanup_expired_playback_artifacts(
+    store: &NakoDatabase,
+    artifact_root: &Path,
+    retention_ms: u64,
+    now_ms: i64,
+) -> Result<ServerStartupPlaybackArtifactCleanupReport> {
+    let Ok(root) = artifact_root.canonicalize() else {
+        return Ok(ServerStartupPlaybackArtifactCleanupReport::default());
+    };
+
+    let mut report = ServerStartupPlaybackArtifactCleanupReport::default();
+    for state in [
+        TranscodeSessionState::Finished,
+        TranscodeSessionState::Failed,
+        TranscodeSessionState::Cancelled,
+    ] {
+        let mut offset = 0;
+        loop {
+            let sessions = store
+                .list_transcode_sessions(
+                    TranscodeSessionListFilter {
+                        source_id: None,
+                        kind: None,
+                        state: Some(state),
+                    },
+                    PageRequest::new(PageRequest::MAX_LIMIT, offset),
+                )
+                .await?;
+            if sessions.is_empty() {
+                break;
+            }
+            offset += sessions.len() as u64;
+
+            for session in sessions {
+                cleanup_expired_playback_artifact(
+                    &session,
+                    &root,
+                    retention_ms,
+                    now_ms,
+                    &mut report,
+                )?;
+            }
+        }
+    }
+
+    Ok(report)
+}
+
+fn cleanup_expired_playback_artifact(
+    session: &TranscodeSessionRecord,
+    root: &Path,
+    retention_ms: u64,
+    now_ms: i64,
+    report: &mut ServerStartupPlaybackArtifactCleanupReport,
+) -> Result<()> {
+    report.examined_artifacts = report.examined_artifacts.saturating_add(1);
+
+    let Some(target) = playback_artifact_target(session) else {
+        return Ok(());
+    };
+    if !target.exists() {
+        return Ok(());
+    }
+    let target = target.canonicalize().map_err(|err| {
+        NakoError::storage_io(
+            target.display().to_string(),
+            format!("failed to resolve playback artifact target: {err}"),
+        )
+    })?;
+    if !target.starts_with(root) {
+        report.skipped_security = report.skipped_security.saturating_add(1);
+        return Ok(());
+    }
+
+    let metadata = fs::symlink_metadata(&target).map_err(|err| {
+        NakoError::storage_io(
+            target.display().to_string(),
+            format!("failed to inspect playback artifact target: {err}"),
+        )
+    })?;
+    let Some(modified_at_ms) = modified_at_ms(&metadata) else {
+        return Ok(());
+    };
+    let retention_ms = i64::try_from(retention_ms).unwrap_or(i64::MAX);
+    if now_ms.saturating_sub(modified_at_ms) < retention_ms {
+        return Ok(());
+    }
+
+    let summary = summarize_artifact_path(&target)?;
+    if metadata.file_type().is_dir() {
+        fs::remove_dir_all(&target).map_err(|err| {
+            NakoError::storage_io(
+                target.display().to_string(),
+                format!("failed to remove playback artifact directory: {err}"),
+            )
+        })?;
+    } else {
+        fs::remove_file(&target).map_err(|err| {
+            NakoError::storage_io(
+                target.display().to_string(),
+                format!("failed to remove playback artifact file: {err}"),
+            )
+        })?;
+    }
+
+    report.deleted_artifacts = report.deleted_artifacts.saturating_add(1);
+    report.deleted_files = report.deleted_files.saturating_add(summary.files);
+    report.deleted_directories = report
+        .deleted_directories
+        .saturating_add(summary.directories);
+    report.deleted_bytes = report.deleted_bytes.saturating_add(summary.bytes);
+
+    Ok(())
+}
+
+fn playback_artifact_target(session: &TranscodeSessionRecord) -> Option<PathBuf> {
+    match session.kind {
+        TranscodeSessionKind::Remux => Some(session.output_path.clone()),
+        TranscodeSessionKind::HlsTranscode => session.output_path.parent().map(Path::to_path_buf),
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+struct ArtifactPathSummary {
+    files: u32,
+    directories: u32,
+    bytes: u64,
+}
+
+fn summarize_artifact_path(path: &Path) -> Result<ArtifactPathSummary> {
+    let metadata = fs::symlink_metadata(path).map_err(|err| {
+        NakoError::storage_io(
+            path.display().to_string(),
+            format!("failed to inspect playback artifact path: {err}"),
+        )
+    })?;
+    if metadata.file_type().is_dir() {
+        let mut summary = ArtifactPathSummary {
+            files: 0,
+            directories: 1,
+            bytes: 0,
+        };
+        for entry in fs::read_dir(path).map_err(|err| {
+            NakoError::storage_io(
+                path.display().to_string(),
+                format!("failed to list playback artifact directory: {err}"),
+            )
+        })? {
+            let entry = entry.map_err(|err| {
+                NakoError::storage_io(
+                    path.display().to_string(),
+                    format!("failed to read playback artifact directory entry: {err}"),
+                )
+            })?;
+            let child = summarize_artifact_path(&entry.path())?;
+            summary.files = summary.files.saturating_add(child.files);
+            summary.directories = summary.directories.saturating_add(child.directories);
+            summary.bytes = summary.bytes.saturating_add(child.bytes);
+        }
+        Ok(summary)
+    } else {
+        Ok(ArtifactPathSummary {
+            files: 1,
+            directories: 0,
+            bytes: metadata.len(),
+        })
+    }
+}
+
+fn modified_at_ms(metadata: &fs::Metadata) -> Option<i64> {
+    let modified = metadata.modified().ok()?;
+    let duration = modified.duration_since(UNIX_EPOCH).ok()?;
+    i64::try_from(duration.as_millis()).ok()
 }
 
 fn validate_configured_library_roots(libraries: &[LocalLibraryConfig]) -> Result<()> {

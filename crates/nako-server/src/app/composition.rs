@@ -10,6 +10,8 @@ use tokio::sync::Semaphore;
 
 use crate::config::NakoServerConfig;
 
+use super::apply_playback_runtime_settings;
+
 use super::{
     acquisition_intake::AcquisitionIntakeAppService,
     addons::AddonAppService,
@@ -94,6 +96,21 @@ async fn effective_startup_config(
         config.metadata.raw_cache_retention_ms = record.settings.retention_ms;
         config.metadata.maintenance.raw_cache_cleanup_on_startup =
             record.settings.cleanup_on_startup;
+    }
+    if let Some(record) = store
+        .get_admin_settings_document(nako_core::AdminSettingsDocumentKey::PlaybackRuntime)
+        .await?
+        && record.source == AdminSettingsSource::Admin
+        && matches!(
+            record.effect,
+            AdminSettingsEffect::RequiresRestart | AdminSettingsEffect::Active
+        )
+    {
+        let settings =
+            serde_json::from_str(&record.payload_json).map_err(|err| NakoError::Database {
+                message: format!("invalid persisted playback runtime settings: {err}"),
+            })?;
+        apply_playback_runtime_settings(&mut config, &settings);
     }
 
     Ok(config)

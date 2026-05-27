@@ -1243,6 +1243,15 @@ CREATE TABLE admin_metadata_raw_cache_settings (
     updated_at_ms BIGINT NOT NULL
 );
 
+CREATE TABLE admin_settings_documents (
+    key TEXT PRIMARY KEY NOT NULL,
+    payload_json JSONB NOT NULL,
+    source TEXT NOT NULL,
+    effect TEXT NOT NULL,
+    updated_at_ms BIGINT NOT NULL,
+    CHECK (length(key) > 0)
+);
+
 
 -- Identity and Library Access baseline.
 CREATE TABLE users (

@@ -94,7 +94,7 @@ Last updated: 2026-05-27
 
 ## M6 - Admin Settings, Diagnostics, And Artifact Lifecycle
 
-- [ ] PTP-070 [owner=codex] [deps=PTP-060] [scope=crates/nako-api/src,crates/nako-server/src/http/admin.rs,crates/nako-server/src/app/playback,crates/nako-db/src]
+- [x] PTP-070 [owner=codex] [deps=PTP-060] [scope=crates/nako-api/src,crates/nako-server/src/http/admin.rs,crates/nako-server/src/app/playback,crates/nako-db/src]
   Goal: Align Admin playback runtime settings and diagnostics with planner,
   runtime inventory, selected acceleration, throttling, segment cleanup, and
   artifact lifecycle evidence.
@@ -102,8 +102,12 @@ Last updated: 2026-05-27
   run -p nako-db --no-fail-fast` if storage changes.
   Review: settings are persisted or clearly runtime-only; Public Client surface
   stays redacted and separate.
-  Evidence: Admin contract tests and evidence log.
-  Handoff: PTP-080 can clean routes and compatibility wrappers.
+  Evidence: Added persisted Admin playback runtime settings, runtime
+  diagnostics for artifact lifecycle/throttling, startup cleanup for terminal
+  transcode artifacts under the transcode root, generated Admin TypeScript
+  contract refresh, and focused server/API/storage gates.
+  Handoff: PTP-080 can clean playback routes and compatibility wrappers on top
+  of persisted settings and lifecycle evidence.
 
 ## M7 - Route Cleanup And Closeout
 

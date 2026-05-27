@@ -5,9 +5,9 @@ use nako_core::{
     TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
 };
 use nako_transcode::{
-    HardwareAcceleration, HardwareAccelerationPolicy, HardwareAccelerationReadiness,
-    HardwareAccelerationReadinessReason, HardwareAccelerationReadinessStatus,
-    HardwareAccelerationSelection,
+    HardwareAcceleration, HardwareAccelerationFallback, HardwareAccelerationPolicy,
+    HardwareAccelerationReadiness, HardwareAccelerationReadinessReason,
+    HardwareAccelerationReadinessStatus, HardwareAccelerationSelection,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -71,6 +71,43 @@ pub struct AdminPlaybackRuntimeDiagnosticsResponse {
     pub remux: AdminPlaybackRemuxRuntimeDiagnostics,
     pub remote_playback: AdminPlaybackRemoteBudgetDiagnostics,
     pub staging: AdminPlaybackStagingDiagnostics,
+    pub artifact_lifecycle: AdminPlaybackArtifactLifecycleDiagnostics,
+    pub throttle: AdminPlaybackThrottleDiagnostics,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackRuntimeSettingsPayload {
+    pub hardware_acceleration: HardwareAcceleration,
+    pub hardware_fallback: HardwareAccelerationFallback,
+    pub cpu_concurrency: u32,
+    pub gpu_concurrency: u32,
+    pub remux_concurrency: u32,
+    pub remux_timeout_ms: u64,
+    pub remote_stream_concurrency: u32,
+    pub remote_stage_concurrency: u32,
+    pub staging_max_bytes: u64,
+    pub staging_retention_ms: u64,
+    pub staging_cleanup_on_startup: bool,
+    pub transcode_artifact_retention_ms: u64,
+    pub transcode_artifact_cleanup_on_startup: bool,
+    pub hls_segment_cleanup_enabled: bool,
+    pub hls_segment_keep_ms: u64,
+    pub transcode_throttle_enabled: bool,
+    pub transcode_throttle_delay_ms: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminUpdatePlaybackRuntimeSettingsRequest {
+    pub settings: AdminPlaybackRuntimeSettingsPayload,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackRuntimeSettingsResponse {
+    pub admin_api_version: String,
+    pub settings: AdminPlaybackRuntimeSettingsPayload,
+    pub source: nako_core::AdminSettingsSource,
+    pub effect: nako_core::AdminSettingsEffect,
+    pub updated_at_ms: Option<i64>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -181,6 +218,8 @@ pub struct AdminPlaybackSupportRuntimeEvidence {
     pub remux: AdminPlaybackRemuxRuntimeDiagnostics,
     pub remote_playback: AdminPlaybackRemoteBudgetDiagnostics,
     pub staging: AdminPlaybackStagingDiagnostics,
+    pub artifact_lifecycle: AdminPlaybackArtifactLifecycleDiagnostics,
+    pub throttle: AdminPlaybackThrottleDiagnostics,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -255,6 +294,8 @@ pub enum AdminPlaybackReadinessReason {
     RemotePlaybackBudgetClamped,
     StagingReady,
     StagingBudgetDisabled,
+    ArtifactLifecycleReady,
+    TranscodeThrottleReady,
 }
 
 impl From<HardwareAccelerationReadinessReason> for AdminPlaybackReadinessReason {
@@ -342,6 +383,8 @@ pub enum AdminPlaybackReadinessCheckName {
     TranscodeBudget,
     RemotePlaybackBudget,
     Staging,
+    ArtifactLifecycle,
+    TranscodeThrottle,
 }
 
 impl AdminPlaybackReadinessDiagnostics {
@@ -501,6 +544,26 @@ pub struct AdminPlaybackStagingDiagnostics {
     pub cleanup_on_startup: bool,
     pub startup_deleted_records: u32,
     pub startup_deleted_files: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackArtifactLifecycleDiagnostics {
+    pub transcode_artifact_retention_ms: u64,
+    pub transcode_artifact_cleanup_on_startup: bool,
+    pub hls_segment_cleanup_enabled: bool,
+    pub hls_segment_keep_ms: u64,
+    pub startup_examined_artifacts: u32,
+    pub startup_deleted_artifacts: u32,
+    pub startup_deleted_files: u32,
+    pub startup_deleted_directories: u32,
+    pub startup_deleted_bytes: u64,
+    pub startup_skipped_security: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackThrottleDiagnostics {
+    pub enabled: bool,
+    pub delay_ms: u64,
 }
 
 fn stable_fingerprint(value: &str) -> String {
@@ -734,6 +797,22 @@ mod tests {
                 startup_deleted_records: 1,
                 startup_deleted_files: 1,
             },
+            artifact_lifecycle: AdminPlaybackArtifactLifecycleDiagnostics {
+                transcode_artifact_retention_ms: 300,
+                transcode_artifact_cleanup_on_startup: true,
+                hls_segment_cleanup_enabled: true,
+                hls_segment_keep_ms: 60_000,
+                startup_examined_artifacts: 3,
+                startup_deleted_artifacts: 2,
+                startup_deleted_files: 4,
+                startup_deleted_directories: 1,
+                startup_deleted_bytes: 128,
+                startup_skipped_security: 0,
+            },
+            throttle: AdminPlaybackThrottleDiagnostics {
+                enabled: true,
+                delay_ms: 3_000,
+            },
         };
 
         let value = serde_json::to_value(&response).unwrap();
@@ -765,6 +844,11 @@ mod tests {
             "not_run"
         );
         assert_eq!(value["remote_playback"]["state_scope"], "process_local");
+        assert_eq!(
+            value["artifact_lifecycle"]["transcode_artifact_retention_ms"],
+            300
+        );
+        assert_eq!(value["throttle"]["delay_ms"], 3_000);
         assert!(!body.contains("ffmpeg_path"));
         assert!(!body.contains("remux_staging_root"));
         assert!(!body.contains("nako-cache"));

@@ -256,6 +256,12 @@ pub struct AdminConfigStagingDiagnostics {
 pub struct AdminConfigPlaybackDiagnostics {
     pub remote_stream_concurrency: usize,
     pub remote_stage_concurrency: usize,
+    pub transcode_artifact_retention_ms: u64,
+    pub transcode_artifact_cleanup_on_startup: bool,
+    pub hls_segment_cleanup_enabled: bool,
+    pub hls_segment_keep_ms: u64,
+    pub transcode_throttle_enabled: bool,
+    pub transcode_throttle_delay_ms: u64,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

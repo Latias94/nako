@@ -1250,6 +1250,16 @@ CREATE TABLE admin_metadata_raw_cache_settings (
     updated_at_ms INTEGER NOT NULL
 );
 
+CREATE TABLE admin_settings_documents (
+    key TEXT PRIMARY KEY NOT NULL,
+    payload_json TEXT NOT NULL,
+    source TEXT NOT NULL,
+    effect TEXT NOT NULL,
+    updated_at_ms INTEGER NOT NULL,
+    CHECK (length(key) > 0),
+    CHECK (json_valid(payload_json))
+);
+
 
 -- Identity and Library Access baseline.
 CREATE TABLE users (

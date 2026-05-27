@@ -5,8 +5,8 @@ Last updated: 2026-05-27
 
 ## Current State
 
-The lane is open. PTP-010, PTP-020, PTP-030, PTP-040, PTP-050, and PTP-060 are
-complete.
+The lane is open. PTP-010, PTP-020, PTP-030, PTP-040, PTP-050, PTP-060, and
+PTP-070 are complete.
 
 Nako already has:
 
@@ -28,6 +28,11 @@ Nako already has:
   FFmpeg/runtime capability summary.
 - `TranscodeEngineAdapter`, which makes FFmpeg remux/HLS execution expose typed
   start outcomes and progress snapshots.
+- persisted Admin playback runtime settings with restart-effect reporting.
+- artifact lifecycle and throttle diagnostics in Admin playback runtime and
+  support evidence.
+- startup cleanup for expired terminal remux/HLS artifacts under the configured
+  transcode root, with security-skip accounting for paths outside that root.
 
 PTP-020 added a direct-play characterization test proving that direct playback
 creates a durable Playback Session and no fake Transcode Session artifact.
@@ -41,6 +46,9 @@ policy, removed Public Client exposure of server hardware selection, and kept
 FFmpeg encoder/filter strings inside the FFmpeg adapter.
 PTP-060 added the runtime inventory and made remux/HLS runners the first
 FFmpeg CLI engine adapters consumed by server playback orchestration.
+PTP-070 added persisted playback runtime settings, lifecycle/throttle
+diagnostics, generated Admin TypeScript contract updates, and startup artifact
+cleanup.
 
 Jellyfin reference review found the feature pressures Nako must be ready for:
 
@@ -54,9 +62,9 @@ Jellyfin reference review found the feature pressures Nako must be ready for:
 
 ## Active Task
 
-- Task ID: PTP-070
+- Task ID: PTP-080
 - Status: ready
-- Scope: Admin Settings, Diagnostics, and Artifact Lifecycle.
+- Scope: Route Cleanup and Closeout.
 
 ## Decisions
 
@@ -82,6 +90,13 @@ Jellyfin reference review found the feature pressures Nako must be ready for:
   instead of being recomputed separately in Admin HTTP adapters.
 - FFmpeg process details stay behind `TranscodeEngineAdapter`; server playback
   orchestration should talk in terms of typed artifact outcomes and progress.
+- Admin playback runtime settings are persisted as typed JSON payloads in a
+  generic Admin settings document. The server applies them during startup and
+  reports `requires_restart` until the running config matches the persisted
+  payload.
+- Playback artifact cleanup is rooted under the configured transcode staging
+  root; terminal artifacts outside that root are counted as security skips
+  rather than deleted.
 
 ## Blockers
 
@@ -89,6 +104,6 @@ Jellyfin reference review found the feature pressures Nako must be ready for:
 
 ## Next Action
 
-Run PTP-070. Align Admin playback runtime settings and diagnostics with the
-planner/runtime inventory/engine facts, then make artifact lifecycle policies
-for cleanup, throttling, and segment retention explicit enough to test.
+Run PTP-080. Convert remaining playback HTTP routes into thinner adapters over
+planner/session/engine modules, preserve browser ticket and legacy segment URL
+compatibility, then close or split the lane.

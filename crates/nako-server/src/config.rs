@@ -251,6 +251,18 @@ pub struct PlaybackConfig {
     pub remote_stream_concurrency: usize,
     #[serde(default = "default_remote_stage_concurrency")]
     pub remote_stage_concurrency: usize,
+    #[serde(default = "default_transcode_artifact_retention_ms")]
+    pub transcode_artifact_retention_ms: u64,
+    #[serde(default)]
+    pub transcode_artifact_cleanup_on_startup: bool,
+    #[serde(default)]
+    pub hls_segment_cleanup_enabled: bool,
+    #[serde(default = "default_hls_segment_keep_ms")]
+    pub hls_segment_keep_ms: u64,
+    #[serde(default)]
+    pub transcode_throttle_enabled: bool,
+    #[serde(default = "default_transcode_throttle_delay_ms")]
+    pub transcode_throttle_delay_ms: u64,
 }
 
 impl Default for PlaybackConfig {
@@ -258,6 +270,12 @@ impl Default for PlaybackConfig {
         Self {
             remote_stream_concurrency: default_remote_stream_concurrency(),
             remote_stage_concurrency: default_remote_stage_concurrency(),
+            transcode_artifact_retention_ms: default_transcode_artifact_retention_ms(),
+            transcode_artifact_cleanup_on_startup: false,
+            hls_segment_cleanup_enabled: false,
+            hls_segment_keep_ms: default_hls_segment_keep_ms(),
+            transcode_throttle_enabled: false,
+            transcode_throttle_delay_ms: default_transcode_throttle_delay_ms(),
         }
     }
 }
@@ -706,6 +724,18 @@ const fn default_remote_stage_concurrency() -> usize {
     2
 }
 
+const fn default_transcode_artifact_retention_ms() -> u64 {
+    7 * 24 * 60 * 60 * 1_000
+}
+
+const fn default_hls_segment_keep_ms() -> u64 {
+    60_000
+}
+
+const fn default_transcode_throttle_delay_ms() -> u64 {
+    3_000
+}
+
 const fn default_true() -> bool {
     true
 }
@@ -847,6 +877,12 @@ mod tests {
             [playback]
             remote_stream_concurrency = 7
             remote_stage_concurrency = 2
+            transcode_artifact_retention_ms = 3600000
+            transcode_artifact_cleanup_on_startup = true
+            hls_segment_cleanup_enabled = true
+            hls_segment_keep_ms = 30000
+            transcode_throttle_enabled = true
+            transcode_throttle_delay_ms = 1500
 
             [artwork]
             ingest_worker_enabled = true
@@ -958,6 +994,12 @@ mod tests {
         assert!(!config.staging.cleanup_on_startup);
         assert_eq!(config.playback.remote_stream_concurrency, 7);
         assert_eq!(config.playback.remote_stage_concurrency, 2);
+        assert_eq!(config.playback.transcode_artifact_retention_ms, 3_600_000);
+        assert!(config.playback.transcode_artifact_cleanup_on_startup);
+        assert!(config.playback.hls_segment_cleanup_enabled);
+        assert_eq!(config.playback.hls_segment_keep_ms, 30_000);
+        assert!(config.playback.transcode_throttle_enabled);
+        assert_eq!(config.playback.transcode_throttle_delay_ms, 1_500);
         assert!(config.artwork.ingest_worker_enabled);
         assert_eq!(config.artwork.ingest_worker_idle_ms, 250);
         assert_eq!(config.metadata.runtime.timeout_ms, 7_000);

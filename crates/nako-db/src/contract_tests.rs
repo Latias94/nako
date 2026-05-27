@@ -10,27 +10,28 @@ use nako_core::{
     AddonSideEffectApplyStatus, AddonSideEffectId, AddonSideEffectRequestFingerprint,
     AddonSideEffectTarget, AddonSideEffectValidationStatus, AddonStatus, AddonTaskRunListFilter,
     AddonTaskRunRepository, AddonTaskRunRequestFingerprint, AddonTokenId,
-    AdminMetadataRawCacheSettings, AdminMetadataRawCacheSettingsRecord, AdminSettingsEffect,
-    AdminSettingsRepository, AdminSettingsSource, ArtworkCandidateId, ArtworkCandidateRecord,
-    ArtworkCandidateRepository, ArtworkCandidateSourceKind, ArtworkCandidateStatus, ArtworkTask,
-    ArtworkTaskId, ArtworkTaskKind, ArtworkTaskRepository, AutomationArtifactKind,
-    AutomationArtifactStatus, AutomationCapability, AutomationProviderStatus, AutomationRepository,
-    CancelLeasedJob, CanonicalMetadata, CatalogGovernanceItemListFilter,
-    CatalogGovernanceRepository, CatalogItemGraphReplacement, CatalogItemProjectionCommit,
-    CatalogRepository, CatalogSearchProjection, ClaimAddonEventDeliveryAttempt, Collection,
-    CollectionId, CollectionItem, CompleteLeasedJob, CreditRole, DatabaseLifecycle,
-    DirectorySnapshot, DomainEventKind, DomainEventSubject, EventOutboxRepository, ExternalId,
-    ExternalProvider, FailLeasedJob, Genre, GenreId, IdentityAccessRepository, ImageAsset,
-    ImageAssetId, ImageKind, ImageOwner, IngestionFailureClass, IngestionFailureFilter,
-    IngestionFailurePhase, IngestionFailureRepository, IngestionFailureResolution,
-    IngestionFailureStatus, ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind,
-    JobLeaseClaimFilter, JobLeaseClaimRequest, JobLeaseGuard, JobLeaseHeartbeat,
-    JobLeaseRepository, JobListFilter, JobRepository, JobRunToken, JobStatus, JobWorkerId, Library,
-    LibraryAccessLevel, LibraryAccessPolicy, LibraryAccessPolicyFilter, LibraryAccessPolicyScope,
-    LibraryId, LibraryItemRepository, LibraryItemState, LibraryOptions, LibraryPreset,
-    LibraryRepository, LibraryScanSourcePersistenceCommit, LocalCredentialRecord,
-    LocalInferenceEvidence, LocalInferenceEvidenceId, LocalInferenceEvidenceSource,
-    LocalInferenceRepository, ManagedArtworkAcceptanceRecord, ManagedArtworkArtifactId,
+    AdminMetadataRawCacheSettings, AdminMetadataRawCacheSettingsRecord, AdminSettingsDocumentKey,
+    AdminSettingsDocumentRecord, AdminSettingsEffect, AdminSettingsRepository, AdminSettingsSource,
+    ArtworkCandidateId, ArtworkCandidateRecord, ArtworkCandidateRepository,
+    ArtworkCandidateSourceKind, ArtworkCandidateStatus, ArtworkTask, ArtworkTaskId,
+    ArtworkTaskKind, ArtworkTaskRepository, AutomationArtifactKind, AutomationArtifactStatus,
+    AutomationCapability, AutomationProviderStatus, AutomationRepository, CancelLeasedJob,
+    CanonicalMetadata, CatalogGovernanceItemListFilter, CatalogGovernanceRepository,
+    CatalogItemGraphReplacement, CatalogItemProjectionCommit, CatalogRepository,
+    CatalogSearchProjection, ClaimAddonEventDeliveryAttempt, Collection, CollectionId,
+    CollectionItem, CompleteLeasedJob, CreditRole, DatabaseLifecycle, DirectorySnapshot,
+    DomainEventKind, DomainEventSubject, EventOutboxRepository, ExternalId, ExternalProvider,
+    FailLeasedJob, Genre, GenreId, IdentityAccessRepository, ImageAsset, ImageAssetId, ImageKind,
+    ImageOwner, IngestionFailureClass, IngestionFailureFilter, IngestionFailurePhase,
+    IngestionFailureRepository, IngestionFailureResolution, IngestionFailureStatus, ItemCredit,
+    ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind, JobLeaseClaimFilter, JobLeaseClaimRequest,
+    JobLeaseGuard, JobLeaseHeartbeat, JobLeaseRepository, JobListFilter, JobRepository,
+    JobRunToken, JobStatus, JobWorkerId, Library, LibraryAccessLevel, LibraryAccessPolicy,
+    LibraryAccessPolicyFilter, LibraryAccessPolicyScope, LibraryId, LibraryItemRepository,
+    LibraryItemState, LibraryOptions, LibraryPreset, LibraryRepository,
+    LibraryScanSourcePersistenceCommit, LocalCredentialRecord, LocalInferenceEvidence,
+    LocalInferenceEvidenceId, LocalInferenceEvidenceSource, LocalInferenceRepository,
+    ManagedArtworkAcceptanceRecord, ManagedArtworkArtifactId,
     ManagedArtworkArtifactLifecycleFilter, ManagedArtworkIngestId, ManagedArtworkIngestStatus,
     ManagedArtworkRepository, ManagedImportArtifactId, ManagedImportArtifactListFilter,
     ManagedImportArtifactState, ManagedImportPromotionApplyId, ManagedImportPromotionApplyState,
@@ -6013,6 +6014,38 @@ where
             .unwrap(),
         replacement
     );
+
+    assert!(
+        store
+            .get_admin_settings_document(AdminSettingsDocumentKey::PlaybackRuntime)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    let document = AdminSettingsDocumentRecord {
+        key: AdminSettingsDocumentKey::PlaybackRuntime,
+        payload_json: r#"{"cpu_concurrency":2}"#.to_owned(),
+        source: AdminSettingsSource::Admin,
+        effect: AdminSettingsEffect::RequiresRestart,
+        updated_at_ms: 3_000,
+    };
+    store
+        .upsert_admin_settings_document(document.clone())
+        .await
+        .unwrap();
+    let stored_document = store
+        .get_admin_settings_document(AdminSettingsDocumentKey::PlaybackRuntime)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(stored_document.key, document.key);
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&stored_document.payload_json).unwrap(),
+        serde_json::from_str::<serde_json::Value>(&document.payload_json).unwrap()
+    );
+    assert_eq!(stored_document.source, document.source);
+    assert_eq!(stored_document.effect, document.effect);
+    assert_eq!(stored_document.updated_at_ms, document.updated_at_ms);
 }
 
 async fn identity_access_user_roles_and_library_policies_contract<S>(store: S)

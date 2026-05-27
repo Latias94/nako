@@ -571,6 +571,7 @@ async fn remote_direct_stream_permit_lives_until_response_body_is_dropped() {
         playback: PlaybackConfig {
             remote_stream_concurrency: 1,
             remote_stage_concurrency: 1,
+            ..PlaybackConfig::default()
         },
         artwork: crate::config::ArtworkConfig::default(),
         libraries: vec![LocalLibraryConfig {

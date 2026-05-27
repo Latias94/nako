@@ -146,3 +146,22 @@ python -m json.tool docs/workstreams/playback-transcode-policy-deepening/WORKSTR
     0 skipped.
   - `cargo nextest run -p nako-server -E 'test(playback) | test(admin_v1_playback_runtime)' --no-fail-fast`
     passed: 66 passed, 282 skipped.
+- 2026-05-27: PTP-070 added persisted Admin playback runtime settings and
+  lifecycle diagnostics. Playback runtime settings now round-trip through a
+  generic Admin settings document, apply on startup when persisted, and report
+  `active` versus `requires_restart`. Admin runtime diagnostics now include
+  artifact lifecycle and throttle policy evidence. Startup cleanup can remove
+  expired terminal remux/HLS artifacts under the configured transcode root and
+  counts security skips for paths outside that root. The generated Admin
+  TypeScript contract was refreshed.
+  Verified:
+  - `cargo nextest run -p nako-server -E "test(admin_v1_playback_runtime) | test(app_startup_cleans_expired_playback_artifacts_inside_transcode_root)" --no-fail-fast`
+    passed: 5 passed, 346 skipped.
+  - `cargo nextest run -p nako-api -E "test(admin_contract) | test(admin_playback_runtime_diagnostics_serializes_safe_summary_fields)" --no-fail-fast`
+    passed: 6 passed, 53 skipped.
+  - `cargo nextest run -p nako-db --no-fail-fast` passed: 112 passed, 39
+    skipped.
+  - `cargo fmt --all -- --check` passed.
+  - `python -m json.tool docs/workstreams/playback-transcode-policy-deepening/WORKSTREAM.json`
+    passed.
+  - `git diff --check` passed with Git line-ending warnings only.

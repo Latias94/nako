@@ -56,6 +56,10 @@ Exit criteria:
   explicit and testable.
 - Public Client contracts remain safe and separate from Admin diagnostics.
 
+Status: Complete via PTP-070. Playback runtime settings are persisted and
+applied on startup; Admin diagnostics expose artifact lifecycle/throttle
+evidence; startup artifact cleanup is rooted and covered by tests.
+
 ## M6 - Closeout
 
 Exit criteria:
@@ -63,4 +67,3 @@ Exit criteria:
 - Route compatibility and browser playback tickets are preserved.
 - Evidence is fresh and recorded.
 - Remaining breadth is split into named follow-on lanes.
-

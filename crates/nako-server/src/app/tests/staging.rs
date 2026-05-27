@@ -393,6 +393,7 @@ async fn direct_play_holds_remote_stream_budget_until_body_is_dropped() {
             playback: PlaybackConfig {
                 remote_stream_concurrency: 1,
                 remote_stage_concurrency: 1,
+                ..PlaybackConfig::default()
             },
             artwork: crate::config::ArtworkConfig::default(),
             libraries: vec![LocalLibraryConfig {
