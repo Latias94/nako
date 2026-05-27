@@ -208,6 +208,37 @@ where
             .await
     }
 
+    pub(crate) async fn get_controllable_renderer(
+        &self,
+        principal_id: &UserPrincipalId,
+        renderer_session_id: RendererSessionId,
+    ) -> Result<RendererSessionRecord> {
+        self.require_online_renderer_owned_by(principal_id, renderer_session_id)
+            .await
+    }
+
+    pub(crate) async fn attach_playback_session(
+        &self,
+        principal_id: &UserPrincipalId,
+        renderer_session_id: RendererSessionId,
+        playback_session_id: PlaybackSessionId,
+    ) -> Result<RendererSessionRecord> {
+        self.require_online_renderer_owned_by(principal_id, renderer_session_id)
+            .await?;
+
+        self.store
+            .attach_renderer_playback_session(
+                renderer_session_id,
+                Some(playback_session_id),
+                current_time_ms()?,
+            )
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "renderer_session",
+                id: renderer_session_id.to_string(),
+            })
+    }
+
     pub(crate) async fn queue_renderer_command(
         &self,
         request: QueueRendererCommandRequest,

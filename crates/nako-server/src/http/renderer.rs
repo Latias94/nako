@@ -9,21 +9,24 @@ use nako_api::public_client::{
     ClientPlaybackTargetTransportAuth, ClientRendererCommandState,
     ClientRendererControlCapabilitiesDto, ClientRendererControlCommand, ClientRendererSessionState,
     RendererCommandCompletionRequest, RendererCommandPollResponse, RendererHeartbeatRequest,
-    RendererRegistrationRequest, RendererSessionResponse, RendererSessionsResponse,
-    page_info_from_request, renderer_command_poll_response_from_record,
-    renderer_command_response_from_record, renderer_session_response_from_record,
+    RendererPlayCommandRequest, RendererPlayCommandResponse, RendererRegistrationRequest,
+    RendererSessionResponse, RendererSessionsResponse, page_info_from_request,
+    renderer_command_poll_response_from_record, renderer_command_response_from_record,
+    renderer_play_command_response_from_records, renderer_session_response_from_record,
     renderer_session_to_dto,
 };
 use nako_core::{
-    AuthenticatedPrincipal, NakoError, PlaybackTargetKind, PlaybackTargetNetworkScope,
-    PlaybackTargetTransportAuth, RendererCommandId, RendererCommandState,
-    RendererControlCapabilities, RendererControlCommand, RendererSessionId, RendererSessionState,
+    AuthenticatedPrincipal, MediaSourceId, NakoError, PlaybackTargetKind,
+    PlaybackTargetNetworkScope, PlaybackTargetTransportAuth, RendererCommandId,
+    RendererCommandState, RendererControlCapabilities, RendererControlCommand, RendererSessionId,
+    RendererSessionState,
 };
 use nako_playback::ClientPlaybackCapabilities;
 use tracing::instrument;
 
 use crate::app::{
     NakoApp,
+    casting::PlayOnRendererRequest as AppPlayOnRendererRequest,
     renderer::{
         CompleteRendererCommandRequest as AppCompleteRendererCommandRequest,
         RegisterRendererRequest as AppRegisterRendererRequest,
@@ -31,7 +34,11 @@ use crate::app::{
     },
 };
 
-use super::{error::ApiResult, query::PageQuery};
+use super::{
+    access::{RequiredLibraryAccess, require_source_access},
+    error::ApiResult,
+    query::PageQuery,
+};
 
 pub(super) fn routes() -> Router<NakoApp> {
     Router::new()
@@ -43,6 +50,10 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/renderers/{renderer_session_id}/commands/next",
             post(poll_next_renderer_command),
+        )
+        .route(
+            "/renderers/{renderer_session_id}/commands/play",
+            post(play_on_renderer),
         )
         .route(
             "/renderers/{renderer_session_id}/commands/{command_id}/complete",
@@ -134,6 +145,32 @@ async fn poll_next_renderer_command(
 }
 
 #[instrument(skip(app, principal, request))]
+async fn play_on_renderer(
+    State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
+    Path(renderer_session_id): Path<RendererSessionId>,
+    Json(request): Json<RendererPlayCommandRequest>,
+) -> ApiResult<Json<RendererPlayCommandResponse>> {
+    let source_id = parse_media_source_id(&request.source_id)?;
+    require_source_access(&app, &principal, source_id, RequiredLibraryAccess::Play).await?;
+
+    let output = app
+        .casting()
+        .play_on_renderer(AppPlayOnRendererRequest {
+            principal,
+            renderer_session_id,
+            source_id,
+            position_ms: request.position_ms,
+        })
+        .await?;
+
+    Ok(Json(renderer_play_command_response_from_records(
+        output.command,
+        output.session,
+    )))
+}
+
+#[instrument(skip(app, principal, request))]
 async fn complete_renderer_command(
     State(app): State<NakoApp>,
     Extension(principal): Extension<AuthenticatedPrincipal>,
@@ -163,6 +200,14 @@ fn client_playback_capabilities(
         video_codecs: capabilities.video_codecs,
         audio_codecs: capabilities.audio_codecs,
     }
+}
+
+fn parse_media_source_id(value: &str) -> Result<MediaSourceId, NakoError> {
+    value
+        .parse::<MediaSourceId>()
+        .map_err(|err| NakoError::InvalidInput {
+            message: format!("invalid source_id: {err}"),
+        })
 }
 
 fn playback_target_kind_from_client(

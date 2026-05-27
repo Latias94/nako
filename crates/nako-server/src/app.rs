@@ -26,6 +26,7 @@ pub(crate) mod acquisition_intake;
 mod addons;
 mod artwork;
 mod automation;
+pub(crate) mod casting;
 mod catalog;
 mod composition;
 mod job_runtime;
@@ -56,6 +57,7 @@ pub(crate) use addons::set_test_outbound_task_dispatch_secret;
 use artwork::ManagedArtworkAppService;
 pub(crate) use artwork::{ImageVariantRequest, ManagedArtworkImageBytes};
 use automation::AutomationAppService;
+use casting::CastingAppService;
 use catalog::CatalogAppService;
 use composition::{NakoAppComposition, NakoAppServices};
 use jobs::{JobAppService, LibraryScanAppService};
@@ -185,6 +187,11 @@ impl NakoApp {
     #[must_use]
     pub(crate) fn catalog(&self) -> CatalogAppService {
         self.services().catalog.clone()
+    }
+
+    #[must_use]
+    pub(crate) fn casting(&self) -> CastingAppService {
+        self.services().casting.clone()
     }
 
     #[must_use]

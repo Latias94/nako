@@ -408,6 +408,19 @@ fn public_paths() -> Value {
         }),
     );
     paths.insert(
+        "/renderers/{renderer_session_id}/commands/play".to_owned(),
+        json!({
+            "post": json_post_with_body(
+                "playOnRenderer",
+                "Create a policy-checked playback session and queue a play command for a renderer.",
+                "renderer",
+                vec![path_parameter("renderer_session_id", "Renderer session id.")],
+                schema_ref("RendererPlayCommandRequest"),
+                schema_ref("RendererPlayCommandResponse")
+            )
+        }),
+    );
+    paths.insert(
         "/renderers/{renderer_session_id}/commands/{command_id}/complete".to_owned(),
         json!({
             "post": json_post_with_body(
@@ -1326,6 +1339,14 @@ fn schemas() -> Value {
             "state": schema_ref("ClientRendererCommandState"),
             "failure_message": nullable_string_schema()
         })),
+        "RendererPlayCommandRequest": object_schema(&["source_id"], json!({
+            "source_id": uuid_schema(),
+            "position_ms": json!({"type": "integer", "format": "int64", "nullable": true})
+        })),
+        "RendererPlayCommandResponse": object_schema(&["command", "session"], json!({
+            "command": schema_ref("RendererCommandDto"),
+            "session": schema_ref("PlaybackSessionDto")
+        })),
         "TranscodeSessionDto": object_schema(&["id", "source_id", "kind", "request_key", "state", "failure_category", "failure_message", "created_at", "updated_at", "started_at", "completed_at"], json!({
             "id": uuid_schema(),
             "source_id": uuid_schema(),
@@ -1832,6 +1853,7 @@ mod tests {
         assert!(schemas.contains_key("RendererRegistrationRequest"));
         assert!(schemas.contains_key("RendererSessionDto"));
         assert!(schemas.contains_key("RendererCommandDto"));
+        assert!(schemas.contains_key("RendererPlayCommandRequest"));
         assert_eq!(
             document["paths"]["/renderers"]["post"]["requestBody"]["content"]["application/json"]["schema"]
                 ["$ref"],
@@ -1841,6 +1863,11 @@ mod tests {
             document["paths"]["/renderers/{renderer_session_id}/commands/next"]["post"]["responses"]
                 ["200"]["content"]["application/json"]["schema"]["$ref"],
             "#/components/schemas/RendererCommandPollResponse"
+        );
+        assert_eq!(
+            document["paths"]["/renderers/{renderer_session_id}/commands/play"]["post"]["responses"]
+                ["200"]["content"]["application/json"]["schema"]["$ref"],
+            "#/components/schemas/RendererPlayCommandResponse"
         );
         assert_eq!(
             document["components"]["schemas"]["RendererSessionDto"]["properties"]["control_capabilities"]
@@ -1857,6 +1884,7 @@ mod tests {
                 "/renderers": document["paths"]["/renderers"].clone(),
                 "/renderers/{renderer_session_id}/heartbeat": document["paths"]["/renderers/{renderer_session_id}/heartbeat"].clone(),
                 "/renderers/{renderer_session_id}/commands/next": document["paths"]["/renderers/{renderer_session_id}/commands/next"].clone(),
+                "/renderers/{renderer_session_id}/commands/play": document["paths"]["/renderers/{renderer_session_id}/commands/play"].clone(),
                 "/renderers/{renderer_session_id}/commands/{command_id}/complete": document["paths"]["/renderers/{renderer_session_id}/commands/{command_id}/complete"].clone()
             },
             "schemas": {
@@ -1864,7 +1892,9 @@ mod tests {
                 "RendererHeartbeatRequest": document["components"]["schemas"]["RendererHeartbeatRequest"].clone(),
                 "RendererSessionDto": document["components"]["schemas"]["RendererSessionDto"].clone(),
                 "RendererCommandDto": document["components"]["schemas"]["RendererCommandDto"].clone(),
-                "RendererCommandCompletionRequest": document["components"]["schemas"]["RendererCommandCompletionRequest"].clone()
+                "RendererCommandCompletionRequest": document["components"]["schemas"]["RendererCommandCompletionRequest"].clone(),
+                "RendererPlayCommandRequest": document["components"]["schemas"]["RendererPlayCommandRequest"].clone(),
+                "RendererPlayCommandResponse": document["components"]["schemas"]["RendererPlayCommandResponse"].clone()
             }
         })
         .to_string()

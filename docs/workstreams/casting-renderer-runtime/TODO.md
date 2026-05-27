@@ -69,14 +69,22 @@ Last updated: 2026-05-27
 
 ## M4 - Cast Play Command Flow
 
-- [ ] CAST-050 [owner=codex] [deps=CAST-040] [scope=crates/nako-server/src/app/playback,crates/nako-server/src/app,crates/nako-server/src/http]
+- [x] CAST-050 [owner=codex] [deps=CAST-040] [scope=crates/nako-server/src/app/playback,crates/nako-server/src/app,crates/nako-server/src/http]
   Goal: Allow an authorized controlling user to send a play command to a Nako
   renderer target and create the correct Playback Session through the existing
   policy-aware playback app service.
   Validation: `cargo nextest run -p nako-server -E 'test(playback) | test(renderer)' --no-fail-fast`.
   Review: Denied policy/control must not create Playback Sessions, Transcode
   Sessions, or tickets.
-  Evidence: Integration tests for allow/deny play command behavior.
+  Evidence: Added `CastingAppService` for controller-to-renderer play command
+  orchestration, a playback app method that plans against the renderer's
+  registered capabilities and enforces `remote_control`/cast/playback policy,
+  and `POST /renderers/{renderer_session_id}/commands/play`. The allowed path
+  creates a direct-play Playback Session, queues a play command with the
+  Playback Session id, and attaches it to the Renderer Session. The denied path
+  proves no Playback Session, Transcode Session, ticket, or renderer command is
+  created. Gate passed: server playback/renderer 81 passed/282 skipped; Public
+  Client protocol 11 passed; API admin/openapi/sdk 21 passed/39 skipped.
   Handoff: CAST-060 can add diagnostics and split external protocol adapters.
 
 ## M5 - Diagnostics And External Adapter Follow-Ons

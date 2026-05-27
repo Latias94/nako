@@ -51,6 +51,7 @@ public val NAKO_PUBLIC_PATHS: List<String> = listOf(
     "/renderers",
     "/renderers/{renderer_session_id}/heartbeat",
     "/renderers/{renderer_session_id}/commands/next",
+    "/renderers/{renderer_session_id}/commands/play",
     "/renderers/{renderer_session_id}/commands/{command_id}/complete",
     "/users/me/playback-state/items/{item_id}",
     "/users/me/playback-state/continue-watching",
@@ -398,6 +399,12 @@ public object NakoPublicClientRequests {
         NakoRequestDescriptor(
             method = "POST",
             pathAndQuery = "/renderers/${encodePathSegment(rendererSessionId)}/commands/next",
+        )
+
+    public fun playOnRenderer(rendererSessionId: String): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "POST",
+            pathAndQuery = "/renderers/${encodePathSegment(rendererSessionId)}/commands/play",
         )
 
     public fun completeRendererCommand(
@@ -2017,6 +2024,20 @@ public data class RendererHeartbeatRequest(
     public val state: ClientRendererSessionState,
     @SerialName("ttl_ms")
     public val ttlMs: Long? = null,
+)
+
+@Serializable
+public data class RendererPlayCommandRequest(
+    @SerialName("position_ms")
+    public val positionMs: Long? = null,
+    @SerialName("source_id")
+    public val sourceId: String,
+)
+
+@Serializable
+public data class RendererPlayCommandResponse(
+    public val command: RendererCommandDto,
+    public val session: PlaybackSessionDto,
 )
 
 @Serializable

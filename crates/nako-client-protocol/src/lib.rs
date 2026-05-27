@@ -265,6 +265,12 @@ pub const PUBLIC_CLIENT_ROUTES: &[PublicClientRoute] = &[
         rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
     },
     PublicClientRoute {
+        path: "/renderers/{renderer_session_id}/commands/play",
+        methods: &[PublicClientHttpMethod::Post],
+        kind: PublicClientRouteKind::Renderer,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
         path: "/renderers/{renderer_session_id}/commands/{command_id}/complete",
         methods: &[PublicClientHttpMethod::Post],
         kind: PublicClientRouteKind::Renderer,
@@ -510,7 +516,7 @@ mod tests {
     fn public_route_inventory_is_protocol_owned_and_complete() {
         let paths = public_client_paths().collect::<Vec<_>>();
 
-        assert_eq!(paths.len(), 40);
+        assert_eq!(paths.len(), 41);
         assert!(paths.contains(&"/health"));
         assert!(paths.contains(&"/auth/login"));
         assert!(paths.contains(&"/auth/invitations/redeem"));
@@ -525,6 +531,7 @@ mod tests {
         assert!(paths.contains(&"/renderers"));
         assert!(paths.contains(&"/renderers/{renderer_session_id}/heartbeat"));
         assert!(paths.contains(&"/renderers/{renderer_session_id}/commands/next"));
+        assert!(paths.contains(&"/renderers/{renderer_session_id}/commands/play"));
         assert!(paths.contains(&"/renderers/{renderer_session_id}/commands/{command_id}/complete"));
         assert!(paths.contains(&"/users/me/playback-state/items/{item_id}"));
         assert!(paths.contains(&"/users/me/playback-state/continue-watching"));
@@ -569,7 +576,7 @@ mod tests {
 
         let json_count = public_client_json_routes().count();
         let streaming_count = public_client_streaming_routes().count();
-        assert_eq!(json_count, 35);
+        assert_eq!(json_count, 36);
         assert_eq!(streaming_count, 5);
         assert_eq!(json_count + streaming_count, PUBLIC_CLIENT_ROUTES.len());
         let remux_stream = PUBLIC_CLIENT_ROUTES
@@ -596,6 +603,7 @@ mod tests {
         assert!(paths.contains(&"/renderers"));
         assert!(paths.contains(&"/renderers/{renderer_session_id}/heartbeat"));
         assert!(paths.contains(&"/renderers/{renderer_session_id}/commands/next"));
+        assert!(paths.contains(&"/renderers/{renderer_session_id}/commands/play"));
         assert!(paths.iter().all(|path| !path.contains("cast")));
         assert!(
             PUBLIC_CLIENT_ROUTES

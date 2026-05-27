@@ -48,11 +48,12 @@ pub use nako_client_protocol::{
     PersonResponse, PlaybackDecisionResponse, PlaybackSessionDto, PlaybackSessionHeartbeatRequest,
     PlaybackSessionResponse, PublicImageRefDto, RedeemInvitationRequest,
     RendererCommandCompletionRequest, RendererCommandDto, RendererCommandPollResponse,
-    RendererCommandResponse, RendererHeartbeatRequest, RendererRegistrationRequest,
-    RendererSessionDto, RendererSessionResponse, RendererSessionsResponse, SearchItemHit,
-    SearchResponse, SetWatchedStateRequest, SourceProbeResponse, StudioRefDto, TagDto,
-    TagItemsResponse, TagsResponse, TranscodeSessionDto, TranscodeSessionResponse,
-    UpdatePlaybackProgressRequest, UserPlaybackStateDto, UserPlaybackStateResponse, UserSessionDto,
+    RendererCommandResponse, RendererHeartbeatRequest, RendererPlayCommandRequest,
+    RendererPlayCommandResponse, RendererRegistrationRequest, RendererSessionDto,
+    RendererSessionResponse, RendererSessionsResponse, SearchItemHit, SearchResponse,
+    SetWatchedStateRequest, SourceProbeResponse, StudioRefDto, TagDto, TagItemsResponse,
+    TagsResponse, TranscodeSessionDto, TranscodeSessionResponse, UpdatePlaybackProgressRequest,
+    UserPlaybackStateDto, UserPlaybackStateResponse, UserSessionDto,
 };
 
 #[must_use]
@@ -361,6 +362,17 @@ pub fn renderer_command_response_from_record(
 ) -> RendererCommandResponse {
     RendererCommandResponse {
         command: renderer_command_to_dto(command),
+    }
+}
+
+#[must_use]
+pub fn renderer_play_command_response_from_records(
+    command: RendererCommandRecord,
+    session: PlaybackSessionRecord,
+) -> RendererPlayCommandResponse {
+    RendererPlayCommandResponse {
+        command: renderer_command_to_dto(command),
+        session: playback_session_to_dto(session),
     }
 }
 

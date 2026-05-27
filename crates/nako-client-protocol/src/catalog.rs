@@ -690,6 +690,19 @@ pub struct RendererCommandCompletionRequest {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct RendererPlayCommandRequest {
+    pub source_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub position_ms: Option<u64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct RendererPlayCommandResponse {
+    pub command: RendererCommandDto,
+    pub session: PlaybackSessionDto,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct TranscodeSessionResponse {
     pub session: TranscodeSessionDto,
 }

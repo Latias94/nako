@@ -27,13 +27,22 @@ keeps owner checks, TTL expiry, target validation, capability normalization,
 and command lifecycle rules out of HTTP handlers. Public OpenAPI and generated
 TypeScript/Kotlin SDK outputs were refreshed with the renderer surface.
 
+CAST-050 is complete. Public Client now has
+`POST /renderers/{renderer_session_id}/commands/play`. `CastingAppService`
+orchestrates Renderer Session checks and Playback App Service policy/session
+creation. The play path creates only direct-play Playback Sessions for now,
+queues a renderer `play` command, and attaches the session to the renderer. If
+remote control/cast/playback policy denies the action, tests prove no Playback
+Session, Transcode Session, ticket, or Renderer Command is created.
+
 ## Active Task
 
-- Task ID: CAST-050
+- Task ID: CAST-060
 - Owner: codex
-- Files: `crates/nako-server/src/app/playback`, `crates/nako-server/src/app`,
-  `crates/nako-server/src/http`
-- Validation: `cargo nextest run -p nako-server -E 'test(playback) | test(renderer)' --no-fail-fast`
+- Files: `crates/nako-api/src`, `crates/nako-server/src/http/admin.rs`,
+  `docs/workstreams/casting-renderer-runtime`
+- Validation: `cargo nextest run -p nako-api -E 'test(admin_contract) | test(public_openapi) | test(sdk)' --no-fail-fast`;
+  `cargo nextest run -p nako-server renderer --no-fail-fast`
 - Status: READY
 - Review: pending
 - Evidence: pending
@@ -52,6 +61,8 @@ TypeScript/Kotlin SDK outputs were refreshed with the renderer surface.
 - CAST-040 kept external cast protocols out of Public Client registration.
   Only Nako remote/native renderer targets using bearer auth can register
   through `/renderers`.
+- CAST-050 kept remux/HLS renderer transport out of the play command path until
+  cast-safe URLs and target-specific adapter contracts are explicit.
 
 ## Blockers
 
@@ -59,7 +70,6 @@ TypeScript/Kotlin SDK outputs were refreshed with the renderer surface.
 
 ## Next Recommended Action
 
-Start CAST-050 by adding an authorized controller route/service method that
-queues a play command for a renderer target through the existing policy-aware
-Playback App Service. Denied policy/control must not create Playback Sessions,
-Transcode Sessions, browser tickets, or renderer commands.
+Start CAST-060 by adding redaction-safe Admin diagnostics for renderer runtime
+state/readiness and splitting external adapter follow-ons for Chromecast, DLNA,
+AirPlay, plus non-direct Nako renderer transport.

@@ -77,6 +77,7 @@ blocking findings, missing gates, and residual risks here or in `HANDOFF.md`.
 - `docs/workstreams/casting-renderer-runtime/DESIGN.md`
 - `docs/workstreams/casting-renderer-runtime/TODO.md`
 - `crates/nako-server/src/app/renderer.rs`
+- `crates/nako-server/src/app/casting.rs`
 - `crates/nako-server/src/http/renderer.rs`
 - `crates/nako-client-protocol/src/catalog.rs`
 - future Admin renderer diagnostics DTOs
@@ -226,6 +227,61 @@ Notes:
 - CAST-050 should add the controller-to-renderer play command flow through the
   existing policy-aware Playback App Service instead of bypassing playback
   policy.
+
+### CAST-050 - Cast Play Command Flow
+
+Changed behavior:
+
+- Added `CastingAppService` as the orchestration boundary for controller
+  commands that need both Renderer Session state and Playback App Service
+  policy/session behavior.
+- Added `PlaybackAppService::start_renderer_playback_session`, which plans
+  against the renderer's registered target/media capabilities and enforces
+  `remote_control`, cast, remote playback, and direct-play policy before any
+  Playback Session is created.
+- Added Public Client route
+  `POST /renderers/{renderer_session_id}/commands/play`.
+- The allowed path creates a direct-play Playback Session, queues a
+  `play` Renderer Command with `source_id`, `item_id`, `playback_session_id`,
+  and optional `position_ms`, then attaches the Playback Session to the
+  Renderer Session.
+- The denied path proves playback policy/control denial creates no Playback
+  Session, Transcode Session, browser ticket, cast ticket, or Renderer Command.
+
+Boundary decision:
+
+- CAST-050 intentionally accepts only direct-play renderer command starts.
+  If the renderer's capabilities require remux or HLS, Nako returns
+  `Unsupported` instead of creating a placeholder Playback Session without the
+  corresponding transport. Remux/HLS renderer transport should be designed with
+  cast-safe URLs and target-specific adapter behavior in CAST-060 follow-ons.
+
+Validation:
+
+```bash
+cargo nextest run -p nako-server renderer --no-fail-fast
+cargo nextest run -p nako-server -E 'test(playback) | test(renderer)' --no-fail-fast
+cargo nextest run -p nako-client-protocol public --no-fail-fast
+cargo nextest run -p nako-api -E 'test(admin_contract) | test(public_openapi) | test(sdk)' --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
+```
+
+Result:
+
+- `nako-server renderer`: 5 passed, 358 skipped.
+- `nako-server playback/renderer`: 81 passed, 282 skipped.
+- `nako-client-protocol public`: 11 passed.
+- `nako-api admin_contract/public_openapi/sdk`: 21 passed, 39 skipped.
+- `cargo fmt --all -- --check`: passed.
+- `git diff --check`: passed.
+
+Notes:
+
+- Nako-to-Nako play control now uses the same effective playback policy seam as
+  normal playback, not a renderer-specific bypass.
+- CAST-060 can add redaction-safe Admin diagnostics and split external
+  Chromecast, DLNA, AirPlay, and non-direct Nako renderer transport work.
 
 ## Notes
 

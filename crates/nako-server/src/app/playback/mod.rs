@@ -13,8 +13,9 @@ use nako_core::{
     TranscodeSessionRepository, TranscodeSessionState, UserId, UserPrincipalId,
 };
 use nako_playback::{
-    ClientPlaybackCapabilities, EffectivePlaybackPolicy, PlaybackDecision, PlaybackPlanner,
-    PlaybackPlanningRequest, PlaybackProfile, PlaybackSelectionContext, PlaybackTarget,
+    ClientPlaybackCapabilities, EffectivePlaybackPolicy, PlaybackDecision, PlaybackMode,
+    PlaybackPlanner, PlaybackPlanningRequest, PlaybackProfile, PlaybackSelectionContext,
+    PlaybackTarget,
 };
 use nako_streaming::{DirectPlayRangeRequest, DirectPlayResponsePlan};
 use nako_transcode::{
@@ -465,6 +466,18 @@ pub(crate) struct StartPlaybackSessionRequest {
 }
 
 #[derive(Clone, Debug)]
+pub(crate) struct StartRendererPlaybackSessionRequest {
+    pub principal: AuthenticatedPrincipal,
+    pub source_id: MediaSourceId,
+    pub target: PlaybackTarget,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct StartRendererPlaybackSessionOutput {
+    pub session: PlaybackSessionRecord,
+}
+
+#[derive(Clone, Debug)]
 pub(crate) struct BrowserPlaybackTicketValidationRequest {
     pub principal: AuthenticatedPrincipal,
     pub source_id: MediaSourceId,
@@ -647,6 +660,51 @@ impl PlaybackAppService {
             },
         )
         .await
+    }
+
+    pub(crate) async fn start_renderer_playback_session(
+        &self,
+        request: StartRendererPlaybackSessionRequest,
+    ) -> Result<StartRendererPlaybackSessionOutput> {
+        let source = self.get_source_or_not_found(request.source_id).await?;
+        let probe =
+            PlaybackRuntimeStore::get_media_probe(self.runtime_store.as_ref(), source.id).await?;
+        let context = self.playback_selection_context_for_source(&source).await?;
+        let effective_policy = self
+            .effective_playback_policy_for_source(&request.principal, &source)
+            .await?;
+        ensure_playback_permission_allowed(&effective_policy, PlaybackPermission::RemoteControl)?;
+
+        let decision = self.planner.plan(PlaybackPlanningRequest {
+            source: &source,
+            probe: probe.as_ref(),
+            target: &request.target,
+            effective_policy: &effective_policy,
+            context,
+        });
+        ensure_playback_decision_allowed(&decision)?;
+
+        let mode = match decision.mode {
+            PlaybackMode::DirectPlay => PlaybackSessionMode::Direct,
+            PlaybackMode::Remux | PlaybackMode::Transcode => {
+                return Err(NakoError::Unsupported(
+                    "renderer play command currently requires a direct-play decision",
+                ));
+            }
+            PlaybackMode::Denied => {
+                return Err(playback_policy_forbidden(&decision));
+            }
+        };
+        let session = self
+            .start_playback_session(StartPlaybackSessionRequest {
+                principal_id: request.principal.principal_id,
+                source_id: request.source_id,
+                mode,
+                client: Some(request.target.media_capabilities.clone()),
+            })
+            .await?;
+
+        Ok(StartRendererPlaybackSessionOutput { session })
     }
 
     pub(crate) async fn get_playback_session(

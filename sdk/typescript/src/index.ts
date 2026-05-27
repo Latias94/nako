@@ -42,6 +42,7 @@ export const NAKO_PUBLIC_PATHS = [
   "/renderers",
   "/renderers/{renderer_session_id}/heartbeat",
   "/renderers/{renderer_session_id}/commands/next",
+  "/renderers/{renderer_session_id}/commands/play",
   "/renderers/{renderer_session_id}/commands/{command_id}/complete",
   "/users/me/playback-state/items/{item_id}",
   "/users/me/playback-state/continue-watching",
@@ -536,6 +537,16 @@ export interface RendererHeartbeatRequest {
   ttl_ms?: number | null;
 }
 
+export interface RendererPlayCommandRequest {
+  position_ms?: number | null;
+  source_id: string;
+}
+
+export interface RendererPlayCommandResponse {
+  command: RendererCommandDto;
+  session: PlaybackSessionDto;
+}
+
 export interface RendererRegistrationRequest {
   control_capabilities: ClientRendererControlCapabilitiesDto;
   display_name: string;
@@ -877,6 +888,10 @@ export class NakoClient {
 
   pollNextRendererCommand(rendererSessionId: string): Promise<RendererCommandPollResponse> {
     return this.requestJson("POST", `/renderers/${encodeURIComponent(rendererSessionId)}/commands/next`);
+  }
+
+  playOnRenderer(rendererSessionId: string, body: RendererPlayCommandRequest): Promise<RendererPlayCommandResponse> {
+    return this.requestJson("POST", `/renderers/${encodeURIComponent(rendererSessionId)}/commands/play`, { body });
   }
 
   completeRendererCommand(rendererSessionId: string, commandId: string, body: RendererCommandCompletionRequest): Promise<RendererCommandResponse> {

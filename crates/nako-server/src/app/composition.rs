@@ -17,6 +17,7 @@ use super::{
     addons::AddonAppService,
     artwork::ManagedArtworkAppService,
     automation::AutomationAppService,
+    casting::CastingAppService,
     catalog::CatalogAppService,
     jobs::{JobAppService, LibraryScanAppService},
     library::LibraryAppService,
@@ -147,6 +148,7 @@ pub(super) struct NakoAppServices {
     pub(super) automation: AutomationAppService,
     pub(super) webhooks: WebhookAppService,
     pub(super) catalog: CatalogAppService,
+    pub(super) casting: CastingAppService,
     pub(super) library: LibraryAppService,
     pub(super) management_context: ManagementContextAppService,
     pub(super) storage: StorageDiagnosticsAppService,
@@ -219,6 +221,7 @@ impl NakoAppServices {
         )?;
         let playback_tickets = BrowserPlaybackTicketService::new();
         let renderer = RendererAppService::new(store.clone());
+        let casting = CastingAppService::new(renderer.clone(), playback.clone());
         let user_playback = UserPlaybackAppService::new(store);
 
         Ok(Self {
@@ -230,6 +233,7 @@ impl NakoAppServices {
             automation,
             webhooks,
             catalog,
+            casting,
             library,
             management_context,
             storage,

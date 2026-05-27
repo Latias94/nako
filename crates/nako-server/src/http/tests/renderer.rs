@@ -3,9 +3,13 @@ use nako_api::public_client::{
     ClientPlaybackTargetTransportAuth, ClientRendererCommandState,
     ClientRendererControlCapabilitiesDto, ClientRendererControlCommand, ClientRendererSessionState,
     ErrorResponse, RendererCommandCompletionRequest, RendererCommandPollResponse,
-    RendererRegistrationRequest, RendererSessionResponse, RendererSessionsResponse,
+    RendererPlayCommandRequest, RendererPlayCommandResponse, RendererRegistrationRequest,
+    RendererSessionResponse, RendererSessionsResponse,
 };
-use nako_core::{RendererControlCommand, RendererSessionId, UserPrincipalId};
+use nako_core::{
+    RendererCommandListFilter, RendererControlCommand, RendererSessionId,
+    RendererSessionRepository, UserPrincipalId,
+};
 
 use crate::app::renderer::QueueRendererCommandRequest;
 
@@ -121,6 +125,133 @@ async fn nako_renderer_registers_heartbeats_lists_and_polls_commands() {
     assert_eq!(
         completed.command.state,
         ClientRendererCommandState::Acknowledged
+    );
+}
+
+#[tokio::test]
+async fn renderer_play_command_creates_playback_session_and_queues_command() {
+    let (_temp, app, source, _store) =
+        app_with_media_source_config("movie.mp4", b"movie bytes", |_| {}).await;
+    let router = build_router(app.clone());
+    let registered: RendererSessionResponse = request_body_json(
+        &router,
+        Method::POST,
+        "/renderers",
+        &renderer_registration_request("Living Room Desktop"),
+    )
+    .await;
+    let renderer_session_id = registered.renderer.id.parse::<RendererSessionId>().unwrap();
+
+    let play: RendererPlayCommandResponse = request_body_json(
+        &router,
+        Method::POST,
+        &format!("/renderers/{renderer_session_id}/commands/play"),
+        &RendererPlayCommandRequest {
+            source_id: source.id.to_string(),
+            position_ms: Some(37_000),
+        },
+    )
+    .await;
+
+    assert_eq!(play.session.source_id, source.id.to_string());
+    assert_eq!(play.session.item_id, source.item_id.to_string());
+    assert_eq!(play.command.command, ClientRendererControlCommand::Play);
+    assert_eq!(play.command.state, ClientRendererCommandState::Queued);
+    assert_eq!(
+        play.command.playback_session_id.as_deref(),
+        Some(play.session.id.as_str())
+    );
+    assert_eq!(play.command.position_ms, Some(37_000));
+
+    let attached = app
+        .renderer()
+        .get_controllable_renderer(&UserPrincipalId::local_admin(), renderer_session_id)
+        .await
+        .unwrap();
+    assert_eq!(
+        attached.active_playback_session_id.map(|id| id.to_string()),
+        Some(play.session.id.clone())
+    );
+
+    let polled: RendererCommandPollResponse = request_json(
+        &router,
+        Method::POST,
+        &format!("/renderers/{renderer_session_id}/commands/next"),
+    )
+    .await;
+    let command = polled.command.expect("play command is queued for renderer");
+    assert_eq!(command.id, play.command.id);
+    assert_eq!(command.state, ClientRendererCommandState::Delivered);
+    assert_eq!(command.playback_session_id, Some(play.session.id));
+}
+
+#[tokio::test]
+async fn renderer_play_command_denied_by_policy_creates_no_runtime_records() {
+    let (_temp, app, source, store) =
+        app_with_media_source_config("movie.mp4", b"movie bytes", |_| {}).await;
+    let principal =
+        local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::Play).await;
+    let router = public_client_router_with_principal(app, principal);
+    let registered: RendererSessionResponse = request_body_json(
+        &router,
+        Method::POST,
+        "/renderers",
+        &renderer_registration_request("Viewer Desktop"),
+    )
+    .await;
+    let renderer_session_id = registered.renderer.id.parse::<RendererSessionId>().unwrap();
+
+    let response = response_body_json(
+        &router,
+        Method::POST,
+        &format!("/renderers/{renderer_session_id}/commands/play"),
+        &RendererPlayCommandRequest {
+            source_id: source.id.to_string(),
+            position_ms: None,
+        },
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    let body: ErrorResponse = body_json(response).await;
+    assert_eq!(body.code, "forbidden");
+    assert!(
+        body.message.contains("remote_control"),
+        "expected remote_control denial, got {}",
+        body.message
+    );
+    assert!(
+        store
+            .list_playback_sessions(
+                PlaybackSessionListFilter::default(),
+                PageRequest::first_page()
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        store
+            .list_renderer_commands(
+                RendererCommandListFilter {
+                    renderer_session_id: Some(renderer_session_id),
+                    state: None,
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        store
+            .list_transcode_sessions(
+                TranscodeSessionListFilter::default(),
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
     );
 }
 
