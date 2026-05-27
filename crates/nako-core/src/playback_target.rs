@@ -68,6 +68,16 @@ impl PlaybackTargetNetworkScope {
             Self::Unknown => "unknown",
         }
     }
+
+    #[must_use]
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "local" => Some(Self::Local),
+            "remote" => Some(Self::Remote),
+            "unknown" => Some(Self::Unknown),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -93,6 +103,17 @@ impl PlaybackTargetTransportAuth {
     #[must_use]
     pub const fn uses_ticket(self) -> bool {
         matches!(self, Self::BrowserTicket | Self::CastTicket)
+    }
+
+    #[must_use]
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "bearer" => Some(Self::Bearer),
+            "browser_ticket" => Some(Self::BrowserTicket),
+            "cast_ticket" => Some(Self::CastTicket),
+            "none" => Some(Self::None),
+            _ => None,
+        }
     }
 }
 
@@ -127,6 +148,20 @@ impl RendererControlCommand {
             Self::Seek => "seek",
             Self::Stop => "stop",
             Self::SetVolume => "set_volume",
+        }
+    }
+
+    #[must_use]
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "show_item" => Some(Self::ShowItem),
+            "play" => Some(Self::Play),
+            "pause" => Some(Self::Pause),
+            "resume" => Some(Self::Resume),
+            "seek" => Some(Self::Seek),
+            "stop" => Some(Self::Stop),
+            "set_volume" => Some(Self::SetVolume),
+            _ => None,
         }
     }
 }

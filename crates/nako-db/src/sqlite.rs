@@ -24,6 +24,7 @@ mod migrations;
 pub(crate) mod nfo_sidecar_apply;
 pub(crate) mod playback;
 pub(crate) mod provider_mapping;
+pub(crate) mod renderer;
 mod runtime;
 pub(crate) mod scan;
 pub(crate) mod search;

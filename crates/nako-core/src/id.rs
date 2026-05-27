@@ -100,6 +100,8 @@ define_id!(ScanSnapshotId);
 define_id!(ArtworkTaskId);
 define_id!(PlaybackSessionId);
 define_id!(PlaybackTargetId);
+define_id!(RendererSessionId);
+define_id!(RendererCommandId);
 define_id!(TranscodeSessionId);
 define_id!(StagingManifestId);
 define_id!(MetadataProviderAttemptId);

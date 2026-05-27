@@ -46,20 +46,25 @@ use nako_core::{
     NewArtworkCandidate, NewAutomationArtifact, NewAutomationProviderConfig, NewIngestionFailure,
     NewJob, NewManagedArtworkArtifact, NewManagedArtworkIngest, NewManagedImportArtifact,
     NewManagedImportPromotionApply, NewMetadataProviderAttempt, NewNfoSidecarApply, NewOutboxEvent,
-    NewPlaybackSession, NewStagingManifestRecord, NewTranscodeSession, NewVfsCacheFailure,
-    NewWebhookDeliveryAttempt, NewWebhookEndpoint, NfoImportPersistenceCommit, NfoSidecarApplyId,
-    NfoSidecarApplyOperationKind, NfoSidecarApplyRepository, NfoSidecarApplyState,
-    OutboxEventListFilter, OutboxEventStatus, PageRequest, Person, PersonId,
-    PlaybackPermissionPolicy, PlaybackPolicy, PlaybackPolicyFilter, PlaybackPolicyRepository,
-    PlaybackPolicyScope, PlaybackSessionHeartbeat, PlaybackSessionId, PlaybackSessionListFilter,
-    PlaybackSessionMode, PlaybackSessionRepository, PlaybackSessionState, ProviderMapping,
-    ProviderMappingId, ProviderMappingRepository, ProviderMappingStatus, ProviderRawResponse,
-    ProviderSubject, ProviderSubjectId, ProviderSubjectKind, RecoverExpiredJobLeases,
-    RequestJobCancellation, RoleAssignment, ScanRepository, ScanSnapshotId, ScanStatus,
-    SourceDuplicateEvidenceKind, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
-    SourceDuplicateRelationshipStatus, SourceDuplicateRepository, SourceState, StagingManifestId,
-    StagingManifestRepository, StagingPurpose, StagingState, Studio, StudioId, Tag, TagId,
-    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter,
+    NewPlaybackSession, NewRendererCommand, NewRendererSession, NewStagingManifestRecord,
+    NewTranscodeSession, NewVfsCacheFailure, NewWebhookDeliveryAttempt, NewWebhookEndpoint,
+    NfoImportPersistenceCommit, NfoSidecarApplyId, NfoSidecarApplyOperationKind,
+    NfoSidecarApplyRepository, NfoSidecarApplyState, OutboxEventListFilter, OutboxEventStatus,
+    PageRequest, Person, PersonId, PlaybackPermissionPolicy, PlaybackPolicy, PlaybackPolicyFilter,
+    PlaybackPolicyRepository, PlaybackPolicyScope, PlaybackSessionHeartbeat, PlaybackSessionId,
+    PlaybackSessionListFilter, PlaybackSessionMode, PlaybackSessionRepository,
+    PlaybackSessionState, PlaybackTargetKind, PlaybackTargetNetworkScope,
+    PlaybackTargetTransportAuth, ProviderMapping, ProviderMappingId, ProviderMappingRepository,
+    ProviderMappingStatus, ProviderRawResponse, ProviderSubject, ProviderSubjectId,
+    ProviderSubjectKind, RecoverExpiredJobLeases, RendererCommandCompletion, RendererCommandId,
+    RendererCommandListFilter, RendererCommandState, RendererControlCapabilities,
+    RendererControlCommand, RendererSessionHeartbeat, RendererSessionId, RendererSessionListFilter,
+    RendererSessionRepository, RendererSessionState, RequestJobCancellation, RoleAssignment,
+    ScanRepository, ScanSnapshotId, ScanStatus, SourceDuplicateEvidenceKind,
+    SourceDuplicateRelationship, SourceDuplicateRelationshipId, SourceDuplicateRelationshipStatus,
+    SourceDuplicateRepository, SourceState, StagingManifestId, StagingManifestRepository,
+    StagingPurpose, StagingState, Studio, StudioId, Tag, TagId, TranscodeFailureCategory,
+    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter,
     TranscodeSessionRepository, TranscodeSessionState, User, UserId, UserInvitationId,
     UserInvitationRecord, UserInvitationStatus, UserPlaybackStateRepository,
     UserPlaybackStateWrite, UserPrincipalId, UserRole, UserSessionId, UserSessionRecord,
@@ -86,6 +91,7 @@ enum ContractFamily {
     ManagedImport,
     NfoSidecarApply,
     PlaybackRuntime,
+    RendererRuntime,
     EventAddonAutomation,
     RuntimePromotion,
     VfsStaging,
@@ -107,6 +113,7 @@ impl ContractFamily {
             Self::ManagedImport => "managed_import",
             Self::NfoSidecarApply => "nfo_sidecar_apply",
             Self::PlaybackRuntime => "playback_runtime",
+            Self::RendererRuntime => "renderer_runtime",
             Self::EventAddonAutomation => "event_addon_automation",
             Self::RuntimePromotion => "runtime_promotion",
             Self::VfsStaging => "vfs_staging",
@@ -302,6 +309,16 @@ impl<T> PlaybackRuntimeContractBackend for T where
         + PlaybackSessionRepository
         + TranscodeSessionRepository
         + UserPlaybackStateRepository
+{
+}
+
+trait RendererRuntimeContractBackend:
+    PlaybackRuntimeContractBackend + RendererSessionRepository
+{
+}
+
+impl<T> RendererRuntimeContractBackend for T where
+    T: PlaybackRuntimeContractBackend + RendererSessionRepository
 {
 }
 
@@ -2816,6 +2833,210 @@ where
             .unwrap()
             .is_none()
     );
+}
+
+async fn renderer_session_and_command_queue_contract<S>(store: S)
+where
+    S: RendererRuntimeContractBackend,
+{
+    let library = seed_contract_library(&store).await;
+    let source = seed_contract_media_item_with_source(
+        &store,
+        library.id,
+        "Renderer Runtime Session",
+        "local:///Contract Movies/Renderer Runtime Session.mkv",
+    )
+    .await;
+    let owner_principal_id = UserPrincipalId::local_admin();
+    let controlling_principal_id = UserPrincipalId::new("contract-controller").unwrap();
+    let now_ms = 1_779_814_400_000;
+    let renderer_session_id = RendererSessionId::new();
+
+    let registered = store
+        .upsert_renderer_session(NewRendererSession {
+            id: renderer_session_id,
+            owner_principal_id: owner_principal_id.clone(),
+            target_kind: PlaybackTargetKind::NakoRemoteClient,
+            display_name: "Contract Desktop".to_owned(),
+            network_scope: PlaybackTargetNetworkScope::Local,
+            transport_auth: PlaybackTargetTransportAuth::Bearer,
+            media_capabilities_json: Some(
+                r#"{"containers":["mp4"],"video_codecs":["h264"]}"#.to_owned(),
+            ),
+            control_capabilities: RendererControlCapabilities::basic_playback(),
+            state: RendererSessionState::Online,
+            last_seen_at_ms: now_ms,
+            expires_at_ms: Some(now_ms + 60_000),
+            created_at_ms: now_ms,
+            updated_at_ms: now_ms,
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(registered.id, renderer_session_id);
+    assert_eq!(registered.owner_principal_id, owner_principal_id);
+    assert_eq!(registered.target_kind, PlaybackTargetKind::NakoRemoteClient);
+    assert_eq!(registered.state, RendererSessionState::Online);
+    assert_eq!(registered.active_playback_session_id, None);
+    assert!(
+        registered
+            .control_capabilities
+            .supports(RendererControlCommand::Play)
+    );
+
+    let refreshed = store
+        .record_renderer_session_heartbeat(RendererSessionHeartbeat {
+            id: renderer_session_id,
+            state: RendererSessionState::Online,
+            last_seen_at_ms: now_ms + 1_000,
+            expires_at_ms: Some(now_ms + 61_000),
+        })
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(refreshed.last_seen_at_ms, now_ms + 1_000);
+
+    let listed = store
+        .list_renderer_sessions(
+            RendererSessionListFilter {
+                owner_principal_id: Some(owner_principal_id.clone()),
+                state: Some(RendererSessionState::Online),
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].id, renderer_session_id);
+
+    let playback_session_id = PlaybackSessionId::new();
+    store
+        .create_playback_session(NewPlaybackSession {
+            id: playback_session_id,
+            principal_id: controlling_principal_id.clone(),
+            source_id: source.id,
+            item_id: source.item_id,
+            mode: PlaybackSessionMode::Direct,
+            state: PlaybackSessionState::Active,
+            client_capabilities_json: None,
+            started_at_ms: now_ms + 2_000,
+            updated_at_ms: now_ms + 2_000,
+        })
+        .await
+        .unwrap();
+    let attached = store
+        .attach_renderer_playback_session(
+            renderer_session_id,
+            Some(playback_session_id),
+            now_ms + 3_000,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        attached.active_playback_session_id,
+        Some(playback_session_id)
+    );
+
+    let play_command_id = RendererCommandId::new();
+    let queued = store
+        .create_renderer_command(NewRendererCommand {
+            id: play_command_id,
+            renderer_session_id,
+            controlling_principal_id: controlling_principal_id.clone(),
+            command: RendererControlCommand::Play,
+            item_id: Some(source.item_id),
+            source_id: Some(source.id),
+            playback_session_id: Some(playback_session_id),
+            position_ms: Some(12_000),
+            volume_percent: None,
+            payload_json: Some(r#"{"reason":"contract"}"#.to_owned()),
+            created_at_ms: now_ms + 4_000,
+            updated_at_ms: now_ms + 4_000,
+        })
+        .await
+        .unwrap();
+    assert_eq!(queued.state, RendererCommandState::Queued);
+    assert_eq!(queued.playback_session_id, Some(playback_session_id));
+
+    let pause_command_id = RendererCommandId::new();
+    store
+        .create_renderer_command(NewRendererCommand {
+            id: pause_command_id,
+            renderer_session_id,
+            controlling_principal_id: controlling_principal_id.clone(),
+            command: RendererControlCommand::Pause,
+            item_id: None,
+            source_id: None,
+            playback_session_id: Some(playback_session_id),
+            position_ms: None,
+            volume_percent: None,
+            payload_json: None,
+            created_at_ms: now_ms + 5_000,
+            updated_at_ms: now_ms + 5_000,
+        })
+        .await
+        .unwrap();
+
+    let queued_commands = store
+        .list_renderer_commands(
+            RendererCommandListFilter {
+                renderer_session_id: Some(renderer_session_id),
+                state: Some(RendererCommandState::Queued),
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        queued_commands
+            .iter()
+            .map(|command| command.id)
+            .collect::<Vec<_>>(),
+        vec![play_command_id, pause_command_id]
+    );
+
+    let claimed = store
+        .claim_next_renderer_command(renderer_session_id, now_ms + 6_000)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(claimed.id, play_command_id);
+    assert_eq!(claimed.state, RendererCommandState::Delivered);
+    assert_eq!(claimed.delivered_at_ms, Some(now_ms + 6_000));
+
+    let completed = store
+        .complete_renderer_command(RendererCommandCompletion {
+            id: play_command_id,
+            state: RendererCommandState::Acknowledged,
+            completed_at_ms: now_ms + 7_000,
+            failure_message: None,
+        })
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(completed.state, RendererCommandState::Acknowledged);
+    assert_eq!(completed.completed_at_ms, Some(now_ms + 7_000));
+    assert!(
+        store
+            .complete_renderer_command(RendererCommandCompletion {
+                id: play_command_id,
+                state: RendererCommandState::Cancelled,
+                completed_at_ms: now_ms + 8_000,
+                failure_message: Some("late cancel".to_owned()),
+            })
+            .await
+            .unwrap()
+            .is_none()
+    );
+
+    let next = store
+        .claim_next_renderer_command(renderer_session_id, now_ms + 9_000)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(next.id, pause_command_id);
+    assert_eq!(next.state, RendererCommandState::Delivered);
 }
 
 async fn event_outbox_and_webhook_delivery_contract<S>(store: S)
@@ -6706,6 +6927,16 @@ database_contract_pair!(
         "playback_session_tracks_user_attempt_independent_of_transcode"
     ),
     contract = playback_session_tracks_user_attempt_independent_of_transcode_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_renderer_runtime_contract_renderer_session_and_command_queue,
+    postgres = postgres_renderer_runtime_contract_renderer_session_and_command_queue,
+    case = ContractCase::migrated(
+        ContractFamily::RendererRuntime,
+        "renderer_session_and_command_queue"
+    ),
+    contract = renderer_session_and_command_queue_contract,
 );
 
 database_contract_pair!(

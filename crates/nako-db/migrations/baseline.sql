@@ -446,6 +446,70 @@ CREATE INDEX playback_sessions_state_idx
 CREATE INDEX playback_sessions_transcode_idx
     ON playback_sessions(transcode_session_id);
 
+CREATE TABLE renderer_sessions (
+    id TEXT PRIMARY KEY NOT NULL,
+    owner_principal_id TEXT NOT NULL,
+    target_kind TEXT NOT NULL,
+    display_name TEXT NOT NULL,
+    network_scope TEXT NOT NULL,
+    transport_auth TEXT NOT NULL,
+    media_capabilities_json TEXT,
+    control_capabilities_json TEXT NOT NULL,
+    state TEXT NOT NULL,
+    active_playback_session_id TEXT REFERENCES playback_sessions(id) ON DELETE SET NULL,
+    last_seen_at_ms INTEGER NOT NULL,
+    expires_at_ms INTEGER,
+    created_at_ms INTEGER NOT NULL,
+    updated_at_ms INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    CHECK (length(owner_principal_id) > 0),
+    CHECK (length(display_name) > 0),
+    CHECK (length(control_capabilities_json) > 0)
+);
+
+CREATE INDEX renderer_sessions_owner_idx
+    ON renderer_sessions(owner_principal_id, updated_at_ms DESC, id DESC);
+
+CREATE INDEX renderer_sessions_state_idx
+    ON renderer_sessions(state, updated_at_ms DESC, id DESC);
+
+CREATE INDEX renderer_sessions_active_playback_idx
+    ON renderer_sessions(active_playback_session_id);
+
+CREATE TABLE renderer_commands (
+    id TEXT PRIMARY KEY NOT NULL,
+    renderer_session_id TEXT NOT NULL REFERENCES renderer_sessions(id) ON DELETE CASCADE,
+    controlling_principal_id TEXT NOT NULL,
+    command TEXT NOT NULL,
+    state TEXT NOT NULL,
+    item_id TEXT REFERENCES media_items(id) ON DELETE SET NULL,
+    source_id TEXT REFERENCES media_sources(id) ON DELETE SET NULL,
+    playback_session_id TEXT REFERENCES playback_sessions(id) ON DELETE SET NULL,
+    position_ms INTEGER,
+    volume_percent INTEGER,
+    payload_json TEXT,
+    created_at_ms INTEGER NOT NULL,
+    updated_at_ms INTEGER NOT NULL,
+    delivered_at_ms INTEGER,
+    completed_at_ms INTEGER,
+    failure_message TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    CHECK (length(controlling_principal_id) > 0),
+    CHECK (position_ms IS NULL OR position_ms >= 0),
+    CHECK (volume_percent IS NULL OR volume_percent BETWEEN 0 AND 100)
+);
+
+CREATE INDEX renderer_commands_session_state_idx
+    ON renderer_commands(renderer_session_id, state, created_at_ms ASC, id ASC);
+
+CREATE INDEX renderer_commands_state_idx
+    ON renderer_commands(state, updated_at_ms DESC, id DESC);
+
+CREATE INDEX renderer_commands_playback_session_idx
+    ON renderer_commands(playback_session_id);
+
 
 CREATE TABLE event_outbox (
     id TEXT PRIMARY KEY NOT NULL,

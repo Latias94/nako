@@ -40,6 +40,7 @@ trait DatabaseBackendAdapter:
     + DatabaseLifecycle
     + PlaybackPolicyRepository
     + PlaybackSessionRepository
+    + RendererSessionRepository
     + TranscodeSessionRepository
     + UserPlaybackStateRepository
     + VfsCacheRepository
@@ -83,6 +84,7 @@ impl<T> DatabaseBackendAdapter for T where
         + DatabaseLifecycle
         + PlaybackPolicyRepository
         + PlaybackSessionRepository
+        + RendererSessionRepository
         + TranscodeSessionRepository
         + UserPlaybackStateRepository
         + VfsCacheRepository
@@ -2256,6 +2258,90 @@ impl TranscodeSessionRepository for NakoDatabase {
         self.backend()
             .fail_stale_transcode_sessions(failure_category, failure_message)
             .await
+    }
+}
+
+#[async_trait::async_trait]
+impl RendererSessionRepository for NakoDatabase {
+    async fn upsert_renderer_session(
+        &self,
+        session: NewRendererSession,
+    ) -> Result<RendererSessionRecord> {
+        self.backend().upsert_renderer_session(session).await
+    }
+
+    async fn get_renderer_session(
+        &self,
+        id: RendererSessionId,
+    ) -> Result<Option<RendererSessionRecord>> {
+        self.backend().get_renderer_session(id).await
+    }
+
+    async fn list_renderer_sessions(
+        &self,
+        filter: RendererSessionListFilter,
+        page: PageRequest,
+    ) -> Result<Vec<RendererSessionRecord>> {
+        self.backend().list_renderer_sessions(filter, page).await
+    }
+
+    async fn record_renderer_session_heartbeat(
+        &self,
+        heartbeat: RendererSessionHeartbeat,
+    ) -> Result<Option<RendererSessionRecord>> {
+        self.backend()
+            .record_renderer_session_heartbeat(heartbeat)
+            .await
+    }
+
+    async fn attach_renderer_playback_session(
+        &self,
+        id: RendererSessionId,
+        playback_session_id: Option<PlaybackSessionId>,
+        updated_at_ms: i64,
+    ) -> Result<Option<RendererSessionRecord>> {
+        self.backend()
+            .attach_renderer_playback_session(id, playback_session_id, updated_at_ms)
+            .await
+    }
+
+    async fn create_renderer_command(
+        &self,
+        command: NewRendererCommand,
+    ) -> Result<RendererCommandRecord> {
+        self.backend().create_renderer_command(command).await
+    }
+
+    async fn get_renderer_command(
+        &self,
+        id: RendererCommandId,
+    ) -> Result<Option<RendererCommandRecord>> {
+        self.backend().get_renderer_command(id).await
+    }
+
+    async fn list_renderer_commands(
+        &self,
+        filter: RendererCommandListFilter,
+        page: PageRequest,
+    ) -> Result<Vec<RendererCommandRecord>> {
+        self.backend().list_renderer_commands(filter, page).await
+    }
+
+    async fn claim_next_renderer_command(
+        &self,
+        renderer_session_id: RendererSessionId,
+        delivered_at_ms: i64,
+    ) -> Result<Option<RendererCommandRecord>> {
+        self.backend()
+            .claim_next_renderer_command(renderer_session_id, delivered_at_ms)
+            .await
+    }
+
+    async fn complete_renderer_command(
+        &self,
+        completion: RendererCommandCompletion,
+    ) -> Result<Option<RendererCommandRecord>> {
+        self.backend().complete_renderer_command(completion).await
     }
 }
 

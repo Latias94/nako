@@ -15,13 +15,19 @@ Playback Sessions, playback heartbeat, browser tickets, and safe target
 vocabulary, but no Public Client renderer registration, renderer session,
 remote-control command, or cast route surface yet.
 
+CAST-030 is complete. Renderer Session and Renderer Command are now core
+records with durable SQLite/PostgreSQL repository adapters. Renderer Session is
+the controllable target identity; Playback Session remains the media playback
+attempt; Transcode Session remains an internal artifact.
+
 ## Active Task
 
-- Task ID: CAST-030
+- Task ID: CAST-040
 - Owner: codex
-- Files: `crates/nako-core/src`, `crates/nako-db/src`
-- Validation: `cargo nextest run -p nako-core renderer --no-fail-fast`;
-  `cargo nextest run -p nako-db renderer --no-fail-fast`
+- Files: `crates/nako-server/src/app`, `crates/nako-server/src/http`,
+  `crates/nako-client-protocol/src`
+- Validation: `cargo nextest run -p nako-server renderer --no-fail-fast`;
+  `cargo nextest run -p nako-client-protocol public --no-fail-fast`
 - Status: READY
 - Review: pending
 - Evidence: pending
@@ -35,6 +41,8 @@ remote-control command, or cast route surface yet.
   auth or an authenticated Nako client channel.
 - CAST-020 fixed current gaps in tests before adding the Renderer Session
   domain.
+- CAST-030 chose durable renderer persistence now because command polling and
+  future adapter processes need a stable queue boundary.
 
 ## Blockers
 
@@ -42,6 +50,6 @@ remote-control command, or cast route surface yet.
 
 ## Next Recommended Action
 
-Start CAST-030 by adding Renderer Session and Renderer Command domain records
-at the core boundary, then decide whether the first repository is durable or
-process-local with an explicit extraction path.
+Start CAST-040 by adding Nako-to-Nako renderer registration, heartbeat,
+controllable target listing, and command polling/delivery through Public Client
+API routes.

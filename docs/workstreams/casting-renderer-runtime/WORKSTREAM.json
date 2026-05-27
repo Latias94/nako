@@ -3,10 +3,11 @@
   "slug": "casting-renderer-runtime",
   "title": "Casting Renderer Runtime",
   "status": "active",
-  "current_task": "CAST-030",
+  "current_task": "CAST-040",
   "completed_tasks": [
     "CAST-010",
-    "CAST-020"
+    "CAST-020",
+    "CAST-030"
   ],
   "updated": "2026-05-27",
   "scope_kind": "execution",
@@ -53,6 +54,10 @@
     {
       "task": "CAST-020",
       "summary": "Added characterization tests proving Public Client has Playback Session routes and heartbeat, but no renderer/cast route surface, renderer session identity, target handoff, or command capability fields yet."
+    },
+    {
+      "task": "CAST-030",
+      "summary": "Added core Renderer Session and Renderer Command records, durable SQLite/PostgreSQL repository adapters, baseline tables, and contract coverage for registration heartbeat, playback attachment, command claim, and terminal completion."
     }
   ],
   "adr_refs": [
@@ -62,6 +67,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "CAST-020 characterized the current gap. Continue with CAST-030 Renderer Session and Renderer Command domain records before adding Nako-to-Nako registration."
+    "notes": "CAST-030 shipped the durable renderer repository seam. Continue with CAST-040 Nako-to-Nako registration, heartbeat, target listing, and command delivery."
   }
 }

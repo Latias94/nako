@@ -618,6 +618,65 @@ CREATE INDEX IF NOT EXISTS playback_sessions_state_idx
 CREATE INDEX IF NOT EXISTS playback_sessions_transcode_idx
     ON playback_sessions(transcode_session_id);
 
+CREATE TABLE IF NOT EXISTS renderer_sessions (
+    id uuid PRIMARY KEY NOT NULL,
+    owner_principal_id text NOT NULL,
+    target_kind text NOT NULL,
+    display_name text NOT NULL,
+    network_scope text NOT NULL,
+    transport_auth text NOT NULL,
+    media_capabilities_json jsonb,
+    control_capabilities_json jsonb NOT NULL,
+    state text NOT NULL,
+    active_playback_session_id uuid REFERENCES playback_sessions(id) ON DELETE SET NULL,
+    last_seen_at_ms bigint NOT NULL,
+    expires_at_ms bigint,
+    created_at_ms bigint NOT NULL,
+    updated_at_ms bigint NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+    updated_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+    CHECK (length(owner_principal_id) > 0),
+    CHECK (length(display_name) > 0)
+);
+
+CREATE INDEX IF NOT EXISTS renderer_sessions_owner_idx
+    ON renderer_sessions(owner_principal_id, updated_at_ms DESC, id DESC);
+CREATE INDEX IF NOT EXISTS renderer_sessions_state_idx
+    ON renderer_sessions(state, updated_at_ms DESC, id DESC);
+CREATE INDEX IF NOT EXISTS renderer_sessions_active_playback_idx
+    ON renderer_sessions(active_playback_session_id);
+
+CREATE TABLE IF NOT EXISTS renderer_commands (
+    id uuid PRIMARY KEY NOT NULL,
+    renderer_session_id uuid NOT NULL REFERENCES renderer_sessions(id) ON DELETE CASCADE,
+    controlling_principal_id text NOT NULL,
+    command text NOT NULL,
+    state text NOT NULL,
+    item_id uuid REFERENCES media_items(id) ON DELETE SET NULL,
+    source_id uuid REFERENCES media_sources(id) ON DELETE SET NULL,
+    playback_session_id uuid REFERENCES playback_sessions(id) ON DELETE SET NULL,
+    position_ms bigint,
+    volume_percent bigint,
+    payload_json jsonb,
+    created_at_ms bigint NOT NULL,
+    updated_at_ms bigint NOT NULL,
+    delivered_at_ms bigint,
+    completed_at_ms bigint,
+    failure_message text,
+    created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+    updated_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+    CHECK (length(controlling_principal_id) > 0),
+    CHECK (position_ms IS NULL OR position_ms >= 0),
+    CHECK (volume_percent IS NULL OR volume_percent BETWEEN 0 AND 100)
+);
+
+CREATE INDEX IF NOT EXISTS renderer_commands_session_state_idx
+    ON renderer_commands(renderer_session_id, state, created_at_ms ASC, id ASC);
+CREATE INDEX IF NOT EXISTS renderer_commands_state_idx
+    ON renderer_commands(state, updated_at_ms DESC, id DESC);
+CREATE INDEX IF NOT EXISTS renderer_commands_playback_session_idx
+    ON renderer_commands(playback_session_id);
+
 CREATE TABLE IF NOT EXISTS event_outbox (
     id uuid PRIMARY KEY NOT NULL,
     kind text NOT NULL,

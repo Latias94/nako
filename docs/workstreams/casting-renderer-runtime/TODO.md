@@ -32,14 +32,20 @@ Last updated: 2026-05-27
 
 ## M2 - Renderer Session Domain
 
-- [ ] CAST-030 [owner=codex] [deps=CAST-020] [scope=crates/nako-core/src,crates/nako-db/src]
+- [x] CAST-030 [owner=codex] [deps=CAST-020] [scope=crates/nako-core/src,crates/nako-db/src]
   Goal: Add Renderer Session and command records plus repository adapters where
   persistence is needed.
   Validation: `cargo nextest run -p nako-core renderer --no-fail-fast`;
   `cargo nextest run -p nako-db renderer --no-fail-fast`.
   Review: Renderer Session must stay separate from Playback Session and
   Transcode Session.
-  Evidence: Repository and domain tests.
+  Evidence: Added `RendererSessionId` and `RendererCommandId`, core
+  `RendererSession`/`RendererCommand` records, command lifecycle states,
+  `RendererSessionRepository`, and durable SQLite/PostgreSQL baseline tables
+  plus repository adapters. Contract coverage proves renderer registration,
+  heartbeat, playback-session attachment, queued command ordering, claim, and
+  terminal completion. Gates passed: core renderer 3 passed/26 skipped; DB
+  renderer 1 passed/152 skipped.
   Handoff: CAST-040 can build app-service registration/heartbeat.
 
 ## M3 - Nako Remote Client Adapter

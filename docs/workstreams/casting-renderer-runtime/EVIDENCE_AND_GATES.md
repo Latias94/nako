@@ -124,6 +124,50 @@ Conclusion:
 - Current Playback Session and browser-ticket behavior should remain the
   playback transport baseline, not become the renderer/control model.
 
+### CAST-030 - Renderer Session Domain
+
+Changed behavior:
+
+- Added `RendererSessionId` and `RendererCommandId`.
+- Added core `RendererSessionState`, `RendererCommandState`,
+  `NewRendererSession`, `RendererSessionRecord`, `RendererSessionHeartbeat`,
+  `NewRendererCommand`, `RendererCommandRecord`, and
+  `RendererCommandCompletion`.
+- Added `RendererSessionRepository` with session upsert/list/heartbeat,
+  playback-session attachment, command creation/list, command claim, and
+  terminal command completion.
+- Added durable SQLite and PostgreSQL baseline tables for `renderer_sessions`
+  and `renderer_commands`.
+- Added SQLite and PostgreSQL repository adapters through `NakoDatabase`.
+
+Persistence decision:
+
+- Renderer sessions and commands are durable now. This is the stronger boundary
+  for Nako-to-Nako command polling, later adapter processes, and future
+  multi-process execution. Playback Session and Transcode Session remain
+  separate identities.
+
+Validation:
+
+```bash
+cargo nextest run -p nako-core renderer --no-fail-fast
+cargo nextest run -p nako-db renderer --no-fail-fast
+cargo fmt --all -- --check
+```
+
+Result:
+
+- `nako-core renderer`: 3 passed, 26 skipped.
+- `nako-db renderer`: 1 passed, 152 skipped.
+- `cargo fmt --all -- --check`: passed.
+
+Notes:
+
+- The PostgreSQL renderer contract is compiled but ignored by default with the
+  existing `NAKO_TEST_POSTGRES_URL` gate. The SQLite contract ran and passed.
+- CAST-040 can now add Public Client registration, heartbeat, target listing,
+  and command polling/delivery on top of the repository seam.
+
 ## Notes
 
 External protocol work should remain adapter-specific and must not expose raw
