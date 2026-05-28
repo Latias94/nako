@@ -23,12 +23,26 @@ Current baseline status:
 - the copied shell now uses local fixture media and local artwork resolution;
 - the Next TMDB API route has been removed;
 - `next.config.mjs` uses static export output, and the build route table has
-  only static routes.
+  only static routes;
+- TanStack Router now owns top-level `/`, `/media`, `/admin`, `/setup`,
+  `/account`, `/settings`, and `/notifications` surfaces inside the static
+  Next shell;
+- production static smoke covered desktop and mobile routes with no console
+  errors or warnings.
 
 ## Next Task
 
-WVTR-040: replace the copied single-page view-state navigation with route-owned
-TanStack Router surfaces for Media, Admin, Setup, and Account.
+WVTR-050: reattach Nako Public Client and Admin API boundaries to the copied
+shell, replacing remaining fixture/mock hooks with Nako-owned API seams.
+
+Current caveats:
+
+- `npm --prefix web run test` is a type-check alias until real UI/E2E tests
+  are introduced.
+- Next dev/Fast Refresh can report React hook noise on SPA route clicks, but
+  the production static smoke is clean.
+- Many copied v0 features still need live/fixture/planned/blocked/deferred
+  classification in WVTR-070.
 
 ## Key Constraints
 

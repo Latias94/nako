@@ -1,5 +1,5 @@
 import { NakoRouter } from "@/components/nako/nako-router"
 
-export default function NakoHome() {
+export default function NakoSetupPage() {
   return <NakoRouter />
 }

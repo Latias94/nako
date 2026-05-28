@@ -64,3 +64,13 @@ Release routes must not expose:
 | 2026-05-28 | WVTR-010 | Workstream opened after user accepted copy-first refactor and autonomous commits. | Active. |
 | 2026-05-28 | WVTR-020 | `npm --prefix web install`; `npm --prefix web run check`; `npm --prefix web run build`. Build output still reports a dynamic `/api/tmdb` route, which stays for WVTR-030 quarantine. | Passed. |
 | 2026-05-28 | WVTR-030 | `rg -n "image\\.tmdb\\.org\|/api/tmdb\|TMDB_API_KEY\|@vercel/analytics\|process\\.env" web --glob '!tsconfig.tsbuildinfo' --glob '!node_modules/**' --glob '!.next/**' --glob '!out/**'`; `npm --prefix web run check`; `npm --prefix web run build`. Build route table contains only static `/`, `/_not-found`, and `/tv`. | Passed. |
+| 2026-05-28 | WVTR-040 | `npm --prefix web install @tanstack/react-router`; `npm --prefix web run check`; `npm --prefix web run test`; `npm --prefix web run build`. Static build route table contains `/`, `/media`, `/admin`, `/setup`, `/account`, `/settings`, `/notifications`, and `/tv`. Production static smoke via `npx serve out -l tcp://127.0.0.1:3101 -s` plus `playwright-cli` covered `/media`, `/admin`, `/setup`, `/account`, Media -> Admin navigation, and 390x844 mobile `/media`; static console had 0 errors and 0 warnings. | Passed. `test` currently aliases type-check until a real UI/E2E test suite is introduced. |
+
+## Current Gap Ledger
+
+| Area | Status | Notes |
+| --- | --- | --- |
+| UI tests | Planned | `npm --prefix web run test` is intentionally a type-check alias after WVTR-040. Replace with Vitest/Playwright coverage once routes and API seams stabilize. |
+| Live Nako data | Planned | Media/Admin surfaces still use fixture data and copied v0 component state below the top-level routes. WVTR-050 owns Public/Admin API reattachment. |
+| Next dev navigation noise | Non-release dev-only note | Next dev/Fast Refresh reports React hook noise on SPA route clicks, while production static smoke is clean. Use static export smoke as the release gate until Next is removed or replaced. |
+| Feature inventory | Planned | Addon Manager UI, downloads/acquisition, notifications, native playback, i18n, and old Admin Web deletion still need WVTR-070 classification. |

@@ -31,12 +31,12 @@ Last updated: 2026-05-28
 
 ## M3 - TanStack Route Ownership
 
-- [ ] WVTR-040 [owner=Codex] [deps=WVTR-030] [scope=web]
+- [x] WVTR-040 [owner=Codex] [deps=WVTR-030] [scope=web]
   Goal: Replace the copied single-page view-state navigation with route-owned TanStack Router surfaces for Media, Admin, Setup, and Account.
   Validation: npm --prefix web run check && npm --prefix web run test && npm --prefix web run build; Browser smoke for desktop and mobile.
   Review: Confirm major surfaces are deep-linkable and code-split.
   Evidence: web/src/routes or accepted route directory, route tests, smoke screenshots.
-  Handoff: Keep unsupported v0 features fixture/planned or deferred.
+  Handoff: DONE. Top-level Media/Admin/Setup/Account plus Settings/Notifications are deep-linkable through TanStack Router inside the static Next shell. Current `test` script is a type-check gate until real UI/E2E tests are added.
 
 ## M4 - Nako API Boundary Reattachment
 

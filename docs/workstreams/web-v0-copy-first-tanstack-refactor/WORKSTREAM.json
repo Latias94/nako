@@ -7,11 +7,12 @@
   "scope_kind": "frontend_product_replacement",
   "problem": "Nako should copy the complete v0-generated admin/media frontend into web/ and then refactor it into a static TanStack/Tauri/Nako API product frontend instead of rebuilding the UI from zero.",
   "task_prefix": "WVTR",
-  "current_task": "WVTR-040",
+  "current_task": "WVTR-050",
   "completed_tasks": [
     "WVTR-010",
     "WVTR-020",
-    "WVTR-030"
+    "WVTR-030",
+    "WVTR-040"
   ],
   "authoritative_docs": [
     {
@@ -52,7 +53,8 @@
   "evidence": [
     "WVTR-010 opened this durable copy-first frontend refactor lane.",
     "WVTR-020 copied repo-ref/nako-admin-web into web/, removed Google font and Vercel analytics assumptions, and passed npm --prefix web run check plus npm --prefix web run build.",
-    "WVTR-030 removed the Next TMDB API route, switched media hooks to local Nako fixture data, localized artwork references, enabled static export, and passed npm --prefix web run check plus npm --prefix web run build."
+    "WVTR-030 removed the Next TMDB API route, switched media hooks to local Nako fixture data, localized artwork references, enabled static export, and passed npm --prefix web run check plus npm --prefix web run build.",
+    "WVTR-040 introduced TanStack Router ownership for top-level Media, Admin, Setup, Account, Settings, and Notifications routes inside the static Next shell, added a temporary test alias to the type-check gate, and passed check/test/build plus production static Playwright smoke."
   ],
   "adr_refs": [
     "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",

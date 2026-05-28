@@ -36,6 +36,8 @@ Exit criteria:
 
 ## M3 - TanStack Architecture
 
+Status: done.
+
 Exit criteria:
 
 - Route ownership no longer depends on one large view-state component.
