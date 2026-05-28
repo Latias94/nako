@@ -17,16 +17,18 @@ implementation lane. WDRP-030 opened
 Acquisition Intake route. WDRP-040 opened
 `docs/workstreams/web-admin-generated-artifacts-automation` for the new `web/`
 Admin Generated Artifacts / Automation route.
+WDRP-050 opened `docs/workstreams/user-playlists-contract-and-web-slice` for
+the playlist backend/Public Client contract. Playlist UI remains blocked until
+that lane freezes route and DTO shape.
 
 ## Active Task
 
-- Task ID: WDRP-050
+- Task ID: WDRP-060
 - Owner: planner
 - Status: READY
-- Validation: decide whether playlists are ready for a backend contract lane or
-  should remain deferred behind user playback state.
+- Validation: decide when photos, music, and podcasts deserve a non-video
+  media-domain baseline lane.
 
 ## Next Recommended Action
 
-- Start WDRP-050. Check Public Client/user playback state prerequisites before
-  opening any playlist UI lane.
+- Start WDRP-060. Reference ADR-0021 and avoid UI-first non-video surfaces.

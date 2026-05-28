@@ -35,11 +35,11 @@ Last updated: 2026-05-28
 
 ## M3 - User Media State
 
-- [ ] WDRP-050 [owner=planner] [deps=WDRP-020] [scope=docs/workstreams]
+- [x] WDRP-050 [owner=planner] [deps=WDRP-020] [scope=docs/workstreams]
   Goal: Decide whether playlists are ready for a backend contract lane or should remain deferred behind user playback state.
   Validation: decision recorded with contract prerequisites and no frontend UI before API shape.
-  Evidence: new workstream or explicit deferred decision.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Evidence: Opened `docs/workstreams/user-playlists-contract-and-web-slice`; first executable task is UPCW-020 Public Contract Freeze.
+  Handoff: DONE. Next task is WDRP-060.
 
 ## M4 - Non-Video Media Domains
 

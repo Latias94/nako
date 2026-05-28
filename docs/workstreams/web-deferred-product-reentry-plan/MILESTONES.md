@@ -28,6 +28,9 @@ downloads/acquisition is routed to
 Exit criteria: playlists have either a backend contract lane or an explicit
 deferred decision.
 
+Completed by WDRP-050: playlists are routed to
+`docs/workstreams/user-playlists-contract-and-web-slice`.
+
 ## M4 - Non-Video Media Domains
 
 Exit criteria: photos, music, and podcasts have a domain-baseline decision that
