@@ -1,6 +1,6 @@
 # Web Deferred Product Reentry Plan - Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-28
 
 ## M0 - Open Lane
@@ -46,3 +46,5 @@ or intentionally deferred with reentry conditions.
 
 Progress: WDRP-065 routed WMLP follow-ons to two new Public Client contract
 lanes and one deferred desktop-native trigger.
+
+Completed by WDRP-070.

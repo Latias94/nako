@@ -1,6 +1,6 @@
 # Web Deferred Product Reentry Plan - TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-28
 
 ## M0 - Open Lane
@@ -57,8 +57,8 @@ Last updated: 2026-05-28
   Evidence: `PUBLIC_CLIENT_FOLLOW_ONS.md`; opened `public-client-browser-playback-session-identity` and `public-client-library-browse-query-contract`; desktop native playback remains a deferred Rust/Tauri capability trigger.
   Handoff: DONE. Next task is WDRP-070.
 
-- [ ] WDRP-070 [owner=planner] [deps=WDRP-020,WDRP-030,WDRP-040,WDRP-050,WDRP-060,WDRP-065] [scope=docs/workstreams/web-deferred-product-reentry-plan]
+- [x] WDRP-070 [owner=planner] [deps=WDRP-020,WDRP-030,WDRP-040,WDRP-050,WDRP-060,WDRP-065] [scope=docs/workstreams/web-deferred-product-reentry-plan]
   Goal: Close this planning lane after follow-on implementation lanes are opened or explicitly deferred.
   Validation: `python -m json.tool docs/workstreams/web-deferred-product-reentry-plan/WORKSTREAM.json`; `git diff --check`.
-  Evidence: EVIDENCE_AND_GATES.md.
-  Handoff: Close or return to the selected implementation lane.
+  Evidence: `CLOSEOUT.md`, `EVIDENCE_AND_GATES.md`, and completed `WORKSTREAM.json`.
+  Handoff: DONE. Continue a selected follow-on lane.

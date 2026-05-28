@@ -2,12 +2,12 @@
   "schema_version": 1,
   "slug": "web-deferred-product-reentry-plan",
   "title": "Web Deferred Product Reentry Plan",
-  "status": "active",
+  "status": "completed",
   "updated": "2026-05-28",
   "scope_kind": "frontend_product_planning",
   "problem": "WBBP removed deferred v0 product surfaces from the live web runtime; those gaps need explicit backend/API preconditions and follow-on lanes before re-entering the frontend.",
   "task_prefix": "WDRP",
-  "current_task": "WDRP-070",
+  "current_task": "closed",
   "completed_tasks": [
     "WDRP-010",
     "WDRP-020",
@@ -15,7 +15,8 @@
     "WDRP-040",
     "WDRP-050",
     "WDRP-060",
-    "WDRP-065"
+    "WDRP-065",
+    "WDRP-070"
   ],
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/web-deferred-product-reentry-plan/README.md" },
@@ -26,7 +27,8 @@
     { "role": "execution", "path": "docs/workstreams/web-deferred-product-reentry-plan/TODO.md" },
     { "role": "milestones", "path": "docs/workstreams/web-deferred-product-reentry-plan/MILESTONES.md" },
     { "role": "gates", "path": "docs/workstreams/web-deferred-product-reentry-plan/EVIDENCE_AND_GATES.md" },
-    { "role": "handoff", "path": "docs/workstreams/web-deferred-product-reentry-plan/HANDOFF.md" }
+    { "role": "handoff", "path": "docs/workstreams/web-deferred-product-reentry-plan/HANDOFF.md" },
+    { "role": "closeout", "path": "docs/workstreams/web-deferred-product-reentry-plan/CLOSEOUT.md" }
   ],
   "gates": [
     "python -m json.tool docs/workstreams/web-deferred-product-reentry-plan/WORKSTREAM.json",
@@ -39,7 +41,8 @@
     "WDRP-040 opened docs/workstreams/web-admin-generated-artifacts-automation with WAGA-020 as the first executable task.",
     "WDRP-050 opened docs/workstreams/user-playlists-contract-and-web-slice with UPCW-020 as the first executable task.",
     "WDRP-060 recorded NON_VIDEO_DOMAIN_DECISION.md and deferred photos/music/podcasts until a concrete ADR-0021 domain-baseline trigger appears.",
-    "WDRP-065 recorded PUBLIC_CLIENT_FOLLOW_ONS.md, opened public-client-browser-playback-session-identity and public-client-library-browse-query-contract, and deferred desktop native playback to the existing Rust/Tauri capability gap."
+    "WDRP-065 recorded PUBLIC_CLIENT_FOLLOW_ONS.md, opened public-client-browser-playback-session-identity and public-client-library-browse-query-contract, and deferred desktop native playback to the existing Rust/Tauri capability gap.",
+    "WDRP-070 closed this planning lane after JSON validation and scoped diff checks."
   ],
   "adr_refs": [
     "docs/adr/0021-video-first-media-server-domain-model.md",
@@ -47,7 +50,7 @@
     "docs/adr/0027-admin-api-boundary-for-web-console.md"
   ],
   "continue_policy": {
-    "default_action": "continue_current_task",
-    "notes": "Run WDRP-070 when returning to deferred product planning. Close this lane, then continue the selected follow-on workstream."
+    "default_action": "choose_follow_on_workstream",
+    "notes": "WDRP is closed. Continue PLBQ-020, PBSI-020, WAAI-020, WAGA-020, or UPCW-020 depending on product priority."
   }
 }

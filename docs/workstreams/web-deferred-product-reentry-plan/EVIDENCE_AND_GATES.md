@@ -1,6 +1,6 @@
 # Web Deferred Product Reentry Plan - Evidence And Gates
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-28
 
 ## Gate Set
@@ -30,3 +30,4 @@ npm --prefix web run tauri -- build
 | 2026-05-28 | WDRP-050 | Decided playlists are ready for a backend/Public Client contract lane because user principal, User Playback State, and effective Library Access prerequisites are present; opened `docs/workstreams/user-playlists-contract-and-web-slice` with UPCW-020 as the first executable task. | Passed. |
 | 2026-05-28 | WDRP-060 | Recorded the non-video domain decision: photos, music, and podcasts remain deferred until a concrete domain baseline trigger is accepted under ADR-0021. | Passed. |
 | 2026-05-28 | WDRP-065 | Routed WMLP follow-ons: opened `public-client-browser-playback-session-identity` and `public-client-library-browse-query-contract`; kept desktop native playback as a deferred Rust/Tauri capability trigger. | Passed. |
+| 2026-05-28 | WDRP-070 | Closed WDRP after all deferred surfaces were routed to follow-on lanes or explicit deferred triggers. Validation: JSON and scoped diff checks. | Passed. |

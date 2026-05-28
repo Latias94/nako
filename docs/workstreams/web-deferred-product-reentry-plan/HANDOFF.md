@@ -1,6 +1,6 @@
 # Web Deferred Product Reentry Plan - Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-28
 
 ## Current State
@@ -29,13 +29,16 @@ native playback deferred to the existing Rust/Tauri capability gap.
 
 ## Active Task
 
-- Task ID: WDRP-070
+- Task ID: closed
 - Owner: planner
-- Status: READY
-- Validation: close this planning lane after follow-on lanes and deferrals are
-  recorded.
+- Status: DONE
+- Validation: WDRP closeout is complete.
 
 ## Next Recommended Action
 
-- Start WDRP-070. Close WDRP and return implementation to a selected follow-on
-  lane.
+- Continue a selected follow-on lane:
+  `public-client-library-browse-query-contract` at PLBQ-020,
+  `public-client-browser-playback-session-identity` at PBSI-020,
+  `web-admin-acquisition-intake` at WAAI-020,
+  `web-admin-generated-artifacts-automation` at WAGA-020, or
+  `user-playlists-contract-and-web-slice` at UPCW-020.

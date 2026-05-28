@@ -1,6 +1,6 @@
 # Web Deferred Product Reentry Plan - Design
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-28
 
 ## Problem
@@ -72,3 +72,8 @@ Acquisition Intake and Managed Import visibility.
 - Architecture risk: non-video domains can overload video-first catalog models.
   Mitigation: require a domain-baseline workstream before music/photo/podcast UI.
 
+## Closeout
+
+Completed by WDRP-070. Every deferred surface is now assigned to a follow-on
+lane or an explicit deferred trigger; this planning lane does not own runtime
+implementation.

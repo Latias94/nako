@@ -1,6 +1,6 @@
 # Web Deferred Product Reentry Plan
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-28
 
 This workstream turns the product surfaces removed during
@@ -13,9 +13,11 @@ Authoritative docs:
 
 - `DESIGN.md`
 - `REENTRY_MATRIX.md`
+- `NON_VIDEO_DOMAIN_DECISION.md`
+- `PUBLIC_CLIENT_FOLLOW_ONS.md`
 - `TODO.md`
 - `MILESTONES.md`
 - `EVIDENCE_AND_GATES.md`
 - `HANDOFF.md`
 - `WORKSTREAM.json`
-
+- `CLOSEOUT.md`
