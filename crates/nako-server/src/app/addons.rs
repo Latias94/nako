@@ -6,11 +6,12 @@ use std::{
 };
 
 use nako_addon_client::{
-    AddonClientError, ReqwestAddonTransport, call_addon_resource_search_with_outcome,
-    call_addon_resource_with_outcome, check_addon_health,
+    AddonClientError, ReqwestAddonTransport, call_addon_resource_link_check_with_outcome,
+    call_addon_resource_search_with_outcome, call_addon_resource_with_outcome, check_addon_health,
 };
 use nako_addon_protocol::{
-    ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA, AddonInstallDescriptor, AddonManifest, AddonResourceLink,
+    ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA, ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA,
+    AddonInstallDescriptor, AddonManifest, AddonResourceLink, AddonResourceLinkCheckRequest,
     AddonResourceSearchRequest, AddonResourceSearchResult, AddonScope,
     addon_install_guide as protocol_addon_install_guide, ensure_scope_grant,
     validate_install_descriptor, validate_manifest,
@@ -27,7 +28,8 @@ use nako_api::extension::{
     AdminAddonManagerPlanResponse, AdminAddonRegistrationDetail, AdminAddonRegistrationResponse,
     AdminAddonRegistrationSummary, AdminAddonRegistrationsResponse,
     AdminAddonResourceCallDiagnosticRequest, AdminAddonResourceCallDiagnosticResponse,
-    AdminAddonResourceCallDiagnosticStatus, AdminAddonResourceSearchDiagnosticRequest,
+    AdminAddonResourceCallDiagnosticStatus, AdminAddonResourceLinkCheckRequest,
+    AdminAddonResourceLinkCheckResponse, AdminAddonResourceSearchDiagnosticRequest,
     AdminAddonResourceSearchDiagnosticResponse, AdminAddonResourceSearchLinkSummary,
     AdminAddonResourceSearchProviderDiagnostic, AdminAddonResourceSearchRequest,
     AdminAddonResourceSearchResponse, AdminAddonResourceSearchResultSummary,
@@ -1174,6 +1176,131 @@ impl AddonAppService {
         })
     }
 
+    pub async fn check_addon_resource_search_selection_link(
+        &self,
+        addon_id: AddonId,
+        search_id: String,
+        selection_id: String,
+        request: AdminAddonResourceLinkCheckRequest,
+    ) -> Result<AdminAddonResourceLinkCheckResponse> {
+        let addon = self.get_addon_registration_or_not_found(addon_id).await?;
+        if addon.status == AddonStatus::Unregistered {
+            return Err(NakoError::Conflict {
+                message: format!("addon registration {addon_id} is unregistered"),
+            });
+        }
+        let handoff = self
+            .resource_search_sessions
+            .lock()
+            .await
+            .get_selection(
+                addon_id,
+                &search_id,
+                &selection_id,
+                super::current_time_ms()?,
+            )
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "resource_search_selection",
+                id: selection_id.clone(),
+            })?;
+        if handoff.manifest_id != addon.manifest_id {
+            return Err(NakoError::Conflict {
+                message: "resource search session belongs to a different addon manifest".to_owned(),
+            });
+        }
+
+        let manifest = self.stored_manifest(&addon)?;
+        let granted_scopes = stored_granted_scopes(&addon)?;
+        let selected_link = handoff.selection.selected_link.clone();
+        let link_type = selected_link.link_type;
+        let link_check_request = AddonResourceLinkCheckRequest {
+            schema: ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA.to_owned(),
+            link: selected_link,
+            refresh: request.refresh,
+            context: resource_link_check_selection_context(&search_id, &selection_id, &handoff),
+        };
+        let started = Instant::now();
+        let response = call_addon_resource_link_check_with_outcome(
+            &ReqwestAddonTransport::default(),
+            &manifest,
+            &granted_scopes,
+            format!("addon-resource-link-check-{addon_id}"),
+            link_check_request,
+            None,
+        )
+        .await;
+        let latency_ms = started.elapsed().as_millis();
+
+        match response {
+            Ok(outcome) => {
+                let response = outcome.response;
+                if response.link_type != link_type {
+                    return Ok(AdminAddonResourceLinkCheckResponse {
+                        addon_id,
+                        manifest_id: handoff.manifest_id,
+                        search_id,
+                        selection_id,
+                        status: AdminAddonResourceCallDiagnosticStatus::ProtocolMismatch,
+                        latency_ms,
+                        attempts: outcome.attempts,
+                        link_type,
+                        check_status: None,
+                        checked_at_ms: None,
+                        requires_password: None,
+                        retryable: None,
+                        retry_after_ms: None,
+                        has_safe_message: false,
+                        safe_facts: Default::default(),
+                        http_status: Some(outcome.http_status),
+                        safe_error_code: Some("link_type_mismatch".to_owned()),
+                    });
+                }
+
+                Ok(AdminAddonResourceLinkCheckResponse {
+                    addon_id,
+                    manifest_id: handoff.manifest_id,
+                    search_id,
+                    selection_id,
+                    status: AdminAddonResourceCallDiagnosticStatus::Succeeded,
+                    latency_ms,
+                    attempts: outcome.attempts,
+                    link_type,
+                    check_status: Some(response.status),
+                    checked_at_ms: Some(response.checked_at_ms),
+                    requires_password: Some(response.requires_password),
+                    retryable: Some(response.retryable),
+                    retry_after_ms: response.retry_after_ms,
+                    has_safe_message: response.safe_message.is_some(),
+                    safe_facts: response.safe_facts,
+                    http_status: Some(outcome.http_status),
+                    safe_error_code: None,
+                })
+            }
+            Err(failure) => {
+                let err = failure.error;
+                Ok(AdminAddonResourceLinkCheckResponse {
+                    addon_id,
+                    manifest_id: handoff.manifest_id,
+                    search_id,
+                    selection_id,
+                    status: resource_diagnostic_status_for_client_error(&err),
+                    latency_ms,
+                    attempts: failure.attempts,
+                    link_type,
+                    check_status: None,
+                    checked_at_ms: None,
+                    requires_password: None,
+                    retryable: None,
+                    retry_after_ms: None,
+                    has_safe_message: false,
+                    safe_facts: Default::default(),
+                    http_status: err.http_status(),
+                    safe_error_code: Some(safe_resource_diagnostic_error_code(&err).to_owned()),
+                })
+            }
+        }
+    }
+
     pub async fn issue_addon_token(
         &self,
         addon_id: AddonId,
@@ -1670,6 +1797,25 @@ fn resource_search_selection_id(
         "nako.resource-search-selection-id.v1\0{search_id}\0{result_index}\0{link_index}\0{source_uri}"
     );
     format!("sel_{}", &sha256_hex(&material)[..32])
+}
+
+fn resource_link_check_selection_context(
+    search_id: &str,
+    selection_id: &str,
+    handoff: &ResourceSearchSelectionHandoff,
+) -> serde_json::Value {
+    let source_ref_redacted = resource_search_link_uri(&handoff.selection.selected_link)
+        .map(|source_uri| redact_uri(&source_uri));
+
+    serde_json::json!({
+        "schema": "nako.resource_link_check.selection_context.v1",
+        "search_id": search_id,
+        "selection_id": selection_id,
+        "query_fingerprint": fingerprint_key(&handoff.query),
+        "result_ref_fingerprint": fingerprint_key(&handoff.selection.result.id),
+        "link_type": handoff.selection.selected_link.link_type.as_str(),
+        "source_ref_redacted": source_ref_redacted,
+    })
 }
 
 fn new_resource_search_id() -> String {

@@ -1,7 +1,9 @@
+use std::collections::BTreeMap;
+
 use nako_addon_protocol::{
     AddonConfigurationSchema, AddonEntryPointKind, AddonHealthStatus, AddonInstallDescriptor,
-    AddonInstallGuide, AddonManifest, AddonResource, AddonResourceLinkType,
-    AddonResourceSearchIntent, AddonResourceSearchProviderExecution,
+    AddonInstallGuide, AddonManifest, AddonResource, AddonResourceLinkCheckStatus,
+    AddonResourceLinkType, AddonResourceSearchIntent, AddonResourceSearchProviderExecution,
     AddonResourceSearchProviderFinality, AddonResourceSearchProviderStatus, AddonRuntimeKind,
     AddonScope, AddonTaskDeclaration,
 };
@@ -920,6 +922,42 @@ pub struct AdminAddonResourceSearchSelectionResponse {
     pub idempotent_replay: bool,
 }
 
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdminAddonResourceLinkCheckRequest {
+    #[serde(default)]
+    pub refresh: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonResourceLinkCheckResponse {
+    pub addon_id: AddonId,
+    pub manifest_id: String,
+    pub search_id: String,
+    pub selection_id: String,
+    pub status: AdminAddonResourceCallDiagnosticStatus,
+    pub latency_ms: u128,
+    pub attempts: u32,
+    pub link_type: AddonResourceLinkType,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub check_status: Option<AddonResourceLinkCheckStatus>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub checked_at_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requires_password: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retryable: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retry_after_ms: Option<u64>,
+    pub has_safe_message: bool,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub safe_facts: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub http_status: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub safe_error_code: Option<String>,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminAddonInstallGuideResponse {
     pub addon_id: AddonId,
@@ -1514,6 +1552,56 @@ mod tests {
         assert!(!body.contains("secret-code"));
         assert!(!body.contains("request_context"));
         assert!(!body.contains("provider exception"));
+    }
+
+    #[test]
+    fn admin_resource_link_check_response_uses_safe_facts_only() {
+        let response = AdminAddonResourceLinkCheckResponse {
+            addon_id: AddonId::new(),
+            manifest_id: "example.resource-search".to_owned(),
+            search_id: "search_opaque_1".to_owned(),
+            selection_id: "sel_opaque_1".to_owned(),
+            status: AdminAddonResourceCallDiagnosticStatus::Succeeded,
+            latency_ms: 14,
+            attempts: 1,
+            link_type: AddonResourceLinkType::Quark,
+            check_status: Some(AddonResourceLinkCheckStatus::Reachable),
+            checked_at_ms: Some(1_779_814_400_000),
+            requires_password: Some(false),
+            retryable: Some(false),
+            retry_after_ms: None,
+            has_safe_message: true,
+            safe_facts: BTreeMap::from([("http_status_class".to_owned(), "2xx".to_owned())]),
+            http_status: Some(200),
+            safe_error_code: None,
+        };
+
+        let request = AdminAddonResourceLinkCheckRequest { refresh: true };
+        let request_value = serde_json::to_value(&request).unwrap();
+        let value = serde_json::to_value(&response).unwrap();
+        let body = value.to_string();
+
+        assert_eq!(request_value, serde_json::json!({ "refresh": true }));
+        assert_eq!(value["search_id"], "search_opaque_1");
+        assert_eq!(value["selection_id"], "sel_opaque_1");
+        assert_eq!(value["link_type"], "quark");
+        assert_eq!(value["check_status"], "reachable");
+        assert_eq!(value["safe_facts"]["http_status_class"], "2xx");
+
+        for forbidden in [
+            "https://pan.quark.cn",
+            "normalized_url",
+            "\"url\"",
+            "secret-code",
+            "private-note",
+            "source_uri",
+            "request_context",
+        ] {
+            assert!(
+                !body.contains(forbidden),
+                "link-check product response leaked forbidden term: {forbidden}"
+            );
+        }
     }
 
     #[test]

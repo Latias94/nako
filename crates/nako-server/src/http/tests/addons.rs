@@ -119,73 +119,108 @@ async fn failing_resource_addon_server(status: StatusCode, body: &'static str) -
 
 async fn resource_search_addon_server() -> (String, StdArc<TokioMutex<Vec<AddonResourceRequest>>>) {
     let requests = StdArc::new(TokioMutex::new(Vec::new()));
-    let router = Router::new().route(
-        "/resource-search",
-        axum::routing::post({
-            let requests = StdArc::clone(&requests);
-            move |Json(request): Json<AddonResourceRequest>| {
+    let router = Router::new()
+        .route(
+            "/resource-search",
+            axum::routing::post({
                 let requests = StdArc::clone(&requests);
-                async move {
-                    requests.lock().await.push(request.clone());
-                    let link = AddonResourceLink {
-                        url: "https://pan.quark.cn/s/raw-secret-link".to_owned(),
-                        normalized_url: "https://pan.quark.cn/s/raw-secret-link".to_owned(),
-                        link_type: AddonResourceLinkType::Quark,
-                        source: "pansou:movies".to_owned(),
-                        password: Some("secret-code".to_owned()),
-                        note: Some("private-note".to_owned()),
-                    };
-                    let mut merged_by_type = std::collections::BTreeMap::new();
-                    merged_by_type.insert(
-                        AddonResourceLinkType::Quark,
-                        vec![nako_addon_protocol::AddonMergedResourceLink {
-                            url: link.url.clone(),
-                            normalized_url: link.normalized_url.clone(),
+                move |Json(request): Json<AddonResourceRequest>| {
+                    let requests = StdArc::clone(&requests);
+                    async move {
+                        requests.lock().await.push(request.clone());
+                        let link = AddonResourceLink {
+                            url: "https://pan.quark.cn/s/raw-secret-link".to_owned(),
+                            normalized_url: "https://pan.quark.cn/s/raw-secret-link".to_owned(),
                             link_type: AddonResourceLinkType::Quark,
-                            password: link.password.clone(),
-                            note: link.note.clone(),
-                            sources: vec!["pansou:movies".to_owned()],
-                        }],
-                    );
+                            source: "pansou:movies".to_owned(),
+                            password: Some("secret-code".to_owned()),
+                            note: Some("private-note".to_owned()),
+                        };
+                        let mut merged_by_type = std::collections::BTreeMap::new();
+                        merged_by_type.insert(
+                            AddonResourceLinkType::Quark,
+                            vec![nako_addon_protocol::AddonMergedResourceLink {
+                                url: link.url.clone(),
+                                normalized_url: link.normalized_url.clone(),
+                                link_type: AddonResourceLinkType::Quark,
+                                password: link.password.clone(),
+                                note: link.note.clone(),
+                                sources: vec!["pansou:movies".to_owned()],
+                            }],
+                        );
 
-                    Json(AddonResourceResponse {
-                        protocol_version: request.protocol_version,
-                        addon_id: request.addon_id,
-                        resource: request.resource,
-                        request_id: request.request_id,
-                        payload: serde_json::to_value(AddonResourceSearchResponse {
-                            schema: ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA.to_owned(),
-                            query: "Demo Movie".to_owned(),
-                            intent: AddonResourceSearchIntent::FreeText {
-                                text: "Demo Movie".to_owned(),
-                            },
-                            total: 1,
-                            results: vec![nako_addon_protocol::AddonResourceSearchResult {
-                                id: "result-1".to_owned(),
-                                title: "Secret Result Title".to_owned(),
-                                source: "pansou:movies".to_owned(),
-                                content: Some("private content".to_owned()),
-                                links: vec![link],
-                                tags: vec!["private-tag".to_owned()],
-                                images: vec!["https://image.example/private.jpg".to_owned()],
-                                score: 900,
-                            }],
-                            merged_by_type,
-                            provider_executions: vec![AddonResourceSearchProviderExecution {
-                                provider_id: "pansou_compatible".to_owned(),
-                                status: AddonResourceSearchProviderStatus::Ok,
-                                result_count: 1,
-                                finality: AddonResourceSearchProviderFinality::Complete,
-                                safe_message: Some("provider secret message".to_owned()),
-                            }],
+                        Json(AddonResourceResponse {
+                            protocol_version: request.protocol_version,
+                            addon_id: request.addon_id,
+                            resource: request.resource,
+                            request_id: request.request_id,
+                            payload: serde_json::to_value(AddonResourceSearchResponse {
+                                schema: ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA.to_owned(),
+                                query: "Demo Movie".to_owned(),
+                                intent: AddonResourceSearchIntent::FreeText {
+                                    text: "Demo Movie".to_owned(),
+                                },
+                                total: 1,
+                                results: vec![nako_addon_protocol::AddonResourceSearchResult {
+                                    id: "result-1".to_owned(),
+                                    title: "Secret Result Title".to_owned(),
+                                    source: "pansou:movies".to_owned(),
+                                    content: Some("private content".to_owned()),
+                                    links: vec![link],
+                                    tags: vec!["private-tag".to_owned()],
+                                    images: vec!["https://image.example/private.jpg".to_owned()],
+                                    score: 900,
+                                }],
+                                merged_by_type,
+                                provider_executions: vec![AddonResourceSearchProviderExecution {
+                                    provider_id: "pansou_compatible".to_owned(),
+                                    status: AddonResourceSearchProviderStatus::Ok,
+                                    result_count: 1,
+                                    finality: AddonResourceSearchProviderFinality::Complete,
+                                    safe_message: Some("provider secret message".to_owned()),
+                                }],
+                            })
+                            .unwrap(),
+                            artifacts: Vec::new(),
                         })
-                        .unwrap(),
-                        artifacts: Vec::new(),
-                    })
+                    }
                 }
-            }
-        }),
-    );
+            }),
+        )
+        .route(
+            "/resource-link-check",
+            axum::routing::post({
+                let requests = StdArc::clone(&requests);
+                move |Json(request): Json<AddonResourceRequest>| {
+                    let requests = StdArc::clone(&requests);
+                    async move {
+                        requests.lock().await.push(request.clone());
+                        Json(AddonResourceResponse {
+                            protocol_version: request.protocol_version,
+                            addon_id: request.addon_id,
+                            resource: request.resource,
+                            request_id: request.request_id,
+                            payload: serde_json::to_value(AddonResourceLinkCheckResponse {
+                                schema: ADDON_RESOURCE_LINK_CHECK_RESPONSE_SCHEMA.to_owned(),
+                                link_type: AddonResourceLinkType::Quark,
+                                status: AddonResourceLinkCheckStatus::Reachable,
+                                checked_at_ms: 1_779_814_400_000,
+                                requires_password: false,
+                                retryable: false,
+                                retry_after_ms: None,
+                                safe_message: Some("safe reachable".to_owned()),
+                                safe_facts: std::collections::BTreeMap::from([(
+                                    "http_status_class".to_owned(),
+                                    "2xx".to_owned(),
+                                )]),
+                            })
+                            .unwrap(),
+                            artifacts: Vec::new(),
+                        })
+                    }
+                }
+            }),
+        );
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     tokio::spawn(async move {
@@ -613,6 +648,21 @@ fn resource_search_manifest(base_url: String) -> AddonManifest {
         max_attempts: Some(1),
     }];
     manifest.scopes = vec![AddonScope::AcquisitionSearchRead];
+    manifest
+}
+
+fn resource_search_and_link_check_manifest(base_url: String) -> AddonManifest {
+    let mut manifest = resource_search_manifest(base_url);
+    manifest.resources.push(AddonResourceDeclaration {
+        kind: AddonResource::ResourceLinkCheck,
+        path: "/resource-link-check".to_owned(),
+        input_schema: Some(ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA.to_owned()),
+        output_schema: Some(ADDON_RESOURCE_LINK_CHECK_RESPONSE_SCHEMA.to_owned()),
+        required_scopes: vec![AddonScope::AcquisitionLinkCheckRead],
+        timeout_ms: Some(5_000),
+        max_attempts: Some(1),
+    });
+    manifest.scopes.push(AddonScope::AcquisitionLinkCheckRead);
     manifest
 }
 
@@ -6213,6 +6263,188 @@ async fn admin_addon_resource_search_product_selection_records_intake_candidate_
     .await;
     assert_eq!(candidates.candidates.len(), 1);
     assert_eq!(candidates.candidates[0].id, first.candidate.id);
+}
+
+#[tokio::test]
+async fn admin_addon_resource_link_check_product_uses_opaque_selection_without_raw_browser_payload()
+{
+    let (addon_base_url, captured) = resource_search_addon_server().await;
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: resource_search_and_link_check_manifest(addon_base_url),
+            outbound_task_dispatch_secret_env: None,
+            granted_scopes: vec![
+                AddonScope::AcquisitionSearchRead,
+                AddonScope::AcquisitionLinkCheckRead,
+            ],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let search = request_body_json::<AdminAddonResourceSearchResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/resource-search"),
+        &AdminAddonResourceSearchRequest {
+            query: "Demo Movie".to_owned(),
+            intent: AddonResourceSearchIntent::FreeText {
+                text: "Demo Movie".to_owned(),
+            },
+            limit: Some(20),
+            sources: vec!["pansou_compatible".to_owned()],
+            link_types: vec![AddonResourceLinkType::Quark],
+            refresh: false,
+            context: serde_json::json!({
+                "source_locator": "local:///secret/movie.mkv",
+                "token": "nako_at_should_not_echo"
+            }),
+        },
+    )
+    .await;
+    let selection_id = search.results[0].links[0].selection_id.clone();
+    let link_check_path = format!(
+        "/admin/v1/addons/{addon_id}/resource-search/{}/selections/{selection_id}/link-check",
+        search.search_id
+    );
+
+    let raw_payload_rejected = response_body_json(
+        &router,
+        Method::POST,
+        &link_check_path,
+        &serde_json::json!({
+            "refresh": true,
+            "url": "https://pan.quark.cn/s/raw-secret-link",
+            "password": "secret-code",
+            "context": { "token": "nako_at_should_not_echo" }
+        }),
+    )
+    .await;
+    assert_eq!(
+        raw_payload_rejected.status(),
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+
+    let raw = response_body_json(
+        &router,
+        Method::POST,
+        &link_check_path,
+        &AdminAddonResourceLinkCheckRequest { refresh: true },
+    )
+    .await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let text = response_text(raw).await;
+    let response = serde_json::from_str::<AdminAddonResourceLinkCheckResponse>(&text).unwrap();
+
+    assert_eq!(response.addon_id, addon_id);
+    assert_eq!(response.search_id, search.search_id);
+    assert_eq!(response.selection_id, selection_id);
+    assert_eq!(
+        response.status,
+        AdminAddonResourceCallDiagnosticStatus::Succeeded
+    );
+    assert_eq!(response.link_type, AddonResourceLinkType::Quark);
+    assert_eq!(
+        response.check_status,
+        Some(AddonResourceLinkCheckStatus::Reachable)
+    );
+    assert_eq!(response.checked_at_ms, Some(1_779_814_400_000));
+    assert_eq!(response.requires_password, Some(false));
+    assert_eq!(response.retryable, Some(false));
+    assert!(response.has_safe_message);
+    assert_eq!(
+        response
+            .safe_facts
+            .get("http_status_class")
+            .map(String::as_str),
+        Some("2xx")
+    );
+
+    for forbidden in [
+        "https://pan.quark.cn",
+        "raw-secret-link",
+        "secret-code",
+        "private-note",
+        "provider secret message",
+        "local:///secret",
+        "nako_at_should_not_echo",
+        "https://image.example/private.jpg",
+    ] {
+        assert!(
+            !text.contains(forbidden),
+            "resource link-check product response leaked forbidden term: {forbidden}"
+        );
+    }
+
+    let captured = captured.lock().await;
+    assert_eq!(captured.len(), 2);
+    assert_eq!(captured[0].resource, AddonResource::ResourceSearch);
+    assert_eq!(captured[1].resource, AddonResource::ResourceLinkCheck);
+
+    let link_check_request =
+        serde_json::from_value::<AddonResourceLinkCheckRequest>(captured[1].payload.clone())
+            .unwrap();
+    assert_eq!(
+        link_check_request.schema,
+        ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA
+    );
+    assert!(link_check_request.refresh);
+    assert_eq!(
+        link_check_request.link.url,
+        "https://pan.quark.cn/s/raw-secret-link"
+    );
+    assert_eq!(
+        link_check_request.link.password.as_deref(),
+        Some("secret-code")
+    );
+    assert_eq!(
+        link_check_request.link.note.as_deref(),
+        Some("private-note")
+    );
+    assert_eq!(
+        link_check_request.context["schema"],
+        "nako.resource_link_check.selection_context.v1"
+    );
+    assert_eq!(
+        link_check_request.context["selection_id"],
+        search.results[0].links[0].selection_id
+    );
+    assert_eq!(link_check_request.context["link_type"], "quark");
+    assert_eq!(
+        link_check_request.context["source_ref_redacted"],
+        "https://<redacted>"
+    );
+    assert!(
+        link_check_request.context["query_fingerprint"]
+            .as_str()
+            .is_some_and(|value| value.starts_with("sha256:"))
+    );
+    assert!(
+        link_check_request.context["result_ref_fingerprint"]
+            .as_str()
+            .is_some_and(|value| value.starts_with("sha256:"))
+    );
+    let context_text = link_check_request.context.to_string();
+    for forbidden in [
+        "Demo Movie",
+        "https://pan.quark.cn",
+        "raw-secret-link",
+        "secret-code",
+        "private-note",
+        "local:///secret",
+        "nako_at_should_not_echo",
+    ] {
+        assert!(
+            !context_text.contains(forbidden),
+            "resource link-check addon context leaked forbidden term: {forbidden}"
+        );
+    }
 }
 
 #[tokio::test]
