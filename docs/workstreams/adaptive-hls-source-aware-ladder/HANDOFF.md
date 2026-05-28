@@ -1,29 +1,27 @@
 # Adaptive HLS Source-Aware Ladder Runtime Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-28
 
 ## Current State
 
-This workstream is open. The previous adaptive runtime lane implemented a fixed
-two-rendition fMP4 adaptive slice with explicit HLS artifact manifests and
-server artifact serving. This lane now targets the first source-aware runtime
+This workstream is closed. The previous adaptive runtime lane implemented a
+fixed two-rendition fMP4 adaptive slice with explicit HLS artifact manifests and
+server artifact serving. This lane completed the first source-aware runtime
 deepening:
 
 - adaptive ladder planning should derive from source and client facts;
 - adaptive FFmpeg planning should support sources with and without audio.
 
-## Next Task
+## Completed State
 
-Start with AHSL-020.
-
-Recommended order:
-
-1. Inspect `nako-transcode` HLS artifact/profile identity code,
-   `nako-playback` transcode requirement facts, and `nako-server` playback
-   staging/artifact reconstruction.
-2. Add focused failing tests for source-aware ladder output and identity.
-3. Implement the typed ladder plan and wire it through server staging.
+- `nako-transcode` owns `HlsAdaptiveLadderPlan`, request-variant identity
+  material, and audio-presence-aware adaptive FFmpeg maps.
+- `nako-playback` carries client max width/height into
+  `TranscodeOutputConstraints`.
+- `nako-server` derives adaptive plans from selected source facts, binds the
+  plan into request identity, stages from that plan, and reconstructs artifacts
+  from the persisted request key.
 
 ## Validation To Preserve
 
@@ -42,3 +40,9 @@ cargo nextest run -p nako-server playback --no-fail-fast
   reference audio.
 - Keep dynamic ladder decisions deterministic and reconstructable from the
   persisted request/session boundary.
+
+## Follow-Ons
+
+- Adaptive MPEG-TS only if a concrete client/server need appears.
+- Alternate audio and subtitle renditions as a separate playlist-manifest lane.
+- LL-HLS, CMAF, DRM, and a future rsmpeg/second-engine adapter evaluation.

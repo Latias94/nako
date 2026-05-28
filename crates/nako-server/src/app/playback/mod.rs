@@ -20,7 +20,8 @@ use nako_playback::{
 };
 use nako_streaming::{DirectPlayRangeRequest, DirectPlayResponsePlan};
 use nako_transcode::{
-    RemuxContainer, TranscodeOutputConstraints, TranscodeRequestIdentity, TranscodeSourceIdentity,
+    HlsAdaptiveLadderPlan, HlsVariantPolicy, RemuxContainer, TranscodeOutputConstraints,
+    TranscodeRequestIdentity, TranscodeSourceIdentity,
 };
 use nako_vfs::StorageUri;
 use serde::{Deserialize, Serialize};
@@ -1603,7 +1604,7 @@ impl PlaybackAppService {
         let execution_policy = self.hls.execution_policy_for_hls(
             track_selection,
             target_profile.output_constraints(),
-            source_facts,
+            source_facts.clone(),
         )?;
         let hls_profile =
             target_profile.try_hls_transcode_profile(transcode_plan, execution_policy)?;
@@ -1615,15 +1616,35 @@ impl PlaybackAppService {
                     message: "hls transcode profile did not carry HLS output requirements"
                         .to_owned(),
                 })?;
+        let adaptive_ladder_plan =
+            (hls_output.variant_policy == HlsVariantPolicy::Adaptive).then(|| {
+                HlsAdaptiveLadderPlan::from_source_facts(
+                    source_facts.as_ref(),
+                    execution_policy.output_constraints,
+                )
+            });
         let profile_identity = hls_profile.identity();
-        let request_identity =
-            profile_identity.bind_source(&TranscodeSourceIdentity::from_media_source(&source));
+        let source_identity = TranscodeSourceIdentity::from_media_source(&source);
+        let request_identity = if let Some(plan) = adaptive_ladder_plan.as_ref() {
+            profile_identity.bind_source_with_request_variant(&source_identity, plan.identity_key())
+        } else {
+            profile_identity.bind_source(&source_identity)
+        };
         let input = self
             .input
             .source_input_for_ffmpeg(&source, &uri, &backend)
             .await?;
         let staging = HlsStagingPolicy::new(self.config.remux_staging_root.join("hls"))?;
-        let layout = staging.layout_for_output(source.id, &request_identity, hls_output)?;
+        let layout = if let Some(plan) = adaptive_ladder_plan.as_ref() {
+            staging.layout_for_output_with_adaptive_plan(
+                source.id,
+                &request_identity,
+                hls_output,
+                plan,
+            )?
+        } else {
+            staging.layout_for_output(source.id, &request_identity, hls_output)?
+        };
         let result = self
             .hls
             .run(

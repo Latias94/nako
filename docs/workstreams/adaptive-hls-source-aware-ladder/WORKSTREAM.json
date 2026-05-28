@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "adaptive-hls-source-aware-ladder",
   "title": "Adaptive HLS Source-Aware Ladder Runtime",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-05-28",
   "scope_kind": "fearless_refactor",
   "problem": "Nako's adaptive HLS fMP4 runtime is executable, but it still uses a fixed two-rendition ladder and assumes every adaptive variant has audio.",
@@ -47,6 +47,22 @@
     {
       "task": "AHSL-010",
       "summary": "Opened the durable fearless refactor lane for source-aware adaptive HLS ladder policy and no-audio adaptive FFmpeg stream-map planning."
+    },
+    {
+      "task": "AHSL-020",
+      "summary": "Added source-aware adaptive ladder planning, carried client max width and height into transcode constraints, and bound concrete ladder plans into request-variant identity."
+    },
+    {
+      "task": "AHSL-030",
+      "summary": "Made adaptive FFmpeg HLS command planning emit audio-bearing or video-only maps, encoders, and var_stream_map entries based on selected source audio presence."
+    },
+    {
+      "task": "AHSL-040",
+      "summary": "Integrated adaptive ladder plans into server HLS staging, playback runtime request identity, artifact manifest reconstruction, and focused playback coverage."
+    },
+    {
+      "task": "AHSL-050",
+      "summary": "Verified focused gates, recorded evidence, closed the workstream, and left broader adaptive features as follow-ons."
     }
   ],
   "adr_refs": [
@@ -55,8 +71,7 @@
     "docs/adr/0049-source-aware-transcode-runtime.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "next_task": "AHSL-020",
-    "notes": "Begin by introducing the typed source-aware adaptive ladder plan and making its decision stable across request identity, staging, and artifact reconstruction."
+    "default_action": "closed",
+    "notes": "The lane is closed. Follow-on work should open a new workstream for adaptive MPEG-TS, alternate audio/subtitle renditions, LL-HLS/CMAF/DRM, or a second transcode engine adapter."
   }
 }

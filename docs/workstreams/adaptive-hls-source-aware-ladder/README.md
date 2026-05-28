@@ -1,6 +1,6 @@
 # Adaptive HLS Source-Aware Ladder Runtime
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-28
 
 Durable fearless refactor lane for making Nako's adaptive HLS fMP4 runtime
@@ -19,3 +19,7 @@ realistic self-hosted media-server path:
 The lane keeps adaptive MPEG-TS, alternate audio, subtitle renditions, LL-HLS,
 CMAF encryption, DRM, and a second engine adapter outside this scope unless
 they are needed to preserve the source-aware fMP4 contract.
+
+Closed on 2026-05-28 after adaptive fMP4 gained source/client-constrained
+ladder planning, request-variant identity, artifact reconstruction from the
+persisted session boundary, and audio-presence-aware FFmpeg stream maps.

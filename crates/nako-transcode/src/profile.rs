@@ -240,7 +240,7 @@ impl TranscodeProfile {
     fn persisted_request_key(&self) -> String {
         let output = self.output;
         format!(
-            "transcode-profile:v1;kind={};container={};vcodec={};acodec={};hls_variant={};hls_segment={};acceleration={};audio={};subtitle={};subtitle_strategy={};max_video_bitrate={};prefer_hdr={};remote_input={};reuse={};playback={}",
+            "transcode-profile:v1;kind={};container={};vcodec={};acodec={};hls_variant={};hls_segment={};acceleration={};audio={};subtitle={};subtitle_strategy={};max_video_bitrate={};max_width={};max_height={};prefer_hdr={};remote_input={};reuse={};playback={}",
             output.profile_kind().as_str(),
             output.container_key(),
             optional_str(self.video_codec.as_deref()),
@@ -252,6 +252,8 @@ impl TranscodeProfile {
             optional_u32(self.track_selection.subtitle_stream),
             self.execution_policy.subtitle_strategy.as_str(),
             optional_u64(self.execution_policy.output_constraints.max_video_bitrate),
+            optional_u32(self.execution_policy.output_constraints.max_width),
+            optional_u32(self.execution_policy.output_constraints.max_height),
             optional_bool(self.execution_policy.output_constraints.prefer_hdr),
             self.remote_input,
             self.reuse_policy.as_str(),
@@ -370,6 +372,19 @@ impl TranscodeProfileIdentity {
     ) -> TranscodeRequestIdentity {
         TranscodeRequestIdentity::new(source_identity.clone(), self.clone())
     }
+
+    #[must_use]
+    pub fn bind_source_with_request_variant(
+        &self,
+        source_identity: &TranscodeSourceIdentity,
+        request_variant_key: impl Into<String>,
+    ) -> TranscodeRequestIdentity {
+        TranscodeRequestIdentity::new_with_request_variant(
+            source_identity.clone(),
+            self.clone(),
+            request_variant_key.into(),
+        )
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -423,18 +438,56 @@ impl TranscodeRequestIdentity {
         source_identity: TranscodeSourceIdentity,
         profile_identity: TranscodeProfileIdentity,
     ) -> Self {
+        Self::new_inner(source_identity, profile_identity, None)
+    }
+
+    #[must_use]
+    pub fn new_with_request_variant(
+        source_identity: TranscodeSourceIdentity,
+        profile_identity: TranscodeProfileIdentity,
+        request_variant_key: String,
+    ) -> Self {
+        Self::new_inner(source_identity, profile_identity, Some(request_variant_key))
+    }
+
+    fn new_inner(
+        source_identity: TranscodeSourceIdentity,
+        profile_identity: TranscodeProfileIdentity,
+        request_variant_key: Option<String>,
+    ) -> Self {
         let request_key = format!(
             "transcode-request:v1;source={};profile={}",
             source_identity.revision_key(),
             escaped_component(profile_identity.persisted_request_key()),
         );
+        let (request_key, storage_slug) =
+            if let Some(request_variant_key) = request_variant_key.as_deref() {
+                let variant_digest = lowercase_hex(&Sha256::digest(request_variant_key.as_bytes()));
+                (
+                    format!(
+                        "{request_key};request_variant={}",
+                        escaped_component(request_variant_key)
+                    ),
+                    format!(
+                        "{}-{}-variant-v1-{}",
+                        profile_identity.storage_slug(),
+                        source_identity.storage_slug(),
+                        &variant_digest[..16]
+                    ),
+                )
+            } else {
+                (
+                    request_key,
+                    format!(
+                        "{}-{}",
+                        profile_identity.storage_slug(),
+                        source_identity.storage_slug()
+                    ),
+                )
+            };
 
         Self {
-            storage_slug: format!(
-                "{}-{}",
-                profile_identity.storage_slug(),
-                source_identity.storage_slug()
-            ),
+            storage_slug,
             source_identity,
             profile_identity,
             request_key,

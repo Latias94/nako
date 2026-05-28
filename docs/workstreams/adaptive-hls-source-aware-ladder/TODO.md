@@ -1,6 +1,6 @@
 # Adaptive HLS Source-Aware Ladder Runtime TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-28
 
 ## Task Ledger
@@ -28,7 +28,7 @@ git diff --check -- docs/workstreams/adaptive-hls-source-aware-ladder docs/works
 
 ### AHSL-020 - Add source-aware adaptive ladder policy and identity
 
-Status: Pending
+Status: Done
 Owner: codex
 Depends on: AHSL-010
 
@@ -49,9 +49,18 @@ cargo nextest run -p nako-transcode transcode_profile --no-fail-fast
 cargo nextest run -p nako-playback --no-fail-fast
 ```
 
+Notes:
+
+- Added `HlsAdaptiveLadderPlan` and `HlsAdaptiveLadderSource` in
+  `nako-transcode`.
+- Extended `TranscodeOutputConstraints` with max width/height and made
+  playback target profiles carry client resolution caps into transcode
+  requirements and profile identity.
+- Added versioned request-variant identity for concrete adaptive ladder plans.
+
 ### AHSL-030 - Make adaptive FFmpeg planning audio-presence aware
 
-Status: Pending
+Status: Done
 Owner: codex
 Depends on: AHSL-020
 
@@ -68,9 +77,16 @@ Validation:
 cargo nextest run -p nako-transcode ffmpeg --no-fail-fast
 ```
 
+Notes:
+
+- Added adaptive fMP4 command planning for video-only sources.
+- Preserved current audio-bearing adaptive maps and per-rendition audio bitrate
+  arguments.
+- Covered both source shapes with focused FFmpeg command-plan tests.
+
 ### AHSL-040 - Integrate source-aware plans in server HLS runtime
 
-Status: Pending
+Status: Done
 Owner: codex
 Depends on: AHSL-030
 
@@ -89,9 +105,20 @@ cargo nextest run -p nako-server hls --no-fail-fast
 cargo nextest run -p nako-server playback --no-fail-fast
 ```
 
+Notes:
+
+- Server HLS runtime now derives the adaptive plan from selected probe facts and
+  execution constraints, binds that plan into request identity, and stages
+  artifacts from the same plan.
+- HLS artifact serving reconstructs adaptive manifests from the request-variant
+  key and keeps old fixed-ladder sessions as a fallback only when no variant
+  key exists.
+- Public/Admin redaction and ticket-protected playback paths remained covered
+  by broader playback gates.
+
 ### AHSL-050 - Verify, close, and commit
 
-Status: Pending
+Status: Done
 Owner: codex
 Depends on: AHSL-040
 
@@ -108,3 +135,10 @@ Validation:
 cargo fmt --all -- --check
 git diff --check
 ```
+
+Notes:
+
+- Closed after focused transcode, playback, server HLS, and broader playback
+  gates passed.
+- Remaining adaptive breadth was kept as follow-on work rather than widening
+  this lane.

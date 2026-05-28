@@ -855,6 +855,69 @@ async fn hls_source_request_identity_changes_when_source_revision_changes() {
 }
 
 #[tokio::test]
+async fn hls_source_adaptive_identity_includes_source_aware_ladder() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_adaptive_ladder_identity");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    store
+        .upsert_media_probe(
+            source.id,
+            &MediaProbeResult {
+                duration_ms: Some(1_000),
+                container: Some("matroska,webm".to_owned()),
+                bit_rate: None,
+                streams: vec![MediaStreamInfo {
+                    index: 0,
+                    kind: MediaStreamKind::Video,
+                    codec: Some("h264".to_owned()),
+                    language: None,
+                    duration_ms: None,
+                    bit_rate: Some(4_000_000),
+                    width: Some(1920),
+                    height: Some(1080),
+                    channels: None,
+                    sample_rate: None,
+                    technical: Default::default(),
+                }],
+            },
+        )
+        .await
+        .unwrap();
+    let client = ClientPlaybackCapabilities {
+        hls_variant_policy: nako_transcode::HlsVariantPolicy::Adaptive,
+        hls_segment_container: nako_transcode::HlsSegmentContainer::Fmp4,
+        max_video_bitrate: Some(2_000_000),
+        max_width: Some(1280),
+        max_height: Some(720),
+        ..ClientPlaybackCapabilities::default()
+    };
+
+    let output = app
+        .playback()
+        .hls_source(HlsSourceRequest {
+            source_id: source.id,
+            client,
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(output.disposition, HlsSourceDisposition::Finished);
+    assert!(
+        output
+            .session
+            .request_key
+            .contains(";request_variant=hls-adaptive-ladder:v1%3Baudio%3Dfalse")
+    );
+    assert!(
+        output
+            .session
+            .request_key
+            .contains("0:1280x720@2000000+128000")
+    );
+    assert!(output.playlist_path.ends_with("master.m3u8"));
+}
+
+#[tokio::test]
 async fn hls_service_degrades_unavailable_gpu_when_fallback_is_fail() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_cpu_only_hls_ffmpeg_script(script_root.path(), "hls_gpu_required");
@@ -1266,6 +1329,43 @@ fn hls_staging_policy_uses_adaptive_fmp4_layout() {
             .variant_playlist_pattern()
             .unwrap()
             .ends_with("variant_%v.m3u8")
+    );
+}
+
+#[test]
+fn hls_staging_policy_uses_source_aware_adaptive_plan() {
+    let policy = HlsStagingPolicy::new(PathBuf::from("cache/hls")).unwrap();
+    let source = remote_media_source("local:///demo.mkv");
+    let plan = nako_transcode::HlsAdaptiveLadderPlan::from_source(
+        nako_transcode::HlsAdaptiveLadderSource {
+            width: Some(640),
+            height: Some(360),
+            video_bitrate: Some(700_000),
+            has_audio: Some(false),
+        },
+        Default::default(),
+    );
+    let profile = local_hls_request_identity(&source, HardwareAcceleration::None);
+    let request_identity = profile
+        .profile_identity()
+        .bind_source_with_request_variant(profile.source_identity(), plan.identity_key());
+    let adaptive = nako_transcode::HlsOutputRequirement {
+        variant_policy: nako_transcode::HlsVariantPolicy::Adaptive,
+        segment_container: nako_transcode::HlsSegmentContainer::Fmp4,
+    };
+
+    let layout = policy
+        .layout_for_output_with_adaptive_plan(source.id, &request_identity, adaptive, &plan)
+        .unwrap();
+
+    assert!(!layout.artifacts.has_audio());
+    assert_eq!(layout.artifacts.renditions(), plan.renditions());
+    assert!(layout.artifacts.artifact_for_name("variant_0.m3u8").is_ok());
+    assert!(
+        layout
+            .artifacts
+            .artifact_for_name("variant_1.m3u8")
+            .is_err()
     );
 }
 

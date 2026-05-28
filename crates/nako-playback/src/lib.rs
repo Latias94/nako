@@ -654,10 +654,7 @@ fn build_transcode_requirement(
         output_video_codec,
         output_audio_codec,
         track_selection,
-        output_constraints: TranscodeOutputConstraints {
-            max_video_bitrate: target_profile.output_constraints().max_video_bitrate,
-            prefer_hdr: target_profile.output_constraints().prefer_hdr,
-        },
+        output_constraints: target_profile.output_constraints(),
         hls_output: (output_container == OutputContainer::Hls)
             .then_some(target_profile.hls_output_requirement()),
         subtitle_strategy: if track_selection.subtitle_stream.is_some() {
@@ -1494,6 +1491,8 @@ mod tests {
                     profile.track_selection(),
                     nako_transcode::TranscodeOutputConstraints {
                         max_video_bitrate: profile.preferences.max_video_bitrate,
+                        max_width: None,
+                        max_height: None,
                         prefer_hdr: profile.preferences.prefer_hdr,
                     },
                 ),

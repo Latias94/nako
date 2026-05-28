@@ -1,6 +1,6 @@
 # Adaptive HLS Source-Aware Ladder Runtime - Design
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-28
 
 ## Problem
@@ -109,3 +109,24 @@ This lane can close when:
   redaction-covered playback paths consume the same ladder plan;
 - single-variant MPEG-TS/fMP4 behavior remains covered by focused gates;
 - evidence is recorded and the workstream is marked closed.
+
+## Closeout Summary
+
+Closed on 2026-05-28 after the planned runtime deepening shipped:
+
+- `HlsAdaptiveLadderPlan` now derives deterministic renditions from selected
+  source video facts and `TranscodeOutputConstraints`, avoiding known upscales
+  and capping variant bitrate by source/client facts.
+- Adaptive request identity now carries a versioned `request_variant` key for
+  the concrete ladder plan; session artifact reconstruction parses that key and
+  rejects malformed adaptive ladder variants instead of silently serving a
+  default shape.
+- Adaptive FFmpeg command planning now emits audio-bearing or video-only maps,
+  audio encoder arguments, and `var_stream_map` entries based on selected
+  source audio presence.
+- Server HLS staging and playback runtime consume the same ladder plan used by
+  request identity and artifact serving.
+
+Residual adaptive breadth remains split out: adaptive MPEG-TS, alternate audio
+renditions, subtitle renditions, LL-HLS/CMAF/DRM, and a future second transcode
+engine adapter evaluation.

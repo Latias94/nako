@@ -7,10 +7,10 @@ attention.
 ## Current Workstreams
 
 - [adaptive-hls-source-aware-ladder](adaptive-hls-source-aware-ladder/README.md):
-  active fearless refactor lane for making the adaptive HLS fMP4 runtime
+  closed fearless refactor lane that made the adaptive HLS fMP4 runtime
   source-aware after the first fixed-ladder slice, including source/client
-  constrained rendition planning, stable ladder identity, and no-audio
-  adaptive FFmpeg stream-map support.
+  constrained rendition planning, stable request-variant identity, artifact
+  reconstruction, and no-audio adaptive FFmpeg stream-map support.
 - [web-v0-copy-first-tanstack-refactor](web-v0-copy-first-tanstack-refactor/README.md):
   active copy-first frontend replacement lane that imports the complete
   `repo-ref/nako-admin-web` product shell into `web/`, then removes Next/Vercel

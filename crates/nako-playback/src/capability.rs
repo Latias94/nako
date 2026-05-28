@@ -220,6 +220,16 @@ impl PlaybackTargetProfile {
                     .filter_map(|profile| profile.max_video_bitrate)
                     .min(),
             ),
+            max_width: self
+                .direct_play_profiles
+                .iter()
+                .filter_map(|profile| profile.max_width)
+                .min(),
+            max_height: self
+                .direct_play_profiles
+                .iter()
+                .filter_map(|profile| profile.max_height)
+                .min(),
             prefer_hdr: if self
                 .direct_play_profiles
                 .iter()

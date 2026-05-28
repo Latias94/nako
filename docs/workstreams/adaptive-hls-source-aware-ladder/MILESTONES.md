@@ -1,6 +1,6 @@
 # Adaptive HLS Source-Aware Ladder Runtime Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-28
 
 ## Milestone 1 - Workstream Opened
@@ -13,7 +13,7 @@ Status: Done
 
 ## Milestone 2 - Source-Aware Ladder Contract
 
-Status: Pending
+Status: Done
 
 - Adaptive fMP4 runtime chooses renditions from typed source/client facts.
 - Ladder identity is stable enough for session reuse and artifact
@@ -21,14 +21,14 @@ Status: Pending
 
 ## Milestone 3 - Audio-Presence-Aware FFmpeg Planning
 
-Status: Pending
+Status: Done
 
 - Audio-bearing adaptive fMP4 plans remain valid.
 - Video-only adaptive fMP4 plans do not reference non-existent audio streams.
 
 ## Milestone 4 - Server Runtime Integrated And Closed
 
-Status: Pending
+Status: Done
 
 - Server staging, artifact serving, playlist rewrite, cleanup, and redaction
   tests consume the same ladder contract.

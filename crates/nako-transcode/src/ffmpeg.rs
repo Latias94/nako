@@ -306,13 +306,19 @@ fn plan_adaptive_hls_command_parts(request: &HlsRequest) -> FfmpegHlsCommandPart
         global: hls_global_args(request.overwrite),
         device_input: hls_device_input_args(request.execution_policy.acceleration),
         input: hls_input_args(&request.input_path),
-        stream_map: hls_adaptive_stream_map_args(request.artifacts.renditions().len()),
+        stream_map: hls_adaptive_stream_map_args(
+            request.artifacts.renditions().len(),
+            request.artifacts.has_audio(),
+        ),
         filter_graph: hls_filter_graph_args(request.execution_policy.acceleration),
         video_encoder: hls_adaptive_video_encoder_args(
             request.execution_policy,
             request.artifacts.renditions(),
         ),
-        audio_encoder: hls_adaptive_audio_encoder_args(request.artifacts.renditions()),
+        audio_encoder: hls_adaptive_audio_encoder_args(
+            request.artifacts.renditions(),
+            request.artifacts.has_audio(),
+        ),
         subtitle: hls_subtitle_args(request.execution_policy.subtitle_strategy),
         muxer: hls_adaptive_muxer_args(request.segment_time_seconds, &request.artifacts),
     }
@@ -403,15 +409,14 @@ fn hls_video_encoder_args(policy: TranscodeExecutionPolicy) -> Vec<FfmpegArg> {
     args
 }
 
-fn hls_adaptive_stream_map_args(rendition_count: usize) -> Vec<FfmpegArg> {
-    let mut args = Vec::with_capacity(rendition_count.saturating_mul(4));
+fn hls_adaptive_stream_map_args(rendition_count: usize, has_audio: bool) -> Vec<FfmpegArg> {
+    let mut args =
+        Vec::with_capacity(rendition_count.saturating_mul(if has_audio { 4 } else { 2 }));
     for _ in 0..rendition_count {
-        args.extend([
-            FfmpegArg::raw("-map"),
-            FfmpegArg::raw("0:v:0"),
-            FfmpegArg::raw("-map"),
-            FfmpegArg::raw("0:a:0?"),
-        ]);
+        args.extend([FfmpegArg::raw("-map"), FfmpegArg::raw("0:v:0")]);
+        if has_audio {
+            args.extend([FfmpegArg::raw("-map"), FfmpegArg::raw("0:a:0?")]);
+        }
     }
     args
 }
@@ -449,7 +454,11 @@ fn hls_audio_encoder_args() -> Vec<FfmpegArg> {
     vec![FfmpegArg::raw("-c:a"), FfmpegArg::raw("aac")]
 }
 
-fn hls_adaptive_audio_encoder_args(renditions: &[HlsRendition]) -> Vec<FfmpegArg> {
+fn hls_adaptive_audio_encoder_args(renditions: &[HlsRendition], has_audio: bool) -> Vec<FfmpegArg> {
+    if !has_audio {
+        return Vec::new();
+    }
+
     let mut args = vec![FfmpegArg::raw("-c:a"), FfmpegArg::raw("aac")];
     for (stream_index, rendition) in renditions.iter().enumerate() {
         args.extend([
@@ -520,7 +529,13 @@ fn hls_adaptive_muxer_args(
         .renditions()
         .iter()
         .enumerate()
-        .map(|(stream_index, _)| format!("v:{stream_index},a:{stream_index}"))
+        .map(|(stream_index, _)| {
+            if artifacts.has_audio() {
+                format!("v:{stream_index},a:{stream_index}")
+            } else {
+                format!("v:{stream_index}")
+            }
+        })
         .collect::<Vec<_>>()
         .join(" ");
 
