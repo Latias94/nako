@@ -2,7 +2,8 @@ use std::path::PathBuf;
 
 use nako_core::{MediaSourceId, NakoError, Result};
 use nako_transcode::{
-    HlsOutputRequirement, HlsVariantPolicy, RemuxContainer, TranscodeRequestIdentity,
+    HlsArtifactManifest, HlsOutputRequirement, HlsVariantPolicy, RemuxContainer,
+    TranscodeRequestIdentity,
 };
 
 #[derive(Clone, Debug)]
@@ -66,6 +67,7 @@ pub struct HlsOutputLayout {
     pub playlist_path: PathBuf,
     pub segment_pattern: PathBuf,
     pub output: HlsOutputRequirement,
+    pub artifacts: HlsArtifactManifest,
 }
 
 impl HlsStagingPolicy {
@@ -121,11 +123,19 @@ impl HlsStagingPolicy {
             }
         }
 
+        let artifacts = HlsArtifactManifest::single_variant(
+            output_dir.clone(),
+            playlist_path.clone(),
+            segment_pattern.clone(),
+            output,
+        )?;
+
         Ok(HlsOutputLayout {
             output_dir,
             playlist_path,
             segment_pattern,
             output,
+            artifacts,
         })
     }
 }

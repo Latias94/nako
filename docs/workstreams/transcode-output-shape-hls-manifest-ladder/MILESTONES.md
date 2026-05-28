@@ -13,7 +13,7 @@ Last updated: 2026-05-28
 
 ## M2 - HLS Artifact Manifest
 
-- Pending: HLS runtime uses explicit manifest/artifact rules for serving and
+- Done: HLS runtime uses explicit manifest/artifact rules for serving and
   cleanup.
 
 ## M3 - Adaptive HLS First Slice

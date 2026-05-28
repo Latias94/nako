@@ -51,6 +51,10 @@
     {
       "task": "TOSHL-020",
       "summary": "Replaced transitional TranscodeProfile output fields with typed TranscodeOutputShape and preserved remux/HLS request identity semantics."
+    },
+    {
+      "task": "TOSHL-030",
+      "summary": "Introduced HlsArtifactManifest and TranscodeArtifactSet, moved HLS requests to manifest-shaped artifacts, and routed server playback artifact serving through manifest rules."
     }
   ],
   "adr_refs": [

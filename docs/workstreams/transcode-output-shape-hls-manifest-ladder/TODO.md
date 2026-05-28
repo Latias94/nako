@@ -58,7 +58,7 @@ Notes:
 
 ### TOSHL-030 - Introduce HLS artifact manifest runtime boundary
 
-Status: Pending
+Status: Done
 Owner: codex
 Depends on: TOSHL-020
 
@@ -76,6 +76,17 @@ Validation:
 cargo nextest run -p nako-server hls --no-fail-fast
 cargo nextest run -p nako-transcode hls --no-fail-fast
 ```
+
+Notes:
+
+- Added `HlsArtifactManifest` and `TranscodeArtifactSet` to the transcode
+  runtime boundary.
+- Made `HlsRequest` consume a manifest instead of loose output dir, playlist,
+  segment pattern, and output fields.
+- Made server HLS artifact serving resolve playlist, init segment, media
+  segments, content type, and cleanup candidates through manifest-derived rules.
+- Preserved MPEG-TS and fMP4 single-variant runtime behavior and completed
+  session reuse coverage.
 
 ### TOSHL-040 - Implement adaptive HLS ladder first runtime slice
 

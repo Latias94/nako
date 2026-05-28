@@ -36,6 +36,17 @@ git diff --check
     tests.
   - `cargo nextest run -p nako-playback --no-fail-fast` passed: 19 tests.
   - `cargo nextest run -p nako-server hls --no-fail-fast` passed: 24 tests.
+- 2026-05-28 TOSHL-030: Introduced `HlsArtifactManifest` and
+  `TranscodeArtifactSet`, moved FFmpeg HLS requests to manifest-shaped
+  artifacts, and made server artifact serving use manifest rules for playlist,
+  init segment, media segments, content type, cleanup candidates, and reuse.
+  - `cargo fmt --all -- --check` passed.
+  - `git diff --check` passed.
+  - `cargo nextest run -p nako-transcode hls --no-fail-fast` passed: 21 tests.
+  - `cargo nextest run -p nako-server hls --no-fail-fast` passed: 24 tests.
+  - `cargo nextest run -p nako-server playback --no-fail-fast` passed: 92
+    tests.
+  - `cargo nextest run -p nako-playback --no-fail-fast` passed: 19 tests.
 
 ## Notes
 

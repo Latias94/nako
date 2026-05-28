@@ -7,7 +7,7 @@ use nako_core::{MediaSourceId, NakoError, Result};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    HardwareAcceleration, HlsOutputRequirement, HlsSegmentContainer, HlsVariantPolicy,
+    HardwareAcceleration, HlsArtifactManifest, HlsSegmentContainer, HlsVariantPolicy,
     TranscodeAccelerationPlan, TranscodeExecutionPolicy, TranscodeSubtitleStrategy,
 };
 
@@ -96,10 +96,7 @@ pub struct RemuxRequest {
 pub struct HlsRequest {
     pub source_id: MediaSourceId,
     pub input_path: PathBuf,
-    pub output_dir: PathBuf,
-    pub playlist_path: PathBuf,
-    pub segment_pattern: PathBuf,
-    pub output: HlsOutputRequirement,
+    pub artifacts: HlsArtifactManifest,
     pub segment_time_seconds: u32,
     pub execution_policy: TranscodeExecutionPolicy,
     pub overwrite: FfmpegOverwritePolicy,
@@ -265,68 +262,15 @@ fn validate_hls_request(request: &HlsRequest) -> Result<()> {
             message: "hls input path cannot be empty".to_owned(),
         });
     }
+    request.artifacts.validate()?;
 
-    if request.output_dir.as_os_str().is_empty() {
-        return Err(NakoError::InvalidInput {
-            message: "hls output directory cannot be empty".to_owned(),
-        });
-    }
-
-    if request.playlist_path.as_os_str().is_empty() {
-        return Err(NakoError::InvalidInput {
-            message: "hls playlist path cannot be empty".to_owned(),
-        });
-    }
-
-    if request.segment_pattern.as_os_str().is_empty() {
-        return Err(NakoError::InvalidInput {
-            message: "hls segment pattern cannot be empty".to_owned(),
-        });
-    }
-
-    if !request.playlist_path.starts_with(&request.output_dir) {
-        return Err(NakoError::InvalidInput {
-            message: "hls playlist path must be inside the output directory".to_owned(),
-        });
-    }
-
-    if !request.segment_pattern.starts_with(&request.output_dir) {
-        return Err(NakoError::InvalidInput {
-            message: "hls segment pattern must be inside the output directory".to_owned(),
-        });
-    }
-
-    if !request
-        .segment_pattern
-        .file_name()
-        .and_then(|value| value.to_str())
-        .is_some_and(|value| value.contains('%'))
-    {
-        return Err(NakoError::InvalidInput {
-            message: "hls segment pattern must contain a printf-style segment placeholder"
-                .to_owned(),
-        });
-    }
-
-    if request.output.variant_policy != HlsVariantPolicy::SingleVariant {
+    if request.artifacts.output().variant_policy != HlsVariantPolicy::SingleVariant {
         return Err(NakoError::Unsupported(
             "adaptive hls output is not implemented by the ffmpeg adapter",
         ));
     }
 
-    if request
-        .segment_pattern
-        .extension()
-        .and_then(|value| value.to_str())
-        != Some(request.output.segment_container.segment_extension())
-    {
-        return Err(NakoError::InvalidInput {
-            message: "hls segment pattern extension must match the requested segment container"
-                .to_owned(),
-        });
-    }
-
-    if request.input_path == request.playlist_path {
+    if request.input_path == request.artifacts.primary_playlist_path() {
         return Err(NakoError::InvalidInput {
             message: "hls input and playlist paths must differ".to_owned(),
         });
@@ -347,9 +291,9 @@ fn plan_hls_command_parts(request: &HlsRequest) -> FfmpegHlsCommandParts {
         subtitle: hls_subtitle_args(request.execution_policy.subtitle_strategy),
         muxer: hls_muxer_args(
             request.segment_time_seconds,
-            &request.segment_pattern,
-            &request.playlist_path,
-            request.output.segment_container,
+            request.artifacts.media_segment_pattern(),
+            request.artifacts.primary_playlist_path(),
+            request.artifacts.output().segment_container,
         ),
     }
 }

@@ -80,7 +80,7 @@ impl TranscodeSessionManager {
             kind: TranscodeSessionKind::HlsTranscode,
             state: TranscodeSessionState::Planned,
             command,
-            output_path: request.playlist_path,
+            output_path: request.artifacts.primary_playlist_path().to_path_buf(),
             failure_message: None,
             runtime_metrics: TranscodeSessionRuntimeMetrics::default(),
         };

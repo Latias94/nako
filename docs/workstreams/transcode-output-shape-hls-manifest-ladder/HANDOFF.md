@@ -7,14 +7,15 @@ Last updated: 2026-05-28
 
 TOSHL-020 is implemented. `TranscodeProfile` now owns typed
 `TranscodeOutputShape`, so remux output container and HLS output requirements
-cannot be combined incorrectly. HLS runtime still derives artifact serving from
-a primary playlist path.
+cannot be combined incorrectly. HLS runtime now uses
+`HlsArtifactManifest` / `TranscodeArtifactSet` boundaries for playlist, init
+segment, media segment, content type, cleanup, and reuse.
 
 ## Next Step
 
-Implement TOSHL-030: introduce explicit HLS artifact manifest/layout records for
-playlist, init segment, media segments, content types, cleanup, and session
-reuse.
+Implement TOSHL-040: type the first adaptive HLS ladder slice on top of the new
+manifest boundary, including rendition identity, master/variant planning, and
+playlist rewrite.
 
 ## Guardrails
 

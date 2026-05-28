@@ -1,5 +1,5 @@
 use std::{
-    path::Path,
+    path::{Path, PathBuf},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -8,13 +8,14 @@ use nako_core::{
     TranscodeSessionState,
 };
 use nako_streaming::DirectPlayRangeRequest;
+use nako_transcode::{
+    HlsArtifactManifest, HlsOutputRequirement, HlsSegmentContainer, HlsVariantPolicy,
+};
 
 use crate::config::PlaybackConfig;
 
 use super::{
-    HlsSegmentPlan,
-    paths::path_exists,
-    playlist::{rewrite_hls_playlist_for_playback_session, validate_hls_segment_name},
+    HlsSegmentPlan, paths::path_exists, playlist::rewrite_hls_playlist_for_playback_session,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -40,10 +41,9 @@ impl HlsArtifactService {
         transcode: &TranscodeSessionRecord,
         playback_session_id: PlaybackSessionId,
     ) -> Result<String> {
-        ensure_hls_session_artifacts_are_servable(transcode)?;
-        if !path_exists(&transcode.output_path)?
-            && transcode.state == TranscodeSessionState::Running
-        {
+        let manifest = hls_artifact_manifest_for_session(transcode)?;
+        let playlist_path = manifest.primary_playlist_path();
+        if !path_exists(playlist_path)? && transcode.state == TranscodeSessionState::Running {
             return Err(NakoError::Conflict {
                 message: format!(
                     "hls playlist for session {} is not ready; current state is {:?}",
@@ -52,11 +52,11 @@ impl HlsArtifactService {
             });
         }
 
-        let body = tokio::fs::read_to_string(&transcode.output_path)
+        let body = tokio::fs::read_to_string(playlist_path)
             .await
             .map_err(|err| {
                 NakoError::storage_io(
-                    transcode.output_path.display().to_string(),
+                    playlist_path.display().to_string(),
                     format!("failed to read hls playlist: {err}"),
                 )
             })?;
@@ -72,27 +72,13 @@ impl HlsArtifactService {
         session: &TranscodeSessionRecord,
         segment_name: &str,
     ) -> Result<HlsSegmentPlan> {
-        validate_hls_segment_name(segment_name)?;
-        ensure_hls_session_artifacts_are_servable(session)?;
+        let manifest = hls_artifact_manifest_for_session(session)?;
+        let artifact = manifest.artifact_for_name(segment_name)?;
 
-        let segment_dir = session.output_path.parent().ok_or_else(|| {
-            NakoError::storage_security_violation(
-                session.output_path.display().to_string(),
-                "hls playlist path does not have a parent directory",
-            )
-        })?;
-        let path = segment_dir.join(segment_name);
+        cleanup_hls_segment_dir_if_enabled(&self.config, &manifest, segment_name).await?;
 
-        if !path.starts_with(segment_dir) {
-            return Err(NakoError::InvalidInput {
-                message: "hls segment path escaped the session directory".to_owned(),
-            });
-        }
-
-        cleanup_hls_segment_dir_if_enabled(&self.config, segment_dir, segment_name).await?;
-
-        wait_for_hls_segment_if_configured(&self.config, session.state, &path).await?;
-        if !path_exists(&path)? {
+        wait_for_hls_segment_if_configured(&self.config, session.state, &artifact.path).await?;
+        if !path_exists(&artifact.path)? {
             if session.state == TranscodeSessionState::Running {
                 return Err(NakoError::Conflict {
                     message: format!(
@@ -108,23 +94,45 @@ impl HlsArtifactService {
             });
         }
 
-        let total_len = tokio::fs::metadata(&path)
+        let total_len = tokio::fs::metadata(&artifact.path)
             .await
             .map_err(|err| {
                 NakoError::storage_io(
-                    path.display().to_string(),
+                    artifact.path.display().to_string(),
                     format!("failed to read hls segment length: {err}"),
                 )
             })?
             .len();
         let response = nako_streaming::plan_direct_play_response(
             total_len,
-            hls_artifact_content_type(segment_name)?,
+            artifact.content_type,
             DirectPlayRangeRequest::None,
         );
 
-        Ok(HlsSegmentPlan { path, response })
+        Ok(HlsSegmentPlan {
+            path: artifact.path,
+            response,
+        })
     }
+}
+
+pub(super) fn hls_artifact_manifest_for_session(
+    session: &TranscodeSessionRecord,
+) -> Result<HlsArtifactManifest> {
+    ensure_hls_session_artifacts_are_servable(session)?;
+    let output = hls_output_requirement_from_request_key(&session.request_key);
+    let output_dir = hls_output_dir_for_primary_playlist(&session.output_path)?;
+    let segment_pattern = output_dir.join(format!(
+        "segment_%05d.{}",
+        output.segment_container.segment_extension()
+    ));
+
+    HlsArtifactManifest::single_variant(
+        output_dir,
+        session.output_path.clone(),
+        segment_pattern,
+        output,
+    )
 }
 
 fn ensure_hls_session_artifacts_are_servable(session: &TranscodeSessionRecord) -> Result<()> {
@@ -144,6 +152,42 @@ fn ensure_hls_session_artifacts_are_servable(session: &TranscodeSessionRecord) -
     }
 
     Ok(())
+}
+
+fn hls_output_dir_for_primary_playlist(playlist_path: &Path) -> Result<PathBuf> {
+    playlist_path
+        .parent()
+        .map(Path::to_path_buf)
+        .ok_or_else(|| {
+            NakoError::storage_security_violation(
+                playlist_path.display().to_string(),
+                "hls playlist path does not have a parent directory",
+            )
+        })
+}
+
+fn hls_output_requirement_from_request_key(request_key: &str) -> HlsOutputRequirement {
+    let variant_policy = if request_key_contains_component(request_key, "hls_variant", "adaptive") {
+        HlsVariantPolicy::Adaptive
+    } else {
+        HlsVariantPolicy::SingleVariant
+    };
+    let segment_container = if request_key_contains_component(request_key, "hls_segment", "fmp4") {
+        HlsSegmentContainer::Fmp4
+    } else {
+        HlsSegmentContainer::MpegTs
+    };
+
+    HlsOutputRequirement {
+        variant_policy,
+        segment_container,
+    }
+}
+
+fn request_key_contains_component(request_key: &str, name: &str, value: &str) -> bool {
+    request_key.contains(&format!("{name}={value}"))
+        || request_key.contains(&format!("{name}%3D{value}"))
+        || request_key.contains(&format!("{name}%3d{value}"))
 }
 
 fn hls_session_can_serve_artifacts(state: TranscodeSessionState) -> bool {
@@ -171,16 +215,16 @@ async fn wait_for_hls_segment_if_configured(
 
 async fn cleanup_hls_segment_dir_if_enabled(
     config: &PlaybackConfig,
-    segment_dir: &Path,
-    requested_segment: &str,
+    manifest: &HlsArtifactManifest,
+    requested_artifact: &str,
 ) -> Result<()> {
     if !config.hls_segment_cleanup_enabled {
         return Ok(());
     }
 
     cleanup_hls_segment_dir_at(
-        segment_dir,
-        requested_segment,
+        manifest,
+        requested_artifact,
         config.hls_segment_keep_ms,
         current_time_ms(),
     )
@@ -188,17 +232,17 @@ async fn cleanup_hls_segment_dir_if_enabled(
 }
 
 async fn cleanup_hls_segment_dir_at(
-    segment_dir: &Path,
-    requested_segment: &str,
+    manifest: &HlsArtifactManifest,
+    requested_artifact: &str,
     keep_ms: u64,
     now_ms: i64,
 ) -> Result<()> {
-    let mut entries = match tokio::fs::read_dir(segment_dir).await {
+    let mut entries = match tokio::fs::read_dir(manifest.output_dir()).await {
         Ok(entries) => entries,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(()),
         Err(err) => {
             return Err(NakoError::storage_io(
-                segment_dir.display().to_string(),
+                manifest.output_dir().display().to_string(),
                 format!("failed to read hls segment directory: {err}"),
             ));
         }
@@ -211,7 +255,7 @@ async fn cleanup_hls_segment_dir_at(
             Ok(None) => break,
             Err(err) => {
                 return Err(NakoError::storage_io(
-                    segment_dir.display().to_string(),
+                    manifest.output_dir().display().to_string(),
                     format!("failed to iterate hls segment directory: {err}"),
                 ));
             }
@@ -220,7 +264,7 @@ async fn cleanup_hls_segment_dir_at(
         let Some(file_name) = path.file_name().and_then(|value| value.to_str()) else {
             continue;
         };
-        if file_name == requested_segment || !is_cleanup_candidate_segment(&path) {
+        if file_name == requested_artifact || !manifest.cleanup_candidate_for_name(file_name) {
             continue;
         }
 
@@ -257,26 +301,6 @@ async fn cleanup_hls_segment_dir_at(
     }
 
     Ok(())
-}
-
-fn hls_artifact_content_type(segment_name: &str) -> Result<&'static str> {
-    match Path::new(segment_name)
-        .extension()
-        .and_then(|value| value.to_str())
-    {
-        Some("ts") => Ok("video/mp2t"),
-        Some("m4s" | "mp4") => Ok("video/mp4"),
-        _ => Err(NakoError::InvalidInput {
-            message: "unsupported hls artifact extension".to_owned(),
-        }),
-    }
-}
-
-fn is_cleanup_candidate_segment(path: &Path) -> bool {
-    matches!(
-        path.extension().and_then(|value| value.to_str()),
-        Some("ts" | "m4s")
-    )
 }
 
 fn current_time_ms() -> i64 {
@@ -318,9 +342,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn hls_segment_cleanup_removes_stale_siblings_and_keeps_requested() {
+    async fn hls_segment_cleanup_uses_manifest_segment_container() {
         let temp = tempfile::tempdir().unwrap();
         let segment_dir = temp.path();
+        let manifest = HlsArtifactManifest::single_variant(
+            segment_dir,
+            segment_dir.join("playlist.m3u8"),
+            segment_dir.join("segment_%05d.ts"),
+            HlsOutputRequirement::default(),
+        )
+        .unwrap();
         let requested = segment_dir.join("segment_00001.ts");
         let stale = segment_dir.join("segment_00000.ts");
         let stale_fmp4 = segment_dir.join("segment_00000.m4s");
@@ -334,29 +365,55 @@ mod tests {
         tokio::fs::write(&playlist, b"playlist").await.unwrap();
         tokio::fs::write(&subtitle, b"subtitle").await.unwrap();
 
-        cleanup_hls_segment_dir_at(segment_dir, "segment_00001.ts", 60_000, i64::MAX / 2)
+        cleanup_hls_segment_dir_at(&manifest, "segment_00001.ts", 60_000, i64::MAX / 2)
             .await
             .unwrap();
 
         assert!(path_exists(&requested).unwrap());
         assert!(!path_exists(&stale).unwrap());
-        assert!(!path_exists(&stale_fmp4).unwrap());
+        assert!(path_exists(&stale_fmp4).unwrap());
         assert!(path_exists(&init).unwrap());
         assert!(path_exists(&playlist).unwrap());
         assert!(path_exists(&subtitle).unwrap());
     }
 
     #[test]
-    fn hls_artifact_content_type_covers_ts_fmp4_segments_and_init() {
+    fn hls_artifact_manifest_covers_ts_fmp4_segments_and_init() {
+        let ts = HlsArtifactManifest::single_variant(
+            "hls",
+            "hls/playlist.m3u8",
+            "hls/segment_%05d.ts",
+            HlsOutputRequirement::default(),
+        )
+        .unwrap();
+        let fmp4 = HlsArtifactManifest::single_variant(
+            "hls",
+            "hls/playlist.m3u8",
+            "hls/segment_%05d.m4s",
+            HlsOutputRequirement {
+                variant_policy: HlsVariantPolicy::SingleVariant,
+                segment_container: HlsSegmentContainer::Fmp4,
+            },
+        )
+        .unwrap();
+
         assert_eq!(
-            hls_artifact_content_type("segment_00000.ts").unwrap(),
+            ts.artifact_for_name("segment_00000.ts")
+                .unwrap()
+                .content_type,
             "video/mp2t"
         );
         assert_eq!(
-            hls_artifact_content_type("segment_00000.m4s").unwrap(),
+            fmp4.artifact_for_name("segment_00000.m4s")
+                .unwrap()
+                .content_type,
             "video/mp4"
         );
-        assert_eq!(hls_artifact_content_type("init.mp4").unwrap(), "video/mp4");
-        assert!(hls_artifact_content_type("segment_00000.vtt").is_err());
+        assert_eq!(
+            fmp4.artifact_for_name("init.mp4").unwrap().content_type,
+            "video/mp4"
+        );
+        assert!(ts.artifact_for_name("init.mp4").is_err());
+        assert!(ts.artifact_for_name("segment_00000.vtt").is_err());
     }
 }
