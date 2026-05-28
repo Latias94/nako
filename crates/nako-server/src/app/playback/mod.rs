@@ -10,7 +10,8 @@ use nako_core::{
     PlaybackSessionListFilter, PlaybackSessionMode, PlaybackSessionRecord,
     PlaybackSessionRepository, PlaybackSessionState, Result, StagingManifestRepository,
     TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
-    TranscodeSessionRepository, TranscodeSessionState, UserId, UserPrincipalId,
+    TranscodeSessionRepository, TranscodeSessionRuntimeMetrics, TranscodeSessionState, UserId,
+    UserPrincipalId,
 };
 use nako_playback::{
     ClientPlaybackCapabilities, EffectivePlaybackPolicy, PlaybackDecision, PlaybackMode,
@@ -19,9 +20,7 @@ use nako_playback::{
 };
 use nako_streaming::{DirectPlayRangeRequest, DirectPlayResponsePlan};
 use nako_transcode::{
-    HardwareAccelerationPolicy, HardwareAccelerationReport, RemuxContainer,
-    TranscodeOutputConstraints, TranscodePipelineReadiness, TranscodeRequestIdentity,
-    TranscodeResourceBudget, TranscodeRuntimeInventory, TranscodeSourceIdentity,
+    RemuxContainer, TranscodeOutputConstraints, TranscodeRequestIdentity, TranscodeSourceIdentity,
 };
 use nako_vfs::StorageUri;
 use serde::{Deserialize, Serialize};
@@ -39,12 +38,14 @@ mod direct;
 mod events;
 mod failure;
 mod hls;
+mod hls_artifact;
 mod input;
 mod paths;
 mod playlist;
 mod remux;
 mod selection;
 mod staging_policy;
+mod support;
 
 use control::PlaybackSessionCancellationRegistry;
 pub(crate) use direct::{
@@ -54,15 +55,22 @@ use direct::{plan_direct_play_response_with_backend, should_budget_remote_stream
 use events::record_playback_session_finished_event;
 use failure::{map_hls_runner_error, map_remux_runner_error, persist_session_failure};
 use hls::HlsAppService;
+use hls_artifact::HlsArtifactService;
 use input::FfmpegInputService;
 #[cfg(test)]
 pub(crate) use input::source_path_for_ffmpeg_with_backend;
 use paths::{ensure_remux_output_parent, path_exists};
-use playlist::{rewrite_hls_playlist, validate_hls_segment_name};
+use playlist::rewrite_hls_playlist;
 use remux::RemuxAppService;
 pub(crate) use remux::RemuxRequestKey;
-use selection::{hls_transcode_plan, playback_selection_context, remux_output_container};
+use selection::{
+    hls_pipeline_source_facts, hls_transcode_plan, playback_selection_context,
+    remux_output_container,
+};
 pub(crate) use staging_policy::{HlsOutputLayout, HlsStagingPolicy, RemuxStagingPolicy};
+pub(crate) use support::{
+    PlaybackRuntimeDiagnostics, PlaybackSupportEvidenceContext, PlaybackSupportEvidenceRequest,
+};
 
 #[async_trait]
 pub(crate) trait PlaybackRuntimeStore: std::fmt::Debug + Send + Sync {
@@ -141,6 +149,12 @@ pub(crate) trait PlaybackRuntimeStore: std::fmt::Debug + Send + Sync {
         failure_category: Option<TranscodeFailureCategory>,
         failure_message: Option<String>,
     ) -> Result<TranscodeSessionRecord>;
+
+    async fn update_transcode_session_runtime_metrics(
+        &self,
+        id: TranscodeSessionId,
+        metrics: TranscodeSessionRuntimeMetrics,
+    ) -> Result<Option<TranscodeSessionRecord>>;
 
     async fn request_transcode_session_cancellation(
         &self,
@@ -286,6 +300,15 @@ where
             failure_message,
         )
         .await
+    }
+
+    async fn update_transcode_session_runtime_metrics(
+        &self,
+        id: TranscodeSessionId,
+        metrics: TranscodeSessionRuntimeMetrics,
+    ) -> Result<Option<TranscodeSessionRecord>> {
+        TranscodeSessionRepository::update_transcode_session_runtime_metrics(self, id, metrics)
+            .await
     }
 
     async fn request_transcode_session_cancellation(
@@ -525,41 +548,6 @@ pub(crate) struct PlaybackSessionHeartbeatRequest {
     pub duration_ms: Option<u64>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct PlaybackRuntimeDiagnostics {
-    pub runtime_inventory: TranscodeRuntimeInventory,
-    pub hardware_policy: HardwareAccelerationPolicy,
-    pub hardware_report: HardwareAccelerationReport,
-    pub hls_pipeline_readiness: TranscodePipelineReadiness,
-    pub transcode_budget: TranscodeResourceBudget,
-    pub selected_hls_slots: usize,
-    pub remux_concurrency: usize,
-    pub remux_timeout_ms: u64,
-    pub remote_stream_concurrency: usize,
-    pub remote_stage_concurrency: usize,
-    pub staging_max_bytes: u64,
-    pub staging_retention_ms: u64,
-    pub staging_cleanup_on_startup: bool,
-    pub transcode_artifact_retention_ms: u64,
-    pub transcode_artifact_cleanup_on_startup: bool,
-    pub hls_segment_cleanup_enabled: bool,
-    pub hls_segment_keep_ms: u64,
-    pub transcode_throttle_enabled: bool,
-    pub transcode_throttle_delay_ms: u64,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct PlaybackSupportEvidenceContext {
-    pub session: Option<TranscodeSessionRecord>,
-    pub source: Option<MediaSource>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct PlaybackSupportEvidenceRequest {
-    pub session_id: Option<TranscodeSessionId>,
-    pub source_id: Option<MediaSourceId>,
-}
-
 #[derive(Clone, Debug)]
 pub(crate) struct PlaybackAppService {
     config: NakoServerConfig,
@@ -571,6 +559,7 @@ pub(crate) struct PlaybackAppService {
     cancellations: PlaybackSessionCancellationRegistry,
     remux: RemuxAppService,
     hls: HlsAppService,
+    hls_artifacts: HlsArtifactService,
 }
 
 impl PlaybackAppService {
@@ -589,6 +578,7 @@ impl PlaybackAppService {
             planner: PlaybackPlanner::new(),
             remux: RemuxAppService::new(&config, cancellations.clone()),
             hls: HlsAppService::new(&config, cancellations.clone())?,
+            hls_artifacts: HlsArtifactService::new(config.playback),
             config,
             runtime_store,
             storage_backends,
@@ -1188,8 +1178,9 @@ impl PlaybackAppService {
             .await?;
         self.link_playback_session_transcode(playback_session.id, playlist.session.id)
             .await?;
-        let body =
-            rewrite_hls_playlist_segments_for_playback_session(&playlist.body, playback_session.id);
+        let body = self
+            .hls_artifacts
+            .rewrite_playlist_for_playback_session(&playlist.body, playback_session.id);
 
         Ok(HlsPlaylistPlaybackOutput {
             session: playback_session,
@@ -1232,23 +1223,10 @@ impl PlaybackAppService {
                 ),
             });
         }
-        if transcode.state != TranscodeSessionState::Finished {
-            return Err(NakoError::Conflict {
-                message: format!(
-                    "hls session {transcode_session_id} is not ready; current state is {:?}",
-                    transcode.state
-                ),
-            });
-        }
-        let body = tokio::fs::read_to_string(&transcode.output_path)
-            .await
-            .map_err(|err| {
-                NakoError::storage_io(
-                    transcode.output_path.display().to_string(),
-                    format!("failed to read hls playlist: {err}"),
-                )
-            })?;
-        let body = rewrite_hls_playlist_segments_for_playback_session(&body, playback_session.id);
+        let body = self
+            .hls_artifacts
+            .read_playback_playlist(&transcode, playback_session.id)
+            .await?;
 
         Ok(HlsPlaylistPlaybackOutput {
             session: playback_session,
@@ -1622,12 +1600,15 @@ impl PlaybackAppService {
         });
         ensure_playback_decision_allowed(&decision)?;
         let transcode_plan = hls_transcode_plan(&decision)?;
+        let track_selection = playback_profile.track_selection();
+        let source_facts = hls_pipeline_source_facts(probe.as_ref(), track_selection);
         let execution_policy = self.hls.execution_policy_for_hls(
-            playback_profile.track_selection(),
+            track_selection,
             TranscodeOutputConstraints {
                 max_video_bitrate: playback_profile.preferences.max_video_bitrate,
                 prefer_hdr: playback_profile.preferences.prefer_hdr,
             },
+            source_facts,
         )?;
         let hls_profile =
             playback_profile.try_hls_transcode_profile(transcode_plan, execution_policy)?;
@@ -1715,61 +1696,10 @@ impl PlaybackAppService {
         session_id: TranscodeSessionId,
         segment_name: &str,
     ) -> Result<HlsSegmentPlan> {
-        validate_hls_segment_name(segment_name)?;
         let session = self.get_transcode_session(session_id).await?;
-
-        if session.kind != TranscodeSessionKind::HlsTranscode {
-            return Err(NakoError::InvalidInput {
-                message: format!("session {session_id} is not an hls transcode session"),
-            });
-        }
-
-        if session.state != TranscodeSessionState::Finished {
-            return Err(NakoError::Conflict {
-                message: format!(
-                    "hls session {session_id} is not ready; current state is {:?}",
-                    session.state
-                ),
-            });
-        }
-
-        let segment_dir = session.output_path.parent().ok_or_else(|| {
-            NakoError::storage_security_violation(
-                session.output_path.display().to_string(),
-                "hls playlist path does not have a parent directory",
-            )
-        })?;
-        let path = segment_dir.join(segment_name);
-
-        if !path.starts_with(segment_dir) {
-            return Err(NakoError::InvalidInput {
-                message: "hls segment path escaped the session directory".to_owned(),
-            });
-        }
-
-        if !path_exists(&path)? {
-            return Err(NakoError::NotFound {
-                entity: "hls_segment",
-                id: segment_name.to_owned(),
-            });
-        }
-
-        let total_len = tokio::fs::metadata(&path)
+        self.hls_artifacts
+            .plan_segment(&session, segment_name)
             .await
-            .map_err(|err| {
-                NakoError::storage_io(
-                    path.display().to_string(),
-                    format!("failed to read hls segment length: {err}"),
-                )
-            })?
-            .len();
-        let response = nako_streaming::plan_direct_play_response(
-            total_len,
-            "video/mp2t",
-            DirectPlayRangeRequest::None,
-        );
-
-        Ok(HlsSegmentPlan { path, response })
     }
 
     pub(crate) async fn hls_segment_playback_target(
@@ -1806,61 +1736,12 @@ impl PlaybackAppService {
         &self,
         request: PlaybackSupportEvidenceRequest,
     ) -> Result<PlaybackSupportEvidenceContext> {
-        let session = match request.session_id {
-            Some(session_id) => Some(self.get_transcode_session(session_id).await?),
-            None => None,
-        };
-        if let (Some(session), Some(source_id)) = (&session, request.source_id) {
-            if session.source_id != source_id {
-                return Err(NakoError::InvalidInput {
-                    message: format!(
-                        "playback support evidence source_id {source_id} does not match session {} source_id {}",
-                        session.id, session.source_id
-                    ),
-                });
-            }
-        }
-        let source_id = session
-            .as_ref()
-            .map(|session| session.source_id)
-            .or(request.source_id);
-        let source = match source_id {
-            Some(source_id) => Some(self.get_source_or_not_found(source_id).await?),
-            None => None,
-        };
-
-        Ok(PlaybackSupportEvidenceContext { session, source })
+        support::support_evidence_context(self.runtime_store.as_ref(), request).await
     }
 
     #[must_use]
     pub(crate) fn runtime_diagnostics(&self) -> PlaybackRuntimeDiagnostics {
-        let hardware_policy = self.config.transcode.hardware_policy();
-        let transcode_budget = self.config.transcode.resource_budget();
-
-        PlaybackRuntimeDiagnostics {
-            runtime_inventory: TranscodeRuntimeInventory::ffmpeg_cli(&self.hls.hardware_report),
-            hardware_policy,
-            hardware_report: self.hls.hardware_report.clone(),
-            hls_pipeline_readiness: self.hls.pipeline_readiness(),
-            transcode_budget,
-            selected_hls_slots: self.hls.selected_hls_slots(transcode_budget),
-            remux_concurrency: self.config.remux_concurrency.max(1),
-            remux_timeout_ms: self.config.remux_timeout_ms.max(1),
-            remote_stream_concurrency: self.config.playback.remote_stream_concurrency.max(1),
-            remote_stage_concurrency: self.config.playback.remote_stage_concurrency.max(1),
-            staging_max_bytes: self.config.staging.max_bytes,
-            staging_retention_ms: self.config.staging.retention_ms,
-            staging_cleanup_on_startup: self.config.staging.cleanup_on_startup,
-            transcode_artifact_retention_ms: self.config.playback.transcode_artifact_retention_ms,
-            transcode_artifact_cleanup_on_startup: self
-                .config
-                .playback
-                .transcode_artifact_cleanup_on_startup,
-            hls_segment_cleanup_enabled: self.config.playback.hls_segment_cleanup_enabled,
-            hls_segment_keep_ms: self.config.playback.hls_segment_keep_ms,
-            transcode_throttle_enabled: self.config.playback.transcode_throttle_enabled,
-            transcode_throttle_delay_ms: self.config.playback.transcode_throttle_delay_ms,
-        }
+        support::runtime_diagnostics(&self.config, &self.hls)
     }
 
     pub(crate) async fn cancel_playback_session(
@@ -2027,36 +1908,6 @@ impl PlaybackAppService {
     }
 }
 
-fn rewrite_hls_playlist_segments_for_playback_session(
-    body: &str,
-    session_id: PlaybackSessionId,
-) -> String {
-    let mut rewritten = body
-        .lines()
-        .map(|line| {
-            let trimmed = line.trim();
-            if trimmed.is_empty() || trimmed.starts_with('#') {
-                return line.to_owned();
-            }
-            let Some(rest) = line.strip_prefix("/playback/sessions/") else {
-                return format!("/playback/sessions/{session_id}/hls/segments/{trimmed}");
-            };
-            let Some((_old_session_id, segment_path)) = rest.split_once("/hls/segments/") else {
-                return line.to_owned();
-            };
-
-            format!("/playback/sessions/{session_id}/hls/segments/{segment_path}")
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-
-    if body.ends_with('\n') {
-        rewritten.push('\n');
-    }
-
-    rewritten
-}
-
 fn playback_target_for_client(client: ClientPlaybackCapabilities) -> PlaybackTarget {
     PlaybackTarget::browser_with_capabilities("Public Client", client)
 }
@@ -2214,6 +2065,7 @@ mod tests {
             .execution_policy_for_hls(
                 nako_transcode::TranscodeTrackSelection::default(),
                 TranscodeOutputConstraints::default(),
+                None,
             )
             .unwrap_err();
 

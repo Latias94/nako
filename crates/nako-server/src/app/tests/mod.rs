@@ -1288,6 +1288,9 @@ fn hls_ffmpeg_script(root: &Path, name: &str, success: bool, encoder_lines: &[&s
                 "printf '#EXTM3U\\n#EXTINF:1,\\nsegment_00000.ts\\n#EXT-X-ENDLIST\\n' > \"$out\"\n",
             );
             content.push_str("printf segment > \"$dir/segment_00000.ts\"\n");
+            content.push_str(
+                "printf 'frame=12\\nout_time_us=1500000\\nspeed=1.25x\\nprogress=end\\n'\n",
+            );
             content.push_str("exit 0\n");
         } else {
             content.push_str("printf partial > \"$out\"\n");
@@ -1321,6 +1324,10 @@ fn hls_ffmpeg_script(root: &Path, name: &str, success: bool, encoder_lines: &[&s
             content.push_str(">>\"%out%\" echo segment_00000.ts\r\n");
             content.push_str(">>\"%out%\" echo #EXT-X-ENDLIST\r\n");
             content.push_str("<nul set /p dummy=segment>\"%dir%segment_00000.ts\"\r\n");
+            content.push_str("echo frame=12\r\n");
+            content.push_str("echo out_time_us=1500000\r\n");
+            content.push_str("echo speed=1.25x\r\n");
+            content.push_str("echo progress=end\r\n");
             content.push_str("exit /b 0\r\n");
         } else {
             content.push_str("<nul set /p dummy=partial>\"%out%\"\r\n");
@@ -1423,6 +1430,7 @@ async fn remux_app_with_source_and_transcode(
                         height: Some(1080),
                         channels: None,
                         sample_rate: None,
+                        technical: Default::default(),
                     },
                     MediaStreamInfo {
                         index: 1,
@@ -1435,6 +1443,7 @@ async fn remux_app_with_source_and_transcode(
                         height: None,
                         channels: Some(2),
                         sample_rate: Some(48_000),
+                        technical: Default::default(),
                     },
                 ],
             },

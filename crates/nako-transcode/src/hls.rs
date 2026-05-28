@@ -8,9 +8,11 @@ use super::{
         TranscodeEngineStartCommand, TranscodeEngineStartOutcome,
     },
     ffmpeg::stderr_message,
+    progress::parse_ffmpeg_progress_report,
     runner_util::{
-        abort_stderr_task, command_with_hls_output_dir, ffmpeg_command, join_stderr_task,
-        kill_child, promote_temp_hls_output, read_child_stderr, remove_dir_if_exists,
+        abort_stderr_task, abort_stdout_task, command_with_hls_output_dir,
+        ffmpeg_command_with_progress, join_stderr_task, join_stdout_task, kill_child,
+        promote_temp_hls_output, read_child_stderr, read_child_stdout, remove_dir_if_exists,
     },
     runtime::{CancellationToken, TranscodeRuntimeGuard},
     session::{TranscodeSessionId, TranscodeSessionKind, TranscodeSessionManager},
@@ -94,7 +96,7 @@ impl FfmpegHlsRunner {
             &temp_output_dir,
             &session.output_path,
         )?;
-        let mut child = ffmpeg_command(&command)
+        let mut child = ffmpeg_command_with_progress(&command)
             .spawn()
             .map_err(|err| NakoError::Provider {
                 provider: "ffmpeg".to_owned(),
@@ -104,6 +106,7 @@ impl FfmpegHlsRunner {
         manager.mark_running(session_id)?;
 
         let stderr_task = tokio::spawn(read_child_stderr(child.stderr.take()));
+        let stdout_task = tokio::spawn(read_child_stdout(child.stdout.take()));
         let status = tokio::select! {
             status = child.wait() => {
                 status.map_err(|err| NakoError::Provider {
@@ -114,6 +117,7 @@ impl FfmpegHlsRunner {
             () = cancel.cancelled() => {
                 kill_child(&mut child).await?;
                 abort_stderr_task(stderr_task);
+                abort_stdout_task(stdout_task);
                 manager.request_cancel(session_id)?;
                 remove_dir_if_exists(&temp_output_dir).await?;
                 manager.mark_cancelled(session_id)?;
@@ -125,6 +129,7 @@ impl FfmpegHlsRunner {
             () = tokio::time::sleep(self.guard.timeout()) => {
                 kill_child(&mut child).await?;
                 abort_stderr_task(stderr_task);
+                abort_stdout_task(stdout_task);
                 manager.request_cancel(session_id)?;
                 remove_dir_if_exists(&temp_output_dir).await?;
                 let message = format!(
@@ -139,6 +144,11 @@ impl FfmpegHlsRunner {
             }
         };
         let stderr = join_stderr_task(stderr_task).await?;
+        let stdout = join_stdout_task(stdout_task).await?;
+        let metrics = parse_ffmpeg_progress_report(&stdout);
+        if !metrics.is_empty() {
+            manager.update_runtime_metrics(session_id, metrics)?;
+        }
 
         if status.success() {
             promote_temp_hls_output(&temp_output_dir, &output_dir).await?;

@@ -1,4 +1,4 @@
-use nako_core::{NakoError, Result};
+use nako_core::{MediaStreamInfo, NakoError, Result};
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -28,6 +28,8 @@ pub enum TranscodePipelineReadinessReason {
     ProbeError,
     DeviceInitializationFailed,
     SmokeProbeFailed,
+    SourceVideoCodecUnsupportedByRequestedPipeline,
+    SourceVideoBitDepthUnsupportedByRequestedPipeline,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -45,6 +47,7 @@ pub struct TranscodePipelineRequest {
     pub track_selection: TranscodeTrackSelection,
     pub output_constraints: TranscodeOutputConstraints,
     pub subtitle_strategy: TranscodeSubtitleStrategy,
+    pub source: Option<TranscodePipelineSourceFacts>,
 }
 
 impl TranscodePipelineRequest {
@@ -63,8 +66,22 @@ impl TranscodePipelineRequest {
             } else {
                 TranscodeSubtitleStrategy::None
             },
+            source: None,
         }
     }
+
+    #[must_use]
+    pub fn with_source(mut self, source: TranscodePipelineSourceFacts) -> Self {
+        self.source = Some(source);
+        self
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct TranscodePipelineSourceFacts {
+    pub video: Option<MediaStreamInfo>,
+    pub audio: Option<MediaStreamInfo>,
+    pub subtitle: Option<MediaStreamInfo>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -110,7 +127,8 @@ impl TranscodePipelinePlanner {
         request: TranscodePipelineRequest,
         report: &HardwareAccelerationReport,
     ) -> Result<TranscodePipelinePlan> {
-        let selection = select_pipeline_acceleration(request.hardware_policy, report)?;
+        let selection =
+            select_pipeline_acceleration(request.hardware_policy, report, request.source.as_ref())?;
         let fallback = TranscodeAccelerationFallbackPlan {
             requested: request.hardware_policy.requested,
             selected: selection.selected,
@@ -133,6 +151,7 @@ impl TranscodePipelinePlanner {
 fn select_pipeline_acceleration(
     policy: HardwareAccelerationPolicy,
     report: &HardwareAccelerationReport,
+    source: Option<&TranscodePipelineSourceFacts>,
 ) -> Result<TranscodePipelineReadiness> {
     if policy.requested == HardwareAcceleration::None {
         if !report.is_available(HardwareAcceleration::None) {
@@ -151,6 +170,10 @@ fn select_pipeline_acceleration(
     }
 
     if report.is_available(policy.requested) {
+        if let Some(reason) = source_incompatibility_reason(policy.requested, source) {
+            return source_incompatible_readiness(policy, report, reason);
+        }
+
         return Ok(TranscodePipelineReadiness {
             status: TranscodePipelineReadinessStatus::Ready,
             reason: TranscodePipelineReadinessReason::RequestedPipelineReady,
@@ -188,8 +211,77 @@ pub fn transcode_pipeline_readiness_without_selection(
     policy: HardwareAccelerationPolicy,
     report: &HardwareAccelerationReport,
 ) -> TranscodePipelineReadiness {
-    select_pipeline_acceleration(policy, report)
+    select_pipeline_acceleration(policy, report, None)
         .unwrap_or_else(|_| unavailable_pipeline_readiness(policy, report))
+}
+
+fn source_incompatible_readiness(
+    policy: HardwareAccelerationPolicy,
+    report: &HardwareAccelerationReport,
+    reason: TranscodePipelineReadinessReason,
+) -> Result<TranscodePipelineReadiness> {
+    match policy.fallback {
+        HardwareAccelerationFallback::Cpu => {
+            if !report.is_available(HardwareAcceleration::None) {
+                return Err(NakoError::Unsupported(
+                    "requested hardware pipeline is incompatible with source media and cpu fallback is unavailable",
+                ));
+            }
+
+            Ok(TranscodePipelineReadiness {
+                status: TranscodePipelineReadinessStatus::Degraded,
+                reason,
+                requested: policy.requested,
+                selected: HardwareAcceleration::None,
+                fallback_used: true,
+            })
+        }
+        HardwareAccelerationFallback::Fail => Err(NakoError::Unsupported(
+            "requested hardware pipeline is incompatible with source media",
+        )),
+    }
+}
+
+fn source_incompatibility_reason(
+    accelerator: HardwareAcceleration,
+    source: Option<&TranscodePipelineSourceFacts>,
+) -> Option<TranscodePipelineReadinessReason> {
+    if !uses_source_aware_hardware_decode(accelerator) {
+        return None;
+    }
+
+    let video = source.and_then(|source| source.video.as_ref())?;
+    if !video
+        .codec
+        .as_deref()
+        .is_none_or(|codec| codec.eq_ignore_ascii_case("h264"))
+    {
+        return Some(
+            TranscodePipelineReadinessReason::SourceVideoCodecUnsupportedByRequestedPipeline,
+        );
+    }
+
+    if video
+        .technical
+        .bits_per_raw_sample
+        .is_some_and(|bits| bits > 8)
+        || video.technical.bits_per_sample.is_some_and(|bits| bits > 8)
+    {
+        return Some(
+            TranscodePipelineReadinessReason::SourceVideoBitDepthUnsupportedByRequestedPipeline,
+        );
+    }
+
+    None
+}
+
+fn uses_source_aware_hardware_decode(accelerator: HardwareAcceleration) -> bool {
+    matches!(
+        accelerator,
+        HardwareAcceleration::Vaapi
+            | HardwareAcceleration::QuickSync
+            | HardwareAcceleration::VideoToolbox
+    )
 }
 
 fn unavailable_pipeline_readiness(

@@ -381,9 +381,10 @@ impl MediaProbeRepository for SqliteStore {
                     width,
                     height,
                     channels,
-                    sample_rate
+                    sample_rate,
+                    technical_json
                 )
-                VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+                VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
                 "#,
             )
             .bind(source_id.to_string())
@@ -398,6 +399,7 @@ impl MediaProbeRepository for SqliteStore {
             .bind(optional_u32_to_i64(stream.height))
             .bind(optional_u32_to_i64(stream.channels))
             .bind(optional_u32_to_i64(stream.sample_rate))
+            .bind(serialize_stream_technical_json(&stream.technical)?)
             .execute(&mut *transaction)
             .await
             .map_err(database_error)?;
@@ -436,7 +438,8 @@ impl MediaProbeRepository for SqliteStore {
                 width,
                 height,
                 channels,
-                sample_rate
+                sample_rate,
+                technical_json
             FROM media_streams
             WHERE source_id = ?1
             ORDER BY stream_index ASC
@@ -459,6 +462,10 @@ impl MediaProbeRepository for SqliteStore {
             streams,
         }))
     }
+}
+
+fn serialize_stream_technical_json(value: &MediaStreamTechnicalFacts) -> Result<String> {
+    serde_json::to_string(value).map_err(database_error)
 }
 
 impl SqliteStore {

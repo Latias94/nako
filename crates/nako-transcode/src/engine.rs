@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use nako_core::{NakoError, Result};
+use nako_core::{NakoError, Result, TranscodeSessionRuntimeMetrics};
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -45,6 +45,7 @@ pub struct TranscodeEngineProgress {
     pub state: TranscodeSessionState,
     pub output_path: PathBuf,
     pub failure_message: Option<String>,
+    pub runtime_metrics: TranscodeSessionRuntimeMetrics,
 }
 
 impl TranscodeEngineProgress {
@@ -60,6 +61,7 @@ impl TranscodeEngineProgress {
             state: session.state,
             output_path: session.output_path.clone(),
             failure_message: session.failure_message.clone(),
+            runtime_metrics: session.runtime_metrics.clone(),
         }
     }
 }

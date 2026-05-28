@@ -25,20 +25,28 @@ async fn latest_playback_session_for_source(
     source_id: MediaSourceId,
     mode: PlaybackSessionMode,
 ) -> PlaybackSessionRecord {
-    store
-        .list_playback_sessions(
-            PlaybackSessionListFilter {
-                principal_id: None,
-                source_id: Some(source_id),
-                state: None,
-            },
-            PageRequest::first_page(),
-        )
-        .await
-        .unwrap()
-        .into_iter()
-        .find(|session| session.mode == mode)
-        .expect("playback route should persist a matching playback session")
+    for _ in 0..250 {
+        if let Some(session) = store
+            .list_playback_sessions(
+                PlaybackSessionListFilter {
+                    principal_id: None,
+                    source_id: Some(source_id),
+                    state: None,
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|session| session.mode == mode)
+        {
+            return session;
+        }
+
+        sleep(Duration::from_millis(20)).await;
+    }
+
+    panic!("playback route should persist a matching playback session")
 }
 
 #[tokio::test]
@@ -119,6 +127,7 @@ async fn playback_decision_and_direct_stream_routes_work() {
                         height: Some(1080),
                         channels: None,
                         sample_rate: None,
+                        technical: Default::default(),
                     },
                     MediaStreamInfo {
                         index: 1,
@@ -131,6 +140,7 @@ async fn playback_decision_and_direct_stream_routes_work() {
                         height: None,
                         channels: Some(2),
                         sample_rate: Some(48_000),
+                        technical: Default::default(),
                     },
                 ],
             },
@@ -1734,6 +1744,62 @@ async fn hls_playlist_and_segment_routes_work() {
         .unwrap();
 
     assert_eq!(missing.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn hls_segment_route_serves_existing_running_segment() {
+    let (temp, router, source, store) = router_with_hls_source().await;
+    let active_dir = temp.path().join("active-hls");
+    fs::create_dir_all(&active_dir).unwrap();
+    fs::write(active_dir.join("segment_00000.ts"), b"partial-segment").unwrap();
+    let active = store
+        .create_transcode_session(NewTranscodeSession {
+            id: TranscodeSessionId::new(),
+            source_id: source.id,
+            kind: TranscodeSessionKind::HlsTranscode,
+            request_key: local_hls_request_key(&source, nako_transcode::HardwareAcceleration::None),
+            output_path: active_dir.join("playlist.m3u8"),
+            state: TranscodeSessionState::Running,
+        })
+        .await
+        .unwrap();
+    let playback_session = store
+        .create_playback_session(NewPlaybackSession {
+            id: PlaybackSessionId::new(),
+            principal_id: UserPrincipalId::local_admin(),
+            source_id: source.id,
+            item_id: source.item_id,
+            mode: PlaybackSessionMode::Hls,
+            state: PlaybackSessionState::Active,
+            client_capabilities_json: None,
+            started_at_ms: 1,
+            updated_at_ms: 1,
+        })
+        .await
+        .unwrap();
+    store
+        .link_playback_session_transcode(playback_session.id, active.id)
+        .await
+        .unwrap();
+    let path = format!(
+        "/playback/sessions/{}/hls/segments/segment_00000.ts",
+        playback_session.id
+    );
+
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(path)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let segment = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(&segment[..], b"partial-segment");
 }
 
 #[tokio::test]

@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use nako_core::{MediaSourceId, NakoError, Result};
+use nako_core::{MediaSourceId, NakoError, Result, TranscodeSessionRuntimeMetrics};
 pub use nako_core::{TranscodeSessionId, TranscodeSessionKind, TranscodeSessionState};
 use serde::{Deserialize, Serialize};
 
@@ -15,6 +15,7 @@ pub struct TranscodeSession {
     pub command: FfmpegCommandPlan,
     pub output_path: PathBuf,
     pub failure_message: Option<String>,
+    pub runtime_metrics: TranscodeSessionRuntimeMetrics,
 }
 
 #[derive(Debug, Default)]
@@ -51,6 +52,7 @@ impl TranscodeSessionManager {
             command,
             output_path: request.output_path,
             failure_message: None,
+            runtime_metrics: TranscodeSessionRuntimeMetrics::default(),
         };
 
         self.sessions.insert(session.id, session.clone());
@@ -80,6 +82,7 @@ impl TranscodeSessionManager {
             command,
             output_path: request.playlist_path,
             failure_message: None,
+            runtime_metrics: TranscodeSessionRuntimeMetrics::default(),
         };
 
         self.sessions.insert(session.id, session.clone());
@@ -153,6 +156,23 @@ impl TranscodeSessionManager {
             TranscodeSessionState::Failed,
             Some(message.into()),
         )
+    }
+
+    pub fn update_runtime_metrics(
+        &mut self,
+        session_id: TranscodeSessionId,
+        metrics: TranscodeSessionRuntimeMetrics,
+    ) -> Result<TranscodeSession> {
+        let session = self
+            .sessions
+            .get_mut(&session_id)
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "transcode_session",
+                id: session_id.to_string(),
+            })?;
+
+        session.runtime_metrics = metrics;
+        Ok(session.clone())
     }
 
     #[must_use]

@@ -1183,6 +1183,7 @@ mod tests {
             state: TranscodeSessionState::Finished,
             failure_category: None,
             failure_message: None,
+            runtime_metrics: Default::default(),
             created_at: "2026-05-16T00:00:00Z".to_owned(),
             updated_at: "2026-05-16T00:01:00Z".to_owned(),
             started_at: Some("2026-05-16T00:00:01Z".to_owned()),
@@ -1211,6 +1212,7 @@ mod tests {
                 "ffmpeg failed at C:\\secret\\movie.mkv with webdav:///Movies/secret.mkv"
                     .to_owned(),
             ),
+            runtime_metrics: Default::default(),
             created_at: "2026-05-16T00:00:00Z".to_owned(),
             updated_at: "2026-05-16T00:01:00Z".to_owned(),
             started_at: Some("2026-05-16T00:00:01Z".to_owned()),
@@ -1268,6 +1270,7 @@ mod tests {
             },
             direct_play: None,
             transcode_plan: Some(transcode_plan),
+            transcode_requirement: None,
             denial: None,
         };
 

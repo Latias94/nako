@@ -34,6 +34,7 @@ const TRANSCODE_SESSION_SELECT: &str = r#"
                 state,
                 failure_category,
                 failure_message,
+                runtime_metrics_json::text AS runtime_metrics_json,
                 to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS created_at,
                 to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS updated_at,
                 to_char(started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS started_at,
@@ -51,6 +52,7 @@ const TRANSCODE_SESSION_SELECT_BY_ID: &str = r#"
                 state,
                 failure_category,
                 failure_message,
+                runtime_metrics_json::text AS runtime_metrics_json,
                 to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS created_at,
                 to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS updated_at,
                 to_char(started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS started_at,
@@ -532,6 +534,33 @@ impl TranscodeSessionRepository for PostgresStore {
         self.get_transcode_session_or_not_found(id).await
     }
 
+    async fn update_transcode_session_runtime_metrics(
+        &self,
+        id: TranscodeSessionId,
+        metrics: TranscodeSessionRuntimeMetrics,
+    ) -> Result<Option<TranscodeSessionRecord>> {
+        let result = sqlx::query(
+            r#"
+            UPDATE transcode_sessions
+            SET
+                runtime_metrics_json = $2::jsonb,
+                updated_at = statement_timestamp()
+            WHERE id = $1
+            "#,
+        )
+        .bind(id.as_uuid())
+        .bind(serialize_transcode_runtime_metrics_json(&metrics)?)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        if result.rows_affected() == 0 {
+            return Ok(None);
+        }
+
+        self.get_transcode_session(id).await
+    }
+
     async fn request_transcode_session_cancellation(
         &self,
         id: TranscodeSessionId,
@@ -662,11 +691,32 @@ fn row_to_transcode_session(row: PgRow) -> Result<TranscodeSessionRecord> {
         state: parse_transcode_session_state(row_get(&row, "state")?)?,
         failure_category: parse_transcode_failure_category(row_get(&row, "failure_category")?)?,
         failure_message: row_get(&row, "failure_message")?,
+        runtime_metrics: deserialize_transcode_runtime_metrics_json(row_get(
+            &row,
+            "runtime_metrics_json",
+        )?)?,
         created_at: row_get(&row, "created_at")?,
         updated_at: row_get(&row, "updated_at")?,
         started_at: row_get(&row, "started_at")?,
         completed_at: row_get(&row, "completed_at")?,
     })
+}
+
+fn serialize_transcode_runtime_metrics_json(
+    metrics: &TranscodeSessionRuntimeMetrics,
+) -> Result<String> {
+    serde_json::to_string(metrics).map_err(database_error)
+}
+
+fn deserialize_transcode_runtime_metrics_json(
+    value: Option<String>,
+) -> Result<TranscodeSessionRuntimeMetrics> {
+    match value {
+        Some(value) if !value.trim().is_empty() => {
+            serde_json::from_str(&value).map_err(database_error)
+        }
+        _ => Ok(TranscodeSessionRuntimeMetrics::default()),
+    }
 }
 
 fn parse_transcode_session_kind(value: String) -> Result<TranscodeSessionKind> {

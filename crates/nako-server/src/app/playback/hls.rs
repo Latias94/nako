@@ -11,11 +11,12 @@ use nako_transcode::{
     TranscodeEngineAdapter, TranscodeEngineStartCommand, TranscodeEngineStartOutcome,
     TranscodeExecutionPolicy, TranscodeOutputConstraints, TranscodePipelinePlan,
     TranscodePipelinePlanner, TranscodePipelineReadiness, TranscodePipelineRequest,
-    TranscodeRequestIdentity, TranscodeResourceBudget, TranscodeRuntimeGuard,
-    TranscodeRuntimeLimits, TranscodeSessionManager, TranscodeTrackSelection,
-    transcode_pipeline_readiness_without_selection,
+    TranscodePipelineSourceFacts, TranscodeRequestIdentity, TranscodeResourceBudget,
+    TranscodeRuntimeGuard, TranscodeRuntimeLimits, TranscodeSessionManager,
+    TranscodeTrackSelection, transcode_pipeline_readiness_without_selection,
 };
 use tokio::sync::Mutex;
+use tracing::warn;
 
 use crate::config::NakoServerConfig;
 
@@ -103,17 +104,20 @@ impl HlsAppService {
         &self,
         track_selection: TranscodeTrackSelection,
         output_constraints: TranscodeOutputConstraints,
+        source: Option<TranscodePipelineSourceFacts>,
     ) -> Result<TranscodeExecutionPolicy> {
+        let mut request = TranscodePipelineRequest::hls_single_variant(
+            self.hardware_policy,
+            track_selection,
+            output_constraints,
+        );
+        if let Some(source) = source {
+            request = request.with_source(source);
+        }
+
         Ok(self
             .pipeline_planner
-            .plan_hls_single_variant(
-                TranscodePipelineRequest::hls_single_variant(
-                    self.hardware_policy,
-                    track_selection,
-                    output_constraints,
-                ),
-                &self.hardware_report,
-            )?
+            .plan_hls_single_variant(request, &self.hardware_report)?
             .execution_policy())
     }
 
@@ -292,6 +296,23 @@ impl HlsAppService {
             .map_err(map_hls_runner_error);
 
         drop(_cancel_handle);
+
+        if let Some(metrics) = manager
+            .get(session_id)
+            .map(|session| session.runtime_metrics.clone())
+            .filter(|metrics| !metrics.is_empty())
+        {
+            if let Err(error) = sessions
+                .update_transcode_session_runtime_metrics(session_id, metrics)
+                .await
+            {
+                warn!(
+                    error = %error,
+                    transcode_session_id = %session_id,
+                    "failed to persist hls runtime metrics"
+                );
+            }
+        }
 
         match run_result {
             Ok(TranscodeEngineStartOutcome::Finished { .. }) => {

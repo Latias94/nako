@@ -507,9 +507,10 @@ impl MediaProbeRepository for PostgresStore {
                     width,
                     height,
                     channels,
-                    sample_rate
+                    sample_rate,
+                    technical_json
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb)
                 "#,
             )
             .bind(source_id.as_uuid())
@@ -524,6 +525,7 @@ impl MediaProbeRepository for PostgresStore {
             .bind(stream.height.map(u32_to_i64))
             .bind(stream.channels.map(u32_to_i64))
             .bind(stream.sample_rate.map(u32_to_i64))
+            .bind(serialize_stream_technical_json(&stream.technical)?)
             .execute(&mut *transaction)
             .await
             .map_err(database_error)?;
@@ -562,7 +564,8 @@ impl MediaProbeRepository for PostgresStore {
                 width,
                 height,
                 channels,
-                sample_rate
+                sample_rate,
+                technical_json::text AS technical_json
             FROM media_streams
             WHERE source_id = $1
             ORDER BY stream_index ASC
@@ -1940,7 +1943,21 @@ fn row_to_stream_info(row: PgRow) -> Result<MediaStreamInfo> {
         height: optional_i64_to_u32(row_get(&row, "height")?)?,
         channels: optional_i64_to_u32(row_get(&row, "channels")?)?,
         sample_rate: optional_i64_to_u32(row_get(&row, "sample_rate")?)?,
+        technical: deserialize_stream_technical_json(row_get(&row, "technical_json")?)?,
     })
+}
+
+fn serialize_stream_technical_json(value: &MediaStreamTechnicalFacts) -> Result<String> {
+    serde_json::to_string(value).map_err(database_error)
+}
+
+fn deserialize_stream_technical_json(value: Option<String>) -> Result<MediaStreamTechnicalFacts> {
+    match value {
+        Some(value) if !value.trim().is_empty() => {
+            serde_json::from_str(&value).map_err(database_error)
+        }
+        _ => Ok(MediaStreamTechnicalFacts::default()),
+    }
 }
 
 fn row_to_local_inference_evidence(row: PgRow) -> Result<LocalInferenceEvidence> {

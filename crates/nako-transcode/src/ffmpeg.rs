@@ -198,101 +198,139 @@ impl FfmpegCommandBuilder {
     }
 
     pub fn hls(&self, request: &HlsRequest) -> Result<FfmpegCommandPlan> {
-        if request.input_path.as_os_str().is_empty() {
-            return Err(NakoError::InvalidInput {
-                message: "hls input path cannot be empty".to_owned(),
-            });
-        }
+        validate_hls_request(request)?;
 
-        if request.output_dir.as_os_str().is_empty() {
-            return Err(NakoError::InvalidInput {
-                message: "hls output directory cannot be empty".to_owned(),
-            });
-        }
+        let parts = plan_hls_command_parts(request);
+        Ok(FfmpegCommandPlan::new(
+            self.ffmpeg_path.clone(),
+            parts.into_args(),
+        ))
+    }
+}
 
-        if request.playlist_path.as_os_str().is_empty() {
-            return Err(NakoError::InvalidInput {
-                message: "hls playlist path cannot be empty".to_owned(),
-            });
-        }
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub(crate) struct FfmpegHlsCommandParts {
+    pub global: Vec<FfmpegArg>,
+    pub device_input: Vec<FfmpegArg>,
+    pub input: Vec<FfmpegArg>,
+    pub stream_map: Vec<FfmpegArg>,
+    pub filter_graph: Vec<FfmpegArg>,
+    pub video_encoder: Vec<FfmpegArg>,
+    pub audio_encoder: Vec<FfmpegArg>,
+    pub subtitle: Vec<FfmpegArg>,
+    pub muxer: Vec<FfmpegArg>,
+}
 
-        if request.segment_pattern.as_os_str().is_empty() {
-            return Err(NakoError::InvalidInput {
-                message: "hls segment pattern cannot be empty".to_owned(),
-            });
-        }
+impl FfmpegHlsCommandParts {
+    #[must_use]
+    pub fn into_args(self) -> Vec<FfmpegArg> {
+        let Self {
+            global,
+            device_input,
+            input,
+            stream_map,
+            filter_graph,
+            video_encoder,
+            audio_encoder,
+            subtitle,
+            muxer,
+        } = self;
+        let capacity = global.len()
+            + device_input.len()
+            + input.len()
+            + stream_map.len()
+            + filter_graph.len()
+            + video_encoder.len()
+            + audio_encoder.len()
+            + subtitle.len()
+            + muxer.len();
+        let mut args = Vec::with_capacity(capacity);
+        args.extend(global);
+        args.extend(device_input);
+        args.extend(input);
+        args.extend(stream_map);
+        args.extend(filter_graph);
+        args.extend(video_encoder);
+        args.extend(audio_encoder);
+        args.extend(subtitle);
+        args.extend(muxer);
+        args
+    }
+}
 
-        if !request.playlist_path.starts_with(&request.output_dir) {
-            return Err(NakoError::InvalidInput {
-                message: "hls playlist path must be inside the output directory".to_owned(),
-            });
-        }
+fn validate_hls_request(request: &HlsRequest) -> Result<()> {
+    if request.input_path.as_os_str().is_empty() {
+        return Err(NakoError::InvalidInput {
+            message: "hls input path cannot be empty".to_owned(),
+        });
+    }
 
-        if !request.segment_pattern.starts_with(&request.output_dir) {
-            return Err(NakoError::InvalidInput {
-                message: "hls segment pattern must be inside the output directory".to_owned(),
-            });
-        }
+    if request.output_dir.as_os_str().is_empty() {
+        return Err(NakoError::InvalidInput {
+            message: "hls output directory cannot be empty".to_owned(),
+        });
+    }
 
-        if !request
-            .segment_pattern
-            .file_name()
-            .and_then(|value| value.to_str())
-            .is_some_and(|value| value.contains('%'))
-        {
-            return Err(NakoError::InvalidInput {
-                message: "hls segment pattern must contain a printf-style segment placeholder"
-                    .to_owned(),
-            });
-        }
+    if request.playlist_path.as_os_str().is_empty() {
+        return Err(NakoError::InvalidInput {
+            message: "hls playlist path cannot be empty".to_owned(),
+        });
+    }
 
-        if request.input_path == request.playlist_path {
-            return Err(NakoError::InvalidInput {
-                message: "hls input and playlist paths must differ".to_owned(),
-            });
-        }
+    if request.segment_pattern.as_os_str().is_empty() {
+        return Err(NakoError::InvalidInput {
+            message: "hls segment pattern cannot be empty".to_owned(),
+        });
+    }
 
-        let overwrite_arg = match request.overwrite {
-            FfmpegOverwritePolicy::Allow => "-y",
-            FfmpegOverwritePolicy::Never => "-n",
-        };
-        let segment_time = request.segment_time_seconds.max(1).to_string();
+    if !request.playlist_path.starts_with(&request.output_dir) {
+        return Err(NakoError::InvalidInput {
+            message: "hls playlist path must be inside the output directory".to_owned(),
+        });
+    }
 
-        validate_hls_subtitle_strategy(request.execution_policy.subtitle_strategy)?;
+    if !request.segment_pattern.starts_with(&request.output_dir) {
+        return Err(NakoError::InvalidInput {
+            message: "hls segment pattern must be inside the output directory".to_owned(),
+        });
+    }
 
-        let mut args = vec![
-            FfmpegArg::raw("-hide_banner"),
-            FfmpegArg::raw("-loglevel"),
-            FfmpegArg::raw("warning"),
-            FfmpegArg::raw(overwrite_arg),
-        ];
-        append_hls_decode_args(&mut args, request.execution_policy.acceleration);
-        args.extend([
-            FfmpegArg::raw("-i"),
-            FfmpegArg::path(request.input_path.clone()),
-            FfmpegArg::raw("-map"),
-            FfmpegArg::raw("0:v:0"),
-            FfmpegArg::raw("-map"),
-            FfmpegArg::raw("0:a:0?"),
-        ]);
-        append_hls_filter_args(&mut args, request.execution_policy.acceleration);
-        append_hls_encoder_args(&mut args, request.execution_policy.acceleration);
-        append_hls_output_constraint_args(&mut args, request.execution_policy);
-        args.extend([
-            FfmpegArg::raw("-c:a"),
-            FfmpegArg::raw("aac"),
-            FfmpegArg::raw("-f"),
-            FfmpegArg::raw("hls"),
-            FfmpegArg::raw("-hls_time"),
-            FfmpegArg::raw(segment_time),
-            FfmpegArg::raw("-hls_playlist_type"),
-            FfmpegArg::raw("vod"),
-            FfmpegArg::raw("-hls_segment_filename"),
-            FfmpegArg::path(request.segment_pattern.clone()),
-            FfmpegArg::path(request.playlist_path.clone()),
-        ]);
+    if !request
+        .segment_pattern
+        .file_name()
+        .and_then(|value| value.to_str())
+        .is_some_and(|value| value.contains('%'))
+    {
+        return Err(NakoError::InvalidInput {
+            message: "hls segment pattern must contain a printf-style segment placeholder"
+                .to_owned(),
+        });
+    }
 
-        Ok(FfmpegCommandPlan::new(self.ffmpeg_path.clone(), args))
+    if request.input_path == request.playlist_path {
+        return Err(NakoError::InvalidInput {
+            message: "hls input and playlist paths must differ".to_owned(),
+        });
+    }
+
+    validate_hls_subtitle_strategy(request.execution_policy.subtitle_strategy)
+}
+
+fn plan_hls_command_parts(request: &HlsRequest) -> FfmpegHlsCommandParts {
+    FfmpegHlsCommandParts {
+        global: hls_global_args(request.overwrite),
+        device_input: hls_device_input_args(request.execution_policy.acceleration),
+        input: hls_input_args(&request.input_path),
+        stream_map: hls_stream_map_args(),
+        filter_graph: hls_filter_graph_args(request.execution_policy.acceleration),
+        video_encoder: hls_video_encoder_args(request.execution_policy),
+        audio_encoder: hls_audio_encoder_args(),
+        subtitle: hls_subtitle_args(request.execution_policy.subtitle_strategy),
+        muxer: hls_muxer_args(
+            request.segment_time_seconds,
+            &request.segment_pattern,
+            &request.playlist_path,
+        ),
     }
 }
 
@@ -307,70 +345,75 @@ fn validate_hls_subtitle_strategy(strategy: TranscodeSubtitleStrategy) -> Result
     }
 }
 
-fn append_hls_decode_args(args: &mut Vec<FfmpegArg>, acceleration: TranscodeAccelerationPlan) {
+fn hls_global_args(overwrite: FfmpegOverwritePolicy) -> Vec<FfmpegArg> {
+    let overwrite_arg = match overwrite {
+        FfmpegOverwritePolicy::Allow => "-y",
+        FfmpegOverwritePolicy::Never => "-n",
+    };
+
+    vec![
+        FfmpegArg::raw("-hide_banner"),
+        FfmpegArg::raw("-loglevel"),
+        FfmpegArg::raw("warning"),
+        FfmpegArg::raw("-nostats"),
+        FfmpegArg::raw("-progress"),
+        FfmpegArg::raw("pipe:1"),
+        FfmpegArg::raw(overwrite_arg),
+    ]
+}
+
+fn hls_device_input_args(acceleration: TranscodeAccelerationPlan) -> Vec<FfmpegArg> {
     match acceleration.decode.accelerator {
-        HardwareAcceleration::None | HardwareAcceleration::Nvenc | HardwareAcceleration::Amf => {}
-        HardwareAcceleration::Vaapi => {
-            args.push(FfmpegArg::raw("-hwaccel"));
-            args.push(FfmpegArg::raw("vaapi"));
+        HardwareAcceleration::None | HardwareAcceleration::Nvenc | HardwareAcceleration::Amf => {
+            Vec::new()
         }
-        HardwareAcceleration::QuickSync => {
-            args.push(FfmpegArg::raw("-hwaccel"));
-            args.push(FfmpegArg::raw("qsv"));
-        }
-        HardwareAcceleration::VideoToolbox => {
-            args.push(FfmpegArg::raw("-hwaccel"));
-            args.push(FfmpegArg::raw("videotoolbox"));
-        }
+        HardwareAcceleration::Vaapi => hwaccel_args("vaapi"),
+        HardwareAcceleration::QuickSync => hwaccel_args("qsv"),
+        HardwareAcceleration::VideoToolbox => hwaccel_args("videotoolbox"),
     }
 }
 
-fn append_hls_filter_args(args: &mut Vec<FfmpegArg>, acceleration: TranscodeAccelerationPlan) {
+fn hls_input_args(input_path: &Path) -> Vec<FfmpegArg> {
+    vec![
+        FfmpegArg::raw("-i"),
+        FfmpegArg::path(input_path.to_path_buf()),
+    ]
+}
+
+fn hls_stream_map_args() -> Vec<FfmpegArg> {
+    vec![
+        FfmpegArg::raw("-map"),
+        FfmpegArg::raw("0:v:0"),
+        FfmpegArg::raw("-map"),
+        FfmpegArg::raw("0:a:0?"),
+    ]
+}
+
+fn hls_filter_graph_args(acceleration: TranscodeAccelerationPlan) -> Vec<FfmpegArg> {
     match acceleration.filter.accelerator {
         HardwareAcceleration::None
         | HardwareAcceleration::Nvenc
         | HardwareAcceleration::QuickSync
         | HardwareAcceleration::Amf
-        | HardwareAcceleration::VideoToolbox => {}
-        HardwareAcceleration::Vaapi => {
-            args.push(FfmpegArg::raw("-vf"));
-            args.push(FfmpegArg::raw("format=nv12,hwupload"));
-        }
+        | HardwareAcceleration::VideoToolbox => Vec::new(),
+        HardwareAcceleration::Vaapi => vec![
+            FfmpegArg::raw("-vf"),
+            FfmpegArg::raw("format=nv12,hwupload"),
+        ],
     }
 }
 
-fn append_hls_encoder_args(args: &mut Vec<FfmpegArg>, acceleration: TranscodeAccelerationPlan) {
-    match acceleration.encode.accelerator {
-        HardwareAcceleration::None => {
-            args.push(FfmpegArg::raw("-c:v"));
-            args.push(FfmpegArg::raw("libx264"));
-        }
-        HardwareAcceleration::Vaapi => {
-            args.push(FfmpegArg::raw("-c:v"));
-            args.push(FfmpegArg::raw("h264_vaapi"));
-        }
-        HardwareAcceleration::Nvenc => {
-            args.push(FfmpegArg::raw("-c:v"));
-            args.push(FfmpegArg::raw("h264_nvenc"));
-        }
-        HardwareAcceleration::QuickSync => {
-            args.push(FfmpegArg::raw("-hwaccel"));
-            args.push(FfmpegArg::raw("qsv"));
-            args.push(FfmpegArg::raw("-c:v"));
-            args.push(FfmpegArg::raw("h264_qsv"));
-        }
-        HardwareAcceleration::Amf => {
-            args.push(FfmpegArg::raw("-c:v"));
-            args.push(FfmpegArg::raw("h264_amf"));
-        }
-        HardwareAcceleration::VideoToolbox => {
-            args.push(FfmpegArg::raw("-c:v"));
-            args.push(FfmpegArg::raw("h264_videotoolbox"));
-        }
-    }
-}
+fn hls_video_encoder_args(policy: TranscodeExecutionPolicy) -> Vec<FfmpegArg> {
+    let encoder = match policy.acceleration.encode.accelerator {
+        HardwareAcceleration::None => "libx264",
+        HardwareAcceleration::Vaapi => "h264_vaapi",
+        HardwareAcceleration::Nvenc => "h264_nvenc",
+        HardwareAcceleration::QuickSync => "h264_qsv",
+        HardwareAcceleration::Amf => "h264_amf",
+        HardwareAcceleration::VideoToolbox => "h264_videotoolbox",
+    };
+    let mut args = vec![FfmpegArg::raw("-c:v"), FfmpegArg::raw(encoder)];
 
-fn append_hls_output_constraint_args(args: &mut Vec<FfmpegArg>, policy: TranscodeExecutionPolicy) {
     if let Some(max_video_bitrate) = policy.output_constraints.max_video_bitrate {
         args.push(FfmpegArg::raw("-maxrate"));
         args.push(FfmpegArg::raw(max_video_bitrate.to_string()));
@@ -379,6 +422,45 @@ fn append_hls_output_constraint_args(args: &mut Vec<FfmpegArg>, policy: Transcod
             max_video_bitrate.saturating_mul(2).to_string(),
         ));
     }
+
+    args
+}
+
+fn hls_audio_encoder_args() -> Vec<FfmpegArg> {
+    vec![FfmpegArg::raw("-c:a"), FfmpegArg::raw("aac")]
+}
+
+fn hls_subtitle_args(strategy: TranscodeSubtitleStrategy) -> Vec<FfmpegArg> {
+    match strategy {
+        TranscodeSubtitleStrategy::None | TranscodeSubtitleStrategy::OmitSelected => Vec::new(),
+        TranscodeSubtitleStrategy::PreserveInContainer
+        | TranscodeSubtitleStrategy::BurnInSelected
+        | TranscodeSubtitleStrategy::SidecarSelected => unreachable!(
+            "unsupported hls subtitle strategy must be rejected before command construction"
+        ),
+    }
+}
+
+fn hls_muxer_args(
+    segment_time_seconds: u32,
+    segment_pattern: &Path,
+    playlist_path: &Path,
+) -> Vec<FfmpegArg> {
+    vec![
+        FfmpegArg::raw("-f"),
+        FfmpegArg::raw("hls"),
+        FfmpegArg::raw("-hls_time"),
+        FfmpegArg::raw(segment_time_seconds.max(1).to_string()),
+        FfmpegArg::raw("-hls_playlist_type"),
+        FfmpegArg::raw("vod"),
+        FfmpegArg::raw("-hls_segment_filename"),
+        FfmpegArg::path(segment_pattern.to_path_buf()),
+        FfmpegArg::path(playlist_path.to_path_buf()),
+    ]
+}
+
+fn hwaccel_args(kind: &'static str) -> Vec<FfmpegArg> {
+    vec![FfmpegArg::raw("-hwaccel"), FfmpegArg::raw(kind)]
 }
 
 pub(crate) fn stderr_message(stderr: &[u8]) -> String {

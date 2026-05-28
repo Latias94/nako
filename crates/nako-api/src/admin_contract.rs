@@ -1587,6 +1587,17 @@ export interface AdminPlaybackSupportEvidenceResponse {
     terminal: boolean;
     request_key_fingerprint: string;
     output_artifact_kind: string;
+    runtime_metrics: {
+      frame_count: number | null;
+      fps_millis: number | null;
+      bitrate_kbps: number | null;
+      total_size_bytes: number | null;
+      output_time_ms: number | null;
+      dup_frames: number | null;
+      drop_frames: number | null;
+      speed_millis: number | null;
+      progress: "continue" | "end" | null;
+    };
     created_at: string;
     updated_at: string;
     started_at: string | null;
@@ -2178,6 +2189,9 @@ mod tests {
             "AdminStorageStagingQuery",
             "AdminOverviewResponse",
             "AdminPlaybackSupportEvidenceResponse",
+            "runtime_metrics",
+            "total_size_bytes",
+            "output_time_ms",
             "AdminPlaybackPolicyDiagnostics",
             "AdminPlaybackPolicyPermission",
             "AdminRendererRuntimeDiagnosticsResponse",

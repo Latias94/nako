@@ -575,7 +575,17 @@ pub(crate) fn row_to_stream_info(row: SqliteRow) -> Result<MediaStreamInfo> {
         height: optional_i64_to_u32(row_get(&row, "height")?)?,
         channels: optional_i64_to_u32(row_get(&row, "channels")?)?,
         sample_rate: optional_i64_to_u32(row_get(&row, "sample_rate")?)?,
+        technical: deserialize_stream_technical_json(row_get(&row, "technical_json")?)?,
     })
+}
+
+fn deserialize_stream_technical_json(value: Option<String>) -> Result<MediaStreamTechnicalFacts> {
+    match value {
+        Some(value) if !value.trim().is_empty() => {
+            serde_json::from_str(&value).map_err(database_error)
+        }
+        _ => Ok(MediaStreamTechnicalFacts::default()),
+    }
 }
 
 pub(crate) fn row_to_job(row: SqliteRow) -> Result<Job> {
@@ -836,11 +846,26 @@ pub(crate) fn row_to_transcode_session(row: SqliteRow) -> Result<TranscodeSessio
         state: parse_transcode_session_state(row_get(&row, "state")?)?,
         failure_category: parse_transcode_failure_category(row_get(&row, "failure_category")?)?,
         failure_message: row_get(&row, "failure_message")?,
+        runtime_metrics: deserialize_transcode_runtime_metrics_json(row_get(
+            &row,
+            "runtime_metrics_json",
+        )?)?,
         created_at: row_get(&row, "created_at")?,
         updated_at: row_get(&row, "updated_at")?,
         started_at: row_get(&row, "started_at")?,
         completed_at: row_get(&row, "completed_at")?,
     })
+}
+
+fn deserialize_transcode_runtime_metrics_json(
+    value: Option<String>,
+) -> Result<TranscodeSessionRuntimeMetrics> {
+    match value {
+        Some(value) if !value.trim().is_empty() => {
+            serde_json::from_str(&value).map_err(database_error)
+        }
+        _ => Ok(TranscodeSessionRuntimeMetrics::default()),
+    }
 }
 
 pub(crate) fn row_to_playback_session(row: SqliteRow) -> Result<PlaybackSessionRecord> {

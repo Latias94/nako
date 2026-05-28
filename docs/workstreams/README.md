@@ -11,6 +11,16 @@ attention.
   re-authored the v0 UX direction into a Vite React/Tailwind/TanStack app with a
   Tauri path, and recorded why `apps/admin-web` remains validation-only until
   parity gates allow deletion.
+- [playback-runtime-boundary-deepening](playback-runtime-boundary-deepening/README.md):
+  completed fearless refactor lane for splitting HLS artifact serving, support
+  evidence, diagnostics, and runtime/store boundaries out of the broad playback
+  app service before adaptive HLS, fMP4, rsmpeg, or remote worker work adds more
+  surface area.
+- [source-aware-transcode-runtime](source-aware-transcode-runtime/README.md):
+  completed execution lane for deepening Nako's HLS/remux transcode stack from
+  fixed H.264/AAC command planning into source-aware media facts, structured
+  transcode requirements, source-aware hardware pipeline planning, FFmpeg
+  command boundaries, and runtime progress/segment supervision.
 - [external-casting-adapter-boundary](external-casting-adapter-boundary/README.md):
   active execution lane for adding Chromecast, DLNA, and AirPlay through
   protocol-specific renderer adapters after Nako remote-client cast-safe

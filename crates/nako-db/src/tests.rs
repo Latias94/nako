@@ -586,12 +586,27 @@ async fn nako_database_sqlite_round_trips_transcode_sessions() {
     assert_eq!(running.state, TranscodeSessionState::Running);
     assert!(running.started_at.is_some());
 
+    let metrics = TranscodeSessionRuntimeMetrics {
+        frame_count: Some(120),
+        output_time_ms: Some(5_000),
+        speed_millis: Some(1_250),
+        progress: Some(TranscodeSessionRuntimeProgress::Continue),
+        ..TranscodeSessionRuntimeMetrics::default()
+    };
+    let with_metrics = store
+        .update_transcode_session_runtime_metrics(session_id, metrics.clone())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(with_metrics.runtime_metrics, metrics);
+
     let finished = store
         .set_transcode_session_state(session_id, TranscodeSessionState::Finished, None, None)
         .await
         .unwrap();
 
     assert_eq!(finished.state, TranscodeSessionState::Finished);
+    assert_eq!(finished.runtime_metrics, metrics);
     assert!(finished.completed_at.is_some());
     assert!(
         store
@@ -1652,6 +1667,32 @@ async fn nako_database_sqlite_round_trips_media_probe_results() {
                 height: Some(1080),
                 channels: None,
                 sample_rate: None,
+                technical: MediaStreamTechnicalFacts {
+                    codec_profile: Some("High".to_owned()),
+                    codec_level: Some(41),
+                    pixel_format: Some("yuv420p10le".to_owned()),
+                    bits_per_raw_sample: Some(10),
+                    average_frame_rate: Some(MediaRational {
+                        numerator: 24_000,
+                        denominator: 1_001,
+                    }),
+                    color: MediaColorInfo {
+                        transfer: Some("smpte2084".to_owned()),
+                        primaries: Some("bt2020".to_owned()),
+                        ..MediaColorInfo::default()
+                    },
+                    hdr: MediaHdrMetadata {
+                        dynamic_range: Some("hdr10".to_owned()),
+                        mastering_display: true,
+                        content_light_level: true,
+                        ..MediaHdrMetadata::default()
+                    },
+                    disposition: MediaStreamDisposition {
+                        default: true,
+                        ..MediaStreamDisposition::default()
+                    },
+                    ..MediaStreamTechnicalFacts::default()
+                },
             },
             MediaStreamInfo {
                 index: 1,
@@ -1664,6 +1705,11 @@ async fn nako_database_sqlite_round_trips_media_probe_results() {
                 height: None,
                 channels: Some(2),
                 sample_rate: Some(48_000),
+                technical: MediaStreamTechnicalFacts {
+                    channel_layout: Some("stereo".to_owned()),
+                    bits_per_sample: Some(16),
+                    ..MediaStreamTechnicalFacts::default()
+                },
             },
             MediaStreamInfo {
                 index: 2,
@@ -1676,6 +1722,7 @@ async fn nako_database_sqlite_round_trips_media_probe_results() {
                 height: None,
                 channels: None,
                 sample_rate: None,
+                technical: Default::default(),
             },
         ],
     };
