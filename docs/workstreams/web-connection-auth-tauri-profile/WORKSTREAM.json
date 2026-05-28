@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "slug": "web-connection-auth-tauri-profile",
+  "title": "Web Connection Auth Tauri Profile",
+  "status": "queued",
+  "updated": "2026-05-28",
+  "scope_kind": "frontend_connection_auth",
+  "problem": "Setup/account and data sources do not yet share a safe browser/Tauri connection and auth profile boundary.",
+  "task_prefix": "WCAT",
+  "current_task": "WCAT-010",
+  "completed_tasks": [],
+  "authoritative_docs": [
+    { "role": "overview", "path": "docs/workstreams/web-connection-auth-tauri-profile/README.md" },
+    { "role": "design", "path": "docs/workstreams/web-connection-auth-tauri-profile/DESIGN.md" },
+    { "role": "execution", "path": "docs/workstreams/web-connection-auth-tauri-profile/TODO.md" },
+    { "role": "milestones", "path": "docs/workstreams/web-connection-auth-tauri-profile/MILESTONES.md" },
+    { "role": "gates", "path": "docs/workstreams/web-connection-auth-tauri-profile/EVIDENCE_AND_GATES.md" },
+    { "role": "handoff", "path": "docs/workstreams/web-connection-auth-tauri-profile/HANDOFF.md" }
+  ],
+  "gates": [
+    "npm --prefix web run test",
+    "npm --prefix web run check",
+    "npm --prefix web run build",
+    "cargo test --manifest-path web/src-tauri/Cargo.toml",
+    "npm --prefix web run tauri -- build",
+    "git diff --check"
+  ],
+  "evidence": [
+    "Queued as lane 4 after WROP."
+  ],
+  "adr_refs": [
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
+    "docs/adr/0037-local-credential-and-session-auth.md"
+  ],
+  "continue_policy": {
+    "default_action": "wait_for_dependency",
+    "notes": "Activate after WROP closes."
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "slug": "web-bundle-budget-and-product-pruning",
+  "title": "Web Bundle Budget And Product Pruning",
+  "status": "queued",
+  "updated": "2026-05-28",
+  "scope_kind": "frontend_performance_pruning",
+  "problem": "The Vite runtime is clean, but copied v0 domains and heavy dependencies still need explicit budget enforcement and product-scope pruning.",
+  "task_prefix": "WBBP",
+  "current_task": "WBBP-010",
+  "completed_tasks": [],
+  "authoritative_docs": [
+    { "role": "overview", "path": "docs/workstreams/web-bundle-budget-and-product-pruning/README.md" },
+    { "role": "design", "path": "docs/workstreams/web-bundle-budget-and-product-pruning/DESIGN.md" },
+    { "role": "execution", "path": "docs/workstreams/web-bundle-budget-and-product-pruning/TODO.md" },
+    { "role": "milestones", "path": "docs/workstreams/web-bundle-budget-and-product-pruning/MILESTONES.md" },
+    { "role": "gates", "path": "docs/workstreams/web-bundle-budget-and-product-pruning/EVIDENCE_AND_GATES.md" },
+    { "role": "handoff", "path": "docs/workstreams/web-bundle-budget-and-product-pruning/HANDOFF.md" }
+  ],
+  "gates": [
+    "npm --prefix web run test",
+    "npm --prefix web run check",
+    "npm --prefix web run build",
+    "npm --prefix web run tauri -- build",
+    "git diff --check"
+  ],
+  "evidence": [
+    "Queued as lane 6 after WALW."
+  ],
+  "adr_refs": [
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
+  ],
+  "continue_policy": {
+    "default_action": "wait_for_dependency",
+    "notes": "Activate after WALW closes."
+  }
+}

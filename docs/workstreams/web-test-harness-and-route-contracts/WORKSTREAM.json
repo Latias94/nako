@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "slug": "web-test-harness-and-route-contracts",
+  "title": "Web Test Harness And Route Contracts",
+  "status": "active",
+  "updated": "2026-05-28",
+  "scope_kind": "frontend_test_foundation",
+  "problem": "Nako Web needs real route and data-source tests before broader feature-boundary and product-surface refactors.",
+  "task_prefix": "WTRC",
+  "current_task": "WTRC-020",
+  "completed_tasks": [
+    "WTRC-010"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/web-test-harness-and-route-contracts/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/web-test-harness-and-route-contracts/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/web-test-harness-and-route-contracts/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/web-test-harness-and-route-contracts/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/web-test-harness-and-route-contracts/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/web-test-harness-and-route-contracts/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "npm --prefix web run test",
+    "npm --prefix web run check",
+    "npm --prefix web run build",
+    "git diff --check"
+  ],
+  "evidence": [
+    "WTRC-010 opened this lane as the first frontend refactor safety rail."
+  ],
+  "adr_refs": [
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Complete this lane before feature-boundary reshaping or route-owned surface extraction."
+  }
+}

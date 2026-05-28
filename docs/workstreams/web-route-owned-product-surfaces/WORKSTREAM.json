@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "slug": "web-route-owned-product-surfaces",
+  "title": "Web Route-Owned Product Surfaces",
+  "status": "queued",
+  "updated": "2026-05-28",
+  "scope_kind": "frontend_routing_refactor",
+  "problem": "Media and Admin product surfaces still keep durable navigation state inside large components instead of TanStack routes.",
+  "task_prefix": "WROP",
+  "current_task": "WROP-010",
+  "completed_tasks": [],
+  "authoritative_docs": [
+    { "role": "overview", "path": "docs/workstreams/web-route-owned-product-surfaces/README.md" },
+    { "role": "design", "path": "docs/workstreams/web-route-owned-product-surfaces/DESIGN.md" },
+    { "role": "execution", "path": "docs/workstreams/web-route-owned-product-surfaces/TODO.md" },
+    { "role": "milestones", "path": "docs/workstreams/web-route-owned-product-surfaces/MILESTONES.md" },
+    { "role": "gates", "path": "docs/workstreams/web-route-owned-product-surfaces/EVIDENCE_AND_GATES.md" },
+    { "role": "handoff", "path": "docs/workstreams/web-route-owned-product-surfaces/HANDOFF.md" }
+  ],
+  "gates": [
+    "npm --prefix web run test",
+    "npm --prefix web run check",
+    "npm --prefix web run build",
+    "git diff --check"
+  ],
+  "evidence": [
+    "Queued as lane 3 after WFBR."
+  ],
+  "adr_refs": [
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "continue_policy": {
+    "default_action": "wait_for_dependency",
+    "notes": "Activate after WFBR closes."
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "slug": "web-feature-boundary-reshape",
+  "title": "Web Feature Boundary Reshape",
+  "status": "queued",
+  "updated": "2026-05-28",
+  "scope_kind": "frontend_boundary_refactor",
+  "problem": "Copied v0 product components still live in one broad components/nako directory, obscuring ownership and making later route/API refactors risky.",
+  "task_prefix": "WFBR",
+  "current_task": "WFBR-010",
+  "completed_tasks": [],
+  "authoritative_docs": [
+    { "role": "overview", "path": "docs/workstreams/web-feature-boundary-reshape/README.md" },
+    { "role": "design", "path": "docs/workstreams/web-feature-boundary-reshape/DESIGN.md" },
+    { "role": "execution", "path": "docs/workstreams/web-feature-boundary-reshape/TODO.md" },
+    { "role": "milestones", "path": "docs/workstreams/web-feature-boundary-reshape/MILESTONES.md" },
+    { "role": "gates", "path": "docs/workstreams/web-feature-boundary-reshape/EVIDENCE_AND_GATES.md" },
+    { "role": "handoff", "path": "docs/workstreams/web-feature-boundary-reshape/HANDOFF.md" }
+  ],
+  "gates": [
+    "npm --prefix web run test",
+    "npm --prefix web run check",
+    "npm --prefix web run build",
+    "git diff --check"
+  ],
+  "evidence": [
+    "Queued as lane 2 after WTRC."
+  ],
+  "adr_refs": [
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "continue_policy": {
+    "default_action": "wait_for_dependency",
+    "notes": "Activate after WTRC closes."
+  }
+}
