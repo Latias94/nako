@@ -1608,11 +1608,13 @@ impl PlaybackAppService {
         let hls_profile =
             target_profile.try_hls_transcode_profile(transcode_plan, execution_policy)?;
         let execution_policy = hls_profile.execution_policy;
-        let hls_output = hls_profile
-            .hls_output
-            .ok_or_else(|| NakoError::InvalidInput {
-                message: "hls transcode profile did not carry HLS output requirements".to_owned(),
-            })?;
+        let hls_output =
+            hls_profile
+                .hls_output_requirement()
+                .ok_or_else(|| NakoError::InvalidInput {
+                    message: "hls transcode profile did not carry HLS output requirements"
+                        .to_owned(),
+                })?;
         let profile_identity = hls_profile.identity();
         let request_identity =
             profile_identity.bind_source(&TranscodeSourceIdentity::from_media_source(&source));

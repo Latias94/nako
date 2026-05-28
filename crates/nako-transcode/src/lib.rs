@@ -541,6 +541,46 @@ mod tests {
     }
 
     #[test]
+    fn transcode_profile_output_shape_separates_remux_and_hls_state() {
+        let remux = TranscodeProfile::remux(RemuxTranscodeProfile {
+            output_container: RemuxContainer::Mp4,
+            track_selection: TranscodeTrackSelection::default(),
+            remote_input: false,
+            playback_profile_key: "playback-profile:v1;client=default".to_owned(),
+        });
+        let hls_output = HlsOutputRequirement {
+            variant_policy: HlsVariantPolicy::SingleVariant,
+            segment_container: HlsSegmentContainer::Fmp4,
+        };
+        let hls = TranscodeProfile::hls_single_variant(HlsTranscodeProfile {
+            video_codec: Some("h264".to_owned()),
+            audio_codec: Some("aac".to_owned()),
+            execution_policy: hls_policy(HardwareAcceleration::None),
+            hls_output,
+            track_selection: TranscodeTrackSelection::default(),
+            remote_input: false,
+            playback_profile_key: "playback-profile:v1;client=default".to_owned(),
+        });
+
+        assert_eq!(remux.kind(), TranscodeProfileKind::Remux);
+        assert_eq!(
+            remux.output,
+            TranscodeOutputShape::Remux {
+                container: RemuxContainer::Mp4
+            }
+        );
+        assert_eq!(remux.hls_output_requirement(), None);
+        assert_eq!(hls.kind(), TranscodeProfileKind::HlsSingleVariant);
+        assert_eq!(
+            hls.output,
+            TranscodeOutputShape::Hls {
+                requirement: hls_output
+            }
+        );
+        assert_eq!(hls.hls_output_requirement(), Some(hls_output));
+    }
+
+    #[test]
     fn transcode_request_identity_includes_source_revision_and_profile() {
         let source = nako_core::MediaSource {
             id: MediaSourceId::new(),

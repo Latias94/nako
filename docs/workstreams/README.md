@@ -32,6 +32,10 @@ attention.
   into the first executable runtime slice: fMP4 single-variant request identity,
   staging layout, FFmpeg muxer planning, and safe artifact serving while keeping
   adaptive ladders as a follow-on.
+- [transcode-output-shape-hls-manifest-ladder](transcode-output-shape-hls-manifest-ladder/README.md):
+  active fearless refactor lane for deleting transitional transcode output-shape
+  states, introducing an explicit HLS artifact manifest boundary, and then
+  implementing the first adaptive HLS ladder runtime slice.
 - [playback-capability-profile-and-rendition-planning](playback-capability-profile-and-rendition-planning/README.md):
   completed fearless refactor lane for deleting the shallow `PlaybackProfile`
   adapter, making selected playback output a typed Rendition Plan, and keeping
