@@ -2,19 +2,20 @@
   "schema_version": 1,
   "slug": "web-v0-copy-first-tanstack-refactor",
   "title": "Web V0 Copy-First TanStack Refactor",
-  "status": "active",
+  "status": "complete",
   "updated": "2026-05-28",
   "scope_kind": "frontend_product_replacement",
   "problem": "Nako should copy the complete v0-generated admin/media frontend into web/ and then refactor it into a static TanStack/Tauri/Nako API product frontend instead of rebuilding the UI from zero.",
   "task_prefix": "WVTR",
-  "current_task": "WVTR-070",
+  "current_task": null,
   "completed_tasks": [
     "WVTR-010",
     "WVTR-020",
     "WVTR-030",
     "WVTR-040",
     "WVTR-050",
-    "WVTR-060"
+    "WVTR-060",
+    "WVTR-070"
   ],
   "authoritative_docs": [
     {
@@ -58,7 +59,8 @@
     "WVTR-030 removed the Next TMDB API route, switched media hooks to local Nako fixture data, localized artwork references, enabled static export, and passed npm --prefix web run check plus npm --prefix web run build.",
     "WVTR-040 introduced TanStack Router ownership for top-level Media, Admin, Setup, Account, Settings, and Notifications routes inside the static Next shell, added a temporary test alias to the type-check gate, and passed check/test/build plus production static Playwright smoke.",
     "WVTR-050 introduced Public Client media data source and Admin API dashboard data source boundaries with fixture fallback, while leaving deeper copied v0 feature classification to WVTR-070.",
-    "WVTR-060 restored Tauri static packaging against web/out, added the local Tauri CLI script, recorded bundle-size evidence, and documented virtualization decisions for large copied surfaces."
+    "WVTR-060 restored Tauri static packaging against web/out, added the local Tauri CLI script, recorded bundle-size evidence, and documented virtualization decisions for large copied surfaces.",
+    "WVTR-070 classified the copied v0 feature inventory, closed the lane, and split remaining Admin, Addon, acquisition, notification, playback, i18n, testing, runtime migration, and old Admin Web deletion work into follow-ons."
   ],
   "adr_refs": [
     "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
@@ -68,7 +70,7 @@
     "docs/adr/0037-local-credential-and-session-auth.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "Continue through bounded WVTR tasks. Split native playback, Addon Manager UI, downloads/acquisition, notifications, i18n, and old Admin Web deletion when they exceed this lane."
+    "default_action": "split_follow_on",
+    "notes": "This WVTR lane is closed. Continue in narrower follow-on lanes for Vite/TanStack runtime migration, UI/E2E tests, expanded Admin pages, Addon Manager UI, downloads/acquisition, notifications, playback, Tauri profile/auth wiring, i18n, deferred copied domains, and old Admin Web deletion."
   }
 }

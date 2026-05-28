@@ -1,9 +1,9 @@
 # Web V0 Copy-First TanStack Refactor - Handoff
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
-## Current State
+## Closed State
 
 The user accepted a copy-first frontend refactor:
 
@@ -38,23 +38,48 @@ Current baseline status:
   Windows in this bootstrap shell;
 - Tauri now points at Next static export output (`web/out`) and `npm --prefix
   web run tauri -- build` builds `nako-web-shell.exe` without a Node sidecar;
-- bundle-size and virtualization decisions are recorded in `EVIDENCE_AND_GATES.md`.
+- bundle-size and virtualization decisions are recorded in `EVIDENCE_AND_GATES.md`;
+- the copied v0 feature inventory is classified as live, fixture, planned,
+  blocked-by-backend, or deferred-domain rather than implied product scope.
 
-## Next Task
+## Closeout Result
 
-WVTR-070: finish the feature gap ledger and close or split remaining frontend
-follow-ons.
+WVTR-070 is complete. This lane established the copied v0 frontend as the new
+`web/` baseline, removed release-blocking runtime assumptions, restored first
+Nako API boundaries, proved static browser/Tauri packaging, and split remaining
+work into narrower product lanes.
 
-Current caveats:
+Follow-on lanes:
 
-- `npm --prefix web run test` is a type-check alias until real UI/E2E tests
-  are introduced.
-- Deeper copied v0 feature pages are still fixture/planned until WVTR-070
-  classifies them explicitly.
-- Next dev/Fast Refresh can report React hook noise on SPA route clicks, but
-  the production static smoke is clean.
-- Many copied v0 features still need live/fixture/planned/blocked/deferred
-  classification in WVTR-070.
+- Migrate from the static Next bootstrap shell to a Vite/TanStack-only runtime
+  after route seams settle.
+- Add Vitest/Testing Library and Playwright coverage for routes, data sources,
+  connection states, and critical admin/media flows.
+- Wire expanded Admin pages for libraries, users, settings, tasks, logs, jobs,
+  permissions, and error states.
+- Build the Addon Manager UI against Nako Addon APIs instead of the copied
+  plugin fixture screens.
+- Build acquisition/download/watch-folder UI only after backend authority,
+  safety boundaries, and credential handling are accepted.
+- Wire notifications to a live event/webhook bridge and persistence model.
+- Wire Public Client playback, image/detail depth, watched state, and browser
+  playback-ticket flows.
+- Wire setup/account to Tauri profile/bootstrap and browser auth/session
+  connection state.
+- Decide whether AI, automation, music, photos, podcasts, and Live TV are Nako
+  domains before keeping their copied UI.
+- Add a real i18n/localization strategy.
+- Delete or merge the older `apps/admin-web` only after parity and validation
+  evidence exists.
+
+Residual risks:
+
+- `npm --prefix web run test` is still a type-check alias.
+- The production static build is clean, but Next dev/Fast Refresh can still
+  report React hook noise on SPA route clicks until the bootstrap shell is
+  removed.
+- Many copied pages are intentionally fixture or planned status; do not present
+  them as live backend-backed product surfaces.
 
 ## Key Constraints
 

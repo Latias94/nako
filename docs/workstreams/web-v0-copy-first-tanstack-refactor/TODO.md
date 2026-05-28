@@ -1,6 +1,6 @@
 # Web V0 Copy-First TanStack Refactor - TODO
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 ## M0 - Scope And Evidence Freeze
@@ -58,9 +58,9 @@ Last updated: 2026-05-28
 
 ## M6 - Feature Gap Ledger And Closeout
 
-- [ ] WVTR-070 [owner=planner] [deps=WVTR-050,WVTR-060] [scope=docs/workstreams/web-v0-copy-first-tanstack-refactor,web]
+- [x] WVTR-070 [owner=planner] [deps=WVTR-050,WVTR-060] [scope=docs/workstreams/web-v0-copy-first-tanstack-refactor,web]
   Goal: Map copied v0 features to live, fixture, planned, blocked-by-backend, or deferred-domain status and close or split remaining work.
   Validation: EVIDENCE_AND_GATES.md includes final command evidence and gap ledger.
   Review: review-workstream has no blocking findings.
   Evidence: EVIDENCE_AND_GATES.md, HANDOFF.md, WORKSTREAM.json.
-  Handoff: Split Addon Manager UI, downloads/acquisition, notifications, native playback, i18n, and old Admin Web deletion if still open.
+  Handoff: DONE. Addon Manager UI, downloads/acquisition, notifications, native playback, i18n, expanded Admin pages, Public Client playback/image depth, Next-to-Vite migration, UI/E2E testing, and old Admin Web deletion are split as follow-on scopes rather than hidden inside this lane.

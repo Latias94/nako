@@ -1,6 +1,6 @@
 # Web V0 Copy-First TanStack Refactor
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 ## Why This Lane Exists
@@ -207,3 +207,9 @@ This lane can close when:
 - unsupported v0 feature surfaces are mapped to live/fixture/planned/deferred;
 - bundle evidence and browser/Tauri smoke are recorded;
 - remaining work is split to narrower lanes.
+
+Closeout status: complete as of 2026-05-28. The copied v0 shell is now the
+`web/` baseline, release runtime assumptions are quarantined, top-level route
+ownership lives in the TanStack shell, first Public Client and Admin API seams
+are restored, Tauri builds from static assets, and the remaining copied feature
+surfaces are tracked as explicit follow-ons rather than implied live product.

@@ -1,6 +1,6 @@
 # Web V0 Copy-First TanStack Refactor - Milestones
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 ## M0 - Scope Freeze
@@ -67,6 +67,8 @@ Exit criteria:
 - Native playback remains split.
 
 ## M6 - Closeout
+
+Status: done.
 
 Exit criteria:
 

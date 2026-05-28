@@ -1,6 +1,6 @@
 # Web V0 Copy-First TanStack Refactor
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 This lane replaces the current thin `web/` product frontend foundation with a
