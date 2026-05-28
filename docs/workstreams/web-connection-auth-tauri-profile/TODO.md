@@ -1,6 +1,6 @@
 # Web Connection Auth Tauri Profile - TODO
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 ## M0 - Activation
@@ -37,8 +37,8 @@ Last updated: 2026-05-28
 
 ## M4 - Closeout
 
-- [ ] WCAT-050 [owner=planner] [deps=WCAT-040] [scope=docs/workstreams/web-connection-auth-tauri-profile]
+- [x] WCAT-050 [owner=planner] [deps=WCAT-040] [scope=docs/workstreams/web-connection-auth-tauri-profile]
   Goal: Close the connection/auth lane.
   Validation: npm --prefix web run test && npm --prefix web run build && npm --prefix web run tauri -- build.
   Evidence: EVIDENCE_AND_GATES.md
-  Handoff: READY.
+  Handoff: DONE. Activate `web-admin-live-wiring`.

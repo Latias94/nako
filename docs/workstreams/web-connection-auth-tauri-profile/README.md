@@ -1,6 +1,6 @@
 # Web Connection Auth Tauri Profile
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 This lane turns setup/account from fixture screens into the browser/Tauri

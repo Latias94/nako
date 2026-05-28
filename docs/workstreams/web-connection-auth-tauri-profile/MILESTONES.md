@@ -1,6 +1,6 @@
 # Web Connection Auth Tauri Profile - Milestones
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 ## M0 - Activation
@@ -28,5 +28,7 @@ Status: done.
 Exit criteria: Tauri profile bootstrap is wired and tested.
 
 ## M4 - Closeout
+
+Status: done.
 
 Exit criteria: no secret leaks and browser/Tauri gates pass.
