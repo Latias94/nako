@@ -17,6 +17,8 @@ Exit criteria: Media surface has a feature-owned home.
 
 ## M2 - Admin Boundary
 
+Status: done.
+
 Exit criteria: Admin surface has a feature-owned home.
 
 ## M3 - Shell And Deferred Boundaries

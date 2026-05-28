@@ -28,7 +28,7 @@ const MediaSurface = lazy(() =>
 )
 
 const AdminSurface = lazy(() =>
-  import("@/components/nako/admin-surface").then((module) => ({
+  import("@/src/features/admin").then((module) => ({
     default: module.AdminSurface,
   })),
 )

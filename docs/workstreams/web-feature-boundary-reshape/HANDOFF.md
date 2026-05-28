@@ -10,11 +10,11 @@ contract tests are in place, so large component boundary moves can start.
 
 ## Active Task
 
-- Task ID: WFBR-020
+- Task ID: WFBR-040
 - Owner: Codex
-- Status: DONE
+- Status: READY
 - Validation: `npm --prefix web run test && npm --prefix web run build`
 
 ## Next Recommended Action
 
-- Move Admin surface and admin-only child components into `web/src/features/admin`.
+- Move setup/account/notifications/settings/TV route surfaces out of `components/nako`.

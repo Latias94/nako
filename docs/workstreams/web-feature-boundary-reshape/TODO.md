@@ -22,12 +22,12 @@ Last updated: 2026-05-28
 
 ## M2 - Admin Boundary
 
-- [ ] WFBR-030 [owner=Codex] [deps=WFBR-020] [scope=web/src/features/admin,web/components/nako]
+- [x] WFBR-030 [owner=Codex] [deps=WFBR-020] [scope=web/src/features/admin,web/components/nako]
   Goal: Move Admin surface components into a feature-owned boundary.
   Validation: npm --prefix web run test && npm --prefix web run build.
   Review: Admin DTO imports remain inside admin API/feature boundary only.
   Evidence: moved files and import diff.
-  Handoff: READY. Move Admin surface and admin-only child components next.
+  Handoff: DONE. Admin surface and admin-only child components live under `web/src/features/admin`.
 
 ## M3 - Shell And Deferred Boundaries
 
@@ -36,7 +36,7 @@ Last updated: 2026-05-28
   Validation: npm --prefix web run test && npm --prefix web run build.
   Review: Deferred domains do not enter initial route imports.
   Evidence: feature directory map.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Handoff: READY. Move remaining shell product routes and deferred copied domains out of `components/nako`.
 
 ## M4 - Closeout
 
