@@ -43,3 +43,6 @@ triggers in `NON_VIDEO_DOMAIN_DECISION.md`.
 
 Exit criteria: all deferred product gaps are either assigned to follow-on lanes
 or intentionally deferred with reentry conditions.
+
+Progress: WDRP-065 routed WMLP follow-ons to two new Public Client contract
+lanes and one deferred desktop-native trigger.

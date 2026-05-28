@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "slug": "public-client-library-browse-query-contract",
+  "title": "Public Client Library Browse Query Contract",
+  "status": "active",
+  "updated": "2026-05-28",
+  "scope_kind": "public_client_contract",
+  "problem": "The web library page cannot show scoped live items until Public Client exposes library browse and stable sort/filter contracts.",
+  "task_prefix": "PLBQ",
+  "current_task": "PLBQ-020",
+  "completed_tasks": [
+    "PLBQ-010"
+  ],
+  "authoritative_docs": [
+    { "role": "overview", "path": "docs/workstreams/public-client-library-browse-query-contract/README.md" },
+    { "role": "design", "path": "docs/workstreams/public-client-library-browse-query-contract/DESIGN.md" },
+    { "role": "contract_readiness", "path": "docs/workstreams/public-client-library-browse-query-contract/CONTRACT_READINESS.md" },
+    { "role": "execution", "path": "docs/workstreams/public-client-library-browse-query-contract/TODO.md" },
+    { "role": "milestones", "path": "docs/workstreams/public-client-library-browse-query-contract/MILESTONES.md" },
+    { "role": "gates", "path": "docs/workstreams/public-client-library-browse-query-contract/EVIDENCE_AND_GATES.md" },
+    { "role": "handoff", "path": "docs/workstreams/public-client-library-browse-query-contract/HANDOFF.md" }
+  ],
+  "gates": [
+    "cargo nextest run -p nako-server catalog --no-fail-fast",
+    "npm --prefix web run test -- src/test/data-source-contracts.test.ts src/test/route-contracts.test.tsx",
+    "npm --prefix web run check",
+    "npm --prefix web run build:budget",
+    "git diff --check"
+  ],
+  "evidence": [
+    "PLBQ-010 opened this lane from WDRP-065 after WMLP recorded library-scoped browse and stable sort/filter as Public Client contract gaps."
+  ],
+  "adr_refs": [
+    "docs/adr/0021-video-first-media-server-domain-model.md",
+    "docs/adr/0023-public-api-versioning-and-error-envelope-contract.md",
+    "docs/adr/0025-openapi-public-client-sdk-contract.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue_current_task",
+    "notes": "Continue with PLBQ-020 before claiming live library-scoped browse or stable Recently Added filters in web."
+  }
+}

@@ -22,17 +22,20 @@ the playlist backend/Public Client contract. Playlist UI remains blocked until
 that lane freezes route and DTO shape.
 WDRP-060 recorded `NON_VIDEO_DOMAIN_DECISION.md`; photos, music, and podcasts
 remain deferred until a concrete ADR-0021 domain-baseline trigger appears.
+WDRP-065 recorded `PUBLIC_CLIENT_FOLLOW_ONS.md`, opened
+`docs/workstreams/public-client-browser-playback-session-identity`, opened
+`docs/workstreams/public-client-library-browse-query-contract`, and kept desktop
+native playback deferred to the existing Rust/Tauri capability gap.
 
 ## Active Task
 
-- Task ID: WDRP-065
+- Task ID: WDRP-070
 - Owner: planner
 - Status: READY
-- Validation: route WMLP closeout follow-ons into explicit workstream
-  decisions.
+- Validation: close this planning lane after follow-on lanes and deferrals are
+  recorded.
 
 ## Next Recommended Action
 
-- Start WDRP-065. Use WMLP closeout evidence to decide how to track browser
-  playback session identity, library browse, catalog sort/filter, and desktop
-  native playback.
+- Start WDRP-070. Close WDRP and return implementation to a selected follow-on
+  lane.

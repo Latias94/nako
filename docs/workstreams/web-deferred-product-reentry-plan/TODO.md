@@ -51,11 +51,11 @@ Last updated: 2026-05-28
 
 ## M5 - Closeout
 
-- [ ] WDRP-065 [owner=planner] [deps=WDRP-020] [scope=docs/workstreams]
+- [x] WDRP-065 [owner=planner] [deps=WDRP-020] [scope=docs/workstreams]
   Goal: Route WMLP closeout follow-ons for browser playback session identity, library browse, catalog sort/filter, and desktop native playback into explicit workstream decisions.
   Validation: follow-on planning references the WMLP closeout evidence and names whether each item is a new lane, existing lane task, or deferred trigger.
-  Evidence: Public Client follow-on plan.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Evidence: `PUBLIC_CLIENT_FOLLOW_ONS.md`; opened `public-client-browser-playback-session-identity` and `public-client-library-browse-query-contract`; desktop native playback remains a deferred Rust/Tauri capability trigger.
+  Handoff: DONE. Next task is WDRP-070.
 
 - [ ] WDRP-070 [owner=planner] [deps=WDRP-020,WDRP-030,WDRP-040,WDRP-050,WDRP-060,WDRP-065] [scope=docs/workstreams/web-deferred-product-reentry-plan]
   Goal: Close this planning lane after follow-on implementation lanes are opened or explicitly deferred.

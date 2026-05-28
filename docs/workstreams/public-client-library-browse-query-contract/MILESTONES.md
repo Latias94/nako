@@ -1,0 +1,24 @@
+# Public Client Library Browse Query Contract - Milestones
+
+Status: Active
+Last updated: 2026-05-28
+
+## M0 - Open Lane
+
+Completed by `PLBQ-010`.
+
+## M1 - Contract Freeze
+
+Exit criteria: route shape and query vocabulary are accepted.
+
+## M2 - Server And SDK Implementation
+
+Exit criteria: server/API/SDK behavior exposes scoped browse safely.
+
+## M3 - Web Browse Integration
+
+Exit criteria: `web/` uses scoped live browse where supported.
+
+## M4 - Closeout
+
+Exit criteria: final gates and follow-ons are recorded.

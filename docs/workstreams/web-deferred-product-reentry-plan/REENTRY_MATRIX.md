@@ -19,4 +19,4 @@ Last updated: 2026-05-28
 2. New `web/` Admin Acquisition Intake route.
 3. New `web/` Admin Generated Artifacts / Automation route.
 4. User Playlists backend contract and first Media slice.
-5. Public Client follow-on planning from WMLP closeout.
+5. Public Client follow-on planning from WMLP closeout. Completed by WDRP-065.
