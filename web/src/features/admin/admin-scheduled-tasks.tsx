@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { 
   Calendar, Clock, Play, Pause, Plus, MoreVertical, Trash2, Edit2,
   RefreshCw, FolderSearch, Database, Download, Shield, HardDrive,
@@ -47,6 +48,11 @@ import {
 import { Progress } from "@/components/ui/progress"
 import { Slider } from "@/components/ui/slider"
 import { cn } from "@/lib/utils"
+import {
+  ADMIN_TASKS_READ_MODEL_FIXTURE,
+  createAdminReadModelsDataSource,
+  type AdminLibraryKind,
+} from "@/src/api/admin/read-models-data-source"
 
 type TaskType = "scan" | "metadata" | "backup" | "cleanup" | "update" | "optimize" | "subtitle" | "thumbnail"
 type TaskStatus = "idle" | "running" | "success" | "failed" | "scheduled"
@@ -126,6 +132,17 @@ const libraries = [
   { id: "anime", name: "动画", icon: Film },
   { id: "music", name: "音乐", icon: Music },
 ]
+
+const libraryIconByKind: Record<AdminLibraryKind, typeof Film> = {
+  movie: Film,
+  tv: Tv,
+  anime: Film,
+  music: Music,
+  photo: Image,
+  documentary: Film,
+  personal: Archive,
+  unknown: Archive,
+}
 
 // 执行历史记录
 interface TaskHistory {
@@ -294,26 +311,33 @@ const defaultTasks: ScheduledTask[] = [
 ]
 
 export function AdminScheduledTasks() {
-  const [taskList, setTaskList] = useState(defaultTasks)
+  const { data: tasksData = ADMIN_TASKS_READ_MODEL_FIXTURE } = useQuery({
+    queryKey: ["nako", "admin", "scheduled-tasks"],
+    queryFn: () => createAdminReadModelsDataSource().loadTasks(),
+    staleTime: 15 * 1000,
+    retry: 0,
+  })
+  const libraries = tasksData.libraries.map((library) => ({
+    ...library,
+    icon: libraryIconByKind[library.type] ?? Archive,
+  }))
+  const [taskList, setTaskList] = useState<ScheduledTask[]>(ADMIN_TASKS_READ_MODEL_FIXTURE.tasks)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingTask, setEditingTask] = useState<ScheduledTask | null>(null)
-  const [currentRunningTask, setCurrentRunningTask] = useState<ScheduledTask | null>({
-    id: "running-1",
-    name: "手动媒体库扫描",
-    description: "全媒体库扫描（手动触发）",
-    type: "scan",
-    enabled: true,
-    schedule: { frequency: "cron" },
-    config: {},
-    status: "running",
-    progress: 67,
-  })
+  const [currentRunningTask, setCurrentRunningTask] = useState<ScheduledTask | null>(
+    ADMIN_TASKS_READ_MODEL_FIXTURE.runningTask,
+  )
   
   // 执行历史相关状态
-  const [history] = useState<TaskHistory[]>(() => generateHistory(100))
+  const history = tasksData.history
   const [historyPage, setHistoryPage] = useState(1)
   const [historyFilter, setHistoryFilter] = useState<"all" | "success" | "failed">("all")
   const historyPerPage = 10
+
+  useEffect(() => {
+    setTaskList(tasksData.tasks)
+    setCurrentRunningTask(tasksData.runningTask)
+  }, [tasksData])
 
   // 新任务表单状态
   const [formData, setFormData] = useState({
@@ -554,7 +578,13 @@ export function AdminScheduledTasks() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">计划任务</h1>
-          <p className="text-sm text-muted-foreground">配置自动化维护和扫描任务</p>
+          <p className="text-sm text-muted-foreground">
+            配置自动化维护和扫描任务
+            <span className="ml-2 text-xs">
+              {tasksData.source === "live" ? "Live Admin API" : "Fixture fallback"}
+              {tasksData.error ? ` · ${tasksData.error}` : ""}
+            </span>
+          </p>
         </div>
         <Button onClick={() => { resetForm(); setIsDialogOpen(true) }}>
           <Plus className="mr-2 h-4 w-4" />

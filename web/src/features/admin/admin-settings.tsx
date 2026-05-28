@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { 
   Settings,
   Server,
@@ -38,12 +39,28 @@ import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Slider } from "@/components/ui/slider"
 import { Separator } from "@/components/ui/separator"
+import {
+  ADMIN_SETTINGS_READ_MODEL_FIXTURE,
+  createAdminReadModelsDataSource,
+} from "@/src/api/admin/read-models-data-source"
 
 export function AdminSettings() {
+  const { data: settingsData = ADMIN_SETTINGS_READ_MODEL_FIXTURE } = useQuery({
+    queryKey: ["nako", "admin", "settings"],
+    queryFn: () => createAdminReadModelsDataSource().loadSettings(),
+    staleTime: 30 * 1000,
+    retry: 0,
+  })
   const [hasChanges, setHasChanges] = useState(false)
-  const [hwAccelType, setHwAccelType] = useState("qsv")
+  const [hwAccelType, setHwAccelType] = useState(
+    settingsData.transcode.hardwareAcceleration || "none",
+  )
 
   const markChanged = () => setHasChanges(true)
+
+  useEffect(() => {
+    setHwAccelType(settingsData.transcode.hardwareAcceleration || "none")
+  }, [settingsData.transcode.hardwareAcceleration])
   
   const handleHwAccelChange = (value: string) => {
     setHwAccelType(value)
@@ -55,8 +72,14 @@ export function AdminSettings() {
       {/* 页面标题 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">系统设置</h1>
-          <p className="text-muted-foreground">配置服务器、转码和存储选项</p>
+          <h1 className="text-2xl font-bold">高级设置</h1>
+          <p className="text-muted-foreground">
+            配置服务器、转码和存储选项
+            <span className="ml-2 text-xs">
+              {settingsData.source === "live" ? "Live Admin API" : "Fixture fallback"}
+              {settingsData.error ? ` · ${settingsData.error}` : ""}
+            </span>
+          </p>
         </div>
         <div className="flex items-center gap-2">
           {hasChanges && (
@@ -113,11 +136,11 @@ export function AdminSettings() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>服务器名称</Label>
-                  <Input defaultValue="Nako Server" onChange={markChanged} />
+                  <Input defaultValue={settingsData.general.serverName} onChange={markChanged} />
                 </div>
                 <div className="space-y-2">
                   <Label>服务器 ID</Label>
-                  <Input defaultValue="nako-xxxxxxxx" disabled className="font-mono" />
+                  <Input defaultValue={settingsData.general.serverId} disabled className="font-mono" />
                 </div>
               </div>
               
@@ -127,6 +150,16 @@ export function AdminSettings() {
                 <p className="text-xs text-muted-foreground">
                   用于生成外部分享链接
                 </p>
+              </div>
+              <div className="rounded-lg border border-border/50 bg-muted/30 p-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">监听地址</span>
+                  <span className="font-mono">{settingsData.general.listenAddr}</span>
+                </div>
+                <div className="mt-2 flex items-center justify-between">
+                  <span className="text-muted-foreground">Admin API</span>
+                  <span>{settingsData.general.adminApiVersion}</span>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -641,7 +674,12 @@ export function AdminSettings() {
               <div className="space-y-4">
                 {[
                   { path: "/media", used: 12.4, total: 16, label: "媒体存储" },
-                  { path: "/var/cache/nako", used: 45.2, total: 100, label: "缓存目录" },
+                  {
+                    path: "staging://admin-api",
+                    used: bytesToTiB(settingsData.storage.stagingUsedBytes),
+                    total: Math.max(0.1, bytesToTiB(settingsData.storage.stagingMaxBytes)),
+                    label: "暂存空间",
+                  },
                   { path: "/var/lib/nako", used: 2.1, total: 50, label: "数据库和配置" },
                 ].map((storage) => (
                   <div key={storage.path} className="space-y-2">
@@ -946,4 +984,8 @@ export function AdminSettings() {
       </Tabs>
     </div>
   )
+}
+
+function bytesToTiB(bytes: number) {
+  return Math.round((bytes / 1024 ** 4) * 10) / 10
 }

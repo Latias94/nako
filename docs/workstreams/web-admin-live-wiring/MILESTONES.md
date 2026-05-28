@@ -9,7 +9,7 @@ Exit criteria: WCAT is complete. Completed by WCAT-050 closeout.
 
 ## M1 - Read Models
 
-Exit criteria: accepted Admin pages load live read models.
+Exit criteria: accepted Admin pages load live read models. Completed by WALW-020.
 
 ## M2 - Mutations And Safety
 

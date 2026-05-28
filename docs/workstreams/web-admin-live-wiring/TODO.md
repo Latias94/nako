@@ -13,11 +13,11 @@ Last updated: 2026-05-28
 
 ## M1 - Read Models
 
-- [ ] WALW-020 [owner=Codex] [deps=WALW-010] [scope=web/src/features/admin,web/src/api/admin]
+- [x] WALW-020 [owner=Codex] [deps=WALW-010] [scope=web/src/features/admin,web/src/api/admin]
   Goal: Wire libraries/users/tasks/logs/settings read models through Admin API modules.
   Validation: npm --prefix web run test && npm --prefix web run build.
-  Evidence: admin data-source tests.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Evidence: `npm --prefix web run test`; `npm --prefix web run check`; `npm --prefix web run build`; scoped `git diff --check`.
+  Handoff: DONE. Next task is WALW-030.
 
 ## M2 - Mutations And Safety
 

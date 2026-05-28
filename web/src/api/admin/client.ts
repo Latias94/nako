@@ -2,11 +2,19 @@ import {
   NAKO_ADMIN_ROUTES,
   type AdminJobListResponse,
   type AdminJobsQuery,
+  type AdminAccessSummaryResponse,
+  type AdminAccessUserListResponse,
+  type AdminOutboxEventListResponse,
+  type AdminOutboxEventsQuery,
   type AdminOverviewResponse,
+  type AdminPageQuery,
   type AdminPlaybackRuntimeDiagnosticsResponse,
   type AdminPlaybackSessionListResponse,
   type AdminPlaybackSessionsQuery,
   type AdminServerConfigDiagnosticsResponse,
+  type AdminStorageStagingDiagnosticsResponse,
+  type AdminStorageStagingQuery,
+  type AdminMetadataRawCacheSettingsResponse,
 } from "./generated/contract"
 
 export type AdminApiClientOptions = {
@@ -30,6 +38,20 @@ export class AdminApiClient {
     return this.getJson<AdminOverviewResponse>(NAKO_ADMIN_ROUTES.overview)
   }
 
+  getAccessSummary(): Promise<AdminAccessSummaryResponse> {
+    return this.getJson<AdminAccessSummaryResponse>(NAKO_ADMIN_ROUTES.accessSummary)
+  }
+
+  getAccessUsers(query: AdminPageQuery = {}): Promise<AdminAccessUserListResponse> {
+    return this.getJson<AdminAccessUserListResponse>(
+      withQuery(NAKO_ADMIN_ROUTES.accessUsers, query),
+    )
+  }
+
+  getEvents(query: AdminOutboxEventsQuery = {}): Promise<AdminOutboxEventListResponse> {
+    return this.getJson<AdminOutboxEventListResponse>(withQuery(NAKO_ADMIN_ROUTES.events, query))
+  }
+
   getJobs(query: AdminJobsQuery = {}): Promise<AdminJobListResponse> {
     return this.getJson<AdminJobListResponse>(withQuery(NAKO_ADMIN_ROUTES.jobs, query))
   }
@@ -48,6 +70,20 @@ export class AdminApiClient {
 
   getSystemConfig(): Promise<AdminServerConfigDiagnosticsResponse> {
     return this.getJson<AdminServerConfigDiagnosticsResponse>(NAKO_ADMIN_ROUTES.systemConfig)
+  }
+
+  getStorageStaging(
+    query: AdminStorageStagingQuery = {},
+  ): Promise<AdminStorageStagingDiagnosticsResponse> {
+    return this.getJson<AdminStorageStagingDiagnosticsResponse>(
+      withQuery(NAKO_ADMIN_ROUTES.storageStaging, query),
+    )
+  }
+
+  getMetadataRawCacheSettings(): Promise<AdminMetadataRawCacheSettingsResponse> {
+    return this.getJson<AdminMetadataRawCacheSettingsResponse>(
+      NAKO_ADMIN_ROUTES.settingsMetadataRawCache,
+    )
   }
 
   private async getJson<T>(path: string): Promise<T> {

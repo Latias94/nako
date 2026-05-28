@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { 
   Users, 
   Plus, 
@@ -75,6 +76,11 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
+import {
+  ADMIN_USERS_READ_MODEL_FIXTURE,
+  createAdminReadModelsDataSource,
+  type AdminUserReadModel,
+} from "@/src/api/admin/read-models-data-source"
 
 // 模拟用户数据
 const users = [
@@ -309,9 +315,18 @@ const allLibraries = [
 ]
 
 export function AdminUsers() {
+  const { data: usersData = ADMIN_USERS_READ_MODEL_FIXTURE } = useQuery({
+    queryKey: ["nako", "admin", "users"],
+    queryFn: () => createAdminReadModelsDataSource().loadUsers(),
+    staleTime: 30 * 1000,
+    retry: 0,
+  })
+  const users = usersData.users
+  const activeSessions = usersData.activeSessions
+  const allLibraries = usersData.libraries
   const [searchQuery, setSearchQuery] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [selectedUser, setSelectedUser] = useState<typeof users[0] | null>(null)
+  const [selectedUser, setSelectedUser] = useState<AdminUserReadModel | null>(null)
   const [activeTab, setActiveTab] = useState("users")
   
   // 登录历史分页
@@ -411,7 +426,13 @@ export function AdminUsers() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">用户管理</h1>
-          <p className="text-sm text-muted-foreground">管理用户账户、会话和访问权限</p>
+          <p className="text-sm text-muted-foreground">
+            管理用户账户、会话和访问权限
+            <span className="ml-2 text-xs">
+              {usersData.source === "live" ? "Live Admin API" : "Fixture fallback"}
+              {usersData.error ? ` · ${usersData.error}` : ""}
+            </span>
+          </p>
         </div>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>

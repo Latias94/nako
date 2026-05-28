@@ -58,6 +58,7 @@ import { AdminPlugins } from "./admin-plugins"
 import { AdminLogs } from "./admin-logs"
 import type { AdminLogsRouteState } from "./admin-logs"
 import { AdminScheduledTasks } from "./admin-scheduled-tasks"
+import { AdminSettings } from "./admin-settings"
 import {
   ADMIN_DASHBOARD_FIXTURE,
   createAdminDashboardDataSource,
@@ -216,7 +217,7 @@ export function AdminSurface({
       case "backup":
         return <BackupPage />
       case "advanced":
-        return <AdvancedSettingsPage />
+        return <AdminSettings />
       case "about":
         return <AboutPage metrics={serverMetrics} />
       default:

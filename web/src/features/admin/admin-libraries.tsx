@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { cn } from "@/lib/utils"
 import {
   FolderOpen, 
@@ -61,6 +62,12 @@ import {
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  ADMIN_LIBRARY_READ_MODEL_FIXTURE,
+  createAdminReadModelsDataSource,
+  type AdminLibraryKind,
+  type AdminLibraryReadModel,
+} from "@/src/api/admin/read-models-data-source"
 
 // 模拟数据
 const libraries = [
@@ -158,10 +165,28 @@ const libraryTypes = [
   { value: "photo", label: "照片", icon: Image },
 ]
 
+const libraryIconByKind: Record<AdminLibraryKind, typeof Film> = {
+  movie: Film,
+  tv: Tv,
+  anime: Film,
+  music: Music,
+  photo: Image,
+  documentary: Film,
+  personal: FolderOpen,
+  unknown: FolderOpen,
+}
+
 export function AdminLibraries() {
+  const { data: librariesData = ADMIN_LIBRARY_READ_MODEL_FIXTURE } = useQuery({
+    queryKey: ["nako", "admin", "libraries"],
+    queryFn: () => createAdminReadModelsDataSource().loadLibraries(),
+    staleTime: 30 * 1000,
+    retry: 0,
+  })
+  const libraries = librariesData.libraries
   const [searchQuery, setSearchQuery] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [selectedLibrary, setSelectedLibrary] = useState<typeof libraries[0] | null>(null)
+  const [selectedLibrary, setSelectedLibrary] = useState<AdminLibraryReadModel | null>(null)
 
   const filteredLibraries = libraries.filter(lib => 
     lib.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -179,7 +204,7 @@ export function AdminLibraries() {
     )
   }
 
-  const getStatusBadge = (library: typeof libraries[0]) => {
+  const getStatusBadge = (library: AdminLibraryReadModel) => {
     switch (library.scanStatus) {
       case "scanning":
         return (
@@ -211,7 +236,13 @@ export function AdminLibraries() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">媒体库管理</h1>
-          <p className="text-sm text-muted-foreground">管理和配置你的媒体库</p>
+          <p className="text-sm text-muted-foreground">
+            管理和配置你的媒体库
+            <span className="ml-2 text-xs">
+              {librariesData.source === "live" ? "Live Admin API" : "Fixture fallback"}
+              {librariesData.error ? ` · ${librariesData.error}` : ""}
+            </span>
+          </p>
         </div>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
@@ -357,7 +388,10 @@ export function AdminLibraries() {
 
     {/* 媒体库列表 */}
     <div className="grid gap-4 lg:grid-cols-2">
-      {filteredLibraries.map((library) => (
+      {filteredLibraries.map((library) => {
+        const LibraryIcon = libraryIconByKind[library.type] ?? FolderOpen
+
+        return (
         <Card 
           key={library.id} 
           className={cn(
@@ -374,7 +408,7 @@ export function AdminLibraries() {
                 library.scanStatus === "scanning" ? "bg-info/5" : 
                 library.scanStatus === "error" ? "bg-destructive/5" : "bg-secondary/30"
               )}>
-                <library.icon className="h-8 w-8 text-muted-foreground/70" />
+                <LibraryIcon className="h-8 w-8 text-muted-foreground/70" />
               </div>
               
               {/* 主内容区 */}
@@ -490,7 +524,8 @@ export function AdminLibraries() {
               </div>
             </CardContent>
           </Card>
-        ))}
+        )
+      })}
       </div>
 
       {/* 媒体库设置对话框 */}

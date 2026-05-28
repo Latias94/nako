@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { 
   Search, Filter, Download, Trash2, RefreshCw, Pause, Play,
@@ -34,6 +35,10 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
+import {
+  ADMIN_LOGS_READ_MODEL_FIXTURE,
+  createAdminReadModelsDataSource,
+} from "@/src/api/admin/read-models-data-source"
 
 export type LogLevel = "error" | "warn" | "info" | "debug"
 export type LogSource = "server" | "auth" | "database" | "api" | "playback" | "scanner"
@@ -175,7 +180,13 @@ function normalizeAdminLogsRouteState(routeState?: AdminLogsRouteState): Normali
 
 export function AdminLogs({ routeState, onRouteStateChange }: AdminLogsProps = {}) {
   const normalizedRouteState = normalizeAdminLogsRouteState(routeState)
-  const [logs] = useState<LogEntry[]>(() => generateLogs(500))
+  const { data: logsData = ADMIN_LOGS_READ_MODEL_FIXTURE } = useQuery({
+    queryKey: ["nako", "admin", "logs"],
+    queryFn: () => createAdminReadModelsDataSource().loadLogs(),
+    staleTime: 10 * 1000,
+    retry: 0,
+  })
+  const logs = logsData.logs
   const [searchQuery, setSearchQuery] = useState(normalizedRouteState.query)
   const [selectedLevels, setSelectedLevels] = useState<LogLevel[]>(normalizedRouteState.levels)
   const [selectedSources, setSelectedSources] = useState<LogSource[]>(normalizedRouteState.sources)
@@ -361,7 +372,13 @@ export function AdminLogs({ routeState, onRouteStateChange }: AdminLogsProps = {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">系统日志</h1>
-          <p className="text-sm text-muted-foreground">监控服务器活动和排查问题</p>
+          <p className="text-sm text-muted-foreground">
+            监控服务器活动和排查问题
+            <span className="ml-2 text-xs">
+              {logsData.source === "live" ? "Live Admin API" : "Fixture fallback"}
+              {logsData.error ? ` · ${logsData.error}` : ""}
+            </span>
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Button
