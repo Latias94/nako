@@ -1,14 +1,14 @@
 # Web Bundle Budget And Product Pruning - TODO
 
-Status: Queued
+Status: Active
 Last updated: 2026-05-28
 
 ## M0 - Activation
 
-- [ ] WBBP-010 [owner=planner] [deps=WALW-050] [scope=docs/workstreams/web-bundle-budget-and-product-pruning]
+- [x] WBBP-010 [owner=planner] [deps=WALW-050] [scope=docs/workstreams/web-bundle-budget-and-product-pruning]
   Goal: Activate final bundle/pruning lane after Admin live wiring.
   Validation: WALW complete.
-  Evidence: WORKSTREAM.json
+  Evidence: WALW-050 closeout commit `ee6d5cdc`; WORKSTREAM.json status active.
   Handoff: Next task is WBBP-020.
 
 ## M1 - Budget Instrumentation

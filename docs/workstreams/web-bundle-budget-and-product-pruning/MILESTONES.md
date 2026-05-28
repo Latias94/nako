@@ -1,11 +1,11 @@
 # Web Bundle Budget And Product Pruning - Milestones
 
-Status: Queued
+Status: Active
 Last updated: 2026-05-28
 
 ## M0 - Activation
 
-Exit criteria: WALW is complete.
+Exit criteria: WALW is complete. Completed by WALW-050 closeout.
 
 ## M1 - Budget Instrumentation
 

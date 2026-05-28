@@ -1,6 +1,6 @@
 # Web Bundle Budget And Product Pruning
 
-Status: Queued
+Status: Active
 Last updated: 2026-05-28
 
 This lane sets hard frontend bundle budgets and deletes or isolates copied v0

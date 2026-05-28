@@ -1,20 +1,20 @@
 # Web Bundle Budget And Product Pruning - Handoff
 
-Status: Queued
+Status: Active
 Last updated: 2026-05-28
 
 ## Current State
 
-Wait for Admin live wiring before final product pruning, because some copied
-surfaces may become accepted product scope during earlier lanes.
+Admin live wiring is complete. The final frontend lane can now enforce bundle
+budgets and prune deferred product surfaces.
 
 ## Active Task
 
-- Task ID: WBBP-010
-- Owner: planner
-- Status: QUEUED
-- Validation: WALW complete.
+- Task ID: WBBP-020
+- Owner: Codex
+- Status: READY
+- Validation: `npm --prefix web run build` and bundle budget script.
 
 ## Next Recommended Action
 
-- Activate after WALW-050.
+- Add repeatable bundle budget measurement and failure thresholds.

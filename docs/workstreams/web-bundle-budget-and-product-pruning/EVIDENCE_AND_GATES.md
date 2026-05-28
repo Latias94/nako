@@ -1,6 +1,6 @@
 # Web Bundle Budget And Product Pruning - Evidence And Gates
 
-Status: Queued
+Status: Active
 Last updated: 2026-05-28
 
 ## Gate Set
@@ -20,3 +20,4 @@ Bundle budget output must be recorded before and after pruning.
 | Date | Task | Evidence | Result |
 | --- | --- | --- | --- |
 | 2026-05-28 | WBBP-010 | Queued as lane 6 after Admin live wiring. | Queued. |
+| 2026-05-28 | WBBP-010 | WALW-050 closed at commit `ee6d5cdc`; WBBP status moved to active and current task set to WBBP-020. | Passed. |
