@@ -31,6 +31,8 @@ Exit criteria:
 
 ## M3 - Data Source Contracts
 
+Status: done.
+
 Exit criteria:
 
 - Public and Admin data-source seams have fixture/live boundary tests.

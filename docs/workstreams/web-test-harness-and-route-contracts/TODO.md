@@ -31,12 +31,12 @@ Last updated: 2026-05-28
 
 ## M3 - Data Source Contracts
 
-- [ ] WTRC-040 [owner=Codex] [deps=WTRC-020] [scope=web/src/api]
+- [x] WTRC-040 [owner=Codex] [deps=WTRC-020] [scope=web/src/api]
   Goal: Add Public Client and Admin data-source tests for fixture fallback and live mapping boundaries.
   Validation: npm --prefix web run test && npm --prefix web run check.
   Review: Shared UI must remain DTO-free.
   Evidence: public/admin data-source test files.
-  Handoff: READY. Inspect data-source seams before adding tests.
+  Handoff: DONE. Public media and Admin dashboard data sources now have fixture fallback and live mapping contract coverage.
 
 ## M4 - Closeout
 
@@ -45,4 +45,4 @@ Last updated: 2026-05-28
   Validation: npm --prefix web run test && npm --prefix web run build.
   Review: No blocking findings.
   Evidence: EVIDENCE_AND_GATES.md, WORKSTREAM.json.
-  Handoff: Activate `web-feature-boundary-reshape`.
+  Handoff: READY. Run lane closeout gates and activate `web-feature-boundary-reshape`.
