@@ -1,6 +1,6 @@
 # Web Admin Live Wiring - TODO
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 ## M0 - Activation
@@ -37,8 +37,8 @@ Last updated: 2026-05-28
 
 ## M4 - Closeout
 
-- [ ] WALW-050 [owner=planner] [deps=WALW-040] [scope=docs/workstreams/web-admin-live-wiring]
+- [x] WALW-050 [owner=planner] [deps=WALW-040] [scope=docs/workstreams/web-admin-live-wiring]
   Goal: Close Admin live-wiring lane.
   Validation: npm --prefix web run test && npm --prefix web run check && npm --prefix web run build.
-  Evidence: EVIDENCE_AND_GATES.md
-  Handoff: Activate `web-bundle-budget-and-product-pruning`.
+  Evidence: EVIDENCE_AND_GATES.md closeout row; `npm --prefix web run test`; `npm --prefix web run check`; `npm --prefix web run build`; `git diff --check`.
+  Handoff: DONE. Activate `web-bundle-budget-and-product-pruning`.

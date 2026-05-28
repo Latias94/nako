@@ -1,6 +1,6 @@
 # Web Admin Live Wiring - Handoff
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 ## Current State
@@ -18,9 +18,9 @@ Manager slice backed by `web/src/api/admin/addons-data-source.ts`.
 
 - Task ID: WALW-050
 - Owner: Codex
-- Status: READY
-- Validation: `npm --prefix web run test && npm --prefix web run check && npm --prefix web run build`
+- Status: DONE
+- Validation: `npm --prefix web run test`, `npm --prefix web run check`, `npm --prefix web run build`, `git diff --check`
 
 ## Next Recommended Action
 
-- Close the Admin live-wiring lane.
+- Activate `web-bundle-budget-and-product-pruning`.

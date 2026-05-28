@@ -1,6 +1,6 @@
 # Web Admin Live Wiring - Milestones
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 ## M0 - Activation
@@ -21,4 +21,4 @@ Exit criteria: plugin fixture UI is replaced by Nako Addon vocabulary. Completed
 
 ## M4 - Closeout
 
-Exit criteria: tests/check/build pass and fixture-only controls are classified.
+Exit criteria: tests/check/build pass and fixture-only controls are classified. Completed by WALW-050.
