@@ -1,6 +1,6 @@
 # Web Admin Live Wiring - Evidence And Gates
 
-Status: Queued
+Status: Active
 Last updated: 2026-05-28
 
 ## Gate Set
@@ -20,3 +20,4 @@ Run the Admin contract gate when generated Admin API artifacts change.
 | Date | Task | Evidence | Result |
 | --- | --- | --- | --- |
 | 2026-05-28 | WALW-010 | Queued as lane 5 after connection/auth/profile. | Queued. |
+| 2026-05-28 | WALW-010 | WCAT-050 closed at commit `1cccdd7a`; WALW status moved to active and current task set to WALW-020. | Passed. |

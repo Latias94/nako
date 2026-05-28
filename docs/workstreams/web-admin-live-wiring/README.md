@@ -1,6 +1,6 @@
 # Web Admin Live Wiring
 
-Status: Queued
+Status: Active
 Last updated: 2026-05-28
 
 This lane wires accepted Admin pages to Nako Admin API read/write boundaries

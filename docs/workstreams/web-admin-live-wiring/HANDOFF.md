@@ -1,20 +1,21 @@
 # Web Admin Live Wiring - Handoff
 
-Status: Queued
+Status: Active
 Last updated: 2026-05-28
 
 ## Current State
 
-Admin dashboard has a live/fixture seam. Deeper Admin pages wait for
-connection/auth and route ownership before live wiring.
+Admin dashboard has a live/fixture seam. Connection/auth, Tauri profile, and
+route ownership are now in place, so deeper Admin pages can move to live seams.
 
 ## Active Task
 
-- Task ID: WALW-010
-- Owner: planner
-- Status: QUEUED
-- Validation: WCAT complete.
+- Task ID: WALW-020
+- Owner: Codex
+- Status: READY
+- Validation: `npm --prefix web run test && npm --prefix web run build`
 
 ## Next Recommended Action
 
-- Activate after WCAT-050.
+- Wire libraries, users, scheduled tasks, logs, and settings read models through
+  Admin API modules, keeping fixture fallback explicit.

@@ -1,14 +1,14 @@
 # Web Admin Live Wiring - TODO
 
-Status: Queued
+Status: Active
 Last updated: 2026-05-28
 
 ## M0 - Activation
 
-- [ ] WALW-010 [owner=planner] [deps=WCAT-050] [scope=docs/workstreams/web-admin-live-wiring]
+- [x] WALW-010 [owner=planner] [deps=WCAT-050] [scope=docs/workstreams/web-admin-live-wiring]
   Goal: Activate after connection/auth closes.
   Validation: WCAT complete.
-  Evidence: WORKSTREAM.json
+  Evidence: WCAT-050 closeout commit `1cccdd7a`; WORKSTREAM.json status active.
   Handoff: Next task is WALW-020.
 
 ## M1 - Read Models

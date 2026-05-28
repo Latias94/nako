@@ -2,13 +2,15 @@
   "schema_version": 1,
   "slug": "web-admin-live-wiring",
   "title": "Web Admin Live Wiring",
-  "status": "queued",
+  "status": "active",
   "updated": "2026-05-28",
   "scope_kind": "frontend_admin_live_wiring",
   "problem": "Admin dashboard has a first live seam, but deeper copied Admin pages remain fixture/planned.",
   "task_prefix": "WALW",
-  "current_task": "WALW-010",
-  "completed_tasks": [],
+  "current_task": "WALW-020",
+  "completed_tasks": [
+    "WALW-010"
+  ],
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/web-admin-live-wiring/README.md" },
     { "role": "design", "path": "docs/workstreams/web-admin-live-wiring/DESIGN.md" },
@@ -25,14 +27,15 @@
     "git diff --check"
   ],
   "evidence": [
-    "Queued as lane 5 after WCAT."
+    "Queued as lane 5 after WCAT.",
+    "Activated after WCAT-050 closeout commit 1cccdd7a; WALW-020 is ready."
   ],
   "adr_refs": [
     "docs/adr/0027-admin-api-boundary-for-web-console.md",
     "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
   ],
   "continue_policy": {
-    "default_action": "wait_for_dependency",
-    "notes": "Activate after WCAT closes."
+    "default_action": "continue_current_task",
+    "notes": "Run WALW-020 to wire Admin read models through API modules."
   }
 }

@@ -1,11 +1,11 @@
 # Web Admin Live Wiring - Milestones
 
-Status: Queued
+Status: Active
 Last updated: 2026-05-28
 
 ## M0 - Activation
 
-Exit criteria: WCAT is complete.
+Exit criteria: WCAT is complete. Completed by WCAT-050 closeout.
 
 ## M1 - Read Models
 
