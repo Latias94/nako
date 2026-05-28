@@ -16,7 +16,7 @@ Last updated: 2026-05-28
 
 ## M1 - Shared Subtitle Protocol Contract
 
-- [ ] SCC-020 [owner=codex] [deps=SCC-010] [scope=crates/nako-addon-protocol,crates/nako-official-addon-catalog,crates/nako-server]
+- [x] SCC-020 [owner=codex] [deps=SCC-010] [scope=crates/nako-addon-protocol,crates/nako-official-addon-catalog,crates/nako-server]
   Goal: Move subtitle search request/response/candidate/delivery/status types
   and schema constants into `nako-addon-protocol`, and keep official catalog
   facts on the shared schema constants.
@@ -26,7 +26,9 @@ Last updated: 2026-05-28
   Review: Protocol types must remain provider-neutral and must not include
   target filesystem paths or write-policy fields.
   Evidence: `crates/nako-addon-protocol/src/lib.rs`.
-  Handoff: Mark DONE, DONE_WITH_CONCERNS, BLOCKED, or NEEDS_CONTEXT.
+  Handoff: DONE 2026-05-28. Added provider-neutral subtitle request,
+  response, candidate, delivery, format, provider execution, and status types;
+  official catalog subtitle schema facts now use shared protocol constants.
 
 ## M2 - Official Provider Migration
 

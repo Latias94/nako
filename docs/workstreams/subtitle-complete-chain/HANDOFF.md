@@ -2,19 +2,20 @@
 
 Status: active.
 
-Current task: SCC-020.
+Current task: SCC-030.
 
 Completed:
 
 - SCC-010 opened the durable workstream.
 - ADR 0051 records host-owned subtitle import and rejects direct addon file
   writes.
+- SCC-020 moved subtitle search wire types and schema constants into
+  `nako-addon-protocol`; official catalog subtitle schema facts now reference
+  the shared constants.
 
 Next:
 
-- Move subtitle search wire structs and schema constants into
-  `nako-addon-protocol`.
-- Update official catalog facts to use the shared constants.
+- Make `nako-subtitle-provider` use the shared protocol types and constants.
 
 Watch points:
 

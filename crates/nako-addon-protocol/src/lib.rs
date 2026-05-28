@@ -23,6 +23,8 @@ pub const ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA: &str =
     "nako.addon.resource_link_check.request.v1";
 pub const ADDON_RESOURCE_LINK_CHECK_RESPONSE_SCHEMA: &str =
     "nako.addon.resource_link_check.response.v1";
+pub const ADDON_SUBTITLE_REQUEST_SCHEMA: &str = "nako.addon.subtitle.request.v1";
+pub const ADDON_SUBTITLE_RESPONSE_SCHEMA: &str = "nako.addon.subtitle.response.v1";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct AddonRuntimeRoute {
@@ -854,6 +856,166 @@ impl AddonResourceLinkCheckStatus {
             Self::RateLimited => "rate_limited",
             Self::Error => "error",
             Self::Unknown => "unknown",
+        }
+    }
+}
+
+#[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AddonSubtitleSearchRequest {
+    pub schema: String,
+    pub query: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub languages: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<usize>,
+    #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
+    pub context: serde_json::Value,
+}
+
+impl fmt::Debug for AddonSubtitleSearchRequest {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("AddonSubtitleSearchRequest")
+            .field("schema", &self.schema)
+            .field("query", &self.query)
+            .field("languages", &self.languages)
+            .field("limit", &self.limit)
+            .field("context", &"<redacted>")
+            .finish()
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AddonSubtitleSearchResponse {
+    pub schema: String,
+    pub query: String,
+    pub total: usize,
+    pub subtitles: Vec<AddonSubtitleCandidate>,
+    pub provider_executions: Vec<AddonSubtitleProviderExecution>,
+}
+
+#[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AddonSubtitleCandidate {
+    pub id: String,
+    pub title: String,
+    pub language: String,
+    pub format: AddonSubtitleFormat,
+    pub source: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub release: Option<String>,
+    pub score: u16,
+    pub delivery: AddonSubtitleDelivery,
+}
+
+impl fmt::Debug for AddonSubtitleCandidate {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("AddonSubtitleCandidate")
+            .field("id", &self.id)
+            .field("title", &self.title)
+            .field("language", &self.language)
+            .field("format", &self.format)
+            .field("source", &self.source)
+            .field("release", &self.release)
+            .field("score", &self.score)
+            .field("delivery", &self.delivery)
+            .finish()
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonSubtitleFormat {
+    Vtt,
+    Srt,
+}
+
+impl AddonSubtitleFormat {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Vtt => "vtt",
+            Self::Srt => "srt",
+        }
+    }
+}
+
+#[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum AddonSubtitleDelivery {
+    Inline {
+        text: String,
+    },
+    DownloadUrl {
+        url: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        content_type: Option<String>,
+    },
+    ArtifactRef {
+        artifact_id: String,
+    },
+}
+
+impl AddonSubtitleDelivery {
+    #[must_use]
+    pub const fn kind(&self) -> &'static str {
+        match self {
+            Self::Inline { .. } => "inline",
+            Self::DownloadUrl { .. } => "download_url",
+            Self::ArtifactRef { .. } => "artifact_ref",
+        }
+    }
+}
+
+impl fmt::Debug for AddonSubtitleDelivery {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut debug = formatter.debug_struct("AddonSubtitleDelivery");
+        debug.field("kind", &self.kind());
+        match self {
+            Self::Inline { text } => {
+                debug.field("text_bytes", &text.len());
+            }
+            Self::DownloadUrl { content_type, .. } => {
+                debug
+                    .field("url", &"<redacted>")
+                    .field("content_type", content_type);
+            }
+            Self::ArtifactRef { artifact_id } => {
+                debug.field("artifact_id", artifact_id);
+            }
+        }
+        debug.finish()
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AddonSubtitleProviderExecution {
+    pub provider_id: String,
+    pub status: AddonSubtitleProviderStatus,
+    pub result_count: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub safe_message: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonSubtitleProviderStatus {
+    Ok,
+    Error,
+    Skipped,
+}
+
+impl AddonSubtitleProviderStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Ok => "ok",
+            Self::Error => "error",
+            Self::Skipped => "skipped",
         }
     }
 }
@@ -3122,6 +3284,155 @@ mod tests {
     }
 
     #[test]
+    fn subtitle_protocol_vocabulary_uses_stable_wire_names() {
+        assert_eq!(AddonResource::Subtitle.as_str(), "subtitle");
+        assert_eq!(
+            serde_json::to_value(AddonResource::Subtitle).unwrap(),
+            serde_json::json!("subtitle")
+        );
+        assert_eq!(
+            serde_json::from_value::<AddonResource>(serde_json::json!("subtitle")).unwrap(),
+            AddonResource::Subtitle
+        );
+
+        assert_eq!(AddonScope::SubtitleRead.as_str(), "subtitle_read");
+        assert_eq!(
+            serde_json::to_value(AddonScope::SubtitleRead).unwrap(),
+            serde_json::json!("subtitle_read")
+        );
+        assert_eq!(
+            serde_json::from_value::<AddonScope>(serde_json::json!("subtitle_read")).unwrap(),
+            AddonScope::SubtitleRead
+        );
+
+        assert_eq!(AddonSubtitleFormat::Vtt.as_str(), "vtt");
+        assert_eq!(
+            serde_json::to_value(AddonSubtitleFormat::Srt).unwrap(),
+            serde_json::json!("srt")
+        );
+        assert_eq!(AddonSubtitleProviderStatus::Skipped.as_str(), "skipped");
+    }
+
+    #[test]
+    fn subtitle_manifest_requires_read_scope() {
+        let manifest = subtitle_manifest();
+
+        validate_manifest(&manifest).unwrap();
+        ensure_scope_grant(
+            &manifest,
+            AddonResource::Subtitle,
+            &[AddonScope::SubtitleRead],
+        )
+        .unwrap();
+
+        assert!(matches!(
+            ensure_scope_grant(&manifest, AddonResource::Subtitle, &[]),
+            Err(AddonManifestError::MissingDeclaredScope {
+                resource: AddonResource::Subtitle,
+                scope: AddonScope::SubtitleRead,
+            })
+        ));
+    }
+
+    #[test]
+    fn subtitle_payload_contracts_round_trip_and_redact_debug() {
+        let request = AddonSubtitleSearchRequest {
+            schema: ADDON_SUBTITLE_REQUEST_SCHEMA.to_owned(),
+            query: "Demo Movie".to_owned(),
+            languages: vec!["zh-CN".to_owned(), "en".to_owned()],
+            limit: Some(10),
+            context: serde_json::json!({
+                "library_id": "library-1",
+                "raw_path": "C:\\media\\secret"
+            }),
+        };
+        let request_json = serde_json::to_value(&request).unwrap();
+
+        assert_eq!(request_json["schema"], ADDON_SUBTITLE_REQUEST_SCHEMA);
+        assert_eq!(
+            request_json["languages"],
+            serde_json::json!(["zh-CN", "en"])
+        );
+        assert_eq!(
+            serde_json::from_value::<AddonSubtitleSearchRequest>(request_json).unwrap(),
+            request
+        );
+        let request_debug = format!("{request:?}");
+        assert!(!request_debug.contains("C:\\media\\secret"));
+
+        let response = AddonSubtitleSearchResponse {
+            schema: ADDON_SUBTITLE_RESPONSE_SCHEMA.to_owned(),
+            query: "Demo Movie".to_owned(),
+            total: 2,
+            subtitles: vec![
+                AddonSubtitleCandidate {
+                    id: "fixture:demo:en:0".to_owned(),
+                    title: "Demo English".to_owned(),
+                    language: "en".to_owned(),
+                    format: AddonSubtitleFormat::Vtt,
+                    source: "fixture".to_owned(),
+                    release: Some("WEB-DL".to_owned()),
+                    score: 900,
+                    delivery: AddonSubtitleDelivery::Inline {
+                        text: "WEBVTT\n\nsecret subtitle text".to_owned(),
+                    },
+                },
+                AddonSubtitleCandidate {
+                    id: "fixture:demo:zh-cn:1".to_owned(),
+                    title: "Demo Chinese".to_owned(),
+                    language: "zh-CN".to_owned(),
+                    format: AddonSubtitleFormat::Srt,
+                    source: "fixture".to_owned(),
+                    release: None,
+                    score: 880,
+                    delivery: AddonSubtitleDelivery::DownloadUrl {
+                        url: "https://subtitle.example/download?token=secret-token".to_owned(),
+                        content_type: Some("application/x-subrip".to_owned()),
+                    },
+                },
+            ],
+            provider_executions: vec![AddonSubtitleProviderExecution {
+                provider_id: "fixture".to_owned(),
+                status: AddonSubtitleProviderStatus::Ok,
+                result_count: 2,
+                safe_message: None,
+            }],
+        };
+        let response_json = serde_json::to_value(&response).unwrap();
+
+        assert_eq!(response_json["schema"], ADDON_SUBTITLE_RESPONSE_SCHEMA);
+        assert_eq!(response_json["subtitles"][0]["format"], "vtt");
+        assert_eq!(response_json["subtitles"][0]["delivery"]["kind"], "inline");
+        assert_eq!(
+            response_json["subtitles"][1]["delivery"]["kind"],
+            "download_url"
+        );
+
+        let manifest = subtitle_manifest();
+        let envelope = AddonResourceResponse {
+            protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+            addon_id: manifest.id.clone(),
+            resource: AddonResource::Subtitle,
+            request_id: "subtitle-1".to_owned(),
+            payload: response_json.clone(),
+            artifacts: Vec::new(),
+        };
+        validate_resource_response(&envelope, &manifest, AddonResource::Subtitle, "subtitle-1")
+            .unwrap();
+        let debug = format!("{response:?}");
+        for forbidden in ["secret subtitle text", "secret-token"] {
+            assert!(
+                !debug.contains(forbidden),
+                "subtitle response debug leaked forbidden term: {forbidden}"
+            );
+        }
+        assert_eq!(
+            serde_json::from_value::<AddonSubtitleSearchResponse>(response_json).unwrap(),
+            response
+        );
+    }
+
+    #[test]
     fn renderer_adapter_payload_contracts_round_trip_and_redact_debug() {
         let target = AddonRendererAdapterTarget {
             stable_device_id: "living-room-tv".to_owned(),
@@ -3543,6 +3854,36 @@ mod tests {
             default_timeout_ms: Some(10_000),
             default_max_attempts: Some(1),
             scopes: vec![AddonScope::AcquisitionLinkCheckRead],
+        }
+    }
+
+    fn subtitle_manifest() -> AddonManifest {
+        AddonManifest {
+            id: "subtitle-provider".to_owned(),
+            name: "Subtitle Provider".to_owned(),
+            version: "0.1.0".to_owned(),
+            protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+            base_url: "https://example.test/addon".to_owned(),
+            description: None,
+            resources: vec![AddonResourceDeclaration {
+                kind: AddonResource::Subtitle,
+                path: "/subtitle".to_owned(),
+                input_schema: Some(ADDON_SUBTITLE_REQUEST_SCHEMA.to_owned()),
+                output_schema: Some(ADDON_SUBTITLE_RESPONSE_SCHEMA.to_owned()),
+                required_scopes: vec![AddonScope::SubtitleRead],
+                timeout_ms: Some(10_000),
+                max_attempts: Some(1),
+            }],
+            entry_points: Vec::new(),
+            hosted_pages: Vec::new(),
+            configuration_schema: None,
+            secret_reference_fields: Vec::new(),
+            event_subscriptions: Vec::new(),
+            tasks: Vec::new(),
+            auth: AddonAuth::Bearer,
+            default_timeout_ms: Some(10_000),
+            default_max_attempts: Some(1),
+            scopes: vec![AddonScope::SubtitleRead],
         }
     }
 }

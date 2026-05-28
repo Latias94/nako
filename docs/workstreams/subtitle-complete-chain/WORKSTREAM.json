@@ -5,7 +5,7 @@
   "created_at": "2026-05-28",
   "updated_at": "2026-05-28",
   "objective": "Create a host-owned subtitle complete chain by moving subtitle search wire types into nako-addon-protocol and migrating the official subtitle provider, while leaving subtitle file writes as a Library File Write follow-on.",
-  "current_task": "SCC-020",
+  "current_task": "SCC-030",
   "owner": "Codex",
   "docs": {
     "adr": "../../adr/0051-host-owned-subtitle-import-chain.md",
