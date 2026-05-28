@@ -1,6 +1,6 @@
 use crate::admin::ADMIN_API_VERSION;
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 52] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 53] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -46,6 +46,10 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 52] = [
     (
         "addonSubtitleSearchSelection",
         "addons/:addon_id/subtitle-search/{search_id}/selections/{selection_id}/selected-reference",
+    ),
+    (
+        "addonSubtitleImportPlan",
+        "addons/:addon_id/subtitle-search/{search_id}/selections/{selection_id}/import-plan",
     ),
     (
         "acquisitionIntakeCandidates",
@@ -525,6 +529,28 @@ export type AdminAddonSubtitleDeliveryKind =
   | "download_url"
   | "artifact_ref";
 
+export type AdminSubtitleSidecarRole =
+  | "default"
+  | "forced"
+  | "sdh"
+  | "commentary";
+
+export type AdminSubtitleImportConflictPolicy =
+  | "create_missing"
+  | "replace_existing";
+
+export type AdminSubtitleImportBackupPolicy =
+  | "none"
+  | "existing_file_keep_latest";
+
+export type AdminSubtitleImportPlanStatus = "ready" | "blocked";
+
+export type AdminSubtitleImportPlanReason =
+  | "ready"
+  | "media_source_matches_item"
+  | "candidate_language_mismatch"
+  | "candidate_format_mismatch";
+
 export interface AdminAddonsQuery {
   status?: AddonStatus;
 }
@@ -987,6 +1013,50 @@ export interface AdminAddonSubtitleSelectedReference {
 export interface AdminAddonSubtitleSelectionResponse {
   selected_ref: AdminAddonSubtitleSelectedReference;
   candidate: AdminAddonSubtitleCandidateSummary;
+}
+
+export interface AdminAddonSubtitleImportPlanRequest {
+  media_item_id: string;
+  media_source_id: string;
+  language: string;
+  format: AddonSubtitleFormat;
+  sidecar_role: AdminSubtitleSidecarRole;
+  conflict_policy: AdminSubtitleImportConflictPolicy;
+  backup_policy: AdminSubtitleImportBackupPolicy;
+}
+
+export interface AdminSubtitleImportTargetSummary {
+  library_id: string;
+  media_item_id: string;
+  media_source_id: string;
+  item_title: string;
+  media_file_name: string;
+  source_ref_fingerprint: string;
+}
+
+export interface AdminSubtitleSidecarPlan {
+  file_name: string;
+  language: string;
+  format: AddonSubtitleFormat;
+  role: AdminSubtitleSidecarRole;
+}
+
+export interface AdminSubtitleImportPlan {
+  idempotency_key: string;
+  status: AdminSubtitleImportPlanStatus;
+  reasons: AdminSubtitleImportPlanReason[];
+  target: AdminSubtitleImportTargetSummary;
+  sidecar: AdminSubtitleSidecarPlan;
+  conflict_policy: AdminSubtitleImportConflictPolicy;
+  backup_policy: AdminSubtitleImportBackupPolicy;
+  preview_only: boolean;
+  writes_library: boolean;
+}
+
+export interface AdminAddonSubtitleImportPlanResponse {
+  selected_ref: AdminAddonSubtitleSelectedReference;
+  candidate: AdminAddonSubtitleCandidateSummary;
+  plan: AdminSubtitleImportPlan;
 }
 
 export interface AdminAddonResourceLinkCheckRequest {
@@ -2439,6 +2509,16 @@ mod tests {
             "AdminAddonSubtitleSelectionRequest",
             "AdminAddonSubtitleSelectedReference",
             "AdminAddonSubtitleSelectionResponse",
+            "AdminSubtitleSidecarRole",
+            "AdminSubtitleImportConflictPolicy",
+            "AdminSubtitleImportBackupPolicy",
+            "AdminSubtitleImportPlanStatus",
+            "AdminSubtitleImportPlanReason",
+            "AdminAddonSubtitleImportPlanRequest",
+            "AdminSubtitleImportTargetSummary",
+            "AdminSubtitleSidecarPlan",
+            "AdminSubtitleImportPlan",
+            "AdminAddonSubtitleImportPlanResponse",
             "AdminAddonResourceLinkCheckRequest",
             "AdminAddonResourceLinkCheckResponse",
             "AddonResourceLinkCheckStatus",

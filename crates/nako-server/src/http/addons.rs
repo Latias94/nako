@@ -16,13 +16,13 @@ use nako_api::extension::{
     AddonAccessCheckRequest, AdminAddonInstallGuidePreviewRequest, AdminAddonManagerPlanRequest,
     AdminAddonResourceCallDiagnosticRequest, AdminAddonResourceLinkCheckRequest,
     AdminAddonResourceSearchDiagnosticRequest, AdminAddonResourceSearchRequest,
-    AdminAddonResourceSearchSelectionRequest, AdminAddonSubtitleSearchRequest,
-    AdminAddonSubtitleSelectionRequest, CancelAddonTaskRunRequest, ClaimAddonTaskRunRequest,
-    CompleteAddonTaskRunRequest, CreateAddonTaskRunRequest, FailAddonTaskRunRequest,
-    IssueAddonTokenRequest, RegisterAddonRequest, ReplaceAddonGrantsRequest,
-    ReplayAddonEventRequest, ReportAddonTaskRunProgressRequest, RetryAddonTaskRunRequest,
-    SubmitAddonAcquisitionCandidateRequest, SubmitAddonGeneratedArtifactRequest,
-    SubmitAddonSideEffectRequest, UpdateAddonStatusRequest,
+    AdminAddonResourceSearchSelectionRequest, AdminAddonSubtitleImportPlanRequest,
+    AdminAddonSubtitleSearchRequest, AdminAddonSubtitleSelectionRequest, CancelAddonTaskRunRequest,
+    ClaimAddonTaskRunRequest, CompleteAddonTaskRunRequest, CreateAddonTaskRunRequest,
+    FailAddonTaskRunRequest, IssueAddonTokenRequest, RegisterAddonRequest,
+    ReplaceAddonGrantsRequest, ReplayAddonEventRequest, ReportAddonTaskRunProgressRequest,
+    RetryAddonTaskRunRequest, SubmitAddonAcquisitionCandidateRequest,
+    SubmitAddonGeneratedArtifactRequest, SubmitAddonSideEffectRequest, UpdateAddonStatusRequest,
 };
 use nako_core::{AddonId, AddonTokenId, EventId, JobId};
 use tracing::instrument;
@@ -142,6 +142,10 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/admin/v1/addons/{addon_id}/subtitle-search/{search_id}/selections/{selection_id}/selected-reference",
             post(select_addon_subtitle_search_candidate),
+        )
+        .route(
+            "/admin/v1/addons/{addon_id}/subtitle-search/{search_id}/selections/{selection_id}/import-plan",
+            post(plan_addon_subtitle_import),
         )
         .route(
             "/admin/v1/addons/{addon_id}/tokens",
@@ -520,6 +524,19 @@ pub(super) async fn select_addon_subtitle_search_candidate(
     Ok(Json(
         app.addons()
             .select_addon_subtitle_search_candidate(addon_id, search_id, selection_id, request)
+            .await?,
+    ))
+}
+
+#[instrument(skip(app, request))]
+pub(super) async fn plan_addon_subtitle_import(
+    State(app): State<NakoApp>,
+    Path((addon_id, search_id, selection_id)): Path<(AddonId, String, String)>,
+    Json(request): Json<AdminAddonSubtitleImportPlanRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.addons()
+            .plan_addon_subtitle_import(addon_id, search_id, selection_id, request)
             .await?,
     ))
 }

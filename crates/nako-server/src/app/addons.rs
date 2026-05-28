@@ -43,18 +43,22 @@ use nako_api::extension::{
     AdminAddonSourceCatalogEntry, AdminAddonSourceCatalogResolveResponse,
     AdminAddonSourceCatalogSource, AdminAddonSourceCatalogSourceKind,
     AdminAddonSourceCatalogSourcesResponse, AdminAddonSubtitleCandidateSummary,
-    AdminAddonSubtitleDeliveryKind, AdminAddonSubtitleProviderDiagnostic,
+    AdminAddonSubtitleDeliveryKind, AdminAddonSubtitleImportPlanRequest,
+    AdminAddonSubtitleImportPlanResponse, AdminAddonSubtitleProviderDiagnostic,
     AdminAddonSubtitleSearchRequest, AdminAddonSubtitleSearchResponse,
     AdminAddonSubtitleSelectedReference, AdminAddonSubtitleSelectionRequest,
     AdminAddonSubtitleSelectionResponse, AdminAddonSurfacesResponse, AdminAddonTaskSurface,
-    IssueAddonTokenRequest, RegisterAddonRequest, ReplaceAddonGrantsRequest,
-    UpdateAddonStatusRequest,
+    AdminSubtitleImportBackupPolicy, AdminSubtitleImportConflictPolicy, AdminSubtitleImportPlan,
+    AdminSubtitleImportPlanReason, AdminSubtitleImportPlanStatus, AdminSubtitleImportTargetSummary,
+    AdminSubtitleSidecarPlan, AdminSubtitleSidecarRole, IssueAddonTokenRequest,
+    RegisterAddonRequest, ReplaceAddonGrantsRequest, UpdateAddonStatusRequest,
 };
 use nako_core::{
     AddonGrantRecord, AddonId, AddonIssuedToken, AddonManifestFingerprint, AddonRegistrationRecord,
     AddonRepository, AddonRoutingDeclarationKind, AddonRoutingPlanId, AddonRoutingPlanStatus,
-    AddonRoutingPlanTarget, AddonStatus, AddonTokenId, DomainEventKind, JobKind, NakoError,
-    NewAddonGrant, NewAddonRegistration, NewAddonRoutingPlan, NewAddonToken, Result, SecretString,
+    AddonRoutingPlanTarget, AddonStatus, AddonTokenId, DomainEventKind, JobKind, MediaRepository,
+    NakoError, NewAddonGrant, NewAddonRegistration, NewAddonRoutingPlan, NewAddonToken, Result,
+    SecretString,
 };
 use nako_db::NakoDatabase;
 use nako_official_addon_catalog::{
@@ -1359,6 +1363,130 @@ impl AddonAppService {
         })
     }
 
+    pub async fn plan_addon_subtitle_import(
+        &self,
+        addon_id: AddonId,
+        search_id: String,
+        selection_id: String,
+        request: AdminAddonSubtitleImportPlanRequest,
+    ) -> Result<AdminAddonSubtitleImportPlanResponse> {
+        let addon = self.get_addon_registration_or_not_found(addon_id).await?;
+        if addon.status == AddonStatus::Unregistered {
+            return Err(NakoError::Conflict {
+                message: format!("addon registration {addon_id} is unregistered"),
+            });
+        }
+        let handoff = self
+            .subtitle_search_sessions
+            .lock()
+            .await
+            .get_selection(
+                addon_id,
+                &search_id,
+                &selection_id,
+                super::current_time_ms()?,
+            )
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "subtitle_search_selection",
+                id: selection_id.clone(),
+            })?;
+        if handoff.manifest_id != addon.manifest_id {
+            return Err(NakoError::Conflict {
+                message: "subtitle search session belongs to a different addon manifest".to_owned(),
+            });
+        }
+
+        let item = self
+            .store
+            .get_media_item(request.media_item_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "media_item",
+                id: request.media_item_id.to_string(),
+            })?;
+        let source = self
+            .store
+            .get_media_source(request.media_source_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "media_source",
+                id: request.media_source_id.to_string(),
+            })?;
+        if source.item_id != item.id {
+            return Err(NakoError::InvalidInput {
+                message: "media source does not belong to subtitle import media item".to_owned(),
+            });
+        }
+
+        let language = normalize_subtitle_plan_language(&request.language)?;
+        let candidate = &handoff.selection.candidate;
+        let candidate_summary = admin_subtitle_candidate_summary(&selection_id, candidate);
+        let selected_ref = AdminAddonSubtitleSelectedReference {
+            addon_id,
+            manifest_id: handoff.manifest_id,
+            search_id: search_id.clone(),
+            selection_id: selection_id.clone(),
+            candidate_ref_fingerprint: candidate_summary.candidate_ref_fingerprint.clone(),
+            delivery_kind: candidate_summary.delivery_kind,
+        };
+        let media_file_name = safe_media_file_name(&source.file_name);
+        let sidecar_file_name = subtitle_sidecar_file_name(
+            &media_file_name,
+            &language,
+            request.sidecar_role,
+            request.format,
+        );
+        let mut reasons = vec![AdminSubtitleImportPlanReason::MediaSourceMatchesItem];
+        let mut status = AdminSubtitleImportPlanStatus::Ready;
+        if candidate.language.trim().to_ascii_lowercase() != language {
+            status = AdminSubtitleImportPlanStatus::Blocked;
+            reasons.push(AdminSubtitleImportPlanReason::CandidateLanguageMismatch);
+        }
+        if candidate.format != request.format {
+            status = AdminSubtitleImportPlanStatus::Blocked;
+            reasons.push(AdminSubtitleImportPlanReason::CandidateFormatMismatch);
+        }
+        if status == AdminSubtitleImportPlanStatus::Ready {
+            reasons.push(AdminSubtitleImportPlanReason::Ready);
+        }
+
+        Ok(AdminAddonSubtitleImportPlanResponse {
+            selected_ref,
+            candidate: candidate_summary,
+            plan: AdminSubtitleImportPlan {
+                idempotency_key: subtitle_import_plan_idempotency_key(
+                    addon_id,
+                    &addon.manifest_id,
+                    &search_id,
+                    &selection_id,
+                    candidate,
+                    &request,
+                    &language,
+                ),
+                status,
+                reasons,
+                target: AdminSubtitleImportTargetSummary {
+                    library_id: source.library_id,
+                    media_item_id: item.id,
+                    media_source_id: source.id,
+                    item_title: item.metadata.title,
+                    media_file_name,
+                    source_ref_fingerprint: fingerprint_key(&source.locator),
+                },
+                sidecar: AdminSubtitleSidecarPlan {
+                    file_name: sidecar_file_name,
+                    language,
+                    format: request.format,
+                    role: request.sidecar_role,
+                },
+                conflict_policy: request.conflict_policy,
+                backup_policy: request.backup_policy,
+                preview_only: true,
+                writes_library: false,
+            },
+        })
+    }
+
     pub async fn select_addon_resource_search_result(
         &self,
         addon_id: AddonId,
@@ -1958,6 +2086,16 @@ fn normalize_subtitle_languages(languages: Vec<String>) -> Vec<String> {
         .collect()
 }
 
+fn normalize_subtitle_plan_language(language: &str) -> Result<String> {
+    let Some(language) = optional_non_empty(Some(language.to_owned())) else {
+        return Err(NakoError::InvalidInput {
+            message: "subtitle import language cannot be empty".to_owned(),
+        });
+    };
+
+    Ok(language.to_ascii_lowercase())
+}
+
 fn safe_resource_search_results(
     search_id: &str,
     results: Vec<AddonResourceSearchResult>,
@@ -2141,6 +2279,85 @@ fn new_resource_search_id() -> String {
 
 fn new_subtitle_search_id() -> String {
     format!("sub_{}", uuid::Uuid::new_v4().simple())
+}
+
+fn safe_media_file_name(file_name: &str) -> String {
+    let leaf = file_name
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or(file_name)
+        .trim();
+    optional_non_empty(Some(leaf.to_owned())).unwrap_or_else(|| "media".to_owned())
+}
+
+fn subtitle_sidecar_file_name(
+    media_file_name: &str,
+    language: &str,
+    role: AdminSubtitleSidecarRole,
+    format: nako_addon_protocol::AddonSubtitleFormat,
+) -> String {
+    let stem = media_file_stem(media_file_name);
+    let mut parts = vec![stem, language.to_owned()];
+    if let Some(role_segment) = subtitle_sidecar_role_segment(role) {
+        parts.push(role_segment.to_owned());
+    }
+
+    format!("{}.{}", parts.join("."), format.as_str())
+}
+
+fn media_file_stem(file_name: &str) -> String {
+    let file_name = safe_media_file_name(file_name);
+    let stem = file_name
+        .rsplit_once('.')
+        .and_then(|(stem, _)| optional_non_empty(Some(stem.to_owned())))
+        .unwrap_or(file_name);
+
+    optional_non_empty(Some(stem)).unwrap_or_else(|| "media".to_owned())
+}
+
+fn subtitle_sidecar_role_segment(role: AdminSubtitleSidecarRole) -> Option<&'static str> {
+    match role {
+        AdminSubtitleSidecarRole::Default => None,
+        AdminSubtitleSidecarRole::Forced => Some("forced"),
+        AdminSubtitleSidecarRole::Sdh => Some("sdh"),
+        AdminSubtitleSidecarRole::Commentary => Some("commentary"),
+    }
+}
+
+fn subtitle_import_plan_idempotency_key(
+    addon_id: AddonId,
+    manifest_id: &str,
+    search_id: &str,
+    selection_id: &str,
+    candidate: &AddonSubtitleCandidate,
+    request: &AdminAddonSubtitleImportPlanRequest,
+    normalized_language: &str,
+) -> String {
+    let material = format!(
+        "nako.subtitle-import-plan.v1\0{addon_id}\0{manifest_id}\0{search_id}\0{selection_id}\0{}\0{}\0{}\0{}\0{}\0{}\0{}",
+        candidate.id,
+        request.media_item_id,
+        request.media_source_id,
+        normalized_language,
+        request.format.as_str(),
+        subtitle_import_conflict_policy_key(request.conflict_policy),
+        subtitle_import_backup_policy_key(request.backup_policy),
+    );
+    format!("sip_{}", &sha256_hex(&material)[..32])
+}
+
+fn subtitle_import_conflict_policy_key(policy: AdminSubtitleImportConflictPolicy) -> &'static str {
+    match policy {
+        AdminSubtitleImportConflictPolicy::CreateMissing => "create_missing",
+        AdminSubtitleImportConflictPolicy::ReplaceExisting => "replace_existing",
+    }
+}
+
+fn subtitle_import_backup_policy_key(policy: AdminSubtitleImportBackupPolicy) -> &'static str {
+    match policy {
+        AdminSubtitleImportBackupPolicy::None => "none",
+        AdminSubtitleImportBackupPolicy::ExistingFileKeepLatest => "existing_file_keep_latest",
+    }
 }
 
 fn optional_non_empty(value: Option<String>) -> Option<String> {

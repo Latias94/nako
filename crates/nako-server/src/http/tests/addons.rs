@@ -7,9 +7,12 @@ use nako_addon_protocol::{
     AddonSubtitleProviderStatus, AddonSubtitleSearchResponse,
 };
 use nako_api::extension::{
-    AdminAddonSubtitleDeliveryKind, AdminAddonSubtitleSearchRequest,
+    AdminAddonSubtitleDeliveryKind, AdminAddonSubtitleImportPlanRequest,
+    AdminAddonSubtitleImportPlanResponse, AdminAddonSubtitleSearchRequest,
     AdminAddonSubtitleSearchResponse, AdminAddonSubtitleSelectionRequest,
-    AdminAddonSubtitleSelectionResponse,
+    AdminAddonSubtitleSelectionResponse, AdminSubtitleImportBackupPolicy,
+    AdminSubtitleImportConflictPolicy, AdminSubtitleImportPlanReason,
+    AdminSubtitleImportPlanStatus, AdminSubtitleSidecarRole,
 };
 use nako_official_addon_catalog::{
     chromecast_renderer, dlna_renderer, metadata_scraper, notification_bridge, resource_search,
@@ -6960,6 +6963,305 @@ async fn admin_addon_subtitle_search_selection_records_opaque_reference_without_
             "subtitle selection response leaked forbidden term: {forbidden}"
         );
     }
+}
+
+#[tokio::test]
+async fn admin_addon_subtitle_import_plan_previews_safe_sidecar_without_writes() {
+    let (addon_base_url, _captured) = subtitle_search_addon_server().await;
+    let (temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: subtitle_provider::manifest(addon_base_url),
+            outbound_task_dispatch_secret_env: None,
+            granted_scopes: vec![AddonScope::SubtitleRead],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let search = request_body_json::<AdminAddonSubtitleSearchResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/subtitle-search"),
+        &AdminAddonSubtitleSearchRequest {
+            query: "Demo Movie".to_owned(),
+            languages: vec!["zh-Hant".to_owned()],
+            limit: Some(10),
+        },
+    )
+    .await;
+    let selection_id = search.subtitles[1].selection_id.clone();
+    let plan_path = format!(
+        "/admin/v1/addons/{addon_id}/subtitle-search/{}/selections/{selection_id}/import-plan",
+        search.search_id
+    );
+
+    let raw_payload_rejected = response_body_json(
+        &router,
+        Method::POST,
+        &plan_path,
+        &serde_json::json!({
+            "media_item_id": source.item_id,
+            "media_source_id": source.id,
+            "language": "zh-Hant",
+            "format": "srt",
+            "sidecar_role": "default",
+            "conflict_policy": "create_missing",
+            "backup_policy": "none",
+            "target_path": "C:\\secret\\demo.zh-hant.srt",
+            "url": "https://subtitle.example/download?token=secret-token",
+            "text": "WEBVTT\n\nsecret subtitle text"
+        }),
+    )
+    .await;
+    assert_eq!(
+        raw_payload_rejected.status(),
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+
+    let raw = response_body_json(
+        &router,
+        Method::POST,
+        &plan_path,
+        &AdminAddonSubtitleImportPlanRequest {
+            media_item_id: source.item_id,
+            media_source_id: source.id,
+            language: "zh-Hant".to_owned(),
+            format: AddonSubtitleFormat::Srt,
+            sidecar_role: AdminSubtitleSidecarRole::Default,
+            conflict_policy: AdminSubtitleImportConflictPolicy::CreateMissing,
+            backup_policy: AdminSubtitleImportBackupPolicy::None,
+        },
+    )
+    .await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let text = response_text(raw).await;
+    let response = serde_json::from_str::<AdminAddonSubtitleImportPlanResponse>(&text).unwrap();
+
+    assert_eq!(response.selected_ref.addon_id, addon_id);
+    assert_eq!(response.selected_ref.search_id, search.search_id);
+    assert_eq!(response.selected_ref.selection_id, selection_id);
+    assert_eq!(
+        response.selected_ref.delivery_kind,
+        AdminAddonSubtitleDeliveryKind::DownloadUrl
+    );
+    assert_eq!(response.plan.status, AdminSubtitleImportPlanStatus::Ready);
+    assert_eq!(
+        response.plan.reasons,
+        vec![
+            AdminSubtitleImportPlanReason::MediaSourceMatchesItem,
+            AdminSubtitleImportPlanReason::Ready,
+        ]
+    );
+    assert!(response.plan.idempotency_key.starts_with("sip_"));
+    assert_eq!(response.plan.target.library_id, source.library_id);
+    assert_eq!(response.plan.target.media_item_id, source.item_id);
+    assert_eq!(response.plan.target.media_source_id, source.id);
+    assert_eq!(response.plan.target.media_file_name, "demo.mkv");
+    assert!(
+        response
+            .plan
+            .target
+            .source_ref_fingerprint
+            .starts_with("sha256:")
+    );
+    assert_eq!(response.plan.sidecar.file_name, "demo.zh-hant.srt");
+    assert_eq!(response.plan.sidecar.language, "zh-hant");
+    assert_eq!(response.plan.sidecar.format, AddonSubtitleFormat::Srt);
+    assert_eq!(
+        response.plan.sidecar.role,
+        AdminSubtitleSidecarRole::Default
+    );
+    assert_eq!(
+        response.plan.conflict_policy,
+        AdminSubtitleImportConflictPolicy::CreateMissing
+    );
+    assert_eq!(
+        response.plan.backup_policy,
+        AdminSubtitleImportBackupPolicy::None
+    );
+    assert!(response.plan.preview_only);
+    assert!(!response.plan.writes_library);
+
+    for forbidden in [
+        "WEBVTT",
+        "secret subtitle text",
+        "https://subtitle.example",
+        "secret-token",
+        "artifact-secret-id",
+        "local:///",
+        "C:\\",
+        "target_path",
+        "\"url\"",
+        "\"text\"",
+        "\"artifact_id\"",
+        "backup_uri",
+    ] {
+        assert!(
+            !text.contains(forbidden),
+            "subtitle import plan response leaked forbidden term: {forbidden}"
+        );
+    }
+
+    assert!(!temp.path().join("demo.zh-hant.srt").exists());
+    let sources = store
+        .list_media_sources(source.library_id, PageRequest::first_page())
+        .await
+        .unwrap();
+    assert_eq!(sources.len(), 1);
+}
+
+#[tokio::test]
+async fn admin_addon_subtitle_import_plan_rejects_media_item_source_mismatch() {
+    let (addon_base_url, _captured) = subtitle_search_addon_server().await;
+    let (_temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
+    let other_item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Other".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    store.upsert_media_item(&other_item).await.unwrap();
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: subtitle_provider::manifest(addon_base_url),
+            outbound_task_dispatch_secret_env: None,
+            granted_scopes: vec![AddonScope::SubtitleRead],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let search = request_body_json::<AdminAddonSubtitleSearchResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/subtitle-search"),
+        &AdminAddonSubtitleSearchRequest {
+            query: "Demo Movie".to_owned(),
+            languages: vec!["zh-Hant".to_owned()],
+            limit: Some(10),
+        },
+    )
+    .await;
+    let selection_id = search.subtitles[1].selection_id.clone();
+    let plan_path = format!(
+        "/admin/v1/addons/{addon_id}/subtitle-search/{}/selections/{selection_id}/import-plan",
+        search.search_id
+    );
+
+    let raw = response_body_json(
+        &router,
+        Method::POST,
+        &plan_path,
+        &AdminAddonSubtitleImportPlanRequest {
+            media_item_id: other_item.id,
+            media_source_id: source.id,
+            language: "zh-Hant".to_owned(),
+            format: AddonSubtitleFormat::Srt,
+            sidecar_role: AdminSubtitleSidecarRole::Default,
+            conflict_policy: AdminSubtitleImportConflictPolicy::CreateMissing,
+            backup_policy: AdminSubtitleImportBackupPolicy::None,
+        },
+    )
+    .await;
+
+    assert_eq!(raw.status(), StatusCode::BAD_REQUEST);
+    let error = body_json::<ErrorResponse>(raw).await;
+    assert_eq!(error.code, "invalid_input");
+}
+
+#[tokio::test]
+async fn admin_addon_subtitle_import_plan_blocks_candidate_language_or_format_mismatch() {
+    let (addon_base_url, _captured) = subtitle_search_addon_server().await;
+    let (_temp, router, source, _store) = router_with_media_source("demo.mkv", b"media").await;
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: subtitle_provider::manifest(addon_base_url),
+            outbound_task_dispatch_secret_env: None,
+            granted_scopes: vec![AddonScope::SubtitleRead],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let search = request_body_json::<AdminAddonSubtitleSearchResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/subtitle-search"),
+        &AdminAddonSubtitleSearchRequest {
+            query: "Demo Movie".to_owned(),
+            languages: vec!["zh-Hant".to_owned()],
+            limit: Some(10),
+        },
+    )
+    .await;
+    let selection_id = search.subtitles[1].selection_id.clone();
+    let plan_path = format!(
+        "/admin/v1/addons/{addon_id}/subtitle-search/{}/selections/{selection_id}/import-plan",
+        search.search_id
+    );
+
+    let response = request_body_json::<AdminAddonSubtitleImportPlanResponse, _>(
+        &router,
+        Method::POST,
+        &plan_path,
+        &AdminAddonSubtitleImportPlanRequest {
+            media_item_id: source.item_id,
+            media_source_id: source.id,
+            language: "en".to_owned(),
+            format: AddonSubtitleFormat::Vtt,
+            sidecar_role: AdminSubtitleSidecarRole::Forced,
+            conflict_policy: AdminSubtitleImportConflictPolicy::ReplaceExisting,
+            backup_policy: AdminSubtitleImportBackupPolicy::ExistingFileKeepLatest,
+        },
+    )
+    .await;
+
+    assert_eq!(response.plan.status, AdminSubtitleImportPlanStatus::Blocked);
+    assert!(
+        response
+            .plan
+            .reasons
+            .contains(&AdminSubtitleImportPlanReason::CandidateLanguageMismatch)
+    );
+    assert!(
+        response
+            .plan
+            .reasons
+            .contains(&AdminSubtitleImportPlanReason::CandidateFormatMismatch)
+    );
+    assert_eq!(response.plan.sidecar.file_name, "demo.en.forced.vtt");
+    assert_eq!(
+        response.plan.conflict_policy,
+        AdminSubtitleImportConflictPolicy::ReplaceExisting
+    );
+    assert_eq!(
+        response.plan.backup_policy,
+        AdminSubtitleImportBackupPolicy::ExistingFileKeepLatest
+    );
+    assert!(
+        !response
+            .plan
+            .reasons
+            .contains(&AdminSubtitleImportPlanReason::Ready)
+    );
+    assert!(response.plan.preview_only);
+    assert!(!response.plan.writes_library);
 }
 
 #[tokio::test]
