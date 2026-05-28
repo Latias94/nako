@@ -21,3 +21,4 @@ The `rg` boundary check should return no shared/media DTO leaks.
 | --- | --- | --- | --- |
 | 2026-05-28 | WFBR-010 | Queued after the frontend six-lane roadmap was accepted. | Queued. |
 | 2026-05-28 | WFBR-010 | Activated after WTRC completed with `npm --prefix web run test`, `npm --prefix web run check`, `npm --prefix web run build`, and `git diff --check` passing. | Active. Current task is WFBR-020. |
+| 2026-05-28 | WFBR-020 | Moved Media surface and current internal product pages to `web/src/features/media`; route imports now use the feature index; `npm --prefix web run check`; `npm --prefix web run test`; `npm --prefix web run build`; `rg -n "src/api/admin\|generated/contract\|Admin[A-Za-z]+Response" web/src/features/media web/components/ui web/lib`. | Passed. Boundary grep returned no DTO leak matches. |

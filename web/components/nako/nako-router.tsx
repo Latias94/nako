@@ -19,10 +19,10 @@ import {
   useRouterState,
 } from "@tanstack/react-router"
 import { SurfaceSwitcher } from "@/components/nako/surface-switcher"
-import type { MediaSurfaceRef } from "@/components/nako/media-surface"
+import type { MediaSurfaceRef } from "@/src/features/media"
 
 const MediaSurface = lazy(() =>
-  import("@/components/nako/media-surface").then((module) => ({
+  import("@/src/features/media").then((module) => ({
     default: module.MediaSurface,
   })),
 )

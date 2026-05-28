@@ -13,12 +13,12 @@ Last updated: 2026-05-28
 
 ## M1 - Media Boundary
 
-- [ ] WFBR-020 [owner=Codex] [deps=WFBR-010] [scope=web/src/features/media,web/components/nako]
+- [x] WFBR-020 [owner=Codex] [deps=WFBR-010] [scope=web/src/features/media,web/components/nako]
   Goal: Move Media surface components into a feature-owned boundary without behavior changes.
   Validation: npm --prefix web run test && npm --prefix web run build.
   Review: Shared UI remains DTO-free.
   Evidence: moved files and import diff.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Handoff: DONE. Media surface and its current internal product pages live under `web/src/features/media`.
 
 ## M2 - Admin Boundary
 
@@ -27,7 +27,7 @@ Last updated: 2026-05-28
   Validation: npm --prefix web run test && npm --prefix web run build.
   Review: Admin DTO imports remain inside admin API/feature boundary only.
   Evidence: moved files and import diff.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Handoff: READY. Move Admin surface and admin-only child components next.
 
 ## M3 - Shell And Deferred Boundaries
 

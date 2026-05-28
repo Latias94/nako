@@ -11,6 +11,8 @@ Exit criteria: WTRC is complete.
 
 ## M1 - Media Boundary
 
+Status: done.
+
 Exit criteria: Media surface has a feature-owned home.
 
 ## M2 - Admin Boundary

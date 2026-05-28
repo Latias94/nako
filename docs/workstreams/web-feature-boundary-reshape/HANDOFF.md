@@ -12,9 +12,9 @@ contract tests are in place, so large component boundary moves can start.
 
 - Task ID: WFBR-020
 - Owner: Codex
-- Status: READY
+- Status: DONE
 - Validation: `npm --prefix web run test && npm --prefix web run build`
 
 ## Next Recommended Action
 
-- Move Media surface components into a feature-owned boundary without behavior changes.
+- Move Admin surface and admin-only child components into `web/src/features/admin`.
