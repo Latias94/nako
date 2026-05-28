@@ -21,11 +21,11 @@ Last updated: 2026-05-28
 
 ## M2 - Mutations And Safety
 
-- [ ] WALW-030 [owner=Codex] [deps=WALW-020] [scope=web/src/features/admin]
+- [x] WALW-030 [owner=Codex] [deps=WALW-020] [scope=web/src/features/admin]
   Goal: Add accepted Admin mutations with confirmation, error, and permission states.
   Validation: npm --prefix web run test && npm --prefix web run build.
-  Evidence: mutation tests and UI states.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Evidence: `npm --prefix web run test`; `npm --prefix web run check`; `npm --prefix web run build`; scoped `git diff --check`.
+  Handoff: DONE. Next task is WALW-040.
 
 ## M3 - Addon Manager Slice
 

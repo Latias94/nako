@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { cn } from "@/lib/utils"
 import {
   FolderOpen, 
@@ -29,7 +29,8 @@ import {
   GripVertical,
   Database,
   Globe,
-  Info
+  Info,
+  Download
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -68,6 +69,7 @@ import {
   type AdminLibraryKind,
   type AdminLibraryReadModel,
 } from "@/src/api/admin/read-models-data-source"
+import { createAdminMutationDataSource } from "@/src/api/admin/mutations-data-source"
 
 // 模拟数据
 const libraries = [
@@ -177,16 +179,56 @@ const libraryIconByKind: Record<AdminLibraryKind, typeof Film> = {
 }
 
 export function AdminLibraries() {
+  const queryClient = useQueryClient()
   const { data: librariesData = ADMIN_LIBRARY_READ_MODEL_FIXTURE } = useQuery({
     queryKey: ["nako", "admin", "libraries"],
     queryFn: () => createAdminReadModelsDataSource().loadLibraries(),
     staleTime: 30 * 1000,
     retry: 0,
   })
+  const mutationSource = createAdminMutationDataSource()
+  const canMutate = librariesData.source === "live" && mutationSource.canMutate
   const libraries = librariesData.libraries
   const [searchQuery, setSearchQuery] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [selectedLibrary, setSelectedLibrary] = useState<AdminLibraryReadModel | null>(null)
+  const [mutationMessage, setMutationMessage] = useState<string | null>(null)
+  const libraryMutation = useMutation({
+    mutationFn: async (action: {
+      kind: "scan" | "import-nfo" | "export-nfo"
+      libraryIds: string[]
+    }) => {
+      if (!canMutate) {
+        throw new Error(mutationSource.unavailableReason ?? "Admin mutation is unavailable")
+      }
+
+      const results = await Promise.all(
+        action.libraryIds.map((libraryId) => {
+          switch (action.kind) {
+            case "import-nfo":
+              return mutationSource.importLibraryNfo(libraryId)
+            case "export-nfo":
+              return mutationSource.exportLibraryNfo(libraryId)
+            default:
+              return mutationSource.scanLibrary(libraryId)
+          }
+        }),
+      )
+
+      return results.length === 1
+        ? results[0].message
+        : `${results.length} 个媒体库操作已提交`
+    },
+    onSuccess(message) {
+      setMutationMessage(message)
+      void queryClient.invalidateQueries({ queryKey: ["nako", "admin", "libraries"] })
+      void queryClient.invalidateQueries({ queryKey: ["nako", "admin", "scheduled-tasks"] })
+      void queryClient.invalidateQueries({ queryKey: ["nako", "admin", "dashboard"] })
+    },
+    onError(error) {
+      setMutationMessage(error instanceof Error ? error.message : "Admin mutation failed")
+    },
+  })
 
   const filteredLibraries = libraries.filter(lib => 
     lib.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -228,6 +270,24 @@ export function AdminLibraries() {
           </Badge>
         )
     }
+  }
+
+  const runLibraryMutation = (
+    kind: "scan" | "import-nfo" | "export-nfo",
+    libraryIds: string[],
+    confirmation: string,
+  ) => {
+    setMutationMessage(null)
+    if (!canMutate) {
+      setMutationMessage(mutationSource.unavailableReason ?? "连接 live Admin API 后才能执行管理操作")
+      return
+    }
+
+    if (typeof window !== "undefined" && !window.confirm(confirmation)) {
+      return
+    }
+
+    libraryMutation.mutate({ kind, libraryIds })
   }
 
   return (
@@ -380,11 +440,22 @@ export function AdminLibraries() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <Button variant="outline" className="gap-2">
+        <Button
+          variant="outline"
+          className="gap-2"
+          disabled={!canMutate || libraryMutation.isPending || libraries.length === 0}
+          onClick={() => runLibraryMutation("scan", libraries.map((library) => library.id), "确认扫描全部媒体库？")}
+        >
           <RefreshCw className="h-4 w-4" />
           全部扫描
         </Button>
       </div>
+
+      {(mutationMessage || !canMutate) && (
+        <div className="rounded-md border border-border/50 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          {mutationMessage ?? mutationSource.unavailableReason}
+        </div>
+      )}
 
     {/* 媒体库列表 */}
     <div className="grid gap-4 lg:grid-cols-2">
@@ -477,7 +548,8 @@ export function AdminLibraries() {
                         variant="ghost" 
                         size="icon"
                         className="h-7 w-7"
-                        disabled={library.scanStatus === "scanning"}
+                        disabled={!canMutate || library.scanStatus === "scanning" || libraryMutation.isPending}
+                        onClick={() => runLibraryMutation("scan", [library.id], `确认扫描媒体库「${library.name}」？`)}
                       >
                         <RefreshCw className={`h-3.5 w-3.5 ${library.scanStatus === "scanning" ? "animate-spin" : ""}`} />
                       </Button>
@@ -496,16 +568,26 @@ export function AdminLibraries() {
                             <Pencil className="h-4 w-4 mr-2" />
                             编辑
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <RefreshCw className="h-4 w-4 mr-2" />
-                            刷新元数据
+                          <DropdownMenuItem
+                            disabled={!canMutate || libraryMutation.isPending}
+                            onClick={() => runLibraryMutation("import-nfo", [library.id], `确认为「${library.name}」导入 NFO？`)}
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            导入 NFO
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={!canMutate || libraryMutation.isPending}
+                            onClick={() => runLibraryMutation("export-nfo", [library.id], `确认为「${library.name}」导出 NFO？`)}
+                          >
+                            <Database className="h-4 w-4 mr-2" />
+                            导出 NFO
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem>
+                          <DropdownMenuItem disabled>
                             <EyeOff className="h-4 w-4 mr-2" />
                             隐藏
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive">
+                          <DropdownMenuItem className="text-destructive" disabled>
                             <Trash2 className="h-4 w-4 mr-2" />
                             删除
                           </DropdownMenuItem>

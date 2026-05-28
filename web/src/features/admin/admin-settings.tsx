@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { 
   Settings,
   Server,
@@ -43,18 +43,43 @@ import {
   ADMIN_SETTINGS_READ_MODEL_FIXTURE,
   createAdminReadModelsDataSource,
 } from "@/src/api/admin/read-models-data-source"
+import { createAdminMutationDataSource } from "@/src/api/admin/mutations-data-source"
 
 export function AdminSettings() {
+  const queryClient = useQueryClient()
   const { data: settingsData = ADMIN_SETTINGS_READ_MODEL_FIXTURE } = useQuery({
     queryKey: ["nako", "admin", "settings"],
     queryFn: () => createAdminReadModelsDataSource().loadSettings(),
     staleTime: 30 * 1000,
     retry: 0,
   })
+  const mutationSource = createAdminMutationDataSource()
+  const canMutate = settingsData.source === "live" && mutationSource.canMutate
   const [hasChanges, setHasChanges] = useState(false)
+  const [mutationMessage, setMutationMessage] = useState<string | null>(null)
   const [hwAccelType, setHwAccelType] = useState(
     settingsData.transcode.hardwareAcceleration || "none",
   )
+  const settingsMutation = useMutation({
+    mutationFn: async () => {
+      if (!canMutate) {
+        throw new Error(mutationSource.unavailableReason ?? "Admin mutation is unavailable")
+      }
+
+      return mutationSource.updateMetadataRawCacheSettings({
+        retention_ms: settingsData.metadata.rawCacheRetentionMs,
+        cleanup_on_startup: settingsData.metadata.rawCacheCleanupOnStartup,
+      })
+    },
+    onSuccess(result) {
+      setHasChanges(false)
+      setMutationMessage(result.message)
+      void queryClient.invalidateQueries({ queryKey: ["nako", "admin", "settings"] })
+    },
+    onError(error) {
+      setMutationMessage(error instanceof Error ? error.message : "Admin mutation failed")
+    },
+  })
 
   const markChanged = () => setHasChanges(true)
 
@@ -65,6 +90,16 @@ export function AdminSettings() {
   const handleHwAccelChange = (value: string) => {
     setHwAccelType(value)
     markChanged()
+  }
+
+  const saveSettings = () => {
+    setMutationMessage(null)
+    if (!canMutate) {
+      setMutationMessage(mutationSource.unavailableReason ?? "连接 live Admin API 后才能执行管理操作")
+      return
+    }
+
+    settingsMutation.mutate()
   }
 
   return (
@@ -92,12 +127,22 @@ export function AdminSettings() {
             <RefreshCw className="h-4 w-4" />
             重启服务
           </Button>
-          <Button className="gap-2" disabled={!hasChanges}>
+          <Button
+            className="gap-2"
+            disabled={!hasChanges || !canMutate || settingsMutation.isPending}
+            onClick={saveSettings}
+          >
             <Save className="h-4 w-4" />
             保存设置
           </Button>
         </div>
       </div>
+
+      {(mutationMessage || !canMutate) && (
+        <div className="rounded-md border border-border/50 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          {mutationMessage ?? mutationSource.unavailableReason}
+        </div>
+      )}
 
       <Tabs defaultValue="general" className="space-y-6">
         <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-flex">

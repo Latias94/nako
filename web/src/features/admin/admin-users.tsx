@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { 
   Users, 
   Plus, 
@@ -81,6 +81,7 @@ import {
   createAdminReadModelsDataSource,
   type AdminUserReadModel,
 } from "@/src/api/admin/read-models-data-source"
+import { createAdminMutationDataSource } from "@/src/api/admin/mutations-data-source"
 
 // 模拟用户数据
 const users = [
@@ -315,12 +316,18 @@ const allLibraries = [
 ]
 
 export function AdminUsers() {
+  const queryClient = useQueryClient()
   const { data: usersData = ADMIN_USERS_READ_MODEL_FIXTURE } = useQuery({
     queryKey: ["nako", "admin", "users"],
     queryFn: () => createAdminReadModelsDataSource().loadUsers(),
     staleTime: 30 * 1000,
     retry: 0,
   })
+  const mutationSource = createAdminMutationDataSource()
+  const canMutate =
+    usersData.source === "live" &&
+    mutationSource.canMutate &&
+    usersData.accessCapabilities.userAccounts === "active"
   const users = usersData.users
   const activeSessions = usersData.activeSessions
   const allLibraries = usersData.libraries
@@ -328,6 +335,38 @@ export function AdminUsers() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<AdminUserReadModel | null>(null)
   const [activeTab, setActiveTab] = useState("users")
+  const [mutationMessage, setMutationMessage] = useState<string | null>(null)
+  const userMutation = useMutation({
+    mutationFn: async (action: {
+      kind: "enable" | "disable" | "reset-password" | "promote-admin" | "set-viewer"
+      user: AdminUserReadModel
+      password?: string
+    }) => {
+      if (!canMutate) {
+        throw new Error(mutationSource.unavailableReason ?? "Admin mutation is unavailable")
+      }
+
+      switch (action.kind) {
+        case "enable":
+          return mutationSource.updateUserStatus(action.user.id, "active")
+        case "disable":
+          return mutationSource.updateUserStatus(action.user.id, "disabled")
+        case "reset-password":
+          return mutationSource.setUserLocalPassword(action.user.id, action.password ?? "")
+        case "promote-admin":
+          return mutationSource.replaceUserRoles(action.user.id, ["administrator"])
+        case "set-viewer":
+          return mutationSource.replaceUserRoles(action.user.id, ["viewer"])
+      }
+    },
+    onSuccess(result) {
+      setMutationMessage(result.message)
+      void queryClient.invalidateQueries({ queryKey: ["nako", "admin", "users"] })
+    },
+    onError(error) {
+      setMutationMessage(error instanceof Error ? error.message : "Admin mutation failed")
+    },
+  })
   
   // 登录历史分页
   const [loginHistory] = useState(() => generateLoginHistory(50))
@@ -412,6 +451,41 @@ export function AdminUsers() {
     return `${count} 个媒体库`
   }
 
+  const runUserMutation = (
+    kind: "enable" | "disable" | "reset-password" | "promote-admin" | "set-viewer",
+    user: AdminUserReadModel,
+  ) => {
+    setMutationMessage(null)
+    if (!canMutate) {
+      setMutationMessage(mutationSource.unavailableReason ?? "连接 live Admin API 后才能执行管理操作")
+      return
+    }
+
+    if (kind === "reset-password") {
+      const password = typeof window === "undefined" ? "" : window.prompt(`输入「${user.name}」的新本地密码`)
+      if (!password) {
+        return
+      }
+      userMutation.mutate({ kind, user, password })
+      return
+    }
+
+    const confirmation =
+      kind === "disable"
+        ? `确认禁用用户「${user.name}」？`
+        : kind === "enable"
+          ? `确认启用用户「${user.name}」？`
+          : kind === "promote-admin"
+            ? `确认授予「${user.name}」管理员角色？`
+            : `确认将「${user.name}」设为普通用户？`
+
+    if (typeof window !== "undefined" && !window.confirm(confirmation)) {
+      return
+    }
+
+    userMutation.mutate({ kind, user })
+  }
+
   // 计算统计
   const stats = {
     total: users.length,
@@ -436,7 +510,7 @@ export function AdminUsers() {
         </div>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
+            <Button className="gap-2" disabled={!canMutate}>
               <Plus className="h-4 w-4" />
               添加用户
             </Button>
@@ -513,6 +587,15 @@ export function AdminUsers() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {(mutationMessage || !canMutate) && (
+        <div className="rounded-md border border-border/50 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          {mutationMessage ??
+            (usersData.accessCapabilities.userAccounts !== "active"
+              ? "用户账户管理能力尚未启用"
+              : mutationSource.unavailableReason)}
+        </div>
+      )}
 
       {/* 统计卡片 */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -668,28 +751,56 @@ export function AdminUsers() {
                             <UserCog className="h-4 w-4 mr-2" />
                             编辑用户
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={!canMutate || userMutation.isPending}
+                            onClick={() => runUserMutation("reset-password", user)}
+                          >
                             <Key className="h-4 w-4 mr-2" />
                             重置密码
                           </DropdownMenuItem>
+                          {user.role !== "admin" ? (
+                            <DropdownMenuItem
+                              disabled={!canMutate || userMutation.isPending}
+                              onClick={() => runUserMutation("promote-admin", user)}
+                            >
+                              <ShieldCheck className="h-4 w-4 mr-2" />
+                              授予管理员
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem
+                              disabled={!canMutate || userMutation.isPending || user.username === "admin"}
+                              onClick={() => runUserMutation("set-viewer", user)}
+                            >
+                              <Shield className="h-4 w-4 mr-2" />
+                              设为普通用户
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem>
                             <Activity className="h-4 w-4 mr-2" />
                             查看活动
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           {user.status !== "disabled" ? (
-                            <DropdownMenuItem className="text-destructive">
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              disabled={!canMutate || userMutation.isPending || user.role === "admin"}
+                              onClick={() => runUserMutation("disable", user)}
+                            >
                               <Ban className="h-4 w-4 mr-2" />
                               禁用账户
                             </DropdownMenuItem>
                           ) : (
-                            <DropdownMenuItem className="text-green-500">
+                            <DropdownMenuItem
+                              className="text-green-500"
+                              disabled={!canMutate || userMutation.isPending}
+                              onClick={() => runUserMutation("enable", user)}
+                            >
                               <CheckCircle2 className="h-4 w-4 mr-2" />
                               启用账户
                             </DropdownMenuItem>
                           )}
                           {user.role !== "admin" && (
-                            <DropdownMenuItem className="text-destructive">
+                            <DropdownMenuItem className="text-destructive" disabled>
                               <Trash2 className="h-4 w-4 mr-2" />
                               删除用户
                             </DropdownMenuItem>

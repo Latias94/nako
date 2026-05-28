@@ -12,6 +12,7 @@ import {
   ADMIN_USERS_READ_MODEL_FIXTURE,
   createAdminReadModelsDataSource,
 } from "@/src/api/admin/read-models-data-source"
+import { createAdminMutationDataSource } from "@/src/api/admin/mutations-data-source"
 import { createPublicMediaDataSource } from "@/src/api/public/media-data-source"
 
 const page = {
@@ -532,6 +533,23 @@ function adminRawCacheSettingsResponse() {
   }
 }
 
+function adminAccessUserResponse() {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    user: adminAccessUsersResponse().users[0],
+  }
+}
+
+function adminLocalPasswordResponse() {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    user_id: "user-1",
+    local_password_configured: true,
+  }
+}
+
 describe("public media data source contracts", () => {
   it("uses local fixtures when configured for fixture mode", async () => {
     const source = createPublicMediaDataSource({ mode: "fixture" })
@@ -896,5 +914,137 @@ describe("admin read model data source contracts", () => {
       error: "admin read model offline",
     })
     expect(libraries.libraries).toBe(ADMIN_LIBRARY_READ_MODEL_FIXTURE.libraries)
+  })
+})
+
+describe("admin mutation data source contracts", () => {
+  it("rejects mutations in fixture mode", async () => {
+    const source = createAdminMutationDataSource({ mode: "fixture" })
+
+    expect(source.canMutate).toBe(false)
+    await expect(source.scanLibrary("library-a")).rejects.toThrow("live Admin API")
+  })
+
+  it("maps accepted Admin mutations to versioned routes with JSON bodies", async () => {
+    const calls: Array<{ method: string; path: string; body?: unknown; authorization: string | null }> = []
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      const rawBody = typeof init?.body === "string" ? JSON.parse(init.body) : undefined
+      calls.push({
+        method: init?.method ?? "GET",
+        path: url.pathname,
+        body: rawBody,
+        authorization: new Headers(init?.headers).get("Authorization"),
+      })
+
+      switch (`${init?.method ?? "GET"} ${url.pathname}`) {
+        case "POST /admin/v1/libraries/library-a/scan":
+        case "POST /admin/v1/libraries/library-a/nfo/import":
+        case "POST /admin/v1/libraries/library-a/nfo/export":
+          return jsonResponse(adminJobsResponse().jobs[0])
+        case "POST /admin/v1/access/users":
+        case "PUT /admin/v1/access/users/user-1/roles":
+        case "PATCH /admin/v1/access/users/user-1/status":
+          return jsonResponse(adminAccessUserResponse())
+        case "PUT /admin/v1/access/users/user-1/local-password":
+        case "DELETE /admin/v1/access/users/user-1/local-password":
+          return jsonResponse(adminLocalPasswordResponse())
+        case "PUT /admin/v1/settings/metadata/raw-cache":
+          return jsonResponse(adminRawCacheSettingsResponse())
+        default:
+          return jsonResponse({ message: "not found" }, 404)
+      }
+    })
+
+    const source = createAdminMutationDataSource(
+      {
+        mode: "live",
+        baseUrl: "http://nako-admin.test",
+        bearerToken: "admin-token",
+      },
+      fetcher,
+    )
+
+    await expect(source.scanLibrary("library-a")).resolves.toMatchObject({
+      kind: "library.scan",
+      id: "job-1",
+    })
+    await expect(source.importLibraryNfo("library-a")).resolves.toMatchObject({
+      kind: "library.nfo.import",
+    })
+    await expect(source.exportLibraryNfo("library-a")).resolves.toMatchObject({
+      kind: "library.nfo.export",
+    })
+    await expect(
+      source.createUser({ username: "new-user", display_name: "New User", roles: ["viewer"] }),
+    ).resolves.toMatchObject({
+      kind: "user.create",
+      id: "user-1",
+    })
+    await source.replaceUserRoles("user-1", ["administrator"])
+    await source.updateUserStatus("user-1", "disabled")
+    await source.setUserLocalPassword("user-1", "secret")
+    await source.deleteUserLocalPassword("user-1")
+    await source.updateMetadataRawCacheSettings({
+      retention_ms: 86400000,
+      cleanup_on_startup: true,
+    })
+
+    expect(calls).toEqual([
+      {
+        method: "POST",
+        path: "/admin/v1/libraries/library-a/scan",
+        body: undefined,
+        authorization: "Bearer admin-token",
+      },
+      {
+        method: "POST",
+        path: "/admin/v1/libraries/library-a/nfo/import",
+        body: undefined,
+        authorization: "Bearer admin-token",
+      },
+      {
+        method: "POST",
+        path: "/admin/v1/libraries/library-a/nfo/export",
+        body: undefined,
+        authorization: "Bearer admin-token",
+      },
+      {
+        method: "POST",
+        path: "/admin/v1/access/users",
+        body: { username: "new-user", display_name: "New User", roles: ["viewer"] },
+        authorization: "Bearer admin-token",
+      },
+      {
+        method: "PUT",
+        path: "/admin/v1/access/users/user-1/roles",
+        body: { roles: ["administrator"] },
+        authorization: "Bearer admin-token",
+      },
+      {
+        method: "PATCH",
+        path: "/admin/v1/access/users/user-1/status",
+        body: { status: "disabled" },
+        authorization: "Bearer admin-token",
+      },
+      {
+        method: "PUT",
+        path: "/admin/v1/access/users/user-1/local-password",
+        body: { password: "secret" },
+        authorization: "Bearer admin-token",
+      },
+      {
+        method: "DELETE",
+        path: "/admin/v1/access/users/user-1/local-password",
+        body: undefined,
+        authorization: "Bearer admin-token",
+      },
+      {
+        method: "PUT",
+        path: "/admin/v1/settings/metadata/raw-cache",
+        body: { retention_ms: 86400000, cleanup_on_startup: true },
+        authorization: "Bearer admin-token",
+      },
+    ])
   })
 })

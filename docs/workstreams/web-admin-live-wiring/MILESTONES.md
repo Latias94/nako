@@ -13,7 +13,7 @@ Exit criteria: accepted Admin pages load live read models. Completed by WALW-020
 
 ## M2 - Mutations And Safety
 
-Exit criteria: accepted mutations have safe UI states.
+Exit criteria: accepted mutations have safe UI states. Completed by WALW-030.
 
 ## M3 - Addon Manager Slice
 
