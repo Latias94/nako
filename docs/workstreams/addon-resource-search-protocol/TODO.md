@@ -22,12 +22,12 @@ Last updated: 2026-05-28
 
 ## M2 - Typed Client Call
 
-- [ ] ARSP-030 [owner=unassigned] [deps=ARSP-020] [scope=crates/nako-addon-client]
+- [x] ARSP-030 [owner=Codex] [deps=ARSP-020] [scope=crates/nako-addon-client]
   Goal: Add a typed resource-search client helper over the existing generic addon resource call machinery.
   Validation: `cargo nextest run -p nako-addon-client resource_search --no-fail-fast`
   Review: Ensure timeout, retry, protocol-version, scope-grant, and safe error behavior remain inherited from generic resource calls.
   Evidence: crates/nako-addon-client/src/lib.rs
-  Handoff: If the helper forces a new transport path, stop and redesign.
+  Handoff: Complete. The helper stays on the generic resource-call path and enforces the read-scope/schema contract.
 
 ## M3 - Host Call Boundary
 

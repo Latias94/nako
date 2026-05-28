@@ -82,6 +82,23 @@ Run `verify-rust-workstream` before marking the lane complete.
 - Passed `cargo check -p nako-addon-protocol -p nako-addon-client --tests`.
 - Passed `git diff --check`.
 
+### 2026-05-28 - ARSP-030
+
+- Added typed `call_addon_resource_search` and
+  `call_addon_resource_search_with_outcome` helpers in `nako-addon-client`.
+- Kept transport, retry, timeout, manifest, envelope, auth, and scope behavior
+  on the existing generic resource-call path.
+- Enforced `acquisition_search_read` on the resource-search manifest
+  declaration and granted scope set before HTTP.
+- Enforced request/response payload schema constants and typed response payload
+  parsing.
+- Passed `cargo nextest run -p nako-addon-client resource_search --no-fail-fast`
+  with 6 tests.
+- Passed `cargo nextest run -p nako-addon-client --no-fail-fast` with 22 tests.
+- Passed `cargo fmt --all -- --check`.
+- Passed `cargo check -p nako-addon-protocol -p nako-addon-client --tests`.
+- Passed `git diff --check`.
+
 ## Notes
 
 Search is not acquisition. The base protocol must not imply candidate writes,

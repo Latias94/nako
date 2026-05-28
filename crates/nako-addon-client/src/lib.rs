@@ -2,12 +2,14 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use nako_addon_protocol::{
+    ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA, ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA,
     ADDON_RUNTIME_ACCESS_CHECK_PATH, ADDON_RUNTIME_SIDE_EFFECTS_PATH, AddonAccessCheckRequest,
     AddonAccessCheckResponse, AddonAuth, AddonEventRequest, AddonEventResponse,
     AddonHealthCheckRequest, AddonHealthCheckResponse, AddonManifest, AddonManifestError,
-    AddonPermission, AddonResource, AddonResourceRequest, AddonResourceResponse, AddonScope,
-    AddonSideEffectResponse, AddonSideEffectTargetKind, AddonTaskRequest, AddonTaskResponse,
-    SubmitAddonArtworkWriteRequest, SubmitAddonMetadataWriteRequest, SubmitAddonSideEffectRequest,
+    AddonPermission, AddonResource, AddonResourceRequest, AddonResourceResponse,
+    AddonResourceSearchRequest, AddonResourceSearchResponse, AddonScope, AddonSideEffectResponse,
+    AddonSideEffectTargetKind, AddonTaskRequest, AddonTaskResponse, SubmitAddonArtworkWriteRequest,
+    SubmitAddonMetadataWriteRequest, SubmitAddonSideEffectRequest,
     ensure_event_subscription_scope_grant, ensure_scope_grant, ensure_task_scope_grant,
     validate_event_response, validate_health_check_response, validate_manifest,
     validate_resource_response, validate_task_response,
@@ -72,6 +74,13 @@ pub type AddonClientResult<T> = std::result::Result<T, AddonClientError>;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AddonResourceCallOutcome {
     pub response: AddonResourceResponse,
+    pub http_status: u16,
+    pub attempts: u32,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AddonResourceSearchCallOutcome {
+    pub response: AddonResourceSearchResponse,
     pub http_status: u16,
     pub attempts: u32,
 }
@@ -363,6 +372,93 @@ where
         .into(),
         attempts: 0,
     }))
+}
+
+pub async fn call_addon_resource_search<T>(
+    transport: &T,
+    manifest: &AddonManifest,
+    granted_scopes: &[AddonScope],
+    request_id: impl Into<String>,
+    request: AddonResourceSearchRequest,
+    bearer_token: Option<&str>,
+) -> AddonClientResult<AddonResourceSearchResponse>
+where
+    T: AddonTransport,
+{
+    call_addon_resource_search_with_outcome(
+        transport,
+        manifest,
+        granted_scopes,
+        request_id,
+        request,
+        bearer_token,
+    )
+    .await
+    .map(|outcome| outcome.response)
+    .map_err(|failure| failure.error)
+}
+
+pub async fn call_addon_resource_search_with_outcome<T>(
+    transport: &T,
+    manifest: &AddonManifest,
+    granted_scopes: &[AddonScope],
+    request_id: impl Into<String>,
+    request: AddonResourceSearchRequest,
+    bearer_token: Option<&str>,
+) -> Result<AddonResourceSearchCallOutcome, AddonResourceCallFailure>
+where
+    T: AddonTransport,
+{
+    ensure_resource_search_scope_contract(manifest, granted_scopes)
+        .map_err(resource_call_setup_failure)?;
+    if request.schema != ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA {
+        return Err(resource_call_setup_failure(
+            AddonClientError::InvalidRequest {
+                message: format!(
+                    "resource_search request schema {} did not match {}",
+                    request.schema, ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA
+                ),
+            },
+        ));
+    }
+    let payload = serde_json::to_value(request)
+        .map_err(invalid_resource_search_request_envelope)
+        .map_err(resource_call_setup_failure)?;
+    let outcome = call_addon_resource_with_outcome(
+        transport,
+        manifest,
+        AddonResource::ResourceSearch,
+        granted_scopes,
+        request_id,
+        payload,
+        bearer_token,
+    )
+    .await?;
+    let attempts = outcome.attempts;
+    let response = serde_json::from_value::<AddonResourceSearchResponse>(outcome.response.payload)
+        .map_err(|error| AddonResourceCallFailure {
+            error: AddonClientError::InvalidResponse {
+                message: format!("failed to parse resource_search response payload: {error}"),
+            },
+            attempts,
+        })?;
+    if response.schema != ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA {
+        return Err(AddonResourceCallFailure {
+            error: AddonClientError::InvalidResponse {
+                message: format!(
+                    "resource_search response schema {} did not match {}",
+                    response.schema, ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA
+                ),
+            },
+            attempts,
+        });
+    }
+
+    Ok(AddonResourceSearchCallOutcome {
+        response,
+        http_status: outcome.http_status,
+        attempts,
+    })
 }
 
 pub async fn call_addon_task_with_outcome<T>(
@@ -854,6 +950,37 @@ fn is_retryable_http_status(status: u16) -> bool {
     status == 408 || status == 429 || (500..600).contains(&status)
 }
 
+fn ensure_resource_search_scope_contract(
+    manifest: &AddonManifest,
+    granted_scopes: &[AddonScope],
+) -> Result<(), AddonManifestError> {
+    validate_manifest(manifest)?;
+    let declaration = manifest
+        .resources
+        .iter()
+        .find(|candidate| candidate.kind == AddonResource::ResourceSearch)
+        .ok_or(AddonManifestError::ResourceNotDeclared {
+            resource: AddonResource::ResourceSearch,
+        })?;
+    if !declaration
+        .required_scopes
+        .contains(&AddonScope::AcquisitionSearchRead)
+    {
+        return Err(AddonManifestError::MissingDeclaredScope {
+            resource: AddonResource::ResourceSearch,
+            scope: AddonScope::AcquisitionSearchRead,
+        });
+    }
+
+    ensure_scope_grant(manifest, AddonResource::ResourceSearch, granted_scopes)
+}
+
+fn invalid_resource_search_request_envelope(error: serde_json::Error) -> AddonManifestError {
+    AddonManifestError::InvalidEnvelope {
+        message: format!("failed to serialize resource_search request payload: {error}"),
+    }
+}
+
 fn resource_call_setup_failure(error: impl Into<AddonClientError>) -> AddonResourceCallFailure {
     AddonResourceCallFailure {
         error: error.into(),
@@ -964,13 +1091,17 @@ mod client_error_tests {
 #[cfg(test)]
 mod tests {
     use std::{
-        collections::VecDeque,
+        collections::{BTreeMap, VecDeque},
         sync::{Arc, Mutex},
     };
 
     use nako_addon_protocol::{
-        ADDON_PROTOCOL_VERSION, AddonArtifact, AddonEventSubscriptionDeclaration,
-        AddonResourceDeclaration, AddonTaskDeclaration,
+        ADDON_PROTOCOL_VERSION, ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA,
+        ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA, AddonArtifact, AddonEventSubscriptionDeclaration,
+        AddonMergedResourceLink, AddonResourceDeclaration, AddonResourceLink,
+        AddonResourceLinkType, AddonResourceSearchIntent, AddonResourceSearchProviderExecution,
+        AddonResourceSearchProviderFinality, AddonResourceSearchProviderStatus,
+        AddonResourceSearchResult, AddonTaskDeclaration,
     };
 
     use super::*;
@@ -1143,6 +1274,197 @@ mod tests {
             })
         );
         assert!(transport.requests().is_empty());
+    }
+
+    #[tokio::test]
+    async fn resource_search_helper_calls_declared_path_with_typed_contract() {
+        let manifest = resource_search_manifest();
+        let payload = resource_search_response_payload();
+        let transport = MockTransport::with_response(Ok(AddonHttpResponse {
+            status: 200,
+            body: resource_search_response_json(&manifest, "resource-search-1", payload.clone()),
+        }));
+
+        let outcome = call_addon_resource_search_with_outcome(
+            &transport,
+            &manifest,
+            &[AddonScope::AcquisitionSearchRead],
+            "resource-search-1",
+            resource_search_request(),
+            Some("token-1"),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(outcome.http_status, 200);
+        assert_eq!(outcome.attempts, 1);
+        assert_eq!(outcome.response, payload);
+        let requests = transport.requests();
+        assert_eq!(requests.len(), 1);
+        assert_eq!(
+            requests[0].url,
+            "https://example.test/addon/resource-search".to_owned()
+        );
+        assert_eq!(
+            header_value(&requests[0], "x-nako-addon-resource"),
+            Some("resource_search")
+        );
+        assert_eq!(
+            header_value(&requests[0], "authorization"),
+            Some("Bearer token-1")
+        );
+        assert_eq!(requests[0].timeout_ms, 6_000);
+
+        let body: serde_json::Value = serde_json::from_str(&requests[0].body).unwrap();
+        assert_eq!(body["resource"], "resource_search");
+        assert_eq!(
+            body["payload"]["schema"],
+            ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA
+        );
+        assert_eq!(body["payload"]["intent"]["kind"], "media_title");
+        assert_eq!(body["payload"]["link_types"], serde_json::json!(["quark"]));
+    }
+
+    #[tokio::test]
+    async fn resource_search_helper_requires_granted_read_scope_before_http() {
+        let manifest = resource_search_manifest();
+        let transport = MockTransport::default();
+
+        let err = call_addon_resource_search_with_outcome(
+            &transport,
+            &manifest,
+            &[],
+            "resource-search-2",
+            resource_search_request(),
+            Some("token-1"),
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(err.attempts, 0);
+        assert!(matches!(
+            err.error,
+            AddonClientError::Protocol(AddonManifestError::MissingDeclaredScope {
+                resource: AddonResource::ResourceSearch,
+                scope: AddonScope::AcquisitionSearchRead,
+            })
+        ));
+        assert!(transport.requests().is_empty());
+    }
+
+    #[tokio::test]
+    async fn resource_search_helper_requires_manifest_read_scope_contract() {
+        let mut manifest = resource_search_manifest();
+        manifest.resources[0].required_scopes.clear();
+        let transport = MockTransport::default();
+
+        let err = call_addon_resource_search_with_outcome(
+            &transport,
+            &manifest,
+            &[AddonScope::AcquisitionSearchRead],
+            "resource-search-3",
+            resource_search_request(),
+            Some("token-1"),
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(err.attempts, 0);
+        assert!(matches!(
+            err.error,
+            AddonClientError::Protocol(AddonManifestError::MissingDeclaredScope {
+                resource: AddonResource::ResourceSearch,
+                scope: AddonScope::AcquisitionSearchRead,
+            })
+        ));
+        assert!(transport.requests().is_empty());
+    }
+
+    #[tokio::test]
+    async fn resource_search_helper_rejects_wrong_request_schema_before_http() {
+        let manifest = resource_search_manifest();
+        let transport = MockTransport::default();
+        let mut request = resource_search_request();
+        request.schema = "nako.addon.resource_search.request.v0".to_owned();
+
+        let err = call_addon_resource_search_with_outcome(
+            &transport,
+            &manifest,
+            &[AddonScope::AcquisitionSearchRead],
+            "resource-search-4",
+            request,
+            Some("token-1"),
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(err.attempts, 0);
+        assert!(matches!(err.error, AddonClientError::InvalidRequest { .. }));
+        assert!(transport.requests().is_empty());
+    }
+
+    #[tokio::test]
+    async fn resource_search_helper_rejects_wrong_response_schema() {
+        let manifest = resource_search_manifest();
+        let mut payload = resource_search_response_payload();
+        payload.schema = "nako.addon.resource_search.response.v0".to_owned();
+        let transport = MockTransport::with_response(Ok(AddonHttpResponse {
+            status: 200,
+            body: resource_search_response_json(&manifest, "resource-search-5", payload),
+        }));
+
+        let err = call_addon_resource_search_with_outcome(
+            &transport,
+            &manifest,
+            &[AddonScope::AcquisitionSearchRead],
+            "resource-search-5",
+            resource_search_request(),
+            Some("token-1"),
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(err.attempts, 1);
+        assert!(matches!(
+            err.error,
+            AddonClientError::InvalidResponse { .. }
+        ));
+        assert_eq!(transport.requests().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn resource_search_helper_rejects_invalid_typed_response_payload() {
+        let manifest = resource_search_manifest();
+        let transport = MockTransport::with_response(Ok(AddonHttpResponse {
+            status: 200,
+            body: serde_json::to_string(&AddonResourceResponse {
+                protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+                addon_id: manifest.id.clone(),
+                resource: AddonResource::ResourceSearch,
+                request_id: "resource-search-6".to_owned(),
+                payload: serde_json::json!({"schema": ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA}),
+                artifacts: Vec::new(),
+            })
+            .unwrap(),
+        }));
+
+        let err = call_addon_resource_search_with_outcome(
+            &transport,
+            &manifest,
+            &[AddonScope::AcquisitionSearchRead],
+            "resource-search-6",
+            resource_search_request(),
+            Some("token-1"),
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(err.attempts, 1);
+        assert!(matches!(
+            err.error,
+            AddonClientError::InvalidResponse { .. }
+        ));
+        assert_eq!(transport.requests().len(), 1);
     }
 
     #[tokio::test]
@@ -1589,6 +1911,119 @@ mod tests {
                 AddonScope::ItemMetadataSuggest,
             ],
         }
+    }
+
+    fn resource_search_manifest() -> AddonManifest {
+        AddonManifest {
+            id: "resource-search".to_owned(),
+            name: "Resource Search".to_owned(),
+            version: "0.1.0".to_owned(),
+            protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+            base_url: "https://example.test/addon".to_owned(),
+            description: None,
+            resources: vec![AddonResourceDeclaration {
+                kind: AddonResource::ResourceSearch,
+                path: "/resource-search".to_owned(),
+                input_schema: Some(ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA.to_owned()),
+                output_schema: Some(ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA.to_owned()),
+                required_scopes: vec![AddonScope::AcquisitionSearchRead],
+                timeout_ms: Some(6_000),
+                max_attempts: Some(1),
+            }],
+            entry_points: Vec::new(),
+            hosted_pages: Vec::new(),
+            configuration_schema: None,
+            secret_reference_fields: Vec::new(),
+            event_subscriptions: Vec::new(),
+            tasks: Vec::new(),
+            auth: AddonAuth::Bearer,
+            default_timeout_ms: Some(10_000),
+            default_max_attempts: Some(2),
+            scopes: vec![AddonScope::AcquisitionSearchRead],
+        }
+    }
+
+    fn resource_search_request() -> AddonResourceSearchRequest {
+        AddonResourceSearchRequest {
+            schema: ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA.to_owned(),
+            intent: AddonResourceSearchIntent::MediaTitle {
+                title: "Demo Movie".to_owned(),
+                year: Some(2026),
+                media_kind: Some("movie".to_owned()),
+            },
+            query: "Demo Movie 2026".to_owned(),
+            limit: Some(10),
+            sources: vec!["pansou_compatible".to_owned()],
+            link_types: vec![AddonResourceLinkType::Quark],
+            refresh: false,
+            context: serde_json::json!({"library_id": "library-1"}),
+        }
+    }
+
+    fn resource_search_response_payload() -> AddonResourceSearchResponse {
+        let link = AddonResourceLink {
+            url: "https://pan.quark.cn/s/demo".to_owned(),
+            normalized_url: "https://pan.quark.cn/s/demo".to_owned(),
+            link_type: AddonResourceLinkType::Quark,
+            source: "pansou:movies".to_owned(),
+            password: Some("secret-code".to_owned()),
+            note: None,
+        };
+        let mut merged_by_type = BTreeMap::new();
+        merged_by_type.insert(
+            AddonResourceLinkType::Quark,
+            vec![AddonMergedResourceLink {
+                url: link.url.clone(),
+                normalized_url: link.normalized_url.clone(),
+                link_type: AddonResourceLinkType::Quark,
+                password: Some("secret-code".to_owned()),
+                note: None,
+                sources: vec!["pansou:movies".to_owned()],
+            }],
+        );
+
+        AddonResourceSearchResponse {
+            schema: ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA.to_owned(),
+            query: "Demo Movie 2026".to_owned(),
+            intent: AddonResourceSearchIntent::FreeText {
+                text: "Demo Movie 2026".to_owned(),
+            },
+            total: 1,
+            results: vec![AddonResourceSearchResult {
+                id: "result-1".to_owned(),
+                title: "Demo Movie".to_owned(),
+                source: "pansou:movies".to_owned(),
+                content: Some("candidate".to_owned()),
+                links: vec![link],
+                tags: vec!["demo".to_owned()],
+                images: Vec::new(),
+                score: 900,
+            }],
+            merged_by_type,
+            provider_executions: vec![AddonResourceSearchProviderExecution {
+                provider_id: "pansou_compatible".to_owned(),
+                status: AddonResourceSearchProviderStatus::Ok,
+                result_count: 1,
+                finality: AddonResourceSearchProviderFinality::Complete,
+                safe_message: None,
+            }],
+        }
+    }
+
+    fn resource_search_response_json(
+        manifest: &AddonManifest,
+        request_id: &str,
+        payload: AddonResourceSearchResponse,
+    ) -> String {
+        serde_json::to_string(&AddonResourceResponse {
+            protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+            addon_id: manifest.id.clone(),
+            resource: AddonResource::ResourceSearch,
+            request_id: request_id.to_owned(),
+            payload: serde_json::to_value(payload).unwrap(),
+            artifacts: Vec::new(),
+        })
+        .unwrap()
     }
 
     fn valid_manifest_with_task() -> AddonManifest {

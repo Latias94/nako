@@ -1,6 +1,6 @@
 # Addon Resource Search Protocol - Handoff
 
-Status: active. ARSP-010 and ARSP-020 are complete; ARSP-030 is next.
+Status: active. ARSP-010, ARSP-020, and ARSP-030 are complete; ARSP-040 is next.
 
 ## Current State
 
@@ -12,6 +12,9 @@ Status: active. ARSP-010 and ARSP-020 are complete; ARSP-030 is next.
   taxonomy, provider execution status/finality, manifest tests, envelope
   validation coverage, and redaction-safe debug coverage for link URLs and
   passwords.
+- Nako addon client now has typed `call_addon_resource_search` helpers that
+  reuse the generic resource-call path and enforce read scope plus payload
+  schema constants.
 - The temporary official addon manifest uses `AddonResource::Automation` at
   `/resource-search`.
 - This workstream freezes the host-side protocol lane and keeps downloader,
@@ -19,20 +22,21 @@ Status: active. ARSP-010 and ARSP-020 are complete; ARSP-030 is next.
 
 ## Next Task
 
-ARSP-030: add a typed `nako-addon-client` helper over existing resource calls.
+ARSP-040: define the host service/admin diagnostic seam for calling a
+resource-search addon.
 
 Expected scope:
 
-- `crates/nako-addon-client/src/lib.rs`
-- focused tests in the same crate
+- `crates/nako-server/src/app/addons.rs`
+- `crates/nako-api/src/extension.rs`
+- focused server/API tests
 
 Expected behavior:
 
-- Call `AddonResource::ResourceSearch` through the existing generic resource
-  call path.
-- Require `AddonScope::AcquisitionSearchRead` and preserve existing manifest,
-  scope, retry, timeout, protocol-version, and safe-error behavior.
-- Return the typed resource-search response DTO.
+- Expose a host-owned call boundary for resource-search addons.
+- Keep limits, granted scopes, addon selection, timeout, retry, and diagnostics
+  under Nako policy.
+- Return typed/sanitized API DTOs without raw provider exception text.
 
 Do not include:
 
@@ -44,7 +48,7 @@ Do not include:
 ## Suggested First Gate
 
 ```bash
-cargo nextest run -p nako-addon-client resource_search --no-fail-fast
+cargo nextest run -p nako-server addon_resource_search --no-fail-fast
 ```
 
 ## Watch Points
