@@ -52,7 +52,8 @@ use nako_core::{
 };
 use nako_db::NakoDatabase;
 use nako_official_addon_catalog::{
-    chromecast_renderer, metadata_scraper, notification_bridge, resource_search,
+    chromecast_renderer, dlna_renderer, metadata_scraper, notification_bridge, resource_search,
+    subtitle_provider,
 };
 use tokio::sync::{Mutex, Semaphore};
 
@@ -2212,6 +2213,11 @@ fn builtin_addon_catalog_entries() -> Result<Vec<AdminAddonSourceCatalogEntry>> 
             resource_search::ADDON_ID,
             official_resource_search_descriptor(),
         ),
+        (
+            subtitle_provider::ADDON_ID,
+            official_subtitle_provider_descriptor(),
+        ),
+        (dlna_renderer::ADDON_ID, official_dlna_renderer_descriptor()),
     ];
     for (_, descriptor) in &descriptors {
         validate_install_descriptor(descriptor).map_err(|_err| NakoError::InvalidInput {
@@ -2233,6 +2239,8 @@ fn builtin_addon_catalog_descriptor(entry_id: &str) -> Result<AddonInstallDescri
         notification_bridge::ADDON_ID => Ok(official_notification_bridge_descriptor()),
         chromecast_renderer::ADDON_ID => Ok(official_chromecast_renderer_descriptor()),
         resource_search::ADDON_ID => Ok(official_resource_search_descriptor()),
+        subtitle_provider::ADDON_ID => Ok(official_subtitle_provider_descriptor()),
+        dlna_renderer::ADDON_ID => Ok(official_dlna_renderer_descriptor()),
         _ => Err(NakoError::NotFound {
             entity: "addon_catalog_entry",
             id: entry_id.to_owned(),
@@ -2291,6 +2299,14 @@ fn official_chromecast_renderer_descriptor() -> AddonInstallDescriptor {
 
 fn official_resource_search_descriptor() -> AddonInstallDescriptor {
     resource_search::container_install_descriptor()
+}
+
+fn official_subtitle_provider_descriptor() -> AddonInstallDescriptor {
+    subtitle_provider::container_install_descriptor()
+}
+
+fn official_dlna_renderer_descriptor() -> AddonInstallDescriptor {
+    dlna_renderer::container_install_descriptor()
 }
 
 fn docker_compose_install_snippet(
@@ -2672,6 +2688,22 @@ mod tests {
         assert_eq!(
             official_resource_search_descriptor(),
             resource_search::container_install_descriptor()
+        );
+    }
+
+    #[test]
+    fn official_subtitle_provider_catalog_descriptor_uses_shared_catalog_facts() {
+        assert_eq!(
+            official_subtitle_provider_descriptor(),
+            subtitle_provider::container_install_descriptor()
+        );
+    }
+
+    #[test]
+    fn official_dlna_renderer_catalog_descriptor_uses_shared_catalog_facts() {
+        assert_eq!(
+            official_dlna_renderer_descriptor(),
+            dlna_renderer::container_install_descriptor()
         );
     }
 

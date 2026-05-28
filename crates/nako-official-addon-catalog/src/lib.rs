@@ -532,6 +532,377 @@ pub mod resource_search {
     }
 }
 
+pub mod subtitle_provider {
+    use super::*;
+
+    pub const ADDON_ID: &str = "nako.official.subtitle-provider";
+    pub const ADDON_NAME: &str = "Nako Subtitle Provider";
+    pub const ADDON_VERSION: &str = "0.1.0-alpha.2";
+    pub const DEFAULT_BASE_URL: &str = "http://127.0.0.1:9140";
+    pub const DEFAULT_CONTAINER_BASE_URL: &str = "http://nako-subtitle-provider:9140";
+    pub const RUNTIME_BINARY: &str = "nako-subtitle-provider";
+    pub const RUNTIME_IMAGE: &str = "ghcr.io/latias94/nako-subtitle-provider:0.1.0-alpha.2";
+    pub const DESCRIPTION: &str =
+        "Official Nako subtitle provider sidecar for read-only subtitle candidate discovery.";
+    pub const CONFIG_SCHEMA_ID: &str = "nako.official.subtitle-provider.config.v1";
+    pub const SUBTITLE_RESOURCE_PATH: &str = "/subtitle";
+    pub const SUBTITLE_REQUEST_SCHEMA: &str = "nako.official.subtitle_provider.request.v1";
+    pub const SUBTITLE_RESPONSE_SCHEMA: &str = "nako.official.subtitle_provider.response.v1";
+    pub const DIAGNOSTICS_ENTRY_POINT_ID: &str = "subtitle-provider-diagnostics";
+    pub const DIAGNOSTICS_HOSTED_PAGE_ID: &str = "diagnostics";
+    pub const DIAGNOSTICS_LABEL: &str = "Subtitle Provider Diagnostics";
+    pub const DIAGNOSTICS_PATH: &str = "/ui/diagnostics";
+    pub const DEFAULT_LANGUAGE: &str = "en";
+    pub const DEFAULT_LIMIT: usize = 10;
+    pub const DEFAULT_MAX_LIMIT: usize = 50;
+    pub const DEFAULT_TIMEOUT_MS: u64 = 10_000;
+    pub const DEFAULT_MAX_ATTEMPTS: u32 = 1;
+
+    #[must_use]
+    pub fn default_manifest() -> AddonManifest {
+        manifest_with_version(
+            ADDON_VERSION,
+            DEFAULT_BASE_URL,
+            true,
+            DEFAULT_LANGUAGE,
+            DEFAULT_LIMIT,
+            DEFAULT_MAX_LIMIT,
+        )
+    }
+
+    #[must_use]
+    pub fn container_manifest() -> AddonManifest {
+        manifest_with_version(
+            ADDON_VERSION,
+            DEFAULT_CONTAINER_BASE_URL,
+            true,
+            DEFAULT_LANGUAGE,
+            DEFAULT_LIMIT,
+            DEFAULT_MAX_LIMIT,
+        )
+    }
+
+    #[must_use]
+    pub fn manifest(base_url: impl Into<String>) -> AddonManifest {
+        manifest_with_version(
+            ADDON_VERSION,
+            base_url,
+            true,
+            DEFAULT_LANGUAGE,
+            DEFAULT_LIMIT,
+            DEFAULT_MAX_LIMIT,
+        )
+    }
+
+    #[must_use]
+    pub fn manifest_with_version(
+        version: impl Into<String>,
+        base_url: impl Into<String>,
+        fixture_provider_enabled: bool,
+        default_language: impl Into<String>,
+        default_limit: usize,
+        max_limit: usize,
+    ) -> AddonManifest {
+        AddonManifest {
+            id: ADDON_ID.to_owned(),
+            name: ADDON_NAME.to_owned(),
+            version: version.into(),
+            protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+            base_url: base_url.into(),
+            description: Some(DESCRIPTION.to_owned()),
+            resources: vec![AddonResourceDeclaration {
+                kind: AddonResource::Subtitle,
+                path: SUBTITLE_RESOURCE_PATH.to_owned(),
+                input_schema: Some(SUBTITLE_REQUEST_SCHEMA.to_owned()),
+                output_schema: Some(SUBTITLE_RESPONSE_SCHEMA.to_owned()),
+                required_scopes: vec![AddonScope::SubtitleRead],
+                timeout_ms: Some(DEFAULT_TIMEOUT_MS),
+                max_attempts: Some(DEFAULT_MAX_ATTEMPTS),
+            }],
+            entry_points: vec![AddonEntryPointDeclaration::hosted_page(
+                DIAGNOSTICS_ENTRY_POINT_ID,
+                AddonEntryPointKind::Diagnostics,
+                DIAGNOSTICS_LABEL,
+                DIAGNOSTICS_PATH,
+                DIAGNOSTICS_HOSTED_PAGE_ID,
+                vec![AddonScope::SubtitleRead],
+            )],
+            hosted_pages: vec![AddonHostedPageDeclaration::new(
+                DIAGNOSTICS_HOSTED_PAGE_ID,
+                DIAGNOSTICS_LABEL,
+                DIAGNOSTICS_PATH,
+                vec![AddonScope::SubtitleRead],
+            )],
+            configuration_schema: Some(configuration_schema(
+                fixture_provider_enabled,
+                default_language,
+                default_limit,
+                max_limit,
+            )),
+            secret_reference_fields: Vec::new(),
+            event_subscriptions: Vec::new(),
+            tasks: Vec::new(),
+            auth: AddonAuth::None,
+            default_timeout_ms: Some(DEFAULT_TIMEOUT_MS),
+            default_max_attempts: Some(DEFAULT_MAX_ATTEMPTS),
+            scopes: vec![AddonScope::SubtitleRead],
+        }
+    }
+
+    #[must_use]
+    pub fn binary_install_descriptor() -> AddonInstallDescriptor {
+        AddonInstallDescriptor {
+            manifest: default_manifest(),
+            runtime: AddonRuntimeRequirement {
+                kind: AddonRuntimeKind::HttpSidecar,
+                image: None,
+                binary: Some(RUNTIME_BINARY.to_owned()),
+                command: None,
+            },
+            secret_reference_bindings: Vec::new(),
+            install_notes: vec![
+                format!(
+                    "Install from crates.io with `cargo install {RUNTIME_BINARY} --version {ADDON_VERSION} --locked`."
+                ),
+                "Run the sidecar outside Nako and register the resolved manifest through the existing Admin Addon APIs.".to_owned(),
+            ],
+        }
+    }
+
+    #[must_use]
+    pub fn container_install_descriptor() -> AddonInstallDescriptor {
+        AddonInstallDescriptor {
+            manifest: container_manifest(),
+            runtime: AddonRuntimeRequirement {
+                kind: AddonRuntimeKind::HttpSidecar,
+                image: Some(RUNTIME_IMAGE.to_owned()),
+                binary: None,
+                command: None,
+            },
+            secret_reference_bindings: Vec::new(),
+            install_notes: vec![
+                format!(
+                    "Run the official container image `{RUNTIME_IMAGE}` or build from the `addons/subtitle-provider` Dockerfile."
+                ),
+                "Run the sidecar outside Nako and register the resolved manifest through the existing Admin Addon APIs; subtitle import/write policy remains Nako-owned.".to_owned(),
+            ],
+        }
+    }
+
+    #[must_use]
+    fn configuration_schema(
+        fixture_provider_enabled: bool,
+        default_language: impl Into<String>,
+        default_limit: usize,
+        max_limit: usize,
+    ) -> AddonConfigurationSchema {
+        AddonConfigurationSchema::new(
+            CONFIG_SCHEMA_ID,
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "providers": {
+                        "type": "object",
+                        "properties": {
+                            "fixture": {
+                                "type": "boolean",
+                                "default": fixture_provider_enabled
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    "default_language": {
+                        "type": "string",
+                        "default": default_language.into()
+                    },
+                    "default_limit": {
+                        "type": "integer",
+                        "default": default_limit,
+                        "minimum": 1,
+                        "maximum": max_limit
+                    },
+                    "max_limit": {
+                        "type": "integer",
+                        "default": max_limit,
+                        "minimum": 1,
+                        "maximum": 200
+                    }
+                },
+                "additionalProperties": false
+            }),
+        )
+    }
+}
+
+pub mod dlna_renderer {
+    use super::*;
+
+    pub const ADDON_ID: &str = "nako.official.dlna-renderer";
+    pub const ADDON_NAME: &str = "Nako DLNA Renderer";
+    pub const ADDON_VERSION: &str = "0.1.0-alpha.2";
+    pub const DEFAULT_BASE_URL: &str = "http://127.0.0.1:9150";
+    pub const DEFAULT_CONTAINER_BASE_URL: &str = "http://nako-dlna-renderer:9150";
+    pub const RUNTIME_BINARY: &str = "nako-dlna-renderer";
+    pub const RUNTIME_IMAGE: &str = "ghcr.io/latias94/nako-dlna-renderer:0.1.0-alpha.2";
+    pub const DESCRIPTION: &str = "Official Nako DLNA renderer adapter sidecar. The foundation release validates host-owned renderer command envelopes and returns plan-only results.";
+    pub const CONFIG_SCHEMA_ID: &str = "nako.official.dlna-renderer.config.v1";
+    pub const RENDERER_ADAPTER_RESOURCE_PATH: &str = "/renderer-adapter";
+    pub const RENDERER_ADAPTER_REQUEST_SCHEMA: &str = "nako.renderer-adapter.request.v1";
+    pub const RENDERER_ADAPTER_RESPONSE_SCHEMA: &str = "nako.renderer-adapter.response.v1";
+    pub const DIAGNOSTICS_ENTRY_POINT_ID: &str = "dlna-renderer-diagnostics";
+    pub const DIAGNOSTICS_HOSTED_PAGE_ID: &str = "diagnostics";
+    pub const DIAGNOSTICS_LABEL: &str = "DLNA Renderer Diagnostics";
+    pub const DIAGNOSTICS_PATH: &str = "/ui/diagnostics";
+    pub const DEFAULT_TIMEOUT_MS: u64 = 10_000;
+    pub const DEFAULT_MAX_ATTEMPTS: u32 = 1;
+
+    #[must_use]
+    pub fn default_manifest() -> AddonManifest {
+        manifest_with_version(ADDON_VERSION, DEFAULT_BASE_URL)
+    }
+
+    #[must_use]
+    pub fn container_manifest() -> AddonManifest {
+        manifest_with_version(ADDON_VERSION, DEFAULT_CONTAINER_BASE_URL)
+    }
+
+    #[must_use]
+    pub fn manifest(base_url: impl Into<String>) -> AddonManifest {
+        manifest_with_version(ADDON_VERSION, base_url)
+    }
+
+    #[must_use]
+    pub fn manifest_with_version(
+        version: impl Into<String>,
+        base_url: impl Into<String>,
+    ) -> AddonManifest {
+        AddonManifest {
+            id: ADDON_ID.to_owned(),
+            name: ADDON_NAME.to_owned(),
+            version: version.into(),
+            protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+            base_url: base_url.into(),
+            description: Some(DESCRIPTION.to_owned()),
+            resources: vec![AddonResourceDeclaration {
+                kind: AddonResource::RendererAdapter,
+                path: RENDERER_ADAPTER_RESOURCE_PATH.to_owned(),
+                input_schema: Some(RENDERER_ADAPTER_REQUEST_SCHEMA.to_owned()),
+                output_schema: Some(RENDERER_ADAPTER_RESPONSE_SCHEMA.to_owned()),
+                required_scopes: vec![
+                    AddonScope::RendererAdapterRead,
+                    AddonScope::RendererAdapterControl,
+                ],
+                timeout_ms: Some(DEFAULT_TIMEOUT_MS),
+                max_attempts: Some(DEFAULT_MAX_ATTEMPTS),
+            }],
+            entry_points: vec![AddonEntryPointDeclaration::hosted_page(
+                DIAGNOSTICS_ENTRY_POINT_ID,
+                AddonEntryPointKind::Diagnostics,
+                DIAGNOSTICS_LABEL,
+                DIAGNOSTICS_PATH,
+                DIAGNOSTICS_HOSTED_PAGE_ID,
+                vec![AddonScope::RendererAdapterRead],
+            )],
+            hosted_pages: vec![AddonHostedPageDeclaration::new(
+                DIAGNOSTICS_HOSTED_PAGE_ID,
+                DIAGNOSTICS_LABEL,
+                DIAGNOSTICS_PATH,
+                vec![AddonScope::RendererAdapterRead],
+            )],
+            configuration_schema: Some(configuration_schema()),
+            secret_reference_fields: Vec::new(),
+            event_subscriptions: Vec::new(),
+            tasks: Vec::new(),
+            auth: AddonAuth::None,
+            default_timeout_ms: Some(DEFAULT_TIMEOUT_MS),
+            default_max_attempts: Some(DEFAULT_MAX_ATTEMPTS),
+            scopes: vec![
+                AddonScope::RendererAdapterRead,
+                AddonScope::RendererAdapterControl,
+            ],
+        }
+    }
+
+    #[must_use]
+    pub fn binary_install_descriptor() -> AddonInstallDescriptor {
+        AddonInstallDescriptor {
+            manifest: default_manifest(),
+            runtime: AddonRuntimeRequirement {
+                kind: AddonRuntimeKind::HttpSidecar,
+                image: None,
+                binary: Some(RUNTIME_BINARY.to_owned()),
+                command: None,
+            },
+            secret_reference_bindings: Vec::new(),
+            install_notes: vec![
+                format!(
+                    "Install from crates.io with `cargo install {RUNTIME_BINARY} --version {ADDON_VERSION} --locked`."
+                ),
+                "Run the plan-only sidecar on the same trusted LAN as DLNA renderers and register the resolved manifest through the existing Admin Addon APIs.".to_owned(),
+            ],
+        }
+    }
+
+    #[must_use]
+    pub fn container_install_descriptor() -> AddonInstallDescriptor {
+        AddonInstallDescriptor {
+            manifest: container_manifest(),
+            runtime: AddonRuntimeRequirement {
+                kind: AddonRuntimeKind::HttpSidecar,
+                image: Some(RUNTIME_IMAGE.to_owned()),
+                binary: None,
+                command: None,
+            },
+            secret_reference_bindings: Vec::new(),
+            install_notes: vec![
+                format!(
+                    "Run the official container image `{RUNTIME_IMAGE}` or build from the `addons/dlna-renderer` Dockerfile."
+                ),
+                "Run the plan-only sidecar on the same trusted LAN as DLNA renderers and register the resolved manifest through the existing Admin Addon APIs; live SSDP discovery and UPnP control are not implemented in this foundation release.".to_owned(),
+            ],
+        }
+    }
+
+    #[must_use]
+    fn configuration_schema() -> AddonConfigurationSchema {
+        AddonConfigurationSchema::new(
+            CONFIG_SCHEMA_ID,
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "manual_devices": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["stable_device_id", "display_name", "host"],
+                            "properties": {
+                                "stable_device_id": { "type": "string" },
+                                "display_name": { "type": "string" },
+                                "host": { "type": "string" },
+                                "port": {
+                                    "type": "integer",
+                                    "default": 8200,
+                                    "minimum": 1,
+                                    "maximum": 65535
+                                },
+                                "model": { "type": "string" }
+                            },
+                            "additionalProperties": false
+                        },
+                        "default": []
+                    },
+                    "plan_only": {
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Foundation release validates commands but does not perform live DLNA control."
+                    }
+                },
+                "additionalProperties": false
+            }),
+        )
+    }
+}
+
 pub mod chromecast_renderer {
     use super::*;
 
@@ -841,9 +1212,11 @@ mod tests {
     use nako_addon_protocol::{AddonRuntimeReferenceKind, addon_install_guide, validate_manifest};
 
     use super::chromecast_renderer;
+    use super::dlna_renderer;
     use super::metadata_scraper::*;
     use super::notification_bridge;
     use super::resource_search;
+    use super::subtitle_provider;
 
     #[test]
     fn metadata_scraper_default_manifest_matches_official_catalog_facts() {
@@ -1070,6 +1443,113 @@ mod tests {
     }
 
     #[test]
+    fn subtitle_provider_default_manifest_matches_official_catalog_facts() {
+        let manifest = subtitle_provider::default_manifest();
+
+        validate_manifest(&manifest).unwrap();
+        assert_eq!(manifest.id, subtitle_provider::ADDON_ID);
+        assert_eq!(manifest.version, subtitle_provider::ADDON_VERSION);
+        assert_eq!(manifest.base_url, subtitle_provider::DEFAULT_BASE_URL);
+        assert_eq!(
+            manifest.scopes,
+            vec![nako_addon_protocol::AddonScope::SubtitleRead]
+        );
+        assert_eq!(manifest.resources.len(), 1);
+        assert_eq!(
+            manifest.resources[0].kind,
+            nako_addon_protocol::AddonResource::Subtitle
+        );
+        assert_eq!(
+            manifest.resources[0].path,
+            subtitle_provider::SUBTITLE_RESOURCE_PATH
+        );
+        assert_eq!(
+            manifest.resources[0].input_schema.as_deref(),
+            Some(subtitle_provider::SUBTITLE_REQUEST_SCHEMA)
+        );
+        assert_eq!(
+            manifest.resources[0].output_schema.as_deref(),
+            Some(subtitle_provider::SUBTITLE_RESPONSE_SCHEMA)
+        );
+        assert_eq!(
+            manifest.entry_points[0].id,
+            subtitle_provider::DIAGNOSTICS_ENTRY_POINT_ID
+        );
+        assert_eq!(
+            manifest.hosted_pages[0].id,
+            subtitle_provider::DIAGNOSTICS_HOSTED_PAGE_ID
+        );
+        let schema = &manifest.configuration_schema.as_ref().unwrap().schema;
+        assert_eq!(
+            schema["properties"]["providers"]["properties"]["fixture"]["default"],
+            true
+        );
+        assert_eq!(
+            schema["properties"]["default_language"]["default"],
+            subtitle_provider::DEFAULT_LANGUAGE
+        );
+        assert_eq!(
+            schema["properties"]["default_limit"]["default"],
+            subtitle_provider::DEFAULT_LIMIT
+        );
+        assert_eq!(
+            schema["properties"]["max_limit"]["default"],
+            subtitle_provider::DEFAULT_MAX_LIMIT
+        );
+        assert!(manifest.tasks.is_empty());
+        assert!(manifest.event_subscriptions.is_empty());
+        assert!(manifest.secret_reference_fields.is_empty());
+    }
+
+    #[test]
+    fn dlna_renderer_default_manifest_matches_official_catalog_facts() {
+        let manifest = dlna_renderer::default_manifest();
+
+        validate_manifest(&manifest).unwrap();
+        assert_eq!(manifest.id, dlna_renderer::ADDON_ID);
+        assert_eq!(manifest.version, dlna_renderer::ADDON_VERSION);
+        assert_eq!(manifest.base_url, dlna_renderer::DEFAULT_BASE_URL);
+        assert_eq!(
+            manifest.scopes,
+            vec![
+                nako_addon_protocol::AddonScope::RendererAdapterRead,
+                nako_addon_protocol::AddonScope::RendererAdapterControl,
+            ]
+        );
+        assert_eq!(manifest.resources.len(), 1);
+        assert_eq!(
+            manifest.resources[0].kind,
+            nako_addon_protocol::AddonResource::RendererAdapter
+        );
+        assert_eq!(
+            manifest.resources[0].path,
+            dlna_renderer::RENDERER_ADAPTER_RESOURCE_PATH
+        );
+        assert_eq!(
+            manifest.resources[0].input_schema.as_deref(),
+            Some(dlna_renderer::RENDERER_ADAPTER_REQUEST_SCHEMA)
+        );
+        assert_eq!(
+            manifest.resources[0].output_schema.as_deref(),
+            Some(dlna_renderer::RENDERER_ADAPTER_RESPONSE_SCHEMA)
+        );
+        assert_eq!(
+            manifest.entry_points[0].id,
+            dlna_renderer::DIAGNOSTICS_ENTRY_POINT_ID
+        );
+        assert_eq!(
+            manifest.hosted_pages[0].id,
+            dlna_renderer::DIAGNOSTICS_HOSTED_PAGE_ID
+        );
+        let schema = &manifest.configuration_schema.as_ref().unwrap().schema;
+        assert_eq!(schema["properties"]["manual_devices"]["type"], "array");
+        assert_eq!(schema["properties"]["plan_only"]["default"], true);
+        assert!(manifest.tasks.is_empty());
+        assert!(manifest.event_subscriptions.is_empty());
+        assert!(manifest.secret_reference_fields.is_empty());
+    }
+
+    #[test]
     fn chromecast_renderer_container_descriptor_matches_renderer_adapter_shape() {
         let descriptor = chromecast_renderer::container_install_descriptor();
         nako_addon_protocol::validate_install_descriptor(&descriptor).unwrap();
@@ -1087,6 +1567,59 @@ mod tests {
             guide.runtime_reference.value,
             chromecast_renderer::RUNTIME_IMAGE
         );
+        assert_eq!(
+            guide.declared_resources,
+            vec![nako_addon_protocol::AddonResource::RendererAdapter]
+        );
+        assert_eq!(guide.task_count, 0);
+        assert_eq!(guide.event_subscription_count, 0);
+        assert_eq!(guide.entry_point_count, 1);
+        assert_eq!(guide.hosted_page_count, 1);
+    }
+
+    #[test]
+    fn subtitle_provider_container_descriptor_matches_read_only_shape() {
+        let descriptor = subtitle_provider::container_install_descriptor();
+        nako_addon_protocol::validate_install_descriptor(&descriptor).unwrap();
+
+        let guide = addon_install_guide(&descriptor);
+        assert_eq!(
+            descriptor.manifest.base_url,
+            subtitle_provider::DEFAULT_CONTAINER_BASE_URL
+        );
+        assert_eq!(
+            guide.runtime_reference.kind,
+            AddonRuntimeReferenceKind::Image
+        );
+        assert_eq!(
+            guide.runtime_reference.value,
+            subtitle_provider::RUNTIME_IMAGE
+        );
+        assert_eq!(
+            guide.declared_resources,
+            vec![nako_addon_protocol::AddonResource::Subtitle]
+        );
+        assert_eq!(guide.task_count, 0);
+        assert_eq!(guide.event_subscription_count, 0);
+        assert_eq!(guide.entry_point_count, 1);
+        assert_eq!(guide.hosted_page_count, 1);
+    }
+
+    #[test]
+    fn dlna_renderer_container_descriptor_matches_plan_only_shape() {
+        let descriptor = dlna_renderer::container_install_descriptor();
+        nako_addon_protocol::validate_install_descriptor(&descriptor).unwrap();
+
+        let guide = addon_install_guide(&descriptor);
+        assert_eq!(
+            descriptor.manifest.base_url,
+            dlna_renderer::DEFAULT_CONTAINER_BASE_URL
+        );
+        assert_eq!(
+            guide.runtime_reference.kind,
+            AddonRuntimeReferenceKind::Image
+        );
+        assert_eq!(guide.runtime_reference.value, dlna_renderer::RUNTIME_IMAGE);
         assert_eq!(
             guide.declared_resources,
             vec![nako_addon_protocol::AddonResource::RendererAdapter]
