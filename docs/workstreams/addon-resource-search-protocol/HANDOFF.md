@@ -1,13 +1,17 @@
 # Addon Resource Search Protocol - Handoff
 
-Status: active. ARSP-010 is complete; ARSP-020 is next.
+Status: active. ARSP-010 and ARSP-020 are complete; ARSP-030 is next.
 
 ## Current State
 
 - The official resource-search addon has a hardened addon-side architecture and
   a deferred host protocol proposal.
-- Nako core currently lacks `AddonResource::ResourceSearch` and
+- Nako protocol now has `AddonResource::ResourceSearch` and
   `AddonScope::AcquisitionSearchRead`.
+- Nako protocol now has typed resource-search request/response DTOs, link
+  taxonomy, provider execution status/finality, manifest tests, envelope
+  validation coverage, and redaction-safe debug coverage for link URLs and
+  passwords.
 - The temporary official addon manifest uses `AddonResource::Automation` at
   `/resource-search`.
 - This workstream freezes the host-side protocol lane and keeps downloader,
@@ -15,21 +19,20 @@ Status: active. ARSP-010 is complete; ARSP-020 is next.
 
 ## Next Task
 
-ARSP-020: implement the smallest `nako-addon-protocol` slice.
+ARSP-030: add a typed `nako-addon-client` helper over existing resource calls.
 
 Expected scope:
 
-- `crates/nako-addon-protocol/src/lib.rs`
-- optional docs/tests in the same crate
+- `crates/nako-addon-client/src/lib.rs`
+- focused tests in the same crate
 
 Expected behavior:
 
-- Add `AddonResource::ResourceSearch` with wire name `resource_search`.
-- Add `AddonScope::AcquisitionSearchRead` with wire name
-  `acquisition_search_read`.
-- Add request/response DTOs for typed resource search.
-- Add link type, provider execution status, and provider finality enums.
-- Add serde/manifest validation tests with a `resource_search` filter.
+- Call `AddonResource::ResourceSearch` through the existing generic resource
+  call path.
+- Require `AddonScope::AcquisitionSearchRead` and preserve existing manifest,
+  scope, retry, timeout, protocol-version, and safe-error behavior.
+- Return the typed resource-search response DTO.
 
 Do not include:
 
@@ -41,7 +44,7 @@ Do not include:
 ## Suggested First Gate
 
 ```bash
-cargo nextest run -p nako-addon-protocol resource_search --no-fail-fast
+cargo nextest run -p nako-addon-client resource_search --no-fail-fast
 ```
 
 ## Watch Points

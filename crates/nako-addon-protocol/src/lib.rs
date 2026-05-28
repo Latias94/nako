@@ -1,4 +1,7 @@
-use std::{collections::HashSet, fmt};
+use std::{
+    collections::{BTreeMap, HashSet},
+    fmt,
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -14,6 +17,8 @@ pub const ADDON_RUNTIME_TASK_RUN_PROGRESS_PATH: &str = "/addon/v1/task-runs/prog
 pub const ADDON_RUNTIME_TASK_RUN_COMPLETE_PATH: &str = "/addon/v1/task-runs/complete";
 pub const ADDON_RUNTIME_TASK_RUN_FAIL_PATH: &str = "/addon/v1/task-runs/fail";
 pub const ADDON_RUNTIME_TASK_RUN_CANCEL_PATH: &str = "/addon/v1/task-runs/cancel";
+pub const ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA: &str = "nako.addon.resource_search.request.v1";
+pub const ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA: &str = "nako.addon.resource_search.response.v1";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct AddonRuntimeRoute {
@@ -253,6 +258,7 @@ pub enum AddonResource {
     Automation,
     Webhook,
     RendererAdapter,
+    ResourceSearch,
 }
 
 impl AddonResource {
@@ -268,6 +274,7 @@ impl AddonResource {
             Self::Automation => "automation",
             Self::Webhook => "webhook",
             Self::RendererAdapter => "renderer_adapter",
+            Self::ResourceSearch => "resource_search",
         }
     }
 }
@@ -513,6 +520,7 @@ pub enum AddonScope {
     WebhookEventRead,
     RendererAdapterRead,
     RendererAdapterControl,
+    AcquisitionSearchRead,
 }
 
 impl AddonScope {
@@ -530,6 +538,7 @@ impl AddonScope {
             Self::WebhookEventRead => "webhook_event_read",
             Self::RendererAdapterRead => "renderer_adapter_read",
             Self::RendererAdapterControl => "renderer_adapter_control",
+            Self::AcquisitionSearchRead => "acquisition_search_read",
         }
     }
 }
@@ -561,6 +570,219 @@ pub struct AddonResourceResponse {
     pub payload: serde_json::Value,
     #[serde(default)]
     pub artifacts: Vec<AddonArtifact>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonResourceSearchRequest {
+    pub schema: String,
+    pub intent: AddonResourceSearchIntent,
+    pub query: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<usize>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sources: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub link_types: Vec<AddonResourceLinkType>,
+    #[serde(default)]
+    pub refresh: bool,
+    #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
+    pub context: serde_json::Value,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum AddonResourceSearchIntent {
+    FreeText {
+        text: String,
+    },
+    MediaTitle {
+        title: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        year: Option<i32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        media_kind: Option<String>,
+    },
+    ExternalId {
+        id_kind: String,
+        value: String,
+    },
+    ExactLink {
+        url: String,
+    },
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonResourceSearchResponse {
+    pub schema: String,
+    pub query: String,
+    pub intent: AddonResourceSearchIntent,
+    pub total: usize,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub results: Vec<AddonResourceSearchResult>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub merged_by_type: BTreeMap<AddonResourceLinkType, Vec<AddonMergedResourceLink>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub provider_executions: Vec<AddonResourceSearchProviderExecution>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonResourceSearchResult {
+    pub id: String,
+    pub title: String,
+    pub source: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub links: Vec<AddonResourceLink>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub images: Vec<String>,
+    pub score: u16,
+}
+
+#[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonResourceLink {
+    pub url: String,
+    pub normalized_url: String,
+    pub link_type: AddonResourceLinkType,
+    pub source: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub password: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+}
+
+impl fmt::Debug for AddonResourceLink {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("AddonResourceLink")
+            .field("url", &"<redacted>")
+            .field("normalized_url", &"<redacted>")
+            .field("link_type", &self.link_type)
+            .field("source", &self.source)
+            .field("has_password", &self.password.is_some())
+            .field("note", &self.note)
+            .finish()
+    }
+}
+
+#[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonMergedResourceLink {
+    pub url: String,
+    pub normalized_url: String,
+    pub link_type: AddonResourceLinkType,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub password: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sources: Vec<String>,
+}
+
+impl fmt::Debug for AddonMergedResourceLink {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("AddonMergedResourceLink")
+            .field("url", &"<redacted>")
+            .field("normalized_url", &"<redacted>")
+            .field("link_type", &self.link_type)
+            .field("has_password", &self.password.is_some())
+            .field("note", &self.note)
+            .field("sources", &self.sources)
+            .finish()
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonResourceLinkType {
+    Aliyun,
+    Baidu,
+    Quark,
+    Tianyi,
+    Uc,
+    Mobile,
+    #[serde(rename = "115")]
+    OneOneFive,
+    Pikpak,
+    Xunlei,
+    #[serde(rename = "123")]
+    OneTwoThree,
+    Magnet,
+    Ed2k,
+    Web,
+    Other,
+}
+
+impl AddonResourceLinkType {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Aliyun => "aliyun",
+            Self::Baidu => "baidu",
+            Self::Quark => "quark",
+            Self::Tianyi => "tianyi",
+            Self::Uc => "uc",
+            Self::Mobile => "mobile",
+            Self::OneOneFive => "115",
+            Self::Pikpak => "pikpak",
+            Self::Xunlei => "xunlei",
+            Self::OneTwoThree => "123",
+            Self::Magnet => "magnet",
+            Self::Ed2k => "ed2k",
+            Self::Web => "web",
+            Self::Other => "other",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonResourceSearchProviderExecution {
+    pub provider_id: String,
+    pub status: AddonResourceSearchProviderStatus,
+    pub result_count: usize,
+    pub finality: AddonResourceSearchProviderFinality,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub safe_message: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonResourceSearchProviderStatus {
+    Ok,
+    Error,
+    Skipped,
+}
+
+impl AddonResourceSearchProviderStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Ok => "ok",
+            Self::Error => "error",
+            Self::Skipped => "skipped",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonResourceSearchProviderFinality {
+    Complete,
+    Partial,
+    Unknown,
+}
+
+impl AddonResourceSearchProviderFinality {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Complete => "complete",
+            Self::Partial => "partial",
+            Self::Unknown => "unknown",
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -2506,6 +2728,183 @@ mod tests {
     }
 
     #[test]
+    fn resource_search_protocol_vocabulary_uses_stable_wire_names() {
+        assert_eq!(AddonResource::ResourceSearch.as_str(), "resource_search");
+        assert_eq!(
+            serde_json::to_value(AddonResource::ResourceSearch).unwrap(),
+            serde_json::json!("resource_search")
+        );
+        assert_eq!(
+            serde_json::from_value::<AddonResource>(serde_json::json!("resource_search")).unwrap(),
+            AddonResource::ResourceSearch
+        );
+
+        assert_eq!(
+            AddonScope::AcquisitionSearchRead.as_str(),
+            "acquisition_search_read"
+        );
+        assert_eq!(
+            serde_json::to_value(AddonScope::AcquisitionSearchRead).unwrap(),
+            serde_json::json!("acquisition_search_read")
+        );
+        assert_eq!(
+            serde_json::from_value::<AddonScope>(serde_json::json!("acquisition_search_read"))
+                .unwrap(),
+            AddonScope::AcquisitionSearchRead
+        );
+
+        assert_eq!(AddonResourceLinkType::OneOneFive.as_str(), "115");
+        assert_eq!(
+            serde_json::to_value(AddonResourceLinkType::OneTwoThree).unwrap(),
+            serde_json::json!("123")
+        );
+        assert_eq!(AddonResourceSearchProviderStatus::Error.as_str(), "error");
+        assert_eq!(
+            AddonResourceSearchProviderFinality::Partial.as_str(),
+            "partial"
+        );
+    }
+
+    #[test]
+    fn resource_search_manifest_requires_read_scope() {
+        let manifest = resource_search_manifest();
+
+        validate_manifest(&manifest).unwrap();
+        ensure_scope_grant(
+            &manifest,
+            AddonResource::ResourceSearch,
+            &[AddonScope::AcquisitionSearchRead],
+        )
+        .unwrap();
+
+        assert!(matches!(
+            ensure_scope_grant(&manifest, AddonResource::ResourceSearch, &[]),
+            Err(AddonManifestError::MissingDeclaredScope {
+                resource: AddonResource::ResourceSearch,
+                scope: AddonScope::AcquisitionSearchRead,
+            })
+        ));
+    }
+
+    #[test]
+    fn resource_search_payload_contracts_round_trip() {
+        let request = AddonResourceSearchRequest {
+            schema: ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA.to_owned(),
+            intent: AddonResourceSearchIntent::MediaTitle {
+                title: "Demo Movie".to_owned(),
+                year: Some(2026),
+                media_kind: Some("movie".to_owned()),
+            },
+            query: "Demo Movie 2026".to_owned(),
+            limit: Some(20),
+            sources: vec!["pansou_compatible".to_owned()],
+            link_types: vec![AddonResourceLinkType::Quark, AddonResourceLinkType::Magnet],
+            refresh: true,
+            context: serde_json::json!({"library_id": "library-1"}),
+        };
+        let request_json = serde_json::to_value(&request).unwrap();
+        assert_eq!(request_json["schema"], ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA);
+        assert_eq!(request_json["intent"]["kind"], "media_title");
+        assert_eq!(request_json["intent"]["year"], 2026);
+        assert_eq!(
+            request_json["link_types"],
+            serde_json::json!(["quark", "magnet"])
+        );
+        assert_eq!(
+            serde_json::from_value::<AddonResourceSearchRequest>(request_json).unwrap(),
+            request
+        );
+
+        let link = AddonResourceLink {
+            url: "magnet:?xt=urn:btih:ABCDEF".to_owned(),
+            normalized_url: "magnet:?xt=urn:btih:abcdef".to_owned(),
+            link_type: AddonResourceLinkType::Magnet,
+            source: "pansou:movies".to_owned(),
+            password: Some("secret-code".to_owned()),
+            note: Some("disc 1".to_owned()),
+        };
+        let mut merged_by_type = BTreeMap::new();
+        merged_by_type.insert(
+            AddonResourceLinkType::Magnet,
+            vec![AddonMergedResourceLink {
+                url: link.url.clone(),
+                normalized_url: link.normalized_url.clone(),
+                link_type: AddonResourceLinkType::Magnet,
+                password: Some("secret-code".to_owned()),
+                note: Some("merged".to_owned()),
+                sources: vec!["pansou:movies".to_owned()],
+            }],
+        );
+        let response = AddonResourceSearchResponse {
+            schema: ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA.to_owned(),
+            query: "Demo Movie 2026".to_owned(),
+            intent: AddonResourceSearchIntent::FreeText {
+                text: "Demo Movie 2026".to_owned(),
+            },
+            total: 1,
+            results: vec![AddonResourceSearchResult {
+                id: "result-1".to_owned(),
+                title: "Demo Movie".to_owned(),
+                source: "pansou:movies".to_owned(),
+                content: Some("resource candidate".to_owned()),
+                links: vec![link],
+                tags: vec!["demo".to_owned()],
+                images: Vec::new(),
+                score: 700,
+            }],
+            merged_by_type,
+            provider_executions: vec![AddonResourceSearchProviderExecution {
+                provider_id: "pansou_compatible".to_owned(),
+                status: AddonResourceSearchProviderStatus::Ok,
+                result_count: 1,
+                finality: AddonResourceSearchProviderFinality::Complete,
+                safe_message: None,
+            }],
+        };
+        let response_json = serde_json::to_value(&response).unwrap();
+
+        assert_eq!(
+            response_json["schema"],
+            ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA
+        );
+        assert_eq!(
+            response_json["merged_by_type"]["magnet"][0]["normalized_url"],
+            "magnet:?xt=urn:btih:abcdef"
+        );
+        assert_eq!(
+            response_json["provider_executions"][0]["finality"],
+            "complete"
+        );
+        let manifest = resource_search_manifest();
+        let envelope = AddonResourceResponse {
+            protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+            addon_id: manifest.id.clone(),
+            resource: AddonResource::ResourceSearch,
+            request_id: "resource-search-1".to_owned(),
+            payload: response_json.clone(),
+            artifacts: Vec::new(),
+        };
+        validate_resource_response(
+            &envelope,
+            &manifest,
+            AddonResource::ResourceSearch,
+            "resource-search-1",
+        )
+        .unwrap();
+        let debug = format!("{response:?}");
+        for forbidden in ["secret-code", "ABCDEF", "abcdef"] {
+            assert!(
+                !debug.contains(forbidden),
+                "resource search debug leaked forbidden term: {forbidden}"
+            );
+        }
+        assert_eq!(
+            serde_json::from_value::<AddonResourceSearchResponse>(response_json).unwrap(),
+            response
+        );
+    }
+
+    #[test]
     fn renderer_adapter_payload_contracts_round_trip_and_redact_debug() {
         let target = AddonRendererAdapterTarget {
             stable_device_id: "living-room-tv".to_owned(),
@@ -2867,6 +3266,36 @@ mod tests {
                 AddonScope::ItemMetadataRead,
                 AddonScope::ItemMetadataSuggest,
             ],
+        }
+    }
+
+    fn resource_search_manifest() -> AddonManifest {
+        AddonManifest {
+            id: "resource-search".to_owned(),
+            name: "Resource Search".to_owned(),
+            version: "0.1.0".to_owned(),
+            protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+            base_url: "https://example.test/addon".to_owned(),
+            description: None,
+            resources: vec![AddonResourceDeclaration {
+                kind: AddonResource::ResourceSearch,
+                path: "/resource-search".to_owned(),
+                input_schema: Some(ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA.to_owned()),
+                output_schema: Some(ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA.to_owned()),
+                required_scopes: vec![AddonScope::AcquisitionSearchRead],
+                timeout_ms: Some(10_000),
+                max_attempts: Some(1),
+            }],
+            entry_points: Vec::new(),
+            hosted_pages: Vec::new(),
+            configuration_schema: None,
+            secret_reference_fields: Vec::new(),
+            event_subscriptions: Vec::new(),
+            tasks: Vec::new(),
+            auth: AddonAuth::Bearer,
+            default_timeout_ms: Some(10_000),
+            default_max_attempts: Some(1),
+            scopes: vec![AddonScope::AcquisitionSearchRead],
         }
     }
 }

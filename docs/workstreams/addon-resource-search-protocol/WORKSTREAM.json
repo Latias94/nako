@@ -7,9 +7,10 @@
   "scope_kind": "protocol",
   "problem": "The official resource-search sidecar is using the temporary automation resource because Nako has no first-class read-only Addon Resource for external acquisition resource discovery.",
   "task_prefix": "ARSP",
-  "current_task": "ARSP-020",
+  "current_task": "ARSP-030",
   "completed_tasks": [
-    "ARSP-010"
+    "ARSP-010",
+    "ARSP-020"
   ],
   "authoritative_docs": [
     {
@@ -58,7 +59,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "ARSP-020",
-    "notes": "Start with the protocol crate. Do not implement downloader hooks, link checking, candidate writes, or official-addon manifest migration in ARSP-020."
+    "next_task": "ARSP-030",
+    "notes": "Add the typed client helper over the existing generic resource-call path. Do not introduce a new transport path or downloader behavior."
   }
 }

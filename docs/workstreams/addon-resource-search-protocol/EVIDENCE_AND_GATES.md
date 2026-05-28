@@ -67,6 +67,21 @@ Run `verify-rust-workstream` before marking the lane complete.
 - Froze read-only search scope, non-goals, and acquisition handoff split.
 - No code changes yet.
 
+### 2026-05-28 - ARSP-020
+
+- Added `AddonResource::ResourceSearch`, `AddonScope::AcquisitionSearchRead`,
+  resource-search request/response DTOs, link taxonomy, provider execution
+  status, and provider finality contracts.
+- Hardened `Debug` output for resource links so raw URLs and extraction
+  passwords are not emitted through protocol debug formatting.
+- Passed `cargo nextest run -p nako-addon-protocol resource_search --no-fail-fast`
+  with 3 tests.
+- Passed `cargo nextest run -p nako-addon-protocol --no-fail-fast` with 16
+  tests.
+- Passed `cargo fmt --all -- --check`.
+- Passed `cargo check -p nako-addon-protocol -p nako-addon-client --tests`.
+- Passed `git diff --check`.
+
 ## Notes
 
 Search is not acquisition. The base protocol must not imply candidate writes,

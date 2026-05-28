@@ -13,12 +13,12 @@ Last updated: 2026-05-28
 
 ## M1 - Protocol Vocabulary And DTOs
 
-- [ ] ARSP-020 [owner=unassigned] [deps=ARSP-010] [scope=crates/nako-addon-protocol]
+- [x] ARSP-020 [owner=Codex] [deps=ARSP-010] [scope=crates/nako-addon-protocol]
   Goal: Add `resource_search` resource, `acquisition_search_read` scope, typed request/response DTOs, link taxonomy, provider execution status, and finality contracts.
   Validation: `cargo nextest run -p nako-addon-protocol resource_search --no-fail-fast`
   Review: Check wire names, serde shapes, manifest validation, response validation, and redaction-safe debug output.
   Evidence: crates/nako-addon-protocol/src/lib.rs
-  Handoff: Do not add downloader, link-check, or candidate-write behavior in this task.
+  Handoff: Complete. Downloader, link-check, and candidate-write behavior remain out of scope.
 
 ## M2 - Typed Client Call
 
