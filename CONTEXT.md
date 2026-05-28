@@ -80,6 +80,10 @@ _Avoid_: Process supervision
 A declared capability of an **Addon** that Nako may call after the user grants the required access.
 _Avoid_: Plugin hook, arbitrary callback
 
+**Resource Search**:
+A read-only **Addon Resource** that discovers external links or resource candidates for possible acquisition under Nako host policy.
+_Avoid_: Downloader, stream URL, acquisition write
+
 **Addon Entry Point**:
 A manifest-declared place where Nako surfaces an **Addon** action or view to a user.
 _Avoid_: Embedded frontend plugin

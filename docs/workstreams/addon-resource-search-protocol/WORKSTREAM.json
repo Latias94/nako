@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "slug": "addon-resource-search-protocol",
+  "title": "Addon Resource Search Protocol",
+  "status": "active",
+  "updated": "2026-05-28",
+  "scope_kind": "protocol",
+  "problem": "The official resource-search sidecar is using the temporary automation resource because Nako has no first-class read-only Addon Resource for external acquisition resource discovery.",
+  "task_prefix": "ARSP",
+  "current_task": "ARSP-020",
+  "completed_tasks": [
+    "ARSP-010"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/addon-resource-search-protocol/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/addon-resource-search-protocol/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/addon-resource-search-protocol/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/addon-resource-search-protocol/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/addon-resource-search-protocol/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "cargo nextest run -p nako-addon-protocol resource_search --no-fail-fast",
+    "cargo nextest run -p nako-addon-client resource_search --no-fail-fast",
+    "cargo nextest run -p nako-server addon_resource_search --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "cargo check -p nako-addon-protocol -p nako-addon-client -p nako-api -p nako-core -p nako-server --tests",
+    "git diff --check"
+  ],
+  "evidence": [
+    "docs/workstreams/addon-resource-search-protocol/DESIGN.md",
+    "docs/workstreams/addon-resource-search-protocol/TODO.md",
+    "docs/workstreams/addon-resource-search-protocol/EVIDENCE_AND_GATES.md",
+    "crates/nako-addon-protocol/src/lib.rs",
+    "crates/nako-addon-client/src/lib.rs",
+    "crates/nako-core/src/acquisition_intake.rs",
+    "F:/SourceCodes/Rust/nako-official-addons/docs/workstreams/official-resource-search-architecture-hardening/PROTOCOL_PROPOSAL.md"
+  ],
+  "adr_refs": [
+    "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-nako-api-access.md",
+    "docs/adr/0033-version-addon-protocol-independently-from-addon-and-crate-releases.md",
+    "docs/adr/0034-package-addon-capabilities-into-sidecar-suites.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "next_task": "ARSP-020",
+    "notes": "Start with the protocol crate. Do not implement downloader hooks, link checking, candidate writes, or official-addon manifest migration in ARSP-020."
+  }
+}
