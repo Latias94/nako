@@ -1,6 +1,6 @@
 # Addon Resource Search Protocol - TODO
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 ## M0 - Scope And Evidence Freeze
@@ -49,9 +49,9 @@ Last updated: 2026-05-28
 
 ## M5 - Docs, Migration, And Closeout
 
-- [ ] ARSP-060 [owner=planner] [deps=ARSP-020 ARSP-030 ARSP-040 ARSP-050] [scope=docs,crates/nako-addon-protocol]
+- [x] ARSP-060 [owner=Codex] [deps=ARSP-020 ARSP-030 ARSP-040 ARSP-050] [scope=docs,crates/nako-addon-protocol]
   Goal: Update docs, record final gates, and explicitly hand off `nako-official-addons` manifest migration.
   Validation: `cargo fmt --all -- --check`; focused nextest gates from completed tasks; `git diff --check`
   Review: Run review-workstream and verify-rust-workstream before closeout.
-  Evidence: EVIDENCE_AND_GATES.md
-  Handoff: Close or split remaining server/UI/official-addon work.
+  Evidence: EVIDENCE_AND_GATES.md, CLOSEOUT.md
+  Handoff: Complete. Follow-ons are split in CLOSEOUT.md and HANDOFF.md.

@@ -1,6 +1,6 @@
 # Addon Resource Search Protocol - Milestones
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 ## M0 - Scope And Evidence Freeze
@@ -58,3 +58,7 @@ Exit criteria:
 - Fresh focused gates are recorded in `EVIDENCE_AND_GATES.md`.
 - `WORKSTREAM.json` and `HANDOFF.md` reflect final status.
 - Follow-on work for `nako-official-addons` migration is explicit.
+
+Result:
+
+- Complete. See `CLOSEOUT.md`.

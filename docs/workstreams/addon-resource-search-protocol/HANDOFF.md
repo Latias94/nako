@@ -1,6 +1,6 @@
 # Addon Resource Search Protocol - Handoff
 
-Status: active. ARSP-010 through ARSP-050 are complete; ARSP-060 is next.
+Status: closed. ARSP-010 through ARSP-060 are complete.
 
 ## Current State
 
@@ -26,32 +26,32 @@ Status: active. ARSP-010 through ARSP-050 are complete; ARSP-060 is next.
 - This workstream freezes the host-side protocol lane and keeps downloader,
   link-check, and candidate-write behavior separate.
 
-## Next Task
+## Follow-Ons
 
-ARSP-060: close out docs/gates and split follow-on work.
+No task remains in this lane. Start a new workstream or issue for one of:
 
-Expected scope:
+- `nako-official-addons` resource-search manifest migration to
+  `resource_search` and `acquisition_search_read`.
+- Admin/UI result browsing and explicit select action.
+- Link availability/check contract.
+- Downloader/external acquisition runner contract.
+- Cloud-drive save/transfer authority.
+- Secret handling for extraction passwords/codes.
 
-- `docs/workstreams/addon-resource-search-protocol`
-- focused final gates
-
-Expected behavior:
-
-- Record final gates and close or split remaining work.
-- Keep `nako-official-addons` migration as an explicit follow-on.
-
-Do not include:
+If this closed lane is reopened for audit only, do not add:
 
 - downloader or cloud-drive save behavior,
 - link checking,
 - resource-search result UI,
 - official-addon manifest migration.
 
-## Suggested First Gate
+## Useful Regression Gate
 
 ```bash
 cargo nextest run -p nako-server acquisition_intake addon_resource_search --no-fail-fast
 ```
+
+See `CLOSEOUT.md` for final gates and residual risks.
 
 ## Watch Points
 

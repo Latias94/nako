@@ -2,18 +2,19 @@
   "schema_version": 1,
   "slug": "addon-resource-search-protocol",
   "title": "Addon Resource Search Protocol",
-  "status": "active",
+  "status": "complete",
   "updated": "2026-05-28",
   "scope_kind": "protocol",
   "problem": "The official resource-search sidecar is using the temporary automation resource because Nako has no first-class read-only Addon Resource for external acquisition resource discovery.",
   "task_prefix": "ARSP",
-  "current_task": "ARSP-060",
+  "current_task": null,
   "completed_tasks": [
     "ARSP-010",
     "ARSP-020",
     "ARSP-030",
     "ARSP-040",
-    "ARSP-050"
+    "ARSP-050",
+    "ARSP-060"
   ],
   "authoritative_docs": [
     {
@@ -35,6 +36,10 @@
     {
       "role": "handoff",
       "path": "docs/workstreams/addon-resource-search-protocol/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/addon-resource-search-protocol/CLOSEOUT.md"
     }
   ],
   "gates": [
@@ -48,6 +53,7 @@
   "evidence": [
     "docs/workstreams/addon-resource-search-protocol/DESIGN.md",
     "docs/workstreams/addon-resource-search-protocol/TODO.md",
+    "docs/workstreams/addon-resource-search-protocol/CLOSEOUT.md",
     "docs/workstreams/addon-resource-search-protocol/EVIDENCE_AND_GATES.md",
     "crates/nako-addon-protocol/src/lib.rs",
     "crates/nako-addon-client/src/lib.rs",
@@ -64,8 +70,8 @@
     "docs/adr/0034-package-addon-capabilities-into-sidecar-suites.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "next_task": "ARSP-060",
-    "notes": "Close out docs and gates, then split official-addon manifest migration, result UI, link checking, downloader execution, and cloud-drive save into follow-on work."
+    "default_action": "closed",
+    "next_task": null,
+    "notes": "Lane complete. Follow official-addon manifest migration, result UI, link checking, downloader execution, cloud-drive save, and password handling as separate workstreams."
   }
 }

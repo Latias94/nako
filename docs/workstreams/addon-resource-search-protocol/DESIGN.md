@@ -1,6 +1,6 @@
 # Addon Resource Search Protocol
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-28
 
 ## Why This Lane Exists
@@ -107,7 +107,7 @@ host DTOs to its internal query model after the host protocol lands.
 
 ## Closeout Condition
 
-This lane can close when:
+This lane is closed. It satisfied:
 
 - the protocol and typed client slices are implemented and tested,
 - host-side handoff behavior is either implemented or split to a named follow-on,

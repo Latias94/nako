@@ -1,6 +1,6 @@
 # Addon Resource Search Protocol - Evidence And Gates
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 ## Smallest Current Repro
@@ -53,6 +53,7 @@ Run `verify-rust-workstream` before marking the lane complete.
 
 - `docs/workstreams/addon-resource-search-protocol/DESIGN.md`
 - `docs/workstreams/addon-resource-search-protocol/TODO.md`
+- `docs/workstreams/addon-resource-search-protocol/CLOSEOUT.md`
 - `docs/workstreams/addon-resource-search-protocol/MILESTONES.md`
 - `crates/nako-addon-protocol/src/lib.rs`
 - `crates/nako-addon-client/src/lib.rs`
@@ -147,6 +148,19 @@ Run `verify-rust-workstream` before marking the lane complete.
 - Passed `cargo check -p nako-addon-protocol -p nako-addon-client -p nako-api -p nako-core -p nako-db -p nako-server --tests`.
 - Passed `git diff --check`.
 - Passed `python -m json.tool docs\workstreams\addon-resource-search-protocol\WORKSTREAM.json`.
+
+### 2026-05-28 - ARSP-060
+
+- Reviewed the completed workstream against scope, milestones, and evidence.
+- Closed the lane and split official addon migration, admin/UI selection,
+  link-checking, downloader execution, cloud-drive save, and password handling
+  to follow-ons in `CLOSEOUT.md`.
+- Passed `cargo nextest run -p nako-addon-protocol -p nako-addon-client -p nako-api -p nako-server -p nako-db resource_search admin_contract acquisition_intake addon_resource_search sqlite_managed_import_contract_round_trips_artifacts_and_state sqlite_acquisition_intake_contract_round_trips_candidates_and_state --no-fail-fast`
+  with 27 tests.
+- Passed `cargo fmt --all -- --check`.
+- Passed `cargo check -p nako-addon-protocol -p nako-addon-client -p nako-api -p nako-core -p nako-db -p nako-server --tests`.
+- Passed `python -m json.tool docs\workstreams\addon-resource-search-protocol\WORKSTREAM.json`.
+- Passed `git diff --check`.
 
 ## Notes
 
