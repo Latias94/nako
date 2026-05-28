@@ -17,7 +17,7 @@ Exit criteria: deferred domains are removed, quarantined, or lazy-loaded. Comple
 
 ## M3 - Dependency Diet
 
-Exit criteria: unused heavy dependencies are removed or justified.
+Exit criteria: unused heavy dependencies are removed or justified. Completed by WBBP-040.
 
 ## M4 - Final Frontend Closeout
 

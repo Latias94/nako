@@ -29,11 +29,11 @@ Last updated: 2026-05-28
 
 ## M3 - Dependency Diet
 
-- [ ] WBBP-040 [owner=Codex] [deps=WBBP-030] [scope=web/package.json,web/src]
+- [x] WBBP-040 [owner=Codex] [deps=WBBP-030] [scope=web/package.json,web/src]
   Goal: Remove unused heavy dependencies or move them behind accepted route boundaries.
   Validation: npm --prefix web run test && npm --prefix web run build and budget script.
-  Evidence: package diff and bundle diff.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Evidence: Removed unused AI/chat, chart, calendar, carousel, drawer, form, command, OTP, resizable, toast, and unused Radix/shadcn prototype components. `npm --prefix web uninstall ...` removed 325 packages. `npm --prefix web run check`, `npm --prefix web run test`, and `npm --prefix web run build:budget` passed. Initial CSS dropped to 126.30 KiB / 19.23 KiB gzip; total JS remained 1041.80 KiB / 307.24 KiB gzip.
+  Handoff: DONE. Next task is WBBP-050.
 
 ## M4 - Final Frontend Closeout
 

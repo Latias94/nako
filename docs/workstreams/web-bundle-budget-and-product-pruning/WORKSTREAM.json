@@ -7,11 +7,12 @@
   "scope_kind": "frontend_performance_pruning",
   "problem": "The Vite runtime is clean, but copied v0 domains and heavy dependencies still need explicit budget enforcement and product-scope pruning.",
   "task_prefix": "WBBP",
-  "current_task": "WBBP-040",
+  "current_task": "WBBP-050",
   "completed_tasks": [
     "WBBP-010",
     "WBBP-020",
-    "WBBP-030"
+    "WBBP-030",
+    "WBBP-040"
   ],
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/web-bundle-budget-and-product-pruning/README.md" },
@@ -32,13 +33,14 @@
     "Queued as lane 6 after WALW.",
     "Activated after WALW-050 closeout commit ee6d5cdc; WBBP-020 is ready.",
     "WBBP-020 added bundle budget instrumentation and `npm --prefix web run build:budget` passed within thresholds.",
-    "WBBP-030 removed v0-only deferred media domains from the live runtime graph; `npm --prefix web run check`, `npm --prefix web run test`, and `npm --prefix web run build:budget` passed."
+    "WBBP-030 removed v0-only deferred media domains from the live runtime graph; `npm --prefix web run check`, `npm --prefix web run test`, and `npm --prefix web run build:budget` passed.",
+    "WBBP-040 removed unused AI/chat and shadcn/v0 component prototypes plus their package dependencies; `npm --prefix web run check`, `npm --prefix web run test`, and `npm --prefix web run build:budget` passed."
   ],
   "adr_refs": [
     "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
   ],
   "continue_policy": {
     "default_action": "continue_current_task",
-    "notes": "Run WBBP-040 to remove unused heavy dependencies and generated components left behind by pruning."
+    "notes": "Run WBBP-050 final closeout gates, then close this lane and the six-lane frontend refactor goal."
   }
 }
