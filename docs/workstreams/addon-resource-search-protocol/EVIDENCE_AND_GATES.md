@@ -99,6 +99,27 @@ Run `verify-rust-workstream` before marking the lane complete.
 - Passed `cargo check -p nako-addon-protocol -p nako-addon-client --tests`.
 - Passed `git diff --check`.
 
+### 2026-05-28 - ARSP-040
+
+- Added admin/API DTOs for resource-search diagnostics with host-owned request
+  limit, typed intent, source filters, link-type filters, and safe response
+  summaries.
+- Added `AddonAppService::diagnose_addon_resource_search` and
+  `/admin/v1/addons/{addon_id}/diagnostics/resource-search`.
+- Kept diagnostics redaction-safe: responses expose result/link/provider counts
+  and provider execution status only, not raw result titles, URLs, passwords,
+  request context, or provider messages.
+- Refreshed generated Admin API TypeScript contracts for `apps/admin-web` and
+  `web`.
+- Passed `cargo nextest run -p nako-server addon_resource_search --no-fail-fast`
+  with 2 tests.
+- Passed `cargo nextest run -p nako-api admin_contract --no-fail-fast` with 5
+  tests.
+- Passed `cargo check -p nako-api -p nako-server --tests`.
+- Passed `cargo fmt --all -- --check`.
+- Passed `cargo check -p nako-addon-protocol -p nako-addon-client -p nako-api -p nako-core -p nako-server --tests`.
+- Passed `git diff --check`.
+
 ## Notes
 
 Search is not acquisition. The base protocol must not imply candidate writes,

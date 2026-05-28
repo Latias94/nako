@@ -23,6 +23,7 @@ export const NAKO_ADMIN_ROUTES = {
   addonInstallGuide: "/admin/v1/addons/:addon_id/install-guide",
   addonManagerPlan: "/admin/v1/addons/:addon_id/manager-plan",
   addonResourceCallDiagnostic: "/admin/v1/addons/:addon_id/diagnostics/resource-call",
+  addonResourceSearchDiagnostic: "/admin/v1/addons/:addon_id/diagnostics/resource-search",
   acquisitionIntakeCandidates: "/admin/v1/acquisition/intake/candidates",
   acquisitionIntakeWatchFolderDiscovery: "/admin/v1/acquisition/intake/watch-folder-discovery",
   generatedArtifactProposals: "/admin/v1/automation/generated-artifacts/proposals",
@@ -338,7 +339,8 @@ export type AddonScope =
   | "automation_run"
   | "webhook_event_read"
   | "renderer_adapter_read"
-  | "renderer_adapter_control";
+  | "renderer_adapter_control"
+  | "acquisition_search_read";
 
 export type AddonResource =
   | "catalog"
@@ -349,7 +351,8 @@ export type AddonResource =
   | "recommendation"
   | "automation"
   | "webhook"
-  | "renderer_adapter";
+  | "renderer_adapter"
+  | "resource_search";
 
 export type AddonEntryPointKind =
   | "item_action"
@@ -387,6 +390,40 @@ export type AdminAddonResourceCallDiagnosticStatus =
   | "retryable_http_failure"
   | "http_failure"
   | "unsafe_response";
+
+export type AddonResourceLinkType =
+  | "aliyun"
+  | "baidu"
+  | "quark"
+  | "tianyi"
+  | "uc"
+  | "mobile"
+  | "115"
+  | "pikpak"
+  | "xunlei"
+  | "123"
+  | "magnet"
+  | "ed2k"
+  | "web"
+  | "other";
+
+export type AddonResourceSearchIntent =
+  | { kind: "free_text"; text: string }
+  | {
+      kind: "media_title";
+      title: string;
+      year?: number;
+      media_kind?: string;
+    }
+  | { kind: "external_id"; id_kind: string; value: string }
+  | { kind: "exact_link"; url: string };
+
+export type AddonResourceSearchProviderStatus = "ok" | "error" | "skipped";
+
+export type AddonResourceSearchProviderFinality =
+  | "complete"
+  | "partial"
+  | "unknown";
 
 export interface AdminAddonsQuery {
   status?: AddonStatus;
@@ -708,6 +745,40 @@ export interface AdminAddonResourceCallDiagnosticResponse {
   status: AdminAddonResourceCallDiagnosticStatus;
   latency_ms: number;
   attempts: number;
+  http_status?: number;
+  safe_error_code?: string;
+}
+
+export interface AdminAddonResourceSearchDiagnosticRequest {
+  query: string;
+  intent: AddonResourceSearchIntent;
+  limit?: number;
+  sources?: string[];
+  link_types?: AddonResourceLinkType[];
+  refresh?: boolean;
+  context?: Record<string, unknown>;
+}
+
+export interface AdminAddonResourceSearchProviderDiagnostic {
+  provider_id: string;
+  status: AddonResourceSearchProviderStatus;
+  result_count: number;
+  finality: AddonResourceSearchProviderFinality;
+  has_safe_message: boolean;
+}
+
+export interface AdminAddonResourceSearchDiagnosticResponse {
+  addon_id: string;
+  manifest_id: string;
+  status: AdminAddonResourceCallDiagnosticStatus;
+  latency_ms: number;
+  attempts: number;
+  limit: number;
+  total: number;
+  result_count: number;
+  link_count: number;
+  merged_link_count: number;
+  provider_executions: AdminAddonResourceSearchProviderDiagnostic[];
   http_status?: number;
   safe_error_code?: string;
 }

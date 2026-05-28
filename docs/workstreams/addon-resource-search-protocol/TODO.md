@@ -31,12 +31,12 @@ Last updated: 2026-05-28
 
 ## M3 - Host Call Boundary
 
-- [ ] ARSP-040 [owner=unassigned] [deps=ARSP-030] [scope=crates/nako-server/src/app/addons.rs,crates/nako-api/src/extension.rs]
+- [x] ARSP-040 [owner=Codex] [deps=ARSP-030] [scope=crates/nako-server/src/app/addons.rs,crates/nako-api/src/extension.rs]
   Goal: Define the host service/admin diagnostic seam for calling a resource-search addon with explicit limits, granted scope, and redaction-safe diagnostics.
   Validation: `cargo nextest run -p nako-server addon_resource_search --no-fail-fast`
   Review: Keep API/admin DTOs shielded from raw provider payloads and addon exception text.
   Evidence: crates/nako-server/src/app/addons.rs
-  Handoff: Split UI work and official-addon migration if they expand.
+  Handoff: Complete. The admin diagnostic seam returns safe counts/provider summaries only; acquisition conversion remains separate.
 
 ## M4 - Acquisition Handoff
 

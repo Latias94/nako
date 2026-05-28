@@ -1,6 +1,6 @@
 # Addon Resource Search Protocol - Handoff
 
-Status: active. ARSP-010, ARSP-020, and ARSP-030 are complete; ARSP-040 is next.
+Status: active. ARSP-010 through ARSP-040 are complete; ARSP-050 is next.
 
 ## Current State
 
@@ -15,6 +15,9 @@ Status: active. ARSP-010, ARSP-020, and ARSP-030 are complete; ARSP-040 is next.
 - Nako addon client now has typed `call_addon_resource_search` helpers that
   reuse the generic resource-call path and enforce read scope plus payload
   schema constants.
+- Nako server/API now has a dedicated admin resource-search diagnostic route
+  that applies host limits and returns redaction-safe counts/provider summaries
+  without raw result payloads.
 - The temporary official addon manifest uses `AddonResource::Automation` at
   `/resource-search`.
 - This workstream freezes the host-side protocol lane and keeps downloader,
@@ -22,21 +25,22 @@ Status: active. ARSP-010, ARSP-020, and ARSP-030 are complete; ARSP-040 is next.
 
 ## Next Task
 
-ARSP-040: define the host service/admin diagnostic seam for calling a
-resource-search addon.
+ARSP-050: record or implement selected-result conversion into acquisition
+intake candidates.
 
 Expected scope:
 
-- `crates/nako-server/src/app/addons.rs`
-- `crates/nako-api/src/extension.rs`
-- focused server/API tests
+- `crates/nako-core/src/acquisition_intake.rs`
+- `crates/nako-server/src/app`
+- focused acquisition-intake/server tests
 
 Expected behavior:
 
-- Expose a host-owned call boundary for resource-search addons.
-- Keep limits, granted scopes, addon selection, timeout, retry, and diagnostics
-  under Nako policy.
-- Return typed/sanitized API DTOs without raw provider exception text.
+- Convert a selected resource-search result/link into a host-owned
+  `AcquisitionIntakeCandidate` only after explicit selection.
+- Preserve redacted source references and diagnostics.
+- Keep downloader execution, link checking, and cloud-drive save outside this
+  lane unless a new task explicitly scopes them.
 
 Do not include:
 
@@ -48,7 +52,7 @@ Do not include:
 ## Suggested First Gate
 
 ```bash
-cargo nextest run -p nako-server addon_resource_search --no-fail-fast
+cargo nextest run -p nako-server acquisition_intake addon_resource_search --no-fail-fast
 ```
 
 ## Watch Points

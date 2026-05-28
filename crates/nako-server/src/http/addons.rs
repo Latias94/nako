@@ -14,10 +14,11 @@ use nako_addon_protocol::{
 };
 use nako_api::extension::{
     AddonAccessCheckRequest, AdminAddonInstallGuidePreviewRequest, AdminAddonManagerPlanRequest,
-    AdminAddonResourceCallDiagnosticRequest, CancelAddonTaskRunRequest, ClaimAddonTaskRunRequest,
-    CompleteAddonTaskRunRequest, CreateAddonTaskRunRequest, FailAddonTaskRunRequest,
-    IssueAddonTokenRequest, RegisterAddonRequest, ReplaceAddonGrantsRequest,
-    ReplayAddonEventRequest, ReportAddonTaskRunProgressRequest, RetryAddonTaskRunRequest,
+    AdminAddonResourceCallDiagnosticRequest, AdminAddonResourceSearchDiagnosticRequest,
+    CancelAddonTaskRunRequest, ClaimAddonTaskRunRequest, CompleteAddonTaskRunRequest,
+    CreateAddonTaskRunRequest, FailAddonTaskRunRequest, IssueAddonTokenRequest,
+    RegisterAddonRequest, ReplaceAddonGrantsRequest, ReplayAddonEventRequest,
+    ReportAddonTaskRunProgressRequest, RetryAddonTaskRunRequest,
     SubmitAddonAcquisitionCandidateRequest, SubmitAddonGeneratedArtifactRequest,
     SubmitAddonSideEffectRequest, UpdateAddonStatusRequest,
 };
@@ -115,6 +116,10 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/admin/v1/addons/{addon_id}/diagnostics/resource-call",
             post(diagnose_addon_resource_call),
+        )
+        .route(
+            "/admin/v1/addons/{addon_id}/diagnostics/resource-search",
+            post(diagnose_addon_resource_search),
         )
         .route(
             "/admin/v1/addons/{addon_id}/tokens",
@@ -415,6 +420,19 @@ pub(super) async fn diagnose_addon_resource_call(
     Ok(Json(
         app.addons()
             .diagnose_addon_resource_call(addon_id, request)
+            .await?,
+    ))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn diagnose_addon_resource_search(
+    State(app): State<NakoApp>,
+    Path(addon_id): Path<AddonId>,
+    Json(request): Json<AdminAddonResourceSearchDiagnosticRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.addons()
+            .diagnose_addon_resource_search(addon_id, request)
             .await?,
     ))
 }

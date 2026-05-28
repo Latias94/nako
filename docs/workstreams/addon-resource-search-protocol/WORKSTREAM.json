@@ -7,11 +7,12 @@
   "scope_kind": "protocol",
   "problem": "The official resource-search sidecar is using the temporary automation resource because Nako has no first-class read-only Addon Resource for external acquisition resource discovery.",
   "task_prefix": "ARSP",
-  "current_task": "ARSP-040",
+  "current_task": "ARSP-050",
   "completed_tasks": [
     "ARSP-010",
     "ARSP-020",
-    "ARSP-030"
+    "ARSP-030",
+    "ARSP-040"
   ],
   "authoritative_docs": [
     {
@@ -60,7 +61,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "ARSP-040",
-    "notes": "Define the server/API host call boundary for resource-search addon calls. Keep downloader, link checking, and candidate writes out of this slice."
+    "next_task": "ARSP-050",
+    "notes": "Record or implement host-owned conversion from selected resource-search results to acquisition intake candidates. Keep downloader execution and cloud-drive save separate."
   }
 }

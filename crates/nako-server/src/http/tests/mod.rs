@@ -13,12 +13,17 @@ use axum::{
 };
 use nako_addon_client::{ReqwestAddonTransport, call_addon_resource};
 use nako_addon_protocol::{
-    ADDON_PROTOCOL_VERSION, AddonAuth, AddonConfigurationSchema, AddonEntryPointDeclaration,
-    AddonEntryPointKind, AddonEventRequest, AddonEventResponse, AddonEventSubscriptionDeclaration,
-    AddonHealthCheckRequest, AddonHealthCheckResponse as ProtocolAddonHealthCheckResponse,
-    AddonHealthManifestFacts, AddonHealthStatus, AddonHostedPageDeclaration,
-    AddonInstallDescriptor, AddonManifest, AddonResource, AddonResourceDeclaration,
-    AddonRuntimeKind, AddonRuntimeRequirement, AddonScope, AddonSecretReferenceBinding,
+    ADDON_PROTOCOL_VERSION, ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA,
+    ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA, AddonAuth, AddonConfigurationSchema,
+    AddonEntryPointDeclaration, AddonEntryPointKind, AddonEventRequest, AddonEventResponse,
+    AddonEventSubscriptionDeclaration, AddonHealthCheckRequest,
+    AddonHealthCheckResponse as ProtocolAddonHealthCheckResponse, AddonHealthManifestFacts,
+    AddonHealthStatus, AddonHostedPageDeclaration, AddonInstallDescriptor, AddonManifest,
+    AddonResource, AddonResourceDeclaration, AddonResourceLink, AddonResourceLinkType,
+    AddonResourceRequest, AddonResourceResponse, AddonResourceSearchIntent,
+    AddonResourceSearchProviderExecution, AddonResourceSearchProviderFinality,
+    AddonResourceSearchProviderStatus, AddonResourceSearchResponse, AddonRuntimeKind,
+    AddonRuntimeRequirement, AddonScope, AddonSecretReferenceBinding,
     AddonSecretReferenceFieldDeclaration, AddonTaskDeclaration, AddonTaskRequest,
     AddonTaskResponse,
 };
@@ -76,7 +81,8 @@ use nako_api::{
         AdminAddonLifecycleIntent, AdminAddonManagerPlanRequest, AdminAddonManagerPlanResponse,
         AdminAddonRegistrationResponse, AdminAddonRegistrationsResponse,
         AdminAddonResourceCallDiagnosticRequest, AdminAddonResourceCallDiagnosticResponse,
-        AdminAddonResourceCallDiagnosticStatus, AdminAddonRoutingPlansResponse,
+        AdminAddonResourceCallDiagnosticStatus, AdminAddonResourceSearchDiagnosticRequest,
+        AdminAddonResourceSearchDiagnosticResponse, AdminAddonRoutingPlansResponse,
         AdminAddonRuntimeReadinessReason, AdminAddonRuntimeReadinessResponse,
         AdminAddonRuntimeReadinessStatus, AdminAddonSourceCatalogEntriesResponse,
         AdminAddonSourceCatalogResolveResponse, AdminAddonSourceCatalogSourceKind,

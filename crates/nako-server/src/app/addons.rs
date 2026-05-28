@@ -1,12 +1,13 @@
 use std::{collections::HashSet, env, sync::Arc, time::Instant};
 
 use nako_addon_client::{
-    AddonClientError, ReqwestAddonTransport, call_addon_resource_with_outcome, check_addon_health,
+    AddonClientError, ReqwestAddonTransport, call_addon_resource_search_with_outcome,
+    call_addon_resource_with_outcome, check_addon_health,
 };
 use nako_addon_protocol::{
-    AddonInstallDescriptor, AddonManifest, AddonScope,
-    addon_install_guide as protocol_addon_install_guide, ensure_scope_grant,
-    validate_install_descriptor, validate_manifest,
+    ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA, AddonInstallDescriptor, AddonManifest,
+    AddonResourceSearchRequest, AddonScope, addon_install_guide as protocol_addon_install_guide,
+    ensure_scope_grant, validate_install_descriptor, validate_manifest,
 };
 use nako_api::extension::{
     AddonGrantsResponse, AddonTokenIssuedResponse, AddonTokenResponse, AddonTokenRotationResponse,
@@ -20,15 +21,16 @@ use nako_api::extension::{
     AdminAddonRegistrationDetail, AdminAddonRegistrationResponse, AdminAddonRegistrationSummary,
     AdminAddonRegistrationsResponse, AdminAddonResourceCallDiagnosticRequest,
     AdminAddonResourceCallDiagnosticResponse, AdminAddonResourceCallDiagnosticStatus,
-    AdminAddonRoutingPlansResponse, AdminAddonRuntimeReadinessCheck,
-    AdminAddonRuntimeReadinessCheckName, AdminAddonRuntimeReadinessDiagnostics,
-    AdminAddonRuntimeReadinessReason, AdminAddonRuntimeReadinessResponse,
-    AdminAddonSecretReferenceFieldSurface, AdminAddonSourceCatalogEntriesResponse,
-    AdminAddonSourceCatalogEntry, AdminAddonSourceCatalogResolveResponse,
-    AdminAddonSourceCatalogSource, AdminAddonSourceCatalogSourceKind,
-    AdminAddonSourceCatalogSourcesResponse, AdminAddonSurfacesResponse, AdminAddonTaskSurface,
-    IssueAddonTokenRequest, RegisterAddonRequest, ReplaceAddonGrantsRequest,
-    UpdateAddonStatusRequest,
+    AdminAddonResourceSearchDiagnosticRequest, AdminAddonResourceSearchDiagnosticResponse,
+    AdminAddonResourceSearchProviderDiagnostic, AdminAddonRoutingPlansResponse,
+    AdminAddonRuntimeReadinessCheck, AdminAddonRuntimeReadinessCheckName,
+    AdminAddonRuntimeReadinessDiagnostics, AdminAddonRuntimeReadinessReason,
+    AdminAddonRuntimeReadinessResponse, AdminAddonSecretReferenceFieldSurface,
+    AdminAddonSourceCatalogEntriesResponse, AdminAddonSourceCatalogEntry,
+    AdminAddonSourceCatalogResolveResponse, AdminAddonSourceCatalogSource,
+    AdminAddonSourceCatalogSourceKind, AdminAddonSourceCatalogSourcesResponse,
+    AdminAddonSurfacesResponse, AdminAddonTaskSurface, IssueAddonTokenRequest,
+    RegisterAddonRequest, ReplaceAddonGrantsRequest, UpdateAddonStatusRequest,
 };
 use nako_core::{
     AddonGrantRecord, AddonId, AddonIssuedToken, AddonManifestFingerprint, AddonRegistrationRecord,
@@ -58,6 +60,9 @@ use principal::{normalize_grants, normalize_token_label};
 pub(crate) use scan_metadata::{
     ScanAddonBulkMetadataScrapeRequest, ScanAddonBulkMetadataScrapeSummary,
 };
+
+const RESOURCE_SEARCH_DIAGNOSTIC_DEFAULT_LIMIT: usize = 20;
+const RESOURCE_SEARCH_DIAGNOSTIC_MAX_LIMIT: usize = 50;
 
 #[async_trait::async_trait]
 trait AddonRegistrationStore: std::fmt::Debug + Send + Sync {
@@ -818,6 +823,98 @@ impl AddonAppService {
         }
     }
 
+    pub async fn diagnose_addon_resource_search(
+        &self,
+        addon_id: AddonId,
+        request: AdminAddonResourceSearchDiagnosticRequest,
+    ) -> Result<AdminAddonResourceSearchDiagnosticResponse> {
+        let addon = self.get_addon_registration_or_not_found(addon_id).await?;
+        if addon.status == AddonStatus::Unregistered {
+            return Err(NakoError::Conflict {
+                message: format!("addon registration {addon_id} is unregistered"),
+            });
+        }
+        let query = request.query.trim().to_owned();
+        if query.is_empty() {
+            return Err(NakoError::InvalidInput {
+                message: "resource search query cannot be empty".to_owned(),
+            });
+        }
+        let limit = normalize_resource_search_diagnostic_limit(request.limit)?;
+        let manifest = self.stored_manifest(&addon)?;
+        let granted_scopes = stored_granted_scopes(&addon)?;
+        let search_request = AddonResourceSearchRequest {
+            schema: ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA.to_owned(),
+            intent: request.intent,
+            query,
+            limit: Some(limit),
+            sources: request.sources,
+            link_types: request.link_types,
+            refresh: request.refresh,
+            context: request.context,
+        };
+        let started = Instant::now();
+        let response = call_addon_resource_search_with_outcome(
+            &ReqwestAddonTransport::default(),
+            &manifest,
+            &granted_scopes,
+            format!("addon-resource-search-{addon_id}"),
+            search_request,
+            None,
+        )
+        .await;
+        let latency_ms = started.elapsed().as_millis();
+
+        match response {
+            Ok(outcome) => {
+                let response = outcome.response;
+                let link_count = response
+                    .results
+                    .iter()
+                    .map(|result| result.links.len())
+                    .sum();
+                let merged_link_count = response.merged_by_type.values().map(Vec::len).sum();
+                Ok(AdminAddonResourceSearchDiagnosticResponse {
+                    addon_id,
+                    manifest_id: addon.manifest_id,
+                    status: AdminAddonResourceCallDiagnosticStatus::Succeeded,
+                    latency_ms,
+                    attempts: outcome.attempts,
+                    limit,
+                    total: response.total,
+                    result_count: response.results.len(),
+                    link_count,
+                    merged_link_count,
+                    provider_executions: response
+                        .provider_executions
+                        .into_iter()
+                        .map(AdminAddonResourceSearchProviderDiagnostic::from)
+                        .collect(),
+                    http_status: Some(outcome.http_status),
+                    safe_error_code: None,
+                })
+            }
+            Err(failure) => {
+                let err = failure.error;
+                Ok(AdminAddonResourceSearchDiagnosticResponse {
+                    addon_id,
+                    manifest_id: addon.manifest_id,
+                    status: resource_diagnostic_status_for_client_error(&err),
+                    latency_ms,
+                    attempts: failure.attempts,
+                    limit,
+                    total: 0,
+                    result_count: 0,
+                    link_count: 0,
+                    merged_link_count: 0,
+                    provider_executions: Vec::new(),
+                    http_status: err.http_status(),
+                    safe_error_code: Some(safe_resource_diagnostic_error_code(&err).to_owned()),
+                })
+            }
+        }
+    }
+
     pub async fn issue_addon_token(
         &self,
         addon_id: AddonId,
@@ -1200,6 +1297,17 @@ fn safe_health_error_code(err: &AddonClientError) -> &'static str {
         AddonClientError::HttpStatus { .. } => "http_failure",
         AddonClientError::Http { .. } => "transport_failure",
     }
+}
+
+fn normalize_resource_search_diagnostic_limit(limit: Option<usize>) -> Result<usize> {
+    let limit = limit.unwrap_or(RESOURCE_SEARCH_DIAGNOSTIC_DEFAULT_LIMIT);
+    if limit == 0 {
+        return Err(NakoError::InvalidInput {
+            message: "resource search limit must be greater than zero".to_owned(),
+        });
+    }
+
+    Ok(limit.min(RESOURCE_SEARCH_DIAGNOSTIC_MAX_LIMIT))
 }
 
 fn resource_diagnostic_status_for_client_error(

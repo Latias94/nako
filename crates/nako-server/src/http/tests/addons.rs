@@ -117,6 +117,85 @@ async fn failing_resource_addon_server(status: StatusCode, body: &'static str) -
     format!("http://{addr}")
 }
 
+async fn resource_search_addon_server() -> (String, StdArc<TokioMutex<Vec<AddonResourceRequest>>>) {
+    let requests = StdArc::new(TokioMutex::new(Vec::new()));
+    let router = Router::new().route(
+        "/resource-search",
+        axum::routing::post({
+            let requests = StdArc::clone(&requests);
+            move |Json(request): Json<AddonResourceRequest>| {
+                let requests = StdArc::clone(&requests);
+                async move {
+                    requests.lock().await.push(request.clone());
+                    let link = AddonResourceLink {
+                        url: "https://pan.quark.cn/s/raw-secret-link".to_owned(),
+                        normalized_url: "https://pan.quark.cn/s/raw-secret-link".to_owned(),
+                        link_type: AddonResourceLinkType::Quark,
+                        source: "pansou:movies".to_owned(),
+                        password: Some("secret-code".to_owned()),
+                        note: Some("private-note".to_owned()),
+                    };
+                    let mut merged_by_type = std::collections::BTreeMap::new();
+                    merged_by_type.insert(
+                        AddonResourceLinkType::Quark,
+                        vec![nako_addon_protocol::AddonMergedResourceLink {
+                            url: link.url.clone(),
+                            normalized_url: link.normalized_url.clone(),
+                            link_type: AddonResourceLinkType::Quark,
+                            password: link.password.clone(),
+                            note: link.note.clone(),
+                            sources: vec!["pansou:movies".to_owned()],
+                        }],
+                    );
+
+                    Json(AddonResourceResponse {
+                        protocol_version: request.protocol_version,
+                        addon_id: request.addon_id,
+                        resource: request.resource,
+                        request_id: request.request_id,
+                        payload: serde_json::to_value(AddonResourceSearchResponse {
+                            schema: ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA.to_owned(),
+                            query: "Demo Movie".to_owned(),
+                            intent: AddonResourceSearchIntent::FreeText {
+                                text: "Demo Movie".to_owned(),
+                            },
+                            total: 1,
+                            results: vec![nako_addon_protocol::AddonResourceSearchResult {
+                                id: "result-1".to_owned(),
+                                title: "Secret Result Title".to_owned(),
+                                source: "pansou:movies".to_owned(),
+                                content: Some("private content".to_owned()),
+                                links: vec![link],
+                                tags: vec!["private-tag".to_owned()],
+                                images: vec!["https://image.example/private.jpg".to_owned()],
+                                score: 900,
+                            }],
+                            merged_by_type,
+                            provider_executions: vec![AddonResourceSearchProviderExecution {
+                                provider_id: "pansou_compatible".to_owned(),
+                                status: AddonResourceSearchProviderStatus::Ok,
+                                result_count: 1,
+                                finality: AddonResourceSearchProviderFinality::Complete,
+                                safe_message: Some("provider secret message".to_owned()),
+                            }],
+                        })
+                        .unwrap(),
+                        artifacts: Vec::new(),
+                    })
+                }
+            }
+        }),
+    );
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, router).await.unwrap();
+    });
+    yield_now().await;
+
+    (format!("http://{addr}"), requests)
+}
+
 async fn raw_health_addon_server(status: StatusCode, body: &'static str) -> String {
     let router = Router::new().route(
         "/health",
@@ -515,6 +594,25 @@ fn event_path_manifest(base_url: String) -> AddonManifest {
         serde_json::Value::Null,
     )];
     manifest.scopes.push(AddonScope::WebhookEventRead);
+    manifest
+}
+
+fn resource_search_manifest(base_url: String) -> AddonManifest {
+    let mut manifest = addon_manifest();
+    manifest.id = "example.resource-search".to_owned();
+    manifest.name = "Example Resource Search".to_owned();
+    manifest.base_url = base_url;
+    manifest.auth = AddonAuth::None;
+    manifest.resources = vec![AddonResourceDeclaration {
+        kind: AddonResource::ResourceSearch,
+        path: "/resource-search".to_owned(),
+        input_schema: Some(ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA.to_owned()),
+        output_schema: Some(ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA.to_owned()),
+        required_scopes: vec![AddonScope::AcquisitionSearchRead],
+        timeout_ms: Some(5_000),
+        max_attempts: Some(1),
+    }];
+    manifest.scopes = vec![AddonScope::AcquisitionSearchRead];
     manifest
 }
 
@@ -5755,6 +5853,147 @@ async fn admin_addon_resource_call_diagnostic_classifies_safe_failures() {
     assert!(!protocol_text.contains("0.1.0-alpha.0"));
     assert!(!protocol_text.contains("nako_at_should_not_echo"));
     assert!(!protocol_text.contains("Hidden"));
+}
+
+#[tokio::test]
+async fn admin_addon_resource_search_diagnostic_summarizes_without_raw_payloads() {
+    let (addon_base_url, captured) = resource_search_addon_server().await;
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: resource_search_manifest(addon_base_url),
+            outbound_task_dispatch_secret_env: None,
+            granted_scopes: vec![AddonScope::AcquisitionSearchRead],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let path = format!("/admin/v1/addons/{addon_id}/diagnostics/resource-search");
+    let raw = response_body_json(
+        &router,
+        Method::POST,
+        &path,
+        &AdminAddonResourceSearchDiagnosticRequest {
+            query: "  Demo Movie  ".to_owned(),
+            intent: AddonResourceSearchIntent::FreeText {
+                text: "Demo Movie".to_owned(),
+            },
+            limit: Some(999),
+            sources: vec!["pansou_compatible".to_owned()],
+            link_types: vec![AddonResourceLinkType::Quark],
+            refresh: false,
+            context: serde_json::json!({
+                "source_locator": "local:///secret/movie.mkv",
+                "token": "nako_at_should_not_echo"
+            }),
+        },
+    )
+    .await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let bytes = to_bytes(raw.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let response =
+        serde_json::from_str::<AdminAddonResourceSearchDiagnosticResponse>(&text).unwrap();
+
+    assert_eq!(response.addon_id, addon_id);
+    assert_eq!(
+        response.status,
+        AdminAddonResourceCallDiagnosticStatus::Succeeded
+    );
+    assert_eq!(response.limit, 50);
+    assert_eq!(response.total, 1);
+    assert_eq!(response.result_count, 1);
+    assert_eq!(response.link_count, 1);
+    assert_eq!(response.merged_link_count, 1);
+    assert_eq!(response.http_status, Some(200));
+    assert_eq!(response.safe_error_code, None);
+    assert_eq!(response.provider_executions.len(), 1);
+    assert_eq!(
+        response.provider_executions[0].provider_id,
+        "pansou_compatible"
+    );
+    assert!(response.provider_executions[0].has_safe_message);
+
+    for forbidden in [
+        "Demo Movie",
+        "Secret Result Title",
+        "https://pan.quark.cn",
+        "secret-code",
+        "private-note",
+        "private content",
+        "provider secret message",
+        "local:///secret",
+        "nako_at_should_not_echo",
+    ] {
+        assert!(
+            !text.contains(forbidden),
+            "resource-search diagnostic leaked forbidden term: {forbidden}"
+        );
+    }
+
+    let captured = captured.lock().await;
+    assert_eq!(captured.len(), 1);
+    assert_eq!(captured[0].resource, AddonResource::ResourceSearch);
+    assert_eq!(
+        captured[0].payload["schema"],
+        ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA
+    );
+    assert_eq!(captured[0].payload["query"], "Demo Movie");
+    assert_eq!(captured[0].payload["limit"], 50);
+    assert_eq!(
+        captured[0].payload["link_types"],
+        serde_json::json!(["quark"])
+    );
+}
+
+#[tokio::test]
+async fn admin_addon_resource_search_diagnostic_requires_nonzero_limit() {
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: resource_search_manifest("https://resource-search.example.test".to_owned()),
+            outbound_task_dispatch_secret_env: None,
+            granted_scopes: vec![AddonScope::AcquisitionSearchRead],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let path = format!(
+        "/admin/v1/addons/{}/diagnostics/resource-search",
+        registered.addon.summary.id
+    );
+    let raw = response_body_json(
+        &router,
+        Method::POST,
+        &path,
+        &AdminAddonResourceSearchDiagnosticRequest {
+            query: "Demo Movie".to_owned(),
+            intent: AddonResourceSearchIntent::FreeText {
+                text: "Demo Movie".to_owned(),
+            },
+            limit: Some(0),
+            sources: Vec::new(),
+            link_types: Vec::new(),
+            refresh: false,
+            context: serde_json::Value::Null,
+        },
+    )
+    .await;
+
+    assert_eq!(raw.status(), StatusCode::BAD_REQUEST);
+    let error = body_json::<ErrorResponse>(raw).await;
+    assert_eq!(error.code, "invalid_input");
 }
 
 #[tokio::test]

@@ -1,7 +1,9 @@
 use nako_addon_protocol::{
     AddonConfigurationSchema, AddonEntryPointKind, AddonHealthStatus, AddonInstallDescriptor,
-    AddonInstallGuide, AddonManifest, AddonResource, AddonRuntimeKind, AddonScope,
-    AddonTaskDeclaration,
+    AddonInstallGuide, AddonManifest, AddonResource, AddonResourceLinkType,
+    AddonResourceSearchIntent, AddonResourceSearchProviderExecution,
+    AddonResourceSearchProviderFinality, AddonResourceSearchProviderStatus, AddonRuntimeKind,
+    AddonScope, AddonTaskDeclaration,
 };
 use nako_core::{
     ADDON_TASK_RUN_PROGRESS_SCHEMA, ADDON_TASK_RUN_RESULT_SCHEMA, AddonEventDeliveryAttemptRecord,
@@ -783,6 +785,62 @@ pub struct AdminAddonResourceCallDiagnosticResponse {
     pub status: AdminAddonResourceCallDiagnosticStatus,
     pub latency_ms: u128,
     pub attempts: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub http_status: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub safe_error_code: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonResourceSearchDiagnosticRequest {
+    pub query: String,
+    pub intent: AddonResourceSearchIntent,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<usize>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sources: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub link_types: Vec<AddonResourceLinkType>,
+    #[serde(default)]
+    pub refresh: bool,
+    #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
+    pub context: serde_json::Value,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonResourceSearchProviderDiagnostic {
+    pub provider_id: String,
+    pub status: AddonResourceSearchProviderStatus,
+    pub result_count: usize,
+    pub finality: AddonResourceSearchProviderFinality,
+    pub has_safe_message: bool,
+}
+
+impl From<AddonResourceSearchProviderExecution> for AdminAddonResourceSearchProviderDiagnostic {
+    fn from(value: AddonResourceSearchProviderExecution) -> Self {
+        Self {
+            provider_id: value.provider_id,
+            status: value.status,
+            result_count: value.result_count,
+            finality: value.finality,
+            has_safe_message: value.safe_message.is_some(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonResourceSearchDiagnosticResponse {
+    pub addon_id: AddonId,
+    pub manifest_id: String,
+    pub status: AdminAddonResourceCallDiagnosticStatus,
+    pub latency_ms: u128,
+    pub attempts: u32,
+    pub limit: usize,
+    pub total: usize,
+    pub result_count: usize,
+    pub link_count: usize,
+    pub merged_link_count: usize,
+    pub provider_executions: Vec<AdminAddonResourceSearchProviderDiagnostic>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub http_status: Option<u16>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
