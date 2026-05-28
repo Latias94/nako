@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "slug": "web-v0-copy-first-tanstack-refactor",
+  "title": "Web V0 Copy-First TanStack Refactor",
+  "status": "active",
+  "updated": "2026-05-28",
+  "scope_kind": "frontend_product_replacement",
+  "problem": "Nako should copy the complete v0-generated admin/media frontend into web/ and then refactor it into a static TanStack/Tauri/Nako API product frontend instead of rebuilding the UI from zero.",
+  "task_prefix": "WVTR",
+  "current_task": "WVTR-020",
+  "completed_tasks": [
+    "WVTR-010"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/web-v0-copy-first-tanstack-refactor/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/web-v0-copy-first-tanstack-refactor/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/web-v0-copy-first-tanstack-refactor/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/web-v0-copy-first-tanstack-refactor/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/web-v0-copy-first-tanstack-refactor/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/web-v0-copy-first-tanstack-refactor/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "npm --prefix web run check",
+    "npm --prefix web run test",
+    "npm --prefix web run build",
+    "cargo test --manifest-path web/src-tauri/Cargo.toml",
+    "Browser/Playwright smoke for visible frontend route changes",
+    "Tauri static package/build smoke once frontend build path is restored",
+    "cargo nextest run -p nako-api admin_web_generated_contract_matches_generator_output when Admin contract output changes",
+    "git diff --check"
+  ],
+  "evidence": [
+    "WVTR-010 opened this durable copy-first frontend refactor lane."
+  ],
+  "adr_refs": [
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md",
+    "docs/adr/0032-shared-rust-client-core-app-supplied-transport.md",
+    "docs/adr/0036-short-lived-browser-playback-tickets.md",
+    "docs/adr/0037-local-credential-and-session-auth.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Continue through bounded WVTR tasks. Split native playback, Addon Manager UI, downloads/acquisition, notifications, i18n, and old Admin Web deletion when they exceed this lane."
+  }
+}

@@ -6,6 +6,11 @@ attention.
 
 ## Current Workstreams
 
+- [web-v0-copy-first-tanstack-refactor](web-v0-copy-first-tanstack-refactor/README.md):
+  active copy-first frontend replacement lane that imports the complete
+  `repo-ref/nako-admin-web` product shell into `web/`, then removes Next/Vercel
+  runtime assumptions, restores Nako API boundaries, moves route ownership to
+  TanStack, and records browser/Tauri performance gates before closeout.
 - [web-modern-frontend-and-tauri-foundation](web-modern-frontend-and-tauri-foundation/README.md):
   closed foundation lane that made `web/` the product frontend release line,
   re-authored the v0 UX direction into a Vite React/Tailwind/TanStack app with a
