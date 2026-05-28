@@ -10,11 +10,11 @@ contract tests are in place, so large component boundary moves can start.
 
 ## Active Task
 
-- Task ID: WFBR-040
+- Task ID: WFBR-050
 - Owner: Codex
 - Status: READY
-- Validation: `npm --prefix web run test && npm --prefix web run build`
+- Validation: `npm --prefix web run test && npm --prefix web run check && npm --prefix web run build`
 
 ## Next Recommended Action
 
-- Move setup/account/notifications/settings/TV route surfaces out of `components/nako`.
+- Run closeout gates, mark this lane complete, and activate `web-route-owned-product-surfaces`.

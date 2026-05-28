@@ -18,7 +18,7 @@ import {
   useNavigate,
   useRouterState,
 } from "@tanstack/react-router"
-import { SurfaceSwitcher } from "@/components/nako/surface-switcher"
+import { SurfaceSwitcher } from "@/src/shell/surface-switcher"
 import type { MediaSurfaceRef } from "@/src/features/media"
 
 const MediaSurface = lazy(() =>
@@ -34,31 +34,31 @@ const AdminSurface = lazy(() =>
 )
 
 const NotificationCenter = lazy(() =>
-  import("@/components/nako/notification-center").then((module) => ({
+  import("@/src/features/notifications").then((module) => ({
     default: module.NotificationCenter,
   })),
 )
 
 const SettingsPage = lazy(() =>
-  import("@/components/nako/settings-page").then((module) => ({
+  import("@/src/features/settings").then((module) => ({
     default: module.SettingsPage,
   })),
 )
 
 const SetupWizard = lazy(() =>
-  import("@/components/nako/setup-wizard").then((module) => ({
+  import("@/src/features/setup").then((module) => ({
     default: module.SetupWizard,
   })),
 )
 
 const UserSelectPage = lazy(() =>
-  import("@/components/nako/user-select-page").then((module) => ({
+  import("@/src/features/account").then((module) => ({
     default: module.UserSelectPage,
   })),
 )
 
 const TVSurface = lazy(() =>
-  import("@/components/nako/tv-surface").then((module) => ({
+  import("@/src/features/tv").then((module) => ({
     default: module.TVSurface,
   })),
 )

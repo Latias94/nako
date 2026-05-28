@@ -23,6 +23,8 @@ Exit criteria: Admin surface has a feature-owned home.
 
 ## M3 - Shell And Deferred Boundaries
 
+Status: done.
+
 Exit criteria: setup/account/notifications/TV and deferred domains are isolated.
 
 ## M4 - Closeout

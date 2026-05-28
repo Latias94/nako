@@ -31,12 +31,12 @@ Last updated: 2026-05-28
 
 ## M3 - Shell And Deferred Boundaries
 
-- [ ] WFBR-040 [owner=Codex] [deps=WFBR-030] [scope=web/src/features,web/components/nako]
+- [x] WFBR-040 [owner=Codex] [deps=WFBR-030] [scope=web/src/features,web/components/nako]
   Goal: Move setup/account/notifications/TV and isolate deferred copied domains.
   Validation: npm --prefix web run test && npm --prefix web run build.
   Review: Deferred domains do not enter initial route imports.
   Evidence: feature directory map.
-  Handoff: READY. Move remaining shell product routes and deferred copied domains out of `components/nako`.
+  Handoff: DONE. Route surfaces now live under feature directories and router/switcher live under `web/src/shell`.
 
 ## M4 - Closeout
 
@@ -44,4 +44,4 @@ Last updated: 2026-05-28
   Goal: Close the feature-boundary lane.
   Validation: npm --prefix web run test && npm --prefix web run check && npm --prefix web run build.
   Evidence: EVIDENCE_AND_GATES.md
-  Handoff: Activate `web-route-owned-product-surfaces`.
+  Handoff: READY. Run closeout gates and activate `web-route-owned-product-surfaces`.

@@ -1,7 +1,7 @@
 import { createMemoryHistory } from "@tanstack/react-router"
 import { render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
-import { NakoRouter, createNakoRouter } from "@/components/nako/nako-router"
+import { NakoRouter, createNakoRouter } from "@/src/shell"
 import { ThemeProvider } from "@/components/theme-provider"
 import { QueryProvider } from "@/lib/query-provider"
 
