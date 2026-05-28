@@ -33,8 +33,10 @@ git diff --check
 | --- | --- | --- |
 | 2026-05-28 | `cargo nextest run -p nako-server addon_resource_link_check --no-fail-fast` | Pass. 1 test passed, proving opaque-id link-check flow, raw payload rejection, safe response redaction, and addon request context redaction. |
 | 2026-05-28 | `cargo nextest run -p nako-api admin_contract --no-fail-fast` | Initial run failed because generated Admin TypeScript contracts were stale; after regeneration, pass. 5 tests passed. |
+| 2026-05-28 | `cargo nextest run -p nako-api admin_resource_link_check_response_uses_safe_facts_only --no-fail-fast` | Pass. 1 API DTO redaction test passed. |
 | 2026-05-28 | `cargo fmt --all -- --check` | Pass. |
 | 2026-05-28 | `cargo check -p nako-addon-protocol -p nako-addon-client -p nako-api -p nako-server --tests` | Pass. |
+| 2026-05-28 | `git diff --check` | Pass with Git LF-to-CRLF working-copy warnings only. |
 
 ## Residual Risks
 

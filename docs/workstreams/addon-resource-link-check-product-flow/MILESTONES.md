@@ -1,6 +1,6 @@
 # Addon Resource Link Check Product Flow - Milestones
 
-Status: Complete
+Status: Closed
 Last updated: 2026-05-28
 
 ## M0 - Scope And Evidence Freeze

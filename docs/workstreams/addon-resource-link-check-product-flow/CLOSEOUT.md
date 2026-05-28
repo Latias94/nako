@@ -23,8 +23,10 @@ Closed: 2026-05-28
 
 - `cargo nextest run -p nako-server addon_resource_link_check --no-fail-fast`
 - `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+- `cargo nextest run -p nako-api admin_resource_link_check_response_uses_safe_facts_only --no-fail-fast`
 - `cargo fmt --all -- --check`
 - `cargo check -p nako-addon-protocol -p nako-addon-client -p nako-api -p nako-server --tests`
+- `git diff --check`
 
 ## Follow-Ons
 
