@@ -18,7 +18,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
-import { useTrendingMedia, useCategoryMedia } from "@/lib/use-media"
+import { useTrendingMedia, useCategoryMedia, usePlaybackPlan } from "@/lib/use-media"
 import type { MediaItem } from "@/lib/media-types"
 import type { LibraryBrowserRouteState } from "./library-browser"
 
@@ -51,7 +51,7 @@ type ViewState =
   | { type: "tag"; name: string; id?: string }
   | { type: "collection"; name: string; id?: string }
   | { type: "studio"; name: string; id?: string }
-  | { type: "player"; mediaId: string; mediaType: "movie" | "series" }
+  | { type: "player"; mediaId: string; mediaType: "movie" | "series"; sourceId?: string }
   | { type: "images"; mediaTitle: string }
   | { type: "search"; query?: string }
   | { type: "user-select" }
@@ -368,11 +368,13 @@ export const MediaSurface = forwardRef<MediaSurfaceRef, MediaSurfaceProps>(funct
   }
 
   // 处理播放
-  const handlePlay = () => {
+  const handlePlay = (mediaId = currentMediaId, sourceId?: string) => {
+    setCurrentMediaId(mediaId)
     navigateTo({
       type: "player",
-      mediaId: currentMediaId,
+      mediaId,
       mediaType: currentMediaType === "series" || currentMediaType === "anime" ? "series" : "movie",
+      sourceId,
     })
   }
 
@@ -405,13 +407,9 @@ export const MediaSurface = forwardRef<MediaSurfaceRef, MediaSurfaceProps>(funct
   // 视频播放器
   if (viewState.type === "player") {
     return (
-      <VideoPlayer
+      <MediaPlayerRoute
+        viewState={viewState}
         onBack={goBack}
-        mediaTitle={currentMediaType === "movie" ? "沙丘2" : "真探"}
-        episodeInfo={currentMediaType === "series" ? "S01E04" : undefined}
-        episodeTitle={currentMediaType === "series" ? "什么是谁" : undefined}
-        hasNext={currentMediaType === "series"}
-        hasPrevious={currentMediaType === "series"}
       />
     )
   }
@@ -976,6 +974,54 @@ function mediaRouteTarget(view: ViewState): MediaSurfaceRouteView | null {
   }
 }
 
+function MediaPlayerRoute({
+  viewState,
+  onBack,
+}: {
+  viewState: Extract<ViewState, { type: "player" }>
+  onBack: () => void
+}) {
+  const playbackPlan = usePlaybackPlan(viewState.mediaId, viewState.mediaType, viewState.sourceId)
+  const shouldUsePlaybackPlan =
+    playbackPlan.data !== undefined && (!playbackPlan.data.fallback || playbackPlan.data.error)
+  const liveSources =
+    shouldUsePlaybackPlan
+      ? playbackPlan.data.mediaUrl
+        ? [
+            {
+              quality: playbackPlan.data.mode?.toUpperCase() ?? "Auto",
+              url: playbackPlan.data.mediaUrl,
+              contentType: playbackPlan.data.mediaContentType,
+            },
+          ]
+        : []
+      : undefined
+  const liveSubtitles =
+    shouldUsePlaybackPlan
+      ? playbackPlan.data.subtitles.map((subtitle) => ({
+          id: subtitle.id,
+          language: subtitle.language,
+          url: subtitle.url,
+          srcLang: subtitle.srcLang,
+          default: subtitle.default,
+          forced: subtitle.forced,
+          contentType: subtitle.contentType,
+        }))
+      : undefined
+
+  return (
+    <VideoPlayer
+      onBack={onBack}
+      mediaTitle={viewState.mediaType === "movie" ? "沙丘2" : "真探"}
+      episodeInfo={viewState.mediaType === "series" ? "S01E04" : undefined}
+      episodeTitle={viewState.mediaType === "series" ? "什么是谁" : undefined}
+      hasNext={viewState.mediaType === "series"}
+      hasPrevious={viewState.mediaType === "series"}
+      sources={liveSources}
+      subtitles={liveSubtitles}
+    />
+  )
+}
 function isDeferredMediaFeature(value: ViewState["type"]): value is DeferredMediaFeature {
   return DEFERRED_MEDIA_FEATURE_KEYS.has(value)
 }

@@ -61,3 +61,17 @@ export function useMediaDetails(id: string, mediaType: "movie" | "series") {
     retry: 0,
   })
 }
+
+export function usePlaybackPlan(
+  itemId: string,
+  mediaType: "movie" | "series",
+  sourceId?: string,
+) {
+  return useQuery({
+    queryKey: ["nako", "media", "playback-plan", mediaType, itemId, sourceId ?? "auto"],
+    queryFn: () => createPublicMediaDataSource().loadPlaybackPlan(itemId, mediaType, sourceId),
+    enabled: !!itemId,
+    staleTime: 30 * 1000,
+    retry: 0,
+  })
+}

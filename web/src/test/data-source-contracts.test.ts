@@ -719,6 +719,212 @@ describe("public media data source contracts", () => {
     })
     expect(payload.items.map((item) => item.title)).toEqual(["沙丘2"])
   })
+  it("builds browser-ticket playback plans with sidecar subtitle track URLs", async () => {
+    const ticketBodies: unknown[] = []
+    const fetcher = vi.fn<FetchLike>(async (input, init) => {
+      const url = new URL(String(input))
+
+      if (url.pathname === "/items/live-movie") {
+        return jsonResponse({
+          item: publicMediaItem({ id: "live-movie" }),
+          sources: [
+            {
+              id: "source-1",
+              item_id: "live-movie",
+              library_id: "library-a",
+              file_name: "Demo.mkv",
+              fingerprint: null,
+              size_bytes: 1024,
+            },
+          ],
+          collections: [],
+          credits: [],
+          genres: [],
+          images: [],
+          studios: [],
+          tags: [],
+        })
+      }
+
+      if (url.pathname === "/sources/source-1/playback/decision") {
+        expect(url.searchParams.get("supports_subtitles")).toBe("true")
+        return jsonResponse({
+          source: {
+            id: "source-1",
+            item_id: "live-movie",
+            library_id: "library-a",
+            file_name: "Demo.mkv",
+            fingerprint: null,
+            size_bytes: 1024,
+          },
+          probe: null,
+          target: {
+            kind: "browser",
+            network_scope: "local",
+            transport_auth: "ticket",
+            control_capabilities: {
+              can_pause: true,
+              can_seek: true,
+              can_set_volume: true,
+              can_stop: true,
+            },
+            media_capabilities: {
+              direct_play: true,
+            },
+          },
+          decision: {
+            mode: "direct_play",
+            reason: "compatible",
+            direct_play: {},
+            transcode_plan: null,
+            denial: null,
+            report: {
+              selected_mode: "direct_play",
+              direct_play: { supported: true, conditions: ["compatible"] },
+              remux: { supported: true, conditions: ["compatible"] },
+              transcode: { supported: false, conditions: ["requested_transcode_output"] },
+            },
+          },
+        })
+      }
+
+      if (url.pathname === "/sources/source-1/probe") {
+        const disposition = {
+          attached_pic: false,
+          captions: false,
+          commentary: false,
+          default: true,
+          descriptions: false,
+          forced: false,
+          hearing_impaired: false,
+          visual_impaired: false,
+        }
+
+        return jsonResponse({
+          source_id: "source-1",
+          probe: {
+            container: "matroska",
+            duration_ms: 60000,
+            bit_rate: null,
+            streams: [
+              {
+                index: 0,
+                kind: "video",
+                codec: "h264",
+                language: null,
+                duration_ms: 60000,
+                bit_rate: null,
+                width: 1920,
+                height: 1080,
+                channels: null,
+                sample_rate: null,
+                disposition,
+                origin: null,
+              },
+              {
+                index: 2,
+                kind: "subtitle",
+                codec: "srt",
+                language: "en",
+                duration_ms: null,
+                bit_rate: null,
+                width: null,
+                height: null,
+                channels: null,
+                sample_rate: null,
+                disposition,
+                origin: "sidecar",
+              },
+            ],
+          },
+        })
+      }
+
+      if (url.pathname === "/sources/source-1/playback/browser-ticket") {
+        const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined
+        ticketBodies.push(body)
+        if (body?.mode === "subtitle") {
+          return jsonResponse({
+            source_id: "source-1",
+            item_id: "live-movie",
+            mode: "subtitle",
+            expires_at: "2026-05-28T10:00:00Z",
+            urls: [
+              {
+                kind: "subtitle",
+                url: "/sources/source-1/subtitles/2?ticket=subtitle-ticket",
+                content_type: "application/x-subrip; charset=utf-8",
+                supports_range_requests: false,
+              },
+            ],
+          })
+        }
+
+        return jsonResponse({
+          source_id: "source-1",
+          item_id: "live-movie",
+          mode: "direct",
+          expires_at: "2026-05-28T10:00:00Z",
+          urls: [
+            {
+              kind: "stream",
+              url: "/sources/source-1/stream?ticket=video-ticket",
+              content_type: "video/x-matroska",
+              supports_range_requests: true,
+            },
+          ],
+        })
+      }
+
+      return jsonResponse({ message: "not found" }, 404)
+    })
+
+    const source = createPublicMediaDataSource(
+      {
+        mode: "live",
+        baseUrl: "http://nako.test/",
+        bearerToken: "public-token",
+      },
+      fetcher,
+    )
+
+    const plan = await source.loadPlaybackPlan("live-movie", "movie", "source-1")
+
+    expect(plan).toMatchObject({
+      source: "live",
+      fallback: false,
+      sourceId: "source-1",
+      mode: "direct",
+      mediaUrl: "http://nako.test/sources/source-1/stream?ticket=video-ticket",
+      subtitles: [
+        {
+          streamIndex: 2,
+          language: "en",
+          srcLang: "en",
+          url: "http://nako.test/sources/source-1/subtitles/2?ticket=subtitle-ticket",
+          contentType: "application/x-subrip; charset=utf-8",
+          default: true,
+        },
+      ],
+    })
+    expect(plan.mediaUrl).not.toContain("public-token")
+    expect(plan.subtitles[0].url).not.toContain("public-token")
+    expect(ticketBodies).toEqual([
+      {
+        mode: "direct",
+        capabilities: {
+          direct_play: true,
+          supports_subtitles: true,
+          hls_variant_policy: "single_variant",
+          hls_segment_container: "mpeg_ts",
+        },
+      },
+      {
+        mode: "subtitle",
+        subtitle_stream_index: 2,
+      },
+    ])
+  })
 })
 
 describe("admin dashboard data source contracts", () => {

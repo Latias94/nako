@@ -48,6 +48,7 @@ interface VideoPlayerProps {
   sources?: {
     quality: string
     url: string
+    contentType?: string
   }[]
   audioTracks?: {
     id: string
@@ -58,6 +59,10 @@ interface VideoPlayerProps {
     id: string
     language: string
     url?: string
+    srcLang?: string
+    default?: boolean
+    forced?: boolean
+    contentType?: string
   }[]
   startTime?: number // 续播位置（秒）
   hasPrevious?: boolean
@@ -106,15 +111,41 @@ export function VideoPlayer({
   // 设置
   const [selectedQuality, setSelectedQuality] = useState(sources[0]?.quality || "4K")
   const [selectedAudio, setSelectedAudio] = useState(audioTracks[0]?.id || "en")
-  const [selectedSubtitle, setSelectedSubtitle] = useState("chs")
+  const [selectedSubtitle, setSelectedSubtitle] = useState(
+    subtitles.find((sub) => sub.default)?.id ?? "none",
+  )
   const [playbackSpeed, setPlaybackSpeed] = useState("1")
   
   const containerRef = useRef<HTMLDivElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
   const hideControlsTimeout = useRef<NodeJS.Timeout | null>(null)
   const progressInterval = useRef<NodeJS.Timeout | null>(null)
+  const selectedSource = sources.find((source) => source.quality === selectedQuality) ?? sources[0]
+  const selectedSourceUrl = selectedSource?.url?.trim() ?? ""
+  const hasPlayableSource = selectedSourceUrl.length > 0
+  const subtitleOptions = [{ id: "none", language: "关闭" }, ...subtitles]
+
+  useEffect(() => {
+    if (!sources.some((source) => source.quality === selectedQuality)) {
+      setSelectedQuality(sources[0]?.quality || "Auto")
+    }
+  }, [selectedQuality, sources])
+
+  useEffect(() => {
+    const defaultSubtitleId = subtitles.find((sub) => sub.default)?.id ?? "none"
+    setSelectedSubtitle((current) =>
+      current === "none" || subtitles.some((sub) => sub.id === current)
+        ? current
+        : defaultSubtitleId,
+    )
+  }, [subtitles])
 
   // 模拟播放进度
   useEffect(() => {
+    if (hasPlayableSource) {
+      return
+    }
+
     if (isPlaying && !isBuffering) {
       progressInterval.current = setInterval(() => {
         setCurrentTime(prev => {
@@ -132,7 +163,41 @@ export function VideoPlayer({
         clearInterval(progressInterval.current)
       }
     }
-  }, [isPlaying, isBuffering, duration, playbackSpeed])
+  }, [hasPlayableSource, isPlaying, isBuffering, duration, playbackSpeed])
+
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || !hasPlayableSource) {
+      return
+    }
+
+    if (isPlaying) {
+      video.play().catch(() => setIsPlaying(false))
+    } else {
+      video.pause()
+    }
+  }, [hasPlayableSource, isPlaying, selectedSourceUrl])
+
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.playbackRate = Number.parseFloat(playbackSpeed)
+    }
+  }, [playbackSpeed])
+
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || !hasPlayableSource) {
+      return
+    }
+
+    const textTracks = Array.from(video.textTracks)
+    subtitles.forEach((sub, index) => {
+      const track = textTracks[index]
+      if (track) {
+        track.mode = sub.id === selectedSubtitle ? "showing" : "disabled"
+      }
+    })
+  }, [hasPlayableSource, selectedSubtitle, subtitles])
 
   // 自动隐藏控制栏
   const resetHideTimeout = useCallback(() => {
@@ -252,9 +317,52 @@ export function VideoPlayer({
         }
       }}
     >
-      {/* 视频区域 (模拟) */}
+      {/* 视频区域 */}
       <div className="absolute inset-0 flex items-center justify-center bg-black">
-        <div className="text-muted-foreground">
+        {hasPlayableSource ? (
+          <video
+            ref={videoRef}
+            className="h-full w-full bg-black object-contain"
+            playsInline
+            preload="metadata"
+            onLoadedMetadata={(event) => {
+              const nextDuration = event.currentTarget.duration
+              if (Number.isFinite(nextDuration) && nextDuration > 0) {
+                setDuration(nextDuration)
+              }
+            }}
+            onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
+            onWaiting={() => setIsBuffering(true)}
+            onCanPlay={() => setIsBuffering(false)}
+            onPlaying={() => {
+              setIsBuffering(false)
+              setIsPlaying(true)
+            }}
+            onPause={() => setIsPlaying(false)}
+            data-testid="nako-video-player"
+          >
+            <source
+              src={selectedSourceUrl}
+              type={selectedSource?.contentType}
+              data-testid="nako-video-source"
+            />
+            {subtitles
+              .filter((sub) => sub.url?.trim())
+              .map((sub) => (
+                <track
+                  key={sub.id}
+                  kind="subtitles"
+                  src={sub.url}
+                  srcLang={sub.srcLang ?? "und"}
+                  label={sub.language}
+                  default={sub.default}
+                  data-subtitle-id={sub.id}
+                  data-testid="nako-video-subtitle-track"
+                />
+              ))}
+          </video>
+        ) : (
+          <div className="text-muted-foreground">
           {isBuffering ? (
             <Loader2 className="h-16 w-16 animate-spin" />
           ) : (
@@ -269,7 +377,8 @@ export function VideoPlayer({
               <p className="text-sm">视频播放区域</p>
             </div>
           )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* 顶部渐变 & 标题栏 */}
@@ -471,7 +580,7 @@ export function VideoPlayer({
                 <DropdownMenuLabel>字幕</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuRadioGroup value={selectedSubtitle} onValueChange={setSelectedSubtitle}>
-                  {subtitles.map((sub) => (
+                  {subtitleOptions.map((sub) => (
                     <DropdownMenuRadioItem key={sub.id} value={sub.id}>
                       {sub.language}
                     </DropdownMenuRadioItem>

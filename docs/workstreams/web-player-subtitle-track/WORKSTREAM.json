@@ -1,0 +1,19 @@
+{
+  "id": "web-player-subtitle-track",
+  "title": "Web Player Subtitle Track",
+  "status": "complete",
+  "created_at": "2026-05-28",
+  "owner": "codex",
+  "scope": [
+    "web/src/api/public/media-data-source.ts",
+    "web/lib/use-media.ts",
+    "web/src/features/media/media-surface.tsx",
+    "web/src/features/media/video-player.tsx",
+    "web/src/test"
+  ],
+  "notes": [
+    "Build a Public Client playback plan from source probe plus browser playback tickets.",
+    "Render sidecar subtitle browser-ticket URLs as native video track elements.",
+    "Keep bearer tokens out of media and subtitle URLs; ticket URLs remain opaque playback URLs."
+  ]
+}
