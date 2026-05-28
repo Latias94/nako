@@ -35,8 +35,25 @@ import {
 } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 
-type LogLevel = "error" | "warn" | "info" | "debug"
-type LogSource = "server" | "auth" | "database" | "api" | "playback" | "scanner"
+export type LogLevel = "error" | "warn" | "info" | "debug"
+export type LogSource = "server" | "auth" | "database" | "api" | "playback" | "scanner"
+export type AdminLogsTab = "all" | "errors" | "warnings"
+
+export interface AdminLogsRouteState {
+  query?: string
+  levels?: LogLevel[]
+  sources?: LogSource[]
+  tab?: AdminLogsTab
+  timeRange?: string
+}
+
+interface AdminLogsProps {
+  routeState?: AdminLogsRouteState
+  onRouteStateChange?: (state: AdminLogsRouteState) => void
+}
+
+export const LOG_LEVELS: LogLevel[] = ["error", "warn", "info", "debug"]
+export const LOG_SOURCES: LogSource[] = ["server", "auth", "database", "api", "playback", "scanner"]
 
 interface LogEntry {
   id: string
@@ -51,8 +68,8 @@ interface LogEntry {
 
 // 生成大量模拟日志数据
 const generateLogs = (count: number = 500): LogEntry[] => {
-  const sources: LogSource[] = ["server", "auth", "database", "api", "playback", "scanner"]
-  const levels: LogLevel[] = ["error", "warn", "info", "debug"]
+  const sources = LOG_SOURCES
+  const levels = LOG_LEVELS
   
   const messages = {
     server: [
@@ -136,19 +153,54 @@ const timeRanges = [
   { value: "custom", label: "自定义范围" },
 ]
 
-export function AdminLogs() {
+interface NormalizedAdminLogsRouteState extends Required<AdminLogsRouteState> {
+  levelsKey: string
+  sourcesKey: string
+}
+
+function normalizeAdminLogsRouteState(routeState?: AdminLogsRouteState): NormalizedAdminLogsRouteState {
+  const levels = routeState?.levels ?? LOG_LEVELS
+  const sources = routeState?.sources ?? LOG_SOURCES
+
+  return {
+    query: routeState?.query ?? "",
+    levels: [...levels],
+    sources: [...sources],
+    tab: routeState?.tab ?? "all",
+    timeRange: routeState?.timeRange ?? "24h",
+    levelsKey: levels.join(","),
+    sourcesKey: sources.join(","),
+  }
+}
+
+export function AdminLogs({ routeState, onRouteStateChange }: AdminLogsProps = {}) {
+  const normalizedRouteState = normalizeAdminLogsRouteState(routeState)
   const [logs] = useState<LogEntry[]>(() => generateLogs(500))
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedLevels, setSelectedLevels] = useState<LogLevel[]>(["error", "warn", "info", "debug"])
-  const [selectedSources, setSelectedSources] = useState<LogSource[]>(["server", "auth", "database", "api", "playback", "scanner"])
-  const [activeTab, setActiveTab] = useState<"all" | "errors" | "warnings">("all")
+  const [searchQuery, setSearchQuery] = useState(normalizedRouteState.query)
+  const [selectedLevels, setSelectedLevels] = useState<LogLevel[]>(normalizedRouteState.levels)
+  const [selectedSources, setSelectedSources] = useState<LogSource[]>(normalizedRouteState.sources)
+  const [activeTab, setActiveTab] = useState<AdminLogsTab>(normalizedRouteState.tab)
   const [isLive, setIsLive] = useState(true)
   const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set())
   const [copiedId, setCopiedId] = useState<string | null>(null)
-  const [timeRange, setTimeRange] = useState("24h")
+  const [timeRange, setTimeRange] = useState(normalizedRouteState.timeRange)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   
   const parentRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setSearchQuery(normalizedRouteState.query)
+    setSelectedLevels(normalizedRouteState.levels)
+    setSelectedSources(normalizedRouteState.sources)
+    setActiveTab(normalizedRouteState.tab)
+    setTimeRange(normalizedRouteState.timeRange)
+  }, [
+    normalizedRouteState.query,
+    normalizedRouteState.levelsKey,
+    normalizedRouteState.sourcesKey,
+    normalizedRouteState.tab,
+    normalizedRouteState.timeRange,
+  ])
 
   // 根据时间范围过滤
   const getTimeRangeFilter = useCallback((range: string) => {
@@ -233,20 +285,48 @@ export function AdminLogs() {
     }
   }
 
+  const emitRouteState = (nextState: AdminLogsRouteState) => {
+    onRouteStateChange?.({
+      query: searchQuery || undefined,
+      levels: selectedLevels,
+      sources: selectedSources,
+      tab: activeTab,
+      timeRange,
+      ...nextState,
+    })
+  }
+
+  const handleSearchQueryChange = (query: string) => {
+    setSearchQuery(query)
+    emitRouteState({ query: query || undefined })
+  }
+
+  const handleTimeRangeChange = (range: string) => {
+    setTimeRange(range)
+    emitRouteState({ timeRange: range })
+  }
+
+  const handleTabChange = (tab: AdminLogsTab) => {
+    setActiveTab(tab)
+    emitRouteState({ tab })
+  }
+
   const toggleLevel = (level: LogLevel) => {
-    setSelectedLevels(prev => 
-      prev.includes(level) 
-        ? prev.filter(l => l !== level)
-        : [...prev, level]
-    )
+    const nextLevels = selectedLevels.includes(level)
+      ? selectedLevels.filter(l => l !== level)
+      : [...selectedLevels, level]
+
+    setSelectedLevels(nextLevels)
+    emitRouteState({ levels: nextLevels })
   }
 
   const toggleSource = (source: LogSource) => {
-    setSelectedSources(prev =>
-      prev.includes(source)
-        ? prev.filter(s => s !== source)
-        : [...prev, source]
-    )
+    const nextSources = selectedSources.includes(source)
+      ? selectedSources.filter(s => s !== source)
+      : [...selectedSources, source]
+
+    setSelectedSources(nextSources)
+    emitRouteState({ sources: nextSources })
   }
 
   const formatTimestamp = (timestamp: string) => {
@@ -371,13 +451,13 @@ export function AdminLogs() {
           <Input
             placeholder="搜索日志内容..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => handleSearchQueryChange(e.target.value)}
             className="pl-9"
           />
         </div>
         
         {/* 时间范围选择 */}
-        <Select value={timeRange} onValueChange={setTimeRange}>
+        <Select value={timeRange} onValueChange={handleTimeRangeChange}>
           <SelectTrigger className="w-[140px]">
             <Calendar className="mr-2 h-4 w-4" />
             <SelectValue />
@@ -441,7 +521,7 @@ export function AdminLogs() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
+      <Tabs value={activeTab} onValueChange={(v) => handleTabChange(v as AdminLogsTab)}>
         <TabsList>
           <TabsTrigger value="all">全部日志</TabsTrigger>
           <TabsTrigger value="errors" className="gap-2">

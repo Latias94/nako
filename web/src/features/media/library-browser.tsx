@@ -172,6 +172,14 @@ const sortOptions = [
 ]
 
 type ViewMode = "grid" | "detail" | "table"
+type SortOrder = "asc" | "desc"
+
+export interface LibraryBrowserRouteState {
+  viewMode?: ViewMode
+  quickFilter?: string
+  sortBy?: string
+  sortOrder?: SortOrder
+}
 
 interface LibraryBrowserProps {
   onBack?: () => void
@@ -179,17 +187,29 @@ interface LibraryBrowserProps {
   onEditMedia?: (mediaId: string) => void
   onSearch?: (query: string, libraryId?: string) => void
   isAdmin?: boolean
+  routeState?: LibraryBrowserRouteState
+  onRouteStateChange?: (state: LibraryBrowserRouteState) => void
 }
 
-export function LibraryBrowser({ onBack, onSelectMedia, onEditMedia, onSearch, isAdmin = false }: LibraryBrowserProps) {
+export function LibraryBrowser({
+  onBack,
+  onSelectMedia,
+  onEditMedia,
+  onSearch,
+  isAdmin = false,
+  routeState,
+  onRouteStateChange,
+}: LibraryBrowserProps) {
+  const normalizedRouteState = normalizeLibraryRouteState(routeState)
+
   // State
   const [currentLibrary, setCurrentLibrary] = useState(mockLibraries[0])
   const [activeTab, setActiveTab] = useState<"recommend" | "library" | "collections" | "categories">("library")
-  const [viewMode, setViewMode] = useState<ViewMode>("grid")
-  const [quickFilter, setQuickFilter] = useState("all")
+  const [viewMode, setViewMode] = useState<ViewMode>(normalizedRouteState.viewMode)
+  const [quickFilter, setQuickFilter] = useState(normalizedRouteState.quickFilter)
   const [categoryFilter, setCategoryFilter] = useState<{ type: string; value: string } | null>(null)
-  const [sortBy, setSortBy] = useState("addedAt")
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
+  const [sortBy, setSortBy] = useState(normalizedRouteState.sortBy)
+  const [sortOrder, setSortOrder] = useState<SortOrder>(normalizedRouteState.sortOrder)
   const [isScanning, setIsScanning] = useState(false)
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [isSelectionMode, setIsSelectionMode] = useState(false)
@@ -207,6 +227,18 @@ export function LibraryBrowser({ onBack, onSelectMedia, onEditMedia, onSearch, i
   const loadMoreRef = useRef<HTMLDivElement>(null)
   const detailListRef = useRef<HTMLDivElement>(null)
   const tableContainerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setViewMode(normalizedRouteState.viewMode)
+    setQuickFilter(normalizedRouteState.quickFilter)
+    setSortBy(normalizedRouteState.sortBy)
+    setSortOrder(normalizedRouteState.sortOrder)
+  }, [
+    normalizedRouteState.viewMode,
+    normalizedRouteState.quickFilter,
+    normalizedRouteState.sortBy,
+    normalizedRouteState.sortOrder,
+  ])
 
   // Virtualizer for detail view (only active when detail view mode)
   const detailVirtualizer = useVirtualizer({
@@ -328,14 +360,39 @@ export function LibraryBrowser({ onBack, onSelectMedia, onEditMedia, onSearch, i
     setTimeout(() => setIsScanning(false), 3000)
   }
 
+  const emitRouteState = (nextState: LibraryBrowserRouteState) => {
+    onRouteStateChange?.({
+      viewMode,
+      quickFilter,
+      sortBy,
+      sortOrder,
+      ...nextState,
+    })
+  }
+
+  const handleViewModeChange = (nextViewMode: ViewMode) => {
+    setViewMode(nextViewMode)
+    emitRouteState({ viewMode: nextViewMode })
+  }
+
+  const handleQuickFilterChange = (nextQuickFilter: string) => {
+    setQuickFilter(nextQuickFilter)
+    emitRouteState({ quickFilter: nextQuickFilter })
+  }
+
   // Handle sort click - toggle order if same field
   const handleSortClick = (field: string) => {
+    const nextSortBy = field
+    const nextSortOrder = sortBy === field ? (sortOrder === "asc" ? "desc" : "asc") : "desc"
+
     if (sortBy === field) {
-      setSortOrder(prev => prev === "asc" ? "desc" : "asc")
+      setSortOrder(nextSortOrder)
     } else {
-      setSortBy(field)
-      setSortOrder("desc")
+      setSortBy(nextSortBy)
+      setSortOrder(nextSortOrder)
     }
+
+    emitRouteState({ sortBy: nextSortBy, sortOrder: nextSortOrder })
   }
 
   // Selection handlers
@@ -463,7 +520,7 @@ export function LibraryBrowser({ onBack, onSelectMedia, onEditMedia, onSearch, i
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-48">
                 {quickFilters.map((filter) => (
-                  <DropdownMenuItem key={filter.id} onClick={() => setQuickFilter(filter.id)}>
+                  <DropdownMenuItem key={filter.id} onClick={() => handleQuickFilterChange(filter.id)}>
                     <span className="flex-1">{filter.label}</span>
                     {quickFilter === filter.id && <Check className="h-4 w-4 text-primary" />}
                   </DropdownMenuItem>
@@ -582,7 +639,7 @@ export function LibraryBrowser({ onBack, onSelectMedia, onEditMedia, onSearch, i
                 variant={viewMode === "grid" ? "secondary" : "ghost"}
                 size="icon"
                 className="h-7 w-7"
-                onClick={() => setViewMode("grid")}
+                onClick={() => handleViewModeChange("grid")}
               >
                 <LayoutGrid className="h-3.5 w-3.5" />
               </Button>
@@ -590,7 +647,7 @@ export function LibraryBrowser({ onBack, onSelectMedia, onEditMedia, onSearch, i
                 variant={viewMode === "detail" ? "secondary" : "ghost"}
                 size="icon"
                 className="h-7 w-7"
-                onClick={() => setViewMode("detail")}
+                onClick={() => handleViewModeChange("detail")}
               >
                 <List className="h-3.5 w-3.5" />
               </Button>
@@ -598,7 +655,7 @@ export function LibraryBrowser({ onBack, onSelectMedia, onEditMedia, onSearch, i
                 variant={viewMode === "table" ? "secondary" : "ghost"}
                 size="icon"
                 className="h-7 w-7"
-                onClick={() => setViewMode("table")}
+                onClick={() => handleViewModeChange("table")}
               >
                 <Table2 className="h-3.5 w-3.5" />
               </Button>
@@ -961,6 +1018,15 @@ export function LibraryBrowser({ onBack, onSelectMedia, onEditMedia, onSearch, i
       </Dialog>
     </div>
   )
+}
+
+function normalizeLibraryRouteState(routeState?: LibraryBrowserRouteState): Required<LibraryBrowserRouteState> {
+  return {
+    viewMode: routeState?.viewMode ?? "grid",
+    quickFilter: routeState?.quickFilter ?? "all",
+    sortBy: routeState?.sortBy ?? "addedAt",
+    sortOrder: routeState?.sortOrder ?? "desc",
+  }
 }
 
 // ============ Sub Components ============

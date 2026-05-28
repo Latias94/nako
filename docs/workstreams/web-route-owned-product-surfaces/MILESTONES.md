@@ -23,6 +23,8 @@ Exit criteria: accepted Admin child surfaces are deep-linkable.
 
 ## M3 - Navigation And URL State
 
+Status: done.
+
 Exit criteria: durable search/filter/page state lives in route state.
 
 ## M4 - Closeout

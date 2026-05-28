@@ -25,7 +25,7 @@ import { SearchPage } from "./search-page"
 import { UserSelectPage } from "@/src/features/account"
 import { MyListPage } from "./my-list-page"
 import { SettingsPage } from "@/src/features/settings"
-import { LibraryBrowser } from "./library-browser"
+import { LibraryBrowser, type LibraryBrowserRouteState } from "./library-browser"
 import { ActivityHistory } from "./activity-history"
 import { PersonDetail } from "./person-detail"
 import { FilterPage } from "./filter-page"
@@ -60,7 +60,7 @@ type ViewState =
   | { type: "user-select" }
   | { type: "my-list" }
   | { type: "settings" }
-  | { type: "library"; libraryId: string }
+  | { type: "library"; libraryId: string; state?: LibraryBrowserRouteState }
   | { type: "history" }
   | { type: "filter"; libraryId?: string }
   | { type: "downloads" }
@@ -78,7 +78,7 @@ export type MediaSurfaceRouteView =
   | { type: "browse" }
   | { type: "detail"; mediaId: string; mediaType: "movie" | "series" }
   | { type: "search"; query?: string }
-  | { type: "library"; libraryId: string }
+  | { type: "library"; libraryId: string; state?: LibraryBrowserRouteState }
 
 export interface MediaSurfaceProps {
   initialView?: MediaSurfaceRouteView
@@ -406,6 +406,9 @@ export const MediaSurface = forwardRef<MediaSurfaceRef, MediaSurfaceProps>(funct
       <SearchPage
         onBack={goBack}
         initialQuery={viewState.query}
+        onQueryCommit={(query) => {
+          onRouteNavigate?.({ type: "search", query })
+        }}
       />
     )
   }
@@ -444,6 +447,10 @@ export const MediaSurface = forwardRef<MediaSurfaceRef, MediaSurfaceProps>(funct
   // 可以打开编辑器
   }}
   onSearch={() => navigateTo({ type: "search" })}
+  routeState={viewState.state}
+  onRouteStateChange={(state) => {
+  onRouteNavigate?.({ type: "library", libraryId: viewState.libraryId, state })
+  }}
   isAdmin={true}
   />
   )

@@ -56,6 +56,12 @@ const routeContracts: RouteContract[] = [
     },
   },
   {
+    path: "/media/library?id=movies&view=table&sort=title&order=asc&filter=unwatched",
+    assert: async () => {
+      expect(await screen.findByRole("button", { name: /按 标题 排序/ }, { timeout: 5000 })).toBeInTheDocument()
+    },
+  },
+  {
     path: "/admin",
     assert: async () => {
       expect(await screen.findByRole("heading", { name: "仪表盘" }, { timeout: 5000 })).toBeInTheDocument()
@@ -83,6 +89,13 @@ const routeContracts: RouteContract[] = [
     path: "/admin/logs",
     assert: async () => {
       expect(await screen.findByRole("heading", { name: "系统日志" }, { timeout: 5000 })).toBeInTheDocument()
+    },
+  },
+  {
+    path: "/admin/logs?q=database&levels=error,warn&sources=database&tab=errors&time=7d",
+    assert: async () => {
+      expect(await screen.findByDisplayValue("database", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByText("最近7天", {}, { timeout: 5000 })).toBeInTheDocument()
     },
   },
   {

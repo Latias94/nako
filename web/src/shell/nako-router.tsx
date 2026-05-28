@@ -20,7 +20,7 @@ import {
 } from "@tanstack/react-router"
 import { SurfaceSwitcher } from "@/src/shell/surface-switcher"
 import type { MediaSurfaceRef, MediaSurfaceRouteView } from "@/src/features/media"
-import type { AdminSurfaceSection } from "@/src/features/admin"
+import type { AdminLogsRouteState, AdminLogsTab, AdminSurfaceSection, LogLevel, LogSource } from "@/src/features/admin"
 
 const MediaSurface = lazy(() =>
   import("@/src/features/media").then((module) => ({
@@ -184,13 +184,22 @@ function MediaLibraryRoute() {
   const navigate = useNavigate()
   const search = mediaLibraryRoute.useSearch()
   const libraryId = typeof search.id === "string" && search.id.trim() ? search.id : "movies"
-  const initialView: MediaSurfaceRouteView = { type: "library", libraryId }
+  const initialView: MediaSurfaceRouteView = {
+    type: "library",
+    libraryId,
+    state: {
+      viewMode: search.view,
+      quickFilter: search.filter,
+      sortBy: search.sort,
+      sortOrder: search.order,
+    },
+  }
 
   return (
     <MediaSurface
       ref={mediaSurfaceRef}
       initialView={initialView}
-      routeKey={`library:${libraryId}`}
+      routeKey={`library:${libraryId}:${search.view ?? "grid"}:${search.filter ?? "all"}:${search.sort ?? "addedAt"}:${search.order ?? "desc"}`}
       onRouteNavigate={(view) => {
         void navigate(toMediaRoute(view))
       }}
@@ -217,6 +226,24 @@ function AdminSectionRoute({ section }: { section: AdminSurfaceSection }) {
   return (
     <AdminSurface
       activeSection={section}
+      onSectionNavigate={(nextSection) => {
+        void navigate(toAdminRoute(nextSection))
+      }}
+    />
+  )
+}
+
+function AdminLogsRoute() {
+  const navigate = useNavigate()
+  const search = adminLogsRoute.useSearch()
+
+  return (
+    <AdminSurface
+      activeSection="activity"
+      adminLogsState={adminLogsStateFromSearch(search)}
+      onAdminLogsStateChange={(state) => {
+        void navigate({ to: "/admin/logs", search: toAdminLogsSearch(state), replace: true })
+      }}
       onSectionNavigate={(nextSection) => {
         void navigate(toAdminRoute(nextSection))
       }}
@@ -323,6 +350,10 @@ const mediaLibraryRoute = createRoute({
   path: "/media/library",
   validateSearch: (search: Record<string, unknown>) => ({
     id: typeof search.id === "string" ? search.id : undefined,
+    view: mediaLibraryView(search.view),
+    filter: typeof search.filter === "string" ? search.filter : undefined,
+    sort: typeof search.sort === "string" ? search.sort : undefined,
+    order: mediaLibrarySortOrder(search.order),
   }),
   component: MediaLibraryRoute,
 })
@@ -354,7 +385,8 @@ const adminTasksRoute = createRoute({
 const adminLogsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/admin/logs",
-  component: () => <AdminSectionRoute section="activity" />,
+  validateSearch: validateAdminLogsSearch,
+  component: AdminLogsRoute,
 })
 
 const adminSettingsRoute = createRoute({
@@ -490,11 +522,23 @@ function toMediaRoute(view: MediaSurfaceRouteView) {
         to: "/media/library",
         search: {
           id: view.libraryId,
+          view: view.state?.viewMode === "grid" ? undefined : view.state?.viewMode,
+          filter: view.state?.quickFilter === "all" ? undefined : view.state?.quickFilter,
+          sort: view.state?.sortBy === "addedAt" ? undefined : view.state?.sortBy,
+          order: view.state?.sortOrder === "desc" ? undefined : view.state?.sortOrder,
         },
       } as const
     case "browse":
       return { to: "/media" } as const
   }
+}
+
+function mediaLibraryView(value: unknown): "grid" | "detail" | "table" | undefined {
+  return value === "detail" || value === "table" || value === "grid" ? value : undefined
+}
+
+function mediaLibrarySortOrder(value: unknown): "asc" | "desc" | undefined {
+  return value === "asc" || value === "desc" ? value : undefined
 }
 
 function toAdminRoute(section: AdminSurfaceSection) {
@@ -528,6 +572,77 @@ function toAdminRoute(section: AdminSurfaceSection) {
     case "about":
       return { to: "/admin/about" } as const
   }
+}
+
+const ADMIN_LOG_LEVELS: LogLevel[] = ["error", "warn", "info", "debug"]
+const ADMIN_LOG_SOURCES: LogSource[] = ["server", "auth", "database", "api", "playback", "scanner"]
+const ADMIN_LOG_TABS: AdminLogsTab[] = ["all", "errors", "warnings"]
+const ADMIN_LOG_TIME_RANGES = ["1h", "6h", "24h", "7d", "30d", "custom"]
+
+interface AdminLogsRouteSearch {
+  q?: string
+  levels?: string
+  sources?: string
+  tab?: AdminLogsTab
+  time?: string
+}
+
+function validateAdminLogsSearch(search: Record<string, unknown>): AdminLogsRouteSearch {
+  const levels = parseAdminLogList(search.levels, ADMIN_LOG_LEVELS)
+  const sources = parseAdminLogList(search.sources, ADMIN_LOG_SOURCES)
+
+  return {
+    q: typeof search.q === "string" ? search.q : undefined,
+    levels: levels ? levels.join(",") : undefined,
+    sources: sources ? sources.join(",") : undefined,
+    tab: parseAdminLogValue(search.tab, ADMIN_LOG_TABS),
+    time: parseAdminLogValue(search.time, ADMIN_LOG_TIME_RANGES),
+  }
+}
+
+function parseAdminLogList<T extends string>(value: unknown, allowed: T[]): T[] | undefined {
+  if (typeof value !== "string") return undefined
+  if (value.trim() === "") return []
+
+  const allowedSet = new Set(allowed)
+  const parsed = value
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item): item is T => allowedSet.has(item as T))
+
+  return parsed.length > 0 ? parsed : undefined
+}
+
+function parseAdminLogValue<T extends string>(value: unknown, allowed: T[]): T | undefined {
+  return typeof value === "string" && allowed.includes(value as T) ? (value as T) : undefined
+}
+
+function adminLogsStateFromSearch(search: AdminLogsRouteSearch): AdminLogsRouteState {
+  return {
+    query: search.q,
+    levels: parseAdminLogList(search.levels, ADMIN_LOG_LEVELS),
+    sources: parseAdminLogList(search.sources, ADMIN_LOG_SOURCES),
+    tab: search.tab,
+    timeRange: search.time,
+  }
+}
+
+function toAdminLogsSearch(state: AdminLogsRouteState) {
+  return {
+    q: state.query || undefined,
+    levels: isDefaultAdminLogSet(state.levels, ADMIN_LOG_LEVELS) ? undefined : state.levels?.join(","),
+    sources: isDefaultAdminLogSet(state.sources, ADMIN_LOG_SOURCES) ? undefined : state.sources?.join(","),
+    tab: state.tab && state.tab !== "all" ? state.tab : undefined,
+    time: state.timeRange && state.timeRange !== "24h" ? state.timeRange : undefined,
+  }
+}
+
+function isDefaultAdminLogSet<T extends string>(value: T[] | undefined, defaults: T[]) {
+  if (!value) return true
+  if (value.length !== defaults.length) return false
+
+  const defaultSet = new Set(defaults)
+  return value.every((item) => defaultSet.has(item))
 }
 
 interface NakoRouterOptions {

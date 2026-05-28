@@ -29,11 +29,11 @@ Last updated: 2026-05-28
 
 ## M3 - Navigation And URL State
 
-- [ ] WROP-040 [owner=Codex] [deps=WROP-030] [scope=web/src/features,web/src/shell]
+- [x] WROP-040 [owner=Codex] [deps=WROP-030] [scope=web/src/features,web/src/shell]
   Goal: Move durable filters/search/page state into route params/search params.
   Validation: npm --prefix web run test && npm --prefix web run build.
   Evidence: route state tests.
-  Handoff: READY.
+  Handoff: DONE. Media search/library state and Admin log search/filter state are URL-owned and covered by route state contracts.
 
 ## M4 - Closeout
 
@@ -41,4 +41,4 @@ Last updated: 2026-05-28
   Goal: Close route-owned surface lane.
   Validation: npm --prefix web run test && npm --prefix web run build plus static smoke.
   Evidence: EVIDENCE_AND_GATES.md
-  Handoff: Activate `web-connection-auth-tauri-profile`.
+  Handoff: READY.

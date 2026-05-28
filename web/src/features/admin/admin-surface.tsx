@@ -56,6 +56,7 @@ import { AdminLibraries } from "./admin-libraries"
 import { AdminUsers } from "./admin-users"
 import { AdminPlugins } from "./admin-plugins"
 import { AdminLogs } from "./admin-logs"
+import type { AdminLogsRouteState } from "./admin-logs"
 import { AdminScheduledTasks } from "./admin-scheduled-tasks"
 import {
   ADMIN_DASHBOARD_FIXTURE,
@@ -85,6 +86,8 @@ export type AdminSurfaceSection =
 export interface AdminSurfaceProps {
   activeSection?: AdminSurfaceSection
   onSectionNavigate?: (section: AdminSurfaceSection) => void
+  adminLogsState?: AdminLogsRouteState
+  onAdminLogsStateChange?: (state: AdminLogsRouteState) => void
 }
 
 interface AdminNavItem {
@@ -160,7 +163,12 @@ const scheduledTasks = [
   { name: "缓存清理", schedule: "每周一 02:00", lastRun: "本周一", nextRun: "下周一 02:00", status: "idle" },
 ]
 
-export function AdminSurface({ activeSection = "dashboard", onSectionNavigate }: AdminSurfaceProps = {}) {
+export function AdminSurface({
+  activeSection = "dashboard",
+  onSectionNavigate,
+  adminLogsState,
+  onAdminLogsStateChange,
+}: AdminSurfaceProps = {}) {
   const [activeComponent, setActiveComponent] = useState<AdminSurfaceSection>(activeSection)
   const { data: dashboardData = ADMIN_DASHBOARD_FIXTURE } = useQuery({
     queryKey: ["nako", "admin", "dashboard"],
@@ -192,7 +200,7 @@ export function AdminSurface({ activeSection = "dashboard", onSectionNavigate }:
       case "plugins":
         return <AdminPlugins />
       case "activity":
-        return <AdminLogs />
+        return <AdminLogs routeState={adminLogsState} onRouteStateChange={onAdminLogsStateChange} />
       case "scheduled-tasks":
         return <AdminScheduledTasks />
       case "dlna":

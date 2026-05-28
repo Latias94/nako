@@ -206,9 +206,10 @@ const mockRemoteResults: SearchResult[] = [
 interface SearchPageProps {
   onBack: () => void
   initialQuery?: string
+  onQueryCommit?: (query: string) => void
 }
 
-export function SearchPage({ onBack, initialQuery = "" }: SearchPageProps) {
+export function SearchPage({ onBack, initialQuery = "", onQueryCommit }: SearchPageProps) {
   // 状态
   const [query, setQuery] = useState(initialQuery)
   const [isSearching, setIsSearching] = useState(false)
@@ -238,6 +239,10 @@ export function SearchPage({ onBack, initialQuery = "" }: SearchPageProps) {
   useEffect(() => {
     inputRef.current?.focus()
   }, [])
+
+  useEffect(() => {
+    setQuery(initialQuery)
+  }, [initialQuery])
 
   // 活跃的搜索源
   const activeSources = useMemo(() => sources.filter(s => s.enabled && s.status === "connected"), [sources])
@@ -306,8 +311,11 @@ export function SearchPage({ onBack, initialQuery = "" }: SearchPageProps) {
 
   // 搜索处理
   const handleSearch = async () => {
-    if (!query.trim()) return
-    performSearch(query)
+    const trimmedQuery = query.trim()
+    if (!trimmedQuery) return
+
+    onQueryCommit?.(trimmedQuery)
+    performSearch(trimmedQuery)
   }
 
   // 执行搜索 - 支持传入搜索词
