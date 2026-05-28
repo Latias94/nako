@@ -2291,8 +2291,8 @@ mod tests {
         let generated = admin_typescript_contract().replace("\r\n", "\n");
         let app_local = include_str!("../../../apps/admin-web/src/adminApi/generated/contract.ts")
             .replace("\r\n", "\n");
-        let web_local = include_str!("../../../web/src/api/admin/generated/contract.ts")
-            .replace("\r\n", "\n");
+        let web_local =
+            include_str!("../../../web/src/api/admin/generated/contract.ts").replace("\r\n", "\n");
 
         assert_eq!(
             app_local, generated,
