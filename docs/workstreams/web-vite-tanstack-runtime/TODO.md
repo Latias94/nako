@@ -1,6 +1,6 @@
 # Web Vite TanStack Runtime - TODO
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 ## M0 - Scope And Evidence Freeze
@@ -41,9 +41,9 @@ Last updated: 2026-05-28
 
 ## M4 - Closeout
 
-- [ ] WVRT-050 [owner=planner] [deps=WVRT-040] [scope=docs/workstreams/web-vite-tanstack-runtime]
+- [x] WVRT-050 [owner=planner] [deps=WVRT-040] [scope=docs/workstreams/web-vite-tanstack-runtime]
   Goal: Close the runtime migration lane or split any remaining runtime-only follow-ons.
   Validation: EVIDENCE_AND_GATES.md includes final command evidence and bundle notes.
   Review: review-workstream has no blocking findings.
   Evidence: EVIDENCE_AND_GATES.md, HANDOFF.md, WORKSTREAM.json.
-  Handoff: Summarize remaining risks and next frontend lane.
+  Handoff: DONE. Runtime migration is closed; remaining work is product feature wiring, route/data-source tests, source-tree reshaping, and bundle optimization rather than Next runtime cleanup.

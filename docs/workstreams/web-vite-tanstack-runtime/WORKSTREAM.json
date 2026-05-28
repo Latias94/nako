@@ -2,17 +2,18 @@
   "schema_version": 1,
   "slug": "web-vite-tanstack-runtime",
   "title": "Web Vite TanStack Runtime",
-  "status": "active",
+  "status": "complete",
   "updated": "2026-05-28",
   "scope_kind": "frontend_runtime_migration",
   "problem": "Nako Web still carries a temporary Next.js bootstrap shell even though route ownership, API seams, and Tauri packaging are now static TanStack responsibilities.",
   "task_prefix": "WVRT",
-  "current_task": "WVRT-050",
+  "current_task": null,
   "completed_tasks": [
     "WVRT-010",
     "WVRT-020",
     "WVRT-030",
-    "WVRT-040"
+    "WVRT-040",
+    "WVRT-050"
   ],
   "authoritative_docs": [
     {
@@ -53,7 +54,8 @@
     "WVRT-010 opened this durable runtime migration lane from the completed WVTR copy-first refactor.",
     "WVRT-020 added the Vite React entry, moved root runtime concerns into Vite-owned files, preserved /tv through TanStack Router, and passed npm --prefix web run check plus npm --prefix web run build.",
     "WVRT-030 removed Next app wrappers, Next config/type files, and Next dependencies while keeping Vite check/build green and preserving the route inventory.",
-    "WVRT-040 pointed Tauri at Vite dist, passed static route smoke with no console messages, passed Tauri tests, and built the Windows shell binary without a Node sidecar."
+    "WVRT-040 pointed Tauri at Vite dist, passed static route smoke with no console messages, passed Tauri tests, and built the Windows shell binary without a Node sidecar.",
+    "WVRT-050 closed the runtime migration lane and split remaining route/data-source tests, bundle optimization, source-tree reshaping, and product feature wiring as follow-ons."
   ],
   "adr_refs": [
     "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
@@ -63,7 +65,7 @@
     "docs/adr/0037-local-credential-and-session-auth.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "Continue through bounded WVRT tasks. Split follow-ons only for product feature wiring, visual redesign, native playback, mobile packaging, or broad source-tree reshaping."
+    "default_action": "split_follow_on",
+    "notes": "This WVRT lane is closed. Continue in narrower follow-ons for route/data-source tests, initial bundle optimization, source-tree reshaping, expanded Admin/Addons/media feature wiring, native playback, or mobile packaging."
   }
 }

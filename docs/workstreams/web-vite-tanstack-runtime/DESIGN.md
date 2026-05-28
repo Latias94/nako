@@ -1,6 +1,6 @@
 # Web Vite TanStack Runtime
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 ## Why This Lane Exists
@@ -27,10 +27,10 @@ files that do not express Nako's runtime architecture.
 
 ## Problem
 
-`web/` still has a Next app directory, `next.config.mjs`, `next-env.d.ts`, Next
-scripts, Next type plugins, and a `next` dependency even though runtime behavior
-is a static TanStack app. That blurs ownership and makes the desktop shell carry
-framework assumptions it no longer needs.
+Before this lane, `web/` still had a Next app directory, `next.config.mjs`,
+`next-env.d.ts`, Next scripts, Next type plugins, and a `next` dependency even
+though runtime behavior was a static TanStack app. That blurred ownership and
+made the desktop shell carry framework assumptions it no longer needed.
 
 ## Target State
 
@@ -105,3 +105,8 @@ This lane can close when:
   Tauri tests, and Tauri build evidence pass or have documented blockers;
 - bundle evidence is recorded for the Vite build;
 - old Next files and dependencies are deleted.
+
+Closeout status: complete as of 2026-05-28. Vite is the only web build/runtime
+tool, TanStack Router owns the shipped route inventory, Tauri consumes
+`web/dist`, and the old Next app/config/type/dependency surface has been
+deleted.

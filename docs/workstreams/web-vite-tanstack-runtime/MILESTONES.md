@@ -1,6 +1,6 @@
 # Web Vite TanStack Runtime - Milestones
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 ## M0 - Scope Freeze
@@ -45,6 +45,8 @@ Exit criteria:
 - Tauri consumes `dist` and builds without a Node sidecar.
 
 ## M4 - Closeout
+
+Status: done.
 
 Exit criteria:
 
