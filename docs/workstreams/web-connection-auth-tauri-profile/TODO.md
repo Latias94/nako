@@ -1,15 +1,15 @@
 # Web Connection Auth Tauri Profile - TODO
 
-Status: Queued
+Status: Active
 Last updated: 2026-05-28
 
 ## M0 - Activation
 
-- [ ] WCAT-010 [owner=planner] [deps=WROP-050] [scope=docs/workstreams/web-connection-auth-tauri-profile]
+- [x] WCAT-010 [owner=planner] [deps=WROP-050] [scope=docs/workstreams/web-connection-auth-tauri-profile]
   Goal: Activate connection/auth lane after route ownership closes.
   Validation: WROP complete.
   Evidence: WORKSTREAM.json
-  Handoff: Next task is WCAT-020.
+  Handoff: DONE. WROP is complete; next task is WCAT-020.
 
 ## M1 - Connection State
 
@@ -17,7 +17,7 @@ Last updated: 2026-05-28
   Goal: Create a tested connection state boundary for browser and Tauri modes.
   Validation: npm --prefix web run test && npm --prefix web run check.
   Evidence: connection tests.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Handoff: READY.
 
 ## M2 - Setup And Account Wiring
 

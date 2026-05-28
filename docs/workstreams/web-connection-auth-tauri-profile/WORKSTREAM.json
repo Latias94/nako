@@ -2,13 +2,15 @@
   "schema_version": 1,
   "slug": "web-connection-auth-tauri-profile",
   "title": "Web Connection Auth Tauri Profile",
-  "status": "queued",
+  "status": "active",
   "updated": "2026-05-28",
   "scope_kind": "frontend_connection_auth",
   "problem": "Setup/account and data sources do not yet share a safe browser/Tauri connection and auth profile boundary.",
   "task_prefix": "WCAT",
-  "current_task": "WCAT-010",
-  "completed_tasks": [],
+  "current_task": "WCAT-020",
+  "completed_tasks": [
+    "WCAT-010"
+  ],
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/web-connection-auth-tauri-profile/README.md" },
     { "role": "design", "path": "docs/workstreams/web-connection-auth-tauri-profile/DESIGN.md" },
@@ -26,14 +28,15 @@
     "git diff --check"
   ],
   "evidence": [
-    "Queued as lane 4 after WROP."
+    "Queued as lane 4 after WROP.",
+    "WCAT-010 activated after WROP closed with route/state tests, check, full test, build, and diff gate passing."
   ],
   "adr_refs": [
     "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
     "docs/adr/0037-local-credential-and-session-auth.md"
   ],
   "continue_policy": {
-    "default_action": "wait_for_dependency",
-    "notes": "Activate after WROP closes."
+    "default_action": "continue",
+    "notes": "Complete connection/auth/Tauri profile before Admin live wiring."
   }
 }

@@ -1,6 +1,6 @@
 # Web Connection Auth Tauri Profile - Evidence And Gates
 
-Status: Queued
+Status: Active
 Last updated: 2026-05-28
 
 ## Gate Set
@@ -22,3 +22,4 @@ logs, shared UI props, or persisted profile fields.
 | Date | Task | Evidence | Result |
 | --- | --- | --- | --- |
 | 2026-05-28 | WCAT-010 | Queued as lane 4 after route-owned product surfaces. | Queued. |
+| 2026-05-28 | WCAT-010 | Activated after WROP closed with route/state tests, check, full test, build, and diff gate passing. | Active. Current task is WCAT-020. |
