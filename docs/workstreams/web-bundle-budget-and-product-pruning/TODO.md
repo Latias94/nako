@@ -1,6 +1,6 @@
 # Web Bundle Budget And Product Pruning - TODO
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 ## M0 - Activation
@@ -37,8 +37,8 @@ Last updated: 2026-05-28
 
 ## M4 - Final Frontend Closeout
 
-- [ ] WBBP-050 [owner=planner] [deps=WBBP-040] [scope=docs/workstreams/web-bundle-budget-and-product-pruning]
+- [x] WBBP-050 [owner=planner] [deps=WBBP-040] [scope=docs/workstreams/web-bundle-budget-and-product-pruning]
   Goal: Close the final planned frontend refactor lane and summarize remaining non-runtime product work.
   Validation: npm --prefix web run test && npm --prefix web run check && npm --prefix web run build && npm --prefix web run tauri -- build.
-  Evidence: EVIDENCE_AND_GATES.md
-  Handoff: Close the six-lane frontend refactor goal if all lanes are complete.
+  Evidence: `npm --prefix web run test`; `npm --prefix web run check`; `npm --prefix web run build:budget`; `npm --prefix web run tauri -- build`; `git diff --check`.
+  Handoff: DONE. Six-lane frontend refactor goal can close.

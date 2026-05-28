@@ -1,6 +1,6 @@
 # Web Bundle Budget And Product Pruning - Milestones
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 ## M0 - Activation
@@ -21,4 +21,4 @@ Exit criteria: unused heavy dependencies are removed or justified. Completed by 
 
 ## M4 - Final Frontend Closeout
 
-Exit criteria: all six frontend lanes are complete or split with explicit follow-ons.
+Exit criteria: all six frontend lanes are complete or split with explicit follow-ons. Completed by WBBP-050.

@@ -1,6 +1,6 @@
 # Web Bundle Budget And Product Pruning - Handoff
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 ## Current State
@@ -15,14 +15,18 @@ runtime graph. Dependency diet is complete: unused AI/chat, chart, calendar,
 carousel, drawer, form, command, OTP, resizable, toast, and unused Radix/shadcn
 prototype components and packages were removed.
 
+Remaining non-runtime product gaps are explicit follow-ons, not hidden frontend
+surfaces: downloads, playlists, photos, music, podcasts, AI assistant, and
+automation need real backend contracts, permissions, and product decisions
+before they return to the app.
+
 ## Active Task
 
 - Task ID: WBBP-050
 - Owner: Codex
-- Status: READY
-- Validation: `npm --prefix web run test && npm --prefix web run check && npm --prefix web run build && npm --prefix web run tauri -- build`
+- Status: DONE
+- Validation: `npm --prefix web run test`, `npm --prefix web run check`, `npm --prefix web run build:budget`, `npm --prefix web run tauri -- build`, `git diff --check`
 
 ## Next Recommended Action
 
-- Run final frontend closeout gates, document remaining non-runtime product
-  gaps, close this lane, and close the six-lane frontend refactor goal.
+- Six planned frontend refactor lanes are complete.
