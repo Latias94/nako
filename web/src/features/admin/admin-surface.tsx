@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import type { ComponentType } from "react"
 import { useQuery } from "@tanstack/react-query"
 import {
   Server,
@@ -65,8 +66,40 @@ import {
   type AdminDashboardTask,
 } from "@/src/api/admin/dashboard-data-source"
 
+export type AdminSurfaceSection =
+  | "dashboard"
+  | "activity"
+  | "scheduled-tasks"
+  | "libraries"
+  | "users"
+  | "dlna"
+  | "remote-access"
+  | "transcoding"
+  | "network"
+  | "plugins"
+  | "notifications"
+  | "backup"
+  | "advanced"
+  | "about"
+
+export interface AdminSurfaceProps {
+  activeSection?: AdminSurfaceSection
+  onSectionNavigate?: (section: AdminSurfaceSection) => void
+}
+
+interface AdminNavItem {
+  name: string
+  icon: ComponentType<{ className?: string }>
+  component: AdminSurfaceSection
+}
+
+interface AdminNavGroup {
+  title: string
+  items: AdminNavItem[]
+}
+
 // 自托管媒体服务器管理面板导航结构
-const adminNavGroups = [
+const adminNavGroups: AdminNavGroup[] = [
   {
     title: "服务器",
     items: [
@@ -127,8 +160,8 @@ const scheduledTasks = [
   { name: "缓存清理", schedule: "每周一 02:00", lastRun: "本周一", nextRun: "下周一 02:00", status: "idle" },
 ]
 
-export function AdminSurface() {
-  const [activeComponent, setActiveComponent] = useState("dashboard")
+export function AdminSurface({ activeSection = "dashboard", onSectionNavigate }: AdminSurfaceProps = {}) {
+  const [activeComponent, setActiveComponent] = useState<AdminSurfaceSection>(activeSection)
   const { data: dashboardData = ADMIN_DASHBOARD_FIXTURE } = useQuery({
     queryKey: ["nako", "admin", "dashboard"],
     queryFn: () => createAdminDashboardDataSource().loadDashboard(),
@@ -136,12 +169,19 @@ export function AdminSurface() {
     retry: 0,
   })
   const serverMetrics = dashboardData.metrics
-  
-  // Find the active nav item name
-  const activeNavName = adminNavGroups
-    .flatMap(g => g.items)
-    .find(item => item.component === activeComponent)?.name || "仪表盘"
 
+  useEffect(() => {
+    setActiveComponent(activeSection)
+  }, [activeSection])
+
+  const navigateToSection = (section: AdminSurfaceSection) => {
+    if (onSectionNavigate) {
+      onSectionNavigate(section)
+      return
+    }
+
+    setActiveComponent(section)
+  }
   // Render the appropriate component based on navigation
   const renderContent = () => {
     switch (activeComponent) {
@@ -191,7 +231,7 @@ export function AdminSurface() {
                 {group.items.map((item) => (
                   <button
                     key={item.name}
-                    onClick={() => setActiveComponent(item.component)}
+                    onClick={() => navigateToSection(item.component)}
                     className={cn(
                       "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
                       activeComponent === item.component

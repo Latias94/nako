@@ -20,6 +20,7 @@ import {
 } from "@tanstack/react-router"
 import { SurfaceSwitcher } from "@/src/shell/surface-switcher"
 import type { MediaSurfaceRef, MediaSurfaceRouteView } from "@/src/features/media"
+import type { AdminSurfaceSection } from "@/src/features/admin"
 
 const MediaSurface = lazy(() =>
   import("@/src/features/media").then((module) => ({
@@ -198,7 +199,29 @@ function MediaLibraryRoute() {
 }
 
 function AdminRoute() {
-  return <AdminSurface />
+  const navigate = useNavigate()
+
+  return (
+    <AdminSurface
+      activeSection="dashboard"
+      onSectionNavigate={(section) => {
+        void navigate(toAdminRoute(section))
+      }}
+    />
+  )
+}
+
+function AdminSectionRoute({ section }: { section: AdminSurfaceSection }) {
+  const navigate = useNavigate()
+
+  return (
+    <AdminSurface
+      activeSection={section}
+      onSectionNavigate={(nextSection) => {
+        void navigate(toAdminRoute(nextSection))
+      }}
+    />
+  )
 }
 
 function NotificationsRoute() {
@@ -310,6 +333,84 @@ const adminRoute = createRoute({
   component: AdminRoute,
 })
 
+const adminLibrariesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/libraries",
+  component: () => <AdminSectionRoute section="libraries" />,
+})
+
+const adminUsersRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/users",
+  component: () => <AdminSectionRoute section="users" />,
+})
+
+const adminTasksRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/tasks",
+  component: () => <AdminSectionRoute section="scheduled-tasks" />,
+})
+
+const adminLogsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/logs",
+  component: () => <AdminSectionRoute section="activity" />,
+})
+
+const adminSettingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/settings",
+  component: () => <AdminSectionRoute section="advanced" />,
+})
+
+const adminDlnaRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/dlna",
+  component: () => <AdminSectionRoute section="dlna" />,
+})
+
+const adminRemoteAccessRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/remote-access",
+  component: () => <AdminSectionRoute section="remote-access" />,
+})
+
+const adminTranscodingRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/transcoding",
+  component: () => <AdminSectionRoute section="transcoding" />,
+})
+
+const adminNetworkRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/network",
+  component: () => <AdminSectionRoute section="network" />,
+})
+
+const adminPluginsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/plugins",
+  component: () => <AdminSectionRoute section="plugins" />,
+})
+
+const adminNotificationsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/notifications",
+  component: () => <AdminSectionRoute section="notifications" />,
+})
+
+const adminBackupRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/backup",
+  component: () => <AdminSectionRoute section="backup" />,
+})
+
+const adminAboutRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/about",
+  component: () => <AdminSectionRoute section="about" />,
+})
+
 const notificationsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/notifications",
@@ -347,6 +448,19 @@ const routeTree = rootRoute.addChildren([
   mediaDetailRoute,
   mediaLibraryRoute,
   adminRoute,
+  adminLibrariesRoute,
+  adminUsersRoute,
+  adminTasksRoute,
+  adminLogsRoute,
+  adminSettingsRoute,
+  adminDlnaRoute,
+  adminRemoteAccessRoute,
+  adminTranscodingRoute,
+  adminNetworkRoute,
+  adminPluginsRoute,
+  adminNotificationsRoute,
+  adminBackupRoute,
+  adminAboutRoute,
   notificationsRoute,
   settingsRoute,
   setupRoute,
@@ -380,6 +494,39 @@ function toMediaRoute(view: MediaSurfaceRouteView) {
       } as const
     case "browse":
       return { to: "/media" } as const
+  }
+}
+
+function toAdminRoute(section: AdminSurfaceSection) {
+  switch (section) {
+    case "dashboard":
+      return { to: "/admin" } as const
+    case "libraries":
+      return { to: "/admin/libraries" } as const
+    case "users":
+      return { to: "/admin/users" } as const
+    case "scheduled-tasks":
+      return { to: "/admin/tasks" } as const
+    case "activity":
+      return { to: "/admin/logs" } as const
+    case "advanced":
+      return { to: "/admin/settings" } as const
+    case "dlna":
+      return { to: "/admin/dlna" } as const
+    case "remote-access":
+      return { to: "/admin/remote-access" } as const
+    case "transcoding":
+      return { to: "/admin/transcoding" } as const
+    case "network":
+      return { to: "/admin/network" } as const
+    case "plugins":
+      return { to: "/admin/plugins" } as const
+    case "notifications":
+      return { to: "/admin/notifications" } as const
+    case "backup":
+      return { to: "/admin/backup" } as const
+    case "about":
+      return { to: "/admin/about" } as const
   }
 }
 

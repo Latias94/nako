@@ -62,6 +62,36 @@ const routeContracts: RouteContract[] = [
     },
   },
   {
+    path: "/admin/libraries",
+    assert: async () => {
+      expect(await screen.findByRole("heading", { name: "媒体库管理" }, { timeout: 5000 })).toBeInTheDocument()
+    },
+  },
+  {
+    path: "/admin/users",
+    assert: async () => {
+      expect(await screen.findByRole("heading", { name: "用户管理" }, { timeout: 5000 })).toBeInTheDocument()
+    },
+  },
+  {
+    path: "/admin/tasks",
+    assert: async () => {
+      expect(await screen.findByRole("heading", { name: "计划任务" }, { timeout: 5000 })).toBeInTheDocument()
+    },
+  },
+  {
+    path: "/admin/logs",
+    assert: async () => {
+      expect(await screen.findByRole("heading", { name: "系统日志" }, { timeout: 5000 })).toBeInTheDocument()
+    },
+  },
+  {
+    path: "/admin/settings",
+    assert: async () => {
+      expect(await screen.findByRole("heading", { name: "高级设置" }, { timeout: 5000 })).toBeInTheDocument()
+    },
+  },
+  {
     path: "/notifications",
     assert: async () => {
       expect(await screen.findByRole("heading", { name: "通知中心" }, { timeout: 5000 })).toBeInTheDocument()

@@ -21,11 +21,11 @@ Last updated: 2026-05-28
 
 ## M2 - Admin Routes
 
-- [ ] WROP-030 [owner=Codex] [deps=WROP-020] [scope=web/src/features/admin,web/src/shell/nako-router.tsx]
+- [x] WROP-030 [owner=Codex] [deps=WROP-020] [scope=web/src/features/admin,web/src/shell/nako-router.tsx]
   Goal: Add route-owned Admin libraries/users/tasks/logs/settings surfaces.
   Validation: npm --prefix web run test && npm --prefix web run build.
   Evidence: route definitions and route tests.
-  Handoff: READY.
+  Handoff: DONE. Admin section selection is route-owned, with core child routes covered by route contract tests.
 
 ## M3 - Navigation And URL State
 
@@ -33,7 +33,7 @@ Last updated: 2026-05-28
   Goal: Move durable filters/search/page state into route params/search params.
   Validation: npm --prefix web run test && npm --prefix web run build.
   Evidence: route state tests.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Handoff: READY.
 
 ## M4 - Closeout
 

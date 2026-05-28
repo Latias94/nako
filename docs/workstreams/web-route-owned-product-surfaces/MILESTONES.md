@@ -17,6 +17,8 @@ Exit criteria: accepted Media child surfaces are deep-linkable.
 
 ## M2 - Admin Routes
 
+Status: done.
+
 Exit criteria: accepted Admin child surfaces are deep-linkable.
 
 ## M3 - Navigation And URL State
