@@ -22,12 +22,12 @@ Last updated: 2026-05-28
 
 ## M2 - Route Contracts
 
-- [ ] WTRC-030 [owner=Codex] [deps=WTRC-020] [scope=web/src,web/components/nako/nako-router.tsx]
+- [x] WTRC-030 [owner=Codex] [deps=WTRC-020] [scope=web/src,web/components/nako/nako-router.tsx]
   Goal: Add top-level route rendering contract tests for the shipped route inventory.
   Validation: npm --prefix web run test.
   Review: Tests must avoid brittle full-page snapshots.
   Evidence: route contract test files.
-  Handoff: Final status must be DONE, DONE_WITH_CONCERNS, BLOCKED, or NEEDS_CONTEXT.
+  Handoff: DONE. Top-level routes now render through an injectable TanStack router and semantic assertions.
 
 ## M3 - Data Source Contracts
 
@@ -36,7 +36,7 @@ Last updated: 2026-05-28
   Validation: npm --prefix web run test && npm --prefix web run check.
   Review: Shared UI must remain DTO-free.
   Evidence: public/admin data-source test files.
-  Handoff: Final status must be DONE, DONE_WITH_CONCERNS, BLOCKED, or NEEDS_CONTEXT.
+  Handoff: READY. Inspect data-source seams before adding tests.
 
 ## M4 - Closeout
 

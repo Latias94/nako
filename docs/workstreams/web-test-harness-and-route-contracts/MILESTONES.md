@@ -23,6 +23,8 @@ Exit criteria:
 
 ## M2 - Route Contracts
 
+Status: done.
+
 Exit criteria:
 
 - Top-level Vite/TanStack routes have fast regression tests.

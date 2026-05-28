@@ -5,19 +5,19 @@ Last updated: 2026-05-28
 
 ## Current State
 
-Vite/TanStack/Tauri runtime migration is complete. The next frontend refactors
-need real tests before moving feature boundaries or deleting fixture-only UI.
+Vite/TanStack/Tauri runtime migration is complete. Vitest is active and the
+top-level route inventory has rendering contract coverage.
 
 ## Active Task
 
-- Task ID: WTRC-030
+- Task ID: WTRC-040
 - Owner: Codex
-- Files: `web/src`, `web/components/nako/nako-router.tsx`
-- Validation: `npm --prefix web run test`
+- Files: `web/src/api`
+- Validation: `npm --prefix web run test && npm --prefix web run check`
 - Status: READY
-- Review: Route tests should avoid brittle full-page snapshots.
+- Review: Shared UI must remain DTO-free.
 - Evidence: To be recorded in `EVIDENCE_AND_GATES.md`.
 
 ## Next Recommended Action
 
-- Add route rendering contract tests for shipped top-level routes.
+- Add fixture fallback and live mapping tests around public/admin data-source seams.

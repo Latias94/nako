@@ -43,6 +43,7 @@ Object.defineProperty(window, "IntersectionObserver", {
 })
 
 Element.prototype.scrollIntoView = vi.fn()
+window.scrollTo = vi.fn()
 HTMLElement.prototype.hasPointerCapture = vi.fn()
 HTMLElement.prototype.releasePointerCapture = vi.fn()
 HTMLElement.prototype.setPointerCapture = vi.fn()

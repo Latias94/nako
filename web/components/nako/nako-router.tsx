@@ -9,6 +9,7 @@ import {
   type RefObject,
 } from "react"
 import {
+  createMemoryHistory,
   createRootRoute,
   createRoute,
   createRouter,
@@ -256,7 +257,19 @@ const routeTree = rootRoute.addChildren([
   tvRoute,
 ])
 
-const router = createRouter({ routeTree })
+interface NakoRouterOptions {
+  history?: ReturnType<typeof createMemoryHistory>
+}
+
+export function createNakoRouter(options: NakoRouterOptions = {}) {
+  if (options.history) {
+    return createRouter({ routeTree, history: options.history })
+  }
+
+  return createRouter({ routeTree })
+}
+
+const router = createNakoRouter()
 
 declare module "@tanstack/react-router" {
   interface Register {
@@ -264,6 +277,6 @@ declare module "@tanstack/react-router" {
   }
 }
 
-export function NakoRouter() {
-  return <RouterProvider router={router} />
+export function NakoRouter({ router: activeRouter = router }: { router?: typeof router }) {
+  return <RouterProvider router={activeRouter} />
 }
