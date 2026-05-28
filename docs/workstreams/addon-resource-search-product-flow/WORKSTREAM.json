@@ -2,15 +2,19 @@
   "schema_version": 1,
   "slug": "addon-resource-search-product-flow",
   "title": "Addon Resource Search Product Flow",
-  "status": "active",
+  "status": "complete",
   "updated": "2026-05-28",
   "scope_kind": "admin-api",
   "problem": "Nako can call resource-search addons for diagnostics and can record selected links into intake, but it does not yet have a product API that returns safe result cards and opaque selections.",
   "task_prefix": "RSPF",
-  "current_task": "RSPF-030",
+  "current_task": null,
   "completed_tasks": [
     "RSPF-010",
-    "RSPF-020"
+    "RSPF-020",
+    "RSPF-030",
+    "RSPF-040",
+    "RSPF-050",
+    "RSPF-060"
   ],
   "authoritative_docs": [
     {
@@ -32,11 +36,16 @@
     {
       "role": "handoff",
       "path": "docs/workstreams/addon-resource-search-product-flow/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/addon-resource-search-product-flow/CLOSEOUT.md"
     }
   ],
   "gates": [
     "cargo nextest run -p nako-api admin_contract --no-fail-fast",
     "cargo nextest run -p nako-server addon_resource_search_product --no-fail-fast",
+    "cargo nextest run -p nako-server acquisition_intake --no-fail-fast",
     "cargo fmt --all -- --check",
     "cargo check -p nako-addon-protocol -p nako-addon-client -p nako-api -p nako-core -p nako-db -p nako-server --tests",
     "git diff --check"
@@ -45,13 +54,16 @@
     "docs/workstreams/addon-resource-search-product-flow/DESIGN.md",
     "docs/workstreams/addon-resource-search-product-flow/TODO.md",
     "docs/workstreams/addon-resource-search-product-flow/EVIDENCE_AND_GATES.md",
+    "docs/workstreams/addon-resource-search-product-flow/CLOSEOUT.md",
     "docs/workstreams/addon-resource-search-protocol/CLOSEOUT.md",
     "crates/nako-api/src/extension.rs",
     "crates/nako-api/src/admin_contract.rs",
     "apps/admin-web/src/adminApi/generated/contract.ts",
     "web/src/api/admin/generated/contract.ts",
     "crates/nako-server/src/app/addons.rs",
-    "crates/nako-server/src/http/addons.rs"
+    "crates/nako-server/src/http/addons.rs",
+    "crates/nako-server/src/app/acquisition_intake.rs",
+    "crates/nako-server/src/http/tests/addons.rs"
   ],
   "adr_refs": [
     "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
@@ -60,8 +72,8 @@
     "docs/adr/0034-package-addon-capabilities-into-sidecar-suites.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "next_task": "RSPF-030",
-    "notes": "Implement server search sessions and safe result shaping next, then explicit selection into intake."
+    "default_action": "closed",
+    "next_task": null,
+    "notes": "Lane complete. Continue with separate follow-ons for Admin UI, official-addon migration, link checking, downloader execution, cloud-drive save, and password/code persistence."
   }
 }

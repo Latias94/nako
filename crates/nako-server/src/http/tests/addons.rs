@@ -5997,6 +5997,225 @@ async fn admin_addon_resource_search_diagnostic_requires_nonzero_limit() {
 }
 
 #[tokio::test]
+async fn admin_addon_resource_search_product_returns_safe_selection_cards() {
+    let (addon_base_url, captured) = resource_search_addon_server().await;
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: resource_search_manifest(addon_base_url),
+            outbound_task_dispatch_secret_env: None,
+            granted_scopes: vec![AddonScope::AcquisitionSearchRead],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let path = format!("/admin/v1/addons/{addon_id}/resource-search");
+    let raw = response_body_json(
+        &router,
+        Method::POST,
+        &path,
+        &AdminAddonResourceSearchRequest {
+            query: "  Demo Movie  ".to_owned(),
+            intent: AddonResourceSearchIntent::FreeText {
+                text: "Demo Movie".to_owned(),
+            },
+            limit: Some(999),
+            sources: vec!["pansou_compatible".to_owned()],
+            link_types: vec![AddonResourceLinkType::Quark],
+            refresh: false,
+            context: serde_json::json!({
+                "source_locator": "local:///secret/movie.mkv",
+                "token": "nako_at_should_not_echo"
+            }),
+        },
+    )
+    .await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let bytes = to_bytes(raw.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let response = serde_json::from_str::<AdminAddonResourceSearchResponse>(&text).unwrap();
+
+    assert_eq!(response.addon_id, addon_id);
+    assert_eq!(
+        response.status,
+        AdminAddonResourceCallDiagnosticStatus::Succeeded
+    );
+    assert!(response.search_id.starts_with("rs_"));
+    assert_eq!(response.limit, 50);
+    assert_eq!(response.total, 1);
+    assert_eq!(response.result_count, 1);
+    assert_eq!(response.results.len(), 1);
+    assert_eq!(response.results[0].title, "Secret Result Title");
+    assert_eq!(
+        response.results[0].content.as_deref(),
+        Some("private content")
+    );
+    assert_eq!(response.results[0].tags, vec!["private-tag"]);
+    assert!(
+        response.results[0]
+            .result_ref_fingerprint
+            .starts_with("sha256:")
+    );
+    assert_eq!(response.results[0].links.len(), 1);
+    let link = &response.results[0].links[0];
+    assert!(link.selection_id.starts_with("sel_"));
+    assert_eq!(link.link_type, AddonResourceLinkType::Quark);
+    assert_eq!(link.source, "pansou:movies");
+    assert_eq!(link.source_ref_redacted, "https://<redacted>");
+    assert!(link.has_password);
+    assert!(link.has_note);
+    assert_eq!(response.provider_executions.len(), 1);
+    assert!(response.provider_executions[0].has_safe_message);
+
+    for forbidden in [
+        "https://pan.quark.cn",
+        "raw-secret-link",
+        "secret-code",
+        "private-note",
+        "provider secret message",
+        "local:///secret",
+        "nako_at_should_not_echo",
+        "https://image.example/private.jpg",
+    ] {
+        assert!(
+            !text.contains(forbidden),
+            "resource-search product response leaked forbidden term: {forbidden}"
+        );
+    }
+
+    let captured = captured.lock().await;
+    assert_eq!(captured.len(), 1);
+    assert_eq!(captured[0].resource, AddonResource::ResourceSearch);
+    assert_eq!(captured[0].payload["query"], "Demo Movie");
+    assert_eq!(captured[0].payload["limit"], 50);
+    assert_eq!(
+        captured[0].payload["link_types"],
+        serde_json::json!(["quark"])
+    );
+}
+
+#[tokio::test]
+async fn admin_addon_resource_search_product_selection_records_intake_candidate_by_opaque_id() {
+    let (addon_base_url, _captured) = resource_search_addon_server().await;
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let router = test_router(temp.path().to_path_buf(), library_id).await;
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: resource_search_manifest(addon_base_url),
+            outbound_task_dispatch_secret_env: None,
+            granted_scopes: vec![AddonScope::AcquisitionSearchRead],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let search = request_body_json::<AdminAddonResourceSearchResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/resource-search"),
+        &AdminAddonResourceSearchRequest {
+            query: "Demo Movie".to_owned(),
+            intent: AddonResourceSearchIntent::FreeText {
+                text: "Demo Movie".to_owned(),
+            },
+            limit: Some(20),
+            sources: vec!["pansou_compatible".to_owned()],
+            link_types: vec![AddonResourceLinkType::Quark],
+            refresh: false,
+            context: serde_json::Value::Null,
+        },
+    )
+    .await;
+    let selection_id = search.results[0].links[0].selection_id.clone();
+    let selection_path = format!(
+        "/admin/v1/addons/{addon_id}/resource-search/{}/selections/{selection_id}/intake-candidate",
+        search.search_id
+    );
+
+    let first_raw = response_body_json(
+        &router,
+        Method::POST,
+        &selection_path,
+        &AdminAddonResourceSearchSelectionRequest {
+            target_library_id: library_id,
+        },
+    )
+    .await;
+    assert_eq!(first_raw.status(), StatusCode::OK);
+    let first_text = response_text(first_raw).await;
+    let first =
+        serde_json::from_str::<AdminAddonResourceSearchSelectionResponse>(&first_text).unwrap();
+    let replayed = request_body_json::<AdminAddonResourceSearchSelectionResponse, _>(
+        &router,
+        Method::POST,
+        &selection_path,
+        &AdminAddonResourceSearchSelectionRequest {
+            target_library_id: library_id,
+        },
+    )
+    .await;
+
+    assert_eq!(first.addon_id, addon_id);
+    assert_eq!(first.search_id, search.search_id);
+    assert_eq!(first.selection_id, selection_id);
+    assert!(!first.idempotent_replay);
+    assert!(replayed.idempotent_replay);
+    assert_eq!(first.candidate.id, replayed.candidate.id);
+    assert_eq!(first.candidate.target_library_id, library_id);
+    assert_eq!(first.candidate.source_kind, "resource_search_selection");
+    assert_eq!(first.candidate.source_scheme.as_deref(), Some("https"));
+    assert_eq!(first.candidate.source_ref_redacted, "https://<redacted>");
+    assert!(
+        first
+            .candidate
+            .source_key_fingerprint
+            .starts_with("sha256:")
+    );
+    assert!(first.candidate.has_display_name);
+    assert!(first.candidate.has_diagnostics);
+    assert!(!first.candidate.writes_library);
+    assert!(!first.candidate.creates_media_source);
+    assert!(!first.candidate.creates_managed_import);
+    for forbidden in [
+        "https://pan.quark.cn",
+        "raw-secret-link",
+        "secret-code",
+        "private-note",
+        "Secret Result Title",
+        "private content",
+        "private-tag",
+        "https://image.example/private.jpg",
+    ] {
+        assert!(
+            !first_text.contains(forbidden),
+            "resource-search selection response leaked forbidden term: {forbidden}"
+        );
+    }
+
+    let candidates = request_json::<AdminAcquisitionIntakeCandidateListResponse>(
+        &router,
+        Method::GET,
+        &format!(
+            "/admin/v1/acquisition/intake/candidates?library_id={library_id}&source_kind=resource_search_selection"
+        ),
+    )
+    .await;
+    assert_eq!(candidates.candidates.len(), 1);
+    assert_eq!(candidates.candidates[0].id, first.candidate.id);
+}
+
+#[tokio::test]
 async fn addon_admin_routes_issue_rotate_revoke_tokens_and_replace_grants_without_leaking_hashes() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();

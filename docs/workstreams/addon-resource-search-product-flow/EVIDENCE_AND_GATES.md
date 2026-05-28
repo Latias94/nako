@@ -1,6 +1,6 @@
 # Addon Resource Search Product Flow - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-28
 
 ## Smallest Current Repro
@@ -19,7 +19,7 @@ should prove safe product search and explicit selection behavior.
 ```bash
 cargo nextest run -p nako-api admin_contract --no-fail-fast
 cargo nextest run -p nako-server addon_resource_search_product --no-fail-fast
-cargo nextest run -p nako-server addon_resource_search_product acquisition_intake --no-fail-fast
+cargo nextest run -p nako-server acquisition_intake --no-fail-fast
 ```
 
 ### Broader Closeout Gate
@@ -66,6 +66,51 @@ git diff --check
   tests.
 - Passed `cargo nextest run -p nako-api admin_resource_search_product_response --no-fail-fast`
   with 1 test.
+
+### 2026-05-28 - RSPF-030/RSPF-040/RSPF-050
+
+- Added a host-owned transient resource-search session store in
+  `nako-server::app::addons`.
+- Added product search execution that uses the typed addon client, clamps host
+  limits, keeps diagnostic behavior separate, and returns display-safe result
+  cards with opaque `search_id`/`selection_id` values.
+- Added explicit selected-link intake handoff that reads raw links only from the
+  host session, records `resource_search_selection`, and reports true
+  idempotent replay from `acquisition_intake`.
+- Added Admin HTTP routes for product search and selected-link intake candidate
+  creation.
+- Added HTTP tests proving product search does not expose raw URLs, passwords,
+  context payloads, provider messages, or image URLs, and proving selection
+  writes/replays intake candidates from opaque IDs.
+- Passed `cargo nextest run -p nako-server addon_resource_search_product --no-fail-fast`
+  with 2 tests.
+- Passed `cargo nextest run -p nako-server acquisition_intake --no-fail-fast`
+  with 8 tests.
+- Passed `cargo nextest run -p nako-api admin_contract --no-fail-fast` with 5
+  tests.
+- Passed `cargo fmt --all -- --check`.
+- Passed `cargo check -p nako-addon-protocol -p nako-addon-client -p nako-api -p nako-core -p nako-db -p nako-server --tests`.
+- Passed `git diff --check`; Git reported expected Windows line-ending
+  warnings only.
+
+### 2026-05-28 - RSPF-060
+
+- Reviewed the lane against `DESIGN.md`, `TODO.md`, ADR boundaries, and the
+  current diff.
+- Review result: no blocking or important findings remain.
+- Tightened the transient selection session after review so each selection
+  stores only a result metadata/count snapshot plus the selected raw link,
+  avoiding repeated storage of unrelated raw links.
+- Re-ran `cargo nextest run -p nako-server addon_resource_search_product --no-fail-fast`
+  after the review fix with 2 tests passing.
+- Re-ran `cargo nextest run -p nako-server acquisition_intake --no-fail-fast`
+  with 8 tests passing.
+- Re-ran `cargo nextest run -p nako-api admin_contract --no-fail-fast` with 5
+  tests passing.
+- Re-ran `cargo fmt --all -- --check`.
+- Re-ran `cargo check -p nako-addon-protocol -p nako-addon-client -p nako-api -p nako-core -p nako-db -p nako-server --tests`.
+- Re-ran `git diff --check`; Git reported expected Windows line-ending
+  warnings only.
 
 ## Review Gate
 

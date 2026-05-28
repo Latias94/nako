@@ -33,6 +33,13 @@ trait AcquisitionIntakeWorkflowStore: std::fmt::Debug + Send + Sync {
         id: AcquisitionIntakeCandidateId,
     ) -> Result<Option<AcquisitionIntakeCandidateRecord>>;
 
+    async fn find_acquisition_intake_candidate_by_source_key(
+        &self,
+        target_library_id: LibraryId,
+        source_kind: &AcquisitionIntakeSourceKind,
+        source_key: &str,
+    ) -> Result<Option<AcquisitionIntakeCandidateRecord>>;
+
     async fn list_acquisition_intake_candidates(
         &self,
         filter: AcquisitionIntakeCandidateListFilter,
@@ -86,6 +93,21 @@ where
         id: AcquisitionIntakeCandidateId,
     ) -> Result<Option<AcquisitionIntakeCandidateRecord>> {
         AcquisitionIntakeRepository::get_acquisition_intake_candidate(self, id).await
+    }
+
+    async fn find_acquisition_intake_candidate_by_source_key(
+        &self,
+        target_library_id: LibraryId,
+        source_kind: &AcquisitionIntakeSourceKind,
+        source_key: &str,
+    ) -> Result<Option<AcquisitionIntakeCandidateRecord>> {
+        AcquisitionIntakeRepository::find_acquisition_intake_candidate_by_source_key(
+            self,
+            target_library_id,
+            source_kind,
+            source_key,
+        )
+        .await
     }
 
     async fn list_acquisition_intake_candidates(
@@ -236,7 +258,7 @@ impl AcquisitionIntakeAppService {
     pub(crate) async fn record_resource_search_selection(
         &self,
         request: RecordResourceSearchSelectionRequest,
-    ) -> Result<AcquisitionIntakeCandidateDiagnostic> {
+    ) -> Result<RecordResourceSearchSelectionDiagnostic> {
         let query = require_non_empty("resource search selection query", request.query.clone())?;
         let manifest_id = require_non_empty(
             "resource search selection manifest_id",
@@ -253,6 +275,14 @@ impl AcquisitionIntakeAppService {
             request.selected_link.link_type,
             &source_uri,
         );
+        let existing = self
+            .store
+            .find_acquisition_intake_candidate_by_source_key(
+                request.target_library_id,
+                &AcquisitionIntakeSourceKind::ResourceSearchSelection,
+                &source_key,
+            )
+            .await?;
         let diagnostics_json = resource_search_selection_diagnostics_json(
             &request,
             &query,
@@ -261,21 +291,27 @@ impl AcquisitionIntakeAppService {
             &source_uri,
         )?;
 
-        self.record_candidate(RecordAcquisitionIntakeCandidateRequest {
-            id: None,
-            target_library_id: request.target_library_id,
-            source_kind: AcquisitionIntakeSourceKind::ResourceSearchSelection,
-            source_key,
-            source_uri,
-            display_name: Some(request.result.title),
-            intended_locator: None,
-            size_bytes: None,
-            fingerprint: None,
-            managed_import_artifact_id: None,
-            state: Some(AcquisitionIntakeCandidateState::Ready),
-            diagnostics_json: Some(diagnostics_json),
+        let candidate = self
+            .record_candidate(RecordAcquisitionIntakeCandidateRequest {
+                id: None,
+                target_library_id: request.target_library_id,
+                source_kind: AcquisitionIntakeSourceKind::ResourceSearchSelection,
+                source_key,
+                source_uri,
+                display_name: Some(request.result.title),
+                intended_locator: None,
+                size_bytes: None,
+                fingerprint: None,
+                managed_import_artifact_id: None,
+                state: Some(AcquisitionIntakeCandidateState::Ready),
+                diagnostics_json: Some(diagnostics_json),
+            })
+            .await?;
+
+        Ok(RecordResourceSearchSelectionDiagnostic {
+            candidate,
+            idempotent_replay: existing.is_some(),
         })
-        .await
     }
 
     pub(crate) async fn discover_watch_folder_candidates(
@@ -566,6 +602,12 @@ pub(crate) struct RecordResourceSearchSelectionRequest {
     pub(crate) query: String,
     pub(crate) result: AddonResourceSearchResult,
     pub(crate) selected_link: AddonResourceLink,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct RecordResourceSearchSelectionDiagnostic {
+    pub(crate) candidate: AcquisitionIntakeCandidateDiagnostic,
+    pub(crate) idempotent_replay: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

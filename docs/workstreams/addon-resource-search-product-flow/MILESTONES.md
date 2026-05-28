@@ -1,6 +1,6 @@
 # Addon Resource Search Product Flow - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-28
 
 ## M0 - Lane Open

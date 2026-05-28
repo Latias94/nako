@@ -405,7 +405,10 @@ async fn acquisition_intake_records_resource_search_selection_as_host_owned_cand
         .await
         .unwrap();
 
-    assert_eq!(first.id, replayed.id);
+    assert!(!first.idempotent_replay);
+    assert!(replayed.idempotent_replay);
+    let first = first.candidate;
+    assert_eq!(first.id, replayed.candidate.id);
     assert_eq!(first.target_library_id, library.id);
     assert_eq!(first.source_kind, "resource_search_selection");
     assert_eq!(first.source_scheme.as_deref(), Some("https"));

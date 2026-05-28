@@ -15,6 +15,7 @@ use nako_addon_protocol::{
 use nako_api::extension::{
     AddonAccessCheckRequest, AdminAddonInstallGuidePreviewRequest, AdminAddonManagerPlanRequest,
     AdminAddonResourceCallDiagnosticRequest, AdminAddonResourceSearchDiagnosticRequest,
+    AdminAddonResourceSearchRequest, AdminAddonResourceSearchSelectionRequest,
     CancelAddonTaskRunRequest, ClaimAddonTaskRunRequest, CompleteAddonTaskRunRequest,
     CreateAddonTaskRunRequest, FailAddonTaskRunRequest, IssueAddonTokenRequest,
     RegisterAddonRequest, ReplaceAddonGrantsRequest, ReplayAddonEventRequest,
@@ -120,6 +121,14 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/admin/v1/addons/{addon_id}/diagnostics/resource-search",
             post(diagnose_addon_resource_search),
+        )
+        .route(
+            "/admin/v1/addons/{addon_id}/resource-search",
+            post(search_addon_resources),
+        )
+        .route(
+            "/admin/v1/addons/{addon_id}/resource-search/{search_id}/selections/{selection_id}/intake-candidate",
+            post(select_addon_resource_search_result),
         )
         .route(
             "/admin/v1/addons/{addon_id}/tokens",
@@ -433,6 +442,32 @@ pub(super) async fn diagnose_addon_resource_search(
     Ok(Json(
         app.addons()
             .diagnose_addon_resource_search(addon_id, request)
+            .await?,
+    ))
+}
+
+#[instrument(skip(app, request))]
+pub(super) async fn search_addon_resources(
+    State(app): State<NakoApp>,
+    Path(addon_id): Path<AddonId>,
+    Json(request): Json<AdminAddonResourceSearchRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.addons()
+            .search_addon_resources(addon_id, request)
+            .await?,
+    ))
+}
+
+#[instrument(skip(app, request))]
+pub(super) async fn select_addon_resource_search_result(
+    State(app): State<NakoApp>,
+    Path((addon_id, search_id, selection_id)): Path<(AddonId, String, String)>,
+    Json(request): Json<AdminAddonResourceSearchSelectionRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.addons()
+            .select_addon_resource_search_result(addon_id, search_id, selection_id, request)
             .await?,
     ))
 }

@@ -1,36 +1,46 @@
-use std::{collections::HashSet, env, sync::Arc, time::Instant};
+use std::{
+    collections::{HashMap, HashSet},
+    env,
+    sync::Arc,
+    time::Instant,
+};
 
 use nako_addon_client::{
     AddonClientError, ReqwestAddonTransport, call_addon_resource_search_with_outcome,
     call_addon_resource_with_outcome, check_addon_health,
 };
 use nako_addon_protocol::{
-    ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA, AddonInstallDescriptor, AddonManifest,
-    AddonResourceSearchRequest, AddonScope, addon_install_guide as protocol_addon_install_guide,
-    ensure_scope_grant, validate_install_descriptor, validate_manifest,
+    ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA, AddonInstallDescriptor, AddonManifest, AddonResourceLink,
+    AddonResourceSearchRequest, AddonResourceSearchResult, AddonScope,
+    addon_install_guide as protocol_addon_install_guide, ensure_scope_grant,
+    validate_install_descriptor, validate_manifest,
 };
 use nako_api::extension::{
-    AddonGrantsResponse, AddonTokenIssuedResponse, AddonTokenResponse, AddonTokenRotationResponse,
-    AddonTokenSummary, AddonTokensResponse, AdminAddonConfigurationSchemaSurface,
-    AdminAddonEntryPointSurface, AdminAddonEventSubscriptionSurface, AdminAddonHealthCheckResponse,
-    AdminAddonHealthCheckStatus, AdminAddonHostedPageSurface,
-    AdminAddonInstallGuideLifecycleBoundary, AdminAddonInstallGuidePreviewRequest,
-    AdminAddonInstallGuidePreviewResponse, AdminAddonInstallGuideResponse,
-    AdminAddonInstallGuideSecretReference, AdminAddonInstallGuideSnippet,
-    AdminAddonInstallGuideStep, AdminAddonManagerPlanRequest, AdminAddonManagerPlanResponse,
-    AdminAddonRegistrationDetail, AdminAddonRegistrationResponse, AdminAddonRegistrationSummary,
-    AdminAddonRegistrationsResponse, AdminAddonResourceCallDiagnosticRequest,
-    AdminAddonResourceCallDiagnosticResponse, AdminAddonResourceCallDiagnosticStatus,
-    AdminAddonResourceSearchDiagnosticRequest, AdminAddonResourceSearchDiagnosticResponse,
-    AdminAddonResourceSearchProviderDiagnostic, AdminAddonRoutingPlansResponse,
-    AdminAddonRuntimeReadinessCheck, AdminAddonRuntimeReadinessCheckName,
-    AdminAddonRuntimeReadinessDiagnostics, AdminAddonRuntimeReadinessReason,
-    AdminAddonRuntimeReadinessResponse, AdminAddonSecretReferenceFieldSurface,
-    AdminAddonSourceCatalogEntriesResponse, AdminAddonSourceCatalogEntry,
-    AdminAddonSourceCatalogResolveResponse, AdminAddonSourceCatalogSource,
-    AdminAddonSourceCatalogSourceKind, AdminAddonSourceCatalogSourcesResponse,
-    AdminAddonSurfacesResponse, AdminAddonTaskSurface, IssueAddonTokenRequest,
-    RegisterAddonRequest, ReplaceAddonGrantsRequest, UpdateAddonStatusRequest,
+    AddonAcquisitionCandidateSummary, AddonGrantsResponse, AddonTokenIssuedResponse,
+    AddonTokenResponse, AddonTokenRotationResponse, AddonTokenSummary, AddonTokensResponse,
+    AdminAddonConfigurationSchemaSurface, AdminAddonEntryPointSurface,
+    AdminAddonEventSubscriptionSurface, AdminAddonHealthCheckResponse, AdminAddonHealthCheckStatus,
+    AdminAddonHostedPageSurface, AdminAddonInstallGuideLifecycleBoundary,
+    AdminAddonInstallGuidePreviewRequest, AdminAddonInstallGuidePreviewResponse,
+    AdminAddonInstallGuideResponse, AdminAddonInstallGuideSecretReference,
+    AdminAddonInstallGuideSnippet, AdminAddonInstallGuideStep, AdminAddonManagerPlanRequest,
+    AdminAddonManagerPlanResponse, AdminAddonRegistrationDetail, AdminAddonRegistrationResponse,
+    AdminAddonRegistrationSummary, AdminAddonRegistrationsResponse,
+    AdminAddonResourceCallDiagnosticRequest, AdminAddonResourceCallDiagnosticResponse,
+    AdminAddonResourceCallDiagnosticStatus, AdminAddonResourceSearchDiagnosticRequest,
+    AdminAddonResourceSearchDiagnosticResponse, AdminAddonResourceSearchLinkSummary,
+    AdminAddonResourceSearchProviderDiagnostic, AdminAddonResourceSearchRequest,
+    AdminAddonResourceSearchResponse, AdminAddonResourceSearchResultSummary,
+    AdminAddonResourceSearchSelectionRequest, AdminAddonResourceSearchSelectionResponse,
+    AdminAddonRoutingPlansResponse, AdminAddonRuntimeReadinessCheck,
+    AdminAddonRuntimeReadinessCheckName, AdminAddonRuntimeReadinessDiagnostics,
+    AdminAddonRuntimeReadinessReason, AdminAddonRuntimeReadinessResponse,
+    AdminAddonSecretReferenceFieldSurface, AdminAddonSourceCatalogEntriesResponse,
+    AdminAddonSourceCatalogEntry, AdminAddonSourceCatalogResolveResponse,
+    AdminAddonSourceCatalogSource, AdminAddonSourceCatalogSourceKind,
+    AdminAddonSourceCatalogSourcesResponse, AdminAddonSurfacesResponse, AdminAddonTaskSurface,
+    IssueAddonTokenRequest, RegisterAddonRequest, ReplaceAddonGrantsRequest,
+    UpdateAddonStatusRequest,
 };
 use nako_core::{
     AddonGrantRecord, AddonId, AddonIssuedToken, AddonManifestFingerprint, AddonRegistrationRecord,
@@ -40,7 +50,11 @@ use nako_core::{
 };
 use nako_db::NakoDatabase;
 use nako_official_addon_catalog::{chromecast_renderer, metadata_scraper, notification_bridge};
-use tokio::sync::Semaphore;
+use tokio::sync::{Mutex, Semaphore};
+
+use crate::app::acquisition_intake::{
+    AcquisitionIntakeCandidateDiagnostic, RecordResourceSearchSelectionRequest,
+};
 
 use super::{runtime::RuntimeSupervisor, storage::StorageBackendRegistry};
 
@@ -63,6 +77,85 @@ pub(crate) use scan_metadata::{
 
 const RESOURCE_SEARCH_DIAGNOSTIC_DEFAULT_LIMIT: usize = 20;
 const RESOURCE_SEARCH_DIAGNOSTIC_MAX_LIMIT: usize = 50;
+const RESOURCE_SEARCH_SESSION_TTL_MS: i64 = 15 * 60 * 1_000;
+const RESOURCE_SEARCH_SESSION_MAX_COUNT: usize = 64;
+
+#[derive(Clone, Debug)]
+struct ResourceSearchSession {
+    search_id: String,
+    addon_id: AddonId,
+    manifest_id: String,
+    query: String,
+    created_at_ms: i64,
+    expires_at_ms: i64,
+    selections: HashMap<String, ResourceSearchSelection>,
+}
+
+#[derive(Clone, Debug)]
+struct ResourceSearchSelection {
+    result: AddonResourceSearchResult,
+    selected_link: AddonResourceLink,
+}
+
+#[derive(Clone, Debug)]
+struct ResourceSearchSelectionHandoff {
+    manifest_id: String,
+    query: String,
+    selection: ResourceSearchSelection,
+}
+
+#[derive(Debug, Default)]
+struct ResourceSearchSessionStore {
+    sessions: HashMap<String, ResourceSearchSession>,
+}
+
+impl ResourceSearchSessionStore {
+    fn insert(&mut self, session: ResourceSearchSession) {
+        self.prune(session.created_at_ms);
+        self.sessions.insert(session.search_id.clone(), session);
+        self.enforce_max_count();
+    }
+
+    fn get_selection(
+        &mut self,
+        addon_id: AddonId,
+        search_id: &str,
+        selection_id: &str,
+        now_ms: i64,
+    ) -> Option<ResourceSearchSelectionHandoff> {
+        self.prune(now_ms);
+        let session = self.sessions.get(search_id)?;
+        if session.addon_id != addon_id {
+            return None;
+        }
+        let selection = session.selections.get(selection_id)?.clone();
+
+        Some(ResourceSearchSelectionHandoff {
+            manifest_id: session.manifest_id.clone(),
+            query: session.query.clone(),
+            selection,
+        })
+    }
+
+    fn prune(&mut self, now_ms: i64) {
+        self.sessions
+            .retain(|_, session| session.expires_at_ms > now_ms);
+    }
+
+    fn enforce_max_count(&mut self) {
+        while self.sessions.len() > RESOURCE_SEARCH_SESSION_MAX_COUNT {
+            let Some(oldest_search_id) = self
+                .sessions
+                .iter()
+                .min_by_key(|(_, session)| session.created_at_ms)
+                .map(|(search_id, _)| search_id.clone())
+            else {
+                break;
+            };
+            self.sessions.remove(&oldest_search_id);
+        }
+    }
+}
 
 #[async_trait::async_trait]
 trait AddonRegistrationStore: std::fmt::Debug + Send + Sync {
@@ -165,6 +258,7 @@ where
 pub(crate) struct AddonAppService {
     store: NakoDatabase,
     registration_store: Arc<dyn AddonRegistrationStore>,
+    resource_search_sessions: Arc<Mutex<ResourceSearchSessionStore>>,
     permits: Arc<Semaphore>,
     storage_backends: StorageBackendRegistry,
     runtime: RuntimeSupervisor,
@@ -179,6 +273,7 @@ impl AddonAppService {
     ) -> Self {
         Self {
             registration_store: Arc::new(store.clone()),
+            resource_search_sessions: Arc::new(Mutex::new(ResourceSearchSessionStore::default())),
             store,
             permits,
             storage_backends,
@@ -915,6 +1010,170 @@ impl AddonAppService {
         }
     }
 
+    pub async fn search_addon_resources(
+        &self,
+        addon_id: AddonId,
+        request: AdminAddonResourceSearchRequest,
+    ) -> Result<AdminAddonResourceSearchResponse> {
+        let addon = self.get_addon_registration_or_not_found(addon_id).await?;
+        if addon.status == AddonStatus::Unregistered {
+            return Err(NakoError::Conflict {
+                message: format!("addon registration {addon_id} is unregistered"),
+            });
+        }
+        let query = request.query.trim().to_owned();
+        if query.is_empty() {
+            return Err(NakoError::InvalidInput {
+                message: "resource search query cannot be empty".to_owned(),
+            });
+        }
+        let limit = normalize_resource_search_diagnostic_limit(request.limit)?;
+        let manifest = self.stored_manifest(&addon)?;
+        let granted_scopes = stored_granted_scopes(&addon)?;
+        let search_id = new_resource_search_id();
+        let search_request = AddonResourceSearchRequest {
+            schema: ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA.to_owned(),
+            intent: request.intent,
+            query: query.clone(),
+            limit: Some(limit),
+            sources: request.sources,
+            link_types: request.link_types,
+            refresh: request.refresh,
+            context: request.context,
+        };
+        let started = Instant::now();
+        let response = call_addon_resource_search_with_outcome(
+            &ReqwestAddonTransport::default(),
+            &manifest,
+            &granted_scopes,
+            format!("addon-resource-search-{addon_id}"),
+            search_request,
+            None,
+        )
+        .await;
+        let latency_ms = started.elapsed().as_millis();
+
+        match response {
+            Ok(outcome) => {
+                let response = outcome.response;
+                let total = response.total;
+                let provider_executions = response
+                    .provider_executions
+                    .into_iter()
+                    .map(AdminAddonResourceSearchProviderDiagnostic::from)
+                    .collect();
+                let (results, selections) =
+                    safe_resource_search_results(&search_id, response.results);
+                let result_count = results.len();
+                let now_ms = super::current_time_ms()?;
+                self.resource_search_sessions
+                    .lock()
+                    .await
+                    .insert(ResourceSearchSession {
+                        search_id: search_id.clone(),
+                        addon_id,
+                        manifest_id: addon.manifest_id.clone(),
+                        query,
+                        created_at_ms: now_ms,
+                        expires_at_ms: now_ms.saturating_add(RESOURCE_SEARCH_SESSION_TTL_MS),
+                        selections,
+                    });
+
+                Ok(AdminAddonResourceSearchResponse {
+                    addon_id,
+                    manifest_id: addon.manifest_id,
+                    search_id,
+                    status: AdminAddonResourceCallDiagnosticStatus::Succeeded,
+                    latency_ms,
+                    attempts: outcome.attempts,
+                    limit,
+                    total,
+                    result_count,
+                    results,
+                    provider_executions,
+                    http_status: Some(outcome.http_status),
+                    safe_error_code: None,
+                })
+            }
+            Err(failure) => {
+                let err = failure.error;
+                Ok(AdminAddonResourceSearchResponse {
+                    addon_id,
+                    manifest_id: addon.manifest_id,
+                    search_id,
+                    status: resource_diagnostic_status_for_client_error(&err),
+                    latency_ms,
+                    attempts: failure.attempts,
+                    limit,
+                    total: 0,
+                    result_count: 0,
+                    results: Vec::new(),
+                    provider_executions: Vec::new(),
+                    http_status: err.http_status(),
+                    safe_error_code: Some(safe_resource_diagnostic_error_code(&err).to_owned()),
+                })
+            }
+        }
+    }
+
+    pub async fn select_addon_resource_search_result(
+        &self,
+        addon_id: AddonId,
+        search_id: String,
+        selection_id: String,
+        request: AdminAddonResourceSearchSelectionRequest,
+    ) -> Result<AdminAddonResourceSearchSelectionResponse> {
+        let addon = self.get_addon_registration_or_not_found(addon_id).await?;
+        if addon.status == AddonStatus::Unregistered {
+            return Err(NakoError::Conflict {
+                message: format!("addon registration {addon_id} is unregistered"),
+            });
+        }
+        let handoff = self
+            .resource_search_sessions
+            .lock()
+            .await
+            .get_selection(
+                addon_id,
+                &search_id,
+                &selection_id,
+                super::current_time_ms()?,
+            )
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "resource_search_selection",
+                id: selection_id.clone(),
+            })?;
+        if handoff.manifest_id != addon.manifest_id {
+            return Err(NakoError::Conflict {
+                message: "resource search session belongs to a different addon manifest".to_owned(),
+            });
+        }
+
+        let diagnostic =
+            crate::app::acquisition_intake::AcquisitionIntakeAppService::new_with_storage(
+                self.store.clone(),
+                self.storage_backends.clone(),
+            )
+            .record_resource_search_selection(RecordResourceSearchSelectionRequest {
+                target_library_id: request.target_library_id,
+                addon_id,
+                manifest_id: handoff.manifest_id.clone(),
+                query: handoff.query,
+                result: handoff.selection.result,
+                selected_link: handoff.selection.selected_link,
+            })
+            .await?;
+
+        Ok(AdminAddonResourceSearchSelectionResponse {
+            addon_id,
+            manifest_id: handoff.manifest_id,
+            search_id,
+            selection_id,
+            candidate: addon_acquisition_candidate_summary(diagnostic.candidate),
+            idempotent_replay: diagnostic.idempotent_replay,
+        })
+    }
+
     pub async fn issue_addon_token(
         &self,
         addon_id: AddonId,
@@ -1308,6 +1567,172 @@ fn normalize_resource_search_diagnostic_limit(limit: Option<usize>) -> Result<us
     }
 
     Ok(limit.min(RESOURCE_SEARCH_DIAGNOSTIC_MAX_LIMIT))
+}
+
+fn safe_resource_search_results(
+    search_id: &str,
+    results: Vec<AddonResourceSearchResult>,
+) -> (
+    Vec<AdminAddonResourceSearchResultSummary>,
+    HashMap<String, ResourceSearchSelection>,
+) {
+    let mut summaries = Vec::with_capacity(results.len());
+    let mut selections = HashMap::new();
+
+    for (result_index, result) in results.into_iter().enumerate() {
+        let mut links = Vec::new();
+        for (link_index, link) in result.links.iter().enumerate() {
+            let Some(source_uri) = resource_search_link_uri(link) else {
+                continue;
+            };
+            let selection_id =
+                resource_search_selection_id(search_id, result_index, link_index, &source_uri);
+            links.push(AdminAddonResourceSearchLinkSummary {
+                selection_id: selection_id.clone(),
+                link_type: link.link_type,
+                source: link.source.clone(),
+                source_ref_redacted: redact_uri(&source_uri),
+                has_password: link.password.is_some(),
+                has_note: link
+                    .note
+                    .as_ref()
+                    .is_some_and(|note| !note.trim().is_empty()),
+            });
+            selections.insert(
+                selection_id,
+                ResourceSearchSelection {
+                    result: resource_search_selection_result_snapshot(&result),
+                    selected_link: link.clone(),
+                },
+            );
+        }
+
+        summaries.push(AdminAddonResourceSearchResultSummary {
+            result_ref_fingerprint: fingerprint_key(&result.id),
+            title: result.title,
+            content: optional_non_empty(result.content),
+            source: result.source,
+            tags: result
+                .tags
+                .into_iter()
+                .filter_map(|tag| optional_non_empty(Some(tag)))
+                .collect(),
+            score: result.score,
+            links,
+        });
+    }
+
+    (summaries, selections)
+}
+
+fn resource_search_link_uri(link: &AddonResourceLink) -> Option<String> {
+    optional_non_empty(Some(link.normalized_url.clone()))
+        .or_else(|| optional_non_empty(Some(link.url.clone())))
+}
+
+fn resource_search_selection_result_snapshot(
+    result: &AddonResourceSearchResult,
+) -> AddonResourceSearchResult {
+    AddonResourceSearchResult {
+        id: result.id.clone(),
+        title: result.title.clone(),
+        source: result.source.clone(),
+        content: result.content.clone(),
+        links: result
+            .links
+            .iter()
+            .map(resource_search_link_count_placeholder)
+            .collect(),
+        tags: result.tags.clone(),
+        images: result.images.iter().map(|_| String::new()).collect(),
+        score: result.score,
+    }
+}
+
+fn resource_search_link_count_placeholder(link: &AddonResourceLink) -> AddonResourceLink {
+    AddonResourceLink {
+        url: String::new(),
+        normalized_url: String::new(),
+        link_type: link.link_type,
+        source: link.source.clone(),
+        password: None,
+        note: None,
+    }
+}
+
+fn resource_search_selection_id(
+    search_id: &str,
+    result_index: usize,
+    link_index: usize,
+    source_uri: &str,
+) -> String {
+    let material = format!(
+        "nako.resource-search-selection-id.v1\0{search_id}\0{result_index}\0{link_index}\0{source_uri}"
+    );
+    format!("sel_{}", &sha256_hex(&material)[..32])
+}
+
+fn new_resource_search_id() -> String {
+    format!("rs_{}", uuid::Uuid::new_v4().simple())
+}
+
+fn optional_non_empty(value: Option<String>) -> Option<String> {
+    value.and_then(|value| {
+        let trimmed = value.trim().to_owned();
+        (!trimmed.is_empty()).then_some(trimmed)
+    })
+}
+
+fn uri_scheme(value: &str) -> Option<&str> {
+    value
+        .split_once(':')
+        .map(|(scheme, _)| scheme)
+        .filter(|scheme| !scheme.is_empty())
+}
+
+fn redact_uri(value: &str) -> String {
+    uri_scheme(value)
+        .map(|scheme| format!("{scheme}://<redacted>"))
+        .unwrap_or_else(|| "<redacted>".to_owned())
+}
+
+fn fingerprint_key(value: &str) -> String {
+    let digest = sha256_hex(value);
+    format!("sha256:{}", &digest[..32])
+}
+
+fn sha256_hex(value: &str) -> String {
+    use sha2::{Digest, Sha256};
+
+    let digest = Sha256::digest(value.as_bytes());
+    digest
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>()
+}
+
+fn addon_acquisition_candidate_summary(
+    diagnostic: AcquisitionIntakeCandidateDiagnostic,
+) -> AddonAcquisitionCandidateSummary {
+    AddonAcquisitionCandidateSummary {
+        id: diagnostic.id,
+        target_library_id: diagnostic.target_library_id,
+        state: diagnostic.state,
+        source_kind: diagnostic.source_kind,
+        source_scheme: diagnostic.source_scheme,
+        source_ref_redacted: diagnostic.source_uri_redacted,
+        source_key_fingerprint: diagnostic.source_key_fingerprint,
+        has_display_name: diagnostic.has_display_name,
+        has_intended_locator: diagnostic.has_intended_locator,
+        size_bytes: diagnostic.size_bytes,
+        has_fingerprint: diagnostic.has_fingerprint,
+        has_diagnostics: diagnostic.has_diagnostics,
+        managed_import_artifact_id: diagnostic.managed_import_artifact_id,
+        writes_library: false,
+        creates_media_source: false,
+        creates_managed_import: false,
+        promotion_apply: false,
+    }
 }
 
 fn resource_diagnostic_status_for_client_error(

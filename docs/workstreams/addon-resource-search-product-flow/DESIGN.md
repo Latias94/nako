@@ -1,6 +1,6 @@
 # Addon Resource Search Product Flow
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-28
 
 ## Why This Lane Exists
