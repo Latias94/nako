@@ -7,9 +7,10 @@
   "scope_kind": "frontend_product_replacement",
   "problem": "Nako should copy the complete v0-generated admin/media frontend into web/ and then refactor it into a static TanStack/Tauri/Nako API product frontend instead of rebuilding the UI from zero.",
   "task_prefix": "WVTR",
-  "current_task": "WVTR-020",
+  "current_task": "WVTR-030",
   "completed_tasks": [
-    "WVTR-010"
+    "WVTR-010",
+    "WVTR-020"
   ],
   "authoritative_docs": [
     {
@@ -48,7 +49,8 @@
     "git diff --check"
   ],
   "evidence": [
-    "WVTR-010 opened this durable copy-first frontend refactor lane."
+    "WVTR-010 opened this durable copy-first frontend refactor lane.",
+    "WVTR-020 copied repo-ref/nako-admin-web into web/, removed Google font and Vercel analytics assumptions, and passed npm --prefix web run check plus npm --prefix web run build."
   ],
   "adr_refs": [
     "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",

@@ -15,10 +15,19 @@ The user accepted a copy-first frontend refactor:
 - performance and desktop packaging must be considered before the frontend
   grows further.
 
+Current baseline status:
+
+- `repo-ref/nako-admin-web` has been copied into `web/`;
+- `npm --prefix web run check` and `npm --prefix web run build` both pass;
+- Google Fonts and Vercel analytics assumptions were removed from the copied shell;
+- the app router still exposes a dynamic `/api/tmdb` route, so runtime
+  quarantine is still required before Tauri/static closeout.
+
 ## Next Task
 
-WVTR-020: copy `repo-ref/nako-admin-web` into `web/` while preserving reusable
-Tauri and Nako API boundary assets for later reattachment.
+WVTR-030: remove or quarantine Next server runtime assumptions, Vercel
+assumptions, the TMDB API route, frontend provider secrets, and third-party
+artwork hotlinks from the copied shell.
 
 ## Key Constraints
 

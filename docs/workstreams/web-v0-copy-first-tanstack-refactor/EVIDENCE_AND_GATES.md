@@ -62,3 +62,4 @@ Release routes must not expose:
 | Date | Task | Evidence | Result |
 | --- | --- | --- | --- |
 | 2026-05-28 | WVTR-010 | Workstream opened after user accepted copy-first refactor and autonomous commits. | Active. |
+| 2026-05-28 | WVTR-020 | `npm --prefix web install`; `npm --prefix web run check`; `npm --prefix web run build`. Build output still reports a dynamic `/api/tmdb` route, which stays for WVTR-030 quarantine. | Passed. |

@@ -13,12 +13,12 @@ Last updated: 2026-05-28
 
 ## M1 - Copy Baseline
 
-- [ ] WVTR-020 [owner=Codex] [deps=WVTR-010] [scope=web,repo-ref/nako-admin-web]
+- [x] WVTR-020 [owner=Codex] [deps=WVTR-010] [scope=web,repo-ref/nako-admin-web]
   Goal: Copy `repo-ref/nako-admin-web` into `web/` as the product baseline while preserving reusable Tauri and Nako API boundary assets for later reattachment.
   Validation: npm --prefix web run build or an explicitly recorded blocker if the copied Next shell cannot build before runtime quarantine.
   Review: Confirm copy source is v0 reference only and no Jellyfin/Plex source/assets are introduced.
   Evidence: web/package.json, web/app, web/components, web/lib, web/src-tauri.
-  Handoff: Final status must be DONE, DONE_WITH_CONCERNS, BLOCKED, or NEEDS_CONTEXT.
+  Handoff: DONE. Copy-first baseline is in place and build-validated; next task is WVTR-030.
 
 ## M2 - Runtime Quarantine
 

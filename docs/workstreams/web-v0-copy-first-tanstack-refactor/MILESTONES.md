@@ -15,6 +15,8 @@ Exit criteria:
 
 ## M1 - Copied Product Baseline
 
+Status: done.
+
 Exit criteria:
 
 - `repo-ref/nako-admin-web` has been copied into `web/`.
