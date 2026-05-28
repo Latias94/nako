@@ -1,20 +1,20 @@
 # Web Feature Boundary Reshape - Handoff
 
-Status: Queued
+Status: Active
 Last updated: 2026-05-28
 
 ## Current State
 
-Wait for `web-test-harness-and-route-contracts` to close before moving large
-component boundaries.
+`web-test-harness-and-route-contracts` is complete. Route and data-source
+contract tests are in place, so large component boundary moves can start.
 
 ## Active Task
 
-- Task ID: WFBR-010
-- Owner: planner
-- Status: QUEUED
-- Validation: WTRC complete.
+- Task ID: WFBR-020
+- Owner: Codex
+- Status: READY
+- Validation: `npm --prefix web run test && npm --prefix web run build`
 
 ## Next Recommended Action
 
-- Activate after WTRC-050.
+- Move Media surface components into a feature-owned boundary without behavior changes.

@@ -1,6 +1,6 @@
 # Web Feature Boundary Reshape
 
-Status: Queued
+Status: Active
 Last updated: 2026-05-28
 
 This lane reshapes the copied `components/nako` surface into explicit feature

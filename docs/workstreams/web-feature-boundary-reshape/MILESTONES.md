@@ -1,9 +1,11 @@
 # Web Feature Boundary Reshape - Milestones
 
-Status: Queued
+Status: Active
 Last updated: 2026-05-28
 
 ## M0 - Activation
+
+Status: done.
 
 Exit criteria: WTRC is complete.
 

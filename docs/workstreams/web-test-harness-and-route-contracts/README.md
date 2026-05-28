@@ -1,6 +1,6 @@
 # Web Test Harness And Route Contracts
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 This lane replaces the temporary `npm test` type-check alias with real frontend

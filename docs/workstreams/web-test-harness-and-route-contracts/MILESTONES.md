@@ -1,6 +1,6 @@
 # Web Test Harness And Route Contracts - Milestones
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 ## M0 - Scope Freeze
@@ -38,6 +38,8 @@ Exit criteria:
 - Public and Admin data-source seams have fixture/live boundary tests.
 
 ## M4 - Closeout
+
+Status: done.
 
 Exit criteria:
 

@@ -1,15 +1,15 @@
 # Web Feature Boundary Reshape - TODO
 
-Status: Queued
+Status: Active
 Last updated: 2026-05-28
 
 ## M0 - Activation
 
-- [ ] WFBR-010 [owner=planner] [deps=WTRC-050] [scope=docs/workstreams/web-feature-boundary-reshape]
+- [x] WFBR-010 [owner=planner] [deps=WTRC-050] [scope=docs/workstreams/web-feature-boundary-reshape]
   Goal: Activate this lane after the test harness closes.
   Validation: WTRC is complete and current docs still match `web/`.
   Evidence: WORKSTREAM.json
-  Handoff: Next task is WFBR-020.
+  Handoff: DONE. WTRC is complete and this lane is active; next task is WFBR-020.
 
 ## M1 - Media Boundary
 

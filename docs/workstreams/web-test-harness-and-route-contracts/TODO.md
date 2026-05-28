@@ -1,6 +1,6 @@
 # Web Test Harness And Route Contracts - TODO
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 ## M0 - Scope And Evidence Freeze
@@ -40,9 +40,9 @@ Last updated: 2026-05-28
 
 ## M4 - Closeout
 
-- [ ] WTRC-050 [owner=planner] [deps=WTRC-030,WTRC-040] [scope=docs/workstreams/web-test-harness-and-route-contracts]
+- [x] WTRC-050 [owner=planner] [deps=WTRC-030,WTRC-040] [scope=docs/workstreams/web-test-harness-and-route-contracts]
   Goal: Close the lane after test, build, and smoke evidence are recorded.
   Validation: npm --prefix web run test && npm --prefix web run build.
   Review: No blocking findings.
   Evidence: EVIDENCE_AND_GATES.md, WORKSTREAM.json.
-  Handoff: READY. Run lane closeout gates and activate `web-feature-boundary-reshape`.
+  Handoff: DONE. Lane gates passed and `web-feature-boundary-reshape` is active.

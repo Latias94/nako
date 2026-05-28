@@ -1,6 +1,6 @@
 # Web Feature Boundary Reshape - Evidence And Gates
 
-Status: Queued
+Status: Active
 Last updated: 2026-05-28
 
 ## Gate Set
@@ -20,3 +20,4 @@ The `rg` boundary check should return no shared/media DTO leaks.
 | Date | Task | Evidence | Result |
 | --- | --- | --- | --- |
 | 2026-05-28 | WFBR-010 | Queued after the frontend six-lane roadmap was accepted. | Queued. |
+| 2026-05-28 | WFBR-010 | Activated after WTRC completed with `npm --prefix web run test`, `npm --prefix web run check`, `npm --prefix web run build`, and `git diff --check` passing. | Active. Current task is WFBR-020. |
