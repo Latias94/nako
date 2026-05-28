@@ -16,6 +16,11 @@ attention.
   through real backend/API contracts before downloads, playlists, photos,
   music, podcasts, AI assistant, or automation can re-enter the live web
   runtime.
+- [web-media-live-public-client-parity](web-media-live-public-client-parity/README.md):
+  active implementation lane for moving the new `web/` Media surface from
+  fixture-first browsing toward live Public Client browse/detail, browser-safe
+  playback entry, playback state, browser/Tauri validation, and bundle-budget
+  gates.
 - [web-modern-frontend-and-tauri-foundation](web-modern-frontend-and-tauri-foundation/README.md):
   closed foundation lane that made `web/` the product frontend release line,
   re-authored the v0 UX direction into a Vite React/Tailwind/TanStack app with a

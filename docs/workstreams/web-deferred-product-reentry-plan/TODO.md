@@ -13,11 +13,11 @@ Last updated: 2026-05-28
 
 ## M1 - Video-First Reentry
 
-- [ ] WDRP-020 [owner=planner] [deps=WDRP-010] [scope=docs/workstreams]
+- [x] WDRP-020 [owner=planner] [deps=WDRP-010] [scope=docs/workstreams]
   Goal: Open or update the next Media Web lane for live Public Client browsing/detail/playback parity in the new `web/` shell.
   Validation: new or updated workstream docs reference Public Client routes, route contracts, browser/Tauri gates, and bundle budget gates.
-  Evidence: workstream path and first executable task.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Evidence: Opened `docs/workstreams/web-media-live-public-client-parity`; first executable task is WMLP-020 Public Client readiness audit.
+  Handoff: DONE. Next task is WDRP-030.
 
 ## M2 - Admin Operations Reentry
 
@@ -56,4 +56,3 @@ Last updated: 2026-05-28
   Validation: `python -m json.tool docs/workstreams/web-deferred-product-reentry-plan/WORKSTREAM.json`; `git diff --check`.
   Evidence: EVIDENCE_AND_GATES.md.
   Handoff: Close or return to the selected implementation lane.
-

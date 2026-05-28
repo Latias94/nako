@@ -11,7 +11,7 @@ Completed by WDRP-010.
 ## M1 - Video-First Reentry
 
 Exit criteria: the next Media Web implementation lane is opened or updated with
-live Public Client and playback gates.
+live Public Client and playback gates. Completed by WDRP-020.
 
 ## M2 - Admin Operations Reentry
 
@@ -32,4 +32,3 @@ references ADR-0021.
 
 Exit criteria: all deferred product gaps are either assigned to follow-on lanes
 or intentionally deferred with reentry conditions.
-
