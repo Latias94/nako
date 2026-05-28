@@ -1,9 +1,11 @@
 use nako_addon_protocol::{
-    ADDON_PROTOCOL_VERSION, AddonAuth, AddonConfigurationSchema, AddonEntryPointDeclaration,
-    AddonEntryPointKind, AddonEventSubscriptionDeclaration, AddonHostedPageDeclaration,
-    AddonInstallDescriptor, AddonManifest, AddonResource, AddonResourceDeclaration,
-    AddonRuntimeKind, AddonRuntimeRequirement, AddonScope, AddonSecretReferenceFieldDeclaration,
-    AddonTaskDeclaration,
+    ADDON_PROTOCOL_VERSION, ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA,
+    ADDON_RESOURCE_LINK_CHECK_RESPONSE_SCHEMA, ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA,
+    ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA, AddonAuth, AddonConfigurationSchema,
+    AddonEntryPointDeclaration, AddonEntryPointKind, AddonEventSubscriptionDeclaration,
+    AddonHostedPageDeclaration, AddonInstallDescriptor, AddonManifest, AddonResource,
+    AddonResourceDeclaration, AddonRuntimeKind, AddonRuntimeRequirement, AddonScope,
+    AddonSecretReferenceFieldDeclaration, AddonTaskDeclaration,
 };
 
 pub mod metadata_scraper {
@@ -247,6 +249,286 @@ pub mod metadata_scraper {
                 "additionalProperties": false,
             }),
         }
+    }
+}
+
+pub mod resource_search {
+    use super::*;
+
+    pub const ADDON_ID: &str = "nako.official.resource-search";
+    pub const ADDON_NAME: &str = "Nako Resource Search";
+    pub const ADDON_VERSION: &str = "0.1.0-alpha.2";
+    pub const DEFAULT_BASE_URL: &str = "http://127.0.0.1:9130";
+    pub const DEFAULT_CONTAINER_BASE_URL: &str = "http://nako-resource-search:9130";
+    pub const RUNTIME_BINARY: &str = "nako-resource-search";
+    pub const RUNTIME_IMAGE: &str = "ghcr.io/latias94/nako-resource-search:0.1.0-alpha.2";
+    pub const DESCRIPTION: &str = "Official Nako resource search sidecar for external resource discovery, link classification, and result fusion.";
+    pub const CONFIG_SCHEMA_ID: &str = "nako.official.resource-search.config.v1";
+    pub const RESOURCE_SEARCH_RESOURCE_PATH: &str = "/resource-search";
+    pub const RESOURCE_LINK_CHECK_RESOURCE_PATH: &str = "/resource-link-check";
+    pub const DIAGNOSTICS_ENTRY_POINT_ID: &str = "resource-search-diagnostics";
+    pub const DIAGNOSTICS_HOSTED_PAGE_ID: &str = "diagnostics";
+    pub const DIAGNOSTICS_LABEL: &str = "Resource Search Diagnostics";
+    pub const DIAGNOSTICS_PATH: &str = "/ui/diagnostics";
+    pub const DEFAULT_LIMIT: usize = 20;
+    pub const DEFAULT_MAX_LIMIT: usize = 100;
+    pub const DEFAULT_TIMEOUT_MS: u64 = 10_000;
+    pub const DEFAULT_MAX_ATTEMPTS: u32 = 1;
+    pub const PROVIDER_FIXTURE: &str = "fixture";
+    pub const PROVIDER_PANSOU_COMPATIBLE: &str = "pansou_compatible";
+    pub const PANSOU_DEFAULT_SOURCE_TYPE: &str = "all";
+
+    #[derive(Clone, Debug, Eq, PartialEq)]
+    pub struct ProviderToggle {
+        pub id: &'static str,
+        pub enabled: bool,
+    }
+
+    impl ProviderToggle {
+        #[must_use]
+        pub const fn new(id: &'static str, enabled: bool) -> Self {
+            Self { id, enabled }
+        }
+    }
+
+    #[must_use]
+    pub const fn default_provider_toggles() -> [ProviderToggle; 2] {
+        [
+            ProviderToggle::new(PROVIDER_FIXTURE, true),
+            ProviderToggle::new(PROVIDER_PANSOU_COMPATIBLE, false),
+        ]
+    }
+
+    #[must_use]
+    pub fn default_manifest() -> AddonManifest {
+        manifest_with_version(
+            ADDON_VERSION,
+            DEFAULT_BASE_URL,
+            default_provider_toggles(),
+            DEFAULT_LIMIT,
+            DEFAULT_MAX_LIMIT,
+            DEFAULT_TIMEOUT_MS,
+        )
+    }
+
+    #[must_use]
+    pub fn container_manifest() -> AddonManifest {
+        manifest_with_version(
+            ADDON_VERSION,
+            DEFAULT_CONTAINER_BASE_URL,
+            default_provider_toggles(),
+            DEFAULT_LIMIT,
+            DEFAULT_MAX_LIMIT,
+            DEFAULT_TIMEOUT_MS,
+        )
+    }
+
+    #[must_use]
+    pub fn manifest(base_url: impl Into<String>) -> AddonManifest {
+        manifest_with_version(
+            ADDON_VERSION,
+            base_url,
+            default_provider_toggles(),
+            DEFAULT_LIMIT,
+            DEFAULT_MAX_LIMIT,
+            DEFAULT_TIMEOUT_MS,
+        )
+    }
+
+    #[must_use]
+    pub fn manifest_with_version(
+        version: impl Into<String>,
+        base_url: impl Into<String>,
+        providers: impl IntoIterator<Item = ProviderToggle>,
+        default_limit: usize,
+        max_limit: usize,
+        search_timeout_ms: u64,
+    ) -> AddonManifest {
+        AddonManifest {
+            id: ADDON_ID.to_owned(),
+            name: ADDON_NAME.to_owned(),
+            version: version.into(),
+            protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+            base_url: base_url.into(),
+            description: Some(DESCRIPTION.to_owned()),
+            resources: vec![
+                AddonResourceDeclaration {
+                    kind: AddonResource::ResourceSearch,
+                    path: RESOURCE_SEARCH_RESOURCE_PATH.to_owned(),
+                    input_schema: Some(ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA.to_owned()),
+                    output_schema: Some(ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA.to_owned()),
+                    required_scopes: vec![AddonScope::AcquisitionSearchRead],
+                    timeout_ms: Some(search_timeout_ms),
+                    max_attempts: Some(DEFAULT_MAX_ATTEMPTS),
+                },
+                AddonResourceDeclaration {
+                    kind: AddonResource::ResourceLinkCheck,
+                    path: RESOURCE_LINK_CHECK_RESOURCE_PATH.to_owned(),
+                    input_schema: Some(ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA.to_owned()),
+                    output_schema: Some(ADDON_RESOURCE_LINK_CHECK_RESPONSE_SCHEMA.to_owned()),
+                    required_scopes: vec![AddonScope::AcquisitionLinkCheckRead],
+                    timeout_ms: Some(search_timeout_ms),
+                    max_attempts: Some(DEFAULT_MAX_ATTEMPTS),
+                },
+            ],
+            entry_points: vec![AddonEntryPointDeclaration::hosted_page(
+                DIAGNOSTICS_ENTRY_POINT_ID,
+                AddonEntryPointKind::Diagnostics,
+                DIAGNOSTICS_LABEL,
+                DIAGNOSTICS_PATH,
+                DIAGNOSTICS_HOSTED_PAGE_ID,
+                vec![AddonScope::AcquisitionSearchRead],
+            )],
+            hosted_pages: vec![AddonHostedPageDeclaration::new(
+                DIAGNOSTICS_HOSTED_PAGE_ID,
+                DIAGNOSTICS_LABEL,
+                DIAGNOSTICS_PATH,
+                vec![AddonScope::AcquisitionSearchRead],
+            )],
+            configuration_schema: Some(configuration_schema(
+                providers,
+                default_limit,
+                max_limit,
+                search_timeout_ms,
+            )),
+            secret_reference_fields: Vec::new(),
+            event_subscriptions: Vec::new(),
+            tasks: Vec::new(),
+            auth: AddonAuth::None,
+            default_timeout_ms: Some(search_timeout_ms),
+            default_max_attempts: Some(DEFAULT_MAX_ATTEMPTS),
+            scopes: vec![
+                AddonScope::AcquisitionSearchRead,
+                AddonScope::AcquisitionLinkCheckRead,
+            ],
+        }
+    }
+
+    #[must_use]
+    pub fn binary_install_descriptor() -> AddonInstallDescriptor {
+        AddonInstallDescriptor {
+            manifest: default_manifest(),
+            runtime: AddonRuntimeRequirement {
+                kind: AddonRuntimeKind::HttpSidecar,
+                image: None,
+                binary: Some(RUNTIME_BINARY.to_owned()),
+                command: None,
+            },
+            secret_reference_bindings: Vec::new(),
+            install_notes: vec![
+                format!(
+                    "Install from crates.io with `cargo install {RUNTIME_BINARY} --version {ADDON_VERSION} --locked`."
+                ),
+                "Run the sidecar outside Nako and register the resolved manifest through the existing Admin Addon APIs.".to_owned(),
+            ],
+        }
+    }
+
+    #[must_use]
+    pub fn container_install_descriptor() -> AddonInstallDescriptor {
+        AddonInstallDescriptor {
+            manifest: container_manifest(),
+            runtime: AddonRuntimeRequirement {
+                kind: AddonRuntimeKind::HttpSidecar,
+                image: Some(RUNTIME_IMAGE.to_owned()),
+                binary: None,
+                command: None,
+            },
+            secret_reference_bindings: Vec::new(),
+            install_notes: vec![
+                format!(
+                    "Run the official container image `{RUNTIME_IMAGE}` or build from the `addons/resource-search` Dockerfile."
+                ),
+                "Run the sidecar outside Nako and register the resolved manifest through the existing Admin Addon APIs.".to_owned(),
+            ],
+        }
+    }
+
+    #[must_use]
+    fn configuration_schema(
+        providers: impl IntoIterator<Item = ProviderToggle>,
+        default_limit: usize,
+        max_limit: usize,
+        search_timeout_ms: u64,
+    ) -> AddonConfigurationSchema {
+        let mut provider_properties = serde_json::Map::new();
+        for provider in providers {
+            provider_properties.insert(
+                provider.id.to_owned(),
+                serde_json::json!({
+                    "type": "boolean",
+                    "default": provider.enabled,
+                }),
+            );
+        }
+
+        AddonConfigurationSchema::new(
+            CONFIG_SCHEMA_ID,
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "providers": {
+                        "type": "object",
+                        "properties": provider_properties,
+                        "additionalProperties": false
+                    },
+                    "pansou": {
+                        "type": "object",
+                        "properties": {
+                            "base_url": {
+                                "type": "string",
+                                "default": ""
+                            },
+                            "source_type": {
+                                "type": "string",
+                                "default": PANSOU_DEFAULT_SOURCE_TYPE
+                            },
+                            "plugins": {
+                                "type": "array",
+                                "items": { "type": "string" },
+                                "default": []
+                            },
+                            "cloud_types": {
+                                "type": "array",
+                                "items": { "type": "string" },
+                                "default": []
+                            },
+                            "concurrency": {
+                                "type": ["integer", "null"],
+                                "default": null,
+                                "minimum": 1
+                            },
+                            "timeout_ms": {
+                                "type": "integer",
+                                "default": DEFAULT_TIMEOUT_MS,
+                                "minimum": 250,
+                                "maximum": 60000
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    "default_limit": {
+                        "type": "integer",
+                        "default": default_limit,
+                        "minimum": 1,
+                        "maximum": max_limit
+                    },
+                    "max_limit": {
+                        "type": "integer",
+                        "default": max_limit,
+                        "minimum": 1,
+                        "maximum": 500
+                    },
+                    "search_timeout_ms": {
+                        "type": "integer",
+                        "default": search_timeout_ms,
+                        "minimum": 250,
+                        "maximum": 60000
+                    }
+                },
+                "additionalProperties": false
+            }),
+        )
     }
 }
 
@@ -561,6 +843,7 @@ mod tests {
     use super::chromecast_renderer;
     use super::metadata_scraper::*;
     use super::notification_bridge;
+    use super::resource_search;
 
     #[test]
     fn metadata_scraper_default_manifest_matches_official_catalog_facts() {
@@ -667,6 +950,89 @@ mod tests {
     }
 
     #[test]
+    fn resource_search_default_manifest_matches_official_catalog_facts() {
+        let manifest = resource_search::default_manifest();
+
+        validate_manifest(&manifest).unwrap();
+        assert_eq!(manifest.id, resource_search::ADDON_ID);
+        assert_eq!(manifest.version, resource_search::ADDON_VERSION);
+        assert_eq!(manifest.base_url, resource_search::DEFAULT_BASE_URL);
+        assert_eq!(
+            manifest.scopes,
+            vec![
+                nako_addon_protocol::AddonScope::AcquisitionSearchRead,
+                nako_addon_protocol::AddonScope::AcquisitionLinkCheckRead,
+            ]
+        );
+        assert_eq!(manifest.resources.len(), 2);
+        assert_eq!(
+            manifest.resources[0].kind,
+            nako_addon_protocol::AddonResource::ResourceSearch
+        );
+        assert_eq!(
+            manifest.resources[0].path,
+            resource_search::RESOURCE_SEARCH_RESOURCE_PATH
+        );
+        assert_eq!(
+            manifest.resources[0].input_schema.as_deref(),
+            Some(nako_addon_protocol::ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA)
+        );
+        assert_eq!(
+            manifest.resources[0].output_schema.as_deref(),
+            Some(nako_addon_protocol::ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA)
+        );
+        assert_eq!(
+            manifest.resources[1].kind,
+            nako_addon_protocol::AddonResource::ResourceLinkCheck
+        );
+        assert_eq!(
+            manifest.resources[1].path,
+            resource_search::RESOURCE_LINK_CHECK_RESOURCE_PATH
+        );
+        assert_eq!(
+            manifest.resources[1].input_schema.as_deref(),
+            Some(nako_addon_protocol::ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA)
+        );
+        assert_eq!(
+            manifest.resources[1].output_schema.as_deref(),
+            Some(nako_addon_protocol::ADDON_RESOURCE_LINK_CHECK_RESPONSE_SCHEMA)
+        );
+        assert_eq!(
+            manifest.entry_points[0].id,
+            resource_search::DIAGNOSTICS_ENTRY_POINT_ID
+        );
+        assert_eq!(
+            manifest.hosted_pages[0].id,
+            resource_search::DIAGNOSTICS_HOSTED_PAGE_ID
+        );
+        let schema = &manifest.configuration_schema.as_ref().unwrap().schema;
+        assert_eq!(
+            schema["properties"]["providers"]["properties"]["fixture"]["default"],
+            true
+        );
+        assert_eq!(
+            schema["properties"]["providers"]["properties"]["pansou_compatible"]["default"],
+            false
+        );
+        assert_eq!(schema["properties"]["pansou"]["type"], "object");
+        assert_eq!(
+            schema["properties"]["default_limit"]["default"],
+            resource_search::DEFAULT_LIMIT
+        );
+        assert_eq!(
+            schema["properties"]["max_limit"]["default"],
+            resource_search::DEFAULT_MAX_LIMIT
+        );
+        assert_eq!(
+            schema["properties"]["search_timeout_ms"]["default"],
+            resource_search::DEFAULT_TIMEOUT_MS
+        );
+        assert!(manifest.tasks.is_empty());
+        assert!(manifest.event_subscriptions.is_empty());
+        assert!(manifest.secret_reference_fields.is_empty());
+    }
+
+    #[test]
     fn chromecast_renderer_default_manifest_matches_official_catalog_facts() {
         let manifest = chromecast_renderer::default_manifest();
 
@@ -752,6 +1118,37 @@ mod tests {
         assert_eq!(guide.task_count, 0);
         assert_eq!(guide.event_subscription_count, 1);
         assert_eq!(guide.entry_point_count, 0);
+        assert_eq!(guide.hosted_page_count, 1);
+    }
+
+    #[test]
+    fn resource_search_container_descriptor_matches_search_and_link_check_shape() {
+        let descriptor = resource_search::container_install_descriptor();
+        nako_addon_protocol::validate_install_descriptor(&descriptor).unwrap();
+
+        let guide = addon_install_guide(&descriptor);
+        assert_eq!(
+            descriptor.manifest.base_url,
+            resource_search::DEFAULT_CONTAINER_BASE_URL
+        );
+        assert_eq!(
+            guide.runtime_reference.kind,
+            AddonRuntimeReferenceKind::Image
+        );
+        assert_eq!(
+            guide.runtime_reference.value,
+            resource_search::RUNTIME_IMAGE
+        );
+        assert_eq!(
+            guide.declared_resources,
+            vec![
+                nako_addon_protocol::AddonResource::ResourceSearch,
+                nako_addon_protocol::AddonResource::ResourceLinkCheck,
+            ]
+        );
+        assert_eq!(guide.task_count, 0);
+        assert_eq!(guide.event_subscription_count, 0);
+        assert_eq!(guide.entry_point_count, 1);
         assert_eq!(guide.hosted_page_count, 1);
     }
 }

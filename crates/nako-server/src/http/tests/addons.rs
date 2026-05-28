@@ -1,7 +1,9 @@
 use super::*;
 use axum::Json;
 use axum::http::HeaderValue;
-use nako_official_addon_catalog::{chromecast_renderer, metadata_scraper, notification_bridge};
+use nako_official_addon_catalog::{
+    chromecast_renderer, metadata_scraper, notification_bridge, resource_search,
+};
 use std::collections::VecDeque;
 use std::sync::{
     Arc as StdArc,
@@ -648,21 +650,6 @@ fn resource_search_manifest(base_url: String) -> AddonManifest {
         max_attempts: Some(1),
     }];
     manifest.scopes = vec![AddonScope::AcquisitionSearchRead];
-    manifest
-}
-
-fn resource_search_and_link_check_manifest(base_url: String) -> AddonManifest {
-    let mut manifest = resource_search_manifest(base_url);
-    manifest.resources.push(AddonResourceDeclaration {
-        kind: AddonResource::ResourceLinkCheck,
-        path: "/resource-link-check".to_owned(),
-        input_schema: Some(ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA.to_owned()),
-        output_schema: Some(ADDON_RESOURCE_LINK_CHECK_RESPONSE_SCHEMA.to_owned()),
-        required_scopes: vec![AddonScope::AcquisitionLinkCheckRead],
-        timeout_ms: Some(5_000),
-        max_attempts: Some(1),
-    });
-    manifest.scopes.push(AddonScope::AcquisitionLinkCheckRead);
     manifest
 }
 
@@ -1355,7 +1342,7 @@ async fn admin_addon_source_catalog_browses_and_resolves_without_hidden_lifecycl
         source.kind,
         AdminAddonSourceCatalogSourceKind::BuiltinOfficial
     );
-    assert_eq!(source.entry_count, 3);
+    assert_eq!(source.entry_count, 4);
     assert!(!source.provides_package_signing);
     assert!(!source.provides_process_supervision);
     assert!(!source.provides_provider_breadth);
@@ -1367,7 +1354,7 @@ async fn admin_addon_source_catalog_browses_and_resolves_without_hidden_lifecycl
     )
     .await;
     assert_eq!(entries.source_id, "nako-official");
-    assert_eq!(entries.entries.len(), 3);
+    assert_eq!(entries.entries.len(), 4);
     let entry = entries
         .entries
         .iter()
@@ -1688,6 +1675,153 @@ async fn admin_addon_source_catalog_resolves_chromecast_renderer_adapter_manifes
     assert!(!text.contains("nako_rtt_"));
     assert!(!text.contains("Bearer "));
     assert!(!text.contains("docker.sock"));
+}
+
+#[tokio::test]
+async fn admin_addon_source_catalog_resolves_resource_search_link_check_manifest() {
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+
+    let entries = request_json::<AdminAddonSourceCatalogEntriesResponse>(
+        &router,
+        Method::GET,
+        "/admin/v1/addons/catalog/entries",
+    )
+    .await;
+    let entry = entries
+        .entries
+        .iter()
+        .find(|entry| entry.entry_id == resource_search::ADDON_ID)
+        .unwrap();
+    assert_eq!(entry.manifest_id, resource_search::ADDON_ID);
+    assert_eq!(entry.addon_name, resource_search::ADDON_NAME);
+    assert_eq!(entry.addon_version, resource_search::ADDON_VERSION);
+    assert_eq!(
+        entry.resources,
+        vec![
+            AddonResource::ResourceSearch,
+            AddonResource::ResourceLinkCheck,
+        ]
+    );
+    assert_eq!(
+        entry.scopes,
+        vec![
+            AddonScope::AcquisitionSearchRead,
+            AddonScope::AcquisitionLinkCheckRead,
+        ]
+    );
+    assert!(entry.tasks.is_empty());
+
+    let raw = response_for(
+        &router,
+        Method::GET,
+        "/admin/v1/addons/catalog/entries/nako.official.resource-search/resolve",
+    )
+    .await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let bytes = to_bytes(raw.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let resolved = serde_json::from_str::<AdminAddonSourceCatalogResolveResponse>(&text).unwrap();
+
+    assert_eq!(resolved.source_id, "nako-official");
+    assert_eq!(resolved.entry.entry_id, resource_search::ADDON_ID);
+    assert_eq!(resolved.descriptor.manifest.id, resource_search::ADDON_ID);
+    assert_eq!(
+        resolved.descriptor.manifest.base_url,
+        resource_search::DEFAULT_CONTAINER_BASE_URL
+    );
+    assert_eq!(resolved.descriptor.manifest.resources.len(), 2);
+    assert_eq!(
+        resolved.descriptor.manifest.resources[0].kind,
+        AddonResource::ResourceSearch
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.resources[0].path,
+        resource_search::RESOURCE_SEARCH_RESOURCE_PATH
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.resources[0]
+            .input_schema
+            .as_deref(),
+        Some(ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA)
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.resources[0]
+            .output_schema
+            .as_deref(),
+        Some(ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA)
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.resources[0].required_scopes,
+        vec![AddonScope::AcquisitionSearchRead]
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.resources[1].kind,
+        AddonResource::ResourceLinkCheck
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.resources[1].path,
+        resource_search::RESOURCE_LINK_CHECK_RESOURCE_PATH
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.resources[1]
+            .input_schema
+            .as_deref(),
+        Some(ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA)
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.resources[1]
+            .output_schema
+            .as_deref(),
+        Some(ADDON_RESOURCE_LINK_CHECK_RESPONSE_SCHEMA)
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.resources[1].required_scopes,
+        vec![AddonScope::AcquisitionLinkCheckRead]
+    );
+    assert_eq!(resolved.descriptor.manifest.entry_points.len(), 1);
+    assert_eq!(
+        resolved.descriptor.manifest.entry_points[0].id,
+        resource_search::DIAGNOSTICS_ENTRY_POINT_ID
+    );
+    assert_eq!(resolved.descriptor.manifest.hosted_pages.len(), 1);
+    assert_eq!(
+        resolved.descriptor.manifest.hosted_pages[0].id,
+        resource_search::DIAGNOSTICS_HOSTED_PAGE_ID
+    );
+    assert!(resolved.descriptor.manifest.tasks.is_empty());
+    assert!(resolved.descriptor.manifest.event_subscriptions.is_empty());
+    assert!(
+        resolved
+            .descriptor
+            .manifest
+            .secret_reference_fields
+            .is_empty()
+    );
+    assert_eq!(
+        resolved.install_guide.runtime_reference.value,
+        resource_search::RUNTIME_IMAGE
+    );
+    assert!(resolved.install_guide.has_configuration_schema);
+    assert_eq!(resolved.install_guide.entry_point_count, 1);
+    assert_eq!(resolved.install_guide.hosted_page_count, 1);
+    assert_eq!(resolved.install_guide.task_count, 0);
+    assert_eq!(resolved.install_guide.event_subscription_count, 0);
+
+    for forbidden in [
+        "https://pan.quark.cn",
+        "pan.baidu.com",
+        "Bearer ",
+        "nako_at_",
+        "docker.sock",
+        "docker start",
+        "systemctl start",
+    ] {
+        assert!(
+            !text.contains(forbidden),
+            "resource-search catalog resolve leaked forbidden term: {forbidden}"
+        );
+    }
 }
 
 #[tokio::test]
@@ -6277,7 +6411,7 @@ async fn admin_addon_resource_link_check_product_uses_opaque_selection_without_r
         "/admin/v1/addons",
         &RegisterAddonRequest {
             id: None,
-            manifest: resource_search_and_link_check_manifest(addon_base_url),
+            manifest: resource_search::manifest(addon_base_url),
             outbound_task_dispatch_secret_env: None,
             granted_scopes: vec![
                 AddonScope::AcquisitionSearchRead,
