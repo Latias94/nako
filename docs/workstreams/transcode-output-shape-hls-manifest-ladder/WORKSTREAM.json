@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "transcode-output-shape-hls-manifest-ladder",
   "title": "Transcode Output Shape, HLS Manifest, And Ladder Runtime",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-05-28",
   "scope_kind": "fearless_refactor",
   "problem": "Nako's HLS fMP4 runtime is executable, but transcode output shape still permits invalid states, HLS artifacts are still mostly inferred from a playlist path, and adaptive HLS ladders are still non-executable.",
@@ -59,6 +59,10 @@
     {
       "task": "TOSHL-040",
       "summary": "Implemented the first executable adaptive HLS fMP4 ladder slice with typed renditions, hls_adaptive request identity, FFmpeg master/variant planning, server staging, artifact serving, and master playlist rewrite coverage."
+    },
+    {
+      "task": "TOSHL-050",
+      "summary": "Verified closeout gates, recorded evidence, committed the adaptive runtime slice, and split residual ladder breadth into named follow-ons."
     }
   ],
   "adr_refs": [
@@ -67,7 +71,7 @@
     "docs/adr/0049-source-aware-transcode-runtime.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "Complete TOSHL-020 before manifest or adaptive runtime work. If adaptive bitrate policy breadth expands beyond a first executable slice, split policy sophistication into a follow-on."
+    "default_action": "closed",
+    "notes": "The lane is closed. Follow-on work should open a new workstream for source-aware adaptive ladder policy, no-audio adaptive stream maps, adaptive MPEG-TS, alternate audio/subtitle renditions, LL-HLS/CMAF/DRM, or a second transcode engine adapter."
   }
 }

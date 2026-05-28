@@ -1,6 +1,6 @@
 # Transcode Output Shape, HLS Manifest, And Ladder Runtime - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-28
 
 ## Gate Set
@@ -59,9 +59,19 @@ git diff --check
   - `cargo nextest run -p nako-server playback --no-fail-fast` passed: 96
     tests.
   - `cargo nextest run -p nako-playback --no-fail-fast` passed: 19 tests.
+- 2026-05-28 TOSHL-050: Closed the workstream after verifying the requested
+  target state and recording residual adaptive breadth as follow-ons.
+  - `python3 -m json.tool docs/workstreams/transcode-output-shape-hls-manifest-ladder/WORKSTREAM.json`
+    passed.
+  - `cargo fmt --all -- --check` passed.
+  - `git diff --check` passed.
+  - `c3bc1522 feat(hls): execute adaptive ladder runtime slice` committed the
+    final adaptive runtime slice.
 
 ## Notes
 
-- Keep Public/Admin surfaces redaction-safe.
-- Preserve MPEG-TS and fMP4 single-variant behavior while adding adaptive.
-- Do not copy Jellyfin or FFmpeg reference implementation material.
+- Public/Admin redaction remained covered by the `nako-server playback` gate,
+  including playback session, runtime, and support-evidence redaction tests.
+- MPEG-TS and fMP4 single-variant behavior remained covered while adaptive
+  fMP4 was added as a distinct executable shape.
+- No Jellyfin or FFmpeg reference implementation material was copied.

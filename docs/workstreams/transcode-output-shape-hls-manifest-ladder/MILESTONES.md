@@ -1,6 +1,6 @@
 # Transcode Output Shape, HLS Manifest, And Ladder Runtime - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-28
 
 ## M0 - Scope Freeze
@@ -23,5 +23,5 @@ Last updated: 2026-05-28
 
 ## M4 - Closeout
 
-- Pending: focused gates pass, evidence is recorded, and residual breadth is
+- Done: focused gates pass, evidence is recorded, and residual breadth is
   split.

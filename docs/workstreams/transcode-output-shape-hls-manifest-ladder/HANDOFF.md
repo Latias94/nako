@@ -1,6 +1,6 @@
 # Transcode Output Shape, HLS Manifest, And Ladder Runtime - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-28
 
 ## Current State
@@ -14,11 +14,17 @@ has typed renditions, `hls_adaptive` request identity, FFmpeg master/variant
 command planning, server staging, artifact serving, and master playlist rewrite
 coverage.
 
-## Next Step
+## Follow-Ons
 
-Complete TOSHL-050: run closeout checks, update final evidence, commit the
-adaptive slice, and decide whether any residual adaptive breadth should split
-into a follow-on workstream.
+- Make the adaptive ladder source-aware: derive rendition count, resolution,
+  bitrate, no-audio stream maps, and no-upscale decisions from
+  `MediaProbeResult`, client constraints, and playback policy.
+- Add adaptive MPEG-TS only if a client requirement proves it is needed; the
+  closed lane intentionally ships adaptive fMP4 first.
+- Add subtitle renditions, alternate audio renditions, LL-HLS/CMAF/DRM, and
+  richer bitrate policy as separate vertical slices.
+- Evaluate rsmpeg or another typed FFmpeg adapter after the CLI model has a
+  second real adapter pressure point.
 
 ## Guardrails
 

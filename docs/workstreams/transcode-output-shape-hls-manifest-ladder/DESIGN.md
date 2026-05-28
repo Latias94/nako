@@ -1,6 +1,6 @@
 # Transcode Output Shape, HLS Manifest, And Ladder Runtime - Design
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-28
 
 ## Problem
@@ -123,3 +123,19 @@ This lane can close when:
 - MPEG-TS and fMP4 single-variant paths remain covered;
 - focused Rust gates pass and workstream evidence is recorded;
 - residual ladder breadth is split into named follow-ons.
+
+## Closeout Summary
+
+Closed on 2026-05-28 after the three planned slices were implemented:
+
+- `TranscodeProfile` now carries typed `TranscodeOutputShape`.
+- HLS runtime uses explicit `HlsArtifactManifest` / `TranscodeArtifactSet`
+  boundaries for playlist, init segment, media segment, content type, cleanup,
+  and reuse.
+- Adaptive HLS has a first executable fMP4 runtime slice with typed renditions,
+  `hls_adaptive` identity, FFmpeg master/variant planning, server staging,
+  manifest-derived artifact serving, and master playlist rewrite coverage.
+
+Residual ladder breadth was intentionally split out: source-aware ladder policy,
+no-audio adaptive stream maps, adaptive MPEG-TS, alternate audio/subtitle
+renditions, LL-HLS/CMAF/DRM, and a future typed FFmpeg adapter evaluation.

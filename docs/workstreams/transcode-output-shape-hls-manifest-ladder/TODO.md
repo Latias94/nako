@@ -1,6 +1,6 @@
 # Transcode Output Shape, HLS Manifest, And Ladder Runtime TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-28
 
 ## Task Ledger
@@ -127,7 +127,7 @@ Notes:
 
 ### TOSHL-050 - Verify, close, and commit
 
-Status: Pending
+Status: Done
 Owner: codex
 Depends on: TOSHL-040
 
@@ -144,3 +144,14 @@ Validation:
 cargo fmt --all -- --check
 git diff --check
 ```
+
+Notes:
+
+- Closed after TOSHL-020, TOSHL-030, and TOSHL-040 were implemented and
+  verified.
+- Recorded closeout evidence in `EVIDENCE_AND_GATES.md` and committed the
+  adaptive ladder runtime slice as `c3bc1522`.
+- Split remaining adaptive breadth into follow-ons: source-aware ladder
+  policy/no-audio stream maps, adaptive MPEG-TS if needed, alternate audio and
+  subtitle renditions, LL-HLS/CMAF/DRM, and a future typed FFmpeg adapter
+  evaluation.

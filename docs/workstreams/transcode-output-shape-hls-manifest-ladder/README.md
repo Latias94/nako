@@ -1,5 +1,8 @@
 # Transcode Output Shape, HLS Manifest, And Ladder Runtime
 
+Status: Closed
+Last updated: 2026-05-28
+
 Durable fearless refactor lane for deleting Nako's transitional transcode
 output-shape assumptions before implementing adaptive HLS ladder runtime.
 
