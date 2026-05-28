@@ -9,7 +9,7 @@ use nako_core::{
 };
 use nako_streaming::DirectPlayRangeRequest;
 use nako_transcode::{
-    HlsArtifactManifest, HlsOutputRequirement, HlsSegmentContainer, HlsVariantPolicy,
+    HlsArtifactManifest, HlsOutputRequirement, HlsRendition, HlsSegmentContainer, HlsVariantPolicy,
 };
 
 use crate::config::PlaybackConfig;
@@ -122,6 +122,21 @@ pub(super) fn hls_artifact_manifest_for_session(
     ensure_hls_session_artifacts_are_servable(session)?;
     let output = hls_output_requirement_from_request_key(&session.request_key);
     let output_dir = hls_output_dir_for_primary_playlist(&session.output_path)?;
+
+    if output.variant_policy == HlsVariantPolicy::Adaptive {
+        if output.segment_container != HlsSegmentContainer::Fmp4 {
+            return Err(NakoError::Unsupported(
+                "adaptive hls artifacts currently require fmp4 segments",
+            ));
+        }
+
+        return HlsArtifactManifest::adaptive_fmp4(
+            output_dir,
+            session.output_path.clone(),
+            HlsRendition::default_adaptive_ladder(),
+        );
+    }
+
     let segment_pattern = output_dir.join(format!(
         "segment_%05d.{}",
         output.segment_container.segment_extension()
@@ -415,5 +430,53 @@ mod tests {
         );
         assert!(ts.artifact_for_name("init.mp4").is_err());
         assert!(ts.artifact_for_name("segment_00000.vtt").is_err());
+    }
+
+    #[test]
+    fn hls_artifact_manifest_covers_adaptive_master_variants_and_fmp4_segments() {
+        let manifest = HlsArtifactManifest::adaptive_fmp4(
+            "hls",
+            "hls/master.m3u8",
+            HlsRendition::default_adaptive_ladder(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            manifest
+                .artifact_for_name("master.m3u8")
+                .unwrap()
+                .content_type,
+            "application/vnd.apple.mpegurl"
+        );
+        assert_eq!(
+            manifest
+                .artifact_for_name("variant_0.m3u8")
+                .unwrap()
+                .content_type,
+            "application/vnd.apple.mpegurl"
+        );
+        assert_eq!(
+            manifest
+                .artifact_for_name("variant_0_init.mp4")
+                .unwrap()
+                .content_type,
+            "video/mp4"
+        );
+        assert_eq!(
+            manifest
+                .artifact_for_name("variant_0_segment_00000.m4s")
+                .unwrap()
+                .content_type,
+            "video/mp4"
+        );
+        assert!(!manifest.cleanup_candidate_for_name("variant_0.m3u8"));
+        assert!(!manifest.cleanup_candidate_for_name("variant_0_init.mp4"));
+        assert!(manifest.cleanup_candidate_for_name("variant_0_segment_00000.m4s"));
+        assert!(manifest.artifact_for_name("init.mp4").is_err());
+        assert!(
+            manifest
+                .artifact_for_name("variant_2_segment_00000.m4s")
+                .is_err()
+        );
     }
 }

@@ -18,7 +18,7 @@ Last updated: 2026-05-28
 
 ## M3 - Adaptive HLS First Slice
 
-- Pending: adaptive HLS can execute a bounded ladder and serve master/variant
+- Done: adaptive HLS can execute a bounded ladder and serve master/variant
   artifacts.
 
 ## M4 - Closeout

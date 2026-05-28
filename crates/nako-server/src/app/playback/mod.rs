@@ -1623,7 +1623,7 @@ impl PlaybackAppService {
             .source_input_for_ffmpeg(&source, &uri, &backend)
             .await?;
         let staging = HlsStagingPolicy::new(self.config.remux_staging_root.join("hls"))?;
-        let layout = staging.single_variant_layout(source.id, &request_identity, hls_output)?;
+        let layout = staging.layout_for_output(source.id, &request_identity, hls_output)?;
         let result = self
             .hls
             .run(

@@ -90,7 +90,7 @@ Notes:
 
 ### TOSHL-040 - Implement adaptive HLS ladder first runtime slice
 
-Status: Pending
+Status: Done
 Owner: codex
 Depends on: TOSHL-030
 
@@ -110,6 +110,20 @@ cargo nextest run -p nako-transcode ffmpeg --no-fail-fast
 cargo nextest run -p nako-server hls --no-fail-fast
 cargo nextest run -p nako-server playback --no-fail-fast
 ```
+
+Notes:
+
+- Added a typed adaptive fMP4 ladder to `HlsArtifactManifest`, including
+  master playlist, variant playlist pattern, per-variant init segment names,
+  and per-variant media segment naming.
+- Split HLS profile identity between `hls_single_variant` and `hls_adaptive`
+  while keeping HLS output requirements in the typed output shape.
+- Added FFmpeg command planning for adaptive fMP4 master/variant playlists,
+  variant stream maps, rendition bitrate/size arguments, and temp-output-dir
+  rewriting for variant playlist patterns.
+- Added server adaptive staging, session artifact manifest reconstruction,
+  master playlist rewrite, artifact serving, cleanup classification, and
+  runtime reuse coverage for the first adaptive ladder shape.
 
 ### TOSHL-050 - Verify, close, and commit
 

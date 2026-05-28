@@ -132,6 +132,21 @@ mod tests {
     }
 
     #[test]
+    fn rewrite_hls_playlist_rewrites_adaptive_variant_playlist_uris() {
+        let session_id = TranscodeSessionId::new();
+        let body = "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=3128000,RESOLUTION=1280x720\nvariant_0.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=1328000,RESOLUTION=854x480\nvariant_1.m3u8\n";
+
+        let rewritten = rewrite_hls_playlist(body, session_id);
+
+        assert!(rewritten.contains(&format!(
+            "/playback/sessions/{session_id}/hls/segments/variant_0.m3u8"
+        )));
+        assert!(rewritten.contains(&format!(
+            "/playback/sessions/{session_id}/hls/segments/variant_1.m3u8"
+        )));
+    }
+
+    #[test]
     fn rewrite_hls_playlist_for_playback_session_rebinds_existing_segment_routes() {
         let old_session_id = PlaybackSessionId::new();
         let new_session_id = PlaybackSessionId::new();

@@ -1281,18 +1281,49 @@ fn hls_ffmpeg_script(root: &Path, name: &str, success: bool, encoder_lines: &[&s
         let mut content = String::from("#!/bin/sh\n");
         push_unix_ffmpeg_probe_handlers(&mut content, encoder_lines);
         content.push_str("segment_type=ts\n");
+        content.push_str("segment_pattern=\n");
+        content.push_str("init_pattern=\n");
+        content.push_str("master_name=\n");
         content.push_str("prev=\n");
         content.push_str("for arg do\n");
         content.push_str(
             "  if [ \"$prev\" = \"-hls_segment_type\" ] && [ \"$arg\" = \"fmp4\" ]; then segment_type=fmp4; fi\n",
         );
+        content.push_str(
+            "  if [ \"$prev\" = \"-hls_segment_filename\" ]; then segment_pattern=\"$arg\"; fi\n",
+        );
+        content.push_str(
+            "  if [ \"$prev\" = \"-hls_fmp4_init_filename\" ]; then init_pattern=\"$arg\"; fi\n",
+        );
+        content
+            .push_str("  if [ \"$prev\" = \"-master_pl_name\" ]; then master_name=\"$arg\"; fi\n");
         content.push_str("  out=\"$arg\"\n");
         content.push_str("  prev=\"$arg\"\n");
         content.push_str("done\n");
         content.push_str("dir=$(dirname \"$out\")\n");
         content.push_str("mkdir -p \"$dir\"\n");
         if success {
-            content.push_str("if [ \"$segment_type\" = \"fmp4\" ]; then\n");
+            content.push_str("if [ -n \"$master_name\" ]; then\n");
+            content.push_str("  variant0=$(printf '%s' \"$out\" | sed 's/%v/0/g')\n");
+            content.push_str("  variant1=$(printf '%s' \"$out\" | sed 's/%v/1/g')\n");
+            content.push_str(
+                "  segment0=$(printf '%s' \"$segment_pattern\" | sed 's/%v/0/g;s/%05d/00000/g')\n",
+            );
+            content.push_str(
+                "  segment1=$(printf '%s' \"$segment_pattern\" | sed 's/%v/1/g;s/%05d/00000/g')\n",
+            );
+            content.push_str("  init0=$(printf '%s' \"$init_pattern\" | sed 's/%v/0/g')\n");
+            content.push_str("  init1=$(printf '%s' \"$init_pattern\" | sed 's/%v/1/g')\n");
+            content.push_str("  variant0_name=$(basename \"$variant0\")\n");
+            content.push_str("  variant1_name=$(basename \"$variant1\")\n");
+            content.push_str("  printf '#EXTM3U\\n#EXT-X-STREAM-INF:BANDWIDTH=3128000,RESOLUTION=1280x720\\n%s\\n#EXT-X-STREAM-INF:BANDWIDTH=1328000,RESOLUTION=854x480\\n%s\\n' \"$variant0_name\" \"$variant1_name\" > \"$dir/$master_name\"\n");
+            content.push_str("  printf '#EXTM3U\\n#EXT-X-MAP:URI=\"%s\"\\n#EXTINF:1,\\n%s\\n#EXT-X-ENDLIST\\n' \"$init0\" \"$(basename \"$segment0\")\" > \"$variant0\"\n");
+            content.push_str("  printf '#EXTM3U\\n#EXT-X-MAP:URI=\"%s\"\\n#EXTINF:1,\\n%s\\n#EXT-X-ENDLIST\\n' \"$init1\" \"$(basename \"$segment1\")\" > \"$variant1\"\n");
+            content.push_str("  printf init > \"$dir/$init0\"\n");
+            content.push_str("  printf init > \"$dir/$init1\"\n");
+            content.push_str("  printf segment > \"$segment0\"\n");
+            content.push_str("  printf segment > \"$segment1\"\n");
+            content.push_str("elif [ \"$segment_type\" = \"fmp4\" ]; then\n");
             content.push_str(
                 "  printf '#EXTM3U\\n#EXT-X-MAP:URI=\"init.mp4\"\\n#EXTINF:1,\\nsegment_00000.m4s\\n#EXT-X-ENDLIST\\n' > \"$out\"\n",
             );
@@ -1327,12 +1358,18 @@ fn hls_ffmpeg_script(root: &Path, name: &str, success: bool, encoder_lines: &[&s
         push_windows_ffmpeg_probe_handlers(&mut content);
         content.push_str("setlocal enabledelayedexpansion\r\n");
         content.push_str("set segment_type=ts\r\n");
+        content.push_str("set segment_pattern=\r\n");
+        content.push_str("set init_pattern=\r\n");
+        content.push_str("set master_name=\r\n");
         content.push_str("set prev=\r\n");
         content.push_str(":args\r\n");
         content.push_str("if \"%~1\"==\"\" goto run\r\n");
         content.push_str(
             "if \"!prev!\"==\"-hls_segment_type\" if \"%~1\"==\"fmp4\" set segment_type=fmp4\r\n",
         );
+        content.push_str("if \"!prev!\"==\"-hls_segment_filename\" set segment_pattern=%~1\r\n");
+        content.push_str("if \"!prev!\"==\"-hls_fmp4_init_filename\" set init_pattern=%~1\r\n");
+        content.push_str("if \"!prev!\"==\"-master_pl_name\" set master_name=%~1\r\n");
         content.push_str("set out=%~1\r\n");
         content.push_str("set prev=%~1\r\n");
         content.push_str("shift\r\n");
@@ -1341,7 +1378,39 @@ fn hls_ffmpeg_script(root: &Path, name: &str, success: bool, encoder_lines: &[&s
         content.push_str("for %%I in (\"%out%\") do set dir=%%~dpI\r\n");
         content.push_str("if not exist \"%dir%\" mkdir \"%dir%\"\r\n");
         if success {
-            content.push_str("if \"%segment_type%\"==\"fmp4\" (\r\n");
+            content.push_str("if not \"!master_name!\"==\"\" (\r\n");
+            content.push_str("set variant0=!out:%%v=0!\r\n");
+            content.push_str("set variant1=!out:%%v=1!\r\n");
+            content.push_str("set segment0=!segment_pattern:%%v=0!\r\n");
+            content.push_str("set segment0=!segment0:%%05d=00000!\r\n");
+            content.push_str("set segment1=!segment_pattern:%%v=1!\r\n");
+            content.push_str("set segment1=!segment1:%%05d=00000!\r\n");
+            content.push_str("set init0=!init_pattern:%%v=0!\r\n");
+            content.push_str("set init1=!init_pattern:%%v=1!\r\n");
+            content.push_str("for %%I in (\"!variant0!\") do set variant0_name=%%~nxI\r\n");
+            content.push_str("for %%I in (\"!variant1!\") do set variant1_name=%%~nxI\r\n");
+            content.push_str("for %%I in (\"!segment0!\") do set segment0_name=%%~nxI\r\n");
+            content.push_str("for %%I in (\"!segment1!\") do set segment1_name=%%~nxI\r\n");
+            content.push_str(">\"%dir%!master_name!\" echo #EXTM3U\r\n");
+            content.push_str(">>\"%dir%!master_name!\" echo #EXT-X-STREAM-INF:BANDWIDTH=3128000,RESOLUTION=1280x720\r\n");
+            content.push_str(">>\"%dir%!master_name!\" echo !variant0_name!\r\n");
+            content.push_str(">>\"%dir%!master_name!\" echo #EXT-X-STREAM-INF:BANDWIDTH=1328000,RESOLUTION=854x480\r\n");
+            content.push_str(">>\"%dir%!master_name!\" echo !variant1_name!\r\n");
+            content.push_str(">\"!variant0!\" echo #EXTM3U\r\n");
+            content.push_str(">>\"!variant0!\" echo #EXT-X-MAP:URI=\"!init0!\"\r\n");
+            content.push_str(">>\"!variant0!\" echo #EXTINF:1,\r\n");
+            content.push_str(">>\"!variant0!\" echo !segment0_name!\r\n");
+            content.push_str(">>\"!variant0!\" echo #EXT-X-ENDLIST\r\n");
+            content.push_str(">\"!variant1!\" echo #EXTM3U\r\n");
+            content.push_str(">>\"!variant1!\" echo #EXT-X-MAP:URI=\"!init1!\"\r\n");
+            content.push_str(">>\"!variant1!\" echo #EXTINF:1,\r\n");
+            content.push_str(">>\"!variant1!\" echo !segment1_name!\r\n");
+            content.push_str(">>\"!variant1!\" echo #EXT-X-ENDLIST\r\n");
+            content.push_str("<nul set /p dummy=init>\"%dir%!init0!\"\r\n");
+            content.push_str("<nul set /p dummy=init>\"%dir%!init1!\"\r\n");
+            content.push_str("<nul set /p dummy=segment>\"!segment0!\"\r\n");
+            content.push_str("<nul set /p dummy=segment>\"!segment1!\"\r\n");
+            content.push_str(") else if \"%segment_type%\"==\"fmp4\" (\r\n");
             content.push_str(">\"%out%\" echo #EXTM3U\r\n");
             content.push_str(">>\"%out%\" echo #EXT-X-MAP:URI=\"init.mp4\"\r\n");
             content.push_str(">>\"%out%\" echo #EXTINF:1,\r\n");

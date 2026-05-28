@@ -7,8 +7,9 @@ use nako_core::{MediaSourceId, NakoError, Result};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    HardwareAcceleration, HlsArtifactManifest, HlsSegmentContainer, HlsVariantPolicy,
-    TranscodeAccelerationPlan, TranscodeExecutionPolicy, TranscodeSubtitleStrategy,
+    HLS_ADAPTIVE_FMP4_INIT_PATTERN, HardwareAcceleration, HlsArtifactManifest, HlsRendition,
+    HlsSegmentContainer, HlsVariantPolicy, TranscodeAccelerationPlan, TranscodeExecutionPolicy,
+    TranscodeSubtitleStrategy,
 };
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -264,12 +265,6 @@ fn validate_hls_request(request: &HlsRequest) -> Result<()> {
     }
     request.artifacts.validate()?;
 
-    if request.artifacts.output().variant_policy != HlsVariantPolicy::SingleVariant {
-        return Err(NakoError::Unsupported(
-            "adaptive hls output is not implemented by the ffmpeg adapter",
-        ));
-    }
-
     if request.input_path == request.artifacts.primary_playlist_path() {
         return Err(NakoError::InvalidInput {
             message: "hls input and playlist paths must differ".to_owned(),
@@ -280,6 +275,14 @@ fn validate_hls_request(request: &HlsRequest) -> Result<()> {
 }
 
 fn plan_hls_command_parts(request: &HlsRequest) -> FfmpegHlsCommandParts {
+    if request.artifacts.output().variant_policy == HlsVariantPolicy::Adaptive {
+        return plan_adaptive_hls_command_parts(request);
+    }
+
+    plan_single_variant_hls_command_parts(request)
+}
+
+fn plan_single_variant_hls_command_parts(request: &HlsRequest) -> FfmpegHlsCommandParts {
     FfmpegHlsCommandParts {
         global: hls_global_args(request.overwrite),
         device_input: hls_device_input_args(request.execution_policy.acceleration),
@@ -295,6 +298,23 @@ fn plan_hls_command_parts(request: &HlsRequest) -> FfmpegHlsCommandParts {
             request.artifacts.primary_playlist_path(),
             request.artifacts.output().segment_container,
         ),
+    }
+}
+
+fn plan_adaptive_hls_command_parts(request: &HlsRequest) -> FfmpegHlsCommandParts {
+    FfmpegHlsCommandParts {
+        global: hls_global_args(request.overwrite),
+        device_input: hls_device_input_args(request.execution_policy.acceleration),
+        input: hls_input_args(&request.input_path),
+        stream_map: hls_adaptive_stream_map_args(request.artifacts.renditions().len()),
+        filter_graph: hls_filter_graph_args(request.execution_policy.acceleration),
+        video_encoder: hls_adaptive_video_encoder_args(
+            request.execution_policy,
+            request.artifacts.renditions(),
+        ),
+        audio_encoder: hls_adaptive_audio_encoder_args(request.artifacts.renditions()),
+        subtitle: hls_subtitle_args(request.execution_policy.subtitle_strategy),
+        muxer: hls_adaptive_muxer_args(request.segment_time_seconds, &request.artifacts),
     }
 }
 
@@ -368,14 +388,7 @@ fn hls_filter_graph_args(acceleration: TranscodeAccelerationPlan) -> Vec<FfmpegA
 }
 
 fn hls_video_encoder_args(policy: TranscodeExecutionPolicy) -> Vec<FfmpegArg> {
-    let encoder = match policy.acceleration.encode.accelerator {
-        HardwareAcceleration::None => "libx264",
-        HardwareAcceleration::Vaapi => "h264_vaapi",
-        HardwareAcceleration::Nvenc => "h264_nvenc",
-        HardwareAcceleration::QuickSync => "h264_qsv",
-        HardwareAcceleration::Amf => "h264_amf",
-        HardwareAcceleration::VideoToolbox => "h264_videotoolbox",
-    };
+    let encoder = hls_video_encoder_name(policy.acceleration.encode.accelerator);
     let mut args = vec![FfmpegArg::raw("-c:v"), FfmpegArg::raw(encoder)];
 
     if let Some(max_video_bitrate) = policy.output_constraints.max_video_bitrate {
@@ -390,8 +403,61 @@ fn hls_video_encoder_args(policy: TranscodeExecutionPolicy) -> Vec<FfmpegArg> {
     args
 }
 
+fn hls_adaptive_stream_map_args(rendition_count: usize) -> Vec<FfmpegArg> {
+    let mut args = Vec::with_capacity(rendition_count.saturating_mul(4));
+    for _ in 0..rendition_count {
+        args.extend([
+            FfmpegArg::raw("-map"),
+            FfmpegArg::raw("0:v:0"),
+            FfmpegArg::raw("-map"),
+            FfmpegArg::raw("0:a:0?"),
+        ]);
+    }
+    args
+}
+
+fn hls_adaptive_video_encoder_args(
+    policy: TranscodeExecutionPolicy,
+    renditions: &[HlsRendition],
+) -> Vec<FfmpegArg> {
+    let encoder = hls_video_encoder_name(policy.acceleration.encode.accelerator);
+    let mut args = vec![FfmpegArg::raw("-c:v"), FfmpegArg::raw(encoder)];
+
+    for (stream_index, rendition) in renditions.iter().enumerate() {
+        let target_bitrate = policy
+            .output_constraints
+            .max_video_bitrate
+            .map_or(rendition.video_bitrate, |max| {
+                rendition.video_bitrate.min(max)
+            });
+        args.extend([
+            FfmpegArg::raw(format!("-b:v:{stream_index}")),
+            FfmpegArg::raw(target_bitrate.to_string()),
+            FfmpegArg::raw(format!("-maxrate:v:{stream_index}")),
+            FfmpegArg::raw(target_bitrate.to_string()),
+            FfmpegArg::raw(format!("-bufsize:v:{stream_index}")),
+            FfmpegArg::raw(target_bitrate.saturating_mul(2).to_string()),
+            FfmpegArg::raw(format!("-s:v:{stream_index}")),
+            FfmpegArg::raw(format!("{}x{}", rendition.width, rendition.height)),
+        ]);
+    }
+
+    args
+}
+
 fn hls_audio_encoder_args() -> Vec<FfmpegArg> {
     vec![FfmpegArg::raw("-c:a"), FfmpegArg::raw("aac")]
+}
+
+fn hls_adaptive_audio_encoder_args(renditions: &[HlsRendition]) -> Vec<FfmpegArg> {
+    let mut args = vec![FfmpegArg::raw("-c:a"), FfmpegArg::raw("aac")];
+    for (stream_index, rendition) in renditions.iter().enumerate() {
+        args.extend([
+            FfmpegArg::raw(format!("-b:a:{stream_index}")),
+            FfmpegArg::raw(rendition.audio_bitrate.to_string()),
+        ]);
+    }
+    args
 }
 
 fn hls_subtitle_args(strategy: TranscodeSubtitleStrategy) -> Vec<FfmpegArg> {
@@ -435,6 +501,59 @@ fn hls_muxer_args(
         FfmpegArg::path(playlist_path.to_path_buf()),
     ]);
     args
+}
+
+fn hls_adaptive_muxer_args(
+    segment_time_seconds: u32,
+    artifacts: &HlsArtifactManifest,
+) -> Vec<FfmpegArg> {
+    let master_playlist_name = artifacts
+        .primary_playlist_path()
+        .file_name()
+        .and_then(|value| value.to_str())
+        .expect("validated adaptive hls manifest must have a primary playlist file name")
+        .to_owned();
+    let variant_playlist_pattern = artifacts
+        .variant_playlist_pattern()
+        .expect("validated adaptive hls manifest must have a variant playlist pattern");
+    let stream_map = artifacts
+        .renditions()
+        .iter()
+        .enumerate()
+        .map(|(stream_index, _)| format!("v:{stream_index},a:{stream_index}"))
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    vec![
+        FfmpegArg::raw("-f"),
+        FfmpegArg::raw("hls"),
+        FfmpegArg::raw("-hls_time"),
+        FfmpegArg::raw(segment_time_seconds.max(1).to_string()),
+        FfmpegArg::raw("-hls_playlist_type"),
+        FfmpegArg::raw("vod"),
+        FfmpegArg::raw("-hls_segment_type"),
+        FfmpegArg::raw("fmp4"),
+        FfmpegArg::raw("-hls_fmp4_init_filename"),
+        FfmpegArg::raw(HLS_ADAPTIVE_FMP4_INIT_PATTERN),
+        FfmpegArg::raw("-hls_segment_filename"),
+        FfmpegArg::path(artifacts.media_segment_pattern().to_path_buf()),
+        FfmpegArg::raw("-master_pl_name"),
+        FfmpegArg::raw(master_playlist_name),
+        FfmpegArg::raw("-var_stream_map"),
+        FfmpegArg::raw(stream_map),
+        FfmpegArg::path(variant_playlist_pattern.to_path_buf()),
+    ]
+}
+
+fn hls_video_encoder_name(acceleration: HardwareAcceleration) -> &'static str {
+    match acceleration {
+        HardwareAcceleration::None => "libx264",
+        HardwareAcceleration::Vaapi => "h264_vaapi",
+        HardwareAcceleration::Nvenc => "h264_nvenc",
+        HardwareAcceleration::QuickSync => "h264_qsv",
+        HardwareAcceleration::Amf => "h264_amf",
+        HardwareAcceleration::VideoToolbox => "h264_videotoolbox",
+    }
 }
 
 fn hwaccel_args(kind: &'static str) -> Vec<FfmpegArg> {

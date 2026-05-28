@@ -601,6 +601,80 @@ async fn hls_source_runs_fmp4_runtime_layout_and_rewrites_init_map() {
 }
 
 #[tokio::test]
+async fn hls_source_runs_adaptive_fmp4_ladder_and_rewrites_master_playlist() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_adaptive_success");
+    let (_temp, app, _store, source) = remux_app_with_source(ffmpeg_path).await;
+    let request = HlsSourceRequest {
+        source_id: source.id,
+        client: ClientPlaybackCapabilities {
+            hls_variant_policy: nako_transcode::HlsVariantPolicy::Adaptive,
+            hls_segment_container: nako_transcode::HlsSegmentContainer::Fmp4,
+            ..ClientPlaybackCapabilities::default()
+        },
+    };
+
+    let output = app.playback().hls_source(request.clone()).await.unwrap();
+    let session_id = output.session.id;
+
+    assert_eq!(output.disposition, HlsSourceDisposition::Finished);
+    assert!(output.playlist_path.ends_with("master.m3u8"));
+    assert!(output.session.request_key.contains("kind%3Dhls_adaptive"));
+    assert!(
+        output
+            .session
+            .request_key
+            .contains("hls_variant%3Dadaptive")
+    );
+    assert!(output.session.request_key.contains("hls_segment%3Dfmp4"));
+    assert!(output.segment_dir.join("variant_0.m3u8").exists());
+    assert!(output.segment_dir.join("variant_1.m3u8").exists());
+    assert!(output.segment_dir.join("variant_0_init.mp4").exists());
+    assert_eq!(
+        fs::read_to_string(output.segment_dir.join("variant_0_segment_00000.m4s")).unwrap(),
+        "segment"
+    );
+
+    let playlist = app.playback().hls_playlist(request).await.unwrap();
+    assert!(playlist.body.contains(&format!(
+        "/playback/sessions/{session_id}/hls/segments/variant_0.m3u8"
+    )));
+    assert!(playlist.body.contains(&format!(
+        "/playback/sessions/{session_id}/hls/segments/variant_1.m3u8"
+    )));
+
+    let variant_playlist = app
+        .playback()
+        .plan_hls_segment(session_id, "variant_0.m3u8")
+        .await
+        .unwrap();
+    assert_eq!(
+        variant_playlist.response.content_type,
+        "application/vnd.apple.mpegurl"
+    );
+
+    let init = app
+        .playback()
+        .plan_hls_segment(session_id, "variant_0_init.mp4")
+        .await
+        .unwrap();
+    assert_eq!(init.response.content_type, "video/mp4");
+
+    let segment = app
+        .playback()
+        .plan_hls_segment(session_id, "variant_0_segment_00000.m4s")
+        .await
+        .unwrap();
+    assert_eq!(segment.response.content_type, "video/mp4");
+    assert!(
+        app.playback()
+            .plan_hls_segment(session_id, "init.mp4")
+            .await
+            .is_err()
+    );
+}
+
+#[tokio::test]
 async fn hls_source_uses_selected_cpu_acceleration_when_gpu_falls_back() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_cpu_only_hls_ffmpeg_script(script_root.path(), "hls_cpu_fallback");
@@ -1162,6 +1236,37 @@ fn hls_staging_policy_uses_segment_container_in_layout() {
 
     assert_eq!(layout.output, fmp4);
     assert!(layout.segment_pattern.ends_with("segment_%05d.m4s"));
+}
+
+#[test]
+fn hls_staging_policy_uses_adaptive_fmp4_layout() {
+    let policy = HlsStagingPolicy::new(PathBuf::from("cache/hls")).unwrap();
+    let source = remote_media_source("local:///demo.mkv");
+    let request_identity = local_hls_request_identity(&source, HardwareAcceleration::None);
+    let adaptive = nako_transcode::HlsOutputRequirement {
+        variant_policy: nako_transcode::HlsVariantPolicy::Adaptive,
+        segment_container: nako_transcode::HlsSegmentContainer::Fmp4,
+    };
+
+    let layout = policy
+        .layout_for_output(source.id, &request_identity, adaptive)
+        .unwrap();
+
+    assert_eq!(layout.output, adaptive);
+    assert!(layout.playlist_path.ends_with("master.m3u8"));
+    assert!(
+        layout
+            .segment_pattern
+            .ends_with("variant_%v_segment_%05d.m4s")
+    );
+    assert_eq!(layout.artifacts.renditions().len(), 2);
+    assert!(
+        layout
+            .artifacts
+            .variant_playlist_pattern()
+            .unwrap()
+            .ends_with("variant_%v.m3u8")
+    );
 }
 
 async fn local_playback_viewer(

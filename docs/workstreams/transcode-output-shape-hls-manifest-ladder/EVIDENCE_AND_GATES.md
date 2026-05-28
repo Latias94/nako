@@ -47,6 +47,18 @@ git diff --check
   - `cargo nextest run -p nako-server playback --no-fail-fast` passed: 92
     tests.
   - `cargo nextest run -p nako-playback --no-fail-fast` passed: 19 tests.
+- 2026-05-28 TOSHL-040: Implemented the first executable adaptive HLS fMP4
+  ladder slice with typed renditions, `hls_adaptive` request identity, FFmpeg
+  master/variant command planning, server adaptive staging, manifest-derived
+  artifact serving, and master playlist rewrite coverage.
+  - `cargo nextest run -p nako-transcode ffmpeg --no-fail-fast` passed: 29
+    tests.
+  - `cargo nextest run -p nako-transcode transcode_profile --no-fail-fast`
+    passed: 9 tests.
+  - `cargo nextest run -p nako-server hls --no-fail-fast` passed: 28 tests.
+  - `cargo nextest run -p nako-server playback --no-fail-fast` passed: 96
+    tests.
+  - `cargo nextest run -p nako-playback --no-fail-fast` passed: 19 tests.
 
 ## Notes
 

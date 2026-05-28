@@ -5,17 +5,20 @@ Last updated: 2026-05-28
 
 ## Current State
 
-TOSHL-020 is implemented. `TranscodeProfile` now owns typed
+TOSHL-020 through TOSHL-040 are implemented. `TranscodeProfile` now owns typed
 `TranscodeOutputShape`, so remux output container and HLS output requirements
-cannot be combined incorrectly. HLS runtime now uses
-`HlsArtifactManifest` / `TranscodeArtifactSet` boundaries for playlist, init
-segment, media segment, content type, cleanup, and reuse.
+cannot be combined incorrectly. HLS runtime uses `HlsArtifactManifest` /
+`TranscodeArtifactSet` boundaries for playlist, init segment, media segment,
+content type, cleanup, and reuse. The first adaptive fMP4 HLS ladder slice now
+has typed renditions, `hls_adaptive` request identity, FFmpeg master/variant
+command planning, server staging, artifact serving, and master playlist rewrite
+coverage.
 
 ## Next Step
 
-Implement TOSHL-040: type the first adaptive HLS ladder slice on top of the new
-manifest boundary, including rendition identity, master/variant planning, and
-playlist rewrite.
+Complete TOSHL-050: run closeout checks, update final evidence, commit the
+adaptive slice, and decide whether any residual adaptive breadth should split
+into a follow-on workstream.
 
 ## Guardrails
 

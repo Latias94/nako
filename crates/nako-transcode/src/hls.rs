@@ -90,12 +90,7 @@ impl FfmpegHlsRunner {
                 )
             })?;
 
-        let command = command_with_hls_output_dir(
-            &session.command,
-            &output_dir,
-            &temp_output_dir,
-            &session.output_path,
-        )?;
+        let command = command_with_hls_output_dir(&session.command, &output_dir, &temp_output_dir)?;
         let mut child = ffmpeg_command_with_progress(&command)
             .spawn()
             .map_err(|err| NakoError::Provider {

@@ -55,6 +55,10 @@
     {
       "task": "TOSHL-030",
       "summary": "Introduced HlsArtifactManifest and TranscodeArtifactSet, moved HLS requests to manifest-shaped artifacts, and routed server playback artifact serving through manifest rules."
+    },
+    {
+      "task": "TOSHL-040",
+      "summary": "Implemented the first executable adaptive HLS fMP4 ladder slice with typed renditions, hls_adaptive request identity, FFmpeg master/variant planning, server staging, artifact serving, and master playlist rewrite coverage."
     }
   ],
   "adr_refs": [

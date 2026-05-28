@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use nako_core::{MediaSourceId, NakoError, Result};
 use nako_transcode::{
-    HlsArtifactManifest, HlsOutputRequirement, HlsVariantPolicy, RemuxContainer,
-    TranscodeRequestIdentity,
+    HLS_ADAPTIVE_MASTER_PLAYLIST_FILE, HlsArtifactManifest, HlsOutputRequirement, HlsRendition,
+    HlsSegmentContainer, HlsVariantPolicy, RemuxContainer, TranscodeRequestIdentity,
 };
 
 #[derive(Clone, Debug)]
@@ -92,6 +92,22 @@ impl HlsStagingPolicy {
         Ok(Self { root })
     }
 
+    pub fn layout_for_output(
+        &self,
+        source_id: MediaSourceId,
+        request_identity: &TranscodeRequestIdentity,
+        output: HlsOutputRequirement,
+    ) -> Result<HlsOutputLayout> {
+        match output.variant_policy {
+            HlsVariantPolicy::SingleVariant => {
+                self.single_variant_layout(source_id, request_identity, output)
+            }
+            HlsVariantPolicy::Adaptive => {
+                self.adaptive_fmp4_layout(source_id, request_identity, output)
+            }
+        }
+    }
+
     pub fn single_variant_layout(
         &self,
         source_id: MediaSourceId,
@@ -135,6 +151,55 @@ impl HlsStagingPolicy {
             playlist_path,
             segment_pattern,
             output,
+            artifacts,
+        })
+    }
+
+    pub fn adaptive_fmp4_layout(
+        &self,
+        source_id: MediaSourceId,
+        request_identity: &TranscodeRequestIdentity,
+        output: HlsOutputRequirement,
+    ) -> Result<HlsOutputLayout> {
+        if output.variant_policy != HlsVariantPolicy::Adaptive {
+            return Err(NakoError::InvalidInput {
+                message: "adaptive hls layout requires adaptive variant policy".to_owned(),
+            });
+        }
+
+        if output.segment_container != HlsSegmentContainer::Fmp4 {
+            return Err(NakoError::Unsupported(
+                "adaptive hls layout currently requires fmp4 segments",
+            ));
+        }
+
+        let output_dir = self
+            .root
+            .join(source_id.to_string())
+            .join(request_identity.storage_slug());
+        let playlist_path = output_dir.join(HLS_ADAPTIVE_MASTER_PLAYLIST_FILE);
+
+        for path in [&output_dir, &playlist_path] {
+            if !path.starts_with(&self.root) {
+                return Err(NakoError::storage_security_violation(
+                    self.root.display().to_string(),
+                    "hls staging output escaped the staging root",
+                ));
+            }
+        }
+
+        let artifacts = HlsArtifactManifest::adaptive_fmp4(
+            output_dir.clone(),
+            playlist_path.clone(),
+            HlsRendition::default_adaptive_ladder(),
+        )?;
+        let segment_pattern = artifacts.media_segment_pattern().to_path_buf();
+
+        Ok(HlsOutputLayout {
+            output_dir,
+            playlist_path,
+            segment_pattern,
+            output: artifacts.output(),
             artifacts,
         })
     }

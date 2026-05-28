@@ -31,27 +31,15 @@ pub(crate) fn command_with_hls_output_dir(
     command: &FfmpegCommandPlan,
     output_dir: &Path,
     temp_output_dir: &Path,
-    playlist_path: &Path,
 ) -> Result<FfmpegCommandPlan> {
     let mut rewritten = command.clone();
-    let mut rewrote_playlist = false;
-    let mut rewrote_segment_pattern = false;
+    let mut rewrote_playlist_output = false;
+    let mut rewrote_segment_output = false;
 
     for arg in &mut rewritten.args {
         let FfmpegArg::Path(path) = arg else {
             continue;
         };
-
-        if path == playlist_path {
-            let relative =
-                path.strip_prefix(output_dir)
-                    .map_err(|err| NakoError::InvalidInput {
-                        message: format!("hls playlist path is not inside output directory: {err}"),
-                    })?;
-            *path = temp_output_dir.join(relative);
-            rewrote_playlist = true;
-            continue;
-        }
 
         if path.starts_with(output_dir) {
             let relative =
@@ -59,21 +47,25 @@ pub(crate) fn command_with_hls_output_dir(
                     .map_err(|err| NakoError::InvalidInput {
                         message: format!("hls output path is not inside output directory: {err}"),
                     })?;
+            match relative.extension().and_then(|value| value.to_str()) {
+                Some("m3u8") => rewrote_playlist_output = true,
+                Some("ts" | "m4s") => rewrote_segment_output = true,
+                _ => {}
+            }
             *path = temp_output_dir.join(relative);
-            rewrote_segment_pattern = true;
         }
     }
 
-    if !rewrote_playlist {
+    if !rewrote_playlist_output {
         return Err(NakoError::InvalidInput {
             message: format!(
-                "hls command plan does not contain expected playlist path: {}",
-                playlist_path.display()
+                "hls command plan does not contain a playlist output under {}",
+                output_dir.display()
             ),
         });
     }
 
-    if !rewrote_segment_pattern {
+    if !rewrote_segment_output {
         return Err(NakoError::InvalidInput {
             message: format!(
                 "hls command plan does not contain output paths under {}",

@@ -205,6 +205,8 @@ mod tests {
             output_dir: PathBuf::from("hls"),
             primary_playlist_path: PathBuf::from("hls/playlist.m3u8"),
             media_segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
+            variant_playlist_pattern: None,
+            renditions: Vec::new(),
             output: HlsOutputRequirement {
                 variant_policy: HlsVariantPolicy::SingleVariant,
                 segment_container: HlsSegmentContainer::Fmp4,
@@ -225,17 +227,14 @@ mod tests {
     }
 
     #[test]
-    fn ffmpeg_builder_rejects_adaptive_hls_runtime_request() {
+    fn ffmpeg_builder_plans_adaptive_hls_fmp4_ladder() {
         let builder = FfmpegCommandBuilder::new("ffmpeg");
-        let artifacts = HlsArtifactManifest {
-            output_dir: PathBuf::from("hls"),
-            primary_playlist_path: PathBuf::from("hls/playlist.m3u8"),
-            media_segment_pattern: PathBuf::from("hls/segment_%05d.m4s"),
-            output: HlsOutputRequirement {
-                variant_policy: HlsVariantPolicy::Adaptive,
-                segment_container: HlsSegmentContainer::Fmp4,
-            },
-        };
+        let artifacts = HlsArtifactManifest::adaptive_fmp4(
+            "hls",
+            "hls/master.m3u8",
+            HlsRendition::default_adaptive_ladder(),
+        )
+        .unwrap();
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
@@ -245,9 +244,31 @@ mod tests {
             overwrite: FfmpegOverwritePolicy::Allow,
         };
 
-        let err = builder.hls(&request).unwrap_err();
+        let argv = builder.hls(&request).unwrap().argv_lossy();
 
-        assert!(err.to_string().contains("adaptive hls output"));
+        assert!(argv.windows(2).any(|args| {
+            args[0] == "-hls_segment_filename" && args[1] == "hls/variant_%v_segment_%05d.m4s"
+        }));
+        assert!(argv.windows(2).any(|args| {
+            args[0] == "-hls_fmp4_init_filename" && args[1] == "variant_%v_init.mp4"
+        }));
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-master_pl_name" && args[1] == "master.m3u8")
+        );
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-var_stream_map" && args[1] == "v:0,a:0 v:1,a:1")
+        );
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-s:v:0" && args[1] == "1280x720")
+        );
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-s:v:1" && args[1] == "854x480")
+        );
+        assert!(argv.contains(&"hls/variant_%v.m3u8".to_owned()));
     }
 
     #[test]
@@ -257,6 +278,8 @@ mod tests {
             output_dir: PathBuf::from("hls"),
             primary_playlist_path: PathBuf::from("outside/playlist.m3u8"),
             media_segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
+            variant_playlist_pattern: None,
+            renditions: Vec::new(),
             output: HlsOutputRequirement::default(),
         };
         let request = HlsRequest {
@@ -602,6 +625,19 @@ mod tests {
             remote_input: false,
             playback_profile_key: "playback-profile:v1;client=default".to_owned(),
         });
+        let adaptive_output = HlsOutputRequirement {
+            variant_policy: HlsVariantPolicy::Adaptive,
+            segment_container: HlsSegmentContainer::Fmp4,
+        };
+        let adaptive_hls = TranscodeProfile::hls(HlsTranscodeProfile {
+            video_codec: Some("h264".to_owned()),
+            audio_codec: Some("aac".to_owned()),
+            execution_policy: hls_policy(HardwareAcceleration::None),
+            hls_output: adaptive_output,
+            track_selection: TranscodeTrackSelection::default(),
+            remote_input: false,
+            playback_profile_key: "playback-profile:v1;client=default".to_owned(),
+        });
 
         assert_eq!(remux.kind(), TranscodeProfileKind::Remux);
         assert_eq!(
@@ -619,6 +655,14 @@ mod tests {
             }
         );
         assert_eq!(hls.hls_output_requirement(), Some(hls_output));
+        assert_eq!(adaptive_hls.kind(), TranscodeProfileKind::HlsAdaptive);
+        assert_eq!(adaptive_hls.hls_output_requirement(), Some(adaptive_output));
+        assert!(
+            adaptive_hls
+                .identity()
+                .persisted_request_key()
+                .contains("kind=hls_adaptive")
+        );
     }
 
     #[test]
@@ -752,8 +796,8 @@ mod tests {
     }
 
     #[test]
-    fn transcode_profile_validation_rejects_adaptive_single_variant_profile() {
-        let profile = TranscodeProfile::hls_single_variant(HlsTranscodeProfile {
+    fn transcode_profile_validation_accepts_adaptive_fmp4_profile_identity() {
+        let profile = TranscodeProfile::hls(HlsTranscodeProfile {
             video_codec: Some("h264".to_owned()),
             audio_codec: Some("aac".to_owned()),
             execution_policy: hls_policy(HardwareAcceleration::None),
@@ -766,11 +810,37 @@ mod tests {
             playback_profile_key: "playback-profile:v1;client=default".to_owned(),
         });
 
+        profile.validate().unwrap();
+        let identity = profile.identity();
+
+        assert!(
+            identity
+                .persisted_request_key()
+                .contains("hls_variant=adaptive")
+        );
+        assert!(identity.storage_slug().starts_with("hls_adaptive-v1-"));
+    }
+
+    #[test]
+    fn transcode_profile_validation_rejects_adaptive_mpeg_ts_profile() {
+        let profile = TranscodeProfile::hls(HlsTranscodeProfile {
+            video_codec: Some("h264".to_owned()),
+            audio_codec: Some("aac".to_owned()),
+            execution_policy: hls_policy(HardwareAcceleration::None),
+            hls_output: HlsOutputRequirement {
+                variant_policy: HlsVariantPolicy::Adaptive,
+                segment_container: HlsSegmentContainer::MpegTs,
+            },
+            track_selection: TranscodeTrackSelection::default(),
+            remote_input: false,
+            playback_profile_key: "playback-profile:v1;client=default".to_owned(),
+        });
+
         let err = profile.validate().unwrap_err();
 
         assert_eq!(
             err.reason,
-            TranscodeProfileValidationReason::HlsVariantPolicyUnsupported
+            TranscodeProfileValidationReason::HlsAdaptiveRequiresFmp4
         );
     }
 
@@ -2106,13 +2176,47 @@ h264_mp4toannexb
 
             let path = root.join(name);
             let mut content = String::from("#!/bin/sh\n");
-            content.push_str("for arg do out=\"$arg\"; done\n");
+            content.push_str("segment_pattern=\n");
+            content.push_str("init_pattern=\n");
+            content.push_str("master_name=\n");
+            content.push_str("prev=\n");
+            content.push_str("for arg do\n");
+            content.push_str("  if [ \"$prev\" = \"-hls_segment_filename\" ]; then segment_pattern=\"$arg\"; fi\n");
+            content.push_str("  if [ \"$prev\" = \"-hls_fmp4_init_filename\" ]; then init_pattern=\"$arg\"; fi\n");
+            content.push_str(
+                "  if [ \"$prev\" = \"-master_pl_name\" ]; then master_name=\"$arg\"; fi\n",
+            );
+            content.push_str("  out=\"$arg\"\n");
+            content.push_str("  prev=\"$arg\"\n");
+            content.push_str("done\n");
             content.push_str("dir=$(dirname \"$out\")\n");
             content.push_str("mkdir -p \"$dir\"\n");
+            content.push_str("if [ -n \"$master_name\" ]; then\n");
+            content.push_str("  variant0=$(printf '%s' \"$out\" | sed 's/%v/0/g')\n");
+            content.push_str("  variant1=$(printf '%s' \"$out\" | sed 's/%v/1/g')\n");
+            content.push_str(
+                "  segment0=$(printf '%s' \"$segment_pattern\" | sed 's/%v/0/g;s/%05d/00000/g')\n",
+            );
+            content.push_str(
+                "  segment1=$(printf '%s' \"$segment_pattern\" | sed 's/%v/1/g;s/%05d/00000/g')\n",
+            );
+            content.push_str("  init0=$(printf '%s' \"$init_pattern\" | sed 's/%v/0/g')\n");
+            content.push_str("  init1=$(printf '%s' \"$init_pattern\" | sed 's/%v/1/g')\n");
+            content.push_str("  variant0_name=$(basename \"$variant0\")\n");
+            content.push_str("  variant1_name=$(basename \"$variant1\")\n");
+            content.push_str("  printf '#EXTM3U\\n#EXT-X-STREAM-INF:BANDWIDTH=3128000,RESOLUTION=1280x720\\n%s\\n#EXT-X-STREAM-INF:BANDWIDTH=1328000,RESOLUTION=854x480\\n%s\\n' \"$variant0_name\" \"$variant1_name\" > \"$dir/$master_name\"\n");
+            content.push_str("  printf '#EXTM3U\\n#EXT-X-MAP:URI=\"%s\"\\n#EXTINF:1,\\n%s\\n#EXT-X-ENDLIST\\n' \"$init0\" \"$(basename \"$segment0\")\" > \"$variant0\"\n");
+            content.push_str("  printf '#EXTM3U\\n#EXT-X-MAP:URI=\"%s\"\\n#EXTINF:1,\\n%s\\n#EXT-X-ENDLIST\\n' \"$init1\" \"$(basename \"$segment1\")\" > \"$variant1\"\n");
+            content.push_str("  printf init > \"$dir/$init0\"\n");
+            content.push_str("  printf init > \"$dir/$init1\"\n");
+            content.push_str("  printf segment > \"$segment0\"\n");
+            content.push_str("  printf segment > \"$segment1\"\n");
+            content.push_str("else\n");
             content.push_str(
                 "printf '#EXTM3U\\n#EXTINF:1,\\nsegment_00000.ts\\n#EXT-X-ENDLIST\\n' > \"$out\"\n",
             );
             content.push_str("printf segment > \"$dir/segment_00000.ts\"\n");
+            content.push_str("fi\n");
             content.push_str(
                 "printf 'frame=12\\nout_time_us=1500000\\nspeed=1.25x\\nprogress=end\\n'\n",
             );

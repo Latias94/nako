@@ -3,13 +3,17 @@ use sha2::{Digest, Sha256};
 
 use nako_core::{MediaSource, NakoError, Result};
 
-use super::{HlsOutputRequirement, HlsVariantPolicy, RemuxContainer, TranscodeExecutionPolicy};
+use super::{
+    HlsOutputRequirement, HlsSegmentContainer, HlsVariantPolicy, RemuxContainer,
+    TranscodeExecutionPolicy,
+};
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TranscodeProfileKind {
     Remux,
     HlsSingleVariant,
+    HlsAdaptive,
 }
 
 impl TranscodeProfileKind {
@@ -18,6 +22,7 @@ impl TranscodeProfileKind {
         match self {
             Self::Remux => "remux",
             Self::HlsSingleVariant => "hls_single_variant",
+            Self::HlsAdaptive => "hls_adaptive",
         }
     }
 }
@@ -56,7 +61,10 @@ impl TranscodeOutputShape {
     pub const fn profile_kind(self) -> TranscodeProfileKind {
         match self {
             Self::Remux { .. } => TranscodeProfileKind::Remux,
-            Self::Hls { .. } => TranscodeProfileKind::HlsSingleVariant,
+            Self::Hls { requirement } => match requirement.variant_policy {
+                HlsVariantPolicy::SingleVariant => TranscodeProfileKind::HlsSingleVariant,
+                HlsVariantPolicy::Adaptive => TranscodeProfileKind::HlsAdaptive,
+            },
         }
     }
 
@@ -132,7 +140,7 @@ pub enum TranscodeProfileValidationReason {
     RemuxMustUseCpuPath,
     RemuxMustNotSetVideoBitrate,
     RemuxMustNotSetHdrPreference,
-    HlsVariantPolicyUnsupported,
+    HlsAdaptiveRequiresFmp4,
     HlsVideoCodecUnsupported,
     HlsAudioCodecUnsupported,
     HlsVideoBitrateMustBePositive,
@@ -172,7 +180,7 @@ impl TranscodeProfile {
     }
 
     #[must_use]
-    pub fn hls_single_variant(profile: HlsTranscodeProfile) -> Self {
+    pub fn hls(profile: HlsTranscodeProfile) -> Self {
         Self {
             output: TranscodeOutputShape::Hls {
                 requirement: profile.hls_output,
@@ -185,6 +193,11 @@ impl TranscodeProfile {
             reuse_policy: TranscodeReusePolicy::FinishedOutput,
             playback_profile_key: profile.playback_profile_key,
         }
+    }
+
+    #[must_use]
+    pub fn hls_single_variant(profile: HlsTranscodeProfile) -> Self {
+        Self::hls(profile)
     }
 
     #[must_use]
@@ -220,9 +233,7 @@ impl TranscodeProfile {
 
         match self.output {
             TranscodeOutputShape::Remux { .. } => self.validate_remux(),
-            TranscodeOutputShape::Hls { requirement } => {
-                self.validate_hls_single_variant(requirement)
-            }
+            TranscodeOutputShape::Hls { requirement } => self.validate_hls(requirement),
         }
     }
 
@@ -292,14 +303,16 @@ impl TranscodeProfile {
         Ok(())
     }
 
-    fn validate_hls_single_variant(
+    fn validate_hls(
         &self,
         hls_output: HlsOutputRequirement,
     ) -> std::result::Result<(), TranscodeProfileValidationError> {
-        if hls_output.variant_policy != HlsVariantPolicy::SingleVariant {
+        if hls_output.variant_policy == HlsVariantPolicy::Adaptive
+            && hls_output.segment_container != HlsSegmentContainer::Fmp4
+        {
             return Err(TranscodeProfileValidationError::new(
-                TranscodeProfileValidationReason::HlsVariantPolicyUnsupported,
-                "hls single-variant profile cannot execute adaptive output yet",
+                TranscodeProfileValidationReason::HlsAdaptiveRequiresFmp4,
+                "adaptive hls profile currently requires fmp4 segment output",
             ));
         }
         if let Some(codec) = self.video_codec.as_deref() {
