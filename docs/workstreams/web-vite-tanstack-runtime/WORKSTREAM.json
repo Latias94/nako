@@ -7,9 +7,10 @@
   "scope_kind": "frontend_runtime_migration",
   "problem": "Nako Web still carries a temporary Next.js bootstrap shell even though route ownership, API seams, and Tauri packaging are now static TanStack responsibilities.",
   "task_prefix": "WVRT",
-  "current_task": "WVRT-020",
+  "current_task": "WVRT-030",
   "completed_tasks": [
-    "WVRT-010"
+    "WVRT-010",
+    "WVRT-020"
   ],
   "authoritative_docs": [
     {
@@ -47,7 +48,8 @@
     "git diff --check"
   ],
   "evidence": [
-    "WVRT-010 opened this durable runtime migration lane from the completed WVTR copy-first refactor."
+    "WVRT-010 opened this durable runtime migration lane from the completed WVTR copy-first refactor.",
+    "WVRT-020 added the Vite React entry, moved root runtime concerns into Vite-owned files, preserved /tv through TanStack Router, and passed npm --prefix web run check plus npm --prefix web run build."
   ],
   "adr_refs": [
     "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",

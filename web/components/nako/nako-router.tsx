@@ -5,9 +5,7 @@ import {
   lazy,
   Suspense,
   useContext,
-  useEffect,
   useRef,
-  useState,
   type RefObject,
 } from "react"
 import {
@@ -58,6 +56,12 @@ const UserSelectPage = lazy(() =>
   })),
 )
 
+const TVSurface = lazy(() =>
+  import("@/components/nako/tv-surface").then((module) => ({
+    default: module.TVSurface,
+  })),
+)
+
 const MediaSurfaceRefContext = createContext<RefObject<MediaSurfaceRef | null> | null>(null)
 
 function RouteFallback({ chrome = true }: { chrome?: boolean }) {
@@ -72,7 +76,7 @@ function RootRoute() {
   const navigate = useNavigate()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const mediaSurfaceRef = useRef<MediaSurfaceRef>(null)
-  const isChromeHidden = pathname === "/setup" || pathname === "/account"
+  const isChromeHidden = pathname === "/setup" || pathname === "/account" || pathname === "/tv"
 
   if (isChromeHidden) {
     return (
@@ -185,6 +189,10 @@ function AccountRoute() {
   )
 }
 
+function TVRoute() {
+  return <TVSurface />
+}
+
 const rootRoute = createRootRoute({
   component: RootRoute,
 })
@@ -231,6 +239,12 @@ const accountRoute = createRoute({
   component: AccountRoute,
 })
 
+const tvRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/tv",
+  component: TVRoute,
+})
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   mediaRoute,
@@ -239,6 +253,7 @@ const routeTree = rootRoute.addChildren([
   settingsRoute,
   setupRoute,
   accountRoute,
+  tvRoute,
 ])
 
 const router = createRouter({ routeTree })
@@ -250,15 +265,5 @@ declare module "@tanstack/react-router" {
 }
 
 export function NakoRouter() {
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  if (!mounted) {
-    return <RouteFallback chrome={false} />
-  }
-
   return <RouterProvider router={router} />
 }

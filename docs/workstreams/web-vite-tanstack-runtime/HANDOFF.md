@@ -14,21 +14,22 @@ runtime.
 
 ## Active Task
 
-- Task ID: WVRT-020
+- Task ID: WVRT-030
 - Owner: Codex
-- Files: `web/package.json`, `web/vite.config.ts`, `web/index.html`,
-  `web/src`, `web/tsconfig.json`
-- Validation: `npm --prefix web run check && npm --prefix web run build`
+- Files: `web/app`, `web/next.config.mjs`, `web/next-env.d.ts`,
+  `web/package.json`, `web/package-lock.json`, `web/tsconfig.json`
+- Validation: `npm --prefix web run check && npm --prefix web run build`, then
+  `rg` confirms no Next release imports remain.
 - Status: READY
-- Review: Confirm no product feature wiring or visual redesign sneaks into the
-  runtime proof.
+- Review: Confirm deleted files are Next-only and `/tv` remains routable through
+  TanStack Router.
 - Evidence: To be recorded in `EVIDENCE_AND_GATES.md`.
 
 ## Decisions Since Last Update
 
 - Keep `components/`, `lib/`, and `src/api/` in place during this lane.
-- Add `/tv` to TanStack Router during migration so the Vite app preserves the
-  static route inventory from Next.
+- WVRT-020 added `/tv` to TanStack Router so the Vite app preserves the static
+  route inventory from Next.
 - Tauri should move from `../out` to `../dist` after Vite build ownership lands.
 
 ## Blockers
@@ -37,4 +38,4 @@ runtime.
 
 ## Next Recommended Action
 
-- Implement WVRT-020 as the first Vite runtime proof.
+- Implement WVRT-030 by deleting the remaining Next runtime surface.

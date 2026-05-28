@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN" class="bg-background">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#1a1a1f" />
+    <meta name="color-scheme" content="dark" />
+    <meta
+      name="description"
+      content="一个自托管的本地媒体系统，用于组织、管理和播放你的电影、剧集和个人收藏"
+    />
+    <title>Nako - 你的私人媒体库</title>
+    <script>
+      const resizeObserverErr = window.onerror
+      window.onerror = function (msg, url, line, col, error) {
+        if (msg && msg.toString().includes("ResizeObserver loop")) {
+          return true
+        }
+
+        return resizeObserverErr ? resizeObserverErr(msg, url, line, col, error) : false
+      }
+    </script>
+  </head>
+  <body class="font-sans antialiased">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

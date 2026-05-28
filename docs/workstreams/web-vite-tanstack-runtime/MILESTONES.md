@@ -15,6 +15,8 @@ Exit criteria:
 
 ## M1 - Vite Runtime Proof
 
+Status: done.
+
 Exit criteria:
 
 - Vite entry files exist.

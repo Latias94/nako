@@ -14,12 +14,12 @@ Last updated: 2026-05-28
 
 ## M1 - Vite Runtime Proof
 
-- [ ] WVRT-020 [owner=Codex] [deps=WVRT-010] [scope=web/package.json,web/vite.config.ts,web/index.html,web/src,web/tsconfig.json]
+- [x] WVRT-020 [owner=Codex] [deps=WVRT-010] [scope=web/package.json,web/vite.config.ts,web/index.html,web/src,web/tsconfig.json]
   Goal: Add the Vite React entry, move root layout responsibilities into Vite-owned files, and make check/build pass without relying on Next page wrappers.
   Validation: npm --prefix web run check && npm --prefix web run build.
   Review: Confirm the proof keeps Nako API seams and does not introduce a server runtime.
   Evidence: web/index.html, web/vite.config.ts, web/src/main.tsx.
-  Handoff: Final status must be DONE, DONE_WITH_CONCERNS, BLOCKED, or NEEDS_CONTEXT.
+  Handoff: DONE. Vite now owns the runnable web entry, `web/dist` build output is produced, and the next task is deleting the remaining Next runtime surface.
 
 ## M2 - Delete Next Runtime Surface
 

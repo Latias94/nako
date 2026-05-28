@@ -49,7 +49,17 @@ git diff --check
 | Date | Task | Evidence | Result |
 | --- | --- | --- | --- |
 | 2026-05-28 | WVRT-010 | Workstream opened from the completed copy-first WVTR lane to remove the temporary Next bootstrap runtime. | Active. |
+| 2026-05-28 | WVRT-020 | `npm --prefix web install -D vite @vitejs/plugin-react`; `npm --prefix web run check`; `npm --prefix web run build`. Vite entry files added at `web/index.html`, `web/src/main.tsx`, and `web/src/app-root.tsx`; global CSS imported from `web/src/styles/globals.css`; `/tv` added to TanStack Router. | Passed. Vite builds `web/dist` without a Next server runtime. Next dependency and app wrappers still remain for WVRT-030 deletion. |
 
 ## Bundle Notes
 
-Record Vite build output sizes after WVRT-020 and again at closeout.
+WVRT-020 Vite build output highlights:
+
+- `dist/index.html`: 1.06 KB, gzip 0.63 KB.
+- `dist/assets/index-CABLC-Bk.css`: 193.30 KB, gzip 28.25 KB.
+- `dist/assets/index-BuDxzkE0.js`: 446.91 KB, gzip 139.42 KB.
+- `dist/assets/media-surface-CHPoxruI.js`: 325.52 KB, gzip 73.80 KB.
+- `dist/assets/admin-surface-CZDAs5pO.js`: 196.86 KB, gzip 42.50 KB.
+
+Record the final closeout build output again after Next deletion and Tauri
+static packaging updates.
