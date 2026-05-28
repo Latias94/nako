@@ -21,11 +21,11 @@ Last updated: 2026-05-28
 
 ## M2 - Admin Operations Reentry
 
-- [ ] WDRP-030 [owner=planner] [deps=WDRP-010] [scope=docs/workstreams]
+- [x] WDRP-030 [owner=planner] [deps=WDRP-010] [scope=docs/workstreams]
   Goal: Open or update a new `web/` Admin Acquisition Intake route lane, reusing the completed backend/Admin V2 work instead of restoring a Media downloads page.
   Validation: workstream docs name Admin API contracts, fixture/live data-source tests, route-state tests, and `build:budget`.
-  Evidence: workstream path and first executable task.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Evidence: Opened `docs/workstreams/web-admin-acquisition-intake`; first executable task is WAAI-020 Admin API and read-model audit.
+  Handoff: DONE. Next task is WDRP-040.
 
 - [ ] WDRP-040 [owner=planner] [deps=WDRP-010] [scope=docs/workstreams]
   Goal: Open or update a new `web/` Admin Generated Artifacts / Automation route lane.

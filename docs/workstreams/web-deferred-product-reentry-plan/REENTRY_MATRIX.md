@@ -5,7 +5,7 @@ Last updated: 2026-05-28
 
 | Deferred surface | Product decision | Existing related work | Frontend reentry condition | First executable slice |
 | --- | --- | --- | --- | --- |
-| Downloads | Admin operation first, not Media client chrome. Downloads enter through Acquisition Intake / Managed Import until a downloader provider protocol exists. | `downloads-watch-folder-intake`, `admin-web-v2-acquisition-intake-route`, `managed-import-staging` | New `web/` Admin can read acquisition candidates and managed import state through generated Admin contracts. | Port an Acquisition Intake read-only route into `web/src/features/admin` with route-owned query state and fixture/live data source. |
+| Downloads | Admin operation first, not Media client chrome. Downloads enter through Acquisition Intake / Managed Import until a downloader provider protocol exists. | `downloads-watch-folder-intake`, `admin-web-v2-acquisition-intake-route`, `managed-import-staging`, `web-admin-acquisition-intake` | New `web/` Admin can read acquisition candidates and managed import state through generated Admin contracts. WDRP-030 opened the implementation lane. | Continue `web-admin-acquisition-intake` at WAAI-020, then port a read-only route into `web/src/features/admin` with route-owned query state and fixture/live data source. |
 | Playlists | User-owned Media feature, but not before a Public Client playlist contract exists. | No dedicated playlist workstream found. Related: `user-playback-state-contract`, `identity-and-library-access-contract`. | Backend owns playlist identity, item membership, Library Access filtering, and mutation policy. | Open `user-playlists-contract-and-web-slice` before adding UI. |
 | Photos | Future non-video media domain. Not part of current video-first live product. | ADR-0021 video-first media server domain model. | Image domain metadata, browse facets, thumbnail/variant policy, and permission behavior are accepted. | Open `non-video-media-domain-baseline` only when photo support is pulled forward. |
 | Music | Future non-video media domain. Not part of current video-first live product. | ADR-0021 video-first media server domain model. | Audio domain model for albums, artists, tracks, playback queue, and scan metadata is accepted. | Same `non-video-media-domain-baseline`; do not add music UI first. |
@@ -20,4 +20,3 @@ Last updated: 2026-05-28
 3. New `web/` Admin Generated Artifacts / Automation route.
 4. User Playlists backend contract and first Media slice.
 5. Non-video media domain baseline for photos/music/podcasts.
-

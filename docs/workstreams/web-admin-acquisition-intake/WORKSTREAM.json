@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "slug": "web-admin-acquisition-intake",
+  "title": "Web Admin Acquisition Intake",
+  "status": "active",
+  "updated": "2026-05-28",
+  "scope_kind": "frontend_admin_operations",
+  "problem": "The new web Admin shell lacks the Acquisition Intake workflow that should replace the removed Media downloads placeholder.",
+  "task_prefix": "WAAI",
+  "current_task": "WAAI-020",
+  "completed_tasks": [
+    "WAAI-010"
+  ],
+  "authoritative_docs": [
+    { "role": "overview", "path": "docs/workstreams/web-admin-acquisition-intake/README.md" },
+    { "role": "design", "path": "docs/workstreams/web-admin-acquisition-intake/DESIGN.md" },
+    { "role": "route_api_readiness", "path": "docs/workstreams/web-admin-acquisition-intake/ROUTE_API_READINESS.md" },
+    { "role": "execution", "path": "docs/workstreams/web-admin-acquisition-intake/TODO.md" },
+    { "role": "milestones", "path": "docs/workstreams/web-admin-acquisition-intake/MILESTONES.md" },
+    { "role": "gates", "path": "docs/workstreams/web-admin-acquisition-intake/EVIDENCE_AND_GATES.md" },
+    { "role": "handoff", "path": "docs/workstreams/web-admin-acquisition-intake/HANDOFF.md" }
+  ],
+  "gates": [
+    "npm --prefix web run test -- src/test/data-source-contracts.test.ts",
+    "npm --prefix web run test -- src/test/route-contracts.test.tsx src/test/route-state-contracts.test.tsx",
+    "npm --prefix web run check",
+    "npm --prefix web run build:budget",
+    "git diff --check"
+  ],
+  "evidence": [
+    "WAAI-010 opened the lane from WDRP-030 and anchored the first implementation slice to generated Admin acquisition intake contracts."
+  ],
+  "adr_refs": [
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue_current_task",
+    "notes": "Continue with WAAI-020 unless WDRP selects a different higher-priority lane. Keep downloads/acquisition in Admin operations, not Media client chrome."
+  }
+}

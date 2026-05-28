@@ -25,3 +25,4 @@ npm --prefix web run tauri -- build
 | --- | --- | --- | --- |
 | 2026-05-28 | WDRP-010 | Opened this lane after WBBP-050 closeout; created design, reentry matrix, task ledger, milestones, gates, and handoff. | Passed. |
 | 2026-05-28 | WDRP-020 | Opened `docs/workstreams/web-media-live-public-client-parity` with Public Client route readiness, browser/Tauri/bundle gates, and WMLP-020 as the first executable task. | Passed. |
+| 2026-05-28 | WDRP-030 | Opened `docs/workstreams/web-admin-acquisition-intake` with generated Admin acquisition contracts, fixture/live data-source tests, route-state tests, and bundle budget gates; first executable task is WAAI-020. | Passed. |

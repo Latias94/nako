@@ -7,10 +7,11 @@
   "scope_kind": "frontend_product_planning",
   "problem": "WBBP removed deferred v0 product surfaces from the live web runtime; those gaps need explicit backend/API preconditions and follow-on lanes before re-entering the frontend.",
   "task_prefix": "WDRP",
-  "current_task": "WDRP-030",
+  "current_task": "WDRP-040",
   "completed_tasks": [
     "WDRP-010",
-    "WDRP-020"
+    "WDRP-020",
+    "WDRP-030"
   ],
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/web-deferred-product-reentry-plan/README.md" },
@@ -27,7 +28,8 @@
   ],
   "evidence": [
     "WDRP-010 opened the deferred product reentry planning lane after WBBP-050 closeout.",
-    "WDRP-020 opened docs/workstreams/web-media-live-public-client-parity with WMLP-020 as the first executable task."
+    "WDRP-020 opened docs/workstreams/web-media-live-public-client-parity with WMLP-020 as the first executable task.",
+    "WDRP-030 opened docs/workstreams/web-admin-acquisition-intake with WAAI-020 as the first executable task."
   ],
   "adr_refs": [
     "docs/adr/0021-video-first-media-server-domain-model.md",
@@ -36,6 +38,6 @@
   ],
   "continue_policy": {
     "default_action": "continue_current_task",
-    "notes": "Run WDRP-030 when returning to deferred product planning. For implementation, continue web-media-live-public-client-parity at WMLP-020."
+    "notes": "Run WDRP-040 when returning to deferred product planning. For implementation, continue web-admin-acquisition-intake at WAAI-020 if acquisition is selected next."
   }
 }
