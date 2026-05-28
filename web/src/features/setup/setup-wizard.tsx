@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { 
   Server, FolderPlus, User, Check, ChevronRight, ChevronLeft, 
   Wifi, WifiOff, Loader2, Film, Tv, Music, Camera, FolderOpen,
@@ -14,9 +14,19 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Progress } from "@/components/ui/progress"
 import { cn } from "@/lib/utils"
+import {
+  createBrowserConnectionProfileStore,
+  createLiveConnectionProfile,
+  loadConnectionState,
+  saveConnectionState,
+  type ConnectionProfileStore,
+  type NakoConnectionProfile,
+} from "@/src/api/connection-profile"
 
 interface SetupWizardProps {
   onComplete: () => void
+  connectionStore?: ConnectionProfileStore
+  testConnection?: (baseUrl: string) => Promise<void>
 }
 
 type SetupStep = "welcome" | "server" | "libraries" | "account" | "preferences" | "complete"
@@ -37,10 +47,19 @@ const libraryTypes = [
   { id: "photos", label: "Photos", icon: Camera, description: "Photo albums, galleries" },
 ]
 
-export function SetupWizard({ onComplete }: SetupWizardProps) {
+export function SetupWizard({ onComplete, connectionStore, testConnection }: SetupWizardProps) {
+  const store = useMemo(
+    () => connectionStore ?? createBrowserConnectionProfileStore(),
+    [connectionStore],
+  )
   const [currentStep, setCurrentStep] = useState<SetupStep>("welcome")
   const [isConnecting, setIsConnecting] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState<"idle" | "success" | "error">("idle")
+  const [connectionError, setConnectionError] = useState<string | null>(null)
+  const [connectedProfile, setConnectedProfile] = useState<NakoConnectionProfile | null>(() => {
+    const state = loadConnectionState(store)
+    return state.profile.mode === "live" ? state.profile : null
+  })
   
   // Form states
   const [serverUrl, setServerUrl] = useState("")
@@ -61,10 +80,30 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
 
   const handleTestConnection = async () => {
     setIsConnecting(true)
-    // Simulate connection test
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-    setConnectionStatus(serverUrl ? "success" : "error")
-    setIsConnecting(false)
+    setConnectionError(null)
+
+    try {
+      const profile = createLiveConnectionProfile({
+        baseUrl: serverUrl,
+        port: serverPort,
+        serverName: "Nako Server",
+      })
+
+      if (testConnection) {
+        await testConnection(profile.baseUrl)
+      }
+
+      const currentState = loadConnectionState(store)
+      saveConnectionState({ profile, session: currentState.session }, store)
+      setConnectedProfile(profile)
+      setConnectionStatus("success")
+    } catch (error) {
+      setConnectedProfile(null)
+      setConnectionStatus("error")
+      setConnectionError(error instanceof Error ? error.message : "Connection failed")
+    } finally {
+      setIsConnecting(false)
+    }
   }
 
   const handleAddLibrary = () => {
@@ -88,6 +127,10 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
   }
 
   const goNext = () => {
+    if (currentStep === "preferences") {
+      finalizeSetup()
+    }
+
     const nextIndex = currentStepIndex + 1
     if (nextIndex < steps.length) {
       setCurrentStep(steps[nextIndex].id)
@@ -106,7 +149,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
       case "welcome":
         return true
       case "server":
-        return connectionStatus === "success"
+        return connectionStatus === "success" && connectedProfile?.mode === "live"
       case "libraries":
         return libraries.length > 0
       case "account":
@@ -116,6 +159,23 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
       default:
         return true
     }
+  }
+
+  const finalizeSetup = () => {
+    if (connectedProfile?.mode !== "live") {
+      return
+    }
+
+    saveConnectionState(
+      {
+        profile: connectedProfile,
+        session: {
+          principalId: username,
+          selectedUserId: username,
+        },
+      },
+      store,
+    )
   }
 
   return (
@@ -243,6 +303,8 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
                       onChange={(e) => {
                         setServerUrl(e.target.value)
                         setConnectionStatus("idle")
+                        setConnectionError(null)
+                        setConnectedProfile(null)
                       }}
                       className="mt-1.5"
                     />
@@ -256,6 +318,8 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
                       onChange={(e) => {
                         setServerPort(e.target.value)
                         setConnectionStatus("idle")
+                        setConnectionError(null)
+                        setConnectedProfile(null)
                       }}
                       className="mt-1.5"
                     />
@@ -298,11 +362,14 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
                       <div>
                         <p className="font-medium text-green-500">Connected to Server</p>
                         <p className="text-sm text-muted-foreground">
-                          {serverUrl}:{serverPort}
+                          {connectedProfile?.mode === "live" ? connectedProfile.baseUrl : ""}
                         </p>
                       </div>
                     </CardContent>
                   </Card>
+                )}
+                {connectionStatus === "error" && connectionError && (
+                  <p className="text-sm text-destructive">{connectionError}</p>
                 )}
               </div>
             </div>
@@ -539,7 +606,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Server</span>
-                    <span>{serverUrl}:{serverPort}</span>
+                    <span>{connectedProfile?.mode === "live" ? connectedProfile.baseUrl : `${serverUrl}:${serverPort}`}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Libraries</span>

@@ -21,11 +21,11 @@ Last updated: 2026-05-28
 
 ## M2 - Setup And Account Wiring
 
-- [ ] WCAT-030 [owner=Codex] [deps=WCAT-020] [scope=web/src/features/setup,web/src/features/account]
+- [x] WCAT-030 [owner=Codex] [deps=WCAT-020] [scope=web/src/features/setup,web/src/features/account]
   Goal: Wire setup/account to connection state, auth/session state, and error flows.
   Validation: npm --prefix web run test && npm --prefix web run build.
   Evidence: setup/account route tests.
-  Handoff: READY.
+  Handoff: DONE. Setup writes connection profile/session state, and account selection writes selected user session state without persisting passwords.
 
 ## M3 - Tauri Profile Bridge
 
@@ -33,7 +33,7 @@ Last updated: 2026-05-28
   Goal: Wire Tauri profile bootstrap/invoke path for safe local profile persistence.
   Validation: cargo test --manifest-path web/src-tauri/Cargo.toml && npm --prefix web run test && npm --prefix web run tauri -- build.
   Evidence: Tauri tests and web adapter tests.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Handoff: READY.
 
 ## M4 - Closeout
 

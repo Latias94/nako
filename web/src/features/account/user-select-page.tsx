@@ -1,10 +1,16 @@
 "use client"
 import { resolveArtwork } from '@/lib/artwork'
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Plus, Settings, Lock, Pencil, ChevronLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import {
+  createBrowserConnectionProfileStore,
+  loadConnectionState,
+  saveConnectionState,
+  type ConnectionProfileStore,
+} from "@/src/api/connection-profile"
 
 // 用户数据
 const users = [
@@ -43,9 +49,14 @@ interface UserSelectPageProps {
   onSelectUser: (userId: string) => void
   onManageProfiles?: () => void
   onBack?: () => void
+  connectionStore?: ConnectionProfileStore
 }
 
-export function UserSelectPage({ onSelectUser, onManageProfiles, onBack }: UserSelectPageProps) {
+export function UserSelectPage({ onSelectUser, onManageProfiles, onBack, connectionStore }: UserSelectPageProps) {
+  const store = useMemo(
+    () => connectionStore ?? createBrowserConnectionProfileStore(),
+    [connectionStore],
+  )
   const [isEditing, setIsEditing] = useState(false)
   const [pinInput, setPinInput] = useState("")
   const [selectedUser, setSelectedUser] = useState<string | null>(null)
@@ -62,17 +73,34 @@ export function UserSelectPage({ onSelectUser, onManageProfiles, onBack }: UserS
       setShowPinModal(true)
       setPinInput("")
     } else {
-      onSelectUser(user.id)
+      selectUser(user)
     }
   }
 
   const handlePinSubmit = () => {
     // 模拟 PIN 验证
-    if (pinInput.length === 4) {
-      onSelectUser(selectedUser!)
+    const user = users.find((entry) => entry.id === selectedUser)
+    if (pinInput.length === 4 && user) {
+      selectUser(user)
       setShowPinModal(false)
       setPinInput("")
     }
+  }
+
+  const selectUser = (user: typeof users[0]) => {
+    const currentState = loadConnectionState(store)
+    saveConnectionState(
+      {
+        profile: currentState.profile,
+        session: {
+          ...currentState.session,
+          principalId: user.name,
+          selectedUserId: user.id,
+        },
+      },
+      store,
+    )
+    onSelectUser(user.id)
   }
 
   return (

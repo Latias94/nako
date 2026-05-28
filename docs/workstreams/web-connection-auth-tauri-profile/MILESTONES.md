@@ -17,6 +17,8 @@ Exit criteria: browser/Tauri connection state boundary is tested.
 
 ## M2 - Setup And Account Wiring
 
+Status: done.
+
 Exit criteria: setup/account use real connection/session state.
 
 ## M3 - Tauri Profile Bridge

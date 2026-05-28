@@ -99,7 +99,7 @@ export function createLiveConnectionProfile(
     serverName?: string
     runtime?: NakoRuntimeMode
   },
-): NakoConnectionProfile {
+): Extract<NakoConnectionProfile, { mode: "live" }> {
   return {
     mode: "live",
     runtime: input.runtime ?? detectNakoRuntime(),
