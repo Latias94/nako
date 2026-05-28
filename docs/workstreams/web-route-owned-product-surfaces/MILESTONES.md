@@ -1,6 +1,6 @@
 # Web Route-Owned Product Surfaces - Milestones
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 ## M0 - Activation
@@ -28,5 +28,7 @@ Status: done.
 Exit criteria: durable search/filter/page state lives in route state.
 
 ## M4 - Closeout
+
+Status: done.
 
 Exit criteria: tests/build/smoke pass and docs match route inventory.

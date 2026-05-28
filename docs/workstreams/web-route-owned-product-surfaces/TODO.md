@@ -1,6 +1,6 @@
 # Web Route-Owned Product Surfaces - TODO
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 ## M0 - Activation
@@ -37,8 +37,8 @@ Last updated: 2026-05-28
 
 ## M4 - Closeout
 
-- [ ] WROP-050 [owner=planner] [deps=WROP-040] [scope=docs/workstreams/web-route-owned-product-surfaces]
+- [x] WROP-050 [owner=planner] [deps=WROP-040] [scope=docs/workstreams/web-route-owned-product-surfaces]
   Goal: Close route-owned surface lane.
   Validation: npm --prefix web run test && npm --prefix web run build plus static smoke.
   Evidence: EVIDENCE_AND_GATES.md
-  Handoff: READY.
+  Handoff: DONE. Activate `web-connection-auth-tauri-profile`.
