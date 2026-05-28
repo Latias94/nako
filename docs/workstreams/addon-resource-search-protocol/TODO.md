@@ -40,12 +40,12 @@ Last updated: 2026-05-28
 
 ## M4 - Acquisition Handoff
 
-- [ ] ARSP-050 [owner=unassigned] [deps=ARSP-040] [scope=crates/nako-core/src/acquisition_intake.rs,crates/nako-server/src/app]
+- [x] ARSP-050 [owner=Codex] [deps=ARSP-040] [scope=crates/nako-core/src/acquisition_intake.rs,crates/nako-server/src/app]
   Goal: Record or implement the host-owned conversion from a selected resource-search result to an acquisition intake candidate.
   Validation: `cargo nextest run -p nako-server acquisition_intake addon_resource_search --no-fail-fast`
   Review: Search results remain candidates only; downloader execution and cloud-drive save are separate scopes and lanes.
   Evidence: crates/nako-core/src/acquisition_intake.rs
-  Handoff: Split downloader hooks and link checking to follow-ons.
+  Handoff: Complete. Selected resource-search links now become host-owned `resource_search_selection` intake candidates only through an explicit app-service conversion.
 
 ## M5 - Docs, Migration, And Closeout
 

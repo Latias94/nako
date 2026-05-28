@@ -596,6 +596,7 @@ fn parse_acquisition_intake_source_kind_filter(value: String) -> AcquisitionInta
         "operator_submitted" => AcquisitionIntakeSourceKind::OperatorSubmitted,
         "external_download_output" => AcquisitionIntakeSourceKind::ExternalDownloadOutput,
         "addon_proposed" => AcquisitionIntakeSourceKind::AddonProposed,
+        "resource_search_selection" => AcquisitionIntakeSourceKind::ResourceSearchSelection,
         _ => AcquisitionIntakeSourceKind::Other(value),
     }
 }

@@ -84,6 +84,10 @@ _Avoid_: Plugin hook, arbitrary callback
 A read-only **Addon Resource** that discovers external links or resource candidates for possible acquisition under Nako host policy.
 _Avoid_: Downloader, stream URL, acquisition write
 
+**Resource Search Selection**:
+A host-owned **Acquisition Intake** candidate created only after an operator explicitly selects one **Resource Search** result/link.
+_Avoid_: Addon-proposed write, link check, downloader job
+
 **Addon Entry Point**:
 A manifest-declared place where Nako surfaces an **Addon** action or view to a user.
 _Avoid_: Embedded frontend plugin

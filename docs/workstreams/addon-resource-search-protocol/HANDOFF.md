@@ -1,6 +1,6 @@
 # Addon Resource Search Protocol - Handoff
 
-Status: active. ARSP-010 through ARSP-040 are complete; ARSP-050 is next.
+Status: active. ARSP-010 through ARSP-050 are complete; ARSP-060 is next.
 
 ## Current State
 
@@ -18,6 +18,9 @@ Status: active. ARSP-010 through ARSP-040 are complete; ARSP-050 is next.
 - Nako server/API now has a dedicated admin resource-search diagnostic route
   that applies host limits and returns redaction-safe counts/provider summaries
   without raw result payloads.
+- Nako intake now has explicit `resource_search_selection` source kinds and a
+  host-owned app-service conversion from selected resource-search result/link
+  to an acquisition intake candidate.
 - The temporary official addon manifest uses `AddonResource::Automation` at
   `/resource-search`.
 - This workstream freezes the host-side protocol lane and keeps downloader,
@@ -25,28 +28,23 @@ Status: active. ARSP-010 through ARSP-040 are complete; ARSP-050 is next.
 
 ## Next Task
 
-ARSP-050: record or implement selected-result conversion into acquisition
-intake candidates.
+ARSP-060: close out docs/gates and split follow-on work.
 
 Expected scope:
 
-- `crates/nako-core/src/acquisition_intake.rs`
-- `crates/nako-server/src/app`
-- focused acquisition-intake/server tests
+- `docs/workstreams/addon-resource-search-protocol`
+- focused final gates
 
 Expected behavior:
 
-- Convert a selected resource-search result/link into a host-owned
-  `AcquisitionIntakeCandidate` only after explicit selection.
-- Preserve redacted source references and diagnostics.
-- Keep downloader execution, link checking, and cloud-drive save outside this
-  lane unless a new task explicitly scopes them.
+- Record final gates and close or split remaining work.
+- Keep `nako-official-addons` migration as an explicit follow-on.
 
 Do not include:
 
 - downloader or cloud-drive save behavior,
-- acquisition candidate write scope,
-- server routing,
+- link checking,
+- resource-search result UI,
 - official-addon manifest migration.
 
 ## Suggested First Gate

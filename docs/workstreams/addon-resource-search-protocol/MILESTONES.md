@@ -46,9 +46,10 @@ Exit criteria:
 Exit criteria:
 
 - Search result selection is clearly separated from downloader execution.
-- Conversion to acquisition intake is host-owned, audited, and explicit.
-- Candidate write/link-check/downloader scopes are either implemented as
-  separate contracts or split to named follow-on workstreams.
+- Conversion to acquisition intake is host-owned, audited, and explicit through
+  `resource_search_selection` candidates.
+- Link-check/downloader/cloud-drive-save scopes are split to named follow-on
+  workstreams.
 
 ## M5 - Closeout
 

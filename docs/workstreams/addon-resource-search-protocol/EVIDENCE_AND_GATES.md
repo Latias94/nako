@@ -21,6 +21,7 @@ serde shape, and manifest validation behavior.
 cargo nextest run -p nako-addon-protocol resource_search --no-fail-fast
 cargo nextest run -p nako-addon-client resource_search --no-fail-fast
 cargo nextest run -p nako-server addon_resource_search --no-fail-fast
+cargo nextest run -p nako-server acquisition_intake addon_resource_search --no-fail-fast
 ```
 
 ### Package Gates
@@ -35,7 +36,7 @@ cargo nextest run -p nako-server addon --no-fail-fast
 
 ```bash
 cargo fmt --all -- --check
-cargo check -p nako-addon-protocol -p nako-addon-client -p nako-api -p nako-core -p nako-server --tests
+cargo check -p nako-addon-protocol -p nako-addon-client -p nako-api -p nako-core -p nako-db -p nako-server --tests
 git diff --check
 ```
 
@@ -56,6 +57,9 @@ Run `verify-rust-workstream` before marking the lane complete.
 - `crates/nako-addon-protocol/src/lib.rs`
 - `crates/nako-addon-client/src/lib.rs`
 - `crates/nako-core/src/acquisition_intake.rs`
+- `crates/nako-core/src/managed_import.rs`
+- `crates/nako-server/src/app/acquisition_intake.rs`
+- `crates/nako-db/src/contract_tests.rs`
 - `crates/nako-server/src/app/addons.rs`
 - `F:/SourceCodes/Rust/nako-official-addons/docs/workstreams/official-resource-search-architecture-hardening/PROTOCOL_PROPOSAL.md`
 
@@ -119,6 +123,30 @@ Run `verify-rust-workstream` before marking the lane complete.
 - Passed `cargo fmt --all -- --check`.
 - Passed `cargo check -p nako-addon-protocol -p nako-addon-client -p nako-api -p nako-core -p nako-server --tests`.
 - Passed `git diff --check`.
+
+### 2026-05-28 - ARSP-050
+
+- Added `resource_search_selection` as an explicit
+  `AcquisitionIntakeSourceKind` and `ManagedImportSourceKind`.
+- Added host-owned `AcquisitionIntakeAppService::record_resource_search_selection`
+  for explicit selected-result/link conversion.
+- Kept selected resource-search conversion out of HTTP routing and out of addon
+  runtime candidate-write scopes.
+- Recorded selected links as ready intake candidates with stable hashed source
+  keys, redacted diagnostics, and no downloader/link-check/cloud-drive effects.
+- Preserved later accept flow into managed import as
+  `ManagedImportSourceKind::ResourceSearchSelection` without media-source
+  creation or promotion apply.
+- Passed `cargo nextest run -p nako-server acquisition_intake --no-fail-fast`
+  with 8 tests.
+- Passed `cargo nextest run -p nako-server acquisition_intake addon_resource_search --no-fail-fast`
+  with 10 tests.
+- Passed `cargo nextest run -p nako-db sqlite_managed_import_contract_round_trips_artifacts_and_state sqlite_acquisition_intake_contract_round_trips_candidates_and_state --no-fail-fast`
+  with 2 tests.
+- Passed `cargo fmt --all -- --check`.
+- Passed `cargo check -p nako-addon-protocol -p nako-addon-client -p nako-api -p nako-core -p nako-db -p nako-server --tests`.
+- Passed `git diff --check`.
+- Passed `python -m json.tool docs\workstreams\addon-resource-search-protocol\WORKSTREAM.json`.
 
 ## Notes
 

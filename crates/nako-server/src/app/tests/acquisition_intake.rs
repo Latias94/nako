@@ -1,13 +1,15 @@
 use super::*;
 use crate::app::acquisition_intake::{
     AcceptAcquisitionIntakeCandidateRequest, DiscoverWatchFolderCandidatesRequest,
-    RecordAcquisitionIntakeCandidateRequest,
+    RecordAcquisitionIntakeCandidateRequest, RecordResourceSearchSelectionRequest,
 };
 use crate::app::managed_import::{CreateManagedImportArtifactRequest, ManagedImportAppService};
+use nako_addon_protocol::{AddonResourceLink, AddonResourceLinkType, AddonResourceSearchResult};
 use nako_core::{
     AcquisitionIntakeCandidateListFilter, AcquisitionIntakeCandidateState,
-    AcquisitionIntakeSourceKind, LibraryPreset, ManagedImportArtifactListFilter,
-    ManagedImportArtifactState, ManagedImportRepository, ManagedImportSourceKind,
+    AcquisitionIntakeRepository, AcquisitionIntakeSourceKind, AddonId, LibraryPreset,
+    ManagedImportArtifactListFilter, ManagedImportArtifactState, ManagedImportRepository,
+    ManagedImportSourceKind, NakoError,
 };
 
 #[tokio::test]
@@ -356,6 +358,211 @@ async fn acquisition_intake_service_links_explicit_existing_managed_import_artif
     assert!(!accepted_body.contains("Existing.mkv"));
     assert!(!accepted_body.contains("private-fingerprint"));
     assert!(!accepted_body.contains(r#""raw":"#));
+}
+
+#[tokio::test]
+async fn acquisition_intake_records_resource_search_selection_as_host_owned_candidate() {
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let app = acquisition_app_with_store(store.clone(), library_id, temp.path()).await;
+    let library = store.get_library(library_id).await.unwrap().unwrap();
+    let service = app.acquisition_intake();
+    let selected_link = AddonResourceLink {
+        url: "https://pan.quark.cn/s/private-token?pwd=hidden".to_owned(),
+        normalized_url: "https://pan.quark.cn/s/private-token?pwd=hidden".to_owned(),
+        link_type: AddonResourceLinkType::Quark,
+        source: "pansou-quark".to_owned(),
+        password: Some("hidden-code".to_owned()),
+        note: Some("private note should stay internal".to_owned()),
+    };
+    let result = AddonResourceSearchResult {
+        id: "pansou-result://private/movie-1?token=secret".to_owned(),
+        title: "Private Movie 1".to_owned(),
+        source: "pansou".to_owned(),
+        content: Some("private content should not echo".to_owned()),
+        links: vec![selected_link.clone()],
+        tags: vec!["private-tag".to_owned()],
+        images: vec!["https://images.example/private.jpg?token=secret".to_owned()],
+        score: 930,
+    };
+    let request = RecordResourceSearchSelectionRequest {
+        target_library_id: library.id,
+        addon_id: AddonId::new(),
+        manifest_id: "nako.official.resource-search".to_owned(),
+        query: "Private Query Token".to_owned(),
+        result,
+        selected_link,
+    };
+
+    let first = service
+        .record_resource_search_selection(request.clone())
+        .await
+        .unwrap();
+    let replayed = service
+        .record_resource_search_selection(request)
+        .await
+        .unwrap();
+
+    assert_eq!(first.id, replayed.id);
+    assert_eq!(first.target_library_id, library.id);
+    assert_eq!(first.source_kind, "resource_search_selection");
+    assert_eq!(first.source_scheme.as_deref(), Some("https"));
+    assert_eq!(first.source_uri_redacted, "https://<redacted>");
+    assert!(first.source_key_fingerprint.starts_with("sha256:"));
+    assert!(first.has_display_name);
+    assert!(!first.has_intended_locator);
+    assert_eq!(first.size_bytes, None);
+    assert!(!first.has_fingerprint);
+    assert!(first.has_diagnostics);
+    assert_eq!(first.state, AcquisitionIntakeCandidateState::Ready);
+
+    let listed = service
+        .list_candidates(
+            AcquisitionIntakeCandidateListFilter {
+                target_library_id: Some(library.id),
+                state: Some(AcquisitionIntakeCandidateState::Ready),
+                source_kind: Some(AcquisitionIntakeSourceKind::ResourceSearchSelection),
+                managed_import_artifact_id: None,
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(listed.returned, 1);
+    assert_eq!(listed.candidates[0].id, first.id);
+
+    let accepted = service
+        .accept_candidate(AcceptAcquisitionIntakeCandidateRequest {
+            candidate_id: first.id,
+            managed_import_artifact_id: None,
+        })
+        .await
+        .unwrap();
+    assert_eq!(accepted.candidate.id, first.id);
+    assert_eq!(
+        accepted.candidate.state,
+        AcquisitionIntakeCandidateState::Accepted
+    );
+    assert_eq!(
+        accepted.candidate.managed_import_artifact_id,
+        Some(accepted.artifact_id)
+    );
+    assert_eq!(
+        accepted.artifact_state,
+        ManagedImportArtifactState::Proposed
+    );
+    assert!(!accepted.writes_library);
+    assert!(!accepted.promotion_apply);
+    assert!(!accepted.media_source_created);
+
+    let artifact = store
+        .get_managed_import_artifact(accepted.artifact_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        artifact.source_kind,
+        ManagedImportSourceKind::ResourceSearchSelection
+    );
+    assert_eq!(artifact.target_library_id, library.id);
+    assert_eq!(
+        artifact.original_file_name.as_deref(),
+        Some("Private Movie 1")
+    );
+    assert_eq!(artifact.state, ManagedImportArtifactState::Proposed);
+    assert!(
+        store
+            .list_media_sources(library.id, PageRequest::first_page())
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        store
+            .list_managed_import_promotion_applies_for_artifact(
+                accepted.artifact_id,
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+
+    for body in [
+        serde_json::to_string(&first).unwrap(),
+        serde_json::to_string(&listed).unwrap(),
+        serde_json::to_string(&accepted).unwrap(),
+    ] {
+        assert!(!body.contains("private-token"));
+        assert!(!body.contains("pwd=hidden"));
+        assert!(!body.contains("hidden-code"));
+        assert!(!body.contains("private note"));
+        assert!(!body.contains("Private Movie 1"));
+        assert!(!body.contains("Private Query Token"));
+        assert!(!body.contains("private content"));
+        assert!(!body.contains("private-tag"));
+        assert!(!body.contains("token=secret"));
+    }
+}
+
+#[tokio::test]
+async fn acquisition_intake_rejects_resource_search_selection_without_link_uri() {
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let app = acquisition_app_with_store(store.clone(), library_id, temp.path()).await;
+    let library = store.get_library(library_id).await.unwrap().unwrap();
+    let service = app.acquisition_intake();
+    let selected_link = AddonResourceLink {
+        url: "   ".to_owned(),
+        normalized_url: "\t".to_owned(),
+        link_type: AddonResourceLinkType::Web,
+        source: "pansou".to_owned(),
+        password: None,
+        note: None,
+    };
+    let result = AddonResourceSearchResult {
+        id: "result-1".to_owned(),
+        title: "No Link".to_owned(),
+        source: "pansou".to_owned(),
+        content: None,
+        links: vec![selected_link.clone()],
+        tags: Vec::new(),
+        images: Vec::new(),
+        score: 10,
+    };
+
+    let err = service
+        .record_resource_search_selection(RecordResourceSearchSelectionRequest {
+            target_library_id: library.id,
+            addon_id: AddonId::new(),
+            manifest_id: "nako.official.resource-search".to_owned(),
+            query: "No Link".to_owned(),
+            result,
+            selected_link,
+        })
+        .await
+        .unwrap_err();
+
+    assert!(matches!(err, NakoError::InvalidInput { .. }));
+    assert!(
+        store
+            .list_acquisition_intake_candidates(
+                AcquisitionIntakeCandidateListFilter {
+                    target_library_id: Some(library.id),
+                    state: None,
+                    source_kind: Some(AcquisitionIntakeSourceKind::ResourceSearchSelection),
+                    managed_import_artifact_id: None,
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[tokio::test]

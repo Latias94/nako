@@ -9,6 +9,7 @@ pub enum AcquisitionIntakeSourceKind {
     OperatorSubmitted,
     ExternalDownloadOutput,
     AddonProposed,
+    ResourceSearchSelection,
     Other(String),
 }
 
@@ -20,6 +21,7 @@ impl AcquisitionIntakeSourceKind {
             Self::OperatorSubmitted => ("operator_submitted", ""),
             Self::ExternalDownloadOutput => ("external_download_output", ""),
             Self::AddonProposed => ("addon_proposed", ""),
+            Self::ResourceSearchSelection => ("resource_search_selection", ""),
             Self::Other(value) => ("other", value.as_str()),
         }
     }
@@ -31,6 +33,7 @@ impl AcquisitionIntakeSourceKind {
             "operator_submitted" => Self::OperatorSubmitted,
             "external_download_output" => Self::ExternalDownloadOutput,
             "addon_proposed" => Self::AddonProposed,
+            "resource_search_selection" => Self::ResourceSearchSelection,
             "other" => Self::Other(kind_key),
             _ => Self::Other(kind.to_owned()),
         }

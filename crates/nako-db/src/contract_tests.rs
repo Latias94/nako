@@ -5735,6 +5735,38 @@ where
         .unwrap();
     assert_eq!(proposed_items, vec![proposed]);
 
+    let resource_search_selection = store
+        .upsert_managed_import_artifact(NewManagedImportArtifact {
+            id: ManagedImportArtifactId::new(),
+            target_library_id: library.id,
+            source_kind: ManagedImportSourceKind::ResourceSearchSelection,
+            source_uri: "https://pan.example/resource-search-selection".to_owned(),
+            staging_manifest_id: None,
+            artifact_uri: None,
+            original_file_name: Some("Selected Resource.mkv".to_owned()),
+            intended_locator: None,
+            size_bytes: None,
+            fingerprint: None,
+            state: ManagedImportArtifactState::Proposed,
+            diagnostics_json: Some(r#"{"resource_search_selection":true}"#.to_owned()),
+            created_at_ms: 1_450,
+            updated_at_ms: 1_450,
+        })
+        .await
+        .unwrap();
+    let resource_search_items = store
+        .list_managed_import_artifacts(
+            ManagedImportArtifactListFilter {
+                target_library_id: Some(library.id),
+                state: None,
+                source_kind: Some(ManagedImportSourceKind::ResourceSearchSelection),
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resource_search_items, vec![resource_search_selection]);
+
     let missing = store
         .set_managed_import_artifact_state(
             ManagedImportArtifactId::new(),
@@ -6049,6 +6081,41 @@ where
         .await
         .unwrap();
     assert_eq!(operator_items, vec![operator_candidate]);
+
+    let resource_search_candidate = store
+        .upsert_acquisition_intake_candidate(NewAcquisitionIntakeCandidate {
+            id: AcquisitionIntakeCandidateId::new(),
+            target_library_id: library.id,
+            source_kind: AcquisitionIntakeSourceKind::ResourceSearchSelection,
+            source_key: "resource_search_selection:sha256:demo".to_owned(),
+            source_uri: "https://pan.example/resource-search-selection".to_owned(),
+            display_name: Some("Selected Resource.mkv".to_owned()),
+            intended_locator: None,
+            size_bytes: None,
+            fingerprint: None,
+            managed_import_artifact_id: None,
+            state: AcquisitionIntakeCandidateState::Ready,
+            diagnostics_json: Some(r#"{"resource_search_selection":true}"#.to_owned()),
+            first_seen_at_ms: 1_450,
+            last_seen_at_ms: 1_450,
+            created_at_ms: 1_450,
+            updated_at_ms: 1_450,
+        })
+        .await
+        .unwrap();
+    let resource_search_items = store
+        .list_acquisition_intake_candidates(
+            AcquisitionIntakeCandidateListFilter {
+                target_library_id: Some(library.id),
+                state: None,
+                source_kind: Some(AcquisitionIntakeSourceKind::ResourceSearchSelection),
+                managed_import_artifact_id: None,
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resource_search_items, vec![resource_search_candidate]);
 
     let linked_items = store
         .list_acquisition_intake_candidates(

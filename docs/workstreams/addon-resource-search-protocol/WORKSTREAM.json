@@ -7,12 +7,13 @@
   "scope_kind": "protocol",
   "problem": "The official resource-search sidecar is using the temporary automation resource because Nako has no first-class read-only Addon Resource for external acquisition resource discovery.",
   "task_prefix": "ARSP",
-  "current_task": "ARSP-050",
+  "current_task": "ARSP-060",
   "completed_tasks": [
     "ARSP-010",
     "ARSP-020",
     "ARSP-030",
-    "ARSP-040"
+    "ARSP-040",
+    "ARSP-050"
   ],
   "authoritative_docs": [
     {
@@ -41,7 +42,7 @@
     "cargo nextest run -p nako-addon-client resource_search --no-fail-fast",
     "cargo nextest run -p nako-server addon_resource_search --no-fail-fast",
     "cargo fmt --all -- --check",
-    "cargo check -p nako-addon-protocol -p nako-addon-client -p nako-api -p nako-core -p nako-server --tests",
+    "cargo check -p nako-addon-protocol -p nako-addon-client -p nako-api -p nako-core -p nako-db -p nako-server --tests",
     "git diff --check"
   ],
   "evidence": [
@@ -51,6 +52,9 @@
     "crates/nako-addon-protocol/src/lib.rs",
     "crates/nako-addon-client/src/lib.rs",
     "crates/nako-core/src/acquisition_intake.rs",
+    "crates/nako-core/src/managed_import.rs",
+    "crates/nako-server/src/app/acquisition_intake.rs",
+    "crates/nako-db/src/contract_tests.rs",
     "F:/SourceCodes/Rust/nako-official-addons/docs/workstreams/official-resource-search-architecture-hardening/PROTOCOL_PROPOSAL.md"
   ],
   "adr_refs": [
@@ -61,7 +65,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "ARSP-050",
-    "notes": "Record or implement host-owned conversion from selected resource-search results to acquisition intake candidates. Keep downloader execution and cloud-drive save separate."
+    "next_task": "ARSP-060",
+    "notes": "Close out docs and gates, then split official-addon manifest migration, result UI, link checking, downloader execution, and cloud-drive save into follow-on work."
   }
 }

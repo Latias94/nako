@@ -1,10 +1,12 @@
 use async_trait::async_trait;
+use nako_addon_protocol::{AddonResourceLink, AddonResourceLinkType, AddonResourceSearchResult};
 use nako_core::{
     AcquisitionIntakeCandidateId, AcquisitionIntakeCandidateListFilter,
     AcquisitionIntakeCandidateRecord, AcquisitionIntakeCandidateState, AcquisitionIntakeRepository,
-    AcquisitionIntakeSourceKind, Library, LibraryId, LibraryRepository, ManagedImportArtifactId,
-    ManagedImportArtifactRecord, ManagedImportArtifactState, ManagedImportRepository,
-    ManagedImportSourceKind, NakoError, NewAcquisitionIntakeCandidate, PageRequest, Result,
+    AcquisitionIntakeSourceKind, AddonId, Library, LibraryId, LibraryRepository,
+    ManagedImportArtifactId, ManagedImportArtifactRecord, ManagedImportArtifactState,
+    ManagedImportRepository, ManagedImportSourceKind, NakoError, NewAcquisitionIntakeCandidate,
+    PageRequest, Result,
 };
 use nako_db::NakoDatabase;
 use nako_library::LibraryScannerOptions;
@@ -229,6 +231,51 @@ impl AcquisitionIntakeAppService {
             returned,
             candidates,
         })
+    }
+
+    pub(crate) async fn record_resource_search_selection(
+        &self,
+        request: RecordResourceSearchSelectionRequest,
+    ) -> Result<AcquisitionIntakeCandidateDiagnostic> {
+        let query = require_non_empty("resource search selection query", request.query.clone())?;
+        let manifest_id = require_non_empty(
+            "resource search selection manifest_id",
+            request.manifest_id.clone(),
+        )?;
+        let result_id = require_non_empty(
+            "resource search selection result id",
+            request.result.id.clone(),
+        )?;
+        let source_uri = selected_resource_search_link_uri(&request.selected_link)?;
+        let source_key = resource_search_selection_source_key(
+            request.addon_id,
+            &manifest_id,
+            request.selected_link.link_type,
+            &source_uri,
+        );
+        let diagnostics_json = resource_search_selection_diagnostics_json(
+            &request,
+            &query,
+            &manifest_id,
+            &result_id,
+            &source_uri,
+        )?;
+
+        self.record_candidate(RecordAcquisitionIntakeCandidateRequest {
+            id: None,
+            target_library_id: request.target_library_id,
+            source_kind: AcquisitionIntakeSourceKind::ResourceSearchSelection,
+            source_key,
+            source_uri,
+            display_name: Some(request.result.title),
+            intended_locator: None,
+            size_bytes: None,
+            fingerprint: None,
+            managed_import_artifact_id: None,
+            state: Some(AcquisitionIntakeCandidateState::Ready),
+            diagnostics_json: Some(diagnostics_json),
+        })
+        .await
     }
 
     pub(crate) async fn discover_watch_folder_candidates(
@@ -511,6 +558,16 @@ pub(crate) struct RecordAcquisitionIntakeCandidateRequest {
     pub(crate) diagnostics_json: Option<String>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct RecordResourceSearchSelectionRequest {
+    pub(crate) target_library_id: LibraryId,
+    pub(crate) addon_id: AddonId,
+    pub(crate) manifest_id: String,
+    pub(crate) query: String,
+    pub(crate) result: AddonResourceSearchResult,
+    pub(crate) selected_link: AddonResourceLink,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct AcceptAcquisitionIntakeCandidateRequest {
     pub(crate) candidate_id: AcquisitionIntakeCandidateId,
@@ -762,8 +819,80 @@ fn managed_import_source_kind(
             ManagedImportSourceKind::Other("external_download_output".to_owned())
         }
         AcquisitionIntakeSourceKind::AddonProposed => ManagedImportSourceKind::AddonProposed,
+        AcquisitionIntakeSourceKind::ResourceSearchSelection => {
+            ManagedImportSourceKind::ResourceSearchSelection
+        }
         AcquisitionIntakeSourceKind::Other(value) => ManagedImportSourceKind::Other(value.clone()),
     }
+}
+
+fn selected_resource_search_link_uri(link: &AddonResourceLink) -> Result<String> {
+    optional_non_empty(Some(link.normalized_url.clone()))
+        .or_else(|| optional_non_empty(Some(link.url.clone())))
+        .ok_or_else(|| NakoError::InvalidInput {
+            message: "resource search selection link uri cannot be empty".to_owned(),
+        })
+}
+
+fn resource_search_selection_source_key(
+    addon_id: AddonId,
+    manifest_id: &str,
+    link_type: AddonResourceLinkType,
+    source_uri: &str,
+) -> String {
+    let material = format!(
+        "nako.resource-search-selection.v1\0{addon_id}\0{manifest_id}\0{}\0{source_uri}",
+        link_type.as_str()
+    );
+    format!("resource_search_selection:sha256:{}", sha256_hex(&material))
+}
+
+fn resource_search_selection_diagnostics_json(
+    request: &RecordResourceSearchSelectionRequest,
+    query: &str,
+    manifest_id: &str,
+    result_id: &str,
+    source_uri: &str,
+) -> Result<String> {
+    serde_json::to_string(&serde_json::json!({
+        "schema": "nako.acquisition_intake.resource_search_selection.v1",
+        "resource_search_selection": true,
+        "addon_id": request.addon_id,
+        "manifest_id": manifest_id,
+        "query_fingerprint": fingerprint_key(query),
+        "result": {
+            "id_fingerprint": fingerprint_key(result_id),
+            "source": optional_trimmed(&request.result.source),
+            "score": request.result.score,
+            "has_title": !request.result.title.trim().is_empty(),
+            "has_content": request
+                .result
+                .content
+                .as_ref()
+                .is_some_and(|content| !content.trim().is_empty()),
+            "tag_count": request.result.tags.len(),
+            "image_count": request.result.images.len(),
+            "link_count": request.result.links.len(),
+        },
+        "link": {
+            "type": request.selected_link.link_type.as_str(),
+            "source": optional_trimmed(&request.selected_link.source),
+            "source_ref_redacted": redact_uri(source_uri),
+            "source_ref_fingerprint": fingerprint_key(source_uri),
+            "has_password": request.selected_link.password.is_some(),
+            "has_note": request
+                .selected_link
+                .note
+                .as_ref()
+                .is_some_and(|note| !note.trim().is_empty()),
+        },
+        "writes_library": false,
+        "managed_import_artifact_created": false,
+        "promotion_apply": false,
+    }))
+    .map_err(|err| NakoError::InvalidInput {
+        message: format!("failed to serialize resource search selection diagnostics: {err}"),
+    })
 }
 
 fn require_non_empty(label: &str, value: String) -> Result<String> {
@@ -777,6 +906,11 @@ fn optional_non_empty(value: Option<String>) -> Option<String> {
         let trimmed = value.trim().to_owned();
         (!trimmed.is_empty()).then_some(trimmed)
     })
+}
+
+fn optional_trimmed(value: &str) -> Option<&str> {
+    let value = value.trim();
+    (!value.is_empty()).then_some(value)
 }
 
 fn uri_scheme(value: &str) -> Option<&str> {
@@ -793,14 +927,18 @@ fn redact_uri(value: &str) -> String {
 }
 
 fn fingerprint_key(value: &str) -> String {
+    let digest = sha256_hex(value);
+    format!("sha256:{}", &digest[..32])
+}
+
+fn sha256_hex(value: &str) -> String {
     use sha2::{Digest, Sha256};
 
     let digest = Sha256::digest(value.as_bytes());
-    let prefix = digest[..16]
+    digest
         .iter()
         .map(|byte| format!("{byte:02x}"))
-        .collect::<String>();
-    format!("sha256:{prefix}")
+        .collect::<String>()
 }
 
 fn safe_error_message(err: &NakoError) -> String {

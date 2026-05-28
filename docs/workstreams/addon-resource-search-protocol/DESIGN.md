@@ -52,8 +52,9 @@ When this lane closes:
   resource and scope.
 - `nako-addon-client` can perform a typed resource-search call while preserving
   existing timeout, retry, protocol-version, and redaction behavior.
-- Host-side server work has a clear follow-on seam for converting selected
-  search results into acquisition intake candidates.
+- Host-side server work has a first app-service seam for converting selected
+  search results into `resource_search_selection` acquisition intake
+  candidates.
 
 ## In Scope
 
@@ -61,6 +62,8 @@ When this lane closes:
 - Typed client helper for resource-search calls if it stays within the existing
   generic resource-call machinery.
 - Server-side planning for bounded host calls and acquisition handoff.
+- Host-owned selected-result conversion into intake candidates without HTTP
+  routing, downloader execution, or cloud-drive save behavior.
 - Documentation of the permission split between search, link checking,
   candidate writing, and downloader execution.
 
@@ -94,7 +97,10 @@ authentication, protocol validation, and safe error mapping.
 
 `nako-server` owns host policy: which addon may be called, what scopes are
 granted, result limits, redaction, and how a selected result is converted into
-an `AcquisitionIntakeCandidate`. Search does not call downloaders directly.
+an `AcquisitionIntakeCandidate`. Selected links use
+`resource_search_selection` source kinds so read-only search output is not
+confused with addon runtime candidate writes. Search does not call downloaders
+directly.
 
 `nako-official-addons` remains the adapter implementation boundary. It can map
 host DTOs to its internal query model after the host protocol lands.
