@@ -1,6 +1,6 @@
 # Web Feature Boundary Reshape - TODO
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 ## M0 - Activation
@@ -40,8 +40,8 @@ Last updated: 2026-05-28
 
 ## M4 - Closeout
 
-- [ ] WFBR-050 [owner=planner] [deps=WFBR-040] [scope=docs/workstreams/web-feature-boundary-reshape]
+- [x] WFBR-050 [owner=planner] [deps=WFBR-040] [scope=docs/workstreams/web-feature-boundary-reshape]
   Goal: Close the feature-boundary lane.
   Validation: npm --prefix web run test && npm --prefix web run check && npm --prefix web run build.
   Evidence: EVIDENCE_AND_GATES.md
-  Handoff: READY. Run closeout gates and activate `web-route-owned-product-surfaces`.
+  Handoff: DONE. Lane gates passed and `web-route-owned-product-surfaces` is active.

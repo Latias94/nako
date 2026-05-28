@@ -2,13 +2,15 @@
   "schema_version": 1,
   "slug": "web-route-owned-product-surfaces",
   "title": "Web Route-Owned Product Surfaces",
-  "status": "queued",
+  "status": "active",
   "updated": "2026-05-28",
   "scope_kind": "frontend_routing_refactor",
   "problem": "Media and Admin product surfaces still keep durable navigation state inside large components instead of TanStack routes.",
   "task_prefix": "WROP",
-  "current_task": "WROP-010",
-  "completed_tasks": [],
+  "current_task": "WROP-020",
+  "completed_tasks": [
+    "WROP-010"
+  ],
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/web-route-owned-product-surfaces/README.md" },
     { "role": "design", "path": "docs/workstreams/web-route-owned-product-surfaces/DESIGN.md" },
@@ -24,13 +26,14 @@
     "git diff --check"
   ],
   "evidence": [
-    "Queued as lane 3 after WFBR."
+    "Queued as lane 3 after WFBR.",
+    "WROP-010 activated after WFBR closed with test/check/build, DTO boundary grep, and diff gates passing."
   ],
   "adr_refs": [
     "docs/adr/0027-admin-api-boundary-for-web-console.md"
   ],
   "continue_policy": {
-    "default_action": "wait_for_dependency",
-    "notes": "Activate after WFBR closes."
+    "default_action": "continue",
+    "notes": "Complete route-owned product surfaces before connection/auth/Tauri profile work."
   }
 }

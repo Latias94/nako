@@ -1,20 +1,22 @@
 # Web Feature Boundary Reshape - Handoff
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
-## Current State
+## Closed State
 
 `web-test-harness-and-route-contracts` is complete. Route and data-source
-contract tests are in place, so large component boundary moves can start.
+contract tests are in place, and copied product surfaces now live under
+`web/src/features/*`; route shell code lives under `web/src/shell`.
 
-## Active Task
+## Closeout Result
 
-- Task ID: WFBR-050
-- Owner: Codex
-- Status: READY
-- Validation: `npm --prefix web run test && npm --prefix web run check && npm --prefix web run build`
+- `npm --prefix web run test` passed with 3 files / 15 tests.
+- `npm --prefix web run check` passed.
+- `npm --prefix web run build` passed.
+- Shared/media Admin DTO boundary grep returned no matches.
+- `git diff --check` passed.
 
 ## Next Recommended Action
 
-- Run closeout gates, mark this lane complete, and activate `web-route-owned-product-surfaces`.
+- Continue in `web-route-owned-product-surfaces`.

@@ -1,20 +1,20 @@
 # Web Route-Owned Product Surfaces - Handoff
 
-Status: Queued
+Status: Active
 Last updated: 2026-05-28
 
 ## Current State
 
-Wait for feature boundaries before converting internal page state into child
-routes.
+Feature boundaries are complete. Product surfaces live under
+`web/src/features/*`, and route shell code lives under `web/src/shell`.
 
 ## Active Task
 
 - Task ID: WROP-010
 - Owner: planner
-- Status: QUEUED
+- Status: DONE
 - Validation: WFBR complete.
 
 ## Next Recommended Action
 
-- Activate after WFBR-050.
+- Start WROP-020 by adding route-owned Media search/detail/library surfaces in `web/src/shell/nako-router.tsx` and `web/src/features/media`.

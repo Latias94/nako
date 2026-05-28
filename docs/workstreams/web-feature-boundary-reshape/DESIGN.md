@@ -1,6 +1,6 @@
 # Web Feature Boundary Reshape
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 ## Why This Lane Exists

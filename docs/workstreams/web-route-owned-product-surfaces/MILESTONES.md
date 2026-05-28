@@ -1,9 +1,11 @@
 # Web Route-Owned Product Surfaces - Milestones
 
-Status: Queued
+Status: Active
 Last updated: 2026-05-28
 
 ## M0 - Activation
+
+Status: done.
 
 Exit criteria: WFBR is complete.
 

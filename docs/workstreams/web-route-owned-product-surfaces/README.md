@@ -1,6 +1,6 @@
 # Web Route-Owned Product Surfaces
 
-Status: Queued
+Status: Active
 Last updated: 2026-05-28
 
 This lane turns internal view-state pages into TanStack-owned child routes after

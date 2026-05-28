@@ -1,6 +1,6 @@
 # Web Route-Owned Product Surfaces - Evidence And Gates
 
-Status: Queued
+Status: Active
 Last updated: 2026-05-28
 
 ## Gate Set
@@ -19,3 +19,4 @@ Run static Playwright smoke for newly route-owned visible surfaces.
 | Date | Task | Evidence | Result |
 | --- | --- | --- | --- |
 | 2026-05-28 | WROP-010 | Queued as lane 3 after feature-boundary reshape. | Queued. |
+| 2026-05-28 | WROP-010 | Activated after WFBR completed with `npm --prefix web run test`, `npm --prefix web run check`, `npm --prefix web run build`, DTO boundary grep, and `git diff --check` passing. | Active. Current task is WROP-020. |

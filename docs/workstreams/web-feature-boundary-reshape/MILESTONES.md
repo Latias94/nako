@@ -1,6 +1,6 @@
 # Web Feature Boundary Reshape - Milestones
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 ## M0 - Activation
@@ -28,5 +28,7 @@ Status: done.
 Exit criteria: setup/account/notifications/TV and deferred domains are isolated.
 
 ## M4 - Closeout
+
+Status: done.
 
 Exit criteria: gates pass and docs match the shipped layout.
