@@ -1,42 +1,32 @@
-import tailwindcss from "@tailwindcss/vite";
-import react from "@vitejs/plugin-react";
-import { fileURLToPath, URL } from "node:url";
-import { defineConfig } from "vitest/config";
+import react from "@vitejs/plugin-react"
+import { fileURLToPath, URL } from "node:url"
+import { defineConfig } from "vite"
 
-const host = process.env.TAURI_DEV_HOST;
+const webRoot = fileURLToPath(new URL(".", import.meta.url))
+const sdkRoot = fileURLToPath(new URL("../sdk/typescript", import.meta.url))
 
 export default defineConfig({
-  clearScreen: false,
-  plugins: [react(), tailwindcss()],
+  plugins: [react()],
   resolve: {
     alias: {
-      "@": fileURLToPath(new URL("./src", import.meta.url)),
+      "@": webRoot,
     },
   },
   server: {
-    host: host || "127.0.0.1",
-    port: 5173,
+    host: "127.0.0.1",
+    port: 3000,
     strictPort: true,
-    hmr: host
-      ? {
-          protocol: "ws",
-          host,
-          port: 1421,
-        }
-      : undefined,
-    watch: {
-      ignored: ["**/src-tauri/**"],
+    fs: {
+      allow: [webRoot, sdkRoot],
     },
   },
-  envPrefix: ["VITE_", "TAURI_ENV_*"],
+  preview: {
+    host: "127.0.0.1",
+    port: 4173,
+  },
   build: {
+    outDir: "dist",
+    emptyOutDir: true,
     target: "es2022",
-    minify: process.env.TAURI_ENV_DEBUG ? false : "esbuild",
-    sourcemap: Boolean(process.env.TAURI_ENV_DEBUG),
   },
-  test: {
-    environment: "jsdom",
-    setupFiles: "./src/test/setup.ts",
-    css: true,
-  },
-});
+})

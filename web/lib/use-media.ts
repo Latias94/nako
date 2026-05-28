@@ -1,0 +1,63 @@
+import { useQuery } from "@tanstack/react-query"
+import { createPublicMediaDataSource } from "@/src/api/public/media-data-source"
+import type { MediaItem } from "./media-types"
+
+export function useTrendingMedia() {
+  return useQuery({
+    queryKey: ["nako", "media", "trending"],
+    queryFn: () => createPublicMediaDataSource().listMedia(),
+    staleTime: 5 * 60 * 1000,
+    retry: 0,
+  })
+}
+
+export function useCategoryMedia() {
+  const { data, isLoading, error } = useTrendingMedia()
+
+  const items = data?.items || []
+  const movies = items.filter((item) => item.type === "movie")
+  const series = items.filter((item) => item.type === "series")
+
+  const categories = [
+    {
+      title: "为你推荐",
+      items: items.slice(0, 8),
+    },
+    {
+      title: "热门电影",
+      items: movies.slice(0, 8),
+    },
+    {
+      title: "热门剧集",
+      items: series.slice(0, 8),
+    },
+  ].filter((category) => category.items.length > 0)
+
+  return {
+    categories,
+    isLoading,
+    error,
+    fallback: data?.fallback || false,
+  }
+}
+
+export function useSearchMedia(query: string) {
+  return useQuery({
+    queryKey: ["nako", "media", "search", query],
+    queryFn: () => createPublicMediaDataSource().searchMedia(query),
+    enabled: query.trim().length > 0,
+    staleTime: 5 * 60 * 1000,
+    retry: 0,
+  })
+}
+
+export function useMediaDetails(id: string, mediaType: "movie" | "series") {
+  return useQuery({
+    queryKey: ["nako", "media", "details", mediaType, id],
+    queryFn: async (): Promise<MediaItem | null> =>
+      (await createPublicMediaDataSource().getMediaDetails(id, mediaType)).item,
+    enabled: !!id,
+    staleTime: 5 * 60 * 1000,
+    retry: 0,
+  })
+}

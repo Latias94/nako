@@ -13,13 +13,15 @@ use axum::{
 };
 use nako_addon_client::{ReqwestAddonTransport, call_addon_resource};
 use nako_addon_protocol::{
-    ADDON_PROTOCOL_VERSION, ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA,
+    ADDON_PROTOCOL_VERSION, ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA,
+    ADDON_RESOURCE_LINK_CHECK_RESPONSE_SCHEMA, ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA,
     ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA, AddonAuth, AddonConfigurationSchema,
     AddonEntryPointDeclaration, AddonEntryPointKind, AddonEventRequest, AddonEventResponse,
     AddonEventSubscriptionDeclaration, AddonHealthCheckRequest,
     AddonHealthCheckResponse as ProtocolAddonHealthCheckResponse, AddonHealthManifestFacts,
     AddonHealthStatus, AddonHostedPageDeclaration, AddonInstallDescriptor, AddonManifest,
-    AddonResource, AddonResourceDeclaration, AddonResourceLink, AddonResourceLinkType,
+    AddonResource, AddonResourceDeclaration, AddonResourceLink, AddonResourceLinkCheckRequest,
+    AddonResourceLinkCheckResponse, AddonResourceLinkCheckStatus, AddonResourceLinkType,
     AddonResourceRequest, AddonResourceResponse, AddonResourceSearchIntent,
     AddonResourceSearchProviderExecution, AddonResourceSearchProviderFinality,
     AddonResourceSearchProviderStatus, AddonResourceSearchResponse, AddonRuntimeKind,
@@ -81,7 +83,8 @@ use nako_api::{
         AdminAddonLifecycleIntent, AdminAddonManagerPlanRequest, AdminAddonManagerPlanResponse,
         AdminAddonRegistrationResponse, AdminAddonRegistrationsResponse,
         AdminAddonResourceCallDiagnosticRequest, AdminAddonResourceCallDiagnosticResponse,
-        AdminAddonResourceCallDiagnosticStatus, AdminAddonResourceSearchDiagnosticRequest,
+        AdminAddonResourceCallDiagnosticStatus, AdminAddonResourceLinkCheckRequest,
+        AdminAddonResourceLinkCheckResponse, AdminAddonResourceSearchDiagnosticRequest,
         AdminAddonResourceSearchDiagnosticResponse, AdminAddonResourceSearchRequest,
         AdminAddonResourceSearchResponse, AdminAddonResourceSearchSelectionRequest,
         AdminAddonResourceSearchSelectionResponse, AdminAddonRoutingPlansResponse,

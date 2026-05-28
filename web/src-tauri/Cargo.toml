@@ -12,11 +12,11 @@ name = "nako_web_shell_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = "2.6.2"
+tauri-build = { version = "2.6.2", features = [] }
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
-tauri = "2.11.2"
+tauri = { version = "2.11.2", features = [] }
 url = "2.5"
 
 [workspace]

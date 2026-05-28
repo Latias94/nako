@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "slug": "web-v0-copy-first-tanstack-refactor",
+  "title": "Web V0 Copy-First TanStack Refactor",
+  "status": "complete",
+  "updated": "2026-05-28",
+  "scope_kind": "frontend_product_replacement",
+  "problem": "Nako should copy the complete v0-generated admin/media frontend into web/ and then refactor it into a static TanStack/Tauri/Nako API product frontend instead of rebuilding the UI from zero.",
+  "task_prefix": "WVTR",
+  "current_task": null,
+  "completed_tasks": [
+    "WVTR-010",
+    "WVTR-020",
+    "WVTR-030",
+    "WVTR-040",
+    "WVTR-050",
+    "WVTR-060",
+    "WVTR-070"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/web-v0-copy-first-tanstack-refactor/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/web-v0-copy-first-tanstack-refactor/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/web-v0-copy-first-tanstack-refactor/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/web-v0-copy-first-tanstack-refactor/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/web-v0-copy-first-tanstack-refactor/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/web-v0-copy-first-tanstack-refactor/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "npm --prefix web run check",
+    "npm --prefix web run test",
+    "npm --prefix web run build",
+    "cargo test --manifest-path web/src-tauri/Cargo.toml",
+    "Browser/Playwright smoke for visible frontend route changes",
+    "Tauri static package/build smoke once frontend build path is restored",
+    "cargo nextest run -p nako-api admin_web_generated_contract_matches_generator_output when Admin contract output changes",
+    "git diff --check"
+  ],
+  "evidence": [
+    "WVTR-010 opened this durable copy-first frontend refactor lane.",
+    "WVTR-020 copied repo-ref/nako-admin-web into web/, removed Google font and Vercel analytics assumptions, and passed npm --prefix web run check plus npm --prefix web run build.",
+    "WVTR-030 removed the Next TMDB API route, switched media hooks to local Nako fixture data, localized artwork references, enabled static export, and passed npm --prefix web run check plus npm --prefix web run build.",
+    "WVTR-040 introduced TanStack Router ownership for top-level Media, Admin, Setup, Account, Settings, and Notifications routes inside the static Next shell, added a temporary test alias to the type-check gate, and passed check/test/build plus production static Playwright smoke.",
+    "WVTR-050 introduced Public Client media data source and Admin API dashboard data source boundaries with fixture fallback, while leaving deeper copied v0 feature classification to WVTR-070.",
+    "WVTR-060 restored Tauri static packaging against web/out, added the local Tauri CLI script, recorded bundle-size evidence, and documented virtualization decisions for large copied surfaces.",
+    "WVTR-070 classified the copied v0 feature inventory, closed the lane, and split remaining Admin, Addon, acquisition, notification, playback, i18n, testing, runtime migration, and old Admin Web deletion work into follow-ons."
+  ],
+  "adr_refs": [
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md",
+    "docs/adr/0032-shared-rust-client-core-app-supplied-transport.md",
+    "docs/adr/0036-short-lived-browser-playback-tickets.md",
+    "docs/adr/0037-local-credential-and-session-auth.md"
+  ],
+  "continue_policy": {
+    "default_action": "split_follow_on",
+    "notes": "This WVTR lane is closed. Continue in narrower follow-on lanes for Vite/TanStack runtime migration, UI/E2E tests, expanded Admin pages, Addon Manager UI, downloads/acquisition, notifications, playback, Tauri profile/auth wiring, i18n, deferred copied domains, and old Admin Web deletion."
+  }
+}

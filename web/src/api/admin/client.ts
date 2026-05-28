@@ -1,165 +1,98 @@
 import {
   NAKO_ADMIN_ROUTES,
-  type AdminAccessSummaryResponse,
-  type AdminAddonsQuery,
-  type AdminAddonRegistrationsResponse,
   type AdminJobListResponse,
   type AdminJobsQuery,
   type AdminOverviewResponse,
-} from "@/api/admin/generated/contract";
-import {
-  fixtureAdminAccessSummary,
-  fixtureAdminAddons,
-  fixtureAdminJobs,
-  fixtureAdminOverview,
-} from "@/api/admin/fixtures";
-import {
-  apiErrorMessage,
-  fixtureResult,
-  liveResult,
-  normalizeBaseUrl,
-  type ApiLoadResult,
-  type FetchLike,
-} from "@/api/shared";
+  type AdminPlaybackRuntimeDiagnosticsResponse,
+  type AdminPlaybackSessionListResponse,
+  type AdminPlaybackSessionsQuery,
+  type AdminServerConfigDiagnosticsResponse,
+} from "./generated/contract"
 
-export type AdminApiConnection =
-  | {
-      mode: "fixture";
-    }
-  | {
-      mode: "live";
-      baseUrl: string;
-      token?: string;
-    };
+export type AdminApiClientOptions = {
+  baseUrl?: string
+  bearerToken?: string
+  fetcher?: typeof fetch
+}
 
-export type AdminApi = {
-  readonly source: "fixture" | "live";
-  getOverview(): Promise<ApiLoadResult<AdminOverviewResponse>>;
-  getAccessSummary(): Promise<ApiLoadResult<AdminAccessSummaryResponse>>;
-  getAddons(query?: AdminAddonsQuery): Promise<ApiLoadResult<AdminAddonRegistrationsResponse>>;
-  getJobs(query?: AdminJobsQuery): Promise<ApiLoadResult<AdminJobListResponse>>;
-};
+export class AdminApiClient {
+  private readonly baseUrl: string
+  private readonly bearerToken?: string
+  private readonly fetcher: typeof fetch
 
-export function createAdminApi(
-  connection: AdminApiConnection = { mode: "fixture" },
-  fetcher: FetchLike = globalThis.fetch.bind(globalThis),
-): AdminApi {
-  if (connection.mode === "fixture") {
-    return createFixtureAdminApi();
+  constructor(options: AdminApiClientOptions = {}) {
+    this.baseUrl = normalizeBaseUrl(options.baseUrl)
+    this.bearerToken = options.bearerToken
+    this.fetcher = options.fetcher ?? ((input, init) => fetch(input, init))
   }
 
-  return createLiveAdminApi(connection, fetcher);
-}
-
-function createLiveAdminApi(
-  connection: Extract<AdminApiConnection, { mode: "live" }>,
-  fetcher: FetchLike,
-): AdminApi {
-  const client = new AdminHttpClient(connection, fetcher);
-
-  return {
-    source: "live",
-    async getOverview() {
-      return loadAdminSection(
-        () => client.getJson(NAKO_ADMIN_ROUTES.overview),
-        fixtureAdminOverview,
-      );
-    },
-    async getAccessSummary() {
-      return loadAdminSection(
-        () => client.getJson(NAKO_ADMIN_ROUTES.accessSummary),
-        fixtureAdminAccessSummary,
-      );
-    },
-    async getAddons(query = {}) {
-      return loadAdminSection(
-        () => client.getJson(withQuery(NAKO_ADMIN_ROUTES.addons, query)),
-        fixtureAdminAddons,
-      );
-    },
-    async getJobs(query = {}) {
-      return loadAdminSection(
-        () => client.getJson(withQuery(NAKO_ADMIN_ROUTES.jobs, query)),
-        fixtureAdminJobs,
-      );
-    },
-  };
-}
-
-function createFixtureAdminApi(): AdminApi {
-  return {
-    source: "fixture",
-    async getOverview() {
-      return fixtureResult(fixtureAdminOverview);
-    },
-    async getAccessSummary() {
-      return fixtureResult(fixtureAdminAccessSummary);
-    },
-    async getAddons() {
-      return fixtureResult(fixtureAdminAddons);
-    },
-    async getJobs() {
-      return fixtureResult(fixtureAdminJobs);
-    },
-  };
-}
-
-async function loadAdminSection<T>(loader: () => Promise<T>, fallback: T): Promise<ApiLoadResult<T>> {
-  try {
-    return liveResult(await loader());
-  } catch (error: unknown) {
-    return fixtureResult(fallback, apiErrorMessage(error, "Admin API request failed"));
-  }
-}
-
-class AdminHttpClient {
-  private readonly baseUrl: string;
-  private readonly fetcher: FetchLike;
-  private readonly token?: string;
-
-  constructor(connection: Extract<AdminApiConnection, { mode: "live" }>, fetcher: FetchLike) {
-    this.baseUrl = normalizeBaseUrl(connection.baseUrl);
-    this.fetcher = fetcher;
-    this.token = connection.token;
+  getOverview(): Promise<AdminOverviewResponse> {
+    return this.getJson<AdminOverviewResponse>(NAKO_ADMIN_ROUTES.overview)
   }
 
-  async getJson<T>(path: string): Promise<T> {
+  getJobs(query: AdminJobsQuery = {}): Promise<AdminJobListResponse> {
+    return this.getJson<AdminJobListResponse>(withQuery(NAKO_ADMIN_ROUTES.jobs, query))
+  }
+
+  getPlaybackSessions(
+    query: AdminPlaybackSessionsQuery = {},
+  ): Promise<AdminPlaybackSessionListResponse> {
+    return this.getJson<AdminPlaybackSessionListResponse>(
+      withQuery(NAKO_ADMIN_ROUTES.playbackSessions, query),
+    )
+  }
+
+  getPlaybackRuntime(): Promise<AdminPlaybackRuntimeDiagnosticsResponse> {
+    return this.getJson<AdminPlaybackRuntimeDiagnosticsResponse>(NAKO_ADMIN_ROUTES.playbackRuntime)
+  }
+
+  getSystemConfig(): Promise<AdminServerConfigDiagnosticsResponse> {
+    return this.getJson<AdminServerConfigDiagnosticsResponse>(NAKO_ADMIN_ROUTES.systemConfig)
+  }
+
+  private async getJson<T>(path: string): Promise<T> {
     const response = await this.fetcher(`${this.baseUrl}${path}`, {
       headers: this.headers(),
-    });
+    })
 
     if (!response.ok) {
-      throw new Error(`Admin API request failed with HTTP ${response.status}`);
+      throw new Error(`Admin API request failed with HTTP ${response.status}`)
     }
 
-    const contentType = response.headers.get("content-type") ?? "";
+    const contentType = response.headers.get("content-type") ?? ""
     if (!contentType.toLowerCase().includes("application/json")) {
-      throw new Error("Admin API request returned non-JSON content");
+      throw new Error("Admin API request returned a non-JSON response")
     }
 
-    return (await response.json()) as T;
+    return (await response.json()) as T
   }
 
   private headers(): HeadersInit {
-    if (!this.token) {
-      return {};
+    if (!this.bearerToken) {
+      return {}
     }
 
     return {
-      Authorization: `Bearer ${this.token}`,
-    };
+      Authorization: `Bearer ${this.bearerToken}`,
+    }
   }
 }
 
-function withQuery(path: string, query: object): string {
-  const params = new URLSearchParams();
+function normalizeBaseUrl(baseUrl: string | undefined) {
+  const value = baseUrl?.trim() || ""
+
+  return value.endsWith("/") ? value.slice(0, -1) : value
+}
+
+function withQuery(path: string, query: object) {
+  const params = new URLSearchParams()
 
   for (const [key, value] of Object.entries(query)) {
     if (value !== undefined && value !== null && value !== "") {
-      params.set(key, String(value));
+      params.set(key, String(value))
     }
   }
 
-  const suffix = params.toString();
-  return suffix ? `${path}?${suffix}` : path;
+  const suffix = params.toString()
+  return suffix ? `${path}?${suffix}` : path
 }

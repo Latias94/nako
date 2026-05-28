@@ -1,6 +1,6 @@
 use crate::admin::ADMIN_API_VERSION;
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 49] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 50] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -37,6 +37,10 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 49] = [
     (
         "addonResourceSearchSelection",
         "addons/:addon_id/resource-search/{search_id}/selections/{selection_id}/intake-candidate",
+    ),
+    (
+        "addonResourceSearchSelectionLinkCheck",
+        "addons/:addon_id/resource-search/{search_id}/selections/{selection_id}/link-check",
     ),
     (
         "acquisitionIntakeCandidates",
@@ -411,7 +415,8 @@ export type AddonScope =
   | "webhook_event_read"
   | "renderer_adapter_read"
   | "renderer_adapter_control"
-  | "acquisition_search_read";
+  | "acquisition_search_read"
+  | "acquisition_link_check_read";
 
 export type AddonResource =
   | "catalog"
@@ -423,7 +428,8 @@ export type AddonResource =
   | "automation"
   | "webhook"
   | "renderer_adapter"
-  | "resource_search";
+  | "resource_search"
+  | "resource_link_check";
 
 export type AddonEntryPointKind =
   | "item_action"
@@ -477,6 +483,15 @@ export type AddonResourceLinkType =
   | "ed2k"
   | "web"
   | "other";
+
+export type AddonResourceLinkCheckStatus =
+  | "reachable"
+  | "unavailable"
+  | "password_needed"
+  | "unsupported"
+  | "rate_limited"
+  | "error"
+  | "unknown";
 
 export type AddonResourceSearchIntent =
   | { kind: "free_text"; text: string }
@@ -903,6 +918,10 @@ export interface AdminAddonResourceSearchSelectionRequest {
   target_library_id: string;
 }
 
+export interface AdminAddonResourceLinkCheckRequest {
+  refresh?: boolean;
+}
+
 export interface AddonAcquisitionCandidateSummary {
   id: string;
   target_library_id: string;
@@ -930,6 +949,26 @@ export interface AdminAddonResourceSearchSelectionResponse {
   selection_id: string;
   candidate: AddonAcquisitionCandidateSummary;
   idempotent_replay: boolean;
+}
+
+export interface AdminAddonResourceLinkCheckResponse {
+  addon_id: string;
+  manifest_id: string;
+  search_id: string;
+  selection_id: string;
+  status: AdminAddonResourceCallDiagnosticStatus;
+  latency_ms: number;
+  attempts: number;
+  link_type: AddonResourceLinkType;
+  check_status?: AddonResourceLinkCheckStatus;
+  checked_at_ms?: number;
+  requires_password?: boolean;
+  retryable?: boolean;
+  retry_after_ms?: number;
+  has_safe_message: boolean;
+  safe_facts?: Record<string, string>;
+  http_status?: number;
+  safe_error_code?: string;
 }
 
 export interface AdminAddonInstallGuideResponse {
@@ -2319,6 +2358,9 @@ mod tests {
             "AdminAddonResourceSearchLinkSummary",
             "AdminAddonResourceSearchSelectionRequest",
             "AdminAddonResourceSearchSelectionResponse",
+            "AdminAddonResourceLinkCheckRequest",
+            "AdminAddonResourceLinkCheckResponse",
+            "AddonResourceLinkCheckStatus",
             "AddonAcquisitionCandidateSummary",
             "IssueAddonTokenRequest",
             "AddonTokensResponse",

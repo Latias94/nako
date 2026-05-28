@@ -1,17 +1,16 @@
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
+import { StrictMode } from "react"
+import { createRoot } from "react-dom/client"
+import { AppRoot } from "./app-root"
+import "./styles/globals.css"
 
-import { App } from "@/app";
-import "@/styles.css";
+const rootElement = document.getElementById("root")
 
-const root = document.getElementById("root");
-
-if (!root) {
-  throw new Error("Nako web root element is missing");
+if (!rootElement) {
+  throw new Error("Nako web root element was not found.")
 }
 
-createRoot(root).render(
+createRoot(rootElement).render(
   <StrictMode>
-    <App />
+    <AppRoot />
   </StrictMode>,
-);
+)
