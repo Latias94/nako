@@ -2,10 +2,9 @@
 
 Copy-first product frontend for Nako.
 
-The current shell is a static Next.js bootstrap around React 19, Tailwind 4,
+The current shell is a Vite-built static React 19 app with Tailwind 4,
 shadcn-style components, TanStack Router, TanStack Query, and the Tauri desktop
-shell. Next is intentionally transitional; the release path must stay static so
-Tauri does not require a Node sidecar.
+shell. The release path stays static so Tauri does not require a Node sidecar.
 
 ## Commands
 

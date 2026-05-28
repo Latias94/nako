@@ -23,12 +23,12 @@ Last updated: 2026-05-28
 
 ## M2 - Delete Next Runtime Surface
 
-- [ ] WVRT-030 [owner=Codex] [deps=WVRT-020] [scope=web/app,web/next.config.mjs,web/next-env.d.ts,web/package.json,web/package-lock.json]
+- [x] WVRT-030 [owner=Codex] [deps=WVRT-020] [scope=web/app,web/next.config.mjs,web/next-env.d.ts,web/package.json,web/package-lock.json]
   Goal: Remove Next-only wrappers, config, type plugins, scripts, and dependencies after Vite owns build/runtime behavior.
   Validation: npm --prefix web run check && npm --prefix web run build; rg confirms no Next release source imports remain.
   Review: Confirm `/tv` is preserved through TanStack Router and deleted files are truly Next-only.
   Evidence: package diff, removed app directory, route smoke.
-  Handoff: Final status must be DONE, DONE_WITH_CONCERNS, BLOCKED, or NEEDS_CONTEXT.
+  Handoff: DONE. Next app wrappers/config/types and dependencies are removed; Vite build and type-check remain green. Next task is static browser/Tauri proof.
 
 ## M3 - Browser And Tauri Static Proof
 

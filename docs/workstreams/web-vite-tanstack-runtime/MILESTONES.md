@@ -25,6 +25,8 @@ Exit criteria:
 
 ## M2 - Next Runtime Deletion
 
+Status: done.
+
 Exit criteria:
 
 - Next app wrappers/config/type files are deleted.

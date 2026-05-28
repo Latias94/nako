@@ -14,15 +14,15 @@ runtime.
 
 ## Active Task
 
-- Task ID: WVRT-030
+- Task ID: WVRT-040
 - Owner: Codex
-- Files: `web/app`, `web/next.config.mjs`, `web/next-env.d.ts`,
-  `web/package.json`, `web/package-lock.json`, `web/tsconfig.json`
-- Validation: `npm --prefix web run check && npm --prefix web run build`, then
-  `rg` confirms no Next release imports remain.
+- Files: `web`, `web/src-tauri`, `docs/workstreams/web-vite-tanstack-runtime`
+- Validation: `npm --prefix web run build`, static browser smoke,
+  `cargo test --manifest-path web/src-tauri/Cargo.toml`, and
+  `npm --prefix web run tauri -- build`.
 - Status: READY
-- Review: Confirm deleted files are Next-only and `/tv` remains routable through
-  TanStack Router.
+- Review: Confirm Tauri uses Vite `dist`, route fallback works, and no Node
+  sidecar is required.
 - Evidence: To be recorded in `EVIDENCE_AND_GATES.md`.
 
 ## Decisions Since Last Update
@@ -30,7 +30,9 @@ runtime.
 - Keep `components/`, `lib/`, and `src/api/` in place during this lane.
 - WVRT-020 added `/tv` to TanStack Router so the Vite app preserves the static
   route inventory from Next.
-- Tauri should move from `../out` to `../dist` after Vite build ownership lands.
+- WVRT-030 removed Next app wrappers, Next config/type files, and `next` /
+  `next-themes` dependencies.
+- Tauri should move from `../out` to `../dist` in WVRT-040.
 
 ## Blockers
 
@@ -38,4 +40,5 @@ runtime.
 
 ## Next Recommended Action
 
-- Implement WVRT-030 by deleting the remaining Next runtime surface.
+- Implement WVRT-040 by proving static browser and Tauri behavior from Vite
+  output.
