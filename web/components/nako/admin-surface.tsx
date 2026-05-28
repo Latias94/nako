@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import {
   Server,
   HardDrive,
@@ -55,6 +56,14 @@ import { AdminUsers } from "./admin-users"
 import { AdminPlugins } from "./admin-plugins"
 import { AdminLogs } from "./admin-logs"
 import { AdminScheduledTasks } from "./admin-scheduled-tasks"
+import {
+  ADMIN_DASHBOARD_FIXTURE,
+  createAdminDashboardDataSource,
+  type AdminDashboardData,
+  type AdminDashboardMetrics,
+  type AdminDashboardPlaybackSession,
+  type AdminDashboardTask,
+} from "@/src/api/admin/dashboard-data-source"
 
 // 自托管媒体服务器管理面板导航结构
 const adminNavGroups = [
@@ -99,89 +108,6 @@ const adminNavGroups = [
   }
 ]
 
-// Server health metrics
-const serverMetrics = {
-  cpu: 23,
-  memory: 58,
-  storage: 72,
-  uptime: "14天 6小时",
-  version: "0.8.2-beta",
-  latestVersion: "0.9.0",
-  hasUpdate: true,
-  totalLibraries: 5,
-  totalItems: 1842,
-  activeStreams: 2,
-}
-
-// Active tasks
-const activeTasks = [
-  {
-    id: 1,
-    type: "library_scan",
-    name: "媒体库扫描",
-    library: "电影",
-    status: "running",
-    progress: 67,
-    itemsProcessed: 234,
-    totalItems: 350,
-    startedAt: "10 分钟前",
-  },
-  {
-    id: 2,
-    type: "metadata_refresh",
-    name: "元数据刷新",
-    item: "银翼杀手 2049",
-    status: "running",
-    progress: 45,
-    provider: "TMDb",
-    startedAt: "2 分钟前",
-  },
-  {
-    id: 3,
-    type: "transcode",
-    name: "转码任务",
-    item: "沙丘2",
-    status: "queued",
-    profile: "1080p H.264",
-    queuePosition: 1,
-  },
-]
-
-// Active playback sessions
-const playbackSessions = [
-  {
-    id: 1,
-    user: "张明",
-    avatar: null,
-    item: "奥本海默",
-    itemType: "电影",
-    device: "Apple TV 4K",
-    client: "Infuse",
-    playbackMethod: "Direct Play",
-    videoCodec: "HEVC",
-    audioCodec: "TrueHD Atmos",
-    progress: 45,
-    bandwidth: "82 Mbps",
-    quality: "4K HDR",
-  },
-  {
-    id: 2,
-    user: "李红",
-    avatar: null,
-    item: "切尔诺贝利",
-    itemType: "剧集",
-    episode: "S01E04",
-    device: "Chrome",
-    client: "Web",
-    playbackMethod: "HLS Transcode",
-    videoCodec: "H.264",
-    audioCodec: "AAC",
-    progress: 23,
-    bandwidth: "12 Mbps",
-    quality: "1080p",
-  },
-]
-
 // Recent activity log
 const activityLog = [
   { time: "刚刚", event: "媒体库扫描完成", detail: "动画 · 新增 12 项", type: "success", icon: CheckCircle2 },
@@ -203,6 +129,13 @@ const scheduledTasks = [
 
 export function AdminSurface() {
   const [activeComponent, setActiveComponent] = useState("dashboard")
+  const { data: dashboardData = ADMIN_DASHBOARD_FIXTURE } = useQuery({
+    queryKey: ["nako", "admin", "dashboard"],
+    queryFn: () => createAdminDashboardDataSource().loadDashboard(),
+    staleTime: 30 * 1000,
+    retry: 0,
+  })
+  const serverMetrics = dashboardData.metrics
   
   // Find the active nav item name
   const activeNavName = adminNavGroups
@@ -237,9 +170,9 @@ export function AdminSurface() {
       case "advanced":
         return <AdvancedSettingsPage />
       case "about":
-        return <AboutPage />
+        return <AboutPage metrics={serverMetrics} />
       default:
-        return <AdminDashboard />
+        return <AdminDashboard data={dashboardData} />
     }
   }
 
@@ -307,7 +240,9 @@ export function AdminSurface() {
 }
 
 // Admin Dashboard Component
-function AdminDashboard() {
+function AdminDashboard({ data }: { data: AdminDashboardData }) {
+  const { activeTasks, metrics: serverMetrics, playbackSessions } = data
+
   return (
     <>
       {/* Page Header */}
@@ -624,7 +559,7 @@ function MetricCard({
   )
 }
 
-function TaskItem({ task }: { task: typeof activeTasks[0] }) {
+function TaskItem({ task }: { task: AdminDashboardTask }) {
   return (
     <div className="p-4">
       <div className="flex items-start justify-between gap-4">
@@ -656,7 +591,7 @@ function TaskItem({ task }: { task: typeof activeTasks[0] }) {
   )
 }
 
-function PlaybackSessionItem({ session }: { session: typeof playbackSessions[0] }) {
+function PlaybackSessionItem({ session }: { session: AdminDashboardPlaybackSession }) {
   return (
     <div className="p-4">
       <div className="flex items-center gap-4">
@@ -2083,7 +2018,7 @@ function AdvancedSettingsPage() {
 }
 
 // 关于页面
-function AboutPage() {
+function AboutPage({ metrics: serverMetrics }: { metrics: AdminDashboardMetrics }) {
   return (
     <div className="space-y-6">
       <div>

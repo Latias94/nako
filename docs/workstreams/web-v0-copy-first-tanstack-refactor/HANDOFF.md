@@ -31,20 +31,23 @@ Current baseline status:
   errors or warnings;
 - media home/search/detail now load through a Nako Public Client data source
   with local fixture fallback instead of an inline TMDB-shaped hook;
+- the Admin dashboard now loads through an Admin API read-model data source
+  with local fixture fallback;
 - the web package uses `@nako/sdk` from `sdk/typescript`; Next is pinned to
   webpack mode because Turbopack cannot resolve the local TS SDK package on
   Windows in this bootstrap shell.
 
 ## Next Task
 
-WVTR-050: reattach Nako Public Client and Admin API boundaries to the copied
-shell, replacing remaining fixture/mock hooks with Nako-owned API seams.
+WVTR-060: record bundle/performance evidence, make virtualization decisions for
+large copied grids/tables, and restore Tauri static packaging smoke.
 
 Current caveats:
 
 - `npm --prefix web run test` is a type-check alias until real UI/E2E tests
   are introduced.
-- Admin API wiring is still pending in the v0 management surface.
+- Deeper copied v0 feature pages are still fixture/planned until WVTR-070
+  classifies them explicitly.
 - Next dev/Fast Refresh can report React hook noise on SPA route clicks, but
   the production static smoke is clean.
 - Many copied v0 features still need live/fixture/planned/blocked/deferred

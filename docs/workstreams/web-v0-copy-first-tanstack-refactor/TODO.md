@@ -40,12 +40,12 @@ Last updated: 2026-05-28
 
 ## M4 - Nako API Boundary Reattachment
 
-- [ ] WVTR-050 [owner=Codex] [deps=WVTR-040] [scope=web/src/api,sdk/typescript,crates/nako-api]
+- [x] WVTR-050 [owner=Codex] [deps=WVTR-040] [scope=web/src/api,sdk/typescript,crates/nako-api]
   Goal: Reattach Nako Public Client and Admin API boundaries to the copied/refactored shell, replacing TMDB/mock hooks with Nako-owned live/fixture seams.
   Validation: npm --prefix web run check && npm --prefix web run test && npm --prefix web run build; cargo nextest run -p nako-api admin_web_generated_contract_matches_generator_output when generated contracts change.
   Review: Confirm Media routes do not import Admin DTOs and shared UI imports no API DTOs.
   Evidence: web/src/api, web/src/surfaces/media, web/src/surfaces/admin.
-  Handoff: Admin mutations may remain split if backend authority is missing.
+  Handoff: DONE. Media home/search/detail now use Public Client data with fixture fallback, and the Admin dashboard uses Admin API read-model data with fixture fallback. Deeper copied v0 pages remain fixture/planned for WVTR-070 classification.
 
 ## M5 - Performance And Desktop Gates
 

@@ -46,6 +46,8 @@ Exit criteria:
 
 ## M4 - Nako API Reattachment
 
+Status: done.
+
 Exit criteria:
 
 - Media routes consume Public Client API.
