@@ -47,9 +47,9 @@ PlaybackPlanningRequest
 PlaybackDecision
   mode
   selected source
-  execution plan
+  rendition plan
   decision report
-  direct play / remux / transcode requirement
+  direct play / remux / transcode output intent
 ```
 
 The profile model is not a direct copy of Jellyfin DLNA `DeviceProfile`.
@@ -65,6 +65,12 @@ Instead, Nako owns a smaller model:
 
 The decision report must carry typed reasons. Callers should not infer
 compatibility by re-running planner logic.
+
+The selected output shape is a **Playback Rendition Plan**, not an execution
+plan. Direct play, remux, transcode, and denied decisions are represented under
+one typed `PlaybackRenditionPlan`. Source-aware transcode requirements belong
+inside the transcode rendition so callers do not consume duplicate top-level
+decision fields.
 
 `nako-playback` owns the pure planner and profile records. `nako-transcode`
 owns FFmpeg, hardware inventory, acceleration policy, and command planning.
@@ -110,4 +116,3 @@ burn-in, adaptive HLS, and optimized versions without route-level branching.
 - `docs/workstreams/playback-transcode-policy-deepening/`
 - `docs/workstreams/playback-policy-and-renderer-targets/`
 - `docs/workstreams/playback-transcode-ops-hardening/`
-

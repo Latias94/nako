@@ -143,8 +143,8 @@ use nako_core::{
 };
 use nako_db::NakoDatabase;
 use nako_playback::{
-    ClientPlaybackCapabilities, PlaybackPreferenceContext, PlaybackProfile,
-    PlaybackSelectionContext, PlaybackStorageContext,
+    ClientPlaybackCapabilities, PlaybackPreferenceContext, PlaybackSelectionContext,
+    PlaybackStorageContext, PlaybackTargetProfile,
 };
 use nako_search::{SearchDocument, SearchIndex, SearchQuery};
 use nako_streaming::{DirectPlayRangeRequest, RequestedByteRange, plan_direct_play_response};
@@ -544,7 +544,7 @@ fn compatible_probe() -> MediaProbeResult {
 }
 
 fn local_remux_request_key(source: &MediaSource, container: RemuxContainer) -> String {
-    let profile = PlaybackProfile::from_context(
+    let profile = PlaybackTargetProfile::from_capabilities(
         &ClientPlaybackCapabilities::default(),
         PlaybackSelectionContext {
             storage: PlaybackStorageContext {
@@ -569,7 +569,7 @@ fn local_remux_request_key(source: &MediaSource, container: RemuxContainer) -> S
 }
 
 fn local_hls_request_key(source: &MediaSource, acceleration: HardwareAcceleration) -> String {
-    let profile = PlaybackProfile::from_context(
+    let profile = PlaybackTargetProfile::from_capabilities(
         &ClientPlaybackCapabilities::default(),
         PlaybackSelectionContext {
             storage: PlaybackStorageContext {

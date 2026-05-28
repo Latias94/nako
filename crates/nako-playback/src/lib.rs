@@ -6,13 +6,10 @@ pub use nako_core::{
 };
 use nako_core::{
     LibraryId, MediaProbeResult, MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind,
-    Result,
 };
 use nako_transcode::{
-    HlsTranscodeProfile, OutputContainer, RemuxContainer, RemuxTranscodeProfile,
-    TranscodeExecutionPolicy, TranscodeOutputConstraints, TranscodePlan, TranscodeProfile,
-    TranscodeSubtitleStrategy, TranscodeTrackSelection, validate_playback_transcode_plan,
-    validate_transcode_profile,
+    OutputContainer, RemuxContainer, TranscodeOutputConstraints, TranscodePlan,
+    TranscodeSubtitleStrategy, TranscodeTrackSelection,
 };
 use serde::{Deserialize, Serialize};
 
@@ -30,12 +27,51 @@ pub struct PlaybackDecision {
     pub mode: PlaybackMode,
     pub reason: PlaybackDecisionReason,
     pub selected_source: PlaybackSelectedSource,
-    pub execution: PlaybackExecutionPlan,
+    pub rendition: PlaybackRenditionPlan,
     pub report: PlaybackDecisionReport,
-    pub direct_play: Option<DirectPlayPlan>,
-    pub transcode_plan: Option<TranscodePlan>,
-    pub transcode_requirement: Option<TranscodeRequirement>,
     pub denial: Option<PlaybackDenial>,
+}
+
+impl PlaybackDecision {
+    #[must_use]
+    pub fn direct_play_plan(&self) -> Option<&DirectPlayPlan> {
+        match &self.rendition {
+            PlaybackRenditionPlan::DirectPlay(plan) => Some(plan),
+            PlaybackRenditionPlan::Remux(_)
+            | PlaybackRenditionPlan::Transcode(_)
+            | PlaybackRenditionPlan::Denied(_) => None,
+        }
+    }
+
+    #[must_use]
+    pub fn remux_plan(&self) -> Option<&RemuxPlaybackPlan> {
+        match &self.rendition {
+            PlaybackRenditionPlan::Remux(plan) => Some(plan),
+            PlaybackRenditionPlan::DirectPlay(_)
+            | PlaybackRenditionPlan::Transcode(_)
+            | PlaybackRenditionPlan::Denied(_) => None,
+        }
+    }
+
+    #[must_use]
+    pub fn transcode_plan(&self) -> Option<&TranscodePlan> {
+        match &self.rendition {
+            PlaybackRenditionPlan::Transcode(plan) => Some(&plan.plan),
+            PlaybackRenditionPlan::DirectPlay(_)
+            | PlaybackRenditionPlan::Remux(_)
+            | PlaybackRenditionPlan::Denied(_) => None,
+        }
+    }
+
+    #[must_use]
+    pub fn transcode_requirement(&self) -> Option<&TranscodeRequirement> {
+        match &self.rendition {
+            PlaybackRenditionPlan::Transcode(plan) => Some(&plan.requirement),
+            PlaybackRenditionPlan::DirectPlay(_)
+            | PlaybackRenditionPlan::Remux(_)
+            | PlaybackRenditionPlan::Denied(_) => None,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -124,130 +160,6 @@ pub struct PlaybackPreferenceContext {
     pub transcode_output_container: Option<OutputContainer>,
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct PlaybackProfile {
-    pub direct_play: bool,
-    pub containers: Vec<String>,
-    pub video_codecs: Vec<String>,
-    pub audio_codecs: Vec<String>,
-    pub storage: PlaybackStorageContext,
-    pub preferences: PlaybackPreferenceContext,
-}
-
-impl PlaybackProfile {
-    #[must_use]
-    pub fn from_context(
-        client: &ClientPlaybackCapabilities,
-        context: PlaybackSelectionContext,
-    ) -> Self {
-        Self::from_target_profile(&PlaybackTargetProfile::from_capabilities(client, context))
-    }
-
-    #[must_use]
-    pub fn from_target_profile(profile: &PlaybackTargetProfile) -> Self {
-        let direct_play_profile = profile
-            .direct_play_profiles
-            .first()
-            .cloned()
-            .unwrap_or_default();
-        Self {
-            direct_play: profile.direct_play,
-            containers: direct_play_profile.containers,
-            video_codecs: direct_play_profile.video_codecs,
-            audio_codecs: direct_play_profile.audio_codecs,
-            storage: profile.storage.clone(),
-            preferences: profile.preferences.clone(),
-        }
-    }
-
-    #[must_use]
-    pub fn identity(&self) -> PlaybackProfileIdentity {
-        PlaybackProfileIdentity {
-            request_key: format!(
-                "playback-profile:v1;direct={};containers={};vcodecs={};acodecs={};remote={};range={};audio={};subtitle={};max_video_bitrate={};prefer_hdr={};remux={};transcode={}",
-                self.direct_play,
-                list_key(&self.containers),
-                list_key(&self.video_codecs),
-                list_key(&self.audio_codecs),
-                self.storage.remote,
-                optional_bool(self.storage.range_readable),
-                optional_u32(self.preferences.requested_audio_stream),
-                optional_u32(self.preferences.requested_subtitle_stream),
-                optional_u64(self.preferences.max_video_bitrate),
-                optional_bool(self.preferences.prefer_hdr),
-                self.preferences
-                    .remux_output_container
-                    .map_or("auto", RemuxContainer::file_extension),
-                self.preferences
-                    .transcode_output_container
-                    .map_or("auto", OutputContainer::as_str),
-            ),
-        }
-    }
-
-    #[must_use]
-    pub fn identity_key(&self) -> String {
-        self.identity().persisted_request_key().to_owned()
-    }
-
-    #[must_use]
-    pub fn track_selection(&self) -> TranscodeTrackSelection {
-        TranscodeTrackSelection {
-            audio_stream: self.preferences.requested_audio_stream,
-            subtitle_stream: self.preferences.requested_subtitle_stream,
-        }
-    }
-
-    #[must_use]
-    pub fn remux_transcode_profile(&self, output_container: RemuxContainer) -> TranscodeProfile {
-        self.try_remux_transcode_profile(output_container)
-            .expect("playback remux profile must be valid")
-    }
-
-    pub fn try_remux_transcode_profile(
-        &self,
-        output_container: RemuxContainer,
-    ) -> Result<TranscodeProfile> {
-        let profile = TranscodeProfile::remux(RemuxTranscodeProfile {
-            output_container,
-            track_selection: self.track_selection(),
-            remote_input: self.storage.remote,
-            playback_profile_key: self.identity().persisted_request_key().to_owned(),
-        });
-        validate_transcode_profile(&profile)?;
-        Ok(profile)
-    }
-
-    #[must_use]
-    pub fn hls_transcode_profile(
-        &self,
-        plan: &TranscodePlan,
-        execution_policy: TranscodeExecutionPolicy,
-    ) -> TranscodeProfile {
-        self.try_hls_transcode_profile(plan, execution_policy)
-            .expect("playback hls profile must be valid")
-    }
-
-    pub fn try_hls_transcode_profile(
-        &self,
-        plan: &TranscodePlan,
-        execution_policy: TranscodeExecutionPolicy,
-    ) -> Result<TranscodeProfile> {
-        validate_playback_transcode_plan(plan)?;
-        let track_selection = self.track_selection();
-        let profile = TranscodeProfile::hls_single_variant(HlsTranscodeProfile {
-            video_codec: plan.video_codec.clone(),
-            audio_codec: plan.audio_codec.clone(),
-            execution_policy,
-            track_selection,
-            remote_input: self.storage.remote,
-            playback_profile_key: self.identity().persisted_request_key().to_owned(),
-        });
-        validate_transcode_profile(&profile)?;
-        Ok(profile)
-    }
-}
-
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct PlaybackProfileIdentity {
     request_key: String,
@@ -270,11 +182,17 @@ pub struct PlaybackSelectedSource {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
-pub enum PlaybackExecutionPlan {
+pub enum PlaybackRenditionPlan {
     DirectPlay(DirectPlayPlan),
     Remux(RemuxPlaybackPlan),
-    Transcode(TranscodePlan),
+    Transcode(TranscodeRenditionPlan),
     Denied(PlaybackDenial),
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct TranscodeRenditionPlan {
+    pub plan: TranscodePlan,
+    pub requirement: TranscodeRequirement,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -598,11 +516,8 @@ fn direct_play_decision(
         mode: PlaybackMode::DirectPlay,
         reason,
         selected_source,
-        execution: PlaybackExecutionPlan::DirectPlay(direct_play.clone()),
+        rendition: PlaybackRenditionPlan::DirectPlay(direct_play),
         report: report.with_selected_mode(PlaybackMode::DirectPlay),
-        direct_play: Some(direct_play),
-        transcode_plan: None,
-        transcode_requirement: None,
         denial: None,
     }
 }
@@ -617,16 +532,13 @@ fn remux_decision(
     PlaybackDecision {
         mode: PlaybackMode::Remux,
         reason,
-        execution: PlaybackExecutionPlan::Remux(RemuxPlaybackPlan {
+        rendition: PlaybackRenditionPlan::Remux(RemuxPlaybackPlan {
             source_id: selected_source.source_id,
             input_locator,
             output_container,
         }),
         report: report.with_selected_mode(PlaybackMode::Remux),
         selected_source,
-        direct_play: None,
-        transcode_plan: None,
-        transcode_requirement: None,
         denial: None,
     }
 }
@@ -671,12 +583,12 @@ fn transcode_decision(
     PlaybackDecision {
         mode: PlaybackMode::Transcode,
         reason,
-        execution: PlaybackExecutionPlan::Transcode(transcode_plan.clone()),
+        rendition: PlaybackRenditionPlan::Transcode(TranscodeRenditionPlan {
+            plan: transcode_plan,
+            requirement: transcode_requirement,
+        }),
         report: report.with_selected_mode(PlaybackMode::Transcode),
         selected_source,
-        direct_play: None,
-        transcode_plan: Some(transcode_plan),
-        transcode_requirement: Some(transcode_requirement),
         denial: None,
     }
 }
@@ -690,13 +602,10 @@ fn denied_decision(
         mode: PlaybackMode::Denied,
         reason: PlaybackDecisionReason::PolicyDenied,
         selected_source,
-        execution: PlaybackExecutionPlan::Denied(denial),
+        rendition: PlaybackRenditionPlan::Denied(denial),
         report: report
             .with_denial(denial)
             .with_selected_mode(PlaybackMode::Denied),
-        direct_play: None,
-        transcode_plan: None,
-        transcode_requirement: None,
         denial: Some(denial),
     }
 }
@@ -892,26 +801,6 @@ fn extension(file_name: &str) -> Option<String> {
         .map(str::to_ascii_lowercase)
 }
 
-fn list_key(values: &[String]) -> String {
-    if values.is_empty() {
-        "any".to_owned()
-    } else {
-        values.join("|")
-    }
-}
-
-fn optional_u32(value: Option<u32>) -> String {
-    value.map_or_else(|| "default".to_owned(), |value| value.to_string())
-}
-
-fn optional_u64(value: Option<u64>) -> String {
-    value.map_or_else(|| "auto".to_owned(), |value| value.to_string())
-}
-
-fn optional_bool(value: Option<bool>) -> String {
-    value.map_or_else(|| "auto".to_owned(), |value| value.to_string())
-}
-
 #[cfg(test)]
 mod tests {
     use nako_core::{
@@ -949,12 +838,12 @@ mod tests {
         assert_eq!(decision.reason, PlaybackDecisionReason::Compatible);
         assert_eq!(decision.selected_source.source_id, source.id);
         assert!(matches!(
-            decision.execution,
-            PlaybackExecutionPlan::DirectPlay(_)
+            decision.rendition,
+            PlaybackRenditionPlan::DirectPlay(_)
         ));
         assert_eq!(
-            decision.direct_play.unwrap().content_type,
-            "video/mp4".to_owned()
+            decision.direct_play_plan().unwrap().content_type.as_str(),
+            "video/mp4"
         );
     }
 
@@ -996,8 +885,8 @@ mod tests {
         );
         assert!(decision.report.remux.supported);
         assert!(matches!(
-            decision.execution,
-            PlaybackExecutionPlan::Remux(RemuxPlaybackPlan {
+            decision.rendition,
+            PlaybackRenditionPlan::Remux(RemuxPlaybackPlan {
                 output_container: nako_transcode::RemuxContainer::Mp4,
                 ..
             })
@@ -1034,8 +923,8 @@ mod tests {
         );
 
         assert!(matches!(
-            decision.execution,
-            PlaybackExecutionPlan::Remux(RemuxPlaybackPlan {
+            decision.rendition,
+            PlaybackRenditionPlan::Remux(RemuxPlaybackPlan {
                 output_container: nako_transcode::RemuxContainer::Mkv,
                 ..
             })
@@ -1073,7 +962,7 @@ mod tests {
 
         assert_eq!(decision.mode, PlaybackMode::DirectPlay);
         assert_eq!(decision.selected_source.library_id, source.library_id);
-        assert_eq!(decision.direct_play.unwrap().supports_range_requests, false);
+        assert!(!decision.direct_play_plan().unwrap().supports_range_requests);
     }
 
     #[test]
@@ -1093,7 +982,7 @@ mod tests {
             source.library_id,
             nako_core::LibraryAccessLevel::Play,
         );
-        let profile = PlaybackProfile::from_context(&client, context.clone());
+        let profile = PlaybackTargetProfile::from_capabilities(&client, context.clone());
         let decision = PlaybackPlanner::new().plan(PlaybackPlanningRequest {
             source: &source,
             probe: None,
@@ -1188,9 +1077,12 @@ mod tests {
                 .has(PlaybackCompatibilityCondition::RequestedTranscodeOutput)
         );
         assert!(matches!(
-            decision.execution,
-            PlaybackExecutionPlan::Transcode(nako_transcode::TranscodePlan {
-                output_container: nako_transcode::OutputContainer::Hls,
+            decision.rendition,
+            PlaybackRenditionPlan::Transcode(TranscodeRenditionPlan {
+                plan: nako_transcode::TranscodePlan {
+                    output_container: nako_transcode::OutputContainer::Hls,
+                    ..
+                },
                 ..
             })
         ));
@@ -1273,8 +1165,7 @@ mod tests {
             PlaybackDecisionReason::SourceCodecsUnsupported
         );
         let requirement = decision
-            .transcode_requirement
-            .as_ref()
+            .transcode_requirement()
             .expect("transcode decision carries source-aware requirement");
         assert_eq!(requirement.output_container, OutputContainer::Hls);
         assert_eq!(requirement.output_video_codec.as_deref(), Some("h264"));
@@ -1320,8 +1211,8 @@ mod tests {
     }
 
     #[test]
-    fn playback_profile_identity_normalizes_capability_order_and_case() {
-        let left = PlaybackProfile::from_context(
+    fn playback_target_profile_identity_normalizes_capability_order_and_case() {
+        let left = PlaybackTargetProfile::from_capabilities(
             &ClientPlaybackCapabilities {
                 direct_play: true,
                 containers: vec!["MP4".to_owned(), "webm".to_owned(), "mp4".to_owned()],
@@ -1343,7 +1234,7 @@ mod tests {
                 },
             },
         );
-        let right = PlaybackProfile::from_context(
+        let right = PlaybackTargetProfile::from_capabilities(
             &ClientPlaybackCapabilities {
                 direct_play: true,
                 containers: vec!["webm".to_owned(), "mp4".to_owned()],
@@ -1369,7 +1260,10 @@ mod tests {
         assert_eq!(left.identity_key(), right.identity_key());
         assert!(left.identity_key().contains("containers=mp4|webm"));
         assert!(left.identity_key().contains("audio=2"));
-        assert!(left.identity_key().contains("transcode=hls"));
+        assert!(
+            left.identity_key()
+                .contains("transcode=container=hls,vcodec=h264,acodec=aac")
+        );
     }
 
     #[test]
@@ -1438,8 +1332,8 @@ mod tests {
     }
 
     #[test]
-    fn playback_profile_builds_hls_execution_policy_from_runtime_acceleration() {
-        let profile = PlaybackProfile::from_context(
+    fn playback_target_profile_builds_hls_execution_policy_from_runtime_acceleration() {
+        let profile = PlaybackTargetProfile::from_capabilities(
             &ClientPlaybackCapabilities::default(),
             PlaybackSelectionContext {
                 storage: PlaybackStorageContext::default(),
@@ -1664,15 +1558,15 @@ mod tests {
         assert_eq!(decision.mode, PlaybackMode::Denied);
         assert_eq!(decision.reason, PlaybackDecisionReason::PolicyDenied);
         assert!(matches!(
-            decision.execution,
-            PlaybackExecutionPlan::Denied(PlaybackDenial {
+            decision.rendition,
+            PlaybackRenditionPlan::Denied(PlaybackDenial {
                 permission: actual_permission,
                 reason: actual_reason,
             }) if actual_permission == permission && actual_reason == reason
         ));
         assert_eq!(decision.denial, Some(PlaybackDenial { permission, reason }));
-        assert!(decision.direct_play.is_none());
-        assert!(decision.transcode_plan.is_none());
+        assert!(decision.direct_play_plan().is_none());
+        assert!(decision.transcode_plan().is_none());
     }
 
     fn media_source(file_name: &str) -> MediaSource {

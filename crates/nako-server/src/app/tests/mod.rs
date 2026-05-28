@@ -36,8 +36,8 @@ use nako_core::{ExternalProvider, MetadataMatchKind, MetadataProviderAttemptStat
 use nako_library::{LibraryScanRequest, LibraryScanner};
 use nako_metadata::MetadataRefreshSummary;
 use nako_playback::{
-    ClientPlaybackCapabilities, PlaybackPreferenceContext, PlaybackProfile,
-    PlaybackSelectionContext, PlaybackStorageContext,
+    ClientPlaybackCapabilities, PlaybackPreferenceContext, PlaybackSelectionContext,
+    PlaybackStorageContext, PlaybackTargetProfile,
 };
 use nako_streaming::{DirectPlayRangeRequest, RequestedByteRange};
 use nako_transcode::{
@@ -119,7 +119,7 @@ fn local_remux_request_identity(
     source: &MediaSource,
     container: RemuxContainer,
 ) -> TranscodeRequestIdentity {
-    let profile = PlaybackProfile::from_context(
+    let profile = PlaybackTargetProfile::from_capabilities(
         &ClientPlaybackCapabilities::default(),
         PlaybackSelectionContext {
             storage: PlaybackStorageContext {
@@ -145,7 +145,7 @@ fn local_hls_request_identity(
     source: &MediaSource,
     acceleration: HardwareAcceleration,
 ) -> TranscodeRequestIdentity {
-    let profile = PlaybackProfile::from_context(
+    let profile = PlaybackTargetProfile::from_capabilities(
         &ClientPlaybackCapabilities::default(),
         PlaybackSelectionContext {
             storage: PlaybackStorageContext {
