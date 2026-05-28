@@ -1,6 +1,6 @@
 # Subtitle Complete Chain TODO
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 ## M0 - Scope And ADR
@@ -32,7 +32,7 @@ Last updated: 2026-05-28
 
 ## M2 - Official Provider Migration
 
-- [ ] SCC-030 [owner=codex] [deps=SCC-020] [scope=F:\SourceCodes\Rust\nako-official-addons\crates\nako-subtitle-provider,F:\SourceCodes\Rust\nako-official-addons\addons\subtitle-provider]
+- [x] SCC-030 [owner=codex] [deps=SCC-020] [scope=F:\SourceCodes\Rust\nako-official-addons\crates\nako-subtitle-provider,F:\SourceCodes\Rust\nako-official-addons\addons\subtitle-provider]
   Goal: Make the official subtitle provider use the shared protocol subtitle
   types and constants instead of private duplicate wire structs.
   Validation: `cargo nextest run -p nako-subtitle-provider --no-fail-fast`;
@@ -40,23 +40,28 @@ Last updated: 2026-05-28
   `git diff --check`.
   Review: Provider remains read-only and fixture-backed.
   Evidence: `crates/nako-subtitle-provider/src/subtitles.rs`.
-  Handoff: Mark DONE, DONE_WITH_CONCERNS, BLOCKED, or NEEDS_CONTEXT.
+  Handoff: DONE 2026-05-28. Official addons commit `fce9871` removed private
+  subtitle wire structs, uses `nako_addon_protocol` subtitle types/constants,
+  and keeps the provider read-only and fixture-backed.
 
 ## M3 - Host Follow-On Contract
 
-- [ ] SCC-040 [owner=planner] [deps=SCC-020] [scope=docs/workstreams/subtitle-complete-chain]
+- [x] SCC-040 [owner=planner] [deps=SCC-020] [scope=docs/workstreams/subtitle-complete-chain]
   Goal: Record the future Nako host stages for candidate selection, import
   planning, Library File Write apply, refresh, and playback visibility.
   Validation: `git diff --check`.
   Review: The follow-on must not imply this lane writes subtitle files.
   Evidence: `FOLLOW_ONS.md`.
-  Handoff: Mark DONE once follow-ons are explicit.
+  Handoff: DONE 2026-05-28. `FOLLOW_ONS.md` records host candidate selection,
+  import planning, Library File Write apply, refresh/playback visibility, and
+  provider breadth as future stages.
 
 ## M4 - Closeout
 
-- [ ] SCC-050 [owner=codex] [deps=SCC-020,SCC-030,SCC-040] [scope=docs/workstreams/subtitle-complete-chain]
+- [x] SCC-050 [owner=codex] [deps=SCC-020,SCC-030,SCC-040] [scope=docs/workstreams/subtitle-complete-chain]
   Goal: Run fresh gates, update evidence, and close or split remaining work.
   Validation: final package gates pass or blockers are concrete.
   Review: No blocking workstream or code-quality findings remain.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`.
-  Handoff: Summarize remaining host subtitle import priorities.
+  Handoff: DONE 2026-05-28. Final protocol and official provider gates passed;
+  remaining host import/write/playback work is split in `FOLLOW_ONS.md`.

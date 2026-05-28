@@ -1,6 +1,6 @@
 # Subtitle Complete Chain Follow-Ons
 
-Status: Active
+Status: Complete
 Last updated: 2026-05-28
 
 ## Host Candidate Selection

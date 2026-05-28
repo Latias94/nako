@@ -1,8 +1,8 @@
 # Subtitle Complete Chain Handoff
 
-Status: active.
+Status: complete.
 
-Current task: SCC-030.
+Current task: none.
 
 Completed:
 
@@ -12,10 +12,18 @@ Completed:
 - SCC-020 moved subtitle search wire types and schema constants into
   `nako-addon-protocol`; official catalog subtitle schema facts now reference
   the shared constants.
+- SCC-030 migrated `nako-subtitle-provider` to the shared protocol types and
+  schema constants in official addons commit `fce9871`.
+- SCC-040 recorded host-owned candidate selection, import planning, Library
+  File Write apply, refresh/playback visibility, and provider breadth
+  follow-ons.
+- SCC-050 closed the lane with fresh protocol and official provider gates.
 
 Next:
 
-- Make `nako-subtitle-provider` use the shared protocol types and constants.
+- Future lanes should implement host candidate selection, subtitle import
+  planning, Library File Write apply, refresh/playback visibility, and provider
+  breadth in that order.
 
 Watch points:
 
