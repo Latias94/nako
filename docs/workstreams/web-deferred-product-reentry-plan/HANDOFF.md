@@ -14,17 +14,19 @@ WDRP-020 opened and completed
 `docs/workstreams/web-media-live-public-client-parity` for the video-first Media
 implementation lane. WDRP-030 opened
 `docs/workstreams/web-admin-acquisition-intake` for the new `web/` Admin
-Acquisition Intake route.
+Acquisition Intake route. WDRP-040 opened
+`docs/workstreams/web-admin-generated-artifacts-automation` for the new `web/`
+Admin Generated Artifacts / Automation route.
 
 ## Active Task
 
-- Task ID: WDRP-040
+- Task ID: WDRP-050
 - Owner: planner
 - Status: READY
-- Validation: open or update a new `web/` Admin Generated Artifacts /
-  Automation route lane.
+- Validation: decide whether playlists are ready for a backend contract lane or
+  should remain deferred behind user playback state.
 
 ## Next Recommended Action
 
-- Start WDRP-040. Use `admin-web-v2-automation-generated-artifacts-route` as
-  prior art, but implement the follow-on lane for the new `web/` Admin surface.
+- Start WDRP-050. Check Public Client/user playback state prerequisites before
+  opening any playlist UI lane.

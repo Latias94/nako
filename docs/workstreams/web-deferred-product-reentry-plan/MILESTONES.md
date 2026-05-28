@@ -18,9 +18,10 @@ live Public Client and playback gates. Completed by WDRP-020.
 Exit criteria: downloads/acquisition and AI/automation reentry are routed to
 Admin operations lanes instead of Media sidebar prototypes.
 
-Progress: downloads/acquisition is routed to
-`docs/workstreams/web-admin-acquisition-intake` by WDRP-030. AI/automation
-remains WDRP-040.
+Completed by WDRP-030 and WDRP-040:
+downloads/acquisition is routed to
+`docs/workstreams/web-admin-acquisition-intake`, and AI/automation is routed to
+`docs/workstreams/web-admin-generated-artifacts-automation`.
 
 ## M3 - User Media State
 

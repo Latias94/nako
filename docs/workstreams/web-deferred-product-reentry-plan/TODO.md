@@ -27,11 +27,11 @@ Last updated: 2026-05-28
   Evidence: Opened `docs/workstreams/web-admin-acquisition-intake`; first executable task is WAAI-020 Admin API and read-model audit.
   Handoff: DONE. Next task is WDRP-040.
 
-- [ ] WDRP-040 [owner=planner] [deps=WDRP-010] [scope=docs/workstreams]
+- [x] WDRP-040 [owner=planner] [deps=WDRP-010] [scope=docs/workstreams]
   Goal: Open or update a new `web/` Admin Generated Artifacts / Automation route lane.
   Validation: workstream docs reference generated artifacts, review-plan semantics, mutation guards, and Admin API contract generation.
-  Evidence: workstream path and first executable task.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Evidence: Opened `docs/workstreams/web-admin-generated-artifacts-automation`; first executable task is WAGA-020 Admin API and read-model audit.
+  Handoff: DONE. Next task is WDRP-050.
 
 ## M3 - User Media State
 
