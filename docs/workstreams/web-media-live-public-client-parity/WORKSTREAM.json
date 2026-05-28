@@ -7,9 +7,10 @@
   "scope_kind": "frontend_media_public_client",
   "problem": "The new web Media surface has initial fixture/live seams but still needs truthful live Public Client browse, detail, playback entry, and playback-state parity.",
   "task_prefix": "WMLP",
-  "current_task": "WMLP-020",
+  "current_task": "WMLP-030",
   "completed_tasks": [
-    "WMLP-010"
+    "WMLP-010",
+    "WMLP-020"
   ],
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/web-media-live-public-client-parity/README.md" },
@@ -28,7 +29,8 @@
     "git diff --check"
   ],
   "evidence": [
-    "WMLP-010 opened the lane from WDRP-020 after inspecting current web Public Client seams and generated SDK playback methods."
+    "WMLP-010 opened the lane from WDRP-020 after inspecting current web Public Client seams and generated SDK playback methods.",
+    "WMLP-020 audited the committed generated TypeScript SDK, committed Public Client route inventory, and current web Public Client data-source seam; ROUTE_API_READINESS.md now records ready contracts plus the library-scoped item browse gap. npm --prefix web run test -- src/test/data-source-contracts.test.ts passed with 13 tests; npm --prefix web run check passed."
   ],
   "adr_refs": [
     "docs/adr/0021-video-first-media-server-domain-model.md",
@@ -38,7 +40,6 @@
   ],
   "continue_policy": {
     "default_action": "continue_current_task",
-    "notes": "Run WMLP-020 next: audit generated Public Client SDK/route readiness before implementing live browse/detail/playback changes."
+    "notes": "Run WMLP-030 next: implement live browse/detail read models where Public Client contracts exist, and keep /media/library truthful about the missing library-scoped item browse contract."
   }
 }
-

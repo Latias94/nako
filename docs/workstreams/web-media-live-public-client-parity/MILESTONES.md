@@ -11,7 +11,7 @@ ledger. Completed by WMLP-010.
 ## M1 - Public Client Readiness Audit
 
 Exit criteria: supported and missing Public Client contracts are explicit before
-code changes.
+code changes. Completed by WMLP-020.
 
 ## M2 - Live Browse And Detail Parity
 
@@ -32,4 +32,3 @@ user playback-state routes.
 
 Exit criteria: test/check/build:budget/Tauri/browser gates pass and follow-ons
 are split.
-

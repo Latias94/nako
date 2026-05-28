@@ -13,11 +13,11 @@ Last updated: 2026-05-28
 
 ## M1 - Public Client Readiness Audit
 
-- [ ] WMLP-020 [owner=Codex] [deps=WMLP-010] [scope=web/src/api/public,sdk/typescript/src,crates/nako-client-protocol/src]
+- [x] WMLP-020 [owner=Codex] [deps=WMLP-010] [scope=web/src/api/public,sdk/typescript/src,crates/nako-client-protocol/src]
   Goal: Audit generated Public Client SDK methods and new `web/` data-source gaps for home rails, search, item detail, library browse, playback tickets, sessions, and playback state.
   Validation: `npm --prefix web run test -- src/test/data-source-contracts.test.ts`; `npm --prefix web run check`; route/API readiness doc updated.
-  Evidence: `ROUTE_API_READINESS.md` updated with supported/missing contracts and first implementation slice confirmed.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Evidence: `ROUTE_API_READINESS.md` records supported SDK methods, missing library-scoped item browse/sort contracts, and the WMLP-030 first implementation slice. Validation passed with 13 data-source tests and `tsc --noEmit`.
+  Handoff: DONE. Next task is WMLP-030.
 
 ## M2 - Live Browse And Detail Parity
 
@@ -50,4 +50,3 @@ Last updated: 2026-05-28
   Validation: `npm --prefix web run test`; `npm --prefix web run check`; `npm --prefix web run build:budget`; `npm --prefix web run tauri -- build`; browser smoke for Media routes; `git diff --check`.
   Evidence: EVIDENCE_AND_GATES.md closeout row.
   Handoff: Return to WDRP-030 or start the selected follow-on.
-
