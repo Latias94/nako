@@ -246,6 +246,30 @@ impl HlsSegmentContainer {
             Self::Fmp4 => "fmp4",
         }
     }
+
+    #[must_use]
+    pub const fn segment_extension(self) -> &'static str {
+        match self {
+            Self::MpegTs => "ts",
+            Self::Fmp4 => "m4s",
+        }
+    }
+
+    #[must_use]
+    pub const fn segment_content_type(self) -> &'static str {
+        match self {
+            Self::MpegTs => "video/mp2t",
+            Self::Fmp4 => "video/mp4",
+        }
+    }
+
+    #[must_use]
+    pub const fn init_segment_file_name(self) -> Option<&'static str> {
+        match self {
+            Self::MpegTs => None,
+            Self::Fmp4 => Some("init.mp4"),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]

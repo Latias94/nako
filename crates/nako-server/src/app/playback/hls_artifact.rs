@@ -11,7 +11,11 @@ use nako_streaming::DirectPlayRangeRequest;
 
 use crate::config::PlaybackConfig;
 
-use super::{HlsSegmentPlan, paths::path_exists, playlist::validate_hls_segment_name};
+use super::{
+    HlsSegmentPlan,
+    paths::path_exists,
+    playlist::{rewrite_hls_playlist_for_playback_session, validate_hls_segment_name},
+};
 
 #[derive(Clone, Copy, Debug)]
 pub(super) struct HlsArtifactService {
@@ -28,7 +32,7 @@ impl HlsArtifactService {
         body: &str,
         session_id: PlaybackSessionId,
     ) -> String {
-        rewrite_playlist_segments_for_playback_session(body, session_id)
+        rewrite_hls_playlist_for_playback_session(body, session_id)
     }
 
     pub(super) async fn read_playback_playlist(
@@ -57,7 +61,7 @@ impl HlsArtifactService {
                 )
             })?;
 
-        Ok(rewrite_playlist_segments_for_playback_session(
+        Ok(rewrite_hls_playlist_for_playback_session(
             &body,
             playback_session_id,
         ))
@@ -115,7 +119,7 @@ impl HlsArtifactService {
             .len();
         let response = nako_streaming::plan_direct_play_response(
             total_len,
-            "video/mp2t",
+            hls_artifact_content_type(segment_name)?,
             DirectPlayRangeRequest::None,
         );
 
@@ -140,36 +144,6 @@ fn ensure_hls_session_artifacts_are_servable(session: &TranscodeSessionRecord) -
     }
 
     Ok(())
-}
-
-fn rewrite_playlist_segments_for_playback_session(
-    body: &str,
-    session_id: PlaybackSessionId,
-) -> String {
-    let mut rewritten = body
-        .lines()
-        .map(|line| {
-            let trimmed = line.trim();
-            if trimmed.is_empty() || trimmed.starts_with('#') {
-                return line.to_owned();
-            }
-            let Some(rest) = line.strip_prefix("/playback/sessions/") else {
-                return format!("/playback/sessions/{session_id}/hls/segments/{trimmed}");
-            };
-            let Some((_old_session_id, segment_path)) = rest.split_once("/hls/segments/") else {
-                return line.to_owned();
-            };
-
-            format!("/playback/sessions/{session_id}/hls/segments/{segment_path}")
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-
-    if body.ends_with('\n') {
-        rewritten.push('\n');
-    }
-
-    rewritten
 }
 
 fn hls_session_can_serve_artifacts(state: TranscodeSessionState) -> bool {
@@ -246,9 +220,7 @@ async fn cleanup_hls_segment_dir_at(
         let Some(file_name) = path.file_name().and_then(|value| value.to_str()) else {
             continue;
         };
-        if file_name == requested_segment
-            || path.extension().and_then(|value| value.to_str()) != Some("ts")
-        {
+        if file_name == requested_segment || !is_cleanup_candidate_segment(&path) {
             continue;
         }
 
@@ -285,6 +257,26 @@ async fn cleanup_hls_segment_dir_at(
     }
 
     Ok(())
+}
+
+fn hls_artifact_content_type(segment_name: &str) -> Result<&'static str> {
+    match Path::new(segment_name)
+        .extension()
+        .and_then(|value| value.to_str())
+    {
+        Some("ts") => Ok("video/mp2t"),
+        Some("m4s" | "mp4") => Ok("video/mp4"),
+        _ => Err(NakoError::InvalidInput {
+            message: "unsupported hls artifact extension".to_owned(),
+        }),
+    }
+}
+
+fn is_cleanup_candidate_segment(path: &Path) -> bool {
+    matches!(
+        path.extension().and_then(|value| value.to_str()),
+        Some("ts" | "m4s")
+    )
 }
 
 fn current_time_ms() -> i64 {
@@ -331,10 +323,14 @@ mod tests {
         let segment_dir = temp.path();
         let requested = segment_dir.join("segment_00001.ts");
         let stale = segment_dir.join("segment_00000.ts");
+        let stale_fmp4 = segment_dir.join("segment_00000.m4s");
+        let init = segment_dir.join("init.mp4");
         let playlist = segment_dir.join("playlist.m3u8");
         let subtitle = segment_dir.join("segment_00002.vtt");
         tokio::fs::write(&requested, b"requested").await.unwrap();
         tokio::fs::write(&stale, b"stale").await.unwrap();
+        tokio::fs::write(&stale_fmp4, b"stale").await.unwrap();
+        tokio::fs::write(&init, b"init").await.unwrap();
         tokio::fs::write(&playlist, b"playlist").await.unwrap();
         tokio::fs::write(&subtitle, b"subtitle").await.unwrap();
 
@@ -344,7 +340,23 @@ mod tests {
 
         assert!(path_exists(&requested).unwrap());
         assert!(!path_exists(&stale).unwrap());
+        assert!(!path_exists(&stale_fmp4).unwrap());
+        assert!(path_exists(&init).unwrap());
         assert!(path_exists(&playlist).unwrap());
         assert!(path_exists(&subtitle).unwrap());
+    }
+
+    #[test]
+    fn hls_artifact_content_type_covers_ts_fmp4_segments_and_init() {
+        assert_eq!(
+            hls_artifact_content_type("segment_00000.ts").unwrap(),
+            "video/mp2t"
+        );
+        assert_eq!(
+            hls_artifact_content_type("segment_00000.m4s").unwrap(),
+            "video/mp4"
+        );
+        assert_eq!(hls_artifact_content_type("init.mp4").unwrap(), "video/mp4");
+        assert!(hls_artifact_content_type("segment_00000.vtt").is_err());
     }
 }

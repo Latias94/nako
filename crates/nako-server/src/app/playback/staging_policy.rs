@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 
 use nako_core::{MediaSourceId, NakoError, Result};
-use nako_transcode::{RemuxContainer, TranscodeRequestIdentity};
+use nako_transcode::{
+    HlsOutputRequirement, HlsVariantPolicy, RemuxContainer, TranscodeRequestIdentity,
+};
 
 #[derive(Clone, Debug)]
 pub struct RemuxStagingPolicy {
@@ -63,6 +65,7 @@ pub struct HlsOutputLayout {
     pub output_dir: PathBuf,
     pub playlist_path: PathBuf,
     pub segment_pattern: PathBuf,
+    pub output: HlsOutputRequirement,
 }
 
 impl HlsStagingPolicy {
@@ -91,13 +94,23 @@ impl HlsStagingPolicy {
         &self,
         source_id: MediaSourceId,
         request_identity: &TranscodeRequestIdentity,
+        output: HlsOutputRequirement,
     ) -> Result<HlsOutputLayout> {
+        if output.variant_policy != HlsVariantPolicy::SingleVariant {
+            return Err(NakoError::Unsupported(
+                "adaptive hls output is not implemented by the staging policy",
+            ));
+        }
+
         let output_dir = self
             .root
             .join(source_id.to_string())
             .join(request_identity.storage_slug());
         let playlist_path = output_dir.join("playlist.m3u8");
-        let segment_pattern = output_dir.join("segment_%05d.ts");
+        let segment_pattern = output_dir.join(format!(
+            "segment_%05d.{}",
+            output.segment_container.segment_extension()
+        ));
 
         for path in [&output_dir, &playlist_path, &segment_pattern] {
             if !path.starts_with(&self.root) {
@@ -112,6 +125,7 @@ impl HlsStagingPolicy {
             output_dir,
             playlist_path,
             segment_pattern,
+            output,
         })
     }
 }

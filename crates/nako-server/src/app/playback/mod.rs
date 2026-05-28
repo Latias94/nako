@@ -1608,6 +1608,11 @@ impl PlaybackAppService {
         let hls_profile =
             target_profile.try_hls_transcode_profile(transcode_plan, execution_policy)?;
         let execution_policy = hls_profile.execution_policy;
+        let hls_output = hls_profile
+            .hls_output
+            .ok_or_else(|| NakoError::InvalidInput {
+                message: "hls transcode profile did not carry HLS output requirements".to_owned(),
+            })?;
         let profile_identity = hls_profile.identity();
         let request_identity =
             profile_identity.bind_source(&TranscodeSourceIdentity::from_media_source(&source));
@@ -1616,7 +1621,7 @@ impl PlaybackAppService {
             .source_input_for_ffmpeg(&source, &uri, &backend)
             .await?;
         let staging = HlsStagingPolicy::new(self.config.remux_staging_root.join("hls"))?;
-        let layout = staging.single_variant_layout(source.id, &request_identity)?;
+        let layout = staging.single_variant_layout(source.id, &request_identity, hls_output)?;
         let result = self
             .hls
             .run(

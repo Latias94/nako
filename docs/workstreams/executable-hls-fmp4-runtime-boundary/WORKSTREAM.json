@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "slug": "executable-hls-fmp4-runtime-boundary",
+  "title": "Executable HLS fMP4 Runtime Boundary",
+  "status": "completed",
+  "updated": "2026-05-28",
+  "scope_kind": "fearless_refactor",
+  "problem": "Nako planning can now express HLS fMP4/adaptive intent, but the executable HLS runtime still assumes MPEG-TS segment layout, FFmpeg muxer args, request identity, artifact cleanup, and segment content type.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/executable-hls-fmp4-runtime-boundary/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/executable-hls-fmp4-runtime-boundary/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/executable-hls-fmp4-runtime-boundary/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/executable-hls-fmp4-runtime-boundary/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/executable-hls-fmp4-runtime-boundary/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/executable-hls-fmp4-runtime-boundary/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python3 -m json.tool docs/workstreams/executable-hls-fmp4-runtime-boundary/WORKSTREAM.json",
+    "cargo nextest run -p nako-playback --no-fail-fast",
+    "cargo nextest run -p nako-transcode ffmpeg --no-fail-fast",
+    "cargo nextest run -p nako-transcode --no-fail-fast",
+    "cargo nextest run -p nako-server hls --no-fail-fast",
+    "cargo nextest run -p nako-server playback --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "EHFR-010",
+      "summary": "Opened the executable HLS fMP4 runtime boundary lane for the first fMP4 single-variant runtime slice while splitting adaptive ladders into a follow-on."
+    },
+    {
+      "task": "EHFR-020",
+      "summary": "Threaded HlsOutputRequirement into HLS transcode profile identity and server runtime layout selection; adaptive policy is explicit but non-executable in this slice."
+    },
+    {
+      "task": "EHFR-030",
+      "summary": "Added fMP4 HLS request/muxer planning with .m4s segment patterns and init.mp4 muxer intent while preserving MPEG-TS defaults."
+    },
+    {
+      "task": "EHFR-040",
+      "summary": "Updated HLS playlist rewrite, artifact content types, and stale cleanup for .ts, .m4s, and init .mp4 artifacts."
+    },
+    {
+      "task": "EHFR-050",
+      "summary": "Closed the first slice after focused playback/transcode/server gates, cargo fmt check, and git diff check passed."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0038-playback-planning-and-transcode-policy-seams.md",
+    "docs/adr/0044-playback-capability-profile-planner.md",
+    "docs/adr/0049-source-aware-transcode-runtime.md"
+  ],
+  "continue_policy": {
+    "default_action": "split_follow_on",
+    "notes": "Open a dedicated adaptive HLS ladder runtime lane before adding multi-variant master playlists, bitrate ladder planning, or per-variant segment directories."
+  }
+}

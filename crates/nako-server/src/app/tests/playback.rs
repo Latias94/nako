@@ -553,6 +553,54 @@ async fn hls_source_runs_runner_and_reuses_completed_session() {
 }
 
 #[tokio::test]
+async fn hls_source_runs_fmp4_runtime_layout_and_rewrites_init_map() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_fmp4_success");
+    let (_temp, app, _store, source) = remux_app_with_source(ffmpeg_path).await;
+    let request = HlsSourceRequest {
+        source_id: source.id,
+        client: ClientPlaybackCapabilities {
+            hls_segment_container: nako_transcode::HlsSegmentContainer::Fmp4,
+            ..ClientPlaybackCapabilities::default()
+        },
+    };
+
+    let output = app.playback().hls_source(request.clone()).await.unwrap();
+    let session_id = output.session.id;
+
+    assert_eq!(output.disposition, HlsSourceDisposition::Finished);
+    assert!(output.session.request_key.contains("hls_segment%3Dfmp4"));
+    assert!(output.segment_dir.join("init.mp4").exists());
+    assert_eq!(
+        fs::read_to_string(output.segment_dir.join("segment_00000.m4s")).unwrap(),
+        "segment"
+    );
+    assert!(!output.segment_dir.join("segment_00000.ts").exists());
+
+    let playlist = app.playback().hls_playlist(request).await.unwrap();
+    assert!(playlist.body.contains(&format!(
+        "#EXT-X-MAP:URI=\"/playback/sessions/{session_id}/hls/segments/init.mp4\""
+    )));
+    assert!(playlist.body.contains(&format!(
+        "/playback/sessions/{session_id}/hls/segments/segment_00000.m4s"
+    )));
+
+    let init = app
+        .playback()
+        .plan_hls_segment(session_id, "init.mp4")
+        .await
+        .unwrap();
+    assert_eq!(init.response.content_type, "video/mp4");
+
+    let segment = app
+        .playback()
+        .plan_hls_segment(session_id, "segment_00000.m4s")
+        .await
+        .unwrap();
+    assert_eq!(segment.response.content_type, "video/mp4");
+}
+
+#[tokio::test]
 async fn hls_source_uses_selected_cpu_acceleration_when_gpu_falls_back() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_cpu_only_hls_ffmpeg_script(script_root.path(), "hls_cpu_fallback");
@@ -799,7 +847,11 @@ async fn hls_source_rejects_persisted_active_duplicate() {
     let staging = HlsStagingPolicy::new(app.config().remux_staging_root.join("hls")).unwrap();
     let request_identity = local_hls_request_identity(&source, HardwareAcceleration::None);
     let layout = staging
-        .single_variant_layout(source.id, &request_identity)
+        .single_variant_layout(
+            source.id,
+            &request_identity,
+            nako_transcode::HlsOutputRequirement::default(),
+        )
         .unwrap();
     let active = store
         .create_transcode_session(NewTranscodeSession {
@@ -1071,7 +1123,11 @@ fn hls_staging_policy_rejects_escaping_roots() {
     let source = remote_media_source("local:///demo.mkv");
     let request_identity = local_hls_request_identity(&source, HardwareAcceleration::None);
     let layout = policy
-        .single_variant_layout(MediaSourceId::new(), &request_identity)
+        .single_variant_layout(
+            MediaSourceId::new(),
+            &request_identity,
+            nako_transcode::HlsOutputRequirement::default(),
+        )
         .unwrap();
 
     assert!(layout.output_dir.starts_with(PathBuf::from("cache/hls")));
@@ -1088,6 +1144,24 @@ fn hls_staging_policy_rejects_escaping_roots() {
             .and_then(|value| value.to_str()),
         Some("playlist.m3u8")
     );
+}
+
+#[test]
+fn hls_staging_policy_uses_segment_container_in_layout() {
+    let policy = HlsStagingPolicy::new(PathBuf::from("cache/hls")).unwrap();
+    let source = remote_media_source("local:///demo.mkv");
+    let request_identity = local_hls_request_identity(&source, HardwareAcceleration::None);
+    let fmp4 = nako_transcode::HlsOutputRequirement {
+        variant_policy: nako_transcode::HlsVariantPolicy::SingleVariant,
+        segment_container: nako_transcode::HlsSegmentContainer::Fmp4,
+    };
+
+    let layout = policy
+        .single_variant_layout(source.id, &request_identity, fmp4)
+        .unwrap();
+
+    assert_eq!(layout.output, fmp4);
+    assert!(layout.segment_pattern.ends_with("segment_%05d.m4s"));
 }
 
 async fn local_playback_viewer(

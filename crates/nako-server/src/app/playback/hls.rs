@@ -272,6 +272,7 @@ impl HlsAppService {
                 output_dir: layout.output_dir.clone(),
                 playlist_path: layout.playlist_path.clone(),
                 segment_pattern: layout.segment_pattern.clone(),
+                output: layout.output,
                 segment_time_seconds: 6,
                 execution_policy,
                 overwrite: FfmpegOverwritePolicy::Allow,

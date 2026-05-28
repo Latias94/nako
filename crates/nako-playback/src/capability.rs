@@ -278,6 +278,7 @@ impl PlaybackTargetProfile {
             video_codec: plan.video_codec.clone(),
             audio_codec: plan.audio_codec.clone(),
             execution_policy,
+            hls_output: self.hls_output_requirement(),
             track_selection,
             remote_input: self.storage.remote,
             playback_profile_key: self.identity_key(),

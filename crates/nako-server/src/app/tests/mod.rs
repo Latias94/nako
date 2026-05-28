@@ -1280,14 +1280,30 @@ fn hls_ffmpeg_script(root: &Path, name: &str, success: bool, encoder_lines: &[&s
         let path = root.join(name);
         let mut content = String::from("#!/bin/sh\n");
         push_unix_ffmpeg_probe_handlers(&mut content, encoder_lines);
-        content.push_str("for arg do out=\"$arg\"; done\n");
+        content.push_str("segment_type=ts\n");
+        content.push_str("prev=\n");
+        content.push_str("for arg do\n");
+        content.push_str(
+            "  if [ \"$prev\" = \"-hls_segment_type\" ] && [ \"$arg\" = \"fmp4\" ]; then segment_type=fmp4; fi\n",
+        );
+        content.push_str("  out=\"$arg\"\n");
+        content.push_str("  prev=\"$arg\"\n");
+        content.push_str("done\n");
         content.push_str("dir=$(dirname \"$out\")\n");
         content.push_str("mkdir -p \"$dir\"\n");
         if success {
+            content.push_str("if [ \"$segment_type\" = \"fmp4\" ]; then\n");
             content.push_str(
-                "printf '#EXTM3U\\n#EXTINF:1,\\nsegment_00000.ts\\n#EXT-X-ENDLIST\\n' > \"$out\"\n",
+                "  printf '#EXTM3U\\n#EXT-X-MAP:URI=\"init.mp4\"\\n#EXTINF:1,\\nsegment_00000.m4s\\n#EXT-X-ENDLIST\\n' > \"$out\"\n",
             );
-            content.push_str("printf segment > \"$dir/segment_00000.ts\"\n");
+            content.push_str("  printf init > \"$dir/init.mp4\"\n");
+            content.push_str("  printf segment > \"$dir/segment_00000.m4s\"\n");
+            content.push_str("else\n");
+            content.push_str(
+                "  printf '#EXTM3U\\n#EXTINF:1,\\nsegment_00000.ts\\n#EXT-X-ENDLIST\\n' > \"$out\"\n",
+            );
+            content.push_str("  printf segment > \"$dir/segment_00000.ts\"\n");
+            content.push_str("fi\n");
             content.push_str(
                 "printf 'frame=12\\nout_time_us=1500000\\nspeed=1.25x\\nprogress=end\\n'\n",
             );
@@ -1310,20 +1326,36 @@ fn hls_ffmpeg_script(root: &Path, name: &str, success: bool, encoder_lines: &[&s
         let mut content = String::from("@echo off\r\n");
         push_windows_ffmpeg_probe_handlers(&mut content);
         content.push_str("setlocal enabledelayedexpansion\r\n");
+        content.push_str("set segment_type=ts\r\n");
+        content.push_str("set prev=\r\n");
         content.push_str(":args\r\n");
         content.push_str("if \"%~1\"==\"\" goto run\r\n");
+        content.push_str(
+            "if \"!prev!\"==\"-hls_segment_type\" if \"%~1\"==\"fmp4\" set segment_type=fmp4\r\n",
+        );
         content.push_str("set out=%~1\r\n");
+        content.push_str("set prev=%~1\r\n");
         content.push_str("shift\r\n");
         content.push_str("goto args\r\n");
         content.push_str(":run\r\n");
         content.push_str("for %%I in (\"%out%\") do set dir=%%~dpI\r\n");
         content.push_str("if not exist \"%dir%\" mkdir \"%dir%\"\r\n");
         if success {
+            content.push_str("if \"%segment_type%\"==\"fmp4\" (\r\n");
+            content.push_str(">\"%out%\" echo #EXTM3U\r\n");
+            content.push_str(">>\"%out%\" echo #EXT-X-MAP:URI=\"init.mp4\"\r\n");
+            content.push_str(">>\"%out%\" echo #EXTINF:1,\r\n");
+            content.push_str(">>\"%out%\" echo segment_00000.m4s\r\n");
+            content.push_str(">>\"%out%\" echo #EXT-X-ENDLIST\r\n");
+            content.push_str("<nul set /p dummy=init>\"%dir%init.mp4\"\r\n");
+            content.push_str("<nul set /p dummy=segment>\"%dir%segment_00000.m4s\"\r\n");
+            content.push_str(") else (\r\n");
             content.push_str(">\"%out%\" echo #EXTM3U\r\n");
             content.push_str(">>\"%out%\" echo #EXTINF:1,\r\n");
             content.push_str(">>\"%out%\" echo segment_00000.ts\r\n");
             content.push_str(">>\"%out%\" echo #EXT-X-ENDLIST\r\n");
             content.push_str("<nul set /p dummy=segment>\"%dir%segment_00000.ts\"\r\n");
+            content.push_str(")\r\n");
             content.push_str("echo frame=12\r\n");
             content.push_str("echo out_time_us=1500000\r\n");
             content.push_str("echo speed=1.25x\r\n");

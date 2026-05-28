@@ -7,8 +7,8 @@ use nako_core::{MediaSourceId, NakoError, Result};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    HardwareAcceleration, TranscodeAccelerationPlan, TranscodeExecutionPolicy,
-    TranscodeSubtitleStrategy,
+    HardwareAcceleration, HlsOutputRequirement, HlsSegmentContainer, HlsVariantPolicy,
+    TranscodeAccelerationPlan, TranscodeExecutionPolicy, TranscodeSubtitleStrategy,
 };
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -99,6 +99,7 @@ pub struct HlsRequest {
     pub output_dir: PathBuf,
     pub playlist_path: PathBuf,
     pub segment_pattern: PathBuf,
+    pub output: HlsOutputRequirement,
     pub segment_time_seconds: u32,
     pub execution_policy: TranscodeExecutionPolicy,
     pub overwrite: FfmpegOverwritePolicy,
@@ -307,6 +308,24 @@ fn validate_hls_request(request: &HlsRequest) -> Result<()> {
         });
     }
 
+    if request.output.variant_policy != HlsVariantPolicy::SingleVariant {
+        return Err(NakoError::Unsupported(
+            "adaptive hls output is not implemented by the ffmpeg adapter",
+        ));
+    }
+
+    if request
+        .segment_pattern
+        .extension()
+        .and_then(|value| value.to_str())
+        != Some(request.output.segment_container.segment_extension())
+    {
+        return Err(NakoError::InvalidInput {
+            message: "hls segment pattern extension must match the requested segment container"
+                .to_owned(),
+        });
+    }
+
     if request.input_path == request.playlist_path {
         return Err(NakoError::InvalidInput {
             message: "hls input and playlist paths must differ".to_owned(),
@@ -330,6 +349,7 @@ fn plan_hls_command_parts(request: &HlsRequest) -> FfmpegHlsCommandParts {
             request.segment_time_seconds,
             &request.segment_pattern,
             &request.playlist_path,
+            request.output.segment_container,
         ),
     }
 }
@@ -445,18 +465,32 @@ fn hls_muxer_args(
     segment_time_seconds: u32,
     segment_pattern: &Path,
     playlist_path: &Path,
+    segment_container: HlsSegmentContainer,
 ) -> Vec<FfmpegArg> {
-    vec![
+    let mut args = vec![
         FfmpegArg::raw("-f"),
         FfmpegArg::raw("hls"),
         FfmpegArg::raw("-hls_time"),
         FfmpegArg::raw(segment_time_seconds.max(1).to_string()),
         FfmpegArg::raw("-hls_playlist_type"),
         FfmpegArg::raw("vod"),
+    ];
+
+    if segment_container == HlsSegmentContainer::Fmp4 {
+        args.extend([
+            FfmpegArg::raw("-hls_segment_type"),
+            FfmpegArg::raw("fmp4"),
+            FfmpegArg::raw("-hls_fmp4_init_filename"),
+            FfmpegArg::raw("init.mp4"),
+        ]);
+    }
+
+    args.extend([
         FfmpegArg::raw("-hls_segment_filename"),
         FfmpegArg::path(segment_pattern.to_path_buf()),
         FfmpegArg::path(playlist_path.to_path_buf()),
-    ]
+    ]);
+    args
 }
 
 fn hwaccel_args(kind: &'static str) -> Vec<FfmpegArg> {
