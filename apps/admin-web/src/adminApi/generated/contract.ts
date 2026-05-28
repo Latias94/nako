@@ -30,6 +30,7 @@ export const NAKO_ADMIN_ROUTES = {
   addonSubtitleSearch: "/admin/v1/addons/:addon_id/subtitle-search",
   addonSubtitleSearchSelection: "/admin/v1/addons/:addon_id/subtitle-search/{search_id}/selections/{selection_id}/selected-reference",
   addonSubtitleImportPlan: "/admin/v1/addons/:addon_id/subtitle-search/{search_id}/selections/{selection_id}/import-plan",
+  addonSubtitleImportApply: "/admin/v1/addons/:addon_id/subtitle-search/{search_id}/selections/{selection_id}/import-apply",
   acquisitionIntakeCandidates: "/admin/v1/acquisition/intake/candidates",
   acquisitionIntakeWatchFolderDiscovery: "/admin/v1/acquisition/intake/watch-folder-discovery",
   generatedArtifactProposals: "/admin/v1/automation/generated-artifacts/proposals",
@@ -472,6 +473,8 @@ export type AdminSubtitleImportPlanReason =
   | "media_source_matches_item"
   | "candidate_language_mismatch"
   | "candidate_format_mismatch";
+
+export type AdminSubtitleImportApplyStatus = "applied" | "already_applied";
 
 export interface AdminAddonsQuery {
   status?: AddonStatus;
@@ -979,6 +982,40 @@ export interface AdminAddonSubtitleImportPlanResponse {
   selected_ref: AdminAddonSubtitleSelectedReference;
   candidate: AdminAddonSubtitleCandidateSummary;
   plan: AdminSubtitleImportPlan;
+}
+
+export interface AdminAddonSubtitleImportApplyRequest {
+  plan_idempotency_key: string;
+  media_item_id: string;
+  media_source_id: string;
+  language: string;
+  format: AddonSubtitleFormat;
+  sidecar_role: AdminSubtitleSidecarRole;
+  conflict_policy: AdminSubtitleImportConflictPolicy;
+  backup_policy: AdminSubtitleImportBackupPolicy;
+}
+
+export interface AdminSubtitleImportApplyReport {
+  idempotency_key: string;
+  status: AdminSubtitleImportApplyStatus;
+  target: AdminSubtitleImportTargetSummary;
+  sidecar: AdminSubtitleSidecarPlan;
+  conflict_policy: AdminSubtitleImportConflictPolicy;
+  backup_policy: AdminSubtitleImportBackupPolicy;
+  write_mode: string;
+  content_ref_fingerprint: string;
+  byte_len: number;
+  target_existed: boolean;
+  backup_created: boolean;
+  preview_only: boolean;
+  writes_library: boolean;
+}
+
+export interface AdminAddonSubtitleImportApplyResponse {
+  selected_ref: AdminAddonSubtitleSelectedReference;
+  candidate: AdminAddonSubtitleCandidateSummary;
+  plan: AdminSubtitleImportPlan;
+  apply: AdminSubtitleImportApplyReport;
 }
 
 export interface AdminAddonResourceLinkCheckRequest {

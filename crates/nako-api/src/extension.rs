@@ -1101,6 +1101,51 @@ pub struct AdminAddonSubtitleImportPlanResponse {
     pub plan: AdminSubtitleImportPlan,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdminAddonSubtitleImportApplyRequest {
+    pub plan_idempotency_key: String,
+    pub media_item_id: MediaItemId,
+    pub media_source_id: MediaSourceId,
+    pub language: String,
+    pub format: AddonSubtitleFormat,
+    pub sidecar_role: AdminSubtitleSidecarRole,
+    pub conflict_policy: AdminSubtitleImportConflictPolicy,
+    pub backup_policy: AdminSubtitleImportBackupPolicy,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminSubtitleImportApplyStatus {
+    Applied,
+    AlreadyApplied,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminSubtitleImportApplyReport {
+    pub idempotency_key: String,
+    pub status: AdminSubtitleImportApplyStatus,
+    pub target: AdminSubtitleImportTargetSummary,
+    pub sidecar: AdminSubtitleSidecarPlan,
+    pub conflict_policy: AdminSubtitleImportConflictPolicy,
+    pub backup_policy: AdminSubtitleImportBackupPolicy,
+    pub write_mode: String,
+    pub content_ref_fingerprint: String,
+    pub byte_len: u64,
+    pub target_existed: bool,
+    pub backup_created: bool,
+    pub preview_only: bool,
+    pub writes_library: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonSubtitleImportApplyResponse {
+    pub selected_ref: AdminAddonSubtitleSelectedReference,
+    pub candidate: AdminAddonSubtitleCandidateSummary,
+    pub plan: AdminSubtitleImportPlan,
+    pub apply: AdminSubtitleImportApplyReport,
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct AdminAddonResourceLinkCheckRequest {
@@ -1940,6 +1985,107 @@ mod tests {
             assert!(
                 !body.contains(forbidden),
                 "subtitle import plan leaked forbidden term: {forbidden}"
+            );
+        }
+    }
+
+    #[test]
+    fn admin_subtitle_import_apply_response_uses_safe_write_fields() {
+        let addon_id = AddonId::new();
+        let library_id = LibraryId::new();
+        let item_id = MediaItemId::new();
+        let source_id = MediaSourceId::new();
+        let target = AdminSubtitleImportTargetSummary {
+            library_id,
+            media_item_id: item_id,
+            media_source_id: source_id,
+            item_title: "Demo".to_owned(),
+            media_file_name: "demo.mkv".to_owned(),
+            source_ref_fingerprint: "sha256:abcdefabcdefabcdefabcdefabcdefab".to_owned(),
+        };
+        let sidecar = AdminSubtitleSidecarPlan {
+            file_name: "demo.en.srt".to_owned(),
+            language: "en".to_owned(),
+            format: AddonSubtitleFormat::Srt,
+            role: AdminSubtitleSidecarRole::Default,
+        };
+        let response = AdminAddonSubtitleImportApplyResponse {
+            selected_ref: AdminAddonSubtitleSelectedReference {
+                addon_id,
+                manifest_id: "example.subtitle-provider".to_owned(),
+                search_id: "sub_opaque_1".to_owned(),
+                selection_id: "sel_opaque_1".to_owned(),
+                candidate_ref_fingerprint: "sha256:0123456789abcdef0123456789abcdef".to_owned(),
+                delivery_kind: AdminAddonSubtitleDeliveryKind::DownloadUrl,
+            },
+            candidate: AdminAddonSubtitleCandidateSummary {
+                selection_id: "sel_opaque_1".to_owned(),
+                candidate_ref_fingerprint: "sha256:0123456789abcdef0123456789abcdef".to_owned(),
+                title: "Display Subtitle".to_owned(),
+                language: "en".to_owned(),
+                format: AddonSubtitleFormat::Srt,
+                source: "fixture".to_owned(),
+                release: None,
+                score: 900,
+                delivery_kind: AdminAddonSubtitleDeliveryKind::DownloadUrl,
+            },
+            plan: AdminSubtitleImportPlan {
+                idempotency_key: "sip_opaque_1".to_owned(),
+                status: AdminSubtitleImportPlanStatus::Ready,
+                reasons: vec![
+                    AdminSubtitleImportPlanReason::MediaSourceMatchesItem,
+                    AdminSubtitleImportPlanReason::Ready,
+                ],
+                target: target.clone(),
+                sidecar: sidecar.clone(),
+                conflict_policy: AdminSubtitleImportConflictPolicy::ReplaceExisting,
+                backup_policy: AdminSubtitleImportBackupPolicy::ExistingFileKeepLatest,
+                preview_only: true,
+                writes_library: false,
+            },
+            apply: AdminSubtitleImportApplyReport {
+                idempotency_key: "sip_opaque_1".to_owned(),
+                status: AdminSubtitleImportApplyStatus::Applied,
+                target,
+                sidecar,
+                conflict_policy: AdminSubtitleImportConflictPolicy::ReplaceExisting,
+                backup_policy: AdminSubtitleImportBackupPolicy::ExistingFileKeepLatest,
+                write_mode: "atomic_replace".to_owned(),
+                content_ref_fingerprint: "sha256:11111111111111111111111111111111".to_owned(),
+                byte_len: 42,
+                target_existed: true,
+                backup_created: true,
+                preview_only: false,
+                writes_library: true,
+            },
+        };
+
+        let value = serde_json::to_value(&response).unwrap();
+        let body = value.to_string();
+
+        assert_eq!(value["apply"]["preview_only"], false);
+        assert_eq!(value["apply"]["writes_library"], true);
+        assert_eq!(value["apply"]["status"], "applied");
+        assert_eq!(value["apply"]["sidecar"]["file_name"], "demo.en.srt");
+        assert_eq!(value["apply"]["target"]["media_file_name"], "demo.mkv");
+        assert_eq!(value["apply"]["backup_created"], true);
+
+        for forbidden in [
+            "WEBVTT",
+            "secret subtitle text",
+            "https://subtitle.example",
+            "artifact-secret-id",
+            "source_locator",
+            "local:///",
+            "C:\\",
+            "\"url\"",
+            "\"text\"",
+            "\"artifact_id\"",
+            "backup_uri",
+        ] {
+            assert!(
+                !body.contains(forbidden),
+                "subtitle import apply leaked forbidden term: {forbidden}"
             );
         }
     }

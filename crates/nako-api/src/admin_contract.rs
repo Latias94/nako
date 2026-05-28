@@ -1,6 +1,6 @@
 use crate::admin::ADMIN_API_VERSION;
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 53] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 54] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -50,6 +50,10 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 53] = [
     (
         "addonSubtitleImportPlan",
         "addons/:addon_id/subtitle-search/{search_id}/selections/{selection_id}/import-plan",
+    ),
+    (
+        "addonSubtitleImportApply",
+        "addons/:addon_id/subtitle-search/{search_id}/selections/{selection_id}/import-apply",
     ),
     (
         "acquisitionIntakeCandidates",
@@ -550,6 +554,8 @@ export type AdminSubtitleImportPlanReason =
   | "media_source_matches_item"
   | "candidate_language_mismatch"
   | "candidate_format_mismatch";
+
+export type AdminSubtitleImportApplyStatus = "applied" | "already_applied";
 
 export interface AdminAddonsQuery {
   status?: AddonStatus;
@@ -1057,6 +1063,40 @@ export interface AdminAddonSubtitleImportPlanResponse {
   selected_ref: AdminAddonSubtitleSelectedReference;
   candidate: AdminAddonSubtitleCandidateSummary;
   plan: AdminSubtitleImportPlan;
+}
+
+export interface AdminAddonSubtitleImportApplyRequest {
+  plan_idempotency_key: string;
+  media_item_id: string;
+  media_source_id: string;
+  language: string;
+  format: AddonSubtitleFormat;
+  sidecar_role: AdminSubtitleSidecarRole;
+  conflict_policy: AdminSubtitleImportConflictPolicy;
+  backup_policy: AdminSubtitleImportBackupPolicy;
+}
+
+export interface AdminSubtitleImportApplyReport {
+  idempotency_key: string;
+  status: AdminSubtitleImportApplyStatus;
+  target: AdminSubtitleImportTargetSummary;
+  sidecar: AdminSubtitleSidecarPlan;
+  conflict_policy: AdminSubtitleImportConflictPolicy;
+  backup_policy: AdminSubtitleImportBackupPolicy;
+  write_mode: string;
+  content_ref_fingerprint: string;
+  byte_len: number;
+  target_existed: boolean;
+  backup_created: boolean;
+  preview_only: boolean;
+  writes_library: boolean;
+}
+
+export interface AdminAddonSubtitleImportApplyResponse {
+  selected_ref: AdminAddonSubtitleSelectedReference;
+  candidate: AdminAddonSubtitleCandidateSummary;
+  plan: AdminSubtitleImportPlan;
+  apply: AdminSubtitleImportApplyReport;
 }
 
 export interface AdminAddonResourceLinkCheckRequest {
@@ -2514,11 +2554,15 @@ mod tests {
             "AdminSubtitleImportBackupPolicy",
             "AdminSubtitleImportPlanStatus",
             "AdminSubtitleImportPlanReason",
+            "AdminSubtitleImportApplyStatus",
             "AdminAddonSubtitleImportPlanRequest",
             "AdminSubtitleImportTargetSummary",
             "AdminSubtitleSidecarPlan",
             "AdminSubtitleImportPlan",
             "AdminAddonSubtitleImportPlanResponse",
+            "AdminAddonSubtitleImportApplyRequest",
+            "AdminSubtitleImportApplyReport",
+            "AdminAddonSubtitleImportApplyResponse",
             "AdminAddonResourceLinkCheckRequest",
             "AdminAddonResourceLinkCheckResponse",
             "AddonResourceLinkCheckStatus",

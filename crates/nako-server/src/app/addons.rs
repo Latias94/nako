@@ -2,7 +2,7 @@ use std::{
     collections::{HashMap, HashSet},
     env,
     sync::Arc,
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use nako_addon_client::{
@@ -43,11 +43,13 @@ use nako_api::extension::{
     AdminAddonSourceCatalogEntry, AdminAddonSourceCatalogResolveResponse,
     AdminAddonSourceCatalogSource, AdminAddonSourceCatalogSourceKind,
     AdminAddonSourceCatalogSourcesResponse, AdminAddonSubtitleCandidateSummary,
-    AdminAddonSubtitleDeliveryKind, AdminAddonSubtitleImportPlanRequest,
+    AdminAddonSubtitleDeliveryKind, AdminAddonSubtitleImportApplyRequest,
+    AdminAddonSubtitleImportApplyResponse, AdminAddonSubtitleImportPlanRequest,
     AdminAddonSubtitleImportPlanResponse, AdminAddonSubtitleProviderDiagnostic,
     AdminAddonSubtitleSearchRequest, AdminAddonSubtitleSearchResponse,
     AdminAddonSubtitleSelectedReference, AdminAddonSubtitleSelectionRequest,
     AdminAddonSubtitleSelectionResponse, AdminAddonSurfacesResponse, AdminAddonTaskSurface,
+    AdminSubtitleImportApplyReport, AdminSubtitleImportApplyStatus,
     AdminSubtitleImportBackupPolicy, AdminSubtitleImportConflictPolicy, AdminSubtitleImportPlan,
     AdminSubtitleImportPlanReason, AdminSubtitleImportPlanStatus, AdminSubtitleImportTargetSummary,
     AdminSubtitleSidecarPlan, AdminSubtitleSidecarRole, IssueAddonTokenRequest,
@@ -57,8 +59,8 @@ use nako_core::{
     AddonGrantRecord, AddonId, AddonIssuedToken, AddonManifestFingerprint, AddonRegistrationRecord,
     AddonRepository, AddonRoutingDeclarationKind, AddonRoutingPlanId, AddonRoutingPlanStatus,
     AddonRoutingPlanTarget, AddonStatus, AddonTokenId, DomainEventKind, JobKind, MediaRepository,
-    NakoError, NewAddonGrant, NewAddonRegistration, NewAddonRoutingPlan, NewAddonToken, Result,
-    SecretString,
+    MediaSource, NakoError, NewAddonGrant, NewAddonRegistration, NewAddonRoutingPlan,
+    NewAddonToken, Result, SecretString,
 };
 use nako_db::NakoDatabase;
 use nako_official_addon_catalog::{
@@ -98,6 +100,8 @@ const SUBTITLE_SEARCH_DEFAULT_LIMIT: usize = 10;
 const SUBTITLE_SEARCH_MAX_LIMIT: usize = 50;
 const SUBTITLE_SEARCH_SESSION_TTL_MS: i64 = 15 * 60 * 1_000;
 const SUBTITLE_SEARCH_SESSION_MAX_COUNT: usize = 64;
+const SUBTITLE_IMPORT_MAX_BYTES: usize = 2 * 1024 * 1024;
+const SUBTITLE_IMPORT_DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Clone, Debug)]
 struct ResourceSearchSession {
@@ -142,6 +146,15 @@ struct SubtitleSearchSelection {
 struct SubtitleSearchSelectionHandoff {
     manifest_id: String,
     selection: SubtitleSearchSelection,
+}
+
+#[derive(Clone, Debug)]
+struct SubtitleImportPlanContext {
+    selected_ref: AdminAddonSubtitleSelectedReference,
+    candidate_summary: AdminAddonSubtitleCandidateSummary,
+    plan: AdminSubtitleImportPlan,
+    candidate: AddonSubtitleCandidate,
+    source: MediaSource,
 }
 
 #[derive(Debug, Default)]
@@ -1370,6 +1383,109 @@ impl AddonAppService {
         selection_id: String,
         request: AdminAddonSubtitleImportPlanRequest,
     ) -> Result<AdminAddonSubtitleImportPlanResponse> {
+        let context = self
+            .addon_subtitle_import_plan_context(addon_id, search_id, selection_id, request)
+            .await?;
+
+        Ok(AdminAddonSubtitleImportPlanResponse {
+            selected_ref: context.selected_ref,
+            candidate: context.candidate_summary,
+            plan: context.plan,
+        })
+    }
+
+    pub async fn apply_addon_subtitle_import(
+        &self,
+        addon_id: AddonId,
+        search_id: String,
+        selection_id: String,
+        request: AdminAddonSubtitleImportApplyRequest,
+    ) -> Result<AdminAddonSubtitleImportApplyResponse> {
+        let expected_key = optional_non_empty(Some(request.plan_idempotency_key.clone()))
+            .ok_or_else(|| NakoError::InvalidInput {
+                message: "subtitle import plan idempotency key cannot be empty".to_owned(),
+            })?;
+        let plan_request = AdminAddonSubtitleImportPlanRequest {
+            media_item_id: request.media_item_id,
+            media_source_id: request.media_source_id,
+            language: request.language,
+            format: request.format,
+            sidecar_role: request.sidecar_role,
+            conflict_policy: request.conflict_policy,
+            backup_policy: request.backup_policy,
+        };
+        let context = self
+            .addon_subtitle_import_plan_context(addon_id, search_id, selection_id, plan_request)
+            .await?;
+        if context.plan.idempotency_key != expected_key {
+            return Err(NakoError::InvalidInput {
+                message: "subtitle import plan idempotency key does not match request".to_owned(),
+            });
+        }
+        if context.plan.status != AdminSubtitleImportPlanStatus::Ready {
+            return Err(NakoError::InvalidInput {
+                message: "subtitle import plan is not ready to apply".to_owned(),
+            });
+        }
+
+        let content = resolve_subtitle_import_content(&context.candidate).await?;
+        validate_subtitle_import_content(&content, context.plan.sidecar.format)?;
+        let writer = library_file_write::LibraryFileWriteRuntime::new(
+            self.store.clone(),
+            self.permits.clone(),
+            self.storage_backends.clone(),
+        );
+        let write_report = writer
+            .write_subtitle_sidecar(library_file_write::SubtitleSidecarWriteRequest {
+                library_id: context.source.library_id,
+                source: context.source,
+                file_name: context.plan.sidecar.file_name.clone(),
+                content: content.clone(),
+                conflict_policy: subtitle_sidecar_conflict_policy(context.plan.conflict_policy),
+                backup_policy: subtitle_sidecar_backup_policy(context.plan.backup_policy),
+            })
+            .await?;
+        let apply_status = match write_report.status {
+            library_file_write::SubtitleSidecarWriteStatus::Applied => {
+                AdminSubtitleImportApplyStatus::Applied
+            }
+            library_file_write::SubtitleSidecarWriteStatus::AlreadyApplied => {
+                AdminSubtitleImportApplyStatus::AlreadyApplied
+            }
+        };
+
+        Ok(AdminAddonSubtitleImportApplyResponse {
+            selected_ref: context.selected_ref,
+            candidate: context.candidate_summary,
+            apply: AdminSubtitleImportApplyReport {
+                idempotency_key: context.plan.idempotency_key.clone(),
+                status: apply_status,
+                target: context.plan.target.clone(),
+                sidecar: context.plan.sidecar.clone(),
+                conflict_policy: context.plan.conflict_policy,
+                backup_policy: context.plan.backup_policy,
+                write_mode: write_report.write_mode.to_owned(),
+                content_ref_fingerprint: fingerprint_key(&content),
+                byte_len: write_report.byte_len,
+                target_existed: write_report.target_existed,
+                backup_created: write_report.backup_created,
+                preview_only: false,
+                writes_library: matches!(
+                    write_report.status,
+                    library_file_write::SubtitleSidecarWriteStatus::Applied
+                ),
+            },
+            plan: context.plan,
+        })
+    }
+
+    async fn addon_subtitle_import_plan_context(
+        &self,
+        addon_id: AddonId,
+        search_id: String,
+        selection_id: String,
+        request: AdminAddonSubtitleImportPlanRequest,
+    ) -> Result<SubtitleImportPlanContext> {
         let addon = self.get_addon_registration_or_not_found(addon_id).await?;
         if addon.status == AddonStatus::Unregistered {
             return Err(NakoError::Conflict {
@@ -1419,8 +1535,8 @@ impl AddonAppService {
         }
 
         let language = normalize_subtitle_plan_language(&request.language)?;
-        let candidate = &handoff.selection.candidate;
-        let candidate_summary = admin_subtitle_candidate_summary(&selection_id, candidate);
+        let candidate = handoff.selection.candidate;
+        let candidate_summary = admin_subtitle_candidate_summary(&selection_id, &candidate);
         let selected_ref = AdminAddonSubtitleSelectedReference {
             addon_id,
             manifest_id: handoff.manifest_id,
@@ -1450,40 +1566,44 @@ impl AddonAppService {
             reasons.push(AdminSubtitleImportPlanReason::Ready);
         }
 
-        Ok(AdminAddonSubtitleImportPlanResponse {
-            selected_ref,
-            candidate: candidate_summary,
-            plan: AdminSubtitleImportPlan {
-                idempotency_key: subtitle_import_plan_idempotency_key(
-                    addon_id,
-                    &addon.manifest_id,
-                    &search_id,
-                    &selection_id,
-                    candidate,
-                    &request,
-                    &language,
-                ),
-                status,
-                reasons,
-                target: AdminSubtitleImportTargetSummary {
-                    library_id: source.library_id,
-                    media_item_id: item.id,
-                    media_source_id: source.id,
-                    item_title: item.metadata.title,
-                    media_file_name,
-                    source_ref_fingerprint: fingerprint_key(&source.locator),
-                },
-                sidecar: AdminSubtitleSidecarPlan {
-                    file_name: sidecar_file_name,
-                    language,
-                    format: request.format,
-                    role: request.sidecar_role,
-                },
-                conflict_policy: request.conflict_policy,
-                backup_policy: request.backup_policy,
-                preview_only: true,
-                writes_library: false,
+        let plan = AdminSubtitleImportPlan {
+            idempotency_key: subtitle_import_plan_idempotency_key(
+                addon_id,
+                &addon.manifest_id,
+                &search_id,
+                &selection_id,
+                &candidate,
+                &request,
+                &language,
+            ),
+            status,
+            reasons,
+            target: AdminSubtitleImportTargetSummary {
+                library_id: source.library_id,
+                media_item_id: item.id,
+                media_source_id: source.id,
+                item_title: item.metadata.title,
+                media_file_name,
+                source_ref_fingerprint: fingerprint_key(&source.locator),
             },
+            sidecar: AdminSubtitleSidecarPlan {
+                file_name: sidecar_file_name,
+                language,
+                format: request.format,
+                role: request.sidecar_role,
+            },
+            conflict_policy: request.conflict_policy,
+            backup_policy: request.backup_policy,
+            preview_only: true,
+            writes_library: false,
+        };
+
+        Ok(SubtitleImportPlanContext {
+            selected_ref,
+            candidate_summary,
+            plan,
+            candidate,
+            source,
         })
     }
 
@@ -2092,8 +2212,154 @@ fn normalize_subtitle_plan_language(language: &str) -> Result<String> {
             message: "subtitle import language cannot be empty".to_owned(),
         });
     };
+    let language = language.to_ascii_lowercase();
+    let valid = language.len() <= 35
+        && !language.starts_with('-')
+        && !language.ends_with('-')
+        && language
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || ch == '-');
+    if !valid {
+        return Err(NakoError::InvalidInput {
+            message: "subtitle import language must be a safe BCP-47-like tag".to_owned(),
+        });
+    }
 
-    Ok(language.to_ascii_lowercase())
+    Ok(language)
+}
+
+async fn resolve_subtitle_import_content(candidate: &AddonSubtitleCandidate) -> Result<String> {
+    match &candidate.delivery {
+        AddonSubtitleDelivery::Inline { text } => Ok(text.clone()),
+        AddonSubtitleDelivery::DownloadUrl { url, .. } => {
+            download_subtitle_import_content(url).await
+        }
+        AddonSubtitleDelivery::ArtifactRef { .. } => Err(NakoError::Unsupported(
+            "subtitle artifact-ref import apply requires a host artifact resolver",
+        )),
+    }
+}
+
+async fn download_subtitle_import_content(url: &str) -> Result<String> {
+    let url = reqwest::Url::parse(url).map_err(|_| NakoError::InvalidInput {
+        message: "subtitle download URL is invalid".to_owned(),
+    })?;
+    if !matches!(url.scheme(), "http" | "https") {
+        return Err(NakoError::InvalidInput {
+            message: "subtitle download URL must use http or https".to_owned(),
+        });
+    }
+    let client = reqwest::Client::builder()
+        .timeout(SUBTITLE_IMPORT_DOWNLOAD_TIMEOUT)
+        .redirect(reqwest::redirect::Policy::limited(5))
+        .build()
+        .map_err(|_| NakoError::Provider {
+            provider: "subtitle_download".to_owned(),
+            message: "subtitle download client could not be built".to_owned(),
+        })?;
+    let response = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|_| NakoError::Provider {
+            provider: "subtitle_download".to_owned(),
+            message: "subtitle download failed".to_owned(),
+        })?;
+    let status = response.status();
+    if !status.is_success() {
+        return Err(NakoError::Provider {
+            provider: "subtitle_download".to_owned(),
+            message: format!("subtitle download returned HTTP status {}", status.as_u16()),
+        });
+    }
+    if response
+        .content_length()
+        .is_some_and(|len| len > SUBTITLE_IMPORT_MAX_BYTES as u64)
+    {
+        return Err(NakoError::InvalidInput {
+            message: "subtitle content exceeds import size limit".to_owned(),
+        });
+    }
+    let bytes = response.bytes().await.map_err(|_| NakoError::Provider {
+        provider: "subtitle_download".to_owned(),
+        message: "subtitle download body could not be read".to_owned(),
+    })?;
+    if bytes.len() > SUBTITLE_IMPORT_MAX_BYTES {
+        return Err(NakoError::InvalidInput {
+            message: "subtitle content exceeds import size limit".to_owned(),
+        });
+    }
+
+    String::from_utf8(bytes.to_vec()).map_err(|_| NakoError::InvalidInput {
+        message: "subtitle content must be UTF-8 text".to_owned(),
+    })
+}
+
+fn validate_subtitle_import_content(
+    content: &str,
+    format: nako_addon_protocol::AddonSubtitleFormat,
+) -> Result<()> {
+    if content.is_empty() || content.trim().is_empty() {
+        return Err(NakoError::InvalidInput {
+            message: "subtitle content cannot be empty".to_owned(),
+        });
+    }
+    if content.len() > SUBTITLE_IMPORT_MAX_BYTES {
+        return Err(NakoError::InvalidInput {
+            message: "subtitle content exceeds import size limit".to_owned(),
+        });
+    }
+    if content.contains('\0') {
+        return Err(NakoError::InvalidInput {
+            message: "subtitle content contains invalid NUL bytes".to_owned(),
+        });
+    }
+
+    let trimmed = content.trim_start_matches('\u{feff}').trim_start();
+    match format {
+        nako_addon_protocol::AddonSubtitleFormat::Vtt => {
+            if !trimmed.starts_with("WEBVTT") {
+                return Err(NakoError::InvalidInput {
+                    message: "VTT subtitle content must start with WEBVTT".to_owned(),
+                });
+            }
+        }
+        nako_addon_protocol::AddonSubtitleFormat::Srt => {
+            if trimmed.starts_with("WEBVTT") || !trimmed.contains("-->") {
+                return Err(NakoError::InvalidInput {
+                    message: "SRT subtitle content must contain cue timings".to_owned(),
+                });
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn subtitle_sidecar_conflict_policy(
+    policy: AdminSubtitleImportConflictPolicy,
+) -> library_file_write::SubtitleSidecarConflictPolicy {
+    match policy {
+        AdminSubtitleImportConflictPolicy::CreateMissing => {
+            library_file_write::SubtitleSidecarConflictPolicy::CreateMissing
+        }
+        AdminSubtitleImportConflictPolicy::ReplaceExisting => {
+            library_file_write::SubtitleSidecarConflictPolicy::ReplaceExisting
+        }
+    }
+}
+
+fn subtitle_sidecar_backup_policy(
+    policy: AdminSubtitleImportBackupPolicy,
+) -> library_file_write::SubtitleSidecarBackupPolicy {
+    match policy {
+        AdminSubtitleImportBackupPolicy::None => {
+            library_file_write::SubtitleSidecarBackupPolicy::None
+        }
+        AdminSubtitleImportBackupPolicy::ExistingFileKeepLatest => {
+            library_file_write::SubtitleSidecarBackupPolicy::ExistingFileKeepLatest
+        }
+    }
 }
 
 fn safe_resource_search_results(

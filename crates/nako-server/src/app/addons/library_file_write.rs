@@ -10,6 +10,9 @@ use nako_core::{
 };
 use nako_db::NakoDatabase;
 use nako_nfo::{MovieNfoCodec, NfoExportSourceRequest, NfoExportSourceSummary, NfoFailureKind};
+use nako_vfs::{
+    StorageBackend as _, StorageBackupMode, StorageBackupPolicy, StorageUri, StorageWriteRequest,
+};
 use tokio::sync::Semaphore;
 
 use super::{
@@ -19,7 +22,7 @@ use super::{
 
 #[derive(Clone, Debug)]
 pub(super) struct AddonLibraryFileWriteAdapter {
-    runtime: AddonLibraryFileWriteRuntime,
+    runtime: LibraryFileWriteRuntime,
 }
 
 impl AddonLibraryFileWriteAdapter {
@@ -29,7 +32,7 @@ impl AddonLibraryFileWriteAdapter {
         storage_backends: StorageBackendRegistry,
     ) -> Self {
         Self {
-            runtime: AddonLibraryFileWriteRuntime::new(store, permits, storage_backends),
+            runtime: LibraryFileWriteRuntime::new(store, permits, storage_backends),
         }
     }
 
@@ -49,14 +52,14 @@ impl AddonLibraryFileWriteAdapter {
 }
 
 #[derive(Clone, Debug)]
-struct AddonLibraryFileWriteRuntime {
+pub(super) struct LibraryFileWriteRuntime {
     store: NakoDatabase,
     permits: Arc<Semaphore>,
     storage_backends: StorageBackendRegistry,
 }
 
-impl AddonLibraryFileWriteRuntime {
-    fn new(
+impl LibraryFileWriteRuntime {
+    pub(super) fn new(
         store: NakoDatabase,
         permits: Arc<Semaphore>,
         storage_backends: StorageBackendRegistry,
@@ -166,6 +169,116 @@ impl AddonLibraryFileWriteRuntime {
                 message: format!("Library File Write limiter is unavailable: {err}"),
             })
     }
+
+    pub(super) async fn write_subtitle_sidecar(
+        &self,
+        request: SubtitleSidecarWriteRequest,
+    ) -> Result<SubtitleSidecarWriteReport> {
+        let library = self
+            .store
+            .get_library(request.library_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "library",
+                id: request.library_id.to_string(),
+            })?;
+        if request.source.library_id != library.id {
+            return Err(NakoError::InvalidInput {
+                message: "subtitle sidecar source is not in the target library".to_owned(),
+            });
+        }
+
+        let (source_uri, backend) = self
+            .storage_backends
+            .backend_for_media_source(&request.source)
+            .await?;
+        let sidecar_uri = subtitle_sidecar_uri_for_source(&source_uri, &request.file_name)?;
+        let _permit = self.acquire_file_write_permit().await?;
+        let target_existed = storage_object_exists(backend.as_ref(), &sidecar_uri).await?;
+
+        if target_existed {
+            let existing = backend.read_to_string(&sidecar_uri).await?;
+            if existing == request.content {
+                return Ok(SubtitleSidecarWriteReport {
+                    status: SubtitleSidecarWriteStatus::AlreadyApplied,
+                    write_mode: "unchanged",
+                    byte_len: request.content.len() as u64,
+                    target_existed,
+                    backup_created: false,
+                });
+            }
+            if request.conflict_policy == SubtitleSidecarConflictPolicy::CreateMissing {
+                return Err(NakoError::Conflict {
+                    message: "subtitle sidecar already exists".to_owned(),
+                });
+            }
+        }
+
+        let write_mode = match request.conflict_policy {
+            SubtitleSidecarConflictPolicy::CreateMissing => "create_missing",
+            SubtitleSidecarConflictPolicy::ReplaceExisting => "atomic_replace",
+        };
+        let mut write = match request.conflict_policy {
+            SubtitleSidecarConflictPolicy::CreateMissing => {
+                StorageWriteRequest::direct(sidecar_uri, request.content)
+            }
+            SubtitleSidecarConflictPolicy::ReplaceExisting => {
+                StorageWriteRequest::atomic_replace(sidecar_uri, request.content)
+            }
+        };
+        if request.backup_policy == SubtitleSidecarBackupPolicy::ExistingFileKeepLatest {
+            write = write.with_backup_policy(StorageBackupPolicy::existing_file().keep_latest(1));
+        } else {
+            write = write.with_backup(StorageBackupMode::None);
+        }
+        let byte_len = write.content.len() as u64;
+        let report = backend.write(write).await?;
+
+        Ok(SubtitleSidecarWriteReport {
+            status: SubtitleSidecarWriteStatus::Applied,
+            write_mode,
+            byte_len,
+            target_existed,
+            backup_created: report.backup.is_some(),
+        })
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(super) struct SubtitleSidecarWriteRequest {
+    pub(super) library_id: LibraryId,
+    pub(super) source: MediaSource,
+    pub(super) file_name: String,
+    pub(super) content: String,
+    pub(super) conflict_policy: SubtitleSidecarConflictPolicy,
+    pub(super) backup_policy: SubtitleSidecarBackupPolicy,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum SubtitleSidecarConflictPolicy {
+    CreateMissing,
+    ReplaceExisting,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum SubtitleSidecarBackupPolicy {
+    None,
+    ExistingFileKeepLatest,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum SubtitleSidecarWriteStatus {
+    Applied,
+    AlreadyApplied,
+}
+
+#[derive(Debug)]
+pub(super) struct SubtitleSidecarWriteReport {
+    pub(super) status: SubtitleSidecarWriteStatus,
+    pub(super) write_mode: &'static str,
+    pub(super) byte_len: u64,
+    pub(super) target_existed: bool,
+    pub(super) backup_created: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -307,4 +420,47 @@ fn nfo_export_failure_error(kind: NfoFailureKind) -> NakoError {
             message: format!("NFO export failed: {kind:?}"),
         },
     }
+}
+
+async fn storage_object_exists(
+    backend: &dyn nako_vfs::StorageBackend,
+    uri: &StorageUri,
+) -> Result<bool> {
+    match backend.stat(uri).await {
+        Ok(_) => Ok(true),
+        Err(NakoError::NotFound { .. }) => Ok(false),
+        Err(err) => Err(err),
+    }
+}
+
+fn subtitle_sidecar_uri_for_source(source_uri: &StorageUri, file_name: &str) -> Result<StorageUri> {
+    let file_name = file_name.trim();
+    if file_name.is_empty() || file_name.contains(['/', '\\']) {
+        return Err(NakoError::InvalidInput {
+            message: "subtitle sidecar file name must be a safe leaf name".to_owned(),
+        });
+    }
+
+    let source_path = source_uri
+        .path_part()
+        .trim_start_matches(['/', '\\'])
+        .replace('\\', "/");
+    if source_path.is_empty() || source_path.ends_with('/') {
+        return Err(NakoError::InvalidInput {
+            message: "media source locator does not point at a file".to_owned(),
+        });
+    }
+
+    let sidecar_path = source_path
+        .rsplit_once('/')
+        .map(|(dir, _leaf)| {
+            if dir.is_empty() {
+                file_name.to_owned()
+            } else {
+                format!("{dir}/{file_name}")
+            }
+        })
+        .unwrap_or_else(|| file_name.to_owned());
+
+    StorageUri::from_parts(source_uri.scheme(), &sidecar_path)
 }
