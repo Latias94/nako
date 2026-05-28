@@ -59,6 +59,39 @@ function publicMediaItem(overrides: Partial<MediaItemDto> = {}): MediaItemDto {
   }
 }
 
+function publicLibrary(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "library-a",
+    name: "Live Library",
+    roots: ["/media/live"],
+    options: {
+      domain: "video",
+      preset: "movies",
+      naming_strategy: "movie",
+      scan: {
+        max_depth: null,
+        realtime_monitor: true,
+      },
+      metadata_profile: {
+        country: null,
+        image_providers: [],
+        item_kinds: ["movie"],
+        language: null,
+        local_metadata_policy: "read_only",
+        local_readers: [],
+        metadata_providers: [],
+        refresh_mode: "default",
+        scan: {
+          addon_scrape: true,
+          addon_writeback: false,
+          enabled: true,
+        },
+      },
+    },
+    ...overrides,
+  }
+}
+
 function adminOverviewResponse() {
   return {
     admin_api_version: "v1",
@@ -679,6 +712,12 @@ describe("public media data source contracts", () => {
     expect(payload).toMatchObject({
       source: "live",
       fallback: false,
+      readiness: [
+        {
+          id: "recently-added-sort",
+          status: "missing_contract",
+        },
+      ],
       items: [
         {
           id: "live-movie",
@@ -692,6 +731,82 @@ describe("public media data source contracts", () => {
       ],
     })
     expect(fetcher.mock.calls[0][0]).toBe("http://nako.test/items?limit=40&offset=0")
+    expect(new Headers(fetcher.mock.calls[0][1]?.headers).get("Authorization")).toBe(
+      "Bearer public-token",
+    )
+  })
+
+  it("maps live item detail read models with source and image refs", async () => {
+    const fetcher = vi.fn<FetchLike>(async () =>
+      jsonResponse({
+        item: publicMediaItem(),
+        sources: [
+          {
+            id: "source-1",
+            item_id: "live-movie",
+            library_id: "library-a",
+            file_name: "Live Movie.mkv",
+            fingerprint: null,
+            size_bytes: 1024,
+          },
+        ],
+        images: [
+          {
+            id: "image-1",
+            kind: "poster",
+            url: "/images/image-1",
+            width: 1000,
+            height: 1500,
+            etag: null,
+            language: null,
+            media_type: "image/jpeg",
+            owner: {},
+          },
+        ],
+        collections: [],
+        credits: [],
+        genres: [],
+        studios: [],
+        tags: [],
+      }),
+    )
+
+    const source = createPublicMediaDataSource(
+      {
+        mode: "live",
+        baseUrl: "http://nako.test/",
+        bearerToken: "public-token",
+      },
+      fetcher,
+    )
+
+    const payload = await source.getMediaDetails("live-movie", "movie")
+
+    expect(payload).toMatchObject({
+      source: "live",
+      fallback: false,
+      item: {
+        id: "live-movie",
+        title: "Live Movie",
+      },
+      sources: [
+        {
+          id: "source-1",
+          itemId: "live-movie",
+          libraryId: "library-a",
+          fileName: "Live Movie.mkv",
+          sizeBytes: 1024,
+        },
+      ],
+      images: [
+        {
+          id: "image-1",
+          kind: "poster",
+          url: "/images/image-1",
+        },
+      ],
+    })
+    expect(fetcher.mock.calls[0][0]).toBe("http://nako.test/items/live-movie")
     expect(new Headers(fetcher.mock.calls[0][1]?.headers).get("Authorization")).toBe(
       "Bearer public-token",
     )
@@ -719,6 +834,232 @@ describe("public media data source contracts", () => {
     })
     expect(payload.items.map((item) => item.title)).toEqual(["沙丘2"])
   })
+
+  it("keeps library item browse as an explicit missing Public Client contract", async () => {
+    const fetcher = vi.fn<FetchLike>(async (input) => {
+      const url = new URL(String(input))
+
+      if (url.pathname === "/libraries/library-a") {
+        return jsonResponse({
+          library: publicLibrary(),
+        })
+      }
+
+      if (url.pathname === "/libraries/library-a/sources") {
+        return jsonResponse({
+          library: publicLibrary(),
+          page,
+          sources: [
+            {
+              source: {
+                id: "source-1",
+                item_id: "live-movie",
+                library_id: "library-a",
+                file_name: "Live Movie.mkv",
+                fingerprint: null,
+                size_bytes: 1024,
+              },
+              item: publicMediaItem(),
+              probe: null,
+            },
+          ],
+        })
+      }
+
+      return jsonResponse({ message: "not found" }, 404)
+    })
+
+    const source = createPublicMediaDataSource(
+      {
+        mode: "live",
+        baseUrl: "http://nako.test/",
+        bearerToken: "public-token",
+      },
+      fetcher,
+    )
+
+    const payload = await source.getLibraryReadiness("library-a")
+    const calledTargets = fetcher.mock.calls.map(([input]) => {
+      const url = new URL(String(input))
+      return `${url.pathname}${url.search}`
+    })
+
+    expect(payload).toMatchObject({
+      source: "live",
+      fallback: false,
+      library: {
+        id: "library-a",
+        name: "Live Library",
+        domain: "video",
+        preset: "movies",
+      },
+      sources: [
+        {
+          source: {
+            id: "source-1",
+            libraryId: "library-a",
+          },
+          item: {
+            id: "live-movie",
+            title: "Live Movie",
+          },
+        },
+      ],
+      itemBrowse: {
+        id: "library-scoped-item-browse",
+        status: "missing_contract",
+      },
+    })
+    expect(calledTargets).toEqual([
+      "/libraries/library-a",
+      "/libraries/library-a/sources?limit=20&offset=0",
+    ])
+    expect(calledTargets.some((target) => target.includes("library_id="))).toBe(false)
+  })
+
+  it("maps continue-watching playback state through the Public Client", async () => {
+    const fetcher = vi.fn<FetchLike>(async (input) => {
+      const url = new URL(String(input))
+
+      expect(url.pathname).toBe("/users/me/playback-state/continue-watching")
+      expect(url.searchParams.get("limit")).toBe("12")
+
+      return jsonResponse({
+        page,
+        items: [
+          {
+            item: publicMediaItem({ id: "live-movie" }),
+            images: [],
+            state: {
+              item_id: "live-movie",
+              source_id: "source-1",
+              resume_position_ms: 120000,
+              duration_ms: 600000,
+              progress_percent: 20,
+              watched: false,
+              watched_at: null,
+              last_played_at: "2026-05-28T10:00:00Z",
+              updated_at: "2026-05-28T10:01:00Z",
+              version: 3,
+            },
+          },
+        ],
+      })
+    })
+
+    const source = createPublicMediaDataSource(
+      {
+        mode: "live",
+        baseUrl: "http://nako.test/",
+        bearerToken: "public-token",
+      },
+      fetcher,
+    )
+
+    const payload = await source.listContinueWatching()
+
+    expect(payload).toMatchObject({
+      source: "live",
+      fallback: false,
+      items: [
+        {
+          item: {
+            id: "live-movie",
+            title: "Live Movie",
+          },
+          state: {
+            itemId: "live-movie",
+            sourceId: "source-1",
+            resumePositionMs: 120000,
+            durationMs: 600000,
+            progressPercent: 20,
+            watched: false,
+            version: 3,
+          },
+        },
+      ],
+    })
+    expect(new Headers(fetcher.mock.calls[0][1]?.headers).get("Authorization")).toBe(
+      "Bearer public-token",
+    )
+  })
+
+  it("writes playback progress and watched state through the Public Client", async () => {
+    const calls: Array<{ path: string; body: unknown }> = []
+    const fetcher = vi.fn<FetchLike>(async (input, init) => {
+      const url = new URL(String(input))
+      const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined
+      calls.push({ path: url.pathname, body })
+
+      return jsonResponse({
+        state: {
+          item_id: "live-movie",
+          source_id: body?.source_id ?? null,
+          resume_position_ms: body?.position_ms ?? null,
+          duration_ms: body?.duration_ms ?? null,
+          progress_percent: body?.duration_ms ? (body.position_ms / body.duration_ms) * 100 : null,
+          watched: body?.watched ?? false,
+          watched_at: body?.watched ? "2026-05-28T10:00:00Z" : null,
+          last_played_at: "2026-05-28T10:00:00Z",
+          updated_at: "2026-05-28T10:00:00Z",
+          version: 4,
+        },
+      })
+    })
+
+    const source = createPublicMediaDataSource(
+      {
+        mode: "live",
+        baseUrl: "http://nako.test/",
+        bearerToken: "public-token",
+      },
+      fetcher,
+    )
+
+    const progress = await source.updatePlaybackProgress("live-movie", {
+      source_id: "source-1",
+      position_ms: 300000,
+      duration_ms: 600000,
+    })
+    const watched = await source.setWatchedState("live-movie", {
+      watched: true,
+      source_id: "source-1",
+      position_ms: 600000,
+      duration_ms: 600000,
+    })
+
+    expect(progress.state).toMatchObject({
+      itemId: "live-movie",
+      sourceId: "source-1",
+      resumePositionMs: 300000,
+      progressPercent: 50,
+      watched: false,
+    })
+    expect(watched.state).toMatchObject({
+      watched: true,
+      watchedAt: "2026-05-28T10:00:00Z",
+    })
+    expect(calls).toEqual([
+      {
+        path: "/users/me/playback-state/items/live-movie/progress",
+        body: {
+          source_id: "source-1",
+          position_ms: 300000,
+          duration_ms: 600000,
+        },
+      },
+      {
+        path: "/users/me/playback-state/items/live-movie/watched",
+        body: {
+          watched: true,
+          source_id: "source-1",
+          position_ms: 600000,
+          duration_ms: 600000,
+        },
+      },
+    ])
+  })
+
   it("builds browser-ticket playback plans with sidecar subtitle track URLs", async () => {
     const ticketBodies: unknown[] = []
     const fetcher = vi.fn<FetchLike>(async (input, init) => {

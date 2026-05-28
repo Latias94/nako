@@ -1,7 +1,7 @@
 "use client"
 import { resolveArtwork } from '@/lib/artwork'
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   Play,
   Download,
@@ -48,6 +48,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
+import type {
+  PublicMediaSourceRef,
+  PublicReadinessState,
+} from "@/src/api/public/media-data-source"
+import type { MediaItem } from "@/lib/media-types"
 
 // 导航回调类型
 interface MediaDetailProps {
@@ -55,7 +60,14 @@ interface MediaDetailProps {
   onNavigate?: (type: "person" | "genre" | "tag" | "collection" | "studio", value: string, id?: string) => void
   onPlay?: (mediaId: string, sourceId?: string, episodeId?: string) => void
   onViewImages?: (images: string[]) => void
+  mediaId?: string
   mediaType?: "movie" | "series"
+  media?: MediaItem | null
+  sources?: PublicMediaSourceRef[]
+  readiness?: PublicReadinessState[]
+  fallback?: boolean
+  isLoading?: boolean
+  error?: string
 }
 
 // 电影数据
@@ -224,16 +236,52 @@ export function MediaDetail({
   onNavigate,
   onPlay,
   onViewImages,
-  mediaType = "movie"
+  mediaId,
+  mediaType = "movie",
+  media,
+  sources = [],
+  readiness = [],
+  fallback = false,
+  isLoading = false,
+  error,
 }: MediaDetailProps) {
   const isMovie = mediaType === "movie"
-  const data = isMovie ? movieData : seriesData
+  const baseData = isMovie ? movieData : seriesData
+  const liveSources = useMemo(() => sources.map(mapLiveSource), [sources])
+  const movieSources = isMovie && liveSources.length > 0 ? liveSources : movieData.sources
+  const data = media
+    ? {
+        ...baseData,
+        id: media.id,
+        title: media.title,
+        originalTitle: media.originalTitle,
+        year: media.year || baseData.year,
+        rating: media.rating || baseData.rating,
+        overview: media.overview || baseData.overview,
+        poster: media.poster,
+        backdrop: media.backdrop,
+      }
+    : baseData
 
-  const [selectedSource, setSelectedSource] = useState(isMovie ? movieData.sources[0] : null)
+  const [selectedSourceId, setSelectedSourceId] = useState(isMovie ? movieSources[0]?.id : undefined)
   const [isFavorite, setIsFavorite] = useState(data.favorite)
   const [isInList, setIsInList] = useState(false)
   const [selectedSeason, setSelectedSeason] = useState(!isMovie ? seriesData.seasons[0] : null)
   const [expandedEpisode, setExpandedEpisode] = useState<string | null>(null)
+  const selectedSource = isMovie
+    ? movieSources.find((source) => source.id === selectedSourceId) ?? movieSources[0] ?? null
+    : null
+  const missingReadiness = readiness.filter((state) => state.status === "missing_contract")
+
+  useEffect(() => {
+    if (!isMovie) {
+      return
+    }
+
+    if (!movieSources.some((source) => source.id === selectedSourceId)) {
+      setSelectedSourceId(movieSources[0]?.id)
+    }
+  }, [isMovie, movieSources, selectedSourceId])
 
   // 处理标签点击
   const handleTagClick = (type: "person" | "genre" | "tag" | "collection" | "studio", value: string, id?: string) => {
@@ -325,6 +373,16 @@ export function MediaDetail({
                         {seriesData.network}
                       </Badge>
                     )}
+                    {fallback && (
+                      <Badge variant="outline" className="border-white/20 text-xs text-white/80">
+                        演示数据
+                      </Badge>
+                    )}
+                    {isLoading && (
+                      <Badge variant="outline" className="border-white/20 text-xs text-white/80">
+                        同步中
+                      </Badge>
+                    )}
                     {isMovie && movieData.collection && (
                       <Badge
                         variant="outline"
@@ -383,6 +441,15 @@ export function MediaDetail({
                   <p className="max-w-2xl text-sm leading-relaxed text-white/70 lg:text-base">
                     {data.overview}
                   </p>
+                  {(error || missingReadiness.length > 0) && (
+                    <div className="max-w-2xl rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-xs text-white/70">
+                      {error ? (
+                        <p>Live detail unavailable: {error}</p>
+                      ) : (
+                        missingReadiness.map((state) => <p key={state.id}>{state.message}</p>)
+                      )}
+                    </div>
+                  )}
 
                   {/* 主要演员 - 内联显示 */}
                   <div className="text-sm text-white/60">
@@ -408,7 +475,7 @@ export function MediaDetail({
                     <Button
                       size="lg"
                       className="h-12 gap-2 px-8 text-base font-semibold"
-                      onClick={() => onPlay?.(data.id, selectedSource?.id, nextEpisode?.id)}
+                      onClick={() => onPlay?.(mediaId ?? data.id, selectedSource?.id, nextEpisode?.id)}
                     >
                       <Play className="h-5 w-5 fill-current" />
                       {!isMovie && nextEpisode ? (
@@ -650,7 +717,7 @@ export function MediaDetail({
                 <section>
                   <h3 className="mb-4 text-lg font-semibold">媒体源</h3>
                   <div className="space-y-3">
-                    {movieData.sources.map((source) => (
+                    {movieSources.map((source) => (
                       <div
                         key={source.id}
                         className={cn(
@@ -659,7 +726,7 @@ export function MediaDetail({
                             ? "border-primary bg-primary/5"
                             : "border-border hover:border-primary/50"
                         )}
-                        onClick={() => setSelectedSource(source)}
+                        onClick={() => setSelectedSourceId(source.id)}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
@@ -741,4 +808,21 @@ export function MediaDetail({
       </div>
     </div>
   )
+}
+
+function mapLiveSource(source: PublicMediaSourceRef) {
+  const sizeGb = source.sizeBytes ? source.sizeBytes / 1024 / 1024 / 1024 : null
+
+  return {
+    id: source.id,
+    quality: "Auto",
+    hdr: null,
+    resolution: "Auto",
+    codec: "Unknown",
+    bitrate: "Auto",
+    audio: [],
+    subtitles: [],
+    fileSize: sizeGb ? `${sizeGb.toFixed(1)} GB` : "Unknown",
+    container: source.fileName.split(".").pop()?.toUpperCase() ?? "Unknown",
+  }
 }

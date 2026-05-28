@@ -18,7 +18,13 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
-import { useTrendingMedia, useCategoryMedia, usePlaybackPlan } from "@/lib/use-media"
+import {
+  useTrendingMedia,
+  useCategoryMedia,
+  useContinueWatchingMedia,
+  useMediaDetails,
+  usePlaybackPlan,
+} from "@/lib/use-media"
 import type { MediaItem } from "@/lib/media-types"
 import type { LibraryBrowserRouteState } from "./library-browser"
 
@@ -314,6 +320,7 @@ export const MediaSurface = forwardRef<MediaSurfaceRef, MediaSurfaceProps>(funct
   // 使用 TanStack Query 获取媒体数据
   const { data: trendingData, isLoading, error } = useTrendingMedia()
   const { categories, fallback } = useCategoryMedia()
+  const continueWatching = useContinueWatchingMedia()
 
   useEffect(() => {
     setViewState(initialView)
@@ -478,6 +485,7 @@ export const MediaSurface = forwardRef<MediaSurfaceRef, MediaSurfaceProps>(funct
   if (viewState.type === "library") {
   return (
   <LibraryBrowser
+  libraryId={viewState.libraryId}
   onBack={goBack}
   onSelectMedia={(mediaId) => {
   setCurrentMediaId(mediaId)
@@ -561,12 +569,12 @@ export const MediaSurface = forwardRef<MediaSurfaceRef, MediaSurfaceProps>(funct
   // 显示详情页
   if (viewState.type === "detail") {
     return (
-      <MediaDetail
+      <MediaDetailRoute
+        viewState={viewState}
         onBack={goBack}
         onNavigate={handleNavigate}
         onPlay={handlePlay}
-        onViewImages={() => handleViewImages(currentMediaType === "movie" ? "沙丘2" : "真探")}
-        mediaType={viewState.mediaType}
+        onViewImages={handleViewImages}
       />
     )
   }
@@ -852,26 +860,29 @@ export const MediaSurface = forwardRef<MediaSurfaceRef, MediaSurfaceProps>(funct
             </div>
           )}
 
-          {/* Continue Watching Section - 使用 TMDb 数据的前3个作为模拟 */}
-          {trendingData && trendingData.items.length > 0 && (
+          {/* Continue Watching Section */}
+          {continueWatching.data && continueWatching.data.items.length > 0 && (
             <section className="mb-8 lg:mb-10">
   <div className="mb-3 flex items-center justify-between lg:mb-4">
   <h2 className="text-base font-semibold text-foreground lg:text-lg">继续观看</h2>
+  {continueWatching.data.fallback && (
+  <Badge variant="secondary" className="mr-2 text-[10px]">演示数据</Badge>
+  )}
   <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground lg:h-9 lg:text-sm" onClick={() => navigateTo({ type: "library", libraryId: "movies" })}>
   查看全部 <ChevronRight className="ml-1 h-4 w-4" />
   </Button>
   </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 lg:gap-4">
-                {trendingData.items.slice(0, 3).map((item, index) => (
+                {continueWatching.data.items.slice(0, 3).map(({ item, state }) => (
                   <ContinueWatchingCard
                     key={item.id}
                     item={{
-                      id: parseInt(item.id),
+                      id: item.id,
                       title: item.title,
                       originalTitle: item.originalTitle,
                       year: item.year,
-                      progress: [65, 40, 25][index] || 50,
-                      duration: "2h 30m",
+                      progress: Math.round(state.progressPercent ?? 0),
+                      duration: formatDurationMs(state.durationMs) ?? item.duration ?? "未知时长",
                       thumbnail: item.backdrop || item.poster,
                       type: item.type === "series" ? "剧集" : "电影",
                       episode: item.type === "series" ? "S01E03" : undefined,
@@ -974,6 +985,56 @@ function mediaRouteTarget(view: ViewState): MediaSurfaceRouteView | null {
   }
 }
 
+function MediaDetailRoute({
+  viewState,
+  onBack,
+  onNavigate,
+  onPlay,
+  onViewImages,
+}: {
+  viewState: Extract<ViewState, { type: "detail" }>
+  onBack: () => void
+  onNavigate: (type: "person" | "genre" | "tag" | "collection" | "studio", value: string, id?: string) => void
+  onPlay: (mediaId?: string, sourceId?: string) => void
+  onViewImages: (mediaTitle: string) => void
+}) {
+  const detail = useMediaDetails(viewState.mediaId, viewState.mediaType)
+  const media = detail.data?.item ?? null
+
+  return (
+    <MediaDetail
+      onBack={onBack}
+      onNavigate={onNavigate}
+      onPlay={(mediaId, sourceId) => onPlay(mediaId, sourceId)}
+      onViewImages={() => onViewImages(media?.title ?? (viewState.mediaType === "movie" ? "沙丘2" : "真探"))}
+      mediaId={viewState.mediaId}
+      mediaType={viewState.mediaType}
+      media={media}
+      sources={detail.data?.sources ?? []}
+      readiness={detail.data?.readiness ?? []}
+      fallback={detail.data?.fallback ?? false}
+      isLoading={detail.isLoading}
+      error={detail.error instanceof Error ? detail.error.message : undefined}
+    />
+  )
+}
+
+function formatDurationMs(durationMs: number | null) {
+  if (!durationMs || durationMs <= 0) {
+    return undefined
+  }
+
+  const totalMinutes = Math.round(durationMs / 60000)
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+
+  if (hours <= 0) {
+    return `${minutes}m`
+  }
+
+  return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`
+}
+
 function MediaPlayerRoute({
   viewState,
   onBack,
@@ -1022,6 +1083,7 @@ function MediaPlayerRoute({
     />
   )
 }
+
 function isDeferredMediaFeature(value: ViewState["type"]): value is DeferredMediaFeature {
   return DEFERRED_MEDIA_FEATURE_KEYS.has(value)
 }

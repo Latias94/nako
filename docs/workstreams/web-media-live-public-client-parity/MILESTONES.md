@@ -1,6 +1,6 @@
 # Web Media Live Public Client Parity - Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-28
 
 ## M0 - Open Lane
@@ -16,19 +16,22 @@ code changes. Completed by WMLP-020.
 ## M2 - Live Browse And Detail Parity
 
 Exit criteria: Media home/search/detail/library routes use live read models where
-contracts exist and truthful readiness states where they do not.
+contracts exist and truthful readiness states where they do not. Completed by
+WMLP-030.
 
 ## M3 - Browser Playback Entry
 
 Exit criteria: playback starts through browser-safe decision/ticket/session
 contracts without exposing bearer tokens or source locators in media URLs.
+Completed by WMLP-040 with browser-ticket playback; session heartbeat was split
+as a follow-on because the ticket response does not expose a playback session id.
 
 ## M4 - Playback State
 
 Exit criteria: continue-watching and watched/progress writes use Public Client
-user playback-state routes.
+user playback-state routes. Completed by WMLP-050.
 
 ## M5 - Closeout
 
 Exit criteria: test/check/build:budget/Tauri/browser gates pass and follow-ons
-are split.
+are split. Completed by WMLP-060.

@@ -24,6 +24,8 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
+import { searchPublicMedia } from "@/lib/use-media"
+import type { MediaItem } from "@/lib/media-types"
 
 // ===== 类型定义 =====
 
@@ -319,7 +321,7 @@ export function SearchPage({ onBack, initialQuery = "", onQueryCommit }: SearchP
   }
 
   // 执行搜索 - 支持传入搜索词
-  const performSearch = async (searchQuery: string) => {
+  const performSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) return
 
     setIsSearching(true)
@@ -331,14 +333,8 @@ export function SearchPage({ onBack, initialQuery = "", onQueryCommit }: SearchP
       return [searchQuery, ...filtered].slice(0, 10)
     })
 
-    // 模拟搜索延迟
-    await new Promise(resolve => setTimeout(resolve, 800))
-
-    // 本地搜索
-    setLocalResults(mockLocalResults.filter(r =>
-      r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.originalTitle?.toLowerCase().includes(searchQuery.toLowerCase())
-    ))
+    const localPayload = await searchPublicMedia(searchQuery)
+    setLocalResults(localPayload.items.map(mediaItemToSearchResult))
 
     // 远程搜索（仅当有活跃的远程源时）
     if (hasRemoteSources) {
@@ -351,7 +347,14 @@ export function SearchPage({ onBack, initialQuery = "", onQueryCommit }: SearchP
     }
 
     setIsSearching(false)
-  }
+  }, [hasRemoteSources])
+
+  useEffect(() => {
+    const trimmedQuery = initialQuery.trim()
+    if (trimmedQuery) {
+      void performSearch(trimmedQuery)
+    }
+  }, [initialQuery, performSearch])
 
   // 键盘事件
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -1242,6 +1245,23 @@ export function SearchPage({ onBack, initialQuery = "", onQueryCommit }: SearchP
       </Dialog>
     </div>
   )
+}
+
+function mediaItemToSearchResult(item: MediaItem): SearchResult {
+  return {
+    id: item.id,
+    title: item.title,
+    originalTitle: item.originalTitle,
+    year: item.year || undefined,
+    type: item.type,
+    isLocal: true,
+    source: "Public Client",
+    sourceId: "local",
+    poster: item.poster,
+    rating: item.rating || undefined,
+    description: item.overview,
+    quality: item.quality,
+  }
 }
 
 // 结果卡片组件

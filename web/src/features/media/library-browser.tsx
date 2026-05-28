@@ -30,6 +30,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
+import { useLibraryReadiness } from "@/lib/use-media"
 
 // ============ Types ============
 interface Library {
@@ -182,6 +183,7 @@ export interface LibraryBrowserRouteState {
 }
 
 interface LibraryBrowserProps {
+  libraryId?: string
   onBack?: () => void
   onSelectMedia?: (mediaId: string) => void
   onEditMedia?: (mediaId: string) => void
@@ -192,6 +194,7 @@ interface LibraryBrowserProps {
 }
 
 export function LibraryBrowser({
+  libraryId,
   onBack,
   onSelectMedia,
   onEditMedia,
@@ -214,6 +217,12 @@ export function LibraryBrowser({
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [isSelectionMode, setIsSelectionMode] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const selectedLibraryId = libraryId ?? currentLibrary.id
+  const libraryReadiness = useLibraryReadiness(selectedLibraryId)
+  const liveLibrary = libraryReadiness.data?.library
+  const liveSourceCount = libraryReadiness.data?.sources.length ?? 0
+  const libraryTitle = liveLibrary?.name ?? currentLibrary.name
+  const itemBrowseGap = libraryReadiness.data?.itemBrowse
 
   // Virtual list state
   const [allItems] = useState(() => generateMockItems(847))
@@ -437,7 +446,7 @@ export function LibraryBrowser({
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="gap-2 text-lg font-semibold">
                 <currentLibrary.icon className="h-5 w-5" />
-                {currentLibrary.name}
+                {libraryTitle}
                 <ChevronDown className="h-4 w-4 text-muted-foreground" />
               </Button>
             </DropdownMenuTrigger>
@@ -714,6 +723,30 @@ export function LibraryBrowser({
       <main ref={containerRef} className="flex-1 overflow-y-auto scrollbar-none">
         {activeTab === "library" && (
           <div className="p-4">
+            {(itemBrowseGap || liveLibrary) && (
+              <div className="mb-4 rounded-lg border border-border/60 bg-card px-4 py-3 text-sm">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span className="font-medium text-foreground">{libraryTitle}</span>
+                  {liveLibrary && (
+                    <Badge variant="secondary" className="text-[10px]">
+                      {liveLibrary.domain} / {liveLibrary.preset}
+                    </Badge>
+                  )}
+                  {libraryReadiness.data?.fallback && (
+                    <Badge variant="outline" className="text-[10px]">演示数据</Badge>
+                  )}
+                  {libraryReadiness.isLoading && (
+                    <Badge variant="outline" className="text-[10px]">同步中</Badge>
+                  )}
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {itemBrowseGap?.status === "missing_contract"
+                    ? itemBrowseGap.message
+                    : `已读取 ${liveSourceCount} 个媒体源；当前列表仍使用本地视图模型。`}
+                </p>
+              </div>
+            )}
+
             {/* Skeleton Loading */}
             {isInitialLoading && viewMode === "grid" && (
               <div className={cn("grid gap-4", getGridColumns())}>

@@ -1,6 +1,6 @@
 # Web Media Live Public Client Parity
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-28
 
 This workstream is the first implementation lane split from
@@ -17,4 +17,3 @@ Authoritative docs:
 - `EVIDENCE_AND_GATES.md`
 - `HANDOFF.md`
 - `WORKSTREAM.json`
-
