@@ -11,14 +11,16 @@ read models through `web/src/api/admin/read-models-data-source.ts`. Accepted
 library/user/settings mutations go through
 `web/src/api/admin/mutations-data-source.ts` with confirmation, error, and
 permission states.
+The copied plugin fixture page has been replaced by the first Nako Addon
+Manager slice backed by `web/src/api/admin/addons-data-source.ts`.
 
 ## Active Task
 
-- Task ID: WALW-040
+- Task ID: WALW-050
 - Owner: Codex
 - Status: READY
-- Validation: `npm --prefix web run test && npm --prefix web run build`
+- Validation: `npm --prefix web run test && npm --prefix web run check && npm --prefix web run build`
 
 ## Next Recommended Action
 
-- Replace copied plugin fixture UI with a Nako Addon Manager first slice.
+- Close the Admin live-wiring lane.

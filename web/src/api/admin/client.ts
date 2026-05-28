@@ -3,6 +3,13 @@ import {
   type AdminAccessSummaryResponse,
   type AdminAccessUserListResponse,
   type AdminAccessUserResponse,
+  type AdminAddonsQuery,
+  type AdminAddonManagerPlanRequest,
+  type AdminAddonManagerPlanResponse,
+  type AdminAddonRegistrationsResponse,
+  type AdminAddonRegistrationResponse,
+  type AdminAddonSourceCatalogEntriesResponse,
+  type AdminAddonSourceCatalogSourcesResponse,
   type AdminCreateUserRequest,
   type AdminJobCommandResponse,
   type AdminJobListResponse,
@@ -23,6 +30,7 @@ import {
   type AdminStorageStagingQuery,
   type AdminUpdateMetadataRawCacheSettingsRequest,
   type AdminUpdateUserStatusRequest,
+  type UpdateAddonStatusRequest,
 } from "./generated/contract"
 
 export type AdminApiClientOptions = {
@@ -102,6 +110,50 @@ export class AdminApiClient {
 
   getEvents(query: AdminOutboxEventsQuery = {}): Promise<AdminOutboxEventListResponse> {
     return this.getJson<AdminOutboxEventListResponse>(withQuery(NAKO_ADMIN_ROUTES.events, query))
+  }
+
+  getAddons(query: AdminAddonsQuery = {}): Promise<AdminAddonRegistrationsResponse> {
+    return this.getJson<AdminAddonRegistrationsResponse>(withQuery(NAKO_ADMIN_ROUTES.addons, query))
+  }
+
+  getAddonCatalogSources(): Promise<AdminAddonSourceCatalogSourcesResponse> {
+    return this.getJson<AdminAddonSourceCatalogSourcesResponse>(
+      NAKO_ADMIN_ROUTES.addonCatalogSources,
+    )
+  }
+
+  getAddonCatalogEntries(): Promise<AdminAddonSourceCatalogEntriesResponse> {
+    return this.getJson<AdminAddonSourceCatalogEntriesResponse>(
+      NAKO_ADMIN_ROUTES.addonCatalogEntries,
+    )
+  }
+
+  updateAddonStatus(
+    addonId: string,
+    request: UpdateAddonStatusRequest,
+  ): Promise<AdminAddonRegistrationResponse> {
+    return this.sendJson<AdminAddonRegistrationResponse>(
+      "PATCH",
+      pathParams(NAKO_ADMIN_ROUTES.addonStatus, { addon_id: addonId }),
+      request,
+    )
+  }
+
+  getAddonManagerPlan(addonId: string): Promise<AdminAddonManagerPlanResponse> {
+    return this.getJson<AdminAddonManagerPlanResponse>(
+      pathParams(NAKO_ADMIN_ROUTES.addonManagerPlan, { addon_id: addonId }),
+    )
+  }
+
+  planAddonManagerLifecycle(
+    addonId: string,
+    request: AdminAddonManagerPlanRequest,
+  ): Promise<AdminAddonManagerPlanResponse> {
+    return this.sendJson<AdminAddonManagerPlanResponse>(
+      "POST",
+      pathParams(NAKO_ADMIN_ROUTES.addonManagerPlan, { addon_id: addonId }),
+      request,
+    )
   }
 
   getJobs(query: AdminJobsQuery = {}): Promise<AdminJobListResponse> {

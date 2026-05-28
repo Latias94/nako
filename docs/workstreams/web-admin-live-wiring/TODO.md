@@ -29,11 +29,11 @@ Last updated: 2026-05-28
 
 ## M3 - Addon Manager Slice
 
-- [ ] WALW-040 [owner=Codex] [deps=WALW-030] [scope=web/src/features/admin/addons,web/src/api/admin]
+- [x] WALW-040 [owner=Codex] [deps=WALW-030] [scope=web/src/features/admin/addons,web/src/api/admin]
   Goal: Replace copied plugin fixture UI with a Nako Addon Manager first slice.
   Validation: npm --prefix web run test && npm --prefix web run build.
-  Evidence: Addon Manager route/data tests.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Evidence: `npm --prefix web run test`; `npm --prefix web run check`; `npm --prefix web run build`; scoped `git diff --check`.
+  Handoff: DONE. Next task is WALW-050.
 
 ## M4 - Closeout
 

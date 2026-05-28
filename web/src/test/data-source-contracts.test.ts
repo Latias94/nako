@@ -5,6 +5,10 @@ import {
   createAdminDashboardDataSource,
 } from "@/src/api/admin/dashboard-data-source"
 import {
+  ADMIN_ADDON_MANAGER_FIXTURE,
+  createAdminAddonManagerDataSource,
+} from "@/src/api/admin/addons-data-source"
+import {
   ADMIN_LIBRARY_READ_MODEL_FIXTURE,
   ADMIN_LOGS_READ_MODEL_FIXTURE,
   ADMIN_SETTINGS_READ_MODEL_FIXTURE,
@@ -550,6 +554,94 @@ function adminLocalPasswordResponse() {
   }
 }
 
+function adminAddonSummary(status: "enabled" | "disabled" = "enabled") {
+  return {
+    id: "addon-1",
+    manifest_id: "nako.tmdb",
+    name: "TMDb Metadata Sidecar",
+    version: "0.1.0",
+    protocol_version: "v1",
+    base_url: "http://127.0.0.1:9101",
+    outbound_task_dispatch_secret_env: "NAKO_ADDON_TMDB_TASK_SECRET",
+    granted_scopes: ["catalog_read", "item_metadata_read"],
+    status,
+    created_at: "2026-05-28T00:00:00Z",
+    updated_at: "2026-05-28T00:00:00Z",
+  }
+}
+
+function adminAddonRegistrationsResponse() {
+  return {
+    addons: [adminAddonSummary()],
+  }
+}
+
+function adminAddonRegistrationResponse(status: "enabled" | "disabled" = "disabled") {
+  return {
+    addon: {
+      summary: adminAddonSummary(status),
+      manifest: {
+        id: "nako.tmdb",
+        name: "TMDb Metadata Sidecar",
+        version: "0.1.0",
+        protocol_version: "v1",
+        base_url: "http://127.0.0.1:9101",
+        description: null,
+        resources: [],
+        auth: "bearer",
+        default_timeout_ms: null,
+        default_max_attempts: null,
+        scopes: ["catalog_read"],
+      },
+    },
+  }
+}
+
+function adminAddonCatalogSourcesResponse() {
+  return {
+    sources: [
+      {
+        id: "nako-official",
+        name: "Nako Official",
+        description: "Built-in official addon catalog.",
+        kind: "builtin_official",
+        entry_count: 1,
+        provides_package_signing: false,
+        provides_process_supervision: false,
+        provides_provider_breadth: true,
+      },
+    ],
+  }
+}
+
+function adminAddonCatalogEntriesResponse() {
+  return {
+    source_id: "nako-official",
+    entries: [
+      {
+        source_id: "nako-official",
+        entry_id: "nako.tmdb",
+        manifest_id: "nako.tmdb",
+        addon_name: "TMDb Metadata Sidecar",
+        addon_version: "0.1.0",
+        protocol_version: "v1",
+        description: "Metadata sidecar",
+        runtime_kind: "http_sidecar",
+        resources: ["metadata", "image"],
+        scopes: ["catalog_read", "item_metadata_read"],
+        tasks: ["refresh-metadata"],
+        package_signing_verified: false,
+        lifecycle_boundary: {
+          nako_manages_containers: false,
+          nako_manages_processes: false,
+          nako_manages_packages: false,
+          message: "Manual sidecar lifecycle boundary.",
+        },
+      },
+    ],
+  }
+}
+
 describe("public media data source contracts", () => {
   it("uses local fixtures when configured for fixture mode", async () => {
     const source = createPublicMediaDataSource({ mode: "fixture" })
@@ -951,6 +1043,8 @@ describe("admin mutation data source contracts", () => {
           return jsonResponse(adminLocalPasswordResponse())
         case "PUT /admin/v1/settings/metadata/raw-cache":
           return jsonResponse(adminRawCacheSettingsResponse())
+        case "PATCH /admin/v1/addons/addon-1/status":
+          return jsonResponse(adminAddonRegistrationResponse("disabled"))
         default:
           return jsonResponse({ message: "not found" }, 404)
       }
@@ -989,6 +1083,7 @@ describe("admin mutation data source contracts", () => {
       retention_ms: 86400000,
       cleanup_on_startup: true,
     })
+    await source.updateAddonStatus("addon-1", "disabled")
 
     expect(calls).toEqual([
       {
@@ -1045,6 +1140,86 @@ describe("admin mutation data source contracts", () => {
         body: { retention_ms: 86400000, cleanup_on_startup: true },
         authorization: "Bearer admin-token",
       },
+      {
+        method: "PATCH",
+        path: "/admin/v1/addons/addon-1/status",
+        body: { status: "disabled" },
+        authorization: "Bearer admin-token",
+      },
     ])
+  })
+})
+
+describe("admin addon manager data source contracts", () => {
+  it("uses the addon manager fixture in fixture mode", async () => {
+    const source = createAdminAddonManagerDataSource({ mode: "fixture" })
+
+    await expect(source.loadAddonManager()).resolves.toBe(ADMIN_ADDON_MANAGER_FIXTURE)
+  })
+
+  it("maps live Admin Addon API responses into Addon Manager read models", async () => {
+    const fetcher = vi.fn<typeof fetch>(async (input) => {
+      const url = new URL(String(input))
+
+      switch (url.pathname) {
+        case "/admin/v1/addons":
+          return jsonResponse(adminAddonRegistrationsResponse())
+        case "/admin/v1/addons/catalog/sources":
+          return jsonResponse(adminAddonCatalogSourcesResponse())
+        case "/admin/v1/addons/catalog/entries":
+          return jsonResponse(adminAddonCatalogEntriesResponse())
+        default:
+          return jsonResponse({ message: "not found" }, 404)
+      }
+    })
+
+    const source = createAdminAddonManagerDataSource(
+      {
+        mode: "live",
+        baseUrl: "http://nako-admin.test/",
+        bearerToken: "admin-token",
+      },
+      fetcher,
+    )
+
+    const manager = await source.loadAddonManager()
+
+    expect(manager).toMatchObject({
+      source: "live",
+      fallback: false,
+      installed: [
+        {
+          id: "addon-1",
+          manifestId: "nako.tmdb",
+          status: "enabled",
+          grantedScopes: ["catalog_read", "item_metadata_read"],
+        },
+      ],
+      catalog: [
+        {
+          entryId: "nako.tmdb",
+          manifestId: "nako.tmdb",
+          installedStatus: "enabled",
+          lifecycleBoundary: {
+            message: "Manual sidecar lifecycle boundary.",
+          },
+        },
+      ],
+      sources: [
+        {
+          id: "nako-official",
+          entryCount: 1,
+          providesProviderBreadth: true,
+        },
+      ],
+    })
+    expect(fetcher.mock.calls.map(([input]) => new URL(String(input)).pathname)).toEqual([
+      "/admin/v1/addons",
+      "/admin/v1/addons/catalog/sources",
+      "/admin/v1/addons/catalog/entries",
+    ])
+    expect(new Headers(fetcher.mock.calls[0][1]?.headers).get("Authorization")).toBe(
+      "Bearer admin-token",
+    )
   })
 })

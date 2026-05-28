@@ -17,7 +17,7 @@ Exit criteria: accepted mutations have safe UI states. Completed by WALW-030.
 
 ## M3 - Addon Manager Slice
 
-Exit criteria: plugin fixture UI is replaced by Nako Addon vocabulary.
+Exit criteria: plugin fixture UI is replaced by Nako Addon vocabulary. Completed by WALW-040.
 
 ## M4 - Closeout
 

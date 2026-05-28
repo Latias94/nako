@@ -1,6 +1,7 @@
 import { AdminApiClient } from "./client"
 import { loadAdminApiConnection, type AdminApiConnection } from "./connection"
 import type {
+  AddonStatus,
   AdminCreateUserRequest,
   AdminUpdateMetadataRawCacheSettingsRequest,
   AdminUserRole,
@@ -17,6 +18,7 @@ export type AdminMutationKind =
   | "user.password.set"
   | "user.password.delete"
   | "settings.metadata.raw-cache.update"
+  | "addon.status.update"
 
 export interface AdminMutationResult {
   kind: AdminMutationKind
@@ -38,6 +40,7 @@ export interface AdminMutationDataSource {
   updateMetadataRawCacheSettings(
     request: AdminUpdateMetadataRawCacheSettingsRequest,
   ): Promise<AdminMutationResult>
+  updateAddonStatus(addonId: string, status: AddonStatus): Promise<AdminMutationResult>
 }
 
 export function createAdminMutationDataSource(
@@ -109,6 +112,15 @@ export function createAdminMutationDataSource(
         `元数据缓存设置已更新: ${response.effect}`,
       )
     },
+
+    async updateAddonStatus(addonId, status) {
+      const response = await client.updateAddonStatus(addonId, { status })
+      return mutationResult(
+        "addon.status.update",
+        response.addon.summary.id,
+        status === "enabled" ? "Addon 已启用" : "Addon 已禁用",
+      )
+    },
   }
 }
 
@@ -129,6 +141,7 @@ function disabledMutationDataSource(reason: string): AdminMutationDataSource {
     setUserLocalPassword: reject,
     deleteUserLocalPassword: reject,
     updateMetadataRawCacheSettings: reject,
+    updateAddonStatus: reject,
   }
 }
 
