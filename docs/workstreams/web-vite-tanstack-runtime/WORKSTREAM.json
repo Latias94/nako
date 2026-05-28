@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "slug": "web-vite-tanstack-runtime",
+  "title": "Web Vite TanStack Runtime",
+  "status": "active",
+  "updated": "2026-05-28",
+  "scope_kind": "frontend_runtime_migration",
+  "problem": "Nako Web still carries a temporary Next.js bootstrap shell even though route ownership, API seams, and Tauri packaging are now static TanStack responsibilities.",
+  "task_prefix": "WVRT",
+  "current_task": "WVRT-020",
+  "completed_tasks": [
+    "WVRT-010"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/web-vite-tanstack-runtime/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/web-vite-tanstack-runtime/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/web-vite-tanstack-runtime/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/web-vite-tanstack-runtime/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/web-vite-tanstack-runtime/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/web-vite-tanstack-runtime/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "npm --prefix web run check",
+    "npm --prefix web run build",
+    "rg -n \"from ['\\\"]next|next/|Metadata|Viewport|next dev|next build|next start|\\\\.next|next-env\" web --glob '!node_modules/**' --glob '!out/**' --glob '!dist/**' --glob '!tsconfig.tsbuildinfo'",
+    "Browser/Playwright smoke for visible frontend route changes",
+    "cargo test --manifest-path web/src-tauri/Cargo.toml",
+    "npm --prefix web run tauri -- build",
+    "git diff --check"
+  ],
+  "evidence": [
+    "WVRT-010 opened this durable runtime migration lane from the completed WVTR copy-first refactor."
+  ],
+  "adr_refs": [
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md",
+    "docs/adr/0032-shared-rust-client-core-app-supplied-transport.md",
+    "docs/adr/0036-short-lived-browser-playback-tickets.md",
+    "docs/adr/0037-local-credential-and-session-auth.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Continue through bounded WVRT tasks. Split follow-ons only for product feature wiring, visual redesign, native playback, mobile packaging, or broad source-tree reshaping."
+  }
+}
