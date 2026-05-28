@@ -19,6 +19,10 @@ pub const ADDON_RUNTIME_TASK_RUN_FAIL_PATH: &str = "/addon/v1/task-runs/fail";
 pub const ADDON_RUNTIME_TASK_RUN_CANCEL_PATH: &str = "/addon/v1/task-runs/cancel";
 pub const ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA: &str = "nako.addon.resource_search.request.v1";
 pub const ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA: &str = "nako.addon.resource_search.response.v1";
+pub const ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA: &str =
+    "nako.addon.resource_link_check.request.v1";
+pub const ADDON_RESOURCE_LINK_CHECK_RESPONSE_SCHEMA: &str =
+    "nako.addon.resource_link_check.response.v1";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct AddonRuntimeRoute {
@@ -259,6 +263,7 @@ pub enum AddonResource {
     Webhook,
     RendererAdapter,
     ResourceSearch,
+    ResourceLinkCheck,
 }
 
 impl AddonResource {
@@ -275,6 +280,7 @@ impl AddonResource {
             Self::Webhook => "webhook",
             Self::RendererAdapter => "renderer_adapter",
             Self::ResourceSearch => "resource_search",
+            Self::ResourceLinkCheck => "resource_link_check",
         }
     }
 }
@@ -521,6 +527,7 @@ pub enum AddonScope {
     RendererAdapterRead,
     RendererAdapterControl,
     AcquisitionSearchRead,
+    AcquisitionLinkCheckRead,
 }
 
 impl AddonScope {
@@ -539,6 +546,7 @@ impl AddonScope {
             Self::RendererAdapterRead => "renderer_adapter_read",
             Self::RendererAdapterControl => "renderer_adapter_control",
             Self::AcquisitionSearchRead => "acquisition_search_read",
+            Self::AcquisitionLinkCheckRead => "acquisition_link_check_read",
         }
     }
 }
@@ -780,6 +788,71 @@ impl AddonResourceSearchProviderFinality {
         match self {
             Self::Complete => "complete",
             Self::Partial => "partial",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
+#[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonResourceLinkCheckRequest {
+    pub schema: String,
+    pub link: AddonResourceLink,
+    #[serde(default)]
+    pub refresh: bool,
+    #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
+    pub context: serde_json::Value,
+}
+
+impl fmt::Debug for AddonResourceLinkCheckRequest {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("AddonResourceLinkCheckRequest")
+            .field("schema", &self.schema)
+            .field("link", &self.link)
+            .field("refresh", &self.refresh)
+            .field("context", &"<redacted>")
+            .finish()
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonResourceLinkCheckResponse {
+    pub schema: String,
+    pub link_type: AddonResourceLinkType,
+    pub status: AddonResourceLinkCheckStatus,
+    pub checked_at_ms: u64,
+    pub requires_password: bool,
+    pub retryable: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retry_after_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub safe_message: Option<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub safe_facts: BTreeMap<String, String>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonResourceLinkCheckStatus {
+    Reachable,
+    Unavailable,
+    PasswordNeeded,
+    Unsupported,
+    RateLimited,
+    Error,
+    Unknown,
+}
+
+impl AddonResourceLinkCheckStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Reachable => "reachable",
+            Self::Unavailable => "unavailable",
+            Self::PasswordNeeded => "password_needed",
+            Self::Unsupported => "unsupported",
+            Self::RateLimited => "rate_limited",
+            Self::Error => "error",
             Self::Unknown => "unknown",
         }
     }
@@ -2905,6 +2978,150 @@ mod tests {
     }
 
     #[test]
+    fn resource_link_check_protocol_vocabulary_uses_stable_wire_names() {
+        assert_eq!(
+            AddonResource::ResourceLinkCheck.as_str(),
+            "resource_link_check"
+        );
+        assert_eq!(
+            serde_json::to_value(AddonResource::ResourceLinkCheck).unwrap(),
+            serde_json::json!("resource_link_check")
+        );
+        assert_eq!(
+            serde_json::from_value::<AddonResource>(serde_json::json!("resource_link_check"))
+                .unwrap(),
+            AddonResource::ResourceLinkCheck
+        );
+
+        assert_eq!(
+            AddonScope::AcquisitionLinkCheckRead.as_str(),
+            "acquisition_link_check_read"
+        );
+        assert_eq!(
+            serde_json::to_value(AddonScope::AcquisitionLinkCheckRead).unwrap(),
+            serde_json::json!("acquisition_link_check_read")
+        );
+        assert_eq!(
+            serde_json::from_value::<AddonScope>(serde_json::json!("acquisition_link_check_read"))
+                .unwrap(),
+            AddonScope::AcquisitionLinkCheckRead
+        );
+
+        assert_eq!(
+            AddonResourceLinkCheckStatus::PasswordNeeded.as_str(),
+            "password_needed"
+        );
+        assert_eq!(
+            serde_json::to_value(AddonResourceLinkCheckStatus::RateLimited).unwrap(),
+            serde_json::json!("rate_limited")
+        );
+    }
+
+    #[test]
+    fn resource_link_check_manifest_requires_read_scope() {
+        let manifest = resource_link_check_manifest();
+
+        validate_manifest(&manifest).unwrap();
+        ensure_scope_grant(
+            &manifest,
+            AddonResource::ResourceLinkCheck,
+            &[AddonScope::AcquisitionLinkCheckRead],
+        )
+        .unwrap();
+
+        assert!(matches!(
+            ensure_scope_grant(&manifest, AddonResource::ResourceLinkCheck, &[]),
+            Err(AddonManifestError::MissingDeclaredScope {
+                resource: AddonResource::ResourceLinkCheck,
+                scope: AddonScope::AcquisitionLinkCheckRead,
+            })
+        ));
+    }
+
+    #[test]
+    fn resource_link_check_payload_contracts_round_trip_and_redact_debug() {
+        let link = AddonResourceLink {
+            url: "https://pan.quark.cn/s/secret".to_owned(),
+            normalized_url: "https://pan.quark.cn/s/secret".to_owned(),
+            link_type: AddonResourceLinkType::Quark,
+            source: "resource_search_selection".to_owned(),
+            password: Some("secret-code".to_owned()),
+            note: Some("selected candidate".to_owned()),
+        };
+        let request = AddonResourceLinkCheckRequest {
+            schema: ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA.to_owned(),
+            link,
+            refresh: true,
+            context: serde_json::json!({
+                "selection_id": "opaque-selection",
+                "raw_context_secret": "context-secret"
+            }),
+        };
+        let request_json = serde_json::to_value(&request).unwrap();
+
+        assert_eq!(
+            request_json["schema"],
+            ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA
+        );
+        assert_eq!(request_json["link"]["link_type"], "quark");
+        assert_eq!(
+            serde_json::from_value::<AddonResourceLinkCheckRequest>(request_json).unwrap(),
+            request
+        );
+        let request_debug = format!("{request:?}");
+        for forbidden in ["https://pan.quark.cn", "secret-code", "context-secret"] {
+            assert!(
+                !request_debug.contains(forbidden),
+                "resource link check request debug leaked forbidden term: {forbidden}"
+            );
+        }
+
+        let mut safe_facts = BTreeMap::new();
+        safe_facts.insert("http_status_class".to_owned(), "2xx".to_owned());
+        let response = AddonResourceLinkCheckResponse {
+            schema: ADDON_RESOURCE_LINK_CHECK_RESPONSE_SCHEMA.to_owned(),
+            link_type: AddonResourceLinkType::Quark,
+            status: AddonResourceLinkCheckStatus::Reachable,
+            checked_at_ms: 1_779_814_400_000,
+            requires_password: false,
+            retryable: false,
+            retry_after_ms: None,
+            safe_message: Some("reachable".to_owned()),
+            safe_facts,
+        };
+        let response_json = serde_json::to_value(&response).unwrap();
+
+        assert_eq!(
+            response_json["schema"],
+            ADDON_RESOURCE_LINK_CHECK_RESPONSE_SCHEMA
+        );
+        assert_eq!(response_json["status"], "reachable");
+        assert!(response_json.get("url").is_none());
+        assert!(response_json.get("password").is_none());
+
+        let manifest = resource_link_check_manifest();
+        let envelope = AddonResourceResponse {
+            protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+            addon_id: manifest.id.clone(),
+            resource: AddonResource::ResourceLinkCheck,
+            request_id: "resource-link-check-1".to_owned(),
+            payload: response_json.clone(),
+            artifacts: Vec::new(),
+        };
+        validate_resource_response(
+            &envelope,
+            &manifest,
+            AddonResource::ResourceLinkCheck,
+            "resource-link-check-1",
+        )
+        .unwrap();
+        assert_eq!(
+            serde_json::from_value::<AddonResourceLinkCheckResponse>(response_json).unwrap(),
+            response
+        );
+    }
+
+    #[test]
     fn renderer_adapter_payload_contracts_round_trip_and_redact_debug() {
         let target = AddonRendererAdapterTarget {
             stable_device_id: "living-room-tv".to_owned(),
@@ -3296,6 +3513,36 @@ mod tests {
             default_timeout_ms: Some(10_000),
             default_max_attempts: Some(1),
             scopes: vec![AddonScope::AcquisitionSearchRead],
+        }
+    }
+
+    fn resource_link_check_manifest() -> AddonManifest {
+        AddonManifest {
+            id: "resource-link-check".to_owned(),
+            name: "Resource Link Check".to_owned(),
+            version: "0.1.0".to_owned(),
+            protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+            base_url: "https://example.test/addon".to_owned(),
+            description: None,
+            resources: vec![AddonResourceDeclaration {
+                kind: AddonResource::ResourceLinkCheck,
+                path: "/resource-link-check".to_owned(),
+                input_schema: Some(ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA.to_owned()),
+                output_schema: Some(ADDON_RESOURCE_LINK_CHECK_RESPONSE_SCHEMA.to_owned()),
+                required_scopes: vec![AddonScope::AcquisitionLinkCheckRead],
+                timeout_ms: Some(10_000),
+                max_attempts: Some(1),
+            }],
+            entry_points: Vec::new(),
+            hosted_pages: Vec::new(),
+            configuration_schema: None,
+            secret_reference_fields: Vec::new(),
+            event_subscriptions: Vec::new(),
+            tasks: Vec::new(),
+            auth: AddonAuth::Bearer,
+            default_timeout_ms: Some(10_000),
+            default_max_attempts: Some(1),
+            scopes: vec![AddonScope::AcquisitionLinkCheckRead],
         }
     }
 }

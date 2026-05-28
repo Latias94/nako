@@ -2,13 +2,15 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use nako_addon_protocol::{
+    ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA, ADDON_RESOURCE_LINK_CHECK_RESPONSE_SCHEMA,
     ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA, ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA,
     ADDON_RUNTIME_ACCESS_CHECK_PATH, ADDON_RUNTIME_SIDE_EFFECTS_PATH, AddonAccessCheckRequest,
     AddonAccessCheckResponse, AddonAuth, AddonEventRequest, AddonEventResponse,
     AddonHealthCheckRequest, AddonHealthCheckResponse, AddonManifest, AddonManifestError,
-    AddonPermission, AddonResource, AddonResourceRequest, AddonResourceResponse,
-    AddonResourceSearchRequest, AddonResourceSearchResponse, AddonScope, AddonSideEffectResponse,
-    AddonSideEffectTargetKind, AddonTaskRequest, AddonTaskResponse, SubmitAddonArtworkWriteRequest,
+    AddonPermission, AddonResource, AddonResourceLinkCheckRequest, AddonResourceLinkCheckResponse,
+    AddonResourceRequest, AddonResourceResponse, AddonResourceSearchRequest,
+    AddonResourceSearchResponse, AddonScope, AddonSideEffectResponse, AddonSideEffectTargetKind,
+    AddonTaskRequest, AddonTaskResponse, SubmitAddonArtworkWriteRequest,
     SubmitAddonMetadataWriteRequest, SubmitAddonSideEffectRequest,
     ensure_event_subscription_scope_grant, ensure_scope_grant, ensure_task_scope_grant,
     validate_event_response, validate_health_check_response, validate_manifest,
@@ -81,6 +83,13 @@ pub struct AddonResourceCallOutcome {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AddonResourceSearchCallOutcome {
     pub response: AddonResourceSearchResponse,
+    pub http_status: u16,
+    pub attempts: u32,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AddonResourceLinkCheckCallOutcome {
+    pub response: AddonResourceLinkCheckResponse,
     pub http_status: u16,
     pub attempts: u32,
 }
@@ -455,6 +464,96 @@ where
     }
 
     Ok(AddonResourceSearchCallOutcome {
+        response,
+        http_status: outcome.http_status,
+        attempts,
+    })
+}
+
+pub async fn call_addon_resource_link_check<T>(
+    transport: &T,
+    manifest: &AddonManifest,
+    granted_scopes: &[AddonScope],
+    request_id: impl Into<String>,
+    request: AddonResourceLinkCheckRequest,
+    bearer_token: Option<&str>,
+) -> AddonClientResult<AddonResourceLinkCheckResponse>
+where
+    T: AddonTransport,
+{
+    call_addon_resource_link_check_with_outcome(
+        transport,
+        manifest,
+        granted_scopes,
+        request_id,
+        request,
+        bearer_token,
+    )
+    .await
+    .map(|outcome| outcome.response)
+    .map_err(|failure| failure.error)
+}
+
+pub async fn call_addon_resource_link_check_with_outcome<T>(
+    transport: &T,
+    manifest: &AddonManifest,
+    granted_scopes: &[AddonScope],
+    request_id: impl Into<String>,
+    request: AddonResourceLinkCheckRequest,
+    bearer_token: Option<&str>,
+) -> Result<AddonResourceLinkCheckCallOutcome, AddonResourceCallFailure>
+where
+    T: AddonTransport,
+{
+    ensure_resource_link_check_scope_contract(manifest, granted_scopes)
+        .map_err(resource_call_setup_failure)?;
+    if request.schema != ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA {
+        return Err(resource_call_setup_failure(
+            AddonClientError::InvalidRequest {
+                message: format!(
+                    "resource_link_check request schema {} did not match {}",
+                    request.schema, ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA
+                ),
+            },
+        ));
+    }
+    let payload = serde_json::to_value(request)
+        .map_err(invalid_resource_link_check_request_envelope)
+        .map_err(resource_call_setup_failure)?;
+    let outcome = call_addon_resource_with_outcome(
+        transport,
+        manifest,
+        AddonResource::ResourceLinkCheck,
+        granted_scopes,
+        request_id,
+        payload,
+        bearer_token,
+    )
+    .await?;
+    let attempts = outcome.attempts;
+    let response =
+        serde_json::from_value::<AddonResourceLinkCheckResponse>(outcome.response.payload)
+            .map_err(|error| AddonResourceCallFailure {
+                error: AddonClientError::InvalidResponse {
+                    message: format!(
+                        "failed to parse resource_link_check response payload: {error}"
+                    ),
+                },
+                attempts,
+            })?;
+    if response.schema != ADDON_RESOURCE_LINK_CHECK_RESPONSE_SCHEMA {
+        return Err(AddonResourceCallFailure {
+            error: AddonClientError::InvalidResponse {
+                message: format!(
+                    "resource_link_check response schema {} did not match {}",
+                    response.schema, ADDON_RESOURCE_LINK_CHECK_RESPONSE_SCHEMA
+                ),
+            },
+            attempts,
+        });
+    }
+
+    Ok(AddonResourceLinkCheckCallOutcome {
         response,
         http_status: outcome.http_status,
         attempts,
@@ -975,9 +1074,40 @@ fn ensure_resource_search_scope_contract(
     ensure_scope_grant(manifest, AddonResource::ResourceSearch, granted_scopes)
 }
 
+fn ensure_resource_link_check_scope_contract(
+    manifest: &AddonManifest,
+    granted_scopes: &[AddonScope],
+) -> Result<(), AddonManifestError> {
+    validate_manifest(manifest)?;
+    let declaration = manifest
+        .resources
+        .iter()
+        .find(|candidate| candidate.kind == AddonResource::ResourceLinkCheck)
+        .ok_or(AddonManifestError::ResourceNotDeclared {
+            resource: AddonResource::ResourceLinkCheck,
+        })?;
+    if !declaration
+        .required_scopes
+        .contains(&AddonScope::AcquisitionLinkCheckRead)
+    {
+        return Err(AddonManifestError::MissingDeclaredScope {
+            resource: AddonResource::ResourceLinkCheck,
+            scope: AddonScope::AcquisitionLinkCheckRead,
+        });
+    }
+
+    ensure_scope_grant(manifest, AddonResource::ResourceLinkCheck, granted_scopes)
+}
+
 fn invalid_resource_search_request_envelope(error: serde_json::Error) -> AddonManifestError {
     AddonManifestError::InvalidEnvelope {
         message: format!("failed to serialize resource_search request payload: {error}"),
+    }
+}
+
+fn invalid_resource_link_check_request_envelope(error: serde_json::Error) -> AddonManifestError {
+    AddonManifestError::InvalidEnvelope {
+        message: format!("failed to serialize resource_link_check request payload: {error}"),
     }
 }
 
@@ -1096,12 +1226,14 @@ mod tests {
     };
 
     use nako_addon_protocol::{
-        ADDON_PROTOCOL_VERSION, ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA,
+        ADDON_PROTOCOL_VERSION, ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA,
+        ADDON_RESOURCE_LINK_CHECK_RESPONSE_SCHEMA, ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA,
         ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA, AddonArtifact, AddonEventSubscriptionDeclaration,
         AddonMergedResourceLink, AddonResourceDeclaration, AddonResourceLink,
-        AddonResourceLinkType, AddonResourceSearchIntent, AddonResourceSearchProviderExecution,
-        AddonResourceSearchProviderFinality, AddonResourceSearchProviderStatus,
-        AddonResourceSearchResult, AddonTaskDeclaration,
+        AddonResourceLinkCheckRequest, AddonResourceLinkCheckResponse,
+        AddonResourceLinkCheckStatus, AddonResourceLinkType, AddonResourceSearchIntent,
+        AddonResourceSearchProviderExecution, AddonResourceSearchProviderFinality,
+        AddonResourceSearchProviderStatus, AddonResourceSearchResult, AddonTaskDeclaration,
     };
 
     use super::*;
@@ -1454,6 +1586,200 @@ mod tests {
             &[AddonScope::AcquisitionSearchRead],
             "resource-search-6",
             resource_search_request(),
+            Some("token-1"),
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(err.attempts, 1);
+        assert!(matches!(
+            err.error,
+            AddonClientError::InvalidResponse { .. }
+        ));
+        assert_eq!(transport.requests().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn resource_link_check_helper_calls_declared_path_with_typed_contract() {
+        let manifest = resource_link_check_manifest();
+        let payload = resource_link_check_response_payload();
+        let transport = MockTransport::with_response(Ok(AddonHttpResponse {
+            status: 200,
+            body: resource_link_check_response_json(
+                &manifest,
+                "resource-link-check-1",
+                payload.clone(),
+            ),
+        }));
+
+        let outcome = call_addon_resource_link_check_with_outcome(
+            &transport,
+            &manifest,
+            &[AddonScope::AcquisitionLinkCheckRead],
+            "resource-link-check-1",
+            resource_link_check_request(),
+            Some("token-1"),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(outcome.http_status, 200);
+        assert_eq!(outcome.attempts, 1);
+        assert_eq!(outcome.response, payload);
+        let requests = transport.requests();
+        assert_eq!(requests.len(), 1);
+        assert_eq!(
+            requests[0].url,
+            "https://example.test/addon/resource-link-check".to_owned()
+        );
+        assert_eq!(
+            header_value(&requests[0], "x-nako-addon-resource"),
+            Some("resource_link_check")
+        );
+        assert_eq!(
+            header_value(&requests[0], "authorization"),
+            Some("Bearer token-1")
+        );
+        assert_eq!(requests[0].timeout_ms, 7_000);
+
+        let body: serde_json::Value = serde_json::from_str(&requests[0].body).unwrap();
+        assert_eq!(body["resource"], "resource_link_check");
+        assert_eq!(
+            body["payload"]["schema"],
+            ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA
+        );
+        assert_eq!(body["payload"]["link"]["link_type"], "quark");
+    }
+
+    #[tokio::test]
+    async fn resource_link_check_helper_requires_granted_read_scope_before_http() {
+        let manifest = resource_link_check_manifest();
+        let transport = MockTransport::default();
+
+        let err = call_addon_resource_link_check_with_outcome(
+            &transport,
+            &manifest,
+            &[],
+            "resource-link-check-2",
+            resource_link_check_request(),
+            Some("token-1"),
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(err.attempts, 0);
+        assert!(matches!(
+            err.error,
+            AddonClientError::Protocol(AddonManifestError::MissingDeclaredScope {
+                resource: AddonResource::ResourceLinkCheck,
+                scope: AddonScope::AcquisitionLinkCheckRead,
+            })
+        ));
+        assert!(transport.requests().is_empty());
+    }
+
+    #[tokio::test]
+    async fn resource_link_check_helper_requires_manifest_read_scope_contract() {
+        let mut manifest = resource_link_check_manifest();
+        manifest.resources[0].required_scopes.clear();
+        let transport = MockTransport::default();
+
+        let err = call_addon_resource_link_check_with_outcome(
+            &transport,
+            &manifest,
+            &[AddonScope::AcquisitionLinkCheckRead],
+            "resource-link-check-3",
+            resource_link_check_request(),
+            Some("token-1"),
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(err.attempts, 0);
+        assert!(matches!(
+            err.error,
+            AddonClientError::Protocol(AddonManifestError::MissingDeclaredScope {
+                resource: AddonResource::ResourceLinkCheck,
+                scope: AddonScope::AcquisitionLinkCheckRead,
+            })
+        ));
+        assert!(transport.requests().is_empty());
+    }
+
+    #[tokio::test]
+    async fn resource_link_check_helper_rejects_wrong_request_schema_before_http() {
+        let manifest = resource_link_check_manifest();
+        let transport = MockTransport::default();
+        let mut request = resource_link_check_request();
+        request.schema = "nako.addon.resource_link_check.request.v0".to_owned();
+
+        let err = call_addon_resource_link_check_with_outcome(
+            &transport,
+            &manifest,
+            &[AddonScope::AcquisitionLinkCheckRead],
+            "resource-link-check-4",
+            request,
+            Some("token-1"),
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(err.attempts, 0);
+        assert!(matches!(err.error, AddonClientError::InvalidRequest { .. }));
+        assert!(transport.requests().is_empty());
+    }
+
+    #[tokio::test]
+    async fn resource_link_check_helper_rejects_wrong_response_schema() {
+        let manifest = resource_link_check_manifest();
+        let mut payload = resource_link_check_response_payload();
+        payload.schema = "nako.addon.resource_link_check.response.v0".to_owned();
+        let transport = MockTransport::with_response(Ok(AddonHttpResponse {
+            status: 200,
+            body: resource_link_check_response_json(&manifest, "resource-link-check-5", payload),
+        }));
+
+        let err = call_addon_resource_link_check_with_outcome(
+            &transport,
+            &manifest,
+            &[AddonScope::AcquisitionLinkCheckRead],
+            "resource-link-check-5",
+            resource_link_check_request(),
+            Some("token-1"),
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(err.attempts, 1);
+        assert!(matches!(
+            err.error,
+            AddonClientError::InvalidResponse { .. }
+        ));
+        assert_eq!(transport.requests().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn resource_link_check_helper_rejects_invalid_typed_response_payload() {
+        let manifest = resource_link_check_manifest();
+        let transport = MockTransport::with_response(Ok(AddonHttpResponse {
+            status: 200,
+            body: serde_json::to_string(&AddonResourceResponse {
+                protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+                addon_id: manifest.id.clone(),
+                resource: AddonResource::ResourceLinkCheck,
+                request_id: "resource-link-check-6".to_owned(),
+                payload: serde_json::json!({"schema": ADDON_RESOURCE_LINK_CHECK_RESPONSE_SCHEMA}),
+                artifacts: Vec::new(),
+            })
+            .unwrap(),
+        }));
+
+        let err = call_addon_resource_link_check_with_outcome(
+            &transport,
+            &manifest,
+            &[AddonScope::AcquisitionLinkCheckRead],
+            "resource-link-check-6",
+            resource_link_check_request(),
             Some("token-1"),
         )
         .await
@@ -2019,6 +2345,85 @@ mod tests {
             protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
             addon_id: manifest.id.clone(),
             resource: AddonResource::ResourceSearch,
+            request_id: request_id.to_owned(),
+            payload: serde_json::to_value(payload).unwrap(),
+            artifacts: Vec::new(),
+        })
+        .unwrap()
+    }
+
+    fn resource_link_check_manifest() -> AddonManifest {
+        AddonManifest {
+            id: "resource-link-check".to_owned(),
+            name: "Resource Link Check".to_owned(),
+            version: "0.1.0".to_owned(),
+            protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+            base_url: "https://example.test/addon".to_owned(),
+            description: None,
+            resources: vec![AddonResourceDeclaration {
+                kind: AddonResource::ResourceLinkCheck,
+                path: "/resource-link-check".to_owned(),
+                input_schema: Some(ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA.to_owned()),
+                output_schema: Some(ADDON_RESOURCE_LINK_CHECK_RESPONSE_SCHEMA.to_owned()),
+                required_scopes: vec![AddonScope::AcquisitionLinkCheckRead],
+                timeout_ms: Some(7_000),
+                max_attempts: Some(1),
+            }],
+            entry_points: Vec::new(),
+            hosted_pages: Vec::new(),
+            configuration_schema: None,
+            secret_reference_fields: Vec::new(),
+            event_subscriptions: Vec::new(),
+            tasks: Vec::new(),
+            auth: AddonAuth::Bearer,
+            default_timeout_ms: Some(10_000),
+            default_max_attempts: Some(2),
+            scopes: vec![AddonScope::AcquisitionLinkCheckRead],
+        }
+    }
+
+    fn resource_link_check_request() -> AddonResourceLinkCheckRequest {
+        AddonResourceLinkCheckRequest {
+            schema: ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA.to_owned(),
+            link: AddonResourceLink {
+                url: "https://pan.quark.cn/s/demo".to_owned(),
+                normalized_url: "https://pan.quark.cn/s/demo".to_owned(),
+                link_type: AddonResourceLinkType::Quark,
+                source: "resource_search_selection".to_owned(),
+                password: Some("secret-code".to_owned()),
+                note: None,
+            },
+            refresh: false,
+            context: serde_json::json!({"selection_id": "selection-1"}),
+        }
+    }
+
+    fn resource_link_check_response_payload() -> AddonResourceLinkCheckResponse {
+        let mut safe_facts = BTreeMap::new();
+        safe_facts.insert("http_status_class".to_owned(), "2xx".to_owned());
+
+        AddonResourceLinkCheckResponse {
+            schema: ADDON_RESOURCE_LINK_CHECK_RESPONSE_SCHEMA.to_owned(),
+            link_type: AddonResourceLinkType::Quark,
+            status: AddonResourceLinkCheckStatus::Reachable,
+            checked_at_ms: 1_779_814_400_000,
+            requires_password: false,
+            retryable: false,
+            retry_after_ms: None,
+            safe_message: Some("reachable".to_owned()),
+            safe_facts,
+        }
+    }
+
+    fn resource_link_check_response_json(
+        manifest: &AddonManifest,
+        request_id: &str,
+        payload: AddonResourceLinkCheckResponse,
+    ) -> String {
+        serde_json::to_string(&AddonResourceResponse {
+            protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+            addon_id: manifest.id.clone(),
+            resource: AddonResource::ResourceLinkCheck,
             request_id: request_id.to_owned(),
             payload: serde_json::to_value(payload).unwrap(),
             artifacts: Vec::new(),
