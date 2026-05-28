@@ -14,15 +14,14 @@ runtime.
 
 ## Active Task
 
-- Task ID: WVRT-040
-- Owner: Codex
-- Files: `web`, `web/src-tauri`, `docs/workstreams/web-vite-tanstack-runtime`
-- Validation: `npm --prefix web run build`, static browser smoke,
-  `cargo test --manifest-path web/src-tauri/Cargo.toml`, and
-  `npm --prefix web run tauri -- build`.
+- Task ID: WVRT-050
+- Owner: planner
+- Files: `docs/workstreams/web-vite-tanstack-runtime`
+- Validation: final evidence review, `WORKSTREAM.json` parse, and
+  `git diff --check`.
 - Status: READY
-- Review: Confirm Tauri uses Vite `dist`, route fallback works, and no Node
-  sidecar is required.
+- Review: Confirm the lane can close and any remaining runtime-only work is
+  split or deferred.
 - Evidence: To be recorded in `EVIDENCE_AND_GATES.md`.
 
 ## Decisions Since Last Update
@@ -32,7 +31,8 @@ runtime.
   route inventory from Next.
 - WVRT-030 removed Next app wrappers, Next config/type files, and `next` /
   `next-themes` dependencies.
-- Tauri should move from `../out` to `../dist` in WVRT-040.
+- WVRT-040 moved Tauri from `../out` to `../dist`, passed static route smoke,
+  Tauri tests, and Tauri build.
 
 ## Blockers
 
@@ -40,5 +40,4 @@ runtime.
 
 ## Next Recommended Action
 
-- Implement WVRT-040 by proving static browser and Tauri behavior from Vite
-  output.
+- Close WVRT-050 after final review and evidence cleanup.

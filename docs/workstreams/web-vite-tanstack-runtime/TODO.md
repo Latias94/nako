@@ -32,12 +32,12 @@ Last updated: 2026-05-28
 
 ## M3 - Browser And Tauri Static Proof
 
-- [ ] WVRT-040 [owner=Codex] [deps=WVRT-030] [scope=web,web/src-tauri]
+- [x] WVRT-040 [owner=Codex] [deps=WVRT-030] [scope=web,web/src-tauri]
   Goal: Point Tauri at Vite `dist`, verify desktop/static browser behavior, and record bundle evidence.
   Validation: npm --prefix web run build; Browser/Playwright smoke for `/media`, `/admin`, `/setup`, `/account`, `/tv`, and mobile `/media`; cargo test --manifest-path web/src-tauri/Cargo.toml; npm --prefix web run tauri -- build.
   Review: Confirm no Next/Node server sidecar is required and route fallback works in static hosting.
   Evidence: EVIDENCE_AND_GATES.md, web/src-tauri/tauri.conf.json.
-  Handoff: Final status must be DONE, DONE_WITH_CONCERNS, BLOCKED, or NEEDS_CONTEXT.
+  Handoff: DONE. Tauri now uses Vite `dist`, static route fallback smoke is clean, and Tauri build produces the Windows shell binary without a Node sidecar.
 
 ## M4 - Closeout
 

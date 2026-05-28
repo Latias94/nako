@@ -36,6 +36,8 @@ Exit criteria:
 
 ## M3 - Browser And Desktop Static Proof
 
+Status: done.
+
 Exit criteria:
 
 - Vite build output has bundle evidence.
