@@ -29,11 +29,11 @@ Last updated: 2026-05-28
 
 ## M3 - Tauri Profile Bridge
 
-- [ ] WCAT-040 [owner=Codex] [deps=WCAT-030] [scope=web/src-tauri,web/src]
+- [x] WCAT-040 [owner=Codex] [deps=WCAT-030] [scope=web/src-tauri,web/src]
   Goal: Wire Tauri profile bootstrap/invoke path for safe local profile persistence.
   Validation: cargo test --manifest-path web/src-tauri/Cargo.toml && npm --prefix web run test && npm --prefix web run tauri -- build.
   Evidence: Tauri tests and web adapter tests.
-  Handoff: READY.
+  Handoff: DONE. Tauri persists only normalized server profile data, web invoke adapter maps bootstrap/save/clear, and Rust/web/Tauri build gates pass.
 
 ## M4 - Closeout
 
@@ -41,4 +41,4 @@ Last updated: 2026-05-28
   Goal: Close the connection/auth lane.
   Validation: npm --prefix web run test && npm --prefix web run build && npm --prefix web run tauri -- build.
   Evidence: EVIDENCE_AND_GATES.md
-  Handoff: Activate `web-admin-live-wiring`.
+  Handoff: READY.

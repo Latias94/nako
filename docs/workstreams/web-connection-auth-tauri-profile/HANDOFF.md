@@ -10,11 +10,11 @@ be wired to shared connection and auth state.
 
 ## Active Task
 
-- Task ID: WCAT-030
+- Task ID: WCAT-040
 - Owner: Codex
 - Status: DONE
-- Validation: `npm --prefix web run test -- src/test/setup-account-connection.test.tsx src/test/connection-profile.test.ts`, `npm --prefix web run check`, `npm --prefix web run test`, `npm --prefix web run build`, and scoped `git diff --check`.
+- Validation: `npm --prefix web run check`, `npm --prefix web run test -- src/test/tauri-profile.test.ts src/test/connection-profile.test.ts`, `npm --prefix web run test`, `npm --prefix web run build`, `cargo test --manifest-path web/src-tauri/Cargo.toml`, `npm --prefix web run tauri -- build`, and scoped `git diff --check`.
 
 ## Next Recommended Action
 
-- Start WCAT-040 by wiring the Tauri profile bootstrap/invoke path for safe local profile persistence.
+- Close WCAT-050, then activate `web-admin-live-wiring`.

@@ -7,11 +7,12 @@
   "scope_kind": "frontend_connection_auth",
   "problem": "Setup/account and data sources do not yet share a safe browser/Tauri connection and auth profile boundary.",
   "task_prefix": "WCAT",
-  "current_task": "WCAT-040",
+  "current_task": "WCAT-050",
   "completed_tasks": [
     "WCAT-010",
     "WCAT-020",
-    "WCAT-030"
+    "WCAT-030",
+    "WCAT-040"
   ],
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/web-connection-auth-tauri-profile/README.md" },
@@ -33,7 +34,8 @@
     "Queued as lane 4 after WROP.",
     "WCAT-010 activated after WROP closed with route/state tests, check, full test, build, and diff gate passing.",
     "WCAT-020 added shared connection profile/session state, migrated Public/Admin connection loaders to it, and passed connection/data-source tests, check, full test, build, and scoped diff gate.",
-    "WCAT-030 wired setup/account UI flows to connection/session state and passed setup/account tests, check, full test, build, and scoped diff gate."
+    "WCAT-030 wired setup/account UI flows to connection/session state and passed setup/account tests, check, full test, build, and scoped diff gate.",
+    "WCAT-040 added Tauri local profile persistence and web invoke adapter, fixed profile mutex deadlock, and passed check, web tests/build, cargo test, tauri build, and scoped diff gate."
   ],
   "adr_refs": [
     "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",

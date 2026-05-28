@@ -23,6 +23,8 @@ Exit criteria: setup/account use real connection/session state.
 
 ## M3 - Tauri Profile Bridge
 
+Status: done.
+
 Exit criteria: Tauri profile bootstrap is wired and tested.
 
 ## M4 - Closeout
