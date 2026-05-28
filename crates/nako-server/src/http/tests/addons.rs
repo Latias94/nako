@@ -1,6 +1,16 @@
 use super::*;
 use axum::Json;
 use axum::http::HeaderValue;
+use nako_addon_protocol::{
+    ADDON_SUBTITLE_REQUEST_SCHEMA, ADDON_SUBTITLE_RESPONSE_SCHEMA, AddonSubtitleCandidate,
+    AddonSubtitleDelivery, AddonSubtitleFormat, AddonSubtitleProviderExecution,
+    AddonSubtitleProviderStatus, AddonSubtitleSearchResponse,
+};
+use nako_api::extension::{
+    AdminAddonSubtitleDeliveryKind, AdminAddonSubtitleSearchRequest,
+    AdminAddonSubtitleSearchResponse, AdminAddonSubtitleSelectionRequest,
+    AdminAddonSubtitleSelectionResponse,
+};
 use nako_official_addon_catalog::{
     chromecast_renderer, dlna_renderer, metadata_scraper, notification_bridge, resource_search,
     subtitle_provider,
@@ -587,6 +597,92 @@ async fn task_path_addon_server_with_gate(
                         }),
                     )
                         .into_response()
+                }
+            }
+        }),
+    );
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, router).await.unwrap();
+    });
+    yield_now().await;
+
+    (format!("http://{addr}"), requests)
+}
+
+async fn subtitle_search_addon_server() -> (String, StdArc<TokioMutex<Vec<AddonResourceRequest>>>) {
+    let requests = StdArc::new(TokioMutex::new(Vec::new()));
+    let router = Router::new().route(
+        "/subtitle",
+        axum::routing::post({
+            let requests = StdArc::clone(&requests);
+            move |Json(request): Json<AddonResourceRequest>| {
+                let requests = StdArc::clone(&requests);
+                async move {
+                    requests.lock().await.push(request.clone());
+
+                    Json(AddonResourceResponse {
+                        protocol_version: request.protocol_version,
+                        addon_id: request.addon_id,
+                        resource: request.resource,
+                        request_id: request.request_id,
+                        payload: serde_json::to_value(AddonSubtitleSearchResponse {
+                            schema: ADDON_SUBTITLE_RESPONSE_SCHEMA.to_owned(),
+                            query: "Demo Movie".to_owned(),
+                            total: 3,
+                            subtitles: vec![
+                                AddonSubtitleCandidate {
+                                    id: "subtitle-inline-1".to_owned(),
+                                    title: "Secret English Subtitle".to_owned(),
+                                    language: "en".to_owned(),
+                                    format: AddonSubtitleFormat::Vtt,
+                                    source: "fixture".to_owned(),
+                                    release: Some("WEB-DL".to_owned()),
+                                    score: 940,
+                                    delivery: AddonSubtitleDelivery::Inline {
+                                        text: "WEBVTT\n\nsecret subtitle text".to_owned(),
+                                    },
+                                },
+                                AddonSubtitleCandidate {
+                                    id: "subtitle-download-1".to_owned(),
+                                    title: "Remote Chinese Subtitle".to_owned(),
+                                    language: "zh-hant".to_owned(),
+                                    format: AddonSubtitleFormat::Srt,
+                                    source: "opensubtitles".to_owned(),
+                                    release: None,
+                                    score: 900,
+                                    delivery: AddonSubtitleDelivery::DownloadUrl {
+                                        url: "https://subtitle.example/download?token=secret-token"
+                                            .to_owned(),
+                                        content_type: Some("application/x-subrip".to_owned()),
+                                    },
+                                },
+                                AddonSubtitleCandidate {
+                                    id: "subtitle-artifact-1".to_owned(),
+                                    title: "Artifact English Subtitle".to_owned(),
+                                    language: "en".to_owned(),
+                                    format: AddonSubtitleFormat::Vtt,
+                                    source: "artifact-provider".to_owned(),
+                                    release: Some("BluRay".to_owned()),
+                                    score: 870,
+                                    delivery: AddonSubtitleDelivery::ArtifactRef {
+                                        artifact_id: "artifact-secret-id".to_owned(),
+                                    },
+                                },
+                            ],
+                            provider_executions: vec![AddonSubtitleProviderExecution {
+                                provider_id: "fixture".to_owned(),
+                                status: AddonSubtitleProviderStatus::Ok,
+                                result_count: 3,
+                                safe_message: Some(
+                                    "provider safe message with private detail".to_owned(),
+                                ),
+                            }],
+                        })
+                        .unwrap(),
+                        artifacts: Vec::new(),
+                    })
                 }
             }
         }),
@@ -6625,6 +6721,245 @@ async fn admin_addon_resource_search_product_selection_records_intake_candidate_
     .await;
     assert_eq!(candidates.candidates.len(), 1);
     assert_eq!(candidates.candidates[0].id, first.candidate.id);
+}
+
+#[tokio::test]
+async fn admin_addon_subtitle_search_product_returns_safe_candidate_cards() {
+    let (addon_base_url, captured) = subtitle_search_addon_server().await;
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: subtitle_provider::manifest(addon_base_url),
+            outbound_task_dispatch_secret_env: None,
+            granted_scopes: vec![AddonScope::SubtitleRead],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let path = format!("/admin/v1/addons/{addon_id}/subtitle-search");
+    let raw = response_body_json(
+        &router,
+        Method::POST,
+        &path,
+        &AdminAddonSubtitleSearchRequest {
+            query: "  Demo Movie  ".to_owned(),
+            languages: vec![
+                " EN ".to_owned(),
+                "en".to_owned(),
+                "zh-Hant".to_owned(),
+                String::new(),
+            ],
+            limit: Some(999),
+        },
+    )
+    .await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let bytes = to_bytes(raw.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let response = serde_json::from_str::<AdminAddonSubtitleSearchResponse>(&text).unwrap();
+
+    assert_eq!(response.addon_id, addon_id);
+    assert_eq!(
+        response.status,
+        AdminAddonResourceCallDiagnosticStatus::Succeeded
+    );
+    assert!(response.search_id.starts_with("sub_"));
+    assert_eq!(response.limit, 50);
+    assert_eq!(response.total, 3);
+    assert_eq!(response.result_count, 3);
+    assert_eq!(response.subtitles.len(), 3);
+    assert_eq!(response.subtitles[0].title, "Secret English Subtitle");
+    assert_eq!(response.subtitles[0].language, "en");
+    assert_eq!(response.subtitles[0].format, AddonSubtitleFormat::Vtt);
+    assert_eq!(
+        response.subtitles[0].delivery_kind,
+        AdminAddonSubtitleDeliveryKind::Inline
+    );
+    assert!(response.subtitles[0].selection_id.starts_with("sel_"));
+    assert!(
+        response.subtitles[0]
+            .candidate_ref_fingerprint
+            .starts_with("sha256:")
+    );
+    assert_eq!(
+        response.subtitles[1].delivery_kind,
+        AdminAddonSubtitleDeliveryKind::DownloadUrl
+    );
+    assert_eq!(
+        response.subtitles[2].delivery_kind,
+        AdminAddonSubtitleDeliveryKind::ArtifactRef
+    );
+    assert_eq!(response.provider_executions.len(), 1);
+    assert!(response.provider_executions[0].has_safe_message);
+
+    for forbidden in [
+        "WEBVTT",
+        "secret subtitle text",
+        "https://subtitle.example",
+        "secret-token",
+        "artifact-secret-id",
+        "provider safe message",
+        "local:///secret",
+        "nako_at_should_not_echo",
+        "\"url\"",
+        "\"text\"",
+        "\"artifact_id\"",
+    ] {
+        assert!(
+            !text.contains(forbidden),
+            "subtitle search response leaked forbidden term: {forbidden}"
+        );
+    }
+
+    let captured = captured.lock().await;
+    assert_eq!(captured.len(), 1);
+    assert_eq!(captured[0].resource, AddonResource::Subtitle);
+    assert_eq!(captured[0].payload["schema"], ADDON_SUBTITLE_REQUEST_SCHEMA);
+    assert_eq!(captured[0].payload["query"], "Demo Movie");
+    assert_eq!(captured[0].payload["limit"], 50);
+    assert_eq!(
+        captured[0].payload["languages"],
+        serde_json::json!(["en", "zh-hant"])
+    );
+    assert!(captured[0].payload.get("context").is_none());
+}
+
+#[tokio::test]
+async fn admin_addon_subtitle_search_requires_nonzero_limit() {
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: subtitle_provider::manifest("https://subtitle.example.test".to_owned()),
+            outbound_task_dispatch_secret_env: None,
+            granted_scopes: vec![AddonScope::SubtitleRead],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let path = format!(
+        "/admin/v1/addons/{}/subtitle-search",
+        registered.addon.summary.id
+    );
+    let raw = response_body_json(
+        &router,
+        Method::POST,
+        &path,
+        &AdminAddonSubtitleSearchRequest {
+            query: "Demo Movie".to_owned(),
+            languages: Vec::new(),
+            limit: Some(0),
+        },
+    )
+    .await;
+
+    assert_eq!(raw.status(), StatusCode::BAD_REQUEST);
+    let error = body_json::<ErrorResponse>(raw).await;
+    assert_eq!(error.code, "invalid_input");
+}
+
+#[tokio::test]
+async fn admin_addon_subtitle_search_selection_records_opaque_reference_without_import() {
+    let (addon_base_url, _captured) = subtitle_search_addon_server().await;
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: subtitle_provider::manifest(addon_base_url),
+            outbound_task_dispatch_secret_env: None,
+            granted_scopes: vec![AddonScope::SubtitleRead],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    let search = request_body_json::<AdminAddonSubtitleSearchResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/subtitle-search"),
+        &AdminAddonSubtitleSearchRequest {
+            query: "Demo Movie".to_owned(),
+            languages: vec!["zh-Hant".to_owned()],
+            limit: Some(10),
+        },
+    )
+    .await;
+    let selection_id = search.subtitles[1].selection_id.clone();
+    let selection_path = format!(
+        "/admin/v1/addons/{addon_id}/subtitle-search/{}/selections/{selection_id}/selected-reference",
+        search.search_id
+    );
+
+    let raw_payload_rejected = response_body_json(
+        &router,
+        Method::POST,
+        &selection_path,
+        &serde_json::json!({
+            "url": "https://subtitle.example/download?token=secret-token",
+            "text": "WEBVTT\n\nsecret subtitle text"
+        }),
+    )
+    .await;
+    assert_eq!(
+        raw_payload_rejected.status(),
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+
+    let raw = response_body_json(
+        &router,
+        Method::POST,
+        &selection_path,
+        &AdminAddonSubtitleSelectionRequest::default(),
+    )
+    .await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let text = response_text(raw).await;
+    let response = serde_json::from_str::<AdminAddonSubtitleSelectionResponse>(&text).unwrap();
+
+    assert_eq!(response.selected_ref.addon_id, addon_id);
+    assert_eq!(response.selected_ref.search_id, search.search_id);
+    assert_eq!(response.selected_ref.selection_id, selection_id);
+    assert_eq!(
+        response.selected_ref.delivery_kind,
+        AdminAddonSubtitleDeliveryKind::DownloadUrl
+    );
+    assert_eq!(response.candidate.selection_id, selection_id);
+    assert_eq!(response.candidate.title, "Remote Chinese Subtitle");
+    assert_eq!(response.candidate.language, "zh-hant");
+    assert_eq!(
+        response.candidate.candidate_ref_fingerprint,
+        response.selected_ref.candidate_ref_fingerprint
+    );
+
+    for forbidden in [
+        "WEBVTT",
+        "secret subtitle text",
+        "https://subtitle.example",
+        "secret-token",
+        "artifact-secret-id",
+        "\"url\"",
+        "\"text\"",
+        "\"artifact_id\"",
+    ] {
+        assert!(
+            !text.contains(forbidden),
+            "subtitle selection response leaked forbidden term: {forbidden}"
+        );
+    }
 }
 
 #[tokio::test]

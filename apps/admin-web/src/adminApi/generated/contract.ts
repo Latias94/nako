@@ -27,6 +27,8 @@ export const NAKO_ADMIN_ROUTES = {
   addonResourceSearch: "/admin/v1/addons/:addon_id/resource-search",
   addonResourceSearchSelection: "/admin/v1/addons/:addon_id/resource-search/{search_id}/selections/{selection_id}/intake-candidate",
   addonResourceSearchSelectionLinkCheck: "/admin/v1/addons/:addon_id/resource-search/{search_id}/selections/{selection_id}/link-check",
+  addonSubtitleSearch: "/admin/v1/addons/:addon_id/subtitle-search",
+  addonSubtitleSearchSelection: "/admin/v1/addons/:addon_id/subtitle-search/{search_id}/selections/{selection_id}/selected-reference",
   acquisitionIntakeCandidates: "/admin/v1/acquisition/intake/candidates",
   acquisitionIntakeWatchFolderDiscovery: "/admin/v1/acquisition/intake/watch-folder-discovery",
   generatedArtifactProposals: "/admin/v1/automation/generated-artifacts/proposals",
@@ -439,6 +441,15 @@ export type AddonResourceSearchProviderFinality =
   | "partial"
   | "unknown";
 
+export type AddonSubtitleFormat = "vtt" | "srt";
+
+export type AddonSubtitleProviderStatus = "ok" | "error" | "skipped";
+
+export type AdminAddonSubtitleDeliveryKind =
+  | "inline"
+  | "download_url"
+  | "artifact_ref";
+
 export interface AdminAddonsQuery {
   status?: AddonStatus;
 }
@@ -844,6 +855,63 @@ export interface AdminAddonResourceSearchResponse {
 
 export interface AdminAddonResourceSearchSelectionRequest {
   target_library_id: string;
+}
+
+export interface AdminAddonSubtitleSearchRequest {
+  query: string;
+  languages?: string[];
+  limit?: number;
+}
+
+export interface AdminAddonSubtitleProviderDiagnostic {
+  provider_id: string;
+  status: AddonSubtitleProviderStatus;
+  result_count: number;
+  has_safe_message: boolean;
+}
+
+export interface AdminAddonSubtitleCandidateSummary {
+  selection_id: string;
+  candidate_ref_fingerprint: string;
+  title: string;
+  language: string;
+  format: AddonSubtitleFormat;
+  source: string;
+  release?: string;
+  score: number;
+  delivery_kind: AdminAddonSubtitleDeliveryKind;
+}
+
+export interface AdminAddonSubtitleSearchResponse {
+  addon_id: string;
+  manifest_id: string;
+  search_id: string;
+  status: AdminAddonResourceCallDiagnosticStatus;
+  latency_ms: number;
+  attempts: number;
+  limit: number;
+  total: number;
+  result_count: number;
+  subtitles: AdminAddonSubtitleCandidateSummary[];
+  provider_executions: AdminAddonSubtitleProviderDiagnostic[];
+  http_status?: number;
+  safe_error_code?: string;
+}
+
+export interface AdminAddonSubtitleSelectionRequest {}
+
+export interface AdminAddonSubtitleSelectedReference {
+  addon_id: string;
+  manifest_id: string;
+  search_id: string;
+  selection_id: string;
+  candidate_ref_fingerprint: string;
+  delivery_kind: AdminAddonSubtitleDeliveryKind;
+}
+
+export interface AdminAddonSubtitleSelectionResponse {
+  selected_ref: AdminAddonSubtitleSelectedReference;
+  candidate: AdminAddonSubtitleCandidateSummary;
 }
 
 export interface AdminAddonResourceLinkCheckRequest {

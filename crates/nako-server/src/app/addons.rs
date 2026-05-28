@@ -7,12 +7,14 @@ use std::{
 
 use nako_addon_client::{
     AddonClientError, ReqwestAddonTransport, call_addon_resource_link_check_with_outcome,
-    call_addon_resource_search_with_outcome, call_addon_resource_with_outcome, check_addon_health,
+    call_addon_resource_search_with_outcome, call_addon_resource_with_outcome,
+    call_addon_subtitle_search_with_outcome, check_addon_health,
 };
 use nako_addon_protocol::{
     ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA, ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA,
-    AddonInstallDescriptor, AddonManifest, AddonResourceLink, AddonResourceLinkCheckRequest,
-    AddonResourceSearchRequest, AddonResourceSearchResult, AddonScope,
+    ADDON_SUBTITLE_REQUEST_SCHEMA, AddonInstallDescriptor, AddonManifest, AddonResourceLink,
+    AddonResourceLinkCheckRequest, AddonResourceSearchRequest, AddonResourceSearchResult,
+    AddonScope, AddonSubtitleCandidate, AddonSubtitleDelivery, AddonSubtitleSearchRequest,
     addon_install_guide as protocol_addon_install_guide, ensure_scope_grant,
     validate_install_descriptor, validate_manifest,
 };
@@ -40,7 +42,11 @@ use nako_api::extension::{
     AdminAddonSecretReferenceFieldSurface, AdminAddonSourceCatalogEntriesResponse,
     AdminAddonSourceCatalogEntry, AdminAddonSourceCatalogResolveResponse,
     AdminAddonSourceCatalogSource, AdminAddonSourceCatalogSourceKind,
-    AdminAddonSourceCatalogSourcesResponse, AdminAddonSurfacesResponse, AdminAddonTaskSurface,
+    AdminAddonSourceCatalogSourcesResponse, AdminAddonSubtitleCandidateSummary,
+    AdminAddonSubtitleDeliveryKind, AdminAddonSubtitleProviderDiagnostic,
+    AdminAddonSubtitleSearchRequest, AdminAddonSubtitleSearchResponse,
+    AdminAddonSubtitleSelectedReference, AdminAddonSubtitleSelectionRequest,
+    AdminAddonSubtitleSelectionResponse, AdminAddonSurfacesResponse, AdminAddonTaskSurface,
     IssueAddonTokenRequest, RegisterAddonRequest, ReplaceAddonGrantsRequest,
     UpdateAddonStatusRequest,
 };
@@ -84,6 +90,10 @@ const RESOURCE_SEARCH_DIAGNOSTIC_DEFAULT_LIMIT: usize = 20;
 const RESOURCE_SEARCH_DIAGNOSTIC_MAX_LIMIT: usize = 50;
 const RESOURCE_SEARCH_SESSION_TTL_MS: i64 = 15 * 60 * 1_000;
 const RESOURCE_SEARCH_SESSION_MAX_COUNT: usize = 64;
+const SUBTITLE_SEARCH_DEFAULT_LIMIT: usize = 10;
+const SUBTITLE_SEARCH_MAX_LIMIT: usize = 50;
+const SUBTITLE_SEARCH_SESSION_TTL_MS: i64 = 15 * 60 * 1_000;
+const SUBTITLE_SEARCH_SESSION_MAX_COUNT: usize = 64;
 
 #[derive(Clone, Debug)]
 struct ResourceSearchSession {
@@ -107,6 +117,27 @@ struct ResourceSearchSelectionHandoff {
     manifest_id: String,
     query: String,
     selection: ResourceSearchSelection,
+}
+
+#[derive(Clone, Debug)]
+struct SubtitleSearchSession {
+    search_id: String,
+    addon_id: AddonId,
+    manifest_id: String,
+    created_at_ms: i64,
+    expires_at_ms: i64,
+    selections: HashMap<String, SubtitleSearchSelection>,
+}
+
+#[derive(Clone, Debug)]
+struct SubtitleSearchSelection {
+    candidate: AddonSubtitleCandidate,
+}
+
+#[derive(Clone, Debug)]
+struct SubtitleSearchSelectionHandoff {
+    manifest_id: String,
+    selection: SubtitleSearchSelection,
 }
 
 #[derive(Debug, Default)]
@@ -149,6 +180,58 @@ impl ResourceSearchSessionStore {
 
     fn enforce_max_count(&mut self) {
         while self.sessions.len() > RESOURCE_SEARCH_SESSION_MAX_COUNT {
+            let Some(oldest_search_id) = self
+                .sessions
+                .iter()
+                .min_by_key(|(_, session)| session.created_at_ms)
+                .map(|(search_id, _)| search_id.clone())
+            else {
+                break;
+            };
+            self.sessions.remove(&oldest_search_id);
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+struct SubtitleSearchSessionStore {
+    sessions: HashMap<String, SubtitleSearchSession>,
+}
+
+impl SubtitleSearchSessionStore {
+    fn insert(&mut self, session: SubtitleSearchSession) {
+        self.prune(session.created_at_ms);
+        self.sessions.insert(session.search_id.clone(), session);
+        self.enforce_max_count();
+    }
+
+    fn get_selection(
+        &mut self,
+        addon_id: AddonId,
+        search_id: &str,
+        selection_id: &str,
+        now_ms: i64,
+    ) -> Option<SubtitleSearchSelectionHandoff> {
+        self.prune(now_ms);
+        let session = self.sessions.get(search_id)?;
+        if session.addon_id != addon_id {
+            return None;
+        }
+        let selection = session.selections.get(selection_id)?.clone();
+
+        Some(SubtitleSearchSelectionHandoff {
+            manifest_id: session.manifest_id.clone(),
+            selection,
+        })
+    }
+
+    fn prune(&mut self, now_ms: i64) {
+        self.sessions
+            .retain(|_, session| session.expires_at_ms > now_ms);
+    }
+
+    fn enforce_max_count(&mut self) {
+        while self.sessions.len() > SUBTITLE_SEARCH_SESSION_MAX_COUNT {
             let Some(oldest_search_id) = self
                 .sessions
                 .iter()
@@ -264,6 +347,7 @@ pub(crate) struct AddonAppService {
     store: NakoDatabase,
     registration_store: Arc<dyn AddonRegistrationStore>,
     resource_search_sessions: Arc<Mutex<ResourceSearchSessionStore>>,
+    subtitle_search_sessions: Arc<Mutex<SubtitleSearchSessionStore>>,
     permits: Arc<Semaphore>,
     storage_backends: StorageBackendRegistry,
     runtime: RuntimeSupervisor,
@@ -279,6 +363,7 @@ impl AddonAppService {
         Self {
             registration_store: Arc::new(store.clone()),
             resource_search_sessions: Arc::new(Mutex::new(ResourceSearchSessionStore::default())),
+            subtitle_search_sessions: Arc::new(Mutex::new(SubtitleSearchSessionStore::default())),
             store,
             permits,
             storage_backends,
@@ -1121,6 +1206,159 @@ impl AddonAppService {
         }
     }
 
+    pub async fn search_addon_subtitles(
+        &self,
+        addon_id: AddonId,
+        request: AdminAddonSubtitleSearchRequest,
+    ) -> Result<AdminAddonSubtitleSearchResponse> {
+        let addon = self.get_addon_registration_or_not_found(addon_id).await?;
+        if addon.status == AddonStatus::Unregistered {
+            return Err(NakoError::Conflict {
+                message: format!("addon registration {addon_id} is unregistered"),
+            });
+        }
+        let query = request.query.trim().to_owned();
+        if query.is_empty() {
+            return Err(NakoError::InvalidInput {
+                message: "subtitle search query cannot be empty".to_owned(),
+            });
+        }
+        let limit = normalize_subtitle_search_limit(request.limit)?;
+        let languages = normalize_subtitle_languages(request.languages);
+        let manifest = self.stored_manifest(&addon)?;
+        let granted_scopes = stored_granted_scopes(&addon)?;
+        let search_id = new_subtitle_search_id();
+        let search_request = AddonSubtitleSearchRequest {
+            schema: ADDON_SUBTITLE_REQUEST_SCHEMA.to_owned(),
+            query: query.clone(),
+            languages,
+            limit: Some(limit),
+            context: serde_json::Value::Null,
+        };
+        let started = Instant::now();
+        let response = call_addon_subtitle_search_with_outcome(
+            &ReqwestAddonTransport::default(),
+            &manifest,
+            &granted_scopes,
+            format!("addon-subtitle-search-{addon_id}"),
+            search_request,
+            None,
+        )
+        .await;
+        let latency_ms = started.elapsed().as_millis();
+
+        match response {
+            Ok(outcome) => {
+                let response = outcome.response;
+                let total = response.total;
+                let provider_executions = response
+                    .provider_executions
+                    .into_iter()
+                    .map(AdminAddonSubtitleProviderDiagnostic::from)
+                    .collect();
+                let (subtitles, selections) =
+                    safe_subtitle_search_candidates(&search_id, response.subtitles);
+                let result_count = subtitles.len();
+                let now_ms = super::current_time_ms()?;
+                self.subtitle_search_sessions
+                    .lock()
+                    .await
+                    .insert(SubtitleSearchSession {
+                        search_id: search_id.clone(),
+                        addon_id,
+                        manifest_id: addon.manifest_id.clone(),
+                        created_at_ms: now_ms,
+                        expires_at_ms: now_ms.saturating_add(SUBTITLE_SEARCH_SESSION_TTL_MS),
+                        selections,
+                    });
+
+                Ok(AdminAddonSubtitleSearchResponse {
+                    addon_id,
+                    manifest_id: addon.manifest_id,
+                    search_id,
+                    status: AdminAddonResourceCallDiagnosticStatus::Succeeded,
+                    latency_ms,
+                    attempts: outcome.attempts,
+                    limit,
+                    total,
+                    result_count,
+                    subtitles,
+                    provider_executions,
+                    http_status: Some(outcome.http_status),
+                    safe_error_code: None,
+                })
+            }
+            Err(failure) => {
+                let err = failure.error;
+                Ok(AdminAddonSubtitleSearchResponse {
+                    addon_id,
+                    manifest_id: addon.manifest_id,
+                    search_id,
+                    status: resource_diagnostic_status_for_client_error(&err),
+                    latency_ms,
+                    attempts: failure.attempts,
+                    limit,
+                    total: 0,
+                    result_count: 0,
+                    subtitles: Vec::new(),
+                    provider_executions: Vec::new(),
+                    http_status: err.http_status(),
+                    safe_error_code: Some(safe_resource_diagnostic_error_code(&err).to_owned()),
+                })
+            }
+        }
+    }
+
+    pub async fn select_addon_subtitle_search_candidate(
+        &self,
+        addon_id: AddonId,
+        search_id: String,
+        selection_id: String,
+        _request: AdminAddonSubtitleSelectionRequest,
+    ) -> Result<AdminAddonSubtitleSelectionResponse> {
+        let addon = self.get_addon_registration_or_not_found(addon_id).await?;
+        if addon.status == AddonStatus::Unregistered {
+            return Err(NakoError::Conflict {
+                message: format!("addon registration {addon_id} is unregistered"),
+            });
+        }
+        let handoff = self
+            .subtitle_search_sessions
+            .lock()
+            .await
+            .get_selection(
+                addon_id,
+                &search_id,
+                &selection_id,
+                super::current_time_ms()?,
+            )
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "subtitle_search_selection",
+                id: selection_id.clone(),
+            })?;
+        if handoff.manifest_id != addon.manifest_id {
+            return Err(NakoError::Conflict {
+                message: "subtitle search session belongs to a different addon manifest".to_owned(),
+            });
+        }
+
+        let candidate =
+            admin_subtitle_candidate_summary(&selection_id, &handoff.selection.candidate);
+        let selected_ref = AdminAddonSubtitleSelectedReference {
+            addon_id,
+            manifest_id: handoff.manifest_id,
+            search_id,
+            selection_id,
+            candidate_ref_fingerprint: candidate.candidate_ref_fingerprint.clone(),
+            delivery_kind: candidate.delivery_kind,
+        };
+
+        Ok(AdminAddonSubtitleSelectionResponse {
+            selected_ref,
+            candidate,
+        })
+    }
+
     pub async fn select_addon_resource_search_result(
         &self,
         addon_id: AddonId,
@@ -1699,6 +1937,27 @@ fn normalize_resource_search_diagnostic_limit(limit: Option<usize>) -> Result<us
     Ok(limit.min(RESOURCE_SEARCH_DIAGNOSTIC_MAX_LIMIT))
 }
 
+fn normalize_subtitle_search_limit(limit: Option<usize>) -> Result<usize> {
+    let limit = limit.unwrap_or(SUBTITLE_SEARCH_DEFAULT_LIMIT);
+    if limit == 0 {
+        return Err(NakoError::InvalidInput {
+            message: "subtitle search limit must be greater than zero".to_owned(),
+        });
+    }
+
+    Ok(limit.min(SUBTITLE_SEARCH_MAX_LIMIT))
+}
+
+fn normalize_subtitle_languages(languages: Vec<String>) -> Vec<String> {
+    let mut seen = HashSet::new();
+    languages
+        .into_iter()
+        .filter_map(|language| optional_non_empty(Some(language)))
+        .map(|language| language.to_ascii_lowercase())
+        .filter(|language| seen.insert(language.clone()))
+        .collect()
+}
+
 fn safe_resource_search_results(
     search_id: &str,
     results: Vec<AddonResourceSearchResult>,
@@ -1755,6 +2014,50 @@ fn safe_resource_search_results(
     (summaries, selections)
 }
 
+fn safe_subtitle_search_candidates(
+    search_id: &str,
+    candidates: Vec<AddonSubtitleCandidate>,
+) -> (
+    Vec<AdminAddonSubtitleCandidateSummary>,
+    HashMap<String, SubtitleSearchSelection>,
+) {
+    let mut summaries = Vec::with_capacity(candidates.len());
+    let mut selections = HashMap::new();
+
+    for (candidate_index, candidate) in candidates.into_iter().enumerate() {
+        let selection_id = subtitle_search_selection_id(search_id, candidate_index, &candidate.id);
+        summaries.push(admin_subtitle_candidate_summary(&selection_id, &candidate));
+        selections.insert(selection_id, SubtitleSearchSelection { candidate });
+    }
+
+    (summaries, selections)
+}
+
+fn admin_subtitle_candidate_summary(
+    selection_id: &str,
+    candidate: &AddonSubtitleCandidate,
+) -> AdminAddonSubtitleCandidateSummary {
+    AdminAddonSubtitleCandidateSummary {
+        selection_id: selection_id.to_owned(),
+        candidate_ref_fingerprint: fingerprint_key(&candidate.id),
+        title: candidate.title.clone(),
+        language: candidate.language.clone(),
+        format: candidate.format,
+        source: candidate.source.clone(),
+        release: candidate.release.clone(),
+        score: candidate.score,
+        delivery_kind: subtitle_delivery_kind(&candidate.delivery),
+    }
+}
+
+fn subtitle_delivery_kind(delivery: &AddonSubtitleDelivery) -> AdminAddonSubtitleDeliveryKind {
+    match delivery {
+        AddonSubtitleDelivery::Inline { .. } => AdminAddonSubtitleDeliveryKind::Inline,
+        AddonSubtitleDelivery::DownloadUrl { .. } => AdminAddonSubtitleDeliveryKind::DownloadUrl,
+        AddonSubtitleDelivery::ArtifactRef { .. } => AdminAddonSubtitleDeliveryKind::ArtifactRef,
+    }
+}
+
 fn resource_search_link_uri(link: &AddonResourceLink) -> Option<String> {
     optional_non_empty(Some(link.normalized_url.clone()))
         .or_else(|| optional_non_empty(Some(link.url.clone())))
@@ -1802,6 +2105,17 @@ fn resource_search_selection_id(
     format!("sel_{}", &sha256_hex(&material)[..32])
 }
 
+fn subtitle_search_selection_id(
+    search_id: &str,
+    candidate_index: usize,
+    candidate_id: &str,
+) -> String {
+    let material = format!(
+        "nako.subtitle-search-selection-id.v1\0{search_id}\0{candidate_index}\0{candidate_id}"
+    );
+    format!("sel_{}", &sha256_hex(&material)[..32])
+}
+
 fn resource_link_check_selection_context(
     search_id: &str,
     selection_id: &str,
@@ -1823,6 +2137,10 @@ fn resource_link_check_selection_context(
 
 fn new_resource_search_id() -> String {
     format!("rs_{}", uuid::Uuid::new_v4().simple())
+}
+
+fn new_subtitle_search_id() -> String {
+    format!("sub_{}", uuid::Uuid::new_v4().simple())
 }
 
 fn optional_non_empty(value: Option<String>) -> Option<String> {

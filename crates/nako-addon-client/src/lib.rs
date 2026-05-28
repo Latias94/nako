@@ -4,14 +4,15 @@ use async_trait::async_trait;
 use nako_addon_protocol::{
     ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA, ADDON_RESOURCE_LINK_CHECK_RESPONSE_SCHEMA,
     ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA, ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA,
-    ADDON_RUNTIME_ACCESS_CHECK_PATH, ADDON_RUNTIME_SIDE_EFFECTS_PATH, AddonAccessCheckRequest,
+    ADDON_RUNTIME_ACCESS_CHECK_PATH, ADDON_RUNTIME_SIDE_EFFECTS_PATH,
+    ADDON_SUBTITLE_REQUEST_SCHEMA, ADDON_SUBTITLE_RESPONSE_SCHEMA, AddonAccessCheckRequest,
     AddonAccessCheckResponse, AddonAuth, AddonEventRequest, AddonEventResponse,
     AddonHealthCheckRequest, AddonHealthCheckResponse, AddonManifest, AddonManifestError,
     AddonPermission, AddonResource, AddonResourceLinkCheckRequest, AddonResourceLinkCheckResponse,
     AddonResourceRequest, AddonResourceResponse, AddonResourceSearchRequest,
     AddonResourceSearchResponse, AddonScope, AddonSideEffectResponse, AddonSideEffectTargetKind,
-    AddonTaskRequest, AddonTaskResponse, SubmitAddonArtworkWriteRequest,
-    SubmitAddonMetadataWriteRequest, SubmitAddonSideEffectRequest,
+    AddonSubtitleSearchRequest, AddonSubtitleSearchResponse, AddonTaskRequest, AddonTaskResponse,
+    SubmitAddonArtworkWriteRequest, SubmitAddonMetadataWriteRequest, SubmitAddonSideEffectRequest,
     ensure_event_subscription_scope_grant, ensure_scope_grant, ensure_task_scope_grant,
     validate_event_response, validate_health_check_response, validate_manifest,
     validate_resource_response, validate_task_response,
@@ -90,6 +91,13 @@ pub struct AddonResourceSearchCallOutcome {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AddonResourceLinkCheckCallOutcome {
     pub response: AddonResourceLinkCheckResponse,
+    pub http_status: u16,
+    pub attempts: u32,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AddonSubtitleSearchCallOutcome {
+    pub response: AddonSubtitleSearchResponse,
     pub http_status: u16,
     pub attempts: u32,
 }
@@ -554,6 +562,93 @@ where
     }
 
     Ok(AddonResourceLinkCheckCallOutcome {
+        response,
+        http_status: outcome.http_status,
+        attempts,
+    })
+}
+
+pub async fn call_addon_subtitle_search<T>(
+    transport: &T,
+    manifest: &AddonManifest,
+    granted_scopes: &[AddonScope],
+    request_id: impl Into<String>,
+    request: AddonSubtitleSearchRequest,
+    bearer_token: Option<&str>,
+) -> AddonClientResult<AddonSubtitleSearchResponse>
+where
+    T: AddonTransport,
+{
+    call_addon_subtitle_search_with_outcome(
+        transport,
+        manifest,
+        granted_scopes,
+        request_id,
+        request,
+        bearer_token,
+    )
+    .await
+    .map(|outcome| outcome.response)
+    .map_err(|failure| failure.error)
+}
+
+pub async fn call_addon_subtitle_search_with_outcome<T>(
+    transport: &T,
+    manifest: &AddonManifest,
+    granted_scopes: &[AddonScope],
+    request_id: impl Into<String>,
+    request: AddonSubtitleSearchRequest,
+    bearer_token: Option<&str>,
+) -> Result<AddonSubtitleSearchCallOutcome, AddonResourceCallFailure>
+where
+    T: AddonTransport,
+{
+    ensure_subtitle_search_scope_contract(manifest, granted_scopes)
+        .map_err(resource_call_setup_failure)?;
+    if request.schema != ADDON_SUBTITLE_REQUEST_SCHEMA {
+        return Err(resource_call_setup_failure(
+            AddonClientError::InvalidRequest {
+                message: format!(
+                    "subtitle request schema {} did not match {}",
+                    request.schema, ADDON_SUBTITLE_REQUEST_SCHEMA
+                ),
+            },
+        ));
+    }
+    let payload = serde_json::to_value(request)
+        .map_err(invalid_subtitle_request_envelope)
+        .map_err(resource_call_setup_failure)?;
+    let outcome = call_addon_resource_with_outcome(
+        transport,
+        manifest,
+        AddonResource::Subtitle,
+        granted_scopes,
+        request_id,
+        payload,
+        bearer_token,
+    )
+    .await?;
+    let attempts = outcome.attempts;
+    let response = serde_json::from_value::<AddonSubtitleSearchResponse>(outcome.response.payload)
+        .map_err(|error| AddonResourceCallFailure {
+            error: AddonClientError::InvalidResponse {
+                message: format!("failed to parse subtitle response payload: {error}"),
+            },
+            attempts,
+        })?;
+    if response.schema != ADDON_SUBTITLE_RESPONSE_SCHEMA {
+        return Err(AddonResourceCallFailure {
+            error: AddonClientError::InvalidResponse {
+                message: format!(
+                    "subtitle response schema {} did not match {}",
+                    response.schema, ADDON_SUBTITLE_RESPONSE_SCHEMA
+                ),
+            },
+            attempts,
+        });
+    }
+
+    Ok(AddonSubtitleSearchCallOutcome {
         response,
         http_status: outcome.http_status,
         attempts,
@@ -1099,6 +1194,31 @@ fn ensure_resource_link_check_scope_contract(
     ensure_scope_grant(manifest, AddonResource::ResourceLinkCheck, granted_scopes)
 }
 
+fn ensure_subtitle_search_scope_contract(
+    manifest: &AddonManifest,
+    granted_scopes: &[AddonScope],
+) -> Result<(), AddonManifestError> {
+    validate_manifest(manifest)?;
+    let declaration = manifest
+        .resources
+        .iter()
+        .find(|candidate| candidate.kind == AddonResource::Subtitle)
+        .ok_or(AddonManifestError::ResourceNotDeclared {
+            resource: AddonResource::Subtitle,
+        })?;
+    if !declaration
+        .required_scopes
+        .contains(&AddonScope::SubtitleRead)
+    {
+        return Err(AddonManifestError::MissingDeclaredScope {
+            resource: AddonResource::Subtitle,
+            scope: AddonScope::SubtitleRead,
+        });
+    }
+
+    ensure_scope_grant(manifest, AddonResource::Subtitle, granted_scopes)
+}
+
 fn invalid_resource_search_request_envelope(error: serde_json::Error) -> AddonManifestError {
     AddonManifestError::InvalidEnvelope {
         message: format!("failed to serialize resource_search request payload: {error}"),
@@ -1108,6 +1228,12 @@ fn invalid_resource_search_request_envelope(error: serde_json::Error) -> AddonMa
 fn invalid_resource_link_check_request_envelope(error: serde_json::Error) -> AddonManifestError {
     AddonManifestError::InvalidEnvelope {
         message: format!("failed to serialize resource_link_check request payload: {error}"),
+    }
+}
+
+fn invalid_subtitle_request_envelope(error: serde_json::Error) -> AddonManifestError {
+    AddonManifestError::InvalidEnvelope {
+        message: format!("failed to serialize subtitle request payload: {error}"),
     }
 }
 
@@ -1228,12 +1354,15 @@ mod tests {
     use nako_addon_protocol::{
         ADDON_PROTOCOL_VERSION, ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA,
         ADDON_RESOURCE_LINK_CHECK_RESPONSE_SCHEMA, ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA,
-        ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA, AddonArtifact, AddonEventSubscriptionDeclaration,
+        ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA, ADDON_SUBTITLE_REQUEST_SCHEMA,
+        ADDON_SUBTITLE_RESPONSE_SCHEMA, AddonArtifact, AddonEventSubscriptionDeclaration,
         AddonMergedResourceLink, AddonResourceDeclaration, AddonResourceLink,
         AddonResourceLinkCheckRequest, AddonResourceLinkCheckResponse,
         AddonResourceLinkCheckStatus, AddonResourceLinkType, AddonResourceSearchIntent,
         AddonResourceSearchProviderExecution, AddonResourceSearchProviderFinality,
-        AddonResourceSearchProviderStatus, AddonResourceSearchResult, AddonTaskDeclaration,
+        AddonResourceSearchProviderStatus, AddonResourceSearchResult, AddonSubtitleCandidate,
+        AddonSubtitleDelivery, AddonSubtitleFormat, AddonSubtitleProviderExecution,
+        AddonSubtitleProviderStatus, AddonTaskDeclaration,
     };
 
     use super::*;
@@ -1780,6 +1909,191 @@ mod tests {
             &[AddonScope::AcquisitionLinkCheckRead],
             "resource-link-check-6",
             resource_link_check_request(),
+            Some("token-1"),
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(err.attempts, 1);
+        assert!(matches!(
+            err.error,
+            AddonClientError::InvalidResponse { .. }
+        ));
+        assert_eq!(transport.requests().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn subtitle_search_helper_calls_declared_path_with_typed_contract() {
+        let manifest = subtitle_manifest();
+        let payload = subtitle_response_payload();
+        let transport = MockTransport::with_response(Ok(AddonHttpResponse {
+            status: 200,
+            body: subtitle_response_json(&manifest, "subtitle-search-1", payload.clone()),
+        }));
+
+        let outcome = call_addon_subtitle_search_with_outcome(
+            &transport,
+            &manifest,
+            &[AddonScope::SubtitleRead],
+            "subtitle-search-1",
+            subtitle_search_request(),
+            Some("token-1"),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(outcome.http_status, 200);
+        assert_eq!(outcome.attempts, 1);
+        assert_eq!(outcome.response, payload);
+        let requests = transport.requests();
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].url, "https://example.test/addon/subtitle");
+        assert_eq!(
+            header_value(&requests[0], "x-nako-addon-resource"),
+            Some("subtitle")
+        );
+        assert_eq!(
+            header_value(&requests[0], "authorization"),
+            Some("Bearer token-1")
+        );
+        assert_eq!(requests[0].timeout_ms, 8_000);
+
+        let body: serde_json::Value = serde_json::from_str(&requests[0].body).unwrap();
+        assert_eq!(body["resource"], "subtitle");
+        assert_eq!(body["payload"]["schema"], ADDON_SUBTITLE_REQUEST_SCHEMA);
+        assert_eq!(body["payload"]["query"], "Demo Movie 2026");
+        assert_eq!(body["payload"]["languages"], serde_json::json!(["en"]));
+    }
+
+    #[tokio::test]
+    async fn subtitle_search_helper_requires_granted_read_scope_before_http() {
+        let manifest = subtitle_manifest();
+        let transport = MockTransport::default();
+
+        let err = call_addon_subtitle_search_with_outcome(
+            &transport,
+            &manifest,
+            &[],
+            "subtitle-search-2",
+            subtitle_search_request(),
+            Some("token-1"),
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(err.attempts, 0);
+        assert!(matches!(
+            err.error,
+            AddonClientError::Protocol(AddonManifestError::MissingDeclaredScope {
+                resource: AddonResource::Subtitle,
+                scope: AddonScope::SubtitleRead,
+            })
+        ));
+        assert!(transport.requests().is_empty());
+    }
+
+    #[tokio::test]
+    async fn subtitle_search_helper_requires_manifest_read_scope_contract() {
+        let mut manifest = subtitle_manifest();
+        manifest.resources[0].required_scopes.clear();
+        let transport = MockTransport::default();
+
+        let err = call_addon_subtitle_search_with_outcome(
+            &transport,
+            &manifest,
+            &[AddonScope::SubtitleRead],
+            "subtitle-search-3",
+            subtitle_search_request(),
+            Some("token-1"),
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(err.attempts, 0);
+        assert!(matches!(
+            err.error,
+            AddonClientError::Protocol(AddonManifestError::MissingDeclaredScope {
+                resource: AddonResource::Subtitle,
+                scope: AddonScope::SubtitleRead,
+            })
+        ));
+        assert!(transport.requests().is_empty());
+    }
+
+    #[tokio::test]
+    async fn subtitle_search_helper_rejects_wrong_request_schema_before_http() {
+        let manifest = subtitle_manifest();
+        let transport = MockTransport::default();
+        let mut request = subtitle_search_request();
+        request.schema = "nako.addon.subtitle.request.v0".to_owned();
+
+        let err = call_addon_subtitle_search_with_outcome(
+            &transport,
+            &manifest,
+            &[AddonScope::SubtitleRead],
+            "subtitle-search-4",
+            request,
+            Some("token-1"),
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(err.attempts, 0);
+        assert!(matches!(err.error, AddonClientError::InvalidRequest { .. }));
+        assert!(transport.requests().is_empty());
+    }
+
+    #[tokio::test]
+    async fn subtitle_search_helper_rejects_wrong_response_schema() {
+        let manifest = subtitle_manifest();
+        let mut payload = subtitle_response_payload();
+        payload.schema = "nako.addon.subtitle.response.v0".to_owned();
+        let transport = MockTransport::with_response(Ok(AddonHttpResponse {
+            status: 200,
+            body: subtitle_response_json(&manifest, "subtitle-search-5", payload),
+        }));
+
+        let err = call_addon_subtitle_search_with_outcome(
+            &transport,
+            &manifest,
+            &[AddonScope::SubtitleRead],
+            "subtitle-search-5",
+            subtitle_search_request(),
+            Some("token-1"),
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(err.attempts, 1);
+        assert!(matches!(
+            err.error,
+            AddonClientError::InvalidResponse { .. }
+        ));
+        assert_eq!(transport.requests().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn subtitle_search_helper_rejects_invalid_typed_response_payload() {
+        let manifest = subtitle_manifest();
+        let transport = MockTransport::with_response(Ok(AddonHttpResponse {
+            status: 200,
+            body: serde_json::to_string(&AddonResourceResponse {
+                protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+                addon_id: manifest.id.clone(),
+                resource: AddonResource::Subtitle,
+                request_id: "subtitle-search-6".to_owned(),
+                payload: serde_json::json!({"schema": ADDON_SUBTITLE_RESPONSE_SCHEMA}),
+                artifacts: Vec::new(),
+            })
+            .unwrap(),
+        }));
+
+        let err = call_addon_subtitle_search_with_outcome(
+            &transport,
+            &manifest,
+            &[AddonScope::SubtitleRead],
+            "subtitle-search-6",
+            subtitle_search_request(),
             Some("token-1"),
         )
         .await
@@ -2424,6 +2738,88 @@ mod tests {
             protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
             addon_id: manifest.id.clone(),
             resource: AddonResource::ResourceLinkCheck,
+            request_id: request_id.to_owned(),
+            payload: serde_json::to_value(payload).unwrap(),
+            artifacts: Vec::new(),
+        })
+        .unwrap()
+    }
+
+    fn subtitle_manifest() -> AddonManifest {
+        AddonManifest {
+            id: "subtitle-provider".to_owned(),
+            name: "Subtitle Provider".to_owned(),
+            version: "0.1.0".to_owned(),
+            protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+            base_url: "https://example.test/addon".to_owned(),
+            description: None,
+            resources: vec![AddonResourceDeclaration {
+                kind: AddonResource::Subtitle,
+                path: "/subtitle".to_owned(),
+                input_schema: Some(ADDON_SUBTITLE_REQUEST_SCHEMA.to_owned()),
+                output_schema: Some(ADDON_SUBTITLE_RESPONSE_SCHEMA.to_owned()),
+                required_scopes: vec![AddonScope::SubtitleRead],
+                timeout_ms: Some(8_000),
+                max_attempts: Some(1),
+            }],
+            entry_points: Vec::new(),
+            hosted_pages: Vec::new(),
+            configuration_schema: None,
+            secret_reference_fields: Vec::new(),
+            event_subscriptions: Vec::new(),
+            tasks: Vec::new(),
+            auth: AddonAuth::Bearer,
+            default_timeout_ms: Some(10_000),
+            default_max_attempts: Some(2),
+            scopes: vec![AddonScope::SubtitleRead],
+        }
+    }
+
+    fn subtitle_search_request() -> AddonSubtitleSearchRequest {
+        AddonSubtitleSearchRequest {
+            schema: ADDON_SUBTITLE_REQUEST_SCHEMA.to_owned(),
+            query: "Demo Movie 2026".to_owned(),
+            languages: vec!["en".to_owned()],
+            limit: Some(10),
+            context: serde_json::json!({"item_id": "item-1"}),
+        }
+    }
+
+    fn subtitle_response_payload() -> AddonSubtitleSearchResponse {
+        AddonSubtitleSearchResponse {
+            schema: ADDON_SUBTITLE_RESPONSE_SCHEMA.to_owned(),
+            query: "Demo Movie 2026".to_owned(),
+            total: 1,
+            subtitles: vec![AddonSubtitleCandidate {
+                id: "subtitle-1".to_owned(),
+                title: "Demo Movie English".to_owned(),
+                language: "en".to_owned(),
+                format: AddonSubtitleFormat::Vtt,
+                source: "fixture".to_owned(),
+                release: Some("WEB-DL".to_owned()),
+                score: 920,
+                delivery: AddonSubtitleDelivery::Inline {
+                    text: "WEBVTT\n\nsecret subtitle text".to_owned(),
+                },
+            }],
+            provider_executions: vec![AddonSubtitleProviderExecution {
+                provider_id: "fixture".to_owned(),
+                status: AddonSubtitleProviderStatus::Ok,
+                result_count: 1,
+                safe_message: None,
+            }],
+        }
+    }
+
+    fn subtitle_response_json(
+        manifest: &AddonManifest,
+        request_id: &str,
+        payload: AddonSubtitleSearchResponse,
+    ) -> String {
+        serde_json::to_string(&AddonResourceResponse {
+            protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+            addon_id: manifest.id.clone(),
+            resource: AddonResource::Subtitle,
             request_id: request_id.to_owned(),
             payload: serde_json::to_value(payload).unwrap(),
             artifacts: Vec::new(),
