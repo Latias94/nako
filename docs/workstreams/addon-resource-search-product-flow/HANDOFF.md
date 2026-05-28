@@ -1,6 +1,6 @@
 # Addon Resource Search Product Flow - Handoff
 
-Status: active. RSPF-010 is complete; RSPF-020 is next.
+Status: active. RSPF-010 and RSPF-020 are complete; RSPF-030 is next.
 
 ## Current State
 
@@ -12,21 +12,21 @@ Status: active. RSPF-010 is complete; RSPF-020 is next.
 
 ## Next Task
 
-RSPF-020: add Admin API DTOs and route constants for product search and
-selection.
+RSPF-030: implement server-side product search sessions and safe result
+shaping.
 
 Expected behavior:
 
-- Add product DTOs distinct from diagnostic DTOs.
-- Include opaque `search_id` and `selection_id` concepts.
-- Return display-safe result/link summaries.
+- Use typed resource-search addon calls.
+- Return display-safe result/link summaries with opaque selection IDs.
+- Keep raw links inside a transient host-owned selection session.
 - Do not expose raw link URLs, passwords, context payloads, or provider
   exception text.
 
 ## Useful Gate
 
 ```bash
-cargo nextest run -p nako-api admin_contract --no-fail-fast
+cargo nextest run -p nako-server addon_resource_search_product --no-fail-fast
 ```
 
 ## Watch Points

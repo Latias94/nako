@@ -14,12 +14,12 @@ Last updated: 2026-05-28
 
 ## M1 - Admin Contract For Product Search
 
-- [ ] RSPF-020 [owner=Codex] [deps=RSPF-010] [scope=crates/nako-api/src/extension.rs,crates/nako-api/src/admin_contract.rs]
+- [x] RSPF-020 [owner=Codex] [deps=RSPF-010] [scope=crates/nako-api/src/extension.rs,crates/nako-api/src/admin_contract.rs]
   Goal: Add Admin DTOs and route constants for product resource search and explicit selection.
   Validation: `cargo nextest run -p nako-api admin_contract --no-fail-fast`
   Review: Contract must not expose raw URL/password/context/provider exception fields.
   Evidence: crates/nako-api/src/extension.rs
-  Handoff: Implement server app behavior in RSPF-030/RSPF-040.
+  Handoff: Complete. Product DTOs expose display-safe results, redacted link summaries, and opaque `search_id`/`selection_id` values.
 
 ## M2 - Search Session And Safe Results
 

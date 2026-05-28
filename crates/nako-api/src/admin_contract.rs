@@ -1,6 +1,6 @@
 use crate::admin::ADMIN_API_VERSION;
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 47] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 49] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -32,6 +32,11 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 47] = [
     (
         "addonResourceSearchDiagnostic",
         "addons/:addon_id/diagnostics/resource-search",
+    ),
+    ("addonResourceSearch", "addons/:addon_id/resource-search"),
+    (
+        "addonResourceSearchSelection",
+        "addons/:addon_id/resource-search/{search_id}/selections/{selection_id}/intake-candidate",
     ),
     (
         "acquisitionIntakeCandidates",
@@ -847,6 +852,84 @@ export interface AdminAddonResourceSearchDiagnosticResponse {
   provider_executions: AdminAddonResourceSearchProviderDiagnostic[];
   http_status?: number;
   safe_error_code?: string;
+}
+
+export interface AdminAddonResourceSearchRequest {
+  query: string;
+  intent: AddonResourceSearchIntent;
+  limit?: number;
+  sources?: string[];
+  link_types?: AddonResourceLinkType[];
+  refresh?: boolean;
+  context?: Record<string, unknown>;
+}
+
+export interface AdminAddonResourceSearchResultSummary {
+  result_ref_fingerprint: string;
+  title: string;
+  content?: string;
+  source: string;
+  tags?: string[];
+  score: number;
+  links: AdminAddonResourceSearchLinkSummary[];
+}
+
+export interface AdminAddonResourceSearchLinkSummary {
+  selection_id: string;
+  link_type: AddonResourceLinkType;
+  source: string;
+  source_ref_redacted: string;
+  has_password: boolean;
+  has_note: boolean;
+}
+
+export interface AdminAddonResourceSearchResponse {
+  addon_id: string;
+  manifest_id: string;
+  search_id: string;
+  status: AdminAddonResourceCallDiagnosticStatus;
+  latency_ms: number;
+  attempts: number;
+  limit: number;
+  total: number;
+  result_count: number;
+  results: AdminAddonResourceSearchResultSummary[];
+  provider_executions: AdminAddonResourceSearchProviderDiagnostic[];
+  http_status?: number;
+  safe_error_code?: string;
+}
+
+export interface AdminAddonResourceSearchSelectionRequest {
+  target_library_id: string;
+}
+
+export interface AddonAcquisitionCandidateSummary {
+  id: string;
+  target_library_id: string;
+  state: string;
+  source_kind: string;
+  source_scheme: string | null;
+  source_ref_redacted: string;
+  source_key_fingerprint: string;
+  has_display_name: boolean;
+  has_intended_locator: boolean;
+  size_bytes: number | null;
+  has_fingerprint: boolean;
+  has_diagnostics: boolean;
+  managed_import_artifact_id: string | null;
+  writes_library: boolean;
+  creates_media_source: boolean;
+  creates_managed_import: boolean;
+  promotion_apply: boolean;
+}
+
+export interface AdminAddonResourceSearchSelectionResponse {
+  addon_id: string;
+  manifest_id: string;
+  search_id: string;
+  selection_id: string;
+  candidate: AddonAcquisitionCandidateSummary;
+  idempotent_replay: boolean;
 }
 
 export interface AdminAddonInstallGuideResponse {
@@ -2230,6 +2313,13 @@ mod tests {
             "AdminAddonResourceSearchDiagnosticRequest",
             "AdminAddonResourceSearchDiagnosticResponse",
             "AdminAddonResourceSearchProviderDiagnostic",
+            "AdminAddonResourceSearchRequest",
+            "AdminAddonResourceSearchResponse",
+            "AdminAddonResourceSearchResultSummary",
+            "AdminAddonResourceSearchLinkSummary",
+            "AdminAddonResourceSearchSelectionRequest",
+            "AdminAddonResourceSearchSelectionResponse",
+            "AddonAcquisitionCandidateSummary",
             "IssueAddonTokenRequest",
             "AddonTokensResponse",
             "AddonTokenIssuedResponse",

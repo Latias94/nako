@@ -848,6 +848,79 @@ pub struct AdminAddonResourceSearchDiagnosticResponse {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonResourceSearchRequest {
+    pub query: String,
+    pub intent: AddonResourceSearchIntent,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<usize>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sources: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub link_types: Vec<AddonResourceLinkType>,
+    #[serde(default)]
+    pub refresh: bool,
+    #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
+    pub context: serde_json::Value,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonResourceSearchResultSummary {
+    pub result_ref_fingerprint: String,
+    pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
+    pub source: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<String>,
+    pub score: u16,
+    pub links: Vec<AdminAddonResourceSearchLinkSummary>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonResourceSearchLinkSummary {
+    pub selection_id: String,
+    pub link_type: AddonResourceLinkType,
+    pub source: String,
+    pub source_ref_redacted: String,
+    pub has_password: bool,
+    pub has_note: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonResourceSearchResponse {
+    pub addon_id: AddonId,
+    pub manifest_id: String,
+    pub search_id: String,
+    pub status: AdminAddonResourceCallDiagnosticStatus,
+    pub latency_ms: u128,
+    pub attempts: u32,
+    pub limit: usize,
+    pub total: usize,
+    pub result_count: usize,
+    pub results: Vec<AdminAddonResourceSearchResultSummary>,
+    pub provider_executions: Vec<AdminAddonResourceSearchProviderDiagnostic>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub http_status: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub safe_error_code: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonResourceSearchSelectionRequest {
+    pub target_library_id: LibraryId,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminAddonResourceSearchSelectionResponse {
+    pub addon_id: AddonId,
+    pub manifest_id: String,
+    pub search_id: String,
+    pub selection_id: String,
+    pub candidate: AddonAcquisitionCandidateSummary,
+    pub idempotent_replay: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminAddonInstallGuideResponse {
     pub addon_id: AddonId,
     pub manifest_id: String,
@@ -1383,6 +1456,65 @@ mod tests {
     use std::str::FromStr;
 
     use super::*;
+
+    #[test]
+    fn admin_resource_search_product_response_uses_opaque_link_refs() {
+        let response = AdminAddonResourceSearchResponse {
+            addon_id: AddonId::new(),
+            manifest_id: "example.resource-search".to_owned(),
+            search_id: "search_opaque_1".to_owned(),
+            status: AdminAddonResourceCallDiagnosticStatus::Succeeded,
+            latency_ms: 12,
+            attempts: 1,
+            limit: 20,
+            total: 1,
+            result_count: 1,
+            results: vec![AdminAddonResourceSearchResultSummary {
+                result_ref_fingerprint: "sha256:0123456789abcdef0123456789abcdef".to_owned(),
+                title: "Display Title".to_owned(),
+                content: Some("Display content".to_owned()),
+                source: "pansou".to_owned(),
+                tags: vec!["display-tag".to_owned()],
+                score: 930,
+                links: vec![AdminAddonResourceSearchLinkSummary {
+                    selection_id: "sel_opaque_1".to_owned(),
+                    link_type: AddonResourceLinkType::Quark,
+                    source: "quark".to_owned(),
+                    source_ref_redacted: "https://<redacted>".to_owned(),
+                    has_password: true,
+                    has_note: true,
+                }],
+            }],
+            provider_executions: vec![AdminAddonResourceSearchProviderDiagnostic {
+                provider_id: "pansou".to_owned(),
+                status: AddonResourceSearchProviderStatus::Ok,
+                result_count: 1,
+                finality: AddonResourceSearchProviderFinality::Complete,
+                has_safe_message: false,
+            }],
+            http_status: Some(200),
+            safe_error_code: None,
+        };
+
+        let value = serde_json::to_value(&response).unwrap();
+        let body = value.to_string();
+
+        assert_eq!(value["search_id"], "search_opaque_1");
+        assert_eq!(
+            value["results"][0]["links"][0]["selection_id"],
+            "sel_opaque_1"
+        );
+        assert_eq!(
+            value["results"][0]["links"][0]["source_ref_redacted"],
+            "https://<redacted>"
+        );
+        assert!(!body.contains("https://pan.quark.cn"));
+        assert!(!body.contains("normalized_url"));
+        assert!(!body.contains("\"url\""));
+        assert!(!body.contains("secret-code"));
+        assert!(!body.contains("request_context"));
+        assert!(!body.contains("provider exception"));
+    }
 
     #[test]
     fn addon_runtime_access_check_wire_shape_matches_public_protocol() {

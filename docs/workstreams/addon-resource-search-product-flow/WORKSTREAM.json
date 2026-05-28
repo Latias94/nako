@@ -7,9 +7,10 @@
   "scope_kind": "admin-api",
   "problem": "Nako can call resource-search addons for diagnostics and can record selected links into intake, but it does not yet have a product API that returns safe result cards and opaque selections.",
   "task_prefix": "RSPF",
-  "current_task": "RSPF-020",
+  "current_task": "RSPF-030",
   "completed_tasks": [
-    "RSPF-010"
+    "RSPF-010",
+    "RSPF-020"
   ],
   "authoritative_docs": [
     {
@@ -46,6 +47,9 @@
     "docs/workstreams/addon-resource-search-product-flow/EVIDENCE_AND_GATES.md",
     "docs/workstreams/addon-resource-search-protocol/CLOSEOUT.md",
     "crates/nako-api/src/extension.rs",
+    "crates/nako-api/src/admin_contract.rs",
+    "apps/admin-web/src/adminApi/generated/contract.ts",
+    "web/src/api/admin/generated/contract.ts",
     "crates/nako-server/src/app/addons.rs",
     "crates/nako-server/src/http/addons.rs"
   ],
@@ -57,7 +61,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "RSPF-020",
-    "notes": "Implement Nako Admin product-search DTOs first, then server search sessions and explicit selection into intake."
+    "next_task": "RSPF-030",
+    "notes": "Implement server search sessions and safe result shaping next, then explicit selection into intake."
   }
 }
