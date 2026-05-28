@@ -369,10 +369,11 @@ pub struct MediaProbeDto {
 }
 
 public_string_value! {
-    pub enum BrowserPlaybackMode {
+pub enum BrowserPlaybackMode {
         Direct => "direct",
         Remux => "remux",
         Hls => "hls",
+        Subtitle => "subtitle",
     }
 }
 
@@ -380,6 +381,7 @@ public_string_value! {
     pub enum BrowserPlaybackUrlKind {
         Stream => "stream",
         Playlist => "playlist",
+        Subtitle => "subtitle",
     }
 }
 
@@ -464,6 +466,8 @@ pub struct BrowserPlaybackTicketRequest {
     pub mode: BrowserPlaybackMode,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capabilities: Option<BrowserPlaybackCapabilitiesDto>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subtitle_stream_index: Option<u32>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

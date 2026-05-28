@@ -1592,6 +1592,7 @@ mod tests {
                         output_container: Some(BrowserPlaybackOutputContainer::Mp4),
                         ..BrowserPlaybackCapabilitiesDto::default()
                     }),
+                    subtitle_stream_index: None,
                 },
             )
             .await

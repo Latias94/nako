@@ -75,7 +75,11 @@ use crate::app::acquisition_intake::{
     AcquisitionIntakeCandidateDiagnostic, RecordResourceSearchSelectionRequest,
 };
 
-use super::{runtime::RuntimeSupervisor, storage::StorageBackendRegistry};
+use super::{
+    runtime::RuntimeSupervisor,
+    storage::StorageBackendRegistry,
+    subtitle_sidecar::{SubtitleSidecarRole, safe_media_file_name, subtitle_sidecar_file_name},
+};
 
 mod artwork_write;
 mod event_runtime;
@@ -1551,13 +1555,13 @@ impl AddonAppService {
             candidate_ref_fingerprint: candidate_summary.candidate_ref_fingerprint.clone(),
             delivery_kind: candidate_summary.delivery_kind,
         };
-        let media_file_name = safe_media_file_name(&source.file_name);
         let sidecar_file_name = subtitle_sidecar_file_name(
-            &media_file_name,
+            &source.file_name,
             &language,
-            request.sidecar_role,
-            request.format,
-        );
+            subtitle_sidecar_role(request.sidecar_role),
+            request.format.as_str(),
+        )?;
+        let media_file_name = safe_media_file_name(&source.file_name);
         let mut reasons = vec![AdminSubtitleImportPlanReason::MediaSourceMatchesItem];
         let mut status = AdminSubtitleImportPlanStatus::Ready;
         if candidate.language.trim().to_ascii_lowercase() != language {
@@ -2658,46 +2662,12 @@ fn new_subtitle_search_id() -> String {
     format!("sub_{}", uuid::Uuid::new_v4().simple())
 }
 
-fn safe_media_file_name(file_name: &str) -> String {
-    let leaf = file_name
-        .rsplit(['/', '\\'])
-        .next()
-        .unwrap_or(file_name)
-        .trim();
-    optional_non_empty(Some(leaf.to_owned())).unwrap_or_else(|| "media".to_owned())
-}
-
-fn subtitle_sidecar_file_name(
-    media_file_name: &str,
-    language: &str,
-    role: AdminSubtitleSidecarRole,
-    format: nako_addon_protocol::AddonSubtitleFormat,
-) -> String {
-    let stem = media_file_stem(media_file_name);
-    let mut parts = vec![stem, language.to_owned()];
-    if let Some(role_segment) = subtitle_sidecar_role_segment(role) {
-        parts.push(role_segment.to_owned());
-    }
-
-    format!("{}.{}", parts.join("."), format.as_str())
-}
-
-fn media_file_stem(file_name: &str) -> String {
-    let file_name = safe_media_file_name(file_name);
-    let stem = file_name
-        .rsplit_once('.')
-        .and_then(|(stem, _)| optional_non_empty(Some(stem.to_owned())))
-        .unwrap_or(file_name);
-
-    optional_non_empty(Some(stem)).unwrap_or_else(|| "media".to_owned())
-}
-
-fn subtitle_sidecar_role_segment(role: AdminSubtitleSidecarRole) -> Option<&'static str> {
+fn subtitle_sidecar_role(role: AdminSubtitleSidecarRole) -> SubtitleSidecarRole {
     match role {
-        AdminSubtitleSidecarRole::Default => None,
-        AdminSubtitleSidecarRole::Forced => Some("forced"),
-        AdminSubtitleSidecarRole::Sdh => Some("sdh"),
-        AdminSubtitleSidecarRole::Commentary => Some("commentary"),
+        AdminSubtitleSidecarRole::Default => SubtitleSidecarRole::Default,
+        AdminSubtitleSidecarRole::Forced => SubtitleSidecarRole::Forced,
+        AdminSubtitleSidecarRole::Sdh => SubtitleSidecarRole::Sdh,
+        AdminSubtitleSidecarRole::Commentary => SubtitleSidecarRole::Commentary,
     }
 }
 

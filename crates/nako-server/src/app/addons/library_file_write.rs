@@ -16,7 +16,10 @@ use nako_vfs::{
 use tokio::sync::Semaphore;
 
 use super::{
-    super::{nfo::ensure_nfo_export_writable, storage::StorageBackendRegistry},
+    super::{
+        nfo::ensure_nfo_export_writable, storage::StorageBackendRegistry,
+        subtitle_sidecar::subtitle_sidecar_uri_for_source,
+    },
     side_effect_apply::AddonSideEffectApplyCommand,
 };
 
@@ -431,36 +434,4 @@ async fn storage_object_exists(
         Err(NakoError::NotFound { .. }) => Ok(false),
         Err(err) => Err(err),
     }
-}
-
-fn subtitle_sidecar_uri_for_source(source_uri: &StorageUri, file_name: &str) -> Result<StorageUri> {
-    let file_name = file_name.trim();
-    if file_name.is_empty() || file_name.contains(['/', '\\']) {
-        return Err(NakoError::InvalidInput {
-            message: "subtitle sidecar file name must be a safe leaf name".to_owned(),
-        });
-    }
-
-    let source_path = source_uri
-        .path_part()
-        .trim_start_matches(['/', '\\'])
-        .replace('\\', "/");
-    if source_path.is_empty() || source_path.ends_with('/') {
-        return Err(NakoError::InvalidInput {
-            message: "media source locator does not point at a file".to_owned(),
-        });
-    }
-
-    let sidecar_path = source_path
-        .rsplit_once('/')
-        .map(|(dir, _leaf)| {
-            if dir.is_empty() {
-                file_name.to_owned()
-            } else {
-                format!("{dir}/{file_name}")
-            }
-        })
-        .unwrap_or_else(|| file_name.to_owned());
-
-    StorageUri::from_parts(source_uri.scheme(), &sidecar_path)
 }

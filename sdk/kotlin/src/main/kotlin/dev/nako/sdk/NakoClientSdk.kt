@@ -44,6 +44,7 @@ public val NAKO_PUBLIC_PATHS: List<String> = listOf(
     "/sources/{source_id}/stream",
     "/sources/{source_id}/stream/remux",
     "/sources/{source_id}/stream/hls/playlist.m3u8",
+    "/sources/{source_id}/subtitles/{stream_index}",
     "/playback/sessions/{session_id}",
     "/playback/sessions/{session_id}/cancel",
     "/playback/sessions/{session_id}/heartbeat",
@@ -348,6 +349,12 @@ public object NakoPublicClientRequests {
             ),
         )
 
+    public fun getSourceSubtitle(sourceId: String, streamIndex: Int): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "GET",
+            pathAndQuery = "/sources/${encodePathSegment(sourceId)}/subtitles/${encodePathSegment(streamIndex.toString())}",
+        )
+
     public fun getPlaybackSession(sessionId: String): NakoRequestDescriptor =
         NakoRequestDescriptor(
             method = "GET",
@@ -553,11 +560,13 @@ public value class BrowserPlaybackTicketRequestMode(
         public val Direct: BrowserPlaybackTicketRequestMode = BrowserPlaybackTicketRequestMode("direct")
         public val Remux: BrowserPlaybackTicketRequestMode = BrowserPlaybackTicketRequestMode("remux")
         public val Hls: BrowserPlaybackTicketRequestMode = BrowserPlaybackTicketRequestMode("hls")
+        public val Subtitle: BrowserPlaybackTicketRequestMode = BrowserPlaybackTicketRequestMode("subtitle")
 
         public val KnownWireValues: Set<String> = setOf(
             "direct",
             "remux",
             "hls",
+            "subtitle",
         )
     }
 }
@@ -574,11 +583,13 @@ public value class BrowserPlaybackTicketResponseMode(
         public val Direct: BrowserPlaybackTicketResponseMode = BrowserPlaybackTicketResponseMode("direct")
         public val Remux: BrowserPlaybackTicketResponseMode = BrowserPlaybackTicketResponseMode("remux")
         public val Hls: BrowserPlaybackTicketResponseMode = BrowserPlaybackTicketResponseMode("hls")
+        public val Subtitle: BrowserPlaybackTicketResponseMode = BrowserPlaybackTicketResponseMode("subtitle")
 
         public val KnownWireValues: Set<String> = setOf(
             "direct",
             "remux",
             "hls",
+            "subtitle",
         )
     }
 }
@@ -594,10 +605,12 @@ public value class BrowserPlaybackUrlDtoKind(
     public companion object {
         public val Stream: BrowserPlaybackUrlDtoKind = BrowserPlaybackUrlDtoKind("stream")
         public val Playlist: BrowserPlaybackUrlDtoKind = BrowserPlaybackUrlDtoKind("playlist")
+        public val Subtitle: BrowserPlaybackUrlDtoKind = BrowserPlaybackUrlDtoKind("subtitle")
 
         public val KnownWireValues: Set<String> = setOf(
             "stream",
             "playlist",
+            "subtitle",
         )
     }
 }
@@ -1170,6 +1183,8 @@ public data class BrowserPlaybackCapabilitiesDto(
 public data class BrowserPlaybackTicketRequest(
     public val capabilities: BrowserPlaybackCapabilitiesDto? = null,
     public val mode: BrowserPlaybackTicketRequestMode,
+    @SerialName("subtitle_stream_index")
+    public val subtitleStreamIndex: Int? = null,
 )
 
 @Serializable
@@ -1981,17 +1996,34 @@ public data class MediaSourceDto(
 )
 
 @Serializable
+public data class MediaStreamDispositionDto(
+    @SerialName("attached_pic")
+    public val attachedPic: Boolean,
+    public val captions: Boolean,
+    public val commentary: Boolean,
+    public val default: Boolean,
+    public val descriptions: Boolean,
+    public val forced: Boolean,
+    @SerialName("hearing_impaired")
+    public val hearingImpaired: Boolean,
+    @SerialName("visual_impaired")
+    public val visualImpaired: Boolean,
+)
+
+@Serializable
 public data class MediaStreamDto(
     @SerialName("bit_rate")
     public val bitRate: Long?,
     public val channels: Int?,
     public val codec: String?,
+    public val disposition: MediaStreamDispositionDto,
     @SerialName("duration_ms")
     public val durationMs: Long?,
     public val height: Int?,
     public val index: Int,
     public val kind: String,
     public val language: String?,
+    public val origin: String?,
     @SerialName("sample_rate")
     public val sampleRate: Int?,
     public val width: Int?,

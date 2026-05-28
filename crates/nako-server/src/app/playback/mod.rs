@@ -4,14 +4,14 @@ use async_trait::async_trait;
 use nako_api::public_client::{PlaybackDecisionResponse, playback_decision_response_to_dto};
 use nako_core::{
     AuthenticatedPrincipal, EventOutboxRepository, LibraryAccessLevel, MediaProbeRepository,
-    MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, NakoError, NewOutboxEvent,
-    NewPlaybackSession, NewTranscodeSession, OutboxEventRecord, PageRequest, PlaybackPermission,
-    PlaybackPolicyRepository, PlaybackSessionHeartbeat, PlaybackSessionId,
-    PlaybackSessionListFilter, PlaybackSessionMode, PlaybackSessionRecord,
-    PlaybackSessionRepository, PlaybackSessionState, Result, StagingManifestRepository,
-    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
-    TranscodeSessionRepository, TranscodeSessionRuntimeMetrics, TranscodeSessionState, UserId,
-    UserPrincipalId,
+    MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
+    MediaStreamKind, NakoError, NewOutboxEvent, NewPlaybackSession, NewTranscodeSession,
+    OutboxEventRecord, PageRequest, PlaybackPermission, PlaybackPolicyRepository,
+    PlaybackSessionHeartbeat, PlaybackSessionId, PlaybackSessionListFilter, PlaybackSessionMode,
+    PlaybackSessionRecord, PlaybackSessionRepository, PlaybackSessionState, Result,
+    StagingManifestRepository, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
+    TranscodeSessionRecord, TranscodeSessionRepository, TranscodeSessionRuntimeMetrics,
+    TranscodeSessionState, UserId, UserPrincipalId,
 };
 use nako_playback::{
     ClientPlaybackCapabilities, EffectivePlaybackPolicy, PlaybackDecision, PlaybackMode,
@@ -22,15 +22,20 @@ use nako_streaming::{DirectPlayRangeRequest, DirectPlayResponsePlan};
 use nako_transcode::{
     RemuxContainer, TranscodeOutputConstraints, TranscodeRequestIdentity, TranscodeSourceIdentity,
 };
-use nako_vfs::StorageUri;
+use nako_vfs::{StorageBackend as _, StorageUri};
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
 use crate::config::NakoServerConfig;
 
 use super::{
-    playback_ticket::BrowserPlaybackTicketMode, runtime::RuntimeSupervisor,
+    playback_ticket::BrowserPlaybackTicketMode,
+    runtime::RuntimeSupervisor,
     storage::StorageBackendRegistry,
+    subtitle_sidecar::{
+        SUBTITLE_SIDECAR_MAX_BYTES, subtitle_content_type_for_extension,
+        subtitle_sidecar_file_name_for_stream, subtitle_sidecar_uri_for_source,
+    },
 };
 
 mod control;
@@ -474,6 +479,20 @@ pub(crate) struct HlsPlaylistPlaybackOutput {
     pub body: String,
 }
 
+#[derive(Clone, Debug)]
+pub(crate) struct SubtitlePlaybackRequest {
+    pub principal: AuthenticatedPrincipal,
+    pub source_id: MediaSourceId,
+    pub stream_index: u32,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct SubtitlePlaybackOutput {
+    pub content: String,
+    pub content_type: &'static str,
+    pub byte_len: u64,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct HlsSegmentPlaybackTarget {
     pub source_id: MediaSourceId,
@@ -538,6 +557,7 @@ pub(crate) struct BrowserPlaybackTicketValidationRequest {
     pub principal: AuthenticatedPrincipal,
     pub source_id: MediaSourceId,
     pub mode: BrowserPlaybackTicketMode,
+    pub subtitle_stream_index: Option<u32>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -647,6 +667,30 @@ impl PlaybackAppService {
                     &effective_policy,
                     PlaybackPermission::AudioTranscode,
                 )
+            }
+            BrowserPlaybackTicketMode::Subtitle => {
+                ensure_playback_permission_allowed(
+                    &effective_policy,
+                    PlaybackPermission::MediaPlayback,
+                )?;
+                let stream_index =
+                    request
+                        .subtitle_stream_index
+                        .ok_or_else(|| NakoError::InvalidInput {
+                            message:
+                                "subtitle browser playback ticket requires subtitle_stream_index"
+                                    .to_owned(),
+                        })?;
+                let probe =
+                    PlaybackRuntimeStore::get_media_probe(self.runtime_store.as_ref(), source.id)
+                        .await?
+                        .ok_or_else(|| NakoError::NotFound {
+                            entity: "media_probe",
+                            id: source.id.to_string(),
+                        })?;
+                let stream = subtitle_stream_for_probe(&probe, stream_index)?;
+                let _ = subtitle_sidecar_file_name_for_stream(&source, stream)?;
+                Ok(())
             }
         }?;
 
@@ -990,6 +1034,55 @@ impl PlaybackAppService {
             .await?;
 
         Ok(DirectPlaybackPreflightOutput { session, response })
+    }
+
+    pub(crate) async fn subtitle_playback(
+        &self,
+        request: SubtitlePlaybackRequest,
+    ) -> Result<SubtitlePlaybackOutput> {
+        let source = self.get_source_or_not_found(request.source_id).await?;
+        self.ensure_subtitle_playback_allowed_for_source(&request.principal, &source)
+            .await?;
+        let probe = PlaybackRuntimeStore::get_media_probe(self.runtime_store.as_ref(), source.id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "media_probe",
+                id: source.id.to_string(),
+            })?;
+        let stream = subtitle_stream_for_probe(&probe, request.stream_index)?;
+        let file_name = subtitle_sidecar_file_name_for_stream(&source, stream)?;
+        let content_type =
+            subtitle_content_type_for_extension(stream.codec.as_deref().unwrap_or_default())?;
+        let (source_uri, backend) = self.storage_backend_for_media_source(&source).await?;
+        let sidecar_uri = subtitle_sidecar_uri_for_source(&source_uri, &file_name)?;
+        let metadata = backend
+            .stat(&sidecar_uri)
+            .await
+            .map_err(|err| redact_subtitle_sidecar_storage_error(err, source.id, stream.index))?;
+        if metadata
+            .len
+            .is_some_and(|len| len > SUBTITLE_SIDECAR_MAX_BYTES)
+        {
+            return Err(NakoError::InvalidInput {
+                message: "subtitle sidecar exceeds playback size limit".to_owned(),
+            });
+        }
+        let content = backend
+            .read_to_string(&sidecar_uri)
+            .await
+            .map_err(|err| redact_subtitle_sidecar_storage_error(err, source.id, stream.index))?;
+        let byte_len = content.len() as u64;
+        if byte_len > SUBTITLE_SIDECAR_MAX_BYTES {
+            return Err(NakoError::InvalidInput {
+                message: "subtitle sidecar exceeds playback size limit".to_owned(),
+            });
+        }
+
+        Ok(SubtitlePlaybackOutput {
+            content,
+            content_type,
+            byte_len,
+        })
     }
 
     pub(crate) async fn remux_playback_stream(
@@ -1907,6 +2000,63 @@ impl PlaybackAppService {
             )?;
         }
         ensure_playback_permission_allowed(&effective_policy, PlaybackPermission::DirectPlay)
+    }
+
+    async fn ensure_subtitle_playback_allowed_for_source(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        source: &MediaSource,
+    ) -> Result<()> {
+        let effective_policy = self
+            .effective_playback_policy_for_source(principal, source)
+            .await?;
+        let context = self.playback_selection_context_for_source(source).await?;
+        if context.storage.remote {
+            ensure_playback_permission_allowed(
+                &effective_policy,
+                PlaybackPermission::RemotePlayback,
+            )?;
+        }
+        ensure_playback_permission_allowed(&effective_policy, PlaybackPermission::MediaPlayback)
+    }
+}
+
+fn subtitle_stream_for_probe(
+    probe: &MediaProbeResult,
+    stream_index: u32,
+) -> Result<&MediaStreamInfo> {
+    probe
+        .streams
+        .iter()
+        .find(|stream| stream.index == stream_index && stream.kind == MediaStreamKind::Subtitle)
+        .ok_or_else(|| NakoError::NotFound {
+            entity: "subtitle_stream",
+            id: stream_index.to_string(),
+        })
+}
+
+fn redact_subtitle_sidecar_storage_error(
+    error: NakoError,
+    source_id: MediaSourceId,
+    stream_index: u32,
+) -> NakoError {
+    match error {
+        NakoError::NotFound { .. } => NakoError::NotFound {
+            entity: "subtitle_sidecar",
+            id: format!("{source_id}:{stream_index}"),
+        },
+        NakoError::Storage { kind, .. } => NakoError::Storage {
+            uri: "subtitle_sidecar".to_owned(),
+            kind,
+            message: "subtitle sidecar storage operation failed".to_owned(),
+        },
+        NakoError::Database { message } => NakoError::Database { message },
+        NakoError::InvalidInput { message } => NakoError::InvalidInput { message },
+        NakoError::Conflict { message } => NakoError::Conflict { message },
+        NakoError::Unauthorized { message } => NakoError::Unauthorized { message },
+        NakoError::Forbidden { message } => NakoError::Forbidden { message },
+        NakoError::Unsupported(message) => NakoError::Unsupported(message),
+        NakoError::Provider { provider, message } => NakoError::Provider { provider, message },
     }
 }
 

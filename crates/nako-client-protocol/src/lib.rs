@@ -223,6 +223,12 @@ pub const PUBLIC_CLIENT_ROUTES: &[PublicClientRoute] = &[
         rust_sdk_exposure: PublicClientRustSdkExposure::StreamingBuilder,
     },
     PublicClientRoute {
+        path: "/sources/{source_id}/subtitles/{stream_index}",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::Playback,
+        rust_sdk_exposure: PublicClientRustSdkExposure::StreamingBuilder,
+    },
+    PublicClientRoute {
         path: "/playback/sessions/{session_id}",
         methods: &[PublicClientHttpMethod::Get],
         kind: PublicClientRouteKind::Playback,
@@ -516,7 +522,7 @@ mod tests {
     fn public_route_inventory_is_protocol_owned_and_complete() {
         let paths = public_client_paths().collect::<Vec<_>>();
 
-        assert_eq!(paths.len(), 41);
+        assert_eq!(paths.len(), 42);
         assert!(paths.contains(&"/health"));
         assert!(paths.contains(&"/auth/login"));
         assert!(paths.contains(&"/auth/invitations/redeem"));
@@ -525,6 +531,7 @@ mod tests {
         assert!(paths.contains(&"/management/context-links"));
         assert!(paths.contains(&"/images/{image_id}"));
         assert!(paths.contains(&"/sources/{source_id}/stream"));
+        assert!(paths.contains(&"/sources/{source_id}/subtitles/{stream_index}"));
         assert!(paths.contains(&"/sources/{source_id}/playback/browser-ticket"));
         assert!(paths.contains(&"/playback/sessions/{session_id}/heartbeat"));
         assert!(paths.contains(&"/playback/sessions/{session_id}/hls/segments/{segment_name}"));
@@ -577,7 +584,7 @@ mod tests {
         let json_count = public_client_json_routes().count();
         let streaming_count = public_client_streaming_routes().count();
         assert_eq!(json_count, 36);
-        assert_eq!(streaming_count, 5);
+        assert_eq!(streaming_count, 6);
         assert_eq!(json_count + streaming_count, PUBLIC_CLIENT_ROUTES.len());
         let remux_stream = PUBLIC_CLIENT_ROUTES
             .iter()
@@ -777,6 +784,7 @@ mod tests {
         let empty_request = serde_json::to_value(BrowserPlaybackTicketRequest {
             mode: BrowserPlaybackMode::Direct,
             capabilities: None,
+            subtitle_stream_index: None,
         })
         .unwrap();
 
@@ -801,6 +809,7 @@ mod tests {
                 output_container: Some(BrowserPlaybackOutputContainer::Mp4),
                 ..BrowserPlaybackCapabilitiesDto::default()
             }),
+            subtitle_stream_index: None,
         };
 
         let request_value = serde_json::to_value(request).unwrap();
@@ -844,6 +853,32 @@ mod tests {
         );
         assert!(value.get("locator").is_none());
         assert!(value.get("bearer_token").is_none());
+
+        let subtitle_request = serde_json::to_value(BrowserPlaybackTicketRequest {
+            mode: BrowserPlaybackMode::Subtitle,
+            capabilities: None,
+            subtitle_stream_index: Some(2),
+        })
+        .unwrap();
+        assert_eq!(subtitle_request["mode"], "subtitle");
+        assert_eq!(subtitle_request["subtitle_stream_index"], 2);
+
+        let subtitle_response = BrowserPlaybackTicketResponse {
+            source_id: "source-1".to_owned(),
+            item_id: Some("item-1".to_owned()),
+            mode: BrowserPlaybackMode::Subtitle,
+            expires_at: "2026-05-26T12:00:00Z".to_owned(),
+            urls: vec![BrowserPlaybackUrlDto {
+                kind: BrowserPlaybackUrlKind::Subtitle,
+                url: "/sources/source-1/subtitles/2?ticket=opaque".to_owned(),
+                content_type: "application/x-subrip; charset=utf-8".to_owned(),
+                supports_range_requests: false,
+            }],
+        };
+        let subtitle_value = serde_json::to_value(subtitle_response).unwrap();
+        assert_eq!(subtitle_value["mode"], "subtitle");
+        assert_eq!(subtitle_value["urls"][0]["kind"], "subtitle");
+        assert!(subtitle_value.get("locator").is_none());
     }
 
     #[test]

@@ -35,6 +35,7 @@ export const NAKO_PUBLIC_PATHS = [
   "/sources/{source_id}/stream",
   "/sources/{source_id}/stream/remux",
   "/sources/{source_id}/stream/hls/playlist.m3u8",
+  "/sources/{source_id}/subtitles/{stream_index}",
   "/playback/sessions/{session_id}",
   "/playback/sessions/{session_id}/cancel",
   "/playback/sessions/{session_id}/heartbeat",
@@ -68,20 +69,21 @@ export interface BrowserPlaybackCapabilitiesDto {
 
 export interface BrowserPlaybackTicketRequest {
   capabilities?: BrowserPlaybackCapabilitiesDto;
-  mode: "direct" | "remux" | "hls";
+  mode: "direct" | "remux" | "hls" | "subtitle";
+  subtitle_stream_index?: number;
 }
 
 export interface BrowserPlaybackTicketResponse {
   expires_at: string;
   item_id?: string | null;
-  mode: "direct" | "remux" | "hls";
+  mode: "direct" | "remux" | "hls" | "subtitle";
   source_id: string;
   urls: Array<BrowserPlaybackUrlDto>;
 }
 
 export interface BrowserPlaybackUrlDto {
   content_type: string;
-  kind: "stream" | "playlist";
+  kind: "stream" | "playlist" | "subtitle";
   supports_range_requests: boolean;
   url: string;
 }
@@ -427,15 +429,28 @@ export interface MediaSourceDto {
   size_bytes: number | null;
 }
 
+export interface MediaStreamDispositionDto {
+  attached_pic: boolean;
+  captions: boolean;
+  commentary: boolean;
+  default: boolean;
+  descriptions: boolean;
+  forced: boolean;
+  hearing_impaired: boolean;
+  visual_impaired: boolean;
+}
+
 export interface MediaStreamDto {
   bit_rate: number | null;
   channels: number | null;
   codec: string | null;
+  disposition: MediaStreamDispositionDto;
   duration_ms: number | null;
   height: number | null;
   index: number;
   kind: string;
   language: string | null;
+  origin: string | null;
   sample_rate: number | null;
   width: number | null;
 }
@@ -918,6 +933,10 @@ export class NakoClient {
 
   hlsPlaylist(sourceId: string, capabilities?: PlaybackCapabilitiesQuery): Promise<string> {
     return this.requestText("GET", `/sources/${encodeURIComponent(sourceId)}/stream/hls/playlist.m3u8`, { query: capabilities });
+  }
+
+  getSourceSubtitle(sourceId: string, streamIndex: number): Promise<string> {
+    return this.requestText("GET", `/sources/${encodeURIComponent(sourceId)}/subtitles/${encodeURIComponent(String(streamIndex))}`);
   }
 
   getPlaybackSession(sessionId: string): Promise<PlaybackSessionResponse> {

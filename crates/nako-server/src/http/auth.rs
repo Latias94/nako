@@ -137,6 +137,7 @@ fn playback_ticket_bypass_allowed(method: &Method, uri: &Uri) -> bool {
         ["sources", _, "stream"]
             | ["sources", _, "stream", "remux"]
             | ["sources", _, "stream", "hls", "playlist.m3u8"]
+            | ["sources", _, "subtitles", _]
             | ["playback", "sessions", _, "hls", "segments", _]
     )
 }
@@ -267,6 +268,10 @@ mod tests {
             &"/playback/sessions/abc/hls/segments/000.ts?ticket=opaque"
                 .parse()
                 .unwrap()
+        ));
+        assert!(playback_ticket_bypass_allowed(
+            &Method::GET,
+            &"/sources/123/subtitles/2?ticket=opaque".parse().unwrap()
         ));
 
         assert!(!playback_ticket_bypass_allowed(
