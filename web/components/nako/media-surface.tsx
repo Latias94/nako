@@ -38,7 +38,7 @@ import { PodcastManager } from "./podcast-manager"
 import { AgentAssistant } from "./agent-assistant"
 import { AutomationManager } from "./automation-manager"
 import { useTrendingMedia, useCategoryMedia } from "@/lib/use-media"
-import type { MediaItem } from "@/lib/tmdb-types"
+import type { MediaItem } from "@/lib/media-types"
 
 // Ref 类型
 export interface MediaSurfaceRef {

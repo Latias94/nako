@@ -28,7 +28,12 @@ Current baseline status:
   `/account`, `/settings`, and `/notifications` surfaces inside the static
   Next shell;
 - production static smoke covered desktop and mobile routes with no console
-  errors or warnings.
+  errors or warnings;
+- media home/search/detail now load through a Nako Public Client data source
+  with local fixture fallback instead of an inline TMDB-shaped hook;
+- the web package uses `@nako/sdk` from `sdk/typescript`; Next is pinned to
+  webpack mode because Turbopack cannot resolve the local TS SDK package on
+  Windows in this bootstrap shell.
 
 ## Next Task
 
@@ -39,6 +44,7 @@ Current caveats:
 
 - `npm --prefix web run test` is a type-check alias until real UI/E2E tests
   are introduced.
+- Admin API wiring is still pending in the v0 management surface.
 - Next dev/Fast Refresh can report React hook noise on SPA route clicks, but
   the production static smoke is clean.
 - Many copied v0 features still need live/fixture/planned/blocked/deferred

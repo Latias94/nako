@@ -54,7 +54,8 @@
     "WVTR-010 opened this durable copy-first frontend refactor lane.",
     "WVTR-020 copied repo-ref/nako-admin-web into web/, removed Google font and Vercel analytics assumptions, and passed npm --prefix web run check plus npm --prefix web run build.",
     "WVTR-030 removed the Next TMDB API route, switched media hooks to local Nako fixture data, localized artwork references, enabled static export, and passed npm --prefix web run check plus npm --prefix web run build.",
-    "WVTR-040 introduced TanStack Router ownership for top-level Media, Admin, Setup, Account, Settings, and Notifications routes inside the static Next shell, added a temporary test alias to the type-check gate, and passed check/test/build plus production static Playwright smoke."
+    "WVTR-040 introduced TanStack Router ownership for top-level Media, Admin, Setup, Account, Settings, and Notifications routes inside the static Next shell, added a temporary test alias to the type-check gate, and passed check/test/build plus production static Playwright smoke.",
+    "WVTR-050 partial introduced the Public Client media data source and fixture fallback for media home/search/detail while leaving Admin API surface reattachment open."
   ],
   "adr_refs": [
     "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
