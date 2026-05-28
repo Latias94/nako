@@ -35,12 +35,15 @@ Current baseline status:
   with local fixture fallback;
 - the web package uses `@nako/sdk` from `sdk/typescript`; Next is pinned to
   webpack mode because Turbopack cannot resolve the local TS SDK package on
-  Windows in this bootstrap shell.
+  Windows in this bootstrap shell;
+- Tauri now points at Next static export output (`web/out`) and `npm --prefix
+  web run tauri -- build` builds `nako-web-shell.exe` without a Node sidecar;
+- bundle-size and virtualization decisions are recorded in `EVIDENCE_AND_GATES.md`.
 
 ## Next Task
 
-WVTR-060: record bundle/performance evidence, make virtualization decisions for
-large copied grids/tables, and restore Tauri static packaging smoke.
+WVTR-070: finish the feature gap ledger and close or split remaining frontend
+follow-ons.
 
 Current caveats:
 

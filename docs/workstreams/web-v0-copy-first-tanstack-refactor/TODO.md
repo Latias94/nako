@@ -49,12 +49,12 @@ Last updated: 2026-05-28
 
 ## M5 - Performance And Desktop Gates
 
-- [ ] WVTR-060 [owner=Codex] [deps=WVTR-040,WVTR-050] [scope=web,web/src-tauri]
+- [x] WVTR-060 [owner=Codex] [deps=WVTR-040,WVTR-050] [scope=web,web/src-tauri]
   Goal: Add route-level code splitting, virtualize large grids/tables where needed, record bundle-size evidence, and restore Tauri static packaging.
   Validation: npm --prefix web run build; cargo test --manifest-path web/src-tauri/Cargo.toml; npm --prefix web run tauri -- build or documented platform-specific smoke blocker.
   Review: Confirm no Next/Node server sidecar is required by Tauri and initial route chunks have a recorded budget.
   Evidence: bundle output, web/src-tauri/tauri.conf.json, Browser/Tauri smoke evidence.
-  Handoff: Native playback core remains a separate lane.
+  Handoff: DONE. Tauri now consumes static `out/`, route-level splitting is active through the TanStack shell, large copied lists have virtualization/pagination decisions recorded, and `npm --prefix web run tauri -- build` produced a Windows desktop binary without a Node sidecar.
 
 ## M6 - Feature Gap Ledger And Closeout
 

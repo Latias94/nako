@@ -1,33 +1,29 @@
-# nako-admin-web
+# Nako Web
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [v0](https://v0.app).
+Copy-first product frontend for Nako.
 
-## Built with v0
+The current shell is a static Next.js bootstrap around React 19, Tailwind 4,
+shadcn-style components, TanStack Router, TanStack Query, and the Tauri desktop
+shell. Next is intentionally transitional; the release path must stay static so
+Tauri does not require a Node sidecar.
 
-This repository is linked to a [v0](https://v0.app) project. You can continue developing by visiting the link below -- start new chats to make changes, and v0 will push commits directly to this repo. Every merge to `main` will automatically deploy.
-
-[Continue working on v0 →](https://v0.app/chat/projects/prj_CbOnvxP8NGxpxPwLxOsG3JQmHbr0)
-
-## Getting Started
-
-First, run the development server:
+## Commands
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
+npm run check
+npm run test
+npm run build
+npm run tauri -- build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`npm run test` is currently a type-check gate. Replace it with real UI/E2E
+coverage when the route and API seams stabilize.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Runtime Data
 
-## Learn More
-
-To learn more, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-- [v0 Documentation](https://v0.app/docs) - learn about v0 and how to use it.
+- Public media data uses the Nako Public Client SDK with local fixture fallback.
+- Admin dashboard data uses the Nako Admin API contract with local fixture
+  fallback.
+- Deeper copied v0 surfaces are still fixture/planned until the feature gap
+  ledger classifies them.

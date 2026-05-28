@@ -57,6 +57,8 @@ Exit criteria:
 
 ## M5 - Performance And Desktop
 
+Status: done.
+
 Exit criteria:
 
 - Build output has bundle evidence.
