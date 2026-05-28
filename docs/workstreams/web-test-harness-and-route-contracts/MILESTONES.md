@@ -14,6 +14,8 @@ Exit criteria:
 
 ## M1 - Vitest Harness
 
+Status: done.
+
 Exit criteria:
 
 - Vitest/Testing Library/jsdom are installed.

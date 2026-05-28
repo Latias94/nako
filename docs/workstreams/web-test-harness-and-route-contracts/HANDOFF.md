@@ -10,14 +10,14 @@ need real tests before moving feature boundaries or deleting fixture-only UI.
 
 ## Active Task
 
-- Task ID: WTRC-020
+- Task ID: WTRC-030
 - Owner: Codex
-- Files: `web/package.json`, `web/vitest.config.ts`, `web/src/test`
+- Files: `web/src`, `web/components/nako/nako-router.tsx`
 - Validation: `npm --prefix web run test`
 - Status: READY
-- Review: Keep mocks central and explicit.
+- Review: Route tests should avoid brittle full-page snapshots.
 - Evidence: To be recorded in `EVIDENCE_AND_GATES.md`.
 
 ## Next Recommended Action
 
-- Implement the Vitest harness.
+- Add route rendering contract tests for shipped top-level routes.

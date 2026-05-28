@@ -7,9 +7,10 @@
   "scope_kind": "frontend_test_foundation",
   "problem": "Nako Web needs real route and data-source tests before broader feature-boundary and product-surface refactors.",
   "task_prefix": "WTRC",
-  "current_task": "WTRC-020",
+  "current_task": "WTRC-030",
   "completed_tasks": [
-    "WTRC-010"
+    "WTRC-010",
+    "WTRC-020"
   ],
   "authoritative_docs": [
     {
@@ -44,7 +45,8 @@
     "git diff --check"
   ],
   "evidence": [
-    "WTRC-010 opened this lane as the first frontend refactor safety rail."
+    "WTRC-010 opened this lane as the first frontend refactor safety rail.",
+    "WTRC-020 added Vitest/Testing Library/jsdom setup and replaced the npm test type-check alias with a real test command."
   ],
   "adr_refs": [
     "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",

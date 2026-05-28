@@ -13,12 +13,12 @@ Last updated: 2026-05-28
 
 ## M1 - Vitest Harness
 
-- [ ] WTRC-020 [owner=Codex] [deps=WTRC-010] [scope=web/package.json,web/vitest.config.ts,web/src/test]
+- [x] WTRC-020 [owner=Codex] [deps=WTRC-010] [scope=web/package.json,web/vitest.config.ts,web/src/test]
   Goal: Add Vitest/Testing Library/jsdom setup and replace the `npm test` alias.
   Validation: npm --prefix web run test.
   Review: Test setup should mock browser APIs centrally without hiding real errors.
   Evidence: vitest config and setup file.
-  Handoff: Final status must be DONE, DONE_WITH_CONCERNS, BLOCKED, or NEEDS_CONTEXT.
+  Handoff: DONE. Vitest/Testing Library/jsdom setup is in place, `npm test` runs real tests, and the next task is route contracts.
 
 ## M2 - Route Contracts
 
