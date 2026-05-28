@@ -11,6 +11,8 @@ Exit criteria: WROP is complete.
 
 ## M1 - Connection State
 
+Status: done.
+
 Exit criteria: browser/Tauri connection state boundary is tested.
 
 ## M2 - Setup And Account Wiring

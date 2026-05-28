@@ -13,11 +13,11 @@ Last updated: 2026-05-28
 
 ## M1 - Connection State
 
-- [ ] WCAT-020 [owner=Codex] [deps=WCAT-010] [scope=web/src]
+- [x] WCAT-020 [owner=Codex] [deps=WCAT-010] [scope=web/src]
   Goal: Create a tested connection state boundary for browser and Tauri modes.
   Validation: npm --prefix web run test && npm --prefix web run check.
   Evidence: connection tests.
-  Handoff: READY.
+  Handoff: DONE. Shared connection profile/session boundary is tested, and Public/Admin data sources delegate to it.
 
 ## M2 - Setup And Account Wiring
 
@@ -25,7 +25,7 @@ Last updated: 2026-05-28
   Goal: Wire setup/account to connection state, auth/session state, and error flows.
   Validation: npm --prefix web run test && npm --prefix web run build.
   Evidence: setup/account route tests.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Handoff: READY.
 
 ## M3 - Tauri Profile Bridge
 
