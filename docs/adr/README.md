@@ -68,3 +68,4 @@ evidence has been reviewed.
 - [0047: CPU Transcode Readiness](0047-cpu-transcode-readiness.md)
 - [0048: Playback Transcode Startup Degradation](0048-playback-transcode-startup-degradation.md)
 - [0049: Source-Aware Transcode Runtime](0049-source-aware-transcode-runtime.md)
+- [0050: Acquisition Resource Action Boundaries](0050-acquisition-resource-action-boundaries.md)
