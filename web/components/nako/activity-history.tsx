@@ -1,7 +1,8 @@
 "use client"
+import { resolveArtwork } from '@/lib/artwork'
 
 import { useState } from "react"
-import { 
+import {
   Play, Trash2, Clock, Calendar, Search, Filter, ChevronLeft,
   MoreHorizontal, Film, Tv, Music, Image as ImageIcon, X, CheckCheck
 } from "lucide-react"
@@ -74,11 +75,11 @@ const generateMockHistory = (): HistoryItem[] => {
     { title: "银翼杀手2049", type: "movie" as MediaType },
     { title: "星际穿越", type: "movie" as MediaType },
   ]
-  
+
   const activities: ActivityType[] = ["watch", "finish", "watch", "watch", "add_list", "watch", "favorite"]
-  
+
   const now = new Date()
-  
+
   return Array.from({ length: 30 }, (_, i) => {
     const titleData = titles[i % titles.length]
     const hoursAgo = i * 3 + Math.floor(Math.random() * 3)
@@ -86,13 +87,13 @@ const generateMockHistory = (): HistoryItem[] => {
     const activity = activities[i % activities.length]
     const duration = 90 + Math.floor(Math.random() * 90)
     const watchedDuration = activity === "finish" ? duration : Math.floor(Math.random() * duration)
-    
+
     return {
       id: `history-${i}`,
       mediaId: `media-${i % titles.length}`,
       mediaTitle: titleData.title,
       mediaType: titleData.type,
-      poster: `https://image.tmdb.org/t/p/w200/8b8R8l88Qje9dn9OE8PY05Nxl1X.jpg`,
+      poster: "/posters/dune2.jpg",
       episodeInfo: titleData.episode,
       activityType: activity,
       progress: activity === "finish" ? 100 : Math.floor((watchedDuration / duration) * 100),
@@ -110,14 +111,14 @@ function groupByDate(items: HistoryItem[]): GroupedHistory[] {
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000)
-  
+
   for (const item of items) {
     const itemDate = new Date(item.timestamp)
     const itemDateOnly = new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate())
-    
+
     let key: string
     let label: string
-    
+
     if (itemDateOnly.getTime() === today.getTime()) {
       key = "today"
       label = "今天"
@@ -132,16 +133,16 @@ function groupByDate(items: HistoryItem[]): GroupedHistory[] {
       key = itemDateOnly.toISOString().split("T")[0]
       label = `${itemDateOnly.getMonth() + 1}月${itemDateOnly.getDate()}日`
     }
-    
+
     if (!groups.has(key)) {
       groups.set(key, [])
     }
     groups.get(key)!.push(item)
   }
-  
+
   return Array.from(groups.entries()).map(([date, items]) => ({
     date,
-    label: items.length > 0 
+    label: items.length > 0
       ? date === "today" ? "今天"
       : date === "yesterday" ? "昨天"
       : date.startsWith("weekday-") ? ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][parseInt(date.split("-")[1])]
@@ -251,7 +252,7 @@ export function ActivityHistory({ onBack, onSelectMedia, onContinueWatch }: Acti
             <p className="text-xs text-muted-foreground">{historyItems.length} 条记录</p>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2">
           {isSelectionMode ? (
             <>
@@ -313,7 +314,7 @@ export function ActivityHistory({ onBack, onSelectMedia, onContinueWatch }: Acti
             className="pl-9"
           />
         </div>
-        
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="gap-2">
@@ -472,7 +473,7 @@ function HistoryItemCard({
         disabled={isSelectionMode}
       >
         <img
-          src={item.poster}
+          src={resolveArtwork(item.poster)}
           alt={item.mediaTitle}
           className="h-full w-full object-cover"
         />

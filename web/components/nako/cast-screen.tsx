@@ -1,12 +1,13 @@
 "use client"
+import { resolveArtwork } from '@/lib/artwork'
 
 import { useState } from "react"
-import { 
-  ArrowLeft, 
-  Cast, 
-  Tv2, 
-  Smartphone, 
-  Wifi, 
+import {
+  ArrowLeft,
+  Cast,
+  Tv2,
+  Smartphone,
+  Wifi,
   RefreshCw,
   Check,
   X,
@@ -43,42 +44,42 @@ interface CastScreenProps {
 
 // 模拟设备数据
 const availableDevices = [
-  { 
-    id: "1", 
-    name: "客厅电视", 
-    type: "chromecast" as const, 
+  {
+    id: "1",
+    name: "客厅电视",
+    type: "chromecast" as const,
     model: "Chromecast with Google TV",
     status: "available",
     icon: Tv2
   },
-  { 
-    id: "2", 
-    name: "卧室 Apple TV", 
-    type: "airplay" as const, 
+  {
+    id: "2",
+    name: "卧室 Apple TV",
+    type: "airplay" as const,
     model: "Apple TV 4K",
     status: "available",
     icon: Airplay
   },
-  { 
-    id: "3", 
-    name: "书房音响", 
-    type: "dlna" as const, 
+  {
+    id: "3",
+    name: "书房音响",
+    type: "dlna" as const,
     model: "Sonos Beam",
     status: "available",
     icon: MonitorSpeaker
   },
-  { 
-    id: "4", 
-    name: "小米电视", 
-    type: "dlna" as const, 
+  {
+    id: "4",
+    name: "小米电视",
+    type: "dlna" as const,
     model: "Mi TV 4S 55\"",
     status: "busy",
     icon: Tv2
   },
-  { 
-    id: "5", 
-    name: "iPad Pro", 
-    type: "airplay" as const, 
+  {
+    id: "5",
+    name: "iPad Pro",
+    type: "airplay" as const,
     model: "iPad Pro 12.9\"",
     status: "available",
     icon: Smartphone
@@ -98,7 +99,7 @@ export function CastScreen({ onBack, currentMedia }: CastScreenProps) {
   const [volume, setVolume] = useState([80])
   const [isMuted, setIsMuted] = useState(false)
   const [isPlaying, setIsPlaying] = useState(true)
-  
+
   // 设置状态
   const [enableDLNA, setEnableDLNA] = useState(true)
   const [enableAirPlay, setEnableAirPlay] = useState(true)
@@ -151,8 +152,8 @@ export function CastScreen({ onBack, currentMedia }: CastScreenProps) {
             <CardContent className="p-4">
               <div className="flex items-start gap-4">
                 {currentMedia && (
-                  <img 
-                    src={currentMedia.poster} 
+                  <img
+                    src={resolveArtwork(currentMedia.poster)}
                     alt={currentMedia.title}
                     className="h-24 w-16 rounded-lg object-cover"
                   />
@@ -166,13 +167,13 @@ export function CastScreen({ onBack, currentMedia }: CastScreenProps) {
                   {currentMedia && (
                     <p className="text-sm text-muted-foreground">{currentMedia.title}</p>
                   )}
-                  
+
                   {/* 播放控制 */}
                   <div className="mt-4 space-y-3">
                     <div className="flex items-center gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="icon" 
+                      <Button
+                        variant="outline"
+                        size="icon"
                         className="h-8 w-8"
                         onClick={() => setIsPlaying(!isPlaying)}
                       >
@@ -182,9 +183,9 @@ export function CastScreen({ onBack, currentMedia }: CastScreenProps) {
                         <SkipForward className="h-4 w-4" />
                       </Button>
                       <div className="flex flex-1 items-center gap-2">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           className="h-8 w-8"
                           onClick={() => setIsMuted(!isMuted)}
                         >
@@ -201,7 +202,7 @@ export function CastScreen({ onBack, currentMedia }: CastScreenProps) {
                         断开连接
                       </Button>
                     </div>
-                    
+
                     {/* 进度条 */}
                     {currentMedia && (
                       <div className="space-y-1">
@@ -242,9 +243,9 @@ export function CastScreen({ onBack, currentMedia }: CastScreenProps) {
                 const Icon = device.icon
                 const isConnected = selectedDevice === device.id
                 const isBusy = device.status === "busy"
-                
+
                 return (
-                  <Card 
+                  <Card
                     key={device.id}
                     className={cn(
                       "cursor-pointer transition-all hover:border-primary/50",
@@ -278,7 +279,7 @@ export function CastScreen({ onBack, currentMedia }: CastScreenProps) {
                           <Badge variant="outline">可用</Badge>
                         )}
                       </div>
-                      
+
                       <div className="mt-3 flex items-center gap-2">
                         <Badge variant="secondary" className="text-[10px]">
                           {device.type === "chromecast" && "Chromecast"}
@@ -316,7 +317,7 @@ export function CastScreen({ onBack, currentMedia }: CastScreenProps) {
               <CardContent>
                 <div className="space-y-4">
                   {castHistory.map((item, index) => (
-                    <div 
+                    <div
                       key={index}
                       className="flex items-center justify-between rounded-lg border border-border/50 p-4"
                     >

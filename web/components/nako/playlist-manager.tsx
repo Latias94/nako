@@ -1,8 +1,9 @@
 "use client"
+import { resolveArtwork } from '@/lib/artwork'
 
 import { useState } from "react"
-import { 
-  ArrowLeft, Play, Pause, SkipForward, SkipBack, Shuffle, Repeat, 
+import {
+  ArrowLeft, Play, Pause, SkipForward, SkipBack, Shuffle, Repeat,
   Plus, MoreVertical, Trash2, GripVertical, Clock, Film, Tv,
   ListMusic, Edit2, Check, X, ChevronRight, Search
 } from "lucide-react"
@@ -64,7 +65,7 @@ const queueItems: QueueItem[] = [
     id: "1",
     title: "Dune: Part Two",
     type: "movie",
-    poster: "https://image.tmdb.org/t/p/w200/8b8R8l88Qje9dn9OE8PY05Nxl1X.jpg",
+    poster: "/posters/dune2.jpg",
     duration: "2h 46m",
     isPlaying: true,
   },
@@ -72,7 +73,7 @@ const queueItems: QueueItem[] = [
     id: "2",
     title: "True Detective",
     type: "series",
-    poster: "https://image.tmdb.org/t/p/w200/aowr4xpLP5sRCL50TkuADomJ98T.jpg",
+    poster: "/posters/true-detective.jpg",
     duration: "58m",
     season: 1,
     episode: 5,
@@ -82,14 +83,14 @@ const queueItems: QueueItem[] = [
     id: "3",
     title: "Oppenheimer",
     type: "movie",
-    poster: "https://image.tmdb.org/t/p/w200/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg",
+    poster: "/posters/oppenheimer.jpg",
     duration: "3h 00m",
   },
   {
     id: "4",
     title: "Breaking Bad",
     type: "series",
-    poster: "https://image.tmdb.org/t/p/w200/ggFHVNu6YYI5L9pCfOacjizRGt.jpg",
+    poster: "/posters/breaking-bad.jpg",
     duration: "47m",
     season: 5,
     episode: 16,
@@ -99,7 +100,7 @@ const queueItems: QueueItem[] = [
     id: "5",
     title: "Interstellar",
     type: "movie",
-    poster: "https://image.tmdb.org/t/p/w200/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg",
+    poster: "/posters/interstellar.jpg",
     duration: "2h 49m",
   },
 ]
@@ -112,12 +113,12 @@ const playlists: Playlist[] = [
     description: "The best science fiction movies",
     itemCount: 8,
     totalDuration: "18h 32m",
-    thumbnail: "https://image.tmdb.org/t/p/w200/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg",
+    thumbnail: "/posters/interstellar.jpg",
     createdAt: "2024-01-10",
     items: [
-      { id: "1", title: "Interstellar", type: "movie", poster: "https://image.tmdb.org/t/p/w200/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg", duration: "2h 49m" },
-      { id: "2", title: "Dune: Part Two", type: "movie", poster: "https://image.tmdb.org/t/p/w200/8b8R8l88Qje9dn9OE8PY05Nxl1X.jpg", duration: "2h 46m" },
-      { id: "3", title: "Arrival", type: "movie", poster: "https://image.tmdb.org/t/p/w200/x2FJsf1ElAgr63Y3PNPtJrcmpoe.jpg", duration: "1h 56m" },
+      { id: "1", title: "Interstellar", type: "movie", poster: "/posters/interstellar.jpg", duration: "2h 49m" },
+      { id: "2", title: "Dune: Part Two", type: "movie", poster: "/posters/dune2.jpg", duration: "2h 46m" },
+      { id: "3", title: "Arrival", type: "movie", poster: "/posters/arrival.jpg", duration: "1h 56m" },
     ],
   },
   {
@@ -126,11 +127,11 @@ const playlists: Playlist[] = [
     description: "Quick watches for the weekend",
     itemCount: 5,
     totalDuration: "8h 15m",
-    thumbnail: "https://image.tmdb.org/t/p/w200/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg",
+    thumbnail: "/posters/oppenheimer.jpg",
     createdAt: "2024-01-12",
     items: [
-      { id: "1", title: "Oppenheimer", type: "movie", poster: "https://image.tmdb.org/t/p/w200/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg", duration: "3h 00m" },
-      { id: "2", title: "The Prestige", type: "movie", poster: "https://image.tmdb.org/t/p/w200/tRNlZbgNCNOpLpbPEz5L8G8A0JN.jpg", duration: "2h 10m" },
+      { id: "1", title: "Oppenheimer", type: "movie", poster: "/posters/oppenheimer.jpg", duration: "3h 00m" },
+      { id: "2", title: "The Prestige", type: "movie", poster: "/posters/blade-runner.jpg", duration: "2h 10m" },
     ],
   },
   {
@@ -139,11 +140,11 @@ const playlists: Playlist[] = [
     description: "Episodes to catch up on",
     itemCount: 12,
     totalDuration: "10h 45m",
-    thumbnail: "https://image.tmdb.org/t/p/w200/aowr4xpLP5sRCL50TkuADomJ98T.jpg",
+    thumbnail: "/posters/true-detective.jpg",
     createdAt: "2024-01-14",
     items: [
-      { id: "1", title: "True Detective", type: "series", poster: "https://image.tmdb.org/t/p/w200/aowr4xpLP5sRCL50TkuADomJ98T.jpg", duration: "58m", season: 1, episode: 5 },
-      { id: "2", title: "Breaking Bad", type: "series", poster: "https://image.tmdb.org/t/p/w200/ggFHVNu6YYI5L9pCfOacjizRGt.jpg", duration: "47m", season: 5, episode: 16 },
+      { id: "1", title: "True Detective", type: "series", poster: "/posters/true-detective.jpg", duration: "58m", season: 1, episode: 5 },
+      { id: "2", title: "Breaking Bad", type: "series", poster: "/posters/breaking-bad.jpg", duration: "47m", season: 5, episode: 16 },
     ],
   },
 ]
@@ -220,7 +221,7 @@ export function PlaylistManager({ onBack, onPlayMedia }: PlaylistManagerProps) {
           <div className="mb-6 flex flex-col gap-6 sm:flex-row">
             <div className="relative h-48 w-48 flex-shrink-0 overflow-hidden rounded-lg bg-muted shadow-lg">
               <img
-                src={selectedPlaylist.thumbnail}
+                src={resolveArtwork(selectedPlaylist.thumbnail)}
                 alt={selectedPlaylist.name}
                 className="h-full w-full object-cover"
               />
@@ -303,7 +304,7 @@ export function PlaylistManager({ onBack, onPlayMedia }: PlaylistManagerProps) {
                         <div className="flex items-center gap-4">
                           <div className="relative h-20 w-14 overflow-hidden rounded bg-muted">
                             <img
-                              src={currentItem.poster}
+                              src={resolveArtwork(currentItem.poster)}
                               alt={currentItem.title}
                               className="h-full w-full object-cover"
                             />
@@ -333,7 +334,7 @@ export function PlaylistManager({ onBack, onPlayMedia }: PlaylistManagerProps) {
                             </Button>
                           </div>
                         </div>
-                        
+
                         {/* Playback Controls */}
                         <div className="mt-4 flex items-center justify-between border-t border-border/50 pt-4">
                           <div className="flex items-center gap-2">
@@ -448,7 +449,7 @@ export function PlaylistManager({ onBack, onPlayMedia }: PlaylistManagerProps) {
                       <div className="flex gap-4">
                         <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-muted">
                           <img
-                            src={playlist.thumbnail}
+                            src={resolveArtwork(playlist.thumbnail)}
                             alt={playlist.name}
                             className="h-full w-full object-cover"
                           />
@@ -506,7 +507,7 @@ function PlaylistItem({
           <GripVertical className="h-5 w-5" />
         </button>
       )}
-      
+
       <span className="w-6 text-center text-sm text-muted-foreground">
         {item.isPlaying ? (
           <Play className="mx-auto h-4 w-4 text-primary" />
@@ -517,7 +518,7 @@ function PlaylistItem({
 
       <div className="relative h-12 w-9 flex-shrink-0 overflow-hidden rounded bg-muted">
         <img
-          src={item.poster}
+          src={resolveArtwork(item.poster)}
           alt={item.title}
           className="h-full w-full object-cover"
         />

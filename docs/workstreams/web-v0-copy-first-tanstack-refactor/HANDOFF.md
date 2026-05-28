@@ -20,14 +20,15 @@ Current baseline status:
 - `repo-ref/nako-admin-web` has been copied into `web/`;
 - `npm --prefix web run check` and `npm --prefix web run build` both pass;
 - Google Fonts and Vercel analytics assumptions were removed from the copied shell;
-- the app router still exposes a dynamic `/api/tmdb` route, so runtime
-  quarantine is still required before Tauri/static closeout.
+- the copied shell now uses local fixture media and local artwork resolution;
+- the Next TMDB API route has been removed;
+- `next.config.mjs` uses static export output, and the build route table has
+  only static routes.
 
 ## Next Task
 
-WVTR-030: remove or quarantine Next server runtime assumptions, Vercel
-assumptions, the TMDB API route, frontend provider secrets, and third-party
-artwork hotlinks from the copied shell.
+WVTR-040: replace the copied single-page view-state navigation with route-owned
+TanStack Router surfaces for Media, Admin, Setup, and Account.
 
 ## Key Constraints
 

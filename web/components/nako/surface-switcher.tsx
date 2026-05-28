@@ -1,4 +1,5 @@
 "use client"
+import { resolveArtwork } from '@/lib/artwork'
 
 import { Film, Settings, Search, Bell, User, LogOut, Users, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -43,7 +44,7 @@ export function SurfaceSwitcher({ currentSurface, onSurfaceChange, onSearchClick
       <div className="flex h-14 items-center justify-between px-4 lg:px-6">
         {/* Logo and Brand */}
         <div className="flex items-center gap-3">
-          <img src="/nako-icon.png" alt="Nako" className="h-8 w-8 rounded-lg" />
+          <img src={resolveArtwork("/nako-icon.png")} alt="Nako" className="h-8 w-8 rounded-lg" />
           <span className="text-lg font-semibold tracking-tight text-foreground">Nako</span>
           <span className="hidden text-xs text-muted-foreground sm:inline-block">私人媒体库</span>
         </div>
@@ -78,16 +79,16 @@ export function SurfaceSwitcher({ currentSurface, onSurfaceChange, onSearchClick
 
         {/* Right Actions */}
         <div className="flex items-center gap-2">
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             className="h-8 w-8 text-muted-foreground hover:text-foreground"
             onClick={onSearchClick}
           >
             <Search className="h-4 w-4" />
             <span className="sr-only">搜索</span>
           </Button>
-          
+
           {/* Notifications Popover */}
           <Popover>
             <PopoverTrigger asChild>
@@ -138,7 +139,7 @@ export function SurfaceSwitcher({ currentSurface, onSurfaceChange, onSearchClick
               </div>
             </PopoverContent>
           </Popover>
-          
+
           {/* User Avatar Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

@@ -25,6 +25,8 @@ Exit criteria:
 
 ## M2 - Runtime Safety
 
+Status: done.
+
 Exit criteria:
 
 - No frontend-owned TMDB secret route remains in the release path.

@@ -1,4 +1,5 @@
 "use client"
+import { resolveArtwork } from '@/lib/artwork'
 
 import { useState, useRef, forwardRef, useImperativeHandle } from "react"
 import { Play, Clock, ChevronRight, ChevronLeft, Star, Calendar, Info, Film, Tv, User, Tag, Clapperboard, Building2, Menu, Search, X, Heart, BookmarkPlus, Settings, Download, ListMusic, Bell, History, Image, Music, Mic, Bot, Workflow, LayoutGrid, Sparkles, MoreHorizontal, Pin, RefreshCw, FolderEdit, Trash2, Eye, EyeOff } from "lucide-react"
@@ -45,7 +46,7 @@ export interface MediaSurfaceRef {
 }
 
 // 导航状态类型
-type ViewState = 
+type ViewState =
   | { type: "browse" }
   | { type: "detail"; mediaId: string; mediaType: "movie" | "series" }
   | { type: "person"; name: string; id?: string }
@@ -158,18 +159,18 @@ const relatedWorksData = {
 }
 
 // LibraryItem component with dropdown state management
-function LibraryItem({ 
-  lib, 
-  isSelected, 
-  onSelect 
-}: { 
+function LibraryItem({
+  lib,
+  isSelected,
+  onSelect
+}: {
   lib: { id: string; name: string; count: number; icon: React.ComponentType<{ className?: string }> }
   isSelected: boolean
-  onSelect: () => void 
+  onSelect: () => void
 }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const IconComponent = lib.icon
-  
+
   return (
     <div
       className={cn(
@@ -352,7 +353,7 @@ export const MediaSurface = forwardRef<MediaSurfaceRef>(function MediaSurface(_,
   // 用户选择页面
   if (viewState.type === "user-select") {
     return (
-      <UserSelectPage 
+      <UserSelectPage
         onSelectUser={() => setViewState({ type: "browse" })}
       />
     )
@@ -387,7 +388,7 @@ export const MediaSurface = forwardRef<MediaSurfaceRef>(function MediaSurface(_,
   <SettingsPage onBack={goBack} />
   )
   }
-  
+
   // 媒体库浏览页面
   if (viewState.type === "library") {
   return (
@@ -540,7 +541,7 @@ export const MediaSurface = forwardRef<MediaSurfaceRef>(function MediaSurface(_,
   // 显示详情页
   if (viewState.type === "detail") {
     return (
-      <MediaDetail 
+      <MediaDetail
         onBack={goBack}
         onNavigate={handleNavigate}
         onPlay={handlePlay}
@@ -553,7 +554,7 @@ export const MediaSurface = forwardRef<MediaSurfaceRef>(function MediaSurface(_,
   // 显示相关作品页（按标签等筛选）- person 现在由 PersonDetail 处理
   if (viewState.type === "genre" || viewState.type === "tag" || viewState.type === "collection" || viewState.type === "studio") {
     return (
-      <RelatedWorksView 
+      <RelatedWorksView
         viewState={viewState}
         onBack={goBack}
         onSelectWork={(id, type) => {
@@ -644,22 +645,22 @@ export const MediaSurface = forwardRef<MediaSurfaceRef>(function MediaSurface(_,
 
         <span className="text-sm font-medium">{selectedLibrary}</span>
 
-        <Button 
-          variant="ghost" 
-          size="icon" 
+        <Button
+          variant="ghost"
+          size="icon"
           className="h-9 w-9"
             onClick={() => navigateTo({ type: "search" })}
           >
             <Search className="h-5 w-5" />
           </Button>
       </div>
-      
+
       {/* Desktop Sidebar - Optimized */}
       <aside className="hidden w-52 flex-shrink-0 border-r border-border/50 bg-sidebar lg:flex lg:flex-col">
         {/* Scrollable Content */}
         <ScrollArea className="flex-1 px-2 py-3">
           {/* AI Assistant - 突出显示 */}
-          <button 
+          <button
             onClick={() => navigateTo({ type: "agent" })}
             className="mb-3 flex w-full items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500/10 to-teal-500/10 px-3 py-2.5 text-sm font-medium transition-colors hover:from-cyan-500/20 hover:to-teal-500/20"
           >
@@ -731,21 +732,21 @@ export const MediaSurface = forwardRef<MediaSurfaceRef>(function MediaSurface(_,
 
           {/* 快捷方式 - 更紧凑 */}
           <nav className="space-y-0.5">
-            <button 
+            <button
               onClick={() => navigateTo({ type: "history" })}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/80 hover:bg-sidebar-accent/50"
             >
               <History className="h-4 w-4" />
               <span>播放历史</span>
             </button>
-            <button 
+            <button
               onClick={() => navigateTo({ type: "my-list" })}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/80 hover:bg-sidebar-accent/50"
             >
               <Heart className="h-4 w-4" />
               <span>我的收藏</span>
             </button>
-            <button 
+            <button
               onClick={() => navigateTo({ type: "downloads" })}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/80 hover:bg-sidebar-accent/50"
             >
@@ -761,14 +762,14 @@ export const MediaSurface = forwardRef<MediaSurfaceRef>(function MediaSurface(_,
               更多功能
             </CollapsibleTrigger>
             <CollapsibleContent className="space-y-0.5">
-              <button 
+              <button
                 onClick={() => navigateTo({ type: "playlists" })}
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/80 hover:bg-sidebar-accent/50"
               >
                 <ListMusic className="h-4 w-4" />
                 <span>播放列表</span>
               </button>
-              <button 
+              <button
                 onClick={() => navigateTo({ type: "automations" })}
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/80 hover:bg-sidebar-accent/50"
               >
@@ -778,12 +779,12 @@ export const MediaSurface = forwardRef<MediaSurfaceRef>(function MediaSurface(_,
             </CollapsibleContent>
           </Collapsible>
         </ScrollArea>
-        
+
         {/* 底部固定 */}
         <div className="border-t border-border/50 p-2">
           <div className="flex gap-1">
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="sm"
               className="flex-1 justify-start gap-2 px-3 text-xs"
               onClick={() => navigateTo({ type: "settings" })}
@@ -791,8 +792,8 @@ export const MediaSurface = forwardRef<MediaSurfaceRef>(function MediaSurface(_,
               <Settings className="h-3.5 w-3.5" />
               设置
             </Button>
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="sm"
               className="flex-1 justify-start gap-2 px-3 text-xs"
               onClick={() => setViewState({ type: "user-select" })}
@@ -828,7 +829,7 @@ export const MediaSurface = forwardRef<MediaSurfaceRef>(function MediaSurface(_,
                   ))}
                 </div>
               </section>
-              
+
               {/* Recently Added Skeleton */}
               <section>
                 <div className="mb-4 flex items-center justify-between">
@@ -845,7 +846,7 @@ export const MediaSurface = forwardRef<MediaSurfaceRef>(function MediaSurface(_,
                   ))}
                 </div>
               </section>
-              
+
               {/* Recommended Skeleton */}
               <section>
                 <div className="mb-4 flex items-center justify-between">
@@ -883,8 +884,8 @@ export const MediaSurface = forwardRef<MediaSurfaceRef>(function MediaSurface(_,
   </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 lg:gap-4">
                 {trendingData.items.slice(0, 3).map((item, index) => (
-                  <ContinueWatchingCard 
-                    key={item.id} 
+                  <ContinueWatchingCard
+                    key={item.id}
                     item={{
                       id: parseInt(item.id),
                       title: item.title,
@@ -921,8 +922,8 @@ export const MediaSurface = forwardRef<MediaSurfaceRef>(function MediaSurface(_,
               </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 lg:gap-4 xl:grid-cols-6">
                 {trendingData.items.slice(0, 6).map((item) => (
-                  <MediaCard 
-                    key={item.id} 
+                  <MediaCard
+                    key={item.id}
                     item={{
                       id: parseInt(item.id),
                       title: item.title,
@@ -937,7 +938,7 @@ export const MediaSurface = forwardRef<MediaSurfaceRef>(function MediaSurface(_,
                       setCurrentMediaId(item.id)
                       setCurrentMediaType(item.type === "series" ? "series" : "movie")
                       navigateTo({ type: "detail", mediaId: item.id, mediaType: item.type === "series" ? "series" : "movie" })
-                    }} 
+                    }}
                   />
                 ))}
               </div>
@@ -953,10 +954,10 @@ export const MediaSurface = forwardRef<MediaSurfaceRef>(function MediaSurface(_,
               onSelectItem={(id, type) => {
                 setCurrentMediaId(id)
                 setCurrentMediaType(type === "series" ? "series" : "movie")
-                navigateTo({ 
-                  type: "detail", 
-                  mediaId: id, 
-                  mediaType: type === "series" ? "series" : "movie" 
+                navigateTo({
+                  type: "detail",
+                  mediaId: id,
+                  mediaType: type === "series" ? "series" : "movie"
                 })
               }}
             />
@@ -1000,14 +1001,14 @@ function ContinueWatchingCard({
   onClick?: () => void
 }) {
   return (
-    <div 
+    <div
       className="group relative cursor-pointer overflow-hidden rounded-lg border border-border/50 bg-card transition-all hover:border-border hover:shadow-lg"
       onClick={onClick}
     >
       {/* Thumbnail */}
       <div className="relative aspect-video overflow-hidden">
-        <img 
-          src={item.thumbnail} 
+        <img
+          src={resolveArtwork(item.thumbnail)}
           alt={item.title}
           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
@@ -1020,9 +1021,9 @@ function ContinueWatchingCard({
         {/* Progress bar */}
         <div className="absolute inset-x-0 bottom-0">
           <div className="h-1 w-full bg-white/20">
-            <div 
-              className="h-full bg-primary transition-all" 
-              style={{ width: `${item.progress}%` }} 
+            <div
+              className="h-full bg-primary transition-all"
+              style={{ width: `${item.progress}%` }}
             />
           </div>
         </div>
@@ -1073,8 +1074,8 @@ function MediaCard({
     <div className="group relative cursor-pointer" onClick={onClick}>
       {/* Poster */}
       <div className="relative aspect-[2/3] overflow-hidden rounded-lg bg-muted transition-transform group-hover:scale-[1.02]">
-        <img 
-          src={item.poster} 
+        <img
+          src={resolveArtwork(item.poster)}
           alt={item.title}
           className="h-full w-full object-cover"
         />
@@ -1110,11 +1111,11 @@ function MediaCard({
 }
 
 // Netflix 风格横向滚动列表
-function HorizontalScrollRow({ 
-  title, 
+function HorizontalScrollRow({
+  title,
   items,
-  onSelectItem 
-}: { 
+  onSelectItem
+}: {
   title: string
   items: MediaItem[]
   onSelectItem: (id: string, type: string) => void
@@ -1149,7 +1150,7 @@ function HorizontalScrollRow({
                   查看全部 <ChevronRight className="ml-1 h-4 w-4" />
                 </Button>
       </div>
-      
+
       <div className="relative -mx-4 lg:-mx-6">
         {/* 左箭头 */}
         {showLeftArrow && (
@@ -1162,7 +1163,7 @@ function HorizontalScrollRow({
             </div>
           </button>
         )}
-        
+
         {/* 滚动容器 */}
         <div
           ref={scrollRef}
@@ -1178,7 +1179,7 @@ function HorizontalScrollRow({
               style={{ width: "calc((100% - 2 * 0.75rem) / 3)", minWidth: "140px", maxWidth: "180px" }}
             >
               <div className="relative aspect-[2/3] overflow-hidden rounded-lg bg-muted shadow-md transition-all duration-200 group-hover:-translate-y-1 group-hover:shadow-xl group-hover:ring-2 group-hover:ring-primary">
-                <img src={item.poster} alt={item.title} className="h-full w-full object-cover" />
+                <img src={resolveArtwork(item.poster)} alt={item.title} className="h-full w-full object-cover" />
                 <div className="absolute inset-0 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100" />
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg">
@@ -1196,7 +1197,7 @@ function HorizontalScrollRow({
             </button>
           ))}
         </div>
-        
+
         {/* 右箭头 */}
         {showRightArrow && (
           <button
@@ -1214,12 +1215,12 @@ function HorizontalScrollRow({
 }
 
 // 相关作品浏览视图
-function RelatedWorksView({ 
-  viewState, 
-  onBack, 
+function RelatedWorksView({
+  viewState,
+  onBack,
   onSelectWork,
   onNavigate
-}: { 
+}: {
   viewState: Exclude<ViewState, { type: "browse" | "detail" }>
   onBack: () => void
   onSelectWork: (id: string, type: "movie" | "series") => void
@@ -1230,32 +1231,32 @@ function RelatedWorksView({
     switch (viewState.type) {
       case "person":
         const personData = relatedWorksData.persons[viewState.name as keyof typeof relatedWorksData.persons]
-        return { 
-          title: viewState.name, 
+        return {
+          title: viewState.name,
           subtitle: personData?.role || "演员/导演",
           icon: <User className="h-5 w-5" />
         }
       case "genre":
-        return { 
-          title: viewState.name, 
+        return {
+          title: viewState.name,
           subtitle: "类型",
           icon: <Clapperboard className="h-5 w-5" />
         }
       case "tag":
-        return { 
-          title: viewState.name, 
+        return {
+          title: viewState.name,
           subtitle: "标签",
           icon: <Tag className="h-5 w-5" />
         }
       case "collection":
-        return { 
-          title: viewState.name, 
+        return {
+          title: viewState.name,
           subtitle: "系列",
           icon: <Film className="h-5 w-5" />
         }
       case "studio":
-        return { 
-          title: viewState.name, 
+        return {
+          title: viewState.name,
           subtitle: "制片公司/电视网",
           icon: <Building2 className="h-5 w-5" />
         }
@@ -1291,9 +1292,9 @@ function RelatedWorksView({
       <div className="border-b border-border/50">
         <div className="mx-auto max-w-6xl px-6 py-6 lg:px-8">
           <div className="flex items-center gap-4">
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={onBack}
               className="gap-2"
             >
@@ -1322,7 +1323,7 @@ function RelatedWorksView({
             <p className="mb-6 text-sm text-muted-foreground">{works.length} 部作品</p>
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
               {works.map((work) => (
-                <div 
+                <div
                   key={work.id}
                   className="group cursor-pointer"
                   onClick={() => onSelectWork(work.id, work.type)}
@@ -1339,8 +1340,8 @@ function RelatedWorksView({
                       <Play className="h-4 w-4" />
                     </Button>
                     {/* 类型标签 */}
-                    <Badge 
-                      variant="secondary" 
+                    <Badge
+                      variant="secondary"
                       className="absolute right-2 top-2 text-[10px]"
                     >
                       {work.type === "series" ? "剧集" : "电影"}

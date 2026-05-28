@@ -1,9 +1,10 @@
 "use client"
+import { resolveArtwork } from '@/lib/artwork'
 
 import { useState } from "react"
-import { 
-  Bell, Check, CheckCheck, Trash2, Settings, Film, Tv, Download, 
-  AlertCircle, Info, CheckCircle, RefreshCw, HardDrive, Users, 
+import {
+  Bell, Check, CheckCheck, Trash2, Settings, Film, Tv, Download,
+  AlertCircle, Info, CheckCircle, RefreshCw, HardDrive, Users,
   ChevronLeft, Filter, MoreHorizontal, Clock, X
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -45,7 +46,7 @@ const mockNotifications: Notification[] = [
     time: "5分钟前",
     read: false,
     mediaId: "td-s4e3",
-    mediaPoster: "https://image.tmdb.org/t/p/w200/aowr4xpLP5sRCL50TkuADomJ98T.jpg",
+    mediaPoster: "/posters/true-detective.jpg",
     actionLabel: "立即观看",
   },
   {
@@ -57,7 +58,7 @@ const mockNotifications: Notification[] = [
     time: "15分钟前",
     read: false,
     mediaId: "dune2",
-    mediaPoster: "https://image.tmdb.org/t/p/w200/8b8R8l88Qje9dn9OE8PY05Nxl1X.jpg",
+    mediaPoster: "/posters/dune2.jpg",
   },
   {
     id: "3",
@@ -116,7 +117,7 @@ const mockNotifications: Notification[] = [
     time: "昨天",
     read: true,
     mediaId: "interstellar",
-    mediaPoster: "https://image.tmdb.org/t/p/w200/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg",
+    mediaPoster: "/posters/interstellar.jpg",
   },
   {
     id: "9",
@@ -147,33 +148,33 @@ export function NotificationCenter({ onBack }: NotificationCenterProps) {
   const [notifications, setNotifications] = useState(mockNotifications)
   const [activeTab, setActiveTab] = useState("all")
   const [showSettings, setShowSettings] = useState(false)
-  
+
   const unreadCount = notifications.filter(n => !n.read).length
-  
+
   const filteredNotifications = notifications.filter(n => {
     if (activeTab === "all") return true
     if (activeTab === "unread") return !n.read
     return n.type === activeTab
   })
-  
+
   const markAsRead = (id: string) => {
-    setNotifications(prev => 
+    setNotifications(prev =>
       prev.map(n => n.id === id ? { ...n, read: true } : n)
     )
   }
-  
+
   const markAllAsRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })))
   }
-  
+
   const deleteNotification = (id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id))
   }
-  
+
   const clearAll = () => {
     setNotifications([])
   }
-  
+
   const getTypeIcon = (type: string) => {
     switch (type) {
       case "media": return Film
@@ -182,7 +183,7 @@ export function NotificationCenter({ onBack }: NotificationCenterProps) {
       default: return Bell
     }
   }
-  
+
   const getLevelColor = (level: string) => {
     switch (level) {
       case "success": return "text-green-500"
@@ -191,7 +192,7 @@ export function NotificationCenter({ onBack }: NotificationCenterProps) {
       default: return "text-blue-500"
     }
   }
-  
+
   const getLevelIcon = (level: string) => {
     switch (level) {
       case "success": return CheckCircle
@@ -200,7 +201,7 @@ export function NotificationCenter({ onBack }: NotificationCenterProps) {
       default: return Info
     }
   }
-  
+
   if (showSettings) {
     return (
       <div className="flex h-full flex-col bg-background">
@@ -211,7 +212,7 @@ export function NotificationCenter({ onBack }: NotificationCenterProps) {
           </Button>
           <h1 className="text-xl font-semibold">通知设置</h1>
         </div>
-        
+
         <ScrollArea className="flex-1">
           <div className="space-y-6 p-4 lg:p-6">
             {/* 通知类型设置 */}
@@ -260,7 +261,7 @@ export function NotificationCenter({ onBack }: NotificationCenterProps) {
                 </div>
               </div>
             </section>
-            
+
             {/* 通知行为 */}
             <section className="space-y-4">
               <h2 className="text-lg font-medium">通知行为</h2>
@@ -288,7 +289,7 @@ export function NotificationCenter({ onBack }: NotificationCenterProps) {
                 </div>
               </div>
             </section>
-            
+
             {/* 自动清理 */}
             <section className="space-y-4">
               <h2 className="text-lg font-medium">自动清理</h2>
@@ -307,7 +308,7 @@ export function NotificationCenter({ onBack }: NotificationCenterProps) {
       </div>
     )
   }
-  
+
   return (
     <div className="flex h-full flex-col bg-background">
       {/* Header */}
@@ -325,7 +326,7 @@ export function NotificationCenter({ onBack }: NotificationCenterProps) {
             )}
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2">
           {unreadCount > 0 && (
             <Button variant="ghost" size="sm" onClick={markAllAsRead}>
@@ -353,40 +354,40 @@ export function NotificationCenter({ onBack }: NotificationCenterProps) {
           </DropdownMenu>
         </div>
       </div>
-      
+
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
         <div className="border-b border-border px-4 lg:px-6">
           <TabsList className="h-12 w-full justify-start gap-1 bg-transparent p-0">
-            <TabsTrigger 
-              value="all" 
+            <TabsTrigger
+              value="all"
               className="relative h-12 rounded-none border-b-2 border-transparent px-4 data-[state=active]:border-primary data-[state=active]:bg-transparent"
             >
               全部
               <Badge variant="secondary" className="ml-2">{notifications.length}</Badge>
             </TabsTrigger>
-            <TabsTrigger 
+            <TabsTrigger
               value="unread"
               className="relative h-12 rounded-none border-b-2 border-transparent px-4 data-[state=active]:border-primary data-[state=active]:bg-transparent"
             >
               未读
               {unreadCount > 0 && <Badge className="ml-2">{unreadCount}</Badge>}
             </TabsTrigger>
-            <TabsTrigger 
+            <TabsTrigger
               value="media"
               className="relative h-12 rounded-none border-b-2 border-transparent px-4 data-[state=active]:border-primary data-[state=active]:bg-transparent"
             >
               <Film className="mr-2 h-4 w-4" />
               媒体
             </TabsTrigger>
-            <TabsTrigger 
+            <TabsTrigger
               value="download"
               className="relative h-12 rounded-none border-b-2 border-transparent px-4 data-[state=active]:border-primary data-[state=active]:bg-transparent"
             >
               <Download className="mr-2 h-4 w-4" />
               下载
             </TabsTrigger>
-            <TabsTrigger 
+            <TabsTrigger
               value="system"
               className="relative h-12 rounded-none border-b-2 border-transparent px-4 data-[state=active]:border-primary data-[state=active]:bg-transparent"
             >
@@ -395,7 +396,7 @@ export function NotificationCenter({ onBack }: NotificationCenterProps) {
             </TabsTrigger>
           </TabsList>
         </div>
-        
+
         <TabsContent value={activeTab} className="flex-1 mt-0">
           <ScrollArea className="h-full">
             {filteredNotifications.length === 0 ? (
@@ -411,7 +412,7 @@ export function NotificationCenter({ onBack }: NotificationCenterProps) {
                 {filteredNotifications.map(notification => {
                   const TypeIcon = getTypeIcon(notification.type)
                   const LevelIcon = getLevelIcon(notification.level)
-                  
+
                   return (
                     <div
                       key={notification.id}
@@ -423,9 +424,9 @@ export function NotificationCenter({ onBack }: NotificationCenterProps) {
                       {/* 媒体海报或图标 */}
                       {notification.mediaPoster ? (
                         <div className="relative h-16 w-12 flex-shrink-0 overflow-hidden rounded-md">
-                          <img 
-                            src={notification.mediaPoster} 
-                            alt="" 
+                          <img
+                            src={resolveArtwork(notification.mediaPoster)}
+                            alt=""
                             className="h-full w-full object-cover"
                           />
                         </div>
@@ -440,7 +441,7 @@ export function NotificationCenter({ onBack }: NotificationCenterProps) {
                           <LevelIcon className={cn("h-5 w-5", getLevelColor(notification.level))} />
                         </div>
                       )}
-                      
+
                       {/* 内容 */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
@@ -472,22 +473,22 @@ export function NotificationCenter({ onBack }: NotificationCenterProps) {
                               </Badge>
                             </div>
                           </div>
-                          
+
                           {/* 操作 */}
                           <div className="flex items-center gap-1">
                             {!notification.read && (
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 className="h-8 w-8"
                                 onClick={() => markAsRead(notification.id)}
                               >
                                 <Check className="h-4 w-4" />
                               </Button>
                             )}
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               className="h-8 w-8 text-muted-foreground hover:text-destructive"
                               onClick={() => deleteNotification(notification.id)}
                             >
@@ -495,7 +496,7 @@ export function NotificationCenter({ onBack }: NotificationCenterProps) {
                             </Button>
                           </div>
                         </div>
-                        
+
                         {/* 操作按钮 */}
                         {notification.actionLabel && (
                           <Button variant="outline" size="sm" className="mt-3">

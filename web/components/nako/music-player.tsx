@@ -1,7 +1,8 @@
 "use client"
+import { resolveArtwork } from '@/lib/artwork'
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import { 
+import {
   ChevronLeft, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat, Repeat1,
   Heart, MoreHorizontal, Search, ListMusic, Disc3, User, Clock, Plus, Download, Share2, X,
   ChevronRight, Music2, Mic2, Radio, Library, Home, Grid3X3, List
@@ -82,7 +83,7 @@ const generateMockTracks = (count: number): Track[] => {
   const artists = ["周杰伦", "陈奕迅", "林俊杰", "邓紫棋", "华晨宇", "毛不易", "薛之谦", "李荣浩"]
   const albums = ["范特西", "认了吧", "曹操", "泡沫", "新世界", "平凡的一天", "绅士", "麻雀"]
   const genres = ["流行", "摇滚", "民谣", "电子", "R&B", "嘻哈", "古典", "爵士"]
-  
+
   return Array.from({ length: count }, (_, i) => ({
     id: `track-${i}`,
     title: `歌曲 ${i + 1}`,
@@ -201,7 +202,7 @@ export function MusicPlayer({ onBack }: MusicPlayerProps) {
 
   // Track list item
   const TrackItem = ({ track, index, showAlbum = true }: { track: Track; index?: number; showAlbum?: boolean }) => (
-    <div 
+    <div
       className={cn(
         "group flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/50",
         currentTrack?.id === track.id && "bg-muted"
@@ -211,34 +212,34 @@ export function MusicPlayer({ onBack }: MusicPlayerProps) {
       <div className="w-8 text-center text-sm text-muted-foreground group-hover:hidden">
         {index !== undefined ? index + 1 : <Music2 className="mx-auto h-4 w-4" />}
       </div>
-      <Button 
-        variant="ghost" 
-        size="icon" 
+      <Button
+        variant="ghost"
+        size="icon"
         className="hidden h-8 w-8 group-hover:flex"
         onClick={(e) => { e.stopPropagation(); playTrack(track) }}
       >
         <Play className="h-4 w-4" />
       </Button>
-      
+
       {showAlbum && (
-        <img src={track.cover} alt={track.album} className="h-10 w-10 rounded object-cover" />
+        <img src={resolveArtwork(track.cover)} alt={track.album} className="h-10 w-10 rounded object-cover" />
       )}
-      
+
       <div className="min-w-0 flex-1">
         <p className={cn("truncate font-medium", currentTrack?.id === track.id && "text-primary")}>
           {track.title}
         </p>
         <p className="truncate text-sm text-muted-foreground">{track.artist}</p>
       </div>
-      
+
       {showAlbum && (
         <p className="hidden truncate text-sm text-muted-foreground md:block md:w-40">{track.album}</p>
       )}
-      
+
       <div className="flex items-center gap-2">
-        <Button 
-          variant="ghost" 
-          size="icon" 
+        <Button
+          variant="ghost"
+          size="icon"
           className="h-8 w-8 opacity-0 group-hover:opacity-100"
           onClick={(e) => { e.stopPropagation() }}
         >
@@ -247,9 +248,9 @@ export function MusicPlayer({ onBack }: MusicPlayerProps) {
         <span className="w-12 text-right text-sm text-muted-foreground">{formatTime(track.duration)}</span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="ghost"
+              size="icon"
               className="h-8 w-8 opacity-0 group-hover:opacity-100"
               onClick={(e) => e.stopPropagation()}
             >
@@ -272,17 +273,17 @@ export function MusicPlayer({ onBack }: MusicPlayerProps) {
 
   // Album card
   const AlbumCard = ({ album }: { album: Album }) => (
-    <div 
+    <div
       className="group cursor-pointer"
       onClick={() => { setSelectedAlbum(album); setViewMode("album-detail") }}
     >
       <div className="relative mb-2 overflow-hidden rounded-lg">
-        <img 
-          src={album.cover} 
-          alt={album.title} 
+        <img
+          src={resolveArtwork(album.cover)}
+          alt={album.title}
           className="aspect-square w-full object-cover transition-transform group-hover:scale-105"
         />
-        <Button 
+        <Button
           size="icon"
           className="absolute bottom-2 right-2 h-10 w-10 rounded-full opacity-0 shadow-lg transition-opacity group-hover:opacity-100"
           onClick={(e) => { e.stopPropagation(); /* play album */ }}
@@ -297,14 +298,14 @@ export function MusicPlayer({ onBack }: MusicPlayerProps) {
 
   // Artist card
   const ArtistCard = ({ artist }: { artist: Artist }) => (
-    <div 
+    <div
       className="group cursor-pointer text-center"
       onClick={() => { setSelectedArtist(artist); setViewMode("artist-detail") }}
     >
       <div className="relative mx-auto mb-3 overflow-hidden rounded-full">
-        <img 
-          src={artist.avatar} 
-          alt={artist.name} 
+        <img
+          src={resolveArtwork(artist.avatar)}
+          alt={artist.name}
           className="aspect-square w-full object-cover transition-transform group-hover:scale-105"
         />
       </div>
@@ -317,12 +318,12 @@ export function MusicPlayer({ onBack }: MusicPlayerProps) {
   const PlaylistCard = ({ playlist }: { playlist: Playlist }) => (
     <div className="group cursor-pointer">
       <div className="relative mb-2 overflow-hidden rounded-lg">
-        <img 
-          src={playlist.cover} 
-          alt={playlist.name} 
+        <img
+          src={resolveArtwork(playlist.cover)}
+          alt={playlist.name}
           className="aspect-square w-full object-cover transition-transform group-hover:scale-105"
         />
-        <Button 
+        <Button
           size="icon"
           className="absolute bottom-2 right-2 h-10 w-10 rounded-full opacity-0 shadow-lg transition-opacity group-hover:opacity-100"
         >
@@ -346,47 +347,47 @@ export function MusicPlayer({ onBack }: MusicPlayerProps) {
                 <ChevronLeft className="h-5 w-5" />
               </Button>
               <div className="flex items-center gap-2">
-                <img src="/nako-icon.png" alt="Nako" className="h-8 w-8 rounded-lg" />
+                <img src={resolveArtwork("/nako-icon.png")} alt="Nako" className="h-8 w-8 rounded-lg" />
                 <span className="font-semibold">音乐</span>
               </div>
             </div>
 
             <ScrollArea className="flex-1 p-2">
               <nav className="space-y-1">
-                <Button 
-                  variant={viewMode === "home" ? "secondary" : "ghost"} 
+                <Button
+                  variant={viewMode === "home" ? "secondary" : "ghost"}
                   className="w-full justify-start"
                   onClick={() => setViewMode("home")}
                 >
                   <Home className="mr-2 h-4 w-4" />
                   主页
                 </Button>
-                <Button 
-                  variant={viewMode === "songs" ? "secondary" : "ghost"} 
+                <Button
+                  variant={viewMode === "songs" ? "secondary" : "ghost"}
                   className="w-full justify-start"
                   onClick={() => setViewMode("songs")}
                 >
                   <Music2 className="mr-2 h-4 w-4" />
                   所有歌曲
                 </Button>
-                <Button 
-                  variant={viewMode === "albums" ? "secondary" : "ghost"} 
+                <Button
+                  variant={viewMode === "albums" ? "secondary" : "ghost"}
                   className="w-full justify-start"
                   onClick={() => setViewMode("albums")}
                 >
                   <Disc3 className="mr-2 h-4 w-4" />
                   专辑
                 </Button>
-                <Button 
-                  variant={viewMode === "artists" ? "secondary" : "ghost"} 
+                <Button
+                  variant={viewMode === "artists" ? "secondary" : "ghost"}
                   className="w-full justify-start"
                   onClick={() => setViewMode("artists")}
                 >
                   <Mic2 className="mr-2 h-4 w-4" />
                   艺术家
                 </Button>
-                <Button 
-                  variant={viewMode === "playlists" ? "secondary" : "ghost"} 
+                <Button
+                  variant={viewMode === "playlists" ? "secondary" : "ghost"}
                   className="w-full justify-start"
                   onClick={() => setViewMode("playlists")}
                 >
@@ -568,10 +569,10 @@ export function MusicPlayer({ onBack }: MusicPlayerProps) {
                     <ChevronLeft className="mr-2 h-4 w-4" />
                     返回
                   </Button>
-                  
+
                   <div className="mb-6 flex gap-6">
-                    <img 
-                      src={selectedAlbum.cover} 
+                    <img
+                      src={resolveArtwork(selectedAlbum.cover)}
                       alt={selectedAlbum.title}
                       className="h-48 w-48 rounded-lg object-cover shadow-lg"
                     />
@@ -615,10 +616,10 @@ export function MusicPlayer({ onBack }: MusicPlayerProps) {
                     <ChevronLeft className="mr-2 h-4 w-4" />
                     返回
                   </Button>
-                  
+
                   <div className="mb-6 flex items-end gap-6">
-                    <img 
-                      src={selectedArtist.avatar} 
+                    <img
+                      src={resolveArtwork(selectedArtist.avatar)}
                       alt={selectedArtist.name}
                       className="h-48 w-48 rounded-full object-cover shadow-lg"
                     />
@@ -693,7 +694,7 @@ export function MusicPlayer({ onBack }: MusicPlayerProps) {
         <div className="flex h-20 items-center justify-between border-t border-border bg-card px-4">
           {/* Track info */}
           <div className="flex items-center gap-3 w-1/4 min-w-0">
-            <img src={currentTrack.cover} alt={currentTrack.album} className="h-14 w-14 rounded object-cover" />
+            <img src={resolveArtwork(currentTrack.cover)} alt={currentTrack.album} className="h-14 w-14 rounded object-cover" />
             <div className="min-w-0">
               <p className="truncate font-medium">{currentTrack.title}</p>
               <p className="truncate text-sm text-muted-foreground">{currentTrack.artist}</p>
@@ -706,8 +707,8 @@ export function MusicPlayer({ onBack }: MusicPlayerProps) {
           {/* Playback controls */}
           <div className="flex flex-col items-center gap-1 w-2/4">
             <div className="flex items-center gap-2">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 className={cn(isShuffled && "text-primary")}
                 onClick={() => setIsShuffled(!isShuffled)}
@@ -723,8 +724,8 @@ export function MusicPlayer({ onBack }: MusicPlayerProps) {
               <Button variant="ghost" size="icon">
                 <SkipForward className="h-5 w-5" />
               </Button>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 className={cn(repeatMode !== "off" && "text-primary")}
                 onClick={cycleRepeat}
@@ -732,7 +733,7 @@ export function MusicPlayer({ onBack }: MusicPlayerProps) {
                 {repeatMode === "one" ? <Repeat1 className="h-4 w-4" /> : <Repeat className="h-4 w-4" />}
               </Button>
             </div>
-            
+
             <div className="flex w-full max-w-md items-center gap-2">
               <span className="w-10 text-right text-xs text-muted-foreground">{formatTime(currentTime)}</span>
               <Slider
@@ -748,8 +749,8 @@ export function MusicPlayer({ onBack }: MusicPlayerProps) {
 
           {/* Volume & extras */}
           <div className="flex items-center justify-end gap-2 w-1/4">
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="icon"
               className={cn(showQueue && "text-primary")}
               onClick={() => setShowQueue(!showQueue)}

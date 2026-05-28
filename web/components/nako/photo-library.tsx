@@ -1,7 +1,8 @@
 "use client"
+import { resolveArtwork } from '@/lib/artwork'
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import { 
+import {
   ChevronLeft, Grid3X3, Calendar, MapPin, Heart, Share2, Download, Trash2,
   ZoomIn, ZoomOut, RotateCw, Info, FolderOpen, Plus, Search, SlidersHorizontal,
   Image as ImageIcon, Video, Check, X, MoreHorizontal, Upload, Cloud, Star
@@ -72,7 +73,7 @@ interface PhotoLibraryProps {
 const generateMockPhotos = (count: number): PhotoItem[] => {
   const locations = ["东京", "巴黎", "纽约", "上海", "伦敦", "悉尼", "北京", "首尔"]
   const tags = ["风景", "人像", "建筑", "美食", "动物", "夜景", "街拍", "旅行"]
-  
+
   return Array.from({ length: count }, (_, i) => ({
     id: `photo-${i}`,
     url: `https://picsum.photos/seed/${i}/1920/1080`,
@@ -186,12 +187,12 @@ export function PhotoLibrary({ onBack, onSelectPhoto }: PhotoLibraryProps) {
       onClick={() => handlePhotoClick(photo)}
     >
       <img
-        src={photo.thumbnail}
+        src={resolveArtwork(photo.thumbnail)}
         alt={photo.title || ""}
         className="h-full w-full object-cover transition-transform group-hover:scale-105"
         loading="lazy"
       />
-      
+
       {/* Selection checkbox */}
       {isSelectionMode && (
         <div className={cn(
@@ -235,7 +236,7 @@ export function PhotoLibrary({ onBack, onSelectPhoto }: PhotoLibraryProps) {
     <div className="group cursor-pointer">
       <div className="relative mb-2 overflow-hidden rounded-xl">
         <img
-          src={album.cover}
+          src={resolveArtwork(album.cover)}
           alt={album.name}
           className="aspect-square w-full object-cover transition-transform group-hover:scale-105"
         />
@@ -256,7 +257,7 @@ export function PhotoLibrary({ onBack, onSelectPhoto }: PhotoLibraryProps) {
     <div className="group cursor-pointer">
       <div className="relative mb-2 overflow-hidden rounded-xl">
         <img
-          src={photos[0]?.thumbnail}
+          src={resolveArtwork(photos[0]?.thumbnail)}
           alt={location}
           className="aspect-video w-full object-cover transition-transform group-hover:scale-105"
         />
@@ -280,7 +281,7 @@ export function PhotoLibrary({ onBack, onSelectPhoto }: PhotoLibraryProps) {
             <ChevronLeft className="h-5 w-5" />
           </Button>
           <div className="flex items-center gap-2">
-            <img src="/nako-icon.png" alt="Nako" className="h-8 w-8 rounded-lg" />
+            <img src={resolveArtwork("/nako-icon.png")} alt="Nako" className="h-8 w-8 rounded-lg" />
             <h1 className="text-lg font-semibold">图片库</h1>
           </div>
         </div>
@@ -295,7 +296,7 @@ export function PhotoLibrary({ onBack, onSelectPhoto }: PhotoLibraryProps) {
               className="w-64 pl-9"
             />
           </div>
-          
+
           <Button variant="outline" size="icon">
             <Upload className="h-4 w-4" />
           </Button>
@@ -406,7 +407,7 @@ export function PhotoLibrary({ onBack, onSelectPhoto }: PhotoLibraryProps) {
                   .map(([date, datePhotos]) => (
                     <section key={date}>
                       <h2 className="mb-3 text-lg font-semibold">{date}</h2>
-                      <div 
+                      <div
                         className="grid gap-2"
                         style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${gridSize}px, 1fr))` }}
                       >
@@ -459,7 +460,7 @@ export function PhotoLibrary({ onBack, onSelectPhoto }: PhotoLibraryProps) {
                 <h2 className="text-lg font-semibold">收藏的照片</h2>
                 <span className="text-sm text-muted-foreground">{favoritePhotos.length} 张</span>
               </div>
-              <div 
+              <div
                 className="grid gap-2"
                 style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${gridSize}px, 1fr))` }}
               >
@@ -481,8 +482,8 @@ export function PhotoLibrary({ onBack, onSelectPhoto }: PhotoLibraryProps) {
               <div>
                 {selectedPhoto?.title && <h3 className="font-medium">{selectedPhoto.title}</h3>}
                 <p className="text-sm text-muted-foreground">
-                  {selectedPhoto && new Date(selectedPhoto.date).toLocaleDateString("zh-CN", { 
-                    year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" 
+                  {selectedPhoto && new Date(selectedPhoto.date).toLocaleDateString("zh-CN", {
+                    year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit"
                   })}
                 </p>
               </div>
@@ -507,7 +508,7 @@ export function PhotoLibrary({ onBack, onSelectPhoto }: PhotoLibraryProps) {
             <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-black">
               {selectedPhoto && (
                 <img
-                  src={selectedPhoto.url}
+                  src={resolveArtwork(selectedPhoto.url)}
                   alt={selectedPhoto.title || ""}
                   className="max-h-full max-w-full object-contain transition-transform"
                   style={{ transform: `scale(${zoom}) rotate(${rotation}deg)` }}
@@ -518,7 +519,7 @@ export function PhotoLibrary({ onBack, onSelectPhoto }: PhotoLibraryProps) {
               {showInfo && selectedPhoto && (
                 <div className="absolute right-0 top-0 h-full w-80 overflow-y-auto scrollbar-none border-l border-border bg-background p-4">
                   <h4 className="mb-4 font-semibold">照片信息</h4>
-                  
+
                   <div className="space-y-4 text-sm">
                     <div>
                       <p className="text-muted-foreground">尺寸</p>

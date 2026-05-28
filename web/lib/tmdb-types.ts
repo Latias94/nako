@@ -91,13 +91,23 @@ export const BACKDROP_SIZES = {
 // 辅助函数：构建图片 URL
 export function getTMDbImageUrl(
   path: string | null,
-  size: string = "w500",
-  baseUrl: string = "https://image.tmdb.org/t/p"
+  _size: string = "w500",
+  _baseUrl: string = ""
 ): string {
   if (!path) {
-    return "/placeholder-poster.jpg"
+    return "/placeholder.jpg"
   }
-  return `${baseUrl}/${size}${path}`
+
+  if (
+    path.startsWith("/posters/") ||
+    path.startsWith("/backdrops/") ||
+    path.startsWith("/avatars/") ||
+    path.startsWith("/placeholder")
+  ) {
+    return path
+  }
+
+  return "/placeholder.jpg"
 }
 
 // 辅助函数：将 TMDb 数据转换为应用内部格式

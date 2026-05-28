@@ -1,4 +1,5 @@
 "use client"
+import { resolveArtwork } from '@/lib/artwork'
 
 import { useState } from "react"
 import { Play, Check, ChevronDown, ChevronRight, Clock, Star, Download, MoreHorizontal, List, Grid3X3 } from "lucide-react"
@@ -141,7 +142,7 @@ export function EpisodeSelector({
             {totalWatched}/{totalEpisodes}
           </Badge>
         </div>
-        
+
         <div className="flex items-center gap-2">
           {/* 分组选择器（多组时显示） */}
           {!isSingleGroup && (
@@ -177,7 +178,7 @@ export function EpisodeSelector({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          
+
           {/* 视图切换 */}
           <div className="flex items-center rounded-md border border-border">
             <Button
@@ -253,7 +254,7 @@ export function EpisodeSelector({
                     />
                     {group.poster && (
                       <img
-                        src={group.poster}
+                        src={resolveArtwork(group.poster)}
                         alt={group.title}
                         className="h-12 w-8 rounded object-cover"
                       />
@@ -351,7 +352,7 @@ function EpisodeListItem({
       >
         {episode.thumbnail ? (
           <img
-            src={episode.thumbnail}
+            src={resolveArtwork(episode.thumbnail)}
             alt={episode.title}
             className="h-full w-full object-cover"
           />
@@ -456,7 +457,7 @@ function EpisodeGridItem({
       <div className="relative aspect-video overflow-hidden rounded-lg bg-muted">
         {episode.thumbnail ? (
           <img
-            src={episode.thumbnail}
+            src={resolveArtwork(episode.thumbnail)}
             alt={episode.title}
             className="h-full w-full object-cover transition-transform group-hover:scale-105"
           />
@@ -465,12 +466,12 @@ function EpisodeGridItem({
             {episode.number}
           </div>
         )}
-        
+
         {/* 悬浮播放按钮 */}
         <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
           <Play className="h-10 w-10 text-white" fill="white" />
         </div>
-        
+
         {/* 进度条 */}
         {episode.progress !== undefined && episode.progress > 0 && (
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/50">
@@ -480,20 +481,20 @@ function EpisodeGridItem({
             />
           </div>
         )}
-        
+
         {/* 已观看标记 */}
         {episode.watched && (
           <div className="absolute right-1 top-1 rounded-full bg-primary p-0.5">
             <Check className="h-3 w-3 text-primary-foreground" />
           </div>
         )}
-        
+
         {/* 时长 */}
         <div className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-white">
           {formatDuration(episode.duration)}
         </div>
       </div>
-      
+
       {/* 信息 */}
       <div className="mt-2 space-y-0.5">
         <p className="text-xs font-medium">第{episode.number}集</p>

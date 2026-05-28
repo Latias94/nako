@@ -1,4 +1,5 @@
 "use client"
+import { resolveArtwork } from '@/lib/artwork'
 
 import { useState } from "react"
 import { ChevronLeft, Play, Star, Heart, Clock, Trash2, Filter, Grid3X3, List, MoreVertical } from "lucide-react"
@@ -52,7 +53,7 @@ export function MyListPage({ onBack, onSelectMedia }: MyListPageProps) {
             </Button>
             <h1 className="text-xl font-semibold">我的列表</h1>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
@@ -92,14 +93,14 @@ export function MyListPage({ onBack, onSelectMedia }: MyListPageProps) {
           {/* 收藏列表 */}
           <TabsContent value="favorites">
             {myListData.favorites.length === 0 ? (
-              <EmptyState 
+              <EmptyState
                 icon={<Heart className="h-12 w-12" />}
                 title="暂无收藏"
                 description="浏览媒体库，将喜欢的内容添加到收藏"
               />
             ) : (
-              <MediaList 
-                items={myListData.favorites} 
+              <MediaList
+                items={myListData.favorites}
                 viewMode={viewMode}
                 onSelect={onSelectMedia}
                 showDate
@@ -111,14 +112,14 @@ export function MyListPage({ onBack, onSelectMedia }: MyListPageProps) {
           {/* 稍后观看 */}
           <TabsContent value="watchLater">
             {myListData.watchLater.length === 0 ? (
-              <EmptyState 
+              <EmptyState
                 icon={<Clock className="h-12 w-12" />}
                 title="稍后观看列表为空"
                 description="将想看的内容添加到稍后观看列表"
               />
             ) : (
-              <MediaList 
-                items={myListData.watchLater} 
+              <MediaList
+                items={myListData.watchLater}
                 viewMode={viewMode}
                 onSelect={onSelectMedia}
                 showDate
@@ -139,14 +140,14 @@ export function MyListPage({ onBack, onSelectMedia }: MyListPageProps) {
               </Button>
             </div>
             {myListData.history.length === 0 ? (
-              <EmptyState 
+              <EmptyState
                 icon={<Play className="h-12 w-12" />}
                 title="暂无观看记录"
                 description="开始观看内容后，历史记录将显示在这里"
               />
             ) : (
-              <MediaList 
-                items={myListData.history} 
+              <MediaList
+                items={myListData.history}
                 viewMode={viewMode}
                 onSelect={onSelectMedia}
                 showDate
@@ -173,14 +174,14 @@ function EmptyState({ icon, title, description }: { icon: React.ReactNode; title
 }
 
 // 媒体列表组件
-function MediaList({ 
-  items, 
-  viewMode, 
+function MediaList({
+  items,
+  viewMode,
   onSelect,
   showDate,
   dateLabel,
   showProgress
-}: { 
+}: {
   items: Array<{
     id: string
     title: string
@@ -210,7 +211,7 @@ function MediaList({
               onClick={() => onSelect(item.id, item.type === "剧集" ? "series" : "movie")}
               className="relative h-20 w-14 flex-shrink-0 overflow-hidden rounded-md"
             >
-              <img src={item.poster} alt={item.title} className="h-full w-full object-cover" />
+              <img src={resolveArtwork(item.poster)} alt={item.title} className="h-full w-full object-cover" />
               <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
                 <Play className="h-6 w-6 text-white" />
               </div>
@@ -220,7 +221,7 @@ function MediaList({
                 </div>
               )}
             </button>
-            
+
             <div className="flex-1">
               <button
                 onClick={() => onSelect(item.id, item.type === "剧集" ? "series" : "movie")}
@@ -244,7 +245,7 @@ function MediaList({
                 </p>
               )}
             </div>
-            
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100">
@@ -277,7 +278,7 @@ function MediaList({
             className="w-full text-left"
           >
             <div className="relative aspect-[2/3] overflow-hidden rounded-lg bg-muted transition-transform group-hover:scale-[1.02]">
-              <img src={item.poster} alt={item.title} className="h-full w-full object-cover" />
+              <img src={resolveArtwork(item.poster)} alt={item.title} className="h-full w-full object-cover" />
               <div className="absolute inset-0 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100" />
               <Button
                 size="icon"
@@ -299,13 +300,13 @@ function MediaList({
               <span>{item.rating}</span>
             </div>
           </button>
-          
+
           {/* 快捷操作 */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 className="absolute right-1 top-1 h-7 w-7 bg-black/50 text-white opacity-0 backdrop-blur transition-opacity hover:bg-black/70 group-hover:opacity-100"
               >
                 <MoreVertical className="h-4 w-4" />

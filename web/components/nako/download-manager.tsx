@@ -1,8 +1,9 @@
 "use client"
+import { resolveArtwork } from '@/lib/artwork'
 
 import { useState } from "react"
-import { 
-  ArrowLeft, Download, Pause, Play, Trash2, MoreVertical, 
+import {
+  ArrowLeft, Download, Pause, Play, Trash2, MoreVertical,
   CheckCircle2, XCircle, Clock, HardDrive, Wifi, Film, Tv,
   FolderOpen, Settings, Search, Filter, ChevronDown
 } from "lucide-react"
@@ -51,7 +52,7 @@ const downloads: DownloadItem[] = [
     title: "Dune: Part Two",
     originalTitle: "Dune: Part Two",
     type: "movie",
-    poster: "https://image.tmdb.org/t/p/w200/8b8R8l88Qje9dn9OE8PY05Nxl1X.jpg",
+    poster: "/posters/dune2.jpg",
     quality: "4K HDR",
     size: "45.2 GB",
     downloaded: "32.1 GB",
@@ -65,7 +66,7 @@ const downloads: DownloadItem[] = [
     id: "2",
     title: "True Detective",
     type: "series",
-    poster: "https://image.tmdb.org/t/p/w200/aowr4xpLP5sRCL50TkuADomJ98T.jpg",
+    poster: "/posters/true-detective.jpg",
     season: 1,
     episode: 5,
     quality: "1080p",
@@ -81,7 +82,7 @@ const downloads: DownloadItem[] = [
     id: "3",
     title: "Oppenheimer",
     type: "movie",
-    poster: "https://image.tmdb.org/t/p/w200/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg",
+    poster: "/posters/oppenheimer.jpg",
     quality: "4K Dolby Vision",
     size: "52.8 GB",
     downloaded: "12.3 GB",
@@ -93,7 +94,7 @@ const downloads: DownloadItem[] = [
     id: "4",
     title: "Breaking Bad",
     type: "series",
-    poster: "https://image.tmdb.org/t/p/w200/ggFHVNu6YYI5L9pCfOacjizRGt.jpg",
+    poster: "/posters/breaking-bad.jpg",
     season: 5,
     episode: 16,
     quality: "1080p",
@@ -107,7 +108,7 @@ const downloads: DownloadItem[] = [
     id: "5",
     title: "Interstellar",
     type: "movie",
-    poster: "https://image.tmdb.org/t/p/w200/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg",
+    poster: "/posters/interstellar.jpg",
     quality: "4K HDR",
     size: "38.5 GB",
     downloaded: "38.5 GB",
@@ -119,7 +120,7 @@ const downloads: DownloadItem[] = [
     id: "6",
     title: "The Prestige",
     type: "movie",
-    poster: "https://image.tmdb.org/t/p/w200/tRNlZbgNCNOpLpbPEz5L8G8A0JN.jpg",
+    poster: "/posters/blade-runner.jpg",
     quality: "1080p",
     size: "8.2 GB",
     downloaded: "8.2 GB",
@@ -131,7 +132,7 @@ const downloads: DownloadItem[] = [
     id: "7",
     title: "Succession",
     type: "series",
-    poster: "https://image.tmdb.org/t/p/w200/7HW47XbkNQ5fiwQFYGWdw9gs144.jpg",
+    poster: "/posters/succession.jpg",
     season: 4,
     episode: 10,
     quality: "1080p",
@@ -156,7 +157,7 @@ export function DownloadManager({ onBack }: DownloadManagerProps) {
 
   const filteredDownloads = downloads.filter((item) => {
     const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesTab = 
+    const matchesTab =
       activeTab === "all" ||
       (activeTab === "active" && (item.status === "downloading" || item.status === "paused")) ||
       (activeTab === "completed" && item.status === "completed") ||
@@ -351,7 +352,7 @@ export function DownloadManager({ onBack }: DownloadManagerProps) {
 
 function DownloadCard({ item }: { item: DownloadItem }) {
   const isActive = item.status === "downloading" || item.status === "paused"
-  
+
   return (
     <Card className={cn(
       "overflow-hidden border-border/50 transition-colors",
@@ -362,7 +363,7 @@ function DownloadCard({ item }: { item: DownloadItem }) {
           {/* Poster */}
           <div className="relative h-28 w-20 flex-shrink-0 overflow-hidden bg-muted sm:h-32 sm:w-24">
             <img
-              src={item.poster}
+              src={resolveArtwork(item.poster)}
               alt={item.title}
               className="h-full w-full object-cover"
             />
@@ -404,7 +405,7 @@ function DownloadCard({ item }: { item: DownloadItem }) {
                   )}
                 </div>
               </div>
-              
+
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -451,8 +452,8 @@ function DownloadCard({ item }: { item: DownloadItem }) {
                 <div className="mb-1 flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">{item.progress}%</span>
                 </div>
-                <Progress 
-                  value={item.progress} 
+                <Progress
+                  value={item.progress}
                   className={cn(
                     "h-1.5",
                     item.status === "paused" && "[&>div]:bg-yellow-500"

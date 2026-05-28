@@ -63,3 +63,4 @@ Release routes must not expose:
 | --- | --- | --- | --- |
 | 2026-05-28 | WVTR-010 | Workstream opened after user accepted copy-first refactor and autonomous commits. | Active. |
 | 2026-05-28 | WVTR-020 | `npm --prefix web install`; `npm --prefix web run check`; `npm --prefix web run build`. Build output still reports a dynamic `/api/tmdb` route, which stays for WVTR-030 quarantine. | Passed. |
+| 2026-05-28 | WVTR-030 | `rg -n "image\\.tmdb\\.org\|/api/tmdb\|TMDB_API_KEY\|@vercel/analytics\|process\\.env" web --glob '!tsconfig.tsbuildinfo' --glob '!node_modules/**' --glob '!.next/**' --glob '!out/**'`; `npm --prefix web run check`; `npm --prefix web run build`. Build route table contains only static `/`, `/_not-found`, and `/tv`. | Passed. |

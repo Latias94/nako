@@ -1,8 +1,9 @@
 "use client"
+import { resolveArtwork } from '@/lib/artwork'
 
 import { useState } from "react"
-import { 
-  Play, Heart, BookmarkPlus, Share2, Star, Calendar, Clock, 
+import {
+  Play, Heart, BookmarkPlus, Share2, Star, Calendar, Clock,
   Users, Building2, Globe, ChevronRight, ExternalLink, Check,
   Tv, Film, Music, Sparkles
 } from "lucide-react"
@@ -91,7 +92,7 @@ interface AnimeDetailData {
   studios: string[]
   source?: string         // 原作类型 如 "漫画" "轻小说" "游戏" "原创"
   overview: string
-  
+
   // 动漫特有
   voiceActors?: Array<{
     id: string
@@ -113,14 +114,14 @@ interface AnimeDetailData {
     type: string  // "续集" "前传" "外传" "衍生"
     year: number
   }>
-  
+
   // 外部链接
   externalLinks?: Array<{
     site: string
     url: string
     icon?: string
   }>
-  
+
   // 播放数据
   episodes: EpisodeGroup[]
   watchProgress?: {
@@ -128,7 +129,7 @@ interface AnimeDetailData {
     total: number
     lastWatchedEpisode?: string
   }
-  
+
   favorite: boolean
   inList: boolean
 }
@@ -139,8 +140,8 @@ const mockAnimeData: AnimeDetailData = {
   title: "葬送的芙莉莲",
   originalTitle: "葬送のフリーレン",
   englishTitle: "Frieren: Beyond Journey's End",
-  poster: "https://image.tmdb.org/t/p/w500/dqZENchTd7lp5zht7BdlqFWjk6H.jpg",
-  backdrop: "https://image.tmdb.org/t/p/original/rUunhF0rKaUJLzBj0wvKrczwqhA.jpg",
+  poster: "/placeholder.jpg",
+  backdrop: "/placeholder.jpg",
   rating: 9.1,
   userRating: 9.5,
   year: 2023,
@@ -255,8 +256,8 @@ export function AnimeDetailPage({
   const [activeTab, setActiveTab] = useState("episodes")
 
   const statusInfo = statusLabels[data.status] || statusLabels.finished
-  const progress = data.watchProgress 
-    ? (data.watchProgress.watched / data.watchProgress.total) * 100 
+  const progress = data.watchProgress
+    ? (data.watchProgress.watched / data.watchProgress.total) * 100
     : 0
 
   return (
@@ -266,7 +267,7 @@ export function AnimeDetailPage({
         {/* Background */}
         <div className="absolute inset-0 h-[450px] overflow-hidden">
           <img
-            src={data.backdrop || data.poster}
+            src={resolveArtwork(data.backdrop || data.poster)}
             alt=""
             className="h-full w-full object-cover"
           />
@@ -291,7 +292,7 @@ export function AnimeDetailPage({
             {/* Poster */}
             <div className="relative mx-auto flex-shrink-0 lg:mx-0">
               <img
-                src={data.poster}
+                src={resolveArtwork(data.poster)}
                 alt={data.title}
                 className="h-[300px] w-[200px] rounded-xl object-cover shadow-2xl ring-1 ring-white/10 lg:h-[360px] lg:w-[240px]"
               />
@@ -370,8 +371,8 @@ export function AnimeDetailPage({
 
               {/* Action Buttons */}
               <div className="mt-6 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
-                <Button 
-                  size="lg" 
+                <Button
+                  size="lg"
                   className="h-12 gap-2 bg-pink-600 hover:bg-pink-700"
                   onClick={() => onPlay?.(data.watchProgress?.lastWatchedEpisode)}
                 >
@@ -440,7 +441,7 @@ export function AnimeDetailPage({
               <div className="lg:col-span-2">
                 <h3 className="mb-3 text-lg font-semibold">简介</h3>
                 <p className="leading-relaxed text-muted-foreground">{data.overview}</p>
-                
+
                 {/* Tags */}
                 {data.tags && data.tags.length > 0 && (
                   <div className="mt-6">
@@ -532,7 +533,7 @@ export function AnimeDetailPage({
                       >
                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
                           {va.photo ? (
-                            <img src={va.photo} alt={va.name} className="h-full w-full rounded-full object-cover" />
+                            <img src={resolveArtwork(va.photo)} alt={va.name} className="h-full w-full rounded-full object-cover" />
                           ) : (
                             <Users className="h-5 w-5 text-muted-foreground" />
                           )}
@@ -542,7 +543,7 @@ export function AnimeDetailPage({
                           <p className="text-sm text-muted-foreground">CV: {va.character}</p>
                         </div>
                         {va.characterImage && (
-                          <img src={va.characterImage} alt={va.character} className="h-10 w-10 rounded-full object-cover ring-2 ring-background" />
+                          <img src={resolveArtwork(va.characterImage)} alt={va.character} className="h-10 w-10 rounded-full object-cover ring-2 ring-background" />
                         )}
                       </button>
                     ))}
@@ -563,7 +564,7 @@ export function AnimeDetailPage({
                       >
                         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
                           {person.photo ? (
-                            <img src={person.photo} alt={person.name} className="h-full w-full rounded-full object-cover" />
+                            <img src={resolveArtwork(person.photo)} alt={person.name} className="h-full w-full rounded-full object-cover" />
                           ) : (
                             <Users className="h-4 w-4 text-muted-foreground" />
                           )}
@@ -592,7 +593,7 @@ export function AnimeDetailPage({
                   >
                     <div className="relative aspect-[2/3] overflow-hidden">
                       <img
-                        src={rel.poster}
+                        src={resolveArtwork(rel.poster)}
                         alt={rel.title}
                         className="h-full w-full object-cover transition-transform group-hover:scale-105"
                       />

@@ -1,7 +1,8 @@
 "use client"
+import { resolveArtwork } from '@/lib/artwork'
 
 import { useState, useEffect } from "react"
-import { 
+import {
   ChevronLeft, Play, Pause, SkipBack, SkipForward, Clock, Download, Share2,
   Plus, Search, Rss, Check, MoreHorizontal, ExternalLink, RefreshCw, Settings,
   ChevronRight, Headphones, ListMusic, Calendar, CheckCircle2, Circle, Bookmark, X
@@ -207,7 +208,7 @@ export function PodcastManager({ onBack }: PodcastManagerProps) {
     const now = new Date()
     const diff = now.getTime() - date.getTime()
     const days = Math.floor(diff / (24 * 60 * 60 * 1000))
-    
+
     if (days === 0) return "今天"
     if (days === 1) return "昨天"
     if (days < 7) return `${days} 天前`
@@ -228,14 +229,14 @@ export function PodcastManager({ onBack }: PodcastManagerProps) {
 
   // Podcast card
   const PodcastCard = ({ podcast }: { podcast: Podcast }) => (
-    <div 
+    <div
       className="group cursor-pointer"
       onClick={() => { setSelectedPodcast(podcast); setViewMode("podcast-detail") }}
     >
       <div className="relative mb-2 overflow-hidden rounded-lg">
-        <img 
-          src={podcast.cover} 
-          alt={podcast.title} 
+        <img
+          src={resolveArtwork(podcast.cover)}
+          alt={podcast.title}
           className="aspect-square w-full object-cover transition-transform group-hover:scale-105"
         />
         {podcast.isSubscribed && (
@@ -254,8 +255,8 @@ export function PodcastManager({ onBack }: PodcastManagerProps) {
       currentEpisode?.id === episode.id && "bg-muted"
     )}>
       {showPodcast && (
-        <img 
-          src={episode.podcastCover} 
+        <img
+          src={resolveArtwork(episode.podcastCover)}
           alt={episode.podcastTitle}
           className="h-16 w-16 flex-shrink-0 rounded-lg object-cover"
         />
@@ -297,8 +298,8 @@ export function PodcastManager({ onBack }: PodcastManagerProps) {
             )}
           </div>
           <div className="flex items-center gap-1">
-            <Button 
-              size="sm" 
+            <Button
+              size="sm"
               variant={currentEpisode?.id === episode.id && isPlaying ? "secondary" : "default"}
               className="h-8"
               onClick={(e) => { e.stopPropagation(); playEpisode(episode) }}
@@ -343,7 +344,7 @@ export function PodcastManager({ onBack }: PodcastManagerProps) {
         {/* Progress bar */}
         {episode.playProgress > 0 && episode.playProgress < 100 && (
           <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted">
-            <div 
+            <div
               className="h-full bg-primary transition-all"
               style={{ width: `${episode.playProgress}%` }}
             />
@@ -362,7 +363,7 @@ export function PodcastManager({ onBack }: PodcastManagerProps) {
             <ChevronLeft className="h-5 w-5" />
           </Button>
           <div className="flex items-center gap-2">
-            <img src="/nako-icon.png" alt="Nako" className="h-8 w-8 rounded-lg" />
+            <img src={resolveArtwork("/nako-icon.png")} alt="Nako" className="h-8 w-8 rounded-lg" />
             <h1 className="text-lg font-semibold">播客</h1>
           </div>
         </div>
@@ -377,7 +378,7 @@ export function PodcastManager({ onBack }: PodcastManagerProps) {
               className="w-64 pl-9"
             />
           </div>
-          
+
           <Button onClick={() => setShowAddDialog(true)}>
             <Plus className="mr-2 h-4 w-4" />
             添加播客
@@ -537,10 +538,10 @@ export function PodcastManager({ onBack }: PodcastManagerProps) {
                 <ChevronLeft className="mr-2 h-4 w-4" />
                 返回
               </Button>
-              
+
               <div className="mb-6 flex gap-6">
-                <img 
-                  src={selectedPodcast.cover} 
+                <img
+                  src={resolveArtwork(selectedPodcast.cover)}
                   alt={selectedPodcast.title}
                   className="h-48 w-48 rounded-xl object-cover shadow-lg"
                 />
@@ -603,7 +604,7 @@ export function PodcastManager({ onBack }: PodcastManagerProps) {
         <div className="flex h-20 items-center justify-between border-t border-border bg-card px-4">
           {/* Episode info */}
           <div className="flex items-center gap-3 w-1/4 min-w-0">
-            <img src={currentEpisode.podcastCover} alt="" className="h-14 w-14 rounded-lg object-cover" />
+            <img src={resolveArtwork(currentEpisode.podcastCover)} alt="" className="h-14 w-14 rounded-lg object-cover" />
             <div className="min-w-0">
               <p className="truncate font-medium">{currentEpisode.title}</p>
               <p className="truncate text-sm text-muted-foreground">{currentEpisode.podcastTitle}</p>
@@ -623,7 +624,7 @@ export function PodcastManager({ onBack }: PodcastManagerProps) {
                 <SkipForward className="h-5 w-5" />
               </Button>
             </div>
-            
+
             <div className="flex w-full max-w-md items-center gap-2">
               <span className="w-12 text-right text-xs text-muted-foreground">{formatTime(currentTime)}</span>
               <Slider
@@ -647,8 +648,8 @@ export function PodcastManager({ onBack }: PodcastManagerProps) {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {[0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map(speed => (
-                  <DropdownMenuItem 
-                    key={speed} 
+                  <DropdownMenuItem
+                    key={speed}
                     onClick={() => setPlaybackSpeed(speed)}
                     className={cn(playbackSpeed === speed && "bg-muted")}
                   >
@@ -674,7 +675,7 @@ export function PodcastManager({ onBack }: PodcastManagerProps) {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>RSS 订阅地址</Label>
-              <Input 
+              <Input
                 placeholder="https://example.com/feed.xml"
                 value={feedUrl}
                 onChange={(e) => setFeedUrl(e.target.value)}

@@ -1,8 +1,9 @@
 "use client"
+import { resolveArtwork } from '@/lib/artwork'
 
 import { useState } from "react"
-import { 
-  ChevronLeft, Save, RotateCcw, Upload, Search, Plus, X, Trash2, 
+import {
+  ChevronLeft, Save, RotateCcw, Upload, Search, Plus, X, Trash2,
   Film, Tv, Calendar, Clock, Star, Tag, Users, Globe, FileText,
   Image as ImageIcon, RefreshCw, Check, AlertCircle, Loader2
 } from "lucide-react"
@@ -72,15 +73,15 @@ const mockMedia: MediaData = {
   genres: ["科幻", "冒险", "动作"],
   studios: ["Legendary Pictures", "Warner Bros."],
   cast: [
-    { name: "提摩西·查拉梅", role: "Paul Atreides", photo: "https://image.tmdb.org/t/p/w200/BE2sdjpgsa2rNTFa66f7upkaOP.jpg" },
-    { name: "赞达亚", role: "Chani", photo: "https://image.tmdb.org/t/p/w200/oIhJnzTxOjFPMPiaS4TslhKD4dx.jpg" },
-    { name: "丽贝卡·弗格森", role: "Lady Jessica", photo: "https://image.tmdb.org/t/p/w200/lJloTOheuQSirSLXNA3JHsrMNfH.jpg" },
-    { name: "奥斯汀·巴特勒", role: "Feyd-Rautha", photo: "https://image.tmdb.org/t/p/w200/1hDuMBcW1TYpLaGLV6fsnHzxwKs.jpg" },
+    { name: "提摩西·查拉梅", role: "Paul Atreides", photo: "/avatars/avatar-1.jpg" },
+    { name: "赞达亚", role: "Chani", photo: "/avatars/avatar-2.jpg" },
+    { name: "丽贝卡·弗格森", role: "Lady Jessica", photo: "/avatars/avatar-3.jpg" },
+    { name: "奥斯汀·巴特勒", role: "Feyd-Rautha", photo: "/avatars/avatar-4.jpg" },
   ],
   directors: ["丹尼斯·维伦纽瓦"],
   writers: ["丹尼斯·维伦纽瓦", "乔·斯派茨"],
-  poster: "https://image.tmdb.org/t/p/w500/8b8R8l88Qje9dn9OE8PY05Nxl1X.jpg",
-  backdrop: "https://image.tmdb.org/t/p/original/xOMo8BRK7PfcJv9JCnx7s5hj0PX.jpg",
+  poster: "/posters/dune2.jpg",
+  backdrop: "/backdrops/dune2-backdrop.jpg",
   logos: [],
   language: "en",
   country: "US",
@@ -93,7 +94,7 @@ const mockMedia: MediaData = {
 }
 
 const genreOptions = [
-  "动作", "冒险", "动画", "喜剧", "犯罪", "纪录片", "剧情", "家庭", 
+  "动作", "冒险", "动画", "喜剧", "犯罪", "纪录片", "剧情", "家庭",
   "奇幻", "历史", "恐怖", "音乐", "悬疑", "爱情", "科幻", "惊悚", "战争", "西部"
 ]
 
@@ -133,12 +134,12 @@ export function MediaEditor({ mediaId, mediaType = "movie", onBack, onSave }: Me
   const [showImagePicker, setShowImagePicker] = useState<"poster" | "backdrop" | null>(null)
   const [newTag, setNewTag] = useState("")
   const [newGenre, setNewGenre] = useState("")
-  
+
   const updateField = <K extends keyof MediaData>(field: K, value: MediaData[K]) => {
     setData(prev => ({ ...prev, [field]: value }))
     setHasChanges(true)
   }
-  
+
   const handleSave = async () => {
     setIsSaving(true)
     // 模拟保存
@@ -147,34 +148,34 @@ export function MediaEditor({ mediaId, mediaType = "movie", onBack, onSave }: Me
     setHasChanges(false)
     onSave?.(data)
   }
-  
+
   const handleReset = () => {
     setData(mockMedia)
     setHasChanges(false)
   }
-  
+
   const addTag = () => {
     if (newTag.trim() && !data.tags.includes(newTag.trim())) {
       updateField("tags", [...data.tags, newTag.trim()])
       setNewTag("")
     }
   }
-  
+
   const removeTag = (tag: string) => {
     updateField("tags", data.tags.filter(t => t !== tag))
   }
-  
+
   const addGenre = () => {
     if (newGenre && !data.genres.includes(newGenre)) {
       updateField("genres", [...data.genres, newGenre])
       setNewGenre("")
     }
   }
-  
+
   const removeGenre = (genre: string) => {
     updateField("genres", data.genres.filter(g => g !== genre))
   }
-  
+
   return (
     <div className="flex h-full flex-col bg-background">
       {/* Header */}
@@ -192,7 +193,7 @@ export function MediaEditor({ mediaId, mediaType = "movie", onBack, onSave }: Me
             </p>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2">
           {hasChanges && (
             <Badge variant="outline" className="text-yellow-600 border-yellow-600">
@@ -217,18 +218,18 @@ export function MediaEditor({ mediaId, mediaType = "movie", onBack, onSave }: Me
           </Button>
         </div>
       </div>
-      
+
       {/* Content */}
       <div className="flex flex-1 overflow-hidden">
         {/* 左侧预览 */}
         <div className="hidden w-80 flex-shrink-0 border-r border-border p-6 lg:block">
           <div className="sticky top-0 space-y-4">
             {/* 海报 */}
-            <div 
+            <div
               className="group relative aspect-[2/3] cursor-pointer overflow-hidden rounded-lg bg-muted"
               onClick={() => setShowImagePicker("poster")}
             >
-              <img src={data.poster} alt={data.title} className="h-full w-full object-cover" />
+              <img src={resolveArtwork(data.poster)} alt={data.title} className="h-full w-full object-cover" />
               <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
                 <Button variant="secondary" size="sm">
                   <ImageIcon className="mr-2 h-4 w-4" />
@@ -236,13 +237,13 @@ export function MediaEditor({ mediaId, mediaType = "movie", onBack, onSave }: Me
                 </Button>
               </div>
             </div>
-            
+
             {/* 背景图 */}
-            <div 
+            <div
               className="group relative aspect-video cursor-pointer overflow-hidden rounded-lg bg-muted"
               onClick={() => setShowImagePicker("backdrop")}
             >
-              <img src={data.backdrop} alt={data.title} className="h-full w-full object-cover" />
+              <img src={resolveArtwork(data.backdrop)} alt={data.title} className="h-full w-full object-cover" />
               <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
                 <Button variant="secondary" size="sm">
                   <ImageIcon className="mr-2 h-4 w-4" />
@@ -250,7 +251,7 @@ export function MediaEditor({ mediaId, mediaType = "movie", onBack, onSave }: Me
                 </Button>
               </div>
             </div>
-            
+
             {/* 快捷信息 */}
             <div className="space-y-2 text-sm">
               <div className="flex items-center gap-2 text-muted-foreground">
@@ -268,37 +269,37 @@ export function MediaEditor({ mediaId, mediaType = "movie", onBack, onSave }: Me
             </div>
           </div>
         </div>
-        
+
         {/* 右侧编辑区 */}
         <div className="flex-1 overflow-hidden">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex h-full flex-col">
             <div className="border-b border-border px-4 lg:px-6">
               <TabsList className="h-12 w-full justify-start gap-1 bg-transparent p-0">
-                <TabsTrigger 
+                <TabsTrigger
                   value="basic"
                   className="h-12 rounded-none border-b-2 border-transparent px-4 data-[state=active]:border-primary data-[state=active]:bg-transparent"
                 >
                   基本信息
                 </TabsTrigger>
-                <TabsTrigger 
+                <TabsTrigger
                   value="details"
                   className="h-12 rounded-none border-b-2 border-transparent px-4 data-[state=active]:border-primary data-[state=active]:bg-transparent"
                 >
                   详细信息
                 </TabsTrigger>
-                <TabsTrigger 
+                <TabsTrigger
                   value="cast"
                   className="h-12 rounded-none border-b-2 border-transparent px-4 data-[state=active]:border-primary data-[state=active]:bg-transparent"
                 >
                   演职员
                 </TabsTrigger>
-                <TabsTrigger 
+                <TabsTrigger
                   value="media"
                   className="h-12 rounded-none border-b-2 border-transparent px-4 data-[state=active]:border-primary data-[state=active]:bg-transparent"
                 >
                   图片管理
                 </TabsTrigger>
-                <TabsTrigger 
+                <TabsTrigger
                   value="advanced"
                   className="h-12 rounded-none border-b-2 border-transparent px-4 data-[state=active]:border-primary data-[state=active]:bg-transparent"
                 >
@@ -306,7 +307,7 @@ export function MediaEditor({ mediaId, mediaType = "movie", onBack, onSave }: Me
                 </TabsTrigger>
               </TabsList>
             </div>
-            
+
             <ScrollArea className="flex-1">
               <div className="p-4 lg:p-6">
                 {/* 基本信息 */}
@@ -329,7 +330,7 @@ export function MediaEditor({ mediaId, mediaType = "movie", onBack, onSave }: Me
                       />
                     </div>
                   </div>
-                  
+
                   <div className="grid gap-6 lg:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="sortTitle">排序标题</Label>
@@ -349,7 +350,7 @@ export function MediaEditor({ mediaId, mediaType = "movie", onBack, onSave }: Me
                       />
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="overview">简介</Label>
                     <Textarea
@@ -359,7 +360,7 @@ export function MediaEditor({ mediaId, mediaType = "movie", onBack, onSave }: Me
                       rows={5}
                     />
                   </div>
-                  
+
                   <div className="grid gap-6 lg:grid-cols-3">
                     <div className="space-y-2">
                       <Label htmlFor="year">年份</Label>
@@ -389,7 +390,7 @@ export function MediaEditor({ mediaId, mediaType = "movie", onBack, onSave }: Me
                       />
                     </div>
                   </div>
-                  
+
                   {/* 类型 */}
                   <div className="space-y-2">
                     <Label>类型</Label>
@@ -414,7 +415,7 @@ export function MediaEditor({ mediaId, mediaType = "movie", onBack, onSave }: Me
                       </Select>
                     </div>
                   </div>
-                  
+
                   {/* 标签 */}
                   <div className="space-y-2">
                     <Label>自定义标签</Label>
@@ -429,7 +430,7 @@ export function MediaEditor({ mediaId, mediaType = "movie", onBack, onSave }: Me
                         </Badge>
                       ))}
                       <div className="flex gap-1">
-                        <Input 
+                        <Input
                           value={newTag}
                           onChange={e => setNewTag(e.target.value)}
                           onKeyDown={e => e.key === "Enter" && addTag()}
@@ -443,7 +444,7 @@ export function MediaEditor({ mediaId, mediaType = "movie", onBack, onSave }: Me
                     </div>
                   </div>
                 </TabsContent>
-                
+
                 {/* 详细信息 */}
                 <TabsContent value="details" className="mt-0 space-y-6">
                   <div className="grid gap-6 lg:grid-cols-2">
@@ -478,7 +479,7 @@ export function MediaEditor({ mediaId, mediaType = "movie", onBack, onSave }: Me
                       </Select>
                     </div>
                   </div>
-                  
+
                   <div className="grid gap-6 lg:grid-cols-2">
                     <div className="space-y-2">
                       <Label>语言</Label>
@@ -507,7 +508,7 @@ export function MediaEditor({ mediaId, mediaType = "movie", onBack, onSave }: Me
                       </Select>
                     </div>
                   </div>
-                  
+
                   <div className="grid gap-6 lg:grid-cols-2">
                     <div className="space-y-2">
                       <Label>分级</Label>
@@ -533,7 +534,7 @@ export function MediaEditor({ mediaId, mediaType = "movie", onBack, onSave }: Me
                       />
                     </div>
                   </div>
-                  
+
                   <div className="grid gap-6 lg:grid-cols-2">
                     <div className="space-y-2">
                       <Label>TMDB ID</Label>
@@ -551,7 +552,7 @@ export function MediaEditor({ mediaId, mediaType = "movie", onBack, onSave }: Me
                     </div>
                   </div>
                 </TabsContent>
-                
+
                 {/* 演职员 */}
                 <TabsContent value="cast" className="mt-0 space-y-6">
                   <div className="space-y-4">
@@ -574,7 +575,7 @@ export function MediaEditor({ mediaId, mediaType = "movie", onBack, onSave }: Me
                       ))}
                     </div>
                   </div>
-                  
+
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <Label>编剧</Label>
@@ -595,7 +596,7 @@ export function MediaEditor({ mediaId, mediaType = "movie", onBack, onSave }: Me
                       ))}
                     </div>
                   </div>
-                  
+
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <Label>演员</Label>
@@ -607,8 +608,8 @@ export function MediaEditor({ mediaId, mediaType = "movie", onBack, onSave }: Me
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                       {data.cast.map((person, index) => (
                         <div key={index} className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
-                          <img 
-                            src={person.photo} 
+                          <img
+                            src={resolveArtwork(person.photo)}
                             alt={person.name}
                             className="h-12 w-12 rounded-full object-cover"
                           />
@@ -624,24 +625,24 @@ export function MediaEditor({ mediaId, mediaType = "movie", onBack, onSave }: Me
                     </div>
                   </div>
                 </TabsContent>
-                
+
                 {/* 图片管理 */}
                 <TabsContent value="media" className="mt-0 space-y-6">
                   <div className="space-y-4">
                     <Label>海报</Label>
                     <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                      <div 
+                      <div
                         className={cn(
                           "relative aspect-[2/3] overflow-hidden rounded-lg border-2 cursor-pointer",
                           "border-primary ring-2 ring-primary/20"
                         )}
                       >
-                        <img src={data.poster} alt="当前海报" className="h-full w-full object-cover" />
+                        <img src={resolveArtwork(data.poster)} alt="当前海报" className="h-full w-full object-cover" />
                         <div className="absolute top-2 left-2">
                           <Badge className="bg-primary">当前</Badge>
                         </div>
                       </div>
-                      <div 
+                      <div
                         className="flex aspect-[2/3] cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-border hover:border-primary/50 hover:bg-muted/50 transition-colors"
                         onClick={() => setShowImagePicker("poster")}
                       >
@@ -652,22 +653,22 @@ export function MediaEditor({ mediaId, mediaType = "movie", onBack, onSave }: Me
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-4">
                     <Label>背景图</Label>
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                      <div 
+                      <div
                         className={cn(
                           "relative aspect-video overflow-hidden rounded-lg border-2 cursor-pointer",
                           "border-primary ring-2 ring-primary/20"
                         )}
                       >
-                        <img src={data.backdrop} alt="当前背景" className="h-full w-full object-cover" />
+                        <img src={resolveArtwork(data.backdrop)} alt="当前背景" className="h-full w-full object-cover" />
                         <div className="absolute top-2 left-2">
                           <Badge className="bg-primary">当前</Badge>
                         </div>
                       </div>
-                      <div 
+                      <div
                         className="flex aspect-video cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-border hover:border-primary/50 hover:bg-muted/50 transition-colors"
                         onClick={() => setShowImagePicker("backdrop")}
                       >
@@ -679,7 +680,7 @@ export function MediaEditor({ mediaId, mediaType = "movie", onBack, onSave }: Me
                     </div>
                   </div>
                 </TabsContent>
-                
+
                 {/* 高级选项 */}
                 <TabsContent value="advanced" className="mt-0 space-y-6">
                   <div className="rounded-lg border border-border bg-card p-4 space-y-4">
@@ -688,13 +689,13 @@ export function MediaEditor({ mediaId, mediaType = "movie", onBack, onSave }: Me
                         <p className="font-medium">在媒体库中显示</p>
                         <p className="text-sm text-muted-foreground">隐藏后不会在用户界面显示</p>
                       </div>
-                      <Switch 
+                      <Switch
                         checked={data.isVisible}
                         onCheckedChange={val => updateField("isVisible", val)}
                       />
                     </div>
                   </div>
-                  
+
                   <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-4 space-y-4">
                     <h3 className="font-medium text-destructive">危险操作</h3>
                     <div className="flex items-center justify-between">
@@ -724,7 +725,7 @@ export function MediaEditor({ mediaId, mediaType = "movie", onBack, onSave }: Me
           </Tabs>
         </div>
       </div>
-      
+
       {/* 元数据搜索弹窗 */}
       <Dialog open={showMetadataSearch} onOpenChange={setShowMetadataSearch}>
         <DialogContent className="max-w-lg">
@@ -744,7 +745,7 @@ export function MediaEditor({ mediaId, mediaType = "movie", onBack, onSave }: Me
           </div>
         </DialogContent>
       </Dialog>
-      
+
       {/* 图片选择弹窗 */}
       <Dialog open={!!showImagePicker} onOpenChange={() => setShowImagePicker(null)}>
         <DialogContent className="max-w-2xl">

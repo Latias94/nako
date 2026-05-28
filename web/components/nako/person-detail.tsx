@@ -1,4 +1,5 @@
 "use client"
+import { resolveArtwork } from '@/lib/artwork'
 
 import { useState } from "react"
 import { ArrowLeft, Calendar, MapPin, Star, Play, ExternalLink, Instagram, Twitter, Globe, Film, Tv, ChevronRight } from "lucide-react"
@@ -19,7 +20,7 @@ const personData = {
   id: "1",
   name: "Christopher Nolan",
   chineseName: "克里斯托弗·诺兰",
-  profileImage: "https://image.tmdb.org/t/p/w500/xuAIuYSmsUzKlUMBFGVZaWsY3DZ.jpg",
+  profileImage: "/avatars/avatar-1.jpg",
   birthday: "1970-07-30",
   birthplace: "London, England, UK",
   knownFor: "Directing",
@@ -44,29 +45,29 @@ Known for his ambitious and visually striking films, Nolan frequently explores p
 // 示例作品数据
 const filmography = {
   director: [
-    { id: "1", title: "Oppenheimer", year: 2023, rating: 8.4, poster: "https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg", type: "movie", role: "Director" },
-    { id: "2", title: "Tenet", year: 2020, rating: 7.3, poster: "https://image.tmdb.org/t/p/w500/k68nPLbIST6NP96JmTxmZijEvCA.jpg", type: "movie", role: "Director, Writer" },
-    { id: "3", title: "Dunkirk", year: 2017, rating: 7.8, poster: "https://image.tmdb.org/t/p/w500/ebSnODDg9lbsMIaWg2uAbjn7TO5.jpg", type: "movie", role: "Director, Writer" },
-    { id: "4", title: "Interstellar", year: 2014, rating: 8.7, poster: "https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg", type: "movie", role: "Director, Writer" },
-    { id: "5", title: "The Dark Knight Rises", year: 2012, rating: 8.4, poster: "https://image.tmdb.org/t/p/w500/hr0L2aueqlP2BYUblTTjmtn0hw4.jpg", type: "movie", role: "Director, Writer" },
-    { id: "6", title: "Inception", year: 2010, rating: 8.8, poster: "https://image.tmdb.org/t/p/w500/edv5CZvWj09upOsy2Y6IwDhK8bt.jpg", type: "movie", role: "Director, Writer" },
-    { id: "7", title: "The Dark Knight", year: 2008, rating: 9.0, poster: "https://image.tmdb.org/t/p/w500/qJ2tW6WMUDux911r6m7haRef0WH.jpg", type: "movie", role: "Director, Writer" },
-    { id: "8", title: "The Prestige", year: 2006, rating: 8.5, poster: "https://image.tmdb.org/t/p/w500/tRNlZbgNCNOpLpbPEz5L8G8A0JN.jpg", type: "movie", role: "Director, Writer" },
+    { id: "1", title: "Oppenheimer", year: 2023, rating: 8.4, poster: "/posters/oppenheimer.jpg", type: "movie", role: "Director" },
+    { id: "2", title: "Tenet", year: 2020, rating: 7.3, poster: "/avatars/avatar-3.jpg", type: "movie", role: "Director, Writer" },
+    { id: "3", title: "Dunkirk", year: 2017, rating: 7.8, poster: "/placeholder.jpg", type: "movie", role: "Director, Writer" },
+    { id: "4", title: "Interstellar", year: 2014, rating: 8.7, poster: "/posters/interstellar.jpg", type: "movie", role: "Director, Writer" },
+    { id: "5", title: "The Dark Knight Rises", year: 2012, rating: 8.4, poster: "/placeholder.jpg", type: "movie", role: "Director, Writer" },
+    { id: "6", title: "Inception", year: 2010, rating: 8.8, poster: "/placeholder.jpg", type: "movie", role: "Director, Writer" },
+    { id: "7", title: "The Dark Knight", year: 2008, rating: 9.0, poster: "/placeholder.jpg", type: "movie", role: "Director, Writer" },
+    { id: "8", title: "The Prestige", year: 2006, rating: 8.5, poster: "/posters/blade-runner.jpg", type: "movie", role: "Director, Writer" },
   ],
   writer: [
-    { id: "1", title: "Oppenheimer", year: 2023, rating: 8.4, poster: "https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg", type: "movie", role: "Writer" },
-    { id: "9", title: "Man of Steel", year: 2013, rating: 7.1, poster: "https://image.tmdb.org/t/p/w500/dksTL9NXc3GqPBRHYHcy1aIwjS.jpg", type: "movie", role: "Story" },
+    { id: "1", title: "Oppenheimer", year: 2023, rating: 8.4, poster: "/posters/oppenheimer.jpg", type: "movie", role: "Writer" },
+    { id: "9", title: "Man of Steel", year: 2013, rating: 7.1, poster: "/placeholder.jpg", type: "movie", role: "Story" },
   ],
   producer: [
-    { id: "1", title: "Oppenheimer", year: 2023, rating: 8.4, poster: "https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg", type: "movie", role: "Producer" },
-    { id: "10", title: "Transcendence", year: 2014, rating: 6.2, poster: "https://image.tmdb.org/t/p/w500/dZm8DQrABIgbERXUWXjb1EPtPcT.jpg", type: "movie", role: "Executive Producer" },
+    { id: "1", title: "Oppenheimer", year: 2023, rating: 8.4, poster: "/posters/oppenheimer.jpg", type: "movie", role: "Producer" },
+    { id: "10", title: "Transcendence", year: 2014, rating: 6.2, poster: "/placeholder.jpg", type: "movie", role: "Executive Producer" },
   ],
 }
 
 // 示例图片数据
 const personImages = [
-  { id: "1", url: "https://image.tmdb.org/t/p/w500/xuAIuYSmsUzKlUMBFGVZaWsY3DZ.jpg" },
-  { id: "2", url: "https://image.tmdb.org/t/p/w500/cGOPbv9wA5gEejkUN892JrveARt.jpg" },
+  { id: "1", url: "/avatars/avatar-1.jpg" },
+  { id: "2", url: "/avatars/avatar-2.jpg" },
 ]
 
 export function PersonDetail({ personId, personName, onBack, onSelectMedia }: PersonDetailProps) {
@@ -102,7 +103,7 @@ export function PersonDetail({ personId, personName, onBack, onSelectMedia }: Pe
           <div className="flex-shrink-0">
             <div className="relative mx-auto h-64 w-48 overflow-hidden rounded-xl bg-muted shadow-lg md:mx-0 md:h-80 md:w-60">
               <img
-                src={personData.profileImage}
+                src={resolveArtwork(personData.profileImage)}
                 alt={personData.name}
                 className="h-full w-full object-cover"
               />
@@ -115,7 +116,7 @@ export function PersonDetail({ personId, personName, onBack, onSelectMedia }: Pe
             {personData.chineseName && (
               <p className="mt-1 text-lg text-muted-foreground">{personData.chineseName}</p>
             )}
-            
+
             <Badge variant="secondary" className="mt-3">
               {personData.knownFor}
             </Badge>
@@ -274,7 +275,7 @@ export function PersonDetail({ personId, personName, onBack, onSelectMedia }: Pe
                   className="group relative aspect-[2/3] cursor-pointer overflow-hidden rounded-lg bg-muted"
                 >
                   <img
-                    src={image.url}
+                    src={resolveArtwork(image.url)}
                     alt=""
                     className="h-full w-full object-cover transition-transform group-hover:scale-105"
                   />
@@ -289,12 +290,12 @@ export function PersonDetail({ personId, personName, onBack, onSelectMedia }: Pe
 }
 
 // Film Card Component
-function FilmCard({ 
-  film, 
-  onClick 
-}: { 
+function FilmCard({
+  film,
+  onClick
+}: {
   film: { id: string; title: string; year: number; rating: number; poster: string; role: string }
-  onClick: () => void 
+  onClick: () => void
 }) {
   return (
     <button
@@ -303,7 +304,7 @@ function FilmCard({
     >
       <div className="relative aspect-[2/3] overflow-hidden rounded-lg bg-muted transition-all group-hover:ring-2 group-hover:ring-primary">
         <img
-          src={film.poster}
+          src={resolveArtwork(film.poster)}
           alt={film.title}
           className="h-full w-full object-cover transition-transform group-hover:scale-105"
         />

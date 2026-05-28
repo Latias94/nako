@@ -1,4 +1,5 @@
 "use client"
+import { resolveArtwork } from '@/lib/artwork'
 
 import { useState, useRef, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
@@ -9,22 +10,22 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { 
-  ArrowLeft, 
-  Send, 
-  Mic, 
-  Paperclip, 
-  Bot, 
-  Sparkles, 
-  Settings, 
-  Copy, 
+import {
+  ArrowLeft,
+  Send,
+  Mic,
+  Paperclip,
+  Bot,
+  Sparkles,
+  Settings,
+  Copy,
   RotateCcw,
   RefreshCw,
   Search,
@@ -134,7 +135,7 @@ interface ChatMessage {
 }
 
 // 消息模板类型
-type MessageTemplate = 
+type MessageTemplate =
   | { type: "search_results"; data: SearchResultsData }
   | { type: "download_task"; data: DownloadTaskData }
   | { type: "media_card"; data: MediaCardData }
@@ -311,7 +312,7 @@ export function AgentAssistant({ onBack }: AgentAssistantProps) {
   const [editingProviderId, setEditingProviderId] = useState<string | null>(null)
   const [showApiKey, setShowApiKey] = useState<Record<string, boolean>>({})
   const [historyCollapsed, setHistoryCollapsed] = useState(false)
-  
+
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -327,7 +328,7 @@ export function AgentAssistant({ onBack }: AgentAssistantProps) {
     const minutes = Math.floor(diff / 60000)
     const hours = Math.floor(diff / 3600000)
     const days = Math.floor(diff / 86400000)
-    
+
     if (minutes < 1) return "刚刚"
     if (minutes < 60) return `${minutes}分钟前`
     if (hours < 24) return `${hours}小时前`
@@ -438,14 +439,14 @@ export function AgentAssistant({ onBack }: AgentAssistantProps) {
   }
 
   const updateProviderApiKey = (providerId: string, apiKey: string) => {
-    setProviders(prev => prev.map(p => 
+    setProviders(prev => prev.map(p =>
       p.id === providerId ? { ...p, apiKey, apiKeySet: apiKey.length > 0 } : p
     ))
   }
 
   const toggleModelEnabled = (providerId: string, modelId: string) => {
-    setProviders(prev => prev.map(p => 
-      p.id === providerId 
+    setProviders(prev => prev.map(p =>
+      p.id === providerId
         ? { ...p, models: p.models.map(m => m.id === modelId ? { ...m, enabled: !m.enabled } : m) }
         : p
     ))
@@ -508,7 +509,7 @@ export function AgentAssistant({ onBack }: AgentAssistantProps) {
 
             <div className="space-y-3">
               {providers.map(provider => (
-                <div 
+                <div
                   key={provider.id}
                   className={cn(
                     "rounded-xl border transition-all",
@@ -516,14 +517,14 @@ export function AgentAssistant({ onBack }: AgentAssistantProps) {
                   )}
                 >
                   {/* Provider Header */}
-                  <div 
+                  <div
                     className="flex cursor-pointer items-center justify-between p-4"
                     onClick={() => setEditingProviderId(editingProviderId === provider.id ? null : provider.id)}
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted/50">
                         {provider.icon ? (
-                          <img src={provider.icon} alt={provider.name} className="h-5 w-5" />
+                          <img src={resolveArtwork(provider.icon)} alt={provider.name} className="h-5 w-5" />
                         ) : (
                           <Bot className="h-5 w-5 text-muted-foreground" />
                         )}
@@ -548,9 +549,9 @@ export function AgentAssistant({ onBack }: AgentAssistantProps) {
                     </div>
                     <div className="flex items-center gap-2">
                       {!provider.isDefault && provider.apiKeySet && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           className="h-7 text-xs"
                           onClick={(e) => { e.stopPropagation(); setDefaultProvider(provider.id); }}
                         >
@@ -603,7 +604,7 @@ export function AgentAssistant({ onBack }: AgentAssistantProps) {
                           <Input
                             placeholder="http://localhost:11434"
                             value={provider.baseUrl || ""}
-                            onChange={(e) => setProviders(prev => prev.map(p => 
+                            onChange={(e) => setProviders(prev => prev.map(p =>
                               p.id === provider.id ? { ...p, baseUrl: e.target.value } : p
                             ))}
                             className="font-mono text-xs"
@@ -728,7 +729,7 @@ export function AgentAssistant({ onBack }: AgentAssistantProps) {
 
               <div className="grid gap-3">
                 {filteredSkills.map(skill => (
-                  <div 
+                  <div
                     key={skill.id}
                     className={cn(
                       "flex items-center justify-between rounded-xl border p-4 transition-all",
@@ -784,7 +785,7 @@ export function AgentAssistant({ onBack }: AgentAssistantProps) {
             <PanelLeftClose className="h-4 w-4" />
           </Button>
         </div>
-        
+
         {/* Conversations - 分组折叠 */}
         <ScrollArea className="flex-1 p-2">
           {groupedConversations.today.length > 0 && (
@@ -813,8 +814,8 @@ export function AgentAssistant({ onBack }: AgentAssistantProps) {
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <span className="font-medium">
-              {activeConversationId 
-                ? conversations.find(c => c.id === activeConversationId)?.title 
+              {activeConversationId
+                ? conversations.find(c => c.id === activeConversationId)?.title
                 : "新对话"}
             </span>
           </div>
@@ -823,9 +824,9 @@ export function AgentAssistant({ onBack }: AgentAssistantProps) {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     className="h-8 gap-1.5 px-2.5 text-xs"
                     onClick={() => setCurrentView("skills")}
                   >
@@ -839,9 +840,9 @@ export function AgentAssistant({ onBack }: AgentAssistantProps) {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     className="h-8 gap-1.5 px-2.5 text-xs"
                     onClick={() => setCurrentView("settings")}
                   >
@@ -944,9 +945,9 @@ export function AgentAssistant({ onBack }: AgentAssistantProps) {
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         className="h-8 w-8 text-muted-foreground hover:text-foreground"
                         onClick={() => {
                           const input = document.createElement('input')
@@ -970,9 +971,9 @@ export function AgentAssistant({ onBack }: AgentAssistantProps) {
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         className="h-8 w-8 text-muted-foreground hover:text-foreground"
                       >
                         <Mic className="h-4 w-4" />
@@ -981,8 +982,8 @@ export function AgentAssistant({ onBack }: AgentAssistantProps) {
                     <TooltipContent>语音输入</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-                <Button 
-                  size="icon" 
+                <Button
+                  size="icon"
                   className="h-8 w-8 bg-cyan-500 hover:bg-cyan-600"
                   onClick={handleSend}
                   disabled={!input.trim() || isLoading}
@@ -998,7 +999,7 @@ export function AgentAssistant({ onBack }: AgentAssistantProps) {
   )
 
   // ===== 消息模板组件 =====
-  
+
   // 搜索结果模板
   const SearchResultsTemplate = ({ data }: { data: SearchResultsData }) => (
     <div className="w-full space-y-3">
@@ -1007,13 +1008,13 @@ export function AgentAssistant({ onBack }: AgentAssistantProps) {
         <Badge variant="outline" className="text-[10px]">{data.source}</Badge>
       </div>
       {data.results.map(media => (
-        <div 
+        <div
           key={media.id}
           className="flex items-center gap-4 rounded-xl border border-border/50 bg-card/50 p-3 transition-colors hover:bg-muted/30"
         >
           <div className="relative h-16 w-12 shrink-0 overflow-hidden rounded-lg bg-muted">
             {media.poster ? (
-              <img src={media.poster} alt={media.title} className="h-full w-full object-cover" />
+              <img src={resolveArtwork(media.poster)} alt={media.title} className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full w-full items-center justify-center">
                 <Film className="h-5 w-5 text-muted-foreground" />
@@ -1076,8 +1077,8 @@ export function AgentAssistant({ onBack }: AgentAssistantProps) {
           </div>
         </div>
         <Badge variant={
-          data.status === "completed" ? "default" : 
-          data.status === "failed" ? "destructive" : 
+          data.status === "completed" ? "default" :
+          data.status === "failed" ? "destructive" :
           "secondary"
         }>
           {data.status === "pending" && "等待中"}
@@ -1089,7 +1090,7 @@ export function AgentAssistant({ onBack }: AgentAssistantProps) {
       {data.status === "downloading" && (
         <div className="space-y-1">
           <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-            <div 
+            <div
               className="h-full bg-gradient-to-r from-cyan-500 to-teal-500 transition-all"
               style={{ width: `${data.progress}%` }}
             />
@@ -1101,7 +1102,7 @@ export function AgentAssistant({ onBack }: AgentAssistantProps) {
   )
 
   // 对话分组组件
-  const ConversationGroup = ({ title, conversations, defaultOpen = false }: { 
+  const ConversationGroup = ({ title, conversations, defaultOpen = false }: {
     title: string
     conversations: Conversation[]
     defaultOpen?: boolean
@@ -1131,9 +1132,9 @@ export function AgentAssistant({ onBack }: AgentAssistantProps) {
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     className="h-6 w-6 opacity-0 group-hover:opacity-100"
                     onClick={(e) => e.stopPropagation()}
                   >
@@ -1177,8 +1178,8 @@ export function AgentAssistant({ onBack }: AgentAssistantProps) {
           {message.content && (
             <div className={cn(
               "rounded-2xl px-4 py-3 text-sm",
-              isUser 
-                ? "bg-gradient-to-br from-cyan-500 to-teal-500 text-white" 
+              isUser
+                ? "bg-gradient-to-br from-cyan-500 to-teal-500 text-white"
                 : "bg-muted/50"
             )}>
               <div className="whitespace-pre-wrap">{message.content}</div>
@@ -1187,11 +1188,11 @@ export function AgentAssistant({ onBack }: AgentAssistantProps) {
 
           {/* Tool Calls */}
           {message.toolCalls?.map(tool => (
-            <div 
+            <div
               key={tool.id}
               className="w-full rounded-xl border border-border/50 bg-card/50 overflow-hidden"
             >
-              <button 
+              <button
                 onClick={() => toggleToolExpand(tool.id)}
                 className="flex w-full items-center justify-between p-3 text-left hover:bg-muted/30"
               >
@@ -1221,7 +1222,7 @@ export function AgentAssistant({ onBack }: AgentAssistantProps) {
           {message.template?.type === "search_results" && (
             <SearchResultsTemplate data={message.template.data} />
           )}
-          
+
           {/* Download Task Template */}
           {message.template?.type === "download_task" && (
             <DownloadTaskTemplate data={message.template.data} />
@@ -1250,9 +1251,9 @@ export function AgentAssistant({ onBack }: AgentAssistantProps) {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       className="h-7 w-7"
                       onClick={() => {
                         navigator.clipboard.writeText(message.content || "")
@@ -1267,9 +1268,9 @@ export function AgentAssistant({ onBack }: AgentAssistantProps) {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       className="h-7 w-7"
                       onClick={() => {
                         // 重新生成 - 找到上一条用户消息重新发送
@@ -1298,9 +1299,9 @@ export function AgentAssistant({ onBack }: AgentAssistantProps) {
     <div className="flex min-h-full w-full flex-col items-center justify-center px-6 py-12">
       <div className="flex flex-col items-center">
         <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-cyan-500/20 via-teal-500/15 to-emerald-500/10 ring-1 ring-cyan-500/20">
-          <img src="/nako-icon.png" alt="Nako" className="h-12 w-12 rounded-xl" />
+          <img src={resolveArtwork("/nako-icon.png")} alt="Nako" className="h-12 w-12 rounded-xl" />
         </div>
-        
+
         <h1 className="mb-2 text-2xl font-semibold tracking-tight">你好，我是 Nako</h1>
         <p className="mb-10 max-w-md text-center text-muted-foreground">
           我可以帮你搜索资源、下载影片、整理媒体库、智能推荐

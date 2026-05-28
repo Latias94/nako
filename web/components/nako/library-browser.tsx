@@ -1,10 +1,11 @@
 "use client"
+import { resolveArtwork } from '@/lib/artwork'
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { 
+import {
   Play, Shuffle, ChevronDown, Check, Search, X, MoreHorizontal,
-  ArrowUp, ArrowDown, Pencil, Trash2, Plus, ChevronLeft, 
+  ArrowUp, ArrowDown, Pencil, Trash2, Plus, ChevronLeft,
   Film, Tv, Sparkles, FolderOpen, LayoutGrid, List, Table2,
   FolderSync, Settings, CheckSquare, Square, Tag, SlidersHorizontal
 } from "lucide-react"
@@ -96,13 +97,13 @@ const generateMockItems = (count: number): MediaItem[] => {
     "一名秘密特工必须通过时间逆转来阻止第三次世界大战的爆发。",
     "一个技术高超的盗贼专门在人们做梦时潜入他们的潜意识窃取秘密。",
   ]
-  
+
   return Array.from({ length: count }, (_, i) => ({
   id: `media-${i}`,
   title: titles[i % titles.length] + (i >= titles.length ? ` ${Math.floor(i / titles.length) + 1}` : ""),
   originalTitle: "Original Title",
   year: 2015 + (i % 10),
-  poster: `https://image.tmdb.org/t/p/w500/8b8R8l88Qje9dn9OE8PY05Nxl1X.jpg`,
+  poster: "/posters/dune2.jpg",
   rating: 6.5 + Math.random() * 3.5,
   playCount: Math.floor(Math.random() * 50),
   progress: Math.random() > 0.7 ? Math.floor(Math.random() * 100) : undefined,
@@ -122,10 +123,10 @@ const generateMockItems = (count: number): MediaItem[] => {
   }
 
 const mockCollections: Collection[] = [
-  { id: "c1", name: "漫威电影宇宙", itemCount: 32, poster: "https://image.tmdb.org/t/p/w500/8b8R8l88Qje9dn9OE8PY05Nxl1X.jpg" },
-  { id: "c2", name: "星球大战", itemCount: 11, poster: "https://image.tmdb.org/t/p/w500/8b8R8l88Qje9dn9OE8PY05Nxl1X.jpg" },
-  { id: "c3", name: "诺兰作品集", itemCount: 12, poster: "https://image.tmdb.org/t/p/w500/8b8R8l88Qje9dn9OE8PY05Nxl1X.jpg" },
-  { id: "c4", name: "哈利波特", itemCount: 8, poster: "https://image.tmdb.org/t/p/w500/8b8R8l88Qje9dn9OE8PY05Nxl1X.jpg" },
+  { id: "c1", name: "漫威电影宇宙", itemCount: 32, poster: "/posters/dune2.jpg" },
+  { id: "c2", name: "星球大战", itemCount: 11, poster: "/posters/dune2.jpg" },
+  { id: "c3", name: "诺兰作品集", itemCount: 12, poster: "/posters/dune2.jpg" },
+  { id: "c4", name: "哈利波特", itemCount: 8, poster: "/posters/dune2.jpg" },
 ]
 
 // ============ Filter & Sort Options ============
@@ -193,7 +194,7 @@ export function LibraryBrowser({ onBack, onSelectMedia, onEditMedia, onSearch, i
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [isSelectionMode, setIsSelectionMode] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  
+
   // Virtual list state
   const [allItems] = useState(() => generateMockItems(847))
   const [visibleItems, setVisibleItems] = useState<MediaItem[]>([])
@@ -226,7 +227,7 @@ export function LibraryBrowser({ onBack, onSelectMedia, onEditMedia, onSearch, i
   // Filter and sort items
   const filteredItems = useMemo(() => {
     let items = [...allItems]
-    
+
     // Apply quick filter
     if (quickFilter !== "all") {
       switch (quickFilter) {
@@ -244,7 +245,7 @@ export function LibraryBrowser({ onBack, onSelectMedia, onEditMedia, onSearch, i
           break
       }
     }
-    
+
     // Apply category filter
     if (categoryFilter) {
       items = items.filter(item => {
@@ -259,7 +260,7 @@ export function LibraryBrowser({ onBack, onSelectMedia, onEditMedia, onSearch, i
         }
       })
     }
-    
+
     // Apply sort
     items.sort((a, b) => {
       let comparison = 0
@@ -274,7 +275,7 @@ export function LibraryBrowser({ onBack, onSelectMedia, onEditMedia, onSearch, i
       }
       return sortOrder === "asc" ? comparison : -comparison
     })
-    
+
     return items
   }, [allItems, quickFilter, categoryFilter, sortBy, sortOrder])
 
@@ -373,7 +374,7 @@ export function LibraryBrowser({ onBack, onSelectMedia, onEditMedia, onSearch, i
               <ChevronLeft className="h-5 w-5" />
             </Button>
           )}
-          
+
           {/* Library selector */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -411,9 +412,9 @@ export function LibraryBrowser({ onBack, onSelectMedia, onEditMedia, onSearch, i
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       className="h-9 w-9"
                       onClick={() => onSearch?.("", currentLibrary.id)}
                     >
@@ -423,7 +424,7 @@ export function LibraryBrowser({ onBack, onSelectMedia, onEditMedia, onSearch, i
                   <TooltipContent>在此媒体库中搜索</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-              
+
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -434,7 +435,7 @@ export function LibraryBrowser({ onBack, onSelectMedia, onEditMedia, onSearch, i
                   <TooltipContent>扫描媒体库</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-              
+
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -476,8 +477,8 @@ export function LibraryBrowser({ onBack, onSelectMedia, onEditMedia, onSearch, i
                     </DropdownMenuTrigger>
                     <DropdownMenuContent side="right" className="w-40">
                       {category.options.map((option) => (
-                        <DropdownMenuItem 
-                          key={option} 
+                        <DropdownMenuItem
+                          key={option}
                           onClick={() => setCategoryFilter({ type: category.id, value: option })}
                         >
                           {option}
@@ -577,25 +578,25 @@ export function LibraryBrowser({ onBack, onSelectMedia, onEditMedia, onSearch, i
 
             {/* View mode */}
             <div className="flex items-center gap-0.5 rounded-md border border-border p-0.5">
-              <Button 
-                variant={viewMode === "grid" ? "secondary" : "ghost"} 
-                size="icon" 
+              <Button
+                variant={viewMode === "grid" ? "secondary" : "ghost"}
+                size="icon"
                 className="h-7 w-7"
                 onClick={() => setViewMode("grid")}
               >
                 <LayoutGrid className="h-3.5 w-3.5" />
               </Button>
-              <Button 
-                variant={viewMode === "detail" ? "secondary" : "ghost"} 
-                size="icon" 
+              <Button
+                variant={viewMode === "detail" ? "secondary" : "ghost"}
+                size="icon"
                 className="h-7 w-7"
                 onClick={() => setViewMode("detail")}
               >
                 <List className="h-3.5 w-3.5" />
               </Button>
-              <Button 
-                variant={viewMode === "table" ? "secondary" : "ghost"} 
-                size="icon" 
+              <Button
+                variant={viewMode === "table" ? "secondary" : "ghost"}
+                size="icon"
                 className="h-7 w-7"
                 onClick={() => setViewMode("table")}
               >
@@ -637,9 +638,9 @@ export function LibraryBrowser({ onBack, onSelectMedia, onEditMedia, onSearch, i
               编辑标签
             </Button>
             {isAdmin && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 className="text-destructive hover:text-destructive"
                 disabled={selectedItems.size === 0}
                 onClick={() => setDeleteDialogOpen(true)}
@@ -668,7 +669,7 @@ export function LibraryBrowser({ onBack, onSelectMedia, onEditMedia, onSearch, i
                 ))}
               </div>
             )}
-            
+
             {isInitialLoading && viewMode === "detail" && (
               <div className="space-y-2">
                 {Array.from({ length: 10 }).map((_, i) => (
@@ -683,7 +684,7 @@ export function LibraryBrowser({ onBack, onSelectMedia, onEditMedia, onSearch, i
                 ))}
               </div>
             )}
-            
+
             {isInitialLoading && viewMode === "table" && (
               <div className="space-y-2">
                 {Array.from({ length: 15 }).map((_, i) => (
@@ -718,7 +719,7 @@ export function LibraryBrowser({ onBack, onSelectMedia, onEditMedia, onSearch, i
 
             {/* Detail View - Virtualized */}
             {!isInitialLoading && viewMode === "detail" && (
-              <div 
+              <div
                 ref={detailListRef}
                 className="h-[calc(100vh-200px)] overflow-auto"
                 style={{ scrollbarWidth: "thin" }}
@@ -780,7 +781,7 @@ export function LibraryBrowser({ onBack, onSelectMedia, onEditMedia, onSearch, i
                     </tr>
                   </thead>
                 </table>
-                <div 
+                <div
                   ref={tableContainerRef}
                   className="h-[calc(100vh-250px)] overflow-auto"
                   style={{ scrollbarWidth: "thin" }}
@@ -821,7 +822,7 @@ export function LibraryBrowser({ onBack, onSelectMedia, onEditMedia, onSearch, i
                           )}
                           <div className="flex-1 p-2 min-w-0">
                             <div className="flex items-center gap-2">
-                              <img src={item.poster} alt={item.title} className="h-9 w-6 rounded object-cover shrink-0" loading="lazy" />
+                              <img src={resolveArtwork(item.poster)} alt={item.title} className="h-9 w-6 rounded object-cover shrink-0" loading="lazy" />
                               <span className="font-medium truncate">{item.title}</span>
                             </div>
                           </div>
@@ -874,7 +875,7 @@ export function LibraryBrowser({ onBack, onSelectMedia, onEditMedia, onSearch, i
             {mockCollections.map((collection) => (
               <div key={collection.id} className="group cursor-pointer">
                 <div className="relative aspect-[2/3] overflow-hidden rounded-lg border border-border bg-muted">
-                  <img src={collection.poster} alt={collection.name} className="h-full w-full object-cover transition-transform group-hover:scale-105" loading="lazy" />
+                  <img src={resolveArtwork(collection.poster)} alt={collection.name} className="h-full w-full object-cover transition-transform group-hover:scale-105" loading="lazy" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                   <div className="absolute bottom-0 left-0 right-0 p-3">
                     <h3 className="text-sm font-medium text-white">{collection.name}</h3>
@@ -902,9 +903,9 @@ export function LibraryBrowser({ onBack, onSelectMedia, onEditMedia, onSearch, i
                 <h3 className="mb-3 text-sm font-semibold text-foreground">{category.label}</h3>
                 <div className="flex flex-wrap gap-2">
                   {category.options.map((option) => (
-                    <Badge 
-                      key={option} 
-                      variant="secondary" 
+                    <Badge
+                      key={option}
+                      variant="secondary"
                       className="cursor-pointer hover:bg-primary hover:text-primary-foreground"
                       onClick={() => {
                         setCategoryFilter({ type: category.id, value: option })
@@ -977,7 +978,7 @@ interface MediaGridItemProps {
 function MediaGridItem({ item, isSelectionMode, isSelected, onSelect, onClick, onEdit, isAdmin }: MediaGridItemProps) {
 
   return (
-    <div 
+    <div
       className={cn(
         "group relative cursor-pointer",
         isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-lg"
@@ -986,14 +987,14 @@ function MediaGridItem({ item, isSelectionMode, isSelected, onSelect, onClick, o
     >
       <div className="relative aspect-[2/3] overflow-hidden rounded-lg border border-border bg-muted">
         {/* Lazy loaded image */}
-        <img 
-          src={item.poster} 
-          alt={item.title} 
+        <img
+          src={resolveArtwork(item.poster)}
+          alt={item.title}
           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           loading="lazy"
           decoding="async"
         />
-        
+
         {/* Progress bar */}
         {item.progress && item.progress > 0 && (
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/50">
@@ -1009,9 +1010,9 @@ function MediaGridItem({ item, isSelectionMode, isSelected, onSelect, onClick, o
             </Button>
           </div>
           {isAdmin && onEdit && (
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="ghost"
+              size="icon"
               className="absolute left-1 top-1 h-7 w-7 text-white hover:bg-white/20"
               onClick={(e) => { e.stopPropagation(); onEdit() }}
             >
@@ -1069,7 +1070,7 @@ interface MediaDetailItemProps {
 
 function MediaDetailItem({ item, isSelectionMode, isSelected, onSelect, onClick, onEdit, isAdmin }: MediaDetailItemProps) {
   return (
-    <div 
+    <div
       className={cn(
         "group flex cursor-pointer gap-4 rounded-lg border border-border p-3 transition-colors hover:bg-muted/50",
         isSelected && "border-primary bg-primary/5"
@@ -1089,7 +1090,7 @@ function MediaDetailItem({ item, isSelectionMode, isSelected, onSelect, onClick,
 
       {/* Poster */}
       <div className="relative h-24 w-16 shrink-0 overflow-hidden rounded">
-        <img src={item.poster} alt={item.title} className="h-full w-full object-cover" loading="lazy" />
+        <img src={resolveArtwork(item.poster)} alt={item.title} className="h-full w-full object-cover" loading="lazy" />
         {item.progress && item.progress > 0 && (
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/50">
             <div className="h-full bg-primary" style={{ width: `${item.progress}%` }} />

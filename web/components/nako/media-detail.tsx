@@ -1,14 +1,15 @@
 "use client"
+import { resolveArtwork } from '@/lib/artwork'
 
 import { useState } from "react"
-import { 
-  Play, 
-  Download, 
-  Heart, 
-  Share2, 
-  ChevronLeft, 
-  Star, 
-  Clock, 
+import {
+  Play,
+  Download,
+  Heart,
+  Share2,
+  ChevronLeft,
+  Star,
+  Clock,
   Film,
   Tv,
   Volume2,
@@ -123,7 +124,7 @@ const movieData = {
       container: "MKV"
     },
     {
-      id: "2", 
+      id: "2",
       quality: "1080p",
       hdr: null,
       resolution: "1920×1080",
@@ -218,16 +219,16 @@ const seriesData = {
   favorite: false,
 }
 
-export function MediaDetail({ 
-  onBack, 
-  onNavigate, 
+export function MediaDetail({
+  onBack,
+  onNavigate,
   onPlay,
   onViewImages,
-  mediaType = "movie" 
+  mediaType = "movie"
 }: MediaDetailProps) {
   const isMovie = mediaType === "movie"
   const data = isMovie ? movieData : seriesData
-  
+
   const [selectedSource, setSelectedSource] = useState(isMovie ? movieData.sources[0] : null)
   const [isFavorite, setIsFavorite] = useState(data.favorite)
   const [isInList, setIsInList] = useState(false)
@@ -242,7 +243,7 @@ export function MediaDetail({
   }
 
   // 继续观看的集数
-  const nextEpisode = !isMovie && selectedSeason 
+  const nextEpisode = !isMovie && selectedSeason
     ? selectedSeason.episodes.find(ep => !ep.watched || (ep.progress > 0 && ep.progress < 100))
     : null
 
@@ -259,8 +260,8 @@ export function MediaDetail({
       <div className="relative">
         {/* 背景图片 - 全宽 */}
         <div className="absolute inset-0 h-[70vh] min-h-[500px] lg:h-[75vh]">
-          <img 
-            src={data.backdrop} 
+          <img
+            src={resolveArtwork(data.backdrop)}
             alt=""
             className="h-full w-full object-cover object-top"
           />
@@ -287,13 +288,13 @@ export function MediaDetail({
           <div className="w-full px-4 lg:px-12">
             <div className="mx-auto max-w-7xl">
               <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:gap-10">
-                
+
                 {/* 海报 - 左侧 */}
                 <div className="hidden flex-shrink-0 lg:block">
                   <div className="relative w-52 overflow-hidden rounded-lg shadow-2xl ring-1 ring-white/10 xl:w-60">
                     <div className="aspect-[2/3]">
-                      <img 
-                        src={data.poster} 
+                      <img
+                        src={resolveArtwork(data.poster)}
                         alt={data.title}
                         className="h-full w-full object-cover"
                       />
@@ -325,8 +326,8 @@ export function MediaDetail({
                       </Badge>
                     )}
                     {isMovie && movieData.collection && (
-                      <Badge 
-                        variant="outline" 
+                      <Badge
+                        variant="outline"
                         className="cursor-pointer border-white/20 text-xs text-white/80 transition-colors hover:bg-white/10"
                         onClick={() => handleTagClick("collection", movieData.collection.name, movieData.collection.id)}
                       >
@@ -368,7 +369,7 @@ export function MediaDetail({
                   {/* 类型标签 */}
                   <div className="flex flex-wrap gap-2">
                     {data.genres.map((genre) => (
-                      <button 
+                      <button
                         key={genre.id}
                         className="rounded-full bg-white/10 px-3 py-1 text-sm text-white/90 backdrop-blur-sm transition-colors hover:bg-white/20"
                         onClick={() => handleTagClick("genre", genre.name, genre.id)}
@@ -388,7 +389,7 @@ export function MediaDetail({
                     <span className="text-white/40">主演：</span>
                     {(isMovie ? movieData.cast : seriesData.cast).slice(0, 4).map((person, i) => (
                       <span key={person.id}>
-                        <button 
+                        <button
                           className="text-white/80 underline-offset-2 hover:text-white hover:underline"
                           onClick={() => handleTagClick("person", person.name, person.id)}
                         >
@@ -404,8 +405,8 @@ export function MediaDetail({
 
                   {/* 操作按钮 */}
                   <div className="flex flex-wrap items-center gap-3 pt-2">
-                    <Button 
-                      size="lg" 
+                    <Button
+                      size="lg"
                       className="h-12 gap-2 px-8 text-base font-semibold"
                       onClick={() => onPlay?.(data.id, selectedSource?.id, nextEpisode?.id)}
                     >
@@ -416,9 +417,9 @@ export function MediaDetail({
                         movieData.watchProgress > 0 ? "继续播放" : "播放"
                       )}
                     </Button>
-                    
-                    <Button 
-                      variant="outline" 
+
+                    <Button
+                      variant="outline"
                       size="lg"
                       className={cn(
                         "h-12 gap-2 border-white/20 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 hover:text-white",
@@ -439,8 +440,8 @@ export function MediaDetail({
                       )}
                     </Button>
 
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       size="icon"
                       className={cn(
                         "h-12 w-12 rounded-full border border-white/20 text-white hover:bg-white/20 hover:text-white",
@@ -453,8 +454,8 @@ export function MediaDetail({
 
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="icon"
                           className="h-12 w-12 rounded-full border border-white/20 text-white hover:bg-white/20 hover:text-white"
                         >
@@ -496,14 +497,14 @@ export function MediaDetail({
       {/* 下方内容区 */}
       <div className="relative z-10 bg-background">
         <div className="mx-auto max-w-7xl px-4 py-8 lg:px-12">
-          
+
           {/* 剧集选择器 - 仅剧集显示 */}
           {!isMovie && (
             <div className="mb-8">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-xl font-semibold">剧集</h2>
-                <Select 
-                  value={selectedSeason?.id} 
+                <Select
+                  value={selectedSeason?.id}
                   onValueChange={(value) => setSelectedSeason(seriesData.seasons.find(s => s.id === value) || null)}
                 >
                   <SelectTrigger className="w-40">
@@ -522,7 +523,7 @@ export function MediaDetail({
               {/* 剧集网格 - Netflix 风格 */}
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {selectedSeason?.episodes.map((episode) => (
-                  <div 
+                  <div
                     key={episode.id}
                     className="group cursor-pointer overflow-hidden rounded-lg bg-card transition-all hover:bg-card/80 hover:ring-1 hover:ring-primary/50"
                     onClick={() => onPlay?.(data.id, undefined, episode.id)}
@@ -654,8 +655,8 @@ export function MediaDetail({
                         key={source.id}
                         className={cn(
                           "cursor-pointer rounded-lg border p-4 transition-all",
-                          selectedSource?.id === source.id 
-                            ? "border-primary bg-primary/5" 
+                          selectedSource?.id === source.id
+                            ? "border-primary bg-primary/5"
                             : "border-border hover:border-primary/50"
                         )}
                         onClick={() => setSelectedSource(source)}
@@ -712,7 +713,7 @@ export function MediaDetail({
                         >
                           <div className="h-16 w-11 flex-shrink-0 overflow-hidden rounded bg-muted">
                             {item.poster ? (
-                              <img src={item.poster} alt={item.title} className="h-full w-full object-cover" />
+                              <img src={resolveArtwork(item.poster)} alt={item.title} className="h-full w-full object-cover" />
                             ) : (
                               <div className="flex h-full w-full items-center justify-center">
                                 <Film className="h-4 w-4 text-muted-foreground" />

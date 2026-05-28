@@ -22,12 +22,12 @@ Last updated: 2026-05-28
 
 ## M2 - Runtime Quarantine
 
-- [ ] WVTR-030 [owner=Codex] [deps=WVTR-020] [scope=web]
+- [x] WVTR-030 [owner=Codex] [deps=WVTR-020] [scope=web]
   Goal: Remove or quarantine Next server runtime assumptions, Vercel assumptions, TMDB API route, frontend provider secrets, and third-party artwork hotlinks from the copied shell.
   Validation: npm --prefix web run check && npm --prefix web run build.
   Review: Confirm Tauri does not require a bundled Next/Node server sidecar.
   Evidence: web/next.config.mjs or replacement build config, removed app/api/tmdb route, fixture data notes.
-  Handoff: Split if static build and safety quarantine conflict.
+  Handoff: DONE. The copied shell now builds as a static export with local fixture media and local artwork resolution.
 
 ## M3 - TanStack Route Ownership
 

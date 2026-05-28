@@ -1,11 +1,12 @@
 "use client"
+import { resolveArtwork } from '@/lib/artwork'
 
 import { useState, useEffect, useCallback } from "react"
-import { 
-  X, 
-  ChevronLeft, 
-  ChevronRight, 
-  ZoomIn, 
+import {
+  X,
+  ChevronLeft,
+  ChevronRight,
+  ZoomIn,
   ZoomOut,
   Download,
   Maximize,
@@ -267,7 +268,7 @@ export function ImageViewer({
         </Button>
 
         {/* 图片 */}
-        <div 
+        <div
           className="flex h-full w-full items-center justify-center"
           onDoubleClick={() => {
             if (zoom === 1) {
@@ -279,7 +280,7 @@ export function ImageViewer({
         >
           {currentImage?.url ? (
             <img
-              src={currentImage.url}
+              src={resolveArtwork(currentImage.url)}
               alt={currentImage.title || `图片 ${currentIndex + 1}`}
               className="max-h-full max-w-full object-contain transition-transform duration-200"
               style={{
@@ -288,7 +289,7 @@ export function ImageViewer({
               draggable={false}
             />
           ) : (
-            <div 
+            <div
               className="flex aspect-video w-full max-w-3xl items-center justify-center rounded-lg bg-muted transition-transform duration-200"
               style={{
                 transform: `scale(${zoom}) rotate(${rotation}deg)`,
@@ -362,7 +363,7 @@ export function ImageViewer({
               >
                 {image.url ? (
                   <img
-                    src={image.url}
+                    src={resolveArtwork(image.url)}
                     alt={image.title || `缩略图 ${index + 1}`}
                     className="h-full w-full object-cover"
                   />
@@ -433,7 +434,7 @@ export function ImageGallery({ images, onViewImage }: ImageGalleryProps) {
                 >
                   {image.url ? (
                     <img
-                      src={image.url}
+                      src={resolveArtwork(image.url)}
                       alt={image.title || `背景图 ${idx + 1}`}
                       className="h-full w-full object-cover"
                     />
@@ -464,7 +465,7 @@ export function ImageGallery({ images, onViewImage }: ImageGalleryProps) {
                 >
                   {image.url ? (
                     <img
-                      src={image.url}
+                      src={resolveArtwork(image.url)}
                       alt={image.title || `海报 ${idx + 1}`}
                       className="h-full w-full object-cover"
                     />
@@ -495,7 +496,7 @@ export function ImageGallery({ images, onViewImage }: ImageGalleryProps) {
                 >
                   {image.url ? (
                     <img
-                      src={image.url}
+                      src={resolveArtwork(image.url)}
                       alt={image.title || `剧照 ${idx + 1}`}
                       className="h-full w-full object-cover"
                     />
@@ -526,7 +527,7 @@ export function ImageGallery({ images, onViewImage }: ImageGalleryProps) {
                 >
                   {image.url ? (
                     <img
-                      src={image.url}
+                      src={resolveArtwork(image.url)}
                       alt={image.title || `图片 ${idx + 1}`}
                       className="h-full w-full object-cover"
                     />

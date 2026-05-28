@@ -1,4 +1,5 @@
 "use client"
+import { resolveArtwork } from '@/lib/artwork'
 
 import { useState, useRef, useEffect, useCallback } from "react"
 import { Play, Info, ChevronLeft, ChevronRight, Clock, Star, Search, Settings, User, Home, Film, Tv, Heart, List } from "lucide-react"
@@ -19,30 +20,30 @@ interface MediaItem {
 
 // 模拟数据
 const heroItems: MediaItem[] = [
-  { id: "1", title: "沙丘2", year: 2024, rating: 8.6, poster: "https://image.tmdb.org/t/p/w500/8b8R8l88Qje9dn9OE8PY05Nxl1X.jpg", backdrop: "https://image.tmdb.org/t/p/original/xOMo8BRK7PfcJv9JCnx7s5hj0PX.jpg", type: "movie" },
-  { id: "2", title: "奥本海默", year: 2023, rating: 8.4, poster: "https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg", backdrop: "https://image.tmdb.org/t/p/original/fm6KqXpk3M2HVveHwCrBSSBaO0V.jpg", type: "movie" },
-  { id: "3", title: "星际穿越", year: 2014, rating: 8.7, poster: "https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg", backdrop: "https://image.tmdb.org/t/p/original/xJHokMbljvjADYdit5fK5VQsXEG.jpg", type: "movie" },
+  { id: "1", title: "沙丘2", year: 2024, rating: 8.6, poster: "/posters/dune2.jpg", backdrop: "/backdrops/dune2-backdrop.jpg", type: "movie" },
+  { id: "2", title: "奥本海默", year: 2023, rating: 8.4, poster: "/posters/oppenheimer.jpg", backdrop: "/backdrops/dune2-backdrop.jpg", type: "movie" },
+  { id: "3", title: "星际穿越", year: 2014, rating: 8.7, poster: "/posters/interstellar.jpg", backdrop: "/backdrops/dune2-backdrop.jpg", type: "movie" },
 ]
 
 const continueWatching: MediaItem[] = [
-  { id: "c1", title: "银翼杀手 2049", year: 2017, rating: 8.0, poster: "https://image.tmdb.org/t/p/w500/gajva2L0rPYkEWjzgFlBXCAVBE5.jpg", type: "movie", progress: 65 },
-  { id: "c2", title: "真探 第一季", year: 2014, rating: 8.9, poster: "https://image.tmdb.org/t/p/w500/aowr4xpLP5sRCL50TkuADomJ98T.jpg", type: "series", progress: 40 },
-  { id: "c3", title: "降临", year: 2016, rating: 7.9, poster: "https://image.tmdb.org/t/p/w500/pEzNVQfdzYDzVK0XqxERcGj0VJg.jpg", type: "movie", progress: 25 },
+  { id: "c1", title: "银翼杀手 2049", year: 2017, rating: 8.0, poster: "/posters/blade-runner.jpg", type: "movie", progress: 65 },
+  { id: "c2", title: "真探 第一季", year: 2014, rating: 8.9, poster: "/posters/true-detective.jpg", type: "series", progress: 40 },
+  { id: "c3", title: "降临", year: 2016, rating: 7.9, poster: "/backdrops/dune2-backdrop.jpg", type: "movie", progress: 25 },
 ]
 
 const recommendations: MediaItem[] = [
-  { id: "r1", title: "绝命毒师", year: 2008, rating: 9.5, poster: "https://image.tmdb.org/t/p/w500/ggFHVNu6YYI5L9pCfOacjizRGt.jpg", type: "series" },
-  { id: "r2", title: "继承之战", year: 2018, rating: 8.9, poster: "https://image.tmdb.org/t/p/w500/e2X5hq5sJJVk1gPajaXaeRE57Fp.jpg", type: "series" },
-  { id: "r3", title: "怪奇物语", year: 2016, rating: 8.7, poster: "https://image.tmdb.org/t/p/w500/49WJfeN0moxb9IPfGn8AIqMGskD.jpg", type: "series" },
-  { id: "r4", title: "黑暗骑士", year: 2008, rating: 9.0, poster: "https://image.tmdb.org/t/p/w500/qJ2tW6WMUDux911r6m7haRef0WH.jpg", type: "movie" },
-  { id: "r5", title: "盗梦空间", year: 2010, rating: 8.8, poster: "https://image.tmdb.org/t/p/w500/edv5CZvWj09upOsy2Y6IwDhK8bt.jpg", type: "movie" },
+  { id: "r1", title: "绝命毒师", year: 2008, rating: 9.5, poster: "/posters/breaking-bad.jpg", type: "series" },
+  { id: "r2", title: "继承之战", year: 2018, rating: 8.9, poster: "/posters/succession.jpg", type: "series" },
+  { id: "r3", title: "怪奇物语", year: 2016, rating: 8.7, poster: "/posters/true-detective.jpg", type: "series" },
+  { id: "r4", title: "黑暗骑士", year: 2008, rating: 9.0, poster: "/placeholder.jpg", type: "movie" },
+  { id: "r5", title: "盗梦空间", year: 2010, rating: 8.8, poster: "/placeholder.jpg", type: "movie" },
 ]
 
 // 焦点管理 Hook
 function useTVFocus(rows: number, cols: number[]) {
   const [focusRow, setFocusRow] = useState(0)
   const [focusCols, setFocusCols] = useState<number[]>(new Array(rows).fill(0))
-  
+
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     switch (e.key) {
       case "ArrowUp":
@@ -71,12 +72,12 @@ function useTVFocus(rows: number, cols: number[]) {
         break
     }
   }, [rows, cols, focusRow])
-  
+
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [handleKeyDown])
-  
+
   return { focusRow, focusCol: focusCols[focusRow], setFocusRow, setFocusCols }
 }
 
@@ -84,7 +85,7 @@ function useTVFocus(rows: number, cols: number[]) {
 function TVHero({ items, focused, onSelect }: { items: MediaItem[]; focused: boolean; onSelect: (id: string) => void }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const item = items[currentIndex]
-  
+
   // 自动轮播
   useEffect(() => {
     if (focused) return // 聚焦时停止自动轮播
@@ -93,7 +94,7 @@ function TVHero({ items, focused, onSelect }: { items: MediaItem[]; focused: boo
     }, 8000)
     return () => clearInterval(timer)
   }, [items.length, focused])
-  
+
   // 键盘导航
   useEffect(() => {
     if (!focused) return
@@ -109,20 +110,20 @@ function TVHero({ items, focused, onSelect }: { items: MediaItem[]; focused: boo
     window.addEventListener("keydown", handleKey)
     return () => window.removeEventListener("keydown", handleKey)
   }, [focused, items.length, item.id, onSelect])
-  
+
   return (
     <div className="relative h-[65vh] w-full overflow-hidden">
       {/* 背景图 */}
       <div className="absolute inset-0">
-        <img 
-          src={item.backdrop || item.poster} 
-          alt="" 
+        <img
+          src={resolveArtwork(item.backdrop || item.poster)}
+          alt=""
           className="h-full w-full object-cover transition-opacity duration-700"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
       </div>
-      
+
       {/* 内容 */}
       <div className="relative flex h-full items-end pb-16 pl-16">
         <div className="max-w-2xl space-y-6">
@@ -139,14 +140,14 @@ function TVHero({ items, focused, onSelect }: { items: MediaItem[]; focused: boo
               {item.type === "movie" ? "电影" : "剧集"}
             </span>
           </div>
-          
+
           {/* 按钮 */}
           <div className="flex gap-4 pt-4">
             <button
               className={cn(
                 "flex items-center gap-3 rounded-lg px-8 py-4 text-xl font-semibold transition-all",
-                focused 
-                  ? "scale-105 bg-primary text-primary-foreground ring-4 ring-primary/50" 
+                focused
+                  ? "scale-105 bg-primary text-primary-foreground ring-4 ring-primary/50"
                   : "bg-white/90 text-black hover:bg-white"
               )}
             >
@@ -162,7 +163,7 @@ function TVHero({ items, focused, onSelect }: { items: MediaItem[]; focused: boo
           </div>
         </div>
       </div>
-      
+
       {/* 轮播指示器 */}
       <div className="absolute bottom-8 right-16 flex gap-2">
         {items.map((_, index) => (
@@ -175,7 +176,7 @@ function TVHero({ items, focused, onSelect }: { items: MediaItem[]; focused: boo
           />
         ))}
       </div>
-      
+
       {/* 导航箭头 */}
       {focused && (
         <>
@@ -192,14 +193,14 @@ function TVHero({ items, focused, onSelect }: { items: MediaItem[]; focused: boo
 }
 
 // 媒体行组件
-function TVMediaRow({ 
-  title, 
-  items, 
-  focused, 
+function TVMediaRow({
+  title,
+  items,
+  focused,
   focusIndex,
   showProgress,
-  onSelect 
-}: { 
+  onSelect
+}: {
   title: string
   items: MediaItem[]
   focused: boolean
@@ -208,7 +209,7 @@ function TVMediaRow({
   onSelect: (id: string) => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
-  
+
   // 聚焦时滚动到可见区域
   useEffect(() => {
     if (focused && scrollRef.current) {
@@ -218,7 +219,7 @@ function TVMediaRow({
       }
     }
   }, [focused, focusIndex])
-  
+
   // Enter 键选择
   useEffect(() => {
     if (!focused) return
@@ -230,7 +231,7 @@ function TVMediaRow({
     window.addEventListener("keydown", handleKey)
     return () => window.removeEventListener("keydown", handleKey)
   }, [focused, focusIndex, items, onSelect])
-  
+
   return (
     <section className="py-4">
       <h2 className={cn(
@@ -239,7 +240,7 @@ function TVMediaRow({
       )}>
         {title}
       </h2>
-      <div 
+      <div
         ref={scrollRef}
         className="flex gap-4 overflow-x-auto px-16 pb-4 scrollbar-none"
       >
@@ -248,30 +249,30 @@ function TVMediaRow({
             key={item.id}
             className={cn(
               "group relative flex-shrink-0 cursor-pointer overflow-hidden rounded-lg transition-all duration-300",
-              focused && index === focusIndex 
-                ? "scale-110 ring-4 ring-primary shadow-2xl shadow-primary/30 z-10" 
+              focused && index === focusIndex
+                ? "scale-110 ring-4 ring-primary shadow-2xl shadow-primary/30 z-10"
                 : "hover:scale-105"
             )}
             style={{ width: "200px" }}
           >
             <div className="aspect-[2/3] overflow-hidden">
-              <img 
-                src={item.poster} 
+              <img
+                src={resolveArtwork(item.poster)}
                 alt={item.title}
                 className="h-full w-full object-cover"
               />
             </div>
-            
+
             {/* 进度条 */}
             {showProgress && item.progress && (
               <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/50">
-                <div 
+                <div
                   className="h-full bg-primary transition-all"
                   style={{ width: `${item.progress}%` }}
                 />
               </div>
             )}
-            
+
             {/* 聚焦时显示信息 */}
             {focused && index === focusIndex && (
               <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/90 via-black/50 to-transparent p-4">
@@ -301,7 +302,7 @@ function TVSidebar({ focused, selectedIndex }: { focused: boolean; selectedIndex
     { icon: List, label: "播放列表" },
     { icon: Settings, label: "设置" },
   ]
-  
+
   return (
     <aside className={cn(
       "fixed left-0 top-0 z-50 flex h-full flex-col items-center gap-2 bg-background/95 py-8 backdrop-blur transition-all",
@@ -311,7 +312,7 @@ function TVSidebar({ focused, selectedIndex }: { focused: boolean; selectedIndex
       <div className="mb-8 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/20">
         <Film className="h-6 w-6 text-primary" />
       </div>
-      
+
       {/* 导航项 */}
       {navItems.map((item, index) => (
         <button
@@ -327,7 +328,7 @@ function TVSidebar({ focused, selectedIndex }: { focused: boolean; selectedIndex
           {focused && <span className="text-lg font-medium">{item.label}</span>}
         </button>
       ))}
-      
+
       {/* 用户 */}
       <div className="mt-auto">
         <button className={cn(
@@ -350,12 +351,12 @@ export function TVSurface() {
   const [sidebarIndex, setSidebarIndex] = useState(0)
   const [contentRow, setContentRow] = useState(0)
   const [contentCols, setContentCols] = useState([0, 0, 0]) // 每行的列索引
-  
+
   const rows = [
     { title: "继续观看", items: continueWatching, showProgress: true },
     { title: "为你推荐", items: recommendations },
   ]
-  
+
   // 全局键盘导航
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -365,7 +366,7 @@ export function TVSurface() {
         setSidebarFocused(prev => !prev)
         return
       }
-      
+
       if (sidebarFocused) {
         // 侧边栏导航
         if (e.key === "ArrowUp") {
@@ -394,33 +395,33 @@ export function TVSurface() {
         }
       }
     }
-    
+
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [sidebarFocused, contentRow, rows])
-  
+
   const handleSelect = (id: string) => {
     console.log("Selected:", id)
     // 这里可以导航到详情页
   }
-  
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* 侧边栏 */}
       <TVSidebar focused={sidebarFocused} selectedIndex={sidebarIndex} />
-      
+
       {/* 主内容 */}
       <main className={cn(
         "transition-all",
         sidebarFocused ? "ml-56" : "ml-20"
       )}>
         {/* Hero 轮播 */}
-        <TVHero 
-          items={heroItems} 
+        <TVHero
+          items={heroItems}
           focused={!sidebarFocused && contentRow === -1}
           onSelect={handleSelect}
         />
-        
+
         {/* 媒体行 */}
         {rows.map((row, index) => (
           <TVMediaRow
@@ -434,7 +435,7 @@ export function TVSurface() {
           />
         ))}
       </main>
-      
+
       {/* 导航提示 */}
       <div className="fixed bottom-8 right-8 flex items-center gap-6 rounded-xl bg-black/70 px-6 py-3 text-sm text-white/80 backdrop-blur">
         <span className="flex items-center gap-2">
