@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "slug": "playback-runtime-boundary-deepening",
+  "title": "Playback Runtime Boundary Deepening",
+  "status": "completed",
+  "updated": "2026-05-28",
+  "scope_kind": "refactor",
+  "problem": "Nako's source-aware playback/transcode runtime is behaviorally deeper, but `PlaybackAppService` still concentrates HLS artifact serving, support evidence, diagnostics, session orchestration, and lifecycle helper concerns in one broad module.",
+  "task_prefix": "PRBD",
+  "current_task": null,
+  "completed_tasks": [
+    "PRBD-010",
+    "PRBD-020",
+    "PRBD-030",
+    "PRBD-040",
+    "PRBD-050"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/playback-runtime-boundary-deepening/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/playback-runtime-boundary-deepening/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/playback-runtime-boundary-deepening/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/playback-runtime-boundary-deepening/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/playback-runtime-boundary-deepening/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/playback-runtime-boundary-deepening/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/playback-runtime-boundary-deepening/CLOSEOUT.md"
+    }
+  ],
+  "gates": [
+    "python3 -m json.tool docs/workstreams/playback-runtime-boundary-deepening/WORKSTREAM.json",
+    "cargo nextest run -p nako-server hls --no-fail-fast",
+    "cargo nextest run -p nako-server admin_v1_playback --no-fail-fast",
+    "cargo nextest run -p nako-server playback --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "PRBD-010",
+      "summary": "Opened the playback runtime boundary deepening refactor lane, selected HLS artifact serving as the first behavior-preserving slice, and split support evidence/store port work into later tasks."
+    },
+    {
+      "task": "PRBD-020",
+      "summary": "Extracted HLS artifact serving into hls_artifact.rs so PlaybackAppService delegates playlist rewrite, segment readiness, throttled wait, stale segment cleanup, and segment response planning."
+    },
+    {
+      "task": "PRBD-030",
+      "summary": "Extracted playback support evidence context and runtime diagnostics collection into support.rs without changing Admin/Public wire contracts."
+    },
+    {
+      "task": "PRBD-040",
+      "summary": "Audited store ports and test locality, kept store trait narrowing out of this lane to avoid pass-through traits, and verified the full playback gate."
+    },
+    {
+      "task": "PRBD-050",
+      "summary": "Closed the lane with fresh focused gates, final formatting/diff checks, and follow-ons split for execution store ports, adaptive HLS/fMP4, subtitle/audio/HDR maturity, and rsmpeg adapter feasibility."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0038-playback-planning-and-transcode-policy-seams.md",
+    "docs/adr/0044-playback-capability-profile-planner.md",
+    "docs/adr/0045-ffmpeg-hardware-pipeline-planner.md",
+    "docs/adr/0049-source-aware-transcode-runtime.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Closed on 2026-05-28 after behavior-preserving playback runtime boundary deepening. Split feature work such as adaptive HLS, fMP4, rsmpeg adapter replacement, subtitle/HDR execution, and remote workers into separate lanes."
+  }
+}

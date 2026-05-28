@@ -6,8 +6,13 @@ attention.
 
 ## Current Workstreams
 
+- [playback-runtime-boundary-deepening](playback-runtime-boundary-deepening/README.md):
+  completed fearless refactor lane for splitting HLS artifact serving, support
+  evidence, diagnostics, and runtime/store boundaries out of the broad playback
+  app service before adaptive HLS, fMP4, rsmpeg, or remote worker work adds more
+  surface area.
 - [source-aware-transcode-runtime](source-aware-transcode-runtime/README.md):
-  active execution lane for deepening Nako's HLS/remux transcode stack from
+  completed execution lane for deepening Nako's HLS/remux transcode stack from
   fixed H.264/AAC command planning into source-aware media facts, structured
   transcode requirements, source-aware hardware pipeline planning, FFmpeg
   command boundaries, and runtime progress/segment supervision.
