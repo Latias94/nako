@@ -233,13 +233,16 @@ pub fn playback_decision_response_to_dto(
 
 #[must_use]
 pub fn playback_decision_to_dto(decision: PlaybackDecision) -> ClientPlaybackDecision {
+    let direct_play = decision.direct_play_plan().cloned();
+    let transcode_plan = decision.transcode_plan().cloned();
+
     ClientPlaybackDecision {
         mode: playback_mode_to_dto(decision.mode),
         reason: playback_decision_reason_to_dto(decision.reason),
         report: playback_decision_report_to_dto(decision.report),
         denial: decision.denial.map(playback_denial_to_dto),
-        direct_play: decision.direct_play.map(direct_play_plan_to_dto),
-        transcode_plan: decision.transcode_plan.map(transcode_plan_to_dto),
+        direct_play: direct_play.map(direct_play_plan_to_dto),
+        transcode_plan: transcode_plan.map(transcode_plan_to_dto),
     }
 }
 
@@ -1254,7 +1257,25 @@ mod tests {
                 locator: "local:///Movies/Demo.mp4".to_owned(),
                 file_name: "Demo.mp4".to_owned(),
             },
-            execution: nako_playback::PlaybackExecutionPlan::Transcode(transcode_plan.clone()),
+            rendition: nako_playback::PlaybackRenditionPlan::Transcode(
+                nako_playback::TranscodeRenditionPlan {
+                    plan: transcode_plan.clone(),
+                    requirement: nako_playback::TranscodeRequirement {
+                        source_id,
+                        input_locator: "local:///Movies/Demo.mkv".to_owned(),
+                        output_container: OutputContainer::Hls,
+                        output_video_codec: Some("h264".to_owned()),
+                        output_audio_codec: Some("aac".to_owned()),
+                        track_selection: nako_transcode::TranscodeTrackSelection::default(),
+                        output_constraints: nako_transcode::TranscodeOutputConstraints::default(),
+                        subtitle_strategy: nako_transcode::TranscodeSubtitleStrategy::None,
+                        selected_streams: nako_playback::TranscodeRequirementStreams::default(),
+                        reasons: vec![
+                            nako_playback::PlaybackCompatibilityCondition::DirectPlayDisabled,
+                        ],
+                    },
+                },
+            ),
             report: nako_playback::PlaybackDecisionReport {
                 source_id,
                 profile_key: "test-profile".to_owned(),
@@ -1268,9 +1289,6 @@ mod tests {
                 transcode: nako_playback::PlaybackCapabilityEvaluation::supported(),
                 denial: None,
             },
-            direct_play: None,
-            transcode_plan: Some(transcode_plan),
-            transcode_requirement: None,
             denial: None,
         };
 
@@ -1290,7 +1308,7 @@ mod tests {
                 .is_none()
         );
         assert!(value.get("selected_source").is_none());
-        assert!(value.get("execution").is_none());
+        assert!(value.get("rendition").is_none());
     }
 
     #[test]

@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "slug": "playback-capability-profile-and-rendition-planning",
+  "title": "Playback Capability Profile And Rendition Planning",
+  "status": "completed",
+  "updated": "2026-05-28",
+  "scope_kind": "refactor",
+  "problem": "Nako has a profile-driven playback planner, but selected playback output is still named as execution and duplicated across `PlaybackDecision` fields while `PlaybackProfile` keeps a shallow second identity format.",
+  "task_prefix": "PCPR",
+  "current_task": null,
+  "completed_tasks": [
+    "PCPR-010",
+    "PCPR-020",
+    "PCPR-030",
+    "PCPR-040"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/playback-capability-profile-and-rendition-planning/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/playback-capability-profile-and-rendition-planning/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/playback-capability-profile-and-rendition-planning/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/playback-capability-profile-and-rendition-planning/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/playback-capability-profile-and-rendition-planning/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/playback-capability-profile-and-rendition-planning/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/playback-capability-profile-and-rendition-planning/CLOSEOUT.md"
+    }
+  ],
+  "gates": [
+    "python3 -m json.tool docs/workstreams/playback-capability-profile-and-rendition-planning/WORKSTREAM.json",
+    "cargo nextest run -p nako-playback --no-fail-fast",
+    "cargo nextest run -p nako-api playback_decision_dto_hides_internal_selection_plan --no-fail-fast",
+    "cargo nextest run -p nako-server playback --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "PCPR-010",
+      "summary": "Opened the playback capability profile and rendition planning refactor lane, selected the behavior-preserving rendition boundary slice, and accepted deletion of the shallow PlaybackProfile adapter."
+    },
+    {
+      "task": "PCPR-020",
+      "summary": "Replaced PlaybackDecision.execution with PlaybackDecision.rendition, added PlaybackRenditionPlan and TranscodeRenditionPlan, and moved direct/remux/transcode/denied output intent under the rendition boundary."
+    },
+    {
+      "task": "PCPR-030",
+      "summary": "Deleted PlaybackProfile and moved remux/HLS transcode profile construction, output constraints, track selection, and request-key identity to PlaybackTargetProfile."
+    },
+    {
+      "task": "PCPR-040",
+      "summary": "Verified planner, Public Client redaction, and server playback gates, updated ADR 0044, and closed the workstream."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0038-playback-planning-and-transcode-policy-seams.md",
+    "docs/adr/0044-playback-capability-profile-planner.md",
+    "docs/adr/0049-source-aware-transcode-runtime.md"
+  ],
+  "continue_policy": {
+    "default_action": "close",
+    "notes": "Closed on 2026-05-28. Follow-on feature work such as adaptive HLS, fMP4, DLNA device profiles, subtitle/HDR execution, rsmpeg, or remote workers should open separate lanes."
+  }
+}

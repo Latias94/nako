@@ -21,6 +21,12 @@ attention.
   fixed H.264/AAC command planning into source-aware media facts, structured
   transcode requirements, source-aware hardware pipeline planning, FFmpeg
   command boundaries, and runtime progress/segment supervision.
+- [playback-capability-profile-and-rendition-planning](playback-capability-profile-and-rendition-planning/README.md):
+  completed fearless refactor lane for deleting the shallow `PlaybackProfile`
+  adapter, making selected playback output a typed Rendition Plan, and keeping
+  browser, Nako renderer, and Chromecast-like playback flows on one
+  capability-profile boundary before adaptive HLS, fMP4, DLNA profiles, or
+  remote workers expand the surface area.
 - [external-casting-adapter-boundary](external-casting-adapter-boundary/README.md):
   active execution lane for adding Chromecast, DLNA, and AirPlay through
   protocol-specific renderer adapters after Nako remote-client cast-safe

@@ -15,8 +15,8 @@ use nako_core::{
 };
 use nako_playback::{
     ClientPlaybackCapabilities, EffectivePlaybackPolicy, PlaybackDecision, PlaybackMode,
-    PlaybackPlanner, PlaybackPlanningRequest, PlaybackProfile, PlaybackSelectionContext,
-    PlaybackTarget, PlaybackTargetProfile,
+    PlaybackPlanner, PlaybackPlanningRequest, PlaybackSelectionContext, PlaybackTarget,
+    PlaybackTargetProfile,
 };
 use nako_streaming::{DirectPlayRangeRequest, DirectPlayResponsePlan};
 use nako_transcode::{
@@ -709,7 +709,7 @@ impl PlaybackAppService {
 
         match decision.mode {
             PlaybackMode::DirectPlay => {
-                let direct = decision.direct_play.as_ref().ok_or_else(|| {
+                let direct = decision.direct_play_plan().ok_or_else(|| {
                     NakoError::Unsupported("direct renderer decision did not include a direct plan")
                 })?;
                 let session = self
@@ -1532,7 +1532,6 @@ impl PlaybackAppService {
         context.preferences.remux_output_container = Some(request.output_container);
         let target = playback_target_for_client(request.client.clone());
         let target_profile = PlaybackTargetProfile::from_target(&target, context.clone());
-        let playback_profile = PlaybackProfile::from_target_profile(&target_profile);
         let effective_policy = effective_policy
             .into()
             .unwrap_or_else(|| default_playback_policy_for_source(&source));
@@ -1545,7 +1544,7 @@ impl PlaybackAppService {
         });
         ensure_playback_decision_allowed(&decision)?;
         let output_container = remux_output_container(&decision)?;
-        let profile_identity = playback_profile
+        let profile_identity = target_profile
             .try_remux_transcode_profile(output_container)?
             .identity();
         let request_identity =
@@ -1587,7 +1586,6 @@ impl PlaybackAppService {
         context.preferences.transcode_output_container = Some(nako_transcode::OutputContainer::Hls);
         let target = playback_target_for_client(request.client.clone());
         let target_profile = PlaybackTargetProfile::from_target(&target, context.clone());
-        let playback_profile = PlaybackProfile::from_target_profile(&target_profile);
         let effective_policy = effective_policy
             .into()
             .unwrap_or_else(|| default_playback_policy_for_source(&source));
@@ -1600,18 +1598,15 @@ impl PlaybackAppService {
         });
         ensure_playback_decision_allowed(&decision)?;
         let transcode_plan = hls_transcode_plan(&decision)?;
-        let track_selection = playback_profile.track_selection();
+        let track_selection = target_profile.track_selection();
         let source_facts = hls_pipeline_source_facts(probe.as_ref(), track_selection);
         let execution_policy = self.hls.execution_policy_for_hls(
             track_selection,
-            TranscodeOutputConstraints {
-                max_video_bitrate: playback_profile.preferences.max_video_bitrate,
-                prefer_hdr: playback_profile.preferences.prefer_hdr,
-            },
+            target_profile.output_constraints(),
             source_facts,
         )?;
         let hls_profile =
-            playback_profile.try_hls_transcode_profile(transcode_plan, execution_policy)?;
+            target_profile.try_hls_transcode_profile(transcode_plan, execution_policy)?;
         let execution_policy = hls_profile.execution_policy;
         let profile_identity = hls_profile.identity();
         let request_identity =
