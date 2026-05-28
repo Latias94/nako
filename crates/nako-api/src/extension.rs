@@ -1127,6 +1127,7 @@ pub struct AdminSubtitleImportApplyReport {
     pub status: AdminSubtitleImportApplyStatus,
     pub target: AdminSubtitleImportTargetSummary,
     pub sidecar: AdminSubtitleSidecarPlan,
+    pub refreshed_fact: AdminSubtitleImportFactSummary,
     pub conflict_policy: AdminSubtitleImportConflictPolicy,
     pub backup_policy: AdminSubtitleImportBackupPolicy,
     pub write_mode: String,
@@ -1136,6 +1137,16 @@ pub struct AdminSubtitleImportApplyReport {
     pub backup_created: bool,
     pub preview_only: bool,
     pub writes_library: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminSubtitleImportFactSummary {
+    pub media_source_id: MediaSourceId,
+    pub stream_index: u32,
+    pub origin: String,
+    pub language: String,
+    pub format: AddonSubtitleFormat,
+    pub role: AdminSubtitleSidecarRole,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -2048,6 +2059,14 @@ mod tests {
                 status: AdminSubtitleImportApplyStatus::Applied,
                 target,
                 sidecar,
+                refreshed_fact: AdminSubtitleImportFactSummary {
+                    media_source_id: source_id,
+                    stream_index: 2,
+                    origin: "sidecar".to_owned(),
+                    language: "en".to_owned(),
+                    format: AddonSubtitleFormat::Srt,
+                    role: AdminSubtitleSidecarRole::Default,
+                },
                 conflict_policy: AdminSubtitleImportConflictPolicy::ReplaceExisting,
                 backup_policy: AdminSubtitleImportBackupPolicy::ExistingFileKeepLatest,
                 write_mode: "atomic_replace".to_owned(),
@@ -2068,6 +2087,8 @@ mod tests {
         assert_eq!(value["apply"]["status"], "applied");
         assert_eq!(value["apply"]["sidecar"]["file_name"], "demo.en.srt");
         assert_eq!(value["apply"]["target"]["media_file_name"], "demo.mkv");
+        assert_eq!(value["apply"]["refreshed_fact"]["origin"], "sidecar");
+        assert_eq!(value["apply"]["refreshed_fact"]["stream_index"], 2);
         assert_eq!(value["apply"]["backup_created"], true);
 
         for forbidden in [

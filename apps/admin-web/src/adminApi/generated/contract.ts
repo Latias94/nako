@@ -1000,6 +1000,7 @@ export interface AdminSubtitleImportApplyReport {
   status: AdminSubtitleImportApplyStatus;
   target: AdminSubtitleImportTargetSummary;
   sidecar: AdminSubtitleSidecarPlan;
+  refreshed_fact: AdminSubtitleImportFactSummary;
   conflict_policy: AdminSubtitleImportConflictPolicy;
   backup_policy: AdminSubtitleImportBackupPolicy;
   write_mode: string;
@@ -1009,6 +1010,15 @@ export interface AdminSubtitleImportApplyReport {
   backup_created: boolean;
   preview_only: boolean;
   writes_library: boolean;
+}
+
+export interface AdminSubtitleImportFactSummary {
+  media_source_id: string;
+  stream_index: number;
+  origin: string;
+  language: string;
+  format: AddonSubtitleFormat;
+  role: AdminSubtitleSidecarRole;
 }
 
 export interface AdminAddonSubtitleImportApplyResponse {

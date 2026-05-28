@@ -1006,6 +1006,7 @@ public_string_value! {
 pub struct MediaStreamDto {
     pub index: u32,
     pub kind: ClientMediaStreamKind,
+    pub origin: Option<ClientMediaStreamOrigin>,
     pub codec: Option<String>,
     pub language: Option<String>,
     pub duration_ms: Option<u64>,
@@ -1014,6 +1015,19 @@ pub struct MediaStreamDto {
     pub height: Option<u32>,
     pub channels: Option<u32>,
     pub sample_rate: Option<u32>,
+    pub disposition: MediaStreamDispositionDto,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MediaStreamDispositionDto {
+    pub default: bool,
+    pub forced: bool,
+    pub hearing_impaired: bool,
+    pub visual_impaired: bool,
+    pub commentary: bool,
+    pub attached_pic: bool,
+    pub captions: bool,
+    pub descriptions: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -1222,5 +1236,13 @@ public_string_value! {
         Subtitle => "subtitle",
         Data => "data",
         Attachment => "attachment",
+    }
+}
+
+public_string_value! {
+    pub enum ClientMediaStreamOrigin {
+        Embedded => "embedded",
+        Sidecar => "sidecar",
+        External => "external",
     }
 }

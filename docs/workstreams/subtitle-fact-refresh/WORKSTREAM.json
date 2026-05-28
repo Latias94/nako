@@ -1,0 +1,24 @@
+{
+  "id": "subtitle-fact-refresh",
+  "title": "Subtitle Fact Refresh",
+  "status": "complete",
+  "created_at": "2026-05-28",
+  "owner": "codex",
+  "scope": [
+    "crates/nako-core/src/media/probe.rs",
+    "crates/nako-client-protocol/src/catalog.rs",
+    "crates/nako-api/src/public_client.rs",
+    "crates/nako-api/src/openapi.rs",
+    "apps/admin-web/src/adminApi/generated/contract.ts",
+    "web/src/api/admin/generated/contract.ts",
+    "crates/nako-server/src/app/addons.rs",
+    "crates/nako-server/src/http/tests/addons.rs",
+    "docs/workstreams/subtitle-fact-refresh"
+  ],
+  "blocked": false,
+  "notes": [
+    "Use media_probe streams as redaction-safe subtitle fact read model.",
+    "Subtitle byte serving remains a follow-on.",
+    "Admin subtitle import apply returns refreshed_fact as a redaction-safe visibility receipt."
+  ]
+}

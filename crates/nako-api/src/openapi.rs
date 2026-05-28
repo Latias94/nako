@@ -1563,9 +1563,10 @@ fn schemas() -> Value {
             "bit_rate": json!({"type": "integer", "format": "int64", "nullable": true}),
             "streams": array_schema(schema_ref("MediaStreamDto"))
         })),
-        "MediaStreamDto": object_schema(&["index", "kind", "codec", "language", "duration_ms", "bit_rate", "width", "height", "channels", "sample_rate"], json!({
+        "MediaStreamDto": object_schema(&["index", "kind", "origin", "codec", "language", "duration_ms", "bit_rate", "width", "height", "channels", "sample_rate", "disposition"], json!({
             "index": integer_schema("int32"),
             "kind": string_schema(),
+            "origin": nullable_string_schema(),
             "codec": nullable_string_schema(),
             "language": nullable_string_schema(),
             "duration_ms": json!({"type": "integer", "format": "int64", "nullable": true}),
@@ -1573,7 +1574,18 @@ fn schemas() -> Value {
             "width": json!({"type": "integer", "format": "int32", "nullable": true}),
             "height": json!({"type": "integer", "format": "int32", "nullable": true}),
             "channels": json!({"type": "integer", "format": "int32", "nullable": true}),
-            "sample_rate": json!({"type": "integer", "format": "int32", "nullable": true})
+            "sample_rate": json!({"type": "integer", "format": "int32", "nullable": true}),
+            "disposition": schema_ref("MediaStreamDispositionDto")
+        })),
+        "MediaStreamDispositionDto": object_schema(&["default", "forced", "hearing_impaired", "visual_impaired", "commentary", "attached_pic", "captions", "descriptions"], json!({
+            "default": boolean_schema(),
+            "forced": boolean_schema(),
+            "hearing_impaired": boolean_schema(),
+            "visual_impaired": boolean_schema(),
+            "commentary": boolean_schema(),
+            "attached_pic": boolean_schema(),
+            "captions": boolean_schema(),
+            "descriptions": boolean_schema()
         })),
         "PersonDto": object_schema(&["id", "name", "sort_name", "overview", "external_ids"], json!({
             "id": uuid_schema(),

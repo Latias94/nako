@@ -3,7 +3,8 @@ use std::{path::PathBuf, process::Stdio};
 use async_trait::async_trait;
 use nako_core::{
     MediaColorInfo, MediaHdrMetadata, MediaProbeResult, MediaRational, MediaStreamDisposition,
-    MediaStreamInfo, MediaStreamKind, MediaStreamTechnicalFacts, NakoError, Result,
+    MediaStreamInfo, MediaStreamKind, MediaStreamOrigin, MediaStreamTechnicalFacts, NakoError,
+    Result,
 };
 use nako_vfs::StorageUri;
 use serde::{Deserialize, Serialize};
@@ -130,6 +131,7 @@ fn stream_to_info(stream: FfprobeStream) -> MediaStreamInfo {
         channels: stream.channels,
         sample_rate: parse_u32(stream.sample_rate.as_deref()),
         technical: MediaStreamTechnicalFacts {
+            origin: Some(MediaStreamOrigin::Embedded),
             codec_profile: stream.profile,
             codec_level: stream.level.and_then(|level| u32::try_from(level).ok()),
             codec_tag: stream.codec_tag_string.or(stream.codec_tag),

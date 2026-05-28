@@ -7356,6 +7356,10 @@ async fn admin_addon_subtitle_import_plan_blocks_candidate_language_or_format_mi
 async fn admin_addon_subtitle_import_apply_downloads_and_writes_safe_sidecar() {
     let (addon_base_url, _captured) = subtitle_search_addon_server().await;
     let (temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
+    store
+        .upsert_media_probe(source.id, &compatible_probe())
+        .await
+        .unwrap();
     let (addon_id, search) =
         register_subtitle_provider_and_search(&router, addon_base_url, vec!["zh-Hant".to_owned()])
             .await;
@@ -7412,6 +7416,18 @@ async fn admin_addon_subtitle_import_apply_downloads_and_writes_safe_sidecar() {
     assert_eq!(response.apply.write_mode, "create_missing");
     assert_eq!(response.apply.sidecar.file_name, "demo.zh-hant.srt");
     assert_eq!(response.apply.sidecar.language, "zh-hant");
+    assert_eq!(response.apply.refreshed_fact.media_source_id, source.id);
+    assert_eq!(response.apply.refreshed_fact.stream_index, 2);
+    assert_eq!(response.apply.refreshed_fact.origin, "sidecar");
+    assert_eq!(response.apply.refreshed_fact.language, "zh-hant");
+    assert_eq!(
+        response.apply.refreshed_fact.format,
+        AddonSubtitleFormat::Srt
+    );
+    assert_eq!(
+        response.apply.refreshed_fact.role,
+        AdminSubtitleSidecarRole::Default
+    );
     assert_eq!(response.apply.byte_len, 60);
     assert!(!response.apply.preview_only);
     assert!(response.apply.writes_library);
@@ -7434,6 +7450,22 @@ async fn admin_addon_subtitle_import_apply_downloads_and_writes_safe_sidecar() {
         .await
         .unwrap();
     assert_eq!(sources.len(), 1);
+    let probe = store.get_media_probe(source.id).await.unwrap().unwrap();
+    assert_eq!(probe.streams.len(), 3);
+    let subtitle = probe
+        .streams
+        .iter()
+        .find(|stream| stream.kind == MediaStreamKind::Subtitle)
+        .unwrap();
+    assert_eq!(subtitle.index, 2);
+    assert_eq!(subtitle.codec.as_deref(), Some("srt"));
+    assert_eq!(subtitle.language.as_deref(), Some("zh-hant"));
+    assert_eq!(
+        subtitle.technical.origin.as_ref(),
+        Some(&MediaStreamOrigin::Sidecar)
+    );
+    assert!(subtitle.technical.disposition.default);
+    assert!(!subtitle.technical.disposition.forced);
 
     for forbidden in [
         "remote secret subtitle text",
@@ -7476,12 +7508,22 @@ async fn admin_addon_subtitle_import_apply_downloads_and_writes_safe_sidecar() {
     assert_eq!(second.apply.write_mode, "unchanged");
     assert!(second.apply.target_existed);
     assert!(!second.apply.writes_library);
+    let probe = store.get_media_probe(source.id).await.unwrap().unwrap();
+    assert_eq!(
+        probe
+            .streams
+            .iter()
+            .filter(|stream| stream.kind == MediaStreamKind::Subtitle
+                && stream.technical.origin.as_ref() == Some(&MediaStreamOrigin::Sidecar))
+            .count(),
+        1
+    );
 }
 
 #[tokio::test]
 async fn admin_addon_subtitle_import_apply_writes_inline_vtt() {
     let (addon_base_url, _captured) = subtitle_search_addon_server().await;
-    let (temp, router, source, _store) = router_with_media_source("demo.mkv", b"media").await;
+    let (temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
     let (addon_id, search) =
         register_subtitle_provider_and_search(&router, addon_base_url, vec!["en".to_owned()]).await;
     let selection_id = search.subtitles[0].selection_id.clone();
@@ -7532,10 +7574,22 @@ async fn admin_addon_subtitle_import_apply_writes_inline_vtt() {
         AdminSubtitleImportApplyStatus::Applied
     );
     assert_eq!(response.apply.sidecar.file_name, "demo.en.vtt");
+    assert_eq!(response.apply.refreshed_fact.stream_index, 0);
+    assert_eq!(response.apply.refreshed_fact.origin, "sidecar");
     assert_eq!(
         fs::read_to_string(temp.path().join("demo.en.vtt")).unwrap(),
         "WEBVTT\n\nsecret subtitle text"
     );
+    let probe = store.get_media_probe(source.id).await.unwrap().unwrap();
+    let subtitle = &probe.streams[0];
+    assert_eq!(subtitle.kind, MediaStreamKind::Subtitle);
+    assert_eq!(subtitle.codec.as_deref(), Some("vtt"));
+    assert_eq!(subtitle.language.as_deref(), Some("en"));
+    assert_eq!(
+        subtitle.technical.origin.as_ref(),
+        Some(&MediaStreamOrigin::Sidecar)
+    );
+    assert!(subtitle.technical.disposition.default);
     assert!(!text.contains("WEBVTT"));
     assert!(!text.contains("secret subtitle text"));
 }

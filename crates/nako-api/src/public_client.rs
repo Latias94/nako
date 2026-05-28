@@ -2,12 +2,13 @@ use nako_core::{
     CanonicalMetadata, CollectionItem, Credit, CreditRole, ExternalId, ExternalProvider, Genre,
     ImageKind, ItemCredit, ItemGenre, ItemStudio, ItemTag, Library, LibraryOptions, LibraryPreset,
     LocalMetadataPolicy, LocalMetadataReader, ManagedArtworkArtifactRecord, MediaDomain, MediaItem,
-    MediaKind, MediaProbeResult, MediaSource, MediaStreamInfo, MediaStreamKind, MetadataProfile,
-    MetadataRefreshMode, MetadataSource, NamingStrategy, PageRequest, Person, PlaybackSessionMode,
-    PlaybackSessionRecord, PlaybackSessionState, RendererCommandRecord, RendererCommandState,
-    RendererControlCapabilities, RendererSessionRecord, RendererSessionState,
-    SelectedArtworkRecord, Tag, TranscodeFailureCategory, TranscodeSessionKind,
-    TranscodeSessionRecord, TranscodeSessionState, UserPlaybackState,
+    MediaKind, MediaProbeResult, MediaSource, MediaStreamDisposition, MediaStreamInfo,
+    MediaStreamKind, MediaStreamOrigin, MetadataProfile, MetadataRefreshMode, MetadataSource,
+    NamingStrategy, PageRequest, Person, PlaybackSessionMode, PlaybackSessionRecord,
+    PlaybackSessionState, RendererCommandRecord, RendererCommandState, RendererControlCapabilities,
+    RendererSessionRecord, RendererSessionState, SelectedArtworkRecord, Tag,
+    TranscodeFailureCategory, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
+    UserPlaybackState,
 };
 use nako_playback::{
     ClientPlaybackCapabilities, DirectPlayPlan, PlaybackCapabilityEvaluation,
@@ -28,8 +29,9 @@ pub use nako_client_protocol::{
     ClientImageOwner, ClientLibraryPreset, ClientLocalMetadataPolicy, ClientLocalMetadataReader,
     ClientManagementAction, ClientManagementDisabledReason, ClientManagementHttpMethod,
     ClientManagementRequiredAccess, ClientManagementSurface, ClientMediaDomain, ClientMediaKind,
-    ClientMediaStreamKind, ClientMetadataRefreshMode, ClientMetadataSource, ClientNamingStrategy,
-    ClientOutputContainer, ClientPlaybackCapabilitiesDto, ClientPlaybackCapabilityEvaluation,
+    ClientMediaStreamKind, ClientMediaStreamOrigin, ClientMetadataRefreshMode,
+    ClientMetadataSource, ClientNamingStrategy, ClientOutputContainer,
+    ClientPlaybackCapabilitiesDto, ClientPlaybackCapabilityEvaluation,
     ClientPlaybackCompatibilityCondition, ClientPlaybackDecision, ClientPlaybackDecisionReason,
     ClientPlaybackDecisionReport, ClientPlaybackDenialDto, ClientPlaybackMode,
     ClientPlaybackPermission, ClientPlaybackPermissionDecisionReason, ClientPlaybackSessionMode,
@@ -45,18 +47,19 @@ pub use nako_client_protocol::{
     LibraryListResponse, LibraryOptionsDto, LibraryResponse, LibraryScanOptionsDto,
     LibrarySourceResponse, LibrarySourcesResponse, LoginRequest, LoginResponse, LogoutResponse,
     ManagementContextDto, ManagementContextLinkDto, ManagementContextLinksResponse, MediaItemDto,
-    MediaProbeDto, MediaSourceDto, MediaStreamDto, MetadataProfileDto, MetadataScanPolicyDto,
-    PLAYBACK_SESSION_ID_HEADER, PageInfo, PeopleResponse, PersonDto, PersonItemsResponse,
-    PersonResponse, PlaybackDecisionResponse, PlaybackSessionDto, PlaybackSessionHeartbeatRequest,
-    PlaybackSessionResponse, PublicImageRefDto, RedeemInvitationRequest,
-    RendererCommandCompletionRequest, RendererCommandDto, RendererCommandPollResponse,
-    RendererCommandResponse, RendererCommandTransportDto, RendererCommandTransportUrlDto,
-    RendererHeartbeatRequest, RendererPlayCommandRequest, RendererPlayCommandResponse,
-    RendererRegistrationRequest, RendererSessionDto, RendererSessionResponse,
-    RendererSessionsResponse, RendererTransportMode, RendererTransportUrlKind, SearchItemHit,
-    SearchResponse, SetWatchedStateRequest, SourceProbeResponse, StudioRefDto, TagDto,
-    TagItemsResponse, TagsResponse, TranscodeSessionDto, TranscodeSessionResponse,
-    UpdatePlaybackProgressRequest, UserPlaybackStateDto, UserPlaybackStateResponse, UserSessionDto,
+    MediaProbeDto, MediaSourceDto, MediaStreamDispositionDto, MediaStreamDto, MetadataProfileDto,
+    MetadataScanPolicyDto, PLAYBACK_SESSION_ID_HEADER, PageInfo, PeopleResponse, PersonDto,
+    PersonItemsResponse, PersonResponse, PlaybackDecisionResponse, PlaybackSessionDto,
+    PlaybackSessionHeartbeatRequest, PlaybackSessionResponse, PublicImageRefDto,
+    RedeemInvitationRequest, RendererCommandCompletionRequest, RendererCommandDto,
+    RendererCommandPollResponse, RendererCommandResponse, RendererCommandTransportDto,
+    RendererCommandTransportUrlDto, RendererHeartbeatRequest, RendererPlayCommandRequest,
+    RendererPlayCommandResponse, RendererRegistrationRequest, RendererSessionDto,
+    RendererSessionResponse, RendererSessionsResponse, RendererTransportMode,
+    RendererTransportUrlKind, SearchItemHit, SearchResponse, SetWatchedStateRequest,
+    SourceProbeResponse, StudioRefDto, TagDto, TagItemsResponse, TagsResponse, TranscodeSessionDto,
+    TranscodeSessionResponse, UpdatePlaybackProgressRequest, UserPlaybackStateDto,
+    UserPlaybackStateResponse, UserSessionDto,
 };
 
 #[must_use]
@@ -515,9 +518,11 @@ pub fn timestamp_ms_to_rfc3339(timestamp_ms: Option<i64>) -> Option<String> {
 
 #[must_use]
 pub fn media_stream_to_dto(stream: MediaStreamInfo) -> MediaStreamDto {
+    let technical = stream.technical;
     MediaStreamDto {
         index: stream.index,
         kind: media_stream_kind_to_dto(stream.kind),
+        origin: technical.origin.map(media_stream_origin_to_dto),
         codec: stream.codec,
         language: stream.language,
         duration_ms: stream.duration_ms,
@@ -526,6 +531,7 @@ pub fn media_stream_to_dto(stream: MediaStreamInfo) -> MediaStreamDto {
         height: stream.height,
         channels: stream.channels,
         sample_rate: stream.sample_rate,
+        disposition: media_stream_disposition_to_dto(technical.disposition),
     }
 }
 
@@ -779,6 +785,30 @@ fn media_stream_kind_to_dto(kind: MediaStreamKind) -> ClientMediaStreamKind {
         MediaStreamKind::Data => ClientMediaStreamKind::Data,
         MediaStreamKind::Attachment => ClientMediaStreamKind::Attachment,
         MediaStreamKind::Other(value) => ClientMediaStreamKind::Other(value.to_string()),
+    }
+}
+
+fn media_stream_origin_to_dto(origin: MediaStreamOrigin) -> ClientMediaStreamOrigin {
+    match origin {
+        MediaStreamOrigin::Embedded => ClientMediaStreamOrigin::Embedded,
+        MediaStreamOrigin::Sidecar => ClientMediaStreamOrigin::Sidecar,
+        MediaStreamOrigin::External => ClientMediaStreamOrigin::External,
+        MediaStreamOrigin::Other(value) => ClientMediaStreamOrigin::Other(value),
+    }
+}
+
+fn media_stream_disposition_to_dto(
+    disposition: MediaStreamDisposition,
+) -> MediaStreamDispositionDto {
+    MediaStreamDispositionDto {
+        default: disposition.default,
+        forced: disposition.forced,
+        hearing_impaired: disposition.hearing_impaired,
+        visual_impaired: disposition.visual_impaired,
+        commentary: disposition.commentary,
+        attached_pic: disposition.attached_pic,
+        captions: disposition.captions,
+        descriptions: disposition.descriptions,
     }
 }
 
@@ -1156,7 +1186,8 @@ mod tests {
     use super::*;
     use nako_core::{
         CanonicalMetadata, LibraryId, MediaItem, MediaItemId, MediaSource, MediaSourceId,
-        TranscodeSessionId, TranscodeSessionKind, TranscodeSessionState, UserPrincipalId,
+        MediaStreamTechnicalFacts, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionState,
+        UserPrincipalId,
     };
 
     #[test]
@@ -1171,6 +1202,41 @@ mod tests {
         assert_eq!(info.limit, 25);
         assert_eq!(info.offset, 50);
         assert_eq!(info.returned, u32::MAX);
+    }
+
+    #[test]
+    fn media_stream_dto_exposes_sidecar_subtitle_origin_and_disposition() {
+        let dto = media_stream_to_dto(MediaStreamInfo {
+            index: 2,
+            kind: MediaStreamKind::Subtitle,
+            codec: Some("srt".to_owned()),
+            language: Some("zh-hant".to_owned()),
+            duration_ms: None,
+            bit_rate: None,
+            width: None,
+            height: None,
+            channels: None,
+            sample_rate: None,
+            technical: MediaStreamTechnicalFacts {
+                origin: Some(MediaStreamOrigin::Sidecar),
+                disposition: MediaStreamDisposition {
+                    forced: true,
+                    ..MediaStreamDisposition::default()
+                },
+                ..MediaStreamTechnicalFacts::default()
+            },
+        });
+        let value = serde_json::to_value(dto).unwrap();
+
+        assert_eq!(value["kind"], "subtitle");
+        assert_eq!(value["origin"], "sidecar");
+        assert_eq!(value["codec"], "srt");
+        assert_eq!(value["language"], "zh-hant");
+        assert_eq!(value["disposition"]["forced"], true);
+        assert_eq!(value["disposition"]["default"], false);
+        assert!(value.get("locator").is_none());
+        assert!(value.get("path").is_none());
+        assert!(value.get("uri").is_none());
     }
 
     #[test]

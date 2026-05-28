@@ -135,7 +135,7 @@ use nako_core::{
     ManagedArtworkArtifactId, ManagedArtworkIngestStatus, ManagedArtworkRepository,
     ManagedImportRepository, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
     MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
-    MediaStreamKind, MetadataField, MetadataFieldLock, MetadataMatchKind,
+    MediaStreamKind, MediaStreamOrigin, MetadataField, MetadataFieldLock, MetadataMatchKind,
     MetadataProviderAttemptId, MetadataProviderAttemptStatus, MetadataProviderErrorClass,
     MetadataRefreshMode, MetadataRepository, MetadataSource, NakoError, NewAddonRegistration,
     NewAutomationArtifact, NewAutomationProviderConfig, NewIngestionFailure, NewJob,

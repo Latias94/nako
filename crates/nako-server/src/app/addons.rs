@@ -50,17 +50,19 @@ use nako_api::extension::{
     AdminAddonSubtitleSelectedReference, AdminAddonSubtitleSelectionRequest,
     AdminAddonSubtitleSelectionResponse, AdminAddonSurfacesResponse, AdminAddonTaskSurface,
     AdminSubtitleImportApplyReport, AdminSubtitleImportApplyStatus,
-    AdminSubtitleImportBackupPolicy, AdminSubtitleImportConflictPolicy, AdminSubtitleImportPlan,
-    AdminSubtitleImportPlanReason, AdminSubtitleImportPlanStatus, AdminSubtitleImportTargetSummary,
-    AdminSubtitleSidecarPlan, AdminSubtitleSidecarRole, IssueAddonTokenRequest,
-    RegisterAddonRequest, ReplaceAddonGrantsRequest, UpdateAddonStatusRequest,
+    AdminSubtitleImportBackupPolicy, AdminSubtitleImportConflictPolicy,
+    AdminSubtitleImportFactSummary, AdminSubtitleImportPlan, AdminSubtitleImportPlanReason,
+    AdminSubtitleImportPlanStatus, AdminSubtitleImportTargetSummary, AdminSubtitleSidecarPlan,
+    AdminSubtitleSidecarRole, IssueAddonTokenRequest, RegisterAddonRequest,
+    ReplaceAddonGrantsRequest, UpdateAddonStatusRequest,
 };
 use nako_core::{
     AddonGrantRecord, AddonId, AddonIssuedToken, AddonManifestFingerprint, AddonRegistrationRecord,
     AddonRepository, AddonRoutingDeclarationKind, AddonRoutingPlanId, AddonRoutingPlanStatus,
-    AddonRoutingPlanTarget, AddonStatus, AddonTokenId, DomainEventKind, JobKind, MediaRepository,
-    MediaSource, NakoError, NewAddonGrant, NewAddonRegistration, NewAddonRoutingPlan,
-    NewAddonToken, Result, SecretString,
+    AddonRoutingPlanTarget, AddonStatus, AddonTokenId, DomainEventKind, JobKind,
+    MediaProbeRepository, MediaProbeResult, MediaRepository, MediaSource, MediaStreamDisposition,
+    MediaStreamInfo, MediaStreamKind, MediaStreamOrigin, MediaStreamTechnicalFacts, NakoError,
+    NewAddonGrant, NewAddonRegistration, NewAddonRoutingPlan, NewAddonToken, Result, SecretString,
 };
 use nako_db::NakoDatabase;
 use nako_official_addon_catalog::{
@@ -1438,12 +1440,15 @@ impl AddonAppService {
         let write_report = writer
             .write_subtitle_sidecar(library_file_write::SubtitleSidecarWriteRequest {
                 library_id: context.source.library_id,
-                source: context.source,
+                source: context.source.clone(),
                 file_name: context.plan.sidecar.file_name.clone(),
                 content: content.clone(),
                 conflict_policy: subtitle_sidecar_conflict_policy(context.plan.conflict_policy),
                 backup_policy: subtitle_sidecar_backup_policy(context.plan.backup_policy),
             })
+            .await?;
+        let refreshed_fact = self
+            .refresh_subtitle_import_fact(&context.source, &context.plan.sidecar)
             .await?;
         let apply_status = match write_report.status {
             library_file_write::SubtitleSidecarWriteStatus::Applied => {
@@ -1462,6 +1467,7 @@ impl AddonAppService {
                 status: apply_status,
                 target: context.plan.target.clone(),
                 sidecar: context.plan.sidecar.clone(),
+                refreshed_fact,
                 conflict_policy: context.plan.conflict_policy,
                 backup_policy: context.plan.backup_policy,
                 write_mode: write_report.write_mode.to_owned(),
@@ -1604,6 +1610,59 @@ impl AddonAppService {
             plan,
             candidate,
             source,
+        })
+    }
+
+    async fn refresh_subtitle_import_fact(
+        &self,
+        source: &MediaSource,
+        sidecar: &AdminSubtitleSidecarPlan,
+    ) -> Result<AdminSubtitleImportFactSummary> {
+        let mut probe = self
+            .store
+            .get_media_probe(source.id)
+            .await?
+            .unwrap_or_else(|| MediaProbeResult {
+                duration_ms: None,
+                container: None,
+                bit_rate: None,
+                streams: Vec::new(),
+            });
+        let stream_index = probe
+            .streams
+            .iter()
+            .find(|stream| subtitle_sidecar_stream_matches(stream, sidecar))
+            .map(|stream| stream.index)
+            .unwrap_or_else(|| {
+                probe
+                    .streams
+                    .iter()
+                    .map(|stream| stream.index)
+                    .max()
+                    .and_then(|index| index.checked_add(1))
+                    .unwrap_or(0)
+            });
+        let fact = subtitle_sidecar_stream_info(stream_index, sidecar);
+
+        if let Some(existing) = probe
+            .streams
+            .iter_mut()
+            .find(|stream| subtitle_sidecar_stream_matches(stream, sidecar))
+        {
+            *existing = fact;
+        } else {
+            probe.streams.push(fact);
+        }
+        probe.streams.sort_by_key(|stream| stream.index);
+        self.store.upsert_media_probe(source.id, &probe).await?;
+
+        Ok(AdminSubtitleImportFactSummary {
+            media_source_id: source.id,
+            stream_index,
+            origin: "sidecar".to_owned(),
+            language: sidecar.language.clone(),
+            format: sidecar.format,
+            role: sidecar.role,
         })
     }
 
@@ -2359,6 +2418,58 @@ fn subtitle_sidecar_backup_policy(
         AdminSubtitleImportBackupPolicy::ExistingFileKeepLatest => {
             library_file_write::SubtitleSidecarBackupPolicy::ExistingFileKeepLatest
         }
+    }
+}
+
+fn subtitle_sidecar_stream_info(index: u32, sidecar: &AdminSubtitleSidecarPlan) -> MediaStreamInfo {
+    MediaStreamInfo {
+        index,
+        kind: MediaStreamKind::Subtitle,
+        codec: Some(sidecar.format.as_str().to_owned()),
+        language: Some(sidecar.language.clone()),
+        duration_ms: None,
+        bit_rate: None,
+        width: None,
+        height: None,
+        channels: None,
+        sample_rate: None,
+        technical: MediaStreamTechnicalFacts {
+            origin: Some(MediaStreamOrigin::Sidecar),
+            disposition: subtitle_sidecar_disposition(sidecar.role),
+            ..MediaStreamTechnicalFacts::default()
+        },
+    }
+}
+
+fn subtitle_sidecar_stream_matches(
+    stream: &MediaStreamInfo,
+    sidecar: &AdminSubtitleSidecarPlan,
+) -> bool {
+    stream.kind == MediaStreamKind::Subtitle
+        && stream.technical.origin.as_ref() == Some(&MediaStreamOrigin::Sidecar)
+        && stream.codec.as_deref() == Some(sidecar.format.as_str())
+        && stream.language.as_deref() == Some(sidecar.language.as_str())
+        && stream.technical.disposition == subtitle_sidecar_disposition(sidecar.role)
+}
+
+fn subtitle_sidecar_disposition(role: AdminSubtitleSidecarRole) -> MediaStreamDisposition {
+    match role {
+        AdminSubtitleSidecarRole::Default => MediaStreamDisposition {
+            default: true,
+            ..MediaStreamDisposition::default()
+        },
+        AdminSubtitleSidecarRole::Forced => MediaStreamDisposition {
+            forced: true,
+            ..MediaStreamDisposition::default()
+        },
+        AdminSubtitleSidecarRole::Sdh => MediaStreamDisposition {
+            hearing_impaired: true,
+            ..MediaStreamDisposition::default()
+        },
+        AdminSubtitleSidecarRole::Commentary => MediaStreamDisposition {
+            commentary: true,
+            ..MediaStreamDisposition::default()
+        },
     }
 }
 

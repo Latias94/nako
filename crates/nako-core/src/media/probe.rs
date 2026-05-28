@@ -37,6 +37,7 @@ pub enum MediaStreamKind {
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct MediaStreamTechnicalFacts {
+    pub origin: Option<MediaStreamOrigin>,
     pub codec_profile: Option<String>,
     pub codec_level: Option<u32>,
     pub codec_tag: Option<String>,
@@ -54,6 +55,15 @@ pub struct MediaStreamTechnicalFacts {
     pub hdr: MediaHdrMetadata,
     #[serde(default)]
     pub disposition: MediaStreamDisposition,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MediaStreamOrigin {
+    Embedded,
+    Sidecar,
+    External,
+    Other(String),
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
