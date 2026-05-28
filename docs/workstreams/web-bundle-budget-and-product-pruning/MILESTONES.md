@@ -9,7 +9,7 @@ Exit criteria: WALW is complete. Completed by WALW-050 closeout.
 
 ## M1 - Budget Instrumentation
 
-Exit criteria: bundle budgets are measurable and repeatable.
+Exit criteria: bundle budgets are measurable and repeatable. Completed by WBBP-020.
 
 ## M2 - Heavy Domain Pruning
 

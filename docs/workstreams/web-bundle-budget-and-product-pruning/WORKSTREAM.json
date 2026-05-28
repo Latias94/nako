@@ -7,9 +7,10 @@
   "scope_kind": "frontend_performance_pruning",
   "problem": "The Vite runtime is clean, but copied v0 domains and heavy dependencies still need explicit budget enforcement and product-scope pruning.",
   "task_prefix": "WBBP",
-  "current_task": "WBBP-020",
+  "current_task": "WBBP-030",
   "completed_tasks": [
-    "WBBP-010"
+    "WBBP-010",
+    "WBBP-020"
   ],
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/web-bundle-budget-and-product-pruning/README.md" },
@@ -28,13 +29,14 @@
   ],
   "evidence": [
     "Queued as lane 6 after WALW.",
-    "Activated after WALW-050 closeout commit ee6d5cdc; WBBP-020 is ready."
+    "Activated after WALW-050 closeout commit ee6d5cdc; WBBP-020 is ready.",
+    "WBBP-020 added bundle budget instrumentation and `npm --prefix web run build:budget` passed within thresholds."
   ],
   "adr_refs": [
     "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md"
   ],
   "continue_policy": {
     "default_action": "continue_current_task",
-    "notes": "Run WBBP-020 to add repeatable bundle budget measurement and thresholds."
+    "notes": "Run WBBP-030 to prune or lazy-load deferred product domains."
   }
 }

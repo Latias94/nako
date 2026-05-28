@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 3000 --strictPort",
     "build": "vite build",
+    "build:budget": "npm run build && npm run bundle:budget",
+    "bundle:budget": "node scripts/check-bundle-budget.mjs",
     "start": "vite preview --host 127.0.0.1 --port 4173",
     "check": "tsc --noEmit",
     "test": "vitest run",

@@ -21,3 +21,4 @@ Bundle budget output must be recorded before and after pruning.
 | --- | --- | --- | --- |
 | 2026-05-28 | WBBP-010 | Queued as lane 6 after Admin live wiring. | Queued. |
 | 2026-05-28 | WBBP-010 | WALW-050 closed at commit `ee6d5cdc`; WBBP status moved to active and current task set to WBBP-020. | Passed. |
+| 2026-05-28 | WBBP-020 | Added `web/scripts/check-bundle-budget.mjs`, `bundle:budget`, and `build:budget`. `npm --prefix web run build:budget` passed with initial JS 442.74 KiB / 136.39 KiB gzip, initial CSS 195.92 / 28.34, admin route 212.59 / 45.67, media route 320.37 / 72.94, total JS 1148.54 / 312.15. | Passed. |

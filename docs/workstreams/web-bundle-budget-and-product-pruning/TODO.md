@@ -13,11 +13,11 @@ Last updated: 2026-05-28
 
 ## M1 - Budget Instrumentation
 
-- [ ] WBBP-020 [owner=Codex] [deps=WBBP-010] [scope=web/package.json,web/scripts]
+- [x] WBBP-020 [owner=Codex] [deps=WBBP-010] [scope=web/package.json,web/scripts]
   Goal: Add repeatable bundle budget measurement and failure thresholds.
   Validation: npm --prefix web run build and budget script.
-  Evidence: budget output.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Evidence: `npm --prefix web run build:budget` passed. Budget output: initial JS 442.74 KiB / 136.39 KiB gzip, admin route 212.59 / 45.67, media route 320.37 / 72.94, total JS 1148.54 / 312.15.
+  Handoff: DONE. Next task is WBBP-030.
 
 ## M2 - Heavy Domain Pruning
 
