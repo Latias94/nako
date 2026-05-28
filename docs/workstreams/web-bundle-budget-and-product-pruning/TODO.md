@@ -21,11 +21,11 @@ Last updated: 2026-05-28
 
 ## M2 - Heavy Domain Pruning
 
-- [ ] WBBP-030 [owner=Codex] [deps=WBBP-020] [scope=web/src/features,web/components/nako,web/package.json]
+- [x] WBBP-030 [owner=Codex] [deps=WBBP-020] [scope=web/src/features,web/components/nako,web/package.json]
   Goal: Remove, quarantine, or lazy-load deferred domains not accepted as live product.
   Validation: npm --prefix web run test && npm --prefix web run build and budget script.
-  Evidence: deleted/quarantined files and bundle diff.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Evidence: `npm --prefix web run check`, `npm --prefix web run test`, and `npm --prefix web run build:budget` passed. Media route chunk dropped to 51.67 KiB / 14.38 KiB gzip; total JS is 1041.80 KiB / 307.34 KiB gzip. Removed v0-only downloads, playlists, photos, music, podcasts, AI assistant, and automation runtime surfaces.
+  Handoff: DONE. Next task is WBBP-040.
 
 ## M3 - Dependency Diet
 

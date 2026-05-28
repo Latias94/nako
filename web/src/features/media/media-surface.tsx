@@ -1,7 +1,7 @@
 "use client"
 import { resolveArtwork } from '@/lib/artwork'
 
-import { useEffect, useState, useRef, forwardRef, useImperativeHandle } from "react"
+import { useEffect, useState, useRef, forwardRef, useImperativeHandle, lazy } from "react"
 import { Play, Clock, ChevronRight, ChevronLeft, Star, Calendar, Info, Film, Tv, User, Tag, Clapperboard, Building2, Menu, Search, X, Heart, BookmarkPlus, Settings, Download, ListMusic, Bell, History, Image, Music, Mic, Bot, Workflow, LayoutGrid, Sparkles, MoreHorizontal, Pin, RefreshCw, FolderEdit, Trash2, Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -18,27 +18,24 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
-import { MediaDetail } from "./media-detail"
-import { VideoPlayer } from "./video-player"
-import { ImageViewer } from "./image-viewer"
-import { SearchPage } from "./search-page"
-import { UserSelectPage } from "@/src/features/account"
-import { MyListPage } from "./my-list-page"
-import { SettingsPage } from "@/src/features/settings"
-import { LibraryBrowser, type LibraryBrowserRouteState } from "./library-browser"
-import { ActivityHistory } from "./activity-history"
-import { PersonDetail } from "./person-detail"
-import { FilterPage } from "./filter-page"
-import { DownloadManager } from "./download-manager"
-import { PlaylistManager } from "./playlist-manager"
-import { NotificationCenter } from "@/src/features/notifications"
-import { PhotoLibrary } from "./photo-library"
-import { MusicPlayer } from "./music-player"
-import { PodcastManager } from "./podcast-manager"
-import { AgentAssistant } from "./agent-assistant"
-import { AutomationManager } from "./automation-manager"
 import { useTrendingMedia, useCategoryMedia } from "@/lib/use-media"
 import type { MediaItem } from "@/lib/media-types"
+import type { LibraryBrowserRouteState } from "./library-browser"
+
+const MediaDetail = lazy(() => import("./media-detail").then((module) => ({ default: module.MediaDetail })))
+const VideoPlayer = lazy(() => import("./video-player").then((module) => ({ default: module.VideoPlayer })))
+const ImageViewer = lazy(() => import("./image-viewer").then((module) => ({ default: module.ImageViewer })))
+const SearchPage = lazy(() => import("./search-page").then((module) => ({ default: module.SearchPage })))
+const UserSelectPage = lazy(() => import("@/src/features/account").then((module) => ({ default: module.UserSelectPage })))
+const MyListPage = lazy(() => import("./my-list-page").then((module) => ({ default: module.MyListPage })))
+const SettingsPage = lazy(() => import("@/src/features/settings").then((module) => ({ default: module.SettingsPage })))
+const LibraryBrowser = lazy(() => import("./library-browser").then((module) => ({ default: module.LibraryBrowser })))
+const ActivityHistory = lazy(() => import("./activity-history").then((module) => ({ default: module.ActivityHistory })))
+const PersonDetail = lazy(() => import("./person-detail").then((module) => ({ default: module.PersonDetail })))
+const FilterPage = lazy(() => import("./filter-page").then((module) => ({ default: module.FilterPage })))
+const NotificationCenter = lazy(() =>
+  import("@/src/features/notifications").then((module) => ({ default: module.NotificationCenter })),
+)
 
 // Ref 类型
 export interface MediaSurfaceRef {
@@ -73,6 +70,54 @@ type ViewState =
   | { type: "automations" }
 
 type PlaybackMediaType = "movie" | "series" | "anime" | "music" | "photo"
+type DeferredMediaFeature = "downloads" | "playlists" | "photos" | "music" | "podcasts" | "agent" | "automations"
+
+const DEFERRED_MEDIA_FEATURES = {
+  downloads: {
+    title: "下载管理",
+    description: "下载器集成会等传输任务、订阅和权限边界稳定后再回到 live product。",
+    icon: Download,
+  },
+  playlists: {
+    title: "播放列表",
+    description: "跨用户播放列表需要真实账号、收藏和播放队列模型支撑，目前先从运行时裁剪。",
+    icon: ListMusic,
+  },
+  photos: {
+    title: "照片库",
+    description: "照片不是 Nako 当前影视库核心域，后续应作为独立媒体类型重新设计。",
+    icon: Image,
+  },
+  music: {
+    title: "音乐库",
+    description: "音乐需要独立的专辑、艺人、曲目和播放队列模型，不混入当前影视体验。",
+    icon: Music,
+  },
+  podcasts: {
+    title: "播客",
+    description: "播客订阅、单集下载和收听进度属于后续产品域，当前不进入运行时包。",
+    icon: Mic,
+  },
+  agent: {
+    title: "AI 助手",
+    description: "AI 助手需要插件权限、工具调用审计和模型配置后再接入主产品。",
+    icon: Bot,
+  },
+  automations: {
+    title: "自动化",
+    description: "自动化编排会在 webhook、任务和插件能力稳定后作为独立管理面恢复。",
+    icon: Workflow,
+  },
+} satisfies Record<
+  DeferredMediaFeature,
+  {
+    title: string
+    description: string
+    icon: React.ComponentType<{ className?: string }>
+  }
+>
+
+const DEFERRED_MEDIA_FEATURE_KEYS = new Set<ViewState["type"]>(Object.keys(DEFERRED_MEDIA_FEATURES) as DeferredMediaFeature[])
 
 export type MediaSurfaceRouteView =
   | { type: "browse" }
@@ -253,9 +298,6 @@ const libraries = [
   { id: "tvshows", name: "剧集", count: 156, icon: Tv },
   { id: "anime", name: "动画", count: 234, icon: Star },
   { id: "documentary", name: "纪录片", count: 89, icon: Film },
-  { id: "photos", name: "图片", count: 12453, icon: Image },
-  { id: "music", name: "音乐", count: 3256, icon: Music },
-  { id: "podcasts", name: "播客", count: 45, icon: Mic },
 ]
 
 export const MediaSurface = forwardRef<MediaSurfaceRef, MediaSurfaceProps>(function MediaSurface(
@@ -489,29 +531,6 @@ export const MediaSurface = forwardRef<MediaSurfaceRef, MediaSurfaceProps>(funct
     )
   }
 
-  // 下载管理页面
-  if (viewState.type === "downloads") {
-    return (
-      <DownloadManager
-        onBack={goBack}
-      />
-    )
-  }
-
-  // 播放列表页面
-  if (viewState.type === "playlists") {
-    return (
-      <PlaylistManager
-        onBack={goBack}
-        onPlayMedia={(mediaId, mediaType) => {
-          setCurrentMediaId(mediaId)
-          setCurrentMediaType(mediaType)
-          navigateTo({ type: "detail", mediaId, mediaType })
-        }}
-      />
-    )
-  }
-
   // 通知中心
   if (viewState.type === "notifications") {
     return (
@@ -537,54 +556,8 @@ export const MediaSurface = forwardRef<MediaSurfaceRef, MediaSurfaceProps>(funct
     )
   }
 
-  // 图片库
-  if (viewState.type === "photos") {
-    return (
-      <PhotoLibrary
-        onBack={goBack}
-      />
-    )
-  }
-
-  // 音乐播放器
-  if (viewState.type === "music") {
-    return (
-      <MusicPlayer
-        onBack={goBack}
-      />
-    )
-  }
-
-  // 播客管理
-  if (viewState.type === "podcasts") {
-    return (
-      <PodcastManager
-        onBack={goBack}
-      />
-    )
-  }
-
-  // AI 助手
-  if (viewState.type === "agent") {
-    return (
-      <AgentAssistant
-        onBack={goBack}
-        onNavigate={(view, params) => {
-          if (view === "library" && params?.libraryId) {
-            navigateTo({ type: "library", libraryId: params.libraryId as string })
-          }
-        }}
-      />
-    )
-  }
-
-  // 自动化管理
-  if (viewState.type === "automations") {
-    return (
-      <AutomationManager
-        onBack={goBack}
-      />
-    )
+  if (isDeferredMediaFeature(viewState.type)) {
+    return <DeferredMediaFeaturePanel feature={viewState.type} onBack={goBack} />
   }
 
   // 显示详情页
@@ -708,16 +681,6 @@ export const MediaSurface = forwardRef<MediaSurfaceRef, MediaSurfaceProps>(funct
       <aside className="hidden w-52 flex-shrink-0 border-r border-border/50 bg-sidebar lg:flex lg:flex-col">
         {/* Scrollable Content */}
         <ScrollArea className="flex-1 px-2 py-3">
-          {/* AI Assistant - 突出显示 */}
-          <button
-            onClick={() => navigateTo({ type: "agent" })}
-            className="mb-3 flex w-full items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500/10 to-teal-500/10 px-3 py-2.5 text-sm font-medium transition-colors hover:from-cyan-500/20 hover:to-teal-500/20"
-          >
-            <Bot className="h-4 w-4 text-cyan-500" />
-            <span>AI 助手</span>
-            <Sparkles className="ml-auto h-3 w-3 text-cyan-500" />
-          </button>
-
           {/* 媒体库 - 核心导航 */}
           <nav className="space-y-0.5">
             <button
@@ -795,38 +758,7 @@ export const MediaSurface = forwardRef<MediaSurfaceRef, MediaSurfaceProps>(funct
               <Heart className="h-4 w-4" />
               <span>我的收藏</span>
             </button>
-            <button
-              onClick={() => navigateTo({ type: "downloads" })}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/80 hover:bg-sidebar-accent/50"
-            >
-              <Download className="h-4 w-4" />
-              <span>下载</span>
-            </button>
           </nav>
-
-          {/* 更多功能 - 可折叠 */}
-          <Collapsible className="mt-1">
-            <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-muted-foreground hover:bg-sidebar-accent/30">
-              <ChevronRight className="h-3 w-3 transition-transform [[data-state=open]_&]:rotate-90" />
-              更多功能
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-0.5">
-              <button
-                onClick={() => navigateTo({ type: "playlists" })}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/80 hover:bg-sidebar-accent/50"
-              >
-                <ListMusic className="h-4 w-4" />
-                <span>播放列表</span>
-              </button>
-              <button
-                onClick={() => navigateTo({ type: "automations" })}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/80 hover:bg-sidebar-accent/50"
-              >
-                <Workflow className="h-4 w-4" />
-                <span>自动化</span>
-              </button>
-            </CollapsibleContent>
-          </Collapsible>
         </ScrollArea>
 
         {/* 底部固定 */}
@@ -1042,6 +974,38 @@ function mediaRouteTarget(view: ViewState): MediaSurfaceRouteView | null {
     default:
       return null
   }
+}
+
+function isDeferredMediaFeature(value: ViewState["type"]): value is DeferredMediaFeature {
+  return DEFERRED_MEDIA_FEATURE_KEYS.has(value)
+}
+
+function DeferredMediaFeaturePanel({ feature, onBack }: { feature: DeferredMediaFeature; onBack: () => void }) {
+  const metadata = DEFERRED_MEDIA_FEATURES[feature]
+  const Icon = metadata.icon
+
+  return (
+    <div className="grid min-h-[calc(100vh-3.5rem)] place-items-center bg-background p-6">
+      <div className="w-full max-w-xl rounded-lg border border-border bg-card p-6 shadow-sm">
+        <div className="flex items-start gap-4">
+          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+            <Icon className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-lg font-semibold text-foreground">{metadata.title}</h1>
+              <Badge variant="secondary">Deferred</Badge>
+            </div>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">{metadata.description}</p>
+            <Button variant="outline" size="sm" className="mt-5 gap-2" onClick={onBack}>
+              <ChevronLeft className="h-4 w-4" />
+              返回媒体库
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function ContinueWatchingCard({

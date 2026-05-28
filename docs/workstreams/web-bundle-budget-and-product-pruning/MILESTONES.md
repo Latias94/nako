@@ -13,7 +13,7 @@ Exit criteria: bundle budgets are measurable and repeatable. Completed by WBBP-0
 
 ## M2 - Heavy Domain Pruning
 
-Exit criteria: deferred domains are removed, quarantined, or lazy-loaded.
+Exit criteria: deferred domains are removed, quarantined, or lazy-loaded. Completed by WBBP-030.
 
 ## M3 - Dependency Diet
 
