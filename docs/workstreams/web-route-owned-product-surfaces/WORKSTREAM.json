@@ -7,9 +7,10 @@
   "scope_kind": "frontend_routing_refactor",
   "problem": "Media and Admin product surfaces still keep durable navigation state inside large components instead of TanStack routes.",
   "task_prefix": "WROP",
-  "current_task": "WROP-020",
+  "current_task": "WROP-030",
   "completed_tasks": [
-    "WROP-010"
+    "WROP-010",
+    "WROP-020"
   ],
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/web-route-owned-product-surfaces/README.md" },
@@ -27,7 +28,8 @@
   ],
   "evidence": [
     "Queued as lane 3 after WFBR.",
-    "WROP-010 activated after WFBR closed with test/check/build, DTO boundary grep, and diff gates passing."
+    "WROP-010 activated after WFBR closed with test/check/build, DTO boundary grep, and diff gates passing.",
+    "WROP-020 added route-owned Media search/detail/library routes with route contracts; route-contract test, check, full test, and build passed."
   ],
   "adr_refs": [
     "docs/adr/0027-admin-api-boundary-for-web-console.md"

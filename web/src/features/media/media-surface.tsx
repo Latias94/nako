@@ -1,7 +1,7 @@
 "use client"
 import { resolveArtwork } from '@/lib/artwork'
 
-import { useState, useRef, forwardRef, useImperativeHandle } from "react"
+import { useEffect, useState, useRef, forwardRef, useImperativeHandle } from "react"
 import { Play, Clock, ChevronRight, ChevronLeft, Star, Calendar, Info, Film, Tv, User, Tag, Clapperboard, Building2, Menu, Search, X, Heart, BookmarkPlus, Settings, Download, ListMusic, Bell, History, Image, Music, Mic, Bot, Workflow, LayoutGrid, Sparkles, MoreHorizontal, Pin, RefreshCw, FolderEdit, Trash2, Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -56,7 +56,7 @@ type ViewState =
   | { type: "studio"; name: string; id?: string }
   | { type: "player"; mediaId: string; mediaType: "movie" | "series" }
   | { type: "images"; mediaTitle: string }
-  | { type: "search" }
+  | { type: "search"; query?: string }
   | { type: "user-select" }
   | { type: "my-list" }
   | { type: "settings" }
@@ -73,6 +73,20 @@ type ViewState =
   | { type: "automations" }
 
 type PlaybackMediaType = "movie" | "series" | "anime" | "music" | "photo"
+
+export type MediaSurfaceRouteView =
+  | { type: "browse" }
+  | { type: "detail"; mediaId: string; mediaType: "movie" | "series" }
+  | { type: "search"; query?: string }
+  | { type: "library"; libraryId: string }
+
+export interface MediaSurfaceProps {
+  initialView?: MediaSurfaceRouteView
+  routeKey?: string
+  onRouteNavigate?: (view: MediaSurfaceRouteView) => void
+}
+
+const DEFAULT_MEDIA_VIEW: MediaSurfaceRouteView = { type: "browse" }
 
 // 模拟相关作品数据
 const relatedWorksData = {
@@ -244,9 +258,12 @@ const libraries = [
   { id: "podcasts", name: "播客", count: 45, icon: Mic },
 ]
 
-export const MediaSurface = forwardRef<MediaSurfaceRef>(function MediaSurface(_, ref) {
+export const MediaSurface = forwardRef<MediaSurfaceRef, MediaSurfaceProps>(function MediaSurface(
+  { initialView = DEFAULT_MEDIA_VIEW, routeKey = "browse", onRouteNavigate },
+  ref,
+) {
   const [selectedLibrary, setSelectedLibrary] = useState("全部")
-  const [viewState, setViewState] = useState<ViewState>({ type: "browse" })
+  const [viewState, setViewState] = useState<ViewState>(initialView)
   const [navHistory, setNavHistory] = useState<ViewState[]>([]) // 导航历史堆栈
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [currentMediaId, setCurrentMediaId] = useState<string>("1")
@@ -256,9 +273,28 @@ export const MediaSurface = forwardRef<MediaSurfaceRef>(function MediaSurface(_,
   const { data: trendingData, isLoading, error } = useTrendingMedia()
   const { categories, fallback } = useCategoryMedia()
 
+  useEffect(() => {
+    setViewState(initialView)
+    setNavHistory([])
+
+    if (initialView.type === "detail") {
+      setCurrentMediaId(initialView.mediaId)
+      setCurrentMediaType(initialView.mediaType)
+    }
+
+    if (initialView.type === "library") {
+      setSelectedLibrary(initialView.libraryId)
+    }
+  }, [routeKey])
 
   // 导航到新页面（推入历史）
   const navigateTo = (newState: ViewState) => {
+    const routeTarget = mediaRouteTarget(newState)
+    if (routeTarget && onRouteNavigate) {
+      onRouteNavigate(routeTarget)
+      return
+    }
+
     setNavHistory(prev => [...prev, viewState])
     setViewState(newState)
   }
@@ -275,6 +311,11 @@ export const MediaSurface = forwardRef<MediaSurfaceRef>(function MediaSurface(_,
       setNavHistory(prev => prev.slice(0, -1))
       setViewState(prevState)
     } else {
+      if (onRouteNavigate && viewState.type !== "browse") {
+        onRouteNavigate({ type: "browse" })
+        return
+      }
+
       setViewState({ type: "browse" })
     }
   }
@@ -364,6 +405,7 @@ export const MediaSurface = forwardRef<MediaSurfaceRef>(function MediaSurface(_,
     return (
       <SearchPage
         onBack={goBack}
+        initialQuery={viewState.query}
       />
     )
   }
@@ -982,6 +1024,18 @@ export const MediaSurface = forwardRef<MediaSurfaceRef>(function MediaSurface(_,
     </div>
   )
 })
+
+function mediaRouteTarget(view: ViewState): MediaSurfaceRouteView | null {
+  switch (view.type) {
+    case "browse":
+    case "search":
+    case "detail":
+    case "library":
+      return view
+    default:
+      return null
+  }
+}
 
 function ContinueWatchingCard({
   item,

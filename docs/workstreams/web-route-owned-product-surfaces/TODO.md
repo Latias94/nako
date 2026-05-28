@@ -13,11 +13,11 @@ Last updated: 2026-05-28
 
 ## M1 - Media Routes
 
-- [ ] WROP-020 [owner=Codex] [deps=WROP-010] [scope=web/src/features/media,web/src/shell/nako-router.tsx]
+- [x] WROP-020 [owner=Codex] [deps=WROP-010] [scope=web/src/features/media,web/src/shell/nako-router.tsx]
   Goal: Add route-owned Media search/detail/library surfaces.
   Validation: npm --prefix web run test && npm --prefix web run build.
   Evidence: route definitions and route tests.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Handoff: DONE. `/media/search`, `/media/detail`, and `/media/library` are route-owned and covered by route contract tests.
 
 ## M2 - Admin Routes
 
@@ -25,7 +25,7 @@ Last updated: 2026-05-28
   Goal: Add route-owned Admin libraries/users/tasks/logs/settings surfaces.
   Validation: npm --prefix web run test && npm --prefix web run build.
   Evidence: route definitions and route tests.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Handoff: READY.
 
 ## M3 - Navigation And URL State
 

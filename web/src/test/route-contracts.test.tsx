@@ -38,6 +38,24 @@ const routeContracts: RouteContract[] = [
     },
   },
   {
+    path: "/media/search?q=dune",
+    assert: async () => {
+      expect(await screen.findByDisplayValue("dune", {}, { timeout: 5000 })).toBeInTheDocument()
+    },
+  },
+  {
+    path: "/media/detail?id=1&type=movie",
+    assert: async () => {
+      expect(await screen.findByRole("heading", { name: "沙丘2" }, { timeout: 5000 })).toBeInTheDocument()
+    },
+  },
+  {
+    path: "/media/library?id=movies",
+    assert: async () => {
+      expect(await screen.findByRole("button", { name: /按 日期已添加 排序/ }, { timeout: 5000 })).toBeInTheDocument()
+    },
+  },
+  {
     path: "/admin",
     assert: async () => {
       expect(await screen.findByRole("heading", { name: "仪表盘" }, { timeout: 5000 })).toBeInTheDocument()

@@ -19,7 +19,7 @@ import {
   useRouterState,
 } from "@tanstack/react-router"
 import { SurfaceSwitcher } from "@/src/shell/surface-switcher"
-import type { MediaSurfaceRef } from "@/src/features/media"
+import type { MediaSurfaceRef, MediaSurfaceRouteView } from "@/src/features/media"
 
 const MediaSurface = lazy(() =>
   import("@/src/features/media").then((module) => ({
@@ -127,8 +127,74 @@ function RootRoute() {
 
 function MediaRoute() {
   const mediaSurfaceRef = useContext(MediaSurfaceRefContext)
+  const navigate = useNavigate()
 
-  return <MediaSurface ref={mediaSurfaceRef} />
+  return (
+    <MediaSurface
+      ref={mediaSurfaceRef}
+      onRouteNavigate={(view) => {
+        void navigate(toMediaRoute(view))
+      }}
+    />
+  )
+}
+
+function MediaSearchRoute() {
+  const mediaSurfaceRef = useContext(MediaSurfaceRefContext)
+  const navigate = useNavigate()
+  const search = mediaSearchRoute.useSearch()
+  const query = typeof search.q === "string" ? search.q : undefined
+  const initialView: MediaSurfaceRouteView = { type: "search", query }
+
+  return (
+    <MediaSurface
+      ref={mediaSurfaceRef}
+      initialView={initialView}
+      routeKey={`search:${query ?? ""}`}
+      onRouteNavigate={(view) => {
+        void navigate(toMediaRoute(view))
+      }}
+    />
+  )
+}
+
+function MediaDetailRoute() {
+  const mediaSurfaceRef = useContext(MediaSurfaceRefContext)
+  const navigate = useNavigate()
+  const search = mediaDetailRoute.useSearch()
+  const mediaId = typeof search.id === "string" && search.id.trim() ? search.id : "1"
+  const mediaType = search.type === "series" ? "series" : "movie"
+  const initialView: MediaSurfaceRouteView = { type: "detail", mediaId, mediaType }
+
+  return (
+    <MediaSurface
+      ref={mediaSurfaceRef}
+      initialView={initialView}
+      routeKey={`detail:${mediaId}:${mediaType}`}
+      onRouteNavigate={(view) => {
+        void navigate(toMediaRoute(view))
+      }}
+    />
+  )
+}
+
+function MediaLibraryRoute() {
+  const mediaSurfaceRef = useContext(MediaSurfaceRefContext)
+  const navigate = useNavigate()
+  const search = mediaLibraryRoute.useSearch()
+  const libraryId = typeof search.id === "string" && search.id.trim() ? search.id : "movies"
+  const initialView: MediaSurfaceRouteView = { type: "library", libraryId }
+
+  return (
+    <MediaSurface
+      ref={mediaSurfaceRef}
+      initialView={initialView}
+      routeKey={`library:${libraryId}`}
+      onRouteNavigate={(view) => {
+        void navigate(toMediaRoute(view))
+      }}
+    />
+  )
 }
 
 function AdminRoute() {
@@ -210,6 +276,34 @@ const mediaRoute = createRoute({
   component: MediaRoute,
 })
 
+const mediaSearchRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/media/search",
+  validateSearch: (search: Record<string, unknown>) => ({
+    q: typeof search.q === "string" ? search.q : undefined,
+  }),
+  component: MediaSearchRoute,
+})
+
+const mediaDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/media/detail",
+  validateSearch: (search: Record<string, unknown>) => ({
+    id: typeof search.id === "string" ? search.id : undefined,
+    type: search.type === "series" ? "series" : "movie",
+  }),
+  component: MediaDetailRoute,
+})
+
+const mediaLibraryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/media/library",
+  validateSearch: (search: Record<string, unknown>) => ({
+    id: typeof search.id === "string" ? search.id : undefined,
+  }),
+  component: MediaLibraryRoute,
+})
+
 const adminRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/admin",
@@ -249,6 +343,9 @@ const tvRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   indexRoute,
   mediaRoute,
+  mediaSearchRoute,
+  mediaDetailRoute,
+  mediaLibraryRoute,
   adminRoute,
   notificationsRoute,
   settingsRoute,
@@ -256,6 +353,35 @@ const routeTree = rootRoute.addChildren([
   accountRoute,
   tvRoute,
 ])
+
+function toMediaRoute(view: MediaSurfaceRouteView) {
+  switch (view.type) {
+    case "search":
+      return {
+        to: "/media/search",
+        search: {
+          q: view.query,
+        },
+      } as const
+    case "detail":
+      return {
+        to: "/media/detail",
+        search: {
+          id: view.mediaId,
+          type: view.mediaType,
+        },
+      } as const
+    case "library":
+      return {
+        to: "/media/library",
+        search: {
+          id: view.libraryId,
+        },
+      } as const
+    case "browse":
+      return { to: "/media" } as const
+  }
+}
 
 interface NakoRouterOptions {
   history?: ReturnType<typeof createMemoryHistory>

@@ -11,6 +11,8 @@ Exit criteria: WFBR is complete.
 
 ## M1 - Media Routes
 
+Status: done.
+
 Exit criteria: accepted Media child surfaces are deep-linkable.
 
 ## M2 - Admin Routes

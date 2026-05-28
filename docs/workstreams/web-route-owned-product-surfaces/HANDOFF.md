@@ -10,11 +10,11 @@ Feature boundaries are complete. Product surfaces live under
 
 ## Active Task
 
-- Task ID: WROP-010
-- Owner: planner
+- Task ID: WROP-020
+- Owner: Codex
 - Status: DONE
-- Validation: WFBR complete.
+- Validation: `npm --prefix web run test -- src/test/route-contracts.test.tsx`, `npm --prefix web run check`, `npm --prefix web run test`, and `npm --prefix web run build`.
 
 ## Next Recommended Action
 
-- Start WROP-020 by adding route-owned Media search/detail/library surfaces in `web/src/shell/nako-router.tsx` and `web/src/features/media`.
+- Start WROP-030 by adding route-owned Admin libraries/users/tasks/logs/settings surfaces in `web/src/shell/nako-router.tsx` and `web/src/features/admin`.
