@@ -21,6 +21,12 @@ attention.
   fixed H.264/AAC command planning into source-aware media facts, structured
   transcode requirements, source-aware hardware pipeline planning, FFmpeg
   command boundaries, and runtime progress/segment supervision.
+- [playback-media-maturity-first-slices](playback-media-maturity-first-slices/README.md):
+  completed fearless refactor lane for the first post-source-aware playback
+  media maturity slices: richer Public Client capability profile input, adaptive
+  HLS/fMP4 planning vocabulary, and explicit subtitle/HDR/audio/bitrate/
+  resolution compatibility reasons without overclaiming executable fMP4 or ABR
+  runtime support.
 - [playback-capability-profile-and-rendition-planning](playback-capability-profile-and-rendition-planning/README.md):
   completed fearless refactor lane for deleting the shallow `PlaybackProfile`
   adapter, making selected playback output a typed Rendition Plan, and keeping

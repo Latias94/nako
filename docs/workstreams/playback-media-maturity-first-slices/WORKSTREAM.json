@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "slug": "playback-media-maturity-first-slices",
+  "title": "Playback Media Maturity First Slices",
+  "status": "completed",
+  "updated": "2026-05-28",
+  "scope_kind": "fearless_refactor",
+  "problem": "Nako's playback planner has source-aware facts and typed rendition output, but public client capability input and HLS/subtitle/HDR/audio constraints are still too shallow for Jellyfin-class self-hosted media pressure.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/playback-media-maturity-first-slices/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/playback-media-maturity-first-slices/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/playback-media-maturity-first-slices/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/playback-media-maturity-first-slices/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/playback-media-maturity-first-slices/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/playback-media-maturity-first-slices/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/playback-media-maturity-first-slices/CLOSEOUT.md"
+    }
+  ],
+  "gates": [
+    "python3 -m json.tool docs/workstreams/playback-media-maturity-first-slices/WORKSTREAM.json",
+    "cargo nextest run -p nako-playback --no-fail-fast",
+    "cargo nextest run -p nako-client-protocol --no-fail-fast",
+    "cargo nextest run -p nako-api --no-fail-fast",
+    "cargo nextest run -p nako-transcode --no-fail-fast",
+    "cargo nextest run -p nako-server playback --no-fail-fast",
+    "cargo nextest run -p nako-server renderer --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "PMMFS-010",
+      "summary": "Opened the first-slice playback media maturity refactor lane for richer public capability input, adaptive/fMP4 planning vocabulary, and subtitle/HDR/audio/constraint reasons."
+    },
+    {
+      "task": "PMMFS-020",
+      "summary": "Extended Public Client, browser ticket, renderer, OpenAPI, generated SDK, Rust client, and server query capability surfaces with richer direct-play limits and HLS planning preferences."
+    },
+    {
+      "task": "PMMFS-030",
+      "summary": "Added HLS single/adaptive and MPEG-TS/fMP4 planning vocabulary as transcode output requirements without changing executable HLS runtime behavior."
+    },
+    {
+      "task": "PMMFS-040",
+      "summary": "Used richer client capability limits to emit explicit bitrate, resolution, HDR, audio-channel, and selected-subtitle incompatibility reasons."
+    },
+    {
+      "task": "PMMFS-050",
+      "summary": "Verified focused Rust gates, regenerated SDK/Admin contracts, ran formatting and diff checks, and split executable adaptive HLS/fMP4 runtime work into follow-ons."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0044-playback-capability-profile-planner.md",
+    "docs/adr/0049-source-aware-transcode-runtime.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Closed on 2026-05-28. Continue with executable adaptive HLS ladders, fMP4/CMAF runtime output, DLNA device profiles, subtitle burn-in execution, or rsmpeg adapter work as separate lanes."
+  }
+}

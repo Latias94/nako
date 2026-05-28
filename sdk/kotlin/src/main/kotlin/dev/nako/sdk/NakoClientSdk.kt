@@ -1144,8 +1144,24 @@ public data class BrowserPlaybackCapabilitiesDto(
     public val container: List<String> = emptyList(),
     @SerialName("direct_play")
     public val directPlay: Boolean? = null,
+    @SerialName("hls_segment_container")
+    public val hlsSegmentContainer: ClientHlsSegmentContainer? = null,
+    @SerialName("hls_variant_policy")
+    public val hlsVariantPolicy: ClientHlsVariantPolicy? = null,
+    @SerialName("max_audio_channels")
+    public val maxAudioChannels: Int? = null,
+    @SerialName("max_height")
+    public val maxHeight: Int? = null,
+    @SerialName("max_video_bitrate")
+    public val maxVideoBitrate: Long? = null,
+    @SerialName("max_width")
+    public val maxWidth: Int? = null,
     @SerialName("output_container")
     public val outputContainer: BrowserPlaybackCapabilitiesDtoOutputContainer? = null,
+    @SerialName("supports_hdr")
+    public val supportsHdr: Boolean? = null,
+    @SerialName("supports_subtitles")
+    public val supportsSubtitles: Boolean? = null,
     @SerialName("video_codec")
     public val videoCodec: List<String> = emptyList(),
 )
@@ -1213,6 +1229,44 @@ public data class ClientDirectPlayPlan(
 
 @JvmInline
 @Serializable
+public value class ClientHlsSegmentContainer(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val MpegTs: ClientHlsSegmentContainer = ClientHlsSegmentContainer("mpeg_ts")
+        public val Fmp4: ClientHlsSegmentContainer = ClientHlsSegmentContainer("fmp4")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "mpeg_ts",
+            "fmp4",
+        )
+    }
+}
+
+@JvmInline
+@Serializable
+public value class ClientHlsVariantPolicy(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val SingleVariant: ClientHlsVariantPolicy = ClientHlsVariantPolicy("single_variant")
+        public val Adaptive: ClientHlsVariantPolicy = ClientHlsVariantPolicy("adaptive")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "single_variant",
+            "adaptive",
+        )
+    }
+}
+
+@JvmInline
+@Serializable
 public value class ClientMediaKind(
     public val wireValue: String,
 ) {
@@ -1247,6 +1301,22 @@ public data class ClientPlaybackCapabilitiesDto(
     public val containers: List<String>,
     @SerialName("direct_play")
     public val directPlay: Boolean,
+    @SerialName("hls_segment_container")
+    public val hlsSegmentContainer: ClientHlsSegmentContainer? = null,
+    @SerialName("hls_variant_policy")
+    public val hlsVariantPolicy: ClientHlsVariantPolicy? = null,
+    @SerialName("max_audio_channels")
+    public val maxAudioChannels: Int? = null,
+    @SerialName("max_height")
+    public val maxHeight: Int? = null,
+    @SerialName("max_video_bitrate")
+    public val maxVideoBitrate: Long? = null,
+    @SerialName("max_width")
+    public val maxWidth: Int? = null,
+    @SerialName("supports_hdr")
+    public val supportsHdr: Boolean? = null,
+    @SerialName("supports_subtitles")
+    public val supportsSubtitles: Boolean? = null,
     @SerialName("video_codecs")
     public val videoCodecs: List<String>,
 )
@@ -1276,6 +1346,7 @@ public value class ClientPlaybackCompatibilityCondition(
         public val AudioCodecUnsupported: ClientPlaybackCompatibilityCondition = ClientPlaybackCompatibilityCondition("audio_codec_unsupported")
         public val VideoBitrateUnsupported: ClientPlaybackCompatibilityCondition = ClientPlaybackCompatibilityCondition("video_bitrate_unsupported")
         public val VideoResolutionUnsupported: ClientPlaybackCompatibilityCondition = ClientPlaybackCompatibilityCondition("video_resolution_unsupported")
+        public val VideoHdrUnsupported: ClientPlaybackCompatibilityCondition = ClientPlaybackCompatibilityCondition("video_hdr_unsupported")
         public val AudioChannelsUnsupported: ClientPlaybackCompatibilityCondition = ClientPlaybackCompatibilityCondition("audio_channels_unsupported")
         public val SubtitleDeliveryUnsupported: ClientPlaybackCompatibilityCondition = ClientPlaybackCompatibilityCondition("subtitle_delivery_unsupported")
         public val RequestedTranscodeOutput: ClientPlaybackCompatibilityCondition = ClientPlaybackCompatibilityCondition("requested_transcode_output")
@@ -1293,6 +1364,7 @@ public value class ClientPlaybackCompatibilityCondition(
             "audio_codec_unsupported",
             "video_bitrate_unsupported",
             "video_resolution_unsupported",
+            "video_hdr_unsupported",
             "audio_channels_unsupported",
             "subtitle_delivery_unsupported",
             "requested_transcode_output",

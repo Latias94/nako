@@ -277,6 +277,7 @@ mod tests {
                     containers: vec!["mp4".to_owned()],
                     video_codecs: vec!["h264".to_owned()],
                     audio_codecs: vec!["aac".to_owned()],
+                    ..ClientPlaybackCapabilities::default()
                 },
                 control_capabilities: RendererControlCapabilities::basic_playback(),
                 now_ms: 1_779_814_400_000,

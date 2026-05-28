@@ -723,6 +723,7 @@ mod tests {
                     containers: vec!["mp4".to_owned()],
                     video_codecs: vec!["h264".to_owned()],
                     audio_codecs: vec!["aac".to_owned()],
+                    ..ClientPlaybackCapabilitiesDto::default()
                 },
                 control_capabilities: ClientRendererControlCapabilitiesDto {
                     commands: Vec::new(),
@@ -789,7 +790,16 @@ mod tests {
                 container: Some(vec!["mp4".to_owned(), "webm".to_owned()]),
                 video_codec: Some(vec!["h264".to_owned()]),
                 audio_codec: Some(vec!["aac".to_owned()]),
+                max_video_bitrate: Some(8_000_000),
+                max_width: Some(1920),
+                max_height: Some(1080),
+                max_audio_channels: Some(2),
+                supports_hdr: Some(false),
+                supports_subtitles: Some(false),
+                hls_variant_policy: Some(ClientHlsVariantPolicy::Adaptive),
+                hls_segment_container: Some(ClientHlsSegmentContainer::Fmp4),
                 output_container: Some(BrowserPlaybackOutputContainer::Mp4),
+                ..BrowserPlaybackCapabilitiesDto::default()
             }),
         };
 
@@ -797,6 +807,19 @@ mod tests {
         assert_eq!(request_value["mode"], "hls");
         assert_eq!(request_value["capabilities"]["direct_play"], true);
         assert_eq!(request_value["capabilities"]["container"][0], "mp4");
+        assert_eq!(
+            request_value["capabilities"]["max_video_bitrate"],
+            8_000_000
+        );
+        assert_eq!(request_value["capabilities"]["supports_hdr"], false);
+        assert_eq!(
+            request_value["capabilities"]["hls_variant_policy"],
+            "adaptive"
+        );
+        assert_eq!(
+            request_value["capabilities"]["hls_segment_container"],
+            "fmp4"
+        );
         assert_eq!(request_value["capabilities"]["output_container"], "mp4");
 
         let response = BrowserPlaybackTicketResponse {

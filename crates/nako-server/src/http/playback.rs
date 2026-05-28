@@ -11,7 +11,8 @@ use axum::{
 use nako_api::public_client::{
     BrowserPlaybackCapabilitiesDto, BrowserPlaybackMode, BrowserPlaybackOutputContainer,
     BrowserPlaybackTicketRequest, BrowserPlaybackTicketResponse, BrowserPlaybackUrlDto,
-    BrowserPlaybackUrlKind, ClientPlaybackSessionState, PLAYBACK_SESSION_ID_HEADER,
+    BrowserPlaybackUrlKind, ClientHlsSegmentContainer, ClientHlsVariantPolicy,
+    ClientPlaybackSessionState, PLAYBACK_SESSION_ID_HEADER,
     PlaybackSessionHeartbeatRequest as PublicPlaybackSessionHeartbeatRequest,
     PlaybackSessionResponse, playback_session_response_from_record, timestamp_ms_to_rfc3339,
 };
@@ -25,7 +26,7 @@ use nako_streaming::{
     DirectPlayRangeRequest, DirectPlayResponsePlan, DirectPlayResponseStatus,
     content_type_for_file_name, parse_http_range_header,
 };
-use nako_transcode::RemuxContainer;
+use nako_transcode::{HlsSegmentContainer, HlsVariantPolicy, RemuxContainer};
 use serde::Deserialize;
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
 use tokio_util::io::ReaderStream;
@@ -119,6 +120,7 @@ pub(super) async fn create_browser_playback_ticket(
     if matches!(mode, BrowserPlaybackTicketMode::Remux) {
         let _ = requested_remux_container(request.capabilities.as_ref())?;
     }
+    let _ = browser_capabilities_to_client(request.capabilities.as_ref())?;
     app.playback()
         .validate_browser_playback_ticket_request(BrowserPlaybackTicketValidationRequest {
             principal: principal.clone(),
@@ -702,6 +704,63 @@ fn requested_remux_container(
     }
 }
 
+fn browser_capabilities_to_client(
+    capabilities: Option<&BrowserPlaybackCapabilitiesDto>,
+) -> ApiResult<ClientPlaybackCapabilities> {
+    let defaults = ClientPlaybackCapabilities::default();
+    let Some(capabilities) = capabilities else {
+        return Ok(defaults);
+    };
+
+    Ok(ClientPlaybackCapabilities {
+        direct_play: capabilities.direct_play.unwrap_or(defaults.direct_play),
+        containers: capabilities
+            .container
+            .clone()
+            .unwrap_or(defaults.containers),
+        video_codecs: capabilities
+            .video_codec
+            .clone()
+            .unwrap_or(defaults.video_codecs),
+        audio_codecs: capabilities
+            .audio_codec
+            .clone()
+            .unwrap_or(defaults.audio_codecs),
+        max_video_bitrate: capabilities
+            .max_video_bitrate
+            .or(defaults.max_video_bitrate),
+        max_width: capabilities.max_width.or(defaults.max_width),
+        max_height: capabilities.max_height.or(defaults.max_height),
+        max_audio_channels: capabilities
+            .max_audio_channels
+            .or(defaults.max_audio_channels),
+        supports_hdr: capabilities.supports_hdr.unwrap_or(defaults.supports_hdr),
+        supports_subtitles: capabilities
+            .supports_subtitles
+            .unwrap_or(defaults.supports_subtitles),
+        hls_variant_policy: match capabilities.hls_variant_policy.as_ref() {
+            Some(ClientHlsVariantPolicy::SingleVariant) | None => HlsVariantPolicy::SingleVariant,
+            Some(ClientHlsVariantPolicy::Adaptive) => HlsVariantPolicy::Adaptive,
+            Some(ClientHlsVariantPolicy::Other(value)) => {
+                return Err(NakoError::InvalidInput {
+                    message: format!("unsupported browser playback HLS variant policy: {value}"),
+                }
+                .into());
+            }
+        },
+        hls_segment_container: match capabilities.hls_segment_container.as_ref() {
+            Some(ClientHlsSegmentContainer::MpegTs) | None => HlsSegmentContainer::MpegTs,
+            Some(ClientHlsSegmentContainer::Fmp4) => HlsSegmentContainer::Fmp4,
+            Some(ClientHlsSegmentContainer::Other(value)) => {
+                return Err(NakoError::InvalidInput {
+                    message: format!("unsupported browser playback HLS segment container: {value}"),
+                }
+                .into());
+            }
+        },
+    })
+}
+
 async fn resolve_source_playback_principal(
     app: &NakoApp,
     principal: Option<Extension<AuthenticatedPrincipal>>,
@@ -1025,6 +1084,14 @@ pub(super) struct PlaybackCapabilitiesQuery {
     container: Option<String>,
     video_codec: Option<String>,
     audio_codec: Option<String>,
+    max_video_bitrate: Option<u64>,
+    max_width: Option<u32>,
+    max_height: Option<u32>,
+    max_audio_channels: Option<u32>,
+    supports_hdr: Option<bool>,
+    supports_subtitles: Option<bool>,
+    hls_variant_policy: Option<HlsVariantPolicy>,
+    hls_segment_container: Option<HlsSegmentContainer>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -1033,6 +1100,14 @@ pub(super) struct RemuxPlaybackQuery {
     container: Option<String>,
     video_codec: Option<String>,
     audio_codec: Option<String>,
+    max_video_bitrate: Option<u64>,
+    max_width: Option<u32>,
+    max_height: Option<u32>,
+    max_audio_channels: Option<u32>,
+    supports_hdr: Option<bool>,
+    supports_subtitles: Option<bool>,
+    hls_variant_policy: Option<HlsVariantPolicy>,
+    hls_segment_container: Option<HlsSegmentContainer>,
     output_container: Option<RemuxContainer>,
     ticket: Option<String>,
     renderer_session_id: Option<String>,
@@ -1047,6 +1122,14 @@ impl RemuxPlaybackQuery {
             container: self.container.clone(),
             video_codec: self.video_codec.clone(),
             audio_codec: self.audio_codec.clone(),
+            max_video_bitrate: self.max_video_bitrate,
+            max_width: self.max_width,
+            max_height: self.max_height,
+            max_audio_channels: self.max_audio_channels,
+            supports_hdr: self.supports_hdr,
+            supports_subtitles: self.supports_subtitles,
+            hls_variant_policy: self.hls_variant_policy,
+            hls_segment_container: self.hls_segment_container,
         }
     }
 }
@@ -1057,6 +1140,14 @@ pub(super) struct HlsPlaybackQuery {
     container: Option<String>,
     video_codec: Option<String>,
     audio_codec: Option<String>,
+    max_video_bitrate: Option<u64>,
+    max_width: Option<u32>,
+    max_height: Option<u32>,
+    max_audio_channels: Option<u32>,
+    supports_hdr: Option<bool>,
+    supports_subtitles: Option<bool>,
+    hls_variant_policy: Option<HlsVariantPolicy>,
+    hls_segment_container: Option<HlsSegmentContainer>,
     ticket: Option<String>,
     renderer_session_id: Option<String>,
     playback_session_id: Option<String>,
@@ -1070,6 +1161,14 @@ impl HlsPlaybackQuery {
             container: self.container.clone(),
             video_codec: self.video_codec.clone(),
             audio_codec: self.audio_codec.clone(),
+            max_video_bitrate: self.max_video_bitrate,
+            max_width: self.max_width,
+            max_height: self.max_height,
+            max_audio_channels: self.max_audio_channels,
+            supports_hdr: self.supports_hdr,
+            supports_subtitles: self.supports_subtitles,
+            hls_variant_policy: self.hls_variant_policy,
+            hls_segment_container: self.hls_segment_container,
         }
     }
 }
@@ -1091,6 +1190,20 @@ impl From<PlaybackCapabilitiesQuery> for ClientPlaybackCapabilities {
             containers: csv_or_default(value.container, defaults.containers),
             video_codecs: csv_or_default(value.video_codec, defaults.video_codecs),
             audio_codecs: csv_or_default(value.audio_codec, defaults.audio_codecs),
+            max_video_bitrate: value.max_video_bitrate.or(defaults.max_video_bitrate),
+            max_width: value.max_width.or(defaults.max_width),
+            max_height: value.max_height.or(defaults.max_height),
+            max_audio_channels: value.max_audio_channels.or(defaults.max_audio_channels),
+            supports_hdr: value.supports_hdr.unwrap_or(defaults.supports_hdr),
+            supports_subtitles: value
+                .supports_subtitles
+                .unwrap_or(defaults.supports_subtitles),
+            hls_variant_policy: value
+                .hls_variant_policy
+                .unwrap_or(defaults.hls_variant_policy),
+            hls_segment_container: value
+                .hls_segment_container
+                .unwrap_or(defaults.hls_segment_container),
         }
     }
 }

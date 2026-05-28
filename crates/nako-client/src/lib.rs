@@ -9,15 +9,15 @@ pub use nako_client_protocol::{
     API_VERSION_HEADER, BrowserPlaybackCapabilitiesDto, BrowserPlaybackMode,
     BrowserPlaybackOutputContainer, BrowserPlaybackTicketRequest, BrowserPlaybackTicketResponse,
     BrowserPlaybackUrlDto, BrowserPlaybackUrlKind, CLIENT_PROTOCOL_VERSION as API_VERSION,
-    ClientOutputContainer, ContinueWatchingResponse, CurrentUserResponse, ErrorResponse,
-    GenreItemsResponse, GenreListResponse, HealthResponse, ImagesResponse, ItemCreditsResponse,
-    ItemDetailResponse, ItemsResponse, LibraryListResponse, LibraryResponse,
-    LibrarySourcesResponse, LoginRequest, LoginResponse, LogoutResponse,
-    PLAYBACK_SESSION_ID_HEADER, PageInfo, PeopleResponse, PersonItemsResponse, PersonResponse,
-    PlaybackDecisionResponse, PublicClientRustSdkExposure, SearchResponse, SetWatchedStateRequest,
-    SourceProbeResponse, TagItemsResponse, TagsResponse, TranscodeSessionResponse,
-    UpdatePlaybackProgressRequest, UserPlaybackStateResponse, public_client_json_routes,
-    public_client_paths, public_client_streaming_routes,
+    ClientHlsSegmentContainer, ClientHlsVariantPolicy, ClientOutputContainer,
+    ContinueWatchingResponse, CurrentUserResponse, ErrorResponse, GenreItemsResponse,
+    GenreListResponse, HealthResponse, ImagesResponse, ItemCreditsResponse, ItemDetailResponse,
+    ItemsResponse, LibraryListResponse, LibraryResponse, LibrarySourcesResponse, LoginRequest,
+    LoginResponse, LogoutResponse, PLAYBACK_SESSION_ID_HEADER, PageInfo, PeopleResponse,
+    PersonItemsResponse, PersonResponse, PlaybackDecisionResponse, PublicClientRustSdkExposure,
+    SearchResponse, SetWatchedStateRequest, SourceProbeResponse, TagItemsResponse, TagsResponse,
+    TranscodeSessionResponse, UpdatePlaybackProgressRequest, UserPlaybackStateResponse,
+    public_client_json_routes, public_client_paths, public_client_streaming_routes,
 };
 use reqwest::{
     Method, StatusCode, Url,
@@ -917,12 +917,20 @@ impl QueryParams for SearchQuery<'_> {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct PlaybackCapabilitiesQuery<'a> {
     pub direct_play: Option<bool>,
     pub container: Option<&'a str>,
     pub video_codec: Option<&'a str>,
     pub audio_codec: Option<&'a str>,
+    pub max_video_bitrate: Option<u64>,
+    pub max_width: Option<u32>,
+    pub max_height: Option<u32>,
+    pub max_audio_channels: Option<u32>,
+    pub supports_hdr: Option<bool>,
+    pub supports_subtitles: Option<bool>,
+    pub hls_variant_policy: Option<ClientHlsVariantPolicy>,
+    pub hls_segment_container: Option<ClientHlsSegmentContainer>,
 }
 
 impl QueryParams for PlaybackCapabilitiesQuery<'_> {
@@ -941,6 +949,45 @@ impl QueryParams for PlaybackCapabilitiesQuery<'_> {
         }
         if let Some(audio_codec) = self.audio_codec {
             pairs.push(("audio_codec".to_owned(), audio_codec.to_owned()));
+        }
+        if let Some(max_video_bitrate) = self.max_video_bitrate {
+            pairs.push((
+                "max_video_bitrate".to_owned(),
+                max_video_bitrate.to_string(),
+            ));
+        }
+        if let Some(max_width) = self.max_width {
+            pairs.push(("max_width".to_owned(), max_width.to_string()));
+        }
+        if let Some(max_height) = self.max_height {
+            pairs.push(("max_height".to_owned(), max_height.to_string()));
+        }
+        if let Some(max_audio_channels) = self.max_audio_channels {
+            pairs.push((
+                "max_audio_channels".to_owned(),
+                max_audio_channels.to_string(),
+            ));
+        }
+        if let Some(supports_hdr) = self.supports_hdr {
+            pairs.push(("supports_hdr".to_owned(), supports_hdr.to_string()));
+        }
+        if let Some(supports_subtitles) = self.supports_subtitles {
+            pairs.push((
+                "supports_subtitles".to_owned(),
+                supports_subtitles.to_string(),
+            ));
+        }
+        if let Some(hls_variant_policy) = &self.hls_variant_policy {
+            pairs.push((
+                "hls_variant_policy".to_owned(),
+                hls_variant_policy.wire_value().to_owned(),
+            ));
+        }
+        if let Some(hls_segment_container) = &self.hls_segment_container {
+            pairs.push((
+                "hls_segment_container".to_owned(),
+                hls_segment_container.wire_value().to_owned(),
+            ));
         }
     }
 }
@@ -1519,6 +1566,15 @@ mod tests {
                     container: Some("mp4,webm"),
                     video_codec: Some("h264"),
                     audio_codec: None,
+                    max_video_bitrate: Some(8_000_000),
+                    max_width: Some(1920),
+                    max_height: Some(1080),
+                    max_audio_channels: Some(2),
+                    supports_hdr: Some(false),
+                    supports_subtitles: Some(false),
+                    hls_variant_policy: Some(ClientHlsVariantPolicy::Adaptive),
+                    hls_segment_container: Some(ClientHlsSegmentContainer::Fmp4),
+                    ..PlaybackCapabilitiesQuery::default()
                 }),
             )
             .await
@@ -1534,6 +1590,7 @@ mod tests {
                         video_codec: Some(vec!["h264".to_owned()]),
                         audio_codec: Some(vec!["aac".to_owned()]),
                         output_container: Some(BrowserPlaybackOutputContainer::Mp4),
+                        ..BrowserPlaybackCapabilitiesDto::default()
                     }),
                 },
             )
@@ -1551,7 +1608,7 @@ mod tests {
         let requests = transport.requests();
         assert_eq!(
             requests[0].url.as_str(),
-            "http://localhost:3000/sources/source%201/playback/decision?direct_play=true&container=mp4%2Cwebm&video_codec=h264"
+            "http://localhost:3000/sources/source%201/playback/decision?direct_play=true&container=mp4%2Cwebm&video_codec=h264&max_video_bitrate=8000000&max_width=1920&max_height=1080&max_audio_channels=2&supports_hdr=false&supports_subtitles=false&hls_variant_policy=adaptive&hls_segment_container=fmp4"
         );
         assert_eq!(
             requests[1].url.as_str(),
@@ -1748,6 +1805,7 @@ mod tests {
                         container: Some("mp4,mkv"),
                         video_codec: Some("h264"),
                         audio_codec: Some("aac"),
+                        ..PlaybackCapabilitiesQuery::default()
                     },
                     output_container: Some(ClientOutputContainer::Mkv),
                 }),
@@ -1763,6 +1821,7 @@ mod tests {
                         container: Some("mp4,mkv"),
                         video_codec: Some("h264"),
                         audio_codec: Some("aac"),
+                        ..PlaybackCapabilitiesQuery::default()
                     },
                     output_container: Some(ClientOutputContainer::Mkv),
                 }),
@@ -1776,6 +1835,7 @@ mod tests {
                     container: Some("hls"),
                     video_codec: Some("h264"),
                     audio_codec: None,
+                    ..PlaybackCapabilitiesQuery::default()
                 }),
             )
             .unwrap();

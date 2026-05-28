@@ -214,6 +214,48 @@ pub struct TranscodeOutputConstraints {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
+pub enum HlsVariantPolicy {
+    #[default]
+    SingleVariant,
+    Adaptive,
+}
+
+impl HlsVariantPolicy {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::SingleVariant => "single_variant",
+            Self::Adaptive => "adaptive",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HlsSegmentContainer {
+    #[default]
+    MpegTs,
+    Fmp4,
+}
+
+impl HlsSegmentContainer {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::MpegTs => "mpeg_ts",
+            Self::Fmp4 => "fmp4",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub struct HlsOutputRequirement {
+    pub variant_policy: HlsVariantPolicy,
+    pub segment_container: HlsSegmentContainer,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum TranscodeSubtitleStrategy {
     #[default]
     None,

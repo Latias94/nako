@@ -16,7 +16,7 @@ use nako_playback::{
     PlaybackPermissionDecisionReason, PlaybackTarget, PlaybackTargetKind,
     PlaybackTargetNetworkScope, PlaybackTargetTransportAuth, RendererControlCommand,
 };
-use nako_transcode::{OutputContainer, TranscodePlan};
+use nako_transcode::{HlsSegmentContainer, HlsVariantPolicy, OutputContainer, TranscodePlan};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 pub use nako_client_protocol::{
@@ -24,12 +24,12 @@ pub use nako_client_protocol::{
     BrowserPlaybackOutputContainer, BrowserPlaybackTicketRequest, BrowserPlaybackTicketResponse,
     BrowserPlaybackUrlDto, BrowserPlaybackUrlKind, CLIENT_PROTOCOL_VERSION as API_VERSION,
     CanonicalMetadataDto, ClientCreditRole, ClientDirectPlayPlan, ClientErrorCode,
-    ClientExternalProvider, ClientImageKind, ClientImageOwner, ClientLibraryPreset,
-    ClientLocalMetadataPolicy, ClientLocalMetadataReader, ClientManagementAction,
-    ClientManagementDisabledReason, ClientManagementHttpMethod, ClientManagementRequiredAccess,
-    ClientManagementSurface, ClientMediaDomain, ClientMediaKind, ClientMediaStreamKind,
-    ClientMetadataRefreshMode, ClientMetadataSource, ClientNamingStrategy, ClientOutputContainer,
-    ClientPlaybackCapabilitiesDto, ClientPlaybackCapabilityEvaluation,
+    ClientExternalProvider, ClientHlsSegmentContainer, ClientHlsVariantPolicy, ClientImageKind,
+    ClientImageOwner, ClientLibraryPreset, ClientLocalMetadataPolicy, ClientLocalMetadataReader,
+    ClientManagementAction, ClientManagementDisabledReason, ClientManagementHttpMethod,
+    ClientManagementRequiredAccess, ClientManagementSurface, ClientMediaDomain, ClientMediaKind,
+    ClientMediaStreamKind, ClientMetadataRefreshMode, ClientMetadataSource, ClientNamingStrategy,
+    ClientOutputContainer, ClientPlaybackCapabilitiesDto, ClientPlaybackCapabilityEvaluation,
     ClientPlaybackCompatibilityCondition, ClientPlaybackDecision, ClientPlaybackDecisionReason,
     ClientPlaybackDecisionReport, ClientPlaybackDenialDto, ClientPlaybackMode,
     ClientPlaybackPermission, ClientPlaybackPermissionDecisionReason, ClientPlaybackSessionMode,
@@ -847,6 +847,9 @@ fn playback_compatibility_condition_to_dto(
         PlaybackCompatibilityCondition::VideoResolutionUnsupported => {
             ClientPlaybackCompatibilityCondition::VideoResolutionUnsupported
         }
+        PlaybackCompatibilityCondition::VideoHdrUnsupported => {
+            ClientPlaybackCompatibilityCondition::VideoHdrUnsupported
+        }
         PlaybackCompatibilityCondition::AudioChannelsUnsupported => {
             ClientPlaybackCompatibilityCondition::AudioChannelsUnsupported
         }
@@ -1030,6 +1033,16 @@ fn playback_session_client_capabilities_from_json(
         containers: capabilities.containers,
         video_codecs: capabilities.video_codecs,
         audio_codecs: capabilities.audio_codecs,
+        max_video_bitrate: capabilities.max_video_bitrate,
+        max_width: capabilities.max_width,
+        max_height: capabilities.max_height,
+        max_audio_channels: capabilities.max_audio_channels,
+        supports_hdr: Some(capabilities.supports_hdr),
+        supports_subtitles: Some(capabilities.supports_subtitles),
+        hls_variant_policy: Some(hls_variant_policy_to_dto(capabilities.hls_variant_policy)),
+        hls_segment_container: Some(hls_segment_container_to_dto(
+            capabilities.hls_segment_container,
+        )),
     })
 }
 
@@ -1041,6 +1054,30 @@ fn playback_capabilities_to_dto(
         containers: capabilities.containers,
         video_codecs: capabilities.video_codecs,
         audio_codecs: capabilities.audio_codecs,
+        max_video_bitrate: capabilities.max_video_bitrate,
+        max_width: capabilities.max_width,
+        max_height: capabilities.max_height,
+        max_audio_channels: capabilities.max_audio_channels,
+        supports_hdr: Some(capabilities.supports_hdr),
+        supports_subtitles: Some(capabilities.supports_subtitles),
+        hls_variant_policy: Some(hls_variant_policy_to_dto(capabilities.hls_variant_policy)),
+        hls_segment_container: Some(hls_segment_container_to_dto(
+            capabilities.hls_segment_container,
+        )),
+    }
+}
+
+fn hls_variant_policy_to_dto(policy: HlsVariantPolicy) -> ClientHlsVariantPolicy {
+    match policy {
+        HlsVariantPolicy::SingleVariant => ClientHlsVariantPolicy::SingleVariant,
+        HlsVariantPolicy::Adaptive => ClientHlsVariantPolicy::Adaptive,
+    }
+}
+
+fn hls_segment_container_to_dto(container: HlsSegmentContainer) -> ClientHlsSegmentContainer {
+    match container {
+        HlsSegmentContainer::MpegTs => ClientHlsSegmentContainer::MpegTs,
+        HlsSegmentContainer::Fmp4 => ClientHlsSegmentContainer::Fmp4,
     }
 }
 
@@ -1268,6 +1305,7 @@ mod tests {
                         output_audio_codec: Some("aac".to_owned()),
                         track_selection: nako_transcode::TranscodeTrackSelection::default(),
                         output_constraints: nako_transcode::TranscodeOutputConstraints::default(),
+                        hls_output: Some(nako_transcode::HlsOutputRequirement::default()),
                         subtitle_strategy: nako_transcode::TranscodeSubtitleStrategy::None,
                         selected_streams: nako_playback::TranscodeRequirementStreams::default(),
                         reasons: vec![
