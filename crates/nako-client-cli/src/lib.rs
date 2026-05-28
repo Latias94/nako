@@ -152,6 +152,7 @@ impl PlaybackCapabilityArgs {
                 container: self.container.as_deref(),
                 video_codec: self.video_codec.as_deref(),
                 audio_codec: self.audio_codec.as_deref(),
+                ..PlaybackCapabilitiesQuery::default()
             })
         }
     }

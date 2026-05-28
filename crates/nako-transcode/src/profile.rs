@@ -3,7 +3,7 @@ use sha2::{Digest, Sha256};
 
 use nako_core::{MediaSource, NakoError, Result};
 
-use super::{OutputContainer, RemuxContainer, TranscodeExecutionPolicy};
+use super::{HlsOutputRequirement, HlsVariantPolicy, RemuxContainer, TranscodeExecutionPolicy};
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -44,6 +44,55 @@ pub struct TranscodeTrackSelection {
     pub subtitle_stream: Option<u32>,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case", tag = "kind")]
+pub enum TranscodeOutputShape {
+    Remux { container: RemuxContainer },
+    Hls { requirement: HlsOutputRequirement },
+}
+
+impl TranscodeOutputShape {
+    #[must_use]
+    pub const fn profile_kind(self) -> TranscodeProfileKind {
+        match self {
+            Self::Remux { .. } => TranscodeProfileKind::Remux,
+            Self::Hls { .. } => TranscodeProfileKind::HlsSingleVariant,
+        }
+    }
+
+    #[must_use]
+    pub const fn container_key(self) -> &'static str {
+        match self {
+            Self::Remux { container } => container.file_extension(),
+            Self::Hls { .. } => "hls",
+        }
+    }
+
+    #[must_use]
+    pub const fn hls_requirement(self) -> Option<HlsOutputRequirement> {
+        match self {
+            Self::Remux { .. } => None,
+            Self::Hls { requirement } => Some(requirement),
+        }
+    }
+
+    #[must_use]
+    pub const fn hls_variant_key(self) -> &'static str {
+        match self {
+            Self::Remux { .. } => "none",
+            Self::Hls { requirement } => requirement.variant_policy.as_str(),
+        }
+    }
+
+    #[must_use]
+    pub const fn hls_segment_key(self) -> &'static str {
+        match self {
+            Self::Remux { .. } => "none",
+            Self::Hls { requirement } => requirement.segment_container.as_str(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct RemuxTranscodeProfile {
     pub output_container: RemuxContainer,
@@ -57,6 +106,7 @@ pub struct HlsTranscodeProfile {
     pub video_codec: Option<String>,
     pub audio_codec: Option<String>,
     pub execution_policy: TranscodeExecutionPolicy,
+    pub hls_output: HlsOutputRequirement,
     pub track_selection: TranscodeTrackSelection,
     pub remote_input: bool,
     pub playback_profile_key: String,
@@ -64,8 +114,7 @@ pub struct HlsTranscodeProfile {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct TranscodeProfile {
-    pub kind: TranscodeProfileKind,
-    pub output_container: String,
+    pub output: TranscodeOutputShape,
     pub video_codec: Option<String>,
     pub audio_codec: Option<String>,
     pub execution_policy: TranscodeExecutionPolicy,
@@ -83,7 +132,7 @@ pub enum TranscodeProfileValidationReason {
     RemuxMustUseCpuPath,
     RemuxMustNotSetVideoBitrate,
     RemuxMustNotSetHdrPreference,
-    HlsMustUseHlsContainer,
+    HlsVariantPolicyUnsupported,
     HlsVideoCodecUnsupported,
     HlsAudioCodecUnsupported,
     HlsVideoBitrateMustBePositive,
@@ -109,8 +158,9 @@ impl TranscodeProfile {
     #[must_use]
     pub fn remux(profile: RemuxTranscodeProfile) -> Self {
         Self {
-            kind: TranscodeProfileKind::Remux,
-            output_container: profile.output_container.file_extension().to_owned(),
+            output: TranscodeOutputShape::Remux {
+                container: profile.output_container,
+            },
             video_codec: None,
             audio_codec: None,
             execution_policy: TranscodeExecutionPolicy::remux(),
@@ -124,8 +174,9 @@ impl TranscodeProfile {
     #[must_use]
     pub fn hls_single_variant(profile: HlsTranscodeProfile) -> Self {
         Self {
-            kind: TranscodeProfileKind::HlsSingleVariant,
-            output_container: OutputContainer::Hls.as_str().to_owned(),
+            output: TranscodeOutputShape::Hls {
+                requirement: profile.hls_output,
+            },
             video_codec: normalized_optional(profile.video_codec),
             audio_codec: normalized_optional(profile.audio_codec),
             execution_policy: profile.execution_policy,
@@ -137,6 +188,16 @@ impl TranscodeProfile {
     }
 
     #[must_use]
+    pub const fn kind(&self) -> TranscodeProfileKind {
+        self.output.profile_kind()
+    }
+
+    #[must_use]
+    pub const fn hls_output_requirement(&self) -> Option<HlsOutputRequirement> {
+        self.output.hls_requirement()
+    }
+
+    #[must_use]
     pub fn identity(&self) -> TranscodeProfileIdentity {
         validate_transcode_profile(self).expect("transcode profile must be valid before identity");
         let request_key = self.persisted_request_key();
@@ -145,7 +206,7 @@ impl TranscodeProfile {
 
         TranscodeProfileIdentity {
             request_key,
-            storage_slug: format!("{}-v1-{}", self.kind.as_str(), &digest[..16]),
+            storage_slug: format!("{}-v1-{}", self.kind().as_str(), &digest[..16]),
         }
     }
 
@@ -157,19 +218,24 @@ impl TranscodeProfile {
             ));
         }
 
-        match self.kind {
-            TranscodeProfileKind::Remux => self.validate_remux(),
-            TranscodeProfileKind::HlsSingleVariant => self.validate_hls_single_variant(),
+        match self.output {
+            TranscodeOutputShape::Remux { .. } => self.validate_remux(),
+            TranscodeOutputShape::Hls { requirement } => {
+                self.validate_hls_single_variant(requirement)
+            }
         }
     }
 
     fn persisted_request_key(&self) -> String {
+        let output = self.output;
         format!(
-            "transcode-profile:v1;kind={};container={};vcodec={};acodec={};acceleration={};audio={};subtitle={};subtitle_strategy={};max_video_bitrate={};prefer_hdr={};remote_input={};reuse={};playback={}",
-            self.kind.as_str(),
-            canonical_value(&self.output_container),
+            "transcode-profile:v1;kind={};container={};vcodec={};acodec={};hls_variant={};hls_segment={};acceleration={};audio={};subtitle={};subtitle_strategy={};max_video_bitrate={};prefer_hdr={};remote_input={};reuse={};playback={}",
+            output.profile_kind().as_str(),
+            output.container_key(),
             optional_str(self.video_codec.as_deref()),
             optional_str(self.audio_codec.as_deref()),
+            output.hls_variant_key(),
+            output.hls_segment_key(),
             self.execution_policy.acceleration.identity_key(),
             optional_u32(self.track_selection.audio_stream),
             optional_u32(self.track_selection.subtitle_stream),
@@ -228,11 +294,12 @@ impl TranscodeProfile {
 
     fn validate_hls_single_variant(
         &self,
+        hls_output: HlsOutputRequirement,
     ) -> std::result::Result<(), TranscodeProfileValidationError> {
-        if canonical_value(&self.output_container) != OutputContainer::Hls.as_str() {
+        if hls_output.variant_policy != HlsVariantPolicy::SingleVariant {
             return Err(TranscodeProfileValidationError::new(
-                TranscodeProfileValidationReason::HlsMustUseHlsContainer,
-                "hls transcode profile must use the hls output container",
+                TranscodeProfileValidationReason::HlsVariantPolicyUnsupported,
+                "hls single-variant profile cannot execute adaptive output yet",
             ));
         }
         if let Some(codec) = self.video_codec.as_deref() {

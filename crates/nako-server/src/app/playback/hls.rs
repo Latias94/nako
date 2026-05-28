@@ -8,12 +8,13 @@ use nako_playback::PlaybackDecision;
 use nako_transcode::{
     CancellationToken, FfmpegCommandBuilder, FfmpegHardwareAccelerationDetector, FfmpegHlsRunner,
     FfmpegOverwritePolicy, HardwareAccelerationDetector, HardwareAccelerationReport, HlsRequest,
-    TranscodeEngineAdapter, TranscodeEngineStartCommand, TranscodeEngineStartOutcome,
-    TranscodeExecutionPolicy, TranscodeOutputConstraints, TranscodePipelinePlan,
-    TranscodePipelinePlanner, TranscodePipelineReadiness, TranscodePipelineRequest,
-    TranscodePipelineSourceFacts, TranscodeRequestIdentity, TranscodeResourceBudget,
-    TranscodeRuntimeGuard, TranscodeRuntimeLimits, TranscodeSessionManager,
-    TranscodeTrackSelection, transcode_pipeline_readiness_without_selection,
+    TranscodeArtifactSet, TranscodeEngineAdapter, TranscodeEngineStartCommand,
+    TranscodeEngineStartOutcome, TranscodeExecutionPolicy, TranscodeOutputConstraints,
+    TranscodePipelinePlan, TranscodePipelinePlanner, TranscodePipelineReadiness,
+    TranscodePipelineRequest, TranscodePipelineSourceFacts, TranscodeRequestIdentity,
+    TranscodeResourceBudget, TranscodeRuntimeGuard, TranscodeRuntimeLimits,
+    TranscodeSessionManager, TranscodeTrackSelection,
+    transcode_pipeline_readiness_without_selection,
 };
 use tokio::sync::Mutex;
 use tracing::warn;
@@ -235,7 +236,9 @@ impl HlsAppService {
                 source_id: key.source_id,
                 kind: TranscodeSessionKind::HlsTranscode,
                 request_key,
-                output_path: layout.playlist_path.clone(),
+                output_path: TranscodeArtifactSet::hls(layout.artifacts.clone())
+                    .primary_output_path()
+                    .to_path_buf(),
                 state: TranscodeSessionState::Planned,
             })
             .await;
@@ -269,9 +272,7 @@ impl HlsAppService {
             HlsRequest {
                 source_id: source.id,
                 input_path,
-                output_dir: layout.output_dir.clone(),
-                playlist_path: layout.playlist_path.clone(),
-                segment_pattern: layout.segment_pattern.clone(),
+                artifacts: layout.artifacts.clone(),
                 segment_time_seconds: 6,
                 execution_policy,
                 overwrite: FfmpegOverwritePolicy::Allow,

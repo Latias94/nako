@@ -589,6 +589,7 @@ async fn browser_playback_ticket_streams_direct_bytes_without_bearer() {
             video_codec: Some(vec!["h264".to_owned()]),
             audio_codec: Some(vec!["aac".to_owned()]),
             output_container: None,
+            ..nako_api::public_client::BrowserPlaybackCapabilitiesDto::default()
         }),
     };
 
@@ -1072,6 +1073,7 @@ async fn browser_playback_ticket_streams_remux_bytes() {
             video_codec: Some(vec!["h264".to_owned()]),
             audio_codec: Some(vec!["aac".to_owned()]),
             output_container: Some(nako_api::public_client::BrowserPlaybackOutputContainer::Mp4),
+            ..nako_api::public_client::BrowserPlaybackCapabilitiesDto::default()
         }),
     };
     let ticket = request_body_json::<nako_api::public_client::BrowserPlaybackTicketResponse, _>(
@@ -1813,6 +1815,7 @@ async fn browser_playback_ticket_protects_hls_playlist_and_segments() {
             video_codec: Some(vec!["h264".to_owned()]),
             audio_codec: Some(vec!["aac".to_owned()]),
             output_container: None,
+            ..nako_api::public_client::BrowserPlaybackCapabilitiesDto::default()
         }),
     };
 

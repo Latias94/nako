@@ -1113,6 +1113,14 @@ export interface PlaybackCapabilitiesQuery {
   container?: string | string[];
   video_codec?: string | string[];
   audio_codec?: string | string[];
+  max_video_bitrate?: number;
+  max_width?: number;
+  max_height?: number;
+  max_audio_channels?: number;
+  supports_hdr?: boolean;
+  supports_subtitles?: boolean;
+  hls_variant_policy?: "single_variant" | "adaptive";
+  hls_segment_container?: "mpeg_ts" | "fmp4";
 }
 
 export interface RemuxPlaybackQuery extends PlaybackCapabilitiesQuery {

@@ -73,6 +73,7 @@ async fn nako_renderer_registers_heartbeats_lists_and_polls_commands() {
             containers: vec!["mp4".to_owned(), "mkv".to_owned()],
             video_codecs: vec!["h264".to_owned(), "hevc".to_owned()],
             audio_codecs: vec!["aac".to_owned(), "opus".to_owned()],
+            ..ClientPlaybackCapabilitiesDto::default()
         }),
         control_capabilities: Some(registration.control_capabilities.clone()),
         ttl_ms: Some(120_000),
@@ -331,6 +332,7 @@ async fn renderer_play_command_with_cast_ticket_hls_protects_playlist_and_segmen
         containers: vec!["mp4".to_owned()],
         video_codecs: vec!["h264".to_owned()],
         audio_codecs: vec!["aac".to_owned()],
+        ..ClientPlaybackCapabilitiesDto::default()
     });
     let registered: RendererSessionResponse =
         request_body_json(&router, Method::POST, "/renderers", &registration).await;
@@ -762,6 +764,7 @@ fn publish_chromecast_adapter_target(
                 containers: vec!["mp4".to_owned()],
                 video_codecs: vec!["h264".to_owned()],
                 audio_codecs: vec!["aac".to_owned()],
+                ..nako_playback::ClientPlaybackCapabilities::default()
             },
             control_capabilities: RendererControlCapabilities::basic_playback(),
             now_ms: 1_779_814_400_000,
@@ -780,6 +783,7 @@ fn renderer_registration_request(display_name: &str) -> RendererRegistrationRequ
             containers: vec!["mp4".to_owned()],
             video_codecs: vec!["h264".to_owned()],
             audio_codecs: vec!["aac".to_owned()],
+            ..ClientPlaybackCapabilitiesDto::default()
         }),
         control_capabilities: ClientRendererControlCapabilitiesDto {
             commands: vec![

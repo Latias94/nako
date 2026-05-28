@@ -8,8 +8,8 @@ use nako_core::{
     LibraryId, MediaProbeResult, MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind,
 };
 use nako_transcode::{
-    OutputContainer, RemuxContainer, TranscodeOutputConstraints, TranscodePlan,
-    TranscodeSubtitleStrategy, TranscodeTrackSelection,
+    HlsOutputRequirement, HlsSegmentContainer, HlsVariantPolicy, OutputContainer, RemuxContainer,
+    TranscodeOutputConstraints, TranscodePlan, TranscodeSubtitleStrategy, TranscodeTrackSelection,
 };
 use serde::{Deserialize, Serialize};
 
@@ -211,6 +211,7 @@ pub struct TranscodeRequirement {
     pub output_audio_codec: Option<String>,
     pub track_selection: TranscodeTrackSelection,
     pub output_constraints: TranscodeOutputConstraints,
+    pub hls_output: Option<HlsOutputRequirement>,
     pub subtitle_strategy: TranscodeSubtitleStrategy,
     pub selected_streams: TranscodeRequirementStreams,
     pub reasons: Vec<PlaybackCompatibilityCondition>,
@@ -252,6 +253,18 @@ pub struct ClientPlaybackCapabilities {
     pub containers: Vec<String>,
     pub video_codecs: Vec<String>,
     pub audio_codecs: Vec<String>,
+    pub max_video_bitrate: Option<u64>,
+    pub max_width: Option<u32>,
+    pub max_height: Option<u32>,
+    pub max_audio_channels: Option<u32>,
+    #[serde(default = "default_true")]
+    pub supports_hdr: bool,
+    #[serde(default = "default_true")]
+    pub supports_subtitles: bool,
+    #[serde(default)]
+    pub hls_variant_policy: HlsVariantPolicy,
+    #[serde(default)]
+    pub hls_segment_container: HlsSegmentContainer,
 }
 
 impl Default for ClientPlaybackCapabilities {
@@ -261,8 +274,20 @@ impl Default for ClientPlaybackCapabilities {
             containers: vec!["mp4".to_owned(), "m4v".to_owned(), "webm".to_owned()],
             video_codecs: vec!["h264".to_owned(), "hevc".to_owned(), "vp9".to_owned()],
             audio_codecs: vec!["aac".to_owned(), "mp3".to_owned(), "opus".to_owned()],
+            max_video_bitrate: None,
+            max_width: None,
+            max_height: None,
+            max_audio_channels: None,
+            supports_hdr: true,
+            supports_subtitles: true,
+            hls_variant_policy: HlsVariantPolicy::SingleVariant,
+            hls_segment_container: HlsSegmentContainer::MpegTs,
         }
     }
+}
+
+const fn default_true() -> bool {
+    true
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -630,9 +655,11 @@ fn build_transcode_requirement(
         output_audio_codec,
         track_selection,
         output_constraints: TranscodeOutputConstraints {
-            max_video_bitrate: target_profile.preferences.max_video_bitrate,
-            prefer_hdr: target_profile.preferences.prefer_hdr,
+            max_video_bitrate: target_profile.output_constraints().max_video_bitrate,
+            prefer_hdr: target_profile.output_constraints().prefer_hdr,
         },
+        hls_output: (output_container == OutputContainer::Hls)
+            .then_some(target_profile.hls_output_requirement()),
         subtitle_strategy: if track_selection.subtitle_stream.is_some() {
             TranscodeSubtitleStrategy::OmitSelected
         } else {
@@ -1008,6 +1035,7 @@ mod tests {
                 containers: vec!["mp4".to_owned()],
                 video_codecs: vec!["h264".to_owned()],
                 audio_codecs: vec!["aac".to_owned()],
+                ..ClientPlaybackCapabilities::default()
             },
         );
 
@@ -1211,6 +1239,105 @@ mod tests {
     }
 
     #[test]
+    fn client_capability_limits_drive_hls_requirement_and_transcode_reasons() {
+        let source = media_source("movie.mp4");
+        let mut video = stream(MediaStreamKind::Video, Some("h264"));
+        video.index = 0;
+        video.width = Some(3840);
+        video.height = Some(2160);
+        video.bit_rate = Some(12_000_000);
+        video.technical = MediaStreamTechnicalFacts {
+            hdr: MediaHdrMetadata {
+                dynamic_range: Some("hdr10".to_owned()),
+                mastering_display: true,
+                content_light_level: true,
+                ..MediaHdrMetadata::default()
+            },
+            ..MediaStreamTechnicalFacts::default()
+        };
+        let mut audio = stream(MediaStreamKind::Audio, Some("aac"));
+        audio.index = 1;
+        audio.channels = Some(6);
+        let mut subtitle = stream(MediaStreamKind::Subtitle, Some("subrip"));
+        subtitle.index = 2;
+        let probe = MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some("mov,mp4,m4a,3gp,3g2,mj2".to_owned()),
+            bit_rate: Some(13_000_000),
+            streams: vec![video, audio, subtitle],
+        };
+        let client = ClientPlaybackCapabilities {
+            max_video_bitrate: Some(8_000_000),
+            max_width: Some(1920),
+            max_height: Some(1080),
+            max_audio_channels: Some(2),
+            supports_hdr: false,
+            supports_subtitles: false,
+            hls_variant_policy: nako_transcode::HlsVariantPolicy::Adaptive,
+            hls_segment_container: nako_transcode::HlsSegmentContainer::Fmp4,
+            ..ClientPlaybackCapabilities::default()
+        };
+
+        let decision = plan_with_policy(
+            &source,
+            Some(&probe),
+            client,
+            PlaybackSelectionContext {
+                storage: PlaybackStorageContext::default(),
+                preferences: PlaybackPreferenceContext {
+                    requested_audio_stream: Some(1),
+                    requested_subtitle_stream: Some(2),
+                    ..PlaybackPreferenceContext::default()
+                },
+            },
+            EffectivePlaybackPolicy::from_library_access(
+                source.library_id,
+                nako_core::LibraryAccessLevel::Play,
+            ),
+        );
+
+        assert_eq!(decision.mode, PlaybackMode::Transcode);
+        for reason in [
+            PlaybackCompatibilityCondition::VideoBitrateUnsupported,
+            PlaybackCompatibilityCondition::VideoResolutionUnsupported,
+            PlaybackCompatibilityCondition::VideoHdrUnsupported,
+            PlaybackCompatibilityCondition::AudioChannelsUnsupported,
+            PlaybackCompatibilityCondition::SubtitleDeliveryUnsupported,
+        ] {
+            assert!(
+                decision.report.direct_play.has(reason),
+                "missing direct-play reason {reason:?}"
+            );
+        }
+
+        let requirement = decision
+            .transcode_requirement()
+            .expect("capability-limited playback should transcode");
+        assert_eq!(
+            requirement.output_constraints.max_video_bitrate,
+            Some(8_000_000)
+        );
+        assert_eq!(requirement.output_constraints.prefer_hdr, Some(false));
+        assert_eq!(
+            requirement.hls_output,
+            Some(nako_transcode::HlsOutputRequirement {
+                variant_policy: nako_transcode::HlsVariantPolicy::Adaptive,
+                segment_container: nako_transcode::HlsSegmentContainer::Fmp4,
+            })
+        );
+        assert!(
+            requirement
+                .reasons
+                .contains(&PlaybackCompatibilityCondition::VideoHdrUnsupported)
+        );
+        assert!(
+            requirement
+                .reasons
+                .contains(&PlaybackCompatibilityCondition::SubtitleDeliveryUnsupported)
+        );
+    }
+
+    #[test]
     fn playback_target_profile_identity_normalizes_capability_order_and_case() {
         let left = PlaybackTargetProfile::from_capabilities(
             &ClientPlaybackCapabilities {
@@ -1218,6 +1345,7 @@ mod tests {
                 containers: vec!["MP4".to_owned(), "webm".to_owned(), "mp4".to_owned()],
                 video_codecs: vec!["H264".to_owned(), "hevc".to_owned()],
                 audio_codecs: vec!["AAC".to_owned(), "opus".to_owned()],
+                ..ClientPlaybackCapabilities::default()
             },
             PlaybackSelectionContext {
                 storage: PlaybackStorageContext {
@@ -1240,6 +1368,7 @@ mod tests {
                 containers: vec!["webm".to_owned(), "mp4".to_owned()],
                 video_codecs: vec!["hevc".to_owned(), "h264".to_owned()],
                 audio_codecs: vec!["opus".to_owned(), "aac".to_owned()],
+                ..ClientPlaybackCapabilities::default()
             },
             PlaybackSelectionContext {
                 storage: PlaybackStorageContext {
@@ -1260,6 +1389,8 @@ mod tests {
         assert_eq!(left.identity_key(), right.identity_key());
         assert!(left.identity_key().contains("containers=mp4|webm"));
         assert!(left.identity_key().contains("audio=2"));
+        assert!(left.identity_key().contains("hls_variant=single_variant"));
+        assert!(left.identity_key().contains("hls_segment=mpeg_ts"));
         assert!(
             left.identity_key()
                 .contains("transcode=container=hls,vcodec=h264,acodec=aac")
@@ -1274,6 +1405,7 @@ mod tests {
                 containers: vec!["MP4".to_owned(), "mkv".to_owned()],
                 video_codecs: vec!["H264".to_owned()],
                 audio_codecs: vec!["AAC".to_owned()],
+                ..ClientPlaybackCapabilities::default()
             },
             PlaybackSelectionContext {
                 storage: PlaybackStorageContext {

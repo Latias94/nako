@@ -832,6 +832,54 @@ fn playback_parameters(source_id_name: &str) -> Vec<Value> {
             string_schema(),
             false,
         ),
+        query_parameter(
+            "max_video_bitrate",
+            "Maximum direct-play video bitrate in bits per second.",
+            integer_schema("int64"),
+            false,
+        ),
+        query_parameter(
+            "max_width",
+            "Maximum direct-play video width.",
+            integer_schema("int32"),
+            false,
+        ),
+        query_parameter(
+            "max_height",
+            "Maximum direct-play video height.",
+            integer_schema("int32"),
+            false,
+        ),
+        query_parameter(
+            "max_audio_channels",
+            "Maximum direct-play audio channel count.",
+            integer_schema("int32"),
+            false,
+        ),
+        query_parameter(
+            "supports_hdr",
+            "Whether the client can direct-play HDR video.",
+            boolean_schema(),
+            false,
+        ),
+        query_parameter(
+            "supports_subtitles",
+            "Whether the client can directly deliver selected subtitles.",
+            boolean_schema(),
+            false,
+        ),
+        query_parameter(
+            "hls_variant_policy",
+            "Requested HLS rendition variant policy.",
+            enum_schema(&["single_variant", "adaptive"]),
+            false,
+        ),
+        query_parameter(
+            "hls_segment_container",
+            "Requested HLS segment container.",
+            enum_schema(&["mpeg_ts", "fmp4"]),
+            false,
+        ),
     ]
 }
 
@@ -1151,6 +1199,14 @@ fn schemas() -> Value {
             "container": array_schema(string_schema()),
             "video_codec": array_schema(string_schema()),
             "audio_codec": array_schema(string_schema()),
+            "max_video_bitrate": integer_schema("int64"),
+            "max_width": integer_schema("int32"),
+            "max_height": integer_schema("int32"),
+            "max_audio_channels": integer_schema("int32"),
+            "supports_hdr": boolean_schema(),
+            "supports_subtitles": boolean_schema(),
+            "hls_variant_policy": schema_ref("ClientHlsVariantPolicy"),
+            "hls_segment_container": schema_ref("ClientHlsSegmentContainer"),
             "output_container": enum_schema(&["mp4", "mkv"])
         })),
         "BrowserPlaybackTicketResponse": object_schema(&["source_id", "mode", "expires_at", "urls"], json!({
@@ -1252,6 +1308,7 @@ fn schemas() -> Value {
             "audio_codec_unsupported",
             "video_bitrate_unsupported",
             "video_resolution_unsupported",
+            "video_hdr_unsupported",
             "audio_channels_unsupported",
             "subtitle_delivery_unsupported",
             "requested_transcode_output",
@@ -1302,8 +1359,18 @@ fn schemas() -> Value {
             "direct_play": boolean_schema(),
             "containers": array_schema(string_schema()),
             "video_codecs": array_schema(string_schema()),
-            "audio_codecs": array_schema(string_schema())
+            "audio_codecs": array_schema(string_schema()),
+            "max_video_bitrate": integer_schema("int64"),
+            "max_width": integer_schema("int32"),
+            "max_height": integer_schema("int32"),
+            "max_audio_channels": integer_schema("int32"),
+            "supports_hdr": boolean_schema(),
+            "supports_subtitles": boolean_schema(),
+            "hls_variant_policy": schema_ref("ClientHlsVariantPolicy"),
+            "hls_segment_container": schema_ref("ClientHlsSegmentContainer")
         })),
+        "ClientHlsVariantPolicy": enum_schema(&["single_variant", "adaptive"]),
+        "ClientHlsSegmentContainer": enum_schema(&["mpeg_ts", "fmp4"]),
         "PlaybackSessionHeartbeatRequest": object_schema(&["state"], json!({
             "state": enum_schema(&["active", "paused", "cancel_requested", "cancelled", "ended", "failed"]),
             "position_ms": json!({"type": "integer", "format": "int64", "nullable": true}),
@@ -1894,6 +1961,7 @@ mod tests {
                 "audio_codec_unsupported",
                 "video_bitrate_unsupported",
                 "video_resolution_unsupported",
+                "video_hdr_unsupported",
                 "audio_channels_unsupported",
                 "subtitle_delivery_unsupported",
                 "requested_transcode_output",

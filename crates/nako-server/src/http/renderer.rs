@@ -5,14 +5,15 @@ use axum::{
     routing::{get, post},
 };
 use nako_api::public_client::{
-    ClientPlaybackCapabilitiesDto, ClientPlaybackTargetKind, ClientPlaybackTargetNetworkScope,
-    ClientPlaybackTargetTransportAuth, ClientRendererCommandState,
-    ClientRendererControlCapabilitiesDto, ClientRendererControlCommand, ClientRendererSessionState,
-    RendererCommandCompletionRequest, RendererCommandPollResponse, RendererCommandTransportDto,
-    RendererCommandTransportUrlDto, RendererHeartbeatRequest, RendererPlayCommandRequest,
-    RendererPlayCommandResponse, RendererRegistrationRequest, RendererSessionResponse,
-    RendererSessionsResponse, RendererTransportMode, RendererTransportUrlKind,
-    page_info_from_request, renderer_command_poll_response_from_record_with_transport,
+    ClientHlsSegmentContainer, ClientHlsVariantPolicy, ClientPlaybackCapabilitiesDto,
+    ClientPlaybackTargetKind, ClientPlaybackTargetNetworkScope, ClientPlaybackTargetTransportAuth,
+    ClientRendererCommandState, ClientRendererControlCapabilitiesDto, ClientRendererControlCommand,
+    ClientRendererSessionState, RendererCommandCompletionRequest, RendererCommandPollResponse,
+    RendererCommandTransportDto, RendererCommandTransportUrlDto, RendererHeartbeatRequest,
+    RendererPlayCommandRequest, RendererPlayCommandResponse, RendererRegistrationRequest,
+    RendererSessionResponse, RendererSessionsResponse, RendererTransportMode,
+    RendererTransportUrlKind, page_info_from_request,
+    renderer_command_poll_response_from_record_with_transport,
     renderer_command_response_from_record,
     renderer_play_command_response_from_records_with_transport,
     renderer_session_response_from_record, renderer_session_to_dto, timestamp_ms_to_rfc3339,
@@ -25,6 +26,7 @@ use nako_core::{
 };
 use nako_playback::ClientPlaybackCapabilities;
 use nako_transcode::RemuxContainer;
+use nako_transcode::{HlsSegmentContainer, HlsVariantPolicy};
 use tracing::instrument;
 
 use crate::app::{
@@ -393,11 +395,31 @@ async fn complete_renderer_command(
 fn client_playback_capabilities(
     capabilities: ClientPlaybackCapabilitiesDto,
 ) -> ClientPlaybackCapabilities {
+    let defaults = ClientPlaybackCapabilities::default();
+
     ClientPlaybackCapabilities {
         direct_play: capabilities.direct_play,
         containers: capabilities.containers,
         video_codecs: capabilities.video_codecs,
         audio_codecs: capabilities.audio_codecs,
+        max_video_bitrate: capabilities.max_video_bitrate,
+        max_width: capabilities.max_width,
+        max_height: capabilities.max_height,
+        max_audio_channels: capabilities.max_audio_channels,
+        supports_hdr: capabilities.supports_hdr.unwrap_or(defaults.supports_hdr),
+        supports_subtitles: capabilities
+            .supports_subtitles
+            .unwrap_or(defaults.supports_subtitles),
+        hls_variant_policy: match capabilities.hls_variant_policy {
+            Some(ClientHlsVariantPolicy::Adaptive) => HlsVariantPolicy::Adaptive,
+            Some(ClientHlsVariantPolicy::SingleVariant) | None => HlsVariantPolicy::SingleVariant,
+            Some(ClientHlsVariantPolicy::Other(_)) => defaults.hls_variant_policy,
+        },
+        hls_segment_container: match capabilities.hls_segment_container {
+            Some(ClientHlsSegmentContainer::Fmp4) => HlsSegmentContainer::Fmp4,
+            Some(ClientHlsSegmentContainer::MpegTs) | None => HlsSegmentContainer::MpegTs,
+            Some(ClientHlsSegmentContainer::Other(_)) => defaults.hls_segment_container,
+        },
     }
 }
 

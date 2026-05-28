@@ -477,7 +477,43 @@ pub struct BrowserPlaybackCapabilitiesDto {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audio_codec: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_video_bitrate: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_width: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_height: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_audio_channels: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub supports_hdr: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub supports_subtitles: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hls_variant_policy: Option<ClientHlsVariantPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hls_segment_container: Option<ClientHlsSegmentContainer>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub output_container: Option<BrowserPlaybackOutputContainer>,
+}
+
+impl Default for BrowserPlaybackCapabilitiesDto {
+    fn default() -> Self {
+        Self {
+            direct_play: None,
+            container: None,
+            video_codec: None,
+            audio_codec: None,
+            max_video_bitrate: None,
+            max_width: None,
+            max_height: None,
+            max_audio_channels: None,
+            supports_hdr: None,
+            supports_subtitles: None,
+            hls_variant_policy: None,
+            hls_segment_container: None,
+            output_container: None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -574,6 +610,7 @@ public_string_value! {
         AudioCodecUnsupported => "audio_codec_unsupported",
         VideoBitrateUnsupported => "video_bitrate_unsupported",
         VideoResolutionUnsupported => "video_resolution_unsupported",
+        VideoHdrUnsupported => "video_hdr_unsupported",
         AudioChannelsUnsupported => "audio_channels_unsupported",
         SubtitleDeliveryUnsupported => "subtitle_delivery_unsupported",
         RequestedTranscodeOutput => "requested_transcode_output",
@@ -633,6 +670,55 @@ pub struct ClientPlaybackCapabilitiesDto {
     pub containers: Vec<String>,
     pub video_codecs: Vec<String>,
     pub audio_codecs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_video_bitrate: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_width: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_height: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_audio_channels: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub supports_hdr: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub supports_subtitles: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hls_variant_policy: Option<ClientHlsVariantPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hls_segment_container: Option<ClientHlsSegmentContainer>,
+}
+
+impl Default for ClientPlaybackCapabilitiesDto {
+    fn default() -> Self {
+        Self {
+            direct_play: true,
+            containers: Vec::new(),
+            video_codecs: Vec::new(),
+            audio_codecs: Vec::new(),
+            max_video_bitrate: None,
+            max_width: None,
+            max_height: None,
+            max_audio_channels: None,
+            supports_hdr: None,
+            supports_subtitles: None,
+            hls_variant_policy: None,
+            hls_segment_container: None,
+        }
+    }
+}
+
+public_string_value! {
+    pub enum ClientHlsVariantPolicy {
+        SingleVariant => "single_variant",
+        Adaptive => "adaptive",
+    }
+}
+
+public_string_value! {
+    pub enum ClientHlsSegmentContainer {
+        MpegTs => "mpeg_ts",
+        Fmp4 => "fmp4",
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

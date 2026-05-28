@@ -54,7 +54,15 @@ export interface BrowserPlaybackCapabilitiesDto {
   audio_codec?: Array<string>;
   container?: Array<string>;
   direct_play?: boolean;
+  hls_segment_container?: ClientHlsSegmentContainer;
+  hls_variant_policy?: ClientHlsVariantPolicy;
+  max_audio_channels?: number;
+  max_height?: number;
+  max_video_bitrate?: number;
+  max_width?: number;
   output_container?: "mp4" | "mkv";
+  supports_hdr?: boolean;
+  supports_subtitles?: boolean;
   video_codec?: Array<string>;
 }
 
@@ -101,12 +109,24 @@ export interface ClientDirectPlayPlan {
   supports_range_requests: boolean;
 }
 
+export type ClientHlsSegmentContainer = "mpeg_ts" | "fmp4";
+
+export type ClientHlsVariantPolicy = "single_variant" | "adaptive";
+
 export type ClientMediaKind = "movie" | "series" | "season" | "episode" | "collection" | "extra" | "unknown";
 
 export interface ClientPlaybackCapabilitiesDto {
   audio_codecs: Array<string>;
   containers: Array<string>;
   direct_play: boolean;
+  hls_segment_container?: ClientHlsSegmentContainer;
+  hls_variant_policy?: ClientHlsVariantPolicy;
+  max_audio_channels?: number;
+  max_height?: number;
+  max_video_bitrate?: number;
+  max_width?: number;
+  supports_hdr?: boolean;
+  supports_subtitles?: boolean;
   video_codecs: Array<string>;
 }
 
@@ -115,7 +135,7 @@ export interface ClientPlaybackCapabilityEvaluation {
   supported: boolean;
 }
 
-export type ClientPlaybackCompatibilityCondition = "compatible" | "direct_play_disabled" | "media_technical_facts_missing" | "container_unknown" | "container_unsupported" | "remux_container_unsupported" | "video_codec_unsupported" | "audio_codec_unsupported" | "video_bitrate_unsupported" | "video_resolution_unsupported" | "audio_channels_unsupported" | "subtitle_delivery_unsupported" | "requested_transcode_output" | "transcode_profile_unsupported" | "policy_denied";
+export type ClientPlaybackCompatibilityCondition = "compatible" | "direct_play_disabled" | "media_technical_facts_missing" | "container_unknown" | "container_unsupported" | "remux_container_unsupported" | "video_codec_unsupported" | "audio_codec_unsupported" | "video_bitrate_unsupported" | "video_resolution_unsupported" | "video_hdr_unsupported" | "audio_channels_unsupported" | "subtitle_delivery_unsupported" | "requested_transcode_output" | "transcode_profile_unsupported" | "policy_denied";
 
 export interface ClientPlaybackDecision {
   denial: ClientPlaybackDenialDto | null;
@@ -717,6 +737,14 @@ export interface PlaybackCapabilitiesQuery {
   container?: string | string[];
   video_codec?: string | string[];
   audio_codec?: string | string[];
+  max_video_bitrate?: number;
+  max_width?: number;
+  max_height?: number;
+  max_audio_channels?: number;
+  supports_hdr?: boolean;
+  supports_subtitles?: boolean;
+  hls_variant_policy?: "single_variant" | "adaptive";
+  hls_segment_container?: "mpeg_ts" | "fmp4";
 }
 
 export interface RemuxPlaybackQuery extends PlaybackCapabilitiesQuery {

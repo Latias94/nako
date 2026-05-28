@@ -1,3 +1,4 @@
+mod artifact;
 mod engine;
 mod ffmpeg;
 mod hardware;
@@ -13,6 +14,7 @@ mod runner_util;
 mod runtime;
 mod session;
 
+pub use artifact::*;
 pub use engine::*;
 pub use ffmpeg::*;
 pub use hardware::*;
@@ -41,6 +43,16 @@ mod tests {
     use tokio::time;
 
     use super::*;
+
+    fn hls_artifacts(
+        output_dir: impl Into<PathBuf>,
+        playlist_path: impl Into<PathBuf>,
+        segment_pattern: impl Into<PathBuf>,
+        output: HlsOutputRequirement,
+    ) -> HlsArtifactManifest {
+        HlsArtifactManifest::single_variant(output_dir, playlist_path, segment_pattern, output)
+            .unwrap()
+    }
 
     #[test]
     fn ffmpeg_builder_plans_remux_without_transcoding_streams() {
@@ -104,9 +116,12 @@ mod tests {
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
-            output_dir: PathBuf::from("hls"),
-            playlist_path: PathBuf::from("hls/playlist.m3u8"),
-            segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
+            artifacts: hls_artifacts(
+                "hls",
+                "hls/playlist.m3u8",
+                "hls/segment_%05d.ts",
+                HlsOutputRequirement::default(),
+            ),
             segment_time_seconds: 6,
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
@@ -149,14 +164,105 @@ mod tests {
     }
 
     #[test]
-    fn ffmpeg_builder_rejects_hls_outputs_outside_layout() {
-        let builder = FfmpegCommandBuilder::default();
+    fn ffmpeg_builder_plans_hls_fmp4_single_variant() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
+            artifacts: hls_artifacts(
+                "hls",
+                "hls/playlist.m3u8",
+                "hls/segment_%05d.m4s",
+                HlsOutputRequirement {
+                    variant_policy: HlsVariantPolicy::SingleVariant,
+                    segment_container: HlsSegmentContainer::Fmp4,
+                },
+            ),
+            segment_time_seconds: 6,
+            execution_policy: hls_policy(HardwareAcceleration::None),
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let argv = builder.hls(&request).unwrap().argv_lossy();
+
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-hls_segment_type" && args[1] == "fmp4")
+        );
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-hls_fmp4_init_filename" && args[1] == "init.mp4")
+        );
+        assert!(argv.windows(2).any(|args| {
+            args[0] == "-hls_segment_filename" && args[1] == "hls/segment_%05d.m4s"
+        }));
+    }
+
+    #[test]
+    fn ffmpeg_builder_rejects_hls_segment_container_mismatch() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let artifacts = HlsArtifactManifest {
             output_dir: PathBuf::from("hls"),
-            playlist_path: PathBuf::from("outside/playlist.m3u8"),
-            segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
+            primary_playlist_path: PathBuf::from("hls/playlist.m3u8"),
+            media_segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
+            output: HlsOutputRequirement {
+                variant_policy: HlsVariantPolicy::SingleVariant,
+                segment_container: HlsSegmentContainer::Fmp4,
+            },
+        };
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            artifacts,
+            segment_time_seconds: 6,
+            execution_policy: hls_policy(HardwareAcceleration::None),
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let err = builder.hls(&request).unwrap_err();
+
+        assert!(err.to_string().contains("segment pattern extension"));
+    }
+
+    #[test]
+    fn ffmpeg_builder_rejects_adaptive_hls_runtime_request() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let artifacts = HlsArtifactManifest {
+            output_dir: PathBuf::from("hls"),
+            primary_playlist_path: PathBuf::from("hls/playlist.m3u8"),
+            media_segment_pattern: PathBuf::from("hls/segment_%05d.m4s"),
+            output: HlsOutputRequirement {
+                variant_policy: HlsVariantPolicy::Adaptive,
+                segment_container: HlsSegmentContainer::Fmp4,
+            },
+        };
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            artifacts,
+            segment_time_seconds: 6,
+            execution_policy: hls_policy(HardwareAcceleration::None),
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let err = builder.hls(&request).unwrap_err();
+
+        assert!(err.to_string().contains("adaptive hls output"));
+    }
+
+    #[test]
+    fn ffmpeg_builder_rejects_hls_outputs_outside_layout() {
+        let builder = FfmpegCommandBuilder::default();
+        let artifacts = HlsArtifactManifest {
+            output_dir: PathBuf::from("hls"),
+            primary_playlist_path: PathBuf::from("outside/playlist.m3u8"),
+            media_segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
+            output: HlsOutputRequirement::default(),
+        };
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            artifacts,
             segment_time_seconds: 6,
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
@@ -171,9 +277,12 @@ mod tests {
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
-            output_dir: PathBuf::from("hls"),
-            playlist_path: PathBuf::from("hls/playlist.m3u8"),
-            segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
+            artifacts: hls_artifacts(
+                "hls",
+                "hls/playlist.m3u8",
+                "hls/segment_%05d.ts",
+                HlsOutputRequirement::default(),
+            ),
             segment_time_seconds: 6,
             execution_policy: hls_policy(HardwareAcceleration::Nvenc),
             overwrite: FfmpegOverwritePolicy::Allow,
@@ -193,9 +302,12 @@ mod tests {
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
-            output_dir: PathBuf::from("hls"),
-            playlist_path: PathBuf::from("hls/playlist.m3u8"),
-            segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
+            artifacts: hls_artifacts(
+                "hls",
+                "hls/playlist.m3u8",
+                "hls/segment_%05d.ts",
+                HlsOutputRequirement::default(),
+            ),
             segment_time_seconds: 6,
             execution_policy: hls_policy(HardwareAcceleration::Vaapi),
             overwrite: FfmpegOverwritePolicy::Allow,
@@ -227,9 +339,12 @@ mod tests {
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
-            output_dir: PathBuf::from("hls"),
-            playlist_path: PathBuf::from("hls/playlist.m3u8"),
-            segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
+            artifacts: hls_artifacts(
+                "hls",
+                "hls/playlist.m3u8",
+                "hls/segment_%05d.ts",
+                HlsOutputRequirement::default(),
+            ),
             segment_time_seconds: 6,
             execution_policy: hls_policy(HardwareAcceleration::QuickSync),
             overwrite: FfmpegOverwritePolicy::Allow,
@@ -264,9 +379,12 @@ mod tests {
             let request = HlsRequest {
                 source_id: MediaSourceId::new(),
                 input_path: PathBuf::from("input.mkv"),
-                output_dir: PathBuf::from("hls"),
-                playlist_path: PathBuf::from("hls/playlist.m3u8"),
-                segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
+                artifacts: hls_artifacts(
+                    "hls",
+                    "hls/playlist.m3u8",
+                    "hls/segment_%05d.ts",
+                    HlsOutputRequirement::default(),
+                ),
                 segment_time_seconds: 6,
                 execution_policy: hls_policy(acceleration),
                 overwrite: FfmpegOverwritePolicy::Allow,
@@ -289,9 +407,12 @@ mod tests {
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
-            output_dir: PathBuf::from("hls"),
-            playlist_path: PathBuf::from("hls/playlist.m3u8"),
-            segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
+            artifacts: hls_artifacts(
+                "hls",
+                "hls/playlist.m3u8",
+                "hls/segment_%05d.ts",
+                HlsOutputRequirement::default(),
+            ),
             segment_time_seconds: 6,
             execution_policy,
             overwrite: FfmpegOverwritePolicy::Allow,
@@ -317,9 +438,12 @@ mod tests {
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
-            output_dir: PathBuf::from("hls"),
-            playlist_path: PathBuf::from("hls/playlist.m3u8"),
-            segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
+            artifacts: hls_artifacts(
+                "hls",
+                "hls/playlist.m3u8",
+                "hls/segment_%05d.ts",
+                HlsOutputRequirement::default(),
+            ),
             segment_time_seconds: 6,
             execution_policy,
             overwrite: FfmpegOverwritePolicy::Allow,
@@ -342,9 +466,12 @@ mod tests {
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
-            output_dir: PathBuf::from("hls"),
-            playlist_path: PathBuf::from("hls/playlist.m3u8"),
-            segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
+            artifacts: hls_artifacts(
+                "hls",
+                "hls/playlist.m3u8",
+                "hls/segment_%05d.ts",
+                HlsOutputRequirement::default(),
+            ),
             segment_time_seconds: 0,
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
@@ -369,9 +496,12 @@ mod tests {
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
-            output_dir: PathBuf::from("hls"),
-            playlist_path: PathBuf::from("hls/playlist.m3u8"),
-            segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
+            artifacts: hls_artifacts(
+                "hls",
+                "hls/playlist.m3u8",
+                "hls/segment_%05d.ts",
+                HlsOutputRequirement::default(),
+            ),
             segment_time_seconds: 6,
             execution_policy,
             overwrite: FfmpegOverwritePolicy::Allow,
@@ -388,6 +518,7 @@ mod tests {
             video_codec: Some("h264".to_owned()),
             audio_codec: Some("aac".to_owned()),
             execution_policy: hls_policy(HardwareAcceleration::None),
+            hls_output: HlsOutputRequirement::default(),
             track_selection: TranscodeTrackSelection::default(),
             remote_input: false,
             playback_profile_key: "playback-profile:v1;client=default".to_owned(),
@@ -397,6 +528,7 @@ mod tests {
             video_codec: Some("h264".to_owned()),
             audio_codec: Some("aac".to_owned()),
             execution_policy: hls_policy(HardwareAcceleration::Nvenc),
+            hls_output: HlsOutputRequirement::default(),
             track_selection: TranscodeTrackSelection::default(),
             remote_input: false,
             playback_profile_key: "playback-profile:v1;client=default".to_owned(),
@@ -415,6 +547,78 @@ mod tests {
         );
         assert!(nvenc.persisted_request_key().contains("encode=nvenc"));
         assert!(cpu.storage_slug().starts_with("hls_single_variant-v1-"));
+    }
+
+    #[test]
+    fn transcode_profile_identity_changes_when_hls_segment_container_changes() {
+        let ts = TranscodeProfile::hls_single_variant(HlsTranscodeProfile {
+            video_codec: Some("h264".to_owned()),
+            audio_codec: Some("aac".to_owned()),
+            execution_policy: hls_policy(HardwareAcceleration::None),
+            hls_output: HlsOutputRequirement::default(),
+            track_selection: TranscodeTrackSelection::default(),
+            remote_input: false,
+            playback_profile_key: "playback-profile:v1;client=default".to_owned(),
+        })
+        .identity();
+        let fmp4 = TranscodeProfile::hls_single_variant(HlsTranscodeProfile {
+            video_codec: Some("h264".to_owned()),
+            audio_codec: Some("aac".to_owned()),
+            execution_policy: hls_policy(HardwareAcceleration::None),
+            hls_output: HlsOutputRequirement {
+                variant_policy: HlsVariantPolicy::SingleVariant,
+                segment_container: HlsSegmentContainer::Fmp4,
+            },
+            track_selection: TranscodeTrackSelection::default(),
+            remote_input: false,
+            playback_profile_key: "playback-profile:v1;client=default".to_owned(),
+        })
+        .identity();
+
+        assert_ne!(ts.persisted_request_key(), fmp4.persisted_request_key());
+        assert_ne!(ts.storage_slug(), fmp4.storage_slug());
+        assert!(ts.persisted_request_key().contains("hls_segment=mpeg_ts"));
+        assert!(fmp4.persisted_request_key().contains("hls_segment=fmp4"));
+    }
+
+    #[test]
+    fn transcode_profile_output_shape_separates_remux_and_hls_state() {
+        let remux = TranscodeProfile::remux(RemuxTranscodeProfile {
+            output_container: RemuxContainer::Mp4,
+            track_selection: TranscodeTrackSelection::default(),
+            remote_input: false,
+            playback_profile_key: "playback-profile:v1;client=default".to_owned(),
+        });
+        let hls_output = HlsOutputRequirement {
+            variant_policy: HlsVariantPolicy::SingleVariant,
+            segment_container: HlsSegmentContainer::Fmp4,
+        };
+        let hls = TranscodeProfile::hls_single_variant(HlsTranscodeProfile {
+            video_codec: Some("h264".to_owned()),
+            audio_codec: Some("aac".to_owned()),
+            execution_policy: hls_policy(HardwareAcceleration::None),
+            hls_output,
+            track_selection: TranscodeTrackSelection::default(),
+            remote_input: false,
+            playback_profile_key: "playback-profile:v1;client=default".to_owned(),
+        });
+
+        assert_eq!(remux.kind(), TranscodeProfileKind::Remux);
+        assert_eq!(
+            remux.output,
+            TranscodeOutputShape::Remux {
+                container: RemuxContainer::Mp4
+            }
+        );
+        assert_eq!(remux.hls_output_requirement(), None);
+        assert_eq!(hls.kind(), TranscodeProfileKind::HlsSingleVariant);
+        assert_eq!(
+            hls.output,
+            TranscodeOutputShape::Hls {
+                requirement: hls_output
+            }
+        );
+        assert_eq!(hls.hls_output_requirement(), Some(hls_output));
     }
 
     #[test]
@@ -444,6 +648,7 @@ mod tests {
             video_codec: Some("h264".to_owned()),
             audio_codec: Some("aac".to_owned()),
             execution_policy: hls_policy(HardwareAcceleration::None),
+            hls_output: HlsOutputRequirement::default(),
             track_selection: TranscodeTrackSelection::default(),
             remote_input: false,
             playback_profile_key,
@@ -524,6 +729,7 @@ mod tests {
             video_codec: Some("vp9".to_owned()),
             audio_codec: Some("aac".to_owned()),
             execution_policy: hls_policy(HardwareAcceleration::None),
+            hls_output: HlsOutputRequirement::default(),
             track_selection: TranscodeTrackSelection::default(),
             remote_input: false,
             playback_profile_key: "playback-profile:v1;client=default".to_owned(),
@@ -546,6 +752,29 @@ mod tests {
     }
 
     #[test]
+    fn transcode_profile_validation_rejects_adaptive_single_variant_profile() {
+        let profile = TranscodeProfile::hls_single_variant(HlsTranscodeProfile {
+            video_codec: Some("h264".to_owned()),
+            audio_codec: Some("aac".to_owned()),
+            execution_policy: hls_policy(HardwareAcceleration::None),
+            hls_output: HlsOutputRequirement {
+                variant_policy: HlsVariantPolicy::Adaptive,
+                segment_container: HlsSegmentContainer::Fmp4,
+            },
+            track_selection: TranscodeTrackSelection::default(),
+            remote_input: false,
+            playback_profile_key: "playback-profile:v1;client=default".to_owned(),
+        });
+
+        let err = profile.validate().unwrap_err();
+
+        assert_eq!(
+            err.reason,
+            TranscodeProfileValidationReason::HlsVariantPolicyUnsupported
+        );
+    }
+
+    #[test]
     fn transcode_profile_validation_accepts_current_hls_playback_profile() {
         let profile = TranscodeProfile::hls_single_variant(HlsTranscodeProfile {
             video_codec: Some("H264".to_owned()),
@@ -561,6 +790,7 @@ mod tests {
                     prefer_hdr: Some(true),
                 },
             ),
+            hls_output: HlsOutputRequirement::default(),
             track_selection: TranscodeTrackSelection {
                 audio_stream: Some(1),
                 subtitle_stream: Some(2),
@@ -1312,9 +1542,12 @@ hevc_metadata
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
-            output_dir: PathBuf::from("hls"),
-            playlist_path: PathBuf::from("hls/playlist.m3u8"),
-            segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
+            artifacts: hls_artifacts(
+                "hls",
+                "hls/playlist.m3u8",
+                "hls/segment_%05d.ts",
+                HlsOutputRequirement::default(),
+            ),
             segment_time_seconds: 6,
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
@@ -1686,9 +1919,12 @@ hevc_metadata
                 HlsRequest {
                     source_id: MediaSourceId::new(),
                     input_path: PathBuf::from("input.mkv"),
-                    output_dir: output_dir.to_path_buf(),
-                    playlist_path: playlist_path.to_path_buf(),
-                    segment_pattern: segment_pattern.to_path_buf(),
+                    artifacts: hls_artifacts(
+                        output_dir,
+                        playlist_path,
+                        segment_pattern,
+                        HlsOutputRequirement::default(),
+                    ),
                     segment_time_seconds: 6,
                     execution_policy: hls_policy(HardwareAcceleration::None),
                     overwrite: FfmpegOverwritePolicy::Allow,

@@ -21,6 +21,21 @@ attention.
   fixed H.264/AAC command planning into source-aware media facts, structured
   transcode requirements, source-aware hardware pipeline planning, FFmpeg
   command boundaries, and runtime progress/segment supervision.
+- [playback-media-maturity-first-slices](playback-media-maturity-first-slices/README.md):
+  completed fearless refactor lane for the first post-source-aware playback
+  media maturity slices: richer Public Client capability profile input, adaptive
+  HLS/fMP4 planning vocabulary, and explicit subtitle/HDR/audio/bitrate/
+  resolution compatibility reasons without overclaiming executable fMP4 or ABR
+  runtime support.
+- [executable-hls-fmp4-runtime-boundary](executable-hls-fmp4-runtime-boundary/README.md):
+  completed fearless refactor lane for turning the HLS fMP4 planning vocabulary
+  into the first executable runtime slice: fMP4 single-variant request identity,
+  staging layout, FFmpeg muxer planning, and safe artifact serving while keeping
+  adaptive ladders as a follow-on.
+- [transcode-output-shape-hls-manifest-ladder](transcode-output-shape-hls-manifest-ladder/README.md):
+  active fearless refactor lane for deleting transitional transcode output-shape
+  states, introducing an explicit HLS artifact manifest boundary, and then
+  implementing the first adaptive HLS ladder runtime slice.
 - [playback-capability-profile-and-rendition-planning](playback-capability-profile-and-rendition-planning/README.md):
   completed fearless refactor lane for deleting the shallow `PlaybackProfile`
   adapter, making selected playback output a typed Rendition Plan, and keeping

@@ -1,8 +1,9 @@
 use nako_core::{MediaProbeResult, MediaSourceId, MediaStreamKind, Result};
 use nako_transcode::{
-    HlsTranscodeProfile, OutputContainer, RemuxContainer, RemuxTranscodeProfile,
-    TranscodeExecutionPolicy, TranscodeOutputConstraints, TranscodePlan, TranscodeProfile,
-    TranscodeTrackSelection, validate_playback_transcode_plan, validate_transcode_profile,
+    HlsOutputRequirement, HlsTranscodeProfile, OutputContainer, RemuxContainer,
+    RemuxTranscodeProfile, TranscodeExecutionPolicy, TranscodeOutputConstraints, TranscodePlan,
+    TranscodeProfile, TranscodeTrackSelection, validate_playback_transcode_plan,
+    validate_transcode_profile,
 };
 use serde::{Deserialize, Serialize};
 
@@ -24,6 +25,7 @@ pub enum PlaybackCompatibilityCondition {
     AudioCodecUnsupported,
     VideoBitrateUnsupported,
     VideoResolutionUnsupported,
+    VideoHdrUnsupported,
     AudioChannelsUnsupported,
     SubtitleDeliveryUnsupported,
     RequestedTranscodeOutput,
@@ -113,6 +115,7 @@ pub struct PlaybackTargetProfile {
     pub direct_play_profiles: Vec<DirectPlayCapabilityProfile>,
     pub remux_profiles: Vec<RemuxCapabilityProfile>,
     pub transcode_profiles: Vec<TranscodeCapabilityProfile>,
+    pub hls_output: HlsOutputRequirement,
     pub storage: PlaybackStorageContext,
     pub preferences: PlaybackPreferenceContext,
 }
@@ -138,10 +141,15 @@ impl PlaybackTargetProfile {
                 containers: containers.clone(),
                 video_codecs: video_codecs.clone(),
                 audio_codecs: audio_codecs.clone(),
-                max_video_bitrate: context.preferences.max_video_bitrate,
-                max_width: None,
-                max_height: None,
-                max_audio_channels: None,
+                max_video_bitrate: min_optional_u64(
+                    capabilities.max_video_bitrate,
+                    context.preferences.max_video_bitrate,
+                ),
+                max_width: capabilities.max_width,
+                max_height: capabilities.max_height,
+                max_audio_channels: capabilities.max_audio_channels,
+                supports_hdr: capabilities.supports_hdr,
+                supports_subtitles: capabilities.supports_subtitles,
             }],
             remux_profiles: vec![RemuxCapabilityProfile {
                 output_containers: vec![RemuxContainer::Mp4, RemuxContainer::Mkv],
@@ -153,6 +161,10 @@ impl PlaybackTargetProfile {
                 video_codec: Some("h264".to_owned()),
                 audio_codec: Some("aac".to_owned()),
             }],
+            hls_output: HlsOutputRequirement {
+                variant_policy: capabilities.hls_variant_policy,
+                segment_container: capabilities.hls_segment_container,
+            },
             storage: context.storage,
             preferences: context.preferences,
         }
@@ -162,11 +174,13 @@ impl PlaybackTargetProfile {
     pub fn identity(&self) -> crate::PlaybackProfileIdentity {
         crate::PlaybackProfileIdentity {
             request_key: format!(
-                "playback-target-profile:v1;direct={};direct={};remux={};transcode={};remote={};range={};audio={};subtitle={};max_video_bitrate={};prefer_hdr={};remux_pref={};transcode_pref={}",
+                "playback-target-profile:v1;direct={};direct={};remux={};transcode={};hls_variant={};hls_segment={};remote={};range={};audio={};subtitle={};max_video_bitrate={};prefer_hdr={};remux_pref={};transcode_pref={}",
                 self.direct_play,
                 direct_play_profiles_key(&self.direct_play_profiles),
                 remux_profiles_key(&self.remux_profiles),
                 transcode_profiles_key(&self.transcode_profiles),
+                self.hls_output.variant_policy.as_str(),
+                self.hls_output.segment_container.as_str(),
                 self.storage.remote,
                 optional_bool(self.storage.range_readable),
                 optional_u32(self.preferences.requested_audio_stream),
@@ -199,9 +213,28 @@ impl PlaybackTargetProfile {
     #[must_use]
     pub fn output_constraints(&self) -> TranscodeOutputConstraints {
         TranscodeOutputConstraints {
-            max_video_bitrate: self.preferences.max_video_bitrate,
-            prefer_hdr: self.preferences.prefer_hdr,
+            max_video_bitrate: min_optional_u64(
+                self.preferences.max_video_bitrate,
+                self.direct_play_profiles
+                    .iter()
+                    .filter_map(|profile| profile.max_video_bitrate)
+                    .min(),
+            ),
+            prefer_hdr: if self
+                .direct_play_profiles
+                .iter()
+                .any(|profile| !profile.supports_hdr)
+            {
+                Some(false)
+            } else {
+                self.preferences.prefer_hdr
+            },
         }
+    }
+
+    #[must_use]
+    pub const fn hls_output_requirement(&self) -> HlsOutputRequirement {
+        self.hls_output
     }
 
     #[must_use]
@@ -245,6 +278,7 @@ impl PlaybackTargetProfile {
             video_codec: plan.video_codec.clone(),
             audio_codec: plan.audio_codec.clone(),
             execution_policy,
+            hls_output: self.hls_output_requirement(),
             track_selection,
             remote_input: self.storage.remote,
             playback_profile_key: self.identity_key(),
@@ -263,6 +297,8 @@ pub struct DirectPlayCapabilityProfile {
     pub max_width: Option<u32>,
     pub max_height: Option<u32>,
     pub max_audio_channels: Option<u32>,
+    pub supports_hdr: bool,
+    pub supports_subtitles: bool,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -314,7 +350,17 @@ pub(crate) fn evaluate_direct_play(
             direct_play_profile.max_width,
             direct_play_profile.max_height,
             direct_play_profile.max_audio_channels,
+            direct_play_profile.supports_hdr,
             &mut reasons,
+        );
+    }
+
+    if profile.preferences.requested_subtitle_stream.is_some()
+        && !direct_play_profile.supports_subtitles
+    {
+        push_unique(
+            &mut reasons,
+            PlaybackCompatibilityCondition::SubtitleDeliveryUnsupported,
         );
     }
 
@@ -362,6 +408,7 @@ pub(crate) fn evaluate_remux(
         None,
         None,
         None,
+        true,
         &mut reasons,
     );
 
@@ -399,6 +446,7 @@ fn append_stream_compatibility_reasons(
     max_width: Option<u32>,
     max_height: Option<u32>,
     max_audio_channels: Option<u32>,
+    supports_hdr: bool,
     reasons: &mut Vec<PlaybackCompatibilityCondition>,
 ) {
     for stream in &probe.streams {
@@ -430,6 +478,9 @@ fn append_stream_compatibility_reasons(
                         reasons,
                         PlaybackCompatibilityCondition::VideoResolutionUnsupported,
                     );
+                }
+                if !supports_hdr && stream_has_hdr(stream) {
+                    push_unique(reasons, PlaybackCompatibilityCondition::VideoHdrUnsupported);
                 }
             }
             MediaStreamKind::Audio => {
@@ -489,7 +540,7 @@ fn direct_play_profiles_key(profiles: &[DirectPlayCapabilityProfile]) -> String 
         .iter()
         .map(|profile| {
             format!(
-                "containers={},vcodecs={},acodecs={},maxv={},maxw={},maxh={},maxac={}",
+                "containers={},vcodecs={},acodecs={},maxv={},maxw={},maxh={},maxac={},hdr={},subtitles={}",
                 list_key(&profile.containers),
                 list_key(&profile.video_codecs),
                 list_key(&profile.audio_codecs),
@@ -497,6 +548,8 @@ fn direct_play_profiles_key(profiles: &[DirectPlayCapabilityProfile]) -> String 
                 optional_u32(profile.max_width),
                 optional_u32(profile.max_height),
                 optional_u32(profile.max_audio_channels),
+                profile.supports_hdr,
+                profile.supports_subtitles,
             )
         })
         .collect::<Vec<_>>()
@@ -557,6 +610,30 @@ fn normalized_values(values: &[String]) -> Vec<String> {
     values.sort();
     values.dedup();
     values
+}
+
+fn min_optional_u64(left: Option<u64>, right: Option<u64>) -> Option<u64> {
+    match (left, right) {
+        (Some(left), Some(right)) => Some(left.min(right)),
+        (Some(value), None) | (None, Some(value)) => Some(value),
+        (None, None) => None,
+    }
+}
+
+fn stream_has_hdr(stream: &nako_core::MediaStreamInfo) -> bool {
+    stream.technical.hdr.dynamic_range.is_some()
+        || stream.technical.hdr.mastering_display
+        || stream.technical.hdr.content_light_level
+        || stream
+            .technical
+            .color
+            .transfer
+            .as_deref()
+            .is_some_and(|transfer| {
+                transfer.eq_ignore_ascii_case("smpte2084")
+                    || transfer.eq_ignore_ascii_case("arib-std-b67")
+                    || transfer.eq_ignore_ascii_case("hlg")
+            })
 }
 
 fn list_key(values: &[String]) -> String {
