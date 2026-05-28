@@ -43,15 +43,21 @@ Last updated: 2026-05-28
 
 ## M4 - Non-Video Media Domains
 
-- [ ] WDRP-060 [owner=planner] [deps=WDRP-010] [scope=docs/workstreams]
+- [x] WDRP-060 [owner=planner] [deps=WDRP-010] [scope=docs/workstreams]
   Goal: Decide when photos, music, and podcasts deserve a non-video media-domain baseline lane.
   Validation: decision references ADR-0021 and avoids UI-first implementation.
-  Evidence: new workstream or explicit deferred decision.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Evidence: `NON_VIDEO_DOMAIN_DECISION.md` records the deferred decision and reentry triggers.
+  Handoff: DONE. Next task is WDRP-065.
 
 ## M5 - Closeout
 
-- [ ] WDRP-070 [owner=planner] [deps=WDRP-020,WDRP-030,WDRP-040,WDRP-050,WDRP-060] [scope=docs/workstreams/web-deferred-product-reentry-plan]
+- [ ] WDRP-065 [owner=planner] [deps=WDRP-020] [scope=docs/workstreams]
+  Goal: Route WMLP closeout follow-ons for browser playback session identity, library browse, catalog sort/filter, and desktop native playback into explicit workstream decisions.
+  Validation: follow-on planning references the WMLP closeout evidence and names whether each item is a new lane, existing lane task, or deferred trigger.
+  Evidence: Public Client follow-on plan.
+  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+
+- [ ] WDRP-070 [owner=planner] [deps=WDRP-020,WDRP-030,WDRP-040,WDRP-050,WDRP-060,WDRP-065] [scope=docs/workstreams/web-deferred-product-reentry-plan]
   Goal: Close this planning lane after follow-on implementation lanes are opened or explicitly deferred.
   Validation: `python -m json.tool docs/workstreams/web-deferred-product-reentry-plan/WORKSTREAM.json`; `git diff --check`.
   Evidence: EVIDENCE_AND_GATES.md.

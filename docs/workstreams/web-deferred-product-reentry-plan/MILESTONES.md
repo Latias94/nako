@@ -36,6 +36,9 @@ Completed by WDRP-050: playlists are routed to
 Exit criteria: photos, music, and podcasts have a domain-baseline decision that
 references ADR-0021.
 
+Completed by WDRP-060: non-video domains remain deferred with explicit reentry
+triggers in `NON_VIDEO_DOMAIN_DECISION.md`.
+
 ## M5 - Closeout
 
 Exit criteria: all deferred product gaps are either assigned to follow-on lanes
