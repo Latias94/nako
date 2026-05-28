@@ -11,6 +11,11 @@ attention.
   `repo-ref/nako-admin-web` product shell into `web/`, then removes Next/Vercel
   runtime assumptions, restores Nako API boundaries, moves route ownership to
   TanStack, and records browser/Tauri performance gates before closeout.
+- [web-deferred-product-reentry-plan](web-deferred-product-reentry-plan/README.md):
+  active planning lane for routing the WBBP-deferred frontend surfaces back
+  through real backend/API contracts before downloads, playlists, photos,
+  music, podcasts, AI assistant, or automation can re-enter the live web
+  runtime.
 - [web-modern-frontend-and-tauri-foundation](web-modern-frontend-and-tauri-foundation/README.md):
   closed foundation lane that made `web/` the product frontend release line,
   re-authored the v0 UX direction into a Vite React/Tailwind/TanStack app with a

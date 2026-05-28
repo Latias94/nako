@@ -1,0 +1,59 @@
+# Web Deferred Product Reentry Plan - TODO
+
+Status: Active
+Last updated: 2026-05-28
+
+## M0 - Open Lane
+
+- [x] WDRP-010 [owner=planner] [deps=WBBP-050] [scope=docs/workstreams/web-deferred-product-reentry-plan]
+  Goal: Convert deferred frontend gaps into an explicit reentry plan.
+  Validation: `python -m json.tool docs/workstreams/web-deferred-product-reentry-plan/WORKSTREAM.json`; `git diff --check -- docs/workstreams/web-deferred-product-reentry-plan`.
+  Evidence: Initial design, reentry matrix, and task ledger.
+  Handoff: DONE. Next task is WDRP-020.
+
+## M1 - Video-First Reentry
+
+- [ ] WDRP-020 [owner=planner] [deps=WDRP-010] [scope=docs/workstreams]
+  Goal: Open or update the next Media Web lane for live Public Client browsing/detail/playback parity in the new `web/` shell.
+  Validation: new or updated workstream docs reference Public Client routes, route contracts, browser/Tauri gates, and bundle budget gates.
+  Evidence: workstream path and first executable task.
+  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+
+## M2 - Admin Operations Reentry
+
+- [ ] WDRP-030 [owner=planner] [deps=WDRP-010] [scope=docs/workstreams]
+  Goal: Open or update a new `web/` Admin Acquisition Intake route lane, reusing the completed backend/Admin V2 work instead of restoring a Media downloads page.
+  Validation: workstream docs name Admin API contracts, fixture/live data-source tests, route-state tests, and `build:budget`.
+  Evidence: workstream path and first executable task.
+  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+
+- [ ] WDRP-040 [owner=planner] [deps=WDRP-010] [scope=docs/workstreams]
+  Goal: Open or update a new `web/` Admin Generated Artifacts / Automation route lane.
+  Validation: workstream docs reference generated artifacts, review-plan semantics, mutation guards, and Admin API contract generation.
+  Evidence: workstream path and first executable task.
+  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+
+## M3 - User Media State
+
+- [ ] WDRP-050 [owner=planner] [deps=WDRP-020] [scope=docs/workstreams]
+  Goal: Decide whether playlists are ready for a backend contract lane or should remain deferred behind user playback state.
+  Validation: decision recorded with contract prerequisites and no frontend UI before API shape.
+  Evidence: new workstream or explicit deferred decision.
+  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+
+## M4 - Non-Video Media Domains
+
+- [ ] WDRP-060 [owner=planner] [deps=WDRP-010] [scope=docs/workstreams]
+  Goal: Decide when photos, music, and podcasts deserve a non-video media-domain baseline lane.
+  Validation: decision references ADR-0021 and avoids UI-first implementation.
+  Evidence: new workstream or explicit deferred decision.
+  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+
+## M5 - Closeout
+
+- [ ] WDRP-070 [owner=planner] [deps=WDRP-020,WDRP-030,WDRP-040,WDRP-050,WDRP-060] [scope=docs/workstreams/web-deferred-product-reentry-plan]
+  Goal: Close this planning lane after follow-on implementation lanes are opened or explicitly deferred.
+  Validation: `python -m json.tool docs/workstreams/web-deferred-product-reentry-plan/WORKSTREAM.json`; `git diff --check`.
+  Evidence: EVIDENCE_AND_GATES.md.
+  Handoff: Close or return to the selected implementation lane.
+

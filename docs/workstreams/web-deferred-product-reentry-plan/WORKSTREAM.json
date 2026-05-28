@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "slug": "web-deferred-product-reentry-plan",
+  "title": "Web Deferred Product Reentry Plan",
+  "status": "active",
+  "updated": "2026-05-28",
+  "scope_kind": "frontend_product_planning",
+  "problem": "WBBP removed deferred v0 product surfaces from the live web runtime; those gaps need explicit backend/API preconditions and follow-on lanes before re-entering the frontend.",
+  "task_prefix": "WDRP",
+  "current_task": "WDRP-020",
+  "completed_tasks": [
+    "WDRP-010"
+  ],
+  "authoritative_docs": [
+    { "role": "overview", "path": "docs/workstreams/web-deferred-product-reentry-plan/README.md" },
+    { "role": "design", "path": "docs/workstreams/web-deferred-product-reentry-plan/DESIGN.md" },
+    { "role": "matrix", "path": "docs/workstreams/web-deferred-product-reentry-plan/REENTRY_MATRIX.md" },
+    { "role": "execution", "path": "docs/workstreams/web-deferred-product-reentry-plan/TODO.md" },
+    { "role": "milestones", "path": "docs/workstreams/web-deferred-product-reentry-plan/MILESTONES.md" },
+    { "role": "gates", "path": "docs/workstreams/web-deferred-product-reentry-plan/EVIDENCE_AND_GATES.md" },
+    { "role": "handoff", "path": "docs/workstreams/web-deferred-product-reentry-plan/HANDOFF.md" }
+  ],
+  "gates": [
+    "python -m json.tool docs/workstreams/web-deferred-product-reentry-plan/WORKSTREAM.json",
+    "git diff --check -- docs/workstreams/web-deferred-product-reentry-plan"
+  ],
+  "evidence": [
+    "WDRP-010 opened the deferred product reentry planning lane after WBBP-050 closeout."
+  ],
+  "adr_refs": [
+    "docs/adr/0021-video-first-media-server-domain-model.md",
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue_current_task",
+    "notes": "Run WDRP-020 next: open or update the next video-first Media Web implementation lane before restoring deferred admin/non-video surfaces."
+  }
+}
+
