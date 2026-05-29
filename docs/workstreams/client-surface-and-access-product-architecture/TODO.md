@@ -1,7 +1,7 @@
 # Client Surface And Access Product Architecture - TODO
 
 Status: Active
-Last updated: 2026-05-26
+Last updated: 2026-05-29
 
 ## M0 - Scope And Evidence Freeze
 
@@ -36,12 +36,15 @@ Last updated: 2026-05-26
 
 ## M3 - Management Context Links
 
-- [ ] CSAPA-040 [owner=unassigned] [deps=CSAPA-020,CSAPA-030] [scope=apps/admin-web,docs]
+- [x] CSAPA-040 [owner=planner] [deps=CSAPA-020,CSAPA-030] [scope=web,docs/workstreams]
   Goal: Define and implement the first permission-gated links between media consumption and management actions.
   Validation: Route/link matrix, role gating tests, redaction tests, and browser smoke once implemented.
   Review: review-workstream for boundary leakage and UX consistency.
-  Evidence: Management Context Links route matrix.
-  Handoff: Admin Web owns review/confirmation for broad or destructive actions.
+  Evidence: `docs/workstreams/admin-media-management-context-links/`.
+  Handoff: DONE. Backend Management Context Links already exist at
+  `/management/context-links`; the new frontend lane owns `web/` consumption,
+  route resolution, Media-to-Admin rendering, Admin command handoffs, and
+  cross-surface verification.
 
 ## M4 - Desktop Playback Strategy
 
@@ -54,7 +57,7 @@ Last updated: 2026-05-26
 
 ## M5 - Closeout
 
-- [ ] CSAPA-060 [owner=planner] [deps=CSAPA-020,CSAPA-030,CSAPA-040] [scope=docs/workstreams/client-surface-and-access-product-architecture]
+- [ ] CSAPA-060 [owner=planner] [deps=CSAPA-020,CSAPA-030,CSAPA-040,CSAPA-050] [scope=docs/workstreams/client-surface-and-access-product-architecture]
   Goal: Close this planning lane once narrower execution lanes own identity, Media Web, context links, and desktop playback.
   Validation: EVIDENCE_AND_GATES.md lists accepted follow-ons and any deferred risks.
   Review: review-workstream for workstream compliance.

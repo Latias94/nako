@@ -1,7 +1,7 @@
 # Client Surface And Access Product Architecture
 
 Status: Active
-Last updated: 2026-05-26
+Last updated: 2026-05-29
 
 This planning lane defines how Nako should grow from Single-Admin Mode and
 Admin Web V2 into a coherent set of user-facing and operator-facing client
@@ -27,6 +27,7 @@ Authoritative docs:
 
 The lane is product-architecture first. Identity/access is now owned by the
 completed `identity-and-library-access-contract` lane, and browser Media Web is
-now owned by the active `media-web-client-foundation` lane. Remaining planning
-work should split Management Context Links and desktop playback strategy rather
-than reopening broad product scope here.
+owned by the closed `media-web-client-foundation` foundation lane and current
+`web/` follow-ons. Management Context Links are now split to
+`admin-media-management-context-links`. Remaining planning work should split or
+defer desktop playback strategy rather than reopening broad product scope here.

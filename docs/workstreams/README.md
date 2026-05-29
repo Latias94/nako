@@ -101,6 +101,11 @@ attention.
   fixture-first browsing toward live Public Client browse/detail, browser-safe
   playback entry, playback state, browser/Tauri validation, and bundle-budget
   gates.
+- [admin-media-management-context-links](admin-media-management-context-links/README.md):
+  active frontend execution lane split from CSAPA-040 for making the current
+  `web/` product frontend consume backend-computed Management Context Links
+  between Media and Admin surfaces without duplicating authorization in Media
+  UI or leaking privileged Admin state.
 - [web-modern-frontend-and-tauri-foundation](web-modern-frontend-and-tauri-foundation/README.md):
   closed foundation lane that made `web/` the product frontend release line,
   re-authored the v0 UX direction into a Vite React/Tailwind/TanStack app with a

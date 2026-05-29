@@ -1,7 +1,7 @@
 # Client Surface And Access Product Architecture - Milestones
 
 Status: Active
-Last updated: 2026-05-26
+Last updated: 2026-05-29
 
 ## M0 - Product Architecture Accepted
 
@@ -37,16 +37,20 @@ Exit criteria:
 
 ## M3 - Context Switching Follow-On Split
 
-Status: Next
+Status: Complete
 
 Exit criteria:
 
-- A route/link matrix defines first Management Context Links from Media Web to
+- DONE. A route/link matrix defines first Management Context Links from Media Web to
   Admin Web and reciprocal Admin links to Media Web.
-- Role gating, Library Access, safe IDs, redaction, and confirmation ownership
-  are part of the acceptance criteria.
+- DONE. Role gating, Library Access, safe IDs, redaction, and confirmation
+  ownership are part of the acceptance criteria.
+
+Evidence: `docs/workstreams/admin-media-management-context-links/`.
 
 ## M4 - Desktop Spike Split Or Deferred
+
+Status: Next
 
 Exit criteria:
 
