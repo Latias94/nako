@@ -858,13 +858,51 @@ fn fake_hls_ffmpeg_script_with_completion(
                 " V..... h264_qsv",
             ],
         );
-        content.push_str("for arg do out=\"$arg\"; done\n");
+        content.push_str("audio0_list=\n");
+        content.push_str("audio1_list=\n");
+        content.push_str("audio0_segment_pattern=\n");
+        content.push_str("audio1_segment_pattern=\n");
+        content.push_str("prev=\n");
+        content.push_str("for arg do\n");
+        content.push_str("  if [ \"$prev\" = \"-segment_list\" ]; then\n");
+        content.push_str("    case \"$arg\" in\n");
+        content.push_str("      *audio_0.m3u8) audio0_list=\"$arg\" ;;\n");
+        content.push_str("      *audio_1.m3u8) audio1_list=\"$arg\" ;;\n");
+        content.push_str("    esac\n");
+        content.push_str("  fi\n");
+        content.push_str("  case \"$arg\" in\n");
+        content.push_str(
+            "    *.m3u8) if [ \"$prev\" != \"-segment_list\" ]; then out=\"$arg\"; fi ;;\n",
+        );
+        content.push_str("    *audio_0_%05d.aac) audio0_segment_pattern=\"$arg\" ;;\n");
+        content.push_str("    *audio_1_%05d.aac) audio1_segment_pattern=\"$arg\" ;;\n");
+        content.push_str("  esac\n");
+        content.push_str("  prev=\"$arg\"\n");
+        content.push_str("done\n");
         content.push_str("dir=$(dirname \"$out\")\n");
         content.push_str("mkdir -p \"$dir\"\n");
         content.push_str(
             "printf '#EXTM3U\\n#EXTINF:1,\\nsegment_00000.ts\\n#EXT-X-ENDLIST\\n' > \"$out\"\n",
         );
         content.push_str("printf segment > \"$dir/segment_00000.ts\"\n");
+        content.push_str("if [ -n \"$audio0_list\" ]; then\n");
+        content.push_str("  audio_dir=$(dirname \"$audio0_list\")\n");
+        content.push_str("  mkdir -p \"$audio_dir\"\n");
+        content.push_str(
+            "  audio_segment=$(printf '%s' \"$audio0_segment_pattern\" | sed 's/%05d/00000/g')\n",
+        );
+        content.push_str("  printf '#EXTM3U\\n#EXTINF:1,\\n%s\\n#EXT-X-ENDLIST\\n' \"$(basename \"$audio_segment\")\" > \"$audio0_list\"\n");
+        content.push_str("  printf audio > \"$audio_segment\"\n");
+        content.push_str("fi\n");
+        content.push_str("if [ -n \"$audio1_list\" ]; then\n");
+        content.push_str("  audio_dir=$(dirname \"$audio1_list\")\n");
+        content.push_str("  mkdir -p \"$audio_dir\"\n");
+        content.push_str(
+            "  audio_segment=$(printf '%s' \"$audio1_segment_pattern\" | sed 's/%05d/00000/g')\n",
+        );
+        content.push_str("  printf '#EXTM3U\\n#EXTINF:1,\\n%s\\n#EXT-X-ENDLIST\\n' \"$(basename \"$audio_segment\")\" > \"$audio1_list\"\n");
+        content.push_str("  printf audio > \"$audio_segment\"\n");
+        content.push_str("fi\n");
         if completion == FakeHlsScriptCompletion::StayRunningAfterPublish {
             content.push_str("exec sleep 3600\n");
         }
@@ -882,9 +920,19 @@ fn fake_hls_ffmpeg_script_with_completion(
         let mut content = String::from("@echo off\r\n");
         push_windows_ffmpeg_probe_handlers(&mut content);
         content.push_str("setlocal enabledelayedexpansion\r\n");
+        content.push_str("set audio0_list=\r\n");
+        content.push_str("set audio1_list=\r\n");
+        content.push_str("set audio0_segment_pattern=\r\n");
+        content.push_str("set audio1_segment_pattern=\r\n");
+        content.push_str("set prev=\r\n");
         content.push_str(":args\r\n");
         content.push_str("if \"%~1\"==\"\" goto run\r\n");
-        content.push_str("set out=%~1\r\n");
+        content.push_str("if \"!prev!\"==\"-segment_list\" echo %~1 | findstr /I \"audio_0.m3u8\" >nul && set audio0_list=%~1\r\n");
+        content.push_str("if \"!prev!\"==\"-segment_list\" echo %~1 | findstr /I \"audio_1.m3u8\" >nul && set audio1_list=%~1\r\n");
+        content.push_str("echo %~1 | findstr /I \"audio_0_%%05d.aac\" >nul && set audio0_segment_pattern=%~1\r\n");
+        content.push_str("echo %~1 | findstr /I \"audio_1_%%05d.aac\" >nul && set audio1_segment_pattern=%~1\r\n");
+        content.push_str("for %%I in (\"%~1\") do if /I \"%%~xI\"==\".m3u8\" if not \"!prev!\"==\"-segment_list\" set out=%~1\r\n");
+        content.push_str("set prev=%~1\r\n");
         content.push_str("shift\r\n");
         content.push_str("goto args\r\n");
         content.push_str(":run\r\n");
@@ -895,11 +943,26 @@ fn fake_hls_ffmpeg_script_with_completion(
         content.push_str(">>\"%out%\" echo segment_00000.ts\r\n");
         content.push_str(">>\"%out%\" echo #EXT-X-ENDLIST\r\n");
         content.push_str("<nul set /p dummy=segment>\"%dir%segment_00000.ts\"\r\n");
+        content.push_str("if not \"!audio0_list!\"==\"\" call :write_audio \"!audio0_list!\" \"!audio0_segment_pattern!\"\r\n");
+        content.push_str("if not \"!audio1_list!\"==\"\" call :write_audio \"!audio1_list!\" \"!audio1_segment_pattern!\"\r\n");
         if completion == FakeHlsScriptCompletion::StayRunningAfterPublish {
             content.push_str(":wait\r\n");
             content.push_str("ping -n 2 127.0.0.1 > nul\r\n");
             content.push_str("goto wait\r\n");
         }
+        content.push_str("exit /b 0\r\n");
+        content.push_str(":write_audio\r\n");
+        content.push_str("set audio_list=%~1\r\n");
+        content.push_str("set audio_segment=%~2\r\n");
+        content.push_str("set audio_segment=!audio_segment:%%05d=00000!\r\n");
+        content.push_str("for %%I in (\"!audio_list!\") do set audio_dir=%%~dpI\r\n");
+        content.push_str("for %%I in (\"!audio_segment!\") do set audio_file=%%~nxI\r\n");
+        content.push_str("if not exist \"!audio_dir!\" mkdir \"!audio_dir!\"\r\n");
+        content.push_str(">\"!audio_list!\" echo #EXTM3U\r\n");
+        content.push_str(">>\"!audio_list!\" echo #EXTINF:1,\r\n");
+        content.push_str(">>\"!audio_list!\" echo !audio_file!\r\n");
+        content.push_str(">>\"!audio_list!\" echo #EXT-X-ENDLIST\r\n");
+        content.push_str("<nul set /p dummy=audio>\"!audio_segment!\"\r\n");
         content.push_str("exit /b 0\r\n");
         push_windows_ffmpeg_probe_labels(
             &mut content,

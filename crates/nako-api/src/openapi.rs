@@ -1089,6 +1089,12 @@ fn hls_parameters(source_id_name: &str) -> Vec<Value> {
         integer_schema("int64"),
         false,
     ));
+    parameters.push(query_parameter(
+        "preferred_audio_language",
+        "Comma-separated ordered preferred audio language tags for HLS default audio selection. Explicit audio_stream still wins.",
+        string_schema(),
+        false,
+    ));
     parameters
 }
 
@@ -2067,6 +2073,13 @@ mod tests {
                 .unwrap()
                 .iter()
                 .any(|parameter| parameter["name"] == "start_position_ms")
+        );
+        assert!(
+            document["paths"]["/sources/{source_id}/stream/hls/playlist.m3u8"]["get"]["parameters"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|parameter| parameter["name"] == "preferred_audio_language")
         );
         assert_eq!(
             document["paths"]["/sources/{source_id}/stream/remux"]["get"]["responses"]["200"]["headers"]

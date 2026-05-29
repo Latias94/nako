@@ -36,7 +36,7 @@ Primary gates:
 
 ## M2 - HLS Default Rendition Integration
 
-Status: Pending
+Status: Completed
 
 Exit criteria:
 

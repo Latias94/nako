@@ -1417,6 +1417,7 @@ pub(super) struct HlsPlaybackQuery {
     hls_segment_container: Option<PlaybackHlsSegmentContainer>,
     start_position_ms: Option<u64>,
     audio_stream: Option<u32>,
+    preferred_audio_language: Option<String>,
     subtitle_stream: Option<u32>,
     ticket: Option<String>,
     renderer_session_id: Option<String>,
@@ -1445,7 +1446,10 @@ impl HlsPlaybackQuery {
     fn preferences(&self) -> PlaybackPreferenceContext {
         PlaybackPreferenceContext {
             requested_audio_stream: self.audio_stream,
-            preferred_audio_languages: Vec::new(),
+            preferred_audio_languages: csv_or_default(
+                self.preferred_audio_language.clone(),
+                Vec::new(),
+            ),
             requested_subtitle_stream: self.subtitle_stream,
             max_video_bitrate: None,
             prefer_hdr: None,

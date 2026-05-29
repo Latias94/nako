@@ -1124,6 +1124,9 @@ single-variant HLS transcode session and returns a rewritten media playlist.
 HLS uses the configured FFmpeg binary, `remux_timeout_ms`, and the
 `[transcode]` hardware/concurrency policy. HLS artifacts are staged below
 `remux_staging_root/hls`.
+Clients may pass `preferred_audio_language` as a comma-separated ordered list
+of BCP-47-like audio language tags. The first matching source audio stream is
+used as the HLS audio rendition default; explicit `audio_stream` still wins.
 WebDAV source inputs are staged under `remux_staging_root/inputs` before HLS
 planning.
 Remote input staging is subject to the configured `[staging].max_bytes` disk

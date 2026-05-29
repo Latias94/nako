@@ -90,7 +90,7 @@ Handoff:
 
 ### PALD-030 - Surface policy through HLS audio rendition defaults
 
-Status: Pending
+Status: Completed
 Owner: codex
 Depends on: PALD-020
 
@@ -128,9 +128,16 @@ Evidence:
 
 Handoff:
 
-- PALD-020 already propagates internal selected audio policy into HLS source
-  facts. Split persisted user settings or UI controls instead of adding them
-  here.
+- DONE: The public HLS playlist route accepts `preferred_audio_language` as a
+  comma-separated ordered language list.
+- DONE: HLS audio rendition authoring marks exactly one selected policy audio
+  stream as `DEFAULT=YES`.
+- DONE: Explicit `audio_stream` still overrides preferred language selection.
+- DONE: Normalized language preference input reuses the same HLS request and
+  transcode session identity.
+- PALD-040 should close the lane or split persisted settings, UI controls,
+  subtitle policy, codec-aware audio, downmix/normalization, LL-HLS, DASH, DRM,
+  and offline sync as follow-ons.
 
 ### PALD-040 - Verify, document, and close or split follow-ons
 

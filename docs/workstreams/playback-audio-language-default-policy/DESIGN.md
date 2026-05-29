@@ -21,7 +21,7 @@ the wrong assumptions.
 - ADRs:
   - `docs/adr/0052-hls-runtime-and-media-engine-boundary.md`
   - `docs/adr/0044-playback-capability-profile-planner.md`
-  - `docs/adr/0023-public-api-versioning-and-error-envelope.md`
+  - `docs/adr/0023-public-api-versioning-and-error-envelope-contract.md`
 - Architecture maps:
   - `docs/architecture/PLAYBACK.md`
   - `docs/architecture/WORKSTREAM_LINKS.md`
