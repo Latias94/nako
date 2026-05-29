@@ -24,7 +24,6 @@ import {
   Image as ImageIcon,
   User,
   Settings,
-  Plus,
   Shuffle,
   HardDrive,
   Cpu,
@@ -53,6 +52,7 @@ import type {
   PublicReadinessState,
 } from "@/src/api/public/media-data-source"
 import type { MediaItem } from "@/lib/media-types"
+import { AddToPlaylistButton } from "./add-to-playlist-button"
 
 // 导航回调类型
 interface MediaDetailProps {
@@ -265,7 +265,6 @@ export function MediaDetail({
 
   const [selectedSourceId, setSelectedSourceId] = useState(isMovie ? movieSources[0]?.id : undefined)
   const [isFavorite, setIsFavorite] = useState(data.favorite)
-  const [isInList, setIsInList] = useState(false)
   const [selectedSeason, setSelectedSeason] = useState(!isMovie ? seriesData.seasons[0] : null)
   const [expandedEpisode, setExpandedEpisode] = useState<string | null>(null)
   const selectedSource = isMovie
@@ -485,27 +484,7 @@ export function MediaDetail({
                       )}
                     </Button>
 
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      className={cn(
-                        "h-12 gap-2 border-white/20 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 hover:text-white",
-                        isInList && "border-primary/50 bg-primary/20 text-primary-foreground"
-                      )}
-                      onClick={() => setIsInList(!isInList)}
-                    >
-                      {isInList ? (
-                        <>
-                          <Check className="h-5 w-5" />
-                          已添加
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="h-5 w-5" />
-                          我的列表
-                        </>
-                      )}
-                    </Button>
+                    <AddToPlaylistButton itemId={mediaId ?? data.id} itemTitle={data.title} />
 
                     <Button
                       variant="ghost"

@@ -1,7 +1,6 @@
 use nako_core::{
     AdminSettingsEffect, AdminSettingsSource, ExternalProvider, LibraryId, LibraryPreset,
 };
-use nako_transcode::HardwareAccelerationPolicy;
 use serde::{Deserialize, Serialize};
 
 use crate::metadata_diagnostics::MetadataProviderDiagnosticStatus;
@@ -238,9 +237,35 @@ pub struct AdminMetadataRawCacheSettingsResponse {
     pub updated_at_ms: Option<i64>,
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminHardwareAcceleration {
+    #[default]
+    None,
+    Vaapi,
+    Nvenc,
+    QuickSync,
+    Amf,
+    VideoToolbox,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminHardwareAccelerationFallback {
+    #[default]
+    Cpu,
+    Fail,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminHardwareAccelerationPolicy {
+    pub requested: AdminHardwareAcceleration,
+    pub fallback: AdminHardwareAccelerationFallback,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminTranscodeConfigDiagnostics {
-    pub hardware_policy: HardwareAccelerationPolicy,
+    pub hardware_policy: AdminHardwareAccelerationPolicy,
     pub cpu_concurrency: usize,
     pub gpu_concurrency: usize,
 }

@@ -13,6 +13,14 @@ attention.
   readiness, running segment serving, typed artifact reconstruction, and
   manifest-aware playlist auth decoration future-ready for a Jellyfin/Plex-class
   self-hosted media server.
+- [playback-planner-transcode-value-vocabulary](playback-planner-transcode-value-vocabulary/README.md):
+  completed fearless refactor lane for replacing transcode-owned planner value
+  types in `nako-playback` with playback-owned vocabulary and server-side
+  adapters into `nako-transcode`.
+- [playback-api-transcode-boundary-cleanup](playback-api-transcode-boundary-cleanup/README.md):
+  completed fearless refactor lane for removing direct `nako-api ->
+  nako-transcode` coupling by moving execution-type conversions into
+  `nako-server` while preserving Admin and Public Client wire contracts.
 - [hls-seek-restart-lifecycle](hls-seek-restart-lifecycle/README.md):
   completed feature/refactor lane for making HLS playback seek-aware through
   generation identity, restart admission, FFmpeg seek command planning, and

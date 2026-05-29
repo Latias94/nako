@@ -24,9 +24,10 @@ use nako_core::{
     RendererCommandRecord, RendererCommandState, RendererControlCapabilities,
     RendererControlCommand, RendererSessionId, RendererSessionRecord, RendererSessionState,
 };
-use nako_playback::ClientPlaybackCapabilities;
+use nako_playback::{
+    ClientPlaybackCapabilities, PlaybackHlsSegmentContainer, PlaybackHlsVariantPolicy,
+};
 use nako_transcode::RemuxContainer;
-use nako_transcode::{HlsSegmentContainer, HlsVariantPolicy};
 use tracing::instrument;
 
 use crate::app::{
@@ -411,13 +412,15 @@ fn client_playback_capabilities(
             .supports_subtitles
             .unwrap_or(defaults.supports_subtitles),
         hls_variant_policy: match capabilities.hls_variant_policy {
-            Some(ClientHlsVariantPolicy::Adaptive) => HlsVariantPolicy::Adaptive,
-            Some(ClientHlsVariantPolicy::SingleVariant) | None => HlsVariantPolicy::SingleVariant,
+            Some(ClientHlsVariantPolicy::Adaptive) => PlaybackHlsVariantPolicy::Adaptive,
+            Some(ClientHlsVariantPolicy::SingleVariant) | None => {
+                PlaybackHlsVariantPolicy::SingleVariant
+            }
             Some(ClientHlsVariantPolicy::Other(_)) => defaults.hls_variant_policy,
         },
         hls_segment_container: match capabilities.hls_segment_container {
-            Some(ClientHlsSegmentContainer::Fmp4) => HlsSegmentContainer::Fmp4,
-            Some(ClientHlsSegmentContainer::MpegTs) | None => HlsSegmentContainer::MpegTs,
+            Some(ClientHlsSegmentContainer::Fmp4) => PlaybackHlsSegmentContainer::Fmp4,
+            Some(ClientHlsSegmentContainer::MpegTs) | None => PlaybackHlsSegmentContainer::MpegTs,
             Some(ClientHlsSegmentContainer::Other(_)) => defaults.hls_segment_container,
         },
     }

@@ -1,11 +1,13 @@
 import {
   NakoClient,
+  type AddUserPlaylistItemRequest,
   type BrowserPlaybackTicketResponse,
   type BrowserPlaybackUrlDto,
   type ClientBrowseSortKey,
   type ClientSortOrder,
   type ClientWatchStateFilter,
   type ContinueWatchingItemDto,
+  type CreateUserPlaylistRequest,
   type FetchLike,
   type LibraryDto,
   type LibrarySourceResponse,
@@ -14,7 +16,9 @@ import {
   type PageInfo,
   type PlaybackSessionHeartbeatRequest,
   type PublicImageRefDto,
+  type ReorderUserPlaylistItemsRequest,
   type SetWatchedStateRequest,
+  type UpdateUserPlaylistRequest,
   type UpdatePlaybackProgressRequest,
   type UserPlaybackStateDto,
   type UserPlaylistDto,
@@ -202,6 +206,23 @@ export type PublicUserPlaylistItemsPayload = {
   error?: string
 }
 
+export type PublicUserPlaylistMutationPayload = {
+  playlist: PublicUserPlaylistSummary | null
+  persisted: boolean
+  fallback: boolean
+  source: PublicMediaSourceMode
+  error?: string
+}
+
+export type PublicUserPlaylistDeletePayload = {
+  playlistId: string
+  deleted: boolean
+  persisted: boolean
+  fallback: boolean
+  source: PublicMediaSourceMode
+  error?: string
+}
+
 export type PublicPlaybackStatePayload = {
   state: PublicPlaybackState | null
   fallback: boolean
@@ -222,6 +243,27 @@ export type PublicMediaDataSource = {
   listContinueWatching(): Promise<PublicContinueWatchingPayload>
   listUserPlaylists(): Promise<PublicUserPlaylistsPayload>
   listUserPlaylistItems(playlistId: string): Promise<PublicUserPlaylistItemsPayload>
+  createUserPlaylist(
+    body: CreateUserPlaylistRequest,
+  ): Promise<PublicUserPlaylistMutationPayload>
+  updateUserPlaylist(
+    playlistId: string,
+    body: UpdateUserPlaylistRequest,
+  ): Promise<PublicUserPlaylistMutationPayload>
+  deleteUserPlaylist(playlistId: string): Promise<PublicUserPlaylistDeletePayload>
+  addUserPlaylistItem(
+    playlistId: string,
+    itemId: string,
+    body?: AddUserPlaylistItemRequest,
+  ): Promise<PublicUserPlaylistMutationPayload>
+  removeUserPlaylistItem(
+    playlistId: string,
+    itemId: string,
+  ): Promise<PublicUserPlaylistMutationPayload>
+  reorderUserPlaylistItems(
+    playlistId: string,
+    body: ReorderUserPlaylistItemsRequest,
+  ): Promise<PublicUserPlaylistMutationPayload>
   getPlaybackState(itemId: string): Promise<PublicPlaybackStatePayload>
   updatePlaybackProgress(
     itemId: string,
@@ -277,6 +319,7 @@ const FIXTURE_USER_PLAYLISTS = [
 ] as const
 
 const FIXTURE_PLAYLIST_CREATED_AT = "2026-05-29T00:00:00.000Z"
+const FIXTURE_PLAYLIST_MUTATION_ERROR = "Fixture mode does not persist playlist mutations."
 
 export function createPublicMediaDataSource(
   connection: PublicClientConnection = loadPublicClientConnection(),
@@ -409,6 +452,54 @@ function createLiveMediaDataSource(
         return fixtureUserPlaylistItems(playlistId, error)
       }
     },
+    async createUserPlaylist(body) {
+      try {
+        const response = await client.createUserPlaylist(body)
+        return liveUserPlaylistMutation(mapPublicUserPlaylist(response.playlist))
+      } catch (error) {
+        return fixtureUserPlaylistMutation(undefined, error)
+      }
+    },
+    async updateUserPlaylist(playlistId, body) {
+      try {
+        const response = await client.updateUserPlaylist(playlistId, body)
+        return liveUserPlaylistMutation(mapPublicUserPlaylist(response.playlist))
+      } catch (error) {
+        return fixtureUserPlaylistMutation(playlistId, error)
+      }
+    },
+    async deleteUserPlaylist(playlistId) {
+      try {
+        const response = await client.deleteUserPlaylist(playlistId)
+        return liveUserPlaylistDelete(response)
+      } catch (error) {
+        return fixtureUserPlaylistDelete(playlistId, error)
+      }
+    },
+    async addUserPlaylistItem(playlistId, itemId, body) {
+      try {
+        const response = await client.addUserPlaylistItem(playlistId, itemId, body)
+        return liveUserPlaylistMutation(mapPublicUserPlaylist(response.playlist))
+      } catch (error) {
+        return fixtureUserPlaylistMutation(playlistId, error)
+      }
+    },
+    async removeUserPlaylistItem(playlistId, itemId) {
+      try {
+        const response = await client.removeUserPlaylistItem(playlistId, itemId)
+        return liveUserPlaylistMutation(mapPublicUserPlaylist(response.playlist))
+      } catch (error) {
+        return fixtureUserPlaylistMutation(playlistId, error)
+      }
+    },
+    async reorderUserPlaylistItems(playlistId, body) {
+      try {
+        const response = await client.reorderUserPlaylistItems(playlistId, body)
+        return liveUserPlaylistMutation(mapPublicUserPlaylist(response.playlist))
+      } catch (error) {
+        return fixtureUserPlaylistMutation(playlistId, error)
+      }
+    },
     async getPlaybackState(itemId) {
       try {
         const response = await client.getUserPlaybackState(itemId)
@@ -520,6 +611,24 @@ function createFixtureMediaDataSource(): PublicMediaDataSource {
     },
     async listUserPlaylistItems(playlistId) {
       return fixtureUserPlaylistItems(playlistId)
+    },
+    async createUserPlaylist() {
+      return fixtureUserPlaylistMutation()
+    },
+    async updateUserPlaylist(playlistId) {
+      return fixtureUserPlaylistMutation(playlistId)
+    },
+    async deleteUserPlaylist(playlistId) {
+      return fixtureUserPlaylistDelete(playlistId)
+    },
+    async addUserPlaylistItem(playlistId) {
+      return fixtureUserPlaylistMutation(playlistId)
+    },
+    async removeUserPlaylistItem(playlistId) {
+      return fixtureUserPlaylistMutation(playlistId)
+    },
+    async reorderUserPlaylistItems(playlistId) {
+      return fixtureUserPlaylistMutation(playlistId)
     },
     async getPlaybackState(itemId) {
       return fixturePlaybackState(itemId)
@@ -780,6 +889,61 @@ function liveUserPlaylistItems(
     page: mapPage(page),
     fallback: false,
     source: "live",
+  }
+}
+
+function liveUserPlaylistMutation(
+  playlist: PublicUserPlaylistSummary,
+): PublicUserPlaylistMutationPayload {
+  return {
+    playlist,
+    persisted: true,
+    fallback: false,
+    source: "live",
+  }
+}
+
+function fixtureUserPlaylistMutation(
+  playlistId?: string,
+  error?: unknown,
+): PublicUserPlaylistMutationPayload {
+  const fixturePlaylist = playlistId
+    ? FIXTURE_USER_PLAYLISTS.find((playlist) => playlist.id === playlistId)
+    : undefined
+
+  return {
+    playlist: fixturePlaylist ? fixtureUserPlaylistSummary(fixturePlaylist) : null,
+    persisted: false,
+    fallback: true,
+    source: "fixture",
+    error: errorMessage(error) ?? FIXTURE_PLAYLIST_MUTATION_ERROR,
+  }
+}
+
+function liveUserPlaylistDelete(response: {
+  playlist_id: string
+  deleted: boolean
+}): PublicUserPlaylistDeletePayload {
+  return {
+    playlistId: response.playlist_id,
+    deleted: response.deleted,
+    persisted: true,
+    fallback: false,
+    source: "live",
+  }
+}
+
+function fixtureUserPlaylistDelete(
+  playlistId: string,
+  error?: unknown,
+): PublicUserPlaylistDeletePayload {
+  return {
+    playlistId,
+    deleted: false,
+    persisted: false,
+    fallback: true,
+    source: "fixture",
+    error: errorMessage(error) ?? FIXTURE_PLAYLIST_MUTATION_ERROR,
   }
 }
 

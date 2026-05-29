@@ -16,7 +16,7 @@ use nako_core::{
 use nako_playback::{
     ClientPlaybackCapabilities, EffectivePlaybackPolicy, PlaybackDecision, PlaybackMode,
     PlaybackPlanner, PlaybackPlanningRequest, PlaybackPreferenceContext, PlaybackSelectionContext,
-    PlaybackTarget, PlaybackTargetProfile,
+    PlaybackTarget, PlaybackTargetProfile, PlaybackTranscodeContainer,
 };
 use nako_streaming::{DirectPlayRangeRequest, DirectPlayResponsePlan};
 use nako_transcode::{
@@ -32,6 +32,10 @@ use serde::{Deserialize, Serialize};
 use tracing::warn;
 
 use crate::config::NakoServerConfig;
+use crate::playback_mapping::{
+    playback_hls_output_requirement_to_transcode, playback_output_constraints_to_transcode,
+    playback_track_selection_to_transcode, transcode_remux_container_to_playback,
+};
 
 use super::{
     playback_ticket::BrowserPlaybackTicketMode,
@@ -1738,7 +1742,9 @@ impl PlaybackAppService {
             PlaybackRuntimeStore::get_media_probe(self.runtime_store.as_ref(), source.id).await?;
         let (uri, backend) = self.storage_backend_for_media_source(&source).await?;
         let mut context = playback_selection_context(&uri, backend.as_ref()).await;
-        context.preferences.remux_output_container = Some(request.output_container);
+        context.preferences.remux_output_container = Some(transcode_remux_container_to_playback(
+            request.output_container,
+        ));
         let target = playback_target_for_client(request.client.clone());
         let target_profile = PlaybackTargetProfile::from_target(&target, context.clone());
         let effective_policy = effective_policy
@@ -1755,7 +1761,9 @@ impl PlaybackAppService {
         let output_container = remux_output_container(&decision)?;
         let profile_identity = build_playback_remux_profile(PlaybackRemuxProfileRequest {
             output_container,
-            track_selection: target_profile.track_selection(),
+            track_selection: playback_track_selection_to_transcode(
+                target_profile.track_selection(),
+            ),
             remote_input: target_profile.storage.remote,
             playback_profile_key: target_profile.identity_key(),
         })?
@@ -1808,7 +1816,7 @@ impl PlaybackAppService {
         let (uri, backend) = self.storage_backend_for_media_source(&source).await?;
         let mut context = playback_selection_context(&uri, backend.as_ref()).await;
         context.preferences = request.preferences.clone();
-        context.preferences.transcode_output_container = Some(nako_transcode::OutputContainer::Hls);
+        context.preferences.transcode_output_container = Some(PlaybackTranscodeContainer::Hls);
         let target = playback_target_for_client(request.client.clone());
         let target_profile = PlaybackTargetProfile::from_target(&target, context.clone());
         let effective_policy =
@@ -1822,11 +1830,12 @@ impl PlaybackAppService {
         });
         ensure_playback_decision_allowed(&decision)?;
         let transcode_plan = hls_transcode_plan(&decision)?;
-        let track_selection = target_profile.track_selection();
+        let track_selection =
+            playback_track_selection_to_transcode(target_profile.track_selection());
         let source_facts = hls_pipeline_source_facts(probe.as_ref(), track_selection);
         let mut execution_policy = self.hls.execution_policy_for_hls(
             track_selection,
-            target_profile.output_constraints(),
+            playback_output_constraints_to_transcode(target_profile.output_constraints()),
             source_facts.clone(),
         )?;
         let media_rendition_plan =
@@ -1837,7 +1846,9 @@ impl PlaybackAppService {
         let hls_profile = build_playback_hls_profile(PlaybackHlsProfileRequest {
             plan: transcode_plan.clone(),
             execution_policy,
-            hls_output: target_profile.hls_output_requirement(),
+            hls_output: playback_hls_output_requirement_to_transcode(
+                target_profile.hls_output_requirement(),
+            ),
             track_selection,
             remote_input: target_profile.storage.remote,
             playback_profile_key: target_profile.identity_key(),

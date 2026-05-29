@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query"
 import {
   createPublicMediaDataSource,
   type PublicLibraryItemsQuery,
@@ -7,8 +7,41 @@ import {
   type PublicUserPlaylistItemsPayload,
   type PublicUserPlaylistsPayload,
 } from "@/src/api/public/media-data-source"
-import type { PlaybackSessionHeartbeatRequest } from "@nako/sdk"
+import type {
+  AddUserPlaylistItemRequest,
+  CreateUserPlaylistRequest,
+  PlaybackSessionHeartbeatRequest,
+  ReorderUserPlaylistItemsRequest,
+  UpdateUserPlaylistRequest,
+} from "@nako/sdk"
 import type { MediaItem } from "./media-types"
+
+export const userPlaylistsQueryKey = ["nako", "media", "user-playlists"] as const
+
+export function userPlaylistItemsQueryKey(playlistId?: string) {
+  return ["nako", "media", "user-playlists", playlistId, "items"] as const
+}
+
+export type UpdateUserPlaylistMutationInput = {
+  playlistId: string
+  body: UpdateUserPlaylistRequest
+}
+
+export type AddUserPlaylistItemMutationInput = {
+  playlistId: string
+  itemId: string
+  body?: AddUserPlaylistItemRequest
+}
+
+export type RemoveUserPlaylistItemMutationInput = {
+  playlistId: string
+  itemId: string
+}
+
+export type ReorderUserPlaylistItemsMutationInput = {
+  playlistId: string
+  body: ReorderUserPlaylistItemsRequest
+}
 
 export function useTrendingMedia() {
   return useQuery({
@@ -81,7 +114,7 @@ export function useContinueWatchingMedia() {
 
 export function useUserPlaylists() {
   return useQuery({
-    queryKey: ["nako", "media", "user-playlists"],
+    queryKey: userPlaylistsQueryKey,
     queryFn: (): Promise<PublicUserPlaylistsPayload> =>
       createPublicMediaDataSource().listUserPlaylists(),
     staleTime: 60 * 1000,
@@ -91,12 +124,84 @@ export function useUserPlaylists() {
 
 export function useUserPlaylistItems(playlistId?: string) {
   return useQuery({
-    queryKey: ["nako", "media", "user-playlists", playlistId, "items"],
+    queryKey: userPlaylistItemsQueryKey(playlistId),
     queryFn: (): Promise<PublicUserPlaylistItemsPayload> =>
       createPublicMediaDataSource().listUserPlaylistItems(playlistId ?? ""),
     enabled: !!playlistId,
     staleTime: 60 * 1000,
     retry: 0,
+  })
+}
+
+export function useCreateUserPlaylistMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (body: CreateUserPlaylistRequest) =>
+      createPublicMediaDataSource().createUserPlaylist(body),
+    onSuccess() {
+      invalidateUserPlaylistQueries(queryClient)
+    },
+  })
+}
+
+export function useUpdateUserPlaylistMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ playlistId, body }: UpdateUserPlaylistMutationInput) =>
+      createPublicMediaDataSource().updateUserPlaylist(playlistId, body),
+    onSuccess(_payload, variables) {
+      invalidateUserPlaylistQueries(queryClient, variables.playlistId)
+    },
+  })
+}
+
+export function useDeleteUserPlaylistMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (playlistId: string) => createPublicMediaDataSource().deleteUserPlaylist(playlistId),
+    onSuccess(_payload, playlistId) {
+      void queryClient.invalidateQueries({ queryKey: userPlaylistsQueryKey })
+      queryClient.removeQueries({ queryKey: userPlaylistItemsQueryKey(playlistId) })
+    },
+  })
+}
+
+export function useAddUserPlaylistItemMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ playlistId, itemId, body }: AddUserPlaylistItemMutationInput) =>
+      createPublicMediaDataSource().addUserPlaylistItem(playlistId, itemId, body),
+    onSuccess(_payload, variables) {
+      invalidateUserPlaylistQueries(queryClient, variables.playlistId)
+    },
+  })
+}
+
+export function useRemoveUserPlaylistItemMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ playlistId, itemId }: RemoveUserPlaylistItemMutationInput) =>
+      createPublicMediaDataSource().removeUserPlaylistItem(playlistId, itemId),
+    onSuccess(_payload, variables) {
+      invalidateUserPlaylistQueries(queryClient, variables.playlistId)
+    },
+  })
+}
+
+export function useReorderUserPlaylistItemsMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ playlistId, body }: ReorderUserPlaylistItemsMutationInput) =>
+      createPublicMediaDataSource().reorderUserPlaylistItems(playlistId, body),
+    onSuccess(_payload, variables) {
+      invalidateUserPlaylistQueries(queryClient, variables.playlistId)
+    },
   })
 }
 
@@ -108,6 +213,14 @@ export function useLibraryReadiness(libraryId: string) {
     staleTime: 5 * 60 * 1000,
     retry: 0,
   })
+}
+
+function invalidateUserPlaylistQueries(queryClient: QueryClient, playlistId?: string) {
+  void queryClient.invalidateQueries({ queryKey: userPlaylistsQueryKey })
+
+  if (playlistId) {
+    void queryClient.invalidateQueries({ queryKey: userPlaylistItemsQueryKey(playlistId) })
+  }
 }
 
 export function useLibraryItems(
