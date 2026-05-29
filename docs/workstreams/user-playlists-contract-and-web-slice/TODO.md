@@ -1,7 +1,7 @@
 # User Playlists Contract And Web Slice - TODO
 
 Status: Active
-Last updated: 2026-05-28
+Last updated: 2026-05-29
 
 ## M0 - Open Lane
 
@@ -13,12 +13,15 @@ Last updated: 2026-05-28
 
 ## M1 - Public Contract Freeze
 
-- [ ] UPCW-020 [owner=Codex] [deps=UPCW-010] [scope=docs/api/HTTP_API.md,crates/nako-client-protocol,crates/nako-api,docs/workstreams/user-playlists-contract-and-web-slice]
+- [x] UPCW-020 [owner=Codex] [deps=UPCW-010] [scope=docs/api/HTTP_API.md,crates/nako-client-protocol,crates/nako-api,docs/workstreams/user-playlists-contract-and-web-slice]
   Goal: Freeze User Playlist vocabulary, route inventory, DTOs, access-filtering behavior, duplicate/order semantics, and SDK expectations.
   Validation: contract docs updated; focused protocol/API tests or snapshots added when code changes; `cargo fmt --all -- --check`; `git diff --check`.
   Review: verify User Playlist is distinct from catalog Collection, HLS transport playlist, and User Playback State progress.
-  Evidence: `CONTRACT_READINESS.md`, public protocol DTO tests, and HTTP API notes.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Evidence: DONE. `CONTRACT.md`, `CONTRACT_READINESS.md`, Public Client route
+  inventory, protocol DTO tests, OpenAPI schemas/tests, generated
+  TypeScript/Kotlin SDK entries, and HTTP API notes freeze current-user private
+  playlist semantics.
+  Handoff: DONE. Next task is UPCW-030.
 
 ## M2 - Backend Persistence And App Service
 

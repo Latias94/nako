@@ -1,7 +1,7 @@
 # User Playlists Contract And Web Slice - Milestones
 
 Status: Active
-Last updated: 2026-05-28
+Last updated: 2026-05-29
 
 ## M0 - Open Lane
 
@@ -14,6 +14,8 @@ Completed by `UPCW-010`.
 
 Exit criteria: route inventory, DTOs, ownership, access filtering, ordering,
 duplicate behavior, and SDK expectations are frozen.
+
+Completed by `UPCW-020`.
 
 ## M2 - Backend Persistence And App Service
 

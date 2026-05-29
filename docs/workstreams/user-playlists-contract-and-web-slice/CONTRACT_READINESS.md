@@ -1,7 +1,7 @@
 # User Playlists Contract And Web Slice - Contract Readiness
 
-Status: Active
-Last updated: 2026-05-28
+Status: Frozen
+Last updated: 2026-05-29
 
 ## WDRP-050 Decision
 
@@ -20,27 +20,29 @@ Rationale:
 - Existing catalog `Collection` data and HLS `playlist.m3u8` routes are not a
   user-created playlist feature.
 
-## Required Contract Decisions
+## Frozen Contract Decisions
 
-UPCW-020 must freeze these before implementation:
+UPCW-020 freezes these decisions:
 
-| Decision | Initial recommendation |
+| Decision | Accepted contract |
 | --- | --- |
 | Route namespace | `/users/me/playlists` only. No arbitrary-user routes. |
 | Ownership | Authenticated principal owns playlists; token values are never stored. |
 | Visibility | Private playlists only in the first slice. |
 | Item target | Media Item IDs only; Source-specific playlists are deferred. |
 | Ordering | Explicit integer order with deterministic pagination. |
-| Duplicate membership | Prefer one row per playlist/item in the first slice. |
-| Access filtering | Inaccessible items are omitted or returned as redacted tombstones; UPCW-020 must choose. |
+| Duplicate membership | One row per playlist/item in the first slice; `PUT` add is idempotent. |
+| Access filtering | Inaccessible membership rows are omitted from Public Client item responses; no tombstones in the first slice. |
 | Mutations | Create/rename/delete playlist; add/remove/reorder items. No media/library writes. |
-| Concurrency | Use version or updated-at fields for stale mutation detection if needed. |
-| SDK surface | Rust and TypeScript SDK methods generated from Public Client contract. |
+| Concurrency | Playlist DTOs expose `version`; mutation bodies may carry `expected_version` and stale writes return `409 conflict`. |
+| SDK surface | TypeScript/Kotlin generated SDKs expose DTOs and route helpers now; Rust client convenience methods follow server implementation in UPCW-040. |
 | Web entry | `/media/playlists` only after route/DTO contract exists. |
 
-## Candidate Route Inventory
+The full frozen contract lives in `CONTRACT.md`.
 
-UPCW-020 should validate or revise this route set:
+## Accepted Route Inventory
+
+The accepted route set is:
 
 | Method | Route | Semantics |
 | --- | --- | --- |

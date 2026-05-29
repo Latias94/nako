@@ -1,14 +1,13 @@
 # User Playlists Contract And Web Slice - Handoff
 
 Status: Active
-Last updated: 2026-05-28
+Last updated: 2026-05-29
 
 ## Current State
 
-This lane is open. WDRP-050 decided that playlists are ready for a
-backend/Public Client contract lane because User Playback State and effective
-Library Access are already implemented, but playlist UI remains blocked until
-UPCW-020 freezes the public contract.
+This lane is open. UPCW-020 froze the User Playlist Public Client contract.
+Playlist UI remains blocked until backend persistence, app-service behavior,
+Public Client routes, SDK methods, and access enforcement land in later tasks.
 
 Important boundaries:
 
@@ -16,17 +15,21 @@ Important boundaries:
 - User Playlist is not HLS `playlist.m3u8`.
 - User Playlist is not global Canonical Metadata.
 - Public routes should be current-user routes under `/users/me/playlists`.
+- Public item responses omit inaccessible membership rows instead of returning
+  tombstones.
+- Duplicate playlist membership is rejected by contract; add is idempotent.
 - Frontend work must use Public Client contracts, not Admin API.
 
 ## Active Task
 
-- Task ID: UPCW-020
+- Task ID: UPCW-030
 - Owner: Codex
 - Status: READY
-- Validation: contract docs, protocol/API tests when code changes, formatting,
-  and diff check.
+- Validation: `cargo nextest run -p nako-db playlist --no-fail-fast`; focused
+  app-service tests; `cargo fmt --all -- --check`.
 
 ## Next Recommended Action
 
-Start UPCW-020. Freeze route/DTO shape, access filtering, duplicate membership,
-ordering, and SDK expectations before any `web/` playlist implementation.
+Start UPCW-030. Implement principal-scoped playlist records, ordered membership
+persistence, and app-service validation without adding Public Client HTTP
+routes or `web/` UI yet.

@@ -111,6 +111,108 @@ fn public_paths() -> Value {
         }),
     );
     paths.insert(
+        "/users/me/playlists".to_owned(),
+        json!({
+            "get": json_get(
+                "listUserPlaylists",
+                "List the current user's private playlists.",
+                "user-playlist",
+                vec![parameter_ref("Limit"), parameter_ref("Offset")],
+                schema_ref("UserPlaylistsResponse")
+            ),
+            "post": json_post_with_body(
+                "createUserPlaylist",
+                "Create a private playlist for the current user.",
+                "user-playlist",
+                vec![],
+                schema_ref("CreateUserPlaylistRequest"),
+                schema_ref("UserPlaylistResponse")
+            )
+        }),
+    );
+    paths.insert(
+        "/users/me/playlists/{playlist_id}".to_owned(),
+        json!({
+            "get": json_get(
+                "getUserPlaylist",
+                "Get one current-user playlist summary.",
+                "user-playlist",
+                vec![path_parameter("playlist_id", "User playlist id.")],
+                schema_ref("UserPlaylistResponse")
+            ),
+            "patch": json_patch(
+                "updateUserPlaylist",
+                "Rename a current-user playlist.",
+                "user-playlist",
+                vec![path_parameter("playlist_id", "User playlist id.")],
+                schema_ref("UpdateUserPlaylistRequest"),
+                schema_ref("UserPlaylistResponse")
+            ),
+            "delete": json_delete(
+                "deleteUserPlaylist",
+                "Delete a current-user playlist and its membership rows.",
+                "user-playlist",
+                vec![path_parameter("playlist_id", "User playlist id.")],
+                schema_ref("UserPlaylistDeleteResponse")
+            )
+        }),
+    );
+    paths.insert(
+        "/users/me/playlists/{playlist_id}/items".to_owned(),
+        json!({
+            "get": json_get(
+                "listUserPlaylistItems",
+                "List accessible items in one current-user playlist.",
+                "user-playlist",
+                vec![
+                    path_parameter("playlist_id", "User playlist id."),
+                    parameter_ref("Limit"),
+                    parameter_ref("Offset")
+                ],
+                schema_ref("UserPlaylistItemsResponse")
+            )
+        }),
+    );
+    paths.insert(
+        "/users/me/playlists/{playlist_id}/items/{item_id}".to_owned(),
+        json!({
+            "put": json_put(
+                "addUserPlaylistItem",
+                "Add or idempotently keep one media item in a current-user playlist.",
+                "user-playlist",
+                vec![
+                    path_parameter("playlist_id", "User playlist id."),
+                    path_parameter("item_id", "Media item id.")
+                ],
+                schema_ref("AddUserPlaylistItemRequest"),
+                schema_ref("UserPlaylistResponse")
+            ),
+            "delete": json_delete(
+                "removeUserPlaylistItem",
+                "Remove one media item from a current-user playlist.",
+                "user-playlist",
+                vec![
+                    path_parameter("playlist_id", "User playlist id."),
+                    path_parameter("item_id", "Media item id.")
+                ],
+                schema_ref("UserPlaylistResponse")
+            )
+        }),
+    );
+    paths.insert(
+        "/users/me/playlists/{playlist_id}/items/reorder".to_owned(),
+        json!({
+            "put": json_put(
+                "reorderUserPlaylistItems",
+                "Replace the current-user playlist item order.",
+                "user-playlist",
+                vec![path_parameter("playlist_id", "User playlist id.")],
+                schema_ref("ReorderUserPlaylistItemsRequest"),
+                schema_ref("UserPlaylistResponse")
+            )
+        }),
+    );
+    paths.insert(
         "/libraries".to_owned(),
         json!({
             "get": json_get("listLibraries", "List configured media libraries.", "library", vec![parameter_ref("Limit"), parameter_ref("Offset")], schema_ref("LibraryListResponse"))
@@ -630,6 +732,48 @@ fn json_put(
         }
     });
     value
+}
+
+fn json_patch(
+    operation_id: &str,
+    summary: &str,
+    tag: &str,
+    parameters: Vec<Value>,
+    request_schema: Value,
+    response_schema: Value,
+) -> Value {
+    let mut value = operation(
+        operation_id,
+        summary,
+        tag,
+        parameters,
+        json_response("OK.", response_schema),
+    );
+    value["requestBody"] = json!({
+        "required": true,
+        "content": {
+            "application/json": {
+                "schema": request_schema
+            }
+        }
+    });
+    value
+}
+
+fn json_delete(
+    operation_id: &str,
+    summary: &str,
+    tag: &str,
+    parameters: Vec<Value>,
+    response_schema: Value,
+) -> Value {
+    operation(
+        operation_id,
+        summary,
+        tag,
+        parameters,
+        json_response("OK.", response_schema),
+    )
 }
 
 fn binary_get(operation_id: &str, summary: &str, parameters: Vec<Value>) -> Value {
@@ -1544,6 +1688,54 @@ fn schemas() -> Value {
             "started_at": nullable_string_schema(),
             "completed_at": nullable_string_schema()
         })),
+        "UserPlaylistsResponse": object_schema(&["playlists", "page"], json!({
+            "playlists": array_schema(schema_ref("UserPlaylistDto")),
+            "page": schema_ref("PageInfo")
+        })),
+        "UserPlaylistResponse": object_schema(&["playlist"], json!({
+            "playlist": schema_ref("UserPlaylistDto")
+        })),
+        "UserPlaylistItemsResponse": object_schema(&["playlist", "items", "page"], json!({
+            "playlist": schema_ref("UserPlaylistDto"),
+            "items": array_schema(schema_ref("UserPlaylistItemDto")),
+            "page": schema_ref("PageInfo")
+        })),
+        "UserPlaylistDeleteResponse": object_schema(&["playlist_id", "deleted"], json!({
+            "playlist_id": uuid_schema(),
+            "deleted": boolean_schema()
+        })),
+        "UserPlaylistDto": object_schema(&["id", "name", "visibility", "item_count", "created_at", "updated_at", "version"], json!({
+            "id": uuid_schema(),
+            "name": string_schema(),
+            "visibility": enum_schema(&["private"]),
+            "item_count": integer_schema("int32"),
+            "created_at": string_schema(),
+            "updated_at": string_schema(),
+            "version": integer_schema("int64")
+        })),
+        "UserPlaylistItemDto": object_schema(&["playlist_id", "item_id", "position", "added_at", "item", "images"], json!({
+            "playlist_id": uuid_schema(),
+            "item_id": uuid_schema(),
+            "position": integer_schema("int32"),
+            "added_at": string_schema(),
+            "item": schema_ref("MediaItemDto"),
+            "images": array_schema(schema_ref("PublicImageRefDto"))
+        })),
+        "CreateUserPlaylistRequest": object_schema(&["name"], json!({
+            "name": string_schema()
+        })),
+        "UpdateUserPlaylistRequest": object_schema(&["name"], json!({
+            "name": string_schema(),
+            "expected_version": integer_schema("int64")
+        })),
+        "AddUserPlaylistItemRequest": object_schema(&[], json!({
+            "position": integer_schema("int32"),
+            "expected_version": integer_schema("int64")
+        })),
+        "ReorderUserPlaylistItemsRequest": object_schema(&["item_ids"], json!({
+            "item_ids": array_schema(uuid_schema()),
+            "expected_version": integer_schema("int64")
+        })),
         "UserPlaybackStateResponse": object_schema(&["state"], json!({
             "state": schema_ref("UserPlaybackStateDto")
         })),
@@ -2215,6 +2407,64 @@ mod tests {
             assert!(
                 !serialized.contains(forbidden),
                 "public user playback contract leaked forbidden term: {forbidden}"
+            );
+        }
+    }
+
+    #[test]
+    fn public_openapi_user_playlist_contract_uses_me_routes_without_collection_or_hls_state() {
+        let document = public_openapi_v1();
+        let schemas = document["components"]["schemas"].as_object().unwrap();
+
+        assert_eq!(
+            document["paths"]["/users/me/playlists"]["get"]["responses"]["200"]["content"]["application/json"]
+                ["schema"]["$ref"],
+            "#/components/schemas/UserPlaylistsResponse"
+        );
+        assert_eq!(
+            document["paths"]["/users/me/playlists"]["post"]["requestBody"]["content"]["application/json"]
+                ["schema"]["$ref"],
+            "#/components/schemas/CreateUserPlaylistRequest"
+        );
+        assert_eq!(
+            document["paths"]["/users/me/playlists/{playlist_id}/items/reorder"]["put"]["requestBody"]
+                ["content"]["application/json"]["schema"]["$ref"],
+            "#/components/schemas/ReorderUserPlaylistItemsRequest"
+        );
+        assert!(schemas.contains_key("UserPlaylistDto"));
+        assert!(schemas.contains_key("UserPlaylistItemDto"));
+        assert_eq!(
+            document["components"]["schemas"]["UserPlaylistItemDto"]["properties"]["item"]["$ref"],
+            "#/components/schemas/MediaItemDto"
+        );
+        assert_eq!(
+            document["components"]["schemas"]["UserPlaylistItemDto"]["properties"]["images"]["items"]
+                ["$ref"],
+            "#/components/schemas/PublicImageRefDto"
+        );
+
+        let playlist_contract = json!({
+            "paths": {
+                "/users/me/playlists": document["paths"]["/users/me/playlists"].clone(),
+                "/users/me/playlists/{playlist_id}": document["paths"]["/users/me/playlists/{playlist_id}"].clone(),
+                "/users/me/playlists/{playlist_id}/items": document["paths"]["/users/me/playlists/{playlist_id}/items"].clone(),
+                "/users/me/playlists/{playlist_id}/items/{item_id}": document["paths"]["/users/me/playlists/{playlist_id}/items/{item_id}"].clone(),
+                "/users/me/playlists/{playlist_id}/items/reorder": document["paths"]["/users/me/playlists/{playlist_id}/items/reorder"].clone()
+            },
+            "schemas": {
+                "UserPlaylistsResponse": document["components"]["schemas"]["UserPlaylistsResponse"].clone(),
+                "UserPlaylistResponse": document["components"]["schemas"]["UserPlaylistResponse"].clone(),
+                "UserPlaylistDto": document["components"]["schemas"]["UserPlaylistDto"].clone(),
+                "UserPlaylistItemDto": document["components"]["schemas"]["UserPlaylistItemDto"].clone()
+            }
+        })
+        .to_string()
+        .to_ascii_lowercase();
+
+        for forbidden in ["principal_id", "user_id", "collection_id", "playlist.m3u8"] {
+            assert!(
+                !playlist_contract.contains(forbidden),
+                "public user playlist contract leaked forbidden term: {forbidden}"
             );
         }
     }

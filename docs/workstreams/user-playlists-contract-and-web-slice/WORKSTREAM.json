@@ -3,17 +3,19 @@
   "slug": "user-playlists-contract-and-web-slice",
   "title": "User Playlists Contract And Web Slice",
   "status": "active",
-  "updated": "2026-05-28",
+  "updated": "2026-05-29",
   "scope_kind": "public_client_contract",
   "problem": "The web playlist UI cannot return until Nako has a server-owned current-user playlist contract distinct from catalog collections and HLS transport playlists.",
   "task_prefix": "UPCW",
-  "current_task": "UPCW-020",
+  "current_task": "UPCW-030",
   "completed_tasks": [
-    "UPCW-010"
+    "UPCW-010",
+    "UPCW-020"
   ],
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/user-playlists-contract-and-web-slice/README.md" },
     { "role": "design", "path": "docs/workstreams/user-playlists-contract-and-web-slice/DESIGN.md" },
+    { "role": "contract", "path": "docs/workstreams/user-playlists-contract-and-web-slice/CONTRACT.md" },
     { "role": "contract_readiness", "path": "docs/workstreams/user-playlists-contract-and-web-slice/CONTRACT_READINESS.md" },
     { "role": "execution", "path": "docs/workstreams/user-playlists-contract-and-web-slice/TODO.md" },
     { "role": "milestones", "path": "docs/workstreams/user-playlists-contract-and-web-slice/MILESTONES.md" },
@@ -30,7 +32,8 @@
     "git diff --check"
   ],
   "evidence": [
-    "UPCW-010 opened the lane from WDRP-050 and recorded that playlists should proceed as a backend/Public Client contract lane before web UI restoration."
+    "UPCW-010 opened the lane from WDRP-050 and recorded that playlists should proceed as a backend/Public Client contract lane before web UI restoration.",
+    "UPCW-020 froze current-user private User Playlist route inventory, DTOs, access filtering, duplicate/order semantics, mutation request shape, OpenAPI schemas, generated TypeScript/Kotlin SDK expectations, and HTTP API notes."
   ],
   "adr_refs": [
     "docs/adr/0021-video-first-media-server-domain-model.md",
@@ -40,6 +43,6 @@
   ],
   "continue_policy": {
     "default_action": "continue_current_task",
-    "notes": "Continue with UPCW-020. Do not restore playlist UI in web before the Public Client contract is frozen."
+    "notes": "Continue with UPCW-030. Implement principal-scoped playlist persistence and app-service validation before adding Public Client HTTP routes or web UI."
   }
 }

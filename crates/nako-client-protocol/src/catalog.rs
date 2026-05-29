@@ -932,6 +932,80 @@ pub struct ContinueWatchingItemDto {
     pub images: Vec<PublicImageRefDto>,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct UserPlaylistsResponse {
+    pub playlists: Vec<UserPlaylistDto>,
+    pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct UserPlaylistResponse {
+    pub playlist: UserPlaylistDto,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct UserPlaylistItemsResponse {
+    pub playlist: UserPlaylistDto,
+    pub items: Vec<UserPlaylistItemDto>,
+    pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct UserPlaylistDeleteResponse {
+    pub playlist_id: String,
+    pub deleted: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct UserPlaylistDto {
+    pub id: String,
+    pub name: String,
+    pub visibility: ClientUserPlaylistVisibility,
+    pub item_count: u32,
+    pub created_at: String,
+    pub updated_at: String,
+    pub version: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct UserPlaylistItemDto {
+    pub playlist_id: String,
+    pub item_id: String,
+    pub position: u32,
+    pub added_at: String,
+    pub item: MediaItemDto,
+    pub images: Vec<PublicImageRefDto>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CreateUserPlaylistRequest {
+    pub name: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct UpdateUserPlaylistRequest {
+    pub name: String,
+    pub expected_version: Option<u64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddUserPlaylistItemRequest {
+    pub position: Option<u32>,
+    pub expected_version: Option<u64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ReorderUserPlaylistItemsRequest {
+    pub item_ids: Vec<String>,
+    pub expected_version: Option<u64>,
+}
+
+public_string_value! {
+    pub enum ClientUserPlaylistVisibility {
+        Private => "private",
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct UserPlaybackStateDto {
     pub item_id: String,

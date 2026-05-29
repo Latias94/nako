@@ -21,6 +21,11 @@ public val NAKO_PUBLIC_PATHS: List<String> = listOf(
     "/auth/invitations/redeem",
     "/auth/logout",
     "/users/me",
+    "/users/me/playlists",
+    "/users/me/playlists/{playlist_id}",
+    "/users/me/playlists/{playlist_id}/items",
+    "/users/me/playlists/{playlist_id}/items/{item_id}",
+    "/users/me/playlists/{playlist_id}/items/reorder",
     "/libraries",
     "/libraries/{library_id}",
     "/libraries/{library_id}/sources",
@@ -138,6 +143,76 @@ public object NakoPublicClientRequests {
         NakoRequestDescriptor(
             method = "GET",
             pathAndQuery = pathWithQuery("/libraries", pageQuery(page)),
+        )
+
+    public fun listUserPlaylists(page: PageQuery = PageQuery()): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "GET",
+            pathAndQuery = pathWithQuery("/users/me/playlists", pageQuery(page)),
+        )
+
+    public fun createUserPlaylist(): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "POST",
+            pathAndQuery = "/users/me/playlists",
+        )
+
+    public fun getUserPlaylist(playlistId: String): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "GET",
+            pathAndQuery = "/users/me/playlists/${encodePathSegment(playlistId)}",
+        )
+
+    public fun updateUserPlaylist(playlistId: String): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "PATCH",
+            pathAndQuery = "/users/me/playlists/${encodePathSegment(playlistId)}",
+        )
+
+    public fun deleteUserPlaylist(playlistId: String): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "DELETE",
+            pathAndQuery = "/users/me/playlists/${encodePathSegment(playlistId)}",
+        )
+
+    public fun listUserPlaylistItems(
+        playlistId: String,
+        page: PageQuery = PageQuery(),
+    ): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "GET",
+            pathAndQuery = pathWithQuery(
+                "/users/me/playlists/${encodePathSegment(playlistId)}/items",
+                pageQuery(page),
+            ),
+        )
+
+    public fun addUserPlaylistItem(
+        playlistId: String,
+        itemId: String,
+    ): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "PUT",
+            pathAndQuery = "/users/me/playlists/${encodePathSegment(playlistId)}/items/${
+                encodePathSegment(itemId)
+            }",
+        )
+
+    public fun removeUserPlaylistItem(
+        playlistId: String,
+        itemId: String,
+    ): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "DELETE",
+            pathAndQuery = "/users/me/playlists/${encodePathSegment(playlistId)}/items/${
+                encodePathSegment(itemId)
+            }",
+        )
+
+    public fun reorderUserPlaylistItems(playlistId: String): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "PUT",
+            pathAndQuery = "/users/me/playlists/${encodePathSegment(playlistId)}/items/reorder",
         )
 
     public fun getLibrary(libraryId: String): NakoRequestDescriptor =
@@ -1180,6 +1255,30 @@ public value class TranscodeSessionDtoState(
     }
 }
 
+@JvmInline
+@Serializable
+public value class UserPlaylistDtoVisibility(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val Private: UserPlaylistDtoVisibility = UserPlaylistDtoVisibility("private")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "private",
+        )
+    }
+}
+
+@Serializable
+public data class AddUserPlaylistItemRequest(
+    @SerialName("expected_version")
+    public val expectedVersion: Long? = null,
+    public val position: Int? = null,
+)
+
 @Serializable
 public data class BrowserPlaybackCapabilitiesDto(
     @SerialName("audio_codec")
@@ -1826,6 +1925,11 @@ public data class ContinueWatchingResponse(
 )
 
 @Serializable
+public data class CreateUserPlaylistRequest(
+    public val name: String,
+)
+
+@Serializable
 public data class CreditDto(
     public val character: String?,
     @SerialName("external_ids")
@@ -2451,6 +2555,14 @@ public value class RendererTransportUrlKind(
 }
 
 @Serializable
+public data class ReorderUserPlaylistItemsRequest(
+    @SerialName("expected_version")
+    public val expectedVersion: Long? = null,
+    @SerialName("item_ids")
+    public val itemIds: List<String>,
+)
+
+@Serializable
 public data class SearchItemHit(
     public val item: MediaItemDto,
     public val score: Float,
@@ -2550,6 +2662,13 @@ public data class UpdatePlaybackProgressRequest(
 )
 
 @Serializable
+public data class UpdateUserPlaylistRequest(
+    @SerialName("expected_version")
+    public val expectedVersion: Long? = null,
+    public val name: String,
+)
+
+@Serializable
 public data class UserPlaybackStateDto(
     @SerialName("duration_ms")
     public val durationMs: Long?,
@@ -2574,6 +2693,58 @@ public data class UserPlaybackStateDto(
 @Serializable
 public data class UserPlaybackStateResponse(
     public val state: UserPlaybackStateDto,
+)
+
+@Serializable
+public data class UserPlaylistDeleteResponse(
+    public val deleted: Boolean,
+    @SerialName("playlist_id")
+    public val playlistId: String,
+)
+
+@Serializable
+public data class UserPlaylistDto(
+    @SerialName("created_at")
+    public val createdAt: String,
+    public val id: String,
+    @SerialName("item_count")
+    public val itemCount: Int,
+    public val name: String,
+    @SerialName("updated_at")
+    public val updatedAt: String,
+    public val version: Long,
+    public val visibility: UserPlaylistDtoVisibility,
+)
+
+@Serializable
+public data class UserPlaylistItemDto(
+    @SerialName("added_at")
+    public val addedAt: String,
+    public val images: List<PublicImageRefDto>,
+    public val item: MediaItemDto,
+    @SerialName("item_id")
+    public val itemId: String,
+    @SerialName("playlist_id")
+    public val playlistId: String,
+    public val position: Int,
+)
+
+@Serializable
+public data class UserPlaylistItemsResponse(
+    public val items: List<UserPlaylistItemDto>,
+    public val page: PageInfo,
+    public val playlist: UserPlaylistDto,
+)
+
+@Serializable
+public data class UserPlaylistResponse(
+    public val playlist: UserPlaylistDto,
+)
+
+@Serializable
+public data class UserPlaylistsResponse(
+    public val page: PageInfo,
+    public val playlists: List<UserPlaylistDto>,
 )
 
 @Serializable

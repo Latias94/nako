@@ -616,6 +616,76 @@ public object NakoPublicClientRequests {
             pathAndQuery = pathWithQuery("/libraries", pageQuery(page)),
         )
 
+    public fun listUserPlaylists(page: PageQuery = PageQuery()): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "GET",
+            pathAndQuery = pathWithQuery("/users/me/playlists", pageQuery(page)),
+        )
+
+    public fun createUserPlaylist(): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "POST",
+            pathAndQuery = "/users/me/playlists",
+        )
+
+    public fun getUserPlaylist(playlistId: String): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "GET",
+            pathAndQuery = "/users/me/playlists/${encodePathSegment(playlistId)}",
+        )
+
+    public fun updateUserPlaylist(playlistId: String): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "PATCH",
+            pathAndQuery = "/users/me/playlists/${encodePathSegment(playlistId)}",
+        )
+
+    public fun deleteUserPlaylist(playlistId: String): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "DELETE",
+            pathAndQuery = "/users/me/playlists/${encodePathSegment(playlistId)}",
+        )
+
+    public fun listUserPlaylistItems(
+        playlistId: String,
+        page: PageQuery = PageQuery(),
+    ): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "GET",
+            pathAndQuery = pathWithQuery(
+                "/users/me/playlists/${encodePathSegment(playlistId)}/items",
+                pageQuery(page),
+            ),
+        )
+
+    public fun addUserPlaylistItem(
+        playlistId: String,
+        itemId: String,
+    ): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "PUT",
+            pathAndQuery = "/users/me/playlists/${encodePathSegment(playlistId)}/items/${
+                encodePathSegment(itemId)
+            }",
+        )
+
+    public fun removeUserPlaylistItem(
+        playlistId: String,
+        itemId: String,
+    ): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "DELETE",
+            pathAndQuery = "/users/me/playlists/${encodePathSegment(playlistId)}/items/${
+                encodePathSegment(itemId)
+            }",
+        )
+
+    public fun reorderUserPlaylistItems(playlistId: String): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "PUT",
+            pathAndQuery = "/users/me/playlists/${encodePathSegment(playlistId)}/items/reorder",
+        )
+
     public fun getLibrary(libraryId: String): NakoRequestDescriptor =
         NakoRequestDescriptor(
             method = "GET",
@@ -1234,6 +1304,42 @@ export class NakoClient {
     return this.requestJson("GET", "/users/me");
   }
 
+  listUserPlaylists(page?: PageQuery): Promise<UserPlaylistsResponse> {
+    return this.requestJson("GET", "/users/me/playlists", { query: page });
+  }
+
+  createUserPlaylist(body: CreateUserPlaylistRequest): Promise<UserPlaylistResponse> {
+    return this.requestJson("POST", "/users/me/playlists", { body });
+  }
+
+  getUserPlaylist(playlistId: string): Promise<UserPlaylistResponse> {
+    return this.requestJson("GET", `/users/me/playlists/${encodeURIComponent(playlistId)}`);
+  }
+
+  updateUserPlaylist(playlistId: string, body: UpdateUserPlaylistRequest): Promise<UserPlaylistResponse> {
+    return this.requestJson("PATCH", `/users/me/playlists/${encodeURIComponent(playlistId)}`, { body });
+  }
+
+  deleteUserPlaylist(playlistId: string): Promise<UserPlaylistDeleteResponse> {
+    return this.requestJson("DELETE", `/users/me/playlists/${encodeURIComponent(playlistId)}`);
+  }
+
+  listUserPlaylistItems(playlistId: string, page?: PageQuery): Promise<UserPlaylistItemsResponse> {
+    return this.requestJson("GET", `/users/me/playlists/${encodeURIComponent(playlistId)}/items`, { query: page });
+  }
+
+  addUserPlaylistItem(playlistId: string, itemId: string, body: AddUserPlaylistItemRequest = {}): Promise<UserPlaylistResponse> {
+    return this.requestJson("PUT", `/users/me/playlists/${encodeURIComponent(playlistId)}/items/${encodeURIComponent(itemId)}`, { body });
+  }
+
+  removeUserPlaylistItem(playlistId: string, itemId: string): Promise<UserPlaylistResponse> {
+    return this.requestJson("DELETE", `/users/me/playlists/${encodeURIComponent(playlistId)}/items/${encodeURIComponent(itemId)}`);
+  }
+
+  reorderUserPlaylistItems(playlistId: string, body: ReorderUserPlaylistItemsRequest): Promise<UserPlaylistResponse> {
+    return this.requestJson("PUT", `/users/me/playlists/${encodeURIComponent(playlistId)}/items/reorder`, { body });
+  }
+
   listLibraries(page?: PageQuery): Promise<LibraryListResponse> {
     return this.requestJson("GET", "/libraries", { query: page });
   }
@@ -1511,6 +1617,15 @@ mod tests {
 
         for method in [
             "health(",
+            "listUserPlaylists(",
+            "createUserPlaylist(",
+            "getUserPlaylist(",
+            "updateUserPlaylist(",
+            "deleteUserPlaylist(",
+            "listUserPlaylistItems(",
+            "addUserPlaylistItem(",
+            "removeUserPlaylistItem(",
+            "reorderUserPlaylistItems(",
             "listLibraries(",
             "getLibrary(",
             "listLibraryItems(",
@@ -1575,6 +1690,10 @@ mod tests {
             "RendererTransportUrlKind",
             "PlaybackSessionResponse",
             "PlaybackSessionHeartbeatRequest",
+            "UserPlaylistResponse",
+            "UserPlaylistItemsResponse",
+            "CreateUserPlaylistRequest",
+            "ReorderUserPlaylistItemsRequest",
             "limit?: number",
             "offset?: number",
             "ImageVariantQuery",
@@ -1648,6 +1767,7 @@ mod tests {
             "public data class PlaybackDecisionResponse",
             "public val playbackSessionId: String?",
             "public data class UserPlaybackStateResponse",
+            "public data class UserPlaylistResponse",
             "public data class ErrorResponse",
             "public data class ClientPlaybackCapabilitiesDto",
             "public value class ClientPlaybackDecisionReason",
@@ -1655,6 +1775,8 @@ mod tests {
             "public data class NakoRequestDescriptor",
             "public object NakoPublicClientRequests",
             "public fun health(): NakoRequestDescriptor",
+            "public fun listUserPlaylists(page: PageQuery = PageQuery()): NakoRequestDescriptor",
+            "public fun reorderUserPlaylistItems(playlistId: String): NakoRequestDescriptor",
             "public fun listLibraries(page: PageQuery = PageQuery()): NakoRequestDescriptor",
             "public fun listLibraryItems(",
             "public fun managementContextLinks(",

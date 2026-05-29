@@ -18,8 +18,10 @@ pub struct PublicClientRoute {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PublicClientHttpMethod {
+    Delete,
     Get,
     Head,
+    Patch,
     Post,
     Put,
 }
@@ -28,8 +30,10 @@ impl PublicClientHttpMethod {
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::Delete => "DELETE",
             Self::Get => "GET",
             Self::Head => "HEAD",
+            Self::Patch => "PATCH",
             Self::Post => "POST",
             Self::Put => "PUT",
         }
@@ -45,6 +49,7 @@ pub enum PublicClientRouteKind {
     Management,
     Playback,
     Renderer,
+    UserPlaylist,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -82,6 +87,40 @@ pub const PUBLIC_CLIENT_ROUTES: &[PublicClientRoute] = &[
         path: "/users/me",
         methods: &[PublicClientHttpMethod::Get],
         kind: PublicClientRouteKind::Account,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/users/me/playlists",
+        methods: &[PublicClientHttpMethod::Get, PublicClientHttpMethod::Post],
+        kind: PublicClientRouteKind::UserPlaylist,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/users/me/playlists/{playlist_id}",
+        methods: &[
+            PublicClientHttpMethod::Get,
+            PublicClientHttpMethod::Patch,
+            PublicClientHttpMethod::Delete,
+        ],
+        kind: PublicClientRouteKind::UserPlaylist,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/users/me/playlists/{playlist_id}/items",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::UserPlaylist,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/users/me/playlists/{playlist_id}/items/{item_id}",
+        methods: &[PublicClientHttpMethod::Put, PublicClientHttpMethod::Delete],
+        kind: PublicClientRouteKind::UserPlaylist,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/users/me/playlists/{playlist_id}/items/reorder",
+        methods: &[PublicClientHttpMethod::Put],
+        kind: PublicClientRouteKind::UserPlaylist,
         rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
     },
     PublicClientRoute {
@@ -528,12 +567,17 @@ mod tests {
     fn public_route_inventory_is_protocol_owned_and_complete() {
         let paths = public_client_paths().collect::<Vec<_>>();
 
-        assert_eq!(paths.len(), 43);
+        assert_eq!(paths.len(), 48);
         assert!(paths.contains(&"/health"));
         assert!(paths.contains(&"/auth/login"));
         assert!(paths.contains(&"/auth/invitations/redeem"));
         assert!(paths.contains(&"/auth/logout"));
         assert!(paths.contains(&"/users/me"));
+        assert!(paths.contains(&"/users/me/playlists"));
+        assert!(paths.contains(&"/users/me/playlists/{playlist_id}"));
+        assert!(paths.contains(&"/users/me/playlists/{playlist_id}/items"));
+        assert!(paths.contains(&"/users/me/playlists/{playlist_id}/items/{item_id}"));
+        assert!(paths.contains(&"/users/me/playlists/{playlist_id}/items/reorder"));
         assert!(paths.contains(&"/management/context-links"));
         assert!(paths.contains(&"/images/{image_id}"));
         assert!(paths.contains(&"/sources/{source_id}/stream"));
@@ -590,7 +634,7 @@ mod tests {
 
         let json_count = public_client_json_routes().count();
         let streaming_count = public_client_streaming_routes().count();
-        assert_eq!(json_count, 37);
+        assert_eq!(json_count, 42);
         assert_eq!(streaming_count, 6);
         assert_eq!(json_count + streaming_count, PUBLIC_CLIENT_ROUTES.len());
         let remux_stream = PUBLIC_CLIENT_ROUTES
@@ -1148,5 +1192,48 @@ mod tests {
         assert!((progress - 0.2).abs() < 0.000_001);
         assert!(value["state"].get("principal_id").is_none());
         assert!(value["state"].get("user_id").is_none());
+    }
+
+    #[test]
+    fn public_user_playlist_contract_is_current_user_media_state() {
+        let paths = public_client_paths().collect::<Vec<_>>();
+
+        assert!(paths.contains(&"/users/me/playlists"));
+        assert!(paths.contains(&"/users/me/playlists/{playlist_id}"));
+        assert!(paths.contains(&"/users/me/playlists/{playlist_id}/items"));
+        assert!(paths.contains(&"/users/me/playlists/{playlist_id}/items/{item_id}"));
+        assert!(paths.contains(&"/users/me/playlists/{playlist_id}/items/reorder"));
+
+        let route = PUBLIC_CLIENT_ROUTES
+            .iter()
+            .find(|route| route.path == "/users/me/playlists")
+            .expect("user playlists route exists");
+        assert_eq!(route.kind, PublicClientRouteKind::UserPlaylist);
+        assert_eq!(
+            route
+                .methods
+                .iter()
+                .map(|method| method.as_str())
+                .collect::<Vec<_>>(),
+            vec!["GET", "POST"]
+        );
+
+        let response = UserPlaylistResponse {
+            playlist: UserPlaylistDto {
+                id: "playlist-1".to_owned(),
+                name: "Weekend".to_owned(),
+                visibility: ClientUserPlaylistVisibility::Private,
+                item_count: 1,
+                created_at: "2026-05-29T00:00:00Z".to_owned(),
+                updated_at: "2026-05-29T00:01:00Z".to_owned(),
+                version: 2,
+            },
+        };
+        let value = serde_json::to_value(response).unwrap();
+
+        assert_eq!(value["playlist"]["visibility"], "private");
+        assert!(value["playlist"].get("principal_id").is_none());
+        assert!(value["playlist"].get("collection_id").is_none());
+        assert!(value["playlist"].get("source_id").is_none());
     }
 }

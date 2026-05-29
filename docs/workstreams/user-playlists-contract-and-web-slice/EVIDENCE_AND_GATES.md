@@ -1,7 +1,7 @@
 # User Playlists Contract And Web Slice - Evidence And Gates
 
 Status: Active
-Last updated: 2026-05-28
+Last updated: 2026-05-29
 
 ## Gate Set
 
@@ -37,3 +37,4 @@ Closeout should also record browser smoke for desktop and mobile viewports.
 | Date | Task | Evidence | Result |
 | --- | --- | --- | --- |
 | 2026-05-28 | UPCW-010 | Opened this lane from WDRP-050 after confirming user principal, User Playback State, and Library Access prerequisites are present but no Public Client playlist contract exists. | Passed. |
+| 2026-05-29 | UPCW-020 | Froze current-user private User Playlist route inventory, DTOs, access-filtering, ordering, duplicate membership, mutation, and SDK expectations in `CONTRACT.md`, `CONTRACT_READINESS.md`, `docs/api/HTTP_API.md`, protocol DTOs, OpenAPI schemas, and generated TypeScript/Kotlin SDK entries. Validation: `cargo nextest run -p nako-client-protocol playlist --no-fail-fast`; `cargo nextest run -p nako-api playlist --no-fail-fast`; `cargo nextest run -p nako-api sdk --no-fail-fast`; `cargo nextest run -p nako-client sdk_inventory --no-fail-fast`; `npm run check --prefix sdk/typescript`; `cargo fmt --all -- --check`; `python -m json.tool docs/workstreams/user-playlists-contract-and-web-slice/WORKSTREAM.json`; `git diff --check -- docs/workstreams/user-playlists-contract-and-web-slice docs/api/HTTP_API.md crates/nako-client-protocol crates/nako-api sdk/typescript sdk/kotlin`. | Passed. |

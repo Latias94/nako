@@ -74,6 +74,15 @@ GET  /playback/sessions/{session_id}
 POST /playback/sessions/{session_id}/cancel
 POST /playback/sessions/{session_id}/heartbeat
 GET  /playback/sessions/{session_id}/hls/segments/{segment_name}
+GET  /users/me/playlists?limit=50&offset=0
+POST /users/me/playlists
+GET  /users/me/playlists/{playlist_id}
+PATCH /users/me/playlists/{playlist_id}
+DELETE /users/me/playlists/{playlist_id}
+GET  /users/me/playlists/{playlist_id}/items?limit=50&offset=0
+PUT  /users/me/playlists/{playlist_id}/items/{item_id}
+DELETE /users/me/playlists/{playlist_id}/items/{item_id}
+PUT  /users/me/playlists/{playlist_id}/items/reorder
 GET  /users/me/playback-state/items/{item_id}
 GET  /users/me/playback-state/continue-watching?limit=50&offset=0
 PUT  /users/me/playback-state/items/{item_id}/progress
@@ -119,7 +128,8 @@ The generated scaffold includes:
 - exported TypeScript interfaces for the public OpenAPI schemas;
 - `NakoClient` methods for health, library, catalog/search, source probe,
   library-scoped browse, playback decision, direct stream, remux stream, HLS
-  playlist/segment, playback session routes, and User Playback State routes;
+  playlist/segment, playback session routes, User Playlist routes, and User
+  Playback State routes;
 - bearer token injection through `Authorization: Bearer <token>`;
 - `x-nako-api-version` response inspection;
 - `ErrorResponse` parsing into `NakoApiError`;
@@ -185,6 +195,11 @@ crate. `nako-api`, the TypeScript generator, and the Rust SDK consume that
 shared inventory so SDKs do not depend on the AGPL server adapter crate for
 route facts.
 
+User Playlist route facts and DTOs are now part of the public protocol and
+generated TypeScript/Kotlin SDK output. Rust client convenience methods follow
+the server implementation slice so the Rust SDK does not advertise executable
+playlist calls before the routes exist.
+
 For streaming/raw byte routes, `nako-client` provides request builders rather
 than response-body ownership:
 
@@ -197,6 +212,128 @@ than response-body ownership:
 The builders construct method, URL, bearer auth, range headers, path encoding,
 playback capability queries, and remux output-container queries. They do not
 execute streaming bodies, manage downloads, or implement an HLS player.
+
+## User Playlists
+
+User Playlists are private current-user media state. They are distinct from
+catalog Collections and from HLS transport playlists. Public routes always use
+`/users/me/playlists`; they never expose internal principal IDs or arbitrary
+user routes.
+
+```http
+GET /users/me/playlists?limit=50&offset=0
+```
+
+```json
+{
+  "playlists": [
+    {
+      "id": "00000000-0000-0000-0000-000000000100",
+      "name": "Weekend",
+      "visibility": "private",
+      "item_count": 2,
+      "created_at": "2026-05-29T00:00:00Z",
+      "updated_at": "2026-05-29T00:01:00Z",
+      "version": 2
+    }
+  ],
+  "page": { "limit": 50, "offset": 0, "returned": 1 }
+}
+```
+
+```http
+POST /users/me/playlists
+Content-Type: application/json
+```
+
+```json
+{ "name": "Weekend" }
+```
+
+Playlist membership targets Media Item IDs only. Adding the same item is
+idempotent and does not create duplicate membership rows:
+
+```http
+PUT /users/me/playlists/{playlist_id}/items/{item_id}
+Content-Type: application/json
+```
+
+```json
+{ "position": 0, "expected_version": 2 }
+```
+
+Items are returned in explicit zero-based position order and include normal
+Public Client item DTOs plus public selected image refs:
+
+```http
+GET /users/me/playlists/{playlist_id}/items?limit=50&offset=0
+```
+
+```json
+{
+  "playlist": {
+    "id": "00000000-0000-0000-0000-000000000100",
+    "name": "Weekend",
+    "visibility": "private",
+    "item_count": 1,
+    "created_at": "2026-05-29T00:00:00Z",
+    "updated_at": "2026-05-29T00:01:00Z",
+    "version": 3
+  },
+  "items": [
+    {
+      "playlist_id": "00000000-0000-0000-0000-000000000100",
+      "item_id": "00000000-0000-0000-0000-000000000001",
+      "position": 0,
+      "added_at": "2026-05-29T00:01:00Z",
+      "item": {
+        "id": "00000000-0000-0000-0000-000000000001",
+        "kind": "movie",
+        "parent_id": null,
+        "metadata": {
+          "title": "Example",
+          "original_title": null,
+          "sort_title": null,
+          "overview": null,
+          "release_date": null,
+          "runtime_minutes": null,
+          "tagline": null,
+          "genres": [],
+          "tags": [],
+          "ratings": [],
+          "credits": [],
+          "collections": [],
+          "studios": [],
+          "external_ids": []
+        }
+      },
+      "images": []
+    }
+  ],
+  "page": { "limit": 50, "offset": 0, "returned": 1 }
+}
+```
+
+Effective Library Access is applied before returning item rows. Inaccessible
+membership rows are omitted rather than returned as tombstones, so the Public
+Client response does not reveal item facts outside the current user's access.
+`item_count` is the accessible item count. Reorder uses:
+
+```http
+PUT /users/me/playlists/{playlist_id}/items/reorder
+Content-Type: application/json
+```
+
+```json
+{
+  "item_ids": ["00000000-0000-0000-0000-000000000001"],
+  "expected_version": 3
+}
+```
+
+When `expected_version` is supplied and stale, implementations return
+`409 conflict`. User Playlist mutations do not write Canonical Metadata, Media
+Sources, NFO sidecars, or Library Files.
 
 ## User Playback State
 

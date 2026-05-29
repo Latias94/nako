@@ -12,6 +12,11 @@ export const NAKO_PUBLIC_PATHS = [
   "/auth/invitations/redeem",
   "/auth/logout",
   "/users/me",
+  "/users/me/playlists",
+  "/users/me/playlists/{playlist_id}",
+  "/users/me/playlists/{playlist_id}/items",
+  "/users/me/playlists/{playlist_id}/items/{item_id}",
+  "/users/me/playlists/{playlist_id}/items/reorder",
   "/libraries",
   "/libraries/{library_id}",
   "/libraries/{library_id}/sources",
@@ -51,6 +56,11 @@ export const NAKO_PUBLIC_PATHS = [
   "/users/me/playback-state/items/{item_id}/progress",
   "/users/me/playback-state/items/{item_id}/watched",
 ] as const;
+
+export interface AddUserPlaylistItemRequest {
+  expected_version?: number;
+  position?: number;
+}
 
 export interface BrowserPlaybackCapabilitiesDto {
   audio_codec?: Array<string>;
@@ -232,6 +242,10 @@ export interface ContinueWatchingItemDto {
 export interface ContinueWatchingResponse {
   items: Array<ContinueWatchingItemDto>;
   page: PageInfo;
+}
+
+export interface CreateUserPlaylistRequest {
+  name: string;
 }
 
 export interface CreditDto {
@@ -664,6 +678,11 @@ export type RendererTransportMode = "direct" | "remux" | "hls";
 
 export type RendererTransportUrlKind = "stream" | "playlist" | "segment_base";
 
+export interface ReorderUserPlaylistItemsRequest {
+  expected_version?: number;
+  item_ids: Array<string>;
+}
+
 export interface SearchItemHit {
   item: MediaItemDto;
   score: number;
@@ -734,6 +753,11 @@ export interface UpdatePlaybackProgressRequest {
   source_id?: string | null;
 }
 
+export interface UpdateUserPlaylistRequest {
+  expected_version?: number;
+  name: string;
+}
+
 export interface UserPlaybackStateDto {
   duration_ms: number | null;
   item_id: string;
@@ -749,6 +773,45 @@ export interface UserPlaybackStateDto {
 
 export interface UserPlaybackStateResponse {
   state: UserPlaybackStateDto;
+}
+
+export interface UserPlaylistDeleteResponse {
+  deleted: boolean;
+  playlist_id: string;
+}
+
+export interface UserPlaylistDto {
+  created_at: string;
+  id: string;
+  item_count: number;
+  name: string;
+  updated_at: string;
+  version: number;
+  visibility: "private";
+}
+
+export interface UserPlaylistItemDto {
+  added_at: string;
+  images: Array<PublicImageRefDto>;
+  item: MediaItemDto;
+  item_id: string;
+  playlist_id: string;
+  position: number;
+}
+
+export interface UserPlaylistItemsResponse {
+  items: Array<UserPlaylistItemDto>;
+  page: PageInfo;
+  playlist: UserPlaylistDto;
+}
+
+export interface UserPlaylistResponse {
+  playlist: UserPlaylistDto;
+}
+
+export interface UserPlaylistsResponse {
+  page: PageInfo;
+  playlists: Array<UserPlaylistDto>;
 }
 
 export interface UserSessionDto {
@@ -850,6 +913,42 @@ export class NakoClient {
 
   currentUser(): Promise<CurrentUserResponse> {
     return this.requestJson("GET", "/users/me");
+  }
+
+  listUserPlaylists(page?: PageQuery): Promise<UserPlaylistsResponse> {
+    return this.requestJson("GET", "/users/me/playlists", { query: page });
+  }
+
+  createUserPlaylist(body: CreateUserPlaylistRequest): Promise<UserPlaylistResponse> {
+    return this.requestJson("POST", "/users/me/playlists", { body });
+  }
+
+  getUserPlaylist(playlistId: string): Promise<UserPlaylistResponse> {
+    return this.requestJson("GET", `/users/me/playlists/${encodeURIComponent(playlistId)}`);
+  }
+
+  updateUserPlaylist(playlistId: string, body: UpdateUserPlaylistRequest): Promise<UserPlaylistResponse> {
+    return this.requestJson("PATCH", `/users/me/playlists/${encodeURIComponent(playlistId)}`, { body });
+  }
+
+  deleteUserPlaylist(playlistId: string): Promise<UserPlaylistDeleteResponse> {
+    return this.requestJson("DELETE", `/users/me/playlists/${encodeURIComponent(playlistId)}`);
+  }
+
+  listUserPlaylistItems(playlistId: string, page?: PageQuery): Promise<UserPlaylistItemsResponse> {
+    return this.requestJson("GET", `/users/me/playlists/${encodeURIComponent(playlistId)}/items`, { query: page });
+  }
+
+  addUserPlaylistItem(playlistId: string, itemId: string, body: AddUserPlaylistItemRequest = {}): Promise<UserPlaylistResponse> {
+    return this.requestJson("PUT", `/users/me/playlists/${encodeURIComponent(playlistId)}/items/${encodeURIComponent(itemId)}`, { body });
+  }
+
+  removeUserPlaylistItem(playlistId: string, itemId: string): Promise<UserPlaylistResponse> {
+    return this.requestJson("DELETE", `/users/me/playlists/${encodeURIComponent(playlistId)}/items/${encodeURIComponent(itemId)}`);
+  }
+
+  reorderUserPlaylistItems(playlistId: string, body: ReorderUserPlaylistItemsRequest): Promise<UserPlaylistResponse> {
+    return this.requestJson("PUT", `/users/me/playlists/${encodeURIComponent(playlistId)}/items/reorder`, { body });
   }
 
   listLibraries(page?: PageQuery): Promise<LibraryListResponse> {
