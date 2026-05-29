@@ -3,13 +3,18 @@ use axum::Json;
 use axum::http::HeaderValue;
 use nako_addon_protocol::{
     ADDON_EXTERNAL_ACQUISITION_ACTION_REQUEST_SCHEMA,
-    ADDON_EXTERNAL_ACQUISITION_ACTION_RESPONSE_SCHEMA, ADDON_SUBTITLE_REQUEST_SCHEMA,
+    ADDON_EXTERNAL_ACQUISITION_ACTION_RESPONSE_SCHEMA,
+    ADDON_EXTERNAL_ACQUISITION_MATERIALIZATION_REQUEST_SCHEMA,
+    ADDON_EXTERNAL_ACQUISITION_MATERIALIZATION_RESPONSE_SCHEMA,
+    ADDON_RUNTIME_EXTERNAL_ACQUISITION_MATERIALIZE_PATH, ADDON_SUBTITLE_REQUEST_SCHEMA,
     ADDON_SUBTITLE_RESPONSE_SCHEMA, AddonExternalAcquisitionActionRequest,
     AddonExternalAcquisitionActionResponse, AddonExternalAcquisitionActionStatus,
-    AddonExternalAcquisitionOperation, AddonExternalAcquisitionProgress,
-    AddonExternalAcquisitionRunnerState, AddonExternalAcquisitionTargetRef, AddonSubtitleCandidate,
-    AddonSubtitleDelivery, AddonSubtitleFormat, AddonSubtitleProviderExecution,
-    AddonSubtitleProviderStatus, AddonSubtitleSearchResponse,
+    AddonExternalAcquisitionMaterializationPurpose, AddonExternalAcquisitionMaterializationRequest,
+    AddonExternalAcquisitionMaterializationResponse, AddonExternalAcquisitionOperation,
+    AddonExternalAcquisitionProgress, AddonExternalAcquisitionRunnerState,
+    AddonExternalAcquisitionTargetRef, AddonSubtitleCandidate, AddonSubtitleDelivery,
+    AddonSubtitleFormat, AddonSubtitleProviderExecution, AddonSubtitleProviderStatus,
+    AddonSubtitleSearchResponse,
 };
 use nako_api::extension::{
     AdminAddonSubtitleDeliveryKind, AdminAddonSubtitleImportApplyRequest,
@@ -19,6 +24,10 @@ use nako_api::extension::{
     AdminAddonSubtitleSelectionResponse, AdminSubtitleImportApplyStatus,
     AdminSubtitleImportBackupPolicy, AdminSubtitleImportConflictPolicy,
     AdminSubtitleImportPlanReason, AdminSubtitleImportPlanStatus, AdminSubtitleSidecarRole,
+};
+use nako_core::{
+    AcquisitionIntakeCandidateId, AcquisitionIntakeCandidateState, AcquisitionIntakeRepository,
+    AcquisitionIntakeSourceKind, NewAcquisitionIntakeCandidate,
 };
 use nako_official_addon_catalog::{
     chromecast_renderer, dlna_renderer, external_acquisition_runner, metadata_scraper,
@@ -623,13 +632,22 @@ async fn task_path_addon_server_with_gate(
 async fn external_acquisition_action_addon_server(
     action_status: AddonExternalAcquisitionActionStatus,
 ) -> (String, StdArc<TokioMutex<Vec<CapturedAddonTaskRequest>>>) {
+    external_acquisition_action_addon_server_with_gate(action_status, None).await
+}
+
+async fn external_acquisition_action_addon_server_with_gate(
+    action_status: AddonExternalAcquisitionActionStatus,
+    gate: Option<StdArc<Notify>>,
+) -> (String, StdArc<TokioMutex<Vec<CapturedAddonTaskRequest>>>) {
     let requests = StdArc::new(TokioMutex::new(Vec::new()));
     let router = Router::new().route(
         external_acquisition_runner::ACTION_TASK_PATH,
         axum::routing::post({
             let requests = StdArc::clone(&requests);
+            let gate = gate.clone();
             move |headers: axum::http::HeaderMap, Json(request): Json<AddonTaskRequest>| {
                 let requests = StdArc::clone(&requests);
+                let gate = gate.clone();
                 async move {
                     requests.lock().await.push(CapturedAddonTaskRequest {
                         headers: headers
@@ -643,6 +661,9 @@ async fn external_acquisition_action_addon_server(
                             .collect(),
                         request: request.clone(),
                     });
+                    if let Some(gate) = gate {
+                        gate.notified().await;
+                    }
 
                     let state = match action_status {
                         AddonExternalAcquisitionActionStatus::Accepted
@@ -5979,6 +6000,166 @@ async fn addon_external_acquisition_action_direct_dispatches_host_owned_referenc
     assert!(replay.idempotent_replay);
     assert_eq!(replay.run.job_id, created.run.job_id);
     assert_eq!(requests.lock().await.len(), 1);
+}
+
+#[tokio::test]
+async fn addon_external_acquisition_materialization_resolves_selected_link_for_running_action() {
+    let (_temp, router, source, store) =
+        router_with_media_source_config("external-acquisition-materialize.mkv", b"media", |_| {})
+            .await;
+    let candidate_id = AcquisitionIntakeCandidateId::new();
+    let now_ms = crate::app::current_time_ms().unwrap();
+    store
+        .upsert_acquisition_intake_candidate(NewAcquisitionIntakeCandidate {
+            id: candidate_id,
+            target_library_id: source.library_id,
+            source_kind: AcquisitionIntakeSourceKind::ResourceSearchSelection,
+            source_key: "materialize-selected-link".to_owned(),
+            source_uri: "magnet:?xt=urn:btih:abcdef1234567890abcdef1234567890abcdef12".to_owned(),
+            display_name: Some("Secret Download".to_owned()),
+            intended_locator: None,
+            size_bytes: None,
+            fingerprint: None,
+            managed_import_artifact_id: None,
+            state: AcquisitionIntakeCandidateState::Ready,
+            diagnostics_json: Some(
+                serde_json::json!({
+                    "schema": "nako.acquisition_intake.resource_search_selection.v1",
+                    "resource_search_selection": true,
+                    "link": {
+                        "type": "magnet",
+                        "source_ref_redacted": "magnet://<redacted>",
+                        "has_password": false
+                    }
+                })
+                .to_string(),
+            ),
+            first_seen_at_ms: now_ms,
+            last_seen_at_ms: now_ms,
+            created_at_ms: now_ms,
+            updated_at_ms: now_ms,
+        })
+        .await
+        .unwrap();
+
+    let gate = StdArc::new(Notify::new());
+    let (base_url, requests) = external_acquisition_action_addon_server_with_gate(
+        AddonExternalAcquisitionActionStatus::Accepted,
+        Some(StdArc::clone(&gate)),
+    )
+    .await;
+    let addon_id = register_external_acquisition_runner_addon(&router, base_url).await;
+    let issued = request_body_json::<AddonTokenIssuedResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/tokens"),
+        &IssueAddonTokenRequest {
+            label: Some("runner".to_owned()),
+        },
+    )
+    .await;
+    let action_payload = AddonExternalAcquisitionActionRequest {
+        schema: ADDON_EXTERNAL_ACQUISITION_ACTION_REQUEST_SCHEMA.to_owned(),
+        target_ref: AddonExternalAcquisitionTargetRef::SelectedLink {
+            selected_link_ref: candidate_id.to_string(),
+        },
+        runner_profile_id: "transmission-local".to_owned(),
+        idempotency_key: "external-acquisition:materialize:1".to_owned(),
+        operation: AddonExternalAcquisitionOperation::Enqueue,
+        audit_ref: Some("audit:materialize:1".to_owned()),
+    };
+    let created = request_body_json::<AddonTaskRunResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/task-runs"),
+        &CreateAddonTaskRunRequest {
+            declaration_id: external_acquisition_runner::ACTION_TASK_ID.to_owned(),
+            idempotency_key: action_payload.idempotency_key.clone(),
+            dispatch: AddonTaskRunDispatchMode::Direct,
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            payload: serde_json::to_value(&action_payload).unwrap(),
+        },
+    )
+    .await;
+    for _ in 0..100 {
+        if requests.lock().await.len() == 1 {
+            break;
+        }
+        sleep(Duration::from_millis(20)).await;
+    }
+    assert_eq!(requests.lock().await.len(), 1);
+
+    let materialized =
+        request_body_json_with_bearer::<AddonExternalAcquisitionMaterializationResponse, _>(
+            &router,
+            Method::POST,
+            ADDON_RUNTIME_EXTERNAL_ACQUISITION_MATERIALIZE_PATH,
+            &issued.raw_token,
+            &AddonExternalAcquisitionMaterializationRequest {
+                schema: ADDON_EXTERNAL_ACQUISITION_MATERIALIZATION_REQUEST_SCHEMA.to_owned(),
+                job_id: created.run.job_id.to_string(),
+                declaration_id: external_acquisition_runner::ACTION_TASK_ID.to_owned(),
+                target_ref: action_payload.target_ref.clone(),
+                runner_profile_id: action_payload.runner_profile_id.clone(),
+                idempotency_key: action_payload.idempotency_key.clone(),
+                operation: AddonExternalAcquisitionOperation::Enqueue,
+                audit_ref: "audit:materialize:1".to_owned(),
+                purpose: AddonExternalAcquisitionMaterializationPurpose::ExternalAcquisitionEnqueue,
+            },
+        )
+        .await;
+
+    assert_eq!(
+        materialized.schema,
+        ADDON_EXTERNAL_ACQUISITION_MATERIALIZATION_RESPONSE_SCHEMA
+    );
+    assert_eq!(materialized.target_ref, action_payload.target_ref);
+    assert_eq!(
+        materialized.material.link_type,
+        AddonResourceLinkType::Magnet
+    );
+    assert!(materialized.material.uri.starts_with("magnet:?xt="));
+    assert_eq!(
+        materialized.safe_facts.get("source_ref_redacted"),
+        Some(&"magnet://<redacted>".to_owned())
+    );
+    assert!(
+        !serde_json::to_string(&materialized.safe_facts)
+            .unwrap()
+            .contains("btih")
+    );
+
+    let rejected = addon_external_acquisition_materialization(
+        &router,
+        Some(&issued.raw_token),
+        &AddonExternalAcquisitionMaterializationRequest {
+            schema: ADDON_EXTERNAL_ACQUISITION_MATERIALIZATION_REQUEST_SCHEMA.to_owned(),
+            job_id: created.run.job_id.to_string(),
+            declaration_id: external_acquisition_runner::ACTION_TASK_ID.to_owned(),
+            target_ref: AddonExternalAcquisitionTargetRef::RunnerJob {
+                runner_job_ref: "fixture-job-1".to_owned(),
+            },
+            runner_profile_id: "transmission-local".to_owned(),
+            idempotency_key: "external-acquisition:materialize:1".to_owned(),
+            operation: AddonExternalAcquisitionOperation::QueryStatus,
+            audit_ref: "audit:materialize:1".to_owned(),
+            purpose: AddonExternalAcquisitionMaterializationPurpose::ExternalAcquisitionEnqueue,
+        },
+    )
+    .await;
+    assert_eq!(rejected.status(), StatusCode::BAD_REQUEST);
+    let rejected_text = response_text(rejected).await;
+    assert!(!rejected_text.contains("magnet:"));
+    assert!(!rejected_text.contains("btih"));
+
+    gate.notify_waiters();
+    let completed =
+        wait_for_addon_task_status(&router, addon_id, created.run.job_id, JobStatus::Succeeded)
+            .await;
+    let completed_text = serde_json::to_string(&completed).unwrap();
+    assert!(!completed_text.contains("magnet:"));
+    assert!(!completed_text.contains("btih"));
 }
 
 #[tokio::test]
@@ -12677,6 +12858,30 @@ async fn addon_access_check(
         .oneshot(
             builder
                 .body(Body::from(serde_json::to_vec(&request).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+}
+
+async fn addon_external_acquisition_materialization(
+    router: &Router,
+    raw_token: Option<&str>,
+    request: &AddonExternalAcquisitionMaterializationRequest,
+) -> Response {
+    let mut builder = Request::builder()
+        .method(Method::POST)
+        .uri(ADDON_RUNTIME_EXTERNAL_ACQUISITION_MATERIALIZE_PATH)
+        .header(header::CONTENT_TYPE, "application/json");
+    if let Some(raw_token) = raw_token {
+        builder = builder.header(header::AUTHORIZATION, format!("Bearer {raw_token}"));
+    }
+
+    router
+        .clone()
+        .oneshot(
+            builder
+                .body(Body::from(serde_json::to_vec(request).unwrap()))
                 .unwrap(),
         )
         .await
