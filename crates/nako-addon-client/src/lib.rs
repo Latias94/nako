@@ -2,16 +2,20 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use nako_addon_protocol::{
+    ADDON_EXTERNAL_ACQUISITION_MATERIALIZATION_REQUEST_SCHEMA,
+    ADDON_EXTERNAL_ACQUISITION_MATERIALIZATION_RESPONSE_SCHEMA,
     ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA, ADDON_RESOURCE_LINK_CHECK_RESPONSE_SCHEMA,
     ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA, ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA,
-    ADDON_RUNTIME_ACCESS_CHECK_PATH, ADDON_RUNTIME_SIDE_EFFECTS_PATH,
-    ADDON_SUBTITLE_REQUEST_SCHEMA, ADDON_SUBTITLE_RESPONSE_SCHEMA, AddonAccessCheckRequest,
-    AddonAccessCheckResponse, AddonAuth, AddonEventRequest, AddonEventResponse,
-    AddonHealthCheckRequest, AddonHealthCheckResponse, AddonManifest, AddonManifestError,
-    AddonPermission, AddonResource, AddonResourceLinkCheckRequest, AddonResourceLinkCheckResponse,
-    AddonResourceRequest, AddonResourceResponse, AddonResourceSearchRequest,
-    AddonResourceSearchResponse, AddonScope, AddonSideEffectResponse, AddonSideEffectTargetKind,
-    AddonSubtitleSearchRequest, AddonSubtitleSearchResponse, AddonTaskRequest, AddonTaskResponse,
+    ADDON_RUNTIME_ACCESS_CHECK_PATH, ADDON_RUNTIME_EXTERNAL_ACQUISITION_MATERIALIZE_PATH,
+    ADDON_RUNTIME_SIDE_EFFECTS_PATH, ADDON_SUBTITLE_REQUEST_SCHEMA, ADDON_SUBTITLE_RESPONSE_SCHEMA,
+    AddonAccessCheckRequest, AddonAccessCheckResponse, AddonAuth, AddonEventRequest,
+    AddonEventResponse, AddonExternalAcquisitionMaterializationRequest,
+    AddonExternalAcquisitionMaterializationResponse, AddonHealthCheckRequest,
+    AddonHealthCheckResponse, AddonManifest, AddonManifestError, AddonPermission, AddonResource,
+    AddonResourceLinkCheckRequest, AddonResourceLinkCheckResponse, AddonResourceRequest,
+    AddonResourceResponse, AddonResourceSearchRequest, AddonResourceSearchResponse, AddonScope,
+    AddonSideEffectResponse, AddonSideEffectTargetKind, AddonSubtitleSearchRequest,
+    AddonSubtitleSearchResponse, AddonTaskRequest, AddonTaskResponse,
     SubmitAddonArtworkWriteRequest, SubmitAddonMetadataWriteRequest, SubmitAddonSideEffectRequest,
     ensure_event_subscription_scope_grant, ensure_scope_grant, ensure_task_scope_grant,
     validate_event_response, validate_health_check_response, validate_manifest,
@@ -1019,6 +1023,31 @@ where
             .await
     }
 
+    pub async fn materialize_external_acquisition(
+        &self,
+        request: AddonExternalAcquisitionMaterializationRequest,
+    ) -> AddonClientResult<AddonExternalAcquisitionMaterializationResponse> {
+        if request.schema != ADDON_EXTERNAL_ACQUISITION_MATERIALIZATION_REQUEST_SCHEMA {
+            return Err(invalid_runtime_request(format!(
+                "external acquisition materialization request schema {} did not match {}",
+                request.schema, ADDON_EXTERNAL_ACQUISITION_MATERIALIZATION_REQUEST_SCHEMA
+            )));
+        }
+        if !request.operation.can_materialize_target() {
+            return Err(invalid_runtime_request(
+                "external acquisition materialization operation cannot materialize targets",
+            ));
+        }
+
+        let response = self
+            .post_runtime_json(
+                ADDON_RUNTIME_EXTERNAL_ACQUISITION_MATERIALIZE_PATH,
+                &request,
+            )
+            .await?;
+        ensure_external_acquisition_materialization_response_schema(response)
+    }
+
     pub async fn submit_metadata_write(
         &self,
         request: SubmitAddonMetadataWriteRequest,
@@ -1114,6 +1143,21 @@ fn runtime_response_envelope_error(error: serde_json::Error) -> AddonClientError
     AddonClientError::InvalidResponse {
         message: format!("failed to parse Nako runtime response: {error}"),
     }
+}
+
+fn ensure_external_acquisition_materialization_response_schema(
+    response: AddonExternalAcquisitionMaterializationResponse,
+) -> AddonClientResult<AddonExternalAcquisitionMaterializationResponse> {
+    if response.schema == ADDON_EXTERNAL_ACQUISITION_MATERIALIZATION_RESPONSE_SCHEMA {
+        return Ok(response);
+    }
+
+    Err(AddonClientError::InvalidResponse {
+        message: format!(
+            "external acquisition materialization response schema {} did not match {}",
+            response.schema, ADDON_EXTERNAL_ACQUISITION_MATERIALIZATION_RESPONSE_SCHEMA
+        ),
+    })
 }
 
 fn addon_http_error(error: reqwest::Error) -> AddonClientError {
@@ -2315,6 +2359,91 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn runtime_materialization_sends_bearer_token_only_in_header() {
+        let transport = MockTransport::with_response(Ok(AddonHttpResponse {
+            status: 200,
+            body: external_acquisition_materialization_response_json(),
+        }));
+        let client = runtime_client(transport.clone());
+
+        let response = client
+            .materialize_external_acquisition(external_acquisition_materialization_request(
+                "materialization-demo-1",
+            ))
+            .await
+            .unwrap();
+
+        assert_eq!(
+            response.material.link_type,
+            nako_addon_protocol::AddonResourceLinkType::Magnet
+        );
+        assert_eq!(response.material.password.as_deref(), Some("secret-code"));
+        let requests = transport.requests();
+        assert_eq!(requests.len(), 1);
+        assert_eq!(
+            requests[0].url,
+            "https://nako.example/addon/v1/acquisition/materialize"
+        );
+        assert_eq!(
+            header_value(&requests[0], "authorization"),
+            Some("Bearer addon-token-secret")
+        );
+        assert!(!requests[0].body.contains("addon-token-secret"));
+        assert!(
+            requests[0]
+                .body
+                .contains("\"purpose\":\"external_acquisition_enqueue\"")
+        );
+        assert!(requests[0].body.contains("\"operation\":\"enqueue\""));
+
+        let debug = format!("{response:?}");
+        for forbidden in [
+            "magnet:?xt=urn:btih:secret",
+            "secret-code",
+            "materialization-secret",
+        ] {
+            assert!(
+                !debug.contains(forbidden),
+                "materialization debug leaked forbidden term: {forbidden}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn runtime_materialization_rejects_invalid_request_before_http() {
+        let transport = MockTransport::default();
+        let client = runtime_client(transport.clone());
+        let mut request = external_acquisition_materialization_request("materialization-demo-2");
+        request.operation = nako_addon_protocol::AddonExternalAcquisitionOperation::QueryStatus;
+
+        let error = client
+            .materialize_external_acquisition(request)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(error, AddonClientError::InvalidRequest { .. }));
+        assert_eq!(error.safe_code(), "invalid_request");
+        assert!(transport.requests().is_empty());
+    }
+
+    #[tokio::test]
+    async fn runtime_materialization_rejects_body_token_material_before_http() {
+        let transport = MockTransport::default();
+        let client = runtime_client(transport.clone());
+
+        let error = client
+            .materialize_external_acquisition(external_acquisition_materialization_request(
+                "addon-token-secret",
+            ))
+            .await
+            .unwrap_err();
+
+        assert_eq!(error, AddonClientError::UnsafeRequestBody);
+        assert_eq!(error.safe_code(), "unsafe_request_body");
+        assert!(transport.requests().is_empty());
+    }
+
+    #[tokio::test]
     async fn runtime_side_effect_submission_parses_version_tolerant_summary() {
         let transport = MockTransport::with_response(Ok(AddonHttpResponse {
             status: 200,
@@ -2741,6 +2870,42 @@ mod tests {
             request_id: request_id.to_owned(),
             payload: serde_json::to_value(payload).unwrap(),
             artifacts: Vec::new(),
+        })
+        .unwrap()
+    }
+
+    fn external_acquisition_materialization_request(
+        idempotency_key: &str,
+    ) -> AddonExternalAcquisitionMaterializationRequest {
+        AddonExternalAcquisitionMaterializationRequest {
+            schema: ADDON_EXTERNAL_ACQUISITION_MATERIALIZATION_REQUEST_SCHEMA.to_owned(),
+            job_id: "job-1".to_owned(),
+            declaration_id: "external-acquisition-action".to_owned(),
+            target_ref: nako_addon_protocol::AddonExternalAcquisitionTargetRef::SelectedLink {
+                selected_link_ref: "selected-link-ref".to_owned(),
+            },
+            runner_profile_id: "fixture".to_owned(),
+            idempotency_key: idempotency_key.to_owned(),
+            operation: nako_addon_protocol::AddonExternalAcquisitionOperation::Enqueue,
+            audit_ref: "audit-ref".to_owned(),
+            purpose: nako_addon_protocol::AddonExternalAcquisitionMaterializationPurpose::ExternalAcquisitionEnqueue,
+        }
+    }
+
+    fn external_acquisition_materialization_response_json() -> String {
+        serde_json::to_string(&AddonExternalAcquisitionMaterializationResponse {
+            schema: ADDON_EXTERNAL_ACQUISITION_MATERIALIZATION_RESPONSE_SCHEMA.to_owned(),
+            materialization_ref: "materialization-secret".to_owned(),
+            target_ref: nako_addon_protocol::AddonExternalAcquisitionTargetRef::SelectedLink {
+                selected_link_ref: "selected-link-ref".to_owned(),
+            },
+            expires_at: "2026-05-29T00:01:00.000Z".to_owned(),
+            material: nako_addon_protocol::AddonExternalAcquisitionMaterializedLink {
+                link_type: nako_addon_protocol::AddonResourceLinkType::Magnet,
+                uri: "magnet:?xt=urn:btih:secret".to_owned(),
+                password: Some("secret-code".to_owned()),
+            },
+            safe_facts: BTreeMap::new(),
         })
         .unwrap()
     }
