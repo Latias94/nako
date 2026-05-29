@@ -560,6 +560,10 @@ pub mod external_acquisition_runner {
     pub const DIAGNOSTICS_LABEL: &str = "External Acquisition Runner Diagnostics";
     pub const DIAGNOSTICS_PATH: &str = "/ui/diagnostics";
     pub const DEFAULT_RUNNER_PROFILE_ID: &str = "fixture";
+    pub const TRANSMISSION_RUNNER_PROFILE_ID: &str = "transmission";
+    pub const TRANSMISSION_PASSWORD_SECRET_FIELD_ID: &str = "transmission_password";
+    pub const TRANSMISSION_DEFAULT_RPC_URL: &str = "http://127.0.0.1:9091/transmission/rpc";
+    pub const TRANSMISSION_DEFAULT_TIMEOUT_MS: u64 = 10_000;
     pub const TASK_TIMEOUT_MS: u64 = 30_000;
     pub const DEFAULT_MAX_ATTEMPTS: u32 = 1;
 
@@ -612,7 +616,7 @@ pub mod external_acquisition_runner {
                 vec![AddonScope::AcquisitionActionRun],
             )],
             configuration_schema: Some(configuration_schema(&default_runner_profile_id)),
-            secret_reference_fields: Vec::new(),
+            secret_reference_fields: secret_reference_fields(),
             event_subscriptions: Vec::new(),
             tasks: vec![
                 AddonTaskDeclaration::new(
@@ -673,6 +677,19 @@ pub mod external_acquisition_runner {
     }
 
     #[must_use]
+    fn secret_reference_fields() -> Vec<AddonSecretReferenceFieldDeclaration> {
+        vec![AddonSecretReferenceFieldDeclaration::new(
+            TRANSMISSION_PASSWORD_SECRET_FIELD_ID,
+            "Transmission password",
+            Some(
+                "Optional Transmission RPC password resolved by the runner runtime; never place the raw password in task payloads."
+                    .to_owned(),
+            ),
+            false,
+        )]
+    }
+
+    #[must_use]
     fn configuration_schema(default_runner_profile_id: &str) -> AddonConfigurationSchema {
         AddonConfigurationSchema::new(
             CONFIG_SCHEMA_ID,
@@ -696,6 +713,41 @@ pub mod external_acquisition_runner {
                                     "mode": {
                                         "type": "string",
                                         "default": "noop"
+                                    }
+                                },
+                                "additionalProperties": false
+                            },
+                            "transmission": {
+                                "type": "object",
+                                "properties": {
+                                    "enabled": {
+                                        "type": "boolean",
+                                        "default": false
+                                    },
+                                    "mode": {
+                                        "type": "string",
+                                        "default": "rpc"
+                                    },
+                                    "rpc_url": {
+                                        "type": "string",
+                                        "default": TRANSMISSION_DEFAULT_RPC_URL
+                                    },
+                                    "username": {
+                                        "type": "string"
+                                    },
+                                    "password_secret_ref": {
+                                        "type": "string",
+                                        "description": "Secret reference for the optional Transmission RPC password."
+                                    },
+                                    "timeout_ms": {
+                                        "type": "integer",
+                                        "default": TRANSMISSION_DEFAULT_TIMEOUT_MS,
+                                        "minimum": 250,
+                                        "maximum": 60000
+                                    },
+                                    "allow_invalid_tls_certificates": {
+                                        "type": "boolean",
+                                        "default": false
                                     }
                                 },
                                 "additionalProperties": false
@@ -1638,8 +1690,28 @@ mod tests {
             schema["properties"]["profiles"]["properties"]["fixture"]["properties"]["mode"]["default"],
             "noop"
         );
+        assert_eq!(
+            schema["properties"]["profiles"]["properties"]["transmission"]["properties"]["enabled"]
+                ["default"],
+            false
+        );
+        assert_eq!(
+            schema["properties"]["profiles"]["properties"]["transmission"]["properties"]["rpc_url"]
+                ["default"],
+            external_acquisition_runner::TRANSMISSION_DEFAULT_RPC_URL
+        );
+        assert_eq!(
+            schema["properties"]["profiles"]["properties"]["transmission"]["properties"]["timeout_ms"]
+                ["default"],
+            external_acquisition_runner::TRANSMISSION_DEFAULT_TIMEOUT_MS
+        );
         assert!(manifest.event_subscriptions.is_empty());
-        assert!(manifest.secret_reference_fields.is_empty());
+        assert_eq!(manifest.secret_reference_fields.len(), 1);
+        assert_eq!(
+            manifest.secret_reference_fields[0].id,
+            external_acquisition_runner::TRANSMISSION_PASSWORD_SECRET_FIELD_ID
+        );
+        assert!(!manifest.secret_reference_fields[0].required);
     }
 
     #[test]
