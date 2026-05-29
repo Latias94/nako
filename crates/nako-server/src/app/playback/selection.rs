@@ -9,7 +9,8 @@ use nako_transcode::{
 use nako_vfs::{StorageBackend, StorageCapabilities, StorageUri};
 
 use crate::playback_mapping::{
-    playback_remux_container_to_transcode, playback_transcode_plan_to_transcode,
+    playback_remux_container_to_transcode, playback_track_selection_to_transcode,
+    playback_transcode_plan_to_transcode,
 };
 
 use super::super::storage::LibraryStorageBackend;
@@ -52,6 +53,23 @@ pub(super) fn hls_transcode_plan(decision: &PlaybackDecision) -> Result<Transcod
             if plan.plan.output_container == PlaybackTranscodeContainer::Hls =>
         {
             Ok(playback_transcode_plan_to_transcode(&plan.plan))
+        }
+        _ => Err(NakoError::Unsupported(
+            "hls app service requires an hls transcode playback decision",
+        )),
+    }
+}
+
+pub(super) fn hls_transcode_track_selection(
+    decision: &PlaybackDecision,
+) -> Result<TranscodeTrackSelection> {
+    match &decision.rendition {
+        PlaybackRenditionPlan::Transcode(plan)
+            if plan.plan.output_container == PlaybackTranscodeContainer::Hls =>
+        {
+            Ok(playback_track_selection_to_transcode(
+                plan.requirement.track_selection,
+            ))
         }
         _ => Err(NakoError::Unsupported(
             "hls app service requires an hls transcode playback decision",

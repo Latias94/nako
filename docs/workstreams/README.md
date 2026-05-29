@@ -25,6 +25,10 @@ attention.
   completed fearless refactor lane for removing selected audio duplication from
   sidecar-capable multi-audio HLS main mux outputs now that generated audio
   sidecar artifacts and `TYPE=AUDIO` groups are servable.
+- [playback-audio-language-default-policy](playback-audio-language-default-policy/README.md):
+  active feature/refactor lane for adding request-scoped preferred audio
+  languages and deterministic default audio selection after HLS audio sidecars
+  became the source of multi-audio playback.
 - [playback-runtime-resource-scheduler](playback-runtime-resource-scheduler/README.md):
   completed fearless refactor lane for turning scattered playback/transcode
   concurrency limits into a host-owned runtime admission boundary with

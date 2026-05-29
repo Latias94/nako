@@ -155,6 +155,8 @@ pub struct PlaybackStorageContext {
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct PlaybackPreferenceContext {
     pub requested_audio_stream: Option<u32>,
+    #[serde(default)]
+    pub preferred_audio_languages: Vec<String>,
     pub requested_subtitle_stream: Option<u32>,
     pub max_video_bitrate: Option<u64>,
     pub prefer_hdr: Option<bool>,
@@ -652,7 +654,7 @@ fn build_transcode_requirement(
     reason: PlaybackDecisionReason,
     report: &PlaybackDecisionReport,
 ) -> TranscodeRequirement {
-    let track_selection = target_profile.track_selection();
+    let track_selection = target_profile.track_selection_for_probe(probe);
     TranscodeRequirement {
         source_id,
         input_locator,
@@ -977,6 +979,7 @@ mod tests {
                 },
                 preferences: PlaybackPreferenceContext {
                     requested_audio_stream: Some(1),
+                    preferred_audio_languages: Vec::new(),
                     requested_subtitle_stream: Some(2),
                     max_video_bitrate: Some(4_000_000),
                     prefer_hdr: Some(false),
@@ -1245,6 +1248,157 @@ mod tests {
     }
 
     #[test]
+    fn audio_language_preference_selects_first_matching_transcode_stream() {
+        let source = media_source("movie.mp4");
+        let mut video = stream(MediaStreamKind::Video, Some("h264"));
+        video.index = 0;
+        let mut english = stream(MediaStreamKind::Audio, Some("aac"));
+        english.index = 1;
+        english.language = Some("eng".to_owned());
+        let mut japanese = stream(MediaStreamKind::Audio, Some("aac"));
+        japanese.index = 2;
+        japanese.language = Some("JPN".to_owned());
+        let probe = MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some("mov,mp4,m4a,3gp,3g2,mj2".to_owned()),
+            bit_rate: None,
+            streams: vec![video, english, japanese],
+        };
+
+        let decision = plan_with_policy(
+            &source,
+            Some(&probe),
+            ClientPlaybackCapabilities::default(),
+            PlaybackSelectionContext {
+                storage: PlaybackStorageContext::default(),
+                preferences: PlaybackPreferenceContext {
+                    preferred_audio_languages: vec![" jpn ".to_owned(), "eng".to_owned()],
+                    transcode_output_container: Some(PlaybackTranscodeContainer::Hls),
+                    ..PlaybackPreferenceContext::default()
+                },
+            },
+            EffectivePlaybackPolicy::from_library_access(
+                source.library_id,
+                nako_core::LibraryAccessLevel::Play,
+            ),
+        );
+
+        let requirement = decision
+            .transcode_requirement()
+            .expect("preferred audio language should be reflected in transcode requirement");
+        assert_eq!(requirement.track_selection.audio_stream, Some(2));
+        assert_eq!(
+            requirement
+                .selected_streams
+                .audio
+                .as_ref()
+                .map(|stream| stream.index),
+            Some(2)
+        );
+    }
+
+    #[test]
+    fn requested_audio_stream_overrides_audio_language_preference() {
+        let source = media_source("movie.mp4");
+        let mut video = stream(MediaStreamKind::Video, Some("h264"));
+        video.index = 0;
+        let mut english = stream(MediaStreamKind::Audio, Some("aac"));
+        english.index = 1;
+        english.language = Some("eng".to_owned());
+        let mut japanese = stream(MediaStreamKind::Audio, Some("aac"));
+        japanese.index = 2;
+        japanese.language = Some("jpn".to_owned());
+        let probe = MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some("mov,mp4,m4a,3gp,3g2,mj2".to_owned()),
+            bit_rate: None,
+            streams: vec![video, english, japanese],
+        };
+
+        let decision = plan_with_policy(
+            &source,
+            Some(&probe),
+            ClientPlaybackCapabilities::default(),
+            PlaybackSelectionContext {
+                storage: PlaybackStorageContext::default(),
+                preferences: PlaybackPreferenceContext {
+                    requested_audio_stream: Some(1),
+                    preferred_audio_languages: vec!["jpn".to_owned()],
+                    transcode_output_container: Some(PlaybackTranscodeContainer::Hls),
+                    ..PlaybackPreferenceContext::default()
+                },
+            },
+            EffectivePlaybackPolicy::from_library_access(
+                source.library_id,
+                nako_core::LibraryAccessLevel::Play,
+            ),
+        );
+
+        let requirement = decision
+            .transcode_requirement()
+            .expect("explicit audio stream should be reflected in transcode requirement");
+        assert_eq!(requirement.track_selection.audio_stream, Some(1));
+        assert_eq!(
+            requirement
+                .selected_streams
+                .audio
+                .as_ref()
+                .map(|stream| stream.index),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn audio_language_preference_falls_back_to_first_audio_without_match() {
+        let source = media_source("movie.mp4");
+        let mut video = stream(MediaStreamKind::Video, Some("h264"));
+        video.index = 0;
+        let mut english = stream(MediaStreamKind::Audio, Some("aac"));
+        english.index = 1;
+        english.language = Some("eng".to_owned());
+        let mut japanese = stream(MediaStreamKind::Audio, Some("aac"));
+        japanese.index = 2;
+        japanese.language = Some("jpn".to_owned());
+        let probe = MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some("mov,mp4,m4a,3gp,3g2,mj2".to_owned()),
+            bit_rate: None,
+            streams: vec![video, english, japanese],
+        };
+
+        let decision = plan_with_policy(
+            &source,
+            Some(&probe),
+            ClientPlaybackCapabilities::default(),
+            PlaybackSelectionContext {
+                storage: PlaybackStorageContext::default(),
+                preferences: PlaybackPreferenceContext {
+                    preferred_audio_languages: vec!["fra".to_owned()],
+                    transcode_output_container: Some(PlaybackTranscodeContainer::Hls),
+                    ..PlaybackPreferenceContext::default()
+                },
+            },
+            EffectivePlaybackPolicy::from_library_access(
+                source.library_id,
+                nako_core::LibraryAccessLevel::Play,
+            ),
+        );
+
+        let requirement = decision
+            .transcode_requirement()
+            .expect("fallback audio should be reflected in transcode requirement");
+        assert_eq!(requirement.track_selection.audio_stream, None);
+        assert_eq!(
+            requirement
+                .selected_streams
+                .audio
+                .as_ref()
+                .map(|stream| stream.index),
+            Some(1)
+        );
+    }
+
+    #[test]
     fn client_capability_limits_drive_hls_requirement_and_transcode_reasons() {
         let source = media_source("movie.mp4");
         let mut video = stream(MediaStreamKind::Video, Some("h264"));
@@ -1360,6 +1514,7 @@ mod tests {
                 },
                 preferences: PlaybackPreferenceContext {
                     requested_audio_stream: Some(2),
+                    preferred_audio_languages: Vec::new(),
                     requested_subtitle_stream: None,
                     max_video_bitrate: Some(8_000_000),
                     prefer_hdr: Some(true),
@@ -1383,6 +1538,7 @@ mod tests {
                 },
                 preferences: PlaybackPreferenceContext {
                     requested_audio_stream: Some(2),
+                    preferred_audio_languages: Vec::new(),
                     requested_subtitle_stream: None,
                     max_video_bitrate: Some(8_000_000),
                     prefer_hdr: Some(true),
@@ -1401,6 +1557,37 @@ mod tests {
             left.identity_key()
                 .contains("transcode=container=hls,vcodec=h264,acodec=aac")
         );
+    }
+
+    #[test]
+    fn playback_target_profile_identity_normalizes_audio_language_preferences() {
+        let left = PlaybackTargetProfile::from_capabilities(
+            &ClientPlaybackCapabilities::default(),
+            PlaybackSelectionContext {
+                storage: PlaybackStorageContext::default(),
+                preferences: PlaybackPreferenceContext {
+                    preferred_audio_languages: vec![
+                        " JPN ".to_owned(),
+                        "eng".to_owned(),
+                        "jpn".to_owned(),
+                    ],
+                    ..PlaybackPreferenceContext::default()
+                },
+            },
+        );
+        let right = PlaybackTargetProfile::from_capabilities(
+            &ClientPlaybackCapabilities::default(),
+            PlaybackSelectionContext {
+                storage: PlaybackStorageContext::default(),
+                preferences: PlaybackPreferenceContext {
+                    preferred_audio_languages: vec!["jpn".to_owned(), "ENG".to_owned()],
+                    ..PlaybackPreferenceContext::default()
+                },
+            },
+        );
+
+        assert_eq!(left.identity_key(), right.identity_key());
+        assert!(left.identity_key().contains("audio_languages=jpn|eng"));
     }
 
     #[test]

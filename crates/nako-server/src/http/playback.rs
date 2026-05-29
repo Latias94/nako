@@ -1445,6 +1445,7 @@ impl HlsPlaybackQuery {
     fn preferences(&self) -> PlaybackPreferenceContext {
         PlaybackPreferenceContext {
             requested_audio_stream: self.audio_stream,
+            preferred_audio_languages: Vec::new(),
             requested_subtitle_stream: self.subtitle_stream,
             max_video_bitrate: None,
             prefer_hdr: None,

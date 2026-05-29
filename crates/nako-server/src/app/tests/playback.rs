@@ -979,6 +979,86 @@ async fn hls_source_selected_audio_stream_reaches_ffmpeg_map() {
 }
 
 #[tokio::test]
+async fn hls_source_preferred_audio_language_selects_matching_stream() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_hls_ffmpeg_script_requiring_audio_map(
+        script_root.path(),
+        "hls_audio_language_map",
+        "0:2",
+    );
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    store
+        .upsert_media_probe(
+            source.id,
+            &MediaProbeResult {
+                duration_ms: Some(1_000),
+                container: Some("matroska,webm".to_owned()),
+                bit_rate: None,
+                streams: vec![
+                    MediaStreamInfo {
+                        index: 0,
+                        kind: MediaStreamKind::Video,
+                        codec: Some("h264".to_owned()),
+                        language: None,
+                        duration_ms: None,
+                        bit_rate: Some(2_000_000),
+                        width: Some(1280),
+                        height: Some(720),
+                        channels: None,
+                        sample_rate: None,
+                        technical: Default::default(),
+                    },
+                    MediaStreamInfo {
+                        index: 1,
+                        kind: MediaStreamKind::Audio,
+                        codec: Some("aac".to_owned()),
+                        language: Some("eng".to_owned()),
+                        duration_ms: None,
+                        bit_rate: Some(128_000),
+                        width: None,
+                        height: None,
+                        channels: Some(2),
+                        sample_rate: Some(48_000),
+                        technical: Default::default(),
+                    },
+                    MediaStreamInfo {
+                        index: 2,
+                        kind: MediaStreamKind::Audio,
+                        codec: Some("aac".to_owned()),
+                        language: Some("jpn".to_owned()),
+                        duration_ms: None,
+                        bit_rate: Some(128_000),
+                        width: None,
+                        height: None,
+                        channels: Some(2),
+                        sample_rate: Some(48_000),
+                        technical: Default::default(),
+                    },
+                ],
+            },
+        )
+        .await
+        .unwrap();
+
+    let output = app
+        .playback()
+        .hls_source(HlsSourceRequest {
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+            preferences: PlaybackPreferenceContext {
+                preferred_audio_languages: vec!["jpn".to_owned()],
+                ..PlaybackPreferenceContext::default()
+            },
+            playback_generation: HlsPlaybackGeneration::default(),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(output.disposition, HlsSourceDisposition::Finished);
+    assert!(output.session.request_key.contains("audio%3D2"));
+}
+
+#[tokio::test]
 async fn hls_source_multi_audio_generates_audio_sidecar_renditions_and_artifacts() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_audio_sidecars");

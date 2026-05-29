@@ -170,7 +170,7 @@ impl PlaybackTargetProfile {
     pub fn identity(&self) -> crate::PlaybackProfileIdentity {
         crate::PlaybackProfileIdentity {
             request_key: format!(
-                "playback-target-profile:v1;direct={};direct={};remux={};transcode={};hls_variant={};hls_segment={};remote={};range={};audio={};subtitle={};max_video_bitrate={};prefer_hdr={};remux_pref={};transcode_pref={}",
+                "playback-target-profile:v1;direct={};direct={};remux={};transcode={};hls_variant={};hls_segment={};remote={};range={};audio={};audio_languages={};subtitle={};max_video_bitrate={};prefer_hdr={};remux_pref={};transcode_pref={}",
                 self.direct_play,
                 direct_play_profiles_key(&self.direct_play_profiles),
                 remux_profiles_key(&self.remux_profiles),
@@ -180,6 +180,7 @@ impl PlaybackTargetProfile {
                 self.storage.remote,
                 optional_bool(self.storage.range_readable),
                 optional_u32(self.preferences.requested_audio_stream),
+                language_preferences_key(&self.preferences.preferred_audio_languages),
                 optional_u32(self.preferences.requested_subtitle_stream),
                 optional_u64(self.preferences.max_video_bitrate),
                 optional_bool(self.preferences.prefer_hdr),
@@ -200,8 +201,16 @@ impl PlaybackTargetProfile {
 
     #[must_use]
     pub fn track_selection(&self) -> PlaybackTrackSelection {
+        self.track_selection_for_probe(None)
+    }
+
+    #[must_use]
+    pub fn track_selection_for_probe(
+        &self,
+        probe: Option<&MediaProbeResult>,
+    ) -> PlaybackTrackSelection {
         PlaybackTrackSelection {
-            audio_stream: self.preferences.requested_audio_stream,
+            audio_stream: selected_audio_stream(probe, &self.preferences),
             subtitle_stream: self.preferences.requested_subtitle_stream,
         }
     }
@@ -566,6 +575,71 @@ fn normalized_values(values: &[String]) -> Vec<String> {
     values.sort();
     values.dedup();
     values
+}
+
+fn selected_audio_stream(
+    probe: Option<&MediaProbeResult>,
+    preferences: &PlaybackPreferenceContext,
+) -> Option<u32> {
+    if let Some(index) = preferences.requested_audio_stream {
+        return Some(index);
+    }
+
+    let preferred_languages =
+        normalized_language_preferences(&preferences.preferred_audio_languages);
+    if preferred_languages.is_empty() {
+        return None;
+    }
+
+    let probe = probe?;
+    for preferred_language in preferred_languages {
+        if let Some(stream) = probe.streams.iter().find(|stream| {
+            matches!(stream.kind, MediaStreamKind::Audio)
+                && stream
+                    .language
+                    .as_deref()
+                    .and_then(normalized_language_tag)
+                    .as_deref()
+                    == Some(preferred_language.as_str())
+        }) {
+            return Some(stream.index);
+        }
+    }
+
+    None
+}
+
+fn language_preferences_key(values: &[String]) -> String {
+    let values = normalized_language_preferences(values);
+    if values.is_empty() {
+        "default".to_owned()
+    } else {
+        values.join("|")
+    }
+}
+
+fn normalized_language_preferences(values: &[String]) -> Vec<String> {
+    let mut normalized = Vec::new();
+    for value in values {
+        if let Some(value) = normalized_language_tag(value)
+            && !normalized.contains(&value)
+        {
+            normalized.push(value);
+        }
+    }
+    normalized
+}
+
+fn normalized_language_tag(value: &str) -> Option<String> {
+    let value = value.trim().replace('_', "-").to_ascii_lowercase();
+    let valid = !value.is_empty()
+        && value.len() <= 35
+        && !value.starts_with('-')
+        && !value.ends_with('-')
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-');
+    valid.then_some(value)
 }
 
 fn min_optional_u64(left: Option<u64>, right: Option<u64>) -> Option<u64> {

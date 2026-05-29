@@ -86,8 +86,8 @@ pub(crate) use resource::{
 #[cfg(test)]
 pub(crate) use resource::{PlaybackResourceAdmissionStatus, PlaybackResourceCapacity};
 use selection::{
-    hls_pipeline_source_facts, hls_transcode_plan, playback_selection_context,
-    remux_output_container,
+    hls_pipeline_source_facts, hls_transcode_plan, hls_transcode_track_selection,
+    playback_selection_context, remux_output_container,
 };
 pub(crate) use staging_policy::{HlsOutputLayout, HlsStagingPolicy, RemuxStagingPolicy};
 pub(crate) use support::{
@@ -1865,8 +1865,7 @@ impl PlaybackAppService {
         });
         ensure_playback_decision_allowed(&decision)?;
         let transcode_plan = hls_transcode_plan(&decision)?;
-        let track_selection =
-            playback_track_selection_to_transcode(target_profile.track_selection());
+        let track_selection = hls_transcode_track_selection(&decision)?;
         let source_facts = hls_pipeline_source_facts(probe.as_ref(), track_selection);
         let mut execution_policy = self.hls.execution_policy_for_hls(
             track_selection,

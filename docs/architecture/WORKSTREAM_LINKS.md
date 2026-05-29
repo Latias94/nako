@@ -63,6 +63,7 @@ Evidence workstreams:
 - `docs/workstreams/hls-alternate-audio-renditions/`
 - `docs/workstreams/hls-audio-sidecar-artifacts/`
 - `docs/workstreams/hls-selected-main-audio-cleanup/`
+- `docs/workstreams/playback-audio-language-default-policy/`
 - `docs/workstreams/hls-seek-restart-lifecycle/`
 - `docs/workstreams/hls-progressive-runtime-boundary/`
 - `docs/workstreams/playback-runtime-resource-scheduler/`
