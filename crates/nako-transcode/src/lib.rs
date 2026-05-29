@@ -58,6 +58,18 @@ mod tests {
         path.split('/').collect::<PathBuf>().display().to_string()
     }
 
+    fn demo_transcode_source() -> nako_core::MediaSource {
+        nako_core::MediaSource {
+            id: MediaSourceId::new(),
+            library_id: nako_core::LibraryId::new(),
+            item_id: nako_core::MediaItemId::new(),
+            locator: "local:///Movies/Demo.mkv".to_owned(),
+            file_name: "Demo.mkv".to_owned(),
+            size_bytes: Some(42),
+            fingerprint: Some("sha256:demo".to_owned()),
+        }
+    }
+
     #[test]
     fn ffmpeg_builder_plans_remux_without_transcoding_streams() {
         let source_id = MediaSourceId::new();
@@ -1029,6 +1041,120 @@ mod tests {
             restored.playback_generation,
             HlsPlaybackGeneration::from_start_position_ms(90_000)
         );
+    }
+
+    #[test]
+    fn hls_request_variant_reconstructs_single_variant_fmp4_manifest_from_persisted_identity() {
+        let profile = TranscodeProfile::hls_single_variant(HlsTranscodeProfile {
+            video_codec: Some("h264".to_owned()),
+            audio_codec: Some("aac".to_owned()),
+            execution_policy: hls_policy(HardwareAcceleration::None),
+            hls_output: HlsOutputRequirement {
+                variant_policy: HlsVariantPolicy::SingleVariant,
+                segment_container: HlsSegmentContainer::Fmp4,
+            },
+            track_selection: TranscodeTrackSelection::default(),
+            remote_input: false,
+            playback_profile_key: "playback-profile:v1;client=default".to_owned(),
+        })
+        .identity();
+        let source = demo_transcode_source();
+        let request = profile.bind_source(&TranscodeSourceIdentity::from_media_source(&source));
+
+        let spec =
+            HlsArtifactSpec::from_persisted_request_key(request.persisted_request_key()).unwrap();
+        let manifest = spec
+            .manifest_for_primary_playlist("hls/playlist.m3u8")
+            .unwrap();
+
+        assert_eq!(
+            spec.output(),
+            HlsOutputRequirement {
+                variant_policy: HlsVariantPolicy::SingleVariant,
+                segment_container: HlsSegmentContainer::Fmp4,
+            }
+        );
+        assert!(spec.request_variant().is_empty());
+        assert_eq!(
+            manifest.output().variant_policy,
+            HlsVariantPolicy::SingleVariant
+        );
+        assert_eq!(
+            manifest.artifact_for_name("init.mp4").unwrap().content_type,
+            "video/mp4"
+        );
+        assert_eq!(
+            manifest
+                .artifact_for_name("segment_00000.m4s")
+                .unwrap()
+                .content_type,
+            "video/mp4"
+        );
+        assert!(manifest.artifact_for_name("segment_00000.ts").is_err());
+    }
+
+    #[test]
+    fn hls_request_variant_reconstructs_artifact_manifest_from_persisted_request_identity() {
+        let ladder = HlsAdaptiveLadderPlan::from_source(
+            HlsAdaptiveLadderSource {
+                width: Some(1280),
+                height: Some(720),
+                video_bitrate: Some(2_000_000),
+                has_audio: Some(false),
+            },
+            TranscodeOutputConstraints {
+                max_video_bitrate: Some(1_500_000),
+                max_width: Some(1280),
+                max_height: Some(720),
+                prefer_hdr: None,
+            },
+        );
+        let media = HlsMediaRenditionPlan::from_audio_and_subtitles(
+            vec![HlsAudioRendition::new(0, 1, Some("eng".to_owned()), true)],
+            vec![HlsSubtitleRendition::new(0, 2, Some("jpn".to_owned()))],
+        )
+        .unwrap();
+        let request_variant = HlsRequestVariantPlan::new(Some(ladder.clone()), media.clone());
+        let profile = TranscodeProfile::hls(HlsTranscodeProfile {
+            video_codec: Some("h264".to_owned()),
+            audio_codec: Some("aac".to_owned()),
+            execution_policy: hls_policy(HardwareAcceleration::None),
+            hls_output: HlsOutputRequirement {
+                variant_policy: HlsVariantPolicy::Adaptive,
+                segment_container: HlsSegmentContainer::Fmp4,
+            },
+            track_selection: TranscodeTrackSelection::default(),
+            remote_input: false,
+            playback_profile_key: "playback-profile:v1;client=default".to_owned(),
+        })
+        .identity();
+        let source = demo_transcode_source();
+        let request = profile.bind_source_with_request_variant(
+            &TranscodeSourceIdentity::from_media_source(&source),
+            request_variant.identity_key().unwrap(),
+        );
+
+        let spec =
+            HlsArtifactSpec::from_persisted_request_key(request.persisted_request_key()).unwrap();
+        let manifest = spec
+            .manifest_for_primary_playlist("hls/master.m3u8")
+            .unwrap();
+
+        assert_eq!(manifest.output().variant_policy, HlsVariantPolicy::Adaptive);
+        assert_eq!(
+            manifest.output().segment_container,
+            HlsSegmentContainer::Fmp4
+        );
+        assert_eq!(manifest.renditions(), ladder.renditions());
+        assert!(!manifest.has_audio());
+        assert_eq!(manifest.media_renditions(), &media);
+        assert!(
+            manifest
+                .artifact_for_name("variant_0_segment_00000.m4s")
+                .is_ok()
+        );
+        assert!(manifest.artifact_for_name("audio_0_00000.aac").is_ok());
+        assert!(manifest.artifact_for_name("subtitle_0_00000.vtt").is_ok());
     }
 
     #[test]
@@ -2218,10 +2344,13 @@ hevc_metadata
         let execution =
             planned_hls_execution(&script, &output_dir, &playlist_path, &segment_pattern);
         let session_id = execution.session_id;
-        let runner = FfmpegHlsRunner::new(TranscodeRuntimeGuard::new(TranscodeRuntimeLimits {
-            max_concurrent_sessions: 1,
-            timeout_ms: 5_000,
-        }));
+        let runner = FfmpegHlsRunner::new_with_output_publication_policy(
+            TranscodeRuntimeGuard::new(TranscodeRuntimeLimits {
+                max_concurrent_sessions: 1,
+                timeout_ms: 5_000,
+            }),
+            HlsOutputPublicationPolicy::AtomicOnCompletion,
+        );
 
         let outcome = runner
             .run(execution, CancellationToken::new())
@@ -2249,6 +2378,93 @@ hevc_metadata
         );
         assert_eq!(runtime_metrics.frame_count, Some(12));
         assert_eq!(runtime_metrics.output_time_ms, Some(1_500));
+        assert!(temp_hls_dirs_for(&output_dir).is_empty());
+    }
+
+    #[tokio::test]
+    async fn hls_runner_can_publish_output_while_process_is_running() {
+        let temp = tempfile::tempdir().unwrap();
+        let script = fake_hls_ffmpeg_script_with_completion(
+            temp.path(),
+            "hls_running",
+            FakeHlsScriptCompletion::SleepAfterPublish,
+        );
+        let output_dir = temp.path().join("hls");
+        let playlist_path = output_dir.join("playlist.m3u8");
+        let segment_pattern = output_dir.join("segment_%05d.ts");
+        let execution =
+            planned_hls_execution(&script, &output_dir, &playlist_path, &segment_pattern);
+        let cancel = CancellationToken::new();
+        let cancel_handle = cancel.clone();
+        let runner = FfmpegHlsRunner::new_with_output_publication_policy(
+            TranscodeRuntimeGuard::new(TranscodeRuntimeLimits {
+                max_concurrent_sessions: 1,
+                timeout_ms: 5_000,
+            }),
+            HlsOutputPublicationPolicy::ServeWhileRunning,
+        );
+
+        let run = tokio::spawn(async move { runner.run(execution, cancel).await });
+        wait_until_path_exists(&playlist_path).await;
+
+        assert!(!run.is_finished());
+        assert!(
+            fs::read_to_string(&playlist_path)
+                .unwrap()
+                .contains("#EXTM3U")
+        );
+        assert_eq!(
+            fs::read_to_string(output_dir.join("segment_00000.ts")).unwrap(),
+            "segment"
+        );
+
+        cancel_handle.cancel();
+        let outcome = time::timeout(Duration::from_millis(800), run)
+            .await
+            .expect("hls cancellation should finish after publishing running output")
+            .unwrap()
+            .unwrap();
+
+        let HlsRunOutcome::Cancelled {
+            discarded_output_dir,
+            ..
+        } = outcome
+        else {
+            panic!("expected hls runner to cancel");
+        };
+        assert_eq!(discarded_output_dir, output_dir);
+        assert!(!discarded_output_dir.exists());
+        assert!(temp_hls_dirs_for(&discarded_output_dir).is_empty());
+    }
+
+    #[tokio::test]
+    async fn hls_runner_cleans_serve_visible_output_on_failure() {
+        let temp = tempfile::tempdir().unwrap();
+        let script = fake_hls_ffmpeg_script_with_completion(
+            temp.path(),
+            "hls_failure",
+            FakeHlsScriptCompletion::FailAfterPublish,
+        );
+        let output_dir = temp.path().join("hls");
+        let playlist_path = output_dir.join("playlist.m3u8");
+        let segment_pattern = output_dir.join("segment_%05d.ts");
+        let execution =
+            planned_hls_execution(&script, &output_dir, &playlist_path, &segment_pattern);
+        let runner = FfmpegHlsRunner::new_with_output_publication_policy(
+            TranscodeRuntimeGuard::new(TranscodeRuntimeLimits {
+                max_concurrent_sessions: 1,
+                timeout_ms: 5_000,
+            }),
+            HlsOutputPublicationPolicy::ServeWhileRunning,
+        );
+
+        let err = runner
+            .run(execution, CancellationToken::new())
+            .await
+            .unwrap_err();
+
+        assert!(err.to_string().contains("failed"));
+        assert!(!output_dir.exists());
         assert!(temp_hls_dirs_for(&output_dir).is_empty());
     }
 
@@ -2565,7 +2781,22 @@ h264_mp4toannexb
         }
     }
 
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+    enum FakeHlsScriptCompletion {
+        Success,
+        SleepAfterPublish,
+        FailAfterPublish,
+    }
+
     fn fake_hls_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
+        fake_hls_ffmpeg_script_with_completion(root, name, FakeHlsScriptCompletion::Success)
+    }
+
+    fn fake_hls_ffmpeg_script_with_completion(
+        root: &Path,
+        name: &str,
+        completion: FakeHlsScriptCompletion,
+    ) -> PathBuf {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -2613,6 +2844,16 @@ h264_mp4toannexb
             );
             content.push_str("printf segment > \"$dir/segment_00000.ts\"\n");
             content.push_str("fi\n");
+            match completion {
+                FakeHlsScriptCompletion::Success => {}
+                FakeHlsScriptCompletion::SleepAfterPublish => {
+                    content.push_str("while :; do :; done\n");
+                }
+                FakeHlsScriptCompletion::FailAfterPublish => {
+                    content.push_str("printf failed >&2\n");
+                    content.push_str("exit 42\n");
+                }
+            }
             content.push_str(
                 "printf 'frame=12\\nout_time_us=1500000\\nspeed=1.25x\\nprogress=end\\n'\n",
             );
@@ -2627,6 +2868,8 @@ h264_mp4toannexb
         #[cfg(windows)]
         {
             let path = root.join(format!("{name}.cmd"));
+            let sleep_after_publish = completion == FakeHlsScriptCompletion::SleepAfterPublish;
+            let fail_after_publish = completion == FakeHlsScriptCompletion::FailAfterPublish;
             let mut content = String::from("@echo off\r\n");
             content.push_str("setlocal enabledelayedexpansion\r\n");
             content.push_str(":args\r\n");
@@ -2642,6 +2885,14 @@ h264_mp4toannexb
             content.push_str(">>\"%out%\" echo segment_00000.ts\r\n");
             content.push_str(">>\"%out%\" echo #EXT-X-ENDLIST\r\n");
             content.push_str("<nul set /p dummy=segment>\"%dir%segment_00000.ts\"\r\n");
+            if sleep_after_publish {
+                content.push_str(":wait\r\n");
+                content.push_str("goto wait\r\n");
+            }
+            if fail_after_publish {
+                content.push_str("echo failed 1>&2\r\n");
+                content.push_str("exit /b 42\r\n");
+            }
             content.push_str("echo frame=12\r\n");
             content.push_str("echo out_time_us=1500000\r\n");
             content.push_str("echo speed=1.25x\r\n");
@@ -2744,5 +2995,15 @@ h264_mp4toannexb
                     && path.file_name().unwrap().to_string_lossy().contains(".tmp")
             })
             .collect()
+    }
+
+    async fn wait_until_path_exists(path: &Path) {
+        time::timeout(Duration::from_millis(800), async {
+            while !path.exists() {
+                time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap_or_else(|_| panic!("expected {} to exist", path.display()));
     }
 }

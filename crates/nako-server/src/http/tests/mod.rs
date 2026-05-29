@@ -456,8 +456,19 @@ async fn router_with_remux_source(
 }
 
 async fn router_with_hls_source() -> (tempfile::TempDir, Router, MediaSource, NakoDatabase) {
+    router_with_hls_source_script(|root| fake_hls_ffmpeg_script(root, "hls")).await
+}
+
+async fn router_with_running_hls_source() -> (tempfile::TempDir, Router, MediaSource, NakoDatabase)
+{
+    router_with_hls_source_script(|root| fake_running_hls_ffmpeg_script(root, "hls_running")).await
+}
+
+async fn router_with_hls_source_script(
+    script: impl FnOnce(&FsPath) -> PathBuf,
+) -> (tempfile::TempDir, Router, MediaSource, NakoDatabase) {
     let temp = tempfile::tempdir().unwrap();
-    let ffmpeg_path = fake_hls_ffmpeg_script(temp.path(), "hls");
+    let ffmpeg_path = script(temp.path());
     let library_root = temp.path().join("library");
     let staging_root = temp.path().join("cache").join("remux");
     fs::create_dir_all(&library_root).unwrap();
@@ -799,7 +810,29 @@ fn fake_ffmpeg_encoder_script(root: &FsPath, name: &str, encoder_lines: &[&str])
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum FakeHlsScriptCompletion {
+    Finish,
+    StayRunningAfterPublish,
+}
+
 fn fake_hls_ffmpeg_script(root: &FsPath, name: &str) -> PathBuf {
+    fake_hls_ffmpeg_script_with_completion(root, name, FakeHlsScriptCompletion::Finish)
+}
+
+fn fake_running_hls_ffmpeg_script(root: &FsPath, name: &str) -> PathBuf {
+    fake_hls_ffmpeg_script_with_completion(
+        root,
+        name,
+        FakeHlsScriptCompletion::StayRunningAfterPublish,
+    )
+}
+
+fn fake_hls_ffmpeg_script_with_completion(
+    root: &FsPath,
+    name: &str,
+    completion: FakeHlsScriptCompletion,
+) -> PathBuf {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -823,6 +856,9 @@ fn fake_hls_ffmpeg_script(root: &FsPath, name: &str) -> PathBuf {
             "printf '#EXTM3U\\n#EXTINF:1,\\nsegment_00000.ts\\n#EXT-X-ENDLIST\\n' > \"$out\"\n",
         );
         content.push_str("printf segment > \"$dir/segment_00000.ts\"\n");
+        if completion == FakeHlsScriptCompletion::StayRunningAfterPublish {
+            content.push_str("exec sleep 3600\n");
+        }
         content.push_str("exit 0\n");
         fs::write(&path, content).unwrap();
         let mut permissions = fs::metadata(&path).unwrap().permissions();
@@ -850,6 +886,10 @@ fn fake_hls_ffmpeg_script(root: &FsPath, name: &str) -> PathBuf {
         content.push_str(">>\"%out%\" echo segment_00000.ts\r\n");
         content.push_str(">>\"%out%\" echo #EXT-X-ENDLIST\r\n");
         content.push_str("<nul set /p dummy=segment>\"%dir%segment_00000.ts\"\r\n");
+        if completion == FakeHlsScriptCompletion::StayRunningAfterPublish {
+            content.push_str(":wait\r\n");
+            content.push_str("goto wait\r\n");
+        }
         content.push_str("exit /b 0\r\n");
         push_windows_ffmpeg_probe_labels(
             &mut content,

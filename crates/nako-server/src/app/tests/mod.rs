@@ -1263,7 +1263,23 @@ fn fake_slow_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
 }
 
 fn fake_hls_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
-    hls_ffmpeg_script(root, name, true, hardware_encoder_lines())
+    hls_ffmpeg_script(
+        root,
+        name,
+        true,
+        hardware_encoder_lines(),
+        FakeHlsScriptCompletion::Finish,
+    )
+}
+
+fn fake_running_hls_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
+    hls_ffmpeg_script(
+        root,
+        name,
+        true,
+        hardware_encoder_lines(),
+        FakeHlsScriptCompletion::StayRunningAfterPublish,
+    )
 }
 
 fn fake_hls_ffmpeg_script_requiring_seek(root: &Path, name: &str, expected_seek: &str) -> PathBuf {
@@ -1446,11 +1462,23 @@ fn fake_hls_ffmpeg_script_requiring_audio_map(
 }
 
 fn fake_failing_hls_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
-    hls_ffmpeg_script(root, name, false, hardware_encoder_lines())
+    hls_ffmpeg_script(
+        root,
+        name,
+        false,
+        hardware_encoder_lines(),
+        FakeHlsScriptCompletion::Finish,
+    )
 }
 
 fn fake_cpu_only_hls_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
-    hls_ffmpeg_script(root, name, true, &[" V..... libx264", " A..... aac"])
+    hls_ffmpeg_script(
+        root,
+        name,
+        true,
+        &[" V..... libx264", " A..... aac"],
+        FakeHlsScriptCompletion::Finish,
+    )
 }
 
 fn hardware_encoder_lines() -> &'static [&'static str] {
@@ -1463,7 +1491,19 @@ fn hardware_encoder_lines() -> &'static [&'static str] {
     ]
 }
 
-fn hls_ffmpeg_script(root: &Path, name: &str, success: bool, encoder_lines: &[&str]) -> PathBuf {
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum FakeHlsScriptCompletion {
+    Finish,
+    StayRunningAfterPublish,
+}
+
+fn hls_ffmpeg_script(
+    root: &Path,
+    name: &str,
+    success: bool,
+    encoder_lines: &[&str],
+    completion: FakeHlsScriptCompletion,
+) -> PathBuf {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -1565,6 +1605,9 @@ fn hls_ffmpeg_script(root: &Path, name: &str, success: bool, encoder_lines: &[&s
             content.push_str("  printf '#EXTM3U\\n#EXTINF:1,\\n%s\\n#EXT-X-ENDLIST\\n' \"$(basename \"$subtitle_segment\")\" > \"$subtitle_list\"\n");
             content.push_str("  printf 'WEBVTT\\n\\n00:00:00.000 --> 00:00:01.000\\nsubtitle\\n' > \"$subtitle_segment\"\n");
             content.push_str("fi\n");
+            if completion == FakeHlsScriptCompletion::StayRunningAfterPublish {
+                content.push_str("exec sleep 3600\n");
+            }
             content.push_str(
                 "printf 'frame=12\\nout_time_us=1500000\\nspeed=1.25x\\nprogress=end\\n'\n",
             );
@@ -1709,6 +1752,10 @@ fn hls_ffmpeg_script(root: &Path, name: &str, success: bool, encoder_lines: &[&s
             content.push_str(">>\"!subtitle_segment!\" echo 00:00:00.000 --^> 00:00:01.000\r\n");
             content.push_str(">>\"!subtitle_segment!\" echo subtitle\r\n");
             content.push_str(")\r\n");
+            if completion == FakeHlsScriptCompletion::StayRunningAfterPublish {
+                content.push_str(":wait\r\n");
+                content.push_str("goto wait\r\n");
+            }
             content.push_str("echo frame=12\r\n");
             content.push_str("echo out_time_us=1500000\r\n");
             content.push_str("echo speed=1.25x\r\n");

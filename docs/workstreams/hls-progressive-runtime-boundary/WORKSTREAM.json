@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "slug": "hls-progressive-runtime-boundary",
+  "title": "HLS Progressive Runtime Boundary",
+  "status": "active",
+  "updated": "2026-05-29",
+  "scope_kind": "fearless_refactor",
+  "problem": "Nako's HLS planning and manifest model is mature, but executable HLS runtime still waits for whole-output FFmpeg completion before publishing playlists and final artifacts.",
+  "task_prefix": "HPRB",
+  "current_task": "HPRB-060",
+  "completed_tasks": [
+    "HPRB-010",
+    "HPRB-020",
+    "HPRB-030",
+    "HPRB-040",
+    "HPRB-050"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/hls-progressive-runtime-boundary/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/hls-progressive-runtime-boundary/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/hls-progressive-runtime-boundary/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/hls-progressive-runtime-boundary/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/hls-progressive-runtime-boundary/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/hls-progressive-runtime-boundary/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python3 -m json.tool docs/workstreams/hls-progressive-runtime-boundary/WORKSTREAM.json",
+    "cargo nextest run -p nako-transcode hls_runner --no-fail-fast",
+    "cargo nextest run -p nako-transcode hls --no-fail-fast",
+    "cargo nextest run -p nako-server hls_source --no-fail-fast",
+    "cargo nextest run -p nako-server hls_segment --no-fail-fast",
+    "cargo nextest run -p nako-server hls --no-fail-fast",
+    "cargo nextest run -p nako-server playback --no-fail-fast",
+    "cargo nextest run -p nako-server renderer --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "HPRB-010",
+      "summary": "Opened the durable fearless refactor lane for making HLS runtime publication, playlist readiness, segment serving, artifact reconstruction, and playlist auth decoration future-ready."
+    },
+    {
+      "task": "HPRB-020",
+      "summary": "Added an explicit HLS output publication policy in nako-transcode, preserving atomic VOD promotion while proving serve-visible running output with cleanup on cancel and failure."
+    },
+    {
+      "task": "HPRB-030",
+      "summary": "Integrated serve-visible HLS output into server playlist paths so app and HTTP playlist requests return after playlist readiness while sessions remain running; generated segments serve, missing running segments conflict as not ready, and cancellation reaches Cancelled."
+    },
+    {
+      "task": "HPRB-040",
+      "summary": "Moved HLS artifact reconstruction into nako-transcode via HlsArtifactSpec, letting the server rebuild manifests from a typed transcode boundary instead of local request-key substring parsing."
+    },
+    {
+      "task": "HPRB-050",
+      "summary": "Consolidated HLS entry playlist authoring, session route binding, and browser/renderer auth query decoration behind a manifest-aware server playback boundary."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0052-hls-runtime-and-media-engine-boundary.md",
+    "docs/adr/0053-application-control-plane-boundary.md",
+    "docs/adr/0049-source-aware-transcode-runtime.md",
+    "docs/adr/0045-ffmpeg-hardware-pipeline-planner.md",
+    "docs/adr/0038-playback-planning-and-transcode-policy-seams.md",
+    "docs/adr/0044-playback-capability-profile-planner.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/PLAYBACK.md",
+      "capability": "HLS progressive runtime"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Playback And Transcode"
+    },
+    {
+      "path": "docs/architecture/CONTROL_PLANE.md",
+      "capability": "runtime supervision"
+    }
+  ],
+  "capability_tags": [
+    "playback.hls.progressive",
+    "playback.hls.artifacts",
+    "playback.hls.playlist-authoring",
+    "transcode.runtime"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Continue this lane until HLS runtime publication and playlist readiness are progressive, artifact reconstruction is typed, and playlist auth decoration is manifest-aware. Split LL-HLS, DASH, DRM, remote workers, and full resource scheduling into follow-ons."
+  }
+}

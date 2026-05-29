@@ -44,6 +44,7 @@ selection.
 | HLS subtitle sidecar media group | Shipped first slice | `docs/workstreams/hls-media-renditions-runtime/`; `docs/workstreams/hls-master-renditions-authoring/` | ASS/SSA, PGS, burn-in, client subtitle capability policy. |
 | HLS audio sidecar media group | Shipped first slice | `docs/workstreams/hls-audio-sidecar-artifacts/` | Audio codec policy, downmix, normalization, selected-main-mux cleanup. |
 | HLS seek/restart | Shipped first slice | `docs/adr/0052-hls-runtime-and-media-engine-boundary.md`; `docs/workstreams/hls-seek-restart-lifecycle/` | Generation identity, restart admission, FFmpeg seek flags, and public `start_position_ms` playlist query. |
+| HLS progressive runtime | Active lane | `docs/workstreams/hls-progressive-runtime-boundary/`; `docs/adr/0052-hls-runtime-and-media-engine-boundary.md` | Playlist readiness before full FFmpeg completion, running segment serving, typed artifact reconstruction, and manifest-aware URL auth. |
 | HDR tone mapping | Not started | `docs/ARCHITECTURE.md`; `docs/adr/0044-playback-capability-profile-planner.md` | Open `hdr-tone-mapping-pipeline`. |
 | Audio downmix and normalization | Not started | This document | Open `audio-compatibility-downmix-normalization`. |
 | Runtime resource scheduler | Partial | `docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md`; playback runtime diagnostics lanes | Open `playback-runtime-resource-scheduler`. |
@@ -98,6 +99,26 @@ Exit criteria:
 - old FFmpeg sessions are cancelled or superseded deterministically;
 - segment routes serve only the active manifest window;
 - keyframe alignment and timestamp behavior are tested.
+
+### Lane B2 - HLS Progressive Runtime Boundary
+
+Goal: Make HLS behave like a runtime session with manifest-backed artifact
+visibility instead of a whole-output materialization path.
+
+Primary crates and docs:
+
+- `crates/nako-transcode`
+- `crates/nako-server/src/app/playback`
+- `docs/adr/0052-hls-runtime-and-media-engine-boundary.md`
+- `docs/workstreams/hls-progressive-runtime-boundary/`
+
+Exit criteria:
+
+- playlist readiness no longer requires full FFmpeg completion;
+- running segment routes serve only manifest-approved artifacts;
+- artifact reconstruction is typed rather than server-local request-key
+  substring parsing;
+- browser and renderer HLS auth decoration remains redaction-safe.
 
 ### Lane C - Subtitle Compatibility
 

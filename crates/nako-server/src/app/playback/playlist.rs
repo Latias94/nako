@@ -21,21 +21,81 @@ pub(super) fn author_hls_entry_playlist(
     }
 }
 
-pub(super) fn rewrite_hls_playlist(body: &str, session_id: TranscodeSessionId) -> String {
-    rewrite_hls_playlist_media_uris(body, &session_id.to_string())
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum HlsPlaylistSessionBinding {
+    Transcode(TranscodeSessionId),
+    Playback(PlaybackSessionId),
 }
 
-pub(super) fn rewrite_hls_playlist_for_playback_session(
+impl HlsPlaylistSessionBinding {
+    fn route_session_id(self) -> String {
+        match self {
+            Self::Transcode(session_id) => session_id.to_string(),
+            Self::Playback(session_id) => session_id.to_string(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub(super) struct HlsPlaylistUrlDecoration {
+    query: Option<String>,
+}
+
+impl HlsPlaylistUrlDecoration {
+    pub(super) fn none() -> Self {
+        Self { query: None }
+    }
+
+    pub(super) fn query(query: impl Into<String>) -> Self {
+        let query = query.into();
+        let query = query.trim().trim_start_matches('?');
+        if query.is_empty() {
+            Self::none()
+        } else {
+            Self {
+                query: Some(query.to_owned()),
+            }
+        }
+    }
+
+    pub(super) fn optional_query(query: Option<&str>) -> Self {
+        query.map_or_else(Self::none, Self::query)
+    }
+
+    fn apply_to_uri(&self, uri: String) -> String {
+        let Some(query) = self.query.as_deref() else {
+            return uri;
+        };
+
+        append_query_to_uri(uri, query)
+    }
+}
+
+pub(super) fn author_hls_session_playlist(
     body: &str,
-    session_id: PlaybackSessionId,
-) -> String {
-    rewrite_hls_playlist_media_uris(body, &session_id.to_string())
+    manifest: &HlsArtifactManifest,
+    binding: HlsPlaylistSessionBinding,
+    decoration: HlsPlaylistUrlDecoration,
+) -> Result<String> {
+    let body = author_hls_entry_playlist(body, manifest)?;
+    Ok(rewrite_hls_playlist_media_uris(
+        &body,
+        manifest,
+        binding,
+        &decoration,
+    ))
 }
 
-fn rewrite_hls_playlist_media_uris(body: &str, session_id: &str) -> String {
+fn rewrite_hls_playlist_media_uris(
+    body: &str,
+    manifest: &HlsArtifactManifest,
+    binding: HlsPlaylistSessionBinding,
+    decoration: &HlsPlaylistUrlDecoration,
+) -> String {
+    let session_id = binding.route_session_id();
     let mut rewritten = body
         .lines()
-        .map(|line| rewrite_hls_playlist_line(line, session_id))
+        .map(|line| rewrite_hls_playlist_line(line, manifest, &session_id, decoration))
         .collect::<Vec<_>>()
         .join("\n");
 
@@ -46,14 +106,19 @@ fn rewrite_hls_playlist_media_uris(body: &str, session_id: &str) -> String {
     rewritten
 }
 
-fn rewrite_hls_playlist_line(line: &str, session_id: &str) -> String {
+fn rewrite_hls_playlist_line(
+    line: &str,
+    manifest: &HlsArtifactManifest,
+    session_id: &str,
+    decoration: &HlsPlaylistUrlDecoration,
+) -> String {
     let trimmed = line.trim();
     if trimmed.is_empty() {
         return line.to_owned();
     }
 
     if trimmed.starts_with("#EXT-X-MAP:") || trimmed.starts_with("#EXT-X-MEDIA:") {
-        return rewrite_hls_quoted_uri_attribute(line, session_id)
+        return rewrite_hls_quoted_uri_attribute(line, manifest, session_id, decoration)
             .unwrap_or_else(|| line.to_owned());
     }
 
@@ -61,14 +126,19 @@ fn rewrite_hls_playlist_line(line: &str, session_id: &str) -> String {
         return line.to_owned();
     }
 
-    rewrite_hls_media_uri(trimmed, session_id)
+    rewrite_hls_media_uri(trimmed, manifest, session_id, decoration)
 }
 
-fn rewrite_hls_quoted_uri_attribute(line: &str, session_id: &str) -> Option<String> {
+fn rewrite_hls_quoted_uri_attribute(
+    line: &str,
+    manifest: &HlsArtifactManifest,
+    session_id: &str,
+    decoration: &HlsPlaylistUrlDecoration,
+) -> Option<String> {
     let marker = "URI=\"";
     let start = line.find(marker)? + marker.len();
     let end = line[start..].find('"')? + start;
-    let rewritten_uri = rewrite_hls_media_uri(&line[start..end], session_id);
+    let rewritten_uri = rewrite_hls_media_uri(&line[start..end], manifest, session_id, decoration);
 
     let mut rewritten = String::with_capacity(line.len() + rewritten_uri.len());
     rewritten.push_str(&line[..start]);
@@ -77,21 +147,37 @@ fn rewrite_hls_quoted_uri_attribute(line: &str, session_id: &str) -> Option<Stri
     Some(rewritten)
 }
 
-fn rewrite_hls_media_uri(uri: &str, session_id: &str) -> String {
+fn rewrite_hls_media_uri(
+    uri: &str,
+    manifest: &HlsArtifactManifest,
+    session_id: &str,
+    decoration: &HlsPlaylistUrlDecoration,
+) -> String {
     let trimmed = uri.trim();
     if trimmed.contains("://") {
         return trimmed.to_owned();
     }
+    let (path, existing_query) = split_uri_query(trimmed);
 
-    if let Some(segment_path) = existing_hls_session_segment_path(trimmed) {
-        return hls_segment_route(session_id, segment_path);
-    }
+    let artifact_name = if let Some(segment_path) = existing_hls_session_segment_path(path) {
+        segment_path
+    } else {
+        if path.starts_with('/') || path.contains('/') || path.contains('\\') {
+            return trimmed.to_owned();
+        }
 
-    if trimmed.starts_with('/') || trimmed.contains('/') || trimmed.contains('\\') {
+        path
+    };
+    if manifest.artifact_for_name(artifact_name).is_err() {
         return trimmed.to_owned();
     }
 
-    hls_segment_route(session_id, trimmed)
+    let route = hls_segment_route(session_id, artifact_name);
+    let route = match existing_query {
+        Some(query) => append_query_to_uri(route, query),
+        None => route,
+    };
+    decoration.apply_to_uri(route)
 }
 
 fn author_single_variant_master_playlist(manifest: &HlsArtifactManifest) -> Result<String> {
@@ -265,6 +351,25 @@ fn existing_hls_session_segment_path(uri: &str) -> Option<&str> {
         .then_some(segment_path)
 }
 
+fn split_uri_query(uri: &str) -> (&str, Option<&str>) {
+    match uri.split_once('?') {
+        Some((path, "")) => (path, None),
+        Some((path, query)) => (path, Some(query)),
+        None => (uri, None),
+    }
+}
+
+fn append_query_to_uri(mut uri: String, query: &str) -> String {
+    if query.is_empty() {
+        return uri;
+    }
+
+    let separator = if uri.contains('?') { '&' } else { '?' };
+    uri.push(separator);
+    uri.push_str(query);
+    uri
+}
+
 fn hls_segment_route(session_id: &str, segment_path: &str) -> String {
     format!("/playback/sessions/{session_id}/hls/segments/{segment_path}")
 }
@@ -375,12 +480,41 @@ mod tests {
     }
 
     #[test]
-    fn rewrite_hls_playlist_rewrites_fmp4_init_map_and_segments() {
+    fn author_hls_session_playlist_decorates_media_group_and_segment_routes_in_one_pass() {
+        let session_id = PlaybackSessionId::new();
+        let manifest = single_variant_manifest_with_subtitles();
+        let body = "#EXTM3U\n#EXTINF:1,\nplaylist.m3u8\n";
+
+        let authored = author_hls_session_playlist(
+            body,
+            &manifest,
+            HlsPlaylistSessionBinding::Playback(session_id),
+            HlsPlaylistUrlDecoration::query("ticket=opaque"),
+        )
+        .unwrap();
+
+        assert!(authored.contains(&format!(
+            "URI=\"/playback/sessions/{session_id}/hls/segments/subtitle_0.m3u8?ticket=opaque\""
+        )));
+        assert!(authored.contains(&format!(
+            "/playback/sessions/{session_id}/hls/segments/playlist.m3u8?ticket=opaque"
+        )));
+    }
+
+    #[test]
+    fn author_hls_session_playlist_rewrites_fmp4_init_map_and_segments() {
         let session_id = TranscodeSessionId::new();
+        let manifest = single_variant_fmp4_manifest();
         let body =
             "#EXTM3U\n#EXT-X-MAP:URI=\"init.mp4\"\n#EXTINF:1,\nsegment_00000.m4s\n#EXT-X-ENDLIST\n";
 
-        let rewritten = rewrite_hls_playlist(body, session_id);
+        let rewritten = author_hls_session_playlist(
+            body,
+            &manifest,
+            HlsPlaylistSessionBinding::Transcode(session_id),
+            HlsPlaylistUrlDecoration::none(),
+        )
+        .unwrap();
 
         assert!(rewritten.contains(&format!(
             "#EXT-X-MAP:URI=\"/playback/sessions/{session_id}/hls/segments/init.mp4\""
@@ -392,11 +526,18 @@ mod tests {
     }
 
     #[test]
-    fn rewrite_hls_playlist_rewrites_adaptive_variant_playlist_uris() {
+    fn author_hls_session_playlist_rewrites_adaptive_variant_playlist_uris() {
         let session_id = TranscodeSessionId::new();
+        let manifest = adaptive_manifest_with_two_variants();
         let body = "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=3128000,RESOLUTION=1280x720\nvariant_0.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=1328000,RESOLUTION=854x480\nvariant_1.m3u8\n";
 
-        let rewritten = rewrite_hls_playlist(body, session_id);
+        let rewritten = author_hls_session_playlist(
+            body,
+            &manifest,
+            HlsPlaylistSessionBinding::Transcode(session_id),
+            HlsPlaylistUrlDecoration::none(),
+        )
+        .unwrap();
 
         assert!(rewritten.contains(&format!(
             "/playback/sessions/{session_id}/hls/segments/variant_0.m3u8"
@@ -407,23 +548,37 @@ mod tests {
     }
 
     #[test]
-    fn rewrite_hls_playlist_rewrites_webvtt_subtitle_segments() {
+    fn author_hls_session_playlist_rewrites_manifest_known_media_segments() {
         let session_id = TranscodeSessionId::new();
-        let body = "#EXTM3U\n#EXTINF:1,\nsubtitle_0_00000.vtt\n#EXT-X-ENDLIST\n";
+        let manifest = single_variant_manifest();
+        let body = "#EXTM3U\n#EXTINF:1,\nsegment_00000.ts\n#EXT-X-ENDLIST\n";
 
-        let rewritten = rewrite_hls_playlist(body, session_id);
+        let rewritten = author_hls_session_playlist(
+            body,
+            &manifest,
+            HlsPlaylistSessionBinding::Transcode(session_id),
+            HlsPlaylistUrlDecoration::none(),
+        )
+        .unwrap();
 
         assert!(rewritten.contains(&format!(
-            "/playback/sessions/{session_id}/hls/segments/subtitle_0_00000.vtt"
+            "/playback/sessions/{session_id}/hls/segments/segment_00000.ts"
         )));
     }
 
     #[test]
-    fn rewrite_hls_playlist_rewrites_subtitle_media_playlist_uri() {
+    fn author_hls_session_playlist_rewrites_media_group_playlist_uris() {
         let session_id = TranscodeSessionId::new();
+        let manifest = single_variant_manifest_with_audio_and_subtitles();
         let body = "#EXTM3U\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"nako-subtitles\",NAME=\"jpn\",URI=\"subtitle_0.m3u8\"\n#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"nako-audio\",NAME=\"eng\",URI=\"audio_0.m3u8\"\n#EXT-X-STREAM-INF:BANDWIDTH=3128000,AUDIO=\"nako-audio\",SUBTITLES=\"nako-subtitles\"\nplaylist.m3u8\n";
 
-        let rewritten = rewrite_hls_playlist(body, session_id);
+        let rewritten = author_hls_session_playlist(
+            body,
+            &manifest,
+            HlsPlaylistSessionBinding::Transcode(session_id),
+            HlsPlaylistUrlDecoration::none(),
+        )
+        .unwrap();
 
         assert!(rewritten.contains(&format!(
             "URI=\"/playback/sessions/{session_id}/hls/segments/subtitle_0.m3u8\""
@@ -437,21 +592,53 @@ mod tests {
     }
 
     #[test]
-    fn rewrite_hls_playlist_for_playback_session_rebinds_existing_segment_routes() {
+    fn author_hls_session_playlist_for_playback_session_rebinds_existing_segment_routes() {
         let old_session_id = PlaybackSessionId::new();
         let new_session_id = PlaybackSessionId::new();
+        let manifest = single_variant_fmp4_manifest();
         let body = format!(
-            "#EXTM3U\n#EXT-X-MAP:URI=\"/playback/sessions/{old_session_id}/hls/segments/init.mp4\"\n/playback/sessions/{old_session_id}/hls/segments/segment_00000.ts\n"
+            "#EXTM3U\n#EXT-X-MAP:URI=\"/playback/sessions/{old_session_id}/hls/segments/init.mp4\"\n/playback/sessions/{old_session_id}/hls/segments/segment_00000.m4s\n"
         );
 
-        let rewritten = rewrite_hls_playlist_for_playback_session(&body, new_session_id);
+        let rewritten = author_hls_session_playlist(
+            &body,
+            &manifest,
+            HlsPlaylistSessionBinding::Playback(new_session_id),
+            HlsPlaylistUrlDecoration::none(),
+        )
+        .unwrap();
 
         assert!(!rewritten.contains(&old_session_id.to_string()));
         assert!(rewritten.contains(&format!(
             "#EXT-X-MAP:URI=\"/playback/sessions/{new_session_id}/hls/segments/init.mp4\""
         )));
         assert!(rewritten.contains(&format!(
-            "/playback/sessions/{new_session_id}/hls/segments/segment_00000.ts"
+            "/playback/sessions/{new_session_id}/hls/segments/segment_00000.m4s"
+        )));
+    }
+
+    #[test]
+    fn author_hls_session_playlist_preserves_existing_query_before_renderer_decoration() {
+        let old_session_id = PlaybackSessionId::new();
+        let new_session_id = PlaybackSessionId::new();
+        let renderer_session_id = "renderer-session-a";
+        let manifest = single_variant_fmp4_manifest();
+        let body = format!(
+            "#EXTM3U\n#EXT-X-MAP:URI=\"/playback/sessions/{old_session_id}/hls/segments/init.mp4?ticket=old\"\n"
+        );
+
+        let rewritten = author_hls_session_playlist(
+            &body,
+            &manifest,
+            HlsPlaylistSessionBinding::Playback(new_session_id),
+            HlsPlaylistUrlDecoration::query(format!(
+                "renderer_session_id={renderer_session_id}&renderer_ticket=opaque"
+            )),
+        )
+        .unwrap();
+
+        assert!(rewritten.contains(&format!(
+            "URI=\"/playback/sessions/{new_session_id}/hls/segments/init.mp4?ticket=old&renderer_session_id={renderer_session_id}&renderer_ticket=opaque\""
         )));
     }
 
@@ -467,6 +654,19 @@ mod tests {
         )
         .unwrap()
         .with_media_renditions(subtitle_renditions())
+        .unwrap()
+    }
+
+    fn single_variant_manifest() -> HlsArtifactManifest {
+        HlsArtifactManifest::single_variant(
+            "hls",
+            "hls/playlist.m3u8",
+            "hls/segment_%05d.ts",
+            HlsOutputRequirement {
+                variant_policy: HlsVariantPolicy::SingleVariant,
+                segment_container: HlsSegmentContainer::MpegTs,
+            },
+        )
         .unwrap()
     }
 
@@ -494,6 +694,52 @@ mod tests {
         )
         .unwrap()
         .with_media_renditions(audio_renditions())
+        .unwrap()
+    }
+
+    fn single_variant_manifest_with_audio_and_subtitles() -> HlsArtifactManifest {
+        HlsArtifactManifest::single_variant(
+            "hls",
+            "hls/playlist.m3u8",
+            "hls/segment_%05d.ts",
+            HlsOutputRequirement {
+                variant_policy: HlsVariantPolicy::SingleVariant,
+                segment_container: HlsSegmentContainer::MpegTs,
+            },
+        )
+        .unwrap()
+        .with_media_renditions(
+            HlsMediaRenditionPlan::from_audio_and_subtitles(
+                vec![HlsAudioRendition::new(0, 1, Some("eng".to_owned()), true)],
+                vec![HlsSubtitleRendition::new(0, 2, Some("jpn".to_owned()))],
+            )
+            .unwrap(),
+        )
+        .unwrap()
+    }
+
+    fn single_variant_fmp4_manifest() -> HlsArtifactManifest {
+        HlsArtifactManifest::single_variant(
+            "hls",
+            "hls/playlist.m3u8",
+            "hls/segment_%05d.m4s",
+            HlsOutputRequirement {
+                variant_policy: HlsVariantPolicy::SingleVariant,
+                segment_container: HlsSegmentContainer::Fmp4,
+            },
+        )
+        .unwrap()
+    }
+
+    fn adaptive_manifest_with_two_variants() -> HlsArtifactManifest {
+        HlsArtifactManifest::adaptive_fmp4(
+            "hls",
+            "hls/master.m3u8",
+            vec![
+                HlsRendition::new(0, 1280, 720, 3_000_000, 128_000),
+                HlsRendition::new(1, 854, 480, 1_200_000, 128_000),
+            ],
+        )
         .unwrap()
     }
 

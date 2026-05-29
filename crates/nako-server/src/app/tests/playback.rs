@@ -244,6 +244,7 @@ async fn hls_playback_policy_denial_does_not_create_sessions_or_artifacts() {
             client: ClientPlaybackCapabilities::default(),
             preferences: PlaybackPreferenceContext::default(),
             playback_generation: HlsPlaybackGeneration::default(),
+            transport_query: None,
         })
         .await
         .unwrap_err();
@@ -554,6 +555,76 @@ async fn hls_source_runs_runner_and_reuses_completed_session() {
         HlsSourceDisposition::ReusedExisting
     );
     assert_eq!(restarted_reused.session.id, session_id);
+}
+
+#[tokio::test]
+async fn hls_playlist_playback_returns_when_playlist_is_ready_before_runner_finishes() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_running_hls_ffmpeg_script(script_root.path(), "hls_running_playlist");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let principal = local_playback_viewer(&store, source.library_id).await;
+
+    let playlist = tokio::time::timeout(
+        std::time::Duration::from_millis(800),
+        app.playback()
+            .hls_playlist_playback(HlsPlaylistPlaybackRequest {
+                principal,
+                source_id: source.id,
+                client: ClientPlaybackCapabilities::default(),
+                preferences: PlaybackPreferenceContext::default(),
+                playback_generation: HlsPlaybackGeneration::default(),
+                transport_query: None,
+            }),
+    )
+    .await
+    .expect("hls playlist should be returned before the runner exits")
+    .unwrap();
+
+    let transcode_session_id = playlist
+        .session
+        .transcode_session_id
+        .expect("hls playback session should link a transcode session");
+    let running = store
+        .get_transcode_session(transcode_session_id)
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(running.state, TranscodeSessionState::Running);
+    assert!(playlist.body.contains("#EXTM3U"));
+    assert!(playlist.body.contains(&format!(
+        "/playback/sessions/{}/hls/segments/segment_00000.ts",
+        playlist.session.id
+    )));
+
+    let segment = app
+        .playback()
+        .plan_hls_segment(transcode_session_id, "segment_00000.ts")
+        .await
+        .unwrap();
+    assert_eq!(segment.response.content_type, "video/mp2t");
+    assert!(segment.path.ends_with("segment_00000.ts"));
+
+    let missing = app
+        .playback()
+        .plan_hls_segment(transcode_session_id, "segment_00001.ts")
+        .await
+        .unwrap_err();
+    let NakoError::Conflict { message } = missing else {
+        panic!("expected missing running hls segment readiness conflict");
+    };
+    assert!(message.contains("is not ready"));
+
+    app.playback()
+        .cancel_playback_session(playlist.session.id)
+        .await
+        .unwrap();
+    wait_for_transcode_state(
+        &store,
+        transcode_session_id,
+        TranscodeSessionState::Cancelled,
+    )
+    .await;
 }
 
 #[tokio::test]
@@ -1938,4 +2009,27 @@ async fn local_playback_viewer(
         roles: vec![UserRole::Viewer],
         bootstrap: false,
     }
+}
+
+async fn wait_for_transcode_state(
+    store: &NakoDatabase,
+    session_id: TranscodeSessionId,
+    expected: TranscodeSessionState,
+) {
+    tokio::time::timeout(std::time::Duration::from_millis(800), async {
+        loop {
+            let state = store
+                .get_transcode_session(session_id)
+                .await
+                .unwrap()
+                .unwrap()
+                .state;
+            if state == expected {
+                return;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap_or_else(|_| panic!("expected transcode session {session_id} to reach {expected:?}"));
 }

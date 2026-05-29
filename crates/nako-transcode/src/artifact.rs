@@ -17,6 +17,8 @@ const HLS_ADAPTIVE_LADDER_IDENTITY_VERSION: &str = "hls-adaptive-ladder:v1";
 const HLS_MEDIA_RENDITIONS_IDENTITY_VERSION: &str = "hls-media-renditions:v1";
 const HLS_PLAYBACK_GENERATION_IDENTITY_VERSION: &str = "hls-playback-generation:v1";
 const HLS_REQUEST_VARIANT_IDENTITY_VERSION: &str = "hls-request-variant:v1";
+const TRANSCODE_REQUEST_IDENTITY_VERSION: &str = "transcode-request:v1";
+const TRANSCODE_PROFILE_IDENTITY_VERSION: &str = "transcode-profile:v1";
 const HLS_ADAPTIVE_AUDIO_BITRATE: u64 = 128_000;
 const HLS_ADAPTIVE_LADDER_CANDIDATES: &[(u32, u32, u64)] = &[
     (3840, 2160, 16_000_000),
@@ -800,6 +802,70 @@ pub struct HlsArtifactDescriptor {
     pub cleanup_candidate: bool,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct HlsArtifactSpec {
+    output: HlsOutputRequirement,
+    request_variant: HlsRequestVariantPlan,
+}
+
+impl HlsArtifactSpec {
+    pub fn from_persisted_request_key(request_key: &str) -> Result<Self> {
+        let profile_key = profile_identity_key_from_request_key(request_key)?;
+        let output = hls_output_requirement_from_profile_identity_key(&profile_key)?;
+        let request_variant = hls_request_variant_from_request_key(request_key)?;
+
+        Ok(Self {
+            output,
+            request_variant,
+        })
+    }
+
+    #[must_use]
+    pub const fn output(&self) -> HlsOutputRequirement {
+        self.output
+    }
+
+    #[must_use]
+    pub const fn request_variant(&self) -> &HlsRequestVariantPlan {
+        &self.request_variant
+    }
+
+    pub fn manifest_for_primary_playlist(
+        &self,
+        primary_playlist_path: impl Into<PathBuf>,
+    ) -> Result<HlsArtifactManifest> {
+        let primary_playlist_path = primary_playlist_path.into();
+        let output_dir = hls_output_dir_for_primary_playlist(&primary_playlist_path)?;
+
+        let manifest = if self.output.variant_policy == HlsVariantPolicy::Adaptive {
+            let ladder_plan = self
+                .request_variant
+                .adaptive_ladder
+                .clone()
+                .unwrap_or_else(HlsAdaptiveLadderPlan::default);
+            HlsArtifactManifest::adaptive_fmp4_with_audio(
+                output_dir,
+                primary_playlist_path,
+                ladder_plan.renditions().to_vec(),
+                ladder_plan.has_audio(),
+            )?
+        } else {
+            let segment_pattern = output_dir.join(format!(
+                "segment_%05d.{}",
+                self.output.segment_container.segment_extension()
+            ));
+            HlsArtifactManifest::single_variant(
+                output_dir,
+                primary_playlist_path,
+                segment_pattern,
+                self.output,
+            )?
+        };
+
+        manifest.with_media_renditions(self.request_variant.media_renditions.clone())
+    }
+}
+
 impl HlsArtifactManifest {
     pub fn single_variant(
         output_dir: impl Into<PathBuf>,
@@ -1257,6 +1323,151 @@ impl HlsArtifactManifest {
         }
 
         Ok(())
+    }
+}
+
+fn hls_output_dir_for_primary_playlist(playlist_path: &Path) -> Result<PathBuf> {
+    playlist_path
+        .parent()
+        .map(Path::to_path_buf)
+        .ok_or_else(|| {
+            NakoError::storage_security_violation(
+                playlist_path.display().to_string(),
+                "hls playlist path does not have a parent directory",
+            )
+        })
+}
+
+fn profile_identity_key_from_request_key(request_key: &str) -> Result<String> {
+    if !request_key.starts_with(TRANSCODE_REQUEST_IDENTITY_VERSION) {
+        return Err(NakoError::InvalidInput {
+            message: "transcode request identity version is unsupported".to_owned(),
+        });
+    }
+
+    let value = request_identity_component(request_key, "profile").ok_or_else(|| {
+        NakoError::InvalidInput {
+            message: "transcode request identity is missing profile component".to_owned(),
+        }
+    })?;
+    percent_decode_identity_component(value).ok_or_else(|| NakoError::InvalidInput {
+        message: "transcode request profile identity is not valid percent encoding".to_owned(),
+    })
+}
+
+fn hls_request_variant_from_request_key(request_key: &str) -> Result<HlsRequestVariantPlan> {
+    let Some(value) = request_identity_component(request_key, "request_variant") else {
+        return Ok(HlsRequestVariantPlan::default());
+    };
+    let value =
+        percent_decode_identity_component(value).ok_or_else(|| NakoError::InvalidInput {
+            message: "hls request variant identity is not valid percent encoding".to_owned(),
+        })?;
+
+    HlsRequestVariantPlan::from_identity_key(&value)
+}
+
+fn request_identity_component<'a>(request_key: &'a str, name: &str) -> Option<&'a str> {
+    let needle = format!(";{name}=");
+    let start = request_key.find(&needle)? + needle.len();
+    let rest = &request_key[start..];
+
+    if name == "profile" {
+        return rest
+            .find(";request_variant=")
+            .map_or(Some(rest), |end| Some(&rest[..end]));
+    }
+
+    rest.find(';').map_or(Some(rest), |end| Some(&rest[..end]))
+}
+
+fn hls_output_requirement_from_profile_identity_key(
+    profile_key: &str,
+) -> Result<HlsOutputRequirement> {
+    if !profile_key.starts_with(TRANSCODE_PROFILE_IDENTITY_VERSION) {
+        return Err(NakoError::InvalidInput {
+            message: "transcode profile identity version is unsupported".to_owned(),
+        });
+    }
+
+    let kind =
+        profile_identity_component(profile_key, "kind").ok_or_else(|| NakoError::InvalidInput {
+            message: "transcode profile identity is missing kind component".to_owned(),
+        })?;
+    if !matches!(kind, "hls_single_variant" | "hls_adaptive") {
+        return Err(NakoError::InvalidInput {
+            message: "transcode profile identity is not an hls profile".to_owned(),
+        });
+    }
+
+    let variant_policy = match profile_identity_component(profile_key, "hls_variant") {
+        Some("single_variant") => HlsVariantPolicy::SingleVariant,
+        Some("adaptive") => HlsVariantPolicy::Adaptive,
+        Some(_) => {
+            return Err(NakoError::InvalidInput {
+                message: "transcode profile identity has unsupported hls variant policy".to_owned(),
+            });
+        }
+        None => {
+            return Err(NakoError::InvalidInput {
+                message: "transcode profile identity is missing hls variant policy".to_owned(),
+            });
+        }
+    };
+    let segment_container = match profile_identity_component(profile_key, "hls_segment") {
+        Some("mpeg_ts") => crate::policy::HlsSegmentContainer::MpegTs,
+        Some("fmp4") => crate::policy::HlsSegmentContainer::Fmp4,
+        Some(_) => {
+            return Err(NakoError::InvalidInput {
+                message: "transcode profile identity has unsupported hls segment container"
+                    .to_owned(),
+            });
+        }
+        None => {
+            return Err(NakoError::InvalidInput {
+                message: "transcode profile identity is missing hls segment container".to_owned(),
+            });
+        }
+    };
+
+    Ok(HlsOutputRequirement {
+        variant_policy,
+        segment_container,
+    })
+}
+
+fn profile_identity_component<'a>(profile_key: &'a str, name: &str) -> Option<&'a str> {
+    profile_key
+        .split(';')
+        .find_map(|component| component.strip_prefix(&format!("{name}=")))
+}
+
+fn percent_decode_identity_component(value: &str) -> Option<String> {
+    let bytes = value.as_bytes();
+    let mut decoded = String::with_capacity(value.len());
+    let mut index = 0;
+
+    while index < bytes.len() {
+        if bytes[index] == b'%' {
+            let high = bytes.get(index + 1).copied().and_then(hex_value)?;
+            let low = bytes.get(index + 2).copied().and_then(hex_value)?;
+            decoded.push((high << 4 | low) as char);
+            index += 3;
+        } else {
+            decoded.push(bytes[index] as char);
+            index += 1;
+        }
+    }
+
+    Some(decoded)
+}
+
+fn hex_value(value: u8) -> Option<u8> {
+    match value {
+        b'0'..=b'9' => Some(value - b'0'),
+        b'a'..=b'f' => Some(value - b'a' + 10),
+        b'A'..=b'F' => Some(value - b'A' + 10),
+        _ => None,
     }
 }
 

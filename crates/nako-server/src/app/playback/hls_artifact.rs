@@ -1,5 +1,5 @@
 use std::{
-    path::{Path, PathBuf},
+    path::Path,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -8,17 +8,14 @@ use nako_core::{
     TranscodeSessionState,
 };
 use nako_streaming::DirectPlayRangeRequest;
-use nako_transcode::{
-    HlsAdaptiveLadderPlan, HlsArtifactManifest, HlsOutputRequirement, HlsRequestVariantPlan,
-    HlsSegmentContainer, HlsVariantPolicy,
-};
+use nako_transcode::{HlsArtifactManifest, HlsArtifactSpec};
 
 use crate::config::PlaybackConfig;
 
 use super::{
     HlsSegmentPlan,
     paths::path_exists,
-    playlist::{author_hls_entry_playlist, rewrite_hls_playlist_for_playback_session},
+    playlist::{HlsPlaylistSessionBinding, HlsPlaylistUrlDecoration, author_hls_session_playlist},
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -31,18 +28,11 @@ impl HlsArtifactService {
         Self { config }
     }
 
-    pub(super) fn rewrite_playlist_for_playback_session(
-        &self,
-        body: &str,
-        session_id: PlaybackSessionId,
-    ) -> String {
-        rewrite_hls_playlist_for_playback_session(body, session_id)
-    }
-
     pub(super) async fn read_playback_playlist(
         &self,
         transcode: &TranscodeSessionRecord,
         playback_session_id: PlaybackSessionId,
+        transport_query: Option<&str>,
     ) -> Result<String> {
         let manifest = hls_artifact_manifest_for_session(transcode)?;
         let playlist_path = manifest.primary_playlist_path();
@@ -64,12 +54,12 @@ impl HlsArtifactService {
                 )
             })?;
 
-        let body = author_hls_entry_playlist(&body, &manifest)?;
-
-        Ok(rewrite_hls_playlist_for_playback_session(
+        author_hls_session_playlist(
             &body,
-            playback_session_id,
-        ))
+            &manifest,
+            HlsPlaylistSessionBinding::Playback(playback_session_id),
+            HlsPlaylistUrlDecoration::optional_query(transport_query),
+        )
     }
 
     pub(super) async fn plan_segment(
@@ -125,43 +115,8 @@ pub(super) fn hls_artifact_manifest_for_session(
     session: &TranscodeSessionRecord,
 ) -> Result<HlsArtifactManifest> {
     ensure_hls_session_artifacts_are_servable(session)?;
-    let output = hls_output_requirement_from_request_key(&session.request_key);
-    let request_variant = hls_request_variant_plan_from_request_key(&session.request_key)?;
-    let output_dir = hls_output_dir_for_primary_playlist(&session.output_path)?;
-
-    if output.variant_policy == HlsVariantPolicy::Adaptive {
-        if output.segment_container != HlsSegmentContainer::Fmp4 {
-            return Err(NakoError::Unsupported(
-                "adaptive hls artifacts currently require fmp4 segments",
-            ));
-        }
-
-        let ladder_plan = request_variant
-            .as_ref()
-            .and_then(|variant| variant.adaptive_ladder.clone())
-            .unwrap_or_else(HlsAdaptiveLadderPlan::default);
-
-        let manifest = HlsArtifactManifest::adaptive_fmp4_with_audio(
-            output_dir,
-            session.output_path.clone(),
-            ladder_plan.renditions().to_vec(),
-            ladder_plan.has_audio(),
-        )?;
-        return apply_session_media_renditions(manifest, request_variant);
-    }
-
-    let segment_pattern = output_dir.join(format!(
-        "segment_%05d.{}",
-        output.segment_container.segment_extension()
-    ));
-
-    let manifest = HlsArtifactManifest::single_variant(
-        output_dir,
-        session.output_path.clone(),
-        segment_pattern,
-        output,
-    )?;
-    apply_session_media_renditions(manifest, request_variant)
+    HlsArtifactSpec::from_persisted_request_key(&session.request_key)?
+        .manifest_for_primary_playlist(session.output_path.clone())
 }
 
 fn ensure_hls_session_artifacts_are_servable(session: &TranscodeSessionRecord) -> Result<()> {
@@ -181,97 +136,6 @@ fn ensure_hls_session_artifacts_are_servable(session: &TranscodeSessionRecord) -
     }
 
     Ok(())
-}
-
-fn hls_output_dir_for_primary_playlist(playlist_path: &Path) -> Result<PathBuf> {
-    playlist_path
-        .parent()
-        .map(Path::to_path_buf)
-        .ok_or_else(|| {
-            NakoError::storage_security_violation(
-                playlist_path.display().to_string(),
-                "hls playlist path does not have a parent directory",
-            )
-        })
-}
-
-fn hls_output_requirement_from_request_key(request_key: &str) -> HlsOutputRequirement {
-    let variant_policy = if request_key_contains_component(request_key, "hls_variant", "adaptive") {
-        HlsVariantPolicy::Adaptive
-    } else {
-        HlsVariantPolicy::SingleVariant
-    };
-    let segment_container = if request_key_contains_component(request_key, "hls_segment", "fmp4") {
-        HlsSegmentContainer::Fmp4
-    } else {
-        HlsSegmentContainer::MpegTs
-    };
-
-    HlsOutputRequirement {
-        variant_policy,
-        segment_container,
-    }
-}
-
-fn apply_session_media_renditions(
-    manifest: HlsArtifactManifest,
-    request_variant: Option<HlsRequestVariantPlan>,
-) -> Result<HlsArtifactManifest> {
-    if let Some(request_variant) = request_variant {
-        manifest.with_media_renditions(request_variant.media_renditions)
-    } else {
-        Ok(manifest)
-    }
-}
-
-fn hls_request_variant_plan_from_request_key(
-    request_key: &str,
-) -> Result<Option<HlsRequestVariantPlan>> {
-    let Some(value) = request_key.split(";request_variant=").nth(1) else {
-        return Ok(None);
-    };
-    let value = value.split(';').next().unwrap_or(value);
-    let value =
-        percent_decode_request_key_component(value).ok_or_else(|| NakoError::InvalidInput {
-            message: "hls adaptive ladder request variant is not valid percent encoding".to_owned(),
-        })?;
-
-    Ok(Some(HlsRequestVariantPlan::from_identity_key(&value)?))
-}
-
-fn request_key_contains_component(request_key: &str, name: &str, value: &str) -> bool {
-    request_key.contains(&format!("{name}={value}"))
-        || request_key.contains(&format!("{name}%3D{value}"))
-        || request_key.contains(&format!("{name}%3d{value}"))
-}
-
-fn percent_decode_request_key_component(value: &str) -> Option<String> {
-    let bytes = value.as_bytes();
-    let mut decoded = String::with_capacity(value.len());
-    let mut index = 0;
-
-    while index < bytes.len() {
-        if bytes[index] == b'%' {
-            let high = bytes.get(index + 1).copied().and_then(hex_value)?;
-            let low = bytes.get(index + 2).copied().and_then(hex_value)?;
-            decoded.push((high << 4 | low) as char);
-            index += 3;
-        } else {
-            decoded.push(bytes[index] as char);
-            index += 1;
-        }
-    }
-
-    Some(decoded)
-}
-
-fn hex_value(value: u8) -> Option<u8> {
-    match value {
-        b'0'..=b'9' => Some(value - b'0'),
-        b'a'..=b'f' => Some(value - b'a' + 10),
-        b'A'..=b'F' => Some(value - b'A' + 10),
-        _ => None,
-    }
 }
 
 fn hls_session_can_serve_artifacts(state: TranscodeSessionState) -> bool {
@@ -398,10 +262,12 @@ fn system_time_ms(value: SystemTime) -> Option<i64> {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
+    use std::{path::PathBuf, time::Duration};
 
     use nako_transcode::{
-        HlsAudioRendition, HlsMediaRenditionPlan, HlsRendition, HlsSubtitleRendition,
+        HlsAdaptiveLadderPlan, HlsAudioRendition, HlsMediaRenditionPlan, HlsOutputRequirement,
+        HlsRendition, HlsRequestVariantPlan, HlsSegmentContainer, HlsSubtitleRendition,
+        HlsVariantPolicy,
     };
 
     use super::*;

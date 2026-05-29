@@ -61,6 +61,7 @@ Evidence workstreams:
 - `docs/workstreams/hls-alternate-audio-renditions/`
 - `docs/workstreams/hls-audio-sidecar-artifacts/`
 - `docs/workstreams/hls-seek-restart-lifecycle/`
+- `docs/workstreams/hls-progressive-runtime-boundary/`
 - `docs/workstreams/admin-playback-runtime-diagnostics/`
 - `docs/workstreams/admin-playback-session-read-model/`
 

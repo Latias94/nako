@@ -72,6 +72,29 @@ async fn latest_playback_session_for_source(
     panic!("playback route should persist a matching playback session")
 }
 
+async fn wait_for_transcode_state(
+    store: &NakoDatabase,
+    session_id: TranscodeSessionId,
+    expected: TranscodeSessionState,
+) {
+    let mut last_state = None;
+    for _ in 0..250 {
+        let state = store
+            .get_transcode_session(session_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .state;
+        if state == expected {
+            return;
+        }
+        last_state = Some(state);
+        sleep(Duration::from_millis(20)).await;
+    }
+
+    panic!("transcode session {session_id} did not reach {expected:?}; last state: {last_state:?}");
+}
+
 #[tokio::test]
 async fn playback_decision_and_direct_stream_routes_work() {
     let temp = tempfile::tempdir().unwrap();
@@ -2074,6 +2097,115 @@ async fn hls_playlist_and_segment_routes_work() {
         .unwrap();
 
     assert_eq!(missing.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn hls_playlist_route_returns_while_transcode_session_is_running() {
+    let (_temp, router, source, store) = router_with_running_hls_source().await;
+    let playlist_path = format!("/sources/{}/stream/hls/playlist.m3u8", source.id);
+
+    let playlist_response = tokio::time::timeout(
+        Duration::from_millis(800),
+        router.clone().oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&playlist_path)
+                .body(Body::empty())
+                .unwrap(),
+        ),
+    )
+    .await
+    .expect("hls playlist route should return before ffmpeg exits")
+    .unwrap();
+
+    assert_eq!(playlist_response.status(), StatusCode::OK);
+    let playback_session_id: PlaybackSessionId = playlist_response
+        .headers()
+        .get(PLAYBACK_SESSION_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .expect("hls playlist should expose playback session id")
+        .parse()
+        .unwrap();
+    let playback_session = store
+        .get_playback_session(playback_session_id)
+        .await
+        .unwrap()
+        .unwrap();
+    let transcode_session_id = playback_session
+        .transcode_session_id
+        .expect("hls playback session should link transcode session");
+    let transcode = store
+        .get_transcode_session(transcode_session_id)
+        .await
+        .unwrap()
+        .unwrap();
+    let playlist = String::from_utf8(
+        to_bytes(playlist_response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+
+    assert_eq!(transcode.state, TranscodeSessionState::Running);
+    assert!(playlist.contains(&format!(
+        "/playback/sessions/{playback_session_id}/hls/segments/segment_00000.ts"
+    )));
+
+    let segment_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/playback/sessions/{playback_session_id}/hls/segments/segment_00000.ts"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(segment_response.status(), StatusCode::OK);
+    let _segment_body = to_bytes(segment_response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+
+    let missing_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/playback/sessions/{playback_session_id}/hls/segments/segment_00001.ts"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(missing_response.status(), StatusCode::CONFLICT);
+    let _missing_body = to_bytes(missing_response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+
+    let cancel_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!("/playback/sessions/{playback_session_id}/cancel"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(cancel_response.status(), StatusCode::OK);
+    wait_for_transcode_state(
+        &store,
+        transcode_session_id,
+        TranscodeSessionState::Cancelled,
+    )
+    .await;
 }
 
 #[tokio::test]
