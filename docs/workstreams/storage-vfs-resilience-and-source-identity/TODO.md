@@ -33,12 +33,20 @@ Last updated: 2026-05-29
 
 ## M2 — Move/Rename Reconciliation
 
-- [ ] SVRS-030 [owner=codex] [deps=SVRS-020] [scope=crates/nako-library,crates/nako-db,crates/nako-server]
+- [x] SVRS-030 [owner=codex] [deps=SVRS-020] [scope=crates/nako-library,crates/nako-db,crates/nako-server]
   Goal: Preserve **Media Source** and item state across strong-evidence moves or
   renames while keeping weak evidence as reviewable state.
   Validation:
   `cargo nextest run -p nako-library rename_reconciliation --no-fail-fast` and
   `cargo nextest run -p nako-db scan source_duplicate --no-fail-fast`.
+  Evidence: `LibraryIndexService` now carries current scan locators into source
+  observation commits; strong content-hash relocation reuses the existing
+  **Media Source** and item state only when the old locator is absent from the
+  current scan; weak and duplicate evidence creates suggested
+  **Source Duplicate Relationship** records in the scan commit transaction.
+  Persistence note: scan source commits now include duplicate relationships and
+  SQLite/PostgreSQL adapters upsert them inside the same atomic scan-source
+  unit.
   Review: Confirm tombstones, playback state, provider mappings, and duplicate
   relationships stay coherent.
   Handoff: SVRS-040 can add bounded failure classification around the same

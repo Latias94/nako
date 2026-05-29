@@ -7,10 +7,11 @@
   "scope_kind": "architecture",
   "problem": "Nako has a strong storage/VFS foundation, but source identity evidence, move/rename reconciliation, mount-hang protection, stale-cache diagnostics, and storage failure classification need to be deepened before broader remote-library and intake workflows expand.",
   "task_prefix": "SVRS",
-  "current_task": "SVRS-030",
+  "current_task": "SVRS-040",
   "completed_tasks": [
     "SVRS-010",
-    "SVRS-020"
+    "SVRS-020",
+    "SVRS-030"
   ],
   "authoritative_docs": [
     {
@@ -55,7 +56,11 @@
     "docs/workstreams/storage-vfs-resilience-and-source-identity/DESIGN.md",
     "docs/workstreams/storage-vfs-resilience-and-source-identity/TODO.md",
     "crates/nako-core/src/media/source.rs",
-    "crates/nako-library/src/scan.rs"
+    "crates/nako-library/src/scan.rs",
+    "crates/nako-library/src/ingestion/source_commit.rs",
+    "crates/nako-library/src/index.rs",
+    "crates/nako-db/src/sqlite/scan.rs",
+    "crates/nako-db/src/postgres/core_catalog.rs"
   ],
   "adr_refs": [
     "docs/adr/0002-internal-vfs-before-os-mounting.md",
@@ -81,7 +86,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "SVRS-030",
-    "notes": "SVRS-020 is complete. Continue with move/rename reconciliation using the layered source fingerprint evidence policy. Keep the lane non-Web and non-HLS unless shared VFS contracts require coordinated playback staging changes."
+    "next_task": "SVRS-040",
+    "notes": "SVRS-030 is complete. Continue with bounded storage failure classification and backoff across VFS-backed scan/probe/stage paths. Keep the lane non-Web and non-HLS unless shared VFS contracts require coordinated playback staging changes."
   }
 }

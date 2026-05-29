@@ -113,6 +113,8 @@ fn discovered_media_source(locator: &str) -> DiscoveredMediaSource {
         modified_at: None,
         etag: None,
         fingerprint: None,
+        fingerprint_evidence_kind: nako_core::SourceFingerprintEvidenceKind::LocatorOnly,
+        fingerprint_confidence_milli: 250,
         stale: false,
     }
 }

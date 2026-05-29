@@ -1,5 +1,8 @@
 use async_trait::async_trait;
-use nako_core::{NakoError, Result, SourceFingerprintEvidence, SourceFingerprintPolicyInput};
+use nako_core::{
+    NakoError, Result, SourceFingerprintEvidence, SourceFingerprintEvidenceKind,
+    SourceFingerprintPolicyInput,
+};
 use nako_vfs::{ObjectCacheState, ObjectKind, ObjectMetadata, StorageBackend, StorageUri};
 use serde::{Deserialize, Serialize};
 
@@ -21,7 +24,21 @@ pub struct DiscoveredMediaSource {
     pub modified_at: Option<String>,
     pub etag: Option<String>,
     pub fingerprint: Option<String>,
+    pub fingerprint_evidence_kind: SourceFingerprintEvidenceKind,
+    pub fingerprint_confidence_milli: u16,
     pub stale: bool,
+}
+
+impl DiscoveredMediaSource {
+    #[must_use]
+    pub fn fingerprint_evidence(&self) -> SourceFingerprintEvidence {
+        SourceFingerprintEvidence {
+            kind: self.fingerprint_evidence_kind,
+            fingerprint: self.fingerprint.clone(),
+            confidence_milli: self.fingerprint_confidence_milli,
+            stale: self.stale,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -182,6 +199,8 @@ impl<B> VfsLibraryScanner<B> {
             modified_at: metadata.modified_at,
             etag: metadata.etag,
             fingerprint: source_fingerprint.fingerprint,
+            fingerprint_evidence_kind: source_fingerprint.kind,
+            fingerprint_confidence_milli: source_fingerprint.confidence_milli,
             stale,
         }
     }

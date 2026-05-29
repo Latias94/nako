@@ -160,6 +160,13 @@ impl ScanRepository for SqliteStore {
             crate::sqlite::catalog::upsert_search_projection_tx(&mut transaction, projection)
                 .await?;
         }
+        for relationship in &commit.source_duplicate_relationships {
+            crate::sqlite::source_duplicate::upsert_source_duplicate_relationship_tx(
+                &mut *transaction,
+                relationship,
+            )
+            .await?;
+        }
         let mut resolved_ingestion_failures = 0;
         for resolution in &commit.resolved_ingestion_failures {
             resolved_ingestion_failures += crate::sqlite::ingestion::resolve_ingestion_failure_tx(
@@ -180,6 +187,7 @@ impl ScanRepository for SqliteStore {
             library_item_states: commit.library_item_states.len() as u64,
             local_inference_evidence: commit.local_inference_evidence.len() as u64,
             search_projections: commit.search_projections.len() as u64,
+            source_duplicate_relationships: commit.source_duplicate_relationships.len() as u64,
             resolved_ingestion_failures,
         })
     }
@@ -352,6 +360,7 @@ mod tests {
                     )
                     .unwrap(),
                 ],
+                source_duplicate_relationships: Vec::new(),
                 resolved_ingestion_failures: vec![IngestionFailureResolution {
                     library_id,
                     phase: IngestionFailurePhase::Scan,
@@ -481,6 +490,7 @@ mod tests {
                     "Broken",
                     String::new(),
                 )],
+                source_duplicate_relationships: Vec::new(),
                 resolved_ingestion_failures: vec![IngestionFailureResolution {
                     library_id,
                     phase: IngestionFailurePhase::Scan,

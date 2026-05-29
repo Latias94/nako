@@ -41,6 +41,8 @@ Primary evidence:
 
 ## M2 — Move/Rename Reconciliation
 
+Status: Complete as of 2026-05-29.
+
 Exit criteria:
 
 - Strong-evidence moves or renames preserve relevant **Media Source** state.
@@ -52,6 +54,14 @@ Primary gates:
 
 - `cargo nextest run -p nako-library rename_reconciliation --no-fail-fast`
 - `cargo nextest run -p nako-db scan source_duplicate --no-fail-fast`
+
+Primary evidence:
+
+- `crates/nako-library/src/ingestion/source_commit.rs`
+- `crates/nako-library/src/index.rs`
+- `crates/nako-db/src/sqlite/scan.rs`
+- `crates/nako-db/src/postgres/core_catalog.rs`
+- `docs/workstreams/storage-vfs-resilience-and-source-identity/EVIDENCE_AND_GATES.md`
 
 ## M3 — Storage Failure Classification And Backoff
 

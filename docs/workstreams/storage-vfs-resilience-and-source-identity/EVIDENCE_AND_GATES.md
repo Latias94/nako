@@ -49,6 +49,11 @@ available:
 | 2026-05-29 | SVRS-020 | `cargo nextest run -p nako-library source_identity scan --no-fail-fast` | Passed: 12 tests |
 | 2026-05-29 | SVRS-020 | `cargo fmt --all -- --check`; `git diff --check`; `cargo check -p nako-core -p nako-db -p nako-vfs -p nako-library -p nako-server --tests` | Passed |
 | 2026-05-29 | SVRS-020 | SQLite/PostgreSQL repository contract tests | Not required: no schema, migration, or repository contract changed |
+| 2026-05-29 | SVRS-030 | Added move/rename reconciliation in `nako-library` source observation commits and atomic duplicate-relationship persistence in SQLite/PostgreSQL scan commits. | Implemented |
+| 2026-05-29 | SVRS-030 | `cargo nextest run -p nako-library source_identity rename_reconciliation --no-fail-fast` | Passed: 5 tests |
+| 2026-05-29 | SVRS-030 | `cargo nextest run -p nako-db scan source_duplicate --no-fail-fast` | Passed: 7 tests |
+| 2026-05-29 | SVRS-030 | `cargo check -p nako-core -p nako-db -p nako-vfs -p nako-library -p nako-server --tests`; `cargo fmt --all -- --check`; `git diff --check`; `python -m json.tool docs/workstreams/storage-vfs-resilience-and-source-identity/WORKSTREAM.json > $null` | Passed |
+| 2026-05-29 | SVRS-030 | PostgreSQL opt-in harness | Not run: `NAKO_TEST_POSTGRES_URL` was not set in this workspace |
 
 ## SVRS-020 Verification Notes
 
@@ -65,6 +70,25 @@ available:
   integration compile across the related crate boundary.
 - Database contract tests were skipped because SVRS-020 did not change schema,
   migrations, repository traits, or repository implementations.
+
+## SVRS-030 Verification Notes
+
+- `cargo nextest run -p nako-library source_identity rename_reconciliation --no-fail-fast`
+  proves strong content-hash moves preserve **Media Source** identity, curated
+  item metadata, and non-provisional item state while tombstoning the old
+  locator. The same gate also proves weak duplicate evidence and simultaneous
+  strong duplicate files create suggested **Source Duplicate Relationship**
+  records instead of merging sources.
+- `cargo nextest run -p nako-db scan source_duplicate --no-fail-fast` proves
+  scan source commits and source duplicate repository behavior still pass the
+  focused SQLite contract and round-trip gates after duplicate relationships
+  became part of the atomic scan source commit.
+- `cargo check -p nako-core -p nako-db -p nako-vfs -p nako-library -p nako-server --tests`
+  proves the expanded scan commit shape and repository trait requirements
+  compile across core, DB, VFS, library, and server crate boundaries.
+- PostgreSQL transaction code was compile-checked through the Postgres adapter,
+  but the opt-in runtime harness was skipped because no `NAKO_TEST_POSTGRES_URL`
+  was configured in this workspace.
 
 ## Review Expectations
 
