@@ -6,6 +6,10 @@ attention.
 
 ## Current Workstreams
 
+- [hls-audio-sidecar-artifacts](hls-audio-sidecar-artifacts/README.md):
+  active fearless refactor lane for generating real HLS audio sidecar
+  playlists/segments and publishing `TYPE=AUDIO` master playlist groups only
+  for servable artifacts.
 - [hls-alternate-audio-renditions](hls-alternate-audio-renditions/README.md):
   closed fearless refactor lane that made HLS selected audio stream mapping
   executable and deferred true `TYPE=AUDIO` groups until audio sidecar artifacts
