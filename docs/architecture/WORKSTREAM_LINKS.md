@@ -62,6 +62,7 @@ Evidence workstreams:
 - `docs/workstreams/hls-media-renditions-runtime/`
 - `docs/workstreams/hls-alternate-audio-renditions/`
 - `docs/workstreams/hls-audio-sidecar-artifacts/`
+- `docs/workstreams/hls-selected-main-audio-cleanup/`
 - `docs/workstreams/hls-seek-restart-lifecycle/`
 - `docs/workstreams/hls-progressive-runtime-boundary/`
 - `docs/workstreams/playback-runtime-resource-scheduler/`
@@ -80,7 +81,6 @@ Proposed lanes:
 - `proposed:playback-os-resource-isolation`
 - `proposed:playback-device-capacity-tuning`
 - `proposed:hls-artifact-io-pressure-enforcement`
-- `proposed:hls-selected-main-audio-cleanup`
 - `proposed:playback-release-hardware-matrix`
 
 ## Storage And VFS

@@ -21,6 +21,10 @@ attention.
   readiness, running segment serving, typed artifact reconstruction, and
   manifest-aware playlist auth decoration future-ready for a Jellyfin/Plex-class
   self-hosted media server.
+- [hls-selected-main-audio-cleanup](hls-selected-main-audio-cleanup/README.md):
+  completed fearless refactor lane for removing selected audio duplication from
+  sidecar-capable multi-audio HLS main mux outputs now that generated audio
+  sidecar artifacts and `TYPE=AUDIO` groups are servable.
 - [playback-runtime-resource-scheduler](playback-runtime-resource-scheduler/README.md):
   completed fearless refactor lane for turning scattered playback/transcode
   concurrency limits into a host-owned runtime admission boundary with

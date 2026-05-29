@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "slug": "hls-selected-main-audio-cleanup",
+  "title": "HLS Selected Main Audio Cleanup",
+  "status": "completed",
+  "updated": "2026-05-29",
+  "scope_kind": "fearless_refactor",
+  "problem": "Generated HLS audio sidecar groups are now servable, but selected audio is still duplicated in the primary video mux for sidecar-capable multi-audio outputs.",
+  "task_prefix": "HSMA",
+  "current_task": null,
+  "completed_tasks": [
+    "HSMA-010",
+    "HSMA-020",
+    "HSMA-030",
+    "HSMA-040"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/hls-selected-main-audio-cleanup/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/hls-selected-main-audio-cleanup/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/hls-selected-main-audio-cleanup/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/hls-selected-main-audio-cleanup/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/hls-selected-main-audio-cleanup/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/hls-selected-main-audio-cleanup/CLOSEOUT.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/hls-selected-main-audio-cleanup/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python3 -m json.tool docs/workstreams/hls-selected-main-audio-cleanup/WORKSTREAM.json",
+    "cargo nextest run -p nako-transcode hls --no-fail-fast",
+    "cargo nextest run -p nako-server hls --no-fail-fast",
+    "cargo nextest run -p nako-server playback --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "HSMA-010",
+      "summary": "Opened a durable lane for removing selected-main-audio duplication after generated HLS audio sidecar artifacts shipped."
+    },
+    {
+      "task": "HSMA-020",
+      "summary": "Characterized the current duplicated selected-audio output shape for single-variant and adaptive HLS when generated audio sidecars exist."
+    },
+    {
+      "task": "HSMA-030",
+      "summary": "Removed selected audio from sidecar-capable HLS main outputs while preserving single-audio and no-sidecar behavior, and recorded the new main-output audio shape in request identity."
+    },
+    {
+      "task": "HSMA-040",
+      "summary": "Verified, documented, and closed the HLS selected main audio cleanup lane."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0052-hls-runtime-and-media-engine-boundary.md",
+    "docs/adr/0045-ffmpeg-hardware-pipeline-planner.md",
+    "docs/adr/0048-playback-transcode-startup-degradation.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/PLAYBACK.md",
+      "capability": "HLS audio sidecar media group"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Playback And Transcode"
+    }
+  ],
+  "capability_tags": [
+    "playback.hls.audio",
+    "playback.hls.output_shape",
+    "transcode.ffmpeg.hls"
+  ],
+  "continue_policy": {
+    "default_action": "closed",
+    "notes": "The selected-main-audio duplication cleanup is complete. Open follow-on workstreams for language preferences, codec-aware sidecars, LL-HLS/DASH, DRM/key delivery, or player-specific fallback."
+  }
+}

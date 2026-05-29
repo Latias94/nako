@@ -40,9 +40,9 @@ selection.
 | HLS single-variant fMP4 | Shipped | `docs/workstreams/executable-hls-fmp4-runtime-boundary/` | Player validation and browser compatibility matrix. |
 | Adaptive HLS fMP4 ladder | Shipped first slice | `docs/workstreams/adaptive-hls-source-aware-ladder/` | Bandwidth-aware ABR and variant pruning. |
 | HLS artifact manifest | Shipped | `docs/workstreams/transcode-output-shape-hls-manifest-ladder/`; `docs/adr/0052-hls-runtime-and-media-engine-boundary.md` | Keep all playlist/media group URLs manifest-backed. |
-| Selected audio stream mapping | Shipped | `docs/workstreams/hls-alternate-audio-renditions/` | Remove selected-audio duplication when alternate audio groups are mature. |
+| Selected audio stream mapping | Shipped | `docs/workstreams/hls-alternate-audio-renditions/`; `docs/workstreams/hls-selected-main-audio-cleanup/` | Add language/default audio policy. |
 | HLS subtitle sidecar media group | Shipped first slice | `docs/workstreams/hls-media-renditions-runtime/`; `docs/workstreams/hls-master-renditions-authoring/` | ASS/SSA, PGS, burn-in, client subtitle capability policy. |
-| HLS audio sidecar media group | Shipped first slice | `docs/workstreams/hls-audio-sidecar-artifacts/` | Audio codec policy, downmix, normalization, selected-main-mux cleanup. |
+| HLS audio sidecar media group | Shipped cleanup slice | `docs/workstreams/hls-audio-sidecar-artifacts/`; `docs/workstreams/hls-selected-main-audio-cleanup/` | Defer audio codec policy, downmix, normalization, and language preferences. |
 | HLS seek/restart | Shipped first slice | `docs/adr/0052-hls-runtime-and-media-engine-boundary.md`; `docs/workstreams/hls-seek-restart-lifecycle/` | Generation identity, restart admission, FFmpeg seek flags, and public `start_position_ms` playlist query. |
 | HLS progressive runtime | Shipped | `docs/workstreams/hls-progressive-runtime-boundary/`; `docs/adr/0052-hls-runtime-and-media-engine-boundary.md` | Playlist readiness before full FFmpeg completion, running segment serving, typed artifact reconstruction, manifest-aware URL auth, and partial-playlist readiness guard. |
 | HDR tone mapping | Not started | `docs/ARCHITECTURE.md`; `docs/adr/0044-playback-capability-profile-planner.md` | Open `hdr-tone-mapping-pipeline`. |
@@ -123,8 +123,9 @@ Exit criteria:
 - browser and renderer HLS auth decoration remains redaction-safe.
 
 Follow-ons stay separate: LL-HLS/CMAF, DASH/CMAF, DRM/key delivery, remote
-transcode workers, selected-main-audio cleanup, and full playback runtime
-resource scheduling.
+transcode workers, and full playback runtime resource scheduling. Selected
+main audio cleanup is closed in
+`docs/workstreams/hls-selected-main-audio-cleanup/`.
 
 ### Lane C - Subtitle Compatibility
 

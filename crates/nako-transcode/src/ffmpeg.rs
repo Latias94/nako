@@ -290,18 +290,19 @@ fn plan_hls_command_parts(request: &HlsRequest) -> FfmpegHlsCommandParts {
 }
 
 fn plan_single_variant_hls_command_parts(request: &HlsRequest) -> FfmpegHlsCommandParts {
+    let main_output_has_audio = request.artifacts.main_output_has_audio();
     FfmpegHlsCommandParts {
         global: hls_global_args(request.overwrite),
         device_input: hls_device_input_args(request.execution_policy.acceleration),
         input: hls_input_args(&request.input_path, request.playback_generation),
-        stream_map: hls_stream_map_args(request.track_selection),
+        stream_map: hls_stream_map_args(request.track_selection, main_output_has_audio),
         filter_graph: hls_filter_graph_args(request.execution_policy.acceleration),
         video_encoder: hls_video_encoder_args(
             request.execution_policy,
             request.playback_generation,
             request.segment_time_seconds,
         ),
-        audio_encoder: hls_audio_encoder_args(),
+        audio_encoder: hls_audio_encoder_args(main_output_has_audio),
         audio_sidecar: hls_audio_sidecar_args(&request.artifacts, request.segment_time_seconds),
         subtitle: hls_subtitle_args(
             request.execution_policy.subtitle_strategy,
@@ -319,13 +320,14 @@ fn plan_single_variant_hls_command_parts(request: &HlsRequest) -> FfmpegHlsComma
 }
 
 fn plan_adaptive_hls_command_parts(request: &HlsRequest) -> FfmpegHlsCommandParts {
+    let main_output_has_audio = request.artifacts.main_output_has_audio();
     FfmpegHlsCommandParts {
         global: hls_global_args(request.overwrite),
         device_input: hls_device_input_args(request.execution_policy.acceleration),
         input: hls_input_args(&request.input_path, request.playback_generation),
         stream_map: hls_adaptive_stream_map_args(
             request.artifacts.renditions().len(),
-            request.artifacts.has_audio(),
+            main_output_has_audio,
             request.track_selection,
         ),
         filter_graph: hls_filter_graph_args(request.execution_policy.acceleration),
@@ -337,7 +339,7 @@ fn plan_adaptive_hls_command_parts(request: &HlsRequest) -> FfmpegHlsCommandPart
         ),
         audio_encoder: hls_adaptive_audio_encoder_args(
             request.artifacts.renditions(),
-            request.artifacts.has_audio(),
+            main_output_has_audio,
         ),
         audio_sidecar: hls_audio_sidecar_args(&request.artifacts, request.segment_time_seconds),
         subtitle: hls_subtitle_args(
@@ -426,13 +428,18 @@ fn hls_input_args(input_path: &Path, playback_generation: HlsPlaybackGeneration)
     args
 }
 
-fn hls_stream_map_args(track_selection: TranscodeTrackSelection) -> Vec<FfmpegArg> {
-    vec![
-        FfmpegArg::raw("-map"),
-        FfmpegArg::raw("0:v:0"),
-        FfmpegArg::raw("-map"),
-        FfmpegArg::raw(hls_audio_stream_map(track_selection)),
-    ]
+fn hls_stream_map_args(
+    track_selection: TranscodeTrackSelection,
+    main_output_has_audio: bool,
+) -> Vec<FfmpegArg> {
+    let mut args = vec![FfmpegArg::raw("-map"), FfmpegArg::raw("0:v:0")];
+    if main_output_has_audio {
+        args.extend([
+            FfmpegArg::raw("-map"),
+            FfmpegArg::raw(hls_audio_stream_map(track_selection)),
+        ]);
+    }
+    args
 }
 
 fn hls_filter_graph_args(acceleration: TranscodeAccelerationPlan) -> Vec<FfmpegArg> {
@@ -534,7 +541,11 @@ fn hls_adaptive_video_encoder_args(
     args
 }
 
-fn hls_audio_encoder_args() -> Vec<FfmpegArg> {
+fn hls_audio_encoder_args(main_output_has_audio: bool) -> Vec<FfmpegArg> {
+    if !main_output_has_audio {
+        return Vec::new();
+    }
+
     vec![FfmpegArg::raw("-c:a"), FfmpegArg::raw("aac")]
 }
 
@@ -681,7 +692,7 @@ fn hls_adaptive_muxer_args(
         .iter()
         .enumerate()
         .map(|(stream_index, _)| {
-            if artifacts.has_audio() {
+            if artifacts.main_output_has_audio() {
                 format!("v:{stream_index},a:{stream_index}")
             } else {
                 format!("v:{stream_index}")

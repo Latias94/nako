@@ -838,6 +838,92 @@ mod tests {
     }
 
     #[test]
+    fn ffmpeg_builder_omits_selected_audio_from_main_hls_when_sidecars_exist() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let artifacts = hls_artifacts(
+            "hls",
+            "hls/playlist.m3u8",
+            "hls/segment_%05d.ts",
+            HlsOutputRequirement::default(),
+        )
+        .with_media_renditions(
+            HlsMediaRenditionPlan::from_audios(vec![
+                HlsAudioRendition::new(0, 1, Some("eng".to_owned()), false),
+                HlsAudioRendition::new(1, 2, Some("jpn".to_owned()), true),
+            ])
+            .unwrap(),
+        )
+        .unwrap();
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
+            artifacts,
+            segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection {
+                audio_stream: Some(2),
+                subtitle_stream: None,
+            },
+            execution_policy: hls_policy(HardwareAcceleration::None),
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let argv = builder.hls(&request).unwrap().argv_lossy();
+        let maps = argv
+            .windows(2)
+            .filter_map(|args| (args[0] == "-map").then_some(args[1].as_str()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(maps, vec!["0:v:0", "0:1", "0:2"]);
+    }
+
+    #[test]
+    fn ffmpeg_builder_omits_selected_audio_from_adaptive_hls_when_sidecars_exist() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let artifacts = HlsArtifactManifest::adaptive_fmp4(
+            "hls",
+            "hls/master.m3u8",
+            HlsRendition::default_adaptive_ladder(),
+        )
+        .unwrap()
+        .with_media_renditions(
+            HlsMediaRenditionPlan::from_audios(vec![
+                HlsAudioRendition::new(0, 1, Some("eng".to_owned()), false),
+                HlsAudioRendition::new(1, 2, Some("jpn".to_owned()), true),
+            ])
+            .unwrap(),
+        )
+        .unwrap();
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
+            artifacts,
+            segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection {
+                audio_stream: Some(2),
+                subtitle_stream: None,
+            },
+            execution_policy: hls_policy(HardwareAcceleration::None),
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let argv = builder.hls(&request).unwrap().argv_lossy();
+        let selected_audio_map_count = argv
+            .windows(2)
+            .filter(|args| args[0] == "-map" && args[1] == "0:2")
+            .count();
+
+        assert_eq!(selected_audio_map_count, 1);
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-var_stream_map" && args[1] == "v:0 v:1")
+        );
+        assert!(!argv.iter().any(|arg| arg == "-b:a:0"));
+        assert!(!argv.iter().any(|arg| arg == "-b:a:1"));
+    }
+
+    #[test]
     fn ffmpeg_builder_plans_hls_muxer_with_minimum_segment_time() {
         let builder = FfmpegCommandBuilder::new("ffmpeg");
         let request = HlsRequest {
@@ -997,6 +1083,7 @@ mod tests {
 
         assert!(key.starts_with("hls-request-variant:v1;components="));
         assert!(key.contains("audios=0:1:0:eng|1:3:1:jpn"));
+        assert!(key.contains("hls-main-output:v1;main_audio=false"));
         assert!(key.contains("subtitles=0:2:jpn"));
         assert_eq!(restored.adaptive_ladder, Some(ladder));
         assert_eq!(restored.media_renditions, media);

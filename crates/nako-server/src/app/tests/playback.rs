@@ -1054,7 +1054,13 @@ async fn hls_source_multi_audio_generates_audio_sidecar_renditions_and_artifacts
         output
             .session
             .request_key
-            .contains(";request_variant=hls-media-renditions:v1%3Baudios%3D0:1:0:eng|1:2:1:jpn")
+            .contains("hls-media-renditions:v1%3Baudios%3D0:1:0:eng|1:2:1:jpn")
+    );
+    assert!(
+        output
+            .session
+            .request_key
+            .contains("hls-main-output:v1%3Bmain_audio%3Dfalse")
     );
     assert!(output.segment_dir.join("audio_0.m3u8").exists());
     assert!(output.segment_dir.join("audio_0_00000.aac").exists());

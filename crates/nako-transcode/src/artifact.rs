@@ -14,6 +14,7 @@ pub const HLS_ADAPTIVE_FMP4_SEGMENT_PATTERN: &str = "variant_%v_segment_%05d.m4s
 pub const HLS_ADAPTIVE_FMP4_INIT_PATTERN: &str = "variant_%v_init.mp4";
 
 const HLS_ADAPTIVE_LADDER_IDENTITY_VERSION: &str = "hls-adaptive-ladder:v1";
+const HLS_MAIN_OUTPUT_IDENTITY_VERSION: &str = "hls-main-output:v1";
 const HLS_MEDIA_RENDITIONS_IDENTITY_VERSION: &str = "hls-media-renditions:v1";
 const HLS_PLAYBACK_GENERATION_IDENTITY_VERSION: &str = "hls-playback-generation:v1";
 const HLS_REQUEST_VARIANT_IDENTITY_VERSION: &str = "hls-request-variant:v1";
@@ -533,6 +534,9 @@ impl HlsRequestVariantPlan {
         if let Some(media) = self.media_renditions.identity_key() {
             components.push(media);
         }
+        if let Some(main_output) = hls_main_output_identity_key(&self.media_renditions) {
+            components.push(main_output);
+        }
         if let Some(generation) = self.playback_generation.identity_key() {
             components.push(generation);
         }
@@ -563,6 +567,10 @@ impl HlsRequestVariantPlan {
             self.media_renditions = HlsMediaRenditionPlan::from_identity_key(component)?;
             return Ok(());
         }
+        if component.starts_with(HLS_MAIN_OUTPUT_IDENTITY_VERSION) {
+            validate_hls_main_output_identity(component)?;
+            return Ok(());
+        }
         if component.starts_with(HLS_PLAYBACK_GENERATION_IDENTITY_VERSION) {
             self.playback_generation = HlsPlaybackGeneration::from_identity_key(component)?;
             return Ok(());
@@ -572,6 +580,32 @@ impl HlsRequestVariantPlan {
             message: "hls request variant identity contains an unknown component".to_owned(),
         })
     }
+}
+
+fn hls_main_output_identity_key(media_renditions: &HlsMediaRenditionPlan) -> Option<String> {
+    media_renditions
+        .has_audios()
+        .then(|| format!("{HLS_MAIN_OUTPUT_IDENTITY_VERSION};main_audio=false"))
+}
+
+fn validate_hls_main_output_identity(value: &str) -> Result<()> {
+    let Some(rest) = value.strip_prefix(HLS_MAIN_OUTPUT_IDENTITY_VERSION) else {
+        return Err(NakoError::InvalidInput {
+            message: "hls main output identity version is unsupported".to_owned(),
+        });
+    };
+    let rest = rest
+        .strip_prefix(";main_audio=")
+        .ok_or_else(|| NakoError::InvalidInput {
+            message: "hls main output identity is missing audio shape".to_owned(),
+        })?;
+    if rest == "false" {
+        return Ok(());
+    }
+
+    Err(NakoError::InvalidInput {
+        message: "hls main output identity has unsupported audio shape".to_owned(),
+    })
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -962,6 +996,11 @@ impl HlsArtifactManifest {
     #[must_use]
     pub const fn has_audio(&self) -> bool {
         self.has_audio
+    }
+
+    #[must_use]
+    pub fn main_output_has_audio(&self) -> bool {
+        self.has_audio && !self.media_renditions.has_audios()
     }
 
     #[must_use]
