@@ -1,6 +1,6 @@
 # Web Admin Acquisition Intake - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 ## M0 - Open Lane
@@ -40,9 +40,9 @@ Last updated: 2026-05-29
 
 ## M4 - Closeout
 
-- [ ] WAAI-050 [owner=planner] [deps=WAAI-030,WAAI-040] [scope=docs/workstreams/web-admin-acquisition-intake]
+- [x] WAAI-050 [owner=planner] [deps=WAAI-030,WAAI-040] [scope=docs/workstreams/web-admin-acquisition-intake]
   Goal: Close the lane with browser/Tauri readiness evidence, bundle budget output, and follow-ons for downloader protocols or Managed Import mutations.
   Validation: `npm --prefix web run test`; `npm --prefix web run check`; `npm --prefix web run build:budget`; browser smoke; `git diff --check`.
   Review: workstream compliance and no blocking code-quality findings.
-  Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, and `HANDOFF.md`.
-  Handoff: DONE. Return to WDRP or start the selected follow-on.
+  Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`, and `CLOSEOUT.md`.
+  Handoff: DONE. Lane closed. Return to WDRP or start the selected follow-on.

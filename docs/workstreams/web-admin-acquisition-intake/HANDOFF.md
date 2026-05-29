@@ -1,11 +1,11 @@
 # Web Admin Acquisition Intake - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 ## Current State
 
-This lane is open. WAAI-020 audited the generated Admin acquisition contracts
+This lane is closed. WAAI-020 audited the generated Admin acquisition contracts
 and added the new `web/` read-model boundary:
 
 - `AdminApiClient.getAcquisitionIntakeCandidates(query)`
@@ -26,6 +26,9 @@ this lane. The generated Admin API route exists, but mutation UI must split to a
 future guarded lane with explicit permission, confirmation, idempotency,
 redacted result, loading/failure, and no-promotion/no-library-write guarantees.
 
+WAAI-050 closed the lane after final frontend gates, bundle budget, desktop
+browser smoke, mobile browser smoke, and closeout documentation passed.
+
 The old `apps/admin-web` implementation is prior art, not code to copy into the
 new shell. The new work belongs in `web/src/api/admin`,
 `web/src/features/admin`, `web/src/shell/nako-router.tsx`, and tests under
@@ -33,13 +36,13 @@ new shell. The new work belongs in `web/src/api/admin`,
 
 ## Active Task
 
-- Task ID: WAAI-050
-- Owner: Codex
-- Status: READY
-- Validation: `npm --prefix web run test`; `npm --prefix web run check`;
-  `npm --prefix web run build:budget`; browser smoke; `git diff --check`.
+None. This workstream is closed.
 
 ## Next Recommended Action
 
-Start WAAI-050. Close the lane with final evidence and follow-ons for the
-guarded discovery mutation, downloader protocols, and Managed Import promotion.
+Open the selected follow-on lane. The most direct options are:
+
+- guarded watch-folder discovery mutation controls for Admin Acquisition Intake;
+- downloader provider/protocol planning before any Media download surface;
+- Managed Import promotion/apply UI after mutation safety is explicit;
+- return to WDRP or the next active web Admin route lane.

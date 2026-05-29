@@ -2,17 +2,18 @@
   "schema_version": 1,
   "slug": "web-admin-acquisition-intake",
   "title": "Web Admin Acquisition Intake",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-05-29",
   "scope_kind": "frontend_admin_operations",
   "problem": "The new web Admin shell lacks the Acquisition Intake workflow that should replace the removed Media downloads placeholder.",
   "task_prefix": "WAAI",
-  "current_task": "WAAI-050",
+  "current_task": null,
   "completed_tasks": [
     "WAAI-010",
     "WAAI-020",
     "WAAI-030",
-    "WAAI-040"
+    "WAAI-040",
+    "WAAI-050"
   ],
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/web-admin-acquisition-intake/README.md" },
@@ -22,7 +23,8 @@
     { "role": "execution", "path": "docs/workstreams/web-admin-acquisition-intake/TODO.md" },
     { "role": "milestones", "path": "docs/workstreams/web-admin-acquisition-intake/MILESTONES.md" },
     { "role": "gates", "path": "docs/workstreams/web-admin-acquisition-intake/EVIDENCE_AND_GATES.md" },
-    { "role": "handoff", "path": "docs/workstreams/web-admin-acquisition-intake/HANDOFF.md" }
+    { "role": "handoff", "path": "docs/workstreams/web-admin-acquisition-intake/HANDOFF.md" },
+    { "role": "closeout", "path": "docs/workstreams/web-admin-acquisition-intake/CLOSEOUT.md" }
   ],
   "gates": [
     "npm --prefix web run test -- src/test/data-source-contracts.test.ts",
@@ -35,13 +37,14 @@
     "WAAI-010 opened the lane from WDRP-030 and anchored the first implementation slice to generated Admin acquisition intake contracts.",
     "WAAI-020 added the Admin acquisition intake read-model boundary, fixture fallback, query normalization, redacted candidate mapping, and data-source contract tests.",
     "WAAI-030 implemented the /admin/acquisition/intake route with Admin navigation, route-owned query state, fixture/live behavior, redaction assertions, tests, bundle budget, and desktop/mobile browser smoke.",
-    "WAAI-040 split watch-folder discovery mutation controls to a future guarded mutation lane with permission, confirmation, idempotency, redaction, failure handling, and no-promotion/no-library-write requirements."
+    "WAAI-040 split watch-folder discovery mutation controls to a future guarded mutation lane with permission, confirmation, idempotency, redaction, failure handling, and no-promotion/no-library-write requirements.",
+    "WAAI-050 closed the lane after final frontend tests, TypeScript check, bundle budget, desktop/mobile browser smoke, and workstream closeout docs passed."
   ],
   "adr_refs": [
     "docs/adr/0027-admin-api-boundary-for-web-console.md"
   ],
   "continue_policy": {
-    "default_action": "continue_current_task",
-    "notes": "Continue with WAAI-050. Close the read-only Acquisition Intake route lane and record follow-ons for guarded discovery mutation, downloader protocols, and Managed Import promotion."
+    "default_action": "open_follow_on_lane",
+    "notes": "This lane is closed. Start a new follow-on for guarded watch-folder discovery mutation controls, downloader protocols, Managed Import promotion/apply UI, or the next WDRP web route."
   }
 }
