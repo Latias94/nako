@@ -1,6 +1,6 @@
 # Public Client Library Browse Query Contract - TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-29
 
 ## M0 - Open Lane
@@ -40,9 +40,9 @@ Last updated: 2026-05-29
 
 ## M4 - Closeout
 
-- [ ] PLBQ-050 [owner=planner] [deps=PLBQ-040] [scope=docs/workstreams/public-client-library-browse-query-contract]
+- [x] PLBQ-050 [owner=planner] [deps=PLBQ-040] [scope=docs/workstreams/public-client-library-browse-query-contract]
   Goal: Close the lane with backend/API/SDK/web evidence and remaining browse follow-ons.
   Validation: final backend/frontend gates, JSON validation, and `git diff --check`.
   Review: no blocking findings.
-  Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, and `HANDOFF.md`.
-  Handoff: DONE.
+  Evidence: `CLOSEOUT.md`, `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, and `HANDOFF.md`.
+  Handoff: DONE. Lane is closed.

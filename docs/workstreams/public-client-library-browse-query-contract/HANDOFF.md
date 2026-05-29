@@ -1,11 +1,11 @@
 # Public Client Library Browse Query Contract - Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-29
 
 ## Current State
 
-This lane is open. PLBQ-040 wired the first Public Client contract for
+This lane is closed. PLBQ-040 wired the first Public Client contract for
 library-scoped browse through `web/`:
 
 - `GET /libraries/{library_id}/items`
@@ -21,13 +21,23 @@ library-scoped browse through `web/`:
 
 ## Active Task
 
-- Task ID: PLBQ-050
+- Task ID: none
 - Owner: Codex
-- Status: READY
+- Status: DONE
 - Validation: final backend/frontend gates, `python -m json.tool`, and
-  `git diff --check`.
+  `git diff --check` passed for PLBQ-050.
+
+## Follow-Ons
+
+- Broaden browse facet implementation for `genre:`, `tag:`, `collection:`,
+  `studio:`, `year:`, and `content_rating:` when those read models are needed.
+- Add `/media/library` pagination or infinite-scroll UX on top of the existing
+  `limit`/`offset` contract.
+- Open a separate home-rails/read-model lane if Recently Added or Continue
+  Watching needs richer server-side rail composition than the current browse
+  route provides.
 
 ## Next Recommended Action
 
-Start PLBQ-050. Close the lane, record remaining facet/pagination follow-ons,
-and decide whether to open the next browse-read-model lane.
+Return to the active Public Client follow-on queue. `public-client-browser-playback-session-identity`
+is the next open playback/web contract lane unless product priority changes.

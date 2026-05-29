@@ -2,17 +2,18 @@
   "schema_version": 1,
   "slug": "public-client-library-browse-query-contract",
   "title": "Public Client Library Browse Query Contract",
-  "status": "active",
+  "status": "completed",
   "updated": "2026-05-29",
   "scope_kind": "public_client_contract",
   "problem": "The web library page cannot show scoped live items until Public Client exposes library browse and stable sort/filter contracts.",
   "task_prefix": "PLBQ",
-  "current_task": "PLBQ-050",
+  "current_task": null,
   "completed_tasks": [
     "PLBQ-010",
     "PLBQ-020",
     "PLBQ-030",
-    "PLBQ-040"
+    "PLBQ-040",
+    "PLBQ-050"
   ],
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/public-client-library-browse-query-contract/README.md" },
@@ -22,7 +23,8 @@
     { "role": "execution", "path": "docs/workstreams/public-client-library-browse-query-contract/TODO.md" },
     { "role": "milestones", "path": "docs/workstreams/public-client-library-browse-query-contract/MILESTONES.md" },
     { "role": "gates", "path": "docs/workstreams/public-client-library-browse-query-contract/EVIDENCE_AND_GATES.md" },
-    { "role": "handoff", "path": "docs/workstreams/public-client-library-browse-query-contract/HANDOFF.md" }
+    { "role": "handoff", "path": "docs/workstreams/public-client-library-browse-query-contract/HANDOFF.md" },
+    { "role": "closeout", "path": "docs/workstreams/public-client-library-browse-query-contract/CLOSEOUT.md" }
   ],
   "gates": [
     "cargo nextest run -p nako-server catalog --no-fail-fast",
@@ -35,7 +37,8 @@
     "PLBQ-010 opened this lane from WDRP-065 after WMLP recorded library-scoped browse and stable sort/filter as Public Client contract gaps.",
     "PLBQ-020 froze GET /libraries/{library_id}/items, LibraryItemsQuery, explicit sort/filter/watch-state vocabulary, LibraryItemsResponse, access behavior, and SDK expectations.",
     "PLBQ-030 implemented the server route, protocol inventory, OpenAPI schema, TypeScript/Kotlin SDK generation, Rust SDK helper, Library Access hiding behavior, kind facet parsing, watch-state filters, and date_added repository facts.",
-    "PLBQ-040 wired web Public media data source and /media/library to scoped live browse for supported sort/watch-state combinations while preserving missing-contract readiness for unsupported filters."
+    "PLBQ-040 wired web Public media data source and /media/library to scoped live browse for supported sort/watch-state combinations while preserving missing-contract readiness for unsupported filters.",
+    "PLBQ-050 closed the lane with fresh backend/frontend gates and split remaining facet, pagination, and home-rail breadth into follow-ons."
   ],
   "adr_refs": [
     "docs/adr/0021-video-first-media-server-domain-model.md",
@@ -43,7 +46,7 @@
     "docs/adr/0025-openapi-public-client-sdk-contract.md"
   ],
   "continue_policy": {
-    "default_action": "continue_current_task",
-    "notes": "Continue with PLBQ-050. Close the lane and record remaining facet/pagination follow-ons."
+    "default_action": "close",
+    "notes": "PLBQ is closed. Reopen only for regressions in the first library-scoped browse contract; new facet, pagination, or rail breadth should enter through follow-on lanes."
   }
 }

@@ -1,6 +1,6 @@
 # Public Client Library Browse Query Contract - Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-29
 
 ## M0 - Open Lane
@@ -28,3 +28,5 @@ Completed by `PLBQ-040`.
 ## M4 - Closeout
 
 Exit criteria: final gates and follow-ons are recorded.
+
+Completed by `PLBQ-050`.

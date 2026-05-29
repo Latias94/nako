@@ -1,6 +1,6 @@
 # Public Client Library Browse Query Contract
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-29
 
 This lane fixes the WMLP browse follow-ons: the new `web/` Media surface can
@@ -16,9 +16,10 @@ Recently Added-style rails.
 - `TODO.md` - executable task ledger.
 - `EVIDENCE_AND_GATES.md` - validation commands and evidence log.
 - `HANDOFF.md` - current state and next action.
+- `CLOSEOUT.md` - final closeout summary and follow-ons.
 
 ## Current Execution Point
 
-`PLBQ-040` wired `/media/library` to the implemented
-`GET /libraries/{library_id}/items` route for supported browse states.
-Continue with `PLBQ-050`, the closeout slice.
+Closed by `PLBQ-050`. The first Public Client library-scoped browse contract is
+implemented through server/API/SDK/web and remaining facet/pagination breadth is
+split into follow-ons.

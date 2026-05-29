@@ -1,7 +1,7 @@
 # Public Client Library Browse Query Contract - Design
 
-Status: Active
-Last updated: 2026-05-28
+Status: Completed
+Last updated: 2026-05-29
 
 ## Problem
 
@@ -47,3 +47,14 @@ Start with explicit video-first browse contracts. Prefer a route such as
 filter on `GET /items`; do not support both unless the contract freeze justifies
 it. Sort/filter keys should be named enums in the public protocol, with server
 behavior backed by tests.
+
+## Closeout Summary
+
+PLBQ closes with `GET /libraries/{library_id}/items` as the accepted route. The
+server/API/SDK path is implemented, effective Library Access hides inaccessible
+libraries, `kind:` facets and watch-state filters are covered, and `web/` uses
+scoped live browse for supported `/media/library` states.
+
+The broader browse vocabulary remains intentionally split: additional facet
+prefixes, richer pagination UX, and home rail read models should enter through
+new bounded lanes instead of extending this contract lane.
