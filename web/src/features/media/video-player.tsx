@@ -1,5 +1,6 @@
 "use client"
 
+import type { PlaybackSessionHeartbeatRequest } from "@nako/sdk"
 import { useState, useRef, useEffect, useCallback } from "react"
 import { 
   Play, 
@@ -38,6 +39,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 
+type PlaybackHeartbeatState = PlaybackSessionHeartbeatRequest["state"]
+
 interface VideoPlayerProps {
   onBack: () => void
   onNext?: () => void
@@ -65,8 +68,21 @@ interface VideoPlayerProps {
     contentType?: string
   }[]
   startTime?: number // 续播位置（秒）
+  playbackSessionId?: string
+  onPlaybackHeartbeat?: (
+    sessionId: string,
+    body: PlaybackSessionHeartbeatRequest,
+  ) => void | Promise<void>
   hasPrevious?: boolean
   hasNext?: boolean
+}
+
+const PLAYBACK_HEARTBEAT_INTERVAL_MS = 30_000
+
+function secondsToMilliseconds(value?: number) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? Math.round(value * 1000)
+    : undefined
 }
 
 export function VideoPlayer({
@@ -92,6 +108,8 @@ export function VideoPlayer({
     { id: "en", language: "English" },
   ],
   startTime = 0,
+  playbackSessionId,
+  onPlaybackHeartbeat,
   hasPrevious = true,
   hasNext = true,
 }: VideoPlayerProps) {
@@ -120,10 +138,66 @@ export function VideoPlayer({
   const videoRef = useRef<HTMLVideoElement>(null)
   const hideControlsTimeout = useRef<NodeJS.Timeout | null>(null)
   const progressInterval = useRef<NodeJS.Timeout | null>(null)
+  const heartbeatSnapshotRef = useRef<{ currentTime: number; duration?: number }>({
+    currentTime: startTime,
+  })
+  const isPlayingRef = useRef(false)
   const selectedSource = sources.find((source) => source.quality === selectedQuality) ?? sources[0]
   const selectedSourceUrl = selectedSource?.url?.trim() ?? ""
   const hasPlayableSource = selectedSourceUrl.length > 0
   const subtitleOptions = [{ id: "none", language: "关闭" }, ...subtitles]
+
+  useEffect(() => {
+    heartbeatSnapshotRef.current.currentTime = currentTime
+  }, [currentTime])
+
+  useEffect(() => {
+    isPlayingRef.current = isPlaying
+  }, [isPlaying])
+
+  useEffect(() => {
+    heartbeatSnapshotRef.current = { currentTime: startTime }
+  }, [selectedSourceUrl, startTime])
+
+  const sendPlaybackHeartbeat = useCallback(
+    (state: PlaybackHeartbeatState) => {
+      if (!playbackSessionId || !onPlaybackHeartbeat) {
+        return
+      }
+
+      const snapshot = heartbeatSnapshotRef.current
+      const positionMs = secondsToMilliseconds(snapshot.currentTime)
+      const durationMs = secondsToMilliseconds(snapshot.duration)
+
+      void Promise.resolve(
+        onPlaybackHeartbeat(playbackSessionId, {
+          state,
+          position_ms: positionMs,
+          duration_ms: durationMs,
+        }),
+      ).catch(() => undefined)
+    },
+    [onPlaybackHeartbeat, playbackSessionId],
+  )
+
+  const capturePlaybackSnapshot = useCallback((video: HTMLVideoElement) => {
+    heartbeatSnapshotRef.current.currentTime = video.currentTime
+    if (Number.isFinite(video.duration) && video.duration > 0) {
+      heartbeatSnapshotRef.current.duration = video.duration
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!hasPlayableSource || !playbackSessionId || !onPlaybackHeartbeat) {
+      return
+    }
+
+    const intervalId = window.setInterval(() => {
+      sendPlaybackHeartbeat(isPlayingRef.current ? "active" : "paused")
+    }, PLAYBACK_HEARTBEAT_INTERVAL_MS)
+
+    return () => window.clearInterval(intervalId)
+  }, [hasPlayableSource, onPlaybackHeartbeat, playbackSessionId, sendPlaybackHeartbeat])
 
   useEffect(() => {
     if (!sources.some((source) => source.quality === selectedQuality)) {
@@ -327,18 +401,38 @@ export function VideoPlayer({
             preload="metadata"
             onLoadedMetadata={(event) => {
               const nextDuration = event.currentTarget.duration
+              capturePlaybackSnapshot(event.currentTarget)
               if (Number.isFinite(nextDuration) && nextDuration > 0) {
                 setDuration(nextDuration)
               }
             }}
-            onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
+            onTimeUpdate={(event) => {
+              capturePlaybackSnapshot(event.currentTarget)
+              setCurrentTime(event.currentTarget.currentTime)
+            }}
             onWaiting={() => setIsBuffering(true)}
             onCanPlay={() => setIsBuffering(false)}
-            onPlaying={() => {
+            onPlaying={(event) => {
+              capturePlaybackSnapshot(event.currentTarget)
               setIsBuffering(false)
               setIsPlaying(true)
+              sendPlaybackHeartbeat("active")
             }}
-            onPause={() => setIsPlaying(false)}
+            onPause={(event) => {
+              capturePlaybackSnapshot(event.currentTarget)
+              setIsPlaying(false)
+              sendPlaybackHeartbeat("paused")
+            }}
+            onEnded={(event) => {
+              capturePlaybackSnapshot(event.currentTarget)
+              setIsPlaying(false)
+              sendPlaybackHeartbeat("ended")
+            }}
+            onError={(event) => {
+              capturePlaybackSnapshot(event.currentTarget)
+              setIsPlaying(false)
+              sendPlaybackHeartbeat("failed")
+            }}
             data-testid="nako-video-player"
           >
             <source

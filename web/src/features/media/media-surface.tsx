@@ -19,6 +19,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import {
+  heartbeatPublicPlaybackSession,
   useTrendingMedia,
   useCategoryMedia,
   useContinueWatchingMedia,
@@ -1080,6 +1081,8 @@ function MediaPlayerRoute({
       hasPrevious={viewState.mediaType === "series"}
       sources={liveSources}
       subtitles={liveSubtitles}
+      playbackSessionId={shouldUsePlaybackPlan ? playbackPlan.data.playbackSessionId : undefined}
+      onPlaybackHeartbeat={heartbeatPublicPlaybackSession}
     />
   )
 }

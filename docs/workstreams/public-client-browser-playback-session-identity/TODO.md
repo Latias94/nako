@@ -31,12 +31,16 @@ Last updated: 2026-05-29
 
 ## M3 - Web Heartbeat Integration
 
-- [ ] PBSI-040 [owner=Codex] [deps=PBSI-030] [scope=web/src/api/public,web/src/features/media,web/src/test]
+- [x] PBSI-040 [owner=Codex] [deps=PBSI-030] [scope=web/src/api/public,web/src/features/media,web/src/test]
   Goal: Wire web playback heartbeat through the stable session identity.
   Validation: `npm --prefix web run test`; `npm --prefix web run check`; `npm --prefix web run build:budget`.
   Review: playback-state writes remain separate from session heartbeat.
-  Evidence: data-source and player tests.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Evidence: DONE. Public media data source stores
+  `BrowserPlaybackTicketResponse.playback_session_id` on playback plans and
+  sends heartbeat through `POST /playback/sessions/{session_id}/heartbeat`;
+  `VideoPlayer` emits heartbeat using the explicit session id and never parses
+  media URLs or diagnostic headers.
+  Handoff: DONE. Next task is PBSI-050.
 
 ## M4 - Closeout
 

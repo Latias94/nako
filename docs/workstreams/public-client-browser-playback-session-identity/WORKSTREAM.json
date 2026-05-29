@@ -7,11 +7,12 @@
   "scope_kind": "public_client_contract",
   "problem": "Browser playback tickets let the web player start media safely, but the Public Client contract does not expose session identity for heartbeat.",
   "task_prefix": "PBSI",
-  "current_task": "PBSI-040",
+  "current_task": "PBSI-050",
   "completed_tasks": [
     "PBSI-010",
     "PBSI-020",
-    "PBSI-030"
+    "PBSI-030",
+    "PBSI-040"
   ],
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/public-client-browser-playback-session-identity/README.md" },
@@ -33,7 +34,8 @@
   "evidence": [
     "PBSI-010 opened this lane from WDRP-065 after WMLP recorded browser heartbeat/session identity as a Public Client contract gap.",
     "PBSI-020 froze BrowserPlaybackTicketResponse.playback_session_id, non-subtitle ticket/session binding, heartbeat authority, URL/header safety, and SDK expectations.",
-    "PBSI-030 implemented the server/API/SDK contract: required nullable playback_session_id, non-subtitle session allocation before ticket response, opaque ticket binding, same-session media requests, subtitle null identity, heartbeat owner/play access, and regenerated TypeScript/Kotlin SDKs."
+    "PBSI-030 implemented the server/API/SDK contract: required nullable playback_session_id, non-subtitle session allocation before ticket response, opaque ticket binding, same-session media requests, subtitle null identity, heartbeat owner/play access, and regenerated TypeScript/Kotlin SDKs.",
+    "PBSI-040 wired web playback plans and VideoPlayer heartbeat dispatch through BrowserPlaybackTicketResponse.playback_session_id without parsing media URLs or diagnostic headers."
   ],
   "adr_refs": [
     "docs/adr/0023-public-api-versioning-and-error-envelope-contract.md",
@@ -41,6 +43,6 @@
   ],
   "continue_policy": {
     "default_action": "continue_current_task",
-    "notes": "Continue with PBSI-040. Wire web playback heartbeat from BrowserPlaybackTicketResponse.playback_session_id without parsing media URLs or diagnostic headers."
+    "notes": "Continue with PBSI-050. Close the lane with backend/API/SDK/web evidence and record any remaining browser playback telemetry follow-ons."
   }
 }

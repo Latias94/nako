@@ -1149,6 +1149,58 @@ describe("public media data source contracts", () => {
     ])
   })
 
+  it("sends playback heartbeat through the Public Client session route", async () => {
+    const calls: Array<{ path: string; body: unknown }> = []
+    const fetcher = vi.fn<FetchLike>(async (input, init) => {
+      const url = new URL(String(input))
+      const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined
+      calls.push({ path: url.pathname, body })
+
+      return jsonResponse({
+        session: {
+          id: "playback-session-1",
+          source_id: "source-1",
+          item_id: "live-movie",
+          mode: "direct",
+          state: body?.state ?? "active",
+          position_ms: body?.position_ms ?? null,
+          duration_ms: body?.duration_ms ?? null,
+          started_at: "2026-05-28T10:00:00Z",
+          updated_at: "2026-05-28T10:00:01Z",
+          ended_at: null,
+        },
+      })
+    })
+    const source = createPublicMediaDataSource(
+      {
+        mode: "live",
+        baseUrl: "http://nako.test/",
+        bearerToken: "public-token",
+      },
+      fetcher,
+    )
+
+    await source.heartbeatPlaybackSession("playback-session-1", {
+      state: "active",
+      position_ms: 12000,
+      duration_ms: 120000,
+    })
+
+    expect(calls).toEqual([
+      {
+        path: "/playback/sessions/playback-session-1/heartbeat",
+        body: {
+          state: "active",
+          position_ms: 12000,
+          duration_ms: 120000,
+        },
+      },
+    ])
+    expect(new Headers(fetcher.mock.calls[0][1]?.headers).get("Authorization")).toBe(
+      "Bearer public-token",
+    )
+  })
+
   it("builds browser-ticket playback plans with sidecar subtitle track URLs", async () => {
     const ticketBodies: unknown[] = []
     const fetcher = vi.fn<FetchLike>(async (input, init) => {
@@ -1277,6 +1329,7 @@ describe("public media data source contracts", () => {
           return jsonResponse({
             source_id: "source-1",
             item_id: "live-movie",
+            playback_session_id: null,
             mode: "subtitle",
             expires_at: "2026-05-28T10:00:00Z",
             urls: [
@@ -1293,6 +1346,7 @@ describe("public media data source contracts", () => {
         return jsonResponse({
           source_id: "source-1",
           item_id: "live-movie",
+          playback_session_id: "playback-session-1",
           mode: "direct",
           expires_at: "2026-05-28T10:00:00Z",
           urls: [
@@ -1324,6 +1378,7 @@ describe("public media data source contracts", () => {
       source: "live",
       fallback: false,
       sourceId: "source-1",
+      playbackSessionId: "playback-session-1",
       mode: "direct",
       mediaUrl: "http://nako.test/sources/source-1/stream?ticket=video-ticket",
       subtitles: [

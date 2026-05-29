@@ -5,30 +5,31 @@ Last updated: 2026-05-29
 
 ## Current State
 
-This lane is open. PBSI-030 implemented the Public Client server/API/SDK
-contract for browser playback heartbeat authority:
+This lane is open. PBSI-040 completed the browser playback heartbeat wiring
+across the Public Client web path:
 
-- `BrowserPlaybackTicketResponse.playback_session_id` is required nullable in
-  protocol/OpenAPI/generated SDKs;
-- `direct`, `remux`, and `hls` browser ticket responses return non-null session
-  ids allocated before the JSON response;
-- `subtitle` browser ticket responses return `null`;
-- opaque non-subtitle browser tickets are bound to the same durable playback
-  session used by direct/remux/HLS media requests;
-- heartbeat uses `POST /playback/sessions/{session_id}/heartbeat` with the
-  authenticated owner principal, not the media ticket;
+- server/API/SDK contract is implemented with required nullable
+  `BrowserPlaybackTicketResponse.playback_session_id`;
+- non-subtitle browser playback plans in `web/` retain the returned playback
+  session id;
+- Public media data sources send heartbeat through
+  `POST /playback/sessions/{session_id}/heartbeat`;
+- `VideoPlayer` emits active/paused/ended/failed heartbeat bodies with position and
+  duration snapshots through the explicit playback session id;
+- web tests cover data-source routing and player behavior that rejects URL
+  ticket inference;
 - media URLs remain token-safe and do not expose `playback_session_id`.
 
 ## Active Task
 
-- Task ID: PBSI-040
-- Owner: Codex
+- Task ID: PBSI-050
+- Owner: planner
 - Status: READY
-- Validation: `npm --prefix web run test`, `npm --prefix web run check`, and
-  `npm --prefix web run build:budget`.
+- Validation: final backend/frontend gates, JSON validation, and
+  `git diff --check`.
 
 ## Next Recommended Action
 
-Start PBSI-040. Wire `web/` playback heartbeat from
-`BrowserPlaybackTicketResponse.playback_session_id`; do not infer heartbeat
-identity from media URLs or `x-nako-playback-session-id` headers.
+Start PBSI-050. Close the lane after final verification, preserve PBSI-040
+frontend evidence, and split any remaining browser playback telemetry polish
+into a follow-on lane instead of expanding this contract lane.

@@ -5,6 +5,7 @@ import {
   type PublicMediaDetailPayload,
   type PublicMediaItemsPayload,
 } from "@/src/api/public/media-data-source"
+import type { PlaybackSessionHeartbeatRequest } from "@nako/sdk"
 import type { MediaItem } from "./media-types"
 
 export function useTrendingMedia() {
@@ -103,6 +104,13 @@ export function useLibraryItems(
 
 export async function searchPublicMedia(query: string): Promise<PublicMediaItemsPayload> {
   return createPublicMediaDataSource().searchMedia(query)
+}
+
+export async function heartbeatPublicPlaybackSession(
+  sessionId: string,
+  body: PlaybackSessionHeartbeatRequest,
+) {
+  await createPublicMediaDataSource().heartbeatPlaybackSession(sessionId, body)
 }
 
 export function usePlaybackPlan(

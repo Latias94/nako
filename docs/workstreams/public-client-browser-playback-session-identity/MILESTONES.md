@@ -24,6 +24,8 @@ Completed by `PBSI-030`.
 
 Exit criteria: `web/` sends heartbeat through the accepted session identity.
 
+Completed by `PBSI-040`.
+
 ## M4 - Closeout
 
 Exit criteria: final gates and follow-ons are recorded.

@@ -12,6 +12,7 @@ import {
   type MediaStreamDto,
   type MediaSourceDto,
   type PageInfo,
+  type PlaybackSessionHeartbeatRequest,
   type PublicImageRefDto,
   type SetWatchedStateRequest,
   type UpdatePlaybackProgressRequest,
@@ -126,6 +127,7 @@ export type PublicPlaybackSubtitleTrack = {
 export type PublicPlaybackPlan = {
   itemId: string
   sourceId?: string
+  playbackSessionId?: string
   mode?: "direct" | "remux" | "hls"
   mediaUrl?: string
   mediaContentType?: string
@@ -189,6 +191,10 @@ export type PublicMediaDataSource = {
     itemId: string,
     body: SetWatchedStateRequest,
   ): Promise<PublicPlaybackStatePayload>
+  heartbeatPlaybackSession(
+    sessionId: string,
+    body: PlaybackSessionHeartbeatRequest,
+  ): Promise<void>
   loadPlaybackPlan(
     itemId: string,
     mediaType: MediaItem["type"],
@@ -352,6 +358,9 @@ function createLiveMediaDataSource(
         return fixturePlaybackState(itemId, error)
       }
     },
+    async heartbeatPlaybackSession(sessionId, body) {
+      await client.heartbeatPlaybackSession(sessionId, body)
+    },
     async loadPlaybackPlan(itemId, mediaType, requestedSourceId) {
       try {
         const detail = await client.getItem(itemId)
@@ -439,6 +448,9 @@ function createFixtureMediaDataSource(): PublicMediaDataSource {
     },
     async setWatchedState(itemId, body) {
       return fixturePlaybackState(itemId, undefined, body.position_ms ?? null, body.duration_ms, body.watched)
+    },
+    async heartbeatPlaybackSession() {
+      return undefined
     },
     async loadPlaybackPlan(itemId, mediaType, sourceId) {
       return fixturePlaybackPlan(itemId, sourceId, mediaType)
@@ -742,6 +754,7 @@ function livePlaybackPlan(input: {
   return {
     itemId: input.itemId,
     sourceId: input.sourceId,
+    playbackSessionId: input.mediaTicket.playback_session_id ?? undefined,
     mode: input.mode,
     mediaUrl: mediaUrl ? absolutePublicUrl(input.baseUrl, mediaUrl.url) : undefined,
     mediaContentType: mediaUrl?.content_type,

@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react"
+import { fireEvent, render, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { VideoPlayer } from "@/src/features/media/video-player"
 
@@ -9,11 +9,14 @@ afterEach(() => {
 describe("VideoPlayer subtitle track contract", () => {
   it("renders browser-ticket media and subtitle URLs as native video tracks", () => {
     vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {})
+    const onPlaybackHeartbeat = vi.fn()
 
     const { container } = render(
       <VideoPlayer
         onBack={() => {}}
         mediaTitle="Live Movie"
+        playbackSessionId="playback-session-1"
+        onPlaybackHeartbeat={onPlaybackHeartbeat}
         sources={[
           {
             quality: "DIRECT",
@@ -51,5 +54,42 @@ describe("VideoPlayer subtitle track contract", () => {
     expect(track).toHaveAttribute("srclang", "en")
     expect(track).toHaveAttribute("label", "en")
     expect(track?.getAttribute("src")).not.toContain("public-token")
+  })
+
+  it("heartbeats through the playback session id instead of media URLs", async () => {
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {})
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined)
+    const onPlaybackHeartbeat = vi.fn()
+    const { container } = render(
+      <VideoPlayer
+        onBack={() => {}}
+        mediaTitle="Live Movie"
+        playbackSessionId="playback-session-1"
+        onPlaybackHeartbeat={onPlaybackHeartbeat}
+        sources={[
+          {
+            quality: "DIRECT",
+            url: "http://nako.test/sources/source-1/stream?ticket=video-ticket",
+            contentType: "video/x-matroska",
+          },
+        ]}
+        subtitles={[]}
+      />,
+    )
+    const video = container.querySelector("video")
+    expect(video).not.toBeNull()
+    Object.defineProperty(video!, "currentTime", { configurable: true, value: 12 })
+    Object.defineProperty(video!, "duration", { configurable: true, value: 120 })
+
+    fireEvent.playing(video!)
+
+    await waitFor(() =>
+      expect(onPlaybackHeartbeat).toHaveBeenCalledWith("playback-session-1", {
+        state: "active",
+        position_ms: 12000,
+        duration_ms: 120000,
+      }),
+    )
+    expect(onPlaybackHeartbeat.mock.calls[0][0]).not.toContain("ticket=")
   })
 })
