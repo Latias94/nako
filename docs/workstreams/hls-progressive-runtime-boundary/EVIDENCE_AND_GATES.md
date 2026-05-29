@@ -1,6 +1,6 @@
 # HLS Progressive Runtime Boundary — Evidence And Gates
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-29
 
 ## Smallest Current Repro
@@ -89,12 +89,16 @@ note.
 | 2026-05-29 | HPRB-040 | Closeout verification | Passed | `python3 -m json.tool docs/workstreams/hls-progressive-runtime-boundary/WORKSTREAM.json`; `cargo fmt --all -- --check`; `git diff --check`. Review found no blocking issues after adding single-variant fMP4 reconstruction coverage. |
 | 2026-05-29 | HPRB-050 | Manifest-aware playlist authoring and auth decoration | Passed | `cargo nextest run -p nako-server hls --no-fail-fast`; `cargo nextest run -p nako-server renderer --no-fail-fast`. Proves browser ticket and renderer ticket query decoration now flow through `author_hls_session_playlist` with manifest-backed route binding instead of HTTP-local playlist rewrite passes. |
 | 2026-05-29 | HPRB-050 | Closeout verification | Passed | `python3 -m json.tool docs/workstreams/hls-progressive-runtime-boundary/WORKSTREAM.json`; `cargo fmt --all -- --check`; `git diff --check`. Review found no blocking issues; HPRB-060 should run the final broader closeout gate and split any LL-HLS/DASH/DRM/resource-scheduler follow-ons. |
+| 2026-05-29 | HPRB-060 | Final HLS closeout gate | Passed | `cargo nextest run -p nako-transcode hls --no-fail-fast`; `cargo nextest run -p nako-server hls --no-fail-fast`; `cargo nextest run -p nako-server playback --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`. Closeout initially exposed Windows/concurrent test races and a real readiness gap where a running playlist path could exist before it contained a media or variant URI. The final implementation requires a non-comment URI line before treating a running playlist as ready, keeps running missing segments as bounded not-ready conflicts, and aligns HTTP tests with progressive serving semantics. |
+| 2026-05-29 | HPRB-060 | Follow-on split | Passed | LL-HLS, DASH/CMAF, DRM/key delivery, remote transcode workers, selected-main-audio cleanup, and the playback runtime resource scheduler remain out of this lane and are recorded as proposed follow-ons in the architecture/workstream closeout docs. |
+| 2026-05-29 | HPRB-060 | Review and verification | Passed | Workstream compliance and code-quality review found no blocking issues. Fresh verification covered the final closeout gate and JSON syntax. `cargo nextest run -p nako-server renderer --no-fail-fast` was not rerun in HPRB-060 because this closeout changed HLS readiness/tests/docs only and the final closeout gate narrowed coverage to `playback`; HPRB-050 already carried renderer evidence for auth decoration. |
 
 ## Evidence Anchors
 
 - `docs/workstreams/hls-progressive-runtime-boundary/DESIGN.md`
 - `docs/workstreams/hls-progressive-runtime-boundary/TODO.md`
 - `docs/workstreams/hls-progressive-runtime-boundary/MILESTONES.md`
+- `docs/workstreams/hls-progressive-runtime-boundary/CLOSEOUT.md`
 - `crates/nako-transcode/src/hls.rs`
 - `crates/nako-server/src/app/playback/hls.rs`
 - `crates/nako-server/src/app/playback/hls_artifact.rs`

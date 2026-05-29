@@ -2,18 +2,19 @@
   "schema_version": 1,
   "slug": "hls-progressive-runtime-boundary",
   "title": "HLS Progressive Runtime Boundary",
-  "status": "active",
+  "status": "completed",
   "updated": "2026-05-29",
   "scope_kind": "fearless_refactor",
-  "problem": "Nako's HLS planning and manifest model is mature, but executable HLS runtime still waits for whole-output FFmpeg completion before publishing playlists and final artifacts.",
+  "problem": "Nako's HLS planning and manifest model was mature, but the executable HLS runtime still waited for whole-output FFmpeg completion before publishing playlists and final artifacts.",
   "task_prefix": "HPRB",
-  "current_task": "HPRB-060",
+  "current_task": null,
   "completed_tasks": [
     "HPRB-010",
     "HPRB-020",
     "HPRB-030",
     "HPRB-040",
-    "HPRB-050"
+    "HPRB-050",
+    "HPRB-060"
   ],
   "authoritative_docs": [
     {
@@ -39,6 +40,10 @@
     {
       "role": "handoff",
       "path": "docs/workstreams/hls-progressive-runtime-boundary/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/hls-progressive-runtime-boundary/CLOSEOUT.md"
     }
   ],
   "gates": [
@@ -73,6 +78,10 @@
     {
       "task": "HPRB-050",
       "summary": "Consolidated HLS entry playlist authoring, session route binding, and browser/renderer auth query decoration behind a manifest-aware server playback boundary."
+    },
+    {
+      "task": "HPRB-060",
+      "summary": "Ran final closeout gates, tightened running playlist readiness to reject partially written playlists without media or variant URI lines, and split LL-HLS, DASH/CMAF, DRM/key delivery, remote workers, selected-main-audio cleanup, and resource scheduling into follow-ons."
     }
   ],
   "adr_refs": [
@@ -104,7 +113,7 @@
     "transcode.runtime"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "Continue this lane until HLS runtime publication and playlist readiness are progressive, artifact reconstruction is typed, and playlist auth decoration is manifest-aware. Split LL-HLS, DASH, DRM, remote workers, and full resource scheduling into follow-ons."
+    "default_action": "closed",
+    "notes": "HLS runtime publication and playlist readiness are progressive, artifact reconstruction is typed, and playlist auth decoration is manifest-aware. Open separate follow-ons for LL-HLS, DASH/CMAF, DRM/key delivery, remote transcode workers, selected-main-audio cleanup, or full resource scheduling."
   }
 }

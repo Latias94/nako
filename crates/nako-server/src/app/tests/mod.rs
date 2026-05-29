@@ -1760,6 +1760,7 @@ fn hls_ffmpeg_script(
             content.push_str(")\r\n");
             if completion == FakeHlsScriptCompletion::StayRunningAfterPublish {
                 content.push_str(":wait\r\n");
+                content.push_str("ping -n 2 127.0.0.1 > nul\r\n");
                 content.push_str("goto wait\r\n");
             }
             content.push_str("echo frame=12\r\n");

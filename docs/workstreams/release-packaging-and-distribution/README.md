@@ -1,6 +1,6 @@
 # Release Packaging And Distribution
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-21
 
 This workstream turns the verified self-hosted release baseline into a concrete

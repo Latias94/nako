@@ -1,6 +1,6 @@
 # HLS Progressive Runtime Boundary
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-29
 
 ## Why This Lane Exists
@@ -11,8 +11,8 @@ terminology, and FFmpeg CLI-first media-engine decision.
 
 Recent HLS lanes made output shape, fMP4, adaptive ladders, selected subtitles,
 alternate audio sidecars, master playlist authoring, and seek generation
-identity executable. The remaining runtime risk is that the current HLS
-execution path still waits for the whole FFmpeg process to complete before
+identity executable. Before this lane, the remaining runtime risk was that the
+HLS execution path still waited for the whole FFmpeg process to complete before
 publishing the playlist and final artifact directory.
 
 That model blocks large media startup, undercuts running-segment readiness, and
@@ -45,7 +45,7 @@ scheduling harder than they need to be.
 
 ## Problem
 
-Current HLS execution has several coupled assumptions:
+Before this lane, HLS execution had several coupled assumptions:
 
 - `FfmpegHlsRunner` rewrites all HLS outputs into a temporary directory and
   promotes that directory only after FFmpeg exits successfully.

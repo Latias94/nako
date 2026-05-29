@@ -72,6 +72,11 @@ Proposed lanes:
 - `proposed:hdr-tone-mapping-pipeline`
 - `proposed:audio-compatibility-downmix-normalization`
 - `proposed:playback-runtime-resource-scheduler`
+- `proposed:ll-hls-cmaf-runtime`
+- `proposed:dash-cmaf-playback-packaging`
+- `proposed:hls-key-delivery-drm-boundary`
+- `proposed:remote-transcode-worker-runtime`
+- `proposed:hls-selected-main-audio-cleanup`
 - `proposed:playback-release-hardware-matrix`
 
 ## Storage And VFS

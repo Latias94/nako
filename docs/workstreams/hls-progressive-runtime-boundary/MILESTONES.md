@@ -1,6 +1,6 @@
 # HLS Progressive Runtime Boundary — Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-29
 
 ## M0 — Scope And Evidence Freeze
@@ -98,7 +98,7 @@ Evidence:
 
 ## M4 — Closeout
 
-Status: Active
+Status: Completed
 
 Exit criteria:
 
@@ -106,3 +106,12 @@ Exit criteria:
 - Architecture docs reflect the shipped runtime behavior.
 - Remaining work is completed, deferred, or split into named follow-ons.
 - `WORKSTREAM.json` status is updated.
+
+Evidence:
+
+- `cargo nextest run -p nako-transcode hls --no-fail-fast`
+- `cargo nextest run -p nako-server hls --no-fail-fast`
+- `cargo nextest run -p nako-server playback --no-fail-fast`
+- `cargo fmt --all -- --check`
+- `git diff --check`
+- `docs/workstreams/hls-progressive-runtime-boundary/CLOSEOUT.md`

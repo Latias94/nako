@@ -16,7 +16,8 @@
     { "role": "execution", "path": "docs/workstreams/release-packaging-and-distribution/TODO.md" },
     { "role": "milestones", "path": "docs/workstreams/release-packaging-and-distribution/MILESTONES.md" },
     { "role": "gates", "path": "docs/workstreams/release-packaging-and-distribution/EVIDENCE_AND_GATES.md" },
-    { "role": "handoff", "path": "docs/workstreams/release-packaging-and-distribution/HANDOFF.md" }
+    { "role": "handoff", "path": "docs/workstreams/release-packaging-and-distribution/HANDOFF.md" },
+    { "role": "closeout", "path": "docs/workstreams/release-packaging-and-distribution/CLOSEOUT.md" }
   ],
   "upstream_workstreams": [
     "docs/workstreams/self-hosted-release-readiness"

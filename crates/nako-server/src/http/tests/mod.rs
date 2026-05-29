@@ -896,6 +896,7 @@ fn fake_hls_ffmpeg_script_with_completion(
         content.push_str("<nul set /p dummy=segment>\"%dir%segment_00000.ts\"\r\n");
         if completion == FakeHlsScriptCompletion::StayRunningAfterPublish {
             content.push_str(":wait\r\n");
+            content.push_str("ping -n 2 127.0.0.1 > nul\r\n");
             content.push_str("goto wait\r\n");
         }
         content.push_str("exit /b 0\r\n");
