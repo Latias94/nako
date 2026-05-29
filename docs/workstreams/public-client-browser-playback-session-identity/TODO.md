@@ -1,6 +1,6 @@
 # Public Client Browser Playback Session Identity - TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-29
 
 ## M0 - Open Lane
@@ -44,9 +44,11 @@ Last updated: 2026-05-29
 
 ## M4 - Closeout
 
-- [ ] PBSI-050 [owner=planner] [deps=PBSI-040] [scope=docs/workstreams/public-client-browser-playback-session-identity]
+- [x] PBSI-050 [owner=planner] [deps=PBSI-040] [scope=docs/workstreams/public-client-browser-playback-session-identity]
   Goal: Close the lane with backend/API/SDK/web evidence and remaining playback follow-ons.
   Validation: final backend/frontend gates, JSON validation, and `git diff --check`.
   Review: no blocking findings.
-  Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, and `HANDOFF.md`.
-  Handoff: DONE.
+  Evidence: DONE. Final protocol/API/server/web/document gates are recorded in
+  `EVIDENCE_AND_GATES.md`; `WORKSTREAM.json` marks the lane completed; and
+  `HANDOFF.md` records follow-ons.
+  Handoff: DONE. Lane is closed.

@@ -1,12 +1,12 @@
 # Public Client Browser Playback Session Identity - Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-29
 
 ## Current State
 
-This lane is open. PBSI-040 completed the browser playback heartbeat wiring
-across the Public Client web path:
+This lane is closed. PBSI completed the browser playback heartbeat authority
+contract across protocol, API/OpenAPI, server behavior, SDKs, and `web/`:
 
 - server/API/SDK contract is implemented with required nullable
   `BrowserPlaybackTicketResponse.playback_session_id`;
@@ -24,12 +24,25 @@ across the Public Client web path:
 
 - Task ID: PBSI-050
 - Owner: planner
-- Status: READY
-- Validation: final backend/frontend gates, JSON validation, and
-  `git diff --check`.
+- Status: DONE
+- Validation: final protocol/API/server/web/document gates are recorded in
+  `EVIDENCE_AND_GATES.md`.
+
+## Blockers
+
+- None known.
+
+## Follow-Ons
+
+- Add unload/pagehide cancellation or final heartbeat behavior for browser
+  playback if product telemetry needs explicit session shutdown.
+- Add buffering/seek-specific heartbeat states only after the playback product
+  model needs them; the current contract intentionally covers stable session
+  identity, not rich QoE telemetry.
+- Wire native Tauri/desktop playback through its own playback-session control
+  path instead of reusing browser-ticket assumptions.
 
 ## Next Recommended Action
 
-Start PBSI-050. Close the lane after final verification, preserve PBSI-040
-frontend evidence, and split any remaining browser playback telemetry polish
-into a follow-on lane instead of expanding this contract lane.
+Keep this lane closed. Start a new focused lane when browser playback telemetry
+polish or native/Tauri playback integration becomes the next product priority.

@@ -1,7 +1,7 @@
 # Public Client Browser Playback Session Identity - Design
 
-Status: Active
-Last updated: 2026-05-28
+Status: Completed
+Last updated: 2026-05-29
 
 ## Problem
 
@@ -50,3 +50,12 @@ ticket does not always create a playback session, define the earliest point at
 which a session id becomes available and expose a control-plane JSON response
 for it. Do not require the web player to parse media playlist headers to learn
 control identity.
+
+## Closeout
+
+PBSI shipped the preferred direction. Non-subtitle browser tickets allocate and
+return a durable `playback_session_id` in the JSON control response, media URLs
+remain token-safe, subtitle tickets stay sessionless, and `web/` heartbeat uses
+the explicit playback session route. Browser playback telemetry refinements
+such as unload cancellation, buffering-specific heartbeat state, and native
+Tauri playback integration are follow-ons outside this contract lane.
