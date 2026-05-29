@@ -38,6 +38,13 @@ Sync request
 | SSE/WebSocket client gateway | Not started | This document | Open `client-realtime-event-gateway`. |
 | Offline sync/download-to-go | Not started | This document | Defer until playback artifact lifecycle is mature. |
 
+## Workstream Evidence
+
+Use `docs/architecture/WORKSTREAM_LINKS.md#realtime-events-and-sync` as the
+consolidated index for realtime, event, notification, casting, and sync
+workstreams. Keep durable outbox evidence separate from ephemeral client
+realtime design.
+
 ## Next Work Lanes
 
 ### client-realtime-event-gateway

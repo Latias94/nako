@@ -27,6 +27,9 @@ git diff --check
 - 2026-05-29 MSAP-050: Added `docs/architecture/CONTROL_PLANE.md` and ADR
   0053 to map addon lifecycle, observability, durable jobs, remote access, API
   scale, and cache-contract pressure above the media data plane.
+- 2026-05-29 MSAP-060: Kept `docs/ARCHITECTURE.md` concise, added
+  `docs/architecture/WORKSTREAM_LINKS.md`, and documented the
+  `architecture_refs` / `capability_tags` convention for future workstreams.
 
 ## Notes
 
@@ -35,3 +38,5 @@ git diff --check
   0052 before changing HLS runtime lifecycle or media engine ownership.
 - Future cross-cutting lanes should reference ADR 0053 before adding new
   durable job, tracing, addon lifecycle, remote access, or API cache behavior.
+- Future workstreams that change a capability map should add
+  `architecture_refs` and `capability_tags` to `WORKSTREAM.json`.

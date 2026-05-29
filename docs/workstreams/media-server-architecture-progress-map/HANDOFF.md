@@ -8,8 +8,8 @@ Last updated: 2026-05-29
 This workstream is closed. Nako now has a top-level architecture map, focused
 architecture deep dives for playback, storage/VFS, library pipeline,
 state/access, realtime/sync, operations/release, and control plane concerns,
-plus ADR authority for the HLS/media-engine boundary and application
-control-plane boundary.
+plus a workstream link index and ADR authority for the HLS/media-engine
+boundary and application control-plane boundary.
 
 ## Follow-Ons
 
@@ -25,6 +25,8 @@ control-plane boundary.
   changes status or a risk becomes a workstream.
 - Open a control-plane observability/job-queue lane before broad trickplay,
   offline sync, AI indexing, or addon manager process lifecycle work.
+- Add `architecture_refs` and `capability_tags` to future `WORKSTREAM.json`
+  files when a workstream changes an architecture capability.
 
 ## Validation To Preserve
 

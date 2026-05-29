@@ -56,7 +56,35 @@
     {
       "task": "MSAP-050",
       "summary": "Added the application control-plane architecture deep dive and ADR 0053 for addon lifecycle, observability, durable jobs, remote access, API scale, and cache-contract boundaries."
+    },
+    {
+      "task": "MSAP-060",
+      "summary": "Added the architecture workstream link index, kept the top-level architecture map concise, and documented architecture_refs/capability_tags for future workstreams."
     }
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "capability": "top-level architecture map"
+    },
+    {
+      "path": "docs/architecture/PLAYBACK.md",
+      "capability": "playback architecture progress map"
+    },
+    {
+      "path": "docs/architecture/CONTROL_PLANE.md",
+      "capability": "application control plane map"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "architecture to workstream evidence index"
+    }
+  ],
+  "capability_tags": [
+    "architecture.map",
+    "architecture.workstream-links",
+    "playback.map",
+    "control-plane.map"
   ],
   "adr_refs": [
     "docs/adr/0053-application-control-plane-boundary.md",

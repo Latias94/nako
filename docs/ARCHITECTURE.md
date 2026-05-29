@@ -10,6 +10,10 @@ too early.
 This document is the architecture map. `CONTEXT.md` owns vocabulary, ADRs own
 durable decisions, and workstreams own task-level execution evidence.
 
+Detailed capability maps live in `docs/architecture/`. Workstream execution
+evidence is linked from those deep dives and from
+`docs/architecture/WORKSTREAM_LINKS.md`.
+
 Deep dives:
 
 - `docs/architecture/PLAYBACK.md`: playback capability progress,
@@ -26,6 +30,8 @@ Deep dives:
   backup, and packaging map.
 - `docs/architecture/CONTROL_PLANE.md`: addon lifecycle, observability, durable
   jobs, remote access, API scale, and cache-contract map.
+- `docs/architecture/WORKSTREAM_LINKS.md`: architecture capability to
+  workstream evidence index.
 
 ## North Star
 
@@ -85,78 +91,6 @@ Nako should be able to:
 | Clients | Admin Web, Media Web foundation, Android/shared client core lanes. | Mixed | Public media client parity, player UX, TV/casting clients. |
 | Deployment | Self-hosted docs, backup/restore, release gates. | Good | HTTPS/tunnel/reverse proxy recipes, observability, larger install profiles. |
 
-## Playback And Transcode Map
-
-The target playback decision flow is:
-
-```text
-MediaSource + MediaProbeResult + ClientPlaybackCapabilities + Policy
-  -> PlaybackRenditionPlan
-  -> Direct Play | Remux | HLS Transcode
-  -> typed request identity
-  -> runtime session and artifact manifest
-  -> safe Public/Renderer transport URL
-```
-
-Current executable coverage includes:
-
-- direct byte-range playback and HEAD preflight;
-- FFmpeg copy-remux planning and session reuse;
-- HLS single-variant MPEG-TS and fMP4 output;
-- adaptive HLS fMP4 ladders;
-- source-aware ladder dimensions and no-audio adaptive variants;
-- selected audio stream mapping;
-- selected subtitle WebVTT sidecars and master playlist `TYPE=SUBTITLES`;
-- generated audio sidecars and master playlist `TYPE=AUDIO`;
-- FFmpeg hardware planning for VAAPI, NVENC, QuickSync, AMF, and
-  VideoToolbox-shaped policies;
-- startup hardware readiness, CPU fallback, session cleanup, and safe failure
-  redaction.
-
-Important gaps before Jellyfin/Plex-class playback:
-
-- HDR to SDR tone mapping and color pipeline policy;
-- ASS/SSA subtitle burn-in and exact subtitle rendering strategy;
-- seek/restart model for long-running HLS sessions;
-- bandwidth-aware ABR and variant pruning;
-- GPU decode/encode concurrency scheduling and queueing;
-- richer device capability profiles for browsers, mobile apps, TV clients,
-  Chromecast, DLNA, and AirPlay;
-- optional DASH/CMAF and LL-HLS lanes after HLS behavior is stable.
-
-## Metadata And Library Map
-
-The catalog target is:
-
-```text
-Source Locator + file name/path facts + ffprobe facts + NFO + providers + addons
-  -> Local Inference / Provider Mapping / Field Locks
-  -> Canonical Metadata
-  -> Catalog Graph
-  -> Search Projection
-```
-
-Current executable coverage includes local media discovery, metadata merge
-policy, NFO authority, TMDB-shaped provider work, canonical catalog projection,
-and search hydration. Remaining product pressure is provider breadth:
-TMDB series/season/episode depth, Douban, Bangumi, anime-specific structure,
-artwork lifecycle polish, and operator-visible diagnostics.
-
-## Extension Map
-
-Nako's extension target is out-of-process:
-
-```text
-Addon Package / Addon Suite
-  -> Addon Sidecar
-  -> scoped Addon Token + Grant
-  -> Addon Resource / Addon Task / Event Subscription
-  -> host-owned policy and persistence
-```
-
-This keeps self-hosted extension power without giving arbitrary addon code
-direct database, raw library path, or in-process memory access.
-
 ## Documents Of Record
 
 Core ADRs:
@@ -183,6 +117,7 @@ Progress trackers:
 - `docs/architecture/REALTIME_SYNC.md`
 - `docs/architecture/OPERATIONS_RELEASE.md`
 - `docs/architecture/CONTROL_PLANE.md`
+- `docs/architecture/WORKSTREAM_LINKS.md`
 - `docs/ROADMAP.md`
 - `docs/GOALS.md`
 - `docs/workstreams/README.md`

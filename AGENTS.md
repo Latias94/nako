@@ -26,6 +26,10 @@ This file gives repository-local guidance for agents working on Nako.
 - Treat ADR 0053 as the control-plane baseline. New durable jobs, runtime
   supervision, tracing/diagnostics, remote access, addon lifecycle, or API
   cache/scale behavior should not be hidden inside a one-off feature helper.
+- When opening or materially changing a workstream, link it from the relevant
+  `docs/architecture/*.md` file or `docs/architecture/WORKSTREAM_LINKS.md`.
+  Add `architecture_refs` and `capability_tags` to `WORKSTREAM.json` when the
+  workstream changes an architecture capability.
 - M27.0 is a design baseline only. Do not add schema migrations, provider
   features, runtime behavior, or public API changes under M27.0.
 

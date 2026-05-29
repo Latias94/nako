@@ -52,6 +52,12 @@ selection.
 | Release and packaging | Partial | `docs/deployment/SELF_HOSTED.md`; `docs/deployment/RELEASE_CHECKLIST.md`; `scripts/release-gate.*` | FFmpeg/hardware matrix packaging gate. |
 | Web player integration | Partial | Media Web workstreams | HLS.js/Shaka integration and capability reporting. |
 
+## Workstream Evidence
+
+Use `docs/architecture/WORKSTREAM_LINKS.md#playback-and-transcode` as the
+consolidated index for playback and transcode workstreams. Keep capability rows
+linked to the most direct ADR/workstream evidence.
+
 ## Parallel Work Lanes
 
 These lanes are intentionally separable. They can run in parallel if each lane

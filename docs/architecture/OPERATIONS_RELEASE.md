@@ -32,6 +32,12 @@ Config
 | Config mutation authority | Partial | admin settings lanes | Hot-apply/restart-required model. |
 | Observability | Partial | diagnostics lanes | Metrics/tracing/export profile. |
 
+## Workstream Evidence
+
+Use `docs/architecture/WORKSTREAM_LINKS.md#operations-and-release` as the
+consolidated index for deployment, release, diagnostics, backup, and packaging
+workstreams. Keep this document focused on operator readiness.
+
 ## Next Work Lanes
 
 ### playback-release-hardware-matrix

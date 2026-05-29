@@ -98,3 +98,24 @@ Validation:
 python3 -m json.tool docs/workstreams/media-server-architecture-progress-map/WORKSTREAM.json
 git diff --check
 ```
+
+### MSAP-060 - Organize architecture and workstream links
+
+Status: Done
+Owner: codex
+Depends on: MSAP-050
+
+Scope:
+
+- Keep `docs/ARCHITECTURE.md` concise by moving detailed execution references
+  into architecture deep dives.
+- Add `docs/architecture/WORKSTREAM_LINKS.md`.
+- Document the `architecture_refs` and `capability_tags` convention for future
+  workstreams.
+
+Validation:
+
+```text
+python3 -m json.tool docs/workstreams/media-server-architecture-progress-map/WORKSTREAM.json
+git diff --check
+```

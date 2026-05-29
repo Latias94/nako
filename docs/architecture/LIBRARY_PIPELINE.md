@@ -36,6 +36,13 @@ Storage event or scheduled scan
 | Artwork artifact lifecycle | Partial | managed artwork lanes | Dynamic delivery derivatives and Blurhash. |
 | Watcher/debounce | Weak | This document | Open `library-watcher-and-media-intake-stability`. |
 
+## Workstream Evidence
+
+Use
+`docs/architecture/WORKSTREAM_LINKS.md#library-metadata-nfo-and-artwork` as the
+consolidated index for library, metadata, NFO, and artwork workstreams. Keep
+this document focused on intake and asset pipeline capability state.
+
 ## Next Work Lanes
 
 ### library-watcher-and-media-intake-stability

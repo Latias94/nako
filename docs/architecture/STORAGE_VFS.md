@@ -34,6 +34,12 @@ and rclone-like mounts can be slow, stale, or unavailable.
 | Library file writes | Partial | addon/library-file-write and NFO workstreams | Capability-specific write/link/backup policy. |
 | Mount hang protection | Weak | This document | Open `storage-vfs-resilience-and-source-identity`. |
 
+## Workstream Evidence
+
+Use `docs/architecture/WORKSTREAM_LINKS.md#storage-and-vfs` as the consolidated
+index for storage/VFS workstreams. Keep this document focused on capability
+state and risk, not copied task evidence.
+
 ## Next Work Lanes
 
 ### storage-vfs-resilience-and-source-identity

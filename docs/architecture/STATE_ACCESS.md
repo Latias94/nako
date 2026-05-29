@@ -31,6 +31,13 @@ Authenticated Principal
 | Search projection | Shipped foundation | catalog/search lanes | FTS/filter scale-up. |
 | Event outbox | Shipped | `docs/adr/0014-durable-event-outbox-for-webhooks-and-automation.md` | Realtime client gateway bridge. |
 
+## Workstream Evidence
+
+Use
+`docs/architecture/WORKSTREAM_LINKS.md#state-database-identity-and-access` as
+the consolidated index for persistence, identity, access, and state workstreams.
+Keep this document focused on state and access capability pressure.
+
 ## Next Work Lanes
 
 ### playback-db-write-pressure-and-wal-policy

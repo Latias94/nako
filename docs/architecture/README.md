@@ -8,8 +8,13 @@ top-level `docs/ARCHITECTURE.md` system map into functional progress trackers.
 Use these documents to choose workstreams, assign parallel agents, and connect
 implementation tasks back to ADRs and completed evidence.
 
+Keep `docs/ARCHITECTURE.md` short. Put capability-level status, risks, and
+workstream evidence in the deep dives below.
+
 ## Maps
 
+- [Architecture workstream links](WORKSTREAM_LINKS.md): capability area to
+  workstream evidence and proposed lane index.
 - [Playback architecture](PLAYBACK.md): video playback capability map,
   workstream/ADR authority, next lanes, and known risk register.
 - [Storage and VFS architecture](STORAGE_VFS.md): source locator, remote
@@ -25,3 +30,12 @@ implementation tasks back to ADRs and completed evidence.
 - [Control plane architecture](CONTROL_PLANE.md): addon lifecycle,
   observability, durable jobs, remote access, API scale, and cache-contract
   map.
+
+## Linkage Policy
+
+- Capability rows should link concrete ADRs and workstreams when evidence
+  exists.
+- Future lanes should use a `proposed:<slug>` label until a workstream exists.
+- New workstreams should add `architecture_refs` and `capability_tags` to their
+  `WORKSTREAM.json` when they materially change an architecture capability.
+- Do not duplicate task evidence in architecture docs. Link the workstream.

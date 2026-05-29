@@ -54,6 +54,13 @@ Deployment Endpoint Config
 | HTTP cache/ETag contracts | Not started | This document | Image/artifact/catalog cache semantics. |
 | N+1/list projection discipline | Partial | catalog projection lanes | API scale tests for large libraries. |
 
+## Workstream Evidence
+
+Use `docs/architecture/WORKSTREAM_LINKS.md#control-plane` as the consolidated
+index for runtime, durable job, diagnostics, addon lifecycle, remote access, and
+API scale workstreams. Keep this document focused on shared control-plane
+capabilities and risks.
+
 ## Next Work Lanes
 
 ### control-plane-observability-and-trace-context
