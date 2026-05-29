@@ -2,18 +2,19 @@
   "schema_version": 1,
   "slug": "user-playlists-contract-and-web-slice",
   "title": "User Playlists Contract And Web Slice",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-05-29",
   "scope_kind": "public_client_contract",
   "problem": "The web playlist UI cannot return until Nako has a server-owned current-user playlist contract distinct from catalog collections and HLS transport playlists.",
   "task_prefix": "UPCW",
-  "current_task": "UPCW-060",
+  "current_task": null,
   "completed_tasks": [
     "UPCW-010",
     "UPCW-020",
     "UPCW-030",
     "UPCW-040",
-    "UPCW-050"
+    "UPCW-050",
+    "UPCW-060"
   ],
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/user-playlists-contract-and-web-slice/README.md" },
@@ -23,7 +24,8 @@
     { "role": "execution", "path": "docs/workstreams/user-playlists-contract-and-web-slice/TODO.md" },
     { "role": "milestones", "path": "docs/workstreams/user-playlists-contract-and-web-slice/MILESTONES.md" },
     { "role": "gates", "path": "docs/workstreams/user-playlists-contract-and-web-slice/EVIDENCE_AND_GATES.md" },
-    { "role": "handoff", "path": "docs/workstreams/user-playlists-contract-and-web-slice/HANDOFF.md" }
+    { "role": "handoff", "path": "docs/workstreams/user-playlists-contract-and-web-slice/HANDOFF.md" },
+    { "role": "closeout", "path": "docs/workstreams/user-playlists-contract-and-web-slice/CLOSEOUT.md" }
   ],
   "gates": [
     "cargo nextest run -p nako-db playlist --no-fail-fast",
@@ -42,7 +44,8 @@
     "UPCW-020 froze current-user private User Playlist route inventory, DTOs, access filtering, duplicate/order semantics, mutation request shape, OpenAPI schemas, generated TypeScript/Kotlin SDK expectations, and HTTP API notes.",
     "UPCW-030 implemented principal-scoped User Playlist persistence, ordered idempotent membership, version-guarded mutations, and app-service validation without adding Public Client HTTP routes or web UI.",
     "UPCW-040 exposed current-user User Playlist Public Client HTTP routes, access-filtered item responses/counts, Rust client convenience methods, and SDK inventory validation without restoring web UI.",
-    "UPCW-050 restored the first web playlist UI through Public Client live data, fixture fallback, route-owned playlist/view state, data-source/route/state tests, bundle budget validation, and desktop/mobile browser smoke."
+    "UPCW-050 restored the first web playlist UI through Public Client live data, fixture fallback, route-owned playlist/view state, data-source/route/state tests, bundle budget validation, and desktop/mobile browser smoke.",
+    "UPCW-060 closed the lane with final evidence, follow-ons, residual risks, and closed workstream metadata."
   ],
   "adr_refs": [
     "docs/adr/0021-video-first-media-server-domain-model.md",
@@ -51,7 +54,7 @@
     "docs/adr/0028-user-playback-state-principal-and-public-contract.md"
   ],
   "continue_policy": {
-    "default_action": "continue_current_task",
-    "notes": "Continue with UPCW-060. Close the lane and split follow-ons for sharing, smart playlists, recommendation-generated lists, and offline sync."
+    "default_action": "closed",
+    "notes": "The lane is closed. Open a new workstream for web playlist management mutations, shared playlists, smart/recommendation-generated lists, offline sync, or mobile/Tauri playlist surfaces."
   }
 }

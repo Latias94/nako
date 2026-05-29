@@ -36,7 +36,7 @@ UPCW-020 freezes these decisions:
 | Mutations | Create/rename/delete playlist; add/remove/reorder items. No media/library writes. |
 | Concurrency | Playlist DTOs expose `version`; mutation bodies may carry `expected_version` and stale writes return `409 conflict`. |
 | SDK surface | TypeScript/Kotlin generated SDKs expose DTOs and route helpers now; Rust client convenience methods follow server implementation in UPCW-040. |
-| Web entry | `/media/playlists` only after route/DTO contract exists. |
+| Web entry | `/media/my-list` only after route/DTO contract exists. |
 
 The full frozen contract lives in `CONTRACT.md`.
 

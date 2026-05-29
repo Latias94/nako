@@ -1,6 +1,6 @@
 # User Playlists Contract And Web Slice - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 ## M0 - Open Lane
@@ -42,3 +42,5 @@ Completed by `UPCW-050`.
 
 Exit criteria: shipped behavior, remaining follow-ons, and final validation
 evidence are recorded.
+
+Completed by `UPCW-060`.

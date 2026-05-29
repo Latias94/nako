@@ -1,6 +1,6 @@
 # User Playlists Contract And Web Slice - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 ## M0 - Open Lane
@@ -61,9 +61,11 @@ Last updated: 2026-05-29
 
 ## M5 - Closeout
 
-- [ ] UPCW-060 [owner=planner] [deps=UPCW-050] [scope=docs/workstreams/user-playlists-contract-and-web-slice]
+- [x] UPCW-060 [owner=planner] [deps=UPCW-050] [scope=docs/workstreams/user-playlists-contract-and-web-slice]
   Goal: Close the lane with backend/API/SDK/web evidence and split follow-ons for sharing, smart playlists, recommendation-generated lists, or offline sync.
   Validation: final backend and frontend gates recorded; JSON validation; `git diff --check`.
   Review: no blocking workstream or code-quality findings.
-  Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, and `HANDOFF.md`.
-  Handoff: DONE. Return to WDRP or selected follow-on.
+  Evidence: DONE. `CLOSEOUT.md`, `EVIDENCE_AND_GATES.md`,
+  `WORKSTREAM.json`, and `HANDOFF.md` record shipped behavior, validation, and
+  follow-ons.
+  Handoff: DONE. This lane is closed.

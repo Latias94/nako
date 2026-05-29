@@ -1,16 +1,14 @@
 # User Playlists Contract And Web Slice - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 ## Current State
 
-This lane is open. UPCW-020 froze the User Playlist Public Client contract,
-UPCW-030 implemented backend persistence plus app-service validation, and
-UPCW-040 exposed the contract through Public Client HTTP routes, access
-filtering, and Rust client methods. UPCW-050 restored the first `web/`
-playlist UI through Public Client live data, fixture fallback, and route-owned
-state.
+This lane is closed. It delivered the User Playlist contract, persistence,
+Public Client HTTP routes, OpenAPI/SDK coverage, Rust client methods,
+access-filtered item responses/counts, and the first `web/` playlist UI slice
+through Public Client live data, fixture fallback, and route-owned state.
 
 Important boundaries:
 
@@ -26,16 +24,19 @@ Important boundaries:
   preserves explicit zero-based order.
 - Frontend work must use Public Client contracts, not Admin API.
 
-## Active Task
+## Closed Task
 
 - Task ID: UPCW-060
 - Owner: planner
-- Status: READY
-- Validation: final backend/frontend gates recorded; JSON validation;
-  `git diff --check`.
+- Status: DONE
+- Validation: final backend/frontend gates recorded; `WORKSTREAM.json`
+  validation; `git diff --check`.
 
-## Next Recommended Action
+## Follow-Ons
 
-Start UPCW-060. Close the lane with backend/API/SDK/web evidence and split
-follow-ons for sharing, smart playlists, recommendation-generated lists, and
-offline sync.
+- Web playlist management UI: create, rename, delete, add item, remove item,
+  and reorder controls.
+- Shared/public playlists, invites, and collaboration.
+- Smart playlists and recommendation-generated lists.
+- Offline sync and conflict resolution.
+- Playlist-aware mobile/Tauri surfaces once the web management UX settles.
