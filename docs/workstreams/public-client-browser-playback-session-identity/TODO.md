@@ -1,7 +1,7 @@
 # Public Client Browser Playback Session Identity - TODO
 
 Status: Active
-Last updated: 2026-05-28
+Last updated: 2026-05-29
 
 ## M0 - Open Lane
 
@@ -13,12 +13,12 @@ Last updated: 2026-05-28
 
 ## M1 - Contract Freeze
 
-- [ ] PBSI-020 [owner=Codex] [deps=PBSI-010] [scope=crates/nako-client-protocol,crates/nako-api,docs/api/HTTP_API.md,docs/workstreams/public-client-browser-playback-session-identity]
+- [x] PBSI-020 [owner=Codex] [deps=PBSI-010] [scope=crates/nako-client-protocol,crates/nako-api,docs/api/HTTP_API.md,docs/workstreams/public-client-browser-playback-session-identity]
   Goal: Freeze how browser ticket responses expose playback session identity and heartbeat authority.
   Validation: protocol/API tests or snapshots; HTTP API docs updated; `cargo fmt --all -- --check`; `git diff --check`.
   Review: no bearer tokens, source locators, local paths, or transcode internals in public DTOs.
-  Evidence: `CONTRACT_READINESS.md` and protocol/API tests.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Evidence: `CONTRACT.md`, `CONTRACT_READINESS.md`, HTTP API contract note, and existing protocol/API playback tests.
+  Handoff: DONE. Next task is PBSI-030.
 
 ## M2 - Server And SDK Implementation
 

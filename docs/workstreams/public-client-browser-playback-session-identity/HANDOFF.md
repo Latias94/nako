@@ -1,23 +1,29 @@
 # Public Client Browser Playback Session Identity - Handoff
 
 Status: Active
-Last updated: 2026-05-28
+Last updated: 2026-05-29
 
 ## Current State
 
-This lane is open. WMLP closed with browser-ticket playback wired in `web/`, but
-heartbeat is blocked because the ticket response does not expose a stable
-playback session id.
+This lane is open. PBSI-020 froze the Public Client contract for browser
+playback heartbeat authority:
+
+- add required nullable `playback_session_id` to `BrowserPlaybackTicketResponse`;
+- return non-null ids for `direct`, `remux`, and `hls`;
+- return `null` for `subtitle`;
+- bind non-subtitle opaque browser tickets to the same durable playback session;
+- use `POST /playback/sessions/{session_id}/heartbeat` with the authenticated
+  owner principal, not the media ticket.
 
 ## Active Task
 
-- Task ID: PBSI-020
+- Task ID: PBSI-030
 - Owner: Codex
 - Status: READY
-- Validation: contract freeze, protocol/API evidence, formatting, and diff
-  check.
+- Validation: focused playback route tests, OpenAPI/SDK generation checks, and
+  `cargo nextest run -p nako-server browser_playback --no-fail-fast`.
 
 ## Next Recommended Action
 
-Start PBSI-020. Prefer a Public Client JSON response field for session identity
-instead of teaching the web client to mine media response headers.
+Start PBSI-030. Implement the frozen server/API/SDK contract before wiring web
+heartbeat.

@@ -1,7 +1,7 @@
 # Public Client Browser Playback Session Identity - Milestones
 
 Status: Active
-Last updated: 2026-05-28
+Last updated: 2026-05-29
 
 ## M0 - Open Lane
 
@@ -11,6 +11,8 @@ Completed by `PBSI-010`.
 
 Exit criteria: the browser-visible session identity and heartbeat authority are
 accepted in the Public Client contract.
+
+Completed by `PBSI-020`.
 
 ## M2 - Server And SDK Implementation
 
