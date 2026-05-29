@@ -1,26 +1,26 @@
 # HLS Master Renditions Authoring Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 ## Current State
 
-This workstream is open. Nako can generate and serve selected subtitle WebVTT
-sidecar artifacts, but public HLS entry playlists do not yet advertise those
-sidecars through standard HLS media rendition tags.
+This workstream is closed. Nako can generate, serve, reuse, and now advertise
+selected subtitle WebVTT sidecar artifacts through standard HLS master playlist
+media rendition tags.
 
 ## Next Task
 
-Start with HMA-020.
+Recommended follow-on: split alternate audio rendition authoring into a new
+workstream once the playback planner and track selection model are ready to
+carry alternate audio groups.
 
-Recommended order:
+Likely order:
 
-1. Inspect `HlsArtifactManifest`, `HlsMediaRenditionPlan`,
-   `hls_artifact_manifest_for_session`, and `rewrite_hls_playlist`.
-2. Decide whether the authoring boundary belongs in `nako-server` only or
-   whether `nako-transcode` should expose additional typed playlist facts.
-3. Add the smallest authoring helper that can generate subtitle media tags for
-   single-variant and adaptive HLS without changing raw artifact serving.
+1. Extend `HlsMediaRenditionPlan` with audio rendition facts.
+2. Teach playback selection to expose alternate audio tracks without forcing a
+   selected-only sidecar model.
+3. Reuse the HLS master playlist authoring boundary for `TYPE=AUDIO` groups.
 
 ## Validation To Preserve
 

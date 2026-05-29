@@ -57,12 +57,12 @@ use direct::{plan_direct_play_response_with_backend, should_budget_remote_stream
 use events::record_playback_session_finished_event;
 use failure::{map_hls_runner_error, map_remux_runner_error, persist_session_failure};
 use hls::HlsAppService;
-use hls_artifact::HlsArtifactService;
+use hls_artifact::{HlsArtifactService, hls_artifact_manifest_for_session};
 use input::FfmpegInputService;
 #[cfg(test)]
 pub(crate) use input::source_path_for_ffmpeg_with_backend;
 use paths::{ensure_remux_output_parent, path_exists};
-use playlist::rewrite_hls_playlist;
+use playlist::{author_hls_entry_playlist, rewrite_hls_playlist};
 use remux::RemuxAppService;
 pub(crate) use remux::RemuxRequestKey;
 use selection::{
@@ -1716,6 +1716,9 @@ impl PlaybackAppService {
                     format!("failed to read hls playlist: {err}"),
                 )
             })?;
+
+        let manifest = hls_artifact_manifest_for_session(&output.session)?;
+        let body = author_hls_entry_playlist(&body, &manifest)?;
 
         Ok(HlsPlaylistOutput {
             source: output.source,

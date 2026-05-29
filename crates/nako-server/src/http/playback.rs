@@ -918,17 +918,7 @@ fn format_ticket_timestamp(timestamp_ms: i64) -> String {
 }
 
 fn append_ticket_to_hls_playlist_segments(body: &str, ticket: &str) -> String {
-    body.lines()
-        .map(|line| {
-            if line.starts_with("/playback/sessions/") {
-                let separator = if line.contains('?') { '&' } else { '?' };
-                format!("{line}{separator}ticket={ticket}")
-            } else {
-                line.to_owned()
-            }
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
+    append_query_to_hls_playlist_segment_uris(body, &format!("ticket={ticket}"))
 }
 
 fn append_renderer_ticket_to_hls_playlist_segments(
@@ -936,19 +926,57 @@ fn append_renderer_ticket_to_hls_playlist_segments(
     renderer_session_id: RendererSessionId,
     renderer_ticket: &str,
 ) -> String {
-    body.lines()
-        .map(|line| {
-            if line.starts_with("/playback/sessions/") {
-                let separator = if line.contains('?') { '&' } else { '?' };
-                format!(
-                    "{line}{separator}renderer_session_id={renderer_session_id}&renderer_ticket={renderer_ticket}"
-                )
-            } else {
-                line.to_owned()
-            }
-        })
+    append_query_to_hls_playlist_segment_uris(
+        body,
+        &format!("renderer_session_id={renderer_session_id}&renderer_ticket={renderer_ticket}"),
+    )
+}
+
+fn append_query_to_hls_playlist_segment_uris(body: &str, query: &str) -> String {
+    let mut rewritten = body
+        .lines()
+        .map(|line| append_query_to_hls_playlist_line(line, query))
         .collect::<Vec<_>>()
-        .join("\n")
+        .join("\n");
+    if body.ends_with('\n') {
+        rewritten.push('\n');
+    }
+    rewritten
+}
+
+fn append_query_to_hls_playlist_line(line: &str, query: &str) -> String {
+    if line.starts_with("/playback/sessions/") {
+        return append_query_to_uri(line, query);
+    }
+
+    let trimmed = line.trim_start();
+    if trimmed.starts_with("#EXT-X-MEDIA:") || trimmed.starts_with("#EXT-X-MAP:") {
+        return append_query_to_hls_quoted_uri_attribute(line, query)
+            .unwrap_or_else(|| line.to_owned());
+    }
+
+    line.to_owned()
+}
+
+fn append_query_to_hls_quoted_uri_attribute(line: &str, query: &str) -> Option<String> {
+    let marker = "URI=\"";
+    let start = line.find(marker)? + marker.len();
+    let end = line[start..].find('"')? + start;
+    let uri = &line[start..end];
+    if !uri.starts_with("/playback/sessions/") {
+        return None;
+    }
+
+    let mut rewritten = String::with_capacity(line.len() + query.len() + 1);
+    rewritten.push_str(&line[..start]);
+    rewritten.push_str(&append_query_to_uri(uri, query));
+    rewritten.push_str(&line[end..]);
+    Some(rewritten)
+}
+
+fn append_query_to_uri(uri: &str, query: &str) -> String {
+    let separator = if uri.contains('?') { '&' } else { '?' };
+    format!("{uri}{separator}{query}")
 }
 
 fn insert_playback_session_header(response: &mut Response, session_id: PlaybackSessionId) {
@@ -1234,4 +1262,38 @@ fn csv_or_default(value: Option<String>, default: Vec<String>) -> Vec<String> {
         .collect::<Vec<_>>();
 
     if values.is_empty() { default } else { values }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn append_ticket_to_hls_playlist_segments_covers_media_group_uri_attributes() {
+        let body = "#EXTM3U\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"nako-subtitles\",NAME=\"jpn\",URI=\"/playback/sessions/session-a/hls/segments/subtitle_0.m3u8\"\n#EXT-X-STREAM-INF:BANDWIDTH=3128000,SUBTITLES=\"nako-subtitles\"\n/playback/sessions/session-a/hls/segments/playlist.m3u8\n";
+
+        let rewritten = append_ticket_to_hls_playlist_segments(body, "opaque");
+
+        assert!(rewritten.contains(
+            "URI=\"/playback/sessions/session-a/hls/segments/subtitle_0.m3u8?ticket=opaque\""
+        ));
+        assert!(
+            rewritten
+                .contains("/playback/sessions/session-a/hls/segments/playlist.m3u8?ticket=opaque")
+        );
+        assert!(rewritten.ends_with('\n'));
+    }
+
+    #[test]
+    fn append_renderer_ticket_to_hls_playlist_segments_covers_media_group_uri_attributes() {
+        let renderer_session_id = RendererSessionId::new();
+        let body = "#EXTM3U\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"nako-subtitles\",NAME=\"jpn\",URI=\"/playback/sessions/session-a/hls/segments/subtitle_0.m3u8?ticket=old\"\n";
+
+        let rewritten =
+            append_renderer_ticket_to_hls_playlist_segments(body, renderer_session_id, "opaque");
+
+        assert!(rewritten.contains(&format!(
+            "URI=\"/playback/sessions/session-a/hls/segments/subtitle_0.m3u8?ticket=old&renderer_session_id={renderer_session_id}&renderer_ticket=opaque\""
+        )));
+    }
 }

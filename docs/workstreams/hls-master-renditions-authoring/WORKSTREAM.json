@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "hls-master-renditions-authoring",
   "title": "HLS Master Renditions Authoring",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-05-29",
   "scope_kind": "fearless_refactor",
   "problem": "Nako can generate selected subtitle WebVTT sidecar artifacts, but public HLS entry playlists do not advertise those media renditions through standard master playlist tags.",
@@ -44,6 +44,18 @@
     {
       "task": "HMA-010",
       "summary": "Opened the durable fearless refactor lane for standard HLS master playlist media rendition authoring after selected subtitle sidecar artifacts became executable."
+    },
+    {
+      "task": "HMA-020",
+      "summary": "Added server-owned HLS entry playlist authoring derived from HlsArtifactManifest while preserving raw FFmpeg playlist artifacts."
+    },
+    {
+      "task": "HMA-030",
+      "summary": "Advertised selected subtitle WebVTT sidecars through EXT-X-MEDIA subtitle groups, attached SUBTITLES attributes to single-variant and adaptive stream entries, and covered quoted media group URIs in playlist rewrite and ticket decoration."
+    },
+    {
+      "task": "HMA-040",
+      "summary": "Verified transcode hls, server hls, server playback, formatting, JSON, and diff gates before closing the workstream."
     }
   ],
   "adr_refs": [
@@ -52,8 +64,8 @@
     "docs/adr/0049-source-aware-transcode-runtime.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "next_task": "HMA-020",
-    "notes": "Implement the smallest typed master playlist authoring boundary that can advertise selected subtitle WebVTT sidecars while preserving existing HLS artifact serving and session reuse."
+    "default_action": "closed",
+    "next_task": "none",
+    "notes": "Workstream closed. Recommended follow-on is alternate audio rendition authoring through the same HLS master playlist boundary."
   }
 }

@@ -1,6 +1,6 @@
 # HLS Master Renditions Authoring Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 ## Milestone 1 - Workstream Opened
@@ -13,7 +13,7 @@ Status: Done
 
 ## Milestone 2 - Typed Master Authoring Boundary
 
-Status: Pending
+Status: Done
 
 - HLS master playlist authoring is derived from `HlsArtifactManifest` and media
   rendition plans.
@@ -21,7 +21,7 @@ Status: Pending
 
 ## Milestone 3 - Selected Subtitle Discoverability
 
-Status: Pending
+Status: Done
 
 - Selected subtitle WebVTT sidecar playlists are advertised through standard
   `EXT-X-MEDIA` tags.
@@ -29,7 +29,7 @@ Status: Pending
 
 ## Milestone 4 - Runtime Verified And Closed
 
-Status: Pending
+Status: Done
 
 - HLS source runtime, artifact serving, playlist rewrite, session reuse, and
   Public/Admin redaction gates pass.

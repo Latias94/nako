@@ -768,6 +768,17 @@ async fn hls_source_selected_subtitle_uses_sidecar_rendition_identity_and_artifa
     );
     assert!(output.segment_dir.join("subtitle_0_00000.vtt").exists());
 
+    let playlist = app.playback().hls_playlist(request.clone()).await.unwrap();
+    assert!(playlist.body.contains("#EXT-X-MEDIA:TYPE=SUBTITLES"));
+    assert!(playlist.body.contains("GROUP-ID=\"nako-subtitles\""));
+    assert!(playlist.body.contains("LANGUAGE=\"jpn\""));
+    assert!(playlist.body.contains(&format!(
+        "URI=\"/playback/sessions/{session_id}/hls/segments/subtitle_0.m3u8\""
+    )));
+    assert!(playlist.body.contains(&format!(
+        "SUBTITLES=\"nako-subtitles\"\n/playback/sessions/{session_id}/hls/segments/playlist.m3u8"
+    )));
+
     let subtitle_playlist = app
         .playback()
         .plan_hls_segment(session_id, "subtitle_0.m3u8")

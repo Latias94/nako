@@ -16,7 +16,9 @@ use nako_transcode::{
 use crate::config::PlaybackConfig;
 
 use super::{
-    HlsSegmentPlan, paths::path_exists, playlist::rewrite_hls_playlist_for_playback_session,
+    HlsSegmentPlan,
+    paths::path_exists,
+    playlist::{author_hls_entry_playlist, rewrite_hls_playlist_for_playback_session},
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -61,6 +63,8 @@ impl HlsArtifactService {
                     format!("failed to read hls playlist: {err}"),
                 )
             })?;
+
+        let body = author_hls_entry_playlist(&body, &manifest)?;
 
         Ok(rewrite_hls_playlist_for_playback_session(
             &body,

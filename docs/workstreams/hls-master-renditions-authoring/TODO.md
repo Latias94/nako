@@ -1,6 +1,6 @@
 # HLS Master Renditions Authoring TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 ## Task Ledger
@@ -28,7 +28,7 @@ git diff --check -- docs/workstreams/hls-master-renditions-authoring docs/workst
 
 ### HMA-020 - Add typed HLS master playlist authoring boundary
 
-Status: Pending
+Status: Done
 Owner: codex
 Depends on: HMA-010
 
@@ -45,9 +45,16 @@ Validation:
 cargo nextest run -p nako-server hls --no-fail-fast
 ```
 
+Result:
+
+- Added `author_hls_entry_playlist` as the server playback authoring boundary
+  that consumes `HlsArtifactManifest`.
+- Preserved raw FFmpeg media playlists as servable artifacts.
+- Verified by `cargo nextest run -p nako-server hls --no-fail-fast`.
+
 ### HMA-030 - Make selected subtitle sidecars discoverable
 
-Status: Pending
+Status: Done
 Owner: codex
 Depends on: HMA-020
 
@@ -64,9 +71,17 @@ cargo nextest run -p nako-server hls --no-fail-fast
 cargo nextest run -p nako-server playback --no-fail-fast
 ```
 
+Result:
+
+- Single-variant HLS with selected subtitles now returns a generated master
+  entry playlist with `EXT-X-MEDIA:TYPE=SUBTITLES` and `SUBTITLES=`.
+- Adaptive fMP4 master playlists are enriched with subtitle media groups.
+- Playlist rewriting and browser/renderer ticket decoration cover
+  `EXT-X-MEDIA:URI` attributes.
+
 ### HMA-040 - Verify reuse/redaction and close workstream
 
-Status: Pending
+Status: Done
 Owner: codex
 Depends on: HMA-030
 
@@ -86,3 +101,8 @@ cargo nextest run -p nako-server playback --no-fail-fast
 cargo fmt --all -- --check
 git diff --check
 ```
+
+Result:
+
+- Runtime reuse reconstructs authored playlists from persisted session identity.
+- Focused transcode/server gates passed and closeout evidence is recorded.

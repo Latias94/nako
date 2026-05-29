@@ -1,6 +1,6 @@
 # HLS Master Renditions Authoring
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 Durable fearless refactor lane for making Nako author standard HLS master
@@ -21,3 +21,12 @@ The first executable slice is selected subtitle discovery:
 
 Out of scope: full alternate audio UX, image-subtitle OCR, subtitle burn-in,
 LL-HLS, CMAF encryption, DRM, and replacing the FFmpeg CLI adapter.
+
+## Outcome
+
+Closed after adding server-owned HLS entry playlist authoring for selected
+subtitle WebVTT sidecars. Single-variant HLS now receives a generated master
+entry playlist that points at the existing media playlist and subtitle group;
+adaptive fMP4 master playlists are enriched with the same subtitle media group.
+Playlist URI rewrite and browser/renderer ticket decoration now cover
+`EXT-X-MEDIA:URI` attributes.
