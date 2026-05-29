@@ -30,6 +30,8 @@ Exit criteria: users can add and remove media items through Public Client-backed
 flows without leaking inaccessible item facts or writing library/media source
 state.
 
+Completed by `WPMU-040`.
+
 ## M4 - Reorder And Conflict Handling
 
 Exit criteria: playlist item order can be changed through an accessible flow

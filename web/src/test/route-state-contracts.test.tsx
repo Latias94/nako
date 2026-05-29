@@ -270,6 +270,213 @@ describe("route state contracts", () => {
     ).toBeInTheDocument()
     expect(router.state.location.search).not.toMatchObject({ playlist: "Fixture Queue" })
   })
+
+  it("removes an item from the active Media playlist through the Public Client route", async () => {
+    const user = userEvent.setup()
+    const calls: Array<{ method: string; path: string; body?: unknown }> = []
+    let playlistItems = [
+      {
+        playlist_id: "playlist-live",
+        item_id: "live-movie",
+        position: 0,
+        added_at: "2026-05-29T01:00:00Z",
+        item: publicMediaItem(),
+        images: [],
+      },
+    ]
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      const method = init?.method ?? "GET"
+      const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined
+      calls.push({ method, path: url.pathname, body })
+
+      if (method === "GET" && url.pathname === "/users/me/playlists") {
+        return jsonResponse({
+          playlists: [publicUserPlaylist({ item_count: playlistItems.length })],
+          page: {
+            limit: 20,
+            offset: 0,
+            returned: 1,
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/users/me/playlists/playlist-live/items") {
+        return jsonResponse({
+          playlist: publicUserPlaylist({ item_count: playlistItems.length }),
+          items: playlistItems,
+          page: {
+            limit: 50,
+            offset: 0,
+            returned: playlistItems.length,
+          },
+        })
+      }
+
+      if (method === "DELETE" && url.pathname === "/users/me/playlists/playlist-live/items/live-movie") {
+        playlistItems = []
+
+        return jsonResponse({
+          playlist: publicUserPlaylist({
+            item_count: 0,
+            version: 3,
+          }),
+        })
+      }
+
+      return jsonResponse({ code: "not_found", message: "not found" }, 404)
+    })
+    window.localStorage.setItem(
+      CONNECTION_PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        mode: "live",
+        runtime: "browser",
+        baseUrl: "http://nako.test",
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+    renderRoute("/media/my-list?playlist=playlist-live&view=list")
+
+    expect(await screen.findByText("Live Movie", {}, { timeout: 5000 })).toBeInTheDocument()
+    await user.click(await screen.findByRole("button", { name: "从播放列表移除 Live Movie" }))
+
+    await waitFor(() => {
+      expect(screen.getByText("列表为空")).toBeInTheDocument()
+    })
+    expect(calls).toContainEqual({
+      method: "DELETE",
+      path: "/users/me/playlists/playlist-live/items/live-movie",
+      body: undefined,
+    })
+  })
+
+  it("adds detail media to a selected playlist through the Public Client route", async () => {
+    const user = userEvent.setup()
+    const calls: Array<{ method: string; path: string; body?: unknown }> = []
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      const method = init?.method ?? "GET"
+      const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined
+      calls.push({ method, path: url.pathname, body })
+
+      if (method === "GET" && url.pathname === "/items/live-movie") {
+        return jsonResponse({
+          item: publicMediaItem(),
+          sources: [],
+          images: [],
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/users/me/playlists") {
+        return jsonResponse({
+          playlists: [publicUserPlaylist()],
+          page: {
+            limit: 20,
+            offset: 0,
+            returned: 1,
+          },
+        })
+      }
+
+      if (method === "PUT" && url.pathname === "/users/me/playlists/playlist-live/items/live-movie") {
+        return jsonResponse({
+          playlist: publicUserPlaylist({
+            item_count: 2,
+            version: 3,
+          }),
+        })
+      }
+
+      return jsonResponse({ code: "not_found", message: "not found" }, 404)
+    })
+    window.localStorage.setItem(
+      CONNECTION_PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        mode: "live",
+        runtime: "browser",
+        baseUrl: "http://nako.test",
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+    renderRoute("/media/detail?id=live-movie&type=movie")
+
+    expect(await screen.findByRole("heading", { name: "Live Movie" }, { timeout: 5000 })).toBeInTheDocument()
+    await user.click(await screen.findByRole("button", { name: "添加到播放列表" }))
+    await user.click(await screen.findByRole("menuitem", { name: "添加到 Live Playlist" }))
+
+    await waitFor(() => {
+      expect(calls).toContainEqual({
+        method: "PUT",
+        path: "/users/me/playlists/playlist-live/items/live-movie",
+        body: {},
+      })
+    })
+  })
+
+  it("adds browse media cards to a selected playlist through the Public Client route", async () => {
+    const user = userEvent.setup()
+    const calls: Array<{ method: string; path: string; body?: unknown }> = []
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      const method = init?.method ?? "GET"
+      const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined
+      calls.push({ method, path: url.pathname, body })
+
+      if (method === "GET" && url.pathname === "/items") {
+        return jsonResponse({
+          items: [publicMediaItem()],
+          page: {
+            limit: 40,
+            offset: 0,
+            returned: 1,
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/users/me/playlists") {
+        return jsonResponse({
+          playlists: [publicUserPlaylist()],
+          page: {
+            limit: 20,
+            offset: 0,
+            returned: 1,
+          },
+        })
+      }
+
+      if (method === "PUT" && url.pathname === "/users/me/playlists/playlist-live/items/live-movie") {
+        return jsonResponse({
+          playlist: publicUserPlaylist({
+            item_count: 2,
+            version: 3,
+          }),
+        })
+      }
+
+      return jsonResponse({ code: "not_found", message: "not found" }, 404)
+    })
+    window.localStorage.setItem(
+      CONNECTION_PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        mode: "live",
+        runtime: "browser",
+        baseUrl: "http://nako.test",
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+    renderRoute("/media")
+
+    await user.click(await screen.findByRole("button", { name: "添加 Live Movie 到播放列表" }, { timeout: 5000 }))
+    await user.click(await screen.findByRole("menuitem", { name: "添加到 Live Playlist" }))
+
+    await waitFor(() => {
+      expect(calls).toContainEqual({
+        method: "PUT",
+        path: "/users/me/playlists/playlist-live/items/live-movie",
+        body: {},
+      })
+    })
+  })
 })
 
 function jsonResponse(body: unknown, status = 200) {
@@ -290,6 +497,31 @@ function publicUserPlaylist(overrides: Record<string, unknown> = {}) {
     created_at: "2026-05-29T00:00:00Z",
     updated_at: "2026-05-29T01:00:00Z",
     version: 2,
+    ...overrides,
+  }
+}
+
+function publicMediaItem(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "live-movie",
+    kind: "movie",
+    parent_id: null,
+    metadata: {
+      collections: [],
+      credits: [],
+      external_ids: [],
+      genres: ["Sci-Fi"],
+      original_title: "Live Original",
+      overview: "A routed public API item.",
+      ratings: [{ source: "tmdb", value: "8.1" }],
+      release_date: "2026-01-02",
+      runtime_minutes: 125,
+      sort_title: null,
+      studios: [],
+      tagline: null,
+      tags: [],
+      title: "Live Movie",
+    },
     ...overrides,
   }
 }

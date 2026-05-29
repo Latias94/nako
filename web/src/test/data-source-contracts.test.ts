@@ -1051,6 +1051,7 @@ describe("public media data source contracts", () => {
     const source = createPublicMediaDataSource({ mode: "fixture" })
 
     const created = await source.createUserPlaylist({ name: "Draft Queue" })
+    const added = await source.addUserPlaylistItem("fixture-watch-later", "2")
     const removed = await source.removeUserPlaylistItem("fixture-watch-later", "1")
     const deleted = await source.deleteUserPlaylist("fixture-watch-later")
 
@@ -1059,6 +1060,15 @@ describe("public media data source contracts", () => {
       fallback: true,
       persisted: false,
       playlist: null,
+      error: "Fixture mode does not persist playlist mutations.",
+    })
+    expect(added).toMatchObject({
+      source: "fixture",
+      fallback: true,
+      persisted: false,
+      playlist: {
+        id: "fixture-watch-later",
+      },
       error: "Fixture mode does not persist playlist mutations.",
     })
     expect(removed).toMatchObject({

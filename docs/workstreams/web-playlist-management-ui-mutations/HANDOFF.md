@@ -12,22 +12,23 @@ Client live data with fixture fallback. WPMU-020 added the web mutation
 boundary: Public Client-backed data-source methods and TanStack Query mutation
 hooks now cover playlist create, rename, delete, add item, remove item, and
 reorder. WPMU-030 added `/media/my-list` create, rename, and delete controls
-on top of those hooks.
+on top of those hooks. WPMU-040 added item removal from playlist list/card
+views and a narrow add-to-playlist dropdown from media detail and browse cards.
 
-The remaining lane work is item membership and ordering UI. It must keep
-playlist management on the Public Client boundary and must not import Admin API
-code into media features.
+The remaining lane work is item ordering UI. It must keep playlist management
+on the Public Client boundary and must not import Admin API code into media
+features.
 
 ## Active Task
 
-- Task ID: WPMU-040
+- Task ID: WPMU-050
 - Owner: Codex
 - Files: `web/src/features/media`, `web/src/test`
-- Validation: `npm --prefix web run test`; `npm --prefix web run check`
+- Validation: `npm --prefix web run test -- src/test/route-contracts.test.tsx src/test/route-state-contracts.test.tsx`; `npm --prefix web run check`
 - Status: READY
-- Review: inaccessible item facts must not leak, fixture fallback must be
-  truthful, and no media source/library-file writes may be introduced.
-- Evidence: route/data-source tests and browser smoke
+- Review: reorder must submit full ordered `item_ids`, preserve route state,
+  and refetch on conflicts.
+- Evidence: state tests and browser smoke
 
 ## Decisions Since Last Update
 
@@ -41,6 +42,12 @@ code into media features.
   existing `onRouteStateChange` contract.
 - Deleting the active playlist moves route state to the next available
   playlist, or clears `playlist` when none remains.
+- Removing a playlist item is available from list rows and poster cards and
+  goes through `useRemoveUserPlaylistItemMutation`.
+- The add-to-playlist control is shared between media detail and browse card
+  entry points and uses `useAddUserPlaylistItemMutation`.
+- Browse cards keep string media IDs instead of coercing IDs through
+  `parseInt`, preserving nonnumeric Public Client IDs.
 - Reorder starts with explicit accessible controls; drag-and-drop is optional
   and should be split if it expands cost.
 
@@ -50,6 +57,6 @@ code into media features.
 
 ## Next Recommended Action
 
-Start WPMU-040 with TDD: add item removal from playlist rows/cards and a narrow
-add-to-playlist entry point from browse/detail, using the existing Public
-Client mutation hooks and preserving fixture non-persistence feedback.
+Start WPMU-050 with TDD: add explicit reorder controls for playlist items,
+submit the full ordered `item_ids` payload, preserve the current route state,
+and refetch/recover cleanly when the server reports a stale-version conflict.

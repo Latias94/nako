@@ -31,12 +31,12 @@ Last updated: 2026-05-29
 
 ## M3 - Item Add And Remove Flows
 
-- [ ] WPMU-040 [owner=Codex] [deps=WPMU-020,WPMU-030] [scope=web/src/features/media,web/src/test]
+- [x] WPMU-040 [owner=Codex] [deps=WPMU-020,WPMU-030] [scope=web/src/features/media,web/src/test]
   Goal: Add Public Client-backed add/remove item flows from playlist items and a narrow add-to-playlist entry point from media browse/detail.
   Validation: `npm --prefix web run test`; `npm --prefix web run check`.
   Review: inaccessible item facts must not leak, fixture fallback must be truthful, and no media source/library-file writes may be introduced.
   Evidence: route/data-source tests and browser smoke.
-  Handoff: Keep broad cross-surface affordances as follow-ons if the UI footprint expands.
+  Handoff: DONE. Playlist rows/cards can remove items; browse/detail can add items through the Public Client mutation hook. Next task is WPMU-050.
 
 ## M4 - Reorder And Conflict Handling
 

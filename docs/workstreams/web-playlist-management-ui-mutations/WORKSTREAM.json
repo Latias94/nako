@@ -7,11 +7,12 @@
   "scope_kind": "fearless_refactor",
   "problem": "The web playlist page can read current-user playlists, but it cannot manage playlist mutations through the Public Client contract yet.",
   "task_prefix": "WPMU",
-  "current_task": "WPMU-040",
+  "current_task": "WPMU-050",
   "completed_tasks": [
     "WPMU-010",
     "WPMU-020",
-    "WPMU-030"
+    "WPMU-030",
+    "WPMU-040"
   ],
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/web-playlist-management-ui-mutations/README.md" },
@@ -33,7 +34,8 @@
   "evidence": [
     "WPMU-010 opened the lane from the closed User Playlist contract/web slice follow-on and froze Public Client-only playlist management mutation scope.",
     "WPMU-020 added Public Client-backed web playlist mutation data-source methods and TanStack Query mutation hooks with cache invalidation and fixture non-persistence semantics.",
-    "WPMU-030 added /media/my-list playlist create, rename, and delete controls with route-safe mutation behavior and desktop/mobile screenshot evidence."
+    "WPMU-030 added /media/my-list playlist create, rename, and delete controls with route-safe mutation behavior and desktop/mobile screenshot evidence.",
+    "WPMU-040 added playlist item add/remove UI flows through Public Client mutation hooks, with route/data-source tests and browser smoke evidence."
   ],
   "adr_refs": [
     "docs/adr/0021-video-first-media-server-domain-model.md",
@@ -43,6 +45,6 @@
   ],
   "continue_policy": {
     "default_action": "continue_current_task",
-    "notes": "Continue with WPMU-040. Add item add/remove flows through the existing Public Client playlist mutation hooks."
+    "notes": "Continue with WPMU-050. Add accessible playlist item reorder controls through the existing Public Client playlist mutation hooks."
   }
 }

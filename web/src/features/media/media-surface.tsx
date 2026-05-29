@@ -2,7 +2,7 @@
 import { resolveArtwork } from '@/lib/artwork'
 
 import { useEffect, useState, useRef, forwardRef, useImperativeHandle, lazy } from "react"
-import { Play, Clock, ChevronRight, ChevronLeft, Star, Calendar, Info, Film, Tv, User, Tag, Clapperboard, Building2, Menu, Search, X, Heart, BookmarkPlus, Settings, Download, ListMusic, Bell, History, Image, Music, Mic, Bot, Workflow, LayoutGrid, Sparkles, MoreHorizontal, Pin, RefreshCw, FolderEdit, Trash2, Eye, EyeOff } from "lucide-react"
+import { Play, Clock, ChevronRight, ChevronLeft, Star, Calendar, Info, Film, Tv, User, Tag, Clapperboard, Building2, Menu, Search, X, Heart, Settings, Download, ListMusic, Bell, History, Image, Music, Mic, Bot, Workflow, LayoutGrid, Sparkles, MoreHorizontal, Pin, RefreshCw, FolderEdit, Trash2, Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -29,6 +29,7 @@ import {
 import type { MediaItem } from "@/lib/media-types"
 import type { LibraryBrowserRouteState } from "./library-browser"
 import type { MyListRouteState } from "./my-list-page"
+import { AddToPlaylistButton } from "./add-to-playlist-button"
 
 const MediaDetail = lazy(() => import("./media-detail").then((module) => ({ default: module.MediaDetail })))
 const VideoPlayer = lazy(() => import("./video-player").then((module) => ({ default: module.VideoPlayer })))
@@ -922,7 +923,7 @@ export const MediaSurface = forwardRef<MediaSurfaceRef, MediaSurfaceProps>(funct
                   <MediaCard
                     key={item.id}
                     item={{
-                      id: parseInt(item.id),
+                      id: item.id,
                       title: item.title,
                       originalTitle: item.originalTitle,
                       year: item.year,
@@ -1214,41 +1215,54 @@ function MediaCard({
   onClick?: () => void
 }) {
   return (
-    <div className="group relative cursor-pointer" onClick={onClick}>
-      {/* Poster */}
-      <div className="relative aspect-[2/3] overflow-hidden rounded-lg bg-muted transition-transform group-hover:scale-[1.02]">
-        <img
-          src={resolveArtwork(item.poster)}
-          alt={item.title}
-          className="h-full w-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-        <div
-          className="absolute left-1/2 top-1/2 flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary/90 text-primary-foreground opacity-0 shadow-lg transition-opacity group-hover:opacity-100 lg:h-10 lg:w-10"
-        >
-          <Play className="h-4 w-4" />
-        </div>
-        {/* Quality Badge */}
-        <Badge className="absolute right-1.5 top-1.5 bg-black/70 text-[9px] text-white backdrop-blur-sm lg:right-2 lg:top-2 lg:text-[10px]">
-          {item.quality}
-        </Badge>
-        {/* Type Badge for series */}
-        {item.type === "剧集" && "episodes" in item && (
-          <Badge variant="secondary" className="absolute bottom-1.5 left-1.5 bg-black/70 text-[9px] text-white lg:bottom-2 lg:left-2 lg:text-[10px]">
-            {item.episodes} 集
+    <div className="group/card relative">
+      <button
+        type="button"
+        className="block w-full cursor-pointer text-left outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        onClick={onClick}
+      >
+        {/* Poster */}
+        <div className="relative aspect-[2/3] overflow-hidden rounded-lg bg-muted transition-transform group-hover/card:scale-[1.02]">
+          <img
+            src={resolveArtwork(item.poster)}
+            alt={item.title}
+            className="h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover/card:opacity-100" />
+          <div
+            className="absolute left-1/2 top-1/2 flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary/90 text-primary-foreground opacity-0 shadow-lg transition-opacity group-hover/card:opacity-100 lg:h-10 lg:w-10"
+          >
+            <Play className="h-4 w-4" />
+          </div>
+          {/* Quality Badge */}
+          <Badge className="absolute right-1.5 top-1.5 bg-black/70 text-[9px] text-white backdrop-blur-sm lg:right-2 lg:top-2 lg:text-[10px]">
+            {item.quality}
           </Badge>
-        )}
-      </div>
-      {/* Info */}
-      <div className="mt-1.5 lg:mt-2">
-        <h3 className="truncate text-xs font-medium text-foreground lg:text-sm">{item.title}</h3>
-        <div className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground lg:text-xs">
-          <span>{item.year}</span>
-          <span>·</span>
-          <Star className="h-2.5 w-2.5 fill-accent text-accent lg:h-3 lg:w-3" />
-          <span>{item.rating}</span>
+          {/* Type Badge for series */}
+          {item.type === "剧集" && "episodes" in item && (
+            <Badge variant="secondary" className="absolute bottom-1.5 left-1.5 bg-black/70 text-[9px] text-white lg:bottom-2 lg:left-2 lg:text-[10px]">
+              {item.episodes} 集
+            </Badge>
+          )}
         </div>
-      </div>
+        {/* Info */}
+        <div className="mt-1.5 lg:mt-2">
+          <h3 className="truncate text-xs font-medium text-foreground lg:text-sm">{item.title}</h3>
+          <div className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground lg:text-xs">
+            <span>{item.year}</span>
+            <span>·</span>
+            <Star className="h-2.5 w-2.5 fill-accent text-accent lg:h-3 lg:w-3" />
+            <span>{item.rating}</span>
+          </div>
+        </div>
+      </button>
+      <AddToPlaylistButton
+        itemId={String(item.id)}
+        itemTitle={item.title}
+        variant="icon"
+        className="absolute left-1.5 top-1.5 z-10 lg:left-2 lg:top-2"
+        triggerClassName="border border-white/20"
+      />
     </div>
   )
 }

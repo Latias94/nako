@@ -6,6 +6,7 @@ import { resolveArtwork } from "@/lib/artwork"
 import {
   useCreateUserPlaylistMutation,
   useDeleteUserPlaylistMutation,
+  useRemoveUserPlaylistItemMutation,
   useUpdateUserPlaylistMutation,
   useUserPlaylistItems,
   useUserPlaylists,
@@ -63,6 +64,7 @@ export function MyListPage({
   const createPlaylistMutation = useCreateUserPlaylistMutation()
   const updatePlaylistMutation = useUpdateUserPlaylistMutation()
   const deletePlaylistMutation = useDeleteUserPlaylistMutation()
+  const removePlaylistItemMutation = useRemoveUserPlaylistItemMutation()
   const playlists = playlistsQuery.data?.playlists ?? []
   const [localPlaylistId, setLocalPlaylistId] = useState<string | undefined>()
   const [localViewMode, setLocalViewMode] = useState<MyListViewMode>("grid")
@@ -199,6 +201,26 @@ export function MyListPage({
     }
   }
 
+  const handleRemovePlaylistItem = async (entry: PublicUserPlaylistItem) => {
+    if (removePlaylistItemMutation.isPending) {
+      return
+    }
+
+    setMutationMessage(null)
+
+    try {
+      const payload = await removePlaylistItemMutation.mutateAsync({
+        playlistId: entry.playlistId,
+        itemId: entry.itemId,
+      })
+      if (!payload.persisted) {
+        setMutationMessage(payload.error ?? "播放列表条目未移除。")
+      }
+    } catch (error) {
+      setMutationMessage(mutationErrorMessage(error))
+    }
+  }
+
   return (
     <div className="min-h-screen w-screen max-w-full overflow-x-hidden bg-background">
       <div className="sticky top-0 z-10 border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70">
@@ -327,6 +349,8 @@ export function MyListPage({
                 items={playlistItems}
                 viewMode={activeViewMode}
                 onSelectMedia={onSelectMedia}
+                onRemoveItem={handleRemovePlaylistItem}
+                isRemovingItem={removePlaylistItemMutation.isPending}
               />
             ) : (
               <EmptyState title="列表为空" description="这个播放列表当前没有可访问的媒体条目。" />
@@ -535,16 +559,26 @@ function PlaylistItems({
   items,
   viewMode,
   onSelectMedia,
+  onRemoveItem,
+  isRemovingItem,
 }: {
   items: PublicUserPlaylistItem[]
   viewMode: MyListViewMode
   onSelectMedia: (id: string, type: "movie" | "series") => void
+  onRemoveItem: (entry: PublicUserPlaylistItem) => void
+  isRemovingItem: boolean
 }) {
   if (viewMode === "list") {
     return (
       <div className="space-y-2">
         {items.map((entry) => (
-          <PlaylistListRow key={`${entry.playlistId}:${entry.itemId}`} entry={entry} onSelectMedia={onSelectMedia} />
+          <PlaylistListRow
+            key={`${entry.playlistId}:${entry.itemId}`}
+            entry={entry}
+            onSelectMedia={onSelectMedia}
+            onRemoveItem={onRemoveItem}
+            isRemovingItem={isRemovingItem}
+          />
         ))}
       </div>
     )
@@ -553,7 +587,13 @@ function PlaylistItems({
   return (
     <div className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
       {items.map((entry) => (
-        <PlaylistPosterCard key={`${entry.playlistId}:${entry.itemId}`} entry={entry} onSelectMedia={onSelectMedia} />
+        <PlaylistPosterCard
+          key={`${entry.playlistId}:${entry.itemId}`}
+          entry={entry}
+          onSelectMedia={onSelectMedia}
+          onRemoveItem={onRemoveItem}
+          isRemovingItem={isRemovingItem}
+        />
       ))}
     </div>
   )
@@ -562,80 +602,113 @@ function PlaylistItems({
 function PlaylistListRow({
   entry,
   onSelectMedia,
+  onRemoveItem,
+  isRemovingItem,
 }: {
   entry: PublicUserPlaylistItem
   onSelectMedia: (id: string, type: "movie" | "series") => void
+  onRemoveItem: (entry: PublicUserPlaylistItem) => void
+  isRemovingItem: boolean
 }) {
   const item = entry.item
 
   return (
-    <button
-      type="button"
-      onClick={() => onSelectMedia(item.id, item.type)}
-      className="group flex w-full items-center gap-4 rounded-lg border border-border/50 bg-card p-3 text-left transition-colors hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      <div className="relative h-20 w-14 flex-shrink-0 overflow-hidden rounded-md bg-muted">
-        <img src={resolveArtwork(item.poster)} alt="" className="h-full w-full object-cover" />
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-          <Play className="h-6 w-6 text-white" />
+    <div className="group flex w-full items-center gap-3 rounded-lg border border-border/50 bg-card p-3 transition-colors hover:bg-secondary/50">
+      <button
+        type="button"
+        onClick={() => onSelectMedia(item.id, item.type)}
+        className="flex min-w-0 flex-1 items-center gap-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <div className="relative h-20 w-14 flex-shrink-0 overflow-hidden rounded-md bg-muted">
+          <img src={resolveArtwork(item.poster)} alt="" className="h-full w-full object-cover" />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+            <Play className="h-6 w-6 text-white" />
+          </div>
         </div>
-      </div>
 
-      <div className="min-w-0 flex-1">
-        <h3 className="truncate font-medium text-foreground group-hover:text-primary">{item.title}</h3>
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-          <span>{item.year || "未知年份"}</span>
-          <span aria-hidden="true">·</span>
-          <span className="flex items-center gap-1">
-            <Star className="h-3 w-3 fill-accent text-accent" />
-            {item.rating || "N/A"}
-          </span>
-          <span aria-hidden="true">·</span>
-          <Badge variant="outline" className="text-[10px]">
-            {item.type === "series" ? "剧集" : "电影"}
-          </Badge>
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate font-medium text-foreground group-hover:text-primary">{item.title}</h3>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <span>{item.year || "未知年份"}</span>
+            <span aria-hidden="true">·</span>
+            <span className="flex items-center gap-1">
+              <Star className="h-3 w-3 fill-accent text-accent" />
+              {item.rating || "N/A"}
+            </span>
+            <span aria-hidden="true">·</span>
+            <Badge variant="outline" className="text-[10px]">
+              {item.type === "series" ? "剧集" : "电影"}
+            </Badge>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">添加于 {formatDate(entry.addedAt)}</p>
         </div>
-        <p className="mt-1 text-xs text-muted-foreground">添加于 {formatDate(entry.addedAt)}</p>
-      </div>
-    </button>
+      </button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label={`从播放列表移除 ${item.title}`}
+        disabled={isRemovingItem}
+        onClick={() => onRemoveItem(entry)}
+      >
+        {isRemovingItem ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+      </Button>
+    </div>
   )
 }
 
 function PlaylistPosterCard({
   entry,
   onSelectMedia,
+  onRemoveItem,
+  isRemovingItem,
 }: {
   entry: PublicUserPlaylistItem
   onSelectMedia: (id: string, type: "movie" | "series") => void
+  onRemoveItem: (entry: PublicUserPlaylistItem) => void
+  isRemovingItem: boolean
 }) {
   const item = entry.item
 
   return (
-    <button
-      type="button"
-      onClick={() => onSelectMedia(item.id, item.type)}
-      className="group w-full min-w-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      <div className="relative aspect-[2/3] overflow-hidden rounded-lg bg-muted">
-        <img
-          src={resolveArtwork(item.poster)}
-          alt=""
-          className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
-        />
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
-            <Play className="h-4 w-4" />
-          </span>
+    <div className="relative min-w-0">
+      <button
+        type="button"
+        onClick={() => onSelectMedia(item.id, item.type)}
+        className="group w-full min-w-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <div className="relative aspect-[2/3] overflow-hidden rounded-lg bg-muted">
+          <img
+            src={resolveArtwork(item.poster)}
+            alt=""
+            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+          />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+              <Play className="h-4 w-4" />
+            </span>
+          </div>
         </div>
-      </div>
-      <h3 className="mt-2 truncate text-sm font-medium text-foreground group-hover:text-primary">{item.title}</h3>
-      <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-        <span>{item.year || "未知年份"}</span>
-        <span aria-hidden="true">·</span>
-        <Star className="h-3 w-3 fill-accent text-accent" />
-        <span>{item.rating || "N/A"}</span>
-      </div>
-    </button>
+        <h3 className="mt-2 truncate text-sm font-medium text-foreground group-hover:text-primary">{item.title}</h3>
+        <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+          <span>{item.year || "未知年份"}</span>
+          <span aria-hidden="true">·</span>
+          <Star className="h-3 w-3 fill-accent text-accent" />
+          <span>{item.rating || "N/A"}</span>
+        </div>
+      </button>
+      <Button
+        type="button"
+        variant="secondary"
+        size="icon-sm"
+        className="absolute right-2 top-2 shadow-sm"
+        aria-label={`从播放列表移除 ${item.title}`}
+        disabled={isRemovingItem}
+        onClick={() => onRemoveItem(entry)}
+      >
+        {isRemovingItem ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+      </Button>
+    </div>
   )
 }
 
