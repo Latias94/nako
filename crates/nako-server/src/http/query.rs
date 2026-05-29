@@ -2,10 +2,12 @@ use nako_core::{
     AcquisitionIntakeCandidateListFilter, AcquisitionIntakeCandidateState,
     AcquisitionIntakeSourceKind, AddonStatus, CatalogGovernanceItemListFilter,
     DEFAULT_CATALOG_GOVERNANCE_CONFIDENCE_THRESHOLD_MILLI, DomainEventKind, IngestionFailurePhase,
-    IngestionFailureStatus, JobKind, JobListFilter, JobStatus, LibraryId,
-    ManagedArtworkArtifactLifecycleFilter, ManagedImportArtifactId, MediaSourceId, NakoError,
-    OutboxEventListFilter, OutboxEventStatus, PageRequest, PlaybackSessionListFilter,
-    PlaybackSessionState, StagingPurpose, StagingState, TranscodeSessionId,
+    IngestionFailureStatus, JobKind, JobListFilter, JobStatus, LibraryId, LibraryItemBrowseFacet,
+    LibraryItemBrowseQuery, LibraryItemBrowseSortKey, LibraryItemBrowseSortOrder,
+    LibraryItemWatchStateFilter, ManagedArtworkArtifactLifecycleFilter, ManagedImportArtifactId,
+    MediaKind, MediaSourceId, NakoError, OutboxEventListFilter, OutboxEventStatus, PageRequest,
+    PlaybackSessionListFilter, PlaybackSessionState, StagingPurpose, StagingState,
+    TranscodeSessionId,
 };
 use serde::Deserialize;
 
@@ -24,6 +26,55 @@ pub(super) struct SearchPageQuery {
     pub(super) facet: Option<String>,
     pub(super) limit: Option<u32>,
     pub(super) offset: Option<u64>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub(super) struct LibraryItemsQuery {
+    pub(super) limit: Option<u32>,
+    pub(super) offset: Option<u64>,
+    pub(super) sort: Option<String>,
+    pub(super) order: Option<String>,
+    pub(super) facets: Vec<String>,
+    pub(super) watch_state: Option<String>,
+}
+
+impl LibraryItemsQuery {
+    pub(super) fn from_raw_query(raw_query: Option<&str>) -> Result<Self, NakoError> {
+        let mut query = LibraryItemsQuery::default();
+
+        let Some(raw_query) = raw_query else {
+            return Ok(query);
+        };
+
+        for (name, value) in form_urlencoded::parse(raw_query.as_bytes()) {
+            let value = value.into_owned();
+            match name.as_ref() {
+                "limit" => query.limit = Some(parse_u32_filter("limit", value)?),
+                "offset" => query.offset = Some(parse_u64_filter("offset", value)?),
+                "sort" => query.sort = Some(value),
+                "order" => query.order = Some(value),
+                "facet" => query.facets.push(value),
+                "watch_state" => query.watch_state = Some(value),
+                _ => {}
+            }
+        }
+
+        Ok(query)
+    }
+
+    pub(super) fn into_browse_query(self) -> Result<LibraryItemBrowseQuery, NakoError> {
+        Ok(LibraryItemBrowseQuery {
+            page: PageQuery {
+                limit: self.limit,
+                offset: self.offset,
+            }
+            .try_into()?,
+            sort: parse_library_item_sort(self.sort)?,
+            order: parse_library_item_order(self.order)?,
+            facets: parse_library_item_facets(self.facets)?,
+            watch_state: parse_library_item_watch_state(self.watch_state)?,
+        })
+    }
 }
 
 impl SearchPageQuery {
@@ -598,6 +649,94 @@ fn parse_acquisition_intake_source_kind_filter(value: String) -> AcquisitionInta
         "addon_proposed" => AcquisitionIntakeSourceKind::AddonProposed,
         "resource_search_selection" => AcquisitionIntakeSourceKind::ResourceSearchSelection,
         _ => AcquisitionIntakeSourceKind::Other(value),
+    }
+}
+
+fn parse_library_item_sort(value: Option<String>) -> Result<LibraryItemBrowseSortKey, NakoError> {
+    match value.as_deref().unwrap_or("date_added") {
+        "title" => Ok(LibraryItemBrowseSortKey::Title),
+        "release_date" => Ok(LibraryItemBrowseSortKey::ReleaseDate),
+        "date_added" => Ok(LibraryItemBrowseSortKey::DateAdded),
+        "last_played" => Ok(LibraryItemBrowseSortKey::LastPlayed),
+        other => Err(NakoError::InvalidInput {
+            message: format!("unsupported library item sort: {other}"),
+        }),
+    }
+}
+
+fn parse_library_item_order(
+    value: Option<String>,
+) -> Result<LibraryItemBrowseSortOrder, NakoError> {
+    match value.as_deref().unwrap_or("desc") {
+        "asc" => Ok(LibraryItemBrowseSortOrder::Asc),
+        "desc" => Ok(LibraryItemBrowseSortOrder::Desc),
+        other => Err(NakoError::InvalidInput {
+            message: format!("unsupported library item order: {other}"),
+        }),
+    }
+}
+
+fn parse_library_item_facets(
+    values: Vec<String>,
+) -> Result<Vec<LibraryItemBrowseFacet>, NakoError> {
+    let mut facets = Vec::new();
+    for token in values
+        .into_iter()
+        .flat_map(|value| {
+            value
+                .split(',')
+                .map(str::trim)
+                .map(str::to_owned)
+                .collect::<Vec<_>>()
+        })
+        .filter(|value| !value.is_empty())
+    {
+        let Some((prefix, value)) = token.split_once(':') else {
+            return Err(NakoError::InvalidInput {
+                message: format!("invalid library item facet: {token}"),
+            });
+        };
+        match prefix {
+            "kind" => facets.push(LibraryItemBrowseFacet::Kind(parse_library_item_kind(
+                value,
+            )?)),
+            other => {
+                return Err(NakoError::InvalidInput {
+                    message: format!("unsupported library item facet: {other}"),
+                });
+            }
+        }
+    }
+
+    Ok(facets)
+}
+
+fn parse_library_item_kind(value: &str) -> Result<MediaKind, NakoError> {
+    match value {
+        "movie" => Ok(MediaKind::Movie),
+        "series" => Ok(MediaKind::Series),
+        "season" => Ok(MediaKind::Season),
+        "episode" => Ok(MediaKind::Episode),
+        "collection" => Ok(MediaKind::Collection),
+        "extra" => Ok(MediaKind::Extra),
+        "unknown" => Ok(MediaKind::Unknown),
+        other => Err(NakoError::InvalidInput {
+            message: format!("unsupported library item kind facet: {other}"),
+        }),
+    }
+}
+
+fn parse_library_item_watch_state(
+    value: Option<String>,
+) -> Result<LibraryItemWatchStateFilter, NakoError> {
+    match value.as_deref().unwrap_or("any") {
+        "any" => Ok(LibraryItemWatchStateFilter::Any),
+        "watched" => Ok(LibraryItemWatchStateFilter::Watched),
+        "unwatched" => Ok(LibraryItemWatchStateFilter::Unwatched),
+        "in_progress" => Ok(LibraryItemWatchStateFilter::InProgress),
+        other => Err(NakoError::InvalidInput {
+            message: format!("unsupported library item watch_state: {other}"),
+        }),
     }
 }
 

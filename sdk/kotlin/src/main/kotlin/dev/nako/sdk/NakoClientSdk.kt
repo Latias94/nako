@@ -24,6 +24,7 @@ public val NAKO_PUBLIC_PATHS: List<String> = listOf(
     "/libraries",
     "/libraries/{library_id}",
     "/libraries/{library_id}/sources",
+    "/libraries/{library_id}/items",
     "/items",
     "/items/{item_id}",
     "/items/{item_id}/credits",
@@ -74,6 +75,14 @@ public data class PageQuery(
 public data class ImageVariantQuery(
     public val width: Int? = null,
     public val height: Int? = null,
+)
+
+public data class LibraryItemsQuery(
+    public val page: PageQuery = PageQuery(),
+    public val sort: ClientBrowseSortKey? = null,
+    public val order: ClientSortOrder? = null,
+    public val facet: List<String> = emptyList(),
+    public val watchState: ClientWatchStateFilter? = null,
 )
 
 public data class ManagementContextQuery(
@@ -146,6 +155,18 @@ public object NakoPublicClientRequests {
             pathAndQuery = pathWithQuery(
                 "/libraries/${encodePathSegment(libraryId)}/sources",
                 pageQuery(page),
+            ),
+        )
+
+    public fun listLibraryItems(
+        libraryId: String,
+        query: LibraryItemsQuery = LibraryItemsQuery(),
+    ): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "GET",
+            pathAndQuery = pathWithQuery(
+                "/libraries/${encodePathSegment(libraryId)}/items",
+                libraryItemsQuery(query),
             ),
         )
 
@@ -477,6 +498,15 @@ public object NakoPublicClientRequests {
         buildList {
             variant.width?.let { add("width" to it.toString()) }
             variant.height?.let { add("height" to it.toString()) }
+        }
+
+    private fun libraryItemsQuery(query: LibraryItemsQuery): List<Pair<String, String>> =
+        buildList {
+            addAll(pageQuery(query.page))
+            query.sort?.let { add("sort" to it.wireValue) }
+            query.order?.let { add("order" to it.wireValue) }
+            addCsv("facet", query.facet)
+            query.watchState?.let { add("watch_state" to it.wireValue) }
         }
 
     private fun managementContextQuery(query: ManagementContextQuery): List<Pair<String, String>> =
@@ -1232,6 +1262,29 @@ public data class CanonicalMetadataDto(
     public val title: String,
 )
 
+@JvmInline
+@Serializable
+public value class ClientBrowseSortKey(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val Title: ClientBrowseSortKey = ClientBrowseSortKey("title")
+        public val ReleaseDate: ClientBrowseSortKey = ClientBrowseSortKey("release_date")
+        public val DateAdded: ClientBrowseSortKey = ClientBrowseSortKey("date_added")
+        public val LastPlayed: ClientBrowseSortKey = ClientBrowseSortKey("last_played")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "title",
+            "release_date",
+            "date_added",
+            "last_played",
+        )
+    }
+}
+
 @Serializable
 public data class ClientDirectPlayPlan(
     @SerialName("content_type")
@@ -1679,6 +1732,25 @@ public value class ClientRendererSessionState(
     }
 }
 
+@JvmInline
+@Serializable
+public value class ClientSortOrder(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val Asc: ClientSortOrder = ClientSortOrder("asc")
+        public val Desc: ClientSortOrder = ClientSortOrder("desc")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "asc",
+            "desc",
+        )
+    }
+}
+
 @Serializable
 public data class ClientTranscodePlan(
     @SerialName("audio_codec")
@@ -1688,6 +1760,29 @@ public data class ClientTranscodePlan(
     @SerialName("video_codec")
     public val videoCodec: String?,
 )
+
+@JvmInline
+@Serializable
+public value class ClientWatchStateFilter(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val Any: ClientWatchStateFilter = ClientWatchStateFilter("any")
+        public val Watched: ClientWatchStateFilter = ClientWatchStateFilter("watched")
+        public val Unwatched: ClientWatchStateFilter = ClientWatchStateFilter("unwatched")
+        public val InProgress: ClientWatchStateFilter = ClientWatchStateFilter("in_progress")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "any",
+            "watched",
+            "unwatched",
+            "in_progress",
+        )
+    }
+}
 
 @Serializable
 public data class CollectionItemDto(
@@ -1866,6 +1961,13 @@ public data class LibraryDto(
     public val name: String,
     public val options: LibraryOptionsDto,
     public val roots: List<String>,
+)
+
+@Serializable
+public data class LibraryItemsResponse(
+    public val items: List<MediaItemDto>,
+    public val library: LibraryDto,
+    public val page: PageInfo,
 )
 
 @Serializable

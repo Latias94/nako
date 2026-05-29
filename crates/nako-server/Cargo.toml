@@ -17,6 +17,7 @@ async-trait.workspace = true
 argon2.workspace = true
 axum.workspace = true
 clap.workspace = true
+form_urlencoded.workspace = true
 futures-util.workspace = true
 image.workspace = true
 reqwest.workspace = true

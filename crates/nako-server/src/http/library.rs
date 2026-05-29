@@ -1,6 +1,6 @@
 use axum::{
     Extension, Json, Router,
-    extract::{Path, Query, State},
+    extract::{Path, Query, RawQuery, State},
     http::StatusCode,
     response::IntoResponse,
     routing::{get, post},
@@ -17,7 +17,7 @@ use super::{
         require_library_access,
     },
     error::ApiResult,
-    query::{IngestionFailureQuery, PageQuery},
+    query::{IngestionFailureQuery, LibraryItemsQuery, PageQuery},
 };
 
 pub(super) fn routes() -> Router<NakoApp> {
@@ -28,6 +28,7 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route("/libraries/{library_id}/nfo/import", post(import_nfo))
         .route("/libraries/{library_id}/nfo/export", post(export_nfo))
         .route("/libraries/{library_id}/sources", get(list_library_sources))
+        .route("/libraries/{library_id}/items", get(list_library_items))
         .route(
             "/libraries/{library_id}/ingestion/failures",
             get(list_ingestion_failures).post(ignore_ingestion_failure),
@@ -118,6 +119,32 @@ pub(super) async fn list_library_sources(
     Ok(Json(
         app.library()
             .list_library_sources(library_id, page.try_into()?)
+            .await?,
+    ))
+}
+
+#[instrument(skip(app))]
+pub(super) async fn list_library_items(
+    State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
+    Path(library_id): Path<LibraryId>,
+    RawQuery(raw_query): RawQuery,
+) -> ApiResult<impl IntoResponse> {
+    if !has_library_access(&app, &principal, library_id, RequiredLibraryAccess::Browse).await? {
+        return Err(nako_core::NakoError::NotFound {
+            entity: "library",
+            id: library_id.to_string(),
+        }
+        .into());
+    }
+
+    Ok(Json(
+        app.library()
+            .list_library_items(
+                library_id,
+                LibraryItemsQuery::from_raw_query(raw_query.as_deref())?.into_browse_query()?,
+                &principal.principal_id,
+            )
             .await?,
     ))
 }

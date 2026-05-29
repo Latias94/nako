@@ -1,7 +1,7 @@
 # Public Client Library Browse Query Contract
 
 Status: Active
-Last updated: 2026-05-28
+Last updated: 2026-05-29
 
 This lane fixes the WMLP browse follow-ons: the new `web/` Media surface can
 read libraries and broad catalog items, but Public Client lacks library-scoped
@@ -19,5 +19,6 @@ Recently Added-style rails.
 
 ## Current Execution Point
 
-`PLBQ-020` froze the library browse/query contract. Continue with `PLBQ-030`,
-the server/API/SDK implementation slice.
+`PLBQ-030` implemented the server/API/SDK slice for
+`GET /libraries/{library_id}/items`. Continue with `PLBQ-040`, the web browse
+integration slice.

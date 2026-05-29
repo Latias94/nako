@@ -79,6 +79,13 @@ pub struct LibrarySourcesResponse {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct LibraryItemsResponse {
+    pub library: LibraryDto,
+    pub items: Vec<MediaItemDto>,
+    pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct LibrarySourceResponse {
     pub source: MediaSourceDto,
     pub item: Option<MediaItemDto>,
@@ -132,6 +139,31 @@ pub struct MetadataScanPolicyDto {
 pub struct ItemsResponse {
     pub items: Vec<MediaItemDto>,
     pub page: PageInfo,
+}
+
+public_string_value! {
+    pub enum ClientBrowseSortKey {
+        Title => "title",
+        ReleaseDate => "release_date",
+        DateAdded => "date_added",
+        LastPlayed => "last_played",
+    }
+}
+
+public_string_value! {
+    pub enum ClientSortOrder {
+        Asc => "asc",
+        Desc => "desc",
+    }
+}
+
+public_string_value! {
+    pub enum ClientWatchStateFilter {
+        Any => "any",
+        Watched => "watched",
+        Unwatched => "unwatched",
+        InProgress => "in_progress",
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

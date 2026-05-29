@@ -15,6 +15,7 @@ export const NAKO_PUBLIC_PATHS = [
   "/libraries",
   "/libraries/{library_id}",
   "/libraries/{library_id}/sources",
+  "/libraries/{library_id}/items",
   "/items",
   "/items/{item_id}",
   "/items/{item_id}/credits",
@@ -105,6 +106,8 @@ export interface CanonicalMetadataDto {
   title: string;
 }
 
+export type ClientBrowseSortKey = "title" | "release_date" | "date_added" | "last_played";
+
 export interface ClientDirectPlayPlan {
   content_type: string;
   source_id: string;
@@ -191,11 +194,15 @@ export type ClientRendererControlCommand = "show_item" | "play" | "pause" | "res
 
 export type ClientRendererSessionState = "online" | "offline" | "revoked";
 
+export type ClientSortOrder = "asc" | "desc";
+
 export interface ClientTranscodePlan {
   audio_codec: string | null;
   output_container: "hls" | "mp4" | "mkv";
   video_codec: string | null;
 }
+
+export type ClientWatchStateFilter = "any" | "watched" | "unwatched" | "in_progress";
 
 export interface CollectionItemDto {
   collection_id: string;
@@ -333,6 +340,12 @@ export interface LibraryDto {
   name: string;
   options: LibraryOptionsDto;
   roots: Array<string>;
+}
+
+export interface LibraryItemsResponse {
+  items: Array<MediaItemDto>;
+  library: LibraryDto;
+  page: PageInfo;
 }
 
 export interface LibraryListResponse {
@@ -771,6 +784,13 @@ export interface ImageVariantQuery {
   height?: number;
 }
 
+export interface LibraryItemsQuery extends PageQuery {
+  sort?: ClientBrowseSortKey;
+  order?: ClientSortOrder;
+  facet?: string | string[];
+  watch_state?: ClientWatchStateFilter;
+}
+
 export interface ManagementContextQuery {
   library_id?: string;
   item_id?: string;
@@ -841,6 +861,10 @@ export class NakoClient {
 
   listLibrarySources(libraryId: string, page?: PageQuery): Promise<LibrarySourcesResponse> {
     return this.requestJson("GET", `/libraries/${encodeURIComponent(libraryId)}/sources`, { query: page });
+  }
+
+  listLibraryItems(libraryId: string, query?: LibraryItemsQuery): Promise<LibraryItemsResponse> {
+    return this.requestJson("GET", `/libraries/${encodeURIComponent(libraryId)}/items`, { query });
   }
 
   listItems(page?: PageQuery): Promise<ItemsResponse> {

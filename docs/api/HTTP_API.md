@@ -46,6 +46,7 @@ GET  /health
 GET  /libraries?limit=50&offset=0
 GET  /libraries/{library_id}
 GET  /libraries/{library_id}/sources?limit=50&offset=0
+GET  /libraries/{library_id}/items?limit=50&offset=0&sort=date_added&order=desc&facet=kind:movie&watch_state=any
 GET  /items?limit=50&offset=0
 GET  /items/{item_id}
 GET  /items/{item_id}/credits
@@ -117,8 +118,8 @@ The generated scaffold includes:
 
 - exported TypeScript interfaces for the public OpenAPI schemas;
 - `NakoClient` methods for health, library, catalog/search, source probe,
-  playback decision, direct stream, remux stream, HLS playlist/segment,
-  playback session routes, and User Playback State routes;
+  library-scoped browse, playback decision, direct stream, remux stream, HLS
+  playlist/segment, playback session routes, and User Playback State routes;
 - bearer token injection through `Authorization: Bearer <token>`;
 - `x-nako-api-version` response inspection;
 - `ErrorResponse` parsing into `NakoApiError`;
@@ -174,8 +175,8 @@ The SDK provides:
 - `ErrorResponse` parsing into `NakoClientError::Api`;
 - `PageQuery`, `SearchQuery`, and playback capability query helpers;
 - JSON methods for health, libraries, catalog items/search, source probe,
-  playback decision, playback session inspection, and playback session
-  cancellation;
+  library-scoped browse, playback decision, playback session inspection, and
+  playback session cancellation;
 - JSON methods for User Playback State lookup, Continue Watching, progress
   reporting, and watched-state updates under `/users/me`.
 
@@ -492,6 +493,7 @@ POST /libraries/{library_id}/scan
 POST /libraries/{library_id}/nfo/import
 POST /libraries/{library_id}/nfo/export
 GET  /libraries/{library_id}/sources?limit=50&offset=0
+GET  /libraries/{library_id}/items?limit=50&offset=0&sort=date_added&order=desc&facet=kind:movie&watch_state=any
 GET  /items?limit=50&offset=0
 GET  /items/{item_id}
 GET  /items/{item_id}/credits
@@ -763,14 +765,17 @@ genres list routes are paginated, and their `/items` routes return linked media
 items. Public source DTOs expose stable IDs and safe display facts such as file
 name, size, and fingerprint; they do not expose raw Source Locator values.
 
-`public-client-library-browse-query-contract` freezes the next Public Client
-browse contract for implementation after this note. The planned route is
-`GET /libraries/{library_id}/items` with `limit`, `offset`, explicit `sort`,
-`order`, `facet`, and `watch_state` query parameters. It returns
-`LibraryItemsResponse { library, items, page }`, requires effective `browse`
-access, and returns `404 not_found` for libraries hidden from the authenticated
-principal. This route is not considered live until the Public Client route
-inventory, OpenAPI document, SDKs, and server tests are updated by PLBQ-030.
+`GET /libraries/{library_id}/items` is the Public Client route for
+library-scoped item browse. It accepts `limit`, `offset`, `sort`, `order`,
+`facet`, and `watch_state`. `sort` supports `title`, `release_date`,
+`date_added`, and `last_played`; `order` supports `asc` and `desc`;
+`watch_state` supports `any`, `watched`, `unwatched`, and `in_progress`.
+The first server slice implements `kind:<ClientMediaKind>` facets, accepting
+both repeated `facet=` query parameters and comma-separated facet tokens.
+Unsupported facet prefixes return the standard `400 invalid_input` envelope.
+The response is `LibraryItemsResponse { library, items, page }`. Effective
+`browse` access is required, and libraries hidden from the authenticated
+principal return `404 not_found`.
 
 `GET /admin/v1/catalog/governance/items` returns a redacted Admin API queue for
 unknown and low-confidence Media Items. It accepts optional `library_id`,

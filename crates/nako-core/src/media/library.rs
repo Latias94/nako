@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{LibraryId, MediaItemId};
+use crate::{LibraryId, MediaItemId, PageRequest};
 
 use super::profile::MetadataProfile;
 
@@ -17,6 +17,60 @@ pub struct LibraryItemState {
     pub library_id: LibraryId,
     pub item_id: MediaItemId,
     pub provisional: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LibraryItemBrowseQuery {
+    pub page: PageRequest,
+    pub sort: LibraryItemBrowseSortKey,
+    pub order: LibraryItemBrowseSortOrder,
+    pub facets: Vec<LibraryItemBrowseFacet>,
+    pub watch_state: LibraryItemWatchStateFilter,
+}
+
+impl Default for LibraryItemBrowseQuery {
+    fn default() -> Self {
+        Self {
+            page: PageRequest::first_page(),
+            sort: LibraryItemBrowseSortKey::DateAdded,
+            order: LibraryItemBrowseSortOrder::Desc,
+            facets: Vec::new(),
+            watch_state: LibraryItemWatchStateFilter::Any,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum LibraryItemBrowseSortKey {
+    Title,
+    ReleaseDate,
+    DateAdded,
+    LastPlayed,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum LibraryItemBrowseSortOrder {
+    Asc,
+    Desc,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum LibraryItemBrowseFacet {
+    Kind(super::item::MediaKind),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum LibraryItemWatchStateFilter {
+    Any,
+    Watched,
+    Unwatched,
+    InProgress,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LibraryItemAddedAt {
+    pub item_id: MediaItemId,
+    pub added_at: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

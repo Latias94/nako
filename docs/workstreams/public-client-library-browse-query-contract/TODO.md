@@ -22,12 +22,12 @@ Last updated: 2026-05-29
 
 ## M2 - Server And SDK Implementation
 
-- [ ] PLBQ-030 [owner=Codex] [deps=PLBQ-020] [scope=crates/nako-server,crates/nako-api,sdk/typescript,crates/nako-client]
+- [x] PLBQ-030 [owner=Codex] [deps=PLBQ-020] [scope=crates/nako-server,crates/nako-api,sdk/typescript,crates/nako-client]
   Goal: Implement the accepted query contract and regenerate SDKs.
   Validation: focused catalog/library route tests; SDK generation check; `cargo nextest run -p nako-server catalog --no-fail-fast`.
   Review: effective Library Access filters results.
-  Evidence: server/API tests and generated SDK diff.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Evidence: server route tests, protocol route inventory, OpenAPI tests, TypeScript/Kotlin SDK generator tests, Rust client URL contract test, generated SDK diff, and DB added-at contract test.
+  Handoff: DONE. Next task is PLBQ-040.
 
 ## M3 - Web Browse Integration
 

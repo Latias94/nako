@@ -1,6 +1,6 @@
 # Public Client Library Browse Query Contract
 
-Status: Frozen for PLBQ-020
+Status: Frozen; server/API/SDK implemented by PLBQ-030
 Last updated: 2026-05-29
 
 ## Purpose
@@ -35,7 +35,7 @@ unambiguous while preserving the existing all-visible-items route.
 ```rust
 pub struct LibraryItemsQuery {
     pub limit: Option<u32>,
-    pub offset: Option<u32>,
+    pub offset: Option<u64>,
     pub sort: Option<ClientBrowseSortKey>,
     pub order: Option<ClientSortOrder>,
     pub facet: Vec<ClientBrowseFacetToken>,
@@ -88,9 +88,10 @@ year:<yyyy>
 content_rating:<region_or_source>:<value>
 ```
 
-Unknown facet prefixes return the public error envelope with
-`invalid_query_parameter`. Unsupported but known facets may return the same
-error until the backend implements them.
+Unknown facet prefixes return the public error envelope with `invalid_input`.
+Unsupported but known facets may return the same error until the backend
+implements them. PLBQ-030 implements `kind:<ClientMediaKind>` and reserves the
+remaining known prefixes for follow-on slices.
 
 ## Watch State Filter
 
@@ -145,7 +146,7 @@ belongs to the Public Client route inventory as a JSON method.
 
 ## Web Expectations
 
-`web/` may remove the current library-scoped browse readiness gap only after
-PLBQ-030 implements the server/API/SDK contract. Until then,
-`/media/library` must continue to show truthful readiness instead of fixture-only
-scoped live items.
+`web/` may remove the current library-scoped browse readiness gap in PLBQ-040
+by calling the implemented Public Client route. Until that web integration
+lands, `/media/library` must continue to show truthful readiness instead of
+fixture-only scoped live items.

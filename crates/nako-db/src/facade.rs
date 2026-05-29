@@ -1398,6 +1398,13 @@ impl MediaRepository for NakoDatabase {
             .await
     }
 
+    async fn list_library_item_added_at(
+        &self,
+        library_id: LibraryId,
+    ) -> Result<Vec<LibraryItemAddedAt>> {
+        self.backend().list_library_item_added_at(library_id).await
+    }
+
     async fn upsert_media_source(&self, source: &MediaSource) -> Result<()> {
         self.backend().upsert_media_source(source).await
     }

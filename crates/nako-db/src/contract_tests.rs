@@ -1145,8 +1145,12 @@ where
             )
             .await
             .unwrap(),
-        vec![episode]
+        vec![episode.clone()]
     );
+    let anime_added_at = store.list_library_item_added_at(anime.id).await.unwrap();
+    assert_eq!(anime_added_at.len(), 1);
+    assert_eq!(anime_added_at[0].item_id, episode.id);
+    assert!(!anime_added_at[0].added_at.is_empty());
 }
 
 async fn scan_commit_writes_full_source_unit_and_resolves_failure_contract<S>(store: S)

@@ -553,6 +553,14 @@ public data class ImageVariantQuery(
     public val height: Int? = null,
 )
 
+public data class LibraryItemsQuery(
+    public val page: PageQuery = PageQuery(),
+    public val sort: ClientBrowseSortKey? = null,
+    public val order: ClientSortOrder? = null,
+    public val facet: List<String> = emptyList(),
+    public val watchState: ClientWatchStateFilter? = null,
+)
+
 public data class ManagementContextQuery(
     public val libraryId: String? = null,
     public val itemId: String? = null,
@@ -623,6 +631,18 @@ public object NakoPublicClientRequests {
             pathAndQuery = pathWithQuery(
                 "/libraries/${encodePathSegment(libraryId)}/sources",
                 pageQuery(page),
+            ),
+        )
+
+    public fun listLibraryItems(
+        libraryId: String,
+        query: LibraryItemsQuery = LibraryItemsQuery(),
+    ): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "GET",
+            pathAndQuery = pathWithQuery(
+                "/libraries/${encodePathSegment(libraryId)}/items",
+                libraryItemsQuery(query),
             ),
         )
 
@@ -956,6 +976,15 @@ public object NakoPublicClientRequests {
             variant.height?.let { add("height" to it.toString()) }
         }
 
+    private fun libraryItemsQuery(query: LibraryItemsQuery): List<Pair<String, String>> =
+        buildList {
+            addAll(pageQuery(query.page))
+            query.sort?.let { add("sort" to it.wireValue) }
+            query.order?.let { add("order" to it.wireValue) }
+            addCsv("facet", query.facet)
+            query.watchState?.let { add("watch_state" to it.wireValue) }
+        }
+
     private fun managementContextQuery(query: ManagementContextQuery): List<Pair<String, String>> =
         buildList {
             query.libraryId?.let { add("library_id" to it) }
@@ -1138,6 +1167,13 @@ export interface ImageVariantQuery {
   height?: number;
 }
 
+export interface LibraryItemsQuery extends PageQuery {
+  sort?: ClientBrowseSortKey;
+  order?: ClientSortOrder;
+  facet?: string | string[];
+  watch_state?: ClientWatchStateFilter;
+}
+
 export interface ManagementContextQuery {
   library_id?: string;
   item_id?: string;
@@ -1208,6 +1244,10 @@ export class NakoClient {
 
   listLibrarySources(libraryId: string, page?: PageQuery): Promise<LibrarySourcesResponse> {
     return this.requestJson("GET", `/libraries/${encodeURIComponent(libraryId)}/sources`, { query: page });
+  }
+
+  listLibraryItems(libraryId: string, query?: LibraryItemsQuery): Promise<LibraryItemsResponse> {
+    return this.requestJson("GET", `/libraries/${encodeURIComponent(libraryId)}/items`, { query });
   }
 
   listItems(page?: PageQuery): Promise<ItemsResponse> {
@@ -1473,6 +1513,7 @@ mod tests {
             "health(",
             "listLibraries(",
             "getLibrary(",
+            "listLibraryItems(",
             "searchItems(",
             "managementContextLinks(",
             "getPlaybackDecision(",
@@ -1613,6 +1654,7 @@ mod tests {
             "public object NakoPublicClientRequests",
             "public fun health(): NakoRequestDescriptor",
             "public fun listLibraries(page: PageQuery = PageQuery()): NakoRequestDescriptor",
+            "public fun listLibraryItems(",
             "public fun managementContextLinks(",
             "public fun createBrowserPlaybackTicket(sourceId: String): NakoRequestDescriptor",
             "public fun getSourceSubtitle(sourceId: String, streamIndex: Int): NakoRequestDescriptor",

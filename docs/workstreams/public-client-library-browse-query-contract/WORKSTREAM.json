@@ -7,10 +7,11 @@
   "scope_kind": "public_client_contract",
   "problem": "The web library page cannot show scoped live items until Public Client exposes library browse and stable sort/filter contracts.",
   "task_prefix": "PLBQ",
-  "current_task": "PLBQ-030",
+  "current_task": "PLBQ-040",
   "completed_tasks": [
     "PLBQ-010",
-    "PLBQ-020"
+    "PLBQ-020",
+    "PLBQ-030"
   ],
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/public-client-library-browse-query-contract/README.md" },
@@ -31,7 +32,8 @@
   ],
   "evidence": [
     "PLBQ-010 opened this lane from WDRP-065 after WMLP recorded library-scoped browse and stable sort/filter as Public Client contract gaps.",
-    "PLBQ-020 froze GET /libraries/{library_id}/items, LibraryItemsQuery, explicit sort/filter/watch-state vocabulary, LibraryItemsResponse, access behavior, and SDK expectations."
+    "PLBQ-020 froze GET /libraries/{library_id}/items, LibraryItemsQuery, explicit sort/filter/watch-state vocabulary, LibraryItemsResponse, access behavior, and SDK expectations.",
+    "PLBQ-030 implemented the server route, protocol inventory, OpenAPI schema, TypeScript/Kotlin SDK generation, Rust SDK helper, Library Access hiding behavior, kind facet parsing, watch-state filters, and date_added repository facts."
   ],
   "adr_refs": [
     "docs/adr/0021-video-first-media-server-domain-model.md",
@@ -40,6 +42,6 @@
   ],
   "continue_policy": {
     "default_action": "continue_current_task",
-    "notes": "Continue with PLBQ-030. Implement the frozen Public Client contract before changing web library browse readiness."
+    "notes": "Continue with PLBQ-040. Wire web library browse to the implemented Public Client route while preserving readiness for unsupported facets."
   }
 }

@@ -347,6 +347,46 @@ impl MediaRepository for PostgresStore {
         self.rows_to_media_items(rows).await
     }
 
+    async fn list_library_item_added_at(
+        &self,
+        library_id: LibraryId,
+    ) -> Result<Vec<LibraryItemAddedAt>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                item_id::text AS item_id,
+                to_char(
+                    MIN(added_at) AT TIME ZONE 'UTC',
+                    'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
+                ) AS added_at
+            FROM (
+                SELECT item_id, created_at AS added_at
+                FROM media_sources
+                WHERE library_id = $1
+                UNION ALL
+                SELECT item_id, created_at AS added_at
+                FROM library_item_states
+                WHERE library_id = $1
+            ) AS library_items
+            GROUP BY item_id
+            ORDER BY MIN(added_at) ASC, item_id ASC
+            "#,
+        )
+        .bind(library_id.as_uuid())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter()
+            .map(|row| {
+                Ok(LibraryItemAddedAt {
+                    item_id: parse_id(row_get::<String>(&row, "item_id")?)?,
+                    added_at: row_get(&row, "added_at")?,
+                })
+            })
+            .collect()
+    }
+
     async fn upsert_media_source(&self, source: &MediaSource) -> Result<()> {
         let mut transaction = self.pool.begin().await.map_err(database_error)?;
         upsert_media_source_tx(&mut transaction, source).await?;

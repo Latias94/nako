@@ -135,6 +135,26 @@ fn public_paths() -> Value {
         }),
     );
     paths.insert(
+        "/libraries/{library_id}/items".to_owned(),
+        json!({
+            "get": json_get(
+                "listLibraryItems",
+                "List media items in one library.",
+                "library",
+                vec![
+                    path_parameter("library_id", "Library id."),
+                    parameter_ref("Limit"),
+                    parameter_ref("Offset"),
+                    query_parameter("sort", "Library browse sort key.", schema_ref("ClientBrowseSortKey"), false),
+                    query_parameter("order", "Library browse sort order.", schema_ref("ClientSortOrder"), false),
+                    query_parameter("facet", "Comma-separated public browse facet tokens.", string_schema(), false),
+                    query_parameter("watch_state", "Current user's watch-state filter.", schema_ref("ClientWatchStateFilter"), false),
+                ],
+                schema_ref("LibraryItemsResponse")
+            )
+        }),
+    );
+    paths.insert(
         "/items".to_owned(),
         json!({
             "get": json_get("listItems", "List media items.", "catalog", vec![parameter_ref("Limit"), parameter_ref("Offset")], schema_ref("ItemsResponse"))
@@ -1103,6 +1123,14 @@ fn schemas() -> Value {
             "sources": array_schema(schema_ref("LibrarySourceResponse")),
             "page": schema_ref("PageInfo")
         })),
+        "LibraryItemsResponse": object_schema(&["library", "items", "page"], json!({
+            "library": schema_ref("LibraryDto"),
+            "items": array_schema(schema_ref("MediaItemDto")),
+            "page": schema_ref("PageInfo")
+        })),
+        "ClientBrowseSortKey": enum_schema(&["title", "release_date", "date_added", "last_played"]),
+        "ClientSortOrder": enum_schema(&["asc", "desc"]),
+        "ClientWatchStateFilter": enum_schema(&["any", "watched", "unwatched", "in_progress"]),
         "LibrarySourceResponse": object_schema(&["source", "item", "probe"], json!({
             "source": schema_ref("MediaSourceDto"),
             "item": nullable_ref("MediaItemDto"),

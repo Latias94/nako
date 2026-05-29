@@ -103,6 +103,12 @@ pub const PUBLIC_CLIENT_ROUTES: &[PublicClientRoute] = &[
         rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
     },
     PublicClientRoute {
+        path: "/libraries/{library_id}/items",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::Library,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
         path: "/items",
         methods: &[PublicClientHttpMethod::Get],
         kind: PublicClientRouteKind::Catalog,
@@ -522,7 +528,7 @@ mod tests {
     fn public_route_inventory_is_protocol_owned_and_complete() {
         let paths = public_client_paths().collect::<Vec<_>>();
 
-        assert_eq!(paths.len(), 42);
+        assert_eq!(paths.len(), 43);
         assert!(paths.contains(&"/health"));
         assert!(paths.contains(&"/auth/login"));
         assert!(paths.contains(&"/auth/invitations/redeem"));
@@ -544,6 +550,7 @@ mod tests {
         assert!(paths.contains(&"/users/me/playback-state/continue-watching"));
         assert!(paths.contains(&"/users/me/playback-state/items/{item_id}/progress"));
         assert!(paths.contains(&"/users/me/playback-state/items/{item_id}/watched"));
+        assert!(paths.contains(&"/libraries/{library_id}/items"));
 
         let direct_stream = PUBLIC_CLIENT_ROUTES
             .iter()
@@ -583,7 +590,7 @@ mod tests {
 
         let json_count = public_client_json_routes().count();
         let streaming_count = public_client_streaming_routes().count();
-        assert_eq!(json_count, 36);
+        assert_eq!(json_count, 37);
         assert_eq!(streaming_count, 6);
         assert_eq!(json_count + streaming_count, PUBLIC_CLIENT_ROUTES.len());
         let remux_stream = PUBLIC_CLIENT_ROUTES

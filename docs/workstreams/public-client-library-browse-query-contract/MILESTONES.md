@@ -17,6 +17,8 @@ Completed by `PLBQ-020`.
 
 Exit criteria: server/API/SDK behavior exposes scoped browse safely.
 
+Completed by `PLBQ-030`.
+
 ## M3 - Web Browse Integration
 
 Exit criteria: `web/` uses scoped live browse where supported.

@@ -1,6 +1,6 @@
 # Public Client Library Browse Query Contract - Contract Readiness
 
-Status: Frozen
+Status: Frozen; PLBQ-030 implemented server/API/SDK
 Last updated: 2026-05-29
 
 ## WDRP-065 Decision
@@ -31,6 +31,12 @@ PLBQ-020 freezes:
 | Web | `/media/library` may show scoped live items only after this contract lands. |
 
 The full frozen contract lives in `CONTRACT.md`.
+
+PLBQ-030 implemented the route inventory, OpenAPI schema, TypeScript/Kotlin
+SDK generation, Rust SDK helper, server route, access-hidden behavior,
+`date_added` repository facts, `kind:` facets, watch-state filters, and
+focused behavior tests. The remaining browse facet prefixes are reserved and
+currently return `400 invalid_input` until their backend read models land.
 
 ## Required Gates
 

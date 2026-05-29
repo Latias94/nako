@@ -1563,6 +1563,7 @@ dependencies = [
  "async-trait",
  "axum",
  "clap",
+ "form_urlencoded",
  "futures-util",
  "image",
  "nako-addon-client",

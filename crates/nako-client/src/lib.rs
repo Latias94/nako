@@ -9,13 +9,14 @@ pub use nako_client_protocol::{
     API_VERSION_HEADER, BrowserPlaybackCapabilitiesDto, BrowserPlaybackMode,
     BrowserPlaybackOutputContainer, BrowserPlaybackTicketRequest, BrowserPlaybackTicketResponse,
     BrowserPlaybackUrlDto, BrowserPlaybackUrlKind, CLIENT_PROTOCOL_VERSION as API_VERSION,
-    ClientHlsSegmentContainer, ClientHlsVariantPolicy, ClientOutputContainer,
-    ContinueWatchingResponse, CurrentUserResponse, ErrorResponse, GenreItemsResponse,
-    GenreListResponse, HealthResponse, ImagesResponse, ItemCreditsResponse, ItemDetailResponse,
-    ItemsResponse, LibraryListResponse, LibraryResponse, LibrarySourcesResponse, LoginRequest,
-    LoginResponse, LogoutResponse, PLAYBACK_SESSION_ID_HEADER, PageInfo, PeopleResponse,
-    PersonItemsResponse, PersonResponse, PlaybackDecisionResponse, PublicClientRustSdkExposure,
-    SearchResponse, SetWatchedStateRequest, SourceProbeResponse, TagItemsResponse, TagsResponse,
+    ClientBrowseSortKey, ClientHlsSegmentContainer, ClientHlsVariantPolicy, ClientOutputContainer,
+    ClientSortOrder, ClientWatchStateFilter, ContinueWatchingResponse, CurrentUserResponse,
+    ErrorResponse, GenreItemsResponse, GenreListResponse, HealthResponse, ImagesResponse,
+    ItemCreditsResponse, ItemDetailResponse, ItemsResponse, LibraryItemsResponse,
+    LibraryListResponse, LibraryResponse, LibrarySourcesResponse, LoginRequest, LoginResponse,
+    LogoutResponse, PLAYBACK_SESSION_ID_HEADER, PageInfo, PeopleResponse, PersonItemsResponse,
+    PersonResponse, PlaybackDecisionResponse, PublicClientRustSdkExposure, SearchResponse,
+    SetWatchedStateRequest, SourceProbeResponse, TagItemsResponse, TagsResponse,
     TranscodeSessionResponse, UpdatePlaybackProgressRequest, UserPlaybackStateResponse,
     public_client_json_routes, public_client_paths, public_client_streaming_routes,
 };
@@ -176,6 +177,28 @@ impl NakoClient {
                 encode_path_segment(library_id.as_ref())
             ),
             page.as_ref(),
+            true,
+        )
+        .await
+    }
+
+    /// List media items in one library.
+    ///
+    /// # Errors
+    ///
+    /// Returns transport, HTTP, version, or decode errors.
+    pub async fn list_library_items(
+        &self,
+        library_id: impl AsRef<str>,
+        query: Option<LibraryItemsQuery<'_>>,
+    ) -> Result<LibraryItemsResponse, NakoClientError> {
+        self.request_json(
+            Method::GET,
+            &format!(
+                "/libraries/{}/items",
+                encode_path_segment(library_id.as_ref())
+            ),
+            query.as_ref(),
             true,
         )
         .await
@@ -896,6 +919,38 @@ impl QueryParams for PageQuery {
     }
 }
 
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct LibraryItemsQuery<'a> {
+    pub page: Option<PageQuery>,
+    pub sort: Option<ClientBrowseSortKey>,
+    pub order: Option<ClientSortOrder>,
+    pub facet: Option<&'a str>,
+    pub watch_state: Option<ClientWatchStateFilter>,
+}
+
+impl QueryParams for LibraryItemsQuery<'_> {
+    fn append_query(&self, pairs: &mut Vec<(String, String)>) {
+        if let Some(page) = self.page {
+            page.append_query(pairs);
+        }
+        if let Some(sort) = &self.sort {
+            pairs.push(("sort".to_owned(), sort.wire_value().to_owned()));
+        }
+        if let Some(order) = &self.order {
+            pairs.push(("order".to_owned(), order.wire_value().to_owned()));
+        }
+        if let Some(facet) = self.facet {
+            pairs.push(("facet".to_owned(), facet.to_owned()));
+        }
+        if let Some(watch_state) = &self.watch_state {
+            pairs.push((
+                "watch_state".to_owned(),
+                watch_state.wire_value().to_owned(),
+            ));
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct SearchQuery<'a> {
     pub q: Option<&'a str>,
@@ -1323,6 +1378,68 @@ mod tests {
         assert_eq!(
             request.url.as_str(),
             "http://localhost:3000/api/libraries?limit=25&offset=50"
+        );
+        assert_eq!(
+            request.headers.get(AUTHORIZATION).unwrap(),
+            HeaderValue::from_static("Bearer secret")
+        );
+    }
+
+    #[tokio::test]
+    async fn client_builds_library_items_query_contract() {
+        let transport = MockTransport::default();
+        transport.push_json(
+            StatusCode::OK,
+            json!({
+                "library": {
+                    "id": "018f0000-0000-7000-8000-000000000001",
+                    "name": "Movies",
+                    "roots": [],
+                    "options": {
+                        "domain": "video",
+                        "preset": "movies",
+                        "scan": {"realtime_monitor": false, "max_depth": null},
+                        "naming_strategy": "movie",
+                        "metadata_profile": {
+                            "item_kinds": [],
+                            "local_readers": [],
+                            "metadata_providers": [],
+                            "image_providers": [],
+                            "language": null,
+                            "country": null,
+                            "refresh_mode": "default",
+                            "local_metadata_policy": "local_first",
+                            "scan": {"enabled": false, "addon_scrape": false, "addon_writeback": false}
+                        }
+                    }
+                },
+                "items": [],
+                "page": {"limit": 25, "offset": 50, "returned": 0}
+            }),
+        );
+        let client = NakoClient::with_transport("http://localhost:3000/api/", transport.clone())
+            .unwrap()
+            .bearer_token("secret");
+
+        let response = client
+            .list_library_items(
+                "library-1",
+                Some(LibraryItemsQuery {
+                    page: Some(PageQuery::new(Some(25), Some(50))),
+                    sort: Some(ClientBrowseSortKey::LastPlayed),
+                    order: Some(ClientSortOrder::Desc),
+                    facet: Some("kind:movie"),
+                    watch_state: Some(ClientWatchStateFilter::InProgress),
+                }),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.page, PageInfo::new(25, 50, 0));
+        let request = transport.requests().pop().unwrap();
+        assert_eq!(
+            request.url.as_str(),
+            "http://localhost:3000/api/libraries/library-1/items?limit=25&offset=50&sort=last_played&order=desc&facet=kind%3Amovie&watch_state=in_progress"
         );
         assert_eq!(
             request.headers.get(AUTHORIZATION).unwrap(),

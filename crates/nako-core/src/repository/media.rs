@@ -2,7 +2,8 @@ use async_trait::async_trait;
 
 use super::PageRequest;
 use crate::{
-    LibraryId, MediaItem, MediaItemId, MediaProbeResult, MediaSource, MediaSourceId, Result,
+    LibraryId, LibraryItemAddedAt, MediaItem, MediaItemId, MediaProbeResult, MediaSource,
+    MediaSourceId, Result,
 };
 
 #[async_trait]
@@ -18,6 +19,11 @@ pub trait MediaRepository: Send + Sync {
         library_id: LibraryId,
         page: PageRequest,
     ) -> Result<Vec<MediaItem>>;
+
+    async fn list_library_item_added_at(
+        &self,
+        library_id: LibraryId,
+    ) -> Result<Vec<LibraryItemAddedAt>>;
 
     async fn upsert_media_source(&self, source: &MediaSource) -> Result<()>;
 
