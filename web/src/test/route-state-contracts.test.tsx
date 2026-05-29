@@ -350,6 +350,197 @@ describe("route state contracts", () => {
     })
   })
 
+  it("reorders Media playlist items through the Public Client route without changing URL state", async () => {
+    const user = userEvent.setup()
+    const calls: Array<{ method: string; path: string; body?: unknown }> = []
+    let playlistVersion = 2
+    let playlistItems = [
+      publicPlaylistItem("live-movie-a", "Live Movie A", 0),
+      publicPlaylistItem("live-movie-b", "Live Movie B", 1),
+    ]
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      const method = init?.method ?? "GET"
+      const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined
+      calls.push({ method, path: url.pathname, body })
+
+      if (method === "GET" && url.pathname === "/users/me/playlists") {
+        return jsonResponse({
+          playlists: [publicUserPlaylist({ item_count: playlistItems.length, version: playlistVersion })],
+          page: {
+            limit: 20,
+            offset: 0,
+            returned: 1,
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/users/me/playlists/playlist-live/items") {
+        return jsonResponse({
+          playlist: publicUserPlaylist({ item_count: playlistItems.length, version: playlistVersion }),
+          items: playlistItems,
+          page: {
+            limit: 50,
+            offset: 0,
+            returned: playlistItems.length,
+          },
+        })
+      }
+
+      if (method === "PUT" && url.pathname === "/users/me/playlists/playlist-live/items/reorder") {
+        const itemIds = (body as { item_ids: string[] }).item_ids
+        playlistItems = itemIds.map((itemId, index) => {
+          const item = playlistItems.find((entry) => entry.item_id === itemId)
+          if (!item) {
+            throw new Error(`unknown playlist item: ${itemId}`)
+          }
+
+          return { ...item, position: index }
+        })
+        playlistVersion = 3
+
+        return jsonResponse({
+          playlist: publicUserPlaylist({
+            item_count: playlistItems.length,
+            version: playlistVersion,
+          }),
+        })
+      }
+
+      return jsonResponse({ code: "not_found", message: "not found" }, 404)
+    })
+    window.localStorage.setItem(
+      CONNECTION_PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        mode: "live",
+        runtime: "browser",
+        baseUrl: "http://nako.test",
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+    const { router } = renderRoute("/media/my-list?playlist=playlist-live&view=list")
+
+    expect(await screen.findByText("Live Movie A", {}, { timeout: 5000 })).toBeInTheDocument()
+    await user.click(await screen.findByRole("button", { name: "将 Live Movie B 上移" }))
+
+    await waitFor(() => {
+      expect(calls).toContainEqual({
+        method: "PUT",
+        path: "/users/me/playlists/playlist-live/items/reorder",
+        body: {
+          item_ids: ["live-movie-b", "live-movie-a"],
+          expected_version: 2,
+        },
+      })
+    })
+    await waitFor(() => {
+      expect(
+        screen
+          .getAllByRole("heading", { level: 3 })
+          .map((heading) => heading.textContent),
+      ).toEqual(["Live Movie B", "Live Movie A"])
+    })
+    expect(router.state.location.search).toMatchObject({
+      playlist: "playlist-live",
+      view: "list",
+    })
+  })
+
+  it("refetches playlist items when reorder returns a stale version conflict", async () => {
+    const user = userEvent.setup()
+    const calls: Array<{ method: string; path: string; body?: unknown }> = []
+    let playlistVersion = 2
+    let playlistItems = [
+      publicPlaylistItem("live-movie-a", "Live Movie A", 0),
+      publicPlaylistItem("live-movie-b", "Live Movie B", 1),
+    ]
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      const method = init?.method ?? "GET"
+      const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined
+      calls.push({ method, path: url.pathname, body })
+
+      if (method === "GET" && url.pathname === "/users/me/playlists") {
+        return jsonResponse({
+          playlists: [publicUserPlaylist({ item_count: playlistItems.length, version: playlistVersion })],
+          page: {
+            limit: 20,
+            offset: 0,
+            returned: 1,
+          },
+        })
+      }
+
+      if (method === "GET" && url.pathname === "/users/me/playlists/playlist-live/items") {
+        return jsonResponse({
+          playlist: publicUserPlaylist({ item_count: playlistItems.length, version: playlistVersion }),
+          items: playlistItems,
+          page: {
+            limit: 50,
+            offset: 0,
+            returned: playlistItems.length,
+          },
+        })
+      }
+
+      if (method === "PUT" && url.pathname === "/users/me/playlists/playlist-live/items/reorder") {
+        playlistItems = [
+          publicPlaylistItem("live-movie-b", "Live Movie B", 0),
+          publicPlaylistItem("live-movie-a", "Live Movie A", 1),
+        ]
+        playlistVersion = 4
+
+        return jsonResponse(
+          {
+            code: "conflict",
+            message: "Playlist version conflict",
+          },
+          409,
+        )
+      }
+
+      return jsonResponse({ code: "not_found", message: "not found" }, 404)
+    })
+    window.localStorage.setItem(
+      CONNECTION_PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        mode: "live",
+        runtime: "browser",
+        baseUrl: "http://nako.test",
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+    renderRoute("/media/my-list?playlist=playlist-live&view=list")
+
+    expect(await screen.findByText("Live Movie A", {}, { timeout: 5000 })).toBeInTheDocument()
+    await user.click(await screen.findByRole("button", { name: "将 Live Movie B 上移" }))
+
+    await waitFor(() => {
+      expect(calls).toContainEqual({
+        method: "PUT",
+        path: "/users/me/playlists/playlist-live/items/reorder",
+        body: {
+          item_ids: ["live-movie-b", "live-movie-a"],
+          expected_version: 2,
+        },
+      })
+    })
+    expect(await screen.findByText("Playlist version conflict", {}, { timeout: 5000 })).toBeInTheDocument()
+    await waitFor(() => {
+      expect(
+        calls.filter((call) => call.method === "GET" && call.path === "/users/me/playlists/playlist-live/items")
+          .length,
+      ).toBeGreaterThan(1)
+    })
+    await waitFor(() => {
+      expect(
+        screen
+          .getAllByRole("heading", { level: 3 })
+          .map((heading) => heading.textContent),
+      ).toEqual(["Live Movie B", "Live Movie A"])
+    })
+  })
+
   it("adds detail media to a selected playlist through the Public Client route", async () => {
     const user = userEvent.setup()
     const calls: Array<{ method: string; path: string; body?: unknown }> = []
@@ -498,6 +689,26 @@ function publicUserPlaylist(overrides: Record<string, unknown> = {}) {
     updated_at: "2026-05-29T01:00:00Z",
     version: 2,
     ...overrides,
+  }
+}
+
+function publicPlaylistItem(itemId: string, title: string, position: number) {
+  const baseItem = publicMediaItem()
+
+  return {
+    playlist_id: "playlist-live",
+    item_id: itemId,
+    position,
+    added_at: "2026-05-29T01:00:00Z",
+    item: publicMediaItem({
+      id: itemId,
+      metadata: {
+        ...baseItem.metadata,
+        original_title: title,
+        title,
+      },
+    }),
+    images: [],
   }
 }
 

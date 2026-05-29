@@ -1,11 +1,26 @@
 "use client"
 
 import { type FormEvent, useState } from "react"
-import { AlertCircle, ChevronLeft, Grid3X3, List, ListMusic, Loader2, Pencil, Play, Plus, Star, Trash2 } from "lucide-react"
+import {
+  AlertCircle,
+  ArrowDown,
+  ArrowUp,
+  ChevronLeft,
+  Grid3X3,
+  List,
+  ListMusic,
+  Loader2,
+  Pencil,
+  Play,
+  Plus,
+  Star,
+  Trash2,
+} from "lucide-react"
 import { resolveArtwork } from "@/lib/artwork"
 import {
   useCreateUserPlaylistMutation,
   useDeleteUserPlaylistMutation,
+  useReorderUserPlaylistItemsMutation,
   useRemoveUserPlaylistItemMutation,
   useUpdateUserPlaylistMutation,
   useUserPlaylistItems,
@@ -65,6 +80,7 @@ export function MyListPage({
   const updatePlaylistMutation = useUpdateUserPlaylistMutation()
   const deletePlaylistMutation = useDeleteUserPlaylistMutation()
   const removePlaylistItemMutation = useRemoveUserPlaylistItemMutation()
+  const reorderPlaylistItemsMutation = useReorderUserPlaylistItemsMutation()
   const playlists = playlistsQuery.data?.playlists ?? []
   const [localPlaylistId, setLocalPlaylistId] = useState<string | undefined>()
   const [localViewMode, setLocalViewMode] = useState<MyListViewMode>("grid")
@@ -93,6 +109,7 @@ export function MyListPage({
         : playlistsQuery.data?.error ?? playlistItemsQuery.data?.error
   const isLoadingPlaylists = playlistsQuery.isLoading
   const isLoadingItems = playlistItemsQuery.isLoading || (Boolean(activePlaylistId) && playlistItemsQuery.isFetching)
+  const isItemMutationPending = removePlaylistItemMutation.isPending || reorderPlaylistItemsMutation.isPending
 
   const commitPlaylist = (nextPlaylistId: string) => {
     setLocalPlaylistId(nextPlaylistId)
@@ -202,7 +219,7 @@ export function MyListPage({
   }
 
   const handleRemovePlaylistItem = async (entry: PublicUserPlaylistItem) => {
-    if (removePlaylistItemMutation.isPending) {
+    if (isItemMutationPending) {
       return
     }
 
@@ -218,6 +235,42 @@ export function MyListPage({
       }
     } catch (error) {
       setMutationMessage(mutationErrorMessage(error))
+    }
+  }
+
+  const handleMovePlaylistItem = async (entry: PublicUserPlaylistItem, direction: "up" | "down") => {
+    if (!activePlaylist || isItemMutationPending) {
+      return
+    }
+
+    const currentIndex = playlistItems.findIndex((item) => item.itemId === entry.itemId)
+    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1
+
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= playlistItems.length) {
+      return
+    }
+
+    const nextItems = [...playlistItems]
+    const [movedItem] = nextItems.splice(currentIndex, 1)
+    nextItems.splice(targetIndex, 0, movedItem)
+    setMutationMessage(null)
+
+    try {
+      const payload = await reorderPlaylistItemsMutation.mutateAsync({
+        playlistId: activePlaylist.id,
+        body: {
+          item_ids: nextItems.map((item) => item.itemId),
+          expected_version: activePlaylist.version,
+        },
+      })
+
+      if (!payload.persisted) {
+        setMutationMessage(payload.error ?? "播放列表顺序未保存。")
+        void playlistItemsQuery.refetch()
+      }
+    } catch (error) {
+      setMutationMessage(mutationErrorMessage(error))
+      void playlistItemsQuery.refetch()
     }
   }
 
@@ -350,7 +403,8 @@ export function MyListPage({
                 viewMode={activeViewMode}
                 onSelectMedia={onSelectMedia}
                 onRemoveItem={handleRemovePlaylistItem}
-                isRemovingItem={removePlaylistItemMutation.isPending}
+                onMoveItem={handleMovePlaylistItem}
+                isMutatingItem={isItemMutationPending}
               />
             ) : (
               <EmptyState title="列表为空" description="这个播放列表当前没有可访问的媒体条目。" />
@@ -560,24 +614,29 @@ function PlaylistItems({
   viewMode,
   onSelectMedia,
   onRemoveItem,
-  isRemovingItem,
+  onMoveItem,
+  isMutatingItem,
 }: {
   items: PublicUserPlaylistItem[]
   viewMode: MyListViewMode
   onSelectMedia: (id: string, type: "movie" | "series") => void
   onRemoveItem: (entry: PublicUserPlaylistItem) => void
-  isRemovingItem: boolean
+  onMoveItem: (entry: PublicUserPlaylistItem, direction: "up" | "down") => void
+  isMutatingItem: boolean
 }) {
   if (viewMode === "list") {
     return (
       <div className="space-y-2">
-        {items.map((entry) => (
+        {items.map((entry, index) => (
           <PlaylistListRow
             key={`${entry.playlistId}:${entry.itemId}`}
             entry={entry}
             onSelectMedia={onSelectMedia}
             onRemoveItem={onRemoveItem}
-            isRemovingItem={isRemovingItem}
+            onMoveItem={onMoveItem}
+            canMoveUp={index > 0}
+            canMoveDown={index < items.length - 1}
+            isMutatingItem={isMutatingItem}
           />
         ))}
       </div>
@@ -586,13 +645,16 @@ function PlaylistItems({
 
   return (
     <div className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-      {items.map((entry) => (
+      {items.map((entry, index) => (
         <PlaylistPosterCard
           key={`${entry.playlistId}:${entry.itemId}`}
           entry={entry}
           onSelectMedia={onSelectMedia}
           onRemoveItem={onRemoveItem}
-          isRemovingItem={isRemovingItem}
+          onMoveItem={onMoveItem}
+          canMoveUp={index > 0}
+          canMoveDown={index < items.length - 1}
+          isMutatingItem={isMutatingItem}
         />
       ))}
     </div>
@@ -603,12 +665,18 @@ function PlaylistListRow({
   entry,
   onSelectMedia,
   onRemoveItem,
-  isRemovingItem,
+  onMoveItem,
+  canMoveUp,
+  canMoveDown,
+  isMutatingItem,
 }: {
   entry: PublicUserPlaylistItem
   onSelectMedia: (id: string, type: "movie" | "series") => void
   onRemoveItem: (entry: PublicUserPlaylistItem) => void
-  isRemovingItem: boolean
+  onMoveItem: (entry: PublicUserPlaylistItem, direction: "up" | "down") => void
+  canMoveUp: boolean
+  canMoveDown: boolean
+  isMutatingItem: boolean
 }) {
   const item = entry.item
 
@@ -643,16 +711,38 @@ function PlaylistListRow({
           <p className="mt-1 text-xs text-muted-foreground">添加于 {formatDate(entry.addedAt)}</p>
         </div>
       </button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label={`从播放列表移除 ${item.title}`}
-        disabled={isRemovingItem}
-        onClick={() => onRemoveItem(entry)}
-      >
-        {isRemovingItem ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-      </Button>
+      <div className="flex flex-shrink-0 items-center gap-1">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={`将 ${item.title} 上移`}
+          disabled={!canMoveUp || isMutatingItem}
+          onClick={() => onMoveItem(entry, "up")}
+        >
+          <ArrowUp className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={`将 ${item.title} 下移`}
+          disabled={!canMoveDown || isMutatingItem}
+          onClick={() => onMoveItem(entry, "down")}
+        >
+          <ArrowDown className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={`从播放列表移除 ${item.title}`}
+          disabled={isMutatingItem}
+          onClick={() => onRemoveItem(entry)}
+        >
+          {isMutatingItem ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+        </Button>
+      </div>
     </div>
   )
 }
@@ -661,12 +751,18 @@ function PlaylistPosterCard({
   entry,
   onSelectMedia,
   onRemoveItem,
-  isRemovingItem,
+  onMoveItem,
+  canMoveUp,
+  canMoveDown,
+  isMutatingItem,
 }: {
   entry: PublicUserPlaylistItem
   onSelectMedia: (id: string, type: "movie" | "series") => void
   onRemoveItem: (entry: PublicUserPlaylistItem) => void
-  isRemovingItem: boolean
+  onMoveItem: (entry: PublicUserPlaylistItem, direction: "up" | "down") => void
+  canMoveUp: boolean
+  canMoveDown: boolean
+  isMutatingItem: boolean
 }) {
   const item = entry.item
 
@@ -697,16 +793,40 @@ function PlaylistPosterCard({
           <span>{item.rating || "N/A"}</span>
         </div>
       </button>
+      <div className="absolute left-2 top-2 flex flex-col gap-1">
+        <Button
+          type="button"
+          variant="secondary"
+          size="icon-sm"
+          className="shadow-sm"
+          aria-label={`将 ${item.title} 上移`}
+          disabled={!canMoveUp || isMutatingItem}
+          onClick={() => onMoveItem(entry, "up")}
+        >
+          <ArrowUp className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          size="icon-sm"
+          className="shadow-sm"
+          aria-label={`将 ${item.title} 下移`}
+          disabled={!canMoveDown || isMutatingItem}
+          onClick={() => onMoveItem(entry, "down")}
+        >
+          <ArrowDown className="h-4 w-4" />
+        </Button>
+      </div>
       <Button
         type="button"
         variant="secondary"
         size="icon-sm"
         className="absolute right-2 top-2 shadow-sm"
         aria-label={`从播放列表移除 ${item.title}`}
-        disabled={isRemovingItem}
+        disabled={isMutatingItem}
         onClick={() => onRemoveItem(entry)}
       >
-        {isRemovingItem ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+        {isMutatingItem ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
       </Button>
     </div>
   )

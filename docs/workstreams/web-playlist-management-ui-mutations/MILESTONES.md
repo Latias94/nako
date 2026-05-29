@@ -37,6 +37,8 @@ Completed by `WPMU-040`.
 Exit criteria: playlist item order can be changed through an accessible flow
 that submits full ordered membership and recovers from stale-version conflicts.
 
+Completed by `WPMU-050`.
+
 ## M5 - Verification And Closeout
 
 Exit criteria: shipped mutation behavior, validation evidence, residual risks,

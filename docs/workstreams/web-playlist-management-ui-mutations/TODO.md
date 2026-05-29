@@ -40,12 +40,12 @@ Last updated: 2026-05-29
 
 ## M4 - Reorder And Conflict Handling
 
-- [ ] WPMU-050 [owner=Codex] [deps=WPMU-020,WPMU-030] [scope=web/src/features/media/my-list-page.tsx,web/src/test]
+- [x] WPMU-050 [owner=Codex] [deps=WPMU-020,WPMU-030] [scope=web/src/features/media/my-list-page.tsx,web/src/test]
   Goal: Add explicit reorder behavior with stale-version/conflict recovery and keyboard-accessible controls before considering richer drag-and-drop.
   Validation: `npm --prefix web run test -- src/test/route-contracts.test.tsx src/test/route-state-contracts.test.tsx`; `npm --prefix web run check`.
   Review: reorder must submit full ordered `item_ids`, preserve route state, and refetch on conflicts.
   Evidence: state tests and browser smoke.
-  Handoff: Drag-and-drop can be split if accessibility or implementation cost grows.
+  Handoff: DONE. Explicit up/down controls reorder playlist items through the Public Client mutation hook and recover stale-version conflicts by refetching the current item order.
 
 ## M5 - Verification And Closeout
 

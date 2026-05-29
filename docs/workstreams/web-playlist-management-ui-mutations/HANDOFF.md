@@ -14,21 +14,22 @@ hooks now cover playlist create, rename, delete, add item, remove item, and
 reorder. WPMU-030 added `/media/my-list` create, rename, and delete controls
 on top of those hooks. WPMU-040 added item removal from playlist list/card
 views and a narrow add-to-playlist dropdown from media detail and browse cards.
+WPMU-050 added explicit up/down playlist item reorder controls with
+stale-version conflict recovery.
 
-The remaining lane work is item ordering UI. It must keep playlist management
-on the Public Client boundary and must not import Admin API code into media
-features.
+The remaining lane work is verification and closeout. It must keep playlist
+management on the Public Client boundary and must not import Admin API code
+into media features.
 
 ## Active Task
 
-- Task ID: WPMU-050
+- Task ID: WPMU-060
 - Owner: Codex
-- Files: `web/src/features/media`, `web/src/test`
-- Validation: `npm --prefix web run test -- src/test/route-contracts.test.tsx src/test/route-state-contracts.test.tsx`; `npm --prefix web run check`
+- Files: `docs/workstreams/web-playlist-management-ui-mutations`
+- Validation: `npm --prefix web run test`; `npm --prefix web run check`; `npm --prefix web run build:budget`; browser smoke desktop/mobile; `git diff --check`
 - Status: READY
-- Review: reorder must submit full ordered `item_ids`, preserve route state,
-  and refetch on conflicts.
-- Evidence: state tests and browser smoke
+- Review: review-workstream has no blocking findings.
+- Evidence: closeout notes, final gate results, and residual follow-ons
 
 ## Decisions Since Last Update
 
@@ -50,6 +51,8 @@ features.
   `parseInt`, preserving nonnumeric Public Client IDs.
 - Reorder starts with explicit accessible controls; drag-and-drop is optional
   and should be split if it expands cost.
+- Reorder submits full `item_ids` plus `expected_version`; stale-version
+  conflict recovery refetches the current playlist item order.
 
 ## Blockers
 
@@ -57,6 +60,6 @@ features.
 
 ## Next Recommended Action
 
-Start WPMU-050 with TDD: add explicit reorder controls for playlist items,
-submit the full ordered `item_ids` payload, preserve the current route state,
-and refetch/recover cleanly when the server reports a stale-version conflict.
+Start WPMU-060: run the full lane gates, smoke desktop/mobile playlist
+management flows, record closeout evidence, and split any residual follow-ons
+before closing the workstream.
