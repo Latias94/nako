@@ -63,6 +63,12 @@ const routeContracts: RouteContract[] = [
     },
   },
   {
+    path: "/media/my-list",
+    assert: async () => {
+      expect(await screen.findByRole("heading", { name: "我的列表" }, { timeout: 5000 })).toBeInTheDocument()
+    },
+  },
+  {
     path: "/admin",
     assert: async () => {
       expect(await screen.findByRole("heading", { name: "仪表盘" }, { timeout: 5000 })).toBeInTheDocument()
@@ -146,6 +152,7 @@ describe("top-level route contracts", () => {
 
   it("renders live scoped library items from the Public Client browse route", async () => {
     const originalFetch = globalThis.fetch
+    const previousProfile = window.localStorage.getItem(CONNECTION_PROFILE_STORAGE_KEY)
     const fetcher = vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input))
 
@@ -198,6 +205,80 @@ describe("top-level route contracts", () => {
       )
     } finally {
       vi.stubGlobal("fetch", originalFetch)
+      if (previousProfile === null) {
+        window.localStorage.removeItem(CONNECTION_PROFILE_STORAGE_KEY)
+      } else {
+        window.localStorage.setItem(CONNECTION_PROFILE_STORAGE_KEY, previousProfile)
+      }
+    }
+  })
+
+  it("renders live user playlist items from the Public Client playlist route", async () => {
+    const originalFetch = globalThis.fetch
+    const previousProfile = window.localStorage.getItem(CONNECTION_PROFILE_STORAGE_KEY)
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input))
+
+      if (url.pathname === "/users/me/playlists") {
+        return jsonResponse({
+          playlists: [publicUserPlaylist()],
+          page,
+        })
+      }
+
+      if (url.pathname === "/users/me/playlists/playlist-live/items") {
+        return jsonResponse({
+          playlist: publicUserPlaylist(),
+          page,
+          items: [
+            {
+              playlist_id: "playlist-live",
+              item_id: "live-movie",
+              position: 0,
+              added_at: "2026-05-29T01:00:00Z",
+              item: publicMediaItem(),
+              images: [],
+            },
+          ],
+        })
+      }
+
+      return jsonResponse({ code: "not_found", message: "not found" }, 404)
+    })
+
+    window.localStorage.setItem(
+      CONNECTION_PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        mode: "live",
+        runtime: "browser",
+        baseUrl: "http://nako.test",
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+
+    try {
+      renderRoute("/media/my-list?playlist=playlist-live&view=list")
+
+      expect(await screen.findAllByText("Live Playlist", {}, { timeout: 5000 })).toHaveLength(2)
+      expect(await screen.findByText("Live Movie", {}, { timeout: 5000 })).toBeInTheDocument()
+      const calledTargets = fetcher.mock.calls
+        .map(([input]) => {
+          const url = new URL(String(input))
+          return `${url.pathname}${url.search}`
+        })
+        .filter((target) => target.startsWith("/users/me/playlists"))
+
+      expect(calledTargets).toEqual([
+        "/users/me/playlists?limit=20&offset=0",
+        "/users/me/playlists/playlist-live/items?limit=50&offset=0",
+      ])
+    } finally {
+      vi.stubGlobal("fetch", originalFetch)
+      if (previousProfile === null) {
+        window.localStorage.removeItem(CONNECTION_PROFILE_STORAGE_KEY)
+      } else {
+        window.localStorage.setItem(CONNECTION_PROFILE_STORAGE_KEY, previousProfile)
+      }
     }
   })
 })
@@ -270,5 +351,17 @@ function publicMediaItem() {
       tags: [],
       title: "Live Movie",
     },
+  }
+}
+
+function publicUserPlaylist() {
+  return {
+    id: "playlist-live",
+    name: "Live Playlist",
+    visibility: "private",
+    item_count: 1,
+    created_at: "2026-05-29T00:00:00Z",
+    updated_at: "2026-05-29T01:00:00Z",
+    version: 2,
   }
 }

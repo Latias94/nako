@@ -36,6 +36,8 @@ Completed by `UPCW-040`.
 Exit criteria: the new `web/` Media surface restores playlist UI through live
 Public Client data with route/data-source tests and bundle budget evidence.
 
+Completed by `UPCW-050`.
+
 ## M5 - Closeout
 
 Exit criteria: shipped behavior, remaining follow-ons, and final validation

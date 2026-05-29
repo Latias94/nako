@@ -7,12 +7,13 @@
   "scope_kind": "public_client_contract",
   "problem": "The web playlist UI cannot return until Nako has a server-owned current-user playlist contract distinct from catalog collections and HLS transport playlists.",
   "task_prefix": "UPCW",
-  "current_task": "UPCW-050",
+  "current_task": "UPCW-060",
   "completed_tasks": [
     "UPCW-010",
     "UPCW-020",
     "UPCW-030",
-    "UPCW-040"
+    "UPCW-040",
+    "UPCW-050"
   ],
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/user-playlists-contract-and-web-slice/README.md" },
@@ -40,7 +41,8 @@
     "UPCW-010 opened the lane from WDRP-050 and recorded that playlists should proceed as a backend/Public Client contract lane before web UI restoration.",
     "UPCW-020 froze current-user private User Playlist route inventory, DTOs, access filtering, duplicate/order semantics, mutation request shape, OpenAPI schemas, generated TypeScript/Kotlin SDK expectations, and HTTP API notes.",
     "UPCW-030 implemented principal-scoped User Playlist persistence, ordered idempotent membership, version-guarded mutations, and app-service validation without adding Public Client HTTP routes or web UI.",
-    "UPCW-040 exposed current-user User Playlist Public Client HTTP routes, access-filtered item responses/counts, Rust client convenience methods, and SDK inventory validation without restoring web UI."
+    "UPCW-040 exposed current-user User Playlist Public Client HTTP routes, access-filtered item responses/counts, Rust client convenience methods, and SDK inventory validation without restoring web UI.",
+    "UPCW-050 restored the first web playlist UI through Public Client live data, fixture fallback, route-owned playlist/view state, data-source/route/state tests, bundle budget validation, and desktop/mobile browser smoke."
   ],
   "adr_refs": [
     "docs/adr/0021-video-first-media-server-domain-model.md",
@@ -50,6 +52,6 @@
   ],
   "continue_policy": {
     "default_action": "continue_current_task",
-    "notes": "Continue with UPCW-050. Restore the first web playlist UI using live Public Client data with fixture fallback and route-owned state."
+    "notes": "Continue with UPCW-060. Close the lane and split follow-ons for sharing, smart playlists, recommendation-generated lists, and offline sync."
   }
 }

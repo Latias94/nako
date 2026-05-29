@@ -8,7 +8,9 @@ Last updated: 2026-05-29
 This lane is open. UPCW-020 froze the User Playlist Public Client contract,
 UPCW-030 implemented backend persistence plus app-service validation, and
 UPCW-040 exposed the contract through Public Client HTTP routes, access
-filtering, and Rust client methods. Playlist UI can now start in UPCW-050.
+filtering, and Rust client methods. UPCW-050 restored the first `web/`
+playlist UI through Public Client live data, fixture fallback, and route-owned
+state.
 
 Important boundaries:
 
@@ -26,15 +28,14 @@ Important boundaries:
 
 ## Active Task
 
-- Task ID: UPCW-050
-- Owner: Codex
+- Task ID: UPCW-060
+- Owner: planner
 - Status: READY
-- Validation: `npm --prefix web run test`;
-  `npm --prefix web run check`; `npm --prefix web run build:budget`;
-  browser smoke.
+- Validation: final backend/frontend gates recorded; JSON validation;
+  `git diff --check`.
 
 ## Next Recommended Action
 
-Start UPCW-050. Restore the first playlist UI in `web/` using live Public
-Client data with fixture fallback and route-owned state. Keep the UI on Public
-Client contracts and avoid Admin API imports.
+Start UPCW-060. Close the lane with backend/API/SDK/web evidence and split
+follow-ons for sharing, smart playlists, recommendation-generated lists, and
+offline sync.

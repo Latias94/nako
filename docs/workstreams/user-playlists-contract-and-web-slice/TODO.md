@@ -49,12 +49,15 @@ Last updated: 2026-05-29
 
 ## M4 - Web First Slice
 
-- [ ] UPCW-050 [owner=Codex] [deps=UPCW-040] [scope=web/src/api/public,web/src/features/media,web/src/shell,web/src/test]
+- [x] UPCW-050 [owner=Codex] [deps=UPCW-040] [scope=web/src/api/public,web/src/features/media,web/src/shell,web/src/test]
   Goal: Restore the first playlist UI in `web/` using live Public Client data with fixture fallback and route-owned state.
   Validation: `npm --prefix web run test`; `npm --prefix web run check`; `npm --prefix web run build:budget`; browser smoke.
   Review: no fixture-only playlist claims and no Admin API imports.
-  Evidence: data-source contract tests, route tests, and browser smoke notes.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Evidence: DONE. Public media data source now maps live
+  `/users/me/playlists` and playlist item responses with fixture fallback;
+  `web/` exposes `/media/my-list` with `playlist`/`view` route-owned state,
+  TanStack Query hooks, and desktop/mobile browser smoke evidence.
+  Handoff: DONE. Next task is UPCW-060.
 
 ## M5 - Closeout
 

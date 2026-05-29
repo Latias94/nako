@@ -17,6 +17,8 @@ import {
   type SetWatchedStateRequest,
   type UpdatePlaybackProgressRequest,
   type UserPlaybackStateDto,
+  type UserPlaylistDto,
+  type UserPlaylistItemDto,
 } from "@nako/sdk"
 import { mapPublicMediaItem, type MediaItem } from "@/lib/media-types"
 import { loadPublicClientConnection, type PublicClientConnection } from "./connection"
@@ -164,6 +166,42 @@ export type PublicContinueWatchingPayload = {
   error?: string
 }
 
+export type PublicUserPlaylistSummary = {
+  id: string
+  name: string
+  visibility: UserPlaylistDto["visibility"]
+  itemCount: number
+  createdAt: string
+  updatedAt: string
+  version: number
+}
+
+export type PublicUserPlaylistItem = {
+  playlistId: string
+  itemId: string
+  position: number
+  addedAt: string
+  item: MediaItem
+  images: PublicImageRef[]
+}
+
+export type PublicUserPlaylistsPayload = {
+  playlists: PublicUserPlaylistSummary[]
+  page?: PublicPage
+  fallback: boolean
+  source: PublicMediaSourceMode
+  error?: string
+}
+
+export type PublicUserPlaylistItemsPayload = {
+  playlist: PublicUserPlaylistSummary | null
+  items: PublicUserPlaylistItem[]
+  page?: PublicPage
+  fallback: boolean
+  source: PublicMediaSourceMode
+  error?: string
+}
+
 export type PublicPlaybackStatePayload = {
   state: PublicPlaybackState | null
   fallback: boolean
@@ -182,6 +220,8 @@ export type PublicMediaDataSource = {
   listLibraries(): Promise<PublicLibrariesPayload>
   getLibraryReadiness(libraryId: string): Promise<PublicLibraryReadinessPayload>
   listContinueWatching(): Promise<PublicContinueWatchingPayload>
+  listUserPlaylists(): Promise<PublicUserPlaylistsPayload>
+  listUserPlaylistItems(playlistId: string): Promise<PublicUserPlaylistItemsPayload>
   getPlaybackState(itemId: string): Promise<PublicPlaybackStatePayload>
   updatePlaybackProgress(
     itemId: string,
@@ -222,6 +262,21 @@ const LIBRARY_ITEM_BROWSE_READY: PublicReadinessState = {
   message: "Public Client exposes library-scoped item browse.",
   contract: "GET /libraries/{library_id}/items",
 }
+
+const FIXTURE_USER_PLAYLISTS = [
+  {
+    id: "fixture-watch-later",
+    name: "稍后观看",
+    itemIds: ["1", "2", "5"],
+  },
+  {
+    id: "fixture-favorites",
+    name: "收藏",
+    itemIds: ["3", "4", "8"],
+  },
+] as const
+
+const FIXTURE_PLAYLIST_CREATED_AT = "2026-05-29T00:00:00.000Z"
 
 export function createPublicMediaDataSource(
   connection: PublicClientConnection = loadPublicClientConnection(),
@@ -334,6 +389,26 @@ function createLiveMediaDataSource(
         return fixtureContinueWatching(error)
       }
     },
+    async listUserPlaylists() {
+      try {
+        const response = await client.listUserPlaylists({ limit: 20, offset: 0 })
+        return liveUserPlaylists(response.playlists.map(mapPublicUserPlaylist), response.page)
+      } catch (error) {
+        return fixtureUserPlaylists(error)
+      }
+    },
+    async listUserPlaylistItems(playlistId) {
+      try {
+        const response = await client.listUserPlaylistItems(playlistId, { limit: 50, offset: 0 })
+        return liveUserPlaylistItems(
+          mapPublicUserPlaylist(response.playlist),
+          response.items.map(mapPublicUserPlaylistItem),
+          response.page,
+        )
+      } catch (error) {
+        return fixtureUserPlaylistItems(playlistId, error)
+      }
+    },
     async getPlaybackState(itemId) {
       try {
         const response = await client.getUserPlaybackState(itemId)
@@ -439,6 +514,12 @@ function createFixtureMediaDataSource(): PublicMediaDataSource {
     },
     async listContinueWatching() {
       return fixtureContinueWatching()
+    },
+    async listUserPlaylists() {
+      return fixtureUserPlaylists()
+    },
+    async listUserPlaylistItems(playlistId) {
+      return fixtureUserPlaylistItems(playlistId)
     },
     async getPlaybackState(itemId) {
       return fixturePlaybackState(itemId)
@@ -667,6 +748,74 @@ function fixtureContinueWatching(error?: unknown): PublicContinueWatchingPayload
   }
 }
 
+function liveUserPlaylists(
+  playlists: PublicUserPlaylistSummary[],
+  page?: PageInfo,
+): PublicUserPlaylistsPayload {
+  return {
+    playlists,
+    page: mapPage(page),
+    fallback: false,
+    source: "live",
+  }
+}
+
+function fixtureUserPlaylists(error?: unknown): PublicUserPlaylistsPayload {
+  return {
+    playlists: FIXTURE_USER_PLAYLISTS.map(fixtureUserPlaylistSummary),
+    fallback: true,
+    source: "fixture",
+    error: errorMessage(error),
+  }
+}
+
+function liveUserPlaylistItems(
+  playlist: PublicUserPlaylistSummary,
+  items: PublicUserPlaylistItem[],
+  page?: PageInfo,
+): PublicUserPlaylistItemsPayload {
+  return {
+    playlist,
+    items,
+    page: mapPage(page),
+    fallback: false,
+    source: "live",
+  }
+}
+
+function fixtureUserPlaylistItems(
+  playlistId: string,
+  error?: unknown,
+): PublicUserPlaylistItemsPayload {
+  const fixturePlaylist = FIXTURE_USER_PLAYLISTS.find((playlist) => playlist.id === playlistId) ?? null
+
+  return {
+    playlist: fixturePlaylist ? fixtureUserPlaylistSummary(fixturePlaylist) : null,
+    items: fixturePlaylist
+      ? fixturePlaylist.itemIds.flatMap((itemId, position) => {
+          const item = LOCAL_MEDIA_ITEMS.find((entry) => entry.id === itemId)
+          if (!item) {
+            return []
+          }
+
+          return [
+            {
+              playlistId: fixturePlaylist.id,
+              itemId,
+              position,
+              addedAt: FIXTURE_PLAYLIST_CREATED_AT,
+              item,
+              images: [],
+            },
+          ]
+        })
+      : [],
+    fallback: true,
+    source: "fixture",
+    error: errorMessage(error),
+  }
+}
+
 function livePlaybackState(state: PublicPlaybackState): PublicPlaybackStatePayload {
   return {
     state,
@@ -722,6 +871,43 @@ function mapPublicContinueWatchingItem(item: ContinueWatchingItemDto): PublicCon
     item: mapPublicMediaItem(item.item),
     state: mapPublicPlaybackState(item.state),
     images: item.images.map(mapPublicImage),
+  }
+}
+
+function mapPublicUserPlaylist(playlist: UserPlaylistDto): PublicUserPlaylistSummary {
+  return {
+    id: playlist.id,
+    name: playlist.name,
+    visibility: playlist.visibility,
+    itemCount: playlist.item_count,
+    createdAt: playlist.created_at,
+    updatedAt: playlist.updated_at,
+    version: playlist.version,
+  }
+}
+
+function mapPublicUserPlaylistItem(item: UserPlaylistItemDto): PublicUserPlaylistItem {
+  return {
+    playlistId: item.playlist_id,
+    itemId: item.item_id,
+    position: item.position,
+    addedAt: item.added_at,
+    item: mapPublicMediaItem(item.item),
+    images: item.images.map(mapPublicImage),
+  }
+}
+
+function fixtureUserPlaylistSummary(
+  playlist: (typeof FIXTURE_USER_PLAYLISTS)[number],
+): PublicUserPlaylistSummary {
+  return {
+    id: playlist.id,
+    name: playlist.name,
+    visibility: "private",
+    itemCount: playlist.itemIds.length,
+    createdAt: FIXTURE_PLAYLIST_CREATED_AT,
+    updatedAt: FIXTURE_PLAYLIST_CREATED_AT,
+    version: 0,
   }
 }
 
