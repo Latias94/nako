@@ -445,7 +445,7 @@ fn public_paths() -> Value {
             "get": session_text_get(
                 "hlsPlaylistSource",
                 "Start or reuse HLS transcode and return a playlist.",
-                playback_parameters("source_id")
+                hls_parameters("source_id")
             )
         }),
     );
@@ -1079,6 +1079,17 @@ fn playback_parameters(source_id_name: &str) -> Vec<Value> {
             false,
         ),
     ]
+}
+
+fn hls_parameters(source_id_name: &str) -> Vec<Value> {
+    let mut parameters = playback_parameters(source_id_name);
+    parameters.push(query_parameter(
+        "start_position_ms",
+        "Optional HLS playback start position in milliseconds for seek/restart.",
+        integer_schema("int64"),
+        false,
+    ));
+    parameters
 }
 
 fn remux_parameters(source_id_name: &str) -> Vec<Value> {
@@ -2049,6 +2060,13 @@ mod tests {
             document["paths"]["/sources/{source_id}/stream/hls/playlist.m3u8"]["get"]["responses"]
                 ["200"]["headers"][PLAYBACK_SESSION_ID_HEADER]["$ref"],
             "#/components/headers/NakoPlaybackSessionId"
+        );
+        assert!(
+            document["paths"]["/sources/{source_id}/stream/hls/playlist.m3u8"]["get"]["parameters"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|parameter| parameter["name"] == "start_position_ms")
         );
         assert_eq!(
             document["paths"]["/sources/{source_id}/stream/remux"]["get"]["responses"]["200"]["headers"]

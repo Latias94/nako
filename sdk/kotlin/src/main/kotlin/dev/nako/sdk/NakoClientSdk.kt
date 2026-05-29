@@ -131,6 +131,14 @@ public data class RemuxPlaybackQuery(
     public val outputContainer: RemuxOutputContainer? = null,
 )
 
+public data class HlsPlaybackQuery(
+    public val directPlay: Boolean? = null,
+    public val containers: List<String> = emptyList(),
+    public val videoCodecs: List<String> = emptyList(),
+    public val audioCodecs: List<String> = emptyList(),
+    public val startPositionMs: Long? = null,
+)
+
 public object NakoPublicClientRequests {
     public fun health(): NakoRequestDescriptor =
         NakoRequestDescriptor(
@@ -435,13 +443,13 @@ public object NakoPublicClientRequests {
 
     public fun hlsPlaylistSource(
         sourceId: String,
-        capabilities: PlaybackCapabilitiesQuery = PlaybackCapabilitiesQuery(),
+        query: HlsPlaybackQuery = HlsPlaybackQuery(),
     ): NakoRequestDescriptor =
         NakoRequestDescriptor(
             method = "GET",
             pathAndQuery = pathWithQuery(
                 "/sources/${encodePathSegment(sourceId)}/stream/hls/playlist.m3u8",
-                playbackCapabilitiesQuery(capabilities),
+                hlsPlaybackQuery(query),
             ),
         )
 
@@ -616,6 +624,21 @@ public object NakoPublicClientRequests {
             addCsv("audio_codec", query.audioCodecs)
             query.outputContainer?.let {
                 add("output_container" to it.wireValue)
+            }
+        }
+
+    private fun hlsPlaybackQuery(
+        query: HlsPlaybackQuery,
+    ): List<Pair<String, String>> =
+        buildList {
+            query.directPlay?.let {
+                add("direct_play" to it.toString())
+            }
+            addCsv("container", query.containers)
+            addCsv("video_codec", query.videoCodecs)
+            addCsv("audio_codec", query.audioCodecs)
+            query.startPositionMs?.let {
+                add("start_position_ms" to it.toString())
             }
         }
 

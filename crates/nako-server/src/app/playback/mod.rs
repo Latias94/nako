@@ -493,6 +493,7 @@ pub(crate) struct HlsPlaylistPlaybackRequest {
     pub source_id: MediaSourceId,
     pub client: ClientPlaybackCapabilities,
     pub preferences: PlaybackPreferenceContext,
+    pub playback_generation: HlsPlaybackGeneration,
 }
 
 #[derive(Clone, Debug)]
@@ -551,6 +552,7 @@ pub(crate) struct HlsPlaylistSessionRequest {
     pub principal: AuthenticatedPrincipal,
     pub playback_session_id: PlaybackSessionId,
     pub source_id: MediaSourceId,
+    pub playback_generation: HlsPlaybackGeneration,
 }
 
 #[derive(Clone, Debug)]
@@ -1330,7 +1332,7 @@ impl PlaybackAppService {
                     source_id: request.source_id,
                     client: request.client.clone(),
                     preferences: request.preferences.clone(),
-                    playback_generation: HlsPlaybackGeneration::default(),
+                    playback_generation: request.playback_generation,
                 },
                 effective_policy,
             )
@@ -1378,7 +1380,7 @@ impl PlaybackAppService {
                         source_id: request.source_id,
                         client,
                         preferences: PlaybackPreferenceContext::default(),
-                        playback_generation: HlsPlaybackGeneration::default(),
+                        playback_generation: request.playback_generation,
                     },
                     effective_policy,
                 )

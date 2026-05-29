@@ -1,6 +1,6 @@
 # HLS Seek Restart Lifecycle - Evidence And Gates
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-29
 
 ## Smallest Current Repro
@@ -21,6 +21,8 @@ cargo nextest run -p nako-transcode hls_request_variant --no-fail-fast
 cargo nextest run -p nako-server hls_source_request_identity --no-fail-fast
 cargo nextest run -p nako-transcode hls --no-fail-fast
 cargo nextest run -p nako-server hls --no-fail-fast
+cargo nextest run -p nako-api sdk --no-fail-fast
+cargo nextest run -p nako-api openapi --no-fail-fast
 ```
 
 ### Runtime Gate
@@ -44,6 +46,12 @@ python3 -m json.tool docs/workstreams/hls-seek-restart-lifecycle/WORKSTREAM.json
 - `crates/nako-server/src/app/playback/mod.rs`
 - `crates/nako-server/src/app/playback/hls.rs`
 - `crates/nako-server/src/app/tests/playback.rs`
+- `crates/nako-server/src/http/playback.rs`
+- `crates/nako-server/src/http/tests/playback.rs`
+- `crates/nako-api/src/openapi.rs`
+- `crates/nako-api/src/sdk.rs`
+- `sdk/typescript/src/index.ts`
+- `sdk/kotlin/src/main/kotlin/dev/nako/sdk/NakoClientSdk.kt`
 - `docs/workstreams/hls-seek-restart-lifecycle/HANDOFF.md`
 
 ## Evidence Log
@@ -97,3 +105,26 @@ python3 -m json.tool docs/workstreams/hls-seek-restart-lifecycle/WORKSTREAM.json
   Closeout gates passed: `cargo fmt --all -- --check`, `git diff --check`,
   and `python3 -m json.tool
   docs/workstreams/hls-seek-restart-lifecycle/WORKSTREAM.json >/dev/null`.
+- 2026-05-29 HSRL-050: Exposed the minimal public HLS seek/restart surface.
+  `GET /sources/{source_id}/stream/hls/playlist.m3u8` now accepts
+  `start_position_ms`; the server converts it to `HlsPlaybackGeneration`,
+  threads it through HLS playback/session requests, and preserves existing
+  linked-session reuse semantics. OpenAPI plus generated TypeScript/Kotlin SDKs
+  expose the query parameter. Red run
+  `23ec79a9-955f-4934-b099-16b097bbd83f` failed before implementation because
+  the HLS transcode request key did not contain the seek generation. Focused
+  green run `f0a9a81a-03a5-481f-af20-445e1f908d12`: `cargo nextest run -p
+  nako-server hls_playlist_route_accepts_seek_start_position --no-fail-fast`
+  (1 passed, 448 skipped). API contract/package checks passed with
+  `126a275e-4c46-456d-bc39-378b2fc1490b` for the focused OpenAPI and SDK
+  tests, plus `4e9d7320-6208-41d7-9473-fb619c942a54`: `cargo nextest run -p
+  nako-api typescript_package_entry_matches_generator_output --no-fail-fast`
+  (1 passed, 67 skipped). Broader gates passed with
+  `1ccb910c-6d67-474f-8470-05da40bc749e`: `cargo nextest run -p nako-server
+  hls --no-fail-fast` (49 passed, 400 skipped),
+  `74ab212a-280c-4f7c-b7fd-cb0837765df8`: `cargo nextest run -p nako-api sdk
+  --no-fail-fast` (9 passed, 59 skipped), and
+  `535a4028-8892-4afd-826f-98c287461b40`: `cargo nextest run -p nako-api
+  openapi --no-fail-fast` (10 passed, 58 skipped). Closeout gates passed:
+  `cargo fmt --all -- --check`, `git diff --check`, and `python3 -m
+  json.tool docs/workstreams/hls-seek-restart-lifecycle/WORKSTREAM.json`.

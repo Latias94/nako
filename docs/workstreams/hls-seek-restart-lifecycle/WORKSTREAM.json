@@ -2,17 +2,18 @@
   "schema_version": 1,
   "slug": "hls-seek-restart-lifecycle",
   "title": "HLS Seek Restart Lifecycle",
-  "status": "active",
+  "status": "completed",
   "updated": "2026-05-29",
   "scope_kind": "feature_refactor",
   "problem": "HLS request identity currently does not model playback start position, so future seek requests would collide with or incorrectly reuse existing HLS sessions and artifact directories.",
   "task_prefix": "HSRL",
-  "current_task": "HSRL-050",
+  "current_task": null,
   "completed_tasks": [
     "HSRL-010",
     "HSRL-020",
     "HSRL-030",
-    "HSRL-040"
+    "HSRL-040",
+    "HSRL-050"
   ],
   "authoritative_docs": [
     {
@@ -45,6 +46,8 @@
     "cargo nextest run -p nako-transcode hls_request_variant --no-fail-fast",
     "cargo nextest run -p nako-server hls_source_request_identity --no-fail-fast",
     "cargo nextest run -p nako-server hls_source --no-fail-fast",
+    "cargo nextest run -p nako-api sdk --no-fail-fast",
+    "cargo nextest run -p nako-api openapi --no-fail-fast",
     "cargo fmt --all -- --check",
     "git diff --check"
   ],
@@ -64,6 +67,10 @@
     {
       "task": "HSRL-040",
       "summary": "Threaded HlsPlaybackGeneration into HLS FFmpeg command planning so non-default generations emit input seek, timestamp normalization, forced segment-boundary keyframes, and independent HLS segment flags while default generation preserves existing argv."
+    },
+    {
+      "task": "HSRL-050",
+      "summary": "Exposed the minimal public HLS seek/restart surface with a start_position_ms playlist query, documented it in OpenAPI and generated SDKs, and closed client-player controls plus seek UX as follow-ons."
     }
   ],
   "adr_refs": [
@@ -87,7 +94,7 @@
     "transcode.identity"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "Continue with HSRL-050 public playback integration and closeout. Decide whether to expose a public seek request surface now or close this lane as internal-only support and split client-player/API work into a follow-on. Do not add HDR, downmix, or subtitle burn-in behavior under this lane."
+    "default_action": "done",
+    "notes": "The lane is closed. Future work should split follow-ons for client-player seek controls, heartbeat/seek UX coordination, source keyframe indexing or pre-roll optimization, HDR, downmix, and subtitle burn-in."
   }
 }

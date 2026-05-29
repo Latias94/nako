@@ -1,6 +1,6 @@
 # HLS Seek Restart Lifecycle - Design
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-29
 
 ## Problem
@@ -32,6 +32,11 @@ The default generation is start position `0 ms`; it must not change existing
 request keys or artifact paths. Non-default generations become part of the HLS
 request variant identity.
 
+The public source HLS playlist route accepts `start_position_ms` as the minimal
+seek/restart surface. Client-player controls and UX remain outside this lane;
+they can call the route with a start position and then continue through the
+manifest-backed session segment URLs.
+
 ## Boundary Direction
 
 - `nako-transcode` owns HLS request-variant identity components, including the
@@ -43,13 +48,14 @@ request variant identity.
 - Artifact serving reconstructs manifests from persisted request identity and
   only serves names that belong to that manifest.
 
-## Risks
+## Residual Risks
 
-- Keyframe alignment and timestamp preservation are not solved by identity
-  alone; later tasks must make FFmpeg seek flags explicit.
-- Request identity must remain backward compatible for default playback.
-- Finished sessions for the same seek generation may be reusable, but active
-  sessions for another generation must not be confused with the current one.
+- Client-player seek controls are not implemented in this lane.
+- Seek accuracy still depends on source keyframe distribution and FFmpeg input
+  seek behavior. The command now makes timestamp and segment-boundary behavior
+  explicit, but deeper source index/pre-roll optimization is a follow-on.
+- Runtime resource scheduling for multiple users and high seek churn remains a
+  separate playback scheduler lane.
 
 ## First Slice
 
@@ -60,3 +66,8 @@ request field while preserving current public behavior. It proves:
 - non-zero seek generation changes request identity and staging layout;
 - request variant identity round-trips the generation component.
 
+## Closeout
+
+The lane shipped generation identity, restart admission, FFmpeg seek command
+planning, and a public HLS playlist `start_position_ms` query. Default `0 ms`
+requests preserve existing identity and command behavior.

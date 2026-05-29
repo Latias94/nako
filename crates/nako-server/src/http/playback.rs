@@ -26,7 +26,9 @@ use nako_streaming::{
     DirectPlayRangeRequest, DirectPlayResponsePlan, DirectPlayResponseStatus,
     content_type_for_file_name, parse_http_range_header,
 };
-use nako_transcode::{HlsSegmentContainer, HlsVariantPolicy, RemuxContainer};
+use nako_transcode::{
+    HlsPlaybackGeneration, HlsSegmentContainer, HlsVariantPolicy, RemuxContainer,
+};
 use serde::Deserialize;
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
 use tokio_util::io::ReaderStream;
@@ -557,6 +559,7 @@ pub(super) async fn hls_playlist_source(
                 principal: renderer_transport.principal,
                 playback_session_id: renderer_transport.playback_session_id,
                 source_id,
+                playback_generation: query.playback_generation(),
             })
             .await?;
         let body = append_renderer_ticket_to_hls_playlist_segments(
@@ -587,6 +590,7 @@ pub(super) async fn hls_playlist_source(
                 principal: source_playback.principal,
                 playback_session_id,
                 source_id,
+                playback_generation: query.playback_generation(),
             })
             .await?
     } else {
@@ -597,6 +601,7 @@ pub(super) async fn hls_playlist_source(
                 source_id,
                 client,
                 preferences: query.preferences(),
+                playback_generation: query.playback_generation(),
             })
             .await?
     };
@@ -1466,6 +1471,7 @@ pub(super) struct HlsPlaybackQuery {
     supports_subtitles: Option<bool>,
     hls_variant_policy: Option<HlsVariantPolicy>,
     hls_segment_container: Option<HlsSegmentContainer>,
+    start_position_ms: Option<u64>,
     audio_stream: Option<u32>,
     subtitle_stream: Option<u32>,
     ticket: Option<String>,
@@ -1501,6 +1507,10 @@ impl HlsPlaybackQuery {
             remux_output_container: None,
             transcode_output_container: Some(nako_transcode::OutputContainer::Hls),
         }
+    }
+
+    fn playback_generation(&self) -> HlsPlaybackGeneration {
+        HlsPlaybackGeneration::from_start_position_ms(self.start_position_ms.unwrap_or_default())
     }
 }
 

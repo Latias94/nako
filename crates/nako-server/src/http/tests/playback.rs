@@ -2077,6 +2077,46 @@ async fn hls_playlist_and_segment_routes_work() {
 }
 
 #[tokio::test]
+async fn hls_playlist_route_accepts_seek_start_position() {
+    let (_temp, router, source, store) = router_with_hls_source().await;
+    let playlist_path = format!(
+        "/sources/{}/stream/hls/playlist.m3u8?start_position_ms=45250",
+        source.id
+    );
+
+    let playlist_response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&playlist_path)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(playlist_response.status(), StatusCode::OK);
+
+    let sessions = store
+        .list_transcode_sessions(
+            TranscodeSessionListFilter {
+                source_id: Some(source.id),
+                kind: Some(TranscodeSessionKind::HlsTranscode),
+                state: Some(TranscodeSessionState::Finished),
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+
+    assert!(sessions.iter().any(|session| {
+        session
+            .request_key
+            .contains("hls-playback-generation:v1%3Bstart_ms%3D45250")
+    }));
+}
+
+#[tokio::test]
 async fn hls_segment_route_serves_existing_running_segment() {
     let (temp, router, source, store) = router_with_hls_source().await;
     let active_dir = temp.path().join("active-hls");

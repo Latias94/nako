@@ -7,10 +7,10 @@ attention.
 ## Current Workstreams
 
 - [hls-seek-restart-lifecycle](hls-seek-restart-lifecycle/README.md):
-  active feature/refactor lane for making HLS playback seek-aware through
+  completed feature/refactor lane for making HLS playback seek-aware through
   generation identity, restart admission, FFmpeg seek command planning, and
-  manifest-backed artifact serving without mixing playback lifecycle policy into
-  transcode execution.
+  a public `start_position_ms` playlist query without mixing playback lifecycle
+  policy into transcode execution.
 - [playback-planner-transcode-seam-deepening](playback-planner-transcode-seam-deepening/README.md):
   completed fearless refactor lane for moving remux/HLS playback
   `TranscodeProfile` construction out of `nako-playback` and into

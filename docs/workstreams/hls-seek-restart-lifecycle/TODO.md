@@ -1,6 +1,6 @@
 # HLS Seek Restart Lifecycle - TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-29
 
 Task IDs use the `HSRL` prefix.
@@ -52,10 +52,13 @@ Task IDs use the `HSRL` prefix.
 
 ## M4 - Public Playback Integration And Closeout
 
-- [ ] HSRL-050 [owner=codex] [deps=HSRL-040] [scope=crates/nako-api,crates/nako-server,docs/workstreams/hls-seek-restart-lifecycle]
+- [x] HSRL-050 [owner=codex] [deps=HSRL-040] [scope=crates/nako-api,crates/nako-server,docs/workstreams/hls-seek-restart-lifecycle]
   Goal: Decide and implement the public/internal seek request surface, record
   closeout evidence, and split remaining client-player work.
   Validation: focused API/server gates plus closeout checks from
   `EVIDENCE_AND_GATES.md`
-  Evidence: DTO/server tests or explicit no-wire-change decision.
-  Handoff: DONE or split follow-ons.
+  Evidence: public HLS playlist route accepts `start_position_ms`, OpenAPI and
+  generated SDKs expose the query surface, and server tests prove the value
+  reaches HLS request identity.
+  Handoff: DONE. Workstream closed; client-player seek controls and UX are
+  follow-ons.

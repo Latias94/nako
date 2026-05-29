@@ -843,6 +843,10 @@ export interface RemuxPlaybackQuery extends PlaybackCapabilitiesQuery {
   output_container?: "mp4" | "mkv";
 }
 
+export interface HlsPlaybackQuery extends PlaybackCapabilitiesQuery {
+  start_position_ms?: number;
+}
+
 export interface ImageVariantQuery {
   width?: number;
   height?: number;
@@ -1055,8 +1059,8 @@ export class NakoClient {
     return this.requestRaw("HEAD", `/sources/${encodeURIComponent(sourceId)}/stream/remux`, { query });
   }
 
-  hlsPlaylist(sourceId: string, capabilities?: PlaybackCapabilitiesQuery): Promise<string> {
-    return this.requestText("GET", `/sources/${encodeURIComponent(sourceId)}/stream/hls/playlist.m3u8`, { query: capabilities });
+  hlsPlaylist(sourceId: string, query?: HlsPlaybackQuery): Promise<string> {
+    return this.requestText("GET", `/sources/${encodeURIComponent(sourceId)}/stream/hls/playlist.m3u8`, { query });
   }
 
   getSourceSubtitle(sourceId: string, streamIndex: number): Promise<string> {

@@ -243,6 +243,7 @@ async fn hls_playback_policy_denial_does_not_create_sessions_or_artifacts() {
             source_id: source.id,
             client: ClientPlaybackCapabilities::default(),
             preferences: PlaybackPreferenceContext::default(),
+            playback_generation: HlsPlaybackGeneration::default(),
         })
         .await
         .unwrap_err();

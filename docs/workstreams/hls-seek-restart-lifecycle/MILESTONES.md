@@ -1,6 +1,6 @@
 # HLS Seek Restart Lifecycle - Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-29
 
 ## M0 - Lane Opened
@@ -24,5 +24,6 @@ for seek flags, timestamp behavior, and segment output.
 
 ## M4 - Product Surface
 
-The public/internal seek request surface is decided, verified, and documented.
-
+The public HLS playlist route accepts `start_position_ms`; OpenAPI and
+generated SDKs expose the query surface; client-player seek controls are
+split as follow-on work.
