@@ -1,4 +1,8 @@
+use std::sync::Arc;
+
+use nako_core::{NakoError, Result};
 use nako_transcode::{HardwareAcceleration, TranscodeExecutionPolicy};
+use tokio::sync::{OwnedSemaphorePermit, Semaphore, TryAcquireError};
 
 use crate::config::NakoServerConfig;
 
@@ -47,7 +51,7 @@ impl PlaybackResourceWorkload {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum PlaybackResourceEnforcement {
     HostOwned,
-    LowLevelRuntimeGuard,
+    AdmissionPermit,
     NotYetEnforced,
 }
 
@@ -78,12 +82,8 @@ impl PlaybackResourceRequirement {
     }
 
     #[must_use]
-    pub(crate) const fn low_level_guard(class: PlaybackResourceClass, units: usize) -> Self {
-        Self::new(
-            class,
-            units,
-            PlaybackResourceEnforcement::LowLevelRuntimeGuard,
-        )
+    pub(crate) const fn admission_permit(class: PlaybackResourceClass, units: usize) -> Self {
+        Self::new(class, units, PlaybackResourceEnforcement::AdmissionPermit)
     }
 
     #[must_use]
@@ -123,7 +123,7 @@ impl PlaybackResourceDemand {
                 1,
             ));
         }
-        requirements.push(PlaybackResourceRequirement::low_level_guard(
+        requirements.push(PlaybackResourceRequirement::admission_permit(
             PlaybackResourceClass::RemuxProcess,
             1,
         ));
@@ -151,7 +151,7 @@ impl PlaybackResourceDemand {
         } else {
             PlaybackResourceClass::GpuTranscode
         };
-        requirements.push(PlaybackResourceRequirement::low_level_guard(
+        requirements.push(PlaybackResourceRequirement::admission_permit(
             transcode_class,
             1,
         ));
@@ -263,16 +263,24 @@ impl PlaybackResourceAdmissionDecision {
 #[derive(Clone, Debug)]
 pub(crate) struct PlaybackRuntimeAdmission {
     capacity: PlaybackResourceCapacity,
+    remux_processes: Arc<Semaphore>,
+    cpu_transcodes: Arc<Semaphore>,
+    gpu_transcodes: Arc<Semaphore>,
 }
 
 impl PlaybackRuntimeAdmission {
     #[must_use]
-    pub(crate) const fn new(capacity: PlaybackResourceCapacity) -> Self {
-        Self { capacity }
+    pub(crate) fn new(capacity: PlaybackResourceCapacity) -> Self {
+        Self {
+            capacity,
+            remux_processes: Arc::new(Semaphore::new(capacity.remux_processes)),
+            cpu_transcodes: Arc::new(Semaphore::new(capacity.cpu_transcodes)),
+            gpu_transcodes: Arc::new(Semaphore::new(capacity.gpu_transcodes)),
+        }
     }
 
     #[must_use]
-    pub(crate) const fn from_config(config: &NakoServerConfig) -> Self {
+    pub(crate) fn from_config(config: &NakoServerConfig) -> Self {
         Self::new(PlaybackResourceCapacity::from_config(config))
     }
 
@@ -288,6 +296,20 @@ impl PlaybackRuntimeAdmission {
             .collect();
 
         PlaybackResourceAdmissionDecision { demand, classes }
+    }
+
+    pub(crate) fn try_acquire(
+        &self,
+        demand: &PlaybackResourceDemand,
+    ) -> Result<PlaybackResourcePermitSet> {
+        let mut permits = Vec::new();
+        for requirement in demand.requirements().iter().filter(|requirement| {
+            requirement.enforcement == PlaybackResourceEnforcement::AdmissionPermit
+        }) {
+            permits.push(self.try_acquire_requirement(*requirement)?);
+        }
+
+        Ok(PlaybackResourcePermitSet { _permits: permits })
     }
 
     fn decide_requirement(
@@ -309,10 +331,19 @@ impl PlaybackRuntimeAdmission {
                     )
                 }
             }
-            PlaybackResourceEnforcement::LowLevelRuntimeGuard => (
-                PlaybackResourceAdmissionStatus::NotYetEnforced,
-                "currently guarded by the low-level runner",
-            ),
+            PlaybackResourceEnforcement::AdmissionPermit => {
+                if capacity.is_some_and(|capacity| capacity >= requirement.units) {
+                    (
+                        PlaybackResourceAdmissionStatus::Accepted,
+                        "host admission capacity is available",
+                    )
+                } else {
+                    (
+                        PlaybackResourceAdmissionStatus::Rejected,
+                        "host admission capacity is unavailable",
+                    )
+                }
+            }
             PlaybackResourceEnforcement::NotYetEnforced => (
                 PlaybackResourceAdmissionStatus::NotYetEnforced,
                 "host-owned admission is not implemented yet",
@@ -327,4 +358,66 @@ impl PlaybackRuntimeAdmission {
             reason,
         }
     }
+
+    fn try_acquire_requirement(
+        &self,
+        requirement: PlaybackResourceRequirement,
+    ) -> Result<PlaybackResourcePermit> {
+        let semaphore =
+            self.semaphore_for_class(requirement.class)
+                .ok_or_else(|| NakoError::InvalidInput {
+                    message: format!(
+                        "playback resource {} does not have an admission semaphore",
+                        requirement.class.as_str()
+                    ),
+                })?;
+        let units = u32::try_from(requirement.units).map_err(|_| NakoError::InvalidInput {
+            message: format!(
+                "playback resource {} requested too many units",
+                requirement.class.as_str()
+            ),
+        })?;
+        let permit = semaphore
+            .try_acquire_many_owned(units)
+            .map_err(|error| match error {
+                TryAcquireError::NoPermits => NakoError::Conflict {
+                    message: format!("playback resource {} is busy", requirement.class.as_str()),
+                },
+                TryAcquireError::Closed => NakoError::Provider {
+                    provider: "playback_resource_admission".to_owned(),
+                    message: format!(
+                        "playback resource {} admission semaphore was closed",
+                        requirement.class.as_str()
+                    ),
+                },
+            })?;
+
+        Ok(PlaybackResourcePermit {
+            class: requirement.class,
+            _permit: permit,
+        })
+    }
+
+    fn semaphore_for_class(&self, class: PlaybackResourceClass) -> Option<Arc<Semaphore>> {
+        match class {
+            PlaybackResourceClass::RemuxProcess => Some(self.remux_processes.clone()),
+            PlaybackResourceClass::CpuTranscode => Some(self.cpu_transcodes.clone()),
+            PlaybackResourceClass::GpuTranscode => Some(self.gpu_transcodes.clone()),
+            PlaybackResourceClass::RemoteStream
+            | PlaybackResourceClass::RemoteStage
+            | PlaybackResourceClass::HlsArtifactIo => None,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct PlaybackResourcePermitSet {
+    _permits: Vec<PlaybackResourcePermit>,
+}
+
+#[derive(Debug)]
+struct PlaybackResourcePermit {
+    #[allow(dead_code)]
+    class: PlaybackResourceClass,
+    _permit: OwnedSemaphorePermit,
 }

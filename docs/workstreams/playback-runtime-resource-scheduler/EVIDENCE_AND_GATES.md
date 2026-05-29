@@ -5,10 +5,11 @@ Last updated: 2026-05-29
 
 ## Smallest Current Repro
 
-The current proof is the PRRS-020 playback resource admission model.
+The current proof is the PRRS-030 HLS/remux permit enforcement path.
 
 ```bash
-cargo nextest run -p nako-server playback_resource --no-fail-fast
+cargo nextest run -p nako-server hls --no-fail-fast
+cargo nextest run -p nako-server playback --no-fail-fast
 ```
 
 ## Gate Set
@@ -77,6 +78,7 @@ note.
 | --- | --- | --- | --- | --- |
 | 2026-05-29 | PRRS-010 | Workstream opened | Passed | `python3 -m json.tool docs/workstreams/playback-runtime-resource-scheduler/WORKSTREAM.json`; `git diff --check -- docs/workstreams/playback-runtime-resource-scheduler docs/architecture/PLAYBACK.md docs/architecture/WORKSTREAM_LINKS.md docs/workstreams/README.md`. |
 | 2026-05-29 | PRRS-020 | Playback resource admission model | Passed | Added `crates/nako-server/src/app/playback/resource.rs` with direct/remux/HLS demand classes and decision statuses for accepted, rejected, and not-yet-enforced resources. Fresh gates: `cargo nextest run -p nako-server playback_resource --no-fail-fast`; `cargo nextest run -p nako-server playback --no-fail-fast`; `cargo fmt --all -- --check`; `python3 -m json.tool docs/workstreams/playback-runtime-resource-scheduler/WORKSTREAM.json`; `git diff --check`. `review-workstream` self-review found no blocking or important findings; remaining permit-lifetime wiring is PRRS-030 scope. Full workspace test was not run because PRRS-020 is scoped to `nako-server` playback internals and workstream docs. |
+| 2026-05-29 | PRRS-030 | HLS/remux admission permit enforcement | Passed | Added host-owned admission semaphores and wired permit acquisition into HLS/remux start paths, including browser playback preflight paths. Fresh gates: `cargo nextest run -p nako-server hls --no-fail-fast` (52 passed, 407 skipped); `cargo nextest run -p nako-server playback --no-fail-fast` (130 passed, 329 skipped); `cargo fmt --all -- --check`; `python3 -m json.tool docs/workstreams/playback-runtime-resource-scheduler/WORKSTREAM.json`; `git diff --check`. `review-workstream` self-review found no blocking or important findings after preserving original admission errors on HLS source-input release failures. Full workspace test was not run because PRRS-030 is scoped to `nako-server` playback runtime paths and workstream docs. |
 
 ## Evidence Anchors
 

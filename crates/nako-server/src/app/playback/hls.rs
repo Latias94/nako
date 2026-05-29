@@ -26,6 +26,7 @@ use super::{
     HlsOutputLayout, HlsSourceDisposition, HlsSourceOutput, PlaybackSessionCancellationRegistry,
     map_hls_runner_error, path_exists, persist_session_failure,
     record_playback_session_finished_event,
+    resource::{PlaybackResourceDemand, PlaybackResourcePermitSet, PlaybackRuntimeAdmission},
 };
 
 #[derive(Clone, Debug)]
@@ -148,13 +149,26 @@ impl HlsAppService {
         execution_policy: TranscodeExecutionPolicy,
         playback_generation: HlsPlaybackGeneration,
         request_identity: TranscodeRequestIdentity,
+        resource_admission: &PlaybackRuntimeAdmission,
+        resource_demand: PlaybackResourceDemand,
+        resource_permit: Option<PlaybackResourcePermitSet>,
     ) -> Result<HlsSourceOutput> {
         let key = HlsRequestKey {
             source_id: source.id,
             request_identity,
         };
 
-        match self.reserve(sessions, &key, &layout).await? {
+        match self
+            .reserve(
+                sessions,
+                &key,
+                &layout,
+                resource_admission,
+                &resource_demand,
+                resource_permit,
+            )
+            .await?
+        {
             HlsRequestAdmission::ReuseExisting { session } => Ok(HlsSourceOutput {
                 source,
                 decision,
@@ -163,7 +177,7 @@ impl HlsAppService {
                 disposition: HlsSourceDisposition::ReusedExisting,
                 session,
             }),
-            HlsRequestAdmission::StartNew { session } => {
+            HlsRequestAdmission::StartNew { session, permit } => {
                 let result = self
                     .run_reserved(
                         sessions,
@@ -175,6 +189,7 @@ impl HlsAppService {
                         track_selection,
                         execution_policy,
                         playback_generation,
+                        permit,
                     )
                     .await;
                 self.release(&key).await;
@@ -183,6 +198,7 @@ impl HlsAppService {
             HlsRequestAdmission::SupersedeAndStart {
                 session,
                 superseded,
+                permit,
             } => {
                 debug!(
                     source_id = %source.id,
@@ -200,6 +216,7 @@ impl HlsAppService {
                         track_selection,
                         execution_policy,
                         playback_generation,
+                        permit,
                     )
                     .await;
                 self.release(&key).await;
@@ -213,6 +230,9 @@ impl HlsAppService {
         sessions: &dyn super::PlaybackRuntimeStore,
         key: &HlsRequestKey,
         layout: &HlsOutputLayout,
+        resource_admission: &PlaybackRuntimeAdmission,
+        resource_demand: &PlaybackResourceDemand,
+        resource_permit: Option<PlaybackResourcePermitSet>,
     ) -> Result<HlsRequestAdmission> {
         let request_key = key.persisted_request_key();
         if let Some(active) = sessions
@@ -267,6 +287,17 @@ impl HlsAppService {
             }
         }
 
+        let permit = match resource_permit {
+            Some(permit) => permit,
+            None => match resource_admission.try_acquire(resource_demand) {
+                Ok(permit) => permit,
+                Err(error) => {
+                    self.release(key).await;
+                    return Err(error);
+                }
+            },
+        };
+
         let session = sessions
             .create_transcode_session(NewTranscodeSession {
                 id: TranscodeSessionId::new(),
@@ -281,10 +312,13 @@ impl HlsAppService {
             .await;
 
         match session {
-            Ok(session) if superseded.is_empty() => Ok(HlsRequestAdmission::StartNew { session }),
+            Ok(session) if superseded.is_empty() => {
+                Ok(HlsRequestAdmission::StartNew { session, permit })
+            }
             Ok(session) => Ok(HlsRequestAdmission::SupersedeAndStart {
                 session,
                 superseded,
+                permit,
             }),
             Err(error) => {
                 self.release(key).await;
@@ -356,6 +390,7 @@ impl HlsAppService {
         track_selection: TranscodeTrackSelection,
         execution_policy: TranscodeExecutionPolicy,
         playback_generation: HlsPlaybackGeneration,
+        _permit: PlaybackResourcePermitSet,
     ) -> Result<HlsSourceOutput> {
         let session_id = persisted_session.id;
         let cancel = CancellationToken::new();
@@ -474,14 +509,16 @@ impl HlsRequestKey {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Debug)]
 enum HlsRequestAdmission {
     StartNew {
         session: TranscodeSessionRecord,
+        permit: PlaybackResourcePermitSet,
     },
     SupersedeAndStart {
         session: TranscodeSessionRecord,
         superseded: Vec<TranscodeSessionRecord>,
+        permit: PlaybackResourcePermitSet,
     },
     ReuseExisting {
         session: TranscodeSessionRecord,

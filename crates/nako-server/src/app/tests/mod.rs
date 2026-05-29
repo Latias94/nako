@@ -29,8 +29,9 @@ use nako_core::{
     PlaybackPolicyRepository, PlaybackSessionListFilter, PlaybackSessionRepository,
     ProviderRawResponse, RoleAssignment, StagingManifestId, StagingManifestRepository,
     StagingPurpose, StagingState, TranscodeFailureCategory, TranscodeSessionId,
-    TranscodeSessionKind, TranscodeSessionListFilter, TranscodeSessionRepository,
-    TranscodeSessionState, User, UserId, UserPrincipalId, UserRole, UserStatus,
+    TranscodeSessionKind, TranscodeSessionListFilter, TranscodeSessionRecord,
+    TranscodeSessionRepository, TranscodeSessionState, User, UserId, UserPrincipalId, UserRole,
+    UserStatus,
 };
 use nako_core::{ExternalProvider, MetadataMatchKind, MetadataProviderAttemptStatus};
 use nako_library::{LibraryScanRequest, LibraryScanner};

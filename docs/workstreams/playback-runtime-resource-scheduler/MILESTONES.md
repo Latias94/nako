@@ -36,7 +36,7 @@ Primary gates:
 
 ## M2 — HLS And Remux Permit Enforcement
 
-Status: Pending
+Status: Completed
 
 Exit criteria:
 

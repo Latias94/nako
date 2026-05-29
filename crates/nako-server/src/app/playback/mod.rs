@@ -1470,7 +1470,7 @@ impl PlaybackAppService {
         request: RemuxSourceRequest,
     ) -> Result<RemuxSourceOutput> {
         let context = self.remux_source_context(&request, None).await?;
-        self.run_remux_source_context(context).await
+        self.run_remux_source_context(context, None).await
     }
 
     async fn start_remux_source_with_policy(
@@ -1509,13 +1509,20 @@ impl PlaybackAppService {
             }
         }
 
+        let resource_permit = self
+            .resource_admission
+            .try_acquire(&context.resource_demand())?;
         let task_app = self.clone();
         let task_request = request.clone();
         let task_effective_policy = effective_policy;
         self.runtime
             .spawn("playback_remux_start", "playback.remux", async move {
                 if let Err(error) = task_app
-                    .remux_source_with_policy(task_request, task_effective_policy)
+                    .remux_source_with_policy(
+                        task_request,
+                        task_effective_policy,
+                        Some(resource_permit),
+                    )
                     .await
                 {
                     warn!(error = %error, "background remux start failed");
@@ -1529,11 +1536,13 @@ impl PlaybackAppService {
         &self,
         request: RemuxSourceRequest,
         effective_policy: Option<EffectivePlaybackPolicy>,
+        resource_permit: Option<resource::PlaybackResourcePermitSet>,
     ) -> Result<RemuxSourceOutput> {
         let context = self
             .remux_source_context(&request, effective_policy)
             .await?;
-        self.run_remux_source_context(context).await
+        self.run_remux_source_context(context, resource_permit)
+            .await
     }
 
     pub(crate) async fn wait_for_remux_start(
@@ -1553,7 +1562,9 @@ impl PlaybackAppService {
     async fn run_remux_source_context(
         &self,
         context: RemuxSourceContext,
+        resource_permit: Option<resource::PlaybackResourcePermitSet>,
     ) -> Result<RemuxSourceOutput> {
+        let resource_demand = context.resource_demand();
         let input = self
             .input
             .source_input_for_ffmpeg(&context.source, &context.uri, &context.backend)
@@ -1568,6 +1579,9 @@ impl PlaybackAppService {
                 context.output_path,
                 context.output_container,
                 context.request_identity,
+                &self.resource_admission,
+                resource_demand,
+                resource_permit,
             )
             .await;
         match result {
@@ -1765,6 +1779,7 @@ impl PlaybackAppService {
         ));
         let target = playback_target_for_client(request.client.clone());
         let target_profile = PlaybackTargetProfile::from_target(&target, context.clone());
+        let remote_input = target_profile.storage.remote;
         let effective_policy = effective_policy
             .into()
             .unwrap_or_else(|| default_playback_policy_for_source(&source));
@@ -1805,6 +1820,7 @@ impl PlaybackAppService {
             output_container,
             request_identity,
             request_key,
+            remote_input,
         })
     }
 
@@ -1837,6 +1853,7 @@ impl PlaybackAppService {
         context.preferences.transcode_output_container = Some(PlaybackTranscodeContainer::Hls);
         let target = playback_target_for_client(request.client.clone());
         let target_profile = PlaybackTargetProfile::from_target(&target, context.clone());
+        let remote_input = target_profile.storage.remote;
         let effective_policy =
             effective_policy.unwrap_or_else(|| default_playback_policy_for_source(&source));
         let decision = self.planner.plan(PlaybackPlanningRequest {
@@ -1915,6 +1932,7 @@ impl PlaybackAppService {
             playback_generation: request.playback_generation,
             request_identity: request_identity.clone(),
             request_key: request_identity.persisted_request_key().to_owned(),
+            remote_input,
         })
     }
 
@@ -1923,14 +1941,17 @@ impl PlaybackAppService {
             .input
             .source_input_for_ffmpeg(&context.source, &context.uri, &context.backend)
             .await?;
-        self.run_hls_source_context_with_input(context, input).await
+        self.run_hls_source_context_with_input(context, input, None)
+            .await
     }
 
     async fn run_hls_source_context_with_input(
         &self,
         context: HlsSourceContext,
         input: FfmpegSourceInput,
+        resource_permit: Option<resource::PlaybackResourcePermitSet>,
     ) -> Result<HlsSourceOutput> {
+        let resource_demand = context.resource_demand();
         let result = self
             .hls
             .run(
@@ -1943,6 +1964,9 @@ impl PlaybackAppService {
                 context.execution_policy,
                 context.playback_generation,
                 context.request_identity,
+                &self.resource_admission,
+                resource_demand,
+                resource_permit,
             )
             .await;
         match result {
@@ -2005,12 +2029,27 @@ impl PlaybackAppService {
             .input
             .source_input_for_ffmpeg(&context.source, &context.uri, &context.backend)
             .await?;
+        let resource_permit = match self
+            .resource_admission
+            .try_acquire(&context.resource_demand())
+        {
+            Ok(permit) => permit,
+            Err(error) => {
+                if let Err(release_error) = self.input.release_source_input(input).await {
+                    warn!(
+                        error = %release_error,
+                        "failed to release HLS source input after playback resource admission rejection",
+                    );
+                }
+                return Err(error);
+            }
+        };
         let wait_context = context.clone();
         let task_app = self.clone();
         self.runtime
             .spawn("playback_hls_start", "playback.hls", async move {
                 if let Err(error) = task_app
-                    .run_hls_source_context_with_input(context, input)
+                    .run_hls_source_context_with_input(context, input, Some(resource_permit))
                     .await
                 {
                     warn!(error = %error, "background hls start failed");
@@ -2514,9 +2553,14 @@ struct HlsSourceContext {
     playback_generation: HlsPlaybackGeneration,
     request_identity: TranscodeRequestIdentity,
     request_key: String,
+    remote_input: bool,
 }
 
 impl HlsSourceContext {
+    fn resource_demand(&self) -> PlaybackResourceDemand {
+        PlaybackResourceDemand::hls(self.remote_input, self.execution_policy)
+    }
+
     fn playlist_ready(self, session: TranscodeSessionRecord) -> HlsPlaylistReadyOutput {
         HlsPlaylistReadyOutput {
             source: self.source,
@@ -2545,9 +2589,14 @@ struct RemuxSourceContext {
     output_container: RemuxContainer,
     request_identity: TranscodeRequestIdentity,
     request_key: String,
+    remote_input: bool,
 }
 
 impl RemuxSourceContext {
+    fn resource_demand(&self) -> PlaybackResourceDemand {
+        PlaybackResourceDemand::remux(self.remote_input)
+    }
+
     fn session_start(self, session: TranscodeSessionRecord) -> RemuxSessionStart {
         RemuxSessionStart {
             source: self.source,

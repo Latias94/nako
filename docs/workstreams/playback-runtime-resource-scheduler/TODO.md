@@ -89,8 +89,8 @@ Handoff:
 
 ### PRRS-030 — Acquire permits for HLS and remux start paths
 
-Status: Pending
-Owner: unassigned
+Status: Completed
+Owner: codex
 Depends on: PRRS-020
 
 Scope:
@@ -121,13 +121,21 @@ Review:
 
 Evidence:
 
-- Admission pressure tests for HLS/remux.
-- Existing HLS and playback route tests.
+- `crates/nako-server/src/app/playback/resource.rs`
+- `crates/nako-server/src/app/playback/hls.rs`
+- `crates/nako-server/src/app/playback/remux.rs`
+- `crates/nako-server/src/app/tests/playback.rs`
+- `docs/workstreams/playback-runtime-resource-scheduler/EVIDENCE_AND_GATES.md`
 
 Handoff:
 
-- Keep permit lifetime tied to the consuming runtime task or process-backed
-  response. Do not release permits immediately after spawning.
+- DONE: HLS and remux start paths acquire admission permits before launching
+  process-backed runtime work.
+- DONE: Existing active/completed session reuse does not double-acquire
+  process permits.
+- DONE: Permit lifetime is tied to the consuming runtime task, including
+  preflight browser playback routes that return before background work exits.
+- The next task is PRRS-040.
 
 ### PRRS-040 — Surface runtime pressure in Admin diagnostics
 
