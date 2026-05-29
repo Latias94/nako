@@ -1461,7 +1461,7 @@ mod tests {
     }
 
     #[test]
-    fn playback_target_profile_builds_hls_execution_policy_from_runtime_acceleration() {
+    fn playback_target_profile_keeps_transcode_planning_facts() {
         let profile = PlaybackTargetProfile::from_capabilities(
             &ClientPlaybackCapabilities::default(),
             PlaybackSelectionContext {
@@ -1474,45 +1474,22 @@ mod tests {
                 },
             },
         );
-        let plan = nako_transcode::TranscodePlan {
-            input_locator: "local:///demo.mkv".to_owned(),
-            output_container: nako_transcode::OutputContainer::Hls,
-            video_codec: Some("h264".to_owned()),
-            audio_codec: Some("aac".to_owned()),
-        };
-
-        let hls_profile = profile
-            .try_hls_transcode_profile(
-                &plan,
-                nako_transcode::TranscodeExecutionPolicy::hls_single_variant(
-                    nako_transcode::TranscodeAccelerationPlan::for_selected_hardware(
-                        nako_transcode::HardwareAcceleration::Nvenc,
-                    ),
-                    profile.track_selection(),
-                    nako_transcode::TranscodeOutputConstraints {
-                        max_video_bitrate: profile.preferences.max_video_bitrate,
-                        max_width: None,
-                        max_height: None,
-                        prefer_hdr: profile.preferences.prefer_hdr,
-                    },
-                ),
-            )
-            .unwrap();
 
         assert_eq!(
-            hls_profile.execution_policy.acceleration.encode.accelerator,
-            nako_transcode::HardwareAcceleration::Nvenc
+            profile.track_selection(),
+            nako_transcode::TranscodeTrackSelection {
+                audio_stream: None,
+                subtitle_stream: Some(2),
+            }
         );
         assert_eq!(
-            hls_profile
-                .execution_policy
-                .output_constraints
-                .max_video_bitrate,
+            profile.output_constraints().max_video_bitrate,
             Some(8_000_000)
         );
+        assert_eq!(profile.output_constraints().prefer_hdr, Some(true));
         assert_eq!(
-            hls_profile.execution_policy.subtitle_strategy,
-            nako_transcode::TranscodeSubtitleStrategy::OmitSelected
+            profile.hls_output_requirement(),
+            nako_transcode::HlsOutputRequirement::default()
         );
     }
 

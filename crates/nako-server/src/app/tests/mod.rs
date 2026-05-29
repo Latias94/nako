@@ -41,8 +41,10 @@ use nako_playback::{
 };
 use nako_streaming::{DirectPlayRangeRequest, RequestedByteRange};
 use nako_transcode::{
-    HardwareAcceleration, HardwareAccelerationFallback, OutputContainer, RemuxContainer,
-    TranscodePlan, TranscodeRequestIdentity,
+    HardwareAcceleration, HardwareAccelerationFallback, OutputContainer, PlaybackHlsProfileRequest,
+    PlaybackRemuxProfileRequest, RemuxContainer, TranscodeAccelerationPlan,
+    TranscodeExecutionPolicy, TranscodeOutputConstraints, TranscodePlan, TranscodeRequestIdentity,
+    build_playback_hls_profile, build_playback_remux_profile,
 };
 use nako_vfs::{
     ByteRange, LocalFsBackend, ObjectKind, ObjectMetadata, ReadRange, ReadStream, StageRequest,
@@ -133,12 +135,17 @@ fn local_remux_request_identity(
         },
     );
 
-    profile
-        .remux_transcode_profile(container)
-        .identity()
-        .bind_source(&nako_transcode::TranscodeSourceIdentity::from_media_source(
-            source,
-        ))
+    build_playback_remux_profile(PlaybackRemuxProfileRequest {
+        output_container: container,
+        track_selection: profile.track_selection(),
+        remote_input: profile.storage.remote,
+        playback_profile_key: profile.identity_key(),
+    })
+    .unwrap()
+    .identity()
+    .bind_source(&nako_transcode::TranscodeSourceIdentity::from_media_source(
+        source,
+    ))
 }
 
 fn local_hls_request_identity(
@@ -165,19 +172,23 @@ fn local_hls_request_identity(
         audio_codec: Some("aac".to_owned()),
     };
 
-    profile
-        .hls_transcode_profile(
-            &plan,
-            nako_transcode::TranscodeExecutionPolicy::hls_single_variant(
-                nako_transcode::TranscodeAccelerationPlan::for_selected_hardware(acceleration),
-                profile.track_selection(),
-                nako_transcode::TranscodeOutputConstraints::default(),
-            ),
-        )
-        .identity()
-        .bind_source(&nako_transcode::TranscodeSourceIdentity::from_media_source(
-            source,
-        ))
+    build_playback_hls_profile(PlaybackHlsProfileRequest {
+        plan,
+        execution_policy: TranscodeExecutionPolicy::hls_single_variant(
+            TranscodeAccelerationPlan::for_selected_hardware(acceleration),
+            profile.track_selection(),
+            TranscodeOutputConstraints::default(),
+        ),
+        hls_output: profile.hls_output_requirement(),
+        track_selection: profile.track_selection(),
+        remote_input: profile.storage.remote,
+        playback_profile_key: profile.identity_key(),
+    })
+    .unwrap()
+    .identity()
+    .bind_source(&nako_transcode::TranscodeSourceIdentity::from_media_source(
+        source,
+    ))
 }
 
 struct RemotePlaybackBackend {
