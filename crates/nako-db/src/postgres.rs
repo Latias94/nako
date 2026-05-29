@@ -22,6 +22,7 @@ mod managed_artwork;
 mod metadata_catalog;
 mod playback_runtime;
 mod renderer_runtime;
+mod user_playlist;
 mod vfs_staging;
 
 const POSTGRES_MAX_CONNECTIONS: u32 = 5;

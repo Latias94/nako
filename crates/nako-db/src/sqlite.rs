@@ -31,6 +31,7 @@ pub(crate) mod search;
 pub(crate) mod source_duplicate;
 pub(crate) mod staging;
 pub(crate) mod user_playback;
+pub(crate) mod user_playlist;
 pub(crate) mod vfs_cache;
 pub(crate) mod webhooks;
 

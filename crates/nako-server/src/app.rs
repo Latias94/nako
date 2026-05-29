@@ -51,6 +51,7 @@ mod startup;
 mod storage;
 mod subtitle_sidecar;
 pub(crate) mod user_playback;
+pub(crate) mod user_playlist;
 mod webhooks;
 
 use acquisition_intake::AcquisitionIntakeAppService;
@@ -100,6 +101,7 @@ use staging::cleanup_expired_staging_inputs;
 use startup::ServerStartupReport;
 use storage::StorageDiagnosticsAppService;
 use user_playback::UserPlaybackAppService;
+use user_playlist::UserPlaylistAppService;
 use webhooks::WebhookAppService;
 
 #[cfg(test)]
@@ -277,6 +279,11 @@ impl NakoApp {
     #[must_use]
     pub(crate) fn user_playback(&self) -> UserPlaybackAppService {
         self.services().user_playback.clone()
+    }
+
+    #[must_use]
+    pub(crate) fn user_playlist(&self) -> UserPlaylistAppService {
+        self.services().user_playlist.clone()
     }
 
     pub(crate) fn runtime_diagnostics(&self) -> RuntimeSupervisorDiagnostics {

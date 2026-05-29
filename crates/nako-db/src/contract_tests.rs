@@ -48,29 +48,31 @@ use nako_core::{
     NewJob, NewManagedArtworkArtifact, NewManagedArtworkIngest, NewManagedImportArtifact,
     NewManagedImportPromotionApply, NewMetadataProviderAttempt, NewNfoSidecarApply, NewOutboxEvent,
     NewPlaybackSession, NewRendererCommand, NewRendererSession, NewStagingManifestRecord,
-    NewTranscodeSession, NewVfsCacheFailure, NewWebhookDeliveryAttempt, NewWebhookEndpoint,
-    NfoImportPersistenceCommit, NfoSidecarApplyId, NfoSidecarApplyOperationKind,
-    NfoSidecarApplyRepository, NfoSidecarApplyState, OutboxEventListFilter, OutboxEventStatus,
-    PageRequest, Person, PersonId, PlaybackPermissionPolicy, PlaybackPolicy, PlaybackPolicyFilter,
-    PlaybackPolicyRepository, PlaybackPolicyScope, PlaybackSessionHeartbeat, PlaybackSessionId,
-    PlaybackSessionListFilter, PlaybackSessionMode, PlaybackSessionRepository,
-    PlaybackSessionState, PlaybackTargetKind, PlaybackTargetNetworkScope,
-    PlaybackTargetTransportAuth, ProviderMapping, ProviderMappingId, ProviderMappingRepository,
-    ProviderMappingStatus, ProviderRawResponse, ProviderSubject, ProviderSubjectId,
-    ProviderSubjectKind, RecoverExpiredJobLeases, RendererCommandCompletion, RendererCommandId,
-    RendererCommandListFilter, RendererCommandState, RendererControlCapabilities,
-    RendererControlCommand, RendererSessionHeartbeat, RendererSessionId, RendererSessionListFilter,
-    RendererSessionRepository, RendererSessionState, RequestJobCancellation, RoleAssignment,
-    ScanRepository, ScanSnapshotId, ScanStatus, SourceDuplicateEvidenceKind,
-    SourceDuplicateRelationship, SourceDuplicateRelationshipId, SourceDuplicateRelationshipStatus,
-    SourceDuplicateRepository, SourceState, StagingManifestId, StagingManifestRepository,
-    StagingPurpose, StagingState, Studio, StudioId, Tag, TagId, TranscodeFailureCategory,
-    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter,
+    NewTranscodeSession, NewUserPlaylist, NewVfsCacheFailure, NewWebhookDeliveryAttempt,
+    NewWebhookEndpoint, NfoImportPersistenceCommit, NfoSidecarApplyId,
+    NfoSidecarApplyOperationKind, NfoSidecarApplyRepository, NfoSidecarApplyState,
+    OutboxEventListFilter, OutboxEventStatus, PageRequest, Person, PersonId,
+    PlaybackPermissionPolicy, PlaybackPolicy, PlaybackPolicyFilter, PlaybackPolicyRepository,
+    PlaybackPolicyScope, PlaybackSessionHeartbeat, PlaybackSessionId, PlaybackSessionListFilter,
+    PlaybackSessionMode, PlaybackSessionRepository, PlaybackSessionState, PlaybackTargetKind,
+    PlaybackTargetNetworkScope, PlaybackTargetTransportAuth, ProviderMapping, ProviderMappingId,
+    ProviderMappingRepository, ProviderMappingStatus, ProviderRawResponse, ProviderSubject,
+    ProviderSubjectId, ProviderSubjectKind, RecoverExpiredJobLeases, RendererCommandCompletion,
+    RendererCommandId, RendererCommandListFilter, RendererCommandState,
+    RendererControlCapabilities, RendererControlCommand, RendererSessionHeartbeat,
+    RendererSessionId, RendererSessionListFilter, RendererSessionRepository, RendererSessionState,
+    RequestJobCancellation, RoleAssignment, ScanRepository, ScanSnapshotId, ScanStatus,
+    SourceDuplicateEvidenceKind, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
+    SourceDuplicateRelationshipStatus, SourceDuplicateRepository, SourceState, StagingManifestId,
+    StagingManifestRepository, StagingPurpose, StagingState, Studio, StudioId, Tag, TagId,
+    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter,
     TranscodeSessionRepository, TranscodeSessionState, User, UserId, UserInvitationId,
     UserInvitationRecord, UserInvitationStatus, UserPlaybackStateRepository,
-    UserPlaybackStateWrite, UserPrincipalId, UserRole, UserSessionId, UserSessionRecord,
-    UserStatus, VfsCacheOperation, VfsCacheRepository, VfsCachedListing, VfsCachedObject,
-    VfsCachedObjectKind, WebhookDeliveryStatus, WebhookEndpointStatus, WebhookRepository,
+    UserPlaybackStateWrite, UserPlaylistId, UserPlaylistItemRemoval, UserPlaylistItemWrite,
+    UserPlaylistReorder, UserPlaylistRepository, UserPrincipalId, UserRole, UserSessionId,
+    UserSessionRecord, UserStatus, VfsCacheOperation, VfsCacheRepository, VfsCachedListing,
+    VfsCachedObject, VfsCachedObjectKind, WebhookDeliveryStatus, WebhookEndpointStatus,
+    WebhookRepository,
 };
 use nako_search::{SearchIndex, SearchQuery};
 
@@ -300,6 +302,7 @@ trait PlaybackRuntimeContractBackend:
     + PlaybackSessionRepository
     + TranscodeSessionRepository
     + UserPlaybackStateRepository
+    + UserPlaylistRepository
 {
 }
 
@@ -310,6 +313,7 @@ impl<T> PlaybackRuntimeContractBackend for T where
         + PlaybackSessionRepository
         + TranscodeSessionRepository
         + UserPlaybackStateRepository
+        + UserPlaylistRepository
 {
 }
 
@@ -2563,6 +2567,173 @@ where
             .await
             .unwrap(),
         vec![second_state, updated_first]
+    );
+}
+
+async fn user_playlist_membership_is_principal_scoped_ordered_and_idempotent_contract<S>(store: S)
+where
+    S: PlaybackRuntimeContractBackend,
+{
+    let library = seed_contract_library(&store).await;
+    let first_source = seed_contract_media_item_with_source(
+        &store,
+        library.id,
+        "First Playlist Item",
+        "local:///Contract Movies/First Playlist Item.mkv",
+    )
+    .await;
+    let second_source = seed_contract_media_item_with_source(
+        &store,
+        library.id,
+        "Second Playlist Item",
+        "local:///Contract Movies/Second Playlist Item.mkv",
+    )
+    .await;
+    let principal = UserPrincipalId::local_admin();
+    let other_principal = UserPrincipalId::new("contract-second-profile").unwrap();
+    let playlist_id = UserPlaylistId::new();
+
+    let created = store
+        .create_user_playlist(NewUserPlaylist {
+            id: playlist_id,
+            principal_id: principal.clone(),
+            name: "Weekend queue".to_owned(),
+            created_at_ms: 1_000,
+        })
+        .await
+        .unwrap();
+    assert_eq!(created.version, 1);
+    assert_eq!(created.item_count, 0);
+
+    let first_add = store
+        .add_user_playlist_item(UserPlaylistItemWrite {
+            playlist_id,
+            principal_id: principal.clone(),
+            item_id: first_source.item_id,
+            position: None,
+            expected_version: Some(created.version),
+            added_at_ms: 1_100,
+            updated_at_ms: 1_100,
+        })
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(first_add.version, 2);
+    assert_eq!(first_add.item_count, 1);
+
+    let duplicate_add = store
+        .add_user_playlist_item(UserPlaylistItemWrite {
+            playlist_id,
+            principal_id: principal.clone(),
+            item_id: first_source.item_id,
+            position: None,
+            expected_version: Some(first_add.version),
+            added_at_ms: 1_200,
+            updated_at_ms: 1_200,
+        })
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(duplicate_add.version, first_add.version);
+    assert_eq!(duplicate_add.item_count, 1);
+
+    let second_add = store
+        .add_user_playlist_item(UserPlaylistItemWrite {
+            playlist_id,
+            principal_id: principal.clone(),
+            item_id: second_source.item_id,
+            position: Some(0),
+            expected_version: Some(duplicate_add.version),
+            added_at_ms: 1_300,
+            updated_at_ms: 1_300,
+        })
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(second_add.version, 3);
+    assert_eq!(second_add.item_count, 2);
+
+    assert_eq!(
+        store
+            .list_user_playlist_items(&principal, playlist_id, PageRequest::first_page())
+            .await
+            .unwrap()
+            .iter()
+            .map(|item| (item.item_id, item.position))
+            .collect::<Vec<_>>(),
+        vec![(second_source.item_id, 0), (first_source.item_id, 1)]
+    );
+    assert_eq!(
+        store
+            .get_user_playlist(&other_principal, playlist_id)
+            .await
+            .unwrap(),
+        None
+    );
+
+    let reordered = store
+        .replace_user_playlist_item_order(UserPlaylistReorder {
+            playlist_id,
+            principal_id: principal.clone(),
+            item_ids: vec![first_source.item_id, second_source.item_id],
+            expected_version: Some(second_add.version),
+            updated_at_ms: 1_400,
+        })
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(reordered.version, 4);
+    assert_eq!(
+        store
+            .list_user_playlist_items(&principal, playlist_id, PageRequest::first_page())
+            .await
+            .unwrap()
+            .iter()
+            .map(|item| (item.item_id, item.position))
+            .collect::<Vec<_>>(),
+        vec![(first_source.item_id, 0), (second_source.item_id, 1)]
+    );
+
+    assert!(
+        store
+            .replace_user_playlist_item_order(UserPlaylistReorder {
+                playlist_id,
+                principal_id: principal.clone(),
+                item_ids: vec![second_source.item_id, first_source.item_id],
+                expected_version: Some(1),
+                updated_at_ms: 1_500,
+            })
+            .await
+            .unwrap()
+            .is_none()
+    );
+
+    let after_remove = store
+        .remove_user_playlist_item(UserPlaylistItemRemoval {
+            playlist_id,
+            principal_id: principal.clone(),
+            item_id: second_source.item_id,
+            expected_version: Some(reordered.version),
+            updated_at_ms: 1_600,
+        })
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(after_remove.version, 5);
+    assert_eq!(after_remove.item_count, 1);
+
+    assert!(
+        store
+            .delete_user_playlist(&principal, playlist_id)
+            .await
+            .unwrap()
+    );
+    assert_eq!(
+        store
+            .list_user_playlist_items(&principal, playlist_id, PageRequest::first_page())
+            .await
+            .unwrap(),
+        Vec::new()
     );
 }
 
@@ -7010,6 +7181,16 @@ database_contract_pair!(
         "user_playback_state_is_principal_scoped_and_continue_watching"
     ),
     contract = user_playback_state_is_principal_scoped_and_continue_watching_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_playback_runtime_contract_user_playlist_membership_is_principal_scoped_ordered_and_idempotent,
+    postgres = postgres_playback_runtime_contract_user_playlist_membership_is_principal_scoped_ordered_and_idempotent,
+    case = ContractCase::migrated(
+        ContractFamily::PlaybackRuntime,
+        "user_playlist_membership_is_principal_scoped_ordered_and_idempotent"
+    ),
+    contract = user_playlist_membership_is_principal_scoped_ordered_and_idempotent_contract,
 );
 
 database_contract_pair!(

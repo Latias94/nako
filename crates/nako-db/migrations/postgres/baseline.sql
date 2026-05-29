@@ -563,6 +563,39 @@ CREATE INDEX IF NOT EXISTS user_playback_states_continue_watching_idx
 CREATE INDEX IF NOT EXISTS user_playback_states_source_id_idx
     ON user_playback_states(source_id);
 
+CREATE TABLE IF NOT EXISTS user_playlists (
+    id uuid PRIMARY KEY NOT NULL,
+    principal_id text NOT NULL,
+    name text NOT NULL,
+    visibility text NOT NULL DEFAULT 'private',
+    created_at_ms bigint NOT NULL,
+    updated_at_ms bigint NOT NULL,
+    version bigint NOT NULL DEFAULT 1,
+    created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+    updated_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+    CHECK (length(principal_id) > 0),
+    CHECK (length(name) > 0),
+    CHECK (visibility IN ('private')),
+    CHECK (version >= 1)
+);
+
+CREATE INDEX IF NOT EXISTS user_playlists_principal_idx
+    ON user_playlists(principal_id, updated_at_ms DESC, id);
+
+CREATE TABLE IF NOT EXISTS user_playlist_items (
+    playlist_id uuid NOT NULL REFERENCES user_playlists(id) ON DELETE CASCADE,
+    item_id uuid NOT NULL REFERENCES media_items(id) ON DELETE CASCADE,
+    position bigint NOT NULL,
+    added_at_ms bigint NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+    updated_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+    PRIMARY KEY (playlist_id, item_id),
+    CHECK (position >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS user_playlist_items_order_idx
+    ON user_playlist_items(playlist_id, position, item_id);
+
 CREATE TABLE IF NOT EXISTS transcode_sessions (
     id uuid PRIMARY KEY NOT NULL,
     source_id uuid NOT NULL REFERENCES media_sources(id) ON DELETE CASCADE,

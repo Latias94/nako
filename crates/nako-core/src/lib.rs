@@ -21,6 +21,7 @@ pub mod session;
 pub mod settings;
 pub mod staging;
 pub mod user_playback;
+pub mod user_playlist;
 pub mod vfs_cache;
 pub mod webhook;
 
@@ -47,5 +48,6 @@ pub use session::*;
 pub use settings::*;
 pub use staging::*;
 pub use user_playback::*;
+pub use user_playlist::*;
 pub use vfs_cache::*;
 pub use webhook::*;

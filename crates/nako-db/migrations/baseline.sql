@@ -1075,6 +1075,40 @@ CREATE INDEX user_playback_states_source_id_idx
     ON user_playback_states(source_id);
 
 
+CREATE TABLE user_playlists (
+    id TEXT PRIMARY KEY NOT NULL,
+    principal_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    visibility TEXT NOT NULL DEFAULT 'private',
+    created_at_ms INTEGER NOT NULL,
+    updated_at_ms INTEGER NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    CHECK (length(principal_id) > 0),
+    CHECK (length(name) > 0),
+    CHECK (visibility IN ('private')),
+    CHECK (version >= 1)
+);
+
+CREATE INDEX user_playlists_principal_idx
+    ON user_playlists(principal_id, updated_at_ms DESC, id);
+
+CREATE TABLE user_playlist_items (
+    playlist_id TEXT NOT NULL REFERENCES user_playlists(id) ON DELETE CASCADE,
+    item_id TEXT NOT NULL REFERENCES media_items(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL,
+    added_at_ms INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    PRIMARY KEY (playlist_id, item_id),
+    CHECK (position >= 0)
+);
+
+CREATE INDEX user_playlist_items_order_idx
+    ON user_playlist_items(playlist_id, position, item_id);
+
+
 CREATE TABLE managed_import_artifacts (
     id TEXT PRIMARY KEY NOT NULL,
     target_library_id TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,

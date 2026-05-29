@@ -7,10 +7,11 @@
   "scope_kind": "public_client_contract",
   "problem": "The web playlist UI cannot return until Nako has a server-owned current-user playlist contract distinct from catalog collections and HLS transport playlists.",
   "task_prefix": "UPCW",
-  "current_task": "UPCW-030",
+  "current_task": "UPCW-040",
   "completed_tasks": [
     "UPCW-010",
-    "UPCW-020"
+    "UPCW-020",
+    "UPCW-030"
   ],
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/user-playlists-contract-and-web-slice/README.md" },
@@ -33,7 +34,8 @@
   ],
   "evidence": [
     "UPCW-010 opened the lane from WDRP-050 and recorded that playlists should proceed as a backend/Public Client contract lane before web UI restoration.",
-    "UPCW-020 froze current-user private User Playlist route inventory, DTOs, access filtering, duplicate/order semantics, mutation request shape, OpenAPI schemas, generated TypeScript/Kotlin SDK expectations, and HTTP API notes."
+    "UPCW-020 froze current-user private User Playlist route inventory, DTOs, access filtering, duplicate/order semantics, mutation request shape, OpenAPI schemas, generated TypeScript/Kotlin SDK expectations, and HTTP API notes.",
+    "UPCW-030 implemented principal-scoped User Playlist persistence, ordered idempotent membership, version-guarded mutations, and app-service validation without adding Public Client HTTP routes or web UI."
   ],
   "adr_refs": [
     "docs/adr/0021-video-first-media-server-domain-model.md",
@@ -43,6 +45,6 @@
   ],
   "continue_policy": {
     "default_action": "continue_current_task",
-    "notes": "Continue with UPCW-030. Implement principal-scoped playlist persistence and app-service validation before adding Public Client HTTP routes or web UI."
+    "notes": "Continue with UPCW-040. Expose the frozen User Playlist contract through Public Client HTTP routes, access enforcement, and Rust client support before returning to web UI."
   }
 }

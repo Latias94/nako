@@ -43,6 +43,7 @@ trait DatabaseBackendAdapter:
     + RendererSessionRepository
     + TranscodeSessionRepository
     + UserPlaybackStateRepository
+    + UserPlaylistRepository
     + VfsCacheRepository
     + StagingManifestRepository
     + WebhookRepository
@@ -87,6 +88,7 @@ impl<T> DatabaseBackendAdapter for T where
         + RendererSessionRepository
         + TranscodeSessionRepository
         + UserPlaybackStateRepository
+        + UserPlaylistRepository
         + VfsCacheRepository
         + StagingManifestRepository
         + WebhookRepository
@@ -2388,6 +2390,82 @@ impl UserPlaybackStateRepository for NakoDatabase {
     ) -> Result<Vec<UserPlaybackState>> {
         self.backend()
             .list_continue_watching_states(principal_id, page)
+            .await
+    }
+}
+
+#[async_trait::async_trait]
+impl UserPlaylistRepository for NakoDatabase {
+    async fn create_user_playlist(&self, playlist: NewUserPlaylist) -> Result<UserPlaylistRecord> {
+        self.backend().create_user_playlist(playlist).await
+    }
+
+    async fn get_user_playlist(
+        &self,
+        principal_id: &UserPrincipalId,
+        playlist_id: UserPlaylistId,
+    ) -> Result<Option<UserPlaylistRecord>> {
+        self.backend()
+            .get_user_playlist(principal_id, playlist_id)
+            .await
+    }
+
+    async fn list_user_playlists(
+        &self,
+        principal_id: &UserPrincipalId,
+        page: PageRequest,
+    ) -> Result<Vec<UserPlaylistRecord>> {
+        self.backend().list_user_playlists(principal_id, page).await
+    }
+
+    async fn update_user_playlist_name(
+        &self,
+        update: UserPlaylistNameUpdate,
+    ) -> Result<Option<UserPlaylistRecord>> {
+        self.backend().update_user_playlist_name(update).await
+    }
+
+    async fn delete_user_playlist(
+        &self,
+        principal_id: &UserPrincipalId,
+        playlist_id: UserPlaylistId,
+    ) -> Result<bool> {
+        self.backend()
+            .delete_user_playlist(principal_id, playlist_id)
+            .await
+    }
+
+    async fn add_user_playlist_item(
+        &self,
+        write: UserPlaylistItemWrite,
+    ) -> Result<Option<UserPlaylistRecord>> {
+        self.backend().add_user_playlist_item(write).await
+    }
+
+    async fn remove_user_playlist_item(
+        &self,
+        removal: UserPlaylistItemRemoval,
+    ) -> Result<Option<UserPlaylistRecord>> {
+        self.backend().remove_user_playlist_item(removal).await
+    }
+
+    async fn replace_user_playlist_item_order(
+        &self,
+        reorder: UserPlaylistReorder,
+    ) -> Result<Option<UserPlaylistRecord>> {
+        self.backend()
+            .replace_user_playlist_item_order(reorder)
+            .await
+    }
+
+    async fn list_user_playlist_items(
+        &self,
+        principal_id: &UserPrincipalId,
+        playlist_id: UserPlaylistId,
+        page: PageRequest,
+    ) -> Result<Vec<UserPlaylistItemRecord>> {
+        self.backend()
+            .list_user_playlist_items(principal_id, playlist_id, page)
             .await
     }
 }
