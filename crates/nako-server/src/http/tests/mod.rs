@@ -160,7 +160,12 @@ use nako_playback::{
 };
 use nako_search::{SearchDocument, SearchIndex, SearchQuery};
 use nako_streaming::{DirectPlayRangeRequest, RequestedByteRange, plan_direct_play_response};
-use nako_transcode::{HardwareAcceleration, OutputContainer, RemuxContainer, TranscodePlan};
+use nako_transcode::{
+    HardwareAcceleration, OutputContainer, PlaybackHlsProfileRequest, PlaybackRemuxProfileRequest,
+    RemuxContainer, TranscodeAccelerationPlan, TranscodeExecutionPolicy,
+    TranscodeOutputConstraints, TranscodePlan, build_playback_hls_profile,
+    build_playback_remux_profile,
+};
 use nako_vfs::{ByteRange, ReadStream, StorageUri};
 use serde::{Serialize, de::DeserializeOwned};
 use tokio::{net::TcpListener, task::yield_now, time::sleep};
@@ -570,14 +575,19 @@ fn local_remux_request_key(source: &MediaSource, container: RemuxContainer) -> S
         },
     );
 
-    profile
-        .remux_transcode_profile(container)
-        .identity()
-        .bind_source(&nako_transcode::TranscodeSourceIdentity::from_media_source(
-            source,
-        ))
-        .persisted_request_key()
-        .to_owned()
+    build_playback_remux_profile(PlaybackRemuxProfileRequest {
+        output_container: container,
+        track_selection: profile.track_selection(),
+        remote_input: profile.storage.remote,
+        playback_profile_key: profile.identity_key(),
+    })
+    .unwrap()
+    .identity()
+    .bind_source(&nako_transcode::TranscodeSourceIdentity::from_media_source(
+        source,
+    ))
+    .persisted_request_key()
+    .to_owned()
 }
 
 fn local_hls_request_key(source: &MediaSource, acceleration: HardwareAcceleration) -> String {
@@ -601,21 +611,25 @@ fn local_hls_request_key(source: &MediaSource, acceleration: HardwareAcceleratio
         audio_codec: Some("aac".to_owned()),
     };
 
-    profile
-        .hls_transcode_profile(
-            &plan,
-            nako_transcode::TranscodeExecutionPolicy::hls_single_variant(
-                nako_transcode::TranscodeAccelerationPlan::for_selected_hardware(acceleration),
-                profile.track_selection(),
-                nako_transcode::TranscodeOutputConstraints::default(),
-            ),
-        )
-        .identity()
-        .bind_source(&nako_transcode::TranscodeSourceIdentity::from_media_source(
-            source,
-        ))
-        .persisted_request_key()
-        .to_owned()
+    build_playback_hls_profile(PlaybackHlsProfileRequest {
+        plan,
+        execution_policy: TranscodeExecutionPolicy::hls_single_variant(
+            TranscodeAccelerationPlan::for_selected_hardware(acceleration),
+            profile.track_selection(),
+            TranscodeOutputConstraints::default(),
+        ),
+        hls_output: profile.hls_output_requirement(),
+        track_selection: profile.track_selection(),
+        remote_input: profile.storage.remote,
+        playback_profile_key: profile.identity_key(),
+    })
+    .unwrap()
+    .identity()
+    .bind_source(&nako_transcode::TranscodeSourceIdentity::from_media_source(
+        source,
+    ))
+    .persisted_request_key()
+    .to_owned()
 }
 
 #[cfg(unix)]

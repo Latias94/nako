@@ -21,9 +21,10 @@ use nako_playback::{
 use nako_streaming::{DirectPlayRangeRequest, DirectPlayResponsePlan};
 use nako_transcode::{
     HlsAdaptiveLadderPlan, HlsAudioRendition, HlsMediaRenditionPlan, HlsRequestVariantPlan,
-    HlsVariantPolicy, RemuxContainer, TranscodeOutputConstraints, TranscodePipelineSourceFacts,
-    TranscodeRequestIdentity, TranscodeSourceIdentity, TranscodeSubtitleStrategy,
-    TranscodeTrackSelection,
+    HlsVariantPolicy, PlaybackHlsProfileRequest, PlaybackRemuxProfileRequest, RemuxContainer,
+    TranscodeOutputConstraints, TranscodePipelineSourceFacts, TranscodeRequestIdentity,
+    TranscodeSourceIdentity, TranscodeSubtitleStrategy, TranscodeTrackSelection,
+    build_playback_hls_profile, build_playback_remux_profile,
 };
 use nako_vfs::{StorageBackend as _, StorageUri};
 use serde::{Deserialize, Serialize};
@@ -1714,9 +1715,13 @@ impl PlaybackAppService {
         });
         ensure_playback_decision_allowed(&decision)?;
         let output_container = remux_output_container(&decision)?;
-        let profile_identity = target_profile
-            .try_remux_transcode_profile(output_container)?
-            .identity();
+        let profile_identity = build_playback_remux_profile(PlaybackRemuxProfileRequest {
+            output_container,
+            track_selection: target_profile.track_selection(),
+            remote_input: target_profile.storage.remote,
+            playback_profile_key: target_profile.identity_key(),
+        })?
+        .identity();
         let request_identity =
             profile_identity.bind_source(&TranscodeSourceIdentity::from_media_source(&source));
         let staging = RemuxStagingPolicy::new(&self.config.remux_staging_root)?;
@@ -1781,8 +1786,14 @@ impl PlaybackAppService {
         if media_rendition_plan.has_subtitles() {
             execution_policy.subtitle_strategy = TranscodeSubtitleStrategy::SidecarSelected;
         }
-        let hls_profile =
-            target_profile.try_hls_transcode_profile(transcode_plan, execution_policy)?;
+        let hls_profile = build_playback_hls_profile(PlaybackHlsProfileRequest {
+            plan: transcode_plan.clone(),
+            execution_policy,
+            hls_output: target_profile.hls_output_requirement(),
+            track_selection,
+            remote_input: target_profile.storage.remote,
+            playback_profile_key: target_profile.identity_key(),
+        })?;
         let execution_policy = hls_profile.execution_policy;
         let hls_output =
             hls_profile

@@ -6,6 +6,12 @@ attention.
 
 ## Current Workstreams
 
+- [playback-planner-transcode-seam-deepening](playback-planner-transcode-seam-deepening/README.md):
+  completed fearless refactor lane for moving remux/HLS playback
+  `TranscodeProfile` construction out of `nako-playback` and into
+  `nako-transcode` while preserving playback decisions, request identity, and
+  runtime behavior before HLS seek, HDR, downmix, and scheduler work expands
+  the surface area.
 - [media-server-architecture-progress-map](media-server-architecture-progress-map/README.md):
   closed architecture documentation lane that added the top-level Nako
   architecture map, refreshed playback/transcode roadmap status, and recorded

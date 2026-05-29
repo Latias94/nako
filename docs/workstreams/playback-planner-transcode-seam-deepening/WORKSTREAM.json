@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "slug": "playback-planner-transcode-seam-deepening",
+  "title": "Playback Planner Transcode Seam Deepening",
+  "status": "completed",
+  "updated": "2026-05-29",
+  "scope_kind": "refactor",
+  "problem": "PlaybackTargetProfile still constructs execution-ready TranscodeProfile values, which leaks transcode execution vocabulary into the playback planner just before HLS seek, HDR, downmix, and resource scheduling work deepen the media engine.",
+  "task_prefix": "PPTS",
+  "current_task": null,
+  "completed_tasks": [
+    "PPTS-010",
+    "PPTS-020",
+    "PPTS-030",
+    "PPTS-040"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/playback-planner-transcode-seam-deepening/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/playback-planner-transcode-seam-deepening/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/playback-planner-transcode-seam-deepening/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/playback-planner-transcode-seam-deepening/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/playback-planner-transcode-seam-deepening/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/playback-planner-transcode-seam-deepening/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/playback-planner-transcode-seam-deepening/CLOSEOUT.md"
+    }
+  ],
+  "gates": [
+    "python3 -m json.tool docs/workstreams/playback-planner-transcode-seam-deepening/WORKSTREAM.json",
+    "cargo nextest run -p nako-playback --no-fail-fast",
+    "cargo nextest run -p nako-transcode profile --no-fail-fast",
+    "cargo nextest run -p nako-server playback --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "PPTS-010",
+      "summary": "Opened the playback planner/transcode seam lane, scoped it to behavior-preserving profile-builder ownership migration, and linked the workstream from playback architecture indexes."
+    },
+    {
+      "task": "PPTS-020",
+      "summary": "Moved remux/HLS playback profile construction to transcode-owned builders and removed PlaybackTargetProfile methods that built TranscodeProfile values."
+    },
+    {
+      "task": "PPTS-030",
+      "summary": "Updated playback app remux/HLS composition and server test identity helpers to call transcode-owned profile builders while preserving focused playback behavior."
+    },
+    {
+      "task": "PPTS-040",
+      "summary": "Closed the lane with focused nextest gates, final formatting/diff checks, JSON validation, and follow-on media features left as separate lanes."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0038-playback-planning-and-transcode-policy-seams.md",
+    "docs/adr/0044-playback-capability-profile-planner.md",
+    "docs/adr/0049-source-aware-transcode-runtime.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/PLAYBACK.md",
+      "capability": "Playback decision model"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Playback And Transcode"
+    }
+  ],
+  "capability_tags": [
+    "playback.planner",
+    "playback.transcode.seam",
+    "transcode.profile"
+  ],
+  "continue_policy": {
+    "default_action": "closed",
+    "notes": "Closed on 2026-05-29 after behavior-preserving profile-builder ownership migration. Continue with separate feature lanes for HLS seek, HDR, downmix, subtitle burn-in, or resource scheduling."
+  }
+}

@@ -4,8 +4,8 @@ use sha2::{Digest, Sha256};
 use nako_core::{MediaSource, NakoError, Result};
 
 use super::{
-    HlsOutputRequirement, HlsSegmentContainer, HlsVariantPolicy, RemuxContainer,
-    TranscodeExecutionPolicy,
+    HlsOutputRequirement, HlsSegmentContainer, HlsVariantPolicy, OutputContainer, RemuxContainer,
+    TranscodeExecutionPolicy, TranscodePlan, validate_playback_transcode_plan,
 };
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -113,6 +113,24 @@ pub struct RemuxTranscodeProfile {
 pub struct HlsTranscodeProfile {
     pub video_codec: Option<String>,
     pub audio_codec: Option<String>,
+    pub execution_policy: TranscodeExecutionPolicy,
+    pub hls_output: HlsOutputRequirement,
+    pub track_selection: TranscodeTrackSelection,
+    pub remote_input: bool,
+    pub playback_profile_key: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PlaybackRemuxProfileRequest {
+    pub output_container: RemuxContainer,
+    pub track_selection: TranscodeTrackSelection,
+    pub remote_input: bool,
+    pub playback_profile_key: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PlaybackHlsProfileRequest {
+    pub plan: TranscodePlan,
     pub execution_policy: TranscodeExecutionPolicy,
     pub hls_output: HlsOutputRequirement,
     pub track_selection: TranscodeTrackSelection,
@@ -521,6 +539,39 @@ pub fn validate_transcode_profile(profile: &TranscodeProfile) -> Result<()> {
     })
 }
 
+pub fn build_playback_remux_profile(
+    request: PlaybackRemuxProfileRequest,
+) -> Result<TranscodeProfile> {
+    let profile = TranscodeProfile::remux(RemuxTranscodeProfile {
+        output_container: request.output_container,
+        track_selection: request.track_selection,
+        remote_input: request.remote_input,
+        playback_profile_key: request.playback_profile_key,
+    });
+    validate_transcode_profile(&profile)?;
+    Ok(profile)
+}
+
+pub fn build_playback_hls_profile(request: PlaybackHlsProfileRequest) -> Result<TranscodeProfile> {
+    if request.plan.output_container != OutputContainer::Hls {
+        return Err(NakoError::InvalidInput {
+            message: "hls playback profile requires an hls transcode plan".to_owned(),
+        });
+    }
+    validate_playback_transcode_plan(&request.plan)?;
+    let profile = TranscodeProfile::hls_single_variant(HlsTranscodeProfile {
+        video_codec: request.plan.video_codec,
+        audio_codec: request.plan.audio_codec,
+        execution_policy: request.execution_policy,
+        hls_output: request.hls_output,
+        track_selection: request.track_selection,
+        remote_input: request.remote_input,
+        playback_profile_key: request.playback_profile_key,
+    });
+    validate_transcode_profile(&profile)?;
+    Ok(profile)
+}
+
 fn optional_str(value: Option<&str>) -> String {
     value.map_or_else(|| "auto".to_owned(), canonical_value)
 }
@@ -568,4 +619,125 @@ fn lowercase_hex(bytes: &[u8]) -> String {
         out.push(HEX[(byte & 0x0f) as usize] as char);
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{HardwareAcceleration, TranscodeAccelerationPlan, TranscodeOutputConstraints};
+
+    #[test]
+    fn playback_remux_profile_builder_creates_copy_profile_identity() {
+        let profile = build_playback_remux_profile(PlaybackRemuxProfileRequest {
+            output_container: RemuxContainer::Mp4,
+            track_selection: TranscodeTrackSelection {
+                audio_stream: Some(1),
+                subtitle_stream: Some(2),
+            },
+            remote_input: true,
+            playback_profile_key: "playback-target-profile:v1;demo=true".to_owned(),
+        })
+        .unwrap();
+
+        assert_eq!(
+            profile.output,
+            TranscodeOutputShape::Remux {
+                container: RemuxContainer::Mp4
+            }
+        );
+        assert!(profile.video_codec.is_none());
+        assert!(profile.audio_codec.is_none());
+        assert!(profile.execution_policy.acceleration.is_software_only());
+        assert!(profile.remote_input);
+        assert!(
+            profile
+                .identity()
+                .persisted_request_key()
+                .contains("playback=playback-target-profile:v1%3Bdemo%3Dtrue")
+        );
+    }
+
+    #[test]
+    fn playback_hls_profile_builder_preserves_runtime_policy() {
+        let execution_policy = TranscodeExecutionPolicy::hls_single_variant(
+            TranscodeAccelerationPlan::for_selected_hardware(HardwareAcceleration::Nvenc),
+            TranscodeTrackSelection {
+                audio_stream: Some(1),
+                subtitle_stream: Some(3),
+            },
+            TranscodeOutputConstraints {
+                max_video_bitrate: Some(8_000_000),
+                max_width: Some(1920),
+                max_height: Some(1080),
+                prefer_hdr: Some(false),
+            },
+        );
+
+        let profile = build_playback_hls_profile(PlaybackHlsProfileRequest {
+            plan: TranscodePlan {
+                input_locator: "local:///movie.mkv".to_owned(),
+                output_container: crate::OutputContainer::Hls,
+                video_codec: Some("h264".to_owned()),
+                audio_codec: Some("aac".to_owned()),
+            },
+            execution_policy,
+            hls_output: HlsOutputRequirement {
+                variant_policy: HlsVariantPolicy::Adaptive,
+                segment_container: HlsSegmentContainer::Fmp4,
+            },
+            track_selection: TranscodeTrackSelection {
+                audio_stream: Some(1),
+                subtitle_stream: Some(3),
+            },
+            remote_input: false,
+            playback_profile_key: "playback-target-profile:v1;demo=true".to_owned(),
+        })
+        .unwrap();
+
+        assert_eq!(profile.kind(), TranscodeProfileKind::HlsAdaptive);
+        assert_eq!(profile.video_codec.as_deref(), Some("h264"));
+        assert_eq!(profile.audio_codec.as_deref(), Some("aac"));
+        assert_eq!(
+            profile.execution_policy.acceleration.encode.accelerator,
+            HardwareAcceleration::Nvenc
+        );
+        assert_eq!(
+            profile
+                .execution_policy
+                .output_constraints
+                .max_video_bitrate,
+            Some(8_000_000)
+        );
+        assert_eq!(
+            profile.hls_output_requirement(),
+            Some(HlsOutputRequirement {
+                variant_policy: HlsVariantPolicy::Adaptive,
+                segment_container: HlsSegmentContainer::Fmp4,
+            })
+        );
+    }
+
+    #[test]
+    fn playback_hls_profile_builder_validates_playback_plan() {
+        let err = build_playback_hls_profile(PlaybackHlsProfileRequest {
+            plan: TranscodePlan {
+                input_locator: "local:///movie.mp4".to_owned(),
+                output_container: crate::OutputContainer::Mp4,
+                video_codec: Some("h264".to_owned()),
+                audio_codec: Some("aac".to_owned()),
+            },
+            execution_policy: TranscodeExecutionPolicy::hls_single_variant(
+                TranscodeAccelerationPlan::software(),
+                TranscodeTrackSelection::default(),
+                TranscodeOutputConstraints::default(),
+            ),
+            hls_output: HlsOutputRequirement::default(),
+            track_selection: TranscodeTrackSelection::default(),
+            remote_input: false,
+            playback_profile_key: "playback-target-profile:v1;demo=true".to_owned(),
+        })
+        .unwrap_err();
+
+        assert!(matches!(err, NakoError::InvalidInput { .. }));
+    }
 }

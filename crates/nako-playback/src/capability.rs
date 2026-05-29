@@ -1,9 +1,7 @@
-use nako_core::{MediaProbeResult, MediaSourceId, MediaStreamKind, Result};
+use nako_core::{MediaProbeResult, MediaSourceId, MediaStreamKind};
 use nako_transcode::{
-    HlsOutputRequirement, HlsTranscodeProfile, OutputContainer, RemuxContainer,
-    RemuxTranscodeProfile, TranscodeExecutionPolicy, TranscodeOutputConstraints, TranscodePlan,
-    TranscodeProfile, TranscodeTrackSelection, validate_playback_transcode_plan,
-    validate_transcode_profile,
+    HlsOutputRequirement, OutputContainer, RemuxContainer, TranscodeOutputConstraints,
+    TranscodeTrackSelection,
 };
 use serde::{Deserialize, Serialize};
 
@@ -245,56 +243,6 @@ impl PlaybackTargetProfile {
     #[must_use]
     pub const fn hls_output_requirement(&self) -> HlsOutputRequirement {
         self.hls_output
-    }
-
-    #[must_use]
-    pub fn remux_transcode_profile(&self, output_container: RemuxContainer) -> TranscodeProfile {
-        self.try_remux_transcode_profile(output_container)
-            .expect("playback remux profile must be valid")
-    }
-
-    pub fn try_remux_transcode_profile(
-        &self,
-        output_container: RemuxContainer,
-    ) -> Result<TranscodeProfile> {
-        let profile = TranscodeProfile::remux(RemuxTranscodeProfile {
-            output_container,
-            track_selection: self.track_selection(),
-            remote_input: self.storage.remote,
-            playback_profile_key: self.identity_key(),
-        });
-        validate_transcode_profile(&profile)?;
-        Ok(profile)
-    }
-
-    #[must_use]
-    pub fn hls_transcode_profile(
-        &self,
-        plan: &TranscodePlan,
-        execution_policy: TranscodeExecutionPolicy,
-    ) -> TranscodeProfile {
-        self.try_hls_transcode_profile(plan, execution_policy)
-            .expect("playback hls profile must be valid")
-    }
-
-    pub fn try_hls_transcode_profile(
-        &self,
-        plan: &TranscodePlan,
-        execution_policy: TranscodeExecutionPolicy,
-    ) -> Result<TranscodeProfile> {
-        validate_playback_transcode_plan(plan)?;
-        let track_selection = self.track_selection();
-        let profile = TranscodeProfile::hls_single_variant(HlsTranscodeProfile {
-            video_codec: plan.video_codec.clone(),
-            audio_codec: plan.audio_codec.clone(),
-            execution_policy,
-            hls_output: self.hls_output_requirement(),
-            track_selection,
-            remote_input: self.storage.remote,
-            playback_profile_key: self.identity_key(),
-        });
-        validate_transcode_profile(&profile)?;
-        Ok(profile)
     }
 }
 
