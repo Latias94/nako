@@ -728,6 +728,10 @@ pub struct AdminAddonTaskSurface {
     pub name: String,
     pub path: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_schema: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_schema: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     pub required_scopes: Vec<AddonScope>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -742,6 +746,8 @@ impl From<AddonTaskDeclaration> for AdminAddonTaskSurface {
             id: value.id,
             name: value.name,
             path: value.path,
+            input_schema: value.input_schema,
+            output_schema: value.output_schema,
             description: value.description,
             required_scopes: value.required_scopes,
             timeout_ms: value.timeout_ms,

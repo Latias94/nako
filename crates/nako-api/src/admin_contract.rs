@@ -639,6 +639,8 @@ export interface AdminAddonTaskDeclaration {
   id: string;
   name: string;
   path: string;
+  input_schema?: string;
+  output_schema?: string;
   description?: string;
   required_scopes?: AddonScope[];
   timeout_ms?: number;
@@ -840,6 +842,8 @@ export interface AdminAddonTaskSurface {
   id: string;
   name: string;
   path: string;
+  input_schema?: string;
+  output_schema?: string;
   description?: string;
   required_scopes: AddonScope[];
   timeout_ms?: number;

@@ -856,6 +856,15 @@ mod tests {
     }
 
     #[test]
+    fn official_external_acquisition_runner_catalog_descriptor_uses_shared_catalog_facts() {
+        assert_eq!(
+            catalog::official_external_acquisition_runner_descriptor(),
+            nako_official_addon_catalog::external_acquisition_runner::container_install_descriptor(
+            )
+        );
+    }
+
+    #[test]
     fn official_subtitle_provider_catalog_descriptor_uses_shared_catalog_facts() {
         assert_eq!(
             catalog::official_subtitle_provider_descriptor(),

@@ -16,8 +16,8 @@ use nako_api::extension::{
     AdminSubtitleImportPlanReason, AdminSubtitleImportPlanStatus, AdminSubtitleSidecarRole,
 };
 use nako_official_addon_catalog::{
-    chromecast_renderer, dlna_renderer, metadata_scraper, notification_bridge, resource_search,
-    subtitle_provider,
+    chromecast_renderer, dlna_renderer, external_acquisition_runner, metadata_scraper,
+    notification_bridge, resource_search, subtitle_provider,
 };
 use std::collections::VecDeque;
 use std::sync::{
@@ -1530,7 +1530,7 @@ async fn admin_addon_source_catalog_browses_and_resolves_without_hidden_lifecycl
         source.kind,
         AdminAddonSourceCatalogSourceKind::BuiltinOfficial
     );
-    assert_eq!(source.entry_count, 6);
+    assert_eq!(source.entry_count, 7);
     assert!(!source.provides_package_signing);
     assert!(!source.provides_process_supervision);
     assert!(!source.provides_provider_breadth);
@@ -1542,7 +1542,7 @@ async fn admin_addon_source_catalog_browses_and_resolves_without_hidden_lifecycl
     )
     .await;
     assert_eq!(entries.source_id, "nako-official");
-    assert_eq!(entries.entries.len(), 6);
+    assert_eq!(entries.entries.len(), 7);
     let entry = entries
         .entries
         .iter()
@@ -2008,6 +2008,121 @@ async fn admin_addon_source_catalog_resolves_resource_search_link_check_manifest
         assert!(
             !text.contains(forbidden),
             "resource-search catalog resolve leaked forbidden term: {forbidden}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn admin_addon_source_catalog_resolves_external_acquisition_runner_action_manifest() {
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+
+    let entries = request_json::<AdminAddonSourceCatalogEntriesResponse>(
+        &router,
+        Method::GET,
+        "/admin/v1/addons/catalog/entries",
+    )
+    .await;
+    let entry = entries
+        .entries
+        .iter()
+        .find(|entry| entry.entry_id == external_acquisition_runner::ADDON_ID)
+        .unwrap();
+    assert_eq!(entry.manifest_id, external_acquisition_runner::ADDON_ID);
+    assert_eq!(entry.addon_name, external_acquisition_runner::ADDON_NAME);
+    assert_eq!(
+        entry.addon_version,
+        external_acquisition_runner::ADDON_VERSION
+    );
+    assert!(entry.resources.is_empty());
+    assert_eq!(entry.scopes, vec![AddonScope::AcquisitionActionRun]);
+    assert_eq!(
+        entry.tasks,
+        vec![external_acquisition_runner::ACTION_TASK_ID.to_owned()]
+    );
+
+    let raw = response_for(
+        &router,
+        Method::GET,
+        "/admin/v1/addons/catalog/entries/nako.official.external-acquisition-runner/resolve",
+    )
+    .await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let bytes = to_bytes(raw.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let resolved = serde_json::from_str::<AdminAddonSourceCatalogResolveResponse>(&text).unwrap();
+
+    assert_eq!(resolved.source_id, "nako-official");
+    assert_eq!(
+        resolved.entry.entry_id,
+        external_acquisition_runner::ADDON_ID
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.id,
+        external_acquisition_runner::ADDON_ID
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.base_url,
+        external_acquisition_runner::DEFAULT_CONTAINER_BASE_URL
+    );
+    assert!(resolved.descriptor.manifest.resources.is_empty());
+    assert_eq!(resolved.descriptor.manifest.tasks.len(), 1);
+    assert_eq!(
+        resolved.descriptor.manifest.tasks[0].id,
+        external_acquisition_runner::ACTION_TASK_ID
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.tasks[0].path,
+        external_acquisition_runner::ACTION_TASK_PATH
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.tasks[0]
+            .input_schema
+            .as_deref(),
+        Some(external_acquisition_runner::ACTION_REQUEST_SCHEMA)
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.tasks[0]
+            .output_schema
+            .as_deref(),
+        Some(external_acquisition_runner::ACTION_RESPONSE_SCHEMA)
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.tasks[0].required_scopes,
+        vec![AddonScope::AcquisitionActionRun]
+    );
+    assert_eq!(resolved.descriptor.manifest.entry_points.len(), 1);
+    assert_eq!(
+        resolved.descriptor.manifest.entry_points[0].id,
+        external_acquisition_runner::DIAGNOSTICS_ENTRY_POINT_ID
+    );
+    assert_eq!(resolved.descriptor.manifest.hosted_pages.len(), 1);
+    assert_eq!(
+        resolved.descriptor.manifest.hosted_pages[0].id,
+        external_acquisition_runner::DIAGNOSTICS_HOSTED_PAGE_ID
+    );
+    assert!(resolved.descriptor.manifest.event_subscriptions.is_empty());
+    assert!(
+        resolved
+            .descriptor
+            .manifest
+            .secret_reference_fields
+            .is_empty()
+    );
+    assert_eq!(
+        resolved.install_guide.runtime_reference.value,
+        external_acquisition_runner::RUNTIME_IMAGE
+    );
+    assert!(resolved.install_guide.has_configuration_schema);
+    assert_eq!(resolved.install_guide.task_count, 1);
+    assert_eq!(resolved.install_guide.entry_point_count, 1);
+    assert_eq!(resolved.install_guide.hosted_page_count, 1);
+    assert_eq!(resolved.install_guide.event_subscription_count, 0);
+
+    for forbidden in ["raw_url", "magnet:", "Bearer ", "nako_at_", "docker.sock"] {
+        assert!(
+            !text.contains(forbidden),
+            "external acquisition catalog resolve leaked forbidden term: {forbidden}"
         );
     }
 }
@@ -2560,6 +2675,8 @@ async fn register_addon_routes_accept_manifest_declarations_and_reject_invalid_o
         id: "bulk-metadata-scrape".to_owned(),
         name: "Bulk metadata scrape".to_owned(),
         path: "/tasks/bulk-metadata-scrape".to_owned(),
+        input_schema: None,
+        output_schema: None,
         description: Some("Runs metadata suggestions for selected items".to_owned()),
         required_scopes: vec![AddonScope::AutomationRun],
         timeout_ms: Some(30_000),

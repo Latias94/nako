@@ -13,8 +13,8 @@ use nako_api::extension::{
 };
 use nako_core::{AddonId, AddonRegistrationRecord, NakoError, Result};
 use nako_official_addon_catalog::{
-    chromecast_renderer, dlna_renderer, metadata_scraper, notification_bridge, resource_search,
-    subtitle_provider,
+    chromecast_renderer, dlna_renderer, external_acquisition_runner, metadata_scraper,
+    notification_bridge, resource_search, subtitle_provider,
 };
 
 use super::{AddonAppService, addon_surface_url};
@@ -208,6 +208,10 @@ fn builtin_addon_catalog_entries() -> Result<Vec<AdminAddonSourceCatalogEntry>> 
             official_resource_search_descriptor(),
         ),
         (
+            external_acquisition_runner::ADDON_ID,
+            official_external_acquisition_runner_descriptor(),
+        ),
+        (
             subtitle_provider::ADDON_ID,
             official_subtitle_provider_descriptor(),
         ),
@@ -233,6 +237,9 @@ fn builtin_addon_catalog_descriptor(entry_id: &str) -> Result<AddonInstallDescri
         notification_bridge::ADDON_ID => Ok(official_notification_bridge_descriptor()),
         chromecast_renderer::ADDON_ID => Ok(official_chromecast_renderer_descriptor()),
         resource_search::ADDON_ID => Ok(official_resource_search_descriptor()),
+        external_acquisition_runner::ADDON_ID => {
+            Ok(official_external_acquisition_runner_descriptor())
+        }
         subtitle_provider::ADDON_ID => Ok(official_subtitle_provider_descriptor()),
         dlna_renderer::ADDON_ID => Ok(official_dlna_renderer_descriptor()),
         _ => Err(NakoError::NotFound {
@@ -293,6 +300,10 @@ pub(super) fn official_chromecast_renderer_descriptor() -> AddonInstallDescripto
 
 pub(super) fn official_resource_search_descriptor() -> AddonInstallDescriptor {
     resource_search::container_install_descriptor()
+}
+
+pub(super) fn official_external_acquisition_runner_descriptor() -> AddonInstallDescriptor {
+    external_acquisition_runner::container_install_descriptor()
 }
 
 pub(super) fn official_subtitle_provider_descriptor() -> AddonInstallDescriptor {
