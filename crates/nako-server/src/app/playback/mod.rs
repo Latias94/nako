@@ -57,6 +57,7 @@ mod input;
 mod paths;
 mod playlist;
 mod remux;
+mod resource;
 mod selection;
 mod staging_policy;
 mod support;
@@ -77,6 +78,13 @@ use paths::{ensure_remux_output_parent, path_exists};
 use playlist::{HlsPlaylistSessionBinding, HlsPlaylistUrlDecoration, author_hls_session_playlist};
 use remux::RemuxAppService;
 pub(crate) use remux::RemuxRequestKey;
+pub(crate) use resource::{
+    PlaybackResourceAdmissionDecision, PlaybackResourceDemand, PlaybackRuntimeAdmission,
+};
+#[cfg(test)]
+pub(crate) use resource::{
+    PlaybackResourceAdmissionStatus, PlaybackResourceCapacity, PlaybackResourceClass,
+};
 use selection::{
     hls_pipeline_source_facts, hls_transcode_plan, playback_selection_context,
     remux_output_container,
@@ -606,6 +614,7 @@ pub(crate) struct PlaybackAppService {
     runtime: RuntimeSupervisor,
     input: FfmpegInputService,
     planner: PlaybackPlanner,
+    resource_admission: PlaybackRuntimeAdmission,
     cancellations: PlaybackSessionCancellationRegistry,
     remux: RemuxAppService,
     hls: HlsAppService,
@@ -626,6 +635,7 @@ impl PlaybackAppService {
         Ok(Self {
             input,
             planner: PlaybackPlanner::new(),
+            resource_admission: PlaybackRuntimeAdmission::from_config(&config),
             remux: RemuxAppService::new(&config, cancellations.clone()),
             hls: HlsAppService::new(&config, cancellations.clone())?,
             hls_artifacts: HlsArtifactService::new(config.playback),
@@ -635,6 +645,14 @@ impl PlaybackAppService {
             runtime,
             cancellations,
         })
+    }
+
+    #[must_use]
+    pub(crate) fn admit_playback_resource_demand(
+        &self,
+        demand: PlaybackResourceDemand,
+    ) -> PlaybackResourceAdmissionDecision {
+        self.resource_admission.decide(demand)
     }
 
     pub(crate) async fn get_source_playback_decision(

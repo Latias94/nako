@@ -7,9 +7,10 @@
   "scope_kind": "fearless_refactor",
   "problem": "Playback runtime resource limits exist in several places, but Nako lacks one host-owned admission boundary for direct, remux, HLS, remote stream, and future transcode workloads.",
   "task_prefix": "PRRS",
-  "current_task": "PRRS-020",
+  "current_task": "PRRS-030",
   "completed_tasks": [
-    "PRRS-010"
+    "PRRS-010",
+    "PRRS-020"
   ],
   "authoritative_docs": [
     {
@@ -50,6 +51,10 @@
     {
       "task": "PRRS-010",
       "summary": "Opened the durable playback runtime resource scheduler lane, linked it from playback architecture indexes, and froze single-node admission as the first proof before remote workers, queueing, LL-HLS, DASH, or DRM."
+    },
+    {
+      "task": "PRRS-020",
+      "summary": "Added a server-owned playback resource demand and admission decision model for direct streams, remux, and HLS. The model explains accepted, rejected, and not-yet-enforced classes while preserving current route behavior."
     }
   ],
   "adr_refs": [
@@ -85,4 +90,3 @@
     "notes": "Continue this lane until playback resource demand, admission permits, HLS/remux enforcement, and Admin pressure diagnostics are explicit. Split remote workers, durable queueing, LL-HLS/DASH, DRM, and OS resource isolation into follow-ons."
   }
 }
-

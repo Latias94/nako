@@ -106,6 +106,106 @@ async fn remux_source_currently_starts_without_principal_or_playback_policy() {
 }
 
 #[tokio::test]
+async fn playback_resource_admission_accepts_remote_stream_capacity() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "resource_remote_stream");
+    let (_temp, app, _store, _source) = remux_app_with_source(ffmpeg_path).await;
+
+    let decision = app
+        .playback()
+        .admit_playback_resource_demand(PlaybackResourceDemand::direct_stream(true));
+
+    assert!(decision.accepted());
+    assert_eq!(
+        decision.status_for(PlaybackResourceClass::RemoteStream),
+        Some(PlaybackResourceAdmissionStatus::Accepted)
+    );
+}
+
+#[test]
+fn playback_resource_admission_rejects_unavailable_host_owned_capacity() {
+    let admission = PlaybackRuntimeAdmission::new(PlaybackResourceCapacity {
+        remote_streams: 0,
+        remote_stages: 1,
+        remux_processes: 1,
+        cpu_transcodes: 1,
+        gpu_transcodes: 1,
+    });
+
+    let decision = admission.decide(PlaybackResourceDemand::direct_stream(true));
+
+    assert!(!decision.accepted());
+    let remote_stream = decision
+        .classes()
+        .iter()
+        .find(|class| class.class == PlaybackResourceClass::RemoteStream)
+        .unwrap();
+    assert_eq!(remote_stream.class.as_str(), "remote_stream");
+    assert_eq!(remote_stream.capacity_units, Some(0));
+    assert_eq!(
+        remote_stream.status,
+        PlaybackResourceAdmissionStatus::Rejected
+    );
+    assert!(remote_stream.reason.contains("unavailable"));
+}
+
+#[test]
+fn playback_resource_admission_explains_not_yet_enforced_runtime_classes() {
+    let admission = PlaybackRuntimeAdmission::new(PlaybackResourceCapacity {
+        remote_streams: 1,
+        remote_stages: 1,
+        remux_processes: 1,
+        cpu_transcodes: 1,
+        gpu_transcodes: 1,
+    });
+
+    let remux = admission.decide(PlaybackResourceDemand::remux(false));
+    assert!(remux.accepted());
+    assert_eq!(remux.demand.workload.as_str(), "remux");
+    assert_eq!(
+        remux.status_for(PlaybackResourceClass::RemuxProcess),
+        Some(PlaybackResourceAdmissionStatus::NotYetEnforced)
+    );
+
+    let gpu_hls = admission.decide(PlaybackResourceDemand::hls(
+        true,
+        TranscodeExecutionPolicy::hls_single_variant(
+            TranscodeAccelerationPlan::for_selected_hardware(HardwareAcceleration::Nvenc),
+            TranscodeTrackSelection::default(),
+            TranscodeOutputConstraints::default(),
+        ),
+    ));
+    assert!(gpu_hls.accepted());
+    assert!(gpu_hls.has_not_yet_enforced_classes());
+    assert_eq!(gpu_hls.demand.workload.as_str(), "hls");
+    assert_eq!(
+        gpu_hls.status_for(PlaybackResourceClass::RemoteStage),
+        Some(PlaybackResourceAdmissionStatus::Accepted)
+    );
+    assert_eq!(
+        gpu_hls.status_for(PlaybackResourceClass::GpuTranscode),
+        Some(PlaybackResourceAdmissionStatus::NotYetEnforced)
+    );
+    assert_eq!(
+        gpu_hls.status_for(PlaybackResourceClass::HlsArtifactIo),
+        Some(PlaybackResourceAdmissionStatus::NotYetEnforced)
+    );
+
+    let cpu_hls = admission.decide(PlaybackResourceDemand::hls(
+        false,
+        TranscodeExecutionPolicy::hls_single_variant(
+            TranscodeAccelerationPlan::software(),
+            TranscodeTrackSelection::default(),
+            TranscodeOutputConstraints::default(),
+        ),
+    ));
+    assert_eq!(
+        cpu_hls.status_for(PlaybackResourceClass::CpuTranscode),
+        Some(PlaybackResourceAdmissionStatus::NotYetEnforced)
+    );
+}
+
+#[tokio::test]
 async fn direct_playback_policy_denial_does_not_create_session() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "policy_denied_direct");

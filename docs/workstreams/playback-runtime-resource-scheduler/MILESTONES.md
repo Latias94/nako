@@ -21,7 +21,7 @@ Primary evidence:
 
 ## M1 — Admission Vocabulary Proof
 
-Status: Pending
+Status: Completed
 
 Exit criteria:
 
@@ -77,4 +77,3 @@ Exit criteria:
 - Queueing, remote workers, OS isolation, and per-device tuning are completed,
   deferred, or split into named follow-ons.
 - `WORKSTREAM.json` status is updated.
-

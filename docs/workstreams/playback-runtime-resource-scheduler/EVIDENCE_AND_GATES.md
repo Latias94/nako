@@ -5,8 +5,7 @@ Last updated: 2026-05-29
 
 ## Smallest Current Repro
 
-The current proof is planning-only. PRRS-020 should add the first executable
-admission model tests.
+The current proof is the PRRS-020 playback resource admission model.
 
 ```bash
 cargo nextest run -p nako-server playback_resource --no-fail-fast
@@ -77,6 +76,7 @@ note.
 | Date | Task | Evidence | Status | Notes |
 | --- | --- | --- | --- | --- |
 | 2026-05-29 | PRRS-010 | Workstream opened | Passed | `python3 -m json.tool docs/workstreams/playback-runtime-resource-scheduler/WORKSTREAM.json`; `git diff --check -- docs/workstreams/playback-runtime-resource-scheduler docs/architecture/PLAYBACK.md docs/architecture/WORKSTREAM_LINKS.md docs/workstreams/README.md`. |
+| 2026-05-29 | PRRS-020 | Playback resource admission model | Passed | Added `crates/nako-server/src/app/playback/resource.rs` with direct/remux/HLS demand classes and decision statuses for accepted, rejected, and not-yet-enforced resources. Fresh gates: `cargo nextest run -p nako-server playback_resource --no-fail-fast`; `cargo nextest run -p nako-server playback --no-fail-fast`; `cargo fmt --all -- --check`; `python3 -m json.tool docs/workstreams/playback-runtime-resource-scheduler/WORKSTREAM.json`; `git diff --check`. `review-workstream` self-review found no blocking or important findings; remaining permit-lifetime wiring is PRRS-030 scope. Full workspace test was not run because PRRS-020 is scoped to `nako-server` playback internals and workstream docs. |
 
 ## Evidence Anchors
 
@@ -91,4 +91,3 @@ note.
 
 Fresh verification is required before marking a task, Codex goal, or lane
 complete.
-

@@ -45,8 +45,8 @@ Handoff:
 
 ### PRRS-020 — Model playback resource demand and admission decisions
 
-Status: Pending
-Owner: unassigned
+Status: Completed
+Owner: codex
 Depends on: PRRS-010
 
 Scope:
@@ -76,14 +76,16 @@ Review:
 
 Evidence:
 
-- New playback resource/admission tests.
+- `crates/nako-server/src/app/playback/resource.rs`
+- `crates/nako-server/src/app/tests/playback.rs`
 - `docs/workstreams/playback-runtime-resource-scheduler/EVIDENCE_AND_GATES.md`
 
 Handoff:
 
-- Final status must be DONE, DONE_WITH_CONCERNS, BLOCKED, or NEEDS_CONTEXT.
-- If the code cannot distinguish remux/HLS CPU/GPU demand from existing
-  planning facts, split a smaller vocabulary task instead of guessing.
+- DONE: Playback resource demand is typed for direct stream, remux, and HLS.
+- DONE: Admission decisions can explain accepted, rejected, and not-yet-enforced
+  classes without changing route behavior.
+- The first enforcement task is PRRS-030.
 
 ### PRRS-030 — Acquire permits for HLS and remux start paths
 
@@ -208,4 +210,3 @@ Evidence:
 Handoff:
 
 - Update `WORKSTREAM.json` status and continue policy.
-
