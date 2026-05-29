@@ -1,7 +1,7 @@
 # Cross-Repo Fearless Boundary Alignment
 
-Status: Active
-Last updated: 2026-05-24
+Status: Completed
+Last updated: 2026-05-29
 
 ## Why This Lane Exists
 
@@ -285,3 +285,12 @@ This lane can close when:
   verification are recorded;
 - remaining product breadth is split into named follow-ons instead of hidden in
   architecture work.
+
+Closeout result: closed on 2026-05-29. The lane shipped narrower server
+workflow ports, local inference separation, official addon runtime/provider
+module splits, public addon protected-write client/protocol alignment, Addon
+Runtime contract hardening, and Playback Runtime ownership of product-level
+transcode sessions. Remaining breadth is explicitly split into follow-ons:
+adaptive bitrate ladders, optimized versions, additional hardware backends,
+broader Candidate/Acceptance paths beyond managed artwork, public addon
+SDK/release artifacts, and provider splits beyond the current TMDB proof.

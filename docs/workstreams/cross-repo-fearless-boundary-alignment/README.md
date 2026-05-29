@@ -1,7 +1,7 @@
 # Cross-Repo Fearless Boundary Alignment
 
-Status: Active
-Last updated: 2026-05-24
+Status: Completed
+Last updated: 2026-05-29
 
 This workstream is the next architecture-first refactor lane for aligning the
 Nako server workspace with `../nako-official-addons`.
@@ -22,5 +22,6 @@ Authoritative docs:
 - `HANDOFF.md`
 - `WORKSTREAM.json`
 
-Implementation is now underway. `CRFBA-030` is the first live slice in
-`crates/nako-library`.
+Implementation closed on 2026-05-29. Remaining playback breadth, public addon
+SDK/release work, broader provider acceptance coverage, and additional hardware
+backend work are follow-on lanes, not hidden work in this lane.
