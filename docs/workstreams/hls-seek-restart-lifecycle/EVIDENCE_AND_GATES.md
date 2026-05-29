@@ -61,3 +61,18 @@ python3 -m json.tool docs/workstreams/hls-seek-restart-lifecycle/WORKSTREAM.json
   skipped), and runtime gate run `5e035fe0-51c8-4259-aaf0-efb643ba8908`:
   `cargo nextest run -p nako-server hls_source --no-fail-fast` (14 passed, 429
   skipped, 1 nextest leak warning).
+- 2026-05-29 HSRL-030: Made HLS request admission explicit in
+  `HlsAppService`: same-generation active duplicates still conflict,
+  same-generation finished outputs still reuse, and a different request key for
+  the same source supersedes active HLS sessions by requesting cancellation
+  before starting the new session. Red test run
+  `a691deb6-fafc-448b-8b45-da092cb9db79` failed before implementation because
+  the prior generation remained `running`; green targeted run
+  `868111ce-4767-4969-b16e-1339438e274e`: `cargo nextest run -p nako-server
+  hls_source_seek_generation_supersedes_active_prior_generation
+  --no-fail-fast` (1 passed, 446 skipped). Runtime gate run
+  `4be7e479-c87e-4f07-9571-69c7e6adfa16`: `cargo nextest run -p nako-server
+  hls_source --no-fail-fast` (15 passed, 432 skipped, 1 nextest leak warning).
+  Closeout gates passed: `cargo fmt --all -- --check`, `git diff --check`,
+  and `python3 -m json.tool
+  docs/workstreams/hls-seek-restart-lifecycle/WORKSTREAM.json >/dev/null`.
