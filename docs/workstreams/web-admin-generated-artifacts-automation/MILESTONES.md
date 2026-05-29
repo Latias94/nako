@@ -30,6 +30,8 @@ Exit criteria: review-plan and accept/reject actions are either explicitly
 deferred or guarded by proven confirmation, boundary, idempotency, and redaction
 tests.
 
+Completed by `WAGA-040`.
+
 ## M4 - Closeout
 
 Exit criteria: frontend tests, TypeScript check, bundle budget, browser smoke,

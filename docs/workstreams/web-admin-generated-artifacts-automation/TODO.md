@@ -31,12 +31,12 @@ Last updated: 2026-05-29
 
 ## M3 - Review Mutation Guard Decision
 
-- [ ] WAGA-040 [owner=Codex] [deps=WAGA-030] [scope=web/src/api/admin,web/src/features/admin,docs/workstreams/web-admin-generated-artifacts-automation]
+- [x] WAGA-040 [owner=Codex] [deps=WAGA-030] [scope=web/src/api/admin,web/src/features/admin,docs/workstreams/web-admin-generated-artifacts-automation]
   Goal: Decide whether review-plan and accept/reject belong in this lane as guarded actions or must split into a follow-on.
   Validation: decision recorded with review-plan display, confirmation, idempotency, boundary flags, redaction, and mutation-result requirements; if implemented, `npm --prefix web run test` and `npm --prefix web run check` pass.
   Review: no action may imply direct canonical metadata, sidecar, or library-file writes.
-  Evidence: updated `ROUTE_API_READINESS.md`, `TODO.md`, and tests if code changes are made.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Evidence: `MUTATION_BOUNDARY_DECISION.md` and updated `ROUTE_API_READINESS.md`.
+  Handoff: DONE. Review mutation controls are split to a future guarded mutation lane. Next task is WAGA-050.
 
 ## M4 - Closeout
 

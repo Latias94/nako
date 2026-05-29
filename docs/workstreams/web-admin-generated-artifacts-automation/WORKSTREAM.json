@@ -7,16 +7,18 @@
   "scope_kind": "frontend_admin_operations",
   "problem": "The new web Admin shell lacks Generated Artifact / Automation diagnostics after the fake Media AI and Automation surfaces were removed.",
   "task_prefix": "WAGA",
-  "current_task": "WAGA-040",
+  "current_task": "WAGA-050",
   "completed_tasks": [
     "WAGA-010",
     "WAGA-020",
-    "WAGA-030"
+    "WAGA-030",
+    "WAGA-040"
   ],
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/web-admin-generated-artifacts-automation/README.md" },
     { "role": "design", "path": "docs/workstreams/web-admin-generated-artifacts-automation/DESIGN.md" },
     { "role": "route_api_readiness", "path": "docs/workstreams/web-admin-generated-artifacts-automation/ROUTE_API_READINESS.md" },
+    { "role": "mutation_boundary_decision", "path": "docs/workstreams/web-admin-generated-artifacts-automation/MUTATION_BOUNDARY_DECISION.md" },
     { "role": "execution", "path": "docs/workstreams/web-admin-generated-artifacts-automation/TODO.md" },
     { "role": "milestones", "path": "docs/workstreams/web-admin-generated-artifacts-automation/MILESTONES.md" },
     { "role": "gates", "path": "docs/workstreams/web-admin-generated-artifacts-automation/EVIDENCE_AND_GATES.md" },
@@ -32,7 +34,8 @@
   "evidence": [
     "WAGA-010 opened the lane from WDRP-040 and anchored the first implementation slice to generated Admin proposal/review contracts.",
     "WAGA-020 added the Admin generated artifact proposal read-model boundary, fixture fallback, pagination normalization, redacted mapping, and data-source contract tests.",
-    "WAGA-030 implemented the /admin/automation/generated-artifacts route with Admin navigation, route-owned pagination state, fixture/live behavior, redaction assertions, tests, and bundle budget validation."
+    "WAGA-030 implemented the /admin/automation/generated-artifacts route with Admin navigation, route-owned pagination state, fixture/live behavior, redaction assertions, tests, and bundle budget validation.",
+    "WAGA-040 split review-plan and accept/reject mutation controls to a future guarded mutation lane with route shape, permission/readiness, confirmation, idempotency, boundary display, result/error, cache invalidation, and redaction requirements."
   ],
   "adr_refs": [
     "docs/adr/0004-ai-as-external-automation-first.md",
@@ -41,6 +44,6 @@
   ],
   "continue_policy": {
     "default_action": "continue_current_task",
-    "notes": "Continue with WAGA-040. Decide whether review-plan and accept/reject actions belong in this lane as guarded mutations or must split to a follow-on."
+    "notes": "Continue with WAGA-050. Close the read-only Generated Artifacts route lane and record follow-ons for guarded review mutations, provider adapters, local runtime, and metadata-authority apply."
   }
 }

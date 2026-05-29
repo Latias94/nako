@@ -32,6 +32,12 @@ shell. The route is read-only, Admin-only, and owns `limit` and `offset` search
 params. The page renders proposal diagnostics, fixture/live source status,
 pagination, and redaction-safe fields only.
 
+WAGA-040 decided that review-plan and accept/reject mutation controls do not
+belong in this lane. The generated Admin API routes exist, but mutation UI must
+split to a future guarded lane with explicit route shape, permission/readiness
+disabled states, confirmation, idempotent replay handling, boundary flag
+display, result/error rendering, cache invalidation, and redaction guarantees.
+
 The old `apps/admin-web` implementation is prior art, not code to copy into the
 new shell. The new work belongs in `web/src/api/admin`,
 `web/src/features/admin`, `web/src/shell/nako-router.tsx`, and tests under
@@ -39,16 +45,14 @@ new shell. The new work belongs in `web/src/api/admin`,
 
 ## Active Task
 
-- Task ID: WAGA-040
+- Task ID: WAGA-050
 - Owner: Codex
 - Status: READY
-- Validation: decision recorded with review-plan display, confirmation,
-  idempotency, boundary flags, redaction, and mutation-result requirements; if
-  implemented, `npm --prefix web run test` and `npm --prefix web run check`
-  pass.
+- Validation: `npm --prefix web run test`; `npm --prefix web run check`;
+  `npm --prefix web run build:budget`; browser smoke; `git diff --check`.
 
 ## Next Recommended Action
 
-Start WAGA-040. Decide whether review-plan and accept/reject actions can be
-implemented safely in this lane, or must split into a focused guarded mutation
-follow-on.
+Start WAGA-050. Close the lane with final evidence and follow-ons for guarded
+review mutations, provider adapters, local runtime, and metadata-authority
+apply.

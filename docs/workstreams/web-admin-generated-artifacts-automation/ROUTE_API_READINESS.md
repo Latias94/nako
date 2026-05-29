@@ -69,7 +69,19 @@ fingerprints, timestamps, and fixture/live source state. Tests assert that raw
 prompt text, raw generated payload bodies, provider raw responses, local paths,
 Source Locators, credentials, and bearer tokens do not render.
 
-Review-plan and accept/reject actions remain deferred pending WAGA-040.
+Review-plan and accept/reject actions remain deferred after WAGA-040.
+
+## WAGA-040 Mutation Decision
+
+WAGA-040 decided not to add review-plan or accept/reject controls in this lane.
+The generated Admin routes are present, but the UI needs a separate guarded
+mutation lane before exposing controls that change Generated Artifact status or
+advance an Acceptance Workflow.
+
+The follow-on must define route shape, permission/readiness disabled states,
+confirmation copy, idempotent replay behavior, boundary flag display,
+result/error rendering, cache invalidation, and redaction assertions before
+calling `generatedArtifactReview`.
 
 ## Review Guard Requirements
 

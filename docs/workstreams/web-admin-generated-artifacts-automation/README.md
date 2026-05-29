@@ -12,13 +12,12 @@ artifacts with explicit acceptance boundaries, not free-form Media chat UI.
 
 - `DESIGN.md` - problem, scope, non-goals, and architecture direction.
 - `ROUTE_API_READINESS.md` - Admin API contract inventory and mutation guards.
+- `MUTATION_BOUNDARY_DECISION.md` - WAGA-040 review mutation decision.
 - `TODO.md` - executable task ledger.
 - `EVIDENCE_AND_GATES.md` - validation commands and evidence log.
 - `HANDOFF.md` - current state and next action.
 
 ## Current Execution Point
 
-`WAGA-030` implemented the read-only
-`/admin/automation/generated-artifacts` route in the new `web/` Admin shell.
-Continue with `WAGA-040`, the review-plan and accept/reject mutation boundary
-decision.
+`WAGA-040` split review-plan and accept/reject mutation controls to a future
+guarded mutation lane. Continue with `WAGA-050` closeout.
