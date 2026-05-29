@@ -1,7 +1,7 @@
 # Web Admin Generated Artifacts Automation
 
-Status: Active
-Last updated: 2026-05-28
+Status: Closed
+Last updated: 2026-05-29
 
 This lane brings the Generated Artifacts / Automation operator workflow into
 the new `web/` Admin frontend. It is the reentry path for the removed
@@ -16,8 +16,14 @@ artifacts with explicit acceptance boundaries, not free-form Media chat UI.
 - `TODO.md` - executable task ledger.
 - `EVIDENCE_AND_GATES.md` - validation commands and evidence log.
 - `HANDOFF.md` - current state and next action.
+- `CLOSEOUT.md` - final closeout summary and follow-ons.
 
 ## Current Execution Point
 
-`WAGA-040` split review-plan and accept/reject mutation controls to a future
-guarded mutation lane. Continue with `WAGA-050` closeout.
+This lane closed with `WAGA-050` on 2026-05-29. The new `web/` shell now owns
+the read-only `/admin/automation/generated-artifacts` Admin route, route
+pagination state, fixture/live Admin API data-source behavior,
+redaction-sensitive rendering, and desktop/mobile browser smoke evidence.
+
+Review-plan and accept/reject mutation controls remain split to a future
+guarded mutation lane.

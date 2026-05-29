@@ -1,11 +1,11 @@
 # Web Admin Generated Artifacts Automation - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 ## Current State
 
-This lane is open. WDRP mapped the removed AI assistant and Automation
+This lane is closed. WDRP mapped the removed AI assistant and Automation
 prototypes to Admin Generated Artifacts / Automation diagnostics. The generated
 Admin contract already exposes:
 
@@ -38,6 +38,9 @@ split to a future guarded lane with explicit route shape, permission/readiness
 disabled states, confirmation, idempotent replay handling, boundary flag
 display, result/error rendering, cache invalidation, and redaction guarantees.
 
+WAGA-050 closed the lane after final frontend gates, bundle budget, desktop
+browser smoke, mobile browser smoke, and closeout documentation passed.
+
 The old `apps/admin-web` implementation is prior art, not code to copy into the
 new shell. The new work belongs in `web/src/api/admin`,
 `web/src/features/admin`, `web/src/shell/nako-router.tsx`, and tests under
@@ -45,14 +48,14 @@ new shell. The new work belongs in `web/src/api/admin`,
 
 ## Active Task
 
-- Task ID: WAGA-050
-- Owner: Codex
-- Status: READY
-- Validation: `npm --prefix web run test`; `npm --prefix web run check`;
-  `npm --prefix web run build:budget`; browser smoke; `git diff --check`.
+None. This workstream is closed.
 
 ## Next Recommended Action
 
-Start WAGA-050. Close the lane with final evidence and follow-ons for guarded
-review mutations, provider adapters, local runtime, and metadata-authority
-apply.
+Open the selected follow-on lane. The most direct options are:
+
+- guarded Generated Artifact review-plan and accept/reject mutations;
+- Automation Provider adapter breadth and local runtime integration;
+- metadata-authority apply workflow after Acceptance Workflow boundaries are
+  explicit;
+- addon task/event diagnostics after Addon runtime contracts need UI breadth.

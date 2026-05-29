@@ -17,7 +17,9 @@ implementation lane. WDRP-030 opened
 Acquisition Intake route. That lane closed at WAAI-050 with the read-only route
 shipped and discovery mutations split to a future guarded lane. WDRP-040 opened
 `docs/workstreams/web-admin-generated-artifacts-automation` for the new `web/`
-Admin Generated Artifacts / Automation route.
+Admin Generated Artifacts / Automation route. That lane closed at WAGA-050 with
+the read-only route shipped and review mutations split to a future guarded
+lane.
 WDRP-050 opened `docs/workstreams/user-playlists-contract-and-web-slice` for
 the playlist backend/Public Client contract. Playlist UI remains blocked until
 that lane freezes route and DTO shape.
@@ -40,7 +42,9 @@ native playback deferred to the existing Rust/Tauri capability gap.
 - Continue a selected follow-on lane:
   `public-client-library-browse-query-contract` at PLBQ-020,
   `public-client-browser-playback-session-identity` at PBSI-020,
-  `web-admin-generated-artifacts-automation` at WAGA-020, or
   `user-playlists-contract-and-web-slice` at UPCW-020.
 - For downloads/acquisition, open a new guarded watch-folder discovery mutation
   lane or downloader provider/protocol lane instead of reopening WAAI.
+- For AI/automation, open a guarded Generated Artifact review mutation lane,
+  provider adapter lane, or addon task/event diagnostics lane instead of
+  reopening WAGA.

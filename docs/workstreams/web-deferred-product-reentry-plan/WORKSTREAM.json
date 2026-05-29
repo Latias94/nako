@@ -51,6 +51,6 @@
   ],
   "continue_policy": {
     "default_action": "choose_follow_on_workstream",
-    "notes": "WDRP is closed. Continue PLBQ-020, PBSI-020, WAGA-020, or UPCW-020 depending on product priority. For downloads/acquisition, WAAI is closed; open a new guarded discovery mutation, downloader protocol, or Managed Import promotion lane."
+    "notes": "WDRP is closed. Continue PLBQ-020, PBSI-020, or UPCW-020 depending on product priority. For downloads/acquisition, WAAI is closed; open a new guarded discovery mutation, downloader protocol, or Managed Import promotion lane. For AI/automation, WAGA is closed; open a guarded review mutation, provider adapter, or addon task/event diagnostics lane."
   }
 }

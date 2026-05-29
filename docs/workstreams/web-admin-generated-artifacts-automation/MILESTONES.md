@@ -1,6 +1,6 @@
 # Web Admin Generated Artifacts Automation - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 ## M0 - Open Lane
@@ -36,3 +36,5 @@ Completed by `WAGA-040`.
 
 Exit criteria: frontend tests, TypeScript check, bundle budget, browser smoke,
 and workstream docs agree on what shipped and what remains deferred.
+
+Completed by `WAGA-050`.
