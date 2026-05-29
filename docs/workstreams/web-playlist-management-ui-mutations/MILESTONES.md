@@ -15,6 +15,8 @@ Exit criteria: web data-source and TanStack Query mutation hooks cover the
 existing playlist mutation SDK surface without Admin API imports or fixture
 success overclaims.
 
+Completed by `WPMU-020`.
+
 ## M2 - Playlist CRUD Controls
 
 Exit criteria: `/media/my-list` supports create, rename, and delete with

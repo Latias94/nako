@@ -8,29 +8,36 @@ Last updated: 2026-05-29
 This lane is open. The backend/Public Client User Playlist contract is already
 closed in `docs/workstreams/user-playlists-contract-and-web-slice/`. The first
 web slice can list playlists and items at `/media/my-list` through Public
-Client live data with fixture fallback.
+Client live data with fixture fallback. WPMU-020 added the web mutation
+boundary: Public Client-backed data-source methods and TanStack Query mutation
+hooks now cover playlist create, rename, delete, add item, remove item, and
+reorder.
 
-This lane starts the mutation UI work. It must keep playlist management on the
-Public Client boundary and must not import Admin API code into media features.
+The remaining lane work is UI integration. It must keep playlist management on
+the Public Client boundary and must not import Admin API code into media
+features.
 
 ## Active Task
 
-- Task ID: WPMU-020
+- Task ID: WPMU-030
 - Owner: Codex
-- Files: `web/src/api/public/media-data-source.ts`, `web/lib/use-media.ts`,
-  `web/src/test/data-source-contracts.test.ts`
-- Validation: `npm --prefix web run test -- src/test/data-source-contracts.test.ts`;
+- Files: `web/src/features/media/my-list-page.tsx`, `web/src/shell`,
+  `web/src/test`
+- Validation: `npm --prefix web run test -- src/test/route-contracts.test.tsx src/test/route-state-contracts.test.tsx`;
   `npm --prefix web run check`
 - Status: READY
-- Review: no Admin API imports, no raw feature-level fetch calls, no fixture
-  mutation success claims
-- Evidence: data-source and mutation hook tests
+- Review: controls must be accessible, must not use modal-only dead ends, and
+  must keep the active route valid after deletion.
+- Evidence: route/state tests and screenshots
 
 ## Decisions Since Last Update
 
 - This lane does not redesign the Public Client route contract.
 - Fixture mode may preview forms/states, but cannot claim persisted mutation
   success.
+- Fixture mutation payloads explicitly return `persisted: false`.
+- Playlist mutation hooks invalidate the playlist list and affected item list;
+  delete also removes the deleted playlist item query cache.
 - Reorder starts with explicit accessible controls; drag-and-drop is optional
   and should be split if it expands cost.
 
@@ -40,6 +47,6 @@ Public Client boundary and must not import Admin API code into media features.
 
 ## Next Recommended Action
 
-Start WPMU-020 with TDD: add failing data-source/hook tests for playlist
-mutations, then implement Public Client mutation methods and TanStack Query
-cache behavior.
+Start WPMU-030 with TDD: add create, rename, and delete controls on
+`/media/my-list`, then wire them to the existing playlist mutation hooks with
+loading, empty, error, and route-safe deletion states.

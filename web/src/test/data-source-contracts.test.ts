@@ -868,6 +868,218 @@ describe("public media data source contracts", () => {
     )
   })
 
+  it("maps live User Playlist mutations through Public Client routes", async () => {
+    const calls: Array<{
+      method: string
+      path: string
+      body?: unknown
+      authorization: string | null
+    }> = []
+    const fetcher = vi.fn<FetchLike>(async (input, init) => {
+      const url = new URL(String(input))
+      const method = init?.method ?? "GET"
+      const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined
+      calls.push({
+        method,
+        path: url.pathname,
+        body,
+        authorization: new Headers(init?.headers).get("Authorization"),
+      })
+
+      switch (`${method} ${url.pathname}`) {
+        case "POST /users/me/playlists":
+          return jsonResponse({
+            playlist: publicUserPlaylist({
+              id: "playlist-new",
+              name: (body as { name: string }).name,
+              item_count: 0,
+              version: 1,
+            }),
+          })
+        case "PATCH /users/me/playlists/playlist-live":
+          return jsonResponse({
+            playlist: publicUserPlaylist({
+              name: (body as { name: string }).name,
+              version: 3,
+            }),
+          })
+        case "DELETE /users/me/playlists/playlist-live":
+          return jsonResponse({ playlist_id: "playlist-live", deleted: true })
+        case "PUT /users/me/playlists/playlist-live/items/live-movie":
+          return jsonResponse({
+            playlist: publicUserPlaylist({
+              item_count: 2,
+              version: 4,
+            }),
+          })
+        case "DELETE /users/me/playlists/playlist-live/items/live-movie":
+          return jsonResponse({
+            playlist: publicUserPlaylist({
+              item_count: 0,
+              version: 5,
+            }),
+          })
+        case "PUT /users/me/playlists/playlist-live/items/reorder":
+          return jsonResponse({
+            playlist: publicUserPlaylist({
+              version: 6,
+            }),
+          })
+        default:
+          return jsonResponse({ message: "not found" }, 404)
+      }
+    })
+    const source = createPublicMediaDataSource(
+      {
+        mode: "live",
+        baseUrl: "http://nako.test/",
+        bearerToken: "public-token",
+      },
+      fetcher,
+    )
+
+    const created = await source.createUserPlaylist({ name: "New Queue" })
+    const renamed = await source.updateUserPlaylist("playlist-live", {
+      name: "Renamed Queue",
+      expected_version: 2,
+    })
+    const deleted = await source.deleteUserPlaylist("playlist-live")
+    const added = await source.addUserPlaylistItem("playlist-live", "live-movie", {
+      position: 1,
+      expected_version: 3,
+    })
+    const removed = await source.removeUserPlaylistItem("playlist-live", "live-movie")
+    const reordered = await source.reorderUserPlaylistItems("playlist-live", {
+      item_ids: ["live-movie-b", "live-movie-a"],
+      expected_version: 5,
+    })
+
+    expect(created).toMatchObject({
+      source: "live",
+      fallback: false,
+      persisted: true,
+      playlist: {
+        id: "playlist-new",
+        name: "New Queue",
+        itemCount: 0,
+      },
+    })
+    expect(renamed).toMatchObject({
+      source: "live",
+      fallback: false,
+      persisted: true,
+      playlist: {
+        id: "playlist-live",
+        name: "Renamed Queue",
+        version: 3,
+      },
+    })
+    expect(deleted).toMatchObject({
+      source: "live",
+      fallback: false,
+      persisted: true,
+      playlistId: "playlist-live",
+      deleted: true,
+    })
+    expect(added).toMatchObject({
+      source: "live",
+      fallback: false,
+      persisted: true,
+      playlist: {
+        itemCount: 2,
+        version: 4,
+      },
+    })
+    expect(removed).toMatchObject({
+      source: "live",
+      fallback: false,
+      persisted: true,
+      playlist: {
+        itemCount: 0,
+        version: 5,
+      },
+    })
+    expect(reordered).toMatchObject({
+      source: "live",
+      fallback: false,
+      persisted: true,
+      playlist: {
+        version: 6,
+      },
+    })
+    expect(calls).toEqual([
+      {
+        method: "POST",
+        path: "/users/me/playlists",
+        body: { name: "New Queue" },
+        authorization: "Bearer public-token",
+      },
+      {
+        method: "PATCH",
+        path: "/users/me/playlists/playlist-live",
+        body: { name: "Renamed Queue", expected_version: 2 },
+        authorization: "Bearer public-token",
+      },
+      {
+        method: "DELETE",
+        path: "/users/me/playlists/playlist-live",
+        body: undefined,
+        authorization: "Bearer public-token",
+      },
+      {
+        method: "PUT",
+        path: "/users/me/playlists/playlist-live/items/live-movie",
+        body: { position: 1, expected_version: 3 },
+        authorization: "Bearer public-token",
+      },
+      {
+        method: "DELETE",
+        path: "/users/me/playlists/playlist-live/items/live-movie",
+        body: undefined,
+        authorization: "Bearer public-token",
+      },
+      {
+        method: "PUT",
+        path: "/users/me/playlists/playlist-live/items/reorder",
+        body: { item_ids: ["live-movie-b", "live-movie-a"], expected_version: 5 },
+        authorization: "Bearer public-token",
+      },
+    ])
+  })
+
+  it("does not claim fixture User Playlist mutations are persisted", async () => {
+    const source = createPublicMediaDataSource({ mode: "fixture" })
+
+    const created = await source.createUserPlaylist({ name: "Draft Queue" })
+    const removed = await source.removeUserPlaylistItem("fixture-watch-later", "1")
+    const deleted = await source.deleteUserPlaylist("fixture-watch-later")
+
+    expect(created).toMatchObject({
+      source: "fixture",
+      fallback: true,
+      persisted: false,
+      playlist: null,
+      error: "Fixture mode does not persist playlist mutations.",
+    })
+    expect(removed).toMatchObject({
+      source: "fixture",
+      fallback: true,
+      persisted: false,
+      playlist: {
+        id: "fixture-watch-later",
+      },
+      error: "Fixture mode does not persist playlist mutations.",
+    })
+    expect(deleted).toMatchObject({
+      source: "fixture",
+      fallback: true,
+      persisted: false,
+      playlistId: "fixture-watch-later",
+      deleted: false,
+      error: "Fixture mode does not persist playlist mutations.",
+    })
+  })
+
   it("maps live item detail read models with source and image refs", async () => {
     const fetcher = vi.fn<FetchLike>(async () =>
       jsonResponse({

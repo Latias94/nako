@@ -13,12 +13,12 @@ Last updated: 2026-05-29
 
 ## M1 - Public Client Mutation Boundary
 
-- [ ] WPMU-020 [owner=Codex] [deps=WPMU-010] [scope=web/src/api/public,web/lib/use-media.ts,web/src/test]
+- [x] WPMU-020 [owner=Codex] [deps=WPMU-010] [scope=web/src/api/public,web/lib/use-media.ts,web/src/test]
   Goal: Add web data-source methods and TanStack Query mutation hooks for create, rename, delete, add item, remove item, and reorder using the existing Public Client SDK.
-  Validation: `npm --prefix web run test -- src/test/data-source-contracts.test.ts`; `npm --prefix web run check`.
+  Validation: `npm --prefix web run test -- src/test/data-source-contracts.test.ts src/test/use-media-contracts.test.tsx`; `npm --prefix web run check`.
   Review: no Admin API imports, no raw fetch calls from feature components, and no fixture mutation success claims.
-  Evidence: data-source and hook tests.
-  Handoff: Final status must be DONE, DONE_WITH_CONCERNS, BLOCKED, or NEEDS_CONTEXT.
+  Evidence: data-source mutation contract tests and TanStack Query mutation hook cache-policy tests.
+  Handoff: DONE. Public Client mutation boundary is ready for WPMU-030 CRUD controls.
 
 ## M2 - Playlist CRUD Controls
 
