@@ -22,6 +22,7 @@ mod artwork_write;
 mod catalog;
 mod diagnostics;
 mod event_runtime;
+mod external_acquisition;
 mod intake;
 mod library_file_write;
 mod metadata_write;
@@ -852,6 +853,15 @@ mod tests {
         assert_eq!(
             catalog::official_resource_search_descriptor(),
             nako_official_addon_catalog::resource_search::container_install_descriptor()
+        );
+    }
+
+    #[test]
+    fn official_external_acquisition_runner_catalog_descriptor_uses_shared_catalog_facts() {
+        assert_eq!(
+            catalog::official_external_acquisition_runner_descriptor(),
+            nako_official_addon_catalog::external_acquisition_runner::container_install_descriptor(
+            )
         );
     }
 

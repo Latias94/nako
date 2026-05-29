@@ -33,6 +33,7 @@ import {
   Info,
   ExternalLink,
   Monitor,
+  FileSearch,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -59,6 +60,7 @@ import { AdminLogs } from "./admin-logs"
 import type { AdminLogsRouteState } from "./admin-logs"
 import { AdminScheduledTasks } from "./admin-scheduled-tasks"
 import { AdminSettings } from "./admin-settings"
+import { AdminAcquisitionIntake, type AdminAcquisitionIntakeRouteState } from "./admin-acquisition-intake"
 import {
   ADMIN_DASHBOARD_FIXTURE,
   createAdminDashboardDataSource,
@@ -72,6 +74,7 @@ export type AdminSurfaceSection =
   | "dashboard"
   | "activity"
   | "scheduled-tasks"
+  | "acquisition-intake"
   | "libraries"
   | "users"
   | "dlna"
@@ -89,6 +92,8 @@ export interface AdminSurfaceProps {
   onSectionNavigate?: (section: AdminSurfaceSection) => void
   adminLogsState?: AdminLogsRouteState
   onAdminLogsStateChange?: (state: AdminLogsRouteState) => void
+  acquisitionIntakeState?: AdminAcquisitionIntakeRouteState
+  onAcquisitionIntakeStateChange?: (state: AdminAcquisitionIntakeRouteState) => void
 }
 
 interface AdminNavItem {
@@ -116,6 +121,7 @@ const adminNavGroups: AdminNavGroup[] = [
     title: "内容",
     items: [
       { name: "媒体库", icon: Folder, component: "libraries" },
+      { name: "采集入口", icon: FileSearch, component: "acquisition-intake" },
     ]
   },
   {
@@ -169,6 +175,8 @@ export function AdminSurface({
   onSectionNavigate,
   adminLogsState,
   onAdminLogsStateChange,
+  acquisitionIntakeState,
+  onAcquisitionIntakeStateChange,
 }: AdminSurfaceProps = {}) {
   const [activeComponent, setActiveComponent] = useState<AdminSurfaceSection>(activeSection)
   const { data: dashboardData = ADMIN_DASHBOARD_FIXTURE } = useQuery({
@@ -202,6 +210,13 @@ export function AdminSurface({
         return <AdminPlugins />
       case "activity":
         return <AdminLogs routeState={adminLogsState} onRouteStateChange={onAdminLogsStateChange} />
+      case "acquisition-intake":
+        return (
+          <AdminAcquisitionIntake
+            routeState={acquisitionIntakeState}
+            onRouteStateChange={onAcquisitionIntakeStateChange}
+          />
+        )
       case "scheduled-tasks":
         return <AdminScheduledTasks />
       case "dlna":

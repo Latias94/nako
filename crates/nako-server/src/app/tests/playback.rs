@@ -106,6 +106,106 @@ async fn remux_source_currently_starts_without_principal_or_playback_policy() {
 }
 
 #[tokio::test]
+async fn playback_resource_admission_accepts_remote_stream_capacity() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "resource_remote_stream");
+    let (_temp, app, _store, _source) = remux_app_with_source(ffmpeg_path).await;
+
+    let decision = app
+        .playback()
+        .admit_playback_resource_demand(PlaybackResourceDemand::direct_stream(true));
+
+    assert!(decision.accepted());
+    assert_eq!(
+        decision.status_for(PlaybackResourceClass::RemoteStream),
+        Some(PlaybackResourceAdmissionStatus::Accepted)
+    );
+}
+
+#[test]
+fn playback_resource_admission_rejects_unavailable_host_owned_capacity() {
+    let admission = PlaybackRuntimeAdmission::new(PlaybackResourceCapacity {
+        remote_streams: 0,
+        remote_stages: 1,
+        remux_processes: 1,
+        cpu_transcodes: 1,
+        gpu_transcodes: 1,
+    });
+
+    let decision = admission.decide(PlaybackResourceDemand::direct_stream(true));
+
+    assert!(!decision.accepted());
+    let remote_stream = decision
+        .classes()
+        .iter()
+        .find(|class| class.class == PlaybackResourceClass::RemoteStream)
+        .unwrap();
+    assert_eq!(remote_stream.class.as_str(), "remote_stream");
+    assert_eq!(remote_stream.capacity_units, Some(0));
+    assert_eq!(
+        remote_stream.status,
+        PlaybackResourceAdmissionStatus::Rejected
+    );
+    assert!(remote_stream.reason.contains("unavailable"));
+}
+
+#[test]
+fn playback_resource_admission_explains_process_permits_and_unenforced_artifacts() {
+    let admission = PlaybackRuntimeAdmission::new(PlaybackResourceCapacity {
+        remote_streams: 1,
+        remote_stages: 1,
+        remux_processes: 1,
+        cpu_transcodes: 1,
+        gpu_transcodes: 1,
+    });
+
+    let remux = admission.decide(PlaybackResourceDemand::remux(false));
+    assert!(remux.accepted());
+    assert_eq!(remux.demand.workload.as_str(), "remux");
+    assert_eq!(
+        remux.status_for(PlaybackResourceClass::RemuxProcess),
+        Some(PlaybackResourceAdmissionStatus::Accepted)
+    );
+
+    let gpu_hls = admission.decide(PlaybackResourceDemand::hls(
+        true,
+        TranscodeExecutionPolicy::hls_single_variant(
+            TranscodeAccelerationPlan::for_selected_hardware(HardwareAcceleration::Nvenc),
+            TranscodeTrackSelection::default(),
+            TranscodeOutputConstraints::default(),
+        ),
+    ));
+    assert!(gpu_hls.accepted());
+    assert!(gpu_hls.has_not_yet_enforced_classes());
+    assert_eq!(gpu_hls.demand.workload.as_str(), "hls");
+    assert_eq!(
+        gpu_hls.status_for(PlaybackResourceClass::RemoteStage),
+        Some(PlaybackResourceAdmissionStatus::Accepted)
+    );
+    assert_eq!(
+        gpu_hls.status_for(PlaybackResourceClass::GpuTranscode),
+        Some(PlaybackResourceAdmissionStatus::Accepted)
+    );
+    assert_eq!(
+        gpu_hls.status_for(PlaybackResourceClass::HlsArtifactIo),
+        Some(PlaybackResourceAdmissionStatus::NotYetEnforced)
+    );
+
+    let cpu_hls = admission.decide(PlaybackResourceDemand::hls(
+        false,
+        TranscodeExecutionPolicy::hls_single_variant(
+            TranscodeAccelerationPlan::software(),
+            TranscodeTrackSelection::default(),
+            TranscodeOutputConstraints::default(),
+        ),
+    ));
+    assert_eq!(
+        cpu_hls.status_for(PlaybackResourceClass::CpuTranscode),
+        Some(PlaybackResourceAdmissionStatus::Accepted)
+    );
+}
+
+#[tokio::test]
 async fn direct_playback_policy_denial_does_not_create_session() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "policy_denied_direct");
@@ -425,6 +525,117 @@ async fn remux_source_persists_timeout_failure_category() {
 }
 
 #[tokio::test]
+async fn remux_source_rejects_when_playback_resource_permit_is_busy() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_slow_ffmpeg_script(script_root.path(), "resource_busy_remux");
+    let (temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let second_source = add_local_playback_source(
+        &store,
+        source.library_id,
+        &temp.path().join("library"),
+        "demo-two.mkv",
+    )
+    .await;
+    let first_request = RemuxSourceRequest {
+        source_id: source.id,
+        client: ClientPlaybackCapabilities::default(),
+        output_container: RemuxContainer::Mp4,
+    };
+    let first_key = RemuxRequestKey {
+        source_id: source.id,
+        request_identity: local_remux_request_identity(&source, RemuxContainer::Mp4),
+    }
+    .persisted_request_key();
+    let app_for_task = app.clone();
+    let first =
+        tokio::spawn(async move { app_for_task.playback().remux_source(first_request).await });
+    wait_for_active_transcode_session(&store, source.id, TranscodeSessionKind::Remux, &first_key)
+        .await;
+
+    let second = tokio::time::timeout(
+        std::time::Duration::from_millis(800),
+        app.playback().remux_source(RemuxSourceRequest {
+            source_id: second_source.id,
+            client: ClientPlaybackCapabilities::default(),
+            output_container: RemuxContainer::Mp4,
+        }),
+    )
+    .await
+    .expect("busy remux admission should reject promptly");
+
+    let NakoError::Conflict { message } = second.unwrap_err() else {
+        panic!("expected remux resource pressure conflict");
+    };
+    assert!(message.contains("remux_process"));
+
+    let first_output = first.await.unwrap().unwrap();
+    assert_eq!(first_output.disposition, RemuxSourceDisposition::Finished);
+}
+
+#[tokio::test]
+async fn remux_playback_preflight_rejects_when_playback_resource_permit_is_busy() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_slow_ffmpeg_script(script_root.path(), "resource_busy_remux_preflight");
+    let (temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let principal = local_playback_viewer(&store, source.library_id).await;
+    let second_source = add_local_playback_source(
+        &store,
+        source.library_id,
+        &temp.path().join("library"),
+        "demo-two.mkv",
+    )
+    .await;
+
+    let first = app
+        .playback()
+        .remux_playback_preflight(RemuxPlaybackPreflightRequest {
+            principal: principal.clone(),
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+            output_container: RemuxContainer::Mp4,
+        })
+        .await
+        .unwrap();
+    let linked_first = store
+        .get_playback_session(first.session.id)
+        .await
+        .unwrap()
+        .unwrap();
+    let transcode_session_id = linked_first
+        .transcode_session_id
+        .expect("remux playback session should link a transcode session");
+
+    let second = tokio::time::timeout(
+        std::time::Duration::from_millis(800),
+        app.playback()
+            .remux_playback_preflight(RemuxPlaybackPreflightRequest {
+                principal,
+                source_id: second_source.id,
+                client: ClientPlaybackCapabilities::default(),
+                output_container: RemuxContainer::Mp4,
+            }),
+    )
+    .await;
+
+    app.playback()
+        .cancel_playback_session(first.session.id)
+        .await
+        .unwrap();
+    wait_for_transcode_state(
+        &store,
+        transcode_session_id,
+        TranscodeSessionState::Cancelled,
+    )
+    .await;
+
+    let second = second.expect("busy remux admission should reject preflight promptly");
+    let NakoError::Conflict { message } = second.unwrap_err() else {
+        panic!("expected remux resource pressure conflict");
+    };
+    assert!(message.contains("remux_process"));
+}
+
+#[tokio::test]
 async fn app_startup_marks_stale_transcode_sessions_failed() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "success");
@@ -625,6 +836,69 @@ async fn hls_playlist_playback_returns_when_playlist_is_ready_before_runner_fini
         TranscodeSessionState::Cancelled,
     )
     .await;
+}
+
+#[tokio::test]
+async fn hls_playlist_playback_rejects_when_playback_resource_permit_is_busy() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_running_hls_ffmpeg_script(script_root.path(), "hls_resource_busy");
+    let (temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let principal = local_playback_viewer(&store, source.library_id).await;
+    let second_source = add_local_playback_source(
+        &store,
+        source.library_id,
+        &temp.path().join("library"),
+        "demo-two.mkv",
+    )
+    .await;
+
+    let first_playlist = app
+        .playback()
+        .hls_playlist_playback(HlsPlaylistPlaybackRequest {
+            principal: principal.clone(),
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+            preferences: PlaybackPreferenceContext::default(),
+            playback_generation: HlsPlaybackGeneration::default(),
+            transport_query: None,
+        })
+        .await
+        .unwrap();
+    let transcode_session_id = first_playlist
+        .session
+        .transcode_session_id
+        .expect("hls playback session should link a transcode session");
+
+    let second = tokio::time::timeout(
+        std::time::Duration::from_millis(800),
+        app.playback()
+            .hls_playlist_playback(HlsPlaylistPlaybackRequest {
+                principal,
+                source_id: second_source.id,
+                client: ClientPlaybackCapabilities::default(),
+                preferences: PlaybackPreferenceContext::default(),
+                playback_generation: HlsPlaybackGeneration::default(),
+                transport_query: None,
+            }),
+    )
+    .await;
+
+    app.playback()
+        .cancel_playback_session(first_playlist.session.id)
+        .await
+        .unwrap();
+    wait_for_transcode_state(
+        &store,
+        transcode_session_id,
+        TranscodeSessionState::Cancelled,
+    )
+    .await;
+
+    let second = second.expect("busy hls admission should reject promptly");
+    let NakoError::Conflict { message } = second.unwrap_err() else {
+        panic!("expected hls resource pressure conflict");
+    };
+    assert!(message.contains("cpu_transcode"));
 }
 
 #[tokio::test]
@@ -2009,6 +2283,99 @@ async fn local_playback_viewer(
         roles: vec![UserRole::Viewer],
         bootstrap: false,
     }
+}
+
+async fn add_local_playback_source(
+    store: &NakoDatabase,
+    library_id: LibraryId,
+    library_root: &Path,
+    file_name: &str,
+) -> MediaSource {
+    fs::write(library_root.join(file_name), b"media").unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: file_name.to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: format!("local:///{file_name}"),
+        file_name: file_name.to_owned(),
+        size_bytes: Some(5),
+        fingerprint: Some(format!("fingerprint-{file_name}")),
+    };
+
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+    store
+        .upsert_media_probe(
+            source.id,
+            &MediaProbeResult {
+                duration_ms: Some(1_000),
+                container: Some("matroska,webm".to_owned()),
+                bit_rate: None,
+                streams: vec![
+                    MediaStreamInfo {
+                        index: 0,
+                        kind: MediaStreamKind::Video,
+                        codec: Some("h264".to_owned()),
+                        language: None,
+                        duration_ms: None,
+                        bit_rate: None,
+                        width: Some(1920),
+                        height: Some(1080),
+                        channels: None,
+                        sample_rate: None,
+                        technical: Default::default(),
+                    },
+                    MediaStreamInfo {
+                        index: 1,
+                        kind: MediaStreamKind::Audio,
+                        codec: Some("aac".to_owned()),
+                        language: None,
+                        duration_ms: None,
+                        bit_rate: None,
+                        width: None,
+                        height: None,
+                        channels: Some(2),
+                        sample_rate: Some(48_000),
+                        technical: Default::default(),
+                    },
+                ],
+            },
+        )
+        .await
+        .unwrap();
+
+    source
+}
+
+async fn wait_for_active_transcode_session(
+    store: &NakoDatabase,
+    source_id: MediaSourceId,
+    kind: TranscodeSessionKind,
+    request_key: &str,
+) -> TranscodeSessionRecord {
+    tokio::time::timeout(std::time::Duration::from_millis(800), async {
+        loop {
+            if let Some(session) = store
+                .find_active_transcode_session(source_id, kind, request_key)
+                .await
+                .unwrap()
+            {
+                return session;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap_or_else(|_| panic!("expected active {kind:?} transcode session for source {source_id}"))
 }
 
 async fn wait_for_transcode_state(

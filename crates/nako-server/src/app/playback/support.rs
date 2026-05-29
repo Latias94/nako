@@ -8,7 +8,10 @@ use nako_transcode::{
 
 use crate::config::NakoServerConfig;
 
-use super::{PlaybackRuntimeStore, hls::HlsAppService};
+use super::{
+    PlaybackRuntimeAdmission, PlaybackRuntimeResourcePressure, PlaybackRuntimeStore,
+    hls::HlsAppService,
+};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct PlaybackRuntimeDiagnostics {
@@ -31,6 +34,7 @@ pub(crate) struct PlaybackRuntimeDiagnostics {
     pub hls_segment_keep_ms: u64,
     pub transcode_throttle_enabled: bool,
     pub transcode_throttle_delay_ms: u64,
+    pub resource_pressure: PlaybackRuntimeResourcePressure,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -78,6 +82,7 @@ pub(super) async fn support_evidence_context(
 pub(super) fn runtime_diagnostics(
     config: &NakoServerConfig,
     hls: &HlsAppService,
+    resource_admission: &PlaybackRuntimeAdmission,
 ) -> PlaybackRuntimeDiagnostics {
     let hardware_policy = config.transcode.hardware_policy();
     let transcode_budget = config.transcode.resource_budget();
@@ -104,6 +109,7 @@ pub(super) fn runtime_diagnostics(
         hls_segment_keep_ms: config.playback.hls_segment_keep_ms,
         transcode_throttle_enabled: config.playback.transcode_throttle_enabled,
         transcode_throttle_delay_ms: config.playback.transcode_throttle_delay_ms,
+        resource_pressure: resource_admission.resource_pressure(),
     }
 }
 

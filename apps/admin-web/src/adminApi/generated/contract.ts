@@ -558,6 +558,8 @@ export interface AdminAddonTaskDeclaration {
   id: string;
   name: string;
   path: string;
+  input_schema?: string;
+  output_schema?: string;
   description?: string;
   required_scopes?: AddonScope[];
   timeout_ms?: number;
@@ -759,6 +761,8 @@ export interface AdminAddonTaskSurface {
   id: string;
   name: string;
   path: string;
+  input_schema?: string;
+  output_schema?: string;
   description?: string;
   required_scopes: AddonScope[];
   timeout_ms?: number;
@@ -1629,6 +1633,19 @@ export interface AdminPlaybackPolicyDiagnostics {
   permissions: AdminPlaybackPolicyPermission[];
 }
 
+export type AdminPlaybackResourceClass =
+  | "remote_stream"
+  | "remote_stage"
+  | "remux_process"
+  | "cpu_transcode"
+  | "gpu_transcode"
+  | "hls_artifact_io";
+
+export type AdminPlaybackResourceEnforcement =
+  | "host_owned"
+  | "admission_permit"
+  | "not_yet_enforced";
+
 export interface AdminPlaybackRuntimeDiagnosticsResponse {
   admin_api_version: string;
   public_api_version: string;
@@ -1686,6 +1703,15 @@ export interface AdminPlaybackRuntimeDiagnosticsResponse {
   remux: {
     max_concurrent_sessions: number;
     timeout_ms: number;
+  };
+  resource_pressure: {
+    classes: Array<{
+      class: AdminPlaybackResourceClass;
+      enforcement: AdminPlaybackResourceEnforcement;
+      configured_capacity: number | null;
+      available_permits: number | null;
+      in_use_permits: number | null;
+    }>;
   };
   remote_playback: {
     backend_count: number;

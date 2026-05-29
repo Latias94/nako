@@ -23,6 +23,11 @@ pub const ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA: &str =
     "nako.addon.resource_link_check.request.v1";
 pub const ADDON_RESOURCE_LINK_CHECK_RESPONSE_SCHEMA: &str =
     "nako.addon.resource_link_check.response.v1";
+pub const ADDON_EXTERNAL_ACQUISITION_ACTION_TASK_ID: &str = "external-acquisition-action";
+pub const ADDON_EXTERNAL_ACQUISITION_ACTION_REQUEST_SCHEMA: &str =
+    "nako.addon.external_acquisition_action.request.v1";
+pub const ADDON_EXTERNAL_ACQUISITION_ACTION_RESPONSE_SCHEMA: &str =
+    "nako.addon.external_acquisition_action.response.v1";
 pub const ADDON_SUBTITLE_REQUEST_SCHEMA: &str = "nako.addon.subtitle.request.v1";
 pub const ADDON_SUBTITLE_RESPONSE_SCHEMA: &str = "nako.addon.subtitle.response.v1";
 
@@ -467,6 +472,10 @@ pub struct AddonTaskDeclaration {
     pub id: String,
     pub name: String,
     pub path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_schema: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_schema: Option<String>,
     #[serde(default)]
     pub description: Option<String>,
     #[serde(default)]
@@ -489,6 +498,8 @@ impl AddonTaskDeclaration {
             id: id.into(),
             name: name.into(),
             path: path.into(),
+            input_schema: None,
+            output_schema: None,
             description: None,
             required_scopes,
             timeout_ms: None,
@@ -512,6 +523,17 @@ impl AddonTaskDeclaration {
         self.description = Some(description.into());
         self
     }
+
+    #[must_use]
+    pub fn with_schemas(
+        mut self,
+        input_schema: impl Into<String>,
+        output_schema: impl Into<String>,
+    ) -> Self {
+        self.input_schema = Some(input_schema.into());
+        self.output_schema = Some(output_schema.into());
+        self
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -530,6 +552,7 @@ pub enum AddonScope {
     RendererAdapterControl,
     AcquisitionSearchRead,
     AcquisitionLinkCheckRead,
+    AcquisitionActionRun,
 }
 
 impl AddonScope {
@@ -549,6 +572,7 @@ impl AddonScope {
             Self::RendererAdapterControl => "renderer_adapter_control",
             Self::AcquisitionSearchRead => "acquisition_search_read",
             Self::AcquisitionLinkCheckRead => "acquisition_link_check_read",
+            Self::AcquisitionActionRun => "acquisition_action_run",
         }
     }
 }
@@ -858,6 +882,172 @@ impl AddonResourceLinkCheckStatus {
             Self::Unknown => "unknown",
         }
     }
+}
+
+#[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum AddonExternalAcquisitionTargetRef {
+    SelectedLink { selected_link_ref: String },
+    IntakeCandidate { intake_candidate_ref: String },
+    RunnerJob { runner_job_ref: String },
+}
+
+impl fmt::Debug for AddonExternalAcquisitionTargetRef {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::SelectedLink { .. } => formatter
+                .debug_struct("SelectedLink")
+                .field("selected_link_ref", &"<redacted>")
+                .finish(),
+            Self::IntakeCandidate { .. } => formatter
+                .debug_struct("IntakeCandidate")
+                .field("intake_candidate_ref", &"<redacted>")
+                .finish(),
+            Self::RunnerJob { .. } => formatter
+                .debug_struct("RunnerJob")
+                .field("runner_job_ref", &"<redacted>")
+                .finish(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonExternalAcquisitionOperation {
+    Enqueue,
+    Cancel,
+    Pause,
+    Resume,
+    QueryStatus,
+}
+
+impl AddonExternalAcquisitionOperation {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Enqueue => "enqueue",
+            Self::Cancel => "cancel",
+            Self::Pause => "pause",
+            Self::Resume => "resume",
+            Self::QueryStatus => "query_status",
+        }
+    }
+}
+
+#[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AddonExternalAcquisitionActionRequest {
+    pub schema: String,
+    pub target_ref: AddonExternalAcquisitionTargetRef,
+    pub runner_profile_id: String,
+    pub idempotency_key: String,
+    pub operation: AddonExternalAcquisitionOperation,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audit_ref: Option<String>,
+}
+
+impl fmt::Debug for AddonExternalAcquisitionActionRequest {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("AddonExternalAcquisitionActionRequest")
+            .field("schema", &self.schema)
+            .field("target_ref", &"<redacted>")
+            .field("runner_profile_id", &self.runner_profile_id)
+            .field("idempotency_key", &"<redacted>")
+            .field("operation", &self.operation)
+            .field("audit_ref", &self.audit_ref.as_ref().map(|_| "<redacted>"))
+            .finish()
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AddonExternalAcquisitionActionResponse {
+    pub schema: String,
+    pub status: AddonExternalAcquisitionActionStatus,
+    pub state: AddonExternalAcquisitionRunnerState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runner_job_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub progress: Option<AddonExternalAcquisitionProgress>,
+    pub retryable: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retry_after_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub safe_message: Option<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub safe_facts: BTreeMap<String, String>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonExternalAcquisitionActionStatus {
+    Accepted,
+    Rejected,
+    AlreadyExists,
+    NotFound,
+    Failed,
+}
+
+impl AddonExternalAcquisitionActionStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Accepted => "accepted",
+            Self::Rejected => "rejected",
+            Self::AlreadyExists => "already_exists",
+            Self::NotFound => "not_found",
+            Self::Failed => "failed",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonExternalAcquisitionRunnerState {
+    Queued,
+    Running,
+    Paused,
+    Cancelling,
+    Cancelled,
+    Succeeded,
+    Failed,
+    Unknown,
+}
+
+impl AddonExternalAcquisitionRunnerState {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Queued => "queued",
+            Self::Running => "running",
+            Self::Paused => "paused",
+            Self::Cancelling => "cancelling",
+            Self::Cancelled => "cancelled",
+            Self::Succeeded => "succeeded",
+            Self::Failed => "failed",
+            Self::Unknown => "unknown",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_terminal(self) -> bool {
+        match self {
+            Self::Cancelled | Self::Succeeded | Self::Failed => true,
+            Self::Queued | Self::Running | Self::Paused | Self::Cancelling | Self::Unknown => false,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AddonExternalAcquisitionProgress {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub percent_milli: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub downloaded_bytes: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub total_bytes: Option<u64>,
 }
 
 #[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
@@ -1841,7 +2031,10 @@ impl fmt::Display for AddonManifestError {
                 formatter,
                 "addon entry_point {entry_point_id} references unknown hosted_page {hosted_page_id}"
             ),
-            Self::EmptyResources => write!(formatter, "addon manifest must declare resources"),
+            Self::EmptyResources => write!(
+                formatter,
+                "addon manifest must declare at least one resource, task, event subscription, entry point, or hosted page"
+            ),
             Self::MissingDeclaredScope { resource, scope } => write!(
                 formatter,
                 "addon resource {} requires undeclared scope {}",
@@ -1948,7 +2141,12 @@ pub fn validate_manifest(manifest: &AddonManifest) -> AddonProtocolResult<()> {
     if !has_http_base_url(&manifest.base_url) {
         return Err(AddonManifestError::InvalidBaseUrl);
     }
-    if manifest.resources.is_empty() {
+    if manifest.resources.is_empty()
+        && manifest.tasks.is_empty()
+        && manifest.event_subscriptions.is_empty()
+        && manifest.entry_points.is_empty()
+        && manifest.hosted_pages.is_empty()
+    {
         return Err(AddonManifestError::EmptyResources);
     }
     if let Some(timeout) = manifest.default_timeout_ms {
@@ -2834,6 +3032,8 @@ mod tests {
             id: "bulk-metadata-scrape".to_owned(),
             name: "Bulk metadata scrape".to_owned(),
             path: "/tasks/bulk-metadata-scrape".to_owned(),
+            input_schema: None,
+            output_schema: None,
             description: Some("Runs metadata suggestions for selected items".to_owned()),
             required_scopes: vec![AddonScope::AutomationRun],
             timeout_ms: Some(30_000),
@@ -2907,6 +3107,8 @@ mod tests {
             id: "bulk-metadata-scrape".to_owned(),
             name: "Bulk metadata scrape".to_owned(),
             path: "/tasks/bulk-metadata-scrape".to_owned(),
+            input_schema: None,
+            output_schema: None,
             description: None,
             required_scopes: vec![AddonScope::AutomationRun],
             timeout_ms: Some(30_000),
@@ -3284,6 +3486,196 @@ mod tests {
     }
 
     #[test]
+    fn external_acquisition_action_protocol_vocabulary_uses_stable_wire_names() {
+        assert_eq!(
+            ADDON_EXTERNAL_ACQUISITION_ACTION_TASK_ID,
+            "external-acquisition-action"
+        );
+        assert_eq!(
+            AddonScope::AcquisitionActionRun.as_str(),
+            "acquisition_action_run"
+        );
+        assert_eq!(
+            serde_json::to_value(AddonScope::AcquisitionActionRun).unwrap(),
+            serde_json::json!("acquisition_action_run")
+        );
+        assert_eq!(
+            serde_json::from_value::<AddonScope>(serde_json::json!("acquisition_action_run"))
+                .unwrap(),
+            AddonScope::AcquisitionActionRun
+        );
+        assert_eq!(
+            AddonExternalAcquisitionOperation::Enqueue.as_str(),
+            "enqueue"
+        );
+        assert_eq!(
+            serde_json::to_value(AddonExternalAcquisitionOperation::QueryStatus).unwrap(),
+            serde_json::json!("query_status")
+        );
+        assert_eq!(
+            AddonExternalAcquisitionActionStatus::AlreadyExists.as_str(),
+            "already_exists"
+        );
+        assert_eq!(
+            AddonExternalAcquisitionRunnerState::Succeeded.as_str(),
+            "succeeded"
+        );
+        assert!(AddonExternalAcquisitionRunnerState::Succeeded.is_terminal());
+        assert!(!AddonExternalAcquisitionRunnerState::Running.is_terminal());
+    }
+
+    #[test]
+    fn external_acquisition_action_manifest_requires_action_scope() {
+        let manifest = external_acquisition_action_manifest();
+
+        validate_manifest(&manifest).unwrap();
+        ensure_task_scope_grant(
+            &manifest,
+            ADDON_EXTERNAL_ACQUISITION_ACTION_TASK_ID,
+            &[AddonScope::AcquisitionActionRun],
+        )
+        .unwrap();
+
+        let task = &manifest.tasks[0];
+        assert_eq!(
+            task.input_schema.as_deref(),
+            Some(ADDON_EXTERNAL_ACQUISITION_ACTION_REQUEST_SCHEMA)
+        );
+        assert_eq!(
+            task.output_schema.as_deref(),
+            Some(ADDON_EXTERNAL_ACQUISITION_ACTION_RESPONSE_SCHEMA)
+        );
+        assert!(matches!(
+            ensure_task_scope_grant(&manifest, ADDON_EXTERNAL_ACQUISITION_ACTION_TASK_ID, &[]),
+            Err(AddonManifestError::MissingDeclaredScopeForDeclaration {
+                declaration: "task",
+                scope: AddonScope::AcquisitionActionRun,
+            })
+        ));
+    }
+
+    #[test]
+    fn external_acquisition_action_payload_contracts_round_trip_and_redact_debug() {
+        let request = AddonExternalAcquisitionActionRequest {
+            schema: ADDON_EXTERNAL_ACQUISITION_ACTION_REQUEST_SCHEMA.to_owned(),
+            target_ref: AddonExternalAcquisitionTargetRef::SelectedLink {
+                selected_link_ref: "selected-link-secret".to_owned(),
+            },
+            runner_profile_id: "fixture".to_owned(),
+            idempotency_key: "idempotency-secret".to_owned(),
+            operation: AddonExternalAcquisitionOperation::Enqueue,
+            audit_ref: Some("audit-secret".to_owned()),
+        };
+        let request_json = serde_json::to_value(&request).unwrap();
+
+        assert_eq!(
+            request_json["schema"],
+            ADDON_EXTERNAL_ACQUISITION_ACTION_REQUEST_SCHEMA
+        );
+        assert_eq!(request_json["target_ref"]["kind"], "selected_link");
+        assert_eq!(request_json["operation"], "enqueue");
+        assert!(request_json.get("raw_url").is_none());
+        assert!(request_json.get("url").is_none());
+        assert!(request_json.get("password").is_none());
+        assert_eq!(
+            serde_json::from_value::<AddonExternalAcquisitionActionRequest>(request_json.clone())
+                .unwrap(),
+            request
+        );
+
+        let request_with_raw_url = serde_json::json!({
+            "schema": ADDON_EXTERNAL_ACQUISITION_ACTION_REQUEST_SCHEMA,
+            "target_ref": {
+                "kind": "selected_link",
+                "selected_link_ref": "selected-link-secret"
+            },
+            "runner_profile_id": "fixture",
+            "idempotency_key": "idempotency-secret",
+            "operation": "enqueue",
+            "raw_url": "magnet:?xt=urn:btih:abcdef"
+        });
+        assert!(
+            serde_json::from_value::<AddonExternalAcquisitionActionRequest>(request_with_raw_url)
+                .is_err()
+        );
+        let target_with_raw_url = serde_json::json!({
+            "kind": "selected_link",
+            "selected_link_ref": "selected-link-secret",
+            "raw_url": "https://example.test/secret"
+        });
+        assert!(
+            serde_json::from_value::<AddonExternalAcquisitionTargetRef>(target_with_raw_url)
+                .is_err()
+        );
+
+        let request_debug = format!("{request:?}");
+        for forbidden in [
+            "selected-link-secret",
+            "idempotency-secret",
+            "audit-secret",
+            "magnet:",
+            "https://",
+        ] {
+            assert!(
+                !request_debug.contains(forbidden),
+                "external acquisition request debug leaked forbidden term: {forbidden}"
+            );
+        }
+
+        let mut safe_facts = BTreeMap::new();
+        safe_facts.insert("runner_profile_id".to_owned(), "fixture".to_owned());
+        let response = AddonExternalAcquisitionActionResponse {
+            schema: ADDON_EXTERNAL_ACQUISITION_ACTION_RESPONSE_SCHEMA.to_owned(),
+            status: AddonExternalAcquisitionActionStatus::Accepted,
+            state: AddonExternalAcquisitionRunnerState::Running,
+            runner_job_ref: Some("runner-job-ref".to_owned()),
+            progress: Some(AddonExternalAcquisitionProgress {
+                percent_milli: Some(25_000),
+                downloaded_bytes: Some(128),
+                total_bytes: Some(512),
+            }),
+            retryable: false,
+            retry_after_ms: None,
+            safe_message: Some("accepted".to_owned()),
+            safe_facts,
+        };
+        let response_json = serde_json::to_value(&response).unwrap();
+
+        assert_eq!(
+            response_json["schema"],
+            ADDON_EXTERNAL_ACQUISITION_ACTION_RESPONSE_SCHEMA
+        );
+        assert_eq!(response_json["status"], "accepted");
+        assert_eq!(response_json["state"], "running");
+        assert_eq!(response_json["progress"]["percent_milli"], 25_000);
+        assert!(response_json.get("url").is_none());
+        assert!(response_json.get("password").is_none());
+
+        let manifest = external_acquisition_action_manifest();
+        let envelope = AddonTaskResponse {
+            protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+            addon_id: manifest.id.clone(),
+            task_id: ADDON_EXTERNAL_ACQUISITION_ACTION_TASK_ID.to_owned(),
+            job_id: "job-1".to_owned(),
+            request_id: "external-acquisition-action-1".to_owned(),
+            output: response_json.clone(),
+        };
+        validate_task_response(
+            &envelope,
+            &manifest,
+            ADDON_EXTERNAL_ACQUISITION_ACTION_TASK_ID,
+            "job-1",
+            "external-acquisition-action-1",
+        )
+        .unwrap();
+        assert_eq!(
+            serde_json::from_value::<AddonExternalAcquisitionActionResponse>(response_json)
+                .unwrap(),
+            response
+        );
+    }
+
+    #[test]
     fn subtitle_protocol_vocabulary_uses_stable_wire_names() {
         assert_eq!(AddonResource::Subtitle.as_str(), "subtitle");
         assert_eq!(
@@ -3641,6 +4033,8 @@ mod tests {
             id: "bulk-metadata-scrape".to_owned(),
             name: "Bulk metadata scrape".to_owned(),
             path: "/tasks/bulk-metadata-scrape".to_owned(),
+            input_schema: None,
+            output_schema: None,
             description: None,
             required_scopes: vec![AddonScope::AutomationRun],
             timeout_ms: Some(30_000),
@@ -3854,6 +4248,40 @@ mod tests {
             default_timeout_ms: Some(10_000),
             default_max_attempts: Some(1),
             scopes: vec![AddonScope::AcquisitionLinkCheckRead],
+        }
+    }
+
+    fn external_acquisition_action_manifest() -> AddonManifest {
+        AddonManifest {
+            id: "external-acquisition-runner".to_owned(),
+            name: "External Acquisition Runner".to_owned(),
+            version: "0.1.0".to_owned(),
+            protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+            base_url: "https://example.test/addon".to_owned(),
+            description: None,
+            resources: Vec::new(),
+            entry_points: Vec::new(),
+            hosted_pages: Vec::new(),
+            configuration_schema: None,
+            secret_reference_fields: Vec::new(),
+            event_subscriptions: Vec::new(),
+            tasks: vec![
+                AddonTaskDeclaration::new(
+                    ADDON_EXTERNAL_ACQUISITION_ACTION_TASK_ID,
+                    "External acquisition action",
+                    "/tasks/external-acquisition-action",
+                    vec![AddonScope::AcquisitionActionRun],
+                )
+                .with_schemas(
+                    ADDON_EXTERNAL_ACQUISITION_ACTION_REQUEST_SCHEMA,
+                    ADDON_EXTERNAL_ACQUISITION_ACTION_RESPONSE_SCHEMA,
+                )
+                .with_execution_bounds(Some(30_000), Some(1)),
+            ],
+            auth: AddonAuth::Bearer,
+            default_timeout_ms: Some(30_000),
+            default_max_attempts: Some(1),
+            scopes: vec![AddonScope::AcquisitionActionRun],
         }
     }
 

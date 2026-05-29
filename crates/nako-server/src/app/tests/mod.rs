@@ -29,8 +29,9 @@ use nako_core::{
     PlaybackPolicyRepository, PlaybackSessionListFilter, PlaybackSessionRepository,
     ProviderRawResponse, RoleAssignment, StagingManifestId, StagingManifestRepository,
     StagingPurpose, StagingState, TranscodeFailureCategory, TranscodeSessionId,
-    TranscodeSessionKind, TranscodeSessionListFilter, TranscodeSessionRepository,
-    TranscodeSessionState, User, UserId, UserPrincipalId, UserRole, UserStatus,
+    TranscodeSessionKind, TranscodeSessionListFilter, TranscodeSessionRecord,
+    TranscodeSessionRepository, TranscodeSessionState, User, UserId, UserPrincipalId, UserRole,
+    UserStatus,
 };
 use nako_core::{ExternalProvider, MetadataMatchKind, MetadataProviderAttemptStatus};
 use nako_library::{LibraryScanRequest, LibraryScanner};
@@ -44,7 +45,8 @@ use nako_transcode::{
     HardwareAcceleration, HardwareAccelerationFallback, HlsPlaybackGeneration, OutputContainer,
     PlaybackHlsProfileRequest, PlaybackRemuxProfileRequest, RemuxContainer,
     TranscodeAccelerationPlan, TranscodeExecutionPolicy, TranscodeOutputConstraints, TranscodePlan,
-    TranscodeRequestIdentity, build_playback_hls_profile, build_playback_remux_profile,
+    TranscodeRequestIdentity, TranscodeTrackSelection, build_playback_hls_profile,
+    build_playback_remux_profile,
 };
 use nako_vfs::{
     ByteRange, LocalFsBackend, ObjectKind, ObjectMetadata, ReadRange, ReadStream, StageRequest,
@@ -58,8 +60,10 @@ use tokio::{
 };
 
 use super::playback::{
-    HlsSourceDisposition, HlsStagingPolicy, RemuxRequestKey, RemuxSourceDisposition,
-    RemuxStagingPolicy, source_path_for_ffmpeg_with_backend,
+    HlsSourceDisposition, HlsStagingPolicy, PlaybackResourceAdmissionStatus,
+    PlaybackResourceCapacity, PlaybackResourceClass, PlaybackResourceDemand,
+    PlaybackRuntimeAdmission, RemuxRequestKey, RemuxSourceDisposition, RemuxStagingPolicy,
+    source_path_for_ffmpeg_with_backend,
 };
 use super::staging::ManifestRecordingStorageBackend;
 use super::*;

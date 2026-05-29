@@ -1,4 +1,6 @@
 use nako_addon_protocol::{
+    ADDON_EXTERNAL_ACQUISITION_ACTION_REQUEST_SCHEMA,
+    ADDON_EXTERNAL_ACQUISITION_ACTION_RESPONSE_SCHEMA, ADDON_EXTERNAL_ACQUISITION_ACTION_TASK_ID,
     ADDON_PROTOCOL_VERSION, ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA,
     ADDON_RESOURCE_LINK_CHECK_RESPONSE_SCHEMA, ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA,
     ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA, ADDON_SUBTITLE_REQUEST_SCHEMA,
@@ -525,6 +527,181 @@ pub mod resource_search {
                         "default": search_timeout_ms,
                         "minimum": 250,
                         "maximum": 60000
+                    }
+                },
+                "additionalProperties": false
+            }),
+        )
+    }
+}
+
+pub mod external_acquisition_runner {
+    use super::*;
+
+    pub const ADDON_ID: &str = "nako.official.external-acquisition-runner";
+    pub const ADDON_NAME: &str = "Nako External Acquisition Runner";
+    pub const ADDON_VERSION: &str = "0.1.0-alpha.2";
+    pub const DEFAULT_BASE_URL: &str = "http://127.0.0.1:9160";
+    pub const DEFAULT_CONTAINER_BASE_URL: &str = "http://nako-external-acquisition-runner:9160";
+    pub const RUNTIME_BINARY: &str = "nako-external-acquisition-runner";
+    pub const RUNTIME_IMAGE: &str =
+        "ghcr.io/latias94/nako-external-acquisition-runner:0.1.0-alpha.2";
+    pub const DESCRIPTION: &str = "Official Nako external acquisition action sidecar for dispatching host-approved selected-link or intake-candidate references to configured runner profiles.";
+    pub const CONFIG_SCHEMA_ID: &str = "nako.official.external-acquisition-runner.config.v1";
+    pub const ACTION_TASK_ID: &str = ADDON_EXTERNAL_ACQUISITION_ACTION_TASK_ID;
+    pub const ACTION_TASK_NAME: &str = "External acquisition action";
+    pub const ACTION_TASK_PATH: &str = "/tasks/external-acquisition-action";
+    pub const ACTION_TASK_DESCRIPTION: &str =
+        "Dispatches a host-approved external acquisition action to a configured runner profile";
+    pub const ACTION_REQUEST_SCHEMA: &str = ADDON_EXTERNAL_ACQUISITION_ACTION_REQUEST_SCHEMA;
+    pub const ACTION_RESPONSE_SCHEMA: &str = ADDON_EXTERNAL_ACQUISITION_ACTION_RESPONSE_SCHEMA;
+    pub const DIAGNOSTICS_ENTRY_POINT_ID: &str = "external-acquisition-runner-diagnostics";
+    pub const DIAGNOSTICS_HOSTED_PAGE_ID: &str = "diagnostics";
+    pub const DIAGNOSTICS_LABEL: &str = "External Acquisition Runner Diagnostics";
+    pub const DIAGNOSTICS_PATH: &str = "/ui/diagnostics";
+    pub const DEFAULT_RUNNER_PROFILE_ID: &str = "fixture";
+    pub const TASK_TIMEOUT_MS: u64 = 30_000;
+    pub const DEFAULT_MAX_ATTEMPTS: u32 = 1;
+
+    #[must_use]
+    pub fn default_manifest() -> AddonManifest {
+        manifest_with_version(ADDON_VERSION, DEFAULT_BASE_URL, DEFAULT_RUNNER_PROFILE_ID)
+    }
+
+    #[must_use]
+    pub fn container_manifest() -> AddonManifest {
+        manifest_with_version(
+            ADDON_VERSION,
+            DEFAULT_CONTAINER_BASE_URL,
+            DEFAULT_RUNNER_PROFILE_ID,
+        )
+    }
+
+    #[must_use]
+    pub fn manifest(base_url: impl Into<String>) -> AddonManifest {
+        manifest_with_version(ADDON_VERSION, base_url, DEFAULT_RUNNER_PROFILE_ID)
+    }
+
+    #[must_use]
+    pub fn manifest_with_version(
+        version: impl Into<String>,
+        base_url: impl Into<String>,
+        default_runner_profile_id: impl Into<String>,
+    ) -> AddonManifest {
+        let default_runner_profile_id = default_runner_profile_id.into();
+        AddonManifest {
+            id: ADDON_ID.to_owned(),
+            name: ADDON_NAME.to_owned(),
+            version: version.into(),
+            protocol_version: ADDON_PROTOCOL_VERSION.to_owned(),
+            base_url: base_url.into(),
+            description: Some(DESCRIPTION.to_owned()),
+            resources: Vec::new(),
+            entry_points: vec![AddonEntryPointDeclaration::hosted_page(
+                DIAGNOSTICS_ENTRY_POINT_ID,
+                AddonEntryPointKind::Diagnostics,
+                DIAGNOSTICS_LABEL,
+                DIAGNOSTICS_PATH,
+                DIAGNOSTICS_HOSTED_PAGE_ID,
+                vec![AddonScope::AcquisitionActionRun],
+            )],
+            hosted_pages: vec![AddonHostedPageDeclaration::new(
+                DIAGNOSTICS_HOSTED_PAGE_ID,
+                DIAGNOSTICS_LABEL,
+                DIAGNOSTICS_PATH,
+                vec![AddonScope::AcquisitionActionRun],
+            )],
+            configuration_schema: Some(configuration_schema(&default_runner_profile_id)),
+            secret_reference_fields: Vec::new(),
+            event_subscriptions: Vec::new(),
+            tasks: vec![
+                AddonTaskDeclaration::new(
+                    ACTION_TASK_ID,
+                    ACTION_TASK_NAME,
+                    ACTION_TASK_PATH,
+                    vec![AddonScope::AcquisitionActionRun],
+                )
+                .with_schemas(ACTION_REQUEST_SCHEMA, ACTION_RESPONSE_SCHEMA)
+                .with_description(ACTION_TASK_DESCRIPTION)
+                .with_execution_bounds(Some(TASK_TIMEOUT_MS), Some(DEFAULT_MAX_ATTEMPTS)),
+            ],
+            auth: AddonAuth::None,
+            default_timeout_ms: Some(TASK_TIMEOUT_MS),
+            default_max_attempts: Some(DEFAULT_MAX_ATTEMPTS),
+            scopes: vec![AddonScope::AcquisitionActionRun],
+        }
+    }
+
+    #[must_use]
+    pub fn binary_install_descriptor() -> AddonInstallDescriptor {
+        AddonInstallDescriptor {
+            manifest: default_manifest(),
+            runtime: AddonRuntimeRequirement {
+                kind: AddonRuntimeKind::HttpSidecar,
+                image: None,
+                binary: Some(RUNTIME_BINARY.to_owned()),
+                command: None,
+            },
+            secret_reference_bindings: Vec::new(),
+            install_notes: vec![
+                format!(
+                    "Install from crates.io with `cargo install {RUNTIME_BINARY} --version {ADDON_VERSION} --locked`."
+                ),
+                "Run the sidecar outside Nako; Nako dispatches only host-owned opaque acquisition references after policy approval.".to_owned(),
+            ],
+        }
+    }
+
+    #[must_use]
+    pub fn container_install_descriptor() -> AddonInstallDescriptor {
+        AddonInstallDescriptor {
+            manifest: container_manifest(),
+            runtime: AddonRuntimeRequirement {
+                kind: AddonRuntimeKind::HttpSidecar,
+                image: Some(RUNTIME_IMAGE.to_owned()),
+                binary: None,
+                command: None,
+            },
+            secret_reference_bindings: Vec::new(),
+            install_notes: vec![
+                format!(
+                    "Run the official container image `{RUNTIME_IMAGE}` or build from the `addons/external-acquisition-runner` Dockerfile."
+                ),
+                "Configure runner profiles in the sidecar environment; browser clients never submit raw links or credentials to this action task.".to_owned(),
+            ],
+        }
+    }
+
+    #[must_use]
+    fn configuration_schema(default_runner_profile_id: &str) -> AddonConfigurationSchema {
+        AddonConfigurationSchema::new(
+            CONFIG_SCHEMA_ID,
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "default_runner_profile_id": {
+                        "type": "string",
+                        "default": default_runner_profile_id
+                    },
+                    "profiles": {
+                        "type": "object",
+                        "properties": {
+                            "fixture": {
+                                "type": "object",
+                                "properties": {
+                                    "enabled": {
+                                        "type": "boolean",
+                                        "default": true
+                                    },
+                                    "mode": {
+                                        "type": "string",
+                                        "default": "noop"
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        },
+                        "additionalProperties": true
                     }
                 },
                 "additionalProperties": false
@@ -1214,6 +1391,7 @@ mod tests {
 
     use super::chromecast_renderer;
     use super::dlna_renderer;
+    use super::external_acquisition_runner;
     use super::metadata_scraper::*;
     use super::notification_bridge;
     use super::resource_search;
@@ -1402,6 +1580,64 @@ mod tests {
             resource_search::DEFAULT_TIMEOUT_MS
         );
         assert!(manifest.tasks.is_empty());
+        assert!(manifest.event_subscriptions.is_empty());
+        assert!(manifest.secret_reference_fields.is_empty());
+    }
+
+    #[test]
+    fn external_acquisition_runner_default_manifest_matches_official_catalog_facts() {
+        let manifest = external_acquisition_runner::default_manifest();
+
+        validate_manifest(&manifest).unwrap();
+        assert_eq!(manifest.id, external_acquisition_runner::ADDON_ID);
+        assert_eq!(manifest.version, external_acquisition_runner::ADDON_VERSION);
+        assert_eq!(
+            manifest.base_url,
+            external_acquisition_runner::DEFAULT_BASE_URL
+        );
+        assert_eq!(
+            manifest.scopes,
+            vec![nako_addon_protocol::AddonScope::AcquisitionActionRun]
+        );
+        assert!(manifest.resources.is_empty());
+        assert_eq!(manifest.tasks.len(), 1);
+        assert_eq!(
+            manifest.tasks[0].id,
+            external_acquisition_runner::ACTION_TASK_ID
+        );
+        assert_eq!(
+            manifest.tasks[0].path,
+            external_acquisition_runner::ACTION_TASK_PATH
+        );
+        assert_eq!(
+            manifest.tasks[0].input_schema.as_deref(),
+            Some(external_acquisition_runner::ACTION_REQUEST_SCHEMA)
+        );
+        assert_eq!(
+            manifest.tasks[0].output_schema.as_deref(),
+            Some(external_acquisition_runner::ACTION_RESPONSE_SCHEMA)
+        );
+        assert_eq!(
+            manifest.tasks[0].required_scopes,
+            vec![nako_addon_protocol::AddonScope::AcquisitionActionRun]
+        );
+        assert_eq!(
+            manifest.entry_points[0].id,
+            external_acquisition_runner::DIAGNOSTICS_ENTRY_POINT_ID
+        );
+        assert_eq!(
+            manifest.hosted_pages[0].id,
+            external_acquisition_runner::DIAGNOSTICS_HOSTED_PAGE_ID
+        );
+        let schema = &manifest.configuration_schema.as_ref().unwrap().schema;
+        assert_eq!(
+            schema["properties"]["default_runner_profile_id"]["default"],
+            external_acquisition_runner::DEFAULT_RUNNER_PROFILE_ID
+        );
+        assert_eq!(
+            schema["properties"]["profiles"]["properties"]["fixture"]["properties"]["mode"]["default"],
+            "noop"
+        );
         assert!(manifest.event_subscriptions.is_empty());
         assert!(manifest.secret_reference_fields.is_empty());
     }
@@ -1681,6 +1917,43 @@ mod tests {
             ]
         );
         assert_eq!(guide.task_count, 0);
+        assert_eq!(guide.event_subscription_count, 0);
+        assert_eq!(guide.entry_point_count, 1);
+        assert_eq!(guide.hosted_page_count, 1);
+    }
+
+    #[test]
+    fn external_acquisition_runner_container_descriptor_matches_action_task_shape() {
+        let descriptor = external_acquisition_runner::container_install_descriptor();
+        nako_addon_protocol::validate_install_descriptor(&descriptor).unwrap();
+
+        let guide = addon_install_guide(&descriptor);
+        assert_eq!(
+            descriptor.manifest.base_url,
+            external_acquisition_runner::DEFAULT_CONTAINER_BASE_URL
+        );
+        assert_eq!(
+            guide.runtime_reference.kind,
+            AddonRuntimeReferenceKind::Image
+        );
+        assert_eq!(
+            guide.runtime_reference.value,
+            external_acquisition_runner::RUNTIME_IMAGE
+        );
+        assert!(guide.declared_resources.is_empty());
+        assert_eq!(guide.task_count, 1);
+        assert_eq!(
+            descriptor.manifest.tasks[0].id,
+            external_acquisition_runner::ACTION_TASK_ID
+        );
+        assert_eq!(
+            descriptor.manifest.tasks[0].input_schema.as_deref(),
+            Some(external_acquisition_runner::ACTION_REQUEST_SCHEMA)
+        );
+        assert_eq!(
+            descriptor.manifest.tasks[0].output_schema.as_deref(),
+            Some(external_acquisition_runner::ACTION_RESPONSE_SCHEMA)
+        );
         assert_eq!(guide.event_subscription_count, 0);
         assert_eq!(guide.entry_point_count, 1);
         assert_eq!(guide.hosted_page_count, 1);

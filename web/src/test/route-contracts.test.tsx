@@ -106,6 +106,13 @@ const routeContracts: RouteContract[] = [
     },
   },
   {
+    path: "/admin/acquisition/intake?state=ready",
+    assert: async () => {
+      expect(await screen.findByRole("heading", { name: "采集入口" }, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByText("fixture-intake-1", {}, { timeout: 5000 })).toBeInTheDocument()
+    },
+  },
+  {
     path: "/admin/settings",
     assert: async () => {
       expect(await screen.findByRole("heading", { name: "高级设置" }, { timeout: 5000 })).toBeInTheDocument()

@@ -1,6 +1,6 @@
 # Web Playlist Management UI Mutations - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 ## M0 - Scope And Evidence Freeze
@@ -49,7 +49,7 @@ Last updated: 2026-05-29
 
 ## M5 - Verification And Closeout
 
-- [ ] WPMU-060 [owner=planner] [deps=WPMU-030,WPMU-040,WPMU-050] [scope=docs/workstreams/web-playlist-management-ui-mutations]
+- [x] WPMU-060 [owner=planner] [deps=WPMU-030,WPMU-040,WPMU-050] [scope=docs/workstreams/web-playlist-management-ui-mutations]
   Goal: Verify the mutation UI lane, record evidence, close or split follow-ons, and commit closeout.
   Validation: `npm --prefix web run test`; `npm --prefix web run check`; `npm --prefix web run build:budget`; browser smoke desktop/mobile; `git diff --check`.
   Review: review-workstream has no blocking findings.

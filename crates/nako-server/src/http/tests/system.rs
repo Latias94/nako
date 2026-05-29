@@ -3928,6 +3928,15 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
     assert_eq!(diagnostics.remote_playback.backend_count, 1);
     assert_eq!(diagnostics.remote_playback.stream_permits_max, 7);
     assert_eq!(diagnostics.remote_playback.stage_permits_max, 3);
+    let remote_stream_pressure = diagnostics
+        .resource_pressure
+        .classes
+        .iter()
+        .find(|pressure| pressure.class == AdminPlaybackResourceClass::RemoteStream)
+        .expect("remote stream resource pressure should be reported");
+    assert_eq!(remote_stream_pressure.configured_capacity, Some(7));
+    assert_eq!(remote_stream_pressure.available_permits, Some(7));
+    assert_eq!(remote_stream_pressure.in_use_permits, Some(0));
     assert!(diagnostics.policy.user_policy_rows_supported);
     assert!(diagnostics.policy.role_policy_rows_supported);
     assert!(diagnostics.policy.effective_resolution_supported);
@@ -3959,6 +3968,125 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
     assert!(!body.contains("remux_staging_root"));
     assert!(!body.contains("output_path"));
     assert!(!body.contains("token"));
+}
+
+#[tokio::test]
+async fn admin_v1_playback_runtime_reports_active_resource_pressure() {
+    let (temp, router, source, store) = router_with_running_hls_source().await;
+    let playlist_path = format!("/sources/{}/stream/hls/playlist.m3u8", source.id);
+
+    let playlist_response = tokio::time::timeout(
+        Duration::from_secs(15),
+        router.clone().oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&playlist_path)
+                .body(Body::empty())
+                .unwrap(),
+        ),
+    )
+    .await
+    .expect("hls playlist route should return while ffmpeg remains running")
+    .unwrap();
+
+    assert_eq!(playlist_response.status(), StatusCode::OK);
+    let playback_session_id: PlaybackSessionId = playlist_response
+        .headers()
+        .get(PLAYBACK_SESSION_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .expect("hls playlist should expose playback session id")
+        .parse()
+        .unwrap();
+    let _playlist_body = to_bytes(playlist_response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let playback_session = store
+        .get_playback_session(playback_session_id)
+        .await
+        .unwrap()
+        .unwrap();
+    let transcode_session_id = playback_session
+        .transcode_session_id
+        .expect("hls playback session should link transcode session");
+    let transcode = store
+        .get_transcode_session(transcode_session_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(transcode.state, TranscodeSessionState::Running);
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/playback/runtime")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let diagnostics: AdminPlaybackRuntimeDiagnosticsResponse = serde_json::from_str(&body).unwrap();
+
+    let cpu = diagnostics
+        .resource_pressure
+        .classes
+        .iter()
+        .find(|class| class.class == AdminPlaybackResourceClass::CpuTranscode)
+        .expect("cpu transcode pressure should be reported");
+    assert_eq!(cpu.configured_capacity, Some(1));
+    assert_eq!(cpu.available_permits, Some(0));
+    assert_eq!(cpu.in_use_permits, Some(1));
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains("local:///"));
+    assert!(!body.contains("demo.mkv"));
+
+    let cancel_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!("/playback/sessions/{playback_session_id}/cancel"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(cancel_response.status(), StatusCode::OK);
+    wait_for_system_transcode_state(
+        &store,
+        transcode_session_id,
+        TranscodeSessionState::Cancelled,
+    )
+    .await;
+}
+
+async fn wait_for_system_transcode_state(
+    store: &NakoDatabase,
+    session_id: TranscodeSessionId,
+    expected: TranscodeSessionState,
+) {
+    let mut last_state = None;
+    for _ in 0..80 {
+        if let Some(session) = store.get_transcode_session(session_id).await.unwrap() {
+            last_state = Some(session.state);
+            if session.state == expected {
+                return;
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    panic!("transcode session {session_id} did not reach {expected:?}; last state: {last_state:?}");
 }
 
 #[tokio::test]

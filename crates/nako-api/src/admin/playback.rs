@@ -71,6 +71,7 @@ pub struct AdminPlaybackRuntimeDiagnosticsResponse {
     pub hardware: AdminPlaybackHardwareDiagnostics,
     pub transcode: AdminPlaybackTranscodeBudgetDiagnostics,
     pub remux: AdminPlaybackRemuxRuntimeDiagnostics,
+    pub resource_pressure: AdminPlaybackResourcePressureDiagnostics,
     pub remote_playback: AdminPlaybackRemoteBudgetDiagnostics,
     pub staging: AdminPlaybackStagingDiagnostics,
     pub artifact_lifecycle: AdminPlaybackArtifactLifecycleDiagnostics,
@@ -855,6 +856,39 @@ pub struct AdminPlaybackRemuxRuntimeDiagnostics {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackResourcePressureDiagnostics {
+    pub classes: Vec<AdminPlaybackResourceClassPressure>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackResourceClassPressure {
+    pub class: AdminPlaybackResourceClass,
+    pub enforcement: AdminPlaybackResourceEnforcement,
+    pub configured_capacity: Option<usize>,
+    pub available_permits: Option<usize>,
+    pub in_use_permits: Option<usize>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminPlaybackResourceClass {
+    RemoteStream,
+    RemoteStage,
+    RemuxProcess,
+    CpuTranscode,
+    GpuTranscode,
+    HlsArtifactIo,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminPlaybackResourceEnforcement {
+    HostOwned,
+    AdmissionPermit,
+    NotYetEnforced,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminPlaybackRemoteBudgetDiagnostics {
     pub backend_count: u32,
     pub stream_permits_available: usize,
@@ -1125,6 +1159,15 @@ mod tests {
                 max_concurrent_sessions: 1,
                 timeout_ms: 30_000,
             },
+            resource_pressure: AdminPlaybackResourcePressureDiagnostics {
+                classes: vec![AdminPlaybackResourceClassPressure {
+                    class: AdminPlaybackResourceClass::CpuTranscode,
+                    enforcement: AdminPlaybackResourceEnforcement::AdmissionPermit,
+                    configured_capacity: Some(1),
+                    available_permits: Some(0),
+                    in_use_permits: Some(1),
+                }],
+            },
             remote_playback: AdminPlaybackRemoteBudgetDiagnostics {
                 backend_count: 1,
                 stream_permits_available: 8,
@@ -1172,6 +1215,22 @@ mod tests {
         assert_eq!(value["policy"]["role_policy_merge"], "restrictive");
         assert_eq!(value["policy"]["permissions"][2], "remux");
         assert_eq!(value["ffmpeg"]["probe_status"], "degraded");
+        assert_eq!(
+            value["resource_pressure"]["classes"][0]["class"],
+            "cpu_transcode"
+        );
+        assert_eq!(
+            value["resource_pressure"]["classes"][0]["enforcement"],
+            "admission_permit"
+        );
+        assert_eq!(
+            value["resource_pressure"]["classes"][0]["available_permits"],
+            0
+        );
+        assert_eq!(
+            value["resource_pressure"]["classes"][0]["in_use_permits"],
+            1
+        );
         assert_eq!(value["hardware"]["policy"]["requested"], "nvenc");
         assert_eq!(value["hardware"]["pipeline"]["selected"], "none");
         assert_eq!(

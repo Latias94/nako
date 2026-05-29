@@ -3,7 +3,7 @@
   "slug": "web-deferred-product-reentry-plan",
   "title": "Web Deferred Product Reentry Plan",
   "status": "completed",
-  "updated": "2026-05-28",
+  "updated": "2026-05-29",
   "scope_kind": "frontend_product_planning",
   "problem": "WBBP removed deferred v0 product surfaces from the live web runtime; those gaps need explicit backend/API preconditions and follow-on lanes before re-entering the frontend.",
   "task_prefix": "WDRP",
@@ -51,6 +51,6 @@
   ],
   "continue_policy": {
     "default_action": "choose_follow_on_workstream",
-    "notes": "WDRP is closed. Continue PLBQ-020, PBSI-020, WAAI-020, WAGA-020, or UPCW-020 depending on product priority."
+    "notes": "WDRP is closed. Continue PLBQ-020, PBSI-020, WAGA-020, or UPCW-020 depending on product priority. For downloads/acquisition, WAAI is closed; open a new guarded discovery mutation, downloader protocol, or Managed Import promotion lane."
   }
 }

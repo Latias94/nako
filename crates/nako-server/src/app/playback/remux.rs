@@ -23,6 +23,7 @@ use super::{
     PlaybackSessionCancellationRegistry, RemuxSourceDisposition, RemuxSourceOutput,
     ensure_remux_output_parent, map_remux_runner_error, path_exists, persist_session_failure,
     record_playback_session_finished_event,
+    resource::{PlaybackResourceDemand, PlaybackResourcePermitSet, PlaybackRuntimeAdmission},
 };
 
 #[derive(Clone, Debug)]
@@ -60,13 +61,26 @@ impl RemuxAppService {
         output_path: PathBuf,
         output_container: RemuxContainer,
         request_identity: TranscodeRequestIdentity,
+        resource_admission: &PlaybackRuntimeAdmission,
+        resource_demand: PlaybackResourceDemand,
+        resource_permit: Option<PlaybackResourcePermitSet>,
     ) -> Result<RemuxSourceOutput> {
         let key = RemuxRequestKey {
             source_id: source.id,
             request_identity,
         };
 
-        match self.reserve(sessions, &key, &output_path).await? {
+        match self
+            .reserve(
+                sessions,
+                &key,
+                &output_path,
+                resource_admission,
+                &resource_demand,
+                resource_permit,
+            )
+            .await?
+        {
             RemuxRequestAdmission::ReuseExisting { session } => Ok(RemuxSourceOutput {
                 source,
                 decision,
@@ -75,7 +89,7 @@ impl RemuxAppService {
                 disposition: RemuxSourceDisposition::ReusedExisting,
                 session,
             }),
-            RemuxRequestAdmission::Run { session } => {
+            RemuxRequestAdmission::Run { session, permit } => {
                 let result = self
                     .run_reserved(
                         sessions,
@@ -85,6 +99,7 @@ impl RemuxAppService {
                         input_path,
                         output_path,
                         output_container,
+                        permit,
                     )
                     .await;
                 self.release(&key).await;
@@ -98,6 +113,9 @@ impl RemuxAppService {
         sessions: &dyn super::PlaybackRuntimeStore,
         key: &RemuxRequestKey,
         output_path: &Path,
+        resource_admission: &PlaybackRuntimeAdmission,
+        resource_demand: &PlaybackResourceDemand,
+        resource_permit: Option<PlaybackResourcePermitSet>,
     ) -> Result<RemuxRequestAdmission> {
         let request_key = key.persisted_request_key();
         if let Some(active) = sessions
@@ -144,6 +162,17 @@ impl RemuxAppService {
             }
         }
 
+        let permit = match resource_permit {
+            Some(permit) => permit,
+            None => match resource_admission.try_acquire(resource_demand) {
+                Ok(permit) => permit,
+                Err(error) => {
+                    self.release(key).await;
+                    return Err(error);
+                }
+            },
+        };
+
         let session = sessions
             .create_transcode_session(NewTranscodeSession {
                 id: TranscodeSessionId::new(),
@@ -156,7 +185,7 @@ impl RemuxAppService {
             .await;
 
         match session {
-            Ok(session) => Ok(RemuxRequestAdmission::Run { session }),
+            Ok(session) => Ok(RemuxRequestAdmission::Run { session, permit }),
             Err(error) => {
                 self.release(key).await;
                 Err(error)
@@ -173,6 +202,7 @@ impl RemuxAppService {
         input_path: PathBuf,
         output_path: PathBuf,
         output_container: RemuxContainer,
+        _permit: PlaybackResourcePermitSet,
     ) -> Result<RemuxSourceOutput> {
         let session_id = persisted_session.id;
         let cancel = CancellationToken::new();
@@ -277,10 +307,11 @@ impl RemuxRequestKey {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Debug)]
 enum RemuxRequestAdmission {
     Run {
         session: TranscodeSessionRecord,
+        permit: PlaybackResourcePermitSet,
     },
     ReuseExisting {
         session: Option<TranscodeSessionRecord>,

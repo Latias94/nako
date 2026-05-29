@@ -22,8 +22,13 @@ use nako_core::{
 
 use super::{
     AddonAppService, declaration_scopes_granted, ensure_addon_accepts_runtime_authority,
+    external_acquisition::{
+        normalize_external_acquisition_action_task_output,
+        normalize_external_acquisition_action_task_request,
+    },
     resolve_outbound_task_dispatch_secret,
-    scan_metadata::scan_addon_bulk_metadata_scrape_continuation_request, stored_granted_scopes,
+    scan_metadata::scan_addon_bulk_metadata_scrape_continuation_request,
+    stored_granted_scopes,
 };
 use crate::app::runtime::{
     RUNTIME_RESOURCE_CLASS_ADDON_TASK, runtime_budget_class_for_job_resource_class,
@@ -58,6 +63,7 @@ impl AddonAppService {
             idempotency_key: idempotency_key.clone(),
             ..request
         };
+        let request = normalize_external_acquisition_action_task_request(task, request)?;
         let job_id = JobId::new();
         let manifest_fingerprint = AddonManifestFingerprint::new(&addon.manifest_json);
         let addon_for_dispatch = addon.clone();
@@ -677,16 +683,32 @@ impl AddonAppService {
         )
         .await
         .map_err(AddonTaskDirectDispatchFailure::from_client_failure)?;
+        let normalized_output =
+            normalize_external_acquisition_action_task_output(task, outcome.response.output)
+                .map_err(|()| AddonTaskDirectDispatchFailure::host_contract("unsafe_response"))?;
+        if let Some(safe_error_code) = normalized_output.safe_failure_code {
+            return Err(AddonTaskDirectDispatchFailure {
+                safe_error_code,
+                output: normalized_output.output,
+            });
+        }
+        let mut progress_metrics = serde_json::json!({
+            "http_status": outcome.http_status,
+            "attempts": outcome.attempts,
+            "lease_expires_at": lease.lease_expires_at,
+        });
+        if let (Some(metrics), Some(task_metrics)) = (
+            progress_metrics.as_object_mut(),
+            normalized_output.progress_metrics.as_object(),
+        ) {
+            metrics.extend(task_metrics.clone());
+        }
 
         let progress = addon_task_run_progress_json(
             "dispatched".to_owned(),
             Some(100),
             Some("Addon task path completed".to_owned()),
-            serde_json::json!({
-                "http_status": outcome.http_status,
-                "attempts": outcome.attempts,
-                "lease_expires_at": lease.lease_expires_at,
-            }),
+            progress_metrics,
         )
         .to_string();
         let reported = self
@@ -700,7 +722,7 @@ impl AddonAppService {
             .map_err(|_| AddonTaskDirectDispatchFailure::host_contract("stale_run_lease"))?;
 
         Ok(AddonTaskDirectDispatchOutput {
-            output: outcome.response.output,
+            output: normalized_output.output,
             guard: AddonTaskRunLeaseGuard::from(reported.lease.guard()),
             cancel_requested_at: reported.lease.cancel_requested_at,
         })

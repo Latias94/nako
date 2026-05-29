@@ -64,6 +64,7 @@ Evidence workstreams:
 - `docs/workstreams/hls-audio-sidecar-artifacts/`
 - `docs/workstreams/hls-seek-restart-lifecycle/`
 - `docs/workstreams/hls-progressive-runtime-boundary/`
+- `docs/workstreams/playback-runtime-resource-scheduler/`
 - `docs/workstreams/admin-playback-runtime-diagnostics/`
 - `docs/workstreams/admin-playback-session-read-model/`
 
@@ -71,11 +72,14 @@ Proposed lanes:
 
 - `proposed:hdr-tone-mapping-pipeline`
 - `proposed:audio-compatibility-downmix-normalization`
-- `proposed:playback-runtime-resource-scheduler`
 - `proposed:ll-hls-cmaf-runtime`
 - `proposed:dash-cmaf-playback-packaging`
 - `proposed:hls-key-delivery-drm-boundary`
 - `proposed:remote-transcode-worker-runtime`
+- `proposed:playback-admission-queueing-and-waitlist`
+- `proposed:playback-os-resource-isolation`
+- `proposed:playback-device-capacity-tuning`
+- `proposed:hls-artifact-io-pressure-enforcement`
 - `proposed:hls-selected-main-audio-cleanup`
 - `proposed:playback-release-hardware-matrix`
 

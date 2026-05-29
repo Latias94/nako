@@ -20,7 +20,14 @@ import {
 } from "@tanstack/react-router"
 import { SurfaceSwitcher } from "@/src/shell/surface-switcher"
 import type { MediaSurfaceRef, MediaSurfaceRouteView } from "@/src/features/media"
-import type { AdminLogsRouteState, AdminLogsTab, AdminSurfaceSection, LogLevel, LogSource } from "@/src/features/admin"
+import type {
+  AdminAcquisitionIntakeRouteState,
+  AdminLogsRouteState,
+  AdminLogsTab,
+  AdminSurfaceSection,
+  LogLevel,
+  LogSource,
+} from "@/src/features/admin"
 
 const MediaSurface = lazy(() =>
   import("@/src/features/media").then((module) => ({
@@ -273,6 +280,28 @@ function AdminLogsRoute() {
   )
 }
 
+function AdminAcquisitionIntakeRoute() {
+  const navigate = useNavigate()
+  const search = adminAcquisitionIntakeRoute.useSearch()
+
+  return (
+    <AdminSurface
+      activeSection="acquisition-intake"
+      acquisitionIntakeState={adminAcquisitionIntakeStateFromSearch(search)}
+      onAcquisitionIntakeStateChange={(state) => {
+        void navigate({
+          to: "/admin/acquisition/intake",
+          search: toAdminAcquisitionIntakeSearch(state),
+          replace: true,
+        })
+      }}
+      onSectionNavigate={(nextSection) => {
+        void navigate(toAdminRoute(nextSection))
+      }}
+    />
+  )
+}
+
 function NotificationsRoute() {
   const navigate = useNavigate()
 
@@ -421,6 +450,13 @@ const adminLogsRoute = createRoute({
   component: AdminLogsRoute,
 })
 
+const adminAcquisitionIntakeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/acquisition/intake",
+  validateSearch: validateAdminAcquisitionIntakeSearch,
+  component: AdminAcquisitionIntakeRoute,
+})
+
 const adminSettingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/admin/settings",
@@ -517,6 +553,7 @@ const routeTree = rootRoute.addChildren([
   adminUsersRoute,
   adminTasksRoute,
   adminLogsRoute,
+  adminAcquisitionIntakeRoute,
   adminSettingsRoute,
   adminDlnaRoute,
   adminRemoteAccessRoute,
@@ -598,6 +635,8 @@ function toAdminRoute(section: AdminSurfaceSection) {
       return { to: "/admin/tasks" } as const
     case "activity":
       return { to: "/admin/logs" } as const
+    case "acquisition-intake":
+      return { to: "/admin/acquisition/intake" } as const
     case "advanced":
       return { to: "/admin/settings" } as const
     case "dlna":
@@ -632,6 +671,15 @@ interface AdminLogsRouteSearch {
   time?: string
 }
 
+interface AdminAcquisitionIntakeRouteSearch {
+  library_id?: string
+  state?: string
+  source_kind?: string
+  managed_import_artifact_id?: string
+  limit?: number
+  offset?: number
+}
+
 function validateAdminLogsSearch(search: Record<string, unknown>): AdminLogsRouteSearch {
   const levels = parseAdminLogList(search.levels, ADMIN_LOG_LEVELS)
   const sources = parseAdminLogList(search.sources, ADMIN_LOG_SOURCES)
@@ -642,6 +690,19 @@ function validateAdminLogsSearch(search: Record<string, unknown>): AdminLogsRout
     sources: sources ? sources.join(",") : undefined,
     tab: parseAdminLogValue(search.tab, ADMIN_LOG_TABS),
     time: parseAdminLogValue(search.time, ADMIN_LOG_TIME_RANGES),
+  }
+}
+
+function validateAdminAcquisitionIntakeSearch(
+  search: Record<string, unknown>,
+): AdminAcquisitionIntakeRouteSearch {
+  return {
+    library_id: parseSearchString(search.library_id),
+    state: parseSearchString(search.state),
+    source_kind: parseSearchString(search.source_kind),
+    managed_import_artifact_id: parseSearchString(search.managed_import_artifact_id),
+    limit: parsePositiveInteger(search.limit),
+    offset: parseNonNegativeInteger(search.offset),
   }
 }
 
@@ -658,6 +719,37 @@ function parseAdminLogList<T extends string>(value: unknown, allowed: T[]): T[] 
   return parsed.length > 0 ? parsed : undefined
 }
 
+function parseSearchString(value: unknown) {
+  if (typeof value !== "string") {
+    return undefined
+  }
+
+  const trimmed = value.trim()
+  return trimmed ? trimmed : undefined
+}
+
+function parsePositiveInteger(value: unknown) {
+  const parsed = parseIntegerSearchValue(value)
+  return parsed && parsed > 0 ? parsed : undefined
+}
+
+function parseNonNegativeInteger(value: unknown) {
+  const parsed = parseIntegerSearchValue(value)
+  return parsed !== undefined && parsed >= 0 ? parsed : undefined
+}
+
+function parseIntegerSearchValue(value: unknown) {
+  if (typeof value === "number" && Number.isInteger(value)) {
+    return value
+  }
+
+  if (typeof value !== "string" || !/^\d+$/.test(value.trim())) {
+    return undefined
+  }
+
+  return Number.parseInt(value, 10)
+}
+
 function parseAdminLogValue<T extends string>(value: unknown, allowed: T[]): T | undefined {
   return typeof value === "string" && allowed.includes(value as T) ? (value as T) : undefined
 }
@@ -672,6 +764,19 @@ function adminLogsStateFromSearch(search: AdminLogsRouteSearch): AdminLogsRouteS
   }
 }
 
+function adminAcquisitionIntakeStateFromSearch(
+  search: AdminAcquisitionIntakeRouteSearch,
+): AdminAcquisitionIntakeRouteState {
+  return {
+    libraryId: search.library_id,
+    state: search.state,
+    sourceKind: search.source_kind,
+    managedImportArtifactId: search.managed_import_artifact_id,
+    limit: search.limit,
+    offset: search.offset,
+  }
+}
+
 function toAdminLogsSearch(state: AdminLogsRouteState) {
   return {
     q: state.query || undefined,
@@ -679,6 +784,17 @@ function toAdminLogsSearch(state: AdminLogsRouteState) {
     sources: isDefaultAdminLogSet(state.sources, ADMIN_LOG_SOURCES) ? undefined : state.sources?.join(","),
     tab: state.tab && state.tab !== "all" ? state.tab : undefined,
     time: state.timeRange && state.timeRange !== "24h" ? state.timeRange : undefined,
+  }
+}
+
+function toAdminAcquisitionIntakeSearch(state: AdminAcquisitionIntakeRouteState) {
+  return {
+    library_id: state.libraryId || undefined,
+    state: state.state || undefined,
+    source_kind: state.sourceKind || undefined,
+    managed_import_artifact_id: state.managedImportArtifactId || undefined,
+    limit: state.limit && state.limit !== 50 ? state.limit : undefined,
+    offset: state.offset && state.offset > 0 ? state.offset : undefined,
   }
 }
 

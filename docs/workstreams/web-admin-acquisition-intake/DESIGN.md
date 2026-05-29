@@ -1,7 +1,7 @@
 # Web Admin Acquisition Intake - Design
 
-Status: Active
-Last updated: 2026-05-28
+Status: Closed
+Last updated: 2026-05-29
 
 ## Problem
 
@@ -34,6 +34,10 @@ When this lane closes:
   or downloader internals.
 - Route contracts, route-state tests, data-source contract tests, TypeScript
   check, bundle budget, and browser smoke evidence pass.
+
+Closeout result: this target state shipped under `WAAI-030` and closed under
+`WAAI-050`. Watch-folder discovery remains deferred to a guarded mutation
+follow-on.
 
 ## Scope
 

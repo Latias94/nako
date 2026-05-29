@@ -2,18 +2,19 @@
   "schema_version": 1,
   "slug": "web-playlist-management-ui-mutations",
   "title": "Web Playlist Management UI Mutations",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-05-29",
   "scope_kind": "fearless_refactor",
   "problem": "The web playlist page can read current-user playlists, but it cannot manage playlist mutations through the Public Client contract yet.",
   "task_prefix": "WPMU",
-  "current_task": "WPMU-060",
+  "current_task": null,
   "completed_tasks": [
     "WPMU-010",
     "WPMU-020",
     "WPMU-030",
     "WPMU-040",
-    "WPMU-050"
+    "WPMU-050",
+    "WPMU-060"
   ],
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/web-playlist-management-ui-mutations/README.md" },
@@ -21,7 +22,8 @@
     { "role": "execution", "path": "docs/workstreams/web-playlist-management-ui-mutations/TODO.md" },
     { "role": "milestones", "path": "docs/workstreams/web-playlist-management-ui-mutations/MILESTONES.md" },
     { "role": "gates", "path": "docs/workstreams/web-playlist-management-ui-mutations/EVIDENCE_AND_GATES.md" },
-    { "role": "handoff", "path": "docs/workstreams/web-playlist-management-ui-mutations/HANDOFF.md" }
+    { "role": "handoff", "path": "docs/workstreams/web-playlist-management-ui-mutations/HANDOFF.md" },
+    { "role": "closeout", "path": "docs/workstreams/web-playlist-management-ui-mutations/CLOSEOUT.md" }
   ],
   "gates": [
     "npm --prefix web run test -- src/test/data-source-contracts.test.ts src/test/use-media-contracts.test.tsx",
@@ -37,7 +39,8 @@
     "WPMU-020 added Public Client-backed web playlist mutation data-source methods and TanStack Query mutation hooks with cache invalidation and fixture non-persistence semantics.",
     "WPMU-030 added /media/my-list playlist create, rename, and delete controls with route-safe mutation behavior and desktop/mobile screenshot evidence.",
     "WPMU-040 added playlist item add/remove UI flows through Public Client mutation hooks, with route/data-source tests and browser smoke evidence.",
-    "WPMU-050 added explicit playlist item reorder controls with full item_ids submission, route-state preservation, stale-version refetch recovery, tests, and browser smoke evidence."
+    "WPMU-050 added explicit playlist item reorder controls with full item_ids submission, route-state preservation, stale-version refetch recovery, tests, and browser smoke evidence.",
+    "WPMU-060 verified the lane with full web gates, desktop/mobile browser smoke, workstream review, and closeout notes with residual follow-ons."
   ],
   "adr_refs": [
     "docs/adr/0021-video-first-media-server-domain-model.md",
@@ -46,7 +49,7 @@
     "docs/adr/0028-user-playback-state-principal-and-public-contract.md"
   ],
   "continue_policy": {
-    "default_action": "continue_current_task",
-    "notes": "Continue with WPMU-060. Run full lane verification, record closeout evidence, and split any residual follow-ons before closing."
+    "default_action": "closed",
+    "notes": "This workstream is closed. Open a new follow-on lane for broader add-to-playlist coverage, drag-and-drop reorder, shared playlists, smart lists, offline sync, or Tauri/mobile playlist surfaces."
   }
 }

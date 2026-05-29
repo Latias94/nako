@@ -1,6 +1,6 @@
 # Web Playlist Management UI Mutations - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 ## M0 - Scope And Evidence Freeze
@@ -43,3 +43,5 @@ Completed by `WPMU-050`.
 
 Exit criteria: shipped mutation behavior, validation evidence, residual risks,
 and follow-ons are recorded.
+
+Completed by `WPMU-060`.

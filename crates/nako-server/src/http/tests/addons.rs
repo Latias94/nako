@@ -2,7 +2,12 @@ use super::*;
 use axum::Json;
 use axum::http::HeaderValue;
 use nako_addon_protocol::{
-    ADDON_SUBTITLE_REQUEST_SCHEMA, ADDON_SUBTITLE_RESPONSE_SCHEMA, AddonSubtitleCandidate,
+    ADDON_EXTERNAL_ACQUISITION_ACTION_REQUEST_SCHEMA,
+    ADDON_EXTERNAL_ACQUISITION_ACTION_RESPONSE_SCHEMA, ADDON_SUBTITLE_REQUEST_SCHEMA,
+    ADDON_SUBTITLE_RESPONSE_SCHEMA, AddonExternalAcquisitionActionRequest,
+    AddonExternalAcquisitionActionResponse, AddonExternalAcquisitionActionStatus,
+    AddonExternalAcquisitionOperation, AddonExternalAcquisitionProgress,
+    AddonExternalAcquisitionRunnerState, AddonExternalAcquisitionTargetRef, AddonSubtitleCandidate,
     AddonSubtitleDelivery, AddonSubtitleFormat, AddonSubtitleProviderExecution,
     AddonSubtitleProviderStatus, AddonSubtitleSearchResponse,
 };
@@ -16,8 +21,8 @@ use nako_api::extension::{
     AdminSubtitleImportPlanReason, AdminSubtitleImportPlanStatus, AdminSubtitleSidecarRole,
 };
 use nako_official_addon_catalog::{
-    chromecast_renderer, dlna_renderer, metadata_scraper, notification_bridge, resource_search,
-    subtitle_provider,
+    chromecast_renderer, dlna_renderer, external_acquisition_runner, metadata_scraper,
+    notification_bridge, resource_search, subtitle_provider,
 };
 use std::collections::VecDeque;
 use std::sync::{
@@ -615,6 +620,84 @@ async fn task_path_addon_server_with_gate(
     (format!("http://{addr}"), requests)
 }
 
+async fn external_acquisition_action_addon_server(
+    action_status: AddonExternalAcquisitionActionStatus,
+) -> (String, StdArc<TokioMutex<Vec<CapturedAddonTaskRequest>>>) {
+    let requests = StdArc::new(TokioMutex::new(Vec::new()));
+    let router = Router::new().route(
+        external_acquisition_runner::ACTION_TASK_PATH,
+        axum::routing::post({
+            let requests = StdArc::clone(&requests);
+            move |headers: axum::http::HeaderMap, Json(request): Json<AddonTaskRequest>| {
+                let requests = StdArc::clone(&requests);
+                async move {
+                    requests.lock().await.push(CapturedAddonTaskRequest {
+                        headers: headers
+                            .iter()
+                            .filter_map(|(name, value)| {
+                                value
+                                    .to_str()
+                                    .ok()
+                                    .map(|value| (name.as_str().to_owned(), value.to_owned()))
+                            })
+                            .collect(),
+                        request: request.clone(),
+                    });
+
+                    let state = match action_status {
+                        AddonExternalAcquisitionActionStatus::Accepted
+                        | AddonExternalAcquisitionActionStatus::AlreadyExists => {
+                            AddonExternalAcquisitionRunnerState::Running
+                        }
+                        AddonExternalAcquisitionActionStatus::Rejected
+                        | AddonExternalAcquisitionActionStatus::NotFound
+                        | AddonExternalAcquisitionActionStatus::Failed => {
+                            AddonExternalAcquisitionRunnerState::Unknown
+                        }
+                    };
+                    let runner_job_ref = matches!(
+                        action_status,
+                        AddonExternalAcquisitionActionStatus::Accepted
+                            | AddonExternalAcquisitionActionStatus::AlreadyExists
+                    )
+                    .then(|| "fixture-job-1".to_owned());
+                    Json(AddonTaskResponse {
+                        protocol_version: request.protocol_version,
+                        addon_id: request.addon_id,
+                        task_id: request.task_id,
+                        job_id: request.job_id,
+                        request_id: request.request_id,
+                        output: serde_json::to_value(AddonExternalAcquisitionActionResponse {
+                            schema: ADDON_EXTERNAL_ACQUISITION_ACTION_RESPONSE_SCHEMA.to_owned(),
+                            status: action_status,
+                            state,
+                            runner_job_ref,
+                            progress: Some(AddonExternalAcquisitionProgress {
+                                percent_milli: Some(0),
+                                downloaded_bytes: Some(0),
+                                total_bytes: None,
+                            }),
+                            retryable: false,
+                            retry_after_ms: None,
+                            safe_message: Some("runner_profile_unavailable".to_owned()),
+                            safe_facts: std::collections::BTreeMap::new(),
+                        })
+                        .unwrap(),
+                    })
+                }
+            }
+        }),
+    );
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, router).await.unwrap();
+    });
+    yield_now().await;
+
+    (format!("http://{addr}"), requests)
+}
+
 async fn subtitle_search_addon_server() -> (String, StdArc<TokioMutex<Vec<AddonResourceRequest>>>) {
     let requests = StdArc::new(TokioMutex::new(Vec::new()));
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -872,6 +955,31 @@ async fn register_event_path_addon(router: &Router, base_url: String) -> AddonId
 
 async fn register_task_path_addon(router: &Router, base_url: String) -> AddonId {
     register_task_path_addon_with_auth(router, base_url, AddonAuth::None, None).await
+}
+
+async fn register_external_acquisition_runner_addon(router: &Router, base_url: String) -> AddonId {
+    let registered = request_body_json::<AdminAddonRegistrationResponse, _>(
+        router,
+        Method::POST,
+        "/admin/v1/addons",
+        &RegisterAddonRequest {
+            id: None,
+            manifest: external_acquisition_runner::manifest(base_url),
+            outbound_task_dispatch_secret_env: None,
+            granted_scopes: vec![AddonScope::AcquisitionActionRun],
+            status: Some(AddonStatus::Enabled),
+        },
+    )
+    .await;
+    let addon_id = registered.addon.summary.id;
+    request_json::<AdminAddonRoutingPlansResponse>(
+        router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/routing-plans"),
+    )
+    .await;
+
+    addon_id
 }
 
 async fn register_task_path_addon_with_auth(
@@ -1530,7 +1638,7 @@ async fn admin_addon_source_catalog_browses_and_resolves_without_hidden_lifecycl
         source.kind,
         AdminAddonSourceCatalogSourceKind::BuiltinOfficial
     );
-    assert_eq!(source.entry_count, 6);
+    assert_eq!(source.entry_count, 7);
     assert!(!source.provides_package_signing);
     assert!(!source.provides_process_supervision);
     assert!(!source.provides_provider_breadth);
@@ -1542,7 +1650,7 @@ async fn admin_addon_source_catalog_browses_and_resolves_without_hidden_lifecycl
     )
     .await;
     assert_eq!(entries.source_id, "nako-official");
-    assert_eq!(entries.entries.len(), 6);
+    assert_eq!(entries.entries.len(), 7);
     let entry = entries
         .entries
         .iter()
@@ -2008,6 +2116,121 @@ async fn admin_addon_source_catalog_resolves_resource_search_link_check_manifest
         assert!(
             !text.contains(forbidden),
             "resource-search catalog resolve leaked forbidden term: {forbidden}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn admin_addon_source_catalog_resolves_external_acquisition_runner_action_manifest() {
+    let temp = tempfile::tempdir().unwrap();
+    let router = test_router(temp.path().to_path_buf(), LibraryId::new()).await;
+
+    let entries = request_json::<AdminAddonSourceCatalogEntriesResponse>(
+        &router,
+        Method::GET,
+        "/admin/v1/addons/catalog/entries",
+    )
+    .await;
+    let entry = entries
+        .entries
+        .iter()
+        .find(|entry| entry.entry_id == external_acquisition_runner::ADDON_ID)
+        .unwrap();
+    assert_eq!(entry.manifest_id, external_acquisition_runner::ADDON_ID);
+    assert_eq!(entry.addon_name, external_acquisition_runner::ADDON_NAME);
+    assert_eq!(
+        entry.addon_version,
+        external_acquisition_runner::ADDON_VERSION
+    );
+    assert!(entry.resources.is_empty());
+    assert_eq!(entry.scopes, vec![AddonScope::AcquisitionActionRun]);
+    assert_eq!(
+        entry.tasks,
+        vec![external_acquisition_runner::ACTION_TASK_ID.to_owned()]
+    );
+
+    let raw = response_for(
+        &router,
+        Method::GET,
+        "/admin/v1/addons/catalog/entries/nako.official.external-acquisition-runner/resolve",
+    )
+    .await;
+    assert_eq!(raw.status(), StatusCode::OK);
+    let bytes = to_bytes(raw.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let resolved = serde_json::from_str::<AdminAddonSourceCatalogResolveResponse>(&text).unwrap();
+
+    assert_eq!(resolved.source_id, "nako-official");
+    assert_eq!(
+        resolved.entry.entry_id,
+        external_acquisition_runner::ADDON_ID
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.id,
+        external_acquisition_runner::ADDON_ID
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.base_url,
+        external_acquisition_runner::DEFAULT_CONTAINER_BASE_URL
+    );
+    assert!(resolved.descriptor.manifest.resources.is_empty());
+    assert_eq!(resolved.descriptor.manifest.tasks.len(), 1);
+    assert_eq!(
+        resolved.descriptor.manifest.tasks[0].id,
+        external_acquisition_runner::ACTION_TASK_ID
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.tasks[0].path,
+        external_acquisition_runner::ACTION_TASK_PATH
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.tasks[0]
+            .input_schema
+            .as_deref(),
+        Some(external_acquisition_runner::ACTION_REQUEST_SCHEMA)
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.tasks[0]
+            .output_schema
+            .as_deref(),
+        Some(external_acquisition_runner::ACTION_RESPONSE_SCHEMA)
+    );
+    assert_eq!(
+        resolved.descriptor.manifest.tasks[0].required_scopes,
+        vec![AddonScope::AcquisitionActionRun]
+    );
+    assert_eq!(resolved.descriptor.manifest.entry_points.len(), 1);
+    assert_eq!(
+        resolved.descriptor.manifest.entry_points[0].id,
+        external_acquisition_runner::DIAGNOSTICS_ENTRY_POINT_ID
+    );
+    assert_eq!(resolved.descriptor.manifest.hosted_pages.len(), 1);
+    assert_eq!(
+        resolved.descriptor.manifest.hosted_pages[0].id,
+        external_acquisition_runner::DIAGNOSTICS_HOSTED_PAGE_ID
+    );
+    assert!(resolved.descriptor.manifest.event_subscriptions.is_empty());
+    assert!(
+        resolved
+            .descriptor
+            .manifest
+            .secret_reference_fields
+            .is_empty()
+    );
+    assert_eq!(
+        resolved.install_guide.runtime_reference.value,
+        external_acquisition_runner::RUNTIME_IMAGE
+    );
+    assert!(resolved.install_guide.has_configuration_schema);
+    assert_eq!(resolved.install_guide.task_count, 1);
+    assert_eq!(resolved.install_guide.entry_point_count, 1);
+    assert_eq!(resolved.install_guide.hosted_page_count, 1);
+    assert_eq!(resolved.install_guide.event_subscription_count, 0);
+
+    for forbidden in ["raw_url", "magnet:", "Bearer ", "nako_at_", "docker.sock"] {
+        assert!(
+            !text.contains(forbidden),
+            "external acquisition catalog resolve leaked forbidden term: {forbidden}"
         );
     }
 }
@@ -2560,6 +2783,8 @@ async fn register_addon_routes_accept_manifest_declarations_and_reject_invalid_o
         id: "bulk-metadata-scrape".to_owned(),
         name: "Bulk metadata scrape".to_owned(),
         path: "/tasks/bulk-metadata-scrape".to_owned(),
+        input_schema: None,
+        output_schema: None,
         description: Some("Runs metadata suggestions for selected items".to_owned()),
         required_scopes: vec![AddonScope::AutomationRun],
         timeout_ms: Some(30_000),
@@ -5663,6 +5888,263 @@ async fn addon_task_run_direct_dispatch_records_cancelled_when_host_cancel_reque
         cancelled.run.result.as_ref().unwrap()["output"]["completed_output"]["mode"],
         "cancel"
     );
+}
+
+#[tokio::test]
+async fn addon_external_acquisition_action_direct_dispatches_host_owned_reference() {
+    let (_temp, router, source, _store) =
+        router_with_media_source_config("external-acquisition-action.mkv", b"media", |_| {}).await;
+    let (base_url, requests) =
+        external_acquisition_action_addon_server(AddonExternalAcquisitionActionStatus::Accepted)
+            .await;
+    let addon_id = register_external_acquisition_runner_addon(&router, base_url).await;
+    let action_payload = AddonExternalAcquisitionActionRequest {
+        schema: ADDON_EXTERNAL_ACQUISITION_ACTION_REQUEST_SCHEMA.to_owned(),
+        target_ref: AddonExternalAcquisitionTargetRef::SelectedLink {
+            selected_link_ref: "selected-link-ref-1".to_owned(),
+        },
+        runner_profile_id: "fixture".to_owned(),
+        idempotency_key: "external-acquisition:enqueue:1".to_owned(),
+        operation: AddonExternalAcquisitionOperation::Enqueue,
+        audit_ref: Some("audit:approval:1".to_owned()),
+    };
+
+    let created = request_body_json::<AddonTaskRunResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/task-runs"),
+        &CreateAddonTaskRunRequest {
+            declaration_id: external_acquisition_runner::ACTION_TASK_ID.to_owned(),
+            idempotency_key: action_payload.idempotency_key.clone(),
+            dispatch: AddonTaskRunDispatchMode::Direct,
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            payload: serde_json::to_value(&action_payload).unwrap(),
+        },
+    )
+    .await;
+    assert_eq!(created.run.status, JobStatus::Queued);
+
+    let completed =
+        wait_for_addon_task_status(&router, addon_id, created.run.job_id, JobStatus::Succeeded)
+            .await;
+    let output = &completed.run.result.as_ref().unwrap()["output"];
+    assert_eq!(
+        output["schema"],
+        ADDON_EXTERNAL_ACQUISITION_ACTION_RESPONSE_SCHEMA
+    );
+    assert_eq!(output["status"], "accepted");
+    assert_eq!(output["state"], "running");
+    assert_eq!(output["runner_job_ref"], "fixture-job-1");
+    assert_eq!(
+        completed.run.progress.as_ref().unwrap()["metrics"]["external_acquisition_status"],
+        "accepted"
+    );
+
+    {
+        let captured = requests.lock().await;
+        assert_eq!(captured.len(), 1);
+        let request = &captured[0].request;
+        assert_eq!(request.task_id, external_acquisition_runner::ACTION_TASK_ID);
+        assert_eq!(request.job_id, created.run.job_id.to_string());
+        assert_eq!(
+            request.payload,
+            serde_json::to_value(&action_payload).unwrap()
+        );
+        assert!(
+            captured[0]
+                .headers
+                .iter()
+                .any(|(name, value)| name == "x-nako-addon-operation" && value == "task-dispatch")
+        );
+    }
+    let body = serde_json::to_string(&completed).unwrap();
+    assert!(!body.contains("raw_url"));
+    assert!(!body.contains("password"));
+
+    let replay = request_body_json::<AddonTaskRunResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/task-runs"),
+        &CreateAddonTaskRunRequest {
+            declaration_id: external_acquisition_runner::ACTION_TASK_ID.to_owned(),
+            idempotency_key: action_payload.idempotency_key.clone(),
+            dispatch: AddonTaskRunDispatchMode::Direct,
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            payload: serde_json::to_value(&action_payload).unwrap(),
+        },
+    )
+    .await;
+    assert!(replay.idempotent_replay);
+    assert_eq!(replay.run.job_id, created.run.job_id);
+    assert_eq!(requests.lock().await.len(), 1);
+}
+
+#[tokio::test]
+async fn addon_external_acquisition_action_rejects_unsafe_payload_before_dispatch() {
+    let (_temp, router, source, store) =
+        router_with_media_source_config("external-acquisition-unsafe.mkv", b"media", |_| {}).await;
+    let (base_url, requests) =
+        external_acquisition_action_addon_server(AddonExternalAcquisitionActionStatus::Accepted)
+            .await;
+    let addon_id = register_external_acquisition_runner_addon(&router, base_url).await;
+
+    let response = response_body_json(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/task-runs"),
+        &CreateAddonTaskRunRequest {
+            declaration_id: external_acquisition_runner::ACTION_TASK_ID.to_owned(),
+            idempotency_key: "external-acquisition:unsafe:1".to_owned(),
+            dispatch: AddonTaskRunDispatchMode::Direct,
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            payload: serde_json::json!({
+                "schema": ADDON_EXTERNAL_ACQUISITION_ACTION_REQUEST_SCHEMA,
+                "target_ref": {
+                    "kind": "selected_link",
+                    "selected_link_ref": "selected-link-ref-unsafe",
+                    "raw_url": "magnet:?xt=urn:btih:secret"
+                },
+                "runner_profile_id": "fixture",
+                "idempotency_key": "external-acquisition:unsafe:1",
+                "operation": "enqueue",
+                "audit_ref": "audit:unsafe:1",
+                "password": "secret-code"
+            }),
+        },
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert!(body.contains("invalid_input"));
+    assert!(!body.contains("magnet:"));
+    assert!(!body.contains("secret-code"));
+    assert!(requests.lock().await.is_empty());
+    assert!(
+        store
+            .list_jobs(
+                nako_core::JobListFilter {
+                    kind: Some(JobKind::AddonTask),
+                    ..nako_core::JobListFilter::default()
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn addon_external_acquisition_action_requires_direct_dispatch_and_aligned_idempotency() {
+    let (_temp, router, source, _store) =
+        router_with_media_source_config("external-acquisition-policy.mkv", b"media", |_| {}).await;
+    let (base_url, requests) =
+        external_acquisition_action_addon_server(AddonExternalAcquisitionActionStatus::Accepted)
+            .await;
+    let addon_id = register_external_acquisition_runner_addon(&router, base_url).await;
+    let action_payload = AddonExternalAcquisitionActionRequest {
+        schema: ADDON_EXTERNAL_ACQUISITION_ACTION_REQUEST_SCHEMA.to_owned(),
+        target_ref: AddonExternalAcquisitionTargetRef::SelectedLink {
+            selected_link_ref: "selected-link-ref-policy".to_owned(),
+        },
+        runner_profile_id: "fixture".to_owned(),
+        idempotency_key: "external-acquisition:runner-key".to_owned(),
+        operation: AddonExternalAcquisitionOperation::Enqueue,
+        audit_ref: Some("audit:policy:1".to_owned()),
+    };
+
+    let sidecar_claim = response_body_json(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/task-runs"),
+        &CreateAddonTaskRunRequest {
+            declaration_id: external_acquisition_runner::ACTION_TASK_ID.to_owned(),
+            idempotency_key: action_payload.idempotency_key.clone(),
+            dispatch: AddonTaskRunDispatchMode::SidecarClaim,
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            payload: serde_json::to_value(&action_payload).unwrap(),
+        },
+    )
+    .await;
+    assert_eq!(sidecar_claim.status(), StatusCode::BAD_REQUEST);
+
+    let mismatch = response_body_json(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/task-runs"),
+        &CreateAddonTaskRunRequest {
+            declaration_id: external_acquisition_runner::ACTION_TASK_ID.to_owned(),
+            idempotency_key: "external-acquisition:host-key".to_owned(),
+            dispatch: AddonTaskRunDispatchMode::Direct,
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            payload: serde_json::to_value(&action_payload).unwrap(),
+        },
+    )
+    .await;
+    assert_eq!(mismatch.status(), StatusCode::BAD_REQUEST);
+    assert!(requests.lock().await.is_empty());
+}
+
+#[tokio::test]
+async fn addon_external_acquisition_action_runner_rejection_fails_host_task_safely() {
+    let (_temp, router, source, _store) =
+        router_with_media_source_config("external-acquisition-rejected.mkv", b"media", |_| {})
+            .await;
+    let (base_url, requests) =
+        external_acquisition_action_addon_server(AddonExternalAcquisitionActionStatus::Rejected)
+            .await;
+    let addon_id = register_external_acquisition_runner_addon(&router, base_url).await;
+    let action_payload = AddonExternalAcquisitionActionRequest {
+        schema: ADDON_EXTERNAL_ACQUISITION_ACTION_REQUEST_SCHEMA.to_owned(),
+        target_ref: AddonExternalAcquisitionTargetRef::SelectedLink {
+            selected_link_ref: "selected-link-ref-rejected".to_owned(),
+        },
+        runner_profile_id: "missing-profile".to_owned(),
+        idempotency_key: "external-acquisition:rejected:1".to_owned(),
+        operation: AddonExternalAcquisitionOperation::Enqueue,
+        audit_ref: Some("audit:rejected:1".to_owned()),
+    };
+
+    let created = request_body_json::<AddonTaskRunResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/task-runs"),
+        &CreateAddonTaskRunRequest {
+            declaration_id: external_acquisition_runner::ACTION_TASK_ID.to_owned(),
+            idempotency_key: action_payload.idempotency_key.clone(),
+            dispatch: AddonTaskRunDispatchMode::Direct,
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            payload: serde_json::to_value(&action_payload).unwrap(),
+        },
+    )
+    .await;
+
+    let failed =
+        wait_for_addon_task_status(&router, addon_id, created.run.job_id, JobStatus::Failed).await;
+    assert_eq!(
+        failed.run.safe_error_code.as_deref(),
+        Some("runner_profile_unavailable")
+    );
+    assert_eq!(
+        failed.run.result.as_ref().unwrap()["output"]["status"],
+        "rejected"
+    );
+    assert_eq!(requests.lock().await.len(), 1);
+    let body = serde_json::to_string(&failed).unwrap();
+    assert!(!body.contains("selected-link-ref-rejected"));
+    assert!(!body.contains("missing-profile"));
 }
 
 #[tokio::test]
