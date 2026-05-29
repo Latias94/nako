@@ -32,6 +32,8 @@ Scope:
 
 - Add `docs/ARCHITECTURE.md`.
 - Add `docs/architecture/PLAYBACK.md` as the playback-specific agent map.
+- Add storage/VFS, library pipeline, state/access, realtime/sync, and
+  operations/release deep dives.
 - Summarize current system areas, maturity, and next pressure points.
 - Make playback/transcode progress navigable after recent HLS work.
 

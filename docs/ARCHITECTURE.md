@@ -14,6 +14,16 @@ Deep dives:
 
 - `docs/architecture/PLAYBACK.md`: playback capability progress,
   workstream/ADR links, parallel lanes, and risk register.
+- `docs/architecture/STORAGE_VFS.md`: storage/VFS resilience, source identity,
+  remote staging, and mount-risk map.
+- `docs/architecture/LIBRARY_PIPELINE.md`: scan, watcher, probe, metadata,
+  artwork, and addon-assisted intake map.
+- `docs/architecture/STATE_ACCESS.md`: database, playback state, identity,
+  access, and write-pressure map.
+- `docs/architecture/REALTIME_SYNC.md`: realtime client updates, event
+  boundary, and offline sync map.
+- `docs/architecture/OPERATIONS_RELEASE.md`: deployment, release, diagnostics,
+  backup, and packaging map.
 
 ## North Star
 
@@ -160,6 +170,11 @@ Core ADRs:
 Progress trackers:
 
 - `docs/architecture/PLAYBACK.md`
+- `docs/architecture/STORAGE_VFS.md`
+- `docs/architecture/LIBRARY_PIPELINE.md`
+- `docs/architecture/STATE_ACCESS.md`
+- `docs/architecture/REALTIME_SYNC.md`
+- `docs/architecture/OPERATIONS_RELEASE.md`
 - `docs/ROADMAP.md`
 - `docs/GOALS.md`
 - `docs/workstreams/README.md`

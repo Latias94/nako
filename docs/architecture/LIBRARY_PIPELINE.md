@@ -1,0 +1,110 @@
+# Library And Asset Pipeline Architecture
+
+Last updated: 2026-05-29
+
+This document maps the media lifecycle after files become visible through VFS.
+It covers scan, watcher, probe, metadata, artwork, and addon-assisted intake.
+
+## Target Chain
+
+```text
+Storage event or scheduled scan
+  -> stable file candidate
+  -> source record and tombstone reconciliation
+  -> ffprobe facts
+  -> local inference
+  -> NFO/provider/addon metadata evidence
+  -> canonical metadata merge
+  -> catalog graph and search projection
+  -> artwork derivatives and client delivery
+```
+
+## Progress Matrix
+
+| Capability | Status | Authority | Next Lane |
+| --- | --- | --- | --- |
+| Durable scan state | Shipped | `docs/adr/0012-durable-scan-state-and-source-tombstones.md` | Watcher/debounce productization. |
+| Source tombstones | Shipped foundation | `docs/adr/0012-durable-scan-state-and-source-tombstones.md` | Move/rename reconciliation with fingerprints. |
+| Local inference | Shipped foundation | `CONTEXT.md`; metadata/catalog lanes | Anime/series path heuristics and confidence reporting. |
+| Media probe | Shipped foundation | playback/transcode lanes | More HDR/audio/subtitle technical facts. |
+| NFO authority | Shipped foundation | `docs/adr/0008-nfo-as-local-metadata-boundary.md` | Round-trip/writeback polish and backup policy. |
+| Metadata merge policy | Shipped foundation | `docs/adr/0007-metadata-merge-policy-and-local-authority.md` | Field-level review UX and provider conflict diagnostics. |
+| TMDB movie slice | Partial | metadata provider lanes | Series/season/episode depth. |
+| Douban provider | Not started | roadmap | Provider MVP lane. |
+| Bangumi provider | Not started | roadmap | Anime-first provider lane. |
+| Addon-assisted metadata | Partial | addon architecture lanes | Bounded host-owned apply/review flow. |
+| Artwork artifact lifecycle | Partial | managed artwork lanes | Dynamic delivery derivatives and Blurhash. |
+| Watcher/debounce | Weak | This document | Open `library-watcher-and-media-intake-stability`. |
+
+## Next Work Lanes
+
+### library-watcher-and-media-intake-stability
+
+Goal: Make incremental library intake safe for large files, slow copies, and
+remote storage.
+
+Scope:
+
+- filesystem watcher integration;
+- debounce and stable-size detection;
+- copy-in-progress handling;
+- scheduled reconciliation scan;
+- per-library intake diagnostics.
+
+Exit criteria:
+
+- a large file copy does not trigger premature probe;
+- moved/renamed sources do not lose metadata when evidence is strong;
+- scan failures stay source-scoped.
+
+### artwork-delivery-pipeline
+
+Goal: Serve artwork in client-appropriate forms instead of sending raw provider
+images everywhere.
+
+Scope:
+
+- derivative generation;
+- WebP or other client-appropriate output formats;
+- size presets;
+- Blurhash or placeholder evidence;
+- cache invalidation and selected artwork policy.
+
+## Risk Register
+
+### Watch Events Are Not Stable Media Events
+
+Create/modify events often fire before a media file is complete.
+
+Mitigation:
+
+- debounce events;
+- require size stability or closed-file evidence where available;
+- use scheduled scans as correction, not as the only intake path.
+
+### Addons Must Not Own Canonical State
+
+Addon or AI metadata can be powerful, but host policy must own application,
+field locks, provenance, and conflict resolution.
+
+Mitigation:
+
+- addons submit evidence or proposed changes;
+- Nako applies through metadata application policy;
+- user/admin review controls ambiguous changes.
+
+### Artwork Can Dominate Client Perceived Performance
+
+Large raw images can make a good catalog feel slow.
+
+Mitigation:
+
+- generate derivatives;
+- cache by selected artwork and size;
+- expose placeholder hashes for skeleton/loading states.
+
+## Agent Notes
+
+Do not put provider-specific hierarchy directly into `MediaItem` shape when a
+Nako term exists. Use `Provider Subject`, `Provider Mapping`, `Local Inference`,
+and `Canonical Metadata` from `CONTEXT.md`.

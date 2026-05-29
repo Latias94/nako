@@ -18,6 +18,9 @@ git diff --check
   playback/transcode progress, and next pressure points. Added
   `docs/architecture/PLAYBACK.md` as the playback-specific feature map, ADR and
   workstream index, lane split, and risk register.
+- 2026-05-29 MSAP-020 follow-up: Added architecture deep dives for storage/VFS,
+  library pipeline, state/access, realtime/sync, and operations/release so
+  agents can map future work to progress, authority, and risks.
 - 2026-05-29 MSAP-030: Added ADR 0052 for FFmpeg CLI-first HLS runtime and
   manifest-backed playback artifact publication.
 - 2026-05-29 MSAP-040: Updated indexes and roadmap, then closed the lane.

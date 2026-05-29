@@ -43,7 +43,7 @@
     },
     {
       "task": "MSAP-020",
-      "summary": "Added docs/ARCHITECTURE.md as the top-level media-server system map and docs/architecture/PLAYBACK.md as the playback-specific progress map."
+      "summary": "Added docs/ARCHITECTURE.md as the top-level media-server system map and docs/architecture deep dives for playback, storage/VFS, library pipeline, state/access, realtime/sync, and operations/release."
     },
     {
       "task": "MSAP-030",

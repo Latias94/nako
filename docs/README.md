@@ -39,6 +39,8 @@ policy, and workstream-level design notes for Nako.
   star, progress matrix, and next architectural pressure points.
 - [Playback architecture](architecture/PLAYBACK.md): video playback capability
   map, workstream/ADR authority, next lanes, and risk register.
+- [Architecture deep dives](architecture/README.md): storage/VFS, library
+  pipeline, state/access, realtime/sync, operations/release, and playback maps.
 - [ADR index](adr/README.md): durable architecture decisions and their status.
 - [HTTP API](api/HTTP_API.md): current server API contract.
 - [Addon author guide](guides/ADDON_AUTHOR_GUIDE.md): Nako HTTP addon manifest
