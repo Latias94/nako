@@ -242,6 +242,7 @@ async fn hls_playback_policy_denial_does_not_create_sessions_or_artifacts() {
             principal: principal.clone(),
             source_id: source.id,
             client: ClientPlaybackCapabilities::default(),
+            preferences: PlaybackPreferenceContext::default(),
         })
         .await
         .unwrap_err();
@@ -474,6 +475,7 @@ async fn hls_source_runs_runner_and_reuses_completed_session() {
     let request = HlsSourceRequest {
         source_id: source.id,
         client: ClientPlaybackCapabilities::default(),
+        preferences: PlaybackPreferenceContext::default(),
     };
 
     let output = app.playback().hls_source(request.clone()).await.unwrap();
@@ -563,6 +565,7 @@ async fn hls_source_runs_fmp4_runtime_layout_and_rewrites_init_map() {
             hls_segment_container: nako_transcode::HlsSegmentContainer::Fmp4,
             ..ClientPlaybackCapabilities::default()
         },
+        preferences: PlaybackPreferenceContext::default(),
     };
 
     let output = app.playback().hls_source(request.clone()).await.unwrap();
@@ -612,6 +615,7 @@ async fn hls_source_runs_adaptive_fmp4_ladder_and_rewrites_master_playlist() {
             hls_segment_container: nako_transcode::HlsSegmentContainer::Fmp4,
             ..ClientPlaybackCapabilities::default()
         },
+        preferences: PlaybackPreferenceContext::default(),
     };
 
     let output = app.playback().hls_source(request.clone()).await.unwrap();
@@ -675,6 +679,119 @@ async fn hls_source_runs_adaptive_fmp4_ladder_and_rewrites_master_playlist() {
 }
 
 #[tokio::test]
+async fn hls_source_selected_subtitle_uses_sidecar_rendition_identity_and_artifacts() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_subtitle_sidecar");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path.clone()).await;
+    store
+        .upsert_media_probe(
+            source.id,
+            &MediaProbeResult {
+                duration_ms: Some(1_000),
+                container: Some("matroska,webm".to_owned()),
+                bit_rate: None,
+                streams: vec![
+                    MediaStreamInfo {
+                        index: 0,
+                        kind: MediaStreamKind::Video,
+                        codec: Some("h264".to_owned()),
+                        language: None,
+                        duration_ms: None,
+                        bit_rate: Some(2_000_000),
+                        width: Some(1280),
+                        height: Some(720),
+                        channels: None,
+                        sample_rate: None,
+                        technical: Default::default(),
+                    },
+                    MediaStreamInfo {
+                        index: 1,
+                        kind: MediaStreamKind::Audio,
+                        codec: Some("aac".to_owned()),
+                        language: Some("eng".to_owned()),
+                        duration_ms: None,
+                        bit_rate: Some(128_000),
+                        width: None,
+                        height: None,
+                        channels: Some(2),
+                        sample_rate: Some(48_000),
+                        technical: Default::default(),
+                    },
+                    MediaStreamInfo {
+                        index: 2,
+                        kind: MediaStreamKind::Subtitle,
+                        codec: Some("subrip".to_owned()),
+                        language: Some("jpn".to_owned()),
+                        duration_ms: None,
+                        bit_rate: None,
+                        width: None,
+                        height: None,
+                        channels: None,
+                        sample_rate: None,
+                        technical: Default::default(),
+                    },
+                ],
+            },
+        )
+        .await
+        .unwrap();
+    let request = HlsSourceRequest {
+        source_id: source.id,
+        client: ClientPlaybackCapabilities::default(),
+        preferences: PlaybackPreferenceContext {
+            requested_subtitle_stream: Some(2),
+            ..PlaybackPreferenceContext::default()
+        },
+    };
+
+    let output = app.playback().hls_source(request.clone()).await.unwrap();
+    let session_id = output.session.id;
+
+    assert_eq!(output.disposition, HlsSourceDisposition::Finished);
+    assert!(
+        output
+            .session
+            .request_key
+            .contains("subtitle_strategy%3Dsidecar_selected")
+    );
+    assert!(
+        output
+            .session
+            .request_key
+            .contains(";request_variant=hls-media-renditions:v1%3Bsubtitles%3D0:2:jpn")
+    );
+    assert!(output.segment_dir.join("subtitle_0.m3u8").exists());
+    assert!(
+        fs::read_to_string(output.segment_dir.join("subtitle_0.m3u8"))
+            .unwrap()
+            .contains("subtitle_0_00000.vtt")
+    );
+    assert!(output.segment_dir.join("subtitle_0_00000.vtt").exists());
+
+    let subtitle_playlist = app
+        .playback()
+        .plan_hls_segment(session_id, "subtitle_0.m3u8")
+        .await
+        .unwrap();
+    assert_eq!(
+        subtitle_playlist.response.content_type,
+        "application/vnd.apple.mpegurl"
+    );
+    let subtitle_segment = app
+        .playback()
+        .plan_hls_segment(session_id, "subtitle_0_00000.vtt")
+        .await
+        .unwrap();
+    assert_eq!(subtitle_segment.response.content_type, "text/vtt");
+
+    fs::remove_file(ffmpeg_path).unwrap();
+    let reused = app.playback().hls_source(request).await.unwrap();
+
+    assert_eq!(reused.disposition, HlsSourceDisposition::ReusedExisting);
+    assert_eq!(reused.session.id, session_id);
+}
+
+#[tokio::test]
 async fn hls_source_uses_selected_cpu_acceleration_when_gpu_falls_back() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_cpu_only_hls_ffmpeg_script(script_root.path(), "hls_cpu_fallback");
@@ -694,6 +811,7 @@ async fn hls_source_uses_selected_cpu_acceleration_when_gpu_falls_back() {
         .hls_source(HlsSourceRequest {
             source_id: source.id,
             client: ClientPlaybackCapabilities::default(),
+            preferences: PlaybackPreferenceContext::default(),
         })
         .await
         .unwrap();
@@ -765,6 +883,7 @@ async fn hls_source_falls_back_to_cpu_when_source_facts_do_not_match_hardware_de
         .hls_source(HlsSourceRequest {
             source_id: source.id,
             client: ClientPlaybackCapabilities::default(),
+            preferences: PlaybackPreferenceContext::default(),
         })
         .await
         .unwrap();
@@ -792,6 +911,7 @@ async fn hls_source_request_identity_separates_selected_acceleration_profiles() 
     let request = HlsSourceRequest {
         source_id: source.id,
         client: ClientPlaybackCapabilities::default(),
+        preferences: PlaybackPreferenceContext::default(),
     };
 
     let cpu_output = app.playback().hls_source(request.clone()).await.unwrap();
@@ -826,6 +946,7 @@ async fn hls_source_request_identity_changes_when_source_revision_changes() {
     let request = HlsSourceRequest {
         source_id: source.id,
         client: ClientPlaybackCapabilities::default(),
+        preferences: PlaybackPreferenceContext::default(),
     };
 
     let first = app.playback().hls_source(request.clone()).await.unwrap();
@@ -852,6 +973,70 @@ async fn hls_source_request_identity_changes_when_source_revision_changes() {
             .request_key
             .contains(";profile=transcode-profile:v1")
     );
+}
+
+#[tokio::test]
+async fn hls_source_adaptive_identity_includes_source_aware_ladder() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_adaptive_ladder_identity");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    store
+        .upsert_media_probe(
+            source.id,
+            &MediaProbeResult {
+                duration_ms: Some(1_000),
+                container: Some("matroska,webm".to_owned()),
+                bit_rate: None,
+                streams: vec![MediaStreamInfo {
+                    index: 0,
+                    kind: MediaStreamKind::Video,
+                    codec: Some("h264".to_owned()),
+                    language: None,
+                    duration_ms: None,
+                    bit_rate: Some(4_000_000),
+                    width: Some(1920),
+                    height: Some(1080),
+                    channels: None,
+                    sample_rate: None,
+                    technical: Default::default(),
+                }],
+            },
+        )
+        .await
+        .unwrap();
+    let client = ClientPlaybackCapabilities {
+        hls_variant_policy: nako_transcode::HlsVariantPolicy::Adaptive,
+        hls_segment_container: nako_transcode::HlsSegmentContainer::Fmp4,
+        max_video_bitrate: Some(2_000_000),
+        max_width: Some(1280),
+        max_height: Some(720),
+        ..ClientPlaybackCapabilities::default()
+    };
+
+    let output = app
+        .playback()
+        .hls_source(HlsSourceRequest {
+            source_id: source.id,
+            client,
+            preferences: PlaybackPreferenceContext::default(),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(output.disposition, HlsSourceDisposition::Finished);
+    assert!(
+        output
+            .session
+            .request_key
+            .contains(";request_variant=hls-adaptive-ladder:v1%3Baudio%3Dfalse")
+    );
+    assert!(
+        output
+            .session
+            .request_key
+            .contains("0:1280x720@2000000+128000")
+    );
+    assert!(output.playlist_path.ends_with("master.m3u8"));
 }
 
 #[tokio::test]
@@ -944,6 +1129,7 @@ async fn hls_source_rejects_persisted_active_duplicate() {
         .hls_source(HlsSourceRequest {
             source_id: source.id,
             client: ClientPlaybackCapabilities::default(),
+            preferences: PlaybackPreferenceContext::default(),
         })
         .await
         .unwrap_err();
@@ -976,6 +1162,7 @@ async fn hls_source_persists_runner_failure() {
         .hls_source(HlsSourceRequest {
             source_id: source.id,
             client: ClientPlaybackCapabilities::default(),
+            preferences: PlaybackPreferenceContext::default(),
         })
         .await
         .unwrap_err();
@@ -1266,6 +1453,82 @@ fn hls_staging_policy_uses_adaptive_fmp4_layout() {
             .variant_playlist_pattern()
             .unwrap()
             .ends_with("variant_%v.m3u8")
+    );
+}
+
+#[test]
+fn hls_staging_policy_uses_source_aware_adaptive_plan() {
+    let policy = HlsStagingPolicy::new(PathBuf::from("cache/hls")).unwrap();
+    let source = remote_media_source("local:///demo.mkv");
+    let plan = nako_transcode::HlsAdaptiveLadderPlan::from_source(
+        nako_transcode::HlsAdaptiveLadderSource {
+            width: Some(640),
+            height: Some(360),
+            video_bitrate: Some(700_000),
+            has_audio: Some(false),
+        },
+        Default::default(),
+    );
+    let profile = local_hls_request_identity(&source, HardwareAcceleration::None);
+    let request_identity = profile
+        .profile_identity()
+        .bind_source_with_request_variant(profile.source_identity(), plan.identity_key());
+    let adaptive = nako_transcode::HlsOutputRequirement {
+        variant_policy: nako_transcode::HlsVariantPolicy::Adaptive,
+        segment_container: nako_transcode::HlsSegmentContainer::Fmp4,
+    };
+
+    let layout = policy
+        .layout_for_output_with_adaptive_plan(source.id, &request_identity, adaptive, &plan)
+        .unwrap();
+
+    assert!(!layout.artifacts.has_audio());
+    assert_eq!(layout.artifacts.renditions(), plan.renditions());
+    assert!(layout.artifacts.artifact_for_name("variant_0.m3u8").is_ok());
+    assert!(
+        layout
+            .artifacts
+            .artifact_for_name("variant_1.m3u8")
+            .is_err()
+    );
+}
+
+#[test]
+fn hls_staging_policy_carries_selected_subtitle_media_renditions() {
+    let policy = HlsStagingPolicy::new(PathBuf::from("cache/hls")).unwrap();
+    let source = remote_media_source("local:///demo.mkv");
+    let media = nako_transcode::HlsMediaRenditionPlan::from_subtitles(vec![
+        nako_transcode::HlsSubtitleRendition::new(0, 2, Some("eng".to_owned())),
+    ])
+    .unwrap();
+    let request_variant = nako_transcode::HlsRequestVariantPlan::new(None, media.clone());
+    let profile = local_hls_request_identity(&source, HardwareAcceleration::None);
+    let request_identity = profile.profile_identity().bind_source_with_request_variant(
+        profile.source_identity(),
+        request_variant.identity_key().unwrap(),
+    );
+
+    let layout = policy
+        .layout_for_output_with_request_variant_plan(
+            source.id,
+            &request_identity,
+            nako_transcode::HlsOutputRequirement::default(),
+            &request_variant,
+        )
+        .unwrap();
+
+    assert_eq!(layout.artifacts.media_renditions(), &media);
+    assert!(
+        layout
+            .artifacts
+            .artifact_for_name("subtitle_0.m3u8")
+            .is_ok()
+    );
+    assert!(
+        layout
+            .artifacts
+            .artifact_for_name("subtitle_0_00000.vtt")
+            .is_ok()
     );
 }
 

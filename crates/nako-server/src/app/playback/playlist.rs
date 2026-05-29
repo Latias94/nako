@@ -147,6 +147,18 @@ mod tests {
     }
 
     #[test]
+    fn rewrite_hls_playlist_rewrites_webvtt_subtitle_segments() {
+        let session_id = TranscodeSessionId::new();
+        let body = "#EXTM3U\n#EXTINF:1,\nsubtitle_0_00000.vtt\n#EXT-X-ENDLIST\n";
+
+        let rewritten = rewrite_hls_playlist(body, session_id);
+
+        assert!(rewritten.contains(&format!(
+            "/playback/sessions/{session_id}/hls/segments/subtitle_0_00000.vtt"
+        )));
+    }
+
+    #[test]
     fn rewrite_hls_playlist_for_playback_session_rebinds_existing_segment_routes() {
         let old_session_id = PlaybackSessionId::new();
         let new_session_id = PlaybackSessionId::new();

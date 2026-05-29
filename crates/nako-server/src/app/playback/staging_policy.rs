@@ -2,8 +2,9 @@ use std::path::PathBuf;
 
 use nako_core::{MediaSourceId, NakoError, Result};
 use nako_transcode::{
-    HLS_ADAPTIVE_MASTER_PLAYLIST_FILE, HlsArtifactManifest, HlsOutputRequirement, HlsRendition,
-    HlsSegmentContainer, HlsVariantPolicy, RemuxContainer, TranscodeRequestIdentity,
+    HLS_ADAPTIVE_MASTER_PLAYLIST_FILE, HlsAdaptiveLadderPlan, HlsArtifactManifest,
+    HlsMediaRenditionPlan, HlsOutputRequirement, HlsRequestVariantPlan, HlsSegmentContainer,
+    HlsVariantPolicy, RemuxContainer, TranscodeRequestIdentity,
 };
 
 #[derive(Clone, Debug)]
@@ -102,9 +103,69 @@ impl HlsStagingPolicy {
             HlsVariantPolicy::SingleVariant => {
                 self.single_variant_layout(source_id, request_identity, output)
             }
-            HlsVariantPolicy::Adaptive => {
-                self.adaptive_fmp4_layout(source_id, request_identity, output)
+            HlsVariantPolicy::Adaptive => self.layout_for_output_with_request_variant_plan(
+                source_id,
+                request_identity,
+                output,
+                &HlsRequestVariantPlan::new(
+                    Some(HlsAdaptiveLadderPlan::default()),
+                    HlsMediaRenditionPlan::default(),
+                ),
+            ),
+        }
+    }
+
+    pub fn layout_for_output_with_request_variant_plan(
+        &self,
+        source_id: MediaSourceId,
+        request_identity: &TranscodeRequestIdentity,
+        output: HlsOutputRequirement,
+        request_variant: &HlsRequestVariantPlan,
+    ) -> Result<HlsOutputLayout> {
+        match output.variant_policy {
+            HlsVariantPolicy::SingleVariant => {
+                let layout = self.single_variant_layout(source_id, request_identity, output)?;
+                apply_media_renditions(layout, request_variant.media_renditions.clone())
             }
+            HlsVariantPolicy::Adaptive => {
+                let default_ladder;
+                let adaptive_ladder =
+                    if let Some(adaptive_ladder) = request_variant.adaptive_ladder.as_ref() {
+                        adaptive_ladder
+                    } else {
+                        default_ladder = HlsAdaptiveLadderPlan::default();
+                        &default_ladder
+                    };
+
+                self.adaptive_fmp4_layout_with_media(
+                    source_id,
+                    request_identity,
+                    output,
+                    adaptive_ladder,
+                    &request_variant.media_renditions,
+                )
+            }
+        }
+    }
+
+    pub fn layout_for_output_with_adaptive_plan(
+        &self,
+        source_id: MediaSourceId,
+        request_identity: &TranscodeRequestIdentity,
+        output: HlsOutputRequirement,
+        adaptive_plan: &HlsAdaptiveLadderPlan,
+    ) -> Result<HlsOutputLayout> {
+        match output.variant_policy {
+            HlsVariantPolicy::SingleVariant => {
+                self.single_variant_layout(source_id, request_identity, output)
+            }
+            HlsVariantPolicy::Adaptive => self.adaptive_fmp4_layout_with_media(
+                source_id,
+                request_identity,
+                output,
+                adaptive_plan,
+                &HlsMediaRenditionPlan::default(),
+            ),
         }
     }
 
@@ -155,11 +216,13 @@ impl HlsStagingPolicy {
         })
     }
 
-    pub fn adaptive_fmp4_layout(
+    fn adaptive_fmp4_layout_with_media(
         &self,
         source_id: MediaSourceId,
         request_identity: &TranscodeRequestIdentity,
         output: HlsOutputRequirement,
+        adaptive_plan: &HlsAdaptiveLadderPlan,
+        media_renditions: &HlsMediaRenditionPlan,
     ) -> Result<HlsOutputLayout> {
         if output.variant_policy != HlsVariantPolicy::Adaptive {
             return Err(NakoError::InvalidInput {
@@ -188,11 +251,13 @@ impl HlsStagingPolicy {
             }
         }
 
-        let artifacts = HlsArtifactManifest::adaptive_fmp4(
+        let artifacts = HlsArtifactManifest::adaptive_fmp4_with_audio(
             output_dir.clone(),
             playlist_path.clone(),
-            HlsRendition::default_adaptive_ladder(),
-        )?;
+            adaptive_plan.renditions().to_vec(),
+            adaptive_plan.has_audio(),
+        )?
+        .with_media_renditions(media_renditions.clone())?;
         let segment_pattern = artifacts.media_segment_pattern().to_path_buf();
 
         Ok(HlsOutputLayout {
@@ -203,4 +268,12 @@ impl HlsStagingPolicy {
             artifacts,
         })
     }
+}
+
+fn apply_media_renditions(
+    mut layout: HlsOutputLayout,
+    media_renditions: HlsMediaRenditionPlan,
+) -> Result<HlsOutputLayout> {
+    layout.artifacts = layout.artifacts.with_media_renditions(media_renditions)?;
+    Ok(layout)
 }

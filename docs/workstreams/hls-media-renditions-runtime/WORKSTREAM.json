@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "slug": "hls-media-renditions-runtime",
+  "title": "HLS Media Renditions Runtime",
+  "status": "closed",
+  "updated": "2026-05-29",
+  "scope_kind": "fearless_refactor",
+  "problem": "Nako's HLS runtime can execute video variants, but it has no typed media rendition boundary for selected subtitles or alternate audio artifacts.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/hls-media-renditions-runtime/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/hls-media-renditions-runtime/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/hls-media-renditions-runtime/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/hls-media-renditions-runtime/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/hls-media-renditions-runtime/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/hls-media-renditions-runtime/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python3 -m json.tool docs/workstreams/hls-media-renditions-runtime/WORKSTREAM.json",
+    "cargo nextest run -p nako-transcode hls --no-fail-fast",
+    "cargo nextest run -p nako-playback --no-fail-fast",
+    "cargo nextest run -p nako-transcode ffmpeg --no-fail-fast",
+    "cargo nextest run -p nako-server hls --no-fail-fast",
+    "cargo nextest run -p nako-server playback --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "HMR-010",
+      "summary": "Opened the durable fearless refactor lane for a typed HLS media rendition boundary and a first selected-subtitle or alternate-audio foundation slice."
+    },
+    {
+      "task": "HMR-020",
+      "summary": "Added typed HLS media rendition and request-variant identity boundaries for selected subtitle sidecar artifacts."
+    },
+    {
+      "task": "HMR-030",
+      "summary": "Implemented selected subtitle WebVTT sidecar FFmpeg command planning and HLS artifact allow-listing."
+    },
+    {
+      "task": "HMR-040",
+      "summary": "Integrated selected subtitle media renditions into server HLS staging, artifact reconstruction, playlist rewrite coverage, session reuse, and playback route gates."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0038-playback-planning-and-transcode-policy-seams.md",
+    "docs/adr/0044-playback-capability-profile-planner.md",
+    "docs/adr/0049-source-aware-transcode-runtime.md"
+  ],
+  "continue_policy": {
+    "default_action": "closed",
+    "notes": "The lane is closed. Follow-on work should open a new workstream for richer HLS master playlist media tags, full alternate audio, image-subtitle policy, LL-HLS/CMAF/DRM, or a second transcode engine adapter."
+  }
+}

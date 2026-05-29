@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "slug": "adaptive-hls-source-aware-ladder",
+  "title": "Adaptive HLS Source-Aware Ladder Runtime",
+  "status": "closed",
+  "updated": "2026-05-28",
+  "scope_kind": "fearless_refactor",
+  "problem": "Nako's adaptive HLS fMP4 runtime is executable, but it still uses a fixed two-rendition ladder and assumes every adaptive variant has audio.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/adaptive-hls-source-aware-ladder/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/adaptive-hls-source-aware-ladder/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/adaptive-hls-source-aware-ladder/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/adaptive-hls-source-aware-ladder/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/adaptive-hls-source-aware-ladder/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/adaptive-hls-source-aware-ladder/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python3 -m json.tool docs/workstreams/adaptive-hls-source-aware-ladder/WORKSTREAM.json",
+    "cargo nextest run -p nako-transcode hls --no-fail-fast",
+    "cargo nextest run -p nako-transcode transcode_profile --no-fail-fast",
+    "cargo nextest run -p nako-playback --no-fail-fast",
+    "cargo nextest run -p nako-transcode ffmpeg --no-fail-fast",
+    "cargo nextest run -p nako-server hls --no-fail-fast",
+    "cargo nextest run -p nako-server playback --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "AHSL-010",
+      "summary": "Opened the durable fearless refactor lane for source-aware adaptive HLS ladder policy and no-audio adaptive FFmpeg stream-map planning."
+    },
+    {
+      "task": "AHSL-020",
+      "summary": "Added source-aware adaptive ladder planning, carried client max width and height into transcode constraints, and bound concrete ladder plans into request-variant identity."
+    },
+    {
+      "task": "AHSL-030",
+      "summary": "Made adaptive FFmpeg HLS command planning emit audio-bearing or video-only maps, encoders, and var_stream_map entries based on selected source audio presence."
+    },
+    {
+      "task": "AHSL-040",
+      "summary": "Integrated adaptive ladder plans into server HLS staging, playback runtime request identity, artifact manifest reconstruction, and focused playback coverage."
+    },
+    {
+      "task": "AHSL-050",
+      "summary": "Verified focused gates, recorded evidence, closed the workstream, and left broader adaptive features as follow-ons."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0038-playback-planning-and-transcode-policy-seams.md",
+    "docs/adr/0044-playback-capability-profile-planner.md",
+    "docs/adr/0049-source-aware-transcode-runtime.md"
+  ],
+  "continue_policy": {
+    "default_action": "closed",
+    "notes": "The lane is closed. Follow-on work should open a new workstream for adaptive MPEG-TS, alternate audio/subtitle renditions, LL-HLS/CMAF/DRM, or a second transcode engine adapter."
+  }
+}

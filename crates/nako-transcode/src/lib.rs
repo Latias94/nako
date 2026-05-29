@@ -207,6 +207,8 @@ mod tests {
             media_segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
             variant_playlist_pattern: None,
             renditions: Vec::new(),
+            has_audio: true,
+            media_renditions: HlsMediaRenditionPlan::default(),
             output: HlsOutputRequirement {
                 variant_policy: HlsVariantPolicy::SingleVariant,
                 segment_container: HlsSegmentContainer::Fmp4,
@@ -272,6 +274,88 @@ mod tests {
     }
 
     #[test]
+    fn ffmpeg_builder_plans_adaptive_hls_without_audio_streams() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let artifacts = HlsArtifactManifest::adaptive_fmp4_with_audio(
+            "hls",
+            "hls/master.m3u8",
+            HlsRendition::default_adaptive_ladder(),
+            false,
+        )
+        .unwrap();
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            artifacts,
+            segment_time_seconds: 6,
+            execution_policy: hls_policy(HardwareAcceleration::None),
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let argv = builder.hls(&request).unwrap().argv_lossy();
+
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-var_stream_map" && args[1] == "v:0 v:1")
+        );
+        assert!(!argv.iter().any(|arg| arg == "0:a:0?"));
+        assert!(!argv.windows(2).any(|args| args[0] == "-c:a"));
+    }
+
+    #[test]
+    fn hls_adaptive_ladder_plan_respects_source_and_client_caps() {
+        let source = source_video_with_shape_and_audio(1920, 1080, Some(4_000_000), true);
+        let plan = HlsAdaptiveLadderPlan::from_source_facts(
+            Some(&source),
+            TranscodeOutputConstraints {
+                max_video_bitrate: Some(2_000_000),
+                max_width: Some(1280),
+                max_height: Some(720),
+                prefer_hdr: None,
+            },
+        );
+
+        assert!(plan.has_audio());
+        assert_eq!(
+            plan.renditions()[0],
+            HlsRendition::new(0, 1280, 720, 2_000_000, 128_000)
+        );
+        assert!(
+            plan.renditions()
+                .iter()
+                .all(|rendition| rendition.width <= 1280
+                    && rendition.height <= 720
+                    && rendition.video_bitrate <= 2_000_000)
+        );
+        assert!(
+            !plan
+                .renditions()
+                .iter()
+                .any(|rendition| rendition.height > 720)
+        );
+        assert_eq!(
+            HlsAdaptiveLadderPlan::from_identity_key(&plan.identity_key()).unwrap(),
+            plan
+        );
+    }
+
+    #[test]
+    fn hls_adaptive_ladder_plan_avoids_upscale_and_records_no_audio() {
+        let source = source_video_with_shape_and_audio(640, 360, Some(700_000), false);
+        let plan = HlsAdaptiveLadderPlan::from_source_facts(
+            Some(&source),
+            TranscodeOutputConstraints::default(),
+        );
+
+        assert!(!plan.has_audio());
+        assert_eq!(
+            plan.renditions(),
+            &[HlsRendition::new(0, 640, 360, 700_000, 128_000)]
+        );
+        assert!(plan.identity_key().contains("audio=false"));
+    }
+
+    #[test]
     fn ffmpeg_builder_rejects_hls_outputs_outside_layout() {
         let builder = FfmpegCommandBuilder::default();
         let artifacts = HlsArtifactManifest {
@@ -280,6 +364,8 @@ mod tests {
             media_segment_pattern: PathBuf::from("hls/segment_%05d.ts"),
             variant_playlist_pattern: None,
             renditions: Vec::new(),
+            has_audio: true,
+            media_renditions: HlsMediaRenditionPlan::default(),
             output: HlsOutputRequirement::default(),
         };
         let request = HlsRequest {
@@ -484,6 +570,52 @@ mod tests {
     }
 
     #[test]
+    fn ffmpeg_builder_plans_hls_selected_subtitle_webvtt_sidecar_output() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let mut execution_policy = hls_policy(HardwareAcceleration::None);
+        execution_policy.subtitle_strategy = TranscodeSubtitleStrategy::SidecarSelected;
+        let artifacts = hls_artifacts(
+            "hls",
+            "hls/playlist.m3u8",
+            "hls/segment_%05d.ts",
+            HlsOutputRequirement::default(),
+        )
+        .with_media_renditions(
+            HlsMediaRenditionPlan::from_subtitles(vec![HlsSubtitleRendition::new(
+                0,
+                2,
+                Some("jpn".to_owned()),
+            )])
+            .unwrap(),
+        )
+        .unwrap();
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            artifacts,
+            segment_time_seconds: 6,
+            execution_policy,
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let argv = builder.hls(&request).unwrap().argv_lossy();
+
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-map" && args[1] == "0:2")
+        );
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-c:s" && args[1] == "webvtt")
+        );
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-segment_list" && args[1] == "hls/subtitle_0.m3u8")
+        );
+        assert!(argv.contains(&"hls/subtitle_0_%05d.vtt".to_owned()));
+    }
+
+    #[test]
     fn ffmpeg_builder_plans_hls_muxer_with_minimum_segment_time() {
         let builder = FfmpegCommandBuilder::new("ffmpeg");
         let request = HlsRequest {
@@ -515,7 +647,7 @@ mod tests {
     fn ffmpeg_builder_rejects_unimplemented_hls_subtitle_strategies() {
         let builder = FfmpegCommandBuilder::new("ffmpeg");
         let mut execution_policy = hls_policy(HardwareAcceleration::None);
-        execution_policy.subtitle_strategy = TranscodeSubtitleStrategy::SidecarSelected;
+        execution_policy.subtitle_strategy = TranscodeSubtitleStrategy::BurnInSelected;
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
@@ -533,6 +665,75 @@ mod tests {
         let err = builder.hls(&request).unwrap_err();
 
         assert!(err.to_string().contains("subtitle strategy"));
+    }
+
+    #[test]
+    fn hls_artifact_manifest_covers_selected_subtitle_playlist_and_segments() {
+        let manifest = hls_artifacts(
+            "hls",
+            "hls/playlist.m3u8",
+            "hls/segment_%05d.ts",
+            HlsOutputRequirement::default(),
+        )
+        .with_media_renditions(
+            HlsMediaRenditionPlan::from_subtitles(vec![HlsSubtitleRendition::new(
+                0,
+                2,
+                Some("jpn".to_owned()),
+            )])
+            .unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            manifest
+                .artifact_for_name("subtitle_0.m3u8")
+                .unwrap()
+                .content_type,
+            "application/vnd.apple.mpegurl"
+        );
+        assert_eq!(
+            manifest
+                .artifact_for_name("subtitle_0_00000.vtt")
+                .unwrap()
+                .content_type,
+            "text/vtt"
+        );
+        assert!(!manifest.cleanup_candidate_for_name("subtitle_0.m3u8"));
+        assert!(manifest.cleanup_candidate_for_name("subtitle_0_00000.vtt"));
+        assert!(manifest.artifact_for_name("subtitle_1_00000.vtt").is_err());
+    }
+
+    #[test]
+    fn hls_request_variant_identity_round_trips_ladder_and_media_renditions() {
+        let ladder = HlsAdaptiveLadderPlan::from_source(
+            HlsAdaptiveLadderSource {
+                width: Some(1280),
+                height: Some(720),
+                video_bitrate: Some(2_000_000),
+                has_audio: Some(false),
+            },
+            TranscodeOutputConstraints {
+                max_video_bitrate: Some(1_500_000),
+                max_width: Some(1280),
+                max_height: Some(720),
+                prefer_hdr: None,
+            },
+        );
+        let media = HlsMediaRenditionPlan::from_subtitles(vec![HlsSubtitleRendition::new(
+            0,
+            2,
+            Some("JPN".to_owned()),
+        )])
+        .unwrap();
+        let plan = HlsRequestVariantPlan::new(Some(ladder.clone()), media.clone());
+
+        let key = plan.identity_key().unwrap();
+        let restored = HlsRequestVariantPlan::from_identity_key(&key).unwrap();
+
+        assert!(key.starts_with("hls-request-variant:v1;components="));
+        assert_eq!(restored.adaptive_ladder, Some(ladder));
+        assert_eq!(restored.media_renditions, media);
     }
 
     #[test]
@@ -857,6 +1058,8 @@ mod tests {
                 },
                 TranscodeOutputConstraints {
                     max_video_bitrate: Some(8_000_000),
+                    max_width: None,
+                    max_height: None,
                     prefer_hdr: Some(true),
                 },
             ),
@@ -2275,6 +2478,43 @@ h264_mp4toannexb
                 },
             }),
             audio: None,
+            subtitle: None,
+        }
+    }
+
+    fn source_video_with_shape_and_audio(
+        width: u32,
+        height: u32,
+        bit_rate: Option<u64>,
+        has_audio: bool,
+    ) -> TranscodePipelineSourceFacts {
+        TranscodePipelineSourceFacts {
+            video: Some(MediaStreamInfo {
+                index: 0,
+                kind: MediaStreamKind::Video,
+                codec: Some("h264".to_owned()),
+                language: None,
+                duration_ms: None,
+                bit_rate,
+                width: Some(width),
+                height: Some(height),
+                channels: None,
+                sample_rate: None,
+                technical: MediaStreamTechnicalFacts::default(),
+            }),
+            audio: has_audio.then(|| MediaStreamInfo {
+                index: 1,
+                kind: MediaStreamKind::Audio,
+                codec: Some("aac".to_owned()),
+                language: None,
+                duration_ms: None,
+                bit_rate: Some(128_000),
+                width: None,
+                height: None,
+                channels: Some(2),
+                sample_rate: Some(48_000),
+                technical: MediaStreamTechnicalFacts::default(),
+            }),
             subtitle: None,
         }
     }

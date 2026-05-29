@@ -209,6 +209,8 @@ impl TranscodeAccelerationPlan {
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct TranscodeOutputConstraints {
     pub max_video_bitrate: Option<u64>,
+    pub max_width: Option<u32>,
+    pub max_height: Option<u32>,
     pub prefer_hdr: Option<bool>,
 }
 
@@ -316,6 +318,8 @@ impl TranscodeExecutionPolicy {
             acceleration: TranscodeAccelerationPlan::software(),
             output_constraints: TranscodeOutputConstraints {
                 max_video_bitrate: None,
+                max_width: None,
+                max_height: None,
                 prefer_hdr: None,
             },
             subtitle_strategy: TranscodeSubtitleStrategy::PreserveInContainer,
