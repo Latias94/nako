@@ -28,8 +28,7 @@ and review boundaries:
 
 ## First Read-Only Mapping
 
-`WAGA-020` should verify and document the final field mapping before code work,
-but the initial mapping is:
+`WAGA-020` verified and implemented the read-model mapping:
 
 | UI field | Contract field |
 | --- | --- |
@@ -41,6 +40,22 @@ but the initial mapping is:
 | Payload summary | `payload.valid_json`, `shape`, `payload_bytes`, counts, textual/explanation booleans, `confidence_milli` |
 | Readiness | `readiness.status`, `actionable`, `reasons` |
 | Timestamps | `created_at`, `updated_at`, `accepted_at`, `provenance.artifact_created_at` |
+
+## WAGA-020 Audit Result
+
+`WAGA-020` added:
+
+- `AdminApiClient.getGeneratedArtifactProposals(query)`;
+- `createAdminReadModelsDataSource().loadGeneratedArtifacts(query)`;
+- `ADMIN_GENERATED_ARTIFACTS_READ_MODEL_FIXTURE`;
+- `AdminGeneratedArtifactsReadModel`;
+- data-source contract coverage for fixture fallback, live query
+  serialization, Bearer authorization, DTO-to-read-model mapping, and redaction
+  of non-contract raw fields.
+
+The read model intentionally exposes only summarized proposal facts. It does not
+carry raw prompts, raw generated payload bodies, provider raw responses, local
+paths, Source Locators, credentials, storage handles, or secrets.
 
 ## Review Guard Requirements
 

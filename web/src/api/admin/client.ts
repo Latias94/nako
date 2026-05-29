@@ -13,6 +13,8 @@ import {
   type AdminAddonSourceCatalogEntriesResponse,
   type AdminAddonSourceCatalogSourcesResponse,
   type AdminCreateUserRequest,
+  type AdminGeneratedArtifactProposalListResponse,
+  type AdminGeneratedArtifactProposalsQuery,
   type AdminJobCommandResponse,
   type AdminJobListResponse,
   type AdminJobsQuery,
@@ -135,6 +137,14 @@ export class AdminApiClient {
   ): Promise<AdminAcquisitionIntakeCandidateListResponse> {
     return this.getJson<AdminAcquisitionIntakeCandidateListResponse>(
       withQuery(NAKO_ADMIN_ROUTES.acquisitionIntakeCandidates, query),
+    )
+  }
+
+  getGeneratedArtifactProposals(
+    query: AdminGeneratedArtifactProposalsQuery = {},
+  ): Promise<AdminGeneratedArtifactProposalListResponse> {
+    return this.getJson<AdminGeneratedArtifactProposalListResponse>(
+      withQuery(NAKO_ADMIN_ROUTES.generatedArtifactProposals, query),
     )
   }
 

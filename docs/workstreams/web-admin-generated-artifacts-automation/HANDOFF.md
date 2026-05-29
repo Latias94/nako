@@ -1,7 +1,7 @@
 # Web Admin Generated Artifacts Automation - Handoff
 
 Status: Active
-Last updated: 2026-05-28
+Last updated: 2026-05-29
 
 ## Current State
 
@@ -18,6 +18,15 @@ Admin contract already exposes:
 - `AdminGeneratedArtifactReviewResponse`
 - `AdminGeneratedArtifactAcceptancePlan`
 
+WAGA-020 audited those contracts and added the new `web/` read-model boundary:
+
+- `AdminApiClient.getGeneratedArtifactProposals(query)`
+- `createAdminReadModelsDataSource().loadGeneratedArtifacts(query)`
+- `ADMIN_GENERATED_ARTIFACTS_READ_MODEL_FIXTURE`
+- `AdminGeneratedArtifactsReadModel`
+- data-source contract tests for query serialization, fixture fallback, and
+  redaction of non-contract raw fields
+
 The old `apps/admin-web` implementation is prior art, not code to copy into the
 new shell. The new work belongs in `web/src/api/admin`,
 `web/src/features/admin`, `web/src/shell/nako-router.tsx`, and tests under
@@ -25,14 +34,14 @@ new shell. The new work belongs in `web/src/api/admin`,
 
 ## Active Task
 
-- Task ID: WAGA-020
+- Task ID: WAGA-030
 - Owner: Codex
 - Status: READY
-- Validation: Admin data-source contract test, TypeScript check, and updated
-  `ROUTE_API_READINESS.md`.
+- Validation: `npm --prefix web run test`; `npm --prefix web run check`;
+  `npm --prefix web run build:budget`.
 
 ## Next Recommended Action
 
-Start WAGA-020. Audit the exact generated Admin DTOs, then decide the first
-implementation slice: read-only proposal route first, guarded review actions
-only after review-plan display is proven.
+Start WAGA-030. Implement `/admin/automation/generated-artifacts` as a
+read-only Admin route with route-owned `limit` and `offset` state, fixture/live
+data-source behavior, and redaction-sensitive rendering.

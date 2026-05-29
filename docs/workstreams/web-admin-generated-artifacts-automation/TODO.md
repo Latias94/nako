@@ -1,7 +1,7 @@
 # Web Admin Generated Artifacts Automation - TODO
 
 Status: Active
-Last updated: 2026-05-28
+Last updated: 2026-05-29
 
 ## M0 - Open Lane
 
@@ -13,12 +13,12 @@ Last updated: 2026-05-28
 
 ## M1 - Admin API And Read-Model Audit
 
-- [ ] WAGA-020 [owner=Codex] [deps=WAGA-010] [scope=web/src/api/admin,web/src/test,docs/workstreams/web-admin-generated-artifacts-automation]
+- [x] WAGA-020 [owner=Codex] [deps=WAGA-010] [scope=web/src/api/admin,web/src/test,docs/workstreams/web-admin-generated-artifacts-automation]
   Goal: Audit generated Admin proposal/review contracts and define the `web/` read-model boundary for proposal list, pagination state, fixture fallback, review-plan display, and redaction assertions.
   Validation: `npm --prefix web run test -- src/test/data-source-contracts.test.ts`; `npm --prefix web run check`; `ROUTE_API_READINESS.md` updated.
   Review: verify that generated artifacts remain Admin-only and do not revive Media AI/Automation chrome.
-  Evidence: `ROUTE_API_READINESS.md` field mapping and data-source test plan.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Evidence: `ROUTE_API_READINESS.md`, `AdminApiClient.getGeneratedArtifactProposals`, `loadGeneratedArtifacts`, fixture fallback, and data-source contract tests.
+  Handoff: DONE. Next task is WAGA-030.
 
 ## M2 - Read-Only Proposal Route
 

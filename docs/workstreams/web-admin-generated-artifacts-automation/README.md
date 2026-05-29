@@ -18,6 +18,6 @@ artifacts with explicit acceptance boundaries, not free-form Media chat UI.
 
 ## Current Execution Point
 
-`WAGA-010` opened this lane from `WDRP-040`. Continue with `WAGA-020`, the
-Admin API/read-model readiness audit for generated artifact proposals,
-review-plan semantics, and guarded review mutations in the new `web/` shell.
+`WAGA-020` audited generated Admin proposal/review contracts and added the
+`web/` read-model boundary for generated artifact proposal lists. Continue with
+`WAGA-030`, the read-only `/admin/automation/generated-artifacts` route.

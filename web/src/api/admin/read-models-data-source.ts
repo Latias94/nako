@@ -6,6 +6,9 @@ import type {
   AdminAcquisitionIntakeCandidateDiagnostic,
   AdminAcquisitionIntakeCandidateListResponse,
   AdminAcquisitionIntakeCandidatesQuery,
+  AdminGeneratedArtifactProposal,
+  AdminGeneratedArtifactProposalListResponse,
+  AdminGeneratedArtifactProposalsQuery,
   AdminJobListItem,
   AdminMetadataRawCacheSettingsResponse,
   AdminOutboxEventListItem,
@@ -273,6 +276,66 @@ export interface AdminAcquisitionIntakeReadModel extends AdminReadModelEnvelope 
   page: AdminAcquisitionIntakeCandidateListResponse["page"]
 }
 
+export interface AdminGeneratedArtifactTargetReadModel {
+  kind: string
+  libraryId: string | null
+  itemId: string | null
+  sourceId: string | null
+}
+
+export interface AdminGeneratedArtifactProvenanceReadModel {
+  providerId: string
+  providerName: string | null
+  jobId: string
+  capability: string
+  idempotencyKeyFingerprint: string | null
+  promptFingerprint: string | null
+  attemptCount: number | null
+  artifactCreatedAt: string
+}
+
+export interface AdminGeneratedArtifactPayloadReadModel {
+  validJson: boolean
+  shape: string
+  payloadFingerprint: string
+  payloadBytes: number
+  objectFieldCount: number | null
+  arrayItemCount: number | null
+  hasTextualValues: boolean
+  hasExplanation: boolean
+  confidenceMilli: number | null
+}
+
+export interface AdminGeneratedArtifactReadinessReadModel {
+  status: string
+  actionable: boolean
+  reasons: string[]
+}
+
+export interface AdminGeneratedArtifactProposalReadModel {
+  id: string
+  kind: string
+  capability: string
+  status: string
+  target: AdminGeneratedArtifactTargetReadModel
+  provenance: AdminGeneratedArtifactProvenanceReadModel
+  payload: AdminGeneratedArtifactPayloadReadModel
+  readiness: AdminGeneratedArtifactReadinessReadModel
+  createdAt: string
+  updatedAt: string
+  acceptedAt: string | null
+}
+
+export interface AdminGeneratedArtifactsReadModel extends AdminReadModelEnvelope {
+  versions: {
+    adminApi: string
+    publicApi: string
+  }
+  query: AdminGeneratedArtifactProposalsQuery
+  proposals: AdminGeneratedArtifactProposalReadModel[]
+  page: AdminGeneratedArtifactProposalListResponse["page"]
+}
+
 export interface AdminSettingsReadModel extends AdminReadModelEnvelope {
   general: {
     serverName: string
@@ -419,6 +482,9 @@ export const ADMIN_LOGS_READ_MODEL_FIXTURE: AdminLogsReadModel = {
 export const ADMIN_ACQUISITION_INTAKE_READ_MODEL_FIXTURE: AdminAcquisitionIntakeReadModel =
   acquisitionIntakeFixture(normalizeAcquisitionIntakeQuery({}))
 
+export const ADMIN_GENERATED_ARTIFACTS_READ_MODEL_FIXTURE: AdminGeneratedArtifactsReadModel =
+  generatedArtifactsFixture(normalizeGeneratedArtifactsQuery({}))
+
 export const ADMIN_SETTINGS_READ_MODEL_FIXTURE: AdminSettingsReadModel = {
   source: "fixture",
   fallback: true,
@@ -538,6 +604,16 @@ export function createAdminReadModelsDataSource(
       })
     },
 
+    async loadGeneratedArtifacts(
+      query: AdminGeneratedArtifactProposalsQuery = {},
+    ): Promise<AdminGeneratedArtifactsReadModel> {
+      const normalizedQuery = normalizeGeneratedArtifactsQuery(query)
+      return withFallback(generatedArtifactsFixture(normalizedQuery), async () => {
+        const response = await client.getGeneratedArtifactProposals(normalizedQuery)
+        return mapGeneratedArtifacts(response, normalizedQuery)
+      })
+    },
+
     async loadSettings(): Promise<AdminSettingsReadModel> {
       return withFallback(ADMIN_SETTINGS_READ_MODEL_FIXTURE, async () => {
         const [config, runtime, staging, rawCache] = await Promise.all([
@@ -576,6 +652,17 @@ function fixtureDataSource() {
       }
 
       return acquisitionIntakeFixture(normalizeAcquisitionIntakeQuery(query))
+    },
+    async loadGeneratedArtifacts(query: AdminGeneratedArtifactProposalsQuery = {}) {
+      if (
+        Object.values(query).every(
+          (value) => value === undefined || value === null || value === "",
+        )
+      ) {
+        return ADMIN_GENERATED_ARTIFACTS_READ_MODEL_FIXTURE
+      }
+
+      return generatedArtifactsFixture(normalizeGeneratedArtifactsQuery(query))
     },
     async loadSettings() {
       return ADMIN_SETTINGS_READ_MODEL_FIXTURE
@@ -806,6 +893,69 @@ function mapAcquisitionIntakeCandidate(
   }
 }
 
+function mapGeneratedArtifacts(
+  response: AdminGeneratedArtifactProposalListResponse,
+  query: AdminGeneratedArtifactProposalsQuery,
+): AdminGeneratedArtifactsReadModel {
+  return {
+    source: "live",
+    fallback: false,
+    versions: {
+      adminApi: response.admin_api_version,
+      publicApi: response.public_api_version,
+    },
+    query,
+    proposals: response.proposals.map(mapGeneratedArtifactProposal),
+    page: response.page,
+  }
+}
+
+function mapGeneratedArtifactProposal(
+  proposal: AdminGeneratedArtifactProposal,
+): AdminGeneratedArtifactProposalReadModel {
+  return {
+    id: proposal.id,
+    kind: proposal.kind,
+    capability: proposal.capability,
+    status: proposal.status,
+    target: {
+      kind: proposal.target.kind,
+      libraryId: proposal.target.library_id,
+      itemId: proposal.target.item_id,
+      sourceId: proposal.target.source_id,
+    },
+    provenance: {
+      providerId: proposal.provenance.provider_id,
+      providerName: proposal.provenance.provider_name,
+      jobId: proposal.provenance.job_id,
+      capability: proposal.provenance.capability,
+      idempotencyKeyFingerprint: proposal.provenance.idempotency_key_fingerprint,
+      promptFingerprint: proposal.provenance.prompt_fingerprint,
+      attemptCount: proposal.provenance.attempt_count,
+      artifactCreatedAt: proposal.provenance.artifact_created_at,
+    },
+    payload: {
+      validJson: proposal.payload.valid_json,
+      shape: proposal.payload.shape,
+      payloadFingerprint: proposal.payload.payload_fingerprint,
+      payloadBytes: proposal.payload.payload_bytes,
+      objectFieldCount: proposal.payload.object_field_count,
+      arrayItemCount: proposal.payload.array_item_count,
+      hasTextualValues: proposal.payload.has_textual_values,
+      hasExplanation: proposal.payload.has_explanation,
+      confidenceMilli: proposal.payload.confidence_milli,
+    },
+    readiness: {
+      status: proposal.readiness.status,
+      actionable: proposal.readiness.actionable,
+      reasons: proposal.readiness.reasons,
+    },
+    createdAt: proposal.created_at,
+    updatedAt: proposal.updated_at,
+    acceptedAt: proposal.accepted_at,
+  }
+}
+
 function normalizeAcquisitionIntakeQuery(
   query: AdminAcquisitionIntakeCandidatesQuery,
 ): AdminAcquisitionIntakeCandidatesQuery {
@@ -814,6 +964,15 @@ function normalizeAcquisitionIntakeQuery(
     state: cleanQueryValue(query.state),
     source_kind: cleanQueryValue(query.source_kind),
     managed_import_artifact_id: cleanQueryValue(query.managed_import_artifact_id),
+    limit: query.limit ?? 50,
+    offset: query.offset ?? 0,
+  }
+}
+
+function normalizeGeneratedArtifactsQuery(
+  query: AdminGeneratedArtifactProposalsQuery,
+): AdminGeneratedArtifactProposalsQuery {
+  return {
     limit: query.limit ?? 50,
     offset: query.offset ?? 0,
   }
@@ -857,6 +1016,68 @@ function acquisitionIntakeFixture(
         lastSeenAt: "2024-03-15T03:05:00.000Z",
         createdAt: "2024-03-15T03:00:00.000Z",
         updatedAt: "2024-03-15T03:05:00.000Z",
+      },
+    ],
+    page: {
+      limit: query.limit ?? 50,
+      offset: query.offset ?? 0,
+      returned: 1,
+    },
+  }
+}
+
+function generatedArtifactsFixture(
+  query: AdminGeneratedArtifactProposalsQuery,
+): AdminGeneratedArtifactsReadModel {
+  return {
+    source: "fixture",
+    fallback: true,
+    versions: {
+      adminApi: "fixture",
+      publicApi: "fixture",
+    },
+    query,
+    proposals: [
+      {
+        id: "fixture-generated-artifact-1",
+        kind: "metadata_suggestion",
+        capability: "item_metadata_suggest",
+        status: "pending_review",
+        target: {
+          kind: "media_item",
+          libraryId: "library-movies",
+          itemId: "item-fixture-1",
+          sourceId: null,
+        },
+        provenance: {
+          providerId: "automation-provider-fixture",
+          providerName: "Fixture Automation Provider",
+          jobId: "job-generated-artifact-fixture",
+          capability: "item_metadata_suggest",
+          idempotencyKeyFingerprint: "sha256:idempotency-fixture",
+          promptFingerprint: "sha256:prompt-fixture",
+          attemptCount: 1,
+          artifactCreatedAt: "2024-03-15T02:59:00.000Z",
+        },
+        payload: {
+          validJson: true,
+          shape: "object",
+          payloadFingerprint: "sha256:payload-fixture",
+          payloadBytes: 2048,
+          objectFieldCount: 8,
+          arrayItemCount: null,
+          hasTextualValues: true,
+          hasExplanation: true,
+          confidenceMilli: 820,
+        },
+        readiness: {
+          status: "ready",
+          actionable: true,
+          reasons: ["ready_for_review"],
+        },
+        createdAt: "2024-03-15T03:00:00.000Z",
+        updatedAt: "2024-03-15T03:05:00.000Z",
+        acceptedAt: null,
       },
     ],
     page: {

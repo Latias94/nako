@@ -1,7 +1,7 @@
 # Web Admin Generated Artifacts Automation - Milestones
 
 Status: Active
-Last updated: 2026-05-28
+Last updated: 2026-05-29
 
 ## M0 - Open Lane
 
@@ -14,6 +14,8 @@ Completed by `WAGA-010`.
 
 Exit criteria: generated Admin proposal/review DTOs and the `web/` read-model
 mapping are documented and covered by data-source contract tests.
+
+Completed by `WAGA-020`.
 
 ## M2 - Read-Only Proposal Route
 

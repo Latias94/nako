@@ -3,13 +3,14 @@
   "slug": "web-admin-generated-artifacts-automation",
   "title": "Web Admin Generated Artifacts Automation",
   "status": "active",
-  "updated": "2026-05-28",
+  "updated": "2026-05-29",
   "scope_kind": "frontend_admin_operations",
   "problem": "The new web Admin shell lacks Generated Artifact / Automation diagnostics after the fake Media AI and Automation surfaces were removed.",
   "task_prefix": "WAGA",
-  "current_task": "WAGA-020",
+  "current_task": "WAGA-030",
   "completed_tasks": [
-    "WAGA-010"
+    "WAGA-010",
+    "WAGA-020"
   ],
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/web-admin-generated-artifacts-automation/README.md" },
@@ -28,7 +29,8 @@
     "git diff --check"
   ],
   "evidence": [
-    "WAGA-010 opened the lane from WDRP-040 and anchored the first implementation slice to generated Admin proposal/review contracts."
+    "WAGA-010 opened the lane from WDRP-040 and anchored the first implementation slice to generated Admin proposal/review contracts.",
+    "WAGA-020 added the Admin generated artifact proposal read-model boundary, fixture fallback, pagination normalization, redacted mapping, and data-source contract tests."
   ],
   "adr_refs": [
     "docs/adr/0004-ai-as-external-automation-first.md",
@@ -37,6 +39,6 @@
   ],
   "continue_policy": {
     "default_action": "continue_current_task",
-    "notes": "Continue with WAGA-020 unless WDRP selects a different higher-priority lane. Keep AI/automation in Admin operations, not Media client chrome."
+    "notes": "Continue with WAGA-030. Implement the read-only generated artifact proposal route before deciding whether guarded review mutations belong in this lane."
   }
 }
