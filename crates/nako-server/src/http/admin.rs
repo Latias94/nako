@@ -48,7 +48,9 @@ use nako_api::{
         AdminPlaybackPolicyDiagnostics, AdminPlaybackReadinessCheck,
         AdminPlaybackReadinessCheckName, AdminPlaybackReadinessDiagnostics,
         AdminPlaybackReadinessReason, AdminPlaybackRemoteBudgetDiagnostics,
-        AdminPlaybackRemuxRuntimeDiagnostics, AdminPlaybackRuntimeDiagnosticsResponse,
+        AdminPlaybackRemuxRuntimeDiagnostics, AdminPlaybackResourceClass,
+        AdminPlaybackResourceClassPressure, AdminPlaybackResourceEnforcement,
+        AdminPlaybackResourcePressureDiagnostics, AdminPlaybackRuntimeDiagnosticsResponse,
         AdminPlaybackRuntimeStatus, AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
         AdminPlaybackStagingDiagnostics, AdminPlaybackSupportEvidenceResponse,
         AdminPlaybackSupportHardwareCapabilityEvidence, AdminPlaybackSupportHardwareEvidence,
@@ -2053,10 +2055,108 @@ async fn admin_playback_runtime_diagnostics(
             max_concurrent_sessions: playback.remux_concurrency,
             timeout_ms: playback.remux_timeout_ms,
         },
+        resource_pressure: admin_playback_resource_pressure(
+            &playback.resource_pressure,
+            &remote_playback,
+        ),
         remote_playback,
         staging,
         artifact_lifecycle,
         throttle,
+    }
+}
+
+fn admin_playback_resource_pressure(
+    pressure: &crate::app::playback::PlaybackRuntimeResourcePressure,
+    remote_playback: &AdminPlaybackRemoteBudgetDiagnostics,
+) -> AdminPlaybackResourcePressureDiagnostics {
+    AdminPlaybackResourcePressureDiagnostics {
+        classes: pressure
+            .classes
+            .iter()
+            .map(|pressure| admin_playback_resource_class_pressure(pressure, remote_playback))
+            .collect(),
+    }
+}
+
+fn admin_playback_resource_class_pressure(
+    pressure: &crate::app::playback::PlaybackRuntimeResourceClassPressure,
+    remote_playback: &AdminPlaybackRemoteBudgetDiagnostics,
+) -> AdminPlaybackResourceClassPressure {
+    let mut pressure = AdminPlaybackResourceClassPressure {
+        class: admin_playback_resource_class(pressure.class),
+        enforcement: admin_playback_resource_enforcement(pressure.enforcement),
+        configured_capacity: pressure.configured_capacity,
+        available_permits: pressure.available_permits,
+        in_use_permits: pressure.in_use_permits,
+    };
+
+    match pressure.class {
+        AdminPlaybackResourceClass::RemoteStream => {
+            pressure.configured_capacity = Some(remote_playback.stream_permits_max);
+            pressure.available_permits = Some(remote_playback.stream_permits_available);
+            pressure.in_use_permits = Some(
+                remote_playback
+                    .stream_permits_max
+                    .saturating_sub(remote_playback.stream_permits_available),
+            );
+        }
+        AdminPlaybackResourceClass::RemoteStage => {
+            pressure.configured_capacity = Some(remote_playback.stage_permits_max);
+            pressure.available_permits = Some(remote_playback.stage_permits_available);
+            pressure.in_use_permits = Some(
+                remote_playback
+                    .stage_permits_max
+                    .saturating_sub(remote_playback.stage_permits_available),
+            );
+        }
+        AdminPlaybackResourceClass::RemuxProcess
+        | AdminPlaybackResourceClass::CpuTranscode
+        | AdminPlaybackResourceClass::GpuTranscode
+        | AdminPlaybackResourceClass::HlsArtifactIo => {}
+    }
+
+    pressure
+}
+
+fn admin_playback_resource_class(
+    class: crate::app::playback::PlaybackResourceClass,
+) -> AdminPlaybackResourceClass {
+    match class {
+        crate::app::playback::PlaybackResourceClass::RemoteStream => {
+            AdminPlaybackResourceClass::RemoteStream
+        }
+        crate::app::playback::PlaybackResourceClass::RemoteStage => {
+            AdminPlaybackResourceClass::RemoteStage
+        }
+        crate::app::playback::PlaybackResourceClass::RemuxProcess => {
+            AdminPlaybackResourceClass::RemuxProcess
+        }
+        crate::app::playback::PlaybackResourceClass::CpuTranscode => {
+            AdminPlaybackResourceClass::CpuTranscode
+        }
+        crate::app::playback::PlaybackResourceClass::GpuTranscode => {
+            AdminPlaybackResourceClass::GpuTranscode
+        }
+        crate::app::playback::PlaybackResourceClass::HlsArtifactIo => {
+            AdminPlaybackResourceClass::HlsArtifactIo
+        }
+    }
+}
+
+fn admin_playback_resource_enforcement(
+    enforcement: crate::app::playback::PlaybackResourceEnforcement,
+) -> AdminPlaybackResourceEnforcement {
+    match enforcement {
+        crate::app::playback::PlaybackResourceEnforcement::HostOwned => {
+            AdminPlaybackResourceEnforcement::HostOwned
+        }
+        crate::app::playback::PlaybackResourceEnforcement::AdmissionPermit => {
+            AdminPlaybackResourceEnforcement::AdmissionPermit
+        }
+        crate::app::playback::PlaybackResourceEnforcement::NotYetEnforced => {
+            AdminPlaybackResourceEnforcement::NotYetEnforced
+        }
     }
 }
 

@@ -52,7 +52,7 @@ Primary gates:
 
 ## M3 — Diagnostics And Operations Surface
 
-Status: Pending
+Status: Completed
 
 Exit criteria:
 

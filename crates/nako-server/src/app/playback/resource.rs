@@ -312,6 +312,64 @@ impl PlaybackRuntimeAdmission {
         Ok(PlaybackResourcePermitSet { _permits: permits })
     }
 
+    #[must_use]
+    pub(crate) fn resource_pressure(&self) -> PlaybackRuntimeResourcePressure {
+        PlaybackRuntimeResourcePressure {
+            classes: vec![
+                self.class_pressure(
+                    PlaybackResourceClass::RemoteStream,
+                    PlaybackResourceEnforcement::HostOwned,
+                    None,
+                ),
+                self.class_pressure(
+                    PlaybackResourceClass::RemoteStage,
+                    PlaybackResourceEnforcement::HostOwned,
+                    None,
+                ),
+                self.class_pressure(
+                    PlaybackResourceClass::RemuxProcess,
+                    PlaybackResourceEnforcement::AdmissionPermit,
+                    Some(self.remux_processes.available_permits()),
+                ),
+                self.class_pressure(
+                    PlaybackResourceClass::CpuTranscode,
+                    PlaybackResourceEnforcement::AdmissionPermit,
+                    Some(self.cpu_transcodes.available_permits()),
+                ),
+                self.class_pressure(
+                    PlaybackResourceClass::GpuTranscode,
+                    PlaybackResourceEnforcement::AdmissionPermit,
+                    Some(self.gpu_transcodes.available_permits()),
+                ),
+                self.class_pressure(
+                    PlaybackResourceClass::HlsArtifactIo,
+                    PlaybackResourceEnforcement::NotYetEnforced,
+                    None,
+                ),
+            ],
+        }
+    }
+
+    fn class_pressure(
+        &self,
+        class: PlaybackResourceClass,
+        enforcement: PlaybackResourceEnforcement,
+        available_permits: Option<usize>,
+    ) -> PlaybackRuntimeResourceClassPressure {
+        let configured_capacity = self.capacity.capacity_for(class);
+        let in_use_permits = configured_capacity
+            .zip(available_permits)
+            .map(|(configured, available)| configured.saturating_sub(available));
+
+        PlaybackRuntimeResourceClassPressure {
+            class,
+            enforcement,
+            configured_capacity,
+            available_permits,
+            in_use_permits,
+        }
+    }
+
     fn decide_requirement(
         &self,
         requirement: PlaybackResourceRequirement,
@@ -413,6 +471,20 @@ impl PlaybackRuntimeAdmission {
 #[derive(Debug)]
 pub(crate) struct PlaybackResourcePermitSet {
     _permits: Vec<PlaybackResourcePermit>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct PlaybackRuntimeResourcePressure {
+    pub(crate) classes: Vec<PlaybackRuntimeResourceClassPressure>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct PlaybackRuntimeResourceClassPressure {
+    pub(crate) class: PlaybackResourceClass,
+    pub(crate) enforcement: PlaybackResourceEnforcement,
+    pub(crate) configured_capacity: Option<usize>,
+    pub(crate) available_permits: Option<usize>,
+    pub(crate) in_use_permits: Option<usize>,
 }
 
 #[derive(Debug)]

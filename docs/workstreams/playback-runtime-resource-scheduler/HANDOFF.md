@@ -5,10 +5,10 @@ Last updated: 2026-05-29
 
 ## Current State
 
-PRRS-010, PRRS-020, and PRRS-030 are complete. The lane is open, linked from
-playback architecture indexes, has a server-owned playback resource demand and
-admission decision model, and now enforces HLS/remux process permits at start
-boundaries.
+PRRS-010, PRRS-020, PRRS-030, and PRRS-040 are complete. The lane is open,
+linked from playback architecture indexes, has a server-owned playback resource
+demand and admission decision model, enforces HLS/remux process permits at start
+boundaries, and reports runtime pressure through Admin diagnostics.
 
 The implementation should preserve the current public direct/remux/HLS route
 contracts. `nako-transcode` runner semaphores remain low-level execution
@@ -16,16 +16,17 @@ guards; this lane adds a host-owned playback admission boundary above them.
 
 ## Active Task
 
-- Task ID: PRRS-040
-- Owner: unassigned
+- Task ID: PRRS-050
+- Owner: planner
 - Files:
-  - `crates/nako-server/src/app.rs`
-  - `crates/nako-server/src/http/admin.rs`
-  - `crates/nako-server/src/http/tests/system.rs`
-  - `crates/nako-api/src/admin/playback.rs`
+  - `docs/workstreams/playback-runtime-resource-scheduler`
+  - `docs/architecture/PLAYBACK.md`
+  - `docs/architecture/WORKSTREAM_LINKS.md`
 - Validation:
-  - `cargo nextest run -p nako-server admin_v1_playback --no-fail-fast`
   - `cargo nextest run -p nako-server playback --no-fail-fast`
+  - `cargo nextest run -p nako-server hls --no-fail-fast`
+  - `cargo fmt --all -- --check`
+  - `git diff --check`
 - Status: PENDING
 - Review: pending
 - Evidence: `docs/workstreams/playback-runtime-resource-scheduler/EVIDENCE_AND_GATES.md`
@@ -49,13 +50,18 @@ guards; this lane adds a host-owned playback admission boundary above them.
   capacity early.
 - Reuse of active or completed HLS/remux sessions remains outside new permit
   acquisition.
+- PRRS-040 adds Admin `resource_pressure` diagnostics for configured capacity,
+  available permits, in-use permits, resource class, and enforcement mode.
+- Admin runtime pressure diagnostics are redaction-safe and generated TypeScript
+  contracts are refreshed for both web surfaces.
 
 ## Blockers
 
-- None for PRRS-040.
+- None for PRRS-050.
 
 ## Next Recommended Action
 
-- Run `run-workstream-task` for PRRS-040.
-- Surface configured capacity, available permits, and current pressure in Admin
-  playback runtime diagnostics without exposing local paths or command lines.
+- Run `close-workstream` or `run-workstream-task` for PRRS-050.
+- Verify closeout gates, update architecture maps if needed, and either close
+  the lane or split queueing, remote workers, OS isolation, and per-device
+  tuning into named follow-ons.
