@@ -5,8 +5,9 @@ Last updated: 2026-05-29
 
 ## Current State
 
-This workstream is closed. Nako now has a top-level architecture map and ADR
-authority for the HLS/media-engine boundary.
+This workstream is closed. Nako now has a top-level architecture map, a
+playback-specific architecture deep dive, and ADR authority for the
+HLS/media-engine boundary.
 
 ## Follow-Ons
 
@@ -16,6 +17,8 @@ authority for the HLS/media-engine boundary.
   device profiles.
 - Update `docs/ARCHITECTURE.md` when future lanes materially change the system
   map.
+- Update `docs/architecture/PLAYBACK.md` when a playback capability row changes
+  status or a new risk becomes a workstream.
 
 ## Validation To Preserve
 

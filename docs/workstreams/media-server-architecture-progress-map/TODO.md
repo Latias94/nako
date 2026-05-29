@@ -31,6 +31,7 @@ Depends on: MSAP-010
 Scope:
 
 - Add `docs/ARCHITECTURE.md`.
+- Add `docs/architecture/PLAYBACK.md` as the playback-specific agent map.
 - Summarize current system areas, maturity, and next pressure points.
 - Make playback/transcode progress navigable after recent HLS work.
 

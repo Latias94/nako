@@ -43,7 +43,7 @@
     },
     {
       "task": "MSAP-020",
-      "summary": "Added docs/ARCHITECTURE.md as the top-level media-server system map."
+      "summary": "Added docs/ARCHITECTURE.md as the top-level media-server system map and docs/architecture/PLAYBACK.md as the playback-specific progress map."
     },
     {
       "task": "MSAP-030",

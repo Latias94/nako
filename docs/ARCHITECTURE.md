@@ -10,6 +10,11 @@ too early.
 This document is the architecture map. `CONTEXT.md` owns vocabulary, ADRs own
 durable decisions, and workstreams own task-level execution evidence.
 
+Deep dives:
+
+- `docs/architecture/PLAYBACK.md`: playback capability progress,
+  workstream/ADR links, parallel lanes, and risk register.
+
 ## North Star
 
 Nako should be able to:
@@ -154,6 +159,7 @@ Core ADRs:
 
 Progress trackers:
 
+- `docs/architecture/PLAYBACK.md`
 - `docs/ROADMAP.md`
 - `docs/GOALS.md`
 - `docs/workstreams/README.md`
