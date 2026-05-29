@@ -22,6 +22,7 @@ mod artwork_write;
 mod catalog;
 mod diagnostics;
 mod event_runtime;
+mod external_acquisition;
 mod intake;
 mod library_file_write;
 mod metadata_write;
