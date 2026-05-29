@@ -1,7 +1,7 @@
 # Cross-Repo Fearless Boundary Alignment - Evidence And Gates
 
-Status: Active
-Last updated: 2026-05-25
+Status: Completed
+Last updated: 2026-05-29
 
 ## Current Evidence
 
@@ -299,3 +299,29 @@ Use `verify-rust-workstream` before marking this lane complete.
   passed with existing dead-code warnings only; path-scoped `git diff
   --check` over the touched Rust and workstream docs passed with LF-to-CRLF
   warnings only.
+
+## Closeout Verification
+
+- 2026-05-29 CRFBA-100 review found no blocking CRFBA-080 code-quality or
+  workstream-compliance issue. The only closeout bookkeeping gap was stale
+  CRFBA-020/040/100 status in the coordination docs.
+- 2026-05-29 Nako verification: `cargo nextest run -p nako-transcode` passed
+  73 tests; `cargo nextest run -p nako-playback` passed 19 tests; `cargo
+  nextest run -p nako-server app::tests::playback` passed 35 tests; `cargo
+  check -p nako-server` passed with existing unused/dead-code warnings; `cargo
+  fmt --all -- --check` passed.
+- 2026-05-29 official addon verification in `../nako-official-addons`: `cargo
+  fmt --all -- --check` passed; `cargo nextest run -p nako-metadata-scraper
+  metadata writeback artwork ranking --no-fail-fast` passed the two tests that
+  exist in the current checkout and skipped two filtered tests; `cargo nextest
+  run -p nako-metadata-scraper --no-fail-fast` passed all four current package
+  tests.
+- 2026-05-29 official addon compatibility note: the historical `tmdb` and
+  `nako_runtime` filtered gates no longer match tests in the current checkout.
+  Closeout therefore uses the full current package gate plus the metadata/
+  writeback/artwork/ranking filter instead of treating "no tests to run" as a
+  valid passing gate.
+- 2026-05-29 official addon protocol-compatibility fix: the fixture provider
+  metadata patch now uses `..Default::default()` so it remains compatible with
+  the expanded `AddonMetadataPatch` fields in the local
+  `nako-addon-protocol` path dependency.

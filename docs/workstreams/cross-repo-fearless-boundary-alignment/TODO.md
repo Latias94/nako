@@ -1,7 +1,7 @@
 # Cross-Repo Fearless Boundary Alignment - TODO
 
-Status: Active
-Last updated: 2026-05-25
+Status: Completed
+Last updated: 2026-05-29
 
 Task IDs use the `CRFBA` prefix.
 
@@ -33,7 +33,7 @@ Task IDs use the `CRFBA` prefix.
 
 ## M1 - Server Workflow Port Deepening
 
-- [ ] CRFBA-020 [owner=unassigned] [deps=CRFBA-011] [scope=crates/nako-db,crates/nako-core,crates/nako-server]
+- [x] CRFBA-020 [owner=codex] [deps=CRFBA-011] [scope=crates/nako-db,crates/nako-core,crates/nako-server]
   Goal: Choose one high-leverage server workflow and replace broad database
   access at the call site with a workflow-shaped port without breaking
   SQLite/PostgreSQL parity.
@@ -79,6 +79,12 @@ Task IDs use the `CRFBA` prefix.
   Review: The slice must reduce caller authority, not just rename repository
   traits.
   Evidence: focused tests and updated architecture notes.
+  Result: DONE_WITH_CONCERNS 2026-05-29. The lane proved narrower server
+  workflow ports across addon registration, acquisition intake, durable job
+  leases, metadata, NFO, library scan, playback runtime, staging, library
+  probe, and metadata execution. Package-wide server test execution still has
+  unrelated legacy test blockers, so final confidence is carried by focused
+  nextest gates plus `cargo check -p nako-server`.
   Handoff: If the first workflow is too broad, split a smaller persistence-port
   proof before touching `NakoDatabase` structure.
 
@@ -100,7 +106,7 @@ Task IDs use the `CRFBA` prefix.
   blocked by an unrelated migration 38 duplicate-column conflict outside this
   slice.
 
-- [ ] CRFBA-040 [owner=codex] [deps=CRFBA-020] [scope=crates/nako-metadata,crates/nako-nfo,crates/nako-catalog,crates/nako-server]
+- [x] CRFBA-040 [owner=codex] [deps=CRFBA-020] [scope=crates/nako-metadata,crates/nako-nfo,crates/nako-catalog,crates/nako-server]
   Goal: Make Candidate/Acceptance vocabulary the explicit host-side write
   boundary for provider refresh, NFO import/export, Addon protected writes,
   artwork selection, and future AI-like suggestions.
@@ -117,6 +123,10 @@ Task IDs use the `CRFBA` prefix.
   Review: Providers and Addons must produce evidence-backed candidates, not
   hidden canonical commits.
   Evidence: candidate/acceptance tests and updated ADR/workstream notes.
+  Result: DONE_WITH_CONCERNS 2026-05-29. Managed artwork now has explicit
+  acceptance, selection, and ingest workflow stores with focused tests. Broader
+  provider, NFO, Addon write, and future AI-like Candidate/Acceptance coverage
+  remains follow-on product breadth rather than a blocker for this lane.
   Handoff: Split broad product behavior into follow-ons instead of widening this
   slice.
 
@@ -221,11 +231,16 @@ Task IDs use the `CRFBA` prefix.
   client/schema output remains a separate follow-on if external Addon authors
   need published artifacts beyond the Rust protocol/client crates.
 
-- [ ] CRFBA-100 [owner=planner] [deps=CRFBA-020,CRFBA-030,CRFBA-040,CRFBA-050,CRFBA-060,CRFBA-070,CRFBA-080] [scope=docs/workstreams/cross-repo-fearless-boundary-alignment]
+- [x] CRFBA-100 [owner=codex] [deps=CRFBA-020,CRFBA-030,CRFBA-040,CRFBA-050,CRFBA-060,CRFBA-070,CRFBA-080,CRFBA-090] [scope=docs/workstreams/cross-repo-fearless-boundary-alignment]
   Goal: Review the lane, record final gates, update status, and split remaining
   product breadth into named follow-ons.
   Validation: `verify-rust-workstream` records fresh evidence; `review-workstream`
   has no blocking findings.
   Review: Close only when shipped behavior and docs match.
   Evidence: `EVIDENCE_AND_GATES.md`, `HANDOFF.md`, `WORKSTREAM.json`.
+  Result: DONE_WITH_CONCERNS 2026-05-29. Review found no blocking CRFBA-080
+  code issue. The lane is closed with residual breadth split into follow-ons:
+  adaptive bitrate, optimized versions, additional hardware backends, broader
+  Candidate/Acceptance coverage, public addon SDK/release artifacts, and
+  provider breadth beyond the existing TMDB split.
   Handoff: Remaining work must be explicitly completed, deferred, or split.

@@ -1,11 +1,11 @@
 # Cross-Repo Fearless Boundary Alignment - Handoff
 
-Status: Active
-Last updated: 2026-05-25
+Status: Completed
+Last updated: 2026-05-29
 
 ## Current State
 
-The workstream is active. CRFBA-030 has landed in `crates/nako-library`, and
+The workstream is closed as of 2026-05-29. CRFBA-030 has landed in `crates/nako-library`, and
 CRFBA-020 now owns the active server workflow-port slice in
 `crates/nako-server`. That server lane has now also narrowed
 `crates/nako-server/src/app/acquisition_intake.rs` behind a workflow store for
@@ -40,6 +40,10 @@ have a public protocol inventory, the Nako Runtime client and server route
 registration use those constants, Public Client OpenAPI tests exclude the
 runtime inventory, and `nako-api` tests prove access-check and side-effect
 wire-shape parity against `nako-addon-protocol`.
+CRFBA-080 then moved product-level transcode session ownership into Playback
+Runtime while keeping `nako-transcode` as an immutable execution API. CRFBA-100
+closed the lane after fresh focused verification in Nako and
+`../nako-official-addons`.
 
 Initial review found:
 
@@ -57,23 +61,20 @@ Initial review found:
 
 ## Active Task
 
-- Task ID: CRFBA-090
+- Task ID: none; CRFBA-100 closed the lane.
 - Owner: codex
-- Files: `crates/nako-addon-protocol/src/lib.rs`,
-  `crates/nako-addon-client/src/lib.rs`,
-  `crates/nako-api/src/extension.rs`, `crates/nako-api/src/openapi.rs`,
-  `crates/nako-server/src/http/addons.rs`,
-  `docs/workstreams/cross-repo-fearless-boundary-alignment`
-- Validation: `cargo fmt --all -- --check`, `cargo nextest run -p
-  nako-addon-protocol -p nako-addon-client -p nako-api --no-fail-fast`,
-  `cargo check -p nako-server`, and path-scoped `git diff --check` over the
-  touched Rust and workstream docs pass. `cargo check -p nako-server` still
-  reports existing dead-code warnings.
-- Status: DONE
-- Review: no blocking design finding so far; generated Addon Runtime SDK/schema
-  output is intentionally deferred until external distribution requires it.
-- Evidence: `TODO.md`, `EVIDENCE_AND_GATES.md`,
-  `JOURNAL/2026-05-25-CRFBA-090.md`.
+- Files: `docs/workstreams/cross-repo-fearless-boundary-alignment/*` plus the
+  official addon fixture compatibility change in
+  `../nako-official-addons/crates/nako-metadata-scraper/src/providers/fixture.rs`.
+- Validation: focused Nako playback/transcode gates, `cargo check -p
+  nako-server`, `cargo fmt --all -- --check`, official addon package tests,
+  official addon focused metadata/writeback/artwork/ranking filter, and
+  path-scoped `git diff --check`.
+- Status: DONE_WITH_CONCERNS
+- Review: no blocking CRFBA-080 implementation finding. Stale CRFBA-020/040
+  status was corrected during closeout.
+- Evidence: `TODO.md`, `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, and
+  `JOURNAL/2026-05-29-CRFBA-100.md`.
 
 ## Dirty Worktree Notes
 
@@ -185,29 +186,31 @@ format, stage, or commit them unless the user explicitly asks.
   taxonomy, finished events, and HLS metrics persistence.
 - `CRFBA-080` also made FFmpeg HLS path assertions platform-stable so the
   `nako-transcode` package gate passes on the Windows development host.
+- `CRFBA-100` closed the lane. The remaining work is split into follow-ons:
+  adaptive bitrate ladders, optimized versions, additional hardware backends,
+  broader Candidate/Acceptance paths beyond managed artwork, public addon
+  SDK/release artifacts, and provider splits beyond the current TMDB proof.
+- `CRFBA-100` also updated the official addon fixture provider to default new
+  optional `AddonMetadataPatch` fields so it stays compatible with the local
+  public protocol crate.
 
-## Blockers
+## Residual Risks And Follow-ons
 
-- None on the official addon runtime/provider slices; CRFBA-050 and CRFBA-060
-  are complete and verified.
-- Broader `cargo nextest run -p nako-library local_inference --no-fail-fast`
-  still trips over an unrelated database migration conflict from the addon
-  credentials work (`duplicate column name: outbound_task_dispatch_secret_env`).
-- The `nako-server` package test binary still hits unrelated unsafe test code
-  in `src/http/tests/addons.rs`, so `cargo check` is the current clean
-  verification gate for the addon registration port slice.
-- `DurableJobRuntime` is now behind a smaller job lease store and can be used
-  as the next server-side seam for metadata maintenance or other job-based
-  workflows.
-- `MetadataAppService` now uses a dedicated workflow store for direct metadata
-  queries and writes, which makes the next seam candidate easier to isolate
-  without changing executor behavior.
-- `NfoAppService` now uses a dedicated workflow store for direct app-level
-  persistence and only keeps a concrete repository handle for `NfoService`
-  domain execution.
+- Broader historical package/workspace gates still have unrelated blockers in
+  older slices; CRFBA closeout used focused gates and `cargo check -p
+  nako-server` instead of treating unrelated failures as lane blockers.
+- The current official addon checkout only has four `nako-metadata-scraper`
+  tests. Historical `tmdb` and `nako_runtime` filters now produce "no tests to
+  run", so closeout uses the full current package gate plus the
+  metadata/writeback/artwork/ranking filter.
+- Adaptive bitrate ladders, optimized versions, additional hardware backends,
+  broader Candidate/Acceptance paths beyond managed artwork, public addon
+  SDK/release artifacts, and provider splits beyond TMDB remain separate
+  follow-on lanes.
 
 ## Next Recommended Action
 
-Review CRFBA-080, then move to CRFBA-100 closeout if the playback runtime
-ownership boundary is accepted. Split adaptive bitrate breadth, optimized
-versions, and additional hardware backend work into follow-ons.
+Commit the CRFBA-100 closeout docs in Nako and the official addon fixture
+compatibility fix as separate repository commits if the user wants the lane
+recorded in git. Future work should open a new workstream rather than adding
+more scope to this closed lane.
