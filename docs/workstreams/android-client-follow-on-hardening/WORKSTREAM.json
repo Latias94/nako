@@ -2,8 +2,8 @@
   "schema_version": 1,
   "slug": "android-client-follow-on-hardening",
   "title": "Android Client Follow-On Hardening",
-  "status": "active",
-  "updated": "2026-05-22",
+  "status": "complete",
+  "updated": "2026-05-29",
   "scope_kind": "execution",
   "problem": "The Android architecture-deepening lane closed with follow-ons for smoke evidence, token-vault modernization, and PlayerRuntime platform capability growth.",
   "authoritative_docs": [
@@ -11,7 +11,8 @@
     { "role": "execution", "path": "docs/workstreams/android-client-follow-on-hardening/TODO.md" },
     { "role": "milestones", "path": "docs/workstreams/android-client-follow-on-hardening/MILESTONES.md" },
     { "role": "gates", "path": "docs/workstreams/android-client-follow-on-hardening/EVIDENCE_AND_GATES.md" },
-    { "role": "handoff", "path": "docs/workstreams/android-client-follow-on-hardening/HANDOFF.md" }
+    { "role": "handoff", "path": "docs/workstreams/android-client-follow-on-hardening/HANDOFF.md" },
+    { "role": "closeout", "path": "docs/workstreams/android-client-follow-on-hardening/CLOSEOUT.md" }
   ],
   "gates": [
     "apps/android/scripts/Validate-AndroidLocal.ps1",
@@ -45,6 +46,12 @@
       "path": "apps/android/app/src/main/java/dev/nako/android/ui/screens/player",
       "status": "passed",
       "summary": "Added PlayerRuntime-owned Android MediaSession lifecycle and guarded Picture-in-Picture entrypoint."
+    },
+    {
+      "task": "ACFH-090",
+      "path": "docs/workstreams/android-client-follow-on-hardening/CLOSEOUT.md",
+      "status": "passed",
+      "summary": "Closed the lane with fresh focused JVM, full JVM, x86_64 assemble, JSON, and diff hygiene gates; Android playback fixtures and adapters were aligned to the current public SDK contract."
     }
   ],
   "adr_refs": [
@@ -52,11 +59,11 @@
     "docs/adr/0032-shared-rust-client-core-app-supplied-transport.md"
   ],
   "task_prefix": "ACFH",
-  "current_task": "ACFH-090",
+  "current_task": null,
   "task_order": ["ACFH-010", "ACFH-020", "ACFH-030", "ACFH-040", "ACFH-090"],
   "continue_policy": {
-    "default_action": "continue",
-    "next_task": "ACFH-090",
-    "notes": "Close out the lane after final JSON, diff, focused JVM, full JVM, and x86_64 assemble gates. Do not claim end-to-end smoke PASS; it is recorded as environment-blocked."
+    "default_action": "complete",
+    "next_task": null,
+    "notes": "The lane is closed. Do not claim end-to-end smoke PASS; it is recorded as environment-blocked and should be rerun on stable Android device or emulator infrastructure before release evidence."
   }
 }

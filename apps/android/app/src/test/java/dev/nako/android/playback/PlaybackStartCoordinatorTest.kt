@@ -233,7 +233,6 @@ class PlaybackStartCoordinatorTest {
                         outputContainer = outputContainer,
                         videoCodec = "h264",
                         audioCodec = "aac",
-                        hardwareAcceleration = ClientHardwareAcceleration.None,
                     ),
                 )
                 ClientPlaybackMode.Transcode -> ClientPlaybackDecision(
@@ -243,7 +242,14 @@ class PlaybackStartCoordinatorTest {
                         outputContainer = outputContainer,
                         videoCodec = "h264",
                         audioCodec = "aac",
-                        hardwareAcceleration = ClientHardwareAcceleration.None,
+                    ),
+                )
+                ClientPlaybackMode.Denied -> ClientPlaybackDecision(
+                    mode = ClientPlaybackMode.Denied,
+                    reason = "policy_denied",
+                    denial = ClientPlaybackDenial(
+                        permission = "media_playback",
+                        reason = "media_playback_disabled",
                     ),
                 )
                 ClientPlaybackMode.Unknown -> ClientPlaybackDecision(

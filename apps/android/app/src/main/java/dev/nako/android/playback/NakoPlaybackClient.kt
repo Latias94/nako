@@ -208,6 +208,13 @@ class NakoPlaybackClient(
             )
         }
 
+        if (decision.decision.mode == ClientPlaybackMode.Denied) {
+            return failure(
+                category = PlaybackFailureCategory.Forbidden,
+                userMessage = playbackDeniedMessage(decision.decision.denial),
+            )
+        }
+
         val target = recommendedPlaybackTarget(
             profile = profile,
             decision = decision,
@@ -225,6 +232,11 @@ class NakoPlaybackClient(
                 target = target,
                 accessToken = accessToken,
             )
+            ClientPlaybackMode.Denied -> failure(
+                category = PlaybackFailureCategory.Forbidden,
+                userMessage = playbackDeniedMessage(decision.decision.denial),
+                request = target.safeRequest,
+            )
             ClientPlaybackMode.Unknown -> failure(
                 category = PlaybackFailureCategory.UnsupportedSource,
                 userMessage = "The server returned a playback mode this app does not understand.",
@@ -232,6 +244,17 @@ class NakoPlaybackClient(
             )
         }
     }
+
+    private fun playbackDeniedMessage(denial: ClientPlaybackDenial?): String =
+        when (denial?.reason) {
+            "library_access_does_not_allow_play" -> "Your library access does not allow playback."
+            "media_playback_disabled" -> "Playback is disabled for this profile."
+            "direct_play_disabled" -> "Direct playback is disabled for this profile."
+            "remux_disabled" -> "Remux playback is disabled for this profile."
+            "audio_transcode_disabled" -> "Audio transcoding is disabled for this profile."
+            "video_transcode_disabled" -> "Video transcoding is disabled for this profile."
+            else -> "This profile is not allowed to start playback."
+        }
 
     private suspend inline fun <reified WireT, AppT> executeSdkJson(
         accessToken: String,

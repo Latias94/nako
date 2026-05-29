@@ -42,7 +42,12 @@ class NakoBrowseClientTest {
                               "language": "en",
                               "country": "US",
                               "refresh_mode": "missing_only",
-                              "local_metadata_policy": "local_first"
+                              "local_metadata_policy": "local_first",
+                              "scan": {
+                                "enabled": true,
+                                "addon_scrape": true,
+                                "addon_writeback": false
+                              }
                             }
                           }
                         }
@@ -117,8 +122,8 @@ class NakoBrowseClientTest {
                             "container": "mp4",
                             "bit_rate": 4200000,
                             "streams": [
-                              {"index":0,"kind":"video","codec":"h264","language":null,"duration_ms":120000,"bit_rate":4000000,"width":1920,"height":1080,"channels":null,"sample_rate":null},
-                              {"index":1,"kind":"audio","codec":"aac","language":null,"duration_ms":120000,"bit_rate":200000,"width":null,"height":null,"channels":2,"sample_rate":48000}
+                              {"index":0,"kind":"video","codec":"h264","language":null,"duration_ms":120000,"bit_rate":4000000,"width":1920,"height":1080,"channels":null,"sample_rate":null,"disposition":{"default":false,"forced":false,"hearing_impaired":false,"visual_impaired":false,"captions":false,"descriptions":false,"commentary":false,"attached_pic":false},"origin":null},
+                              {"index":1,"kind":"audio","codec":"aac","language":null,"duration_ms":120000,"bit_rate":200000,"width":null,"height":null,"channels":2,"sample_rate":48000,"disposition":{"default":true,"forced":false,"hearing_impaired":false,"visual_impaired":false,"captions":false,"descriptions":false,"commentary":false,"attached_pic":false},"origin":null}
                             ]
                           }
                         }
@@ -1097,7 +1102,12 @@ class NakoBrowseClientTest {
             "language": "en",
             "country": "US",
             "refresh_mode": "missing_only",
-            "local_metadata_policy": "local_first"
+            "local_metadata_policy": "local_first",
+            "scan": {
+              "enabled": true,
+              "addon_scrape": true,
+              "addon_writeback": false
+            }
           }
         }
         """.trimIndent()

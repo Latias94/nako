@@ -38,7 +38,18 @@ class NakoPlaybackClientTest {
                             "width": 3840,
                             "height": 2160,
                             "channels": null,
-                            "sample_rate": null
+                            "sample_rate": null,
+                            "disposition": {
+                              "default": false,
+                              "forced": false,
+                              "hearing_impaired": false,
+                              "visual_impaired": false,
+                              "captions": false,
+                              "descriptions": false,
+                              "commentary": false,
+                              "attached_pic": false
+                            },
+                            "origin": null
                           },
                           {
                             "index": 1,
@@ -50,7 +61,18 @@ class NakoPlaybackClientTest {
                             "width": null,
                             "height": null,
                             "channels": 6,
-                            "sample_rate": 48000
+                            "sample_rate": 48000,
+                            "disposition": {
+                              "default": true,
+                              "forced": false,
+                              "hearing_impaired": false,
+                              "visual_impaired": false,
+                              "captions": false,
+                              "descriptions": false,
+                              "commentary": false,
+                              "attached_pic": false
+                            },
+                            "origin": null
                           }
                         ]
                       }
@@ -111,7 +133,18 @@ class NakoPlaybackClientTest {
                             "width": 3840,
                             "height": 2160,
                             "channels": null,
-                            "sample_rate": null
+                            "sample_rate": null,
+                            "disposition": {
+                              "default": false,
+                              "forced": false,
+                              "hearing_impaired": false,
+                              "visual_impaired": false,
+                              "captions": false,
+                              "descriptions": false,
+                              "commentary": false,
+                              "attached_pic": false
+                            },
+                            "origin": null
                           },
                           {
                             "index": 1,
@@ -123,20 +156,34 @@ class NakoPlaybackClientTest {
                             "width": null,
                             "height": null,
                             "channels": 6,
-                            "sample_rate": 48000
+                            "sample_rate": 48000,
+                            "disposition": {
+                              "default": true,
+                              "forced": false,
+                              "hearing_impaired": false,
+                              "visual_impaired": false,
+                              "captions": false,
+                              "descriptions": false,
+                              "commentary": false,
+                              "attached_pic": false
+                            },
+                            "origin": null
                           }
                         ]
                       },
                       "decision": {
                         "mode": "direct_play",
                         "reason": "client supports this source",
+                        "denial": null,
                         "direct_play": {
                           "source_id": "source 1",
                           "content_type": "video/x-matroska",
                           "supports_range_requests": true
                         },
+                        "report": ${playbackReportJson("direct_play").prependIndent("                        ")},
                         "transcode_plan": null
-                      }
+                      },
+                      "target": ${playbackTargetJson().prependIndent("                      ")}
                     }
                     """.trimIndent(),
                 ),
@@ -190,9 +237,12 @@ class NakoPlaybackClientTest {
                       "decision": {
                         "mode": "server_future_mode",
                         "reason": "future server mode",
+                        "denial": null,
                         "direct_play": null,
+                        "report": ${playbackReportJson("server_future_mode").prependIndent("                        ")},
                         "transcode_plan": null
-                      }
+                      },
+                      "target": ${playbackTargetJson().prependIndent("                      ")}
                     }
                     """.trimIndent(),
                 ),
@@ -224,6 +274,25 @@ class NakoPlaybackClientTest {
         )
         assertTrue(transport.requests.size == 1)
         assertFalse(prepared.toString().contains("secret-token"))
+    }
+
+    @Test
+    fun `denied playback decision fails locally without preparing a target`() = runBlocking {
+        val transport = FakePlaybackTransport()
+        val client = NakoPlaybackClient(transport)
+
+        val result = client.prepareRecommendedPlaybackTarget(
+            profile = profile("http://home.example.test"),
+            accessToken = "secret-token",
+            decision = playbackDecision(ClientPlaybackMode.Denied),
+        )
+
+        assertTrue(result is PlaybackResult.Failure)
+        val diagnostics = (result as PlaybackResult.Failure).diagnostics
+        assertEquals(PlaybackFailureCategory.Forbidden, diagnostics.category)
+        assertEquals("Playback is disabled for this profile.", diagnostics.userMessage)
+        assertTrue(transport.requests.isEmpty())
+        assertFalse(result.toString().contains("secret-token"))
     }
 
     @Test
@@ -321,14 +390,17 @@ class NakoPlaybackClientTest {
                       "decision": {
                         "mode": "transcode",
                         "reason": "client needs HLS",
+                        "denial": null,
                         "direct_play": null,
+                        "report": ${playbackReportJson("transcode").prependIndent("                        ")},
                         "transcode_plan": {
                           "output_container": "hls",
                           "video_codec": "h264",
                           "audio_codec": "aac",
                           "hardware_acceleration": "none"
                         }
-                      }
+                      },
+                      "target": ${playbackTargetJson().prependIndent("                      ")}
                     }
                     """.trimIndent(),
                 ),
@@ -484,7 +556,6 @@ class NakoPlaybackClientTest {
                     outputContainer = ClientOutputContainer.Mkv,
                     videoCodec = "h264",
                     audioCodec = "aac",
-                    hardwareAcceleration = ClientHardwareAcceleration.None,
                 ),
             ),
         )
@@ -496,7 +567,6 @@ class NakoPlaybackClientTest {
                     outputContainer = ClientOutputContainer.Hls,
                     videoCodec = "h264",
                     audioCodec = "aac",
-                    hardwareAcceleration = ClientHardwareAcceleration.None,
                 ),
             ),
         )
@@ -839,6 +909,33 @@ class NakoPlaybackClientTest {
             body = body,
         )
 
+    private fun playbackReportJson(selectedMode: String): String =
+        """
+        {
+          "selected_mode": "$selectedMode",
+          "direct_play": {"supported": true, "reasons": ["compatible"]},
+          "remux": {"supported": false, "reasons": ["container_unsupported"]},
+          "transcode": {"supported": false, "reasons": ["transcode_profile_unsupported"]},
+          "denial": null
+        }
+        """.trimIndent()
+
+    private fun playbackTargetJson(): String =
+        """
+        {
+          "kind": "native_mobile",
+          "network_scope": "local",
+          "transport_auth": "bearer",
+          "media_capabilities": {
+            "direct_play": true,
+            "containers": [],
+            "video_codecs": [],
+            "audio_codecs": []
+          },
+          "control_capabilities": {"commands": []}
+        }
+        """.trimIndent()
+
     private fun playbackDecision(
         mode: ClientPlaybackMode,
         outputContainer: ClientOutputContainer = ClientOutputContainer.Mp4,
@@ -867,7 +964,6 @@ class NakoPlaybackClientTest {
                         outputContainer = outputContainer,
                         videoCodec = "h264",
                         audioCodec = "aac",
-                        hardwareAcceleration = ClientHardwareAcceleration.None,
                     ),
                 )
                 ClientPlaybackMode.Transcode -> ClientPlaybackDecision(
@@ -877,7 +973,14 @@ class NakoPlaybackClientTest {
                         outputContainer = outputContainer,
                         videoCodec = "h264",
                         audioCodec = "aac",
-                        hardwareAcceleration = ClientHardwareAcceleration.None,
+                    ),
+                )
+                ClientPlaybackMode.Denied -> ClientPlaybackDecision(
+                    mode = ClientPlaybackMode.Denied,
+                    reason = "policy_denied",
+                    denial = ClientPlaybackDenial(
+                        permission = "media_playback",
+                        reason = "media_playback_disabled",
                     ),
                 )
                 ClientPlaybackMode.Unknown -> ClientPlaybackDecision(

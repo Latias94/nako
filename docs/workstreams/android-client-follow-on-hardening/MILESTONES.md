@@ -1,7 +1,7 @@
 # Android Client Follow-On Hardening — Milestones
 
-Status: Active
-Last updated: 2026-05-22
+Status: Complete
+Last updated: 2026-05-29
 
 ## M0 — Lane Open
 
@@ -42,6 +42,6 @@ Exit criteria:
 
 Exit criteria:
 
-- Accepted tasks are complete or explicitly split.
-- Fresh validation evidence is recorded.
-- Residual risks and follow-ons are documented.
+- DONE. Accepted tasks are complete or explicitly split.
+- DONE. Fresh validation evidence is recorded.
+- DONE. Residual risks and follow-ons are documented.
