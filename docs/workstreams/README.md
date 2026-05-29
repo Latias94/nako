@@ -6,6 +6,9 @@ attention.
 
 ## Current Workstreams
 
+- [hls-alternate-audio-renditions](hls-alternate-audio-renditions/README.md):
+  active fearless refactor lane for making HLS selected audio stream mapping
+  executable before Nako advertises true alternate audio media groups.
 - [hls-master-renditions-authoring](hls-master-renditions-authoring/README.md):
   closed fearless refactor lane for making selected subtitle WebVTT sidecar
   artifacts discoverable through standard HLS master playlist media tags,
