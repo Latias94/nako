@@ -1,6 +1,6 @@
 # Release Packaging And Distribution — Evidence And Gates
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-21
 
 ## Baseline Gates
@@ -66,3 +66,14 @@ bash scripts/package-release.sh --dry-run
   during closeout to keep this packaging closeout bounded. RPD-030/RPD-040
   proved focused config, compose, host release build, and package emission; CI
   retains broader release-gate coverage.
+
+## 2026-05-29 Status Audit
+
+- `WORKSTREAM.json` and `HANDOFF.md` already marked the lane completed.
+- `README.md`, `TODO.md`, `MILESTONES.md`, and this file still said Active;
+  those stale status headers were corrected.
+- Added top-level `CLOSEOUT.md` so closeout is discoverable without reading the
+  journal directory.
+- `python -m json.tool docs/workstreams/release-packaging-and-distribution/WORKSTREAM.json` passed.
+- `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode docs -SkipRedactionInventory` passed.
+- `git diff --check` passed with only Git CRLF conversion warnings.

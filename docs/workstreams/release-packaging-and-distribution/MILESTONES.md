@@ -1,13 +1,13 @@
 # Release Packaging And Distribution — Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-21
 
 ## M0 — Scope And Contract
 
 Exit criteria:
 
-- [ ] Workstream is opened with durable docs.
+- [x] Workstream is opened with durable docs.
 - [x] Current packaging/deploy/release baseline is recorded.
 - [x] Artifact contract for this lane is explicit.
 - [x] Workstream is opened with durable docs.

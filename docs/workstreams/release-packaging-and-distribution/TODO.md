@@ -1,6 +1,6 @@
 # Release Packaging And Distribution — TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-21
 
 Task IDs use the `RPD` prefix.
