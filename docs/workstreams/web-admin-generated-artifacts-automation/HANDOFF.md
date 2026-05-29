@@ -27,6 +27,11 @@ WAGA-020 audited those contracts and added the new `web/` read-model boundary:
 - data-source contract tests for query serialization, fixture fallback, and
   redaction of non-contract raw fields
 
+WAGA-030 implemented `/admin/automation/generated-artifacts` in the new `web/`
+shell. The route is read-only, Admin-only, and owns `limit` and `offset` search
+params. The page renders proposal diagnostics, fixture/live source status,
+pagination, and redaction-safe fields only.
+
 The old `apps/admin-web` implementation is prior art, not code to copy into the
 new shell. The new work belongs in `web/src/api/admin`,
 `web/src/features/admin`, `web/src/shell/nako-router.tsx`, and tests under
@@ -34,14 +39,16 @@ new shell. The new work belongs in `web/src/api/admin`,
 
 ## Active Task
 
-- Task ID: WAGA-030
+- Task ID: WAGA-040
 - Owner: Codex
 - Status: READY
-- Validation: `npm --prefix web run test`; `npm --prefix web run check`;
-  `npm --prefix web run build:budget`.
+- Validation: decision recorded with review-plan display, confirmation,
+  idempotency, boundary flags, redaction, and mutation-result requirements; if
+  implemented, `npm --prefix web run test` and `npm --prefix web run check`
+  pass.
 
 ## Next Recommended Action
 
-Start WAGA-030. Implement `/admin/automation/generated-artifacts` as a
-read-only Admin route with route-owned `limit` and `offset` state, fixture/live
-data-source behavior, and redaction-sensitive rendering.
+Start WAGA-040. Decide whether review-plan and accept/reject actions can be
+implemented safely in this lane, or must split into a focused guarded mutation
+follow-on.

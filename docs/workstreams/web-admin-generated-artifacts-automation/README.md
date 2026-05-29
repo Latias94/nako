@@ -18,6 +18,7 @@ artifacts with explicit acceptance boundaries, not free-form Media chat UI.
 
 ## Current Execution Point
 
-`WAGA-020` audited generated Admin proposal/review contracts and added the
-`web/` read-model boundary for generated artifact proposal lists. Continue with
-`WAGA-030`, the read-only `/admin/automation/generated-artifacts` route.
+`WAGA-030` implemented the read-only
+`/admin/automation/generated-artifacts` route in the new `web/` Admin shell.
+Continue with `WAGA-040`, the review-plan and accept/reject mutation boundary
+decision.

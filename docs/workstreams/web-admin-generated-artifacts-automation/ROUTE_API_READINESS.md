@@ -7,7 +7,7 @@ Last updated: 2026-05-28
 
 | Frontend route | Surface | Status | Notes |
 | --- | --- | --- | --- |
-| `/admin/automation/generated-artifacts` | Admin | Planned | New `web/` route with route-owned pagination and proposal diagnostics. |
+| `/admin/automation/generated-artifacts` | Admin | Implemented | New `web/` route with route-owned pagination and read-only proposal diagnostics. |
 
 ## Generated Admin Contracts
 
@@ -56,6 +56,20 @@ and review boundaries:
 The read model intentionally exposes only summarized proposal facts. It does not
 carry raw prompts, raw generated payload bodies, provider raw responses, local
 paths, Source Locators, credentials, storage handles, or secrets.
+
+## WAGA-030 Route Evidence
+
+WAGA-030 added `web/src/features/admin/admin-generated-artifacts.tsx`, Admin
+navigation, router state for `limit` and `offset`, route contract coverage,
+route-state coverage, and live rendering coverage.
+
+The route is read-only. It renders proposal id, kind, capability, status,
+target ids, provider/job provenance, payload summary, readiness, safe
+fingerprints, timestamps, and fixture/live source state. Tests assert that raw
+prompt text, raw generated payload bodies, provider raw responses, local paths,
+Source Locators, credentials, and bearer tokens do not render.
+
+Review-plan and accept/reject actions remain deferred pending WAGA-040.
 
 ## Review Guard Requirements
 

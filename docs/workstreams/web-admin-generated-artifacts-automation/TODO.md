@@ -22,12 +22,12 @@ Last updated: 2026-05-29
 
 ## M2 - Read-Only Proposal Route
 
-- [ ] WAGA-030 [owner=Codex] [deps=WAGA-020] [scope=web/src/api/admin,web/src/features/admin,web/src/shell,web/src/test]
+- [x] WAGA-030 [owner=Codex] [deps=WAGA-020] [scope=web/src/api/admin,web/src/features/admin,web/src/shell,web/src/test]
   Goal: Implement `/admin/automation/generated-artifacts` as a read-only Admin route with route-owned pagination and fixture/live proposal data.
   Validation: `npm --prefix web run test`; `npm --prefix web run check`; `npm --prefix web run build:budget`.
   Review: assert no prompt text, payload bodies, provider raw data, local paths, Source Locators, tokens, or credentials are rendered.
   Evidence: route component, route contract, route-state contract, and data-source contract tests.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Handoff: DONE. Next task is WAGA-040.
 
 ## M3 - Review Mutation Guard Decision
 

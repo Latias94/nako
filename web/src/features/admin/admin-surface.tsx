@@ -34,6 +34,7 @@ import {
   ExternalLink,
   Monitor,
   FileSearch,
+  Sparkles,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -61,6 +62,7 @@ import type { AdminLogsRouteState } from "./admin-logs"
 import { AdminScheduledTasks } from "./admin-scheduled-tasks"
 import { AdminSettings } from "./admin-settings"
 import { AdminAcquisitionIntake, type AdminAcquisitionIntakeRouteState } from "./admin-acquisition-intake"
+import { AdminGeneratedArtifacts, type AdminGeneratedArtifactsRouteState } from "./admin-generated-artifacts"
 import {
   ADMIN_DASHBOARD_FIXTURE,
   createAdminDashboardDataSource,
@@ -75,6 +77,7 @@ export type AdminSurfaceSection =
   | "activity"
   | "scheduled-tasks"
   | "acquisition-intake"
+  | "generated-artifacts"
   | "libraries"
   | "users"
   | "dlna"
@@ -94,6 +97,8 @@ export interface AdminSurfaceProps {
   onAdminLogsStateChange?: (state: AdminLogsRouteState) => void
   acquisitionIntakeState?: AdminAcquisitionIntakeRouteState
   onAcquisitionIntakeStateChange?: (state: AdminAcquisitionIntakeRouteState) => void
+  generatedArtifactsState?: AdminGeneratedArtifactsRouteState
+  onGeneratedArtifactsStateChange?: (state: AdminGeneratedArtifactsRouteState) => void
 }
 
 interface AdminNavItem {
@@ -122,6 +127,7 @@ const adminNavGroups: AdminNavGroup[] = [
     items: [
       { name: "媒体库", icon: Folder, component: "libraries" },
       { name: "采集入口", icon: FileSearch, component: "acquisition-intake" },
+      { name: "生成产物", icon: Sparkles, component: "generated-artifacts" },
     ]
   },
   {
@@ -177,6 +183,8 @@ export function AdminSurface({
   onAdminLogsStateChange,
   acquisitionIntakeState,
   onAcquisitionIntakeStateChange,
+  generatedArtifactsState,
+  onGeneratedArtifactsStateChange,
 }: AdminSurfaceProps = {}) {
   const [activeComponent, setActiveComponent] = useState<AdminSurfaceSection>(activeSection)
   const { data: dashboardData = ADMIN_DASHBOARD_FIXTURE } = useQuery({
@@ -215,6 +223,13 @@ export function AdminSurface({
           <AdminAcquisitionIntake
             routeState={acquisitionIntakeState}
             onRouteStateChange={onAcquisitionIntakeStateChange}
+          />
+        )
+      case "generated-artifacts":
+        return (
+          <AdminGeneratedArtifacts
+            routeState={generatedArtifactsState}
+            onRouteStateChange={onGeneratedArtifactsStateChange}
           />
         )
       case "scheduled-tasks":

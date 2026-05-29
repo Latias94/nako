@@ -22,6 +22,8 @@ Completed by `WAGA-020`.
 Exit criteria: `/admin/automation/generated-artifacts` renders proposal
 diagnostics with route-owned pagination and redaction assertions.
 
+Completed by `WAGA-030`.
+
 ## M3 - Review Mutation Guard Decision
 
 Exit criteria: review-plan and accept/reject actions are either explicitly

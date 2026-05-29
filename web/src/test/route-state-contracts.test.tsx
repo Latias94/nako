@@ -113,6 +113,76 @@ describe("route state contracts", () => {
     })
   })
 
+  it("renders live Admin generated artifact proposals without exposing raw sensitive fields", async () => {
+    const originalFetch = globalThis.fetch
+    const previousProfile = window.localStorage.getItem(CONNECTION_PROFILE_STORAGE_KEY)
+    const previousSession = window.sessionStorage.getItem(CONNECTION_SESSION_STORAGE_KEY)
+    const calls: Array<{ path: string; authorization: string | null }> = []
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      calls.push({
+        path: `${url.pathname}${url.search}`,
+        authorization: new Headers(init?.headers).get("Authorization"),
+      })
+
+      if (url.pathname === "/admin/v1/automation/generated-artifacts/proposals") {
+        return jsonResponse(adminGeneratedArtifactProposalsResponse())
+      }
+
+      return jsonResponse({ code: "not_found", message: "not found" }, 404)
+    })
+
+    window.localStorage.setItem(
+      CONNECTION_PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        mode: "live",
+        runtime: "browser",
+        baseUrl: "http://nako-admin.test",
+      }),
+    )
+    window.sessionStorage.setItem(
+      CONNECTION_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        bearerToken: "admin-token",
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+
+    try {
+      renderRoute("/admin/automation/generated-artifacts?limit=25&offset=50")
+
+      expect(await screen.findByText("artifact-live", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(screen.getByText("Live Automation Provider")).toBeInTheDocument()
+      expect(screen.queryByText("unsafe prompt body")).not.toBeInTheDocument()
+      expect(screen.queryByText("unsafe generated payload title")).not.toBeInTheDocument()
+      expect(screen.queryByText("provider secret response")).not.toBeInTheDocument()
+      expect(screen.queryByText("F:\\private\\source\\Movie.mkv")).not.toBeInTheDocument()
+      expect(screen.queryByText("file:///mnt/private/source/Movie.mkv")).not.toBeInTheDocument()
+      expect(screen.queryByText("admin-token")).not.toBeInTheDocument()
+      expect(calls).toContainEqual({
+        path: "/admin/v1/automation/generated-artifacts/proposals?limit=25&offset=50",
+        authorization: "Bearer admin-token",
+      })
+    } finally {
+      vi.stubGlobal("fetch", originalFetch)
+      restoreStorage(window.localStorage, CONNECTION_PROFILE_STORAGE_KEY, previousProfile)
+      restoreStorage(window.sessionStorage, CONNECTION_SESSION_STORAGE_KEY, previousSession)
+    }
+  })
+
+  it("writes Admin generated artifact pagination state to the URL", async () => {
+    const user = userEvent.setup()
+    const { router } = renderRoute("/admin/automation/generated-artifacts?limit=1")
+
+    expect(await screen.findByText("fixture-generated-artifact-1", {}, { timeout: 5000 })).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: /下一页/ }))
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/admin/automation/generated-artifacts")
+      expect(router.state.location.search).toMatchObject({ limit: 1, offset: 1 })
+    })
+  })
+
   it("writes Media search submits to the URL", async () => {
     const user = userEvent.setup()
     const { router } = renderRoute("/media/search")
@@ -787,6 +857,68 @@ function adminAcquisitionIntakeCandidatesResponse() {
         updated_at_ms: 1710468300000,
         intended_locator: "file:///mnt/private/raw/Live.mkv",
         prompt_body: "unsafe prompt body",
+      },
+    ],
+    page: {
+      limit: 25,
+      offset: 50,
+      returned: 1,
+    },
+  }
+}
+
+function adminGeneratedArtifactProposalsResponse() {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    proposals: [
+      {
+        id: "artifact-live",
+        kind: "metadata_suggestion",
+        capability: "item_metadata_suggest",
+        status: "pending_review",
+        target: {
+          kind: "media_item",
+          library_id: "library-a",
+          item_id: "item-live",
+          source_id: "source-live",
+          local_path: "F:\\private\\source\\Movie.mkv",
+          source_locator: "file:///mnt/private/source/Movie.mkv",
+        },
+        provenance: {
+          provider_id: "provider-live",
+          provider_name: "Live Automation Provider",
+          job_id: "job-live",
+          capability: "item_metadata_suggest",
+          idempotency_key_fingerprint: "sha256:idempotency-live",
+          prompt_fingerprint: "sha256:prompt-live",
+          attempt_count: 2,
+          artifact_created_at: "2026-05-29T01:00:00Z",
+          raw_prompt: "unsafe prompt body",
+          provider_raw_response: "provider secret response",
+        },
+        payload: {
+          valid_json: true,
+          shape: "object",
+          payload_fingerprint: "sha256:payload-live",
+          payload_bytes: 4096,
+          object_field_count: 9,
+          array_item_count: null,
+          has_textual_values: true,
+          has_explanation: true,
+          confidence_milli: 910,
+          raw_payload: {
+            title: "unsafe generated payload title",
+          },
+        },
+        readiness: {
+          status: "ready",
+          actionable: true,
+          reasons: ["ready_for_review"],
+        },
+        created_at: "2026-05-29T01:01:00Z",
+        updated_at: "2026-05-29T01:05:00Z",
+        accepted_at: null,
       },
     ],
     page: {
