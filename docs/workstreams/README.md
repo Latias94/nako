@@ -6,6 +6,10 @@ attention.
 
 ## Current Workstreams
 
+- [playback-planner-transcode-value-vocabulary](playback-planner-transcode-value-vocabulary/README.md):
+  completed fearless refactor lane for replacing transcode-owned planner value
+  types in `nako-playback` with playback-owned vocabulary and server-side
+  adapters into `nako-transcode`.
 - [playback-api-transcode-boundary-cleanup](playback-api-transcode-boundary-cleanup/README.md):
   completed fearless refactor lane for removing direct `nako-api ->
   nako-transcode` coupling by moving execution-type conversions into

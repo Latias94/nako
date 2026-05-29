@@ -764,7 +764,7 @@ async fn hls_source_runs_fmp4_runtime_layout_and_rewrites_init_map() {
     let request = HlsSourceRequest {
         source_id: source.id,
         client: ClientPlaybackCapabilities {
-            hls_segment_container: nako_transcode::HlsSegmentContainer::Fmp4,
+            hls_segment_container: nako_playback::PlaybackHlsSegmentContainer::Fmp4,
             ..ClientPlaybackCapabilities::default()
         },
         preferences: PlaybackPreferenceContext::default(),
@@ -814,8 +814,8 @@ async fn hls_source_runs_adaptive_fmp4_ladder_and_rewrites_master_playlist() {
     let request = HlsSourceRequest {
         source_id: source.id,
         client: ClientPlaybackCapabilities {
-            hls_variant_policy: nako_transcode::HlsVariantPolicy::Adaptive,
-            hls_segment_container: nako_transcode::HlsSegmentContainer::Fmp4,
+            hls_variant_policy: nako_playback::PlaybackHlsVariantPolicy::Adaptive,
+            hls_segment_container: nako_playback::PlaybackHlsSegmentContainer::Fmp4,
             ..ClientPlaybackCapabilities::default()
         },
         preferences: PlaybackPreferenceContext::default(),
@@ -1300,8 +1300,8 @@ async fn hls_source_adaptive_identity_includes_source_aware_ladder() {
         .await
         .unwrap();
     let client = ClientPlaybackCapabilities {
-        hls_variant_policy: nako_transcode::HlsVariantPolicy::Adaptive,
-        hls_segment_container: nako_transcode::HlsSegmentContainer::Fmp4,
+        hls_variant_policy: nako_playback::PlaybackHlsVariantPolicy::Adaptive,
+        hls_segment_container: nako_playback::PlaybackHlsSegmentContainer::Fmp4,
         max_video_bitrate: Some(2_000_000),
         max_width: Some(1280),
         max_height: Some(720),

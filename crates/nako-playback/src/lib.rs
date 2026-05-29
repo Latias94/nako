@@ -7,13 +7,10 @@ pub use nako_core::{
 use nako_core::{
     LibraryId, MediaProbeResult, MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind,
 };
-use nako_transcode::{
-    HlsOutputRequirement, HlsSegmentContainer, HlsVariantPolicy, OutputContainer, RemuxContainer,
-    TranscodeOutputConstraints, TranscodePlan, TranscodeSubtitleStrategy, TranscodeTrackSelection,
-};
 use serde::{Deserialize, Serialize};
 
 mod capability;
+mod values;
 
 pub use capability::{
     DirectPlayCapabilityProfile, PlaybackCapabilityEvaluation, PlaybackCompatibilityCondition,
@@ -21,6 +18,11 @@ pub use capability::{
     TranscodeCapabilityProfile,
 };
 use capability::{evaluate_direct_play, evaluate_remux, evaluate_transcode};
+pub use values::{
+    PlaybackHlsOutputRequirement, PlaybackHlsSegmentContainer, PlaybackHlsVariantPolicy,
+    PlaybackOutputConstraints, PlaybackRemuxContainer, PlaybackSubtitleStrategy,
+    PlaybackTrackSelection, PlaybackTranscodeContainer, PlaybackTranscodePlan,
+};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct PlaybackDecision {
@@ -54,7 +56,7 @@ impl PlaybackDecision {
     }
 
     #[must_use]
-    pub fn transcode_plan(&self) -> Option<&TranscodePlan> {
+    pub fn transcode_plan(&self) -> Option<&PlaybackTranscodePlan> {
         match &self.rendition {
             PlaybackRenditionPlan::Transcode(plan) => Some(&plan.plan),
             PlaybackRenditionPlan::DirectPlay(_)
@@ -156,8 +158,8 @@ pub struct PlaybackPreferenceContext {
     pub requested_subtitle_stream: Option<u32>,
     pub max_video_bitrate: Option<u64>,
     pub prefer_hdr: Option<bool>,
-    pub remux_output_container: Option<RemuxContainer>,
-    pub transcode_output_container: Option<OutputContainer>,
+    pub remux_output_container: Option<PlaybackRemuxContainer>,
+    pub transcode_output_container: Option<PlaybackTranscodeContainer>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -191,7 +193,7 @@ pub enum PlaybackRenditionPlan {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct TranscodeRenditionPlan {
-    pub plan: TranscodePlan,
+    pub plan: PlaybackTranscodePlan,
     pub requirement: TranscodeRequirement,
 }
 
@@ -199,20 +201,20 @@ pub struct TranscodeRenditionPlan {
 pub struct RemuxPlaybackPlan {
     pub source_id: MediaSourceId,
     pub input_locator: String,
-    pub output_container: RemuxContainer,
+    pub output_container: PlaybackRemuxContainer,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct TranscodeRequirement {
     pub source_id: MediaSourceId,
     pub input_locator: String,
-    pub output_container: OutputContainer,
+    pub output_container: PlaybackTranscodeContainer,
     pub output_video_codec: Option<String>,
     pub output_audio_codec: Option<String>,
-    pub track_selection: TranscodeTrackSelection,
-    pub output_constraints: TranscodeOutputConstraints,
-    pub hls_output: Option<HlsOutputRequirement>,
-    pub subtitle_strategy: TranscodeSubtitleStrategy,
+    pub track_selection: PlaybackTrackSelection,
+    pub output_constraints: PlaybackOutputConstraints,
+    pub hls_output: Option<PlaybackHlsOutputRequirement>,
+    pub subtitle_strategy: PlaybackSubtitleStrategy,
     pub selected_streams: TranscodeRequirementStreams,
     pub reasons: Vec<PlaybackCompatibilityCondition>,
 }
@@ -262,9 +264,9 @@ pub struct ClientPlaybackCapabilities {
     #[serde(default = "default_true")]
     pub supports_subtitles: bool,
     #[serde(default)]
-    pub hls_variant_policy: HlsVariantPolicy,
+    pub hls_variant_policy: PlaybackHlsVariantPolicy,
     #[serde(default)]
-    pub hls_segment_container: HlsSegmentContainer,
+    pub hls_segment_container: PlaybackHlsSegmentContainer,
 }
 
 impl Default for ClientPlaybackCapabilities {
@@ -280,8 +282,8 @@ impl Default for ClientPlaybackCapabilities {
             max_audio_channels: None,
             supports_hdr: true,
             supports_subtitles: true,
-            hls_variant_policy: HlsVariantPolicy::SingleVariant,
-            hls_segment_container: HlsSegmentContainer::MpegTs,
+            hls_variant_policy: PlaybackHlsVariantPolicy::SingleVariant,
+            hls_segment_container: PlaybackHlsSegmentContainer::MpegTs,
         }
     }
 }
@@ -432,7 +434,7 @@ pub fn plan_playback(request: PlaybackPlanningRequest<'_>) -> PlaybackDecision {
         return transcode_decision(
             selected_source,
             source.locator.clone(),
-            OutputContainer::Hls,
+            PlaybackTranscodeContainer::Hls,
             PlaybackDecisionReason::ClientDisabledDirectPlay,
             report,
             &target_profile,
@@ -447,7 +449,7 @@ pub fn plan_playback(request: PlaybackPlanningRequest<'_>) -> PlaybackDecision {
         return transcode_decision(
             selected_source,
             source.locator.clone(),
-            OutputContainer::Hls,
+            PlaybackTranscodeContainer::Hls,
             PlaybackDecisionReason::SourceContainerUnknown,
             report,
             &target_profile,
@@ -469,7 +471,7 @@ pub fn plan_playback(request: PlaybackPlanningRequest<'_>) -> PlaybackDecision {
                 target_profile
                     .preferences
                     .remux_output_container
-                    .unwrap_or(RemuxContainer::Mp4),
+                    .unwrap_or(PlaybackRemuxContainer::Mp4),
                 PlaybackDecisionReason::ClientContainerUnsupported,
                 report,
             )
@@ -480,7 +482,7 @@ pub fn plan_playback(request: PlaybackPlanningRequest<'_>) -> PlaybackDecision {
             transcode_decision(
                 selected_source,
                 source.locator.clone(),
-                OutputContainer::Hls,
+                PlaybackTranscodeContainer::Hls,
                 PlaybackDecisionReason::ClientContainerUnsupported,
                 report,
                 &target_profile,
@@ -496,7 +498,7 @@ pub fn plan_playback(request: PlaybackPlanningRequest<'_>) -> PlaybackDecision {
         return transcode_decision(
             selected_source,
             source.locator.clone(),
-            OutputContainer::Hls,
+            PlaybackTranscodeContainer::Hls,
             PlaybackDecisionReason::SourceCodecsUnsupported,
             report,
             &target_profile,
@@ -550,7 +552,7 @@ fn direct_play_decision(
 fn remux_decision(
     selected_source: PlaybackSelectedSource,
     input_locator: String,
-    output_container: RemuxContainer,
+    output_container: PlaybackRemuxContainer,
     reason: PlaybackDecisionReason,
     report: PlaybackDecisionReport,
 ) -> PlaybackDecision {
@@ -571,7 +573,7 @@ fn remux_decision(
 fn transcode_decision(
     selected_source: PlaybackSelectedSource,
     input_locator: String,
-    output_container: OutputContainer,
+    output_container: PlaybackTranscodeContainer,
     reason: PlaybackDecisionReason,
     report: PlaybackDecisionReport,
     target_profile: &PlaybackTargetProfile,
@@ -583,11 +585,15 @@ fn transcode_decision(
         .find(|profile| profile.output_container == output_container);
     let video_codec = output_profile
         .and_then(|profile| profile.video_codec.clone())
-        .or_else(|| (output_container == OutputContainer::Hls).then(|| "h264".to_owned()));
+        .or_else(|| {
+            (output_container == PlaybackTranscodeContainer::Hls).then(|| "h264".to_owned())
+        });
     let audio_codec = output_profile
         .and_then(|profile| profile.audio_codec.clone())
-        .or_else(|| (output_container == OutputContainer::Hls).then(|| "aac".to_owned()));
-    let transcode_plan = TranscodePlan {
+        .or_else(|| {
+            (output_container == PlaybackTranscodeContainer::Hls).then(|| "aac".to_owned())
+        });
+    let transcode_plan = PlaybackTranscodePlan {
         input_locator: input_locator.clone(),
         output_container,
         video_codec: video_codec.clone(),
@@ -638,7 +644,7 @@ fn denied_decision(
 fn build_transcode_requirement(
     source_id: MediaSourceId,
     input_locator: String,
-    output_container: OutputContainer,
+    output_container: PlaybackTranscodeContainer,
     output_video_codec: Option<String>,
     output_audio_codec: Option<String>,
     target_profile: &PlaybackTargetProfile,
@@ -655,12 +661,12 @@ fn build_transcode_requirement(
         output_audio_codec,
         track_selection,
         output_constraints: target_profile.output_constraints(),
-        hls_output: (output_container == OutputContainer::Hls)
+        hls_output: (output_container == PlaybackTranscodeContainer::Hls)
             .then_some(target_profile.hls_output_requirement()),
         subtitle_strategy: if track_selection.subtitle_stream.is_some() {
-            TranscodeSubtitleStrategy::OmitSelected
+            PlaybackSubtitleStrategy::OmitSelected
         } else {
-            TranscodeSubtitleStrategy::None
+            PlaybackSubtitleStrategy::None
         },
         selected_streams: selected_transcode_streams(probe, track_selection),
         reasons: transcode_requirement_reasons(reason, report),
@@ -669,7 +675,7 @@ fn build_transcode_requirement(
 
 fn selected_transcode_streams(
     probe: Option<&MediaProbeResult>,
-    track_selection: TranscodeTrackSelection,
+    track_selection: PlaybackTrackSelection,
 ) -> TranscodeRequirementStreams {
     TranscodeRequirementStreams {
         video: selected_stream(probe, None, |stream| {
@@ -911,7 +917,7 @@ mod tests {
         assert!(matches!(
             decision.rendition,
             PlaybackRenditionPlan::Remux(RemuxPlaybackPlan {
-                output_container: nako_transcode::RemuxContainer::Mp4,
+                output_container: PlaybackRemuxContainer::Mp4,
                 ..
             })
         ));
@@ -936,7 +942,7 @@ mod tests {
             PlaybackSelectionContext {
                 storage: PlaybackStorageContext::default(),
                 preferences: PlaybackPreferenceContext {
-                    remux_output_container: Some(nako_transcode::RemuxContainer::Mkv),
+                    remux_output_container: Some(PlaybackRemuxContainer::Mkv),
                     ..Default::default()
                 },
             },
@@ -949,7 +955,7 @@ mod tests {
         assert!(matches!(
             decision.rendition,
             PlaybackRenditionPlan::Remux(RemuxPlaybackPlan {
-                output_container: nako_transcode::RemuxContainer::Mkv,
+                output_container: PlaybackRemuxContainer::Mkv,
                 ..
             })
         ));
@@ -974,7 +980,7 @@ mod tests {
                     requested_subtitle_stream: Some(2),
                     max_video_bitrate: Some(4_000_000),
                     prefer_hdr: Some(false),
-                    remux_output_container: Some(nako_transcode::RemuxContainer::Mkv),
+                    remux_output_container: Some(PlaybackRemuxContainer::Mkv),
                     transcode_output_container: None,
                 },
             },
@@ -1080,7 +1086,7 @@ mod tests {
             PlaybackSelectionContext {
                 storage: PlaybackStorageContext::default(),
                 preferences: PlaybackPreferenceContext {
-                    transcode_output_container: Some(nako_transcode::OutputContainer::Hls),
+                    transcode_output_container: Some(PlaybackTranscodeContainer::Hls),
                     ..Default::default()
                 },
             },
@@ -1104,8 +1110,8 @@ mod tests {
         assert!(matches!(
             decision.rendition,
             PlaybackRenditionPlan::Transcode(TranscodeRenditionPlan {
-                plan: nako_transcode::TranscodePlan {
-                    output_container: nako_transcode::OutputContainer::Hls,
+                plan: PlaybackTranscodePlan {
+                    output_container: PlaybackTranscodeContainer::Hls,
                     ..
                 },
                 ..
@@ -1192,7 +1198,10 @@ mod tests {
         let requirement = decision
             .transcode_requirement()
             .expect("transcode decision carries source-aware requirement");
-        assert_eq!(requirement.output_container, OutputContainer::Hls);
+        assert_eq!(
+            requirement.output_container,
+            PlaybackTranscodeContainer::Hls
+        );
         assert_eq!(requirement.output_video_codec.as_deref(), Some("h264"));
         assert_eq!(requirement.output_audio_codec.as_deref(), Some("aac"));
         assert_eq!(requirement.track_selection.audio_stream, Some(1));
@@ -1204,7 +1213,7 @@ mod tests {
         assert_eq!(requirement.output_constraints.prefer_hdr, Some(false));
         assert_eq!(
             requirement.subtitle_strategy,
-            TranscodeSubtitleStrategy::OmitSelected
+            PlaybackSubtitleStrategy::OmitSelected
         );
         assert!(
             requirement
@@ -1270,8 +1279,8 @@ mod tests {
             max_audio_channels: Some(2),
             supports_hdr: false,
             supports_subtitles: false,
-            hls_variant_policy: nako_transcode::HlsVariantPolicy::Adaptive,
-            hls_segment_container: nako_transcode::HlsSegmentContainer::Fmp4,
+            hls_variant_policy: PlaybackHlsVariantPolicy::Adaptive,
+            hls_segment_container: PlaybackHlsSegmentContainer::Fmp4,
             ..ClientPlaybackCapabilities::default()
         };
 
@@ -1317,9 +1326,9 @@ mod tests {
         assert_eq!(requirement.output_constraints.prefer_hdr, Some(false));
         assert_eq!(
             requirement.hls_output,
-            Some(nako_transcode::HlsOutputRequirement {
-                variant_policy: nako_transcode::HlsVariantPolicy::Adaptive,
-                segment_container: nako_transcode::HlsSegmentContainer::Fmp4,
+            Some(PlaybackHlsOutputRequirement {
+                variant_policy: PlaybackHlsVariantPolicy::Adaptive,
+                segment_container: PlaybackHlsSegmentContainer::Fmp4,
             })
         );
         assert!(
@@ -1354,8 +1363,8 @@ mod tests {
                     requested_subtitle_stream: None,
                     max_video_bitrate: Some(8_000_000),
                     prefer_hdr: Some(true),
-                    remux_output_container: Some(nako_transcode::RemuxContainer::Mp4),
-                    transcode_output_container: Some(nako_transcode::OutputContainer::Hls),
+                    remux_output_container: Some(PlaybackRemuxContainer::Mp4),
+                    transcode_output_container: Some(PlaybackTranscodeContainer::Hls),
                 },
             },
         );
@@ -1377,8 +1386,8 @@ mod tests {
                     requested_subtitle_stream: None,
                     max_video_bitrate: Some(8_000_000),
                     prefer_hdr: Some(true),
-                    remux_output_container: Some(nako_transcode::RemuxContainer::Mp4),
-                    transcode_output_container: Some(nako_transcode::OutputContainer::Hls),
+                    remux_output_container: Some(PlaybackRemuxContainer::Mp4),
+                    transcode_output_container: Some(PlaybackTranscodeContainer::Hls),
                 },
             },
         );
@@ -1477,7 +1486,7 @@ mod tests {
 
         assert_eq!(
             profile.track_selection(),
-            nako_transcode::TranscodeTrackSelection {
+            PlaybackTrackSelection {
                 audio_stream: None,
                 subtitle_stream: Some(2),
             }
@@ -1489,7 +1498,7 @@ mod tests {
         assert_eq!(profile.output_constraints().prefer_hdr, Some(true));
         assert_eq!(
             profile.hls_output_requirement(),
-            nako_transcode::HlsOutputRequirement::default()
+            PlaybackHlsOutputRequirement::default()
         );
     }
 

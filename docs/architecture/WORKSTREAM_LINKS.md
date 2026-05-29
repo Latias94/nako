@@ -48,6 +48,7 @@ Evidence workstreams:
 - `docs/workstreams/playback-policy-and-renderer-targets/`
 - `docs/workstreams/playback-capability-profile-and-rendition-planning/`
 - `docs/workstreams/playback-api-transcode-boundary-cleanup/`
+- `docs/workstreams/playback-planner-transcode-value-vocabulary/`
 - `docs/workstreams/playback-planner-transcode-seam-deepening/`
 - `docs/workstreams/playback-runtime-boundary-deepening/`
 - `docs/workstreams/playback-transcode-policy-deepening/`

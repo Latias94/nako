@@ -21,14 +21,15 @@ use nako_core::{
     MediaSourceId, NakoError, PlaybackSessionId, PlaybackSessionMode, PlaybackSessionState,
     RendererSessionId,
 };
-use nako_playback::{ClientPlaybackCapabilities, PlaybackPreferenceContext};
+use nako_playback::{
+    ClientPlaybackCapabilities, PlaybackHlsSegmentContainer, PlaybackHlsVariantPolicy,
+    PlaybackPreferenceContext, PlaybackTranscodeContainer,
+};
 use nako_streaming::{
     DirectPlayRangeRequest, DirectPlayResponsePlan, DirectPlayResponseStatus,
     content_type_for_file_name, parse_http_range_header,
 };
-use nako_transcode::{
-    HlsPlaybackGeneration, HlsSegmentContainer, HlsVariantPolicy, RemuxContainer,
-};
+use nako_transcode::{HlsPlaybackGeneration, RemuxContainer};
 use serde::Deserialize;
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
 use tokio_util::io::ReaderStream;
@@ -966,8 +967,10 @@ fn browser_capabilities_to_client(
             .supports_subtitles
             .unwrap_or(defaults.supports_subtitles),
         hls_variant_policy: match capabilities.hls_variant_policy.as_ref() {
-            Some(ClientHlsVariantPolicy::SingleVariant) | None => HlsVariantPolicy::SingleVariant,
-            Some(ClientHlsVariantPolicy::Adaptive) => HlsVariantPolicy::Adaptive,
+            Some(ClientHlsVariantPolicy::SingleVariant) | None => {
+                PlaybackHlsVariantPolicy::SingleVariant
+            }
+            Some(ClientHlsVariantPolicy::Adaptive) => PlaybackHlsVariantPolicy::Adaptive,
             Some(ClientHlsVariantPolicy::Other(value)) => {
                 return Err(NakoError::InvalidInput {
                     message: format!("unsupported browser playback HLS variant policy: {value}"),
@@ -976,8 +979,8 @@ fn browser_capabilities_to_client(
             }
         },
         hls_segment_container: match capabilities.hls_segment_container.as_ref() {
-            Some(ClientHlsSegmentContainer::MpegTs) | None => HlsSegmentContainer::MpegTs,
-            Some(ClientHlsSegmentContainer::Fmp4) => HlsSegmentContainer::Fmp4,
+            Some(ClientHlsSegmentContainer::MpegTs) | None => PlaybackHlsSegmentContainer::MpegTs,
+            Some(ClientHlsSegmentContainer::Fmp4) => PlaybackHlsSegmentContainer::Fmp4,
             Some(ClientHlsSegmentContainer::Other(value)) => {
                 return Err(NakoError::InvalidInput {
                     message: format!("unsupported browser playback HLS segment container: {value}"),
@@ -1413,8 +1416,8 @@ pub(super) struct PlaybackCapabilitiesQuery {
     max_audio_channels: Option<u32>,
     supports_hdr: Option<bool>,
     supports_subtitles: Option<bool>,
-    hls_variant_policy: Option<HlsVariantPolicy>,
-    hls_segment_container: Option<HlsSegmentContainer>,
+    hls_variant_policy: Option<PlaybackHlsVariantPolicy>,
+    hls_segment_container: Option<PlaybackHlsSegmentContainer>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -1429,8 +1432,8 @@ pub(super) struct RemuxPlaybackQuery {
     max_audio_channels: Option<u32>,
     supports_hdr: Option<bool>,
     supports_subtitles: Option<bool>,
-    hls_variant_policy: Option<HlsVariantPolicy>,
-    hls_segment_container: Option<HlsSegmentContainer>,
+    hls_variant_policy: Option<PlaybackHlsVariantPolicy>,
+    hls_segment_container: Option<PlaybackHlsSegmentContainer>,
     output_container: Option<RemuxContainer>,
     ticket: Option<String>,
     renderer_session_id: Option<String>,
@@ -1469,8 +1472,8 @@ pub(super) struct HlsPlaybackQuery {
     max_audio_channels: Option<u32>,
     supports_hdr: Option<bool>,
     supports_subtitles: Option<bool>,
-    hls_variant_policy: Option<HlsVariantPolicy>,
-    hls_segment_container: Option<HlsSegmentContainer>,
+    hls_variant_policy: Option<PlaybackHlsVariantPolicy>,
+    hls_segment_container: Option<PlaybackHlsSegmentContainer>,
     start_position_ms: Option<u64>,
     audio_stream: Option<u32>,
     subtitle_stream: Option<u32>,
@@ -1505,7 +1508,7 @@ impl HlsPlaybackQuery {
             max_video_bitrate: None,
             prefer_hdr: None,
             remux_output_container: None,
-            transcode_output_container: Some(nako_transcode::OutputContainer::Hls),
+            transcode_output_container: Some(PlaybackTranscodeContainer::Hls),
         }
     }
 

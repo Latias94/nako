@@ -158,7 +158,7 @@ use nako_core::{
 use nako_db::NakoDatabase;
 use nako_playback::{
     ClientPlaybackCapabilities, PlaybackPreferenceContext, PlaybackSelectionContext,
-    PlaybackStorageContext, PlaybackTargetProfile,
+    PlaybackStorageContext, PlaybackTargetProfile, PlaybackTranscodeContainer,
 };
 use nako_search::{SearchDocument, SearchIndex, SearchQuery};
 use nako_streaming::{DirectPlayRangeRequest, RequestedByteRange, plan_direct_play_response};
@@ -181,6 +181,10 @@ use crate::config::{
     PlaybackConfig, StagingConfig, TranscodeConfig,
 };
 use crate::http::playback::stream_direct_play_response;
+use crate::playback_mapping::{
+    playback_hls_output_requirement_to_transcode, playback_track_selection_to_transcode,
+    transcode_remux_container_to_playback,
+};
 
 mod addons;
 mod automation;
@@ -573,15 +577,16 @@ fn local_remux_request_key(source: &MediaSource, container: RemuxContainer) -> S
                 range_readable: Some(true),
             },
             preferences: PlaybackPreferenceContext {
-                remux_output_container: Some(container),
+                remux_output_container: Some(transcode_remux_container_to_playback(container)),
                 ..Default::default()
             },
         },
     );
+    let track_selection = playback_track_selection_to_transcode(profile.track_selection());
 
     build_playback_remux_profile(PlaybackRemuxProfileRequest {
         output_container: container,
-        track_selection: profile.track_selection(),
+        track_selection,
         remote_input: profile.storage.remote,
         playback_profile_key: profile.identity_key(),
     })
@@ -603,11 +608,12 @@ fn local_hls_request_key(source: &MediaSource, acceleration: HardwareAcceleratio
                 range_readable: Some(true),
             },
             preferences: PlaybackPreferenceContext {
-                transcode_output_container: Some(OutputContainer::Hls),
+                transcode_output_container: Some(PlaybackTranscodeContainer::Hls),
                 ..Default::default()
             },
         },
     );
+    let track_selection = playback_track_selection_to_transcode(profile.track_selection());
     let plan = TranscodePlan {
         input_locator: "local:///demo.mkv".to_owned(),
         output_container: OutputContainer::Hls,
@@ -619,11 +625,11 @@ fn local_hls_request_key(source: &MediaSource, acceleration: HardwareAcceleratio
         plan,
         execution_policy: TranscodeExecutionPolicy::hls_single_variant(
             TranscodeAccelerationPlan::for_selected_hardware(acceleration),
-            profile.track_selection(),
+            track_selection,
             TranscodeOutputConstraints::default(),
         ),
-        hls_output: profile.hls_output_requirement(),
-        track_selection: profile.track_selection(),
+        hls_output: playback_hls_output_requirement_to_transcode(profile.hls_output_requirement()),
+        track_selection,
         remote_input: profile.storage.remote,
         playback_profile_key: profile.identity_key(),
     })

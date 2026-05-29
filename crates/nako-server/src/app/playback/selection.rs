@@ -1,12 +1,16 @@
 use nako_core::{MediaProbeResult, MediaStreamInfo, MediaStreamKind, NakoError, Result};
 use nako_playback::{
     PlaybackDecision, PlaybackRenditionPlan, PlaybackSelectionContext, PlaybackStorageContext,
+    PlaybackTranscodeContainer,
 };
 use nako_transcode::{
-    OutputContainer, RemuxContainer, TranscodePipelineSourceFacts, TranscodePlan,
-    TranscodeTrackSelection,
+    RemuxContainer, TranscodePipelineSourceFacts, TranscodePlan, TranscodeTrackSelection,
 };
 use nako_vfs::{StorageBackend, StorageCapabilities, StorageUri};
+
+use crate::playback_mapping::{
+    playback_remux_container_to_transcode, playback_transcode_plan_to_transcode,
+};
 
 use super::super::storage::LibraryStorageBackend;
 use super::direct::should_budget_remote_stream;
@@ -33,19 +37,21 @@ pub(super) async fn playback_selection_context(
 
 pub(super) fn remux_output_container(decision: &PlaybackDecision) -> Result<RemuxContainer> {
     match &decision.rendition {
-        PlaybackRenditionPlan::Remux(plan) => Ok(plan.output_container),
+        PlaybackRenditionPlan::Remux(plan) => {
+            Ok(playback_remux_container_to_transcode(plan.output_container))
+        }
         _ => Err(NakoError::Unsupported(
             "remux app service requires a remux playback decision",
         )),
     }
 }
 
-pub(super) fn hls_transcode_plan(decision: &PlaybackDecision) -> Result<&TranscodePlan> {
+pub(super) fn hls_transcode_plan(decision: &PlaybackDecision) -> Result<TranscodePlan> {
     match &decision.rendition {
         PlaybackRenditionPlan::Transcode(plan)
-            if plan.plan.output_container == OutputContainer::Hls =>
+            if plan.plan.output_container == PlaybackTranscodeContainer::Hls =>
         {
-            Ok(&plan.plan)
+            Ok(playback_transcode_plan_to_transcode(&plan.plan))
         }
         _ => Err(NakoError::Unsupported(
             "hls app service requires an hls transcode playback decision",

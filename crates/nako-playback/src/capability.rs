@@ -1,13 +1,11 @@
 use nako_core::{MediaProbeResult, MediaSourceId, MediaStreamKind};
-use nako_transcode::{
-    HlsOutputRequirement, OutputContainer, RemuxContainer, TranscodeOutputConstraints,
-    TranscodeTrackSelection,
-};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ClientPlaybackCapabilities, PlaybackDenial, PlaybackMode, PlaybackPreferenceContext,
-    PlaybackSelectionContext, PlaybackStorageContext, PlaybackTarget,
+    ClientPlaybackCapabilities, PlaybackDenial, PlaybackHlsOutputRequirement, PlaybackMode,
+    PlaybackOutputConstraints, PlaybackPreferenceContext, PlaybackRemuxContainer,
+    PlaybackSelectionContext, PlaybackStorageContext, PlaybackTarget, PlaybackTrackSelection,
+    PlaybackTranscodeContainer,
 };
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -113,7 +111,7 @@ pub struct PlaybackTargetProfile {
     pub direct_play_profiles: Vec<DirectPlayCapabilityProfile>,
     pub remux_profiles: Vec<RemuxCapabilityProfile>,
     pub transcode_profiles: Vec<TranscodeCapabilityProfile>,
-    pub hls_output: HlsOutputRequirement,
+    pub hls_output: PlaybackHlsOutputRequirement,
     pub storage: PlaybackStorageContext,
     pub preferences: PlaybackPreferenceContext,
 }
@@ -150,16 +148,16 @@ impl PlaybackTargetProfile {
                 supports_subtitles: capabilities.supports_subtitles,
             }],
             remux_profiles: vec![RemuxCapabilityProfile {
-                output_containers: vec![RemuxContainer::Mp4, RemuxContainer::Mkv],
+                output_containers: vec![PlaybackRemuxContainer::Mp4, PlaybackRemuxContainer::Mkv],
                 video_codecs,
                 audio_codecs,
             }],
             transcode_profiles: vec![TranscodeCapabilityProfile {
-                output_container: OutputContainer::Hls,
+                output_container: PlaybackTranscodeContainer::Hls,
                 video_codec: Some("h264".to_owned()),
                 audio_codec: Some("aac".to_owned()),
             }],
-            hls_output: HlsOutputRequirement {
+            hls_output: PlaybackHlsOutputRequirement {
                 variant_policy: capabilities.hls_variant_policy,
                 segment_container: capabilities.hls_segment_container,
             },
@@ -187,10 +185,10 @@ impl PlaybackTargetProfile {
                 optional_bool(self.preferences.prefer_hdr),
                 self.preferences
                     .remux_output_container
-                    .map_or("auto", RemuxContainer::file_extension),
+                    .map_or("auto", PlaybackRemuxContainer::file_extension),
                 self.preferences
                     .transcode_output_container
-                    .map_or("auto", OutputContainer::as_str),
+                    .map_or("auto", PlaybackTranscodeContainer::as_str),
             ),
         }
     }
@@ -201,16 +199,16 @@ impl PlaybackTargetProfile {
     }
 
     #[must_use]
-    pub fn track_selection(&self) -> TranscodeTrackSelection {
-        TranscodeTrackSelection {
+    pub fn track_selection(&self) -> PlaybackTrackSelection {
+        PlaybackTrackSelection {
             audio_stream: self.preferences.requested_audio_stream,
             subtitle_stream: self.preferences.requested_subtitle_stream,
         }
     }
 
     #[must_use]
-    pub fn output_constraints(&self) -> TranscodeOutputConstraints {
-        TranscodeOutputConstraints {
+    pub fn output_constraints(&self) -> PlaybackOutputConstraints {
+        PlaybackOutputConstraints {
             max_video_bitrate: min_optional_u64(
                 self.preferences.max_video_bitrate,
                 self.direct_play_profiles
@@ -241,7 +239,7 @@ impl PlaybackTargetProfile {
     }
 
     #[must_use]
-    pub const fn hls_output_requirement(&self) -> HlsOutputRequirement {
+    pub const fn hls_output_requirement(&self) -> PlaybackHlsOutputRequirement {
         self.hls_output
     }
 }
@@ -261,14 +259,14 @@ pub struct DirectPlayCapabilityProfile {
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct RemuxCapabilityProfile {
-    pub output_containers: Vec<RemuxContainer>,
+    pub output_containers: Vec<PlaybackRemuxContainer>,
     pub video_codecs: Vec<String>,
     pub audio_codecs: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct TranscodeCapabilityProfile {
-    pub output_container: OutputContainer,
+    pub output_container: PlaybackTranscodeContainer,
     pub video_codec: Option<String>,
     pub audio_codec: Option<String>,
 }
@@ -337,7 +335,7 @@ pub(crate) fn evaluate_remux(
     let requested_container = profile
         .preferences
         .remux_output_container
-        .unwrap_or(RemuxContainer::Mp4);
+        .unwrap_or(PlaybackRemuxContainer::Mp4);
 
     let remux_profile = profile.remux_profiles.iter().find(|candidate| {
         candidate
@@ -381,7 +379,7 @@ pub(crate) fn evaluate_transcode(profile: &PlaybackTargetProfile) -> PlaybackCap
     let requested_container = profile
         .preferences
         .transcode_output_container
-        .unwrap_or(OutputContainer::Hls);
+        .unwrap_or(PlaybackTranscodeContainer::Hls);
 
     if profile
         .transcode_profiles
