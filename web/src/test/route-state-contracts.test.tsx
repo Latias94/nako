@@ -48,4 +48,26 @@ describe("route state contracts", () => {
       expect(router.state.location.search).toMatchObject({ q: "dune" })
     })
   })
+
+  it("writes Media playlist tab and view state to the URL", async () => {
+    const user = userEvent.setup()
+    const { router } = renderRoute("/media/my-list")
+
+    const favoritesTab = await screen.findByRole("tab", { name: /收藏/ }, { timeout: 5000 })
+    await user.click(favoritesTab)
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/media/my-list")
+      expect(router.state.location.search).toMatchObject({ playlist: "fixture-favorites" })
+    })
+
+    await user.click(await screen.findByRole("button", { name: "列表视图" }))
+
+    await waitFor(() => {
+      expect(router.state.location.search).toMatchObject({
+        playlist: "fixture-favorites",
+        view: "list",
+      })
+    })
+  })
 })

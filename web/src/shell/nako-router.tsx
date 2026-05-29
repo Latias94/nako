@@ -207,6 +207,28 @@ function MediaLibraryRoute() {
   )
 }
 
+function MediaMyListRoute() {
+  const mediaSurfaceRef = useContext(MediaSurfaceRefContext)
+  const navigate = useNavigate()
+  const search = mediaMyListRoute.useSearch()
+  const initialView: MediaSurfaceRouteView = {
+    type: "my-list",
+    playlistId: typeof search.playlist === "string" && search.playlist.trim() ? search.playlist : undefined,
+    viewMode: mediaListView(search.view),
+  }
+
+  return (
+    <MediaSurface
+      ref={mediaSurfaceRef}
+      initialView={initialView}
+      routeKey={`my-list:${search.playlist ?? ""}:${search.view ?? "grid"}`}
+      onRouteNavigate={(view) => {
+        void navigate(toMediaRoute(view))
+      }}
+    />
+  )
+}
+
 function AdminRoute() {
   const navigate = useNavigate()
 
@@ -358,6 +380,16 @@ const mediaLibraryRoute = createRoute({
   component: MediaLibraryRoute,
 })
 
+const mediaMyListRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/media/my-list",
+  validateSearch: (search: Record<string, unknown>) => ({
+    playlist: typeof search.playlist === "string" ? search.playlist : undefined,
+    view: mediaListView(search.view),
+  }),
+  component: MediaMyListRoute,
+})
+
 const adminRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/admin",
@@ -479,6 +511,7 @@ const routeTree = rootRoute.addChildren([
   mediaSearchRoute,
   mediaDetailRoute,
   mediaLibraryRoute,
+  mediaMyListRoute,
   adminRoute,
   adminLibrariesRoute,
   adminUsersRoute,
@@ -528,6 +561,14 @@ function toMediaRoute(view: MediaSurfaceRouteView) {
           order: view.state?.sortOrder === "desc" ? undefined : view.state?.sortOrder,
         },
       } as const
+    case "my-list":
+      return {
+        to: "/media/my-list",
+        search: {
+          playlist: view.playlistId,
+          view: view.viewMode === "grid" ? undefined : view.viewMode,
+        },
+      } as const
     case "browse":
       return { to: "/media" } as const
   }
@@ -539,6 +580,10 @@ function mediaLibraryView(value: unknown): "grid" | "detail" | "table" | undefin
 
 function mediaLibrarySortOrder(value: unknown): "asc" | "desc" | undefined {
   return value === "asc" || value === "desc" ? value : undefined
+}
+
+function mediaListView(value: unknown): "grid" | "list" | undefined {
+  return value === "list" || value === "grid" ? value : undefined
 }
 
 function toAdminRoute(section: AdminSurfaceSection) {

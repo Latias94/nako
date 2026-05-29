@@ -93,6 +93,19 @@ function publicLibrary(overrides: Record<string, unknown> = {}) {
   }
 }
 
+function publicUserPlaylist(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "playlist-live",
+    name: "Live Playlist",
+    visibility: "private",
+    item_count: 1,
+    created_at: "2026-05-29T00:00:00Z",
+    updated_at: "2026-05-29T01:00:00Z",
+    version: 2,
+    ...overrides,
+  }
+}
+
 function adminOverviewResponse() {
   return {
     admin_api_version: "v1",
@@ -764,6 +777,92 @@ describe("public media data source contracts", () => {
       ],
     })
     expect(fetcher.mock.calls[0][0]).toBe("http://nako.test/items?limit=40&offset=0")
+    expect(new Headers(fetcher.mock.calls[0][1]?.headers).get("Authorization")).toBe(
+      "Bearer public-token",
+    )
+  })
+
+  it("maps live User Playlist DTOs into playlist tabs and items", async () => {
+    const fetcher = vi.fn<FetchLike>(async (input) => {
+      const url = new URL(String(input))
+
+      if (url.pathname === "/users/me/playlists") {
+        return jsonResponse({
+          playlists: [publicUserPlaylist()],
+          page,
+        })
+      }
+
+      if (url.pathname === "/users/me/playlists/playlist-live/items") {
+        return jsonResponse({
+          playlist: publicUserPlaylist(),
+          items: [
+            {
+              playlist_id: "playlist-live",
+              item_id: "live-movie",
+              position: 0,
+              added_at: "2026-05-29T01:00:00Z",
+              item: publicMediaItem(),
+              images: [],
+            },
+          ],
+          page,
+        })
+      }
+
+      return jsonResponse({ message: "not found" }, 404)
+    })
+
+    const source = createPublicMediaDataSource(
+      {
+        mode: "live",
+        baseUrl: "http://nako.test/",
+        bearerToken: "public-token",
+      },
+      fetcher,
+    )
+
+    const playlists = await source.listUserPlaylists()
+    const items = await source.listUserPlaylistItems("playlist-live")
+    const calledTargets = fetcher.mock.calls.map(([input]) => {
+      const url = new URL(String(input))
+      return `${url.pathname}${url.search}`
+    })
+
+    expect(playlists).toMatchObject({
+      source: "live",
+      fallback: false,
+      playlists: [
+        {
+          id: "playlist-live",
+          name: "Live Playlist",
+          itemCount: 1,
+        },
+      ],
+    })
+    expect(items).toMatchObject({
+      source: "live",
+      fallback: false,
+      playlist: {
+        id: "playlist-live",
+        name: "Live Playlist",
+      },
+      items: [
+        {
+          playlistId: "playlist-live",
+          itemId: "live-movie",
+          position: 0,
+          item: {
+            id: "live-movie",
+            title: "Live Movie",
+          },
+        },
+      ],
+    })
+    expect(calledTargets).toEqual([
+      "/users/me/playlists?limit=20&offset=0",
+      "/users/me/playlists/playlist-live/items?limit=50&offset=0",
+    ])
     expect(new Headers(fetcher.mock.calls[0][1]?.headers).get("Authorization")).toBe(
       "Bearer public-token",
     )

@@ -54,6 +54,11 @@ attention.
   through real backend/API contracts before downloads, playlists, photos,
   music, podcasts, AI assistant, or automation can re-enter the live web
   runtime.
+- [web-playlist-management-ui-mutations](web-playlist-management-ui-mutations/README.md):
+  active fearless refactor lane for turning the closed User Playlist Public
+  Client contract and first read-oriented web slice into create, rename, delete,
+  add, remove, and reorder management flows without Admin API imports or
+  fixture-only success claims.
 - [web-media-live-public-client-parity](web-media-live-public-client-parity/README.md):
   active implementation lane for moving the new `web/` Media surface from
   fixture-first browsing toward live Public Client browse/detail, browser-safe

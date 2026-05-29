@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "slug": "web-playlist-management-ui-mutations",
+  "title": "Web Playlist Management UI Mutations",
+  "status": "active",
+  "updated": "2026-05-29",
+  "scope_kind": "fearless_refactor",
+  "problem": "The web playlist page can read current-user playlists, but it cannot manage playlist mutations through the Public Client contract yet.",
+  "task_prefix": "WPMU",
+  "current_task": "WPMU-020",
+  "completed_tasks": [
+    "WPMU-010"
+  ],
+  "authoritative_docs": [
+    { "role": "overview", "path": "docs/workstreams/web-playlist-management-ui-mutations/README.md" },
+    { "role": "design", "path": "docs/workstreams/web-playlist-management-ui-mutations/DESIGN.md" },
+    { "role": "execution", "path": "docs/workstreams/web-playlist-management-ui-mutations/TODO.md" },
+    { "role": "milestones", "path": "docs/workstreams/web-playlist-management-ui-mutations/MILESTONES.md" },
+    { "role": "gates", "path": "docs/workstreams/web-playlist-management-ui-mutations/EVIDENCE_AND_GATES.md" },
+    { "role": "handoff", "path": "docs/workstreams/web-playlist-management-ui-mutations/HANDOFF.md" }
+  ],
+  "gates": [
+    "npm --prefix web run test -- src/test/data-source-contracts.test.ts",
+    "npm --prefix web run test -- src/test/route-contracts.test.tsx src/test/route-state-contracts.test.tsx",
+    "npm --prefix web run test",
+    "npm --prefix web run check",
+    "npm --prefix web run build:budget",
+    "python -m json.tool docs/workstreams/web-playlist-management-ui-mutations/WORKSTREAM.json",
+    "git diff --check"
+  ],
+  "evidence": [
+    "WPMU-010 opened the lane from the closed User Playlist contract/web slice follow-on and froze Public Client-only playlist management mutation scope."
+  ],
+  "adr_refs": [
+    "docs/adr/0021-video-first-media-server-domain-model.md",
+    "docs/adr/0023-public-api-versioning-and-error-envelope-contract.md",
+    "docs/adr/0025-openapi-public-client-sdk-contract.md",
+    "docs/adr/0028-user-playback-state-principal-and-public-contract.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue_current_task",
+    "notes": "Continue with WPMU-020. Add the Public Client playlist mutation data-source and TanStack Query mutation hook boundary before UI controls."
+  }
+}

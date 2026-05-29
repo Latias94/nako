@@ -11,10 +11,10 @@ use nako_transcode::{
     FfmpegOverwritePolicy, HardwareAccelerationDetector, HardwareAccelerationReport,
     HlsPlaybackGeneration, HlsRequest, TranscodeArtifactSet, TranscodeEngineAdapter,
     TranscodeEngineStartCommand, TranscodeEngineStartOutcome, TranscodeExecutionPolicy,
-    TranscodeOutputConstraints, TranscodePipelinePlan, TranscodePipelinePlanner,
-    TranscodePipelineReadiness, TranscodePipelineRequest, TranscodePipelineSourceFacts,
-    TranscodeRequestIdentity, TranscodeResourceBudget, TranscodeRuntimeGuard,
-    TranscodeRuntimeLimits, TranscodeSessionManager, TranscodeTrackSelection,
+    TranscodeExecutionRequest, TranscodeOutputConstraints, TranscodePipelinePlan,
+    TranscodePipelinePlanner, TranscodePipelineReadiness, TranscodePipelineRequest,
+    TranscodePipelineSourceFacts, TranscodeRequestIdentity, TranscodeResourceBudget,
+    TranscodeRuntimeGuard, TranscodeRuntimeLimits, TranscodeTrackSelection,
     transcode_pipeline_readiness_without_selection,
 };
 use tokio::sync::Mutex;
@@ -357,9 +357,8 @@ impl HlsAppService {
         let session_id = persisted_session.id;
         let cancel = CancellationToken::new();
         let _cancel_handle = self.cancellations.register(session_id, cancel.clone());
-        let mut manager = TranscodeSessionManager::new();
 
-        if let Err(error) = manager.plan_hls_with_id(
+        let execution = match TranscodeExecutionRequest::plan_hls_with_id(
             session_id,
             HlsRequest {
                 source_id: source.id,
@@ -373,9 +372,12 @@ impl HlsAppService {
             },
             &self.builder,
         ) {
-            persist_session_failure(sessions, session_id, &error).await;
-            return Err(error);
-        }
+            Ok(execution) => execution,
+            Err(error) => {
+                persist_session_failure(sessions, session_id, &error).await;
+                return Err(error);
+            }
+        };
 
         sessions
             .set_transcode_session_state(session_id, TranscodeSessionState::Running, None, None)
@@ -383,29 +385,25 @@ impl HlsAppService {
 
         let run_result = self
             .engine
-            .start(
-                &mut manager,
-                TranscodeEngineStartCommand { session_id, cancel },
-            )
+            .start(TranscodeEngineStartCommand { execution, cancel })
             .await
             .map_err(map_hls_runner_error);
 
         drop(_cancel_handle);
 
-        if let Some(metrics) = manager
-            .get(session_id)
-            .map(|session| session.runtime_metrics.clone())
-            .filter(|metrics| !metrics.is_empty())
-        {
-            if let Err(error) = sessions
-                .update_transcode_session_runtime_metrics(session_id, metrics)
-                .await
-            {
-                warn!(
-                    error = %error,
-                    transcode_session_id = %session_id,
-                    "failed to persist hls runtime metrics"
-                );
+        if let Ok(outcome) = &run_result {
+            let metrics = outcome.runtime_metrics();
+            if !metrics.is_empty() {
+                if let Err(error) = sessions
+                    .update_transcode_session_runtime_metrics(session_id, metrics.clone())
+                    .await
+                {
+                    warn!(
+                        error = %error,
+                        transcode_session_id = %session_id,
+                        "failed to persist hls runtime metrics"
+                    );
+                }
             }
         }
 

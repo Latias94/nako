@@ -1,5 +1,6 @@
 mod artifact;
 mod engine;
+mod execution;
 mod ffmpeg;
 mod hardware;
 mod hls;
@@ -12,10 +13,10 @@ mod progress;
 mod remux;
 mod runner_util;
 mod runtime;
-mod session;
 
 pub use artifact::*;
 pub use engine::*;
+pub use execution::*;
 pub use ffmpeg::*;
 pub use hardware::*;
 pub use hls::*;
@@ -27,7 +28,6 @@ pub use profile::*;
 pub use progress::*;
 pub use remux::*;
 pub use runtime::*;
-pub use session::*;
 
 #[cfg(test)]
 use runner_util::command_with_output_path;
@@ -52,6 +52,10 @@ mod tests {
     ) -> HlsArtifactManifest {
         HlsArtifactManifest::single_variant(output_dir, playlist_path, segment_pattern, output)
             .unwrap()
+    }
+
+    fn path_arg(path: &str) -> String {
+        path.split('/').collect::<PathBuf>().display().to_string()
     }
 
     #[test]
@@ -332,10 +336,13 @@ mod tests {
         };
 
         let argv = builder.hls(&request).unwrap().argv_lossy();
+        let segment_pattern = path_arg("hls/variant_%v_segment_%05d.m4s");
+        let variant_playlist = path_arg("hls/variant_%v.m3u8");
 
-        assert!(argv.windows(2).any(|args| {
-            args[0] == "-hls_segment_filename" && args[1] == "hls/variant_%v_segment_%05d.m4s"
-        }));
+        assert!(
+            argv.windows(2)
+                .any(|args| { args[0] == "-hls_segment_filename" && args[1] == segment_pattern })
+        );
         assert!(argv.windows(2).any(|args| {
             args[0] == "-hls_fmp4_init_filename" && args[1] == "variant_%v_init.mp4"
         }));
@@ -355,7 +362,7 @@ mod tests {
             argv.windows(2)
                 .any(|args| args[0] == "-s:v:1" && args[1] == "854x480")
         );
-        assert!(argv.contains(&"hls/variant_%v.m3u8".to_owned()));
+        assert!(argv.contains(&variant_playlist));
     }
 
     #[test]
@@ -743,6 +750,8 @@ mod tests {
         };
 
         let argv = builder.hls(&request).unwrap().argv_lossy();
+        let subtitle_playlist = path_arg("hls/subtitle_0.m3u8");
+        let subtitle_segment = path_arg("hls/subtitle_0_%05d.vtt");
 
         assert!(
             argv.windows(2)
@@ -754,9 +763,9 @@ mod tests {
         );
         assert!(
             argv.windows(2)
-                .any(|args| args[0] == "-segment_list" && args[1] == "hls/subtitle_0.m3u8")
+                .any(|args| args[0] == "-segment_list" && args[1] == subtitle_playlist)
         );
-        assert!(argv.contains(&"hls/subtitle_0_%05d.vtt".to_owned()));
+        assert!(argv.contains(&subtitle_segment));
     }
 
     #[test]
@@ -788,6 +797,9 @@ mod tests {
         };
 
         let argv = builder.hls(&request).unwrap().argv_lossy();
+        let audio_0_playlist = path_arg("hls/audio_0.m3u8");
+        let audio_0_segment = path_arg("hls/audio_0_%05d.aac");
+        let audio_1_segment = path_arg("hls/audio_1_%05d.aac");
 
         assert!(
             argv.windows(2)
@@ -803,14 +815,14 @@ mod tests {
         );
         assert!(
             argv.windows(2)
-                .any(|args| args[0] == "-segment_list" && args[1] == "hls/audio_0.m3u8")
+                .any(|args| args[0] == "-segment_list" && args[1] == audio_0_playlist)
         );
         assert!(
             argv.windows(2)
                 .any(|args| args[0] == "-segment_format" && args[1] == "adts")
         );
-        assert!(argv.contains(&"hls/audio_0_%05d.aac".to_owned()));
-        assert!(argv.contains(&"hls/audio_1_%05d.aac".to_owned()));
+        assert!(argv.contains(&audio_0_segment));
+        assert!(argv.contains(&audio_1_segment));
     }
 
     #[test]
@@ -2054,9 +2066,8 @@ hevc_metadata
     }
 
     #[test]
-    fn remux_session_manager_tracks_lifecycle_without_spawning_ffmpeg() {
+    fn remux_execution_request_plans_command_without_spawning_ffmpeg() {
         let builder = FfmpegCommandBuilder::new("ffmpeg");
-        let mut manager = TranscodeSessionManager::new();
         let request = RemuxRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
@@ -2065,11 +2076,11 @@ hevc_metadata
             overwrite: FfmpegOverwritePolicy::Never,
         };
 
-        let session = manager.plan_remux(request, &builder).unwrap();
-        assert_eq!(session.kind, TranscodeSessionKind::Remux);
-        assert_eq!(session.state, TranscodeSessionState::Planned);
+        let execution = TranscodeExecutionRequest::plan_remux(request, &builder).unwrap();
+        assert_eq!(execution.kind, TranscodeSessionKind::Remux);
+        assert_eq!(execution.output_path, PathBuf::from("output.mp4"));
         assert_eq!(
-            session
+            execution
                 .command
                 .args
                 .iter()
@@ -2077,24 +2088,11 @@ hevc_metadata
                 .count(),
             1
         );
-
-        let starting = manager.mark_starting(session.id).unwrap();
-        assert_eq!(starting.state, TranscodeSessionState::Starting);
-
-        let running = manager.mark_running(session.id).unwrap();
-        assert_eq!(running.state, TranscodeSessionState::Running);
-
-        let cancelling = manager.request_cancel(session.id).unwrap();
-        assert_eq!(cancelling.state, TranscodeSessionState::CancelRequested);
-
-        let cancelled = manager.mark_cancelled(session.id).unwrap();
-        assert_eq!(cancelled.state, TranscodeSessionState::Cancelled);
     }
 
     #[test]
-    fn hls_session_manager_tracks_lifecycle_without_spawning_ffmpeg() {
+    fn hls_execution_request_plans_playlist_output_without_spawning_ffmpeg() {
         let builder = FfmpegCommandBuilder::new("ffmpeg");
-        let mut manager = TranscodeSessionManager::new();
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
@@ -2111,53 +2109,10 @@ hevc_metadata
             overwrite: FfmpegOverwritePolicy::Allow,
         };
 
-        let session = manager.plan_hls(request, &builder).unwrap();
+        let execution = TranscodeExecutionRequest::plan_hls(request, &builder).unwrap();
 
-        assert_eq!(session.kind, TranscodeSessionKind::HlsTranscode);
-        assert_eq!(session.state, TranscodeSessionState::Planned);
-        assert_eq!(session.output_path, PathBuf::from("hls/playlist.m3u8"));
-
-        let running = manager.mark_running(session.id).unwrap();
-        assert_eq!(running.state, TranscodeSessionState::Running);
-        let finished = manager.mark_finished(session.id).unwrap();
-        assert_eq!(finished.state, TranscodeSessionState::Finished);
-    }
-
-    #[test]
-    fn remux_session_manager_rejects_invalid_transitions() {
-        let builder = FfmpegCommandBuilder::new("ffmpeg");
-        let mut manager = TranscodeSessionManager::new();
-        let request = RemuxRequest {
-            source_id: MediaSourceId::new(),
-            input_path: PathBuf::from("input.mkv"),
-            output_path: PathBuf::from("output.mp4"),
-            output_container: RemuxContainer::Mp4,
-            overwrite: FfmpegOverwritePolicy::Never,
-        };
-
-        let session = manager.plan_remux(request, &builder).unwrap();
-        let err = manager.mark_finished(session.id).unwrap_err();
-
-        assert!(err.to_string().contains("cannot transition"));
-    }
-
-    #[test]
-    fn remux_session_manager_can_cancel_while_starting() {
-        let builder = FfmpegCommandBuilder::new("ffmpeg");
-        let mut manager = TranscodeSessionManager::new();
-        let request = RemuxRequest {
-            source_id: MediaSourceId::new(),
-            input_path: PathBuf::from("input.mkv"),
-            output_path: PathBuf::from("output.mp4"),
-            output_container: RemuxContainer::Mp4,
-            overwrite: FfmpegOverwritePolicy::Never,
-        };
-
-        let session = manager.plan_remux(request, &builder).unwrap();
-        manager.mark_starting(session.id).unwrap();
-        let cancelling = manager.request_cancel(session.id).unwrap();
-
-        assert_eq!(cancelling.state, TranscodeSessionState::CancelRequested);
+        assert_eq!(execution.kind, TranscodeSessionKind::HlsTranscode);
+        assert_eq!(execution.output_path, PathBuf::from("hls/playlist.m3u8"));
     }
 
     #[tokio::test]
@@ -2169,29 +2124,26 @@ hevc_metadata
             &["printf remuxed > \"$out\"", "exit 0"],
         );
         let output_path = temp.path().join("output.mp4");
-        let (mut manager, session) = planned_remux_session(&script, &output_path);
+        let execution = planned_remux_execution(&script, &output_path);
+        let session_id = execution.session_id;
         let runner = FfmpegRemuxRunner::new(TranscodeRuntimeGuard::new(TranscodeRuntimeLimits {
             max_concurrent_sessions: 1,
             timeout_ms: 5_000,
         }));
 
         let outcome = runner
-            .run(&mut manager, session.id, CancellationToken::new())
+            .run(execution, CancellationToken::new())
             .await
             .unwrap();
 
         assert_eq!(
             outcome,
             RemuxRunOutcome::Finished {
-                session_id: session.id,
+                session_id,
                 output_path: output_path.clone()
             }
         );
         assert_eq!(fs::read_to_string(&output_path).unwrap(), "remuxed");
-        assert_eq!(
-            manager.get(session.id).unwrap().state,
-            TranscodeSessionState::Finished
-        );
         assert!(temp_files_for(&output_path).is_empty());
     }
 
@@ -2204,40 +2156,27 @@ hevc_metadata
             &["printf remuxed > \"$out\"", "exit 0"],
         );
         let output_path = temp.path().join("output.mp4");
-        let (mut manager, session) = planned_remux_session(&script, &output_path);
+        let execution = planned_remux_execution(&script, &output_path);
+        let session_id = execution.session_id;
         let engine = FfmpegRemuxRunner::new(TranscodeRuntimeGuard::new(TranscodeRuntimeLimits {
             max_concurrent_sessions: 1,
             timeout_ms: 5_000,
         }));
 
         let outcome = engine
-            .start(
-                &mut manager,
-                TranscodeEngineStartCommand {
-                    session_id: session.id,
-                    cancel: CancellationToken::new(),
-                },
-            )
+            .start(TranscodeEngineStartCommand {
+                execution,
+                cancel: CancellationToken::new(),
+            })
             .await
             .unwrap();
 
         assert_eq!(
             outcome,
             TranscodeEngineStartOutcome::Finished {
-                session_id: session.id,
+                session_id,
                 artifact_kind: TranscodeEngineArtifactKind::RemuxFile,
-                output_path: output_path.clone()
-            }
-        );
-        assert_eq!(
-            engine.progress(&manager, session.id).unwrap(),
-            TranscodeEngineProgress {
-                session_id: session.id,
-                adapter_kind: TranscodeEngineAdapterKind::FfmpegCli,
-                artifact_kind: TranscodeEngineArtifactKind::RemuxFile,
-                state: TranscodeSessionState::Finished,
                 output_path: output_path.clone(),
-                failure_message: None,
                 runtime_metrics: Default::default()
             }
         );
@@ -2253,24 +2192,20 @@ hevc_metadata
             &["printf partial > \"$out\"", "printf failed >&2", "exit 42"],
         );
         let output_path = temp.path().join("output.mp4");
-        let (mut manager, session) = planned_remux_session(&script, &output_path);
+        let execution = planned_remux_execution(&script, &output_path);
         let runner = FfmpegRemuxRunner::new(TranscodeRuntimeGuard::new(TranscodeRuntimeLimits {
             max_concurrent_sessions: 1,
             timeout_ms: 5_000,
         }));
 
         let err = runner
-            .run(&mut manager, session.id, CancellationToken::new())
+            .run(execution, CancellationToken::new())
             .await
             .unwrap_err();
 
         assert!(err.to_string().contains("failed"));
         assert!(!output_path.exists());
         assert!(temp_files_for(&output_path).is_empty());
-        assert_eq!(
-            manager.get(session.id).unwrap().state,
-            TranscodeSessionState::Failed
-        );
     }
 
     #[tokio::test]
@@ -2280,25 +2215,29 @@ hevc_metadata
         let output_dir = temp.path().join("hls");
         let playlist_path = output_dir.join("playlist.m3u8");
         let segment_pattern = output_dir.join("segment_%05d.ts");
-        let (mut manager, session) =
-            planned_hls_session(&script, &output_dir, &playlist_path, &segment_pattern);
+        let execution =
+            planned_hls_execution(&script, &output_dir, &playlist_path, &segment_pattern);
+        let session_id = execution.session_id;
         let runner = FfmpegHlsRunner::new(TranscodeRuntimeGuard::new(TranscodeRuntimeLimits {
             max_concurrent_sessions: 1,
             timeout_ms: 5_000,
         }));
 
         let outcome = runner
-            .run(&mut manager, session.id, CancellationToken::new())
+            .run(execution, CancellationToken::new())
             .await
             .unwrap();
 
-        assert_eq!(
-            outcome,
-            HlsRunOutcome::Finished {
-                session_id: session.id,
-                playlist_path: playlist_path.clone()
-            }
-        );
+        let HlsRunOutcome::Finished {
+            session_id: outcome_session_id,
+            playlist_path: outcome_playlist_path,
+            runtime_metrics,
+        } = outcome
+        else {
+            panic!("expected hls runner to finish");
+        };
+        assert_eq!(outcome_session_id, session_id);
+        assert_eq!(outcome_playlist_path, playlist_path);
         assert!(
             fs::read_to_string(&playlist_path)
                 .unwrap()
@@ -2308,22 +2247,8 @@ hevc_metadata
             fs::read_to_string(output_dir.join("segment_00000.ts")).unwrap(),
             "segment"
         );
-        assert_eq!(
-            manager.get(session.id).unwrap().state,
-            TranscodeSessionState::Finished
-        );
-        assert_eq!(
-            manager.get(session.id).unwrap().runtime_metrics.frame_count,
-            Some(12)
-        );
-        assert_eq!(
-            manager
-                .get(session.id)
-                .unwrap()
-                .runtime_metrics
-                .output_time_ms,
-            Some(1_500)
-        );
+        assert_eq!(runtime_metrics.frame_count, Some(12));
+        assert_eq!(runtime_metrics.output_time_ms, Some(1_500));
         assert!(temp_hls_dirs_for(&output_dir).is_empty());
     }
 
@@ -2336,7 +2261,7 @@ hevc_metadata
             &["printf partial > \"$out\"", "sleep 5", "exit 0"],
         );
         let output_path = temp.path().join("output.mp4");
-        let (mut manager, session) = planned_remux_session(&script, &output_path);
+        let execution = planned_remux_execution(&script, &output_path);
         let cancel = CancellationToken::new();
         let cancel_handle = cancel.clone();
         let runner = FfmpegRemuxRunner::new(TranscodeRuntimeGuard::new(TranscodeRuntimeLimits {
@@ -2349,21 +2274,14 @@ hevc_metadata
             cancel_handle.cancel();
         });
 
-        let outcome = time::timeout(
-            Duration::from_millis(800),
-            runner.run(&mut manager, session.id, cancel),
-        )
-        .await
-        .expect("remux cancellation should not wait for inherited stderr pipes")
-        .unwrap();
+        let outcome = time::timeout(Duration::from_millis(800), runner.run(execution, cancel))
+            .await
+            .expect("remux cancellation should not wait for inherited stderr pipes")
+            .unwrap();
 
         assert!(matches!(outcome, RemuxRunOutcome::Cancelled { .. }));
         assert!(!output_path.exists());
         assert!(temp_files_for(&output_path).is_empty());
-        assert_eq!(
-            manager.get(session.id).unwrap().state,
-            TranscodeSessionState::Cancelled
-        );
     }
 
     #[tokio::test]
@@ -2375,24 +2293,20 @@ hevc_metadata
             &["printf partial > \"$out\"", "sleep 5", "exit 0"],
         );
         let output_path = temp.path().join("output.mp4");
-        let (mut manager, session) = planned_remux_session(&script, &output_path);
+        let execution = planned_remux_execution(&script, &output_path);
         let runner = FfmpegRemuxRunner::new(TranscodeRuntimeGuard::new(TranscodeRuntimeLimits {
             max_concurrent_sessions: 1,
             timeout_ms: 100,
         }));
 
         let err = runner
-            .run(&mut manager, session.id, CancellationToken::new())
+            .run(execution, CancellationToken::new())
             .await
             .unwrap_err();
 
         assert!(err.to_string().contains("timed out"));
         assert!(!output_path.exists());
         assert!(temp_files_for(&output_path).is_empty());
-        assert_eq!(
-            manager.get(session.id).unwrap().state,
-            TranscodeSessionState::Failed
-        );
     }
 
     #[tokio::test]
@@ -2434,26 +2348,22 @@ hevc_metadata
         assert!(err.to_string().contains("expected output path"));
     }
 
-    fn planned_remux_session(
+    fn planned_remux_execution(
         ffmpeg_path: &Path,
         output_path: &Path,
-    ) -> (TranscodeSessionManager, TranscodeSession) {
+    ) -> TranscodeExecutionRequest {
         let builder = FfmpegCommandBuilder::new(ffmpeg_path);
-        let mut manager = TranscodeSessionManager::new();
-        let session = manager
-            .plan_remux(
-                RemuxRequest {
-                    source_id: MediaSourceId::new(),
-                    input_path: PathBuf::from("input.mkv"),
-                    output_path: output_path.to_path_buf(),
-                    output_container: RemuxContainer::Mp4,
-                    overwrite: FfmpegOverwritePolicy::Allow,
-                },
-                &builder,
-            )
-            .unwrap();
-
-        (manager, session)
+        TranscodeExecutionRequest::plan_remux(
+            RemuxRequest {
+                source_id: MediaSourceId::new(),
+                input_path: PathBuf::from("input.mkv"),
+                output_path: output_path.to_path_buf(),
+                output_container: RemuxContainer::Mp4,
+                overwrite: FfmpegOverwritePolicy::Allow,
+            },
+            &builder,
+        )
+        .unwrap()
     }
 
     fn hls_policy(acceleration: HardwareAcceleration) -> TranscodeExecutionPolicy {
@@ -2464,36 +2374,32 @@ hevc_metadata
         )
     }
 
-    fn planned_hls_session(
+    fn planned_hls_execution(
         ffmpeg_path: &Path,
         output_dir: &Path,
         playlist_path: &Path,
         segment_pattern: &Path,
-    ) -> (TranscodeSessionManager, TranscodeSession) {
+    ) -> TranscodeExecutionRequest {
         let builder = FfmpegCommandBuilder::new(ffmpeg_path);
-        let mut manager = TranscodeSessionManager::new();
-        let session = manager
-            .plan_hls(
-                HlsRequest {
-                    source_id: MediaSourceId::new(),
-                    input_path: PathBuf::from("input.mkv"),
-                    playback_generation: HlsPlaybackGeneration::default(),
-                    artifacts: hls_artifacts(
-                        output_dir,
-                        playlist_path,
-                        segment_pattern,
-                        HlsOutputRequirement::default(),
-                    ),
-                    segment_time_seconds: 6,
-                    track_selection: TranscodeTrackSelection::default(),
-                    execution_policy: hls_policy(HardwareAcceleration::None),
-                    overwrite: FfmpegOverwritePolicy::Allow,
-                },
-                &builder,
-            )
-            .unwrap();
-
-        (manager, session)
+        TranscodeExecutionRequest::plan_hls(
+            HlsRequest {
+                source_id: MediaSourceId::new(),
+                input_path: PathBuf::from("input.mkv"),
+                playback_generation: HlsPlaybackGeneration::default(),
+                artifacts: hls_artifacts(
+                    output_dir,
+                    playlist_path,
+                    segment_pattern,
+                    HlsOutputRequirement::default(),
+                ),
+                segment_time_seconds: 6,
+                track_selection: TranscodeTrackSelection::default(),
+                execution_policy: hls_policy(HardwareAcceleration::None),
+                overwrite: FfmpegOverwritePolicy::Allow,
+            },
+            &builder,
+        )
+        .unwrap()
     }
 
     fn hls_probe_report(encoders: &str) -> HardwareAccelerationReport {

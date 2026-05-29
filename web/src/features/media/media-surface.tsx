@@ -28,6 +28,7 @@ import {
 } from "@/lib/use-media"
 import type { MediaItem } from "@/lib/media-types"
 import type { LibraryBrowserRouteState } from "./library-browser"
+import type { MyListRouteState } from "./my-list-page"
 
 const MediaDetail = lazy(() => import("./media-detail").then((module) => ({ default: module.MediaDetail })))
 const VideoPlayer = lazy(() => import("./video-player").then((module) => ({ default: module.VideoPlayer })))
@@ -62,13 +63,12 @@ type ViewState =
   | { type: "images"; mediaTitle: string }
   | { type: "search"; query?: string }
   | { type: "user-select" }
-  | { type: "my-list" }
+  | ({ type: "my-list" } & MyListRouteState)
   | { type: "settings" }
   | { type: "library"; libraryId: string; state?: LibraryBrowserRouteState }
   | { type: "history" }
   | { type: "filter"; libraryId?: string }
   | { type: "downloads" }
-  | { type: "playlists" }
   | { type: "notifications" }
   | { type: "photos" }
   | { type: "music" }
@@ -77,18 +77,13 @@ type ViewState =
   | { type: "automations" }
 
 type PlaybackMediaType = "movie" | "series" | "anime" | "music" | "photo"
-type DeferredMediaFeature = "downloads" | "playlists" | "photos" | "music" | "podcasts" | "agent" | "automations"
+type DeferredMediaFeature = "downloads" | "photos" | "music" | "podcasts" | "agent" | "automations"
 
 const DEFERRED_MEDIA_FEATURES = {
   downloads: {
     title: "下载管理",
     description: "下载器集成会等传输任务、订阅和权限边界稳定后再回到 live product。",
     icon: Download,
-  },
-  playlists: {
-    title: "播放列表",
-    description: "跨用户播放列表需要真实账号、收藏和播放队列模型支撑，目前先从运行时裁剪。",
-    icon: ListMusic,
   },
   photos: {
     title: "照片库",
@@ -130,6 +125,7 @@ export type MediaSurfaceRouteView =
   | { type: "browse" }
   | { type: "detail"; mediaId: string; mediaType: "movie" | "series" }
   | { type: "search"; query?: string }
+  | ({ type: "my-list" } & MyListRouteState)
   | { type: "library"; libraryId: string; state?: LibraryBrowserRouteState }
 
 export interface MediaSurfaceProps {
@@ -466,6 +462,16 @@ export const MediaSurface = forwardRef<MediaSurfaceRef, MediaSurfaceProps>(funct
     return (
       <MyListPage
         onBack={goBack}
+        playlistId={viewState.playlistId}
+        viewMode={viewState.viewMode}
+        onRouteStateChange={(state) => {
+          if (onRouteNavigate) {
+            onRouteNavigate({ type: "my-list", ...state })
+            return
+          }
+
+          setViewState({ type: "my-list", ...state })
+        }}
         onSelectMedia={(id, type) => {
           setCurrentMediaId(id)
           setCurrentMediaType(type)
@@ -762,8 +768,8 @@ export const MediaSurface = forwardRef<MediaSurfaceRef, MediaSurfaceProps>(funct
               onClick={() => navigateTo({ type: "my-list" })}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/80 hover:bg-sidebar-accent/50"
             >
-              <Heart className="h-4 w-4" />
-              <span>我的收藏</span>
+              <ListMusic className="h-4 w-4" />
+              <span>我的列表</span>
             </button>
           </nav>
         </ScrollArea>
@@ -979,6 +985,7 @@ function mediaRouteTarget(view: ViewState): MediaSurfaceRouteView | null {
     case "browse":
     case "search":
     case "detail":
+    case "my-list":
     case "library":
       return view
     default:

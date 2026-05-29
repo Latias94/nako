@@ -4,6 +4,8 @@ import {
   type PublicLibraryItemsQuery,
   type PublicMediaDetailPayload,
   type PublicMediaItemsPayload,
+  type PublicUserPlaylistItemsPayload,
+  type PublicUserPlaylistsPayload,
 } from "@/src/api/public/media-data-source"
 import type { PlaybackSessionHeartbeatRequest } from "@nako/sdk"
 import type { MediaItem } from "./media-types"
@@ -72,6 +74,27 @@ export function useContinueWatchingMedia() {
   return useQuery({
     queryKey: ["nako", "media", "continue-watching"],
     queryFn: () => createPublicMediaDataSource().listContinueWatching(),
+    staleTime: 60 * 1000,
+    retry: 0,
+  })
+}
+
+export function useUserPlaylists() {
+  return useQuery({
+    queryKey: ["nako", "media", "user-playlists"],
+    queryFn: (): Promise<PublicUserPlaylistsPayload> =>
+      createPublicMediaDataSource().listUserPlaylists(),
+    staleTime: 60 * 1000,
+    retry: 0,
+  })
+}
+
+export function useUserPlaylistItems(playlistId?: string) {
+  return useQuery({
+    queryKey: ["nako", "media", "user-playlists", playlistId, "items"],
+    queryFn: (): Promise<PublicUserPlaylistItemsPayload> =>
+      createPublicMediaDataSource().listUserPlaylistItems(playlistId ?? ""),
+    enabled: !!playlistId,
     staleTime: 60 * 1000,
     retry: 0,
   })

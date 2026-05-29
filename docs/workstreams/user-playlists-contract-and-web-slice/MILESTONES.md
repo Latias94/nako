@@ -1,6 +1,6 @@
 # User Playlists Contract And Web Slice - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 ## M0 - Open Lane
@@ -29,12 +29,18 @@ Completed by `UPCW-030`.
 Exit criteria: Public Client routes and SDK methods exist and enforce effective
 Library Access without exposing Admin internals.
 
+Completed by `UPCW-040`.
+
 ## M4 - Web First Slice
 
 Exit criteria: the new `web/` Media surface restores playlist UI through live
 Public Client data with route/data-source tests and bundle budget evidence.
 
+Completed by `UPCW-050`.
+
 ## M5 - Closeout
 
 Exit criteria: shipped behavior, remaining follow-ons, and final validation
 evidence are recorded.
+
+Completed by `UPCW-060`.

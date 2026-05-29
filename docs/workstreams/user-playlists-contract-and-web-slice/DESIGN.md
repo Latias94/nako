@@ -1,7 +1,7 @@
 # User Playlists Contract And Web Slice - Design
 
-Status: Active
-Last updated: 2026-05-28
+Status: Closed
+Last updated: 2026-05-29
 
 ## Problem
 
@@ -39,6 +39,15 @@ When this lane closes:
   frozen and tested.
 - Route contracts, data-source contract tests, TypeScript check, bundle budget,
   and browser smoke evidence pass for the first web slice.
+
+## Closed Result
+
+This lane closed after delivering the backend/Public Client contract,
+persistence, SDKs, access-filtered HTTP routes, and first read-oriented web
+playlist slice. Product mutation UI for create, rename, add, remove, and
+reorder is intentionally split to a follow-on because the first web slice
+proved the contract and restored live list/item browsing without widening the
+lane into full playlist management.
 
 ## Scope
 

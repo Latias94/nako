@@ -1,14 +1,14 @@
 # User Playlists Contract And Web Slice - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 ## Current State
 
-This lane is open. UPCW-020 froze the User Playlist Public Client contract, and
-UPCW-030 implemented backend persistence plus app-service validation. Playlist
-UI remains blocked until Public Client routes, SDK methods, and access
-enforcement land in later tasks.
+This lane is closed. It delivered the User Playlist contract, persistence,
+Public Client HTTP routes, OpenAPI/SDK coverage, Rust client methods,
+access-filtered item responses/counts, and the first `web/` playlist UI slice
+through Public Client live data, fixture fallback, and route-owned state.
 
 Important boundaries:
 
@@ -18,23 +18,25 @@ Important boundaries:
 - Public routes should be current-user routes under `/users/me/playlists`.
 - Public item responses omit inaccessible membership rows instead of returning
   tombstones.
+- Public playlist `item_count` is the current access-filtered count.
 - Duplicate playlist membership is rejected by contract; add is idempotent.
 - Backend membership persistence now keeps one row per playlist/media item and
   preserves explicit zero-based order.
 - Frontend work must use Public Client contracts, not Admin API.
 
-## Active Task
+## Closed Task
 
-- Task ID: UPCW-040
-- Owner: Codex
-- Status: READY
-- Validation: focused API/server route tests; SDK generation check;
-  `cargo nextest run -p nako-api playlist --no-fail-fast`;
-  `cargo nextest run -p nako-server user_playlist --no-fail-fast`.
+- Task ID: UPCW-060
+- Owner: planner
+- Status: DONE
+- Validation: final backend/frontend gates recorded; `WORKSTREAM.json`
+  validation; `git diff --check`.
 
-## Next Recommended Action
+## Follow-Ons
 
-Start UPCW-040. Expose `/users/me/playlists` through Public Client HTTP routes,
-map app-service records into public DTOs, enforce effective Library Access for
-item responses, and add Rust client support. Do not restore `web/` playlist UI
-until UPCW-040 is complete.
+- Web playlist management UI: create, rename, delete, add item, remove item,
+  and reorder controls.
+- Shared/public playlists, invites, and collaboration.
+- Smart playlists and recommendation-generated lists.
+- Offline sync and conflict resolution.
+- Playlist-aware mobile/Tauri surfaces once the web management UX settles.

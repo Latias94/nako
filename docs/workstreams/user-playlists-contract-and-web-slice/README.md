@@ -1,12 +1,13 @@
 # User Playlists Contract And Web Slice
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
-This lane defines the backend/Public Client contract that must exist before the
-new `web/` frontend can restore any Playlist or My List UI. It is opened from
-`WDRP-050` because user principal, User Playback State, and Library Access
-prerequisites are now present, but no user playlist public contract exists yet.
+This lane defined and shipped the backend/Public Client contract required
+before the new `web/` frontend could restore any Playlist or My List UI. It was
+opened from `WDRP-050` after user principal, User Playback State, and Library
+Access prerequisites were in place, but no user playlist public contract
+existed yet.
 
 ## Authoritative Docs
 
@@ -16,9 +17,11 @@ prerequisites are now present, but no user playlist public contract exists yet.
 - `TODO.md` - executable task ledger.
 - `EVIDENCE_AND_GATES.md` - validation commands and evidence log.
 - `HANDOFF.md` - current state and next action.
+- `CLOSEOUT.md` - final result, verification, follow-ons, and residual risk.
 
-## Current Execution Point
+## Closed Result
 
-`UPCW-030` implemented principal-scoped backend persistence and app-service
-validation. Continue with `UPCW-040`, the Public Client route, access
-enforcement, and Rust client slice.
+Nako now has a principal-scoped User Playlist domain, Public Client routes under
+`/users/me/playlists`, OpenAPI/SDK coverage, Rust client methods, effective
+Library Access filtering, and a first `web/` playlist UI slice at
+`/media/my-list` using live Public Client data with fixture fallback.

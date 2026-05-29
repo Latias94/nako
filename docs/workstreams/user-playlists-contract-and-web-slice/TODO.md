@@ -1,6 +1,6 @@
 # User Playlists Contract And Web Slice - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 ## M0 - Open Lane
@@ -38,27 +38,34 @@ Last updated: 2026-05-29
 
 ## M3 - Public API, SDKs, And Access Enforcement
 
-- [ ] UPCW-040 [owner=Codex] [deps=UPCW-030] [scope=crates/nako-api,crates/nako-server/src/http,sdk/typescript,crates/nako-client]
+- [x] UPCW-040 [owner=Codex] [deps=UPCW-030] [scope=crates/nako-api,crates/nako-server/src/http,sdk/typescript,crates/nako-client]
   Goal: Expose `/users/me/playlists` routes through Public Client API, OpenAPI, TypeScript SDK, and Rust client with effective Library Access filtering.
   Validation: focused API/server route tests; SDK generation check; `cargo nextest run -p nako-api playlist --no-fail-fast`; `cargo nextest run -p nako-server user_playlist --no-fail-fast`.
   Review: Public DTOs must not expose admin policy rows, internal principal ids, source locators, or inaccessible item facts.
-  Evidence: route tests, generated SDK diff, and HTTP API notes.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Evidence: DONE. Public Client `/users/me/playlists` HTTP routes, DTO
+  mapping, access-filtered item responses/counts, Rust client methods, SDK
+  inventory assertions, and TypeScript SDK check are implemented and validated.
+  Handoff: DONE. Next task is UPCW-050.
 
 ## M4 - Web First Slice
 
-- [ ] UPCW-050 [owner=Codex] [deps=UPCW-040] [scope=web/src/api/public,web/src/features/media,web/src/shell,web/src/test]
+- [x] UPCW-050 [owner=Codex] [deps=UPCW-040] [scope=web/src/api/public,web/src/features/media,web/src/shell,web/src/test]
   Goal: Restore the first playlist UI in `web/` using live Public Client data with fixture fallback and route-owned state.
   Validation: `npm --prefix web run test`; `npm --prefix web run check`; `npm --prefix web run build:budget`; browser smoke.
   Review: no fixture-only playlist claims and no Admin API imports.
-  Evidence: data-source contract tests, route tests, and browser smoke notes.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Evidence: DONE. Public media data source now maps live
+  `/users/me/playlists` and playlist item responses with fixture fallback;
+  `web/` exposes `/media/my-list` with `playlist`/`view` route-owned state,
+  TanStack Query hooks, and desktop/mobile browser smoke evidence.
+  Handoff: DONE. Next task is UPCW-060.
 
 ## M5 - Closeout
 
-- [ ] UPCW-060 [owner=planner] [deps=UPCW-050] [scope=docs/workstreams/user-playlists-contract-and-web-slice]
+- [x] UPCW-060 [owner=planner] [deps=UPCW-050] [scope=docs/workstreams/user-playlists-contract-and-web-slice]
   Goal: Close the lane with backend/API/SDK/web evidence and split follow-ons for sharing, smart playlists, recommendation-generated lists, or offline sync.
   Validation: final backend and frontend gates recorded; JSON validation; `git diff --check`.
   Review: no blocking workstream or code-quality findings.
-  Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, and `HANDOFF.md`.
-  Handoff: DONE. Return to WDRP or selected follow-on.
+  Evidence: DONE. `CLOSEOUT.md`, `EVIDENCE_AND_GATES.md`,
+  `WORKSTREAM.json`, and `HANDOFF.md` record shipped behavior, validation, and
+  follow-ons.
+  Handoff: DONE. This lane is closed.

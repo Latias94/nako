@@ -12,8 +12,8 @@ use nako_playback::PlaybackDecision;
 use nako_transcode::{
     CancellationToken, FfmpegCommandBuilder, FfmpegOverwritePolicy, FfmpegRemuxRunner,
     RemuxContainer, RemuxRequest, TranscodeEngineAdapter, TranscodeEngineStartCommand,
-    TranscodeEngineStartOutcome, TranscodeRequestIdentity, TranscodeRuntimeGuard,
-    TranscodeRuntimeLimits, TranscodeSessionManager,
+    TranscodeEngineStartOutcome, TranscodeExecutionRequest, TranscodeRequestIdentity,
+    TranscodeRuntimeGuard, TranscodeRuntimeLimits,
 };
 use tokio::sync::Mutex;
 
@@ -183,8 +183,7 @@ impl RemuxAppService {
             return Err(error);
         }
 
-        let mut manager = TranscodeSessionManager::new();
-        if let Err(error) = manager.plan_remux_with_id(
+        let execution = match TranscodeExecutionRequest::plan_remux_with_id(
             session_id,
             RemuxRequest {
                 source_id: source.id,
@@ -195,9 +194,12 @@ impl RemuxAppService {
             },
             &self.builder,
         ) {
-            persist_session_failure(sessions, session_id, &error).await;
-            return Err(error);
-        }
+            Ok(execution) => execution,
+            Err(error) => {
+                persist_session_failure(sessions, session_id, &error).await;
+                return Err(error);
+            }
+        };
 
         sessions
             .set_transcode_session_state(session_id, TranscodeSessionState::Running, None, None)
@@ -205,10 +207,7 @@ impl RemuxAppService {
 
         let run_result = self
             .engine
-            .start(
-                &mut manager,
-                TranscodeEngineStartCommand { session_id, cancel },
-            )
+            .start(TranscodeEngineStartCommand { execution, cancel })
             .await
             .map_err(map_remux_runner_error);
 
