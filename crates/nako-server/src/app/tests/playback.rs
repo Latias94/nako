@@ -1421,6 +1421,69 @@ async fn hls_source_rejects_persisted_active_duplicate() {
 }
 
 #[tokio::test]
+async fn hls_source_seek_generation_supersedes_active_prior_generation() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_seek_supersede");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let staging = HlsStagingPolicy::new(app.config().remux_staging_root.join("hls")).unwrap();
+    let request_identity = local_hls_request_identity(&source, HardwareAcceleration::None);
+    let layout = staging
+        .single_variant_layout(
+            source.id,
+            &request_identity,
+            nako_transcode::HlsOutputRequirement::default(),
+        )
+        .unwrap();
+    let active = store
+        .create_transcode_session(NewTranscodeSession {
+            id: TranscodeSessionId::new(),
+            source_id: source.id,
+            kind: TranscodeSessionKind::HlsTranscode,
+            request_key: request_identity.persisted_request_key().to_owned(),
+            output_path: layout.playlist_path,
+            state: TranscodeSessionState::Running,
+        })
+        .await
+        .unwrap();
+
+    let seeked = app
+        .playback()
+        .hls_source(HlsSourceRequest {
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+            preferences: PlaybackPreferenceContext::default(),
+            playback_generation: HlsPlaybackGeneration::from_start_position_ms(45_000),
+        })
+        .await
+        .unwrap();
+    let superseded = store
+        .get_transcode_session(active.id)
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(seeked.disposition, HlsSourceDisposition::Finished);
+    assert_ne!(seeked.session.id, active.id);
+    assert_eq!(superseded.state, TranscodeSessionState::CancelRequested);
+    assert_eq!(
+        superseded.failure_category,
+        Some(TranscodeFailureCategory::Cancelled)
+    );
+    assert!(
+        superseded
+            .failure_message
+            .as_deref()
+            .is_some_and(|message| message.contains("superseded by hls request"))
+    );
+    assert!(
+        seeked
+            .session
+            .request_key
+            .contains("hls-playback-generation:v1%3Bstart_ms%3D45000")
+    );
+}
+
+#[tokio::test]
 async fn hls_source_persists_runner_failure() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_failing_hls_ffmpeg_script(script_root.path(), "hls_failure");

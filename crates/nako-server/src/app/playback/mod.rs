@@ -10,8 +10,8 @@ use nako_core::{
     PlaybackSessionHeartbeat, PlaybackSessionId, PlaybackSessionListFilter, PlaybackSessionMode,
     PlaybackSessionRecord, PlaybackSessionRepository, PlaybackSessionState, Result,
     StagingManifestRepository, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
-    TranscodeSessionRecord, TranscodeSessionRepository, TranscodeSessionRuntimeMetrics,
-    TranscodeSessionState, UserId, UserPrincipalId,
+    TranscodeSessionListFilter, TranscodeSessionRecord, TranscodeSessionRepository,
+    TranscodeSessionRuntimeMetrics, TranscodeSessionState, UserId, UserPrincipalId,
 };
 use nako_playback::{
     ClientPlaybackCapabilities, EffectivePlaybackPolicy, PlaybackDecision, PlaybackMode,
@@ -138,6 +138,12 @@ pub(crate) trait PlaybackRuntimeStore: std::fmt::Debug + Send + Sync {
         id: TranscodeSessionId,
     ) -> Result<Option<TranscodeSessionRecord>>;
 
+    async fn list_transcode_sessions(
+        &self,
+        filter: TranscodeSessionListFilter,
+        page: PageRequest,
+    ) -> Result<Vec<TranscodeSessionRecord>>;
+
     async fn find_latest_transcode_session(
         &self,
         source_id: MediaSourceId,
@@ -263,6 +269,14 @@ where
         id: TranscodeSessionId,
     ) -> Result<Option<TranscodeSessionRecord>> {
         TranscodeSessionRepository::get_transcode_session(self, id).await
+    }
+
+    async fn list_transcode_sessions(
+        &self,
+        filter: TranscodeSessionListFilter,
+        page: PageRequest,
+    ) -> Result<Vec<TranscodeSessionRecord>> {
+        TranscodeSessionRepository::list_transcode_sessions(self, filter, page).await
     }
 
     async fn find_latest_transcode_session(

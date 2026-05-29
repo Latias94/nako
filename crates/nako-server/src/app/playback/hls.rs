@@ -1,8 +1,9 @@
 use std::{collections::HashSet, path::PathBuf, sync::Arc};
 
 use nako_core::{
-    MediaSource, MediaSourceId, NakoError, NewTranscodeSession, Result, TranscodeFailureCategory,
-    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
+    MediaSource, MediaSourceId, NakoError, NewTranscodeSession, PageRequest, Result,
+    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter,
+    TranscodeSessionRecord, TranscodeSessionState,
 };
 use nako_playback::PlaybackDecision;
 use nako_transcode::{
@@ -17,7 +18,7 @@ use nako_transcode::{
     transcode_pipeline_readiness_without_selection,
 };
 use tokio::sync::Mutex;
-use tracing::warn;
+use tracing::{debug, warn};
 
 use crate::config::NakoServerConfig;
 
@@ -158,7 +159,31 @@ impl HlsAppService {
                 disposition: HlsSourceDisposition::ReusedExisting,
                 session,
             }),
-            HlsRequestAdmission::Run { session } => {
+            HlsRequestAdmission::StartNew { session } => {
+                let result = self
+                    .run_reserved(
+                        sessions,
+                        session,
+                        source,
+                        decision,
+                        input_path,
+                        layout,
+                        track_selection,
+                        execution_policy,
+                    )
+                    .await;
+                self.release(&key).await;
+                result
+            }
+            HlsRequestAdmission::SupersedeAndStart {
+                session,
+                superseded,
+            } => {
+                debug!(
+                    source_id = %source.id,
+                    superseded_count = superseded.len(),
+                    "starting hls request after superseding active sessions"
+                );
                 let result = self
                     .run_reserved(
                         sessions,
@@ -220,6 +245,10 @@ impl HlsAppService {
             }
         }
 
+        let superseded = self
+            .request_superseded_active_sessions(sessions, key, &request_key)
+            .await?;
+
         {
             let mut in_flight = self.in_flight.lock().await;
             if !in_flight.insert(key.clone()) {
@@ -246,12 +275,68 @@ impl HlsAppService {
             .await;
 
         match session {
-            Ok(session) => Ok(HlsRequestAdmission::Run { session }),
+            Ok(session) if superseded.is_empty() => Ok(HlsRequestAdmission::StartNew { session }),
+            Ok(session) => Ok(HlsRequestAdmission::SupersedeAndStart {
+                session,
+                superseded,
+            }),
             Err(error) => {
                 self.release(key).await;
                 Err(error)
             }
         }
+    }
+
+    async fn request_superseded_active_sessions(
+        &self,
+        sessions: &dyn super::PlaybackRuntimeStore,
+        key: &HlsRequestKey,
+        request_key: &str,
+    ) -> Result<Vec<TranscodeSessionRecord>> {
+        let mut superseded = Vec::new();
+        let mut seen = HashSet::new();
+
+        for state in ACTIVE_HLS_ADMISSION_STATES {
+            let active = sessions
+                .list_transcode_sessions(
+                    TranscodeSessionListFilter {
+                        source_id: Some(key.source_id),
+                        kind: Some(TranscodeSessionKind::HlsTranscode),
+                        state: Some(state),
+                    },
+                    PageRequest::new(PageRequest::MAX_LIMIT, 0),
+                )
+                .await?;
+
+            for session in active {
+                if session.request_key == request_key || !seen.insert(session.id) {
+                    continue;
+                }
+
+                let local_cancelled = self.cancellations.cancel(session.id);
+                let updated = sessions
+                    .request_transcode_session_cancellation(
+                        session.id,
+                        format!(
+                            "hls session {} superseded by hls request {}",
+                            session.id, request_key
+                        ),
+                    )
+                    .await?;
+
+                if local_cancelled {
+                    debug!(
+                        transcode_session_id = %session.id,
+                        source_id = %key.source_id,
+                        "signalled local hls runner cancellation for superseded session"
+                    );
+                }
+
+                superseded.push(updated.unwrap_or(session));
+            }
+        }
+
+        Ok(superseded)
     }
 
     async fn run_reserved(
@@ -385,6 +470,21 @@ impl HlsRequestKey {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum HlsRequestAdmission {
-    Run { session: TranscodeSessionRecord },
-    ReuseExisting { session: TranscodeSessionRecord },
+    StartNew {
+        session: TranscodeSessionRecord,
+    },
+    SupersedeAndStart {
+        session: TranscodeSessionRecord,
+        superseded: Vec<TranscodeSessionRecord>,
+    },
+    ReuseExisting {
+        session: TranscodeSessionRecord,
+    },
 }
+
+const ACTIVE_HLS_ADMISSION_STATES: [TranscodeSessionState; 4] = [
+    TranscodeSessionState::Planned,
+    TranscodeSessionState::Starting,
+    TranscodeSessionState::Running,
+    TranscodeSessionState::CancelRequested,
+];

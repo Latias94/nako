@@ -28,12 +28,15 @@ Task IDs use the `HSRL` prefix.
 
 ## M2 - Restart Admission Policy
 
-- [ ] HSRL-030 [owner=codex] [deps=HSRL-020] [scope=crates/nako-server/src/app/playback/hls.rs,crates/nako-server/src/app/playback/mod.rs]
+- [x] HSRL-030 [owner=codex] [deps=HSRL-020] [scope=crates/nako-server/src/app/playback/hls.rs,crates/nako-server/src/app/playback/mod.rs,crates/nako-server/src/app/tests/playback.rs]
   Goal: Model same-generation reuse vs superseding-generation restart and make
   cancellation/admission behavior explicit.
   Validation: `cargo nextest run -p nako-server hls_source --no-fail-fast`
-  Evidence: active duplicate, restart, and reuse tests.
-  Handoff: Continue with HSRL-040.
+  Evidence: same request key active duplicates still conflict; finished same
+  request key sessions still reuse; non-zero seek generation creates a new
+  request key and marks prior active same-source HLS sessions as cancellation
+  requested.
+  Handoff: DONE. Continue with HSRL-040.
 
 ## M3 - FFmpeg Seek Command Planning
 
