@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "slug": "generated-artifact-metadata-authority-apply",
+  "title": "Generated Artifact Metadata Authority Apply",
+  "status": "active",
+  "updated": "2026-05-29",
+  "scope_kind": "backend_web_authority_workflow",
+  "problem": "Accepted metadata Generated Artifacts are staged for Metadata Authority apply, but Nako has no redacted apply-plan, audited apply route, or Web Admin confirmation workflow that turns them into Canonical Metadata through host policy.",
+  "task_prefix": "GAMA",
+  "current_task": "GAMA-020",
+  "completed_tasks": [
+    "GAMA-010"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/generated-artifact-metadata-authority-apply/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/generated-artifact-metadata-authority-apply/DESIGN.md"
+    },
+    {
+      "role": "apply_authority_audit",
+      "path": "docs/workstreams/generated-artifact-metadata-authority-apply/APPLY_AUTHORITY_AUDIT.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/generated-artifact-metadata-authority-apply/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/generated-artifact-metadata-authority-apply/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/generated-artifact-metadata-authority-apply/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/generated-artifact-metadata-authority-apply/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python -m json.tool docs/workstreams/generated-artifact-metadata-authority-apply/WORKSTREAM.json",
+    "git diff --check -- docs/workstreams/generated-artifact-metadata-authority-apply docs/architecture/WORKSTREAM_LINKS.md docs/workstreams/README.md",
+    "cargo nextest run -p nako-api generated_artifact_metadata_apply --no-fail-fast",
+    "cargo nextest run -p nako-server generated_artifact_metadata_apply_plan --no-fail-fast",
+    "cargo nextest run -p nako-server generated_artifact_metadata_apply --no-fail-fast",
+    "cargo nextest run -p nako-db generated_artifact_metadata_apply --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "npm --prefix web run test -- src/test/data-source-contracts.test.ts",
+    "npm --prefix web run test -- src/test/route-contracts.test.tsx src/test/route-state-contracts.test.tsx",
+    "npm --prefix web run check",
+    "npm --prefix web run build:budget",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "GAMA-010",
+      "summary": "Opened the Metadata Authority apply lane after auditing Generated Artifact acceptance, Admin API redaction, server MetadataApplication, NFO apply lifecycle, and Web review mutation closeout."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0004-ai-as-external-automation-first.md",
+    "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
+    "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md",
+    "docs/adr/0035-addon-native-metadata-writeback.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/LIBRARY_PIPELINE.md",
+      "capability": "Generated Artifact Metadata Authority apply"
+    },
+    {
+      "path": "docs/architecture/CONTROL_PLANE.md",
+      "capability": "Admin guarded Generated Artifact apply workflow"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Library Metadata and Control Plane workstream evidence"
+    }
+  ],
+  "capability_tags": [
+    "library.metadata.generated-artifact-apply",
+    "control-plane.admin.generated-artifacts",
+    "automation.generated-artifact-acceptance",
+    "web.admin.metadata-authority"
+  ],
+  "continue_policy": {
+    "default_action": "continue_current_task",
+    "notes": "Start with GAMA-020. Split bulk apply, provider-specific enrichment, or operations repair into follow-on lanes if they expand beyond one-artifact Metadata Authority apply."
+  }
+}

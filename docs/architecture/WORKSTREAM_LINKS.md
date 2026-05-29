@@ -118,6 +118,7 @@ Evidence workstreams:
 - `docs/workstreams/metadata-acquisition-pipeline/`
 - `docs/workstreams/metadata-profile-configuration-authority/`
 - `docs/workstreams/metadata-application-policy-seam/`
+- `docs/workstreams/generated-artifact-metadata-authority-apply/`
 - `docs/workstreams/metadata-provider-attempt-runtime/`
 - `docs/workstreams/metadata-operations/`
 - `docs/workstreams/scan-addon-bulk-metadata-scrape/`
@@ -202,6 +203,7 @@ Evidence workstreams:
 - `docs/workstreams/admin-web-console/`
 - `docs/workstreams/web-admin-generated-artifacts-automation/`
 - `docs/workstreams/web-admin-generated-artifact-review-mutations/`
+- `docs/workstreams/generated-artifact-metadata-authority-apply/`
 - `docs/workstreams/addon-architecture-deepening/`
 - `docs/workstreams/addon-runtime-and-distribution/`
 - `docs/workstreams/addon-manager-lifecycle-automation/`

@@ -86,6 +86,11 @@ attention.
   completed guarded mutation lane for adding Generated Artifact review-plan
   preview, explicit accept/reject confirmation, idempotent result display, and
   redaction-safe Admin API mutations to the new `web/` Admin frontend.
+- [generated-artifact-metadata-authority-apply](generated-artifact-metadata-authority-apply/README.md):
+  active backend/Web authority lane for turning accepted metadata Generated
+  Artifacts into redacted apply plans, host-owned field-lock-aware metadata
+  apply, audited/idempotent outcomes, and a Web Admin confirmation workflow
+  without making review acceptance mutate Canonical Metadata.
 - [web-playlist-management-ui-mutations](web-playlist-management-ui-mutations/README.md):
   active fearless refactor lane for turning the closed User Playlist Public
   Client contract and first read-oriented web slice into create, rename, delete,
