@@ -29,6 +29,8 @@ Completed by `UPCW-030`.
 Exit criteria: Public Client routes and SDK methods exist and enforce effective
 Library Access without exposing Admin internals.
 
+Completed by `UPCW-040`.
+
 ## M4 - Web First Slice
 
 Exit criteria: the new `web/` Media surface restores playlist UI through live

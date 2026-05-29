@@ -6,19 +6,23 @@ use nako_client_core::{
     CoreRuntimeFailure, CoreRuntimeFailureKind,
 };
 pub use nako_client_protocol::{
-    API_VERSION_HEADER, BrowserPlaybackCapabilitiesDto, BrowserPlaybackMode,
-    BrowserPlaybackOutputContainer, BrowserPlaybackTicketRequest, BrowserPlaybackTicketResponse,
-    BrowserPlaybackUrlDto, BrowserPlaybackUrlKind, CLIENT_PROTOCOL_VERSION as API_VERSION,
-    ClientBrowseSortKey, ClientHlsSegmentContainer, ClientHlsVariantPolicy, ClientOutputContainer,
-    ClientSortOrder, ClientWatchStateFilter, ContinueWatchingResponse, CurrentUserResponse,
-    ErrorResponse, GenreItemsResponse, GenreListResponse, HealthResponse, ImagesResponse,
-    ItemCreditsResponse, ItemDetailResponse, ItemsResponse, LibraryItemsResponse,
+    API_VERSION_HEADER, AddUserPlaylistItemRequest, BrowserPlaybackCapabilitiesDto,
+    BrowserPlaybackMode, BrowserPlaybackOutputContainer, BrowserPlaybackTicketRequest,
+    BrowserPlaybackTicketResponse, BrowserPlaybackUrlDto, BrowserPlaybackUrlKind,
+    CLIENT_PROTOCOL_VERSION as API_VERSION, ClientBrowseSortKey, ClientHlsSegmentContainer,
+    ClientHlsVariantPolicy, ClientOutputContainer, ClientSortOrder, ClientUserPlaylistVisibility,
+    ClientWatchStateFilter, ContinueWatchingResponse, CreateUserPlaylistRequest,
+    CurrentUserResponse, ErrorResponse, GenreItemsResponse, GenreListResponse, HealthResponse,
+    ImagesResponse, ItemCreditsResponse, ItemDetailResponse, ItemsResponse, LibraryItemsResponse,
     LibraryListResponse, LibraryResponse, LibrarySourcesResponse, LoginRequest, LoginResponse,
     LogoutResponse, PLAYBACK_SESSION_ID_HEADER, PageInfo, PeopleResponse, PersonItemsResponse,
-    PersonResponse, PlaybackDecisionResponse, PublicClientRustSdkExposure, SearchResponse,
-    SetWatchedStateRequest, SourceProbeResponse, TagItemsResponse, TagsResponse,
-    TranscodeSessionResponse, UpdatePlaybackProgressRequest, UserPlaybackStateResponse,
-    public_client_json_routes, public_client_paths, public_client_streaming_routes,
+    PersonResponse, PlaybackDecisionResponse, PublicClientRustSdkExposure,
+    ReorderUserPlaylistItemsRequest, SearchResponse, SetWatchedStateRequest, SourceProbeResponse,
+    TagItemsResponse, TagsResponse, TranscodeSessionResponse, UpdatePlaybackProgressRequest,
+    UpdateUserPlaylistRequest, UserPlaybackStateResponse, UserPlaylistDeleteResponse,
+    UserPlaylistDto, UserPlaylistItemDto, UserPlaylistItemsResponse, UserPlaylistResponse,
+    UserPlaylistsResponse, public_client_json_routes, public_client_paths,
+    public_client_streaming_routes,
 };
 use reqwest::{
     Method, StatusCode, Url,
@@ -570,6 +574,184 @@ impl NakoClient {
             &format!(
                 "/users/me/playback-state/items/{}/watched",
                 encode_path_segment(item_id.as_ref())
+            ),
+            request,
+            true,
+        )
+        .await
+    }
+
+    /// List this principal's private playlists.
+    ///
+    /// # Errors
+    ///
+    /// Returns transport, HTTP, version, or decode errors.
+    pub async fn list_user_playlists(
+        &self,
+        page: Option<PageQuery>,
+    ) -> Result<UserPlaylistsResponse, NakoClientError> {
+        self.request_json(Method::GET, "/users/me/playlists", page.as_ref(), true)
+            .await
+    }
+
+    /// Create one private playlist for this principal.
+    ///
+    /// # Errors
+    ///
+    /// Returns transport, HTTP, version, encode, or decode errors.
+    pub async fn create_user_playlist(
+        &self,
+        request: &CreateUserPlaylistRequest,
+    ) -> Result<UserPlaylistResponse, NakoClientError> {
+        self.request_json_body(Method::POST, "/users/me/playlists", request, true)
+            .await
+    }
+
+    /// Get one private playlist for this principal.
+    ///
+    /// # Errors
+    ///
+    /// Returns transport, HTTP, version, or decode errors.
+    pub async fn get_user_playlist(
+        &self,
+        playlist_id: impl AsRef<str>,
+    ) -> Result<UserPlaylistResponse, NakoClientError> {
+        self.request_json_no_query(
+            Method::GET,
+            &format!(
+                "/users/me/playlists/{}",
+                encode_path_segment(playlist_id.as_ref())
+            ),
+            true,
+        )
+        .await
+    }
+
+    /// Rename one private playlist for this principal.
+    ///
+    /// # Errors
+    ///
+    /// Returns transport, HTTP, version, encode, or decode errors.
+    pub async fn update_user_playlist(
+        &self,
+        playlist_id: impl AsRef<str>,
+        request: &UpdateUserPlaylistRequest,
+    ) -> Result<UserPlaylistResponse, NakoClientError> {
+        self.request_json_body(
+            Method::PATCH,
+            &format!(
+                "/users/me/playlists/{}",
+                encode_path_segment(playlist_id.as_ref())
+            ),
+            request,
+            true,
+        )
+        .await
+    }
+
+    /// Delete one private playlist for this principal.
+    ///
+    /// # Errors
+    ///
+    /// Returns transport, HTTP, version, or decode errors.
+    pub async fn delete_user_playlist(
+        &self,
+        playlist_id: impl AsRef<str>,
+    ) -> Result<UserPlaylistDeleteResponse, NakoClientError> {
+        self.request_json_no_query(
+            Method::DELETE,
+            &format!(
+                "/users/me/playlists/{}",
+                encode_path_segment(playlist_id.as_ref())
+            ),
+            true,
+        )
+        .await
+    }
+
+    /// List accessible media items in one private playlist for this principal.
+    ///
+    /// # Errors
+    ///
+    /// Returns transport, HTTP, version, or decode errors.
+    pub async fn list_user_playlist_items(
+        &self,
+        playlist_id: impl AsRef<str>,
+        page: Option<PageQuery>,
+    ) -> Result<UserPlaylistItemsResponse, NakoClientError> {
+        self.request_json(
+            Method::GET,
+            &format!(
+                "/users/me/playlists/{}/items",
+                encode_path_segment(playlist_id.as_ref())
+            ),
+            page.as_ref(),
+            true,
+        )
+        .await
+    }
+
+    /// Add or idempotently keep one media item in a private playlist.
+    ///
+    /// # Errors
+    ///
+    /// Returns transport, HTTP, version, encode, or decode errors.
+    pub async fn add_user_playlist_item(
+        &self,
+        playlist_id: impl AsRef<str>,
+        item_id: impl AsRef<str>,
+        request: &AddUserPlaylistItemRequest,
+    ) -> Result<UserPlaylistResponse, NakoClientError> {
+        self.request_json_body(
+            Method::PUT,
+            &format!(
+                "/users/me/playlists/{}/items/{}",
+                encode_path_segment(playlist_id.as_ref()),
+                encode_path_segment(item_id.as_ref())
+            ),
+            request,
+            true,
+        )
+        .await
+    }
+
+    /// Remove one media item from a private playlist.
+    ///
+    /// # Errors
+    ///
+    /// Returns transport, HTTP, version, or decode errors.
+    pub async fn remove_user_playlist_item(
+        &self,
+        playlist_id: impl AsRef<str>,
+        item_id: impl AsRef<str>,
+    ) -> Result<UserPlaylistResponse, NakoClientError> {
+        self.request_json_no_query(
+            Method::DELETE,
+            &format!(
+                "/users/me/playlists/{}/items/{}",
+                encode_path_segment(playlist_id.as_ref()),
+                encode_path_segment(item_id.as_ref())
+            ),
+            true,
+        )
+        .await
+    }
+
+    /// Replace playlist item order.
+    ///
+    /// # Errors
+    ///
+    /// Returns transport, HTTP, version, encode, or decode errors.
+    pub async fn reorder_user_playlist_items(
+        &self,
+        playlist_id: impl AsRef<str>,
+        request: &ReorderUserPlaylistItemsRequest,
+    ) -> Result<UserPlaylistResponse, NakoClientError> {
+        self.request_json_body(
+            Method::PUT,
+            &format!(
+                "/users/me/playlists/{}/items/reorder",
+                encode_path_segment(playlist_id.as_ref())
             ),
             request,
             true,
@@ -1340,6 +1522,47 @@ mod tests {
         }
     }
 
+    fn playlist_json(
+        id: &'static str,
+        name: &'static str,
+        item_count: u32,
+        version: u64,
+    ) -> serde_json::Value {
+        json!({
+            "id": id,
+            "name": name,
+            "visibility": "private",
+            "item_count": item_count,
+            "created_at": "2026-05-29T00:00:00Z",
+            "updated_at": "2026-05-29T00:00:00Z",
+            "version": version
+        })
+    }
+
+    fn media_item_json(id: &'static str, title: &'static str) -> serde_json::Value {
+        json!({
+            "id": id,
+            "kind": "movie",
+            "parent_id": null,
+            "metadata": {
+                "title": title,
+                "original_title": null,
+                "sort_title": null,
+                "overview": null,
+                "release_date": null,
+                "runtime_minutes": null,
+                "tagline": null,
+                "genres": [],
+                "tags": [],
+                "ratings": [],
+                "credits": [],
+                "collections": [],
+                "studios": [],
+                "external_ids": []
+            }
+        })
+    }
+
     #[async_trait]
     impl ClientTransport for MockTransport {
         async fn send(&self, request: ClientRequest) -> Result<ClientResponse, NakoClientError> {
@@ -1885,6 +2108,188 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn user_playlist_methods_use_current_user_public_routes() {
+        let transport = MockTransport::default();
+        transport.push_json(
+            StatusCode::OK,
+            json!({
+                "playlists": [playlist_json("playlist 1", "Watch Later", 0, 0)],
+                "page": {"limit": 10, "offset": 20, "returned": 1}
+            }),
+        );
+        transport.push_json(
+            StatusCode::OK,
+            json!({"playlist": playlist_json("playlist 1", "Watch Later", 0, 0)}),
+        );
+        transport.push_json(
+            StatusCode::OK,
+            json!({"playlist": playlist_json("playlist 1", "Watch Later", 0, 0)}),
+        );
+        transport.push_json(
+            StatusCode::OK,
+            json!({"playlist": playlist_json("playlist 1", "Queue", 0, 1)}),
+        );
+        transport.push_json(
+            StatusCode::OK,
+            json!({
+                "playlist": playlist_json("playlist 1", "Queue", 1, 1),
+                "items": [{
+                    "playlist_id": "playlist 1",
+                    "item_id": "item 1",
+                    "position": 0,
+                    "added_at": "2026-05-29T00:00:00Z",
+                    "item": media_item_json("item 1", "Demo"),
+                    "images": []
+                }],
+                "page": {"limit": 5, "offset": 0, "returned": 1}
+            }),
+        );
+        transport.push_json(
+            StatusCode::OK,
+            json!({"playlist": playlist_json("playlist 1", "Queue", 1, 2)}),
+        );
+        transport.push_json(
+            StatusCode::OK,
+            json!({"playlist": playlist_json("playlist 1", "Queue", 1, 3)}),
+        );
+        transport.push_json(
+            StatusCode::OK,
+            json!({"playlist": playlist_json("playlist 1", "Queue", 0, 4)}),
+        );
+        transport.push_json(
+            StatusCode::OK,
+            json!({"playlist_id": "playlist 1", "deleted": true}),
+        );
+        let client = NakoClient::with_transport("http://localhost:3000", transport.clone())
+            .unwrap()
+            .bearer_token("secret");
+
+        let list = client
+            .list_user_playlists(Some(PageQuery::new(Some(10), Some(20))))
+            .await
+            .unwrap();
+        let created = client
+            .create_user_playlist(&CreateUserPlaylistRequest {
+                name: "Watch Later".to_owned(),
+            })
+            .await
+            .unwrap();
+        let detail = client.get_user_playlist("playlist 1").await.unwrap();
+        let updated = client
+            .update_user_playlist(
+                "playlist 1",
+                &UpdateUserPlaylistRequest {
+                    name: "Queue".to_owned(),
+                    expected_version: Some(0),
+                },
+            )
+            .await
+            .unwrap();
+        let items = client
+            .list_user_playlist_items("playlist 1", Some(PageQuery::new(Some(5), Some(0))))
+            .await
+            .unwrap();
+        let added = client
+            .add_user_playlist_item(
+                "playlist 1",
+                "item 1",
+                &AddUserPlaylistItemRequest {
+                    position: Some(0),
+                    expected_version: Some(1),
+                },
+            )
+            .await
+            .unwrap();
+        let reordered = client
+            .reorder_user_playlist_items(
+                "playlist 1",
+                &ReorderUserPlaylistItemsRequest {
+                    item_ids: vec!["item 1".to_owned()],
+                    expected_version: Some(2),
+                },
+            )
+            .await
+            .unwrap();
+        let removed = client
+            .remove_user_playlist_item("playlist 1", "item 1")
+            .await
+            .unwrap();
+        let deleted = client.delete_user_playlist("playlist 1").await.unwrap();
+
+        assert_eq!(list.page, PageInfo::new(10, 20, 1));
+        assert_eq!(created.playlist.name, "Watch Later");
+        assert_eq!(detail.playlist.visibility.wire_value(), "private");
+        assert_eq!(updated.playlist.name, "Queue");
+        assert_eq!(items.items[0].item.metadata.title, "Demo");
+        assert_eq!(added.playlist.item_count, 1);
+        assert_eq!(reordered.playlist.version, 3);
+        assert_eq!(removed.playlist.item_count, 0);
+        assert!(deleted.deleted);
+
+        let requests = transport.requests();
+        let expected = [
+            (
+                Method::GET,
+                "http://localhost:3000/users/me/playlists?limit=10&offset=20",
+            ),
+            (Method::POST, "http://localhost:3000/users/me/playlists"),
+            (
+                Method::GET,
+                "http://localhost:3000/users/me/playlists/playlist%201",
+            ),
+            (
+                Method::PATCH,
+                "http://localhost:3000/users/me/playlists/playlist%201",
+            ),
+            (
+                Method::GET,
+                "http://localhost:3000/users/me/playlists/playlist%201/items?limit=5&offset=0",
+            ),
+            (
+                Method::PUT,
+                "http://localhost:3000/users/me/playlists/playlist%201/items/item%201",
+            ),
+            (
+                Method::PUT,
+                "http://localhost:3000/users/me/playlists/playlist%201/items/reorder",
+            ),
+            (
+                Method::DELETE,
+                "http://localhost:3000/users/me/playlists/playlist%201/items/item%201",
+            ),
+            (
+                Method::DELETE,
+                "http://localhost:3000/users/me/playlists/playlist%201",
+            ),
+        ];
+        for (request, (method, url)) in requests.iter().zip(expected) {
+            assert_eq!(request.method, method);
+            assert_eq!(request.url.as_str(), url);
+            assert_eq!(
+                request.headers.get(AUTHORIZATION).unwrap(),
+                HeaderValue::from_static("Bearer secret")
+            );
+        }
+        assert_eq!(
+            requests[1]
+                .headers
+                .get(reqwest::header::CONTENT_TYPE)
+                .unwrap(),
+            HeaderValue::from_static("application/json")
+        );
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&requests[5].body).unwrap()["position"],
+            0
+        );
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&requests[6].body).unwrap()["item_ids"][0],
+            "item 1"
+        );
+        assert!(requests[7].body.is_empty());
+        assert!(requests[8].body.is_empty());
+    }
+
     #[test]
     fn streaming_request_builders_use_stable_paths_methods_headers_and_queries() {
         let client =
@@ -2077,6 +2482,11 @@ mod tests {
             "/sources/{source_id}/playback/browser-ticket",
             "/playback/sessions/{session_id}",
             "/playback/sessions/{session_id}/cancel",
+            "/users/me/playlists",
+            "/users/me/playlists/{playlist_id}",
+            "/users/me/playlists/{playlist_id}/items",
+            "/users/me/playlists/{playlist_id}/items/{item_id}",
+            "/users/me/playlists/{playlist_id}/items/reorder",
         ] {
             assert!(
                 json_paths.contains(&expected),

@@ -191,6 +191,7 @@ mod renderer;
 mod self_host_smoke;
 mod system;
 mod user_playback;
+mod user_playlist;
 mod webhooks;
 
 async fn router_with_media_source(
@@ -210,6 +211,7 @@ fn public_client_router_with_principal(app: NakoApp, principal: AuthenticatedPri
         .merge(super::metadata::routes())
         .merge(super::playback::routes())
         .merge(super::renderer::routes())
+        .merge(super::user_playlist::routes())
         .merge(super::user_playback::routes())
         .layer(Extension(principal_id))
         .layer(Extension(principal))

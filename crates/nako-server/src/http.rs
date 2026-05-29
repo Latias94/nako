@@ -22,6 +22,7 @@ mod query;
 mod renderer;
 mod system;
 mod user_playback;
+mod user_playlist;
 mod webhooks;
 
 pub fn build_router(app: NakoApp) -> Router {
@@ -44,6 +45,7 @@ fn build_router_with_auth(app: NakoApp, auth: auth::InboundAuthState) -> Router 
         .merge(metadata::routes())
         .merge(playback::routes())
         .merge(renderer::routes())
+        .merge(user_playlist::routes())
         .merge(user_playback::routes())
         .merge(webhooks::routes())
         .merge(automation::routes())

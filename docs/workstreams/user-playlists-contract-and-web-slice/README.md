@@ -19,6 +19,7 @@ prerequisites are now present, but no user playlist public contract exists yet.
 
 ## Current Execution Point
 
-`UPCW-030` implemented principal-scoped backend persistence and app-service
-validation. Continue with `UPCW-040`, the Public Client route, access
-enforcement, and Rust client slice.
+`UPCW-040` exposed the User Playlist contract through Public Client HTTP routes,
+access-filtered item responses, and Rust client methods. Continue with
+`UPCW-050`, the first `web/` playlist UI slice using live Public Client data
+with fixture fallback.

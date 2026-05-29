@@ -8,7 +8,7 @@ use nako_core::{
     PlaybackSessionState, RendererCommandRecord, RendererCommandState, RendererControlCapabilities,
     RendererSessionRecord, RendererSessionState, SelectedArtworkRecord, Tag,
     TranscodeFailureCategory, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
-    UserPlaybackState,
+    UserPlaybackState, UserPlaylistItemRecord, UserPlaylistRecord, UserPlaylistVisibility,
 };
 use nako_playback::{
     ClientPlaybackCapabilities, DirectPlayPlan, PlaybackCapabilityEvaluation,
@@ -512,6 +512,48 @@ pub fn user_playback_state_to_dto(state: UserPlaybackState) -> UserPlaybackState
 }
 
 #[must_use]
+pub fn user_playlist_to_dto(
+    playlist: UserPlaylistRecord,
+    accessible_item_count: u32,
+) -> UserPlaylistDto {
+    UserPlaylistDto {
+        id: playlist.id.to_string(),
+        name: playlist.name,
+        visibility: user_playlist_visibility_to_dto(playlist.visibility),
+        item_count: accessible_item_count,
+        created_at: required_timestamp_ms_to_rfc3339(playlist.created_at_ms),
+        updated_at: required_timestamp_ms_to_rfc3339(playlist.updated_at_ms),
+        version: playlist.version,
+    }
+}
+
+#[must_use]
+pub fn user_playlist_item_to_dto(
+    item: UserPlaylistItemRecord,
+    public_position: u32,
+    media_item: MediaItemDto,
+    images: Vec<PublicImageRefDto>,
+) -> UserPlaylistItemDto {
+    UserPlaylistItemDto {
+        playlist_id: item.playlist_id.to_string(),
+        item_id: item.item_id.to_string(),
+        position: public_position,
+        added_at: required_timestamp_ms_to_rfc3339(item.added_at_ms),
+        item: media_item,
+        images,
+    }
+}
+
+#[must_use]
+pub fn user_playlist_visibility_to_dto(
+    visibility: UserPlaylistVisibility,
+) -> ClientUserPlaylistVisibility {
+    match visibility {
+        UserPlaylistVisibility::Private => ClientUserPlaylistVisibility::Private,
+    }
+}
+
+#[must_use]
 pub fn timestamp_ms_to_rfc3339(timestamp_ms: Option<i64>) -> Option<String> {
     let timestamp_ms = timestamp_ms.filter(|value| *value > 0)?;
     let nanos = i128::from(timestamp_ms).checked_mul(1_000_000)?;
@@ -519,6 +561,10 @@ pub fn timestamp_ms_to_rfc3339(timestamp_ms: Option<i64>) -> Option<String> {
         .ok()?
         .format(&Rfc3339)
         .ok()
+}
+
+fn required_timestamp_ms_to_rfc3339(timestamp_ms: i64) -> String {
+    timestamp_ms_to_rfc3339(Some(timestamp_ms)).unwrap_or_else(|| "1970-01-01T00:00:00Z".to_owned())
 }
 
 #[must_use]
@@ -1192,6 +1238,7 @@ mod tests {
     use nako_core::{
         CanonicalMetadata, LibraryId, MediaItem, MediaItemId, MediaSource, MediaSourceId,
         MediaStreamTechnicalFacts, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionState,
+        UserPlaylistId, UserPlaylistItemRecord, UserPlaylistRecord, UserPlaylistVisibility,
         UserPrincipalId,
     };
 
@@ -1448,5 +1495,60 @@ mod tests {
         assert_eq!(value["state"]["updated_at"], "1970-01-01T00:00:10Z");
         assert!(value["state"].get("principal_id").is_none());
         assert!(value["state"].get("user_id").is_none());
+    }
+
+    #[test]
+    fn user_playlist_dto_hides_principal_and_uses_access_filtered_counts() {
+        let playlist_id = UserPlaylistId::new();
+        let principal_id = UserPrincipalId::local_admin();
+        let item_id = MediaItemId::new();
+        let playlist = UserPlaylistRecord {
+            id: playlist_id,
+            principal_id,
+            name: "Watch Later".to_owned(),
+            visibility: UserPlaylistVisibility::Private,
+            item_count: 7,
+            created_at_ms: 10_000,
+            updated_at_ms: 20_000,
+            version: 3,
+        };
+        let public_playlist = user_playlist_to_dto(playlist, 2);
+
+        assert_eq!(public_playlist.id, playlist_id.to_string());
+        assert_eq!(public_playlist.visibility.wire_value(), "private");
+        assert_eq!(public_playlist.item_count, 2);
+        assert_eq!(public_playlist.created_at, "1970-01-01T00:00:10Z");
+        assert_eq!(public_playlist.updated_at, "1970-01-01T00:00:20Z");
+
+        let value = serde_json::to_value(&public_playlist).unwrap();
+        assert!(value.get("principal_id").is_none());
+        assert!(value.get("user_id").is_none());
+
+        let public_item = user_playlist_item_to_dto(
+            UserPlaylistItemRecord {
+                playlist_id,
+                item_id,
+                position: 4,
+                added_at_ms: 30_000,
+            },
+            0,
+            media_item_to_dto(MediaItem {
+                id: item_id,
+                kind: MediaKind::Movie,
+                parent_id: None,
+                metadata: CanonicalMetadata {
+                    title: "Visible".to_owned(),
+                    ..CanonicalMetadata::default()
+                },
+            }),
+            Vec::new(),
+        );
+
+        assert_eq!(public_item.position, 0);
+        assert_eq!(public_item.added_at, "1970-01-01T00:00:30Z");
+        let item_value = serde_json::to_value(public_item).unwrap();
+        assert!(item_value.get("principal_id").is_none());
+        assert!(item_value.get("user_id").is_none());
+        assert!(item_value.get("locator").is_none());
     }
 }

@@ -1,0 +1,367 @@
+use axum::{
+    Extension, Json, Router,
+    extract::{Path, Query, State},
+    response::IntoResponse,
+    routing::{get, put},
+};
+use nako_api::public_client::{
+    AddUserPlaylistItemRequest, CreateUserPlaylistRequest, ReorderUserPlaylistItemsRequest,
+    UpdateUserPlaylistRequest, UserPlaylistDeleteResponse, UserPlaylistDto,
+    UserPlaylistItemsResponse, UserPlaylistResponse, UserPlaylistsResponse, page_info_from_request,
+    user_playlist_item_to_dto, user_playlist_to_dto,
+};
+use nako_core::{
+    AuthenticatedPrincipal, MediaItemId, NakoError, PageRequest, UserPlaylistId,
+    UserPlaylistItemRecord, UserPlaylistRecord,
+};
+use tracing::instrument;
+
+use crate::app::{
+    NakoApp,
+    user_playlist::{
+        AddUserPlaylistItemRequest as AppAddUserPlaylistItemRequest,
+        CreateUserPlaylistRequest as AppCreateUserPlaylistRequest,
+        RemoveUserPlaylistItemRequest as AppRemoveUserPlaylistItemRequest,
+        RenameUserPlaylistRequest as AppRenameUserPlaylistRequest,
+        ReorderUserPlaylistItemsRequest as AppReorderUserPlaylistItemsRequest,
+    },
+};
+
+use super::{
+    access::{RequiredLibraryAccess, item_has_access, require_item_access},
+    error::ApiResult,
+    query::PageQuery,
+};
+
+pub(super) fn routes() -> Router<NakoApp> {
+    Router::new()
+        .route(
+            "/users/me/playlists",
+            get(list_user_playlists).post(create_user_playlist),
+        )
+        .route(
+            "/users/me/playlists/{playlist_id}",
+            get(get_user_playlist)
+                .patch(update_user_playlist)
+                .delete(delete_user_playlist),
+        )
+        .route(
+            "/users/me/playlists/{playlist_id}/items",
+            get(list_user_playlist_items),
+        )
+        .route(
+            "/users/me/playlists/{playlist_id}/items/{item_id}",
+            put(add_user_playlist_item).delete(remove_user_playlist_item),
+        )
+        .route(
+            "/users/me/playlists/{playlist_id}/items/reorder",
+            put(reorder_user_playlist_items),
+        )
+}
+
+#[instrument(skip(app, principal))]
+async fn list_user_playlists(
+    State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
+    Query(page): Query<PageQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let page = page.try_into()?;
+    let playlists = app
+        .user_playlist()
+        .list_playlists(&principal.principal_id, page)
+        .await?;
+    let mut public_playlists = Vec::with_capacity(playlists.len());
+
+    for playlist in playlists {
+        public_playlists.push(public_playlist_dto(&app, &principal, playlist).await?);
+    }
+
+    Ok(Json(UserPlaylistsResponse {
+        page: page_info_from_request(page, public_playlists.len()),
+        playlists: public_playlists,
+    }))
+}
+
+#[instrument(skip(app, principal, request))]
+async fn create_user_playlist(
+    State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
+    Json(request): Json<CreateUserPlaylistRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let playlist = app
+        .user_playlist()
+        .create_playlist(AppCreateUserPlaylistRequest {
+            principal_id: principal.principal_id.clone(),
+            name: request.name,
+            created_at_ms: None,
+        })
+        .await?;
+
+    Ok(Json(UserPlaylistResponse {
+        playlist: public_playlist_dto(&app, &principal, playlist).await?,
+    }))
+}
+
+#[instrument(skip(app, principal))]
+async fn get_user_playlist(
+    State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
+    Path(playlist_id): Path<UserPlaylistId>,
+) -> ApiResult<impl IntoResponse> {
+    let playlist = app
+        .user_playlist()
+        .get_playlist(&principal.principal_id, playlist_id)
+        .await?;
+
+    Ok(Json(UserPlaylistResponse {
+        playlist: public_playlist_dto(&app, &principal, playlist).await?,
+    }))
+}
+
+#[instrument(skip(app, principal, request))]
+async fn update_user_playlist(
+    State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
+    Path(playlist_id): Path<UserPlaylistId>,
+    Json(request): Json<UpdateUserPlaylistRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let playlist = app
+        .user_playlist()
+        .rename_playlist(AppRenameUserPlaylistRequest {
+            principal_id: principal.principal_id.clone(),
+            playlist_id,
+            name: request.name,
+            expected_version: request.expected_version,
+            updated_at_ms: None,
+        })
+        .await?;
+
+    Ok(Json(UserPlaylistResponse {
+        playlist: public_playlist_dto(&app, &principal, playlist).await?,
+    }))
+}
+
+#[instrument(skip(app, principal))]
+async fn delete_user_playlist(
+    State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
+    Path(playlist_id): Path<UserPlaylistId>,
+) -> ApiResult<impl IntoResponse> {
+    app.user_playlist()
+        .delete_playlist(&principal.principal_id, playlist_id)
+        .await?;
+
+    Ok(Json(UserPlaylistDeleteResponse {
+        playlist_id: playlist_id.to_string(),
+        deleted: true,
+    }))
+}
+
+#[instrument(skip(app, principal))]
+async fn list_user_playlist_items(
+    State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
+    Path(playlist_id): Path<UserPlaylistId>,
+    Query(page): Query<PageQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let page = page.try_into()?;
+    let playlist = app
+        .user_playlist()
+        .get_playlist(&principal.principal_id, playlist_id)
+        .await?;
+    let accessible_items = accessible_playlist_item_records(&app, &principal, playlist_id).await?;
+    let accessible_item_count = page_count(accessible_items.len());
+    let visible_page = page_visible_items(accessible_items, page);
+    let mut items = Vec::with_capacity(visible_page.len());
+
+    for (index, item) in visible_page.into_iter().enumerate() {
+        let detail = app.catalog().get_item(item.item_id).await?;
+        items.push(user_playlist_item_to_dto(
+            item,
+            public_position(page.offset, index),
+            detail.item,
+            detail.images,
+        ));
+    }
+
+    Ok(Json(UserPlaylistItemsResponse {
+        playlist: user_playlist_to_dto(playlist, accessible_item_count),
+        page: page_info_from_request(page, items.len()),
+        items,
+    }))
+}
+
+#[instrument(skip(app, principal, request))]
+async fn add_user_playlist_item(
+    State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
+    Path((playlist_id, item_id)): Path<(UserPlaylistId, MediaItemId)>,
+    Json(request): Json<AddUserPlaylistItemRequest>,
+) -> ApiResult<impl IntoResponse> {
+    require_item_access(&app, &principal, item_id, RequiredLibraryAccess::Browse).await?;
+
+    let playlist = app
+        .user_playlist()
+        .add_item(AppAddUserPlaylistItemRequest {
+            principal_id: principal.principal_id.clone(),
+            playlist_id,
+            item_id,
+            position: request.position,
+            expected_version: request.expected_version,
+            added_at_ms: None,
+        })
+        .await?;
+
+    Ok(Json(UserPlaylistResponse {
+        playlist: public_playlist_dto(&app, &principal, playlist).await?,
+    }))
+}
+
+#[instrument(skip(app, principal))]
+async fn remove_user_playlist_item(
+    State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
+    Path((playlist_id, item_id)): Path<(UserPlaylistId, MediaItemId)>,
+) -> ApiResult<impl IntoResponse> {
+    require_item_access(&app, &principal, item_id, RequiredLibraryAccess::Browse).await?;
+
+    let playlist = app
+        .user_playlist()
+        .remove_item(AppRemoveUserPlaylistItemRequest {
+            principal_id: principal.principal_id.clone(),
+            playlist_id,
+            item_id,
+            expected_version: None,
+            updated_at_ms: None,
+        })
+        .await?;
+
+    Ok(Json(UserPlaylistResponse {
+        playlist: public_playlist_dto(&app, &principal, playlist).await?,
+    }))
+}
+
+#[instrument(skip(app, principal, request))]
+async fn reorder_user_playlist_items(
+    State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
+    Path(playlist_id): Path<UserPlaylistId>,
+    Json(request): Json<ReorderUserPlaylistItemsRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let item_ids = parse_playlist_item_ids(request.item_ids)?;
+    for item_id in &item_ids {
+        require_item_access(&app, &principal, *item_id, RequiredLibraryAccess::Browse).await?;
+    }
+
+    let playlist = app
+        .user_playlist()
+        .reorder_items(AppReorderUserPlaylistItemsRequest {
+            principal_id: principal.principal_id.clone(),
+            playlist_id,
+            item_ids,
+            expected_version: request.expected_version,
+            updated_at_ms: None,
+        })
+        .await?;
+
+    Ok(Json(UserPlaylistResponse {
+        playlist: public_playlist_dto(&app, &principal, playlist).await?,
+    }))
+}
+
+async fn public_playlist_dto(
+    app: &NakoApp,
+    principal: &AuthenticatedPrincipal,
+    playlist: UserPlaylistRecord,
+) -> ApiResult<UserPlaylistDto> {
+    let count = accessible_playlist_item_count(app, principal, playlist.id).await?;
+    Ok(user_playlist_to_dto(playlist, count))
+}
+
+async fn accessible_playlist_item_count(
+    app: &NakoApp,
+    principal: &AuthenticatedPrincipal,
+    playlist_id: UserPlaylistId,
+) -> ApiResult<u32> {
+    Ok(page_count(
+        accessible_playlist_item_records(app, principal, playlist_id)
+            .await?
+            .len(),
+    ))
+}
+
+async fn accessible_playlist_item_records(
+    app: &NakoApp,
+    principal: &AuthenticatedPrincipal,
+    playlist_id: UserPlaylistId,
+) -> ApiResult<Vec<UserPlaylistItemRecord>> {
+    let mut accessible = Vec::new();
+    let mut offset = 0;
+
+    loop {
+        let page = app
+            .user_playlist()
+            .list_items(
+                &principal.principal_id,
+                playlist_id,
+                PageRequest::new(PageRequest::MAX_LIMIT, offset),
+            )
+            .await?;
+        let page_len = page.len();
+
+        for item in page {
+            if item_has_access(app, principal, item.item_id, RequiredLibraryAccess::Browse).await? {
+                accessible.push(item);
+            }
+        }
+
+        if page_len < PageRequest::MAX_LIMIT as usize {
+            break;
+        }
+        offset += u64::from(PageRequest::MAX_LIMIT);
+    }
+
+    Ok(accessible)
+}
+
+fn page_visible_items(
+    items: Vec<UserPlaylistItemRecord>,
+    page: PageRequest,
+) -> Vec<UserPlaylistItemRecord> {
+    let Ok(start) = usize::try_from(page.offset) else {
+        return Vec::new();
+    };
+    let Ok(limit) = usize::try_from(page.limit) else {
+        return Vec::new();
+    };
+    if start >= items.len() {
+        return Vec::new();
+    }
+    let end = start.saturating_add(limit).min(items.len());
+
+    items[start..end].to_vec()
+}
+
+fn parse_playlist_item_ids(values: Vec<String>) -> Result<Vec<MediaItemId>, NakoError> {
+    values
+        .into_iter()
+        .map(|value| {
+            value
+                .parse::<MediaItemId>()
+                .map_err(|err| NakoError::InvalidInput {
+                    message: format!("invalid playlist item id: {err}"),
+                })
+        })
+        .collect()
+}
+
+fn public_position(page_offset: u64, page_index: usize) -> u32 {
+    page_offset
+        .saturating_add(u64::try_from(page_index).unwrap_or(u64::MAX))
+        .try_into()
+        .unwrap_or(u32::MAX)
+}
+
+fn page_count(len: usize) -> u32 {
+    u32::try_from(len).unwrap_or(u32::MAX)
+}

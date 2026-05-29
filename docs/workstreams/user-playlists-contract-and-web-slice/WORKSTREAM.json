@@ -7,11 +7,12 @@
   "scope_kind": "public_client_contract",
   "problem": "The web playlist UI cannot return until Nako has a server-owned current-user playlist contract distinct from catalog collections and HLS transport playlists.",
   "task_prefix": "UPCW",
-  "current_task": "UPCW-040",
+  "current_task": "UPCW-050",
   "completed_tasks": [
     "UPCW-010",
     "UPCW-020",
-    "UPCW-030"
+    "UPCW-030",
+    "UPCW-040"
   ],
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/user-playlists-contract-and-web-slice/README.md" },
@@ -27,6 +28,9 @@
     "cargo nextest run -p nako-db playlist --no-fail-fast",
     "cargo nextest run -p nako-api playlist --no-fail-fast",
     "cargo nextest run -p nako-server user_playlist --no-fail-fast",
+    "cargo nextest run -p nako-client user_playlist --no-fail-fast",
+    "cargo nextest run -p nako-client sdk_inventory --no-fail-fast",
+    "npm run check --prefix sdk/typescript",
     "npm --prefix web run test",
     "npm --prefix web run check",
     "npm --prefix web run build:budget",
@@ -35,7 +39,8 @@
   "evidence": [
     "UPCW-010 opened the lane from WDRP-050 and recorded that playlists should proceed as a backend/Public Client contract lane before web UI restoration.",
     "UPCW-020 froze current-user private User Playlist route inventory, DTOs, access filtering, duplicate/order semantics, mutation request shape, OpenAPI schemas, generated TypeScript/Kotlin SDK expectations, and HTTP API notes.",
-    "UPCW-030 implemented principal-scoped User Playlist persistence, ordered idempotent membership, version-guarded mutations, and app-service validation without adding Public Client HTTP routes or web UI."
+    "UPCW-030 implemented principal-scoped User Playlist persistence, ordered idempotent membership, version-guarded mutations, and app-service validation without adding Public Client HTTP routes or web UI.",
+    "UPCW-040 exposed current-user User Playlist Public Client HTTP routes, access-filtered item responses/counts, Rust client convenience methods, and SDK inventory validation without restoring web UI."
   ],
   "adr_refs": [
     "docs/adr/0021-video-first-media-server-domain-model.md",
@@ -45,6 +50,6 @@
   ],
   "continue_policy": {
     "default_action": "continue_current_task",
-    "notes": "Continue with UPCW-040. Expose the frozen User Playlist contract through Public Client HTTP routes, access enforcement, and Rust client support before returning to web UI."
+    "notes": "Continue with UPCW-050. Restore the first web playlist UI using live Public Client data with fixture fallback and route-owned state."
   }
 }

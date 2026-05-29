@@ -38,12 +38,14 @@ Last updated: 2026-05-29
 
 ## M3 - Public API, SDKs, And Access Enforcement
 
-- [ ] UPCW-040 [owner=Codex] [deps=UPCW-030] [scope=crates/nako-api,crates/nako-server/src/http,sdk/typescript,crates/nako-client]
+- [x] UPCW-040 [owner=Codex] [deps=UPCW-030] [scope=crates/nako-api,crates/nako-server/src/http,sdk/typescript,crates/nako-client]
   Goal: Expose `/users/me/playlists` routes through Public Client API, OpenAPI, TypeScript SDK, and Rust client with effective Library Access filtering.
   Validation: focused API/server route tests; SDK generation check; `cargo nextest run -p nako-api playlist --no-fail-fast`; `cargo nextest run -p nako-server user_playlist --no-fail-fast`.
   Review: Public DTOs must not expose admin policy rows, internal principal ids, source locators, or inaccessible item facts.
-  Evidence: route tests, generated SDK diff, and HTTP API notes.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Evidence: DONE. Public Client `/users/me/playlists` HTTP routes, DTO
+  mapping, access-filtered item responses/counts, Rust client methods, SDK
+  inventory assertions, and TypeScript SDK check are implemented and validated.
+  Handoff: DONE. Next task is UPCW-050.
 
 ## M4 - Web First Slice
 

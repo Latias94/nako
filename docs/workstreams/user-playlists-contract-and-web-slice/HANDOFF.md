@@ -5,10 +5,10 @@ Last updated: 2026-05-29
 
 ## Current State
 
-This lane is open. UPCW-020 froze the User Playlist Public Client contract, and
-UPCW-030 implemented backend persistence plus app-service validation. Playlist
-UI remains blocked until Public Client routes, SDK methods, and access
-enforcement land in later tasks.
+This lane is open. UPCW-020 froze the User Playlist Public Client contract,
+UPCW-030 implemented backend persistence plus app-service validation, and
+UPCW-040 exposed the contract through Public Client HTTP routes, access
+filtering, and Rust client methods. Playlist UI can now start in UPCW-050.
 
 Important boundaries:
 
@@ -18,6 +18,7 @@ Important boundaries:
 - Public routes should be current-user routes under `/users/me/playlists`.
 - Public item responses omit inaccessible membership rows instead of returning
   tombstones.
+- Public playlist `item_count` is the current access-filtered count.
 - Duplicate playlist membership is rejected by contract; add is idempotent.
 - Backend membership persistence now keeps one row per playlist/media item and
   preserves explicit zero-based order.
@@ -25,16 +26,15 @@ Important boundaries:
 
 ## Active Task
 
-- Task ID: UPCW-040
+- Task ID: UPCW-050
 - Owner: Codex
 - Status: READY
-- Validation: focused API/server route tests; SDK generation check;
-  `cargo nextest run -p nako-api playlist --no-fail-fast`;
-  `cargo nextest run -p nako-server user_playlist --no-fail-fast`.
+- Validation: `npm --prefix web run test`;
+  `npm --prefix web run check`; `npm --prefix web run build:budget`;
+  browser smoke.
 
 ## Next Recommended Action
 
-Start UPCW-040. Expose `/users/me/playlists` through Public Client HTTP routes,
-map app-service records into public DTOs, enforce effective Library Access for
-item responses, and add Rust client support. Do not restore `web/` playlist UI
-until UPCW-040 is complete.
+Start UPCW-050. Restore the first playlist UI in `web/` using live Public
+Client data with fixture fallback and route-owned state. Keep the UI on Public
+Client contracts and avoid Admin API imports.
