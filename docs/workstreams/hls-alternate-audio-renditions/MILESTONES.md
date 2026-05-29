@@ -1,6 +1,6 @@
 # HLS Alternate Audio Renditions Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 ## Milestone 1 - Workstream Opened
@@ -13,14 +13,14 @@ Status: Done
 
 ## Milestone 2 - Selected Audio Mapping Executable
 
-Status: Pending
+Status: Done
 
 - HLS FFmpeg command planning maps requested source audio streams.
 - Default optional audio and no-audio adaptive behavior remain unchanged.
 
 ## Milestone 3 - Alternate Audio Boundary Decision
 
-Status: Pending
+Status: Done
 
 - The lane either continues into audio sidecar artifacts or closes with a
   precise follow-on.
@@ -28,7 +28,7 @@ Status: Pending
 
 ## Milestone 4 - Verified Closeout
 
-Status: Pending
+Status: Done
 
 - Focused transcode/server gates pass.
 - Workstream evidence is recorded and committed.

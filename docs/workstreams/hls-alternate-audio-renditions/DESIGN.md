@@ -1,6 +1,6 @@
 # HLS Alternate Audio Renditions - Design
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 ## Problem
@@ -85,3 +85,11 @@ Future alternate audio:
 This lane can close when selected HLS audio mapping is executable and verified,
 or when evidence shows audio sidecar generation is ready enough to continue to
 `TYPE=AUDIO` media groups in the same lane.
+
+## Closeout Decision
+
+This lane closes after selected-audio correctness. True alternate audio
+renditions require a separate artifact lane because current playback/source
+facts expose one selected audio stream to HLS planning, not a publishable set of
+audio renditions. Emitting `TYPE=AUDIO` now would advertise artifacts that Nako
+does not generate.

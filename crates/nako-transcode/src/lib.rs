@@ -123,6 +123,7 @@ mod tests {
                 HlsOutputRequirement::default(),
             ),
             segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -164,6 +165,37 @@ mod tests {
     }
 
     #[test]
+    fn ffmpeg_builder_plans_hls_selected_audio_stream_map() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            artifacts: hls_artifacts(
+                "hls",
+                "hls/playlist.m3u8",
+                "hls/segment_%05d.ts",
+                HlsOutputRequirement::default(),
+            ),
+            segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection {
+                audio_stream: Some(2),
+                subtitle_stream: None,
+            },
+            execution_policy: hls_policy(HardwareAcceleration::None),
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let argv = builder.hls(&request).unwrap().argv_lossy();
+        let maps = argv
+            .windows(2)
+            .filter_map(|args| (args[0] == "-map").then_some(args[1].as_str()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(maps, vec!["0:v:0", "0:2"]);
+        assert!(!argv.iter().any(|arg| arg == "0:a:0?"));
+    }
+
+    #[test]
     fn ffmpeg_builder_plans_hls_fmp4_single_variant() {
         let builder = FfmpegCommandBuilder::new("ffmpeg");
         let request = HlsRequest {
@@ -179,6 +211,7 @@ mod tests {
                 },
             ),
             segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -219,6 +252,7 @@ mod tests {
             input_path: PathBuf::from("input.mkv"),
             artifacts,
             segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -242,6 +276,7 @@ mod tests {
             input_path: PathBuf::from("input.mkv"),
             artifacts,
             segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -274,6 +309,42 @@ mod tests {
     }
 
     #[test]
+    fn ffmpeg_builder_plans_adaptive_hls_selected_audio_stream_map_per_rendition() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let artifacts = HlsArtifactManifest::adaptive_fmp4(
+            "hls",
+            "hls/master.m3u8",
+            HlsRendition::default_adaptive_ladder(),
+        )
+        .unwrap();
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            artifacts,
+            segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection {
+                audio_stream: Some(2),
+                subtitle_stream: None,
+            },
+            execution_policy: hls_policy(HardwareAcceleration::None),
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let argv = builder.hls(&request).unwrap().argv_lossy();
+        let selected_audio_map_count = argv
+            .windows(2)
+            .filter(|args| args[0] == "-map" && args[1] == "0:2")
+            .count();
+
+        assert_eq!(selected_audio_map_count, 2);
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-var_stream_map" && args[1] == "v:0,a:0 v:1,a:1")
+        );
+        assert!(!argv.iter().any(|arg| arg == "0:a:0?"));
+    }
+
+    #[test]
     fn ffmpeg_builder_plans_adaptive_hls_without_audio_streams() {
         let builder = FfmpegCommandBuilder::new("ffmpeg");
         let artifacts = HlsArtifactManifest::adaptive_fmp4_with_audio(
@@ -288,6 +359,10 @@ mod tests {
             input_path: PathBuf::from("input.mkv"),
             artifacts,
             segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection {
+                audio_stream: Some(2),
+                subtitle_stream: None,
+            },
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -299,6 +374,7 @@ mod tests {
                 .any(|args| args[0] == "-var_stream_map" && args[1] == "v:0 v:1")
         );
         assert!(!argv.iter().any(|arg| arg == "0:a:0?"));
+        assert!(!argv.iter().any(|arg| arg == "0:2"));
         assert!(!argv.windows(2).any(|args| args[0] == "-c:a"));
     }
 
@@ -373,6 +449,7 @@ mod tests {
             input_path: PathBuf::from("input.mkv"),
             artifacts,
             segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -393,6 +470,7 @@ mod tests {
                 HlsOutputRequirement::default(),
             ),
             segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
             execution_policy: hls_policy(HardwareAcceleration::Nvenc),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -418,6 +496,7 @@ mod tests {
                 HlsOutputRequirement::default(),
             ),
             segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
             execution_policy: hls_policy(HardwareAcceleration::Vaapi),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -455,6 +534,7 @@ mod tests {
                 HlsOutputRequirement::default(),
             ),
             segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
             execution_policy: hls_policy(HardwareAcceleration::QuickSync),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -495,6 +575,7 @@ mod tests {
                     HlsOutputRequirement::default(),
                 ),
                 segment_time_seconds: 6,
+                track_selection: TranscodeTrackSelection::default(),
                 execution_policy: hls_policy(acceleration),
                 overwrite: FfmpegOverwritePolicy::Allow,
             };
@@ -523,6 +604,7 @@ mod tests {
                 HlsOutputRequirement::default(),
             ),
             segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
             execution_policy,
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -554,6 +636,7 @@ mod tests {
                 HlsOutputRequirement::default(),
             ),
             segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
             execution_policy,
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -594,6 +677,7 @@ mod tests {
             input_path: PathBuf::from("input.mkv"),
             artifacts,
             segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
             execution_policy,
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -628,6 +712,7 @@ mod tests {
                 HlsOutputRequirement::default(),
             ),
             segment_time_seconds: 0,
+            track_selection: TranscodeTrackSelection::default(),
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -658,6 +743,7 @@ mod tests {
                 HlsOutputRequirement::default(),
             ),
             segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
             execution_policy,
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -1822,6 +1908,7 @@ hevc_metadata
                 HlsOutputRequirement::default(),
             ),
             segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -2199,6 +2286,7 @@ hevc_metadata
                         HlsOutputRequirement::default(),
                     ),
                     segment_time_seconds: 6,
+                    track_selection: TranscodeTrackSelection::default(),
                     execution_policy: hls_policy(HardwareAcceleration::None),
                     overwrite: FfmpegOverwritePolicy::Allow,
                 },

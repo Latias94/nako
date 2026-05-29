@@ -140,6 +140,7 @@ impl HlsAppService {
         decision: PlaybackDecision,
         input_path: PathBuf,
         layout: HlsOutputLayout,
+        track_selection: TranscodeTrackSelection,
         execution_policy: TranscodeExecutionPolicy,
         request_identity: TranscodeRequestIdentity,
     ) -> Result<HlsSourceOutput> {
@@ -166,6 +167,7 @@ impl HlsAppService {
                         decision,
                         input_path,
                         layout,
+                        track_selection,
                         execution_policy,
                     )
                     .await;
@@ -260,6 +262,7 @@ impl HlsAppService {
         decision: PlaybackDecision,
         input_path: PathBuf,
         layout: HlsOutputLayout,
+        track_selection: TranscodeTrackSelection,
         execution_policy: TranscodeExecutionPolicy,
     ) -> Result<HlsSourceOutput> {
         let session_id = persisted_session.id;
@@ -274,6 +277,7 @@ impl HlsAppService {
                 input_path,
                 artifacts: layout.artifacts.clone(),
                 segment_time_seconds: 6,
+                track_selection,
                 execution_policy,
                 overwrite: FfmpegOverwritePolicy::Allow,
             },

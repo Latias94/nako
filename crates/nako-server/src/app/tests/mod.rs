@@ -1254,6 +1254,86 @@ fn fake_hls_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
     hls_ffmpeg_script(root, name, true, hardware_encoder_lines())
 }
 
+fn fake_hls_ffmpeg_script_requiring_audio_map(
+    root: &Path,
+    name: &str,
+    required_audio_map: &str,
+) -> PathBuf {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let path = root.join(name);
+        let mut content = String::from("#!/bin/sh\n");
+        push_unix_ffmpeg_probe_handlers(&mut content, hardware_encoder_lines());
+        content.push_str("required_audio_map='");
+        content.push_str(required_audio_map);
+        content.push_str("'\n");
+        content.push_str("seen_audio_map=0\n");
+        content.push_str("out=\n");
+        content.push_str("prev=\n");
+        content.push_str("for arg do\n");
+        content.push_str("  if [ \"$prev\" = \"-map\" ] && [ \"$arg\" = \"$required_audio_map\" ]; then seen_audio_map=1; fi\n");
+        content.push_str("  case \"$arg\" in *.m3u8) out=\"$arg\" ;; esac\n");
+        content.push_str("  prev=\"$arg\"\n");
+        content.push_str("done\n");
+        content.push_str("if [ \"$seen_audio_map\" != \"1\" ]; then printf 'missing selected audio map %s\\n' \"$required_audio_map\" >&2; exit 43; fi\n");
+        content.push_str("dir=$(dirname \"$out\")\n");
+        content.push_str("mkdir -p \"$dir\"\n");
+        content.push_str(
+            "printf '#EXTM3U\\n#EXTINF:1,\\nsegment_00000.ts\\n#EXT-X-ENDLIST\\n' > \"$out\"\n",
+        );
+        content.push_str("printf segment > \"$dir/segment_00000.ts\"\n");
+        content
+            .push_str("printf 'frame=12\\nout_time_us=1500000\\nspeed=1.25x\\nprogress=end\\n'\n");
+        content.push_str("exit 0\n");
+        fs::write(&path, content).unwrap();
+        let mut permissions = fs::metadata(&path).unwrap().permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&path, permissions).unwrap();
+        path
+    }
+
+    #[cfg(windows)]
+    {
+        let path = root.join(format!("{name}.cmd"));
+        let mut content = String::from("@echo off\r\n");
+        push_windows_ffmpeg_probe_handlers(&mut content);
+        content.push_str("setlocal enabledelayedexpansion\r\n");
+        content.push_str("set required_audio_map=");
+        content.push_str(required_audio_map);
+        content.push_str("\r\n");
+        content.push_str("set seen_audio_map=0\r\n");
+        content.push_str("set out=\r\n");
+        content.push_str("set prev=\r\n");
+        content.push_str(":args\r\n");
+        content.push_str("if \"%~1\"==\"\" goto run\r\n");
+        content.push_str(
+            "if \"!prev!\"==\"-map\" if \"%~1\"==\"!required_audio_map!\" set seen_audio_map=1\r\n",
+        );
+        content.push_str("for %%I in (\"%~1\") do if /I \"%%~xI\"==\".m3u8\" set out=%~1\r\n");
+        content.push_str("set prev=%~1\r\n");
+        content.push_str("shift\r\n");
+        content.push_str("goto args\r\n");
+        content.push_str(":run\r\n");
+        content.push_str("if not \"!seen_audio_map!\"==\"1\" echo missing selected audio map !required_audio_map! 1>&2 & exit /b 43\r\n");
+        content.push_str("for %%I in (\"%out%\") do set dir=%%~dpI\r\n");
+        content.push_str("if not exist \"!dir!\" mkdir \"!dir!\"\r\n");
+        content.push_str(">\"%out%\" echo #EXTM3U\r\n");
+        content.push_str(">>\"%out%\" echo #EXTINF:1,\r\n");
+        content.push_str(">>\"%out%\" echo segment_00000.ts\r\n");
+        content.push_str(">>\"%out%\" echo #EXT-X-ENDLIST\r\n");
+        content.push_str(">\"!dir!segment_00000.ts\" echo segment\r\n");
+        content.push_str("echo frame=12\r\n");
+        content.push_str("echo out_time_us=1500000\r\n");
+        content.push_str("echo speed=1.25x\r\n");
+        content.push_str("echo progress=end\r\n");
+        content.push_str("exit /b 0\r\n");
+        fs::write(&path, content).unwrap();
+        path
+    }
+}
+
 fn fake_failing_hls_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
     hls_ffmpeg_script(root, name, false, hardware_encoder_lines())
 }

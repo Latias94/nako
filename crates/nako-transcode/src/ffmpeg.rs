@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use super::{
     HLS_ADAPTIVE_FMP4_INIT_PATTERN, HardwareAcceleration, HlsArtifactManifest, HlsRendition,
     HlsSegmentContainer, HlsVariantPolicy, TranscodeAccelerationPlan, TranscodeExecutionPolicy,
-    TranscodeSubtitleStrategy,
+    TranscodeSubtitleStrategy, TranscodeTrackSelection,
 };
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -99,6 +99,7 @@ pub struct HlsRequest {
     pub input_path: PathBuf,
     pub artifacts: HlsArtifactManifest,
     pub segment_time_seconds: u32,
+    pub track_selection: TranscodeTrackSelection,
     pub execution_policy: TranscodeExecutionPolicy,
     pub overwrite: FfmpegOverwritePolicy,
 }
@@ -287,7 +288,7 @@ fn plan_single_variant_hls_command_parts(request: &HlsRequest) -> FfmpegHlsComma
         global: hls_global_args(request.overwrite),
         device_input: hls_device_input_args(request.execution_policy.acceleration),
         input: hls_input_args(&request.input_path),
-        stream_map: hls_stream_map_args(),
+        stream_map: hls_stream_map_args(request.track_selection),
         filter_graph: hls_filter_graph_args(request.execution_policy.acceleration),
         video_encoder: hls_video_encoder_args(request.execution_policy),
         audio_encoder: hls_audio_encoder_args(),
@@ -313,6 +314,7 @@ fn plan_adaptive_hls_command_parts(request: &HlsRequest) -> FfmpegHlsCommandPart
         stream_map: hls_adaptive_stream_map_args(
             request.artifacts.renditions().len(),
             request.artifacts.has_audio(),
+            request.track_selection,
         ),
         filter_graph: hls_filter_graph_args(request.execution_policy.acceleration),
         video_encoder: hls_adaptive_video_encoder_args(
@@ -395,12 +397,12 @@ fn hls_input_args(input_path: &Path) -> Vec<FfmpegArg> {
     ]
 }
 
-fn hls_stream_map_args() -> Vec<FfmpegArg> {
+fn hls_stream_map_args(track_selection: TranscodeTrackSelection) -> Vec<FfmpegArg> {
     vec![
         FfmpegArg::raw("-map"),
         FfmpegArg::raw("0:v:0"),
         FfmpegArg::raw("-map"),
-        FfmpegArg::raw("0:a:0?"),
+        FfmpegArg::raw(hls_audio_stream_map(track_selection)),
     ]
 }
 
@@ -434,16 +436,30 @@ fn hls_video_encoder_args(policy: TranscodeExecutionPolicy) -> Vec<FfmpegArg> {
     args
 }
 
-fn hls_adaptive_stream_map_args(rendition_count: usize, has_audio: bool) -> Vec<FfmpegArg> {
+fn hls_adaptive_stream_map_args(
+    rendition_count: usize,
+    has_audio: bool,
+    track_selection: TranscodeTrackSelection,
+) -> Vec<FfmpegArg> {
     let mut args =
         Vec::with_capacity(rendition_count.saturating_mul(if has_audio { 4 } else { 2 }));
+    let audio_stream_map = hls_audio_stream_map(track_selection);
     for _ in 0..rendition_count {
         args.extend([FfmpegArg::raw("-map"), FfmpegArg::raw("0:v:0")]);
         if has_audio {
-            args.extend([FfmpegArg::raw("-map"), FfmpegArg::raw("0:a:0?")]);
+            args.extend([
+                FfmpegArg::raw("-map"),
+                FfmpegArg::raw(audio_stream_map.clone()),
+            ]);
         }
     }
     args
+}
+
+fn hls_audio_stream_map(track_selection: TranscodeTrackSelection) -> String {
+    track_selection
+        .audio_stream
+        .map_or_else(|| "0:a:0?".to_owned(), |stream| format!("0:{stream}"))
 }
 
 fn hls_adaptive_video_encoder_args(

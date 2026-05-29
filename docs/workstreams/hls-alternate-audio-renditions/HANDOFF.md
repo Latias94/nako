@@ -1,27 +1,26 @@
 # HLS Alternate Audio Renditions Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 ## Current State
 
-This workstream is open. The next executable task is HAA-020: make selected HLS
-audio stream mapping consume `TranscodeTrackSelection.audio_stream`.
+This workstream is closed. HLS selected audio stream mapping now consumes
+`TranscodeTrackSelection.audio_stream`.
 
 ## Next Task
 
-Start with HAA-020.
+Recommended follow-on: open an audio sidecar artifact lane before emitting
+`EXT-X-MEDIA:TYPE=AUDIO`.
 
 Recommended order:
 
-1. Add a failing `nako-transcode` HLS command builder test for
-   `audio_stream: Some(2)` expecting `-map 0:2`.
-2. Change single-variant HLS stream map construction to consume track
-   selection.
-3. Change adaptive HLS stream map construction to repeat the selected audio map
-   for each rendition while preserving no-audio behavior.
-4. Add or extend a `nako-server` HLS source test so the fake runner records the
-   selected audio map for requested audio playback.
+1. Extend source facts/planner output to expose publishable audio rendition
+   candidates, not only one selected audio stream.
+2. Add `HlsAudioRendition` identity and artifact naming to
+   `HlsMediaRenditionPlan`.
+3. Generate audio-only HLS playlists and segments with FFmpeg.
+4. Advertise only generated audio artifacts with `EXT-X-MEDIA:TYPE=AUDIO`.
 
 ## Validation To Preserve
 

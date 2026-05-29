@@ -1,6 +1,6 @@
 # HLS Alternate Audio Renditions TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 ## Task Ledger
@@ -28,7 +28,7 @@ git diff --check -- docs/workstreams/hls-alternate-audio-renditions docs/workstr
 
 ### HAA-020 - Make selected HLS audio stream mapping executable
 
-Status: Pending
+Status: Done
 Owner: codex
 Depends on: HAA-010
 
@@ -47,9 +47,16 @@ cargo nextest run -p nako-transcode hls --no-fail-fast
 cargo nextest run -p nako-server hls --no-fail-fast
 ```
 
+Result:
+
+- Added `track_selection` to `HlsRequest`.
+- Single-variant HLS maps requested source audio stream `N` as `0:N`.
+- Adaptive HLS repeats the selected source audio map once per rendition.
+- No-audio adaptive HLS still omits audio maps and encoders.
+
 ### HAA-030 - Decide and document the alternate audio artifact boundary
 
-Status: Pending
+Status: Done
 Owner: codex
 Depends on: HAA-020
 
@@ -68,3 +75,10 @@ cargo nextest run -p nako-server playback --no-fail-fast
 cargo fmt --all -- --check
 git diff --check
 ```
+
+Result:
+
+- Closed this lane after selected-audio correctness.
+- Deferred `HlsAudioRendition` and `EXT-X-MEDIA:TYPE=AUDIO` to a follow-on
+  audio sidecar artifact lane so Nako does not advertise nonexistent audio
+  playlists.

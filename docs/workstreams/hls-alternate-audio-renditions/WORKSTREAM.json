@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "hls-alternate-audio-renditions",
   "title": "HLS Alternate Audio Renditions",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-05-29",
   "scope_kind": "fearless_refactor",
   "problem": "Nako carries requested HLS audio stream identity but executable FFmpeg HLS stream mapping still defaults to the first audio stream, which must be fixed before truthful alternate audio media groups can be advertised.",
@@ -44,6 +44,14 @@
     {
       "task": "HAA-010",
       "summary": "Opened a durable lane for HLS alternate audio after finding selected HLS audio stream identity is not yet honored by FFmpeg stream mapping."
+    },
+    {
+      "task": "HAA-020",
+      "summary": "Added HlsRequest track selection and made single-variant/adaptive HLS FFmpeg stream maps honor requested source audio streams while preserving default optional audio and no-audio adaptive behavior."
+    },
+    {
+      "task": "HAA-030",
+      "summary": "Closed before emitting TYPE=AUDIO because Nako does not yet generate audio-only HLS sidecar artifacts; recorded a follow-on audio sidecar artifact lane."
     }
   ],
   "adr_refs": [
@@ -52,8 +60,8 @@
     "docs/adr/0049-source-aware-transcode-runtime.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "next_task": "HAA-020",
-    "notes": "Implement selected HLS audio stream mapping before advertising alternate audio groups."
+    "default_action": "closed",
+    "next_task": "none",
+    "notes": "Workstream closed. Recommended follow-on is audio sidecar artifact generation plus TYPE=AUDIO master playlist authoring."
   }
 }

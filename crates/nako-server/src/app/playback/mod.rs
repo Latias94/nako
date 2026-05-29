@@ -1664,6 +1664,7 @@ impl PlaybackAppService {
                 decision,
                 input.path.clone(),
                 layout,
+                hls_profile.track_selection,
                 execution_policy,
                 request_identity,
             )
