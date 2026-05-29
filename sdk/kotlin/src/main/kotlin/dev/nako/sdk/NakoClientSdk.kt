@@ -1224,6 +1224,8 @@ public data class BrowserPlaybackTicketResponse(
     @SerialName("item_id")
     public val itemId: String? = null,
     public val mode: BrowserPlaybackTicketResponseMode,
+    @SerialName("playback_session_id")
+    public val playbackSessionId: String?,
     @SerialName("source_id")
     public val sourceId: String,
     public val urls: List<BrowserPlaybackUrlDto>,

@@ -22,12 +22,12 @@ Last updated: 2026-05-29
 
 ## M2 - Server And SDK Implementation
 
-- [ ] PBSI-030 [owner=Codex] [deps=PBSI-020] [scope=crates/nako-server,crates/nako-api,sdk/typescript,crates/nako-client]
+- [x] PBSI-030 [owner=Codex] [deps=PBSI-020] [scope=crates/nako-server,crates/nako-api,sdk/typescript,crates/nako-client]
   Goal: Implement the accepted DTO/server mapping and regenerate SDKs.
   Validation: focused playback route tests; SDK generation check; `cargo nextest run -p nako-server browser_playback --no-fail-fast`.
   Review: browser media URLs stay token-safe.
-  Evidence: server/API tests and generated SDK diff.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Evidence: DONE. Protocol/API/Rust client/server playback tests pass; TypeScript and Kotlin SDK package entries were regenerated and matched generator output.
+  Handoff: DONE. Next task is PBSI-040.
 
 ## M3 - Web Heartbeat Integration
 

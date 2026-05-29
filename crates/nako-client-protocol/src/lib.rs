@@ -841,6 +841,7 @@ mod tests {
         let response = BrowserPlaybackTicketResponse {
             source_id: "source-1".to_owned(),
             item_id: Some("item-1".to_owned()),
+            playback_session_id: Some("playback-1".to_owned()),
             mode: BrowserPlaybackMode::Hls,
             expires_at: "2026-05-26T12:00:00Z".to_owned(),
             urls: vec![BrowserPlaybackUrlDto {
@@ -853,6 +854,7 @@ mod tests {
 
         let value = serde_json::to_value(response).unwrap();
         assert_eq!(value["mode"], "hls");
+        assert_eq!(value["playback_session_id"], "playback-1");
         assert_eq!(value["urls"][0]["kind"], "playlist");
         assert_eq!(
             value["urls"][0]["content_type"],
@@ -873,6 +875,7 @@ mod tests {
         let subtitle_response = BrowserPlaybackTicketResponse {
             source_id: "source-1".to_owned(),
             item_id: Some("item-1".to_owned()),
+            playback_session_id: None,
             mode: BrowserPlaybackMode::Subtitle,
             expires_at: "2026-05-26T12:00:00Z".to_owned(),
             urls: vec![BrowserPlaybackUrlDto {
@@ -884,6 +887,7 @@ mod tests {
         };
         let subtitle_value = serde_json::to_value(subtitle_response).unwrap();
         assert_eq!(subtitle_value["mode"], "subtitle");
+        assert!(subtitle_value["playback_session_id"].is_null());
         assert_eq!(subtitle_value["urls"][0]["kind"], "subtitle");
         assert!(subtitle_value.get("locator").is_none());
     }
@@ -1073,6 +1077,7 @@ mod tests {
             serde_json::from_value::<BrowserPlaybackTicketResponse>(serde_json::json!({
                 "source_id": "source-1",
                 "item_id": null,
+                "playback_session_id": "playback-1",
                 "mode": "future_browser_mode",
                 "expires_at": "2026-05-26T12:00:00Z",
                 "urls": [{

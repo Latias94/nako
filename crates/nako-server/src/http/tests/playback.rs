@@ -677,7 +677,7 @@ async fn direct_stream_route_records_playback_session_without_transcode_artifact
 
 #[tokio::test]
 async fn browser_playback_ticket_streams_direct_bytes_without_bearer() {
-    let (_temp, app, source, _store) =
+    let (_temp, app, source, store) =
         app_with_media_source_config("ticket.mp4", b"0123456789", |_| {}).await;
     let router = build_router_with_auth(app, auth::InboundAuthState::bearer_token("secret"));
     let issue_request = nako_api::public_client::BrowserPlaybackTicketRequest {
@@ -728,6 +728,11 @@ async fn browser_playback_ticket_streams_direct_bytes_without_bearer() {
     );
     assert!(ticket.urls[0].url.contains("ticket="));
     assert!(!ticket.urls[0].url.contains("Bearer"));
+    let playback_session_id = ticket
+        .playback_session_id
+        .as_deref()
+        .expect("direct browser ticket exposes heartbeat session identity");
+    assert!(!ticket.urls[0].url.contains("playback_session_id"));
     let ticket_token = ticket_param(&ticket.urls[0].url);
     assert!(ticket_token.starts_with("nako_bpt_"));
     assert!(!ticket_token.contains(&source.id.to_string()));
@@ -746,10 +751,52 @@ async fn browser_playback_ticket_streams_direct_bytes_without_bearer() {
         .unwrap();
 
     assert_eq!(stream_response.status(), StatusCode::PARTIAL_CONTENT);
+    assert_eq!(
+        stream_response
+            .headers()
+            .get(PLAYBACK_SESSION_ID_HEADER)
+            .and_then(|value| value.to_str().ok()),
+        Some(playback_session_id)
+    );
     let bytes = to_bytes(stream_response.into_body(), usize::MAX)
         .await
         .unwrap();
     assert_eq!(&bytes[..], b"2345");
+    let session = store
+        .get_playback_session(playback_session_id.parse().unwrap())
+        .await
+        .unwrap()
+        .expect("ticket response should point at a durable playback session");
+    assert_eq!(session.source_id, source.id);
+    assert_eq!(session.mode, PlaybackSessionMode::Direct);
+    assert!(session.transcode_session_id.is_none());
+
+    let heartbeat_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/playback/sessions/{playback_session_id}/heartbeat"
+                ))
+                .header(header::AUTHORIZATION, "Bearer secret")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_vec(&nako_api::public_client::PlaybackSessionHeartbeatRequest {
+                        state: nako_api::public_client::ClientPlaybackSessionState::Active,
+                        position_ms: Some(2),
+                        duration_ms: Some(10),
+                    })
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(heartbeat_response.status(), StatusCode::OK);
+    let heartbeat =
+        body_json::<nako_api::public_client::PlaybackSessionResponse>(heartbeat_response).await;
+    assert_eq!(heartbeat.session.id, playback_session_id);
 
     let invalid = response_for(
         &router,
@@ -811,6 +858,7 @@ async fn browser_playback_ticket_streams_sidecar_subtitle_without_bearer() {
         ticket.mode,
         nako_api::public_client::BrowserPlaybackMode::Subtitle
     );
+    assert!(ticket.playback_session_id.is_none());
     assert_eq!(
         ticket.urls[0].kind,
         nako_api::public_client::BrowserPlaybackUrlKind::Subtitle
@@ -840,7 +888,7 @@ async fn browser_playback_ticket_streams_sidecar_subtitle_without_bearer() {
 }
 
 #[tokio::test]
-async fn browser_playback_ticket_response_currently_has_no_renderer_transport_scope() {
+async fn browser_playback_ticket_response_exposes_only_control_session_identity() {
     let (_temp, app, source, _store) =
         app_with_media_source_config("ticket-scope.mp4", b"0123456789", |_| {}).await;
     let router = build_router(app);
@@ -860,17 +908,90 @@ async fn browser_playback_ticket_response_currently_has_no_renderer_transport_sc
 
     let value = serde_json::to_value(&ticket).unwrap();
     assert!(value.get("renderer_session_id").is_none());
-    assert!(value.get("playback_session_id").is_none());
+    assert_eq!(
+        value["playback_session_id"].as_str(),
+        ticket.playback_session_id.as_deref()
+    );
+    assert!(ticket.playback_session_id.is_some());
     assert!(value.get("renderer_command_id").is_none());
     assert!(value.get("network_scope").is_none());
     assert!(value.get("transport_auth").is_none());
+    assert!(!ticket.urls[0].url.contains("playback_session_id"));
 
     let body = serde_json::to_string(&ticket).unwrap();
     assert!(!body.contains("renderer_session"));
-    assert!(!body.contains("playback_session"));
     assert!(!body.contains("network_scope"));
     assert!(!body.contains("cast_ticket"));
     assert!(body.contains("nako_bpt_"));
+}
+
+#[tokio::test]
+async fn browser_playback_ticket_heartbeat_requires_owner_and_play_access() {
+    let (_temp, app, source, store) =
+        app_with_media_source_config("ticket-heartbeat.mp4", b"0123456789", |_| {}).await;
+    let owner_principal =
+        local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::Play).await;
+    let owner_user_id = owner_principal.user_id;
+    let owner_router = public_client_router_with_principal(app.clone(), owner_principal);
+    let other_principal =
+        local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::Play).await;
+    let other_router = public_client_router_with_principal(app.clone(), other_principal);
+    let issue_request = nako_api::public_client::BrowserPlaybackTicketRequest {
+        mode: nako_api::public_client::BrowserPlaybackMode::Direct,
+        capabilities: None,
+        subtitle_stream_index: None,
+    };
+    let heartbeat = nako_api::public_client::PlaybackSessionHeartbeatRequest {
+        state: nako_api::public_client::ClientPlaybackSessionState::Active,
+        position_ms: Some(1),
+        duration_ms: Some(10),
+    };
+
+    let ticket = request_body_json::<nako_api::public_client::BrowserPlaybackTicketResponse, _>(
+        &owner_router,
+        Method::POST,
+        &format!("/sources/{}/playback/browser-ticket", source.id),
+        &issue_request,
+    )
+    .await;
+    let playback_session_id = ticket
+        .playback_session_id
+        .as_deref()
+        .expect("direct ticket exposes heartbeat session identity");
+
+    let owner = response_body_json(
+        &owner_router,
+        Method::POST,
+        &format!("/playback/sessions/{playback_session_id}/heartbeat"),
+        &heartbeat,
+    )
+    .await;
+    assert_eq!(owner.status(), StatusCode::OK);
+
+    let non_owner = response_body_json(
+        &other_router,
+        Method::POST,
+        &format!("/playback/sessions/{playback_session_id}/heartbeat"),
+        &heartbeat,
+    )
+    .await;
+    assert_eq!(non_owner.status(), StatusCode::NOT_FOUND);
+
+    store
+        .delete_library_access_policy(
+            LibraryAccessPolicyScope::User(owner_user_id),
+            source.library_id,
+        )
+        .await
+        .unwrap();
+    let revoked_owner = response_body_json(
+        &owner_router,
+        Method::POST,
+        &format!("/playback/sessions/{playback_session_id}/heartbeat"),
+        &heartbeat,
+    )
+    .await;
+    assert_eq!(revoked_owner.status(), StatusCode::NOT_FOUND);
 }
 
 #[tokio::test]
@@ -1276,8 +1397,13 @@ async fn browser_playback_ticket_streams_remux_bytes() {
         ticket.mode,
         nako_api::public_client::BrowserPlaybackMode::Remux
     );
+    let playback_session_id = ticket
+        .playback_session_id
+        .as_deref()
+        .expect("remux browser ticket exposes heartbeat session identity");
     assert!(ticket.urls[0].url.contains("output_container=mp4"));
     assert!(ticket.urls[0].supports_range_requests);
+    assert!(!ticket.urls[0].url.contains("playback_session_id"));
 
     let response = router
         .clone()
@@ -1292,7 +1418,21 @@ async fn browser_playback_ticket_streams_remux_bytes() {
         .await
         .unwrap();
 
-    assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
+    if response.status() != StatusCode::PARTIAL_CONTENT {
+        let status = response.status();
+        let error = body_json::<ErrorResponse>(response).await;
+        panic!(
+            "expected remux browser ticket response 206, got {status}: {} {}",
+            error.code, error.message
+        );
+    }
+    assert_eq!(
+        response
+            .headers()
+            .get(PLAYBACK_SESSION_ID_HEADER)
+            .and_then(|value| value.to_str().ok()),
+        Some(playback_session_id)
+    );
     assert_eq!(
         response
             .headers()
@@ -2020,14 +2160,26 @@ async fn browser_playback_ticket_protects_hls_playlist_and_segments() {
         ticket.mode,
         nako_api::public_client::BrowserPlaybackMode::Hls
     );
+    let playback_session_id = ticket
+        .playback_session_id
+        .as_deref()
+        .expect("hls browser ticket exposes heartbeat session identity");
     assert_eq!(
         ticket.urls[0].kind,
         nako_api::public_client::BrowserPlaybackUrlKind::Playlist
     );
     assert!(ticket.urls[0].url.contains("ticket="));
+    assert!(!ticket.urls[0].url.contains("playback_session_id"));
 
     let playlist_response = response_for(&router, Method::GET, &ticket.urls[0].url).await;
     assert_eq!(playlist_response.status(), StatusCode::OK);
+    assert_eq!(
+        playlist_response
+            .headers()
+            .get(PLAYBACK_SESSION_ID_HEADER)
+            .and_then(|value| value.to_str().ok()),
+        Some(playback_session_id)
+    );
     let playlist = response_text(playlist_response).await;
     assert!(playlist.contains("?ticket="));
     assert!(!playlist.contains("Bearer"));
@@ -2036,6 +2188,7 @@ async fn browser_playback_ticket_protects_hls_playlist_and_segments() {
         .find(|line| line.starts_with("/playback/sessions/"))
         .expect("playlist contains ticketed segment URL")
         .to_owned();
+    assert!(segment_uri.starts_with(&format!("/playback/sessions/{playback_session_id}/")));
 
     let segment_response = response_for(&router, Method::GET, &segment_uri).await;
     assert_eq!(segment_response.status(), StatusCode::OK);

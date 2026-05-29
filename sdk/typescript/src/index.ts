@@ -78,6 +78,7 @@ export interface BrowserPlaybackTicketResponse {
   expires_at: string;
   item_id?: string | null;
   mode: "direct" | "remux" | "hls" | "subtitle";
+  playback_session_id: string | null;
   source_id: string;
   urls: Array<BrowserPlaybackUrlDto>;
 }

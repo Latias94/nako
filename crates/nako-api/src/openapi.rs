@@ -1282,9 +1282,10 @@ fn schemas() -> Value {
             "hls_segment_container": schema_ref("ClientHlsSegmentContainer"),
             "output_container": enum_schema(&["mp4", "mkv"])
         })),
-        "BrowserPlaybackTicketResponse": object_schema(&["source_id", "mode", "expires_at", "urls"], json!({
+        "BrowserPlaybackTicketResponse": object_schema(&["source_id", "playback_session_id", "mode", "expires_at", "urls"], json!({
             "source_id": uuid_schema(),
             "item_id": nullable_uuid_schema(),
+            "playback_session_id": nullable_uuid_schema(),
             "mode": enum_schema(&["direct", "remux", "hls", "subtitle"]),
             "expires_at": string_schema(),
             "urls": non_empty_array_schema(schema_ref("BrowserPlaybackUrlDto"))
@@ -1958,6 +1959,22 @@ mod tests {
         );
         assert_eq!(
             document["components"]["schemas"]["BrowserPlaybackTicketResponse"]["properties"]["item_id"]
+                ["nullable"],
+            true
+        );
+        assert!(
+            document["components"]["schemas"]["BrowserPlaybackTicketResponse"]["required"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("playback_session_id"))
+        );
+        assert_eq!(
+            document["components"]["schemas"]["BrowserPlaybackTicketResponse"]["properties"]["playback_session_id"]
+                ["format"],
+            "uuid"
+        );
+        assert_eq!(
+            document["components"]["schemas"]["BrowserPlaybackTicketResponse"]["properties"]["playback_session_id"]
                 ["nullable"],
             true
         );

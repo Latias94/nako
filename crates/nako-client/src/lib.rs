@@ -1643,6 +1643,7 @@ mod tests {
             json!({
                 "source_id": "source 1",
                 "item_id": "item-1",
+                "playback_session_id": "playback-1",
                 "mode": "hls",
                 "expires_at": "2026-05-26T12:00:00Z",
                 "urls": [{
@@ -1718,6 +1719,7 @@ mod tests {
 
         assert_eq!(decision.source.id, "source 1");
         assert_eq!(ticket.mode, BrowserPlaybackMode::Hls);
+        assert_eq!(ticket.playback_session_id.as_deref(), Some("playback-1"));
         assert_eq!(ticket.urls[0].kind, BrowserPlaybackUrlKind::Playlist);
         assert_eq!(
             session.session.state,

@@ -733,6 +733,21 @@ impl PlaybackAppService {
         .await
     }
 
+    fn client_capabilities_for_playback_session(
+        session: &PlaybackSessionRecord,
+    ) -> Result<ClientPlaybackCapabilities> {
+        let Some(value) = session.client_capabilities_json.as_deref() else {
+            return Ok(ClientPlaybackCapabilities::default());
+        };
+
+        serde_json::from_str(value).map_err(|err| NakoError::InvalidInput {
+            message: format!(
+                "playback session {} client capabilities could not be deserialized: {err}",
+                session.id
+            ),
+        })
+    }
+
     pub(crate) async fn start_renderer_playback_session(
         &self,
         request: StartRendererPlaybackSessionRequest,
@@ -1020,6 +1035,25 @@ impl PlaybackAppService {
         })
     }
 
+    pub(crate) async fn direct_playback_session_preflight(
+        &self,
+        request: DirectPlaybackSessionStreamRequest,
+    ) -> Result<DirectPlaybackPreflightOutput> {
+        let session = self
+            .existing_playback_session_for_media_request(
+                &request.principal,
+                request.playback_session_id,
+                request.source_id,
+                PlaybackSessionMode::Direct,
+            )
+            .await?;
+        let response = self
+            .plan_direct_play_preflight(request.source_id, request.range_request)
+            .await?;
+
+        Ok(DirectPlaybackPreflightOutput { session, response })
+    }
+
     pub(crate) async fn direct_playback_preflight(
         &self,
         request: DirectPlaybackPreflightRequest,
@@ -1153,7 +1187,7 @@ impl PlaybackAppService {
         &self,
         request: RemuxPlaybackSessionStreamRequest,
     ) -> Result<RemuxPlaybackStreamOutput> {
-        let playback_session = self
+        let mut playback_session = self
             .existing_playback_session_for_media_request(
                 &request.principal,
                 request.playback_session_id,
@@ -1161,15 +1195,29 @@ impl PlaybackAppService {
                 PlaybackSessionMode::Remux,
             )
             .await?;
-        let transcode_session_id =
-            playback_session
-                .transcode_session_id
-                .ok_or_else(|| NakoError::Conflict {
-                    message: format!(
-                        "playback session {} does not have a remux artifact",
-                        playback_session.id
-                    ),
-                })?;
+        let transcode_session_id = match playback_session.transcode_session_id {
+            Some(transcode_session_id) => transcode_session_id,
+            None => {
+                let client = Self::client_capabilities_for_playback_session(&playback_session)?;
+                let effective_policy = self
+                    .effective_playback_policy_for_source_id(&request.principal, request.source_id)
+                    .await?;
+                let remux_start = self
+                    .start_remux_source_with_policy(
+                        RemuxSourceRequest {
+                            source_id: request.source_id,
+                            client,
+                            output_container: request.output_container,
+                        },
+                        effective_policy,
+                    )
+                    .await?;
+                playback_session = self
+                    .link_playback_session_transcode(playback_session.id, remux_start.session.id)
+                    .await?;
+                remux_start.session.id
+            }
+        };
         let transcode = self
             .wait_for_remux_transcode_output(transcode_session_id)
             .await?;
@@ -1291,7 +1339,7 @@ impl PlaybackAppService {
         &self,
         request: HlsPlaylistSessionRequest,
     ) -> Result<HlsPlaylistPlaybackOutput> {
-        let playback_session = self
+        let mut playback_session = self
             .existing_playback_session_for_media_request(
                 &request.principal,
                 request.playback_session_id,
@@ -1299,15 +1347,37 @@ impl PlaybackAppService {
                 PlaybackSessionMode::Hls,
             )
             .await?;
-        let transcode_session_id =
-            playback_session
-                .transcode_session_id
-                .ok_or_else(|| NakoError::Conflict {
-                    message: format!(
-                        "playback session {} does not have an hls artifact",
-                        playback_session.id
-                    ),
-                })?;
+        if playback_session.transcode_session_id.is_none() {
+            let client = Self::client_capabilities_for_playback_session(&playback_session)?;
+            let effective_policy = self
+                .effective_playback_policy_for_source_id(&request.principal, request.source_id)
+                .await?;
+            let playlist = self
+                .hls_playlist_with_policy(
+                    HlsSourceRequest {
+                        source_id: request.source_id,
+                        client,
+                        preferences: PlaybackPreferenceContext::default(),
+                    },
+                    effective_policy,
+                )
+                .await?;
+            playback_session = self
+                .link_playback_session_transcode(playback_session.id, playlist.session.id)
+                .await?;
+            let body = self
+                .hls_artifacts
+                .rewrite_playlist_for_playback_session(&playlist.body, playback_session.id);
+
+            return Ok(HlsPlaylistPlaybackOutput {
+                session: playback_session,
+                body,
+            });
+        }
+
+        let transcode_session_id = playback_session
+            .transcode_session_id
+            .expect("checked above");
         let transcode = self.get_transcode_session(transcode_session_id).await?;
         if transcode.kind != TranscodeSessionKind::HlsTranscode {
             return Err(NakoError::InvalidInput {

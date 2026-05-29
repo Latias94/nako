@@ -18,6 +18,8 @@ Completed by `PBSI-020`.
 
 Exit criteria: server/API/SDK behavior exposes session identity safely.
 
+Completed by `PBSI-030`.
+
 ## M3 - Web Heartbeat Integration
 
 Exit criteria: `web/` sends heartbeat through the accepted session identity.

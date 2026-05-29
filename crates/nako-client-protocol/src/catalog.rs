@@ -556,6 +556,7 @@ impl Default for BrowserPlaybackCapabilitiesDto {
 pub struct BrowserPlaybackTicketResponse {
     pub source_id: String,
     pub item_id: Option<String>,
+    pub playback_session_id: Option<String>,
     pub mode: BrowserPlaybackMode,
     pub expires_at: String,
     pub urls: Vec<BrowserPlaybackUrlDto>,

@@ -5,25 +5,30 @@ Last updated: 2026-05-29
 
 ## Current State
 
-This lane is open. PBSI-020 froze the Public Client contract for browser
-playback heartbeat authority:
+This lane is open. PBSI-030 implemented the Public Client server/API/SDK
+contract for browser playback heartbeat authority:
 
-- add required nullable `playback_session_id` to `BrowserPlaybackTicketResponse`;
-- return non-null ids for `direct`, `remux`, and `hls`;
-- return `null` for `subtitle`;
-- bind non-subtitle opaque browser tickets to the same durable playback session;
-- use `POST /playback/sessions/{session_id}/heartbeat` with the authenticated
-  owner principal, not the media ticket.
+- `BrowserPlaybackTicketResponse.playback_session_id` is required nullable in
+  protocol/OpenAPI/generated SDKs;
+- `direct`, `remux`, and `hls` browser ticket responses return non-null session
+  ids allocated before the JSON response;
+- `subtitle` browser ticket responses return `null`;
+- opaque non-subtitle browser tickets are bound to the same durable playback
+  session used by direct/remux/HLS media requests;
+- heartbeat uses `POST /playback/sessions/{session_id}/heartbeat` with the
+  authenticated owner principal, not the media ticket;
+- media URLs remain token-safe and do not expose `playback_session_id`.
 
 ## Active Task
 
-- Task ID: PBSI-030
+- Task ID: PBSI-040
 - Owner: Codex
 - Status: READY
-- Validation: focused playback route tests, OpenAPI/SDK generation checks, and
-  `cargo nextest run -p nako-server browser_playback --no-fail-fast`.
+- Validation: `npm --prefix web run test`, `npm --prefix web run check`, and
+  `npm --prefix web run build:budget`.
 
 ## Next Recommended Action
 
-Start PBSI-030. Implement the frozen server/API/SDK contract before wiring web
-heartbeat.
+Start PBSI-040. Wire `web/` playback heartbeat from
+`BrowserPlaybackTicketResponse.playback_session_id`; do not infer heartbeat
+identity from media URLs or `x-nako-playback-session-id` headers.

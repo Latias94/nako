@@ -850,17 +850,15 @@ audio_codec=aac,opus
 ```
 
 `POST /sources/{source_id}/playback/browser-ticket` issues token-safe browser
-media URLs. `public-client-browser-playback-session-identity` freezes the next
-Public Client contract for this route: `BrowserPlaybackTicketResponse` gains a
-required nullable `playback_session_id`. `direct`, `remux`, and `hls` ticket
-responses return a non-null playback session id before playback starts, while
-`subtitle` returns `null` because subtitle tickets are ancillary fetch
+media URLs. `BrowserPlaybackTicketResponse.playback_session_id` is a required
+nullable field. `direct`, `remux`, and `hls` ticket responses return a non-null
+playback session id before playback starts, while `subtitle` returns `null`
+because subtitle tickets are ancillary fetch
 authority. Non-subtitle opaque browser tickets are bound server-side to the same
 durable playback session exposed in JSON. The generated SDK and `web/` must use
 that JSON field for heartbeat; media URLs, playlists, and
 `x-nako-playback-session-id` response headers are not the heartbeat discovery
-contract. This field is not considered live until the Public Client protocol,
-OpenAPI document, SDKs, and server tests are updated by PBSI-030.
+contract.
 
 `GET /sources/{source_id}/stream` serves direct play bytes for local sources
 and configured WebDAV preview sources. It supports HTTP `Range` requests and

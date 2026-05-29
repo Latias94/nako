@@ -4,7 +4,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use nako_core::{AuthenticatedPrincipal, MediaSourceId, NakoError, Result};
+use nako_core::{AuthenticatedPrincipal, MediaSourceId, NakoError, PlaybackSessionId, Result};
 use sha2::{Digest, Sha256};
 
 const TICKET_TTL_MS: i64 = 6 * 60 * 60 * 1_000;
@@ -34,6 +34,12 @@ impl fmt::Debug for IssuedBrowserPlaybackTicket {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ValidatedBrowserPlaybackTicket {
+    pub(crate) principal: AuthenticatedPrincipal,
+    pub(crate) playback_session_id: PlaybackSessionId,
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct BrowserPlaybackTicketService {
     store: Arc<Mutex<BrowserPlaybackTicketStore>>,
@@ -52,9 +58,17 @@ impl BrowserPlaybackTicketService {
         principal: &AuthenticatedPrincipal,
         source_id: MediaSourceId,
         mode: BrowserPlaybackTicketMode,
+        playback_session_id: PlaybackSessionId,
         now_ms: i64,
     ) -> Result<IssuedBrowserPlaybackTicket> {
-        self.issue_scoped_source_ticket(principal, source_id, mode, None, now_ms)
+        self.issue_scoped_source_ticket(
+            principal,
+            source_id,
+            mode,
+            Some(playback_session_id),
+            None,
+            now_ms,
+        )
     }
 
     pub(crate) fn issue_subtitle_ticket(
@@ -68,6 +82,7 @@ impl BrowserPlaybackTicketService {
             principal,
             source_id,
             BrowserPlaybackTicketMode::Subtitle,
+            None,
             Some(stream_index),
             now_ms,
         )
@@ -78,6 +93,7 @@ impl BrowserPlaybackTicketService {
         principal: &AuthenticatedPrincipal,
         source_id: MediaSourceId,
         mode: BrowserPlaybackTicketMode,
+        playback_session_id: Option<PlaybackSessionId>,
         stream_index: Option<u32>,
         now_ms: i64,
     ) -> Result<IssuedBrowserPlaybackTicket> {
@@ -102,6 +118,7 @@ impl BrowserPlaybackTicketService {
                     entry.insert(BrowserPlaybackTicketRecord {
                         source_id,
                         mode,
+                        playback_session_id,
                         stream_index,
                         principal: principal.clone(),
                         expires_at_ms,
@@ -125,8 +142,16 @@ impl BrowserPlaybackTicketService {
         source_id: MediaSourceId,
         mode: BrowserPlaybackTicketMode,
         now_ms: i64,
-    ) -> Result<AuthenticatedPrincipal> {
-        self.validate_scoped_source_ticket(token, source_id, mode, None, now_ms)
+    ) -> Result<ValidatedBrowserPlaybackTicket> {
+        let record = self.validate_scoped_source_ticket(token, source_id, mode, None, now_ms)?;
+        let playback_session_id = record
+            .playback_session_id
+            .ok_or_else(invalid_playback_ticket)?;
+
+        Ok(ValidatedBrowserPlaybackTicket {
+            principal: record.principal,
+            playback_session_id,
+        })
     }
 
     pub(crate) fn validate_subtitle_ticket(
@@ -136,13 +161,15 @@ impl BrowserPlaybackTicketService {
         stream_index: u32,
         now_ms: i64,
     ) -> Result<AuthenticatedPrincipal> {
-        self.validate_scoped_source_ticket(
+        let record = self.validate_scoped_source_ticket(
             token,
             source_id,
             BrowserPlaybackTicketMode::Subtitle,
             Some(stream_index),
             now_ms,
-        )
+        )?;
+
+        Ok(record.principal)
     }
 
     fn validate_scoped_source_ticket(
@@ -152,7 +179,7 @@ impl BrowserPlaybackTicketService {
         mode: BrowserPlaybackTicketMode,
         stream_index: Option<u32>,
         now_ms: i64,
-    ) -> Result<AuthenticatedPrincipal> {
+    ) -> Result<BrowserPlaybackTicketRecord> {
         if token.trim().is_empty() {
             return Err(invalid_playback_ticket());
         }
@@ -178,7 +205,7 @@ impl BrowserPlaybackTicketService {
             return Err(invalid_playback_ticket());
         }
 
-        Ok(record.principal.clone())
+        Ok(record.clone())
     }
 }
 
@@ -198,6 +225,7 @@ impl BrowserPlaybackTicketStore {
 struct BrowserPlaybackTicketRecord {
     source_id: MediaSourceId,
     mode: BrowserPlaybackTicketMode,
+    playback_session_id: Option<PlaybackSessionId>,
     stream_index: Option<u32>,
     principal: AuthenticatedPrincipal,
     expires_at_ms: i64,
@@ -231,11 +259,13 @@ mod tests {
         let principal = AuthenticatedPrincipal::bootstrap_admin();
         let source_id = MediaSourceId::new();
         let other_source_id = MediaSourceId::new();
+        let playback_session_id = PlaybackSessionId::new();
         let issued = service
             .issue_source_ticket(
                 &principal,
                 source_id,
                 BrowserPlaybackTicketMode::Direct,
+                playback_session_id,
                 100,
             )
             .unwrap();
@@ -254,7 +284,8 @@ mod tests {
                 101,
             )
             .unwrap();
-        assert_eq!(validated, principal);
+        assert_eq!(validated.principal, principal);
+        assert_eq!(validated.playback_session_id, playback_session_id);
 
         assert!(
             service
