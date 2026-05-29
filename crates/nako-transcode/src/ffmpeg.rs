@@ -217,6 +217,7 @@ pub(crate) struct FfmpegHlsCommandParts {
     pub filter_graph: Vec<FfmpegArg>,
     pub video_encoder: Vec<FfmpegArg>,
     pub audio_encoder: Vec<FfmpegArg>,
+    pub audio_sidecar: Vec<FfmpegArg>,
     pub subtitle: Vec<FfmpegArg>,
     pub muxer: Vec<FfmpegArg>,
 }
@@ -232,6 +233,7 @@ impl FfmpegHlsCommandParts {
             filter_graph,
             video_encoder,
             audio_encoder,
+            audio_sidecar,
             subtitle,
             muxer,
         } = self;
@@ -242,6 +244,7 @@ impl FfmpegHlsCommandParts {
             + filter_graph.len()
             + video_encoder.len()
             + audio_encoder.len()
+            + audio_sidecar.len()
             + subtitle.len()
             + muxer.len();
         let mut args = Vec::with_capacity(capacity);
@@ -253,6 +256,7 @@ impl FfmpegHlsCommandParts {
         args.extend(video_encoder);
         args.extend(audio_encoder);
         args.extend(muxer);
+        args.extend(audio_sidecar);
         args.extend(subtitle);
         args
     }
@@ -292,6 +296,7 @@ fn plan_single_variant_hls_command_parts(request: &HlsRequest) -> FfmpegHlsComma
         filter_graph: hls_filter_graph_args(request.execution_policy.acceleration),
         video_encoder: hls_video_encoder_args(request.execution_policy),
         audio_encoder: hls_audio_encoder_args(),
+        audio_sidecar: hls_audio_sidecar_args(&request.artifacts, request.segment_time_seconds),
         subtitle: hls_subtitle_args(
             request.execution_policy.subtitle_strategy,
             &request.artifacts,
@@ -325,6 +330,7 @@ fn plan_adaptive_hls_command_parts(request: &HlsRequest) -> FfmpegHlsCommandPart
             request.artifacts.renditions(),
             request.artifacts.has_audio(),
         ),
+        audio_sidecar: hls_audio_sidecar_args(&request.artifacts, request.segment_time_seconds),
         subtitle: hls_subtitle_args(
             request.execution_policy.subtitle_strategy,
             &request.artifacts,
@@ -505,6 +511,32 @@ fn hls_adaptive_audio_encoder_args(renditions: &[HlsRendition], has_audio: bool)
         args.extend([
             FfmpegArg::raw(format!("-b:a:{stream_index}")),
             FfmpegArg::raw(rendition.audio_bitrate.to_string()),
+        ]);
+    }
+    args
+}
+
+fn hls_audio_sidecar_args(
+    artifacts: &HlsArtifactManifest,
+    segment_time_seconds: u32,
+) -> Vec<FfmpegArg> {
+    let mut args = Vec::new();
+    for audio in artifacts.media_renditions().audios() {
+        args.extend([
+            FfmpegArg::raw("-map"),
+            FfmpegArg::raw(format!("0:{}", audio.source_stream_index)),
+            FfmpegArg::raw("-vn"),
+            FfmpegArg::raw("-c:a"),
+            FfmpegArg::raw("aac"),
+            FfmpegArg::raw("-f"),
+            FfmpegArg::raw("segment"),
+            FfmpegArg::raw("-segment_time"),
+            FfmpegArg::raw(segment_time_seconds.max(1).to_string()),
+            FfmpegArg::raw("-segment_list"),
+            FfmpegArg::path(audio.playlist_path(artifacts.output_dir())),
+            FfmpegArg::raw("-segment_format"),
+            FfmpegArg::raw("adts"),
+            FfmpegArg::path(audio.segment_pattern_path(artifacts.output_dir())),
         ]);
     }
     args

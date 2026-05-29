@@ -1364,6 +1364,10 @@ fn hls_ffmpeg_script(root: &Path, name: &str, success: bool, encoder_lines: &[&s
         content.push_str("segment_pattern=\n");
         content.push_str("init_pattern=\n");
         content.push_str("master_name=\n");
+        content.push_str("audio0_list=\n");
+        content.push_str("audio1_list=\n");
+        content.push_str("audio0_segment_pattern=\n");
+        content.push_str("audio1_segment_pattern=\n");
         content.push_str("subtitle_list=\n");
         content.push_str("subtitle_segment_pattern=\n");
         content.push_str("prev=\n");
@@ -1379,10 +1383,17 @@ fn hls_ffmpeg_script(root: &Path, name: &str, success: bool, encoder_lines: &[&s
         );
         content
             .push_str("  if [ \"$prev\" = \"-master_pl_name\" ]; then master_name=\"$arg\"; fi\n");
-        content
-            .push_str("  if [ \"$prev\" = \"-segment_list\" ]; then subtitle_list=\"$arg\"; fi\n");
+        content.push_str("  if [ \"$prev\" = \"-segment_list\" ]; then\n");
+        content.push_str("    case \"$arg\" in\n");
+        content.push_str("      *audio_0.m3u8) audio0_list=\"$arg\" ;;\n");
+        content.push_str("      *audio_1.m3u8) audio1_list=\"$arg\" ;;\n");
+        content.push_str("      *subtitle_*.m3u8) subtitle_list=\"$arg\" ;;\n");
+        content.push_str("    esac\n");
+        content.push_str("  fi\n");
         content.push_str("  case \"$arg\" in\n");
         content.push_str("    *.m3u8) if [ \"$prev\" != \"-master_pl_name\" ] && [ \"$prev\" != \"-segment_list\" ]; then out=\"$arg\"; fi ;;\n");
+        content.push_str("    *audio_0_%05d.aac) audio0_segment_pattern=\"$arg\" ;;\n");
+        content.push_str("    *audio_1_%05d.aac) audio1_segment_pattern=\"$arg\" ;;\n");
         content.push_str("    *.vtt|*%05d.vtt) subtitle_segment_pattern=\"$arg\" ;;\n");
         content.push_str("  esac\n");
         content.push_str("  prev=\"$arg\"\n");
@@ -1422,6 +1433,20 @@ fn hls_ffmpeg_script(root: &Path, name: &str, success: bool, encoder_lines: &[&s
             );
             content.push_str("  printf segment > \"$dir/segment_00000.ts\"\n");
             content.push_str("fi\n");
+            content.push_str("if [ -n \"$audio0_list\" ]; then\n");
+            content.push_str("  audio_dir=$(dirname \"$audio0_list\")\n");
+            content.push_str("  mkdir -p \"$audio_dir\"\n");
+            content.push_str("  audio_segment=$(printf '%s' \"$audio0_segment_pattern\" | sed 's/%05d/00000/g')\n");
+            content.push_str("  printf '#EXTM3U\\n#EXTINF:1,\\n%s\\n#EXT-X-ENDLIST\\n' \"$(basename \"$audio_segment\")\" > \"$audio0_list\"\n");
+            content.push_str("  printf audio > \"$audio_segment\"\n");
+            content.push_str("fi\n");
+            content.push_str("if [ -n \"$audio1_list\" ]; then\n");
+            content.push_str("  audio_dir=$(dirname \"$audio1_list\")\n");
+            content.push_str("  mkdir -p \"$audio_dir\"\n");
+            content.push_str("  audio_segment=$(printf '%s' \"$audio1_segment_pattern\" | sed 's/%05d/00000/g')\n");
+            content.push_str("  printf '#EXTM3U\\n#EXTINF:1,\\n%s\\n#EXT-X-ENDLIST\\n' \"$(basename \"$audio_segment\")\" > \"$audio1_list\"\n");
+            content.push_str("  printf audio > \"$audio_segment\"\n");
+            content.push_str("fi\n");
             content.push_str("if [ -n \"$subtitle_list\" ]; then\n");
             content.push_str("  subtitle_dir=$(dirname \"$subtitle_list\")\n");
             content.push_str("  mkdir -p \"$subtitle_dir\"\n");
@@ -1455,6 +1480,10 @@ fn hls_ffmpeg_script(root: &Path, name: &str, success: bool, encoder_lines: &[&s
         content.push_str("set segment_pattern=\r\n");
         content.push_str("set init_pattern=\r\n");
         content.push_str("set master_name=\r\n");
+        content.push_str("set audio0_list=\r\n");
+        content.push_str("set audio1_list=\r\n");
+        content.push_str("set audio0_segment_pattern=\r\n");
+        content.push_str("set audio1_segment_pattern=\r\n");
         content.push_str("set subtitle_list=\r\n");
         content.push_str("set subtitle_segment_pattern=\r\n");
         content.push_str("set prev=\r\n");
@@ -1466,8 +1495,12 @@ fn hls_ffmpeg_script(root: &Path, name: &str, success: bool, encoder_lines: &[&s
         content.push_str("if \"!prev!\"==\"-hls_segment_filename\" set segment_pattern=%~1\r\n");
         content.push_str("if \"!prev!\"==\"-hls_fmp4_init_filename\" set init_pattern=%~1\r\n");
         content.push_str("if \"!prev!\"==\"-master_pl_name\" set master_name=%~1\r\n");
-        content.push_str("if \"!prev!\"==\"-segment_list\" set subtitle_list=%~1\r\n");
+        content.push_str("if \"!prev!\"==\"-segment_list\" echo %~1 | findstr /I \"audio_0.m3u8\" >nul && set audio0_list=%~1\r\n");
+        content.push_str("if \"!prev!\"==\"-segment_list\" echo %~1 | findstr /I \"audio_1.m3u8\" >nul && set audio1_list=%~1\r\n");
+        content.push_str("if \"!prev!\"==\"-segment_list\" echo %~1 | findstr /I \"subtitle_\" >nul && set subtitle_list=%~1\r\n");
         content.push_str("for %%I in (\"%~1\") do if /I \"%%~xI\"==\".m3u8\" if not \"!prev!\"==\"-master_pl_name\" if not \"!prev!\"==\"-segment_list\" set out=%~1\r\n");
+        content.push_str("echo %~1 | findstr /I \"audio_0_%%05d.aac\" >nul && set audio0_segment_pattern=%~1\r\n");
+        content.push_str("echo %~1 | findstr /I \"audio_1_%%05d.aac\" >nul && set audio1_segment_pattern=%~1\r\n");
         content.push_str(
             "for %%I in (\"%~1\") do if /I \"%%~xI\"==\".vtt\" set subtitle_segment_pattern=%~1\r\n",
         );
@@ -1524,6 +1557,30 @@ fn hls_ffmpeg_script(root: &Path, name: &str, success: bool, encoder_lines: &[&s
             content.push_str(">>\"%out%\" echo segment_00000.ts\r\n");
             content.push_str(">>\"%out%\" echo #EXT-X-ENDLIST\r\n");
             content.push_str("<nul set /p dummy=segment>\"%dir%segment_00000.ts\"\r\n");
+            content.push_str(")\r\n");
+            content.push_str("if not \"!audio0_list!\"==\"\" (\r\n");
+            content.push_str("for %%I in (\"!audio0_list!\") do set audio_dir=%%~dpI\r\n");
+            content.push_str("if not exist \"!audio_dir!\" mkdir \"!audio_dir!\"\r\n");
+            content.push_str("set audio_segment=!audio0_segment_pattern:%%05d=00000!\r\n");
+            content
+                .push_str("for %%I in (\"!audio_segment!\") do set audio_segment_name=%%~nxI\r\n");
+            content.push_str(">\"!audio0_list!\" echo #EXTM3U\r\n");
+            content.push_str(">>\"!audio0_list!\" echo #EXTINF:1,\r\n");
+            content.push_str(">>\"!audio0_list!\" echo !audio_segment_name!\r\n");
+            content.push_str(">>\"!audio0_list!\" echo #EXT-X-ENDLIST\r\n");
+            content.push_str("<nul set /p dummy=audio>\"!audio_segment!\"\r\n");
+            content.push_str(")\r\n");
+            content.push_str("if not \"!audio1_list!\"==\"\" (\r\n");
+            content.push_str("for %%I in (\"!audio1_list!\") do set audio_dir=%%~dpI\r\n");
+            content.push_str("if not exist \"!audio_dir!\" mkdir \"!audio_dir!\"\r\n");
+            content.push_str("set audio_segment=!audio1_segment_pattern:%%05d=00000!\r\n");
+            content
+                .push_str("for %%I in (\"!audio_segment!\") do set audio_segment_name=%%~nxI\r\n");
+            content.push_str(">\"!audio1_list!\" echo #EXTM3U\r\n");
+            content.push_str(">>\"!audio1_list!\" echo #EXTINF:1,\r\n");
+            content.push_str(">>\"!audio1_list!\" echo !audio_segment_name!\r\n");
+            content.push_str(">>\"!audio1_list!\" echo #EXT-X-ENDLIST\r\n");
+            content.push_str("<nul set /p dummy=audio>\"!audio_segment!\"\r\n");
             content.push_str(")\r\n");
             content.push_str("if not \"!subtitle_list!\"==\"\" (\r\n");
             content.push_str("for %%I in (\"!subtitle_list!\") do set subtitle_dir=%%~dpI\r\n");

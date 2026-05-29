@@ -92,6 +92,70 @@ impl HlsRendition {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct HlsAudioRendition {
+    pub index: usize,
+    pub source_stream_index: u32,
+    pub language: Option<String>,
+    pub default: bool,
+}
+
+impl HlsAudioRendition {
+    #[must_use]
+    pub fn new(
+        index: usize,
+        source_stream_index: u32,
+        language: Option<String>,
+        default: bool,
+    ) -> Self {
+        Self {
+            index,
+            source_stream_index,
+            language: language
+                .map(|value| canonical_value(&value))
+                .filter(|value| !value.is_empty()),
+            default,
+        }
+    }
+
+    #[must_use]
+    pub fn playlist_file_name(&self) -> String {
+        format!("audio_{}.m3u8", self.index)
+    }
+
+    #[must_use]
+    pub fn segment_file_prefix(&self) -> String {
+        format!("audio_{}_", self.index)
+    }
+
+    #[must_use]
+    pub fn segment_pattern_file_name(&self) -> String {
+        format!("audio_{}_%05d.aac", self.index)
+    }
+
+    #[must_use]
+    pub fn playlist_path(&self, output_dir: &Path) -> PathBuf {
+        output_dir.join(self.playlist_file_name())
+    }
+
+    #[must_use]
+    pub fn segment_pattern_path(&self, output_dir: &Path) -> PathBuf {
+        output_dir.join(self.segment_pattern_file_name())
+    }
+
+    #[must_use]
+    pub fn identity_component(&self) -> String {
+        let default = if self.default { "1" } else { "0" };
+        format!(
+            "{}:{}:{}:{}",
+            self.index,
+            self.source_stream_index,
+            default,
+            self.language.as_deref().unwrap_or("und")
+        )
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct HlsSubtitleRendition {
     pub index: usize,
     pub source_stream_index: u32,
@@ -148,14 +212,32 @@ impl HlsSubtitleRendition {
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct HlsMediaRenditionPlan {
+    audios: Vec<HlsAudioRendition>,
     subtitles: Vec<HlsSubtitleRendition>,
 }
 
 impl HlsMediaRenditionPlan {
+    pub fn from_audios(audios: Vec<HlsAudioRendition>) -> Result<Self> {
+        Self::from_audio_and_subtitles(audios, Vec::new())
+    }
+
     pub fn from_subtitles(subtitles: Vec<HlsSubtitleRendition>) -> Result<Self> {
-        let plan = Self { subtitles };
+        Self::from_audio_and_subtitles(Vec::new(), subtitles)
+    }
+
+    pub fn from_audio_and_subtitles(
+        audios: Vec<HlsAudioRendition>,
+        subtitles: Vec<HlsSubtitleRendition>,
+    ) -> Result<Self> {
+        let plan = Self { audios, subtitles };
         plan.validate_identity()?;
         Ok(plan)
+    }
+
+    pub fn with_audio_renditions(mut self, audios: Vec<HlsAudioRendition>) -> Result<Self> {
+        self.audios = audios;
+        self.validate_identity()?;
+        Ok(self)
     }
 
     #[must_use]
@@ -191,39 +273,67 @@ impl HlsMediaRenditionPlan {
             .ok_or_else(|| NakoError::InvalidInput {
                 message: "hls media rendition identity is missing components".to_owned(),
             })?;
+        let mut audios = Vec::new();
         let mut subtitles = Vec::new();
 
         for component in rest.split(';') {
-            if let Some(value) = component.strip_prefix("subtitles=") {
+            if let Some(value) = component.strip_prefix("audios=") {
+                audios = parse_audio_renditions(value)?;
+            } else if let Some(value) = component.strip_prefix("subtitles=") {
                 subtitles = parse_subtitle_renditions(value)?;
             }
         }
 
-        let plan = Self { subtitles };
+        let plan = Self { audios, subtitles };
         plan.validate_identity()?;
         Ok(plan)
     }
 
     #[must_use]
     pub fn identity_key(&self) -> Option<String> {
-        if self.subtitles.is_empty() {
+        if self.audios.is_empty() && self.subtitles.is_empty() {
             return None;
         }
 
-        let subtitles = self
-            .subtitles
-            .iter()
-            .map(HlsSubtitleRendition::identity_component)
-            .collect::<Vec<_>>()
-            .join("|");
+        let mut components = Vec::new();
+        if !self.audios.is_empty() {
+            let audios = self
+                .audios
+                .iter()
+                .map(HlsAudioRendition::identity_component)
+                .collect::<Vec<_>>()
+                .join("|");
+            components.push(format!("audios={audios}"));
+        }
+        if !self.subtitles.is_empty() {
+            let subtitles = self
+                .subtitles
+                .iter()
+                .map(HlsSubtitleRendition::identity_component)
+                .collect::<Vec<_>>()
+                .join("|");
+            components.push(format!("subtitles={subtitles}"));
+        }
+
         Some(format!(
-            "{HLS_MEDIA_RENDITIONS_IDENTITY_VERSION};subtitles={subtitles}"
+            "{HLS_MEDIA_RENDITIONS_IDENTITY_VERSION};{}",
+            components.join(";")
         ))
+    }
+
+    #[must_use]
+    pub fn audios(&self) -> &[HlsAudioRendition] {
+        &self.audios
     }
 
     #[must_use]
     pub fn subtitles(&self) -> &[HlsSubtitleRendition] {
         &self.subtitles
+    }
+
+    #[must_use]
+    pub fn has_audios(&self) -> bool {
+        !self.audios.is_empty()
     }
 
     #[must_use]
@@ -233,23 +343,47 @@ impl HlsMediaRenditionPlan {
 
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.subtitles.is_empty()
+        self.audios.is_empty() && self.subtitles.is_empty()
     }
 
     fn validate_identity(&self) -> Result<()> {
+        let mut default_audio_count = 0;
+        for (expected_index, audio) in self.audios.iter().enumerate() {
+            if audio.index != expected_index {
+                return Err(NakoError::InvalidInput {
+                    message: "hls media rendition audio indexes must be dense".to_owned(),
+                });
+            }
+            if audio.default {
+                default_audio_count += 1;
+            }
+            if audio
+                .language
+                .as_deref()
+                .is_some_and(invalid_media_rendition_language)
+            {
+                return Err(NakoError::InvalidInput {
+                    message: "hls media rendition audio language is invalid".to_owned(),
+                });
+            }
+        }
+        if !self.audios.is_empty() && default_audio_count != 1 {
+            return Err(NakoError::InvalidInput {
+                message: "hls media rendition audios require exactly one default".to_owned(),
+            });
+        }
+
         for (expected_index, subtitle) in self.subtitles.iter().enumerate() {
             if subtitle.index != expected_index {
                 return Err(NakoError::InvalidInput {
                     message: "hls media rendition subtitle indexes must be dense".to_owned(),
                 });
             }
-            if subtitle.language.as_deref().is_some_and(|language| {
-                language.contains('|')
-                    || language.contains(';')
-                    || language.contains('~')
-                    || language.contains(':')
-                    || language.contains('=')
-            }) {
+            if subtitle
+                .language
+                .as_deref()
+                .is_some_and(invalid_media_rendition_language)
+            {
                 return Err(NakoError::InvalidInput {
                     message: "hls media rendition subtitle language is invalid".to_owned(),
                 });
@@ -258,6 +392,14 @@ impl HlsMediaRenditionPlan {
 
         Ok(())
     }
+}
+
+fn invalid_media_rendition_language(language: &str) -> bool {
+    language.contains('|')
+        || language.contains(';')
+        || language.contains('~')
+        || language.contains(':')
+        || language.contains('=')
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -721,6 +863,10 @@ impl HlsArtifactManifest {
             });
         }
 
+        if let Some(artifact) = self.audio_artifact_for_name(artifact_name, &path) {
+            return Ok(artifact);
+        }
+
         if let Some(artifact) = self.subtitle_artifact_for_name(artifact_name, &path) {
             return Ok(artifact);
         }
@@ -798,6 +944,37 @@ impl HlsArtifactManifest {
         Err(NakoError::InvalidInput {
             message: "hls artifact is not part of the manifest".to_owned(),
         })
+    }
+
+    fn audio_artifact_for_name(
+        &self,
+        artifact_name: &str,
+        path: &Path,
+    ) -> Option<HlsArtifactDescriptor> {
+        for audio in self.media_renditions.audios() {
+            if audio.playlist_file_name() == artifact_name {
+                return Some(HlsArtifactDescriptor {
+                    path: path.to_path_buf(),
+                    content_type: "application/vnd.apple.mpegurl",
+                    cleanup_candidate: false,
+                });
+            }
+
+            if artifact_name.starts_with(&audio.segment_file_prefix())
+                && Path::new(artifact_name)
+                    .extension()
+                    .and_then(|value| value.to_str())
+                    == Some("aac")
+            {
+                return Some(HlsArtifactDescriptor {
+                    path: path.to_path_buf(),
+                    content_type: "audio/aac",
+                    cleanup_candidate: true,
+                });
+            }
+        }
+
+        None
     }
 
     fn subtitle_artifact_for_name(
@@ -1093,6 +1270,63 @@ fn parse_ladder_rendition(value: &str) -> Result<HlsRendition> {
         parse_u32_component(height, "height")?,
         parse_u64_component(video_bitrate, "video bitrate")?,
         parse_u64_component(audio_bitrate, "audio bitrate")?,
+    ))
+}
+
+fn parse_audio_renditions(value: &str) -> Result<Vec<HlsAudioRendition>> {
+    if value.is_empty() || value == "none" {
+        return Ok(Vec::new());
+    }
+
+    value
+        .split('|')
+        .map(parse_audio_rendition)
+        .collect::<Result<Vec<_>>>()
+}
+
+fn parse_audio_rendition(value: &str) -> Result<HlsAudioRendition> {
+    let mut parts = value.split(':');
+    let Some(index) = parts.next() else {
+        return Err(NakoError::InvalidInput {
+            message: "hls audio rendition is missing index".to_owned(),
+        });
+    };
+    let Some(source_stream_index) = parts.next() else {
+        return Err(NakoError::InvalidInput {
+            message: "hls audio rendition is missing source stream".to_owned(),
+        });
+    };
+    let Some(default) = parts.next() else {
+        return Err(NakoError::InvalidInput {
+            message: "hls audio rendition is missing default flag".to_owned(),
+        });
+    };
+    let Some(language) = parts.next() else {
+        return Err(NakoError::InvalidInput {
+            message: "hls audio rendition is missing language".to_owned(),
+        });
+    };
+    if parts.next().is_some() {
+        return Err(NakoError::InvalidInput {
+            message: "hls audio rendition has too many components".to_owned(),
+        });
+    }
+
+    let default = match default {
+        "1" | "true" => true,
+        "0" | "false" => false,
+        _ => {
+            return Err(NakoError::InvalidInput {
+                message: "hls audio rendition default flag is invalid".to_owned(),
+            });
+        }
+    };
+
+    Ok(HlsAudioRendition::new(
+        parse_usize_component(index, "audio index")?,
+        parse_u32_component(source_stream_index, "audio source stream")?,
+        (language != "und").then(|| language.to_owned()),
+        default,
     ))
 }
 

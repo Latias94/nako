@@ -1,6 +1,6 @@
 # HLS Audio Sidecar Artifacts
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 Durable fearless refactor lane for generating and publishing real HLS audio

@@ -400,7 +400,9 @@ fn system_time_ms(value: SystemTime) -> Option<i64> {
 mod tests {
     use std::time::Duration;
 
-    use nako_transcode::{HlsMediaRenditionPlan, HlsRendition, HlsSubtitleRendition};
+    use nako_transcode::{
+        HlsAudioRendition, HlsMediaRenditionPlan, HlsRendition, HlsSubtitleRendition,
+    };
 
     use super::*;
 
@@ -643,6 +645,53 @@ mod tests {
                 .unwrap()
                 .content_type,
             "text/vtt"
+        );
+    }
+
+    #[test]
+    fn hls_artifact_manifest_reconstructs_audio_renditions_from_request_variant() {
+        let media = HlsMediaRenditionPlan::from_audios(vec![
+            HlsAudioRendition::new(0, 1, Some("eng".to_owned()), false),
+            HlsAudioRendition::new(1, 2, Some("jpn".to_owned()), true),
+        ])
+        .unwrap();
+        let request_variant = HlsRequestVariantPlan::new(None, media.clone());
+        let request_key = format!(
+            "transcode-request:v1;source=source-revision:v1;profile=transcode-profile:v1%3Bkind%3Dhls_single_variant%3Bhls_variant%3Dsingle_variant%3Bhls_segment%3Dmpeg_ts;request_variant={}",
+            escape_request_key_component(&request_variant.identity_key().unwrap())
+        );
+        let session = TranscodeSessionRecord {
+            id: nako_core::TranscodeSessionId::new(),
+            source_id: nako_core::MediaSourceId::new(),
+            kind: TranscodeSessionKind::HlsTranscode,
+            request_key,
+            output_path: PathBuf::from("hls/playlist.m3u8"),
+            state: TranscodeSessionState::Finished,
+            failure_category: None,
+            failure_message: None,
+            runtime_metrics: Default::default(),
+            created_at: "2026-05-28T00:00:00Z".to_owned(),
+            updated_at: "2026-05-28T00:00:00Z".to_owned(),
+            started_at: None,
+            completed_at: None,
+        };
+
+        let manifest = hls_artifact_manifest_for_session(&session).unwrap();
+
+        assert_eq!(manifest.media_renditions(), &media);
+        assert_eq!(
+            manifest
+                .artifact_for_name("audio_0.m3u8")
+                .unwrap()
+                .content_type,
+            "application/vnd.apple.mpegurl"
+        );
+        assert_eq!(
+            manifest
+                .artifact_for_name("audio_1_00000.aac")
+                .unwrap()
+                .content_type,
+            "audio/aac"
         );
     }
 

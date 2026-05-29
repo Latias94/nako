@@ -1,6 +1,6 @@
 # HLS Audio Sidecar Artifacts TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 ## Task Ledger
@@ -27,7 +27,7 @@ git diff --check -- docs/workstreams/hls-audio-sidecar-artifacts docs/workstream
 
 ### HAS-020 - Add typed audio rendition artifacts
 
-Status: Pending
+Status: Done
 Owner: codex
 Depends on: HAS-010
 
@@ -43,9 +43,18 @@ Validation:
 cargo nextest run -p nako-transcode hls --no-fail-fast
 ```
 
+Notes:
+
+- Added `HlsAudioRendition` with dense identity, default-track validation, and
+  audio playlist/segment naming.
+- Extended `HlsMediaRenditionPlan` to carry audio and subtitle renditions
+  together without changing subtitle-only identity compatibility.
+- Added `audio_N.m3u8` and `audio_N_00000.aac` artifact membership to
+  `HlsArtifactManifest`.
+
 ### HAS-030 - Generate and publish audio sidecars
 
-Status: Pending
+Status: Done
 Owner: codex
 Depends on: HAS-020
 
@@ -63,9 +72,20 @@ cargo nextest run -p nako-server hls --no-fail-fast
 cargo nextest run -p nako-server playback --no-fail-fast
 ```
 
+Notes:
+
+- FFmpeg HLS command planning now emits audio-only segment muxer outputs for
+  each audio rendition.
+- Server playback planning derives audio renditions from multi-audio probe
+  facts and marks the selected audio stream as the default rendition.
+- Master playlist authoring emits `TYPE=AUDIO` and `AUDIO=` only when the
+  request variant carries generated audio sidecar artifacts.
+- Existing HLS segment routes serve audio playlists and `.aac` segments from
+  the manifest allow-list.
+
 ### HAS-040 - Verify and close
 
-Status: Pending
+Status: Done
 Owner: codex
 Depends on: HAS-030
 
@@ -82,3 +102,8 @@ python3 -m json.tool docs/workstreams/hls-audio-sidecar-artifacts/WORKSTREAM.jso
 cargo fmt --all -- --check
 git diff --check
 ```
+
+Notes:
+
+- Focused transcode and server gates passed.
+- Workstream docs record the shipped behavior and residual follow-ons.

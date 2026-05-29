@@ -20,9 +20,10 @@ use nako_playback::{
 };
 use nako_streaming::{DirectPlayRangeRequest, DirectPlayResponsePlan};
 use nako_transcode::{
-    HlsAdaptiveLadderPlan, HlsMediaRenditionPlan, HlsRequestVariantPlan, HlsVariantPolicy,
-    RemuxContainer, TranscodeOutputConstraints, TranscodeRequestIdentity, TranscodeSourceIdentity,
-    TranscodeSubtitleStrategy,
+    HlsAdaptiveLadderPlan, HlsAudioRendition, HlsMediaRenditionPlan, HlsRequestVariantPlan,
+    HlsVariantPolicy, RemuxContainer, TranscodeOutputConstraints, TranscodePipelineSourceFacts,
+    TranscodeRequestIdentity, TranscodeSourceIdentity, TranscodeSubtitleStrategy,
+    TranscodeTrackSelection,
 };
 use nako_vfs::{StorageBackend as _, StorageUri};
 use serde::{Deserialize, Serialize};
@@ -1705,10 +1706,8 @@ impl PlaybackAppService {
             target_profile.output_constraints(),
             source_facts.clone(),
         )?;
-        let media_rendition_plan = HlsMediaRenditionPlan::selected_from_source_facts(
-            source_facts.as_ref(),
-            track_selection,
-        )?;
+        let media_rendition_plan =
+            hls_media_rendition_plan(probe.as_ref(), source_facts.as_ref(), track_selection)?;
         if media_rendition_plan.has_subtitles() {
             execution_policy.subtitle_strategy = TranscodeSubtitleStrategy::SidecarSelected;
         }
@@ -2094,6 +2093,50 @@ fn redact_subtitle_sidecar_storage_error(
         NakoError::Unsupported(message) => NakoError::Unsupported(message),
         NakoError::Provider { provider, message } => NakoError::Provider { provider, message },
     }
+}
+
+fn hls_media_rendition_plan(
+    probe: Option<&MediaProbeResult>,
+    source_facts: Option<&TranscodePipelineSourceFacts>,
+    track_selection: TranscodeTrackSelection,
+) -> Result<HlsMediaRenditionPlan> {
+    HlsMediaRenditionPlan::selected_from_source_facts(source_facts, track_selection)?
+        .with_audio_renditions(hls_audio_renditions_from_probe(probe, source_facts))
+}
+
+fn hls_audio_renditions_from_probe(
+    probe: Option<&MediaProbeResult>,
+    source_facts: Option<&TranscodePipelineSourceFacts>,
+) -> Vec<HlsAudioRendition> {
+    let Some(probe) = probe else {
+        return Vec::new();
+    };
+    let audio_streams = probe
+        .streams
+        .iter()
+        .filter(|stream| matches!(stream.kind, MediaStreamKind::Audio))
+        .collect::<Vec<_>>();
+    if audio_streams.len() < 2 {
+        return Vec::new();
+    }
+
+    let default_stream_index = source_facts
+        .and_then(|facts| facts.audio.as_ref())
+        .map(|stream| stream.index)
+        .unwrap_or(audio_streams[0].index);
+
+    audio_streams
+        .into_iter()
+        .enumerate()
+        .map(|(index, stream)| {
+            HlsAudioRendition::new(
+                index,
+                stream.index,
+                stream.language.clone(),
+                stream.index == default_stream_index,
+            )
+        })
+        .collect()
 }
 
 fn playback_target_for_client(client: ClientPlaybackCapabilities) -> PlaybackTarget {

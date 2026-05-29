@@ -1,23 +1,27 @@
 # HLS Audio Sidecar Artifacts Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 ## Current State
 
-This workstream is open. The next executable task is HAS-020: add typed audio
-rendition artifact identity and manifest membership.
+This workstream is closed. Nako now represents generated HLS audio sidecars as
+typed media renditions, produces them through FFmpeg command planning, serves
+them through manifest-backed HLS segment routes, and publishes `TYPE=AUDIO`
+only for generated artifacts.
 
 ## Next Task
 
-Start with HAS-020.
+Open a new workstream for the next boundary. Recommended follow-ons:
 
-Recommended order:
-
-1. Add `HlsAudioRendition` naming and identity to `nako-transcode`.
-2. Add audio playlist and `.aac` segment artifact membership.
-3. Add FFmpeg audio sidecar output args.
-4. Add server planning and master playlist publication.
+1. Stop duplicating the selected audio stream in both main mux and audio
+   sidecar for clients that can consume alternate audio groups cleanly.
+2. Add language preference/default selection policy instead of using the
+   requested or first audio stream only.
+3. Add codec-copy or codec-aware sidecar generation for already HLS-compatible
+   audio sources.
+4. Revisit adaptive video-only variants once alternate audio groups are
+   mature.
 
 ## Validation To Preserve
 

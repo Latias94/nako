@@ -1,6 +1,6 @@
 # HLS Audio Sidecar Artifacts - Design
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 ## Problem
@@ -71,3 +71,10 @@ This lane can close when generated audio sidecar artifacts are represented in
 `HlsArtifactManifest`, produced by FFmpeg command planning, served by existing
 HLS segment routes, advertised in public master playlists, and verified by
 focused Rust gates.
+
+## Closeout Summary
+
+The lane is closed. Multi-audio HLS sources now get dense typed
+`HlsAudioRendition` entries, generated AAC/ADTS audio sidecar playlists and
+segments, manifest-backed serving, and public `TYPE=AUDIO` master playlist
+publication. Selected audio remains muxed into the main HLS output.

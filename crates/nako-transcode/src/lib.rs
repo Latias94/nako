@@ -700,6 +700,59 @@ mod tests {
     }
 
     #[test]
+    fn ffmpeg_builder_plans_hls_audio_sidecar_outputs() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let artifacts = hls_artifacts(
+            "hls",
+            "hls/playlist.m3u8",
+            "hls/segment_%05d.ts",
+            HlsOutputRequirement::default(),
+        )
+        .with_media_renditions(
+            HlsMediaRenditionPlan::from_audios(vec![
+                HlsAudioRendition::new(0, 1, Some("eng".to_owned()), true),
+                HlsAudioRendition::new(1, 2, Some("jpn".to_owned()), false),
+            ])
+            .unwrap(),
+        )
+        .unwrap();
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            artifacts,
+            segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
+            execution_policy: hls_policy(HardwareAcceleration::None),
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let argv = builder.hls(&request).unwrap().argv_lossy();
+
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-map" && args[1] == "0:1")
+        );
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-map" && args[1] == "0:2")
+        );
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-c:a" && args[1] == "aac")
+        );
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-segment_list" && args[1] == "hls/audio_0.m3u8")
+        );
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-segment_format" && args[1] == "adts")
+        );
+        assert!(argv.contains(&"hls/audio_0_%05d.aac".to_owned()));
+        assert!(argv.contains(&"hls/audio_1_%05d.aac".to_owned()));
+    }
+
+    #[test]
     fn ffmpeg_builder_plans_hls_muxer_with_minimum_segment_time() {
         let builder = FfmpegCommandBuilder::new("ffmpeg");
         let request = HlsRequest {
@@ -791,6 +844,42 @@ mod tests {
     }
 
     #[test]
+    fn hls_artifact_manifest_covers_audio_playlist_and_segments() {
+        let manifest = hls_artifacts(
+            "hls",
+            "hls/playlist.m3u8",
+            "hls/segment_%05d.ts",
+            HlsOutputRequirement::default(),
+        )
+        .with_media_renditions(
+            HlsMediaRenditionPlan::from_audios(vec![
+                HlsAudioRendition::new(0, 1, Some("eng".to_owned()), true),
+                HlsAudioRendition::new(1, 2, Some("jpn".to_owned()), false),
+            ])
+            .unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            manifest
+                .artifact_for_name("audio_0.m3u8")
+                .unwrap()
+                .content_type,
+            "application/vnd.apple.mpegurl"
+        );
+        assert_eq!(
+            manifest
+                .artifact_for_name("audio_0_00000.aac")
+                .unwrap()
+                .content_type,
+            "audio/aac"
+        );
+        assert!(!manifest.cleanup_candidate_for_name("audio_0.m3u8"));
+        assert!(manifest.cleanup_candidate_for_name("audio_0_00000.aac"));
+        assert!(manifest.artifact_for_name("audio_2_00000.aac").is_err());
+    }
+
+    #[test]
     fn hls_request_variant_identity_round_trips_ladder_and_media_renditions() {
         let ladder = HlsAdaptiveLadderPlan::from_source(
             HlsAdaptiveLadderSource {
@@ -806,11 +895,13 @@ mod tests {
                 prefer_hdr: None,
             },
         );
-        let media = HlsMediaRenditionPlan::from_subtitles(vec![HlsSubtitleRendition::new(
-            0,
-            2,
-            Some("JPN".to_owned()),
-        )])
+        let media = HlsMediaRenditionPlan::from_audio_and_subtitles(
+            vec![
+                HlsAudioRendition::new(0, 1, Some("ENG".to_owned()), false),
+                HlsAudioRendition::new(1, 3, Some("JPN".to_owned()), true),
+            ],
+            vec![HlsSubtitleRendition::new(0, 2, Some("JPN".to_owned()))],
+        )
         .unwrap();
         let plan = HlsRequestVariantPlan::new(Some(ladder.clone()), media.clone());
 
@@ -818,6 +909,8 @@ mod tests {
         let restored = HlsRequestVariantPlan::from_identity_key(&key).unwrap();
 
         assert!(key.starts_with("hls-request-variant:v1;components="));
+        assert!(key.contains("audios=0:1:0:eng|1:3:1:jpn"));
+        assert!(key.contains("subtitles=0:2:jpn"));
         assert_eq!(restored.adaptive_ladder, Some(ladder));
         assert_eq!(restored.media_renditions, media);
     }

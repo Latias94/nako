@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "hls-audio-sidecar-artifacts",
   "title": "HLS Audio Sidecar Artifacts",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-05-29",
   "scope_kind": "fearless_refactor",
   "problem": "Nako can select HLS audio streams correctly, but cannot truthfully advertise alternate audio until generated audio-only HLS sidecar artifacts exist and are represented in the artifact manifest.",
@@ -44,6 +44,18 @@
     {
       "task": "HAS-010",
       "summary": "Opened a durable lane for generated HLS audio sidecar artifacts after selected audio stream mapping became executable."
+    },
+    {
+      "task": "HAS-020",
+      "summary": "Added typed HLS audio rendition identity, default validation, and audio playlist/segment artifact membership."
+    },
+    {
+      "task": "HAS-030",
+      "summary": "Generated audio-only HLS sidecars through FFmpeg planning and published TYPE=AUDIO master playlist groups only for servable artifacts."
+    },
+    {
+      "task": "HAS-040",
+      "summary": "Verified focused gates, recorded evidence, and closed the workstream."
     }
   ],
   "adr_refs": [
@@ -52,8 +64,7 @@
     "docs/adr/0049-source-aware-transcode-runtime.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "next_task": "HAS-020",
-    "notes": "Add typed HLS audio rendition identity and artifact manifest membership first."
+    "default_action": "closed",
+    "notes": "The lane is closed. Follow-on work should open a new workstream for main-mux/audio-sidecar duplication removal, language preference defaults, codec-aware audio sidecars, or adaptive video-only variant cleanup."
   }
 }

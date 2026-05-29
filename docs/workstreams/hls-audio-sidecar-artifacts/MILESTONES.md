@@ -1,6 +1,6 @@
 # HLS Audio Sidecar Artifacts Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 ## Milestone 1 - Workstream Opened
@@ -12,21 +12,21 @@ Status: Done
 
 ## Milestone 2 - Typed Audio Artifacts
 
-Status: Pending
+Status: Done
 
 - `HlsAudioRendition` is part of media rendition identity.
 - Audio playlist and segment names are validated by `HlsArtifactManifest`.
 
 ## Milestone 3 - Runtime Publication
 
-Status: Pending
+Status: Done
 
 - FFmpeg command planning emits audio sidecar outputs.
 - Public master playlists publish `TYPE=AUDIO` only for generated artifacts.
 
 ## Milestone 4 - Verified Closeout
 
-Status: Pending
+Status: Done
 
 - Focused transcode/server gates pass.
 - Workstream is closed and committed.

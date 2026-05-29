@@ -1,6 +1,6 @@
 # HLS Audio Sidecar Artifacts - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 ## Gate Set
@@ -25,6 +25,21 @@ git diff --check
 
 - 2026-05-29 HAS-010: Opened the durable fearless refactor lane after selected
   HLS audio stream mapping became executable.
+- 2026-05-29 HAS-020: Added typed HLS audio rendition identity, validation, and
+  artifact manifest membership for audio playlists and `.aac` segments.
+  - `cargo nextest run -p nako-transcode hls --no-fail-fast` passed: 31 tests.
+- 2026-05-29 HAS-030: Generated and published HLS audio sidecars through FFmpeg
+  command planning, server request variants, artifact serving, and master
+  playlist `TYPE=AUDIO` authoring.
+  - `cargo nextest run -p nako-server hls --no-fail-fast` passed: 45 tests.
+  - `cargo nextest run -p nako-server playback --no-fail-fast` passed: 117
+    tests.
+- 2026-05-29 HAS-040: Closed the workstream after focused gates verified the
+  requested target state.
+  - `python3 -m json.tool docs/workstreams/hls-audio-sidecar-artifacts/WORKSTREAM.json`
+    passed.
+  - `cargo fmt --all -- --check` passed.
+  - `git diff --check` passed.
 
 ## Notes
 
