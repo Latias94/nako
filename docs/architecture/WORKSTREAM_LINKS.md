@@ -200,6 +200,8 @@ Evidence workstreams:
 - `docs/workstreams/worker-job-cancellation-checkpoints/`
 - `docs/workstreams/admin-operations-read-models/`
 - `docs/workstreams/admin-web-console/`
+- `docs/workstreams/web-admin-generated-artifacts-automation/`
+- `docs/workstreams/web-admin-generated-artifact-review-mutations/`
 - `docs/workstreams/addon-architecture-deepening/`
 - `docs/workstreams/addon-runtime-and-distribution/`
 - `docs/workstreams/addon-manager-lifecycle-automation/`

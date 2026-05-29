@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "slug": "web-admin-generated-artifact-review-mutations",
+  "title": "Web Admin Generated Artifact Review Mutations",
+  "status": "closed",
+  "updated": "2026-05-29",
+  "scope_kind": "frontend_admin_guarded_mutation",
+  "problem": "The new web Admin shell can inspect Generated Artifact proposals but cannot safely run review-plan backed accept/reject mutations.",
+  "task_prefix": "WGAR",
+  "current_task": null,
+  "completed_tasks": ["WGAR-010", "WGAR-020", "WGAR-030", "WGAR-040"],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/web-admin-generated-artifact-review-mutations/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/web-admin-generated-artifact-review-mutations/DESIGN.md"
+    },
+    {
+      "role": "route_api_readiness",
+      "path": "docs/workstreams/web-admin-generated-artifact-review-mutations/ROUTE_API_READINESS.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/web-admin-generated-artifact-review-mutations/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/web-admin-generated-artifact-review-mutations/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/web-admin-generated-artifact-review-mutations/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/web-admin-generated-artifact-review-mutations/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/web-admin-generated-artifact-review-mutations/CLOSEOUT.md"
+    }
+  ],
+  "gates": [
+    "npm --prefix web run test -- src/test/data-source-contracts.test.ts",
+    "npm --prefix web run test -- src/test/route-contracts.test.tsx src/test/route-state-contracts.test.tsx",
+    "npm --prefix web run test",
+    "npm --prefix web run check",
+    "npm --prefix web run build:budget",
+    "git diff --check"
+  ],
+  "evidence": [
+    "WGAR-010 opened the guarded review mutation lane from WAGA-050 closeout and corrected the review-plan method to POST.",
+    "WGAR-020 added Admin client review-plan/review methods, a redacted review-plan read model, a domain-specific review mutation result, fixture rejection, and data-source contract coverage.",
+    "WGAR-030 added queue-to-review navigation, route-owned artifact_id/decision state, review-plan display, confirmation controls, mutation result/error rendering, query invalidation, and route tests.",
+    "WGAR-040 closed the lane after full frontend tests, TypeScript check, bundle budget, Playwright CLI desktop/mobile smoke, JSON validation, and diff check passed."
+  ],
+  "adr_refs": [
+    "docs/adr/0004-ai-as-external-automation-first.md",
+    "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/CONTROL_PLANE.md",
+      "capability": "Admin guarded Generated Artifact review workflow"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Control Plane/Admin operations"
+    }
+  ],
+  "capability_tags": [
+    "control-plane.admin.generated-artifacts",
+    "web.admin.guarded-mutations",
+    "automation.generated-artifact-review"
+  ],
+  "continue_policy": {
+    "default_action": "open_follow_on_lane",
+    "notes": "This lane is closed. Open a new lane for Metadata Authority apply, bulk review, Automation Provider adapter breadth/local runtime integration, or Addon task/event diagnostics."
+  }
+}

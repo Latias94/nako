@@ -64,6 +64,11 @@ import { AdminSettings } from "./admin-settings"
 import { AdminAcquisitionIntake, type AdminAcquisitionIntakeRouteState } from "./admin-acquisition-intake"
 import { AdminGeneratedArtifacts, type AdminGeneratedArtifactsRouteState } from "./admin-generated-artifacts"
 import {
+  AdminGeneratedArtifactReview,
+  type AdminGeneratedArtifactReviewRouteState,
+} from "./admin-generated-artifact-review"
+import type { AdminGeneratedArtifactReviewDecision } from "@/src/api/admin/read-models-data-source"
+import {
   ADMIN_DASHBOARD_FIXTURE,
   createAdminDashboardDataSource,
   type AdminDashboardData,
@@ -78,6 +83,7 @@ export type AdminSurfaceSection =
   | "scheduled-tasks"
   | "acquisition-intake"
   | "generated-artifacts"
+  | "generated-artifact-review"
   | "libraries"
   | "users"
   | "dlna"
@@ -99,6 +105,13 @@ export interface AdminSurfaceProps {
   onAcquisitionIntakeStateChange?: (state: AdminAcquisitionIntakeRouteState) => void
   generatedArtifactsState?: AdminGeneratedArtifactsRouteState
   onGeneratedArtifactsStateChange?: (state: AdminGeneratedArtifactsRouteState) => void
+  generatedArtifactReviewState?: AdminGeneratedArtifactReviewRouteState
+  onGeneratedArtifactReviewStateChange?: (state: AdminGeneratedArtifactReviewRouteState) => void
+  onGeneratedArtifactReviewRequest?: (
+    artifactId: string,
+    decision: AdminGeneratedArtifactReviewDecision,
+  ) => void
+  onGeneratedArtifactReviewBack?: () => void
 }
 
 interface AdminNavItem {
@@ -185,6 +198,10 @@ export function AdminSurface({
   onAcquisitionIntakeStateChange,
   generatedArtifactsState,
   onGeneratedArtifactsStateChange,
+  generatedArtifactReviewState,
+  onGeneratedArtifactReviewStateChange,
+  onGeneratedArtifactReviewRequest,
+  onGeneratedArtifactReviewBack,
 }: AdminSurfaceProps = {}) {
   const [activeComponent, setActiveComponent] = useState<AdminSurfaceSection>(activeSection)
   const { data: dashboardData = ADMIN_DASHBOARD_FIXTURE } = useQuery({
@@ -230,6 +247,15 @@ export function AdminSurface({
           <AdminGeneratedArtifacts
             routeState={generatedArtifactsState}
             onRouteStateChange={onGeneratedArtifactsStateChange}
+            onReviewRequest={onGeneratedArtifactReviewRequest}
+          />
+        )
+      case "generated-artifact-review":
+        return (
+          <AdminGeneratedArtifactReview
+            routeState={generatedArtifactReviewState}
+            onRouteStateChange={onGeneratedArtifactReviewStateChange}
+            onBackToQueue={onGeneratedArtifactReviewBack}
           />
         )
       case "scheduled-tasks":
@@ -268,19 +294,12 @@ export function AdminSurface({
               </h3>
               <div className="space-y-0.5">
                 {group.items.map((item) => (
-                  <button
+                  <AdminNavButton
                     key={item.name}
+                    item={item}
+                    activeComponent={activeComponent}
                     onClick={() => navigateToSection(item.component)}
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
-                      activeComponent === item.component
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50"
-                    )}
-                  >
-                    <item.icon className="h-4 w-4" />
-                    <span>{item.name}</span>
-                  </button>
+                  />
                 ))}
               </div>
             </div>
@@ -315,6 +334,35 @@ export function AdminSurface({
         </div>
       </main>
     </div>
+  )
+}
+
+function AdminNavButton({
+  item,
+  activeComponent,
+  onClick,
+}: {
+  item: AdminNavItem
+  activeComponent: AdminSurfaceSection
+  onClick: () => void
+}) {
+  const active =
+    activeComponent === item.component ||
+    (activeComponent === "generated-artifact-review" && item.component === "generated-artifacts")
+
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
+        active
+          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+          : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50",
+      )}
+    >
+      <item.icon className="h-4 w-4" />
+      <span>{item.name}</span>
+    </button>
   )
 }
 

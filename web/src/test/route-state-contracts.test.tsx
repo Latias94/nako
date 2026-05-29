@@ -183,6 +183,162 @@ describe("route state contracts", () => {
     })
   })
 
+  it("writes Admin generated artifact review requests to the URL", async () => {
+    const user = userEvent.setup()
+    const { router } = renderRoute("/admin/automation/generated-artifacts")
+
+    expect(await screen.findByText("fixture-generated-artifact-1", {}, { timeout: 5000 })).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: /查看接受计划 fixture-generated-artifact-1/ }))
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/admin/automation/generated-artifacts/review")
+      expect(router.state.location.search).toMatchObject({
+        artifact_id: "fixture-generated-artifact-1",
+        decision: "accept",
+      })
+    })
+  })
+
+  it("keeps fixture Admin generated artifact review mutations disabled", async () => {
+    renderRoute(
+      "/admin/automation/generated-artifacts/review?artifact_id=fixture-generated-artifact-1&decision=accept",
+    )
+
+    expect(await screen.findByRole("heading", { name: "生成产物审核" }, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText("连接 live Admin API 后才能执行管理操作", {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "准备确认" })).toBeDisabled()
+  })
+
+  it("does not allow live generated artifact review when review-plan falls back to fixture", async () => {
+    const originalFetch = globalThis.fetch
+    const previousProfile = window.localStorage.getItem(CONNECTION_PROFILE_STORAGE_KEY)
+    const previousSession = window.sessionStorage.getItem(CONNECTION_SESSION_STORAGE_KEY)
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      jsonResponse({ code: "review_plan_unavailable", message: "offline" }, 503),
+    )
+
+    window.localStorage.setItem(
+      CONNECTION_PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        mode: "live",
+        runtime: "browser",
+        baseUrl: "http://nako-admin.test",
+      }),
+    )
+    window.sessionStorage.setItem(
+      CONNECTION_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        bearerToken: "admin-token",
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+
+    try {
+      renderRoute("/admin/automation/generated-artifacts/review?artifact_id=artifact-live&decision=accept")
+
+      expect(await screen.findByText("审核计划不是 live Admin API 返回，不能执行确认。", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: "准备确认" })).toBeDisabled()
+    } finally {
+      vi.stubGlobal("fetch", originalFetch)
+      restoreStorage(window.localStorage, CONNECTION_PROFILE_STORAGE_KEY, previousProfile)
+      restoreStorage(window.sessionStorage, CONNECTION_SESSION_STORAGE_KEY, previousSession)
+    }
+  })
+
+  it("runs live Admin generated artifact review through review-plan and confirmed mutation", async () => {
+    const user = userEvent.setup()
+    const originalFetch = globalThis.fetch
+    const previousProfile = window.localStorage.getItem(CONNECTION_PROFILE_STORAGE_KEY)
+    const previousSession = window.sessionStorage.getItem(CONNECTION_SESSION_STORAGE_KEY)
+    const calls: Array<{
+      method: string
+      path: string
+      body?: unknown
+      authorization: string | null
+    }> = []
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined
+      const method = init?.method ?? "GET"
+      calls.push({
+        method,
+        path: url.pathname,
+        body,
+        authorization: new Headers(init?.headers).get("Authorization"),
+      })
+
+      switch (`${method} ${url.pathname}`) {
+        case "POST /admin/v1/automation/generated-artifacts/artifact-live/review-plan":
+          return jsonResponse(adminGeneratedArtifactReviewPlanResponse("artifact-live", "accept"))
+        case "POST /admin/v1/automation/generated-artifacts/artifact-live/review":
+          return jsonResponse(adminGeneratedArtifactReviewResponse("artifact-live", "accept"))
+        default:
+          return jsonResponse({ code: "not_found", message: "not found" }, 404)
+      }
+    })
+
+    window.localStorage.setItem(
+      CONNECTION_PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        mode: "live",
+        runtime: "browser",
+        baseUrl: "http://nako-admin.test",
+      }),
+    )
+    window.sessionStorage.setItem(
+      CONNECTION_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        bearerToken: "admin-token",
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+
+    try {
+      renderRoute("/admin/automation/generated-artifacts/review?artifact_id=artifact-live&decision=accept")
+
+      expect(await screen.findByText("artifact-live", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(screen.getByText("Metadata Authority apply")).toBeInTheDocument()
+      expect(screen.queryByText("unsafe prompt body")).not.toBeInTheDocument()
+      expect(screen.queryByText("unsafe generated payload title")).not.toBeInTheDocument()
+      expect(screen.queryByText("provider secret response")).not.toBeInTheDocument()
+      expect(screen.queryByText("F:\\private\\source\\Movie.mkv")).not.toBeInTheDocument()
+      expect(screen.queryByText("file:///mnt/private/source/Movie.mkv")).not.toBeInTheDocument()
+      expect(screen.queryByText("admin-token")).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole("button", { name: "准备确认" }))
+      await user.click(screen.getByRole("button", { name: "确认接受" }))
+
+      expect(await screen.findByText("idempotent replay", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(screen.getByText("accepted")).toBeInTheDocument()
+
+      expect(calls).toContainEqual({
+        method: "POST",
+        path: "/admin/v1/automation/generated-artifacts/artifact-live/review-plan",
+        body: { decision: "accept" },
+        authorization: "Bearer admin-token",
+      })
+      expect(calls).toContainEqual({
+        method: "POST",
+        path: "/admin/v1/automation/generated-artifacts/artifact-live/review",
+        body: { decision: "accept" },
+        authorization: "Bearer admin-token",
+      })
+      await waitFor(() => {
+        expect(
+          calls.filter(
+            (call) =>
+              call.method === "POST" &&
+              call.path === "/admin/v1/automation/generated-artifacts/artifact-live/review-plan",
+          ).length,
+        ).toBeGreaterThanOrEqual(2)
+      })
+    } finally {
+      vi.stubGlobal("fetch", originalFetch)
+      restoreStorage(window.localStorage, CONNECTION_PROFILE_STORAGE_KEY, previousProfile)
+      restoreStorage(window.sessionStorage, CONNECTION_SESSION_STORAGE_KEY, previousSession)
+    }
+  })
+
   it("writes Media search submits to the URL", async () => {
     const user = userEvent.setup()
     const { router } = renderRoute("/media/search")
@@ -926,6 +1082,85 @@ function adminGeneratedArtifactProposalsResponse() {
       offset: 50,
       returned: 1,
     },
+  }
+}
+
+function adminGeneratedArtifactReviewPlanResponse(
+  artifactId = "artifact-live",
+  decision: "accept" | "reject" = "accept",
+) {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    plan: adminGeneratedArtifactAcceptancePlan(artifactId, decision),
+  }
+}
+
+function adminGeneratedArtifactReviewResponse(
+  artifactId = "artifact-live",
+  decision: "accept" | "reject" = "accept",
+) {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    artifact_id: artifactId,
+    decision,
+    artifact_status: decision === "accept" ? "accepted" : "rejected",
+    accepted_at: decision === "accept" ? "2026-05-29T01:10:00Z" : null,
+    idempotent_replay: true,
+    plan: adminGeneratedArtifactAcceptancePlan(artifactId, decision),
+  }
+}
+
+function adminGeneratedArtifactAcceptancePlan(
+  artifactId = "artifact-live",
+  decision: "accept" | "reject" = "accept",
+) {
+  return {
+    artifact_id: artifactId,
+    decision,
+    status: "ready",
+    action: decision === "accept" ? "accept_generated_artifact" : "reject_generated_artifact",
+    reasons: ["ready_for_review"],
+    capability: "item_metadata_suggest",
+    kind: "metadata_suggestion",
+    target: {
+      kind: "media_item",
+      library_id: "library-a",
+      item_id: "item-live",
+      source_id: "source-live",
+      local_path: "F:\\private\\source\\Movie.mkv",
+      source_locator: "file:///mnt/private/source/Movie.mkv",
+    },
+    payload: {
+      valid_json: true,
+      shape: "object",
+      payload_fingerprint: "sha256:payload-live",
+      payload_bytes: 4096,
+      object_field_count: 9,
+      array_item_count: null,
+      has_textual_values: true,
+      has_explanation: true,
+      confidence_milli: 910,
+      raw_payload: {
+        title: "unsafe generated payload title",
+      },
+    },
+    readiness: {
+      status: "ready",
+      actionable: true,
+      reasons: ["ready_for_review"],
+    },
+    boundary: {
+      accepted_into_canonical_metadata: false,
+      writes_sidecar: false,
+      writes_library_files: false,
+      applies_immediately: false,
+      requires_metadata_authority_apply: decision === "accept",
+    },
+    raw_prompt: "unsafe prompt body",
+    provider_raw_response: "provider secret response",
+    artifact_storage_handle: "F:\\nako\\artifact-cache\\metadata.json",
   }
 }
 

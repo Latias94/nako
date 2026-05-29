@@ -82,6 +82,10 @@ attention.
   through real backend/API contracts before downloads, playlists, photos,
   music, podcasts, AI assistant, or automation can re-enter the live web
   runtime.
+- [web-admin-generated-artifact-review-mutations](web-admin-generated-artifact-review-mutations/README.md):
+  completed guarded mutation lane for adding Generated Artifact review-plan
+  preview, explicit accept/reject confirmation, idempotent result display, and
+  redaction-safe Admin API mutations to the new `web/` Admin frontend.
 - [web-playlist-management-ui-mutations](web-playlist-management-ui-mutations/README.md):
   active fearless refactor lane for turning the closed User Playlist Public
   Client contract and first read-oriented web slice into create, rename, delete,

@@ -9,6 +9,11 @@ import type {
   AdminGeneratedArtifactProposal,
   AdminGeneratedArtifactProposalListResponse,
   AdminGeneratedArtifactProposalsQuery,
+  AdminGeneratedArtifactReviewPlanResponse,
+  AdminGeneratedArtifactReviewRequest,
+  AdminGeneratedArtifactPayloadSummary,
+  AdminGeneratedArtifactReadiness,
+  AdminGeneratedArtifactTarget,
   AdminJobListItem,
   AdminMetadataRawCacheSettingsResponse,
   AdminOutboxEventListItem,
@@ -336,6 +341,34 @@ export interface AdminGeneratedArtifactsReadModel extends AdminReadModelEnvelope
   page: AdminGeneratedArtifactProposalListResponse["page"]
 }
 
+export type AdminGeneratedArtifactReviewDecision = AdminGeneratedArtifactReviewRequest["decision"]
+
+export interface AdminGeneratedArtifactAcceptanceBoundaryReadModel {
+  acceptedIntoCanonicalMetadata: boolean
+  writesSidecar: boolean
+  writesLibraryFiles: boolean
+  appliesImmediately: boolean
+  requiresMetadataAuthorityApply: boolean
+}
+
+export interface AdminGeneratedArtifactReviewPlanReadModel extends AdminReadModelEnvelope {
+  versions: {
+    adminApi: string
+    publicApi: string
+  }
+  artifactId: string
+  decision: AdminGeneratedArtifactReviewDecision
+  status: string
+  action: string
+  reasons: string[]
+  capability: string
+  kind: string
+  target: AdminGeneratedArtifactTargetReadModel
+  payload: AdminGeneratedArtifactPayloadReadModel
+  readiness: AdminGeneratedArtifactReadinessReadModel
+  boundary: AdminGeneratedArtifactAcceptanceBoundaryReadModel
+}
+
 export interface AdminSettingsReadModel extends AdminReadModelEnvelope {
   general: {
     serverName: string
@@ -485,6 +518,9 @@ export const ADMIN_ACQUISITION_INTAKE_READ_MODEL_FIXTURE: AdminAcquisitionIntake
 export const ADMIN_GENERATED_ARTIFACTS_READ_MODEL_FIXTURE: AdminGeneratedArtifactsReadModel =
   generatedArtifactsFixture(normalizeGeneratedArtifactsQuery({}))
 
+export const ADMIN_GENERATED_ARTIFACT_REVIEW_PLAN_FIXTURE: AdminGeneratedArtifactReviewPlanReadModel =
+  generatedArtifactReviewPlanFixture("fixture-generated-artifact-1", "accept")
+
 export const ADMIN_SETTINGS_READ_MODEL_FIXTURE: AdminSettingsReadModel = {
   source: "fixture",
   fallback: true,
@@ -614,6 +650,16 @@ export function createAdminReadModelsDataSource(
       })
     },
 
+    async loadGeneratedArtifactReviewPlan(
+      artifactId: string,
+      decision: AdminGeneratedArtifactReviewDecision,
+    ): Promise<AdminGeneratedArtifactReviewPlanReadModel> {
+      return withFallback(generatedArtifactReviewPlanFixture(artifactId, decision), async () => {
+        const response = await client.planGeneratedArtifactReview(artifactId, { decision })
+        return mapGeneratedArtifactReviewPlanResponse(response)
+      })
+    },
+
     async loadSettings(): Promise<AdminSettingsReadModel> {
       return withFallback(ADMIN_SETTINGS_READ_MODEL_FIXTURE, async () => {
         const [config, runtime, staging, rawCache] = await Promise.all([
@@ -663,6 +709,12 @@ function fixtureDataSource() {
       }
 
       return generatedArtifactsFixture(normalizeGeneratedArtifactsQuery(query))
+    },
+    async loadGeneratedArtifactReviewPlan(
+      artifactId: string,
+      decision: AdminGeneratedArtifactReviewDecision,
+    ) {
+      return generatedArtifactReviewPlanFixture(artifactId, decision)
     },
     async loadSettings() {
       return ADMIN_SETTINGS_READ_MODEL_FIXTURE
@@ -918,12 +970,7 @@ function mapGeneratedArtifactProposal(
     kind: proposal.kind,
     capability: proposal.capability,
     status: proposal.status,
-    target: {
-      kind: proposal.target.kind,
-      libraryId: proposal.target.library_id,
-      itemId: proposal.target.item_id,
-      sourceId: proposal.target.source_id,
-    },
+    target: mapGeneratedArtifactTarget(proposal.target),
     provenance: {
       providerId: proposal.provenance.provider_id,
       providerName: proposal.provenance.provider_name,
@@ -934,25 +981,80 @@ function mapGeneratedArtifactProposal(
       attemptCount: proposal.provenance.attempt_count,
       artifactCreatedAt: proposal.provenance.artifact_created_at,
     },
-    payload: {
-      validJson: proposal.payload.valid_json,
-      shape: proposal.payload.shape,
-      payloadFingerprint: proposal.payload.payload_fingerprint,
-      payloadBytes: proposal.payload.payload_bytes,
-      objectFieldCount: proposal.payload.object_field_count,
-      arrayItemCount: proposal.payload.array_item_count,
-      hasTextualValues: proposal.payload.has_textual_values,
-      hasExplanation: proposal.payload.has_explanation,
-      confidenceMilli: proposal.payload.confidence_milli,
-    },
-    readiness: {
-      status: proposal.readiness.status,
-      actionable: proposal.readiness.actionable,
-      reasons: proposal.readiness.reasons,
-    },
+    payload: mapGeneratedArtifactPayload(proposal.payload),
+    readiness: mapGeneratedArtifactReadiness(proposal.readiness),
     createdAt: proposal.created_at,
     updatedAt: proposal.updated_at,
     acceptedAt: proposal.accepted_at,
+  }
+}
+
+export function mapGeneratedArtifactReviewPlanResponse(
+  response: AdminGeneratedArtifactReviewPlanResponse,
+): AdminGeneratedArtifactReviewPlanReadModel {
+  const plan = response.plan
+
+  return {
+    source: "live",
+    fallback: false,
+    versions: {
+      adminApi: response.admin_api_version,
+      publicApi: response.public_api_version,
+    },
+    artifactId: plan.artifact_id,
+    decision: plan.decision,
+    status: plan.status,
+    action: plan.action,
+    reasons: plan.reasons,
+    capability: plan.capability,
+    kind: plan.kind,
+    target: mapGeneratedArtifactTarget(plan.target),
+    payload: mapGeneratedArtifactPayload(plan.payload),
+    readiness: mapGeneratedArtifactReadiness(plan.readiness),
+    boundary: {
+      acceptedIntoCanonicalMetadata: plan.boundary.accepted_into_canonical_metadata,
+      writesSidecar: plan.boundary.writes_sidecar,
+      writesLibraryFiles: plan.boundary.writes_library_files,
+      appliesImmediately: plan.boundary.applies_immediately,
+      requiresMetadataAuthorityApply: plan.boundary.requires_metadata_authority_apply,
+    },
+  }
+}
+
+function mapGeneratedArtifactTarget(
+  target: AdminGeneratedArtifactTarget,
+): AdminGeneratedArtifactTargetReadModel {
+  return {
+    kind: target.kind,
+    libraryId: target.library_id,
+    itemId: target.item_id,
+    sourceId: target.source_id,
+  }
+}
+
+function mapGeneratedArtifactPayload(
+  payload: AdminGeneratedArtifactPayloadSummary,
+): AdminGeneratedArtifactPayloadReadModel {
+  return {
+    validJson: payload.valid_json,
+    shape: payload.shape,
+    payloadFingerprint: payload.payload_fingerprint,
+    payloadBytes: payload.payload_bytes,
+    objectFieldCount: payload.object_field_count,
+    arrayItemCount: payload.array_item_count,
+    hasTextualValues: payload.has_textual_values,
+    hasExplanation: payload.has_explanation,
+    confidenceMilli: payload.confidence_milli,
+  }
+}
+
+function mapGeneratedArtifactReadiness(
+  readiness: AdminGeneratedArtifactReadiness,
+): AdminGeneratedArtifactReadinessReadModel {
+  return {
+    status: readiness.status,
+    actionable: readiness.actionable,
+    reasons: readiness.reasons,
   }
 }
 
@@ -1084,6 +1186,56 @@ function generatedArtifactsFixture(
       limit: query.limit ?? 50,
       offset: query.offset ?? 0,
       returned: 1,
+    },
+  }
+}
+
+function generatedArtifactReviewPlanFixture(
+  artifactId: string,
+  decision: AdminGeneratedArtifactReviewDecision,
+): AdminGeneratedArtifactReviewPlanReadModel {
+  return {
+    source: "fixture",
+    fallback: true,
+    versions: {
+      adminApi: "fixture",
+      publicApi: "fixture",
+    },
+    artifactId,
+    decision,
+    status: "ready",
+    action: decision === "accept" ? "accept_generated_artifact" : "reject_generated_artifact",
+    reasons: ["ready_for_review"],
+    capability: "item_metadata_suggest",
+    kind: "metadata_suggestion",
+    target: {
+      kind: "media_item",
+      libraryId: "library-movies",
+      itemId: "item-fixture-1",
+      sourceId: null,
+    },
+    payload: {
+      validJson: true,
+      shape: "object",
+      payloadFingerprint: "sha256:payload-fixture",
+      payloadBytes: 2048,
+      objectFieldCount: 8,
+      arrayItemCount: null,
+      hasTextualValues: true,
+      hasExplanation: true,
+      confidenceMilli: 820,
+    },
+    readiness: {
+      status: "ready",
+      actionable: true,
+      reasons: ["ready_for_review"],
+    },
+    boundary: {
+      acceptedIntoCanonicalMetadata: false,
+      writesSidecar: false,
+      writesLibraryFiles: false,
+      appliesImmediately: false,
+      requiresMetadataAuthorityApply: decision === "accept",
     },
   }
 }

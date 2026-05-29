@@ -22,6 +22,7 @@ import { SurfaceSwitcher } from "@/src/shell/surface-switcher"
 import type { MediaSurfaceRef, MediaSurfaceRouteView } from "@/src/features/media"
 import type {
   AdminAcquisitionIntakeRouteState,
+  AdminGeneratedArtifactReviewRouteState,
   AdminGeneratedArtifactsRouteState,
   AdminLogsRouteState,
   AdminLogsTab,
@@ -318,6 +319,40 @@ function AdminGeneratedArtifactsRoute() {
           replace: true,
         })
       }}
+      onGeneratedArtifactReviewRequest={(artifactId, decision) => {
+        void navigate({
+          to: "/admin/automation/generated-artifacts/review",
+          search: {
+            artifact_id: artifactId,
+            decision,
+          },
+        })
+      }}
+      onSectionNavigate={(nextSection) => {
+        void navigate(toAdminRoute(nextSection))
+      }}
+    />
+  )
+}
+
+function AdminGeneratedArtifactReviewRoute() {
+  const navigate = useNavigate()
+  const search = adminGeneratedArtifactReviewRoute.useSearch()
+
+  return (
+    <AdminSurface
+      activeSection="generated-artifact-review"
+      generatedArtifactReviewState={adminGeneratedArtifactReviewStateFromSearch(search)}
+      onGeneratedArtifactReviewStateChange={(state) => {
+        void navigate({
+          to: "/admin/automation/generated-artifacts/review",
+          search: toAdminGeneratedArtifactReviewSearch(state),
+          replace: true,
+        })
+      }}
+      onGeneratedArtifactReviewBack={() => {
+        void navigate({ to: "/admin/automation/generated-artifacts" })
+      }}
       onSectionNavigate={(nextSection) => {
         void navigate(toAdminRoute(nextSection))
       }}
@@ -487,6 +522,13 @@ const adminGeneratedArtifactsRoute = createRoute({
   component: AdminGeneratedArtifactsRoute,
 })
 
+const adminGeneratedArtifactReviewRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/automation/generated-artifacts/review",
+  validateSearch: validateAdminGeneratedArtifactReviewSearch,
+  component: AdminGeneratedArtifactReviewRoute,
+})
+
 const adminSettingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/admin/settings",
@@ -585,6 +627,7 @@ const routeTree = rootRoute.addChildren([
   adminLogsRoute,
   adminAcquisitionIntakeRoute,
   adminGeneratedArtifactsRoute,
+  adminGeneratedArtifactReviewRoute,
   adminSettingsRoute,
   adminDlnaRoute,
   adminRemoteAccessRoute,
@@ -670,6 +713,8 @@ function toAdminRoute(section: AdminSurfaceSection) {
       return { to: "/admin/acquisition/intake" } as const
     case "generated-artifacts":
       return { to: "/admin/automation/generated-artifacts" } as const
+    case "generated-artifact-review":
+      return { to: "/admin/automation/generated-artifacts" } as const
     case "advanced":
       return { to: "/admin/settings" } as const
     case "dlna":
@@ -718,6 +763,11 @@ interface AdminGeneratedArtifactsRouteSearch {
   offset?: number
 }
 
+interface AdminGeneratedArtifactReviewRouteSearch {
+  artifact_id?: string
+  decision?: "accept" | "reject"
+}
+
 function validateAdminLogsSearch(search: Record<string, unknown>): AdminLogsRouteSearch {
   const levels = parseAdminLogList(search.levels, ADMIN_LOG_LEVELS)
   const sources = parseAdminLogList(search.sources, ADMIN_LOG_SOURCES)
@@ -750,6 +800,15 @@ function validateAdminGeneratedArtifactsSearch(
   return {
     limit: parsePositiveInteger(search.limit),
     offset: parseNonNegativeInteger(search.offset),
+  }
+}
+
+function validateAdminGeneratedArtifactReviewSearch(
+  search: Record<string, unknown>,
+): AdminGeneratedArtifactReviewRouteSearch {
+  return {
+    artifact_id: parseSearchString(search.artifact_id),
+    decision: search.decision === "reject" ? "reject" : "accept",
   }
 }
 
@@ -833,6 +892,15 @@ function adminGeneratedArtifactsStateFromSearch(
   }
 }
 
+function adminGeneratedArtifactReviewStateFromSearch(
+  search: AdminGeneratedArtifactReviewRouteSearch,
+): AdminGeneratedArtifactReviewRouteState {
+  return {
+    artifactId: search.artifact_id,
+    decision: search.decision,
+  }
+}
+
 function toAdminLogsSearch(state: AdminLogsRouteState) {
   return {
     q: state.query || undefined,
@@ -858,6 +926,13 @@ function toAdminGeneratedArtifactsSearch(state: AdminGeneratedArtifactsRouteStat
   return {
     limit: state.limit && state.limit !== 50 ? state.limit : undefined,
     offset: state.offset && state.offset > 0 ? state.offset : undefined,
+  }
+}
+
+function toAdminGeneratedArtifactReviewSearch(state: AdminGeneratedArtifactReviewRouteState) {
+  return {
+    artifact_id: state.artifactId || undefined,
+    decision: state.decision && state.decision !== "accept" ? state.decision : undefined,
   }
 }
 

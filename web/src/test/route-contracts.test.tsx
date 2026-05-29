@@ -120,6 +120,14 @@ const routeContracts: RouteContract[] = [
     },
   },
   {
+    path: "/admin/automation/generated-artifacts/review?artifact_id=fixture-generated-artifact-1&decision=accept",
+    assert: async () => {
+      expect(await screen.findByRole("heading", { name: "生成产物审核" }, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByText("fixture-generated-artifact-1", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByText("Metadata Authority apply", {}, { timeout: 5000 })).toBeInTheDocument()
+    },
+  },
+  {
     path: "/admin/settings",
     assert: async () => {
       expect(await screen.findByRole("heading", { name: "高级设置" }, { timeout: 5000 })).toBeInTheDocument()

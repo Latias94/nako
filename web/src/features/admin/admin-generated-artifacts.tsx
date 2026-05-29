@@ -8,10 +8,12 @@ import {
   ChevronLeft,
   ChevronRight,
   Database,
+  Eye,
   Loader2,
   RefreshCw,
   ShieldCheck,
   Sparkles,
+  XCircle,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -21,6 +23,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import {
   ADMIN_GENERATED_ARTIFACTS_READ_MODEL_FIXTURE,
   createAdminReadModelsDataSource,
+  type AdminGeneratedArtifactReviewDecision,
   type AdminGeneratedArtifactProposalReadModel,
 } from "@/src/api/admin/read-models-data-source"
 import type { AdminGeneratedArtifactProposalsQuery } from "@/src/api/admin/generated/contract"
@@ -37,11 +40,13 @@ export interface AdminGeneratedArtifactsRouteState {
 interface AdminGeneratedArtifactsProps {
   routeState?: AdminGeneratedArtifactsRouteState
   onRouteStateChange?: (state: AdminGeneratedArtifactsRouteState) => void
+  onReviewRequest?: (artifactId: string, decision: AdminGeneratedArtifactReviewDecision) => void
 }
 
 export function AdminGeneratedArtifacts({
   routeState,
   onRouteStateChange,
+  onReviewRequest,
 }: AdminGeneratedArtifactsProps = {}) {
   const normalizedRouteState = useMemo(() => normalizeRouteState(routeState), [routeState])
   const query = useMemo(() => routeStateToQuery(normalizedRouteState), [normalizedRouteState])
@@ -93,7 +98,7 @@ export function AdminGeneratedArtifacts({
           </Badge>
           <Badge variant="outline">
             <ShieldCheck className="h-3 w-3" />
-            只读
+            受控审核
           </Badge>
           <Button
             type="button"
@@ -169,11 +174,16 @@ export function AdminGeneratedArtifacts({
                   <TableHead>就绪</TableHead>
                   <TableHead>指纹</TableHead>
                   <TableHead>更新时间</TableHead>
+                  <TableHead className="sticky right-0 z-10 min-w-[9rem] bg-card text-right">审核</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {data.proposals.map((proposal) => (
-                  <GeneratedArtifactRow key={proposal.id} proposal={proposal} />
+                  <GeneratedArtifactRow
+                    key={proposal.id}
+                    proposal={proposal}
+                    onReviewRequest={onReviewRequest}
+                  />
                 ))}
               </TableBody>
             </Table>
@@ -212,7 +222,15 @@ export function AdminGeneratedArtifacts({
   )
 }
 
-function GeneratedArtifactRow({ proposal }: { proposal: AdminGeneratedArtifactProposalReadModel }) {
+function GeneratedArtifactRow({
+  proposal,
+  onReviewRequest,
+}: {
+  proposal: AdminGeneratedArtifactProposalReadModel
+  onReviewRequest?: (artifactId: string, decision: AdminGeneratedArtifactReviewDecision) => void
+}) {
+  const canReview = proposal.readiness.actionable && proposal.status === "pending_review"
+
   return (
     <TableRow>
       <TableCell>
@@ -267,6 +285,42 @@ function GeneratedArtifactRow({ proposal }: { proposal: AdminGeneratedArtifactPr
         </div>
       </TableCell>
       <TableCell className="text-xs text-muted-foreground">{formatDateTime(proposal.updatedAt)}</TableCell>
+      <TableCell className="sticky right-0 z-10 min-w-[9rem] bg-card">
+        <div className="flex flex-wrap justify-end gap-1.5">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 px-2 text-xs"
+            disabled={!canReview}
+            title={canReview ? "查看接受计划" : "当前提案不可审核"}
+            aria-label={`查看接受计划 ${proposal.id}`}
+            onClick={() => onReviewRequest?.(proposal.id, "accept")}
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            接受
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 px-2 text-xs"
+            disabled={!canReview}
+            title={canReview ? "查看拒绝计划" : "当前提案不可审核"}
+            aria-label={`查看拒绝计划 ${proposal.id}`}
+            onClick={() => onReviewRequest?.(proposal.id, "reject")}
+          >
+            <XCircle className="h-3.5 w-3.5" />
+            拒绝
+          </Button>
+          {!onReviewRequest && (
+            <Badge variant="outline" className="gap-1 text-xs">
+              <Eye className="h-3 w-3" />
+              队列
+            </Badge>
+          )}
+        </div>
+      </TableCell>
     </TableRow>
   )
 }
