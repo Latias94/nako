@@ -19,6 +19,8 @@ components.
 ```bash
 cargo nextest run -p nako-transcode hls_request_variant --no-fail-fast
 cargo nextest run -p nako-server hls_source_request_identity --no-fail-fast
+cargo nextest run -p nako-transcode hls --no-fail-fast
+cargo nextest run -p nako-server hls --no-fail-fast
 ```
 
 ### Runtime Gate
@@ -73,6 +75,25 @@ python3 -m json.tool docs/workstreams/hls-seek-restart-lifecycle/WORKSTREAM.json
   --no-fail-fast` (1 passed, 446 skipped). Runtime gate run
   `4be7e479-c87e-4f07-9571-69c7e6adfa16`: `cargo nextest run -p nako-server
   hls_source --no-fail-fast` (15 passed, 432 skipped, 1 nextest leak warning).
+  Closeout gates passed: `cargo fmt --all -- --check`, `git diff --check`,
+  and `python3 -m json.tool
+  docs/workstreams/hls-seek-restart-lifecycle/WORKSTREAM.json >/dev/null`.
+- 2026-05-29 HSRL-040: Threaded `HlsPlaybackGeneration` from server playback
+  into `HlsRequest` command planning. Non-default generations now emit input
+  `-ss` before `-i`, `-avoid_negative_ts make_zero`,
+  `-force_key_frames expr:gte(t,n_forced*segment_time)`, and
+  `-hls_flags independent_segments`; default generation preserves existing HLS
+  argv. Red test failed before implementation with `E0560` because
+  `HlsRequest` did not expose `playback_generation`. Focused green runs:
+  `7347848c-1b85-476a-89a8-05104fbd651c`: `cargo nextest run -p
+  nako-transcode ffmpeg_builder_plans_hls_seek_generation_input_and_segment_flags
+  --no-fail-fast` (1 passed, 75 skipped), and
+  `acbd8c0b-fe50-4714-8239-5bd0a85c893b`: `cargo nextest run -p nako-server
+  hls_source_seek_generation_reaches_ffmpeg_command --no-fail-fast` (1 passed,
+  447 skipped). Task gates passed with `9eef82dd-750f-4d87-804e-1628f327bbf4`:
+  `cargo nextest run -p nako-transcode hls --no-fail-fast` (36 passed, 40
+  skipped), and `393f53b6-2dfb-43ef-8d2b-84a4df493189`: `cargo nextest run -p
+  nako-server hls --no-fail-fast` (48 passed, 400 skipped).
   Closeout gates passed: `cargo fmt --all -- --check`, `git diff --check`,
   and `python3 -m json.tool
   docs/workstreams/hls-seek-restart-lifecycle/WORKSTREAM.json >/dev/null`.

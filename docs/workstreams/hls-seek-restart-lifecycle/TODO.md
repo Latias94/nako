@@ -40,12 +40,15 @@ Task IDs use the `HSRL` prefix.
 
 ## M3 - FFmpeg Seek Command Planning
 
-- [ ] HSRL-040 [owner=codex] [deps=HSRL-030] [scope=crates/nako-transcode,crates/nako-server/src/app/playback]
+- [x] HSRL-040 [owner=codex] [deps=HSRL-030] [scope=crates/nako-transcode,crates/nako-server/src/app/playback,crates/nako-server/src/app/tests]
   Goal: Pass generation start position into HLS command planning with explicit
   seek flags and timestamp/keyframe behavior tests.
   Validation: `cargo nextest run -p nako-transcode hls --no-fail-fast`; `cargo nextest run -p nako-server hls --no-fail-fast`
-  Evidence: FFmpeg argv tests and server playback tests.
-  Handoff: Continue with HSRL-050.
+  Evidence: non-default HLS playback generation now reaches FFmpeg argv as
+  input `-ss`, avoids negative timestamps, forces segment-boundary keyframes,
+  and requests independent HLS segments; server playback has a fake runner that
+  fails unless those args are present.
+  Handoff: DONE. Continue with HSRL-050.
 
 ## M4 - Public Playback Integration And Closeout
 

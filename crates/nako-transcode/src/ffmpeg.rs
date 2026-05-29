@@ -7,9 +7,10 @@ use nako_core::{MediaSourceId, NakoError, Result};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    HLS_ADAPTIVE_FMP4_INIT_PATTERN, HardwareAcceleration, HlsArtifactManifest, HlsRendition,
-    HlsSegmentContainer, HlsVariantPolicy, TranscodeAccelerationPlan, TranscodeExecutionPolicy,
-    TranscodeSubtitleStrategy, TranscodeTrackSelection,
+    HLS_ADAPTIVE_FMP4_INIT_PATTERN, HardwareAcceleration, HlsArtifactManifest,
+    HlsPlaybackGeneration, HlsRendition, HlsSegmentContainer, HlsVariantPolicy,
+    TranscodeAccelerationPlan, TranscodeExecutionPolicy, TranscodeSubtitleStrategy,
+    TranscodeTrackSelection,
 };
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -97,6 +98,7 @@ pub struct RemuxRequest {
 pub struct HlsRequest {
     pub source_id: MediaSourceId,
     pub input_path: PathBuf,
+    pub playback_generation: HlsPlaybackGeneration,
     pub artifacts: HlsArtifactManifest,
     pub segment_time_seconds: u32,
     pub track_selection: TranscodeTrackSelection,
@@ -291,10 +293,14 @@ fn plan_single_variant_hls_command_parts(request: &HlsRequest) -> FfmpegHlsComma
     FfmpegHlsCommandParts {
         global: hls_global_args(request.overwrite),
         device_input: hls_device_input_args(request.execution_policy.acceleration),
-        input: hls_input_args(&request.input_path),
+        input: hls_input_args(&request.input_path, request.playback_generation),
         stream_map: hls_stream_map_args(request.track_selection),
         filter_graph: hls_filter_graph_args(request.execution_policy.acceleration),
-        video_encoder: hls_video_encoder_args(request.execution_policy),
+        video_encoder: hls_video_encoder_args(
+            request.execution_policy,
+            request.playback_generation,
+            request.segment_time_seconds,
+        ),
         audio_encoder: hls_audio_encoder_args(),
         audio_sidecar: hls_audio_sidecar_args(&request.artifacts, request.segment_time_seconds),
         subtitle: hls_subtitle_args(
@@ -307,6 +313,7 @@ fn plan_single_variant_hls_command_parts(request: &HlsRequest) -> FfmpegHlsComma
             request.artifacts.media_segment_pattern(),
             request.artifacts.primary_playlist_path(),
             request.artifacts.output().segment_container,
+            request.playback_generation,
         ),
     }
 }
@@ -315,7 +322,7 @@ fn plan_adaptive_hls_command_parts(request: &HlsRequest) -> FfmpegHlsCommandPart
     FfmpegHlsCommandParts {
         global: hls_global_args(request.overwrite),
         device_input: hls_device_input_args(request.execution_policy.acceleration),
-        input: hls_input_args(&request.input_path),
+        input: hls_input_args(&request.input_path, request.playback_generation),
         stream_map: hls_adaptive_stream_map_args(
             request.artifacts.renditions().len(),
             request.artifacts.has_audio(),
@@ -325,6 +332,8 @@ fn plan_adaptive_hls_command_parts(request: &HlsRequest) -> FfmpegHlsCommandPart
         video_encoder: hls_adaptive_video_encoder_args(
             request.execution_policy,
             request.artifacts.renditions(),
+            request.playback_generation,
+            request.segment_time_seconds,
         ),
         audio_encoder: hls_adaptive_audio_encoder_args(
             request.artifacts.renditions(),
@@ -336,7 +345,11 @@ fn plan_adaptive_hls_command_parts(request: &HlsRequest) -> FfmpegHlsCommandPart
             &request.artifacts,
             request.segment_time_seconds,
         ),
-        muxer: hls_adaptive_muxer_args(request.segment_time_seconds, &request.artifacts),
+        muxer: hls_adaptive_muxer_args(
+            request.segment_time_seconds,
+            &request.artifacts,
+            request.playback_generation,
+        ),
     }
 }
 
@@ -396,11 +409,21 @@ fn hls_device_input_args(acceleration: TranscodeAccelerationPlan) -> Vec<FfmpegA
     }
 }
 
-fn hls_input_args(input_path: &Path) -> Vec<FfmpegArg> {
-    vec![
+fn hls_input_args(input_path: &Path, playback_generation: HlsPlaybackGeneration) -> Vec<FfmpegArg> {
+    let mut args = Vec::new();
+    if !playback_generation.is_default_start() {
+        args.extend([
+            FfmpegArg::raw("-ss"),
+            FfmpegArg::raw(format_ffmpeg_timestamp_ms(
+                playback_generation.start_position_ms(),
+            )),
+        ]);
+    }
+    args.extend([
         FfmpegArg::raw("-i"),
         FfmpegArg::path(input_path.to_path_buf()),
-    ]
+    ]);
+    args
 }
 
 fn hls_stream_map_args(track_selection: TranscodeTrackSelection) -> Vec<FfmpegArg> {
@@ -426,7 +449,11 @@ fn hls_filter_graph_args(acceleration: TranscodeAccelerationPlan) -> Vec<FfmpegA
     }
 }
 
-fn hls_video_encoder_args(policy: TranscodeExecutionPolicy) -> Vec<FfmpegArg> {
+fn hls_video_encoder_args(
+    policy: TranscodeExecutionPolicy,
+    playback_generation: HlsPlaybackGeneration,
+    segment_time_seconds: u32,
+) -> Vec<FfmpegArg> {
     let encoder = hls_video_encoder_name(policy.acceleration.encode.accelerator);
     let mut args = vec![FfmpegArg::raw("-c:v"), FfmpegArg::raw(encoder)];
 
@@ -439,6 +466,10 @@ fn hls_video_encoder_args(policy: TranscodeExecutionPolicy) -> Vec<FfmpegArg> {
         ));
     }
 
+    args.extend(hls_seek_keyframe_args(
+        playback_generation,
+        segment_time_seconds,
+    ));
     args
 }
 
@@ -471,6 +502,8 @@ fn hls_audio_stream_map(track_selection: TranscodeTrackSelection) -> String {
 fn hls_adaptive_video_encoder_args(
     policy: TranscodeExecutionPolicy,
     renditions: &[HlsRendition],
+    playback_generation: HlsPlaybackGeneration,
+    segment_time_seconds: u32,
 ) -> Vec<FfmpegArg> {
     let encoder = hls_video_encoder_name(policy.acceleration.encode.accelerator);
     let mut args = vec![FfmpegArg::raw("-c:v"), FfmpegArg::raw(encoder)];
@@ -494,6 +527,10 @@ fn hls_adaptive_video_encoder_args(
         ]);
     }
 
+    args.extend(hls_seek_keyframe_args(
+        playback_generation,
+        segment_time_seconds,
+    ));
     args
 }
 
@@ -589,15 +626,24 @@ fn hls_muxer_args(
     segment_pattern: &Path,
     playlist_path: &Path,
     segment_container: HlsSegmentContainer,
+    playback_generation: HlsPlaybackGeneration,
 ) -> Vec<FfmpegArg> {
-    let mut args = vec![
+    let mut args = hls_seek_timestamp_args(playback_generation);
+    args.extend([
         FfmpegArg::raw("-f"),
         FfmpegArg::raw("hls"),
         FfmpegArg::raw("-hls_time"),
         FfmpegArg::raw(segment_time_seconds.max(1).to_string()),
         FfmpegArg::raw("-hls_playlist_type"),
         FfmpegArg::raw("vod"),
-    ];
+    ]);
+
+    if !playback_generation.is_default_start() {
+        args.extend([
+            FfmpegArg::raw("-hls_flags"),
+            FfmpegArg::raw("independent_segments"),
+        ]);
+    }
 
     if segment_container == HlsSegmentContainer::Fmp4 {
         args.extend([
@@ -619,6 +665,7 @@ fn hls_muxer_args(
 fn hls_adaptive_muxer_args(
     segment_time_seconds: u32,
     artifacts: &HlsArtifactManifest,
+    playback_generation: HlsPlaybackGeneration,
 ) -> Vec<FfmpegArg> {
     let master_playlist_name = artifacts
         .primary_playlist_path()
@@ -643,13 +690,24 @@ fn hls_adaptive_muxer_args(
         .collect::<Vec<_>>()
         .join(" ");
 
-    vec![
+    let mut args = hls_seek_timestamp_args(playback_generation);
+    args.extend([
         FfmpegArg::raw("-f"),
         FfmpegArg::raw("hls"),
         FfmpegArg::raw("-hls_time"),
         FfmpegArg::raw(segment_time_seconds.max(1).to_string()),
         FfmpegArg::raw("-hls_playlist_type"),
         FfmpegArg::raw("vod"),
+    ]);
+
+    if !playback_generation.is_default_start() {
+        args.extend([
+            FfmpegArg::raw("-hls_flags"),
+            FfmpegArg::raw("independent_segments"),
+        ]);
+    }
+
+    args.extend([
         FfmpegArg::raw("-hls_segment_type"),
         FfmpegArg::raw("fmp4"),
         FfmpegArg::raw("-hls_fmp4_init_filename"),
@@ -661,7 +719,40 @@ fn hls_adaptive_muxer_args(
         FfmpegArg::raw("-var_stream_map"),
         FfmpegArg::raw(stream_map),
         FfmpegArg::path(variant_playlist_pattern.to_path_buf()),
+    ]);
+    args
+}
+
+fn hls_seek_keyframe_args(
+    playback_generation: HlsPlaybackGeneration,
+    segment_time_seconds: u32,
+) -> Vec<FfmpegArg> {
+    if playback_generation.is_default_start() {
+        return Vec::new();
+    }
+
+    vec![
+        FfmpegArg::raw("-force_key_frames"),
+        FfmpegArg::raw(format!(
+            "expr:gte(t,n_forced*{})",
+            segment_time_seconds.max(1)
+        )),
     ]
+}
+
+fn hls_seek_timestamp_args(playback_generation: HlsPlaybackGeneration) -> Vec<FfmpegArg> {
+    if playback_generation.is_default_start() {
+        return Vec::new();
+    }
+
+    vec![
+        FfmpegArg::raw("-avoid_negative_ts"),
+        FfmpegArg::raw("make_zero"),
+    ]
+}
+
+fn format_ffmpeg_timestamp_ms(position_ms: u64) -> String {
+    format!("{}.{:03}", position_ms / 1_000, position_ms % 1_000)
 }
 
 fn hls_video_encoder_name(acceleration: HardwareAcceleration) -> &'static str {

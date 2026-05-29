@@ -1266,6 +1266,105 @@ fn fake_hls_ffmpeg_script(root: &Path, name: &str) -> PathBuf {
     hls_ffmpeg_script(root, name, true, hardware_encoder_lines())
 }
 
+fn fake_hls_ffmpeg_script_requiring_seek(root: &Path, name: &str, expected_seek: &str) -> PathBuf {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let path = root.join(name);
+        let mut content = String::from("#!/bin/sh\n");
+        push_unix_ffmpeg_probe_handlers(&mut content, hardware_encoder_lines());
+        content.push_str("expected_seek='");
+        content.push_str(expected_seek);
+        content.push_str("'\n");
+        content.push_str("seen_seek=0\n");
+        content.push_str("seek_before_input=0\n");
+        content.push_str("seen_input=0\n");
+        content.push_str("seen_timestamp=0\n");
+        content.push_str("seen_keyframes=0\n");
+        content.push_str("seen_independent=0\n");
+        content.push_str("out=\n");
+        content.push_str("prev=\n");
+        content.push_str("for arg do\n");
+        content.push_str("  if [ \"$prev\" = \"-ss\" ] && [ \"$arg\" = \"$expected_seek\" ]; then seen_seek=1; if [ \"$seen_input\" = \"0\" ]; then seek_before_input=1; fi; fi\n");
+        content.push_str("  if [ \"$arg\" = \"-i\" ]; then seen_input=1; fi\n");
+        content.push_str("  if [ \"$prev\" = \"-avoid_negative_ts\" ] && [ \"$arg\" = \"make_zero\" ]; then seen_timestamp=1; fi\n");
+        content.push_str("  if [ \"$prev\" = \"-force_key_frames\" ] && [ \"$arg\" = \"expr:gte(t,n_forced*6)\" ]; then seen_keyframes=1; fi\n");
+        content.push_str("  if [ \"$prev\" = \"-hls_flags\" ] && [ \"$arg\" = \"independent_segments\" ]; then seen_independent=1; fi\n");
+        content.push_str("  case \"$arg\" in *.m3u8) out=\"$arg\" ;; esac\n");
+        content.push_str("  prev=\"$arg\"\n");
+        content.push_str("done\n");
+        content.push_str("if [ \"$seen_seek\" != \"1\" ] || [ \"$seek_before_input\" != \"1\" ] || [ \"$seen_timestamp\" != \"1\" ] || [ \"$seen_keyframes\" != \"1\" ] || [ \"$seen_independent\" != \"1\" ]; then printf 'missing hls seek command args\\n' >&2; exit 44; fi\n");
+        content.push_str("dir=$(dirname \"$out\")\n");
+        content.push_str("mkdir -p \"$dir\"\n");
+        content.push_str(
+            "printf '#EXTM3U\\n#EXTINF:1,\\nsegment_00000.ts\\n#EXT-X-ENDLIST\\n' > \"$out\"\n",
+        );
+        content.push_str("printf segment > \"$dir/segment_00000.ts\"\n");
+        content
+            .push_str("printf 'frame=12\\nout_time_us=1500000\\nspeed=1.25x\\nprogress=end\\n'\n");
+        content.push_str("exit 0\n");
+        fs::write(&path, content).unwrap();
+        let mut permissions = fs::metadata(&path).unwrap().permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&path, permissions).unwrap();
+        path
+    }
+
+    #[cfg(windows)]
+    {
+        let path = root.join(format!("{name}.cmd"));
+        let mut content = String::from("@echo off\r\n");
+        push_windows_ffmpeg_probe_handlers(&mut content);
+        content.push_str("setlocal enabledelayedexpansion\r\n");
+        content.push_str("set expected_seek=");
+        content.push_str(expected_seek);
+        content.push_str("\r\n");
+        content.push_str("set seen_seek=0\r\n");
+        content.push_str("set seek_before_input=0\r\n");
+        content.push_str("set seen_input=0\r\n");
+        content.push_str("set seen_timestamp=0\r\n");
+        content.push_str("set seen_keyframes=0\r\n");
+        content.push_str("set seen_independent=0\r\n");
+        content.push_str("set out=\r\n");
+        content.push_str("set prev=\r\n");
+        content.push_str(":args\r\n");
+        content.push_str("if \"%~1\"==\"\" goto run\r\n");
+        content
+            .push_str("if \"!prev!\"==\"-ss\" if \"%~1\"==\"!expected_seek!\" set seen_seek=1\r\n");
+        content.push_str("if \"!prev!\"==\"-ss\" if \"%~1\"==\"!expected_seek!\" if \"!seen_input!\"==\"0\" set seek_before_input=1\r\n");
+        content.push_str("if \"%~1\"==\"-i\" set seen_input=1\r\n");
+        content.push_str("if \"!prev!\"==\"-avoid_negative_ts\" if \"%~1\"==\"make_zero\" set seen_timestamp=1\r\n");
+        content.push_str("if \"!prev!\"==\"-force_key_frames\" if \"%~1\"==\"expr:gte(t,n_forced*6)\" set seen_keyframes=1\r\n");
+        content.push_str("if \"!prev!\"==\"-hls_flags\" if \"%~1\"==\"independent_segments\" set seen_independent=1\r\n");
+        content.push_str("for %%I in (\"%~1\") do if /I \"%%~xI\"==\".m3u8\" set out=%~1\r\n");
+        content.push_str("set prev=%~1\r\n");
+        content.push_str("shift\r\n");
+        content.push_str("goto args\r\n");
+        content.push_str(":run\r\n");
+        content.push_str("if not \"!seen_seek!\"==\"1\" echo missing hls seek command args 1>&2 & exit /b 44\r\n");
+        content.push_str("if not \"!seek_before_input!\"==\"1\" echo missing hls seek command args 1>&2 & exit /b 44\r\n");
+        content.push_str("if not \"!seen_timestamp!\"==\"1\" echo missing hls seek command args 1>&2 & exit /b 44\r\n");
+        content.push_str("if not \"!seen_keyframes!\"==\"1\" echo missing hls seek command args 1>&2 & exit /b 44\r\n");
+        content.push_str("if not \"!seen_independent!\"==\"1\" echo missing hls seek command args 1>&2 & exit /b 44\r\n");
+        content.push_str("for %%I in (\"%out%\") do set dir=%%~dpI\r\n");
+        content.push_str("if not exist \"!dir!\" mkdir \"!dir!\"\r\n");
+        content.push_str(">\"%out%\" echo #EXTM3U\r\n");
+        content.push_str(">>\"%out%\" echo #EXTINF:1,\r\n");
+        content.push_str(">>\"%out%\" echo segment_00000.ts\r\n");
+        content.push_str(">>\"%out%\" echo #EXT-X-ENDLIST\r\n");
+        content.push_str("<nul set /p dummy=segment>\"!dir!segment_00000.ts\"\r\n");
+        content.push_str("echo frame=12\r\n");
+        content.push_str("echo out_time_us=1500000\r\n");
+        content.push_str("echo speed=1.25x\r\n");
+        content.push_str("echo progress=end\r\n");
+        content.push_str("exit /b 0\r\n");
+        push_windows_ffmpeg_probe_labels(&mut content, hardware_encoder_lines());
+        fs::write(&path, content).unwrap();
+        path
+    }
+}
+
 fn fake_hls_ffmpeg_script_requiring_audio_map(
     root: &Path,
     name: &str,

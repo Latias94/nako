@@ -8,13 +8,13 @@ use nako_core::{
 use nako_playback::PlaybackDecision;
 use nako_transcode::{
     CancellationToken, FfmpegCommandBuilder, FfmpegHardwareAccelerationDetector, FfmpegHlsRunner,
-    FfmpegOverwritePolicy, HardwareAccelerationDetector, HardwareAccelerationReport, HlsRequest,
-    TranscodeArtifactSet, TranscodeEngineAdapter, TranscodeEngineStartCommand,
-    TranscodeEngineStartOutcome, TranscodeExecutionPolicy, TranscodeOutputConstraints,
-    TranscodePipelinePlan, TranscodePipelinePlanner, TranscodePipelineReadiness,
-    TranscodePipelineRequest, TranscodePipelineSourceFacts, TranscodeRequestIdentity,
-    TranscodeResourceBudget, TranscodeRuntimeGuard, TranscodeRuntimeLimits,
-    TranscodeSessionManager, TranscodeTrackSelection,
+    FfmpegOverwritePolicy, HardwareAccelerationDetector, HardwareAccelerationReport,
+    HlsPlaybackGeneration, HlsRequest, TranscodeArtifactSet, TranscodeEngineAdapter,
+    TranscodeEngineStartCommand, TranscodeEngineStartOutcome, TranscodeExecutionPolicy,
+    TranscodeOutputConstraints, TranscodePipelinePlan, TranscodePipelinePlanner,
+    TranscodePipelineReadiness, TranscodePipelineRequest, TranscodePipelineSourceFacts,
+    TranscodeRequestIdentity, TranscodeResourceBudget, TranscodeRuntimeGuard,
+    TranscodeRuntimeLimits, TranscodeSessionManager, TranscodeTrackSelection,
     transcode_pipeline_readiness_without_selection,
 };
 use tokio::sync::Mutex;
@@ -143,6 +143,7 @@ impl HlsAppService {
         layout: HlsOutputLayout,
         track_selection: TranscodeTrackSelection,
         execution_policy: TranscodeExecutionPolicy,
+        playback_generation: HlsPlaybackGeneration,
         request_identity: TranscodeRequestIdentity,
     ) -> Result<HlsSourceOutput> {
         let key = HlsRequestKey {
@@ -170,6 +171,7 @@ impl HlsAppService {
                         layout,
                         track_selection,
                         execution_policy,
+                        playback_generation,
                     )
                     .await;
                 self.release(&key).await;
@@ -194,6 +196,7 @@ impl HlsAppService {
                         layout,
                         track_selection,
                         execution_policy,
+                        playback_generation,
                     )
                     .await;
                 self.release(&key).await;
@@ -349,6 +352,7 @@ impl HlsAppService {
         layout: HlsOutputLayout,
         track_selection: TranscodeTrackSelection,
         execution_policy: TranscodeExecutionPolicy,
+        playback_generation: HlsPlaybackGeneration,
     ) -> Result<HlsSourceOutput> {
         let session_id = persisted_session.id;
         let cancel = CancellationToken::new();
@@ -360,6 +364,7 @@ impl HlsAppService {
             HlsRequest {
                 source_id: source.id,
                 input_path,
+                playback_generation,
                 artifacts: layout.artifacts.clone(),
                 segment_time_seconds: 6,
                 track_selection,

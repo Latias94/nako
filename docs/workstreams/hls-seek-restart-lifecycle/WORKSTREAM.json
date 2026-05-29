@@ -7,11 +7,12 @@
   "scope_kind": "feature_refactor",
   "problem": "HLS request identity currently does not model playback start position, so future seek requests would collide with or incorrectly reuse existing HLS sessions and artifact directories.",
   "task_prefix": "HSRL",
-  "current_task": "HSRL-040",
+  "current_task": "HSRL-050",
   "completed_tasks": [
     "HSRL-010",
     "HSRL-020",
-    "HSRL-030"
+    "HSRL-030",
+    "HSRL-040"
   ],
   "authoritative_docs": [
     {
@@ -59,6 +60,10 @@
     {
       "task": "HSRL-030",
       "summary": "Made HlsAppService admission explicit: same-generation active duplicates conflict, same-generation finished outputs reuse, and different request keys for the same source supersede active HLS sessions by requesting cancellation before starting a new session."
+    },
+    {
+      "task": "HSRL-040",
+      "summary": "Threaded HlsPlaybackGeneration into HLS FFmpeg command planning so non-default generations emit input seek, timestamp normalization, forced segment-boundary keyframes, and independent HLS segment flags while default generation preserves existing argv."
     }
   ],
   "adr_refs": [
@@ -83,6 +88,6 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Continue with HSRL-040 FFmpeg seek command planning. Do not add public HTTP seek API, HDR, downmix, or subtitle burn-in behavior until the corresponding task is active."
+    "notes": "Continue with HSRL-050 public playback integration and closeout. Decide whether to expose a public seek request surface now or close this lane as internal-only support and split client-player/API work into a follow-on. Do not add HDR, downmix, or subtitle burn-in behavior under this lane."
   }
 }

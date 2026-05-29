@@ -116,6 +116,7 @@ mod tests {
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
             artifacts: hls_artifacts(
                 "hls",
                 "hls/playlist.m3u8",
@@ -165,11 +166,57 @@ mod tests {
     }
 
     #[test]
+    fn ffmpeg_builder_plans_hls_seek_generation_input_and_segment_flags() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::from_start_position_ms(45_250),
+            artifacts: hls_artifacts(
+                "hls",
+                "hls/playlist.m3u8",
+                "hls/segment_%05d.ts",
+                HlsOutputRequirement::default(),
+            ),
+            segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
+            execution_policy: hls_policy(HardwareAcceleration::None),
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let argv = builder.hls(&request).unwrap().argv_lossy();
+
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-ss" && args[1] == "45.250")
+        );
+        assert!(
+            argv.iter().position(|arg| arg == "-ss").unwrap()
+                < argv.iter().position(|arg| arg == "-i").unwrap()
+        );
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-avoid_negative_ts" && args[1] == "make_zero")
+        );
+        assert!(
+            argv.windows(2).any(|args| {
+                args[0] == "-force_key_frames" && args[1] == "expr:gte(t,n_forced*6)"
+            })
+        );
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-hls_flags" && args[1] == "independent_segments")
+        );
+        assert!(!argv.iter().any(|arg| arg == "-copyts"));
+    }
+
+    #[test]
     fn ffmpeg_builder_plans_hls_selected_audio_stream_map() {
         let builder = FfmpegCommandBuilder::new("ffmpeg");
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
             artifacts: hls_artifacts(
                 "hls",
                 "hls/playlist.m3u8",
@@ -201,6 +248,7 @@ mod tests {
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
             artifacts: hls_artifacts(
                 "hls",
                 "hls/playlist.m3u8",
@@ -250,6 +298,7 @@ mod tests {
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
             artifacts,
             segment_time_seconds: 6,
             track_selection: TranscodeTrackSelection::default(),
@@ -274,6 +323,7 @@ mod tests {
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
             artifacts,
             segment_time_seconds: 6,
             track_selection: TranscodeTrackSelection::default(),
@@ -320,6 +370,7 @@ mod tests {
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
             artifacts,
             segment_time_seconds: 6,
             track_selection: TranscodeTrackSelection {
@@ -357,6 +408,7 @@ mod tests {
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
             artifacts,
             segment_time_seconds: 6,
             track_selection: TranscodeTrackSelection {
@@ -447,6 +499,7 @@ mod tests {
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
             artifacts,
             segment_time_seconds: 6,
             track_selection: TranscodeTrackSelection::default(),
@@ -463,6 +516,7 @@ mod tests {
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
             artifacts: hls_artifacts(
                 "hls",
                 "hls/playlist.m3u8",
@@ -489,6 +543,7 @@ mod tests {
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
             artifacts: hls_artifacts(
                 "hls",
                 "hls/playlist.m3u8",
@@ -527,6 +582,7 @@ mod tests {
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
             artifacts: hls_artifacts(
                 "hls",
                 "hls/playlist.m3u8",
@@ -568,6 +624,7 @@ mod tests {
             let request = HlsRequest {
                 source_id: MediaSourceId::new(),
                 input_path: PathBuf::from("input.mkv"),
+                playback_generation: HlsPlaybackGeneration::default(),
                 artifacts: hls_artifacts(
                     "hls",
                     "hls/playlist.m3u8",
@@ -597,6 +654,7 @@ mod tests {
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
             artifacts: hls_artifacts(
                 "hls",
                 "hls/playlist.m3u8",
@@ -629,6 +687,7 @@ mod tests {
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
             artifacts: hls_artifacts(
                 "hls",
                 "hls/playlist.m3u8",
@@ -675,6 +734,7 @@ mod tests {
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
             artifacts,
             segment_time_seconds: 6,
             track_selection: TranscodeTrackSelection::default(),
@@ -719,6 +779,7 @@ mod tests {
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
             artifacts,
             segment_time_seconds: 6,
             track_selection: TranscodeTrackSelection::default(),
@@ -758,6 +819,7 @@ mod tests {
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
             artifacts: hls_artifacts(
                 "hls",
                 "hls/playlist.m3u8",
@@ -789,6 +851,7 @@ mod tests {
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
             artifacts: hls_artifacts(
                 "hls",
                 "hls/playlist.m3u8",
@@ -2035,6 +2098,7 @@ hevc_metadata
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
             artifacts: hls_artifacts(
                 "hls",
                 "hls/playlist.m3u8",
@@ -2413,6 +2477,7 @@ hevc_metadata
                 HlsRequest {
                     source_id: MediaSourceId::new(),
                     input_path: PathBuf::from("input.mkv"),
+                    playback_generation: HlsPlaybackGeneration::default(),
                     artifacts: hls_artifacts(
                         output_dir,
                         playlist_path,

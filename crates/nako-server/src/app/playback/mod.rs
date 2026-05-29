@@ -1859,6 +1859,7 @@ impl PlaybackAppService {
                 layout,
                 hls_profile.track_selection,
                 execution_policy,
+                request.playback_generation,
                 request_identity,
             )
             .await;

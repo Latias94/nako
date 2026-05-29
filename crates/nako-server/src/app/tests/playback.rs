@@ -1243,6 +1243,33 @@ async fn hls_source_request_identity_separates_seek_generation() {
 }
 
 #[tokio::test]
+async fn hls_source_seek_generation_reaches_ffmpeg_command() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path =
+        fake_hls_ffmpeg_script_requiring_seek(script_root.path(), "hls_seek_command", "45.250");
+    let (_temp, app, _store, source) = remux_app_with_source(ffmpeg_path).await;
+
+    let output = app
+        .playback()
+        .hls_source(HlsSourceRequest {
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+            preferences: PlaybackPreferenceContext::default(),
+            playback_generation: HlsPlaybackGeneration::from_start_position_ms(45_250),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(output.disposition, HlsSourceDisposition::Finished);
+    assert!(
+        output
+            .session
+            .request_key
+            .contains("hls-playback-generation:v1%3Bstart_ms%3D45250")
+    );
+}
+
+#[tokio::test]
 async fn hls_source_adaptive_identity_includes_source_aware_ladder() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_adaptive_ladder_identity");
