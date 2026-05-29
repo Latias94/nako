@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AutomationArtifactId, AutomationProviderId, JobId, LibraryId, MediaItemId, MediaSourceId,
-    NakoError, Result,
+    MetadataField, NakoError, Result,
 };
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -418,6 +418,101 @@ pub struct GeneratedArtifactReviewResult {
     pub accepted_at: Option<String>,
     pub idempotent_replay: bool,
     pub plan: GeneratedArtifactAcceptancePlan,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GeneratedArtifactMetadataApplyPlanStatus {
+    Ready,
+    Blocked,
+    Stale,
+}
+
+impl GeneratedArtifactMetadataApplyPlanStatus {
+    #[must_use]
+    pub const fn executable(self) -> bool {
+        matches!(self, Self::Ready)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GeneratedArtifactMetadataApplyPlanReason {
+    Ready,
+    ArtifactNotAccepted,
+    UnsupportedArtifactKind,
+    MissingLibraryTarget,
+    MissingLibrary,
+    MissingMediaItemTarget,
+    MissingMediaItem,
+    MissingMediaSource,
+    TargetMismatch,
+    InvalidPayloadJson,
+    PayloadMustBeObject,
+    NoSupportedMetadataFields,
+    NoApplicableMetadataFields,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GeneratedArtifactMetadataFieldAction {
+    Apply,
+    Skip,
+    Noop,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GeneratedArtifactMetadataFieldReason {
+    Ready,
+    FieldLocked,
+    ExistingValuePresent,
+    Unchanged,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactMetadataValueSummary {
+    pub present: bool,
+    pub empty: bool,
+    pub value_fingerprint: Option<String>,
+    pub value_bytes: Option<u64>,
+    pub item_count: Option<u32>,
+}
+
+impl GeneratedArtifactMetadataValueSummary {
+    #[must_use]
+    pub const fn missing() -> Self {
+        Self {
+            present: false,
+            empty: true,
+            value_fingerprint: None,
+            value_bytes: None,
+            item_count: None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactMetadataApplyFieldPlan {
+    pub field: MetadataField,
+    pub action: GeneratedArtifactMetadataFieldAction,
+    pub reasons: Vec<GeneratedArtifactMetadataFieldReason>,
+    pub current: GeneratedArtifactMetadataValueSummary,
+    pub incoming: GeneratedArtifactMetadataValueSummary,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactMetadataApplyPlan {
+    pub artifact_id: AutomationArtifactId,
+    pub status: GeneratedArtifactMetadataApplyPlanStatus,
+    pub executable: bool,
+    pub reasons: Vec<GeneratedArtifactMetadataApplyPlanReason>,
+    pub target: GeneratedArtifactTarget,
+    pub payload: GeneratedArtifactPayloadSummary,
+    pub fields: Vec<GeneratedArtifactMetadataApplyFieldPlan>,
+    pub apply_field_count: u32,
+    pub skipped_field_count: u32,
+    pub noop_field_count: u32,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

@@ -5,23 +5,20 @@ Last updated: 2026-05-29
 
 ## Current State
 
-`GAMA-010` opened the workstream and audited the boundary.
+`GAMA-020` is complete.
 
-Generated Artifact review acceptance is already guarded: it can mark a metadata
-suggestion as accepted, but it returns a boundary that says Canonical Metadata
-was not changed and Metadata Authority apply is still required.
-
-There is no Generated Artifact metadata apply-plan or apply route yet.
+Generated Artifact review acceptance is still guarded, and the new read-only
+metadata apply-plan route now exposes field-level, redacted plan facts without
+mutating Canonical Metadata.
 
 ## Active Task
 
-- Task ID: `GAMA-020`
+- Task ID: `GAMA-030`
 - Status: ready
 - Owner: unassigned
 
-Goal: add a redaction-safe, read-only metadata apply-plan backend contract for
-accepted metadata Generated Artifacts. This task must not mutate
-`MediaItem.metadata`.
+Goal: add host-owned apply execution for executable apply plans, preserving
+field locks and revalidating target freshness before mutation.
 
 ## Key Files
 
@@ -38,6 +35,8 @@ accepted metadata Generated Artifacts. This task must not mutate
 ## Decisions
 
 - Keep review acceptance and metadata apply as separate Admin operations.
+- Apply-plan route is `POST /admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply-plan`.
+- Apply-plan response is `AdminGeneratedArtifactMetadataApplyPlanResponse`.
 - Reuse server-owned `MetadataApplication` for final apply when mutation is
   introduced; do not move it into `nako-metadata` without new cross-crate
   pressure.
@@ -46,11 +45,11 @@ accepted metadata Generated Artifacts. This task must not mutate
 
 ## Blockers
 
-- None for `GAMA-020`.
+- None for `GAMA-030`.
 
 ## Watchpoints
 
-- Do not make `/review` apply metadata.
+- Do not make `/review` or `/metadata-apply-plan` apply metadata.
 - Do not expose raw `artifact_json`, prompt, source locators, paths, or secrets.
 - Do not skip field lock and library refresh mode checks.
 - If apply persistence is required, add SQLite/PostgreSQL parity before Web

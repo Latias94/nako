@@ -38,6 +38,15 @@ Only run after `GAMA-050` exposes a real Admin route:
 
 - `GAMA-010`: Opened the lane and recorded the audit. Current review acceptance
   stages Metadata Authority apply but does not mutate Canonical Metadata.
+- `GAMA-020` (verified 2026-05-29): Added the read-only Generated Artifact metadata apply-plan
+  contract. Evidence:
+  - `cargo nextest run -p nako-api generated_artifact_metadata_apply --no-fail-fast`
+  - `cargo nextest run -p nako-server generated_artifact_metadata_apply_plan --no-fail-fast`
+  - `cargo fmt --all -- --check`
+  - `git diff --check -- crates/nako-core/src/automation.rs crates/nako-api/src/admin/automation.rs crates/nako-server/src/app/automation.rs crates/nako-server/src/app/tests/automation.rs crates/nako-server/src/http/admin.rs crates/nako-server/src/http/tests/mod.rs crates/nako-server/src/http/tests/system.rs`
+  Broader workspace/package gates were not run because this slice changes only
+  the Generated Artifact/Admin apply-plan contract and is covered by focused
+  API, app, HTTP, formatting, JSON, and diff gates.
 
 ## Required Final Evidence
 

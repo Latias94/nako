@@ -23,6 +23,8 @@ Exit criteria:
   artifacts, and invalid payload shapes without mutation.
 - Tests prove `MediaItem.metadata` is unchanged after plan generation.
 
+Status: Complete via `GAMA-020`.
+
 ## M2 - Host-Owned Apply
 
 Exit criteria:

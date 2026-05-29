@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use async_trait::async_trait;
 use nako_api::extension::{
     AutomationArtifactsResponse, AutomationProviderResponse, AutomationProvidersResponse,
@@ -6,14 +8,21 @@ use nako_api::extension::{
 use nako_automation::AutomationJobService;
 use nako_core::{
     AutomationArtifactId, AutomationArtifactKind, AutomationArtifactStatus, AutomationCapability,
-    AutomationProviderId, AutomationRepository, GeneratedArtifactAcceptanceActionKind,
-    GeneratedArtifactAcceptanceBoundary, GeneratedArtifactAcceptancePlan,
-    GeneratedArtifactAcceptancePlanReason, GeneratedArtifactAcceptancePlanStatus,
+    AutomationProviderId, AutomationRepository, CanonicalMetadata,
+    GeneratedArtifactAcceptanceActionKind, GeneratedArtifactAcceptanceBoundary,
+    GeneratedArtifactAcceptancePlan, GeneratedArtifactAcceptancePlanReason,
+    GeneratedArtifactAcceptancePlanStatus, GeneratedArtifactMetadataApplyFieldPlan,
+    GeneratedArtifactMetadataApplyPlan, GeneratedArtifactMetadataApplyPlanReason,
+    GeneratedArtifactMetadataApplyPlanStatus, GeneratedArtifactMetadataFieldAction,
+    GeneratedArtifactMetadataFieldReason, GeneratedArtifactMetadataValueSummary,
     GeneratedArtifactProposal, GeneratedArtifactReviewDecision, GeneratedArtifactReviewResult, Job,
-    JobId, JobRepository, MediaItemId, MediaRepository, NakoError, NewAutomationProviderConfig,
-    PageRequest, Result,
+    JobId, JobRepository, LibraryRepository, MediaItemId, MediaRepository, MetadataField,
+    MetadataFieldLock, MetadataMergePolicy, MetadataRepository, NakoError,
+    NewAutomationProviderConfig, PageRequest, Result,
 };
 use nako_db::NakoDatabase;
+use serde::Deserialize;
+use sha2::{Digest, Sha256};
 
 #[derive(Clone, Debug)]
 struct UnavailableAutomationProvider;
@@ -276,6 +285,220 @@ impl AutomationAppService {
         })
     }
 
+    pub async fn plan_generated_artifact_metadata_apply(
+        &self,
+        artifact_id: AutomationArtifactId,
+    ) -> Result<GeneratedArtifactMetadataApplyPlan> {
+        let proposal = self.generated_artifact_proposal(artifact_id).await?;
+        let artifact = self
+            .store
+            .get_automation_artifact(artifact_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "automation_artifact",
+                id: artifact_id.to_string(),
+            })?;
+        let mut reasons = Vec::new();
+        let mut status = GeneratedArtifactMetadataApplyPlanStatus::Ready;
+
+        if proposal.status != AutomationArtifactStatus::Accepted {
+            status = GeneratedArtifactMetadataApplyPlanStatus::Blocked;
+            reasons.push(GeneratedArtifactMetadataApplyPlanReason::ArtifactNotAccepted);
+        }
+        if proposal.kind != AutomationArtifactKind::MetadataSuggestion {
+            status = GeneratedArtifactMetadataApplyPlanStatus::Blocked;
+            reasons.push(GeneratedArtifactMetadataApplyPlanReason::UnsupportedArtifactKind);
+        }
+        if !status.executable() {
+            return Ok(self.generated_artifact_metadata_apply_plan(
+                proposal,
+                status,
+                reasons,
+                Vec::new(),
+                0,
+                0,
+                0,
+            ));
+        }
+
+        let Some(item_id) = proposal.target.item_id else {
+            status = GeneratedArtifactMetadataApplyPlanStatus::Blocked;
+            reasons.push(GeneratedArtifactMetadataApplyPlanReason::MissingMediaItemTarget);
+            return Ok(self.generated_artifact_metadata_apply_plan(
+                proposal,
+                status,
+                reasons,
+                Vec::new(),
+                0,
+                0,
+                0,
+            ));
+        };
+        let Some(library_id) = proposal.target.library_id else {
+            status = GeneratedArtifactMetadataApplyPlanStatus::Blocked;
+            reasons.push(GeneratedArtifactMetadataApplyPlanReason::MissingLibraryTarget);
+            return Ok(self.generated_artifact_metadata_apply_plan(
+                proposal,
+                status,
+                reasons,
+                Vec::new(),
+                0,
+                0,
+                0,
+            ));
+        };
+
+        let item = match self.store.get_media_item(item_id).await? {
+            Some(item) => item,
+            None => {
+                status = GeneratedArtifactMetadataApplyPlanStatus::Stale;
+                reasons.push(GeneratedArtifactMetadataApplyPlanReason::MissingMediaItem);
+                return Ok(self.generated_artifact_metadata_apply_plan(
+                    proposal,
+                    status,
+                    reasons,
+                    Vec::new(),
+                    0,
+                    0,
+                    0,
+                ));
+            }
+        };
+        let library = match self.store.get_library(library_id).await? {
+            Some(library) => library,
+            None => {
+                status = GeneratedArtifactMetadataApplyPlanStatus::Stale;
+                reasons.push(GeneratedArtifactMetadataApplyPlanReason::MissingLibrary);
+                return Ok(self.generated_artifact_metadata_apply_plan(
+                    proposal,
+                    status,
+                    reasons,
+                    Vec::new(),
+                    0,
+                    0,
+                    0,
+                ));
+            }
+        };
+
+        if let Some(source_id) = proposal.target.source_id {
+            match self.store.get_media_source(source_id).await? {
+                Some(source) if source.item_id != item_id => {
+                    status = GeneratedArtifactMetadataApplyPlanStatus::Stale;
+                    reasons.push(GeneratedArtifactMetadataApplyPlanReason::TargetMismatch);
+                }
+                Some(_) => {}
+                None => {
+                    status = GeneratedArtifactMetadataApplyPlanStatus::Stale;
+                    reasons.push(GeneratedArtifactMetadataApplyPlanReason::MissingMediaSource);
+                }
+            }
+        }
+
+        let locks = self.store.list_field_locks(item.id).await?;
+        let (incoming, suggested_fields) = match parse_generated_artifact_metadata_patch(
+            &artifact.artifact_json,
+            &item.metadata,
+        ) {
+            Ok(parsed) => parsed,
+            Err(_) => {
+                status = GeneratedArtifactMetadataApplyPlanStatus::Blocked;
+                reasons.push(GeneratedArtifactMetadataApplyPlanReason::InvalidPayloadJson);
+                return Ok(self.generated_artifact_metadata_apply_plan(
+                    proposal,
+                    status,
+                    reasons,
+                    Vec::new(),
+                    0,
+                    0,
+                    0,
+                ));
+            }
+        };
+        if suggested_fields.is_empty() {
+            status = GeneratedArtifactMetadataApplyPlanStatus::Blocked;
+            reasons.push(GeneratedArtifactMetadataApplyPlanReason::NoSupportedMetadataFields);
+            return Ok(self.generated_artifact_metadata_apply_plan(
+                proposal,
+                status,
+                if reasons.is_empty() {
+                    vec![GeneratedArtifactMetadataApplyPlanReason::Ready]
+                } else {
+                    reasons
+                },
+                Vec::new(),
+                0,
+                0,
+                0,
+            ));
+        }
+        let policy = MetadataMergePolicy::from_locks_and_mode(
+            &locks,
+            library.options.metadata_profile.refresh_mode,
+        );
+        let merged = policy.merge(&item.metadata, &incoming);
+        let locked_fields = locked_metadata_fields(&locks);
+        let mut fields = Vec::new();
+        let mut apply_field_count = 0_u32;
+        let mut skipped_field_count = 0_u32;
+        let mut noop_field_count = 0_u32;
+
+        for field in suggested_fields {
+            let current = summarize_metadata_field(&item.metadata, field)?;
+            let incoming_summary = summarize_metadata_field(&incoming, field)?;
+            let merged_summary = summarize_metadata_field(&merged, field)?;
+            let mut field_reasons = Vec::new();
+            let action = if locked_fields.contains(&field) {
+                field_reasons.push(GeneratedArtifactMetadataFieldReason::FieldLocked);
+                skipped_field_count = skipped_field_count.saturating_add(1);
+                GeneratedArtifactMetadataFieldAction::Skip
+            } else if merged_summary == current {
+                if current != incoming_summary {
+                    field_reasons.push(GeneratedArtifactMetadataFieldReason::ExistingValuePresent);
+                } else {
+                    field_reasons.push(GeneratedArtifactMetadataFieldReason::Unchanged);
+                }
+                if current == incoming_summary {
+                    noop_field_count = noop_field_count.saturating_add(1);
+                    GeneratedArtifactMetadataFieldAction::Noop
+                } else {
+                    skipped_field_count = skipped_field_count.saturating_add(1);
+                    GeneratedArtifactMetadataFieldAction::Skip
+                }
+            } else {
+                field_reasons.push(GeneratedArtifactMetadataFieldReason::Ready);
+                apply_field_count = apply_field_count.saturating_add(1);
+                GeneratedArtifactMetadataFieldAction::Apply
+            };
+            fields.push(GeneratedArtifactMetadataApplyFieldPlan {
+                field,
+                action,
+                reasons: field_reasons,
+                current,
+                incoming: incoming_summary,
+            });
+        }
+
+        if apply_field_count == 0 && status.executable() {
+            status = GeneratedArtifactMetadataApplyPlanStatus::Blocked;
+            reasons.push(GeneratedArtifactMetadataApplyPlanReason::NoApplicableMetadataFields);
+        }
+
+        if reasons.is_empty() {
+            reasons.push(GeneratedArtifactMetadataApplyPlanReason::Ready);
+        }
+
+        Ok(self.generated_artifact_metadata_apply_plan(
+            proposal,
+            status,
+            reasons,
+            fields,
+            apply_field_count,
+            skipped_field_count,
+            noop_field_count,
+        ))
+    }
+
     async fn generated_artifact_proposal(
         &self,
         artifact_id: AutomationArtifactId,
@@ -289,6 +512,30 @@ impl AutomationAppService {
                 entity: "generated_artifact_proposal",
                 id: artifact_id.to_string(),
             })
+    }
+
+    fn generated_artifact_metadata_apply_plan(
+        &self,
+        proposal: GeneratedArtifactProposal,
+        status: GeneratedArtifactMetadataApplyPlanStatus,
+        reasons: Vec<GeneratedArtifactMetadataApplyPlanReason>,
+        fields: Vec<GeneratedArtifactMetadataApplyFieldPlan>,
+        apply_field_count: u32,
+        skipped_field_count: u32,
+        noop_field_count: u32,
+    ) -> GeneratedArtifactMetadataApplyPlan {
+        GeneratedArtifactMetadataApplyPlan {
+            artifact_id: proposal.id,
+            status,
+            executable: status.executable(),
+            reasons,
+            target: proposal.target,
+            payload: proposal.payload,
+            fields,
+            apply_field_count,
+            skipped_field_count,
+            noop_field_count,
+        }
     }
 }
 
@@ -391,4 +638,206 @@ fn generated_artifact_acceptance_plan(
         readiness: proposal_readiness,
         boundary,
     }
+}
+
+#[derive(Default, Debug, Deserialize)]
+struct GeneratedArtifactMetadataPatch {
+    title: Option<String>,
+    original_title: Option<String>,
+    sort_title: Option<String>,
+    overview: Option<String>,
+    release_date: Option<String>,
+    runtime_minutes: Option<u32>,
+    tagline: Option<String>,
+    genres: Option<Vec<String>>,
+    tags: Option<Vec<String>>,
+}
+
+fn parse_generated_artifact_metadata_patch(
+    artifact_json: &str,
+    existing: &CanonicalMetadata,
+) -> Result<(CanonicalMetadata, Vec<MetadataField>)> {
+    let patch: GeneratedArtifactMetadataPatch =
+        serde_json::from_str(artifact_json).map_err(|error| NakoError::InvalidInput {
+            message: format!("generated artifact metadata payload is not valid JSON: {error}"),
+        })?;
+    let mut incoming = existing.clone();
+    let mut fields = Vec::new();
+
+    if let Some(title) = patch.title.and_then(non_empty_trimmed) {
+        incoming.title = title;
+        fields.push(MetadataField::Title);
+    }
+    if let Some(value) = patch.original_title.and_then(normalize_optional_text) {
+        incoming.original_title = Some(value);
+        fields.push(MetadataField::OriginalTitle);
+    }
+    if let Some(value) = patch.sort_title.and_then(normalize_optional_text) {
+        incoming.sort_title = Some(value);
+        fields.push(MetadataField::SortTitle);
+    }
+    if let Some(value) = patch.overview.and_then(normalize_optional_text) {
+        incoming.overview = Some(value);
+        fields.push(MetadataField::Overview);
+    }
+    if let Some(value) = patch.release_date.and_then(normalize_optional_text) {
+        incoming.release_date = Some(value);
+        fields.push(MetadataField::ReleaseDate);
+    }
+    if let Some(runtime_minutes) = patch.runtime_minutes {
+        if runtime_minutes == 0 {
+            return Err(NakoError::InvalidInput {
+                message: "generated artifact metadata runtime_minutes must be greater than zero"
+                    .to_owned(),
+            });
+        }
+        incoming.runtime_minutes = Some(runtime_minutes);
+        fields.push(MetadataField::RuntimeMinutes);
+    }
+    if let Some(value) = patch.tagline.and_then(normalize_optional_text) {
+        incoming.tagline = Some(value);
+        fields.push(MetadataField::Tagline);
+    }
+    if let Some(genres) = patch.genres {
+        let normalized = normalize_label_list(genres);
+        if !normalized.is_empty() {
+            incoming.genres = normalized;
+            fields.push(MetadataField::Genres);
+        }
+    }
+    if let Some(tags) = patch.tags {
+        let normalized = normalize_label_list(tags);
+        if !normalized.is_empty() {
+            incoming.tags = normalized;
+            fields.push(MetadataField::Tags);
+        }
+    }
+
+    let fields = dedupe_metadata_fields(fields);
+    Ok((incoming, fields))
+}
+
+fn summarize_metadata_field(
+    metadata: &CanonicalMetadata,
+    field: MetadataField,
+) -> Result<GeneratedArtifactMetadataValueSummary> {
+    match field {
+        MetadataField::Title => Ok(text_summary(&metadata.title)),
+        MetadataField::OriginalTitle => Ok(option_text_summary(&metadata.original_title)),
+        MetadataField::SortTitle => Ok(option_text_summary(&metadata.sort_title)),
+        MetadataField::Overview => Ok(option_text_summary(&metadata.overview)),
+        MetadataField::ReleaseDate => Ok(option_text_summary(&metadata.release_date)),
+        MetadataField::RuntimeMinutes => Ok(option_number_summary(metadata.runtime_minutes)),
+        MetadataField::Tagline => Ok(option_text_summary(&metadata.tagline)),
+        MetadataField::Genres => Ok(list_summary(&metadata.genres)?),
+        MetadataField::Tags => Ok(list_summary(&metadata.tags)?),
+        MetadataField::Ratings => Ok(list_summary(&metadata.ratings)?),
+        MetadataField::Images => Ok(list_summary(&metadata.images)?),
+        MetadataField::Credits => Ok(list_summary(&metadata.credits)?),
+        MetadataField::Collections => Ok(list_summary(&metadata.collections)?),
+        MetadataField::Studios => Ok(list_summary(&metadata.studios)?),
+        MetadataField::ExternalIds => Ok(list_summary(&metadata.external_ids)?),
+    }
+}
+
+fn locked_metadata_fields(locks: &[MetadataFieldLock]) -> HashSet<MetadataField> {
+    locks
+        .iter()
+        .filter(|lock| lock.locked)
+        .map(|lock| lock.field)
+        .collect()
+}
+
+fn dedupe_metadata_fields(fields: Vec<MetadataField>) -> Vec<MetadataField> {
+    let mut seen = HashSet::new();
+    let mut deduped = Vec::new();
+    for field in fields {
+        if seen.insert(field) {
+            deduped.push(field);
+        }
+    }
+    deduped
+}
+
+fn normalize_optional_text(value: String) -> Option<String> {
+    non_empty_trimmed(value)
+}
+
+fn normalize_label_list(values: Vec<String>) -> Vec<String> {
+    let mut seen = HashSet::new();
+    values
+        .into_iter()
+        .filter_map(non_empty_trimmed)
+        .filter(|value| seen.insert(value.to_lowercase()))
+        .collect()
+}
+
+fn non_empty_trimmed(value: String) -> Option<String> {
+    let value = value.trim();
+    (!value.is_empty()).then(|| value.to_owned())
+}
+
+fn option_text_summary(value: &Option<String>) -> GeneratedArtifactMetadataValueSummary {
+    match value {
+        Some(value) => text_summary(value),
+        None => GeneratedArtifactMetadataValueSummary::missing(),
+    }
+}
+
+fn option_number_summary(value: Option<u32>) -> GeneratedArtifactMetadataValueSummary {
+    match value {
+        Some(value) => {
+            let serialized = value.to_string();
+            GeneratedArtifactMetadataValueSummary {
+                present: true,
+                empty: false,
+                value_fingerprint: Some(stable_fingerprint(&serialized)),
+                value_bytes: Some(u64::try_from(serialized.len()).unwrap_or(u64::MAX)),
+                item_count: None,
+            }
+        }
+        None => GeneratedArtifactMetadataValueSummary::missing(),
+    }
+}
+
+fn text_summary(value: &str) -> GeneratedArtifactMetadataValueSummary {
+    let empty = value.trim().is_empty();
+    if empty {
+        GeneratedArtifactMetadataValueSummary::missing()
+    } else {
+        GeneratedArtifactMetadataValueSummary {
+            present: true,
+            empty: false,
+            value_fingerprint: Some(stable_fingerprint(value)),
+            value_bytes: Some(u64::try_from(value.len()).unwrap_or(u64::MAX)),
+            item_count: None,
+        }
+    }
+}
+
+fn list_summary<T: serde::Serialize>(
+    values: &[T],
+) -> Result<GeneratedArtifactMetadataValueSummary> {
+    if values.is_empty() {
+        return Ok(GeneratedArtifactMetadataValueSummary::missing());
+    }
+    let serialized = serde_json::to_string(values).map_err(|error| NakoError::InvalidInput {
+        message: format!("generated artifact metadata field summary serialization failed: {error}"),
+    })?;
+    Ok(GeneratedArtifactMetadataValueSummary {
+        present: true,
+        empty: false,
+        value_fingerprint: Some(stable_fingerprint(&serialized)),
+        value_bytes: Some(u64::try_from(serialized.len()).unwrap_or(u64::MAX)),
+        item_count: Some(u32::try_from(values.len()).unwrap_or(u32::MAX)),
+    })
+}
+
+fn stable_fingerprint(value: &str) -> String {
+    let digest = Sha256::digest(value.as_bytes());
+    let prefix = digest[..16]
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    format!("sha256:{prefix}")
 }

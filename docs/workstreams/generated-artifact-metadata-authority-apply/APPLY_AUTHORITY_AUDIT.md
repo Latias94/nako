@@ -10,6 +10,7 @@ Last updated: 2026-05-29
 | Proposal list | `GET` | `/admin/v1/automation/generated-artifacts/proposals` | query `limit`, `offset` | `AdminGeneratedArtifactProposalListResponse` |
 | Review plan | `POST` | `/admin/v1/automation/generated-artifacts/{artifact_id}/review-plan` | `{ decision: "accept" | "reject" }` | `AdminGeneratedArtifactReviewPlanResponse` |
 | Review | `POST` | `/admin/v1/automation/generated-artifacts/{artifact_id}/review` | `{ decision: "accept" | "reject" }` | `AdminGeneratedArtifactReviewResponse` |
+| Metadata apply plan | `POST` | `/admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply-plan` | empty | `AdminGeneratedArtifactMetadataApplyPlanResponse` |
 
 The review routes are correct but intentionally incomplete for apply. They
 answer "can this proposal be accepted or rejected?" They do not answer "which
@@ -53,16 +54,24 @@ The next backend contract should introduce two concepts:
 
 ## Initial API Direction
 
-Candidate routes:
+GAMA-020 fixed the read-only apply-plan route:
 
 | Operation | Method | Path | Body | Response |
 | --- | --- | --- | --- | --- |
-| Metadata apply plan | `POST` | `/admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply-plan` | optional selected fields/force flags, if supported | `AdminGeneratedArtifactMetadataApplyPlanResponse` |
+| Metadata apply plan | `POST` | `/admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply-plan` | empty | `AdminGeneratedArtifactMetadataApplyPlanResponse` |
+
+The apply-plan response exposes status, executable flag, reasons, target,
+payload summary, field-level actions, redacted current/incoming value summaries,
+and apply/skipped/noop field counts.
+
+The apply route remains a `GAMA-030/GAMA-050` concern:
+
+| Operation | Method | Path | Body | Response |
+| --- | --- | --- | --- | --- |
 | Metadata apply | `POST` | `/admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply` | `idempotency_key`, optional accepted field set | `AdminGeneratedArtifactMetadataApplyResponse` |
 
-These route names are provisional. `GAMA-020` owns the exact Admin DTO and route
-contract. The important invariant is that review and metadata apply stay
-separate route operations.
+The important invariant is that review and metadata apply stay separate route
+operations.
 
 ## Redaction Rules
 
@@ -80,7 +89,8 @@ Apply-plan and apply responses must not expose:
 
 ## First Slice Decision
 
-Start with a read-only apply plan for a single accepted
-`AutomationArtifactKind::MetadataSuggestion` targeting a `MediaItem`. This is
-the smallest slice that proves the Metadata Authority boundary without touching
-Canonical Metadata.
+GAMA-020 shipped a read-only apply plan for accepted
+`AutomationArtifactKind::MetadataSuggestion` artifacts with an item target. It
+computes field actions from the current item, locks, library metadata refresh
+mode, and supported generated metadata patch fields without touching Canonical
+Metadata.

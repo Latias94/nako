@@ -23,6 +23,6 @@ Authoritative docs:
 - `EVIDENCE_AND_GATES.md`
 - `HANDOFF.md`
 
-First executable task: `GAMA-020`, which should add a backend metadata apply
-plan contract/read model for accepted metadata Generated Artifacts. It must not
-mutate Canonical Metadata.
+Current executable task: `GAMA-030`, which should add host-owned apply
+execution for an executable metadata apply plan. `GAMA-020` shipped the
+read-only Admin apply-plan contract and kept Canonical Metadata unchanged.

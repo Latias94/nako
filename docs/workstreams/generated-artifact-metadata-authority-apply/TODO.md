@@ -13,12 +13,12 @@ Last updated: 2026-05-29
 
 ## M1 - Apply Plan Contract
 
-- [ ] GAMA-020 [owner=unassigned] [deps=GAMA-010] [scope=crates/nako-core,crates/nako-api,crates/nako-server/src/app/automation.rs,crates/nako-server/src/http/admin.rs]
+- [x] GAMA-020 [owner=codex] [deps=GAMA-010] [scope=crates/nako-core,crates/nako-api,crates/nako-server/src/app/automation.rs,crates/nako-server/src/http/admin.rs]
   Goal: Add a redaction-safe, read-only metadata apply-plan contract for accepted metadata Generated Artifacts.
   Validation: `cargo nextest run -p nako-api generated_artifact_metadata_apply --no-fail-fast`; `cargo nextest run -p nako-server generated_artifact_metadata_apply_plan --no-fail-fast`.
   Review: `review-workstream` for contract shape, redaction, and no-mutation invariants.
-  Evidence: API DTO tests and server app tests showing accepted artifact apply plan does not mutate `MediaItem.metadata`.
-  Handoff: Record final route path and request/response DTO in `APPLY_AUTHORITY_AUDIT.md`.
+  Evidence: API DTO test, server app test, and HTTP route test show redacted field summaries and no Canonical Metadata mutation.
+  Handoff: Final route is `POST /admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply-plan`, response `AdminGeneratedArtifactMetadataApplyPlanResponse`. Execution continues at `GAMA-030`.
 
 - [ ] GAMA-030 [owner=unassigned] [deps=GAMA-020] [scope=crates/nako-server/src/app/automation.rs,crates/nako-server/src/app/metadata_application.rs,crates/nako-core]
   Goal: Add host-owned apply execution for executable plans, preserving field locks and revalidating target freshness before mutation.
