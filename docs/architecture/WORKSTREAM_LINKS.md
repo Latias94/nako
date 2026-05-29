@@ -98,10 +98,10 @@ Evidence workstreams:
 - `docs/workstreams/addon-library-file-write-policy/`
 - `docs/workstreams/nfo-sidecar-promotion-apply/`
 - `docs/workstreams/admin-web-v2-storage-staging-route/`
+- `docs/workstreams/storage-vfs-resilience-and-source-identity/`
 
 Proposed lanes:
 
-- `proposed:storage-vfs-resilience-and-source-identity`
 - `proposed:vfs-cache-repair-diagnostics`
 - `proposed:remote-storage-health-and-circuit-breaker`
 

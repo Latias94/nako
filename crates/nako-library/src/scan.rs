@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use nako_core::{NakoError, Result};
+use nako_core::{NakoError, Result, SourceFingerprintEvidence, SourceFingerprintPolicyInput};
 use nako_vfs::{ObjectCacheState, ObjectKind, ObjectMetadata, StorageBackend, StorageUri};
 use serde::{Deserialize, Serialize};
 
@@ -165,6 +165,15 @@ impl<B> VfsLibraryScanner<B> {
             .map(|(_parent, file_name)| file_name)
             .unwrap_or_else(|| metadata.uri.path_part())
             .to_owned();
+        let source_fingerprint =
+            SourceFingerprintEvidence::from_scan_metadata(SourceFingerprintPolicyInput {
+                scheme: metadata.uri.scheme(),
+                size_bytes: metadata.len,
+                modified_at: metadata.modified_at.as_deref(),
+                etag: metadata.etag.as_deref(),
+                backend_fingerprint: metadata.fingerprint.as_deref(),
+                stale,
+            });
 
         DiscoveredMediaSource {
             uri: metadata.uri,
@@ -172,7 +181,7 @@ impl<B> VfsLibraryScanner<B> {
             size_bytes: metadata.len,
             modified_at: metadata.modified_at,
             etag: metadata.etag,
-            fingerprint: metadata.fingerprint,
+            fingerprint: source_fingerprint.fingerprint,
             stale,
         }
     }

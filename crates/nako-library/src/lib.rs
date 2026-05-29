@@ -95,6 +95,100 @@ mod tests {
         });
     }
 
+    #[tokio::test]
+    async fn source_identity_scan_derives_redacted_fingerprint_without_full_file_hash() {
+        let opened_ranges = Arc::new(AtomicUsize::new(0));
+        let scanner = VfsLibraryScanner::new(SourceIdentityEvidenceBackend {
+            opened_ranges: opened_ranges.clone(),
+        });
+
+        let summary = scanner
+            .scan(LibraryScanRequest {
+                job_id: JobId::new(),
+                library_id: LibraryId::new(),
+                root: StorageUri::from_parts("evidence", "Movies").unwrap(),
+                force: false,
+            })
+            .await
+            .unwrap();
+
+        let source = &summary.media_sources[0];
+        let fingerprint = source.fingerprint.as_deref().unwrap();
+
+        assert_eq!(summary.discovered_files, 1);
+        assert!(fingerprint.starts_with("source:v1:size_etag:sha256:"));
+        assert!(!fingerprint.contains("secret-etag"));
+        assert_eq!(opened_ranges.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn source_identity_scan_does_not_merge_distinct_locators_with_same_fingerprint() {
+        let include_duplicate = Arc::new(AtomicBool::new(false));
+        let scanner = VfsLibraryScanner::new(SourceIdentityDuplicateBackend {
+            include_duplicate: include_duplicate.clone(),
+        });
+        let store = NakoDatabase::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            roots: vec!["duplicate:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        };
+        let service = LibraryIndexService::new(scanner, store.clone());
+        let request = LibraryIndexRequest {
+            job_id: JobId::new(),
+            library: library.clone(),
+            force: false,
+        };
+
+        let first_summary = service.index_library(request.clone()).await.unwrap();
+        include_duplicate.store(true, Ordering::SeqCst);
+        let second_summary = service.index_library(request).await.unwrap();
+        let mut sources =
+            MediaRepository::list_media_sources(&store, library.id, PageRequest::first_page())
+                .await
+                .unwrap();
+        sources.sort_by(|left, right| left.locator.cmp(&right.locator));
+
+        assert_eq!(first_summary.inserted_sources, 1);
+        assert_eq!(second_summary.updated_sources, 1);
+        assert_eq!(second_summary.inserted_sources, 1);
+        assert_eq!(sources.len(), 2);
+        assert_eq!(sources[0].locator, "duplicate:///Movies/Copy.mkv");
+        assert_eq!(sources[1].locator, "duplicate:///Movies/Original.mkv");
+        assert_ne!(sources[0].id, sources[1].id);
+        assert_eq!(sources[0].fingerprint, sources[1].fingerprint);
+        assert!(
+            sources[0]
+                .fingerprint
+                .as_deref()
+                .is_some_and(|value| value.starts_with("source:v1:size_etag:sha256:"))
+        );
+    }
+
+    #[tokio::test]
+    async fn source_identity_scan_keeps_locator_only_evidence_without_fingerprint() {
+        let scanner = VfsLibraryScanner::new(SourceIdentityWeakBackend);
+
+        let summary = scanner
+            .scan(LibraryScanRequest {
+                job_id: JobId::new(),
+                library_id: LibraryId::new(),
+                root: StorageUri::from_parts("weak", "Movies").unwrap(),
+                force: false,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(summary.discovered_files, 1);
+        assert_eq!(
+            summary.media_sources[0].uri.as_str(),
+            "weak:///Movies/LocatorOnly.mkv"
+        );
+        assert_eq!(summary.media_sources[0].fingerprint, None);
+    }
+
     #[test]
     fn vfs_scanner_respects_custom_extensions() {
         pollster::block_on(async {
@@ -1121,6 +1215,255 @@ mod tests {
                     technical: Default::default(),
                 }],
             })
+        }
+    }
+
+    #[derive(Clone)]
+    struct SourceIdentityWeakBackend;
+
+    impl SourceIdentityWeakBackend {
+        fn metadata(uri: StorageUri) -> ObjectMetadata {
+            let kind = if uri.as_str().ends_with(".mkv") {
+                ObjectKind::File
+            } else {
+                ObjectKind::Directory
+            };
+
+            ObjectMetadata {
+                uri,
+                kind,
+                len: None,
+                modified_at: None,
+                etag: None,
+                fingerprint: None,
+                capabilities: StorageCapabilities::SEEKABLE | StorageCapabilities::RANGE_READABLE,
+                cache: None,
+            }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl StorageBackend for SourceIdentityWeakBackend {
+        fn scheme(&self) -> &'static str {
+            "weak"
+        }
+
+        async fn stat(&self, uri: &StorageUri) -> Result<ObjectMetadata> {
+            Ok(Self::metadata(uri.clone()))
+        }
+
+        async fn list(&self, uri: &StorageUri) -> Result<Vec<ObjectMetadata>> {
+            Ok(self.list_with_status(uri).await?.entries)
+        }
+
+        async fn list_with_status(&self, uri: &StorageUri) -> Result<ObjectListing> {
+            if uri.as_str() == "weak:///Movies" {
+                return Ok(ObjectListing {
+                    entries: vec![Self::metadata(
+                        StorageUri::from_parts("weak", "Movies/LocatorOnly.mkv").unwrap(),
+                    )],
+                    cache: None,
+                });
+            }
+
+            Ok(ObjectListing {
+                entries: Vec::new(),
+                cache: None,
+            })
+        }
+
+        async fn open_range(
+            &self,
+            uri: &StorageUri,
+            range: Option<ByteRange>,
+        ) -> Result<nako_vfs::VirtualFile> {
+            Ok(nako_vfs::VirtualFile {
+                uri: uri.clone(),
+                range,
+                local_path_hint: None,
+            })
+        }
+
+        async fn read_to_string(&self, _uri: &StorageUri) -> Result<String> {
+            Err(NakoError::Unsupported(
+                "weak source identity fixture does not read text",
+            ))
+        }
+
+        async fn write_string(&self, _uri: &StorageUri, _content: &str) -> Result<()> {
+            Err(NakoError::Unsupported(
+                "weak source identity fixture does not write text",
+            ))
+        }
+    }
+
+    #[derive(Clone)]
+    struct SourceIdentityDuplicateBackend {
+        include_duplicate: Arc<AtomicBool>,
+    }
+
+    impl SourceIdentityDuplicateBackend {
+        fn metadata(uri: StorageUri) -> ObjectMetadata {
+            let kind = if uri.as_str().ends_with(".mkv") {
+                ObjectKind::File
+            } else {
+                ObjectKind::Directory
+            };
+
+            ObjectMetadata {
+                uri,
+                kind,
+                len: (kind == ObjectKind::File).then_some(42),
+                modified_at: Some("2026-05-29T00:00:00Z".to_owned()),
+                etag: (kind == ObjectKind::File).then_some("same-remote-etag".to_owned()),
+                fingerprint: None,
+                capabilities: StorageCapabilities::SEEKABLE | StorageCapabilities::RANGE_READABLE,
+                cache: None,
+            }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl StorageBackend for SourceIdentityDuplicateBackend {
+        fn scheme(&self) -> &'static str {
+            "duplicate"
+        }
+
+        async fn stat(&self, uri: &StorageUri) -> Result<ObjectMetadata> {
+            Ok(Self::metadata(uri.clone()))
+        }
+
+        async fn list(&self, uri: &StorageUri) -> Result<Vec<ObjectMetadata>> {
+            Ok(self.list_with_status(uri).await?.entries)
+        }
+
+        async fn list_with_status(&self, uri: &StorageUri) -> Result<ObjectListing> {
+            if uri.as_str() != "duplicate:///Movies" {
+                return Ok(ObjectListing {
+                    entries: Vec::new(),
+                    cache: None,
+                });
+            }
+
+            let mut entries = vec![Self::metadata(
+                StorageUri::from_parts("duplicate", "Movies/Original.mkv").unwrap(),
+            )];
+            if self.include_duplicate.load(Ordering::SeqCst) {
+                entries.push(Self::metadata(
+                    StorageUri::from_parts("duplicate", "Movies/Copy.mkv").unwrap(),
+                ));
+            }
+
+            Ok(ObjectListing {
+                entries,
+                cache: None,
+            })
+        }
+
+        async fn open_range(
+            &self,
+            uri: &StorageUri,
+            range: Option<ByteRange>,
+        ) -> Result<nako_vfs::VirtualFile> {
+            Ok(nako_vfs::VirtualFile {
+                uri: uri.clone(),
+                range,
+                local_path_hint: None,
+            })
+        }
+
+        async fn read_to_string(&self, _uri: &StorageUri) -> Result<String> {
+            Err(NakoError::Unsupported(
+                "source duplicate fixture does not read text",
+            ))
+        }
+
+        async fn write_string(&self, _uri: &StorageUri, _content: &str) -> Result<()> {
+            Err(NakoError::Unsupported(
+                "source duplicate fixture does not write text",
+            ))
+        }
+    }
+
+    #[derive(Clone)]
+    struct SourceIdentityEvidenceBackend {
+        opened_ranges: Arc<AtomicUsize>,
+    }
+
+    impl SourceIdentityEvidenceBackend {
+        fn metadata(uri: StorageUri) -> ObjectMetadata {
+            let kind = if uri.as_str().ends_with(".mkv") {
+                ObjectKind::File
+            } else {
+                ObjectKind::Directory
+            };
+
+            ObjectMetadata {
+                uri,
+                kind,
+                len: (kind == ObjectKind::File).then_some(42),
+                modified_at: Some("2026-05-29T00:00:00Z".to_owned()),
+                etag: (kind == ObjectKind::File).then_some("secret-etag-for-source".to_owned()),
+                fingerprint: None,
+                capabilities: StorageCapabilities::SEEKABLE | StorageCapabilities::RANGE_READABLE,
+                cache: None,
+            }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl StorageBackend for SourceIdentityEvidenceBackend {
+        fn scheme(&self) -> &'static str {
+            "evidence"
+        }
+
+        async fn stat(&self, uri: &StorageUri) -> Result<ObjectMetadata> {
+            Ok(Self::metadata(uri.clone()))
+        }
+
+        async fn list(&self, uri: &StorageUri) -> Result<Vec<ObjectMetadata>> {
+            Ok(self.list_with_status(uri).await?.entries)
+        }
+
+        async fn list_with_status(&self, uri: &StorageUri) -> Result<ObjectListing> {
+            if uri.as_str() == "evidence:///Movies" {
+                return Ok(ObjectListing {
+                    entries: vec![Self::metadata(
+                        StorageUri::from_parts("evidence", "Movies/NoFullHash.mkv").unwrap(),
+                    )],
+                    cache: None,
+                });
+            }
+
+            Ok(ObjectListing {
+                entries: Vec::new(),
+                cache: None,
+            })
+        }
+
+        async fn open_range(
+            &self,
+            uri: &StorageUri,
+            range: Option<ByteRange>,
+        ) -> Result<nako_vfs::VirtualFile> {
+            self.opened_ranges.fetch_add(1, Ordering::SeqCst);
+            Ok(nako_vfs::VirtualFile {
+                uri: uri.clone(),
+                range,
+                local_path_hint: None,
+            })
+        }
+
+        async fn read_to_string(&self, _uri: &StorageUri) -> Result<String> {
+            Err(NakoError::Unsupported(
+                "source identity fixture does not read text",
+            ))
+        }
+
+        async fn write_string(&self, _uri: &StorageUri, _content: &str) -> Result<()> {
+            Err(NakoError::Unsupported(
+                "source identity fixture does not write text",
+            ))
         }
     }
 
