@@ -13,6 +13,10 @@ attention.
   readiness, running segment serving, typed artifact reconstruction, and
   manifest-aware playlist auth decoration future-ready for a Jellyfin/Plex-class
   self-hosted media server.
+- [playback-runtime-resource-scheduler](playback-runtime-resource-scheduler/README.md):
+  active fearless refactor lane for turning scattered playback/transcode
+  concurrency limits into a host-owned runtime admission boundary before
+  remote workers, queueing, LL-HLS, DASH, or DRM expand playback pressure.
 - [playback-planner-transcode-value-vocabulary](playback-planner-transcode-value-vocabulary/README.md):
   completed fearless refactor lane for replacing transcode-owned planner value
   types in `nako-playback` with playback-owned vocabulary and server-side

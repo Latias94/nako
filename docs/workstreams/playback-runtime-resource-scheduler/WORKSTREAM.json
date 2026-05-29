@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "slug": "playback-runtime-resource-scheduler",
+  "title": "Playback Runtime Resource Scheduler",
+  "status": "active",
+  "updated": "2026-05-29",
+  "scope_kind": "fearless_refactor",
+  "problem": "Playback runtime resource limits exist in several places, but Nako lacks one host-owned admission boundary for direct, remux, HLS, remote stream, and future transcode workloads.",
+  "task_prefix": "PRRS",
+  "current_task": "PRRS-020",
+  "completed_tasks": [
+    "PRRS-010"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/playback-runtime-resource-scheduler/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/playback-runtime-resource-scheduler/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/playback-runtime-resource-scheduler/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/playback-runtime-resource-scheduler/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/playback-runtime-resource-scheduler/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/playback-runtime-resource-scheduler/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python3 -m json.tool docs/workstreams/playback-runtime-resource-scheduler/WORKSTREAM.json",
+    "cargo nextest run -p nako-server playback_resource --no-fail-fast",
+    "cargo nextest run -p nako-server playback --no-fail-fast",
+    "cargo nextest run -p nako-server hls --no-fail-fast",
+    "cargo nextest run -p nako-server admin_v1_playback --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "PRRS-010",
+      "summary": "Opened the durable playback runtime resource scheduler lane, linked it from playback architecture indexes, and froze single-node admission as the first proof before remote workers, queueing, LL-HLS, DASH, or DRM."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md",
+    "docs/adr/0053-application-control-plane-boundary.md",
+    "docs/adr/0052-hls-runtime-and-media-engine-boundary.md",
+    "docs/adr/0045-ffmpeg-hardware-pipeline-planner.md",
+    "docs/adr/0046-ffmpeg-probe-inventory.md",
+    "docs/adr/0048-playback-transcode-startup-degradation.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/PLAYBACK.md",
+      "capability": "Runtime resource scheduler"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Playback And Transcode"
+    },
+    {
+      "path": "docs/architecture/CONTROL_PLANE.md",
+      "capability": "runtime supervision"
+    }
+  ],
+  "capability_tags": [
+    "playback.runtime.scheduler",
+    "playback.resource.admission",
+    "transcode.runtime",
+    "operations.diagnostics"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Continue this lane until playback resource demand, admission permits, HLS/remux enforcement, and Admin pressure diagnostics are explicit. Split remote workers, durable queueing, LL-HLS/DASH, DRM, and OS resource isolation into follow-ons."
+  }
+}
+

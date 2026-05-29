@@ -47,7 +47,7 @@ selection.
 | HLS progressive runtime | Shipped | `docs/workstreams/hls-progressive-runtime-boundary/`; `docs/adr/0052-hls-runtime-and-media-engine-boundary.md` | Playlist readiness before full FFmpeg completion, running segment serving, typed artifact reconstruction, manifest-aware URL auth, and partial-playlist readiness guard. |
 | HDR tone mapping | Not started | `docs/ARCHITECTURE.md`; `docs/adr/0044-playback-capability-profile-planner.md` | Open `hdr-tone-mapping-pipeline`. |
 | Audio downmix and normalization | Not started | This document | Open `audio-compatibility-downmix-normalization`. |
-| Runtime resource scheduler | Partial | `docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md`; playback runtime diagnostics lanes | Open `playback-runtime-resource-scheduler`. |
+| Runtime resource scheduler | Active lane | `docs/workstreams/playback-runtime-resource-scheduler/`; `docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md`; playback runtime diagnostics lanes | Prove single-node playback admission before queueing or remote workers. |
 | VFS/remote playback resilience | Partial | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md` | Timeout/circuit-breaker and remote staging hardening. |
 | SQLite/PostgreSQL write pressure | Good foundation | `docs/adr/0029-postgresql-ready-persistence-boundary.md`; `docs/adr/0030-postgresql-ready-sql-dialect-and-migration-policy.md`; PostgreSQL readiness lanes | Playback heartbeat/session-write pressure tests. |
 | Release and packaging | Partial | `docs/deployment/SELF_HOSTED.md`; `docs/deployment/RELEASE_CHECKLIST.md`; `scripts/release-gate.*` | FFmpeg/hardware matrix packaging gate. |
@@ -162,6 +162,8 @@ Exit criteria:
 
 ### Lane E - Runtime Resource Scheduler
 
+Status: Active.
+
 Goal: Prevent playback workloads from exhausting CPU, GPU, disk, DB, or async
 runtime capacity.
 
@@ -170,6 +172,7 @@ Primary crates and docs:
 - runtime supervisor modules;
 - `crates/nako-transcode`;
 - `crates/nako-server/src/app/playback`;
+- `docs/workstreams/playback-runtime-resource-scheduler/`;
 - `docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md`.
 
 Exit criteria:
