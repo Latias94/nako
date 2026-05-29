@@ -1320,7 +1320,6 @@ dependencies = [
  "nako-core",
  "nako-playback",
  "nako-streaming",
- "nako-transcode",
  "serde",
  "serde_json",
  "sha2",

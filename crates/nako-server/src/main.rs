@@ -9,6 +9,7 @@ use tokio::net::TcpListener;
 use tracing::{error, info, warn};
 use tracing_subscriber::{EnvFilter, fmt};
 
+mod api_mapping;
 mod app;
 mod config;
 mod http;

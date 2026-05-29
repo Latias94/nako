@@ -63,6 +63,7 @@ use nako_api::{
         AdminRuntimeConfigDiagnostics, AdminServerConfigDiagnosticsResponse,
         AdminSetLocalPasswordRequest, AdminStorageStagingDiagnosticsResponse,
         AdminStorageStagingRecord, AdminStorageStagingSummary, AdminTranscodeConfigDiagnostics,
+        AdminTranscodePipelineReadiness, AdminTranscodePipelineReadinessStatus,
         AdminTrustedProxyDiagnostics, AdminTunnelProviderDiagnostics, AdminTunnelProviderKind,
         AdminUpdateLibraryMetadataProfileRequest, AdminUpdateMetadataRawCacheSettingsRequest,
         AdminUpdatePlaybackRuntimeSettingsRequest, AdminUpdateUserStatusRequest,
@@ -90,6 +91,10 @@ use nako_vfs::StorageUri;
 use serde::Deserialize;
 
 use crate::{
+    api_mapping::{
+        admin_hardware_acceleration, admin_hardware_pipeline_stage, admin_hardware_policy,
+        admin_transcode_pipeline_readiness,
+    },
     app::{NakoApp, RuntimeSupervisorDiagnostics},
     config::{
         LocalLibraryConfig, MetadataProviderConfig, MetadataProviderRuntimeConfig,
@@ -916,7 +921,7 @@ pub(super) async fn get_admin_system_config(
                 .collect(),
         },
         transcode: AdminTranscodeConfigDiagnostics {
-            hardware_policy: config.transcode.hardware_policy(),
+            hardware_policy: admin_hardware_policy(config.transcode.hardware_policy()),
             cpu_concurrency: config.transcode.cpu_concurrency,
             gpu_concurrency: config.transcode.gpu_concurrency,
         },
@@ -2007,9 +2012,11 @@ async fn admin_playback_runtime_diagnostics(
         delay_ms: playback.transcode_throttle_delay_ms,
     };
     let policy = AdminPlaybackPolicyDiagnostics::ready();
+    let hls_pipeline_readiness =
+        admin_transcode_pipeline_readiness(playback.hls_pipeline_readiness);
     let readiness = playback_readiness_diagnostics(
         playback.runtime_inventory.has_probe_error,
-        playback.hls_pipeline_readiness,
+        hls_pipeline_readiness,
         playback.hls_pipeline_readiness.fallback_used,
         playback.transcode_budget,
         transcode_budget,
@@ -2031,8 +2038,8 @@ async fn admin_playback_runtime_diagnostics(
             available_gpu_capabilities: playback.runtime_inventory.available_gpu_capabilities,
         },
         hardware: AdminPlaybackHardwareDiagnostics {
-            policy: playback.hardware_policy,
-            pipeline: playback.hls_pipeline_readiness,
+            policy: admin_hardware_policy(playback.hardware_policy),
+            pipeline: hls_pipeline_readiness,
             capabilities,
         },
         transcode: AdminPlaybackTranscodeBudgetDiagnostics {
@@ -2232,14 +2239,14 @@ fn hardware_capability_diagnostic(
     capability: &HardwareAccelerationCapability,
 ) -> AdminPlaybackHardwareCapability {
     AdminPlaybackHardwareCapability {
-        accelerator: capability.accelerator,
+        accelerator: admin_hardware_acceleration(capability.accelerator),
         available: capability.available,
         reason_code: hardware_capability_reason(capability),
         stage_capabilities: capability
             .stage_capabilities
             .iter()
             .map(|stage| AdminPlaybackHardwareStageCapability {
-                stage: stage.stage,
+                stage: admin_hardware_pipeline_stage(stage.stage),
                 available: stage.available,
                 required: stage.required,
                 feature: stage.feature.clone(),
@@ -2377,7 +2384,7 @@ fn remote_budget_summary(
 
 fn playback_readiness_diagnostics(
     has_probe_error: bool,
-    hardware_readiness: nako_transcode::TranscodePipelineReadiness,
+    hardware_readiness: AdminTranscodePipelineReadiness,
     fallback_used: bool,
     configured_budget: nako_transcode::TranscodeResourceBudget,
     effective_budget: nako_transcode::TranscodeResourceBudget,
@@ -2399,9 +2406,7 @@ fn playback_readiness_diagnostics(
             )
         },
         AdminPlaybackReadinessCheck::from_hardware(hardware_readiness),
-        if hardware_readiness.status
-            == nako_transcode::TranscodePipelineReadinessStatus::Unavailable
-        {
+        if hardware_readiness.status == AdminTranscodePipelineReadinessStatus::Unavailable {
             AdminPlaybackReadinessCheck::unavailable(
                 AdminPlaybackReadinessCheckName::SelectedFallback,
                 hardware_readiness.reason.into(),

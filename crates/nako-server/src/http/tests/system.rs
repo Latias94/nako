@@ -3121,8 +3121,8 @@ async fn admin_v1_playback_runtime_settings_round_trips_persisted_override() {
     assert_eq!(configured.settings.remux_timeout_ms, 60_000);
 
     let override_settings = AdminPlaybackRuntimeSettingsPayload {
-        hardware_acceleration: nako_transcode::HardwareAcceleration::None,
-        hardware_fallback: nako_transcode::HardwareAccelerationFallback::Cpu,
+        hardware_acceleration: AdminHardwareAcceleration::None,
+        hardware_fallback: AdminHardwareAccelerationFallback::Cpu,
         cpu_concurrency: 2,
         gpu_concurrency: 3,
         remux_concurrency: 4,
@@ -3613,7 +3613,7 @@ async fn admin_v1_playback_support_evidence_is_bounded_and_redacted() {
     );
     assert_eq!(
         evidence.runtime.hardware.selected_acceleration,
-        nako_transcode::HardwareAcceleration::None
+        AdminHardwareAcceleration::None
     );
     assert!(evidence.runtime.hardware.fallback_used);
     assert_eq!(evidence.runtime.staging.max_bytes, 123_456);
@@ -3877,18 +3877,18 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
     assert_eq!(diagnostics.ffmpeg.available_gpu_capabilities, 3);
     assert_eq!(
         diagnostics.hardware.policy.requested,
-        nako_transcode::HardwareAcceleration::Nvenc
+        AdminHardwareAcceleration::Nvenc
     );
     assert_eq!(
         diagnostics.hardware.pipeline.selected,
-        nako_transcode::HardwareAcceleration::Nvenc
+        AdminHardwareAcceleration::Nvenc
     );
     assert!(!diagnostics.hardware.pipeline.fallback_used);
     let nvenc_capability = diagnostics
         .hardware
         .capabilities
         .iter()
-        .find(|capability| capability.accelerator == nako_transcode::HardwareAcceleration::Nvenc)
+        .find(|capability| capability.accelerator == AdminHardwareAcceleration::Nvenc)
         .unwrap();
     assert_eq!(
         nvenc_capability.encoder_discovery.status,
@@ -4049,15 +4049,15 @@ async fn admin_v1_playback_runtime_reports_unavailable_cpu_pipeline_without_bloc
         && check.reason == AdminPlaybackReadinessReason::SoftwarePipelineUnavailable));
     assert_eq!(
         diagnostics.hardware.pipeline.status,
-        nako_transcode::TranscodePipelineReadinessStatus::Unavailable
+        AdminTranscodePipelineReadinessStatus::Unavailable
     );
     assert_eq!(
         diagnostics.hardware.pipeline.reason,
-        nako_transcode::TranscodePipelineReadinessReason::SoftwarePipelineUnavailable
+        AdminTranscodePipelineReadinessReason::SoftwarePipelineUnavailable
     );
     assert_eq!(
         diagnostics.hardware.pipeline.selected,
-        nako_transcode::HardwareAcceleration::None
+        AdminHardwareAcceleration::None
     );
     assert!(!diagnostics.hardware.pipeline.fallback_used);
     assert_eq!(diagnostics.transcode.selected_hls_slots, 0);
@@ -4066,11 +4066,11 @@ async fn admin_v1_playback_runtime_reports_unavailable_cpu_pipeline_without_bloc
         .hardware
         .capabilities
         .iter()
-        .find(|capability| capability.accelerator == nako_transcode::HardwareAcceleration::None)
+        .find(|capability| capability.accelerator == AdminHardwareAcceleration::None)
         .unwrap();
     assert!(!cpu_capability.available);
     assert!(cpu_capability.stage_capabilities.iter().any(|stage| {
-        stage.stage == nako_transcode::HardwarePipelineStage::Encode
+        stage.stage == AdminHardwarePipelineStage::Encode
             && stage.required
             && !stage.available
             && stage.feature.as_deref() == Some("aac")
@@ -4188,7 +4188,7 @@ async fn admin_v1_playback_runtime_reports_typed_readiness_for_cpu_fallback() {
         && check.reason == AdminPlaybackReadinessReason::TranscodeThrottleReady));
     assert_eq!(
         diagnostics.hardware.pipeline.selected,
-        nako_transcode::HardwareAcceleration::None
+        AdminHardwareAcceleration::None
     );
     assert!(diagnostics.hardware.pipeline.fallback_used);
     assert_eq!(diagnostics.transcode.effective_cpu_slots, 1);

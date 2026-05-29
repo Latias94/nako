@@ -21,5 +21,4 @@ nako-client-protocol = { path = "../nako-client-protocol" }
 nako-core = { path = "../nako-core" }
 nako-playback = { path = "../nako-playback" }
 nako-streaming = { path = "../nako-streaming" }
-nako-transcode = { path = "../nako-transcode" }
 time.workspace = true

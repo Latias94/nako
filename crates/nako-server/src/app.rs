@@ -20,7 +20,13 @@ use nako_db::{
 };
 use sha2::{Digest, Sha256};
 
-use crate::config::{NakoServerConfig, resolve_database_url};
+use crate::{
+    api_mapping::{
+        admin_hardware_acceleration, admin_hardware_fallback, transcode_hardware_acceleration,
+        transcode_hardware_fallback,
+    },
+    config::{NakoServerConfig, resolve_database_url},
+};
 
 pub(crate) mod acquisition_intake;
 mod addons;
@@ -1044,8 +1050,8 @@ pub(super) fn configured_playback_runtime_settings(
     config: &NakoServerConfig,
 ) -> nako_api::admin::AdminPlaybackRuntimeSettingsPayload {
     nako_api::admin::AdminPlaybackRuntimeSettingsPayload {
-        hardware_acceleration: config.transcode.hardware_acceleration,
-        hardware_fallback: config.transcode.hardware_fallback,
+        hardware_acceleration: admin_hardware_acceleration(config.transcode.hardware_acceleration),
+        hardware_fallback: admin_hardware_fallback(config.transcode.hardware_fallback),
         cpu_concurrency: usize_to_u32(config.transcode.cpu_concurrency),
         gpu_concurrency: usize_to_u32(config.transcode.gpu_concurrency),
         remux_concurrency: usize_to_u32(config.remux_concurrency),
@@ -1070,8 +1076,9 @@ pub(super) fn apply_playback_runtime_settings(
     config: &mut NakoServerConfig,
     settings: &nako_api::admin::AdminPlaybackRuntimeSettingsPayload,
 ) {
-    config.transcode.hardware_acceleration = settings.hardware_acceleration;
-    config.transcode.hardware_fallback = settings.hardware_fallback;
+    config.transcode.hardware_acceleration =
+        transcode_hardware_acceleration(settings.hardware_acceleration);
+    config.transcode.hardware_fallback = transcode_hardware_fallback(settings.hardware_fallback);
     config.transcode.cpu_concurrency = settings.cpu_concurrency as usize;
     config.transcode.gpu_concurrency = settings.gpu_concurrency as usize;
     config.remux_concurrency = settings.remux_concurrency as usize;

@@ -6,6 +6,10 @@ attention.
 
 ## Current Workstreams
 
+- [playback-api-transcode-boundary-cleanup](playback-api-transcode-boundary-cleanup/README.md):
+  completed fearless refactor lane for removing direct `nako-api ->
+  nako-transcode` coupling by moving execution-type conversions into
+  `nako-server` while preserving Admin and Public Client wire contracts.
 - [hls-seek-restart-lifecycle](hls-seek-restart-lifecycle/README.md):
   completed feature/refactor lane for making HLS playback seek-aware through
   generation identity, restart admission, FFmpeg seek command planning, and

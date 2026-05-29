@@ -17,7 +17,6 @@ use nako_playback::{
     PlaybackPermissionDecisionReason, PlaybackTarget, PlaybackTargetKind,
     PlaybackTargetNetworkScope, PlaybackTargetTransportAuth, RendererControlCommand,
 };
-use nako_transcode::{HlsSegmentContainer, HlsVariantPolicy, OutputContainer, TranscodePlan};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 pub use nako_client_protocol::{
@@ -242,7 +241,11 @@ pub fn playback_decision_response_to_dto(
 #[must_use]
 pub fn playback_decision_to_dto(decision: PlaybackDecision) -> ClientPlaybackDecision {
     let direct_play = decision.direct_play_plan().cloned();
-    let transcode_plan = decision.transcode_plan().cloned();
+    let transcode_plan = decision.transcode_plan().map(|plan| ClientTranscodePlan {
+        output_container: output_container_to_dto(plan.output_container.as_str()),
+        video_codec: plan.video_codec.clone(),
+        audio_codec: plan.audio_codec.clone(),
+    });
 
     ClientPlaybackDecision {
         mode: playback_mode_to_dto(decision.mode),
@@ -250,7 +253,7 @@ pub fn playback_decision_to_dto(decision: PlaybackDecision) -> ClientPlaybackDec
         report: playback_decision_report_to_dto(decision.report),
         denial: decision.denial.map(playback_denial_to_dto),
         direct_play: direct_play.map(direct_play_plan_to_dto),
-        transcode_plan: transcode_plan.map(transcode_plan_to_dto),
+        transcode_plan,
     }
 }
 
@@ -300,14 +303,6 @@ fn direct_play_plan_to_dto(plan: DirectPlayPlan) -> ClientDirectPlayPlan {
         source_id: plan.source_id.to_string(),
         content_type: plan.content_type,
         supports_range_requests: plan.supports_range_requests,
-    }
-}
-
-fn transcode_plan_to_dto(plan: TranscodePlan) -> ClientTranscodePlan {
-    ClientTranscodePlan {
-        output_container: output_container_to_dto(plan.output_container),
-        video_codec: plan.video_codec,
-        audio_codec: plan.audio_codec,
     }
 }
 
@@ -1120,9 +1115,11 @@ fn playback_session_client_capabilities_from_json(
         max_audio_channels: capabilities.max_audio_channels,
         supports_hdr: Some(capabilities.supports_hdr),
         supports_subtitles: Some(capabilities.supports_subtitles),
-        hls_variant_policy: Some(hls_variant_policy_to_dto(capabilities.hls_variant_policy)),
+        hls_variant_policy: Some(hls_variant_policy_to_dto(
+            capabilities.hls_variant_policy.as_str(),
+        )),
         hls_segment_container: Some(hls_segment_container_to_dto(
-            capabilities.hls_segment_container,
+            capabilities.hls_segment_container.as_str(),
         )),
     })
 }
@@ -1141,32 +1138,37 @@ fn playback_capabilities_to_dto(
         max_audio_channels: capabilities.max_audio_channels,
         supports_hdr: Some(capabilities.supports_hdr),
         supports_subtitles: Some(capabilities.supports_subtitles),
-        hls_variant_policy: Some(hls_variant_policy_to_dto(capabilities.hls_variant_policy)),
+        hls_variant_policy: Some(hls_variant_policy_to_dto(
+            capabilities.hls_variant_policy.as_str(),
+        )),
         hls_segment_container: Some(hls_segment_container_to_dto(
-            capabilities.hls_segment_container,
+            capabilities.hls_segment_container.as_str(),
         )),
     }
 }
 
-fn hls_variant_policy_to_dto(policy: HlsVariantPolicy) -> ClientHlsVariantPolicy {
+fn hls_variant_policy_to_dto(policy: &str) -> ClientHlsVariantPolicy {
     match policy {
-        HlsVariantPolicy::SingleVariant => ClientHlsVariantPolicy::SingleVariant,
-        HlsVariantPolicy::Adaptive => ClientHlsVariantPolicy::Adaptive,
+        "single_variant" => ClientHlsVariantPolicy::SingleVariant,
+        "adaptive" => ClientHlsVariantPolicy::Adaptive,
+        other => ClientHlsVariantPolicy::Other(other.to_owned()),
     }
 }
 
-fn hls_segment_container_to_dto(container: HlsSegmentContainer) -> ClientHlsSegmentContainer {
+fn hls_segment_container_to_dto(container: &str) -> ClientHlsSegmentContainer {
     match container {
-        HlsSegmentContainer::MpegTs => ClientHlsSegmentContainer::MpegTs,
-        HlsSegmentContainer::Fmp4 => ClientHlsSegmentContainer::Fmp4,
+        "mpeg_ts" => ClientHlsSegmentContainer::MpegTs,
+        "fmp4" => ClientHlsSegmentContainer::Fmp4,
+        other => ClientHlsSegmentContainer::Other(other.to_owned()),
     }
 }
 
-fn output_container_to_dto(container: OutputContainer) -> ClientOutputContainer {
+fn output_container_to_dto(container: &str) -> ClientOutputContainer {
     match container {
-        OutputContainer::Hls => ClientOutputContainer::Hls,
-        OutputContainer::Mp4 => ClientOutputContainer::Mp4,
-        OutputContainer::Mkv => ClientOutputContainer::Mkv,
+        "hls" => ClientOutputContainer::Hls,
+        "mp4" => ClientOutputContainer::Mp4,
+        "mkv" => ClientOutputContainer::Mkv,
+        other => ClientOutputContainer::Other(other.to_owned()),
     }
 }
 
@@ -1236,10 +1238,10 @@ mod tests {
 
     use super::*;
     use nako_core::{
-        CanonicalMetadata, LibraryId, MediaItem, MediaItemId, MediaSource, MediaSourceId,
-        MediaStreamTechnicalFacts, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionState,
-        UserPlaylistId, UserPlaylistItemRecord, UserPlaylistRecord, UserPlaylistVisibility,
-        UserPrincipalId,
+        CanonicalMetadata, EffectivePlaybackPolicy, LibraryAccessLevel, LibraryId, MediaItem,
+        MediaItemId, MediaSource, MediaSourceId, MediaStreamTechnicalFacts, TranscodeSessionId,
+        TranscodeSessionKind, TranscodeSessionState, UserPlaylistId, UserPlaylistItemRecord,
+        UserPlaylistRecord, UserPlaylistVisibility, UserPrincipalId,
     };
 
     #[test]
@@ -1397,56 +1399,31 @@ mod tests {
     fn playback_decision_dto_hides_internal_selection_plan() {
         let source_id = MediaSourceId::new();
         let library_id = LibraryId::new();
-        let transcode_plan = TranscodePlan {
-            input_locator: "local:///Movies/Demo.mkv".to_owned(),
-            output_container: OutputContainer::Hls,
-            video_codec: Some("h264".to_owned()),
-            audio_codec: Some("aac".to_owned()),
+        let source = MediaSource {
+            id: source_id,
+            library_id,
+            item_id: MediaItemId::new(),
+            locator: "local:///Movies/Demo.mkv".to_owned(),
+            file_name: "Demo.mkv".to_owned(),
+            size_bytes: Some(42),
+            fingerprint: Some("sha256:demo".to_owned()),
         };
-        let decision = PlaybackDecision {
-            mode: PlaybackMode::Transcode,
-            reason: nako_playback::PlaybackDecisionReason::ClientDisabledDirectPlay,
-            selected_source: nako_playback::PlaybackSelectedSource {
-                source_id,
-                library_id,
-                locator: "local:///Movies/Demo.mp4".to_owned(),
-                file_name: "Demo.mp4".to_owned(),
+        let target = nako_playback::PlaybackTarget::browser_with_capabilities(
+            "browser",
+            nako_playback::ClientPlaybackCapabilities {
+                direct_play: false,
+                ..nako_playback::ClientPlaybackCapabilities::default()
             },
-            rendition: nako_playback::PlaybackRenditionPlan::Transcode(
-                nako_playback::TranscodeRenditionPlan {
-                    plan: transcode_plan.clone(),
-                    requirement: nako_playback::TranscodeRequirement {
-                        source_id,
-                        input_locator: "local:///Movies/Demo.mkv".to_owned(),
-                        output_container: OutputContainer::Hls,
-                        output_video_codec: Some("h264".to_owned()),
-                        output_audio_codec: Some("aac".to_owned()),
-                        track_selection: nako_transcode::TranscodeTrackSelection::default(),
-                        output_constraints: nako_transcode::TranscodeOutputConstraints::default(),
-                        hls_output: Some(nako_transcode::HlsOutputRequirement::default()),
-                        subtitle_strategy: nako_transcode::TranscodeSubtitleStrategy::None,
-                        selected_streams: nako_playback::TranscodeRequirementStreams::default(),
-                        reasons: vec![
-                            nako_playback::PlaybackCompatibilityCondition::DirectPlayDisabled,
-                        ],
-                    },
-                },
-            ),
-            report: nako_playback::PlaybackDecisionReport {
-                source_id,
-                profile_key: "test-profile".to_owned(),
-                selected_mode: PlaybackMode::Transcode,
-                direct_play: nako_playback::PlaybackCapabilityEvaluation::unsupported(vec![
-                    nako_playback::PlaybackCompatibilityCondition::DirectPlayDisabled,
-                ]),
-                remux: nako_playback::PlaybackCapabilityEvaluation::unsupported(vec![
-                    nako_playback::PlaybackCompatibilityCondition::MediaTechnicalFactsMissing,
-                ]),
-                transcode: nako_playback::PlaybackCapabilityEvaluation::supported(),
-                denial: None,
-            },
-            denial: None,
-        };
+        );
+        let policy = EffectivePlaybackPolicy::administrator(library_id, LibraryAccessLevel::Manage);
+        let decision =
+            nako_playback::PlaybackPlanner::new().plan(nako_playback::PlaybackPlanningRequest {
+                source: &source,
+                probe: None,
+                target: &target,
+                effective_policy: &policy,
+                context: nako_playback::PlaybackSelectionContext::default(),
+            });
 
         let value = serde_json::to_value(playback_decision_to_dto(decision)).unwrap();
 
