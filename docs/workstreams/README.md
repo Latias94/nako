@@ -6,6 +6,11 @@ attention.
 
 ## Current Workstreams
 
+- [hls-master-renditions-authoring](hls-master-renditions-authoring/README.md):
+  active fearless refactor lane for making selected subtitle WebVTT sidecar
+  artifacts discoverable through standard HLS master playlist media tags,
+  preserving adaptive fMP4, single-variant HLS, artifact serving, and session
+  reuse behavior.
 - [hls-media-renditions-runtime](hls-media-renditions-runtime/README.md):
   closed fearless refactor lane that added a typed HLS media rendition boundary
   after source-aware adaptive video ladders, including selected subtitle WebVTT

@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "slug": "hls-master-renditions-authoring",
+  "title": "HLS Master Renditions Authoring",
+  "status": "active",
+  "updated": "2026-05-29",
+  "scope_kind": "fearless_refactor",
+  "problem": "Nako can generate selected subtitle WebVTT sidecar artifacts, but public HLS entry playlists do not advertise those media renditions through standard master playlist tags.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/hls-master-renditions-authoring/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/hls-master-renditions-authoring/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/hls-master-renditions-authoring/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/hls-master-renditions-authoring/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/hls-master-renditions-authoring/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/hls-master-renditions-authoring/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python3 -m json.tool docs/workstreams/hls-master-renditions-authoring/WORKSTREAM.json",
+    "cargo nextest run -p nako-transcode hls --no-fail-fast",
+    "cargo nextest run -p nako-server hls --no-fail-fast",
+    "cargo nextest run -p nako-server playback --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "HMA-010",
+      "summary": "Opened the durable fearless refactor lane for standard HLS master playlist media rendition authoring after selected subtitle sidecar artifacts became executable."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0038-playback-planning-and-transcode-policy-seams.md",
+    "docs/adr/0044-playback-capability-profile-planner.md",
+    "docs/adr/0049-source-aware-transcode-runtime.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "next_task": "HMA-020",
+    "notes": "Implement the smallest typed master playlist authoring boundary that can advertise selected subtitle WebVTT sidecars while preserving existing HLS artifact serving and session reuse."
+  }
+}
