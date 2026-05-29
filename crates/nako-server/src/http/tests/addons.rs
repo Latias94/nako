@@ -6163,6 +6163,137 @@ async fn addon_external_acquisition_materialization_resolves_selected_link_for_r
 }
 
 #[tokio::test]
+async fn addon_external_acquisition_materialization_resolves_intake_candidate_for_running_action() {
+    let (_temp, router, source, store) = router_with_media_source_config(
+        "external-acquisition-materialize-intake.mkv",
+        b"media",
+        |_| {},
+    )
+    .await;
+    let candidate_id = AcquisitionIntakeCandidateId::new();
+    let now_ms = crate::app::current_time_ms().unwrap();
+    store
+        .upsert_acquisition_intake_candidate(NewAcquisitionIntakeCandidate {
+            id: candidate_id,
+            target_library_id: source.library_id,
+            source_kind: AcquisitionIntakeSourceKind::AddonProposed,
+            source_key: "materialize-intake-candidate".to_owned(),
+            source_uri: "https://download.example.test/private/file.torrent?token=secret"
+                .to_owned(),
+            display_name: Some("Private Torrent".to_owned()),
+            intended_locator: None,
+            size_bytes: None,
+            fingerprint: None,
+            managed_import_artifact_id: None,
+            state: AcquisitionIntakeCandidateState::Ready,
+            diagnostics_json: Some(
+                serde_json::json!({
+                    "schema": "nako.acquisition_intake.addon_proposed.v1",
+                    "link": {
+                        "type": "web",
+                        "source_ref_redacted": "https://<redacted>"
+                    }
+                })
+                .to_string(),
+            ),
+            first_seen_at_ms: now_ms,
+            last_seen_at_ms: now_ms,
+            created_at_ms: now_ms,
+            updated_at_ms: now_ms,
+        })
+        .await
+        .unwrap();
+
+    let gate = StdArc::new(Notify::new());
+    let (base_url, requests) = external_acquisition_action_addon_server_with_gate(
+        AddonExternalAcquisitionActionStatus::Accepted,
+        Some(StdArc::clone(&gate)),
+    )
+    .await;
+    let addon_id = register_external_acquisition_runner_addon(&router, base_url).await;
+    let issued = request_body_json::<AddonTokenIssuedResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/tokens"),
+        &IssueAddonTokenRequest {
+            label: Some("runner".to_owned()),
+        },
+    )
+    .await;
+    let action_payload = AddonExternalAcquisitionActionRequest {
+        schema: ADDON_EXTERNAL_ACQUISITION_ACTION_REQUEST_SCHEMA.to_owned(),
+        target_ref: AddonExternalAcquisitionTargetRef::IntakeCandidate {
+            intake_candidate_ref: candidate_id.to_string(),
+        },
+        runner_profile_id: "transmission-local".to_owned(),
+        idempotency_key: "external-acquisition:materialize:intake".to_owned(),
+        operation: AddonExternalAcquisitionOperation::Enqueue,
+        audit_ref: Some("audit:materialize:intake".to_owned()),
+    };
+    let created = request_body_json::<AddonTaskRunResponse, _>(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/addons/{addon_id}/task-runs"),
+        &CreateAddonTaskRunRequest {
+            declaration_id: external_acquisition_runner::ACTION_TASK_ID.to_owned(),
+            idempotency_key: action_payload.idempotency_key.clone(),
+            dispatch: AddonTaskRunDispatchMode::Direct,
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            payload: serde_json::to_value(&action_payload).unwrap(),
+        },
+    )
+    .await;
+    for _ in 0..100 {
+        if requests.lock().await.len() == 1 {
+            break;
+        }
+        sleep(Duration::from_millis(20)).await;
+    }
+    assert_eq!(requests.lock().await.len(), 1);
+
+    let materialized =
+        request_body_json_with_bearer::<AddonExternalAcquisitionMaterializationResponse, _>(
+            &router,
+            Method::POST,
+            ADDON_RUNTIME_EXTERNAL_ACQUISITION_MATERIALIZE_PATH,
+            &issued.raw_token,
+            &AddonExternalAcquisitionMaterializationRequest {
+                schema: ADDON_EXTERNAL_ACQUISITION_MATERIALIZATION_REQUEST_SCHEMA.to_owned(),
+                job_id: created.run.job_id.to_string(),
+                declaration_id: external_acquisition_runner::ACTION_TASK_ID.to_owned(),
+                target_ref: action_payload.target_ref.clone(),
+                runner_profile_id: action_payload.runner_profile_id.clone(),
+                idempotency_key: action_payload.idempotency_key.clone(),
+                operation: AddonExternalAcquisitionOperation::Enqueue,
+                audit_ref: "audit:materialize:intake".to_owned(),
+                purpose: AddonExternalAcquisitionMaterializationPurpose::ExternalAcquisitionEnqueue,
+            },
+        )
+        .await;
+
+    assert_eq!(materialized.target_ref, action_payload.target_ref);
+    assert_eq!(materialized.material.link_type, AddonResourceLinkType::Web);
+    assert_eq!(
+        materialized.safe_facts.get("source_ref_redacted"),
+        Some(&"https://<redacted>".to_owned())
+    );
+    assert!(
+        !serde_json::to_string(&materialized.safe_facts)
+            .unwrap()
+            .contains("secret")
+    );
+
+    gate.notify_waiters();
+    let completed =
+        wait_for_addon_task_status(&router, addon_id, created.run.job_id, JobStatus::Succeeded)
+            .await;
+    let completed_text = serde_json::to_string(&completed).unwrap();
+    assert!(!completed_text.contains("download.example.test"));
+    assert!(!completed_text.contains("token=secret"));
+}
+
+#[tokio::test]
 async fn addon_external_acquisition_action_rejects_unsafe_payload_before_dispatch() {
     let (_temp, router, source, store) =
         router_with_media_source_config("external-acquisition-unsafe.mkv", b"media", |_| {}).await;
