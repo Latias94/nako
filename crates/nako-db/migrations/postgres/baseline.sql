@@ -85,6 +85,10 @@ CREATE TABLE IF NOT EXISTS jobs (
     input_json text,
     summary_json text,
     error text,
+    attempt bigint NOT NULL DEFAULT 1,
+    max_attempts bigint NOT NULL DEFAULT 1,
+    retry_of_job_id uuid REFERENCES jobs(id) ON DELETE SET NULL,
+    next_attempt_at timestamptz,
     queued_at timestamptz NOT NULL DEFAULT statement_timestamp(),
     started_at timestamptz,
     completed_at timestamptz,
@@ -102,9 +106,12 @@ CREATE INDEX IF NOT EXISTS jobs_kind_idx ON jobs(kind);
 CREATE INDEX IF NOT EXISTS jobs_library_id_idx ON jobs(library_id);
 CREATE INDEX IF NOT EXISTS jobs_source_id_idx ON jobs(source_id);
 CREATE INDEX IF NOT EXISTS jobs_lease_claim_idx
-    ON jobs(status, kind, resource_class, library_id, source_id, queued_at, id);
+    ON jobs(status, kind, resource_class, library_id, source_id, next_attempt_at, queued_at, id);
 CREATE INDEX IF NOT EXISTS jobs_lease_expiry_idx
     ON jobs(status, lease_expires_at);
+CREATE INDEX IF NOT EXISTS jobs_retry_of_job_id_idx ON jobs(retry_of_job_id);
+CREATE INDEX IF NOT EXISTS jobs_queue_pressure_idx
+    ON jobs(status, kind, resource_class, next_attempt_at);
 
 CREATE TABLE IF NOT EXISTS media_source_probes (
     source_id uuid PRIMARY KEY NOT NULL REFERENCES media_sources(id) ON DELETE CASCADE,

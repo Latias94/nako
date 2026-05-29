@@ -8,12 +8,12 @@ use argon2::{
     password_hash::{SaltString, rand_core::OsRng},
 };
 use nako_core::{
-    AdminSettingsRepository, EffectiveLibraryAccess, IdentityAccessRepository, LibraryAccessPolicy,
-    LibraryAccessPolicyFilter, LibraryAccessPolicyScope, LibraryId, ManagedArtworkRepository,
-    MediaItemId, MediaRepository, MediaSource, MediaSourceId, NakoError, PageRequest, Result,
-    RoleAssignment, SelectedArtworkId, SelectedArtworkRecord, User, UserId, UserInvitationId,
-    UserInvitationRecord, UserInvitationStatus, UserPrincipalId, UserRole, UserSessionId,
-    UserSessionRecord, UserStatus,
+    AdminSettingsRepository, EffectiveLibraryAccess, IdentityAccessRepository,
+    JobQueuePressureSummary, JobRepository, LibraryAccessPolicy, LibraryAccessPolicyFilter,
+    LibraryAccessPolicyScope, LibraryId, ManagedArtworkRepository, MediaItemId, MediaRepository,
+    MediaSource, MediaSourceId, NakoError, PageRequest, Result, RoleAssignment, SelectedArtworkId,
+    SelectedArtworkRecord, User, UserId, UserInvitationId, UserInvitationRecord,
+    UserInvitationStatus, UserPrincipalId, UserRole, UserSessionId, UserSessionRecord, UserStatus,
 };
 use nako_db::{
     DatabaseBackendCapabilities, DatabaseBackendKind, DatabaseConnectOptions, NakoDatabase,
@@ -101,7 +101,7 @@ pub(crate) use renderer_transport_ticket::{
     IssueRendererTransportTicketRequest, RendererTransportTicketScope,
     RendererTransportTicketService, ValidateRendererTransportTicketRequest,
 };
-pub(crate) use runtime::RuntimeSupervisorDiagnostics;
+pub(crate) use runtime::{RuntimeResourceClassDiagnostics, RuntimeSupervisorDiagnostics};
 #[cfg(test)]
 use staging::cleanup_expired_staging_inputs;
 use startup::ServerStartupReport;
@@ -294,6 +294,18 @@ impl NakoApp {
 
     pub(crate) fn runtime_diagnostics(&self) -> RuntimeSupervisorDiagnostics {
         self.inner.runtime.diagnostics()
+    }
+
+    pub(crate) fn runtime_resource_class_diagnostics(
+        &self,
+    ) -> Vec<RuntimeResourceClassDiagnostics> {
+        self.inner.runtime_resource_classes.diagnostics()
+    }
+
+    pub(crate) async fn job_queue_pressure_diagnostics(
+        &self,
+    ) -> Result<Vec<JobQueuePressureSummary>> {
+        self.inner.store.summarize_job_queue_pressure().await
     }
 
     pub(crate) fn startup_report(&self) -> &ServerStartupReport {

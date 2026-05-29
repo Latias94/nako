@@ -40,7 +40,7 @@ use super::job_runtime::{
     DurableJobContext, DurableJobOperationResult, DurableJobRunOutcome, DurableJobRuntime,
 };
 use super::metadata_runtime::provider_resource_name;
-use super::runtime::RuntimeSupervisor;
+use super::runtime::{RuntimeSupervisor, runtime_budget_class_for_job_resource_class};
 use crate::config::{MetadataMaintenancePolicyConfig, NakoServerConfig};
 
 #[derive(Clone, Debug, Serialize)]
@@ -319,11 +319,13 @@ impl MetadataAppService {
         let job = self.create_metadata_refresh_job(item_id).await?;
         let job_id = job.id;
         let resource_class = job.resource_class.clone();
+        let budget_class =
+            runtime_budget_class_for_job_resource_class(job.kind, &job.resource_class)?;
         let service = self.clone();
 
         self.runtime.spawn_job(
             "metadata_refresh_background_job",
-            job.resource_class.clone(),
+            budget_class,
             job_id,
             move |_context| {
                 async move { service.finish_metadata_refresh_job(job_id, item_id).await }
@@ -353,11 +355,13 @@ impl MetadataAppService {
     ) -> Result<Job> {
         let job = self.create_metadata_maintenance_job(&request).await?;
         let job_id = job.id;
+        let budget_class =
+            runtime_budget_class_for_job_resource_class(job.kind, &job.resource_class)?;
         let service = self.clone();
 
         self.runtime.spawn_job(
             "metadata_maintenance_background_job",
-            job.resource_class.clone(),
+            budget_class,
             job_id,
             move |_context| {
                 async move {

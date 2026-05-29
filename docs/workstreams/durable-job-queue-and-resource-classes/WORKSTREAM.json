@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "slug": "durable-job-queue-and-resource-classes",
+  "title": "Durable Job Queue And Resource Classes",
+  "status": "closed",
+  "updated": "2026-05-29",
+  "scope_kind": "fearless-refactor",
+  "problem": "Durable job records, leases, cancellation, runtime supervision, and feature-local semaphores exist, but queue priority, retry/backoff, and resource class accounting do not share one schedulable control-plane boundary.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/durable-job-queue-and-resource-classes/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/durable-job-queue-and-resource-classes/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/durable-job-queue-and-resource-classes/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/durable-job-queue-and-resource-classes/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/durable-job-queue-and-resource-classes/HANDOFF.md"
+    }
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/CONTROL_PLANE.md",
+      "capability": "durable-job-queue-and-resource-classes"
+    },
+    {
+      "path": "docs/architecture/STATE_ACCESS.md",
+      "capability": "job runtime and database write pressure"
+    }
+  ],
+  "capability_tags": [
+    "control-plane.jobs.queue",
+    "control-plane.resource-classes",
+    "runtime.supervision"
+  ],
+  "gates": [
+    "cargo nextest run -p nako-server runtime_resource_class --no-fail-fast",
+    "cargo nextest run -p nako-server job_resource_class --no-fail-fast",
+    "cargo nextest run -p nako-server job_scheduler --no-fail-fast",
+    "cargo nextest run -p nako-server job_runtime --no-fail-fast",
+    "cargo nextest run -p nako-db job_retry --no-fail-fast",
+    "cargo nextest run -p nako-server queue_pressure --no-fail-fast",
+    "cargo check -p nako-core -p nako-db -p nako-api -p nako-server --tests",
+    "cargo fmt --all -- --check",
+    "git diff --check",
+    "Get-Content docs\\workstreams\\durable-job-queue-and-resource-classes\\WORKSTREAM.json | ConvertFrom-Json"
+  ],
+  "evidence": [
+    "docs/workstreams/durable-job-queue-and-resource-classes/DESIGN.md",
+    "docs/workstreams/durable-job-queue-and-resource-classes/TODO.md",
+    "crates/nako-core/src/job.rs",
+    "crates/nako-core/src/repository/jobs.rs",
+    "crates/nako-db/src/sqlite/jobs.rs",
+    "crates/nako-db/src/postgres/jobs.rs",
+    "crates/nako-server/src/app/runtime.rs",
+    "crates/nako-server/src/app/composition.rs",
+    "crates/nako-server/src/app/job_runtime.rs",
+    "crates/nako-server/src/app/jobs.rs",
+    "crates/nako-server/src/app/metadata.rs",
+    "crates/nako-server/src/app/nfo.rs",
+    "crates/nako-server/src/app/addons/task_runtime.rs"
+  ],
+  "adr_refs": [
+    "docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md",
+    "docs/adr/0006-persist-job-inputs-and-explicit-retry-policy.md",
+    "docs/adr/0053-application-control-plane-boundary.md"
+  ],
+  "related_workstreams": [
+    "docs/workstreams/job-runtime-worker-control-plane/",
+    "docs/workstreams/durable-job-ownership-leases/",
+    "docs/workstreams/worker-job-cancellation-checkpoints/",
+    "docs/workstreams/durable-job-recovery/",
+    "docs/workstreams/server-runtime-deepening/"
+  ],
+  "first_slice": "Process-local RuntimeResourceClassRegistry in nako-server with existing scan, metadata, and webhook permit pools routed through registry-owned classes.",
+  "non_goals": [
+    "new nako-control-plane crate in the first slice",
+    "external queue engines or distributed scheduling",
+    "generic untyped JSON task execution",
+    "migrating every job kind in one task",
+    "playback or HLS runtime changes",
+    "addon process lifecycle management",
+    "public client API changes"
+  ],
+  "continue_policy": {
+    "default_action": "closed",
+    "next_task": "none",
+    "notes": "Workstream closed. Recommended follow-on is proposed:durable-job-priority-policy-and-scheduler-migration. Distributed scheduling, remote workers, addon process lifecycle, child-process cancellation, and broader job-kind migration should remain separate lanes until product pressure makes them concrete."
+  }
+}

@@ -6,6 +6,14 @@ attention.
 
 ## Current Workstreams
 
+- [durable-job-queue-and-resource-classes](durable-job-queue-and-resource-classes/README.md):
+  closed fearless refactor lane for centralizing process-local runtime resource
+  classes first, then adding explicit durable job class to budget class mapping,
+  library scan scheduler admission, persisted retry/backoff rows, and redacted
+  queue pressure diagnostics without introducing a new control-plane crate or
+  external queue in the first slice. Priority policy and broader scheduler
+  migration are split to
+  `proposed:durable-job-priority-policy-and-scheduler-migration`.
 - [hls-progressive-runtime-boundary](hls-progressive-runtime-boundary/README.md):
   completed fearless refactor lane for removing the whole-output HLS runtime
   assumption after fMP4, adaptive ladders, media renditions, audio sidecars,

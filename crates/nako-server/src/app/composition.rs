@@ -31,7 +31,11 @@ use super::{
     renderer::RendererAppService,
     renderer_adapter::RendererAdapterBridgeService,
     renderer_transport_ticket::RendererTransportTicketService,
-    runtime::RuntimeSupervisor,
+    runtime::{
+        RUNTIME_RESOURCE_CLASS_ADDON_TASK, RUNTIME_RESOURCE_CLASS_ARTWORK_INGEST,
+        RUNTIME_RESOURCE_CLASS_DISK_SCAN, RUNTIME_RESOURCE_CLASS_METADATA_SHARED,
+        RUNTIME_RESOURCE_CLASS_NETWORK_WEBHOOK, RuntimeResourceClassRegistry, RuntimeSupervisor,
+    },
     startup::{ServerStartupReport, ServerStartupWorkflow},
     storage::{StorageBackendRegistry, StorageDiagnosticsAppService},
     user_playback::UserPlaybackAppService,
@@ -44,6 +48,7 @@ pub(super) struct NakoAppComposition {
     pub(super) config: NakoServerConfig,
     pub(super) store: NakoDatabase,
     pub(super) runtime: RuntimeSupervisor,
+    pub(super) runtime_resource_classes: RuntimeResourceClassRegistry,
     pub(super) services: NakoAppServices,
     pub(super) startup_report: ServerStartupReport,
 }
@@ -55,6 +60,7 @@ impl NakoAppComposition {
         validate_configured_backend_runtime_scope(&config, &store)?;
         let runtime_resources = NakoRuntimeResources::build(&config, store.clone())?;
         let runtime = runtime_resources.supervisor.clone();
+        let runtime_resource_classes = runtime_resources.resource_classes.clone();
         let services = NakoAppServices::build(&config, store.clone(), runtime_resources)?;
 
         let startup_report = ServerStartupWorkflow::new(&config, &store, services.metadata.clone())
@@ -73,6 +79,7 @@ impl NakoAppComposition {
             config,
             store,
             runtime,
+            runtime_resource_classes,
             services,
             startup_report: ServerStartupReport {
                 artwork_ingest_worker_started,
@@ -263,6 +270,7 @@ impl NakoAppServices {
 #[derive(Debug)]
 struct NakoRuntimeResources {
     supervisor: RuntimeSupervisor,
+    resource_classes: RuntimeResourceClassRegistry,
     storage_backends: StorageBackendRegistry,
     scan_permits: Arc<Semaphore>,
     metadata_permits: Arc<Semaphore>,
@@ -272,12 +280,40 @@ struct NakoRuntimeResources {
 
 impl NakoRuntimeResources {
     fn build(config: &NakoServerConfig, store: NakoDatabase) -> Result<Self> {
+        let resource_classes = RuntimeResourceClassRegistry::new([
+            (
+                RUNTIME_RESOURCE_CLASS_DISK_SCAN,
+                config.scan_concurrency.max(1),
+            ),
+            (
+                RUNTIME_RESOURCE_CLASS_METADATA_SHARED,
+                config.metadata_concurrency.max(1),
+            ),
+            (
+                RUNTIME_RESOURCE_CLASS_NETWORK_WEBHOOK,
+                config.webhook_concurrency.max(1),
+            ),
+            (
+                RUNTIME_RESOURCE_CLASS_ARTWORK_INGEST,
+                config.artwork.fetch_concurrency.max(1),
+            ),
+            (
+                RUNTIME_RESOURCE_CLASS_ADDON_TASK,
+                config.addon_event_scheduler.concurrency.max(1),
+            ),
+        ])?;
+        let scan_permits = resource_classes.semaphore(RUNTIME_RESOURCE_CLASS_DISK_SCAN)?;
+        let metadata_permits =
+            resource_classes.semaphore(RUNTIME_RESOURCE_CLASS_METADATA_SHARED)?;
+        let webhook_permits = resource_classes.semaphore(RUNTIME_RESOURCE_CLASS_NETWORK_WEBHOOK)?;
+
         Ok(Self {
             supervisor: RuntimeSupervisor::new(),
+            resource_classes,
             storage_backends: StorageBackendRegistry::new(config, store),
-            scan_permits: Arc::new(Semaphore::new(config.scan_concurrency.max(1))),
-            metadata_permits: Arc::new(Semaphore::new(config.metadata_concurrency.max(1))),
-            webhook_permits: Arc::new(Semaphore::new(config.webhook_concurrency.max(1))),
+            scan_permits,
+            metadata_permits,
+            webhook_permits,
             metadata_providers: metadata_runtime::build_metadata_provider_registry(config)?,
         })
     }

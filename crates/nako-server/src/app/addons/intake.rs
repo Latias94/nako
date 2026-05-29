@@ -14,6 +14,7 @@ use nako_core::{
 };
 
 use super::{AddonAppService, runtime::AddonSideEffectRuntime};
+use crate::app::runtime::RUNTIME_RESOURCE_CLASS_ADDON_TASK;
 
 impl AddonAppService {
     pub async fn submit_addon_side_effect(
@@ -79,7 +80,7 @@ impl AddonAppService {
             .enqueue_job(NewJob {
                 id: JobId::new(),
                 kind: JobKind::AddonTask,
-                resource_class: "addon.generated_artifact_handoff".to_owned(),
+                resource_class: RUNTIME_RESOURCE_CLASS_ADDON_TASK.to_owned(),
                 library_id: request.library_id,
                 source_id: request.source_id,
                 input_json: Some(serde_json::to_string(&input).map_err(|err| {

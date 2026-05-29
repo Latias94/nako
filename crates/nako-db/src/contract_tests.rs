@@ -20,18 +20,18 @@ use nako_core::{
     CatalogItemGraphReplacement, CatalogItemProjectionCommit, CatalogRepository,
     CatalogSearchProjection, ClaimAddonEventDeliveryAttempt, Collection, CollectionId,
     CollectionItem, CompleteLeasedJob, CreditRole, DatabaseLifecycle, DirectorySnapshot,
-    DomainEventKind, DomainEventSubject, EventOutboxRepository, ExternalId, ExternalProvider,
-    FailLeasedJob, Genre, GenreId, IdentityAccessRepository, ImageAsset, ImageAssetId, ImageKind,
-    ImageOwner, IngestionFailureClass, IngestionFailureFilter, IngestionFailurePhase,
-    IngestionFailureRepository, IngestionFailureResolution, IngestionFailureStatus, ItemCredit,
-    ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind, JobLeaseClaimFilter, JobLeaseClaimRequest,
-    JobLeaseGuard, JobLeaseHeartbeat, JobLeaseRepository, JobListFilter, JobRepository,
-    JobRunToken, JobStatus, JobWorkerId, Library, LibraryAccessLevel, LibraryAccessPolicy,
-    LibraryAccessPolicyFilter, LibraryAccessPolicyScope, LibraryId, LibraryItemRepository,
-    LibraryItemState, LibraryOptions, LibraryPreset, LibraryRepository,
-    LibraryScanSourcePersistenceCommit, LocalCredentialRecord, LocalInferenceEvidence,
-    LocalInferenceEvidenceId, LocalInferenceEvidenceSource, LocalInferenceRepository,
-    ManagedArtworkAcceptanceRecord, ManagedArtworkArtifactId,
+    DomainEventKind, DomainEventSubject, EnqueueJobRetry, EventOutboxRepository, ExternalId,
+    ExternalProvider, FailLeasedJob, Genre, GenreId, IdentityAccessRepository, ImageAsset,
+    ImageAssetId, ImageKind, ImageOwner, IngestionFailureClass, IngestionFailureFilter,
+    IngestionFailurePhase, IngestionFailureRepository, IngestionFailureResolution,
+    IngestionFailureStatus, ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind,
+    JobLeaseClaimFilter, JobLeaseClaimRequest, JobLeaseGuard, JobLeaseHeartbeat,
+    JobLeaseRepository, JobListFilter, JobRepository, JobRunToken, JobStatus, JobWorkerId, Library,
+    LibraryAccessLevel, LibraryAccessPolicy, LibraryAccessPolicyFilter, LibraryAccessPolicyScope,
+    LibraryId, LibraryItemRepository, LibraryItemState, LibraryOptions, LibraryPreset,
+    LibraryRepository, LibraryScanSourcePersistenceCommit, LocalCredentialRecord,
+    LocalInferenceEvidence, LocalInferenceEvidenceId, LocalInferenceEvidenceSource,
+    LocalInferenceRepository, ManagedArtworkAcceptanceRecord, ManagedArtworkArtifactId,
     ManagedArtworkArtifactLifecycleFilter, ManagedArtworkIngestId, ManagedArtworkIngestStatus,
     ManagedArtworkRepository, ManagedImportArtifactId, ManagedImportArtifactListFilter,
     ManagedImportArtifactState, ManagedImportPromotionApplyId, ManagedImportPromotionApplyState,
@@ -86,6 +86,7 @@ static POSTGRES_CONTRACT_LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new(
 enum ContractFamily {
     Lifecycle,
     JobLease,
+    JobRetry,
     LibraryMedia,
     ScanCommit,
     MetadataCatalog,
@@ -108,6 +109,7 @@ impl ContractFamily {
         match self {
             Self::Lifecycle => "lifecycle",
             Self::JobLease => "job_lease",
+            Self::JobRetry => "job_retry",
             Self::LibraryMedia => "library_media",
             Self::ScanCommit => "scan_commit",
             Self::MetadataCatalog => "metadata_catalog",
@@ -199,6 +201,16 @@ trait JobLeaseContractBackend:
 }
 
 impl<T> JobLeaseContractBackend for T where
+    T: LifecycleContractBackend + JobRepository + JobLeaseRepository + LibraryRepository
+{
+}
+
+trait JobRetryContractBackend:
+    LifecycleContractBackend + JobRepository + JobLeaseRepository + LibraryRepository
+{
+}
+
+impl<T> JobRetryContractBackend for T where
     T: LifecycleContractBackend + JobRepository + JobLeaseRepository + LibraryRepository
 {
 }
@@ -921,6 +933,169 @@ where
     assert_eq!(active.status, JobStatus::Failed);
     assert!(running.completed_at.is_some());
     assert!(active.completed_at.is_some());
+}
+
+async fn job_retry_backoff_contract<S>(store: S)
+where
+    S: JobRetryContractBackend,
+{
+    let library = seed_contract_library(&store).await;
+    let source = enqueue_contract_job(
+        &store,
+        JobKind::MetadataRefresh,
+        "metadata.tmdb",
+        Some(library.id),
+        Some(r#"{"provider":"tmdb","secret":"must-not-leak"}"#),
+    )
+    .await;
+    assert_eq!(source.attempt, 1);
+    assert_eq!(source.max_attempts, 1);
+    assert_eq!(source.retry_of_job_id, None);
+    assert_eq!(source.next_attempt_at, None);
+
+    let failed = store
+        .fail_job(source.id, "provider token must-not-leak failed".to_owned())
+        .await
+        .unwrap();
+    assert_eq!(failed.status, JobStatus::Failed);
+
+    let retry = store
+        .enqueue_job_retry(EnqueueJobRetry {
+            source_job_id: failed.id,
+            retry_job_id: JobId::new(),
+            max_attempts: 3,
+            next_attempt_at: Some("9999-01-01T00:00:00.000Z".to_owned()),
+        })
+        .await
+        .unwrap();
+    assert_eq!(retry.kind, JobKind::MetadataRefresh);
+    assert_eq!(retry.status, JobStatus::Queued);
+    assert_eq!(retry.resource_class, "metadata.tmdb");
+    assert_eq!(retry.library_id, Some(library.id));
+    assert_eq!(retry.input_json, failed.input_json);
+    assert_eq!(retry.attempt, 2);
+    assert_eq!(retry.max_attempts, 3);
+    assert_eq!(retry.retry_of_job_id, Some(failed.id));
+    assert_eq!(
+        retry.next_attempt_at.as_deref(),
+        Some("9999-01-01T00:00:00.000Z")
+    );
+
+    let not_due = claim_next(
+        &store,
+        JobWorkerId::new(),
+        JobLeaseClaimFilter {
+            kind: Some(JobKind::MetadataRefresh),
+            resource_class: Some("metadata.tmdb".to_owned()),
+            ..JobLeaseClaimFilter::default()
+        },
+    )
+    .await;
+    assert!(not_due.is_none(), "future retry must not be claimable");
+
+    let summaries = store.summarize_job_queue_pressure().await.unwrap();
+    let retry_pressure = summaries
+        .iter()
+        .find(|summary| {
+            summary.kind == JobKind::MetadataRefresh
+                && summary.status == JobStatus::Queued
+                && summary.resource_class == "metadata.tmdb"
+        })
+        .expect("queued metadata retry pressure should be summarized");
+    assert_eq!(retry_pressure.count, 1);
+    assert_eq!(retry_pressure.claimable_count, 0);
+    assert_eq!(retry_pressure.delayed_retry_count, 1);
+    assert_eq!(
+        retry_pressure.next_attempt_at.as_deref(),
+        Some("9999-01-01T00:00:00.000Z")
+    );
+    let diagnostics = serde_json::to_string(&summaries).unwrap();
+    assert!(!diagnostics.contains("must-not-leak"));
+    assert!(!diagnostics.contains("provider token"));
+    assert!(!diagnostics.contains("input_json"));
+
+    let retry_not_failed = store
+        .enqueue_job_retry(EnqueueJobRetry {
+            source_job_id: retry.id,
+            retry_job_id: JobId::new(),
+            max_attempts: 3,
+            next_attempt_at: None,
+        })
+        .await
+        .unwrap_err();
+    assert!(matches!(retry_not_failed, NakoError::Conflict { .. }));
+
+    let failed_retry = store
+        .fail_job(retry.id, "retry still failed".to_owned())
+        .await
+        .unwrap();
+    let immediate_retry = store
+        .enqueue_job_retry(EnqueueJobRetry {
+            source_job_id: failed_retry.id,
+            retry_job_id: JobId::new(),
+            max_attempts: 3,
+            next_attempt_at: Some("0001-01-01T00:00:00.000Z".to_owned()),
+        })
+        .await
+        .unwrap();
+    assert_eq!(immediate_retry.attempt, 3);
+    assert_eq!(immediate_retry.max_attempts, 3);
+
+    let claimed = claim_next(
+        &store,
+        JobWorkerId::new(),
+        JobLeaseClaimFilter {
+            kind: Some(JobKind::MetadataRefresh),
+            resource_class: Some("metadata.tmdb".to_owned()),
+            ..JobLeaseClaimFilter::default()
+        },
+    )
+    .await
+    .expect("past retry should be claimable");
+    assert_eq!(claimed.job.id, immediate_retry.id);
+    assert_eq!(claimed.job.status, JobStatus::Running);
+    assert_eq!(claimed.job.next_attempt_at, None);
+
+    let exhausted = store
+        .fail_job(claimed.job.id, "last attempt failed".to_owned())
+        .await
+        .unwrap();
+    let retry_exhausted = store
+        .enqueue_job_retry(EnqueueJobRetry {
+            source_job_id: exhausted.id,
+            retry_job_id: JobId::new(),
+            max_attempts: 3,
+            next_attempt_at: None,
+        })
+        .await
+        .unwrap_err();
+    assert!(matches!(retry_exhausted, NakoError::Conflict { .. }));
+
+    let cancelled = enqueue_contract_job(
+        &store,
+        JobKind::WebhookDelivery,
+        "network.webhook",
+        None,
+        Some(r#"{"webhook_secret":"must-not-leak"}"#),
+    )
+    .await;
+    store
+        .request_job_cancellation(RequestJobCancellation {
+            job_id: cancelled.id,
+            reason: Some("operator request".to_owned()),
+        })
+        .await
+        .unwrap();
+    let retry_cancelled = store
+        .enqueue_job_retry(EnqueueJobRetry {
+            source_job_id: cancelled.id,
+            retry_job_id: JobId::new(),
+            max_attempts: 2,
+            next_attempt_at: None,
+        })
+        .await
+        .unwrap_err();
+    assert!(matches!(retry_cancelled, NakoError::Conflict { .. }));
 }
 
 async fn library_media_identity_contract<S>(store: S)
@@ -7061,6 +7236,16 @@ database_contract_pair!(
         "recovers_only_expired_running_leases"
     ),
     contract = recover_expired_job_leases_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_job_retry_contract_persists_backoff_and_redacted_queue_pressure,
+    postgres = postgres_job_retry_contract_persists_backoff_and_redacted_queue_pressure,
+    case = ContractCase::migrated(
+        ContractFamily::JobRetry,
+        "persists_backoff_and_redacted_queue_pressure"
+    ),
+    contract = job_retry_backoff_contract,
 );
 
 database_contract_pair!(

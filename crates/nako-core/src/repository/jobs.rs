@@ -2,10 +2,11 @@ use async_trait::async_trait;
 
 use super::PageRequest;
 use crate::{
-    CancelLeasedJob, CompleteLeasedJob, DomainEventKind, EventId, FailLeasedJob, Job,
-    JobCancellationRequestRecord, JobId, JobKind, JobLeaseClaimRequest, JobLeaseHeartbeat,
-    JobStatus, LeasedJob, LibraryId, MediaSourceId, NewJob, NewOutboxEvent, OutboxEventRecord,
-    OutboxEventStatus, RecoverExpiredJobLeases, RequestJobCancellation, Result,
+    CancelLeasedJob, CompleteLeasedJob, DomainEventKind, EnqueueJobRetry, EventId, FailLeasedJob,
+    Job, JobCancellationRequestRecord, JobId, JobKind, JobLeaseClaimRequest, JobLeaseHeartbeat,
+    JobQueuePressureSummary, JobStatus, LeasedJob, LibraryId, MediaSourceId, NewJob,
+    NewOutboxEvent, OutboxEventRecord, OutboxEventStatus, RecoverExpiredJobLeases,
+    RequestJobCancellation, Result,
 };
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -29,6 +30,8 @@ pub struct OutboxEventListFilter {
 pub trait JobRepository: Send + Sync {
     async fn enqueue_job(&self, job: NewJob) -> Result<Job>;
 
+    async fn enqueue_job_retry(&self, retry: EnqueueJobRetry) -> Result<Job>;
+
     async fn start_job(&self, id: JobId) -> Result<Job>;
 
     async fn succeed_job(&self, id: JobId, summary_json: Option<String>) -> Result<Job>;
@@ -40,6 +43,8 @@ pub trait JobRepository: Send + Sync {
     async fn get_job(&self, id: JobId) -> Result<Option<Job>>;
 
     async fn list_jobs(&self, filter: JobListFilter, page: PageRequest) -> Result<Vec<Job>>;
+
+    async fn summarize_job_queue_pressure(&self) -> Result<Vec<JobQueuePressureSummary>>;
 }
 
 #[async_trait]

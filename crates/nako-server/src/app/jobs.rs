@@ -3,10 +3,11 @@ use std::sync::Arc;
 use nako_core::{
     CancelLeasedJob, CompleteLeasedJob, DomainEventKind, DomainEventSubject, EventId,
     EventOutboxRepository, FailLeasedJob, IngestionFailurePhase, IngestionFailureRecord, Job,
-    JobCancellationRequestRecord, JobId, JobKind, JobLeaseClaimRequest, JobLeaseHeartbeat,
-    JobLeaseRepository, JobListFilter, JobRepository, LeasedJob, Library, LibraryId,
-    LibraryRepository, MediaProbeResult, MediaSource, NakoError, NewIngestionFailure, NewJob,
-    NewOutboxEvent, OutboxEventRecord, PageRequest, RequestJobCancellation, Result, StagingPurpose,
+    JobCancellationRequestRecord, JobId, JobKind, JobLeaseClaimFilter, JobLeaseClaimRequest,
+    JobLeaseHeartbeat, JobLeaseRepository, JobListFilter, JobRepository, LeasedJob, Library,
+    LibraryId, LibraryRepository, MediaProbeResult, MediaSource, NakoError, NewIngestionFailure,
+    NewJob, NewOutboxEvent, OutboxEventRecord, PageRequest, RequestJobCancellation, Result,
+    StagingPurpose,
 };
 use nako_db::NakoDatabase;
 use nako_library::{
@@ -16,7 +17,7 @@ use nako_library::{
 };
 use nako_media_probe::FfprobeMediaProbe;
 use serde::Serialize;
-use tokio::sync::Semaphore;
+use tokio::sync::{OwnedSemaphorePermit, Semaphore, TryAcquireError};
 use tracing::{Instrument, info, info_span, warn};
 
 use crate::config::{NakoServerConfig, libraries_from_config};
@@ -29,7 +30,7 @@ use super::{
     metadata_scan::{
         LibraryScanMetadataSummary, MetadataScanAcquisitionRequest, MetadataScanAcquisitionService,
     },
-    runtime::RuntimeSupervisor,
+    runtime::{RuntimeSupervisor, runtime_budget_class_for_job_resource_class},
     staging::ManifestRecordingStorageBackend,
     storage::{StorageBackendRegistry, remote_probe_staging_root},
 };
@@ -46,6 +47,13 @@ pub struct ScanCommandOutput {
 enum LibraryScanExecution {
     Completed(ScanCommandOutput),
     Cancelled(Job),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum LibraryScanScheduleOutcome {
+    Scheduled(JobId),
+    NoQueuedJob,
+    BudgetSaturated,
 }
 
 #[derive(Clone, Debug)]
@@ -299,26 +307,59 @@ impl LibraryScanAppService {
 
     pub(crate) async fn enqueue_library_scan(&self, library_id: LibraryId) -> Result<Job> {
         let job = self.create_library_scan_job(library_id).await?;
-        let job_id = job.id;
+        self.schedule_queued_library_scans().await?;
+        Ok(job)
+    }
+
+    pub(crate) async fn schedule_queued_library_scans(&self) -> Result<LibraryScanScheduleOutcome> {
+        let Some(permit) = self.try_acquire_scan_permit()? else {
+            return Ok(LibraryScanScheduleOutcome::BudgetSaturated);
+        };
+
+        let runtime = DurableJobRuntime::new(self.execution_store.clone());
+        let Some(leased) = runtime
+            .claim_next_job_lease(JobLeaseClaimFilter {
+                kind: Some(JobKind::LibraryScan),
+                resource_class: Some("disk.scan".to_owned()),
+                ..JobLeaseClaimFilter::default()
+            })
+            .await?
+        else {
+            return Ok(LibraryScanScheduleOutcome::NoQueuedJob);
+        };
+        let job_id = leased.job.id;
+        let library_id = leased
+            .job
+            .library_id
+            .ok_or_else(|| NakoError::InvalidInput {
+                message: format!("library scan job {job_id} does not include library_id"),
+            })?;
+        let budget_class = runtime_budget_class_for_job_resource_class(
+            leased.job.kind,
+            &leased.job.resource_class,
+        )?;
         let service = self.clone();
 
         self.runtime.spawn_job(
             "library_scan_background_job",
-            job.resource_class.clone(),
+            budget_class,
             job_id,
             move |_context| {
-                async move { service.finish_library_scan_job(job_id, library_id).await }.instrument(
-                    info_span!(
-                        "library_scan_background_job",
-                        job_id = %job_id,
-                        library_id = %library_id,
-                        resource_class = "disk.scan"
-                    ),
-                )
+                async move {
+                    service
+                        .finish_claimed_library_scan_job(leased, library_id, permit)
+                        .await
+                }
+                .instrument(info_span!(
+                    "library_scan_background_job",
+                    job_id = %job_id,
+                    library_id = %library_id,
+                    resource_class = "disk.scan"
+                ))
             },
         );
 
-        Ok(job)
+        Ok(LibraryScanScheduleOutcome::Scheduled(job_id))
     }
 
     pub(crate) async fn scan_library(&self, library_id: LibraryId) -> Result<ScanCommandOutput> {
@@ -364,8 +405,18 @@ impl LibraryScanAppService {
             .await
     }
 
-    async fn finish_library_scan_job(&self, job_id: JobId, library_id: LibraryId) -> Result<Job> {
-        match self.execute_library_scan_job(job_id, library_id).await? {
+    async fn finish_claimed_library_scan_job(
+        &self,
+        leased: LeasedJob,
+        library_id: LibraryId,
+        permit: OwnedSemaphorePermit,
+    ) -> Result<Job> {
+        let execution = self
+            .execute_claimed_library_scan_job(leased, library_id, permit)
+            .await;
+        self.spawn_library_scan_scheduler_followup(library_id);
+
+        match execution? {
             LibraryScanExecution::Completed(output) => {
                 info!(
                     job_id = %output.job.id,
@@ -387,25 +438,98 @@ impl LibraryScanAppService {
         }
     }
 
+    fn spawn_library_scan_scheduler_followup(&self, library_id: LibraryId) {
+        let service = self.clone();
+        self.runtime.spawn(
+            "library_scan_scheduler_followup",
+            "disk.scan.scheduler",
+            async move {
+                if let Err(err) = service.schedule_queued_library_scans().await {
+                    warn!(
+                        library_id = %library_id,
+                        error = %err,
+                        "failed to schedule next queued library scan job"
+                    );
+                }
+            },
+        );
+    }
+
+    async fn acquire_scan_permit(&self) -> Result<OwnedSemaphorePermit> {
+        self.permits
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(|err| NakoError::InvalidInput {
+                message: format!("scan concurrency limiter is unavailable: {err}"),
+            })
+    }
+
+    fn try_acquire_scan_permit(&self) -> Result<Option<OwnedSemaphorePermit>> {
+        match self.permits.clone().try_acquire_owned() {
+            Ok(permit) => Ok(Some(permit)),
+            Err(TryAcquireError::NoPermits) => Ok(None),
+            Err(TryAcquireError::Closed) => Err(NakoError::InvalidInput {
+                message: "scan concurrency limiter is unavailable: semaphore closed".to_owned(),
+            }),
+        }
+    }
+
     async fn execute_library_scan_job(
         &self,
         job_id: JobId,
         library_id: LibraryId,
     ) -> Result<LibraryScanExecution> {
-        let permit =
-            self.permits
-                .clone()
-                .acquire_owned()
-                .await
-                .map_err(|err| NakoError::InvalidInput {
-                    message: format!("scan concurrency limiter is unavailable: {err}"),
-                })?;
+        let permit = self.acquire_scan_permit().await?;
         let _permit = permit;
 
         let runtime = DurableJobRuntime::new(self.execution_store.clone());
         let run = runtime
             .run_job_with_context(
                 job_id,
+                "library scan job",
+                |context| async { self.run_library_scan(job_id, library_id, context).await },
+                |(index, probe, metadata)| {
+                    let summary = ScanJobSummary {
+                        index: index.clone(),
+                        probe: probe.clone(),
+                        metadata: metadata.clone(),
+                    };
+                    DurableJobRuntime::serialize_summary(&summary, "library scan job summary")
+                },
+            )
+            .await?;
+
+        match run {
+            DurableJobRunOutcome::Completed(run) => {
+                let (index, probe, metadata) = run.output;
+                self.record_library_scanned_event(job_id, library_id, &index, &probe)
+                    .await;
+
+                Ok(LibraryScanExecution::Completed(ScanCommandOutput {
+                    job: run.job,
+                    index,
+                    probe,
+                    metadata,
+                }))
+            }
+            DurableJobRunOutcome::Cancelled(job) => Ok(LibraryScanExecution::Cancelled(job)),
+        }
+    }
+
+    async fn execute_claimed_library_scan_job(
+        &self,
+        leased: LeasedJob,
+        library_id: LibraryId,
+        permit: OwnedSemaphorePermit,
+    ) -> Result<LibraryScanExecution> {
+        let job_id = leased.job.id;
+        let _permit = permit;
+
+        let runtime = DurableJobRuntime::new(self.execution_store.clone());
+        let run = runtime
+            .run_leased_job_with_context(
+                leased,
                 "library scan job",
                 |context| async { self.run_library_scan(job_id, library_id, context).await },
                 |(index, probe, metadata)| {

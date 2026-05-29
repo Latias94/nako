@@ -64,6 +64,10 @@ pub(super) async fn get_job_tx(
             input_json,
             summary_json,
             error,
+            attempt,
+            max_attempts,
+            retry_of_job_id,
+            next_attempt_at,
             queued_at,
             started_at,
             completed_at

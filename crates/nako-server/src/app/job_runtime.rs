@@ -215,19 +215,44 @@ impl DurableJobRuntime {
         Summary: FnOnce(&T) -> Result<Option<String>>,
     {
         let leased = self
-            .store
-            .claim_next_job_lease(JobLeaseClaimRequest {
-                worker_id: self.worker_id,
-                lease_duration_ms: self.lease_duration_ms,
-                filter: JobLeaseClaimFilter {
-                    job_id: Some(job_id),
-                    ..JobLeaseClaimFilter::default()
-                },
+            .claim_next_job_lease(JobLeaseClaimFilter {
+                job_id: Some(job_id),
+                ..JobLeaseClaimFilter::default()
             })
             .await?
             .ok_or_else(|| NakoError::Conflict {
                 message: format!("job {job_id} is not queued and claimable"),
             })?;
+
+        self.run_leased_job_with_context(leased, operation, run, summary_json)
+            .await
+    }
+
+    pub(super) async fn claim_next_job_lease(
+        &self,
+        filter: JobLeaseClaimFilter,
+    ) -> Result<Option<LeasedJob>> {
+        self.store
+            .claim_next_job_lease(JobLeaseClaimRequest {
+                worker_id: self.worker_id,
+                lease_duration_ms: self.lease_duration_ms,
+                filter,
+            })
+            .await
+    }
+
+    pub(super) async fn run_leased_job_with_context<T, Run, RunFuture, Summary>(
+        &self,
+        leased: LeasedJob,
+        operation: &'static str,
+        run: Run,
+        summary_json: Summary,
+    ) -> Result<DurableJobRunOutcome<T>>
+    where
+        Run: FnOnce(DurableJobContext) -> RunFuture,
+        RunFuture: Future<Output = DurableJobOperationResult<T>>,
+        Summary: FnOnce(&T) -> Result<Option<String>>,
+    {
         let guard = leased.lease.guard();
         let cancellation = DurableJobCancellation::new();
         cancellation.observe_lease(&leased.lease);

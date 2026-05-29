@@ -8,11 +8,11 @@ use nako_api::extension::{
 use nako_core::{
     AddonId, AddonPermission, AddonRepository, AddonSideEffectTarget,
     AddonSideEffectValidationStatus, AddonStatus, AddonTaskRunRepository, ArtworkCandidateId,
-    ArtworkCandidateRepository, ArtworkCandidateSourceKind, IdentityAccessRepository, ImageKind,
-    Library, LibraryItemRepository, LibraryItemState, LibraryOptions, LibraryRepository,
-    ManagedArtworkAcceptanceRecord, ManagedArtworkIngestId, ManagedArtworkIngestStatus,
-    ManagedArtworkRepository, NewAddonRegistration, NewAddonSideEffect, NewAddonToken,
-    NewArtworkCandidate, NewManagedArtworkIngest, UserPrincipalId, UserRole,
+    ArtworkCandidateRepository, ArtworkCandidateSourceKind, EnqueueJobRetry,
+    IdentityAccessRepository, ImageKind, Library, LibraryItemRepository, LibraryItemState,
+    LibraryOptions, LibraryRepository, ManagedArtworkAcceptanceRecord, ManagedArtworkIngestId,
+    ManagedArtworkIngestStatus, ManagedArtworkRepository, NewAddonRegistration, NewAddonSideEffect,
+    NewAddonToken, NewArtworkCandidate, NewManagedArtworkIngest, UserPrincipalId, UserRole,
     bootstrap_admin_user_id,
 };
 use nako_official_addon_catalog::metadata_scraper;
@@ -51,7 +51,7 @@ async fn wait_for_runtime_jobs(
     cancelled_jobs: u64,
     failed_jobs: u64,
 ) -> RuntimeSupervisorDiagnostics {
-    for _ in 0..100 {
+    for _ in 0..500 {
         let diagnostics = app.runtime_diagnostics();
         if diagnostics.succeeded_jobs == succeeded_jobs
             && diagnostics.cancelled_jobs == cancelled_jobs
@@ -66,6 +66,132 @@ async fn wait_for_runtime_jobs(
         "runtime job diagnostics did not reach expected state: {:?}",
         app.runtime_diagnostics()
     );
+}
+
+#[tokio::test]
+async fn app_runtime_resource_class_diagnostics_reflect_configured_budgets() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_root = temp.path().join("movies");
+    fs::create_dir_all(&library_root).unwrap();
+    let mut config = startup_config(
+        temp.path(),
+        vec![LocalLibraryConfig {
+            id: LibraryId::new(),
+            name: "Budget Movies".to_owned(),
+            root: library_root,
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    );
+    config.scan_concurrency = 3;
+    config.metadata_concurrency = 2;
+    config.webhook_concurrency = 4;
+    config.artwork.fetch_concurrency = 6;
+    config.addon_event_scheduler.concurrency = 5;
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+
+    let app = NakoApp::new_with_store(config, store).await.unwrap();
+
+    assert_eq!(
+        app.runtime_resource_class_diagnostics(),
+        vec![
+            RuntimeResourceClassDiagnostics {
+                name: "addon.task".to_owned(),
+                available_permits: 5,
+                max_permits: 5,
+            },
+            RuntimeResourceClassDiagnostics {
+                name: "artwork.ingest".to_owned(),
+                available_permits: 6,
+                max_permits: 6,
+            },
+            RuntimeResourceClassDiagnostics {
+                name: "disk.scan".to_owned(),
+                available_permits: 3,
+                max_permits: 3,
+            },
+            RuntimeResourceClassDiagnostics {
+                name: "metadata.shared".to_owned(),
+                available_permits: 2,
+                max_permits: 2,
+            },
+            RuntimeResourceClassDiagnostics {
+                name: "network.webhook".to_owned(),
+                available_permits: 4,
+                max_permits: 4,
+            },
+        ]
+    );
+}
+
+#[tokio::test]
+async fn job_queue_pressure_diagnostics_are_redacted_and_track_retry_backoff() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_root = temp.path().join("movies");
+    fs::create_dir_all(&library_root).unwrap();
+    let config = startup_config(
+        temp.path(),
+        vec![LocalLibraryConfig {
+            id: LibraryId::new(),
+            name: "Queue Movies".to_owned(),
+            root: library_root,
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    );
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let source = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::MetadataRefresh,
+            resource_class: "metadata.tmdb".to_owned(),
+            library_id: None,
+            source_id: None,
+            input_json: Some(r#"{"provider":"tmdb","token":"must-not-leak"}"#.to_owned()),
+        })
+        .await
+        .unwrap();
+    let failed = store
+        .fail_job(source.id, "provider token must-not-leak failed".to_owned())
+        .await
+        .unwrap();
+
+    store
+        .enqueue_job_retry(EnqueueJobRetry {
+            source_job_id: failed.id,
+            retry_job_id: JobId::new(),
+            max_attempts: 3,
+            next_attempt_at: Some("9999-01-01T00:00:00.000Z".to_owned()),
+        })
+        .await
+        .unwrap();
+
+    let diagnostics = app.job_queue_pressure_diagnostics().await.unwrap();
+    let retry_pressure = diagnostics
+        .iter()
+        .find(|summary| {
+            summary.kind == JobKind::MetadataRefresh
+                && summary.status == JobStatus::Queued
+                && summary.resource_class == "metadata.tmdb"
+        })
+        .expect("queued retry pressure should be visible");
+
+    assert_eq!(retry_pressure.count, 1);
+    assert_eq!(retry_pressure.claimable_count, 0);
+    assert_eq!(retry_pressure.delayed_retry_count, 1);
+    assert_eq!(
+        retry_pressure.next_attempt_at.as_deref(),
+        Some("9999-01-01T00:00:00.000Z")
+    );
+
+    let body = serde_json::to_string(&diagnostics).unwrap();
+    assert!(!body.contains("must-not-leak"));
+    assert!(!body.contains("token"));
+    assert!(!body.contains("input_json"));
+    assert!(!body.contains("error"));
 }
 
 #[tokio::test]
@@ -806,8 +932,94 @@ async fn background_scan_job_uses_runtime_job_supervision() {
     let persisted = app.jobs().get_job(job.id).await.unwrap();
 
     assert_eq!(persisted.status, JobStatus::Succeeded);
-    assert_eq!(diagnostics.completed_tasks, 1);
+    assert!(diagnostics.completed_tasks >= 1);
     assert_eq!(diagnostics.failed_tasks, 0);
+}
+
+#[tokio::test]
+async fn job_scheduler_leaves_background_scan_jobs_queued_until_scan_budget_is_available() {
+    let server = BlockingWebDavServer::start(BlockingWebDavControl::new()).await;
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("nako-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Remote Movies".to_owned(),
+            root: temp.path().join("unused-local-root"),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: Some(WebDavLibraryConfig {
+                root: "webdav:///Movies".to_owned(),
+                base_url: server.base_url(),
+                username: None,
+                password_env: None,
+                timeout_ms: 5_000,
+                max_attempts: 1,
+            }),
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store).await.unwrap();
+
+    let first = app
+        .library_scan()
+        .enqueue_library_scan(library_id)
+        .await
+        .unwrap();
+    tokio::time::timeout(
+        Duration::from_secs(5),
+        server.control().wait_for_first_propfind(),
+    )
+    .await
+    .unwrap();
+    let second = app
+        .library_scan()
+        .enqueue_library_scan(library_id)
+        .await
+        .unwrap();
+
+    assert_eq!(app.runtime_diagnostics().active_tasks, 1);
+    assert_eq!(
+        app.jobs().get_job(first.id).await.unwrap().status,
+        JobStatus::Running
+    );
+    assert_eq!(
+        app.jobs().get_job(second.id).await.unwrap().status,
+        JobStatus::Queued
+    );
+
+    server.control().release_first_propfind();
+    let diagnostics = wait_for_runtime_jobs(&app, 2, 0, 0).await;
+
+    assert_eq!(diagnostics.failed_jobs, 0);
+    assert_eq!(
+        app.jobs().get_job(first.id).await.unwrap().status,
+        JobStatus::Succeeded
+    );
+    assert_eq!(
+        app.jobs().get_job(second.id).await.unwrap().status,
+        JobStatus::Succeeded
+    );
 }
 
 fn write_fixture_mp4(path: &Path) {

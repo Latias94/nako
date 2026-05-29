@@ -113,9 +113,75 @@ pub struct Job {
     pub input_json: Option<String>,
     pub summary_json: Option<String>,
     pub error: Option<String>,
+    pub attempt: u32,
+    pub max_attempts: u32,
+    pub retry_of_job_id: Option<JobId>,
+    pub next_attempt_at: Option<String>,
     pub queued_at: String,
     pub started_at: Option<String>,
     pub completed_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct EnqueueJobRetry {
+    pub source_job_id: JobId,
+    pub retry_job_id: JobId,
+    pub max_attempts: u32,
+    pub next_attempt_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct JobQueuePressureSummary {
+    pub kind: JobKind,
+    pub status: JobStatus,
+    pub resource_class: String,
+    pub count: u64,
+    pub claimable_count: u64,
+    pub delayed_retry_count: u64,
+    pub oldest_queued_at: Option<String>,
+    pub next_attempt_at: Option<String>,
+}
+
+impl EnqueueJobRetry {
+    pub fn next_attempt_for(&self, source: &Job) -> Result<u32> {
+        self.validate_source(source)?;
+        source
+            .attempt
+            .checked_add(1)
+            .ok_or_else(|| NakoError::InvalidInput {
+                message: "job retry attempt would overflow u32".to_owned(),
+            })
+    }
+
+    pub fn validate_source(&self, source: &Job) -> Result<()> {
+        if self.source_job_id != source.id {
+            return Err(NakoError::InvalidInput {
+                message: "retry source job does not match loaded job".to_owned(),
+            });
+        }
+        if self.retry_job_id == source.id {
+            return Err(NakoError::InvalidInput {
+                message: "retry job id must differ from source job id".to_owned(),
+            });
+        }
+        if self.max_attempts == 0 {
+            return Err(NakoError::InvalidInput {
+                message: "retry max_attempts must be greater than zero".to_owned(),
+            });
+        }
+        if source.status != JobStatus::Failed {
+            return Err(NakoError::Conflict {
+                message: "only failed jobs can be retried".to_owned(),
+            });
+        }
+        if source.attempt >= self.max_attempts {
+            return Err(NakoError::Conflict {
+                message: "job retry attempts are exhausted".to_owned(),
+            });
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]

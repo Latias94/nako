@@ -41,9 +41,9 @@ Deployment Endpoint Config
 | HTTP addon protocol | Shipped foundation | ADR 0003; ADR 0015; ADR 0020 | Addon Manager lifecycle is still deferred. |
 | Addon capability and token scopes | Shipped foundation | addon token/grant workstreams | Stronger hosted surface and route policy. |
 | Addon process supervision | Deferred | ADR 0020; ADR 0053 | `addon-manager-process-lifecycle`. |
-| Durable jobs | Shipped foundation | ADR 0006; runtime deepening lanes | Priority, retry, resumable execution. |
-| Runtime supervisor | Shipped foundation | ADR 0019; server runtime deepening | Unified task registry and resource accounting. |
-| Resource classes and budgets | Partial | ADR 0005; playback/runtime lanes | Job and playback scheduler convergence. |
+| Durable jobs | Shipped foundation plus schedulable partial | ADR 0006; runtime deepening lanes; durable job queue/resource lane | `proposed:durable-job-priority-policy-and-scheduler-migration` before playback-affecting work needs priority. |
+| Runtime supervisor | Shipped resource-accounted foundation | ADR 0019; server runtime deepening; durable job queue/resource lane | Unified trace context and broader scheduler migration remain follow-ons. |
+| Resource classes and budgets | Shipped process-local foundation | ADR 0005; playback/runtime lanes; durable job queue/resource lane | Broader job-kind scheduler migration after priority policy is concrete. |
 | Tracing/request identity | Partial | diagnostics and playback identity lanes | Unified trace context across HTTP/jobs/FFmpeg/VFS/addons. |
 | Admin diagnostics | Good partial | Admin API and diagnostics lanes | Safe realtime diagnostics and incident bundles. |
 | Crash/fault bundles | Not started | This document | Redacted operator export for hard bugs. |
@@ -87,9 +87,12 @@ Exit criteria:
 
 ### durable-job-queue-and-resource-classes
 
+Status: Closed workstream at
+`docs/workstreams/durable-job-queue-and-resource-classes/`.
+
 Goal: Upgrade durable background work from persisted job records plus helper
-spawns into a schedulable queue with priority, retry, cancellation, and resource
-class accounting.
+spawns into a schedulable queue with resource class accounting, retry/backoff,
+queue pressure diagnostics, and the first typed budget-admitted scheduler path.
 
 Scope:
 
@@ -100,11 +103,13 @@ Scope:
   artifacts, offline sync, addon, and webhook work;
 - queue pressure diagnostics.
 
-Exit criteria:
+Closeout:
 
-- playback-affecting work can outrank maintenance jobs;
-- failed network work retries within explicit limits;
-- queued/running jobs survive process restarts with clear terminal outcomes.
+- resource classes and budgets are centralized in the process-local runtime;
+- library scan jobs have the first typed budget-admitted scheduler path;
+- retry/backoff rows and queue pressure diagnostics are persisted and redacted;
+- priority policy is split to
+  `proposed:durable-job-priority-policy-and-scheduler-migration`.
 
 ### api-scale-and-cache-contracts
 

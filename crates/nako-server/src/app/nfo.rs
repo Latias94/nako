@@ -28,7 +28,7 @@ use super::{
         DurableJobContext, DurableJobLeaseStore, DurableJobOperationError,
         DurableJobOperationResult, DurableJobRunOutcome, DurableJobRuntime,
     },
-    runtime::RuntimeSupervisor,
+    runtime::{RuntimeSupervisor, runtime_budget_class_for_job_resource_class},
     storage::StorageBackendRegistry,
 };
 
@@ -333,11 +333,13 @@ impl NfoAppService {
     pub(crate) async fn enqueue_nfo_import(&self, library_id: LibraryId) -> Result<Job> {
         let job = self.create_nfo_import_job(library_id).await?;
         let job_id = job.id;
+        let budget_class =
+            runtime_budget_class_for_job_resource_class(job.kind, &job.resource_class)?;
         let service = self.clone();
 
         self.runtime.spawn_job(
             "nfo_import_background_job",
-            job.resource_class.clone(),
+            budget_class,
             job_id,
             move |_context| {
                 async move { service.finish_nfo_import_job(job_id, library_id).await }.instrument(
@@ -357,11 +359,13 @@ impl NfoAppService {
     pub(crate) async fn enqueue_nfo_export(&self, library_id: LibraryId) -> Result<Job> {
         let job = self.create_nfo_export_job(library_id).await?;
         let job_id = job.id;
+        let budget_class =
+            runtime_budget_class_for_job_resource_class(job.kind, &job.resource_class)?;
         let service = self.clone();
 
         self.runtime.spawn_job(
             "nfo_export_background_job",
-            job.resource_class.clone(),
+            budget_class,
             job_id,
             move |_context| {
                 async move { service.finish_nfo_export_job(job_id, library_id).await }.instrument(

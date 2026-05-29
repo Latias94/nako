@@ -1169,6 +1169,10 @@ impl JobRepository for NakoDatabase {
         self.backend().enqueue_job(job).await
     }
 
+    async fn enqueue_job_retry(&self, retry: EnqueueJobRetry) -> Result<Job> {
+        self.backend().enqueue_job_retry(retry).await
+    }
+
     async fn start_job(&self, id: JobId) -> Result<Job> {
         self.backend().start_job(id).await
     }
@@ -1191,6 +1195,10 @@ impl JobRepository for NakoDatabase {
 
     async fn list_jobs(&self, filter: JobListFilter, page: PageRequest) -> Result<Vec<Job>> {
         self.backend().list_jobs(filter, page).await
+    }
+
+    async fn summarize_job_queue_pressure(&self) -> Result<Vec<JobQueuePressureSummary>> {
+        self.backend().summarize_job_queue_pressure().await
     }
 }
 

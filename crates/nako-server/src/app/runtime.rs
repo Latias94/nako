@@ -9,10 +9,37 @@ use std::{
 };
 
 use futures_util::FutureExt;
-use nako_core::{Job, JobId, JobStatus, Result};
-use tokio::task::AbortHandle;
+use nako_core::{Job, JobId, JobKind, JobStatus, NakoError, Result};
+use tokio::{
+    sync::{OwnedSemaphorePermit, Semaphore},
+    task::AbortHandle,
+};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};
+
+pub(super) const RUNTIME_RESOURCE_CLASS_DISK_SCAN: &str = "disk.scan";
+pub(super) const RUNTIME_RESOURCE_CLASS_METADATA_SHARED: &str = "metadata.shared";
+pub(super) const RUNTIME_RESOURCE_CLASS_NETWORK_WEBHOOK: &str = "network.webhook";
+pub(super) const RUNTIME_RESOURCE_CLASS_ARTWORK_INGEST: &str = "artwork.ingest";
+pub(super) const RUNTIME_RESOURCE_CLASS_ADDON_TASK: &str = "addon.task";
+
+#[derive(Clone, Debug)]
+pub(super) struct RuntimeResourceClassRegistry {
+    classes: Arc<BTreeMap<String, RuntimeResourceClass>>,
+}
+
+#[derive(Debug)]
+struct RuntimeResourceClass {
+    semaphore: Arc<Semaphore>,
+    max_permits: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct RuntimeResourceClassDiagnostics {
+    pub name: String,
+    pub available_permits: usize,
+    pub max_permits: usize,
+}
 
 #[derive(Clone, Debug)]
 pub(super) struct RuntimeSupervisor {
@@ -76,6 +103,147 @@ impl RuntimeJobContext {
     pub(crate) fn shutdown_token(&self) -> CancellationToken {
         self.shutdown_token.clone()
     }
+}
+
+impl RuntimeResourceClassRegistry {
+    pub(super) fn new<N>(entries: impl IntoIterator<Item = (N, usize)>) -> Result<Self>
+    where
+        N: Into<String>,
+    {
+        let mut classes = BTreeMap::new();
+
+        for (name, max_permits) in entries {
+            let name = name.into();
+            validate_runtime_resource_class_name(&name)?;
+            if max_permits == 0 {
+                return Err(NakoError::InvalidInput {
+                    message: format!(
+                        "runtime resource class `{name}` must have at least one permit"
+                    ),
+                });
+            }
+
+            let class = RuntimeResourceClass {
+                semaphore: Arc::new(Semaphore::new(max_permits)),
+                max_permits,
+            };
+            if classes.insert(name.clone(), class).is_some() {
+                return Err(NakoError::InvalidInput {
+                    message: format!("duplicate runtime resource class `{name}`"),
+                });
+            }
+        }
+
+        Ok(Self {
+            classes: Arc::new(classes),
+        })
+    }
+
+    pub(super) fn semaphore(&self, name: &str) -> Result<Arc<Semaphore>> {
+        self.classes
+            .get(name)
+            .map(|class| class.semaphore.clone())
+            .ok_or_else(|| NakoError::InvalidInput {
+                message: format!("unknown runtime resource class `{name}`"),
+            })
+    }
+
+    pub(super) async fn acquire(&self, name: &str) -> Result<OwnedSemaphorePermit> {
+        let semaphore = self.semaphore(name)?;
+        semaphore
+            .acquire_owned()
+            .await
+            .map_err(|err| NakoError::InvalidInput {
+                message: format!("runtime resource class `{name}` is unavailable: {err}"),
+            })
+    }
+
+    pub(crate) fn diagnostics(&self) -> Vec<RuntimeResourceClassDiagnostics> {
+        self.classes
+            .iter()
+            .map(|(name, class)| RuntimeResourceClassDiagnostics {
+                name: name.clone(),
+                available_permits: class.semaphore.available_permits(),
+                max_permits: class.max_permits,
+            })
+            .collect()
+    }
+}
+
+fn validate_runtime_resource_class_name(name: &str) -> Result<()> {
+    if name.is_empty() || name.trim() != name {
+        return Err(NakoError::InvalidInput {
+            message: "runtime resource class name must be non-empty and trimmed".to_owned(),
+        });
+    }
+
+    Ok(())
+}
+
+pub(crate) fn runtime_budget_class_for_job_resource_class(
+    kind: JobKind,
+    resource_class: &str,
+) -> Result<&'static str> {
+    let budget_class = match kind {
+        JobKind::LibraryScan | JobKind::LibraryProbe
+            if resource_class == RUNTIME_RESOURCE_CLASS_DISK_SCAN =>
+        {
+            Some(RUNTIME_RESOURCE_CLASS_DISK_SCAN)
+        }
+        JobKind::MetadataRefresh | JobKind::MetadataMaintenance
+            if is_metadata_job_resource_class(resource_class) =>
+        {
+            Some(RUNTIME_RESOURCE_CLASS_METADATA_SHARED)
+        }
+        JobKind::NfoImport if resource_class == "metadata.nfo.import" => {
+            Some(RUNTIME_RESOURCE_CLASS_METADATA_SHARED)
+        }
+        JobKind::NfoExport if resource_class == "metadata.nfo.export" => {
+            Some(RUNTIME_RESOURCE_CLASS_METADATA_SHARED)
+        }
+        JobKind::ManagedArtworkIngest
+            if resource_class == RUNTIME_RESOURCE_CLASS_ARTWORK_INGEST =>
+        {
+            Some(RUNTIME_RESOURCE_CLASS_ARTWORK_INGEST)
+        }
+        JobKind::WebhookDelivery if resource_class == RUNTIME_RESOURCE_CLASS_NETWORK_WEBHOOK => {
+            Some(RUNTIME_RESOURCE_CLASS_NETWORK_WEBHOOK)
+        }
+        JobKind::AddonTask
+            if resource_class == RUNTIME_RESOURCE_CLASS_ADDON_TASK
+                || resource_class == "addon.generated_artifact_handoff"
+                || is_legacy_addon_task_resource_class(resource_class) =>
+        {
+            Some(RUNTIME_RESOURCE_CLASS_ADDON_TASK)
+        }
+        _ => None,
+    };
+
+    budget_class.ok_or_else(|| NakoError::InvalidInput {
+        message: format!(
+            "job kind `{}` with resource class `{resource_class}` has no runtime budget class mapping",
+            kind.as_str()
+        ),
+    })
+}
+
+fn is_metadata_job_resource_class(resource_class: &str) -> bool {
+    matches!(
+        resource_class,
+        "metadata.tmdb"
+            | "metadata.douban"
+            | "metadata.bangumi"
+            | "metadata.imdb"
+            | "metadata.local"
+            | "metadata.other"
+            | "metadata.maintenance"
+    )
+}
+
+fn is_legacy_addon_task_resource_class(resource_class: &str) -> bool {
+    resource_class
+        .strip_prefix("addon.task.")
+        .is_some_and(|suffix| !suffix.is_empty())
 }
 
 impl RuntimeSupervisor {
@@ -307,6 +475,172 @@ mod tests {
 
     use super::*;
 
+    #[test]
+    fn runtime_resource_class_registry_rejects_duplicate_names() {
+        let error =
+            RuntimeResourceClassRegistry::new([("metadata.shared", 1), ("metadata.shared", 2)])
+                .unwrap_err();
+
+        assert!(
+            error
+                .to_string()
+                .contains("duplicate runtime resource class `metadata.shared`")
+        );
+    }
+
+    #[test]
+    fn runtime_resource_class_registry_rejects_unknown_names() {
+        let registry = RuntimeResourceClassRegistry::new([("disk.scan", 1)]).unwrap();
+        let error = registry.semaphore("metadata.shared").unwrap_err();
+
+        assert!(
+            error
+                .to_string()
+                .contains("unknown runtime resource class `metadata.shared`")
+        );
+    }
+
+    #[tokio::test]
+    async fn runtime_resource_class_diagnostics_are_sorted_and_track_available_permits() {
+        let registry =
+            RuntimeResourceClassRegistry::new([("metadata.shared", 2), ("disk.scan", 1)]).unwrap();
+
+        assert_eq!(
+            registry.diagnostics(),
+            vec![
+                RuntimeResourceClassDiagnostics {
+                    name: "disk.scan".to_owned(),
+                    available_permits: 1,
+                    max_permits: 1,
+                },
+                RuntimeResourceClassDiagnostics {
+                    name: "metadata.shared".to_owned(),
+                    available_permits: 2,
+                    max_permits: 2,
+                },
+            ]
+        );
+
+        let permit = registry.acquire("metadata.shared").await.unwrap();
+        assert_eq!(
+            registry.diagnostics()[1],
+            RuntimeResourceClassDiagnostics {
+                name: "metadata.shared".to_owned(),
+                available_permits: 1,
+                max_permits: 2,
+            }
+        );
+
+        drop(permit);
+        assert_eq!(
+            registry.diagnostics()[1],
+            RuntimeResourceClassDiagnostics {
+                name: "metadata.shared".to_owned(),
+                available_permits: 2,
+                max_permits: 2,
+            }
+        );
+    }
+
+    #[test]
+    fn runtime_job_resource_class_mapping_maps_known_jobs_to_budget_classes() {
+        let cases = [
+            (
+                JobKind::LibraryScan,
+                "disk.scan",
+                RUNTIME_RESOURCE_CLASS_DISK_SCAN,
+            ),
+            (
+                JobKind::LibraryProbe,
+                "disk.scan",
+                RUNTIME_RESOURCE_CLASS_DISK_SCAN,
+            ),
+            (
+                JobKind::MetadataRefresh,
+                "metadata.tmdb",
+                RUNTIME_RESOURCE_CLASS_METADATA_SHARED,
+            ),
+            (
+                JobKind::MetadataRefresh,
+                "metadata.douban",
+                RUNTIME_RESOURCE_CLASS_METADATA_SHARED,
+            ),
+            (
+                JobKind::MetadataMaintenance,
+                "metadata.maintenance",
+                RUNTIME_RESOURCE_CLASS_METADATA_SHARED,
+            ),
+            (
+                JobKind::MetadataMaintenance,
+                "metadata.bangumi",
+                RUNTIME_RESOURCE_CLASS_METADATA_SHARED,
+            ),
+            (
+                JobKind::NfoImport,
+                "metadata.nfo.import",
+                RUNTIME_RESOURCE_CLASS_METADATA_SHARED,
+            ),
+            (
+                JobKind::NfoExport,
+                "metadata.nfo.export",
+                RUNTIME_RESOURCE_CLASS_METADATA_SHARED,
+            ),
+            (
+                JobKind::ManagedArtworkIngest,
+                "artwork.ingest",
+                RUNTIME_RESOURCE_CLASS_ARTWORK_INGEST,
+            ),
+            (
+                JobKind::WebhookDelivery,
+                "network.webhook",
+                RUNTIME_RESOURCE_CLASS_NETWORK_WEBHOOK,
+            ),
+            (
+                JobKind::AddonTask,
+                "addon.task",
+                RUNTIME_RESOURCE_CLASS_ADDON_TASK,
+            ),
+            (
+                JobKind::AddonTask,
+                "addon.task.bulk-refresh",
+                RUNTIME_RESOURCE_CLASS_ADDON_TASK,
+            ),
+            (
+                JobKind::AddonTask,
+                "addon.generated_artifact_handoff",
+                RUNTIME_RESOURCE_CLASS_ADDON_TASK,
+            ),
+        ];
+
+        for (kind, resource_class, expected_budget_class) in cases {
+            assert_eq!(
+                runtime_budget_class_for_job_resource_class(kind, resource_class).unwrap(),
+                expected_budget_class
+            );
+        }
+    }
+
+    #[test]
+    fn runtime_job_resource_class_mapping_rejects_unknown_or_wrong_kind_classes() {
+        let unknown =
+            runtime_budget_class_for_job_resource_class(JobKind::MetadataRefresh, "metadata.tvdb")
+                .unwrap_err();
+        assert!(
+            unknown
+                .to_string()
+                .contains("metadata_refresh` with resource class `metadata.tvdb`")
+        );
+
+        let wrong_kind =
+            runtime_budget_class_for_job_resource_class(JobKind::LibraryScan, "metadata.tmdb")
+                .unwrap_err();
+        assert!(
+            wrong_kind
+                .to_string()
+                .contains("library_scan` with resource class `metadata.tmdb`")
+        );
+    }
+
     #[tokio::test]
     async fn supervisor_tracks_and_completes_runtime_tasks() {
         let supervisor = RuntimeSupervisor::new();
@@ -486,6 +820,10 @@ mod tests {
             input_json: None,
             summary_json: None,
             error: None,
+            attempt: 1,
+            max_attempts: 1,
+            retry_of_job_id: None,
+            next_attempt_at: None,
             queued_at: "2026-05-17T00:00:00Z".to_owned(),
             started_at: Some("2026-05-17T00:00:01Z".to_owned()),
             completed_at: Some("2026-05-17T00:00:02Z".to_owned()),

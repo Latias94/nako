@@ -96,6 +96,10 @@ CREATE TABLE jobs (
     source_id TEXT REFERENCES media_sources(id) ON DELETE SET NULL,
     summary_json TEXT,
     error TEXT,
+    attempt INTEGER NOT NULL DEFAULT 1,
+    max_attempts INTEGER NOT NULL DEFAULT 1,
+    retry_of_job_id TEXT REFERENCES jobs(id) ON DELETE SET NULL,
+    next_attempt_at TEXT,
     queued_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     started_at TEXT,
     completed_at TEXT,
@@ -114,9 +118,12 @@ CREATE INDEX jobs_kind_idx ON jobs(kind);
 CREATE INDEX jobs_library_id_idx ON jobs(library_id);
 CREATE INDEX jobs_source_id_idx ON jobs(source_id);
 CREATE INDEX jobs_lease_claim_idx
-    ON jobs(status, kind, resource_class, queued_at, id);
+    ON jobs(status, kind, resource_class, next_attempt_at, queued_at, id);
 CREATE INDEX jobs_lease_expiry_idx
     ON jobs(status, lease_expires_at);
+CREATE INDEX jobs_retry_of_job_id_idx ON jobs(retry_of_job_id);
+CREATE INDEX jobs_queue_pressure_idx
+    ON jobs(status, kind, resource_class, next_attempt_at);
 
 
 CREATE TABLE metadata_field_locks (

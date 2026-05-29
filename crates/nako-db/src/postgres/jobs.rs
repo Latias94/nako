@@ -1,6 +1,9 @@
 use sqlx::{Postgres, postgres::PgRow};
 
-use super::{PostgresStore, database_error, parse_id, parse_optional_id, row_get, u64_to_i64};
+use super::{
+    PostgresStore, database_error, i64_to_u32, i64_to_u64, parse_id, parse_optional_id, row_get,
+    u32_to_i64, u64_to_i64,
+};
 use nako_core::*;
 
 const JOB_SELECT: &str = r#"
@@ -14,6 +17,10 @@ const JOB_SELECT: &str = r#"
                 input_json,
                 summary_json,
                 error,
+                attempt,
+                max_attempts,
+                retry_of_job_id::text AS retry_of_job_id,
+                to_char(next_attempt_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS next_attempt_at,
                 to_char(queued_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS queued_at,
                 to_char(started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS started_at,
                 to_char(completed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS completed_at
@@ -31,6 +38,10 @@ const JOB_SELECT_BY_ID: &str = r#"
                 input_json,
                 summary_json,
                 error,
+                attempt,
+                max_attempts,
+                retry_of_job_id::text AS retry_of_job_id,
+                to_char(next_attempt_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS next_attempt_at,
                 to_char(queued_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS queued_at,
                 to_char(started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS started_at,
                 to_char(completed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS completed_at
@@ -49,6 +60,10 @@ const JOB_LEASE_SELECT_BY_ID: &str = r#"
                 input_json,
                 summary_json,
                 error,
+                attempt,
+                max_attempts,
+                retry_of_job_id::text AS retry_of_job_id,
+                to_char(next_attempt_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS next_attempt_at,
                 to_char(queued_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS queued_at,
                 to_char(started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS started_at,
                 to_char(completed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS completed_at,
@@ -71,6 +86,46 @@ impl JobRepository for PostgresStore {
         self.get_job_or_not_found(job_id).await
     }
 
+    async fn enqueue_job_retry(&self, retry: EnqueueJobRetry) -> Result<Job> {
+        let source = self.get_job_or_not_found(retry.source_job_id).await?;
+        let next_attempt = retry.next_attempt_for(&source)?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO jobs (
+                id,
+                kind,
+                status,
+                resource_class,
+                library_id,
+                source_id,
+                input_json,
+                attempt,
+                max_attempts,
+                retry_of_job_id,
+                next_attempt_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::timestamptz)
+            "#,
+        )
+        .bind(retry.retry_job_id.as_uuid())
+        .bind(source.kind.as_str())
+        .bind(JobStatus::Queued.as_str())
+        .bind(source.resource_class)
+        .bind(source.library_id.map(|id| id.as_uuid()))
+        .bind(source.source_id.map(|id| id.as_uuid()))
+        .bind(source.input_json)
+        .bind(u32_to_i64(next_attempt))
+        .bind(u32_to_i64(retry.max_attempts))
+        .bind(source.id.as_uuid())
+        .bind(retry.next_attempt_at)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.get_job_or_not_found(retry.retry_job_id).await
+    }
+
     async fn start_job(&self, id: JobId) -> Result<Job> {
         sqlx::query(
             r#"
@@ -79,6 +134,7 @@ impl JobRepository for PostgresStore {
                 status = $2,
                 started_at = COALESCE(started_at, statement_timestamp()),
                 completed_at = NULL,
+                next_attempt_at = NULL,
                 error = NULL,
                 updated_at = statement_timestamp()
             WHERE id = $1
@@ -208,6 +264,54 @@ impl JobRepository for PostgresStore {
 
         rows.into_iter().map(row_to_job).collect()
     }
+
+    async fn summarize_job_queue_pressure(&self) -> Result<Vec<JobQueuePressureSummary>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                kind,
+                status,
+                resource_class,
+                COUNT(*)::bigint AS count,
+                COALESCE(SUM(
+                    CASE
+                        WHEN status = $1
+                            AND (next_attempt_at IS NULL OR next_attempt_at <= statement_timestamp())
+                        THEN 1
+                        ELSE 0
+                    END
+                ), 0)::bigint AS claimable_count,
+                COALESCE(SUM(
+                    CASE
+                        WHEN status = $1
+                            AND next_attempt_at IS NOT NULL
+                            AND next_attempt_at > statement_timestamp()
+                        THEN 1
+                        ELSE 0
+                    END
+                ), 0)::bigint AS delayed_retry_count,
+                to_char(
+                    MIN(CASE WHEN status = $1 THEN queued_at ELSE NULL END) AT TIME ZONE 'UTC',
+                    'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
+                ) AS oldest_queued_at,
+                to_char(
+                    MIN(CASE WHEN status = $1 AND next_attempt_at IS NOT NULL THEN next_attempt_at ELSE NULL END) AT TIME ZONE 'UTC',
+                    'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
+                ) AS next_attempt_at
+            FROM jobs
+            GROUP BY kind, status, resource_class
+            ORDER BY kind ASC, status ASC, resource_class ASC
+            "#,
+        )
+        .bind(JobStatus::Queued.as_str())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter()
+            .map(row_to_queue_pressure_summary)
+            .collect()
+    }
 }
 
 #[async_trait::async_trait]
@@ -234,6 +338,7 @@ impl JobLeaseRepository for PostgresStore {
                 AND ($4::uuid IS NULL OR id = $4)
                 AND ($5::uuid IS NULL OR library_id = $5)
                 AND ($6::uuid IS NULL OR source_id = $6)
+                AND (next_attempt_at IS NULL OR next_attempt_at <= statement_timestamp())
             ORDER BY queued_at ASC, id ASC
             FOR UPDATE SKIP LOCKED
             LIMIT 1
@@ -265,6 +370,7 @@ impl JobLeaseRepository for PostgresStore {
                 run_token = $4,
                 heartbeat_at = statement_timestamp(),
                 lease_expires_at = statement_timestamp() + ($5::double precision * INTERVAL '1 millisecond'),
+                next_attempt_at = NULL,
                 started_at = COALESCE(started_at, statement_timestamp()),
                 completed_at = NULL,
                 error = NULL,
@@ -593,6 +699,10 @@ impl PostgresStore {
                 input_json,
                 summary_json,
                 error,
+                attempt,
+                max_attempts,
+                retry_of_job_id::text AS retry_of_job_id,
+                to_char(next_attempt_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS next_attempt_at,
                 to_char(queued_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS queued_at,
                 to_char(started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS started_at,
                 to_char(completed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS completed_at,
@@ -705,6 +815,10 @@ fn row_to_job(row: PgRow) -> Result<Job> {
         input_json: row_get(&row, "input_json")?,
         summary_json: row_get(&row, "summary_json")?,
         error: row_get(&row, "error")?,
+        attempt: i64_to_u32(row_get(&row, "attempt")?)?,
+        max_attempts: i64_to_u32(row_get(&row, "max_attempts")?)?,
+        retry_of_job_id: parse_optional_id(row_get::<Option<String>>(&row, "retry_of_job_id")?)?,
+        next_attempt_at: row_get(&row, "next_attempt_at")?,
         queued_at: row_get(&row, "queued_at")?,
         started_at: row_get(&row, "started_at")?,
         completed_at: row_get(&row, "completed_at")?,
@@ -723,6 +837,10 @@ fn row_to_leased_job(row: PgRow) -> Result<LeasedJob> {
         input_json: row_get(&row, "input_json")?,
         summary_json: row_get(&row, "summary_json")?,
         error: row_get(&row, "error")?,
+        attempt: i64_to_u32(row_get(&row, "attempt")?)?,
+        max_attempts: i64_to_u32(row_get(&row, "max_attempts")?)?,
+        retry_of_job_id: parse_optional_id(row_get::<Option<String>>(&row, "retry_of_job_id")?)?,
+        next_attempt_at: row_get(&row, "next_attempt_at")?,
         queued_at: row_get(&row, "queued_at")?,
         started_at: row_get(&row, "started_at")?,
         completed_at: row_get(&row, "completed_at")?,
@@ -738,6 +856,19 @@ fn row_to_leased_job(row: PgRow) -> Result<LeasedJob> {
     };
 
     Ok(LeasedJob { job, lease })
+}
+
+fn row_to_queue_pressure_summary(row: PgRow) -> Result<JobQueuePressureSummary> {
+    Ok(JobQueuePressureSummary {
+        kind: JobKind::parse(&row_get::<String>(&row, "kind")?)?,
+        status: JobStatus::parse(&row_get::<String>(&row, "status")?)?,
+        resource_class: row_get(&row, "resource_class")?,
+        count: i64_to_u64(row_get(&row, "count")?)?,
+        claimable_count: i64_to_u64(row_get(&row, "claimable_count")?)?,
+        delayed_retry_count: i64_to_u64(row_get(&row, "delayed_retry_count")?)?,
+        oldest_queued_at: row_get(&row, "oldest_queued_at")?,
+        next_attempt_at: row_get(&row, "next_attempt_at")?,
+    })
 }
 
 fn validate_lease_duration(lease_duration_ms: u64) -> Result<()> {

@@ -190,6 +190,7 @@ Evidence workstreams:
 - `docs/workstreams/server-runtime-deepening/`
 - `docs/workstreams/runtime-foundation/`
 - `docs/workstreams/durable-job-recovery/`
+- `docs/workstreams/durable-job-queue-and-resource-classes/`
 - `docs/workstreams/durable-job-ownership-leases/`
 - `docs/workstreams/job-runtime-worker-control-plane/`
 - `docs/workstreams/worker-job-cancellation-checkpoints/`
@@ -204,8 +205,8 @@ Evidence workstreams:
 
 Proposed lanes:
 
+- `proposed:durable-job-priority-policy-and-scheduler-migration`
 - `proposed:control-plane-observability-and-trace-context`
-- `proposed:durable-job-queue-and-resource-classes`
 - `proposed:api-scale-and-cache-contracts`
 - `proposed:remote-access-and-endpoint-discovery`
 

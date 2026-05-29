@@ -25,6 +25,9 @@ use super::{
     resolve_outbound_task_dispatch_secret,
     scan_metadata::scan_addon_bulk_metadata_scrape_continuation_request, stored_granted_scopes,
 };
+use crate::app::runtime::{
+    RUNTIME_RESOURCE_CLASS_ADDON_TASK, runtime_budget_class_for_job_resource_class,
+};
 
 impl AddonAppService {
     pub async fn create_addon_task_run(
@@ -111,7 +114,7 @@ impl AddonAppService {
                 task.id.clone(),
                 job_id,
                 created.run.job.resource_class.clone(),
-            );
+            )?;
         }
 
         Ok(AddonTaskRunResponse {
@@ -267,7 +270,7 @@ impl AddonAppService {
                 task.id.clone(),
                 new_job_id,
                 created.run.job.resource_class.clone(),
-            );
+            )?;
         }
 
         Ok(AddonTaskRunResponse {
@@ -454,11 +457,13 @@ impl AddonAppService {
         declaration_id: String,
         job_id: JobId,
         resource_class: String,
-    ) {
+    ) -> Result<()> {
+        let budget_class =
+            runtime_budget_class_for_job_resource_class(JobKind::AddonTask, &resource_class)?;
         let service = self.clone();
         self.runtime.spawn_job(
             "addon_task_direct_dispatch",
-            resource_class,
+            budget_class,
             job_id,
             move |_context| async move {
                 service
@@ -466,6 +471,7 @@ impl AddonAppService {
                     .await
             },
         );
+        Ok(())
     }
 
     async fn dispatch_addon_task_run_direct(
@@ -841,22 +847,8 @@ fn normalized_safe_error_code(value: &str) -> Result<String> {
     Ok(value.to_owned())
 }
 
-fn addon_task_resource_class(declaration_id: &str) -> String {
-    let mut normalized = String::from("addon.task.");
-    let mut last_was_dot = false;
-    for character in declaration_id.chars() {
-        if character.is_ascii_alphanumeric() {
-            normalized.push(character.to_ascii_lowercase());
-            last_was_dot = false;
-        } else if !last_was_dot {
-            normalized.push('.');
-            last_was_dot = true;
-        }
-    }
-    while normalized.ends_with('.') {
-        normalized.pop();
-    }
-    normalized
+fn addon_task_resource_class(_declaration_id: &str) -> String {
+    RUNTIME_RESOURCE_CLASS_ADDON_TASK.to_owned()
 }
 
 fn ensure_run_belongs_to_addon(
