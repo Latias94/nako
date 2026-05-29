@@ -3,6 +3,8 @@ import {
   type AdminAccessSummaryResponse,
   type AdminAccessUserListResponse,
   type AdminAccessUserResponse,
+  type AdminAcquisitionIntakeCandidateListResponse,
+  type AdminAcquisitionIntakeCandidatesQuery,
   type AdminAddonsQuery,
   type AdminAddonManagerPlanRequest,
   type AdminAddonManagerPlanResponse,
@@ -125,6 +127,14 @@ export class AdminApiClient {
   getAddonCatalogEntries(): Promise<AdminAddonSourceCatalogEntriesResponse> {
     return this.getJson<AdminAddonSourceCatalogEntriesResponse>(
       NAKO_ADMIN_ROUTES.addonCatalogEntries,
+    )
+  }
+
+  getAcquisitionIntakeCandidates(
+    query: AdminAcquisitionIntakeCandidatesQuery = {},
+  ): Promise<AdminAcquisitionIntakeCandidateListResponse> {
+    return this.getJson<AdminAcquisitionIntakeCandidateListResponse>(
+      withQuery(NAKO_ADMIN_ROUTES.acquisitionIntakeCandidates, query),
     )
   }
 

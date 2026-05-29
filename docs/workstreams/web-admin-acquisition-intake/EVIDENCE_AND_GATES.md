@@ -1,7 +1,7 @@
 # Web Admin Acquisition Intake - Evidence And Gates
 
 Status: Active
-Last updated: 2026-05-28
+Last updated: 2026-05-29
 
 ## Gate Set
 
@@ -28,3 +28,4 @@ Closeout should also record browser smoke for desktop and mobile viewports.
 | Date | Task | Evidence | Result |
 | --- | --- | --- | --- |
 | 2026-05-28 | WAAI-010 | Opened this lane from WDRP-030 after confirming the generated Admin contract exposes acquisition intake candidates and the old Admin Web V2 route is closed as prior art. | Passed. |
+| 2026-05-29 | WAAI-020 | Audited generated Admin acquisition intake contracts; added `AdminApiClient.getAcquisitionIntakeCandidates`, `loadAcquisitionIntake`, an explicit fixture, query normalization, redacted candidate read-model mapping, and data-source contract tests. Validation: `npm --prefix web run test -- src/test/data-source-contracts.test.ts`, `npm --prefix web run check`, `python -m json.tool`, and `git diff --check`. | Passed. |

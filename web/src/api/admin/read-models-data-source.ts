@@ -3,6 +3,9 @@ import { loadAdminApiConnection, type AdminApiConnection } from "./connection"
 import type {
   AdminAccessSummaryResponse,
   AdminAccessUserRecord,
+  AdminAcquisitionIntakeCandidateDiagnostic,
+  AdminAcquisitionIntakeCandidateListResponse,
+  AdminAcquisitionIntakeCandidatesQuery,
   AdminJobListItem,
   AdminMetadataRawCacheSettingsResponse,
   AdminOutboxEventListItem,
@@ -218,6 +221,58 @@ export interface AdminLogsReadModel extends AdminReadModelEnvelope {
   logs: AdminLogEntryReadModel[]
 }
 
+export type AdminAcquisitionIntakeCandidateState =
+  | "discovered"
+  | "inspecting"
+  | "ready"
+  | "blocked"
+  | "accepted"
+  | "rejected"
+  | "failed"
+  | "superseded"
+  | (string & {})
+
+export type AdminAcquisitionIntakeSourceKind =
+  | "watch_folder"
+  | "operator_submitted"
+  | "external_download_output"
+  | "addon_proposed"
+  | "resource_search_selection"
+  | (string & {})
+
+export interface AdminAcquisitionIntakeCandidateReadModel {
+  id: string
+  targetLibraryId: string
+  sourceKind: AdminAcquisitionIntakeSourceKind
+  customSourceKind: boolean
+  sourceScheme: string | null
+  sourceSummary: string
+  sourceKeyFingerprint: string
+  sizeBytes: number | null
+  managedImportArtifactId: string | null
+  state: AdminAcquisitionIntakeCandidateState
+  readiness: {
+    hasDisplayName: boolean
+    hasIntendedLocator: boolean
+    hasFingerprint: boolean
+    hasDiagnostics: boolean
+  }
+  firstSeenAt: string
+  lastSeenAt: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AdminAcquisitionIntakeReadModel extends AdminReadModelEnvelope {
+  versions: {
+    adminApi: string
+    publicApi: string
+  }
+  query: AdminAcquisitionIntakeCandidatesQuery
+  candidates: AdminAcquisitionIntakeCandidateReadModel[]
+  page: AdminAcquisitionIntakeCandidateListResponse["page"]
+}
+
 export interface AdminSettingsReadModel extends AdminReadModelEnvelope {
   general: {
     serverName: string
@@ -361,6 +416,9 @@ export const ADMIN_LOGS_READ_MODEL_FIXTURE: AdminLogsReadModel = {
   logs: buildFixtureLogs(),
 }
 
+export const ADMIN_ACQUISITION_INTAKE_READ_MODEL_FIXTURE: AdminAcquisitionIntakeReadModel =
+  acquisitionIntakeFixture(normalizeAcquisitionIntakeQuery({}))
+
 export const ADMIN_SETTINGS_READ_MODEL_FIXTURE: AdminSettingsReadModel = {
   source: "fixture",
   fallback: true,
@@ -470,6 +528,16 @@ export function createAdminReadModelsDataSource(
       })
     },
 
+    async loadAcquisitionIntake(
+      query: AdminAcquisitionIntakeCandidatesQuery = {},
+    ): Promise<AdminAcquisitionIntakeReadModel> {
+      const normalizedQuery = normalizeAcquisitionIntakeQuery(query)
+      return withFallback(acquisitionIntakeFixture(normalizedQuery), async () => {
+        const response = await client.getAcquisitionIntakeCandidates(normalizedQuery)
+        return mapAcquisitionIntake(response, normalizedQuery)
+      })
+    },
+
     async loadSettings(): Promise<AdminSettingsReadModel> {
       return withFallback(ADMIN_SETTINGS_READ_MODEL_FIXTURE, async () => {
         const [config, runtime, staging, rawCache] = await Promise.all([
@@ -497,6 +565,17 @@ function fixtureDataSource() {
     },
     async loadLogs() {
       return ADMIN_LOGS_READ_MODEL_FIXTURE
+    },
+    async loadAcquisitionIntake(query: AdminAcquisitionIntakeCandidatesQuery = {}) {
+      if (
+        Object.values(query).every(
+          (value) => value === undefined || value === null || value === "",
+        )
+      ) {
+        return ADMIN_ACQUISITION_INTAKE_READ_MODEL_FIXTURE
+      }
+
+      return acquisitionIntakeFixture(normalizeAcquisitionIntakeQuery(query))
     },
     async loadSettings() {
       return ADMIN_SETTINGS_READ_MODEL_FIXTURE
@@ -679,6 +758,111 @@ function mapSettings(
       probeConcurrency: config.runtime.probe_concurrency,
       metadataConcurrency: config.runtime.metadata_concurrency,
       webhookConcurrency: config.runtime.webhook_concurrency,
+    },
+  }
+}
+
+function mapAcquisitionIntake(
+  response: AdminAcquisitionIntakeCandidateListResponse,
+  query: AdminAcquisitionIntakeCandidatesQuery,
+): AdminAcquisitionIntakeReadModel {
+  return {
+    source: "live",
+    fallback: false,
+    versions: {
+      adminApi: response.admin_api_version,
+      publicApi: response.public_api_version,
+    },
+    query,
+    candidates: response.candidates.map(mapAcquisitionIntakeCandidate),
+    page: response.page,
+  }
+}
+
+function mapAcquisitionIntakeCandidate(
+  candidate: AdminAcquisitionIntakeCandidateDiagnostic,
+): AdminAcquisitionIntakeCandidateReadModel {
+  return {
+    id: candidate.id,
+    targetLibraryId: candidate.target_library_id,
+    sourceKind: candidate.source_kind,
+    customSourceKind: candidate.custom_source_kind,
+    sourceScheme: candidate.source_scheme,
+    sourceSummary: candidate.source_ref_redacted,
+    sourceKeyFingerprint: candidate.source_key_fingerprint,
+    sizeBytes: candidate.size_bytes,
+    managedImportArtifactId: candidate.managed_import_artifact_id,
+    state: candidate.state,
+    readiness: {
+      hasDisplayName: candidate.has_display_name,
+      hasIntendedLocator: candidate.has_intended_locator,
+      hasFingerprint: candidate.has_fingerprint,
+      hasDiagnostics: candidate.has_diagnostics,
+    },
+    firstSeenAt: isoFromMs(candidate.first_seen_at_ms),
+    lastSeenAt: isoFromMs(candidate.last_seen_at_ms),
+    createdAt: isoFromMs(candidate.created_at_ms),
+    updatedAt: isoFromMs(candidate.updated_at_ms),
+  }
+}
+
+function normalizeAcquisitionIntakeQuery(
+  query: AdminAcquisitionIntakeCandidatesQuery,
+): AdminAcquisitionIntakeCandidatesQuery {
+  return {
+    library_id: cleanQueryValue(query.library_id),
+    state: cleanQueryValue(query.state),
+    source_kind: cleanQueryValue(query.source_kind),
+    managed_import_artifact_id: cleanQueryValue(query.managed_import_artifact_id),
+    limit: query.limit ?? 50,
+    offset: query.offset ?? 0,
+  }
+}
+
+function cleanQueryValue(value: string | undefined) {
+  const trimmed = value?.trim()
+  return trimmed ? trimmed : undefined
+}
+
+function acquisitionIntakeFixture(
+  query: AdminAcquisitionIntakeCandidatesQuery,
+): AdminAcquisitionIntakeReadModel {
+  return {
+    source: "fixture",
+    fallback: true,
+    versions: {
+      adminApi: "fixture",
+      publicApi: "fixture",
+    },
+    query,
+    candidates: [
+      {
+        id: "fixture-intake-1",
+        targetLibraryId: query.library_id ?? "library-movies",
+        sourceKind: query.source_kind ?? "watch_folder",
+        customSourceKind: false,
+        sourceScheme: "file",
+        sourceSummary: "file://<redacted>/Movie.mkv",
+        sourceKeyFingerprint: "sha256:fixture-intake-candidate",
+        sizeBytes: 8_589_934_592,
+        managedImportArtifactId: query.managed_import_artifact_id ?? "artifact-fixture-1",
+        state: query.state ?? "ready",
+        readiness: {
+          hasDisplayName: true,
+          hasIntendedLocator: true,
+          hasFingerprint: true,
+          hasDiagnostics: true,
+        },
+        firstSeenAt: "2024-03-15T03:00:00.000Z",
+        lastSeenAt: "2024-03-15T03:05:00.000Z",
+        createdAt: "2024-03-15T03:00:00.000Z",
+        updatedAt: "2024-03-15T03:05:00.000Z",
+      },
+    ],
+    page: {
+      limit: query.limit ?? 50,
+      offset: query.offset ?? 0,
+      returned: 1,
     },
   }
 }

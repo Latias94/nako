@@ -3,13 +3,14 @@
   "slug": "web-admin-acquisition-intake",
   "title": "Web Admin Acquisition Intake",
   "status": "active",
-  "updated": "2026-05-28",
+  "updated": "2026-05-29",
   "scope_kind": "frontend_admin_operations",
   "problem": "The new web Admin shell lacks the Acquisition Intake workflow that should replace the removed Media downloads placeholder.",
   "task_prefix": "WAAI",
-  "current_task": "WAAI-020",
+  "current_task": "WAAI-030",
   "completed_tasks": [
-    "WAAI-010"
+    "WAAI-010",
+    "WAAI-020"
   ],
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/web-admin-acquisition-intake/README.md" },
@@ -28,13 +29,14 @@
     "git diff --check"
   ],
   "evidence": [
-    "WAAI-010 opened the lane from WDRP-030 and anchored the first implementation slice to generated Admin acquisition intake contracts."
+    "WAAI-010 opened the lane from WDRP-030 and anchored the first implementation slice to generated Admin acquisition intake contracts.",
+    "WAAI-020 added the Admin acquisition intake read-model boundary, fixture fallback, query normalization, redacted candidate mapping, and data-source contract tests."
   ],
   "adr_refs": [
     "docs/adr/0027-admin-api-boundary-for-web-console.md"
   ],
   "continue_policy": {
     "default_action": "continue_current_task",
-    "notes": "Continue with WAAI-020 unless WDRP selects a different higher-priority lane. Keep downloads/acquisition in Admin operations, not Media client chrome."
+    "notes": "Continue with WAAI-030. Wire /admin/acquisition/intake into the shell using the read-only Admin data-source boundary."
   }
 }

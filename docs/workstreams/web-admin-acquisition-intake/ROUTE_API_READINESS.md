@@ -1,31 +1,32 @@
 # Web Admin Acquisition Intake - Route/API Readiness
 
-Status: Active
-Last updated: 2026-05-28
+Status: Read model audited
+Last updated: 2026-05-29
 
 ## Route Target
 
 | Frontend route | Surface | Status | Notes |
 | --- | --- | --- | --- |
-| `/admin/acquisition/intake` | Admin | Planned | New `web/` route with route-owned query state and read-only candidate diagnostics. |
+| `/admin/acquisition/intake` | Admin | Planned | New `web/` route with route-owned query state and read-only candidate diagnostics. WAAI-020 added the data-source/read-model boundary; WAAI-030 owns route wiring and UI. |
 
 ## Generated Admin Contracts
 
-The committed generated Admin contract already includes the acquisition intake
-paths and DTOs needed for the first read-only route:
+The committed generated Admin contract includes the acquisition intake paths and
+DTOs needed for the first read-only route. WAAI-020 verified these generated
+symbols in `web/src/api/admin/generated/contract.ts` and wired the read-only
+candidate list into the Admin data-source boundary:
 
 | Contract | Generated symbol | Path or shape | First use |
 | --- | --- | --- | --- |
-| Candidate list route | `ADMIN_API_ROUTES.acquisitionIntakeCandidates` | `/admin/v1/acquisition/intake/candidates` | Live candidate list data source. |
-| Candidate query | `AdminAcquisitionIntakeCandidatesQuery` | `library_id`, `state`, `source_kind`, `managed_import_artifact_id`, `limit`, `offset` | Route search-param mapping. |
-| Candidate list response | `AdminAcquisitionIntakeCandidateListResponse` | `admin_api_version`, `public_api_version`, `candidates`, `page` | Data-source contract test and read model mapping. |
-| Candidate diagnostic | `AdminAcquisitionIntakeCandidateDiagnostic` | Redacted source fields, state, Managed Import artifact id, timestamps | UI table/cards. |
+| Candidate list route | `ADMIN_API_ROUTES.acquisitionIntakeCandidates` | `/admin/v1/acquisition/intake/candidates` | Live candidate list data source via `AdminApiClient.getAcquisitionIntakeCandidates`. |
+| Candidate query | `AdminAcquisitionIntakeCandidatesQuery` | `library_id`, `state`, `source_kind`, `managed_import_artifact_id`, `limit`, `offset` | Route search-param mapping; data source normalizes blank strings away and defaults to `limit=50&offset=0`. |
+| Candidate list response | `AdminAcquisitionIntakeCandidateListResponse` | `admin_api_version`, `public_api_version`, `candidates`, `page` | Mapped to `AdminAcquisitionIntakeReadModel`. |
+| Candidate diagnostic | `AdminAcquisitionIntakeCandidateDiagnostic` | Redacted source fields, state, Managed Import artifact id, timestamps | Mapped to `AdminAcquisitionIntakeCandidateReadModel`; unknown raw fields are ignored. |
 | Watch-folder discovery | `ADMIN_API_ROUTES.acquisitionIntakeWatchFolderDiscovery` and `AdminWatchFolderDiscoveryRequest` | mutation request/response | Deferred until mutation guards are explicit. |
 
 ## First Read-Only Mapping
 
-`WAAI-020` should verify and document the final field mapping before code work,
-but the initial mapping is:
+`WAAI-020` verified and implemented the read-model mapping:
 
 | UI field | Contract field |
 | --- | --- |
@@ -38,6 +39,55 @@ but the initial mapping is:
 | Managed Import linkage | `managed_import_artifact_id` |
 | State/readiness | `state`, `has_diagnostics`, `has_intended_locator`, `has_fingerprint` |
 | Timestamps | `first_seen_at_ms`, `last_seen_at_ms`, `created_at_ms`, `updated_at_ms` |
+
+## Web Read-Model Boundary
+
+WAAI-020 added the boundary but not the page:
+
+| Web symbol | Role |
+| --- | --- |
+| `AdminApiClient.getAcquisitionIntakeCandidates(query)` | Live Admin API call using the generated route and query DTO. |
+| `createAdminReadModelsDataSource().loadAcquisitionIntake(query)` | Route-facing read model entry point with live/fixture fallback. |
+| `ADMIN_ACQUISITION_INTAKE_READ_MODEL_FIXTURE` | Explicit fixture for local development and tests. |
+| `AdminAcquisitionIntakeReadModel` | UI-safe envelope with versions, normalized query, candidates, and page info. |
+| `AdminAcquisitionIntakeCandidateReadModel` | Redacted candidate row/card model. |
+
+`/admin/acquisition/intake` should use the data-source method above in WAAI-030.
+The route owns browser search params and should serialize only:
+
+```text
+library_id
+state
+source_kind
+managed_import_artifact_id
+limit
+offset
+```
+
+Default route state should match the data source defaults: `limit=50`,
+`offset=0`, and no optional filters.
+
+## Redaction Assertions
+
+The read model intentionally exposes `sourceSummary` from
+`source_ref_redacted`. It does not expose:
+
+- raw intended locators;
+- local filesystem paths;
+- credentials or bearer tokens;
+- prompt bodies;
+- downloader internals;
+- watch-folder mutation request bodies.
+
+`src/test/data-source-contracts.test.ts` now covers live candidate mapping,
+query serialization, Bearer authorization, fixture fallback, and ignoring
+non-contract raw fields such as `intended_locator` or `prompt_body`.
+
+## Deferred Mutation Boundary
+
+Watch-folder discovery remains deferred to WAAI-040. No route, data source, or
+UI behavior added by WAAI-020 performs acquisition mutations, promotion/apply,
+or direct library writes.
 
 ## Required Gates
 

@@ -1,7 +1,7 @@
 # Web Admin Acquisition Intake - Milestones
 
 Status: Active
-Last updated: 2026-05-28
+Last updated: 2026-05-29
 
 ## M0 - Open Lane
 
@@ -14,6 +14,8 @@ Completed by `WAAI-010`.
 
 Exit criteria: generated Admin acquisition DTOs and the `web/` read-model
 mapping are documented and covered by data-source contract tests.
+
+Completed by `WAAI-020`.
 
 ## M2 - Route-First Intake Page
 

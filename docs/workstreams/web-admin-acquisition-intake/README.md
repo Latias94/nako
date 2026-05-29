@@ -1,7 +1,7 @@
 # Web Admin Acquisition Intake
 
 Status: Active
-Last updated: 2026-05-28
+Last updated: 2026-05-29
 
 This lane brings the completed Acquisition Intake operator workflow into the
 new `web/` frontend. It is the reentry path for the old Downloads placeholder:
@@ -18,6 +18,5 @@ Managed Import linkage, not Media client chrome.
 
 ## Current Execution Point
 
-`WAAI-010` opened this lane from `WDRP-030`. Continue with `WAAI-020`, the
-Admin API/read-model readiness audit for acquisition candidates and Managed
-Import linkage in the new `web/` shell.
+`WAAI-020` audited and implemented the acquisition intake read-model boundary.
+Continue with `WAAI-030`, the route-first `/admin/acquisition/intake` page.

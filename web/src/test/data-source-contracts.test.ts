@@ -9,6 +9,7 @@ import {
   createAdminAddonManagerDataSource,
 } from "@/src/api/admin/addons-data-source"
 import {
+  ADMIN_ACQUISITION_INTAKE_READ_MODEL_FIXTURE,
   ADMIN_LIBRARY_READ_MODEL_FIXTURE,
   ADMIN_LOGS_READ_MODEL_FIXTURE,
   ADMIN_SETTINGS_READ_MODEL_FIXTURE,
@@ -483,6 +484,38 @@ function adminStorageStagingResponse() {
       },
     },
     records: [],
+    page,
+  }
+}
+
+function adminAcquisitionIntakeCandidatesResponse() {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    candidates: [
+      {
+        id: "candidate-1",
+        target_library_id: "library-a",
+        source_kind: "watch_folder",
+        custom_source_kind: false,
+        source_scheme: "file",
+        source_ref_redacted: "file://<redacted>/Movie.mkv",
+        source_key_fingerprint: "sha256:candidate-1",
+        has_display_name: true,
+        has_intended_locator: true,
+        size_bytes: 123456789,
+        has_fingerprint: true,
+        managed_import_artifact_id: "artifact-1",
+        state: "ready",
+        has_diagnostics: true,
+        first_seen_at_ms: 1710468000000,
+        last_seen_at_ms: 1710468300000,
+        created_at_ms: 1710468000000,
+        updated_at_ms: 1710468300000,
+        intended_locator: "file:///mnt/private/raw/Movie.mkv",
+        prompt_body: "unsafe prompt body",
+      },
+    ],
     page,
   }
 }
@@ -1386,7 +1419,90 @@ describe("admin read model data source contracts", () => {
     await expect(source.loadUsers()).resolves.toBe(ADMIN_USERS_READ_MODEL_FIXTURE)
     await expect(source.loadTasks()).resolves.toBe(ADMIN_TASKS_READ_MODEL_FIXTURE)
     await expect(source.loadLogs()).resolves.toBe(ADMIN_LOGS_READ_MODEL_FIXTURE)
+    await expect(source.loadAcquisitionIntake()).resolves.toBe(
+      ADMIN_ACQUISITION_INTAKE_READ_MODEL_FIXTURE,
+    )
     await expect(source.loadSettings()).resolves.toBe(ADMIN_SETTINGS_READ_MODEL_FIXTURE)
+  })
+
+  it("maps live Admin acquisition intake candidates into a redacted read model", async () => {
+    const fetcher = vi.fn<typeof fetch>(async (input) => {
+      const url = new URL(String(input))
+      if (url.pathname === "/admin/v1/acquisition/intake/candidates") {
+        return jsonResponse(adminAcquisitionIntakeCandidatesResponse())
+      }
+
+      return jsonResponse({ message: "not found" }, 404)
+    })
+    const source = createAdminReadModelsDataSource(
+      {
+        mode: "live",
+        baseUrl: "http://nako-admin.test/",
+        bearerToken: "admin-token",
+      },
+      fetcher,
+    )
+
+    const intake = await source.loadAcquisitionIntake({
+      library_id: "library-a",
+      state: "ready",
+      source_kind: "watch_folder",
+      managed_import_artifact_id: "artifact-1",
+      limit: 25,
+      offset: 50,
+    })
+
+    expect(intake).toMatchObject({
+      source: "live",
+      fallback: false,
+      versions: {
+        adminApi: "v1",
+        publicApi: "v1",
+      },
+      query: {
+        library_id: "library-a",
+        state: "ready",
+        source_kind: "watch_folder",
+        managed_import_artifact_id: "artifact-1",
+        limit: 25,
+        offset: 50,
+      },
+      candidates: [
+        {
+          id: "candidate-1",
+          targetLibraryId: "library-a",
+          sourceKind: "watch_folder",
+          sourceSummary: "file://<redacted>/Movie.mkv",
+          managedImportArtifactId: "artifact-1",
+          state: "ready",
+          readiness: {
+            hasDisplayName: true,
+            hasIntendedLocator: true,
+            hasFingerprint: true,
+            hasDiagnostics: true,
+          },
+        },
+      ],
+    })
+
+    const calledTarget = fetcher.mock.calls.map(([input]) => {
+      const url = new URL(String(input))
+      return `${url.pathname}${url.search}`
+    })
+    expect(calledTarget).toEqual([
+      [
+        "/admin/v1/acquisition/intake/candidates",
+        "?library_id=library-a&state=ready&source_kind=watch_folder",
+        "&managed_import_artifact_id=artifact-1&limit=25&offset=50",
+      ].join(""),
+    ])
+    expect(new Headers(fetcher.mock.calls[0][1]?.headers).get("Authorization")).toBe(
+      "Bearer admin-token",
+    )
+
+    const serialized = JSON.stringify(intake)
+    expect(serialized).not.toContain("/mnt/private/raw")
+    expect(serialized).not.toContain("unsafe prompt body")
   })
 
   it("maps live Admin API responses into deeper Admin page read models", async () => {

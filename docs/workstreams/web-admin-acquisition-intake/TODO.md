@@ -1,7 +1,7 @@
 # Web Admin Acquisition Intake - TODO
 
 Status: Active
-Last updated: 2026-05-28
+Last updated: 2026-05-29
 
 ## M0 - Open Lane
 
@@ -13,12 +13,12 @@ Last updated: 2026-05-28
 
 ## M1 - Admin API And Read-Model Audit
 
-- [ ] WAAI-020 [owner=Codex] [deps=WAAI-010] [scope=web/src/api/admin,web/src/test,docs/workstreams/web-admin-acquisition-intake]
+- [x] WAAI-020 [owner=Codex] [deps=WAAI-010] [scope=web/src/api/admin,web/src/test,docs/workstreams/web-admin-acquisition-intake]
   Goal: Audit generated Admin acquisition contracts and define the `web/` read-model boundary for candidate list, route query state, fixture fallback, and redaction assertions.
   Validation: `npm --prefix web run test -- src/test/data-source-contracts.test.ts`; `npm --prefix web run check`; `ROUTE_API_READINESS.md` updated.
   Review: verify that the route uses Admin contracts only and does not revive a Media Downloads surface.
-  Evidence: `ROUTE_API_READINESS.md` field mapping and data-source test plan.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Evidence: `ROUTE_API_READINESS.md`, `AdminApiClient.getAcquisitionIntakeCandidates`, `loadAcquisitionIntake`, fixture fallback, and data-source contract tests.
+  Handoff: DONE. Next task is WAAI-030.
 
 ## M2 - Route-First Intake Page
 
