@@ -1,7 +1,7 @@
 # Public Client Library Browse Query Contract - Contract Readiness
 
-Status: Active
-Last updated: 2026-05-28
+Status: Frozen
+Last updated: 2026-05-29
 
 ## WDRP-065 Decision
 
@@ -14,19 +14,23 @@ WMLP recorded two closely related gaps:
 
 These should be solved together so the public query shape is coherent.
 
-## Contract Questions
+## Contract Decisions
 
-PLBQ-020 must freeze:
+PLBQ-020 freezes:
 
 | Question | Initial recommendation |
 | --- | --- |
-| Route shape | Prefer `GET /libraries/{library_id}/items` for scoped browse. |
+| Route shape | Use `GET /libraries/{library_id}/items` for scoped browse. Do not add `library_id` to `GET /items` in the first slice. |
 | Page shape | Reuse `PageInfo` with `limit` and `offset`. |
-| Sort keys | Start with `title`, `sort_title`, `release_date`, `date_added`, and maybe `last_played` only if User Playback State joins are ready. |
-| Filters | Start with item kind, genre/tag/collection/studio facets, and watched/unwatched only if user-state filtering is explicitly supported. |
-| Access | Enforce effective Library Access before item rows are returned. |
-| SDK | Add generated TypeScript/Rust SDK methods and tests. |
+| Sort keys | `title`, `release_date`, `date_added`, and `last_played`; `title` uses sort-title fallback. |
+| Sort order | `asc` or `desc`, defaulting to `date_added desc`. |
+| Filters | Explicit public facet tokens plus `watch_state=any|watched|unwatched|in_progress`. |
+| Access | Require effective `browse` access. Return `404 not_found` for inaccessible libraries. |
+| Response | New `LibraryItemsResponse { library, items, page }` reusing `MediaItemDto`. |
+| SDK | Add `listLibraryItems(libraryId, query)` to generated TypeScript SDK and equivalent Rust client helper. |
 | Web | `/media/library` may show scoped live items only after this contract lands. |
+
+The full frozen contract lives in `CONTRACT.md`.
 
 ## Required Gates
 

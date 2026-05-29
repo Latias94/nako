@@ -11,6 +11,7 @@ Recently Added-style rails.
 ## Authoritative Docs
 
 - `DESIGN.md` - problem, scope, non-goals, and architecture direction.
+- `CONTRACT.md` - frozen Public Client route/query/DTO contract.
 - `CONTRACT_READINESS.md` - route/query contract choices.
 - `TODO.md` - executable task ledger.
 - `EVIDENCE_AND_GATES.md` - validation commands and evidence log.
@@ -18,5 +19,5 @@ Recently Added-style rails.
 
 ## Current Execution Point
 
-`PLBQ-010` opened this lane from WDRP-065. Continue with `PLBQ-020`, the
-contract freeze for library-scoped item browse and stable sort/filter keys.
+`PLBQ-020` froze the library browse/query contract. Continue with `PLBQ-030`,
+the server/API/SDK implementation slice.

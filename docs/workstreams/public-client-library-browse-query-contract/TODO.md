@@ -1,7 +1,7 @@
 # Public Client Library Browse Query Contract - TODO
 
 Status: Active
-Last updated: 2026-05-28
+Last updated: 2026-05-29
 
 ## M0 - Open Lane
 
@@ -13,12 +13,12 @@ Last updated: 2026-05-28
 
 ## M1 - Contract Freeze
 
-- [ ] PLBQ-020 [owner=Codex] [deps=PLBQ-010] [scope=crates/nako-client-protocol,crates/nako-api,docs/api/HTTP_API.md,docs/workstreams/public-client-library-browse-query-contract]
+- [x] PLBQ-020 [owner=Codex] [deps=PLBQ-010] [scope=crates/nako-client-protocol,crates/nako-api,docs/api/HTTP_API.md,docs/workstreams/public-client-library-browse-query-contract]
   Goal: Freeze route shape, query DTOs, sort/filter enums, access behavior, and SDK expectations for library-scoped browse.
   Validation: protocol/API tests or snapshots; HTTP API docs updated; `cargo fmt --all -- --check`; `git diff --check`.
   Review: no raw DB column query contract or Admin DTO leakage.
-  Evidence: `CONTRACT_READINESS.md` and protocol/API tests.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Evidence: `CONTRACT.md`, `CONTRACT_READINESS.md`, HTTP API contract note, and existing protocol/API catalog tests.
+  Handoff: DONE. Next task is PLBQ-030.
 
 ## M2 - Server And SDK Implementation
 

@@ -761,6 +761,15 @@ genres list routes are paginated, and their `/items` routes return linked media
 items. Public source DTOs expose stable IDs and safe display facts such as file
 name, size, and fingerprint; they do not expose raw Source Locator values.
 
+`public-client-library-browse-query-contract` freezes the next Public Client
+browse contract for implementation after this note. The planned route is
+`GET /libraries/{library_id}/items` with `limit`, `offset`, explicit `sort`,
+`order`, `facet`, and `watch_state` query parameters. It returns
+`LibraryItemsResponse { library, items, page }`, requires effective `browse`
+access, and returns `404 not_found` for libraries hidden from the authenticated
+principal. This route is not considered live until the Public Client route
+inventory, OpenAPI document, SDKs, and server tests are updated by PLBQ-030.
+
 `GET /admin/v1/catalog/governance/items` returns a redacted Admin API queue for
 unknown and low-confidence Media Items. It accepts optional `library_id`,
 `max_confidence_milli`, `limit`, and `offset` query parameters. Rows include

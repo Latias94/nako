@@ -3,17 +3,19 @@
   "slug": "public-client-library-browse-query-contract",
   "title": "Public Client Library Browse Query Contract",
   "status": "active",
-  "updated": "2026-05-28",
+  "updated": "2026-05-29",
   "scope_kind": "public_client_contract",
   "problem": "The web library page cannot show scoped live items until Public Client exposes library browse and stable sort/filter contracts.",
   "task_prefix": "PLBQ",
-  "current_task": "PLBQ-020",
+  "current_task": "PLBQ-030",
   "completed_tasks": [
-    "PLBQ-010"
+    "PLBQ-010",
+    "PLBQ-020"
   ],
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/public-client-library-browse-query-contract/README.md" },
     { "role": "design", "path": "docs/workstreams/public-client-library-browse-query-contract/DESIGN.md" },
+    { "role": "contract", "path": "docs/workstreams/public-client-library-browse-query-contract/CONTRACT.md" },
     { "role": "contract_readiness", "path": "docs/workstreams/public-client-library-browse-query-contract/CONTRACT_READINESS.md" },
     { "role": "execution", "path": "docs/workstreams/public-client-library-browse-query-contract/TODO.md" },
     { "role": "milestones", "path": "docs/workstreams/public-client-library-browse-query-contract/MILESTONES.md" },
@@ -28,7 +30,8 @@
     "git diff --check"
   ],
   "evidence": [
-    "PLBQ-010 opened this lane from WDRP-065 after WMLP recorded library-scoped browse and stable sort/filter as Public Client contract gaps."
+    "PLBQ-010 opened this lane from WDRP-065 after WMLP recorded library-scoped browse and stable sort/filter as Public Client contract gaps.",
+    "PLBQ-020 froze GET /libraries/{library_id}/items, LibraryItemsQuery, explicit sort/filter/watch-state vocabulary, LibraryItemsResponse, access behavior, and SDK expectations."
   ],
   "adr_refs": [
     "docs/adr/0021-video-first-media-server-domain-model.md",
@@ -37,6 +40,6 @@
   ],
   "continue_policy": {
     "default_action": "continue_current_task",
-    "notes": "Continue with PLBQ-020 before claiming live library-scoped browse or stable Recently Added filters in web."
+    "notes": "Continue with PLBQ-030. Implement the frozen Public Client contract before changing web library browse readiness."
   }
 }

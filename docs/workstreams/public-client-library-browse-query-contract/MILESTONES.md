@@ -1,7 +1,7 @@
 # Public Client Library Browse Query Contract - Milestones
 
 Status: Active
-Last updated: 2026-05-28
+Last updated: 2026-05-29
 
 ## M0 - Open Lane
 
@@ -10,6 +10,8 @@ Completed by `PLBQ-010`.
 ## M1 - Contract Freeze
 
 Exit criteria: route shape and query vocabulary are accepted.
+
+Completed by `PLBQ-020`.
 
 ## M2 - Server And SDK Implementation
 

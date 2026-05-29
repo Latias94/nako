@@ -1,7 +1,7 @@
 # Public Client Library Browse Query Contract - Evidence And Gates
 
 Status: Active
-Last updated: 2026-05-28
+Last updated: 2026-05-29
 
 ## Gate Set
 
@@ -19,3 +19,4 @@ npm --prefix web run build:budget
 | Date | Task | Evidence | Result |
 | --- | --- | --- | --- |
 | 2026-05-28 | PLBQ-010 | Opened this lane from WDRP-065 after WMLP-030/WMLP-060 kept library-scoped browse and stable sort/filter as missing Public Client contracts. | Passed. |
+| 2026-05-29 | PLBQ-020 | Froze `GET /libraries/{library_id}/items`, `LibraryItemsQuery`, sort/filter/watch-state vocabulary, `LibraryItemsResponse`, access behavior, and SDK expectations in `CONTRACT.md`; added an HTTP API contract note. Validation: `python -m json.tool`, `git diff --check`, `cargo nextest run -p nako-client-protocol --no-fail-fast`, `cargo nextest run -p nako-api openapi --no-fail-fast`, and `cargo fmt --all -- --check`. | Passed. |

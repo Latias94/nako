@@ -5,19 +5,25 @@ Last updated: 2026-05-28
 
 ## Current State
 
-This lane is open. WMLP closed with `/media/library` truthful but incomplete:
-live library metadata/source readiness works, while scoped item browse and
-stable sort/filter remain Public Client contract gaps.
+This lane is open. PLBQ-020 froze the first Public Client contract for
+library-scoped browse:
+
+- `GET /libraries/{library_id}/items`
+- `LibraryItemsQuery`
+- explicit sort/order/facet/watch-state vocabulary
+- `LibraryItemsResponse`
+- effective Library Access behavior
+- SDK method expectation: `listLibraryItems(libraryId, query)`
 
 ## Active Task
 
-- Task ID: PLBQ-020
+- Task ID: PLBQ-030
 - Owner: Codex
 - Status: READY
-- Validation: contract freeze, protocol/API evidence, formatting, and diff
-  check.
+- Validation: focused catalog/library route tests, SDK generation check, and
+  `cargo nextest run -p nako-server catalog --no-fail-fast`.
 
 ## Next Recommended Action
 
-Start PLBQ-020. Choose one public route shape and explicit sort/filter enums
-before changing `web/` browse behavior.
+Start PLBQ-030. Implement the frozen contract in server/API/SDK without changing
+`web/` readiness behavior until the generated SDK exists.
