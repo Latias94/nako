@@ -1,9 +1,10 @@
 import { createMemoryHistory } from "@tanstack/react-router"
 import { render, screen } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { NakoRouter, createNakoRouter } from "@/src/shell"
 import { ThemeProvider } from "@/components/theme-provider"
 import { QueryProvider } from "@/lib/query-provider"
+import { CONNECTION_PROFILE_STORAGE_KEY } from "@/src/api/connection-profile"
 
 interface RouteContract {
   path: string
@@ -142,4 +143,132 @@ describe("top-level route contracts", () => {
 
     await assert()
   })
+
+  it("renders live scoped library items from the Public Client browse route", async () => {
+    const originalFetch = globalThis.fetch
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input))
+
+      if (url.pathname === "/libraries/movies") {
+        return jsonResponse({
+          library: publicLibrary("movies"),
+        })
+      }
+
+      if (url.pathname === "/libraries/movies/sources") {
+        return jsonResponse({
+          library: publicLibrary("movies"),
+          page,
+          sources: [],
+        })
+      }
+
+      if (url.pathname === "/libraries/movies/items") {
+        return jsonResponse({
+          library: publicLibrary("movies"),
+          page,
+          items: [publicMediaItem()],
+        })
+      }
+
+      return jsonResponse({ code: "not_found", message: "not found" }, 404)
+    })
+
+    window.localStorage.setItem(
+      CONNECTION_PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        mode: "live",
+        runtime: "browser",
+        baseUrl: "http://nako.test",
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+
+    try {
+      renderRoute("/media/library?id=movies")
+
+      expect(await screen.findByText("Live Movie", {}, { timeout: 5000 })).toBeInTheDocument()
+      const calledTargets = fetcher.mock.calls.map(([input]) => {
+        const url = new URL(String(input))
+        return `${url.pathname}${url.search}`
+      })
+
+      expect(calledTargets).toContain(
+        "/libraries/movies/items?limit=50&offset=0&sort=date_added&order=desc&watch_state=any",
+      )
+    } finally {
+      vi.stubGlobal("fetch", originalFetch)
+    }
+  })
 })
+
+const page = {
+  limit: 50,
+  offset: 0,
+  returned: 1,
+}
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "content-type": "application/json",
+    },
+  })
+}
+
+function publicLibrary(id: string) {
+  return {
+    id,
+    name: "Live Library",
+    roots: ["/media/live"],
+    options: {
+      domain: "video",
+      preset: "movies",
+      naming_strategy: "movie",
+      scan: {
+        max_depth: null,
+        realtime_monitor: true,
+      },
+      metadata_profile: {
+        country: null,
+        image_providers: [],
+        item_kinds: ["movie"],
+        language: null,
+        local_metadata_policy: "read_only",
+        local_readers: [],
+        metadata_providers: [],
+        refresh_mode: "default",
+        scan: {
+          addon_scrape: true,
+          addon_writeback: false,
+          enabled: true,
+        },
+      },
+    },
+  }
+}
+
+function publicMediaItem() {
+  return {
+    id: "live-movie",
+    kind: "movie",
+    parent_id: null,
+    metadata: {
+      collections: [],
+      credits: [],
+      external_ids: [],
+      genres: ["Sci-Fi"],
+      original_title: "Live Original",
+      overview: "A routed public API item.",
+      ratings: [{ source: "tmdb", value: "8.1" }],
+      release_date: "2026-01-02",
+      runtime_minutes: 125,
+      sort_title: null,
+      studios: [],
+      tagline: null,
+      tags: [],
+      title: "Live Movie",
+    },
+  }
+}

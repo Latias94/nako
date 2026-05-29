@@ -31,12 +31,12 @@ Last updated: 2026-05-29
 
 ## M3 - Web Browse Integration
 
-- [ ] PLBQ-040 [owner=Codex] [deps=PLBQ-030] [scope=web/src/api/public,web/src/features/media,web/src/test]
+- [x] PLBQ-040 [owner=Codex] [deps=PLBQ-030] [scope=web/src/api/public,web/src/features/media,web/src/test]
   Goal: Wire `/media/library` and selected rails to scoped live browse/query behavior.
   Validation: `npm --prefix web run test`; `npm --prefix web run check`; `npm --prefix web run build:budget`.
   Review: readiness states remain for unsupported filters.
-  Evidence: data-source and route tests.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Evidence: `listLibraryItems` data-source contract, live `/media/library` route test, TypeScript check, and build budget.
+  Handoff: DONE. Next task is PLBQ-050.
 
 ## M4 - Closeout
 

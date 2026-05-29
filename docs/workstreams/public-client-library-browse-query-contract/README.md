@@ -19,6 +19,6 @@ Recently Added-style rails.
 
 ## Current Execution Point
 
-`PLBQ-030` implemented the server/API/SDK slice for
-`GET /libraries/{library_id}/items`. Continue with `PLBQ-040`, the web browse
-integration slice.
+`PLBQ-040` wired `/media/library` to the implemented
+`GET /libraries/{library_id}/items` route for supported browse states.
+Continue with `PLBQ-050`, the closeout slice.

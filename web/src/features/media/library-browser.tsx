@@ -30,7 +30,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
-import { useLibraryReadiness } from "@/lib/use-media"
+import type { MediaItem as PublicMediaItem } from "@/lib/media-types"
+import { useLibraryItems, useLibraryReadiness } from "@/lib/use-media"
+import type {
+  PublicLibraryItemsQuery,
+  PublicReadinessState,
+} from "@/src/api/public/media-data-source"
 
 // ============ Types ============
 interface Library {
@@ -222,15 +227,49 @@ export function LibraryBrowser({
   const liveLibrary = libraryReadiness.data?.library
   const liveSourceCount = libraryReadiness.data?.sources.length ?? 0
   const libraryTitle = liveLibrary?.name ?? currentLibrary.name
-  const itemBrowseGap = libraryReadiness.data?.itemBrowse
+  const itemsPerPage = 50
+  const browseContract = useMemo(
+    () =>
+      libraryBrowseContractForRoute(
+        sortBy,
+        sortOrder,
+        quickFilter,
+        categoryFilter,
+        itemsPerPage,
+      ),
+    [sortBy, sortOrder, quickFilter, categoryFilter],
+  )
+  const libraryItems = useLibraryItems(
+    selectedLibraryId,
+    browseContract.query,
+    browseContract.supported,
+  )
+  const liveBrowseItems = useMemo(
+    () => libraryItems.data?.items.map(mapPublicLibraryItem) ?? [],
+    [libraryItems.data?.items],
+  )
+  const usesLiveBrowse =
+    browseContract.supported &&
+    libraryItems.data?.source === "live" &&
+    libraryItems.data.fallback === false
+  const itemBrowseState =
+    browseContract.readiness ??
+    (libraryItems.data?.fallback
+      ? ({
+          id: "library-scoped-item-browse",
+          status: "fallback",
+          message: "Public Client 媒体库浏览请求失败；当前列表使用本地视图模型。",
+          contract: "GET /libraries/{library_id}/items",
+        } satisfies PublicReadinessState)
+      : libraryReadiness.data?.itemBrowse)
 
   // Virtual list state
-  const [allItems] = useState(() => generateMockItems(847))
+  const [mockItems] = useState(() => generateMockItems(847))
+  const allItems = usesLiveBrowse ? liveBrowseItems : mockItems
   const [visibleItems, setVisibleItems] = useState<MediaItem[]>([])
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [page, setPage] = useState(1)
-  const itemsPerPage = 50
   const containerRef = useRef<HTMLDivElement>(null)
   const observerRef = useRef<IntersectionObserver | null>(null)
   const loadMoreRef = useRef<HTMLDivElement>(null)
@@ -268,6 +307,10 @@ export function LibraryBrowser({
   // Filter and sort items
   const filteredItems = useMemo(() => {
     let items = [...allItems]
+
+    if (usesLiveBrowse) {
+      return items
+    }
 
     // Apply quick filter
     if (quickFilter !== "all") {
@@ -318,11 +361,16 @@ export function LibraryBrowser({
     })
 
     return items
-  }, [allItems, quickFilter, categoryFilter, sortBy, sortOrder])
+  }, [allItems, usesLiveBrowse, quickFilter, categoryFilter, sortBy, sortOrder])
 
   // Load items with pagination
   // Load items progressively with initial loading state
   useEffect(() => {
+    if (browseContract.supported && libraryItems.isLoading) {
+      setIsInitialLoading(true)
+      return
+    }
+
     if (page === 1) {
       setIsInitialLoading(true)
       const timer = setTimeout(() => {
@@ -333,7 +381,7 @@ export function LibraryBrowser({
     } else {
       setVisibleItems(filteredItems.slice(0, page * itemsPerPage))
     }
-  }, [filteredItems, page])
+  }, [filteredItems, page, browseContract.supported, libraryItems.isLoading])
 
   // Reset page when filters change
   useEffect(() => {
@@ -723,7 +771,7 @@ export function LibraryBrowser({
       <main ref={containerRef} className="flex-1 overflow-y-auto scrollbar-none">
         {activeTab === "library" && (
           <div className="p-4">
-            {(itemBrowseGap || liveLibrary) && (
+            {(itemBrowseState || liveLibrary || usesLiveBrowse) && (
               <div className="mb-4 rounded-lg border border-border/60 bg-card px-4 py-3 text-sm">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <span className="font-medium text-foreground">{libraryTitle}</span>
@@ -738,11 +786,17 @@ export function LibraryBrowser({
                   {libraryReadiness.isLoading && (
                     <Badge variant="outline" className="text-[10px]">同步中</Badge>
                   )}
+                  {usesLiveBrowse && (
+                    <Badge variant="secondary" className="text-[10px]">实时列表</Badge>
+                  )}
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {itemBrowseGap?.status === "missing_contract"
-                    ? itemBrowseGap.message
-                    : `已读取 ${liveSourceCount} 个媒体源；当前列表仍使用本地视图模型。`}
+                  {itemBrowseState?.status === "missing_contract" ||
+                  itemBrowseState?.status === "fallback"
+                    ? itemBrowseState.message
+                    : usesLiveBrowse
+                      ? `已通过 Public Client 读取 ${filteredItems.length} 个媒体项。`
+                      : `已读取 ${liveSourceCount} 个媒体源；当前列表仍使用本地视图模型。`}
                 </p>
               </div>
             )}
@@ -921,7 +975,7 @@ export function LibraryBrowser({
                           <div className="w-20 p-2 text-muted-foreground shrink-0">{item.duration || "-"}</div>
                           <div className="w-24 p-2 text-muted-foreground shrink-0">{item.resolution || "-"}</div>
                           <div className="w-16 p-2 text-muted-foreground shrink-0">{item.playCount}次</div>
-                          <div className="w-24 p-2 text-muted-foreground shrink-0">{new Date(item.addedAt).toLocaleDateString()}</div>
+                          <div className="w-24 p-2 text-muted-foreground shrink-0">{formatOptionalDate(item.addedAt)}</div>
                           {isAdmin && (
                             <div className="w-10 p-2 shrink-0" onClick={(e) => e.stopPropagation()}>
                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEditMedia?.(item.id)}>
@@ -1060,6 +1114,125 @@ function normalizeLibraryRouteState(routeState?: LibraryBrowserRouteState): Requ
     sortBy: routeState?.sortBy ?? "addedAt",
     sortOrder: routeState?.sortOrder ?? "desc",
   }
+}
+
+type LibraryBrowseContractDecision = {
+  supported: boolean
+  query: PublicLibraryItemsQuery
+  readiness: PublicReadinessState | null
+}
+
+const PUBLIC_SORT_BY: Record<string, NonNullable<PublicLibraryItemsQuery["sort"]>> = {
+  title: "title",
+  releaseDate: "release_date",
+  addedAt: "date_added",
+  lastViewed: "last_played",
+}
+
+const PUBLIC_WATCH_FILTER_BY_QUICK_FILTER: Record<
+  string,
+  NonNullable<PublicLibraryItemsQuery["watchState"]>
+> = {
+  all: "any",
+  unwatched: "unwatched",
+  watching: "in_progress",
+}
+
+function libraryBrowseContractForRoute(
+  sortBy: string,
+  sortOrder: SortOrder,
+  quickFilter: string,
+  categoryFilter: { type: string; value: string } | null,
+  limit: number,
+): LibraryBrowseContractDecision {
+  if (categoryFilter) {
+    return unsupportedLibraryBrowse(
+      `分类筛选 ${categoryFilter.value} 还没有 Public Client facet 支持；当前列表使用本地视图模型。`,
+      "GET /libraries/{library_id}/items?facet=<prefix:value>",
+    )
+  }
+
+  const sort = PUBLIC_SORT_BY[sortBy]
+  if (!sort) {
+    const label = sortOptions.find((option) => option.id === sortBy)?.label ?? sortBy
+    return unsupportedLibraryBrowse(
+      `排序 ${label} 还没有 Public Client 浏览排序支持；当前列表使用本地视图模型。`,
+      "GET /libraries/{library_id}/items?sort=title|release_date|date_added|last_played",
+    )
+  }
+
+  const watchState = PUBLIC_WATCH_FILTER_BY_QUICK_FILTER[quickFilter]
+  if (!watchState) {
+    const label = quickFilters.find((filter) => filter.id === quickFilter)?.label ?? quickFilter
+    return unsupportedLibraryBrowse(
+      `筛选 ${label} 还没有 Public Client browse facet 支持；当前列表使用本地视图模型。`,
+      "GET /libraries/{library_id}/items?facet=<prefix:value>",
+    )
+  }
+
+  return {
+    supported: true,
+    query: {
+      limit,
+      offset: 0,
+      sort,
+      order: sortOrder,
+      watchState,
+    },
+    readiness: null,
+  }
+}
+
+function unsupportedLibraryBrowse(
+  message: string,
+  contract: string,
+): LibraryBrowseContractDecision {
+  return {
+    supported: false,
+    query: {
+      limit: 50,
+      offset: 0,
+      sort: "date_added",
+      order: "desc",
+      watchState: "any",
+    },
+    readiness: {
+      id: "library-scoped-item-browse",
+      status: "missing_contract",
+      message,
+      contract,
+    },
+  }
+}
+
+function mapPublicLibraryItem(item: PublicMediaItem): MediaItem {
+  return {
+    id: item.id,
+    title: item.title,
+    originalTitle: item.originalTitle,
+    year: item.year,
+    poster: item.poster,
+    rating: item.rating || undefined,
+    playCount: 0,
+    duration: item.duration,
+    addedAt: "",
+    genres: [],
+    type: item.type === "movie" ? "movie" : "episode",
+    overview: item.overview,
+  }
+}
+
+function formatOptionalDate(value: string) {
+  if (!value) {
+    return "-"
+  }
+
+  const timestamp = Date.parse(value)
+  if (Number.isNaN(timestamp)) {
+    return "-"
+  }
+
+  return new Date(timestamp).toLocaleDateString()
 }
 
 // ============ Sub Components ============

@@ -2,6 +2,9 @@ import {
   NakoClient,
   type BrowserPlaybackTicketResponse,
   type BrowserPlaybackUrlDto,
+  type ClientBrowseSortKey,
+  type ClientSortOrder,
+  type ClientWatchStateFilter,
   type ContinueWatchingItemDto,
   type FetchLike,
   type LibraryDto,
@@ -27,6 +30,15 @@ export type PublicMediaItemsPayload = {
   fallback: boolean
   source: PublicMediaSourceMode
   error?: string
+}
+
+export type PublicLibraryItemsQuery = {
+  limit?: number
+  offset?: number
+  sort?: ClientBrowseSortKey
+  order?: ClientSortOrder
+  facet?: string | string[]
+  watchState?: ClientWatchStateFilter
 }
 
 export type PublicMediaDetailPayload = {
@@ -159,6 +171,10 @@ export type PublicPlaybackStatePayload = {
 
 export type PublicMediaDataSource = {
   listMedia(): Promise<PublicMediaItemsPayload>
+  listLibraryItems(
+    libraryId: string,
+    query?: PublicLibraryItemsQuery,
+  ): Promise<PublicMediaItemsPayload>
   searchMedia(query: string): Promise<PublicMediaItemsPayload>
   getMediaDetails(id: string, mediaType: MediaItem["type"]): Promise<PublicMediaDetailPayload>
   listLibraries(): Promise<PublicLibrariesPayload>
@@ -194,11 +210,11 @@ const RECENTLY_ADDED_CONTRACT_GAP: PublicReadinessState = {
   contract: "listItems({ sort: 'recently_added' })",
 }
 
-const LIBRARY_ITEM_BROWSE_CONTRACT_GAP: PublicReadinessState = {
+const LIBRARY_ITEM_BROWSE_READY: PublicReadinessState = {
   id: "library-scoped-item-browse",
-  status: "missing_contract",
-  message: "Public Client does not expose library-scoped item browse yet.",
-  contract: "/libraries/{library_id}/items or listItems({ library_id })",
+  status: "ready",
+  message: "Public Client exposes library-scoped item browse.",
+  contract: "GET /libraries/{library_id}/items",
 }
 
 export function createPublicMediaDataSource(
@@ -229,6 +245,22 @@ function createLiveMediaDataSource(
         return liveItems(response.items.map(mapPublicMediaItem), response.page, [
           RECENTLY_ADDED_CONTRACT_GAP,
         ])
+      } catch (error) {
+        return fixtureItems(LOCAL_MEDIA_ITEMS, error)
+      }
+    },
+    async listLibraryItems(libraryId, query = {}) {
+      try {
+        const response = await client.listLibraryItems(libraryId, {
+          limit: query.limit ?? 50,
+          offset: query.offset ?? 0,
+          sort: query.sort ?? "date_added",
+          order: query.order ?? "desc",
+          facet: query.facet,
+          watch_state: query.watchState ?? "any",
+        })
+
+        return liveItems(response.items.map(mapPublicMediaItem), response.page)
       } catch (error) {
         return fixtureItems(LOCAL_MEDIA_ITEMS, error)
       }
@@ -375,6 +407,9 @@ function createFixtureMediaDataSource(): PublicMediaDataSource {
     async listMedia() {
       return fixtureItems(LOCAL_MEDIA_ITEMS)
     },
+    async listLibraryItems() {
+      return fixtureItems(LOCAL_MEDIA_ITEMS)
+    },
     async searchMedia(query) {
       if (!query.trim()) {
         return fixtureItems([])
@@ -490,7 +525,7 @@ function liveLibraryReadiness(input: {
   return {
     library: input.library,
     sources: input.sources,
-    itemBrowse: LIBRARY_ITEM_BROWSE_CONTRACT_GAP,
+    itemBrowse: LIBRARY_ITEM_BROWSE_READY,
     fallback: false,
     source: "live",
   }
@@ -515,8 +550,8 @@ function fixtureLibraryReadiness(
       item,
     })),
     itemBrowse: {
-      ...LIBRARY_ITEM_BROWSE_CONTRACT_GAP,
-      status: error ? "fallback" : LIBRARY_ITEM_BROWSE_CONTRACT_GAP.status,
+      ...LIBRARY_ITEM_BROWSE_READY,
+      status: error ? "fallback" : LIBRARY_ITEM_BROWSE_READY.status,
     },
     fallback: true,
     source: "fixture",

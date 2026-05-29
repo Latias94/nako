@@ -23,6 +23,8 @@ Completed by `PLBQ-030`.
 
 Exit criteria: `web/` uses scoped live browse where supported.
 
+Completed by `PLBQ-040`.
+
 ## M4 - Closeout
 
 Exit criteria: final gates and follow-ons are recorded.

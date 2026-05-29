@@ -868,7 +868,7 @@ describe("public media data source contracts", () => {
     expect(payload.items.map((item) => item.title)).toEqual(["沙丘2"])
   })
 
-  it("keeps library item browse as an explicit missing Public Client contract", async () => {
+  it("reports library item browse as ready once the Public Client route exists", async () => {
     const fetcher = vi.fn<FetchLike>(async (input) => {
       const url = new URL(String(input))
 
@@ -940,7 +940,7 @@ describe("public media data source contracts", () => {
       ],
       itemBrowse: {
         id: "library-scoped-item-browse",
-        status: "missing_contract",
+        status: "ready",
       },
     })
     expect(calledTargets).toEqual([
@@ -948,6 +948,62 @@ describe("public media data source contracts", () => {
       "/libraries/library-a/sources?limit=20&offset=0",
     ])
     expect(calledTargets.some((target) => target.includes("library_id="))).toBe(false)
+  })
+
+  it("lists library items through the scoped Public Client browse route", async () => {
+    const fetcher = vi.fn<FetchLike>(async (input) => {
+      const url = new URL(String(input))
+
+      expect(url.pathname).toBe("/libraries/library-a/items")
+
+      return jsonResponse({
+        library: publicLibrary(),
+        page,
+        items: [publicMediaItem()],
+      })
+    })
+
+    const source = createPublicMediaDataSource(
+      {
+        mode: "live",
+        baseUrl: "http://nako.test/",
+        bearerToken: "public-token",
+      },
+      fetcher,
+    )
+
+    const payload = await source.listLibraryItems("library-a", {
+      limit: 25,
+      offset: 50,
+      sort: "date_added",
+      order: "desc",
+      facet: "kind:movie",
+      watchState: "unwatched",
+    })
+    const calledUrl = new URL(String(fetcher.mock.calls[0][0]))
+
+    expect(payload).toMatchObject({
+      source: "live",
+      fallback: false,
+      readiness: [],
+      page: {
+        limit: 10,
+        offset: 0,
+        returned: 1,
+      },
+      items: [
+        {
+          id: "live-movie",
+          title: "Live Movie",
+        },
+      ],
+    })
+    expect(`${calledUrl.pathname}${calledUrl.search}`).toBe(
+      "/libraries/library-a/items?limit=25&offset=50&sort=date_added&order=desc&facet=kind%3Amovie&watch_state=unwatched",
+    )
+    expect(new Headers(fetcher.mock.calls[0][1]?.headers).get("Authorization")).toBe(
+      "Bearer public-token",
+    )
   })
 
   it("maps continue-watching playback state through the Public Client", async () => {

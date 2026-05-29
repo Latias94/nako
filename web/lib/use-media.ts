@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import {
   createPublicMediaDataSource,
+  type PublicLibraryItemsQuery,
   type PublicMediaDetailPayload,
   type PublicMediaItemsPayload,
 } from "@/src/api/public/media-data-source"
@@ -81,6 +82,21 @@ export function useLibraryReadiness(libraryId: string) {
     queryFn: () => createPublicMediaDataSource().getLibraryReadiness(libraryId),
     enabled: !!libraryId,
     staleTime: 5 * 60 * 1000,
+    retry: 0,
+  })
+}
+
+export function useLibraryItems(
+  libraryId: string,
+  query: PublicLibraryItemsQuery,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: ["nako", "media", "library", libraryId, "items", query],
+    queryFn: (): Promise<PublicMediaItemsPayload> =>
+      createPublicMediaDataSource().listLibraryItems(libraryId, query),
+    enabled: !!libraryId && enabled,
+    staleTime: 60 * 1000,
     retry: 0,
   })
 }
