@@ -22,12 +22,12 @@ Last updated: 2026-05-29
 
 ## M2 - Playlist CRUD Controls
 
-- [ ] WPMU-030 [owner=Codex] [deps=WPMU-020] [scope=web/src/features/media/my-list-page.tsx,web/src/shell,web/src/test]
+- [x] WPMU-030 [owner=Codex] [deps=WPMU-020] [scope=web/src/features/media/my-list-page.tsx,web/src/shell,web/src/test]
   Goal: Add create, rename, and delete playlist controls on `/media/my-list` with route-safe state, loading states, empty states, and error/conflict feedback.
   Validation: `npm --prefix web run test -- src/test/route-contracts.test.tsx src/test/route-state-contracts.test.tsx`; `npm --prefix web run check`.
   Review: controls must be accessible, must not use modal-only dead ends, and must keep the active route valid after deletion.
-  Evidence: route/state tests and screenshots.
-  Handoff: Split dialog/component extraction only if it reduces real complexity.
+  Evidence: route/state tests and desktop/mobile screenshots.
+  Handoff: DONE. Playlist CRUD controls are wired to Public Client mutation hooks; next task is WPMU-040.
 
 ## M3 - Item Add And Remove Flows
 

@@ -22,6 +22,8 @@ Completed by `WPMU-020`.
 Exit criteria: `/media/my-list` supports create, rename, and delete with
 route-safe state transitions and tested loading/error/empty states.
 
+Completed by `WPMU-030`.
+
 ## M3 - Item Add And Remove Flows
 
 Exit criteria: users can add and remove media items through Public Client-backed
