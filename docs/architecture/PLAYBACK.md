@@ -43,7 +43,7 @@ selection.
 | Selected audio stream mapping | Shipped | `docs/workstreams/hls-alternate-audio-renditions/` | Remove selected-audio duplication when alternate audio groups are mature. |
 | HLS subtitle sidecar media group | Shipped first slice | `docs/workstreams/hls-media-renditions-runtime/`; `docs/workstreams/hls-master-renditions-authoring/` | ASS/SSA, PGS, burn-in, client subtitle capability policy. |
 | HLS audio sidecar media group | Shipped first slice | `docs/workstreams/hls-audio-sidecar-artifacts/` | Audio codec policy, downmix, normalization, selected-main-mux cleanup. |
-| HLS seek/restart | Not started | `docs/adr/0052-hls-runtime-and-media-engine-boundary.md` | Open `hls-seek-restart-lifecycle`. |
+| HLS seek/restart | Active first slice | `docs/adr/0052-hls-runtime-and-media-engine-boundary.md`; `docs/workstreams/hls-seek-restart-lifecycle/` | Generation identity, restart admission, then FFmpeg seek flags. |
 | HDR tone mapping | Not started | `docs/ARCHITECTURE.md`; `docs/adr/0044-playback-capability-profile-planner.md` | Open `hdr-tone-mapping-pipeline`. |
 | Audio downmix and normalization | Not started | This document | Open `audio-compatibility-downmix-normalization`. |
 | Runtime resource scheduler | Partial | `docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md`; playback runtime diagnostics lanes | Open `playback-runtime-resource-scheduler`. |

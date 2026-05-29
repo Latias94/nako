@@ -20,11 +20,12 @@ use nako_playback::{
 };
 use nako_streaming::{DirectPlayRangeRequest, DirectPlayResponsePlan};
 use nako_transcode::{
-    HlsAdaptiveLadderPlan, HlsAudioRendition, HlsMediaRenditionPlan, HlsRequestVariantPlan,
-    HlsVariantPolicy, PlaybackHlsProfileRequest, PlaybackRemuxProfileRequest, RemuxContainer,
-    TranscodeOutputConstraints, TranscodePipelineSourceFacts, TranscodeRequestIdentity,
-    TranscodeSourceIdentity, TranscodeSubtitleStrategy, TranscodeTrackSelection,
-    build_playback_hls_profile, build_playback_remux_profile,
+    HlsAdaptiveLadderPlan, HlsAudioRendition, HlsMediaRenditionPlan, HlsPlaybackGeneration,
+    HlsRequestVariantPlan, HlsVariantPolicy, PlaybackHlsProfileRequest,
+    PlaybackRemuxProfileRequest, RemuxContainer, TranscodeOutputConstraints,
+    TranscodePipelineSourceFacts, TranscodeRequestIdentity, TranscodeSourceIdentity,
+    TranscodeSubtitleStrategy, TranscodeTrackSelection, build_playback_hls_profile,
+    build_playback_remux_profile,
 };
 use nako_vfs::{StorageBackend as _, StorageUri};
 use serde::{Deserialize, Serialize};
@@ -377,6 +378,7 @@ pub struct HlsSourceRequest {
     pub source_id: MediaSourceId,
     pub client: ClientPlaybackCapabilities,
     pub preferences: PlaybackPreferenceContext,
+    pub playback_generation: HlsPlaybackGeneration,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -840,6 +842,7 @@ impl PlaybackAppService {
                             source_id: request.source_id,
                             client: request.target.media_capabilities.clone(),
                             preferences: PlaybackPreferenceContext::default(),
+                            playback_generation: HlsPlaybackGeneration::default(),
                         },
                         effective_policy.clone(),
                     )
@@ -1313,6 +1316,7 @@ impl PlaybackAppService {
                     source_id: request.source_id,
                     client: request.client.clone(),
                     preferences: request.preferences.clone(),
+                    playback_generation: HlsPlaybackGeneration::default(),
                 },
                 effective_policy,
             )
@@ -1360,6 +1364,7 @@ impl PlaybackAppService {
                         source_id: request.source_id,
                         client,
                         preferences: PlaybackPreferenceContext::default(),
+                        playback_generation: HlsPlaybackGeneration::default(),
                     },
                     effective_policy,
                 )
@@ -1810,7 +1815,8 @@ impl PlaybackAppService {
                 )
             });
         let request_variant_plan =
-            HlsRequestVariantPlan::new(adaptive_ladder_plan, media_rendition_plan);
+            HlsRequestVariantPlan::new(adaptive_ladder_plan, media_rendition_plan)
+                .with_playback_generation(request.playback_generation);
         let profile_identity = hls_profile.identity();
         let source_identity = TranscodeSourceIdentity::from_media_source(&source);
         let request_identity = if let Some(request_variant) = request_variant_plan.identity_key() {

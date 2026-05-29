@@ -15,6 +15,7 @@ pub const HLS_ADAPTIVE_FMP4_INIT_PATTERN: &str = "variant_%v_init.mp4";
 
 const HLS_ADAPTIVE_LADDER_IDENTITY_VERSION: &str = "hls-adaptive-ladder:v1";
 const HLS_MEDIA_RENDITIONS_IDENTITY_VERSION: &str = "hls-media-renditions:v1";
+const HLS_PLAYBACK_GENERATION_IDENTITY_VERSION: &str = "hls-playback-generation:v1";
 const HLS_REQUEST_VARIANT_IDENTITY_VERSION: &str = "hls-request-variant:v1";
 const HLS_ADAPTIVE_AUDIO_BITRATE: u64 = 128_000;
 const HLS_ADAPTIVE_LADDER_CANDIDATES: &[(u32, u32, u64)] = &[
@@ -402,10 +403,61 @@ fn invalid_media_rendition_language(language: &str) -> bool {
         || language.contains('=')
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct HlsPlaybackGeneration {
+    start_position_ms: u64,
+}
+
+impl HlsPlaybackGeneration {
+    #[must_use]
+    pub const fn from_start_position_ms(start_position_ms: u64) -> Self {
+        Self { start_position_ms }
+    }
+
+    #[must_use]
+    pub const fn start_position_ms(self) -> u64 {
+        self.start_position_ms
+    }
+
+    #[must_use]
+    pub const fn is_default_start(self) -> bool {
+        self.start_position_ms == 0
+    }
+
+    pub fn from_identity_key(value: &str) -> Result<Self> {
+        let Some(rest) = value.strip_prefix(HLS_PLAYBACK_GENERATION_IDENTITY_VERSION) else {
+            return Err(NakoError::InvalidInput {
+                message: "hls playback generation identity version is unsupported".to_owned(),
+            });
+        };
+        let rest = rest
+            .strip_prefix(";start_ms=")
+            .ok_or_else(|| NakoError::InvalidInput {
+                message: "hls playback generation identity is missing start position".to_owned(),
+            })?;
+        let start_position_ms = rest.parse::<u64>().map_err(|_| NakoError::InvalidInput {
+            message: "hls playback generation identity has invalid start position".to_owned(),
+        })?;
+
+        Ok(Self { start_position_ms })
+    }
+
+    #[must_use]
+    pub fn identity_key(self) -> Option<String> {
+        (!self.is_default_start()).then(|| {
+            format!(
+                "{HLS_PLAYBACK_GENERATION_IDENTITY_VERSION};start_ms={}",
+                self.start_position_ms
+            )
+        })
+    }
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct HlsRequestVariantPlan {
     pub adaptive_ladder: Option<HlsAdaptiveLadderPlan>,
     pub media_renditions: HlsMediaRenditionPlan,
+    pub playback_generation: HlsPlaybackGeneration,
 }
 
 impl HlsRequestVariantPlan {
@@ -417,7 +469,17 @@ impl HlsRequestVariantPlan {
         Self {
             adaptive_ladder,
             media_renditions,
+            playback_generation: HlsPlaybackGeneration::default(),
         }
+    }
+
+    #[must_use]
+    pub const fn with_playback_generation(
+        mut self,
+        playback_generation: HlsPlaybackGeneration,
+    ) -> Self {
+        self.playback_generation = playback_generation;
+        self
     }
 
     pub fn from_identity_key(value: &str) -> Result<Self> {
@@ -425,12 +487,21 @@ impl HlsRequestVariantPlan {
             return Ok(Self {
                 adaptive_ladder: Some(HlsAdaptiveLadderPlan::from_identity_key(value)?),
                 media_renditions: HlsMediaRenditionPlan::default(),
+                playback_generation: HlsPlaybackGeneration::default(),
             });
         }
         if value.starts_with(HLS_MEDIA_RENDITIONS_IDENTITY_VERSION) {
             return Ok(Self {
                 adaptive_ladder: None,
                 media_renditions: HlsMediaRenditionPlan::from_identity_key(value)?,
+                playback_generation: HlsPlaybackGeneration::default(),
+            });
+        }
+        if value.starts_with(HLS_PLAYBACK_GENERATION_IDENTITY_VERSION) {
+            return Ok(Self {
+                adaptive_ladder: None,
+                media_renditions: HlsMediaRenditionPlan::default(),
+                playback_generation: HlsPlaybackGeneration::from_identity_key(value)?,
             });
         }
 
@@ -460,6 +531,9 @@ impl HlsRequestVariantPlan {
         if let Some(media) = self.media_renditions.identity_key() {
             components.push(media);
         }
+        if let Some(generation) = self.playback_generation.identity_key() {
+            components.push(generation);
+        }
 
         match components.len() {
             0 => None,
@@ -473,7 +547,9 @@ impl HlsRequestVariantPlan {
 
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.adaptive_ladder.is_none() && self.media_renditions.is_empty()
+        self.adaptive_ladder.is_none()
+            && self.media_renditions.is_empty()
+            && self.playback_generation.is_default_start()
     }
 
     fn apply_identity_component(&mut self, component: &str) -> Result<()> {
@@ -483,6 +559,10 @@ impl HlsRequestVariantPlan {
         }
         if component.starts_with(HLS_MEDIA_RENDITIONS_IDENTITY_VERSION) {
             self.media_renditions = HlsMediaRenditionPlan::from_identity_key(component)?;
+            return Ok(());
+        }
+        if component.starts_with(HLS_PLAYBACK_GENERATION_IDENTITY_VERSION) {
+            self.playback_generation = HlsPlaybackGeneration::from_identity_key(component)?;
             return Ok(());
         }
 

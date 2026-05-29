@@ -41,10 +41,10 @@ use nako_playback::{
 };
 use nako_streaming::{DirectPlayRangeRequest, RequestedByteRange};
 use nako_transcode::{
-    HardwareAcceleration, HardwareAccelerationFallback, OutputContainer, PlaybackHlsProfileRequest,
-    PlaybackRemuxProfileRequest, RemuxContainer, TranscodeAccelerationPlan,
-    TranscodeExecutionPolicy, TranscodeOutputConstraints, TranscodePlan, TranscodeRequestIdentity,
-    build_playback_hls_profile, build_playback_remux_profile,
+    HardwareAcceleration, HardwareAccelerationFallback, HlsPlaybackGeneration, OutputContainer,
+    PlaybackHlsProfileRequest, PlaybackRemuxProfileRequest, RemuxContainer,
+    TranscodeAccelerationPlan, TranscodeExecutionPolicy, TranscodeOutputConstraints, TranscodePlan,
+    TranscodeRequestIdentity, build_playback_hls_profile, build_playback_remux_profile,
 };
 use nako_vfs::{
     ByteRange, LocalFsBackend, ObjectKind, ObjectMetadata, ReadRange, ReadStream, StageRequest,

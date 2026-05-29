@@ -913,6 +913,47 @@ mod tests {
         assert!(key.contains("subtitles=0:2:jpn"));
         assert_eq!(restored.adaptive_ladder, Some(ladder));
         assert_eq!(restored.media_renditions, media);
+        assert_eq!(
+            restored.playback_generation,
+            HlsPlaybackGeneration::default()
+        );
+    }
+
+    #[test]
+    fn hls_request_variant_identity_round_trips_playback_generation() {
+        let plan = HlsRequestVariantPlan::new(None, HlsMediaRenditionPlan::default())
+            .with_playback_generation(HlsPlaybackGeneration::from_start_position_ms(45_000));
+
+        let key = plan.identity_key().unwrap();
+        let restored = HlsRequestVariantPlan::from_identity_key(&key).unwrap();
+
+        assert_eq!(key, "hls-playback-generation:v1;start_ms=45000");
+        assert_eq!(
+            restored.playback_generation,
+            HlsPlaybackGeneration::from_start_position_ms(45_000)
+        );
+        assert!(restored.adaptive_ladder.is_none());
+        assert!(restored.media_renditions.is_empty());
+    }
+
+    #[test]
+    fn hls_request_variant_identity_combines_generation_with_ladder() {
+        let ladder = HlsAdaptiveLadderPlan::default();
+        let plan =
+            HlsRequestVariantPlan::new(Some(ladder.clone()), HlsMediaRenditionPlan::default())
+                .with_playback_generation(HlsPlaybackGeneration::from_start_position_ms(90_000));
+
+        let key = plan.identity_key().unwrap();
+        let restored = HlsRequestVariantPlan::from_identity_key(&key).unwrap();
+
+        assert!(key.starts_with("hls-request-variant:v1;components="));
+        assert!(key.contains("hls-adaptive-ladder:v1;"));
+        assert!(key.contains("hls-playback-generation:v1;start_ms=90000"));
+        assert_eq!(restored.adaptive_ladder, Some(ladder));
+        assert_eq!(
+            restored.playback_generation,
+            HlsPlaybackGeneration::from_start_position_ms(90_000)
+        );
     }
 
     #[test]

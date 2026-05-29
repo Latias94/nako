@@ -476,6 +476,7 @@ async fn hls_source_runs_runner_and_reuses_completed_session() {
         source_id: source.id,
         client: ClientPlaybackCapabilities::default(),
         preferences: PlaybackPreferenceContext::default(),
+        playback_generation: HlsPlaybackGeneration::default(),
     };
 
     let output = app.playback().hls_source(request.clone()).await.unwrap();
@@ -622,6 +623,7 @@ async fn hls_source_selected_audio_stream_reaches_ffmpeg_map() {
                 requested_audio_stream: Some(2),
                 ..PlaybackPreferenceContext::default()
             },
+            playback_generation: HlsPlaybackGeneration::default(),
         })
         .await
         .unwrap();
@@ -694,6 +696,7 @@ async fn hls_source_multi_audio_generates_audio_sidecar_renditions_and_artifacts
             requested_audio_stream: Some(2),
             ..PlaybackPreferenceContext::default()
         },
+        playback_generation: HlsPlaybackGeneration::default(),
     };
 
     let output = app.playback().hls_source(request.clone()).await.unwrap();
@@ -764,6 +767,7 @@ async fn hls_source_runs_fmp4_runtime_layout_and_rewrites_init_map() {
             ..ClientPlaybackCapabilities::default()
         },
         preferences: PlaybackPreferenceContext::default(),
+        playback_generation: HlsPlaybackGeneration::default(),
     };
 
     let output = app.playback().hls_source(request.clone()).await.unwrap();
@@ -814,6 +818,7 @@ async fn hls_source_runs_adaptive_fmp4_ladder_and_rewrites_master_playlist() {
             ..ClientPlaybackCapabilities::default()
         },
         preferences: PlaybackPreferenceContext::default(),
+        playback_generation: HlsPlaybackGeneration::default(),
     };
 
     let output = app.playback().hls_source(request.clone()).await.unwrap();
@@ -940,6 +945,7 @@ async fn hls_source_selected_subtitle_uses_sidecar_rendition_identity_and_artifa
             requested_subtitle_stream: Some(2),
             ..PlaybackPreferenceContext::default()
         },
+        playback_generation: HlsPlaybackGeneration::default(),
     };
 
     let output = app.playback().hls_source(request.clone()).await.unwrap();
@@ -1021,6 +1027,7 @@ async fn hls_source_uses_selected_cpu_acceleration_when_gpu_falls_back() {
             source_id: source.id,
             client: ClientPlaybackCapabilities::default(),
             preferences: PlaybackPreferenceContext::default(),
+            playback_generation: HlsPlaybackGeneration::default(),
         })
         .await
         .unwrap();
@@ -1093,6 +1100,7 @@ async fn hls_source_falls_back_to_cpu_when_source_facts_do_not_match_hardware_de
             source_id: source.id,
             client: ClientPlaybackCapabilities::default(),
             preferences: PlaybackPreferenceContext::default(),
+            playback_generation: HlsPlaybackGeneration::default(),
         })
         .await
         .unwrap();
@@ -1121,6 +1129,7 @@ async fn hls_source_request_identity_separates_selected_acceleration_profiles() 
         source_id: source.id,
         client: ClientPlaybackCapabilities::default(),
         preferences: PlaybackPreferenceContext::default(),
+        playback_generation: HlsPlaybackGeneration::default(),
     };
 
     let cpu_output = app.playback().hls_source(request.clone()).await.unwrap();
@@ -1156,6 +1165,7 @@ async fn hls_source_request_identity_changes_when_source_revision_changes() {
         source_id: source.id,
         client: ClientPlaybackCapabilities::default(),
         preferences: PlaybackPreferenceContext::default(),
+        playback_generation: HlsPlaybackGeneration::default(),
     };
 
     let first = app.playback().hls_source(request.clone()).await.unwrap();
@@ -1182,6 +1192,54 @@ async fn hls_source_request_identity_changes_when_source_revision_changes() {
             .request_key
             .contains(";profile=transcode-profile:v1")
     );
+}
+
+#[tokio::test]
+async fn hls_source_request_identity_separates_seek_generation() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_seek_generation_identity");
+    let (_temp, app, _store, source) = remux_app_with_source(ffmpeg_path).await;
+    let initial = HlsSourceRequest {
+        source_id: source.id,
+        client: ClientPlaybackCapabilities::default(),
+        preferences: PlaybackPreferenceContext::default(),
+        playback_generation: HlsPlaybackGeneration::default(),
+    };
+    let seeked = HlsSourceRequest {
+        playback_generation: HlsPlaybackGeneration::from_start_position_ms(45_000),
+        ..initial.clone()
+    };
+
+    let initial_output = app.playback().hls_source(initial.clone()).await.unwrap();
+    let seeked_output = app.playback().hls_source(seeked.clone()).await.unwrap();
+
+    assert_eq!(initial_output.disposition, HlsSourceDisposition::Finished);
+    assert_eq!(seeked_output.disposition, HlsSourceDisposition::Finished);
+    assert_ne!(initial_output.session.id, seeked_output.session.id);
+    assert_ne!(
+        initial_output.session.request_key,
+        seeked_output.session.request_key
+    );
+    assert_ne!(initial_output.playlist_path, seeked_output.playlist_path);
+    assert!(
+        !initial_output
+            .session
+            .request_key
+            .contains("hls-playback-generation")
+    );
+    assert!(
+        seeked_output
+            .session
+            .request_key
+            .contains(";request_variant=hls-playback-generation:v1%3Bstart_ms%3D45000")
+    );
+
+    let reused_seek = app.playback().hls_source(seeked).await.unwrap();
+    assert_eq!(
+        reused_seek.disposition,
+        HlsSourceDisposition::ReusedExisting
+    );
+    assert_eq!(reused_seek.session.id, seeked_output.session.id);
 }
 
 #[tokio::test]
@@ -1228,6 +1286,7 @@ async fn hls_source_adaptive_identity_includes_source_aware_ladder() {
             source_id: source.id,
             client,
             preferences: PlaybackPreferenceContext::default(),
+            playback_generation: HlsPlaybackGeneration::default(),
         })
         .await
         .unwrap();
@@ -1339,6 +1398,7 @@ async fn hls_source_rejects_persisted_active_duplicate() {
             source_id: source.id,
             client: ClientPlaybackCapabilities::default(),
             preferences: PlaybackPreferenceContext::default(),
+            playback_generation: HlsPlaybackGeneration::default(),
         })
         .await
         .unwrap_err();
@@ -1372,6 +1432,7 @@ async fn hls_source_persists_runner_failure() {
             source_id: source.id,
             client: ClientPlaybackCapabilities::default(),
             preferences: PlaybackPreferenceContext::default(),
+            playback_generation: HlsPlaybackGeneration::default(),
         })
         .await
         .unwrap_err();

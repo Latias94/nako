@@ -60,12 +60,12 @@ Evidence workstreams:
 - `docs/workstreams/hls-media-renditions-runtime/`
 - `docs/workstreams/hls-alternate-audio-renditions/`
 - `docs/workstreams/hls-audio-sidecar-artifacts/`
+- `docs/workstreams/hls-seek-restart-lifecycle/`
 - `docs/workstreams/admin-playback-runtime-diagnostics/`
 - `docs/workstreams/admin-playback-session-read-model/`
 
 Proposed lanes:
 
-- `proposed:hls-seek-restart-lifecycle`
 - `proposed:hdr-tone-mapping-pipeline`
 - `proposed:audio-compatibility-downmix-normalization`
 - `proposed:playback-runtime-resource-scheduler`
