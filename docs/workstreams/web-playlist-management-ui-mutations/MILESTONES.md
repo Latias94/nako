@@ -15,10 +15,14 @@ Exit criteria: web data-source and TanStack Query mutation hooks cover the
 existing playlist mutation SDK surface without Admin API imports or fixture
 success overclaims.
 
+Completed by `WPMU-020`.
+
 ## M2 - Playlist CRUD Controls
 
 Exit criteria: `/media/my-list` supports create, rename, and delete with
 route-safe state transitions and tested loading/error/empty states.
+
+Completed by `WPMU-030`.
 
 ## M3 - Item Add And Remove Flows
 
@@ -26,10 +30,14 @@ Exit criteria: users can add and remove media items through Public Client-backed
 flows without leaking inaccessible item facts or writing library/media source
 state.
 
+Completed by `WPMU-040`.
+
 ## M4 - Reorder And Conflict Handling
 
 Exit criteria: playlist item order can be changed through an accessible flow
 that submits full ordered membership and recovers from stale-version conflicts.
+
+Completed by `WPMU-050`.
 
 ## M5 - Verification And Closeout
 

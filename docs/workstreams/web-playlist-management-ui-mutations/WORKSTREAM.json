@@ -7,9 +7,13 @@
   "scope_kind": "fearless_refactor",
   "problem": "The web playlist page can read current-user playlists, but it cannot manage playlist mutations through the Public Client contract yet.",
   "task_prefix": "WPMU",
-  "current_task": "WPMU-020",
+  "current_task": "WPMU-060",
   "completed_tasks": [
-    "WPMU-010"
+    "WPMU-010",
+    "WPMU-020",
+    "WPMU-030",
+    "WPMU-040",
+    "WPMU-050"
   ],
   "authoritative_docs": [
     { "role": "overview", "path": "docs/workstreams/web-playlist-management-ui-mutations/README.md" },
@@ -20,7 +24,7 @@
     { "role": "handoff", "path": "docs/workstreams/web-playlist-management-ui-mutations/HANDOFF.md" }
   ],
   "gates": [
-    "npm --prefix web run test -- src/test/data-source-contracts.test.ts",
+    "npm --prefix web run test -- src/test/data-source-contracts.test.ts src/test/use-media-contracts.test.tsx",
     "npm --prefix web run test -- src/test/route-contracts.test.tsx src/test/route-state-contracts.test.tsx",
     "npm --prefix web run test",
     "npm --prefix web run check",
@@ -29,7 +33,11 @@
     "git diff --check"
   ],
   "evidence": [
-    "WPMU-010 opened the lane from the closed User Playlist contract/web slice follow-on and froze Public Client-only playlist management mutation scope."
+    "WPMU-010 opened the lane from the closed User Playlist contract/web slice follow-on and froze Public Client-only playlist management mutation scope.",
+    "WPMU-020 added Public Client-backed web playlist mutation data-source methods and TanStack Query mutation hooks with cache invalidation and fixture non-persistence semantics.",
+    "WPMU-030 added /media/my-list playlist create, rename, and delete controls with route-safe mutation behavior and desktop/mobile screenshot evidence.",
+    "WPMU-040 added playlist item add/remove UI flows through Public Client mutation hooks, with route/data-source tests and browser smoke evidence.",
+    "WPMU-050 added explicit playlist item reorder controls with full item_ids submission, route-state preservation, stale-version refetch recovery, tests, and browser smoke evidence."
   ],
   "adr_refs": [
     "docs/adr/0021-video-first-media-server-domain-model.md",
@@ -39,6 +47,6 @@
   ],
   "continue_policy": {
     "default_action": "continue_current_task",
-    "notes": "Continue with WPMU-020. Add the Public Client playlist mutation data-source and TanStack Query mutation hook boundary before UI controls."
+    "notes": "Continue with WPMU-060. Run full lane verification, record closeout evidence, and split any residual follow-ons before closing."
   }
 }
