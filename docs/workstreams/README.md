@@ -6,8 +6,12 @@ attention.
 
 ## Current Workstreams
 
+- [media-server-architecture-progress-map](media-server-architecture-progress-map/README.md):
+  closed architecture documentation lane that added the top-level Nako
+  architecture map, refreshed playback/transcode roadmap status, and recorded
+  the HLS/media-engine boundary in ADR 0052.
 - [hls-audio-sidecar-artifacts](hls-audio-sidecar-artifacts/README.md):
-  active fearless refactor lane for generating real HLS audio sidecar
+  closed fearless refactor lane for generating real HLS audio sidecar
   playlists/segments and publishing `TYPE=AUDIO` master playlist groups only
   for servable artifacts.
 - [hls-alternate-audio-renditions](hls-alternate-audio-renditions/README.md):

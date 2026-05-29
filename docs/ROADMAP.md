@@ -228,7 +228,8 @@ Important remaining breadth:
 
 ### Playback and Transcode: M4.2-M4.10
 
-Status: completed for the local video-library playback MVP.
+Status: completed for the local video-library playback MVP, with post-MVP HLS
+runtime deepening in progress.
 
 Completed:
 
@@ -245,10 +246,16 @@ Completed:
 - HTTP remux playback route backed by the remux application service.
 - persisted remux/transcode session records with startup stale-session
   recovery and lookup API.
-- minimal single-variant HLS command planning, session orchestration, playlist
-  route, and segment route.
+- single-variant HLS command planning, session orchestration, playlist route,
+  and segment route for MPEG-TS and fMP4 output.
+- adaptive HLS fMP4 ladder planning and source-aware rendition constraints.
+- selected audio stream mapping for HLS.
+- selected subtitle WebVTT sidecar generation and master playlist
+  `TYPE=SUBTITLES` authoring.
+- generated audio sidecar HLS playlists/segments and master playlist
+  `TYPE=AUDIO` authoring.
 - hardware acceleration capability, fallback, and CPU/GPU budget policy for
-  VAAPI, NVENC, and QuickSync command planning.
+  VAAPI, NVENC, QuickSync, AMF, and VideoToolbox-shaped command planning.
 - MVP stabilization for API docs, config docs, route error behavior, test
   coverage, known limitations, and bounded resource notes.
 
@@ -258,7 +265,13 @@ Next phase:
 
 Future playback work:
 
-- adaptive bitrate HLS ladder.
+- HLS seek/restart lifecycle semantics for long-running sessions.
+- HDR to SDR tone mapping and color pipeline policy.
+- ASS/SSA subtitle rendering and burn-in policy.
+- richer browser, mobile, TV, Chromecast, DLNA, and AirPlay device profiles.
+- bandwidth-aware ABR refinement and variant pruning.
+- GPU decode/encode concurrency scheduling.
+- optional DASH/CMAF/LL-HLS after HLS behavior is stable.
 
 ### Extension and Automation: M5
 

@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "slug": "media-server-architecture-progress-map",
+  "title": "Media Server Architecture Progress Map",
+  "status": "closed",
+  "updated": "2026-05-29",
+  "scope_kind": "architecture_docs",
+  "problem": "Nako has detailed ADRs and workstreams, but lacks one current architecture map that shows the future media-server target, current progress, and next architectural pressure points.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/media-server-architecture-progress-map/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/media-server-architecture-progress-map/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/media-server-architecture-progress-map/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/media-server-architecture-progress-map/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/media-server-architecture-progress-map/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/media-server-architecture-progress-map/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python3 -m json.tool docs/workstreams/media-server-architecture-progress-map/WORKSTREAM.json",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "MSAP-010",
+      "summary": "Reviewed existing architecture authority and froze this as a documentation-only progress-map lane."
+    },
+    {
+      "task": "MSAP-020",
+      "summary": "Added docs/ARCHITECTURE.md as the top-level media-server system map."
+    },
+    {
+      "task": "MSAP-030",
+      "summary": "Added ADR 0052 to record the FFmpeg CLI-first HLS runtime and media-engine boundary."
+    },
+    {
+      "task": "MSAP-040",
+      "summary": "Updated indexes and roadmap, recorded evidence, and closed the lane."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0052-hls-runtime-and-media-engine-boundary.md",
+    "docs/adr/0038-playback-planning-and-transcode-policy-seams.md",
+    "docs/adr/0044-playback-capability-profile-planner.md",
+    "docs/adr/0049-source-aware-transcode-runtime.md"
+  ],
+  "continue_policy": {
+    "default_action": "closed",
+    "notes": "The lane is closed. Open focused follow-ons for HLS seek/restart, HDR/subtitle compatibility, richer device profiles, or remote transcode workers."
+  }
+}

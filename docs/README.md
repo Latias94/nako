@@ -35,6 +35,8 @@ policy, and workstream-level design notes for Nako.
 
 ## Core Documents
 
+- [Architecture map](ARCHITECTURE.md): current system map, media-server north
+  star, progress matrix, and next architectural pressure points.
 - [ADR index](adr/README.md): durable architecture decisions and their status.
 - [HTTP API](api/HTTP_API.md): current server API contract.
 - [Addon author guide](guides/ADDON_AUTHOR_GUIDE.md): Nako HTTP addon manifest

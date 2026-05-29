@@ -26,6 +26,32 @@ proposed milestone.
 
 ## Current Goal
 
+### Media Server Architecture Map
+
+Status: completed.
+
+Objective:
+
+- Make Nako's future-facing media-server architecture navigable after the
+  recent playback/transcode deepening lanes.
+- Clarify the long-term Jellyfin/Plex-class target without turning the roadmap
+  into a feature checklist detached from current implementation evidence.
+
+Deliverables:
+
+- `docs/ARCHITECTURE.md`
+- `docs/adr/0052-hls-runtime-and-media-engine-boundary.md`
+- `docs/workstreams/media-server-architecture-progress-map/`
+- Roadmap and documentation index updates.
+
+Evidence:
+
+- Workstream docs:
+  `docs/workstreams/media-server-architecture-progress-map/`.
+- Closeout proof:
+  - `python3 -m json.tool docs/workstreams/media-server-architecture-progress-map/WORKSTREAM.json`;
+  - `git diff --check`.
+
 ### Addon Ecosystem Foundation
 
 Status: active.

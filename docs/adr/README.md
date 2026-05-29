@@ -70,3 +70,4 @@ evidence has been reviewed.
 - [0049: Source-Aware Transcode Runtime](0049-source-aware-transcode-runtime.md)
 - [0050: Acquisition Resource Action Boundaries](0050-acquisition-resource-action-boundaries.md)
 - [0051: Host-Owned Subtitle Import Chain](0051-host-owned-subtitle-import-chain.md)
+- [0052: HLS Runtime And Media Engine Boundary](0052-hls-runtime-and-media-engine-boundary.md)
