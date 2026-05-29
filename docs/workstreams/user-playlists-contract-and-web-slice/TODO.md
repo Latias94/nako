@@ -25,12 +25,16 @@ Last updated: 2026-05-29
 
 ## M2 - Backend Persistence And App Service
 
-- [ ] UPCW-030 [owner=Codex] [deps=UPCW-020] [scope=crates/nako-core,crates/nako-db,crates/nako-server/src/app]
+- [x] UPCW-030 [owner=Codex] [deps=UPCW-020] [scope=crates/nako-core,crates/nako-db,crates/nako-server/src/app]
   Goal: Implement principal-scoped playlist records, ordered membership persistence, and app-service validation.
   Validation: `cargo nextest run -p nako-db playlist --no-fail-fast`; focused app-service tests; `cargo fmt --all -- --check`.
   Review: no bearer tokens, canonical metadata writes, media source writes, NFO writes, or library-file writes.
-  Evidence: repository and app-service tests.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Evidence: DONE. Core User Playlist records/repository trait, SQLite/PostgreSQL
+  baseline schema/adapters, NakoDatabase facade, database contract test, and
+  `UserPlaylistAppService` tests cover principal scope, idempotent membership,
+  ordering/reorder, stale version conflicts, name validation, and media item
+  existence.
+  Handoff: DONE. Next task is UPCW-040.
 
 ## M3 - Public API, SDKs, And Access Enforcement
 

@@ -22,6 +22,8 @@ Completed by `UPCW-020`.
 Exit criteria: principal-scoped playlist records and ordered membership behavior
 are implemented and tested across repository/app boundaries.
 
+Completed by `UPCW-030`.
+
 ## M3 - Public API, SDKs, And Access Enforcement
 
 Exit criteria: Public Client routes and SDK methods exist and enforce effective

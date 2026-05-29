@@ -22,6 +22,7 @@ mod scan;
 mod settings;
 mod transcode;
 mod user_playback;
+mod user_playlist;
 mod vfs;
 mod webhook;
 
@@ -49,5 +50,6 @@ pub use scan::*;
 pub use settings::*;
 pub use transcode::*;
 pub use user_playback::*;
+pub use user_playlist::*;
 pub use vfs::*;
 pub use webhook::*;

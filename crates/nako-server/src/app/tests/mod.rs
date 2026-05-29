@@ -79,6 +79,7 @@ mod staging;
 mod startup;
 mod storage;
 mod user_playback;
+mod user_playlist;
 
 fn remote_media_source(locator: &str) -> MediaSource {
     MediaSource {

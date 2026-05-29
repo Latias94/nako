@@ -35,6 +35,7 @@ use super::{
     startup::{ServerStartupReport, ServerStartupWorkflow},
     storage::{StorageBackendRegistry, StorageDiagnosticsAppService},
     user_playback::UserPlaybackAppService,
+    user_playlist::UserPlaylistAppService,
     webhooks::WebhookAppService,
 };
 
@@ -162,6 +163,7 @@ pub(super) struct NakoAppServices {
     pub(super) renderer_transport_tickets: RendererTransportTicketService,
     pub(super) renderer_adapters: RendererAdapterBridgeService,
     pub(super) renderer: RendererAppService,
+    pub(super) user_playlist: UserPlaylistAppService,
     pub(super) user_playback: UserPlaybackAppService,
 }
 
@@ -228,6 +230,7 @@ impl NakoAppServices {
         let renderer_adapters = RendererAdapterBridgeService::new();
         let renderer = RendererAppService::new(store.clone());
         let casting = CastingAppService::new(renderer.clone(), playback.clone());
+        let user_playlist = UserPlaylistAppService::new(store.clone());
         let user_playback = UserPlaybackAppService::new(store);
 
         Ok(Self {
@@ -251,6 +254,7 @@ impl NakoAppServices {
             renderer_transport_tickets,
             renderer_adapters,
             renderer,
+            user_playlist,
             user_playback,
         })
     }

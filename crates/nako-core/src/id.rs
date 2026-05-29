@@ -109,6 +109,7 @@ define_id!(ProviderSubjectId);
 define_id!(ProviderMappingId);
 define_id!(SourceDuplicateRelationshipId);
 define_id!(LocalInferenceEvidenceId);
+define_id!(UserPlaylistId);
 
 #[cfg(test)]
 mod tests {
