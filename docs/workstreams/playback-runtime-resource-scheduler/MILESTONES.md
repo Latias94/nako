@@ -1,6 +1,6 @@
 # Playback Runtime Resource Scheduler — Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-29
 
 ## M0 — Scope And Evidence Freeze
@@ -68,7 +68,7 @@ Primary gates:
 
 ## M4 — Closeout
 
-Status: Pending
+Status: Completed
 
 Exit criteria:
 
@@ -77,3 +77,10 @@ Exit criteria:
 - Queueing, remote workers, OS isolation, and per-device tuning are completed,
   deferred, or split into named follow-ons.
 - `WORKSTREAM.json` status is updated.
+
+Primary evidence:
+
+- `docs/workstreams/playback-runtime-resource-scheduler/CLOSEOUT.md`
+- `docs/workstreams/playback-runtime-resource-scheduler/EVIDENCE_AND_GATES.md`
+- `docs/architecture/PLAYBACK.md`
+- `docs/architecture/WORKSTREAM_LINKS.md`

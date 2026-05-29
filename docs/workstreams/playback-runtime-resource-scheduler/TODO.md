@@ -1,6 +1,6 @@
 # Playback Runtime Resource Scheduler — TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-29
 
 ## Task Ledger
@@ -190,8 +190,8 @@ Handoff:
 
 ### PRRS-050 — Verify, document, and close or split follow-ons
 
-Status: Pending
-Owner: planner
+Status: Completed
+Owner: codex
 Depends on: PRRS-040
 
 Scope:
@@ -228,4 +228,10 @@ Evidence:
 
 Handoff:
 
-- Update `WORKSTREAM.json` status and continue policy.
+- DONE: `WORKSTREAM.json` status and continue policy were updated.
+- DONE: `DESIGN.md`, `MILESTONES.md`, `EVIDENCE_AND_GATES.md`, `HANDOFF.md`,
+  `CLOSEOUT.md`, and playback architecture indexes reflect the shipped first
+  slice.
+- DONE: Queueing, remote workers, OS resource isolation, per-device tuning,
+  LL-HLS/DASH, DRM/key delivery, and HLS artifact I/O pressure enforcement are
+  deferred to follow-on lanes instead of being hidden in this workstream.
