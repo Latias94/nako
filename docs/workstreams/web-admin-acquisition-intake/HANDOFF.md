@@ -15,6 +15,12 @@ and added the new `web/` read-model boundary:
 - data-source contract tests for query serialization, fixture fallback, and
   redaction of non-contract raw fields
 
+WAAI-030 implemented `/admin/acquisition/intake` in the new `web/` shell. The
+route is read-only, Admin-only, and owns `library_id`, `state`, `source_kind`,
+`managed_import_artifact_id`, `limit`, and `offset` search params. The page
+renders redacted candidate diagnostics, fixture/live source status, pagination,
+and redaction-safe fields only.
+
 The old `apps/admin-web` implementation is prior art, not code to copy into the
 new shell. The new work belongs in `web/src/api/admin`,
 `web/src/features/admin`, `web/src/shell/nako-router.tsx`, and tests under
@@ -22,13 +28,14 @@ new shell. The new work belongs in `web/src/api/admin`,
 
 ## Active Task
 
-- Task ID: WAAI-030
+- Task ID: WAAI-040
 - Owner: Codex
 - Status: READY
-- Validation: route contract tests, route-state tests, data-source contracts,
-  TypeScript check, and bundle budget.
+- Validation: mutation boundary decision recorded; if code changes are made,
+  `npm --prefix web run test` and `npm --prefix web run check`.
 
 ## Next Recommended Action
 
-Start WAAI-030. Wire `/admin/acquisition/intake` into the shell using the
-existing read-model boundary; keep it read-only and Admin-only.
+Start WAAI-040. Decide whether watch-folder discovery belongs in this lane as a
+guarded mutation or should split into a follow-on. Do not imply promotion,
+apply, or direct library writes.

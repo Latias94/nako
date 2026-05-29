@@ -22,12 +22,12 @@ Last updated: 2026-05-29
 
 ## M2 - Route-First Intake Page
 
-- [ ] WAAI-030 [owner=Codex] [deps=WAAI-020] [scope=web/src/api/admin,web/src/features/admin,web/src/shell,web/src/test]
+- [x] WAAI-030 [owner=Codex] [deps=WAAI-020] [scope=web/src/api/admin,web/src/features/admin,web/src/shell,web/src/test]
   Goal: Implement `/admin/acquisition/intake` as a read-only Admin route with route-owned query state and fixture/live data-source behavior.
   Validation: `npm --prefix web run test`; `npm --prefix web run check`; `npm --prefix web run build:budget`.
   Review: assert no raw locators, local paths, credentials, prompt bodies, or downloader internals are rendered.
   Evidence: route component, route contract, route-state contract, and data-source contract tests.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Handoff: DONE. Next task is WAAI-040.
 
 ## M3 - Mutation Boundary Decision
 

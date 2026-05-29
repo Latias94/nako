@@ -22,6 +22,8 @@ Completed by `WAAI-020`.
 Exit criteria: `/admin/acquisition/intake` renders a read-only candidate
 diagnostic workflow with route-owned query state and redaction assertions.
 
+Completed by `WAAI-030`.
+
 ## M3 - Mutation Boundary Decision
 
 Exit criteria: watch-folder discovery and candidate acceptance are either

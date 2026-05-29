@@ -1,13 +1,13 @@
 # Web Admin Acquisition Intake - Route/API Readiness
 
-Status: Read model audited
+Status: Route implemented
 Last updated: 2026-05-29
 
 ## Route Target
 
 | Frontend route | Surface | Status | Notes |
 | --- | --- | --- | --- |
-| `/admin/acquisition/intake` | Admin | Planned | New `web/` route with route-owned query state and read-only candidate diagnostics. WAAI-020 added the data-source/read-model boundary; WAAI-030 owns route wiring and UI. |
+| `/admin/acquisition/intake` | Admin | Implemented | New `web/` route with route-owned query state and read-only candidate diagnostics. WAAI-020 added the data-source/read-model boundary; WAAI-030 wired the route, page, filters, pagination, and redaction tests. |
 
 ## Generated Admin Contracts
 
@@ -52,8 +52,8 @@ WAAI-020 added the boundary but not the page:
 | `AdminAcquisitionIntakeReadModel` | UI-safe envelope with versions, normalized query, candidates, and page info. |
 | `AdminAcquisitionIntakeCandidateReadModel` | Redacted candidate row/card model. |
 
-`/admin/acquisition/intake` should use the data-source method above in WAAI-030.
-The route owns browser search params and should serialize only:
+`/admin/acquisition/intake` uses the data-source method above. The route owns
+browser search params and serializes only:
 
 ```text
 library_id
@@ -99,3 +99,13 @@ npm --prefix web run build:budget
 ```
 
 Closeout should also include browser smoke for desktop and mobile viewports.
+
+## WAAI-030 Route Evidence
+
+WAAI-030 added `web/src/features/admin/admin-acquisition-intake.tsx`, route
+wiring in `web/src/shell/nako-router.tsx`, and Admin navigation wiring in
+`web/src/features/admin/admin-surface.tsx`.
+
+The route is read-only. It calls `loadAcquisitionIntake(query)`, renders only
+the redacted read-model fields, and keeps watch-folder discovery deferred to
+WAAI-040.

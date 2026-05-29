@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { NakoRouter, createNakoRouter } from "@/src/shell"
 import { ThemeProvider } from "@/components/theme-provider"
 import { QueryProvider } from "@/lib/query-provider"
-import { CONNECTION_PROFILE_STORAGE_KEY } from "@/src/api/connection-profile"
+import { CONNECTION_PROFILE_STORAGE_KEY, CONNECTION_SESSION_STORAGE_KEY } from "@/src/api/connection-profile"
 
 function renderRoute(path: string) {
   const router = createNakoRouter({
@@ -37,6 +37,79 @@ describe("route state contracts", () => {
 
     await waitFor(() => {
       expect(router.state.location.search).toMatchObject({ q: "database" })
+    })
+  })
+
+  it("renders live Admin acquisition intake candidates without exposing raw sensitive fields", async () => {
+    const originalFetch = globalThis.fetch
+    const previousProfile = window.localStorage.getItem(CONNECTION_PROFILE_STORAGE_KEY)
+    const previousSession = window.sessionStorage.getItem(CONNECTION_SESSION_STORAGE_KEY)
+    const calls: Array<{ path: string; authorization: string | null }> = []
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      calls.push({
+        path: `${url.pathname}${url.search}`,
+        authorization: new Headers(init?.headers).get("Authorization"),
+      })
+
+      if (url.pathname === "/admin/v1/acquisition/intake/candidates") {
+        return jsonResponse(adminAcquisitionIntakeCandidatesResponse())
+      }
+
+      return jsonResponse({ code: "not_found", message: "not found" }, 404)
+    })
+
+    window.localStorage.setItem(
+      CONNECTION_PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        mode: "live",
+        runtime: "browser",
+        baseUrl: "http://nako-admin.test",
+      }),
+    )
+    window.sessionStorage.setItem(
+      CONNECTION_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        bearerToken: "admin-token",
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+
+    try {
+      renderRoute(
+        "/admin/acquisition/intake?library_id=library-a&state=ready&source_kind=watch_folder&managed_import_artifact_id=artifact-live&limit=25&offset=50",
+      )
+
+      expect(await screen.findByText("candidate-live", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(screen.getByText("file://<redacted>/Live.mkv")).toBeInTheDocument()
+      expect(screen.queryByText("/mnt/private/raw/Live.mkv")).not.toBeInTheDocument()
+      expect(screen.queryByText("unsafe prompt body")).not.toBeInTheDocument()
+      expect(screen.queryByText("admin-token")).not.toBeInTheDocument()
+      expect(calls).toContainEqual({
+        path: [
+          "/admin/v1/acquisition/intake/candidates",
+          "?library_id=library-a&state=ready&source_kind=watch_folder",
+          "&managed_import_artifact_id=artifact-live&limit=25&offset=50",
+        ].join(""),
+        authorization: "Bearer admin-token",
+      })
+    } finally {
+      vi.stubGlobal("fetch", originalFetch)
+      restoreStorage(window.localStorage, CONNECTION_PROFILE_STORAGE_KEY, previousProfile)
+      restoreStorage(window.sessionStorage, CONNECTION_SESSION_STORAGE_KEY, previousSession)
+    }
+  })
+
+  it("writes Admin acquisition intake filter state to the URL", async () => {
+    const user = userEvent.setup()
+    const { router } = renderRoute("/admin/acquisition/intake")
+
+    await user.type(await screen.findByLabelText("媒体库 ID", {}, { timeout: 5000 }), "library-anime")
+    await user.click(screen.getByRole("button", { name: "应用筛选" }))
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/admin/acquisition/intake")
+      expect(router.state.location.search).toMatchObject({ library_id: "library-anime" })
     })
   })
 
@@ -677,6 +750,51 @@ function jsonResponse(body: unknown, status = 200) {
       "content-type": "application/json",
     },
   })
+}
+
+function restoreStorage(storage: Storage, key: string, value: string | null) {
+  if (value === null) {
+    storage.removeItem(key)
+    return
+  }
+
+  storage.setItem(key, value)
+}
+
+function adminAcquisitionIntakeCandidatesResponse() {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    candidates: [
+      {
+        id: "candidate-live",
+        target_library_id: "library-a",
+        source_kind: "watch_folder",
+        custom_source_kind: false,
+        source_scheme: "file",
+        source_ref_redacted: "file://<redacted>/Live.mkv",
+        source_key_fingerprint: "sha256:candidate-live",
+        has_display_name: true,
+        has_intended_locator: true,
+        size_bytes: 123456789,
+        has_fingerprint: true,
+        managed_import_artifact_id: "artifact-live",
+        state: "ready",
+        has_diagnostics: true,
+        first_seen_at_ms: 1710468000000,
+        last_seen_at_ms: 1710468300000,
+        created_at_ms: 1710468000000,
+        updated_at_ms: 1710468300000,
+        intended_locator: "file:///mnt/private/raw/Live.mkv",
+        prompt_body: "unsafe prompt body",
+      },
+    ],
+    page: {
+      limit: 25,
+      offset: 50,
+      returned: 1,
+    },
+  }
 }
 
 function publicUserPlaylist(overrides: Record<string, unknown> = {}) {

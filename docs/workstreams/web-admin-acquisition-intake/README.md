@@ -18,5 +18,6 @@ Managed Import linkage, not Media client chrome.
 
 ## Current Execution Point
 
-`WAAI-020` audited and implemented the acquisition intake read-model boundary.
-Continue with `WAAI-030`, the route-first `/admin/acquisition/intake` page.
+`WAAI-030` implemented the route-first `/admin/acquisition/intake` page in the
+new `web/` shell. Continue with `WAAI-040`, the mutation boundary decision for
+watch-folder discovery.
