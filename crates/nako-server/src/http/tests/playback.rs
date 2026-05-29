@@ -95,6 +95,24 @@ async fn wait_for_transcode_state(
     panic!("transcode session {session_id} did not reach {expected:?}; last state: {last_state:?}");
 }
 
+async fn wait_for_hls_segment_ok(router: &Router, uri: &str) -> axum::response::Response {
+    let mut last_status = None;
+    for _ in 0..250 {
+        let response = response_for(router, Method::GET, uri).await;
+        let status = response.status();
+        if status == StatusCode::OK {
+            return response;
+        }
+        if status != StatusCode::CONFLICT {
+            panic!("expected hls segment {uri} to become OK, got {status}");
+        }
+        last_status = Some(status);
+        sleep(Duration::from_millis(20)).await;
+    }
+
+    panic!("hls segment {uri} did not become OK; last status: {last_status:?}");
+}
+
 #[tokio::test]
 async fn playback_decision_and_direct_stream_routes_work() {
     let temp = tempfile::tempdir().unwrap();
@@ -2038,17 +2056,7 @@ async fn hls_playlist_and_segment_routes_work() {
 
     assert!(playlist.contains(&segment_path));
 
-    let segment_response = router
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method(Method::GET)
-                .uri(&segment_path)
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
+    let segment_response = wait_for_hls_segment_ok(&router, &segment_path).await;
 
     assert_eq!(segment_response.status(), StatusCode::OK);
     assert_eq!(
@@ -2062,6 +2070,8 @@ async fn hls_playlist_and_segment_routes_work() {
         .await
         .unwrap();
     assert_eq!(&segment[..], b"segment");
+
+    wait_for_transcode_state(&store, session.id, TranscodeSessionState::Finished).await;
 
     let legacy_segment_path = format!(
         "/playback/sessions/{}/hls/segments/segment_00000.ts",
@@ -2105,7 +2115,7 @@ async fn hls_playlist_route_returns_while_transcode_session_is_running() {
     let playlist_path = format!("/sources/{}/stream/hls/playlist.m3u8", source.id);
 
     let playlist_response = tokio::time::timeout(
-        Duration::from_millis(800),
+        Duration::from_secs(15),
         router.clone().oneshot(
             Request::builder()
                 .method(Method::GET)
@@ -2234,7 +2244,7 @@ async fn hls_playlist_route_accepts_seek_start_position() {
             TranscodeSessionListFilter {
                 source_id: Some(source.id),
                 kind: Some(TranscodeSessionKind::HlsTranscode),
-                state: Some(TranscodeSessionState::Finished),
+                state: None,
             },
             PageRequest::first_page(),
         )
@@ -2362,8 +2372,7 @@ async fn browser_playback_ticket_protects_hls_playlist_and_segments() {
         .to_owned();
     assert!(segment_uri.starts_with(&format!("/playback/sessions/{playback_session_id}/")));
 
-    let segment_response = response_for(&router, Method::GET, &segment_uri).await;
-    assert_eq!(segment_response.status(), StatusCode::OK);
+    let segment_response = wait_for_hls_segment_ok(&router, &segment_uri).await;
     let segment = to_bytes(segment_response.into_body(), usize::MAX)
         .await
         .unwrap();

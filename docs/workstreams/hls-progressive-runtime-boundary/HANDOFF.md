@@ -1,11 +1,11 @@
 # HLS Progressive Runtime Boundary — Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-29
 
 ## Current State
 
-HPRB-050 is complete. `nako-transcode` has an explicit
+HPRB-060 is complete. `nako-transcode` has an explicit
 `HlsOutputPublicationPolicy`: the default `AtomicOnCompletion` path preserves
 the existing temporary-directory promotion behavior, and server HLS now uses
 `ServeWhileRunning` so playlist-facing app and HTTP paths can observe playlists
@@ -18,11 +18,13 @@ entry points, and artifact reconstruction now flows through
 `nako-transcode::HlsArtifactSpec` instead of server-local `request_key`
 substring parsing. Playlist authoring, session route binding, and browser or
 renderer auth query decoration now flow through one manifest-aware app-layer
-boundary. The remaining work is closeout verification and follow-on splitting.
+boundary. Closeout verification tightened running playlist readiness: the
+server no longer treats a partially written playlist file as ready until it
+contains at least one media or variant URI line.
 
 ## Active Task
 
-- Task ID: HPRB-060
+- Task ID: none
 - Owner: planner
 - Files:
   - `docs/workstreams/hls-progressive-runtime-boundary`
@@ -34,8 +36,8 @@ boundary. The remaining work is closeout verification and follow-on splitting.
   - `cargo nextest run -p nako-server playback --no-fail-fast`
   - `cargo fmt --all -- --check`
   - `git diff --check`
-- Status: PENDING
-- Review: pending
+- Status: COMPLETED
+- Review: final closeout gates passed
 - Evidence: `docs/workstreams/hls-progressive-runtime-boundary/EVIDENCE_AND_GATES.md`
 
 ## Decisions Since Last Update
@@ -67,7 +69,7 @@ boundary. The remaining work is closeout verification and follow-on splitting.
 
 ## Next Recommended Action
 
-- Run `run-workstream-task` for HPRB-060.
-- Execute the final closeout gates, update architecture docs only if they need
-  a shipped-behavior refresh, and split LL-HLS, DASH, DRM, remote workers, or
-  resource scheduler work into separate lanes instead of expanding this one.
+- Keep HLS progressive runtime in maintenance mode.
+- Open separate lanes for LL-HLS, DASH/CMAF, DRM/key delivery, remote transcode
+  workers, selected-main-audio cleanup, or the playback runtime resource
+  scheduler when those become the next priority.

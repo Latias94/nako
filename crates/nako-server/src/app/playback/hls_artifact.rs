@@ -1,4 +1,5 @@
 use std::{
+    io::ErrorKind,
     path::Path,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -53,6 +54,16 @@ impl HlsArtifactService {
                     format!("failed to read hls playlist: {err}"),
                 )
             })?;
+        if transcode.state == TranscodeSessionState::Running
+            && !hls_playlist_contains_artifact_uri(&body)
+        {
+            return Err(NakoError::Conflict {
+                message: format!(
+                    "hls playlist for session {} is not ready; current state is {:?}",
+                    transcode.id, transcode.state
+                ),
+            });
+        }
 
         author_hls_session_playlist(
             &body,
@@ -60,6 +71,30 @@ impl HlsArtifactService {
             HlsPlaylistSessionBinding::Playback(playback_session_id),
             HlsPlaylistUrlDecoration::optional_query(transport_query),
         )
+    }
+
+    pub(super) async fn playlist_is_ready(
+        &self,
+        transcode: &TranscodeSessionRecord,
+    ) -> Result<bool> {
+        let manifest = hls_artifact_manifest_for_session(transcode)?;
+        let playlist_path = manifest.primary_playlist_path();
+        if !path_exists(playlist_path)? {
+            return Ok(false);
+        }
+
+        let body = match tokio::fs::read_to_string(playlist_path).await {
+            Ok(body) => body,
+            Err(err) if err.kind() == ErrorKind::NotFound => return Ok(false),
+            Err(err) => {
+                return Err(NakoError::storage_io(
+                    playlist_path.display().to_string(),
+                    format!("failed to read hls playlist: {err}"),
+                ));
+            }
+        };
+
+        Ok(hls_playlist_contains_artifact_uri(&body))
     }
 
     pub(super) async fn plan_segment(
@@ -143,6 +178,12 @@ fn hls_session_can_serve_artifacts(state: TranscodeSessionState) -> bool {
         state,
         TranscodeSessionState::Running | TranscodeSessionState::Finished
     )
+}
+
+fn hls_playlist_contains_artifact_uri(body: &str) -> bool {
+    body.lines()
+        .map(str::trim)
+        .any(|line| !line.is_empty() && !line.starts_with('#'))
 }
 
 async fn wait_for_hls_segment_if_configured(
@@ -271,6 +312,17 @@ mod tests {
     };
 
     use super::*;
+
+    #[test]
+    fn hls_playlist_readiness_requires_a_media_uri_line() {
+        assert!(!hls_playlist_contains_artifact_uri("#EXTM3U\n#EXTINF:1,\n"));
+        assert!(hls_playlist_contains_artifact_uri(
+            "#EXTM3U\n#EXTINF:1,\nsegment_00000.ts\n"
+        ));
+        assert!(hls_playlist_contains_artifact_uri(
+            "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1000\nvariant_0.m3u8\n"
+        ));
+    }
 
     #[tokio::test]
     async fn hls_segment_waits_once_for_running_segment_when_throttle_enabled() {

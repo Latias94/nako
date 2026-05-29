@@ -2391,6 +2391,7 @@ hevc_metadata
         );
         let output_dir = temp.path().join("hls");
         let playlist_path = output_dir.join("playlist.m3u8");
+        let segment_path = output_dir.join("segment_00000.ts");
         let segment_pattern = output_dir.join("segment_%05d.ts");
         let execution =
             planned_hls_execution(&script, &output_dir, &playlist_path, &segment_pattern);
@@ -2406,6 +2407,7 @@ hevc_metadata
 
         let run = tokio::spawn(async move { runner.run(execution, cancel).await });
         wait_until_path_exists(&playlist_path).await;
+        wait_until_path_exists(&segment_path).await;
 
         assert!(!run.is_finished());
         assert!(
@@ -2413,10 +2415,7 @@ hevc_metadata
                 .unwrap()
                 .contains("#EXTM3U")
         );
-        assert_eq!(
-            fs::read_to_string(output_dir.join("segment_00000.ts")).unwrap(),
-            "segment"
-        );
+        assert_eq!(fs::read_to_string(segment_path).unwrap(), "segment");
 
         cancel_handle.cancel();
         let outcome = time::timeout(Duration::from_millis(800), run)

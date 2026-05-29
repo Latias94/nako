@@ -2038,7 +2038,7 @@ impl PlaybackAppService {
                         return Ok(context.playlist_ready(session));
                     }
                     TranscodeSessionState::Running => {
-                        if path_exists(&context.layout.playlist_path)? {
+                        if self.hls_artifacts.playlist_is_ready(&session).await? {
                             return Ok(context.playlist_ready(session));
                         }
                     }

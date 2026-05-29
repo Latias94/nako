@@ -7,9 +7,9 @@ attention.
 ## Current Workstreams
 
 - [hls-progressive-runtime-boundary](hls-progressive-runtime-boundary/README.md):
-  active fearless refactor lane for removing the whole-output HLS runtime
+  completed fearless refactor lane for removing the whole-output HLS runtime
   assumption after fMP4, adaptive ladders, media renditions, audio sidecars,
-  and seek generation identity. It makes HLS artifact publication, playlist
+  and seek generation identity. It made HLS artifact publication, playlist
   readiness, running segment serving, typed artifact reconstruction, and
   manifest-aware playlist auth decoration future-ready for a Jellyfin/Plex-class
   self-hosted media server.

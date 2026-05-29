@@ -1,6 +1,6 @@
 # HLS Progressive Runtime Boundary — TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-29
 
 ## Task Ledger
@@ -236,7 +236,7 @@ Handoff:
 
 ### HPRB-060 — Verify, document, and close or split follow-ons
 
-Status: Pending
+Status: Completed
 Owner: planner
 Depends on: HPRB-050
 
@@ -275,4 +275,9 @@ Evidence:
 
 Handoff:
 
-- Update `WORKSTREAM.json` status and continue policy.
+- DONE: final closeout gates passed with fresh evidence.
+- DONE: playlist readiness now rejects partially written running playlists that
+  do not yet contain a media or variant URI line.
+- DONE: architecture and workstream indexes mark the lane as completed.
+- DONE: LL-HLS, DASH/CMAF, DRM/key delivery, remote transcode workers, selected
+  audio cleanup, and resource scheduling remain split follow-ons.
