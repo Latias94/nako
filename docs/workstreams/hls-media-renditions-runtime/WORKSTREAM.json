@@ -2,8 +2,8 @@
   "schema_version": 1,
   "slug": "hls-media-renditions-runtime",
   "title": "HLS Media Renditions Runtime",
-  "status": "active",
-  "updated": "2026-05-28",
+  "status": "closed",
+  "updated": "2026-05-29",
   "scope_kind": "fearless_refactor",
   "problem": "Nako's HLS runtime can execute video variants, but it has no typed media rendition boundary for selected subtitles or alternate audio artifacts.",
   "authoritative_docs": [
@@ -46,6 +46,18 @@
     {
       "task": "HMR-010",
       "summary": "Opened the durable fearless refactor lane for a typed HLS media rendition boundary and a first selected-subtitle or alternate-audio foundation slice."
+    },
+    {
+      "task": "HMR-020",
+      "summary": "Added typed HLS media rendition and request-variant identity boundaries for selected subtitle sidecar artifacts."
+    },
+    {
+      "task": "HMR-030",
+      "summary": "Implemented selected subtitle WebVTT sidecar FFmpeg command planning and HLS artifact allow-listing."
+    },
+    {
+      "task": "HMR-040",
+      "summary": "Integrated selected subtitle media renditions into server HLS staging, artifact reconstruction, playlist rewrite coverage, session reuse, and playback route gates."
     }
   ],
   "adr_refs": [
@@ -54,8 +66,7 @@
     "docs/adr/0049-source-aware-transcode-runtime.md"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "next_task": "HMR-020",
-    "notes": "Inspect selected stream facts and HLS artifact shape, then implement the smallest media rendition plan that can support selected WebVTT subtitles or a verified foundation."
+    "default_action": "closed",
+    "notes": "The lane is closed. Follow-on work should open a new workstream for richer HLS master playlist media tags, full alternate audio, image-subtitle policy, LL-HLS/CMAF/DRM, or a second transcode engine adapter."
   }
 }

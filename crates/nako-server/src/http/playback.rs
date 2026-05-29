@@ -21,7 +21,7 @@ use nako_core::{
     MediaSourceId, NakoError, PlaybackSessionId, PlaybackSessionMode, PlaybackSessionState,
     RendererSessionId,
 };
-use nako_playback::ClientPlaybackCapabilities;
+use nako_playback::{ClientPlaybackCapabilities, PlaybackPreferenceContext};
 use nako_streaming::{
     DirectPlayRangeRequest, DirectPlayResponsePlan, DirectPlayResponseStatus,
     content_type_for_file_name, parse_http_range_header,
@@ -488,6 +488,7 @@ pub(super) async fn hls_playlist_source(
             principal,
             source_id,
             client,
+            preferences: query.preferences(),
         })
         .await?;
     let body = if let Some(ticket) = ticket {
@@ -1148,6 +1149,8 @@ pub(super) struct HlsPlaybackQuery {
     supports_subtitles: Option<bool>,
     hls_variant_policy: Option<HlsVariantPolicy>,
     hls_segment_container: Option<HlsSegmentContainer>,
+    audio_stream: Option<u32>,
+    subtitle_stream: Option<u32>,
     ticket: Option<String>,
     renderer_session_id: Option<String>,
     playback_session_id: Option<String>,
@@ -1169,6 +1172,17 @@ impl HlsPlaybackQuery {
             supports_subtitles: self.supports_subtitles,
             hls_variant_policy: self.hls_variant_policy,
             hls_segment_container: self.hls_segment_container,
+        }
+    }
+
+    fn preferences(&self) -> PlaybackPreferenceContext {
+        PlaybackPreferenceContext {
+            requested_audio_stream: self.audio_stream,
+            requested_subtitle_stream: self.subtitle_stream,
+            max_video_bitrate: None,
+            prefer_hdr: None,
+            remux_output_container: None,
+            transcode_output_container: Some(nako_transcode::OutputContainer::Hls),
         }
     }
 }

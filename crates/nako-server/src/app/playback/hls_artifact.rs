@@ -9,8 +9,8 @@ use nako_core::{
 };
 use nako_streaming::DirectPlayRangeRequest;
 use nako_transcode::{
-    HlsAdaptiveLadderPlan, HlsArtifactManifest, HlsOutputRequirement, HlsSegmentContainer,
-    HlsVariantPolicy,
+    HlsAdaptiveLadderPlan, HlsArtifactManifest, HlsOutputRequirement, HlsRequestVariantPlan,
+    HlsSegmentContainer, HlsVariantPolicy,
 };
 
 use crate::config::PlaybackConfig;
@@ -122,6 +122,7 @@ pub(super) fn hls_artifact_manifest_for_session(
 ) -> Result<HlsArtifactManifest> {
     ensure_hls_session_artifacts_are_servable(session)?;
     let output = hls_output_requirement_from_request_key(&session.request_key);
+    let request_variant = hls_request_variant_plan_from_request_key(&session.request_key)?;
     let output_dir = hls_output_dir_for_primary_playlist(&session.output_path)?;
 
     if output.variant_policy == HlsVariantPolicy::Adaptive {
@@ -131,15 +132,18 @@ pub(super) fn hls_artifact_manifest_for_session(
             ));
         }
 
-        let ladder_plan = hls_adaptive_ladder_plan_from_request_key(&session.request_key)?
+        let ladder_plan = request_variant
+            .as_ref()
+            .and_then(|variant| variant.adaptive_ladder.clone())
             .unwrap_or_else(HlsAdaptiveLadderPlan::default);
 
-        return HlsArtifactManifest::adaptive_fmp4_with_audio(
+        let manifest = HlsArtifactManifest::adaptive_fmp4_with_audio(
             output_dir,
             session.output_path.clone(),
             ladder_plan.renditions().to_vec(),
             ladder_plan.has_audio(),
-        );
+        )?;
+        return apply_session_media_renditions(manifest, request_variant);
     }
 
     let segment_pattern = output_dir.join(format!(
@@ -147,12 +151,13 @@ pub(super) fn hls_artifact_manifest_for_session(
         output.segment_container.segment_extension()
     ));
 
-    HlsArtifactManifest::single_variant(
+    let manifest = HlsArtifactManifest::single_variant(
         output_dir,
         session.output_path.clone(),
         segment_pattern,
         output,
-    )
+    )?;
+    apply_session_media_renditions(manifest, request_variant)
 }
 
 fn ensure_hls_session_artifacts_are_servable(session: &TranscodeSessionRecord) -> Result<()> {
@@ -204,9 +209,20 @@ fn hls_output_requirement_from_request_key(request_key: &str) -> HlsOutputRequir
     }
 }
 
-fn hls_adaptive_ladder_plan_from_request_key(
+fn apply_session_media_renditions(
+    manifest: HlsArtifactManifest,
+    request_variant: Option<HlsRequestVariantPlan>,
+) -> Result<HlsArtifactManifest> {
+    if let Some(request_variant) = request_variant {
+        manifest.with_media_renditions(request_variant.media_renditions)
+    } else {
+        Ok(manifest)
+    }
+}
+
+fn hls_request_variant_plan_from_request_key(
     request_key: &str,
-) -> Result<Option<HlsAdaptiveLadderPlan>> {
+) -> Result<Option<HlsRequestVariantPlan>> {
     let Some(value) = request_key.split(";request_variant=").nth(1) else {
         return Ok(None);
     };
@@ -216,7 +232,7 @@ fn hls_adaptive_ladder_plan_from_request_key(
             message: "hls adaptive ladder request variant is not valid percent encoding".to_owned(),
         })?;
 
-    Ok(Some(HlsAdaptiveLadderPlan::from_identity_key(&value)?))
+    Ok(Some(HlsRequestVariantPlan::from_identity_key(&value)?))
 }
 
 fn request_key_contains_component(request_key: &str, name: &str, value: &str) -> bool {
@@ -380,7 +396,7 @@ fn system_time_ms(value: SystemTime) -> Option<i64> {
 mod tests {
     use std::time::Duration;
 
-    use nako_transcode::HlsRendition;
+    use nako_transcode::{HlsMediaRenditionPlan, HlsRendition, HlsSubtitleRendition};
 
     use super::*;
 
@@ -575,6 +591,54 @@ mod tests {
             manifest
                 .artifact_for_name("variant_1_segment_00000.m4s")
                 .is_err()
+        );
+    }
+
+    #[test]
+    fn hls_artifact_manifest_reconstructs_subtitle_renditions_from_request_variant() {
+        let media = HlsMediaRenditionPlan::from_subtitles(vec![HlsSubtitleRendition::new(
+            0,
+            2,
+            Some("eng".to_owned()),
+        )])
+        .unwrap();
+        let request_variant = HlsRequestVariantPlan::new(None, media.clone());
+        let request_key = format!(
+            "transcode-request:v1;source=source-revision:v1;profile=transcode-profile:v1%3Bkind%3Dhls_single_variant%3Bhls_variant%3Dsingle_variant%3Bhls_segment%3Dmpeg_ts;request_variant={}",
+            escape_request_key_component(&request_variant.identity_key().unwrap())
+        );
+        let session = TranscodeSessionRecord {
+            id: nako_core::TranscodeSessionId::new(),
+            source_id: nako_core::MediaSourceId::new(),
+            kind: TranscodeSessionKind::HlsTranscode,
+            request_key,
+            output_path: PathBuf::from("hls/playlist.m3u8"),
+            state: TranscodeSessionState::Finished,
+            failure_category: None,
+            failure_message: None,
+            runtime_metrics: Default::default(),
+            created_at: "2026-05-28T00:00:00Z".to_owned(),
+            updated_at: "2026-05-28T00:00:00Z".to_owned(),
+            started_at: None,
+            completed_at: None,
+        };
+
+        let manifest = hls_artifact_manifest_for_session(&session).unwrap();
+
+        assert_eq!(manifest.media_renditions(), &media);
+        assert_eq!(
+            manifest
+                .artifact_for_name("subtitle_0.m3u8")
+                .unwrap()
+                .content_type,
+            "application/vnd.apple.mpegurl"
+        );
+        assert_eq!(
+            manifest
+                .artifact_for_name("subtitle_0_00000.vtt")
+                .unwrap()
+                .content_type,
+            "text/vtt"
         );
     }
 

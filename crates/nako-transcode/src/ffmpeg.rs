@@ -251,8 +251,8 @@ impl FfmpegHlsCommandParts {
         args.extend(filter_graph);
         args.extend(video_encoder);
         args.extend(audio_encoder);
-        args.extend(subtitle);
         args.extend(muxer);
+        args.extend(subtitle);
         args
     }
 }
@@ -271,7 +271,7 @@ fn validate_hls_request(request: &HlsRequest) -> Result<()> {
         });
     }
 
-    validate_hls_subtitle_strategy(request.execution_policy.subtitle_strategy)
+    validate_hls_subtitle_strategy(request)
 }
 
 fn plan_hls_command_parts(request: &HlsRequest) -> FfmpegHlsCommandParts {
@@ -291,7 +291,11 @@ fn plan_single_variant_hls_command_parts(request: &HlsRequest) -> FfmpegHlsComma
         filter_graph: hls_filter_graph_args(request.execution_policy.acceleration),
         video_encoder: hls_video_encoder_args(request.execution_policy),
         audio_encoder: hls_audio_encoder_args(),
-        subtitle: hls_subtitle_args(request.execution_policy.subtitle_strategy),
+        subtitle: hls_subtitle_args(
+            request.execution_policy.subtitle_strategy,
+            &request.artifacts,
+            request.segment_time_seconds,
+        ),
         muxer: hls_muxer_args(
             request.segment_time_seconds,
             request.artifacts.media_segment_pattern(),
@@ -319,17 +323,38 @@ fn plan_adaptive_hls_command_parts(request: &HlsRequest) -> FfmpegHlsCommandPart
             request.artifacts.renditions(),
             request.artifacts.has_audio(),
         ),
-        subtitle: hls_subtitle_args(request.execution_policy.subtitle_strategy),
+        subtitle: hls_subtitle_args(
+            request.execution_policy.subtitle_strategy,
+            &request.artifacts,
+            request.segment_time_seconds,
+        ),
         muxer: hls_adaptive_muxer_args(request.segment_time_seconds, &request.artifacts),
     }
 }
 
-fn validate_hls_subtitle_strategy(strategy: TranscodeSubtitleStrategy) -> Result<()> {
-    match strategy {
-        TranscodeSubtitleStrategy::None | TranscodeSubtitleStrategy::OmitSelected => Ok(()),
+fn validate_hls_subtitle_strategy(request: &HlsRequest) -> Result<()> {
+    match request.execution_policy.subtitle_strategy {
+        TranscodeSubtitleStrategy::None | TranscodeSubtitleStrategy::OmitSelected => {
+            if request.artifacts.media_renditions().has_subtitles() {
+                return Err(NakoError::InvalidInput {
+                    message: "hls subtitle artifacts require sidecar-selected subtitle strategy"
+                        .to_owned(),
+                });
+            }
+            Ok(())
+        }
+        TranscodeSubtitleStrategy::SidecarSelected => {
+            if request.artifacts.media_renditions().has_subtitles() {
+                Ok(())
+            } else {
+                Err(NakoError::InvalidInput {
+                    message: "sidecar-selected hls subtitle strategy requires subtitle artifacts"
+                        .to_owned(),
+                })
+            }
+        }
         TranscodeSubtitleStrategy::PreserveInContainer
-        | TranscodeSubtitleStrategy::BurnInSelected
-        | TranscodeSubtitleStrategy::SidecarSelected => Err(NakoError::Unsupported(
+        | TranscodeSubtitleStrategy::BurnInSelected => Err(NakoError::Unsupported(
             "hls subtitle strategy is not implemented by the ffmpeg adapter",
         )),
     }
@@ -469,15 +494,46 @@ fn hls_adaptive_audio_encoder_args(renditions: &[HlsRendition], has_audio: bool)
     args
 }
 
-fn hls_subtitle_args(strategy: TranscodeSubtitleStrategy) -> Vec<FfmpegArg> {
+fn hls_subtitle_args(
+    strategy: TranscodeSubtitleStrategy,
+    artifacts: &HlsArtifactManifest,
+    segment_time_seconds: u32,
+) -> Vec<FfmpegArg> {
     match strategy {
         TranscodeSubtitleStrategy::None | TranscodeSubtitleStrategy::OmitSelected => Vec::new(),
+        TranscodeSubtitleStrategy::SidecarSelected => {
+            hls_sidecar_subtitle_args(artifacts, segment_time_seconds)
+        }
         TranscodeSubtitleStrategy::PreserveInContainer
-        | TranscodeSubtitleStrategy::BurnInSelected
-        | TranscodeSubtitleStrategy::SidecarSelected => unreachable!(
+        | TranscodeSubtitleStrategy::BurnInSelected => unreachable!(
             "unsupported hls subtitle strategy must be rejected before command construction"
         ),
     }
+}
+
+fn hls_sidecar_subtitle_args(
+    artifacts: &HlsArtifactManifest,
+    segment_time_seconds: u32,
+) -> Vec<FfmpegArg> {
+    let mut args = Vec::new();
+    for subtitle in artifacts.media_renditions().subtitles() {
+        args.extend([
+            FfmpegArg::raw("-map"),
+            FfmpegArg::raw(format!("0:{}", subtitle.source_stream_index)),
+            FfmpegArg::raw("-c:s"),
+            FfmpegArg::raw("webvtt"),
+            FfmpegArg::raw("-f"),
+            FfmpegArg::raw("segment"),
+            FfmpegArg::raw("-segment_time"),
+            FfmpegArg::raw(segment_time_seconds.max(1).to_string()),
+            FfmpegArg::raw("-segment_list"),
+            FfmpegArg::path(subtitle.playlist_path(artifacts.output_dir())),
+            FfmpegArg::raw("-segment_format"),
+            FfmpegArg::raw("webvtt"),
+            FfmpegArg::path(subtitle.segment_pattern_path(artifacts.output_dir())),
+        ]);
+    }
+    args
 }
 
 fn hls_muxer_args(

@@ -15,13 +15,14 @@ use nako_core::{
 };
 use nako_playback::{
     ClientPlaybackCapabilities, EffectivePlaybackPolicy, PlaybackDecision, PlaybackMode,
-    PlaybackPlanner, PlaybackPlanningRequest, PlaybackSelectionContext, PlaybackTarget,
-    PlaybackTargetProfile,
+    PlaybackPlanner, PlaybackPlanningRequest, PlaybackPreferenceContext, PlaybackSelectionContext,
+    PlaybackTarget, PlaybackTargetProfile,
 };
 use nako_streaming::{DirectPlayRangeRequest, DirectPlayResponsePlan};
 use nako_transcode::{
-    HlsAdaptiveLadderPlan, HlsVariantPolicy, RemuxContainer, TranscodeOutputConstraints,
-    TranscodeRequestIdentity, TranscodeSourceIdentity,
+    HlsAdaptiveLadderPlan, HlsMediaRenditionPlan, HlsRequestVariantPlan, HlsVariantPolicy,
+    RemuxContainer, TranscodeOutputConstraints, TranscodeRequestIdentity, TranscodeSourceIdentity,
+    TranscodeSubtitleStrategy,
 };
 use nako_vfs::StorageUri;
 use serde::{Deserialize, Serialize};
@@ -368,6 +369,7 @@ pub struct RemuxSessionStart {
 pub struct HlsSourceRequest {
     pub source_id: MediaSourceId,
     pub client: ClientPlaybackCapabilities,
+    pub preferences: PlaybackPreferenceContext,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -467,6 +469,7 @@ pub(crate) struct HlsPlaylistPlaybackRequest {
     pub principal: AuthenticatedPrincipal,
     pub source_id: MediaSourceId,
     pub client: ClientPlaybackCapabilities,
+    pub preferences: PlaybackPreferenceContext,
 }
 
 #[derive(Clone, Debug)]
@@ -775,6 +778,7 @@ impl PlaybackAppService {
                         HlsSourceRequest {
                             source_id: request.source_id,
                             client: request.target.media_capabilities.clone(),
+                            preferences: PlaybackPreferenceContext::default(),
                         },
                         effective_policy.clone(),
                     )
@@ -1165,6 +1169,7 @@ impl PlaybackAppService {
                 HlsSourceRequest {
                     source_id: request.source_id,
                     client: request.client.clone(),
+                    preferences: request.preferences.clone(),
                 },
                 effective_policy,
             )
@@ -1584,6 +1589,7 @@ impl PlaybackAppService {
             PlaybackRuntimeStore::get_media_probe(self.runtime_store.as_ref(), source.id).await?;
         let (uri, backend) = self.storage_backend_for_media_source(&source).await?;
         let mut context = playback_selection_context(&uri, backend.as_ref()).await;
+        context.preferences = request.preferences.clone();
         context.preferences.transcode_output_container = Some(nako_transcode::OutputContainer::Hls);
         let target = playback_target_for_client(request.client.clone());
         let target_profile = PlaybackTargetProfile::from_target(&target, context.clone());
@@ -1601,11 +1607,18 @@ impl PlaybackAppService {
         let transcode_plan = hls_transcode_plan(&decision)?;
         let track_selection = target_profile.track_selection();
         let source_facts = hls_pipeline_source_facts(probe.as_ref(), track_selection);
-        let execution_policy = self.hls.execution_policy_for_hls(
+        let mut execution_policy = self.hls.execution_policy_for_hls(
             track_selection,
             target_profile.output_constraints(),
             source_facts.clone(),
         )?;
+        let media_rendition_plan = HlsMediaRenditionPlan::selected_from_source_facts(
+            source_facts.as_ref(),
+            track_selection,
+        )?;
+        if media_rendition_plan.has_subtitles() {
+            execution_policy.subtitle_strategy = TranscodeSubtitleStrategy::SidecarSelected;
+        }
         let hls_profile =
             target_profile.try_hls_transcode_profile(transcode_plan, execution_policy)?;
         let execution_policy = hls_profile.execution_policy;
@@ -1623,10 +1636,12 @@ impl PlaybackAppService {
                     execution_policy.output_constraints,
                 )
             });
+        let request_variant_plan =
+            HlsRequestVariantPlan::new(adaptive_ladder_plan, media_rendition_plan);
         let profile_identity = hls_profile.identity();
         let source_identity = TranscodeSourceIdentity::from_media_source(&source);
-        let request_identity = if let Some(plan) = adaptive_ladder_plan.as_ref() {
-            profile_identity.bind_source_with_request_variant(&source_identity, plan.identity_key())
+        let request_identity = if let Some(request_variant) = request_variant_plan.identity_key() {
+            profile_identity.bind_source_with_request_variant(&source_identity, request_variant)
         } else {
             profile_identity.bind_source(&source_identity)
         };
@@ -1635,16 +1650,12 @@ impl PlaybackAppService {
             .source_input_for_ffmpeg(&source, &uri, &backend)
             .await?;
         let staging = HlsStagingPolicy::new(self.config.remux_staging_root.join("hls"))?;
-        let layout = if let Some(plan) = adaptive_ladder_plan.as_ref() {
-            staging.layout_for_output_with_adaptive_plan(
-                source.id,
-                &request_identity,
-                hls_output,
-                plan,
-            )?
-        } else {
-            staging.layout_for_output(source.id, &request_identity, hls_output)?
-        };
+        let layout = staging.layout_for_output_with_request_variant_plan(
+            source.id,
+            &request_identity,
+            hls_output,
+            &request_variant_plan,
+        )?;
         let result = self
             .hls
             .run(

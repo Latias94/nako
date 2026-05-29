@@ -1,27 +1,26 @@
 # HLS Media Renditions Runtime Handoff
 
-Status: Active
-Last updated: 2026-05-28
+Status: Closed
+Last updated: 2026-05-29
 
 ## Current State
 
-This workstream is open. Nako's HLS runtime now has source-aware adaptive video
-ladders and audio-presence-aware adaptive maps, but it still lacks a typed
-media rendition model for selected subtitles or alternate audio.
+This workstream is closed. Nako's HLS runtime now has a typed media rendition
+model for the first selected subtitle WebVTT sidecar slice, and the adaptive
+video ladder request-variant identity has been generalized so media rendition
+decisions can share the same persisted session identity boundary.
 
 ## Next Task
 
-Start with HMR-020.
+Open a follow-on only when the next media-rendition target is ready.
 
-Recommended order:
+Recommended follow-ons:
 
-1. Inspect `TranscodeTrackSelection`, `TranscodeRequirementStreams`,
-   `TranscodePipelineSourceFacts`, `HlsArtifactManifest`, and FFmpeg HLS command
-   planning.
-2. Decide whether selected WebVTT subtitles can be implemented as the first
-   executable slice without adding broad subtitle extraction policy.
-3. Add the smallest typed media rendition plan and request identity hook needed
-   for session reuse and artifact reconstruction.
+1. Author richer HLS master playlist media tags so selected subtitles and
+   future alternate audio are advertised explicitly to clients.
+2. Add full alternate audio stream planning and serving.
+3. Decide how image subtitles should flow: burn-in, OCR, or explicit
+   unsupported policy.
 
 ## Validation To Preserve
 
@@ -36,6 +35,6 @@ cargo nextest run -p nako-server playback --no-fail-fast
 
 - Keep subtitle and alternate-audio decisions deterministic across request
   identity, staging, and artifact reconstruction.
-- Do not broaden this lane into LL-HLS, DRM, subtitle OCR, or full alternate
-  audio UX.
+- Do not fold LL-HLS, DRM, subtitle OCR, or full alternate audio UX into a
+  cleanup patch; each needs its own scoped lane.
 - Preserve source-aware adaptive fMP4 and no-audio stream-map behavior.

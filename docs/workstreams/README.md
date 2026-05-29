@@ -7,10 +7,10 @@ attention.
 ## Current Workstreams
 
 - [hls-media-renditions-runtime](hls-media-renditions-runtime/README.md):
-  active fearless refactor lane for adding a typed HLS media rendition boundary
-  after source-aware adaptive video ladders, starting with selected subtitle
-  WebVTT execution if bounded or a verified alternate-audio/subtitle manifest
-  foundation if extraction needs a follow-on.
+  closed fearless refactor lane that added a typed HLS media rendition boundary
+  after source-aware adaptive video ladders, including selected subtitle WebVTT
+  sidecar command planning, request-variant identity, server artifact
+  reconstruction, and reuse coverage.
 - [adaptive-hls-source-aware-ladder](adaptive-hls-source-aware-ladder/README.md):
   closed fearless refactor lane that made the adaptive HLS fMP4 runtime
   source-aware after the first fixed-ladder slice, including source/client

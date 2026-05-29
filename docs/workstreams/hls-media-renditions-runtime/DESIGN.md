@@ -1,7 +1,7 @@
 # HLS Media Renditions Runtime - Design
 
-Status: Active
-Last updated: 2026-05-28
+Status: Closed
+Last updated: 2026-05-29
 
 ## Problem
 
@@ -97,3 +97,20 @@ This lane can close when:
 - server HLS artifact serving and playlist rewrite remain deterministic;
 - adaptive fMP4 source-aware, no-audio, and single-variant paths remain covered;
 - focused Rust gates pass and evidence is recorded.
+
+## Closeout Result
+
+This lane closed with the preferred first slice implemented:
+
+- selected subtitle streams become typed `HlsSubtitleRendition` entries inside
+  `HlsMediaRenditionPlan`;
+- HLS request identity can carry both adaptive ladder and media rendition
+  decisions through `HlsRequestVariantPlan`;
+- FFmpeg HLS planning emits WebVTT sidecar playlist and segment outputs for
+  `SidecarSelected`;
+- server staging, artifact reconstruction, artifact serving, and playlist URI
+  rewriting coverage are deterministic across fresh and reused sessions.
+
+Follow-ons should own richer master playlist authoring, full alternate audio
+selection, subtitle OCR or image-subtitle burn-in, LL-HLS/CMAF/DRM, and a
+second transcode engine adapter.

@@ -1,10 +1,11 @@
 # HLS Media Renditions Runtime
 
-Status: Active
-Last updated: 2026-05-28
+Status: Closed
+Last updated: 2026-05-29
 
-Durable fearless refactor lane for making Nako's HLS runtime capable of
-describing media renditions beyond video variants.
+Closed fearless refactor lane for making Nako's HLS runtime capable of
+describing and serving the first media rendition artifacts beyond video
+variants.
 
 The adaptive HLS runtime now has source-aware video ladders and can handle
 video-only sources. The next maturity gap is that HLS artifacts still model a
@@ -12,12 +13,12 @@ playlist plus media segments, but not the separate media rendition vocabulary
 needed for selected subtitles, alternate audio, and future richer master
 playlists.
 
-This lane starts with a first executable rendition slice. The preferred slice is
-selected subtitle delivery as HLS WebVTT artifacts when the existing playback
-request selects a subtitle stream. If implementation evidence shows selected
-subtitles need a larger extraction pipeline first, the lane will close a
-smaller alternate-audio/subtitle manifest foundation and split extraction into a
-follow-on.
+This lane shipped the first executable rendition slice: selected subtitle
+delivery as HLS WebVTT sidecar playlist and segment artifacts when the playback
+request selects a subtitle stream. The runtime now carries media rendition
+decisions through typed request-variant identity so persisted HLS sessions can
+reconstruct and serve the same subtitle artifacts.
 
 Out of scope: LL-HLS, CMAF encryption, DRM, full multi-audio selection UI,
-subtitle OCR, provider subtitle search, and a second transcode engine adapter.
+subtitle OCR, provider subtitle search, rich master playlist alternate-audio UX,
+and a second transcode engine adapter.

@@ -1,7 +1,7 @@
 # HLS Media Renditions Runtime TODO
 
-Status: Active
-Last updated: 2026-05-28
+Status: Closed
+Last updated: 2026-05-29
 
 ## Task Ledger
 
@@ -28,7 +28,7 @@ git diff --check -- docs/workstreams/hls-media-renditions-runtime docs/workstrea
 
 ### HMR-020 - Map selected audio/subtitle facts to an HLS media rendition plan
 
-Status: Pending
+Status: Done
 Owner: codex
 Depends on: HMR-010
 
@@ -47,9 +47,19 @@ cargo nextest run -p nako-transcode hls --no-fail-fast
 cargo nextest run -p nako-playback --no-fail-fast
 ```
 
+Notes:
+
+- Added `HlsMediaRenditionPlan`, `HlsSubtitleRendition`, and
+  `HlsRequestVariantPlan` as typed HLS request-variant identity components.
+- The first media rendition slice is selected subtitle sidecar planning; full
+  alternate audio remains a follow-on.
+- HLS source requests now carry playback preferences separately from client
+  capabilities, allowing selected subtitle stream identity to reach playback
+  planning.
+
 ### HMR-030 - Execute the first bounded HLS rendition slice
 
-Status: Pending
+Status: Done
 Owner: codex
 Depends on: HMR-020
 
@@ -68,9 +78,18 @@ cargo nextest run -p nako-transcode ffmpeg --no-fail-fast
 cargo nextest run -p nako-server hls --no-fail-fast
 ```
 
+Notes:
+
+- Implemented `SidecarSelected` for HLS by emitting WebVTT segmenter output for
+  selected subtitles.
+- HLS artifacts now allow-list selected subtitle playlists and `.vtt` segments
+  with the correct content types and cleanup behavior.
+- Adaptive fMP4 ladder, no-audio stream maps, and single-variant MPEG-TS/fMP4
+  output paths remain covered by focused tests.
+
 ### HMR-040 - Server integration, reuse, redaction, and closeout
 
-Status: Pending
+Status: Done
 Owner: codex
 Depends on: HMR-030
 
@@ -88,3 +107,12 @@ cargo nextest run -p nako-server playback --no-fail-fast
 cargo fmt --all -- --check
 git diff --check
 ```
+
+Notes:
+
+- Server HLS staging consumes `HlsRequestVariantPlan` for both adaptive ladder
+  and selected subtitle media rendition artifacts.
+- Persisted HLS sessions reconstruct subtitle artifacts from request identity,
+  so reuse and direct artifact serving remain deterministic after restart.
+- Playback/admin redaction semantics remain covered by the focused
+  `nako-server playback` gate.

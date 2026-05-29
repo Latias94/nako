@@ -4,7 +4,7 @@ use nako_core::{NakoError, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    TranscodeOutputConstraints, TranscodePipelineSourceFacts,
+    TranscodeOutputConstraints, TranscodePipelineSourceFacts, TranscodeTrackSelection,
     policy::{HlsOutputRequirement, HlsVariantPolicy},
 };
 
@@ -14,6 +14,8 @@ pub const HLS_ADAPTIVE_FMP4_SEGMENT_PATTERN: &str = "variant_%v_segment_%05d.m4s
 pub const HLS_ADAPTIVE_FMP4_INIT_PATTERN: &str = "variant_%v_init.mp4";
 
 const HLS_ADAPTIVE_LADDER_IDENTITY_VERSION: &str = "hls-adaptive-ladder:v1";
+const HLS_MEDIA_RENDITIONS_IDENTITY_VERSION: &str = "hls-media-renditions:v1";
+const HLS_REQUEST_VARIANT_IDENTITY_VERSION: &str = "hls-request-variant:v1";
 const HLS_ADAPTIVE_AUDIO_BITRATE: u64 = 128_000;
 const HLS_ADAPTIVE_LADDER_CANDIDATES: &[(u32, u32, u64)] = &[
     (3840, 2160, 16_000_000),
@@ -86,6 +88,265 @@ impl HlsRendition {
     #[must_use]
     pub const fn bandwidth(self) -> u64 {
         self.video_bitrate.saturating_add(self.audio_bitrate)
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct HlsSubtitleRendition {
+    pub index: usize,
+    pub source_stream_index: u32,
+    pub language: Option<String>,
+}
+
+impl HlsSubtitleRendition {
+    #[must_use]
+    pub fn new(index: usize, source_stream_index: u32, language: Option<String>) -> Self {
+        Self {
+            index,
+            source_stream_index,
+            language: language
+                .map(|value| canonical_value(&value))
+                .filter(|value| !value.is_empty()),
+        }
+    }
+
+    #[must_use]
+    pub fn playlist_file_name(&self) -> String {
+        format!("subtitle_{}.m3u8", self.index)
+    }
+
+    #[must_use]
+    pub fn segment_file_prefix(&self) -> String {
+        format!("subtitle_{}_", self.index)
+    }
+
+    #[must_use]
+    pub fn segment_pattern_file_name(&self) -> String {
+        format!("subtitle_{}_%05d.vtt", self.index)
+    }
+
+    #[must_use]
+    pub fn playlist_path(&self, output_dir: &Path) -> PathBuf {
+        output_dir.join(self.playlist_file_name())
+    }
+
+    #[must_use]
+    pub fn segment_pattern_path(&self, output_dir: &Path) -> PathBuf {
+        output_dir.join(self.segment_pattern_file_name())
+    }
+
+    #[must_use]
+    pub fn identity_component(&self) -> String {
+        format!(
+            "{}:{}:{}",
+            self.index,
+            self.source_stream_index,
+            self.language.as_deref().unwrap_or("und")
+        )
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct HlsMediaRenditionPlan {
+    subtitles: Vec<HlsSubtitleRendition>,
+}
+
+impl HlsMediaRenditionPlan {
+    pub fn from_subtitles(subtitles: Vec<HlsSubtitleRendition>) -> Result<Self> {
+        let plan = Self { subtitles };
+        plan.validate_identity()?;
+        Ok(plan)
+    }
+
+    #[must_use]
+    pub fn selected_from_source_facts(
+        source: Option<&TranscodePipelineSourceFacts>,
+        track_selection: TranscodeTrackSelection,
+    ) -> Result<Self> {
+        let Some(source) = source else {
+            return Ok(Self::default());
+        };
+        if track_selection.subtitle_stream.is_none() {
+            return Ok(Self::default());
+        }
+        let Some(subtitle) = source.subtitle.as_ref() else {
+            return Ok(Self::default());
+        };
+
+        Self::from_subtitles(vec![HlsSubtitleRendition::new(
+            0,
+            subtitle.index,
+            subtitle.language.clone(),
+        )])
+    }
+
+    pub fn from_identity_key(value: &str) -> Result<Self> {
+        let Some(rest) = value.strip_prefix(HLS_MEDIA_RENDITIONS_IDENTITY_VERSION) else {
+            return Err(NakoError::InvalidInput {
+                message: "hls media rendition identity version is unsupported".to_owned(),
+            });
+        };
+        let rest = rest
+            .strip_prefix(';')
+            .ok_or_else(|| NakoError::InvalidInput {
+                message: "hls media rendition identity is missing components".to_owned(),
+            })?;
+        let mut subtitles = Vec::new();
+
+        for component in rest.split(';') {
+            if let Some(value) = component.strip_prefix("subtitles=") {
+                subtitles = parse_subtitle_renditions(value)?;
+            }
+        }
+
+        let plan = Self { subtitles };
+        plan.validate_identity()?;
+        Ok(plan)
+    }
+
+    #[must_use]
+    pub fn identity_key(&self) -> Option<String> {
+        if self.subtitles.is_empty() {
+            return None;
+        }
+
+        let subtitles = self
+            .subtitles
+            .iter()
+            .map(HlsSubtitleRendition::identity_component)
+            .collect::<Vec<_>>()
+            .join("|");
+        Some(format!(
+            "{HLS_MEDIA_RENDITIONS_IDENTITY_VERSION};subtitles={subtitles}"
+        ))
+    }
+
+    #[must_use]
+    pub fn subtitles(&self) -> &[HlsSubtitleRendition] {
+        &self.subtitles
+    }
+
+    #[must_use]
+    pub fn has_subtitles(&self) -> bool {
+        !self.subtitles.is_empty()
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.subtitles.is_empty()
+    }
+
+    fn validate_identity(&self) -> Result<()> {
+        for (expected_index, subtitle) in self.subtitles.iter().enumerate() {
+            if subtitle.index != expected_index {
+                return Err(NakoError::InvalidInput {
+                    message: "hls media rendition subtitle indexes must be dense".to_owned(),
+                });
+            }
+            if subtitle.language.as_deref().is_some_and(|language| {
+                language.contains('|')
+                    || language.contains(';')
+                    || language.contains('~')
+                    || language.contains(':')
+                    || language.contains('=')
+            }) {
+                return Err(NakoError::InvalidInput {
+                    message: "hls media rendition subtitle language is invalid".to_owned(),
+                });
+            }
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct HlsRequestVariantPlan {
+    pub adaptive_ladder: Option<HlsAdaptiveLadderPlan>,
+    pub media_renditions: HlsMediaRenditionPlan,
+}
+
+impl HlsRequestVariantPlan {
+    #[must_use]
+    pub fn new(
+        adaptive_ladder: Option<HlsAdaptiveLadderPlan>,
+        media_renditions: HlsMediaRenditionPlan,
+    ) -> Self {
+        Self {
+            adaptive_ladder,
+            media_renditions,
+        }
+    }
+
+    pub fn from_identity_key(value: &str) -> Result<Self> {
+        if value.starts_with(HLS_ADAPTIVE_LADDER_IDENTITY_VERSION) {
+            return Ok(Self {
+                adaptive_ladder: Some(HlsAdaptiveLadderPlan::from_identity_key(value)?),
+                media_renditions: HlsMediaRenditionPlan::default(),
+            });
+        }
+        if value.starts_with(HLS_MEDIA_RENDITIONS_IDENTITY_VERSION) {
+            return Ok(Self {
+                adaptive_ladder: None,
+                media_renditions: HlsMediaRenditionPlan::from_identity_key(value)?,
+            });
+        }
+
+        let Some(rest) = value.strip_prefix(HLS_REQUEST_VARIANT_IDENTITY_VERSION) else {
+            return Err(NakoError::InvalidInput {
+                message: "hls request variant identity version is unsupported".to_owned(),
+            });
+        };
+        let rest = rest
+            .strip_prefix(";components=")
+            .ok_or_else(|| NakoError::InvalidInput {
+                message: "hls request variant identity is missing components".to_owned(),
+            })?;
+        let mut plan = Self::default();
+        for component in rest.split('~') {
+            plan.apply_identity_component(component)?;
+        }
+        Ok(plan)
+    }
+
+    #[must_use]
+    pub fn identity_key(&self) -> Option<String> {
+        let mut components = Vec::new();
+        if let Some(ladder) = self.adaptive_ladder.as_ref() {
+            components.push(ladder.identity_key());
+        }
+        if let Some(media) = self.media_renditions.identity_key() {
+            components.push(media);
+        }
+
+        match components.len() {
+            0 => None,
+            1 => components.into_iter().next(),
+            _ => Some(format!(
+                "{HLS_REQUEST_VARIANT_IDENTITY_VERSION};components={}",
+                components.join("~")
+            )),
+        }
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.adaptive_ladder.is_none() && self.media_renditions.is_empty()
+    }
+
+    fn apply_identity_component(&mut self, component: &str) -> Result<()> {
+        if component.starts_with(HLS_ADAPTIVE_LADDER_IDENTITY_VERSION) {
+            self.adaptive_ladder = Some(HlsAdaptiveLadderPlan::from_identity_key(component)?);
+            return Ok(());
+        }
+        if component.starts_with(HLS_MEDIA_RENDITIONS_IDENTITY_VERSION) {
+            self.media_renditions = HlsMediaRenditionPlan::from_identity_key(component)?;
+            return Ok(());
+        }
+
+        Err(NakoError::InvalidInput {
+            message: "hls request variant identity contains an unknown component".to_owned(),
+        })
     }
 }
 
@@ -306,6 +567,7 @@ pub struct HlsArtifactManifest {
     pub variant_playlist_pattern: Option<PathBuf>,
     pub renditions: Vec<HlsRendition>,
     pub has_audio: bool,
+    pub media_renditions: HlsMediaRenditionPlan,
     pub output: HlsOutputRequirement,
 }
 
@@ -336,6 +598,7 @@ impl HlsArtifactManifest {
             variant_playlist_pattern: None,
             renditions: Vec::new(),
             has_audio: true,
+            media_renditions: HlsMediaRenditionPlan::default(),
             output,
         };
         manifest.validate()?;
@@ -363,6 +626,7 @@ impl HlsArtifactManifest {
             variant_playlist_pattern: Some(output_dir.join(HLS_ADAPTIVE_VARIANT_PLAYLIST_PATTERN)),
             renditions,
             has_audio,
+            media_renditions: HlsMediaRenditionPlan::default(),
             output: HlsOutputRequirement {
                 variant_policy: HlsVariantPolicy::Adaptive,
                 segment_container: crate::policy::HlsSegmentContainer::Fmp4,
@@ -371,6 +635,15 @@ impl HlsArtifactManifest {
         };
         manifest.validate()?;
         Ok(manifest)
+    }
+
+    pub fn with_media_renditions(
+        mut self,
+        media_renditions: HlsMediaRenditionPlan,
+    ) -> Result<Self> {
+        self.media_renditions = media_renditions;
+        self.validate()?;
+        Ok(self)
     }
 
     #[must_use]
@@ -401,6 +674,11 @@ impl HlsArtifactManifest {
     #[must_use]
     pub const fn has_audio(&self) -> bool {
         self.has_audio
+    }
+
+    #[must_use]
+    pub fn media_renditions(&self) -> &HlsMediaRenditionPlan {
+        &self.media_renditions
     }
 
     #[must_use]
@@ -441,6 +719,10 @@ impl HlsArtifactManifest {
                 content_type: "application/vnd.apple.mpegurl",
                 cleanup_candidate: false,
             });
+        }
+
+        if let Some(artifact) = self.subtitle_artifact_for_name(artifact_name, &path) {
+            return Ok(artifact);
         }
 
         if self.output.variant_policy == HlsVariantPolicy::Adaptive {
@@ -518,6 +800,37 @@ impl HlsArtifactManifest {
         })
     }
 
+    fn subtitle_artifact_for_name(
+        &self,
+        artifact_name: &str,
+        path: &Path,
+    ) -> Option<HlsArtifactDescriptor> {
+        for subtitle in self.media_renditions.subtitles() {
+            if subtitle.playlist_file_name() == artifact_name {
+                return Some(HlsArtifactDescriptor {
+                    path: path.to_path_buf(),
+                    content_type: "application/vnd.apple.mpegurl",
+                    cleanup_candidate: false,
+                });
+            }
+
+            if artifact_name.starts_with(&subtitle.segment_file_prefix())
+                && Path::new(artifact_name)
+                    .extension()
+                    .and_then(|value| value.to_str())
+                    == Some("vtt")
+            {
+                return Some(HlsArtifactDescriptor {
+                    path: path.to_path_buf(),
+                    content_type: "text/vtt",
+                    cleanup_candidate: true,
+                });
+            }
+        }
+
+        None
+    }
+
     pub fn cleanup_candidate_for_name(&self, artifact_name: &str) -> bool {
         self.artifact_for_name(artifact_name)
             .is_ok_and(|artifact| artifact.cleanup_candidate)
@@ -593,6 +906,7 @@ impl HlsArtifactManifest {
             HlsVariantPolicy::SingleVariant => self.validate_single_variant()?,
             HlsVariantPolicy::Adaptive => self.validate_adaptive()?,
         }
+        self.media_renditions.validate_identity()?;
 
         Ok(())
     }
@@ -782,6 +1096,47 @@ fn parse_ladder_rendition(value: &str) -> Result<HlsRendition> {
     ))
 }
 
+fn parse_subtitle_renditions(value: &str) -> Result<Vec<HlsSubtitleRendition>> {
+    if value.is_empty() || value == "none" {
+        return Ok(Vec::new());
+    }
+
+    value
+        .split('|')
+        .map(parse_subtitle_rendition)
+        .collect::<Result<Vec<_>>>()
+}
+
+fn parse_subtitle_rendition(value: &str) -> Result<HlsSubtitleRendition> {
+    let mut parts = value.split(':');
+    let Some(index) = parts.next() else {
+        return Err(NakoError::InvalidInput {
+            message: "hls subtitle rendition is missing index".to_owned(),
+        });
+    };
+    let Some(source_stream_index) = parts.next() else {
+        return Err(NakoError::InvalidInput {
+            message: "hls subtitle rendition is missing source stream".to_owned(),
+        });
+    };
+    let Some(language) = parts.next() else {
+        return Err(NakoError::InvalidInput {
+            message: "hls subtitle rendition is missing language".to_owned(),
+        });
+    };
+    if parts.next().is_some() {
+        return Err(NakoError::InvalidInput {
+            message: "hls subtitle rendition has too many components".to_owned(),
+        });
+    }
+
+    Ok(HlsSubtitleRendition::new(
+        parse_usize_component(index, "subtitle index")?,
+        parse_u32_component(source_stream_index, "subtitle source stream")?,
+        (language != "und").then(|| language.to_owned()),
+    ))
+}
+
 fn parse_usize_component(value: &str, name: &'static str) -> Result<usize> {
     value.parse::<usize>().map_err(|_| NakoError::InvalidInput {
         message: format!("hls adaptive ladder rendition has invalid {name}"),
@@ -798,6 +1153,10 @@ fn parse_u64_component(value: &str, name: &'static str) -> Result<u64> {
     value.parse::<u64>().map_err(|_| NakoError::InvalidInput {
         message: format!("hls adaptive ladder rendition has invalid {name}"),
     })
+}
+
+fn canonical_value(value: &str) -> String {
+    value.trim().to_ascii_lowercase()
 }
 
 impl TranscodeArtifactSet {
