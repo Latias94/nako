@@ -34,6 +34,8 @@ Scope:
 - Add `docs/architecture/PLAYBACK.md` as the playback-specific agent map.
 - Add storage/VFS, library pipeline, state/access, realtime/sync, and
   operations/release deep dives.
+- Add the control-plane deep dive for addon lifecycle, observability, durable
+  jobs, remote access, API scale, and cache contracts.
 - Summarize current system areas, maturity, and next pressure points.
 - Make playback/transcode progress navigable after recent HLS work.
 
@@ -70,6 +72,25 @@ Scope:
 
 - Update docs index, roadmap, and workstream index.
 - Record evidence and close the lane.
+
+Validation:
+
+```text
+python3 -m json.tool docs/workstreams/media-server-architecture-progress-map/WORKSTREAM.json
+git diff --check
+```
+
+### MSAP-050 - Add control-plane supplement
+
+Status: Done
+Owner: codex
+Depends on: MSAP-040
+
+Scope:
+
+- Add `docs/architecture/CONTROL_PLANE.md`.
+- Add ADR 0053 for the application control-plane boundary.
+- Update architecture, ADR, and workstream indexes.
 
 Validation:
 

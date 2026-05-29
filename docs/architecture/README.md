@@ -22,3 +22,6 @@ implementation tasks back to ADRs and completed evidence.
   event boundaries, and offline sync map.
 - [Operations and release architecture](OPERATIONS_RELEASE.md): deployment,
   release gates, diagnostics, backup, and packaging map.
+- [Control plane architecture](CONTROL_PLANE.md): addon lifecycle,
+  observability, durable jobs, remote access, API scale, and cache-contract
+  map.

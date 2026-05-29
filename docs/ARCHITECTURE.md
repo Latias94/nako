@@ -24,6 +24,8 @@ Deep dives:
   boundary, and offline sync map.
 - `docs/architecture/OPERATIONS_RELEASE.md`: deployment, release, diagnostics,
   backup, and packaging map.
+- `docs/architecture/CONTROL_PLANE.md`: addon lifecycle, observability, durable
+  jobs, remote access, API scale, and cache-contract map.
 
 ## North Star
 
@@ -61,6 +63,9 @@ Nako should be able to:
   locks are not provider accidents; they are first-class self-hosted behavior.
 - **Addons are out-of-process.** Addon sidecars interact through scoped HTTP
   APIs and tokens, not an in-process plugin ABI.
+- **Control plane work is explicit.** Durable jobs, runtime supervision,
+  diagnostics, remote access, addon lifecycle, and API scale belong to shared
+  control-plane boundaries, not hidden per-feature helpers.
 
 ## System Map
 
@@ -76,6 +81,7 @@ Nako should be able to:
 | Browser transport | Short-lived playback tickets, safe HLS/remux/direct URLs, bearer redaction. | Good | Player integration, HLS.js/Shaka behavior, cross-device resume polish. |
 | User state | Durable session auth, library access, playback progress, continue watching. | Good | Multi-device conflict semantics and richer active-session controls. |
 | Addons/automation | HTTP addon sidecars, grants, tasks, events, official addon catalog direction. | Good foundation | Marketplace/install guidance, official provider breadth, external resource actions. |
+| Control plane | Auth, runtime supervision, durable jobs, diagnostics, addon mediation, remote access guidance, and API scale contracts are mapped as shared infrastructure. | Good foundation | Unified trace context, job queue priority/retry, endpoint discovery, ETag/cache contracts. |
 | Clients | Admin Web, Media Web foundation, Android/shared client core lanes. | Mixed | Public media client parity, player UX, TV/casting clients. |
 | Deployment | Self-hosted docs, backup/restore, release gates. | Good | HTTPS/tunnel/reverse proxy recipes, observability, larger install profiles. |
 
@@ -166,6 +172,7 @@ Core ADRs:
 - `docs/adr/0045-ffmpeg-hardware-pipeline-planner.md`
 - `docs/adr/0049-source-aware-transcode-runtime.md`
 - `docs/adr/0052-hls-runtime-and-media-engine-boundary.md`
+- `docs/adr/0053-application-control-plane-boundary.md`
 
 Progress trackers:
 
@@ -175,6 +182,7 @@ Progress trackers:
 - `docs/architecture/STATE_ACCESS.md`
 - `docs/architecture/REALTIME_SYNC.md`
 - `docs/architecture/OPERATIONS_RELEASE.md`
+- `docs/architecture/CONTROL_PLANE.md`
 - `docs/ROADMAP.md`
 - `docs/GOALS.md`
 - `docs/workstreams/README.md`

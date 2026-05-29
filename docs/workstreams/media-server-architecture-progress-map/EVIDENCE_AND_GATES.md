@@ -24,9 +24,14 @@ git diff --check
 - 2026-05-29 MSAP-030: Added ADR 0052 for FFmpeg CLI-first HLS runtime and
   manifest-backed playback artifact publication.
 - 2026-05-29 MSAP-040: Updated indexes and roadmap, then closed the lane.
+- 2026-05-29 MSAP-050: Added `docs/architecture/CONTROL_PLANE.md` and ADR
+  0053 to map addon lifecycle, observability, durable jobs, remote access, API
+  scale, and cache-contract pressure above the media data plane.
 
 ## Notes
 
 - This lane intentionally does not implement new playback behavior.
 - Future implementation lanes should reference `docs/ARCHITECTURE.md` and ADR
   0052 before changing HLS runtime lifecycle or media engine ownership.
+- Future cross-cutting lanes should reference ADR 0053 before adding new
+  durable job, tracing, addon lifecycle, remote access, or API cache behavior.
