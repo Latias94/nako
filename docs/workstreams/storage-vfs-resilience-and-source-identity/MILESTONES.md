@@ -65,6 +65,8 @@ Primary evidence:
 
 ## M3 — Storage Failure Classification And Backoff
 
+Status: Complete as of 2026-05-29.
+
 Exit criteria:
 
 - VFS-backed scan/probe/stage paths classify timeout, unavailable, permission,
@@ -76,6 +78,16 @@ Primary gates:
 
 - `cargo nextest run -p nako-vfs --no-fail-fast`
 - `cargo nextest run -p nako-server storage --no-fail-fast`
+
+Primary evidence:
+
+- `crates/nako-core/src/error.rs`
+- `crates/nako-vfs/src/cache.rs`
+- `crates/nako-vfs/src/webdav.rs`
+- `crates/nako-library/src/failure.rs`
+- `crates/nako-server/src/app/storage.rs`
+- `crates/nako-server/src/app/staging.rs`
+- `docs/workstreams/storage-vfs-resilience-and-source-identity/EVIDENCE_AND_GATES.md`
 
 ## M4 — Diagnostics And Cleanup
 

@@ -54,6 +54,14 @@ available:
 | 2026-05-29 | SVRS-030 | `cargo nextest run -p nako-db scan source_duplicate --no-fail-fast` | Passed: 7 tests |
 | 2026-05-29 | SVRS-030 | `cargo check -p nako-core -p nako-db -p nako-vfs -p nako-library -p nako-server --tests`; `cargo fmt --all -- --check`; `git diff --check`; `python -m json.tool docs/workstreams/storage-vfs-resilience-and-source-identity/WORKSTREAM.json > $null` | Passed |
 | 2026-05-29 | SVRS-030 | PostgreSQL opt-in harness | Not run: `NAKO_TEST_POSTGRES_URL` was not set in this workspace |
+| 2026-05-29 | SVRS-040 | Added `StorageFailureClass`, safe storage messages, WebDAV short-read validation, stale-cache safe failure persistence, library scan/probe safe failure messages, storage health backoff, and staging failure redaction. | Implemented |
+| 2026-05-29 | SVRS-040 | `cargo nextest run -p nako-core storage_errors_expose_safe_failure_classification --no-fail-fast` | Passed: 1 test |
+| 2026-05-29 | SVRS-040 | `cargo nextest run -p nako-vfs --no-fail-fast` | Passed: 48 tests |
+| 2026-05-29 | SVRS-040 | `cargo nextest run -p nako-library webdav_scan_records_partial_directory_failures index_service_records_scan_failures_without_blocking_good_sources --no-fail-fast` | Passed: 2 tests |
+| 2026-05-29 | SVRS-040 | `cargo nextest run -p nako-server storage --no-fail-fast` | Passed: 18 tests |
+| 2026-05-29 | SVRS-040 | `cargo nextest run -p nako-server manifest_recording_backend_rolls_back_reservation_when_stage_fails --no-fail-fast` | Passed: 1 test |
+| 2026-05-29 | SVRS-040 | `cargo check -p nako-core -p nako-db -p nako-vfs -p nako-library -p nako-server --tests`; `cargo fmt --all -- --check`; `git diff --check`; `python -m json.tool docs/workstreams/storage-vfs-resilience-and-source-identity/WORKSTREAM.json > $null` | Passed; `git diff --check` printed only Windows line-ending warnings |
+| 2026-05-29 | SVRS-040 | PostgreSQL opt-in harness | Not required: no schema, migration, or repository contract changed |
 
 ## SVRS-020 Verification Notes
 
@@ -89,6 +97,26 @@ available:
 - PostgreSQL transaction code was compile-checked through the Postgres adapter,
   but the opt-in runtime harness was skipped because no `NAKO_TEST_POSTGRES_URL`
   was configured in this workspace.
+
+## SVRS-040 Verification Notes
+
+- `StorageFailureClass` gives callers a small redaction-safe taxonomy for
+  timeout, unavailable, permission, rate-limit, stale-cache, partial-read,
+  budget, security, and unknown storage failures. Retryability is explicit:
+  permission, security, and unknown classes do not enter backoff.
+- `cargo nextest run -p nako-vfs --no-fail-fast` proves WebDAV range reads
+  classify short bodies as partial reads and that stale-cache fallback still
+  serves safe cached listings for transient storage failures.
+- `cargo nextest run -p nako-library ...` proves scan failure persistence uses
+  safe storage messages and still records partial WebDAV scan failures without
+  blocking healthy sources.
+- `cargo nextest run -p nako-server storage --no-fail-fast` proves library
+  storage health backoff is process-local, library-scoped, redaction-safe, and
+  does not suppress managed-import apply or cleanup compensation paths.
+- `cargo nextest run -p nako-server manifest_recording_backend_rolls_back_reservation_when_stage_fails --no-fail-fast`
+  proves staging reservation failure records no raw backend details.
+- No PostgreSQL harness was required because SVRS-040 did not change schema,
+  migrations, repository traits, or repository implementations.
 
 ## Review Expectations
 

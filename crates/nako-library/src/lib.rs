@@ -494,6 +494,8 @@ mod tests {
             summary.failures[0].failure_class,
             IngestionFailureClass::Storage
         );
+        assert_eq!(summary.failures[0].message, "storage backend unavailable");
+        assert!(!summary.failures[0].message.contains("Broken"));
         assert!(summary.failures[0].retryable);
     }
 
@@ -1209,6 +1211,8 @@ mod tests {
         assert_eq!(failures[0].target_uri, "fixture:///Movies/Broken/");
         assert_eq!(failures[0].phase, IngestionFailurePhase::Scan);
         assert_eq!(failures[0].status, IngestionFailureStatus::Open);
+        assert_eq!(failures[0].message, "storage backend unavailable");
+        assert!(!failures[0].message.contains("Broken"));
         assert!(failures[0].retryable);
     }
 

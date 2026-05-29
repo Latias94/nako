@@ -5,11 +5,12 @@ Last updated: 2026-05-29
 
 ## Current State
 
-SVRS-020 and SVRS-030 are complete. The scan path now derives
+SVRS-020, SVRS-030, and SVRS-040 are complete. The scan path now derives
 **Source Fingerprint** values through a layered evidence policy instead of
 trusting one optional backend string directly. The policy lives in `nako-core`,
 and `VfsLibraryScanner` carries evidence kind and confidence into discovered
-media sources.
+media sources. Storage failures now have a shared redaction-safe taxonomy and
+bounded process-local backoff for VFS-backed read/probe/stage calls.
 
 The implementation proves:
 
@@ -26,6 +27,15 @@ The implementation proves:
 - scan source commits persist duplicate relationships in the same SQLite or
   PostgreSQL transaction as the source, item state, inference evidence, search
   projection, and ingestion-failure resolution.
+- timeout, unavailable, permission, rate-limit, stale-cache, partial-read,
+  budget, security, and unknown storage failures are classified in `nako-core`;
+- WebDAV short range bodies are treated as partial reads instead of successful
+  reads;
+- stale-cache fallback and scan/probe/stage failure records store safe messages
+  instead of raw backend paths, URLs, ETags, or credentials;
+- library storage health applies bounded process-local backoff only for
+  retryable classes and only short-circuits read/probe/stage calls, so
+  promotion apply and cleanup compensation still hit the real backend.
 
 The branch/worktree prepared for this lane is:
 
@@ -37,15 +47,15 @@ them as user/other-agent work and do not revert or format them from this lane.
 
 ## Active Task
 
-- Task ID: SVRS-040
+- Task ID: SVRS-050
 - Owner: codex
 - Files:
-  - `crates/nako-vfs`
-  - `crates/nako-library`
+  - `crates/nako-api`
   - `crates/nako-server`
+  - `docs`
 - Validation:
-  - `cargo nextest run -p nako-vfs --no-fail-fast`
-  - `cargo nextest run -p nako-server storage --no-fail-fast`
+  - `cargo nextest run -p nako-server system storage --no-fail-fast`
+  - `cargo nextest run -p nako-api admin_contract --no-fail-fast` if Admin DTOs change
 - Status: READY
 
 ## Decisions So Far
@@ -67,6 +77,12 @@ them as user/other-agent work and do not revert or format them from this lane.
 - `LibraryScanSourcePersistenceCommit` now carries
   `source_duplicate_relationships`; adapters must keep them atomic with the
   rest of scan source persistence.
+- `StorageFailureClass::Unknown` is intentionally not retryable; unknown means
+  classification is insufficient, not that the backend is transiently down.
+- Backoff must remain library-scoped and process-local until a durable
+  supervisor/circuit-breaker design is opened.
+- Backoff should not suppress storage apply, cleanup, restore, or other
+  compensation paths that need to observe real backend behavior.
 
 ## Blockers
 
@@ -74,7 +90,7 @@ them as user/other-agent work and do not revert or format them from this lane.
 
 ## Next Action
 
-Execute SVRS-040: classify timeout, unavailable, permission, rate-limit,
-stale-cache, and partial-read failures consistently across VFS-backed
-scan/probe/stage paths. Keep diagnostics redaction-safe and avoid hiding
-long-running storage work in ad hoc tasks.
+Execute SVRS-050: expose redaction-safe Admin diagnostics for source identity
+reconciliation, stale VFS cache, storage health, and partial staging cleanup
+pressure. Keep diagnostics free of **Source Locators**, local paths, raw ETags,
+credentials, and fingerprint values.

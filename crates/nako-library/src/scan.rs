@@ -7,7 +7,7 @@ use nako_vfs::{ObjectCacheState, ObjectKind, ObjectMetadata, StorageBackend, Sto
 use serde::{Deserialize, Serialize};
 
 use super::{
-    failure::{ingestion_failure_class, ingestion_failure_is_retryable},
+    failure::{ingestion_failure_class, ingestion_failure_is_retryable, ingestion_failure_message},
     summary::{LibraryScanFailure, LibraryScanRequest, LibraryScanSummary},
 };
 
@@ -233,7 +233,7 @@ fn scan_failure(uri: StorageUri, target_kind: &str, err: NakoError) -> LibrarySc
         uri,
         target_kind: target_kind.to_owned(),
         failure_class: ingestion_failure_class(&err),
-        message: err.to_string(),
+        message: ingestion_failure_message(&err),
         retryable: ingestion_failure_is_retryable(&err),
     }
 }

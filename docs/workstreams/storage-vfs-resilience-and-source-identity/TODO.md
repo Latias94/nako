@@ -54,12 +54,17 @@ Last updated: 2026-05-29
 
 ## M3 — Storage Failure Classification And Backoff
 
-- [ ] SVRS-040 [owner=codex] [deps=SVRS-020] [scope=crates/nako-vfs,crates/nako-library,crates/nako-server]
+- [x] SVRS-040 [owner=codex] [deps=SVRS-020] [scope=crates/nako-vfs,crates/nako-library,crates/nako-server]
   Goal: Classify timeout, unavailable, permission, rate-limit, stale-cache, and
   partial-read failures consistently across VFS-backed scan/probe/stage paths.
   Validation:
   `cargo nextest run -p nako-vfs --no-fail-fast` and
   `cargo nextest run -p nako-server storage --no-fail-fast`.
+  Evidence: `StorageFailureClass` in `nako-core`; WebDAV short-range reads are
+  classified as partial reads; VFS cache and library scan/probe failures persist
+  redaction-safe messages; library storage backends apply bounded process-local
+  backoff to read/probe/stage calls for retryable storage classes only.
+  Persistence note: no schema, migration, or repository contract changed.
   Review: Check that storage failures are bounded, redaction-safe, and do not
   hold global locks or unrelated library budgets.
   Handoff: SVRS-050 can expose operator diagnostics and cleanup behavior.

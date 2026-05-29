@@ -30,7 +30,7 @@ pub use addon::*;
 pub use addon_event::*;
 pub use addon_task::*;
 pub use automation::*;
-pub use error::{NakoError, Result, StorageErrorKind};
+pub use error::{NakoError, Result, StorageErrorKind, StorageFailureClass};
 pub use event::*;
 pub use id::*;
 pub use identity::*;

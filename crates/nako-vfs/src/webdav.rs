@@ -381,6 +381,7 @@ impl StorageBackend for WebDavBackend {
         })? {
             bytes.extend_from_slice(&chunk);
         }
+        validate_read_length(uri, range, metadata.len, bytes.len())?;
 
         Ok(ReadRange {
             uri: uri.clone(),
@@ -734,6 +735,34 @@ fn storage_kind_for_reqwest_error(err: &reqwest::Error) -> StorageErrorKind {
     }
 }
 
+fn validate_read_length(
+    uri: &StorageUri,
+    range: Option<ByteRange>,
+    total_len: Option<u64>,
+    actual_len: usize,
+) -> Result<()> {
+    let expected_len = match range.and_then(|range| range.length).or(total_len) {
+        Some(expected_len) => expected_len,
+        None => return Ok(()),
+    };
+    let actual_len = u64::try_from(actual_len).map_err(|err| {
+        NakoError::storage(
+            uri.to_string(),
+            StorageErrorKind::Unknown,
+            format!("read length does not fit u64: {err}"),
+        )
+    })?;
+
+    if actual_len != expected_len {
+        return Err(NakoError::storage_staging_validation_mismatch(
+            uri.to_string(),
+            format!("WebDAV read returned {actual_len} bytes, expected {expected_len}"),
+        ));
+    }
+
+    Ok(())
+}
+
 fn validate_range(uri: &StorageUri, range: ByteRange, len: u64) -> Result<()> {
     if range.offset > len {
         return Err(NakoError::InvalidInput {
@@ -922,6 +951,33 @@ mod tests {
         );
         assert_eq!(bytes, b"ar");
         assert_eq!(server.last_range().as_deref(), Some("bytes=1-2"));
+    }
+
+    #[tokio::test]
+    async fn webdav_backend_classifies_short_range_body_as_partial_read() {
+        let server = MockWebDavServer::start().await;
+        let backend = WebDavBackend::new(WebDavBackendConfig::new(server.base_url())).unwrap();
+        let movie = StorageUri::from_parts("webdav", "Movies/Truncated.mkv").unwrap();
+
+        let err = backend
+            .read_range(
+                &movie,
+                Some(ByteRange {
+                    offset: 0,
+                    length: Some(4),
+                }),
+            )
+            .await
+            .unwrap_err();
+
+        assert_eq!(
+            err.storage_failure_class(),
+            Some(nako_core::StorageFailureClass::PartialRead)
+        );
+        assert_eq!(
+            err.safe_storage_message().as_deref(),
+            Some("storage partial read")
+        );
     }
 
     #[tokio::test]
@@ -1150,6 +1206,20 @@ mod tests {
                     .into_response();
             }
 
+            if path.ends_with("/Movies/Truncated.mkv") {
+                return (
+                    AxumStatusCode::MULTI_STATUS,
+                    [(header::CONTENT_TYPE, "application/xml")],
+                    multistatus(&[WebDavFixture {
+                        href: "/dav/Movies/Truncated.mkv",
+                        collection: false,
+                        len: Some(4),
+                        etag: Some("etag-truncated"),
+                    }]),
+                )
+                    .into_response();
+            }
+
             return AxumStatusCode::NOT_FOUND.into_response();
         }
 
@@ -1173,6 +1243,15 @@ mod tests {
                     .into_response();
             }
             return "nako".into_response();
+        }
+
+        if method == axum::http::Method::GET && path.ends_with("/Movies/Truncated.mkv") {
+            return (
+                AxumStatusCode::PARTIAL_CONTENT,
+                [(header::CONTENT_RANGE, "bytes 0-3/4")],
+                "na",
+            )
+                .into_response();
         }
 
         let _ = to_bytes(body, usize::MAX).await.unwrap();
