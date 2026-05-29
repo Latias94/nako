@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "slug": "hls-master-renditions-authoring",
+  "title": "HLS Master Renditions Authoring",
+  "status": "closed",
+  "updated": "2026-05-29",
+  "scope_kind": "fearless_refactor",
+  "problem": "Nako can generate selected subtitle WebVTT sidecar artifacts, but public HLS entry playlists do not advertise those media renditions through standard master playlist tags.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/hls-master-renditions-authoring/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/hls-master-renditions-authoring/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/hls-master-renditions-authoring/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/hls-master-renditions-authoring/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/hls-master-renditions-authoring/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/hls-master-renditions-authoring/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python3 -m json.tool docs/workstreams/hls-master-renditions-authoring/WORKSTREAM.json",
+    "cargo nextest run -p nako-transcode hls --no-fail-fast",
+    "cargo nextest run -p nako-server hls --no-fail-fast",
+    "cargo nextest run -p nako-server playback --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "HMA-010",
+      "summary": "Opened the durable fearless refactor lane for standard HLS master playlist media rendition authoring after selected subtitle sidecar artifacts became executable."
+    },
+    {
+      "task": "HMA-020",
+      "summary": "Added server-owned HLS entry playlist authoring derived from HlsArtifactManifest while preserving raw FFmpeg playlist artifacts."
+    },
+    {
+      "task": "HMA-030",
+      "summary": "Advertised selected subtitle WebVTT sidecars through EXT-X-MEDIA subtitle groups, attached SUBTITLES attributes to single-variant and adaptive stream entries, and covered quoted media group URIs in playlist rewrite and ticket decoration."
+    },
+    {
+      "task": "HMA-040",
+      "summary": "Verified transcode hls, server hls, server playback, formatting, JSON, and diff gates before closing the workstream."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0038-playback-planning-and-transcode-policy-seams.md",
+    "docs/adr/0044-playback-capability-profile-planner.md",
+    "docs/adr/0049-source-aware-transcode-runtime.md"
+  ],
+  "continue_policy": {
+    "default_action": "closed",
+    "next_task": "none",
+    "notes": "Workstream closed. Recommended follow-on is alternate audio rendition authoring through the same HLS master playlist boundary."
+  }
+}

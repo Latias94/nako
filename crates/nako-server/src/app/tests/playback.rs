@@ -555,6 +555,204 @@ async fn hls_source_runs_runner_and_reuses_completed_session() {
 }
 
 #[tokio::test]
+async fn hls_source_selected_audio_stream_reaches_ffmpeg_map() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path =
+        fake_hls_ffmpeg_script_requiring_audio_map(script_root.path(), "hls_audio_map", "0:2");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    store
+        .upsert_media_probe(
+            source.id,
+            &MediaProbeResult {
+                duration_ms: Some(1_000),
+                container: Some("matroska,webm".to_owned()),
+                bit_rate: None,
+                streams: vec![
+                    MediaStreamInfo {
+                        index: 0,
+                        kind: MediaStreamKind::Video,
+                        codec: Some("h264".to_owned()),
+                        language: None,
+                        duration_ms: None,
+                        bit_rate: Some(2_000_000),
+                        width: Some(1280),
+                        height: Some(720),
+                        channels: None,
+                        sample_rate: None,
+                        technical: Default::default(),
+                    },
+                    MediaStreamInfo {
+                        index: 1,
+                        kind: MediaStreamKind::Audio,
+                        codec: Some("aac".to_owned()),
+                        language: Some("eng".to_owned()),
+                        duration_ms: None,
+                        bit_rate: Some(128_000),
+                        width: None,
+                        height: None,
+                        channels: Some(2),
+                        sample_rate: Some(48_000),
+                        technical: Default::default(),
+                    },
+                    MediaStreamInfo {
+                        index: 2,
+                        kind: MediaStreamKind::Audio,
+                        codec: Some("aac".to_owned()),
+                        language: Some("jpn".to_owned()),
+                        duration_ms: None,
+                        bit_rate: Some(128_000),
+                        width: None,
+                        height: None,
+                        channels: Some(2),
+                        sample_rate: Some(48_000),
+                        technical: Default::default(),
+                    },
+                ],
+            },
+        )
+        .await
+        .unwrap();
+
+    let output = app
+        .playback()
+        .hls_source(HlsSourceRequest {
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+            preferences: PlaybackPreferenceContext {
+                requested_audio_stream: Some(2),
+                ..PlaybackPreferenceContext::default()
+            },
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(output.disposition, HlsSourceDisposition::Finished);
+    assert!(output.session.request_key.contains("audio%3D2"));
+}
+
+#[tokio::test]
+async fn hls_source_multi_audio_generates_audio_sidecar_renditions_and_artifacts() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_audio_sidecars");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path.clone()).await;
+    store
+        .upsert_media_probe(
+            source.id,
+            &MediaProbeResult {
+                duration_ms: Some(1_000),
+                container: Some("matroska,webm".to_owned()),
+                bit_rate: None,
+                streams: vec![
+                    MediaStreamInfo {
+                        index: 0,
+                        kind: MediaStreamKind::Video,
+                        codec: Some("h264".to_owned()),
+                        language: None,
+                        duration_ms: None,
+                        bit_rate: Some(2_000_000),
+                        width: Some(1280),
+                        height: Some(720),
+                        channels: None,
+                        sample_rate: None,
+                        technical: Default::default(),
+                    },
+                    MediaStreamInfo {
+                        index: 1,
+                        kind: MediaStreamKind::Audio,
+                        codec: Some("aac".to_owned()),
+                        language: Some("eng".to_owned()),
+                        duration_ms: None,
+                        bit_rate: Some(128_000),
+                        width: None,
+                        height: None,
+                        channels: Some(2),
+                        sample_rate: Some(48_000),
+                        technical: Default::default(),
+                    },
+                    MediaStreamInfo {
+                        index: 2,
+                        kind: MediaStreamKind::Audio,
+                        codec: Some("aac".to_owned()),
+                        language: Some("jpn".to_owned()),
+                        duration_ms: None,
+                        bit_rate: Some(128_000),
+                        width: None,
+                        height: None,
+                        channels: Some(2),
+                        sample_rate: Some(48_000),
+                        technical: Default::default(),
+                    },
+                ],
+            },
+        )
+        .await
+        .unwrap();
+    let request = HlsSourceRequest {
+        source_id: source.id,
+        client: ClientPlaybackCapabilities::default(),
+        preferences: PlaybackPreferenceContext {
+            requested_audio_stream: Some(2),
+            ..PlaybackPreferenceContext::default()
+        },
+    };
+
+    let output = app.playback().hls_source(request.clone()).await.unwrap();
+    let session_id = output.session.id;
+
+    assert_eq!(output.disposition, HlsSourceDisposition::Finished);
+    assert!(output.session.request_key.contains("audio%3D2"));
+    assert!(
+        output
+            .session
+            .request_key
+            .contains(";request_variant=hls-media-renditions:v1%3Baudios%3D0:1:0:eng|1:2:1:jpn")
+    );
+    assert!(output.segment_dir.join("audio_0.m3u8").exists());
+    assert!(output.segment_dir.join("audio_0_00000.aac").exists());
+    assert!(output.segment_dir.join("audio_1.m3u8").exists());
+    assert!(output.segment_dir.join("audio_1_00000.aac").exists());
+    assert!(
+        fs::read_to_string(output.segment_dir.join("audio_1.m3u8"))
+            .unwrap()
+            .contains("audio_1_00000.aac")
+    );
+
+    let playlist = app.playback().hls_playlist(request.clone()).await.unwrap();
+    assert!(playlist.body.contains("#EXT-X-MEDIA:TYPE=AUDIO"));
+    assert!(playlist.body.contains("GROUP-ID=\"nako-audio\""));
+    assert!(playlist.body.contains("NAME=\"eng\",DEFAULT=NO"));
+    assert!(playlist.body.contains("NAME=\"jpn\",DEFAULT=YES"));
+    assert!(playlist.body.contains(&format!(
+        "URI=\"/playback/sessions/{session_id}/hls/segments/audio_0.m3u8\""
+    )));
+    assert!(playlist.body.contains(&format!(
+        "AUDIO=\"nako-audio\"\n/playback/sessions/{session_id}/hls/segments/playlist.m3u8"
+    )));
+
+    let audio_playlist = app
+        .playback()
+        .plan_hls_segment(session_id, "audio_0.m3u8")
+        .await
+        .unwrap();
+    assert_eq!(
+        audio_playlist.response.content_type,
+        "application/vnd.apple.mpegurl"
+    );
+    let audio_segment = app
+        .playback()
+        .plan_hls_segment(session_id, "audio_1_00000.aac")
+        .await
+        .unwrap();
+    assert_eq!(audio_segment.response.content_type, "audio/aac");
+
+    fs::remove_file(ffmpeg_path).unwrap();
+    let reused = app.playback().hls_source(request).await.unwrap();
+
+    assert_eq!(reused.disposition, HlsSourceDisposition::ReusedExisting);
+    assert_eq!(reused.session.id, session_id);
+}
+
+#[tokio::test]
 async fn hls_source_runs_fmp4_runtime_layout_and_rewrites_init_map() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_fmp4_success");
@@ -767,6 +965,17 @@ async fn hls_source_selected_subtitle_uses_sidecar_rendition_identity_and_artifa
             .contains("subtitle_0_00000.vtt")
     );
     assert!(output.segment_dir.join("subtitle_0_00000.vtt").exists());
+
+    let playlist = app.playback().hls_playlist(request.clone()).await.unwrap();
+    assert!(playlist.body.contains("#EXT-X-MEDIA:TYPE=SUBTITLES"));
+    assert!(playlist.body.contains("GROUP-ID=\"nako-subtitles\""));
+    assert!(playlist.body.contains("LANGUAGE=\"jpn\""));
+    assert!(playlist.body.contains(&format!(
+        "URI=\"/playback/sessions/{session_id}/hls/segments/subtitle_0.m3u8\""
+    )));
+    assert!(playlist.body.contains(&format!(
+        "SUBTITLES=\"nako-subtitles\"\n/playback/sessions/{session_id}/hls/segments/playlist.m3u8"
+    )));
 
     let subtitle_playlist = app
         .playback()

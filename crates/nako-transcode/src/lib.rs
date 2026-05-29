@@ -123,6 +123,7 @@ mod tests {
                 HlsOutputRequirement::default(),
             ),
             segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -164,6 +165,37 @@ mod tests {
     }
 
     #[test]
+    fn ffmpeg_builder_plans_hls_selected_audio_stream_map() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            artifacts: hls_artifacts(
+                "hls",
+                "hls/playlist.m3u8",
+                "hls/segment_%05d.ts",
+                HlsOutputRequirement::default(),
+            ),
+            segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection {
+                audio_stream: Some(2),
+                subtitle_stream: None,
+            },
+            execution_policy: hls_policy(HardwareAcceleration::None),
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let argv = builder.hls(&request).unwrap().argv_lossy();
+        let maps = argv
+            .windows(2)
+            .filter_map(|args| (args[0] == "-map").then_some(args[1].as_str()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(maps, vec!["0:v:0", "0:2"]);
+        assert!(!argv.iter().any(|arg| arg == "0:a:0?"));
+    }
+
+    #[test]
     fn ffmpeg_builder_plans_hls_fmp4_single_variant() {
         let builder = FfmpegCommandBuilder::new("ffmpeg");
         let request = HlsRequest {
@@ -179,6 +211,7 @@ mod tests {
                 },
             ),
             segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -219,6 +252,7 @@ mod tests {
             input_path: PathBuf::from("input.mkv"),
             artifacts,
             segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -242,6 +276,7 @@ mod tests {
             input_path: PathBuf::from("input.mkv"),
             artifacts,
             segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -274,6 +309,42 @@ mod tests {
     }
 
     #[test]
+    fn ffmpeg_builder_plans_adaptive_hls_selected_audio_stream_map_per_rendition() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let artifacts = HlsArtifactManifest::adaptive_fmp4(
+            "hls",
+            "hls/master.m3u8",
+            HlsRendition::default_adaptive_ladder(),
+        )
+        .unwrap();
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            artifacts,
+            segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection {
+                audio_stream: Some(2),
+                subtitle_stream: None,
+            },
+            execution_policy: hls_policy(HardwareAcceleration::None),
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let argv = builder.hls(&request).unwrap().argv_lossy();
+        let selected_audio_map_count = argv
+            .windows(2)
+            .filter(|args| args[0] == "-map" && args[1] == "0:2")
+            .count();
+
+        assert_eq!(selected_audio_map_count, 2);
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-var_stream_map" && args[1] == "v:0,a:0 v:1,a:1")
+        );
+        assert!(!argv.iter().any(|arg| arg == "0:a:0?"));
+    }
+
+    #[test]
     fn ffmpeg_builder_plans_adaptive_hls_without_audio_streams() {
         let builder = FfmpegCommandBuilder::new("ffmpeg");
         let artifacts = HlsArtifactManifest::adaptive_fmp4_with_audio(
@@ -288,6 +359,10 @@ mod tests {
             input_path: PathBuf::from("input.mkv"),
             artifacts,
             segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection {
+                audio_stream: Some(2),
+                subtitle_stream: None,
+            },
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -299,6 +374,7 @@ mod tests {
                 .any(|args| args[0] == "-var_stream_map" && args[1] == "v:0 v:1")
         );
         assert!(!argv.iter().any(|arg| arg == "0:a:0?"));
+        assert!(!argv.iter().any(|arg| arg == "0:2"));
         assert!(!argv.windows(2).any(|args| args[0] == "-c:a"));
     }
 
@@ -373,6 +449,7 @@ mod tests {
             input_path: PathBuf::from("input.mkv"),
             artifacts,
             segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -393,6 +470,7 @@ mod tests {
                 HlsOutputRequirement::default(),
             ),
             segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
             execution_policy: hls_policy(HardwareAcceleration::Nvenc),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -418,6 +496,7 @@ mod tests {
                 HlsOutputRequirement::default(),
             ),
             segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
             execution_policy: hls_policy(HardwareAcceleration::Vaapi),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -455,6 +534,7 @@ mod tests {
                 HlsOutputRequirement::default(),
             ),
             segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
             execution_policy: hls_policy(HardwareAcceleration::QuickSync),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -495,6 +575,7 @@ mod tests {
                     HlsOutputRequirement::default(),
                 ),
                 segment_time_seconds: 6,
+                track_selection: TranscodeTrackSelection::default(),
                 execution_policy: hls_policy(acceleration),
                 overwrite: FfmpegOverwritePolicy::Allow,
             };
@@ -523,6 +604,7 @@ mod tests {
                 HlsOutputRequirement::default(),
             ),
             segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
             execution_policy,
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -554,6 +636,7 @@ mod tests {
                 HlsOutputRequirement::default(),
             ),
             segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
             execution_policy,
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -594,6 +677,7 @@ mod tests {
             input_path: PathBuf::from("input.mkv"),
             artifacts,
             segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
             execution_policy,
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -616,6 +700,59 @@ mod tests {
     }
 
     #[test]
+    fn ffmpeg_builder_plans_hls_audio_sidecar_outputs() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let artifacts = hls_artifacts(
+            "hls",
+            "hls/playlist.m3u8",
+            "hls/segment_%05d.ts",
+            HlsOutputRequirement::default(),
+        )
+        .with_media_renditions(
+            HlsMediaRenditionPlan::from_audios(vec![
+                HlsAudioRendition::new(0, 1, Some("eng".to_owned()), true),
+                HlsAudioRendition::new(1, 2, Some("jpn".to_owned()), false),
+            ])
+            .unwrap(),
+        )
+        .unwrap();
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            artifacts,
+            segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
+            execution_policy: hls_policy(HardwareAcceleration::None),
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let argv = builder.hls(&request).unwrap().argv_lossy();
+
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-map" && args[1] == "0:1")
+        );
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-map" && args[1] == "0:2")
+        );
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-c:a" && args[1] == "aac")
+        );
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-segment_list" && args[1] == "hls/audio_0.m3u8")
+        );
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-segment_format" && args[1] == "adts")
+        );
+        assert!(argv.contains(&"hls/audio_0_%05d.aac".to_owned()));
+        assert!(argv.contains(&"hls/audio_1_%05d.aac".to_owned()));
+    }
+
+    #[test]
     fn ffmpeg_builder_plans_hls_muxer_with_minimum_segment_time() {
         let builder = FfmpegCommandBuilder::new("ffmpeg");
         let request = HlsRequest {
@@ -628,6 +765,7 @@ mod tests {
                 HlsOutputRequirement::default(),
             ),
             segment_time_seconds: 0,
+            track_selection: TranscodeTrackSelection::default(),
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -658,6 +796,7 @@ mod tests {
                 HlsOutputRequirement::default(),
             ),
             segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
             execution_policy,
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -705,6 +844,42 @@ mod tests {
     }
 
     #[test]
+    fn hls_artifact_manifest_covers_audio_playlist_and_segments() {
+        let manifest = hls_artifacts(
+            "hls",
+            "hls/playlist.m3u8",
+            "hls/segment_%05d.ts",
+            HlsOutputRequirement::default(),
+        )
+        .with_media_renditions(
+            HlsMediaRenditionPlan::from_audios(vec![
+                HlsAudioRendition::new(0, 1, Some("eng".to_owned()), true),
+                HlsAudioRendition::new(1, 2, Some("jpn".to_owned()), false),
+            ])
+            .unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            manifest
+                .artifact_for_name("audio_0.m3u8")
+                .unwrap()
+                .content_type,
+            "application/vnd.apple.mpegurl"
+        );
+        assert_eq!(
+            manifest
+                .artifact_for_name("audio_0_00000.aac")
+                .unwrap()
+                .content_type,
+            "audio/aac"
+        );
+        assert!(!manifest.cleanup_candidate_for_name("audio_0.m3u8"));
+        assert!(manifest.cleanup_candidate_for_name("audio_0_00000.aac"));
+        assert!(manifest.artifact_for_name("audio_2_00000.aac").is_err());
+    }
+
+    #[test]
     fn hls_request_variant_identity_round_trips_ladder_and_media_renditions() {
         let ladder = HlsAdaptiveLadderPlan::from_source(
             HlsAdaptiveLadderSource {
@@ -720,11 +895,13 @@ mod tests {
                 prefer_hdr: None,
             },
         );
-        let media = HlsMediaRenditionPlan::from_subtitles(vec![HlsSubtitleRendition::new(
-            0,
-            2,
-            Some("JPN".to_owned()),
-        )])
+        let media = HlsMediaRenditionPlan::from_audio_and_subtitles(
+            vec![
+                HlsAudioRendition::new(0, 1, Some("ENG".to_owned()), false),
+                HlsAudioRendition::new(1, 3, Some("JPN".to_owned()), true),
+            ],
+            vec![HlsSubtitleRendition::new(0, 2, Some("JPN".to_owned()))],
+        )
         .unwrap();
         let plan = HlsRequestVariantPlan::new(Some(ladder.clone()), media.clone());
 
@@ -732,6 +909,8 @@ mod tests {
         let restored = HlsRequestVariantPlan::from_identity_key(&key).unwrap();
 
         assert!(key.starts_with("hls-request-variant:v1;components="));
+        assert!(key.contains("audios=0:1:0:eng|1:3:1:jpn"));
+        assert!(key.contains("subtitles=0:2:jpn"));
         assert_eq!(restored.adaptive_ladder, Some(ladder));
         assert_eq!(restored.media_renditions, media);
     }
@@ -1822,6 +2001,7 @@ hevc_metadata
                 HlsOutputRequirement::default(),
             ),
             segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -2199,6 +2379,7 @@ hevc_metadata
                         HlsOutputRequirement::default(),
                     ),
                     segment_time_seconds: 6,
+                    track_selection: TranscodeTrackSelection::default(),
                     execution_policy: hls_policy(HardwareAcceleration::None),
                     overwrite: FfmpegOverwritePolicy::Allow,
                 },

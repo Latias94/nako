@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "slug": "hls-audio-sidecar-artifacts",
+  "title": "HLS Audio Sidecar Artifacts",
+  "status": "closed",
+  "updated": "2026-05-29",
+  "scope_kind": "fearless_refactor",
+  "problem": "Nako can select HLS audio streams correctly, but cannot truthfully advertise alternate audio until generated audio-only HLS sidecar artifacts exist and are represented in the artifact manifest.",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/hls-audio-sidecar-artifacts/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/hls-audio-sidecar-artifacts/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/hls-audio-sidecar-artifacts/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/hls-audio-sidecar-artifacts/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/hls-audio-sidecar-artifacts/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/hls-audio-sidecar-artifacts/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python3 -m json.tool docs/workstreams/hls-audio-sidecar-artifacts/WORKSTREAM.json",
+    "cargo nextest run -p nako-transcode hls --no-fail-fast",
+    "cargo nextest run -p nako-server hls --no-fail-fast",
+    "cargo nextest run -p nako-server playback --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "HAS-010",
+      "summary": "Opened a durable lane for generated HLS audio sidecar artifacts after selected audio stream mapping became executable."
+    },
+    {
+      "task": "HAS-020",
+      "summary": "Added typed HLS audio rendition identity, default validation, and audio playlist/segment artifact membership."
+    },
+    {
+      "task": "HAS-030",
+      "summary": "Generated audio-only HLS sidecars through FFmpeg planning and published TYPE=AUDIO master playlist groups only for servable artifacts."
+    },
+    {
+      "task": "HAS-040",
+      "summary": "Verified focused gates, recorded evidence, and closed the workstream."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0038-playback-planning-and-transcode-policy-seams.md",
+    "docs/adr/0044-playback-capability-profile-planner.md",
+    "docs/adr/0049-source-aware-transcode-runtime.md"
+  ],
+  "continue_policy": {
+    "default_action": "closed",
+    "notes": "The lane is closed. Follow-on work should open a new workstream for main-mux/audio-sidecar duplication removal, language preference defaults, codec-aware audio sidecars, or adaptive video-only variant cleanup."
+  }
+}

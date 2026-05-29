@@ -6,6 +6,23 @@ attention.
 
 ## Current Workstreams
 
+- [media-server-architecture-progress-map](media-server-architecture-progress-map/README.md):
+  closed architecture documentation lane that added the top-level Nako
+  architecture map, refreshed playback/transcode roadmap status, and recorded
+  the HLS/media-engine boundary in ADR 0052.
+- [hls-audio-sidecar-artifacts](hls-audio-sidecar-artifacts/README.md):
+  closed fearless refactor lane for generating real HLS audio sidecar
+  playlists/segments and publishing `TYPE=AUDIO` master playlist groups only
+  for servable artifacts.
+- [hls-alternate-audio-renditions](hls-alternate-audio-renditions/README.md):
+  closed fearless refactor lane that made HLS selected audio stream mapping
+  executable and deferred true `TYPE=AUDIO` groups until audio sidecar artifacts
+  exist.
+- [hls-master-renditions-authoring](hls-master-renditions-authoring/README.md):
+  closed fearless refactor lane for making selected subtitle WebVTT sidecar
+  artifacts discoverable through standard HLS master playlist media tags,
+  preserving adaptive fMP4, single-variant HLS, artifact serving, and session
+  reuse behavior.
 - [hls-media-renditions-runtime](hls-media-renditions-runtime/README.md):
   closed fearless refactor lane that added a typed HLS media rendition boundary
   after source-aware adaptive video ladders, including selected subtitle WebVTT
