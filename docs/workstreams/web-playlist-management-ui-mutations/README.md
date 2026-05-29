@@ -1,6 +1,6 @@
 # Web Playlist Management UI Mutations
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 This lane turns the closed User Playlist contract into real web playlist
@@ -16,9 +16,15 @@ or offline sync.
 - `MILESTONES.md` - milestone exit criteria.
 - `EVIDENCE_AND_GATES.md` - validation commands and evidence log.
 - `HANDOFF.md` - current state and next action.
+- `CLOSEOUT.md` - shipped behavior, review result, residual risks, and follow-ons.
 
-## Current Execution Point
+## Closeout
 
-`WPMU-010` opened the lane. Start `WPMU-020` by adding the web Public Client
-mutation data-source and TanStack Query mutation boundary for create, rename,
-delete, add, remove, and reorder.
+`WPMU-060` closed this lane on 2026-05-29. The web playlist management
+surface now supports create, rename, delete, add item, remove item, and
+explicit up/down reorder through the Public Client data-source and TanStack
+Query mutation hooks.
+
+Shared playlists, smart lists, drag-and-drop reorder, collaboration, offline
+sync, and future Tauri/mobile playlist surfaces remain follow-ons rather than
+blockers for this lane.

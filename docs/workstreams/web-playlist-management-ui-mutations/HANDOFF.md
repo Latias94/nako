@@ -1,35 +1,22 @@
 # Web Playlist Management UI Mutations - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 ## Current State
 
-This lane is open. The backend/Public Client User Playlist contract is already
-closed in `docs/workstreams/user-playlists-contract-and-web-slice/`. The first
-web slice can list playlists and items at `/media/my-list` through Public
-Client live data with fixture fallback. WPMU-020 added the web mutation
-boundary: Public Client-backed data-source methods and TanStack Query mutation
-hooks now cover playlist create, rename, delete, add item, remove item, and
-reorder. WPMU-030 added `/media/my-list` create, rename, and delete controls
-on top of those hooks. WPMU-040 added item removal from playlist list/card
-views and a narrow add-to-playlist dropdown from media detail and browse cards.
-WPMU-050 added explicit up/down playlist item reorder controls with
-stale-version conflict recovery.
+This lane is closed. WPMU-020 through WPMU-050 shipped Public Client-backed
+playlist create, rename, delete, add item, remove item, and explicit up/down
+reorder. WPMU-060 verified the lane with full web gates, desktop/mobile browser
+smoke, workstream review, closeout notes, and residual follow-ons.
 
-The remaining lane work is verification and closeout. It must keep playlist
-management on the Public Client boundary and must not import Admin API code
-into media features.
+The shipped implementation keeps playlist management on the Public Client
+data-source and TanStack Query hook boundary. Fixture mode reports
+non-persistence instead of pretending writes succeeded.
 
 ## Active Task
 
-- Task ID: WPMU-060
-- Owner: Codex
-- Files: `docs/workstreams/web-playlist-management-ui-mutations`
-- Validation: `npm --prefix web run test`; `npm --prefix web run check`; `npm --prefix web run build:budget`; browser smoke desktop/mobile; `git diff --check`
-- Status: READY
-- Review: review-workstream has no blocking findings.
-- Evidence: closeout notes, final gate results, and residual follow-ons
+None. `WPMU-060` is complete.
 
 ## Decisions Since Last Update
 
@@ -60,6 +47,8 @@ into media features.
 
 ## Next Recommended Action
 
-Start WPMU-060: run the full lane gates, smoke desktop/mobile playlist
-management flows, record closeout evidence, and split any residual follow-ons
-before closing the workstream.
+Return to `web-deferred-product-reentry-plan` or open a new follow-on lane for
+the next playlist product investment. Good candidates are broader
+add-to-playlist coverage, drag-and-drop reorder, shared playlists,
+recommendation/smart lists, offline sync conflict handling, or future
+Tauri/mobile playlist surfaces.

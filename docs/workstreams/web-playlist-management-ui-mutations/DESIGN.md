@@ -1,6 +1,6 @@
 # Web Playlist Management UI Mutations
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-29
 
 ## Why This Lane Exists
@@ -123,3 +123,6 @@ This lane can close when:
 - evidence gates pass;
 - docs reflect shipped behavior;
 - mutation UX follow-ons are either split or explicitly deferred.
+
+Closed by `WPMU-060` on 2026-05-29. See `CLOSEOUT.md` for shipped behavior,
+review result, residual risks, and deferred follow-ons.
