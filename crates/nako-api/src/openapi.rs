@@ -328,6 +328,19 @@ fn public_paths() -> Value {
         }),
     );
     paths.insert(
+        "/sources/{source_id}/subtitles/{stream_index}".to_owned(),
+        json!({
+            "get": subtitle_text_get(
+                "getSourceSubtitle",
+                "Serve one sidecar subtitle stream.",
+                vec![
+                    path_parameter("source_id", "Media source id."),
+                    path_integer_parameter("stream_index", "Subtitle stream index.")
+                ]
+            )
+        }),
+    );
+    paths.insert(
         "/playback/sessions/{session_id}".to_owned(),
         json!({
             "get": json_get("getPlaybackSession", "Get one playback session.", "playback", vec![path_parameter("session_id", "Playback session id.")], schema_ref("PlaybackSessionResponse"))
@@ -668,6 +681,27 @@ fn session_text_get(operation_id: &str, summary: &str, parameters: Vec<Value>) -
     )
 }
 
+fn subtitle_text_get(operation_id: &str, summary: &str, parameters: Vec<Value>) -> Value {
+    operation(
+        operation_id,
+        summary,
+        "playback",
+        parameters,
+        json!({
+            "description": "Subtitle text.",
+            "headers": api_version_headers(),
+            "content": {
+                "text/vtt": {
+                    "schema": string_schema()
+                },
+                "application/x-subrip": {
+                    "schema": string_schema()
+                }
+            }
+        }),
+    )
+}
+
 fn session_empty_head(operation_id: &str, summary: &str, parameters: Vec<Value>) -> Value {
     operation(
         operation_id,
@@ -936,6 +970,16 @@ fn path_parameter(name: &str, description: &str) -> Value {
     })
 }
 
+fn path_integer_parameter(name: &str, description: &str) -> Value {
+    json!({
+        "name": name,
+        "in": "path",
+        "required": true,
+        "schema": integer_schema("int32"),
+        "description": description
+    })
+}
+
 fn query_parameter(name: &str, description: &str, schema: Value, required: bool) -> Value {
     json!({
         "name": name,
@@ -1191,8 +1235,9 @@ fn schemas() -> Value {
             "probe": schema_ref("MediaProbeDto")
         })),
         "BrowserPlaybackTicketRequest": object_schema(&["mode"], json!({
-            "mode": enum_schema(&["direct", "remux", "hls"]),
-            "capabilities": schema_ref("BrowserPlaybackCapabilitiesDto")
+            "mode": enum_schema(&["direct", "remux", "hls", "subtitle"]),
+            "capabilities": schema_ref("BrowserPlaybackCapabilitiesDto"),
+            "subtitle_stream_index": integer_schema("int32")
         })),
         "BrowserPlaybackCapabilitiesDto": object_schema(&[], json!({
             "direct_play": boolean_schema(),
@@ -1212,12 +1257,12 @@ fn schemas() -> Value {
         "BrowserPlaybackTicketResponse": object_schema(&["source_id", "mode", "expires_at", "urls"], json!({
             "source_id": uuid_schema(),
             "item_id": nullable_uuid_schema(),
-            "mode": enum_schema(&["direct", "remux", "hls"]),
+            "mode": enum_schema(&["direct", "remux", "hls", "subtitle"]),
             "expires_at": string_schema(),
             "urls": non_empty_array_schema(schema_ref("BrowserPlaybackUrlDto"))
         })),
         "BrowserPlaybackUrlDto": object_schema(&["kind", "url", "content_type", "supports_range_requests"], json!({
-            "kind": enum_schema(&["stream", "playlist"]),
+            "kind": enum_schema(&["stream", "playlist", "subtitle"]),
             "url": string_schema(),
             "content_type": string_schema(),
             "supports_range_requests": boolean_schema()
@@ -1563,9 +1608,10 @@ fn schemas() -> Value {
             "bit_rate": json!({"type": "integer", "format": "int64", "nullable": true}),
             "streams": array_schema(schema_ref("MediaStreamDto"))
         })),
-        "MediaStreamDto": object_schema(&["index", "kind", "codec", "language", "duration_ms", "bit_rate", "width", "height", "channels", "sample_rate"], json!({
+        "MediaStreamDto": object_schema(&["index", "kind", "origin", "codec", "language", "duration_ms", "bit_rate", "width", "height", "channels", "sample_rate", "disposition"], json!({
             "index": integer_schema("int32"),
             "kind": string_schema(),
+            "origin": nullable_string_schema(),
             "codec": nullable_string_schema(),
             "language": nullable_string_schema(),
             "duration_ms": json!({"type": "integer", "format": "int64", "nullable": true}),
@@ -1573,7 +1619,18 @@ fn schemas() -> Value {
             "width": json!({"type": "integer", "format": "int32", "nullable": true}),
             "height": json!({"type": "integer", "format": "int32", "nullable": true}),
             "channels": json!({"type": "integer", "format": "int32", "nullable": true}),
-            "sample_rate": json!({"type": "integer", "format": "int32", "nullable": true})
+            "sample_rate": json!({"type": "integer", "format": "int32", "nullable": true}),
+            "disposition": schema_ref("MediaStreamDispositionDto")
+        })),
+        "MediaStreamDispositionDto": object_schema(&["default", "forced", "hearing_impaired", "visual_impaired", "commentary", "attached_pic", "captions", "descriptions"], json!({
+            "default": boolean_schema(),
+            "forced": boolean_schema(),
+            "hearing_impaired": boolean_schema(),
+            "visual_impaired": boolean_schema(),
+            "commentary": boolean_schema(),
+            "attached_pic": boolean_schema(),
+            "captions": boolean_schema(),
+            "descriptions": boolean_schema()
         })),
         "PersonDto": object_schema(&["id", "name", "sort_name", "overview", "external_ids"], json!({
             "id": uuid_schema(),
@@ -1860,7 +1917,11 @@ mod tests {
         );
         assert_eq!(
             document["components"]["schemas"]["BrowserPlaybackUrlDto"]["properties"]["kind"]["enum"],
-            json!(["stream", "playlist"])
+            json!(["stream", "playlist", "subtitle"])
+        );
+        assert_eq!(
+            document["paths"]["/sources/{source_id}/subtitles/{stream_index}"]["get"]["operationId"],
+            "getSourceSubtitle"
         );
         assert_eq!(
             document["components"]["schemas"]["BrowserPlaybackTicketResponse"]["properties"]["item_id"]

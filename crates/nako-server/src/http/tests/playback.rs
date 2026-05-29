@@ -20,6 +20,29 @@ fn ticket_param(url: &str) -> &str {
         .expect("browser playback URL contains ticket query parameter")
 }
 
+fn sidecar_subtitle_stream(index: u32, language: &str, codec: &str) -> MediaStreamInfo {
+    MediaStreamInfo {
+        index,
+        kind: MediaStreamKind::Subtitle,
+        codec: Some(codec.to_owned()),
+        language: Some(language.to_owned()),
+        duration_ms: None,
+        bit_rate: None,
+        width: None,
+        height: None,
+        channels: None,
+        sample_rate: None,
+        technical: MediaStreamTechnicalFacts {
+            origin: Some(MediaStreamOrigin::Sidecar),
+            disposition: MediaStreamDisposition {
+                default: true,
+                ..MediaStreamDisposition::default()
+            },
+            ..MediaStreamTechnicalFacts::default()
+        },
+    }
+}
+
 async fn latest_playback_session_for_source(
     store: &NakoDatabase,
     source_id: MediaSourceId,
@@ -162,6 +185,7 @@ async fn playback_decision_and_direct_stream_routes_work() {
     )
     .await;
     let response = router
+        .clone()
         .oneshot(
             Request::builder()
                 .method(Method::GET)
@@ -228,6 +252,79 @@ async fn playback_routes_require_play_library_access() {
 
     assert_eq!(decision.status(), StatusCode::FORBIDDEN);
     assert_eq!(stream.status(), StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn subtitle_route_serves_sidecar_text_without_exposing_locator() {
+    let (temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
+    fs::write(
+        temp.path().join("demo.zh-hant.srt"),
+        "1\n00:00:01,000 --> 00:00:02,000\nHello\n",
+    )
+    .unwrap();
+    let mut probe = compatible_probe();
+    probe
+        .streams
+        .push(sidecar_subtitle_stream(2, "zh-hant", "srt"));
+    store.upsert_media_probe(source.id, &probe).await.unwrap();
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/sources/{}/subtitles/2", source.id))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok()),
+        Some("application/x-subrip; charset=utf-8")
+    );
+    let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(
+        std::str::from_utf8(&body).unwrap(),
+        "1\n00:00:01,000 --> 00:00:02,000\nHello\n"
+    );
+
+    fs::remove_file(temp.path().join("demo.zh-hant.srt")).unwrap();
+    let missing = response_for(
+        &router,
+        Method::GET,
+        &format!("/sources/{}/subtitles/2", source.id),
+    )
+    .await;
+    assert_eq!(missing.status(), StatusCode::NOT_FOUND);
+    let error = body_json::<ErrorResponse>(missing).await;
+    assert_eq!(error.code, "not_found");
+    assert!(!error.message.contains("local:///"));
+    assert!(!error.message.contains("demo.zh-hant.srt"));
+}
+
+#[tokio::test]
+async fn subtitle_route_requires_play_library_access() {
+    let (_temp, app, source, store) =
+        app_with_media_source_config("subtitle-access.mkv", b"media", |_| {}).await;
+    let principal =
+        local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::Browse)
+            .await;
+    let router = public_client_router_with_principal(app, principal);
+
+    let response = response_for(
+        &router,
+        Method::GET,
+        &format!("/sources/{}/subtitles/2", source.id),
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
 }
 
 #[tokio::test]
@@ -435,6 +532,7 @@ async fn browser_ticket_play_access_currently_allows_all_playback_modes() {
                 &nako_api::public_client::BrowserPlaybackTicketRequest {
                     mode: mode.clone(),
                     capabilities: None,
+                    subtitle_stream_index: None,
                 },
             )
             .await;
@@ -472,6 +570,7 @@ async fn browser_ticket_respects_effective_playback_policy_before_issue() {
         &nako_api::public_client::BrowserPlaybackTicketRequest {
             mode: nako_api::public_client::BrowserPlaybackMode::Remux,
             capabilities: None,
+            subtitle_stream_index: None,
         },
     )
     .await;
@@ -591,6 +690,7 @@ async fn browser_playback_ticket_streams_direct_bytes_without_bearer() {
             output_container: None,
             ..nako_api::public_client::BrowserPlaybackCapabilitiesDto::default()
         }),
+        subtitle_stream_index: None,
     };
 
     let unauthenticated = response_for(
@@ -664,6 +764,82 @@ async fn browser_playback_ticket_streams_direct_bytes_without_bearer() {
 }
 
 #[tokio::test]
+async fn browser_playback_ticket_streams_sidecar_subtitle_without_bearer() {
+    let (temp, app, source, store) =
+        app_with_media_source_config("ticket-subtitle.mkv", b"media", |_| {}).await;
+    fs::write(
+        temp.path().join("ticket-subtitle.en.vtt"),
+        "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nHello\n",
+    )
+    .unwrap();
+    let mut probe = compatible_probe();
+    probe.streams.push(sidecar_subtitle_stream(2, "en", "vtt"));
+    store.upsert_media_probe(source.id, &probe).await.unwrap();
+    let router = build_router_with_auth(app, auth::InboundAuthState::bearer_token("secret"));
+    let issue_request = nako_api::public_client::BrowserPlaybackTicketRequest {
+        mode: nako_api::public_client::BrowserPlaybackMode::Subtitle,
+        capabilities: None,
+        subtitle_stream_index: Some(2),
+    };
+
+    let unauthenticated = response_for(
+        &router,
+        Method::GET,
+        &format!("/sources/{}/subtitles/2", source.id),
+    )
+    .await;
+    assert_eq!(unauthenticated.status(), StatusCode::UNAUTHORIZED);
+
+    let ticket_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!("/sources/{}/playback/browser-ticket", source.id))
+                .header(header::AUTHORIZATION, "Bearer secret")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(serde_json::to_vec(&issue_request).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(ticket_response.status(), StatusCode::OK);
+    let ticket =
+        body_json::<nako_api::public_client::BrowserPlaybackTicketResponse>(ticket_response).await;
+
+    assert_eq!(
+        ticket.mode,
+        nako_api::public_client::BrowserPlaybackMode::Subtitle
+    );
+    assert_eq!(
+        ticket.urls[0].kind,
+        nako_api::public_client::BrowserPlaybackUrlKind::Subtitle
+    );
+    assert_eq!(ticket.urls[0].content_type, "text/vtt; charset=utf-8");
+    assert!(ticket.urls[0].url.contains("/subtitles/2?ticket="));
+    assert!(!ticket.urls[0].url.contains("Bearer"));
+    let token = ticket_param(&ticket.urls[0].url);
+    assert!(token.starts_with("nako_bpt_"));
+    assert!(!token.contains(&source.id.to_string()));
+
+    let subtitle = response_for(&router, Method::GET, &ticket.urls[0].url).await;
+    assert_eq!(subtitle.status(), StatusCode::OK);
+    let body = to_bytes(subtitle.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(
+        std::str::from_utf8(&body).unwrap(),
+        "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nHello\n"
+    );
+
+    let wrong_stream = response_for(
+        &router,
+        Method::GET,
+        &format!("/sources/{}/subtitles/3?ticket={token}", source.id),
+    )
+    .await;
+    assert_eq!(wrong_stream.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
 async fn browser_playback_ticket_response_currently_has_no_renderer_transport_scope() {
     let (_temp, app, source, _store) =
         app_with_media_source_config("ticket-scope.mp4", b"0123456789", |_| {}).await;
@@ -671,6 +847,7 @@ async fn browser_playback_ticket_response_currently_has_no_renderer_transport_sc
     let issue_request = nako_api::public_client::BrowserPlaybackTicketRequest {
         mode: nako_api::public_client::BrowserPlaybackMode::Direct,
         capabilities: None,
+        subtitle_stream_index: None,
     };
 
     let ticket = request_body_json::<nako_api::public_client::BrowserPlaybackTicketResponse, _>(
@@ -707,6 +884,7 @@ async fn browser_playback_ticket_rejects_browse_only_access_and_revocation_at_us
     let issue_request = nako_api::public_client::BrowserPlaybackTicketRequest {
         mode: nako_api::public_client::BrowserPlaybackMode::Direct,
         capabilities: None,
+        subtitle_stream_index: None,
     };
 
     let browse_only = response_body_json(
@@ -749,6 +927,7 @@ async fn browser_playback_ticket_is_scoped_to_playback_mode() {
     let issue_request = nako_api::public_client::BrowserPlaybackTicketRequest {
         mode: nako_api::public_client::BrowserPlaybackMode::Direct,
         capabilities: None,
+        subtitle_stream_index: None,
     };
     let ticket = request_body_json::<nako_api::public_client::BrowserPlaybackTicketResponse, _>(
         &router,
@@ -780,6 +959,14 @@ async fn browser_playback_ticket_is_scoped_to_playback_mode() {
     )
     .await;
     assert_eq!(hls.status(), StatusCode::UNAUTHORIZED);
+
+    let subtitle = response_for(
+        &router,
+        Method::GET,
+        &format!("/sources/{}/subtitles/2?ticket={token}", source.id),
+    )
+    .await;
+    assert_eq!(subtitle.status(), StatusCode::UNAUTHORIZED);
 }
 
 #[tokio::test]
@@ -1075,6 +1262,7 @@ async fn browser_playback_ticket_streams_remux_bytes() {
             output_container: Some(nako_api::public_client::BrowserPlaybackOutputContainer::Mp4),
             ..nako_api::public_client::BrowserPlaybackCapabilitiesDto::default()
         }),
+        subtitle_stream_index: None,
     };
     let ticket = request_body_json::<nako_api::public_client::BrowserPlaybackTicketResponse, _>(
         &router,
@@ -1817,6 +2005,7 @@ async fn browser_playback_ticket_protects_hls_playlist_and_segments() {
             output_container: None,
             ..nako_api::public_client::BrowserPlaybackCapabilitiesDto::default()
         }),
+        subtitle_stream_index: None,
     };
 
     let ticket = request_body_json::<nako_api::public_client::BrowserPlaybackTicketResponse, _>(

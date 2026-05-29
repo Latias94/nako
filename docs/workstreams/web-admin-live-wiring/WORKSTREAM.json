@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "slug": "web-admin-live-wiring",
+  "title": "Web Admin Live Wiring",
+  "status": "complete",
+  "updated": "2026-05-28",
+  "scope_kind": "frontend_admin_live_wiring",
+  "problem": "Admin dashboard has a first live seam, but deeper copied Admin pages remain fixture/planned.",
+  "task_prefix": "WALW",
+  "current_task": null,
+  "completed_tasks": [
+    "WALW-010",
+    "WALW-020",
+    "WALW-030",
+    "WALW-040",
+    "WALW-050"
+  ],
+  "authoritative_docs": [
+    { "role": "overview", "path": "docs/workstreams/web-admin-live-wiring/README.md" },
+    { "role": "design", "path": "docs/workstreams/web-admin-live-wiring/DESIGN.md" },
+    { "role": "execution", "path": "docs/workstreams/web-admin-live-wiring/TODO.md" },
+    { "role": "milestones", "path": "docs/workstreams/web-admin-live-wiring/MILESTONES.md" },
+    { "role": "gates", "path": "docs/workstreams/web-admin-live-wiring/EVIDENCE_AND_GATES.md" },
+    { "role": "handoff", "path": "docs/workstreams/web-admin-live-wiring/HANDOFF.md" }
+  ],
+  "gates": [
+    "npm --prefix web run test",
+    "npm --prefix web run check",
+    "npm --prefix web run build",
+    "cargo nextest run -p nako-api admin_web_generated_contract_matches_generator_output when generated contracts change",
+    "git diff --check"
+  ],
+  "evidence": [
+    "Queued as lane 5 after WCAT.",
+    "Activated after WCAT-050 closeout commit 1cccdd7a; WALW-020 is ready.",
+    "WALW-020 wired libraries/users/tasks/logs/settings through Admin API read-model modules with fixture fallback; tests/check/build passed.",
+    "WALW-030 wired accepted library/user/settings Admin mutations with confirmation, disabled fixture/permission states, error handling, and tests/check/build evidence.",
+    "WALW-040 replaced copied plugin UI with Nako Addon Manager read/mutation slice; tests/check/build passed and admin bundle chunk decreased.",
+    "WALW-050 closeout passed npm test/check/build and git diff --check; activate web-bundle-budget-and-product-pruning next."
+  ],
+  "adr_refs": [
+    "docs/adr/0027-admin-api-boundary-for-web-console.md",
+    "docs/adr/0020-jellyfin-like-sidecar-addons-with-scoped-api-access.md"
+  ],
+  "continue_policy": {
+    "default_action": "activate_next_lane",
+    "notes": "Activate web-bundle-budget-and-product-pruning."
+  }
+}

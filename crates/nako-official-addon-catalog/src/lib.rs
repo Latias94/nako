@@ -1,7 +1,8 @@
 use nako_addon_protocol::{
     ADDON_PROTOCOL_VERSION, ADDON_RESOURCE_LINK_CHECK_REQUEST_SCHEMA,
     ADDON_RESOURCE_LINK_CHECK_RESPONSE_SCHEMA, ADDON_RESOURCE_SEARCH_REQUEST_SCHEMA,
-    ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA, AddonAuth, AddonConfigurationSchema,
+    ADDON_RESOURCE_SEARCH_RESPONSE_SCHEMA, ADDON_SUBTITLE_REQUEST_SCHEMA,
+    ADDON_SUBTITLE_RESPONSE_SCHEMA, AddonAuth, AddonConfigurationSchema,
     AddonEntryPointDeclaration, AddonEntryPointKind, AddonEventSubscriptionDeclaration,
     AddonHostedPageDeclaration, AddonInstallDescriptor, AddonManifest, AddonResource,
     AddonResourceDeclaration, AddonRuntimeKind, AddonRuntimeRequirement, AddonScope,
@@ -546,8 +547,8 @@ pub mod subtitle_provider {
         "Official Nako subtitle provider sidecar for read-only subtitle candidate discovery.";
     pub const CONFIG_SCHEMA_ID: &str = "nako.official.subtitle-provider.config.v1";
     pub const SUBTITLE_RESOURCE_PATH: &str = "/subtitle";
-    pub const SUBTITLE_REQUEST_SCHEMA: &str = "nako.official.subtitle_provider.request.v1";
-    pub const SUBTITLE_RESPONSE_SCHEMA: &str = "nako.official.subtitle_provider.response.v1";
+    pub const SUBTITLE_REQUEST_SCHEMA: &str = ADDON_SUBTITLE_REQUEST_SCHEMA;
+    pub const SUBTITLE_RESPONSE_SCHEMA: &str = ADDON_SUBTITLE_RESPONSE_SCHEMA;
     pub const DIAGNOSTICS_ENTRY_POINT_ID: &str = "subtitle-provider-diagnostics";
     pub const DIAGNOSTICS_HOSTED_PAGE_ID: &str = "diagnostics";
     pub const DIAGNOSTICS_LABEL: &str = "Subtitle Provider Diagnostics";

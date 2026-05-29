@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "slug": "web-feature-boundary-reshape",
+  "title": "Web Feature Boundary Reshape",
+  "status": "complete",
+  "updated": "2026-05-28",
+  "scope_kind": "frontend_boundary_refactor",
+  "problem": "Copied v0 product components still live in one broad components/nako directory, obscuring ownership and making later route/API refactors risky.",
+  "task_prefix": "WFBR",
+  "current_task": null,
+  "completed_tasks": [
+    "WFBR-010",
+    "WFBR-020",
+    "WFBR-030",
+    "WFBR-040",
+    "WFBR-050"
+  ],
+  "authoritative_docs": [
+    { "role": "overview", "path": "docs/workstreams/web-feature-boundary-reshape/README.md" },
+    { "role": "design", "path": "docs/workstreams/web-feature-boundary-reshape/DESIGN.md" },
+    { "role": "execution", "path": "docs/workstreams/web-feature-boundary-reshape/TODO.md" },
+    { "role": "milestones", "path": "docs/workstreams/web-feature-boundary-reshape/MILESTONES.md" },
+    { "role": "gates", "path": "docs/workstreams/web-feature-boundary-reshape/EVIDENCE_AND_GATES.md" },
+    { "role": "handoff", "path": "docs/workstreams/web-feature-boundary-reshape/HANDOFF.md" }
+  ],
+  "gates": [
+    "npm --prefix web run test",
+    "npm --prefix web run check",
+    "npm --prefix web run build",
+    "git diff --check"
+  ],
+  "evidence": [
+    "Queued as lane 2 after WTRC.",
+    "WFBR-010 activated after WTRC closed with test/check/build/diff gates passing.",
+    "WFBR-020 moved the Media surface and current internal product pages under web/src/features/media and passed check/test/build plus DTO boundary grep.",
+    "WFBR-030 moved the Admin surface, admin child pages, and transcode settings under web/src/features/admin and passed check/test/build plus DTO boundary grep.",
+    "WFBR-040 moved remaining product route surfaces to feature directories, moved router/switcher to web/src/shell, and removed all components/nako imports.",
+    "WFBR-050 closed the lane after npm test, npm check, npm build, DTO boundary grep, and git diff --check passed; WROP is active."
+  ],
+  "adr_refs": [
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "continue_policy": {
+    "default_action": "closed",
+    "notes": "This lane is complete. Continue in web-route-owned-product-surfaces."
+  }
+}

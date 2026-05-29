@@ -15,6 +15,7 @@ pub(crate) enum BrowserPlaybackTicketMode {
     Direct,
     Remux,
     Hls,
+    Subtitle,
 }
 
 #[derive(Clone, Eq, PartialEq)]
@@ -53,6 +54,33 @@ impl BrowserPlaybackTicketService {
         mode: BrowserPlaybackTicketMode,
         now_ms: i64,
     ) -> Result<IssuedBrowserPlaybackTicket> {
+        self.issue_scoped_source_ticket(principal, source_id, mode, None, now_ms)
+    }
+
+    pub(crate) fn issue_subtitle_ticket(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        source_id: MediaSourceId,
+        stream_index: u32,
+        now_ms: i64,
+    ) -> Result<IssuedBrowserPlaybackTicket> {
+        self.issue_scoped_source_ticket(
+            principal,
+            source_id,
+            BrowserPlaybackTicketMode::Subtitle,
+            Some(stream_index),
+            now_ms,
+        )
+    }
+
+    fn issue_scoped_source_ticket(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        source_id: MediaSourceId,
+        mode: BrowserPlaybackTicketMode,
+        stream_index: Option<u32>,
+        now_ms: i64,
+    ) -> Result<IssuedBrowserPlaybackTicket> {
         let expires_at_ms =
             now_ms
                 .checked_add(TICKET_TTL_MS)
@@ -74,6 +102,7 @@ impl BrowserPlaybackTicketService {
                     entry.insert(BrowserPlaybackTicketRecord {
                         source_id,
                         mode,
+                        stream_index,
                         principal: principal.clone(),
                         expires_at_ms,
                     });
@@ -97,6 +126,33 @@ impl BrowserPlaybackTicketService {
         mode: BrowserPlaybackTicketMode,
         now_ms: i64,
     ) -> Result<AuthenticatedPrincipal> {
+        self.validate_scoped_source_ticket(token, source_id, mode, None, now_ms)
+    }
+
+    pub(crate) fn validate_subtitle_ticket(
+        &self,
+        token: &str,
+        source_id: MediaSourceId,
+        stream_index: u32,
+        now_ms: i64,
+    ) -> Result<AuthenticatedPrincipal> {
+        self.validate_scoped_source_ticket(
+            token,
+            source_id,
+            BrowserPlaybackTicketMode::Subtitle,
+            Some(stream_index),
+            now_ms,
+        )
+    }
+
+    fn validate_scoped_source_ticket(
+        &self,
+        token: &str,
+        source_id: MediaSourceId,
+        mode: BrowserPlaybackTicketMode,
+        stream_index: Option<u32>,
+        now_ms: i64,
+    ) -> Result<AuthenticatedPrincipal> {
         if token.trim().is_empty() {
             return Err(invalid_playback_ticket());
         }
@@ -115,7 +171,10 @@ impl BrowserPlaybackTicketService {
             return Err(invalid_playback_ticket());
         }
 
-        if record.source_id != source_id || record.mode != mode {
+        if record.source_id != source_id
+            || record.mode != mode
+            || record.stream_index != stream_index
+        {
             return Err(invalid_playback_ticket());
         }
 
@@ -139,6 +198,7 @@ impl BrowserPlaybackTicketStore {
 struct BrowserPlaybackTicketRecord {
     source_id: MediaSourceId,
     mode: BrowserPlaybackTicketMode,
+    stream_index: Option<u32>,
     principal: AuthenticatedPrincipal,
     expires_at_ms: i64,
 }
@@ -218,6 +278,11 @@ mod tests {
         );
         assert!(
             service
+                .validate_subtitle_ticket(&issued.token, source_id, 2, 101)
+                .is_err()
+        );
+        assert!(
+            service
                 .validate_source_ticket(
                     &issued.token,
                     source_id,
@@ -230,6 +295,38 @@ mod tests {
             service
                 .validate_source_ticket(
                     "not-a-ticket",
+                    source_id,
+                    BrowserPlaybackTicketMode::Direct,
+                    101
+                )
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn subtitle_ticket_is_scoped_to_stream_index() {
+        let service = BrowserPlaybackTicketService::new();
+        let principal = AuthenticatedPrincipal::bootstrap_admin();
+        let source_id = MediaSourceId::new();
+        let issued = service
+            .issue_subtitle_ticket(&principal, source_id, 2, 100)
+            .unwrap();
+
+        assert_eq!(
+            service
+                .validate_subtitle_ticket(&issued.token, source_id, 2, 101)
+                .unwrap(),
+            principal
+        );
+        assert!(
+            service
+                .validate_subtitle_ticket(&issued.token, source_id, 3, 101)
+                .is_err()
+        );
+        assert!(
+            service
+                .validate_source_ticket(
+                    &issued.token,
                     source_id,
                     BrowserPlaybackTicketMode::Direct,
                     101

@@ -1,0 +1,18 @@
+{
+  "id": "subtitle-import-plan-preview",
+  "status": "complete",
+  "task_prefix": "SIPP",
+  "created_at": "2026-05-28",
+  "updated_at": "2026-05-28",
+  "objective": "Preview host-owned subtitle import plans from selected subtitle references and target media source identity without downloading, writing, or applying files.",
+  "current_task": null,
+  "owner": "Codex",
+  "docs": {
+    "adr": "../../adr/0051-host-owned-subtitle-import-chain.md",
+    "design": "DESIGN.md",
+    "todo": "TODO.md",
+    "milestones": "MILESTONES.md",
+    "evidence": "EVIDENCE_AND_GATES.md",
+    "handoff": "HANDOFF.md"
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "slug": "web-route-owned-product-surfaces",
+  "title": "Web Route-Owned Product Surfaces",
+  "status": "complete",
+  "updated": "2026-05-28",
+  "scope_kind": "frontend_routing_refactor",
+  "problem": "Media and Admin product surfaces still keep durable navigation state inside large components instead of TanStack routes.",
+  "task_prefix": "WROP",
+  "current_task": null,
+  "completed_tasks": [
+    "WROP-010",
+    "WROP-020",
+    "WROP-030",
+    "WROP-040",
+    "WROP-050"
+  ],
+  "authoritative_docs": [
+    { "role": "overview", "path": "docs/workstreams/web-route-owned-product-surfaces/README.md" },
+    { "role": "design", "path": "docs/workstreams/web-route-owned-product-surfaces/DESIGN.md" },
+    { "role": "execution", "path": "docs/workstreams/web-route-owned-product-surfaces/TODO.md" },
+    { "role": "milestones", "path": "docs/workstreams/web-route-owned-product-surfaces/MILESTONES.md" },
+    { "role": "gates", "path": "docs/workstreams/web-route-owned-product-surfaces/EVIDENCE_AND_GATES.md" },
+    { "role": "handoff", "path": "docs/workstreams/web-route-owned-product-surfaces/HANDOFF.md" }
+  ],
+  "gates": [
+    "npm --prefix web run test",
+    "npm --prefix web run check",
+    "npm --prefix web run build",
+    "git diff --check"
+  ],
+  "evidence": [
+    "Queued as lane 3 after WFBR.",
+    "WROP-010 activated after WFBR closed with test/check/build, DTO boundary grep, and diff gates passing.",
+    "WROP-020 added route-owned Media search/detail/library routes with route contracts; route-contract test, check, full test, and build passed.",
+    "WROP-030 added route-owned Admin section routes with route contracts for libraries/users/tasks/logs/settings; route-contract test, check, full test, and build passed.",
+    "WROP-040 moved durable Media search/library state and Admin log state into route search params with route-state contracts; route/state tests, check, full test, build, and diff gate passed.",
+    "WROP-050 closed the lane; WCAT is ready to activate."
+  ],
+  "adr_refs": [
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "continue_policy": {
+    "default_action": "closed",
+    "notes": "This lane is complete. Continue in web-connection-auth-tauri-profile."
+  }
+}

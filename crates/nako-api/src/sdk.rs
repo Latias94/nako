@@ -826,6 +826,12 @@ public object NakoPublicClientRequests {
             ),
         )
 
+    public fun getSourceSubtitle(sourceId: String, streamIndex: Int): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "GET",
+            pathAndQuery = "/sources/${encodePathSegment(sourceId)}/subtitles/${encodePathSegment(streamIndex.toString())}",
+        )
+
     public fun getPlaybackSession(sessionId: String): NakoRequestDescriptor =
         NakoRequestDescriptor(
             method = "GET",
@@ -1296,6 +1302,10 @@ export class NakoClient {
     return this.requestText("GET", `/sources/${encodeURIComponent(sourceId)}/stream/hls/playlist.m3u8`, { query: capabilities });
   }
 
+  getSourceSubtitle(sourceId: string, streamIndex: number): Promise<string> {
+    return this.requestText("GET", `/sources/${encodeURIComponent(sourceId)}/subtitles/${encodeURIComponent(String(streamIndex))}`);
+  }
+
   getPlaybackSession(sessionId: string): Promise<PlaybackSessionResponse> {
     return this.requestJson("GET", `/playback/sessions/${encodeURIComponent(sessionId)}`);
   }
@@ -1472,6 +1482,7 @@ mod tests {
             "remuxStreamSource(",
             "headRemuxStreamSource(",
             "hlsPlaylist(",
+            "getSourceSubtitle(",
             "getPlaybackSession(",
             "cancelPlaybackSession(",
             "heartbeatPlaybackSession(",
@@ -1604,6 +1615,7 @@ mod tests {
             "public fun listLibraries(page: PageQuery = PageQuery()): NakoRequestDescriptor",
             "public fun managementContextLinks(",
             "public fun createBrowserPlaybackTicket(sourceId: String): NakoRequestDescriptor",
+            "public fun getSourceSubtitle(sourceId: String, streamIndex: Int): NakoRequestDescriptor",
             "public fun heartbeatPlaybackSession(sessionId: String): NakoRequestDescriptor",
             "public fun listRenderers(page: PageQuery = PageQuery()): NakoRequestDescriptor",
             "public fun pollNextRendererCommand(rendererSessionId: String): NakoRequestDescriptor",

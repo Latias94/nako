@@ -1,11 +1,17 @@
-use std::sync::Mutex;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    sync::Mutex,
+};
 
 use serde::{Deserialize, Serialize};
+use tauri::Manager;
 use url::Url;
 
 #[derive(Debug, Default)]
 struct DesktopShellState {
     server_profile: Mutex<Option<ServerProfile>>,
+    profile_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -23,18 +29,18 @@ struct NativePlaybackStatus {
     reason: &'static str,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ServerProfile {
     base_url: String,
     source: ServerProfileSource,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum ServerProfileSource {
     Environment,
-    Session,
+    LocalProfile,
 }
 
 #[derive(Debug, Deserialize)]
@@ -44,9 +50,12 @@ struct ServerProfileInput {
 }
 
 impl DesktopShellState {
-    fn from_environment() -> Self {
+    fn from_profile_path(profile_path: PathBuf) -> Self {
         Self {
-            server_profile: Mutex::new(environment_server_profile()),
+            server_profile: Mutex::new(
+                read_server_profile(&profile_path).or_else(environment_server_profile),
+            ),
+            profile_path: Some(profile_path),
         }
     }
 
@@ -65,27 +74,43 @@ impl DesktopShellState {
         }
     }
 
-    fn save_profile(&self, base_url: String) -> DesktopBootstrap {
-        let mut profile = self
-            .server_profile
-            .lock()
-            .expect("desktop shell state mutex poisoned");
-        *profile = Some(ServerProfile {
+    fn save_profile(&self, base_url: String) -> Result<DesktopBootstrap, String> {
+        let next_profile = ServerProfile {
             base_url,
-            source: ServerProfileSource::Session,
-        });
+            source: ServerProfileSource::LocalProfile,
+        };
 
-        self.bootstrap()
+        if let Some(profile_path) = &self.profile_path {
+            write_server_profile(profile_path, &next_profile)?;
+        }
+
+        {
+            let mut profile = self
+                .server_profile
+                .lock()
+                .expect("desktop shell state mutex poisoned");
+            *profile = Some(next_profile);
+        }
+
+        Ok(self.bootstrap())
     }
 
-    fn clear_profile(&self) -> DesktopBootstrap {
-        let mut profile = self
-            .server_profile
-            .lock()
-            .expect("desktop shell state mutex poisoned");
-        *profile = None;
+    fn clear_profile(&self) -> Result<DesktopBootstrap, String> {
+        {
+            let mut profile = self
+                .server_profile
+                .lock()
+                .expect("desktop shell state mutex poisoned");
+            *profile = None;
+        }
 
-        self.bootstrap()
+        if let Some(profile_path) = &self.profile_path
+            && profile_path.exists()
+        {
+            fs::remove_file(profile_path).map_err(|error| error.to_string())?;
+        }
+
+        Ok(self.bootstrap())
     }
 }
 
@@ -100,18 +125,24 @@ fn save_server_profile(
     state: tauri::State<'_, DesktopShellState>,
 ) -> Result<DesktopBootstrap, String> {
     let base_url = normalize_server_url(&input.base_url)?;
-    Ok(state.save_profile(base_url))
+    state.save_profile(base_url)
 }
 
 #[tauri::command]
-fn clear_server_profile(state: tauri::State<'_, DesktopShellState>) -> DesktopBootstrap {
+fn clear_server_profile(
+    state: tauri::State<'_, DesktopShellState>,
+) -> Result<DesktopBootstrap, String> {
     state.clear_profile()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .manage(DesktopShellState::from_environment())
+        .setup(|app| {
+            let profile_path = app.path().app_config_dir()?.join("server-profile.json");
+            app.manage(DesktopShellState::from_profile_path(profile_path));
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             clear_server_profile,
             desktop_bootstrap,
@@ -119,6 +150,21 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Nako desktop shell");
+}
+
+fn read_server_profile(profile_path: &Path) -> Option<ServerProfile> {
+    let raw = fs::read_to_string(profile_path).ok()?;
+    let profile = serde_json::from_str::<ServerProfile>(&raw).ok()?;
+    server_profile_from_raw(&profile.base_url, ServerProfileSource::LocalProfile)
+}
+
+fn write_server_profile(profile_path: &Path, profile: &ServerProfile) -> Result<(), String> {
+    if let Some(parent) = profile_path.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+
+    let raw = serde_json::to_string_pretty(profile).map_err(|error| error.to_string())?;
+    fs::write(profile_path, raw).map_err(|error| error.to_string())
 }
 
 fn environment_server_profile() -> Option<ServerProfile> {
@@ -161,7 +207,15 @@ fn normalize_server_url(raw: &str) -> Result<String, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{ServerProfileSource, normalize_server_url, server_profile_from_raw};
+    use std::{
+        fs,
+        path::PathBuf,
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    use super::{
+        DesktopShellState, ServerProfileSource, normalize_server_url, server_profile_from_raw,
+    };
 
     #[test]
     fn normalizes_http_server_urls() {
@@ -198,5 +252,36 @@ mod tests {
             server_profile_from_raw("file:///not-a-server", ServerProfileSource::Environment)
                 .is_none()
         );
+    }
+
+    #[test]
+    fn persists_local_profile_without_secrets() {
+        let profile_path = temp_profile_path();
+        let state = DesktopShellState::from_profile_path(profile_path.clone());
+
+        state
+            .save_profile("http://127.0.0.1:8096".to_string())
+            .unwrap();
+
+        let raw = fs::read_to_string(&profile_path).unwrap();
+        assert!(raw.contains("http://127.0.0.1:8096"));
+        assert!(!raw.contains("secret"));
+
+        let restored = DesktopShellState::from_profile_path(profile_path.clone()).bootstrap();
+        assert_eq!(
+            restored.profile.unwrap().source,
+            ServerProfileSource::LocalProfile
+        );
+
+        state.clear_profile().unwrap();
+        assert!(!profile_path.exists());
+    }
+
+    fn temp_profile_path() -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("nako-desktop-profile-{nonce}.json"))
     }
 }

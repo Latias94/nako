@@ -39,7 +39,7 @@ use crate::app::{
     IssuedBrowserPlaybackTicket, NakoApp,
     PlaybackSessionHeartbeatRequest as AppPlaybackSessionHeartbeatRequest,
     RemuxPlaybackPreflightRequest, RemuxPlaybackSessionStreamRequest, RemuxPlaybackStreamRequest,
-    RendererTransportTicketScope, ValidateRendererTransportTicketRequest,
+    RendererTransportTicketScope, SubtitlePlaybackRequest, ValidateRendererTransportTicketRequest,
 };
 
 use super::{
@@ -68,6 +68,10 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/sources/{source_id}/stream/hls/playlist.m3u8",
             get(hls_playlist_source),
+        )
+        .route(
+            "/sources/{source_id}/subtitles/{stream_index}",
+            get(subtitle_source),
         )
         .route("/playback/sessions/{session_id}", get(get_playback_session))
         .route(
@@ -126,18 +130,31 @@ pub(super) async fn create_browser_playback_ticket(
             principal: principal.clone(),
             source_id,
             mode,
+            subtitle_stream_index: request.subtitle_stream_index,
         })
         .await?;
-    let issued = app.playback_tickets().issue_source_ticket(
-        &principal,
-        source_id,
-        mode,
-        crate::app::current_time_ms()?,
-    )?;
+    let now_ms = crate::app::current_time_ms()?;
+    let issued = if matches!(mode, BrowserPlaybackTicketMode::Subtitle) {
+        app.playback_tickets().issue_subtitle_ticket(
+            &principal,
+            source_id,
+            request
+                .subtitle_stream_index
+                .ok_or_else(|| NakoError::InvalidInput {
+                    message: "subtitle browser playback ticket requires subtitle_stream_index"
+                        .to_owned(),
+                })?,
+            now_ms,
+        )?
+    } else {
+        app.playback_tickets()
+            .issue_source_ticket(&principal, source_id, mode, now_ms)?
+    };
     let url = browser_playback_url(
         &app,
         source_id,
         mode,
+        request.subtitle_stream_index,
         request.capabilities.as_ref(),
         &issued,
     )
@@ -501,6 +518,37 @@ pub(super) async fn hls_playlist_source(
 }
 
 #[instrument(skip(app, principal, ticket_query))]
+pub(super) async fn subtitle_source(
+    State(app): State<NakoApp>,
+    principal: Option<Extension<AuthenticatedPrincipal>>,
+    Path((source_id, stream_index)): Path<(MediaSourceId, u32)>,
+    Query(ticket_query): Query<BrowserPlaybackTicketQuery>,
+) -> ApiResult<Response> {
+    let principal = resolve_subtitle_playback_principal(
+        &app,
+        principal,
+        source_id,
+        stream_index,
+        ticket_query.ticket.as_deref(),
+    )
+    .await?;
+    let subtitle = app
+        .playback()
+        .subtitle_playback(SubtitlePlaybackRequest {
+            principal,
+            source_id,
+            stream_index,
+        })
+        .await?;
+
+    Ok(subtitle_response(
+        subtitle.content,
+        subtitle.content_type,
+        subtitle.byte_len,
+    ))
+}
+
+#[instrument(skip(app, principal, ticket_query))]
 pub(super) async fn hls_segment(
     State(app): State<NakoApp>,
     principal: Option<Extension<AuthenticatedPrincipal>>,
@@ -619,6 +667,7 @@ fn browser_ticket_mode_from_public(
         BrowserPlaybackMode::Direct => Ok(BrowserPlaybackTicketMode::Direct),
         BrowserPlaybackMode::Remux => Ok(BrowserPlaybackTicketMode::Remux),
         BrowserPlaybackMode::Hls => Ok(BrowserPlaybackTicketMode::Hls),
+        BrowserPlaybackMode::Subtitle => Ok(BrowserPlaybackTicketMode::Subtitle),
         BrowserPlaybackMode::Other(_) => Err(NakoError::InvalidInput {
             message: "unsupported browser playback mode".to_owned(),
         }
@@ -647,6 +696,7 @@ async fn browser_playback_url(
     app: &NakoApp,
     source_id: MediaSourceId,
     mode: BrowserPlaybackTicketMode,
+    subtitle_stream_index: Option<u32>,
     capabilities: Option<&BrowserPlaybackCapabilitiesDto>,
     issued: &IssuedBrowserPlaybackTicket,
 ) -> ApiResult<BrowserPlaybackUrlDto> {
@@ -689,7 +739,52 @@ async fn browser_playback_url(
             content_type: "application/vnd.apple.mpegurl".to_owned(),
             supports_range_requests: false,
         }),
+        BrowserPlaybackTicketMode::Subtitle => {
+            let stream_index = subtitle_stream_index.ok_or_else(|| NakoError::InvalidInput {
+                message: "subtitle browser playback ticket requires subtitle_stream_index"
+                    .to_owned(),
+            })?;
+            Ok(BrowserPlaybackUrlDto {
+                kind: BrowserPlaybackUrlKind::Subtitle,
+                url: format!(
+                    "/sources/{source_id}/subtitles/{stream_index}?ticket={}",
+                    issued.token
+                ),
+                content_type: subtitle_content_type_for_browser_url(app, source_id, stream_index)
+                    .await?,
+                supports_range_requests: false,
+            })
+        }
     }
+}
+
+async fn subtitle_content_type_for_browser_url(
+    app: &NakoApp,
+    source_id: MediaSourceId,
+    stream_index: u32,
+) -> ApiResult<String> {
+    let probe = app.catalog().get_source_probe(source_id).await?;
+    let stream = probe
+        .probe
+        .streams
+        .iter()
+        .find(|stream| stream.index == stream_index)
+        .ok_or_else(|| NakoError::NotFound {
+            entity: "subtitle_stream",
+            id: stream_index.to_string(),
+        })?;
+    let codec = stream
+        .codec
+        .as_deref()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let content_type = match codec.as_str() {
+        "vtt" | "webvtt" => "text/vtt; charset=utf-8",
+        "srt" => "application/x-subrip; charset=utf-8",
+        _ => "text/plain; charset=utf-8",
+    };
+
+    Ok(content_type.to_owned())
 }
 
 fn requested_remux_container(
@@ -777,6 +872,38 @@ async fn resolve_source_playback_principal(
             ticket,
             source_id,
             mode,
+            crate::app::current_time_ms()?,
+        )?;
+        require_source_access(app, &principal, source_id, RequiredLibraryAccess::Play).await?;
+        return Ok(principal);
+    }
+
+    if let Some(Extension(principal)) = principal {
+        require_source_access(app, &principal, source_id, RequiredLibraryAccess::Play).await?;
+        return Ok(principal);
+    }
+
+    Err(NakoError::Unauthorized {
+        message: "authentication required".to_owned(),
+    }
+    .into())
+}
+
+async fn resolve_subtitle_playback_principal(
+    app: &NakoApp,
+    principal: Option<Extension<AuthenticatedPrincipal>>,
+    source_id: MediaSourceId,
+    stream_index: u32,
+    ticket: Option<&str>,
+) -> ApiResult<AuthenticatedPrincipal> {
+    if let Some(ticket) = ticket {
+        if ticket.trim().is_empty() {
+            return Err(invalid_browser_playback_ticket().into());
+        }
+        let principal = app.playback_tickets().validate_subtitle_ticket(
+            ticket,
+            source_id,
+            stream_index,
             crate::app::current_time_ms()?,
         )?;
         require_source_access(app, &principal, source_id, RequiredLibraryAccess::Play).await?;
@@ -1026,6 +1153,17 @@ fn hls_playlist_response(body: String, session_id: Option<PlaybackSessionId>) ->
                 .expect("session id is a valid header value"),
         );
     }
+    response
+}
+
+fn subtitle_response(body: String, content_type: &'static str, byte_len: u64) -> Response {
+    let mut response = Body::from(body).into_response();
+    let headers = response.headers_mut();
+    headers.insert(header::CONTENT_TYPE, HeaderValue::from_static(content_type));
+    headers.insert(
+        header::CONTENT_LENGTH,
+        HeaderValue::from_str(&byte_len.to_string()).expect("content length is a valid header"),
+    );
     response
 }
 

@@ -1,5 +1,9 @@
 import { useQuery } from "@tanstack/react-query"
-import { createPublicMediaDataSource } from "@/src/api/public/media-data-source"
+import {
+  createPublicMediaDataSource,
+  type PublicMediaDetailPayload,
+  type PublicMediaItemsPayload,
+} from "@/src/api/public/media-data-source"
 import type { MediaItem } from "./media-types"
 
 export function useTrendingMedia() {
@@ -54,10 +58,47 @@ export function useSearchMedia(query: string) {
 export function useMediaDetails(id: string, mediaType: "movie" | "series") {
   return useQuery({
     queryKey: ["nako", "media", "details", mediaType, id],
-    queryFn: async (): Promise<MediaItem | null> =>
-      (await createPublicMediaDataSource().getMediaDetails(id, mediaType)).item,
+    queryFn: async (): Promise<PublicMediaDetailPayload> =>
+      createPublicMediaDataSource().getMediaDetails(id, mediaType),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
+    retry: 0,
+  })
+}
+
+export function useContinueWatchingMedia() {
+  return useQuery({
+    queryKey: ["nako", "media", "continue-watching"],
+    queryFn: () => createPublicMediaDataSource().listContinueWatching(),
+    staleTime: 60 * 1000,
+    retry: 0,
+  })
+}
+
+export function useLibraryReadiness(libraryId: string) {
+  return useQuery({
+    queryKey: ["nako", "media", "library", libraryId, "readiness"],
+    queryFn: () => createPublicMediaDataSource().getLibraryReadiness(libraryId),
+    enabled: !!libraryId,
+    staleTime: 5 * 60 * 1000,
+    retry: 0,
+  })
+}
+
+export async function searchPublicMedia(query: string): Promise<PublicMediaItemsPayload> {
+  return createPublicMediaDataSource().searchMedia(query)
+}
+
+export function usePlaybackPlan(
+  itemId: string,
+  mediaType: "movie" | "series",
+  sourceId?: string,
+) {
+  return useQuery({
+    queryKey: ["nako", "media", "playback-plan", mediaType, itemId, sourceId ?? "auto"],
+    queryFn: () => createPublicMediaDataSource().loadPlaybackPlan(itemId, mediaType, sourceId),
+    enabled: !!itemId,
+    staleTime: 30 * 1000,
     retry: 0,
   })
 }

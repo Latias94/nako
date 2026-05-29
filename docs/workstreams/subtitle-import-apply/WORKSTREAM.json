@@ -1,0 +1,22 @@
+{
+  "id": "subtitle-import-apply",
+  "title": "Subtitle Import Apply",
+  "status": "complete",
+  "created_at": "2026-05-28",
+  "owner": "codex",
+  "scope": [
+    "crates/nako-api/src/extension.rs",
+    "crates/nako-api/src/admin_contract.rs",
+    "crates/nako-server/src/app/addons.rs",
+    "crates/nako-server/src/app/addons/library_file_write.rs",
+    "crates/nako-server/src/http/addons.rs",
+    "crates/nako-server/src/http/tests/addons.rs",
+    "apps/admin-web/src/adminApi/generated/contract.ts",
+    "web/src/api/admin/generated/contract.ts"
+  ],
+  "blocked": false,
+  "notes": [
+    "Host owns subtitle content resolution and sidecar writes.",
+    "Playback subtitle fact refresh remains a follow-on."
+  ]
+}

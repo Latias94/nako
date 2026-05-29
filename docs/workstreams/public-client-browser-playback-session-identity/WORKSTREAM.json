@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "slug": "public-client-browser-playback-session-identity",
+  "title": "Public Client Browser Playback Session Identity",
+  "status": "active",
+  "updated": "2026-05-29",
+  "scope_kind": "public_client_contract",
+  "problem": "Browser playback tickets let the web player start media safely, but the Public Client contract does not expose session identity for heartbeat.",
+  "task_prefix": "PBSI",
+  "current_task": "PBSI-030",
+  "completed_tasks": [
+    "PBSI-010",
+    "PBSI-020"
+  ],
+  "authoritative_docs": [
+    { "role": "overview", "path": "docs/workstreams/public-client-browser-playback-session-identity/README.md" },
+    { "role": "design", "path": "docs/workstreams/public-client-browser-playback-session-identity/DESIGN.md" },
+    { "role": "contract", "path": "docs/workstreams/public-client-browser-playback-session-identity/CONTRACT.md" },
+    { "role": "contract_readiness", "path": "docs/workstreams/public-client-browser-playback-session-identity/CONTRACT_READINESS.md" },
+    { "role": "execution", "path": "docs/workstreams/public-client-browser-playback-session-identity/TODO.md" },
+    { "role": "milestones", "path": "docs/workstreams/public-client-browser-playback-session-identity/MILESTONES.md" },
+    { "role": "gates", "path": "docs/workstreams/public-client-browser-playback-session-identity/EVIDENCE_AND_GATES.md" },
+    { "role": "handoff", "path": "docs/workstreams/public-client-browser-playback-session-identity/HANDOFF.md" }
+  ],
+  "gates": [
+    "cargo nextest run -p nako-server browser_playback --no-fail-fast",
+    "npm --prefix web run test -- src/test/data-source-contracts.test.ts src/test/video-player.test.tsx",
+    "npm --prefix web run check",
+    "npm --prefix web run build:budget",
+    "git diff --check"
+  ],
+  "evidence": [
+    "PBSI-010 opened this lane from WDRP-065 after WMLP recorded browser heartbeat/session identity as a Public Client contract gap.",
+    "PBSI-020 froze BrowserPlaybackTicketResponse.playback_session_id, non-subtitle ticket/session binding, heartbeat authority, URL/header safety, and SDK expectations."
+  ],
+  "adr_refs": [
+    "docs/adr/0023-public-api-versioning-and-error-envelope-contract.md",
+    "docs/adr/0025-openapi-public-client-sdk-contract.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue_current_task",
+    "notes": "Continue with PBSI-030. Implement the frozen server/API/SDK contract before wiring web heartbeat."
+  }
+}

@@ -1,0 +1,44 @@
+# Web Admin Live Wiring - TODO
+
+Status: Complete
+Last updated: 2026-05-28
+
+## M0 - Activation
+
+- [x] WALW-010 [owner=planner] [deps=WCAT-050] [scope=docs/workstreams/web-admin-live-wiring]
+  Goal: Activate after connection/auth closes.
+  Validation: WCAT complete.
+  Evidence: WCAT-050 closeout commit `1cccdd7a`; WORKSTREAM.json status active.
+  Handoff: Next task is WALW-020.
+
+## M1 - Read Models
+
+- [x] WALW-020 [owner=Codex] [deps=WALW-010] [scope=web/src/features/admin,web/src/api/admin]
+  Goal: Wire libraries/users/tasks/logs/settings read models through Admin API modules.
+  Validation: npm --prefix web run test && npm --prefix web run build.
+  Evidence: `npm --prefix web run test`; `npm --prefix web run check`; `npm --prefix web run build`; scoped `git diff --check`.
+  Handoff: DONE. Next task is WALW-030.
+
+## M2 - Mutations And Safety
+
+- [x] WALW-030 [owner=Codex] [deps=WALW-020] [scope=web/src/features/admin]
+  Goal: Add accepted Admin mutations with confirmation, error, and permission states.
+  Validation: npm --prefix web run test && npm --prefix web run build.
+  Evidence: `npm --prefix web run test`; `npm --prefix web run check`; `npm --prefix web run build`; scoped `git diff --check`.
+  Handoff: DONE. Next task is WALW-040.
+
+## M3 - Addon Manager Slice
+
+- [x] WALW-040 [owner=Codex] [deps=WALW-030] [scope=web/src/features/admin/addons,web/src/api/admin]
+  Goal: Replace copied plugin fixture UI with a Nako Addon Manager first slice.
+  Validation: npm --prefix web run test && npm --prefix web run build.
+  Evidence: `npm --prefix web run test`; `npm --prefix web run check`; `npm --prefix web run build`; scoped `git diff --check`.
+  Handoff: DONE. Next task is WALW-050.
+
+## M4 - Closeout
+
+- [x] WALW-050 [owner=planner] [deps=WALW-040] [scope=docs/workstreams/web-admin-live-wiring]
+  Goal: Close Admin live-wiring lane.
+  Validation: npm --prefix web run test && npm --prefix web run check && npm --prefix web run build.
+  Evidence: EVIDENCE_AND_GATES.md closeout row; `npm --prefix web run test`; `npm --prefix web run check`; `npm --prefix web run build`; `git diff --check`.
+  Handoff: DONE. Activate `web-bundle-budget-and-product-pruning`.

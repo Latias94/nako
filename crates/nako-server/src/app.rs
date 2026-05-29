@@ -49,6 +49,7 @@ mod runtime;
 mod staging;
 mod startup;
 mod storage;
+mod subtitle_sidecar;
 pub(crate) mod user_playback;
 mod webhooks;
 
@@ -76,7 +77,7 @@ pub(crate) use playback::{
     DirectPlaybackSessionStreamRequest, DirectPlaybackStreamRequest, HlsPlaylistPlaybackRequest,
     HlsPlaylistSessionRequest, HlsSourceRequest, PlaybackSessionHeartbeatRequest,
     RemuxPlaybackPreflightRequest, RemuxPlaybackSessionStreamRequest, RemuxPlaybackStreamRequest,
-    RemuxSourceRequest, RendererPlaybackTransportPlan,
+    RemuxSourceRequest, RendererPlaybackTransportPlan, SubtitlePlaybackRequest,
 };
 pub(crate) use playback_ticket::{
     BrowserPlaybackTicketMode, BrowserPlaybackTicketService, IssuedBrowserPlaybackTicket,

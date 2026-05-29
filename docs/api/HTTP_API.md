@@ -64,12 +64,14 @@ GET  /genres/{genre_id}/items?limit=50&offset=0
 GET  /search?q=matrix&facet=genre:sci-fi&limit=50&offset=0
 GET  /sources/{source_id}/probe
 GET  /sources/{source_id}/playback/decision
+POST /sources/{source_id}/playback/browser-ticket
 GET  /sources/{source_id}/stream
 HEAD /sources/{source_id}/stream
 GET  /sources/{source_id}/stream/remux
 GET  /sources/{source_id}/stream/hls/playlist.m3u8
 GET  /playback/sessions/{session_id}
 POST /playback/sessions/{session_id}/cancel
+POST /playback/sessions/{session_id}/heartbeat
 GET  /playback/sessions/{session_id}/hls/segments/{segment_name}
 GET  /users/me/playback-state/items/{item_id}
 GET  /users/me/playback-state/continue-watching?limit=50&offset=0
@@ -761,6 +763,15 @@ genres list routes are paginated, and their `/items` routes return linked media
 items. Public source DTOs expose stable IDs and safe display facts such as file
 name, size, and fingerprint; they do not expose raw Source Locator values.
 
+`public-client-library-browse-query-contract` freezes the next Public Client
+browse contract for implementation after this note. The planned route is
+`GET /libraries/{library_id}/items` with `limit`, `offset`, explicit `sort`,
+`order`, `facet`, and `watch_state` query parameters. It returns
+`LibraryItemsResponse { library, items, page }`, requires effective `browse`
+access, and returns `404 not_found` for libraries hidden from the authenticated
+principal. This route is not considered live until the Public Client route
+inventory, OpenAPI document, SDKs, and server tests are updated by PLBQ-030.
+
 `GET /admin/v1/catalog/governance/items` returns a redacted Admin API queue for
 unknown and low-confidence Media Items. It accepts optional `library_id`,
 `max_confidence_milli`, `limit`, and `offset` query parameters. Rows include
@@ -833,6 +844,19 @@ video_codec=h264,hevc
 audio_codec=aac,opus
 ```
 
+`POST /sources/{source_id}/playback/browser-ticket` issues token-safe browser
+media URLs. `public-client-browser-playback-session-identity` freezes the next
+Public Client contract for this route: `BrowserPlaybackTicketResponse` gains a
+required nullable `playback_session_id`. `direct`, `remux`, and `hls` ticket
+responses return a non-null playback session id before playback starts, while
+`subtitle` returns `null` because subtitle tickets are ancillary fetch
+authority. Non-subtitle opaque browser tickets are bound server-side to the same
+durable playback session exposed in JSON. The generated SDK and `web/` must use
+that JSON field for heartbeat; media URLs, playlists, and
+`x-nako-playback-session-id` response headers are not the heartbeat discovery
+contract. This field is not considered live until the Public Client protocol,
+OpenAPI document, SDKs, and server tests are updated by PBSI-030.
+
 `GET /sources/{source_id}/stream` serves direct play bytes for local sources
 and configured WebDAV preview sources. It supports HTTP `Range` requests and
 returns `206 Partial Content` with `Accept-Ranges`, `Content-Range`, and
@@ -865,10 +889,16 @@ request completes or after a server restart. WebDAV sources are staged under
 WebDAV credentials are not passed to FFmpeg.
 
 `GET /playback/sessions/{session_id}` returns the persisted session state for
-remux and HLS transcode sessions. The response includes the source ID, session
-kind, request key, state, failure category/message, and lifecycle timestamps.
-It does not expose the server-local staged output path. Missing sessions return
-`404 not_found`.
+direct, remux, and HLS playback sessions. The response includes the source ID,
+session kind, request key, state, failure category/message, and lifecycle
+timestamps. It does not expose the server-local staged output path. Missing
+sessions return `404 not_found`.
+
+`POST /playback/sessions/{session_id}/heartbeat` records playback progress for
+the owning authenticated principal. Browser playback clients should call it
+with the `playback_session_id` returned by the browser-ticket JSON response once
+PBSI-030 lands. The route does not accept opaque browser media tickets as
+heartbeat authority.
 
 `GET /admin/v1/playback/sessions` returns a redacted admin list/filter read
 model for playback sessions. It accepts optional `source_id`, `kind`, `state`,

@@ -69,3 +69,4 @@ evidence has been reviewed.
 - [0048: Playback Transcode Startup Degradation](0048-playback-transcode-startup-degradation.md)
 - [0049: Source-Aware Transcode Runtime](0049-source-aware-transcode-runtime.md)
 - [0050: Acquisition Resource Action Boundaries](0050-acquisition-resource-action-boundaries.md)
+- [0051: Host-Owned Subtitle Import Chain](0051-host-owned-subtitle-import-chain.md)

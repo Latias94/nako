@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "slug": "web-media-live-public-client-parity",
+  "title": "Web Media Live Public Client Parity",
+  "status": "completed",
+  "updated": "2026-05-28",
+  "scope_kind": "frontend_media_public_client",
+  "problem": "The new web Media surface has initial fixture/live seams but still needs truthful live Public Client browse, detail, playback entry, and playback-state parity.",
+  "task_prefix": "WMLP",
+  "current_task": "closed",
+  "completed_tasks": [
+    "WMLP-010",
+    "WMLP-020",
+    "WMLP-030",
+    "WMLP-040",
+    "WMLP-050",
+    "WMLP-060"
+  ],
+  "authoritative_docs": [
+    { "role": "overview", "path": "docs/workstreams/web-media-live-public-client-parity/README.md" },
+    { "role": "design", "path": "docs/workstreams/web-media-live-public-client-parity/DESIGN.md" },
+    { "role": "route_api_readiness", "path": "docs/workstreams/web-media-live-public-client-parity/ROUTE_API_READINESS.md" },
+    { "role": "execution", "path": "docs/workstreams/web-media-live-public-client-parity/TODO.md" },
+    { "role": "milestones", "path": "docs/workstreams/web-media-live-public-client-parity/MILESTONES.md" },
+    { "role": "gates", "path": "docs/workstreams/web-media-live-public-client-parity/EVIDENCE_AND_GATES.md" },
+    { "role": "handoff", "path": "docs/workstreams/web-media-live-public-client-parity/HANDOFF.md" }
+  ],
+  "gates": [
+    "npm --prefix web run test",
+    "npm --prefix web run check",
+    "npm --prefix web run build:budget",
+    "npm --prefix web run tauri -- build",
+    "git diff --check"
+  ],
+  "evidence": [
+    "WMLP-010 opened the lane from WDRP-020 after inspecting current web Public Client seams and generated SDK playback methods.",
+    "WMLP-020 audited the committed generated TypeScript SDK, committed Public Client route inventory, and current web Public Client data-source seam; ROUTE_API_READINESS.md now records ready contracts plus the library-scoped item browse gap. npm --prefix web run test -- src/test/data-source-contracts.test.ts passed with 13 tests; npm --prefix web run check passed.",
+    "WMLP-030A added Public Media read-model boundaries and tests for detail sources/images plus library metadata/source readiness. npm --prefix web run test -- src/test/data-source-contracts.test.ts passed with 16 tests; npm --prefix web run check passed; npm --prefix web run build:budget passed.",
+    "WMLP-030 routed Media browse/detail/search/library through Public Media read models where contracts exist and explicit readiness gaps where they do not. npm --prefix web run test passed with 47 tests; npm --prefix web run check passed; npm --prefix web run build:budget passed.",
+    "WMLP-040 wired browser-ticket playback planning and native VideoPlayer media/subtitle rendering with no-token assertions. Browser heartbeat is split as a follow-on because BrowserPlaybackTicketResponse does not expose a playback session id. npm --prefix web run test, npm --prefix web run check, and npm --prefix web run build:budget passed.",
+    "WMLP-050 wired continue-watching plus playback-state progress/watched read-write contracts in the Public Media data source and home surface. npm --prefix web run test passed with 49 tests; npm --prefix web run check passed; npm --prefix web run build:budget passed.",
+    "WMLP-060 closed the lane after npm --prefix web run test, npm --prefix web run check, npm --prefix web run build:budget, npm --prefix web run tauri -- build, browser smoke for Media routes, JSON validation, and git diff --check passed."
+  ],
+  "adr_refs": [
+    "docs/adr/0021-video-first-media-server-domain-model.md",
+    "docs/adr/0024-inbound-token-authentication-boundary.md",
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
+    "docs/adr/0028-user-playback-state-principal-and-public-contract.md"
+  ],
+  "continue_policy": {
+    "default_action": "return_to_web_deferred_product_reentry_plan",
+    "notes": "WMLP is closed. Return to WDRP-030 for Admin Operations reentry, or open a follow-on contract lane for browser playback session identity, library-scoped item browse, catalog sort/filter, or desktop native playback."
+  }
+}

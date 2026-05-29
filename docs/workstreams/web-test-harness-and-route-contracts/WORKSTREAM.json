@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "slug": "web-test-harness-and-route-contracts",
+  "title": "Web Test Harness And Route Contracts",
+  "status": "complete",
+  "updated": "2026-05-28",
+  "scope_kind": "frontend_test_foundation",
+  "problem": "Nako Web needs real route and data-source tests before broader feature-boundary and product-surface refactors.",
+  "task_prefix": "WTRC",
+  "current_task": null,
+  "completed_tasks": [
+    "WTRC-010",
+    "WTRC-020",
+    "WTRC-030",
+    "WTRC-040",
+    "WTRC-050"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/web-test-harness-and-route-contracts/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/web-test-harness-and-route-contracts/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/web-test-harness-and-route-contracts/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/web-test-harness-and-route-contracts/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/web-test-harness-and-route-contracts/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/web-test-harness-and-route-contracts/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "npm --prefix web run test",
+    "npm --prefix web run check",
+    "npm --prefix web run build",
+    "git diff --check"
+  ],
+  "evidence": [
+    "WTRC-010 opened this lane as the first frontend refactor safety rail.",
+    "WTRC-020 added Vitest/Testing Library/jsdom setup and replaced the npm test type-check alias with a real test command.",
+    "WTRC-030 added injectable TanStack router construction and semantic route rendering contract tests for the shipped top-level routes.",
+    "WTRC-040 added fixture fallback and live DTO mapping contract tests for public media and admin dashboard data sources.",
+    "WTRC-050 closed the lane after npm test, npm check, npm build, and git diff --check passed; WFBR is active."
+  ],
+  "adr_refs": [
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md"
+  ],
+  "continue_policy": {
+    "default_action": "closed",
+    "notes": "This lane is complete. Continue in web-feature-boundary-reshape."
+  }
+}

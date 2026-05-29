@@ -1,0 +1,27 @@
+{
+  "id": "playback-subtitle-serving",
+  "title": "Playback Subtitle Serving",
+  "status": "complete",
+  "created_at": "2026-05-28",
+  "owner": "codex",
+  "scope": [
+    "crates/nako-server/src/app/subtitle_sidecar.rs",
+    "crates/nako-server/src/app/playback/mod.rs",
+    "crates/nako-server/src/http/playback.rs",
+    "crates/nako-server/src/app/playback_ticket.rs",
+    "crates/nako-client-protocol/src/catalog.rs",
+    "crates/nako-api/src/openapi.rs",
+    "crates/nako-api/src/sdk.rs",
+    "crates/nako-server/src/http/tests/playback.rs",
+    "sdk/typescript/src/index.ts",
+    "sdk/kotlin/src/main/kotlin/dev/nako/sdk/NakoClientSdk.kt",
+    "docs/workstreams/playback-subtitle-serving"
+  ],
+  "blocked": false,
+  "notes": [
+    "Serve sidecar subtitle text through host-owned playback routes.",
+    "Keep path and locator details out of public contracts.",
+    "HLS subtitle renditions remain a follow-on.",
+    "Completed with shared sidecar derivation, authorized subtitle route, subtitle browser tickets, OpenAPI, and SDK updates."
+  ]
+}
