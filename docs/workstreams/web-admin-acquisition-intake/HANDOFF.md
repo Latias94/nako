@@ -21,6 +21,11 @@ route is read-only, Admin-only, and owns `library_id`, `state`, `source_kind`,
 renders redacted candidate diagnostics, fixture/live source status, pagination,
 and redaction-safe fields only.
 
+WAAI-040 decided that watch-folder discovery mutation controls do not belong in
+this lane. The generated Admin API route exists, but mutation UI must split to a
+future guarded lane with explicit permission, confirmation, idempotency,
+redacted result, loading/failure, and no-promotion/no-library-write guarantees.
+
 The old `apps/admin-web` implementation is prior art, not code to copy into the
 new shell. The new work belongs in `web/src/api/admin`,
 `web/src/features/admin`, `web/src/shell/nako-router.tsx`, and tests under
@@ -28,14 +33,13 @@ new shell. The new work belongs in `web/src/api/admin`,
 
 ## Active Task
 
-- Task ID: WAAI-040
+- Task ID: WAAI-050
 - Owner: Codex
 - Status: READY
-- Validation: mutation boundary decision recorded; if code changes are made,
-  `npm --prefix web run test` and `npm --prefix web run check`.
+- Validation: `npm --prefix web run test`; `npm --prefix web run check`;
+  `npm --prefix web run build:budget`; browser smoke; `git diff --check`.
 
 ## Next Recommended Action
 
-Start WAAI-040. Decide whether watch-folder discovery belongs in this lane as a
-guarded mutation or should split into a follow-on. Do not imply promotion,
-apply, or direct library writes.
+Start WAAI-050. Close the lane with final evidence and follow-ons for the
+guarded discovery mutation, downloader protocols, and Managed Import promotion.

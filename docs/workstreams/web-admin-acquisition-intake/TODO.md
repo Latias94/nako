@@ -31,12 +31,12 @@ Last updated: 2026-05-29
 
 ## M3 - Mutation Boundary Decision
 
-- [ ] WAAI-040 [owner=Codex] [deps=WAAI-030] [scope=web/src/api/admin,web/src/features/admin,docs/workstreams/web-admin-acquisition-intake]
+- [x] WAAI-040 [owner=Codex] [deps=WAAI-030] [scope=web/src/api/admin,web/src/features/admin,docs/workstreams/web-admin-acquisition-intake]
   Goal: Decide whether watch-folder discovery belongs in this lane as a guarded mutation or must split into a follow-on.
   Validation: decision recorded with Admin API route, idempotency, permission, redaction, and UI guard requirements; if implemented, `npm --prefix web run test` and `npm --prefix web run check` pass.
   Review: no mutation may imply promotion/apply or direct library writes.
   Evidence: updated `ROUTE_API_READINESS.md`, `TODO.md`, and tests if code changes are made.
-  Handoff: DONE/BLOCKED/NEEDS_CONTEXT.
+  Handoff: DONE. Watch-folder discovery mutation controls are split to a future guarded mutation lane. Next task is WAAI-050.
 
 ## M4 - Closeout
 

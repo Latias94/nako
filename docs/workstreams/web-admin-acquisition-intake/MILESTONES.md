@@ -29,6 +29,8 @@ Completed by `WAAI-030`.
 Exit criteria: watch-folder discovery and candidate acceptance are either
 explicitly deferred or guarded by a proven mutation contract.
 
+Completed by `WAAI-040`.
+
 ## M4 - Closeout
 
 Exit criteria: frontend tests, TypeScript check, bundle budget, browser smoke,
