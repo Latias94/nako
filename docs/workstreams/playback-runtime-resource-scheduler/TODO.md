@@ -1,6 +1,6 @@
 # Playback Runtime Resource Scheduler — TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-29
 
 ## Task Ledger
@@ -139,16 +139,20 @@ Handoff:
 
 ### PRRS-040 — Surface runtime pressure in Admin diagnostics
 
-Status: Pending
-Owner: unassigned
+Status: Completed
+Owner: codex
 Depends on: PRRS-030
 
 Scope:
 
-- `crates/nako-server/src/app.rs`
+- `crates/nako-server/src/app/playback/resource.rs`
+- `crates/nako-server/src/app/playback/support.rs`
 - `crates/nako-server/src/http/admin.rs`
 - `crates/nako-server/src/http/tests/system.rs`
 - `crates/nako-api/src/admin/playback.rs`
+- `crates/nako-api/src/admin_contract.rs`
+- `apps/admin-web/src/adminApi/generated/contract.ts`
+- `web/src/api/admin/generated/contract.ts`
 
 Goal:
 
@@ -161,6 +165,7 @@ Validation:
 ```text
 cargo nextest run -p nako-server admin_v1_playback --no-fail-fast
 cargo nextest run -p nako-server playback --no-fail-fast
+cargo nextest run -p nako-api --no-fail-fast
 ```
 
 Review:
@@ -169,18 +174,24 @@ Review:
 
 Evidence:
 
+- `admin_v1_playback_runtime_reports_active_resource_pressure`
 - Admin runtime diagnostic tests.
+- Admin API contract tests and generated TypeScript contracts.
 - `docs/workstreams/playback-runtime-resource-scheduler/EVIDENCE_AND_GATES.md`
 
 Handoff:
 
-- If public DTOs need broad changes, update client-protocol evidence or split
-  a wire-contract task.
+- DONE: Admin playback runtime diagnostics report configured capacity,
+  available permits, and in-use permits for playback resource classes.
+- DONE: Active HLS runtime pressure is observable without exposing raw paths,
+  locators, command lines, or filenames.
+- DONE: Admin TypeScript contracts were regenerated for both web surfaces.
+- The next task is PRRS-050.
 
 ### PRRS-050 — Verify, document, and close or split follow-ons
 
-Status: Pending
-Owner: planner
+Status: Completed
+Owner: codex
 Depends on: PRRS-040
 
 Scope:
@@ -217,4 +228,10 @@ Evidence:
 
 Handoff:
 
-- Update `WORKSTREAM.json` status and continue policy.
+- DONE: `WORKSTREAM.json` status and continue policy were updated.
+- DONE: `DESIGN.md`, `MILESTONES.md`, `EVIDENCE_AND_GATES.md`, `HANDOFF.md`,
+  `CLOSEOUT.md`, and playback architecture indexes reflect the shipped first
+  slice.
+- DONE: Queueing, remote workers, OS resource isolation, per-device tuning,
+  LL-HLS/DASH, DRM/key delivery, and HLS artifact I/O pressure enforcement are
+  deferred to follow-on lanes instead of being hidden in this workstream.

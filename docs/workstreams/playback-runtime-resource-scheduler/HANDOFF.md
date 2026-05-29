@@ -1,14 +1,15 @@
 # Playback Runtime Resource Scheduler — Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-29
 
 ## Current State
 
-PRRS-010, PRRS-020, and PRRS-030 are complete. The lane is open, linked from
-playback architecture indexes, has a server-owned playback resource demand and
-admission decision model, and now enforces HLS/remux process permits at start
-boundaries.
+PRRS-010 through PRRS-050 are complete. The lane is closed as a shipped
+single-node first slice. It is linked from playback architecture indexes, has a
+server-owned playback resource demand and admission decision model, enforces
+HLS/remux process permits at start boundaries, and reports runtime pressure
+through Admin diagnostics.
 
 The implementation should preserve the current public direct/remux/HLS route
 contracts. `nako-transcode` runner semaphores remain low-level execution
@@ -16,19 +17,9 @@ guards; this lane adds a host-owned playback admission boundary above them.
 
 ## Active Task
 
-- Task ID: PRRS-040
-- Owner: unassigned
-- Files:
-  - `crates/nako-server/src/app.rs`
-  - `crates/nako-server/src/http/admin.rs`
-  - `crates/nako-server/src/http/tests/system.rs`
-  - `crates/nako-api/src/admin/playback.rs`
-- Validation:
-  - `cargo nextest run -p nako-server admin_v1_playback --no-fail-fast`
-  - `cargo nextest run -p nako-server playback --no-fail-fast`
-- Status: PENDING
-- Review: pending
-- Evidence: `docs/workstreams/playback-runtime-resource-scheduler/EVIDENCE_AND_GATES.md`
+None. Use a new workstream for follow-on behavior that changes queueing,
+distributed execution, OS isolation, per-device capacity policy, or HLS
+artifact I/O enforcement.
 
 ## Decisions Since Last Update
 
@@ -49,13 +40,35 @@ guards; this lane adds a host-owned playback admission boundary above them.
   capacity early.
 - Reuse of active or completed HLS/remux sessions remains outside new permit
   acquisition.
+- PRRS-040 adds Admin `resource_pressure` diagnostics for configured capacity,
+  available permits, in-use permits, resource class, and enforcement mode.
+- Admin runtime pressure diagnostics are redaction-safe and generated TypeScript
+  contracts are refreshed for both web surfaces.
+- PRRS-050 closes this workstream after refreshing architecture docs and
+  evidence. The remaining work is deliberately split rather than added to this
+  lane.
 
 ## Blockers
 
-- None for PRRS-040.
+- None.
+
+## Follow-ons
+
+- `proposed:playback-admission-queueing-and-waitlist` for waiting or priority
+  admission instead of immediate busy rejection.
+- `proposed:remote-transcode-worker-runtime` for distributed execution and
+  worker capacity reporting.
+- `proposed:playback-os-resource-isolation` for cgroups, process priority, and
+  vendor-specific GPU scheduling policy.
+- `proposed:playback-device-capacity-tuning` for per-device and per-host
+  capacity calibration.
+- `proposed:hls-artifact-io-pressure-enforcement` for disk-sensitive segment
+  read/write pressure if operator evidence requires enforcement.
+- Existing proposed LL-HLS, DASH/CMAF, and DRM/key-delivery lanes should reuse
+  this admission vocabulary instead of adding ad hoc process limits.
 
 ## Next Recommended Action
 
-- Run `run-workstream-task` for PRRS-040.
-- Surface configured capacity, available permits, and current pressure in Admin
-  playback runtime diagnostics without exposing local paths or command lines.
+- Commit the PRRS-050 closeout docs after verification.
+- Open a named follow-on only when product scope requires one of the deferred
+  capabilities above.

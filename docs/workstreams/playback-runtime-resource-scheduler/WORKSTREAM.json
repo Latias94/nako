@@ -2,16 +2,18 @@
   "schema_version": 1,
   "slug": "playback-runtime-resource-scheduler",
   "title": "Playback Runtime Resource Scheduler",
-  "status": "active",
+  "status": "completed",
   "updated": "2026-05-29",
   "scope_kind": "fearless_refactor",
   "problem": "Playback runtime resource limits exist in several places, but Nako lacks one host-owned admission boundary for direct, remux, HLS, remote stream, and future transcode workloads.",
   "task_prefix": "PRRS",
-  "current_task": "PRRS-040",
+  "current_task": null,
   "completed_tasks": [
     "PRRS-010",
     "PRRS-020",
-    "PRRS-030"
+    "PRRS-030",
+    "PRRS-040",
+    "PRRS-050"
   ],
   "authoritative_docs": [
     {
@@ -35,6 +37,10 @@
       "path": "docs/workstreams/playback-runtime-resource-scheduler/EVIDENCE_AND_GATES.md"
     },
     {
+      "role": "closeout",
+      "path": "docs/workstreams/playback-runtime-resource-scheduler/CLOSEOUT.md"
+    },
+    {
       "role": "handoff",
       "path": "docs/workstreams/playback-runtime-resource-scheduler/HANDOFF.md"
     }
@@ -45,6 +51,7 @@
     "cargo nextest run -p nako-server playback --no-fail-fast",
     "cargo nextest run -p nako-server hls --no-fail-fast",
     "cargo nextest run -p nako-server admin_v1_playback --no-fail-fast",
+    "cargo nextest run -p nako-api --no-fail-fast",
     "cargo fmt --all -- --check",
     "git diff --check"
   ],
@@ -60,6 +67,14 @@
     {
       "task": "PRRS-030",
       "summary": "Enforced admission permits for HLS and remux process-backed start paths, including browser playback preflight starts, while keeping existing session reuse permit-free."
+    },
+    {
+      "task": "PRRS-040",
+      "summary": "Surfaced redaction-safe playback resource pressure in Admin runtime diagnostics and refreshed Admin TypeScript contracts."
+    },
+    {
+      "task": "PRRS-050",
+      "summary": "Verified and documented closeout, updated playback architecture indexes, and split queueing, remote workers, OS isolation, per-device tuning, LL-HLS/DASH, DRM, and HLS artifact I/O enforcement into follow-ons."
     }
   ],
   "adr_refs": [
@@ -91,7 +106,7 @@
     "operations.diagnostics"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "Continue this lane until playback resource demand, admission permits, HLS/remux enforcement, and Admin pressure diagnostics are explicit. Split remote workers, durable queueing, LL-HLS/DASH, DRM, and OS resource isolation into follow-ons."
+    "default_action": "closed",
+    "notes": "The single-node playback runtime resource scheduler first slice is complete. Open new follow-on workstreams for admission queueing, remote transcode workers, OS resource isolation, per-device capacity tuning, LL-HLS/DASH, DRM/key delivery, or HLS artifact I/O pressure enforcement."
   }
 }

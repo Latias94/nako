@@ -47,7 +47,7 @@ selection.
 | HLS progressive runtime | Shipped | `docs/workstreams/hls-progressive-runtime-boundary/`; `docs/adr/0052-hls-runtime-and-media-engine-boundary.md` | Playlist readiness before full FFmpeg completion, running segment serving, typed artifact reconstruction, manifest-aware URL auth, and partial-playlist readiness guard. |
 | HDR tone mapping | Not started | `docs/ARCHITECTURE.md`; `docs/adr/0044-playback-capability-profile-planner.md` | Open `hdr-tone-mapping-pipeline`. |
 | Audio downmix and normalization | Not started | This document | Open `audio-compatibility-downmix-normalization`. |
-| Runtime resource scheduler | Active lane | `docs/workstreams/playback-runtime-resource-scheduler/`; `docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md`; playback runtime diagnostics lanes | Prove single-node playback admission before queueing or remote workers. |
+| Runtime resource scheduler | Shipped first slice | `docs/workstreams/playback-runtime-resource-scheduler/`; `docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md`; playback runtime diagnostics lanes | Add queueing, remote workers, OS isolation, per-device tuning, and disk-sensitive artifact I/O enforcement only through follow-on lanes. |
 | VFS/remote playback resilience | Partial | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md` | Timeout/circuit-breaker and remote staging hardening. |
 | SQLite/PostgreSQL write pressure | Good foundation | `docs/adr/0029-postgresql-ready-persistence-boundary.md`; `docs/adr/0030-postgresql-ready-sql-dialect-and-migration-policy.md`; PostgreSQL readiness lanes | Playback heartbeat/session-write pressure tests. |
 | Release and packaging | Partial | `docs/deployment/SELF_HOSTED.md`; `docs/deployment/RELEASE_CHECKLIST.md`; `scripts/release-gate.*` | FFmpeg/hardware matrix packaging gate. |
@@ -162,7 +162,7 @@ Exit criteria:
 
 ### Lane E - Runtime Resource Scheduler
 
-Status: Active.
+Status: Completed first slice.
 
 Goal: Prevent playback workloads from exhausting CPU, GPU, disk, DB, or async
 runtime capacity.
@@ -177,9 +177,19 @@ Primary crates and docs:
 
 Exit criteria:
 
-- transcode sessions acquire explicit CPU/GPU/disk permits;
-- FFmpeg processes, staging writes, and segment reads have bounded lifecycle;
-- heartbeat/API routes remain responsive under transcode pressure.
+- playback resource demand is typed before process-backed work starts;
+- HLS/remux start paths acquire explicit CPU/GPU/remux permits;
+- active session reuse avoids double-acquiring permits;
+- Admin diagnostics expose configured capacity and current pressure without
+  leaking local paths, locators, filenames, or command lines.
+
+Follow-ons:
+
+- admission queueing and waitlist policy;
+- remote transcode worker runtime;
+- OS-level cgroups, process priority, and GPU vendor scheduling;
+- per-device and per-host capacity tuning;
+- disk-sensitive HLS artifact read/write pressure enforcement.
 
 ## Risk Register
 
@@ -215,7 +225,7 @@ FFmpeg should run through `tokio::process`. Async file serving should stay on
 async/tower primitives where possible. Use `spawn_blocking` for truly blocking
 filesystem or library calls, not as a blanket wrapper around all media work.
 
-The resource scheduler must still account for:
+Follow-on resource scheduling must still account for:
 
 - slow disks and network mounts;
 - concurrent segment writes and reads;

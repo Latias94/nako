@@ -76,6 +76,10 @@ Proposed lanes:
 - `proposed:dash-cmaf-playback-packaging`
 - `proposed:hls-key-delivery-drm-boundary`
 - `proposed:remote-transcode-worker-runtime`
+- `proposed:playback-admission-queueing-and-waitlist`
+- `proposed:playback-os-resource-isolation`
+- `proposed:playback-device-capacity-tuning`
+- `proposed:hls-artifact-io-pressure-enforcement`
 - `proposed:hls-selected-main-audio-cleanup`
 - `proposed:playback-release-hardware-matrix`
 

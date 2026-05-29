@@ -1,6 +1,6 @@
 # Playback Runtime Resource Scheduler
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-29
 
 This workstream owns the next playback runtime refactor after HLS progressive
@@ -13,8 +13,16 @@ playback runtime admission model that can reason about these budgets together
 before starting or reusing direct, remux, HLS, and future remote-worker
 playback workloads.
 
-This lane keeps the first implementation single-node and FFmpeg CLI-first. It
-does not introduce a distributed queue, LL-HLS, DASH, DRM, or OS-level cgroups.
+This lane shipped the first single-node, FFmpeg CLI-first slice: playback
+resource demand is typed in `nako-server`, HLS/remux start paths acquire
+host-owned admission permits before process-backed work starts, active session
+reuse does not double-acquire those permits, and Admin diagnostics expose
+redaction-safe runtime pressure.
+
+It intentionally does not introduce a distributed queue, remote transcode
+workers, LL-HLS, DASH, DRM, OS-level cgroups, or per-device capacity tuning.
+Those belong in follow-on lanes after this admission boundary has proven the
+local host resource model.
 
 Authoritative docs:
 
@@ -22,6 +30,6 @@ Authoritative docs:
 - `TODO.md`
 - `MILESTONES.md`
 - `EVIDENCE_AND_GATES.md`
+- `CLOSEOUT.md`
 - `WORKSTREAM.json`
 - `HANDOFF.md`
-

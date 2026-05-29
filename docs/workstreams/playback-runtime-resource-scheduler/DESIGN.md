@@ -1,6 +1,6 @@
 # Playback Runtime Resource Scheduler
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-29
 
 ## Why This Lane Exists
@@ -61,15 +61,40 @@ When this lane closes:
 - Playback start paths describe their resource demand before starting process or
   remote I/O work.
 - A host-owned playback admission boundary grants or denies bounded permits for
-  CPU transcode, GPU transcode, remux process, remote stream, remote staging,
-  and disk-sensitive HLS artifact activity.
+  CPU transcode, GPU transcode, remux process, remote stream, and remote
+  staging, while modeling disk-sensitive HLS artifact activity as a follow-on
+  pressure class.
 - Permit lifetimes cover the actual runtime work that consumes the resource.
 - Reuse paths for already-running sessions do not double-acquire process
   permits but still validate access and route readiness.
 - Admin diagnostics can explain configured capacity, current pressure, and the
-  reason a playback start was rejected or queued.
+  reason a playback start was rejected, unavailable, unsupported, or
+  not-yet-enforced. Queueing remains a follow-on.
 - Existing direct, remux, HLS, browser ticket, and renderer transport contracts
   remain stable.
+
+## Shipped Result
+
+This lane shipped the single-node admission boundary described above.
+
+- `nako-server` owns typed `PlaybackResourceDemand` values and runtime
+  admission decisions for direct stream, remux, and HLS playback work.
+- HLS and remux start paths acquire host-owned permits before launching
+  process-backed runtime work.
+- Browser playback preflight starts transfer permit ownership into supervised
+  background HLS/remux tasks, so immediate route returns do not release capacity
+  early.
+- Existing active or completed HLS/remux session reuse does not double-acquire
+  process permits.
+- Admin playback runtime diagnostics expose redaction-safe `resource_pressure`
+  with configured capacity, available permits, in-use permits, resource class,
+  and enforcement mode.
+- Direct remote stream and remote staging pressure are represented by the
+  admission/diagnostics vocabulary; the first slice keeps their enforcement on
+  the existing host-owned budgets.
+- HLS artifact I/O pressure remains modeled as not-yet-enforced. A follow-on
+  should bind segment write/read pressure to disk-sensitive admission if real
+  operator evidence shows it is needed.
 
 ## In Scope
 
@@ -127,7 +152,7 @@ supervised runtime task.
 
 ## Closeout Condition
 
-This lane can close when:
+This lane closed after:
 
 - playback resource demand has a typed model and test coverage;
 - HLS and remux start paths acquire host-owned permits before process-backed
@@ -136,6 +161,6 @@ This lane can close when:
   deterministically;
 - Admin diagnostics explain configured capacity and current pressure;
 - focused playback/HLS/runtime gates pass with fresh evidence;
-- remote workers, LL-HLS/DASH, DRM, and queueing semantics are either split or
-  explicitly deferred.
-
+- remote workers, LL-HLS/DASH, DRM, queueing semantics, OS isolation,
+  per-device tuning, and HLS artifact I/O enforcement are explicitly deferred
+  to follow-on lanes.

@@ -79,12 +79,12 @@ use playlist::{HlsPlaylistSessionBinding, HlsPlaylistUrlDecoration, author_hls_s
 use remux::RemuxAppService;
 pub(crate) use remux::RemuxRequestKey;
 pub(crate) use resource::{
-    PlaybackResourceAdmissionDecision, PlaybackResourceDemand, PlaybackRuntimeAdmission,
+    PlaybackResourceAdmissionDecision, PlaybackResourceClass, PlaybackResourceDemand,
+    PlaybackResourceEnforcement, PlaybackRuntimeAdmission, PlaybackRuntimeResourceClassPressure,
+    PlaybackRuntimeResourcePressure,
 };
 #[cfg(test)]
-pub(crate) use resource::{
-    PlaybackResourceAdmissionStatus, PlaybackResourceCapacity, PlaybackResourceClass,
-};
+pub(crate) use resource::{PlaybackResourceAdmissionStatus, PlaybackResourceCapacity};
 use selection::{
     hls_pipeline_source_facts, hls_transcode_plan, playback_selection_context,
     remux_output_container,
@@ -2223,7 +2223,7 @@ impl PlaybackAppService {
 
     #[must_use]
     pub(crate) fn runtime_diagnostics(&self) -> PlaybackRuntimeDiagnostics {
-        support::runtime_diagnostics(&self.config, &self.hls)
+        support::runtime_diagnostics(&self.config, &self.hls, &self.resource_admission)
     }
 
     pub(crate) async fn cancel_playback_session(
