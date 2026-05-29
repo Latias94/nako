@@ -182,7 +182,7 @@ Task IDs use the `CRFBA` prefix.
 
 ## M3 - Playback Runtime Ownership
 
-- [ ] CRFBA-080 [owner=unassigned] [deps=CRFBA-011] [scope=crates/nako-streaming,crates/nako-transcode,crates/nako-server,crates/nako-api]
+- [x] CRFBA-080 [owner=codex] [deps=CRFBA-011] [scope=crates/nako-streaming,crates/nako-transcode,crates/nako-server,crates/nako-api]
   Goal: Clarify and deepen ownership between Playback Runtime and transcode
   execution so session lifecycle, cancellation, failure taxonomy, hardware
   diagnostics, and operator-visible state have one product owner.
@@ -191,6 +191,13 @@ Task IDs use the `CRFBA` prefix.
   Review: `nako-transcode` should expose execution APIs; Playback Runtime
   should own product decisions and session state.
   Evidence: tests plus architecture notes.
+  Result: DONE 2026-05-29. `nako-transcode` now exposes
+  `TranscodeExecutionRequest` and typed engine outcomes instead of a public
+  product-state `TranscodeSessionManager`. The FFmpeg HLS/Remux runners now
+  execute immutable requests and return output/metrics/cancellation outcomes;
+  `Playback Runtime` in `nako-server` owns persisted transcode-session state,
+  cancellation registration, failure taxonomy, finished events, and HLS
+  metrics persistence.
   Handoff: Split adaptive bitrate, optimized versions, or new hardware backend
   breadth into follow-ons.
 

@@ -178,6 +178,13 @@ format, stage, or commit them unless the user explicitly asks.
 - `CRFBA-090` chose route-inventory plus wire-shape parity tests instead of a
   generated Addon Runtime SDK for this slice. This matches the current public
   crate distribution model and avoids widening the task into release tooling.
+- `CRFBA-080` moved product-level transcode session ownership out of
+  `nako-transcode`: the public execution surface is now
+  `TranscodeExecutionRequest` plus typed engine outcomes, while
+  `Playback Runtime` owns persisted session state, cancellation, failure
+  taxonomy, finished events, and HLS metrics persistence.
+- `CRFBA-080` also made FFmpeg HLS path assertions platform-stable so the
+  `nako-transcode` package gate passes on the Windows development host.
 
 ## Blockers
 
@@ -201,6 +208,6 @@ format, stage, or commit them unless the user explicitly asks.
 
 ## Next Recommended Action
 
-Move to the user's requested real media-directory scan and playback smoke.
-CRFBA-080 playback runtime/transcode ownership remains open as architecture
-work, but should not block the immediate real-directory validation.
+Review CRFBA-080, then move to CRFBA-100 closeout if the playback runtime
+ownership boundary is accepted. Split adaptive bitrate breadth, optimized
+versions, and additional hardware backend work into follow-ons.

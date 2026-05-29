@@ -3,11 +3,11 @@
   "slug": "cross-repo-fearless-boundary-alignment",
   "title": "Cross-Repo Fearless Boundary Alignment",
   "status": "active",
-  "updated": "2026-05-25",
+  "updated": "2026-05-29",
   "scope_kind": "architecture_execution",
   "problem": "Nako core and the official metadata addon have strong high-level seams, but cross-repo feature breadth is now pressuring overly broad internal facades around persistence, ingestion, metadata acceptance, addon scrape runtime, provider adapters, and playback/transcode ownership.",
   "task_prefix": "CRFBA",
-  "current_task": "CRFBA-090",
+  "current_task": "CRFBA-100",
   "authoritative_docs": [
     {
       "role": "overview",
@@ -91,6 +91,7 @@
     "CRFBA-050",
     "CRFBA-060",
     "CRFBA-070",
+    "CRFBA-080",
     "CRFBA-090"
   ],
   "non_goals": [
@@ -106,7 +107,7 @@
   ],
   "continue_policy": {
     "default_action": "review_scope_first",
-    "next_task": "run the requested real media-directory scan/playback smoke before returning to CRFBA-080",
-    "notes": "CRFBA-090 hardens the addon runtime contract with route inventory constants and wire-shape parity tests. Public crate release/versioning and generated Addon Runtime SDK/schema output remain separate follow-ons if distribution requires them."
+    "next_task": "review CRFBA-080, then decide whether CRFBA-100 can close the lane",
+    "notes": "CRFBA-080 moved product-level transcode session ownership into Playback Runtime while keeping nako-transcode as an execution API. CRFBA-090 hardens the addon runtime contract with route inventory constants and wire-shape parity tests. Public crate release/versioning, generated Addon Runtime SDK/schema output, adaptive bitrate breadth, optimized versions, and additional hardware backend work remain separate follow-ons if distribution requires them."
   }
 }

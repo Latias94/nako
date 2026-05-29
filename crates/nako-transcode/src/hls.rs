@@ -3,10 +3,12 @@ use std::path::{Path, PathBuf};
 use nako_core::{NakoError, Result};
 
 use super::{
+    TranscodeSessionId, TranscodeSessionKind,
     engine::{
         TranscodeEngineAdapter, TranscodeEngineAdapterKind, TranscodeEngineArtifactKind,
         TranscodeEngineStartCommand, TranscodeEngineStartOutcome,
     },
+    execution::TranscodeExecutionRequest,
     ffmpeg::stderr_message,
     progress::parse_ffmpeg_progress_report,
     runner_util::{
@@ -15,7 +17,6 @@ use super::{
         promote_temp_hls_output, read_child_stderr, read_child_stdout, remove_dir_if_exists,
     },
     runtime::{CancellationToken, TranscodeRuntimeGuard},
-    session::{TranscodeSessionId, TranscodeSessionKind, TranscodeSessionManager},
 };
 
 #[derive(Clone, Debug)]
@@ -30,10 +31,9 @@ impl TranscodeEngineAdapter for FfmpegHlsRunner {
 
     async fn start(
         &self,
-        manager: &mut TranscodeSessionManager,
         command: TranscodeEngineStartCommand,
     ) -> Result<TranscodeEngineStartOutcome> {
-        self.run(manager, command.session_id, command.cancel)
+        self.run(command.execution, command.cancel)
             .await
             .map(TranscodeEngineStartOutcome::from)
     }
@@ -47,38 +47,27 @@ impl FfmpegHlsRunner {
 
     pub(crate) async fn run(
         &self,
-        manager: &mut TranscodeSessionManager,
-        session_id: TranscodeSessionId,
+        execution: TranscodeExecutionRequest,
         cancel: CancellationToken,
     ) -> Result<HlsRunOutcome> {
         let _permit = self.guard.acquire().await?;
-        manager.mark_starting(session_id)?;
 
-        let session = manager
-            .get(session_id)
-            .cloned()
-            .ok_or_else(|| NakoError::NotFound {
-                entity: "transcode_session",
-                id: session_id.to_string(),
-            })?;
-
-        if session.kind != TranscodeSessionKind::HlsTranscode {
+        if execution.kind != TranscodeSessionKind::HlsTranscode {
             let message = "ffmpeg hls runner only accepts hls transcode sessions".to_owned();
-            let _ = manager.mark_failed(session_id, message.clone());
             return Err(NakoError::InvalidInput { message });
         }
 
-        let output_dir = session
+        let output_dir = execution
             .output_path
             .parent()
             .ok_or_else(|| NakoError::InvalidInput {
                 message: format!(
                     "hls session {} playlist path does not have a parent directory",
-                    session.id
+                    execution.session_id
                 ),
             })?
             .to_path_buf();
-        let temp_output_dir = temporary_hls_output_dir(&output_dir, session.id);
+        let temp_output_dir = temporary_hls_output_dir(&output_dir, execution.session_id);
 
         remove_dir_if_exists(&temp_output_dir).await?;
         tokio::fs::create_dir_all(&temp_output_dir)
@@ -90,15 +79,17 @@ impl FfmpegHlsRunner {
                 )
             })?;
 
-        let command = command_with_hls_output_dir(&session.command, &output_dir, &temp_output_dir)?;
+        let command =
+            command_with_hls_output_dir(&execution.command, &output_dir, &temp_output_dir)?;
         let mut child = ffmpeg_command_with_progress(&command)
             .spawn()
             .map_err(|err| NakoError::Provider {
                 provider: "ffmpeg".to_owned(),
-                message: format!("failed to start hls session {session_id}: {err}"),
+                message: format!(
+                    "failed to start hls session {}: {err}",
+                    execution.session_id
+                ),
             })?;
-
-        manager.mark_running(session_id)?;
 
         let stderr_task = tokio::spawn(read_child_stderr(child.stderr.take()));
         let stdout_task = tokio::spawn(read_child_stdout(child.stdout.take()));
@@ -106,18 +97,16 @@ impl FfmpegHlsRunner {
             status = child.wait() => {
                 status.map_err(|err| NakoError::Provider {
                     provider: "ffmpeg".to_owned(),
-                    message: format!("failed to wait for hls session {session_id}: {err}"),
+                    message: format!("failed to wait for hls session {}: {err}", execution.session_id),
                 })?
             }
             () = cancel.cancelled() => {
                 kill_child(&mut child).await?;
                 abort_stderr_task(stderr_task);
                 abort_stdout_task(stdout_task);
-                manager.request_cancel(session_id)?;
                 remove_dir_if_exists(&temp_output_dir).await?;
-                manager.mark_cancelled(session_id)?;
                 return Ok(HlsRunOutcome::Cancelled {
-                    session_id,
+                    session_id: execution.session_id,
                     temp_output_dir,
                 });
             }
@@ -125,13 +114,12 @@ impl FfmpegHlsRunner {
                 kill_child(&mut child).await?;
                 abort_stderr_task(stderr_task);
                 abort_stdout_task(stdout_task);
-                manager.request_cancel(session_id)?;
                 remove_dir_if_exists(&temp_output_dir).await?;
                 let message = format!(
-                    "hls session {session_id} timed out after {} ms",
+                    "hls session {} timed out after {} ms",
+                    execution.session_id,
                     self.guard.timeout().as_millis()
                 );
-                manager.mark_failed(session_id, message.clone())?;
                 return Err(NakoError::Provider {
                     provider: "ffmpeg".to_owned(),
                     message,
@@ -141,21 +129,17 @@ impl FfmpegHlsRunner {
         let stderr = join_stderr_task(stderr_task).await?;
         let stdout = join_stdout_task(stdout_task).await?;
         let metrics = parse_ffmpeg_progress_report(&stdout);
-        if !metrics.is_empty() {
-            manager.update_runtime_metrics(session_id, metrics)?;
-        }
 
         if status.success() {
             promote_temp_hls_output(&temp_output_dir, &output_dir).await?;
-            manager.mark_finished(session_id)?;
             Ok(HlsRunOutcome::Finished {
-                session_id,
-                playlist_path: session.output_path,
+                session_id: execution.session_id,
+                playlist_path: execution.output_path,
+                runtime_metrics: metrics,
             })
         } else {
             remove_dir_if_exists(&temp_output_dir).await?;
             let message = stderr_message(&stderr);
-            manager.mark_failed(session_id, message.clone())?;
             Err(NakoError::Provider {
                 provider: "ffmpeg".to_owned(),
                 message,
@@ -170,10 +154,12 @@ impl From<HlsRunOutcome> for TranscodeEngineStartOutcome {
             HlsRunOutcome::Finished {
                 session_id,
                 playlist_path,
+                runtime_metrics,
             } => Self::Finished {
                 session_id,
                 artifact_kind: TranscodeEngineArtifactKind::HlsPlaylist,
                 output_path: playlist_path,
+                runtime_metrics,
             },
             HlsRunOutcome::Cancelled {
                 session_id,
@@ -182,6 +168,7 @@ impl From<HlsRunOutcome> for TranscodeEngineStartOutcome {
                 session_id,
                 artifact_kind: TranscodeEngineArtifactKind::HlsPlaylist,
                 temporary_output_path: temp_output_dir,
+                runtime_metrics: Default::default(),
             },
         }
     }
@@ -192,6 +179,7 @@ pub enum HlsRunOutcome {
     Finished {
         session_id: TranscodeSessionId,
         playlist_path: PathBuf,
+        runtime_metrics: nako_core::TranscodeSessionRuntimeMetrics,
     },
     Cancelled {
         session_id: TranscodeSessionId,

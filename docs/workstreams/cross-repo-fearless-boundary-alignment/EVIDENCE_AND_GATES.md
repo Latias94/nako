@@ -218,6 +218,25 @@ Use `verify-rust-workstream` before marking this lane complete.
   nako-server playback --no-fail-fast`, `cargo nextest run -p nako-server
   startup --no-fail-fast`, and `cargo fmt --all -- --check` also passed.
 
+## Recent Playback Runtime Evidence
+
+- 2026-05-29 CRFBA-080: `cargo nextest run -p nako-transcode` passed 73 tests
+  after replacing the public `TranscodeSessionManager` product-state API with
+  `TranscodeExecutionRequest`, typed `TranscodeEngineStartOutcome` metrics, and
+  platform-stable FFmpeg path assertions.
+- 2026-05-29 CRFBA-080: `cargo check -p nako-server` passed with existing
+  unused/dead-code warnings after `HlsAppService` and `RemuxAppService` stopped
+  creating local transcode session managers and delegated only immutable
+  execution requests to the FFmpeg runners.
+- 2026-05-29 CRFBA-080: `cargo nextest run -p nako-server
+  app::tests::playback` passed 35 playback runtime tests, covering HLS/Remux
+  duplicate admission, runner failure persistence, timeout failure category,
+  seek-generation superseding, adaptive/fMP4 runtime layout, selected audio,
+  subtitle sidecars, and reuse of completed sessions.
+- 2026-05-29 CRFBA-080: `cargo nextest run -p nako-playback` passed 19 planner
+  tests, confirming the playback planning crate stayed stable while runtime
+  ownership moved under Playback Runtime.
+
 ## Recent Addon Evidence
 
 - 2026-05-24 CRFBA-050: `cargo nextest run -p nako-metadata-scraper metadata
