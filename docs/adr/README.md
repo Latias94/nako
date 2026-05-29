@@ -72,3 +72,4 @@ evidence has been reviewed.
 - [0051: Host-Owned Subtitle Import Chain](0051-host-owned-subtitle-import-chain.md)
 - [0052: HLS Runtime And Media Engine Boundary](0052-hls-runtime-and-media-engine-boundary.md)
 - [0053: Treat The Application Control Plane As A First-Class Boundary](0053-application-control-plane-boundary.md)
+- [0054: External Acquisition Materialization Boundary](0054-external-acquisition-materialization-boundary.md)

@@ -12,6 +12,8 @@ pub const ADDON_RUNTIME_SIDE_EFFECTS_PATH: &str = "/addon/v1/side-effects";
 pub const ADDON_RUNTIME_GENERATED_ARTIFACTS_PATH: &str = "/addon/v1/generated-artifacts";
 pub const ADDON_RUNTIME_ACQUISITION_INTAKE_CANDIDATES_PATH: &str =
     "/addon/v1/acquisition/intake/candidates";
+pub const ADDON_RUNTIME_EXTERNAL_ACQUISITION_MATERIALIZE_PATH: &str =
+    "/addon/v1/acquisition/materialize";
 pub const ADDON_RUNTIME_TASK_RUN_CLAIM_PATH: &str = "/addon/v1/task-runs/claim";
 pub const ADDON_RUNTIME_TASK_RUN_PROGRESS_PATH: &str = "/addon/v1/task-runs/progress";
 pub const ADDON_RUNTIME_TASK_RUN_COMPLETE_PATH: &str = "/addon/v1/task-runs/complete";
@@ -28,6 +30,10 @@ pub const ADDON_EXTERNAL_ACQUISITION_ACTION_REQUEST_SCHEMA: &str =
     "nako.addon.external_acquisition_action.request.v1";
 pub const ADDON_EXTERNAL_ACQUISITION_ACTION_RESPONSE_SCHEMA: &str =
     "nako.addon.external_acquisition_action.response.v1";
+pub const ADDON_EXTERNAL_ACQUISITION_MATERIALIZATION_REQUEST_SCHEMA: &str =
+    "nako.addon.external_acquisition_materialization.request.v1";
+pub const ADDON_EXTERNAL_ACQUISITION_MATERIALIZATION_RESPONSE_SCHEMA: &str =
+    "nako.addon.external_acquisition_materialization.response.v1";
 pub const ADDON_SUBTITLE_REQUEST_SCHEMA: &str = "nako.addon.subtitle.request.v1";
 pub const ADDON_SUBTITLE_RESPONSE_SCHEMA: &str = "nako.addon.subtitle.response.v1";
 
@@ -58,6 +64,7 @@ pub enum AddonRuntimeRouteKind {
     SideEffect,
     GeneratedArtifact,
     AcquisitionIntakeCandidate,
+    ExternalAcquisitionMaterialization,
     TaskRunClaim,
     TaskRunProgress,
     TaskRunComplete,
@@ -85,6 +92,11 @@ pub const ADDON_RUNTIME_ROUTES: &[AddonRuntimeRoute] = &[
         path: ADDON_RUNTIME_ACQUISITION_INTAKE_CANDIDATES_PATH,
         method: AddonRuntimeHttpMethod::Post,
         kind: AddonRuntimeRouteKind::AcquisitionIntakeCandidate,
+    },
+    AddonRuntimeRoute {
+        path: ADDON_RUNTIME_EXTERNAL_ACQUISITION_MATERIALIZE_PATH,
+        method: AddonRuntimeHttpMethod::Post,
+        kind: AddonRuntimeRouteKind::ExternalAcquisitionMaterialization,
     },
     AddonRuntimeRoute {
         path: ADDON_RUNTIME_TASK_RUN_CLAIM_PATH,
@@ -932,6 +944,14 @@ impl AddonExternalAcquisitionOperation {
             Self::QueryStatus => "query_status",
         }
     }
+
+    #[must_use]
+    pub const fn can_materialize_target(self) -> bool {
+        match self {
+            Self::Enqueue => true,
+            Self::Cancel | Self::Pause | Self::Resume | Self::QueryStatus => false,
+        }
+    }
 }
 
 #[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
@@ -977,6 +997,98 @@ pub struct AddonExternalAcquisitionActionResponse {
     pub safe_message: Option<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub safe_facts: BTreeMap<String, String>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AddonExternalAcquisitionMaterializationPurpose {
+    ExternalAcquisitionEnqueue,
+}
+
+impl AddonExternalAcquisitionMaterializationPurpose {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ExternalAcquisitionEnqueue => "external_acquisition_enqueue",
+        }
+    }
+}
+
+#[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AddonExternalAcquisitionMaterializationRequest {
+    pub schema: String,
+    pub job_id: String,
+    pub declaration_id: String,
+    pub target_ref: AddonExternalAcquisitionTargetRef,
+    pub runner_profile_id: String,
+    pub idempotency_key: String,
+    pub operation: AddonExternalAcquisitionOperation,
+    pub audit_ref: String,
+    pub purpose: AddonExternalAcquisitionMaterializationPurpose,
+}
+
+impl fmt::Debug for AddonExternalAcquisitionMaterializationRequest {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("AddonExternalAcquisitionMaterializationRequest")
+            .field("schema", &self.schema)
+            .field("job_id", &self.job_id)
+            .field("declaration_id", &self.declaration_id)
+            .field("target_ref", &"<redacted>")
+            .field("runner_profile_id", &self.runner_profile_id)
+            .field("idempotency_key", &"<redacted>")
+            .field("operation", &self.operation)
+            .field("audit_ref", &"<redacted>")
+            .field("purpose", &self.purpose)
+            .finish()
+    }
+}
+
+#[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AddonExternalAcquisitionMaterializedLink {
+    pub link_type: AddonResourceLinkType,
+    pub uri: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub password: Option<String>,
+}
+
+impl fmt::Debug for AddonExternalAcquisitionMaterializedLink {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("AddonExternalAcquisitionMaterializedLink")
+            .field("link_type", &self.link_type)
+            .field("uri", &"<redacted>")
+            .field("password", &self.password.as_ref().map(|_| "<redacted>"))
+            .finish()
+    }
+}
+
+#[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AddonExternalAcquisitionMaterializationResponse {
+    pub schema: String,
+    pub materialization_ref: String,
+    pub target_ref: AddonExternalAcquisitionTargetRef,
+    pub expires_at: String,
+    pub material: AddonExternalAcquisitionMaterializedLink,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub safe_facts: BTreeMap<String, String>,
+}
+
+impl fmt::Debug for AddonExternalAcquisitionMaterializationResponse {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("AddonExternalAcquisitionMaterializationResponse")
+            .field("schema", &self.schema)
+            .field("materialization_ref", &"<redacted>")
+            .field("target_ref", &"<redacted>")
+            .field("expires_at", &self.expires_at)
+            .field("material", &self.material)
+            .field("safe_facts", &self.safe_facts)
+            .finish()
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -2929,6 +3041,7 @@ mod tests {
                 ADDON_RUNTIME_SIDE_EFFECTS_PATH,
                 ADDON_RUNTIME_GENERATED_ARTIFACTS_PATH,
                 ADDON_RUNTIME_ACQUISITION_INTAKE_CANDIDATES_PATH,
+                ADDON_RUNTIME_EXTERNAL_ACQUISITION_MATERIALIZE_PATH,
                 ADDON_RUNTIME_TASK_RUN_CLAIM_PATH,
                 ADDON_RUNTIME_TASK_RUN_PROGRESS_PATH,
                 ADDON_RUNTIME_TASK_RUN_COMPLETE_PATH,
@@ -3673,6 +3786,143 @@ mod tests {
                 .unwrap(),
             response
         );
+    }
+
+    #[test]
+    fn external_acquisition_materialization_contract_round_trips_and_redacts_debug() {
+        assert_eq!(
+            ADDON_RUNTIME_EXTERNAL_ACQUISITION_MATERIALIZE_PATH,
+            "/addon/v1/acquisition/materialize"
+        );
+        assert!(ADDON_RUNTIME_ROUTES.iter().any(|route| {
+            route.path == ADDON_RUNTIME_EXTERNAL_ACQUISITION_MATERIALIZE_PATH
+                && route.kind == AddonRuntimeRouteKind::ExternalAcquisitionMaterialization
+        }));
+        assert_eq!(
+            ADDON_EXTERNAL_ACQUISITION_MATERIALIZATION_REQUEST_SCHEMA,
+            "nako.addon.external_acquisition_materialization.request.v1"
+        );
+        assert_eq!(
+            ADDON_EXTERNAL_ACQUISITION_MATERIALIZATION_RESPONSE_SCHEMA,
+            "nako.addon.external_acquisition_materialization.response.v1"
+        );
+        assert_eq!(
+            AddonExternalAcquisitionMaterializationPurpose::ExternalAcquisitionEnqueue.as_str(),
+            "external_acquisition_enqueue"
+        );
+        assert!(AddonExternalAcquisitionOperation::Enqueue.can_materialize_target());
+        assert!(!AddonExternalAcquisitionOperation::QueryStatus.can_materialize_target());
+
+        let request = AddonExternalAcquisitionMaterializationRequest {
+            schema: ADDON_EXTERNAL_ACQUISITION_MATERIALIZATION_REQUEST_SCHEMA.to_owned(),
+            job_id: "job-1".to_owned(),
+            declaration_id: ADDON_EXTERNAL_ACQUISITION_ACTION_TASK_ID.to_owned(),
+            target_ref: AddonExternalAcquisitionTargetRef::SelectedLink {
+                selected_link_ref: "selected-link-secret".to_owned(),
+            },
+            runner_profile_id: "transmission-local".to_owned(),
+            idempotency_key: "idempotency-secret".to_owned(),
+            operation: AddonExternalAcquisitionOperation::Enqueue,
+            audit_ref: "audit-secret".to_owned(),
+            purpose: AddonExternalAcquisitionMaterializationPurpose::ExternalAcquisitionEnqueue,
+        };
+        let request_json = serde_json::to_value(&request).unwrap();
+
+        assert_eq!(
+            request_json["schema"],
+            ADDON_EXTERNAL_ACQUISITION_MATERIALIZATION_REQUEST_SCHEMA
+        );
+        assert_eq!(request_json["target_ref"]["kind"], "selected_link");
+        assert_eq!(request_json["operation"], "enqueue");
+        assert_eq!(request_json["purpose"], "external_acquisition_enqueue");
+        assert!(request_json.get("raw_url").is_none());
+        assert!(request_json.get("url").is_none());
+        assert!(request_json.get("password").is_none());
+        assert_eq!(
+            serde_json::from_value::<AddonExternalAcquisitionMaterializationRequest>(
+                request_json.clone()
+            )
+            .unwrap(),
+            request
+        );
+
+        let request_with_raw_url = serde_json::json!({
+            "schema": ADDON_EXTERNAL_ACQUISITION_MATERIALIZATION_REQUEST_SCHEMA,
+            "job_id": "job-1",
+            "declaration_id": ADDON_EXTERNAL_ACQUISITION_ACTION_TASK_ID,
+            "target_ref": {
+                "kind": "selected_link",
+                "selected_link_ref": "selected-link-secret"
+            },
+            "runner_profile_id": "transmission-local",
+            "idempotency_key": "idempotency-secret",
+            "operation": "enqueue",
+            "audit_ref": "audit-secret",
+            "purpose": "external_acquisition_enqueue",
+            "raw_url": "magnet:?xt=urn:btih:abcdef"
+        });
+        assert!(
+            serde_json::from_value::<AddonExternalAcquisitionMaterializationRequest>(
+                request_with_raw_url
+            )
+            .is_err()
+        );
+
+        let mut safe_facts = BTreeMap::new();
+        safe_facts.insert("link_type".to_owned(), "magnet".to_owned());
+        let response = AddonExternalAcquisitionMaterializationResponse {
+            schema: ADDON_EXTERNAL_ACQUISITION_MATERIALIZATION_RESPONSE_SCHEMA.to_owned(),
+            materialization_ref: "materialization-secret".to_owned(),
+            target_ref: AddonExternalAcquisitionTargetRef::SelectedLink {
+                selected_link_ref: "selected-link-secret".to_owned(),
+            },
+            expires_at: "2026-05-29T12:00:00Z".to_owned(),
+            material: AddonExternalAcquisitionMaterializedLink {
+                link_type: AddonResourceLinkType::Magnet,
+                uri: "magnet:?xt=urn:btih:abcdef".to_owned(),
+                password: Some("extract-password".to_owned()),
+            },
+            safe_facts,
+        };
+        let response_json = serde_json::to_value(&response).unwrap();
+
+        assert_eq!(
+            response_json["schema"],
+            ADDON_EXTERNAL_ACQUISITION_MATERIALIZATION_RESPONSE_SCHEMA
+        );
+        assert_eq!(response_json["material"]["link_type"], "magnet");
+        assert_eq!(
+            response_json["material"]["uri"],
+            "magnet:?xt=urn:btih:abcdef"
+        );
+        assert_eq!(response_json["material"]["password"], "extract-password");
+        assert_eq!(
+            serde_json::from_value::<AddonExternalAcquisitionMaterializationResponse>(
+                response_json
+            )
+            .unwrap(),
+            response
+        );
+
+        let request_debug = format!("{request:?}");
+        let response_debug = format!("{response:?}");
+        for forbidden in [
+            "selected-link-secret",
+            "idempotency-secret",
+            "audit-secret",
+            "materialization-secret",
+            "magnet:",
+            "extract-password",
+        ] {
+            assert!(
+                !request_debug.contains(forbidden),
+                "materialization request debug leaked forbidden term: {forbidden}"
+            );
+            assert!(
+                !response_debug.contains(forbidden),
+                "materialization response debug leaked forbidden term: {forbidden}"
+            );
+        }
     }
 
     #[test]
