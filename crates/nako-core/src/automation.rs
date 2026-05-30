@@ -515,6 +515,24 @@ pub struct GeneratedArtifactMetadataApplyPlan {
     pub noop_field_count: u32,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GeneratedArtifactMetadataApplyResultStatus {
+    Applied,
+    Noop,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactMetadataApplyResult {
+    pub artifact_id: AutomationArtifactId,
+    pub status: GeneratedArtifactMetadataApplyResultStatus,
+    pub applied: bool,
+    pub changed: bool,
+    pub idempotent_replay: bool,
+    pub applied_source: Option<String>,
+    pub plan: GeneratedArtifactMetadataApplyPlan,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct NewAutomationProviderConfig {
     pub id: AutomationProviderId,

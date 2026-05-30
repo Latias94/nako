@@ -1902,6 +1902,13 @@ impl MetadataRepository for NakoDatabase {
         self.backend().commit_addon_metadata_write(commit).await
     }
 
+    async fn commit_metadata_application(
+        &self,
+        commit: &MetadataApplicationPersistenceCommit,
+    ) -> Result<MetadataApplicationPersistenceSummary> {
+        self.backend().commit_metadata_application(commit).await
+    }
+
     async fn commit_metadata_item(&self, item: &MediaItem) -> Result<()> {
         self.backend().commit_metadata_item(item).await
     }

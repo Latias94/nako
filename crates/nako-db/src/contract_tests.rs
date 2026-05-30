@@ -39,17 +39,17 @@ use nako_core::{
     MediaColorInfo, MediaHdrMetadata, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
     MediaProbeResult, MediaRational, MediaRepository, MediaSource, MediaSourceId,
     MediaStreamDisposition, MediaStreamInfo, MediaStreamKind, MediaStreamTechnicalFacts,
-    MetadataAttemptFilter, MetadataField, MetadataFieldLock, MetadataMatchKind,
-    MetadataProviderAttemptId, MetadataProviderAttemptStatus, MetadataRefreshPersistenceCommit,
-    MetadataRefreshProviderMappingCommit, MetadataRepository, MetadataSource, NakoError,
-    NewAcquisitionIntakeCandidate, NewAddonEventDeliveryAttempt, NewAddonGrant,
-    NewAddonRegistration, NewAddonRoutingPlan, NewAddonSideEffect, NewAddonTaskRun, NewAddonToken,
-    NewArtworkCandidate, NewAutomationArtifact, NewAutomationProviderConfig, NewIngestionFailure,
-    NewJob, NewManagedArtworkArtifact, NewManagedArtworkIngest, NewManagedImportArtifact,
-    NewManagedImportPromotionApply, NewMetadataProviderAttempt, NewNfoSidecarApply, NewOutboxEvent,
-    NewPlaybackSession, NewRendererCommand, NewRendererSession, NewStagingManifestRecord,
-    NewTranscodeSession, NewUserPlaylist, NewVfsCacheFailure, NewWebhookDeliveryAttempt,
-    NewWebhookEndpoint, NfoImportPersistenceCommit, NfoSidecarApplyId,
+    MetadataApplicationPersistenceCommit, MetadataAttemptFilter, MetadataField, MetadataFieldLock,
+    MetadataMatchKind, MetadataProviderAttemptId, MetadataProviderAttemptStatus,
+    MetadataRefreshPersistenceCommit, MetadataRefreshProviderMappingCommit, MetadataRepository,
+    MetadataSource, NakoError, NewAcquisitionIntakeCandidate, NewAddonEventDeliveryAttempt,
+    NewAddonGrant, NewAddonRegistration, NewAddonRoutingPlan, NewAddonSideEffect, NewAddonTaskRun,
+    NewAddonToken, NewArtworkCandidate, NewAutomationArtifact, NewAutomationProviderConfig,
+    NewIngestionFailure, NewJob, NewManagedArtworkArtifact, NewManagedArtworkIngest,
+    NewManagedImportArtifact, NewManagedImportPromotionApply, NewMetadataProviderAttempt,
+    NewNfoSidecarApply, NewOutboxEvent, NewPlaybackSession, NewRendererCommand, NewRendererSession,
+    NewStagingManifestRecord, NewTranscodeSession, NewUserPlaylist, NewVfsCacheFailure,
+    NewWebhookDeliveryAttempt, NewWebhookEndpoint, NfoImportPersistenceCommit, NfoSidecarApplyId,
     NfoSidecarApplyOperationKind, NfoSidecarApplyRepository, NfoSidecarApplyState,
     OutboxEventListFilter, OutboxEventStatus, PageRequest, Person, PersonId,
     PlaybackPermissionPolicy, PlaybackPolicy, PlaybackPolicyFilter, PlaybackPolicyRepository,
@@ -2607,6 +2607,140 @@ async fn addon_metadata_write_commit_updates_projection_apply_outcome_and_rolls_
     assert_eq!(
         store
             .search(SearchQuery::from_facet_labels("broken addon", Vec::new(), 10, 0).unwrap())
+            .await
+            .unwrap(),
+        Vec::new()
+    );
+}
+
+async fn metadata_application_commit_updates_item_projection_and_rolls_back_contract<S>(store: S)
+where
+    S: MetadataCatalogContractBackend,
+{
+    let _library = seed_contract_library(&store).await;
+    let item_id = MediaItemId::new();
+    let original = contract_media_item(item_id, "Original Metadata Application Title");
+    store.upsert_media_item(&original).await.unwrap();
+
+    let application_genre = Genre {
+        id: GenreId::new(),
+        name: "Application Genre".to_owned(),
+        source: MetadataSource::User,
+    };
+    let applied_item = MediaItem {
+        metadata: CanonicalMetadata {
+            title: "Applied Metadata Application Title".to_owned(),
+            genres: vec!["Application Genre".to_owned()],
+            ..CanonicalMetadata::default()
+        },
+        ..original.clone()
+    };
+    let summary = store
+        .commit_metadata_application(&MetadataApplicationPersistenceCommit {
+            item: applied_item.clone(),
+            catalog_projection: CatalogItemProjectionCommit {
+                graph: CatalogItemGraphReplacement {
+                    genres: vec![application_genre.clone()],
+                    item_genres: vec![ItemGenre {
+                        item_id,
+                        genre_id: application_genre.id,
+                    }],
+                    ..CatalogItemGraphReplacement::default()
+                },
+                search: CatalogSearchProjection::try_from_facet_labels(
+                    item_id,
+                    "Applied Metadata Application Title",
+                    "Applied Metadata Application Title Application Genre",
+                    vec![
+                        "genre:Application Genre".to_owned(),
+                        "kind:movie".to_owned(),
+                    ],
+                )
+                .unwrap(),
+            },
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(summary.item_id, item_id);
+    assert_eq!(summary.projected_items, 1);
+    assert_eq!(
+        store.get_media_item(item_id).await.unwrap(),
+        Some(applied_item.clone())
+    );
+    assert_eq!(
+        store.list_item_genres(item_id).await.unwrap(),
+        vec![ItemGenre {
+            item_id,
+            genre_id: application_genre.id
+        }]
+    );
+    assert_eq!(
+        store
+            .search(
+                SearchQuery::from_facet_labels(
+                    "applied",
+                    vec!["genre:Application Genre".to_owned()],
+                    10,
+                    0,
+                )
+                .unwrap()
+            )
+            .await
+            .unwrap()[0]
+            .item_id,
+        item_id
+    );
+
+    let broken_item = MediaItem {
+        metadata: CanonicalMetadata {
+            title: "Broken Metadata Application Title".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+        ..original
+    };
+    let missing_item_id = MediaItemId::new();
+    let broken_error = store
+        .commit_metadata_application(&MetadataApplicationPersistenceCommit {
+            item: broken_item,
+            catalog_projection: CatalogItemProjectionCommit {
+                graph: CatalogItemGraphReplacement {
+                    genres: vec![Genre {
+                        id: GenreId::new(),
+                        name: "Broken Application Genre".to_owned(),
+                        source: MetadataSource::User,
+                    }],
+                    item_genres: vec![ItemGenre {
+                        item_id: missing_item_id,
+                        genre_id: GenreId::new(),
+                    }],
+                    ..CatalogItemGraphReplacement::default()
+                },
+                search: CatalogSearchProjection::new(
+                    item_id,
+                    "Broken Metadata Application Title",
+                    "graph replacement references a missing item",
+                ),
+            },
+        })
+        .await
+        .unwrap_err();
+
+    assert!(!broken_error.to_string().is_empty());
+    assert_eq!(
+        store.get_media_item(item_id).await.unwrap(),
+        Some(applied_item)
+    );
+    assert_eq!(
+        store.list_item_genres(item_id).await.unwrap(),
+        vec![ItemGenre {
+            item_id,
+            genre_id: application_genre.id
+        }]
+    );
+    assert_eq!(
+        store
+            .search(SearchQuery::from_facet_labels("broken metadata", Vec::new(), 10, 0).unwrap())
             .await
             .unwrap(),
         Vec::new()
@@ -7311,6 +7445,17 @@ database_contract_pair!(
         "addon_metadata_write_updates_projection_apply_outcome_and_rolls_back"
     ),
     contract = addon_metadata_write_commit_updates_projection_apply_outcome_and_rolls_back_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_metadata_catalog_contract_metadata_application_updates_item_projection_and_rolls_back,
+    postgres =
+        postgres_metadata_catalog_contract_metadata_application_updates_item_projection_and_rolls_back,
+    case = ContractCase::migrated(
+        ContractFamily::MetadataCatalog,
+        "metadata_application_updates_item_projection_and_rolls_back"
+    ),
+    contract = metadata_application_commit_updates_item_projection_and_rolls_back_contract,
 );
 
 database_contract_pair!(

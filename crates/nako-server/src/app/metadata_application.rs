@@ -1,8 +1,9 @@
 use nako_catalog::plan_item_catalog_projection;
 use nako_core::{
-    AddonId, CanonicalMetadata, CatalogItemProjectionCommit, ExternalProvider, LibraryId,
-    LibraryRepository, MediaItem, MetadataMergePolicy, MetadataRefreshMode, MetadataRepository,
-    MetadataSource, NakoError, Result,
+    AddonId, AutomationArtifactId, AutomationProviderId, CanonicalMetadata,
+    CatalogItemProjectionCommit, ExternalProvider, LibraryId, LibraryRepository, MediaItem,
+    MetadataMergePolicy, MetadataRefreshMode, MetadataRepository, MetadataSource, NakoError,
+    Result,
 };
 use nako_db::NakoDatabase;
 use serde::Serialize;
@@ -25,7 +26,14 @@ impl MetadataApplication {
         let source = command.source;
         let previous_metadata = command.item.metadata.clone();
         let locks = self.store.list_field_locks(command.item.id).await?;
-        let policy = MetadataMergePolicy::for_source_refresh_mode(&locks, &source, refresh_mode);
+        let policy = match command.lock_scope {
+            MetadataApplicationLockScope::ProtectAllLocks => {
+                MetadataMergePolicy::from_locks_and_mode(&locks, refresh_mode)
+            }
+            MetadataApplicationLockScope::ProtectOtherSourceLocks => {
+                MetadataMergePolicy::for_source_refresh_mode(&locks, &source, refresh_mode)
+            }
+        };
         let merged = policy.merge(&previous_metadata, &command.incoming);
         let item = MediaItem {
             metadata: merged,
@@ -34,10 +42,11 @@ impl MetadataApplication {
         let projection =
             plan_item_catalog_projection(&self.store, item.clone(), source.clone()).await?;
         let applied_source = metadata_source_label(&source);
+        let changed = previous_metadata != item.metadata;
         let apply_report_json = Some(metadata_application_report_json(
             &applied_source,
             refresh_mode,
-            previous_metadata != item.metadata,
+            changed,
             command.provenance,
         )?);
 
@@ -46,6 +55,7 @@ impl MetadataApplication {
             projection,
             applied_source,
             apply_report_json,
+            changed,
         })
     }
 
@@ -73,6 +83,7 @@ pub(crate) struct MetadataApplicationCommand {
     pub(crate) source: MetadataSource,
     pub(crate) incoming: CanonicalMetadata,
     pub(crate) mode: MetadataApplicationMode,
+    pub(crate) lock_scope: MetadataApplicationLockScope,
     pub(crate) provenance: MetadataApplicationProvenance,
 }
 
@@ -81,11 +92,22 @@ pub(crate) enum MetadataApplicationMode {
     LibraryProfile { library_id: LibraryId },
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum MetadataApplicationLockScope {
+    ProtectAllLocks,
+    ProtectOtherSourceLocks,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub(crate) enum MetadataApplicationProvenance {
     AddonSideEffect {
         addon_id: AddonId,
+        library_id: LibraryId,
+    },
+    GeneratedArtifact {
+        artifact_id: AutomationArtifactId,
+        provider_id: AutomationProviderId,
         library_id: LibraryId,
     },
 }
@@ -96,6 +118,7 @@ pub(crate) struct MetadataApplicationResult {
     pub(crate) projection: CatalogItemProjectionCommit,
     pub(crate) applied_source: String,
     pub(crate) apply_report_json: Option<String>,
+    pub(crate) changed: bool,
 }
 
 #[derive(Serialize)]

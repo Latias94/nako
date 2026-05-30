@@ -11,6 +11,7 @@ use crate::{
     ManagedArtworkGallerySnapshot, ManagedArtworkIngestClaimRecord, ManagedArtworkIngestId,
     ManagedArtworkIngestProcessingRecord, ManagedArtworkIngestRecord,
     ManagedArtworkIngestRequeueRecord, MediaItem, MediaItemId, MediaSourceId,
+    MetadataApplicationPersistenceCommit, MetadataApplicationPersistenceSummary,
     MetadataAttemptFilter, MetadataFieldLock, MetadataProviderAttemptRecord,
     MetadataRefreshPersistenceCommit, MetadataRefreshPersistenceSummary, NewArtworkCandidate,
     NewJob, NewManagedArtworkArtifact, NewManagedArtworkIngest, NewMetadataProviderAttempt,
@@ -188,6 +189,11 @@ pub trait MetadataRepository: Send + Sync {
         &self,
         commit: &AddonMetadataWritePersistenceCommit,
     ) -> Result<AddonMetadataWritePersistenceSummary>;
+
+    async fn commit_metadata_application(
+        &self,
+        commit: &MetadataApplicationPersistenceCommit,
+    ) -> Result<MetadataApplicationPersistenceSummary>;
 
     async fn commit_metadata_item(&self, item: &MediaItem) -> Result<()>;
 

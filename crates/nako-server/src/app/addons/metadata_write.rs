@@ -15,8 +15,8 @@ use super::{
     side_effect_apply::AddonSideEffectApplyCommand, target::resolve_side_effect_media_item,
 };
 use crate::app::metadata_application::{
-    MetadataApplication, MetadataApplicationCommand, MetadataApplicationMode,
-    MetadataApplicationProvenance,
+    MetadataApplication, MetadataApplicationCommand, MetadataApplicationLockScope,
+    MetadataApplicationMode, MetadataApplicationProvenance,
 };
 
 #[derive(Clone, Debug)]
@@ -50,6 +50,7 @@ impl AddonMetadataWriteAdapter {
                 mode: MetadataApplicationMode::LibraryProfile {
                     library_id: side_effect.library_id,
                 },
+                lock_scope: MetadataApplicationLockScope::ProtectOtherSourceLocks,
                 provenance: MetadataApplicationProvenance::AddonSideEffect {
                     addon_id: side_effect.addon_id,
                     library_id: side_effect.library_id,

@@ -1,7 +1,7 @@
 # Generated Artifact Metadata Authority Apply - Evidence And Gates
 
 Status: Active
-Last updated: 2026-05-29
+Last updated: 2026-05-30
 
 ## Always Run For Docs Changes
 
@@ -16,7 +16,7 @@ change:
 - `cargo nextest run -p nako-api generated_artifact_metadata_apply --no-fail-fast`
 - `cargo nextest run -p nako-server generated_artifact_metadata_apply_plan --no-fail-fast`
 - `cargo nextest run -p nako-server generated_artifact_metadata_apply --no-fail-fast`
-- `cargo nextest run -p nako-db generated_artifact_metadata_apply --no-fail-fast`
+- `cargo nextest run -p nako-db metadata_application --no-fail-fast`
 - `cargo fmt --all -- --check`
 - `git diff --check`
 
@@ -47,6 +47,24 @@ Only run after `GAMA-050` exposes a real Admin route:
   Broader workspace/package gates were not run because this slice changes only
   the Generated Artifact/Admin apply-plan contract and is covered by focused
   API, app, HTTP, formatting, JSON, and diff gates.
+- `GAMA-030` (verified 2026-05-30): Added host-owned app-layer apply execution
+  for accepted metadata Generated Artifacts. Evidence:
+  - `cargo nextest run -p nako-server generated_artifact_metadata_apply --no-fail-fast`
+  - `cargo nextest run -p nako-db metadata_application --no-fail-fast`
+  - `cargo fmt --all -- --check`
+  - `python -m json.tool docs/workstreams/generated-artifact-metadata-authority-apply/WORKSTREAM.json`
+  - `git diff --check -- crates/nako-core/src/automation.rs crates/nako-core/src/media/metadata.rs crates/nako-core/src/repository/metadata.rs crates/nako-db/src/contract_tests.rs crates/nako-db/src/facade.rs crates/nako-db/src/postgres/metadata_catalog.rs crates/nako-db/src/sqlite/metadata.rs crates/nako-server/src/app/addons/metadata_write.rs crates/nako-server/src/app/automation.rs crates/nako-server/src/app/metadata_application.rs crates/nako-server/src/app/tests/automation.rs docs/workstreams/generated-artifact-metadata-authority-apply`
+  Behavior proven:
+  - executable plans apply unlocked fields through `MetadataApplication`;
+  - all field locks protect Generated Artifact apply;
+  - stale source/item/library targets reject before mutation;
+  - repeated apply returns a no-op replay result when no applicable fields remain;
+  - Canonical Metadata and catalog/search projection commit in one metadata
+    application transaction with SQLite rollback coverage.
+  PostgreSQL runtime contract coverage was not run because
+  `NAKO_TEST_POSTGRES_URL` is unset in this session; the PostgreSQL
+  implementation compiled through the focused gates and has a matching ignored
+  contract entry.
 
 ## Required Final Evidence
 

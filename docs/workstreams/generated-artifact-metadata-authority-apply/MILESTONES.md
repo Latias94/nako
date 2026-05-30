@@ -1,7 +1,7 @@
 # Generated Artifact Metadata Authority Apply - Milestones
 
 Status: Active
-Last updated: 2026-05-29
+Last updated: 2026-05-30
 
 ## M0 - Lane Opened
 
@@ -34,6 +34,8 @@ Exit criteria:
 - User/source locks and library refresh mode are honored.
 - Catalog/search projection updates with the metadata mutation.
 - Raw generated payload and private target facts stay out of Admin responses.
+
+Status: Complete via `GAMA-030`.
 
 ## M3 - Idempotency, Persistence, And Admin API
 
