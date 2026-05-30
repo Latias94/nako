@@ -19,10 +19,10 @@ The backend contract is already complete:
 
 ## Active Task
 
-- Task ID: AMCL-040
+- Task ID: AMCL-050
 - Owner: codex
-- Scope: `web/src/api/admin`, `web/src/features/admin`, Admin route state, and
-  focused Admin tests.
+- Scope: `web/`, Admin/Media route transitions, browser smoke, and workstream
+  evidence.
 - Status: READY
 
 ## Completed
@@ -39,18 +39,29 @@ The backend contract is already complete:
   contexts.
 - AMCL-030 route/component tests cover enabled links, backend disabled reasons,
   unsafe target omission, and playback diagnostic actions.
+- AMCL-040 added sanitized Admin Management Context route state for libraries,
+  tasks, transcoding, and users.
+- AMCL-040 added Admin-owned scan confirmation, item metadata refresh task
+  handoff, and safe Admin-to-Media return links from stable IDs.
+- AMCL-040 split the pure Management Context model/normalizer away from the
+  Public data source so Admin/Shell route parsing does not import Public client
+  implementation.
+- AMCL-040 adjusted the aggregate `total-js` gzip budget from 330 KiB to 335
+  KiB after keeping route-level budgets unchanged and recording measured bundle
+  output.
 
 ## Next Recommended Action
 
-Implement AMCL-040:
+Implement AMCL-050:
 
-1. Teach Admin routes to accept safe Management Context Link search params
-   emitted by `resolveManagementContextLink`.
-2. Keep mutating targets as Admin-owned confirmation or mutation surfaces.
-3. Add return links from Admin surfaces back to Media only when Public Client
-   context is available.
-4. Cover library scan, item metadata refresh handoff, jobs/runtime/support,
-   access policy targets, and safe Media return links in tests.
+1. Verify representative Media-to-Admin and Admin-to-Media transitions in the
+   browser.
+2. Confirm administrator/library-manager/viewer behavior follows backend link
+   enabled/disabled state.
+3. Re-run redaction/import guards for unsafe paths, tokens, Source Locators,
+   provider payloads, storage handles, and Admin API imports from Media/Public.
+4. Decide whether AMCL-090 can close the lane or whether role-specific UX
+   follow-ons should be split.
 
 ## Guardrails
 
@@ -64,5 +75,5 @@ Implement AMCL-040:
 
 ## Parallelism
 
-AMCL-040 is now the primary remaining execution task. AMCL-050 should wait
-until Admin target handling is accepted.
+AMCL-050 is now the primary remaining execution task. AMCL-090 should wait
+until cross-surface role/redaction verification is accepted.

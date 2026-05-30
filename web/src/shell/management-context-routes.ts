@@ -1,8 +1,10 @@
 import {
-  normalizePublicManagementContext,
-  type PublicManagementContext,
   type PublicManagementContextLink,
 } from "@/src/api/public/management-context-data-source"
+import {
+  normalizePublicManagementContext,
+  type PublicManagementContext,
+} from "@/src/api/public/management-context-model"
 
 export type ManagementContextRoutePath =
   | "/admin/libraries"
@@ -139,6 +141,7 @@ function contextSearch(context: PublicManagementContext): ManagementContextRoute
   return {
     ...optionalSearch("library_id", context.libraryId),
     ...optionalSearch("item_id", context.itemId),
+    ...optionalSearch("media_type", context.mediaType),
     ...optionalSearch("source_id", context.sourceId),
     ...optionalSearch("playback_session_id", context.playbackSessionId),
   }

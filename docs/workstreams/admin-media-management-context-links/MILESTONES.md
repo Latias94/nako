@@ -34,9 +34,10 @@ Exit criteria:
 
 Exit criteria:
 
-- Admin surfaces can receive link targets and own confirmation/mutation flows.
-- Admin-to-Media links use Public Client-visible stable IDs only.
-- Broad or destructive actions stay Admin-owned.
+- DONE. Admin surfaces can receive link targets and own
+  confirmation/mutation flows.
+- DONE. Admin-to-Media links use Public Client-visible stable IDs only.
+- DONE. Broad or destructive actions stay Admin-owned.
 
 ## M4 - Cross-Surface Verification
 

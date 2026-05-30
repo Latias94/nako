@@ -1084,6 +1084,7 @@ function MediaPlayerRoute({
     (Boolean(playbackPlan.data.error) || !playbackPlan.data.mediaUrl)
   const diagnosticContext = {
     itemId: viewState.mediaId,
+    mediaType: viewState.mediaType,
     sourceId: playbackPlan.data?.sourceId ?? viewState.sourceId,
     playbackSessionId: playbackPlan.data?.playbackSessionId,
   }

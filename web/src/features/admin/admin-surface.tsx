@@ -67,6 +67,8 @@ import {
   AdminGeneratedArtifactReview,
   type AdminGeneratedArtifactReviewRouteState,
 } from "./admin-generated-artifact-review"
+import { AdminManagementContextNotice } from "./admin-management-context"
+import type { AdminManagementContextRouteState } from "./admin-management-context-state"
 import type { AdminGeneratedArtifactReviewDecision } from "@/src/api/admin/read-models-data-source"
 import {
   ADMIN_DASHBOARD_FIXTURE,
@@ -106,6 +108,7 @@ export interface AdminSurfaceProps {
   generatedArtifactsState?: AdminGeneratedArtifactsRouteState
   onGeneratedArtifactsStateChange?: (state: AdminGeneratedArtifactsRouteState) => void
   generatedArtifactReviewState?: AdminGeneratedArtifactReviewRouteState
+  managementContextState?: AdminManagementContextRouteState
   onGeneratedArtifactReviewStateChange?: (state: AdminGeneratedArtifactReviewRouteState) => void
   onGeneratedArtifactReviewRequest?: (
     artifactId: string,
@@ -199,6 +202,7 @@ export function AdminSurface({
   generatedArtifactsState,
   onGeneratedArtifactsStateChange,
   generatedArtifactReviewState,
+  managementContextState,
   onGeneratedArtifactReviewStateChange,
   onGeneratedArtifactReviewRequest,
   onGeneratedArtifactReviewBack,
@@ -228,9 +232,9 @@ export function AdminSurface({
   const renderContent = () => {
     switch (activeComponent) {
       case "libraries":
-        return <AdminLibraries />
+        return <AdminLibraries managementContext={managementContextState} />
       case "users":
-        return <AdminUsers />
+        return <AdminUsers managementContext={managementContextState} />
       case "plugins":
         return <AdminPlugins />
       case "activity":
@@ -259,13 +263,13 @@ export function AdminSurface({
           />
         )
       case "scheduled-tasks":
-        return <AdminScheduledTasks />
+        return <AdminScheduledTasks managementContext={managementContextState} />
       case "dlna":
         return <DLNASettingsPage />
       case "remote-access":
         return <RemoteAccessPage />
       case "transcoding":
-        return <TranscodingSettingsPage />
+        return <TranscodingSettingsPage managementContext={managementContextState} />
       case "network":
         return <NetworkSettingsPage />
       case "notifications":
@@ -1214,8 +1218,25 @@ function RemoteAccessPage() {
   )
 }
 
+function transcodingManagementContextTitle(
+  managementContext: AdminManagementContextRouteState | undefined,
+) {
+  switch (managementContext?.panel) {
+    case "support":
+      return "播放诊断"
+    case "runtime":
+      return "转码运行时"
+    default:
+      return "管理上下文"
+  }
+}
+
 // 转码设置页面
-function TranscodingSettingsPage() {
+function TranscodingSettingsPage({
+  managementContext,
+}: {
+  managementContext?: AdminManagementContextRouteState
+}) {
   const [hwAccelType, setHwAccelType] = useState("vaapi")
   
   return (
@@ -1224,6 +1245,12 @@ function TranscodingSettingsPage() {
         <h1 className="text-xl font-semibold">转码设置</h1>
         <p className="mt-1 text-sm text-muted-foreground">配置视频转码和硬件加速</p>
       </div>
+
+      <AdminManagementContextNotice
+        state={managementContext}
+        title={transcodingManagementContextTitle(managementContext)}
+        description="播放和转码运行时上下文。"
+      />
       
       <Card>
         <CardHeader>

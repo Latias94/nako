@@ -276,6 +276,7 @@ export function MediaDetail({
     : undefined
   const managementContext = {
     itemId: mediaId ?? data.id,
+    mediaType,
     libraryId: selectedPublicSource?.libraryId,
     sourceId: selectedPublicSource?.id,
   }

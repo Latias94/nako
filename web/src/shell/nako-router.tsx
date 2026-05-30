@@ -30,6 +30,10 @@ import type {
   LogLevel,
   LogSource,
 } from "@/src/features/admin"
+import {
+  adminManagementContextFromSearch,
+  adminManagementContextRouteSearchFromSearch,
+} from "@/src/features/admin/admin-management-context-state"
 
 const MediaSurface = lazy(() =>
   import("@/src/features/media").then((module) => ({
@@ -246,6 +250,70 @@ function AdminRoute() {
       activeSection="dashboard"
       onSectionNavigate={(section) => {
         void navigate(toAdminRoute(section))
+      }}
+    />
+  )
+}
+
+function AdminLibrariesRoute() {
+  const navigate = useNavigate()
+  const search = adminLibrariesRoute.useSearch()
+  const managementContextState = adminManagementContextFromSearch(search)
+
+  return (
+    <AdminSurface
+      activeSection="libraries"
+      managementContextState={managementContextState}
+      onSectionNavigate={(nextSection) => {
+        void navigate(toAdminRoute(nextSection))
+      }}
+    />
+  )
+}
+
+function AdminUsersRoute() {
+  const navigate = useNavigate()
+  const search = adminUsersRoute.useSearch()
+  const managementContextState = adminManagementContextFromSearch(search)
+
+  return (
+    <AdminSurface
+      activeSection="users"
+      managementContextState={managementContextState}
+      onSectionNavigate={(nextSection) => {
+        void navigate(toAdminRoute(nextSection))
+      }}
+    />
+  )
+}
+
+function AdminTasksRoute() {
+  const navigate = useNavigate()
+  const search = adminTasksRoute.useSearch()
+  const managementContextState = adminManagementContextFromSearch(search)
+
+  return (
+    <AdminSurface
+      activeSection="scheduled-tasks"
+      managementContextState={managementContextState}
+      onSectionNavigate={(nextSection) => {
+        void navigate(toAdminRoute(nextSection))
+      }}
+    />
+  )
+}
+
+function AdminTranscodingRoute() {
+  const navigate = useNavigate()
+  const search = adminTranscodingRoute.useSearch()
+  const managementContextState = adminManagementContextFromSearch(search)
+
+  return (
+    <AdminSurface
+      activeSection="transcoding"
+      managementContextState={managementContextState}
+      onSectionNavigate={(nextSection) => {
+        void navigate(toAdminRoute(nextSection))
       }}
     />
   )
@@ -486,19 +554,22 @@ const adminRoute = createRoute({
 const adminLibrariesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/admin/libraries",
-  component: () => <AdminSectionRoute section="libraries" />,
+  validateSearch: validateAdminManagementSearch,
+  component: AdminLibrariesRoute,
 })
 
 const adminUsersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/admin/users",
-  component: () => <AdminSectionRoute section="users" />,
+  validateSearch: validateAdminManagementSearch,
+  component: AdminUsersRoute,
 })
 
 const adminTasksRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/admin/tasks",
-  component: () => <AdminSectionRoute section="scheduled-tasks" />,
+  validateSearch: validateAdminManagementSearch,
+  component: AdminTasksRoute,
 })
 
 const adminLogsRoute = createRoute({
@@ -550,7 +621,8 @@ const adminRemoteAccessRoute = createRoute({
 const adminTranscodingRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/admin/transcoding",
-  component: () => <AdminSectionRoute section="transcoding" />,
+  validateSearch: validateAdminManagementSearch,
+  component: AdminTranscodingRoute,
 })
 
 const adminNetworkRoute = createRoute({
@@ -810,6 +882,10 @@ function validateAdminGeneratedArtifactReviewSearch(
     artifact_id: parseSearchString(search.artifact_id),
     decision: search.decision === "reject" ? "reject" : "accept",
   }
+}
+
+function validateAdminManagementSearch(search: Record<string, unknown>) {
+  return adminManagementContextRouteSearchFromSearch(search)
 }
 
 function parseAdminLogList<T extends string>(value: unknown, allowed: T[]): T[] | undefined {

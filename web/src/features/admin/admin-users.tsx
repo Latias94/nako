@@ -82,6 +82,8 @@ import {
   type AdminUserReadModel,
 } from "@/src/api/admin/read-models-data-source"
 import { createAdminMutationDataSource } from "@/src/api/admin/mutations-data-source"
+import { AdminManagementContextNotice } from "./admin-management-context"
+import type { AdminManagementContextRouteState } from "./admin-management-context-state"
 
 // 模拟用户数据
 const users = [
@@ -315,7 +317,11 @@ const allLibraries = [
   { id: "5", name: "个人收藏", type: "personal" },
 ]
 
-export function AdminUsers() {
+interface AdminUsersProps {
+  managementContext?: AdminManagementContextRouteState
+}
+
+export function AdminUsers({ managementContext }: AdminUsersProps = {}) {
   const queryClient = useQueryClient()
   const { data: usersData = ADMIN_USERS_READ_MODEL_FIXTURE } = useQuery({
     queryKey: ["nako", "admin", "users"],
@@ -596,6 +602,12 @@ export function AdminUsers() {
               : mutationSource.unavailableReason)}
         </div>
       )}
+
+      <AdminManagementContextNotice
+        state={managementContext}
+        title={managementContext?.panel === "library_access" ? "访问策略" : "管理上下文"}
+        description="媒体库访问策略上下文。"
+      />
 
       {/* 统计卡片 */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

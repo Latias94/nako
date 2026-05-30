@@ -989,7 +989,7 @@ describe("route state contracts", () => {
       const refreshLink = await screen.findByRole("link", { name: /刷新元数据/ }, { timeout: 5000 })
       expect(refreshLink).toHaveAttribute(
         "href",
-        "/admin/libraries?library_id=library-a&item_id=live-movie&source_id=source-live&intent=refresh_item_metadata",
+        "/admin/libraries?library_id=library-a&item_id=live-movie&media_type=movie&source_id=source-live&intent=refresh_item_metadata",
       )
       expect(screen.getByRole("button", { name: /扫描媒体库\s*权限不足/ })).toBeDisabled()
       expect(screen.queryByRole("link", { name: /播放诊断/ })).not.toBeInTheDocument()
@@ -1091,6 +1091,167 @@ describe("route state contracts", () => {
     }
   })
 
+  it("renders Admin task management context from safe route params without leaking unsafe targets", async () => {
+    renderRoute(
+      "/admin/tasks?context=management_link&library_id=library-a&item_id=live-movie&source_id=file:///mnt/private/source.mkv&playback_session_id=session-a",
+    )
+
+    expect(await screen.findByText("管理上下文", {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(screen.getByText("library-a")).toBeInTheDocument()
+    expect(screen.getByText("live-movie")).toBeInTheDocument()
+    expect(screen.getByText("session-a")).toBeInTheDocument()
+    expect(document.body.textContent).not.toContain("file:///mnt/private/source.mkv")
+  })
+
+  it("renders Admin playback management panels from safe route params", async () => {
+    const support = renderRoute(
+      "/admin/transcoding?panel=support&source_id=source-live&playback_session_id=session-a",
+    )
+
+    expect(await screen.findByText("播放诊断", {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(screen.getByText("source-live")).toBeInTheDocument()
+    expect(screen.getByText("session-a")).toBeInTheDocument()
+    support.unmount()
+
+    renderRoute(
+      "/admin/transcoding?panel=runtime&library_id=library-a&item_id=live-movie&source_id=file:///mnt/private/source.mkv",
+    )
+
+    expect(await screen.findByText("转码运行时", {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(screen.getByText("library-a")).toBeInTheDocument()
+    expect(screen.getByText("live-movie")).toBeInTheDocument()
+    expect(document.body.textContent).not.toContain("file:///mnt/private/source.mkv")
+  })
+
+  it("renders Admin library access management panel from safe route params", async () => {
+    renderRoute(
+      "/admin/users?panel=library_access&library_id=library-a&source_id=file:///mnt/private/source.mkv",
+    )
+
+    expect(await screen.findByText("访问策略", {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(screen.getByText("library-a")).toBeInTheDocument()
+    expect(document.body.textContent).not.toContain("file:///mnt/private/source.mkv")
+  })
+
+  it("runs Admin library scan intent from Management Context Link route with safe Media returns", async () => {
+    const user = userEvent.setup()
+    const originalFetch = globalThis.fetch
+    const previousProfile = window.localStorage.getItem(CONNECTION_PROFILE_STORAGE_KEY)
+    const previousSession = window.sessionStorage.getItem(CONNECTION_SESSION_STORAGE_KEY)
+    const calls: Array<{ method: string; path: string; authorization: string | null }> = []
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      const method = init?.method ?? "GET"
+      calls.push({
+        method,
+        path: url.pathname,
+        authorization: new Headers(init?.headers).get("Authorization"),
+      })
+
+      switch (`${method} ${url.pathname}`) {
+        case "GET /admin/v1/overview":
+          return jsonResponse(adminRouteOverviewResponse())
+        case "GET /admin/v1/system/config":
+          return jsonResponse(adminRouteSystemConfigResponse())
+        case "GET /admin/v1/jobs":
+          return jsonResponse(adminRouteJobsResponse())
+        case "GET /admin/v1/playback/sessions":
+          return jsonResponse(adminRoutePlaybackSessionsResponse())
+        case "GET /admin/v1/playback/runtime":
+          return jsonResponse(adminRoutePlaybackRuntimeResponse())
+        case "POST /admin/v1/libraries/library-a/scan":
+          return jsonResponse(adminRouteJob())
+        case "GET /items/live-movie":
+          return jsonResponse({
+            item: publicMediaItem(),
+            sources: [publicMediaSource()],
+            images: [],
+          })
+        case "GET /libraries/library-a":
+          return jsonResponse({
+            library: publicLibrary("library-a"),
+          })
+        case "GET /libraries/library-a/sources":
+          return jsonResponse({
+            library: publicLibrary("library-a"),
+            page: routePage(),
+            sources: [publicLibrarySource({ library_id: "library-a" })],
+          })
+        default:
+          return jsonResponse({ code: "not_found", message: "not found" }, 404)
+      }
+    })
+
+    vi.spyOn(window, "confirm").mockReturnValue(true)
+    window.localStorage.setItem(
+      CONNECTION_PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        mode: "live",
+        runtime: "browser",
+        baseUrl: "http://nako.test",
+      }),
+    )
+    window.sessionStorage.setItem(
+      CONNECTION_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        bearerToken: "admin-token",
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+
+    try {
+      renderRoute(
+        "/admin/libraries?library_id=library-a&item_id=live-movie&media_type=movie&source_id=file:///mnt/private/source.mkv&intent=scan_library",
+      )
+
+      expect(await screen.findByText("扫描媒体库", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByRole("link", { name: "返回媒体库" })).toHaveAttribute(
+        "href",
+        "/media/library?id=library-a",
+      )
+      expect(await screen.findByRole("link", { name: "返回媒体详情" })).toHaveAttribute(
+        "href",
+        "/media/detail?id=live-movie&type=movie",
+      )
+      expect(document.body.textContent).not.toContain("file:///mnt/private/source.mkv")
+
+      const scanButton = screen.getByRole("button", { name: "确认扫描媒体库" })
+      await waitFor(() => {
+        expect(scanButton).not.toBeDisabled()
+      })
+      await user.click(scanButton)
+
+      await waitFor(() => {
+        expect(calls).toContainEqual({
+          method: "POST",
+          path: "/admin/v1/libraries/library-a/scan",
+          authorization: "Bearer admin-token",
+        })
+      })
+    } finally {
+      vi.stubGlobal("fetch", originalFetch)
+      restoreStorage(window.localStorage, CONNECTION_PROFILE_STORAGE_KEY, previousProfile)
+      restoreStorage(window.sessionStorage, CONNECTION_SESSION_STORAGE_KEY, previousSession)
+    }
+  })
+
+  it("renders Admin library metadata and item refresh handoff targets", async () => {
+    const profileTarget = renderRoute("/admin/libraries?library_id=library-a&panel=metadata_profile")
+
+    expect(await screen.findByText("元数据配置", {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(screen.getByText("library-a")).toBeInTheDocument()
+    profileTarget.unmount()
+
+    renderRoute("/admin/libraries?library_id=library-a&item_id=live-movie&intent=refresh_item_metadata")
+
+    expect(await screen.findByText("刷新媒体项元数据", {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(screen.getByText("live-movie")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: /查看相关任务/ })).toHaveAttribute(
+      "href",
+      "/admin/tasks?context=management_link&library_id=library-a&item_id=live-movie",
+    )
+  })
+
   it("adds browse media cards to a selected playlist through the Public Client route", async () => {
     const user = userEvent.setup()
     const calls: Array<{ method: string; path: string; body?: unknown }> = []
@@ -1173,6 +1334,251 @@ function restoreStorage(storage: Storage, key: string, value: string | null) {
   }
 
   storage.setItem(key, value)
+}
+
+function routePage(overrides: Record<string, unknown> = {}) {
+  return {
+    limit: 50,
+    offset: 0,
+    returned: 1,
+    ...overrides,
+  }
+}
+
+function adminRouteOverviewResponse() {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    status: "healthy",
+    storage: {
+      total_backends: 1,
+      ready_backends: 1,
+      degraded_backends: 0,
+      unavailable_backends: 0,
+      backends: [
+        {
+          library_id: "library-a",
+          library_name: "Movies",
+          backend_kind: "local",
+          status: "ready",
+        },
+      ],
+    },
+    metadata: {
+      total_providers: 1,
+      available_providers: 1,
+      disabled_providers: 0,
+      unavailable_providers: 0,
+      providers: [],
+    },
+    runtime: {
+      active_tasks: 1,
+      completed_tasks: 0,
+      failed_tasks: 0,
+      succeeded_jobs: 0,
+      cancelled_jobs: 0,
+      failed_jobs: 0,
+      shutdown_requested: false,
+    },
+    startup: {
+      configured_libraries: 1,
+      recovered_transcode_sessions: 0,
+      recovered_jobs: 0,
+      staging_deleted_records: 0,
+      staging_deleted_files: 0,
+      metadata_raw_cache_deleted: 0,
+      metadata_lifecycle_tasks_started: 0,
+      artwork_ingest_worker_started: true,
+    },
+  }
+}
+
+function adminRouteSystemConfigResponse() {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    auth: {
+      enabled: true,
+      token_env: "NAKO_ADMIN_TOKEN",
+    },
+    network: {
+      exposure_mode: "private_network",
+      readiness: {
+        status: "ready",
+        reason: "ready",
+        checks: [],
+      },
+      external_endpoint: {
+        configured: false,
+        scheme: null,
+        host_fingerprint: null,
+      },
+      trusted_proxy: {
+        headers_enabled: false,
+        source_count: 0,
+      },
+      origins: {
+        allowed_origin_count: 1,
+        configured: true,
+      },
+      tunnel_providers: [],
+    },
+    database: {
+      configured_backend_kind: "sqlite",
+      active_backend_kind: "sqlite",
+      url_scheme: "sqlite",
+      runtime_supported: true,
+      migrated_on_startup: true,
+      capabilities: {
+        lifecycle: true,
+        libraries: true,
+        jobs: true,
+        job_leases: true,
+        media: true,
+        scan_commits: true,
+        metadata: true,
+        catalog: true,
+        playback_state: true,
+        playback_sessions: true,
+        transcode_sessions: true,
+        event_outbox: true,
+        addons: true,
+        automation: true,
+        managed_artwork: true,
+        vfs_cache: true,
+        webhooks: true,
+        search_index: true,
+      },
+    },
+    runtime: {
+      listen_addr: "0.0.0.0:8096",
+      scan_concurrency: 2,
+      probe_concurrency: 4,
+      metadata_concurrency: 3,
+      remux_concurrency: 2,
+      webhook_concurrency: 1,
+      remux_timeout_ms: 120000,
+    },
+    libraries: [
+      {
+        id: "library-a",
+        name: "Movies",
+        preset: "movie",
+        backend_kind: "local",
+        root_scheme: "file",
+        has_webdav_password_env: false,
+        webdav_timeout_ms: null,
+        webdav_max_attempts: null,
+      },
+    ],
+    metadata: {
+      raw_cache_retention_ms: 86400000,
+      raw_cache_cleanup_on_startup: true,
+      raw_cache_cleanup_interval_ms: 3600000,
+      maintenance_policies: 1,
+      providers: [
+        {
+          provider: "tmdb",
+          enabled: true,
+          token_env: null,
+          api_key_env: "TMDB_API_KEY",
+          has_api_base_url: true,
+          has_image_base_url: true,
+          language: "zh-CN",
+          include_adult: false,
+          header_count: 0,
+          secret_header_count: 0,
+          has_provider_runtime_override: false,
+        },
+      ],
+      runtime: {
+        timeout_ms: 10000,
+        max_attempts: 3,
+        min_interval_ms: 100,
+        concurrency: 4,
+        user_agent: "nako-test",
+        has_proxy: false,
+        circuit_breaker_failures: 3,
+        circuit_breaker_backoff_ms: 1000,
+      },
+    },
+    transcode: {
+      hardware_policy: {},
+      cpu_concurrency: 2,
+      gpu_concurrency: 1,
+    },
+    staging: {
+      max_bytes: 1024,
+      retention_ms: 86400000,
+      cleanup_on_startup: true,
+    },
+    playback: {
+      remote_stream_concurrency: 4,
+      remote_stage_concurrency: 2,
+      transcode_artifact_retention_ms: 86400000,
+      transcode_artifact_cleanup_on_startup: true,
+      hls_segment_cleanup_enabled: true,
+      hls_segment_keep_ms: 60000,
+      transcode_throttle_enabled: false,
+      transcode_throttle_delay_ms: 0,
+    },
+    artwork: {
+      artifact_root_configured: true,
+      fetch_timeout_ms: 10000,
+      fetch_max_attempts: 3,
+      fetch_max_bytes: 4096,
+      fetch_concurrency: 2,
+      ingest_worker_enabled: true,
+      ingest_worker_idle_ms: 1000,
+      fetch_user_agent: "nako-test",
+      has_fetch_proxy: false,
+      max_width: 3000,
+      max_height: 3000,
+    },
+  }
+}
+
+function adminRouteJob() {
+  return {
+    id: "job-1",
+    kind: "library_scan",
+    status: "running",
+    resource_class: "library",
+    library_id: "library-a",
+    source_id: null,
+    has_input: true,
+    has_summary: false,
+    has_error: false,
+    queued_at: "2026-05-30T01:00:00Z",
+    started_at: "2026-05-30T01:01:00Z",
+    completed_at: null,
+  }
+}
+
+function adminRouteJobsResponse() {
+  return {
+    jobs: [adminRouteJob()],
+    page: routePage(),
+  }
+}
+
+function adminRoutePlaybackSessionsResponse() {
+  return {
+    sessions: [],
+    page: routePage({ returned: 0 }),
+  }
+}
+
+function adminRoutePlaybackRuntimeResponse() {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    readiness: {
+      status: "ready",
+      reason: "ready",
+      checks: [],
+    },
+  }
 }
 
 function adminAcquisitionIntakeCandidatesResponse() {

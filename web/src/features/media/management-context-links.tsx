@@ -95,7 +95,7 @@ export function ManagementContextLinks({
   const allowed = routeNames ? new Set(routeNames) : null
   const items = payload.links
     .filter((link) => !allowed || allowed.has(link.routeName))
-    .flatMap((link) => managementLinkItem(link))
+    .flatMap((link) => managementLinkItem(link, context))
 
   if (items.length === 0) {
     return null
@@ -168,13 +168,22 @@ function ManagementContextLinkButton({
   )
 }
 
-function managementLinkItem(link: PublicManagementContextLink) {
+function managementLinkItem(
+  link: PublicManagementContextLink,
+  context: PublicManagementContext,
+) {
   const presentation = MANAGEMENT_LINK_PRESENTATION[link.routeName]
   if (!presentation) {
     return []
   }
 
-  const route = resolveManagementContextLink(link)
+  const route = resolveManagementContextLink({
+    ...link,
+    target: {
+      ...link.target,
+      mediaType: context.mediaType,
+    },
+  })
   if (!route && link.enabled) {
     return []
   }

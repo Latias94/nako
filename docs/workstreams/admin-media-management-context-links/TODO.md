@@ -48,14 +48,18 @@ Last updated: 2026-05-30
 
 ### M3 - Admin Command And Return Links
 
-- [ ] AMCL-040 [owner=codex] [deps=AMCL-020] [scope=web/src/api/admin,web/src/features/admin,web/src/test]
+- [x] AMCL-040 [owner=codex] [deps=AMCL-020] [scope=web/src/api/admin,web/src/features/admin,web/src/test]
   Goal: Map accepted management links into Admin routes or confirmation flows
   and add safe Admin-to-Media return links where Library Access allows it.
   Validation: Admin tests cover library scan, item metadata refresh handoff,
   jobs/runtime/support/access route targets, and safe Media return links.
   Review: Broad or mutating actions remain Admin-owned and explicit.
   Evidence: Admin route tests and mutation data-source tests.
-  Handoff: AMCL-050 verifies cross-surface behavior.
+  Handoff: DONE. Admin route search state now accepts sanitized Management
+  Context Link params, renders Admin-owned context notices, keeps library scan
+  behind Admin confirmation/mutation, hands item metadata refresh to Admin task
+  context, and emits safe Media return links from stable IDs only. AMCL-050 can
+  verify cross-surface roles and redaction behavior.
 
 ### M4 - Cross-Surface Verification
 

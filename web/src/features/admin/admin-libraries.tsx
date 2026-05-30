@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { cn } from "@/lib/utils"
 import {
@@ -70,94 +70,11 @@ import {
   type AdminLibraryReadModel,
 } from "@/src/api/admin/read-models-data-source"
 import { createAdminMutationDataSource } from "@/src/api/admin/mutations-data-source"
-
-// 模拟数据
-const libraries = [
-  {
-    id: "1",
-    name: "电影",
-    type: "movie",
-    icon: Film,
-    paths: [
-      { path: "/media/movies", available: true },
-      { path: "/nas/films", available: true }
-    ],
-    itemCount: 847,
-    totalSize: "4.2 TB",
-    lastScanned: "2024-03-15 14:30",
-    scanStatus: "idle",
-    settings: {
-      autoScan: true,
-      scanInterval: 6,
-      useNfo: true,
-      downloadArt: true,
-      metadataLanguage: "zh-CN"
-    }
-  },
-  {
-    id: "2", 
-    name: "剧集",
-    type: "tv",
-    icon: Tv,
-    paths: [
-      { path: "/media/tv", available: true },
-      { path: "/nas/series", available: false }
-    ],
-    itemCount: 156,
-    totalSize: "8.7 TB",
-    lastScanned: "2024-03-15 14:35",
-    scanStatus: "scanning",
-    scanProgress: 67,
-    settings: {
-      autoScan: true,
-      scanInterval: 3,
-      useNfo: true,
-      downloadArt: true,
-      metadataLanguage: "zh-CN"
-    }
-  },
-  {
-    id: "3",
-    name: "动画",
-    type: "anime",
-    icon: Film,
-    paths: [
-      { path: "/media/anime", available: true }
-    ],
-    itemCount: 234,
-    totalSize: "2.1 TB",
-    lastScanned: "2024-03-15 12:00",
-    scanStatus: "idle",
-    settings: {
-      autoScan: true,
-      scanInterval: 6,
-      useNfo: true,
-      downloadArt: true,
-      metadataLanguage: "ja"
-    }
-  },
-  {
-    id: "4",
-    name: "纪录片",
-    type: "documentary",
-    icon: Film,
-    paths: [
-      { path: "/media/documentary", available: false }
-    ],
-    itemCount: 89,
-    totalSize: "890 GB",
-    lastScanned: "2024-03-14 22:00",
-    scanStatus: "error",
-    errorMessage: "路径不可访问: /media/documentary",
-    settings: {
-      autoScan: false,
-      scanInterval: 24,
-      useNfo: false,
-      downloadArt: true,
-      metadataLanguage: "zh-CN"
-    }
-  },
-]
+import {
+  AdminManagementContextNotice,
+  type AdminManagementContextAction,
+} from "./admin-management-context"
+import type { AdminManagementContextRouteState } from "./admin-management-context-state"
 
 const libraryTypes = [
   { value: "movie", label: "电影", icon: Film },
@@ -178,7 +95,11 @@ const libraryIconByKind: Record<AdminLibraryKind, typeof Film> = {
   unknown: FolderOpen,
 }
 
-export function AdminLibraries() {
+interface AdminLibrariesProps {
+  managementContext?: AdminManagementContextRouteState
+}
+
+export function AdminLibraries({ managementContext }: AdminLibrariesProps = {}) {
   const queryClient = useQueryClient()
   const { data: librariesData = ADMIN_LIBRARY_READ_MODEL_FIXTURE } = useQuery({
     queryKey: ["nako", "admin", "libraries"],
@@ -193,6 +114,9 @@ export function AdminLibraries() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [selectedLibrary, setSelectedLibrary] = useState<AdminLibraryReadModel | null>(null)
   const [mutationMessage, setMutationMessage] = useState<string | null>(null)
+  const managementTargetLibrary = managementContext?.libraryId
+    ? libraries.find((library) => library.id === managementContext.libraryId) ?? null
+    : null
   const libraryMutation = useMutation({
     mutationFn: async (action: {
       kind: "scan" | "import-nfo" | "export-nfo"
@@ -289,6 +213,20 @@ export function AdminLibraries() {
 
     libraryMutation.mutate({ kind, libraryIds })
   }
+
+  useEffect(() => {
+    if (managementContext?.panel === "metadata_profile" && managementTargetLibrary) {
+      setSelectedLibrary(managementTargetLibrary)
+    }
+  }, [managementContext?.panel, managementTargetLibrary])
+
+  const managementActions = libraryManagementActions({
+    canMutate,
+    isPending: libraryMutation.isPending,
+    managementContext,
+    targetLibrary: managementTargetLibrary,
+    runLibraryMutation,
+  })
 
   return (
     <div className="space-y-6 p-1">
@@ -457,6 +395,13 @@ export function AdminLibraries() {
         </div>
       )}
 
+      <AdminManagementContextNotice
+        state={managementContext}
+        title={libraryManagementContextTitle(managementContext)}
+        description={libraryManagementContextDescription(managementContext)}
+        actions={managementActions}
+      />
+
     {/* 媒体库列表 */}
     <div className="grid gap-4 lg:grid-cols-2">
       {filteredLibraries.map((library) => {
@@ -621,7 +566,7 @@ export function AdminLibraries() {
           </DialogHeader>
           
           {selectedLibrary && (
-            <Tabs defaultValue="scanning" className="mt-4">
+            <Tabs defaultValue={managementContext?.panel === "metadata_profile" ? "metadata" : "scanning"} className="mt-4">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="scanning">扫描</TabsTrigger>
                 <TabsTrigger value="metadata">元数据</TabsTrigger>
@@ -801,4 +746,97 @@ export function AdminLibraries() {
       </Dialog>
     </div>
   )
+}
+
+function libraryManagementContextTitle(
+  managementContext: AdminManagementContextRouteState | undefined,
+) {
+  if (managementContext?.intent === "scan_library") {
+    return "扫描媒体库"
+  }
+
+  if (managementContext?.intent === "refresh_item_metadata") {
+    return "刷新媒体项元数据"
+  }
+
+  if (managementContext?.panel === "metadata_profile") {
+    return "元数据配置"
+  }
+
+  return "管理上下文"
+}
+
+function libraryManagementContextDescription(
+  managementContext: AdminManagementContextRouteState | undefined,
+) {
+  if (managementContext?.intent === "scan_library") {
+    return "扫描请求将在 Admin 侧确认并提交。"
+  }
+
+  if (managementContext?.intent === "refresh_item_metadata") {
+    return "媒体项元数据刷新由 Admin 任务和治理流程接管。"
+  }
+
+  if (managementContext?.panel === "metadata_profile") {
+    return "媒体库元数据配置上下文。"
+  }
+
+  return undefined
+}
+
+function libraryManagementActions({
+  canMutate,
+  isPending,
+  managementContext,
+  targetLibrary,
+  runLibraryMutation,
+}: {
+  canMutate: boolean
+  isPending: boolean
+  managementContext: AdminManagementContextRouteState | undefined
+  targetLibrary: AdminLibraryReadModel | null
+  runLibraryMutation: (
+    kind: "scan" | "import-nfo" | "export-nfo",
+    libraryIds: string[],
+    confirmation: string,
+  ) => void
+}): AdminManagementContextAction[] {
+  if (managementContext?.intent === "scan_library" && managementContext.libraryId) {
+    const libraryName = targetLibrary?.name ?? managementContext.libraryId
+
+    return [
+      {
+        label: "确认扫描媒体库",
+        disabled: !canMutate || isPending,
+        onClick: () =>
+          runLibraryMutation(
+            "scan",
+            [managementContext.libraryId!],
+            `确认扫描媒体库「${libraryName}」？`,
+          ),
+      },
+    ]
+  }
+
+  if (managementContext?.intent === "refresh_item_metadata" && managementContext.itemId) {
+    return [
+      {
+        label: "查看相关任务",
+        href: adminTasksManagementHref(managementContext),
+      },
+    ]
+  }
+
+  return []
+}
+
+function adminTasksManagementHref(context: AdminManagementContextRouteState) {
+  const search = new URLSearchParams({ context: "management_link" })
+
+  if (context.libraryId) search.set("library_id", context.libraryId)
+  if (context.itemId) search.set("item_id", context.itemId)
+  if (context.sourceId) search.set("source_id", context.sourceId)
+  if (context.playbackSessionId) search.set("playback_session_id", context.playbackSessionId)
+
+  return `/admin/tasks?${search.toString()}`
 }

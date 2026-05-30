@@ -6,15 +6,15 @@ import {
   type ManagementContextQuery,
 } from "@nako/sdk"
 import { loadPublicClientConnection, type PublicClientConnection } from "./connection"
+import {
+  normalizePublicManagementContext,
+  type PublicManagementContext,
+} from "./management-context-model"
+
+export { normalizePublicManagementContext } from "./management-context-model"
+export type { PublicManagementContext } from "./management-context-model"
 
 export type PublicManagementContextSourceMode = "live" | "fixture"
-
-export type PublicManagementContext = {
-  libraryId?: string
-  itemId?: string
-  sourceId?: string
-  playbackSessionId?: string
-}
 
 export type PublicManagementContextQuery = PublicManagementContext
 
@@ -102,8 +102,6 @@ const MANAGEMENT_ROUTE_FIXTURES: ManagementRouteFixture[] = [
   },
 ]
 
-const SAFE_IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/
-
 export function createPublicManagementContextDataSource(
   connection: PublicClientConnection = loadPublicClientConnection(),
   fetcher?: FetchLike,
@@ -113,17 +111,6 @@ export function createPublicManagementContextDataSource(
   }
 
   return createLiveManagementContextDataSource(connection, fetcher)
-}
-
-export function normalizePublicManagementContext(
-  input: PublicManagementContext = {},
-): PublicManagementContext {
-  return {
-    ...optionalContextField("libraryId", input.libraryId),
-    ...optionalContextField("itemId", input.itemId),
-    ...optionalContextField("sourceId", input.sourceId),
-    ...optionalContextField("playbackSessionId", input.playbackSessionId),
-  }
 }
 
 function createLiveManagementContextDataSource(
@@ -252,24 +239,6 @@ function toSdkQuery(query: PublicManagementContextQuery): ManagementContextQuery
   }
 
   return Object.values(sdkQuery).some(Boolean) ? sdkQuery : undefined
-}
-
-function optionalContextField<K extends keyof PublicManagementContext>(
-  key: K,
-  value: string | undefined,
-): Pick<PublicManagementContext, K> | Record<string, never> {
-  const safe = safeIdentifier(value)
-
-  return safe ? { [key]: safe } as Pick<PublicManagementContext, K> : {}
-}
-
-function safeIdentifier(value: string | undefined) {
-  if (typeof value !== "string") {
-    return undefined
-  }
-
-  const trimmed = value.trim()
-  return SAFE_IDENTIFIER.test(trimmed) ? trimmed : undefined
 }
 
 function errorMessage(error: unknown) {

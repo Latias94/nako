@@ -53,6 +53,8 @@ import {
   createAdminReadModelsDataSource,
   type AdminLibraryKind,
 } from "@/src/api/admin/read-models-data-source"
+import { AdminManagementContextNotice } from "./admin-management-context"
+import type { AdminManagementContextRouteState } from "./admin-management-context-state"
 
 type TaskType = "scan" | "metadata" | "backup" | "cleanup" | "update" | "optimize" | "subtitle" | "thumbnail"
 type TaskStatus = "idle" | "running" | "success" | "failed" | "scheduled"
@@ -310,7 +312,13 @@ const defaultTasks: ScheduledTask[] = [
   },
 ]
 
-export function AdminScheduledTasks() {
+interface AdminScheduledTasksProps {
+  managementContext?: AdminManagementContextRouteState
+}
+
+export function AdminScheduledTasks({
+  managementContext,
+}: AdminScheduledTasksProps = {}) {
   const { data: tasksData = ADMIN_TASKS_READ_MODEL_FIXTURE } = useQuery({
     queryKey: ["nako", "admin", "scheduled-tasks"],
     queryFn: () => createAdminReadModelsDataSource().loadTasks(),
@@ -591,6 +599,11 @@ export function AdminScheduledTasks() {
           新建任务
         </Button>
       </div>
+
+      <AdminManagementContextNotice
+        state={managementContext}
+        description="任务列表已接收来自媒体上下文的稳定筛选 ID。"
+      />
 
       {/* Running Task */}
       {currentRunningTask && (
