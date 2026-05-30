@@ -2,10 +2,11 @@ use nako_core::{MediaProbeResult, MediaSourceId, MediaStreamKind};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ClientPlaybackCapabilities, PlaybackAudioOutputRequirement, PlaybackDenial,
-    PlaybackHlsOutputRequirement, PlaybackMode, PlaybackOutputConstraints,
-    PlaybackPreferenceContext, PlaybackRemuxContainer, PlaybackSelectionContext,
-    PlaybackStorageContext, PlaybackTarget, PlaybackTrackSelection, PlaybackTranscodeContainer,
+    ClientPlaybackCapabilities, PlaybackAudioOutputRequirement, PlaybackColorPipelineRequirement,
+    PlaybackColorPipelineSource, PlaybackDenial, PlaybackHlsOutputRequirement, PlaybackMode,
+    PlaybackOutputConstraints, PlaybackPreferenceContext, PlaybackRemuxContainer,
+    PlaybackSelectionContext, PlaybackStorageContext, PlaybackTarget, PlaybackTrackSelection,
+    PlaybackTranscodeContainer,
 };
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -260,6 +261,21 @@ impl PlaybackTargetProfile {
     }
 
     #[must_use]
+    pub fn color_pipeline_requirement(
+        &self,
+        source: Option<PlaybackColorPipelineSource>,
+    ) -> PlaybackColorPipelineRequirement {
+        PlaybackColorPipelineRequirement::from_source(source, self.supports_hdr())
+    }
+
+    #[must_use]
+    pub fn supports_hdr(&self) -> bool {
+        self.direct_play_profiles
+            .iter()
+            .all(|profile| profile.supports_hdr)
+    }
+
+    #[must_use]
     pub fn max_supported_audio_channels(&self) -> Option<u32> {
         self.direct_play_profiles
             .iter()
@@ -393,7 +409,7 @@ pub(crate) fn evaluate_remux(
         None,
         None,
         profile.max_supported_audio_channels(),
-        true,
+        profile.supports_hdr(),
         &mut reasons,
     );
 
@@ -706,6 +722,8 @@ fn stream_has_hdr(stream: &nako_core::MediaStreamInfo) -> bool {
     stream.technical.hdr.dynamic_range.is_some()
         || stream.technical.hdr.mastering_display
         || stream.technical.hdr.content_light_level
+        || stream.technical.hdr.dolby_vision
+        || stream.technical.hdr.hdr10_plus
         || stream
             .technical
             .color

@@ -77,6 +77,60 @@ Verification on 2026-05-30:
 - Rust gates were intentionally not run because `HTP-010` is docs/research-only
   and did not edit implementation code.
 
+### HTP-020 - Playback color requirement vocabulary
+
+Status: Done
+
+Evidence:
+
+- `crates/nako-playback/src/values.rs`
+- `crates/nako-playback/src/capability.rs`
+- `crates/nako-playback/src/lib.rs`
+- playback tests for HDR passthrough, HDR-to-SDR tone mapping intent, and
+  deferred unsupported dynamic HDR paths
+
+Findings:
+
+- Added playback-owned color pipeline source and requirement values.
+- `TranscodeRequirement` now carries the color pipeline requirement beside
+  output constraints and audio output requirements.
+- SDR-only clients receiving HDR10/PQ sources get `tone_mapping=required`.
+- HDR-capable clients preserve source color when transcode is explicitly
+  requested.
+- Dolby Vision/HDR10+ style dynamic HDR is marked `deferred_unsupported` for
+  this playback-only slice.
+- Remux now rejects HDR sources for SDR-only clients so container remux cannot
+  bypass HDR-to-SDR tone mapping intent.
+- The task stayed inside `nako-playback`; transcode, server HLS, Public Client
+  API DTOs, media probe schema, and web player code were not edited.
+
+Verification on 2026-05-30:
+
+- `cargo nextest run -p nako-playback hdr --no-fail-fast` passed.
+- `cargo fmt --all -- --check` passed.
+- `git diff --check` passed.
+
+Reviewer finding follow-up on 2026-05-30:
+
+- Added regression coverage for an SDR-only client playing an HDR source from
+  an unsupported container. The planner now selects transcode, not remux, so
+  `TranscodeRequirement.color_pipeline` carries the HDR-to-SDR intent.
+- `cargo nextest run -p nako-playback hdr --no-fail-fast` passed with 4 HDR
+  tests.
+- `cargo fmt --all -- --check` passed.
+
+Planner verification on 2026-05-30:
+
+- `python -m json.tool docs/workstreams/hdr-tone-mapping-pipeline/WORKSTREAM.json`
+  passed.
+- `cargo nextest run -p nako-playback hdr --no-fail-fast` passed with 4 HDR
+  tests run and 30 skipped by filter.
+- `cargo nextest run -p nako-playback --no-fail-fast` passed with 34 tests
+  run.
+- `cargo fmt --all -- --check` passed.
+- `git diff --check` passed with only Windows line-ending normalization
+  warnings.
+
 ## Residual Risks
 
 - Existing HDR color facts are enough for HDR10/PQ and HLG detection, but may

@@ -20,8 +20,8 @@ HTP-010 result:
 - existing client facts are sufficient for the first slice through
   `supports_hdr=false`, with richer display/profile data deferred;
 - the first implementation task is playback-only `HTP-020`;
-- HDR implementation remains blocked while `ACDN-020` owns the same playback
-  vocabulary files.
+- the shared playback vocabulary conflict was resolved for `HTP-020` by
+  merging accepted `ACDN-020` into this HDR branch before implementation.
 
 ## M1 - Playback Color Requirement Vocabulary
 
@@ -31,14 +31,17 @@ Exit criteria:
 - playback-owned values can express direct-compatible HDR and tone-map-required
   cases.
 
-Status: Ready after planner activation.
+Status: Done; pending planner review.
 
-Activation criteria:
+Evidence:
 
-- accepted `ACDN-020` is merged into the HDR branch;
-- the HDR worker rereads `nako-playback` after the audio requirement changes;
-- no Public Client API, media probe schema, or transcode code change is needed
-  for the playback vocabulary slice.
+- `HTP-020` stayed inside `nako-playback`;
+- `TranscodeRequirement` now carries a playback-owned color pipeline
+  requirement;
+- tests cover HDR passthrough, HDR-to-SDR tone mapping intent, and deferred
+  unsupported dynamic HDR paths;
+- no Public Client API, media probe schema, transcode, server HLS, or web code
+  changed.
 
 ## M2 - Transcode Tone-Mapping Strategy
 
@@ -48,7 +51,7 @@ Exit criteria:
 - software and hardware FFmpeg strategies are deterministic and testable;
 - CPU fallback behavior is explicit.
 
-Status: Blocked pending `HTP-020`.
+Status: Blocked pending `HTP-020` planner acceptance.
 
 First media-output target:
 

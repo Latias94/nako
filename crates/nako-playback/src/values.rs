@@ -59,6 +59,127 @@ pub struct PlaybackOutputConstraints {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PlaybackColorPipelineSource {
+    pub dynamic_range: Option<String>,
+    pub color_space: Option<String>,
+    pub color_transfer: Option<String>,
+    pub color_primaries: Option<String>,
+    pub mastering_display: bool,
+    pub content_light_level: bool,
+    pub dolby_vision: bool,
+    pub hdr10_plus: bool,
+}
+
+impl PlaybackColorPipelineSource {
+    fn has_hdr(&self) -> bool {
+        self.dynamic_range.is_some()
+            || self.mastering_display
+            || self.content_light_level
+            || self.dolby_vision
+            || self.hdr10_plus
+            || self.color_transfer.as_deref().is_some_and(is_hdr_transfer)
+    }
+
+    fn has_deferred_unsupported_hdr(&self) -> bool {
+        self.dolby_vision
+            || self.hdr10_plus
+            || self.dynamic_range.as_deref().is_some_and(|dynamic_range| {
+                dynamic_range.eq_ignore_ascii_case("dolby_vision")
+                    || dynamic_range.eq_ignore_ascii_case("dovi")
+                    || dynamic_range.eq_ignore_ascii_case("hdr10_plus")
+            })
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PlaybackColorPipelineRequirement {
+    pub source: Option<PlaybackColorPipelineSource>,
+    pub target: PlaybackColorPipelineTarget,
+    pub tone_mapping: PlaybackHdrToneMappingRequirement,
+    pub reasons: Vec<PlaybackColorCompatibilityReason>,
+}
+
+impl PlaybackColorPipelineRequirement {
+    #[must_use]
+    pub fn from_source(
+        source: Option<PlaybackColorPipelineSource>,
+        client_supports_hdr: bool,
+    ) -> Self {
+        let Some(source) = source else {
+            return Self::default();
+        };
+
+        let mut requirement = Self {
+            source: Some(source),
+            ..Self::default()
+        };
+
+        let source = requirement
+            .source
+            .as_ref()
+            .expect("source is set before HDR classification");
+        if !source.has_hdr() {
+            return requirement;
+        }
+
+        requirement.push_reason(PlaybackColorCompatibilityReason::SourceHdrDetected);
+        if client_supports_hdr {
+            requirement.push_reason(PlaybackColorCompatibilityReason::HdrPassthroughSupported);
+            return requirement;
+        }
+
+        requirement.target = PlaybackColorPipelineTarget::Sdr;
+        requirement.push_reason(PlaybackColorCompatibilityReason::ClientHdrUnsupported);
+        if requirement
+            .source
+            .as_ref()
+            .is_some_and(PlaybackColorPipelineSource::has_deferred_unsupported_hdr)
+        {
+            requirement.tone_mapping = PlaybackHdrToneMappingRequirement::DeferredUnsupported;
+            requirement.push_reason(PlaybackColorCompatibilityReason::UnsupportedHdrFormatDeferred);
+        } else {
+            requirement.tone_mapping = PlaybackHdrToneMappingRequirement::Required;
+            requirement.push_reason(PlaybackColorCompatibilityReason::ToneMappingRequired);
+        }
+
+        requirement
+    }
+
+    fn push_reason(&mut self, reason: PlaybackColorCompatibilityReason) {
+        if !self.reasons.contains(&reason) {
+            self.reasons.push(reason);
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlaybackColorPipelineTarget {
+    #[default]
+    PreserveSource,
+    Sdr,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlaybackHdrToneMappingRequirement {
+    #[default]
+    None,
+    Required,
+    DeferredUnsupported,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlaybackColorCompatibilityReason {
+    SourceHdrDetected,
+    ClientHdrUnsupported,
+    HdrPassthroughSupported,
+    ToneMappingRequired,
+    UnsupportedHdrFormatDeferred,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct PlaybackAudioOutputRequirement {
     pub source_channels: Option<u32>,
     pub max_supported_channels: Option<u32>,
@@ -143,6 +264,12 @@ pub enum PlaybackAudioCompatibilityReason {
     ChannelLimitExceeded,
     DownmixRequired,
     NormalizationRequested,
+}
+
+fn is_hdr_transfer(transfer: &str) -> bool {
+    transfer.eq_ignore_ascii_case("smpte2084")
+        || transfer.eq_ignore_ascii_case("arib-std-b67")
+        || transfer.eq_ignore_ascii_case("hlg")
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]

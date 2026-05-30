@@ -5,13 +5,18 @@ Last updated: 2026-05-30
 
 ## Current State
 
-The lane is active for `HTP-020`. `HTP-010` completed the docs/research scope freeze, and the planner merged the accepted `ACDN-020` audio output baseline into this HDR branch so the shared playback vocabulary files are current. No HDR implementation code has been changed yet.
+`HTP-020` is complete, planner-verified, and committed on the HDR branch. The
+task stayed playback-only after the planner merged the accepted `ACDN-020`
+audio output baseline into this HDR branch.
 
 ## Next Task
 
-Run `HTP-020` with `run-workstream-task`. Keep the task playback-only and build on the merged `ACDN-020` audio output requirement vocabulary.
+Return to planner coordination before starting `HTP-030`. The HDR playback
+vocabulary slice is accepted, but the transcode/HLS implementation scope should
+remain blocked until the planner resolves the overlapping audio `ACDN-030`
+HLS gate concern or explicitly serializes those shared files.
 
-Owned `HTP-020` scope:
+Completed `HTP-020` implementation scope:
 
 - `crates/nako-playback/src/capability.rs`
 - `crates/nako-playback/src/values.rs`
@@ -30,7 +35,7 @@ python -m json.tool docs/workstreams/hdr-tone-mapping-pipeline/WORKSTREAM.json
 git diff --check -- docs/workstreams/hdr-tone-mapping-pipeline docs/architecture/PLAYBACK.md docs/architecture/WORKSTREAM_LINKS.md
 ```
 
-Planned `HTP-020` implementation validation after planner activation:
+Completed `HTP-020` implementation validation:
 
 ```text
 cargo nextest run -p nako-playback hdr --no-fail-fast
@@ -46,12 +51,23 @@ Research conclusion:
   typed reasons, not FFmpeg command planning;
 - first media-output behavior is a later software-first HLS HDR-to-SDR path.
 
+HTP-020 result:
+
+- added playback color pipeline source and requirement values;
+- added typed reasons for HDR source detection, HDR passthrough, client HDR
+  unsupported, tone mapping required, and deferred unsupported dynamic HDR;
+- `TranscodeRequirement` carries the color pipeline requirement beside existing
+  output constraints and audio output requirement;
+- tests cover HDR passthrough, HDR-to-SDR tone-map intent, and Dolby Vision
+  deferred unsupported intent.
+
 ## Stop Conditions
 
 Return to planner coordination if:
 
-- implementation code seems necessary;
-- the task would expand beyond playback-owned color requirement vocabulary;
+- `HTP-030` is requested before `HTP-020` review is complete;
+- follow-up work would expand beyond playback-owned color requirement
+  vocabulary without planner approval;
 - the lane needs a new ADR before code can start;
 - hardware-specific behavior cannot be represented by existing ADRs.
 
@@ -64,5 +80,5 @@ End with one of:
 - BLOCKED
 - NEEDS_CONTEXT
 
-Include docs changed, research findings, proposed first executable task, and
+Include implementation files changed, validation evidence, residual risks, and
 whether `HTP-020` is ready for planner review.

@@ -15,13 +15,13 @@ Last updated: 2026-05-30
 
 ## M1 - Playback Color Requirement Vocabulary
 
-- [ ] HTP-020 [owner=unassigned] [deps=HTP-010] [scope=crates/nako-playback/src/capability.rs,crates/nako-playback/src/values.rs,crates/nako-playback/src/lib.rs]
+- [x] HTP-020 [owner=codex] [deps=HTP-010] [scope=crates/nako-playback/src/capability.rs,crates/nako-playback/src/values.rs,crates/nako-playback/src/lib.rs]
   Goal: Add playback-owned **Color Pipeline Requirement** values and typed HDR compatibility reasons that distinguish HDR passthrough, HDR-to-SDR tone-map intent, and unsupported/deferred HDR paths.
   Validation: `cargo nextest run -p nako-playback hdr --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`
   Review: Use `review-workstream` before accepting completion.
   Evidence: playback planner/unit tests and `EVIDENCE_AND_GATES.md`.
   Context: `docs/workstreams/hdr-tone-mapping-pipeline/CONTEXT.jsonl`.
-  Handoff: READY. The planner merged accepted `ACDN-020` into this HDR branch. Do not edit `nako-transcode`, server HLS code, Public Client API DTOs, media probe schemas, or web player code in this task.
+  Handoff: DONE. Added playback-owned color pipeline source/requirement values, HDR passthrough vs HDR-to-SDR vs deferred unsupported reasons, and playback tests proving the requirement is carried by transcode decisions. No `nako-transcode`, server HLS, Public Client API DTO, media probe schema, or web player code was edited.
 
 ## M2 - Transcode Tone-Mapping Strategy
 
@@ -31,7 +31,7 @@ Last updated: 2026-05-30
   Review: Use `review-workstream` before accepting completion.
   Evidence: transcode policy/profile/command-plan tests, server HLS adaptation tests when server code changes, and `EVIDENCE_AND_GATES.md`.
   Context: `docs/workstreams/hdr-tone-mapping-pipeline/CONTEXT.jsonl`.
-  Handoff: Blocked until `HTP-020` is accepted. Keep hardware tone mapping, device-specific filter chains, Dolby Vision dynamic handling, HDR10+ preservation, and operator smoke matrices as follow-ons unless the planner splits them into a dedicated task.
+  Handoff: Blocked until `HTP-020` is reviewed and accepted by the planner. Keep hardware tone mapping, device-specific filter chains, Dolby Vision dynamic handling, HDR10+ preservation, and operator smoke matrices as follow-ons unless the planner splits them into a dedicated task.
 
 ## M3 - Verification And Closeout
 

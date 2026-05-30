@@ -21,6 +21,8 @@ use capability::{evaluate_direct_play, evaluate_remux, evaluate_transcode};
 pub use values::{
     PlaybackAudioCompatibilityReason, PlaybackAudioDownmixRequirement,
     PlaybackAudioNormalizationRequirement, PlaybackAudioOutputRequirement,
+    PlaybackColorCompatibilityReason, PlaybackColorPipelineRequirement,
+    PlaybackColorPipelineSource, PlaybackColorPipelineTarget, PlaybackHdrToneMappingRequirement,
     PlaybackHlsOutputRequirement, PlaybackHlsSegmentContainer, PlaybackHlsVariantPolicy,
     PlaybackOutputConstraints, PlaybackRemuxContainer, PlaybackSubtitleStrategy,
     PlaybackTrackSelection, PlaybackTranscodeContainer, PlaybackTranscodePlan,
@@ -219,6 +221,7 @@ pub struct TranscodeRequirement {
     pub output_audio_codec: Option<String>,
     pub track_selection: PlaybackTrackSelection,
     pub output_constraints: PlaybackOutputConstraints,
+    pub color_pipeline: PlaybackColorPipelineRequirement,
     pub audio_output: PlaybackAudioOutputRequirement,
     pub hls_output: Option<PlaybackHlsOutputRequirement>,
     pub subtitle_strategy: PlaybackSubtitleStrategy,
@@ -251,6 +254,13 @@ pub struct TranscodeRequirementStream {
     pub bits_per_raw_sample: Option<u32>,
     pub bits_per_sample: Option<u32>,
     pub dynamic_range: Option<String>,
+    pub color_space: Option<String>,
+    pub color_transfer: Option<String>,
+    pub color_primaries: Option<String>,
+    pub mastering_display: bool,
+    pub content_light_level: bool,
+    pub dolby_vision: bool,
+    pub hdr10_plus: bool,
     pub channel_layout: Option<String>,
     pub forced: bool,
     pub default: bool,
@@ -667,6 +677,12 @@ fn build_transcode_requirement(
             .as_ref()
             .and_then(|stream| stream.channels),
     );
+    let color_pipeline = target_profile.color_pipeline_requirement(
+        selected_streams
+            .video
+            .as_ref()
+            .map(PlaybackColorPipelineSource::from),
+    );
     TranscodeRequirement {
         source_id,
         input_locator,
@@ -675,6 +691,7 @@ fn build_transcode_requirement(
         output_audio_codec,
         track_selection,
         output_constraints: target_profile.output_constraints(),
+        color_pipeline,
         audio_output,
         hls_output: (output_container == PlaybackTranscodeContainer::Hls)
             .then_some(target_profile.hls_output_requirement()),
@@ -741,9 +758,31 @@ impl From<&MediaStreamInfo> for TranscodeRequirementStream {
             bits_per_raw_sample: stream.technical.bits_per_raw_sample,
             bits_per_sample: stream.technical.bits_per_sample,
             dynamic_range: stream.technical.hdr.dynamic_range.clone(),
+            color_space: stream.technical.color.space.clone(),
+            color_transfer: stream.technical.color.transfer.clone(),
+            color_primaries: stream.technical.color.primaries.clone(),
+            mastering_display: stream.technical.hdr.mastering_display,
+            content_light_level: stream.technical.hdr.content_light_level,
+            dolby_vision: stream.technical.hdr.dolby_vision,
+            hdr10_plus: stream.technical.hdr.hdr10_plus,
             channel_layout: stream.technical.channel_layout.clone(),
             forced: stream.technical.disposition.forced,
             default: stream.technical.disposition.default,
+        }
+    }
+}
+
+impl From<&TranscodeRequirementStream> for PlaybackColorPipelineSource {
+    fn from(stream: &TranscodeRequirementStream) -> Self {
+        Self {
+            dynamic_range: stream.dynamic_range.clone(),
+            color_space: stream.color_space.clone(),
+            color_transfer: stream.color_transfer.clone(),
+            color_primaries: stream.color_primaries.clone(),
+            mastering_display: stream.mastering_display,
+            content_light_level: stream.content_light_level,
+            dolby_vision: stream.dolby_vision,
+            hdr10_plus: stream.hdr10_plus,
         }
     }
 }
@@ -1665,6 +1704,276 @@ mod tests {
             requirement
                 .reasons
                 .contains(&PlaybackCompatibilityCondition::SubtitleDeliveryUnsupported)
+        );
+    }
+
+    #[test]
+    fn hdr_limited_client_gets_color_pipeline_tone_mapping_requirement() {
+        let source = media_source("movie.mp4");
+        let mut video = stream(MediaStreamKind::Video, Some("h264"));
+        video.index = 0;
+        video.technical = MediaStreamTechnicalFacts {
+            color: MediaColorInfo {
+                space: Some("bt2020nc".to_owned()),
+                transfer: Some("smpte2084".to_owned()),
+                primaries: Some("bt2020".to_owned()),
+                ..MediaColorInfo::default()
+            },
+            hdr: MediaHdrMetadata {
+                dynamic_range: Some("hdr10".to_owned()),
+                mastering_display: true,
+                content_light_level: true,
+                ..MediaHdrMetadata::default()
+            },
+            ..MediaStreamTechnicalFacts::default()
+        };
+        let mut audio = stream(MediaStreamKind::Audio, Some("aac"));
+        audio.index = 1;
+        let probe = MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some("mov,mp4,m4a,3gp,3g2,mj2".to_owned()),
+            bit_rate: None,
+            streams: vec![video, audio],
+        };
+
+        let decision = plan_with_policy(
+            &source,
+            Some(&probe),
+            ClientPlaybackCapabilities {
+                supports_hdr: false,
+                ..ClientPlaybackCapabilities::default()
+            },
+            PlaybackSelectionContext::default(),
+            EffectivePlaybackPolicy::from_library_access(
+                source.library_id,
+                nako_core::LibraryAccessLevel::Play,
+            ),
+        );
+
+        assert_eq!(decision.mode, PlaybackMode::Transcode);
+        assert!(
+            decision
+                .report
+                .direct_play
+                .has(PlaybackCompatibilityCondition::VideoHdrUnsupported)
+        );
+        assert_eq!(
+            decision
+                .transcode_requirement()
+                .expect("HDR-limited client should transcode")
+                .color_pipeline,
+            PlaybackColorPipelineRequirement {
+                source: Some(PlaybackColorPipelineSource {
+                    dynamic_range: Some("hdr10".to_owned()),
+                    color_space: Some("bt2020nc".to_owned()),
+                    color_transfer: Some("smpte2084".to_owned()),
+                    color_primaries: Some("bt2020".to_owned()),
+                    mastering_display: true,
+                    content_light_level: true,
+                    dolby_vision: false,
+                    hdr10_plus: false,
+                }),
+                target: PlaybackColorPipelineTarget::Sdr,
+                tone_mapping: PlaybackHdrToneMappingRequirement::Required,
+                reasons: vec![
+                    PlaybackColorCompatibilityReason::SourceHdrDetected,
+                    PlaybackColorCompatibilityReason::ClientHdrUnsupported,
+                    PlaybackColorCompatibilityReason::ToneMappingRequired,
+                ],
+            }
+        );
+    }
+
+    #[test]
+    fn hdr_limited_client_does_not_remux_when_tone_mapping_is_required() {
+        let source = media_source("movie.mkv");
+        let mut video = stream(MediaStreamKind::Video, Some("h264"));
+        video.index = 0;
+        video.technical = MediaStreamTechnicalFacts {
+            color: MediaColorInfo {
+                space: Some("bt2020nc".to_owned()),
+                transfer: Some("smpte2084".to_owned()),
+                primaries: Some("bt2020".to_owned()),
+                ..MediaColorInfo::default()
+            },
+            hdr: MediaHdrMetadata {
+                dynamic_range: Some("hdr10".to_owned()),
+                mastering_display: true,
+                content_light_level: true,
+                ..MediaHdrMetadata::default()
+            },
+            ..MediaStreamTechnicalFacts::default()
+        };
+        let mut audio = stream(MediaStreamKind::Audio, Some("aac"));
+        audio.index = 1;
+        let probe = MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some("matroska,webm".to_owned()),
+            bit_rate: None,
+            streams: vec![video, audio],
+        };
+
+        let decision = plan_with_policy(
+            &source,
+            Some(&probe),
+            ClientPlaybackCapabilities {
+                supports_hdr: false,
+                ..ClientPlaybackCapabilities::default()
+            },
+            PlaybackSelectionContext::default(),
+            EffectivePlaybackPolicy::from_library_access(
+                source.library_id,
+                nako_core::LibraryAccessLevel::Play,
+            ),
+        );
+
+        assert_eq!(decision.mode, PlaybackMode::Transcode);
+        assert!(
+            decision
+                .report
+                .remux
+                .has(PlaybackCompatibilityCondition::VideoHdrUnsupported)
+        );
+        assert_eq!(
+            decision
+                .transcode_requirement()
+                .expect("HDR remux cannot satisfy SDR client tone mapping")
+                .color_pipeline
+                .tone_mapping,
+            PlaybackHdrToneMappingRequirement::Required
+        );
+    }
+
+    #[test]
+    fn hdr_capable_client_preserves_source_color_when_transcode_is_requested() {
+        let source = media_source("movie.mp4");
+        let mut video = stream(MediaStreamKind::Video, Some("h264"));
+        video.index = 0;
+        video.technical = MediaStreamTechnicalFacts {
+            color: MediaColorInfo {
+                transfer: Some("arib-std-b67".to_owned()),
+                primaries: Some("bt2020".to_owned()),
+                ..MediaColorInfo::default()
+            },
+            hdr: MediaHdrMetadata {
+                dynamic_range: Some("hlg".to_owned()),
+                ..MediaHdrMetadata::default()
+            },
+            ..MediaStreamTechnicalFacts::default()
+        };
+        let mut audio = stream(MediaStreamKind::Audio, Some("aac"));
+        audio.index = 1;
+        let probe = MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some("mov,mp4,m4a,3gp,3g2,mj2".to_owned()),
+            bit_rate: None,
+            streams: vec![video, audio],
+        };
+
+        let decision = plan_with_policy(
+            &source,
+            Some(&probe),
+            ClientPlaybackCapabilities::default(),
+            PlaybackSelectionContext {
+                storage: PlaybackStorageContext::default(),
+                preferences: PlaybackPreferenceContext {
+                    transcode_output_container: Some(PlaybackTranscodeContainer::Hls),
+                    ..PlaybackPreferenceContext::default()
+                },
+            },
+            EffectivePlaybackPolicy::from_library_access(
+                source.library_id,
+                nako_core::LibraryAccessLevel::Play,
+            ),
+        );
+
+        assert_eq!(decision.mode, PlaybackMode::Transcode);
+        assert_eq!(
+            decision
+                .transcode_requirement()
+                .expect("requested transcode should carry color requirement")
+                .color_pipeline,
+            PlaybackColorPipelineRequirement {
+                source: Some(PlaybackColorPipelineSource {
+                    dynamic_range: Some("hlg".to_owned()),
+                    color_space: None,
+                    color_transfer: Some("arib-std-b67".to_owned()),
+                    color_primaries: Some("bt2020".to_owned()),
+                    mastering_display: false,
+                    content_light_level: false,
+                    dolby_vision: false,
+                    hdr10_plus: false,
+                }),
+                target: PlaybackColorPipelineTarget::PreserveSource,
+                tone_mapping: PlaybackHdrToneMappingRequirement::None,
+                reasons: vec![
+                    PlaybackColorCompatibilityReason::SourceHdrDetected,
+                    PlaybackColorCompatibilityReason::HdrPassthroughSupported,
+                ],
+            }
+        );
+    }
+
+    #[test]
+    fn dynamic_hdr_for_sdr_client_marks_color_pipeline_deferred() {
+        let source = media_source("movie.mp4");
+        let mut video = stream(MediaStreamKind::Video, Some("h264"));
+        video.index = 0;
+        video.technical = MediaStreamTechnicalFacts {
+            hdr: MediaHdrMetadata {
+                dolby_vision: true,
+                ..MediaHdrMetadata::default()
+            },
+            ..MediaStreamTechnicalFacts::default()
+        };
+        let mut audio = stream(MediaStreamKind::Audio, Some("aac"));
+        audio.index = 1;
+        let probe = MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some("mov,mp4,m4a,3gp,3g2,mj2".to_owned()),
+            bit_rate: None,
+            streams: vec![video, audio],
+        };
+
+        let decision = plan_with_policy(
+            &source,
+            Some(&probe),
+            ClientPlaybackCapabilities {
+                supports_hdr: false,
+                ..ClientPlaybackCapabilities::default()
+            },
+            PlaybackSelectionContext::default(),
+            EffectivePlaybackPolicy::from_library_access(
+                source.library_id,
+                nako_core::LibraryAccessLevel::Play,
+            ),
+        );
+
+        assert_eq!(decision.mode, PlaybackMode::Transcode);
+        assert_eq!(
+            decision
+                .transcode_requirement()
+                .expect("dynamic HDR should transcode for an SDR client")
+                .color_pipeline,
+            PlaybackColorPipelineRequirement {
+                source: Some(PlaybackColorPipelineSource {
+                    dynamic_range: None,
+                    color_space: None,
+                    color_transfer: None,
+                    color_primaries: None,
+                    mastering_display: false,
+                    content_light_level: false,
+                    dolby_vision: true,
+                    hdr10_plus: false,
+                }),
+                target: PlaybackColorPipelineTarget::Sdr,
+                tone_mapping: PlaybackHdrToneMappingRequirement::DeferredUnsupported,
+                reasons: vec![
+                    PlaybackColorCompatibilityReason::SourceHdrDetected,
+                    PlaybackColorCompatibilityReason::ClientHdrUnsupported,
+                    PlaybackColorCompatibilityReason::UnsupportedHdrFormatDeferred,
+                ],
+            }
         );
     }
 
