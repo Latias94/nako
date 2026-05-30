@@ -1,6 +1,6 @@
 # Storage/VFS Resilience And Source Identity — Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-30
 
 ## M0 — Authority Freeze
@@ -118,8 +118,25 @@ Primary evidence:
 
 ## M5 — Closeout
 
+Status: Complete as of 2026-05-30.
+
 Exit criteria:
 
 - SVRS-020 through SVRS-050 are complete or split into named follow-ons.
 - Relevant architecture docs and workstream evidence are current.
 - Final validation evidence is recorded in `EVIDENCE_AND_GATES.md`.
+
+Primary gates:
+
+- `cargo fmt --all -- --check`
+- `cargo check --workspace --tests`
+- `git diff --check`
+- `python -m json.tool docs/workstreams/storage-vfs-resilience-and-source-identity/WORKSTREAM.json > $null`
+
+Primary evidence:
+
+- `docs/workstreams/storage-vfs-resilience-and-source-identity/CLOSEOUT.md`
+- `docs/workstreams/storage-vfs-resilience-and-source-identity/EVIDENCE_AND_GATES.md`
+- `docs/architecture/STORAGE_VFS.md`
+- `docs/architecture/LIBRARY_PIPELINE.md`
+- `docs/architecture/WORKSTREAM_LINKS.md`

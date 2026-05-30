@@ -1,11 +1,11 @@
 # Storage/VFS Resilience And Source Identity — Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-30
 
 ## Current State
 
-SVRS-020, SVRS-030, SVRS-040, and SVRS-050 are complete. The scan path now derives
+The lane is closed. SVRS-020 through SVRS-060 are complete. The scan path now derives
 **Source Fingerprint** values through a layered evidence policy instead of
 trusting one optional backend string directly. The policy lives in `nako-core`,
 and `VfsLibraryScanner` carries evidence kind and confidence into discovered
@@ -60,17 +60,7 @@ them as user/other-agent work and do not revert or format them from this lane.
 
 ## Active Task
 
-- Task ID: SVRS-060
-- Owner: planner
-- Files:
-  - `docs/workstreams/storage-vfs-resilience-and-source-identity`
-  - `docs/architecture`
-- Validation:
-  - `cargo fmt --all -- --check`
-  - `cargo check -p nako-core -p nako-db -p nako-vfs -p nako-library -p nako-api -p nako-server --tests`
-  - `git diff --check`
-  - `python -m json.tool docs/workstreams/storage-vfs-resilience-and-source-identity/WORKSTREAM.json > $null`
-- Status: READY
+None. Open a new workstream before implementing any follow-on.
 
 ## Decisions So Far
 
@@ -109,7 +99,6 @@ them as user/other-agent work and do not revert or format them from this lane.
 
 ## Next Action
 
-Execute SVRS-060: close the lane or split explicit follow-ons for
-watcher/debounce, backend-specific circuit breakers, expensive hash policies,
-and any PostgreSQL runtime harness follow-up. Do not leave broad storage
-reliability ideas as unowned prose.
+Open follow-on workstreams only when product scope needs watcher/debounce,
+durable remote backend circuit breakers, partial/full hash escalation, or
+PostgreSQL runtime harness coverage. Keep those scopes out of this closed lane.

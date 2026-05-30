@@ -1,7 +1,7 @@
 # Storage/VFS Resilience And Source Identity — Design
 
-Status: Active
-Last updated: 2026-05-29
+Status: Completed
+Last updated: 2026-05-30
 
 ## Problem
 
@@ -92,3 +92,23 @@ The first slice should prove behavior through tests before schema breadth:
 - Diagnostics can leak paths, URIs, ETags, fingerprints, or credentials. Expose
   booleans, safe categories, and fingerprints of sensitive values only.
 
+## Closeout Summary
+
+The first Storage/VFS resilience slice is complete. Nako now has layered
+redaction-safe **Source Fingerprint** evidence, strong-evidence move/rename
+reconciliation, reviewable **Source Duplicate Relationship** records for weak
+or duplicate evidence, shared storage failure classification, bounded
+process-local read/probe/stage backoff, and Admin diagnostics for catalog
+governance pressure, VFS cache/staging cleanup pressure, and storage backend
+health.
+
+Remaining work has separate ownership boundaries and should open new lanes:
+
+- `proposed:remote-storage-health-and-circuit-breaker` for durable backend
+  health state and backend-specific circuit breakers.
+- `proposed:library-watcher-and-media-intake-stability` for watcher/debounce,
+  stable-size detection, and copy-in-progress handling.
+- `proposed:source-fingerprint-escalation-policy` for opt-in partial/full hash
+  escalation policies.
+- `proposed:storage-vfs-postgresql-runtime-harness` for PostgreSQL runtime
+  parity evidence around storage/source identity queries.

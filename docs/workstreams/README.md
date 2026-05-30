@@ -7,11 +7,13 @@ attention.
 ## Current Workstreams
 
 - [storage-vfs-resilience-and-source-identity](storage-vfs-resilience-and-source-identity/README.md):
-  active fearless refactor lane for deepening **Source Fingerprint** evidence,
+  completed fearless refactor lane for deepening **Source Fingerprint** evidence,
   move/rename reconciliation, storage failure classification, stale-cache
   diagnostics, and mount-hang resilience before broader remote-library,
   watch-folder, provider, or Library File Write breadth depends on shallow
-  source identity behavior. This lane is intentionally non-Web and non-HLS.
+  source identity behavior. Watcher/debounce, durable backend circuit breakers,
+  hash escalation policy, and PostgreSQL runtime harness coverage are split as
+  follow-ons.
 - [durable-job-queue-and-resource-classes](durable-job-queue-and-resource-classes/README.md):
   closed fearless refactor lane for centralizing process-local runtime resource
   classes first, then adding explicit durable job class to budget class mapping,

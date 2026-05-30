@@ -1,6 +1,6 @@
 # Library And Asset Pipeline Architecture
 
-Last updated: 2026-05-29
+Last updated: 2026-05-30
 
 This document maps the media lifecycle after files become visible through VFS.
 It covers scan, watcher, probe, metadata, artwork, and addon-assisted intake.
@@ -24,7 +24,7 @@ Storage event or scheduled scan
 | Capability | Status | Authority | Next Lane |
 | --- | --- | --- | --- |
 | Durable scan state | Shipped | `docs/adr/0012-durable-scan-state-and-source-tombstones.md` | Watcher/debounce productization. |
-| Source tombstones | Shipped foundation | `docs/adr/0012-durable-scan-state-and-source-tombstones.md` | Move/rename reconciliation with fingerprints. |
+| Source tombstones | Shipped foundation | `docs/adr/0012-durable-scan-state-and-source-tombstones.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Watcher/debounce productization and repair workflows. |
 | Local inference | Shipped foundation | `CONTEXT.md`; metadata/catalog lanes | Anime/series path heuristics and confidence reporting. |
 | Media probe | Shipped foundation | playback/transcode lanes | More HDR/audio/subtitle technical facts. |
 | NFO authority | Shipped foundation | `docs/adr/0008-nfo-as-local-metadata-boundary.md` | Round-trip/writeback polish and backup policy. |
@@ -44,6 +44,18 @@ consolidated index for library, metadata, NFO, and artwork workstreams. Keep
 this document focused on intake and asset pipeline capability state.
 
 ## Next Work Lanes
+
+### source-identity-foundation
+
+Status: The first source identity resilience slice shipped in
+`docs/workstreams/storage-vfs-resilience-and-source-identity/`.
+
+Shipped behavior:
+
+- layered source fingerprint evidence without mandatory full-file hashing;
+- strong-evidence move/rename reconciliation;
+- duplicate-source suggestions instead of automatic weak-evidence merges;
+- source-scoped storage failure diagnostics.
 
 ### library-watcher-and-media-intake-stability
 

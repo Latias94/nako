@@ -1,6 +1,6 @@
 # Storage/VFS Resilience And Source Identity — Evidence And Gates
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-30
 
 ## Required Gates
@@ -26,6 +26,11 @@ Task-specific gates:
 - SVRS-050:
   - `cargo nextest run -p nako-server system storage --no-fail-fast`
   - `cargo nextest run -p nako-api admin_contract --no-fail-fast` if Admin DTOs change.
+- SVRS-060:
+  - `cargo check --workspace --tests`
+  - `cargo fmt --all -- --check`
+  - `git diff --check`
+  - `python -m json.tool docs/workstreams/storage-vfs-resilience-and-source-identity/WORKSTREAM.json > $null`
 
 Broaden to workspace gates when a task changes shared repository contracts,
 public/admin DTOs, migrations, or runtime resource behavior:
@@ -72,6 +77,11 @@ available:
 | 2026-05-30 | SVRS-050 | `cargo nextest run -p nako-server system storage --no-fail-fast` | Passed: 53 tests |
 | 2026-05-30 | SVRS-050 | `cargo check -p nako-core -p nako-db -p nako-vfs -p nako-library -p nako-api -p nako-server --tests`; `cargo fmt --all -- --check`; `git diff --check`; `python -m json.tool docs/workstreams/storage-vfs-resilience-and-source-identity/WORKSTREAM.json > $null` | Passed; `git diff --check` printed only Windows line-ending warnings |
 | 2026-05-30 | SVRS-050 | PostgreSQL opt-in harness | Not run: no `NAKO_TEST_POSTGRES_URL` or local PostgreSQL harness was configured in this workspace |
+| 2026-05-30 | SVRS-060 | Closed the lane, added `CLOSEOUT.md`, marked workstream docs completed, and split watcher/debounce, remote backend circuit breakers, VFS cache repair, hash escalation, and PostgreSQL runtime harness coverage as proposed follow-ons. | Implemented |
+| 2026-05-30 | SVRS-060 | Updated `docs/architecture/STORAGE_VFS.md`, `docs/architecture/LIBRARY_PIPELINE.md`, `docs/architecture/WORKSTREAM_LINKS.md`, and `docs/workstreams/README.md` to mark the first slice as shipped and keep follow-ons explicit. | Implemented |
+| 2026-05-30 | SVRS-060 | `cargo check --workspace --tests` | Passed |
+| 2026-05-30 | SVRS-060 | `cargo fmt --all -- --check`; `python -m json.tool docs/workstreams/storage-vfs-resilience-and-source-identity/WORKSTREAM.json > $null`; `git diff --check` | Passed; `git diff --check` printed only Windows line-ending warnings |
+| 2026-05-30 | SVRS-060 | `cargo nextest run --workspace --no-fail-fast` | Not run: SVRS-060 is documentation closeout only, and SVRS-020 through SVRS-050 recorded focused behavior gates for the shipped code |
 
 ## SVRS-020 Verification Notes
 
@@ -148,6 +158,21 @@ available:
 - PostgreSQL catalog governance SQL was changed and compile-checked with the
   Postgres adapter, but the runtime PostgreSQL harness was skipped because no
   `NAKO_TEST_POSTGRES_URL` was available.
+
+## SVRS-060 Closeout Verification Notes
+
+- The lane is closed with `WORKSTREAM.json.status = "completed"` and no active
+  current task.
+- `CLOSEOUT.md` records the shipped behavior, residual risks, and explicit
+  proposed follow-ons.
+- Architecture maps now treat source identity resilience, storage failure
+  classification, VFS cache/staging diagnostics, and mount-hang first-slice
+  protection as shipped foundations rather than open work in this lane.
+- The workspace compiled with `cargo check --workspace --tests` after closeout
+  docs changed.
+- Workspace nextest was intentionally skipped for SVRS-060 because no code
+  changed in this closeout task; the behavior gates for shipped code remain
+  recorded under SVRS-020 through SVRS-050.
 
 ## Review Expectations
 

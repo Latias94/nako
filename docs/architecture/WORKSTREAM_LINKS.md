@@ -1,6 +1,6 @@
 # Architecture Workstream Links
 
-Last updated: 2026-05-29
+Last updated: 2026-05-30
 
 This index links architecture capability areas to workstream evidence and
 candidate follow-on lanes. The top-level architecture map stays concise; this
@@ -105,6 +105,8 @@ Proposed lanes:
 
 - `proposed:vfs-cache-repair-diagnostics`
 - `proposed:remote-storage-health-and-circuit-breaker`
+- `proposed:source-fingerprint-escalation-policy`
+- `proposed:storage-vfs-postgresql-runtime-harness`
 
 ## Library, Metadata, NFO, And Artwork
 

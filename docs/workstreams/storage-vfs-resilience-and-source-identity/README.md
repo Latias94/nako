@@ -1,6 +1,6 @@
 # Storage/VFS Resilience And Source Identity
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-30
 
 This workstream deepens Nako's storage/VFS and **Media Source** identity
@@ -35,10 +35,15 @@ source identity evidence and storage failure behavior are still too shallow:
 - `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`
 - `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md`
 
-## Current Target
+## Final Status
 
-SVRS-020 through SVRS-050 are complete. The remaining target is SVRS-060
-closeout: either close the lane cleanly or split explicit follow-ons for
-watcher/debounce, backend-specific circuit breakers, expensive hash policies,
-and PostgreSQL runtime harness coverage. Do not begin an HLS/runtime rewrite in
-this lane.
+SVRS-020 through SVRS-060 are complete. The lane is closed.
+
+The shipped first slice deepened source identity evidence, move/rename
+reconciliation, duplicate-source review state, storage failure classification,
+bounded process-local read/probe/stage backoff, and redaction-safe Admin
+diagnostics.
+
+Follow-on scope is split to proposed lanes for watcher/debounce,
+backend-specific circuit breakers, expensive hash escalation, and PostgreSQL
+runtime harness coverage. Do not reopen this lane for HLS/runtime feature work.

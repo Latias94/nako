@@ -1,6 +1,6 @@
 # Storage/VFS Resilience And Source Identity — TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-30
 
 ## M0 — Scope And Authority
@@ -93,11 +93,15 @@ Last updated: 2026-05-30
 
 ## M5 — Closeout And Follow-On Split
 
-- [ ] SVRS-060 [owner=planner] [deps=SVRS-050] [scope=docs/workstreams/storage-vfs-resilience-and-source-identity,docs/architecture]
+- [x] SVRS-060 [owner=planner] [deps=SVRS-050] [scope=docs/workstreams/storage-vfs-resilience-and-source-identity,docs/architecture]
   Goal: Close the lane or split follow-ons such as watcher/debounce,
   backend-specific circuit breakers, and expensive hash policies.
   Validation: final focused gates, `cargo fmt --all -- --check`,
   `cargo check --workspace --tests`, `cargo nextest run --workspace --no-fail-fast`
   when risk justifies it, `git diff --check`, and `WORKSTREAM.json` parse.
+  Evidence: `CLOSEOUT.md` records the final shipped behavior, fresh gates, and
+  explicit follow-ons; architecture maps now mark this first slice as shipped
+  and keep future watcher/debounce, circuit-breaker, hash escalation, and
+  PostgreSQL runtime harness work as proposed lanes.
   Review: Run review-workstream and verify-rust-workstream before closeout.
-  Handoff: Do not leave broad storage reliability ideas as unowned prose.
+  Handoff: DONE. Open a new workstream for each follow-on before implementation.

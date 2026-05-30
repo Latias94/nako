@@ -1,6 +1,6 @@
 # Storage And VFS Architecture
 
-Last updated: 2026-05-29
+Last updated: 2026-05-30
 
 This document maps Nako's storage and VFS architecture for agents working on
 scan, probe, playback, imports, sidecar writes, and remote storage.
@@ -24,15 +24,15 @@ and rclone-like mounts can be slow, stale, or unavailable.
 | Capability | Status | Authority | Next Lane |
 | --- | --- | --- | --- |
 | Local storage backend | Shipped | `docs/adr/0002-internal-vfs-before-os-mounting.md` | Keep local behavior as the compatibility baseline. |
-| Remote storage boundary | Shipped foundation | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md` | Broaden backend support and stale-cache diagnostics. |
+| Remote storage boundary | Shipped foundation | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Broaden backend support and durable backend health/circuit breakers. |
 | WebDAV read path | Partial | `docs/workstreams/storage-vfs/`; remote storage lanes | Harden retries, cache, and operator diagnostics. |
-| Source locator | Shipped foundation | `CONTEXT.md`; storage/VFS workstreams | Improve move/rename reconciliation. |
-| Source fingerprint | Partial | `CONTEXT.md`; catalog/source duplicate lanes | Hash/inode/size/duration evidence policy. |
-| Remote probe staging | Shipped foundation | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md` | Timeout and partial-staging cleanup hardening. |
+| Source locator | Shipped foundation | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Watcher/debounce productization and repair workflows. |
+| Source fingerprint | Shipped first slice | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Optional partial/full hash escalation policy. |
+| Remote probe staging | Shipped foundation | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Per-backend staging budgets and diagnostics. |
 | Remote FFmpeg input staging | Shipped foundation | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md` | Per-backend staging budgets and diagnostics. |
-| VFS cache | Partial | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md` | Stale cache semantics for scan and playback. |
+| VFS cache | Shipped diagnostics foundation | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Repair diagnostics and cache operator actions. |
 | Library file writes | Partial | addon/library-file-write and NFO workstreams | Capability-specific write/link/backup policy. |
-| Mount hang protection | Weak | This document | Open `storage-vfs-resilience-and-source-identity`. |
+| Mount hang protection | Shipped first slice | `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Durable backend health and circuit-breaker lane. |
 
 ## Workstream Evidence
 
@@ -40,28 +40,32 @@ Use `docs/architecture/WORKSTREAM_LINKS.md#storage-and-vfs` as the consolidated
 index for storage/VFS workstreams. Keep this document focused on capability
 state and risk, not copied task evidence.
 
-## Next Work Lanes
+## Completed Work Lanes
 
 ### storage-vfs-resilience-and-source-identity
 
-Goal: Make storage failures bounded and make source identity robust across
-renames, moves, stale caches, and remote storage interruptions.
+Status: Completed as of 2026-05-30.
 
-Scope:
+Shipped:
 
-- source fingerprint policy;
-- move/rename reconciliation;
-- read/probe/stage timeout behavior;
-- backend circuit-breaker or backoff state;
-- stale cache diagnostics;
-- partial staging cleanup.
+- layered redaction-safe **Source Fingerprint** evidence;
+- strong-evidence move/rename reconciliation;
+- reviewable **Source Duplicate Relationship** records;
+- redaction-safe storage failure classification;
+- bounded process-local read/probe/stage backoff;
+- Admin diagnostics for catalog governance, VFS cache/staging cleanup pressure,
+  and storage backend health.
 
-Exit criteria:
+## Next Work Lanes
 
-- scan/probe/playback failures classify storage timeout, unavailable, rate
-  limited, stale cache, and permission failures distinctly;
-- a stuck remote mount cannot block unrelated libraries;
-- moved files can preserve metadata/playback state when evidence is strong.
+- `proposed:remote-storage-health-and-circuit-breaker`: durable backend health,
+  backend-specific circuit-breaker policy, and operator controls.
+- `proposed:vfs-cache-repair-diagnostics`: cache repair previews, refresh
+  actions, and stale-cache operator remediation.
+- `proposed:source-fingerprint-escalation-policy`: opt-in partial/full hash
+  escalation for ambiguous source identity cases.
+- `proposed:storage-vfs-postgresql-runtime-harness`: runtime parity evidence
+  for PostgreSQL storage/source identity query paths.
 
 ## Risk Register
 
