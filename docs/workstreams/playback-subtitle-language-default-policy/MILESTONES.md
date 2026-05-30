@@ -1,6 +1,6 @@
 # Playback Subtitle Language Default Policy - Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-30
 
 ## M0 - Scope And Evidence Freeze
@@ -36,7 +36,7 @@ Primary gates:
 
 ## M2 - HLS Default Rendition Integration
 
-Status: Pending
+Status: Completed
 
 Exit criteria:
 
@@ -52,7 +52,7 @@ Primary gates:
 
 ## M3 - Closeout
 
-Status: Pending
+Status: Completed
 
 Exit criteria:
 

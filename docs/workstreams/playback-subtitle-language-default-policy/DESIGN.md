@@ -1,6 +1,6 @@
 # Playback Subtitle Language Default Policy
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-30
 
 ## Why This Lane Exists
@@ -126,3 +126,19 @@ This lane can close when:
 - focused playback/HLS/API gates pass with fresh evidence;
 - persisted user settings, UI controls, burn-in/OCR/ASS shaping, addon
   readiness, and LL-HLS/DASH/DRM are either split or explicitly deferred.
+
+## Closeout Summary
+
+This lane closed on 2026-05-30. The shipped slice is request-scoped: playback
+accepts ordered preferred subtitle languages, explicit subtitle stream
+selection keeps highest precedence, language matching and fallback are
+deterministic, and HLS subtitle rendition authoring marks the selected policy
+stream as the only generated `DEFAULT=YES` subtitle rendition.
+
+The public HLS playlist route exposes this as `preferred_subtitle_language`, a
+comma-separated ordered language list. OpenAPI, generated TypeScript/Kotlin
+SDKs, and HTTP API docs expose the query contract.
+
+Persisted user defaults, UI controls, subtitle OCR, image-subtitle burn-in,
+ASS/SSA shaping, addon late-subtitle readiness, LL-HLS, DASH/CMAF, DRM/key
+delivery, and offline sync are deferred to separate workstreams.

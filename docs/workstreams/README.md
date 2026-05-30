@@ -38,7 +38,7 @@ attention.
   subtitle policy, codec-aware audio, downmix/normalization, UI controls,
   LL-HLS, DASH, DRM, and offline sync remain follow-ons.
 - [playback-subtitle-language-default-policy](playback-subtitle-language-default-policy/README.md):
-  active feature/refactor lane for adding request-scoped preferred subtitle
+  completed feature/refactor lane for adding request-scoped preferred subtitle
   languages and deterministic HLS default subtitle selection after subtitle
   sidecar serving, HLS subtitle renditions, and audio language defaults shipped.
   Persisted settings, UI controls, OCR/burn-in/ASS shaping, addon late-subtitle

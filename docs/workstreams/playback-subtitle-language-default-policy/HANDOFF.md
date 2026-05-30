@@ -1,36 +1,36 @@
 # Playback Subtitle Language Default Policy - Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-30
 
 ## Current State
 
-The lane is open. It follows the closed subtitle serving, HLS subtitle
+The lane is closed. It follows the closed subtitle serving, HLS subtitle
 rendition, HLS master rendition authoring, and playback audio language default
-policy workstreams. Nako now needs request-scoped subtitle language/default
-policy so HLS subtitle groups can mark the right rendition as default without
-relying only on an explicit stream index or first-subtitle fallback.
+policy workstreams. Nako now has request-scoped subtitle language/default policy
+so HLS subtitle groups can mark the right rendition as default without relying
+only on an explicit stream index or first-subtitle fallback.
 
 PSLD-020 is complete. `nako-playback` now owns request-scoped preferred
 subtitle language selection, explicit subtitle stream precedence, fallback, and
-identity normalization. HTTP/HLS adapters compile with the new preference field
-but do not expose a wire-level subtitle-language query yet.
+identity normalization.
+
+PSLD-030 is complete. The public HLS playlist route exposes
+`preferred_subtitle_language` as a comma-separated ordered language list,
+OpenAPI/SDK/HTTP API docs expose the contract, and HLS route tests prove
+language-selected subtitle defaults, explicit `subtitle_stream` precedence, and
+normalized request identity reuse.
+
+PSLD-040 is complete. Fresh playback, HLS, API, formatting, JSON, and diff
+gates passed. Architecture and workstream docs now mark this first slice as
+shipped, and all larger preference/subtitle/runtime items are deferred to
+follow-on lanes.
 
 ## Active Task
 
-- Task ID: PSLD-030
-- Owner: codex
-- Files:
-  - `crates/nako-server/src/app/playback`
-  - `crates/nako-server/src/http/playback.rs`
-  - `crates/nako-api` only if public DTO/query contracts change
-- Validation:
-  - `cargo nextest run -p nako-server hls --no-fail-fast`
-  - `cargo nextest run -p nako-server playback --no-fail-fast`
-  - `cargo nextest run -p nako-api --no-fail-fast` if public contracts change
-- Status: PENDING
-- Review: pending
-- Evidence: `docs/workstreams/playback-subtitle-language-default-policy/EVIDENCE_AND_GATES.md`
+None. Open a new workstream for persisted user preferences, subtitle UI
+controls, OCR/burn-in/ASS shaping, addon late-subtitle readiness, LL-HLS, DASH,
+DRM, offline sync, or richer language metadata normalization.
 
 ## Decisions Since Opening
 
@@ -51,6 +51,7 @@ but do not expose a wire-level subtitle-language query yet.
 
 ## Next Recommended Action
 
-- Run PSLD-030 through `run-workstream-task` or TDD.
-- Decide the HLS request query shape for preferred subtitle languages, then
-  assert the selected subtitle rendition is the generated default.
+- Commit the verified closeout.
+- Open follow-ons only when product scope needs persisted user preferences,
+  subtitle UI controls, OCR/burn-in/ASS shaping, addon readiness, LL-HLS, DASH,
+  DRM, offline sync, or richer language metadata normalization.

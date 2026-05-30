@@ -845,6 +845,7 @@ export interface RemuxPlaybackQuery extends PlaybackCapabilitiesQuery {
 
 export interface HlsPlaybackQuery extends PlaybackCapabilitiesQuery {
   preferred_audio_language?: string | string[];
+  preferred_subtitle_language?: string | string[];
   start_position_ms?: number;
 }
 

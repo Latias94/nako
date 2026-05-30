@@ -137,6 +137,7 @@ public data class HlsPlaybackQuery(
     public val videoCodecs: List<String> = emptyList(),
     public val audioCodecs: List<String> = emptyList(),
     public val preferredAudioLanguages: List<String> = emptyList(),
+    public val preferredSubtitleLanguages: List<String> = emptyList(),
     public val startPositionMs: Long? = null,
 )
 
@@ -639,6 +640,7 @@ public object NakoPublicClientRequests {
             addCsv("video_codec", query.videoCodecs)
             addCsv("audio_codec", query.audioCodecs)
             addCsv("preferred_audio_language", query.preferredAudioLanguages)
+            addCsv("preferred_subtitle_language", query.preferredSubtitleLanguages)
             query.startPositionMs?.let {
                 add("start_position_ms" to it.toString())
             }

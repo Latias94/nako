@@ -608,6 +608,7 @@ public data class HlsPlaybackQuery(
     public val videoCodecs: List<String> = emptyList(),
     public val audioCodecs: List<String> = emptyList(),
     public val preferredAudioLanguages: List<String> = emptyList(),
+    public val preferredSubtitleLanguages: List<String> = emptyList(),
     public val startPositionMs: Long? = null,
 )
 
@@ -1110,6 +1111,7 @@ public object NakoPublicClientRequests {
             addCsv("video_codec", query.videoCodecs)
             addCsv("audio_codec", query.audioCodecs)
             addCsv("preferred_audio_language", query.preferredAudioLanguages)
+            addCsv("preferred_subtitle_language", query.preferredSubtitleLanguages)
             query.startPositionMs?.let {
                 add("start_position_ms" to it.toString())
             }
@@ -1259,6 +1261,7 @@ export interface RemuxPlaybackQuery extends PlaybackCapabilitiesQuery {
 
 export interface HlsPlaybackQuery extends PlaybackCapabilitiesQuery {
   preferred_audio_language?: string | string[];
+  preferred_subtitle_language?: string | string[];
   start_position_ms?: number;
 }
 
@@ -1722,6 +1725,7 @@ mod tests {
             "PlaybackSessionHeartbeatRequest",
             "HlsPlaybackQuery",
             "preferred_audio_language?: string | string[]",
+            "preferred_subtitle_language?: string | string[]",
             "start_position_ms?: number",
             "UserPlaylistResponse",
             "UserPlaylistItemsResponse",
@@ -1801,6 +1805,7 @@ mod tests {
             "public val playbackSessionId: String?",
             "public data class HlsPlaybackQuery",
             "public val preferredAudioLanguages: List<String>",
+            "public val preferredSubtitleLanguages: List<String>",
             "public val startPositionMs: Long?",
             "public data class UserPlaybackStateResponse",
             "public data class UserPlaylistResponse",

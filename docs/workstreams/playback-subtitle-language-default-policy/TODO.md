@@ -1,6 +1,6 @@
 # Playback Subtitle Language Default Policy - TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-30
 
 ## Task Ledger
@@ -92,7 +92,7 @@ Handoff:
 
 ### PSLD-030 - Surface policy through HLS subtitle rendition defaults
 
-Status: Pending
+Status: Completed
 Owner: codex
 Depends on: PSLD-020
 
@@ -130,12 +130,20 @@ Evidence:
 
 Handoff:
 
+- DONE: The public HLS playlist route accepts `preferred_subtitle_language` as
+  a comma-separated ordered language list.
+- DONE: HLS subtitle rendition authoring marks the selected policy subtitle
+  stream as the only generated `DEFAULT=YES` subtitle rendition.
+- DONE: Explicit `subtitle_stream` still overrides preferred subtitle language
+  selection.
+- DONE: Normalized language preference input reuses the same HLS request and
+  transcode session identity.
 - Split persisted user settings, UI controls, OCR/burn-in/ASS shaping, addon
   readiness, LL-HLS, DASH, DRM, and offline sync instead of adding them here.
 
 ### PSLD-040 - Verify, document, and close or split follow-ons
 
-Status: Pending
+Status: Completed
 Owner: planner
 Depends on: PSLD-030
 
@@ -174,4 +182,8 @@ Evidence:
 
 Handoff:
 
-- Update `WORKSTREAM.json` status and continue policy.
+- DONE: Fresh focused gates passed and evidence is recorded.
+- DONE: Architecture and workstream docs mark the shipped request-scoped
+  subtitle language/default policy slice as complete.
+- DONE: Persisted settings, UI controls, OCR/burn-in/ASS shaping, addon
+  readiness, LL-HLS, DASH, DRM, and offline sync remain explicit follow-ons.
