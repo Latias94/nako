@@ -19,6 +19,8 @@ pub use capability::{
 };
 use capability::{evaluate_direct_play, evaluate_remux, evaluate_transcode};
 pub use values::{
+    PlaybackAudioCompatibilityReason, PlaybackAudioDownmixRequirement,
+    PlaybackAudioNormalizationRequirement, PlaybackAudioOutputRequirement,
     PlaybackHlsOutputRequirement, PlaybackHlsSegmentContainer, PlaybackHlsVariantPolicy,
     PlaybackOutputConstraints, PlaybackRemuxContainer, PlaybackSubtitleStrategy,
     PlaybackTrackSelection, PlaybackTranscodeContainer, PlaybackTranscodePlan,
@@ -217,6 +219,7 @@ pub struct TranscodeRequirement {
     pub output_audio_codec: Option<String>,
     pub track_selection: PlaybackTrackSelection,
     pub output_constraints: PlaybackOutputConstraints,
+    pub audio_output: PlaybackAudioOutputRequirement,
     pub hls_output: Option<PlaybackHlsOutputRequirement>,
     pub subtitle_strategy: PlaybackSubtitleStrategy,
     pub selected_streams: TranscodeRequirementStreams,
@@ -657,6 +660,13 @@ fn build_transcode_requirement(
     report: &PlaybackDecisionReport,
 ) -> TranscodeRequirement {
     let track_selection = target_profile.track_selection_for_probe(probe);
+    let selected_streams = selected_transcode_streams(probe, track_selection);
+    let audio_output = target_profile.audio_output_requirement(
+        selected_streams
+            .audio
+            .as_ref()
+            .and_then(|stream| stream.channels),
+    );
     TranscodeRequirement {
         source_id,
         input_locator,
@@ -665,6 +675,7 @@ fn build_transcode_requirement(
         output_audio_codec,
         track_selection,
         output_constraints: target_profile.output_constraints(),
+        audio_output,
         hls_output: (output_container == PlaybackTranscodeContainer::Hls)
             .then_some(target_profile.hls_output_requirement()),
         subtitle_strategy: if track_selection.subtitle_stream.is_some() {
@@ -672,7 +683,7 @@ fn build_transcode_requirement(
         } else {
             PlaybackSubtitleStrategy::None
         },
-        selected_streams: selected_transcode_streams(probe, track_selection),
+        selected_streams,
         reasons: transcode_requirement_reasons(reason, report),
     }
 }
@@ -1654,6 +1665,135 @@ mod tests {
             requirement
                 .reasons
                 .contains(&PlaybackCompatibilityCondition::SubtitleDeliveryUnsupported)
+        );
+    }
+
+    #[test]
+    fn audio_channel_limit_drives_downmix_output_requirement() {
+        let source = media_source("movie.mp4");
+        let mut video = stream(MediaStreamKind::Video, Some("h264"));
+        video.index = 0;
+        let mut audio = stream(MediaStreamKind::Audio, Some("aac"));
+        audio.index = 1;
+        audio.channels = Some(6);
+        audio.technical = MediaStreamTechnicalFacts {
+            channel_layout: Some("5.1".to_owned()),
+            ..MediaStreamTechnicalFacts::default()
+        };
+        let probe = MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some("mov,mp4,m4a,3gp,3g2,mj2".to_owned()),
+            bit_rate: None,
+            streams: vec![video, audio],
+        };
+
+        let decision = plan_with_policy(
+            &source,
+            Some(&probe),
+            ClientPlaybackCapabilities {
+                max_audio_channels: Some(2),
+                ..ClientPlaybackCapabilities::default()
+            },
+            PlaybackSelectionContext {
+                storage: PlaybackStorageContext::default(),
+                preferences: PlaybackPreferenceContext {
+                    requested_audio_stream: Some(1),
+                    ..PlaybackPreferenceContext::default()
+                },
+            },
+            EffectivePlaybackPolicy::from_library_access(
+                source.library_id,
+                nako_core::LibraryAccessLevel::Play,
+            ),
+        );
+
+        assert_eq!(decision.mode, PlaybackMode::Transcode);
+        assert!(
+            decision
+                .report
+                .direct_play
+                .has(PlaybackCompatibilityCondition::AudioChannelsUnsupported)
+        );
+
+        let requirement = decision
+            .transcode_requirement()
+            .expect("channel-limited playback should transcode");
+        assert_eq!(
+            requirement.audio_output,
+            PlaybackAudioOutputRequirement {
+                source_channels: Some(6),
+                max_supported_channels: Some(2),
+                target_channels: Some(2),
+                downmix: PlaybackAudioDownmixRequirement::Required,
+                normalization: PlaybackAudioNormalizationRequirement::None,
+                reasons: vec![
+                    PlaybackAudioCompatibilityReason::ChannelLimitExceeded,
+                    PlaybackAudioCompatibilityReason::DownmixRequired,
+                ],
+            }
+        );
+    }
+
+    #[test]
+    fn remux_is_not_selected_when_audio_downmix_is_required() {
+        let source = media_source("movie.mkv");
+        let mut video = stream(MediaStreamKind::Video, Some("h264"));
+        video.index = 0;
+        let mut audio = stream(MediaStreamKind::Audio, Some("aac"));
+        audio.index = 1;
+        audio.channels = Some(8);
+        let probe = MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some("matroska,webm".to_owned()),
+            bit_rate: None,
+            streams: vec![video, audio],
+        };
+
+        let decision = plan_with_policy(
+            &source,
+            Some(&probe),
+            ClientPlaybackCapabilities {
+                max_audio_channels: Some(2),
+                ..ClientPlaybackCapabilities::default()
+            },
+            PlaybackSelectionContext::default(),
+            EffectivePlaybackPolicy::from_library_access(
+                source.library_id,
+                nako_core::LibraryAccessLevel::Play,
+            ),
+        );
+
+        assert_eq!(decision.mode, PlaybackMode::Transcode);
+        assert!(!decision.report.remux.supported);
+        assert!(
+            decision
+                .report
+                .remux
+                .has(PlaybackCompatibilityCondition::AudioChannelsUnsupported)
+        );
+        assert_eq!(
+            decision
+                .transcode_requirement()
+                .expect("downmix should force transcode")
+                .audio_output
+                .target_channels,
+            Some(2)
+        );
+    }
+
+    #[test]
+    fn audio_output_requirement_values_capture_normalization_intent() {
+        let requirement = PlaybackAudioOutputRequirement::from_channel_support(Some(2), Some(2))
+            .with_normalization(PlaybackAudioNormalizationRequirement::Requested);
+
+        assert_eq!(
+            requirement.normalization,
+            PlaybackAudioNormalizationRequirement::Requested
+        );
+        assert!(
+            requirement
+                .reasons
+                .contains(&PlaybackAudioCompatibilityReason::NormalizationRequested)
         );
     }
 

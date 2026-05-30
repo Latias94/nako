@@ -14,13 +14,13 @@ Last updated: 2026-05-30
 
 ## M1 - Playback Requirement Vocabulary
 
-- [ ] ACDN-020 [owner=unassigned] [deps=ACDN-010] [scope=crates/nako-playback/src/capability.rs,crates/nako-playback/src/values.rs,crates/nako-playback/src/lib.rs]
+- [x] ACDN-020 [owner=codex] [deps=ACDN-010] [scope=crates/nako-playback/src/capability.rs,crates/nako-playback/src/values.rs,crates/nako-playback/src/lib.rs]
   Goal: Add playback-owned **Audio Output Requirement** values and compatibility reasons for channel support, downmix, and normalization intent.
   Validation: `cargo nextest run -p nako-playback audio --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`
   Review: Use `review-workstream` before accepting completion.
   Evidence: playback planner/unit tests and `EVIDENCE_AND_GATES.md`.
   Context: `docs/workstreams/audio-compatibility-downmix-normalization/CONTEXT.jsonl`.
-  Handoff: Final status must be DONE, DONE_WITH_CONCERNS, BLOCKED, or NEEDS_CONTEXT. Do not edit `nako-transcode`, HDR, subtitle burn-in, or web player code in this task.
+  Handoff: DONE. Added playback-owned audio output requirement values, downmix/normalization intent reasons, and playback tests proving channel-limited audio selects transcode instead of remux.
 
 ## M2 - Transcode Policy Propagation
 

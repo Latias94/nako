@@ -2,10 +2,10 @@ use nako_core::{MediaProbeResult, MediaSourceId, MediaStreamKind};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ClientPlaybackCapabilities, PlaybackDenial, PlaybackHlsOutputRequirement, PlaybackMode,
-    PlaybackOutputConstraints, PlaybackPreferenceContext, PlaybackRemuxContainer,
-    PlaybackSelectionContext, PlaybackStorageContext, PlaybackTarget, PlaybackTrackSelection,
-    PlaybackTranscodeContainer,
+    ClientPlaybackCapabilities, PlaybackAudioOutputRequirement, PlaybackDenial,
+    PlaybackHlsOutputRequirement, PlaybackMode, PlaybackOutputConstraints,
+    PlaybackPreferenceContext, PlaybackRemuxContainer, PlaybackSelectionContext,
+    PlaybackStorageContext, PlaybackTarget, PlaybackTrackSelection, PlaybackTranscodeContainer,
 };
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -249,6 +249,25 @@ impl PlaybackTargetProfile {
     }
 
     #[must_use]
+    pub fn audio_output_requirement(
+        &self,
+        source_channels: Option<u32>,
+    ) -> PlaybackAudioOutputRequirement {
+        PlaybackAudioOutputRequirement::from_channel_support(
+            source_channels,
+            self.max_supported_audio_channels(),
+        )
+    }
+
+    #[must_use]
+    pub fn max_supported_audio_channels(&self) -> Option<u32> {
+        self.direct_play_profiles
+            .iter()
+            .filter_map(|profile| profile.max_audio_channels)
+            .min()
+    }
+
+    #[must_use]
     pub const fn hls_output_requirement(&self) -> PlaybackHlsOutputRequirement {
         self.hls_output
     }
@@ -373,7 +392,7 @@ pub(crate) fn evaluate_remux(
         None,
         None,
         None,
-        None,
+        profile.max_supported_audio_channels(),
         true,
         &mut reasons,
     );

@@ -7,9 +7,10 @@
   "scope_kind": "fearless_refactor",
   "problem": "Playback planning can select audio streams and HLS renditions, but it does not yet model client channel support, downmix, dynamic range, or normalization as explicit requirements.",
   "task_prefix": "ACDN",
-  "current_task": "ACDN-020",
+  "current_task": "ACDN-030",
   "completed_tasks": [
-    "ACDN-010"
+    "ACDN-010",
+    "ACDN-020"
   ],
   "authoritative_docs": [
     {
@@ -54,6 +55,10 @@
     {
       "task": "ACDN-010",
       "summary": "Opened the audio compatibility lane, linked it from playback architecture indexes, and split playback requirement modeling before transcode propagation and FFmpeg filter planning."
+    },
+    {
+      "task": "ACDN-020",
+      "summary": "Added playback-owned audio output requirement values, downmix and normalization intent, audio compatibility reasons, and tests proving channel-limited playback selects transcode instead of remux."
     }
   ],
   "adr_refs": [
