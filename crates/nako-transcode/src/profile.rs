@@ -257,8 +257,14 @@ impl TranscodeProfile {
 
     fn persisted_request_key(&self) -> String {
         let output = self.output;
+        let audio_output = self.execution_policy.audio_output;
+        let audio_output_identity = if audio_output == Default::default() {
+            String::new()
+        } else {
+            format!(";audio_output={}", audio_output.persisted_identity_key())
+        };
         format!(
-            "transcode-profile:v1;kind={};container={};vcodec={};acodec={};hls_variant={};hls_segment={};acceleration={};audio={};subtitle={};subtitle_strategy={};max_video_bitrate={};max_width={};max_height={};prefer_hdr={};remote_input={};reuse={};playback={}",
+            "transcode-profile:v1;kind={};container={};vcodec={};acodec={};hls_variant={};hls_segment={};acceleration={};audio={};subtitle={};subtitle_strategy={}{};max_video_bitrate={};max_width={};max_height={};prefer_hdr={};remote_input={};reuse={};playback={}",
             output.profile_kind().as_str(),
             output.container_key(),
             optional_str(self.video_codec.as_deref()),
@@ -269,6 +275,7 @@ impl TranscodeProfile {
             optional_u32(self.track_selection.audio_stream),
             optional_u32(self.track_selection.subtitle_stream),
             self.execution_policy.subtitle_strategy.as_str(),
+            audio_output_identity,
             optional_u64(self.execution_policy.output_constraints.max_video_bitrate),
             optional_u32(self.execution_policy.output_constraints.max_width),
             optional_u32(self.execution_policy.output_constraints.max_height),
@@ -624,7 +631,11 @@ fn lowercase_hex(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{HardwareAcceleration, TranscodeAccelerationPlan, TranscodeOutputConstraints};
+    use crate::{
+        HardwareAcceleration, TranscodeAccelerationPlan, TranscodeAudioCompatibilityReasons,
+        TranscodeAudioDownmixRequirement, TranscodeAudioNormalizationRequirement,
+        TranscodeAudioOutputRequirement, TranscodeOutputConstraints,
+    };
 
     #[test]
     fn playback_remux_profile_builder_creates_copy_profile_identity() {
@@ -714,6 +725,57 @@ mod tests {
                 variant_policy: HlsVariantPolicy::Adaptive,
                 segment_container: HlsSegmentContainer::Fmp4,
             })
+        );
+    }
+
+    #[test]
+    fn playback_hls_profile_identity_carries_audio_output_requirement() {
+        let audio_output = TranscodeAudioOutputRequirement {
+            source_channels: Some(6),
+            max_supported_channels: Some(2),
+            target_channels: Some(2),
+            downmix: TranscodeAudioDownmixRequirement::Required,
+            normalization: TranscodeAudioNormalizationRequirement::None,
+            reasons: TranscodeAudioCompatibilityReasons {
+                channel_limit_exceeded: true,
+                downmix_required: true,
+                normalization_requested: false,
+            },
+        };
+        let execution_policy = TranscodeExecutionPolicy::hls_single_variant_with_audio_output(
+            TranscodeAccelerationPlan::software(),
+            TranscodeTrackSelection {
+                audio_stream: Some(1),
+                subtitle_stream: None,
+            },
+            TranscodeOutputConstraints::default(),
+            audio_output,
+        );
+
+        let profile = build_playback_hls_profile(PlaybackHlsProfileRequest {
+            plan: TranscodePlan {
+                input_locator: "local:///movie.mkv".to_owned(),
+                output_container: crate::OutputContainer::Hls,
+                video_codec: Some("h264".to_owned()),
+                audio_codec: Some("aac".to_owned()),
+            },
+            execution_policy,
+            hls_output: HlsOutputRequirement::default(),
+            track_selection: TranscodeTrackSelection {
+                audio_stream: Some(1),
+                subtitle_stream: None,
+            },
+            remote_input: false,
+            playback_profile_key: "playback-target-profile:v1;demo=true".to_owned(),
+        })
+        .unwrap();
+
+        assert_eq!(profile.execution_policy.audio_output, audio_output);
+        assert!(
+            profile
+                .identity()
+                .persisted_request_key()
+                .contains("audio_output=source:6,max:2,target:2,downmix:required,normalization:none,reasons:channel_limit_exceeded|downmix_required")
         );
     }
 

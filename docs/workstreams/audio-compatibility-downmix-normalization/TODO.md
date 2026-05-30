@@ -24,13 +24,13 @@ Last updated: 2026-05-30
 
 ## M2 - Transcode Policy Propagation
 
-- [ ] ACDN-030 [owner=unassigned] [deps=ACDN-020] [scope=crates/nako-transcode/src/policy.rs,crates/nako-transcode/src/pipeline.rs,crates/nako-transcode/src/profile.rs,crates/nako-server/src/app/playback/mod.rs,crates/nako-server/src/app/playback/hls.rs]
+- [x] ACDN-030 [owner=codex] [deps=ACDN-020] [scope=crates/nako-transcode/src/policy.rs,crates/nako-transcode/src/pipeline.rs,crates/nako-transcode/src/profile.rs,crates/nako-server/src/app/playback/mod.rs,crates/nako-server/src/app/playback/hls.rs]
   Goal: Propagate audio output requirements into transcode profile/pipeline planning and server playback adaptation without moving playback policy into transcode.
   Validation: `cargo nextest run -p nako-transcode audio --no-fail-fast`; `cargo nextest run -p nako-server hls --no-fail-fast`
   Review: Use `review-workstream` before accepting completion.
   Evidence: transcode policy and HLS adaptation tests.
   Context: `docs/workstreams/audio-compatibility-downmix-normalization/CONTEXT.jsonl`.
-  Handoff: Stop for planner coordination if public API DTOs or generated contracts need shape changes.
+  Handoff: DONE. Implemented audio output requirement propagation through transcode policy/pipeline/profile and server HLS adaptation. Follow-up diagnosis showed the server HLS failure was an existing running-playlist concurrency-sensitive test issue; the gate was stabilized by widening the focused test timeout and waiting for the first segment route readiness. Full ACDN-030 validation now passes.
 
 ## M3 - FFmpeg Audio Filter Planning
 

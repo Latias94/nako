@@ -14,18 +14,21 @@ use nako_core::{
     TranscodeSessionRuntimeMetrics, TranscodeSessionState, UserId, UserPrincipalId,
 };
 use nako_playback::{
-    ClientPlaybackCapabilities, EffectivePlaybackPolicy, PlaybackDecision, PlaybackMode,
-    PlaybackPlanner, PlaybackPlanningRequest, PlaybackPreferenceContext, PlaybackSelectionContext,
-    PlaybackTarget, PlaybackTargetProfile, PlaybackTranscodeContainer,
+    ClientPlaybackCapabilities, EffectivePlaybackPolicy, PlaybackAudioCompatibilityReason,
+    PlaybackAudioDownmixRequirement, PlaybackAudioNormalizationRequirement,
+    PlaybackAudioOutputRequirement, PlaybackDecision, PlaybackMode, PlaybackPlanner,
+    PlaybackPlanningRequest, PlaybackPreferenceContext, PlaybackSelectionContext, PlaybackTarget,
+    PlaybackTargetProfile, PlaybackTranscodeContainer,
 };
 use nako_streaming::{DirectPlayRangeRequest, DirectPlayResponsePlan};
 use nako_transcode::{
     HlsAdaptiveLadderPlan, HlsAudioRendition, HlsMediaRenditionPlan, HlsPlaybackGeneration,
     HlsRequestVariantPlan, HlsVariantPolicy, PlaybackHlsProfileRequest,
-    PlaybackRemuxProfileRequest, RemuxContainer, TranscodeOutputConstraints,
-    TranscodePipelineSourceFacts, TranscodeRequestIdentity, TranscodeSourceIdentity,
-    TranscodeSubtitleStrategy, TranscodeTrackSelection, build_playback_hls_profile,
-    build_playback_remux_profile,
+    PlaybackRemuxProfileRequest, RemuxContainer, TranscodeAudioCompatibilityReasons,
+    TranscodeAudioDownmixRequirement, TranscodeAudioNormalizationRequirement,
+    TranscodeAudioOutputRequirement, TranscodeOutputConstraints, TranscodePipelineSourceFacts,
+    TranscodeRequestIdentity, TranscodeSourceIdentity, TranscodeSubtitleStrategy,
+    TranscodeTrackSelection, build_playback_hls_profile, build_playback_remux_profile,
 };
 use nako_vfs::{StorageBackend as _, StorageUri};
 use serde::{Deserialize, Serialize};
@@ -1866,10 +1869,19 @@ impl PlaybackAppService {
         ensure_playback_decision_allowed(&decision)?;
         let transcode_plan = hls_transcode_plan(&decision)?;
         let track_selection = hls_transcode_track_selection(&decision)?;
+        let audio_output = decision
+            .transcode_requirement()
+            .map(|requirement| {
+                playback_audio_output_requirement_to_transcode(&requirement.audio_output)
+            })
+            .ok_or(NakoError::Unsupported(
+                "hls app service requires an hls transcode playback decision",
+            ))?;
         let source_facts = hls_pipeline_source_facts(probe.as_ref(), track_selection);
         let mut execution_policy = self.hls.execution_policy_for_hls(
             track_selection,
             playback_output_constraints_to_transcode(target_profile.output_constraints()),
+            audio_output,
             source_facts.clone(),
         )?;
         let media_rendition_plan =
@@ -2490,6 +2502,65 @@ fn hls_audio_renditions_from_probe(
         .collect()
 }
 
+fn playback_audio_output_requirement_to_transcode(
+    requirement: &PlaybackAudioOutputRequirement,
+) -> TranscodeAudioOutputRequirement {
+    let downmix = playback_audio_downmix_requirement_to_transcode(requirement.downmix);
+    let normalization =
+        playback_audio_normalization_requirement_to_transcode(requirement.normalization);
+    let reasons = playback_audio_compatibility_reasons_to_transcode(&requirement.reasons);
+    if requirement.target_channels.is_none()
+        && downmix == TranscodeAudioDownmixRequirement::None
+        && normalization == TranscodeAudioNormalizationRequirement::None
+        && !reasons.channel_limit_exceeded
+        && !reasons.downmix_required
+        && !reasons.normalization_requested
+    {
+        return TranscodeAudioOutputRequirement::none();
+    }
+
+    TranscodeAudioOutputRequirement {
+        source_channels: requirement.source_channels,
+        max_supported_channels: requirement.max_supported_channels,
+        target_channels: requirement.target_channels,
+        downmix,
+        normalization,
+        reasons,
+    }
+}
+
+const fn playback_audio_downmix_requirement_to_transcode(
+    requirement: PlaybackAudioDownmixRequirement,
+) -> TranscodeAudioDownmixRequirement {
+    match requirement {
+        PlaybackAudioDownmixRequirement::None => TranscodeAudioDownmixRequirement::None,
+        PlaybackAudioDownmixRequirement::Required => TranscodeAudioDownmixRequirement::Required,
+    }
+}
+
+const fn playback_audio_normalization_requirement_to_transcode(
+    requirement: PlaybackAudioNormalizationRequirement,
+) -> TranscodeAudioNormalizationRequirement {
+    match requirement {
+        PlaybackAudioNormalizationRequirement::None => TranscodeAudioNormalizationRequirement::None,
+        PlaybackAudioNormalizationRequirement::Requested => {
+            TranscodeAudioNormalizationRequirement::Requested
+        }
+    }
+}
+
+fn playback_audio_compatibility_reasons_to_transcode(
+    reasons: &[PlaybackAudioCompatibilityReason],
+) -> TranscodeAudioCompatibilityReasons {
+    TranscodeAudioCompatibilityReasons {
+        channel_limit_exceeded: reasons
+            .contains(&PlaybackAudioCompatibilityReason::ChannelLimitExceeded),
+        downmix_required: reasons.contains(&PlaybackAudioCompatibilityReason::DownmixRequired),
+        normalization_requested: reasons
+            .contains(&PlaybackAudioCompatibilityReason::NormalizationRequested),
+    }
+}
+
 fn playback_target_for_client(client: ClientPlaybackCapabilities) -> PlaybackTarget {
     PlaybackTarget::browser_with_capabilities("Public Client", client)
 }
@@ -2613,7 +2684,7 @@ mod tests {
 
     use nako_transcode::{
         HardwareAcceleration, HardwareAccelerationFallback, HardwareAccelerationReport,
-        StaticHardwareAccelerationDetector,
+        StaticHardwareAccelerationDetector, TranscodeAudioCompatibilityReason,
     };
 
     use super::*;
@@ -2673,6 +2744,103 @@ mod tests {
     }
 
     #[test]
+    fn hls_service_execution_policy_preserves_audio_output_requirement() {
+        let config = test_config(TranscodeConfig {
+            hardware_acceleration: HardwareAcceleration::None,
+            hardware_fallback: HardwareAccelerationFallback::Cpu,
+            cpu_concurrency: 1,
+            gpu_concurrency: 2,
+        });
+        let detector =
+            StaticHardwareAccelerationDetector::new(HardwareAccelerationReport::with_available([
+                HardwareAcceleration::None,
+            ]));
+        let service = HlsAppService::new_with_hardware_detector(&config, &detector).unwrap();
+        let audio_output = TranscodeAudioOutputRequirement {
+            source_channels: Some(6),
+            max_supported_channels: Some(2),
+            target_channels: Some(2),
+            downmix: TranscodeAudioDownmixRequirement::Required,
+            normalization: TranscodeAudioNormalizationRequirement::Requested,
+            reasons: TranscodeAudioCompatibilityReasons {
+                channel_limit_exceeded: true,
+                downmix_required: true,
+                normalization_requested: true,
+            },
+        };
+
+        let policy = service
+            .execution_policy_for_hls(
+                nako_transcode::TranscodeTrackSelection::default(),
+                TranscodeOutputConstraints::default(),
+                audio_output,
+                None,
+            )
+            .unwrap();
+
+        assert_eq!(policy.audio_output, audio_output);
+    }
+
+    #[test]
+    fn hls_audio_output_requirement_mapping_preserves_playback_reasons() {
+        let audio_output =
+            playback_audio_output_requirement_to_transcode(&PlaybackAudioOutputRequirement {
+                source_channels: Some(8),
+                max_supported_channels: Some(2),
+                target_channels: Some(2),
+                downmix: PlaybackAudioDownmixRequirement::Required,
+                normalization: PlaybackAudioNormalizationRequirement::Requested,
+                reasons: vec![
+                    PlaybackAudioCompatibilityReason::ChannelLimitExceeded,
+                    PlaybackAudioCompatibilityReason::DownmixRequired,
+                    PlaybackAudioCompatibilityReason::NormalizationRequested,
+                ],
+            });
+
+        assert_eq!(audio_output.source_channels, Some(8));
+        assert_eq!(audio_output.max_supported_channels, Some(2));
+        assert_eq!(audio_output.target_channels, Some(2));
+        assert_eq!(
+            audio_output.downmix,
+            TranscodeAudioDownmixRequirement::Required
+        );
+        assert_eq!(
+            audio_output.normalization,
+            TranscodeAudioNormalizationRequirement::Requested
+        );
+        assert!(
+            audio_output
+                .reasons
+                .has(TranscodeAudioCompatibilityReason::ChannelLimitExceeded)
+        );
+        assert!(
+            audio_output
+                .reasons
+                .has(TranscodeAudioCompatibilityReason::DownmixRequired)
+        );
+        assert!(
+            audio_output
+                .reasons
+                .has(TranscodeAudioCompatibilityReason::NormalizationRequested)
+        );
+    }
+
+    #[test]
+    fn hls_audio_output_requirement_mapping_collapses_compatible_source_facts() {
+        let audio_output =
+            playback_audio_output_requirement_to_transcode(&PlaybackAudioOutputRequirement {
+                source_channels: Some(2),
+                max_supported_channels: None,
+                target_channels: None,
+                downmix: PlaybackAudioDownmixRequirement::None,
+                normalization: PlaybackAudioNormalizationRequirement::None,
+                reasons: Vec::new(),
+            });
+
+        assert_eq!(audio_output, TranscodeAudioOutputRequirement::none());
+    }
+
+    #[test]
     fn hls_service_rejects_execution_policy_when_startup_pipeline_is_unavailable() {
         let config = test_config(TranscodeConfig {
             hardware_acceleration: HardwareAcceleration::Nvenc,
@@ -2690,6 +2858,7 @@ mod tests {
             .execution_policy_for_hls(
                 nako_transcode::TranscodeTrackSelection::default(),
                 TranscodeOutputConstraints::default(),
+                TranscodeAudioOutputRequirement::none(),
                 None,
             )
             .unwrap_err();

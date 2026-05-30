@@ -10,12 +10,13 @@ use nako_transcode::{
     CancellationToken, FfmpegCommandBuilder, FfmpegHardwareAccelerationDetector, FfmpegHlsRunner,
     FfmpegOverwritePolicy, HardwareAccelerationDetector, HardwareAccelerationReport,
     HlsOutputPublicationPolicy, HlsPlaybackGeneration, HlsRequest, TranscodeArtifactSet,
-    TranscodeEngineAdapter, TranscodeEngineStartCommand, TranscodeEngineStartOutcome,
-    TranscodeExecutionPolicy, TranscodeExecutionRequest, TranscodeOutputConstraints,
-    TranscodePipelinePlan, TranscodePipelinePlanner, TranscodePipelineReadiness,
-    TranscodePipelineRequest, TranscodePipelineSourceFacts, TranscodeRequestIdentity,
-    TranscodeResourceBudget, TranscodeRuntimeGuard, TranscodeRuntimeLimits,
-    TranscodeTrackSelection, transcode_pipeline_readiness_without_selection,
+    TranscodeAudioOutputRequirement, TranscodeEngineAdapter, TranscodeEngineStartCommand,
+    TranscodeEngineStartOutcome, TranscodeExecutionPolicy, TranscodeExecutionRequest,
+    TranscodeOutputConstraints, TranscodePipelinePlan, TranscodePipelinePlanner,
+    TranscodePipelineReadiness, TranscodePipelineRequest, TranscodePipelineSourceFacts,
+    TranscodeRequestIdentity, TranscodeResourceBudget, TranscodeRuntimeGuard,
+    TranscodeRuntimeLimits, TranscodeTrackSelection,
+    transcode_pipeline_readiness_without_selection,
 };
 use tokio::sync::Mutex;
 use tracing::{debug, warn};
@@ -110,12 +111,14 @@ impl HlsAppService {
         &self,
         track_selection: TranscodeTrackSelection,
         output_constraints: TranscodeOutputConstraints,
+        audio_output: TranscodeAudioOutputRequirement,
         source: Option<TranscodePipelineSourceFacts>,
     ) -> Result<TranscodeExecutionPolicy> {
-        let mut request = TranscodePipelineRequest::hls_single_variant(
+        let mut request = TranscodePipelineRequest::hls_single_variant_with_audio_output(
             self.hardware_policy,
             track_selection,
             output_constraints,
+            audio_output,
         );
         if let Some(source) = source {
             request = request.with_source(source);
