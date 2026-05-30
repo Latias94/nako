@@ -28,9 +28,9 @@ drop the compatibility requirement when audio leaves the main HLS output.
 
 ## Next Task
 
-Planner/reviewer can review `ACDN-040`, then assign `ACDN-050` for final
-evidence consolidation and closeout if accepted. The full server HLS gate is
-clean on 2026-05-31.
+Planner/reviewer accepted `ACDN-040` and merged it to `main`. Assign
+`ACDN-050` for final evidence consolidation and closeout. The full server HLS
+gate is clean on 2026-05-31.
 
 Owned scope:
 

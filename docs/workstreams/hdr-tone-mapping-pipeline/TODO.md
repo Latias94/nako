@@ -1,7 +1,7 @@
 # HDR Tone Mapping Pipeline - TODO
 
 Status: Active
-Last updated: 2026-05-30
+Last updated: 2026-05-31
 
 ## M0 - Research And Scope Freeze
 
@@ -25,13 +25,13 @@ Last updated: 2026-05-30
 
 ## M2 - Transcode Tone-Mapping Strategy
 
-- [ ] HTP-030 [owner=blocked] [deps=HTP-020] [scope=crates/nako-transcode/src/policy.rs,crates/nako-transcode/src/pipeline.rs,crates/nako-transcode/src/profile.rs,crates/nako-transcode/src/ffmpeg.rs,crates/nako-transcode/src/tests*,crates/nako-server/src/app/playback/mod.rs,crates/nako-server/src/app/playback/hls.rs]
+- [ ] HTP-030 [owner=codex] [deps=HTP-020] [scope=crates/nako-transcode/src/policy.rs,crates/nako-transcode/src/pipeline.rs,crates/nako-transcode/src/profile.rs,crates/nako-transcode/src/ffmpeg.rs,crates/nako-transcode/src/tests*,crates/nako-server/src/app/playback/mod.rs,crates/nako-server/src/app/playback/hls.rs]
   Goal: Propagate **Color Pipeline Requirement** into transcode policy, profile identity, HLS adaptation, and deterministic software-first HDR-to-SDR FFmpeg command planning.
   Validation: `cargo nextest run -p nako-transcode hdr --no-fail-fast`; `cargo nextest run -p nako-server hls --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`
   Review: Use `review-workstream` before accepting completion.
   Evidence: transcode policy/profile/command-plan tests, server HLS adaptation tests when server code changes, and `EVIDENCE_AND_GATES.md`.
   Context: `docs/workstreams/hdr-tone-mapping-pipeline/CONTEXT.jsonl`.
-  Handoff: Blocked until `ACDN-040` is accepted or the planner explicitly serializes the shared transcode/HLS scope. Keep hardware tone mapping, device-specific filter chains, Dolby Vision dynamic handling, HDR10+ preservation, and operator smoke matrices as follow-ons unless the planner splits them into a dedicated task.
+  Handoff: `ACDN-040` is accepted on `main`; start after `ACDN-050` closeout or explicit planner serialization of the shared transcode/HLS scope. Keep hardware tone mapping, device-specific filter chains, Dolby Vision dynamic handling, HDR10+ preservation, and operator smoke matrices as follow-ons unless the planner splits them into a dedicated task.
 
 ## M3 - Verification And Closeout
 

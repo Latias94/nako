@@ -96,6 +96,6 @@
   "lane_slug": "playback-transcode",
   "continue_policy": {
     "default_action": "continue",
-    "notes": "ACDN-040 is complete and ready for planner verification. Next task is ACDN-050 for final evidence consolidation, architecture map updates, and closeout. Split HDR, subtitle burn-in, persisted user preferences, device profile databases, and web player controls into separate workstreams."
+    "notes": "ACDN-040 is accepted on main. Next task is ACDN-050 for final evidence consolidation, architecture map updates, and closeout. Split HDR, subtitle burn-in, persisted user preferences, device profile databases, and web player controls into separate workstreams."
   }
 }

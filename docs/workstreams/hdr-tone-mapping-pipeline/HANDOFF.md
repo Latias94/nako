@@ -1,7 +1,7 @@
 # HDR Tone Mapping Pipeline - Handoff
 
 Status: Active
-Last updated: 2026-05-30
+Last updated: 2026-05-31
 
 ## Current State
 
@@ -12,9 +12,9 @@ audio output baseline into this HDR branch.
 ## Next Task
 
 Return to planner coordination before starting `HTP-030`. The HDR playback
-vocabulary slice is accepted, but the transcode/HLS implementation scope should
-remain blocked until `ACDN-040` is accepted or the planner explicitly serializes
-the shared transcode/FFmpeg/HLS files.
+vocabulary slice is accepted, and `ACDN-040` is now accepted on `main`. Start
+the transcode/HLS implementation after the short `ACDN-050` closeout or after
+the planner explicitly serializes the shared transcode/FFmpeg/HLS files.
 
 Completed `HTP-020` implementation scope:
 
@@ -65,7 +65,8 @@ HTP-020 result:
 
 Return to planner coordination if:
 
-- `HTP-030` is requested before `HTP-020` review is complete;
+- `HTP-030` is requested concurrently with `ACDN-050` docs closeout without
+  planner serialization;
 - follow-up work would expand beyond playback-owned color requirement
   vocabulary without planner approval;
 - the lane needs a new ADR before code can start;

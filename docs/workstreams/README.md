@@ -16,7 +16,7 @@ workstreams should record `lane_slug`, `architecture_refs`, and
 
 ## Active Execution Queue
 
-Last reviewed: 2026-05-30
+Last reviewed: 2026-05-31
 
 - [generated-artifact-metadata-authority-apply](generated-artifact-metadata-authority-apply/README.md)
   is active on lane `library-metadata-control-plane`; next task is `GAMA-050`.
@@ -25,16 +25,18 @@ Last reviewed: 2026-05-30
 - [remote-storage-health-and-circuit-breaker](remote-storage-health-and-circuit-breaker/README.md)
   is active on lane `storage-vfs`; next task is `RSHC-040`.
 - [audio-compatibility-downmix-normalization](audio-compatibility-downmix-normalization/README.md)
-  is active on lane `playback-transcode`; next task is `ACDN-040`.
+  is active on lane `playback-transcode`; next task is `ACDN-050`.
 - [hdr-tone-mapping-pipeline](hdr-tone-mapping-pipeline/README.md)
-  is active on lane `playback-transcode`; next task is `HTP-030` blocked.
+  is active on lane `playback-transcode`; next task is `HTP-030` ready after
+  `ACDN-050` closeout or explicit planner serialization.
 
 Planner coordination should keep `GAMA-060` blocked until `GAMA-050` is
 reviewed and verified. `CSAPA` should split or explicitly defer desktop
 playback before closeout. The `web-product` lane is idle after
 `admin-media-management-context-links` closeout.
-`HTP-030` remains parked while `ACDN-040` owns the next shared transcode/FFmpeg
-filter-planning surface.
+`ACDN-040` is accepted on `main`; avoid running `HTP-030` concurrently with
+`ACDN-050` docs closeout unless the planner serializes the shared
+playback/transcode scope.
 
 ## Current Workstreams
 
@@ -45,12 +47,13 @@ filter-planning surface.
 - [audio-compatibility-downmix-normalization](audio-compatibility-downmix-normalization/README.md):
   active playback/transcode lane for making downmix, channel compatibility,
   dynamic range, and normalization explicit **Audio Output Requirement**
-  behavior. `ACDN-040` owns deterministic FFmpeg downmix and normalization
-  filter planning.
+  behavior. `ACDN-050` owns final evidence consolidation, architecture map
+  refresh, and closeout/follow-on split.
 - [hdr-tone-mapping-pipeline](hdr-tone-mapping-pipeline/README.md):
   active playback/transcode lane for HDR/color compatibility and the first
-  executable tone-mapping slice. `HTP-030` is blocked until `ACDN-040` is
-  accepted or the shared transcode/HLS scope is explicitly serialized.
+  executable tone-mapping slice. `HTP-030` is ready after the audio lane
+  closeout or explicit planner serialization of the shared transcode/HLS
+  scope.
 - [storage-vfs-resilience-and-source-identity](storage-vfs-resilience-and-source-identity/README.md):
   completed fearless refactor lane for deepening **Source Fingerprint** evidence,
   move/rename reconciliation, storage failure classification, stale-cache

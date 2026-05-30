@@ -1,7 +1,7 @@
 # Audio Compatibility Downmix Normalization - Milestones
 
 Status: Active
-Last updated: 2026-05-30
+Last updated: 2026-05-31
 
 ## M0 - Scope And Evidence Freeze
 
@@ -22,7 +22,7 @@ Exit criteria:
   without invoking transcode command planning;
 - focused playback tests pass.
 
-Status: Ready.
+Status: Done.
 
 ## M2 - Transcode Policy Propagation
 
@@ -32,7 +32,7 @@ Exit criteria:
 - HLS/remux adaptation remains explicit and testable;
 - server playback code remains an adapter, not the source of audio policy.
 
-Status: Pending `ACDN-020`.
+Status: Done.
 
 ## M3 - FFmpeg Audio Filter Planning
 
@@ -42,7 +42,7 @@ Exit criteria:
 - direct/remux-compatible cases avoid unnecessary filters;
 - HLS regression tests keep selected main audio and sidecar behavior stable.
 
-Status: Pending `ACDN-030`.
+Status: Done.
 
 ## M4 - Diagnostics And Closeout
 
@@ -53,4 +53,4 @@ Exit criteria:
 - UI preferences, device databases, and dialogue enhancement are split or
   deferred.
 
-Status: Pending implementation.
+Status: Ready for `ACDN-050` planner closeout.

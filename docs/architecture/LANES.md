@@ -1,6 +1,6 @@
 # Architecture Lanes
 
-Last updated: 2026-05-30
+Last updated: 2026-05-31
 
 This registry routes long-lived Codex terminals and worktrees by capability
 area. It is an ownership map for parallel development, not a replacement for
@@ -23,8 +23,8 @@ ledger instead.
 | `library-metadata-control-plane` | `generated-artifact-metadata-authority-apply` | `GAMA-050` | Backend/control-plane execution |
 | `client-surfaces-planning` | `client-surface-and-access-product-architecture` | `CSAPA-050` | Planner/docs split or defer decision |
 | `storage-vfs` | `remote-storage-health-and-circuit-breaker` | `RSHC-040` | Backend storage/Admin diagnostics execution |
-| `playback-transcode` | `audio-compatibility-downmix-normalization` | `ACDN-040` | Transcode FFmpeg filter planning |
-| `playback-transcode` | `hdr-tone-mapping-pipeline` | `HTP-030` blocked | Park until shared transcode/HLS scope is serialized |
+| `playback-transcode` | `audio-compatibility-downmix-normalization` | `ACDN-050` | Planner evidence consolidation and closeout |
+| `playback-transcode` | `hdr-tone-mapping-pipeline` | `HTP-030` ready | Start after `ACDN-050` closeout or explicit planner serialization |
 
 Do not start `GAMA-060` until `GAMA-050` has reviewed and verified the final
 Admin apply route. Do not close `CSAPA` until desktop playback is split,
@@ -32,9 +32,9 @@ deferred, or explicitly scoped. The `web-product` lane is idle after
 `admin-media-management-context-links` closeout and should receive a new
 planner-approved workstream before more frontend execution starts.
 
-`HTP-030` remains parked while `ACDN-040` owns the next shared transcode/FFmpeg
-filter-planning surface. Start HDR transcode/HLS implementation only after the
-planner accepts `ACDN-040` or explicitly serializes the shared scope.
+`ACDN-040` is accepted on `main`; keep `ACDN-050` as the next short planner
+closeout before starting another transcode/HLS implementation in the same
+lane, unless the planner explicitly serializes the shared scope.
 
 ## Lane Registry
 
