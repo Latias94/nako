@@ -2,13 +2,16 @@
   "schema_version": 1,
   "slug": "hdr-tone-mapping-pipeline",
   "title": "HDR Tone Mapping Pipeline",
-  "status": "draft",
+  "status": "active",
   "updated": "2026-05-30",
   "scope_kind": "architecture_research",
   "problem": "HDR media is identified as a future playback capability, but Nako has not yet frozen the color compatibility inputs, tone-mapping policy boundary, or first executable FFmpeg pipeline slice.",
   "task_prefix": "HTP",
-  "current_task": "HTP-010",
-  "completed_tasks": [],
+  "current_task": "HTP-030",
+  "completed_tasks": [
+    "HTP-010",
+    "HTP-020"
+  ],
   "authoritative_docs": [
     {
       "role": "overview",
@@ -42,9 +45,21 @@
   "context_manifest": "docs/workstreams/hdr-tone-mapping-pipeline/CONTEXT.jsonl",
   "gates": [
     "python -m json.tool docs/workstreams/hdr-tone-mapping-pipeline/WORKSTREAM.json",
-    "git diff --check -- docs/workstreams/hdr-tone-mapping-pipeline docs/architecture/PLAYBACK.md docs/architecture/WORKSTREAM_LINKS.md"
+    "cargo nextest run -p nako-playback hdr --no-fail-fast",
+    "cargo nextest run -p nako-playback --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
   ],
-  "evidence": [],
+  "evidence": [
+    {
+      "task": "HTP-010",
+      "summary": "Confirmed existing probe/client HDR facts, selected playback-only Color Pipeline Requirement as the first implementation slice, kept the lane draft while ACDN-020 owns shared playback vocabulary files, and recorded future validation gates."
+    },
+    {
+      "task": "HTP-020",
+      "summary": "Added playback-owned Color Pipeline Requirement values and tests for HDR passthrough, HDR-to-SDR tone-map intent, and deferred unsupported dynamic HDR paths without editing transcode, server, Public Client API, media probe schema, or web code."
+    }
+  ],
   "adr_refs": [
     "docs/adr/0044-playback-capability-profile-planner.md",
     "docs/adr/0045-ffmpeg-hardware-pipeline-planner.md",
@@ -71,6 +86,6 @@
   "lane_slug": "playback-transcode",
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Run HTP-010 as docs/research only. Do not start implementation tasks while audio compatibility code is active unless the planner serializes shared playback/transcode scopes."
+    "notes": "HTP-020 is complete, planner-verified, and committed. Keep HTP-030 blocked until the planner resolves or explicitly serializes the overlapping audio ACDN-030 transcode/HLS scope."
   }
 }

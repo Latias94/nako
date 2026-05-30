@@ -76,13 +76,87 @@ The eventual implementation target is:
 | Probe/color facts may need validation before policy work. | Medium | Existing media facts are source-aware but HDR-specific completeness is not confirmed here. | First code task may need to be media-probe facts rather than playback policy. |
 | Hardware tone mapping must be optional with CPU fallback. | High | ADR 0048 already requires startup degradation and fallback thinking. | A hardware-only slice would be brittle for self-hosted deployments. |
 
+## HTP-010 Research Result
+
+Current source facts are sufficient for a first HDR planning slice. Existing
+`MediaStreamTechnicalFacts` records include pixel format, bit depth, color
+range, color space, transfer, primaries, chroma location, and HDR metadata for
+dynamic range, mastering display, content light level, Dolby Vision, and
+HDR10+. `nako-media-probe` already maps PQ and HLG transfer functions into HDR
+detection, and persistence tests cover HDR technical JSON round trips.
+
+Current client facts are intentionally shallow but enough for the first slice:
+`ClientPlaybackCapabilities.supports_hdr` can distinguish an HDR-capable
+client from an SDR-only path, and playback already emits
+`VideoHdrUnsupported` when direct play would send HDR to a client that does not
+support HDR. `PlaybackOutputConstraints.prefer_hdr` and the transcode output
+constraint mirror already carry a coarse HDR preference.
+
+The missing boundary is not more ffprobe data first. The missing boundary is a
+playback-owned **Color Pipeline Requirement** that turns source color facts and
+client capability into an explicit output intent:
+
+- preserve source color when the client can present it;
+- tone-map HDR to SDR when the client cannot present the source HDR path;
+- reject or defer formats outside the first slice, such as Dolby Vision-only
+  handling, HDR10+ dynamic metadata preservation, or hardware-specific paths.
+
+## First Executable Slice
+
+The first implementation task after planner activation is `HTP-020`, a
+playback-only vocabulary slice. It should add the **Color Pipeline Requirement**
+and typed compatibility reasons in `nako-playback` without changing FFmpeg
+commands, server HLS behavior, Public Client API DTOs, or media probe records.
+
+The first media-output slice after that is software-first HLS tone mapping for:
+
+- a selected video stream with existing HDR facts such as HDR10/PQ or HLG;
+- an SDR-only client path represented by `supports_hdr=false`;
+- output HLS H.264/AAC using the current session-started FFmpeg CLI boundary;
+- deterministic CPU fallback before any vendor hardware tone-map strategy.
+
+Hardware tone mapping for VAAPI, QSV, NVENC, AMF, VideoToolbox, OpenCL, or
+device-specific filter chains is a follow-on. Device profile databases,
+per-display HDR modes, Dolby Vision dynamic metadata, HDR10+ preservation, UI
+controls, and operator hardware smoke matrices are also follow-ons.
+
+## Shared Scopes And Sequencing
+
+`HTP-020` overlaps the active `ACDN-020` playback vocabulary task in:
+
+- `crates/nako-playback/src/capability.rs`;
+- `crates/nako-playback/src/values.rs`;
+- `crates/nako-playback/src/lib.rs`.
+
+Do not start HDR implementation while `ACDN-020` is active. After `ACDN-020`
+lands, the HDR worker must reread those files and preserve audio requirement
+semantics instead of building a parallel requirement model.
+
+Later HDR tasks share scopes with transcode and server playback:
+
+- `crates/nako-transcode/src/policy.rs`;
+- `crates/nako-transcode/src/pipeline.rs`;
+- `crates/nako-transcode/src/profile.rs`;
+- `crates/nako-transcode/src/ffmpeg.rs`;
+- `crates/nako-server/src/app/playback/mod.rs`;
+- `crates/nako-server/src/app/playback/hls.rs`.
+
+Public API DTOs, generated clients, and media probe schema changes are not
+approved for the first slice. If implementation proves those are required,
+return to planner coordination before editing code.
+
 ## Architecture Direction
 
 Start with docs/research. The planner should not approve implementation until
 `HTP-010` identifies the first executable seam, validation commands, and shared
-scope with active audio work. If the first code slice is playback-only, it can
-follow the same shape as audio compatibility. If it requires media probe or
-FFmpeg inventory changes first, split that explicitly.
+scope with active audio work. `HTP-010` confirms a playback-first seam. If the
+first code task discovers missing probe facts or needs Public Client API shape
+changes, split that work explicitly rather than widening the HDR task.
+
+The workstream should remain draft until planner review confirms that
+`ACDN-020` is complete, merged, or otherwise serialized away from the playback
+vocabulary files. Moving the lane to active before that would create a shared
+scope conflict.
 
 ## Closeout Condition
 
