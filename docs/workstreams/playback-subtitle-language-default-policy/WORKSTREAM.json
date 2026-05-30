@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "slug": "playback-subtitle-language-default-policy",
+  "title": "Playback Subtitle Language Default Policy",
+  "status": "completed",
+  "updated": "2026-05-30",
+  "scope_kind": "feature_refactor",
+  "problem": "Playback can honor explicit subtitle stream selection, but has no request-scoped language/default policy for multi-subtitle HLS subtitle groups.",
+  "task_prefix": "PSLD",
+  "current_task": null,
+  "completed_tasks": [
+    "PSLD-010",
+    "PSLD-020",
+    "PSLD-030",
+    "PSLD-040"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/playback-subtitle-language-default-policy/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/playback-subtitle-language-default-policy/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/playback-subtitle-language-default-policy/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/playback-subtitle-language-default-policy/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/playback-subtitle-language-default-policy/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/playback-subtitle-language-default-policy/CLOSEOUT.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/playback-subtitle-language-default-policy/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python3 -m json.tool docs/workstreams/playback-subtitle-language-default-policy/WORKSTREAM.json",
+    "cargo nextest run -p nako-playback subtitle --no-fail-fast",
+    "cargo nextest run -p nako-server hls --no-fail-fast",
+    "cargo nextest run -p nako-server playback --no-fail-fast",
+    "cargo nextest run -p nako-api --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "PSLD-010",
+      "summary": "Opened a durable lane for request-scoped playback subtitle language/default selection after subtitle sidecar serving, HLS subtitle renditions, and audio language defaults shipped."
+    },
+    {
+      "task": "PSLD-020",
+      "summary": "Added request-scoped preferred subtitle languages, deterministic playback subtitle selection precedence, and normalized subtitle language preferences in request identity."
+    },
+    {
+      "task": "PSLD-030",
+      "summary": "Exposed preferred subtitle languages through the public HLS playlist query, defaulted the selected subtitle rendition, preserved explicit subtitle stream precedence, and updated OpenAPI/SDK/docs."
+    },
+    {
+      "task": "PSLD-040",
+      "summary": "Verified and closed the request-scoped playback subtitle language/default policy lane, updating architecture/workstream docs and splitting persisted settings, UI controls, OCR/burn-in/ASS shaping, addon readiness, LL-HLS, DASH, DRM, and offline sync as follow-ons."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0052-hls-runtime-and-media-engine-boundary.md",
+    "docs/adr/0044-playback-capability-profile-planner.md",
+    "docs/adr/0023-public-api-versioning-and-error-envelope-contract.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/PLAYBACK.md",
+      "capability": "HLS subtitle sidecar media group"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Playback And Transcode"
+    }
+  ],
+  "capability_tags": [
+    "playback.subtitle.selection",
+    "playback.preferences",
+    "playback.hls.subtitles"
+  ],
+  "continue_policy": {
+    "default_action": "closed",
+    "notes": "The request-scoped playback subtitle language/default policy first slice is complete. Open follow-on workstreams for persisted user settings, UI controls, OCR/burn-in/ASS shaping, addon late-subtitle readiness, LL-HLS, DASH, DRM, offline sync, or richer language metadata normalization."
+  }
+}

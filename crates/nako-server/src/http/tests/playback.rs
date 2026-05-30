@@ -92,6 +92,44 @@ fn multi_audio_probe() -> MediaProbeResult {
     }
 }
 
+fn multi_subtitle_probe() -> MediaProbeResult {
+    MediaProbeResult {
+        duration_ms: Some(1_000),
+        container: Some("matroska,webm".to_owned()),
+        bit_rate: None,
+        streams: vec![
+            MediaStreamInfo {
+                index: 0,
+                kind: MediaStreamKind::Video,
+                codec: Some("h264".to_owned()),
+                language: None,
+                duration_ms: None,
+                bit_rate: Some(2_000_000),
+                width: Some(1280),
+                height: Some(720),
+                channels: None,
+                sample_rate: None,
+                technical: Default::default(),
+            },
+            MediaStreamInfo {
+                index: 1,
+                kind: MediaStreamKind::Audio,
+                codec: Some("aac".to_owned()),
+                language: Some("eng".to_owned()),
+                duration_ms: None,
+                bit_rate: Some(128_000),
+                width: None,
+                height: None,
+                channels: Some(2),
+                sample_rate: Some(48_000),
+                technical: Default::default(),
+            },
+            sidecar_subtitle_stream(2, "eng", "vtt"),
+            sidecar_subtitle_stream(3, "jpn", "vtt"),
+        ],
+    }
+}
+
 async fn hls_playlist_body_and_transcode_session(
     router: &Router,
     store: &NakoDatabase,
@@ -152,6 +190,31 @@ fn assert_audio_default(playlist: &str, default_language: &str) {
     );
     assert!(
         audio_lines.iter().any(|line| {
+            line.contains(&format!("NAME=\"{default_language}\"")) && line.contains("DEFAULT=YES")
+        }),
+        "playlist did not default {default_language}: {playlist}"
+    );
+}
+
+fn assert_subtitle_default(playlist: &str, default_language: &str) {
+    let subtitle_lines = playlist
+        .lines()
+        .filter(|line| line.starts_with("#EXT-X-MEDIA:TYPE=SUBTITLES"))
+        .collect::<Vec<_>>();
+
+    assert!(
+        !subtitle_lines.is_empty(),
+        "playlist did not contain subtitle renditions: {playlist}"
+    );
+    assert_eq!(
+        subtitle_lines
+            .iter()
+            .filter(|line| line.contains("DEFAULT=YES"))
+            .count(),
+        1
+    );
+    assert!(
+        subtitle_lines.iter().any(|line| {
             line.contains(&format!("NAME=\"{default_language}\"")) && line.contains("DEFAULT=YES")
         }),
         "playlist did not default {default_language}: {playlist}"
@@ -2266,6 +2329,50 @@ async fn hls_playlist_route_audio_stream_overrides_preferred_audio_language() {
         hls_playlist_body_and_transcode_session(&router, &store, &playlist_path).await;
 
     assert_audio_default(&playlist, "eng");
+}
+
+#[tokio::test]
+async fn hls_playlist_route_accepts_preferred_subtitle_language_defaults() {
+    let (_temp, router, source, store) = router_with_hls_source().await;
+    store
+        .upsert_media_probe(source.id, &multi_subtitle_probe())
+        .await
+        .unwrap();
+    let first_path = format!(
+        "/sources/{}/stream/hls/playlist.m3u8?preferred_subtitle_language=JPN,eng,jpn",
+        source.id
+    );
+    let second_path = format!(
+        "/sources/{}/stream/hls/playlist.m3u8?preferred_subtitle_language=jpn,eng",
+        source.id
+    );
+
+    let (first_playlist, first_transcode_session_id) =
+        hls_playlist_body_and_transcode_session(&router, &store, &first_path).await;
+    let (second_playlist, second_transcode_session_id) =
+        hls_playlist_body_and_transcode_session(&router, &store, &second_path).await;
+
+    assert_subtitle_default(&first_playlist, "jpn");
+    assert_subtitle_default(&second_playlist, "jpn");
+    assert_eq!(second_transcode_session_id, first_transcode_session_id);
+}
+
+#[tokio::test]
+async fn hls_playlist_route_subtitle_stream_overrides_preferred_subtitle_language() {
+    let (_temp, router, source, store) = router_with_hls_source().await;
+    store
+        .upsert_media_probe(source.id, &multi_subtitle_probe())
+        .await
+        .unwrap();
+    let playlist_path = format!(
+        "/sources/{}/stream/hls/playlist.m3u8?subtitle_stream=2&preferred_subtitle_language=jpn",
+        source.id
+    );
+
+    let (playlist, _transcode_session_id) =
+        hls_playlist_body_and_transcode_session(&router, &store, &playlist_path).await;
+
+    assert_subtitle_default(&playlist, "eng");
 }
 
 #[tokio::test]

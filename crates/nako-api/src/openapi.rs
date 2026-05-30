@@ -1095,6 +1095,12 @@ fn hls_parameters(source_id_name: &str) -> Vec<Value> {
         string_schema(),
         false,
     ));
+    parameters.push(query_parameter(
+        "preferred_subtitle_language",
+        "Comma-separated ordered preferred subtitle language tags for HLS default subtitle selection. Explicit subtitle_stream still wins.",
+        string_schema(),
+        false,
+    ));
     parameters
 }
 
@@ -2080,6 +2086,13 @@ mod tests {
                 .unwrap()
                 .iter()
                 .any(|parameter| parameter["name"] == "preferred_audio_language")
+        );
+        assert!(
+            document["paths"]["/sources/{source_id}/stream/hls/playlist.m3u8"]["get"]["parameters"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|parameter| parameter["name"] == "preferred_subtitle_language")
         );
         assert_eq!(
             document["paths"]["/sources/{source_id}/stream/remux"]["get"]["responses"]["200"]["headers"]

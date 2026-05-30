@@ -1419,6 +1419,7 @@ pub(super) struct HlsPlaybackQuery {
     audio_stream: Option<u32>,
     preferred_audio_language: Option<String>,
     subtitle_stream: Option<u32>,
+    preferred_subtitle_language: Option<String>,
     ticket: Option<String>,
     renderer_session_id: Option<String>,
     playback_session_id: Option<String>,
@@ -1451,6 +1452,10 @@ impl HlsPlaybackQuery {
                 Vec::new(),
             ),
             requested_subtitle_stream: self.subtitle_stream,
+            preferred_subtitle_languages: csv_or_default(
+                self.preferred_subtitle_language.clone(),
+                Vec::new(),
+            ),
             max_video_bitrate: None,
             prefer_hdr: None,
             remux_output_container: None,
