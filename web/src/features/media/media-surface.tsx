@@ -30,6 +30,7 @@ import type { MediaItem } from "@/lib/media-types"
 import type { LibraryBrowserRouteState } from "./library-browser"
 import type { MyListRouteState } from "./my-list-page"
 import { AddToPlaylistButton } from "./add-to-playlist-button"
+import { ManagementContextLinks } from "./management-context-links"
 
 const MediaDetail = lazy(() => import("./media-detail").then((module) => ({ default: module.MediaDetail })))
 const VideoPlayer = lazy(() => import("./video-player").then((module) => ({ default: module.VideoPlayer })))
@@ -1078,6 +1079,14 @@ function MediaPlayerRoute({
           contentType: subtitle.contentType,
         }))
       : undefined
+  const playbackIssue =
+    shouldUsePlaybackPlan &&
+    (Boolean(playbackPlan.data.error) || !playbackPlan.data.mediaUrl)
+  const diagnosticContext = {
+    itemId: viewState.mediaId,
+    sourceId: playbackPlan.data?.sourceId ?? viewState.sourceId,
+    playbackSessionId: playbackPlan.data?.playbackSessionId,
+  }
 
   return (
     <VideoPlayer
@@ -1091,6 +1100,15 @@ function MediaPlayerRoute({
       subtitles={liveSubtitles}
       playbackSessionId={shouldUsePlaybackPlan ? playbackPlan.data.playbackSessionId : undefined}
       onPlaybackHeartbeat={heartbeatPublicPlaybackSession}
+      diagnosticActions={
+        playbackIssue ? (
+          <ManagementContextLinks
+            context={diagnosticContext}
+            routeNames={["playback.support", "playback.runtime", "jobs.filtered"]}
+            tone="hero"
+          />
+        ) : undefined
+      }
     />
   )
 }

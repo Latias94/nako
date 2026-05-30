@@ -903,6 +903,194 @@ describe("route state contracts", () => {
     })
   })
 
+  it("renders live Media detail Management Context Links without leaking unsafe targets", async () => {
+    const originalFetch = globalThis.fetch
+    const previousProfile = window.localStorage.getItem(CONNECTION_PROFILE_STORAGE_KEY)
+    const calls: string[] = []
+    const fetcher = vi.fn<typeof fetch>(async (input) => {
+      const url = new URL(String(input))
+      calls.push(`${url.pathname}${url.search}`)
+
+      if (url.pathname === "/items/live-movie") {
+        return jsonResponse({
+          item: publicMediaItem(),
+          sources: [publicMediaSource()],
+          images: [],
+        })
+      }
+
+      if (url.pathname === "/management/context-links") {
+        return jsonResponse(
+          managementContextLinksResponse({
+            context: {
+              library_id: "library-a",
+              item_id: "live-movie",
+              source_id: "source-live",
+              playback_session_id: null,
+            },
+            links: [
+              managementContextLink({
+                action: "refresh_item_metadata",
+                method: "POST",
+                route_name: "item.metadata_refresh",
+                target: {
+                  library_id: "library-a",
+                  item_id: "live-movie",
+                  source_id: "source-live",
+                  playback_session_id: null,
+                },
+              }),
+              managementContextLink({
+                enabled: false,
+                disabled_reason: "insufficient_permission",
+                route_name: "library.scan",
+                target: {
+                  library_id: "library-a",
+                  item_id: "live-movie",
+                  source_id: "source-live",
+                  playback_session_id: null,
+                },
+              }),
+              managementContextLink({
+                action: "view_playback_diagnostics",
+                method: "GET",
+                route_name: "playback.support",
+                target: {
+                  library_id: "library-a",
+                  item_id: "live-movie",
+                  source_id: "file:///mnt/private/source/Movie.mkv",
+                  playback_session_id: null,
+                },
+              }),
+              managementContextLink({
+                route_name: "unknown.future_route",
+              }),
+            ],
+          }),
+        )
+      }
+
+      return jsonResponse({ code: "not_found", message: "not found" }, 404)
+    })
+
+    window.localStorage.setItem(
+      CONNECTION_PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        mode: "live",
+        runtime: "browser",
+        baseUrl: "http://nako.test",
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+
+    try {
+      renderRoute("/media/detail?id=live-movie&type=movie")
+
+      const refreshLink = await screen.findByRole("link", { name: /刷新元数据/ }, { timeout: 5000 })
+      expect(refreshLink).toHaveAttribute(
+        "href",
+        "/admin/libraries?library_id=library-a&item_id=live-movie&source_id=source-live&intent=refresh_item_metadata",
+      )
+      expect(screen.getByRole("button", { name: /扫描媒体库\s*权限不足/ })).toBeDisabled()
+      expect(screen.queryByRole("link", { name: /播放诊断/ })).not.toBeInTheDocument()
+      expect(screen.queryByText(/unknown.future_route/)).not.toBeInTheDocument()
+      expect(document.body.textContent).not.toContain("file:///mnt/private/source/Movie.mkv")
+      expect(calls).toContain(
+        "/management/context-links?library_id=library-a&item_id=live-movie&source_id=source-live",
+      )
+    } finally {
+      vi.stubGlobal("fetch", originalFetch)
+      restoreStorage(window.localStorage, CONNECTION_PROFILE_STORAGE_KEY, previousProfile)
+    }
+  })
+
+  it("renders live library Management Context Links from the Public Client route", async () => {
+    const originalFetch = globalThis.fetch
+    const previousProfile = window.localStorage.getItem(CONNECTION_PROFILE_STORAGE_KEY)
+    const fetcher = vi.fn<typeof fetch>(async (input) => {
+      const url = new URL(String(input))
+
+      if (url.pathname === "/libraries/movies") {
+        return jsonResponse({
+          library: publicLibrary("movies"),
+        })
+      }
+
+      if (url.pathname === "/libraries/movies/sources") {
+        return jsonResponse({
+          library: publicLibrary("movies"),
+          page: {
+            limit: 20,
+            offset: 0,
+            returned: 1,
+          },
+          sources: [publicLibrarySource()],
+        })
+      }
+
+      if (url.pathname === "/libraries/movies/items") {
+        return jsonResponse({
+          library: publicLibrary("movies"),
+          page: {
+            limit: 50,
+            offset: 0,
+            returned: 1,
+          },
+          items: [publicMediaItem()],
+        })
+      }
+
+      if (url.pathname === "/management/context-links") {
+        return jsonResponse(
+          managementContextLinksResponse({
+            context: {
+              library_id: "movies",
+              item_id: null,
+              source_id: null,
+              playback_session_id: null,
+            },
+            links: [
+              managementContextLink({
+                route_name: "library.scan",
+                target: {
+                  library_id: "movies",
+                  item_id: null,
+                  source_id: null,
+                  playback_session_id: null,
+                },
+              }),
+            ],
+          }),
+        )
+      }
+
+      return jsonResponse({ code: "not_found", message: "not found" }, 404)
+    })
+
+    window.localStorage.setItem(
+      CONNECTION_PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        mode: "live",
+        runtime: "browser",
+        baseUrl: "http://nako.test",
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+
+    try {
+      renderRoute("/media/library?id=movies")
+
+      const scanLink = await screen.findByRole("link", { name: /扫描媒体库/ }, { timeout: 5000 })
+      expect(scanLink).toHaveAttribute(
+        "href",
+        "/admin/libraries?library_id=movies&intent=scan_library",
+      )
+    } finally {
+      vi.stubGlobal("fetch", originalFetch)
+      restoreStorage(window.localStorage, CONNECTION_PROFILE_STORAGE_KEY, previousProfile)
+    }
+  })
+
   it("adds browse media cards to a selected playlist through the Public Client route", async () => {
     const user = userEvent.setup()
     const calls: Array<{ method: string; path: string; body?: unknown }> = []
@@ -1217,6 +1405,92 @@ function publicMediaItem(overrides: Record<string, unknown> = {}) {
       tagline: null,
       tags: [],
       title: "Live Movie",
+    },
+    ...overrides,
+  }
+}
+
+function publicMediaSource(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "source-live",
+    item_id: "live-movie",
+    library_id: "library-a",
+    file_name: "Live Movie.mkv",
+    fingerprint: null,
+    size_bytes: 1024,
+    ...overrides,
+  }
+}
+
+function publicLibrarySource(overrides: Record<string, unknown> = {}) {
+  return {
+    source: publicMediaSource({
+      library_id: "movies",
+      ...overrides,
+    }),
+    item: publicMediaItem(),
+  }
+}
+
+function publicLibrary(id: string) {
+  return {
+    id,
+    name: "Live Library",
+    roots: ["/media/live"],
+    options: {
+      domain: "video",
+      preset: "movies",
+      naming_strategy: "movie",
+      scan: {
+        max_depth: null,
+        realtime_monitor: true,
+      },
+      metadata_profile: {
+        country: null,
+        image_providers: [],
+        item_kinds: ["movie"],
+        language: null,
+        local_metadata_policy: "read_only",
+        local_readers: [],
+        metadata_providers: [],
+        refresh_mode: "default",
+        scan: {
+          addon_scrape: true,
+          addon_writeback: false,
+          enabled: true,
+        },
+      },
+    },
+  }
+}
+
+function managementContextLinksResponse(overrides: Record<string, unknown> = {}) {
+  return {
+    context: {
+      library_id: "library-a",
+      item_id: "live-movie",
+      source_id: "source-live",
+      playback_session_id: null,
+    },
+    links: [managementContextLink()],
+    ...overrides,
+  }
+}
+
+function managementContextLink(overrides: Record<string, unknown> = {}) {
+  return {
+    action: "scan_library",
+    disabled_reason: null,
+    enabled: true,
+    method: "POST",
+    required_access: "library_manage",
+    route_name: "library.scan",
+    surface: "management",
+    target: {
+      library_id: "library-a",
+      item_id: "live-movie",
+      source_id: "source-live",
+      playback_session_id: null,
     },
     ...overrides,
   }

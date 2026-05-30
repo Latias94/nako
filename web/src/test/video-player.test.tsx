@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { VideoPlayer } from "@/src/features/media/video-player"
 
@@ -91,5 +91,23 @@ describe("VideoPlayer subtitle track contract", () => {
       }),
     )
     expect(onPlaybackHeartbeat.mock.calls[0][0]).not.toContain("ticket=")
+  })
+
+  it("renders diagnostic actions when no playable source is available", () => {
+    render(
+      <VideoPlayer
+        onBack={() => {}}
+        mediaTitle="Live Movie"
+        sources={[]}
+        subtitles={[]}
+        diagnosticActions={<a href="/admin/transcoding?source_id=source-live">播放诊断</a>}
+      />,
+    )
+
+    expect(screen.getByRole("link", { name: "播放诊断" })).toHaveAttribute(
+      "href",
+      "/admin/transcoding?source_id=source-live",
+    )
+    expect(document.body.textContent).not.toContain("ticket=")
   })
 })

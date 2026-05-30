@@ -19,10 +19,10 @@ The backend contract is already complete:
 
 ## Active Task
 
-- Task ID: AMCL-030
+- Task ID: AMCL-040
 - Owner: codex
-- Scope: `web/src/features/media`, Management Context Link rendering, and
-  focused media tests.
+- Scope: `web/src/api/admin`, `web/src/features/admin`, Admin route state, and
+  focused Admin tests.
 - Status: READY
 
 ## Completed
@@ -34,19 +34,23 @@ The backend contract is already complete:
   omission, known route mappings, disabled links, and unknown route names.
 - Focused validation passed: `npm --prefix web run test -- src/test/data-source-contracts.test.ts`
   and `npm --prefix web run check`.
+- AMCL-030 added `ManagementContextLinks` in Media Web and renders backend
+  links on media detail, library, selected source, and playback diagnostic
+  contexts.
+- AMCL-030 route/component tests cover enabled links, backend disabled reasons,
+  unsafe target omission, and playback diagnostic actions.
 
 ## Next Recommended Action
 
-Implement AMCL-030:
+Implement AMCL-040:
 
-1. Load Management Context Links from Media library/detail/source/watch
-   contexts using `createPublicManagementContextDataSource`.
-2. Render only backend-provided links and use `resolveManagementContextLink`
-   for navigation targets.
-3. Keep disabled states authoritative from `disabledReason`; do not recompute
-   roles or Library Access in Media Web.
-4. Add media route/component tests for enabled links, disabled reasons,
-   ordinary viewer behavior, and unsafe text redaction.
+1. Teach Admin routes to accept safe Management Context Link search params
+   emitted by `resolveManagementContextLink`.
+2. Keep mutating targets as Admin-owned confirmation or mutation surfaces.
+3. Add return links from Admin surfaces back to Media only when Public Client
+   context is available.
+4. Cover library scan, item metadata refresh handoff, jobs/runtime/support,
+   access policy targets, and safe Media return links in tests.
 
 ## Guardrails
 
@@ -60,5 +64,5 @@ Implement AMCL-030:
 
 ## Parallelism
 
-AMCL-030 Media rendering and AMCL-040 Admin handoffs can now be split between
-workers because AMCL-020 stabilized the shared resolver contract.
+AMCL-040 is now the primary remaining execution task. AMCL-050 should wait
+until Admin target handling is accepted.

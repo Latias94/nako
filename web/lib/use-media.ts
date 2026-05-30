@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query"
 import {
+  createPublicManagementContextDataSource,
+  type PublicManagementContextLinksPayload,
+  type PublicManagementContextQuery,
+} from "@/src/api/public/management-context-data-source"
+import {
   createPublicMediaDataSource,
   type PublicLibraryItemsQuery,
   type PublicMediaDetailPayload,
@@ -17,6 +22,18 @@ import type {
 import type { MediaItem } from "./media-types"
 
 export const userPlaylistsQueryKey = ["nako", "media", "user-playlists"] as const
+
+export function managementContextLinksQueryKey(query: PublicManagementContextQuery) {
+  return [
+    "nako",
+    "media",
+    "management-context-links",
+    query.libraryId ?? null,
+    query.itemId ?? null,
+    query.sourceId ?? null,
+    query.playbackSessionId ?? null,
+  ] as const
+}
 
 export function userPlaylistItemsQueryKey(playlistId?: string) {
   return ["nako", "media", "user-playlists", playlistId, "items"] as const
@@ -261,4 +278,22 @@ export function usePlaybackPlan(
     staleTime: 30 * 1000,
     retry: 0,
   })
+}
+
+export function useManagementContextLinks(
+  query: PublicManagementContextQuery,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: managementContextLinksQueryKey(query),
+    queryFn: (): Promise<PublicManagementContextLinksPayload> =>
+      createPublicManagementContextDataSource().loadManagementContextLinks(query),
+    enabled: enabled && hasManagementContext(query),
+    staleTime: 30 * 1000,
+    retry: 0,
+  })
+}
+
+function hasManagementContext(query: PublicManagementContextQuery) {
+  return Boolean(query.libraryId || query.itemId || query.sourceId || query.playbackSessionId)
 }

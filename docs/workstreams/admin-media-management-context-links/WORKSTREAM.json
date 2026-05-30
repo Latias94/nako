@@ -7,8 +7,8 @@
   "scope_kind": "frontend_execution",
   "problem": "Nako needs the current web product frontend to consume backend-computed Management Context Links so Media and Admin surfaces can switch contexts without duplicating authorization or leaking privileged state.",
   "task_prefix": "AMCL",
-  "current_task": "AMCL-030",
-  "completed_tasks": ["AMCL-010", "AMCL-020"],
+  "current_task": "AMCL-040",
+  "completed_tasks": ["AMCL-010", "AMCL-020", "AMCL-030"],
   "authoritative_docs": [
     {
       "role": "overview",
@@ -55,6 +55,10 @@
     {
       "task": "AMCL-020",
       "summary": "Added the web Public Client Management Context Links data-source boundary and shell route resolver, with focused contract coverage for live calls, fixture fallback, safe query params, known route mappings, disabled links, and unknown route names."
+    },
+    {
+      "task": "AMCL-030",
+      "summary": "Rendered backend-computed Management Context Links in Media detail, library, selected source, and playback diagnostic contexts without importing Admin APIs or exposing unsafe target identifiers."
     }
   ],
   "adr_refs": [
@@ -66,7 +70,7 @@
   ],
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "AMCL-030",
-    "notes": "Render backend-computed Management Context Links in Media surfaces using createPublicManagementContextDataSource and resolveManagementContextLink(s). AMCL-040 Admin handoffs can proceed in parallel if assigned separately."
+    "next_task": "AMCL-040",
+    "notes": "Map accepted Management Context Link targets into Admin-owned route state or confirmation flows. Mutating actions must remain Admin-owned."
   }
 }

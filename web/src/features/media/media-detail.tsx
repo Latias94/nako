@@ -53,6 +53,7 @@ import type {
 } from "@/src/api/public/media-data-source"
 import type { MediaItem } from "@/lib/media-types"
 import { AddToPlaylistButton } from "./add-to-playlist-button"
+import { ManagementContextLinks } from "./management-context-links"
 
 // 导航回调类型
 interface MediaDetailProps {
@@ -270,6 +271,14 @@ export function MediaDetail({
   const selectedSource = isMovie
     ? movieSources.find((source) => source.id === selectedSourceId) ?? movieSources[0] ?? null
     : null
+  const selectedPublicSource = isMovie
+    ? sources.find((source) => source.id === selectedSource?.id) ?? sources[0]
+    : undefined
+  const managementContext = {
+    itemId: mediaId ?? data.id,
+    libraryId: selectedPublicSource?.libraryId,
+    sourceId: selectedPublicSource?.id,
+  }
   const missingReadiness = readiness.filter((state) => state.status === "missing_contract")
 
   useEffect(() => {
@@ -533,6 +542,18 @@ export function MediaDetail({
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
+
+                  <ManagementContextLinks
+                    context={managementContext}
+                    routeNames={[
+                      "item.metadata_refresh",
+                      "library.scan",
+                      "jobs.filtered",
+                      "playback.support",
+                      "playback.runtime",
+                    ]}
+                    tone="hero"
+                  />
                 </div>
               </div>
             </div>

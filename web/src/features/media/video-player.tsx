@@ -1,7 +1,7 @@
 "use client"
 
 import type { PlaybackSessionHeartbeatRequest } from "@nako/sdk"
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect, useCallback, type ReactNode } from "react"
 import { 
   Play, 
   Pause, 
@@ -73,6 +73,7 @@ interface VideoPlayerProps {
     sessionId: string,
     body: PlaybackSessionHeartbeatRequest,
   ) => void | Promise<void>
+  diagnosticActions?: ReactNode
   hasPrevious?: boolean
   hasNext?: boolean
 }
@@ -110,6 +111,7 @@ export function VideoPlayer({
   startTime = 0,
   playbackSessionId,
   onPlaybackHeartbeat,
+  diagnosticActions,
   hasPrevious = true,
   hasNext = true,
 }: VideoPlayerProps) {
@@ -469,6 +471,11 @@ export function VideoPlayer({
                 )}
               </div>
               <p className="text-sm">视频播放区域</p>
+              {diagnosticActions ? (
+                <div className="max-w-xl" onClick={(event) => event.stopPropagation()}>
+                  {diagnosticActions}
+                </div>
+              ) : null}
             </div>
           )}
           </div>

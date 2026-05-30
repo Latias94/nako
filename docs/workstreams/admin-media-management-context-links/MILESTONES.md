@@ -24,10 +24,11 @@ Exit criteria:
 
 Exit criteria:
 
-- Media library/detail/source/watch contexts render enabled management links
-  only from backend state.
-- Ordinary viewer states do not expose admin affordances.
-- Media Web does not import Admin API DTOs or mutation clients.
+- DONE. Media library/detail/source/watch contexts render enabled management
+  links only from backend state.
+- DONE. Ordinary viewer states preserve backend disabled reasons instead of
+  inventing access logic.
+- DONE. Media Web does not import Admin API DTOs or mutation clients.
 
 ## M3 - Admin Command And Return Links
 

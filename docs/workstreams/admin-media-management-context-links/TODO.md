@@ -34,14 +34,17 @@ Last updated: 2026-05-30
 
 ### M2 - Media-to-Admin Link Rendering
 
-- [ ] AMCL-030 [owner=codex] [deps=AMCL-020] [scope=web/src/features/media,web/src/test]
+- [x] AMCL-030 [owner=codex] [deps=AMCL-020] [scope=web/src/features/media,web/src/test]
   Goal: Render backend-computed management links in Media library, detail,
   source/version, watch, and playback-error contexts.
   Validation: media route tests cover enabled links, disabled reasons,
   ordinary viewer hidden/disabled states, and no unsafe text rendering.
   Review: Media UI must not call Admin mutations directly.
   Evidence: Media route/component tests and browser smoke screenshots.
-  Handoff: Admin-owned command targets remain in AMCL-040.
+  Handoff: DONE. Media detail and library routes render backend-computed
+  Management Context Links through the Public Client boundary and shared
+  resolver. Playback no-source diagnostics can receive the same link surface.
+  Admin-owned command targets remain in AMCL-040.
 
 ### M3 - Admin Command And Return Links
 
