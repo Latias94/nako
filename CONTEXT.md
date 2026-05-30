@@ -332,6 +332,36 @@ _Avoid_: Transcode profile
 A future rule set for choosing transcode behavior by client, media, quality, or library.
 _Avoid_: Hardware acceleration policy
 
+**Storage Backend Health**:
+A durable, redaction-safe summary of whether a storage backend is healthy,
+recovering, or temporarily unavailable for bounded Nako work.
+_Avoid_: Raw filesystem error log
+
+**Storage Circuit Breaker**:
+A policy state that temporarily limits new scan, probe, playback staging, or
+write work against an unhealthy storage backend.
+_Avoid_: Permanent library disable switch
+
+**Audio Output Requirement**:
+A playback-planning requirement for the audio output a client can receive, such
+as channel count, codec conversion, downmix, dynamic range, or normalization.
+_Avoid_: Player volume setting
+
+**Audio Compatibility Policy**:
+The rule that decides whether selected source audio can be direct, remuxed, or
+must be transformed for the client.
+_Avoid_: Audio language default
+
+**HDR Tone Mapping**:
+A transcode-time color conversion that makes HDR source video watchable on a
+client or display path that cannot present that HDR format directly.
+_Avoid_: Artwork color correction
+
+**Color Pipeline Requirement**:
+A playback-planning requirement for preserving or converting video color
+properties such as HDR, SDR, transfer function, and color space.
+_Avoid_: Presentation theme
+
 **Remote Access Endpoint**:
 A configured public or private URL through which clients or integrations reach Nako.
 _Avoid_: Built-in NAT traversal
@@ -516,6 +546,11 @@ _Avoid_: Addon callback
 - A **Hardware Capability Report** is created at startup or configuration change and may be updated by **Hardware Capability Refresh**.
 - **Hardware Acceleration Policy** is global in the first implementation phase.
 - **Transcode Profile** is a later feature, not the first hardware selection model.
+- **Storage Backend Health** is durable product state for storage backends, not a dump of raw local paths or provider errors.
+- A **Storage Circuit Breaker** limits new work temporarily; it does not permanently disable a **Media Library**.
+- **Audio Output Requirement** belongs to playback planning before transcode command planning.
+- **Audio Compatibility Policy** is separate from audio language/default selection.
+- **HDR Tone Mapping** is selected by a **Color Pipeline Requirement**, not by a **Source Variant Label**.
 - A **Remote Access Endpoint** may be backed by a **Network Tunnel Provider** or reverse proxy.
 - Nako does not own **Network Tunnel Provider** behavior in the first implementation phase.
 - **Single-Admin Mode** may be the first implementation mode, but it should not erase **User**, **Role**, or **Library Access** concepts.
@@ -743,6 +778,9 @@ _Avoid_: Addon callback
 - Transcoding distinguishes temporary **Playback Transcode** output from durable **Optimized Version** assets.
 - Hardware acceleration selection uses a cached **Hardware Capability Report**, not an implicit probe for every playback.
 - Hardware selection starts with global **Hardware Acceleration Policy**; **Transcode Profile** is deferred.
+- Storage health and circuit breaking should use **Storage Backend Health** and **Storage Circuit Breaker**, not ad hoc retry counters hidden in each caller.
+- Audio downmix and normalization should use **Audio Output Requirement** and **Audio Compatibility Policy**, not audio language default logic.
+- HDR compatibility should use **Color Pipeline Requirement** and **HDR Tone Mapping**, not user-facing variant labels.
 - Remote access starts with configured **Remote Access Endpoints**, not built-in NAT traversal or relay infrastructure.
 - MVP authentication may use **Single-Admin Mode**, but the domain should not become permanently single-user.
 - Client planning should target **Client Applications** generally, not a Flutter-specific API contract.

@@ -1,6 +1,6 @@
 # Playback Architecture
 
-Last updated: 2026-05-29
+Last updated: 2026-05-30
 
 This document is the agent-facing progress map for Nako video playback. It
 links expected media-server capabilities to current implementation state,
@@ -45,8 +45,8 @@ selection.
 | HLS audio sidecar media group | Shipped cleanup slice | `docs/workstreams/hls-audio-sidecar-artifacts/`; `docs/workstreams/hls-selected-main-audio-cleanup/`; `docs/workstreams/playback-audio-language-default-policy/` | Request-scoped language defaults are shipped; defer audio codec policy, downmix, and normalization. |
 | HLS seek/restart | Shipped first slice | `docs/adr/0052-hls-runtime-and-media-engine-boundary.md`; `docs/workstreams/hls-seek-restart-lifecycle/` | Generation identity, restart admission, FFmpeg seek flags, and public `start_position_ms` playlist query. |
 | HLS progressive runtime | Shipped | `docs/workstreams/hls-progressive-runtime-boundary/`; `docs/adr/0052-hls-runtime-and-media-engine-boundary.md` | Playlist readiness before full FFmpeg completion, running segment serving, typed artifact reconstruction, manifest-aware URL auth, and partial-playlist readiness guard. |
-| HDR tone mapping | Not started | `docs/ARCHITECTURE.md`; `docs/adr/0044-playback-capability-profile-planner.md` | Open `hdr-tone-mapping-pipeline`. |
-| Audio downmix and normalization | Not started | This document | Open `audio-compatibility-downmix-normalization`. |
+| HDR tone mapping | Draft research lane | `docs/ARCHITECTURE.md`; `docs/adr/0044-playback-capability-profile-planner.md`; `docs/workstreams/hdr-tone-mapping-pipeline/` | Run `HTP-010` docs/research before implementation. |
+| Audio downmix and normalization | Active first slice | `docs/workstreams/audio-compatibility-downmix-normalization/` | Run `ACDN-020` in `nako-playback` before transcode propagation. |
 | Runtime resource scheduler | Shipped first slice | `docs/workstreams/playback-runtime-resource-scheduler/`; `docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md`; playback runtime diagnostics lanes | Add queueing, remote workers, OS isolation, per-device tuning, and disk-sensitive artifact I/O enforcement only through follow-on lanes. |
 | VFS/remote playback resilience | Partial | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md` | Timeout/circuit-breaker and remote staging hardening. |
 | SQLite/PostgreSQL write pressure | Good foundation | `docs/adr/0029-postgresql-ready-persistence-boundary.md`; `docs/adr/0030-postgresql-ready-sql-dialect-and-migration-policy.md`; PostgreSQL readiness lanes | Playback heartbeat/session-write pressure tests. |
@@ -63,6 +63,11 @@ linked to the most direct ADR/workstream evidence.
 
 These lanes are intentionally separable. They can run in parallel if each lane
 keeps its public contract explicit.
+
+The current HDR terminal may run beside audio compatibility only for
+`HTP-010`, which is docs/research-only. Do not implement HDR code while
+`ACDN-020` is changing playback audio requirement vocabulary unless the planner
+serializes the shared playback/transcode scopes.
 
 ### Lane A - Device Capability Profiles
 
@@ -154,12 +159,38 @@ Primary crates and docs:
 - `crates/nako-playback`
 - `crates/nako-transcode`
 - `docs/adr/0045-ffmpeg-hardware-pipeline-planner.md`
+- `docs/workstreams/hdr-tone-mapping-pipeline/`
 
 Exit criteria:
 
 - probe facts expose HDR/color compatibility inputs;
 - planner selects direct/remux/transcode from client HDR capability;
 - FFmpeg software and hardware tone mapping strategies are testable.
+
+Current status: draft. Run `HTP-010` to confirm the first executable slice and
+validation before code changes.
+
+### Lane F - Audio Compatibility
+
+Goal: Make selected audio playable on constrained clients through explicit
+channel, codec, downmix, dynamic range, and normalization requirements.
+
+Primary crates and docs:
+
+- `crates/nako-playback`
+- `crates/nako-transcode`
+- `crates/nako-server/src/app/playback`
+- `docs/workstreams/audio-compatibility-downmix-normalization/`
+
+Exit criteria:
+
+- playback owns audio output requirements and compatibility reasons;
+- transcode policy receives requirements without rebuilding playback decisions;
+- FFmpeg command planning can emit deterministic downmix and normalization
+  filters;
+- HLS selected main audio and audio sidecar behavior stay compatible.
+
+Current status: active. Run `ACDN-020` before transcode or server changes.
 
 ### Lane E - Runtime Resource Scheduler
 

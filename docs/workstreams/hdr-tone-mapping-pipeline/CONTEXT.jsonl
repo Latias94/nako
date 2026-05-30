@@ -1,0 +1,11 @@
+{"file":"CONTEXT.md","reason":"Domain terms for HDR Tone Mapping, Color Pipeline Requirement, Source Variant, Media Technical Facts, Playback Runtime, and Playback Transcode."}
+{"file":"docs/architecture/PLAYBACK.md","reason":"Playback/transcode capability matrix, HDR lane notes, and shared-scope risks."}
+{"file":"docs/architecture/WORKSTREAM_LINKS.md","reason":"Cross-reference for playback/transcode evidence and follow-on lanes."}
+{"file":"docs/architecture/LANES.md","reason":"Lane ownership, shared-scope rules, and terminal routing for playback-transcode."}
+{"file":"docs/adr/0044-playback-capability-profile-planner.md","reason":"Client capability profile and HDR compatibility inputs authority."}
+{"file":"docs/adr/0045-ffmpeg-hardware-pipeline-planner.md","reason":"FFmpeg software/hardware command planning authority."}
+{"file":"docs/adr/0046-ffmpeg-probe-inventory.md","reason":"Hardware/probe inventory authority for color and hardware support evidence."}
+{"file":"docs/adr/0048-playback-transcode-startup-degradation.md","reason":"Fallback behavior when hardware paths are unavailable."}
+{"file":"docs/adr/0052-hls-runtime-and-media-engine-boundary.md","reason":"HLS runtime and media-engine boundary authority."}
+{"file":"docs/workstreams/playback-media-maturity-first-slices/WORKSTREAM.json","reason":"Prior HDR compatibility reason vocabulary and deferred execution context."}
+{"file":"docs/workstreams/source-aware-transcode-runtime/WORKSTREAM.json","reason":"Source-aware transcode planning baseline."}

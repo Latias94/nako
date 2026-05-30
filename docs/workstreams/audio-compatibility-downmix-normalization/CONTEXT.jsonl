@@ -1,0 +1,11 @@
+{"file":"CONTEXT.md","reason":"Domain terms for Audio Output Requirement, Audio Compatibility Policy, Playback Source Selection, Playback Runtime, Playback Transcode, and Transcode Profile."}
+{"file":"docs/architecture/PLAYBACK.md","reason":"Playback/transcode capability matrix, audio compatibility risk notes, and lane boundaries."}
+{"file":"docs/architecture/WORKSTREAM_LINKS.md","reason":"Cross-reference for playback/transcode evidence and follow-on lanes."}
+{"file":"docs/architecture/LANES.md","reason":"Lane ownership, shared-scope rules, and terminal routing for playback-transcode."}
+{"file":"docs/adr/0038-playback-planning-and-transcode-policy-seams.md","reason":"Playback planner and transcode policy seam authority."}
+{"file":"docs/adr/0044-playback-capability-profile-planner.md","reason":"Client capability profile and planner authority."}
+{"file":"docs/adr/0045-ffmpeg-hardware-pipeline-planner.md","reason":"FFmpeg command planning and hardware pipeline authority."}
+{"file":"docs/adr/0052-hls-runtime-and-media-engine-boundary.md","reason":"HLS runtime and media-engine boundary authority."}
+{"file":"docs/workstreams/hls-alternate-audio-renditions/WORKSTREAM.json","reason":"Prior selected audio and HLS audio rendition evidence."}
+{"file":"docs/workstreams/hls-audio-sidecar-artifacts/WORKSTREAM.json","reason":"Prior audio sidecar artifact evidence and constraints."}
+{"file":"docs/workstreams/playback-audio-language-default-policy/WORKSTREAM.json","reason":"Current audio language/default selection baseline and deferred follow-ons."}

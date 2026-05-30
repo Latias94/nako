@@ -24,13 +24,34 @@ Last reviewed: 2026-05-30
   is active on lane `web-product`; next task is `AMCL-050`.
 - [client-surface-and-access-product-architecture](client-surface-and-access-product-architecture/README.md)
   is active on lane `client-surfaces-planning`; next task is `CSAPA-050`.
+- [remote-storage-health-and-circuit-breaker](remote-storage-health-and-circuit-breaker/README.md)
+  is active on lane `storage-vfs`; next task is `RSHC-020`.
+- [audio-compatibility-downmix-normalization](audio-compatibility-downmix-normalization/README.md)
+  is active on lane `playback-transcode`; next task is `ACDN-020`.
+- [hdr-tone-mapping-pipeline](hdr-tone-mapping-pipeline/README.md)
+  is a draft docs/research lane on `playback-transcode`; next task is `HTP-010`.
 
 Planner coordination should keep `GAMA-060` blocked until `GAMA-050` is
 reviewed and verified. `CSAPA` should split or explicitly defer desktop
 playback before closeout.
+`HTP-010` may run beside `ACDN-020` only as docs/research; HDR implementation is
+not approved for parallel code changes with audio compatibility.
 
 ## Current Workstreams
 
+- [remote-storage-health-and-circuit-breaker](remote-storage-health-and-circuit-breaker/README.md):
+  active storage/VFS lane for adding durable **Storage Backend Health** and a
+  backend circuit-breaker policy after the first storage resilience slice.
+  `RSHC-020` starts with core/db repository parity before runtime policy or
+  Admin reset routes.
+- [audio-compatibility-downmix-normalization](audio-compatibility-downmix-normalization/README.md):
+  active playback/transcode lane for making downmix, channel compatibility,
+  dynamic range, and normalization explicit **Audio Output Requirement**
+  behavior. `ACDN-020` starts in `nako-playback` before transcode propagation.
+- [hdr-tone-mapping-pipeline](hdr-tone-mapping-pipeline/README.md):
+  draft playback/transcode research lane for freezing HDR/color compatibility
+  inputs and the first executable tone-mapping slice. `HTP-010` is docs-only
+  until planner review activates implementation.
 - [storage-vfs-resilience-and-source-identity](storage-vfs-resilience-and-source-identity/README.md):
   completed fearless refactor lane for deepening **Source Fingerprint** evidence,
   move/rename reconciliation, storage failure classification, stale-cache

@@ -1,0 +1,9 @@
+{"file":"CONTEXT.md","reason":"Domain terms for Storage Backend Health, Storage Circuit Breaker, Source Locator, Source Fingerprint, Playback Runtime, and Nako-Managed Artifact."}
+{"file":"docs/architecture/STORAGE_VFS.md","reason":"Storage/VFS capability map, risks, and active lane status."}
+{"file":"docs/architecture/WORKSTREAM_LINKS.md","reason":"Cross-reference for storage/VFS workstream evidence and proposed follow-ons."}
+{"file":"docs/architecture/LANES.md","reason":"Lane ownership, shared-scope rules, and terminal routing for storage-vfs."}
+{"file":"docs/adr/0016-remote-storage-and-vfs-cache-boundary.md","reason":"Remote storage and VFS cache boundary authority."}
+{"file":"docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md","reason":"Playback streaming and remote staging boundary authority."}
+{"file":"docs/adr/0053-application-control-plane-boundary.md","reason":"Durable jobs, runtime supervision, diagnostics, and control-plane baseline."}
+{"file":"docs/workstreams/storage-vfs-resilience-and-source-identity/WORKSTREAM.json","reason":"Prior shipped storage resilience evidence and follow-on split context."}
+{"file":"docs/workstreams/storage-vfs-resilience-and-source-identity/HANDOFF.md","reason":"Latest handoff from the completed storage resilience lane, if present."}

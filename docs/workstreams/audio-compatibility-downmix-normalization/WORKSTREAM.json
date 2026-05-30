@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "slug": "audio-compatibility-downmix-normalization",
+  "title": "Audio Compatibility Downmix Normalization",
+  "status": "active",
+  "updated": "2026-05-30",
+  "scope_kind": "fearless_refactor",
+  "problem": "Playback planning can select audio streams and HLS renditions, but it does not yet model client channel support, downmix, dynamic range, or normalization as explicit requirements.",
+  "task_prefix": "ACDN",
+  "current_task": "ACDN-020",
+  "completed_tasks": [
+    "ACDN-010"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/audio-compatibility-downmix-normalization/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/audio-compatibility-downmix-normalization/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/audio-compatibility-downmix-normalization/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/audio-compatibility-downmix-normalization/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/audio-compatibility-downmix-normalization/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "context_manifest",
+      "path": "docs/workstreams/audio-compatibility-downmix-normalization/CONTEXT.jsonl"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/audio-compatibility-downmix-normalization/HANDOFF.md"
+    }
+  ],
+  "context_manifest": "docs/workstreams/audio-compatibility-downmix-normalization/CONTEXT.jsonl",
+  "gates": [
+    "python -m json.tool docs/workstreams/audio-compatibility-downmix-normalization/WORKSTREAM.json",
+    "cargo nextest run -p nako-playback audio --no-fail-fast",
+    "cargo nextest run -p nako-transcode hls audio --no-fail-fast",
+    "cargo nextest run -p nako-server hls --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "ACDN-010",
+      "summary": "Opened the audio compatibility lane, linked it from playback architecture indexes, and split playback requirement modeling before transcode propagation and FFmpeg filter planning."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0038-playback-planning-and-transcode-policy-seams.md",
+    "docs/adr/0044-playback-capability-profile-planner.md",
+    "docs/adr/0045-ffmpeg-hardware-pipeline-planner.md",
+    "docs/adr/0052-hls-runtime-and-media-engine-boundary.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/PLAYBACK.md",
+      "capability": "Audio downmix and normalization"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Playback And Transcode"
+    }
+  ],
+  "capability_tags": [
+    "playback.audio.compatibility",
+    "playback.capability_profile",
+    "transcode.audio.downmix",
+    "transcode.audio.normalization"
+  ],
+  "lane_slug": "playback-transcode",
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Continue while the lane stays focused on audio output requirements, downmix, dynamic range, normalization, and FFmpeg audio command planning. Split HDR, subtitle burn-in, persisted user preferences, and web player controls into separate workstreams."
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "slug": "hdr-tone-mapping-pipeline",
+  "title": "HDR Tone Mapping Pipeline",
+  "status": "draft",
+  "updated": "2026-05-30",
+  "scope_kind": "architecture_research",
+  "problem": "HDR media is identified as a future playback capability, but Nako has not yet frozen the color compatibility inputs, tone-mapping policy boundary, or first executable FFmpeg pipeline slice.",
+  "task_prefix": "HTP",
+  "current_task": "HTP-010",
+  "completed_tasks": [],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/hdr-tone-mapping-pipeline/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/hdr-tone-mapping-pipeline/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/hdr-tone-mapping-pipeline/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/hdr-tone-mapping-pipeline/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/hdr-tone-mapping-pipeline/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "context_manifest",
+      "path": "docs/workstreams/hdr-tone-mapping-pipeline/CONTEXT.jsonl"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/hdr-tone-mapping-pipeline/HANDOFF.md"
+    }
+  ],
+  "context_manifest": "docs/workstreams/hdr-tone-mapping-pipeline/CONTEXT.jsonl",
+  "gates": [
+    "python -m json.tool docs/workstreams/hdr-tone-mapping-pipeline/WORKSTREAM.json",
+    "git diff --check -- docs/workstreams/hdr-tone-mapping-pipeline docs/architecture/PLAYBACK.md docs/architecture/WORKSTREAM_LINKS.md"
+  ],
+  "evidence": [],
+  "adr_refs": [
+    "docs/adr/0044-playback-capability-profile-planner.md",
+    "docs/adr/0045-ffmpeg-hardware-pipeline-planner.md",
+    "docs/adr/0046-ffmpeg-probe-inventory.md",
+    "docs/adr/0048-playback-transcode-startup-degradation.md",
+    "docs/adr/0052-hls-runtime-and-media-engine-boundary.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/PLAYBACK.md",
+      "capability": "HDR tone mapping"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Playback And Transcode"
+    }
+  ],
+  "capability_tags": [
+    "playback.hdr",
+    "playback.color_pipeline",
+    "transcode.tone_mapping",
+    "transcode.hardware_pipeline"
+  ],
+  "lane_slug": "playback-transcode",
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Run HTP-010 as docs/research only. Do not start implementation tasks while audio compatibility code is active unless the planner serializes shared playback/transcode scopes."
+  }
+}

@@ -74,11 +74,11 @@ Evidence workstreams:
 - `docs/workstreams/playback-runtime-resource-scheduler/`
 - `docs/workstreams/admin-playback-runtime-diagnostics/`
 - `docs/workstreams/admin-playback-session-read-model/`
+- `docs/workstreams/audio-compatibility-downmix-normalization/`
+- `docs/workstreams/hdr-tone-mapping-pipeline/`
 
 Proposed lanes:
 
-- `proposed:hdr-tone-mapping-pipeline`
-- `proposed:audio-compatibility-downmix-normalization`
 - `proposed:ll-hls-cmaf-runtime`
 - `proposed:dash-cmaf-playback-packaging`
 - `proposed:hls-key-delivery-drm-boundary`
@@ -105,11 +105,11 @@ Evidence workstreams:
 - `docs/workstreams/nfo-sidecar-promotion-apply/`
 - `docs/workstreams/admin-web-v2-storage-staging-route/`
 - `docs/workstreams/storage-vfs-resilience-and-source-identity/`
+- `docs/workstreams/remote-storage-health-and-circuit-breaker/`
 
 Proposed lanes:
 
 - `proposed:vfs-cache-repair-diagnostics`
-- `proposed:remote-storage-health-and-circuit-breaker`
 - `proposed:source-fingerprint-escalation-policy`
 - `proposed:storage-vfs-postgresql-runtime-harness`
 

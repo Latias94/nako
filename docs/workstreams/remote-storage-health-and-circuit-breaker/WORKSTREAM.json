@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "slug": "remote-storage-health-and-circuit-breaker",
+  "title": "Remote Storage Health And Circuit Breaker",
+  "status": "active",
+  "updated": "2026-05-30",
+  "scope_kind": "fearless_refactor",
+  "problem": "Remote storage failures are classified and bounded in process-local paths, but backend health is not yet a durable contract that can protect scan, probe, playback staging, and operator diagnostics consistently.",
+  "task_prefix": "RSHC",
+  "current_task": "RSHC-020",
+  "completed_tasks": [
+    "RSHC-010"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/remote-storage-health-and-circuit-breaker/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/remote-storage-health-and-circuit-breaker/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/remote-storage-health-and-circuit-breaker/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/remote-storage-health-and-circuit-breaker/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/remote-storage-health-and-circuit-breaker/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "context_manifest",
+      "path": "docs/workstreams/remote-storage-health-and-circuit-breaker/CONTEXT.jsonl"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/remote-storage-health-and-circuit-breaker/HANDOFF.md"
+    }
+  ],
+  "context_manifest": "docs/workstreams/remote-storage-health-and-circuit-breaker/CONTEXT.jsonl",
+  "gates": [
+    "python -m json.tool docs/workstreams/remote-storage-health-and-circuit-breaker/WORKSTREAM.json",
+    "cargo nextest run -p nako-db storage_backend_health --no-fail-fast",
+    "cargo nextest run -p nako-server storage_health --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "RSHC-010",
+      "summary": "Opened the durable remote storage health lane, linked it from storage architecture indexes, and split the first executable proof at the repository contract before runtime policy and Admin controls."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0016-remote-storage-and-vfs-cache-boundary.md",
+    "docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md",
+    "docs/adr/0053-application-control-plane-boundary.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/STORAGE_VFS.md",
+      "capability": "Remote storage boundary"
+    },
+    {
+      "path": "docs/architecture/STORAGE_VFS.md",
+      "capability": "Mount hang protection"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Storage And VFS"
+    }
+  ],
+  "capability_tags": [
+    "storage.vfs.health",
+    "storage.remote.circuit_breaker",
+    "storage.diagnostics",
+    "playback.remote_staging"
+  ],
+  "lane_slug": "storage-vfs",
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Continue while the work stays inside durable storage backend health, circuit-breaker policy, and operator diagnostics. Split a follow-on if the task grows into cache repair, hash escalation, or playback artifact I/O scheduling."
+  }
+}

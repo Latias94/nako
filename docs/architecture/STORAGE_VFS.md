@@ -24,7 +24,7 @@ and rclone-like mounts can be slow, stale, or unavailable.
 | Capability | Status | Authority | Next Lane |
 | --- | --- | --- | --- |
 | Local storage backend | Shipped | `docs/adr/0002-internal-vfs-before-os-mounting.md` | Keep local behavior as the compatibility baseline. |
-| Remote storage boundary | Shipped foundation | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Broaden backend support and durable backend health/circuit breakers. |
+| Remote storage boundary | Active follow-on | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/` | Run `RSHC-020` for durable backend health repository parity. |
 | WebDAV read path | Partial | `docs/workstreams/storage-vfs/`; remote storage lanes | Harden retries, cache, and operator diagnostics. |
 | Source locator | Shipped foundation | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Watcher/debounce productization and repair workflows. |
 | Source fingerprint | Shipped first slice | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Optional partial/full hash escalation policy. |
@@ -32,13 +32,28 @@ and rclone-like mounts can be slow, stale, or unavailable.
 | Remote FFmpeg input staging | Shipped foundation | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md` | Per-backend staging budgets and diagnostics. |
 | VFS cache | Shipped diagnostics foundation | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Repair diagnostics and cache operator actions. |
 | Library file writes | Partial | addon/library-file-write and NFO workstreams | Capability-specific write/link/backup policy. |
-| Mount hang protection | Shipped first slice | `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Durable backend health and circuit-breaker lane. |
+| Mount hang protection | Active follow-on | `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/` | Add durable backend health and circuit-breaker policy without claiming OS-level preemption. |
 
 ## Workstream Evidence
 
 Use `docs/architecture/WORKSTREAM_LINKS.md#storage-and-vfs` as the consolidated
 index for storage/VFS workstreams. Keep this document focused on capability
 state and risk, not copied task evidence.
+
+## Active Work Lanes
+
+### remote-storage-health-and-circuit-breaker
+
+Status: Active.
+
+Current task: `RSHC-020`.
+
+Goal: add a durable **Storage Backend Health** repository contract with
+SQLite/PostgreSQL parity before runtime circuit-breaker policy or Admin reset
+routes are implemented.
+
+Worker scope starts in core/db storage health records and repository tests.
+Playback staging, cache repair, and Admin controls are sequenced follow-ons.
 
 ## Completed Work Lanes
 
@@ -58,8 +73,6 @@ Shipped:
 
 ## Next Work Lanes
 
-- `proposed:remote-storage-health-and-circuit-breaker`: durable backend health,
-  backend-specific circuit-breaker policy, and operator controls.
 - `proposed:vfs-cache-repair-diagnostics`: cache repair previews, refresh
   actions, and stale-cache operator remediation.
 - `proposed:source-fingerprint-escalation-policy`: opt-in partial/full hash
