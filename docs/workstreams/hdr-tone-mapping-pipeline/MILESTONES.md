@@ -12,7 +12,16 @@ Exit criteria:
 - first implementation task has explicit owned scope and validation;
 - shared-scope conflict with audio compatibility is resolved by sequencing.
 
-Status: Ready.
+Status: Done with concerns.
+
+HTP-010 result:
+
+- existing probe facts are sufficient for the first playback planning slice;
+- existing client facts are sufficient for the first slice through
+  `supports_hdr=false`, with richer display/profile data deferred;
+- the first implementation task is playback-only `HTP-020`;
+- HDR implementation remains blocked while `ACDN-020` owns the same playback
+  vocabulary files.
 
 ## M1 - Playback Color Requirement Vocabulary
 
@@ -22,7 +31,14 @@ Exit criteria:
 - playback-owned values can express direct-compatible HDR and tone-map-required
   cases.
 
-Status: Blocked pending `HTP-010`.
+Status: Blocked by active `ACDN-020` and planner activation.
+
+Activation criteria:
+
+- `ACDN-020` is complete, merged, or explicitly serialized by the planner;
+- the HDR worker rereads `nako-playback` after the audio requirement changes;
+- no Public Client API, media probe schema, or transcode code change is needed
+  for the playback vocabulary slice.
 
 ## M2 - Transcode Tone-Mapping Strategy
 
@@ -32,7 +48,15 @@ Exit criteria:
 - software and hardware FFmpeg strategies are deterministic and testable;
 - CPU fallback behavior is explicit.
 
-Status: Blocked pending `HTP-010`.
+Status: Blocked pending `HTP-020`.
+
+First media-output target:
+
+- software-first HLS HDR-to-SDR tone mapping for HDR10/PQ or HLG sources;
+- SDR-only client path represented by playback's color requirement;
+- deterministic command-plan coverage before any hardware-specific strategy;
+- hardware tone mapping and Dolby Vision/HDR10+ dynamic behavior deferred to
+  follow-ons unless the planner splits them earlier.
 
 ## M3 - Verification And Closeout
 

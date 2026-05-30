@@ -8,7 +8,9 @@ mapping touches playback capability reporting, transcode policy, FFmpeg filter
 planning, hardware acceleration, and server HLS behavior. The first task is to
 confirm the smallest executable slice before any code changes.
 
-First task: `HTP-010`.
+`HTP-010` completed the docs/research scope freeze. The next implementation
+task is `HTP-020`, but it remains blocked while `ACDN-020` is active on the
+shared playback vocabulary files.
 
 Planner-approved lane: `playback-transcode`.
 

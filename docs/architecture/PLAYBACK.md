@@ -45,7 +45,7 @@ selection.
 | HLS audio sidecar media group | Shipped cleanup slice | `docs/workstreams/hls-audio-sidecar-artifacts/`; `docs/workstreams/hls-selected-main-audio-cleanup/`; `docs/workstreams/playback-audio-language-default-policy/` | Request-scoped language defaults are shipped; defer audio codec policy, downmix, and normalization. |
 | HLS seek/restart | Shipped first slice | `docs/adr/0052-hls-runtime-and-media-engine-boundary.md`; `docs/workstreams/hls-seek-restart-lifecycle/` | Generation identity, restart admission, FFmpeg seek flags, and public `start_position_ms` playlist query. |
 | HLS progressive runtime | Shipped | `docs/workstreams/hls-progressive-runtime-boundary/`; `docs/adr/0052-hls-runtime-and-media-engine-boundary.md` | Playlist readiness before full FFmpeg completion, running segment serving, typed artifact reconstruction, manifest-aware URL auth, and partial-playlist readiness guard. |
-| HDR tone mapping | Draft research lane | `docs/ARCHITECTURE.md`; `docs/adr/0044-playback-capability-profile-planner.md`; `docs/workstreams/hdr-tone-mapping-pipeline/` | Run `HTP-010` docs/research before implementation. |
+| HDR tone mapping | Draft research lane; HTP-010 complete with concerns | `docs/ARCHITECTURE.md`; `docs/adr/0044-playback-capability-profile-planner.md`; `docs/workstreams/hdr-tone-mapping-pipeline/` | `HTP-020` is playback-only but blocked while `ACDN-020` is active. |
 | Audio downmix and normalization | Active first slice | `docs/workstreams/audio-compatibility-downmix-normalization/` | Run `ACDN-020` in `nako-playback` before transcode propagation. |
 | Runtime resource scheduler | Shipped first slice | `docs/workstreams/playback-runtime-resource-scheduler/`; `docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md`; playback runtime diagnostics lanes | Add queueing, remote workers, OS isolation, per-device tuning, and disk-sensitive artifact I/O enforcement only through follow-on lanes. |
 | VFS/remote playback resilience | Partial | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md` | Timeout/circuit-breaker and remote staging hardening. |
@@ -167,8 +167,11 @@ Exit criteria:
 - planner selects direct/remux/transcode from client HDR capability;
 - FFmpeg software and hardware tone mapping strategies are testable.
 
-Current status: draft. Run `HTP-010` to confirm the first executable slice and
-validation before code changes.
+Current status: draft. `HTP-010` confirmed the first implementation slice is
+playback-owned **Color Pipeline Requirement** vocabulary, followed by a
+software-first HLS HDR-to-SDR media-output slice. Do not start HDR
+implementation while `ACDN-020` is active unless the planner serializes the
+shared playback/transcode scopes.
 
 ### Lane F - Audio Compatibility
 

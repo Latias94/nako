@@ -7,8 +7,10 @@
   "scope_kind": "architecture_research",
   "problem": "HDR media is identified as a future playback capability, but Nako has not yet frozen the color compatibility inputs, tone-mapping policy boundary, or first executable FFmpeg pipeline slice.",
   "task_prefix": "HTP",
-  "current_task": "HTP-010",
-  "completed_tasks": [],
+  "current_task": "HTP-020",
+  "completed_tasks": [
+    "HTP-010"
+  ],
   "authoritative_docs": [
     {
       "role": "overview",
@@ -44,7 +46,12 @@
     "python -m json.tool docs/workstreams/hdr-tone-mapping-pipeline/WORKSTREAM.json",
     "git diff --check -- docs/workstreams/hdr-tone-mapping-pipeline docs/architecture/PLAYBACK.md docs/architecture/WORKSTREAM_LINKS.md"
   ],
-  "evidence": [],
+  "evidence": [
+    {
+      "task": "HTP-010",
+      "summary": "Confirmed existing probe/client HDR facts, selected playback-only Color Pipeline Requirement as the first implementation slice, kept the lane draft while ACDN-020 owns shared playback vocabulary files, and recorded future validation gates."
+    }
+  ],
   "adr_refs": [
     "docs/adr/0044-playback-capability-profile-planner.md",
     "docs/adr/0045-ffmpeg-hardware-pipeline-planner.md",
@@ -71,6 +78,6 @@
   "lane_slug": "playback-transcode",
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Run HTP-010 as docs/research only. Do not start implementation tasks while audio compatibility code is active unless the planner serializes shared playback/transcode scopes."
+    "notes": "HTP-010 completed as docs/research only. Do not start HTP-020 while ACDN-020 is active unless the planner serializes shared playback/transcode scopes."
   }
 }
