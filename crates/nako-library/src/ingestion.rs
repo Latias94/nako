@@ -73,6 +73,7 @@ pub struct LibrarySourceObservationCommit {
     pub library_id: LibraryId,
     pub scan_id: ScanSnapshotId,
     pub discovered: DiscoveredMediaSource,
+    pub scan_source_locators: Vec<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

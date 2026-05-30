@@ -1,10 +1,13 @@
 use async_trait::async_trait;
-use nako_core::{NakoError, Result};
+use nako_core::{
+    NakoError, Result, SourceFingerprintEvidence, SourceFingerprintEvidenceKind,
+    SourceFingerprintPolicyInput,
+};
 use nako_vfs::{ObjectCacheState, ObjectKind, ObjectMetadata, StorageBackend, StorageUri};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    failure::{ingestion_failure_class, ingestion_failure_is_retryable},
+    failure::{ingestion_failure_class, ingestion_failure_is_retryable, ingestion_failure_message},
     summary::{LibraryScanFailure, LibraryScanRequest, LibraryScanSummary},
 };
 
@@ -21,7 +24,21 @@ pub struct DiscoveredMediaSource {
     pub modified_at: Option<String>,
     pub etag: Option<String>,
     pub fingerprint: Option<String>,
+    pub fingerprint_evidence_kind: SourceFingerprintEvidenceKind,
+    pub fingerprint_confidence_milli: u16,
     pub stale: bool,
+}
+
+impl DiscoveredMediaSource {
+    #[must_use]
+    pub fn fingerprint_evidence(&self) -> SourceFingerprintEvidence {
+        SourceFingerprintEvidence {
+            kind: self.fingerprint_evidence_kind,
+            fingerprint: self.fingerprint.clone(),
+            confidence_milli: self.fingerprint_confidence_milli,
+            stale: self.stale,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -165,6 +182,15 @@ impl<B> VfsLibraryScanner<B> {
             .map(|(_parent, file_name)| file_name)
             .unwrap_or_else(|| metadata.uri.path_part())
             .to_owned();
+        let source_fingerprint =
+            SourceFingerprintEvidence::from_scan_metadata(SourceFingerprintPolicyInput {
+                scheme: metadata.uri.scheme(),
+                size_bytes: metadata.len,
+                modified_at: metadata.modified_at.as_deref(),
+                etag: metadata.etag.as_deref(),
+                backend_fingerprint: metadata.fingerprint.as_deref(),
+                stale,
+            });
 
         DiscoveredMediaSource {
             uri: metadata.uri,
@@ -172,7 +198,9 @@ impl<B> VfsLibraryScanner<B> {
             size_bytes: metadata.len,
             modified_at: metadata.modified_at,
             etag: metadata.etag,
-            fingerprint: metadata.fingerprint,
+            fingerprint: source_fingerprint.fingerprint,
+            fingerprint_evidence_kind: source_fingerprint.kind,
+            fingerprint_confidence_milli: source_fingerprint.confidence_milli,
             stale,
         }
     }
@@ -205,7 +233,7 @@ fn scan_failure(uri: StorageUri, target_kind: &str, err: NakoError) -> LibrarySc
         uri,
         target_kind: target_kind.to_owned(),
         failure_class: ingestion_failure_class(&err),
-        message: err.to_string(),
+        message: ingestion_failure_message(&err),
         retryable: ingestion_failure_is_retryable(&err),
     }
 }

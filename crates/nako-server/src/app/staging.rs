@@ -279,7 +279,10 @@ impl ManifestRecordingStorageBackend {
     }
 
     async fn record_reservation_failure(&self, reservation: &StagingReservation, err: &NakoError) {
-        if let Err(rollback_err) = self.fail_reservation(reservation, err.to_string()).await {
+        let reason = err
+            .safe_storage_message()
+            .unwrap_or_else(|| "storage failure".to_owned());
+        if let Err(rollback_err) = self.fail_reservation(reservation, reason).await {
             warn!(
                 record_id = %reservation.record.id,
                 original_error = %err,

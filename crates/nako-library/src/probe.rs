@@ -10,7 +10,10 @@ use nako_media_probe::{MediaProbe, MediaProbeRequest};
 use nako_vfs::{ByteRange, StorageBackend, StorageUri};
 
 use super::{
-    failure::{ingestion_failure_class, ingestion_failure_is_retryable, ingestion_failure_time_ms},
+    failure::{
+        ingestion_failure_class, ingestion_failure_is_retryable, ingestion_failure_message,
+        ingestion_failure_time_ms,
+    },
     summary::{LibraryProbeFailure, LibraryProbeRequest, LibraryProbeSummary},
 };
 
@@ -338,7 +341,7 @@ fn probe_failure(source: &MediaSource, err: NakoError) -> ProbeSourceOutcome {
         source_id: Some(source.id),
         locator: source.locator.clone(),
         failure_class: ingestion_failure_class(&err),
-        message: err.to_string(),
+        message: ingestion_failure_message(&err),
         retryable: ingestion_failure_is_retryable(&err),
     })
 }

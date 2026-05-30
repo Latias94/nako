@@ -15,8 +15,26 @@ Status: active.
 
 Active architecture focus:
 
-Addon Ecosystem Foundation is the current architecture focus. It deepens the
-Addon ecosystem before broader official addon breadth lands:
+Storage/VFS Resilience And Source Identity is the current architecture focus.
+It deepens source identity and storage failure behavior before broader remote
+library, watcher/debounce, provider, managed import, or Library File Write
+breadth depends on shallow fingerprint semantics:
+
+- layered **Source Fingerprint** evidence policy;
+- move/rename reconciliation with strong evidence;
+- **Source Duplicate Relationship** separation from automatic merge behavior;
+- storage timeout, unavailable, permission, rate-limit, stale-cache, and
+  partial-staging failure classification;
+- redaction-safe Admin diagnostics for storage/source-identity pressure.
+
+Authoritative lane:
+
+- `docs/workstreams/storage-vfs-resilience-and-source-identity/`
+
+Latest completed architecture focus:
+
+Addon Ecosystem Foundation closed on 2026-05-25. It deepened the Addon
+ecosystem before broader official addon breadth:
 
 - Addon Package and Addon Suite deployment shape;
 - Addon Task request fingerprinting;
@@ -28,7 +46,11 @@ Authoritative lane:
 
 - `docs/workstreams/addon-ecosystem-foundation/`
 
-Latest completed architecture focus:
+Follow-on:
+
+- `docs/workstreams/addon-event-scheduler-and-replay/`
+
+Previous architecture focus:
 
 Fearless Future Architecture Refactor closed on 2026-05-23. It was the
 server-side architecture focus after M61-M63 and the Addon productization lanes,

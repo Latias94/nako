@@ -4,7 +4,10 @@ use nako_core::{
     Genre, IngestionFailurePhase, IngestionFailureResolution, ItemCredit, ItemGenre, ItemStudio,
     ItemTag, LibraryId, LibraryItemRepository, LibraryItemState,
     LibraryScanSourcePersistenceCommit, MediaItem, MediaItemId, MediaKind, MediaRepository,
-    MediaSource, MediaSourceId, Person, Result, SortKey, SortKeyKind, Studio, Tag,
+    MediaSource, MediaSourceId, NakoError, PageRequest, Person, Result, ScanRepository, SortKey,
+    SortKeyKind, SourceDuplicateEvidenceKind, SourceDuplicateRelationship,
+    SourceDuplicateRelationshipId, SourceDuplicateRelationshipStatus, SourceFingerprintEvidence,
+    SourceState, Studio, Tag,
 };
 
 use crate::{
@@ -43,6 +46,14 @@ pub(crate) trait SourceObservationCommitRepository: Send + Sync {
         locator: &str,
     ) -> Result<Option<MediaSource>>;
 
+    async fn get_media_source(&self, id: MediaSourceId) -> Result<Option<MediaSource>>;
+
+    async fn list_source_states(
+        &self,
+        library_id: LibraryId,
+        page: PageRequest,
+    ) -> Result<Vec<SourceState>>;
+
     async fn get_library_item_state(
         &self,
         library_id: LibraryId,
@@ -79,7 +90,13 @@ pub(crate) trait SourceObservationCommitRepository: Send + Sync {
 #[async_trait]
 impl<T> SourceObservationCommitRepository for T
 where
-    T: CatalogRepository + LibraryItemRepository + MediaRepository + Send + Sync + ?Sized,
+    T: CatalogRepository
+        + LibraryItemRepository
+        + MediaRepository
+        + ScanRepository
+        + Send
+        + Sync
+        + ?Sized,
 {
     async fn find_source_by_locator(
         &self,
@@ -87,6 +104,18 @@ where
         locator: &str,
     ) -> Result<Option<MediaSource>> {
         MediaRepository::get_media_source_by_locator(self, library_id, locator).await
+    }
+
+    async fn get_media_source(&self, id: MediaSourceId) -> Result<Option<MediaSource>> {
+        MediaRepository::get_media_source(self, id).await
+    }
+
+    async fn list_source_states(
+        &self,
+        library_id: LibraryId,
+        page: PageRequest,
+    ) -> Result<Vec<SourceState>> {
+        ScanRepository::list_source_states(self, library_id, page).await
     }
 
     async fn get_library_item_state(
@@ -155,10 +184,28 @@ where
     R: SourceObservationCommitRepository + ?Sized,
 {
     let locator = observation.discovered.uri.as_str().to_owned();
-    let existing = repository
+    let existing_by_locator = repository
         .find_source_by_locator(observation.library_id, &locator)
         .await?;
-    let disposition = if existing.is_some() {
+    let fingerprint_evidence = observation.discovered.fingerprint_evidence();
+    let reconciliation_candidates =
+        if existing_by_locator.is_none() && fingerprint_evidence.can_suggest_duplicate() {
+            find_source_reconciliation_candidates(repository, &observation, &fingerprint_evidence)
+                .await?
+        } else {
+            Vec::new()
+        };
+    let relocation = if fingerprint_evidence.can_preserve_source_identity() {
+        find_strong_relocation_candidate(&observation, reconciliation_candidates.as_slice())
+    } else {
+        None
+    };
+    let existing = existing_by_locator.clone().or_else(|| {
+        relocation
+            .as_ref()
+            .map(|candidate| candidate.source.clone())
+    });
+    let disposition = if existing_by_locator.is_some() || relocation.is_some() {
         SourceObservationDisposition::Updated
     } else {
         SourceObservationDisposition::Inserted
@@ -180,13 +227,17 @@ where
             scan_id: observation.scan_id,
             discovered: &observation.discovered,
         });
-    let item_resolution = media_item_for_local_inference(
-        repository,
-        observation.library_id,
-        item_id,
-        local_inference.clone(),
-    )
-    .await?;
+    let item_resolution = if relocation.is_some() {
+        media_item_for_reconciled_source(repository, observation.library_id, item_id).await?
+    } else {
+        media_item_for_local_inference(
+            repository,
+            observation.library_id,
+            item_id,
+            local_inference.clone(),
+        )
+        .await?
+    };
     let mut source = local_inference.media_source;
     source.item_id = item_resolution.item.id;
     let search_projection =
@@ -199,6 +250,18 @@ where
         item_id: item_resolution.item.id,
         provisional: item_resolution.provisional,
     });
+    let source_duplicate_relationships = if existing_by_locator.is_none()
+        && relocation.is_none()
+        && fingerprint_evidence.can_suggest_duplicate()
+    {
+        source_duplicate_relationships_for_candidates(
+            source_id,
+            reconciliation_candidates.as_slice(),
+            &fingerprint_evidence,
+        )
+    } else {
+        Vec::new()
+    };
 
     Ok(SourceObservationPersistencePlan {
         disposition,
@@ -209,6 +272,7 @@ where
             library_item_states,
             local_inference_evidence: vec![local_inference.evidence],
             search_projections: vec![search_projection],
+            source_duplicate_relationships,
             resolved_ingestion_failures: vec![IngestionFailureResolution {
                 library_id: observation.library_id,
                 phase: IngestionFailurePhase::Scan,
@@ -216,6 +280,166 @@ where
                 resolved_at_ms: ingestion_failure_time_ms(),
             }],
         },
+    })
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct SourceReconciliationCandidate {
+    source: MediaSource,
+    state: SourceState,
+}
+
+fn find_strong_relocation_candidate(
+    observation: &LibrarySourceObservationCommit,
+    candidates: &[SourceReconciliationCandidate],
+) -> Option<SourceReconciliationCandidate> {
+    let mut eligible = candidates
+        .iter()
+        .filter(|candidate| {
+            candidate.state.last_seen_scan_id != observation.scan_id
+                && !observation
+                    .scan_source_locators
+                    .iter()
+                    .any(|locator| locator == &candidate.state.uri)
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+
+    if eligible.len() == 1 {
+        eligible.pop()
+    } else {
+        None
+    }
+}
+
+async fn find_source_reconciliation_candidates<R>(
+    repository: &R,
+    observation: &LibrarySourceObservationCommit,
+    evidence: &SourceFingerprintEvidence,
+) -> Result<Vec<SourceReconciliationCandidate>>
+where
+    R: SourceObservationCommitRepository + ?Sized,
+{
+    let Some(fingerprint) = evidence.fingerprint.as_deref() else {
+        return Ok(Vec::new());
+    };
+
+    let locator = observation.discovered.uri.as_str();
+    let mut offset = 0;
+    let mut candidates = Vec::new();
+
+    loop {
+        let states = repository
+            .list_source_states(
+                observation.library_id,
+                PageRequest {
+                    limit: PageRequest::MAX_LIMIT,
+                    offset,
+                },
+            )
+            .await?;
+        let returned = states.len();
+
+        for state in states {
+            if state.uri == locator || state.fingerprint.as_deref() != Some(fingerprint) {
+                continue;
+            }
+
+            let Some(source_id) = state.source_id else {
+                continue;
+            };
+            let Some(source) = repository.get_media_source(source_id).await? else {
+                continue;
+            };
+            if source.library_id != observation.library_id {
+                continue;
+            }
+
+            candidates.push(SourceReconciliationCandidate { source, state });
+        }
+
+        if returned < PageRequest::MAX_LIMIT as usize {
+            break;
+        }
+
+        offset += u64::from(PageRequest::MAX_LIMIT);
+    }
+
+    Ok(candidates)
+}
+
+fn source_duplicate_relationships_for_candidates(
+    source_id: MediaSourceId,
+    candidates: &[SourceReconciliationCandidate],
+    evidence: &SourceFingerprintEvidence,
+) -> Vec<SourceDuplicateRelationship> {
+    let Some(evidence_value) = evidence.fingerprint.clone() else {
+        return Vec::new();
+    };
+
+    candidates
+        .iter()
+        .filter(|candidate| candidate.source.id != source_id)
+        .map(|candidate| SourceDuplicateRelationship {
+            id: SourceDuplicateRelationshipId::new(),
+            source_id,
+            duplicate_source_id: candidate.source.id,
+            evidence_kind: source_duplicate_evidence_kind(evidence.kind),
+            evidence_value: Some(evidence_value.clone()),
+            status: SourceDuplicateRelationshipStatus::Suggested,
+            confidence_milli: Some(evidence.confidence_milli),
+        })
+        .collect()
+}
+
+fn source_duplicate_evidence_kind(
+    kind: nako_core::SourceFingerprintEvidenceKind,
+) -> SourceDuplicateEvidenceKind {
+    match kind {
+        nako_core::SourceFingerprintEvidenceKind::ContentHash => {
+            SourceDuplicateEvidenceKind::StrongFingerprint
+        }
+        nako_core::SourceFingerprintEvidenceKind::SizeAndEtag => {
+            SourceDuplicateEvidenceKind::SizeAndEtag
+        }
+        nako_core::SourceFingerprintEvidenceKind::SizeAndModifiedTime => {
+            SourceDuplicateEvidenceKind::PathEvidence
+        }
+        nako_core::SourceFingerprintEvidenceKind::BackendFingerprint => {
+            SourceDuplicateEvidenceKind::Other("backend_fingerprint".to_owned())
+        }
+        nako_core::SourceFingerprintEvidenceKind::LocatorOnly => {
+            SourceDuplicateEvidenceKind::PathEvidence
+        }
+    }
+}
+
+async fn media_item_for_reconciled_source<R>(
+    repository: &R,
+    library_id: LibraryId,
+    item_id: MediaItemId,
+) -> Result<MediaItemResolution>
+where
+    R: SourceObservationCommitRepository + ?Sized,
+{
+    let item = repository
+        .get_media_item(item_id)
+        .await?
+        .ok_or_else(|| NakoError::NotFound {
+            entity: "media_item",
+            id: item_id.to_string(),
+        })?;
+    let provisional = repository
+        .get_library_item_state(library_id, item_id)
+        .await?
+        .map(|state| state.provisional)
+        .unwrap_or(true);
+
+    Ok(MediaItemResolution {
+        item,
+        provisional,
+        supporting_items: Vec::new(),
+        supporting_library_item_states: Vec::new(),
     })
 }
 
@@ -416,7 +640,8 @@ mod tests {
     use nako_core::{
         BrowseFacet, BrowseFacetKind, CanonicalMetadata, Genre, GenreId, ItemCredit, ItemGenre,
         ItemStudio, ItemTag, LibraryId, LibraryItemState, MediaItem, MediaItemId, MediaKind,
-        MediaSource, MediaSourceId, Person, PersonId, ScanSnapshotId, Studio, StudioId, Tag, TagId,
+        MediaSource, MediaSourceId, Person, PersonId, ScanSnapshotId, SourceState, Studio,
+        StudioId, Tag, TagId,
     };
     use nako_vfs::StorageUri;
 
@@ -435,6 +660,7 @@ mod tests {
                 library_id,
                 scan_id,
                 discovered: discovered("local:///TV/Firefly/S01/Firefly.S01E02.mkv"),
+                scan_source_locators: vec!["local:///TV/Firefly/S01/Firefly.S01E02.mkv".to_owned()],
             },
         )
         .await
@@ -499,6 +725,7 @@ mod tests {
                 size_bytes: Some(10),
                 fingerprint: Some("fp:matrix".to_owned()),
             }],
+            source_states: Vec::new(),
             states: vec![LibraryItemState {
                 library_id,
                 item_id,
@@ -512,6 +739,7 @@ mod tests {
                 library_id,
                 scan_id: ScanSnapshotId::new(),
                 discovered: discovered(locator),
+                scan_source_locators: vec![locator.to_owned()],
             },
         )
         .await
@@ -531,6 +759,7 @@ mod tests {
     #[derive(Default)]
     struct FixtureSourceCommitRepository {
         sources: Vec<MediaSource>,
+        source_states: Vec<SourceState>,
         items: Vec<MediaItem>,
         states: Vec<LibraryItemState>,
     }
@@ -547,6 +776,23 @@ mod tests {
                 .iter()
                 .find(|source| source.library_id == library_id && source.locator == locator)
                 .cloned())
+        }
+
+        async fn get_media_source(&self, id: MediaSourceId) -> Result<Option<MediaSource>> {
+            Ok(self.sources.iter().find(|source| source.id == id).cloned())
+        }
+
+        async fn list_source_states(
+            &self,
+            library_id: LibraryId,
+            _page: PageRequest,
+        ) -> Result<Vec<SourceState>> {
+            Ok(self
+                .source_states
+                .iter()
+                .filter(|state| state.library_id == library_id)
+                .cloned()
+                .collect())
         }
 
         async fn get_library_item_state(
@@ -636,6 +882,8 @@ mod tests {
             modified_at: None,
             etag: None,
             fingerprint: Some("fp:test".to_owned()),
+            fingerprint_evidence_kind: nako_core::SourceFingerprintEvidenceKind::BackendFingerprint,
+            fingerprint_confidence_milli: 700,
             stale: false,
         }
     }

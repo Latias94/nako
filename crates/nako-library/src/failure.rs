@@ -20,10 +20,18 @@ pub(crate) fn ingestion_failure_class(err: &NakoError) -> IngestionFailureClass 
 }
 
 pub(crate) fn ingestion_failure_is_retryable(err: &NakoError) -> bool {
-    matches!(
-        err,
-        NakoError::Storage { .. } | NakoError::Provider { .. } | NakoError::Database { .. }
-    )
+    match err {
+        NakoError::Storage { .. } => err
+            .storage_failure_class()
+            .is_some_and(|class| class.is_retryable()),
+        NakoError::Provider { .. } | NakoError::Database { .. } => true,
+        _ => false,
+    }
+}
+
+pub(crate) fn ingestion_failure_message(err: &NakoError) -> String {
+    err.safe_storage_message()
+        .unwrap_or_else(|| err.to_string())
 }
 
 pub(crate) fn ingestion_failure_time_ms() -> i64 {

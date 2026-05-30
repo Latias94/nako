@@ -327,7 +327,7 @@ where
                 scheme: uri.scheme().to_owned(),
                 operation,
                 failed_at_ms,
-                error: err.to_string(),
+                error: safe_cache_failure_message(err),
             })
             .await
     }
@@ -447,14 +447,18 @@ fn now_ms() -> Result<i64> {
 
 fn is_transient_storage_error(err: &NakoError) -> bool {
     matches!(
-        err,
-        NakoError::Storage {
-            kind: StorageErrorKind::Timeout
-                | StorageErrorKind::Network
-                | StorageErrorKind::RateLimited,
-            ..
-        }
+        err.storage_failure_class(),
+        Some(
+            nako_core::StorageFailureClass::Timeout
+                | nako_core::StorageFailureClass::Unavailable
+                | nako_core::StorageFailureClass::RateLimited
+        )
     )
+}
+
+fn safe_cache_failure_message(err: &NakoError) -> String {
+    err.safe_storage_message()
+        .unwrap_or_else(|| "storage failure".to_owned())
 }
 
 #[cfg(test)]
@@ -531,7 +535,7 @@ mod tests {
         assert_eq!(stale.cache.unwrap().state, ObjectCacheState::StaleFallback);
         assert_eq!(stale.entries[0].uri.as_str(), "mem:///Movies/Demo.mkv");
         assert_eq!(failure.failure_count, 1);
-        assert!(failure.error.contains("temporary list failure"));
+        assert_eq!(failure.error, "storage backend unavailable");
     }
 
     #[tokio::test]
@@ -569,7 +573,7 @@ mod tests {
             }
         ));
         assert_eq!(failure.failure_count, 1);
-        assert!(failure.error.contains("temporary list failure"));
+        assert_eq!(failure.error, "storage permission failure");
     }
 
     #[derive(Clone)]

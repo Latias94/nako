@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     CatalogSearchProjection, IngestionFailurePhase, LibraryId, LibraryItemState,
     LocalInferenceEvidence, MediaItem, MediaSource, MediaSourceId, ScanSnapshotId,
+    SourceDuplicateRelationship,
 };
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -76,6 +77,7 @@ pub struct LibraryScanSourcePersistenceCommit {
     pub library_item_states: Vec<LibraryItemState>,
     pub local_inference_evidence: Vec<LocalInferenceEvidence>,
     pub search_projections: Vec<CatalogSearchProjection>,
+    pub source_duplicate_relationships: Vec<SourceDuplicateRelationship>,
     pub resolved_ingestion_failures: Vec<IngestionFailureResolution>,
 }
 
@@ -94,5 +96,6 @@ pub struct LibraryScanSourcePersistenceSummary {
     pub library_item_states: u64,
     pub local_inference_evidence: u64,
     pub search_projections: u64,
+    pub source_duplicate_relationships: u64,
     pub resolved_ingestion_failures: u64,
 }

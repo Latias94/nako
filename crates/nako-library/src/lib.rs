@@ -37,7 +37,8 @@ mod tests {
         LibraryRepository, LocalInferenceEvidenceSource, LocalInferenceRepository, MediaItem,
         MediaItemId, MediaKind, MediaProbeRepository, MediaProbeResult, MediaRepository,
         MediaSource, MediaSourceId, MediaStreamInfo, MediaStreamKind, NakoError, PageRequest,
-        Result, ScanRepository, ScanStatus, SourceState,
+        Result, ScanRepository, ScanStatus, SourceDuplicateEvidenceKind,
+        SourceDuplicateRelationshipStatus, SourceDuplicateRepository, SourceState,
     };
     use nako_db::NakoDatabase;
     use nako_media_probe::{MediaProbe, MediaProbeRequest};
@@ -93,6 +94,307 @@ mod tests {
                 "local:///Movies/Demo Movie/demo.MKV"
             );
         });
+    }
+
+    #[tokio::test]
+    async fn source_identity_scan_derives_redacted_fingerprint_without_full_file_hash() {
+        let opened_ranges = Arc::new(AtomicUsize::new(0));
+        let scanner = VfsLibraryScanner::new(SourceIdentityEvidenceBackend {
+            opened_ranges: opened_ranges.clone(),
+        });
+
+        let summary = scanner
+            .scan(LibraryScanRequest {
+                job_id: JobId::new(),
+                library_id: LibraryId::new(),
+                root: StorageUri::from_parts("evidence", "Movies").unwrap(),
+                force: false,
+            })
+            .await
+            .unwrap();
+
+        let source = &summary.media_sources[0];
+        let fingerprint = source.fingerprint.as_deref().unwrap();
+
+        assert_eq!(summary.discovered_files, 1);
+        assert!(fingerprint.starts_with("source:v1:size_etag:sha256:"));
+        assert!(!fingerprint.contains("secret-etag"));
+        assert_eq!(opened_ranges.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn source_identity_scan_does_not_merge_distinct_locators_with_same_fingerprint() {
+        let include_duplicate = Arc::new(AtomicBool::new(false));
+        let scanner = VfsLibraryScanner::new(SourceIdentityDuplicateBackend {
+            include_duplicate: include_duplicate.clone(),
+        });
+        let store = NakoDatabase::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            roots: vec!["duplicate:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        };
+        let service = LibraryIndexService::new(scanner, store.clone());
+        let request = LibraryIndexRequest {
+            job_id: JobId::new(),
+            library: library.clone(),
+            force: false,
+        };
+
+        let first_summary = service.index_library(request.clone()).await.unwrap();
+        include_duplicate.store(true, Ordering::SeqCst);
+        let second_summary = service.index_library(request).await.unwrap();
+        let mut sources =
+            MediaRepository::list_media_sources(&store, library.id, PageRequest::first_page())
+                .await
+                .unwrap();
+        sources.sort_by(|left, right| left.locator.cmp(&right.locator));
+
+        assert_eq!(first_summary.inserted_sources, 1);
+        assert_eq!(second_summary.updated_sources, 1);
+        assert_eq!(second_summary.inserted_sources, 1);
+        assert_eq!(sources.len(), 2);
+        assert_eq!(sources[0].locator, "duplicate:///Movies/Copy.mkv");
+        assert_eq!(sources[1].locator, "duplicate:///Movies/Original.mkv");
+        assert_ne!(sources[0].id, sources[1].id);
+        assert_eq!(sources[0].fingerprint, sources[1].fingerprint);
+        assert!(
+            sources[0]
+                .fingerprint
+                .as_deref()
+                .is_some_and(|value| value.starts_with("source:v1:size_etag:sha256:"))
+        );
+        let relationships = SourceDuplicateRepository::list_source_duplicate_relationships(
+            &store,
+            sources[0].id,
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(relationships.len(), 1);
+        assert!(
+            relationships[0].source_id == sources[0].id
+                || relationships[0].source_id == sources[1].id
+        );
+        assert!(
+            relationships[0].duplicate_source_id == sources[0].id
+                || relationships[0].duplicate_source_id == sources[1].id
+        );
+        assert_ne!(
+            relationships[0].source_id,
+            relationships[0].duplicate_source_id
+        );
+        assert_eq!(
+            relationships[0].evidence_kind,
+            SourceDuplicateEvidenceKind::SizeAndEtag
+        );
+        assert_eq!(
+            relationships[0].status,
+            SourceDuplicateRelationshipStatus::Suggested
+        );
+        assert_eq!(relationships[0].confidence_milli, Some(800));
+        assert!(
+            relationships[0]
+                .evidence_value
+                .as_deref()
+                .is_some_and(|value| value.starts_with("source:v1:size_etag:sha256:"))
+        );
+    }
+
+    #[tokio::test]
+    async fn source_identity_scan_does_not_merge_strong_duplicate_present_in_same_scan() {
+        let include_duplicate = Arc::new(AtomicBool::new(false));
+        let scanner = VfsLibraryScanner::new(SourceIdentityStrongDuplicateBackend {
+            include_duplicate: include_duplicate.clone(),
+        });
+        let store = NakoDatabase::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            roots: vec!["strongdup:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        };
+        let service = LibraryIndexService::new(scanner, store.clone());
+        let request = LibraryIndexRequest {
+            job_id: JobId::new(),
+            library: library.clone(),
+            force: false,
+        };
+
+        let first_summary = service.index_library(request.clone()).await.unwrap();
+        include_duplicate.store(true, Ordering::SeqCst);
+        let second_summary = service.index_library(request).await.unwrap();
+        let mut sources =
+            MediaRepository::list_media_sources(&store, library.id, PageRequest::first_page())
+                .await
+                .unwrap();
+        sources.sort_by(|left, right| left.locator.cmp(&right.locator));
+
+        assert_eq!(first_summary.inserted_sources, 1);
+        assert_eq!(second_summary.updated_sources, 1);
+        assert_eq!(second_summary.inserted_sources, 1);
+        assert_eq!(second_summary.tombstoned_sources, 0);
+        assert_eq!(sources.len(), 2);
+        assert_eq!(sources[0].locator, "strongdup:///Movies/Copy.mkv");
+        assert_eq!(sources[1].locator, "strongdup:///Movies/Original.mkv");
+        assert_ne!(sources[0].id, sources[1].id);
+        assert_eq!(sources[0].fingerprint, sources[1].fingerprint);
+        assert!(
+            sources[0]
+                .fingerprint
+                .as_deref()
+                .is_some_and(|value| value.starts_with("source:v1:content_hash:sha256:"))
+        );
+
+        let relationships = SourceDuplicateRepository::list_source_duplicate_relationships(
+            &store,
+            sources[0].id,
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(relationships.len(), 1);
+        assert!(
+            relationships[0].source_id == sources[0].id
+                || relationships[0].source_id == sources[1].id
+        );
+        assert!(
+            relationships[0].duplicate_source_id == sources[0].id
+                || relationships[0].duplicate_source_id == sources[1].id
+        );
+        assert_ne!(
+            relationships[0].source_id,
+            relationships[0].duplicate_source_id
+        );
+        assert_eq!(
+            relationships[0].evidence_kind,
+            SourceDuplicateEvidenceKind::StrongFingerprint
+        );
+        assert_eq!(
+            relationships[0].status,
+            SourceDuplicateRelationshipStatus::Suggested
+        );
+        assert_eq!(relationships[0].confidence_milli, Some(1_000));
+        assert!(
+            relationships[0]
+                .evidence_value
+                .as_deref()
+                .is_some_and(|value| value.starts_with("source:v1:content_hash:sha256:"))
+        );
+    }
+
+    #[tokio::test]
+    async fn source_identity_scan_keeps_locator_only_evidence_without_fingerprint() {
+        let scanner = VfsLibraryScanner::new(SourceIdentityWeakBackend);
+
+        let summary = scanner
+            .scan(LibraryScanRequest {
+                job_id: JobId::new(),
+                library_id: LibraryId::new(),
+                root: StorageUri::from_parts("weak", "Movies").unwrap(),
+                force: false,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(summary.discovered_files, 1);
+        assert_eq!(
+            summary.media_sources[0].uri.as_str(),
+            "weak:///Movies/LocatorOnly.mkv"
+        );
+        assert_eq!(summary.media_sources[0].fingerprint, None);
+    }
+
+    #[tokio::test]
+    async fn rename_reconciliation_preserves_media_source_for_strong_fingerprint_move() {
+        let renamed = Arc::new(AtomicBool::new(false));
+        let scanner = VfsLibraryScanner::new(RenameReconciliationBackend {
+            renamed: renamed.clone(),
+        });
+        let store = NakoDatabase::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            roots: vec!["rename:///Movies".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        };
+        let service = LibraryIndexService::new(scanner, store.clone());
+        let request = LibraryIndexRequest {
+            job_id: JobId::new(),
+            library: library.clone(),
+            force: false,
+        };
+
+        let first_summary = service.index_library(request.clone()).await.unwrap();
+        let first_source =
+            MediaRepository::list_media_sources(&store, library.id, PageRequest::first_page())
+                .await
+                .unwrap()
+                .pop()
+                .unwrap();
+        let mut confirmed_item = store
+            .get_media_item(first_source.item_id)
+            .await
+            .unwrap()
+            .unwrap();
+        confirmed_item.metadata.title = "Curated Identity".to_owned();
+        store.upsert_media_item(&confirmed_item).await.unwrap();
+        store
+            .upsert_library_item_state(&LibraryItemState {
+                library_id: library.id,
+                item_id: confirmed_item.id,
+                provisional: false,
+            })
+            .await
+            .unwrap();
+
+        renamed.store(true, Ordering::SeqCst);
+        let second_summary = service.index_library(request).await.unwrap();
+        let sources =
+            MediaRepository::list_media_sources(&store, library.id, PageRequest::first_page())
+                .await
+                .unwrap();
+        let moved_source = &sources[0];
+        let old_state = store
+            .get_source_state(library.id, "rename:///Movies/Original.mkv")
+            .await
+            .unwrap()
+            .unwrap();
+        let new_state = store
+            .get_source_state(library.id, "rename:///Movies/Renamed.mkv")
+            .await
+            .unwrap()
+            .unwrap();
+        let loaded_item = store
+            .get_media_item(confirmed_item.id)
+            .await
+            .unwrap()
+            .unwrap();
+        let item_state = store
+            .get_library_item_state(library.id, confirmed_item.id)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(first_summary.inserted_sources, 1);
+        assert_eq!(second_summary.inserted_sources, 0);
+        assert_eq!(second_summary.updated_sources, 1);
+        assert_eq!(second_summary.tombstoned_sources, 1);
+        assert_eq!(sources.len(), 1);
+        assert_eq!(moved_source.id, first_source.id);
+        assert_eq!(moved_source.item_id, confirmed_item.id);
+        assert_eq!(moved_source.locator, "rename:///Movies/Renamed.mkv");
+        assert_eq!(loaded_item.metadata.title, "Curated Identity");
+        assert!(!item_state.provisional);
+        assert!(old_state.tombstoned);
+        assert_eq!(new_state.source_id, Some(first_source.id));
+        assert!(!new_state.tombstoned);
     }
 
     #[test]
@@ -192,6 +494,8 @@ mod tests {
             summary.failures[0].failure_class,
             IngestionFailureClass::Storage
         );
+        assert_eq!(summary.failures[0].message, "storage backend unavailable");
+        assert!(!summary.failures[0].message.contains("Broken"));
         assert!(summary.failures[0].retryable);
     }
 
@@ -907,6 +1211,8 @@ mod tests {
         assert_eq!(failures[0].target_uri, "fixture:///Movies/Broken/");
         assert_eq!(failures[0].phase, IngestionFailurePhase::Scan);
         assert_eq!(failures[0].status, IngestionFailureStatus::Open);
+        assert_eq!(failures[0].message, "storage backend unavailable");
+        assert!(!failures[0].message.contains("Broken"));
         assert!(failures[0].retryable);
     }
 
@@ -1121,6 +1427,438 @@ mod tests {
                     technical: Default::default(),
                 }],
             })
+        }
+    }
+
+    #[derive(Clone)]
+    struct RenameReconciliationBackend {
+        renamed: Arc<AtomicBool>,
+    }
+
+    impl RenameReconciliationBackend {
+        fn current_path(&self) -> &'static str {
+            if self.renamed.load(Ordering::SeqCst) {
+                "Movies/Renamed.mkv"
+            } else {
+                "Movies/Original.mkv"
+            }
+        }
+
+        fn metadata(uri: StorageUri) -> ObjectMetadata {
+            let kind = if uri.as_str().ends_with(".mkv") {
+                ObjectKind::File
+            } else {
+                ObjectKind::Directory
+            };
+
+            ObjectMetadata {
+                uri,
+                kind,
+                len: (kind == ObjectKind::File).then_some(42),
+                modified_at: Some("2026-05-29T00:00:00Z".to_owned()),
+                etag: None,
+                fingerprint: (kind == ObjectKind::File).then_some(
+                    "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                        .to_owned(),
+                ),
+                capabilities: StorageCapabilities::SEEKABLE | StorageCapabilities::RANGE_READABLE,
+                cache: None,
+            }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl StorageBackend for RenameReconciliationBackend {
+        fn scheme(&self) -> &'static str {
+            "rename"
+        }
+
+        async fn stat(&self, uri: &StorageUri) -> Result<ObjectMetadata> {
+            Ok(Self::metadata(uri.clone()))
+        }
+
+        async fn list(&self, uri: &StorageUri) -> Result<Vec<ObjectMetadata>> {
+            Ok(self.list_with_status(uri).await?.entries)
+        }
+
+        async fn list_with_status(&self, uri: &StorageUri) -> Result<ObjectListing> {
+            if uri.as_str() == "rename:///Movies" {
+                return Ok(ObjectListing {
+                    entries: vec![Self::metadata(
+                        StorageUri::from_parts("rename", self.current_path()).unwrap(),
+                    )],
+                    cache: None,
+                });
+            }
+
+            Ok(ObjectListing {
+                entries: Vec::new(),
+                cache: None,
+            })
+        }
+
+        async fn open_range(
+            &self,
+            uri: &StorageUri,
+            range: Option<ByteRange>,
+        ) -> Result<nako_vfs::VirtualFile> {
+            Ok(nako_vfs::VirtualFile {
+                uri: uri.clone(),
+                range,
+                local_path_hint: None,
+            })
+        }
+
+        async fn read_to_string(&self, _uri: &StorageUri) -> Result<String> {
+            Err(NakoError::Unsupported(
+                "rename reconciliation fixture does not read text",
+            ))
+        }
+
+        async fn write_string(&self, _uri: &StorageUri, _content: &str) -> Result<()> {
+            Err(NakoError::Unsupported(
+                "rename reconciliation fixture does not write text",
+            ))
+        }
+    }
+
+    #[derive(Clone)]
+    struct SourceIdentityWeakBackend;
+
+    impl SourceIdentityWeakBackend {
+        fn metadata(uri: StorageUri) -> ObjectMetadata {
+            let kind = if uri.as_str().ends_with(".mkv") {
+                ObjectKind::File
+            } else {
+                ObjectKind::Directory
+            };
+
+            ObjectMetadata {
+                uri,
+                kind,
+                len: None,
+                modified_at: None,
+                etag: None,
+                fingerprint: None,
+                capabilities: StorageCapabilities::SEEKABLE | StorageCapabilities::RANGE_READABLE,
+                cache: None,
+            }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl StorageBackend for SourceIdentityWeakBackend {
+        fn scheme(&self) -> &'static str {
+            "weak"
+        }
+
+        async fn stat(&self, uri: &StorageUri) -> Result<ObjectMetadata> {
+            Ok(Self::metadata(uri.clone()))
+        }
+
+        async fn list(&self, uri: &StorageUri) -> Result<Vec<ObjectMetadata>> {
+            Ok(self.list_with_status(uri).await?.entries)
+        }
+
+        async fn list_with_status(&self, uri: &StorageUri) -> Result<ObjectListing> {
+            if uri.as_str() == "weak:///Movies" {
+                return Ok(ObjectListing {
+                    entries: vec![Self::metadata(
+                        StorageUri::from_parts("weak", "Movies/LocatorOnly.mkv").unwrap(),
+                    )],
+                    cache: None,
+                });
+            }
+
+            Ok(ObjectListing {
+                entries: Vec::new(),
+                cache: None,
+            })
+        }
+
+        async fn open_range(
+            &self,
+            uri: &StorageUri,
+            range: Option<ByteRange>,
+        ) -> Result<nako_vfs::VirtualFile> {
+            Ok(nako_vfs::VirtualFile {
+                uri: uri.clone(),
+                range,
+                local_path_hint: None,
+            })
+        }
+
+        async fn read_to_string(&self, _uri: &StorageUri) -> Result<String> {
+            Err(NakoError::Unsupported(
+                "weak source identity fixture does not read text",
+            ))
+        }
+
+        async fn write_string(&self, _uri: &StorageUri, _content: &str) -> Result<()> {
+            Err(NakoError::Unsupported(
+                "weak source identity fixture does not write text",
+            ))
+        }
+    }
+
+    #[derive(Clone)]
+    struct SourceIdentityDuplicateBackend {
+        include_duplicate: Arc<AtomicBool>,
+    }
+
+    impl SourceIdentityDuplicateBackend {
+        fn metadata(uri: StorageUri) -> ObjectMetadata {
+            let kind = if uri.as_str().ends_with(".mkv") {
+                ObjectKind::File
+            } else {
+                ObjectKind::Directory
+            };
+
+            ObjectMetadata {
+                uri,
+                kind,
+                len: (kind == ObjectKind::File).then_some(42),
+                modified_at: Some("2026-05-29T00:00:00Z".to_owned()),
+                etag: (kind == ObjectKind::File).then_some("same-remote-etag".to_owned()),
+                fingerprint: None,
+                capabilities: StorageCapabilities::SEEKABLE | StorageCapabilities::RANGE_READABLE,
+                cache: None,
+            }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl StorageBackend for SourceIdentityDuplicateBackend {
+        fn scheme(&self) -> &'static str {
+            "duplicate"
+        }
+
+        async fn stat(&self, uri: &StorageUri) -> Result<ObjectMetadata> {
+            Ok(Self::metadata(uri.clone()))
+        }
+
+        async fn list(&self, uri: &StorageUri) -> Result<Vec<ObjectMetadata>> {
+            Ok(self.list_with_status(uri).await?.entries)
+        }
+
+        async fn list_with_status(&self, uri: &StorageUri) -> Result<ObjectListing> {
+            if uri.as_str() != "duplicate:///Movies" {
+                return Ok(ObjectListing {
+                    entries: Vec::new(),
+                    cache: None,
+                });
+            }
+
+            let mut entries = vec![Self::metadata(
+                StorageUri::from_parts("duplicate", "Movies/Original.mkv").unwrap(),
+            )];
+            if self.include_duplicate.load(Ordering::SeqCst) {
+                entries.push(Self::metadata(
+                    StorageUri::from_parts("duplicate", "Movies/Copy.mkv").unwrap(),
+                ));
+            }
+
+            Ok(ObjectListing {
+                entries,
+                cache: None,
+            })
+        }
+
+        async fn open_range(
+            &self,
+            uri: &StorageUri,
+            range: Option<ByteRange>,
+        ) -> Result<nako_vfs::VirtualFile> {
+            Ok(nako_vfs::VirtualFile {
+                uri: uri.clone(),
+                range,
+                local_path_hint: None,
+            })
+        }
+
+        async fn read_to_string(&self, _uri: &StorageUri) -> Result<String> {
+            Err(NakoError::Unsupported(
+                "source duplicate fixture does not read text",
+            ))
+        }
+
+        async fn write_string(&self, _uri: &StorageUri, _content: &str) -> Result<()> {
+            Err(NakoError::Unsupported(
+                "source duplicate fixture does not write text",
+            ))
+        }
+    }
+
+    #[derive(Clone)]
+    struct SourceIdentityStrongDuplicateBackend {
+        include_duplicate: Arc<AtomicBool>,
+    }
+
+    impl SourceIdentityStrongDuplicateBackend {
+        fn metadata(uri: StorageUri) -> ObjectMetadata {
+            let kind = if uri.as_str().ends_with(".mkv") {
+                ObjectKind::File
+            } else {
+                ObjectKind::Directory
+            };
+
+            ObjectMetadata {
+                uri,
+                kind,
+                len: (kind == ObjectKind::File).then_some(42),
+                modified_at: Some("2026-05-29T00:00:00Z".to_owned()),
+                etag: None,
+                fingerprint: (kind == ObjectKind::File).then_some(
+                    "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                        .to_owned(),
+                ),
+                capabilities: StorageCapabilities::SEEKABLE | StorageCapabilities::RANGE_READABLE,
+                cache: None,
+            }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl StorageBackend for SourceIdentityStrongDuplicateBackend {
+        fn scheme(&self) -> &'static str {
+            "strongdup"
+        }
+
+        async fn stat(&self, uri: &StorageUri) -> Result<ObjectMetadata> {
+            Ok(Self::metadata(uri.clone()))
+        }
+
+        async fn list(&self, uri: &StorageUri) -> Result<Vec<ObjectMetadata>> {
+            Ok(self.list_with_status(uri).await?.entries)
+        }
+
+        async fn list_with_status(&self, uri: &StorageUri) -> Result<ObjectListing> {
+            if uri.as_str() != "strongdup:///Movies" {
+                return Ok(ObjectListing {
+                    entries: Vec::new(),
+                    cache: None,
+                });
+            }
+
+            let mut entries = vec![Self::metadata(
+                StorageUri::from_parts("strongdup", "Movies/Original.mkv").unwrap(),
+            )];
+            if self.include_duplicate.load(Ordering::SeqCst) {
+                entries.push(Self::metadata(
+                    StorageUri::from_parts("strongdup", "Movies/Copy.mkv").unwrap(),
+                ));
+            }
+
+            Ok(ObjectListing {
+                entries,
+                cache: None,
+            })
+        }
+
+        async fn open_range(
+            &self,
+            uri: &StorageUri,
+            range: Option<ByteRange>,
+        ) -> Result<nako_vfs::VirtualFile> {
+            Ok(nako_vfs::VirtualFile {
+                uri: uri.clone(),
+                range,
+                local_path_hint: None,
+            })
+        }
+
+        async fn read_to_string(&self, _uri: &StorageUri) -> Result<String> {
+            Err(NakoError::Unsupported(
+                "strong source duplicate fixture does not read text",
+            ))
+        }
+
+        async fn write_string(&self, _uri: &StorageUri, _content: &str) -> Result<()> {
+            Err(NakoError::Unsupported(
+                "strong source duplicate fixture does not write text",
+            ))
+        }
+    }
+
+    #[derive(Clone)]
+    struct SourceIdentityEvidenceBackend {
+        opened_ranges: Arc<AtomicUsize>,
+    }
+
+    impl SourceIdentityEvidenceBackend {
+        fn metadata(uri: StorageUri) -> ObjectMetadata {
+            let kind = if uri.as_str().ends_with(".mkv") {
+                ObjectKind::File
+            } else {
+                ObjectKind::Directory
+            };
+
+            ObjectMetadata {
+                uri,
+                kind,
+                len: (kind == ObjectKind::File).then_some(42),
+                modified_at: Some("2026-05-29T00:00:00Z".to_owned()),
+                etag: (kind == ObjectKind::File).then_some("secret-etag-for-source".to_owned()),
+                fingerprint: None,
+                capabilities: StorageCapabilities::SEEKABLE | StorageCapabilities::RANGE_READABLE,
+                cache: None,
+            }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl StorageBackend for SourceIdentityEvidenceBackend {
+        fn scheme(&self) -> &'static str {
+            "evidence"
+        }
+
+        async fn stat(&self, uri: &StorageUri) -> Result<ObjectMetadata> {
+            Ok(Self::metadata(uri.clone()))
+        }
+
+        async fn list(&self, uri: &StorageUri) -> Result<Vec<ObjectMetadata>> {
+            Ok(self.list_with_status(uri).await?.entries)
+        }
+
+        async fn list_with_status(&self, uri: &StorageUri) -> Result<ObjectListing> {
+            if uri.as_str() == "evidence:///Movies" {
+                return Ok(ObjectListing {
+                    entries: vec![Self::metadata(
+                        StorageUri::from_parts("evidence", "Movies/NoFullHash.mkv").unwrap(),
+                    )],
+                    cache: None,
+                });
+            }
+
+            Ok(ObjectListing {
+                entries: Vec::new(),
+                cache: None,
+            })
+        }
+
+        async fn open_range(
+            &self,
+            uri: &StorageUri,
+            range: Option<ByteRange>,
+        ) -> Result<nako_vfs::VirtualFile> {
+            self.opened_ranges.fetch_add(1, Ordering::SeqCst);
+            Ok(nako_vfs::VirtualFile {
+                uri: uri.clone(),
+                range,
+                local_path_hint: None,
+            })
+        }
+
+        async fn read_to_string(&self, _uri: &StorageUri) -> Result<String> {
+            Err(NakoError::Unsupported(
+                "source identity fixture does not read text",
+            ))
+        }
+
+        async fn write_string(&self, _uri: &StorageUri, _content: &str) -> Result<()> {
+            Err(NakoError::Unsupported(
+                "source identity fixture does not write text",
+            ))
         }
     }
 
