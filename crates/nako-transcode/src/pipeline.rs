@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use super::{
     HardwareAcceleration, HardwareAccelerationFallback, HardwareAccelerationPolicy,
     HardwareAccelerationReport, TranscodeAccelerationFallbackPlan, TranscodeAccelerationPlan,
-    TranscodeExecutionPolicy, TranscodeOutputConstraints, TranscodeSubtitleStrategy,
-    TranscodeTrackSelection,
+    TranscodeAudioOutputRequirement, TranscodeExecutionPolicy, TranscodeOutputConstraints,
+    TranscodeSubtitleStrategy, TranscodeTrackSelection,
 };
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -47,6 +47,7 @@ pub struct TranscodePipelineRequest {
     pub track_selection: TranscodeTrackSelection,
     pub output_constraints: TranscodeOutputConstraints,
     pub subtitle_strategy: TranscodeSubtitleStrategy,
+    pub audio_output: TranscodeAudioOutputRequirement,
     pub source: Option<TranscodePipelineSourceFacts>,
 }
 
@@ -57,6 +58,21 @@ impl TranscodePipelineRequest {
         track_selection: TranscodeTrackSelection,
         output_constraints: TranscodeOutputConstraints,
     ) -> Self {
+        Self::hls_single_variant_with_audio_output(
+            hardware_policy,
+            track_selection,
+            output_constraints,
+            TranscodeAudioOutputRequirement::none(),
+        )
+    }
+
+    #[must_use]
+    pub fn hls_single_variant_with_audio_output(
+        hardware_policy: HardwareAccelerationPolicy,
+        track_selection: TranscodeTrackSelection,
+        output_constraints: TranscodeOutputConstraints,
+        audio_output: TranscodeAudioOutputRequirement,
+    ) -> Self {
         Self {
             hardware_policy,
             track_selection,
@@ -66,6 +82,7 @@ impl TranscodePipelineRequest {
             } else {
                 TranscodeSubtitleStrategy::None
             },
+            audio_output,
             source: None,
         }
     }
@@ -89,6 +106,7 @@ pub struct TranscodePipelinePlan {
     pub acceleration: TranscodeAccelerationPlan,
     pub output_constraints: TranscodeOutputConstraints,
     pub subtitle_strategy: TranscodeSubtitleStrategy,
+    pub audio_output: TranscodeAudioOutputRequirement,
     pub readiness: TranscodePipelineReadiness,
 }
 
@@ -99,6 +117,7 @@ impl TranscodePipelinePlan {
             acceleration: self.acceleration,
             output_constraints: self.output_constraints,
             subtitle_strategy: self.subtitle_strategy,
+            audio_output: self.audio_output,
         }
     }
 
@@ -143,6 +162,7 @@ impl TranscodePipelinePlanner {
             ),
             output_constraints: request.output_constraints,
             subtitle_strategy: request.subtitle_strategy,
+            audio_output: request.audio_output,
             readiness: selection,
         })
     }
@@ -339,4 +359,47 @@ fn unavailable_reason(
     }
 
     TranscodePipelineReadinessReason::RequestedPipelineUnavailableFallbackToCpu
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        TranscodeAudioCompatibilityReasons, TranscodeAudioDownmixRequirement,
+        TranscodeAudioNormalizationRequirement,
+    };
+
+    use super::*;
+
+    #[test]
+    fn hls_pipeline_plan_carries_audio_output_requirement_into_execution_policy() {
+        let audio_output = TranscodeAudioOutputRequirement {
+            source_channels: Some(6),
+            max_supported_channels: Some(2),
+            target_channels: Some(2),
+            downmix: TranscodeAudioDownmixRequirement::Required,
+            normalization: TranscodeAudioNormalizationRequirement::Requested,
+            reasons: TranscodeAudioCompatibilityReasons {
+                channel_limit_exceeded: true,
+                downmix_required: true,
+                normalization_requested: true,
+            },
+        };
+        let request = TranscodePipelineRequest::hls_single_variant_with_audio_output(
+            HardwareAccelerationPolicy::default(),
+            TranscodeTrackSelection {
+                audio_stream: Some(1),
+                subtitle_stream: None,
+            },
+            TranscodeOutputConstraints::default(),
+            audio_output,
+        );
+        let report = HardwareAccelerationReport::with_available([HardwareAcceleration::None]);
+
+        let plan = TranscodePipelinePlanner::new()
+            .plan_hls_single_variant(request, &report)
+            .unwrap();
+
+        assert_eq!(plan.audio_output, audio_output);
+        assert_eq!(plan.execution_policy().audio_output, audio_output);
+    }
 }

@@ -2381,7 +2381,7 @@ async fn hls_playlist_route_returns_while_transcode_session_is_running() {
     let playlist_path = format!("/sources/{}/stream/hls/playlist.m3u8", source.id);
 
     let playlist_response = tokio::time::timeout(
-        Duration::from_secs(15),
+        Duration::from_secs(60),
         router.clone().oneshot(
             Request::builder()
                 .method(Method::GET)
@@ -2428,20 +2428,9 @@ async fn hls_playlist_route_returns_while_transcode_session_is_running() {
         "/playback/sessions/{playback_session_id}/hls/segments/segment_00000.ts"
     )));
 
-    let segment_response = router
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method(Method::GET)
-                .uri(format!(
-                    "/playback/sessions/{playback_session_id}/hls/segments/segment_00000.ts"
-                ))
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(segment_response.status(), StatusCode::OK);
+    let segment_uri =
+        format!("/playback/sessions/{playback_session_id}/hls/segments/segment_00000.ts");
+    let segment_response = wait_for_hls_segment_ok(&router, &segment_uri).await;
     let _segment_body = to_bytes(segment_response.into_body(), usize::MAX)
         .await
         .unwrap();

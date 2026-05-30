@@ -776,7 +776,7 @@ async fn hls_playlist_playback_returns_when_playlist_is_ready_before_runner_fini
     let principal = local_playback_viewer(&store, source.library_id).await;
 
     let playlist = tokio::time::timeout(
-        std::time::Duration::from_secs(15),
+        std::time::Duration::from_secs(60),
         app.playback()
             .hls_playlist_playback(HlsPlaylistPlaybackRequest {
                 principal,

@@ -58,6 +58,93 @@ pub struct PlaybackOutputConstraints {
     pub prefer_hdr: Option<bool>,
 }
 
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PlaybackAudioOutputRequirement {
+    pub source_channels: Option<u32>,
+    pub max_supported_channels: Option<u32>,
+    pub target_channels: Option<u32>,
+    pub downmix: PlaybackAudioDownmixRequirement,
+    pub normalization: PlaybackAudioNormalizationRequirement,
+    pub reasons: Vec<PlaybackAudioCompatibilityReason>,
+}
+
+impl PlaybackAudioOutputRequirement {
+    #[must_use]
+    pub fn from_channel_support(
+        source_channels: Option<u32>,
+        max_supported_channels: Option<u32>,
+    ) -> Self {
+        let mut requirement = Self {
+            source_channels,
+            max_supported_channels,
+            ..Self::default()
+        };
+
+        if let (Some(source), Some(max_supported)) = (source_channels, max_supported_channels)
+            && max_supported > 0
+            && source > max_supported
+        {
+            requirement.target_channels = Some(max_supported);
+            requirement.downmix = PlaybackAudioDownmixRequirement::Required;
+            requirement.push_reason(PlaybackAudioCompatibilityReason::ChannelLimitExceeded);
+            requirement.push_reason(PlaybackAudioCompatibilityReason::DownmixRequired);
+        }
+
+        requirement
+    }
+
+    #[must_use]
+    pub fn with_normalization(
+        mut self,
+        normalization: PlaybackAudioNormalizationRequirement,
+    ) -> Self {
+        self.normalization = normalization;
+        self.reasons
+            .retain(|reason| *reason != PlaybackAudioCompatibilityReason::NormalizationRequested);
+        if normalization.is_requested() {
+            self.push_reason(PlaybackAudioCompatibilityReason::NormalizationRequested);
+        }
+        self
+    }
+
+    fn push_reason(&mut self, reason: PlaybackAudioCompatibilityReason) {
+        if !self.reasons.contains(&reason) {
+            self.reasons.push(reason);
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlaybackAudioDownmixRequirement {
+    #[default]
+    None,
+    Required,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlaybackAudioNormalizationRequirement {
+    #[default]
+    None,
+    Requested,
+}
+
+impl PlaybackAudioNormalizationRequirement {
+    #[must_use]
+    pub const fn is_requested(self) -> bool {
+        matches!(self, Self::Requested)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlaybackAudioCompatibilityReason {
+    ChannelLimitExceeded,
+    DownmixRequired,
+    NormalizationRequested,
+}
+
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PlaybackHlsVariantPolicy {

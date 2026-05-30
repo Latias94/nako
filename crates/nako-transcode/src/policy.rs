@@ -215,6 +215,147 @@ pub struct TranscodeOutputConstraints {
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub struct TranscodeAudioOutputRequirement {
+    pub source_channels: Option<u32>,
+    pub max_supported_channels: Option<u32>,
+    pub target_channels: Option<u32>,
+    pub downmix: TranscodeAudioDownmixRequirement,
+    pub normalization: TranscodeAudioNormalizationRequirement,
+    pub reasons: TranscodeAudioCompatibilityReasons,
+}
+
+impl TranscodeAudioOutputRequirement {
+    #[must_use]
+    pub const fn none() -> Self {
+        Self {
+            source_channels: None,
+            max_supported_channels: None,
+            target_channels: None,
+            downmix: TranscodeAudioDownmixRequirement::None,
+            normalization: TranscodeAudioNormalizationRequirement::None,
+            reasons: TranscodeAudioCompatibilityReasons::none(),
+        }
+    }
+
+    #[must_use]
+    pub fn persisted_identity_key(self) -> String {
+        format!(
+            "source:{},max:{},target:{},downmix:{},normalization:{},reasons:{}",
+            optional_audio_channels(self.source_channels),
+            optional_audio_channels(self.max_supported_channels),
+            optional_audio_channels(self.target_channels),
+            self.downmix.as_str(),
+            self.normalization.as_str(),
+            self.reasons.identity_key(),
+        )
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TranscodeAudioDownmixRequirement {
+    #[default]
+    None,
+    Required,
+}
+
+impl TranscodeAudioDownmixRequirement {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Required => "required",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TranscodeAudioNormalizationRequirement {
+    #[default]
+    None,
+    Requested,
+}
+
+impl TranscodeAudioNormalizationRequirement {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Requested => "requested",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub struct TranscodeAudioCompatibilityReasons {
+    pub channel_limit_exceeded: bool,
+    pub downmix_required: bool,
+    pub normalization_requested: bool,
+}
+
+impl TranscodeAudioCompatibilityReasons {
+    #[must_use]
+    pub const fn none() -> Self {
+        Self {
+            channel_limit_exceeded: false,
+            downmix_required: false,
+            normalization_requested: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn has(self, reason: TranscodeAudioCompatibilityReason) -> bool {
+        match reason {
+            TranscodeAudioCompatibilityReason::ChannelLimitExceeded => self.channel_limit_exceeded,
+            TranscodeAudioCompatibilityReason::DownmixRequired => self.downmix_required,
+            TranscodeAudioCompatibilityReason::NormalizationRequested => {
+                self.normalization_requested
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn identity_key(self) -> String {
+        let mut reasons = Vec::new();
+        if self.channel_limit_exceeded {
+            reasons.push(TranscodeAudioCompatibilityReason::ChannelLimitExceeded.as_str());
+        }
+        if self.downmix_required {
+            reasons.push(TranscodeAudioCompatibilityReason::DownmixRequired.as_str());
+        }
+        if self.normalization_requested {
+            reasons.push(TranscodeAudioCompatibilityReason::NormalizationRequested.as_str());
+        }
+
+        if reasons.is_empty() {
+            "none".to_owned()
+        } else {
+            reasons.join("|")
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TranscodeAudioCompatibilityReason {
+    ChannelLimitExceeded,
+    DownmixRequired,
+    NormalizationRequested,
+}
+
+impl TranscodeAudioCompatibilityReason {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ChannelLimitExceeded => "channel_limit_exceeded",
+            Self::DownmixRequired => "downmix_required",
+            Self::NormalizationRequested => "normalization_requested",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum HlsVariantPolicy {
     #[default]
@@ -309,6 +450,7 @@ pub struct TranscodeExecutionPolicy {
     pub acceleration: TranscodeAccelerationPlan,
     pub output_constraints: TranscodeOutputConstraints,
     pub subtitle_strategy: TranscodeSubtitleStrategy,
+    pub audio_output: TranscodeAudioOutputRequirement,
 }
 
 impl TranscodeExecutionPolicy {
@@ -323,6 +465,7 @@ impl TranscodeExecutionPolicy {
                 prefer_hdr: None,
             },
             subtitle_strategy: TranscodeSubtitleStrategy::PreserveInContainer,
+            audio_output: TranscodeAudioOutputRequirement::none(),
         }
     }
 
@@ -332,6 +475,21 @@ impl TranscodeExecutionPolicy {
         track_selection: TranscodeTrackSelection,
         output_constraints: TranscodeOutputConstraints,
     ) -> Self {
+        Self::hls_single_variant_with_audio_output(
+            acceleration,
+            track_selection,
+            output_constraints,
+            TranscodeAudioOutputRequirement::none(),
+        )
+    }
+
+    #[must_use]
+    pub fn hls_single_variant_with_audio_output(
+        acceleration: TranscodeAccelerationPlan,
+        track_selection: TranscodeTrackSelection,
+        output_constraints: TranscodeOutputConstraints,
+        audio_output: TranscodeAudioOutputRequirement,
+    ) -> Self {
         Self {
             acceleration,
             output_constraints,
@@ -340,6 +498,11 @@ impl TranscodeExecutionPolicy {
             } else {
                 TranscodeSubtitleStrategy::None
             },
+            audio_output,
         }
     }
+}
+
+fn optional_audio_channels(value: Option<u32>) -> String {
+    value.map_or_else(|| "auto".to_owned(), |value| value.to_string())
 }
