@@ -16,6 +16,8 @@ This file gives repository-local guidance for agents working on Nako.
 - Durable architecture decisions live in `docs/adr/`.
 - Current system maps live in `docs/ARCHITECTURE.md` and
   `docs/architecture/`.
+- `docs/architecture/LANES.md` routes long-lived Codex terminal/worktree
+  ownership across architecture lanes.
 - Workstream planning lives in `docs/workstreams/`.
 - When a change crosses crate boundaries, changes public API shape, changes
   storage/schema behavior, or changes resource/concurrency policy, update the
@@ -28,8 +30,8 @@ This file gives repository-local guidance for agents working on Nako.
   cache/scale behavior should not be hidden inside a one-off feature helper.
 - When opening or materially changing a workstream, link it from the relevant
   `docs/architecture/*.md` file or `docs/architecture/WORKSTREAM_LINKS.md`.
-  Add `architecture_refs` and `capability_tags` to `WORKSTREAM.json` when the
-  workstream changes an architecture capability.
+  Add `lane_slug`, `architecture_refs`, and `capability_tags` to
+  `WORKSTREAM.json` when the workstream changes an architecture capability.
 - M27.0 is a design baseline only. Do not add schema migrations, provider
   features, runtime behavior, or public API changes under M27.0.
 

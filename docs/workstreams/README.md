@@ -4,6 +4,31 @@ Workstreams group related milestones, TODOs, phase notes, and design context.
 They are not ownership silos; they are long-running areas of architectural
 attention.
 
+## Status Authority
+
+`WORKSTREAM.json` is the authoritative status record for each workstream. This
+README is navigation and may lag detailed closeout evidence.
+
+Use `docs/architecture/LANES.md` to decide whether a Codex terminal should own a
+capability area across multiple workstreams. New or materially changed
+workstreams should record `lane_slug`, `architecture_refs`, and
+`capability_tags` in `WORKSTREAM.json` when they affect an architecture lane.
+
+## Active Execution Queue
+
+Last reviewed: 2026-05-30
+
+- [generated-artifact-metadata-authority-apply](generated-artifact-metadata-authority-apply/README.md)
+  is active on lane `library-metadata-control-plane`; next task is `GAMA-050`.
+- [admin-media-management-context-links](admin-media-management-context-links/README.md)
+  is active on lane `web-product`; next task is `AMCL-050`.
+- [client-surface-and-access-product-architecture](client-surface-and-access-product-architecture/README.md)
+  is active on lane `client-surfaces-planning`; next task is `CSAPA-050`.
+
+Planner coordination should keep `GAMA-060` blocked until `GAMA-050` is
+reviewed and verified. `CSAPA` should split or explicitly defer desktop
+playback before closeout.
+
 ## Current Workstreams
 
 - [storage-vfs-resilience-and-source-identity](storage-vfs-resilience-and-source-identity/README.md):

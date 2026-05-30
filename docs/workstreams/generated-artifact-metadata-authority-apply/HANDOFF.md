@@ -26,6 +26,7 @@ mutations.
 ## Active Task
 
 - Task ID: `GAMA-050`
+- Lane: `library-metadata-control-plane`
 - Status: ready
 - Owner: unassigned
 

@@ -72,6 +72,26 @@
     "docs/adr/0028-user-playback-state-principal-and-public-contract.md",
     "docs/adr/0037-local-credential-and-session-auth.md"
   ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/CONTROL_PLANE.md",
+      "capability": "Admin-owned management actions and diagnostics links"
+    },
+    {
+      "path": "docs/architecture/STATE_ACCESS.md",
+      "capability": "Permission-gated context links and redacted DTO boundaries"
+    },
+    {
+      "path": "docs/architecture/LANES.md",
+      "capability": "web-product lane ownership"
+    }
+  ],
+  "capability_tags": [
+    "web.management-context-links",
+    "control-plane.admin.context-links",
+    "state-access.permission-gated-links"
+  ],
+  "lane_slug": "web-product",
   "continue_policy": {
     "default_action": "continue",
     "next_task": "AMCL-050",

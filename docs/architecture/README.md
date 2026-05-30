@@ -13,6 +13,8 @@ workstream evidence in the deep dives below.
 
 ## Maps
 
+- [Architecture lanes](LANES.md): terminal/worktree ownership registry for
+  parallel Codex development by capability area.
 - [Architecture workstream links](WORKSTREAM_LINKS.md): capability area to
   workstream evidence and proposed lane index.
 - [Playback architecture](PLAYBACK.md): video playback capability map,

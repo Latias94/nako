@@ -10,6 +10,8 @@ Use this index as navigation, not as the source of design truth:
 
 - ADRs own durable decisions.
 - `docs/architecture/*.md` owns capability progress and risk maps.
+- `docs/architecture/LANES.md` owns terminal/worktree lane routing for
+  parallel development.
 - `docs/workstreams/*` owns task plans, evidence, gates, and handoff state.
 
 ## Linkage Rules
@@ -20,6 +22,8 @@ Use this index as navigation, not as the source of design truth:
   opened, for example `proposed:hls-seek-restart-lifecycle`.
 - New workstreams should add `architecture_refs` and `capability_tags` to
   `WORKSTREAM.json` when they materially change an architecture capability.
+- New long-lived terminal lanes should be registered in
+  `docs/architecture/LANES.md` before multiple agents rely on the boundary.
 - Do not copy detailed workstream evidence into architecture docs. Link the
   workstream instead.
 

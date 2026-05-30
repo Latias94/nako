@@ -20,6 +20,7 @@ The backend contract is already complete:
 ## Active Task
 
 - Task ID: AMCL-050
+- Lane: `web-product`
 - Owner: codex
 - Scope: `web/`, Admin/Media route transitions, browser smoke, and workstream
   evidence.

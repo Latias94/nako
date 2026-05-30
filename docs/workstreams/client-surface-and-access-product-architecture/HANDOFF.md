@@ -26,6 +26,8 @@ verification.
 
 CSAPA-050: split or explicitly defer the desktop playback strategy.
 
+Lane: `client-surfaces-planning`
+
 Recommended first decisions:
 
 - decide whether the first desktop lane is a playback-core spike, a packaging

@@ -4,7 +4,7 @@
   "title": "Client Surface And Access Product Architecture",
   "status": "active",
   "current_task": "CSAPA-050",
-  "updated": "2026-05-29",
+  "updated": "2026-05-30",
   "scope_kind": "planning",
   "problem": "Nako needs an accepted product architecture for Admin Web, Media Web, desktop playback, mobile clients, users, roles, Library Access, and permission-gated switching between media consumption and management.",
   "authoritative_docs": [
@@ -61,6 +61,26 @@
     "docs/adr/0027-admin-api-boundary-for-web-console.md",
     "docs/adr/0028-user-playback-state-principal-and-public-contract.md"
   ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/LANES.md",
+      "capability": "client-surfaces-planning lane ownership"
+    },
+    {
+      "path": "docs/architecture/STATE_ACCESS.md",
+      "capability": "Client access and permission boundary pressure"
+    },
+    {
+      "path": "docs/architecture/CONTROL_PLANE.md",
+      "capability": "Admin surface and management action boundaries"
+    }
+  ],
+  "capability_tags": [
+    "client-surfaces.product-architecture",
+    "web.admin-media-boundary",
+    "desktop.playback-strategy"
+  ],
+  "lane_slug": "client-surfaces-planning",
   "continue_policy": {
     "default_action": "split_follow_on",
     "notes": "Do not implement broad client/access work inside this planning lane. Identity/access, Media Web, and Management Context Links are split; split or defer desktop playback before closing this planning lane."
