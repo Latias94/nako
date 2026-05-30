@@ -72,6 +72,8 @@ async fn storage_backend_diagnostics_route_exposes_registry_state_without_secret
     assert_eq!(backend.health.consecutive_errors, 0);
     assert_eq!(backend.health.last_success_at_ms, None);
     assert_eq!(backend.health.last_error_at_ms, None);
+    assert_eq!(backend.health.last_error_class, None);
+    assert_eq!(backend.health.backoff_until_ms, None);
 
     let body = serde_json::to_string(&diagnostics).unwrap();
     assert!(!body.contains(&temp.path().display().to_string()));
@@ -127,6 +129,11 @@ async fn admin_v1_overview_composes_safe_read_only_diagnostics() {
         overview.storage.backends[0].status,
         StorageBackendStatus::Ready
     );
+    assert_eq!(overview.catalog.governed_items, 0);
+    assert_eq!(overview.catalog.unknown_kind_items, 0);
+    assert_eq!(overview.catalog.low_confidence_items, 0);
+    assert_eq!(overview.catalog.items_with_duplicate_relationships, 0);
+    assert_eq!(overview.catalog.items_missing_accepted_provider_mapping, 0);
     assert_eq!(overview.metadata.total_providers, 0);
     assert_eq!(overview.runtime.failed_tasks, 0);
     assert_eq!(overview.runtime.cancelled_jobs, 0);
@@ -277,6 +284,18 @@ async fn admin_v1_catalog_governance_lists_unknown_low_confidence_and_redacts_ev
         })
         .await
         .unwrap();
+    store
+        .upsert_source_duplicate_relationship(&nako_core::SourceDuplicateRelationship {
+            id: nako_core::SourceDuplicateRelationshipId::new(),
+            source_id: confident_source.id,
+            duplicate_source_id: weak_source.id,
+            evidence_kind: nako_core::SourceDuplicateEvidenceKind::StrongFingerprint,
+            evidence_value: Some("sha256:confident".to_owned()),
+            status: nako_core::SourceDuplicateRelationshipStatus::Suggested,
+            confidence_milli: Some(930),
+        })
+        .await
+        .unwrap();
     for (source, kind, confidence, evidence_value) in [
         (
             &unknown_source,
@@ -341,7 +360,7 @@ async fn admin_v1_catalog_governance_lists_unknown_low_confidence_and_redacts_ev
     assert_eq!(status, StatusCode::OK, "{body}");
     let response: AdminCatalogGovernanceItemListResponse = serde_json::from_str(&body).unwrap();
 
-    assert_eq!(response.items.len(), 2);
+    assert_eq!(response.items.len(), 3);
     assert_eq!(response.items[0].item_id, unknown.id);
     assert_eq!(response.items[0].kind, MediaKind::Unknown);
     assert_eq!(response.items[0].source_count, 1);
@@ -366,14 +385,20 @@ async fn admin_v1_catalog_governance_lists_unknown_low_confidence_and_redacts_ev
     );
     assert_eq!(response.items[1].provider_mapping_count, 1);
     assert_eq!(response.items[1].accepted_provider_mapping_count, 1);
-    assert_eq!(response.page.limit, 10);
-    assert_eq!(response.page.returned, 2);
-    assert!(
-        !response
-            .items
-            .iter()
-            .any(|item| item.item_id == confident.id)
+    assert_eq!(response.items[1].duplicate_relationship_count, 1);
+    assert_eq!(response.items[2].item_id, confident.id);
+    assert_eq!(response.items[2].kind, MediaKind::Movie);
+    assert_eq!(
+        response.items[2]
+            .local_inference
+            .as_ref()
+            .unwrap()
+            .confidence_milli,
+        Some(920)
     );
+    assert_eq!(response.items[2].duplicate_relationship_count, 1);
+    assert_eq!(response.page.limit, 10);
+    assert_eq!(response.page.returned, 3);
     assert!(!body.contains("evidence_value"));
     assert!(!body.contains("local:///"));
     assert!(!body.contains("secret-evidence"));
@@ -1867,6 +1892,8 @@ async fn admin_v1_storage_staging_lists_filters_and_redacts_paths() {
     assert_eq!(diagnostics.summary.used_manifest_bytes, 52);
     assert!(diagnostics.summary.cleanup_on_startup);
     assert_eq!(diagnostics.summary.retention_ms, 8_888);
+    assert_eq!(diagnostics.summary.cleanup_candidate_records, 2);
+    assert_eq!(diagnostics.summary.cleanup_candidate_bytes, 52);
     assert_eq!(diagnostics.summary.vfs_cache.object_count, 1);
     assert_eq!(diagnostics.summary.vfs_cache.failure_count, 1);
     assert_eq!(

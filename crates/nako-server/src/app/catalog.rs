@@ -7,7 +7,7 @@ use nako_api::{
         AdminCatalogGovernanceProviderMappingReviewPlan,
         AdminCatalogGovernanceProviderMappingReviewPlanResponse,
         AdminCatalogGovernanceProviderMappingReviewResponse,
-        AdminCatalogGovernanceProviderMappingSummary,
+        AdminCatalogGovernanceProviderMappingSummary, AdminOverviewCatalogSummary,
         catalog_governance_record_from_item_sources_and_counts,
     },
     public_client::{
@@ -58,6 +58,64 @@ impl CatalogAppService {
         page: PageRequest,
     ) -> Result<Vec<CatalogGovernanceItemRecord>> {
         self.store.list_catalog_governance_items(filter, page).await
+    }
+
+    pub async fn catalog_governance_summary(&self) -> Result<AdminOverviewCatalogSummary> {
+        let filter = CatalogGovernanceItemListFilter::default();
+        let mut offset = 0;
+        let mut summary = AdminOverviewCatalogSummary::default();
+
+        loop {
+            let page = PageRequest::new(PageRequest::MAX_LIMIT, offset);
+            let records = self
+                .store
+                .list_catalog_governance_items(filter, page)
+                .await?;
+            let returned = records.len();
+
+            for record in &records {
+                summary.governed_items = summary.governed_items.saturating_add(1);
+
+                if record.item.kind == nako_core::MediaKind::Unknown {
+                    summary.unknown_kind_items = summary.unknown_kind_items.saturating_add(1);
+                }
+
+                if record
+                    .best_local_inference
+                    .as_ref()
+                    .and_then(|evidence| evidence.confidence_milli)
+                    .is_some_and(|confidence| {
+                        confidence
+                            <= nako_core::DEFAULT_CATALOG_GOVERNANCE_CONFIDENCE_THRESHOLD_MILLI
+                    })
+                {
+                    summary.low_confidence_items = summary.low_confidence_items.saturating_add(1);
+                }
+
+                if record.duplicate_relationship_count > 0 {
+                    summary.items_with_duplicate_relationships =
+                        summary.items_with_duplicate_relationships.saturating_add(1);
+                }
+
+                if record.accepted_provider_mapping_count == 0 {
+                    summary.items_missing_accepted_provider_mapping = summary
+                        .items_missing_accepted_provider_mapping
+                        .saturating_add(1);
+                }
+            }
+
+            if returned < PageRequest::MAX_LIMIT as usize {
+                return Ok(summary);
+            }
+
+            offset =
+                offset
+                    .checked_add(returned as u64)
+                    .ok_or_else(|| NakoError::InvalidInput {
+                        message: "catalog governance summary pagination offset overflowed"
+                            .to_owned(),
+                    })?;
+        }
     }
 
     pub async fn get_catalog_governance_item_detail(

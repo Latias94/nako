@@ -1,7 +1,7 @@
 # Storage/VFS Resilience And Source Identity — Milestones
 
 Status: Active
-Last updated: 2026-05-29
+Last updated: 2026-05-30
 
 ## M0 — Authority Freeze
 
@@ -91,6 +91,8 @@ Primary evidence:
 
 ## M4 — Diagnostics And Cleanup
 
+Status: Complete as of 2026-05-30.
+
 Exit criteria:
 
 - Admin diagnostics expose safe storage/source-identity pressure summaries.
@@ -102,6 +104,17 @@ Primary gates:
 
 - `cargo nextest run -p nako-server system storage --no-fail-fast`
 - `cargo nextest run -p nako-api admin_contract --no-fail-fast` if DTOs change.
+
+Primary evidence:
+
+- `crates/nako-api/src/admin.rs`
+- `crates/nako-api/src/admin/storage.rs`
+- `crates/nako-server/src/http/admin.rs`
+- `crates/nako-server/src/app/catalog.rs`
+- `crates/nako-server/src/app/storage.rs`
+- `crates/nako-db/src/sqlite/catalog_governance.rs`
+- `crates/nako-db/src/postgres/core_catalog.rs`
+- `docs/workstreams/storage-vfs-resilience-and-source-identity/EVIDENCE_AND_GATES.md`
 
 ## M5 — Closeout
 

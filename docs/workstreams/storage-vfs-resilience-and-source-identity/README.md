@@ -1,7 +1,7 @@
 # Storage/VFS Resilience And Source Identity
 
 Status: Active
-Last updated: 2026-05-29
+Last updated: 2026-05-30
 
 This workstream deepens Nako's storage/VFS and **Media Source** identity
 behavior before larger remote-library, watch-folder, provider, and sidecar-write
@@ -37,6 +37,8 @@ source identity evidence and storage failure behavior are still too shallow:
 
 ## Current Target
 
-Start with source identity evidence and scan reconciliation. Do not begin with a
-new backend, a full file hashing policy, or an HLS/runtime rewrite.
-
+SVRS-020 through SVRS-050 are complete. The remaining target is SVRS-060
+closeout: either close the lane cleanly or split explicit follow-ons for
+watcher/debounce, backend-specific circuit breakers, expensive hash policies,
+and PostgreSQL runtime harness coverage. Do not begin an HLS/runtime rewrite in
+this lane.

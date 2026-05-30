@@ -5637,6 +5637,22 @@ where
     assert_eq!(governed.accepted_provider_mapping_count, 0);
     assert_eq!(governed.duplicate_relationship_count, 1);
     assert_eq!(governed.best_local_inference, Some(evidence));
+
+    let duplicate_only = governance
+        .iter()
+        .find(|record| record.item.id == second_source.item_id)
+        .expect("governance should include high-confidence duplicate-only item");
+
+    assert_eq!(duplicate_only.library_id, library.id);
+    assert_eq!(duplicate_only.source_count, 1);
+    assert_eq!(
+        duplicate_only.representative_source_id,
+        Some(second_source.id)
+    );
+    assert_eq!(duplicate_only.provider_mapping_count, 0);
+    assert_eq!(duplicate_only.accepted_provider_mapping_count, 0);
+    assert_eq!(duplicate_only.duplicate_relationship_count, 1);
+    assert_eq!(duplicate_only.best_local_inference, None);
 }
 
 async fn vfs_cache_contract_round_trips_listing_failures_and_summary<S>(store: S)

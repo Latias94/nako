@@ -1,7 +1,7 @@
 # Storage/VFS Resilience And Source Identity — Evidence And Gates
 
 Status: Active
-Last updated: 2026-05-29
+Last updated: 2026-05-30
 
 ## Required Gates
 
@@ -10,7 +10,7 @@ Run focused gates for each task before marking it complete:
 - `python -m json.tool docs/workstreams/storage-vfs-resilience-and-source-identity/WORKSTREAM.json > $null`
 - `git diff --check`
 - `cargo fmt --all -- --check`
-- `cargo check -p nako-core -p nako-db -p nako-vfs -p nako-library -p nako-server --tests`
+- `cargo check -p nako-core -p nako-db -p nako-vfs -p nako-library -p nako-api -p nako-server --tests`
 
 Task-specific gates:
 
@@ -62,6 +62,16 @@ available:
 | 2026-05-29 | SVRS-040 | `cargo nextest run -p nako-server manifest_recording_backend_rolls_back_reservation_when_stage_fails --no-fail-fast` | Passed: 1 test |
 | 2026-05-29 | SVRS-040 | `cargo check -p nako-core -p nako-db -p nako-vfs -p nako-library -p nako-server --tests`; `cargo fmt --all -- --check`; `git diff --check`; `python -m json.tool docs/workstreams/storage-vfs-resilience-and-source-identity/WORKSTREAM.json > $null` | Passed; `git diff --check` printed only Windows line-ending warnings |
 | 2026-05-29 | SVRS-040 | PostgreSQL opt-in harness | Not required: no schema, migration, or repository contract changed |
+| 2026-05-30 | SVRS-050 | Added Admin overview catalog governance pressure summary, storage staging cleanup-candidate pressure, storage backend health failure-class/backoff diagnostics, and duplicate-only catalog governance inclusion for SQLite/PostgreSQL query paths. | Implemented |
+| 2026-05-30 | SVRS-050 | Synchronized Admin TypeScript contract source and generated outputs under `apps/admin-web/src/adminApi/generated/contract.ts` and `web/src/api/admin/generated/contract.ts`. | Implemented; generated DTO contract only |
+| 2026-05-30 | SVRS-050 | `cargo nextest run -p nako-api admin_contract --no-fail-fast` | Passed: 5 tests |
+| 2026-05-30 | SVRS-050 | `cargo nextest run -p nako-api storage_backend_diagnostics --no-fail-fast` | Passed: 1 test |
+| 2026-05-30 | SVRS-050 | `cargo nextest run -p nako-api admin_overview_response_serializes_safe_summary_fields --no-fail-fast` | Passed: 1 test |
+| 2026-05-30 | SVRS-050 | `cargo nextest run -p nako-db catalog_governance --no-fail-fast` | Passed: 1 test |
+| 2026-05-30 | SVRS-050 | `cargo nextest run -p nako-db runtime_promotion_contract_covers_facade_dispatch_gap_surfaces --no-fail-fast` | Passed: 1 SQLite contract test |
+| 2026-05-30 | SVRS-050 | `cargo nextest run -p nako-server system storage --no-fail-fast` | Passed: 53 tests |
+| 2026-05-30 | SVRS-050 | `cargo check -p nako-core -p nako-db -p nako-vfs -p nako-library -p nako-api -p nako-server --tests`; `cargo fmt --all -- --check`; `git diff --check`; `python -m json.tool docs/workstreams/storage-vfs-resilience-and-source-identity/WORKSTREAM.json > $null` | Passed; `git diff --check` printed only Windows line-ending warnings |
+| 2026-05-30 | SVRS-050 | PostgreSQL opt-in harness | Not run: no `NAKO_TEST_POSTGRES_URL` or local PostgreSQL harness was configured in this workspace |
 
 ## SVRS-020 Verification Notes
 
@@ -117,6 +127,27 @@ available:
   proves staging reservation failure records no raw backend details.
 - No PostgreSQL harness was required because SVRS-040 did not change schema,
   migrations, repository traits, or repository implementations.
+
+## SVRS-050 Verification Notes
+
+- Admin overview now reports catalog governance pressure as counts only:
+  governed items, unknown-kind items, low-confidence items, duplicate
+  relationship items, and items missing accepted provider mappings.
+- Catalog governance SQL now includes duplicate-only items so source identity
+  reconciliation pressure remains visible even when the item is otherwise
+  high-confidence.
+- Storage staging diagnostics now summarize cleanup-candidate record and byte
+  pressure using the same repository cleanup candidate boundary as the cleanup
+  job. The response still redacts staging paths and backend locators.
+- Storage backend diagnostics expose only the typed last failure class and
+  backoff timestamp, not raw backend messages, credentials, paths, ETags, or
+  fingerprint values.
+- Admin DTO changes were reflected in the hand-maintained TypeScript contract
+  source and both generated Admin contract outputs. No Web UI behavior was
+  changed in this lane.
+- PostgreSQL catalog governance SQL was changed and compile-checked with the
+  Postgres adapter, but the runtime PostgreSQL harness was skipped because no
+  `NAKO_TEST_POSTGRES_URL` was available.
 
 ## Review Expectations
 

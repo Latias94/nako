@@ -1374,6 +1374,15 @@ impl CatalogGovernanceRepository for PostgresStore {
                           AND evidence_source.library_id = media_sources.library_id
                     ) <= $3
                 )
+                OR (
+                    SELECT COUNT(DISTINCT duplicate.id)
+                    FROM source_duplicate_relationships AS duplicate
+                    INNER JOIN media_sources AS duplicate_source
+                        ON duplicate_source.id = duplicate.source_id
+                        OR duplicate_source.id = duplicate.duplicate_source_id
+                    WHERE duplicate_source.item_id = media_items.id
+                      AND duplicate_source.library_id = media_sources.library_id
+                ) > 0
             ORDER BY
                 CASE WHEN media_items.kind = $2 THEN 0 ELSE 1 END ASC,
                 best_confidence_milli ASC,

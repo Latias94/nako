@@ -1,6 +1,7 @@
 use nako_client_protocol::PageInfo;
 use nako_core::{
     LibraryId, StagingManifestId, StagingManifestRecord, StagingPurpose, StagingState,
+    StorageFailureClass,
 };
 use serde::{Deserialize, Serialize};
 
@@ -21,6 +22,8 @@ pub struct AdminStorageStagingSummary {
     pub retention_ms: u64,
     pub startup_deleted_records: u32,
     pub startup_deleted_files: u32,
+    pub cleanup_candidate_records: u32,
+    pub cleanup_candidate_bytes: u64,
     pub process_cached_backends: u32,
     pub vfs_cache: AdminVfsCacheSummary,
 }
@@ -121,6 +124,8 @@ pub struct StorageBackendHealthDiagnostic {
     pub consecutive_errors: u64,
     pub last_success_at_ms: Option<i64>,
     pub last_error_at_ms: Option<i64>,
+    pub last_error_class: Option<StorageFailureClass>,
+    pub backoff_until_ms: Option<i64>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -196,6 +201,8 @@ mod tests {
                     consecutive_errors: 0,
                     last_success_at_ms: Some(1_000),
                     last_error_at_ms: None,
+                    last_error_class: None,
+                    backoff_until_ms: None,
                 },
             }],
         };
@@ -211,6 +218,14 @@ mod tests {
             "process_local"
         );
         assert_eq!(value["backends"][0]["health"]["consecutive_errors"], 0);
+        assert_eq!(
+            value["backends"][0]["health"]["last_error_class"],
+            serde_json::Value::Null
+        );
+        assert_eq!(
+            value["backends"][0]["health"]["backoff_until_ms"],
+            serde_json::Value::Null
+        );
         assert!(!body.contains("token"));
         assert!(!body.contains("password"));
         assert!(!body.contains("webdav:///"));

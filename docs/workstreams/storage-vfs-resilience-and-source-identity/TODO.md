@@ -1,7 +1,7 @@
 # Storage/VFS Resilience And Source Identity — TODO
 
 Status: Active
-Last updated: 2026-05-29
+Last updated: 2026-05-30
 
 ## M0 — Scope And Authority
 
@@ -71,12 +71,21 @@ Last updated: 2026-05-29
 
 ## M4 — Diagnostics And Cleanup
 
-- [ ] SVRS-050 [owner=codex] [deps=SVRS-030,SVRS-040] [scope=crates/nako-api,crates/nako-server,docs]
+- [x] SVRS-050 [owner=codex] [deps=SVRS-030,SVRS-040] [scope=crates/nako-api,crates/nako-db,crates/nako-server,generated-admin-contracts,docs]
   Goal: Add redaction-safe Admin diagnostics for source identity reconciliation,
   stale VFS cache, storage health, and partial staging cleanup pressure.
   Validation:
   `cargo nextest run -p nako-server system storage --no-fail-fast` and
   `cargo nextest run -p nako-api admin_contract --no-fail-fast` if DTOs change.
+  Evidence: Admin overview now includes catalog governance pressure counts;
+  storage staging diagnostics include cleanup-candidate record and byte counts;
+  storage backend health exposes redaction-safe failure class and backoff
+  timestamps; catalog governance includes duplicate-only source-identity
+  reconciliation pressure in SQLite/PostgreSQL query paths; Admin TypeScript
+  generated contracts were synchronized for the changed DTOs.
+  Persistence note: no schema or migration changed. PostgreSQL SQL shape was
+  updated and compile-checked, but the opt-in PostgreSQL runtime harness was
+  not run because no `NAKO_TEST_POSTGRES_URL` was configured in this workspace.
   Review: Confirm no **Source Locator**, local path, raw ETag, token, or
   fingerprint value leaks.
   Handoff: SVRS-060 closes or splits watcher/debounce and backend-specific

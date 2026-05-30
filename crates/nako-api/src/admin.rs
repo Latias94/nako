@@ -310,6 +310,7 @@ pub struct AdminOverviewResponse {
     pub public_api_version: String,
     pub status: AdminOverviewStatus,
     pub storage: AdminOverviewStorageSummary,
+    pub catalog: AdminOverviewCatalogSummary,
     pub metadata: AdminOverviewMetadataSummary,
     pub runtime: AdminOverviewRuntimeSummary,
     pub startup: AdminOverviewStartupSummary,
@@ -337,6 +338,15 @@ pub struct AdminOverviewStorageBackendSummary {
     pub library_name: String,
     pub backend_kind: StorageBackendKind,
     pub status: StorageBackendStatus,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOverviewCatalogSummary {
+    pub governed_items: u32,
+    pub unknown_kind_items: u32,
+    pub low_confidence_items: u32,
+    pub items_with_duplicate_relationships: u32,
+    pub items_missing_accepted_provider_mapping: u32,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -405,6 +415,13 @@ mod tests {
                     status: StorageBackendStatus::Ready,
                 }],
             },
+            catalog: AdminOverviewCatalogSummary {
+                governed_items: 2,
+                unknown_kind_items: 1,
+                low_confidence_items: 1,
+                items_with_duplicate_relationships: 1,
+                items_missing_accepted_provider_mapping: 2,
+            },
             metadata: AdminOverviewMetadataSummary {
                 total_providers: 1,
                 available_providers: 1,
@@ -445,6 +462,8 @@ mod tests {
         assert_eq!(value["status"], "healthy");
         assert_eq!(value["storage"]["ready_backends"], 1);
         assert_eq!(value["storage"]["backends"][0]["status"], "ready");
+        assert_eq!(value["catalog"]["governed_items"], 2);
+        assert_eq!(value["catalog"]["items_with_duplicate_relationships"], 1);
         assert_eq!(value["metadata"]["providers"][0]["provider"], "tmdb");
         assert!(!body.contains("secret"));
         assert!(!body.contains("token"));

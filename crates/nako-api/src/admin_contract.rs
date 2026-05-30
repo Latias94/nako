@@ -1302,6 +1302,13 @@ export interface AdminOverviewResponse {
       status: string;
     }>;
   };
+  catalog: {
+    governed_items: number;
+    unknown_kind_items: number;
+    low_confidence_items: number;
+    items_with_duplicate_relationships: number;
+    items_missing_accepted_provider_mapping: number;
+  };
   metadata: {
     total_providers: number;
     available_providers: number;
@@ -2134,6 +2141,8 @@ export interface AdminStorageStagingDiagnosticsResponse {
     retention_ms: number;
     startup_deleted_records: number;
     startup_deleted_files: number;
+    cleanup_candidate_records: number;
+    cleanup_candidate_bytes: number;
     process_cached_backends: number;
     vfs_cache: {
       object_count: number;

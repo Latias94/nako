@@ -96,6 +96,7 @@ impl CatalogGovernanceRepository for SqliteStore {
         query.push(
             r#"
                 )
+                OR duplicate_relationship_count > 0
             ORDER BY
                 CASE WHEN media_items.kind = "#,
         );

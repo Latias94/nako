@@ -856,8 +856,9 @@ pub(super) async fn review_admin_catalog_governance_provider_mapping(
     ))
 }
 
-pub(super) async fn get_admin_overview(State(app): State<NakoApp>) -> Json<AdminOverviewResponse> {
+pub(super) async fn get_admin_overview(State(app): State<NakoApp>) -> ApiResult<impl IntoResponse> {
     let storage = app.storage().list_storage_backend_diagnostics().await;
+    let catalog = app.catalog().catalog_governance_summary().await?;
     let metadata = app.metadata().list_metadata_provider_diagnostics();
     let runtime = app.runtime_diagnostics();
     let startup = app.startup_report().clone();
@@ -884,15 +885,16 @@ pub(super) async fn get_admin_overview(State(app): State<NakoApp>) -> Json<Admin
     };
     let status = overview_status(&storage, &metadata, &runtime);
 
-    Json(AdminOverviewResponse {
+    Ok(Json(AdminOverviewResponse {
         admin_api_version: ADMIN_API_VERSION.to_owned(),
         public_api_version: API_VERSION.to_owned(),
         status,
         storage,
+        catalog,
         metadata,
         runtime,
         startup,
-    })
+    }))
 }
 
 pub(super) async fn get_admin_system_config(
@@ -1323,10 +1325,12 @@ pub(super) async fn list_admin_storage_staging(
     let startup = app.startup_report().clone();
     let process_cached_backends = usize_to_u32(app.storage().process_cached_backend_count().await);
     let used_manifest_bytes = app.storage().sum_staging_manifest_bytes().await?;
-    let vfs_cache = app
+    let now_ms = crate::app::current_time_ms()?;
+    let cleanup_pressure = app
         .storage()
-        .summarize_vfs_cache(crate::app::current_time_ms()?)
+        .summarize_staging_cleanup_pressure(now_ms)
         .await?;
+    let vfs_cache = app.storage().summarize_vfs_cache(now_ms).await?;
 
     Ok(Json(AdminStorageStagingDiagnosticsResponse {
         admin_api_version: ADMIN_API_VERSION.to_owned(),
@@ -1344,6 +1348,8 @@ pub(super) async fn list_admin_storage_staging(
                 .staging_cleanup
                 .as_ref()
                 .map_or(0, |cleanup| usize_to_u32(cleanup.deleted_files)),
+            cleanup_candidate_records: usize_to_u32(cleanup_pressure.cleanup_candidate_records),
+            cleanup_candidate_bytes: cleanup_pressure.cleanup_candidate_bytes,
             process_cached_backends,
             vfs_cache: AdminVfsCacheSummary {
                 object_count: vfs_cache.object_count,

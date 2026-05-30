@@ -33,6 +33,12 @@ pub(crate) struct StorageDiagnosticsAppService {
     registry: StorageBackendRegistry,
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) struct StagingCleanupPressureSummary {
+    pub(crate) cleanup_candidate_records: usize,
+    pub(crate) cleanup_candidate_bytes: u64,
+}
+
 impl StorageDiagnosticsAppService {
     pub(super) fn new(registry: StorageBackendRegistry) -> Self {
         Self { registry }
@@ -66,6 +72,44 @@ impl StorageDiagnosticsAppService {
 
     pub(crate) async fn summarize_vfs_cache(&self, now_ms: i64) -> Result<VfsCacheSummary> {
         self.registry.store.summarize_vfs_cache(now_ms).await
+    }
+
+    pub(crate) async fn summarize_staging_cleanup_pressure(
+        &self,
+        now_ms: i64,
+    ) -> Result<StagingCleanupPressureSummary> {
+        let mut summary = StagingCleanupPressureSummary::default();
+        let mut offset = 0;
+
+        loop {
+            let page = PageRequest::new(PageRequest::MAX_LIMIT, offset);
+            let records = self
+                .registry
+                .store
+                .list_staging_cleanup_candidates(now_ms, page)
+                .await?;
+            let returned = records.len();
+
+            for record in &records {
+                summary.cleanup_candidate_records =
+                    summary.cleanup_candidate_records.saturating_add(1);
+                summary.cleanup_candidate_bytes = summary
+                    .cleanup_candidate_bytes
+                    .saturating_add(record.size_bytes.unwrap_or(0));
+            }
+
+            if returned < PageRequest::MAX_LIMIT as usize {
+                return Ok(summary);
+            }
+
+            offset =
+                offset
+                    .checked_add(returned as u64)
+                    .ok_or_else(|| NakoError::InvalidInput {
+                        message: "storage staging cleanup diagnostics pagination offset overflowed"
+                            .to_owned(),
+                    })?;
+        }
     }
 
     #[cfg(test)]
@@ -441,6 +485,10 @@ impl StorageBackendHealth {
                 self.last_success_at_ms.load(Ordering::Relaxed),
             ),
             last_error_at_ms: timestamp_diagnostic(self.last_error_at_ms.load(Ordering::Relaxed)),
+            last_error_class: decode_storage_failure_class(
+                self.last_error_class.load(Ordering::Relaxed),
+            ),
+            backoff_until_ms: timestamp_diagnostic(self.backoff_until_ms.load(Ordering::Relaxed)),
         }
     }
 }
@@ -677,6 +725,8 @@ fn unavailable_backend_diagnostic(
             consecutive_errors: 0,
             last_success_at_ms: None,
             last_error_at_ms: None,
+            last_error_class: None,
+            backoff_until_ms: None,
         },
     }
 }
@@ -717,6 +767,8 @@ fn unavailable_registry_diagnostic(err: NakoError) -> StorageBackendDiagnostic {
             consecutive_errors: 0,
             last_success_at_ms: None,
             last_error_at_ms: None,
+            last_error_class: None,
+            backoff_until_ms: None,
         },
     }
 }
@@ -760,6 +812,21 @@ fn encode_storage_failure_class(class: StorageFailureClass) -> u8 {
         StorageFailureClass::Budget => 7,
         StorageFailureClass::Security => 8,
         StorageFailureClass::Unknown => 9,
+    }
+}
+
+fn decode_storage_failure_class(value: u8) -> Option<StorageFailureClass> {
+    match value {
+        1 => Some(StorageFailureClass::Timeout),
+        2 => Some(StorageFailureClass::Unavailable),
+        3 => Some(StorageFailureClass::Permission),
+        4 => Some(StorageFailureClass::RateLimited),
+        5 => Some(StorageFailureClass::StaleCache),
+        6 => Some(StorageFailureClass::PartialRead),
+        7 => Some(StorageFailureClass::Budget),
+        8 => Some(StorageFailureClass::Security),
+        9 => Some(StorageFailureClass::Unknown),
+        _ => None,
     }
 }
 

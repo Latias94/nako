@@ -1396,7 +1396,7 @@ async fn nako_database_sqlite_round_trips_local_inference_evidence_without_confi
 }
 
 #[tokio::test]
-async fn nako_database_sqlite_lists_catalog_governance_items_for_unknown_and_low_confidence() {
+async fn nako_database_sqlite_lists_catalog_governance_items_for_reconcile_queue() {
     let store = NakoDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
 
@@ -1479,10 +1479,10 @@ async fn nako_database_sqlite_lists_catalog_governance_items_for_unknown_and_low
     };
     let duplicate = SourceDuplicateRelationship {
         id: SourceDuplicateRelationshipId::new(),
-        source_id: low_source.id,
-        duplicate_source_id: unknown_source.id,
+        source_id: high_source.id,
+        duplicate_source_id: low_source.id,
         evidence_kind: SourceDuplicateEvidenceKind::StrongFingerprint,
-        evidence_value: Some("sha256:weak".to_owned()),
+        evidence_value: Some("sha256:confident".to_owned()),
         status: SourceDuplicateRelationshipStatus::Suggested,
         confidence_milli: Some(880),
     };
@@ -1538,7 +1538,7 @@ async fn nako_database_sqlite_lists_catalog_governance_items_for_unknown_and_low
         .await
         .unwrap();
 
-    assert_eq!(records.len(), 2);
+    assert_eq!(records.len(), 3);
     assert_eq!(records[0].item.id, unknown.id);
     assert_eq!(records[0].item.kind, MediaKind::Unknown);
     assert_eq!(records[0].source_count, 1);
@@ -1552,7 +1552,7 @@ async fn nako_database_sqlite_lists_catalog_governance_items_for_unknown_and_low
         Some(350)
     );
     assert_eq!(records[0].provider_mapping_count, 0);
-    assert_eq!(records[0].duplicate_relationship_count, 1);
+    assert_eq!(records[0].duplicate_relationship_count, 0);
 
     assert_eq!(records[1].item.id, low_confidence.id);
     assert_eq!(records[1].item.kind, MediaKind::Movie);
@@ -1567,11 +1567,20 @@ async fn nako_database_sqlite_lists_catalog_governance_items_for_unknown_and_low
     assert_eq!(records[1].provider_mapping_count, 1);
     assert_eq!(records[1].accepted_provider_mapping_count, 1);
     assert_eq!(records[1].duplicate_relationship_count, 1);
-    assert!(
-        !records
-            .iter()
-            .any(|record| record.item.id == high_confidence.id)
+
+    assert_eq!(records[2].item.id, high_confidence.id);
+    assert_eq!(records[2].item.kind, MediaKind::Movie);
+    assert_eq!(
+        records[2]
+            .best_local_inference
+            .as_ref()
+            .unwrap()
+            .confidence_milli,
+        Some(920)
     );
+    assert_eq!(records[2].provider_mapping_count, 0);
+    assert_eq!(records[2].accepted_provider_mapping_count, 0);
+    assert_eq!(records[2].duplicate_relationship_count, 1);
 }
 
 #[tokio::test]
