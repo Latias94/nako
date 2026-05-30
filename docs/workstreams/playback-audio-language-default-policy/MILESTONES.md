@@ -1,6 +1,6 @@
 # Playback Audio Language Default Policy - Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-29
 
 ## M0 - Scope And Evidence Freeze
@@ -52,7 +52,7 @@ Primary gates:
 
 ## M3 - Closeout
 
-Status: Pending
+Status: Completed
 
 Exit criteria:
 

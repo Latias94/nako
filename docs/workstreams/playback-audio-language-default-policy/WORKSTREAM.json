@@ -2,16 +2,17 @@
   "schema_version": 1,
   "slug": "playback-audio-language-default-policy",
   "title": "Playback Audio Language Default Policy",
-  "status": "active",
+  "status": "completed",
   "updated": "2026-05-29",
   "scope_kind": "feature_refactor",
   "problem": "Playback can honor explicit audio stream selection, but has no request-scoped language/default policy for multi-audio HLS audio groups.",
   "task_prefix": "PALD",
-  "current_task": "PALD-040",
+  "current_task": null,
   "completed_tasks": [
     "PALD-010",
     "PALD-020",
-    "PALD-030"
+    "PALD-030",
+    "PALD-040"
   ],
   "authoritative_docs": [
     {
@@ -33,6 +34,10 @@
     {
       "role": "gates",
       "path": "docs/workstreams/playback-audio-language-default-policy/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/playback-audio-language-default-policy/CLOSEOUT.md"
     },
     {
       "role": "handoff",
@@ -60,6 +65,10 @@
     {
       "task": "PALD-030",
       "summary": "Surfaced preferred audio languages through the public HLS query path, asserted HLS audio rendition default flags and explicit stream precedence, and updated OpenAPI plus generated TypeScript/Kotlin SDKs."
+    },
+    {
+      "task": "PALD-040",
+      "summary": "Verified and closed the request-scoped playback audio language/default policy lane, updating architecture/workstream docs and splitting persisted settings, subtitle policy, codec-aware audio, downmix/normalization, UI controls, LL-HLS, DASH, DRM, and offline sync as follow-ons."
     }
   ],
   "adr_refs": [
@@ -83,7 +92,7 @@
     "playback.hls.audio"
   ],
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "Continue this lane while the first slice remains request-scoped. Split persisted user settings, UI controls, subtitle language policy, codec-aware audio, downmix/normalization, LL-HLS/DASH, DRM, and offline sync into follow-ons."
+    "default_action": "closed",
+    "notes": "The request-scoped playback audio language/default policy first slice is complete. Open follow-on workstreams for persisted user settings, UI controls, subtitle language policy, codec-aware audio, downmix/normalization, LL-HLS, DASH, DRM, or offline sync."
   }
 }

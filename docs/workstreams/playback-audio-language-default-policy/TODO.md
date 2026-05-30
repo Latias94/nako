@@ -1,6 +1,6 @@
 # Playback Audio Language Default Policy - TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-29
 
 ## Task Ledger
@@ -141,7 +141,7 @@ Handoff:
 
 ### PALD-040 - Verify, document, and close or split follow-ons
 
-Status: Pending
+Status: Completed
 Owner: planner
 Depends on: PALD-030
 
@@ -180,4 +180,10 @@ Evidence:
 
 Handoff:
 
-- Update `WORKSTREAM.json` status and continue policy.
+- DONE: Fresh closeout gates passed.
+- DONE: Architecture docs describe the shipped request-scoped language/default
+  policy.
+- DONE: Persisted user settings, subtitle policy, codec-aware audio,
+  downmix/normalization, UI controls, LL-HLS, DASH, DRM, and offline sync are
+  deferred as separate follow-ons.
+- DONE: `WORKSTREAM.json` status and continue policy close the lane.

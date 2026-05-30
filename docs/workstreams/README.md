@@ -26,9 +26,11 @@ attention.
   sidecar-capable multi-audio HLS main mux outputs now that generated audio
   sidecar artifacts and `TYPE=AUDIO` groups are servable.
 - [playback-audio-language-default-policy](playback-audio-language-default-policy/README.md):
-  active feature/refactor lane for adding request-scoped preferred audio
-  languages and deterministic default audio selection after HLS audio sidecars
-  became the source of multi-audio playback.
+  completed feature/refactor lane for adding request-scoped preferred audio
+  languages and deterministic HLS default audio selection after HLS audio
+  sidecars became the source of multi-audio playback. Persisted settings,
+  subtitle policy, codec-aware audio, downmix/normalization, UI controls,
+  LL-HLS, DASH, DRM, and offline sync remain follow-ons.
 - [playback-runtime-resource-scheduler](playback-runtime-resource-scheduler/README.md):
   completed fearless refactor lane for turning scattered playback/transcode
   concurrency limits into a host-owned runtime admission boundary with

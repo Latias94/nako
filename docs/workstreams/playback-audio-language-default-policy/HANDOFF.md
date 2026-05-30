@@ -1,14 +1,15 @@
 # Playback Audio Language Default Policy - Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-29
 
 ## Current State
 
-The lane is open. It follows the closed HLS audio sidecar and selected-main-audio
-cleanup lanes. Nako now has request-scoped audio language/default policy so HLS
-audio groups can mark the right rendition as `DEFAULT=YES` without relying only
-on an explicit stream index or first-audio fallback.
+The lane is closed. It follows the closed HLS audio sidecar and
+selected-main-audio cleanup lanes. Nako now has request-scoped audio
+language/default policy so HLS audio groups can mark the right rendition as
+`DEFAULT=YES` without relying only on an explicit stream index or first-audio
+fallback.
 
 PALD-020 is complete. `nako-playback` owns request-scoped preferred audio
 language selection, and server HLS setup uses the playback decision's selected
@@ -19,25 +20,16 @@ PALD-030 is complete. The public HLS playlist route accepts
 and generated TypeScript/Kotlin SDKs expose it, and route tests assert language
 defaulting, explicit stream override, and normalized request identity reuse.
 
+PALD-040 is complete. Fresh playback, HLS, API, formatting, JSON, and diff
+gates passed. Architecture and workstream docs now mark this first slice as
+shipped, and all larger preference/audio/subtitle/runtime items are deferred to
+follow-on lanes.
+
 ## Active Task
 
-- Task ID: PALD-040
-- Owner: planner
-- Files:
-  - `docs/workstreams/playback-audio-language-default-policy`
-  - `docs/architecture/PLAYBACK.md`
-  - `docs/architecture/WORKSTREAM_LINKS.md`
-- Validation:
-  - `cargo nextest run -p nako-playback audio --no-fail-fast`
-  - `cargo nextest run -p nako-server hls --no-fail-fast`
-  - `cargo nextest run -p nako-server playback --no-fail-fast`
-  - `cargo nextest run -p nako-api --no-fail-fast`
-  - `cargo fmt --all -- --check`
-  - `python3 -m json.tool docs/workstreams/playback-audio-language-default-policy/WORKSTREAM.json`
-  - `git diff --check`
-- Status: PENDING
-- Review: pending
-- Evidence: `docs/workstreams/playback-audio-language-default-policy/EVIDENCE_AND_GATES.md`
+None. Open a new workstream for persisted user preferences, subtitle language
+policy, codec-aware audio sidecars, downmix/normalization, player UI controls,
+LL-HLS, DASH, DRM, or offline sync.
 
 ## Decisions Since Opening
 
@@ -61,8 +53,7 @@ defaulting, explicit stream override, and normalized request identity reuse.
 
 ## Next Recommended Action
 
-- Run PALD-040 closeout through `review-workstream`,
-  `verify-rust-workstream`, and `close-workstream`.
-- Decide whether to close this lane after fresh gates or split follow-ons for
-  persisted user preferences, subtitle language policy, codec-aware audio,
-  downmix/normalization, UI controls, LL-HLS/DASH/DRM, or offline sync.
+- Commit the verified closeout docs.
+- Open follow-ons only when product scope needs persisted user preferences,
+  subtitle language policy, codec-aware audio sidecars, downmix/normalization,
+  player UI controls, LL-HLS, DASH, DRM, or offline sync.

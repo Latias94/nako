@@ -1,6 +1,6 @@
 # Playback Audio Language Default Policy
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-29
 
 ## Why This Lane Exists
@@ -123,3 +123,19 @@ This lane can close when:
 - focused playback/HLS/API gates pass with fresh evidence;
 - persisted user settings, UI controls, subtitle language policy, codec-aware
   audio, and LL-HLS/DASH/DRM are either split or explicitly deferred.
+
+## Closeout Summary
+
+This lane closed on 2026-05-29. The shipped slice is request-scoped: playback
+accepts ordered preferred audio languages, explicit audio stream selection keeps
+highest precedence, language matching and fallback are deterministic, and HLS
+audio rendition authoring marks the selected policy stream as the only
+`DEFAULT=YES` audio rendition.
+
+The public HLS playlist route exposes this as `preferred_audio_language`, a
+comma-separated ordered language list. OpenAPI, generated TypeScript/Kotlin
+SDKs, and HTTP API docs expose the query contract.
+
+Persisted user defaults, UI controls, subtitle language policy, codec-aware
+audio sidecars, downmix/normalization, LL-HLS, DASH, DRM, and offline sync are
+deferred to separate workstreams.
