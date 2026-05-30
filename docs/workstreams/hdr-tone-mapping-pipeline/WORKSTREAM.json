@@ -86,6 +86,6 @@
   "lane_slug": "playback-transcode",
   "continue_policy": {
     "default_action": "continue",
-    "notes": "HTP-020 is complete, planner-verified, and committed. Keep HTP-030 blocked until the planner resolves or explicitly serializes the overlapping audio ACDN-030 transcode/HLS scope."
+    "notes": "HTP-020 is complete, planner-verified, and committed. Keep HTP-030 blocked until ACDN-040 is accepted or the planner explicitly serializes the shared transcode/FFmpeg/HLS scope."
   }
 }

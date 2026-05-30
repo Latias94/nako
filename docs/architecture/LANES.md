@@ -23,17 +23,17 @@ ledger instead.
 | `library-metadata-control-plane` | `generated-artifact-metadata-authority-apply` | `GAMA-050` | Backend/control-plane execution |
 | `web-product` | `admin-media-management-context-links` | `AMCL-050` | Web product verification |
 | `client-surfaces-planning` | `client-surface-and-access-product-architecture` | `CSAPA-050` | Planner/docs split or defer decision |
-| `storage-vfs` | `remote-storage-health-and-circuit-breaker` | `RSHC-020` | Backend storage execution |
-| `playback-transcode` | `audio-compatibility-downmix-normalization` | `ACDN-020` | Playback implementation |
-| `playback-transcode` | `hdr-tone-mapping-pipeline` | `HTP-010` | Docs/research only |
+| `storage-vfs` | `remote-storage-health-and-circuit-breaker` | `RSHC-040` | Backend storage/Admin diagnostics execution |
+| `playback-transcode` | `audio-compatibility-downmix-normalization` | `ACDN-040` | Transcode FFmpeg filter planning |
+| `playback-transcode` | `hdr-tone-mapping-pipeline` | `HTP-030` blocked | Park until shared transcode/HLS scope is serialized |
 
 Do not start `GAMA-060` until `GAMA-050` has reviewed and verified the final
 Admin apply route. Do not close `CSAPA` until desktop playback is split,
 deferred, or explicitly scoped.
 
-`HTP-010` may run beside `ACDN-020` only because it is docs/research-only. HDR
-implementation must wait for planner sequencing because it shares
-playback/transcode scopes with audio compatibility.
+`HTP-030` remains parked while `ACDN-040` owns the next shared transcode/FFmpeg
+filter-planning surface. Start HDR transcode/HLS implementation only after the
+planner accepts `ACDN-040` or explicitly serializes the shared scope.
 
 ## Lane Registry
 

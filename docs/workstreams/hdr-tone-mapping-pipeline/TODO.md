@@ -31,7 +31,7 @@ Last updated: 2026-05-30
   Review: Use `review-workstream` before accepting completion.
   Evidence: transcode policy/profile/command-plan tests, server HLS adaptation tests when server code changes, and `EVIDENCE_AND_GATES.md`.
   Context: `docs/workstreams/hdr-tone-mapping-pipeline/CONTEXT.jsonl`.
-  Handoff: Blocked until `HTP-020` is reviewed and accepted by the planner. Keep hardware tone mapping, device-specific filter chains, Dolby Vision dynamic handling, HDR10+ preservation, and operator smoke matrices as follow-ons unless the planner splits them into a dedicated task.
+  Handoff: Blocked until `ACDN-040` is accepted or the planner explicitly serializes the shared transcode/HLS scope. Keep hardware tone mapping, device-specific filter chains, Dolby Vision dynamic handling, HDR10+ preservation, and operator smoke matrices as follow-ons unless the planner splits them into a dedicated task.
 
 ## M3 - Verification And Closeout
 

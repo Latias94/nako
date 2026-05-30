@@ -13,8 +13,8 @@ audio output baseline into this HDR branch.
 
 Return to planner coordination before starting `HTP-030`. The HDR playback
 vocabulary slice is accepted, but the transcode/HLS implementation scope should
-remain blocked until the planner resolves the overlapping audio `ACDN-030`
-HLS gate concern or explicitly serializes those shared files.
+remain blocked until `ACDN-040` is accepted or the planner explicitly serializes
+the shared transcode/FFmpeg/HLS files.
 
 Completed `HTP-020` implementation scope:
 
