@@ -1,0 +1,10 @@
+{"file":"CONTEXT.md","reason":"Project glossary and playback/media terminology."}
+{"file":"docs/adr/0038-playback-planning-and-transcode-policy-seams.md","reason":"Playback planning and transcode policy seam ownership."}
+{"file":"docs/adr/0044-playback-capability-profile-planner.md","reason":"Playback capability profile and output requirement ownership."}
+{"file":"docs/adr/0045-ffmpeg-hardware-pipeline-planner.md","reason":"Transcode Pipeline Planner and hardware stage ownership."}
+{"file":"docs/adr/0052-hls-runtime-and-media-engine-boundary.md","reason":"FFmpeg CLI-first media engine and HLS runtime ownership."}
+{"file":"docs/architecture/PLAYBACK.md","reason":"Playback/transcode capability map and active lane status."}
+{"file":"docs/architecture/LANES.md","reason":"Lane ownership, shared-scope serialization, and terminal routing."}
+{"file":"docs/architecture/WORKSTREAM_LINKS.md","reason":"Playback/transcode workstream index."}
+{"file":"docs/workstreams/audio-compatibility-downmix-normalization/CLOSEOUT.md","reason":"Recently closed audio output requirement and FFmpeg filter evidence."}
+{"file":"docs/workstreams/hdr-tone-mapping-pipeline/HANDOFF.md","reason":"HDR HTP-030 is parked behind this Interface deepening."}

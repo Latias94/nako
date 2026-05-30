@@ -24,16 +24,18 @@ Last reviewed: 2026-05-31
   is active on lane `client-surfaces-planning`; next task is `CSAPA-050`.
 - [remote-storage-health-and-circuit-breaker](remote-storage-health-and-circuit-breaker/README.md)
   is active on lane `storage-vfs`; next task is `RSHC-040`.
+- [transcode-interface-and-runtime-plan-deepening](transcode-interface-and-runtime-plan-deepening/README.md)
+  is active on lane `playback-transcode`; next task is `TIRP-020`.
 - [hdr-tone-mapping-pipeline](hdr-tone-mapping-pipeline/README.md)
-  is active on lane `playback-transcode`; next task is `HTP-030`.
+  is active on lane `playback-transcode`; next task is `HTP-030` parked.
 
 Planner coordination should keep `GAMA-060` blocked until `GAMA-050` is
 reviewed and verified. `CSAPA` should split or explicitly defer desktop
 playback before closeout. The `web-product` lane is idle after
 `admin-media-management-context-links` closeout.
-`audio-compatibility-downmix-normalization` is closed; avoid running multiple
-transcode/HLS implementation tasks concurrently unless the planner serializes
-the shared playback/transcode scope.
+`audio-compatibility-downmix-normalization` is closed. `HTP-030` remains parked
+while `TIRP-020`/`TIRP-030` own the shared transcode/HLS Interface surface,
+unless the planner explicitly serializes the shared scope.
 
 ## Current Workstreams
 
@@ -43,8 +45,14 @@ the shared playback/transcode scope.
   `RSHC-040` owns redaction-safe Admin diagnostics and operator circuit reset.
 - [hdr-tone-mapping-pipeline](hdr-tone-mapping-pipeline/README.md):
   active playback/transcode lane for HDR/color compatibility and the first
-  executable tone-mapping slice. `HTP-030` is ready unless the planner inserts
-  a transcode Interface deepening slice first.
+  executable tone-mapping slice. `HTP-030` is parked behind
+  `transcode-interface-and-runtime-plan-deepening` unless the planner
+  explicitly serializes the shared scope.
+- [transcode-interface-and-runtime-plan-deepening](transcode-interface-and-runtime-plan-deepening/README.md):
+  active playback/transcode lane for deepening the `nako-transcode` Interface
+  before HDR tone mapping adds more color/filter requirements. `TIRP-020` owns
+  the HLS runtime plan Interface slice; `TIRP-030` owns low-level FFmpeg
+  adapter exposure ratcheting.
 - [audio-compatibility-downmix-normalization](audio-compatibility-downmix-normalization/README.md):
   closed playback/transcode lane for making downmix, channel compatibility,
   dynamic range, and normalization explicit **Audio Output Requirement**

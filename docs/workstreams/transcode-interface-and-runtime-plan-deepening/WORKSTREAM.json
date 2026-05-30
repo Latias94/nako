@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "slug": "transcode-interface-and-runtime-plan-deepening",
+  "title": "Transcode Interface And Runtime Plan Deepening",
+  "status": "active",
+  "updated": "2026-05-31",
+  "scope_kind": "fearless_refactor",
+  "problem": "nako-server still assembles too much HLS transcode execution detail directly, which keeps nako-transcode shallow before HDR tone mapping expands the same surface.",
+  "task_prefix": "TIRP",
+  "current_task": "TIRP-020",
+  "completed_tasks": [
+    "TIRP-010"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/transcode-interface-and-runtime-plan-deepening/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/transcode-interface-and-runtime-plan-deepening/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/transcode-interface-and-runtime-plan-deepening/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/transcode-interface-and-runtime-plan-deepening/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/transcode-interface-and-runtime-plan-deepening/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "context_manifest",
+      "path": "docs/workstreams/transcode-interface-and-runtime-plan-deepening/CONTEXT.jsonl"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/transcode-interface-and-runtime-plan-deepening/HANDOFF.md"
+    }
+  ],
+  "context_manifest": "docs/workstreams/transcode-interface-and-runtime-plan-deepening/CONTEXT.jsonl",
+  "gates": [
+    "python -m json.tool docs/workstreams/transcode-interface-and-runtime-plan-deepening/WORKSTREAM.json",
+    "cargo nextest run -p nako-transcode hls audio --no-fail-fast",
+    "cargo nextest run -p nako-transcode remux --no-fail-fast",
+    "cargo nextest run -p nako-server hls --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "TIRP-010",
+      "summary": "Opened the transcode Interface deepening lane, parked HDR HTP-030 behind it, and split hardware matrix, HLS lifecycle, and resource admission unification as follow-ons."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0038-playback-planning-and-transcode-policy-seams.md",
+    "docs/adr/0044-playback-capability-profile-planner.md",
+    "docs/adr/0045-ffmpeg-hardware-pipeline-planner.md",
+    "docs/adr/0052-hls-runtime-and-media-engine-boundary.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/PLAYBACK.md",
+      "capability": "Playback-to-transcode Interface"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Playback And Transcode"
+    },
+    {
+      "path": "docs/architecture/LANES.md",
+      "capability": "playback-transcode"
+    }
+  ],
+  "capability_tags": [
+    "playback.transcode.interface",
+    "transcode.hls.runtime_plan",
+    "transcode.ffmpeg.adapter",
+    "playback.hls"
+  ],
+  "lane_slug": "playback-transcode",
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Continue TIRP-020 before HDR HTP-030. Split stage-aware hardware matrix, HLS artifact lifecycle consolidation, resource admission unification, and Jellyfin-class capability expansion into separate workstreams."
+  }
+}

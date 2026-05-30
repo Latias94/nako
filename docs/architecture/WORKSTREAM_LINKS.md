@@ -75,6 +75,7 @@ Evidence workstreams:
 - `docs/workstreams/admin-playback-runtime-diagnostics/`
 - `docs/workstreams/admin-playback-session-read-model/`
 - `docs/workstreams/audio-compatibility-downmix-normalization/`
+- `docs/workstreams/transcode-interface-and-runtime-plan-deepening/`
 - `docs/workstreams/hdr-tone-mapping-pipeline/`
 
 Proposed lanes:
