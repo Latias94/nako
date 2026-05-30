@@ -1,7 +1,7 @@
 # Admin Media Management Context Links - Milestones
 
 Status: Active
-Last updated: 2026-05-29
+Last updated: 2026-05-30
 
 ## M0 - Lane Open
 
@@ -15,9 +15,10 @@ Exit criteria:
 
 Exit criteria:
 
-- Public Client SDK link reads are wrapped behind a web data-source boundary.
-- One resolver maps every known backend `route_name`.
-- Unknown routes, disabled links, and unsafe query params have tests.
+- DONE. Public Client SDK link reads are wrapped behind a web data-source
+  boundary.
+- DONE. One resolver maps every known backend `route_name`.
+- DONE. Unknown routes, disabled links, and unsafe query params have tests.
 
 ## M2 - Media-to-Admin Links
 

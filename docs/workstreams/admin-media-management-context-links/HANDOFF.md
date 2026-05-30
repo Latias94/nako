@@ -1,12 +1,12 @@
 # Admin Media Management Context Links - Handoff
 
 Status: Active
-Last updated: 2026-05-29
+Last updated: 2026-05-30
 
 ## Current State
 
-This lane is newly split from CSAPA-040. It is a frontend execution lane for
-the current `web/` product frontend.
+This lane is a frontend execution lane for the current `web/` product
+frontend.
 
 The backend contract is already complete:
 
@@ -19,20 +19,34 @@ The backend contract is already complete:
 
 ## Active Task
 
-- Task ID: AMCL-020
+- Task ID: AMCL-030
 - Owner: codex
-- Scope: `web/src/api/public`, route resolver, and focused tests.
+- Scope: `web/src/features/media`, Management Context Link rendering, and
+  focused media tests.
 - Status: READY
+
+## Completed
+
+- AMCL-020 added `createPublicManagementContextDataSource`, a live/fixture
+  Public Client read boundary for `GET /management/context-links`.
+- AMCL-020 added `resolveManagementContextLink(s)` in `web/src/shell`.
+- Contract tests cover live SDK query params, fixture fallback, unsafe ID
+  omission, known route mappings, disabled links, and unknown route names.
+- Focused validation passed: `npm --prefix web run test -- src/test/data-source-contracts.test.ts`
+  and `npm --prefix web run check`.
 
 ## Next Recommended Action
 
-Implement AMCL-020:
+Implement AMCL-030:
 
-1. Add typed frontend link models around the generated SDK DTOs.
-2. Add one route resolver for backend `route_name` values.
-3. Test live SDK query params, fixture fallback, unknown route handling, and
-   safe output params.
-4. Keep Media Web free of Admin API imports.
+1. Load Management Context Links from Media library/detail/source/watch
+   contexts using `createPublicManagementContextDataSource`.
+2. Render only backend-provided links and use `resolveManagementContextLink`
+   for navigation targets.
+3. Keep disabled states authoritative from `disabledReason`; do not recompute
+   roles or Library Access in Media Web.
+4. Add media route/component tests for enabled links, disabled reasons,
+   ordinary viewer behavior, and unsafe text redaction.
 
 ## Guardrails
 
@@ -46,6 +60,5 @@ Implement AMCL-020:
 
 ## Parallelism
 
-AMCL-020 should be single-owner because it defines the shared resolver. After
-AMCL-020, AMCL-030 Media rendering and AMCL-040 Admin handoffs can be split
-between workers if the resolver contract is stable.
+AMCL-030 Media rendering and AMCL-040 Admin handoffs can now be split between
+workers because AMCL-020 stabilized the shared resolver contract.

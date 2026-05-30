@@ -1,7 +1,7 @@
 # Admin Media Management Context Links - TODO
 
 Status: Active
-Last updated: 2026-05-29
+Last updated: 2026-05-30
 
 ## Task Ledger
 
@@ -19,7 +19,7 @@ Last updated: 2026-05-29
 
 ### M1 - Route Resolver And Data Source
 
-- [ ] AMCL-020 [owner=codex] [deps=AMCL-010] [scope=web/src/api/public,web/src/shell,web/src/test]
+- [x] AMCL-020 [owner=codex] [deps=AMCL-010] [scope=web/src/api/public,web/src/shell,web/src/test]
   Goal: Add the frontend Management Context Link read boundary and one route
   resolver for backend `route_name` values.
   Validation: data-source contract tests cover live SDK calls, fixture
@@ -27,7 +27,10 @@ Last updated: 2026-05-29
   params.
   Review: No Media Web import of Admin API DTOs or mutation clients.
   Evidence: `web/src/api/public`, `web/src/test/data-source-contracts.test.ts`.
-  Handoff: AMCL-030 and AMCL-040 can proceed after the resolver is accepted.
+  Handoff: DONE. `createPublicManagementContextDataSource` wraps live and
+  fixture reads; `resolveManagementContextLink(s)` maps known route names and
+  rejects unknown, disabled, or unsafe targets. AMCL-030 and AMCL-040 can
+  proceed from the accepted resolver contract.
 
 ### M2 - Media-to-Admin Link Rendering
 

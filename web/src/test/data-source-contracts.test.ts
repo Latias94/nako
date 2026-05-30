@@ -20,7 +20,15 @@ import {
   createAdminReadModelsDataSource,
 } from "@/src/api/admin/read-models-data-source"
 import { createAdminMutationDataSource } from "@/src/api/admin/mutations-data-source"
+import {
+  createPublicManagementContextDataSource,
+  type PublicManagementContextLink,
+} from "@/src/api/public/management-context-data-source"
 import { createPublicMediaDataSource } from "@/src/api/public/media-data-source"
+import {
+  resolveManagementContextLink,
+  resolveManagementContextLinks,
+} from "@/src/shell"
 
 const page = {
   limit: 10,
@@ -104,6 +112,59 @@ function publicUserPlaylist(overrides: Record<string, unknown> = {}) {
     created_at: "2026-05-29T00:00:00Z",
     updated_at: "2026-05-29T01:00:00Z",
     version: 2,
+    ...overrides,
+  }
+}
+
+function managementContextLinksResponse(overrides: Record<string, unknown> = {}) {
+  return {
+    context: {
+      library_id: "library-a",
+      item_id: "item-a",
+      source_id: "source-a",
+      playback_session_id: "session-a",
+    },
+    links: [managementContextLink()],
+    ...overrides,
+  }
+}
+
+function managementContextLink(overrides: Record<string, unknown> = {}) {
+  return {
+    action: "scan_library",
+    disabled_reason: null,
+    enabled: true,
+    method: "POST",
+    required_access: "library_manage",
+    route_name: "library.scan",
+    surface: "management",
+    target: {
+      library_id: "library-a",
+      item_id: "item-a",
+      source_id: "source-a",
+      playback_session_id: "session-a",
+    },
+    ...overrides,
+  }
+}
+
+function publicManagementContextLink(
+  overrides: Partial<PublicManagementContextLink> = {},
+): PublicManagementContextLink {
+  return {
+    action: "scan_library",
+    disabledReason: null,
+    enabled: true,
+    method: "POST",
+    requiredAccess: "library_manage",
+    routeName: "library.scan",
+    surface: "management",
+    target: {
+      libraryId: "library-a",
+      itemId: "item-a",
+      sourceId: "source-a",
+      playbackSessionId: "session-a",
+    },
     ...overrides,
   }
 }
@@ -1876,6 +1937,330 @@ describe("public media data source contracts", () => {
         subtitle_stream_index: 2,
       },
     ])
+  })
+})
+
+describe("public management context link contracts", () => {
+  it("loads live Management Context Links through the Public Client", async () => {
+    const fetcher = vi.fn<FetchLike>(async () =>
+      jsonResponse(managementContextLinksResponse()),
+    )
+    const source = createPublicManagementContextDataSource(
+      {
+        mode: "live",
+        baseUrl: "http://nako.test/",
+        bearerToken: "public-token",
+      },
+      fetcher,
+    )
+
+    const payload = await source.loadManagementContextLinks({
+      libraryId: "library-a",
+      itemId: "item-a",
+      sourceId: "source-a",
+      playbackSessionId: "session-a",
+    })
+
+    expect(payload).toMatchObject({
+      source: "live",
+      fallback: false,
+      context: {
+        libraryId: "library-a",
+        itemId: "item-a",
+        sourceId: "source-a",
+        playbackSessionId: "session-a",
+      },
+      links: [
+        {
+          routeName: "library.scan",
+          action: "scan_library",
+          enabled: true,
+          method: "POST",
+          requiredAccess: "library_manage",
+          target: {
+            libraryId: "library-a",
+          },
+        },
+      ],
+    })
+    expect(fetcher.mock.calls[0][0]).toBe(
+      "http://nako.test/management/context-links?library_id=library-a&item_id=item-a&source_id=source-a&playback_session_id=session-a",
+    )
+    expect(new Headers(fetcher.mock.calls[0][1]?.headers).get("Authorization")).toBe(
+      "Bearer public-token",
+    )
+  })
+
+  it("uses fixture Management Context Links when fixture mode is selected or live loading fails", async () => {
+    const fixtureSource = createPublicManagementContextDataSource({ mode: "fixture" })
+    const liveSource = createPublicManagementContextDataSource(
+      {
+        mode: "live",
+        baseUrl: "http://nako.test/",
+      },
+      vi.fn<FetchLike>(async () => jsonResponse({ message: "unavailable" }, 503)),
+    )
+
+    const fixturePayload = await fixtureSource.loadManagementContextLinks({
+      libraryId: "library-a",
+      itemId: "item-a",
+    })
+    const fallbackPayload = await liveSource.loadManagementContextLinks({
+      libraryId: "library-a",
+    })
+
+    expect(fixturePayload).toMatchObject({
+      source: "fixture",
+      fallback: true,
+      context: {
+        libraryId: "library-a",
+        itemId: "item-a",
+      },
+      links: expect.arrayContaining([
+        expect.objectContaining({
+          routeName: "library.scan",
+          enabled: true,
+        }),
+        expect.objectContaining({
+          routeName: "playback.support",
+          enabled: false,
+          disabledReason: "missing_context",
+        }),
+      ]),
+    })
+    expect(fallbackPayload).toMatchObject({
+      source: "fixture",
+      fallback: true,
+      error: "unavailable",
+    })
+  })
+
+  it("omits unsafe Management Context Link query and target identifiers", async () => {
+    const fetcher = vi.fn<FetchLike>(async () =>
+      jsonResponse(
+        managementContextLinksResponse({
+          context: {
+            library_id: "../private",
+            item_id: "item-a",
+            source_id: "file:///mnt/private/Movie.mkv",
+            playback_session_id: "session-a",
+          },
+          links: [
+            managementContextLink({
+              target: {
+                library_id: "../private",
+                item_id: "item-a",
+                source_id: "file:///mnt/private/Movie.mkv",
+                playback_session_id: "session-a",
+              },
+            }),
+          ],
+        }),
+      ),
+    )
+    const source = createPublicManagementContextDataSource(
+      {
+        mode: "live",
+        baseUrl: "http://nako.test/",
+      },
+      fetcher,
+    )
+
+    const payload = await source.loadManagementContextLinks({
+      libraryId: "../private",
+      itemId: "item-a",
+      sourceId: "file:///mnt/private/Movie.mkv",
+      playbackSessionId: "session-a",
+    })
+
+    expect(fetcher.mock.calls[0][0]).toBe(
+      "http://nako.test/management/context-links?item_id=item-a&playback_session_id=session-a",
+    )
+    expect(payload.context).toEqual({
+      itemId: "item-a",
+      playbackSessionId: "session-a",
+    })
+    expect(payload.links[0]?.target).toEqual({
+      itemId: "item-a",
+      playbackSessionId: "session-a",
+    })
+  })
+
+  it("resolves known Management Context Link routes and filters unknown route names", () => {
+    const knownRoutes: Array<{
+      link: PublicManagementContextLink
+      expected: ReturnType<typeof resolveManagementContextLink>
+    }> = [
+      {
+        link: publicManagementContextLink({
+          routeName: "library.scan",
+          action: "scan_library",
+          method: "POST",
+        }),
+        expected: {
+          routeName: "library.scan",
+          action: "scan_library",
+          path: "/admin/libraries",
+          search: {
+            library_id: "library-a",
+            intent: "scan_library",
+          },
+        },
+      },
+      {
+        link: publicManagementContextLink({
+          routeName: "library.metadata_profile",
+          action: "update_library_metadata_profile",
+          method: "GET",
+        }),
+        expected: {
+          routeName: "library.metadata_profile",
+          action: "update_library_metadata_profile",
+          path: "/admin/libraries",
+          search: {
+            library_id: "library-a",
+            panel: "metadata_profile",
+          },
+        },
+      },
+      {
+        link: publicManagementContextLink({
+          routeName: "item.metadata_refresh",
+          action: "refresh_item_metadata",
+          method: "POST",
+        }),
+        expected: {
+          routeName: "item.metadata_refresh",
+          action: "refresh_item_metadata",
+          path: "/admin/libraries",
+          search: {
+            library_id: "library-a",
+            item_id: "item-a",
+            source_id: "source-a",
+            playback_session_id: "session-a",
+            intent: "refresh_item_metadata",
+          },
+        },
+      },
+      {
+        link: publicManagementContextLink({
+          routeName: "jobs.filtered",
+          action: "view_jobs",
+          method: "GET",
+        }),
+        expected: {
+          routeName: "jobs.filtered",
+          action: "view_jobs",
+          path: "/admin/tasks",
+          search: {
+            context: "management_link",
+            library_id: "library-a",
+            item_id: "item-a",
+            source_id: "source-a",
+            playback_session_id: "session-a",
+          },
+        },
+      },
+      {
+        link: publicManagementContextLink({
+          routeName: "playback.support",
+          action: "view_playback_diagnostics",
+          method: "GET",
+        }),
+        expected: {
+          routeName: "playback.support",
+          action: "view_playback_diagnostics",
+          path: "/admin/transcoding",
+          search: {
+            library_id: "library-a",
+            item_id: "item-a",
+            source_id: "source-a",
+            playback_session_id: "session-a",
+            panel: "support",
+          },
+        },
+      },
+      {
+        link: publicManagementContextLink({
+          routeName: "playback.runtime",
+          action: "view_playback_runtime",
+          method: "GET",
+        }),
+        expected: {
+          routeName: "playback.runtime",
+          action: "view_playback_runtime",
+          path: "/admin/transcoding",
+          search: {
+            panel: "runtime",
+            library_id: "library-a",
+            item_id: "item-a",
+            source_id: "source-a",
+            playback_session_id: "session-a",
+          },
+        },
+      },
+      {
+        link: publicManagementContextLink({
+          routeName: "access.library_policies",
+          action: "manage_library_access",
+          method: "GET",
+        }),
+        expected: {
+          routeName: "access.library_policies",
+          action: "manage_library_access",
+          path: "/admin/users",
+          search: {
+            library_id: "library-a",
+            panel: "library_access",
+          },
+        },
+      },
+    ]
+    const links: PublicManagementContextLink[] = [
+      ...knownRoutes.map((route) => route.link),
+      publicManagementContextLink({
+        routeName: "unknown.future_route",
+        action: "view_jobs",
+        method: "GET",
+      }),
+    ]
+
+    for (const { link, expected } of knownRoutes) {
+      expect(resolveManagementContextLink(link)).toEqual(expected)
+    }
+    expect(resolveManagementContextLink(links[7])).toBeNull()
+    expect(resolveManagementContextLinks(links).map((target) => target.routeName)).toEqual([
+      "library.scan",
+      "library.metadata_profile",
+      "item.metadata_refresh",
+      "jobs.filtered",
+      "playback.support",
+      "playback.runtime",
+      "access.library_policies",
+    ])
+  })
+
+  it("does not resolve disabled or unsafe Management Context Link route targets", () => {
+    expect(
+      resolveManagementContextLink(
+        publicManagementContextLink({
+          enabled: false,
+          disabledReason: "insufficient_permission",
+        }),
+      ),
+    ).toBeNull()
+    expect(
+      resolveManagementContextLink(
+        publicManagementContextLink({
+          target: {
+            libraryId: "../private",
+            itemId: "item-a",
+            sourceId: "source-a",
+            playbackSessionId: "session-a",
+          },
+        }),
+      ),
+    ).toBeNull()
   })
 })
 
