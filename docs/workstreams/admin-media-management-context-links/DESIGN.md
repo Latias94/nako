@@ -1,7 +1,7 @@
 # Admin Media Management Context Links - Design
 
-Status: Active
-Last updated: 2026-05-29
+Status: Closed
+Last updated: 2026-05-30
 
 ## Problem
 
@@ -32,6 +32,18 @@ viewer UI, and make links drift from actual backend permissions.
 - Disabled or unsupported links are explainable but do not expose raw paths,
   Source Locators, tokens, provider payloads, FFmpeg command lines, or storage
   details.
+
+## Closeout Status
+
+Closed by AMCL-090 on 2026-05-30. The target state is satisfied for the
+current `web/` product frontend: Public Client link reads are isolated behind a
+frontend data-source boundary, Media surfaces render backend-computed links,
+Admin surfaces own command handoffs and return links, and cross-surface
+browser smoke plus web gates are recorded in `EVIDENCE_AND_GATES.md`.
+
+Future role-specific UX polish, scoped manager job views, desktop/native
+playback, or broader management-link breadth should be split into new
+workstreams instead of reopening this lane.
 
 ## Scope
 

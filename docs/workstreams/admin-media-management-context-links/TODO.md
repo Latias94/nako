@@ -1,6 +1,6 @@
 # Admin Media Management Context Links - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-30
 
 ## Task Ledger
@@ -58,26 +58,32 @@ Last updated: 2026-05-30
   Handoff: DONE. Admin route search state now accepts sanitized Management
   Context Link params, renders Admin-owned context notices, keeps library scan
   behind Admin confirmation/mutation, hands item metadata refresh to Admin task
-  context, and emits safe Media return links from stable IDs only. AMCL-050 can
-  verify cross-surface roles and redaction behavior.
+  context, and emits safe Media return links from stable IDs only. AMCL-050
+  verified cross-surface roles and redaction behavior.
 
 ### M4 - Cross-Surface Verification
 
-- [ ] AMCL-050 [owner=codex] [deps=AMCL-030,AMCL-040] [scope=web,docs/workstreams/admin-media-management-context-links]
+- [x] AMCL-050 [owner=codex] [deps=AMCL-030,AMCL-040] [scope=web,docs/workstreams/admin-media-management-context-links]
   Goal: Verify the full matrix with administrator, library manager, and viewer
   states plus browser smoke for representative transitions.
   Validation: `npm --prefix web run test`, `npm --prefix web run check`,
   `npm --prefix web run build:budget`, and browser smoke.
   Review: Redaction and permission behavior must match backend link state.
   Evidence: `EVIDENCE_AND_GATES.md`, screenshots or smoke notes.
-  Handoff: Ready for AMCL-090.
+  Result: DONE 2026-05-30. Web test/check/build:budget gates passed; browser
+  smoke covered Media detail, Media library, Media-to-Admin, Admin-to-Media
+  return links, disabled link states, and unsafe `source_id` redaction.
+  Handoff: DONE. AMCL-090 can close the lane with this evidence.
 
 ### M5 - Closeout
 
-- [ ] AMCL-090 [owner=planner] [deps=AMCL-050] [scope=docs/workstreams/admin-media-management-context-links]
+- [x] AMCL-090 [owner=planner] [deps=AMCL-050] [scope=docs/workstreams/admin-media-management-context-links]
   Goal: Close the lane with final evidence, residual risks, and follow-ons.
   Validation: JSON validation, diff hygiene, web gates, and smoke evidence.
   Review: Confirm no broad Admin Web or Media Web product expansion was hidden
   inside this lane.
   Evidence: `CLOSEOUT.md`, `EVIDENCE_AND_GATES.md`, `HANDOFF.md`.
-  Handoff: Split desktop/native playback or scoped manager job views separately.
+  Result: DONE 2026-05-30. Closeout accepted AMCL-050 web gate and browser
+  smoke evidence, recorded residual follow-ons, and moved the lane to closed.
+  Handoff: Split desktop/native playback, scoped manager job views, or
+  role-specific UX polish separately.

@@ -20,14 +20,13 @@ Last reviewed: 2026-05-30
 
 - [generated-artifact-metadata-authority-apply](generated-artifact-metadata-authority-apply/README.md)
   is active on lane `library-metadata-control-plane`; next task is `GAMA-050`.
-- [admin-media-management-context-links](admin-media-management-context-links/README.md)
-  is active on lane `web-product`; next task is `AMCL-050`.
 - [client-surface-and-access-product-architecture](client-surface-and-access-product-architecture/README.md)
   is active on lane `client-surfaces-planning`; next task is `CSAPA-050`.
 
 Planner coordination should keep `GAMA-060` blocked until `GAMA-050` is
 reviewed and verified. `CSAPA` should split or explicitly defer desktop
-playback before closeout.
+playback before closeout. The `web-product` lane is idle after
+`admin-media-management-context-links` closeout.
 
 ## Current Workstreams
 
@@ -151,7 +150,7 @@ playback before closeout.
   playback entry, playback state, browser/Tauri validation, and bundle-budget
   gates.
 - [admin-media-management-context-links](admin-media-management-context-links/README.md):
-  active frontend execution lane split from CSAPA-040 for making the current
+  closed frontend execution lane split from CSAPA-040 for making the current
   `web/` product frontend consume backend-computed Management Context Links
   between Media and Admin surfaces without duplicating authorization in Media
   UI or leaking privileged Admin state.

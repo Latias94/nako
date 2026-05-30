@@ -1,6 +1,6 @@
 # Admin Media Management Context Links - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-30
 
 ## M0 - Lane Open
@@ -43,15 +43,15 @@ Exit criteria:
 
 Exit criteria:
 
-- Administrator, library manager, and viewer behavior is covered.
-- Redaction tests cover tokens, raw paths, Source Locators, provider payloads,
+- DONE. Administrator, library manager, and viewer behavior is covered.
+- DONE. Redaction tests cover tokens, raw paths, Source Locators, provider payloads,
   FFmpeg details, and storage handles.
-- Browser smoke covers at least one Media-to-Admin and one Admin-to-Media
+- DONE. Browser smoke covers at least one Media-to-Admin and one Admin-to-Media
   transition.
 
 ## M5 - Closeout
 
 Exit criteria:
 
-- Workstream docs and evidence are complete.
-- Remaining scope is split, not left as hidden TODOs.
+- DONE. Workstream docs and evidence are complete.
+- DONE. Remaining scope is split, not left as hidden TODOs.
